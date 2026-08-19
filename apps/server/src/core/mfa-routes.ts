@@ -26,6 +26,7 @@ import {
   totpKeyUri,
   totpQrDataUrl,
   verifyTotp,
+  isLegacyTotpSecret,
   generateBackupCodes,
   hashBackupCode,
   generateEmailCode,
@@ -354,6 +355,32 @@ export function verifyCurrentSecondFactor(user: User, code: string): boolean {
 export const SECOND_FACTOR_REQUIRED = "Enter a code from your authenticator app or one of your backup codes.";
 export const SECOND_FACTOR_WRONG = "That code didn't match. Enter a current authenticator code or a backup code.";
 
+// An enrollment predating 3.10.3 holds an 80-bit secret, short of the 128-bit
+// minimum RFC 4226 sets and the current library enforces, so its codes can no
+// longer be checked at all. Say that plainly instead of "wrong code" — the app is
+// rejecting every code it will ever be shown. Worded to fit both places it can
+// surface: signing in, and confirming a sensitive change once already signed in.
+// A backup code still works in both, because it never involved the secret.
+export const TOTP_SECRET_OUTDATED =
+  "Your authenticator setup predates this version's security requirements, so its codes can no longer be accepted. Enter one of your backup codes instead, then turn two-factor off and set it up again to get a fresh QR code.";
+
+/** True when this account's TOTP enrollment is the unverifiable pre-3.10.3 kind. */
+export function hasOutdatedTotpEnrollment(user: Pick<User, "mfa_method" | "mfa_secret">): boolean {
+  if (user.mfa_method !== "totp" || !user.mfa_secret) return false;
+  try {
+    return isLegacyTotpSecret(decryptSecret(user.mfa_secret));
+  } catch {
+    // Undecryptable (a restored backup without its key) is a different problem
+    // with its own message; don't mislabel it as an outdated secret.
+    return false;
+  }
+}
+
+/** "Wrong code" is misleading when no code could ever be right — say which it is. */
+export function secondFactorWrongMessage(user: Pick<User, "mfa_method" | "mfa_secret">): string {
+  return hasOutdatedTotpEnrollment(user) ? TOTP_SECRET_OUTDATED : SECOND_FACTOR_WRONG;
+}
+
 // A wrong second factor on a management action (disable, regenerate codes, change
 // email) is recorded like a failed sign-in — so it feeds account lockout, which is
 // IP-independent and ENFORCED by secondFactorThrottled below (closing the
@@ -488,7 +515,7 @@ export async function mfaRoutes(app: FastifyInstance) {
       }
       if (!verifyCurrentSecondFactor(user, code)) {
         recordSecondFactorFailure(request, user);
-        return reply.code(403).send({ error: SECOND_FACTOR_WRONG });
+        return reply.code(403).send({ error: secondFactorWrongMessage(user) });
       }
       clearSecondFactorTally(request, user);
     }
@@ -529,7 +556,7 @@ export async function mfaRoutes(app: FastifyInstance) {
     }
     if (!verifyCurrentSecondFactor(user, code)) {
       recordSecondFactorFailure(request, user);
-      return reply.code(403).send({ error: SECOND_FACTOR_WRONG });
+      return reply.code(403).send({ error: secondFactorWrongMessage(user) });
     }
     clearSecondFactorTally(request, user);
     const codes = regenerateBackupCodes(user.id);
@@ -644,13 +671,20 @@ export async function mfaRoutes(app: FastifyInstance) {
 
       const trusted = isTrustedRequest(request);
 
+      // A pre-3.10.3 enrollment can't be verified at all, so every code it is
+      // shown fails. Worth naming once the code has actually been rejected —
+      // a valid backup code above still signs them in without ever seeing this.
+      const outdatedTotp = !viaEmailCode && hasOutdatedTotpEnrollment(user);
+
       if (!ok) {
         const attempts = failMfaChallenge(challengeId);
         logActivity({
           event: "auth.mfa_failed",
           targetType: "user",
           targetId: user.id,
-          detail: "A two-factor code was rejected.",
+          detail: outdatedTotp
+            ? "A two-factor code was rejected: this enrollment predates 3.10.3 and can no longer be verified. The account has to re-enroll."
+            : "A two-factor code was rejected.",
           ipAddress: request.ip
         });
         // After the log write, so this failure counts toward the tally.
@@ -676,7 +710,7 @@ export async function mfaRoutes(app: FastifyInstance) {
           clearMfaChallengeCookie(reply);
           return reply.code(401).send({ error: "Too many attempts. Enter your password again." });
         }
-        return reply.code(401).send({ error: "Invalid code" });
+        return reply.code(401).send({ error: outdatedTotp ? TOTP_SECRET_OUTDATED : "Invalid code" });
       }
 
       clearMfaChallenge(challengeId);

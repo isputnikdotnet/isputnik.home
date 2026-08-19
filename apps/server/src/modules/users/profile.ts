@@ -5,7 +5,7 @@ import { parseBody, passwordPolicyField } from "../../core/shared.js";
 import { hashPassword, verifyPassword } from "../../crypto.js";
 import { currentSessionHash } from "../../auth.js";
 import { alertEmailChanged, alertPasswordChanged } from "../../core/security-alerts.js";
-import { verifyCurrentSecondFactor, recordSecondFactorFailure, secondFactorThrottled, clearSecondFactorTally, SECOND_FACTOR_REQUIRED, SECOND_FACTOR_WRONG, MFA_MANAGE_RATE_LIMIT } from "../../core/mfa-routes.js";
+import { verifyCurrentSecondFactor, recordSecondFactorFailure, secondFactorThrottled, clearSecondFactorTally, SECOND_FACTOR_REQUIRED, secondFactorWrongMessage, MFA_MANAGE_RATE_LIMIT } from "../../core/mfa-routes.js";
 
 const profileSchema = z.object({
   displayName: z.string().trim().min(2).max(80),
@@ -145,7 +145,7 @@ export async function profilePlugin(app: FastifyInstance) {
       }
       if (!verifyCurrentSecondFactor(user, code)) {
         recordSecondFactorFailure(request, user);
-        return reply.code(403).send({ error: SECOND_FACTOR_WRONG });
+        return reply.code(403).send({ error: secondFactorWrongMessage(user) });
       }
       clearSecondFactorTally(request, user);
     }

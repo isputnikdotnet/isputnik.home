@@ -105,6 +105,27 @@ the home's trusted networks (Control panel → **Security** → **Policies** →
   from outside at all — sign in from home and set one up first.
 - At home, on a trusted network, nothing changes.
 
+## "Your authenticator setup predates this version's security requirements"
+
+Two-factor secrets got longer in 3.10.3 — 160-bit, twice the previous length and
+the size the standard recommends. Codes from an app entry created before that
+update can no longer be checked at all, so the app says this instead of pretending
+the code was simply wrong. It only affects authenticator apps; codes by email are
+unaffected.
+
+Setting it up again takes a minute:
+
+1. Sign in. Your authenticator code won't be accepted, so enter one of your
+   **backup codes** instead. (On a trusted home network you may not be asked for a
+   code at all — just sign in as usual.)
+2. Go to **Profile → Security**, turn two-factor **off**, using another backup code
+   if it asks for a second factor.
+3. Set it up again and scan the new QR code. You'll get a fresh set of backup
+   codes; save them.
+4. Delete the old entry from your authenticator app — it will never work again.
+
+No backup codes left? See below.
+
 ## Locked out?
 
 If you've lost your second factor **and** your backup codes, ask an
