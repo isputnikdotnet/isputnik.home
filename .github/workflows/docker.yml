@@ -31,7 +31,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         # No LFS: the face recogniser is fetched from a release asset during the
         # build (see scripts/fetch-face-model.mjs). Pulling it through LFS here is
         # what exhausted the repo's LFS budget and failed every build at checkout.
