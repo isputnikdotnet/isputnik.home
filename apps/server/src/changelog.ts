@@ -19,6 +19,16 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.10.4",
+    label: "The Listen button stands out, and every icon is freshly drawn",
+    changes: [
+      "On a phone, the row of actions along the top of a book, audiobook or photo used to wrap onto a second line. It now holds six icons at most and anything further along drops into the ⋮ menu, so the bar stays on one row. Listen (or Read) is picked out in gold, so the thing you came to do stands out from the icons around it.",
+      "Opening a photo on a phone now matches the book pages: no title across the top, and a back arrow at the left instead of a close button at the right. On a desktop the title and close button are unchanged.",
+      "The interface icons have been updated to the current release of the icon set that draws them. Around sixty are redrawn — the calendar, clock, camera, download arrow and others are a little cleaner and more consistent with each other. Everything still means what it did before; nothing moved.",
+      "Housekeeping under the surface: the library that checks the shape of everything sent to the server moved to its current major release. Wherever it now words a rejection more technically than before, the friendlier wording was kept — a form field you left blank still simply says \"Required\"."
+    ]
+  },
+  {
     version: "3.10.3",
     label: "Stronger two-factor secrets — authenticator users need to set theirs up again",
     changes: [
