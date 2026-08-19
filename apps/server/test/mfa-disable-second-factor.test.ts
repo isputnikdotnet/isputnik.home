@@ -4,10 +4,11 @@
 // backup code) while MFA is on. These pin that gate through the real routes.
 import { beforeEach, describe, expect, it } from "vitest";
 import fastify, { type FastifyInstance } from "fastify";
-import { authenticator } from "otplib";
+import { totpCode } from "./helpers/totp.js";
 import { db, type User } from "../src/db.js";
 import { hashPassword } from "../src/crypto.js";
-import { mfaRoutes, beginMfaSetup, activateMfa } from "../src/core/mfa-routes.js";
+import { mfaRoutes, beginMfaSetup, activateMfa, TOTP_SECRET_OUTDATED } from "../src/core/mfa-routes.js";
+import { encryptSecret } from "../src/core/mfa.js";
 import { resetDb, makeUser } from "./helpers/seed.js";
 
 let app: FastifyInstance;
@@ -20,7 +21,7 @@ function enableTotp(userId: string): void {
   const setup = beginMfaSetup(userId, "totp");
   if (setup.method !== "totp") throw new Error("expected a totp setup");
   totpSecret = setup.secret;
-  const codes = activateMfa(userId, authenticator.generate(setup.secret));
+  const codes = activateMfa(userId, totpCode(setup.secret));
   if (!codes) throw new Error("activation failed");
   backupCodes = codes;
 }
@@ -61,7 +62,7 @@ describe("disabling MFA requires a second factor", () => {
   });
 
   it("403s the wrong password before it even asks for a code", async () => {
-    const { status } = await post("/api/profile/mfa/disable", { currentPassword: "nope", code: authenticator.generate(totpSecret) });
+    const { status } = await post("/api/profile/mfa/disable", { currentPassword: "nope", code: totpCode(totpSecret) });
     expect(status).toBe(403);
     expect(db.prepare("SELECT mfa_enabled FROM users WHERE id = 'u1'").get()).toEqual({ mfa_enabled: 1 });
   });
@@ -75,7 +76,7 @@ describe("disabling MFA requires a second factor", () => {
   it("disables with password + a valid authenticator code", async () => {
     const { status } = await post("/api/profile/mfa/disable", {
       currentPassword: "correct-horse",
-      code: authenticator.generate(totpSecret)
+      code: totpCode(totpSecret)
     });
     expect(status).toBe(200);
     expect(db.prepare("SELECT mfa_enabled FROM users WHERE id = 'u1'").get()).toEqual({ mfa_enabled: 0 });
@@ -83,6 +84,36 @@ describe("disabling MFA requires a second factor", () => {
 
   it("also accepts a backup code as the second factor", async () => {
     const { status } = await post("/api/profile/mfa/disable", { currentPassword: "correct-horse", code: backupCodes[0] });
+    expect(status).toBe(200);
+    expect(db.prepare("SELECT mfa_enabled FROM users WHERE id = 'u1'").get()).toEqual({ mfa_enabled: 0 });
+  });
+
+  // Releases before 3.10.3 minted 80-bit secrets, which the current library
+  // refuses outright — so an account still holding one has every code it enters
+  // rejected forever. "That code didn't match" would send them round in circles;
+  // the message has to name the real problem and point at a backup code.
+  it("tells a pre-3.10.3 enrollment to re-enroll instead of calling its code wrong", async () => {
+    const legacy = encryptSecret("JBSWY3DPEHPK3PXP"); // 16 base32 chars = 10 bytes
+    db.prepare("UPDATE users SET mfa_secret = ? WHERE id = 'u1'").run(legacy);
+
+    const { status, body } = await post("/api/profile/mfa/disable", {
+      currentPassword: "correct-horse",
+      code: "000000"
+    });
+    expect(status).toBe(403);
+    expect(body.error).toBe(TOTP_SECRET_OUTDATED);
+    expect(db.prepare("SELECT mfa_enabled FROM users WHERE id = 'u1'").get()).toEqual({ mfa_enabled: 1 });
+  });
+
+  // The way out has to actually work: backup codes never involved the secret, so
+  // they still disable MFA and let the account re-enroll on a current secret.
+  it("still lets a pre-3.10.3 enrollment disable with a backup code", async () => {
+    db.prepare("UPDATE users SET mfa_secret = ? WHERE id = 'u1'").run(encryptSecret("JBSWY3DPEHPK3PXP"));
+
+    const { status } = await post("/api/profile/mfa/disable", {
+      currentPassword: "correct-horse",
+      code: backupCodes[0]
+    });
     expect(status).toBe(200);
     expect(db.prepare("SELECT mfa_enabled FROM users WHERE id = 'u1'").get()).toEqual({ mfa_enabled: 0 });
   });
@@ -95,7 +126,7 @@ describe("disabling MFA requires a second factor", () => {
     }
     const { status } = await post("/api/profile/mfa/disable", {
       currentPassword: "correct-horse",
-      code: authenticator.generate(totpSecret)
+      code: totpCode(totpSecret)
     });
     expect(status).toBe(429);
     // Still enabled — once locked, even the right code is never checked.
@@ -113,7 +144,7 @@ describe("regenerating backup codes requires a second factor (closes the disable
   it("regenerates with password + a valid authenticator code", async () => {
     const { status, body } = await post("/api/profile/mfa/backup-codes", {
       currentPassword: "correct-horse",
-      code: authenticator.generate(totpSecret)
+      code: totpCode(totpSecret)
     });
     expect(status).toBe(200);
     expect(body.backupCodes).toHaveLength(10);

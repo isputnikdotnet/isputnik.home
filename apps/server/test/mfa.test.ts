@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { authenticator } from "otplib";
+import { totpCode } from "./helpers/totp.js";
 import {
   encryptSecret,
   decryptSecret,
@@ -9,6 +9,8 @@ import {
   generateTotpSecret,
   totpKeyUri,
   verifyTotp,
+  isLegacyTotpSecret,
+  totpSecretBytes,
   generateEmailCode,
   hashEmailCode,
   verifyEmailCode,
@@ -54,19 +56,39 @@ describe("MFA backup codes", () => {
 describe("TOTP", () => {
   it("verifies a freshly generated code", () => {
     const secret = generateTotpSecret();
-    expect(verifyTotp(secret, authenticator.generate(secret))).toBe(true);
+    expect(verifyTotp(secret, totpCode(secret))).toBe(true);
   });
 
   it("ignores spaces in the entered code", () => {
     const secret = generateTotpSecret();
-    const token = authenticator.generate(secret);
+    const token = totpCode(secret);
     expect(verifyTotp(secret, `${token.slice(0, 3)} ${token.slice(3)}`)).toBe(true);
   });
 
   it("rejects a code generated from a different secret", () => {
     const a = generateTotpSecret();
     const b = generateTotpSecret();
-    expect(verifyTotp(a, authenticator.generate(b))).toBe(false);
+    expect(verifyTotp(a, totpCode(b))).toBe(false);
+  });
+
+  // RFC 4226 sets a 128-bit floor and otplib enforces it. Releases before 3.10.3
+  // minted 80-bit secrets, so a secret is now the one thing a fresh enrollment
+  // must get right — an under-length one can't be verified at all.
+  it("mints 160-bit secrets", () => {
+    const secret = generateTotpSecret();
+    expect(totpSecretBytes(secret)).toBe(20);
+    expect(isLegacyTotpSecret(secret)).toBe(false);
+  });
+
+  // A pre-3.10.3 secret has to be recognisable as such, because otherwise every
+  // code it is shown looks merely "wrong" and the account has no way to learn
+  // that re-enrolling is the fix. 16 base32 chars is exactly what v12 produced.
+  it("flags a pre-3.10.3 secret as legacy rather than merely failing", () => {
+    const legacy = "JBSWY3DPEHPK3PXP";
+    expect(totpSecretBytes(legacy)).toBe(10);
+    expect(isLegacyTotpSecret(legacy)).toBe(true);
+    // Still a plain false, never a throw — callers treat it as a failed code.
+    expect(verifyTotp(legacy, "123456")).toBe(false);
   });
 
   it("rejects malformed input without throwing", () => {
