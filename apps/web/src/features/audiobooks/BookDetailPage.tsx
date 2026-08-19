@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, Bookmark, BookOpen, Calendar, CheckCircle2, ChevronDown, ChevronUp, Clock, Download, File as FileIcon, FileText, Globe, HardDrive, Headphones, Heart, Layers, Library, ListMusic, MoreHorizontal, Pencil, Play, RotateCcw, Send, Share2, Trash2, X } from "lucide-react";
+import { ArrowLeft, Bookmark, BookOpen, Calendar, CheckCircle2, ChevronDown, ChevronUp, Clock, Download, File as FileIcon, FileText, Globe, HardDrive, Headphones, Heart, Layers, Library, ListMusic, MoreHorizontal, MoreVertical, Pencil, Play, RotateCcw, Send, Share2, Trash2, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api, isAccessOrMissingApiError, type PublicUser } from "../../api";
 import { ShareModal } from "../share/ShareModal";
@@ -18,6 +18,7 @@ import { getDownloadedBookDetail, getDownloadedEpubBlob } from "../../offline/do
 import { useDownload } from "../../offline/useDownload";
 import { useEbookDownload } from "../../offline/useEbookDownload";
 import { isStandalone } from "../../pwa/platform";
+import { useIsMobile } from "../../shared/useIsMobile";
 import { formatBytes, formatDuration, isFoliateFormat } from "../../shared/utils";
 import { ProgressRing } from "../../shared/ProgressRing";
 import type { AudiobookBookDetail, AudiobookFile, BookCapabilities, BookSave, PlaybackProgress, ReadingProgress, TrackProgress, WorkEdition, WorkEditions } from "./types";
@@ -292,6 +293,7 @@ function BookDetailView({
   onBookUpdated: (book: AudiobookBookDetail) => void;
   onReload: () => void;
 }) {
+  const isMobile = useIsMobile();
   const [progress, setProgress] = useState<PlaybackProgress | null>(null);
   const [trackProgress, setTrackProgress] = useState<Record<string, TrackProgress>>({});
   const [activeBookTab, setActiveBookTab] = useState<"description" | "chapters" | "files">("description");
@@ -312,6 +314,11 @@ function BookDetailView({
   const [readingProgress, setReadingProgress] = useState<ReadingProgress | null>(null);
   const [progressMenuOpen, setProgressMenuOpen] = useState(false);
   const progressMenuRef = useRef<HTMLDivElement>(null);
+  // Mobile/PWA: the top bar's overflow menu, holding both the icons that don't
+  // fit in one row and (on mobile only) the play/read + progress actions that
+  // desktop keeps as their own buttons below the cover.
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState("");
@@ -375,6 +382,26 @@ function BookDetailView({
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [progressMenuOpen]);
+
+  useEffect(() => {
+    if (!moreMenuOpen) return;
+
+    const onPointerDown = (event: MouseEvent) => {
+      if (!moreMenuRef.current?.contains(event.target as Node)) {
+        setMoreMenuOpen(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMoreMenuOpen(false);
+    };
+
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [moreMenuOpen]);
 
   // An ebook (or any audio-less book): content is a document, not audio tracks.
   const isEbook = book.files.length === 0 && book.documents.length > 0;
@@ -768,6 +795,183 @@ function BookDetailView({
         ))
       : row.value;
 
+  const openPlayer = () => window.open(`/player/${book.id}`, "isputnik-player", "width=500,height=700,resizable=yes,scrollbars=yes");
+  const showProgressMenu = !isEbook || isFoliateFormat(primaryReadableDoc?.format);
+
+  // The row of icon buttons at the top of the page (listen/read, favorites, edit,
+  // download, send, share, delete — whichever apply). Desktop shows them all
+  // inline (minus the listen/read CTAs, which stay in their own big button below
+  // the cover); mobile/PWA promotes the CTAs to the row right after Back, always
+  // pushes Add to collection into the overflow menu, and caps whatever's left so
+  // the row still fits one line (see fixedSlots/rowCap below).
+  type IconAction = {
+    key: string;
+    icon: LucideIcon;
+    label: string;
+    menuLabel?: string;
+    onClick?: () => void;
+    href?: string;
+    download?: boolean;
+    disabled?: boolean;
+    active?: boolean;
+    danger?: boolean;
+  };
+  // Listen/Read: on mobile these render as icons right after the back button;
+  // on desktop they stay as the big primary/secondary buttons under the cover.
+  const ctaActions: IconAction[] = isEbook
+    ? [{ key: "cta", icon: BookOpen, label: progressActionLabel, onClick: openPrimaryReader, disabled: !canReadPrimaryDoc }]
+    : [
+        { key: "cta", icon: Play, label: progressActionLabel, onClick: openPlayer },
+        ...(canReadPrimaryDoc ? [{ key: "read", icon: BookOpen as LucideIcon, label: "Read", onClick: openPrimaryReader }] : [])
+      ];
+  const collectionAction: IconAction = { key: "collection", icon: ListMusic, label: "Add to collection", onClick: () => setAddToCollectionOpen(true) };
+  const otherActions: IconAction[] = [
+    ...(!isEbook && isStandalone() && capabilities.canDownload && book.files.some((f) => f.status === "available")
+      ? [{
+          key: "offline",
+          icon: (offline.record?.state === "complete" ? CheckCircle2 : Download) as LucideIcon,
+          label: offline.record?.state === "complete" ? "Saved offline" : offline.busy ? `Downloading ${Math.round(offline.progress * 100)}%` : "Save offline",
+          onClick: () => {
+            if (offline.busy) return;
+            if (offline.record?.state === "complete") setConfirmRemoveDownload(true);
+            else void offline.start();
+          },
+          disabled: offline.busy,
+          active: offline.record?.state === "complete"
+        }]
+      : []),
+    ...(isEbook && isStandalone() && capabilities.canDownload && isFoliateFormat(primaryReadableDoc?.format)
+      ? [{
+          key: "offline",
+          icon: (ebookOffline.record?.state === "complete" ? CheckCircle2 : Download) as LucideIcon,
+          label: ebookOffline.record?.state === "complete" ? "Saved offline" : ebookOffline.busy ? `Downloading ${Math.round(ebookOffline.progress * 100)}%` : "Save offline",
+          onClick: () => {
+            if (ebookOffline.busy) return;
+            if (ebookOffline.record?.state === "complete") setConfirmRemoveEbookDownload(true);
+            else void ebookOffline.start();
+          },
+          disabled: ebookOffline.busy,
+          active: ebookOffline.record?.state === "complete"
+        }]
+      : []),
+    ...(capabilities.canEdit ? [{ key: "edit", icon: Pencil as LucideIcon, label: "Edit metadata", onClick: () => setMetadataModalOpen(true) }] : []),
+    ...(capabilities.canDownload
+      ? [{
+          key: "download",
+          icon: Download as LucideIcon,
+          label: "Download",
+          href: isEbook && primaryReadableDoc ? `${primaryReadableDoc.url}?download` : `/api/library/books/${book.id}/download`,
+          download: true
+        }]
+      : []),
+    ...(isEbook && capabilities.canDownload && sendableDoc
+      ? [{
+          key: "send",
+          icon: Send as LucideIcon,
+          label: sending ? "Sending…" : "Send to e-reader (Kindle/Kobo)",
+          menuLabel: "Send to e-reader",
+          onClick: () => void sendToEreader(),
+          disabled: sending
+        }]
+      : []),
+    // Desktop keeps Add to collection inline in its original spot; mobile always
+    // routes it into the overflow menu instead (see mobileMenuItems below).
+    ...(!isMobile ? [collectionAction] : []),
+    ...(capabilities.canShare ? [{ key: "share", icon: Share2 as LucideIcon, label: "Share", onClick: () => setShareModalOpen(true) }] : []),
+    ...(capabilities.canDelete
+      ? [{
+          key: "delete",
+          icon: Trash2 as LucideIcon,
+          label: "Move to Recycle Bin",
+          onClick: () => { setDeleteError(""); setConfirmDelete(true); },
+          danger: true
+        }]
+      : [])
+  ];
+  // Favorite + the CTA icon(s) + the overflow trigger (always shown on mobile —
+  // progress actions and Add to collection always live there) all take a slot
+  // in the 7-icon row, so whatever's left over shrinks with them.
+  const fixedSlots = 1 /* favorite */ + (isMobile ? ctaActions.length + 1 /* trigger */ : 0);
+  const rowCap = isMobile ? Math.max(0, 7 - fixedSlots) : otherActions.length;
+  const visibleIconActions = isMobile ? otherActions.slice(0, rowCap) : otherActions;
+  const overflowIconActions = isMobile ? otherActions.slice(rowCap) : [];
+
+  // Mobile-only overflow menu: progress actions, Add to collection (always), and
+  // whatever else didn't fit in the row.
+  const mobileMenuItems: (IconAction | "divider")[] = [];
+  if (showProgressMenu) {
+    mobileMenuItems.push({
+      key: "finished",
+      icon: CheckCircle2,
+      label: progressAction === "complete" ? "Saving..." : bookFinished ? "Marked finished" : "Mark finished",
+      onClick: () => void markBookFinished(),
+      disabled: progressAction !== ""
+    });
+    mobileMenuItems.push({
+      key: "reset",
+      icon: RotateCcw,
+      label: progressAction === "reset" ? "Resetting..." : "Reset progress",
+      onClick: () => void resetProgress(),
+      disabled: progressAction !== ""
+    });
+    mobileMenuItems.push("divider");
+  }
+  mobileMenuItems.push(collectionAction, ...overflowIconActions);
+
+  const renderIconAction = (a: IconAction) =>
+    a.href ? (
+      <a
+        key={a.key}
+        className={`icon-button${a.active ? " offline-saved" : ""}`}
+        href={a.href}
+        download={a.download}
+        aria-label={a.label}
+        title={a.label}
+      >
+        <a.icon size={18} />
+      </a>
+    ) : (
+      <button
+        key={a.key}
+        className={`icon-button${a.active ? " offline-saved" : ""}${a.danger ? " danger" : ""}`}
+        type="button"
+        onClick={a.onClick}
+        disabled={a.disabled}
+        aria-pressed={a.active}
+        aria-label={a.label}
+        title={a.label}
+      >
+        <a.icon size={18} />
+      </button>
+    );
+
+  const renderMenuItem = (a: IconAction) =>
+    a.href ? (
+      <a
+        key={a.key}
+        role="menuitem"
+        href={a.href}
+        download={a.download}
+        onClick={() => setMoreMenuOpen(false)}
+        className={a.danger ? "danger" : undefined}
+      >
+        <a.icon size={16} aria-hidden="true" />
+        <span>{a.menuLabel ?? a.label}</span>
+      </a>
+    ) : (
+      <button
+        key={a.key}
+        type="button"
+        role="menuitem"
+        onClick={() => { setMoreMenuOpen(false); a.onClick?.(); }}
+        disabled={a.disabled}
+        className={a.danger ? "danger" : undefined}
+      >
+        <a.icon size={16} aria-hidden="true" />
+        <span>{a.menuLabel ?? a.label}</span>
+      </button>
+    );
+
   return (
     <div className="book-detail-view">
       <div className="book-detail-topbar">
@@ -782,6 +986,7 @@ function BookDetailView({
         </button>
         <span className="library-toolbar-divider" aria-hidden="true" />
         <div className="book-detail-secondary-actions" aria-label="Book actions">
+          {isMobile && ctaActions.map(renderIconAction)}
           <button
             className={`icon-button${save?.saved ? " on" : ""}`}
             type="button"
@@ -793,108 +998,28 @@ function BookDetailView({
           >
             <Heart size={18} fill={save?.saved ? "currentColor" : "none"} />
           </button>
-          {!isEbook && isStandalone() && capabilities.canDownload && book.files.some((f) => f.status === "available") && (
-            <button
-              className={`icon-button${offline.record?.state === "complete" ? " offline-saved" : ""}`}
-              type="button"
-              onClick={() => {
-                if (offline.busy) return;
-                if (offline.record?.state === "complete") {
-                  setConfirmRemoveDownload(true);
-                } else {
-                  void offline.start();
-                }
-              }}
-              disabled={offline.busy}
-              aria-label={offline.record?.state === "complete" ? "Remove offline download" : "Save for offline listening"}
-              title={offline.record?.state === "complete" ? "Saved offline" : offline.busy ? `Downloading ${Math.round(offline.progress * 100)}%` : "Save offline"}
-            >
-              {offline.record?.state === "complete" ? <CheckCircle2 size={18} /> : <Download size={18} />}
-            </button>
-          )}
-          {isEbook && isStandalone() && capabilities.canDownload && isFoliateFormat(primaryReadableDoc?.format) && (
-            <button
-              className={`icon-button${ebookOffline.record?.state === "complete" ? " offline-saved" : ""}`}
-              type="button"
-              onClick={() => {
-                if (ebookOffline.busy) return;
-                if (ebookOffline.record?.state === "complete") {
-                  setConfirmRemoveEbookDownload(true);
-                } else {
-                  void ebookOffline.start();
-                }
-              }}
-              disabled={ebookOffline.busy}
-              aria-label={ebookOffline.record?.state === "complete" ? "Remove offline download" : "Save for offline reading"}
-              title={ebookOffline.record?.state === "complete" ? "Saved offline" : ebookOffline.busy ? `Downloading ${Math.round(ebookOffline.progress * 100)}%` : "Save offline"}
-            >
-              {ebookOffline.record?.state === "complete" ? <CheckCircle2 size={18} /> : <Download size={18} />}
-            </button>
-          )}
-          {capabilities.canEdit && (
-            <button
-              className="icon-button"
-              type="button"
-              onClick={() => setMetadataModalOpen(true)}
-              aria-label="Edit metadata"
-              title="Edit metadata"
-            >
-              <Pencil size={18} />
-            </button>
-          )}
-          {capabilities.canDownload && (
-            <a
-              className="icon-button"
-              href={isEbook && primaryReadableDoc ? `${primaryReadableDoc.url}?download` : `/api/library/books/${book.id}/download`}
-              download
-              aria-label="Download"
-              title="Download"
-            >
-              <Download size={18} />
-            </a>
-          )}
-          {isEbook && capabilities.canDownload && sendableDoc && (
-            <button
-              className="icon-button"
-              type="button"
-              onClick={() => void sendToEreader()}
-              disabled={sending}
-              aria-label="Send to e-reader"
-              title={sending ? "Sending…" : "Send to e-reader (Kindle/Kobo)"}
-            >
-              <Send size={18} />
-            </button>
-          )}
-          <button
-            className="icon-button"
-            type="button"
-            onClick={() => setAddToCollectionOpen(true)}
-            aria-label="Add to collection"
-            title="Add to collection"
-          >
-            <ListMusic size={18} />
-          </button>
-          {capabilities.canShare && (
-            <button
-              className="icon-button"
-              type="button"
-              onClick={() => setShareModalOpen(true)}
-              aria-label="Share"
-              title="Share"
-            >
-              <Share2 size={18} />
-            </button>
-          )}
-          {capabilities.canDelete && (
-            <button
-              className="icon-button danger"
-              type="button"
-              onClick={() => { setDeleteError(""); setConfirmDelete(true); }}
-              aria-label="Move to Recycle Bin"
-              title="Move to Recycle Bin"
-            >
-              <Trash2 size={18} />
-            </button>
+          {visibleIconActions.map(renderIconAction)}
+          {isMobile && (
+            <div className="book-detail-menu-wrap" ref={moreMenuRef}>
+              <button
+                className="icon-button"
+                type="button"
+                onClick={() => setMoreMenuOpen((open) => !open)}
+                aria-haspopup="menu"
+                aria-expanded={moreMenuOpen}
+                aria-label="More actions"
+                title="More actions"
+              >
+                <MoreVertical size={18} />
+              </button>
+              {moreMenuOpen && (
+                <div className="book-detail-menu" role="menu" aria-label="More actions">
+                  {mobileMenuItems.map((item, i) => item === "divider"
+                    ? <hr key={`divider-${i}`} className="book-detail-menu-divider" />
+                    : renderMenuItem(item))}
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -983,81 +1108,85 @@ function BookDetailView({
             </div>
           )}
           <div className="book-detail-actions">
-            <div className="book-detail-primary-actions">
-              {isEbook ? (
-                <button
-                  className="primary-button"
-                  onClick={openPrimaryReader}
-                  disabled={!canReadPrimaryDoc}
-                >
-                  <BookOpen size={16} />
-                  <span>{progressActionLabel}</span>
-                </button>
-              ) : (
-                <>
+            {/* On mobile these move into the top bar's overflow menu (mobileMenuItems)
+                instead, to keep the page to one screen. */}
+            {!isMobile && (
+              <div className="book-detail-primary-actions">
+                {isEbook ? (
                   <button
                     className="primary-button"
-                    onClick={() => window.open(`/player/${book.id}`, "isputnik-player", "width=500,height=700,resizable=yes,scrollbars=yes")}
+                    onClick={openPrimaryReader}
+                    disabled={!canReadPrimaryDoc}
                   >
-                    <Play size={16} />
+                    <BookOpen size={16} />
                     <span>{progressActionLabel}</span>
                   </button>
-                  {canReadPrimaryDoc && (
+                ) : (
+                  <>
                     <button
-                      className="secondary-button book-detail-read-button"
-                      type="button"
-                      onClick={openPrimaryReader}
+                      className="primary-button"
+                      onClick={openPlayer}
                     >
-                      <BookOpen size={16} />
-                      <span>Read</span>
+                      <Play size={16} />
+                      <span>{progressActionLabel}</span>
                     </button>
-                  )}
-                </>
-              )}
-              {(!isEbook || isFoliateFormat(primaryReadableDoc?.format)) && (
-                <div className="book-progress-menu-wrap" ref={progressMenuRef}>
-                  <button
-                    className="book-progress-menu-trigger"
-                    type="button"
-                    onClick={() => setProgressMenuOpen((open) => !open)}
-                    aria-haspopup="menu"
-                    aria-expanded={progressMenuOpen}
-                    aria-label="Progress actions"
-                    title="Progress actions"
-                  >
-                    <MoreHorizontal size={20} aria-hidden="true" />
-                  </button>
-                  {progressMenuOpen && (
-                    <div className="book-detail-action-menu book-progress-menu" role="menu" aria-label="Progress actions">
+                    {canReadPrimaryDoc && (
                       <button
+                        className="secondary-button book-detail-read-button"
                         type="button"
-                        role="menuitem"
-                        onClick={() => {
-                          setProgressMenuOpen(false);
-                          void markBookFinished();
-                        }}
-                        disabled={progressAction !== ""}
+                        onClick={openPrimaryReader}
                       >
-                        <CheckCircle2 size={16} aria-hidden="true" />
-                        <span>{progressAction === "complete" ? "Saving..." : bookFinished ? "Marked finished" : "Mark finished"}</span>
+                        <BookOpen size={16} />
+                        <span>Read</span>
                       </button>
-                      <button
-                        type="button"
-                        role="menuitem"
-                        onClick={() => {
-                          setProgressMenuOpen(false);
-                          void resetProgress();
-                        }}
-                        disabled={progressAction !== ""}
-                      >
-                        <RotateCcw size={16} aria-hidden="true" />
-                        <span>{progressAction === "reset" ? "Resetting..." : "Reset progress"}</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+                    )}
+                  </>
+                )}
+                {showProgressMenu && (
+                  <div className="book-progress-menu-wrap" ref={progressMenuRef}>
+                    <button
+                      className="book-progress-menu-trigger"
+                      type="button"
+                      onClick={() => setProgressMenuOpen((open) => !open)}
+                      aria-haspopup="menu"
+                      aria-expanded={progressMenuOpen}
+                      aria-label="Progress actions"
+                      title="Progress actions"
+                    >
+                      <MoreHorizontal size={20} aria-hidden="true" />
+                    </button>
+                    {progressMenuOpen && (
+                      <div className="book-detail-action-menu book-progress-menu" role="menu" aria-label="Progress actions">
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            setProgressMenuOpen(false);
+                            void markBookFinished();
+                          }}
+                          disabled={progressAction !== ""}
+                        >
+                          <CheckCircle2 size={16} aria-hidden="true" />
+                          <span>{progressAction === "complete" ? "Saving..." : bookFinished ? "Marked finished" : "Mark finished"}</span>
+                        </button>
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            setProgressMenuOpen(false);
+                            void resetProgress();
+                          }}
+                          disabled={progressAction !== ""}
+                        >
+                          <RotateCcw size={16} aria-hidden="true" />
+                          <span>{progressAction === "reset" ? "Resetting..." : "Reset progress"}</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
             <div className="book-progress-inline" aria-label={progressTitle}>
               <Clock size={16} aria-hidden="true" />
               {episodic ? (

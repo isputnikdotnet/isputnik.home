@@ -235,6 +235,20 @@
     align-items: flex-start;
   }
 
+  /* The row is capped in JS to 7 icons (favorite + up to 5 + the overflow
+     trigger) so it fits without wrapping — shrink the buttons themselves a
+     touch so that still holds on the narrowest phones. */
+  .book-detail-topbar .book-detail-secondary-actions {
+    flex-wrap: nowrap;
+    gap: 4px;
+  }
+
+  .book-detail-topbar .book-detail-secondary-actions .icon-button {
+    min-width: 36px;
+    min-height: 36px;
+    padding: 8px;
+  }
+
   .book-detail-cover-col {
     width: min(100%, 280px);
   }

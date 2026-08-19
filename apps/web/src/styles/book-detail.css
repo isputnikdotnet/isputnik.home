@@ -309,6 +309,76 @@
   opacity: 0.7;
 }
 
+/* Top bar's overflow menu — mobile/PWA only (see book-detail-secondary-actions
+   in responsive.css). Holds icons that don't fit in the one-row cap, plus
+   (mobile only) the play/read + progress actions desktop keeps under the
+   cover as their own row. Same look as .book-progress-menu, generalized so it
+   also anchors correctly from the top bar rather than the primary-actions row. */
+.book-detail-menu-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.book-detail-menu {
+  position: absolute;
+  z-index: 12;
+  top: calc(100% + 8px);
+  right: 0;
+  display: grid;
+  gap: 2px;
+  min-width: 210px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  box-shadow: 0 18px 40px var(--shadow);
+}
+
+.book-detail-menu button,
+.book-detail-menu a {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  width: 100%;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 7px;
+  color: var(--ink);
+  background: transparent;
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.book-detail-menu button:hover,
+.book-detail-menu button:focus-visible,
+.book-detail-menu a:hover,
+.book-detail-menu a:focus-visible {
+  background: var(--hover);
+  outline: 0;
+}
+
+.book-detail-menu button:disabled {
+  cursor: not-allowed;
+  color: var(--muted);
+  opacity: 0.7;
+}
+
+.book-detail-menu button.danger,
+.book-detail-menu a.danger {
+  color: var(--rose);
+}
+
+.book-detail-menu-divider {
+  margin: 4px 2px;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
 .book-detail-tabs-section {
   display: grid;
   gap: 0;
