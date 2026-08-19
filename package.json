@@ -1,7 +1,7 @@
 {
   "name": "isputnik-home",
   "private": true,
-  "version": "3.10.4",
+  "version": "3.10.5",
   "description": "Private self-hosted family media library.",
   "license": "AGPL-3.0-only",
   "workspaces": [

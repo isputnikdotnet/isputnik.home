@@ -19,6 +19,13 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.10.5",
+    label: "An email address is no longer refused for the space around it",
+    changes: [
+      "Signing in with an address that carries a stray space — pasted out of a message, or with the space a phone keyboard adds after the tap — used to be turned away as though the address were misspelt. The space is now trimmed before the address is checked, so \"you@example.com \" simply works. The same applies when setting the server up for the first time, and when an administrator adds or edits someone. A space in the middle of an address is still wrong, and still refused."
+    ]
+  },
+  {
     version: "3.10.4",
     label: "The Listen button stands out, and every icon is freshly drawn",
     changes: [
