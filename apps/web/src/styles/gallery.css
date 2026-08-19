@@ -614,6 +614,69 @@
 .gallery-lightbox-action.is-on { color: var(--rose); }
 .gallery-lightbox-action:disabled { opacity: 0.5; cursor: default; }
 
+/* Overflow menu — mobile/PWA only. The bar's actions are capped at 7 (see
+   GalleryLightbox's visibleActions/overflowActions) so the row never runs off
+   the edge of a phone screen; whatever doesn't fit lands here instead. Same
+   look-and-feel as the rest of the bar, just as a dropdown. */
+.gallery-lightbox-menu-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.gallery-lightbox-menu {
+  position: absolute;
+  z-index: 12;
+  top: calc(100% + 8px);
+  right: 0;
+  display: grid;
+  gap: 2px;
+  min-width: 200px;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  background: rgba(28, 28, 30, 0.96);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5);
+}
+
+.gallery-lightbox-menu button,
+.gallery-lightbox-menu a {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  width: 100%;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 7px;
+  color: #fff;
+  background: transparent;
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.gallery-lightbox-menu button:hover,
+.gallery-lightbox-menu button:focus-visible,
+.gallery-lightbox-menu a:hover,
+.gallery-lightbox-menu a:focus-visible {
+  background: rgba(255, 255, 255, 0.12);
+  outline: 0;
+}
+
+.gallery-lightbox-menu button:disabled {
+  cursor: not-allowed;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.gallery-lightbox-menu button.danger,
+.gallery-lightbox-menu a.danger {
+  color: #ff8a8a;
+}
+
 /* Slideshow speed picker — compact pill segment shown beside the play/pause
    button while a slideshow runs. */
 .gallery-lightbox-speed {

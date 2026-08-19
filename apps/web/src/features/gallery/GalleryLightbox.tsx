@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
-import { ChevronLeft, ChevronRight, Download, Heart, ImagePlus, Info, ListMusic, Pause, Pencil, Play, Plus, RotateCcw, RotateCw, Share2, Trash2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Heart, ImagePlus, Info, ListMusic, MoreVertical, Pause, Pencil, Play, Plus, RotateCcw, RotateCw, Share2, Trash2, X } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { api } from "../../api";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { MessageBox } from "../../shared/MessageBox";
@@ -9,6 +10,7 @@ import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { AddToAlbumModal } from "./AddToAlbumModal";
 import { GalleryPlaceSearch } from "./GalleryPlaceSearch";
 import { ShareModal } from "../share/ShareModal";
+import { useIsMobile } from "../../shared/useIsMobile";
 import type { GalleryAsset, GalleryPerson, GalleryPersonTag, SlideshowTransition } from "./types";
 
 // Leaflet rides in only when the Info panel shows a geotagged photo — keeps it off
@@ -105,9 +107,12 @@ export function GalleryLightbox({
   musicUrl?: string;
 }) {
   const asset = assets[index];
-  // The Info panel opens with the photo — details are part of viewing, not an extra.
-  // A slideshow starts immersive, though: no side panel eating the frame.
-  const [showInfo, setShowInfo] = useState(!autoPlay);
+  const isMobile = useIsMobile();
+  // The Info panel opens with the photo on desktop — details are part of viewing,
+  // not an extra. A slideshow starts immersive, though: no side panel eating the
+  // frame. On mobile the panel is a near-full overlay (gallery.css), so it stays
+  // closed until the user asks for it, or it would eat the whole screen on open.
+  const [showInfo, setShowInfo] = useState(!autoPlay && !isMobile);
   // Slideshow: auto-advances through `assets`, looping past the last item. Videos
   // ignore the dwell timer and advance when they finish (see the <video> onEnded).
   const [playing, setPlaying] = useState(autoPlay);
@@ -141,6 +146,11 @@ export function GalleryLightbox({
   const [albumOpen, setAlbumOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  // Mobile/PWA: the bar's overflow menu, holding whichever actions don't fit in
+  // one row (see visibleActions/overflowActions below — same "cap the row, fold
+  // the rest into a ⋮ menu" pattern as the audiobook/ebook detail page).
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState("");
   const [fav, setFav] = useState(asset?.saved ?? false);
@@ -168,7 +178,7 @@ export function GalleryLightbox({
   useEffect(() => { setVideoError(asset?.playable === false); }, [asset?.id, asset?.playable]);
 
   // Moving to another asset abandons any in-progress field edit.
-  useEffect(() => { setEditingField(null); setEditError(""); }, [asset?.id]);
+  useEffect(() => { setEditingField(null); setEditError(""); setMoreMenuOpen(false); }, [asset?.id]);
 
   // Load the current asset's people (from the detail endpoint when the row lacks them).
   useEffect(() => {
@@ -200,7 +210,18 @@ export function GalleryLightbox({
 
   // Any open sub-dialog freezes the slideshow (a slide must not advance under a
   // confirm/share/collection modal). Also gates the keyboard handler below.
-  const dialogOpen = collectionOpen || albumOpen || deleteOpen || shareOpen;
+  const dialogOpen = collectionOpen || albumOpen || deleteOpen || shareOpen || moreMenuOpen;
+
+  // Close the overflow menu on an outside click (Escape is handled in the
+  // shared keydown handler below, alongside the lightbox's own Escape-to-close).
+  useEffect(() => {
+    if (!moreMenuOpen) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (!moreMenuRef.current?.contains(event.target as Node)) setMoreMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, [moreMenuOpen]);
 
   // Advance to the next slide, wrapping from the last item back to the first so the
   // loop never stalls. Manual arrows/clicks reuse this at the ends too.
@@ -280,6 +301,12 @@ export function GalleryLightbox({
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      // The overflow menu gets its own Escape (closes the menu, not the whole
+      // lightbox) even though it's also part of dialogOpen below.
+      if (moreMenuOpen) {
+        if (event.key === "Escape") setMoreMenuOpen(false);
+        return;
+      }
       if (dialogOpen) return;
       // Typing in an inline form (field edit, person tag) must not steer the
       // lightbox: arrows move the caret there, and Escape cancels the form.
@@ -296,7 +323,7 @@ export function GalleryLightbox({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [index, assets.length, canSlideshow, onClose, onIndexChange, dialogOpen]);
+  }, [index, assets.length, canSlideshow, onClose, onIndexChange, dialogOpen, moreMenuOpen]);
 
   if (!asset) return null;
 
@@ -509,6 +536,127 @@ export function GalleryLightbox({
     </form>
   );
 
+  // The action row in the bar above the photo. Play/pause (+ its speed picker)
+  // and Close are fixed — they never move — everything else is a candidate that
+  // mobile/PWA caps to keep the whole row on one line (same "cap it, fold the
+  // rest into a ⋮ menu" pattern as the audiobook/ebook detail page's top bar,
+  // which was overflowing the same way before that fix).
+  type LightboxAction = {
+    key: string;
+    icon: LucideIcon;
+    label: string;
+    onClick?: () => void;
+    href?: string;
+    download?: boolean;
+    disabled?: boolean;
+    active?: boolean;
+    danger?: boolean;
+  };
+  const candidateActions: LightboxAction[] = [
+    {
+      key: "favorite",
+      icon: Heart,
+      label: fav ? "Remove from favorites" : "Add to favorites",
+      onClick: () => void toggleFav(),
+      disabled: favBusy,
+      active: fav
+    },
+    { key: "album", icon: ImagePlus, label: "Add to album", onClick: () => setAlbumOpen(true) },
+    {
+      key: "download",
+      icon: Download,
+      label: "Download",
+      href: `${asset.fileUrl}${asset.fileUrl.includes("?") ? "&" : "?"}download=1`,
+      download: true
+    },
+    ...(canShare ? [{ key: "share", icon: Share2 as LucideIcon, label: "Share", onClick: () => setShareOpen(true) }] : []),
+    { key: "collection", icon: ListMusic, label: "Add to collection", onClick: () => setCollectionOpen(true) },
+    {
+      key: "details",
+      icon: Info,
+      label: "Details",
+      onClick: () => setShowInfo((v) => !v),
+      active: showInfo
+    },
+    ...(canEdit && asset.kind === "photo"
+      ? [
+          { key: "rotate-left", icon: RotateCcw as LucideIcon, label: "Rotate left", onClick: () => void rotate("ccw"), disabled: rotateBusy },
+          { key: "rotate-right", icon: RotateCw as LucideIcon, label: "Rotate right", onClick: () => void rotate("cw"), disabled: rotateBusy }
+        ]
+      : []),
+    ...(canDelete
+      ? [{
+          key: "delete",
+          icon: Trash2 as LucideIcon,
+          label: "Delete",
+          onClick: () => { setDeleteError(""); setDeleteOpen(true); },
+          danger: true
+        }]
+      : [])
+  ];
+  // 7 icons total in the row, matching the detail page's cap: fixed items
+  // (play/pause when slideshowable, close) plus up to 5 more, with an overflow
+  // trigger swapped in for the 5th slot once there isn't room for everything.
+  const fixedSlots = 1 /* close */ + (canSlideshow ? 1 : 0) /* play/pause */;
+  const rowCap = isMobile ? Math.max(1, 7 - fixedSlots) : candidateActions.length;
+  const overflow = isMobile && candidateActions.length > rowCap;
+  const visibleActions = overflow ? candidateActions.slice(0, rowCap - 1) : candidateActions.slice(0, rowCap);
+  const overflowActions = overflow ? candidateActions.slice(visibleActions.length) : [];
+
+  const renderAction = (a: LightboxAction) =>
+    a.href ? (
+      <a
+        key={a.key}
+        className="gallery-lightbox-action"
+        href={a.href}
+        download={a.download}
+        aria-label={a.label}
+        title={a.label}
+      >
+        <a.icon size={18} aria-hidden="true" />
+      </a>
+    ) : (
+      <button
+        key={a.key}
+        className={`gallery-lightbox-action${a.active ? " is-on" : ""}`}
+        type="button"
+        onClick={a.onClick}
+        disabled={a.disabled}
+        aria-pressed={a.active}
+        aria-label={a.label}
+        title={a.label}
+      >
+        <a.icon size={18} fill={a.key === "favorite" && a.active ? "currentColor" : "none"} aria-hidden="true" />
+      </button>
+    );
+
+  const renderMenuItem = (a: LightboxAction) =>
+    a.href ? (
+      <a
+        key={a.key}
+        role="menuitem"
+        href={a.href}
+        download={a.download}
+        onClick={() => setMoreMenuOpen(false)}
+        className={a.danger ? "danger" : undefined}
+      >
+        <a.icon size={16} aria-hidden="true" />
+        <span>{a.label}</span>
+      </a>
+    ) : (
+      <button
+        key={a.key}
+        type="button"
+        role="menuitem"
+        onClick={() => { setMoreMenuOpen(false); a.onClick?.(); }}
+        disabled={a.disabled}
+        className={a.danger ? "danger" : undefined}
+      >
+        <a.icon size={16} aria-hidden="true" />
+        <span>{a.label}</span>
+      </button>
+    );
+
   return createPortal(
     <div className={`gallery-lightbox${showInfo ? " has-info" : ""}${playing ? " is-playing" : ""}`} role="dialog" aria-label={asset.title} aria-modal="true">
       {musicUrl && <audio ref={musicRef} src={musicUrl} loop />}
@@ -548,99 +696,26 @@ export function GalleryLightbox({
               )}
             </>
           )}
-          <button
-            className={`gallery-lightbox-action${fav ? " is-on" : ""}`}
-            type="button"
-            onClick={() => void toggleFav()}
-            disabled={favBusy}
-            aria-pressed={fav}
-            aria-label={fav ? "Remove from favorites" : "Add to favorites"}
-            title={fav ? "Favorited" : "Favorite"}
-          >
-            <Heart size={18} fill={fav ? "currentColor" : "none"} aria-hidden="true" />
-          </button>
-          <button
-            className="gallery-lightbox-action"
-            type="button"
-            onClick={() => setAlbumOpen(true)}
-            aria-label="Add to album"
-            title="Add to album"
-          >
-            <ImagePlus size={18} aria-hidden="true" />
-          </button>
-          <button
-            className="gallery-lightbox-action"
-            type="button"
-            onClick={() => setCollectionOpen(true)}
-            aria-label="Add to collection"
-            title="Add to collection"
-          >
-            <ListMusic size={18} aria-hidden="true" />
-          </button>
-          {canShare && (
-            <button
-              className="gallery-lightbox-action"
-              type="button"
-              onClick={() => setShareOpen(true)}
-              aria-label="Share"
-              title="Share"
-            >
-              <Share2 size={18} aria-hidden="true" />
-            </button>
-          )}
-          <a
-            className="gallery-lightbox-action"
-            href={`${asset.fileUrl}${asset.fileUrl.includes("?") ? "&" : "?"}download=1`}
-            download
-            aria-label="Download"
-            title="Download"
-          >
-            <Download size={18} aria-hidden="true" />
-          </a>
-          <button
-            className={`gallery-lightbox-action${showInfo ? " is-on" : ""}`}
-            type="button"
-            onClick={() => setShowInfo((v) => !v)}
-            aria-pressed={showInfo}
-            aria-label="Details"
-            title="Details"
-          >
-            <Info size={18} aria-hidden="true" />
-          </button>
-          {canEdit && asset.kind === "photo" && (
-            <>
+          {visibleActions.map(renderAction)}
+          {overflowActions.length > 0 && (
+            <div className="gallery-lightbox-menu-wrap" ref={moreMenuRef}>
               <button
                 className="gallery-lightbox-action"
                 type="button"
-                onClick={() => void rotate("ccw")}
-                disabled={rotateBusy}
-                aria-label="Rotate left"
-                title="Rotate left"
+                onClick={() => setMoreMenuOpen((open) => !open)}
+                aria-haspopup="menu"
+                aria-expanded={moreMenuOpen}
+                aria-label="More actions"
+                title="More actions"
               >
-                <RotateCcw size={18} aria-hidden="true" />
+                <MoreVertical size={18} aria-hidden="true" />
               </button>
-              <button
-                className="gallery-lightbox-action"
-                type="button"
-                onClick={() => void rotate("cw")}
-                disabled={rotateBusy}
-                aria-label="Rotate right"
-                title="Rotate right"
-              >
-                <RotateCw size={18} aria-hidden="true" />
-              </button>
-            </>
-          )}
-          {canDelete && (
-            <button
-              className="gallery-lightbox-action"
-              type="button"
-              onClick={() => { setDeleteError(""); setDeleteOpen(true); }}
-              aria-label="Delete"
-              title="Delete"
-            >
-              <Trash2 size={18} aria-hidden="true" />
-            </button>
+              {moreMenuOpen && (
+                <div className="gallery-lightbox-menu" role="menu" aria-label="More actions">
+                  {overflowActions.map(renderMenuItem)}
+                </div>
+              )}
+            </div>
           )}
           <button className="gallery-lightbox-action" type="button" onClick={onClose} aria-label="Close" title="Close">
             <X size={18} aria-hidden="true" />
