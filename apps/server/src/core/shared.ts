@@ -50,9 +50,23 @@ export const setupSchema = z.object({
   displayName: z.string().trim().min(2).max(80)
 });
 
+// Zod 4 reports an absent required field as "Invalid input: expected string,
+// received undefined". That sentence is what the person actually reads: the web
+// client builds its message from `details.fieldErrors` and only falls back to the
+// route's own friendlier wording if there is none (see apps/web/src/api.ts). Zod 3
+// said "Required" there, so restore just that case and leave every other message —
+// lengths, formats, enums — to zod's own phrasing.
+z.config({
+  customError: (issue) =>
+    issue.code === "invalid_type" && issue.input === undefined ? "Required" : undefined
+});
+
 export function parseBody<T>(schema: z.ZodSchema<T>, body: unknown) {
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
+    // .flatten() is deprecated in zod 4 but still emits the { formErrors,
+    // fieldErrors } shape the web client parses. Kept deliberately: switching to
+    // z.treeifyError() would change that wire format and every consumer with it.
     return { error: parsed.error.flatten() };
   }
 

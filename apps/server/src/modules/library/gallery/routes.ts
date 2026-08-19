@@ -348,7 +348,12 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
       cameras: filterList,
       sizes: z.array(z.enum(["small", "medium", "large", "huge"])).max(4).default([]),
       location: z.array(z.enum(["with_gps", "no_gps"])).max(2).default([])
-    }).default({}),
+      // prefault, not default: zod 4 requires a `.default()` to be the finished
+      // OUTPUT object, so `{}` no longer type-checks. `.prefault({})` keeps zod 3's
+      // behaviour of feeding the value back through the schema, which lets each
+      // field's own `.default([])` above stay the single source of truth — spelling
+      // the whole object out here would just be a second copy to forget to update.
+    }).prefault({}),
     sort: z.enum(["taken", "added"]).default("taken"),
     limit: z.number().int().min(1).max(200).default(80),
     offset: z.number().int().min(0).default(0)
