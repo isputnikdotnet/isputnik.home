@@ -19,6 +19,14 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.10.2",
+    label: "The System page grows into a dashboard, and the library starts counting what gets played",
+    changes: [
+      "Overview → System is now Overview → Dashboard: the same server-health numbers, plus a row of tabs for Activity (logins, uploads, downloads and deletes charted over the last two weeks, plus storage used), Logins (a breakdown by sign-in method, and a table of who signed in from where), Content activity (recent uploads, downloads, deletes, reads, plays and views in one list), and Reading and playback (what's in progress right now for every member). Real tabs, not a dropdown — old links to the System page still work.",
+      "Playing an audiobook, reading an ebook, or opening a photo in the gallery is now recorded the same way a download always was — at most once every 30 minutes per item, so ordinary use doesn't flood the log — which is what feeds the new dashboard's numbers and shows up searchable in Logs alongside everything else."
+    ]
+  },
+  {
     version: "3.10.1",
     label: "Toolbars that fit your phone, and photos that open without their notes already up",
     changes: [
