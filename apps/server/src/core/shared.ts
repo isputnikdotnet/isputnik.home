@@ -27,7 +27,13 @@ export function requestOrigin(request: FastifyRequest): string {
   return stripTrailingSlashes(config.appUrl);
 }
 
-const emailField = z.email().transform((value) => value.trim().toLowerCase());
+// Trim BEFORE validating, not after. An address arrives padded more often than
+// not — pasted from a message, or with the space a phone keyboard adds after a
+// tap — and validating first meant "you@example.com " was refused outright as a
+// malformed address, at sign-in of all places. Trailing whitespace is not what
+// makes an address wrong. Both halves still normalise to the same stored form,
+// which the UNIQUE COLLATE NOCASE email column is matched on.
+const emailField = z.string().trim().pipe(z.email()).transform((value) => value.toLowerCase());
 
 // Login: accept any non-empty password — the stored hash decides, and an old
 // password must keep working even if the policy was later strengthened.
