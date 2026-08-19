@@ -35,7 +35,7 @@ const metadataCandidateSchema = z.object({
   publisher: z.string().trim().optional(),
   year: z.number().int().optional(),
   description: z.string().trim().optional(),
-  coverUrl: z.string().url().optional(),
+  coverUrl: z.url().optional(),
   isbn: z.string().trim().optional(),
   asin: z.string().trim().optional(),
   genres: z.array(z.string().trim().min(1)).optional(),
@@ -54,7 +54,7 @@ export const coverSourceSchema = z.object({
 });
 
 export const coverFromUrlSchema = z.object({
-  url: z.string().trim().url().max(2000)
+  url: z.string().trim().pipe(z.url().max(2000))
 });
 
 export const manualMetadataSchema = z.object({

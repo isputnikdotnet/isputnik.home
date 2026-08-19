@@ -27,7 +27,7 @@ export function requestOrigin(request: FastifyRequest): string {
   return stripTrailingSlashes(config.appUrl);
 }
 
-const emailField = z.string().email().transform((value) => value.trim().toLowerCase());
+const emailField = z.email().transform((value) => value.trim().toLowerCase());
 
 // Login: accept any non-empty password — the stored hash decides, and an old
 // password must keep working even if the policy was later strengthened.
@@ -40,7 +40,10 @@ export const credentialsSchema = z.object({
 export function passwordPolicyField() {
   return z.string().max(200).superRefine((value, ctx) => {
     const error = validatePassword(value, getPasswordPolicy());
-    if (error) ctx.addIssue({ code: z.ZodIssueCode.custom, message: error });
+    // `message`, not `error`: zod 4 renamed that key on schema PARAMS, but an
+    // issue object still reads `message` — passing `error` here silently replaces
+    // the policy's explanation with a bare "Invalid input".
+    if (error) ctx.addIssue({ code: "custom", message: error });
   });
 }
 
@@ -61,7 +64,7 @@ z.config({
     issue.code === "invalid_type" && issue.input === undefined ? "Required" : undefined
 });
 
-export function parseBody<T>(schema: z.ZodSchema<T>, body: unknown) {
+export function parseBody<T>(schema: z.ZodType<T>, body: unknown) {
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
     // .flatten() is deprecated in zod 4 but still emits the { formErrors,

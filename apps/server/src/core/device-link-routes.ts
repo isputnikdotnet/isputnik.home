@@ -40,7 +40,7 @@ import {
 // exemption should be narrow (start + poll only) and written down when it is made,
 // not assumed now.
 
-const startSchema = z.object({}).passthrough();
+const startSchema = z.looseObject({});
 const pollSchema = z.object({ deviceCode: z.string().min(1).max(200) });
 const approveSchema = z.object({ currentPassword: z.string().min(1).max(200) });
 

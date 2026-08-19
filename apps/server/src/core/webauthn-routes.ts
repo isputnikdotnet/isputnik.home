@@ -51,11 +51,11 @@ const registerSchema = z.object({
   label: z.string().trim().max(60).optional(),
   // The ceremony payload is handed straight to simplewebauthn, which does the real
   // validation; zod only checks it is the right kind of object.
-  response: z.object({ id: z.string().min(1) }).passthrough()
+  response: z.looseObject({ id: z.string().min(1) })
 });
 
 const assertionSchema = z.object({
-  response: z.object({ id: z.string().min(1) }).passthrough()
+  response: z.looseObject({ id: z.string().min(1) })
 });
 
 function setCeremonyCookie(reply: FastifyReply, name: string, challengeId: string): void {

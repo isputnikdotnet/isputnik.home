@@ -12,7 +12,7 @@ const mailSchema = z.object({
   username: z.string().trim().max(255),
   // Omitted/blank on save = keep the stored password; never echoed back to the client.
   password: z.string().max(1024).optional(),
-  fromAddress: z.union([z.literal(""), z.string().trim().email().max(254)]),
+  fromAddress: z.union([z.literal(""), z.string().trim().pipe(z.email().max(254))]),
   fromName: z.string().trim().max(120)
 });
 

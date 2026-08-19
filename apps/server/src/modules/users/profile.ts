@@ -11,7 +11,7 @@ const profileSchema = z.object({
   displayName: z.string().trim().min(2).max(80),
   theme: z.enum(THEME_PREFERENCES),
   // Optional: omitted = leave unchanged; "" = clear; otherwise a valid address.
-  ereaderEmail: z.union([z.literal(""), z.string().trim().email().max(254)]).optional()
+  ereaderEmail: z.union([z.literal(""), z.string().trim().pipe(z.email().max(254))]).optional()
 });
 
 const passwordSchema = z.object({
@@ -21,7 +21,7 @@ const passwordSchema = z.object({
 
 const emailSchema = z.object({
   currentPassword: z.string().min(1, "Enter your current password").max(200),
-  newEmail: z.string().trim().email("Enter a valid email address").max(254).transform((value) => value.toLowerCase()),
+  newEmail: z.string().trim().pipe(z.email("Enter a valid email address").max(254)).transform((value) => value.toLowerCase()),
   // Required only when MFA is on (enforced in the handler): a current second factor.
   code: z.string().trim().min(6).max(40).optional()
 });

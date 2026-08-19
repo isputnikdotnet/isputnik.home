@@ -542,7 +542,7 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
   const editSchema = z.object({
     title: z.string().trim().min(1).max(300),
     description: z.string().trim().max(5000).nullable().optional(),
-    takenAt: z.string().datetime().nullable().optional(),
+    takenAt: z.iso.datetime().nullable().optional(),
     tags: z.array(z.string().trim().min(1).max(80)).max(50).default([]),
     gps: z.object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) }).nullable().optional()
   });
@@ -612,7 +612,7 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
   const bulkPlaceTimeSchema = z
     .object({
       ids: z.array(z.string().trim().min(1).max(64)).min(1).max(200),
-      takenAt: z.string().datetime().optional(),
+      takenAt: z.iso.datetime().optional(),
       shiftMinutes: z.number().int().min(-5_256_000).max(5_256_000).refine((v) => v !== 0).optional(),
       gps: z.object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) }).optional()
     })
