@@ -1485,6 +1485,7 @@ CREATE INDEX IF NOT EXISTS idx_share_links_owner        ON share_links(module, c
 CREATE INDEX IF NOT EXISTS idx_trashed_items_lib        ON trashed_items(library_id);
 CREATE INDEX IF NOT EXISTS idx_trashed_items_at         ON trashed_items(trashed_at);
 CREATE INDEX IF NOT EXISTS idx_activity_logs_created_at ON activity_logs(created_at);
+CREATE INDEX IF NOT EXISTS idx_activity_logs_dedup       ON activity_logs(event, actor_user_id, target_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_jobs_status              ON jobs(status, run_at);
 CREATE INDEX IF NOT EXISTS idx_scheduled_jobs_due        ON scheduled_jobs(enabled, next_run_at);
 

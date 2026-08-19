@@ -394,42 +394,75 @@
 }
 
 .status-metric {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  column-gap: 12px;
-  row-gap: 4px;
-  align-items: center;
-  min-height: 96px;
-  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface);
+  /* No min-height: rows auto-size to content, and .status-grid's default grid
+     stretch equalizes card height within a row on its own — a taller
+     note-bearing card just makes its row taller, no extra rule needed. */
 }
 
-.status-metric-icon {
+/* The icon still rides inline in the label line rather than its own grid
+   column (a dedicated column was the thing that ate a narrow card's width),
+   but it's a small tinted badge like Security overview's cards — same
+   color + color-mix background idiom, just scaled down to fit a caption line
+   instead of Security's 48px badge. */
+/* span.status-metric-icon (not just .status-metric-icon): needs to match the
+   specificity of ".status-metric span" above, which mutes every bare span in
+   a metric tile — this icon is a span too, and would otherwise lose its mint
+   tint to that rule despite coming later in the file. */
+span.status-metric-icon {
   display: inline-flex;
-  grid-row: 1 / span 3;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
+  width: 16px;
+  height: 16px;
+  margin-right: 5px;
+  border-radius: 5px;
+  vertical-align: -3px;
+  flex-shrink: 0;
   color: var(--mint);
-  background: var(--active);
+  background: color-mix(in srgb, var(--mint) 14%, transparent);
 }
 
 .status-metric-label {
+  display: flex;
+  align-items: center;
+  min-width: 0;
   color: var(--muted);
-  font-size: 0.82rem;
+  font-size: 0.64rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .status-metric strong {
-  font-size: 1.45rem;
-  line-height: 1.1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--ink);
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .status-metric small {
+  min-width: 0;
+  overflow: hidden;
   color: var(--muted);
+  font-size: 0.66rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .status-subsection {
@@ -462,6 +495,71 @@
   padding: 14px;
   border: 1px dashed var(--line);
   border-radius: 8px;
+}
+
+/* A second, visually lighter row of tabs for switching views inside a single
+   control-panel page (Dashboard's System/Activity/Logins/Content/Playback).
+   Pills instead of the underline `.control-tabs` style, so it reads as
+   sub-navigation within the page rather than a second copy of the page-level
+   tab row above it. */
+.dashboard-subtabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 2px 0 22px;
+}
+
+.dashboard-subtabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.dashboard-subtabs button:hover {
+  color: var(--ink);
+  border-color: var(--mint);
+}
+
+.dashboard-subtabs button:focus-visible {
+  outline: 2px solid var(--mint);
+  outline-offset: 1px;
+}
+
+.dashboard-subtabs button.active {
+  color: var(--mint);
+  background: var(--active);
+  border-color: transparent;
+}
+
+.dashboard-chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin: 4px 0 6px;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.dashboard-chart-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dashboard-chart-legend-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
 }
 
 .status-rank-grid {

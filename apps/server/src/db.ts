@@ -108,6 +108,21 @@ export function logActivity(input: ActivityInput) {
   );
 }
 
+// Session-style dedup for high-frequency events (playback/reading progress ticks
+// every ~10s, gallery views on every lightbox navigation) that would otherwise
+// flood activity_logs with one row per tick. Skips the insert if the same
+// actor+target already logged this event within the window.
+export function logActivityOnce(input: ActivityInput, windowMinutes = 30) {
+  const since = new Date(Date.now() - windowMinutes * 60_000).toISOString();
+  const recent = db
+    .prepare(
+      `SELECT id FROM activity_logs WHERE event = ? AND actor_user_id = ? AND target_id = ? AND created_at > ? LIMIT 1`
+    )
+    .get(input.event, input.actorUserId ?? null, input.targetId ?? null, since);
+  if (recent) return;
+  logActivity(input);
+}
+
 export function publicUser(user: User) {
   return {
     id: user.id,

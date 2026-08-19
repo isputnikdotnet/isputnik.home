@@ -25,8 +25,8 @@ export interface ControlSearchEntry {
 
 // Extra search terms for the tab pages themselves.
 const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
-  status: "system health cpu memory uptime version disk database sqlite integrity",
   stats: "statistics numbers counts totals audiobook ebook gallery top authors narrators formats largest biggest",
+  dashboard: "system health cpu memory uptime version disk database sqlite integrity activity trends charts graphs logins uploads downloads deletes played read viewed logins by method ip address recent logins in progress playback reading",
   tasks: "jobs job log scan progress worker queue running failed history",
   logs: "activity audit trail events sign-in history retention prune clear",
 
@@ -65,7 +65,7 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
 // Settings that live inside a page. `section` is where they are; search takes
 // you to that tab and the setting is on it.
 const SETTING_ENTRIES: { title: string; section: ControlSection; keywords: string }[] = [
-  { title: "Database size & integrity", section: "status", keywords: "sqlite wal vacuum bytes" },
+  { title: "Database size & integrity", section: "dashboard", keywords: "sqlite wal vacuum bytes" },
   { title: "Log retention", section: "logs", keywords: "keep days delete old activity prune" },
   { title: "Thumbnail storage", section: "storage", keywords: "thumbnails cache folder path move" },
   { title: "Library containers", section: "storage", keywords: "approved allowed root folders mount" },

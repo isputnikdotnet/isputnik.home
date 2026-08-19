@@ -4,7 +4,7 @@ import { useState, useEffect, startTransition } from "react";
 // groups they hang off are described in features/control/nav.ts.
 export type ControlSection =
   // Overview
-  | "status" | "stats" | "tasks" | "logs"
+  | "dashboard" | "stats" | "tasks" | "logs"
   // Library
   | "libraries" | "storage" | "categories" | "tags"
   // Members
@@ -23,7 +23,7 @@ export type ControlSection =
 // in the control panel is reachable only by clicking, which is what lets search
 // jump straight to a setting.
 export const CONTROL_PATHS: Record<ControlSection, string> = {
-  status: "/control/overview",
+  dashboard: "/control/overview",
   stats: "/control/overview/statistics",
   tasks: "/control/overview/tasks",
   logs: "/control/overview/logs",
@@ -67,12 +67,15 @@ export function controlHref(section: ControlSection): string {
 // bookmarks, docs links and the odd typed URL still land somewhere sensible —
 // the panel has been reorganised more than once and old links outlive it.
 const CONTROL_ALIASES: Record<string, ControlSection> = {
-  "/control": "status",
-  "/admin": "status",
-  "/control/status": "status",
-  "/control/database": "status",
-  "/control/maintenance/database": "status",
-  "/control/system/database": "status",
+  "/control": "dashboard",
+  "/admin": "dashboard",
+  "/control/status": "dashboard",
+  "/control/database": "dashboard",
+  "/control/maintenance/database": "dashboard",
+  "/control/system/database": "dashboard",
+  // Dashboard briefly lived at its own sub-path before absorbing System (the
+  // group's former landing tab) and taking over the group's root address.
+  "/control/overview/dashboard": "dashboard",
 
   // The per-media-type stat pages are one Statistics page with a type switch now.
   "/control/status/audiobook-stats": "stats",

@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { nanoid } from "nanoid";
 import { z } from "zod";
-import { db, logActivity } from "../../../db.js";
+import { db, logActivity, logActivityOnce } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
 import { rescanSingleBook } from "./scanner.js";
 import { METADATA_SOURCE_IDS } from "../shared/metadata-sources.js";
@@ -30,6 +30,16 @@ const trackPlayedSchema = z.object({
 // the same authorization gap the reading-progress routes already close via
 // getReadableDocument. Gate them the way the book-detail route does, 404-ing an
 // inaccessible id. Returns true (and has sent the 404) when refused.
+function bookTitle(bookId: string): string {
+  const row = db.prepare(`
+    SELECT COALESCE(item_metadata.title, library_items.folder_path) AS title
+    FROM library_items
+    LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
+    WHERE library_items.id = ?
+  `).get(bookId) as { title: string | null } | undefined;
+  return row?.title ?? bookId;
+}
+
 function refuseUnlessAccessibleBook(request: FastifyRequest, reply: FastifyReply, bookId: string): boolean {
   const user = request.user!;
   const lib = getLibraryForBook(bookId);
@@ -299,6 +309,15 @@ export function registerBookRoutes(app: FastifyInstance) {
         completed_at = CASE WHEN excluded.completed_at IS NOT NULL THEN excluded.completed_at ELSE reading_progress.completed_at END
     `).run(nanoid(16), user.id, bookId, parsed.data.documentId, parsed.data.cfi, percentComplete, parsed.data.label ?? null, completedAt);
 
+    logActivityOnce({
+      event: "library.ebook.read",
+      actorUserId: user.id,
+      targetType: "book",
+      targetId: bookId,
+      detail: `Read "${bookTitle(bookId)}".`,
+      ipAddress: request.ip
+    });
+
     return reply.send({ updated: true });
   });
 
@@ -414,6 +433,15 @@ export function registerBookRoutes(app: FastifyInstance) {
       percentComplete,
       isComplete ? new Date().toISOString() : null
     );
+
+    logActivityOnce({
+      event: "library.audiobook.played",
+      actorUserId: userId,
+      targetType: "book",
+      targetId: bookId,
+      detail: `Played "${bookTitle(bookId)}".`,
+      ipAddress: request.ip
+    });
 
     // Episodic libraries also track each track on its own, so skipping one never
     // touches the others. A track counts as played once ~98% of its OWN duration is

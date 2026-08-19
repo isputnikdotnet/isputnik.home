@@ -177,6 +177,13 @@ export function GalleryLightbox({
   // straight to the fallback instead of stalling on a load that will fail.
   useEffect(() => { setVideoError(asset?.playable === false); }, [asset?.id, asset?.playable]);
 
+  // Fire-and-forget view ping for the activity dashboard. Server-side dedup keeps
+  // paging back and forth through a set from spamming activity_logs.
+  useEffect(() => {
+    if (!asset) return;
+    void api(`/api/library/gallery/assets/${asset.id}/viewed`, { method: "POST" }).catch(() => {});
+  }, [asset?.id]);
+
   // Moving to another asset abandons any in-progress field edit.
   useEffect(() => { setEditingField(null); setEditError(""); setMoreMenuOpen(false); }, [asset?.id]);
 

@@ -2,12 +2,15 @@ import type { LucideIcon } from "lucide-react";
 
 // Shared building blocks for the per-type stats pages (audiobook / ebook / gallery).
 
-export function StatusMetric({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: string }) {
+export function StatusMetric({ icon: Icon, label, value, note }: { icon: LucideIcon; label: string; value: string; note?: string }) {
   return (
     <article className="status-metric">
-      <span className="status-metric-icon" aria-hidden="true"><Icon size={18} /></span>
-      <span className="status-metric-label">{label}</span>
+      <span className="status-metric-label">
+        <span className="status-metric-icon" aria-hidden="true"><Icon size={11} /></span>
+        {label}
+      </span>
       <strong>{value}</strong>
+      {note && <small>{note}</small>}
     </article>
   );
 }

@@ -16,11 +16,11 @@ import { UsersSection } from "./sections/UsersSection";
 import { InvitesSection } from "./sections/InvitesSection";
 import { SessionsSection } from "./sections/SessionsSection";
 import { LogsSection } from "./sections/LogsSection";
-import { StatusSection } from "./sections/StatusSection";
 import { AboutSection } from "./sections/AboutSection";
 import { StorageSection } from "./sections/StorageSection";
 import { LibrariesSection } from "./sections/LibrariesSection";
 import { StatisticsSection } from "./sections/StatisticsSection";
+import { DashboardSection } from "./sections/DashboardSection";
 import { BackupSection } from "./sections/BackupSection";
 import { CategoriesSection, CategoryEditorPage } from "./sections/CategoriesSection";
 import { TagsSection } from "./sections/TagsSection";
@@ -87,7 +87,7 @@ function ControlSectionBody({
   currentUser: PublicUser;
 }) {
   switch (section) {
-    case "status":          return <StatusSection />;
+    case "dashboard":       return <DashboardSection />;
     case "stats":           return <StatisticsSection />;
     case "tasks":           return <TasksSection />;
     case "logs":            return <LogsSection />;

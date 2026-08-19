@@ -3,7 +3,7 @@ import path from "node:path";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import { db, logActivity } from "../../../db.js";
+import { db, logActivity, logActivityOnce } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
 import { can, parsePolicy } from "../../../core/permissions.js";
 import { canUserAccessLibrary, canUserAccessBook, libraryCapabilities, deleteLibraryAccess, canUserWriteLibrary, getLibraryForBook } from "../shared/library-access.js";
@@ -501,6 +501,34 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
       return reply.code(404).send({ error: "Asset not found" });
     }
     return reply.send({ asset });
+  });
+
+  // Lightweight view ping fired by the lightbox as the visitor browses — logged at
+  // most once per user+asset per dedup window (see logActivityOnce), so paging back
+  // and forth through a set doesn't flood activity_logs.
+  app.post("/api/library/gallery/assets/:id/viewed", { preHandler: app.authenticate }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const user = request.user!;
+    const libIds = resolveGalleryScopeLibraryIds(user);
+    let asset = getGalleryAsset(user.id, libIds, id);
+    if (!asset) {
+      const library = getLibraryForBook(id);
+      if (library && library.type === "gallery" && canUserAccessBook(id, library, user.id, user.role, "gallery")) {
+        asset = getGalleryAssetUnscoped(user.id, id);
+      }
+    }
+    if (!asset) {
+      return reply.code(404).send({ error: "Asset not found" });
+    }
+    logActivityOnce({
+      event: "library.gallery.viewed",
+      actorUserId: user.id,
+      targetType: "gallery",
+      targetId: id,
+      detail: `Viewed ${asset.kind} "${asset.title}".`,
+      ipAddress: request.ip
+    });
+    return reply.send({ ok: true });
   });
 
   // Manual metadata edit: title/caption, description, date taken, tags, location.

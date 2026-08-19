@@ -31,8 +31,8 @@ import { REPO_ISSUES_URL } from "../shared/links";
 
 const APP_VERSION = packageInfo.version;
 
-// The control panel's landing page — Overview › System.
-const CONTROL_HOME = controlHref("status");
+// The control panel's landing page — Overview › Dashboard.
+const CONTROL_HOME = controlHref("dashboard");
 
 export type DashboardActive = "home" | "audiobooks" | "ebooks" | "gallery" | "family" | "authors" | "categories" | "tags" | "about" | "help" | "control" | "user";
 

@@ -225,6 +225,32 @@ export interface DbInfo {
   lastModified: string | null;
 }
 
+export interface DashboardSeries {
+  loginsSuccess: number[];
+  loginsFailed: number[];
+  uploads: number[];
+  downloads: number[];
+  deletes: number[];
+  played: number[];
+  read: number[];
+  viewed: number[];
+}
+
+export interface DashboardSummary {
+  days: string[];
+  series: DashboardSeries;
+  loginMethods: { password: number; passkey: number; deviceLink: number };
+  kpis: { logins24h: number; uploads7d: number; downloads7d: number; deletes7d: number };
+}
+
+export interface DashboardInProgressEntry {
+  kind: "audiobook" | "ebook";
+  updatedAt: string;
+  percentComplete: number | null;
+  userName: string;
+  title: string;
+}
+
 export interface ManagedGroup {
   id: string;
   name: string;
