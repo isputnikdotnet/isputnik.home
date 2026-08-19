@@ -19,6 +19,19 @@ function userGuides(): Plugin {
   return { name: "isputnik-user-guides", buildStart: sync, configureServer: sync };
 }
 
+// Which port to serve on. Normally the familiar ones — 5173 for `npm run dev`,
+// 4173 for `npm run preview` — but honour PORT when something sets it, so a
+// runner that has to pick its own port (.claude/launch.json "autoPort") lands
+// where it expects rather than fighting a hardcoded number.
+//
+// The server half of `npm run dev` is unaffected: the root script pins it with
+// `cross-env PORT=4000` for that subprocess only, which also keeps the /api
+// proxy target below correct.
+const port = (fallback: number): number => {
+  const fromEnv = Number(process.env.PORT);
+  return Number.isInteger(fromEnv) && fromEnv > 0 ? fromEnv : fallback;
+};
+
 export default defineConfig({
   // The public dir ships an `Assets/` folder (capital A). Vite's default build
   // output dir is `assets` (lowercase); on case-insensitive filesystems the two
@@ -145,7 +158,7 @@ export default defineConfig({
     })
   ],
   server: {
-    port: 5173,
+    port: port(5173),
     proxy: {
       "/api": {
         target: "http://127.0.0.1:4000",
@@ -156,7 +169,7 @@ export default defineConfig({
   // `vite preview` serves the production build (with the real service worker),
   // so mirror the API proxy here too.
   preview: {
-    port: 4173,
+    port: port(4173),
     proxy: {
       "/api": {
         target: "http://127.0.0.1:4000",
