@@ -30,14 +30,14 @@ const deviceLinkWindowSchema = z.object({
 });
 
 const createUserSchema = z.object({
-  email: z.email().transform((value) => value.trim().toLowerCase()),
+  email: z.string().trim().pipe(z.email()).transform((value) => value.toLowerCase()),
   displayName: z.string().trim().min(2).max(80),
   password: passwordPolicyField(),
   role: z.enum(["admin", "member"]).default("member")
 });
 
 const updateUserSchema = z.object({
-  email: z.email().transform((value) => value.trim().toLowerCase()),
+  email: z.string().trim().pipe(z.email()).transform((value) => value.toLowerCase()),
   displayName: z.string().trim().min(2).max(80),
   role: z.enum(["admin", "member"])
 });

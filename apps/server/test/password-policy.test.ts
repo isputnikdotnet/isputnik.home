@@ -48,3 +48,32 @@ describe("schema integration", () => {
     expect(credentialsSchema.safeParse({ email: "a@b.com", password: "x" }).success).toBe(true);
   });
 });
+
+// An address pasted from a message, or typed on a phone keyboard that adds a
+// space after the tap, used to be refused at sign-in as though it were malformed.
+// Trimming has to happen BEFORE the address is validated, not in the transform
+// afterwards, and every accepted spelling has to land on one stored form — the
+// email column is UNIQUE, and the lookup matches on exactly this value.
+describe("email normalisation", () => {
+  const parse = (email: string) => credentialsSchema.safeParse({ email, password: "x" });
+
+  it("accepts an address padded with whitespace and stores it trimmed", () => {
+    for (const padded of [" a@b.com ", "a@b.com ", " a@b.com", "\ta@b.com\n"]) {
+      const result = parse(padded);
+      expect(result.success, `expected ${JSON.stringify(padded)} to be accepted`).toBe(true);
+      expect(result.data?.email).toBe("a@b.com");
+    }
+  });
+
+  it("lower-cases, so padding and capitalisation reach the same stored address", () => {
+    expect(parse("  A@B.COM  ").data?.email).toBe("a@b.com");
+    expect(parse("A@B.COM").data?.email).toBe("a@b.com");
+  });
+
+  it("still rejects what is genuinely not an address", () => {
+    // Trimming the ends must not be mistaken for tolerating space inside one.
+    for (const bad of ["a b@c.com", "bad", "", "   ", "a@", "@b.com"]) {
+      expect(parse(bad).success, `expected ${JSON.stringify(bad)} to be rejected`).toBe(false);
+    }
+  });
+});
