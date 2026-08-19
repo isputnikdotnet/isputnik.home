@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
-import { ChevronLeft, ChevronRight, Download, Heart, ImagePlus, Info, ListMusic, MoreVertical, Pause, Pencil, Play, Plus, RotateCcw, RotateCw, Share2, Trash2, X } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Download, Heart, ImagePlus, Info, ListMusic, MoreVertical, Pause, Pencil, Play, Plus, RotateCcw, RotateCw, Share2, Trash2, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api } from "../../api";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
@@ -601,11 +601,12 @@ export function GalleryLightbox({
         }]
       : [])
   ];
-  // 7 icons total in the row, matching the detail page's cap: fixed items
-  // (play/pause when slideshowable, close) plus up to 5 more, with an overflow
-  // trigger swapped in for the 5th slot once there isn't room for everything.
-  const fixedSlots = 1 /* close */ + (canSlideshow ? 1 : 0) /* play/pause */;
-  const rowCap = isMobile ? Math.max(1, 7 - fixedSlots) : candidateActions.length;
+  // 6 icons in the actions group, matching the detail page's cap: play/pause
+  // when slideshowable plus up to 5 more, with an overflow trigger swapped in
+  // for the last slot once there isn't room for everything. (On mobile the bar
+  // also carries a back button ahead of the group, like the book detail pages.)
+  const fixedSlots = canSlideshow ? 1 : 0 /* play/pause */;
+  const rowCap = isMobile ? Math.max(1, 6 - fixedSlots) : candidateActions.length;
   const overflow = isMobile && candidateActions.length > rowCap;
   const visibleActions = overflow ? candidateActions.slice(0, rowCap - 1) : candidateActions.slice(0, rowCap);
   const overflowActions = overflow ? candidateActions.slice(visibleActions.length) : [];
@@ -668,10 +669,22 @@ export function GalleryLightbox({
     <div className={`gallery-lightbox${showInfo ? " has-info" : ""}${playing ? " is-playing" : ""}`} role="dialog" aria-label={asset.title} aria-modal="true">
       {musicUrl && <audio ref={musicRef} src={musicUrl} loop />}
       <div className="gallery-lightbox-bar">
-        <div className="gallery-lightbox-title">
-          {asset.title}
-          {meta && <small>{meta}</small>}
-        </div>
+        {/* Mobile/PWA mirrors the audiobook/ebook detail topbar: a back button
+            leading the row instead of a trailing ✕, and no title (the photo
+            itself is right below, and the name reads as crowding the bar). */}
+        {isMobile ? (
+          <>
+            <button className="gallery-lightbox-action" type="button" onClick={onClose} aria-label="Back" title="Back">
+              <ArrowLeft size={18} aria-hidden="true" />
+            </button>
+            <span className="gallery-lightbox-divider" aria-hidden="true" />
+          </>
+        ) : (
+          <div className="gallery-lightbox-title">
+            {asset.title}
+            {meta && <small>{meta}</small>}
+          </div>
+        )}
         <div className="gallery-lightbox-actions">
           {canSlideshow && (
             <>
@@ -724,9 +737,11 @@ export function GalleryLightbox({
               )}
             </div>
           )}
-          <button className="gallery-lightbox-action" type="button" onClick={onClose} aria-label="Close" title="Close">
-            <X size={18} aria-hidden="true" />
-          </button>
+          {!isMobile && (
+            <button className="gallery-lightbox-action" type="button" onClick={onClose} aria-label="Close" title="Close">
+              <X size={18} aria-hidden="true" />
+            </button>
+          )}
         </div>
       </div>
 

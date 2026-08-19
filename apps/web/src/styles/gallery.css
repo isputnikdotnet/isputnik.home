@@ -597,6 +597,15 @@
   gap: 4px;
 }
 
+/* Mobile/PWA only — separates the leading back button from the action group,
+   the same beat as the book detail topbar's divider, tinted for the dark bar. */
+.gallery-lightbox-divider {
+  align-self: stretch;
+  width: 1px;
+  margin: 2px 6px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
 .gallery-lightbox-action {
   display: inline-flex;
   align-items: center;
@@ -614,7 +623,7 @@
 .gallery-lightbox-action.is-on { color: var(--rose); }
 .gallery-lightbox-action:disabled { opacity: 0.5; cursor: default; }
 
-/* Overflow menu — mobile/PWA only. The bar's actions are capped at 7 (see
+/* Overflow menu — mobile/PWA only. The bar's actions are capped at 6 (see
    GalleryLightbox's visibleActions/overflowActions) so the row never runs off
    the edge of a phone screen; whatever doesn't fit lands here instead. Same
    look-and-feel as the rest of the bar, just as a dropdown. */

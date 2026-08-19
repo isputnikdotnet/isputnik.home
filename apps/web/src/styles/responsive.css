@@ -235,7 +235,7 @@
     align-items: flex-start;
   }
 
-  /* The row is capped in JS to 7 icons (favorite + up to 5 + the overflow
+  /* The row is capped in JS to 6 icons (favorite + up to 4 + the overflow
      trigger) so it fits without wrapping — shrink the buttons themselves a
      touch so that still holds on the narrowest phones. */
   .book-detail-topbar .book-detail-secondary-actions {
