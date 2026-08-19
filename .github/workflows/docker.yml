@@ -44,7 +44,7 @@ jobs:
       # export a cache ("Cache export is not supported for the docker driver").
       # buildx's container driver can, and the layer cache below needs it.
       - name: Set up Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       # Only a release needs the registry — a dry run never pushes, so it needs no
       # credentials at all.
