@@ -19,6 +19,15 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.10.3",
+    label: "Stronger two-factor secrets — authenticator users need to set theirs up again",
+    changes: [
+      "**If you sign in with an authenticator app, you have to set it up again after this update.** Two-factor secrets are now 160-bit, twice the length of the ones this app issued before and the size RFC 4226 recommends; the library that checks your codes no longer accepts the shorter kind at all. Your existing app entry will stop being accepted, and the sign-in screen will say so rather than just calling your code wrong. Sign in with one of your backup codes, then in Profile → Security turn two-factor off and set it up again to scan a fresh QR code. If you're on your home network, you may not be asked for a code at all — sign in as usual and go straight to setting it up again. If you have no backup codes left, an administrator can reset two-factor for your account from Members → Users.",
+      "Anyone receiving their codes by email is unaffected — there's no shared secret involved, so nothing changes and there's nothing to redo.",
+      "Under the surface this moves two-factor onto the current release of the library that generates and checks the codes. The tolerance for a phone clock that runs slightly fast or slow is unchanged at ±30 seconds, and codes with a space in the middle are still accepted."
+    ]
+  },
+  {
     version: "3.10.2",
     label: "The System page grows into a dashboard, and the library starts counting what gets played",
     changes: [
