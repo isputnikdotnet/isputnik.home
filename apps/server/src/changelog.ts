@@ -19,6 +19,15 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.10.1",
+    label: "Toolbars that fit your phone, and photos that open without their notes already up",
+    changes: [
+      "On the phone app, a book or audiobook's toolbar used to lay out every icon in a single row that ran off the edge of the screen. Listen (or Read) now sits right after the back arrow, and everything that doesn't fit — Add to collection, Mark finished, Reset progress, and whichever of Edit, Download, Send to e-reader, Share, or Delete are left over — tucks under a new ⋮ menu, so the whole bar stays on one line.",
+      "The photo viewer's toolbar gets the same fix: on a phone it now stays within the screen instead of spilling off the side, with Add to collection and any leftover actions folded into the same kind of ⋮ menu.",
+      "Opening a photo on the phone app no longer immediately covers it edge-to-edge with the details panel — that panel opened by default because it's handy on a bigger screen, but on a phone it left barely any of the photo visible. Tap the ⓘ button when you want it; the photo itself is what opens now."
+    ]
+  },
+  {
     version: "3.10.0",
     label: "It takes a code to drop two-factor, and shared photos forget where they were",
     changes: [
