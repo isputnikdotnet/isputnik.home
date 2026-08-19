@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { authenticator } from "otplib";
+import { totpCode } from "./helpers/totp.js";
 import { db } from "../src/db.js";
 import { generateTotpSecret, hashEmailCode, EMAIL_CODE_MAX_SENDS } from "../src/core/mfa.js";
 import {
@@ -27,7 +27,7 @@ beforeEach(() => {
 function enable(userId: string): string[] {
   const setup = beginMfaSetup(userId, "totp");
   if (setup.method !== "totp") throw new Error("expected a totp setup");
-  const codes = activateMfa(userId, authenticator.generate(setup.secret));
+  const codes = activateMfa(userId, totpCode(setup.secret));
   if (!codes) throw new Error("activation failed in test helper");
   return codes;
 }
@@ -57,7 +57,7 @@ describe("MFA enrollment", () => {
   it("activates with a valid code and issues 10 backup codes", () => {
     const setup = beginMfaSetup("u1", "totp");
     if (setup.method !== "totp") throw new Error("expected a totp setup");
-    const codes = activateMfa("u1", authenticator.generate(setup.secret));
+    const codes = activateMfa("u1", totpCode(setup.secret));
     expect(codes).toHaveLength(10);
     expect(getMfaStatus("u1")).toEqual({ enabled: true, method: "totp", backupCodesRemaining: 10 });
   });
@@ -65,7 +65,7 @@ describe("MFA enrollment", () => {
   it("rejects a wrong activation code and stays disabled", () => {
     beginMfaSetup("u1", "totp");
     const otherSecret = generateTotpSecret();
-    expect(activateMfa("u1", authenticator.generate(otherSecret))).toBeNull();
+    expect(activateMfa("u1", totpCode(otherSecret))).toBeNull();
     expect(getMfaStatus("u1").enabled).toBe(false);
   });
 

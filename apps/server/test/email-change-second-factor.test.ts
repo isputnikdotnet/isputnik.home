@@ -4,7 +4,7 @@
 // current second factor. A user without MFA is unaffected. These pin both.
 import { beforeEach, describe, expect, it } from "vitest";
 import fastify, { type FastifyInstance } from "fastify";
-import { authenticator } from "otplib";
+import { totpCode } from "./helpers/totp.js";
 import { db, type User } from "../src/db.js";
 import { hashPassword } from "../src/crypto.js";
 import { beginMfaSetup, activateMfa } from "../src/core/mfa-routes.js";
@@ -38,7 +38,7 @@ beforeEach(async () => {
   const setup = beginMfaSetup("mfauser", "totp");
   if (setup.method !== "totp") throw new Error("expected totp");
   totpSecret = setup.secret;
-  if (!activateMfa("mfauser", authenticator.generate(setup.secret))) throw new Error("activation failed");
+  if (!activateMfa("mfauser", totpCode(setup.secret))) throw new Error("activation failed");
 
   app = fastify();
   app.decorate("authenticate", async (request, reply) => {
@@ -69,7 +69,7 @@ describe("changing the login email with MFA on requires a second factor", () => 
     const { status } = await patchEmail("mfauser", {
       currentPassword: "correct-horse",
       newEmail: "new@test.local",
-      code: authenticator.generate(totpSecret)
+      code: totpCode(totpSecret)
     });
     expect(status).toBe(200);
     expect(emailOf("mfauser")).toBe("new@test.local");

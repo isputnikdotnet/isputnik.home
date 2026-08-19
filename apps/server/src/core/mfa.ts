@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { authenticator } from "otplib";
+import { generateSecret, generateURI, verifySync } from "otplib";
 import QRCode from "qrcode";
 import { config } from "../config.js";
 import { sha256 } from "../crypto.js";
@@ -137,26 +137,62 @@ export function generateBackupCodes(count = 10): { plain: string[]; hashes: stri
 
 // ── TOTP (RFC 6238) ──────────────────────────────────────────────────────────
 // Authenticator apps (Google Authenticator, Authy, Apple Passwords, …) derive a
-// rolling 6-digit code from the shared secret. A ±1 step window tolerates modest
-// clock drift between the phone and the server.
-authenticator.options = { window: 1 };
+// rolling 6-digit code from the shared secret.
 
 const TOTP_ISSUER = "isputnik.home";
 
+// Drift tolerance, in SECONDS either side of now. otplib 12 expressed this as
+// `window: 1` (±1 thirty-second step); v13 counts seconds instead, so 30 is the
+// same tolerance written in the new unit. Its own default is 0 — the current
+// period only — which would reject anyone whose phone clock is a few seconds off.
+const TOTP_DRIFT_SECONDS = 30;
+
+// 20 bytes = 160 bits, RFC 4226's recommended size and otplib's own default.
+// Pinned explicitly rather than inherited so a future change to the library
+// default can't silently move it.
+//
+// Bigger is not stronger: TOTP is HMAC-SHA1, and HMAC folds any key longer than
+// its 64-byte block size down to a 20-byte SHA-1 digest, so entropy past that is
+// discarded outright. 20 bytes is the point where the secret stops being the
+// weakest link.
+const TOTP_SECRET_BYTES = 20;
+
+// otplib 12 minted 10-byte (80-bit) secrets — below RFC 4226's 128-bit minimum,
+// which v13 enforces by refusing them outright. Such a secret can no longer be
+// verified at all, so an account still carrying one has to re-enroll rather than
+// see its codes silently rejected as "wrong". Base32 packs 5 bits per character.
+const MIN_TOTP_SECRET_BYTES = 16;
+
+export function totpSecretBytes(secret: string): number {
+  const chars = secret.replace(/=+$/, "").replace(/\s+/g, "").length;
+  return Math.floor((chars * 5) / 8);
+}
+
+/** True for a secret minted before 3.10.3 — unverifiable now; the account must re-enroll. */
+export function isLegacyTotpSecret(secret: string): boolean {
+  return totpSecretBytes(secret) < MIN_TOTP_SECRET_BYTES;
+}
+
 export function generateTotpSecret(): string {
-  return authenticator.generateSecret();
+  return generateSecret({ length: TOTP_SECRET_BYTES });
 }
 
 // The otpauth:// URI an authenticator app imports (also encoded into the setup QR).
 export function totpKeyUri(secret: string, accountName: string): string {
-  return authenticator.keyuri(accountName, TOTP_ISSUER, secret);
+  return generateURI({ issuer: TOTP_ISSUER, label: accountName, secret });
 }
 
 export function verifyTotp(secret: string, token: string): boolean {
   try {
-    return authenticator.verify({ token: token.replace(/\s+/g, ""), secret });
+    const result = verifySync({
+      secret,
+      token: token.replace(/\s+/g, ""),
+      epochTolerance: TOTP_DRIFT_SECONDS
+    });
+    return Boolean(result?.valid);
   } catch {
-    // otplib throws on malformed input (e.g. non-numeric) — treat as a failed code.
+    // otplib throws on malformed input (a non-numeric token, or a pre-3.10.3
+    // secret it now considers too short) — either way, not a passing code.
     return false;
   }
 }
