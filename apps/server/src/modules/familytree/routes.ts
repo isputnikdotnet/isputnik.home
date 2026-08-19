@@ -118,7 +118,7 @@ const sourceFields = {
   title: z.string().trim().min(1).max(300),
   author: z.string().trim().max(200).nullable().optional(),
   publisher: z.string().trim().max(300).nullable().optional(),
-  url: z.string().trim().url().max(1000).nullable().optional(),
+  url: z.string().trim().pipe(z.url().max(1000)).nullable().optional(),
   note: z.string().trim().max(2000).nullable().optional()
 };
 const createSourceSchema = z.object(sourceFields);
@@ -126,7 +126,7 @@ const updateSourceSchema = z.object({ ...sourceFields, title: sourceFields.title
 const citationAnnotation = {
   fact: z.enum(CITATION_FACTS).nullable().optional(),
   detail: z.string().trim().max(500).nullable().optional(),
-  url: z.string().trim().url().max(1000).nullable().optional(),
+  url: z.string().trim().pipe(z.url().max(1000)).nullable().optional(),
   note: z.string().trim().max(2000).nullable().optional()
 };
 const createCitationSchema = z.object({

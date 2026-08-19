@@ -473,7 +473,7 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
       return reply.code(400).send({ error: "Name is required" });
     }
 
-    const parsed = parseBody(z.object({ url: z.string().trim().url().max(2000) }), request.body);
+    const parsed = parseBody(z.object({ url: z.string().trim().pipe(z.url().max(2000)) }), request.body);
     if (parsed.error) {
       return reply.code(400).send({ error: "Invalid photo URL", details: parsed.error });
     }
