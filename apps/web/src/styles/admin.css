@@ -237,16 +237,48 @@
   overflow-x: auto;
 }
 
+/* Fixed layout, so the table is exactly as wide as its container and never
+   scrolls sideways: every column but Detail has a set width, Detail takes what
+   is left and clips, and the row opens to show the whole record. Auto layout
+   let a long detail string widen its column past the page. */
 .log-table {
-  min-width: 700px;
+  width: 100%;
+  table-layout: fixed;
 }
 
 .log-table td {
   vertical-align: top;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.log-table td:first-child {
-  white-space: nowrap;
+.log-table th:nth-child(1) { width: 58px; }
+.log-table th:nth-child(2) { width: 178px; }
+.log-table th:nth-child(3) { width: 180px; }
+.log-table th:nth-child(5) { width: 120px; }
+.log-table th:nth-child(6) { width: 124px; }
+
+/* The expand button must never be clipped: its cell sits outside the ellipsis
+   rule and is sized to hold it with the cell's own padding. */
+.log-table td.col-expand {
+  overflow: visible;
+}
+
+/* The event pill and its action share the cell; the action is what gives way. */
+.log-table .log-event-cell {
+  min-width: 0;
+}
+
+.log-table .log-event-cell .event-action {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The opened record is the exception: it wraps, because it exists to be read whole. */
+.log-table .login-detail-row > td {
+  white-space: normal;
+  overflow: visible;
 }
 
 .log-event-cell {
@@ -286,6 +318,25 @@
 }
 
 /* Count on the left, page controls on the right — same split as .dup-pager-row. */
+/* The window toolbar sits above the filter row, with a little air between. */
+.log-range-row {
+  margin-bottom: 12px;
+}
+
+/* A person or an address in a row is a door into their Sign-ins dive — styled
+   as text with an underline on hover, so the grid doesn't fill with link blue. */
+.log-dive-link {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px dotted color-mix(in srgb, var(--muted) 60%, transparent);
+}
+
+.log-dive-link:hover,
+.log-dive-link:focus-visible {
+  color: var(--ink);
+  border-bottom-color: var(--mint);
+}
+
 .log-pager-row {
   display: flex;
   align-items: center;
@@ -2159,4 +2210,14 @@ span.status-metric-icon {
 
 .scan-rules-pick-row .folder-picker-row {
   flex: 1 1 auto;
+}
+
+/* Dashboard › Tasks: the three history narrowings in one row, wrapping on a
+   narrow screen. */
+.task-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
 }

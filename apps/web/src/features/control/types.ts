@@ -54,6 +54,8 @@ export interface LogEvent {
   ipAddress: string | null;
   createdAt: string;
   actorName: string | null;
+  /** The account behind the row, for linking into its Sign-ins dive; null for System and failures. */
+  actorId: string | null;
 }
 
 export interface LibraryStatusStats {

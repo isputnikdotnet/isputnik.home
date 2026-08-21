@@ -24,7 +24,6 @@ import { BackupSection } from "./sections/BackupSection";
 import { CategoriesSection, CategoryEditorPage } from "./sections/CategoriesSection";
 import { TagsSection } from "./sections/TagsSection";
 import { GroupsSection } from "./sections/GroupsSection";
-import { TasksSection } from "./sections/TasksSection";
 import { ScheduledJobsSection } from "./sections/ScheduledJobsSection";
 import { MissingPhotosSection } from "./sections/MissingPhotosSection";
 import { DuplicateCleanupSection } from "./sections/duplicates/DuplicateCleanupSection";
@@ -88,7 +87,6 @@ function ControlSectionBody({
   switch (section) {
     case "dashboard":       return <DashboardSection />;
     case "signins":         return <SignInsSection />;
-    case "tasks":           return <TasksSection />;
     case "logs":            return <LogsSection />;
 
     case "libraries":       return <LibrariesSection />;

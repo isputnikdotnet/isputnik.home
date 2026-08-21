@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Globe2, LayoutDashboard, LibraryBig, LineChart, LogIn, Monitor } from "lucide-react";
+import { Globe2, LayoutDashboard, LibraryBig, LineChart, ListTodo, LogIn, Monitor } from "lucide-react";
 import { api } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
 import { RefreshButton } from "../../../shared/RefreshButton";
@@ -11,12 +11,13 @@ import { ActivityView } from "./dashboard/ActivityView";
 import { LoginsView } from "./dashboard/LoginsView";
 import { LocationsView } from "./dashboard/LocationsView";
 import { LibrariesView } from "./dashboard/LibrariesView";
+import { TasksView } from "./dashboard/TasksView";
 
 // Overview › Dashboard. This used to be two pages — "System" (server health) and
 // "Dashboard" (activity trends) — folded into one, with a lighter secondary tab
 // strip switching between them: real tabs (not a dropdown), but visually distinct
 // from the page-level tab row above so it doesn't read as a second copy of it.
-type DashboardView = "system" | "activity" | "libraries" | "logins" | "locations";
+type DashboardView = "system" | "activity" | "libraries" | "tasks" | "logins" | "locations";
 
 // Logins leads: "who got in, and from where" is what this page gets opened for.
 const DASHBOARD_VIEWS: { value: DashboardView; label: string; icon: ReactNode }[] = [
@@ -24,6 +25,7 @@ const DASHBOARD_VIEWS: { value: DashboardView; label: string; icon: ReactNode }[
   { value: "locations", label: "Locations", icon: <Globe2 size={15} aria-hidden="true" /> },
   { value: "activity", label: "Activity", icon: <LineChart size={15} aria-hidden="true" /> },
   { value: "libraries", label: "Libraries", icon: <LibraryBig size={15} aria-hidden="true" /> },
+  { value: "tasks", label: "Tasks", icon: <ListTodo size={15} aria-hidden="true" /> },
   { value: "system", label: "System", icon: <Monitor size={15} aria-hidden="true" /> }
 ];
 
@@ -35,13 +37,22 @@ const RETIRED_VIEWS: Record<string, DashboardView> = {
   playback: "activity"
 };
 
-// Statistics was a page of its own (and, before that, three) until it became
-// the Libraries view here. The router aliases its old paths to this section
-// without rewriting them, so the path is what says which view was meant.
-const STATISTICS_PATH = /(statistics|stats)\/?$/;
+// Statistics and Tasks were pages of their own until they became views here.
+// The router aliases their old paths to this section without rewriting them,
+// so the path is what says which view was meant.
+const LEGACY_PATH_VIEWS: [RegExp, DashboardView][] = [
+  [/(statistics|stats)\/?$/, "libraries"],
+  [/(tasks|jobs)\/?$/, "tasks"]
+];
+
+function viewFromLegacyPath(): DashboardView | null {
+  const match = LEGACY_PATH_VIEWS.find(([pattern]) => pattern.test(window.location.pathname));
+  return match ? match[1] : null;
+}
 
 function viewFromUrl(): DashboardView {
-  if (STATISTICS_PATH.test(window.location.pathname)) return "libraries";
+  const legacy = viewFromLegacyPath();
+  if (legacy) return legacy;
   const value = new URLSearchParams(window.location.search).get("view");
   if (value && value in RETIRED_VIEWS) return RETIRED_VIEWS[value];
   return DASHBOARD_VIEWS.some((entry) => entry.value === value) ? (value as DashboardView) : "logins";
@@ -78,8 +89,9 @@ export function DashboardSection() {
     } else if (requested && requested in RETIRED_VIEWS) {
       // Same page, different tab: just tidy the address to the one that exists.
       window.history.replaceState({}, "", `${controlHref("dashboard")}?view=${RETIRED_VIEWS[requested]}`);
-    } else if (STATISTICS_PATH.test(window.location.pathname)) {
-      window.history.replaceState({}, "", `${controlHref("dashboard")}?view=libraries`);
+    } else {
+      const legacy = viewFromLegacyPath();
+      if (legacy) window.history.replaceState({}, "", `${controlHref("dashboard")}?view=${legacy}`);
     }
   }, []);
 
@@ -129,6 +141,7 @@ export function DashboardSection() {
 
       {status && view === "system" && <SystemView status={status} dbInfo={dbInfo} />}
       {status && view === "libraries" && <LibrariesView status={status} />}
+      {view === "tasks" && <TasksView />}
       {status && view === "activity" && <ActivityView status={status} />}
       {view === "logins" && <LoginsView />}
       {view === "locations" && <LocationsView />}

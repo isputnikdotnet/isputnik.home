@@ -638,7 +638,17 @@ export function withNewTaskIds<T>(action: () => T): { result: T; taskIds: string
   return { result, taskIds: [...idsNow()].filter((id) => !before.has(id)) };
 }
 
-export function listTasks(page = 1, pageSize = 25) {
+// How the finished history may be narrowed. Each facet is optional and they
+// AND together; the in-flight rows above the history are never filtered, since
+// "what is running right now" is the one answer the page must always give.
+export interface TaskFilters {
+  /** "failed" or "completed"; anything else means both. */
+  status?: string;
+  type?: string;
+  libraryId?: string;
+}
+
+export function listTasks(page = 1, pageSize = 25, filters: TaskFilters = {}) {
   // Everything in flight (however old) is always returned; only the finished
   // history is paged. The paging metadata therefore describes the history grid.
   const activeRows = db.prepare(`
@@ -649,24 +659,68 @@ export function listTasks(page = 1, pageSize = 25) {
     ORDER BY datetime(jobs.created_at) ASC
   `).all() as TaskRow[];
 
-  const { total } = db.prepare("SELECT COUNT(*) AS total FROM jobs WHERE status IN ('completed', 'failed')").get() as { total: number };
+  const conditions = ["jobs.status IN ('completed', 'failed')"];
+  const params: Record<string, string> = {};
+  if (filters.status === "failed" || filters.status === "completed") {
+    conditions.push("jobs.status = @status");
+    params.status = filters.status;
+  }
+  if (filters.type) {
+    conditions.push("jobs.type = @type");
+    params.type = filters.type;
+  }
+  if (filters.libraryId) {
+    conditions.push("json_extract(jobs.payload, '$.libraryId') = @libraryId");
+    params.libraryId = filters.libraryId;
+  }
+  const where = `WHERE ${conditions.join(" AND ")}`;
+
+  const { total } = db.prepare(`SELECT COUNT(*) AS total FROM jobs ${where}`).get(params) as { total: number };
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const current = Math.min(Math.max(1, page), totalPages);
   const finishedRows = db.prepare(`
     SELECT ${TASK_COLUMNS}
     FROM jobs
     LEFT JOIN libraries ON libraries.id = json_extract(jobs.payload, '$.libraryId')
-    WHERE jobs.status IN ('completed', 'failed')
+    ${where}
     ORDER BY datetime(jobs.created_at) DESC
-    LIMIT ? OFFSET ?
-  `).all(pageSize, (current - 1) * pageSize) as TaskRow[];
+    LIMIT @pageSize OFFSET @offset
+  `).all({ ...params, pageSize, offset: (current - 1) * pageSize }) as TaskRow[];
+
+  // What the filter controls can offer, across the whole history rather than the
+  // page — and the glance numbers for the cards above the tables.
+  const typeRows = db.prepare("SELECT DISTINCT type AS value FROM jobs ORDER BY value").all() as { value: string }[];
+  const libraryRows = db.prepare(`
+    SELECT DISTINCT libraries.id, libraries.name
+    FROM jobs JOIN libraries ON libraries.id = json_extract(jobs.payload, '$.libraryId')
+    ORDER BY libraries.name
+  `).all() as { id: string; name: string }[];
+  const failedWeek = (db.prepare(`
+    SELECT COUNT(*) AS n FROM jobs
+    WHERE status = 'failed' AND datetime(COALESCE(failed_at, created_at)) > datetime('now', '-7 days')
+  `).get() as { n: number }).n;
+  const lastFinished = db.prepare(`
+    SELECT ${TASK_COLUMNS}
+    FROM jobs
+    LEFT JOIN libraries ON libraries.id = json_extract(jobs.payload, '$.libraryId')
+    WHERE jobs.status = 'completed'
+    ORDER BY datetime(jobs.completed_at) DESC
+    LIMIT 1
+  `).get() as TaskRow | undefined;
 
   return {
     jobs: [...activeRows, ...finishedRows].map(taskView),
     page: current,
     pageSize,
     total,
-    totalPages
+    totalPages,
+    facets: { types: typeRows.map((row) => row.value), libraries: libraryRows },
+    summary: {
+      running: activeRows.filter((row) => row.status === "running").length,
+      queued: activeRows.filter((row) => row.status === "pending").length,
+      failedWeek,
+      lastFinished: lastFinished ? taskView(lastFinished) : null
+    }
   };
 }
 
@@ -680,10 +734,14 @@ const configSchema = z.object({
 
 export async function maintenancePlugin(app: FastifyInstance) {
   app.get("/api/jobs", { preHandler: app.requireAdmin }, async (request) => {
-    const query = request.query as { page?: string; pageSize?: string };
+    const query = request.query as { page?: string; pageSize?: string; status?: string; type?: string; library?: string };
     const page = Math.max(1, Number.parseInt(query.page ?? "1", 10) || 1);
     const pageSize = Math.min(100, Math.max(1, Number.parseInt(query.pageSize ?? "25", 10) || 25));
-    return listTasks(page, pageSize);
+    return listTasks(page, pageSize, {
+      status: query.status?.trim() || undefined,
+      type: query.type?.trim() || undefined,
+      libraryId: query.library?.trim() || undefined
+    });
   });
 
   app.post("/api/jobs/:id/cancel", { preHandler: app.requireAdmin }, async (request, reply) => {

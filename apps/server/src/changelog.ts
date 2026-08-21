@@ -19,6 +19,17 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.16.0",
+    label: "Logs you can narrow, sort, open and export — and Tasks joins the dashboard",
+    changes: [
+      "The Logs page was hiding most of what its server could do. It now opens with a date toolbar — All for the whole archive, or the same hour-to-month presets and custom range the dashboard uses — and every column heading sorts. The event filter lists each event by its full name, so \"auth.login_failed\" is a filter of its own rather than a corner of \"auth\"; the list is searchable, so typing a category still finds its events.",
+      "The arrow at the start of a log row opens the whole record underneath it, in the same layout the Logins table uses. A person's name in a row is now a link into their Sign-ins page, and an outside address into its own — the archive and the analytics finally point at each other. Addresses inside the house stay plain text; there is nothing to dive into.",
+      "A download button exports exactly what is on screen — every row matching the window, filters and sort, not just the current page — as a CSV file. It is built by the same query as the table, so the file can never disagree with the screen, and anything that looks like a spreadsheet formula is defused before it is written.",
+      "Tasks moved from its own tab to a view on the Dashboard, beside Libraries. It opens with four cards — what is running, what is queued, how many tasks failed this week, and when the last one finished — and a row saying when the next scheduled run is due, which opens Maintenance › Scheduled jobs. The finished history, once an unfiltered list, can be narrowed to failures only, to one kind of task, or to one library. Running and queued tasks keep their live progress and cancel buttons; old addresses for Tasks land on the new view.",
+      "Both pages show ten rows at a time and sit tighter, and the log table now fits its page exactly — a long detail line is clipped with an ellipsis instead of widening the table past the edge, and opens whole with the row."
+    ]
+  },
+  {
     version: "3.15.0",
     label: "A System tab that answers \"is the server well?\", and Statistics becomes the Libraries tab",
     changes: [

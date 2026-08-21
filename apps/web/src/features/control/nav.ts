@@ -50,7 +50,6 @@ export const CONTROL_GROUPS: ControlGroupDef[] = [
     tabs: [
       { section: "dashboard", label: "Dashboard" },
       { section: "signins", label: "Sign-ins" },
-      { section: "tasks", label: "Tasks" },
       { section: "logs", label: "Logs" }
     ]
   },

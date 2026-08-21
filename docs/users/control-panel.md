@@ -9,7 +9,7 @@ it points there rather than repeating it.
 
 | Section | Tabs |
 |---|---|
-| **Overview** | Dashboard, Sign-ins, Tasks, Logs |
+| **Overview** | Dashboard, Sign-ins, Logs |
 | **Library** | Libraries, Storage, Categories, Tags |
 | **Members** | Users, Groups, Invite links |
 | **Security** | Overview, Policies, Trusted networks, Blocked IPs |
@@ -51,8 +51,16 @@ tabs under the heading — real tabs, not a dropdown:
 - **Libraries** — what's *in* the catalogue, every media type on one page: a card
   each for audiobooks, ebooks and photos & videos, and one for the total on disk;
   every library in one table, biggest first, with its share of the storage drawn
-  beside it; and the people and formats that make up the collection — top authors
-  across both book types, top narrators by hours, and the ebook formats in use.
+  beside it; and three short lists side by side — top authors across both book
+  types, top narrators by hours, and the biggest gallery files.
+- **Tasks** — scans and other background work. Four cards say what is running,
+  what is queued, how many tasks failed this week, and when the last one
+  finished; a row under them says when the next scheduled run is due and opens
+  Maintenance → Scheduled jobs. Running and queued tasks sit in their own tables
+  with live progress and a cancel button. The finished history can be narrowed
+  to failures only, to one kind of task, or to one library — so "which scans
+  failed, and where?" is a filter, not a scroll. A failed row's error opens
+  underneath it.
 - **Logins** — the view the page opens on. Pick a window (1h, 7h, 24h, 7d, 30d,
   or a custom start and end)
   and everything below follows it: cards for attempts, successes, failures and
@@ -115,18 +123,22 @@ tabs under the heading — real tabs, not a dropdown:
   every member — a snapshot that doesn't follow the range, since a book's reading
   position is overwritten as you go rather than logged session by session.
 
-### Tasks
-
-Every scan and conversion, split into Running, Queued and History, with live
-progress. When a scan seems stuck, this is the page that says otherwise.
-
 ### Logs
 
 The activity history: who signed in, what was scanned, what was deleted, what an
-administrator changed. Searchable, and you can clear old records — the Dashboard's
-System tab tells you when they've grown large enough to be worth it.
+administrator changed. This is where you look after a security alert, to see
+what actually happened.
 
-This is where you look after a security alert, to see what actually happened.
+Pick a window first — **All** for the whole archive, or the same 1h … 30d and
+custom presets the dashboard uses — then search, filter by event (each event by
+its full name, so "auth.login_failed" is a filter of its own), by user, or by
+address, and click a column heading to sort by it. The arrow at the start of a
+row opens the whole record underneath. A person's name or an outside address in
+a row is a link into their Sign-ins dive. The download button exports exactly
+what is on screen — every row matching the window, filters and sort, not just
+the page — as a CSV, and the bin button clears records older than an age you
+choose at the moment of deleting; the Dashboard's System tab tells you when
+they've grown large enough to be worth it.
 
 ---
 
