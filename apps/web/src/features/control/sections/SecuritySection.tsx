@@ -1,11 +1,13 @@
-import { useState, useEffect, useCallback, type FormEvent } from "react";
+import { Fragment, useState, useEffect, useCallback, type FormEvent } from "react";
 import {
-  AlertTriangle,
   Ban,
+  ChevronDown,
+  ChevronRight,
   CircleOff,
+  ExternalLink,
+  KeyRound,
   Globe,
   Infinity as InfinityIcon,
-  Info,
   LockKeyhole,
   MailWarning,
   MonitorSmartphone,
@@ -18,7 +20,10 @@ import {
   UserRound
 } from "lucide-react";
 import { api } from "../../../api";
-import type { ControlSection } from "../../../router";
+import { controlHref, navigate, type ControlSection } from "../../../router";
+import { Pager } from "../../../shared/Pager";
+import { signInsHref } from "./dashboard/SignInsSection";
+import { ProtectionCard, gradePolicies, type Exposure } from "./SecurityProtection";
 import { ControlSectionHead } from "../ControlSectionHead";
 import { Button } from "../../../shared/Button";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
@@ -34,6 +39,8 @@ interface TrustedNetwork {
   cidr: string;
   label: string | null;
   createdAt: string;
+  /** Live sessions whose address falls inside the range — what it is actually doing. */
+  liveSessions: number;
 }
 
 interface IpReputationInfo {
@@ -73,6 +80,7 @@ interface SecurityPolicy {
   reputationAutoEscalate: boolean;
   reputationEscalateThreshold: number;
   trustedDeletesOnly: boolean;
+  exposure: Exposure;
 }
 
 interface PasswordPolicy {
@@ -80,7 +88,16 @@ interface PasswordPolicy {
   requireComplexity: boolean;
 }
 
+interface SecurityPosture {
+  failed24h: number;
+  failedPrev24h: number;
+  blocked: { live: number; permanent: number; lapsed: number };
+  lockedAccounts: string[];
+  mfa: { enrolled: number; total: number; adminsWithout: number };
+}
+
 interface SecurityData {
+  posture: SecurityPosture;
   policy: SecurityPolicy;
   proxy: {
     trustProxyHops: number;
@@ -148,6 +165,12 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
   const [blockOpen, setBlockOpen] = useState(false);
   const [blockError, setBlockError] = useState("");
   const [permanentTarget, setPermanentTarget] = useState<BlockedIp | null>(null);
+  // Blocked IPs: which kind the list shows, and where in it we are.
+  const [blockFilter, setBlockFilter] = useState<"all" | "live" | "permanent" | "lapsed">("all");
+  const [blockPage, setBlockPage] = useState(1);
+  const [pendingClearLapsed, setPendingClearLapsed] = useState(false);
+  const [expandedBlock, setExpandedBlock] = useState<string | null>(null);
+  const [clearingLapsed, setClearingLapsed] = useState(false);
   const [makingPermanent, setMakingPermanent] = useState(false);
   const [permanentError, setPermanentError] = useState("");
   const [checkingIp, setCheckingIp] = useState<string | null>(null);
@@ -359,6 +382,52 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
     }
   };
 
+  const [savingExposure, setSavingExposure] = useState(false);
+  const setExposure = async (next: Exposure) => {
+    if (!policyForm || policyForm.exposure === next) return;
+    setSavingExposure(true);
+    setError("");
+    try {
+      const res = await api<{ policy: SecurityPolicy }>("/api/security/policy", {
+        method: "PATCH",
+        body: JSON.stringify({ ...policyForm, exposure: next })
+      });
+      setPolicyForm(res.policy);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to save how the server is reached");
+    } finally {
+      setSavingExposure(false);
+    }
+  };
+
+  const clearLapsed = async () => {
+    setClearingLapsed(true);
+    setBlockError("");
+    try {
+      await api("/api/security/blocked-ips/lapsed", { method: "DELETE" });
+      setPendingClearLapsed(false);
+      await fetchSecurity();
+    } catch (err) {
+      setBlockError(err instanceof Error ? err.message : "Unable to clear lapsed blocks");
+      setPendingClearLapsed(false);
+    } finally {
+      setClearingLapsed(false);
+    }
+  };
+
+  // The blocked list, narrowed by the chips and cut to a page. Running blocks
+  // first, then permanent, then lapsed — the order of how much they matter today.
+  const BLOCK_PAGE_SIZE = 10;
+  const blockKind = (entry: BlockedIp): "live" | "permanent" | "lapsed" =>
+    entry.expired ? "lapsed" : entry.expiresAt === null ? "permanent" : "live";
+  const blockCounts = { live: 0, permanent: 0, lapsed: 0 };
+  for (const entry of data?.blockedIps ?? []) blockCounts[blockKind(entry)] += 1;
+  const blockedRows = (data?.blockedIps ?? []).filter((entry) => blockFilter === "all" || blockKind(entry) === blockFilter);
+  const blockTotalPages = Math.max(1, Math.ceil(blockedRows.length / BLOCK_PAGE_SIZE));
+  const blockCurrent = Math.min(blockPage, blockTotalPages);
+  const blockedPage = blockedRows.slice((blockCurrent - 1) * BLOCK_PAGE_SIZE, blockCurrent * BLOCK_PAGE_SIZE);
+
   return (
     <>
       <ControlSectionHead
@@ -390,189 +459,98 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
               id="security-panel-overview"
               hidden={activeTab !== "overview"}
             >
-              <section className="security-overview-dashboard" aria-label="Security overview">
-                <div className="security-overview-cards">
-                  <article className="security-overview-card">
-                    <span
-                      className={`security-overview-card-icon ${
-                        data.proxy.forwardedHeaderSeen && !data.proxy.configured
-                          ? "warning"
-                          : data.proxy.configured
-                            ? "success"
-                            : "info"
-                      }`}
-                      aria-hidden="true"
-                    >
-                      <UserRound size={26} />
-                    </span>
-                    <div className="security-overview-card-copy">
-                      <span className="security-overview-card-label">IP mode</span>
-                      <strong>
-                        {data.proxy.forwardedHeaderSeen && !data.proxy.configured
-                          ? "Proxy attention"
-                          : data.proxy.configured
-                            ? "Proxy trust configured"
-                            : "Direct IP"}
-                      </strong>
-                      <span>
-                        {data.proxy.configured
-                          ? `${data.proxy.trustProxyHops} proxy hop${data.proxy.trustProxyHops === 1 ? "" : "s"} trusted`
-                          : "Proxy hops not set"}
-                      </span>
-                    </div>
-                  </article>
+              {/* Where every setting stands, each row a door to the policy that
+                  owns it — coloured when something needs attention. */}
+              <section className="security-overview-dashboard compact-tables" aria-label="Security overview">
+                <ProtectionCard
+                  grades={gradePolicies({
+                    policy: data.policy,
+                    proxy: data.proxy,
+                    passwordPolicy: data.passwordPolicy,
+                    mailConfigured: data.mailConfigured,
+                    trustedNetworkCount: data.trustedNetworks.length
+                  })}
+                  exposure={data.policy.exposure}
+                  proxySeen={data.proxy.forwardedHeaderSeen}
+                  saving={savingExposure}
+                  onExposureChange={setExposure}
+                />
 
-                  <article className="security-overview-card">
-                    <span className="security-overview-card-icon info" aria-hidden="true">
-                      <LockKeyhole size={26} />
-                    </span>
-                    <div className="security-overview-card-copy">
-                      <span className="security-overview-card-label">Lockout</span>
-                      <strong>{data.policy.lockoutMinutes} min</strong>
-                      <span>{data.policy.lockoutThreshold} failed attempts</span>
-                    </div>
-                  </article>
-
-                  <article className="security-overview-card">
-                    <span className="security-overview-card-icon info" aria-hidden="true">
-                      <Globe size={26} />
-                    </span>
-                    <div className="security-overview-card-copy">
-                      <span className="security-overview-card-label">IP auto-block</span>
-                      <strong>{data.policy.ipAutoblockMinutes} min</strong>
-                      <span>{data.policy.ipFailThreshold} failed in {data.policy.ipFailWindowMinutes} min</span>
-                    </div>
-                  </article>
-
-                  <article className="security-overview-card">
-                    <span
-                      className={`security-overview-card-icon ${
-                        data.policy.alertNewIpSignIn && !data.mailConfigured ? "warning" : "info"
-                      }`}
-                      aria-hidden="true"
-                    >
-                      <MailWarning size={26} />
-                    </span>
-                    <div className="security-overview-card-copy">
-                      <span className="security-overview-card-label">Sign-in alerts</span>
-                      <strong>{data.policy.alertNewIpSignIn ? "On" : "Off"}</strong>
-                      <span>
-                        {!data.policy.alertNewIpSignIn
-                          ? "New networks are not emailed"
-                          : data.mailConfigured
-                            ? "Emailed on a new network"
-                            : "SMTP not configured"}
-                      </span>
-                    </div>
-                  </article>
-
-                  <article className="security-overview-card">
-                    <span
-                      className={`security-overview-card-icon ${
-                        data.policy.requireMfaOutside && !data.mailConfigured ? "warning" : "info"
-                      }`}
-                      aria-hidden="true"
-                    >
-                      <LockKeyhole size={26} />
-                    </span>
-                    <div className="security-overview-card-copy">
-                      <span className="security-overview-card-label">Two-factor outside</span>
-                      <strong>{data.policy.requireMfaOutside ? "Required" : "Optional"}</strong>
-                      <span>
-                        {!data.policy.requireMfaOutside
-                          ? "Per-account enrollment only"
-                          : data.mailConfigured
-                            ? "Email fallback for the un-enrolled"
-                            : "SMTP not configured"}
-                      </span>
-                    </div>
-                  </article>
-
-                  <article className="security-overview-card">
-                    <span className="security-overview-card-icon success" aria-hidden="true">
-                      <ShieldCheck size={26} />
-                    </span>
-                    <div className="security-overview-card-copy">
-                      <span className="security-overview-card-label">Status</span>
-                      <strong className="security-overview-success">Protected</strong>
-                      <span>Automatic protection on</span>
-                    </div>
-                  </article>
+                <div className="status-subsection">
+                  <div className="status-table-title">
+                    <h3>Policies</h3>
+                    <span>Each row opens the setting that owns it</span>
+                  </div>
+                  <div className="datagrid-wrap">
+                    <table className="datagrid locations-table">
+                      <tbody>
+                        {(() => {
+                          const ROW_PRESENTATION: Record<string, { icon: typeof ShieldCheck; target: { section: ControlSection } | { href: string } }> = {
+                            proxy: { icon: UserRound, target: { href: repoFileUrl("docs/users/exposing-to-the-internet.md") } },
+                            lockout: { icon: LockKeyhole, target: { section: "securityPolicies" } },
+                            autoblock: { icon: Globe, target: { section: "securityPolicies" } },
+                            mfa: { icon: LockKeyhole, target: { section: "securityPolicies" } },
+                            alerts: { icon: MailWarning, target: { section: "securityPolicies" } },
+                            deletes: { icon: Trash2, target: { section: "securityPolicies" } },
+                            devices: { icon: MonitorSmartphone, target: { section: "securityPolicies" } },
+                            password: { icon: KeyRound, target: { section: "securityPolicies" } },
+                            reputation: { icon: ShieldQuestion, target: { section: "securityPolicies" } }
+                          };
+                          const rows = gradePolicies({
+                            policy: data.policy,
+                            proxy: data.proxy,
+                            passwordPolicy: data.passwordPolicy,
+                            mailConfigured: data.mailConfigured,
+                            trustedNetworkCount: data.trustedNetworks.length
+                          }).map((grade) => ({ ...grade, ...ROW_PRESENTATION[grade.key] }));
+                          return rows.map((row) => {
+                            const Icon = row.icon;
+                            const open = () =>
+                              "section" in row.target ? navigate(controlHref(row.target.section)) : window.open(row.target.href, "_blank", "noreferrer");
+                            return (
+                              <tr key={row.label} className="system-pointer-row" onClick={open}>
+                                <td>
+                                  <span className="location-cell">
+                                    <Icon size={17} aria-hidden="true" className="signins-device-icon" />
+                                    <span className="datagrid-primary">
+                                      <strong>{row.label}</strong>
+                                      <small>{row.note}</small>
+                                    </span>
+                                  </span>
+                                </td>
+                                <td className="col-num">
+                                  <span className="system-pointer-value">{row.value}</span>
+                                </td>
+                                <td className="security-level-cell">
+                                  <span
+                                    className={`rate-pill security-level rate-${
+                                      row.level === "strong" ? "good" : row.level === "medium" ? "warn" : "bad"
+                                    }`}
+                                  >
+                                    {row.level === "strong" ? "Strong" : row.level === "medium" ? "Medium" : "Weak"}
+                                  </span>
+                                </td>
+                                <td className="locations-row-action">
+                                  <Button
+                                    variant="icon"
+                                    aria-label={"section" in row.target ? `Open ${row.label} settings` : "Read the exposing-to-the-internet guide"}
+                                    title={"section" in row.target ? "Open the setting" : "Read the guide"}
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      open();
+                                    }}
+                                  >
+                                    {"section" in row.target ? <ChevronRight size={16} aria-hidden="true" /> : <ExternalLink size={15} aria-hidden="true" />}
+                                  </Button>
+                                </td>
+                              </tr>
+                            );
+                          });
+                        })()}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-
-                <section
-                  className={`security-dashboard-message ${
-                    data.proxy.forwardedHeaderSeen && !data.proxy.configured
-                      ? "warning"
-                      : data.proxy.configured
-                        ? "success"
-                        : "info"
-                  }`}
-                  aria-labelledby="proxy-status-heading"
-                >
-                  <span className="security-dashboard-message-icon" aria-hidden="true">
-                    {data.proxy.forwardedHeaderSeen && !data.proxy.configured ? (
-                      <AlertTriangle size={26} />
-                    ) : data.proxy.configured ? (
-                      <ShieldCheck size={26} />
-                    ) : (
-                      <Info size={26} />
-                    )}
-                  </span>
-                  <div>
-                    <h2 id="proxy-status-heading">
-                      {data.proxy.forwardedHeaderSeen && !data.proxy.configured
-                        ? "Proxy trust needs attention"
-                        : data.proxy.configured
-                          ? "Proxy trust is configured"
-                          : "Using direct connection IPs"}
-                    </h2>
-                    {data.proxy.forwardedHeaderSeen && !data.proxy.configured ? (
-                      <p>
-                        Requests include <code>X-Forwarded-For</code>, but <code>TRUST_PROXY_HOPS</code> is not set.
-                        Every visitor may look like the proxy IP, which can break rate limits and trusted networks.
-                      </p>
-                    ) : data.proxy.configured ? (
-                      <p>
-                        Trusting {data.proxy.trustProxyHops} proxy hop{data.proxy.trustProxyHops === 1 ? "" : "s"}{" "}
-                        before reading the forwarded client IP.
-                      </p>
-                    ) : (
-                      <>
-                        <p>
-                          <code>TRUST_PROXY_HOPS</code> is not set, so security checks use the direct connection IP.
-                          This is fine when the app is not behind a proxy.
-                        </p>
-                        <p className="security-help-link">
-                          <a
-                            href={repoFileUrl("docs/users/exposing-to-the-internet.md")}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            Read the exposing-to-the-internet guide
-                          </a>
-                        </p>
-                      </>
-                    )}
-                  </div>
-                </section>
-
-                <section className="security-dashboard-message success" aria-labelledby="protection-status-heading">
-                  <span className="security-dashboard-message-icon" aria-hidden="true">
-                    <ShieldCheck size={26} />
-                  </span>
-                  <div>
-                    <h2 id="protection-status-heading">Automatic protection is on</h2>
-                    <p>
-                      Accounts lock for {data.policy.lockoutMinutes} minutes after {data.policy.lockoutThreshold}{" "}
-                      failed sign-ins.
-                    </p>
-                    <p>
-                      An IP is auto-blocked for {data.policy.ipAutoblockMinutes} minutes after{" "}
-                      {data.policy.ipFailThreshold} failed sign-ins within {data.policy.ipFailWindowMinutes} minutes.
-                    </p>
-                  </div>
-                </section>
               </section>
             </div>
 
@@ -684,73 +662,6 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                 )}
               </section>
 
-              <section className="security-block security-policy-card" aria-labelledby="signin-alert-heading">
-                <div className="security-policy-card-head">
-                  <span className="security-policy-icon" aria-hidden="true">
-                    <MailWarning size={24} />
-                  </span>
-                  <div>
-                    <h2 id="signin-alert-heading">Sign-in alerts</h2>
-                    <p className="section-description">
-                      Warn about a successful sign-in from somewhere the account has never been used.
-                    </p>
-                  </div>
-                </div>
-                {policyForm && (
-                  <form className="security-policy-form" onSubmit={(event) => savePolicy(event, "alerts")}>
-                    <label className="security-setting-row security-setting-row-checkbox">
-                      <input
-                        type="checkbox"
-                        checked={policyForm.alertNewIpSignIn}
-                        onChange={(event) =>
-                          setPolicyForm({ ...policyForm, alertNewIpSignIn: event.target.checked })
-                        }
-                      />
-                      <span className="security-setting-copy">
-                        <span className="security-setting-label">Email on a sign-in from a new network</span>
-                        <span className="security-setting-help">
-                          The account owner and the admins are emailed. Networks are matched loosely (the /24 for
-                          IPv4, the /64 for IPv6) so a changing home or mobile address doesn't alert every time.
-                          Sign-ins from trusted networks never alert.
-                        </span>
-                      </span>
-                    </label>
-
-                    {!data.mailConfigured && (
-                      <MessageBox tone="warning" title="Email is not set up">
-                        These alerts are sent over SMTP. Configure it under Control panel → Settings → Email,
-                        or this setting has no effect.
-                      </MessageBox>
-                    )}
-
-                    {data.proxy.forwardedHeaderSeen && !data.proxy.configured && (
-                      <MessageBox tone="warning" title="Client IPs aren't accurate yet">
-                        Requests arrive through a proxy but <code>TRUST_PROXY_HOPS</code> is not set, so every visitor
-                        looks like the proxy address. Until you set it, a new network is never detected.
-                      </MessageBox>
-                    )}
-
-                    {policyError?.scope === "alerts" && (
-                      <MessageBox tone="error" title="Unable to save">{policyError.message}</MessageBox>
-                    )}
-                    {policySaved === "alerts" && (
-                      <MessageBox tone="success" title="Saved">Sign-in alerts updated.</MessageBox>
-                    )}
-                    <div className="security-policy-actions">
-                      <Button
-                        variant="primary"
-                        className="security-save-button"
-                        type="submit"
-                        disabled={savingPolicy !== null}
-                      >
-                        <Save size={16} />
-                        {savingPolicy === "alerts" ? "Saving…" : "Save sign-in alerts"}
-                      </Button>
-                    </div>
-                  </form>
-                )}
-              </section>
-
               <section className="security-block security-policy-card" aria-labelledby="mfa-outside-heading">
                 <div className="security-policy-card-head">
                   <span className="security-policy-icon" aria-hidden="true">
@@ -830,6 +741,131 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                 )}
               </section>
 
+              <section className="security-block security-policy-card" aria-labelledby="signin-alert-heading">
+                <div className="security-policy-card-head">
+                  <span className="security-policy-icon" aria-hidden="true">
+                    <MailWarning size={24} />
+                  </span>
+                  <div>
+                    <h2 id="signin-alert-heading">Sign-in alerts</h2>
+                    <p className="section-description">
+                      Warn about a successful sign-in from somewhere the account has never been used.
+                    </p>
+                  </div>
+                </div>
+                {policyForm && (
+                  <form className="security-policy-form" onSubmit={(event) => savePolicy(event, "alerts")}>
+                    <label className="security-setting-row security-setting-row-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={policyForm.alertNewIpSignIn}
+                        onChange={(event) =>
+                          setPolicyForm({ ...policyForm, alertNewIpSignIn: event.target.checked })
+                        }
+                      />
+                      <span className="security-setting-copy">
+                        <span className="security-setting-label">Email on a sign-in from a new network</span>
+                        <span className="security-setting-help">
+                          The account owner and the admins are emailed. Networks are matched loosely (the /24 for
+                          IPv4, the /64 for IPv6) so a changing home or mobile address doesn't alert every time.
+                          Sign-ins from trusted networks never alert.
+                        </span>
+                      </span>
+                    </label>
+
+                    {!data.mailConfigured && (
+                      <MessageBox tone="warning" title="Email is not set up">
+                        These alerts are sent over SMTP. Configure it under Control panel → Settings → Email,
+                        or this setting has no effect.
+                      </MessageBox>
+                    )}
+
+                    {data.proxy.forwardedHeaderSeen && !data.proxy.configured && (
+                      <MessageBox tone="warning" title="Client IPs aren't accurate yet">
+                        Requests arrive through a proxy but <code>TRUST_PROXY_HOPS</code> is not set, so every visitor
+                        looks like the proxy address. Until you set it, a new network is never detected.
+                      </MessageBox>
+                    )}
+
+                    {policyError?.scope === "alerts" && (
+                      <MessageBox tone="error" title="Unable to save">{policyError.message}</MessageBox>
+                    )}
+                    {policySaved === "alerts" && (
+                      <MessageBox tone="success" title="Saved">Sign-in alerts updated.</MessageBox>
+                    )}
+                    <div className="security-policy-actions">
+                      <Button
+                        variant="primary"
+                        className="security-save-button"
+                        type="submit"
+                        disabled={savingPolicy !== null}
+                      >
+                        <Save size={16} />
+                        {savingPolicy === "alerts" ? "Saving…" : "Save sign-in alerts"}
+                      </Button>
+                    </div>
+                  </form>
+                )}
+              </section>
+
+              <section className="security-block security-policy-card" aria-labelledby="deletes-heading">
+                <div className="security-policy-card-head">
+                  <span className="security-policy-icon" aria-hidden="true">
+                    <Trash2 size={24} />
+                  </span>
+                  <div>
+                    <h2 id="deletes-heading">Deletion protection</h2>
+                    <p className="section-description">
+                      Keep destructive actions to networks you trust, so stolen credentials used from the internet
+                      can't destroy the library.
+                    </p>
+                  </div>
+                </div>
+                {policyForm && (
+                  <form className="security-policy-form" onSubmit={(event) => savePolicy(event, "deletes")}>
+                    <label className="security-setting-row security-setting-row-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={policyForm.trustedDeletesOnly}
+                        onChange={(event) =>
+                          setPolicyForm({ ...policyForm, trustedDeletesOnly: event.target.checked })
+                        }
+                      />
+                      <span className="security-setting-copy">
+                        <span className="security-setting-label">Allow deletions only from trusted networks</span>
+                        <span className="security-setting-help">
+                          Applies to every account, admins included. Away from home, everything still works — browsing,
+                          uploads, edits, progress — but deleting items, emptying the Recycle Bin, cleaning up
+                          duplicates, and restoring backups are refused until you're back on a trusted network.
+                        </span>
+                      </span>
+                    </label>
+                    {policyForm.trustedDeletesOnly && data.trustedNetworks.length === 0 && (
+                      <MessageBox tone="warning" title="No trusted networks are defined">
+                        With this on and no trusted networks, nobody can delete anything from anywhere. Add your home
+                        network under Trusted networks, or turn this off.
+                      </MessageBox>
+                    )}
+                    {policyError?.scope === "deletes" && (
+                      <MessageBox tone="error" title="Unable to save">{policyError.message}</MessageBox>
+                    )}
+                    {policySaved === "deletes" && (
+                      <MessageBox tone="success" title="Saved">Deletion protection updated.</MessageBox>
+                    )}
+                    <div className="security-policy-actions">
+                      <Button
+                        variant="primary"
+                        className="security-save-button"
+                        type="submit"
+                        disabled={savingPolicy !== null}
+                      >
+                        <Save size={16} />
+                        {savingPolicy === "deletes" ? "Saving…" : "Save deletion protection"}
+                      </Button>
+                    </div>
+                  </form>
+                )}
+              </section>
               <section className="security-block security-policy-card" aria-labelledby="device-link-heading">
                 <div className="security-policy-card-head">
                   <span className="security-policy-icon" aria-hidden="true">
@@ -1054,64 +1090,6 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                 )}
               </section>
 
-              <section className="security-block security-policy-card" aria-labelledby="deletes-heading">
-                <div className="security-policy-card-head">
-                  <span className="security-policy-icon" aria-hidden="true">
-                    <Trash2 size={24} />
-                  </span>
-                  <div>
-                    <h2 id="deletes-heading">Deletion protection</h2>
-                    <p className="section-description">
-                      Keep destructive actions to networks you trust, so stolen credentials used from the internet
-                      can't destroy the library.
-                    </p>
-                  </div>
-                </div>
-                {policyForm && (
-                  <form className="security-policy-form" onSubmit={(event) => savePolicy(event, "deletes")}>
-                    <label className="security-setting-row security-setting-row-checkbox">
-                      <input
-                        type="checkbox"
-                        checked={policyForm.trustedDeletesOnly}
-                        onChange={(event) =>
-                          setPolicyForm({ ...policyForm, trustedDeletesOnly: event.target.checked })
-                        }
-                      />
-                      <span className="security-setting-copy">
-                        <span className="security-setting-label">Allow deletions only from trusted networks</span>
-                        <span className="security-setting-help">
-                          Applies to every account, admins included. Away from home, everything still works — browsing,
-                          uploads, edits, progress — but deleting items, emptying the Recycle Bin, cleaning up
-                          duplicates, and restoring backups are refused until you're back on a trusted network.
-                        </span>
-                      </span>
-                    </label>
-                    {policyForm.trustedDeletesOnly && data.trustedNetworks.length === 0 && (
-                      <MessageBox tone="warning" title="No trusted networks are defined">
-                        With this on and no trusted networks, nobody can delete anything from anywhere. Add your home
-                        network under Trusted networks, or turn this off.
-                      </MessageBox>
-                    )}
-                    {policyError?.scope === "deletes" && (
-                      <MessageBox tone="error" title="Unable to save">{policyError.message}</MessageBox>
-                    )}
-                    {policySaved === "deletes" && (
-                      <MessageBox tone="success" title="Saved">Deletion protection updated.</MessageBox>
-                    )}
-                    <div className="security-policy-actions">
-                      <Button
-                        variant="primary"
-                        className="security-save-button"
-                        type="submit"
-                        disabled={savingPolicy !== null}
-                      >
-                        <Save size={16} />
-                        {savingPolicy === "deletes" ? "Saving…" : "Save deletion protection"}
-                      </Button>
-                    </div>
-                  </form>
-                )}
-              </section>
             </div>
 
             <div
@@ -1119,7 +1097,7 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
               id="security-panel-trusted"
               hidden={activeTab !== "trusted"}
             >
-              <section className="security-block security-network-view" aria-labelledby="trusted-heading">
+              <section className="security-block security-network-view compact-tables" aria-labelledby="trusted-heading">
                 <div className="security-network-head">
                   <h2 id="trusted-heading">Trusted networks</h2>
                   <p className="section-description">
@@ -1172,11 +1150,12 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                   </div>
                 ) : (
                   <div className="datagrid-wrap security-network-table">
-                    <table className="datagrid">
+                    <table className="datagrid trusted-table">
                       <thead>
                         <tr>
                           <th>Range</th>
                           <th>Label</th>
+                          <th className="col-num">In use</th>
                           <th>Added</th>
                           <th className="col-actions">Actions</th>
                         </tr>
@@ -1188,6 +1167,11 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                               <code>{network.cidr}</code>
                             </td>
                             <td className="datagrid-muted">{network.label || "—"}</td>
+                            <td className={`col-num${network.liveSessions > 0 ? "" : " datagrid-muted"}`}>
+                              {network.liveSessions > 0
+                                ? `${network.liveSessions} ${network.liveSessions === 1 ? "session" : "sessions"}`
+                                : "—"}
+                            </td>
                             <td className="datagrid-muted">{formatManagedDate(network.createdAt)}</td>
                             <td className="col-actions">
                               <Button
@@ -1214,7 +1198,7 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
               id="security-panel-blocked"
               hidden={activeTab !== "blocked"}
             >
-              <section className="security-block security-network-view" aria-labelledby="blocked-heading">
+              <section className="security-block security-network-view compact-tables" aria-labelledby="blocked-heading">
                 <div className="security-network-head">
                   <h2 id="blocked-heading">Blocked IPs</h2>
                   <p className="section-description">
@@ -1224,6 +1208,42 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                 </div>
 
                 <div className="security-list-actions">
+                  {/* Counter and filter in one, like the device chips on Sign-ins:
+                      running blocks matter today, permanent ones were chosen,
+                      lapsed ones are history. */}
+                  <div className="device-type-chips" role="group" aria-label="Filter blocked addresses">
+                    {([
+                      ["live", "running"],
+                      ["permanent", "permanent"],
+                      ["lapsed", "lapsed"]
+                    ] as const).map(([kind, word]) => (
+                      <button
+                        key={kind}
+                        type="button"
+                        className={`device-type-chip${blockFilter === kind ? " is-active" : ""}`}
+                        aria-pressed={blockFilter === kind}
+                        onClick={() => {
+                          setBlockFilter(blockFilter === kind ? "all" : kind);
+                          setBlockPage(1);
+                        }}
+                      >
+                        <strong>{blockCounts[kind]}</strong> {word}
+                      </button>
+                    ))}
+                  </div>
+                  <span className="signins-scope-spacer" />
+                  {blockCounts.lapsed > 0 && (
+                    <Button
+                      variant="secondary"
+                      onClick={() => {
+                        setBlockError("");
+                        setPendingClearLapsed(true);
+                      }}
+                    >
+                      <Trash2 size={15} aria-hidden="true" />
+                      Clear {blockCounts.lapsed} lapsed
+                    </Button>
+                  )}
                   <Button
                     variant="danger"
                     onClick={() => {
@@ -1260,107 +1280,200 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                   </div>
                 ) : (
                   <div className="datagrid-wrap security-network-table">
-                    <table className="datagrid">
+                    <table className="datagrid blocked-table">
                       <thead>
                         <tr>
-                          <th>IP</th>
+                          <th className="col-expand" aria-label="Details" />
+                          <th>Address</th>
                           <th>Reason</th>
-                          <th>Type</th>
                           <th>Reputation</th>
                           <th>Expires</th>
                           <th className="col-actions">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {data.blockedIps.map((entry) => (
-                          <tr key={entry.ip}>
-                            <td>
-                              <code>{entry.ip}</code>
-                            </td>
-                            <td className="datagrid-muted">{entry.reason || "—"}</td>
-                            <td className="datagrid-muted">{entry.auto ? "Automatic" : "Manual"}</td>
-                            <td className="datagrid-muted">
-                              {entry.reputation ? (
-                                <span className="reputation-cell">
-                                  <span
-                                    className={`reputation-score ${
-                                      entry.reputation.score >= 50 ? "bad" : entry.reputation.score > 0 ? "watch" : "clean"
-                                    }`}
+                        {blockedPage.map((entry) => {
+                          const open = expandedBlock === entry.ip;
+                          const place = entry.reputation
+                            ? [countryName(entry.reputation.countryCode), entry.reputation.isp].filter(Boolean).join(" · ")
+                            : "";
+                          return (
+                            <Fragment key={entry.ip}>
+                              <tr className={open ? "is-expanded" : undefined}>
+                                <td className="col-expand">
+                                  <Button
+                                    variant="icon"
+                                    aria-label={open ? "Hide details" : "Show details"}
+                                    aria-expanded={open}
+                                    onClick={() => setExpandedBlock(open ? null : entry.ip)}
                                   >
-                                    {entry.reputation.score}% abuse confidence
-                                    {entry.reputation.totalReports
-                                      ? ` · ${entry.reputation.totalReports.toLocaleString()} reports`
-                                      : ""}
+                                    {open ? <ChevronDown size={15} aria-hidden="true" /> : <ChevronRight size={15} aria-hidden="true" />}
+                                  </Button>
+                                </td>
+                                <td>
+                                  <span className="datagrid-primary">
+                                    <strong><code>{entry.ip}</code></strong>
+                                    <small>{entry.auto ? "Automatic" : "Manual"}</small>
                                   </span>
-                                  {[countryName(entry.reputation.countryCode), entry.reputation.isp]
-                                    .filter(Boolean)
-                                    .join(" · ") && (
-                                    <small>
-                                      {[countryName(entry.reputation.countryCode), entry.reputation.isp]
-                                        .filter(Boolean)
-                                        .join(" · ")}
-                                    </small>
+                                </td>
+                                <td className="datagrid-muted">{entry.reason || "—"}</td>
+                                <td className="datagrid-muted">
+                                  {entry.reputation ? (
+                                    <span
+                                      className={`reputation-score ${
+                                        entry.reputation.score >= 50 ? "bad" : entry.reputation.score > 0 ? "watch" : "clean"
+                                      }`}
+                                    >
+                                      {entry.reputation.score}% abuse
+                                    </span>
+                                  ) : (
+                                    "—"
                                   )}
-                                </span>
-                              ) : (
-                                "—"
+                                </td>
+                                <td className="datagrid-muted">
+                                  {entry.expired ? (
+                                    <span className="status-badge expired">Expired</span>
+                                  ) : entry.expiresAt ? (
+                                    formatManagedDate(entry.expiresAt)
+                                  ) : (
+                                    "Never"
+                                  )}
+                                </td>
+                                <td className="col-actions">
+                                  {entry.expiresAt && (
+                                    <Button
+                                      variant="icon"
+                                      title={entry.expired ? "Re-arm as a permanent block" : "Make permanent"}
+                                      aria-label={`Make block on ${entry.ip} permanent`}
+                                      onClick={() => {
+                                        setPermanentError("");
+                                        setPermanentTarget(entry);
+                                      }}
+                                    >
+                                      <InfinityIcon size={15} />
+                                    </Button>
+                                  )}
+                                  <Button
+                                    variant="icon"
+                                    title={entry.expired ? "Remove expired block" : "Unblock"}
+                                    aria-label={`${entry.expired ? "Remove expired block for" : "Unblock"} ${entry.ip}`}
+                                    onClick={() => unblock(entry.ip)}
+                                  >
+                                    <Trash2 size={15} />
+                                  </Button>
+                                  <Button
+                                    variant="icon"
+                                    title="Sign-ins from this address"
+                                    aria-label={`Sign-ins from ${entry.ip}`}
+                                    onClick={() => navigate(signInsHref({ ip: entry.ip }))}
+                                  >
+                                    <ChevronRight size={16} aria-hidden="true" />
+                                  </Button>
+                                </td>
+                              </tr>
+                              {open && (
+                                <tr className="login-detail-row">
+                                  <td colSpan={6}>
+                                    {/* The whole record, in the grid the Logins and
+                                        Logs tables open their rows into. */}
+                                    <dl className="login-detail-grid">
+                                      <div>
+                                        <dt>Address</dt>
+                                        <dd><code>{entry.ip}</code></dd>
+                                      </div>
+                                      <div>
+                                        <dt>Kind</dt>
+                                        <dd>{entry.auto ? "Automatic — placed by the failed-sign-in rule" : "Manual — placed by an administrator"}</dd>
+                                      </div>
+                                      <div>
+                                        <dt>Blocked</dt>
+                                        <dd>{formatManagedDate(entry.createdAt)}</dd>
+                                      </div>
+                                      <div>
+                                        <dt>{entry.expired ? "Expired" : "Expires"}</dt>
+                                        <dd>{entry.expiresAt ? formatManagedDate(entry.expiresAt) : "Never — stays until you unblock it"}</dd>
+                                      </div>
+                                      <div className="login-detail-wide">
+                                        <dt>Reason</dt>
+                                        <dd>{entry.reason || "—"}</dd>
+                                      </div>
+                                      <div className="login-detail-wide">
+                                        <dt>Reputation</dt>
+                                        <dd>
+                                          {entry.reputation ? (
+                                            <>
+                                              {[
+                                                `${entry.reputation.score}% abuse confidence`,
+                                                entry.reputation.totalReports ? `${entry.reputation.totalReports.toLocaleString()} reports` : null,
+                                                place || null,
+                                                entry.reputation.lastReportedAt ? `last reported ${formatManagedDate(entry.reputation.lastReportedAt)}` : null,
+                                                `checked ${formatManagedDate(entry.reputation.checkedAt)}`
+                                              ]
+                                                .filter(Boolean)
+                                                .join(" · ")}{" "}
+                                              {data.policy.hasAbuseIpdbKey && (
+                                                <Button
+                                                  variant="text"
+                                                  compact
+                                                  disabled={checkingIp === entry.ip}
+                                                  onClick={() => checkReputation(entry.ip)}
+                                                >
+                                                  {checkingIp === entry.ip ? "Checking…" : "Check again"}
+                                                </Button>
+                                              )}
+                                            </>
+                                          ) : data.policy.hasAbuseIpdbKey ? (
+                                            <>
+                                              Not checked yet.{" "}
+                                              <Button
+                                                variant="text"
+                                                compact
+                                                disabled={checkingIp === entry.ip}
+                                                onClick={() => checkReputation(entry.ip)}
+                                              >
+                                                {checkingIp === entry.ip ? "Checking…" : "Check with AbuseIPDB"}
+                                              </Button>
+                                            </>
+                                          ) : (
+                                            "Add an AbuseIPDB key under Policies to score addresses"
+                                          )}
+                                        </dd>
+                                      </div>
+                                    </dl>
+                                  </td>
+                                </tr>
                               )}
-                            </td>
-                            <td className="datagrid-muted">
-                              {entry.expired ? (
-                                <>
-                                  <span className="status-badge expired">Expired</span>{" "}
-                                  {formatManagedDate(entry.expiresAt!)}
-                                </>
-                              ) : entry.expiresAt ? (
-                                formatManagedDate(entry.expiresAt)
-                              ) : (
-                                "Never"
-                              )}
-                            </td>
-                            <td className="col-actions">
-                              {data.policy.hasAbuseIpdbKey && (
-                                <Button
-                                  variant="icon"
-                                  title="Check reputation"
-                                  aria-label={`Check reputation of ${entry.ip}`}
-                                  disabled={checkingIp === entry.ip}
-                                  onClick={() => checkReputation(entry.ip)}
-                                >
-                                  <ShieldQuestion size={15} />
-                                </Button>
-                              )}
-                              {entry.expiresAt && (
-                                <Button
-                                  variant="icon"
-                                  title={entry.expired ? "Re-arm as a permanent block" : "Make permanent"}
-                                  aria-label={`Make block on ${entry.ip} permanent`}
-                                  onClick={() => {
-                                    setPermanentError("");
-                                    setPermanentTarget(entry);
-                                  }}
-                                >
-                                  <InfinityIcon size={15} />
-                                </Button>
-                              )}
-                              <Button
-                                variant="icon"
-                                title={entry.expired ? "Remove expired block" : "Unblock"}
-                                aria-label={`${entry.expired ? "Remove expired block for" : "Unblock"} ${entry.ip}`}
-                                onClick={() => unblock(entry.ip)}
-                              >
-                                <Trash2 size={15} />
-                              </Button>
-                            </td>
-                          </tr>
-                        ))}
+                            </Fragment>
+                          );
+                        })}
                       </tbody>
                     </table>
+                    {blockedRows.length === 0 && (
+                      <p className="status-empty">No {blockFilter} blocks right now.</p>
+                    )}
                   </div>
+                )}
+                {data.blockedIps.length > 0 && (
+                  <Pager page={blockCurrent} totalPages={blockTotalPages} onChange={setBlockPage} label="Blocked address pages" />
                 )}
               </section>
             </div>
           </div>
+
+          {pendingClearLapsed && (
+            <ConfirmDialog
+              title={`Clear ${blockCounts.lapsed} lapsed ${blockCounts.lapsed === 1 ? "block" : "blocks"}?`}
+              confirmLabel="Clear lapsed blocks"
+              busyLabel="Clearing…"
+              confirmIcon={<Trash2 size={16} />}
+              busy={clearingLapsed}
+              onConfirm={clearLapsed}
+              onCancel={() => setPendingClearLapsed(false)}
+            >
+              Automatic blocks that have already run out are removed from the list. Running and permanent blocks are
+              not touched, and an address that misbehaves again is blocked again.
+            </ConfirmDialog>
+          )}
 
           {permanentTarget && (
             <ConfirmDialog

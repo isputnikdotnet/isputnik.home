@@ -204,22 +204,47 @@ This is the section that matters if your library is reachable from the internet 
 pair it with [Exposing your library to the
 internet](exposing-to-the-internet.md).
 
-- **Overview** — whether automatic protection is on, and whether the server is
-  reading visitor addresses correctly through your reverse proxy. If that proxy
-  reading is wrong, every address looks the same and lockouts hit the wrong people
-  — fix it before tuning anything else.
-- **Policies** — the thresholds: how many failed sign-ins lock an account and for
-  how long, when an address is auto-blocked, sign-in alerts, and the password
-  policy. Changes apply immediately.
+- **Overview** — opens with a **Protection level**: a ring around a shield, a
+  word (Strong, Good, Fair, Weak or Critical), and a score out of 100, with
+  counters for how many policies are active, optional, off, or have an issue
+  (on, but unable to work — an alert with no email set up, say). The score
+  depends on one thing only you can tell it: whether the server is **home
+  network only** or **reachable from the internet**, chosen with the two
+  buttons on the card and saved on the spot. A home-only server is graded
+  gently on the defences that only matter against strangers — a second factor
+  from outside and IP reputation aren't counted at all, and sign-in alerts and
+  deletion protection count for little — while an internet-facing one is held
+  to all of them, with proxy trust, the second factor and sign-in alerts counting
+  most — alerts are how you hear about a problem at all. If
+  requests are arriving through a proxy while the card says home-only, it says
+  so and asks you to check.
+
+  Under the card, the **Policies** table: one row per protection — including
+  the password policy, which grades Strong only when passwords must be at least
+  eight characters *and* mix three of lowercase, uppercase, numbers and symbols;
+  eight characters alone is Medium — each with its current value, its grade
+  (**Strong**, **Medium** or **Weak**) and an arrow to the policy that owns it. Proxy trust is the one to read first: if the
+  server isn't reading visitor addresses correctly through your reverse proxy,
+  every address looks the same and lockouts hit the wrong people.
+- **Policies** — the settings themselves, in order of how much they matter:
+  lockout and auto-block thresholds, two-factor outside the house, sign-in
+  alerts, deletion protection, device linking, the password policy, and the
+  AbuseIPDB key. Each card saves on its own; changes apply immediately.
 - **Trusted networks** — address ranges (your home LAN, typically) that are exempt
   from rate limits, lockout and the new-network alerts. Add your own network so
-  household devices don't trip the protection meant for strangers.
-- **Blocked IPs** — what's been auto-blocked, and where you unblock it, add a
-  block by hand, or make a temporary automatic block permanent (the ∞ button on
-  rows that would otherwise expire). With an AbuseIPDB key set under Policies,
-  each row can also show the address's public abuse score with the country and
-  network operator it belongs to underneath, and a check button fetches it on
-  demand.
+  household devices don't trip the protection meant for strangers. The **In use**
+  column counts the live sessions inside each range — a range with none is
+  either a spare or a typo.
+- **Blocked IPs** — what's been blocked, and where you unblock it, add a block by
+  hand, or make a temporary automatic block permanent (the ∞ button on rows that
+  would otherwise expire). The chips above the list count and filter running,
+  permanent and lapsed blocks; **Clear lapsed** removes the automatic blocks that
+  have already run out in one go. The arrow at the end of a row opens that
+  address's Sign-ins page, where the attempts behind the block are. With an
+  AbuseIPDB key set under Policies, the row shows the address's public abuse
+  score, and the opened record carries the full picture — reports, country,
+  network operator, when it was checked — with the **Check with AbuseIPDB** button
+  there, as on the Logins table.
 - Under **Policies** you can also connect **AbuseIPDB** (free API key) so blocked
   addresses are checked against a community abuse database — and, if you keep the
   escalation switch on, known-abusive addresses stay blocked permanently instead

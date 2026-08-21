@@ -846,164 +846,6 @@
   gap: 24px;
 }
 
-.security-overview-cards {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.security-overview-card {
-  display: grid;
-  grid-template-columns: 50px minmax(0, 1fr);
-  align-items: center;
-  gap: 12px;
-  min-height: 108px;
-  padding: 16px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface-raised);
-  box-shadow: 0 14px 34px color-mix(in srgb, var(--shadow) 44%, transparent);
-}
-
-.security-overview-card-icon,
-.security-dashboard-message-icon {
-  display: grid;
-  place-items: center;
-  border-radius: 16px;
-}
-
-.security-overview-card-icon {
-  width: 48px;
-  height: 48px;
-}
-
-.security-overview-card-icon.info {
-  color: var(--control-primary-button, var(--mint));
-  background: color-mix(in srgb, var(--control-primary-button, var(--mint)) 13%, transparent);
-}
-
-.security-overview-card-icon.warning {
-  color: var(--amber);
-  background: color-mix(in srgb, var(--amber) 14%, transparent);
-}
-
-.security-overview-card-icon.success {
-  color: var(--success);
-  background: color-mix(in srgb, var(--success) 14%, transparent);
-}
-
-.security-overview-card-copy {
-  display: grid;
-  min-width: 0;
-  gap: 5px;
-}
-
-.security-overview-card-label {
-  color: var(--muted);
-  font-size: 0.66rem;
-  font-weight: 780;
-  letter-spacing: 0.03em;
-  line-height: 1.2;
-  text-transform: uppercase;
-}
-
-.security-overview-card strong {
-  color: var(--ink);
-  font-size: 0.98rem;
-  line-height: 1.2;
-}
-
-.security-overview-card span:last-child {
-  color: var(--muted);
-  font-size: 0.8rem;
-  line-height: 1.35;
-}
-
-.security-overview-card .security-overview-success {
-  color: var(--success);
-}
-
-.security-dashboard-message {
-  display: grid;
-  grid-template-columns: 76px minmax(0, 1fr);
-  align-items: center;
-  gap: 22px;
-  padding: clamp(20px, 3vw, 26px);
-  border: 1px solid;
-  border-radius: 8px;
-  background: var(--surface-raised);
-}
-
-.security-dashboard-message-icon {
-  width: 58px;
-  height: 58px;
-  border-radius: 50%;
-}
-
-.security-dashboard-message h2 {
-  margin: 0 0 10px;
-  font-size: 1.12rem;
-}
-
-.security-dashboard-message p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.94rem;
-  line-height: 1.55;
-}
-
-.security-dashboard-message p + p {
-  margin-top: 4px;
-}
-
-.security-dashboard-message .security-help-link {
-  margin-top: 10px;
-  font-weight: 740;
-}
-
-.security-dashboard-message .security-help-link a {
-  color: inherit;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.security-dashboard-message code {
-  padding: 1px 5px;
-  border-radius: 5px;
-  background: color-mix(in srgb, currentColor 10%, transparent);
-  font-size: 0.9em;
-}
-
-.security-dashboard-message.info {
-  border-color: color-mix(in srgb, var(--blue) 34%, var(--line));
-  background: color-mix(in srgb, var(--blue) 8%, var(--surface-raised));
-}
-
-.security-dashboard-message.info .security-dashboard-message-icon {
-  color: var(--blue);
-  background: color-mix(in srgb, var(--blue) 14%, transparent);
-}
-
-.security-dashboard-message.warning {
-  border-color: color-mix(in srgb, var(--amber) 34%, var(--line));
-  background: color-mix(in srgb, var(--amber) 8%, var(--surface-raised));
-}
-
-.security-dashboard-message.warning .security-dashboard-message-icon {
-  color: var(--amber);
-  background: color-mix(in srgb, var(--amber) 14%, transparent);
-}
-
-.security-dashboard-message.success {
-  border-color: color-mix(in srgb, var(--success) 34%, var(--line));
-  background: color-mix(in srgb, var(--success) 8%, var(--surface-raised));
-}
-
-.security-dashboard-message.success .security-dashboard-message-icon {
-  color: var(--success);
-  background: color-mix(in srgb, var(--success) 14%, transparent);
-}
-
 .security-policy-card {
   padding: clamp(20px, 3vw, 30px);
   border: 1px solid var(--line);
@@ -1302,12 +1144,6 @@
   width: min(100%, 520px);
 }
 
-@media (max-width: 980px) {
-  .security-overview-cards {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
 @media (max-width: 720px) {
   .profile-tabs.control-tabs {
     /* Back to rows here: one column per tab is fine on a desktop row, but on a
@@ -1323,21 +1159,6 @@
     padding: 0 14px;
     white-space: normal;
     line-height: 1.2;
-  }
-
-  .security-overview-cards {
-    grid-template-columns: 1fr;
-  }
-
-  .security-overview-card {
-    grid-template-columns: 50px minmax(0, 1fr);
-    min-height: 0;
-    padding: 16px;
-  }
-
-  .security-dashboard-message {
-    grid-template-columns: 1fr;
-    gap: 14px;
   }
 
   .security-network-callout.message-box {

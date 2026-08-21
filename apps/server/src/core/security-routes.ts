@@ -2,14 +2,16 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { db, logActivity } from "../db.js";
 import { parseBody } from "./shared.js";
-import { isPrivateIp, isValidCidr } from "./cidr.js";
+import { ipInCidr, isPrivateIp, isValidCidr } from "./cidr.js";
 import {
   listTrustedNetworks,
   addTrustedNetwork,
   removeTrustedNetwork,
   listBlockedIps,
+  clearLapsedBlocks,
   blockIp,
   unblockIp,
+  isAccountLocked,
   makeIpBlockPermanent,
   getSecurityPolicy,
   setSecurityPolicy,
@@ -65,7 +67,9 @@ const policySchema = z.object({
   clearAbuseIpdbKey: z.boolean().optional(),
   reputationAutoEscalate: z.boolean(),
   reputationEscalateThreshold: z.number().int().min(50).max(100),
-  trustedDeletesOnly: z.boolean()
+  trustedDeletesOnly: z.boolean(),
+  // Defaulted so a client that predates the field still saves cleanly.
+  exposure: z.enum(["internal", "internet"]).default("internal")
 });
 
 const passwordPolicySchema = z.object({
@@ -87,7 +91,46 @@ function publicSecurityPolicy(policy: SecurityPolicy) {
 }
 
 export async function securityRoutes(app: FastifyInstance) {
-  app.get("/api/security", { preHandler: app.requireAdmin }, async () => ({
+  app.get("/api/security", { preHandler: app.requireAdmin }, async () => {
+    // Measurements, not settings: what the protection is actually doing today.
+    // Failed sign-ins come from the same event set the dashboard's Logins tab
+    // counts, so the two pages agree; the comparison window is the 24h before.
+    const failedCount = db.prepare(`
+      SELECT COUNT(*) AS n FROM activity_logs
+      WHERE event IN ('auth.login_failed', 'auth.mfa_failed')
+        AND datetime(created_at) > datetime('now', @from)
+        AND datetime(created_at) <= datetime('now', @to)
+    `);
+    const failed24h = (failedCount.get({ from: "-1 day", to: "+0 seconds" }) as { n: number }).n;
+    const failedPrev24h = (failedCount.get({ from: "-2 days", to: "-1 day" }) as { n: number }).n;
+
+    const blocks = listBlockedIps();
+    const blocked = {
+      live: blocks.filter((entry) => !entry.expired && entry.expires_at !== null).length,
+      permanent: blocks.filter((entry) => entry.expires_at === null).length,
+      lapsed: blocks.filter((entry) => Boolean(entry.expired)).length
+    };
+
+    // Lockout is derived from login_attempts per account, so it is asked per
+    // account — a household's worth, not a directory's.
+    const members = db
+      .prepare("SELECT email, display_name, role, mfa_enabled FROM users WHERE is_active = 1 AND deleted_at IS NULL ORDER BY display_name")
+      .all() as { email: string; display_name: string; role: string; mfa_enabled: number }[];
+    const lockedAccounts = members.filter((member) => isAccountLocked(member.email)).map((member) => member.display_name);
+    const mfa = {
+      enrolled: members.filter((member) => member.mfa_enabled === 1).length,
+      total: members.length,
+      adminsWithout: members.filter((member) => member.role === "admin" && member.mfa_enabled === 0).length
+    };
+
+    // Which trusted ranges are doing anything: live sessions whose address falls
+    // inside each one. A range with none is either a spare or a mistake.
+    const liveSessionIps = (
+      db.prepare("SELECT ip_address FROM sessions WHERE revoked_at IS NULL AND datetime(expires_at) > datetime('now') AND ip_address IS NOT NULL").all() as { ip_address: string }[]
+    ).map((row) => row.ip_address);
+
+    return {
+    posture: { failed24h, failedPrev24h, blocked, lockedAccounts, mfa },
     policy: publicSecurityPolicy(getSecurityPolicy()),
     proxy: {
       trustProxyHops: getTrustProxyHops(),
@@ -109,7 +152,8 @@ export async function securityRoutes(app: FastifyInstance) {
       id: network.id,
       cidr: network.cidr,
       label: network.label,
-      createdAt: network.created_at
+      createdAt: network.created_at,
+      liveSessions: liveSessionIps.filter((ip) => ipInCidr(ip, network.cidr)).length
     })),
     blockedIps: listBlockedIps().map((entry) => {
       const reputation = getCachedReputation(entry.ip_address);
@@ -123,7 +167,24 @@ export async function securityRoutes(app: FastifyInstance) {
         reputation: reputation && typeof reputation.score === "number" ? reputationPayload(reputation) : null
       };
     })
-  }));
+    };
+  });
+
+  // Sheds every automatic block that has already run out. Nothing live is
+  // touched — a permanent block has no expiry and a running one is in the
+  // future — so this can only ever tidy.
+  app.delete("/api/security/blocked-ips/lapsed", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const cleared = clearLapsedBlocks();
+    if (cleared > 0) {
+      logActivity({
+        event: "security.blocked_ips_cleared",
+        actorUserId: request.user!.id,
+        detail: `Cleared ${cleared} lapsed IP block${cleared === 1 ? "" : "s"}.`,
+        ipAddress: request.ip
+      });
+    }
+    return reply.send({ cleared });
+  });
 
   app.patch("/api/security/policy", { preHandler: app.requireAdmin }, async (request, reply) => {
     const parsed = parseBody(policySchema, request.body);

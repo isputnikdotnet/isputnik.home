@@ -21,6 +21,7 @@ export interface SecurityPolicy {
   reputationAutoEscalate: boolean; // auto-blocks become permanent when the score crosses…
   reputationEscalateThreshold: number; // …this abuseConfidenceScore (0–100)
   trustedDeletesOnly: boolean; // refuse delete/purge actions from outside trusted networks
+  exposure: Exposure; // graded as a home-only server, or one reachable from the internet
 }
 
 // Which devices may start a "link a device" request. 'local' is the default and
@@ -29,6 +30,12 @@ export interface SecurityPolicy {
 // into approving it. 'any' exists for the household that really does want to link
 // a device over the internet, and says so deliberately.
 export type DeviceLinkScope = "local" | "any";
+
+// How the server is reached, as the household states it. Nothing enforces
+// anything from this — it is the one input the protection score needs that the
+// server can't measure: a home-only install is graded gently on the defences
+// that only matter against strangers, an internet-facing one is not.
+export type Exposure = "internal" | "internet";
 
 export const DEFAULT_SECURITY_POLICY: SecurityPolicy = {
   lockoutThreshold: 5,
@@ -42,7 +49,8 @@ export const DEFAULT_SECURITY_POLICY: SecurityPolicy = {
   abuseIpdbKey: "",
   reputationAutoEscalate: true,
   reputationEscalateThreshold: 90,
-  trustedDeletesOnly: false
+  trustedDeletesOnly: false,
+  exposure: "internal"
 };
 
 const POLICY_KEY = "security_policy";
@@ -448,6 +456,15 @@ export function makeIpBlockPermanent(ip: string, userId?: string | null): boolea
       )
       .run(userId ?? null, ip).changes > 0
   );
+}
+
+// Automatic blocks that have already run out. They are kept so the list can
+// say "this address was blocked last week" — but the list also has to be able
+// to shed them, or it only ever grows.
+export function clearLapsedBlocks(): number {
+  return db
+    .prepare("DELETE FROM blocked_ips WHERE expires_at IS NOT NULL AND datetime(expires_at) <= datetime('now')")
+    .run().changes;
 }
 
 export function listBlockedIps(): BlockedIp[] {

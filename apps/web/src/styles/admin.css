@@ -872,18 +872,18 @@ span.status-metric-icon {
 }
 
 .rate-pill.rate-good {
-  color: var(--mint);
-  background: color-mix(in srgb, var(--mint) 12%, transparent);
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 14%, transparent);
 }
 
 .rate-pill.rate-warn {
-  color: var(--gold);
-  background: color-mix(in srgb, var(--gold) 13%, transparent);
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 14%, transparent);
 }
 
 .rate-pill.rate-bad {
-  color: var(--rose);
-  background: color-mix(in srgb, var(--rose) 13%, transparent);
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
 }
 
 /* The arrow at the end of a row — the door to that place's sign-in details. */
@@ -2220,4 +2220,291 @@ span.status-metric-icon {
   align-items: center;
   gap: 8px;
   margin-bottom: 12px;
+}
+
+/* Security › Blocked IPs and Trusted networks: fixed layouts that fit the page
+   and never scroll sideways. Every column but the free-text one has a width;
+   the free one (reason, label) takes what is left and clips, and the blocked
+   row opens to show the whole record. */
+.blocked-table,
+.trusted-table {
+  width: 100%;
+  table-layout: fixed;
+}
+
+.blocked-table td,
+.trusted-table td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.blocked-table td.col-expand,
+.blocked-table td.col-actions,
+.trusted-table td.col-actions {
+  overflow: visible;
+}
+
+.blocked-table .login-detail-row > td {
+  white-space: normal;
+  overflow: visible;
+}
+
+.blocked-table th:nth-child(1) { width: 58px; }
+.blocked-table th:nth-child(2) { width: 160px; }
+.blocked-table th:nth-child(4) { width: 112px; }
+.blocked-table th:nth-child(5) { width: 150px; }
+.blocked-table th:nth-child(6) { width: 150px; }
+
+.trusted-table th:nth-child(1) { width: 190px; }
+.trusted-table th:nth-child(3) { width: 110px; }
+.trusted-table th:nth-child(4) { width: 180px; }
+.trusted-table th:nth-child(5) { width: 96px; }
+
+/* Four icon buttons in one cell stay on one line. */
+.blocked-table .col-actions {
+  white-space: nowrap;
+}
+
+/* Security › Overview: the Strong / Medium / Weak pill, one width so the
+   column reads as a column. */
+.security-level-cell {
+  width: 110px;
+  text-align: center;
+}
+
+.rate-pill.security-level {
+  display: inline-block;
+  min-width: 84px;
+  text-align: center;
+  font-size: 0.84rem;
+}
+
+/* ── Security › Overview: the protection level card ─────────────────────────
+   A ring around a shield, the level in a word, a five-band bar with the score
+   marked on it, and four counters. The level sets one accent colour that the
+   ring, the word and the shield all take. */
+.protection-card {
+  --level-critical: #dc2626;
+  --level-weak: #f97316;
+  --level-fair: #eab308;
+  --level-good: #84cc16;
+  --level-strong: #16a34a;
+  --protection: var(--level-strong);
+  display: grid;
+  gap: 16px;
+  padding: 20px 22px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.protection-card.level-good { --protection: var(--level-good); }
+.protection-card.level-fair { --protection: var(--level-fair); }
+.protection-card.level-weak { --protection: var(--level-weak); }
+.protection-card.level-critical { --protection: var(--level-critical); }
+
+.protection-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.protection-head h3 {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.protection-head h3 svg {
+  color: var(--muted);
+}
+
+.protection-hint {
+  margin: -4px 0 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.protection-body {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
+  align-items: center;
+  gap: 28px;
+}
+
+@media (max-width: 720px) {
+  .protection-body {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+    text-align: center;
+  }
+}
+
+.protection-gauge {
+  position: relative;
+  width: 150px;
+  height: 150px;
+}
+
+/* Only the ring turns so its arc starts at the top; the shield inside it stays upright. */
+.protection-gauge > svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.protection-ring-track,
+.protection-ring-fill {
+  fill: none;
+  stroke-width: 7;
+  stroke-linecap: round;
+}
+
+.protection-ring-track {
+  stroke: var(--active);
+}
+
+.protection-ring-fill {
+  stroke: var(--protection);
+  transition: stroke-dasharray 0.5s ease;
+}
+
+.protection-shield {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--protection);
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--protection) 35%, transparent);
+}
+
+.protection-copy {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.protection-word {
+  font-size: 1.7rem;
+  font-weight: 750;
+  color: var(--protection);
+  line-height: 1.1;
+}
+
+/* The number beside the word — what the marker on the bar is pointing at. */
+.protection-word {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.protection-score {
+  font-size: 1.35rem;
+  font-weight: 650;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.protection-score small {
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.protection-line {
+  font-weight: 600;
+}
+
+.protection-detail {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+/* The five bands, red to green, and a dot where the score lands. */
+.protection-bar {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+  margin: 10px 0 4px;
+  height: 8px;
+}
+
+.protection-band {
+  border-radius: 4px;
+  opacity: 0.9;
+}
+
+.protection-band.band-critical { background: var(--level-critical); }
+.protection-band.band-weak { background: var(--level-weak); }
+.protection-band.band-fair { background: var(--level-fair); }
+.protection-band.band-good { background: var(--level-good); }
+.protection-band.band-strong { background: var(--level-strong); }
+
+.protection-marker {
+  position: absolute;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 3px solid var(--protection);
+  background: var(--surface);
+  transform: translate(-50%, -50%);
+  transition: left 0.5s ease;
+}
+
+.protection-counts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 8px 0 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--active);
+}
+
+.protection-counts > div {
+  min-width: 0;
+}
+
+.protection-counts dt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.protection-counts dd {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.protection-count-icon.tone-good { color: var(--success); }
+.protection-count-icon.tone-warn { color: var(--warning); }
+.protection-count-icon.tone-bad { color: var(--danger); }
+.protection-count-icon.tone-info { color: var(--muted); }
+
+.protection-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+@media (max-width: 560px) {
+  .protection-counts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
