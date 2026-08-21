@@ -107,15 +107,23 @@ export function foliateFileInfo(format: string): { name: string; mime: string } 
 export function relativeTime(value: string): string {
   const date = new Date(value.includes("T") ? value : `${value.replace(" ", "T")}Z`);
   const seconds = Math.round((Date.now() - date.getTime()) / 1000);
-  if (!Number.isFinite(seconds) || seconds < 45) return "just now";
+  if (!Number.isFinite(seconds)) return "just now";
+  // A moment still to come ("next scheduled run") reads "in 6 hr", not "just now".
+  if (seconds < -45) return `in ${relativeSpan(-seconds)}`;
+  if (seconds < 45) return "just now";
+  return `${relativeSpan(seconds)} ago`;
+}
+
+/** A duration in the coarsest unit that still says something: "3 min", "6 hr", "2 days". */
+function relativeSpan(seconds: number): string {
   const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return `${minutes} min ago`;
+  if (minutes < 60) return `${minutes} min`;
   const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours} hr ago`;
+  if (hours < 24) return `${hours} hr`;
   const days = Math.round(hours / 24);
-  if (days < 30) return `${days} ${days === 1 ? "day" : "days"} ago`;
+  if (days < 30) return `${days} ${days === 1 ? "day" : "days"}`;
   const months = Math.round(days / 30);
-  if (months < 12) return `${months} ${months === 1 ? "month" : "months"} ago`;
+  if (months < 12) return `${months} ${months === 1 ? "month" : "months"}`;
   const years = Math.round(months / 12);
-  return `${years} ${years === 1 ? "year" : "years"} ago`;
+  return `${years} ${years === 1 ? "year" : "years"}`;
 }

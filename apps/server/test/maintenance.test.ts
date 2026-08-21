@@ -385,6 +385,34 @@ describe("tasks view", () => {
     expect(listTasks(99, 2).page).toBe(3);
   });
 
+  it("narrows the finished history by outcome, kind and library, never the active rows", () => {
+    const owner = makeUser('owner', 'admin');
+    makeLibrary('lib-a', { createdBy: owner, type: 'ebook' });
+    makeLibrary('lib-b', { createdBy: owner, type: 'ebook' });
+    insertTask("ok-a", "SCAN_EBOOK_LIBRARY", "completed", { libraryId: "lib-a" }, 300);
+    insertTask("bad-a", "SCAN_EBOOK_LIBRARY", "failed", { libraryId: "lib-a" }, 200);
+    insertTask("bad-b", "SCAN_GALLERY_LIBRARY", "failed", { libraryId: "lib-b" }, 100);
+    insertTask("run-1", "SCAN_AUDIOBOOK_LIBRARY", "running", {}, 50);
+
+    const failed = listTasks(1, 25, { status: "failed" });
+    expect(failed.total).toBe(2);
+    // The running task is still listed: "what is running" is never filtered away.
+    expect(failed.jobs.map((t) => t.id)).toEqual(["run-1", "bad-b", "bad-a"]);
+
+    const galleryOnly = listTasks(1, 25, { type: "SCAN_GALLERY_LIBRARY" });
+    expect(galleryOnly.jobs.filter((t) => t.status !== "running").map((t) => t.id)).toEqual(["bad-b"]);
+
+    const shelfA = listTasks(1, 25, { libraryId: "lib-a", status: "completed" });
+    expect(shelfA.jobs.filter((t) => t.status !== "running").map((t) => t.id)).toEqual(["ok-a"]);
+
+    // The filter menus are fed from the whole history, and the cards from the live state.
+    const all = listTasks();
+    expect(all.facets.types).toEqual(["SCAN_AUDIOBOOK_LIBRARY", "SCAN_EBOOK_LIBRARY", "SCAN_GALLERY_LIBRARY"]);
+    expect(all.facets.libraries.map((l) => l.id)).toEqual(["lib-a", "lib-b"]);
+    expect(all.summary).toMatchObject({ running: 1, queued: 0, failedWeek: 2 });
+    expect(all.summary.lastFinished?.id).toBe("ok-a");
+  });
+
   it("normalizes each job type's progress shape into processed/total with a unit and ETA", () => {
     const startedAt = new Date(Date.now() - 60_000).toISOString();
     insertTask("ab", "SCAN_AUDIOBOOK_LIBRARY", "running", { progress: { booksProcessed: 3, booksTotal: 12 } }, 10);

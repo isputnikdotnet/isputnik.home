@@ -4,7 +4,7 @@ import { useState, useEffect, startTransition } from "react";
 // groups they hang off are described in features/control/nav.ts.
 export type ControlSection =
   // Overview
-  | "dashboard" | "tasks" | "logs" | "signins"
+  | "dashboard" | "logs" | "signins"
   // Library
   | "libraries" | "storage" | "categories" | "tags"
   // Members
@@ -24,7 +24,6 @@ export type ControlSection =
 // jump straight to a setting.
 export const CONTROL_PATHS: Record<ControlSection, string> = {
   dashboard: "/control/overview",
-  tasks: "/control/overview/tasks",
   logs: "/control/overview/logs",
   // The drill-down behind the Dashboard's login views: scope arrives in the
   // query string (?country=, ?ip=, ?user=), so one address covers every dive.
@@ -90,11 +89,13 @@ const CONTROL_ALIASES: Record<string, ControlSection> = {
   "/control/library/stats": "dashboard",
   "/control/libraries/stats": "dashboard",
 
-  "/control/libraries/tasks": "tasks",
-  "/control/libraries/jobs": "tasks",
-  "/control/maintenance/jobs": "tasks",
-  "/control/system": "tasks",
-  "/control/jobs": "tasks",
+  // Tasks became a Dashboard view; DashboardSection reads these paths to pick it.
+  "/control/overview/tasks": "dashboard",
+  "/control/libraries/tasks": "dashboard",
+  "/control/libraries/jobs": "dashboard",
+  "/control/maintenance/jobs": "dashboard",
+  "/control/system": "dashboard",
+  "/control/jobs": "dashboard",
 
   "/control/activity": "logs",
   "/control/logs": "logs",

@@ -9,14 +9,17 @@ import { MessageBox } from "./MessageBox";
 // are picked, so every consumer (chart, table, KPI) asks the server about exactly
 // the same window and a reload doesn't silently drift.
 
-export type DateRangePreset = "1h" | "7h" | "24h" | "7d" | "30d" | "custom";
+export type DateRangePreset = "all" | "1h" | "7h" | "24h" | "7d" | "30d" | "custom";
 
 export interface DateRangeValue {
   preset: DateRangePreset;
-  /** ISO instants, inclusive. */
+  /** ISO instants, inclusive — both empty for "all", which means no bound at all. */
   from: string;
   to: string;
 }
+
+/** No window: the whole archive. Only pickers with `allowAll` offer it. */
+export const ALL_TIME: DateRangeValue = { preset: "all", from: "", to: "" };
 
 const PRESETS: { value: Exclude<DateRangePreset, "custom">; label: string; hours: number }[] = [
   { value: "1h", label: "1h", hours: 1 },
@@ -42,6 +45,7 @@ function toLocalInput(iso: string): string {
 }
 
 export function formatRangeLabel(range: DateRangeValue): string {
+  if (range.preset === "all") return "All time";
   const from = new Date(range.from);
   const to = new Date(range.to);
   if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return "";
@@ -55,6 +59,7 @@ export function formatRangeLabel(range: DateRangeValue): string {
 
 /** How long the window is, phrased the way the picker labels it ("24h", "3 days"). */
 export function formatRangeSpan(range: DateRangeValue): string {
+  if (range.preset === "all") return "all time";
   const preset = PRESETS.find((entry) => entry.value === range.preset);
   if (preset) return preset.label;
   const hours = (new Date(range.to).getTime() - new Date(range.from).getTime()) / 3_600_000;
@@ -71,18 +76,33 @@ export function DateRangePicker({
   value,
   onChange,
   label = "Time range",
-  disabled = false
+  disabled = false,
+  allowAll = false
 }: {
   value: DateRangeValue;
   onChange: (range: DateRangeValue) => void;
   label?: string;
   disabled?: boolean;
+  /** Offer "All" — no window — first. For archives (Logs), not for charts, which
+   *  need a bounded span to bucket. */
+  allowAll?: boolean;
 }) {
   const [customOpen, setCustomOpen] = useState(false);
 
   return (
     <>
       <div className="range-picker" role="group" aria-label={label}>
+        {allowAll && (
+          <button
+            type="button"
+            className={value.preset === "all" ? "active" : undefined}
+            aria-pressed={value.preset === "all"}
+            disabled={disabled}
+            onClick={() => onChange(ALL_TIME)}
+          >
+            All
+          </button>
+        )}
         {PRESETS.map((entry) => (
           <button
             key={entry.value}

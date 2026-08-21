@@ -27,7 +27,6 @@ export interface ControlSearchEntry {
 const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
   signins: "sign-in details login analytics drill down dive connection ip address country city user person failed attempts blocked scanner probes guessed names sessions devices displays phones tablets computers signed in until expires registered revoke sign out logout tokens linked tv display",
   dashboard: "system health cpu memory uptime version disk free space database sqlite activity trends charts graphs logins uploads downloads deletes played read viewed in progress playback reading libraries statistics stats numbers counts totals audiobook ebook gallery top authors narrators formats storage",
-  tasks: "jobs job log scan progress worker queue running failed history",
   logs: "activity audit trail events sign-in history retention prune clear",
 
   libraries: "add library scan sources folders paths extensions uploads access members wizard rescan",
@@ -68,6 +67,7 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
 const SETTING_ENTRIES: { title: string; section: ControlSection; keywords: string; query?: string }[] = [
   { title: "System health", section: "dashboard", query: "view=system", keywords: "sqlite wal database size bytes memory uptime free disk space version node last backup" },
   { title: "Library statistics", section: "dashboard", query: "view=libraries", keywords: "statistics stats numbers counts totals audiobook ebook gallery photos videos top authors narrators formats storage on disk biggest library" },
+  { title: "Tasks", section: "dashboard", query: "view=tasks", keywords: "jobs job scan progress worker queue running queued failed history cancel background work next scheduled" },
   { title: "Activity", section: "dashboard", query: "view=activity", keywords: "uploads downloads deletes played read viewed in progress content activity playback reading charts" },
   { title: "Locations map", section: "dashboard", query: "view=locations", keywords: "map countries towns cities where sign-ins came from geoip home location" },
   { title: "Log retention", section: "logs", keywords: "keep days delete old activity prune" },
