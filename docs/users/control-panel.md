@@ -47,10 +47,70 @@ tabs under the heading — real tabs, not a dropdown:
   the total on disk. Go here first when something feels wrong — it answers "is the
   server actually up, and how big is this getting?" before you go looking anywhere
   else.
-- **Activity** — logins, uploads, downloads and deletes charted over the last 14
-  days, plus storage used.
-- **Logins** — a breakdown by sign-in method (password, passkey, device link) and
-  a recent-logins table with IP addresses.
+- **Logins** — the view the page opens on. Pick a window (1h, 7h, 24h, 7d, 30d,
+  or a custom start and end)
+  and everything below follows it: cards for attempts, successes, failures and
+  IPs blocked — each compared with the window before it — a chart of successful
+  and failed sign-ins, and a table of every sign-in in the window — 10, 20, 50 or
+  100 rows to a page, and it remembers which you picked. A row shows the address
+  with the person under it, the method as an icon (hover for its name), the
+  result, and — with an AbuseIPDB key set under Security → Policies — a coloured
+  reputation light — one shield whose colour is the signal: green for a clean
+  address, amber for one with some history, red for one the community calls
+  abusive, an outlined shield for an address nobody has checked, and a muted
+  house for your own network. Hover it for the score and where the address sits.
+  The arrow at the start of a row opens the full record underneath it: user,
+  address, method, result, time, the event name, the logged detail, and the
+  reputation in words with a **Check with AbuseIPDB** button when that address has
+  never been looked up. Nothing is sent to AbuseIPDB until you press it, and local
+  addresses are never sent at all. Click IP address, User, Method or Time in the
+  heading to sort by it, and again to reverse it.
+- **Devices** — every device signed in to the house, counted by kind (displays,
+  phones, tablets, computers) with a table under it: what the device is, whose
+  account it is signed in to, the address it last came from, when it was last
+  seen, and when its sign-in runs out. A linked TV or display shows as a display;
+  everything else is read from the browser it signed in with, and says "unknown"
+  rather than guessing. Sort by any of Type, Device, Person or Last seen, and
+  page through them 10, 20, 50 or 100 at a time — remembered separately from the
+  Logins table's own choice.
+- **Locations** — where sign-ins came from, over the window you pick: a world map
+  shaded by how many connections each country sent, and a table of countries with
+  connections, failures and how many distinct addresses were behind them. Sign-ins
+  from inside your own house are counted separately as "Home network" rather than
+  being dropped, so the numbers always add up to what the Logins page shows — the
+  line under the map spells that out: how many sign-ins the range holds, how many
+  the map could place, how many came from your own network, and how many no
+  database could place.
+
+  Countries are worked out on your server from a database file, so no address is
+  ever sent anywhere to draw this. **Location database**, under the map, is where
+  that file is managed: press it and fetch DB-IP's Country Lite database (about
+  9 MB, free, no account) into your data folder. That download is the only
+  outbound call; lookups after it never leave the machine. Worth fetching again
+  every few months, since addresses move between networks.
+
+  **Want town-level detail?** That database is yours to choose. Download any
+  city-level database you like — DB-IP City Lite or MaxMind's GeoLite2-City,
+  whichever licence suits you — and give it to the server from the **City database**
+  tab: paste its download link and the server fetches it itself, or pick the file
+  from your computer. Dropping the `.mmdb` straight into the folder named on the
+  **Files** tab works too. A `.mmdb.gz` from the vendor
+  is fine either way — it is unpacked here — and a file that turns out not to be a
+  database is refused rather than kept. It is picked up on the next lookup with no
+  restart and nothing to configure, a city database always wins over the country
+  one, and
+  each town appears as a gold dot on the map — placed from its coordinates and
+  sized by how many connections came from it — with a **Towns and cities** table
+  under it. The app never fetches these
+  itself: they run from 70 MB to 400 MB and their terms are yours to accept.
+  **Where is home?** Your own network never leaves the house, so no database can
+  place it — but you can. Use **Set home location**, the second button under the
+  map, click the spot, and give it a name ("The house", "Nan's flat"). Your own
+  connections then get a ringed dot of their own, and the count card and table row
+  take that name. It is stored on your server for that one purpose, never sent
+  anywhere, and **Take it off the map** removes it again.
+- **Activity** — uploads, downloads and deletes charted over the last 14 days,
+  plus storage used.
 - **Content activity** — recent uploads, downloads, deletes, and what's been read,
   played or viewed.
 - **Reading and playback** — what's currently in progress for every member; a
@@ -152,8 +212,9 @@ internet](exposing-to-the-internet.md).
 - **Blocked IPs** — what's been auto-blocked, and where you unblock it, add a
   block by hand, or make a temporary automatic block permanent (the ∞ button on
   rows that would otherwise expire). With an AbuseIPDB key set under Policies,
-  each row can also show the address's public abuse score, and a check button
-  fetches it on demand.
+  each row can also show the address's public abuse score with the country and
+  network operator it belongs to underneath, and a check button fetches it on
+  demand.
 - Under **Policies** you can also connect **AbuseIPDB** (free API key) so blocked
   addresses are checked against a community abuse database — and, if you keep the
   escalation switch on, known-abusive addresses stay blocked permanently instead

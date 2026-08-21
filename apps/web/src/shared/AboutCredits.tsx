@@ -30,6 +30,14 @@ const CREDITS: { group: string; items: Credit[] }[] = [
     ]
   },
   {
+    group: "Locations",
+    items: [
+      { name: "DB-IP Country Lite", use: "Which country a sign-in came from (read locally, never queried online)", license: "CC BY 4.0 — © DB-IP.com", url: "https://db-ip.com/db/download/ip-to-country-lite" },
+      { name: "maxmind", use: "Reads the .mmdb database file", license: "MIT", url: "https://github.com/runk/node-maxmind" },
+      { name: "svg-maps", use: "The world map outline on the Locations page", license: "CC BY 4.0", url: "https://github.com/VictorCazanave/svg-maps" }
+    ]
+  },
+  {
     group: "Audiobooks",
     items: [
       { name: "music-metadata", use: "Audio tags, chapters & durations", license: "MIT", url: "https://github.com/borewit/music-metadata" }

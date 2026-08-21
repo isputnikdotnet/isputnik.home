@@ -18,13 +18,13 @@ PGID="${PGID:-1000}"
 if [ "$(id -u)" = "0" ]; then
   # These must exist inside the mounted volume, not just the image, or the server
   # writes into a directory the host never sees (see the ENV notes in Dockerfile).
-  mkdir -p /config/db /config/thumbnails /config/metadata /config/backups
+  mkdir -p /config/db /config/thumbnails /config/metadata /config/backups /config/geoip
   # Best-effort: fix ownership of the top-level dirs we just (re)created, covering
   # the case where an operator cleared a cache dir (e.g. rm -rf the thumbnails) and
   # restarted — mkdir recreates it root-owned and the whole-tree sentinel below
   # would skip it. Non-fatal (|| true): a subdir bind-mounted onto a chown-hostile
   # filesystem (NFS root_squash, read-only) must not abort startup under `set -e`.
-  chown "${PUID}:${PGID}" /config /config/db /config/thumbnails /config/metadata /config/backups 2>/dev/null || true
+  chown "${PUID}:${PGID}" /config /config/db /config/thumbnails /config/metadata /config/backups /config/geoip 2>/dev/null || true
   # Take the whole-tree ownership pass once per PUID:PGID, tracked by a sentinel
   # we write. A plain top-level check is not enough: upgrading from a root-run
   # image can leave /config itself owned correctly (Unraid pre-creates it) while

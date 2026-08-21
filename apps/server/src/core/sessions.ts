@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { db, logActivity } from "../db.js";
 import { currentSessionHash } from "../auth.js";
-import { describeUserAgent } from "./device-link.js";
+import { describeUserAgent, deviceType } from "./device-link.js";
 import { parseBody } from "./shared.js";
 
 // Live sessions, from two directions: an admin's view of everyone's (the original
@@ -64,6 +64,10 @@ function serializeSession(session: SessionRow, currentHash: string | null) {
     kind: session.kind,
     label: session.label,
     name: session.label ?? describeUserAgent(session.device_name),
+    // What the label would have said if the owner hadn't renamed it — the Devices
+    // table shows it under the name, so a renamed row still says what it is.
+    agent: describeUserAgent(session.device_name),
+    type: deviceType(session.device_name, session.kind),
     deviceName: session.device_name,
     ipAddress: session.ip_address,
     current: session.token_hash === currentHash

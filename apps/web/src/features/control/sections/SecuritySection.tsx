@@ -27,7 +27,7 @@ import { MessageBox } from "../../../shared/MessageBox";
 import { Modal } from "../../../shared/Modal";
 import { RefreshButton } from "../../../shared/RefreshButton";
 import { repoFileUrl } from "../../../shared/links";
-import { formatManagedDate } from "../../../shared/utils";
+import { countryName, formatManagedDate } from "../../../shared/utils";
 
 interface TrustedNetwork {
   id: string;
@@ -40,6 +40,8 @@ interface IpReputationInfo {
   score: number;
   totalReports: number | null;
   lastReportedAt: string | null;
+  countryCode: string | null;
+  isp: string | null;
   checkedAt: string;
 }
 
@@ -1278,13 +1280,31 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                             <td className="datagrid-muted">{entry.reason || "—"}</td>
                             <td className="datagrid-muted">{entry.auto ? "Automatic" : "Manual"}</td>
                             <td className="datagrid-muted">
-                              {entry.reputation
-                                ? `${entry.reputation.score}% abuse confidence${
-                                    entry.reputation.totalReports
+                              {entry.reputation ? (
+                                <span className="reputation-cell">
+                                  <span
+                                    className={`reputation-score ${
+                                      entry.reputation.score >= 50 ? "bad" : entry.reputation.score > 0 ? "watch" : "clean"
+                                    }`}
+                                  >
+                                    {entry.reputation.score}% abuse confidence
+                                    {entry.reputation.totalReports
                                       ? ` · ${entry.reputation.totalReports.toLocaleString()} reports`
-                                      : ""
-                                  }`
-                                : "—"}
+                                      : ""}
+                                  </span>
+                                  {[countryName(entry.reputation.countryCode), entry.reputation.isp]
+                                    .filter(Boolean)
+                                    .join(" · ") && (
+                                    <small>
+                                      {[countryName(entry.reputation.countryCode), entry.reputation.isp]
+                                        .filter(Boolean)
+                                        .join(" · ")}
+                                    </small>
+                                  )}
+                                </span>
+                              ) : (
+                                "—"
+                              )}
                             </td>
                             <td className="datagrid-muted">
                               {entry.expired ? (

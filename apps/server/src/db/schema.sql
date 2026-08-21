@@ -228,6 +228,8 @@ CREATE TABLE IF NOT EXISTS ip_reputation (
   score             INTEGER,        -- abuseConfidenceScore 0..100
   total_reports     INTEGER,
   last_reported_at  TEXT,
+  country_code      TEXT,           -- ISO 3166-1 alpha-2, as AbuseIPDB reports it
+  isp               TEXT,
   checked_at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 

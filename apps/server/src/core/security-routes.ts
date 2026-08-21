@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { db, logActivity } from "../db.js";
 import { parseBody } from "./shared.js";
-import { isValidCidr } from "./cidr.js";
+import { isPrivateIp, isValidCidr } from "./cidr.js";
 import {
   listTrustedNetworks,
   addTrustedNetwork,
@@ -20,7 +20,21 @@ import {
   type SecurityPolicy
 } from "./security.js";
 import { getPasswordPolicy, setPasswordPolicy } from "./password-policy.js";
-import { checkIpReputation, getCachedReputation } from "./ip-reputation.js";
+import { checkIpReputation, getCachedReputation, getCachedReputations, type IpReputation } from "./ip-reputation.js";
+
+// One shape for reputation wherever it is reported: the Blocked IPs list, the
+// on-demand check, and the Logins table all read the same fields.
+function reputationPayload(reputation: IpReputation) {
+  return {
+    ip: reputation.ip_address,
+    score: reputation.score,
+    totalReports: reputation.total_reports,
+    lastReportedAt: reputation.last_reported_at,
+    countryCode: reputation.country_code,
+    isp: reputation.isp,
+    checkedAt: reputation.checked_at
+  };
+}
 import { sealSecret } from "./mfa.js";
 import { isMailConfigured } from "./mail.js";
 
@@ -106,15 +120,7 @@ export async function securityRoutes(app: FastifyInstance) {
         createdAt: entry.created_at,
         expiresAt: entry.expires_at,
         expired: Boolean(entry.expired),
-        reputation:
-          reputation && typeof reputation.score === "number"
-            ? {
-                score: reputation.score,
-                totalReports: reputation.total_reports,
-                lastReportedAt: reputation.last_reported_at,
-                checkedAt: reputation.checked_at
-              }
-            : null
+        reputation: reputation && typeof reputation.score === "number" ? reputationPayload(reputation) : null
       };
     })
   }));
@@ -254,14 +260,39 @@ export async function securityRoutes(app: FastifyInstance) {
     if (!reputation || typeof reputation.score !== "number") {
       return reply.code(502).send({ error: "The AbuseIPDB lookup failed. Try again in a moment." });
     }
+    return reply.send({ reputation: reputationPayload(reputation) });
+  });
+
+  // Reputation for a set of addresses, cache only — the Dashboard's Logins table
+  // asks about every IP on the page it just drew. Nothing here calls AbuseIPDB:
+  // an address is looked up only when an admin asks for it (the route below) or
+  // when local detection auto-blocks it, so ordinary family traffic never leaves
+  // the house. `configured` tells the client whether to offer the check at all.
+  app.get("/api/security/ip-reputation", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const raw = (request.query as { ip?: string | string[] }).ip;
+    const ips = [...new Set((raw === undefined ? [] : Array.isArray(raw) ? raw : [raw]).map((ip) => ip.trim()).filter(Boolean))].slice(0, 100);
     return reply.send({
-      reputation: {
-        score: reputation.score,
-        totalReports: reputation.total_reports,
-        lastReportedAt: reputation.last_reported_at,
-        checkedAt: reputation.checked_at
-      }
+      configured: Boolean(getSecurityPolicy().abuseIpdbKey),
+      reputation: getCachedReputations(ips).map(reputationPayload)
     });
+  });
+
+  // The admin asking about one address. Private and loopback addresses are refused
+  // outright: sending a family member's LAN IP to a third party would tell it
+  // nothing and is exactly the traffic this module avoids.
+  app.post("/api/security/ip-reputation/:ip/check", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const ip = (request.params as { ip: string }).ip;
+    if (!getSecurityPolicy().abuseIpdbKey) {
+      return reply.code(409).send({ error: "Add an AbuseIPDB API key under Security → Policies first." });
+    }
+    if (isPrivateIp(ip)) {
+      return reply.code(400).send({ error: "That is a local address — there is nothing to look up." });
+    }
+    const reputation = await checkIpReputation(ip, { force: true });
+    if (!reputation || typeof reputation.score !== "number") {
+      return reply.code(502).send({ error: "The AbuseIPDB lookup failed. Try again in a moment." });
+    }
+    return reply.send({ reputation: reputationPayload(reputation) });
   });
 
   // Escalate an existing (usually automatic, cooldown-limited) block into one

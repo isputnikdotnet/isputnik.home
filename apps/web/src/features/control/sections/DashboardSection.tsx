@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { LayoutDashboard, LineChart, LogIn, Monitor, PlayCircle, Upload } from "lucide-react";
+import { Globe2, LayoutDashboard, LineChart, LogIn, Monitor, MonitorSmartphone, PlayCircle, Upload } from "lucide-react";
 import { api } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
 import { RefreshButton } from "../../../shared/RefreshButton";
@@ -9,6 +9,8 @@ import type { DashboardSummary, DbInfo, SystemStatus } from "../types";
 import { SystemView } from "./dashboard/SystemView";
 import { ActivityView } from "./dashboard/ActivityView";
 import { LoginsView } from "./dashboard/LoginsView";
+import { DevicesView } from "./dashboard/DevicesView";
+import { LocationsView } from "./dashboard/LocationsView";
 import { ContentActivityView } from "./dashboard/ContentActivityView";
 import { PlaybackView } from "./dashboard/PlaybackView";
 
@@ -16,19 +18,22 @@ import { PlaybackView } from "./dashboard/PlaybackView";
 // "Dashboard" (activity trends) — folded into one, with a lighter secondary tab
 // strip switching between them: real tabs (not a dropdown), but visually distinct
 // from the page-level tab row above so it doesn't read as a second copy of it.
-type DashboardView = "system" | "activity" | "logins" | "content" | "playback";
+type DashboardView = "system" | "activity" | "logins" | "devices" | "locations" | "content" | "playback";
 
+// Logins leads: "who got in, and from where" is what this page gets opened for.
 const DASHBOARD_VIEWS: { value: DashboardView; label: string; icon: ReactNode }[] = [
+  { value: "logins", label: "Logins", icon: <LogIn size={15} aria-hidden="true" /> },
+  { value: "devices", label: "Devices", icon: <MonitorSmartphone size={15} aria-hidden="true" /> },
+  { value: "locations", label: "Locations", icon: <Globe2 size={15} aria-hidden="true" /> },
   { value: "activity", label: "Activity", icon: <LineChart size={15} aria-hidden="true" /> },
   { value: "system", label: "System", icon: <Monitor size={15} aria-hidden="true" /> },
-  { value: "logins", label: "Logins", icon: <LogIn size={15} aria-hidden="true" /> },
   { value: "content", label: "Content activity", icon: <Upload size={15} aria-hidden="true" /> },
   { value: "playback", label: "Reading and playback", icon: <PlayCircle size={15} aria-hidden="true" /> }
 ];
 
 function viewFromUrl(): DashboardView {
   const value = new URLSearchParams(window.location.search).get("view");
-  return DASHBOARD_VIEWS.some((entry) => entry.value === value) ? (value as DashboardView) : "activity";
+  return DASHBOARD_VIEWS.some((entry) => entry.value === value) ? (value as DashboardView) : "logins";
 }
 
 export function DashboardSection() {
@@ -58,7 +63,7 @@ export function DashboardSection() {
 
   const chooseView = (next: DashboardView) => {
     setView(next);
-    const href = next === "activity" ? controlHref("dashboard") : `${controlHref("dashboard")}?view=${next}`;
+    const href = next === "logins" ? controlHref("dashboard") : `${controlHref("dashboard")}?view=${next}`;
     window.history.replaceState({}, "", href);
   };
 
@@ -102,7 +107,9 @@ export function DashboardSection() {
 
       {status && view === "system" && <SystemView status={status} dbInfo={dbInfo} />}
       {status && summary && view === "activity" && <ActivityView summary={summary} status={status} />}
-      {summary && view === "logins" && <LoginsView summary={summary} />}
+      {view === "logins" && <LoginsView />}
+      {view === "devices" && <DevicesView />}
+      {view === "locations" && <LocationsView />}
       {view === "content" && <ContentActivityView />}
       {view === "playback" && <PlaybackView />}
     </>

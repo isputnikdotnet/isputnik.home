@@ -540,6 +540,412 @@ span.status-metric-icon {
   border-color: transparent;
 }
 
+/* A failed sign-in in the Logins table reads as plain text like every other
+   cell — only its colour marks it, so the change badges above stay the only
+   badges on the page. */
+.login-result-failed {
+  color: var(--rose);
+}
+
+/* The location-database dialog. It borrows the panel modal's chrome but not its
+   size: three short tabs of alternatives, so it is sized by its content instead
+   of standing at 840x680 with a paragraph in it. */
+.metadata-modal.geoip-modal {
+  width: min(calc(100vw - 32px), 560px);
+  height: auto;
+  min-height: 0;
+  max-height: calc(100vh - 48px);
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+}
+
+.geoip-modal .modal-tabs {
+  padding: 6px 18px 0;
+}
+
+.geoip-modal-content {
+  padding: 16px 18px;
+  font-size: 0.9rem;
+}
+
+.geoip-modal-content p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.geoip-modal-actions {
+  padding: 0 18px 16px;
+  margin-top: 0;
+}
+
+.geoip-actions {
+  display: flex;
+  gap: 10px;
+}
+
+/* Field + button on one line, the field taking the slack; they stack when the
+   dialog is narrow rather than squeezing the input to nothing. */
+.geoip-source {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.geoip-source .field {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+.geoip-source .field input {
+  width: 100%;
+  min-width: 0;
+}
+
+.geoip-file-field input[type="file"] {
+  width: 100%;
+  min-width: 0;
+  padding: 9px 12px;
+  font-size: 0.86rem;
+}
+
+.geoip-file-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.geoip-file-list li {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface);
+  overflow-wrap: anywhere;
+}
+
+.geoip-file-list small {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+/* The Locations map. Country shapes come from a bundled path set, so this is
+   plain SVG with no tiles, no external requests and no canvas: shading is five
+   steps of the mint accent, because on a family server one country holds nearly
+   every connection and a continuous ramp would flatten all the others to nothing. */
+.world-map {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.world-map svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 420px;
+}
+
+.world-map-country {
+  fill: var(--active);
+  stroke: var(--line);
+  stroke-width: 0.5;
+  transition: fill 0.12s;
+}
+
+.world-map-country.step-1 { fill: color-mix(in srgb, var(--mint) 28%, var(--surface)); }
+.world-map-country.step-2 { fill: color-mix(in srgb, var(--mint) 48%, var(--surface)); }
+.world-map-country.step-3 { fill: color-mix(in srgb, var(--mint) 70%, var(--surface)); }
+.world-map-country.step-4 { fill: var(--mint); }
+
+.world-map-country[role="button"] {
+  cursor: pointer;
+}
+
+.world-map-country[role="button"]:hover,
+.world-map-country.is-selected {
+  stroke: var(--ink);
+  stroke-width: 1.2;
+}
+
+.world-map-country:focus-visible {
+  outline: 2px solid var(--mint);
+}
+
+/* Home. A ring rather than a filled dot, so it reads as a marker the household
+   placed rather than a measurement the database made. */
+.world-map-home circle {
+  fill: none;
+  stroke: var(--mint);
+  stroke-width: 2;
+}
+
+.world-map-home .world-map-home-core {
+  fill: var(--mint);
+  stroke: none;
+}
+
+.world-map-scale-home::before {
+  content: '';
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 5px;
+  border: 2px solid var(--mint);
+  border-radius: 50%;
+  vertical-align: -1px;
+}
+
+/* A town or city, plotted from its coordinates. Gold against the mint shading,
+   so a dot never reads as part of the country fill under it. */
+.world-map-dot {
+  fill: var(--gold);
+  fill-opacity: 0.85;
+  stroke: var(--surface);
+  stroke-width: 0.8;
+  cursor: pointer;
+}
+
+.world-map-dot:hover,
+.world-map-dot.is-selected {
+  fill-opacity: 1;
+  stroke: var(--ink);
+}
+
+.world-map-scale-dot::before {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 5px;
+  border-radius: 50%;
+  background: var(--gold);
+  vertical-align: -1px;
+}
+
+.world-map-scale {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-self: end;
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.world-map-swatch {
+  width: 18px;
+  height: 10px;
+  border-radius: 2px;
+  border: 1px solid var(--line);
+}
+
+.world-map-swatch.step-1 { background: color-mix(in srgb, var(--mint) 28%, var(--surface)); }
+.world-map-swatch.step-2 { background: color-mix(in srgb, var(--mint) 48%, var(--surface)); }
+.world-map-swatch.step-3 { background: color-mix(in srgb, var(--mint) 70%, var(--surface)); }
+.world-map-swatch.step-4 { background: var(--mint); }
+
+/* Headline KPI cards (shared/KpiCard): a tinted icon, the number with its
+   change badge, and one line of context. Same badge idiom as Security's overview
+   cards, sized up so the number carries the row. */
+.kpi-cards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+@media (max-width: 1100px) {
+  .kpi-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .kpi-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.kpi-card {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-raised);
+}
+
+.kpi-card-icon {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+}
+
+.kpi-card-icon.info {
+  color: var(--blue);
+  background: color-mix(in srgb, var(--blue) 14%, transparent);
+}
+
+.kpi-card-icon.success {
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 14%, transparent);
+}
+
+.kpi-card-icon.danger {
+  color: var(--rose);
+  background: color-mix(in srgb, var(--rose) 14%, transparent);
+}
+
+.kpi-card-icon.warning {
+  color: var(--amber);
+  background: color-mix(in srgb, var(--amber) 14%, transparent);
+}
+
+.kpi-card-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.kpi-card-label {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.kpi-card-value {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.kpi-card-value strong {
+  color: var(--ink);
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.kpi-card-change {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.kpi-card-change svg {
+  translate: 0 1.5px;
+}
+
+.kpi-card-change.good {
+  color: var(--success);
+}
+
+.kpi-card-change.bad {
+  color: var(--rose);
+}
+
+.kpi-card-change.neutral {
+  color: var(--blue);
+}
+
+.kpi-card-context {
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.3;
+}
+
+/* Time-window control (shared/DateRangePicker) above a range-scoped view: one
+   segmented strip of relative presets ending in Custom, so the presets read as
+   one control rather than five loose buttons. */
+.range-picker {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.range-picker button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 15px;
+  border: 0;
+  border-left: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.range-picker button:first-child {
+  border-left: 0;
+}
+
+.range-picker button:hover:not(:disabled) {
+  color: var(--ink);
+}
+
+.range-picker button:focus-visible {
+  outline: 2px solid var(--mint);
+  outline-offset: -2px;
+}
+
+.range-picker button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.range-picker button.active {
+  color: var(--mint);
+  background: var(--active);
+}
+
+.status-range-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 6px 0 0;
+}
+
+.status-range-label {
+  font-size: 0.86rem;
+  color: var(--muted);
+}
+
+/* Two datetime-local inputs side by side. Each field needs min-width: 0 — a grid
+   item floors at its min-content width otherwise, and a date-time input's is wide
+   enough to push the second field out from under the first (they overlapped). The
+   auto-fit track drops them onto separate rows when the dialog is too narrow for
+   both. */
+.range-picker-custom-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+}
+
+.range-picker-custom-fields .field,
+.range-picker-custom-fields .field input {
+  min-width: 0;
+}
+
 .dashboard-chart-legend {
   display: flex;
   flex-wrap: wrap;

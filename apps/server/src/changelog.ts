@@ -19,6 +19,18 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.11.0",
+    label: "The dashboard opens on sign-ins, with pages for devices and where people connected from",
+    changes: [
+      "The control panel's dashboard now opens on Logins. Pick a window along the top — the last hour, seven hours, a day, a week, a month, or a start and end of your own — and everything below follows it: cards for attempts, successes, failures and blocked addresses, each compared with the window before it, a chart of successful and failed sign-ins, and the sign-ins themselves in a table.",
+      "A row in that table opens. It shows the address with the person under it, the sign-in method as an icon you can hover for its name, and the result; the arrow at the start opens the whole record underneath — the event, the logged detail, the exact time, and everything known about the address. Sort by address, person, method or time, and choose 10, 20, 50 or 100 rows to a page; it remembers which you picked.",
+      "With an AbuseIPDB key set under Security, each row also carries a shield whose colour is the signal: green for a clean address, amber for one with some history, red for one the community calls abusive, and a house for your own network. Nothing is sent to AbuseIPDB unless you press Check on an address, and an address inside your own house is never sent at all. The Blocked IPs page now shows the country and network operator alongside the score.",
+      "A new Devices page counts every device signed in to the house — displays, phones, tablets and computers — and lists them: what the device is, whose account it is signed in to, where it last connected from, when it was last seen, and when its sign-in runs out.",
+      "A new Locations page draws a world map of where sign-ins came from, with a table of countries beside it and a line under the map that reconciles the total: how many the map could place, how many came from your own network, and how many no database could place. Countries are worked out on your own server from a database file kept with your data — about 9 MB, fetched with one press — so no address is ever sent anywhere to draw the map.",
+      "That database is yours to choose. For town-level detail, download any city database you like and hand it over by pasting its link or picking the file; towns then appear as dots on the map. And because a home network has no country to look up, you can mark where home is by clicking a map, and your own connections get a dot of their own."
+    ]
+  },
+  {
     version: "3.10.5",
     label: "An email address is no longer refused for the space around it",
     changes: [
