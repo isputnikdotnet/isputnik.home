@@ -19,6 +19,15 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.18.0",
+    label: "The same settings never score lower at home than on the internet",
+    changes: [
+      "The protection level used to grade a home-only server on a shorter exam, so one medium setting cost more of the score there than it did on the internet — the same settings could read 88 at home and 94 on the internet. Both now sit the same exam. A home-only server has the four questions that only matter against strangers waived — proxy trust, a second factor from outside the house, deletion protection and IP reputation are credited in full whatever they are set to — and sign-in alerts and device linking count half. Identical settings now score identically, and at home they can only score higher.",
+      "The card names the waived settings instead of just counting them, and counts them as active, so the counters agree between the two gradings.",
+      "When the proxy in front of the server is already trusted, the card's reminder to switch the grading is a single quiet line; the louder warning is kept for a proxy the app has not been told about."
+    ]
+  },
+  {
     version: "3.17.1",
     label: "A home-only server is graded only on what matters at home",
     changes: [
