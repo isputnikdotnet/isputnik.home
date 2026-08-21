@@ -19,6 +19,16 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.15.0",
+    label: "A System tab that answers \"is the server well?\", and Statistics becomes the Libraries tab",
+    changes: [
+      "The dashboard's System tab used to list counts — users, sessions, invites, log entries — two database sizes that disagreed with each other, and a health light that could only ever say \"Operational\". It now opens with four cards about the server itself: uptime with the version and Node release under it, memory in use, free space on the data disk (green until a fifth is left, amber below that, red below a tenth — the one number that can end an evening on a media server), and the database on disk with its file and WAL sizes in one place.",
+      "The counts didn't vanish; they became a short table of doors. Members, signed-in devices, open invite links, log entries and — new — when the last backup was taken, each with its number and an arrow to the page that owns it. The hand-written sqlite3 backup tip is gone; backups have had a page of their own for a while, and the table now says so.",
+      "Statistics was a page behind a media-type switch, with the same Libraries table, size card and biggest-files list drawn three times over. It is now the Libraries tab on the dashboard, beside Activity, and shows every type at once: a card each for audiobooks, ebooks and photos & videos plus the total on disk; every library in one table, biggest first, with its share of the storage drawn beside its size; and three short lists side by side — top authors across both book types (the same person is often on the shelf and in the ears), top narrators by hours, and the biggest gallery files, where one video can outweigh a thousand photos.",
+      "The dashboard's tabs read Logins, Locations, Activity, Libraries, System. Bookmarks to the old Statistics page land on the Libraries tab, and searching for \"statistics\", \"system health\", \"activity\" or \"map\" from the control panel's search now opens the right tab directly rather than the dashboard's first one."
+    ]
+  },
+  {
     version: "3.14.0",
     label: "One Activity tab, with a date range of its own",
     changes: [

@@ -335,21 +335,6 @@
 
 /* ── Health & status ────────────────────────────────────────────── */
 
-.health-line {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 18px;
-}
-
-.health-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--mint);
-}
-
-.health-line span,
 .status-metric span {
   color: var(--muted);
 }
@@ -383,10 +368,6 @@
 .status-block-head h2,
 .status-table-title h3 {
   margin: 0;
-}
-
-.status-block-head .health-line {
-  margin-bottom: 0;
 }
 
 .status-grid-four {
@@ -924,23 +905,24 @@ span.status-metric-icon {
   width: 82px;
 }
 
-/* This page is six tables deep — an investigation, not a reading page — so its
-   rows sit tighter than the default datagrid everywhere at once. */
-.signins-page .datagrid th,
-.signins-page .datagrid td {
+/* Pages that are several tables deep (Sign-ins, Libraries) — a glance or an
+   investigation, not a reading page — so their rows sit tighter than the
+   default datagrid, everywhere on the page at once. */
+.compact-tables .datagrid th,
+.compact-tables .datagrid td {
   padding: 7px 11px;
   font-size: 0.86rem;
 }
 
-.signins-page .datagrid .datagrid-primary small {
+.compact-tables .datagrid .datagrid-primary small {
   font-size: 0.76rem;
 }
 
-.signins-page .conn-cell {
+.compact-tables .conn-cell {
   min-width: 120px;
 }
 
-.signins-page .conn-track {
+.compact-tables .conn-track {
   max-width: 120px;
 }
 
@@ -984,6 +966,19 @@ span.status-metric-icon {
   color: var(--ink);
 }
 
+
+/* Dashboard › System: the "where things stand" rows are doors to other pages,
+   so the whole row is the target and the number reads as a headline. */
+.system-pointer-row {
+  cursor: pointer;
+}
+
+.system-pointer-value {
+  font-size: 1.05rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
 
 /* Dashboard › Activity: the two fourteen-day charts side by side where there is
    room — what was put in or taken out, and what was actually opened. */
@@ -1224,6 +1219,46 @@ span.status-metric-icon {
   gap: 14px;
 }
 
+/* Dashboard › Libraries: authors, narrators and formats side by side where
+   there is room, stacked where there isn't. */
+.libraries-rank-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  /* Two shared rows — titles, then tables — so a title that wraps in one column
+     pushes every table down together and the three stay on one line. */
+  grid-template-rows: auto auto;
+  gap: 14px;
+}
+
+.libraries-rank-grid > .status-subsection {
+  grid-row: span 2;
+  grid-template-rows: subgrid;
+}
+
+.libraries-rank-grid .status-table-title {
+  align-items: start;
+}
+
+.libraries-rank-grid .status-table-title h3 {
+  white-space: nowrap;
+}
+
+.libraries-rank-grid .status-table-title span {
+  text-align: right;
+}
+
+@media (max-width: 1200px) {
+  .libraries-rank-grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+  }
+
+  .libraries-rank-grid > .status-subsection {
+    grid-row: auto;
+    grid-template-rows: none;
+  }
+}
+
 .status-rank-table td:first-child {
   width: 1%;
   white-space: nowrap;
@@ -1241,23 +1276,6 @@ span.status-metric-icon {
   margin: 12px 0 0;
   font-size: 0.82rem;
   word-break: break-all;
-}
-
-.status-db-hint {
-  margin: 8px 0 0;
-  font-size: 0.86rem;
-  line-height: 1.45;
-  min-width: 0;
-}
-
-/* Kept whole so it stays copy-pasteable: inline-block moves the command to its own
-   line instead of breaking it mid-token, and scrolls it when the card is narrower. */
-.status-db-command {
-  display: inline-block;
-  max-width: 100%;
-  overflow-x: auto;
-  white-space: nowrap;
-  vertical-align: bottom;
 }
 
 .tag-edit-input {

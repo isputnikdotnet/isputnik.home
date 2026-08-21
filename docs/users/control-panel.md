@@ -9,7 +9,7 @@ it points there rather than repeating it.
 
 | Section | Tabs |
 |---|---|
-| **Overview** | Dashboard, Sign-ins, Statistics, Tasks, Logs |
+| **Overview** | Dashboard, Sign-ins, Tasks, Logs |
 | **Library** | Libraries, Storage, Categories, Tags |
 | **Members** | Users, Groups, Invite links |
 | **Security** | Overview, Policies, Trusted networks, Blocked IPs |
@@ -40,13 +40,19 @@ where a setting lives.
 Server health and activity trends in one page, switched with the row of pill-shaped
 tabs under the heading — real tabs, not a dropdown:
 
-- **System** — how many users, active sessions and invites exist, how many log
-  entries have piled up, the database size, and how long the server has been
-  running. The **Database** panel breaks the size down — the file itself, the WAL
-  (SQLite's write-ahead log, which grows between checkpoints and is normal), and
-  the total on disk. Go here first when something feels wrong — it answers "is the
-  server actually up, and how big is this getting?" before you go looking anywhere
-  else.
+- **System** — is the server well? Four cards: uptime with the version and Node
+  release under it, memory in use, free space on the data disk (green until a
+  fifth is left, amber below that, red below a tenth), and the database on disk
+  with its file and WAL sizes (the WAL is SQLite's write-ahead log, which grows
+  between checkpoints and is normal). Under them, a short table of counts that
+  have pages of their own — members, signed-in devices, open invite links, log
+  entries, and when the last backup was taken — each row a door to that page. Go
+  here first when something feels wrong.
+- **Libraries** — what's *in* the catalogue, every media type on one page: a card
+  each for audiobooks, ebooks and photos & videos, and one for the total on disk;
+  every library in one table, biggest first, with its share of the storage drawn
+  beside it; and the people and formats that make up the collection — top authors
+  across both book types, top narrators by hours, and the ebook formats in use.
 - **Logins** — the view the page opens on. Pick a window (1h, 7h, 24h, 7d, 30d,
   or a custom start and end)
   and everything below follows it: cards for attempts, successes, failures and
@@ -65,14 +71,6 @@ tabs under the heading — real tabs, not a dropdown:
   never been looked up. Nothing is sent to AbuseIPDB until you press it, and local
   addresses are never sent at all. Click IP address, User, Method or Time in the
   heading to sort by it, and again to reverse it.
-- **Devices** — every device signed in to the house, counted by kind (displays,
-  phones, tablets, computers) with a table under it: what the device is, whose
-  account it is signed in to, the address it last came from, when it was last
-  seen, and when its sign-in runs out. A linked TV or display shows as a display;
-  everything else is read from the browser it signed in with, and says "unknown"
-  rather than guessing. Sort by any of Type, Device, Person or Last seen, and
-  page through them 10, 20, 50 or 100 at a time — remembered separately from the
-  Logins table's own choice.
 - **Locations** — where sign-ins came from, over the window you pick: a world map
   shaded by how many connections each country sent, and a table of countries with
   connections, failures and how many distinct addresses were behind them. Sign-ins
@@ -109,18 +107,13 @@ tabs under the heading — real tabs, not a dropdown:
   connections then get a ringed dot of their own, and the count card and table row
   take that name. It is stored on your server for that one purpose, never sent
   anywhere, and **Take it off the map** removes it again.
-- **Activity** — what the household has been doing with the library, top to
-  bottom: the headline numbers and storage used; two charts over the last 14 days
-  (uploads, downloads and deletes; and what was played, read or viewed); the
-  recent content events themselves; and what's currently in progress for every
-  member — a snapshot, not a history, since a book's reading position is
-  overwritten as you go rather than logged session by session.
-
-### Statistics
-
-What's *in* the catalogue. Pick a media type from the control beside the heading:
-audiobooks (libraries, hours, top authors and narrators), ebooks (formats, authors,
-largest files) or gallery (photos, videos, largest items).
+- **Activity** — what the household has been doing with the library, over the
+  window you pick with the same date toolbar Logins has: cards for uploads,
+  downloads and deletes (each compared with the stretch before) and storage used;
+  two charts (uploads, downloads and deletes; and what was played, read or
+  viewed); the content events themselves; and what's currently in progress for
+  every member — a snapshot that doesn't follow the range, since a book's reading
+  position is overwritten as you go rather than logged session by session.
 
 ### Tasks
 

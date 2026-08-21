@@ -18,7 +18,6 @@ import { LogsSection } from "./sections/LogsSection";
 import { AboutSection } from "./sections/AboutSection";
 import { StorageSection } from "./sections/StorageSection";
 import { LibrariesSection } from "./sections/LibrariesSection";
-import { StatisticsSection } from "./sections/StatisticsSection";
 import { DashboardSection } from "./sections/DashboardSection";
 import { SignInsSection } from "./sections/dashboard/SignInsSection";
 import { BackupSection } from "./sections/BackupSection";
@@ -89,7 +88,6 @@ function ControlSectionBody({
   switch (section) {
     case "dashboard":       return <DashboardSection />;
     case "signins":         return <SignInsSection />;
-    case "stats":           return <StatisticsSection />;
     case "tasks":           return <TasksSection />;
     case "logs":            return <LogsSection />;
 
