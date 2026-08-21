@@ -1208,6 +1208,47 @@ CREATE TABLE IF NOT EXISTS item_saves (
 );
 
 -- ════════════════════════════════════════════════════════════════════════════
+--  Family sharing — "Send to"
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- One family member pointing another at something: a pointer plus a line of
+-- text, never a copy of the file. The subject is polymorphic over the resolver
+-- in modules/social/subjects.ts (audiobook | ebook | gallery | family_tree_person).
+--
+-- Sender is SET NULL with a `from_name` snapshot rather than CASCADE: a removed
+-- account should not silently erase what it sent, the same bargain `quotes`
+-- makes with source_title/source_author. Recipient IS cascade — a recommendation
+-- addressed to nobody has no meaning.
+--
+-- UNIQUE(from, to, entity) makes re-sending idempotent: sending the same book to
+-- the same person twice updates the message and lifts it back to 'new' rather
+-- than stacking duplicate cards in their inbox.
+CREATE TABLE IF NOT EXISTS recommendations (
+  id            TEXT PRIMARY KEY,
+  from_user_id  TEXT REFERENCES users(id) ON DELETE SET NULL,
+  to_user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  entity_type   TEXT NOT NULL,
+  entity_id     TEXT NOT NULL,
+  message       TEXT,
+  -- 'new' until the recipient acts. 'saved' means it went to their My List;
+  -- 'dismissed' is "not now". Neither deletes the row — the Sent list stays
+  -- honest about what was sent, and the feed can still cite it.
+  status        TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'saved', 'dismissed')),
+  -- Snapshots so the card still reads after the subject or the sender is gone.
+  subject_title TEXT,
+  from_name     TEXT,
+  created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  -- When the recipient last opened their inbox with this card in it. Drives the
+  -- bell dot, NOT a badge count — see docs/family-sharing-proposal.md.
+  seen_at       TEXT,
+  UNIQUE (from_user_id, to_user_id, entity_type, entity_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_recommendations_inbox ON recommendations (to_user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_recommendations_sent ON recommendations (from_user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_recommendations_subject ON recommendations (entity_type, entity_id);
+
+-- ════════════════════════════════════════════════════════════════════════════
 --  Collections & item-level sharing
 -- ════════════════════════════════════════════════════════════════════════════
 

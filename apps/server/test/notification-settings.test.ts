@@ -22,8 +22,15 @@ function configureMail(): void {
 const get = (userId = "admin") =>
   app.inject({ method: "GET", url: "/api/config/notifications", headers: { "x-test-user": userId } });
 
+// The route takes the whole settings object, so cases that care about one flag
+// still have to send the other. Defaulted here rather than in every call.
 const put = (body: unknown, userId = "admin") =>
-  app.inject({ method: "PUT", url: "/api/config/notifications", payload: body, headers: { "x-test-user": userId } });
+  app.inject({
+    method: "PUT",
+    url: "/api/config/notifications",
+    payload: body && typeof body === "object" ? { recommendationNotifications: false, ...body } : body,
+    headers: { "x-test-user": userId }
+  });
 
 beforeEach(async () => {
   resetDb();
@@ -50,10 +57,10 @@ beforeEach(async () => {
 
 describe("notification settings", () => {
   it("is off on a fresh install, with nothing stored", async () => {
-    expect(getNotificationSettings()).toEqual({ shareNotifications: false });
+    expect(getNotificationSettings()).toEqual({ shareNotifications: false, recommendationNotifications: false });
     const response = await get();
     expect(response.json()).toEqual({
-      notifications: { shareNotifications: false },
+      notifications: { shareNotifications: false, recommendationNotifications: false },
       mailConfigured: false
     });
   });
@@ -78,7 +85,7 @@ describe("notification settings", () => {
 
     const response = await put({ shareNotifications: true });
     expect(response.statusCode).toBe(200);
-    expect(response.json().notifications).toEqual({ shareNotifications: true });
+    expect(response.json().notifications).toEqual({ shareNotifications: true, recommendationNotifications: false });
     expect(shareNotificationsEnabled()).toBe(true);
   });
 

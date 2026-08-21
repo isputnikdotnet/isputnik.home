@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, ChevronLeft, ChevronRight, Download, Heart, ImagePlus, Info, ListMusic, MoreVertical, Pause, Pencil, Play, Plus, RotateCcw, RotateCw, Share2, Trash2, X } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Download, Heart, ImagePlus, Info, ListMusic, MoreVertical, Pause, Pencil, Play, Plus, RotateCcw, RotateCw, Send, Trash2, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api } from "../../api";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
@@ -10,6 +10,7 @@ import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { AddToAlbumModal } from "./AddToAlbumModal";
 import { GalleryPlaceSearch } from "./GalleryPlaceSearch";
 import { ShareModal } from "../share/ShareModal";
+import { SendToSheet } from "../social/SendToSheet";
 import { useIsMobile } from "../../shared/useIsMobile";
 import type { GalleryAsset, GalleryPerson, GalleryPersonTag, SlideshowTransition } from "./types";
 
@@ -145,6 +146,7 @@ export function GalleryLightbox({
   const [collectionOpen, setCollectionOpen] = useState(false);
   const [albumOpen, setAlbumOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [sendToOpen, setSendToOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   // Mobile/PWA: the bar's overflow menu, holding whichever actions don't fit in
   // one row (see visibleActions/overflowActions below — same "cap the row, fold
@@ -576,7 +578,7 @@ export function GalleryLightbox({
       href: `${asset.fileUrl}${asset.fileUrl.includes("?") ? "&" : "?"}download=1`,
       download: true
     },
-    ...(canShare ? [{ key: "share", icon: Share2 as LucideIcon, label: "Share", onClick: () => setShareOpen(true) }] : []),
+    { key: "send", icon: Send as LucideIcon, label: "Send to", onClick: () => setSendToOpen(true) },
     { key: "collection", icon: ListMusic, label: "Add to collection", onClick: () => setCollectionOpen(true) },
     {
       key: "details",
@@ -999,6 +1001,14 @@ export function GalleryLightbox({
           title={asset.title}
           onClose={() => setAlbumOpen(false)}
           onAdded={() => setAlbumOpen(false)}
+        />
+      )}
+
+      {sendToOpen && (
+        <SendToSheet
+          subject={{ entityType: "gallery", entityId: asset.id }}
+          onClose={() => setSendToOpen(false)}
+          onGuestLink={canShare ? () => { setSendToOpen(false); setShareOpen(true); } : undefined}
         />
       )}
 

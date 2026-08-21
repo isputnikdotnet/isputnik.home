@@ -454,7 +454,8 @@ export function getRoute(): Route {
     return { name: "downloads" };
   }
 
-  if (path === "/shared" || path === "/audiobooks/shared") {
+  // /inbox is the old "Sent to me" address, kept alive for links already sent.
+  if (path === "/shared" || path === "/audiobooks/shared" || path === "/inbox") {
     return { name: "sharedWithMe" };
   }
 

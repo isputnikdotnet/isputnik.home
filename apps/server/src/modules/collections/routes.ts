@@ -3,7 +3,7 @@ import type { FastifyInstance } from "fastify";
 import { nanoid } from "nanoid";
 import { db } from "../../db.js";
 import { parseBody } from "../../core/shared.js";
-import { COLLECTABLE_ENTITY_TYPES, hydrateEntities, type HydratedEntity } from "./hydrators.js";
+import { COLLECTABLE_ENTITY_TYPES, hydrateEntities, type HydratedEntity } from "../social/subjects.js";
 
 const createSchema = z.object({
   name: z.string().trim().min(1).max(120),

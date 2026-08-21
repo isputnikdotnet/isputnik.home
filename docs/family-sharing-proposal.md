@@ -1,6 +1,7 @@
 # Family sharing — proposal
 
-Status: **proposal** — nothing built. Companion to
+Status: **Phases 0 and 1 are BUILT** (see the phase headings); phases 2–4 remain
+proposals. Companion to
 [sharing.md](sharing.md) and [library-sharing.md](library-sharing.md), which
 describe the guest-link and per-user grants that exist today.
 
@@ -62,12 +63,13 @@ So the features never read as duplicates of each other:
 | --- | --- | --- | --- |
 | My List (`item_saves`) | "what do *I* want to get to?" | one tap | just me |
 | Send to | "you specifically should see this" | one tap + a line | one named person |
+| Shared with me | "what have people put in front of me?" | none | just me |
 | Notes | "here is what I think about this" | typing | anyone who can see the subject |
 | Family row | "what has everyone been up to?" | none | everyone, derived |
 
 ---
 
-## Phase 0 — Subject resolver (enabler, no user-visible change)
+## Phase 0 — Subject resolver (enabler, no user-visible change) — BUILT
 
 Every later phase asks the same question: *given `(entity_type, entity_id)`,
 what is this, and may this user see it?* That logic exists once already, in
@@ -88,9 +90,15 @@ collection-shaped fields.
 Skip this and the same access check gets written five times, and will be subtly
 wrong in at least two of them.
 
+**As built**: `modules/social/subjects.ts`. `collections/hydrators.ts` is gone and
+Collections imports from here. The type table is a registry — each entry carries a
+`collectable` flag, so `SUBJECT_ENTITY_TYPES` (all four) and
+`COLLECTABLE_ENTITY_TYPES` (the three library types) come off the same map and
+cannot drift apart. `hydrateOne()` was added for the single-subject callers.
+
 ---
 
-## Phase 1 — Send to
+## Phase 1 — Send to — BUILT
 
 The headline feature, and it makes the button count go **down**.
 
@@ -137,18 +145,39 @@ Rules:
 - **Only people who can see the subject are listed.** A recommendation nobody can
   open is a bug, not a feature.
 
-### The inbox
+### Where it lands — "Shared with me"
+
+There is **one** page for everything other people put in front of you, not two.
+
+The first cut shipped a separate "Sent to me" beside the existing "Shared with
+me", and folding granting into Send to made that untenable: a single act now
+writes both a share row and a recommendation, so the same event was reported
+twice in two places. The split was ours anyway — in ordinary speech *"Dad shared
+this with me"* covers a grant and a pointer alike, and a household should not
+have to learn the difference.
+
+So `/shared` has two sections, and a thing is only ever in one of them:
+
+- **Waiting for you** — recommendations still undecided, with Save / Not now
+- **Everything else** — the shelf of what you can open, album shares included
+
+Acting on a card moves it down into the shelf. Nothing is lost: **Save** writes
+to `item_saves`, and My List is the keeping place. `/inbox` survives as an
+alias, because notification emails already sent point at it.
 
 A recommendation with no unread state is just a note with a recipient. So:
 
-- A dot on the bell in the shell header. Not a climbing count — see below.
+- A dot on the Profile control. There is no top bar to hang a bell in, so it
+  rides on the control that already opens the menu holding "Sent to me" — which
+  also means desktop and the mobile tab bar get it from one place. Not a climbing
+  count — see below.
 - Opening it shows cards: cover, sender, the one line they typed. Two buttons:
   **Save** and **Not now**.
 - **Save** writes to the existing `item_saves`. That is how Save-for-Later gets
   wired in without building anything.
-- **Ignored recommendations fade quietly.** They stop showing on the bell after
-  a couple of weeks and move to a "Sent to me" list. No unread count climbing to
-  47, no guilt.
+- **Nothing nags.** The dot counts what has not been LOOKED AT, not what has not
+  been acted on, and opening the page clears it. Deciding about each card is a
+  separate, unhurried thing — so no count ever climbs to 47.
 
 ### Schema
 
@@ -175,20 +204,83 @@ New table, so it auto-applies with no `migrations[]` entry (see CLAUDE.md).
 `from_user_id` is `SET NULL` + `from_name` snapshot so a removed account does not
 erase what it sent.
 
-### Endpoints
+### Endpoints — as built
 
 - `GET  /api/social/destinations?entityType=&entityId=` — the sheet's contents,
-  already access-filtered and already knowing whether Kindle applies.
-- `POST /api/social/recommendations` — `{ toUserId, entityType, entityId, message }`
-- `GET  /api/social/inbox` — cards, hydrated through Phase 0
+  already access-filtered and already knowing whether the e-reader applies.
+- `POST /api/social/recommendations` — `{ toUserIds[], entityType, entityId, message }`.
+  Plural on the wire even though the UI sends one, so multi-select stays a client
+  decision. Re-sending is an upsert, not a duplicate card.
+- `GET  /api/social/inbox` · `GET /api/social/inbox/summary` (the dot) ·
+  `POST /api/social/inbox/seen`
 - `POST /api/social/recommendations/:id/save` · `/dismiss`
 
-### Email
+### Email — as built
 
-Reuse `core/notifications.ts` with a second flag, same discipline: **off by
-default**, gated on `isMailConfigured()`, admin-controlled on the existing
-Notifications tab. The in-app bell is the primary channel precisely because most
-installs will never configure SMTP.
+A second flag in `core/notifications.ts` (`recommendationNotifications`), same
+discipline: **off by default**, gated on `isMailConfigured()`, its own switch on
+the Notifications tab so an admin who wanted share mail has not thereby agreed to
+mail the household every time someone passes a book along. The in-app inbox is the
+primary channel precisely because most installs will never configure SMTP.
+
+### What Phase 1 shipped with
+
+- `modules/social/` — `routes.ts`, `notify.ts`, `subjects.ts`
+- `features/social/` — `SendToSheet.tsx`, `InboxRow.tsx`, `useInboxSummary.ts`
+- `SharedWithMePage` absorbed the inbox; one nav entry, `/inbox` aliased to it
+- `test/social-send-to.test.ts` — 16 cases, mostly about the ways it must say no
+
+All three surfaces are wired, and each shows only the destinations that apply:
+
+| Surface | People | E-reader | Guest link |
+| --- | --- | --- | --- |
+| Ebook detail | yes | when `ereader_email` is set | yes |
+| Audiobook detail | yes | — | yes |
+| Gallery lightbox | yes | — | yes |
+| Family-tree person | yes | — | — (no public page to link to) |
+
+On the book detail page and the gallery lightbox this **replaced** the separate
+"Share" action; on books it replaced "Send to e-reader" as well. Choosing
+"Anyone with a link" closes the sheet and opens each page's existing share
+modal, so the guest-link flow itself is untouched.
+
+### Granting folded in — the fourth destination
+
+The share modal used to have a **People** tab that granted another account access
+to the item. Two paths that both said "people" was the exact duplication this
+document set out to remove, and it had a worse symptom: Send to listed only people
+who could already open a thing, so the answer to *"why isn't Mom in the list?"*
+lived in a different dialog.
+
+Now there is one list, in two halves:
+
+```
+Send to…
+
+  👤 Anna                            ← can open it; sending is a pointer
+  ─────────────
+  DOESN'T HAVE ACCESS YET
+  👤 Mom            will get access  ← sending also grants read access
+```
+
+- **Nobody is hidden.** Somebody who cannot open the subject is listed and
+  labelled, so the reason is on screen rather than in another menu.
+- **The grant is never implicit.** The compose step says
+  *"Mom can't open this yet. Sending will also give them access to it."* and the
+  button reads **Give access and send**. The client must pass `grantAccess`;
+  the server does nothing extra without it.
+- **Permission is unchanged.** Widening access still needs the curate capability
+  (`canGrantItemAccess`). A view-only member sees who is missing, labelled
+  *"no access"* on a disabled row, and cannot be the one to fix it.
+- **One implementation.** `grantItemAccess()` in
+  `modules/library/shared/shares.ts` is now the only code that widens access;
+  `POST /api/shares/user` is a thin wrapper over it. Two code paths that both
+  grant is how they drift apart.
+- **The People tab kept the half it is good at** — who has access, and revoking
+  it — and points at Send to for the other half.
+
+Family-tree persons never offer this: everyone signed in can already read the
+tree, so `canGrant` is false and there is nothing to widen.
 
 ---
 
@@ -236,10 +328,12 @@ picker. Two carve-outs, both important:
 
 - **Quotes and highlights stay private.** They are per-user today. Nothing in
   this proposal retroactively publishes them.
-- **Family-tree notes inherit branch scoping.** Family tree access is tag-scoped
-  (`modules/familytree/access.ts`), not "any signed-in user". A note on a person
-  must be gated by the same rule as the person. **This is the one real trap in
-  the whole proposal** — the naive `WHERE entity_id = ?` leaks across branches.
+- **Family-tree persons are readable by everyone signed in.** An earlier draft of
+  this document claimed the tag scoping in `modules/familytree/access.ts` gated
+  reads and called it the one real trap here. It does not: it governs EDITING, and
+  the schema says so outright ("Any signed-in user can view; only admins edit").
+  So person notes need no special case — they follow the same rule as everything
+  else. Checked while building Phase 0.
 
 ### Who may post
 
@@ -347,11 +441,12 @@ family will actually use, because nobody has to build them.
 
 ## Open questions
 
-1. **Does the bell live in the shell header on desktop *and* in the mobile tab
-   bar**, or does mobile surface the inbox as a Home row instead? The mobile nav
-   is already four tabs.
+1. ~~Where the bell lives on mobile.~~ **Settled while building**: there is no top
+   bar on either breakpoint, so the dot rides on the Profile control, which already
+   opens the menu holding "Sent to me". No fifth tab, one implementation for both.
 2. **Notes on gallery items**: per photo, or per album/folder? Per photo is the
    obvious answer but it means a note on one of 400 holiday photos is nearly
    unfindable. Possibly both, with the album view rolling up its photos' notes.
-3. **Should "Send to" accept more than one recipient at once?** One recipient is
-   simpler and reads as personal; multi-select edges toward broadcast.
+3. **Should "Send to" accept more than one recipient at once?** The API already
+   takes an array; the sheet sends one. One recipient reads as personal, multi-select
+   edges toward broadcast — so it stays single until someone asks.

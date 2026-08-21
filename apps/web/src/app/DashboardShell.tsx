@@ -26,6 +26,7 @@ import type { LucideIcon } from "lucide-react";
 import packageInfo from "../../../../package.json";
 import { isAdminSession, type PublicUser } from "../api";
 import { isStandalone } from "../pwa/platform";
+import { useInboxSummary } from "../features/social/useInboxSummary";
 import { controlHref, followRoute } from "../router";
 import { REPO_ISSUES_URL } from "../shared/links";
 
@@ -109,7 +110,7 @@ function userMenuLinks(): UserMenuLink[] {
 
 // The user-area routes reachable from the Profile drop-up sheet. The Profile
 // tab highlights for any of them (not just /profile itself).
-const PROFILE_ROUTES = ["/profile", "/favorites", "/bookmarks", "/quotes", "/collections", "/shared"];
+const PROFILE_ROUTES = ["/profile", "/favorites", "/bookmarks", "/quotes", "/collections", "/shared", "/inbox"];
 
 // Four-tab bottom nav for the installed app / phones: Home, Media, Offline,
 // Profile. "Media" and "Profile" aren't pages — each opens a drop-up sheet:
@@ -126,6 +127,7 @@ function MobileNav({
   logout: () => Promise<void>;
 }) {
   const [openSheet, setOpenSheet] = useState<"media" | "profile" | null>(null);
+  const unseen = useInboxSummary();
 
   const downloadsActive = currentPath === "/downloads" || currentPath === "/audiobooks/downloads";
   const mediaActive =
@@ -251,7 +253,10 @@ function MobileNav({
           aria-haspopup="dialog"
           aria-expanded={openSheet === "profile"}
         >
-          <UserRound size={17} aria-hidden="true" />
+          <span className="home-mobile-nav-icon">
+            <UserRound size={17} aria-hidden="true" />
+            {unseen > 0 && <span className="nav-dot" />}
+          </span>
           <span>Profile</span>
         </button>
       </nav>
@@ -285,6 +290,7 @@ export function DashboardShell({
   const mobileTabBar = isUserArea || (hasSectionNav && !isControlPanel);
   const mainClasses = `home-main app-dashboard-main scene-page ${isControlPanel ? "control-scene" : "sputnik-scene"}`;
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const unseen = useInboxSummary();
   const userMenuRef = useRef<HTMLDivElement>(null);
   // The About menu is portaled to <body> (see the render below) rather than
   // absolutely positioned in place — .home-primary-nav scrolls once it's long
@@ -464,6 +470,7 @@ export function DashboardShell({
             >
               <span className="home-user-icon" aria-hidden="true">
                 <UserRound size={21} />
+                {unseen > 0 && <span className="nav-dot" />}
               </span>
               <span className="home-user-copy">
                 <strong>{user.displayName}</strong>

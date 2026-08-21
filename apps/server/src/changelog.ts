@@ -19,6 +19,19 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.19.0",
+    label: "One Send to button, and one place the things people send you land",
+    changes: [
+      "Anything in the library can now be passed to somebody in the household. On a book, a photo or a person in the family tree, one **Send to** button opens a list of names; pick one, add a line if you want, and it arrives for them. What travels is a pointer, never a copy — no file is mailed, nothing is duplicated, and they open it in their own account with their own progress.",
+      "It replaced two buttons rather than adding a third. \"Send to e-reader\" and \"Share\" were separate entries in separate menus that both meant get this thing to somewhere; both are now destinations inside the one sheet — a person, your own Kindle or Kobo, or anyone at all through a guest link. The e-reader row only appears on books, and when no device address is saved it reads \"Set up my e-reader\" and takes you there, which is the first time that feature has been visible from outside Profile.",
+      "Giving somebody access stopped being a separate errand. The names list has a second half — Doesn't have access yet — holding the people who can't open the thing because it lives in a library they were never given. Picking one grants them read access and tells them in a single press, with the button reading \"Give access and send\" so nothing happens quietly. Before this, the answer to \"why isn't Mum in the list?\" was a different dialog. Someone with only viewing rights still sees who is missing, greyed out, and cannot be the one to widen it.",
+      "Sending a file to another person's Kindle is deliberately not offered, even though the server knows the address. It lands in their Shared with me instead, and they send it to their own device if they want it.",
+      "Shared with me absorbed the things people send you, so there is one page rather than two lists reporting the same event twice. Anything still undecided sits at the top under Waiting for you, with who sent it and what they said, and two buttons: Save puts it in your list, Not now clears it away without telling anybody. Acting on a card drops it into the shelf below with everything else you can open.",
+      "A dot on the Profile button means there is something you have not looked at. Opening the page clears it whether or not you decided anything, so nothing accumulates into an unread count that has to be dealt with.",
+      "None of it sends email unless an administrator turns it on, under Settings → Notifications, and that switch is separate from the existing one for shares: a household that wanted share notices has not thereby agreed to be mailed every time someone passes a book along."
+    ]
+  },
+  {
     version: "3.18.0",
     label: "The same settings never score lower at home than on the internet",
     changes: [

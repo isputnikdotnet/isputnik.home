@@ -1,9 +1,10 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, Bookmark, BookOpen, Calendar, CheckCircle2, ChevronDown, ChevronUp, Clock, Download, File as FileIcon, FileText, Globe, HardDrive, Headphones, Heart, Layers, Library, ListMusic, MoreHorizontal, MoreVertical, Pencil, Play, RotateCcw, Send, Share2, Trash2, X } from "lucide-react";
+import { ArrowLeft, Bookmark, BookOpen, Calendar, CheckCircle2, ChevronDown, ChevronUp, Clock, Download, File as FileIcon, FileText, Globe, HardDrive, Headphones, Heart, Layers, Library, ListMusic, MoreHorizontal, MoreVertical, Pencil, Play, RotateCcw, Send, Trash2, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api, isAccessOrMissingApiError, type PublicUser } from "../../api";
 import { ShareModal } from "../share/ShareModal";
+import { SendToSheet } from "../social/SendToSheet";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { EditMetadataModal } from "./EditMetadataModal";
 import { EbookReader } from "./reader/EbookReader";
@@ -306,6 +307,7 @@ function BookDetailView({
   const [confirmRemoveDownload, setConfirmRemoveDownload] = useState(false);
   const [confirmRemoveEbookDownload, setConfirmRemoveEbookDownload] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [sendToOpen, setSendToOpen] = useState(false);
   const [addToCollectionOpen, setAddToCollectionOpen] = useState(false);
   const [viewerDoc, setViewerDoc] = useState<{ id: string; fileName: string; url: string; format: string; blob?: Blob | null } | null>(null);
   // Set from a quote/bookmark deep link (?cfi=…) so the reader opens at that spot;
@@ -335,6 +337,7 @@ function BookDetailView({
       setSendNotice({ tone: "success", text: "Sent to your e-reader. Delivery can take a few minutes." });
     } catch (err) {
       setSendNotice({ tone: "error", text: err instanceof Error ? err.message : "Unable to send to your e-reader." });
+      throw err;
     } finally {
       setSending(false);
     }
@@ -866,20 +869,12 @@ function BookDetailView({
           download: true
         }]
       : []),
-    ...(isEbook && capabilities.canDownload && sendableDoc
-      ? [{
-          key: "send",
-          icon: Send as LucideIcon,
-          label: sending ? "Sending…" : "Send to e-reader (Kindle/Kobo)",
-          menuLabel: "Send to e-reader",
-          onClick: () => void sendToEreader(),
-          disabled: sending
-        }]
-      : []),
+    // One "Send to" in place of two: the e-reader and the guest link are now
+    // destinations inside the sheet rather than separate actions competing for a slot.
+    { key: "send", icon: Send as LucideIcon, label: "Send to", onClick: () => setSendToOpen(true) },
     // Desktop keeps Add to collection inline in its original spot; mobile always
     // routes it into the overflow menu instead (see mobileMenuItems below).
     ...(!isMobile ? [collectionAction] : []),
-    ...(capabilities.canShare ? [{ key: "share", icon: Share2 as LucideIcon, label: "Share", onClick: () => setShareModalOpen(true) }] : []),
     ...(capabilities.canDelete
       ? [{
           key: "delete",
@@ -1420,6 +1415,15 @@ function BookDetailView({
           )}
         </div>
       </section>
+
+      {sendToOpen && (
+        <SendToSheet
+          subject={{ entityType: isEbook ? "ebook" : "audiobook", entityId: book.id }}
+          onClose={() => setSendToOpen(false)}
+          onGuestLink={capabilities.canShare ? () => { setSendToOpen(false); setShareModalOpen(true); } : undefined}
+          onSendToEreader={isEbook && capabilities.canDownload && sendableDoc ? sendToEreader : undefined}
+        />
+      )}
 
       {shareModalOpen && (
         <ShareModal bookId={book.id} bookTitle={book.title} kind={isEbook ? "ebook" : "audiobook"} onClose={() => setShareModalOpen(false)} />

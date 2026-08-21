@@ -1,11 +1,21 @@
+// The polymorphic subject resolver: given (entityType, entityId), what is this
+// thing, and may this user see it?
+//
+// Every cross-content feature asks that one question — Collections, Send to,
+// Notes, the family row — so it is answered in exactly one place. This started
+// life as `modules/collections/hydrators.ts` and was promoted here when Send to
+// needed the same answer over a wider set of types; Collections now imports it.
+//
+// Adding a type = one entry in SUBJECTS. No route or schema changes anywhere.
 import path from "node:path";
 import { db } from "../../db.js";
 import { canUserAccessBook } from "../library/shared/library-access.js";
 import type { BookLibraryType } from "../library/shared/library-types.js";
 
-// Display data for one collection member, independent of which entity type it
-// is. `available` is false when the resource no longer exists or the user can't
-// access it — the item stays in the collection but renders as unavailable.
+// Display data for one subject, independent of which entity type it is.
+// `available` is false when the resource no longer exists or the user can't
+// access it — callers keep the row and render it as unavailable rather than
+// failing the page around it.
 export interface HydratedEntity {
   available: boolean;
   title: string;
@@ -24,9 +34,17 @@ interface RequestUser {
 }
 
 // A hydrator turns a batch of entity ids of one type into display rows, applying
-// the same access rules the rest of the app uses. New library types (ebook,
-// photo, …) and Notes register a hydrator here — no route or schema changes.
+// the same access rules the rest of the app uses.
 type Hydrator = (entityIds: string[], user: RequestUser) => Map<string, HydratedEntity>;
+
+interface SubjectType {
+  hydrate: Hydrator;
+  // Whether this type may be put in a Collection. Narrower than the resolver on
+  // purpose: a collection renders playback/file affordances that only make sense
+  // for library media, so a family-tree person is sendable and note-able but not
+  // collectable.
+  collectable: boolean;
+}
 
 interface BookRow {
   id: string;
@@ -43,13 +61,13 @@ function splitNames(value: string | null) {
   return value ? value.split(",").map((name) => name.trim()).filter(Boolean) : [];
 }
 
-// Audiobooks and ebooks are both rows in `books`, told apart only by their
-// library's type. One parameterized hydrator serves both — the differences are
-// the file source (book_files vs book_documents), whether there's a duration,
-// the detail href, and whether continuous playback applies. The `libraries.type`
-// filter is load-bearing: it stops an id of the wrong type (e.g. an ebook added
-// with entity_type='audiobook') from resolving here and rendering as the wrong
-// kind of media.
+// Audiobooks and ebooks are both rows in `library_items`, told apart only by
+// their library's type. One parameterized hydrator serves both — the differences
+// are the file source (audio_files vs document_files), whether there's a
+// duration, the detail href, and whether continuous playback applies. The
+// `libraries.type` filter is load-bearing: it stops an id of the wrong type
+// (e.g. an ebook stored with entity_type='audiobook') from resolving here and
+// rendering as the wrong kind of media.
 interface BookHydratorConfig {
   libraryType: BookLibraryType;
   durationSql: string;   // column expression, or "NULL" for non-timed media
@@ -87,7 +105,7 @@ function makeBookHydrator(config: BookHydratorConfig): Hydrator {
     `).all(...entityIds, config.libraryType) as BookRow[];
 
     for (const row of rows) {
-      // row.id is the BOOK id — access resolves by the library id.
+      // row.id is the ITEM id — access resolves by the library id.
       if (!canUserAccessBook(row.id, { id: row.library_id }, user.id, user.role, config.libraryType)) continue;
       const authors = splitNames(row.author_names);
       result.set(row.id, {
@@ -114,8 +132,8 @@ const hydrateAudiobooks = makeBookHydrator({
   playable: true
 });
 
-// Ebooks: content is documents and there's no playback timeline, so they're
-// collectable but open in the reader (href) rather than the audio player.
+// Ebooks: content is documents and there's no playback timeline, so they open in
+// the reader (href) rather than the audio player.
 const hydrateEbooks = makeBookHydrator({
   libraryType: "ebook",
   durationSql: "NULL",
@@ -124,10 +142,10 @@ const hydrateEbooks = makeBookHydrator({
   playable: false
 });
 
-// Gallery assets (photos/videos) are single files, not rows in `books`-style
-// detail tables. One file = one item, so the title is the filename, the cover is
-// the generated thumbnail, and "duration" only applies to video. Collectable so a
-// Collection works as a photo album; opens in the gallery lightbox (href).
+// Gallery assets (photos/videos) are single files, not rows in a books-style
+// detail table. One file = one item, so the title is the filename, the cover is
+// the generated thumbnail, and "duration" only applies to video. Opens in the
+// gallery lightbox (href).
 const hydrateGallery: Hydrator = (entityIds, user) => {
   const result = new Map<string, HydratedEntity>();
   if (entityIds.length === 0) return result;
@@ -166,13 +184,79 @@ const hydrateGallery: Hydrator = (entityIds, user) => {
   return result;
 };
 
-const HYDRATORS: Record<string, Hydrator> = {
-  audiobook: hydrateAudiobooks,
-  ebook: hydrateEbooks,
-  gallery: hydrateGallery
+interface FamilyPersonRow {
+  id: string;
+  name: string;
+  maiden_name: string | null;
+  birth_date: string | null;
+  death_date: string | null;
+  updated_at: string;
+  portrait_storage_key: string | null;
+  portrait_item_cover: string | null;
+}
+
+// Family-tree persons. Reads are open to every signed-in user (the tag scoping
+// in familytree/access.ts governs EDITING only, and the schema says as much), so
+// there is no per-person access check to apply here — the plugin's authenticate
+// preHandler is the whole gate. The portrait is either an uploaded image or the
+// cover of a chosen gallery item, mirroring familytree/persons.ts.
+const hydrateFamilyPersons: Hydrator = (entityIds) => {
+  const result = new Map<string, HydratedEntity>();
+  if (entityIds.length === 0) return result;
+
+  const placeholders = entityIds.map(() => "?").join(", ");
+  const rows = db.prepare(`
+    SELECT
+      p.id, p.name, p.maiden_name, p.birth_date, p.death_date, p.updated_at,
+      p.portrait_storage_key,
+      cover.cover_storage_key AS portrait_item_cover
+    FROM family_tree_persons AS p
+    LEFT JOIN item_metadata AS cover ON cover.item_id = p.portrait_item_id
+    WHERE p.id IN (${placeholders})
+  `).all(...entityIds) as FamilyPersonRow[];
+
+  for (const row of rows) {
+    const version = `?v=${encodeURIComponent(row.updated_at)}`;
+    const coverKey = row.portrait_storage_key ?? row.portrait_item_cover;
+    // "1904 – 1971", "b. 1962", or nothing — the same shorthand the tree uses.
+    const years = [row.birth_date?.slice(0, 4), row.death_date?.slice(0, 4)].filter(Boolean);
+    let subtitle: string | null = null;
+    if (years.length === 2) subtitle = `${years[0]} – ${years[1]}`;
+    else if (row.birth_date) subtitle = `b. ${years[0]}`;
+    else if (row.maiden_name) subtitle = `née ${row.maiden_name}`;
+
+    result.set(row.id, {
+      available: true,
+      title: row.name,
+      subtitle,
+      coverUrl: coverKey ? `/api/library/covers/${coverKey}${version}` : null,
+      durationSeconds: null,
+      fileCount: 0,
+      href: `/family/people/${row.id}`,
+      playable: false
+    });
+  }
+  return result;
 };
 
-export const COLLECTABLE_ENTITY_TYPES = Object.keys(HYDRATORS);
+const SUBJECTS: Record<string, SubjectType> = {
+  audiobook: { hydrate: hydrateAudiobooks, collectable: true },
+  ebook: { hydrate: hydrateEbooks, collectable: true },
+  gallery: { hydrate: hydrateGallery, collectable: true },
+  family_tree_person: { hydrate: hydrateFamilyPersons, collectable: false }
+};
+
+/** Everything the resolver can describe — the valid range of `entity_type`. */
+export const SUBJECT_ENTITY_TYPES = Object.keys(SUBJECTS);
+
+/** The subset a Collection accepts. Narrower than the above; see SubjectType. */
+export const COLLECTABLE_ENTITY_TYPES = Object.entries(SUBJECTS)
+  .filter(([, type]) => type.collectable)
+  .map(([name]) => name);
+
+export function isSubjectEntityType(value: string): boolean {
+  return Object.hasOwn(SUBJECTS, value);
+}
 
 // Hydrate a mixed list of (entityType, entityId) pairs, grouping by type so each
 // hydrator runs a single batched query. Returns a lookup keyed "type:id".
@@ -182,7 +266,7 @@ export function hydrateEntities(
 ): Map<string, HydratedEntity> {
   const byType = new Map<string, string[]>();
   for (const ref of refs) {
-    if (!HYDRATORS[ref.entityType]) continue;
+    if (!SUBJECTS[ref.entityType]) continue;
     const list = byType.get(ref.entityType) ?? [];
     list.push(ref.entityId);
     byType.set(ref.entityType, list);
@@ -190,10 +274,19 @@ export function hydrateEntities(
 
   const out = new Map<string, HydratedEntity>();
   for (const [entityType, ids] of byType) {
-    const hydrated = HYDRATORS[entityType](ids, user);
+    const hydrated = SUBJECTS[entityType].hydrate(ids, user);
     for (const [entityId, view] of hydrated) {
       out.set(`${entityType}:${entityId}`, view);
     }
   }
   return out;
+}
+
+/** One subject, or null when it does not exist or the user may not see it. */
+export function hydrateOne(
+  entityType: string,
+  entityId: string,
+  user: RequestUser
+): HydratedEntity | null {
+  return hydrateEntities([{ entityType, entityId }], user).get(`${entityType}:${entityId}`) ?? null;
 }

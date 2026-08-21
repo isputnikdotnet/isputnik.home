@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Check, Copy, Link2, Trash2, UserPlus } from "lucide-react";
+import { Check, Copy, Link2, Trash2 } from "lucide-react";
 import { api } from "../../api";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
@@ -23,11 +23,6 @@ interface UserShare {
   email: string;
   expiresAt: string | null;
   createdAt: string;
-}
-
-interface DirectoryUser {
-  id: string;
-  displayName: string;
 }
 
 const EXPIRY_OPTIONS = [
@@ -62,11 +57,8 @@ export function ShareModal({
   const [newUrl, setNewUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  // People tab
-  const [directory, setDirectory] = useState<DirectoryUser[]>([]);
+  // People tab — who has access, and taking it away. Granting lives in "Send to".
   const [userShares, setUserShares] = useState<UserShare[]>([]);
-  const [selectedUser, setSelectedUser] = useState("");
-  const [granting, setGranting] = useState(false);
 
   const loadLinks = () =>
     api<{ shares: LinkShare[] }>("/api/shares").then((r) => setLinks(r.shares)).catch(() => {});
@@ -78,7 +70,6 @@ export function ShareModal({
 
   useEffect(() => {
     if (tab !== "people") return;
-    api<{ users: DirectoryUser[] }>("/api/shares/directory").then((r) => setDirectory(r.users)).catch(() => {});
     void loadUserShares();
   }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -126,24 +117,6 @@ export function ShareModal({
     }
   };
 
-  const grantUser = async () => {
-    if (!selectedUser) return;
-    setGranting(true);
-    setError("");
-    try {
-      await api("/api/shares/user", {
-        method: "POST",
-        body: JSON.stringify({ bookId, userId: selectedUser })
-      });
-      setSelectedUser("");
-      await loadUserShares();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not share with user");
-    } finally {
-      setGranting(false);
-    }
-  };
-
   const revokeUser = async (id: string) => {
     try {
       await api(`/api/shares/user/${id}`, { method: "DELETE" });
@@ -152,8 +125,6 @@ export function ShareModal({
       setError(err instanceof Error ? err.message : "Could not revoke");
     }
   };
-
-  const availableUsers = directory.filter((u) => !userShares.some((s) => s.userId === u.id));
 
   return (
     <Modal variant="panel" title={`Share “${bookTitle}”`} onClose={onClose}>
@@ -226,24 +197,15 @@ export function ShareModal({
 
           {tab === "people" && (
             <div className="share-people-tab">
-              <p className="muted">Share with a registered user. They get full access in their own account — {consumeNoun}, downloads, and their own progress.</p>
-
-              <div className="share-create-row">
-                <label className="field">
-                  <span>User</span>
-                  <select value={selectedUser} onChange={(e) => setSelectedUser(e.target.value)}>
-                    <option value="">Choose a person…</option>
-                    {availableUsers.map((u) => <option key={u.id} value={u.id}>{u.displayName}</option>)}
-                  </select>
-                </label>
-                <button className="primary-button" onClick={grantUser} disabled={granting || !selectedUser}>
-                  <UserPlus size={16} /><span>{granting ? "Sharing…" : "Share"}</span>
-                </button>
-              </div>
+              <p className="muted">
+                Who can open this in their own account — {consumeNoun}, downloads, and their own
+                progress. To give somebody access, use <strong>Send to</strong>: pick them and it
+                grants access as it tells them.
+              </p>
 
               <div className="share-list">
                 {userShares.length === 0 ? (
-                  <p className="muted">Not shared with anyone yet.</p>
+                  <p className="muted">Nobody has been given access to this yet.</p>
                 ) : (
                   userShares.map((s) => (
                     <div className="share-list-row" key={s.id}>

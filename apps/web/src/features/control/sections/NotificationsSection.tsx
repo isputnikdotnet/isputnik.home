@@ -8,6 +8,7 @@ import { ControlSectionHead } from "../ControlSectionHead";
 
 interface NotificationsDto {
   shareNotifications: boolean;
+  recommendationNotifications: boolean;
 }
 
 // What the app is allowed to email ordinary members about. Deliberately apart
@@ -24,6 +25,7 @@ export function NotificationsSection() {
   const [mailConfigured, setMailConfigured] = useState(false);
 
   const [shareNotifications, setShareNotifications] = useState(false);
+  const [recommendationNotifications, setRecommendationNotifications] = useState(false);
 
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -33,6 +35,7 @@ export function NotificationsSection() {
     api<{ notifications: NotificationsDto; mailConfigured: boolean }>("/api/config/notifications")
       .then((payload) => {
         setShareNotifications(payload.notifications.shareNotifications);
+        setRecommendationNotifications(payload.notifications.recommendationNotifications);
         setMailConfigured(payload.mailConfigured);
       })
       .catch((err) => setLoadError(err instanceof Error ? err.message : "Unable to load notification settings"))
@@ -47,9 +50,10 @@ export function NotificationsSection() {
     try {
       const payload = await api<{ notifications: NotificationsDto; mailConfigured: boolean }>(
         "/api/config/notifications",
-        { method: "PUT", body: JSON.stringify({ shareNotifications }) }
+        { method: "PUT", body: JSON.stringify({ shareNotifications, recommendationNotifications }) }
       );
       setShareNotifications(payload.notifications.shareNotifications);
+      setRecommendationNotifications(payload.notifications.recommendationNotifications);
       setMailConfigured(payload.mailConfigured);
       setSaved(true);
     } catch (err) {
@@ -101,6 +105,22 @@ export function NotificationsSection() {
                 <span>
                   Email someone when a photo, book, or album is shared with them. The message says
                   who shared what and links to “Shared with me”; it never carries the file itself.
+                </span>
+              </label>
+            </fieldset>
+
+            <fieldset className="notify-fieldset" disabled={locked || saving}>
+              <legend className="mail-subhead">Send to</legend>
+              <label className="mail-check">
+                <input
+                  type="checkbox"
+                  checked={recommendationNotifications && !locked}
+                  onChange={(event) => setRecommendationNotifications(event.target.checked)}
+                />
+                <span>
+                  Email someone when a family member sends them a book, photo or person. They see
+                  it in the app either way — this is only for households that would rather not have
+                  to look.
                 </span>
               </label>
             </fieldset>

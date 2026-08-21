@@ -52,10 +52,12 @@ read the EPUB.
 ## Taking books with you
 
 - **Download** saves the original file.
-- **Send to e-reader** mails it to a Kindle or Kobo, once mail is configured on
-  the server ([guide](email.md)) and you've set your device address in
+- **Send to → My e-reader** mails it to a Kindle or Kobo, once mail is configured
+  on the server ([guide](email.md)) and you've set your device address in
   [Profile → Devices](your-account.md#send-to-e-reader). Your device also has to
-  approve the server's sender address, or it drops the mail silently.
+  approve the server's sender address, or it drops the mail silently. The same
+  **Send to** button also passes a book to someone in the family — see
+  [Sharing with family](family-sharing.md).
 - The app is installable: add it to your home screen and downloaded books stay
   readable offline.
 
