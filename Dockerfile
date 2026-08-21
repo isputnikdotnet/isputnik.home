@@ -134,6 +134,11 @@ ENV DB_PATH=/config/db/isputnik.sqlite
 ENV THUMBNAIL_PATH=/config/thumbnails
 ENV METADATA_PATH=/config/metadata
 ENV BACKUP_PATH=/config/backups
+# The IP-location database (Locations page). Not baked into the image: GeoIP data
+# goes stale within months, so it belongs beside the other data where it can be
+# re-downloaded — or replaced by hand with a city-level database — without a new
+# release. Empty until an admin asks for it.
+ENV GEOIP_PATH=/config/geoip
 # Set to "true" only when served over HTTPS
 ENV COOKIE_SECURE=false
 # Number of reverse proxies in front (usually 1). 0 = trust nothing / direct access.

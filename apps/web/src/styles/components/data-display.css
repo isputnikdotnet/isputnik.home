@@ -32,9 +32,179 @@
   white-space: nowrap;
 }
 
-/* A sortable heading: the whole label is the control, and the chevron shows on the
-   column currently doing the sorting. Inherits the th's uppercase/letter-spaced
-   type so a sortable column reads no louder than a fixed one. */
+/* A sortable heading (shared/SortHeader): the whole label is the control, and the
+   chevron shows on the column currently doing the sorting. Inherits the th's
+   uppercase/letter-spaced type so a sortable column reads no louder than a fixed
+   one. */
+.datagrid th .datagrid-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.datagrid th .datagrid-sort:hover,
+.datagrid th .datagrid-sort.active {
+  color: var(--ink);
+}
+
+.datagrid th .datagrid-sort:focus-visible {
+  outline: 2px solid var(--mint);
+  outline-offset: 2px;
+}
+
+/* Two sort controls stacked in one heading, matching a cell that stacks two
+   values (address over person). */
+.datagrid th.datagrid-sort-stack {
+  display: table-cell;
+}
+
+.datagrid th.datagrid-sort-stack .datagrid-sort {
+  display: flex;
+}
+
+.datagrid th.datagrid-sort-stack .datagrid-sort:last-child {
+  font-size: 0.68rem;
+  opacity: 0.75;
+}
+
+/* The expander column: only as wide as its button. */
+.datagrid th.col-expand,
+.datagrid td.col-expand {
+  width: 1%;
+  padding-right: 0;
+  white-space: nowrap;
+}
+
+.login-table tbody tr.is-expanded {
+  background: var(--hover);
+  border-bottom: none;
+}
+
+/* The opened record. It is a second row of the same table, so it keeps the row's
+   own left edge instead of floating in a panel of its own. */
+.login-detail-row > td {
+  padding: 0 14px 16px 46px;
+  background: var(--hover);
+}
+
+.login-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px 22px;
+  margin: 0;
+}
+
+.login-detail-grid > div {
+  min-width: 0;
+}
+
+.login-detail-grid .login-detail-wide {
+  grid-column: 1 / -1;
+}
+
+.login-detail-grid dt {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.login-detail-grid dd {
+  margin: 2px 0 0;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+/* A glyph-only cell. Its tooltip trigger fills the cell, so the name is reachable
+   without landing exactly on an 18px icon. */
+.datagrid td.col-glyph {
+  cursor: help;
+}
+
+.datagrid td.col-glyph .col-glyph-hit {
+  min-width: 34px;
+  min-height: 28px;
+  justify-content: flex-start;
+}
+
+/* The device-type glyph, and the marker on the row you are reading this from. */
+.device-type-icon {
+  display: inline-flex;
+  color: var(--muted);
+}
+
+.device-current {
+  color: var(--mint);
+  font-weight: 600;
+}
+
+/* A method is a glyph in the row (its name is the tooltip) and a word in the
+   opened record — the column carries five rows of "Password" otherwise. */
+.login-method-icon {
+  display: inline-flex;
+  color: var(--muted);
+}
+
+/* The reputation light: green clean, amber some history, rose abusive, and a
+   muted house for an address inside the home network. */
+.reputation-light {
+  display: inline-flex;
+}
+
+.reputation-light.clean {
+  color: var(--success);
+}
+
+.reputation-light.watch {
+  color: var(--amber);
+}
+
+.reputation-light.bad {
+  color: var(--rose);
+}
+
+.reputation-light.local,
+.reputation-light.unknown {
+  color: var(--muted);
+  opacity: 0.7;
+}
+
+.login-table-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* AbuseIPDB reputation in a log table: the score on one line, where the address
+   sits on the next. Only a score that means something is coloured. */
+.reputation-cell {
+  display: grid;
+  gap: 1px;
+  line-height: 1.3;
+}
+
+.reputation-cell small {
+  font-size: 0.78rem;
+  opacity: 0.8;
+}
+
+.reputation-score.bad {
+  color: var(--rose);
+}
+
+.reputation-score.watch {
+  color: var(--amber);
+}
+
 
 .datagrid th.col-num,
 .datagrid td.col-num {

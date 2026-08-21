@@ -1,6 +1,16 @@
 import { z } from "zod";
 import type { FastifyInstance } from "fastify";
 import { db } from "../db.js";
+import {
+  downloadGeoip,
+  downloadGeoipFromUrl,
+  geoipStatus,
+  installGeoipDatabase,
+  lookupLocation,
+  receiveGeoipUpload
+} from "./geoip.js";
+import { isPrivateIp } from "./cidr.js";
+import { getHomeLocation, homeLocationSchema, setHomeLocation } from "./home-location.js";
 import { parseBody } from "./shared.js";
 
 // Event-category groupings used to bucket activity_logs rows for the charts.
@@ -38,6 +48,51 @@ const SERIES_KEYS = ["loginsSuccess", "loginsFailed", "uploads", "downloads", "d
 const summaryQuerySchema = z.object({
   days: z.coerce.number().int().min(1).max(90).default(14)
 });
+
+// Bounded window for the Logins view. `from`/`to` are ISO instants (the client
+// resolves its 1h/24h/30d presets before asking), and the bucket width follows the
+// span: hourly for anything up to two days, daily beyond that, so a 1h range isn't
+// one lonely point and a 30d range isn't 720 of them.
+const isoInstant = z
+  .string()
+  .trim()
+  .min(1)
+  .refine((value) => !Number.isNaN(Date.parse(value)), "Expected an ISO date-time");
+
+// Only http(s), and only a URL — the address it resolves to is checked separately,
+// per hop, by the fetch itself.
+const databaseUrlSchema = z.object({
+  url: z
+    .string()
+    .trim()
+    .min(1)
+    .max(2000)
+    .refine((value) => {
+      try {
+        const parsed = new URL(value);
+        return parsed.protocol === "http:" || parsed.protocol === "https:";
+      } catch {
+        return false;
+      }
+    }, "Expected an http(s) URL")
+});
+
+const loginsQuerySchema = z.object({
+  from: isoInstant,
+  to: isoInstant
+});
+
+const HOUR_MS = 3_600_000;
+const DAY_MS = 24 * HOUR_MS;
+/** Spans up to this length bucket by hour; longer ones bucket by day. */
+const HOURLY_MAX_SPAN_MS = 2 * DAY_MS;
+
+function floorToBucket(date: Date, bucket: "hour" | "day"): Date {
+  const out = new Date(date);
+  out.setUTCMinutes(0, 0, 0);
+  if (bucket === "day") out.setUTCHours(0);
+  return out;
+}
 
 const inProgressQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(50)
@@ -95,23 +150,9 @@ export async function dashboardPlugin(app: FastifyInstance) {
       series.viewed.push(row?.viewed ?? 0);
     }
 
-    const loginMethods = db.prepare(`
-      SELECT
-        SUM(CASE WHEN event = 'auth.login' THEN 1 ELSE 0 END) AS password,
-        SUM(CASE WHEN event = 'auth.passkey_login' THEN 1 ELSE 0 END) AS passkey,
-        SUM(CASE WHEN event = 'auth.device_link_approved' THEN 1 ELSE 0 END) AS device_link
-      FROM activity_logs
-      WHERE datetime(created_at) > datetime('now', '-7 days')
-    `).get() as { password: number; passkey: number; device_link: number };
-
     return reply.send({
       days: dayList,
       series,
-      loginMethods: {
-        password: loginMethods.password ?? 0,
-        passkey: loginMethods.passkey ?? 0,
-        deviceLink: loginMethods.device_link ?? 0
-      },
       kpis: {
         logins24h: rollingCount(`${LOGIN_SUCCESS_EVENTS}`, 1),
         uploads7d: rollingCount(UPLOAD_EVENTS, 7),
@@ -119,6 +160,281 @@ export async function dashboardPlugin(app: FastifyInstance) {
         deletes7d: rollingLikeCount("%.deleted", 7)
       }
     });
+  });
+
+  app.get("/api/dashboard/logins", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const parsed = parseBody(loginsQuerySchema, request.query);
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid logins query", details: parsed.error });
+    }
+
+    const from = new Date(parsed.data.from);
+    const to = new Date(parsed.data.to);
+    if (to.getTime() <= from.getTime()) {
+      return reply.code(400).send({ error: "Invalid logins range", details: "The end of the range must come after its start." });
+    }
+
+    const bucket: "hour" | "day" = to.getTime() - from.getTime() <= HOURLY_MAX_SPAN_MS ? "hour" : "day";
+    const bucketFormat = bucket === "hour" ? "%Y-%m-%dT%H:00:00.000Z" : "%Y-%m-%dT00:00:00.000Z";
+    const range = { from: from.toISOString(), to: to.toISOString() };
+
+    const rows = db.prepare(`
+      SELECT
+        strftime('${bucketFormat}', created_at) AS bucket,
+        SUM(CASE WHEN event IN (${LOGIN_SUCCESS_EVENTS}) THEN 1 ELSE 0 END) AS success,
+        SUM(CASE WHEN event = ${LOGIN_FAILED_EVENT} THEN 1 ELSE 0 END) AS failed
+      FROM activity_logs
+      WHERE event IN (${LOGIN_SUCCESS_EVENTS}, ${LOGIN_FAILED_EVENT})
+        AND datetime(created_at) >= datetime(@from)
+        AND datetime(created_at) <= datetime(@to)
+      GROUP BY bucket
+    `).all(range) as { bucket: string; success: number; failed: number }[];
+    const byBucket = new Map(rows.map((row) => [row.bucket, row]));
+
+    // Every bucket in the window is emitted, empty ones included — a gap in the
+    // chart should read as "no logins then", not as a missing sample.
+    const buckets: string[] = [];
+    const success: number[] = [];
+    const failed: number[] = [];
+    const step = bucket === "hour" ? HOUR_MS : DAY_MS;
+    for (let cursor = floorToBucket(from, bucket).getTime(); cursor <= to.getTime(); cursor += step) {
+      const key = new Date(cursor).toISOString();
+      buckets.push(key);
+      success.push(byBucket.get(key)?.success ?? 0);
+      failed.push(byBucket.get(key)?.failed ?? 0);
+    }
+
+    // The equal-length window immediately before this one, so each card can say
+    // how the range compares with the stretch that came before it.
+    const previousRange = {
+      from: new Date(from.getTime() - (to.getTime() - from.getTime())).toISOString(),
+      to: range.from
+    };
+
+    const totalsStatement = db.prepare(`
+      SELECT
+        SUM(CASE WHEN event = 'auth.login' THEN 1 ELSE 0 END) AS password,
+        SUM(CASE WHEN event = 'auth.passkey_login' THEN 1 ELSE 0 END) AS passkey,
+        SUM(CASE WHEN event = 'auth.device_link_approved' THEN 1 ELSE 0 END) AS device_link,
+        SUM(CASE WHEN event = ${LOGIN_FAILED_EVENT} THEN 1 ELSE 0 END) AS failed,
+        COUNT(DISTINCT CASE WHEN event IN (${LOGIN_SUCCESS_EVENTS}) THEN actor_user_id END) AS people
+      FROM activity_logs
+      WHERE datetime(created_at) >= datetime(@from) AND datetime(created_at) <= datetime(@to)
+    `);
+    // Blocks are counted by when they were placed, not by which are still live —
+    // this card describes what happened during the window, like the ones beside it.
+    const blockedStatement = db.prepare(`
+      SELECT COUNT(*) AS blocked FROM blocked_ips
+      WHERE datetime(created_at) >= datetime(@from) AND datetime(created_at) <= datetime(@to)
+    `);
+
+    const totalsFor = (window: { from: string; to: string }) => {
+      const row = totalsStatement.get(window) as {
+        password: number | null;
+        passkey: number | null;
+        device_link: number | null;
+        failed: number | null;
+        people: number | null;
+      };
+      const password = row.password ?? 0;
+      const passkey = row.passkey ?? 0;
+      const deviceLink = row.device_link ?? 0;
+      const failed = row.failed ?? 0;
+      const success = password + passkey + deviceLink;
+      const blocked = (blockedStatement.get(window) as { blocked: number }).blocked;
+      return {
+        methods: { password, passkey, deviceLink },
+        attempts: success + failed,
+        success,
+        failed,
+        people: row.people ?? 0,
+        blockedIps: blocked
+      };
+    };
+
+    const current = totalsFor(range);
+    const previous = totalsFor(previousRange);
+
+    return reply.send({
+      from: range.from,
+      to: range.to,
+      bucket,
+      buckets,
+      series: { success, failed },
+      methods: current.methods,
+      totals: {
+        attempts: current.attempts,
+        success: current.success,
+        failed: current.failed,
+        people: current.people,
+        blockedIps: current.blockedIps
+      },
+      previous: {
+        attempts: previous.attempts,
+        success: previous.success,
+        failed: previous.failed,
+        blockedIps: previous.blockedIps
+      }
+    });
+  });
+
+  // Where the sign-ins in a window came from. The grouping is done here rather
+  // than in SQL because the country of an address is a file lookup, not a column:
+  // one row per distinct address, resolved locally, then summed.
+  app.get("/api/dashboard/locations", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const parsed = parseBody(loginsQuerySchema, request.query);
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid locations query", details: parsed.error });
+    }
+    const from = new Date(parsed.data.from);
+    const to = new Date(parsed.data.to);
+    if (to.getTime() <= from.getTime()) {
+      return reply.code(400).send({ error: "Invalid locations range", details: "The end of the range must come after its start." });
+    }
+
+    const rows = db.prepare(`
+      SELECT
+        activity_logs.ip_address AS ip,
+        COUNT(*) AS connections,
+        SUM(CASE WHEN event = ${LOGIN_FAILED_EVENT} THEN 1 ELSE 0 END) AS failed,
+        COUNT(DISTINCT activity_logs.actor_user_id) AS people
+      FROM activity_logs
+      WHERE event IN (${LOGIN_SUCCESS_EVENTS}, ${LOGIN_FAILED_EVENT})
+        AND datetime(created_at) >= datetime(@from)
+        AND datetime(created_at) <= datetime(@to)
+      GROUP BY activity_logs.ip_address
+    `).all({ from: from.toISOString(), to: to.toISOString() }) as {
+      ip: string | null;
+      connections: number;
+      failed: number;
+      people: number;
+    }[];
+
+    const byCountry = new Map<string, { code: string; name: string | null; connections: number; failed: number; addresses: number }>();
+    // Only filled when the owner has supplied a city-level database; the country
+    // tier has no city or coordinates to group by.
+    const byPlace = new Map<
+      string,
+      { code: string; country: string | null; city: string | null; region: string | null; latitude: number | null; longitude: number | null; connections: number; failed: number; addresses: number }
+    >();
+    const local = { connections: 0, failed: 0, addresses: 0 };
+    const unknown = { connections: 0, failed: 0, addresses: 0 };
+    let total = 0;
+
+    for (const row of rows) {
+      total += row.connections;
+      if (!row.ip || isPrivateIp(row.ip)) {
+        local.connections += row.connections;
+        local.failed += row.failed;
+        local.addresses += 1;
+        continue;
+      }
+      const hit = lookupLocation(row.ip);
+      if (!hit) {
+        unknown.connections += row.connections;
+        unknown.failed += row.failed;
+        unknown.addresses += 1;
+        continue;
+      }
+      const entry = byCountry.get(hit.code) ?? { code: hit.code, name: hit.name, connections: 0, failed: 0, addresses: 0 };
+      entry.connections += row.connections;
+      entry.failed += row.failed;
+      entry.addresses += 1;
+      byCountry.set(hit.code, entry);
+
+      if (hit.city || hit.latitude !== null) {
+        const key = `${hit.code}|${hit.region ?? ""}|${hit.city ?? ""}`;
+        const place = byPlace.get(key) ?? {
+          code: hit.code,
+          country: hit.name,
+          city: hit.city,
+          region: hit.region,
+          latitude: hit.latitude,
+          longitude: hit.longitude,
+          connections: 0,
+          failed: 0,
+          addresses: 0
+        };
+        place.connections += row.connections;
+        place.failed += row.failed;
+        place.addresses += 1;
+        byPlace.set(key, place);
+      }
+    }
+
+    return reply.send({
+      from: from.toISOString(),
+      to: to.toISOString(),
+      geoip: geoipStatus(),
+      // Where the household says it lives, so its own connections get a dot too.
+      home: getHomeLocation(),
+      total,
+      local,
+      unknown,
+      countries: [...byCountry.values()].sort((a, b) => b.connections - a.connections),
+      places: [...byPlace.values()].sort((a, b) => b.connections - a.connections).slice(0, 100)
+    });
+  });
+
+  // Fetching the database is the one outbound call the Locations page makes, and
+  // an admin asks for it by name. Lookups afterwards never leave the machine.
+  app.post("/api/dashboard/locations/database", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const result = await downloadGeoip(request.user!.id);
+    if (!result.ok) {
+      return reply.code(502).send({ error: `Unable to download the location database. ${result.error ?? ""}`.trim() });
+    }
+    return reply.send({ geoip: result.status });
+  });
+
+  // Where home is. Null clears it — a household that would rather not draw its own
+  // dot should be able to take it back off the map.
+  app.put("/api/dashboard/locations/home", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const body = request.body as { latitude?: unknown } | null;
+    if (!body || body.latitude === null || body.latitude === undefined) {
+      setHomeLocation(null, request.user!.id);
+      return reply.send({ home: null });
+    }
+
+    const parsed = parseBody(homeLocationSchema, body);
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid home location", details: parsed.error });
+    }
+    setHomeLocation(parsed.data, request.user!.id);
+    return reply.send({ home: getHomeLocation() });
+  });
+
+  // A database the owner points us at by URL — DB-IP City Lite, a GeoLite2
+  // permalink with their key, a mirror. Streamed straight to disk through the
+  // same SSRF-pinned fetch the rest of the app uses, so a pasted link can never
+  // become a way to make this server talk to its own network.
+  app.post("/api/dashboard/locations/database/url", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const parsed = parseBody(databaseUrlSchema, request.body);
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid database URL", details: parsed.error });
+    }
+    const result = await downloadGeoipFromUrl(parsed.data.url, request.user!.id);
+    if (!result.ok) {
+      return reply.code(502).send({ error: result.error ?? "Unable to fetch that database." });
+    }
+    return reply.send({ geoip: result.status, installed: result.installed });
+  });
+
+  // The same thing for an install with no route to the internet: the file comes
+  // up from the browser instead. Streamed to a temp file and validated before it
+  // is allowed into the folder — an upload that is not a database is deleted.
+  app.post("/api/dashboard/locations/database/upload", { preHandler: app.requireAdmin }, async (request, reply) => {
+    let received: { tmpPath: string; filename: string };
+    try {
+      received = await receiveGeoipUpload(request);
+    } catch (err) {
+      return reply.code(400).send({ error: err instanceof Error ? err.message : "The upload failed." });
+    }
+
+    const result = await installGeoipDatabase(received.tmpPath, received.filename, request.user!.id);
+    if (!result.ok) {
+      return reply.code(400).send({ error: result.error ?? "That file is not a location database." });
+    }
+    return reply.send({ geoip: result.status, installed: result.installed });
   });
 
   app.get("/api/dashboard/in-progress", { preHandler: app.requireAdmin }, async (request, reply) => {

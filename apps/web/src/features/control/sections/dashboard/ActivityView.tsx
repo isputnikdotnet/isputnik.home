@@ -7,10 +7,6 @@ import { DashboardChart, DashboardChartLegend } from "./DashboardChart";
 export function ActivityView({ summary, status }: { summary: DashboardSummary; status: SystemStatus }) {
   const storageBytes = status.libraryStats.totalSizeBytes + status.ebookStats.totalSizeBytes + status.galleryStats.totalSizeBytes;
 
-  const loginSeries = [
-    { label: "Successful", data: summary.series.loginsSuccess, colorVar: "--mint" },
-    { label: "Failed", data: summary.series.loginsFailed, colorVar: "--rose" }
-  ];
   const contentSeries = [
     { label: "Uploads", data: summary.series.uploads, colorVar: "--blue" },
     { label: "Downloads", data: summary.series.downloads, colorVar: "--gold" },
@@ -26,14 +22,6 @@ export function ActivityView({ summary, status }: { summary: DashboardSummary; s
           <StatusMetric icon={Download} label="Downloads (7d)" value={String(summary.kpis.downloads7d)} />
           <StatusMetric icon={Trash2} label="Deletes (7d)" value={String(summary.kpis.deletes7d)} />
           <StatusMetric icon={HardDrive} label="Storage used" value={formatBytes(storageBytes)} />
-        </div>
-
-        <div className="status-subsection">
-          <div className="status-table-title">
-            <h3>Logins, last {summary.days.length} days</h3>
-          </div>
-          <DashboardChartLegend series={loginSeries} />
-          <DashboardChart type="line" labels={summary.days} series={loginSeries} />
         </div>
 
         <div className="status-subsection">

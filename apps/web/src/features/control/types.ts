@@ -23,6 +23,9 @@ export interface ManagedInvite {
   usedByName: string | null;
 }
 
+/** A linked display, or the best guess at what a browser session is running on. */
+export type DeviceType = "display" | "phone" | "tablet" | "computer" | "unknown";
+
 export interface ManagedSession {
   id: string;
   userId: string;
@@ -31,6 +34,14 @@ export interface ManagedSession {
   createdAt: string;
   expiresAt: string;
   lastSeen: string;
+  kind: "browser" | "device";
+  /** The owner's own name for the device, when they have given one. */
+  label: string | null;
+  /** What to put on the row: `label`, or the description derived from the agent. */
+  name: string;
+  /** That derived description on its own, so a renamed device still says what it is. */
+  agent: string;
+  type: DeviceType;
   deviceName: string | null;
   ipAddress: string | null;
   current: boolean;
@@ -239,8 +250,79 @@ export interface DashboardSeries {
 export interface DashboardSummary {
   days: string[];
   series: DashboardSeries;
-  loginMethods: { password: number; passkey: number; deviceLink: number };
   kpis: { logins24h: number; uploads7d: number; downloads7d: number; deletes7d: number };
+}
+
+// /api/dashboard/logins — the Logins view's range-scoped payload. `buckets` are
+// ISO instants (hourly or daily, per `bucket`) aligned with each series array.
+export interface DashboardLogins {
+  from: string;
+  to: string;
+  bucket: "hour" | "day";
+  buckets: string[];
+  series: { success: number[]; failed: number[] };
+  methods: { password: number; passkey: number; deviceLink: number };
+  totals: { attempts: number; success: number; failed: number; people: number; blockedIps: number };
+  /** The equal-length window immediately before this one, for the change badges. */
+  previous: { attempts: number; success: number; failed: number; blockedIps: number };
+}
+
+// Cached AbuseIPDB reputation for one address (/api/security/ip-reputation).
+export interface IpReputationEntry {
+  ip: string;
+  score: number | null;
+  totalReports: number | null;
+  lastReportedAt: string | null;
+  countryCode: string | null;
+  isp: string | null;
+  checkedAt: string;
+}
+
+// /api/dashboard/locations — sign-ins in a window, grouped by the country their
+// address resolves to against the local DB-IP database.
+export interface GeoipStatus {
+  available: boolean;
+  /** "city" only when the owner has supplied a city-level database themselves. */
+  tier: "city" | "country" | null;
+  databaseType: string | null;
+  buildDate: string | null;
+  updatedAt: string | null;
+  sizeBytes: number | null;
+  /** Where to drop a database by hand. */
+  directory: string;
+  databases: { file: string; name: string; tier: "city" | "country"; databaseType: string; buildDate: string | null; sizeBytes: number; updatedAt: string }[];
+  countryFilePresent: boolean;
+  source: string;
+}
+
+/** Where the household says it lives — used only to draw its own dot. */
+export interface HomeLocation {
+  latitude: number;
+  longitude: number;
+  label: string;
+}
+
+export interface DashboardLocations {
+  from: string;
+  to: string;
+  geoip: GeoipStatus;
+  home: HomeLocation | null;
+  total: number;
+  local: { connections: number; failed: number; addresses: number };
+  unknown: { connections: number; failed: number; addresses: number };
+  countries: { code: string; name: string | null; connections: number; failed: number; addresses: number }[];
+  /** Empty unless a city database is in use. */
+  places: {
+    code: string;
+    country: string | null;
+    city: string | null;
+    region: string | null;
+    latitude: number | null;
+    longitude: number | null;
+    connections: number;
+    failed: number;
+    addresses: number;
+  }[];
 }
 
 export interface DashboardInProgressEntry {

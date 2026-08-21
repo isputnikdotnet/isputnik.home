@@ -6,6 +6,41 @@
   gap: 7px;
 }
 
+/* Hover label (shared/Tooltip). The bubble is portalled to <body> and positioned
+   from the trigger's viewport rect, so no ancestor's overflow can clip it — which
+   is the whole reason it exists instead of a title attribute. */
+.tooltip-trigger {
+  display: inline-flex;
+  align-items: center;
+}
+
+.tooltip-bubble {
+  position: fixed;
+  z-index: 900;
+  max-width: min(280px, calc(100vw - 16px));
+  padding: 5px 9px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--ink);
+  background: var(--surface-raised);
+  box-shadow: 0 10px 26px color-mix(in srgb, var(--shadow) 50%, transparent);
+  font-size: 0.78rem;
+  line-height: 1.35;
+  pointer-events: none;
+  animation: tooltip-in 0.1s ease-out;
+}
+
+@keyframes tooltip-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tooltip-bubble {
+    animation: none;
+  }
+}
+
 /* Circular progress indicator (shared/ProgressRing) — episode list + player chapters. */
 .progress-ring {
   position: relative;

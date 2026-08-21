@@ -11,6 +11,12 @@ const toArray = (value: string | string[] | undefined): string[] =>
     .map((entry) => entry.trim())
     .filter(Boolean);
 
+const isoInstant = z
+  .string()
+  .trim()
+  .refine((value) => !value || !Number.isNaN(Date.parse(value)), "Expected an ISO date-time")
+  .optional();
+
 const logQuerySchema = z.object({
   q: z.string().trim().max(100).default(""),
   // Facet selections (multi-select). `event` holds event categories (the part
@@ -19,11 +25,29 @@ const logQuerySchema = z.object({
   event: multiParam,
   user: multiParam,
   ip: multiParam,
+  // Optional time window (ISO instants). The Dashboard's Logins view sends the
+  // range its picker resolved, so its table always describes the same window as
+  // the chart above it; the Logs page leaves these off and gets everything.
+  from: isoInstant,
+  to: isoInstant,
+  // Column sorting for the tables that offer it (the Dashboard's Logins view).
+  // Time stays the default and the tiebreaker, so equal keys keep a stable order.
+  sort: z.enum(["time", "user", "event", "ip"]).default("time"),
+  dir: z.enum(["asc", "desc"]).default("desc"),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(10).max(100).default(25)
 });
 
 const SYSTEM_ACTOR = "System";
+
+// Whitelisted sort expressions — the column never comes from the query string
+// itself, only the key that selects one of these.
+const SORT_COLUMNS: Record<"time" | "user" | "event" | "ip", string> = {
+  time: "datetime(activity_logs.created_at)",
+  user: "users.display_name",
+  event: "activity_logs.event",
+  ip: "activity_logs.ip_address"
+};
 
 const logCleanupSchema = z.object({
   olderThanDays: z.number().int().min(1).max(3650).default(365)
@@ -49,6 +73,8 @@ export async function logsPlugin(app: FastifyInstance) {
     const events = toArray(parsed.data.event);
     const usersFilter = toArray(parsed.data.user);
     const ips = toArray(parsed.data.ip);
+    const from = parsed.data.from?.trim() ? new Date(parsed.data.from).toISOString() : "";
+    const to = parsed.data.to?.trim() ? new Date(parsed.data.to).toISOString() : "";
     const pageSize = parsed.data.pageSize ?? 25;
     const requestedPage = parsed.data.page ?? 1;
 
@@ -98,6 +124,16 @@ export async function logsPlugin(app: FastifyInstance) {
       conditions.push(`activity_logs.ip_address IN (${placeholders.join(", ")})`);
     }
 
+    if (from) {
+      conditions.push("datetime(activity_logs.created_at) >= datetime(@from)");
+      filterParams.from = from;
+    }
+
+    if (to) {
+      conditions.push("datetime(activity_logs.created_at) <= datetime(@to)");
+      filterParams.to = to;
+    }
+
     if (query) {
       conditions.push(`(activity_logs.event LIKE @search
           OR activity_logs.detail LIKE @search
@@ -115,6 +151,16 @@ export async function logsPlugin(app: FastifyInstance) {
     `).get(filterParams) as { count: number };
     const totalPages = Math.max(1, Math.ceil(count.count / pageSize));
     const page = Math.min(requestedPage, totalPages);
+    const sortKey = parsed.data.sort ?? "time";
+    const direction = (parsed.data.dir ?? "desc") === "asc" ? "ASC" : "DESC";
+    // A NULL display name (the System actor) or IP sorts last either way, rather
+    // than clumping at the top of a descending sort where it reads as data.
+    const nullsLast = sortKey === "time" ? "" : `${SORT_COLUMNS[sortKey]} IS NULL, `;
+    const orderBy =
+      sortKey === "time"
+        ? `datetime(activity_logs.created_at) ${direction}, activity_logs.id ${direction}`
+        : `${nullsLast}${SORT_COLUMNS[sortKey]} ${direction}, datetime(activity_logs.created_at) DESC, activity_logs.id DESC`;
+
     const rows = db.prepare(`
       SELECT
         activity_logs.id,
@@ -126,7 +172,7 @@ export async function logsPlugin(app: FastifyInstance) {
       FROM activity_logs
       LEFT JOIN users ON users.id = activity_logs.actor_user_id
       ${where}
-      ORDER BY datetime(activity_logs.created_at) DESC, activity_logs.id DESC
+      ORDER BY ${orderBy}
       LIMIT @pageSize OFFSET @offset
     `).all({
       ...filterParams,

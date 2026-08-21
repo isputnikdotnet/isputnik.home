@@ -417,6 +417,25 @@ const PLATFORMS: [RegExp, string][] = [
   [/\bLinux\b/, "Linux"]
 ];
 
+// What KIND of thing this is, for counting rather than describing: a household
+// wants "two displays, three phones" without reading a user agent. Same shallow
+// spirit as the tables above — a linked display is known from the session kind,
+// the rest is a guess from the agent, and anything unclear says so.
+export type DeviceType = "display" | "phone" | "tablet" | "computer" | "unknown";
+
+export function deviceType(userAgent: string | null | undefined, kind: "browser" | "device" = "browser"): DeviceType {
+  if (kind === "device") return "display";
+  if (!userAgent) return "unknown";
+  const android = /Android/i.test(userAgent);
+  const mobile = /Mobile/i.test(userAgent);
+  // Android says "Android" on both a phone and a tablet; only a phone adds
+  // "Mobile", which is the one distinction worth making without a real parser.
+  if (/iPad|Tablet|Kindle|Silk/i.test(userAgent) || (android && !mobile)) return "tablet";
+  if (/iPhone|iPod|Windows Phone/i.test(userAgent) || android || mobile) return "phone";
+  if (/Windows|Mac OS X|Macintosh|CrOS|Linux/i.test(userAgent)) return "computer";
+  return "unknown";
+}
+
 function firstMatch(ua: string, table: [RegExp, string][]): string | null {
   for (const [pattern, name] of table) if (pattern.test(ua)) return name;
   return null;

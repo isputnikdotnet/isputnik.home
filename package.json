@@ -1,7 +1,7 @@
 {
   "name": "isputnik-home",
   "private": true,
-  "version": "3.10.5",
+  "version": "3.11.0",
   "description": "Private self-hosted family media library.",
   "license": "AGPL-3.0-only",
   "workspaces": [
@@ -14,6 +14,7 @@
     "typecheck": "npm run typecheck --workspace apps/server && npm run typecheck --workspace apps/web",
     "check:ui": "node scripts/check-ui-conventions.mjs",
     "fetch:face-model": "node scripts/fetch-face-model.mjs",
+    "fetch:geoip": "node scripts/fetch-geoip.mjs",
     "optimize:images": "node scripts/optimize-static-images.mjs",
     "test": "npm run test --workspace apps/server && npm run test --workspace apps/web",
     "docs:shots": "node scripts/doc-screenshots.mjs",

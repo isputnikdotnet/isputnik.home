@@ -114,7 +114,9 @@ export function csrfToken(): string {
 
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers = new Headers(options.headers);
-  if (options.body != null && !headers.has("Content-Type")) {
+  // Only a serialised body is JSON. FormData has to set its own Content-Type,
+  // because only the browser knows the multipart boundary it generated.
+  if (typeof options.body === "string" && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
 

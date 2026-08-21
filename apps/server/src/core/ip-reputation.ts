@@ -14,16 +14,31 @@ export interface IpReputation {
   score: number | null; // abuseConfidenceScore 0..100
   total_reports: number | null;
   last_reported_at: string | null;
+  country_code: string | null;
+  isp: string | null;
   checked_at: string;
 }
+
+const REPUTATION_COLUMNS = "ip_address, score, total_reports, last_reported_at, country_code, isp, checked_at";
 
 const CACHE_HOURS = 24;
 
 export function getCachedReputation(ip: string): IpReputation | null {
   const row = db
-    .prepare("SELECT ip_address, score, total_reports, last_reported_at, checked_at FROM ip_reputation WHERE ip_address = ?")
+    .prepare(`SELECT ${REPUTATION_COLUMNS} FROM ip_reputation WHERE ip_address = ?`)
     .get(ip) as IpReputation | undefined;
   return row ?? null;
+}
+
+// Cache-only bulk read for tables that show reputation beside many addresses at
+// once (the Dashboard's Logins table). Never calls out — an address the admin
+// hasn't asked about stays unqueried, which is the whole point of this module.
+export function getCachedReputations(ips: string[]): IpReputation[] {
+  if (!ips.length) return [];
+  const placeholders = ips.map(() => "?").join(", ");
+  return db
+    .prepare(`SELECT ${REPUTATION_COLUMNS} FROM ip_reputation WHERE ip_address IN (${placeholders})`)
+    .all(...ips) as IpReputation[];
 }
 
 function isFresh(reputation: IpReputation): boolean {
@@ -46,19 +61,34 @@ export async function checkIpReputation(ip: string, opts: { force?: boolean } = 
     );
     if (!response.ok) return cached;
     const body = (await response.json()) as {
-      data?: { abuseConfidenceScore?: number; totalReports?: number; lastReportedAt?: string | null };
+      data?: {
+        abuseConfidenceScore?: number;
+        totalReports?: number;
+        lastReportedAt?: string | null;
+        countryCode?: string | null;
+        isp?: string | null;
+      };
     };
     const data = body?.data;
     if (!data || typeof data.abuseConfidenceScore !== "number") return cached;
     db.prepare(
-      `INSERT INTO ip_reputation (ip_address, score, total_reports, last_reported_at, checked_at)
-       VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+      `INSERT INTO ip_reputation (ip_address, score, total_reports, last_reported_at, country_code, isp, checked_at)
+       VALUES (?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
        ON CONFLICT(ip_address) DO UPDATE SET
          score = excluded.score,
          total_reports = excluded.total_reports,
          last_reported_at = excluded.last_reported_at,
+         country_code = excluded.country_code,
+         isp = excluded.isp,
          checked_at = excluded.checked_at`
-    ).run(ip, data.abuseConfidenceScore, data.totalReports ?? null, data.lastReportedAt ?? null);
+    ).run(
+      ip,
+      data.abuseConfidenceScore,
+      data.totalReports ?? null,
+      data.lastReportedAt ?? null,
+      data.countryCode ?? null,
+      data.isp ?? null
+    );
     return getCachedReputation(ip);
   } catch {
     return cached;

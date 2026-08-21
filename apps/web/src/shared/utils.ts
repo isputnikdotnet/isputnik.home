@@ -4,6 +4,16 @@ function parseManagedDate(value: string) {
   return new Date(value.includes("T") ? value : `${value.replace(" ", "T")}Z`);
 }
 
+/** ISO 3166-1 alpha-2 → the reader's own name for that country ("NL" → "Netherlands"). */
+export function countryName(code: string | null | undefined): string | null {
+  if (!code) return null;
+  try {
+    return new Intl.DisplayNames(undefined, { type: "region" }).of(code) ?? code;
+  } catch {
+    return code;
+  }
+}
+
 export function formatManagedDate(value: string) {
   return new Intl.DateTimeFormat(undefined, {
     dateStyle: "medium",
