@@ -66,7 +66,8 @@ export function gradePolicies({ policy, proxy, passwordPolicy, mailConfigured, t
       // then every other rule misreads who is knocking.
       level: proxyAttention ? "weak" : proxy.configured ? "strong" : "medium",
       issue: proxyAttention,
-      weight: { internal: 0.5, internet: 3 }
+      // Inside the house there is nothing to front.
+      weight: { internal: 0, internet: 3 }
     },
     {
       key: "lockout",
@@ -122,8 +123,8 @@ export function gradePolicies({ policy, proxy, passwordPolicy, mailConfigured, t
         : "Anyone signed in can delete from any network",
       level: policy.trustedDeletesOnly ? (trustedNetworkCount > 0 ? "strong" : "medium") : "weak",
       issue: policy.trustedDeletesOnly && trustedNetworkCount === 0,
-      // Refusing deletes from outside is near-moot when there is no outside.
-      weight: { internal: 0.25, internet: 1 }
+      // Refusing deletes from outside means nothing when there is no outside.
+      weight: { internal: 0, internet: 1 }
     },
     {
       key: "devices",
@@ -271,7 +272,7 @@ export function ProtectionCard({
             label={
               exposure === "internet"
                 ? "Graded for a server reachable from the internet: every protection counts, and proxy trust, a second factor from outside and sign-in alerts count most — they are how you keep strangers out and hear about the ones who got close."
-                : "Graded for a server on the home network only: the defences that only matter against strangers — a second factor from outside, IP reputation — are not counted against you."
+                : "Graded for a server on the home network only: the defences that only matter against strangers — proxy trust, a second factor from outside, deletion protection, IP reputation — are not counted at all."
             }
           >
             <Info size={15} aria-hidden="true" />
