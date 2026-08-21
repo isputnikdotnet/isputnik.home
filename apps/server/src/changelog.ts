@@ -19,6 +19,17 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.14.0",
+    label: "One Activity tab, with a date range of its own",
+    changes: [
+      "The dashboard's Activity, Content activity, and Reading and playback tabs were three slices of one question — what has the household been doing with the library? — and are now one Activity tab that answers it top to bottom: the headline numbers, two charts, the recent events themselves, and what everyone has open right now. The dashboard's row of tabs is down to four: Logins, Locations, Activity, System.",
+      "Activity now has the same date toolbar as Logins. Pick the last hour, seven hours, a day, a week, a month, or a start and end of your own, and the cards, both charts and the events table all follow it together; short windows chart by the hour, long ones by the day. Each card compares its number with the equal stretch before — uploads and downloads up reads green — and storage used is broken down into audio, books and photos.",
+      "A second chart joined the first. Uploads, downloads and deletes were always drawn; what was actually opened — played, read or viewed — was recorded but never charted. It is now, beside the first, so a quiet week of adding things and a busy week of enjoying them look different at a glance.",
+      "The list of what is currently in progress keeps its place at the bottom, unchanged in meaning and labelled plainly as a snapshot of where each person is rather than a history — it does not follow the range above, because a reading position is overwritten as you go, not logged session by session.",
+      "Every table on the tab shows ten rows at a time, the login count left the Activity cards (sign-ins have their own pages now), and bookmarks to the old Content activity and Reading and playback tabs land on Activity."
+    ]
+  },
+  {
     version: "3.13.0",
     label: "Sign-ins becomes the one place for devices and sessions",
     changes: [

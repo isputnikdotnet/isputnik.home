@@ -865,6 +865,79 @@ export async function dashboardPlugin(app: FastifyInstance) {
     return reply.send({ geoip: result.status, installed: result.installed });
   });
 
+  // The Activity tab's range-scoped payload — the same window and bucketing rule
+  // as /api/dashboard/logins, so the two tabs' date toolbars behave identically.
+  // Six series: what was put in or taken out (uploads, downloads, deletes) and
+  // what was opened (played, read, viewed), with totals for this window and the
+  // equal-length one before it so each card can say how it compares.
+  app.get("/api/dashboard/activity", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const parsed = parseBody(loginsQuerySchema, request.query);
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid activity query", details: parsed.error });
+    }
+    const from = new Date(parsed.data.from);
+    const to = new Date(parsed.data.to);
+    if (to.getTime() <= from.getTime()) {
+      return reply.code(400).send({ error: "Invalid activity range", details: "The end of the range must come after its start." });
+    }
+
+    const bucket: "hour" | "day" = to.getTime() - from.getTime() <= HOURLY_MAX_SPAN_MS ? "hour" : "day";
+    const bucketFormat = bucket === "hour" ? "%Y-%m-%dT%H:00:00.000Z" : "%Y-%m-%dT00:00:00.000Z";
+    const range = { from: from.toISOString(), to: to.toISOString() };
+
+    const ACTIVITY_CASE_SQL = `
+      SUM(CASE WHEN event IN (${UPLOAD_EVENTS}) THEN 1 ELSE 0 END) AS uploads,
+      SUM(CASE WHEN event LIKE '%.downloaded' THEN 1 ELSE 0 END) AS downloads,
+      SUM(CASE WHEN event LIKE '%.deleted' OR event IN ('library.item_trashed', 'library.item_purged') THEN 1 ELSE 0 END) AS deletes,
+      SUM(CASE WHEN event = 'library.audiobook.played' THEN 1 ELSE 0 END) AS played,
+      SUM(CASE WHEN event = 'library.ebook.read' THEN 1 ELSE 0 END) AS read,
+      SUM(CASE WHEN event = 'library.gallery.viewed' THEN 1 ELSE 0 END) AS viewed
+    `;
+    type ActivityCounts = { uploads: number | null; downloads: number | null; deletes: number | null; played: number | null; read: number | null; viewed: number | null };
+    const KEYS = ["uploads", "downloads", "deletes", "played", "read", "viewed"] as const;
+    const clean = (row: ActivityCounts) =>
+      Object.fromEntries(KEYS.map((key) => [key, row[key] ?? 0])) as Record<(typeof KEYS)[number], number>;
+
+    const rows = db.prepare(`
+      SELECT strftime('${bucketFormat}', created_at) AS bucket, ${ACTIVITY_CASE_SQL}
+      FROM activity_logs
+      WHERE datetime(created_at) >= datetime(@from) AND datetime(created_at) <= datetime(@to)
+      GROUP BY bucket
+    `).all(range) as ({ bucket: string } & ActivityCounts)[];
+    const byBucket = new Map(rows.map((row) => [row.bucket, clean(row)]));
+
+    // Every bucket in the window is emitted, empty ones included — a gap in the
+    // chart should read as "nothing then", not as a missing sample.
+    const buckets: string[] = [];
+    const series: Record<(typeof KEYS)[number], number[]> = { uploads: [], downloads: [], deletes: [], played: [], read: [], viewed: [] };
+    const step = bucket === "hour" ? HOUR_MS : DAY_MS;
+    for (let cursor = floorToBucket(from, bucket).getTime(); cursor <= to.getTime(); cursor += step) {
+      const key = new Date(cursor).toISOString();
+      buckets.push(key);
+      const hit = byBucket.get(key);
+      for (const name of KEYS) series[name].push(hit?.[name] ?? 0);
+    }
+
+    const totalsStatement = db.prepare(`
+      SELECT ${ACTIVITY_CASE_SQL} FROM activity_logs
+      WHERE datetime(created_at) >= datetime(@from) AND datetime(created_at) <= datetime(@to)
+    `);
+    const previousRange = {
+      from: new Date(from.getTime() - (to.getTime() - from.getTime())).toISOString(),
+      to: range.from
+    };
+
+    return reply.send({
+      from: range.from,
+      to: range.to,
+      bucket,
+      buckets,
+      series,
+      totals: clean(totalsStatement.get(range) as ActivityCounts),
+      previous: clean(totalsStatement.get(previousRange) as ActivityCounts)
+    });
+  });
+
   app.get("/api/dashboard/in-progress", { preHandler: app.requireAdmin }, async (request, reply) => {
     const parsed = parseBody(inProgressQuerySchema, request.query);
     if (parsed.error) {

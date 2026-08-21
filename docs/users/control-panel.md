@@ -109,13 +109,12 @@ tabs under the heading — real tabs, not a dropdown:
   connections then get a ringed dot of their own, and the count card and table row
   take that name. It is stored on your server for that one purpose, never sent
   anywhere, and **Take it off the map** removes it again.
-- **Activity** — uploads, downloads and deletes charted over the last 14 days,
-  plus storage used.
-- **Content activity** — recent uploads, downloads, deletes, and what's been read,
-  played or viewed.
-- **Reading and playback** — what's currently in progress for every member; a
-  snapshot, not a history, since a book's reading position is overwritten as you
-  go rather than logged session by session.
+- **Activity** — what the household has been doing with the library, top to
+  bottom: the headline numbers and storage used; two charts over the last 14 days
+  (uploads, downloads and deletes; and what was played, read or viewed); the
+  recent content events themselves; and what's currently in progress for every
+  member — a snapshot, not a history, since a book's reading position is
+  overwritten as you go rather than logged session by session.
 
 ### Statistics
 
