@@ -19,6 +19,13 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.17.1",
+    label: "A home-only server is graded only on what matters at home",
+    changes: [
+      "The protection level for a server on the home network only now leaves out four settings entirely rather than counting them for a little: proxy trust, a second factor from outside the house, deletion protection, and IP reputation. None of them has anything to do when there is no outside — there is nothing to front, nobody outside to ask for a second factor, no outside to refuse deletes from, and no strangers' addresses to score. The card says how many settings are set aside. An internet-facing server is graded as before."
+    ]
+  },
+  {
     version: "3.17.0",
     label: "Security grades itself — a protection level, and a policy table that says what's weak",
     changes: [

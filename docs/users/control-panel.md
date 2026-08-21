@@ -211,9 +211,10 @@ internet](exposing-to-the-internet.md).
   depends on one thing only you can tell it: whether the server is **home
   network only** or **reachable from the internet**, chosen with the two
   buttons on the card and saved on the spot. A home-only server is graded
-  gently on the defences that only matter against strangers — a second factor
-  from outside and IP reputation aren't counted at all, and sign-in alerts and
-  deletion protection count for little — while an internet-facing one is held
+  gently: the defences that only matter against strangers — proxy trust, a
+  second factor from outside, deletion protection and IP reputation — aren't
+  counted at all, and sign-in alerts count for little — while an internet-facing
+  one is held
   to all of them, with proxy trust, the second factor and sign-in alerts counting
   most — alerts are how you hear about a problem at all. If
   requests are arriving through a proxy while the card says home-only, it says
