@@ -985,6 +985,20 @@ span.status-metric-icon {
 }
 
 
+/* Dashboard › Activity: the two fourteen-day charts side by side where there is
+   room — what was put in or taken out, and what was actually opened. */
+.activity-charts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+@media (max-width: 1100px) {
+  .activity-charts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 /* Headline KPI cards (shared/KpiCard): a tinted icon, the number with its
    change badge, and one line of context. Same badge idiom as Security's overview
    cards, sized up so the number carries the row. */

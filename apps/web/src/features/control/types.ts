@@ -253,6 +253,21 @@ export interface DashboardSummary {
   kpis: { logins24h: number; uploads7d: number; downloads7d: number; deletes7d: number };
 }
 
+// /api/dashboard/activity — the Activity tab's range-scoped payload, shaped like
+// DashboardLogins so the two tabs' date toolbars drive identical machinery.
+export type ActivityKey = "uploads" | "downloads" | "deletes" | "played" | "read" | "viewed";
+
+export interface DashboardActivity {
+  from: string;
+  to: string;
+  bucket: "hour" | "day";
+  buckets: string[];
+  series: Record<ActivityKey, number[]>;
+  totals: Record<ActivityKey, number>;
+  /** The equal-length window immediately before this one. */
+  previous: Record<ActivityKey, number>;
+}
+
 // /api/dashboard/logins — the Logins view's range-scoped payload. `buckets` are
 // ISO instants (hourly or daily, per `bucket`) aligned with each series array.
 export interface DashboardLogins {
