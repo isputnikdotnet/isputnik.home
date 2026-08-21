@@ -232,12 +232,34 @@ primary channel precisely because most installs will never configure SMTP.
 
 All three surfaces are wired, and each shows only the destinations that apply:
 
-| Surface | People | E-reader | Guest link |
-| --- | --- | --- | --- |
-| Ebook detail | yes | when `ereader_email` is set | yes |
-| Audiobook detail | yes | — | yes |
-| Gallery lightbox | yes | — | yes |
-| Family-tree person | yes | — | — (no public page to link to) |
+| Surface | People | Can grant | E-reader | Guest link |
+| --- | --- | --- | --- | --- |
+| Ebook detail | yes | curator | when `ereader_email` is set | yes |
+| Audiobook detail | yes | curator | — | yes |
+| Gallery lightbox | yes | curator | — | yes |
+| Gallery album | yes | its creator / admin | — | yes |
+| Gallery slideshow | yes | — (all can play) | — | — |
+| Family-tree person | yes | — (all can read) | — | — |
+
+Albums and slideshows needed **addresses** before they could be sent — both were
+local state on the gallery page, so a recommendation had nowhere to land.
+`/gallery/albums/<id>` and `/gallery/slideshows/<id>` follow the `galleryFolder`
+precedent: the id seeds the selection once, then the URL follows the selection by
+`replaceState` (opening an album and pressing Back should leave the gallery, not
+walk back through every album looked at on the way).
+
+Neither offers **Favorites**. Favorites earns its place when a set is too big to
+scan — thousands of books, tens of thousands of photos. A household has tens of
+albums and a handful of slideshows, all already on one page, and an album granted
+to you is already permanently in Shared with me. So their cards show a single
+**Done** instead of Favorite / Not now, which also reads better: "Not now" is the
+wrong word once you have looked at the thing.
+
+A bug the album tests caught, worth recording: the album resolver first judged
+visibility only by library access, so somebody granted an album still could not
+open it — a grant does not widen library access, it grants the album. Three ways
+an album can be visible, and all three are now in the hydrator: a photo you can
+browse, it is yours, or you were granted it.
 
 On the book detail page and the gallery lightbox this **replaced** the separate
 "Share" action; on books it replaced "Send to e-reader" as well. Choosing
@@ -277,7 +299,8 @@ Send to…
   `POST /api/shares/user` is a thin wrapper over it. Two code paths that both
   grant is how they drift apart.
 - **The People tab kept the half it is good at** — who has access, and revoking
-  it — and points at Send to for the other half.
+  it — and points at Send to for the other half. Both of them: the item share
+  modal and `ShareAlbumModal`, which was the last one standing.
 
 Family-tree persons never offer this: everyone signed in can already read the
 tree, so `canGrant` is false and there is nothing to widen.

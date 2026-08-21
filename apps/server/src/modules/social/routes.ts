@@ -20,13 +20,56 @@ import type { FastifyInstance } from "fastify";
 import { nanoid } from "nanoid";
 import { db } from "../../db.js";
 import { parseBody, requestOrigin } from "../../core/shared.js";
-import { canGrantItemAccess, grantItemAccess } from "../library/shared/shares.js";
+import {
+  canGrantAlbumAccess,
+  canGrantItemAccess,
+  grantAlbumAccess,
+  grantItemAccess
+} from "../library/shared/shares.js";
 import { hydrateEntities, hydrateOne, isSubjectEntityType, type HydratedEntity } from "./subjects.js";
 import { notifyRecommendationSent } from "./notify.js";
 
-// Entity types that are rows in library_items, and so can go to My List. A
-// family-tree person is sendable and note-able but there is nothing to save.
+// Entity types that are rows in library_items, and so can go to Favorites. A
+// family-tree person, an album and a slideshow are sendable and note-able, but
+// none of them is a library item and none needs a shortlist: a household has
+// tens of albums, not thousands, and they are all already on one page.
 const LIBRARY_ITEM_TYPES = new Set(["audiobook", "ebook", "gallery"]);
+
+// Which subjects have access that CAN be widened, and how. A slideshow is absent
+// on purpose: every signed-in account can already play every one of them, so
+// there is nothing to grant. A family-tree person likewise.
+type Grantable = "item" | "album";
+const GRANTABLE: Record<string, Grantable> = {
+  audiobook: "item",
+  ebook: "item",
+  gallery: "item",
+  gallery_album: "album"
+};
+
+function mayGrant(entityType: string, entityId: string, user: { id: string; role: string }): boolean {
+  const kind = GRANTABLE[entityType];
+  if (kind === "item") return canGrantItemAccess(entityId, user.id, user.role);
+  if (kind === "album") return canGrantAlbumAccess(entityId, user);
+  return false;
+}
+
+function widenAccess(
+  entityType: string,
+  entityId: string,
+  toUserId: string,
+  by: { id: string; role: string },
+  origin: string,
+  ipAddress?: string
+): boolean {
+  const kind = GRANTABLE[entityType];
+  if (kind === "item") {
+    return grantItemAccess({ itemId: entityId, toUserId, by, origin, ipAddress }) === "ok";
+  }
+  if (kind === "album") {
+    return grantAlbumAccess({ albumId: entityId, toUserId, by, origin, ipAddress }) === "ok";
+  }
+  return false;
+}
 
 const entityRef = {
   entityType: z.string().trim().refine(isSubjectEntityType, "Unknown entity type"),
@@ -135,8 +178,7 @@ export async function socialPlugin(app: FastifyInstance) {
     // out to remove: "Mom isn't in the list" sent you off to a separate Share
     // dialog to grant access, then back here to tell her. One list, and the sheet
     // says which of the two it will be.
-    const canGrant = LIBRARY_ITEM_TYPES.has(query.entityType)
-      && canGrantItemAccess(query.entityId, user.id, user.role);
+    const canGrant = mayGrant(query.entityType, query.entityId, user);
 
     const people = candidates.map((candidate) => ({
       id: candidate.id,
@@ -167,9 +209,9 @@ export async function socialPlugin(app: FastifyInstance) {
       ereader: query.entityType === "ebook"
         ? { applicable: true, configured: Boolean(self?.ereader_email) }
         : { applicable: false, configured: false },
-      // Guest links exist for books and gallery items already; a family-tree
-      // person has no public page to link to.
-      guestLink: LIBRARY_ITEM_TYPES.has(query.entityType)
+      // Guest links exist for books, gallery items and albums. A slideshow and a
+      // family-tree person have no public page to point at.
+      guestLink: LIBRARY_ITEM_TYPES.has(query.entityType) || query.entityType === "gallery_album"
     });
   });
 
@@ -208,17 +250,10 @@ export async function socialPlugin(app: FastifyInstance) {
         // ...unless the sender asked to widen access and is allowed to. The grant
         // is never implicit: the client has to pass grantAccess, which it only
         // does after telling the sender in words that access will be given.
-        const widened = grantAccess && LIBRARY_ITEM_TYPES.has(entityType)
-          ? grantItemAccess({
-              itemId: entityId,
-              toUserId: recipient.id,
-              by: user,
-              origin,
-              ipAddress: request.ip
-            })
-          : "forbidden";
+        const widened = grantAccess === true
+          && widenAccess(entityType, entityId, recipient.id, user, origin, request.ip);
 
-        if (widened !== "ok" || !hydrateOne(entityType, entityId, recipient)) {
+        if (!widened || !hydrateOne(entityType, entityId, recipient)) {
           skipped.push(recipient.display_name);
           continue;
         }

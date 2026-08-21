@@ -9,7 +9,7 @@
 // Adding a type = one entry in SUBJECTS. No route or schema changes anywhere.
 import path from "node:path";
 import { db } from "../../db.js";
-import { canUserAccessBook } from "../library/shared/library-access.js";
+import { accessibleLibraryIds, canUserAccessBook } from "../library/shared/library-access.js";
 import type { BookLibraryType } from "../library/shared/library-types.js";
 
 // Display data for one subject, independent of which entity type it is.
@@ -239,11 +239,164 @@ const hydrateFamilyPersons: Hydrator = (entityIds) => {
   return result;
 };
 
+interface AlbumRow {
+  id: string;
+  name: string;
+  created_by: string;
+  visible_count: number;
+  cover_key: string | null;
+}
+
+// A gallery album. Three ways it can be visible, and all three have to be here:
+//   • at least one photo in it is in a library you can browse (as listAlbums)
+//   • it is yours, or you are an admin
+//   • somebody granted you the album (module 'gallery_album'), which is what
+//     Send to writes — that one opens the WHOLE album, including photos in
+//     libraries you cannot otherwise browse, because that is what the grant is for
+//
+// The third was missing at first and the album tests caught it: a recipient was
+// granted an album and then still could not open it, because the grant does not
+// widen library access and this only looked at library access.
+//
+// Otherwise "can you open it" is "is any of it visible to you", which is also
+// why sending an album is worth doing: each person sees their share of it.
+function makeAlbumHydrator(): Hydrator {
+  return (entityIds, user) => {
+    const result = new Map<string, HydratedEntity>();
+    if (entityIds.length === 0) return result;
+
+    const libIds = [...accessibleLibraryIds(user.id, user.role, "gallery")];
+    // No accessible gallery libraries still leaves creators/admins their own
+    // albums, so query with a never-matching placeholder rather than bailing.
+    const libArgs = libIds.length > 0 ? libIds : [""];
+    const libIn = libArgs.map(() => "?").join(", ");
+    const idIn = entityIds.map(() => "?").join(", ");
+
+    const rows = db.prepare(`
+      SELECT
+        gallery_albums.id,
+        gallery_albums.name,
+        gallery_albums.created_by,
+        (SELECT COUNT(*) FROM gallery_album_items
+          JOIN library_items ON library_items.id = gallery_album_items.item_id AND library_items.deleted_at IS NULL
+          WHERE gallery_album_items.album_id = gallery_albums.id
+            AND library_items.library_id IN (${libIn})) AS visible_count,
+        COALESCE(
+          (SELECT item_metadata.cover_storage_key FROM library_items
+            JOIN item_metadata ON item_metadata.item_id = library_items.id
+            WHERE library_items.id = gallery_albums.cover_item_id AND library_items.deleted_at IS NULL
+              AND library_items.library_id IN (${libIn})),
+          (SELECT item_metadata.cover_storage_key FROM gallery_album_items
+            JOIN library_items ON library_items.id = gallery_album_items.item_id AND library_items.deleted_at IS NULL
+            JOIN item_metadata ON item_metadata.item_id = library_items.id
+            WHERE gallery_album_items.album_id = gallery_albums.id
+              AND library_items.library_id IN (${libIn})
+              AND item_metadata.cover_storage_key IS NOT NULL
+            ORDER BY gallery_album_items.position LIMIT 1)
+        ) AS cover_key
+      FROM gallery_albums
+      WHERE gallery_albums.id IN (${idIn})
+    `).all(...libArgs, ...libArgs, ...libArgs, ...entityIds) as AlbumRow[];
+
+    // Albums granted to this account outright. Counted whole, and their cover
+    // is not restricted to libraries the viewer can browse.
+    const sharedRows = db.prepare(`
+      SELECT
+        shares.resource_id AS album_id,
+        (SELECT COUNT(*) FROM gallery_album_items
+          JOIN library_items ON library_items.id = gallery_album_items.item_id AND library_items.deleted_at IS NULL
+          WHERE gallery_album_items.album_id = shares.resource_id) AS total_count,
+        (SELECT item_metadata.cover_storage_key FROM gallery_album_items
+          JOIN library_items ON library_items.id = gallery_album_items.item_id AND library_items.deleted_at IS NULL
+          JOIN item_metadata ON item_metadata.item_id = library_items.id
+          WHERE gallery_album_items.album_id = shares.resource_id
+            AND item_metadata.cover_storage_key IS NOT NULL
+          ORDER BY gallery_album_items.position LIMIT 1) AS cover_key
+      FROM shares
+      WHERE shares.module = 'gallery_album'
+        AND shares.user_id = ?
+        AND shares.resource_id IN (${idIn})
+        AND shares.revoked_at IS NULL
+        AND (shares.expires_at IS NULL OR datetime(shares.expires_at) > datetime('now'))
+    `).all(user.id, ...entityIds) as { album_id: string; total_count: number; cover_key: string | null }[];
+    const shared = new Map(sharedRows.map((row) => [row.album_id, row]));
+
+    for (const row of rows) {
+      const grant = shared.get(row.id);
+      const mine = user.role === "admin" || row.created_by === user.id;
+      if (row.visible_count === 0 && !mine && !grant) continue;
+
+      const count = grant && grant.total_count > row.visible_count ? grant.total_count : row.visible_count;
+      const cover = row.cover_key ?? grant?.cover_key ?? null;
+      result.set(row.id, {
+        available: true,
+        title: row.name,
+        subtitle: `${count} ${count === 1 ? "photo" : "photos"}`,
+        coverUrl: cover ? `/api/library/covers/${cover}` : null,
+        durationSeconds: null,
+        fileCount: count,
+        href: `/gallery/albums/${row.id}`,
+        playable: false
+      });
+    }
+    return result;
+  };
+}
+
+interface SlideshowRow {
+  id: string;
+  name: string;
+  item_count: number;
+  cover_key: string | null;
+}
+
+// A slideshow is a way of PRESENTING photos, and has no access model of its own:
+// any signed-in account can already list and play every one of them, like the
+// family tree. So there is nothing to grant here and nothing to check — sending
+// one is purely "watch this".
+const hydrateSlideshows: Hydrator = (entityIds) => {
+  const result = new Map<string, HydratedEntity>();
+  if (entityIds.length === 0) return result;
+
+  const idIn = entityIds.map(() => "?").join(", ");
+  const rows = db.prepare(`
+    SELECT
+      gallery_slideshows.id,
+      gallery_slideshows.name,
+      (SELECT COUNT(*) FROM gallery_slideshow_items
+        WHERE gallery_slideshow_items.slideshow_id = gallery_slideshows.id) AS item_count,
+      (SELECT item_metadata.cover_storage_key FROM gallery_slideshow_items
+        JOIN library_items ON library_items.id = gallery_slideshow_items.item_id AND library_items.deleted_at IS NULL
+        JOIN item_metadata ON item_metadata.item_id = library_items.id
+        WHERE gallery_slideshow_items.slideshow_id = gallery_slideshows.id
+          AND item_metadata.cover_storage_key IS NOT NULL
+        ORDER BY gallery_slideshow_items.position LIMIT 1) AS cover_key
+    FROM gallery_slideshows
+    WHERE gallery_slideshows.id IN (${idIn})
+  `).all(...entityIds) as SlideshowRow[];
+
+  for (const row of rows) {
+    result.set(row.id, {
+      available: true,
+      title: row.name,
+      subtitle: `Slideshow · ${row.item_count} ${row.item_count === 1 ? "photo" : "photos"}`,
+      coverUrl: row.cover_key ? `/api/library/covers/${row.cover_key}` : null,
+      durationSeconds: null,
+      fileCount: row.item_count,
+      href: `/gallery/slideshows/${row.id}`,
+      playable: false
+    });
+  }
+  return result;
+};
+
 const SUBJECTS: Record<string, SubjectType> = {
   audiobook: { hydrate: hydrateAudiobooks, collectable: true },
   ebook: { hydrate: hydrateEbooks, collectable: true },
   gallery: { hydrate: hydrateGallery, collectable: true },
-  family_tree_person: { hydrate: hydrateFamilyPersons, collectable: false }
+  family_tree_person: { hydrate: hydrateFamilyPersons, collectable: false },
+  gallery_album: { hydrate: makeAlbumHydrator(), collectable: false },
+  gallery_slideshow: { hydrate: hydrateSlideshows, collectable: false }
 };
 
 /** Everything the resolver can describe — the valid range of `entity_type`. */

@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Album, ArrowLeft, CalendarClock, CalendarDays, CheckCheck, CheckCircle2, ChevronDown, ChevronRight, Circle, Combine, Compass, Download, Film, FolderOpen, FolderPlus, Image as ImageIcon, ImagePlus, LayoutGrid, LibraryBig, ListMusic, MapPin, MapPinned, Pencil, Play, Plus, Heart, Folder, RefreshCw, Share2, Sparkles, SquareCheck, Trash2, UploadCloud, Users, X } from "lucide-react";
+import { Album, ArrowLeft, CalendarClock, CalendarDays, CheckCheck, CheckCircle2, ChevronDown, ChevronRight, Circle, Combine, Compass, Download, Film, FolderOpen, FolderPlus, Image as ImageIcon, ImagePlus, LayoutGrid, LibraryBig, ListMusic, MapPin, MapPinned, Pencil, Play, Plus, Heart, Folder, RefreshCw, Send, Share2, Sparkles, SquareCheck, Trash2, UploadCloud, Users, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { followRoute, galleryHref, navigate, type GalleryView } from "../../router";
@@ -30,6 +30,7 @@ import { GalleryFolderPicker } from "./GalleryFolderPicker";
 import { GallerySlideshowEditor } from "./GallerySlideshowEditor";
 import { ShareSetModal } from "../share/ShareSetModal";
 import { ShareAlbumModal } from "./ShareAlbumModal";
+import { SendToSheet, type SendToSubject } from "../social/SendToSheet";
 import { Modal } from "../../shared/Modal";
 import { ChoiceGroup } from "../../shared/ChoiceGroup";
 import type { GalleryAlbum, GalleryAlbumDetail, GalleryAsset, GalleryFaceSettings, GalleryFacets, GalleryFolder, GalleryLibrary, GalleryMapPoint, GalleryMemories, GalleryMemoryGroup, GalleryMemorySuggestion, GalleryPerson, GallerySlideshow, GallerySlideshowDetail, GallerySlideshowSettings, SlideshowTransition } from "./types";
@@ -108,6 +109,8 @@ export function GalleryPage({
   logout,
   view,
   initialAssetId,
+  initialAlbumId,
+  initialSlideshowId,
   initialFolder,
   initialLibraryId
 }: {
@@ -118,6 +121,10 @@ export function GalleryPage({
    *  out of; switching views goes through goToView() below. */
   view: GalleryView;
   initialAssetId?: string;
+  /** Deep link (/gallery/albums/<id>): open that album rather than the list. */
+  initialAlbumId?: string;
+  /** Deep link (/gallery/slideshows/<id>): open that slideshow rather than the list. */
+  initialSlideshowId?: string;
   /** Deep link (/gallery/folders/…): open the Folders view straight into this folder. */
   initialFolder?: string;
   initialLibraryId?: string | null;
@@ -134,6 +141,9 @@ export function GalleryPage({
   // every gallery address to this same component — so the scope, sort and loaded
   // libraries survive the move, exactly as they did when view was useState.
   const goToView = useCallback((next: GalleryView) => navigate(galleryHref(next)), []);
+  // Only one detail view is ever open, so one bit of state serves the album and
+  // the slideshow topbars.
+  const [sendToSubject, setSendToSubject] = useState<SendToSubject | null>(null);
 
   const [sort, setSort] = useState<TimelineSort>("taken");
 
@@ -584,6 +594,33 @@ export function GalleryPage({
     else if (view === "map") void loadMap();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, sort, query, filters]);
+
+  // Deep link: open the named album / slideshow instead of its list. Runs once
+  // per id — after that the URL follows the selection (below), not the reverse,
+  // so paging and Back keep working exactly as they did.
+  useEffect(() => {
+    if (initialAlbumId) void openAlbum(initialAlbumId);
+  }, [initialAlbumId, openAlbum]);
+
+  useEffect(() => {
+    if (initialSlideshowId) void openSlideshow(initialSlideshowId);
+  }, [initialSlideshowId, openSlideshow]);
+
+  // Keep the address in step with what is open, without adding a history entry
+  // per click — replaceState, the same treatment the A–Z strip's ?letter gets.
+  // Opening an album and pressing Back should leave the gallery, not walk back
+  // through every album looked at on the way.
+  useEffect(() => {
+    if (view !== "albums") return;
+    const want = selectedAlbum ? `/gallery/albums/${selectedAlbum.id}` : "/gallery/albums";
+    if (window.location.pathname !== want) window.history.replaceState({}, "", want);
+  }, [view, selectedAlbum]);
+
+  useEffect(() => {
+    if (view !== "slideshows") return;
+    const want = selectedSlideshow ? `/gallery/slideshows/${selectedSlideshow.id}` : "/gallery/slideshows";
+    if (window.location.pathname !== want) window.history.replaceState({}, "", want);
+  }, [view, selectedSlideshow]);
 
   // Deep link: fetch the asset and open a standalone lightbox.
   useEffect(() => {
@@ -1541,11 +1578,14 @@ export function GalleryPage({
                         <FolderPlus size={18} aria-hidden="true" />
                       </Button>
                     )}
-                    {selectedAlbum.canEdit && (
-                      <Button variant="icon" title="Share" aria-label="Share" onClick={() => setShareAlbumOpen(true)}>
-                        <Share2 size={18} aria-hidden="true" />
-                      </Button>
-                    )}
+                    <Button
+                      variant="icon"
+                      title="Send to"
+                      aria-label="Send to"
+                      onClick={() => setSendToSubject({ entityType: "gallery_album", entityId: selectedAlbum.id })}
+                    >
+                      <Send size={18} aria-hidden="true" />
+                    </Button>
                     {selectedAlbum.canEdit && (
                       <Button variant="icon" title="Set cover photo" aria-label="Set cover photo" onClick={() => { setNotice(""); setCoverPickerOpen(true); }}>
                         <ImageIcon size={18} aria-hidden="true" />
@@ -1694,6 +1734,14 @@ export function GalleryPage({
                         onClick={startSlideshow}
                       >
                         <Play size={18} aria-hidden="true" />
+                      </Button>
+                      <Button
+                        variant="icon"
+                        title="Send to"
+                        aria-label="Send to"
+                        onClick={() => setSendToSubject({ entityType: "gallery_slideshow", entityId: selectedSlideshow.id })}
+                      >
+                        <Send size={18} aria-hidden="true" />
                       </Button>
                       {selectedSlideshow.canEdit && (
                         <Button variant="icon" title="Add photos" aria-label="Add photos" onClick={() => setBrowseOpen(true)}>
@@ -2151,6 +2199,18 @@ export function GalleryPage({
         <ShareSetModal
           itemIds={shareIds}
           onClose={() => setShareIds(null)}
+        />
+      )}
+
+      {sendToSubject && (
+        <SendToSheet
+          subject={sendToSubject}
+          onClose={() => setSendToSubject(null)}
+          onGuestLink={
+            sendToSubject.entityType === "gallery_album" && selectedAlbum?.canEdit
+              ? () => { setSendToSubject(null); setShareAlbumOpen(true); }
+              : undefined
+          }
         />
       )}
 

@@ -33,6 +33,32 @@ If you only have viewing rights on the library yourself, you'll still see who's
 missing — the names are just greyed out, marked **no access**. Someone who
 manages that library has to be the one to widen it.
 
+## Albums and slideshows
+
+Open an album and **Send to** is in the row along the top, next to Play. It works
+the same as anything else — usually better, since *"look at Summer 2019"* is more
+often what somebody means than any single photo of it.
+
+Two things about albums specifically:
+
+- **Everyone sees their own share of it.** An album is visible to anybody who can
+  see at least one photo in it, and the count on the card is what *they* can see,
+  not what you can. Sending it doesn't change that.
+- **Unless you give them the album outright.** If you made the album, the people
+  who've never been given it appear under *Doesn't have access yet*; picking one
+  hands them the whole album — including photos in libraries they can't otherwise
+  browse — and tells them, in one press. Only the album's creator (or an
+  administrator) can do that.
+
+The album's own **Share** button still holds the guest link and the list of who
+has access, with a bin to take it back.
+
+**Slideshows** are send-only. Everyone signed in can already play every slideshow,
+so there's nothing to give and no link to make — just *"watch this"*.
+
+Albums and slideshows now have their own web addresses, so you can bookmark one,
+reload it, or open it in a new tab, and the back button behaves.
+
 ## Your e-reader
 
 On a book, **Send to** also offers **My e-reader**, which mails the file to your
@@ -60,8 +86,12 @@ Everything other people have put in front of you lands on one page:
 Anything still waiting on a decision sits at the top under **Waiting for you**,
 showing who sent it and what they said, with two buttons:
 
-- **Save** puts it in your list, to get to when you get to it.
+- **Favorite** puts it in your Favorites, to get to when you get to it.
 - **Not now** clears it away. Nothing is deleted and nobody is told.
+
+An album, a slideshow or a person has no Favorites to go in — there are only ever
+a handful of each and they're all on one page already — so those cards carry a
+single **Done** instead.
 
 Everything below that is simply what you can open — things people have given you
 access to, including shared photo albums.

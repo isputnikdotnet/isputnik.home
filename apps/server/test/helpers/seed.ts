@@ -33,7 +33,7 @@ export function resetDb(): void {
     "playback_progress", "track_progress", "reading_progress",
     "audio_bookmarks", "reading_bookmarks",
     "audiobook_details", "ebook_details", "gallery_details", "gallery_faces", "gallery_face_scans", "gallery_face_exclusions", "gallery_people", "item_metadata",
-    "gallery_album_items", "gallery_albums",
+    "gallery_slideshow_items", "gallery_slideshows", "gallery_album_items", "gallery_albums",
     // The four dismissal tables. Their caches were dropped with the pages that read
     // them (migration 31); these hold decisions and a cleanup still writes them.
     "gallery_duplicate_ignores", "gallery_duplicate_folder_ignores",

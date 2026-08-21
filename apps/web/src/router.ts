@@ -247,6 +247,8 @@ export type Route =
   | { name: "gallery"; view: GalleryView }
   | { name: "galleryAsset"; id: string }
   | { name: "galleryFolder"; folder: string; libraryId: string | null }
+  | { name: "galleryAlbum"; id: string }
+  | { name: "gallerySlideshow"; id: string }
   | { name: "familyTree"; focusId?: string }
   | { name: "familyPeople" }
   | { name: "familyFamilies" }
@@ -328,6 +330,18 @@ export function getRoute(): Route {
   const galleryView = GALLERY_VIEW_BY_PATH.get(path);
   if (galleryView) {
     return { name: "gallery", view: galleryView };
+  }
+
+  // Safe after the view table above: that is an exact-path Map, so it claims
+  // /gallery/albums but never /gallery/albums/<id>.
+  const galleryAlbumMatch = path.match(/^\/gallery\/albums\/([^/]+)$/);
+  if (galleryAlbumMatch) {
+    return { name: "galleryAlbum", id: galleryAlbumMatch[1] };
+  }
+
+  const gallerySlideshowMatch = path.match(/^\/gallery\/slideshows\/([^/]+)$/);
+  if (gallerySlideshowMatch) {
+    return { name: "gallerySlideshow", id: gallerySlideshowMatch[1] };
   }
 
   const galleryAssetMatch = path.match(/^\/gallery\/assets\/([^/]+)$/);

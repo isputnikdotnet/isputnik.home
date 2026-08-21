@@ -466,3 +466,147 @@ describe("the inbox", () => {
     expect(card.available).toBe(false);
   });
 });
+
+describe("albums and slideshows", () => {
+  // An album is visible to anyone who can see a photo in it, so "can you open
+  // it" is "is any of it yours to see" — which is also why sending one is worth
+  // doing: the recipient gets their share of it, not all of it.
+  function makeAlbum(albumId: string, opts: { createdBy: string; itemIds: string[] }): void {
+    db.prepare("INSERT INTO gallery_albums (id, name, created_by) VALUES (?, ?, ?)")
+      .run(albumId, "Summer 2019", opts.createdBy);
+    opts.itemIds.forEach((itemId, index) => {
+      db.prepare("INSERT INTO gallery_album_items (album_id, item_id, position) VALUES (?, ?, ?)")
+        .run(albumId, itemId, index);
+    });
+  }
+
+  function makePhoto(itemId: string, libraryId: string, opts: { createdBy: string; viewers: string[] }): void {
+    if (!db.prepare("SELECT 1 FROM libraries WHERE id = ?").get(libraryId)) {
+      makeLibrary(libraryId, { createdBy: opts.createdBy, type: "gallery", ownerId: opts.createdBy, ownerType: "user" });
+      for (const viewer of opts.viewers) grant("user", viewer, libraryId, "viewer");
+    }
+    db.prepare("INSERT INTO library_items (id, library_id, type, folder_path) VALUES (?, ?, 'gallery', ?)")
+      .run(itemId, libraryId, `/src/${libraryId}/${itemId}.jpg`);
+  }
+
+  it("describes an album by what the viewer can actually see of it", async () => {
+    await makeMember("dad");
+    await makeMember("mom");
+    makePhoto("p1", "lib-open", { createdBy: "dad", viewers: ["dad", "mom"] });
+    makePhoto("p2", "lib-private", { createdBy: "dad", viewers: ["dad"] });
+    makeAlbum("alb-1", { createdBy: "dad", itemIds: ["p1", "p2"] });
+
+    const asDad = await app.inject({
+      method: "GET",
+      url: "/api/social/destinations?entityType=gallery_album&entityId=alb-1",
+      headers: { cookie: await signIn("dad") }
+    });
+    const asMom = await app.inject({
+      method: "GET",
+      url: "/api/social/destinations?entityType=gallery_album&entityId=alb-1",
+      headers: { cookie: await signIn("mom") }
+    });
+
+    // Same album, different counts — each sees their share.
+    expect(asDad.json().subject).toMatchObject({ title: "Summer 2019", subtitle: "2 photos" });
+    expect(asMom.json().subject).toMatchObject({ title: "Summer 2019", subtitle: "1 photo" });
+  });
+
+  it("offers a guest link for an album but never for a slideshow", async () => {
+    await makeMember("dad");
+    makePhoto("p1", "lib-open", { createdBy: "dad", viewers: ["dad"] });
+    makeAlbum("alb-1", { createdBy: "dad", itemIds: ["p1"] });
+    db.prepare("INSERT INTO gallery_slideshows (id, name, created_by) VALUES ('sl-1', 'Christmas', 'dad')").run();
+    const session = await signIn("dad");
+
+    const album = await app.inject({
+      method: "GET",
+      url: "/api/social/destinations?entityType=gallery_album&entityId=alb-1",
+      headers: { cookie: session }
+    });
+    const slideshow = await app.inject({
+      method: "GET",
+      url: "/api/social/destinations?entityType=gallery_slideshow&entityId=sl-1",
+      headers: { cookie: session }
+    });
+
+    expect(album.json().guestLink).toBe(true);
+    // A slideshow has no public page to point at, and every signed-in account can
+    // already play it — so there is nothing to link and nothing to grant.
+    expect(slideshow.json()).toMatchObject({ guestLink: false, canGrant: false });
+    expect((slideshow.json().people as { canOpen: boolean }[]).every((p) => p.canOpen)).toBe(true);
+  });
+
+  it("grants album access on the way through, using the album's own rule", async () => {
+    await makeMember("dad");
+    await makeMember("guest");
+    makePhoto("p1", "lib-private", { createdBy: "dad", viewers: ["dad"] });
+    makeAlbum("alb-1", { createdBy: "dad", itemIds: ["p1"] });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/social/recommendations",
+      headers: { cookie: await signIn("dad") },
+      payload: { entityType: "gallery_album", entityId: "alb-1", toUserIds: ["guest"], grantAccess: true }
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.json().granted).toEqual(["guest"]);
+    expect(db.prepare("SELECT module, resource_id, user_id FROM shares").all()).toEqual([
+      { module: "gallery_album", resource_id: "alb-1", user_id: "guest" }
+    ]);
+  });
+
+  it("will not let a non-creator widen access to somebody else's album", async () => {
+    await makeMember("dad");
+    await makeMember("mom");
+    await makeMember("guest");
+    makePhoto("p1", "lib-open", { createdBy: "dad", viewers: ["dad", "mom"] });
+    makeAlbum("alb-1", { createdBy: "dad", itemIds: ["p1"] });
+
+    // mom can SEE the album, so she may send it — but only its creator or an
+    // admin may hand out access to it.
+    const destinations = await app.inject({
+      method: "GET",
+      url: "/api/social/destinations?entityType=gallery_album&entityId=alb-1",
+      headers: { cookie: await signIn("mom") }
+    });
+    expect(destinations.json().canGrant).toBe(false);
+
+    const send = await app.inject({
+      method: "POST",
+      url: "/api/social/recommendations",
+      headers: { cookie: await signIn("mom") },
+      payload: { entityType: "gallery_album", entityId: "alb-1", toUserIds: ["guest"], grantAccess: true }
+    });
+    expect(send.statusCode).toBe(403);
+    expect(db.prepare("SELECT COUNT(*) AS n FROM shares").get()).toEqual({ n: 0 });
+  });
+
+  it("offers no Favorites for an album or a slideshow", async () => {
+    await makeMember("dad");
+    await makeMember("mom");
+    makePhoto("p1", "lib-open", { createdBy: "dad", viewers: ["dad", "mom"] });
+    makeAlbum("alb-1", { createdBy: "dad", itemIds: ["p1"] });
+
+    await app.inject({
+      method: "POST",
+      url: "/api/social/recommendations",
+      headers: { cookie: await signIn("dad") },
+      payload: { entityType: "gallery_album", entityId: "alb-1", toUserIds: ["mom"] }
+    });
+
+    const inbox = await app.inject({ method: "GET", url: "/api/social/inbox", headers: { cookie: await signIn("mom") } });
+    const card = (inbox.json().items as Record<string, unknown>[])[0];
+    // Nothing to shortlist: a household has tens of albums, all on one page.
+    expect(card).toMatchObject({ title: "Summer 2019", savable: false });
+
+    const id = (db.prepare("SELECT id FROM recommendations").get() as { id: string }).id;
+    const save = await app.inject({
+      method: "POST",
+      url: `/api/social/recommendations/${id}/save`,
+      headers: { cookie: await signIn("mom") }
+    });
+    expect(save.statusCode).toBe(400);
+  });
+});

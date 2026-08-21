@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Check, Copy, Link2, Trash2, UserPlus } from "lucide-react";
+import { Check, Copy, Link2, Trash2 } from "lucide-react";
 import { api } from "../../api";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
@@ -23,11 +23,6 @@ interface AlbumLinkShare {
   status: "active" | "expired";
 }
 
-interface DirectoryUser {
-  id: string;
-  displayName: string;
-}
-
 interface AlbumRecipient {
   userId: string;
   displayName: string;
@@ -39,15 +34,6 @@ const EXPIRY_OPTIONS = [
   { label: "1 day", days: 1 },
   { label: "7 days", days: 7 },
   { label: "30 days", days: 30 }
-];
-
-// A per-user grant runs longer than a guest link — access is gated to the
-// recipient's account, not a public URL — and can be permanent.
-const USER_EXPIRY_OPTIONS = [
-  { label: "No expiry", days: 0 },
-  { label: "7 days", days: 7 },
-  { label: "30 days", days: 30 },
-  { label: "1 year", days: 365 }
 ];
 
 export function ShareAlbumModal({ albumId, albumName, onClose }: { albumId: string; albumName: string; onClose: () => void }) {
@@ -63,12 +49,7 @@ export function ShareAlbumModal({ albumId, albumName, onClose }: { albumId: stri
   const [copied, setCopied] = useState(false);
 
   // People tab
-  const [directory, setDirectory] = useState<DirectoryUser[]>([]);
   const [recipients, setRecipients] = useState<AlbumRecipient[]>([]);
-  const [selectedUser, setSelectedUser] = useState("");
-  const [userExpiryDays, setUserExpiryDays] = useState(0);
-  const [granting, setGranting] = useState(false);
-  const [peopleNote, setPeopleNote] = useState("");
 
   const loadLinks = () =>
     api<{ shares: AlbumLinkShare[] }>("/api/shares/albums")
@@ -84,7 +65,6 @@ export function ShareAlbumModal({ albumId, albumName, onClose }: { albumId: stri
 
   useEffect(() => {
     if (tab !== "people") return;
-    api<{ users: DirectoryUser[] }>("/api/shares/directory").then((r) => setDirectory(r.users)).catch(() => {});
     void loadRecipients();
   }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -127,27 +107,6 @@ export function ShareAlbumModal({ albumId, albumName, onClose }: { albumId: stri
     }
   };
 
-  const grantUser = async () => {
-    if (!selectedUser) return;
-    setGranting(true);
-    setError("");
-    setPeopleNote("");
-    try {
-      await api("/api/shares/album/user", {
-        method: "POST",
-        body: JSON.stringify({ albumId, userId: selectedUser, expiresInDays: userExpiryDays || undefined })
-      });
-      const who = directory.find((u) => u.id === selectedUser)?.displayName ?? "the user";
-      setPeopleNote(`Shared this album with ${who}.`);
-      setSelectedUser("");
-      await loadRecipients();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not share with user");
-    } finally {
-      setGranting(false);
-    }
-  };
-
   const revokeUser = async (userId: string) => {
     setError("");
     try {
@@ -160,8 +119,6 @@ export function ShareAlbumModal({ albumId, albumName, onClose }: { albumId: stri
       setError(err instanceof Error ? err.message : "Could not revoke");
     }
   };
-
-  const availableUsers = directory.filter((u) => !recipients.some((r) => r.userId === u.id));
 
   return (
     <Modal
@@ -245,34 +202,14 @@ export function ShareAlbumModal({ albumId, albumName, onClose }: { albumId: stri
         {tab === "people" && (
           <div className="share-people-tab">
             <p className="muted">
-              Give a member their own live copy under “Shared with me.” They’ll always see the album’s
-              current photos — even ones in a library they can’t otherwise browse.
+              Who has their own live copy under “Shared with me” — always the album’s current photos,
+              even ones in a library they can’t otherwise browse. To give somebody access, use{" "}
+              <strong>Send to</strong>: pick them and it grants access as it tells them.
             </p>
-
-            <div className="share-create-row">
-              <label className="field">
-                <span>User</span>
-                <select value={selectedUser} onChange={(e) => setSelectedUser(e.target.value)}>
-                  <option value="">Choose a person…</option>
-                  {availableUsers.map((u) => <option key={u.id} value={u.id}>{u.displayName}</option>)}
-                </select>
-              </label>
-              <label className="field">
-                <span>Access for</span>
-                <select value={userExpiryDays} onChange={(e) => setUserExpiryDays(Number(e.target.value))}>
-                  {USER_EXPIRY_OPTIONS.map((o) => <option key={o.days} value={o.days}>{o.label}</option>)}
-                </select>
-              </label>
-              <button className="primary-button" onClick={() => void grantUser()} disabled={granting || !selectedUser}>
-                <UserPlus size={16} /><span>{granting ? "Sharing…" : "Share"}</span>
-              </button>
-            </div>
-
-            {peopleNote && <MessageBox tone="success" title="Shared">{peopleNote}</MessageBox>}
 
             <div className="share-list">
               {recipients.length === 0 ? (
-                <p className="muted">Not shared with anyone yet.</p>
+                <p className="muted">Nobody has been given access to this album yet.</p>
               ) : (
                 recipients.map((r) => (
                   <div className="share-list-row" key={r.userId}>

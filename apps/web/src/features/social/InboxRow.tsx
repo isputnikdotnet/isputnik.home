@@ -1,11 +1,11 @@
-import { Check, X } from "lucide-react";
+import { Check, Heart, X } from "lucide-react";
 import { followRoute } from "../../router";
 import { Button } from "../../shared/Button";
 
 // One thing a family member sent you, still undecided. Rendered on
 // "Shared with me" under "Waiting for you".
 //
-// Two decisions and neither is urgent: Save it to My List, or Not now. The page
+// Neither decision is urgent: put it in Favorites, or set it aside. The page
 // clears the unseen dot on open, so a card that sits here is not nagging anyone.
 
 export interface InboxCard {
@@ -21,7 +21,8 @@ export interface InboxCard {
   subtitle: string | null;
   coverUrl: string | null;
   href: string;
-  /** Only library items have a My List to be saved to. */
+  /** Only library items have Favorites to be saved to. An album, a slideshow or
+   *  a person is not one, and none of them needs a shortlist. */
   savable: boolean;
 }
 
@@ -34,6 +35,8 @@ export function InboxRow({
   busy: boolean;
   onAct: (card: InboxCard, action: "save" | "dismiss") => Promise<void>;
 }) {
+  const canFavorite = card.savable && card.available;
+
   const cover = card.coverUrl
     ? <img className="inbox-cover" src={card.coverUrl} alt="" />
     : <span className="inbox-cover inbox-cover-empty" aria-hidden />;
@@ -60,17 +63,29 @@ export function InboxRow({
         {!card.available && <p className="inbox-gone">This isn’t available to you any more.</p>}
       </div>
 
+      {/* The action names what actually happens. A savable thing goes to
+          Favorites, so the button says so rather than a vague "Save" that
+          leaves you wondering where it went. Everything else has nowhere to be
+          saved to, and "Not now" reads wrong once you have looked at it — so it
+          gets a single Done. */}
       <div className="inbox-actions">
-        {card.savable && card.available && (
-          <Button variant="primary" compact disabled={busy} onClick={() => void onAct(card, "save")}>
+        {canFavorite ? (
+          <>
+            <Button variant="primary" compact disabled={busy} onClick={() => void onAct(card, "save")}>
+              <Heart size={16} aria-hidden />
+              <span>{busy ? "Saving…" : "Favorite"}</span>
+            </Button>
+            <Button variant="secondary" compact disabled={busy} onClick={() => void onAct(card, "dismiss")}>
+              <X size={16} aria-hidden />
+              <span>Not now</span>
+            </Button>
+          </>
+        ) : (
+          <Button variant="secondary" compact disabled={busy} onClick={() => void onAct(card, "dismiss")}>
             <Check size={16} aria-hidden />
-            <span>{busy ? "Saving…" : "Save"}</span>
+            <span>Done</span>
           </Button>
         )}
-        <Button variant="secondary" compact disabled={busy} onClick={() => void onAct(card, "dismiss")}>
-          <X size={16} aria-hidden />
-          <span>Not now</span>
-        </Button>
       </div>
     </li>
   );

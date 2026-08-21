@@ -434,6 +434,14 @@ export function App() {
       return <GalleryPage user={session.user} logout={logout} view="timeline" initialAssetId={route.id} />;
     }
 
+    if (route.name === "galleryAlbum") {
+      return <GalleryPage user={session.user} logout={logout} view="albums" initialAlbumId={route.id} />;
+    }
+
+    if (route.name === "gallerySlideshow") {
+      return <GalleryPage user={session.user} logout={logout} view="slideshows" initialSlideshowId={route.id} />;
+    }
+
     if (route.name === "galleryFolder") {
       return (
         <GalleryPage
