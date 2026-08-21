@@ -89,6 +89,38 @@ describe("GET /api/dashboard/logins", () => {
     expect(body.series.failed.reduce((sum: number, n: number) => sum + n, 0)).toBe(1);
   });
 
+  it("counts a two-factor sign-in, which is the only kind an MFA household makes", async () => {
+    // With a second factor on, the password step logs auth.mfa_required and stops;
+    // the session is issued when the code is accepted, logging auth.mfa_verified.
+    // No auth.login is ever written, so leaving mfa_verified out made every such
+    // sign-in invisible here while the Logs page listed them (3.11.0 did exactly
+    // that). auth.mfa_required is the middle of one sign-in, and must NOT add a
+    // second count for it.
+    logLogin("auth.mfa_required", hoursAgo(2));
+    logLogin("auth.mfa_verified", hoursAgo(2));
+    logLogin("auth.mfa_failed", hoursAgo(1));
+
+    const session = await signIn(admin);
+    const { body } = await logins(hoursAgo(24), new Date(), session);
+
+    expect(body.totals).toMatchObject({ attempts: 2, success: 1, failed: 1 });
+    expect(body.methods.twoFactor).toBe(1);
+    expect(body.methods.password).toBe(0);
+  });
+
+  it("adds every method up to the success total", async () => {
+    logLogin("auth.login", hoursAgo(4));
+    logLogin("auth.passkey_login", hoursAgo(3));
+    logLogin("auth.mfa_verified", hoursAgo(2));
+    logLogin("auth.device_link_approved", hoursAgo(1));
+
+    const session = await signIn(admin);
+    const { body } = await logins(hoursAgo(24), new Date(), session);
+
+    expect(body.methods).toMatchObject({ password: 1, passkey: 1, twoFactor: 1, deviceLink: 1 });
+    expect(body.totals.success).toBe(4);
+  });
+
   it("buckets a long window by day", async () => {
     logLogin("auth.login", daysAgo(3));
     logLogin("auth.device_link_approved", daysAgo(10));

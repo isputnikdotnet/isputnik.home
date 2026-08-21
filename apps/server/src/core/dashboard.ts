@@ -16,13 +16,20 @@ import { parseBody } from "./shared.js";
 // Event-category groupings used to bucket activity_logs rows for the charts.
 // Kept here (not derived generically) since the mapping is a product decision,
 // not something the event-naming convention alone can infer.
-const LOGIN_SUCCESS_EVENTS = "'auth.login', 'auth.passkey_login', 'auth.device_link_approved'";
-const LOGIN_FAILED_EVENT = "'auth.login_failed'";
+// What counts as getting in. 'auth.mfa_verified' is the one that is easy to miss
+// and the one that matters most: when a second factor is on, the password route
+// stops at 'auth.mfa_required' and the session is issued by the MFA route, which
+// logs mfa_verified — so a household using two-factor logs NO auth.login at all.
+// Leaving it out made every such sign-in invisible here while the Logs page
+// showed them plainly.
+const LOGIN_SUCCESS_EVENTS = "'auth.login', 'auth.passkey_login', 'auth.mfa_verified', 'auth.device_link_approved'";
+// A wrong code is a failed sign-in as much as a wrong password is.
+const LOGIN_FAILED_EVENTS = "'auth.login_failed', 'auth.mfa_failed'";
 const UPLOAD_EVENTS = "'library.gallery.uploaded', 'library.ebook.book_uploaded', 'library.audiobook.book_uploaded', 'gallery.music.uploaded'";
 
 const SERIES_CASE_SQL = `
   SUM(CASE WHEN event IN (${LOGIN_SUCCESS_EVENTS}) THEN 1 ELSE 0 END) AS logins_success,
-  SUM(CASE WHEN event = ${LOGIN_FAILED_EVENT} THEN 1 ELSE 0 END) AS logins_failed,
+  SUM(CASE WHEN event IN (${LOGIN_FAILED_EVENTS}) THEN 1 ELSE 0 END) AS logins_failed,
   SUM(CASE WHEN event IN (${UPLOAD_EVENTS}) THEN 1 ELSE 0 END) AS uploads,
   SUM(CASE WHEN event LIKE '%.downloaded' THEN 1 ELSE 0 END) AS downloads,
   SUM(CASE WHEN event LIKE '%.deleted' OR event IN ('library.item_trashed', 'library.item_purged') THEN 1 ELSE 0 END) AS deletes,
@@ -182,9 +189,9 @@ export async function dashboardPlugin(app: FastifyInstance) {
       SELECT
         strftime('${bucketFormat}', created_at) AS bucket,
         SUM(CASE WHEN event IN (${LOGIN_SUCCESS_EVENTS}) THEN 1 ELSE 0 END) AS success,
-        SUM(CASE WHEN event = ${LOGIN_FAILED_EVENT} THEN 1 ELSE 0 END) AS failed
+        SUM(CASE WHEN event IN (${LOGIN_FAILED_EVENTS}) THEN 1 ELSE 0 END) AS failed
       FROM activity_logs
-      WHERE event IN (${LOGIN_SUCCESS_EVENTS}, ${LOGIN_FAILED_EVENT})
+      WHERE event IN (${LOGIN_SUCCESS_EVENTS}, ${LOGIN_FAILED_EVENTS})
         AND datetime(created_at) >= datetime(@from)
         AND datetime(created_at) <= datetime(@to)
       GROUP BY bucket
@@ -215,8 +222,9 @@ export async function dashboardPlugin(app: FastifyInstance) {
       SELECT
         SUM(CASE WHEN event = 'auth.login' THEN 1 ELSE 0 END) AS password,
         SUM(CASE WHEN event = 'auth.passkey_login' THEN 1 ELSE 0 END) AS passkey,
+        SUM(CASE WHEN event = 'auth.mfa_verified' THEN 1 ELSE 0 END) AS two_factor,
         SUM(CASE WHEN event = 'auth.device_link_approved' THEN 1 ELSE 0 END) AS device_link,
-        SUM(CASE WHEN event = ${LOGIN_FAILED_EVENT} THEN 1 ELSE 0 END) AS failed,
+        SUM(CASE WHEN event IN (${LOGIN_FAILED_EVENTS}) THEN 1 ELSE 0 END) AS failed,
         COUNT(DISTINCT CASE WHEN event IN (${LOGIN_SUCCESS_EVENTS}) THEN actor_user_id END) AS people
       FROM activity_logs
       WHERE datetime(created_at) >= datetime(@from) AND datetime(created_at) <= datetime(@to)
@@ -232,18 +240,20 @@ export async function dashboardPlugin(app: FastifyInstance) {
       const row = totalsStatement.get(window) as {
         password: number | null;
         passkey: number | null;
+        two_factor: number | null;
         device_link: number | null;
         failed: number | null;
         people: number | null;
       };
       const password = row.password ?? 0;
       const passkey = row.passkey ?? 0;
+      const twoFactor = row.two_factor ?? 0;
       const deviceLink = row.device_link ?? 0;
       const failed = row.failed ?? 0;
-      const success = password + passkey + deviceLink;
+      const success = password + passkey + twoFactor + deviceLink;
       const blocked = (blockedStatement.get(window) as { blocked: number }).blocked;
       return {
-        methods: { password, passkey, deviceLink },
+        methods: { password, passkey, twoFactor, deviceLink },
         attempts: success + failed,
         success,
         failed,
@@ -296,10 +306,10 @@ export async function dashboardPlugin(app: FastifyInstance) {
       SELECT
         activity_logs.ip_address AS ip,
         COUNT(*) AS connections,
-        SUM(CASE WHEN event = ${LOGIN_FAILED_EVENT} THEN 1 ELSE 0 END) AS failed,
+        SUM(CASE WHEN event IN (${LOGIN_FAILED_EVENTS}) THEN 1 ELSE 0 END) AS failed,
         COUNT(DISTINCT activity_logs.actor_user_id) AS people
       FROM activity_logs
-      WHERE event IN (${LOGIN_SUCCESS_EVENTS}, ${LOGIN_FAILED_EVENT})
+      WHERE event IN (${LOGIN_SUCCESS_EVENTS}, ${LOGIN_FAILED_EVENTS})
         AND datetime(created_at) >= datetime(@from)
         AND datetime(created_at) <= datetime(@to)
       GROUP BY activity_logs.ip_address

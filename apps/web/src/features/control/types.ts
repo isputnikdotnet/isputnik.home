@@ -261,7 +261,7 @@ export interface DashboardLogins {
   bucket: "hour" | "day";
   buckets: string[];
   series: { success: number[]; failed: number[] };
-  methods: { password: number; passkey: number; deviceLink: number };
+  methods: { password: number; passkey: number; twoFactor: number; deviceLink: number };
   totals: { attempts: number; success: number; failed: number; people: number; blockedIps: number };
   /** The equal-length window immediately before this one, for the change badges. */
   previous: { attempts: number; success: number; failed: number; blockedIps: number };
