@@ -19,6 +19,13 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.11.1",
+    label: "Two-factor sign-ins now appear on the dashboard",
+    changes: [
+      "If your household signs in with a two-factor code, yesterday's new Logins, Devices and Locations pages were missing almost every sign-in — the cards, the chart, the table and the map counted only sign-ins made without a second factor, while the Logs page listed them all. A sign-in completed with a code is now counted like any other, a rejected code counts as a failed attempt, and both appear in the table with their own labels. Nothing was lost: the events were always recorded, only the counting was wrong, so the corrected figures cover your whole history."
+    ]
+  },
+  {
     version: "3.11.0",
     label: "The dashboard opens on sign-ins, with pages for devices and where people connected from",
     changes: [

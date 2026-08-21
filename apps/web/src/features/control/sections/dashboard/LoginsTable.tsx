@@ -8,6 +8,8 @@ import {
   KeyRound,
   Link2,
   Shield,
+  ShieldCheck,
+  SmartphoneNfc,
   type LucideIcon
 } from "lucide-react";
 import { Button } from "../../../../shared/Button";
@@ -26,6 +28,8 @@ import type { ActivitySort } from "./useRecentActivity";
 const METHOD_ICONS: Record<string, LucideIcon> = {
   "auth.login": KeyRound,
   "auth.passkey_login": Fingerprint,
+  "auth.mfa_verified": ShieldCheck,
+  "auth.mfa_failed": SmartphoneNfc,
   "auth.device_link_approved": Link2
 };
 
