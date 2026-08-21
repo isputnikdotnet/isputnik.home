@@ -73,8 +73,7 @@ export const CONTROL_GROUPS: ControlGroupDef[] = [
     tabs: [
       { section: "users", label: "Users" },
       { section: "groups", label: "Groups" },
-      { section: "invites", label: "Invite links" },
-      { section: "sessions", label: "Sessions" }
+      { section: "invites", label: "Invite links" }
     ]
   },
   {

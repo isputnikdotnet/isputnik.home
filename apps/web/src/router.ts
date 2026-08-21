@@ -8,7 +8,7 @@ export type ControlSection =
   // Library
   | "libraries" | "storage" | "categories" | "tags"
   // Members
-  | "users" | "groups" | "invites" | "sessions"
+  | "users" | "groups" | "invites"
   // Security
   | "security" | "securityPolicies" | "securityTrusted" | "securityBlocked"
   // Maintenance
@@ -39,7 +39,6 @@ export const CONTROL_PATHS: Record<ControlSection, string> = {
   users: "/control/members",
   groups: "/control/members/groups",
   invites: "/control/members/invites",
-  sessions: "/control/members/sessions",
 
   security: "/control/security",
   securityPolicies: "/control/security/policies",
@@ -116,8 +115,12 @@ const CONTROL_ALIASES: Record<string, ControlSection> = {
   "/control/groups": "groups",
   "/control/accounts/invites": "invites",
   "/control/invites": "invites",
-  "/control/accounts/sessions": "sessions",
-  "/control/sessions": "sessions",
+  // Sessions was a Members tab until it merged into Overview › Sign-ins, which
+  // carries the same table with revoke — three generations of its address now
+  // land there.
+  "/control/accounts/sessions": "signins",
+  "/control/sessions": "signins",
+  "/control/members/sessions": "signins",
 
   // Backup used to hide behind Config; it is Maintenance's first tab now, so the
   // bare /control/maintenance lands there rather than on Tasks.

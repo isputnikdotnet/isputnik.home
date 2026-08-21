@@ -915,6 +915,75 @@ span.status-metric-icon {
   flex-shrink: 0;
 }
 
+/* Two icon buttons side by side at the end of a device row: revoke, then dive. */
+.signins-device-actions {
+  white-space: nowrap;
+}
+
+.locations-table .signins-device-actions {
+  width: 82px;
+}
+
+/* This page is six tables deep — an investigation, not a reading page — so its
+   rows sit tighter than the default datagrid everywhere at once. */
+.signins-page .datagrid th,
+.signins-page .datagrid td {
+  padding: 7px 11px;
+  font-size: 0.86rem;
+}
+
+.signins-page .datagrid .datagrid-primary small {
+  font-size: 0.76rem;
+}
+
+.signins-page .conn-cell {
+  min-width: 120px;
+}
+
+.signins-page .conn-track {
+  max-width: 120px;
+}
+
+/* The device counters, doubling as the panel's filter: each chip counts a kind
+   and narrows the table to it, the way the old Devices page's KPI cards counted
+   but couldn't filter. */
+.device-type-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.device-type-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 13px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.84rem;
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+}
+
+.device-type-chip strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.device-type-chip:hover {
+  border-color: color-mix(in srgb, var(--mint) 45%, var(--line));
+}
+
+.device-type-chip.is-active {
+  border-color: var(--mint);
+  background: color-mix(in srgb, var(--mint) 10%, transparent);
+  color: var(--ink);
+}
+
 
 /* Headline KPI cards (shared/KpiCard): a tinted icon, the number with its
    change badge, and one line of context. Same badge idiom as Security's overview

@@ -25,7 +25,7 @@ export interface ControlSearchEntry {
 
 // Extra search terms for the tab pages themselves.
 const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
-  signins: "sign-in details login analytics drill down dive connection ip address country city user person device failed attempts blocked scanner probes guessed names sessions",
+  signins: "sign-in details login analytics drill down dive connection ip address country city user person failed attempts blocked scanner probes guessed names sessions devices displays phones tablets computers signed in until expires registered revoke sign out logout tokens linked tv display",
   stats: "statistics numbers counts totals audiobook ebook gallery top authors narrators formats largest biggest",
   dashboard: "system health cpu memory uptime version disk database sqlite integrity activity trends charts graphs logins uploads downloads deletes played read viewed logins by method ip address recent logins in progress playback reading",
   tasks: "jobs job log scan progress worker queue running failed history",
@@ -39,7 +39,6 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
   users: "accounts people roles admin member password reset disable remove remote device link window allow outside away travel",
   groups: "shared access group membership permissions",
   invites: "invite signup sign-up registration link token new account",
-  sessions: "devices signed in sign out revoke logout tokens linked tv display",
 
   security: "posture summary proxy hops client ip mode overview",
   securityPolicies:
