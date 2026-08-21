@@ -10,6 +10,7 @@ import {
   receiveGeoipUpload
 } from "./geoip.js";
 import { isPrivateIp } from "./cidr.js";
+import { describeUserAgent, deviceType } from "./device-link.js";
 import { getHomeLocation, homeLocationSchema, setHomeLocation } from "./home-location.js";
 import { parseBody } from "./shared.js";
 
@@ -88,6 +89,29 @@ const loginsQuerySchema = z.object({
   from: isoInstant,
   to: isoInstant
 });
+
+// The Sign-in details page: the same window, narrowed to at most one scope.
+// `ip` wins over `user` wins over `country` (with optional region/city refining
+// it) — the client only ever sends one, but the precedence keeps a hand-typed
+// URL from meaning two things at once.
+const signinsQuerySchema = z.object({
+  from: isoInstant,
+  to: isoInstant,
+  country: z.string().trim().length(2).optional(),
+  region: z.string().trim().max(120).optional(),
+  city: z.string().trim().max(120).optional(),
+  ip: z.string().trim().min(1).max(60).optional(),
+  user: z.string().trim().min(1).max(40).optional()
+});
+
+/** The reader's name for a country when no lookup supplied one ("DE" → "Germany"). */
+function countryDisplayName(code: string): string {
+  try {
+    return new Intl.DisplayNames(["en"], { type: "region" }).of(code) ?? code;
+  } catch {
+    return code;
+  }
+}
 
 const HOUR_MS = 3_600_000;
 const DAY_MS = 24 * HOUR_MS;
@@ -383,6 +407,385 @@ export async function dashboardPlugin(app: FastifyInstance) {
       unknown,
       countries: [...byCountry.values()].sort((a, b) => b.connections - a.connections),
       places: [...byPlace.values()].sort((a, b) => b.connections - a.connections).slice(0, 100)
+    });
+  });
+
+  // ── Sign-in details ────────────────────────────────────────────────────────
+  // The deep-dive behind the arrows on the Locations tables: the same window as
+  // the Logins and Locations views, narrowed to one scope — a country, a town,
+  // one address, or one person — and answered from every table that watches the
+  // door. activity_logs says what happened, login_attempts what the lockout and
+  // auto-block counted (including the anonymous scanner traffic no page shows),
+  // sessions what is still signed in from there, and blocked_ips who has been
+  // shut out. One endpoint rather than four, so every panel of the page
+  // describes the same scope over the same window.
+  app.get("/api/dashboard/signins", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const parsed = parseBody(signinsQuerySchema, request.query);
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid sign-ins query", details: parsed.error });
+    }
+    const from = new Date(parsed.data.from);
+    const to = new Date(parsed.data.to);
+    if (to.getTime() <= from.getTime()) {
+      return reply.code(400).send({ error: "Invalid sign-ins range", details: "The end of the range must come after its start." });
+    }
+    const query = parsed.data;
+    const params: Record<string, string> = { from: from.toISOString(), to: to.toISOString() };
+
+    // Resolve the scope down to either one person or a set of addresses. A
+    // country or town is a set of addresses too: the distinct IPs of the window,
+    // resolved locally and kept when they land inside the asked-for place.
+    let scope: {
+      kind: "all" | "country" | "place" | "ip" | "user";
+      label: string;
+      code?: string;
+      region?: string | null;
+      city?: string | null;
+      ip?: string;
+      userId?: string;
+      email?: string;
+    };
+    let ipSet: string[] | null = null;
+    let userId: string | null = null;
+    let truncated = false;
+
+    if (query.ip) {
+      ipSet = [query.ip];
+      scope = { kind: "ip", label: query.ip, ip: query.ip };
+    } else if (query.user) {
+      const person = db.prepare("SELECT id, display_name, email FROM users WHERE id = ?").get(query.user) as
+        | { id: string; display_name: string; email: string }
+        | undefined;
+      if (!person) {
+        return reply.code(404).send({ error: "No such user" });
+      }
+      userId = person.id;
+      scope = { kind: "user", label: person.display_name, userId: person.id, email: person.email };
+    } else if (query.country) {
+      const code = query.country.toUpperCase();
+      const distinct = db.prepare(`
+        SELECT DISTINCT ip_address AS ip FROM activity_logs
+        WHERE event IN (${LOGIN_SUCCESS_EVENTS}, ${LOGIN_FAILED_EVENTS})
+          AND datetime(created_at) >= datetime(@from)
+          AND datetime(created_at) <= datetime(@to)
+          AND ip_address IS NOT NULL
+      `).all(params) as { ip: string }[];
+      const wanted: string[] = [];
+      let placeName: string | null = null;
+      for (const row of distinct) {
+        if (isPrivateIp(row.ip)) continue;
+        const hit = lookupLocation(row.ip);
+        if (!hit || hit.code.toUpperCase() !== code) continue;
+        if (query.city !== undefined && (hit.city ?? "") !== query.city) continue;
+        if (query.region !== undefined && (hit.region ?? "") !== query.region) continue;
+        placeName ??= hit.name;
+        wanted.push(row.ip);
+        // A family server never gets near this; the cap exists so a pathological
+        // log can't build an unbounded IN clause. Announced, not silent.
+        if (wanted.length >= 1000) {
+          truncated = true;
+          break;
+        }
+      }
+      ipSet = wanted;
+      const country = placeName ?? countryDisplayName(code);
+      scope = {
+        kind: query.city || query.region ? "place" : "country",
+        label: query.city ? `${query.city}, ${country}` : country,
+        code,
+        region: query.region ?? null,
+        city: query.city ?? null
+      };
+    } else {
+      scope = { kind: "all", label: "All sign-ins" };
+    }
+
+    // An IN () is a syntax error and an empty scope is a real answer (a country
+    // with no sign-ins), so zero addresses becomes a clause that matches nothing.
+    // Parameterised by column name because three tables apply the same set —
+    // activity_logs, sessions and login_attempts each against their own column.
+    (ipSet ?? []).forEach((ip, i) => {
+      params[`ip${i}`] = ip;
+    });
+    const ipConditionFor = (column: string): string => {
+      if (!ipSet) return "";
+      if (ipSet.length === 0) return "1 = 0";
+      return `${column} IN (${ipSet.map((_, i) => `@ip${i}`).join(", ")})`;
+    };
+
+    // The one WHERE clause every aggregate below shares — the guarantee that the
+    // chart, the tables and the totals are all describing the same rows. Columns
+    // are qualified because half the queries join users, which has created_at too.
+    const conditions = [
+      `activity_logs.event IN (${LOGIN_SUCCESS_EVENTS}, ${LOGIN_FAILED_EVENTS})`,
+      "datetime(activity_logs.created_at) >= datetime(@from)",
+      "datetime(activity_logs.created_at) <= datetime(@to)"
+    ];
+    if (userId) {
+      conditions.push("activity_logs.actor_user_id = @userId");
+      params.userId = userId;
+    }
+    if (ipSet) conditions.push(ipConditionFor("activity_logs.ip_address"));
+    const where = conditions.join(" AND ");
+
+    const totalsRow = db.prepare(`
+      SELECT
+        COUNT(*) AS attempts,
+        SUM(CASE WHEN event IN (${LOGIN_SUCCESS_EVENTS}) THEN 1 ELSE 0 END) AS success,
+        SUM(CASE WHEN event IN (${LOGIN_FAILED_EVENTS}) THEN 1 ELSE 0 END) AS failed,
+        COUNT(DISTINCT actor_user_id) AS people,
+        COUNT(DISTINCT ip_address) AS addresses,
+        MIN(created_at) AS first_seen,
+        MAX(created_at) AS last_seen,
+        SUM(CASE WHEN event = 'auth.login' THEN 1 ELSE 0 END) AS m_password,
+        SUM(CASE WHEN event = 'auth.passkey_login' THEN 1 ELSE 0 END) AS m_passkey,
+        SUM(CASE WHEN event = 'auth.mfa_verified' THEN 1 ELSE 0 END) AS m_two_factor,
+        SUM(CASE WHEN event = 'auth.device_link_approved' THEN 1 ELSE 0 END) AS m_device_link
+      FROM activity_logs WHERE ${where}
+    `).get(params) as {
+      attempts: number;
+      success: number | null;
+      failed: number | null;
+      people: number;
+      addresses: number;
+      first_seen: string | null;
+      last_seen: string | null;
+      m_password: number | null;
+      m_passkey: number | null;
+      m_two_factor: number | null;
+      m_device_link: number | null;
+    };
+
+    // Same bucketing rule as /api/dashboard/logins: a short window by hour, a
+    // long one by day, empty buckets emitted so a gap reads as "nothing then".
+    const bucket: "hour" | "day" = to.getTime() - from.getTime() <= HOURLY_MAX_SPAN_MS ? "hour" : "day";
+    const bucketFormat = bucket === "hour" ? "%Y-%m-%dT%H:00:00.000Z" : "%Y-%m-%dT00:00:00.000Z";
+    const seriesRows = db.prepare(`
+      SELECT strftime('${bucketFormat}', created_at) AS bucket,
+        SUM(CASE WHEN event IN (${LOGIN_SUCCESS_EVENTS}) THEN 1 ELSE 0 END) AS success,
+        SUM(CASE WHEN event IN (${LOGIN_FAILED_EVENTS}) THEN 1 ELSE 0 END) AS failed
+      FROM activity_logs WHERE ${where}
+      GROUP BY bucket
+    `).all(params) as { bucket: string; success: number; failed: number }[];
+    const byBucket = new Map(seriesRows.map((row) => [row.bucket, row]));
+    const buckets: string[] = [];
+    const seriesSuccess: number[] = [];
+    const seriesFailed: number[] = [];
+    const step = bucket === "hour" ? HOUR_MS : DAY_MS;
+    for (let cursor = floorToBucket(from, bucket).getTime(); cursor <= to.getTime(); cursor += step) {
+      const key = new Date(cursor).toISOString();
+      buckets.push(key);
+      seriesSuccess.push(byBucket.get(key)?.success ?? 0);
+      seriesFailed.push(byBucket.get(key)?.failed ?? 0);
+    }
+
+    // Per-address: what each IP did, where it is, whether it is shut out, and
+    // the scanner traffic the auto-block counted against it — the last two come
+    // from blocked_ips and login_attempts, which no other row of this page shows.
+    const ipRows = db.prepare(`
+      SELECT ip_address AS ip, COUNT(*) AS connections,
+        SUM(CASE WHEN event IN (${LOGIN_FAILED_EVENTS}) THEN 1 ELSE 0 END) AS failed,
+        COUNT(DISTINCT actor_user_id) AS people,
+        MAX(created_at) AS last_seen
+      FROM activity_logs WHERE ${where} AND ip_address IS NOT NULL
+      GROUP BY ip_address ORDER BY connections DESC LIMIT 100
+    `).all(params) as { ip: string; connections: number; failed: number | null; people: number; last_seen: string }[];
+
+    const blockedStatement = db.prepare(
+      "SELECT auto, expires_at FROM blocked_ips WHERE ip_address = ?"
+    );
+    const abuseStatement = db.prepare(`
+      SELECT SUM(CASE WHEN kind = 'probe' THEN 1 ELSE 0 END) AS probes,
+             SUM(CASE WHEN kind = 'token' THEN 1 ELSE 0 END) AS tokens
+      FROM login_attempts
+      WHERE ip_address = ? AND successful = 0
+        AND datetime(created_at) >= datetime(?) AND datetime(created_at) <= datetime(?)
+    `);
+    const now = Date.now();
+    const ips = ipRows.map((row) => {
+      const isLocal = isPrivateIp(row.ip);
+      const hit = isLocal ? null : lookupLocation(row.ip);
+      const block = blockedStatement.get(row.ip) as { auto: number; expires_at: string | null } | undefined;
+      const abuse = abuseStatement.get(row.ip, params.from, params.to) as
+        | { probes: number | null; tokens: number | null }
+        | undefined;
+      return {
+        ip: row.ip,
+        connections: row.connections,
+        failed: row.failed ?? 0,
+        people: row.people,
+        lastSeen: row.last_seen,
+        local: isLocal,
+        location: isLocal
+          ? "Your home network"
+          : hit
+            ? [hit.city, hit.region, hit.name ?? hit.code].filter(Boolean).join(", ")
+            : null,
+        code: hit?.code ?? null,
+        blocked: block
+          ? {
+              auto: block.auto === 1,
+              expiresAt: block.expires_at,
+              lapsed: block.expires_at !== null && Date.parse(block.expires_at) <= now
+            }
+          : null,
+        probes: abuse?.probes ?? 0,
+        tokens: abuse?.tokens ?? 0
+      };
+    });
+
+    // Per-person. Failures carry no actor — a wrong password does not prove who
+    // typed it — so they gather under the null row, which the page labels rather
+    // than hiding: "someone at the door" is a fact worth a row.
+    const userRows = db.prepare(`
+      SELECT actor_user_id AS user_id, users.display_name AS name, users.email AS email,
+        COUNT(*) AS connections,
+        SUM(CASE WHEN event IN (${LOGIN_FAILED_EVENTS}) THEN 1 ELSE 0 END) AS failed,
+        COUNT(DISTINCT ip_address) AS addresses,
+        MAX(activity_logs.created_at) AS last_seen,
+        SUM(CASE WHEN event = 'auth.login' THEN 1 ELSE 0 END) AS m_password,
+        SUM(CASE WHEN event = 'auth.passkey_login' THEN 1 ELSE 0 END) AS m_passkey,
+        SUM(CASE WHEN event = 'auth.mfa_verified' THEN 1 ELSE 0 END) AS m_two_factor,
+        SUM(CASE WHEN event = 'auth.device_link_approved' THEN 1 ELSE 0 END) AS m_device_link
+      FROM activity_logs LEFT JOIN users ON users.id = activity_logs.actor_user_id
+      WHERE ${where}
+      GROUP BY actor_user_id ORDER BY connections DESC LIMIT 100
+    `).all(params) as {
+      user_id: string | null;
+      name: string | null;
+      email: string | null;
+      connections: number;
+      failed: number | null;
+      addresses: number;
+      last_seen: string;
+      m_password: number | null;
+      m_passkey: number | null;
+      m_two_factor: number | null;
+      m_device_link: number | null;
+    }[];
+    const users = userRows.map((row) => ({
+      userId: row.user_id,
+      name: row.name,
+      email: row.email,
+      connections: row.connections,
+      failed: row.failed ?? 0,
+      addresses: row.addresses,
+      lastSeen: row.last_seen,
+      methods: {
+        password: row.m_password ?? 0,
+        passkey: row.m_passkey ?? 0,
+        twoFactor: row.m_two_factor ?? 0,
+        deviceLink: row.m_device_link ?? 0
+      }
+    }));
+
+    // Devices still signed in FROM this scope — live sessions only, because the
+    // question this panel answers is "what can still get in from there today",
+    // not what once could.
+    const sessionConditions = ["sessions.revoked_at IS NULL", "datetime(sessions.expires_at) > datetime('now')", "users.deleted_at IS NULL"];
+    if (userId) sessionConditions.push("sessions.user_id = @userId");
+    if (ipSet) sessionConditions.push(ipConditionFor("sessions.ip_address"));
+    const sessionRows = db.prepare(`
+      SELECT sessions.id, sessions.label, sessions.device_name, sessions.ip_address AS ip, sessions.kind,
+        sessions.last_seen_at AS last_seen, users.display_name AS person, users.id AS person_id
+      FROM sessions JOIN users ON users.id = sessions.user_id
+      WHERE ${sessionConditions.join(" AND ")}
+      ORDER BY datetime(sessions.last_seen_at) DESC LIMIT 50
+    `).all(params) as {
+      id: string;
+      label: string | null;
+      device_name: string | null;
+      ip: string | null;
+      kind: "browser" | "device";
+      last_seen: string;
+      person: string;
+      person_id: string;
+    }[];
+    const devices = sessionRows.map((row) => ({
+      id: row.id,
+      name: row.label ?? describeUserAgent(row.device_name),
+      agent: describeUserAgent(row.device_name),
+      type: deviceType(row.device_name, row.kind),
+      person: row.person,
+      personId: row.person_id,
+      ip: row.ip,
+      lastSeen: row.last_seen
+    }));
+
+    // Names a stranger tried that belong to no account here — the guessing wordlist,
+    // straight out of login_attempts. Meaningless for a person scope (attempt rows
+    // carry emails, not user ids), so a person's page leaves it empty.
+    let guessedNames: { email: string; attempts: number; lastSeen: string }[] = [];
+    if (!userId) {
+      const attemptConditions = [
+        "successful = 0",
+        "email IS NOT NULL",
+        "datetime(created_at) >= datetime(@from)",
+        "datetime(created_at) <= datetime(@to)",
+        "email NOT IN (SELECT LOWER(email) FROM users)"
+      ];
+      if (ipSet) attemptConditions.push(ipConditionFor("ip_address"));
+      guessedNames = (db.prepare(`
+        SELECT email, COUNT(*) AS attempts, MAX(created_at) AS last_seen
+        FROM login_attempts WHERE ${attemptConditions.join(" AND ")}
+        GROUP BY email ORDER BY attempts DESC LIMIT 20
+      `).all(params) as { email: string; attempts: number; last_seen: string }[]).map((row) => ({
+        email: row.email,
+        attempts: row.attempts,
+        lastSeen: row.last_seen
+      }));
+    }
+
+    // The raw tail of the story, newest first. Thirty is enough to read what has
+    // been happening; the Logs page carries the full archive.
+    const events = (db.prepare(`
+      SELECT activity_logs.id, event, detail, ip_address AS ip, activity_logs.created_at, users.display_name AS actor
+      FROM activity_logs LEFT JOIN users ON users.id = activity_logs.actor_user_id
+      WHERE ${where}
+      ORDER BY datetime(activity_logs.created_at) DESC, activity_logs.rowid DESC LIMIT 30
+    `).all(params) as {
+      id: string;
+      event: string;
+      detail: string;
+      ip: string | null;
+      created_at: string;
+      actor: string | null;
+    }[]).map((row) => ({
+      id: row.id,
+      event: row.event,
+      detail: row.detail,
+      ip: row.ip,
+      at: row.created_at,
+      actor: row.actor,
+      failed: row.event === "auth.login_failed" || row.event === "auth.mfa_failed"
+    }));
+
+    return reply.send({
+      from: params.from,
+      to: params.to,
+      scope,
+      truncated,
+      totals: {
+        attempts: totalsRow.attempts,
+        success: totalsRow.success ?? 0,
+        failed: totalsRow.failed ?? 0,
+        people: totalsRow.people,
+        addresses: totalsRow.addresses,
+        firstSeen: totalsRow.first_seen,
+        lastSeen: totalsRow.last_seen
+      },
+      methods: {
+        password: totalsRow.m_password ?? 0,
+        passkey: totalsRow.m_passkey ?? 0,
+        twoFactor: totalsRow.m_two_factor ?? 0,
+        deviceLink: totalsRow.m_device_link ?? 0
+      },
+      series: { bucket, buckets, success: seriesSuccess, failed: seriesFailed },
+      ips,
+      users,
+      devices,
+      guessedNames,
+      events
     });
   });
 

@@ -325,6 +325,95 @@ export interface DashboardLocations {
   }[];
 }
 
+// /api/dashboard/signins — the Sign-in details drill-down. One payload carries
+// every panel of the page, all describing the same scope over the same window.
+export interface SignInsScope {
+  kind: "all" | "country" | "place" | "ip" | "user";
+  label: string;
+  code?: string;
+  region?: string | null;
+  city?: string | null;
+  ip?: string;
+  userId?: string;
+  email?: string;
+}
+
+export interface SignInsMethodCounts {
+  password: number;
+  passkey: number;
+  twoFactor: number;
+  deviceLink: number;
+}
+
+export interface SignInsIpRow {
+  ip: string;
+  connections: number;
+  failed: number;
+  people: number;
+  lastSeen: string;
+  local: boolean;
+  location: string | null;
+  code: string | null;
+  blocked: { auto: boolean; expiresAt: string | null; lapsed: boolean } | null;
+  probes: number;
+  tokens: number;
+}
+
+export interface SignInsUserRow {
+  userId: string | null;
+  name: string | null;
+  email: string | null;
+  connections: number;
+  failed: number;
+  addresses: number;
+  lastSeen: string;
+  methods: SignInsMethodCounts;
+}
+
+export interface SignInsDeviceRow {
+  id: string;
+  name: string;
+  agent: string;
+  type: DeviceType;
+  person: string;
+  personId: string;
+  ip: string | null;
+  lastSeen: string;
+}
+
+export interface SignInsEventRow {
+  id: string;
+  event: string;
+  detail: string;
+  ip: string | null;
+  at: string;
+  actor: string | null;
+  failed: boolean;
+}
+
+export interface DashboardSignIns {
+  from: string;
+  to: string;
+  scope: SignInsScope;
+  truncated: boolean;
+  totals: {
+    attempts: number;
+    success: number;
+    failed: number;
+    people: number;
+    addresses: number;
+    firstSeen: string | null;
+    lastSeen: string | null;
+  };
+  methods: SignInsMethodCounts;
+  series: { bucket: "hour" | "day"; buckets: string[]; success: number[]; failed: number[] };
+  ips: SignInsIpRow[];
+  users: SignInsUserRow[];
+  devices: SignInsDeviceRow[];
+  guessedNames: { email: string; attempts: number; lastSeen: string }[];
+  events: SignInsEventRow[];
+}
+
 export interface DashboardInProgressEntry {
   kind: "audiobook" | "ebook";
   updatedAt: string;

@@ -19,6 +19,17 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.12.0",
+    label: "A real map of sign-ins, and a Sign-ins page that answers who, where and from what",
+    changes: [
+      "The Locations map is now a real map — the same one the photo gallery uses. Drag it, zoom it, and read actual geography instead of flat country shapes. Countries appear as bubbles sized by how many sign-ins they carried, towns as gold dots when a city-level database is in use, and home as its ring. Clicking any of them still highlights the matching row in the table, and the table highlights the map right back.",
+      "One thing to know about the trade: drawing this map fetches its background tiles from OpenStreetMap, the same place the gallery map already gets them — the only outside address the app permits. Nothing about a sign-in is in those requests, and the addresses themselves are still looked up on your own server, against the database kept with your data.",
+      "The tables under the map grew up. Every country and town now carries its flag, its share of the traffic drawn as a bar beside the count, and a colour-coded fail rate — green for a clean record, amber for some failures, red for an address under attack. Sort by any column, page through ten rows at a time, and the home network keeps its own pinned row at the bottom.",
+      "The arrow at the end of each row opens the new Sign-ins page: pick a country, a town, a single address or a single person, and every panel answers for exactly that — cards, a chart over time, each address with its location, block status and the scanner traffic no other page shows, each person with how they signed in, the devices still signed in from there, and the sign-in names strangers tried that belong to no account here. Every arrow is a further dive, the address bar carries the scope so a view can be shared, and the back button walks the dive back out.",
+      "A Filter button on that page sets the scope by hand: choose everything, a country by name, a town, an address pasted from an alert, or a member picked from the list — for when the thing you want to examine isn't already a row on screen."
+    ]
+  },
+  {
     version: "3.11.1",
     label: "Two-factor sign-ins now appear on the dashboard",
     changes: [
