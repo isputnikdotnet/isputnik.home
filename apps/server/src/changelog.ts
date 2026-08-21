@@ -19,6 +19,17 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.17.0",
+    label: "Security grades itself — a protection level, and a policy table that says what's weak",
+    changes: [
+      "The Security overview used to restate the settings as cards and call the server \"Protected\" no matter what. It now opens with a protection level: a ring around a shield, a word — Strong, Good, Fair, Weak or Critical — and a score out of 100, with counters for how many policies are active, optional, off, or have an issue (on, but unable to work: an alert with no email set up, a proxy that is there but not trusted).",
+      "The score depends on one thing only you can tell it: whether the server is home network only or reachable from the internet, chosen with two buttons on the card and remembered. A home-only server is graded gently on the defences that only matter against strangers — a second factor from outside and IP reputation aren't counted at all, and a reverse proxy, sign-in alerts and deletion protection count for little. An internet-facing server is held to all nine, with proxy trust, the second factor and sign-in alerts counting most: they are how strangers are kept out and how you hear about the ones who got close. If requests are arriving through a proxy while the card says home-only, it says so.",
+      "Under the card, a Policies table: one row per protection — proxy trust, lockout, auto-block, two-factor outside the house, sign-in alerts, deletion protection, device linking, the password policy, IP reputation — each with its current value, a Strong, Medium or Weak grade, and an arrow to the setting that owns it. The password policy grades Strong only when passwords must be eight characters and mix three of lowercase, uppercase, numbers and symbols; a direct connection grades Medium, because a trusted reverse proxy in front is a layer of its own.",
+      "Blocked IPs learned to tidy itself: chips above the list count and filter running, permanent and lapsed blocks, and Clear lapsed removes the automatic blocks that have already run out in one confirmed click. The AbuseIPDB check moved off the row and into the opened record, as on the Logins table; the arrow at the end of a row opens that address's Sign-ins page. Trusted networks shows how many live sessions sit inside each range, and both tables fit their page without scrolling sideways. The Policies tab's cards are ordered by how much they matter.",
+      "Grades and statuses are now drawn in colours that mean the same thing in every theme — green, amber, red — rather than in a theme's accent, which in the plain themes had turned \"good\" blue."
+    ]
+  },
+  {
     version: "3.16.0",
     label: "Logs you can narrow, sort, open and export — and Tasks joins the dashboard",
     changes: [

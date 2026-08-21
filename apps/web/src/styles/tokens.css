@@ -16,6 +16,8 @@
   --rose: #d58a7d;
   --blue: #8eb4bf;
   --success: #90bd99;
+  --warning: #e8c98e;
+  --danger: #d58a7d;
   --shadow: rgba(0, 7, 9, 0.42);
 
   /* Shared icon-only controls. Normal borders are intentionally quiet; tune here. */
@@ -43,6 +45,8 @@
   --rose: #d36c5f;
   --blue: #7aa7c8;
   --success: #7ecf90;
+  --warning: #df9a55;
+  --danger: #d36c5f;
   --shadow: rgba(0, 0, 0, 0.48);
 }
 
@@ -63,6 +67,8 @@
   --rose: #a94e48;
   --blue: #496f76;
   --success: #47715a;
+  --warning: #b88746;
+  --danger: #a94e48;
   --shadow: rgba(31, 35, 24, 0.13);
 }
 
@@ -83,6 +89,8 @@
   --rose: #f87171;
   --blue: #38bdf8;
   --success: #34d399;
+  --warning: #fbbf24;
+  --danger: #f87171;
   --shadow: rgba(0, 0, 0, 0.3);
 }
 
@@ -103,5 +111,7 @@
   --rose: #dc2626;
   --blue: #0284c7;
   --success: #15803d;
+  --warning: #d97706;
+  --danger: #dc2626;
   --shadow: rgba(31, 41, 55, 0.11);
 }
