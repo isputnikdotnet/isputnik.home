@@ -379,6 +379,9 @@ export interface SignInsDeviceRow {
   personId: string;
   ip: string | null;
   lastSeen: string;
+  expiresAt: string;
+  /** The session making this request — pinned first, and never revocable here. */
+  current: boolean;
 }
 
 export interface SignInsEventRow {

@@ -7,6 +7,7 @@ import {
   Globe2,
   KeyRound,
   Laptop,
+  LogOut,
   MapPin,
   Monitor,
   ShieldQuestion,
@@ -19,6 +20,7 @@ import {
 import { api } from "../../../../api";
 import { controlHref } from "../../../../router";
 import { Button } from "../../../../shared/Button";
+import { ConfirmDialog } from "../../../../shared/ConfirmDialog";
 import {
   DateRangePicker,
   formatRangeLabel,
@@ -31,7 +33,7 @@ import { Pager } from "../../../../shared/Pager";
 import { SortHeader, type SortDirection } from "../../../../shared/SortHeader";
 import { countryFlag, formatManagedDate, relativeTime } from "../../../../shared/utils";
 import { ControlSectionHead } from "../../ControlSectionHead";
-import type { DashboardSignIns, DeviceType, SignInsIpRow, SignInsUserRow } from "../../types";
+import type { DashboardSignIns, DeviceType, SignInsDeviceRow, SignInsIpRow, SignInsUserRow } from "../../types";
 import { DashboardChart, DashboardChartLegend, type DashboardChartSeries } from "./DashboardChart";
 import { SignInsFilterModal } from "./SignInsFilterModal";
 
@@ -108,6 +110,16 @@ const DEVICE_ICONS: Record<DeviceType, LucideIcon> = {
   unknown: ShieldQuestion
 };
 
+// The order the counter chips render in — displays first because a linked TV is
+// the session type that outlives everything else and the one worth glancing for.
+const DEVICE_TYPES: { value: DeviceType; singular: string; plural: string }[] = [
+  { value: "display", singular: "display", plural: "displays" },
+  { value: "phone", singular: "phone", plural: "phones" },
+  { value: "tablet", singular: "tablet", plural: "tablets" },
+  { value: "computer", singular: "computer", plural: "computers" },
+  { value: "unknown", singular: "unknown", plural: "unknown" }
+];
+
 function methodsSummary(methods: SignInsUserRow["methods"]): string {
   const parts: string[] = [];
   if (methods.password) parts.push(`${methods.password} password`);
@@ -132,8 +144,16 @@ export function SignInsSection() {
   const [userDir, setUserDir] = useState<SortDirection>("desc");
   const [userPage, setUserPage] = useState(1);
   const [devicePage, setDevicePage] = useState(1);
+  const [deviceKind, setDeviceKind] = useState<DeviceType | null>(null);
+  const [namePage, setNamePage] = useState(1);
   const [eventPage, setEventPage] = useState(1);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [pendingRevoke, setPendingRevoke] = useState<SignInsDeviceRow | null>(null);
+  const [revoking, setRevoking] = useState(false);
+  const [revokeError, setRevokeError] = useState("");
+  // Bumped after a revoke so the whole page refetches — the devices table, but
+  // also the counters above it, describe rows that just changed.
+  const [reloadNonce, setReloadNonce] = useState(0);
 
   // A dive is a navigation: the new scope goes into the address bar so the page
   // can be shared and the back button walks back up the dive.
@@ -143,6 +163,8 @@ export function SignInsSection() {
     setIpPage(1);
     setUserPage(1);
     setDevicePage(1);
+    setDeviceKind(null);
+    setNamePage(1);
     setEventPage(1);
   }, []);
 
@@ -162,7 +184,22 @@ export function SignInsSection() {
     api<DashboardSignIns>(`/api/dashboard/signins?${query}`)
       .then(setData)
       .catch((err) => setError(err instanceof Error ? err.message : "Unable to load sign-ins"));
-  }, [range.from, range.to, scope]);
+  }, [range.from, range.to, scope, reloadNonce]);
+
+  const revokeSession = async () => {
+    if (!pendingRevoke) return;
+    setRevoking(true);
+    setRevokeError("");
+    try {
+      await api(`/api/sessions/${pendingRevoke.id}`, { method: "DELETE" });
+      setPendingRevoke(null);
+      setReloadNonce((nonce) => nonce + 1);
+    } catch (err) {
+      setRevokeError(err instanceof Error ? err.message : "Unable to revoke the session");
+    } finally {
+      setRevoking(false);
+    }
+  };
 
   const ips = useMemo(() => {
     const key: Record<IpSort, (row: SignInsIpRow) => number | string> = {
@@ -198,7 +235,25 @@ export function SignInsSection() {
     return pageOf(sorted, userPage);
   }, [data, userSort, userDir, userPage]);
 
-  const devices = useMemo(() => pageOf(data?.devices ?? [], devicePage), [data, devicePage]);
+  const deviceCounts = useMemo(() => {
+    const counts: Record<DeviceType, number> = { display: 0, phone: 0, tablet: 0, computer: 0, unknown: 0 };
+    for (const device of data?.devices ?? []) counts[device.type] += 1;
+    return counts;
+  }, [data]);
+  const devices = useMemo(
+    () =>
+      pageOf(
+        (data?.devices ?? [])
+          .filter((device) => !deviceKind || device.type === deviceKind)
+          // The admin's own session first — the row they can orient by before
+          // deciding which of the others to end. Stable within each half, so
+          // the server's newest-first order carries through.
+          .sort((a, b) => Number(b.current) - Number(a.current)),
+        devicePage
+      ),
+    [data, deviceKind, devicePage]
+  );
+  const guessedNames = useMemo(() => pageOf(data?.guessedNames ?? [], namePage), [data, namePage]);
   const events = useMemo(() => pageOf(data?.events ?? [], eventPage), [data, eventPage]);
 
   const chartSeries: DashboardChartSeries[] = useMemo(
@@ -214,7 +269,7 @@ export function SignInsSection() {
   const failShare = data && data.totals.attempts > 0 ? Math.round((data.totals.failed / data.totals.attempts) * 100) : 0;
 
   return (
-    <div className="status-stack">
+    <div className="status-stack signins-page">
       <ControlSectionHead
         section="signins"
         icon={<Fingerprint size={30} />}
@@ -304,6 +359,114 @@ export function SignInsSection() {
                 labels={data.series.buckets.map((iso) => bucketLabel(iso, data.series.bucket))}
                 series={chartSeries}
               />
+            </div>
+
+            {/* Dashboard › Devices and Members › Sessions, absorbed here: the
+                inventory glance (the type counters), the table, and revoke —
+                scoped by the dive like everything else. The admin's own session
+                is pinned first and keeps no revoke button; sign-out is the way
+                to end it, and the DELETE route refuses it regardless. */}
+            <div className="status-subsection">
+              <div className="status-table-title">
+                <h3>Devices still signed in</h3>
+                <span>Live right now — not bound to the time range above</span>
+              </div>
+              {data.devices.length > 0 ? (
+                <>
+                  {/* Counter and filter in one: each chip counts a kind and
+                      narrows the table to it; the active chip clicks back off. */}
+                  <div className="device-type-chips" role="group" aria-label="Filter devices by type">
+                    {DEVICE_TYPES.filter((entry) => deviceCounts[entry.value] > 0).map((entry) => {
+                      const Icon = DEVICE_ICONS[entry.value];
+                      const count = deviceCounts[entry.value];
+                      const active = deviceKind === entry.value;
+                      return (
+                        <button
+                          key={entry.value}
+                          type="button"
+                          className={`device-type-chip${active ? " is-active" : ""}`}
+                          aria-pressed={active}
+                          onClick={() => {
+                            setDeviceKind(active ? null : entry.value);
+                            setDevicePage(1);
+                          }}
+                        >
+                          <Icon size={15} aria-hidden="true" />
+                          <strong>{count}</strong> {count === 1 ? entry.singular : entry.plural}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="datagrid-wrap">
+                    <table className="datagrid locations-table">
+                      <thead>
+                        <tr>
+                          <th>Device</th>
+                          <th>Person</th>
+                          <th>IP address</th>
+                          <th>Last seen</th>
+                          <th>Signed in until</th>
+                          <th aria-label="Dive" />
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {devices.rows.map((row) => {
+                          const Icon = DEVICE_ICONS[row.type];
+                          return (
+                            <tr key={row.id}>
+                              <td>
+                                <span className="location-cell">
+                                  <Icon size={17} aria-hidden="true" className="signins-device-icon" />
+                                  <span className="datagrid-primary">
+                                    <span className="admin-name-line">
+                                      <strong>{row.name}</strong>
+                                      {row.current && <span className="status-badge current">This device</span>}
+                                    </span>
+                                    {row.name !== row.agent && <small>{row.agent}</small>}
+                                  </span>
+                                </span>
+                              </td>
+                              <td>{row.person}</td>
+                              <td className="datagrid-muted">{row.ip ?? "—"}</td>
+                              <td className="datagrid-muted">{relativeTime(row.lastSeen)}</td>
+                              <td className="datagrid-muted">{formatManagedDate(row.expiresAt)}</td>
+                              <td className="locations-row-action signins-device-actions">
+                                {!row.current && (
+                                  <Button
+                                    variant="icon"
+                                    danger
+                                    aria-label={`Revoke this session of ${row.person}`}
+                                    title="Revoke session"
+                                    onClick={() => {
+                                      setRevokeError("");
+                                      setPendingRevoke(row);
+                                    }}
+                                  >
+                                    <LogOut size={15} aria-hidden="true" />
+                                  </Button>
+                                )}
+                                {scope.user !== row.personId && (
+                                  <Button
+                                    variant="icon"
+                                    aria-label={`Dive into ${row.person}`}
+                                    title="Dive into this person"
+                                    onClick={() => dive({ user: row.personId })}
+                                  >
+                                    <ChevronRight size={16} aria-hidden="true" />
+                                  </Button>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  <Pager page={devices.page} totalPages={devices.totalPages} onChange={setDevicePage} label="Device pages" />
+                </>
+              ) : (
+                <p className="status-empty">Nothing is signed in from this scope right now.</p>
+              )}
             </div>
 
             <div className="status-subsection">
@@ -461,53 +624,6 @@ export function SignInsSection() {
               )}
             </div>
 
-            <div className="status-subsection">
-              <div className="status-table-title">
-                <h3>Devices still signed in</h3>
-                <span>Live sessions from this scope — what can get in today</span>
-              </div>
-              {data.devices.length > 0 ? (
-                <>
-                  <div className="datagrid-wrap">
-                    <table className="datagrid">
-                      <thead>
-                        <tr>
-                          <th>Device</th>
-                          <th>Person</th>
-                          <th>IP address</th>
-                          <th>Last seen</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {devices.rows.map((row) => {
-                          const Icon = DEVICE_ICONS[row.type];
-                          return (
-                            <tr key={row.id}>
-                              <td>
-                                <span className="location-cell">
-                                  <Icon size={17} aria-hidden="true" className="signins-device-icon" />
-                                  <span className="datagrid-primary">
-                                    <strong>{row.name}</strong>
-                                    {row.name !== row.agent && <small>{row.agent}</small>}
-                                  </span>
-                                </span>
-                              </td>
-                              <td>{row.person}</td>
-                              <td className="datagrid-muted">{row.ip ?? "—"}</td>
-                              <td className="datagrid-muted">{relativeTime(row.lastSeen)}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                  <Pager page={devices.page} totalPages={devices.totalPages} onChange={setDevicePage} label="Device pages" />
-                </>
-              ) : (
-                <p className="status-empty">Nothing is signed in from this scope right now.</p>
-              )}
-            </div>
-
             {data.guessedNames.length > 0 && (
               <div className="status-subsection">
                 <div className="status-table-title">
@@ -524,7 +640,7 @@ export function SignInsSection() {
                       </tr>
                     </thead>
                     <tbody>
-                      {data.guessedNames.map((row) => (
+                      {guessedNames.rows.map((row) => (
                         <tr key={row.email}>
                           <td className="login-result-failed">{row.email}</td>
                           <td className="col-num">{row.attempts.toLocaleString()}</td>
@@ -534,6 +650,7 @@ export function SignInsSection() {
                     </tbody>
                   </table>
                 </div>
+                <Pager page={guessedNames.page} totalPages={guessedNames.totalPages} onChange={setNamePage} label="Name pages" />
               </div>
             )}
 
@@ -595,6 +712,26 @@ export function SignInsSection() {
           }}
           onClose={() => setFilterOpen(false)}
         />
+      )}
+
+      {pendingRevoke && (
+        <ConfirmDialog
+          title={`Revoke session for "${pendingRevoke.person}"?`}
+          confirmLabel="Revoke session"
+          busyLabel="Revoking…"
+          confirmIcon={<LogOut size={15} />}
+          danger
+          rich
+          busy={revoking}
+          error={revokeError}
+          onConfirm={revokeSession}
+          onCancel={() => setPendingRevoke(null)}
+        >
+          <p>
+            This signs {pendingRevoke.person} out on {pendingRevoke.name === pendingRevoke.agent ? "that device" : `“${pendingRevoke.name}”`}.
+          </p>
+          <p><strong>The account, its password, and its other sessions are not changed.</strong></p>
+        </ConfirmDialog>
       )}
     </div>
   );

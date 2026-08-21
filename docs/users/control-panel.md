@@ -9,9 +9,9 @@ it points there rather than repeating it.
 
 | Section | Tabs |
 |---|---|
-| **Overview** | Dashboard, Statistics, Tasks, Logs |
+| **Overview** | Dashboard, Sign-ins, Statistics, Tasks, Logs |
 | **Library** | Libraries, Storage, Categories, Tags |
-| **Members** | Users, Groups, Invite links, Sessions |
+| **Members** | Users, Groups, Invite links |
 | **Security** | Overview, Policies, Trusted networks, Blocked IPs |
 | **Maintenance** | Backup, Scheduled jobs, Recycle Bin |
 | **Utilities** | Gallery → Duplicate cleanup, Missing photos |
@@ -183,9 +183,10 @@ them across the whole install.
   the moment you're granting the same three libraries to the same four people.
 - **Invite links** — sign-up links, so you don't have to hand out passwords. Create
   one, send it, retire it when it's been used or you've changed your mind.
-- **Sessions** — every signed-in device, with the ability to revoke any of them.
-  Where you go when a laptop is lost, or when a sign-in alert names a device you
-  don't recognise.
+
+Signed-in devices moved to Overview → Sign-ins, which lists every session with the
+ability to revoke any of them — where you go when a laptop is lost, or when a
+sign-in alert names a device you don't recognise.
 
 Library *access* is granted per library (in Library → Libraries → a library →
 members), not here — this section is about who exists, groups are about who they are

@@ -19,6 +19,17 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.13.0",
+    label: "Sign-ins becomes the one place for devices and sessions",
+    changes: [
+      "The Devices page and Members › Sessions were both, at heart, the same list — everything signed in to the house — seen from two doors. Both now live on the Sign-ins page, right under the chart: the familiar counters (so many displays, phones, tablets, computers) sit above the table, and each counter is now also a filter — click \"3 displays\" and the table narrows to the three TVs, click it again to let go.",
+      "Ending a session no longer means walking to another page. Every device row carries a sign-out button; it asks first, says exactly what it will do — sign that person out on that device, touching nothing else — and the counters update the moment it's done. Your own session is pinned to the top of the list, marked \"This device\", and has no such button: signing yourself out is what the sign-out in your own menu is for.",
+      "Because the table lives on Sign-ins, it follows your dive: scope to one person and it's their devices; scope to a country and it's what is still signed in from there. It always describes right now, though — a device list bound to last month would be a riddle — and the page says so where the table starts.",
+      "Every table on the page shows ten rows at a time and sits a little tighter than tables elsewhere — six tables deep, it reads as the investigation it is rather than six screens of scrolling.",
+      "Old addresses keep working: bookmarks to the Devices tab or to Members › Sessions land on Sign-ins. The Members section is now Users, Groups and Invite links — the people, not their machinery."
+    ]
+  },
+  {
     version: "3.12.0",
     label: "A real map of sign-ins, and a Sign-ins page that answers who, where and from what",
     changes: [

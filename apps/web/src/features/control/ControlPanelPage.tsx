@@ -14,7 +14,6 @@ import {
 import { ControlSearch, useControlSearchShortcut } from "./ControlSearch";
 import { UsersSection } from "./sections/UsersSection";
 import { InvitesSection } from "./sections/InvitesSection";
-import { SessionsSection } from "./sections/SessionsSection";
 import { LogsSection } from "./sections/LogsSection";
 import { AboutSection } from "./sections/AboutSection";
 import { StorageSection } from "./sections/StorageSection";
@@ -102,7 +101,6 @@ function ControlSectionBody({
     case "users":           return <UsersSection currentUser={currentUser} />;
     case "groups":          return <GroupsSection />;
     case "invites":         return <InvitesSection />;
-    case "sessions":        return <SessionsSection />;
 
     case "security":
     case "securityPolicies":

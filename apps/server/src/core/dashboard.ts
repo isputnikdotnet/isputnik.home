@@ -9,6 +9,7 @@ import {
   lookupLocation,
   receiveGeoipUpload
 } from "./geoip.js";
+import { currentSessionHash } from "../auth.js";
 import { isPrivateIp } from "./cidr.js";
 import { describeUserAgent, deviceType } from "./device-link.js";
 import { getHomeLocation, homeLocationSchema, setHomeLocation } from "./home-location.js";
@@ -685,19 +686,31 @@ export async function dashboardPlugin(app: FastifyInstance) {
     const sessionConditions = ["sessions.revoked_at IS NULL", "datetime(sessions.expires_at) > datetime('now')", "users.deleted_at IS NULL"];
     if (userId) sessionConditions.push("sessions.user_id = @userId");
     if (ipSet) sessionConditions.push(ipConditionFor("sessions.ip_address"));
+    // Every live session, not a page of them: the client draws the type counters
+    // (3 displays, 8 phones…) from this list, and a truncated list would count
+    // wrong. A household's sessions number in the dozens; 500 is a backstop, not
+    // an expectation.
+    // The asking admin's own session is flagged so the client can pin it first
+    // and withhold the revoke button — ending your own session is what sign-out
+    // is for, and the DELETE route refuses it anyway.
+    const currentHash = currentSessionHash(request) ?? "";
     const sessionRows = db.prepare(`
       SELECT sessions.id, sessions.label, sessions.device_name, sessions.ip_address AS ip, sessions.kind,
-        sessions.last_seen_at AS last_seen, users.display_name AS person, users.id AS person_id
+        sessions.last_seen_at AS last_seen, sessions.expires_at AS expires,
+        (sessions.token_hash = @currentHash) AS current,
+        users.display_name AS person, users.id AS person_id
       FROM sessions JOIN users ON users.id = sessions.user_id
       WHERE ${sessionConditions.join(" AND ")}
-      ORDER BY datetime(sessions.last_seen_at) DESC LIMIT 50
-    `).all(params) as {
+      ORDER BY datetime(sessions.last_seen_at) DESC LIMIT 500
+    `).all({ ...params, currentHash }) as {
       id: string;
       label: string | null;
       device_name: string | null;
       ip: string | null;
       kind: "browser" | "device";
       last_seen: string;
+      expires: string;
+      current: 0 | 1;
       person: string;
       person_id: string;
     }[];
@@ -709,7 +722,9 @@ export async function dashboardPlugin(app: FastifyInstance) {
       person: row.person,
       personId: row.person_id,
       ip: row.ip,
-      lastSeen: row.last_seen
+      lastSeen: row.last_seen,
+      expiresAt: row.expires,
+      current: row.current === 1
     }));
 
     // Names a stranger tried that belong to no account here — the guessing wordlist,

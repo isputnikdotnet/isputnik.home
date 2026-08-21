@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Globe2, LayoutDashboard, LineChart, LogIn, Monitor, MonitorSmartphone, PlayCircle, Upload } from "lucide-react";
+import { Globe2, LayoutDashboard, LineChart, LogIn, Monitor, PlayCircle, Upload } from "lucide-react";
 import { api } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
 import { RefreshButton } from "../../../shared/RefreshButton";
@@ -9,7 +9,6 @@ import type { DashboardSummary, DbInfo, SystemStatus } from "../types";
 import { SystemView } from "./dashboard/SystemView";
 import { ActivityView } from "./dashboard/ActivityView";
 import { LoginsView } from "./dashboard/LoginsView";
-import { DevicesView } from "./dashboard/DevicesView";
 import { LocationsView } from "./dashboard/LocationsView";
 import { ContentActivityView } from "./dashboard/ContentActivityView";
 import { PlaybackView } from "./dashboard/PlaybackView";
@@ -18,12 +17,11 @@ import { PlaybackView } from "./dashboard/PlaybackView";
 // "Dashboard" (activity trends) — folded into one, with a lighter secondary tab
 // strip switching between them: real tabs (not a dropdown), but visually distinct
 // from the page-level tab row above so it doesn't read as a second copy of it.
-type DashboardView = "system" | "activity" | "logins" | "devices" | "locations" | "content" | "playback";
+type DashboardView = "system" | "activity" | "logins" | "locations" | "content" | "playback";
 
 // Logins leads: "who got in, and from where" is what this page gets opened for.
 const DASHBOARD_VIEWS: { value: DashboardView; label: string; icon: ReactNode }[] = [
   { value: "logins", label: "Logins", icon: <LogIn size={15} aria-hidden="true" /> },
-  { value: "devices", label: "Devices", icon: <MonitorSmartphone size={15} aria-hidden="true" /> },
   { value: "locations", label: "Locations", icon: <Globe2 size={15} aria-hidden="true" /> },
   { value: "activity", label: "Activity", icon: <LineChart size={15} aria-hidden="true" /> },
   { value: "system", label: "System", icon: <Monitor size={15} aria-hidden="true" /> },
@@ -59,6 +57,16 @@ export function DashboardSection() {
 
   useEffect(() => {
     load().catch((err) => setError(err instanceof Error ? err.message : "Unable to load dashboard"));
+  }, []);
+
+  // Devices lived here as a view until 3.12, when it merged into Overview ›
+  // Sign-ins. An old bookmark lands there rather than silently falling back to
+  // Logins; replaceState, so the back button doesn't return to a dead address.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("view") === "devices") {
+      window.history.replaceState({}, "", controlHref("signins"));
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    }
   }, []);
 
   const chooseView = (next: DashboardView) => {
@@ -108,7 +116,6 @@ export function DashboardSection() {
       {status && view === "system" && <SystemView status={status} dbInfo={dbInfo} />}
       {status && summary && view === "activity" && <ActivityView summary={summary} status={status} />}
       {view === "logins" && <LoginsView />}
-      {view === "devices" && <DevicesView />}
       {view === "locations" && <LocationsView />}
       {view === "content" && <ContentActivityView />}
       {view === "playback" && <PlaybackView />}
