@@ -1,11 +1,12 @@
 import { CircleAlert, CircleCheck, CircleQuestionMark, Info, ShieldCheck, type LucideIcon } from "lucide-react";
 import { Tooltip } from "../../../shared/Tooltip";
 
-// The protection score behind Security › Overview. Eight settings are each
-// graded strong / medium / weak; each carries a weight that depends on how the
-// server is reached. A home-only install is graded gently on the defences that
-// only matter against strangers (a second factor from outside, IP reputation),
-// and an internet-facing one is not — the same settings, a different exam.
+// The protection score behind Security › Overview. Nine settings are each
+// graded strong / medium / weak, and each carries one weight. A home-only
+// server sits the same exam, but the questions that only matter against
+// strangers are waived — credited in full whatever the setting says — and a
+// couple are half-waived. Same settings therefore never score lower at home
+// than on the internet; at home they can only score higher.
 //
 // The grades are also what the Policies table under the card draws, so the
 // card and the table can never disagree about a row.
@@ -42,8 +43,11 @@ export interface PolicyGrade {
   level: Level;
   /** A setting that is on but cannot do its job — a proxy without trust, an alert without email. */
   issue: boolean;
-  /** How much this setting counts, per way the server is reached. Zero = not needed. */
-  weight: Record<Exposure, number>;
+  /** How much this setting counts. */
+  weight: number;
+  /** The share of the weight a home-only server is credited without being graded:
+   *  1 = waived outright, 0.5 = half of it still counts, 0 = graded in full. */
+  waivedAtHome: 0 | 0.5 | 1;
 }
 
 const LEVEL_POINTS: Record<Level, number> = { strong: 1, medium: 0.5, weak: 0 };
@@ -67,7 +71,8 @@ export function gradePolicies({ policy, proxy, passwordPolicy, mailConfigured, t
       level: proxyAttention ? "weak" : proxy.configured ? "strong" : "medium",
       issue: proxyAttention,
       // Inside the house there is nothing to front.
-      weight: { internal: 0, internet: 3 }
+      weight: 3,
+      waivedAtHome: 1
     },
     {
       key: "lockout",
@@ -76,7 +81,8 @@ export function gradePolicies({ policy, proxy, passwordPolicy, mailConfigured, t
       note: `After ${policy.lockoutThreshold} failed sign-ins`,
       level: policy.lockoutThreshold <= 5 ? "strong" : policy.lockoutThreshold <= 10 ? "medium" : "weak",
       issue: false,
-      weight: { internal: 1, internet: 2 }
+      weight: 2,
+      waivedAtHome: 0
     },
     {
       key: "autoblock",
@@ -86,7 +92,8 @@ export function gradePolicies({ policy, proxy, passwordPolicy, mailConfigured, t
       level:
         policy.ipFailThreshold <= 20 && policy.ipAutoblockMinutes >= 30 ? "strong" : policy.ipFailThreshold <= 50 ? "medium" : "weak",
       issue: false,
-      weight: { internal: 1, internet: 2 }
+      weight: 2,
+      waivedAtHome: 0
     },
     {
       key: "mfa",
@@ -98,7 +105,8 @@ export function gradePolicies({ policy, proxy, passwordPolicy, mailConfigured, t
       level: policy.requireMfaOutside ? (mailConfigured ? "strong" : "medium") : "medium",
       issue: policy.requireMfaOutside && !mailConfigured,
       // Inside the house there is no "outside" to require it from.
-      weight: { internal: 0, internet: 3 }
+      weight: 3,
+      waivedAtHome: 1
     },
     {
       key: "alerts",
@@ -111,8 +119,10 @@ export function gradePolicies({ policy, proxy, passwordPolicy, mailConfigured, t
       issue: policy.alertNewIpSignIn && !mailConfigured,
       // Facing the internet this is how an admin hears about a problem at all,
       // so it counts with proxy trust and the second factor. On a home-only
-      // server every sign-in is from the house, and it has little to announce.
-      weight: { internal: 0.5, internet: 3 }
+      // server every sign-in is from the house and it has less to announce, so
+      // half of it is waived.
+      weight: 3,
+      waivedAtHome: 0.5
     },
     {
       key: "deletes",
@@ -124,7 +134,8 @@ export function gradePolicies({ policy, proxy, passwordPolicy, mailConfigured, t
       level: policy.trustedDeletesOnly ? (trustedNetworkCount > 0 ? "strong" : "medium") : "weak",
       issue: policy.trustedDeletesOnly && trustedNetworkCount === 0,
       // Refusing deletes from outside means nothing when there is no outside.
-      weight: { internal: 0, internet: 1 }
+      weight: 1,
+      waivedAtHome: 1
     },
     {
       key: "devices",
@@ -133,7 +144,8 @@ export function gradePolicies({ policy, proxy, passwordPolicy, mailConfigured, t
       note: policy.deviceLinkScope === "local" ? "A TV can only be linked from inside the house" : "Linking can be started from the internet",
       level: policy.deviceLinkScope === "local" ? "strong" : "weak",
       issue: false,
-      weight: { internal: 0.5, internet: 1 }
+      weight: 1,
+      waivedAtHome: 0.5
     },
     {
       key: "password",
@@ -147,7 +159,8 @@ export function gradePolicies({ policy, proxy, passwordPolicy, mailConfigured, t
       level:
         passwordPolicy.minLength < 8 ? "weak" : passwordPolicy.requireComplexity ? "strong" : "medium",
       issue: false,
-      weight: { internal: 1, internet: 2 }
+      weight: 2,
+      waivedAtHome: 0
     },
     {
       key: "reputation",
@@ -159,7 +172,8 @@ export function gradePolicies({ policy, proxy, passwordPolicy, mailConfigured, t
       level: policy.hasAbuseIpdbKey ? (policy.reputationAutoEscalate ? "strong" : "medium") : "weak",
       issue: false,
       // Strangers' addresses are what reputation scores; a home-only server sees none.
-      weight: { internal: 0, internet: 1 }
+      weight: 1,
+      waivedAtHome: 1
     }
   ];
 }
@@ -172,7 +186,9 @@ export interface ProtectionScore {
   /** Where the marker sits on the five-band bar, 0–100. The bands are levels,
    *  not equal slices of the score, so this maps the score into its band. */
   barPosition: number;
-  counts: { active: number; optional: number; off: number; issues: number; notNeeded: number };
+  counts: { active: number; optional: number; off: number; issues: number };
+  /** Settings credited in full because the server is home-only. */
+  waived: PolicyGrade[];
 }
 
 const LEVEL_COPY: Record<ProtectionLevel, { word: string; line: string; detail: string }> = {
@@ -204,10 +220,17 @@ const LEVEL_COPY: Record<ProtectionLevel, { word: string; line: string; detail: 
 };
 
 export function scoreProtection(grades: PolicyGrade[], exposure: Exposure): ProtectionScore {
-  const weighted = grades.filter((grade) => grade.weight[exposure] > 0);
-  const total = weighted.reduce((sum, grade) => sum + grade.weight[exposure], 0);
-  const earned = weighted.reduce((sum, grade) => sum + grade.weight[exposure] * LEVEL_POINTS[grade.level], 0);
+  // Every setting is in the denominator for both exposures. At home the waived
+  // share of a weight is earned outright; only the rest is graded.
+  const total = grades.reduce((sum, grade) => sum + grade.weight, 0);
+  const earned = grades.reduce((sum, grade) => {
+    const waived = exposure === "internal" ? grade.waivedAtHome : 0;
+    return sum + grade.weight * (waived + (1 - waived) * LEVEL_POINTS[grade.level]);
+  }, 0);
   const score = total > 0 ? Math.round((earned / total) * 100) : 100;
+  const waived = exposure === "internal" ? grades.filter((grade) => grade.waivedAtHome === 1) : [];
+  // A waived setting is satisfied by circumstance, so it counts as active.
+  const graded = grades.filter((grade) => !waived.includes(grade));
   const level: ProtectionLevel =
     score >= 85 ? "strong" : score >= 65 ? "good" : score >= 45 ? "fair" : score >= 25 ? "weak" : "critical";
   const bands: [ProtectionLevel, number, number][] = [
@@ -226,12 +249,12 @@ export function scoreProtection(grades: PolicyGrade[], exposure: Exposure): Prot
     level,
     barPosition,
     counts: {
-      active: weighted.filter((grade) => grade.level === "strong").length,
-      optional: weighted.filter((grade) => grade.level === "medium").length,
-      off: weighted.filter((grade) => grade.level === "weak").length,
-      issues: grades.filter((grade) => grade.issue).length,
-      notNeeded: grades.length - weighted.length
-    }
+      active: waived.length + graded.filter((grade) => grade.level === "strong").length,
+      optional: graded.filter((grade) => grade.level === "medium").length,
+      off: graded.filter((grade) => grade.level === "weak").length,
+      issues: grades.filter((grade) => grade.issue).length
+    },
+    waived
   };
 }
 
@@ -244,6 +267,7 @@ export function ProtectionCard({
   grades,
   exposure,
   proxySeen,
+  proxyConfigured,
   saving,
   onExposureChange
 }: {
@@ -251,6 +275,8 @@ export function ProtectionCard({
   exposure: Exposure;
   /** Requests are arriving through a proxy — a hint that "home only" may be wrong. */
   proxySeen: boolean;
+  /** …and it is trusted, so whoever set it up knows it is there: a quieter hint. */
+  proxyConfigured: boolean;
   saving: boolean;
   onExposureChange: (next: Exposure) => void;
 }) {
@@ -272,7 +298,7 @@ export function ProtectionCard({
             label={
               exposure === "internet"
                 ? "Graded for a server reachable from the internet: every protection counts, and proxy trust, a second factor from outside and sign-in alerts count most — they are how you keep strangers out and hear about the ones who got close."
-                : "Graded for a server on the home network only: the defences that only matter against strangers — proxy trust, a second factor from outside, deletion protection, IP reputation — are not counted at all."
+                : "Graded for a server on the home network only: the same exam, but the defences that only matter against strangers — proxy trust, a second factor from outside, deletion protection, IP reputation — are waived and credited in full, and sign-in alerts and device linking count half. The same settings never score lower at home than on the internet."
             }
           >
             <Info size={15} aria-hidden="true" />
@@ -303,8 +329,9 @@ export function ProtectionCard({
 
       {proxySeen && exposure === "internal" && (
         <p className="protection-hint">
-          Requests are arriving through a proxy. If this server can be reached from the internet, say so above —
-          the grading is gentler than it should be until then.
+          {proxyConfigured
+            ? "A proxy is in front of this server — if it can be reached from the internet, switch the grading above."
+            : "Requests are arriving through a proxy the app does not trust. If this server can be reached from the internet, say so above — the grading is gentler than it should be until then."}
         </p>
       )}
 
@@ -355,10 +382,10 @@ export function ProtectionCard({
               );
             })}
           </dl>
-          {result.counts.notNeeded > 0 && (
+          {result.waived.length > 0 && (
             <p className="protection-note">
-              {result.counts.notNeeded} {result.counts.notNeeded === 1 ? "setting is" : "settings are"} not counted for a
-              home-only server.
+              {result.waived.length} {result.waived.length === 1 ? "setting is" : "settings are"} waived at home:{" "}
+              {result.waived.map((grade) => grade.label).join(", ")}.
             </p>
           )}
         </div>

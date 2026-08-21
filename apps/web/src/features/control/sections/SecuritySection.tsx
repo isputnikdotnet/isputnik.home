@@ -472,6 +472,7 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                   })}
                   exposure={data.policy.exposure}
                   proxySeen={data.proxy.forwardedHeaderSeen}
+                  proxyConfigured={data.proxy.configured}
                   saving={savingExposure}
                   onExposureChange={setExposure}
                 />
