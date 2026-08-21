@@ -1248,6 +1248,39 @@ CREATE INDEX IF NOT EXISTS idx_recommendations_inbox ON recommendations (to_user
 CREATE INDEX IF NOT EXISTS idx_recommendations_sent ON recommendations (from_user_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_recommendations_subject ON recommendations (entity_type, entity_id);
 
+-- What the household says about a thing, kept under the thing itself. Polymorphic
+-- over the same resolver as recommendations, so a note works on a book, a photo or
+-- a person in the family tree without any of them knowing about notes.
+--
+-- Deliberately flat: no parent_id, no replies. Nesting is what turns a note box
+-- into a comment section, and this is meant to be the former.
+--
+-- `body` is PLAIN TEXT and is rendered as plain text. No markdown, no HTML, ever.
+-- That is the whole XSS story for user-authored content in this app and it stays
+-- that way; anything that would render it richly has to change this comment first.
+--
+-- Author is SET NULL with an `author_name` snapshot, the bargain `quotes` and
+-- `recommendations` already make: a removed account should not silently erase what
+-- it said about the family's photographs.
+--
+-- deleted_at is a soft delete. With no replies there is no thread shape to keep, so
+-- a deleted note simply stops being listed — the row survives so a mistake can be
+-- undone by hand, and so an admin can see what was removed.
+CREATE TABLE IF NOT EXISTS notes (
+  id          TEXT PRIMARY KEY,
+  user_id     TEXT REFERENCES users(id) ON DELETE SET NULL,
+  author_name TEXT,
+  entity_type TEXT NOT NULL,
+  entity_id   TEXT NOT NULL,
+  body        TEXT NOT NULL,
+  created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  updated_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  deleted_at  TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_notes_subject ON notes (entity_type, entity_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_notes_author ON notes (user_id, created_at);
+
 -- ════════════════════════════════════════════════════════════════════════════
 --  Collections & item-level sharing
 -- ════════════════════════════════════════════════════════════════════════════

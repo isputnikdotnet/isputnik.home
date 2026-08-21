@@ -11,6 +11,7 @@ import { AddToAlbumModal } from "./AddToAlbumModal";
 import { GalleryPlaceSearch } from "./GalleryPlaceSearch";
 import { ShareModal } from "../share/ShareModal";
 import { SendToSheet } from "../social/SendToSheet";
+import { NotesSection } from "../social/NotesSection";
 import { useIsMobile } from "../../shared/useIsMobile";
 import type { GalleryAsset, GalleryPerson, GalleryPersonTag, SlideshowTransition } from "./types";
 
@@ -983,6 +984,7 @@ export function GalleryLightbox({
               </div>
             )}
           </dl>
+          <NotesSection entityType="gallery" entityId={asset.id} compact />
         </aside>
       )}
 

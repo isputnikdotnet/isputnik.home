@@ -1,7 +1,7 @@
 # Family sharing — proposal
 
-Status: **Phases 0 and 1 are BUILT** (see the phase headings); phases 2–4 remain
-proposals. Companion to
+Status: **Phases 0, 1 and 2 are BUILT** (see the phase headings); phases 3 and 4
+remain proposals. Companion to
 [sharing.md](sharing.md) and [library-sharing.md](library-sharing.md), which
 describe the guest-link and per-user grants that exist today.
 
@@ -284,7 +284,7 @@ tree, so `canGrant` is false and there is nothing to widen.
 
 ---
 
-## Phase 2 — Notes
+## Phase 2 — Notes — BUILT
 
 Open anything, scroll down, a box that says *"Add a note…"*. Type, post. The
 note lives under that book/photo/person for good.
@@ -335,10 +335,32 @@ picker. Two carve-outs, both important:
   So person notes need no special case — they follow the same rule as everything
   else. Checked while building Phase 0.
 
-### Who may post
+### Who may post — changed while building
 
-Reuse the existing role model — `member` or above on the object. A `viewer`
-reads and does not post. **No new permission axis.**
+This document said `member` or above, so a `viewer` would read and not post.
+**Built the other way: if you can see it, you can write on it.** Phase 1 settled
+it — somebody who can see a thing may already *Send* it to a family member with a
+message attached, so refusing them a note on the same thing is incoherent. And
+the accounts the stricter rule would silence are exactly the view-only ones, the
+children, whose remarks on the family photographs are the point of the feature.
+
+The upside is that there is now **one** rule rather than two: visibility and the
+right to post are the same question, asked once, of the subject resolver. Still
+no new permission axis.
+
+### What Phase 2 shipped with
+
+- `modules/social/notes.ts` — list · post · soft-delete, three routes
+- `features/social/NotesSection.tsx`, dropped on book detail, the family-tree
+  person page, and the gallery lightbox's info panel (`compact`)
+- `test/social-notes.test.ts` — 14 cases, including that markup survives the
+  round trip as the literal text it was typed as
+- The person page's **Notes** tab, which held one admin-edited biography field,
+  is now called **Biography**. Two things called Notes on one page is worse than
+  a rename, and the tab id was never in the URL.
+
+Not built, deliberately: editing a note. Delete and repost is enough at this
+size, and an edit history is a feature this does not want yet.
 
 ---
 

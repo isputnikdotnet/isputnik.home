@@ -112,7 +112,7 @@ const HELP_SECTIONS: HelpSection[] = [
         icon: Send,
         title: "Sharing with family",
         description:
-          "One Send to button for everything: pass a book to someone, mail it to your own e-reader, or make a guest link — and where the things people send you land.",
+          "One Send to button for everything — pass a book to someone, mail it to your own e-reader, or make a guest link — plus notes under a book, a photo or a person, and where the things people send you land.",
         href: guide("family-sharing.md"),
         external: false
       },

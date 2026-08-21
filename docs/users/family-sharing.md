@@ -75,6 +75,39 @@ page clears it, whether or not you've decided about anything on it.
 There is no unread count, and nothing nags. A recommendation you never get to
 just sits there quietly.
 
+## Notes
+
+Underneath a book, a photo, or a person in the family tree there's a box that
+says **Add a note**. Type, press Post, and what you wrote stays under that thing
+for good — where the next person to open it will find it.
+
+That's the whole feature. There are no replies, no reactions, no counts and no
+mentions: a note is a remark left beside something, not a thread. Notes are
+plain text, and appear exactly as you typed them.
+
+**Anyone who can see a thing can write on it**, including accounts with
+view-only rights to a library. If you're allowed to look at the family
+photographs, you're allowed to say something about them.
+
+Who sees a note follows the thing it's on: if someone can open the photo, they
+can read its notes. There's no audience to choose, because there's nothing to
+choose between.
+
+### Taking one back
+
+Hover a note of yours and a small bin appears at the end of its line — on a
+phone it's always there. It asks first, then the note stops being shown. An
+administrator can remove anyone's note the same way.
+
+Nothing else about the item changes, and nobody is told.
+
+### Notes and the family tree
+
+A person's own page has both. The **Biography** tab is their life story, written
+by whoever looks after the tree. The notes underneath are everybody else's —
+the things they used to say, who took the photograph, which summer it was.
+Those are usually the part worth keeping.
+
 ## Being told by email
 
 By default, none of this sends any email; it all happens inside the app. An

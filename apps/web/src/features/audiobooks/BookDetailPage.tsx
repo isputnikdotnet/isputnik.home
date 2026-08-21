@@ -5,6 +5,7 @@ import type { LucideIcon } from "lucide-react";
 import { api, isAccessOrMissingApiError, type PublicUser } from "../../api";
 import { ShareModal } from "../share/ShareModal";
 import { SendToSheet } from "../social/SendToSheet";
+import { NotesSection } from "../social/NotesSection";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { EditMetadataModal } from "./EditMetadataModal";
 import { EbookReader } from "./reader/EbookReader";
@@ -1413,6 +1414,8 @@ function BookDetailView({
               )}
             </section>
           )}
+
+          <NotesSection entityType={isEbook ? "ebook" : "audiobook"} entityId={book.id} />
         </div>
       </section>
 

@@ -14,6 +14,7 @@ import { SectionNav } from "../../shared/SectionNav";
 import { familyNavProps } from "./sectionNavItems";
 import { MessageBox } from "../../shared/MessageBox";
 import { SendToSheet } from "../social/SendToSheet";
+import { NotesSection } from "../social/NotesSection";
 import { GalleryLightbox } from "../gallery/GalleryLightbox";
 import type { GalleryAsset } from "../gallery/types";
 import { faceFocusStyle } from "../gallery/types";
@@ -44,7 +45,7 @@ const PERSON_DETAIL_TABS = [
   { id: "timeline", label: "Timeline" },
   { id: "photos", label: "Photos" },
   { id: "sources", label: "Sources" },
-  { id: "notes", label: "Notes" }
+  { id: "biography", label: "Biography" }
 ] as const;
 
 type PersonDetailTabId = typeof PERSON_DETAIL_TABS[number]["id"];
@@ -1076,7 +1077,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                     </section>
                   )}
 
-                  {activeDetailTab === "notes" && (
+                  {activeDetailTab === "biography" && (
                     <section className="ft-section ft-profile-section">
                       {canEdit && (
                         <div className="ft-tab-actions">
@@ -1092,13 +1093,15 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                       ) : (
                         <div className="ft-empty-panel">
                           <FileText size={22} aria-hidden="true" />
-                          <strong>No notes yet</strong>
+                          <strong>No biography yet</strong>
                         </div>
                       )}
                     </section>
                   )}
                 </div>
               </section>
+
+              {profile && <NotesSection entityType="family_tree_person" entityId={profile.id} />}
             </div>
           );
         })()}
