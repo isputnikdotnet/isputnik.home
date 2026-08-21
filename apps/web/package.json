@@ -1,7 +1,7 @@
 {
   "name": "@isputnik/web",
   "private": true,
-  "version": "3.11.1",
+  "version": "3.12.0",
   "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
@@ -14,9 +14,9 @@
   },
   "dependencies": {
     "@simplewebauthn/browser": "^13.3.0",
-    "@svg-maps/world": "^2.0.0",
     "@vitejs/plugin-react": "^6.0.5",
     "chart.js": "^4.5.1",
+    "country-flag-emoji-polyfill": "^0.1.10",
     "dompurify": "^3.4.13",
     "idb": "^7.1.1",
     "leaflet": "^1.9.4",
@@ -29,6 +29,7 @@
     "vite": "^8.2.1"
   },
   "devDependencies": {
+    "@svg-maps/world": "^2.0.0",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.4",

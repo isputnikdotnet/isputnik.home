@@ -4,7 +4,7 @@ import { useState, useEffect, startTransition } from "react";
 // groups they hang off are described in features/control/nav.ts.
 export type ControlSection =
   // Overview
-  | "dashboard" | "stats" | "tasks" | "logs"
+  | "dashboard" | "stats" | "tasks" | "logs" | "signins"
   // Library
   | "libraries" | "storage" | "categories" | "tags"
   // Members
@@ -27,6 +27,9 @@ export const CONTROL_PATHS: Record<ControlSection, string> = {
   stats: "/control/overview/statistics",
   tasks: "/control/overview/tasks",
   logs: "/control/overview/logs",
+  // The drill-down behind the Dashboard's login views: scope arrives in the
+  // query string (?country=, ?ip=, ?user=), so one address covers every dive.
+  signins: "/control/overview/sign-ins",
 
   libraries: "/control/libraries",
   storage: "/control/libraries/storage",

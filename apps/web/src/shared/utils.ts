@@ -14,6 +14,18 @@ export function countryName(code: string | null | undefined): string | null {
   }
 }
 
+/**
+ * ISO 3166-1 alpha-2 → the flag emoji ("NL" → 🇳🇱), or "" for anything that isn't
+ * a plain two-letter code. The pair of regional-indicator codepoints is what
+ * every platform's emoji font keys flags on; render it inside a `country-flag`
+ * span, which carries the bundled flag font for platforms (Windows) whose system
+ * fonts draw the letters instead of a flag.
+ */
+export function countryFlag(code: string | null | undefined): string {
+  if (!code || !/^[a-zA-Z]{2}$/.test(code)) return "";
+  return String.fromCodePoint(...[...code.toUpperCase()].map((letter) => 0x1f1a5 + letter.charCodeAt(0)));
+}
+
 export function formatManagedDate(value: string) {
   return new Intl.DateTimeFormat(undefined, {
     dateStyle: "medium",

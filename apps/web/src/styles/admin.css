@@ -631,11 +631,14 @@ span.status-metric-icon {
   font-size: 0.78rem;
 }
 
-/* The Locations map. Country shapes come from a bundled path set, so this is
-   plain SVG with no tiles, no external requests and no canvas: shading is five
-   steps of the mint accent, because on a family server one country holds nearly
-   every connection and a continuous ramp would flatten all the others to nothing. */
-.world-map {
+/* The Locations map (features/control/sections/dashboard/LocationsMap.tsx).
+   A Leaflet map over OSM tiles, like the gallery's — pan, zoom and real
+   geography instead of the flat SVG choropleth this replaced. Connections are
+   bubbles: five steps of the mint accent, because on a family server one country
+   holds nearly every connection and a continuous ramp would flatten the rest to
+   nothing. Colours are set here rather than through Leaflet's options so the map
+   follows the theme; CSS beats the presentation attributes Leaflet writes. */
+.locations-map {
   display: grid;
   gap: 8px;
   padding: 12px;
@@ -644,91 +647,87 @@ span.status-metric-icon {
   background: var(--surface);
 }
 
-.world-map svg {
-  display: block;
-  width: 100%;
-  height: auto;
-  max-height: 420px;
+/* z-index:0 confines Leaflet's internal stacking (tiles, controls, tooltips)
+   below the control panel's modals, same as the gallery map does. */
+.locations-map-canvas {
+  position: relative;
+  z-index: 0;
+  height: 460px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: var(--active);
 }
 
-.world-map-country {
-  fill: var(--active);
-  stroke: var(--line);
-  stroke-width: 0.5;
-  transition: fill 0.12s;
+@media (max-width: 740px) {
+  .locations-map-canvas { height: 320px; }
 }
 
-.world-map-country.step-1 { fill: color-mix(in srgb, var(--mint) 28%, var(--surface)); }
-.world-map-country.step-2 { fill: color-mix(in srgb, var(--mint) 48%, var(--surface)); }
-.world-map-country.step-3 { fill: color-mix(in srgb, var(--mint) 70%, var(--surface)); }
-.world-map-country.step-4 { fill: var(--mint); }
+/* The lazy chunk's placeholder: an empty box the same height, so the page
+   doesn't jump when Leaflet arrives. */
+.locations-map--loading {
+  min-height: 460px;
+}
 
-.world-map-country[role="button"] {
+/* A country, standing at the centre of its largest landmass. */
+.locations-map-country {
+  fill: var(--mint);
+  fill-opacity: 0.75;
+  stroke: var(--surface);
+  stroke-width: 1.5;
   cursor: pointer;
+  transition: fill-opacity 0.12s;
 }
 
-.world-map-country[role="button"]:hover,
-.world-map-country.is-selected {
+.locations-map-country.step-1 { fill-opacity: 0.34; }
+.locations-map-country.step-2 { fill-opacity: 0.5; }
+.locations-map-country.step-3 { fill-opacity: 0.66; }
+.locations-map-country.step-4 { fill-opacity: 0.85; }
+
+.locations-map-country:hover,
+.locations-map-country.is-selected {
+  fill-opacity: 1;
   stroke: var(--ink);
-  stroke-width: 1.2;
+  stroke-width: 2;
 }
 
-.world-map-country:focus-visible {
-  outline: 2px solid var(--mint);
+/* A town or city, plotted from its own coordinates. Gold against the mint, so a
+   town never reads as one of the country bubbles. */
+.locations-map-town {
+  fill: var(--gold);
+  fill-opacity: 0.85;
+  stroke: var(--surface);
+  stroke-width: 1.2;
+  cursor: pointer;
+  transition: fill-opacity 0.12s;
+}
+
+.locations-map-town:hover,
+.locations-map-town.is-selected {
+  fill-opacity: 1;
+  stroke: var(--ink);
+  stroke-width: 2;
 }
 
 /* Home. A ring rather than a filled dot, so it reads as a marker the household
    placed rather than a measurement the database made. */
-.world-map-home circle {
-  fill: none;
-  stroke: var(--mint);
-  stroke-width: 2;
+.locations-map-home {
+  background: transparent;
+  border: 0;
 }
 
-.world-map-home .world-map-home-core {
-  fill: var(--mint);
-  stroke: none;
-}
-
-.world-map-scale-home::before {
-  content: '';
-  display: inline-block;
-  width: 9px;
-  height: 9px;
-  margin-right: 5px;
+.locations-map-home-ring {
+  display: block;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
   border: 2px solid var(--mint);
-  border-radius: 50%;
-  vertical-align: -1px;
+  background:
+    radial-gradient(circle at center, var(--mint) 0 3.5px, transparent 3.5px);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.45);
 }
 
-/* A town or city, plotted from its coordinates. Gold against the mint shading,
-   so a dot never reads as part of the country fill under it. */
-.world-map-dot {
-  fill: var(--gold);
-  fill-opacity: 0.85;
-  stroke: var(--surface);
-  stroke-width: 0.8;
-  cursor: pointer;
-}
-
-.world-map-dot:hover,
-.world-map-dot.is-selected {
-  fill-opacity: 1;
-  stroke: var(--ink);
-}
-
-.world-map-scale-dot::before {
-  content: '';
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  margin-right: 5px;
-  border-radius: 50%;
-  background: var(--gold);
-  vertical-align: -1px;
-}
-
-.world-map-scale {
+.locations-map-scale {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -737,17 +736,185 @@ span.status-metric-icon {
   font-size: 0.76rem;
 }
 
-.world-map-swatch {
+.locations-map-scale-home::before,
+.locations-map-scale-town::before,
+.locations-map-scale-country::before {
+  content: '';
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 5px;
+  border-radius: 50%;
+  vertical-align: -1px;
+}
+
+.locations-map-scale-home::before { border: 2px solid var(--mint); }
+.locations-map-scale-town::before { background: var(--gold); }
+.locations-map-scale-country::before { background: var(--mint); }
+
+.locations-map-swatch {
   width: 18px;
   height: 10px;
   border-radius: 2px;
   border: 1px solid var(--line);
+  background: var(--mint);
 }
 
-.world-map-swatch.step-1 { background: color-mix(in srgb, var(--mint) 28%, var(--surface)); }
-.world-map-swatch.step-2 { background: color-mix(in srgb, var(--mint) 48%, var(--surface)); }
-.world-map-swatch.step-3 { background: color-mix(in srgb, var(--mint) 70%, var(--surface)); }
-.world-map-swatch.step-4 { background: var(--mint); }
+.locations-map-swatch.step-1 { background: color-mix(in srgb, var(--mint) 34%, var(--surface)); }
+.locations-map-swatch.step-2 { background: color-mix(in srgb, var(--mint) 50%, var(--surface)); }
+.locations-map-swatch.step-3 { background: color-mix(in srgb, var(--mint) 66%, var(--surface)); }
+.locations-map-swatch.step-4 { background: var(--mint); }
+
+/* What the map could and couldn't place, under it. */
+.locations-map-caption {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.locations-map-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* A country's flag in front of its name. The named font exists for Windows,
+   whose system fonts draw two letters where every other platform draws a flag —
+   it holds nothing but flag glyphs (injected by the polyfill only when needed),
+   so elsewhere the native emoji falls through unchanged. */
+.country-flag {
+  font-family: "Twemoji Country Flags", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+  font-style: normal;
+  font-size: 1.45em;
+  line-height: 1;
+}
+
+/* The leading cell of the Locations tables: flag standing beside the stacked
+   name and detail line, centred against both. */
+.location-cell {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+
+/* Count first, then its share of the table's biggest row as a bar — the number
+   is the fact, the bar is how it compares without reading the whole column. */
+.conn-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 150px;
+}
+
+.conn-count {
+  min-width: 3ch;
+  font-variant-numeric: tabular-nums;
+}
+
+.conn-track {
+  flex: 1;
+  max-width: 150px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--active);
+  overflow: hidden;
+}
+
+.conn-fill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--mint);
+}
+
+/* Share of attempts that failed, as a glance: green only for a clean record,
+   amber for any failures, red once a fifth of the attempts are failing. */
+.rate-pill {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 7px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.rate-pill.rate-good {
+  color: var(--mint);
+  background: color-mix(in srgb, var(--mint) 12%, transparent);
+}
+
+.rate-pill.rate-warn {
+  color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 13%, transparent);
+}
+
+.rate-pill.rate-bad {
+  color: var(--rose);
+  background: color-mix(in srgb, var(--rose) 13%, transparent);
+}
+
+/* The arrow at the end of a row — the door to that place's sign-in details. */
+.locations-table .locations-row-action {
+  width: 44px;
+  text-align: right;
+}
+
+/* Sign-in details (Overview › Sign-ins): the scope line above the numbers says
+   what everything below describes — one chip, cleared with its ✕. */
+.signins-scope-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.signins-scope-label {
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.signins-scope-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px 4px 12px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--mint) 40%, var(--line));
+  background: color-mix(in srgb, var(--mint) 10%, transparent);
+  font-weight: 600;
+}
+
+.signins-scope-chip.is-everything {
+  padding: 4px 12px;
+  border-color: var(--line);
+  background: var(--active);
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.signins-scope-note {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+/* Pushes the Filter button to the row's far end without floating it. */
+.signins-scope-spacer {
+  flex: 1;
+}
+
+.signins-filter-hint {
+  margin: -6px 0 0;
+  font-size: 0.82rem;
+}
+
+.signins-device-icon {
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
 
 /* Headline KPI cards (shared/KpiCard): a tinted icon, the number with its
    change badge, and one line of context. Same badge idiom as Security's overview

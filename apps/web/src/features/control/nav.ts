@@ -49,6 +49,7 @@ export const CONTROL_GROUPS: ControlGroupDef[] = [
     icon: Activity,
     tabs: [
       { section: "dashboard", label: "Dashboard" },
+      { section: "signins", label: "Sign-ins" },
       { section: "stats", label: "Statistics" },
       { section: "tasks", label: "Tasks" },
       { section: "logs", label: "Logs" }
