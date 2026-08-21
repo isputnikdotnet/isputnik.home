@@ -147,6 +147,12 @@ export interface GalleryStats {
 
 export interface SystemStatus {
   health: string;
+  version: string;
+  /** Node.js version string, e.g. "v24.16.0". */
+  runtime: string;
+  memory: { rssBytes: number; heapUsedBytes: number; heapTotalBytes: number };
+  /** The volume the database lives on; null when the platform can't measure it. */
+  disk: { path: string; freeBytes: number; totalBytes: number } | null;
   databaseBytes: number;
   users: number;
   activeSessions: number;

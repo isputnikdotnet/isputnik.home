@@ -26,8 +26,7 @@ export interface ControlSearchEntry {
 // Extra search terms for the tab pages themselves.
 const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
   signins: "sign-in details login analytics drill down dive connection ip address country city user person failed attempts blocked scanner probes guessed names sessions devices displays phones tablets computers signed in until expires registered revoke sign out logout tokens linked tv display",
-  stats: "statistics numbers counts totals audiobook ebook gallery top authors narrators formats largest biggest",
-  dashboard: "system health cpu memory uptime version disk database sqlite integrity activity trends charts graphs logins uploads downloads deletes played read viewed logins by method ip address recent logins in progress playback reading",
+  dashboard: "system health cpu memory uptime version disk free space database sqlite activity trends charts graphs logins uploads downloads deletes played read viewed in progress playback reading libraries statistics stats numbers counts totals audiobook ebook gallery top authors narrators formats storage",
   tasks: "jobs job log scan progress worker queue running failed history",
   logs: "activity audit trail events sign-in history retention prune clear",
 
@@ -64,8 +63,13 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
 
 // Settings that live inside a page. `section` is where they are; search takes
 // you to that tab and the setting is on it.
-const SETTING_ENTRIES: { title: string; section: ControlSection; keywords: string }[] = [
-  { title: "Database size & integrity", section: "dashboard", keywords: "sqlite wal vacuum bytes" },
+// `query` lands inside a page that keeps views in its query string (the
+// Dashboard's tabs), so a search hit opens the right view, not the page's first.
+const SETTING_ENTRIES: { title: string; section: ControlSection; keywords: string; query?: string }[] = [
+  { title: "System health", section: "dashboard", query: "view=system", keywords: "sqlite wal database size bytes memory uptime free disk space version node last backup" },
+  { title: "Library statistics", section: "dashboard", query: "view=libraries", keywords: "statistics stats numbers counts totals audiobook ebook gallery photos videos top authors narrators formats storage on disk biggest library" },
+  { title: "Activity", section: "dashboard", query: "view=activity", keywords: "uploads downloads deletes played read viewed in progress content activity playback reading charts" },
+  { title: "Locations map", section: "dashboard", query: "view=locations", keywords: "map countries towns cities where sign-ins came from geoip home location" },
   { title: "Log retention", section: "logs", keywords: "keep days delete old activity prune" },
   { title: "Thumbnail storage", section: "storage", keywords: "thumbnails cache folder path move" },
   { title: "Library containers", section: "storage", keywords: "approved allowed root folders mount" },
@@ -126,7 +130,7 @@ export const CONTROL_SEARCH_ENTRIES: ControlSearchEntry[] = [
     id: `setting:${index}`,
     title: entry.title,
     breadcrumb: breadcrumbFor(entry.section),
-    href: sectionHref(entry.section),
+    href: entry.query ? `${sectionHref(entry.section)}?${entry.query}` : sectionHref(entry.section),
     section: entry.section,
     keywords: entry.keywords
   }))

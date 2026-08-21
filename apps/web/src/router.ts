@@ -4,7 +4,7 @@ import { useState, useEffect, startTransition } from "react";
 // groups they hang off are described in features/control/nav.ts.
 export type ControlSection =
   // Overview
-  | "dashboard" | "stats" | "tasks" | "logs" | "signins"
+  | "dashboard" | "tasks" | "logs" | "signins"
   // Library
   | "libraries" | "storage" | "categories" | "tags"
   // Members
@@ -24,7 +24,6 @@ export type ControlSection =
 // jump straight to a setting.
 export const CONTROL_PATHS: Record<ControlSection, string> = {
   dashboard: "/control/overview",
-  stats: "/control/overview/statistics",
   tasks: "/control/overview/tasks",
   logs: "/control/overview/logs",
   // The drill-down behind the Dashboard's login views: scope arrives in the
@@ -79,15 +78,17 @@ const CONTROL_ALIASES: Record<string, ControlSection> = {
   // group's former landing tab) and taking over the group's root address.
   "/control/overview/dashboard": "dashboard",
 
-  // The per-media-type stat pages are one Statistics page with a type switch now.
-  "/control/status/audiobook-stats": "stats",
-  "/control/status/stats": "stats",
-  "/control/status/ebook-stats": "stats",
-  "/control/status/ebooks-stats": "stats",
-  "/control/status/gallery-stats": "stats",
-  "/control/status/galleries-stats": "stats",
-  "/control/library/stats": "stats",
-  "/control/libraries/stats": "stats",
+  // The per-media-type stat pages became one Statistics page, which became the
+  // Dashboard's Libraries view. DashboardSection reads these paths to pick it.
+  "/control/overview/statistics": "dashboard",
+  "/control/status/audiobook-stats": "dashboard",
+  "/control/status/stats": "dashboard",
+  "/control/status/ebook-stats": "dashboard",
+  "/control/status/ebooks-stats": "dashboard",
+  "/control/status/gallery-stats": "dashboard",
+  "/control/status/galleries-stats": "dashboard",
+  "/control/library/stats": "dashboard",
+  "/control/libraries/stats": "dashboard",
 
   "/control/libraries/tasks": "tasks",
   "/control/libraries/jobs": "tasks",

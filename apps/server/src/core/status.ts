@@ -21,6 +21,25 @@ function databaseSize() {
   ), 0);
 }
 
+// Free space on the volume the database lives on — for a media server the one
+// number that turns a quiet evening into a full disk. Measured, not configured:
+// statfs on the data directory answers for whatever is actually mounted there.
+// Null when the platform can't say (an exotic mount, a read-only filesystem),
+// which the page shows as unknown rather than as zero.
+function dataDisk(): { path: string; freeBytes: number; totalBytes: number } | null {
+  const directory = path.dirname(config.dbPath);
+  try {
+    const stats = fs.statfsSync(directory);
+    return {
+      path: directory,
+      freeBytes: Number(stats.bavail) * Number(stats.bsize),
+      totalBytes: Number(stats.blocks) * Number(stats.bsize)
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function statusPlugin(app: FastifyInstance) {
   app.get("/api/status", { preHandler: app.requireAdmin }, async () => {
     const users = db.prepare("SELECT COUNT(*) AS count FROM users WHERE deleted_at IS NULL").get() as { count: number };
@@ -34,9 +53,14 @@ export async function statusPlugin(app: FastifyInstance) {
     `).get() as { count: number };
     const events = db.prepare("SELECT COUNT(*) AS count FROM activity_logs").get() as { count: number };
 
+    const memory = process.memoryUsage();
     return {
       status: {
         health: "Operational",
+        version: config.version,
+        runtime: process.version,
+        memory: { rssBytes: memory.rss, heapUsedBytes: memory.heapUsed, heapTotalBytes: memory.heapTotal },
+        disk: dataDisk(),
         databaseBytes: databaseSize(),
         users: users.count,
         activeSessions: sessions.count,

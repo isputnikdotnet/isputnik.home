@@ -269,7 +269,7 @@ export function SignInsSection() {
   const failShare = data && data.totals.attempts > 0 ? Math.round((data.totals.failed / data.totals.attempts) * 100) : 0;
 
   return (
-    <div className="status-stack signins-page">
+    <div className="status-stack compact-tables">
       <ControlSectionHead
         section="signins"
         icon={<Fingerprint size={30} />}
