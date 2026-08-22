@@ -145,6 +145,16 @@ describe("gallery folder-name search", () => {
     expect(searchGalleryFolders([], "beach", 100)).toEqual({ folders: [], total: 0 });
   });
 
+  it("never offers a file as a folder", async () => {
+    // folder_path is the file's own path, so the last segment is a file name —
+    // searching "mp4" (or "a.jpg") must not surface it as a folder that opens empty.
+    await ingestGalleryAsset("GAL", asset("2019/beach/clip.mp4", 0), false);
+    await ingestGalleryAsset("GAL", asset("root.mp4", 0), false);
+    expect(searchGalleryFolders(["GAL"], "mp4", 100)).toEqual({ folders: [], total: 0 });
+    expect(searchGalleryFolders(["GAL"], "a.jpg", 100)).toEqual({ folders: [], total: 0 });
+    expect(searchGalleryFolders(["GAL"], "beach", 100).folders[0].assetCount).toBe(2);
+  });
+
   it("caps the list but reports the true total", () => {
     const result = searchGalleryFolders(["GAL"], "day", 1);
     expect(result.folders).toHaveLength(1);
