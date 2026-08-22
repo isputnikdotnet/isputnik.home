@@ -14,7 +14,7 @@ import { db } from "../src/db.js";
 import { hashPassword } from "../src/crypto.js";
 import { registerAuthDecorators } from "../src/auth.js";
 import { socialPlugin } from "../src/modules/social/routes.js";
-import { grant, makeLibrary, resetDb } from "./helpers/seed.js";
+import { grant, makeLibrary, pastIso, resetDb } from "./helpers/seed.js";
 
 // "Send to" is a POINTER, not a copy, and the recipient opens it with their own
 // access. Everything below is a way of asking whether that promise holds: the
@@ -702,5 +702,118 @@ describe("a slideshow is scoped like an album, not open to everyone", () => {
     // no cover at all rather than that one. Dad, who can see it, does.
     expect(asDad.json().subject.coverUrl).toContain("secret");
     expect(asMom.json().subject.coverUrl).toBeNull();
+  });
+});
+
+describe("an album is scoped by its photos too", () => {
+  // The slideshow leak had an album-shaped twin waiting: the same three branches
+  // decide whether an album is describable, and two of them had no test at all —
+  // disabling the creator branch, or the granted-album count, broke nothing.
+  // Each of these fails if its branch is removed; that was checked by removing
+  // them one at a time rather than assumed.
+  function makePrivatePhoto(itemId: string): void {
+    if (!db.prepare("SELECT 1 FROM libraries WHERE id = 'lib-private'").get()) {
+      makeLibrary("lib-private", { createdBy: "dad", type: "gallery", ownerId: "dad", ownerType: "user" });
+      grant("user", "dad", "lib-private", "viewer");
+    }
+    db.prepare("INSERT INTO library_items (id, library_id, type, folder_path) VALUES (?, 'lib-private', 'gallery', ?)")
+      .run(itemId, `/src/lib-private/${itemId}.jpg`);
+    db.prepare("INSERT INTO item_metadata (item_id, title, cover_storage_key) VALUES (?, ?, ?)")
+      .run(itemId, itemId, `cover/${itemId}.webp`);
+  }
+
+  function makeAlbumOf(albumId: string, createdBy: string, itemIds: string[]): void {
+    db.prepare("INSERT INTO gallery_albums (id, name, created_by) VALUES (?, 'Anniversary', ?)")
+      .run(albumId, createdBy);
+    itemIds.forEach((itemId, index) => {
+      db.prepare("INSERT INTO gallery_album_items (album_id, item_id, position) VALUES (?, ?, ?)")
+        .run(albumId, itemId, index);
+    });
+  }
+
+  const destinations = async (session: string, albumId = "alb-1") =>
+    app.inject({
+      method: "GET",
+      url: `/api/social/destinations?entityType=gallery_album&entityId=${albumId}`,
+      headers: { cookie: session }
+    });
+
+  it("hides it entirely from somebody who can see none of its photos", async () => {
+    await makeMember("dad");
+    await makeMember("mom");
+    makePrivatePhoto("secret");
+    makeAlbumOf("alb-1", "dad", ["secret"]);
+
+    // Not an unavailable row carrying the album's name — nothing at all, the same
+    // answer the album's own detail route gives.
+    expect((await destinations(await signIn("mom"))).statusCode).toBe(404);
+  });
+
+  it("still shows the creator their own album when none of it is visible", async () => {
+    await makeMember("dad");
+    await makeMember("boss", "admin");
+    // An album with no items at all: visible_count is 0 for everyone, and only
+    // the creator/admin branch can rescue it.
+    makeAlbumOf("alb-1", "dad", []);
+
+    expect((await destinations(await signIn("dad"))).statusCode).toBe(200);
+    expect((await destinations(await signIn("boss"))).statusCode).toBe(200);
+  });
+
+  it("shows a granted album whole, including photos the recipient cannot browse", async () => {
+    await makeMember("dad");
+    await makeMember("mom");
+    makePrivatePhoto("secret-1");
+    makePrivatePhoto("secret-2");
+    makeAlbumOf("alb-1", "dad", ["secret-1", "secret-2"]);
+
+    await app.inject({
+      method: "POST",
+      url: "/api/social/recommendations",
+      headers: { cookie: await signIn("dad") },
+      payload: { entityType: "gallery_album", entityId: "alb-1", toUserIds: ["mom"], grantAccess: true }
+    });
+
+    // Mom can browse no gallery library at all, so every count she could compute
+    // from library access is 0. The grant is what makes the album whole for her —
+    // that is the difference between "shared with you" and "you happen to see one
+    // of its photos".
+    const response = await destinations(await signIn("mom"));
+    expect(response.statusCode).toBe(200);
+    expect(response.json().subject).toMatchObject({ subtitle: "2 photos" });
+    expect(response.json().subject.coverUrl).toContain("secret-1");
+  });
+
+  it("stops showing it once the grant is revoked", async () => {
+    await makeMember("dad");
+    await makeMember("mom");
+    makePrivatePhoto("secret");
+    makeAlbumOf("alb-1", "dad", ["secret"]);
+    await app.inject({
+      method: "POST",
+      url: "/api/social/recommendations",
+      headers: { cookie: await signIn("dad") },
+      payload: { entityType: "gallery_album", entityId: "alb-1", toUserIds: ["mom"], grantAccess: true }
+    });
+    expect((await destinations(await signIn("mom"))).statusCode).toBe(200);
+
+    db.prepare("UPDATE shares SET revoked_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')").run();
+    expect((await destinations(await signIn("mom"))).statusCode).toBe(404);
+  });
+
+  it("ignores a grant that has expired", async () => {
+    await makeMember("dad");
+    await makeMember("mom");
+    makePrivatePhoto("secret");
+    makeAlbumOf("alb-1", "dad", ["secret"]);
+    await app.inject({
+      method: "POST",
+      url: "/api/social/recommendations",
+      headers: { cookie: await signIn("dad") },
+      payload: { entityType: "gallery_album", entityId: "alb-1", toUserIds: ["mom"], grantAccess: true }
+    });
+
+    db.prepare("UPDATE shares SET expires_at = ?").run(pastIso());
+    expect((await destinations(await signIn("mom"))).statusCode).toBe(404);
   });
 });
