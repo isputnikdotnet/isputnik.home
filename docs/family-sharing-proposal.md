@@ -238,7 +238,7 @@ All three surfaces are wired, and each shows only the destinations that apply:
 | Audiobook detail | yes | curator | — | yes |
 | Gallery lightbox | yes | curator | — | yes |
 | Gallery album | yes | its creator / admin | — | yes |
-| Gallery slideshow | yes | — (all can play) | — | — |
+| Gallery slideshow | yes | — (no slideshow share exists) | — | — |
 | Family-tree person | yes | — (all can read) | — | — |
 
 Albums and slideshows needed **addresses** before they could be sent — both were
@@ -255,11 +255,32 @@ to you is already permanently in Shared with me. So their cards show a single
 **Done** instead of Favorite / Not now, which also reads better: "Not now" is the
 wrong word once you have looked at the thing.
 
-A bug the album tests caught, worth recording: the album resolver first judged
-visibility only by library access, so somebody granted an album still could not
-open it — a grant does not widen library access, it grants the album. Three ways
-an album can be visible, and all three are now in the hydrator: a photo you can
-browse, it is yours, or you were granted it.
+Two bugs caught here, both worth recording.
+
+**The album resolver first judged visibility by library access alone**, so
+somebody granted an album still could not open it — a grant does not widen
+library access, it grants the album. Three ways an album can be visible, and all
+three are now in the hydrator: a photo you can browse, it is yours, or you were
+granted it.
+
+**The slideshow resolver leaked.** This document, the first hydrator and the
+first changelog entry all said a slideshow was open to every signed-in account,
+"like the family tree". That was simply wrong, and reviewing the claim is what
+turned it up: `listSlideshows()` scopes them by visible photos exactly like
+albums, and the detail route says so outright — *"a member who can't see any of
+the items shouldn't learn the slideshow exists"*. The hydrator was describing
+every slideshow to every account: its name, its photo count, and a cover
+thumbnail of a photo the viewer had no access to.
+
+It now mirrors the real rule. The first version of the test missed it, which is
+the more useful lesson: the slideshow in that test had no items and the household
+had one member, so `[].every(...)` passed against a broken hydrator. The
+replacement seeds a slideshow whose only photo is in a library the second member
+cannot browse, and was checked by restoring the bug and watching three cases fail.
+
+What remains true is that a slideshow cannot be **granted** — there is no
+slideshow share of any kind — which is why it is send-only rather than
+send-and-give.
 
 On the book detail page and the gallery lightbox this **replaced** the separate
 "Share" action; on books it replaced "Send to e-reader" as well. Choosing

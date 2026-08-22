@@ -36,8 +36,9 @@ import { notifyRecommendationSent } from "./notify.js";
 const LIBRARY_ITEM_TYPES = new Set(["audiobook", "ebook", "gallery"]);
 
 // Which subjects have access that CAN be widened, and how. A slideshow is absent
-// on purpose: every signed-in account can already play every one of them, so
-// there is nothing to grant. A family-tree person likewise.
+// because no slideshow share exists — it is scoped by the photos in it, like an
+// album, but there is no mechanism to hand one over. A family-tree person is
+// absent because every signed-in account can already read the tree.
 type Grantable = "item" | "album";
 const GRANTABLE: Record<string, Grantable> = {
   audiobook: "item",

@@ -346,43 +346,69 @@ function makeAlbumHydrator(): Hydrator {
 interface SlideshowRow {
   id: string;
   name: string;
-  item_count: number;
+  created_by: string;
+  visible_count: number;
   cover_key: string | null;
 }
 
-// A slideshow is a way of PRESENTING photos, and has no access model of its own:
-// any signed-in account can already list and play every one of them, like the
-// family tree. So there is nothing to grant here and nothing to check — sending
-// one is purely "watch this".
-const hydrateSlideshows: Hydrator = (entityIds) => {
+// A slideshow is scoped exactly like an album, and an earlier version of this
+// hydrator got that wrong: it described EVERY slideshow to EVERY account, which
+// leaked the name and a cover thumbnail of photos the viewer had no access to.
+// The real rule is listSlideshows() and the detail route, which is explicit
+// about it — "a member who can't see any of the items shouldn't learn the
+// slideshow exists" — so this mirrors them: visible when at least one of its
+// photos is in a library you can browse, or it is yours.
+//
+// What a slideshow does NOT have is a grant. There is no slideshow share, so
+// nobody can widen access to one; that is why it is send-only rather than
+// send-and-give.
+const hydrateSlideshows: Hydrator = (entityIds, user) => {
   const result = new Map<string, HydratedEntity>();
   if (entityIds.length === 0) return result;
 
+  const libIds = [...accessibleLibraryIds(user.id, user.role, "gallery")];
+  // No accessible gallery libraries still leaves creators/admins their own, so
+  // query with a never-matching placeholder rather than bailing.
+  const libArgs = libIds.length > 0 ? libIds : [""];
+  const libIn = libArgs.map(() => "?").join(", ");
   const idIn = entityIds.map(() => "?").join(", ");
+
   const rows = db.prepare(`
     SELECT
       gallery_slideshows.id,
       gallery_slideshows.name,
+      gallery_slideshows.created_by,
       (SELECT COUNT(*) FROM gallery_slideshow_items
-        WHERE gallery_slideshow_items.slideshow_id = gallery_slideshows.id) AS item_count,
-      (SELECT item_metadata.cover_storage_key FROM gallery_slideshow_items
         JOIN library_items ON library_items.id = gallery_slideshow_items.item_id AND library_items.deleted_at IS NULL
-        JOIN item_metadata ON item_metadata.item_id = library_items.id
         WHERE gallery_slideshow_items.slideshow_id = gallery_slideshows.id
-          AND item_metadata.cover_storage_key IS NOT NULL
-        ORDER BY gallery_slideshow_items.position LIMIT 1) AS cover_key
+          AND library_items.library_id IN (${libIn})) AS visible_count,
+      COALESCE(
+        (SELECT item_metadata.cover_storage_key FROM library_items
+          JOIN item_metadata ON item_metadata.item_id = library_items.id
+          WHERE library_items.id = gallery_slideshows.cover_item_id AND library_items.deleted_at IS NULL
+            AND library_items.library_id IN (${libIn})),
+        (SELECT item_metadata.cover_storage_key FROM gallery_slideshow_items
+          JOIN library_items ON library_items.id = gallery_slideshow_items.item_id AND library_items.deleted_at IS NULL
+          JOIN item_metadata ON item_metadata.item_id = library_items.id
+          WHERE gallery_slideshow_items.slideshow_id = gallery_slideshows.id
+            AND library_items.library_id IN (${libIn})
+            AND item_metadata.cover_storage_key IS NOT NULL
+          ORDER BY gallery_slideshow_items.position LIMIT 1)
+      ) AS cover_key
     FROM gallery_slideshows
     WHERE gallery_slideshows.id IN (${idIn})
-  `).all(...entityIds) as SlideshowRow[];
+  `).all(...libArgs, ...libArgs, ...libArgs, ...entityIds) as SlideshowRow[];
 
   for (const row of rows) {
+    const mine = user.role === "admin" || row.created_by === user.id;
+    if (row.visible_count === 0 && !mine) continue;
     result.set(row.id, {
       available: true,
       title: row.name,
-      subtitle: `Slideshow · ${row.item_count} ${row.item_count === 1 ? "photo" : "photos"}`,
+      subtitle: `Slideshow · ${row.visible_count} ${row.visible_count === 1 ? "photo" : "photos"}`,
       coverUrl: row.cover_key ? `/api/library/covers/${row.cover_key}` : null,
       durationSeconds: null,
-      fileCount: row.item_count,
+      fileCount: row.visible_count,
       href: `/gallery/slideshows/${row.id}`,
       playable: false
     });

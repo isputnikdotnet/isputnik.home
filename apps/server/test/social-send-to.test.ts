@@ -531,10 +531,9 @@ describe("albums and slideshows", () => {
     });
 
     expect(album.json().guestLink).toBe(true);
-    // A slideshow has no public page to point at, and every signed-in account can
-    // already play it — so there is nothing to link and nothing to grant.
+    // A slideshow has no public page to point at and no share of its own, so it
+    // can be sent but never linked or granted.
     expect(slideshow.json()).toMatchObject({ guestLink: false, canGrant: false });
-    expect((slideshow.json().people as { canOpen: boolean }[]).every((p) => p.canOpen)).toBe(true);
   });
 
   it("grants album access on the way through, using the album's own rule", async () => {
@@ -608,5 +607,100 @@ describe("albums and slideshows", () => {
       headers: { cookie: await signIn("mom") }
     });
     expect(save.statusCode).toBe(400);
+  });
+});
+
+describe("a slideshow is scoped like an album, not open to everyone", () => {
+  // The bug this guards: the first slideshow hydrator described EVERY slideshow
+  // to EVERY account — name, photo count and a cover thumbnail — regardless of
+  // whether the viewer could see any of its photos. listSlideshows and the
+  // detail route are explicit that they must not ("a member who can't see any of
+  // the items shouldn't learn the slideshow exists"), and this now matches them.
+  function makePrivateSlideshow(): void {
+    makeLibrary("lib-private", { createdBy: "dad", type: "gallery", ownerId: "dad", ownerType: "user" });
+    grant("user", "dad", "lib-private", "viewer");
+    db.prepare("INSERT INTO library_items (id, library_id, type, folder_path) VALUES ('secret', 'lib-private', 'gallery', '/src/lib-private/secret.jpg')").run();
+    db.prepare("INSERT INTO item_metadata (item_id, title, cover_storage_key) VALUES ('secret', 'Private moment', 'cover/secret.webp')").run();
+    db.prepare("INSERT INTO gallery_slideshows (id, name, created_by) VALUES ('sl-1', 'Anniversary', 'dad')").run();
+    db.prepare("INSERT INTO gallery_slideshow_items (slideshow_id, item_id, position) VALUES ('sl-1', 'secret', 0)").run();
+  }
+
+  it("hides the name and cover from somebody who can see none of its photos", async () => {
+    await makeMember("dad");
+    await makeMember("mom");
+    makePrivateSlideshow();
+
+    // Mom has no access to lib-private, so the slideshow must not resolve for her
+    // at all — not as an unavailable row carrying its title, not at all.
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/social/destinations?entityType=gallery_slideshow&entityId=sl-1",
+      headers: { cookie: await signIn("mom") }
+    });
+    expect(response.statusCode).toBe(404);
+  });
+
+  it("does not offer it to a family member who could not open it", async () => {
+    await makeMember("dad");
+    await makeMember("mom");
+    makePrivateSlideshow();
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/social/destinations?entityType=gallery_slideshow&entityId=sl-1",
+      headers: { cookie: await signIn("dad") }
+    });
+
+    const body = response.json() as { canGrant: boolean; people: { id: string; canOpen: boolean }[] };
+    expect(body.people.find((p) => p.id === "mom")?.canOpen).toBe(false);
+    // And there is no way to fix that from here: a slideshow has no grant.
+    expect(body.canGrant).toBe(false);
+  });
+
+  it("refuses to send it to somebody who cannot see it, even asking to grant", async () => {
+    await makeMember("dad");
+    await makeMember("mom");
+    makePrivateSlideshow();
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/social/recommendations",
+      headers: { cookie: await signIn("dad") },
+      payload: { entityType: "gallery_slideshow", entityId: "sl-1", toUserIds: ["mom"], grantAccess: true }
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(db.prepare("SELECT COUNT(*) AS n FROM shares").get()).toEqual({ n: 0 });
+    expect(db.prepare("SELECT COUNT(*) AS n FROM recommendations").get()).toEqual({ n: 0 });
+  });
+
+  it("counts only the photos the viewer can see", async () => {
+    await makeMember("dad");
+    await makeMember("mom");
+    makePrivateSlideshow();
+    // One more photo, this time in a library mom can browse.
+    makeLibrary("lib-open", { createdBy: "dad", type: "gallery", ownerId: "dad", ownerType: "user" });
+    grant("user", "dad", "lib-open", "viewer");
+    grant("user", "mom", "lib-open", "viewer");
+    db.prepare("INSERT INTO library_items (id, library_id, type, folder_path) VALUES ('shared', 'lib-open', 'gallery', '/src/lib-open/shared.jpg')").run();
+    db.prepare("INSERT INTO gallery_slideshow_items (slideshow_id, item_id, position) VALUES ('sl-1', 'shared', 1)").run();
+
+    const asDad = await app.inject({
+      method: "GET",
+      url: "/api/social/destinations?entityType=gallery_slideshow&entityId=sl-1",
+      headers: { cookie: await signIn("dad") }
+    });
+    const asMom = await app.inject({
+      method: "GET",
+      url: "/api/social/destinations?entityType=gallery_slideshow&entityId=sl-1",
+      headers: { cookie: await signIn("mom") }
+    });
+
+    expect(asDad.json().subject.subtitle).toBe("Slideshow · 2 photos");
+    expect(asMom.json().subject.subtitle).toBe("Slideshow · 1 photo");
+    // The only photo with a thumbnail is the one mom cannot browse, so she gets
+    // no cover at all rather than that one. Dad, who can see it, does.
+    expect(asDad.json().subject.coverUrl).toContain("secret");
+    expect(asMom.json().subject.coverUrl).toBeNull();
   });
 });

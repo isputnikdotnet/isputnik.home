@@ -53,8 +53,10 @@ Two things about albums specifically:
 The album's own **Share** button still holds the guest link and the list of who
 has access, with a bin to take it back.
 
-**Slideshows** are send-only. Everyone signed in can already play every slideshow,
-so there's nothing to give and no link to make — just *"watch this"*.
+**Slideshows** work the same way as albums for who can see them: whoever can see
+the photos in one can see the slideshow. What they don't have is a way to hand one
+over — there's no such thing as giving somebody a slideshow — so Send to on a
+slideshow only ever offers people who can already watch it. Just *"watch this"*.
 
 Albums and slideshows now have their own web addresses, so you can bookmark one,
 reload it, or open it in a new tab, and the back button behaves.
