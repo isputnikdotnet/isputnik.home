@@ -599,9 +599,19 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
           return (
             <div className="book-detail-view ft-person-detail-view">
               <div className="book-detail-topbar">
-                <a className="audiobook-back-button" href={back} onClick={(event) => followRoute(event, back)}>
+                {/* Icon-only, like a book’s and a photo’s. The app has two back
+                    controls: browse pages carry a labelled “Back”, and item detail
+                    pages with an action topbar carry the icon. This page joined the
+                    second group when its actions moved up. Still an anchor, so
+                    middle-click and open-in-new-tab keep working. */}
+                <a
+                  className="icon-button"
+                  href={back}
+                  onClick={(event) => followRoute(event, back)}
+                  title="Back"
+                  aria-label="Back"
+                >
                   <ArrowLeft size={18} aria-hidden="true" />
-                  <span>Back</span>
                 </a>
                 <span className="library-toolbar-divider" aria-hidden="true" />
                 <div className="book-detail-secondary-actions" aria-label="Person actions">
