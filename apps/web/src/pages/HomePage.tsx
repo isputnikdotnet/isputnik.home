@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { BookOpen, ChevronRight, DownloadCloud, HardDrive, Headphones, Heart, Image as ImageIcon, Loader2, Play, Send } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { recommendationLine } from "../features/social/phrasing";
+import { ActivityList, type ActivityItem } from "../features/social/ActivityList";
 import { api, type PublicUser } from "../api";
 import { DashboardShell } from "../app/DashboardShell";
 import { followRoute, navigate } from "../router";
@@ -300,6 +301,7 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
   const [recentItems, setRecentItems] = useState<FeedItem[] | null>(null);
   const [memories, setMemories] = useState<GalleryMemories | null>(null);
   const [sentToYou, setSentToYou] = useState<SentToYouItem[]>([]);
+  const [activity, setActivity] = useState<ActivityItem[]>([]);
   // The "On this day" lightbox opened from a home tile: the FULL day (every
   // photo, every year, flattened newest-year-first) plus the item currently
   // shown. The home strip itself only carries one cover per year, so opening
@@ -331,6 +333,13 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
   useEffect(() => {
     api<{ items: SentToYouItem[] }>("/api/social/inbox")
       .then((payload) => setSentToYou(payload.items.filter((item) => item.status === "new")))
+      .catch(() => undefined);
+  }, []);
+
+  // What everybody else has been up to. Six is a glance; /activity is the rest.
+  useEffect(() => {
+    api<{ items: ActivityItem[] }>("/api/social/activity?limit=6")
+      .then((payload) => setActivity(payload.items))
       .catch(() => undefined);
   }, []);
 
@@ -598,6 +607,12 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
                 onDownload={setActiveDownload}
                 onToast={showToast}
               />
+            )}
+            {activity.length > 0 && (
+              <section className="home-section" aria-labelledby="home-activity-title">
+                <RowHeader id="home-activity-title" title="Around the house" href="/activity" />
+                <ActivityList items={activity} />
+              </section>
             )}
             {showContinueRow && (
               <FeedRow

@@ -36,3 +36,49 @@ const SHORT: Record<string, string> = {
 export function recommendationVerb(entityType: string): string {
   return SHORT[entityType] ?? "Open";
 }
+
+// ── The activity feed reads as sentences ────────────────────────────────────
+//
+// "Anna left a note on Dune" tells you what happened and invites you in; a
+// title with a badge beside it makes you work it out. The subject's own title
+// is rendered separately by the row, so these are the words around it.
+
+export type ActivityKind = "note" | "album" | "slideshow" | "person";
+
+// The title does not always come last. "Anna left a note on Dune" works with the
+// name at the end; "Dad added to the family tree Grandma" does not — it has to be
+// "Dad added Grandma to the family tree". So a phrase is two halves with the
+// title between them, which the first version got wrong and real data caught the
+// moment the feed was looked at.
+const PHRASES: Record<ActivityKind, { before: string; after: string }> = {
+  note: { before: "left a note on", after: "" },
+  album: { before: "made the album", after: "" },
+  slideshow: { before: "made the slideshow", after: "" },
+  person: { before: "added", after: "to the family tree" }
+};
+
+export interface ActivityPhrase {
+  /** "Anna left a note on" — everything before the title. */
+  before: string;
+  /** "to the family tree", or empty when the title ends the sentence. */
+  after: string;
+}
+
+export function activityPhrase(actorName: string, kind: ActivityKind): ActivityPhrase {
+  const phrase = PHRASES[kind] ?? { before: "did something with", after: "" };
+  return { before: `${actorName} ${phrase.before}`, after: phrase.after };
+}
+
+/** How long ago, in the fewest words that are still true. */
+export function timeAgo(iso: string): string {
+  const then = new Date(iso).getTime();
+  const minutes = Math.floor((Date.now() - then) / 60_000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return "yesterday";
+  if (days < 7) return `${days} days`;
+  return new Date(iso).toLocaleDateString();
+}

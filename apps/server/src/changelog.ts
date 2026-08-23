@@ -36,7 +36,9 @@ export const VERSION_UPDATES: VersionUpdate[] = [
       "The button on a card says where the thing goes: Favorite, not a vague Save that left you wondering. Things with nowhere to be saved to — an album, a slideshow, a person — get a single Done instead, because 'Not now' reads wrong once you have looked at it.",
       "Anything sent to you now shows on the Home page, first, under 'Sent to you' — with the cover, who sent it and what they said. It was previously behind the profile menu under a small dot, which is findable by somebody who already knows it is there and by nobody else. The row disappears when there is nothing waiting.",
       "And it says what is actually being asked. 'Dad wants you to listen to this', 'Mum wants you to see these photos' — read, listen, watch or look, depending on what the thing is, rather than the same 'sent you this' for everything. If they wrote a line, their line is shown instead.",
-      "Send to on a book carries its name beside the icon rather than only in a tooltip. It is the one action in that row somebody has to come across rather than go looking for."
+      "Send to on a book carries its name beside the icon rather than only in a tooltip. It is the one action in that row somebody has to come across rather than go looking for.",
+      "And a second row, Around the house, for what everybody else has been doing — notes left, albums and slideshows made, people added to the family tree — written as sentences rather than cards: 'Anna left a note on Dune', with what she actually wrote underneath. Six on the Home page, the rest on their own page.",
+      "It leaves things out on purpose. Your own doings are not listed, because you know about those and at five people they would crowd out everybody else's. New books and photos are not either — the Recently added row already says that. Anything about a thing you cannot see never appears at all."
     ]
   },
   {

@@ -19,6 +19,7 @@ import {
   Quote,
   Settings,
   Tag,
+  Users,
   UsersRound,
   UserRound
 } from "lucide-react";
@@ -98,6 +99,7 @@ function mainNavItems(active: DashboardActive): MainNavItem[] {
 function userMenuLinks(): UserMenuLink[] {
   return [
     { label: "Shared with me", href: "/shared", icon: UsersRound },
+    { label: "Around the house", href: "/activity", icon: Users },
     { label: "Favorites", href: "/favorites", icon: Heart },
     { label: "Bookmarks", href: "/bookmarks", icon: Bookmark },
     { label: "Quotes", href: "/quotes", icon: Quote },
@@ -110,7 +112,7 @@ function userMenuLinks(): UserMenuLink[] {
 
 // The user-area routes reachable from the Profile drop-up sheet. The Profile
 // tab highlights for any of them (not just /profile itself).
-const PROFILE_ROUTES = ["/profile", "/favorites", "/bookmarks", "/quotes", "/collections", "/shared", "/inbox"];
+const PROFILE_ROUTES = ["/profile", "/favorites", "/bookmarks", "/quotes", "/collections", "/shared", "/inbox", "/activity"];
 
 // Four-tab bottom nav for the installed app / phones: Home, Media, Offline,
 // Profile. "Media" and "Profile" aren't pages — each opens a drop-up sheet:

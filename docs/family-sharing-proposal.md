@@ -1,8 +1,7 @@
 # Family sharing — proposal
 
-Status: **Phases 0, 1 and 2 are BUILT**, and the half of Phase 3 that matters
-("Sent to you" on Home) with it; the wider activity feed and Phase 4 remain
-proposals. Companion to
+Status: **Phases 0 to 3 are BUILT.** Only Phase 4 (ratings) remains a proposal,
+and it is the one that may never be worth building. Companion to
 [sharing.md](sharing.md) and [library-sharing.md](library-sharing.md), which
 describe the guest-link and per-user grants that exist today.
 
@@ -409,7 +408,7 @@ size, and an edit history is a feature this does not want yet.
 
 ---
 
-## Phase 3 — The family row — HALF BUILT
+## Phase 3 — The family row — BUILT
 
 One row on the Home dashboard, reading as sentences:
 
@@ -446,9 +445,35 @@ else. For a household where not everyone is comfortable with computers, that
 made the whole feature theoretical. Deciding still happens on Shared with me —
 the row is a pointer, like every other home row.
 
-The **wider feed** — what everyone has been up to, notes and new photos and tree
-edits — is still a proposal. It is the "nice to know" half; this was the "you
-have something waiting" half.
+The **wider feed** followed as **"Around the house"**: six lines on Home, the
+rest at `/activity`. Written as sentences — *"Anna left a note on Dune"*, with
+her words underneath — because a card with a title and a badge makes the reader
+work out what happened, and a sentence just tells them.
+
+Derived, never stored: a capped `UNION` over `notes`, `gallery_albums`,
+`gallery_slideshows` and `family_tree_persons`, ordered by time, then filtered
+through the resolver. Absence from the resolver **is** the access check — it
+leaves out what you cannot see rather than marking it, and unlike an inbox card
+there is no decision pending on a feed line, so it simply stops being news.
+
+What it leaves out, all deliberately:
+
+- **Your own doings.** You know about those, and at five people they would crowd
+  out everybody else's.
+- **New books and photos.** Home already has a "Recently added" row; a second one
+  saying the same thing in sentences is noise, not information.
+- **Recommendations.** "Dad sent Mum a book" is correspondence between two
+  people; the half that concerns you is already the "Sent to you" row.
+
+Two things worth recording from building it:
+
+- The query **over-fetches by 4×** before filtering, because access filtering
+  happens after the query. Without it a viewer who can see little of the library
+  gets a nearly empty page made of the few rows that survived out of `limit`.
+- The first phrasing put the title last in every sentence, which produced
+  *"Dad added to the family tree Grandma"*. A phrase is two halves with the title
+  between them. Real data caught it the moment the feed was looked at — the unit
+  tests never would have, since they assert structure, not English.
 
 ### The wording came with it
 

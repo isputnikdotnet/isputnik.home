@@ -115,6 +115,17 @@ page clears it, whether or not you've decided about anything on it.
 There is no unread count, and nothing nags. A recommendation you never get to
 just sits there quietly.
 
+## Around the house
+
+The other row on the Home page is what everyone else has been up to: notes
+they've left, albums and slideshows they've made, people they've added to the
+family tree. Tap a line to go to the thing it's about. **Around the house** in
+your menu has the longer list.
+
+Your own doings aren't in it — you already know about those. Neither are new
+books and photos, which have their own **Recently added** row. And nothing
+appears about something you can't open.
+
 ## Notes
 
 Underneath a book, a photo, or a person in the family tree there's a box that
@@ -141,7 +152,18 @@ administrator can remove anyone's note the same way.
 
 Nothing else about the item changes, and nobody is told.
 
-### Notes and the family tree
+### Around the house
+
+The other row on the Home page is what everyone else has been up to: notes
+they've left, albums and slideshows they've made, people they've added to the
+family tree. Tap a line to go to the thing it's about. **Around the house** in
+your menu has the longer list.
+
+Your own doings aren't in it — you already know about those. Neither are new
+books and photos, which have their own **Recently added** row. And nothing
+appears about something you can't open.
+
+## Notes and the family tree
 
 A person's own page has both. The **Biography** tab is their life story, written
 by whoever looks after the tree. The notes underneath are everybody else's —

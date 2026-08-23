@@ -5,6 +5,7 @@ import {
   Home,
   ListMusic,
   Quote,
+  Users,
   UsersRound
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -16,6 +17,7 @@ export type UserAreaSection =
   | "favorites"
   | "bookmarks"
   | "quotes"
+  | "activity"
   | "collections"
   | "shared"
   | "downloads";
@@ -34,6 +36,7 @@ export function UserAreaNav({ active }: { active: UserAreaSection }) {
     { section: "quotes", label: "Quotes", href: "/quotes", icon: Quote },
     { section: "collections", label: "Collections", href: "/collections", icon: ListMusic },
     { section: "shared", label: "Shared with me", href: "/shared", icon: UsersRound },
+    { section: "activity", label: "Around the house", href: "/activity", icon: Users },
     ...(isStandalone() || active === "downloads"
       ? [{ section: "downloads" as const, label: "Downloads", href: "/downloads", icon: DownloadCloud }]
       : [])

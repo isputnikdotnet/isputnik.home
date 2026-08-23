@@ -239,6 +239,7 @@ export type Route =
   | { name: "favorites" }
   | { name: "bookmarks" }
   | { name: "quotes" }
+  | { name: "activity" }
   | { name: "downloads" }
   | { name: "audiobookBook"; id: string }
   | { name: "audiobookPlayer"; id: string }
@@ -462,6 +463,10 @@ export function getRoute(): Route {
 
   if (path === "/quotes") {
     return { name: "quotes" };
+  }
+
+  if (path === "/activity") {
+    return { name: "activity" };
   }
 
   if (path === "/downloads" || path === "/audiobooks/downloads") {
