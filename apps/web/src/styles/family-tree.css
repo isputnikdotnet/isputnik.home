@@ -366,6 +366,84 @@
   white-space: nowrap;
 }
 
+/* What somebody IS to the person whose page this is — Father, Sister, Son.
+   Sits on the detail line beside the dates rather than beside the name, where
+   a 216px card has no room for it. */
+.ft-relation-badge {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--blue) 20%, transparent);
+  color: var(--ink);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  vertical-align: 1px;
+}
+
+/* A branch within a generation: the grandparents that came through one parent,
+   kept together under their name. Two pairs side by side answer "which side of
+   the family" without anybody having to work it out from the surnames. */
+.ft-tree-branch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border: 1px dashed color-mix(in srgb, var(--line) 90%, transparent);
+  border-radius: 12px;
+  min-width: 0;
+}
+
+.ft-tree-branch-label {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 600;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A pair stays a pair: a branch never breaks its two grandparents onto
+   separate lines while the branch beside it keeps them together. Branches wrap
+   between themselves instead, which is the honest break point. */
+.ft-tree-branch-cards {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+/* Narrower than a main-row card so both branches — one per parent — fit across
+   together, which is the whole point of grouping them. */
+.ft-tree-branch .ft-relation-card-wrap {
+  width: 182px;
+}
+
+/* A badge plus a life span will not share one line at this width, and the dates
+   are the half that matters — this family has two Ivan Mikhalchenkos a generation
+   apart, told apart by nothing else. So the line wraps and the card grows,
+   rather than ellipsing the years away. */
+.ft-tree-branch .ft-relation-card-copy small {
+  white-space: normal;
+}
+
+/* On its own line, so a life span never breaks across the dash. */
+.ft-tree-branch .ft-relation-badge {
+  display: block;
+  width: fit-content;
+  margin: 0 0 1px;
+}
+
+.ft-tree-branch .ft-relation-card {
+  align-items: start;
+  padding-top: 7px;
+  padding-bottom: 7px;
+}
+
 /* The person whose page this is. Not a link, and marked so the eye finds the
    middle of the tree without reading any names. */
 .ft-relation-card.is-self {
