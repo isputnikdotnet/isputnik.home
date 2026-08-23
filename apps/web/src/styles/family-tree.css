@@ -292,32 +292,90 @@
   margin-inline: auto;
 }
 
-.ft-family-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 12px;
-  max-width: 420px;
-}
-
-.ft-family-group {
-  display: grid;
-  align-content: start;
-  gap: 6px;
+/* Relationships, drawn as generations rather than as five category lists.
+   Oldest at the top, reading down to the children, with a stem between rows —
+   the shape carries the meaning that "Parents / Siblings / Grandparents" as
+   separate lists cannot. */
+.ft-tree {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  /* One long generation scrolls inside its own row (below), never the page. */
+  max-width: 100%;
   min-width: 0;
 }
 
-.ft-family-group h3 {
+.ft-tree-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+}
+
+/* The stem to the next generation. A pseudo-element rather than a real node,
+   so an empty row can be skipped without leaving a dangling line. */
+.ft-tree-row.has-connector::after {
+  content: "";
+  width: 2px;
+  height: 20px;
+  margin: 4px 0;
+  /* --line is a hairline for dividers; here the stem carries the structure,
+     so it needs to be seen rather than merely not-absent. */
+  background: color-mix(in srgb, var(--muted) 42%, transparent);
+  border-radius: 1px;
+  flex: 0 0 auto;
+}
+
+.ft-tree-row-label {
   margin: 0;
   color: var(--muted);
   font-size: 0.7rem;
   font-weight: 780;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
-.ft-family-card-grid {
+/* Cards sit side by side in a generation. A large family scrolls this row
+   sideways rather than pushing the page wide. */
+.ft-tree-row-cards {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: stretch;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+
+/* The cards were sized for a single-column list (320px each), so in a row only
+   one fitted per line and a "generation" read as another vertical list. Narrower
+   here so a couple of parents or a few children sit side by side, which is the
+   whole point of the shape. */
+.ft-tree-row-cards .ft-relation-card-wrap {
+  width: min(100%, 216px);
+}
+
+/* Long names truncate rather than widening the card past its neighbours. */
+.ft-tree-row-cards .ft-relation-card-copy strong,
+.ft-tree-row-cards .ft-relation-card-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The person whose page this is. Not a link, and marked so the eye finds the
+   middle of the tree without reading any names. */
+.ft-relation-card.is-self {
+  border-color: color-mix(in srgb, var(--gold) 55%, transparent);
+  background: color-mix(in srgb, var(--gold) 10%, transparent);
+  cursor: default;
+}
+
+.ft-relation-card.is-self:hover {
+  border-color: color-mix(in srgb, var(--gold) 55%, transparent);
 }
 
 .ft-relation-card-wrap {
@@ -1845,8 +1903,12 @@
   .ft-form-grid {
     grid-template-columns: 1fr;
   }
-  .ft-family-grid {
-    grid-template-columns: 1fr;
+  /* A generation wraps on a phone rather than scrolling sideways. Scrolling
+     inside the row was tried and abandoned: the row sized itself to its content
+     (888px on a 375px screen) and an ancestor clipped it, so the far cards were
+     hidden with no way to reach them. Wrapping always fits and hides nothing. */
+  .ft-tree-row-cards .ft-relation-card-wrap {
+    width: min(100%, 168px);
   }
 
   .ft-tree-search .ft-picker-search {
