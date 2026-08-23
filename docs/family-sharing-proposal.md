@@ -1,7 +1,8 @@
 # Family sharing — proposal
 
-Status: **Phases 0 to 3 are BUILT.** Only Phase 4 (ratings) remains a proposal,
-and it is the one that may never be worth building. Companion to
+Status: **Phases 0 to 3 are BUILT.** Phase 4 (ratings) remains a proposal and may
+never be worth building; Collections were **closed on 2026-08-23** — no further
+work, see that section. Companion to
 [sharing.md](sharing.md) and [library-sharing.md](library-sharing.md), which
 describe the guest-link and per-user grants that exist today.
 
@@ -507,7 +508,24 @@ phases 1–3 have been live a while.
 
 ---
 
-## Collections: demote, do not delete
+## Collections — CLOSED, leave them alone
+
+**Decided 2026-08-23: no further work on Collections.** Not the "Lists" rename,
+not a visibility flag, not Send to, not the demotion below. They stay exactly as
+they are — private, per-owner, reachable where they always were.
+
+This section is kept because the reasoning still explains why Collections were
+not built on, and why the resolver was harvested out of them. But the open
+recommendation at the end of it is spent: nobody should re-raise this on the
+strength of "zero rows" without a fresh reason from the household.
+
+One thing that WAS done and stands: `hydrators.ts` moved to
+`modules/social/subjects.ts` and Collections now imports it. That is the only
+change this document made to them.
+
+The original argument follows.
+
+### Why they were not built on
 
 The dev database, after collections have been shipped for months:
 
@@ -531,13 +549,18 @@ on screen, which is why they will get used and this did not.
 2. **The valuable code is not the feature** — it is `hydrators.ts`, which Phase 0
    harvests.
 
-So:
+So, at the time:
 
-- **Harvest** the resolver (Phase 0).
-- **Demote** the feature: drop "Add to collection" from item action menus
-  (11 call sites) and from the main nav; keep it reachable from Profile.
-- **Revisit in a major version.** If it is still untouched some months after
-  Phase 3 ships, remove it then with a release note.
+- **Harvest** the resolver (Phase 0). — **done.**
+- **Demote** the feature: drop "Add to collection" from item action menus and
+  from the main nav. — **not done, and now declined.** Collections keep every
+  entry point they had.
+- **Revisit in a major version.** — **closed**, see the decision at the top.
+
+A later draft argued the opposite case — that "unused" was a symptom of
+Collections being private-only rather than proof of no demand, and that a
+visibility flag would be cheap. That argument was fair and is recorded here
+because it was right about the cost. It was simply not wanted.
 
 And note what already replaced it: **tags** (587 rows, polymorphic, in daily
 use), **My List**, and two lists Phase 1 generates for free —
