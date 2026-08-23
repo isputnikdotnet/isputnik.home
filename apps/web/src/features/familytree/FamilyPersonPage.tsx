@@ -332,14 +332,38 @@ function RelationCard({
   );
 }
 
-function FamilyGroup({ title, children, empty = "None recorded" }: { title: string; children: React.ReactNode; empty?: string }) {
-  const hasChildren = Children.toArray(children).filter(Boolean).length > 0;
+// One generation of the little tree on a person's Relationships tab.
+//
+// This used to be FamilyGroup — a labelled grid per category: Parents,
+// Siblings, Grandparents, Partners, Children. Five lists say who is related but
+// not HOW: which parent goes with which, which siblings share which parent,
+// which children came from which partnership. A second marriage is unreadable
+// in that shape, and relationships are the one thing on this page that are
+// inherently spatial.
+//
+// So the same cards are laid out by generation, oldest at the top, with the
+// person themselves marked in their own row. Every action the grid carried —
+// edit a union, remove a child link, add a relative — is still here; only the
+// arrangement changed.
+//
+// Rows are skipped entirely when empty rather than printing "None recorded"
+// five times: a tree with three empty branches drawn is mostly apology.
+function FamilyRow({
+  title,
+  children,
+  connector = true
+}: {
+  title: string;
+  children: React.ReactNode;
+  /** Draw the stem down to the next row. False on the last row. */
+  connector?: boolean;
+}) {
+  const items = Children.toArray(children).filter(Boolean);
+  if (items.length === 0) return null;
   return (
-    <div className="ft-family-group">
-      <h3>{title}</h3>
-      <div className="ft-family-card-grid">
-        {hasChildren ? children : <span className="ft-relation-empty">{empty}</span>}
-      </div>
+    <div className={`ft-tree-row${connector ? " has-connector" : ""}`}>
+      <h3 className="ft-tree-row-label">{title}</h3>
+      <div className="ft-tree-row-cards">{items}</div>
     </div>
   );
 }
@@ -575,10 +599,61 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
           return (
             <div className="book-detail-view ft-person-detail-view">
               <div className="book-detail-topbar">
-                <a className="audiobook-back-button" href={back} onClick={(event) => followRoute(event, back)}>
+                {/* Icon-only, like a book’s and a photo’s. The app has two back
+                    controls: browse pages carry a labelled “Back”, and item detail
+                    pages with an action topbar carry the icon. This page joined the
+                    second group when its actions moved up. Still an anchor, so
+                    middle-click and open-in-new-tab keep working. */}
+                <a
+                  className="icon-button"
+                  href={back}
+                  onClick={(event) => followRoute(event, back)}
+                  title="Back"
+                  aria-label="Back"
+                >
                   <ArrowLeft size={18} aria-hidden="true" />
-                  <span>Back</span>
                 </a>
+                <span className="library-toolbar-divider" aria-hidden="true" />
+                <div className="book-detail-secondary-actions" aria-label="Person actions">
+                  <a
+                    className="icon-button"
+                    href={`/family/tree/${profile.id}`}
+                    onClick={(event) => followRoute(event, `/family/tree/${profile.id}`)}
+                    title="View in tree"
+                    aria-label="View in tree"
+                  >
+                    <Network size={18} aria-hidden="true" />
+                  </a>
+                  <Button
+                    variant="icon"
+                    onClick={() => setSendToOpen(true)}
+                    title="Send to"
+                    aria-label="Send to"
+                  >
+                    <Send size={18} aria-hidden="true" />
+                  </Button>
+                  {canEdit && (
+                    <Button
+                      variant="icon"
+                      onClick={() => setEditOpen(true)}
+                      title="Edit person"
+                      aria-label="Edit person"
+                    >
+                      <Pencil size={18} aria-hidden="true" />
+                    </Button>
+                  )}
+                  {isAdmin && (
+                    <Button
+                      variant="icon"
+                      danger
+                      onClick={() => setDeleteOpen(true)}
+                      title="Delete person"
+                      aria-label="Delete person"
+                    >
+                      <Trash2 size={18} aria-hidden="true" />
+                    </Button>
+                  )}
+                </div>
               </div>
 
               <div className="book-detail-head ft-person-detail-head">
@@ -654,48 +729,6 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                     )}
                   </dl>
 
-                  <div className="book-detail-actions">
-                    <div className="book-detail-secondary-actions" aria-label="Person actions">
-                      <a
-                        className="icon-button"
-                        href={`/family/tree/${profile.id}`}
-                        onClick={(event) => followRoute(event, `/family/tree/${profile.id}`)}
-                        title="View in tree"
-                        aria-label="View in tree"
-                      >
-                        <Network size={18} aria-hidden="true" />
-                      </a>
-                      <Button
-                        variant="icon"
-                        onClick={() => setSendToOpen(true)}
-                        title="Send to"
-                        aria-label="Send to"
-                      >
-                        <Send size={18} aria-hidden="true" />
-                      </Button>
-                      {canEdit && (
-                        <Button
-                          variant="icon"
-                          onClick={() => setEditOpen(true)}
-                          title="Edit person"
-                          aria-label="Edit person"
-                        >
-                          <Pencil size={18} aria-hidden="true" />
-                        </Button>
-                      )}
-                      {isAdmin && (
-                        <Button
-                          variant="icon"
-                          danger
-                          onClick={() => setDeleteOpen(true)}
-                          title="Delete person"
-                          aria-label="Delete person"
-                        >
-                          <Trash2 size={18} aria-hidden="true" />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
 
                 </div>
               </div>
@@ -755,8 +788,14 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                         </div>
                       )}
 
-                      <div className="ft-family-grid">
-                        <FamilyGroup title="Parents">
+                      {/* Oldest generation first, reading down to the children.
+                          The person's own row carries them, their partners and
+                          their siblings, which is where a pedigree puts them. */}
+                      <div className="ft-tree">
+                        <FamilyRow title="Grandparents">
+                          {family.grandparents.map((grandparent) => <RelationCard key={grandparent.id} person={grandparent} />)}
+                        </FamilyRow>
+                        <FamilyRow title="Parents">
                           {profile.parents.map((parent) => (
                             <RelationCard
                               key={parent.id}
@@ -764,15 +803,27 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                               detail={profile.parentRelation && profile.parentRelation !== "biological" ? profile.parentRelation : undefined}
                             />
                           ))}
-                        </FamilyGroup>
-                        <FamilyGroup title="Siblings">
-                          {family.siblings.map((sibling) => <RelationCard key={sibling.id} person={sibling} />)}
-                        </FamilyGroup>
-                        <FamilyGroup title="Grandparents">
-                          {family.grandparents.map((grandparent) => <RelationCard key={grandparent.id} person={grandparent} />)}
-                        </FamilyGroup>
-                        <FamilyGroup title={partners.length === 1 ? "Partner" : "Partners"}>
-                          {partners.map(({ union, person }) => person && (
+                        </FamilyRow>
+
+                        <div className="ft-tree-row ft-tree-self-row has-connector">
+                          <h3 className="ft-tree-row-label">
+                            {family.siblings.length > 0 ? "This person, partners and siblings" : "This person"}
+                          </h3>
+                          <div className="ft-tree-row-cards">
+                            {family.siblings.map((sibling) => <RelationCard key={sibling.id} person={sibling} />)}
+
+                            {/* Not a link: you are already here. */}
+                            <span className="ft-relation-card-wrap">
+                              <span className="ft-relation-card is-self" aria-current="page">
+                                <PersonAvatar person={profile} size={28} />
+                                <span className="ft-relation-card-copy">
+                                  <strong>{profile.name}</strong>
+                                  <small>{lifeYears(profile) || "Life dates unknown"}</small>
+                                </span>
+                              </span>
+                            </span>
+
+                            {partners.map(({ union, person }) => person && (
                             <RelationCard
                               key={union.id}
                               person={person}
@@ -806,8 +857,10 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                               )}
                             />
                           ))}
-                        </FamilyGroup>
-                        <FamilyGroup title="Children">
+                          </div>
+                        </div>
+
+                        <FamilyRow title="Children" connector={false}>
                           {children.map(({ union, child }) => (
                             <RelationCard
                               key={`${union.id}-${child.id}`}
@@ -828,7 +881,17 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                               )}
                             />
                           ))}
-                        </FamilyGroup>
+                        </FamilyRow>
+
+                        {family.grandparents.length === 0
+                          && profile.parents.length === 0
+                          && family.siblings.length === 0
+                          && partners.length === 0
+                          && children.length === 0 && (
+                          <p className="ft-relation-empty">
+                            No relatives recorded yet.{canEdit ? " Use Add relative above to start." : ""}
+                          </p>
+                        )}
                       </div>
                     </section>
                   )}
