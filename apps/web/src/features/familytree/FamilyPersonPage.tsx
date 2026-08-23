@@ -603,6 +603,47 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                   <ArrowLeft size={18} aria-hidden="true" />
                   <span>Back</span>
                 </a>
+                <span className="library-toolbar-divider" aria-hidden="true" />
+                <div className="book-detail-secondary-actions" aria-label="Person actions">
+                  <a
+                    className="icon-button"
+                    href={`/family/tree/${profile.id}`}
+                    onClick={(event) => followRoute(event, `/family/tree/${profile.id}`)}
+                    title="View in tree"
+                    aria-label="View in tree"
+                  >
+                    <Network size={18} aria-hidden="true" />
+                  </a>
+                  <Button
+                    variant="icon"
+                    onClick={() => setSendToOpen(true)}
+                    title="Send to"
+                    aria-label="Send to"
+                  >
+                    <Send size={18} aria-hidden="true" />
+                  </Button>
+                  {canEdit && (
+                    <Button
+                      variant="icon"
+                      onClick={() => setEditOpen(true)}
+                      title="Edit person"
+                      aria-label="Edit person"
+                    >
+                      <Pencil size={18} aria-hidden="true" />
+                    </Button>
+                  )}
+                  {isAdmin && (
+                    <Button
+                      variant="icon"
+                      danger
+                      onClick={() => setDeleteOpen(true)}
+                      title="Delete person"
+                      aria-label="Delete person"
+                    >
+                      <Trash2 size={18} aria-hidden="true" />
+                    </Button>
+                  )}
+                </div>
               </div>
 
               <div className="book-detail-head ft-person-detail-head">
@@ -678,48 +719,6 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                     )}
                   </dl>
 
-                  <div className="book-detail-actions">
-                    <div className="book-detail-secondary-actions" aria-label="Person actions">
-                      <a
-                        className="icon-button"
-                        href={`/family/tree/${profile.id}`}
-                        onClick={(event) => followRoute(event, `/family/tree/${profile.id}`)}
-                        title="View in tree"
-                        aria-label="View in tree"
-                      >
-                        <Network size={18} aria-hidden="true" />
-                      </a>
-                      <Button
-                        variant="icon"
-                        onClick={() => setSendToOpen(true)}
-                        title="Send to"
-                        aria-label="Send to"
-                      >
-                        <Send size={18} aria-hidden="true" />
-                      </Button>
-                      {canEdit && (
-                        <Button
-                          variant="icon"
-                          onClick={() => setEditOpen(true)}
-                          title="Edit person"
-                          aria-label="Edit person"
-                        >
-                          <Pencil size={18} aria-hidden="true" />
-                        </Button>
-                      )}
-                      {isAdmin && (
-                        <Button
-                          variant="icon"
-                          danger
-                          onClick={() => setDeleteOpen(true)}
-                          title="Delete person"
-                          aria-label="Delete person"
-                        >
-                          <Trash2 size={18} aria-hidden="true" />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
 
                 </div>
               </div>
