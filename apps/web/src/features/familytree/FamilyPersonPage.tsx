@@ -197,8 +197,14 @@ function uniquePeople(people: RelationPerson[]): RelationPerson[] {
   });
 }
 
+/** Grandparents, still attached to the parent they came through. */
+interface GrandparentGroup {
+  parent: RelationPerson;
+  people: RelationPerson[];
+}
+
 function extendedFamily(profile: FamilyPersonProfile, tree: FamilyTree | null) {
-  if (!tree) return { siblings: [] as RelationPerson[], grandparents: [] as RelationPerson[] };
+  if (!tree) return { siblings: [] as RelationPerson[], grandparentGroups: [] as GrandparentGroup[] };
   const personById = new Map(tree.persons.map((person) => [person.id, person]));
   const unionById = new Map(tree.unions.map((union) => [union.id, union]));
   const parentUnionId = tree.children.find((link) => link.childId === profile.id)?.unionId;
@@ -208,14 +214,51 @@ function extendedFamily(profile: FamilyPersonProfile, tree: FamilyTree | null) {
         .map((link) => personById.get(link.childId))
         .filter((person): person is FamilyPerson => person != null)
     : [];
-  const grandparents = profile.parents.flatMap((parent) => {
+  // Grouped by the parent they came through, not flattened into one row. Four
+  // names in a line say "these are your grandparents"; two pairs, each under the
+  // parent they belong to, say which side of the family each one is — which is
+  // the question anybody actually has when they look.
+  const grandparentGroups = profile.parents.flatMap((parent) => {
     const parentParentUnionId = tree.children.find((link) => link.childId === parent.id)?.unionId;
     const union = parentParentUnionId ? unionById.get(parentParentUnionId) : undefined;
-    return union
-      ? [union.person1Id, union.person2Id].map((personId) => personId ? personById.get(personId) : null)
-      : [];
-  }).filter((person): person is FamilyPerson => person != null);
-  return { siblings: uniquePeople(siblings), grandparents: uniquePeople(grandparents) };
+    if (!union) return [];
+    const people = uniquePeople(
+      [union.person1Id, union.person2Id]
+        .map((personId) => (personId ? personById.get(personId) : null))
+        .filter((person): person is FamilyPerson => person != null)
+        // Nothing stops a tree recording somebody as a partner in the very union
+        // they are a child of, which would list a parent among their own parents.
+        // Cheap to refuse, and it stays out of the way otherwise — a grandparent
+        // who merely SHARES a parent’s name is a different person and still shows,
+        // told apart by their dates, which is how namesakes work.
+        .filter((person) => person.id !== parent.id)
+    );
+    // A recorded union with nobody left in it has nothing to show.
+    return people.length > 0 ? [{ parent, people }] : [];
+  });
+  return { siblings: uniquePeople(siblings), grandparentGroups };
+}
+
+// What this person is TO the person whose page this is. The tree shows who is
+// related and, through its shape, roughly how — but "Father" and "Sister" say it
+// outright, which is the difference between a chart you read and one you work
+// out. Gendered where the record says so, neutral where it doesn't: an unknown
+// gender gets "Parent", never a guess.
+type RelationKind = "parent" | "sibling" | "grandparent" | "child" | "partner";
+
+const RELATION_WORDS: Record<RelationKind, { male: string; female: string; neutral: string }> = {
+  parent: { male: "Father", female: "Mother", neutral: "Parent" },
+  sibling: { male: "Brother", female: "Sister", neutral: "Sibling" },
+  grandparent: { male: "Grandfather", female: "Grandmother", neutral: "Grandparent" },
+  child: { male: "Son", female: "Daughter", neutral: "Child" },
+  partner: { male: "Husband", female: "Wife", neutral: "Partner" }
+};
+
+function relationWord(kind: RelationKind, person: Pick<FamilyPerson, "gender">): string {
+  const words = RELATION_WORDS[kind];
+  if (person.gender === "male") return words.male;
+  if (person.gender === "female") return words.female;
+  return words.neutral;
 }
 
 function ageFromDates(birthDate: string | null, endDate: string | null): number | null {
@@ -308,10 +351,13 @@ const EVENT_PHOTO_PREVIEW = 4;
 function RelationCard({
   person,
   detail,
+  badge,
   action
 }: {
   person: RelationPerson;
   detail?: string;
+  /** "Father", "Sister" — what they are to the person whose page this is. */
+  badge?: string;
   action?: React.ReactNode;
 }) {
   return (
@@ -324,7 +370,10 @@ function RelationCard({
         <PersonAvatar person={person} size={28} />
         <span className="ft-relation-card-copy">
           <strong>{person.name}</strong>
-          <small>{detail || lifeYears(person) || "Life dates unknown"}</small>
+          <small>
+            {badge && <span className="ft-relation-badge">{badge}</span>}
+            {detail || lifeYears(person) || "Life dates unknown"}
+          </small>
         </span>
       </a>
       {action}
@@ -793,13 +842,27 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                           their siblings, which is where a pedigree puts them. */}
                       <div className="ft-tree">
                         <FamilyRow title="Grandparents">
-                          {family.grandparents.map((grandparent) => <RelationCard key={grandparent.id} person={grandparent} />)}
+                          {family.grandparentGroups.map((group) => (
+                            <div className="ft-tree-branch" key={group.parent.id}>
+                              <span className="ft-tree-branch-label">via {group.parent.name}</span>
+                              <div className="ft-tree-branch-cards">
+                                {group.people.map((grandparent) => (
+                                  <RelationCard
+                                    key={grandparent.id}
+                                    person={grandparent}
+                                    badge={relationWord("grandparent", grandparent)}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          ))}
                         </FamilyRow>
                         <FamilyRow title="Parents">
                           {profile.parents.map((parent) => (
                             <RelationCard
                               key={parent.id}
                               person={parent}
+                              badge={relationWord("parent", parent)}
                               detail={profile.parentRelation && profile.parentRelation !== "biological" ? profile.parentRelation : undefined}
                             />
                           ))}
@@ -810,7 +873,9 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                             {family.siblings.length > 0 ? "This person, partners and siblings" : "This person"}
                           </h3>
                           <div className="ft-tree-row-cards">
-                            {family.siblings.map((sibling) => <RelationCard key={sibling.id} person={sibling} />)}
+                            {family.siblings.map((sibling) => (
+                              <RelationCard key={sibling.id} person={sibling} badge={relationWord("sibling", sibling)} />
+                            ))}
 
                             {/* Not a link: you are already here. */}
                             <span className="ft-relation-card-wrap">
@@ -827,6 +892,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                             <RelationCard
                               key={union.id}
                               person={person}
+                              badge={union.status === "married" ? relationWord("partner", person) : "Partner"}
                               detail={[
                                 union.id === current?.id ? "Current" : "",
                                 statusLabel(union.status),
@@ -865,6 +931,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                             <RelationCard
                               key={`${union.id}-${child.id}`}
                               person={child}
+                              badge={relationWord("child", child)}
                               detail={child.relation !== "biological" ? child.relation : undefined}
                               action={isAdmin && (
                                 <span className="ft-relation-card-actions">
@@ -883,7 +950,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                           ))}
                         </FamilyRow>
 
-                        {family.grandparents.length === 0
+                        {family.grandparentGroups.length === 0
                           && profile.parents.length === 0
                           && family.siblings.length === 0
                           && partners.length === 0
