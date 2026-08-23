@@ -31,6 +31,7 @@ import { GallerySlideshowEditor } from "./GallerySlideshowEditor";
 import { ShareSetModal } from "../share/ShareSetModal";
 import { ShareAlbumModal } from "./ShareAlbumModal";
 import { SendToSheet, type SendToSubject } from "../social/SendToSheet";
+import { NotesSection } from "../social/NotesSection";
 import { Modal } from "../../shared/Modal";
 import { ChoiceGroup } from "../../shared/ChoiceGroup";
 import type { GalleryAlbum, GalleryAlbumDetail, GalleryAsset, GalleryFaceSettings, GalleryFacets, GalleryFolder, GalleryLibrary, GalleryMapPoint, GalleryMemories, GalleryMemoryGroup, GalleryMemorySuggestion, GalleryPerson, GallerySlideshow, GallerySlideshowDetail, GallerySlideshowSettings, SlideshowTransition } from "./types";
@@ -1666,6 +1667,8 @@ export function GalleryPage({
                       </button>
                     </div>
                   )}
+
+                  <NotesSection entityType="gallery_album" entityId={selectedAlbum.id} />
                 </>
                 );
               })() : (
@@ -1802,6 +1805,8 @@ export function GalleryPage({
                       onRender={() => void renderSlideshowMovie(selectedSlideshow.id)}
                       onDeleteMovie={() => setMovieDeleteOpen(true)}
                     />
+
+                    <NotesSection entityType="gallery_slideshow" entityId={selectedSlideshow.id} />
                   </>
                 );
               })() : (

@@ -345,8 +345,13 @@ note lives under that book/photo/person for good.
 
 ### Where they appear
 
-Book and ebook detail, gallery lightbox, family-tree person, and — if
-collections survive — a collection.
+Book and ebook detail, the gallery lightbox, a family-tree person, and — added
+later, when both became sendable — an album and a slideshow.
+
+That last pair was a gap for a while: the route accepted notes on them the moment
+they joined the resolver, but no page rendered one, so a note posted through the
+API would have been unreadable. Anything the resolver understands should be
+note-able AND show its notes; the two halves are one decision.
 
 ### Schema
 

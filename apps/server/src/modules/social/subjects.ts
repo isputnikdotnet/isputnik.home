@@ -425,9 +425,6 @@ const SUBJECTS: Record<string, SubjectType> = {
   gallery_slideshow: { hydrate: hydrateSlideshows, collectable: false }
 };
 
-/** Everything the resolver can describe — the valid range of `entity_type`. */
-export const SUBJECT_ENTITY_TYPES = Object.keys(SUBJECTS);
-
 /** The subset a Collection accepts. Narrower than the above; see SubjectType. */
 export const COLLECTABLE_ENTITY_TYPES = Object.entries(SUBJECTS)
   .filter(([, type]) => type.collectable)

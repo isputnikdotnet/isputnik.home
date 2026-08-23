@@ -23,20 +23,6 @@ export function recommendationLine(fromName: string, entityType: string): string
   return `${fromName} ${VERBS[entityType] ?? "sent you this"}`;
 }
 
-/** The same intent with no name, for tight spaces: "Read this". */
-const SHORT: Record<string, string> = {
-  audiobook: "Listen",
-  ebook: "Read",
-  gallery: "Look",
-  gallery_album: "Look",
-  gallery_slideshow: "Watch",
-  family_tree_person: "Look"
-};
-
-export function recommendationVerb(entityType: string): string {
-  return SHORT[entityType] ?? "Open";
-}
-
 // ── The activity feed reads as sentences ────────────────────────────────────
 //
 // "Anna left a note on Dune" tells you what happened and invites you in; a

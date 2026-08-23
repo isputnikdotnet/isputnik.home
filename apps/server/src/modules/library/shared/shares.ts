@@ -134,12 +134,6 @@ export function canGrantItemAccess(itemId: string, userId: string, userRole: str
   return typeof getShareableBook(itemId, userId, userRole) === "object";
 }
 
-/** Whether this account can already open the item under its own access. */
-export function userCanOpenItem(itemId: string, userId: string, userRole: string): boolean {
-  const library = getLibraryForBook(itemId);
-  return library ? canUserAccessLibrary(library, userId, userRole) : false;
-}
-
 /** Grant one account read access to one item.
  *
  *  The single implementation of granting: POST /api/shares/user is a thin wrapper
@@ -215,24 +209,6 @@ function albumEditableBy(
 /** Whether the caller may hand another account access to this album. */
 export function canGrantAlbumAccess(albumId: string, user: { id: string; role: string }): boolean {
   return typeof albumEditableBy(user, albumId) === "object";
-}
-
-/** Whether this account can already see any of the album (the same rule as
- *  listAlbums: at least one visible photo, or it is theirs). */
-export function userCanOpenAlbum(albumId: string, user: { id: string; role: string }): boolean {
-  const album = db.prepare("SELECT created_by FROM gallery_albums WHERE id = ?")
-    .get(albumId) as { created_by: string } | undefined;
-  if (!album) return false;
-  if (user.role === "admin" || album.created_by === user.id) return true;
-  const libIds = [...accessibleLibraryIds(user.id, user.role, "gallery")];
-  if (libIds.length === 0) return false;
-  const row = db.prepare(`
-    SELECT COUNT(*) AS n FROM gallery_album_items
-    JOIN library_items ON library_items.id = gallery_album_items.item_id AND library_items.deleted_at IS NULL
-    WHERE gallery_album_items.album_id = ?
-      AND library_items.library_id IN (${libIds.map(() => "?").join(", ")})
-  `).get(albumId, ...libIds) as { n: number };
-  return row.n > 0;
 }
 
 /** Grant one account read access to one album — the single implementation, shared
