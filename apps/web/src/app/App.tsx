@@ -44,6 +44,7 @@ const TagDetailPage = lazy(() => import("../features/audiobooks/TagDetailPage").
 const MyListPage = lazy(() => import("../features/library/MyListPage").then((m) => ({ default: m.MyListPage })));
 const BookmarksPage = lazy(() => import("../features/library/BookmarksPage").then((m) => ({ default: m.BookmarksPage })));
 const QuotesPage = lazy(() => import("../features/library/QuotesPage").then((m) => ({ default: m.QuotesPage })));
+const ActivityPage = lazy(() => import("../features/social/ActivityPage").then((m) => ({ default: m.ActivityPage })));
 const DownloadsPage = lazy(() => import("../features/library/DownloadsPage").then((m) => ({ default: m.DownloadsPage })));
 const SharedWithMePage = lazy(() => import("../features/library/SharedWithMePage").then((m) => ({ default: m.SharedWithMePage })));
 const LibraryFeedPage = lazy(() => import("../features/library/LibraryFeedPage").then((m) => ({ default: m.LibraryFeedPage })));
@@ -406,6 +407,10 @@ export function App() {
       return <QuotesPage user={session.user} logout={logout} />;
     }
 
+    if (route.name === "activity") {
+      return <ActivityPage user={session.user} logout={logout} />;
+    }
+
     if (route.name === "downloads") {
       return <DownloadsPage user={session.user} logout={logout} />;
     }
@@ -432,6 +437,14 @@ export function App() {
 
     if (route.name === "galleryAsset") {
       return <GalleryPage user={session.user} logout={logout} view="timeline" initialAssetId={route.id} />;
+    }
+
+    if (route.name === "galleryAlbum") {
+      return <GalleryPage user={session.user} logout={logout} view="albums" initialAlbumId={route.id} />;
+    }
+
+    if (route.name === "gallerySlideshow") {
+      return <GalleryPage user={session.user} logout={logout} view="slideshows" initialSlideshowId={route.id} />;
     }
 
     if (route.name === "galleryFolder") {

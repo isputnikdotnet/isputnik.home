@@ -420,12 +420,15 @@ export function searchGalleryFolders(libIds: string[], q: string, limit: number)
     GROUP BY library_items.folder_path
   `).all(...libIds) as { p: string; n: number }[];
 
-  // Cumulative count per folder — its own items plus everything below.
+  // Cumulative count per folder — its own items plus everything below. A gallery
+  // item's folder_path is the FILE's relative path, so its last segment is the file
+  // name, not a folder: only the prefixes above it are folders. (Counting the file
+  // too once made "mp4" match every video as a folder that then opened empty.)
   const counts = new Map<string, number>();
   for (const row of rows) {
     if (!row.p) continue;
     const segments = row.p.split("/");
-    for (let i = 1; i <= segments.length; i += 1) {
+    for (let i = 1; i < segments.length; i += 1) {
       const prefix = segments.slice(0, i).join("/");
       counts.set(prefix, (counts.get(prefix) ?? 0) + row.n);
     }

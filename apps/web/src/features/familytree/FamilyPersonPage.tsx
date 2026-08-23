@@ -2,7 +2,7 @@ import { Children, useCallback, useEffect, useState } from "react";
 import {
   Armchair, ArrowLeft, Award, Baby, BookMarked, BriefcaseBusiness, CalendarDays, CalendarPlus, Camera, Church,
   ExternalLink, FileText, Flag, GraduationCap, Heart, Home as HomeIcon, ImagePlus, Images, Link2, Luggage, MapPin,
-  Network, Pencil, Plane, Play, Shield, Tags, Trash2, UserRound, UserRoundPlus, UsersRound, X
+  Network, Pencil, Plane, Play, Send, Shield, Tags, Trash2, UserRound, UserRoundPlus, UsersRound, X
 } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
@@ -13,6 +13,8 @@ import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { SectionNav } from "../../shared/SectionNav";
 import { familyNavProps } from "./sectionNavItems";
 import { MessageBox } from "../../shared/MessageBox";
+import { SendToSheet } from "../social/SendToSheet";
+import { NotesSection } from "../social/NotesSection";
 import { GalleryLightbox } from "../gallery/GalleryLightbox";
 import type { GalleryAsset } from "../gallery/types";
 import { faceFocusStyle } from "../gallery/types";
@@ -43,7 +45,7 @@ const PERSON_DETAIL_TABS = [
   { id: "timeline", label: "Timeline" },
   { id: "photos", label: "Photos" },
   { id: "sources", label: "Sources" },
-  { id: "notes", label: "Notes" }
+  { id: "biography", label: "Biography" }
 ] as const;
 
 type PersonDetailTabId = typeof PERSON_DETAIL_TABS[number]["id"];
@@ -360,6 +362,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
   const [lightbox, setLightbox] = useState<{ assets: GalleryAsset[]; index: number } | null>(null);
 
   const [editOpen, setEditOpen] = useState(false);
+  const [sendToOpen, setSendToOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
@@ -662,6 +665,14 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                       >
                         <Network size={18} aria-hidden="true" />
                       </a>
+                      <Button
+                        variant="icon"
+                        onClick={() => setSendToOpen(true)}
+                        title="Send to"
+                        aria-label="Send to"
+                      >
+                        <Send size={18} aria-hidden="true" />
+                      </Button>
                       {canEdit && (
                         <Button
                           variant="icon"
@@ -1066,7 +1077,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                     </section>
                   )}
 
-                  {activeDetailTab === "notes" && (
+                  {activeDetailTab === "biography" && (
                     <section className="ft-section ft-profile-section">
                       {canEdit && (
                         <div className="ft-tab-actions">
@@ -1082,18 +1093,27 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                       ) : (
                         <div className="ft-empty-panel">
                           <FileText size={22} aria-hidden="true" />
-                          <strong>No notes yet</strong>
+                          <strong>No biography yet</strong>
                         </div>
                       )}
                     </section>
                   )}
                 </div>
               </section>
+
+              {profile && <NotesSection entityType="family_tree_person" entityId={profile.id} />}
             </div>
           );
         })()}
         </div>
       </section>
+
+      {sendToOpen && profile && (
+        <SendToSheet
+          subject={{ entityType: "family_tree_person", entityId: profile.id }}
+          onClose={() => setSendToOpen(false)}
+        />
+      )}
 
       {editOpen && profile && (
         <PersonEditModal

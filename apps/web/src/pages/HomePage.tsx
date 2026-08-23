@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { BookOpen, ChevronRight, DownloadCloud, HardDrive, Headphones, Heart, Image as ImageIcon, Loader2, Play } from "lucide-react";
+import { BookOpen, ChevronRight, DownloadCloud, HardDrive, Headphones, Heart, Image as ImageIcon, Loader2, Play, Send } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { recommendationLine } from "../features/social/phrasing";
+import { ActivityList, type ActivityItem } from "../features/social/ActivityList";
 import { api, type PublicUser } from "../api";
 import { DashboardShell } from "../app/DashboardShell";
 import { followRoute, navigate } from "../router";
@@ -50,6 +52,63 @@ function RowHeader({ id, title, href }: { id: string; title: string; href: strin
         <ChevronRight size={18} aria-hidden="true" />
       </a>
     </div>
+  );
+}
+
+// What the family has put in front of you, on the front page.
+//
+// This row is the whole delivery mechanism for Send to. Before it, a
+// recommendation lived behind the Profile menu under a small dot — findable by
+// somebody who already knew it was there, and by nobody else. The people this
+// feature is for do not go looking in menus.
+//
+// It shows only what is still undecided, and disappears entirely when there is
+// nothing: an empty row on the front page teaches people the feature is dead.
+// Deciding still happens on "Shared with me" — this is a pointer, like every
+// other home row.
+interface SentToYouItem {
+  id: string;
+  entityType: string;
+  message: string | null;
+  status: "new" | "saved" | "dismissed";
+  fromName: string;
+  available: boolean;
+  title: string;
+  coverUrl: string | null;
+  href: string;
+}
+
+function SentToYouRow({ items, mobile }: { items: SentToYouItem[]; mobile: boolean }) {
+  return (
+    <section className="home-section" aria-labelledby="home-sent-title">
+      <RowHeader id="home-sent-title" title="Sent to you" href="/shared" />
+      <div className={mobile ? "home-sent-list" : "home-tile-grid"}>
+        {items.map((item) => (
+          <a
+            key={item.id}
+            className={mobile ? "home-sent-row" : "audiobook-catalog-card grid home-feed-tile"}
+            href={item.href}
+            onClick={(event) => followRoute(event, item.href)}
+          >
+            <div className={mobile ? "home-sent-cover" : "audiobook-catalog-cover"}>
+              {item.coverUrl
+                ? <img src={item.coverUrl} alt="" loading="lazy" />
+                : <span className="home-memory-fallback"><Send size={22} aria-hidden="true" /></span>}
+            </div>
+            <div className={mobile ? "home-sent-copy" : "audiobook-catalog-copy"}>
+              <strong>{item.title}</strong>
+              {/* The ask, in a person's words — and their own line when they
+                  wrote one, because that is what gets somebody to open it. */}
+              <small>
+                {item.message
+                  ? `${item.fromName}: "${item.message}"`
+                  : recommendationLine(item.fromName, item.entityType)}
+              </small>
+            </div>
+          </a>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -241,6 +300,8 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
   const [continueItems, setContinueItems] = useState<FeedItem[] | null>(null);
   const [recentItems, setRecentItems] = useState<FeedItem[] | null>(null);
   const [memories, setMemories] = useState<GalleryMemories | null>(null);
+  const [sentToYou, setSentToYou] = useState<SentToYouItem[]>([]);
+  const [activity, setActivity] = useState<ActivityItem[]>([]);
   // The "On this day" lightbox opened from a home tile: the FULL day (every
   // photo, every year, flattened newest-year-first) plus the item currently
   // shown. The home strip itself only carries one cover per year, so opening
@@ -266,6 +327,21 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
   }, []);
 
   useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
+
+  // Undecided recommendations only. A failure here must never take the home page
+  // with it — the row simply does not appear.
+  useEffect(() => {
+    api<{ items: SentToYouItem[] }>("/api/social/inbox")
+      .then((payload) => setSentToYou(payload.items.filter((item) => item.status === "new")))
+      .catch(() => undefined);
+  }, []);
+
+  // What everybody else has been up to. Six is a glance; /activity is the rest.
+  useEffect(() => {
+    api<{ items: ActivityItem[] }>("/api/social/activity?limit=6")
+      .then((payload) => setActivity(payload.items))
+      .catch(() => undefined);
+  }, []);
 
   const handleDownloaded = useCallback((id: string) => {
     setDownloadedIds((prev) => new Set([...prev, id]));
@@ -518,6 +594,10 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
           </div>
         ) : (
           <div className="home-content">
+            {/* First on the page when it has anything, and absent when it does not.
+                Something a family member picked out for you outranks picking up
+                where you left off — and it is only ever a few rows. */}
+            {sentToYou.length > 0 && <SentToYouRow items={sentToYou} mobile={isMobile} />}
             {heroItem && (
               <ResumeHero
                 item={heroItem}
@@ -527,6 +607,12 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
                 onDownload={setActiveDownload}
                 onToast={showToast}
               />
+            )}
+            {activity.length > 0 && (
+              <section className="home-section" aria-labelledby="home-activity-title">
+                <RowHeader id="home-activity-title" title="Around the house" href="/activity" />
+                <ActivityList items={activity} />
+              </section>
             )}
             {showContinueRow && (
               <FeedRow

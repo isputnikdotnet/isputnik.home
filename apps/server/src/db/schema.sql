@@ -1208,6 +1208,80 @@ CREATE TABLE IF NOT EXISTS item_saves (
 );
 
 -- ════════════════════════════════════════════════════════════════════════════
+--  Family sharing — "Send to"
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- One family member pointing another at something: a pointer plus a line of
+-- text, never a copy of the file. The subject is polymorphic over the resolver
+-- in modules/social/subjects.ts (audiobook | ebook | gallery | family_tree_person).
+--
+-- Sender is SET NULL with a `from_name` snapshot rather than CASCADE: a removed
+-- account should not silently erase what it sent, the same bargain `quotes`
+-- makes with source_title/source_author. Recipient IS cascade — a recommendation
+-- addressed to nobody has no meaning.
+--
+-- UNIQUE(from, to, entity) makes re-sending idempotent: sending the same book to
+-- the same person twice updates the message and lifts it back to 'new' rather
+-- than stacking duplicate cards in their inbox.
+CREATE TABLE IF NOT EXISTS recommendations (
+  id            TEXT PRIMARY KEY,
+  from_user_id  TEXT REFERENCES users(id) ON DELETE SET NULL,
+  to_user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  entity_type   TEXT NOT NULL,
+  entity_id     TEXT NOT NULL,
+  message       TEXT,
+  -- 'new' until the recipient acts. 'saved' means it went to their My List;
+  -- 'dismissed' is "not now". Neither deletes the row — the Sent list stays
+  -- honest about what was sent, and the feed can still cite it.
+  status        TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'saved', 'dismissed')),
+  -- Snapshots so the card still reads after the subject or the sender is gone.
+  subject_title TEXT,
+  from_name     TEXT,
+  created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  -- When the recipient last opened their inbox with this card in it. Drives the
+  -- bell dot, NOT a badge count — see docs/family-sharing-proposal.md.
+  seen_at       TEXT,
+  UNIQUE (from_user_id, to_user_id, entity_type, entity_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_recommendations_inbox ON recommendations (to_user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_recommendations_sent ON recommendations (from_user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_recommendations_subject ON recommendations (entity_type, entity_id);
+
+-- What the household says about a thing, kept under the thing itself. Polymorphic
+-- over the same resolver as recommendations, so a note works on a book, a photo or
+-- a person in the family tree without any of them knowing about notes.
+--
+-- Deliberately flat: no parent_id, no replies. Nesting is what turns a note box
+-- into a comment section, and this is meant to be the former.
+--
+-- `body` is PLAIN TEXT and is rendered as plain text. No markdown, no HTML, ever.
+-- That is the whole XSS story for user-authored content in this app and it stays
+-- that way; anything that would render it richly has to change this comment first.
+--
+-- Author is SET NULL with an `author_name` snapshot, the bargain `quotes` and
+-- `recommendations` already make: a removed account should not silently erase what
+-- it said about the family's photographs.
+--
+-- deleted_at is a soft delete. With no replies there is no thread shape to keep, so
+-- a deleted note simply stops being listed — the row survives so a mistake can be
+-- undone by hand, and so an admin can see what was removed.
+CREATE TABLE IF NOT EXISTS notes (
+  id          TEXT PRIMARY KEY,
+  user_id     TEXT REFERENCES users(id) ON DELETE SET NULL,
+  author_name TEXT,
+  entity_type TEXT NOT NULL,
+  entity_id   TEXT NOT NULL,
+  body        TEXT NOT NULL,
+  created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  updated_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  deleted_at  TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_notes_subject ON notes (entity_type, entity_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_notes_author ON notes (user_id, created_at);
+
+-- ════════════════════════════════════════════════════════════════════════════
 --  Collections & item-level sharing
 -- ════════════════════════════════════════════════════════════════════════════
 
