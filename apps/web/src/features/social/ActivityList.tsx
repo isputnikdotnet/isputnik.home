@@ -1,0 +1,69 @@
+import { Film, Images, MessageSquare, Network } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { followRoute } from "../../router";
+import { activityPhrase, timeAgo, type ActivityKind } from "./phrasing";
+
+// What the household has been up to, as sentences.
+//
+// "Anna left a note on Dune" reads as news. A card with a title and a coloured
+// badge reads as a database row someone has styled. The sentence is the whole
+// design; everything else here is a thumbnail and a timestamp.
+//
+// Shared by the Home row and the /activity page, so the two can never drift.
+
+export interface ActivityItem {
+  id: string;
+  kind: ActivityKind;
+  actorName: string;
+  createdAt: string;
+  /** A note's own words. Null for everything else. */
+  body: string | null;
+  title: string;
+  subtitle: string | null;
+  coverUrl: string | null;
+  href: string;
+}
+
+const ICONS: Record<ActivityKind, LucideIcon> = {
+  note: MessageSquare,
+  album: Images,
+  slideshow: Film,
+  person: Network
+};
+
+export function ActivityList({ items }: { items: ActivityItem[] }) {
+  return (
+    <ul className="activity-list">
+      {items.map((item) => {
+        const Icon = ICONS[item.kind] ?? MessageSquare;
+        const phrase = activityPhrase(item.actorName, item.kind);
+        return (
+          <li key={item.id}>
+            <a
+              className="activity-row"
+              href={item.href}
+              onClick={(event) => followRoute(event, item.href)}
+            >
+              <span className="activity-thumb">
+                {item.coverUrl
+                  ? <img src={item.coverUrl} alt="" loading="lazy" />
+                  : <Icon size={18} aria-hidden="true" />}
+              </span>
+
+              <span className="activity-copy">
+                <span className="activity-sentence">
+                  {phrase.before} <strong>{item.title}</strong>
+                  {phrase.after && ` ${phrase.after}`}
+                </span>
+                {/* A note without its words is just "somebody said something". */}
+                {item.body && <span className="activity-body">“{item.body}”</span>}
+              </span>
+
+              <span className="activity-when">{timeAgo(item.createdAt)}</span>
+            </a>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}

@@ -1,0 +1,657 @@
+/* Family sharing — the "Send to" sheet and the "Sent to me" inbox.
+   Tokens only; nothing here hard-codes a colour, so every theme gets it free. */
+
+/* ── The unseen dot ──────────────────────────────────────────────────────── */
+
+/* Rides on the Profile control, which is where "Sent to me" lives. A dot, not a
+   count: the number that matters is "is there anything new", and a badge that
+   climbs into the dozens is one people stop reading. */
+.nav-dot {
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 0 0 2px var(--surface);
+}
+
+.home-user-icon,
+.home-mobile-nav-icon {
+  position: relative;
+  display: inline-flex;
+}
+
+/* ── Send to sheet ───────────────────────────────────────────────────────── */
+
+.send-to-subject {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  margin-bottom: 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--field);
+  min-width: 0;
+}
+
+.send-to-subject-cover {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  border-radius: 6px;
+  object-fit: cover;
+  background: var(--surface-raised);
+}
+
+.send-to-subject-cover-empty {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+}
+
+.send-to-subject-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.send-to-subject-text strong {
+  /* A long audiobook title must not widen the dialog. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.send-to-subject-text span {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.send-to-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Devices and links sit below a rule: people are the common intent, and the
+   separation is what stops "My e-reader" reading as a family member. */
+.send-to-list-devices {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.send-to-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.send-to-option:hover:not(:disabled),
+.send-to-option:focus-visible {
+  background: var(--hover);
+  border-color: var(--line);
+}
+
+.send-to-option:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.send-to-option svg {
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+
+.send-to-option-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.send-to-hint {
+  flex: 0 0 auto;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.send-to-empty {
+  padding: 12px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.send-to-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.send-to-field > span {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.send-to-field input {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--field);
+  color: var(--ink);
+  font: inherit;
+}
+
+.send-to-note,
+.send-to-done {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin: 0;
+}
+
+.send-to-done {
+  font-size: 0.95rem;
+  color: var(--ink);
+}
+
+/* ── Sent to me ──────────────────────────────────────────────────────────── */
+
+.inbox-list {
+  list-style: none;
+  margin: 0 0 24px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.inbox-subhead {
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 8px 0 12px;
+}
+
+.inbox-list-settled {
+  opacity: 0.75;
+}
+
+.inbox-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  min-width: 0;
+}
+
+.inbox-card.is-unavailable {
+  opacity: 0.6;
+}
+
+.inbox-cover {
+  width: 56px;
+  height: 56px;
+  flex: 0 0 auto;
+  border-radius: 8px;
+  object-fit: cover;
+  background: var(--surface-raised);
+  display: block;
+}
+
+.inbox-card-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.inbox-from {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.inbox-title {
+  font-weight: 600;
+  color: var(--ink);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+a.inbox-title:hover {
+  text-decoration: underline;
+}
+
+.inbox-subtitle {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inbox-message {
+  margin: 4px 0 0;
+  font-style: italic;
+  color: var(--ink);
+}
+
+.inbox-gone {
+  margin: 4px 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.inbox-actions {
+  display: flex;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.inbox-status {
+  flex: 0 0 auto;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.inbox-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 48px 16px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.inbox-empty p {
+  margin: 0;
+}
+
+.inbox-empty-hint {
+  max-width: 42ch;
+  font-size: 0.9rem;
+}
+
+/* Phones: the action buttons drop under the text rather than squeezing it. */
+@media (max-width: 740px) {
+  .inbox-card {
+    flex-wrap: wrap;
+  }
+
+  .inbox-actions,
+  .inbox-status {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .inbox-status {
+    text-align: right;
+  }
+}
+
+/* The "doesn't have access yet" heading between the two halves of the people
+   list. Quiet — it labels a group, it is not a section of its own. */
+.send-to-group-label {
+  margin: 14px 0 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* ── Notes ───────────────────────────────────────────────────────────────── */
+
+.notes-section {
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+
+.notes-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.notes-list {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.note {
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  min-width: 0;
+}
+
+.note-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  font-size: 0.85rem;
+}
+
+.note-when {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+/* The remove control keeps to the far end and stays quiet until the note is
+   hovered — a delete button per note is a lot of red otherwise. */
+.note-remove {
+  margin-left: auto;
+  opacity: 0;
+}
+
+.note:hover .note-remove,
+.note-remove:focus-visible {
+  opacity: 1;
+}
+
+.note-body {
+  margin: 0;
+  /* Typed newlines survive; long unbroken strings wrap instead of stretching
+     the column. Notes are plain text, so this is the whole of their formatting. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.notes-empty {
+  margin: 0 0 16px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.note-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.note-input {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--field);
+  color: var(--ink);
+  font: inherit;
+  resize: vertical;
+}
+
+.note-form-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Inside the gallery lightbox's info panel: narrower, and no top rule because
+   the panel already separates its sections. */
+.notes-section.is-compact {
+  margin-top: 18px;
+  padding-top: 16px;
+}
+
+.notes-section.is-compact .note {
+  padding: 10px 12px;
+}
+
+/* Touch has no hover, so the control would never appear. */
+@media (hover: none) {
+  .note-remove {
+    opacity: 1;
+  }
+}
+
+/* ── "Sent to you" on the Home page ──────────────────────────────────────── */
+
+/* Desktop reuses the shared home tile grid; phones get a compact list, because
+   a row of tiles on a narrow screen shows two things and hides the rest. */
+.home-sent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.home-sent-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  text-decoration: none;
+  min-width: 0;
+}
+
+.home-sent-cover {
+  width: 48px;
+  height: 48px;
+  flex: 0 0 auto;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface-raised);
+  display: grid;
+  place-items: center;
+}
+
+.home-sent-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.home-sent-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.home-sent-copy strong,
+.home-sent-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-sent-copy small {
+  color: var(--muted);
+}
+
+/* An icon button that carries its word. Used for "Send to" on a book, which is
+   the one action in that row somebody has to discover rather than look for. */
+.icon-button.has-label {
+  width: auto;
+  gap: 7px;
+  padding-inline: 12px;
+}
+
+.icon-button-label {
+  font-size: 0.85rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* ── "Around the house" — the activity feed ──────────────────────────────── */
+
+/* Sentences, not cards. The row is a line of text with a thumbnail and a time;
+   anything more decorative would compete with the words, which are the point. */
+.activity-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.activity-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 10px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: var(--ink);
+  text-decoration: none;
+  min-width: 0;
+}
+
+.activity-row:hover,
+.activity-row:focus-visible {
+  background: var(--hover);
+  border-color: var(--line);
+}
+
+.activity-thumb {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  border-radius: 7px;
+  overflow: hidden;
+  background: var(--surface-raised);
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+}
+
+.activity-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.activity-copy {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.activity-sentence,
+.activity-body {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activity-body {
+  font-size: 0.85rem;
+  font-style: italic;
+  color: var(--muted);
+}
+
+.activity-when {
+  flex: 0 0 auto;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+/* ── Emoji picker ────────────────────────────────────────────────────────── */
+
+/* The form's action row now carries the picker on the left and Post on the
+   right, so it stops being flush-right. */
+.note-form-actions {
+  justify-content: space-between;
+  align-items: center;
+}
+
+.emoji-picker {
+  position: relative;
+  display: inline-flex;
+}
+
+/* Opens upward: the note form sits at the bottom of a long page, and a popover
+   that drops below it would land off-screen as often as not. */
+.emoji-popover {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  z-index: 30;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 2px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-raised);
+  box-shadow: 0 12px 28px var(--shadow);
+}
+
+.emoji-option {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  /* Colour fonts vary; keep the glyphs from nudging each other around. */
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+
+.emoji-option:hover,
+.emoji-option:focus-visible {
+  background: var(--hover);
+}
+
+/* Phones: the grid would run past a 375px viewport at eight across. */
+@media (max-width: 740px) {
+  .emoji-popover {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}

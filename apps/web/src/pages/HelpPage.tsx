@@ -1,6 +1,6 @@
 import {
   BookOpen, Bug, ExternalLink, FolderTree, HardDrive, Headphones, Images, Info, KeyRound, LibraryBig,
-  Mail, MonitorSmartphone, Rocket, Settings, ShieldCheck, Trash2, UserRound, Wifi, type LucideIcon
+  Mail, MonitorSmartphone, Rocket, Send, Settings, ShieldCheck, Trash2, UserRound, Wifi, type LucideIcon
 } from "lucide-react";
 import type { PublicUser } from "../api";
 import { DashboardShell } from "../app/DashboardShell";
@@ -106,6 +106,14 @@ const HELP_SECTIONS: HelpSection[] = [
         description:
           "Your name and sign-in email, themes, the e-reader address, and where favorites, bookmarks, quotes and collections live.",
         href: guide("your-account.md"),
+        external: false
+      },
+      {
+        icon: Send,
+        title: "Sharing with family",
+        description:
+          "One Send to button for everything — pass a book to someone, mail it to your own e-reader, or make a guest link — plus notes under a book, a photo or a person, and where the things people send you land.",
+        href: guide("family-sharing.md"),
         external: false
       },
       {

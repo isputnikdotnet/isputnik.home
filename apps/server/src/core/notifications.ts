@@ -21,10 +21,13 @@ export const NOTIFICATION_SETTINGS_KEY = "notification_settings";
 export interface NotificationSettings {
   /** Email the recipient when a photo, book or album is shared with their account. */
   shareNotifications: boolean;
+  /** Email the recipient when a family member sends them something ("Send to"). */
+  recommendationNotifications: boolean;
 }
 
 const EMPTY: NotificationSettings = {
-  shareNotifications: false
+  shareNotifications: false,
+  recommendationNotifications: false
 };
 
 export function getNotificationSettings(): NotificationSettings {
@@ -53,4 +56,10 @@ export function setNotificationSettings(next: NotificationSettings, updatedBy: s
 /** The one question a notifying feature asks: switched on, and deliverable. */
 export function shareNotificationsEnabled(): boolean {
   return getNotificationSettings().shareNotifications && isMailConfigured();
+}
+
+/** Same question for "Send to". Separate flag: an admin who wants share mail has
+ *  not thereby agreed to mail the household every time someone passes a book along. */
+export function recommendationNotificationsEnabled(): boolean {
+  return getNotificationSettings().recommendationNotifications && isMailConfigured();
 }

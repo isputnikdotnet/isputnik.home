@@ -6,6 +6,8 @@ import { DashboardShell } from "../../app/DashboardShell";
 import { UserAreaNav } from "./UserAreaNav";
 import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
+import { InboxRow, type InboxCard } from "../social/InboxRow";
+import { refreshInboxSummary } from "../social/useInboxSummary";
 
 interface SharedBook {
   id: string;
@@ -128,6 +130,20 @@ function SharedAlbumViewer({ album, onClose }: { album: SharedBook; onClose: () 
   );
 }
 
+// One page for everything other people have put in front of you.
+//
+// It used to be two — "Shared with me" (someone granted you access) and "Sent to
+// me" (someone pointed you at something). Since granting moved inside "Send to",
+// a single act writes BOTH a share row and a recommendation, so the same event
+// was being reported twice in two different places. The split was ours anyway:
+// in ordinary speech "Dad shared this with me" covers both, and a family should
+// not have to learn the difference between a grant and a pointer.
+//
+// Two sections, and a thing is only ever in one of them:
+//   Waiting for you — recommendations still undecided, with Save / Not now
+//   Everything else — what you can open, including live album shares
+// Acting on a card moves it down into the second section. Nothing is lost:
+// Save puts it in My List, which is the keeping place.
 export function SharedWithMePage({
   user,
   logout
@@ -136,74 +152,125 @@ export function SharedWithMePage({
   logout: () => Promise<void>;
 }) {
   const [books, setBooks] = useState<SharedBook[] | null>(null);
+  const [waiting, setWaiting] = useState<InboxCard[]>([]);
   const [error, setError] = useState("");
+  const [busyId, setBusyId] = useState("");
   const [openAlbum, setOpenAlbum] = useState<SharedBook | null>(null);
 
-  useEffect(() => {
+  const loadShares = () =>
     api<{ books: SharedBook[] }>("/api/shared-with-me")
       .then((payload) => setBooks(payload.books))
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load shared books"));
+      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load what's been shared with you"));
+
+  const loadWaiting = () =>
+    api<{ items: InboxCard[] }>("/api/social/inbox")
+      .then((payload) => setWaiting(payload.items.filter((card) => card.status === "new")))
+      // A failing half must not take the page with it — the grid still renders.
+      .catch(() => undefined);
+
+  useEffect(() => {
+    void loadShares();
+    void loadWaiting();
+    // Looking at the page IS reading it: the dot goes now, deciding about each
+    // card is a separate, unhurried thing.
+    api("/api/social/inbox/seen", { method: "POST" }).then(refreshInboxSummary).catch(() => undefined);
   }, []);
+
+  const act = async (card: InboxCard, action: "save" | "dismiss") => {
+    setBusyId(card.id);
+    setError("");
+    try {
+      await api(`/api/social/recommendations/${card.id}/${action}`, { method: "POST" });
+      await Promise.all([loadWaiting(), loadShares()]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to update this");
+    } finally {
+      setBusyId("");
+    }
+  };
 
   const openShared = (book: SharedBook) => {
     if (book.type === "gallery_album") setOpenAlbum(book);
     else navigate(sharedItemHref(book));
   };
 
+  // A grant made through "Send to" writes a share row AND a recommendation. While
+  // the recommendation is undecided it owns the item, so it appears once, up top.
+  const pending = new Set(waiting.map((card) => `${card.entityType}:${card.entityId}`));
+  const shelf = (books ?? []).filter((book) => !pending.has(`${book.type}:${book.id}`));
+  const nothingAtAll = books !== null && shelf.length === 0 && waiting.length === 0;
+
   return (
     <DashboardShell active="user" user={user} logout={logout} sideNav={<UserAreaNav active="shared" />}>
       <section className="work-area audiobook-area">
         <div className="section-head audiobook-head">
           <div>
-            <p className="eyebrow">Digital Library</p>
+            <p className="eyebrow">Family</p>
             <h1>Shared with me</h1>
           </div>
-          {books && books.length > 0 && (
-            <span>{books.length} {books.length === 1 ? "item" : "items"}</span>
+          {shelf.length > 0 && (
+            <span>{shelf.length} {shelf.length === 1 ? "item" : "items"}</span>
           )}
         </div>
 
         {error && <MessageBox tone="error" title="Error">{error}</MessageBox>}
 
-        {books && books.length === 0 ? (
+        {waiting.length > 0 && (
+          <>
+            <h2 className="inbox-subhead">Waiting for you</h2>
+            <ul className="inbox-list">
+              {waiting.map((card) => (
+                <InboxRow key={card.id} card={card} busy={busyId === card.id} onAct={act} />
+              ))}
+            </ul>
+          </>
+        )}
+
+        {nothingAtAll ? (
           <div className="empty-state library-empty">
             <Share2 size={58} aria-hidden="true" />
             <h2>Nothing shared with you yet</h2>
-            <p className="muted">When someone shares a book, photo, or album with your account, it appears here.</p>
+            <p className="muted">
+              When someone in the family sends you a book, a photo or a person from the family tree,
+              it appears here.
+            </p>
           </div>
         ) : (
-          <div className="audiobook-grid">
-            {(books ?? []).map((book) => (
-              <article className="saved-audiobook-card" key={`${book.type}-${book.id}`}>
-                <button className="audiobook-card" onClick={() => openShared(book)}>
-                  <div className="audiobook-cover" aria-hidden="true">
-                    {book.coverUrl ? (
-                      <img src={book.coverUrl} alt="" />
-                    ) : book.type === "gallery_album" ? (
-                      <Images size={20} />
-                    ) : book.type === "gallery" ? (
-                      <ImageIcon size={20} />
-                    ) : (
-                      <>
-                        <BookOpen size={13} />
-                        <strong>{book.title.slice(0, 2).toUpperCase()}</strong>
-                      </>
-                    )}
-                  </div>
-                  <div className="audiobook-card-body">
-                    <strong>{book.title}</strong>
-                    <span>
-                      {book.type === "gallery_album"
-                        ? `Album · ${book.itemCount ?? 0} ${book.itemCount === 1 ? "photo" : "photos"}`
-                        : book.sharedBy ? `Shared by ${book.sharedBy}` : "Shared with you"}
-                    </span>
-                    <small>{book.expiresAt ? `Until ${new Date(book.expiresAt).toLocaleDateString()}` : "No expiry"}</small>
-                  </div>
-                </button>
-              </article>
-            ))}
-            {books === null && <p className="management-empty">Loading…</p>}
-          </div>
+          <>
+            {waiting.length > 0 && shelf.length > 0 && <h2 className="inbox-subhead">Everything else</h2>}
+            <div className="audiobook-grid">
+              {shelf.map((book) => (
+                <article className="saved-audiobook-card" key={`${book.type}-${book.id}`}>
+                  <button className="audiobook-card" onClick={() => openShared(book)}>
+                    <div className="audiobook-cover" aria-hidden="true">
+                      {book.coverUrl ? (
+                        <img src={book.coverUrl} alt="" />
+                      ) : book.type === "gallery_album" ? (
+                        <Images size={20} />
+                      ) : book.type === "gallery" ? (
+                        <ImageIcon size={20} />
+                      ) : (
+                        <>
+                          <BookOpen size={13} />
+                          <strong>{book.title.slice(0, 2).toUpperCase()}</strong>
+                        </>
+                      )}
+                    </div>
+                    <div className="audiobook-card-body">
+                      <strong>{book.title}</strong>
+                      <span>
+                        {book.type === "gallery_album"
+                          ? `Album · ${book.itemCount ?? 0} ${book.itemCount === 1 ? "photo" : "photos"}`
+                          : book.sharedBy ? `Shared by ${book.sharedBy}` : "Shared with you"}
+                      </span>
+                      <small>{book.expiresAt ? `Until ${new Date(book.expiresAt).toLocaleDateString()}` : "No expiry"}</small>
+                    </div>
+                  </button>
+                </article>
+              ))}
+              {books === null && <p className="management-empty">Loading…</p>}
+            </div>
+          </>
         )}
       </section>
 

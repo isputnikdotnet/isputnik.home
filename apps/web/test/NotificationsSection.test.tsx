@@ -11,21 +11,39 @@ const mockApi = vi.mocked(api);
 // and inert while there is no mail server to send through. The server enforces
 // the second one too — this is the half that explains it.
 
-function mount(over: { shareNotifications?: boolean; mailConfigured?: boolean } = {}) {
-  const state = { shareNotifications: false, mailConfigured: false, ...over };
+function mount(over: { shareNotifications?: boolean; recommendationNotifications?: boolean; mailConfigured?: boolean } = {}) {
+  const state = { shareNotifications: false, recommendationNotifications: false, mailConfigured: false, ...over };
   mockApi.mockImplementation(async (_path: string, init?: RequestInit) => {
     if (init?.method === "PUT") {
-      const body = JSON.parse(String(init.body ?? "{}")) as { shareNotifications: boolean };
+      const body = JSON.parse(String(init.body ?? "{}")) as {
+        shareNotifications: boolean;
+        recommendationNotifications: boolean;
+      };
       state.shareNotifications = body.shareNotifications;
-      return { notifications: { shareNotifications: state.shareNotifications }, mailConfigured: state.mailConfigured };
+      state.recommendationNotifications = body.recommendationNotifications;
+      return {
+        notifications: {
+          shareNotifications: state.shareNotifications,
+          recommendationNotifications: state.recommendationNotifications
+        },
+        mailConfigured: state.mailConfigured
+      };
     }
-    return { notifications: { shareNotifications: state.shareNotifications }, mailConfigured: state.mailConfigured };
+    return {
+        notifications: {
+          shareNotifications: state.shareNotifications,
+          recommendationNotifications: state.recommendationNotifications
+        },
+        mailConfigured: state.mailConfigured
+      };
   });
   render(<NotificationsSection />);
   return state;
 }
 
-const shareBox = () => screen.getByRole("checkbox");
+// Two consent switches now, so each is addressed by what it promises.
+const shareBox = () => screen.getByRole("checkbox", { name: /shared with them/i });
+const sendToBox = () => screen.getByRole("checkbox", { name: /sends them a book/i });
 const saveButton = () => screen.getByRole("button", { name: /Save/ });
 
 beforeEach(() => mockApi.mockReset());
@@ -72,6 +90,23 @@ describe("notifications tab", () => {
     await waitFor(() => expect(screen.getByText("Notification settings updated.")).toBeInTheDocument());
     expect(state.shareNotifications).toBe(true);
     expect(shareBox()).toBeChecked();
+  });
+
+  // The two switches are independent consents: turning one on must not carry the
+  // other with it, and saving one must not quietly reset the other.
+  it("switches Send to on without touching the sharing consent", async () => {
+    const user = userEvent.setup();
+    const state = mount({ mailConfigured: true });
+    await waitFor(() => expect(sendToBox()).toBeInTheDocument());
+
+    await user.click(sendToBox());
+    await user.click(saveButton());
+
+    await waitFor(() => expect(screen.getByText("Notification settings updated.")).toBeInTheDocument());
+    expect(state.recommendationNotifications).toBe(true);
+    expect(state.shareNotifications).toBe(false);
+    expect(sendToBox()).toBeChecked();
+    expect(shareBox()).not.toBeChecked();
   });
 
   it("reports a refusal from the server rather than pretending it saved", async () => {

@@ -1,6 +1,7 @@
 # Family sharing — proposal
 
-Status: **proposal** — nothing built. Companion to
+Status: **Phases 0 to 3 are BUILT.** Only Phase 4 (ratings) remains a proposal,
+and it is the one that may never be worth building. Companion to
 [sharing.md](sharing.md) and [library-sharing.md](library-sharing.md), which
 describe the guest-link and per-user grants that exist today.
 
@@ -62,12 +63,13 @@ So the features never read as duplicates of each other:
 | --- | --- | --- | --- |
 | My List (`item_saves`) | "what do *I* want to get to?" | one tap | just me |
 | Send to | "you specifically should see this" | one tap + a line | one named person |
+| Shared with me | "what have people put in front of me?" | none | just me |
 | Notes | "here is what I think about this" | typing | anyone who can see the subject |
 | Family row | "what has everyone been up to?" | none | everyone, derived |
 
 ---
 
-## Phase 0 — Subject resolver (enabler, no user-visible change)
+## Phase 0 — Subject resolver (enabler, no user-visible change) — BUILT
 
 Every later phase asks the same question: *given `(entity_type, entity_id)`,
 what is this, and may this user see it?* That logic exists once already, in
@@ -88,9 +90,15 @@ collection-shaped fields.
 Skip this and the same access check gets written five times, and will be subtly
 wrong in at least two of them.
 
+**As built**: `modules/social/subjects.ts`. `collections/hydrators.ts` is gone and
+Collections imports from here. The type table is a registry — each entry carries a
+`collectable` flag, so `SUBJECT_ENTITY_TYPES` (all four) and
+`COLLECTABLE_ENTITY_TYPES` (the three library types) come off the same map and
+cannot drift apart. `hydrateOne()` was added for the single-subject callers.
+
 ---
 
-## Phase 1 — Send to
+## Phase 1 — Send to — BUILT
 
 The headline feature, and it makes the button count go **down**.
 
@@ -137,18 +145,39 @@ Rules:
 - **Only people who can see the subject are listed.** A recommendation nobody can
   open is a bug, not a feature.
 
-### The inbox
+### Where it lands — "Shared with me"
+
+There is **one** page for everything other people put in front of you, not two.
+
+The first cut shipped a separate "Sent to me" beside the existing "Shared with
+me", and folding granting into Send to made that untenable: a single act now
+writes both a share row and a recommendation, so the same event was reported
+twice in two places. The split was ours anyway — in ordinary speech *"Dad shared
+this with me"* covers a grant and a pointer alike, and a household should not
+have to learn the difference.
+
+So `/shared` has two sections, and a thing is only ever in one of them:
+
+- **Waiting for you** — recommendations still undecided, with Save / Not now
+- **Everything else** — the shelf of what you can open, album shares included
+
+Acting on a card moves it down into the shelf. Nothing is lost: **Save** writes
+to `item_saves`, and My List is the keeping place. `/inbox` survives as an
+alias, because notification emails already sent point at it.
 
 A recommendation with no unread state is just a note with a recipient. So:
 
-- A dot on the bell in the shell header. Not a climbing count — see below.
+- A dot on the Profile control. There is no top bar to hang a bell in, so it
+  rides on the control that already opens the menu holding "Sent to me" — which
+  also means desktop and the mobile tab bar get it from one place. Not a climbing
+  count — see below.
 - Opening it shows cards: cover, sender, the one line they typed. Two buttons:
   **Save** and **Not now**.
 - **Save** writes to the existing `item_saves`. That is how Save-for-Later gets
   wired in without building anything.
-- **Ignored recommendations fade quietly.** They stop showing on the bell after
-  a couple of weeks and move to a "Sent to me" list. No unread count climbing to
-  47, no guilt.
+- **Nothing nags.** The dot counts what has not been LOOKED AT, not what has not
+  been acted on, and opening the page clears it. Deciding about each card is a
+  separate, unhurried thing — so no count ever climbs to 47.
 
 ### Schema
 
@@ -175,24 +204,131 @@ New table, so it auto-applies with no `migrations[]` entry (see CLAUDE.md).
 `from_user_id` is `SET NULL` + `from_name` snapshot so a removed account does not
 erase what it sent.
 
-### Endpoints
+### Endpoints — as built
 
 - `GET  /api/social/destinations?entityType=&entityId=` — the sheet's contents,
-  already access-filtered and already knowing whether Kindle applies.
-- `POST /api/social/recommendations` — `{ toUserId, entityType, entityId, message }`
-- `GET  /api/social/inbox` — cards, hydrated through Phase 0
+  already access-filtered and already knowing whether the e-reader applies.
+- `POST /api/social/recommendations` — `{ toUserIds[], entityType, entityId, message }`.
+  Plural on the wire even though the UI sends one, so multi-select stays a client
+  decision. Re-sending is an upsert, not a duplicate card.
+- `GET  /api/social/inbox` · `GET /api/social/inbox/summary` (the dot) ·
+  `POST /api/social/inbox/seen`
 - `POST /api/social/recommendations/:id/save` · `/dismiss`
 
-### Email
+### Email — as built
 
-Reuse `core/notifications.ts` with a second flag, same discipline: **off by
-default**, gated on `isMailConfigured()`, admin-controlled on the existing
-Notifications tab. The in-app bell is the primary channel precisely because most
-installs will never configure SMTP.
+A second flag in `core/notifications.ts` (`recommendationNotifications`), same
+discipline: **off by default**, gated on `isMailConfigured()`, its own switch on
+the Notifications tab so an admin who wanted share mail has not thereby agreed to
+mail the household every time someone passes a book along. The in-app inbox is the
+primary channel precisely because most installs will never configure SMTP.
+
+### What Phase 1 shipped with
+
+- `modules/social/` — `routes.ts`, `notify.ts`, `subjects.ts`
+- `features/social/` — `SendToSheet.tsx`, `InboxRow.tsx`, `useInboxSummary.ts`
+- `SharedWithMePage` absorbed the inbox; one nav entry, `/inbox` aliased to it
+- `test/social-send-to.test.ts` — 16 cases, mostly about the ways it must say no
+
+All three surfaces are wired, and each shows only the destinations that apply:
+
+| Surface | People | Can grant | E-reader | Guest link |
+| --- | --- | --- | --- | --- |
+| Ebook detail | yes | curator | when `ereader_email` is set | yes |
+| Audiobook detail | yes | curator | — | yes |
+| Gallery lightbox | yes | curator | — | yes |
+| Gallery album | yes | its creator / admin | — | yes |
+| Gallery slideshow | yes | — (no slideshow share exists) | — | — |
+| Family-tree person | yes | — (all can read) | — | — |
+
+Albums and slideshows needed **addresses** before they could be sent — both were
+local state on the gallery page, so a recommendation had nowhere to land.
+`/gallery/albums/<id>` and `/gallery/slideshows/<id>` follow the `galleryFolder`
+precedent: the id seeds the selection once, then the URL follows the selection by
+`replaceState` (opening an album and pressing Back should leave the gallery, not
+walk back through every album looked at on the way).
+
+Neither offers **Favorites**. Favorites earns its place when a set is too big to
+scan — thousands of books, tens of thousands of photos. A household has tens of
+albums and a handful of slideshows, all already on one page, and an album granted
+to you is already permanently in Shared with me. So their cards show a single
+**Done** instead of Favorite / Not now, which also reads better: "Not now" is the
+wrong word once you have looked at the thing.
+
+Two bugs caught here, both worth recording.
+
+**The album resolver first judged visibility by library access alone**, so
+somebody granted an album still could not open it — a grant does not widen
+library access, it grants the album. Three ways an album can be visible, and all
+three are now in the hydrator: a photo you can browse, it is yours, or you were
+granted it.
+
+**The slideshow resolver leaked.** This document, the first hydrator and the
+first changelog entry all said a slideshow was open to every signed-in account,
+"like the family tree". That was simply wrong, and reviewing the claim is what
+turned it up: `listSlideshows()` scopes them by visible photos exactly like
+albums, and the detail route says so outright — *"a member who can't see any of
+the items shouldn't learn the slideshow exists"*. The hydrator was describing
+every slideshow to every account: its name, its photo count, and a cover
+thumbnail of a photo the viewer had no access to.
+
+It now mirrors the real rule. The first version of the test missed it, which is
+the more useful lesson: the slideshow in that test had no items and the household
+had one member, so `[].every(...)` passed against a broken hydrator. The
+replacement seeds a slideshow whose only photo is in a library the second member
+cannot browse, and was checked by restoring the bug and watching three cases fail.
+
+What remains true is that a slideshow cannot be **granted** — there is no
+slideshow share of any kind — which is why it is send-only rather than
+send-and-give.
+
+On the book detail page and the gallery lightbox this **replaced** the separate
+"Share" action; on books it replaced "Send to e-reader" as well. Choosing
+"Anyone with a link" closes the sheet and opens each page's existing share
+modal, so the guest-link flow itself is untouched.
+
+### Granting folded in — the fourth destination
+
+The share modal used to have a **People** tab that granted another account access
+to the item. Two paths that both said "people" was the exact duplication this
+document set out to remove, and it had a worse symptom: Send to listed only people
+who could already open a thing, so the answer to *"why isn't Mom in the list?"*
+lived in a different dialog.
+
+Now there is one list, in two halves:
+
+```
+Send to…
+
+  👤 Anna                            ← can open it; sending is a pointer
+  ─────────────
+  DOESN'T HAVE ACCESS YET
+  👤 Mom            will get access  ← sending also grants read access
+```
+
+- **Nobody is hidden.** Somebody who cannot open the subject is listed and
+  labelled, so the reason is on screen rather than in another menu.
+- **The grant is never implicit.** The compose step says
+  *"Mom can't open this yet. Sending will also give them access to it."* and the
+  button reads **Give access and send**. The client must pass `grantAccess`;
+  the server does nothing extra without it.
+- **Permission is unchanged.** Widening access still needs the curate capability
+  (`canGrantItemAccess`). A view-only member sees who is missing, labelled
+  *"no access"* on a disabled row, and cannot be the one to fix it.
+- **One implementation.** `grantItemAccess()` in
+  `modules/library/shared/shares.ts` is now the only code that widens access;
+  `POST /api/shares/user` is a thin wrapper over it. Two code paths that both
+  grant is how they drift apart.
+- **The People tab kept the half it is good at** — who has access, and revoking
+  it — and points at Send to for the other half. Both of them: the item share
+  modal and `ShareAlbumModal`, which was the last one standing.
+
+Family-tree persons never offer this: everyone signed in can already read the
+tree, so `canGrant` is false and there is nothing to widen.
 
 ---
 
-## Phase 2 — Notes
+## Phase 2 — Notes — BUILT
 
 Open anything, scroll down, a box that says *"Add a note…"*. Type, post. The
 note lives under that book/photo/person for good.
@@ -200,7 +336,13 @@ note lives under that book/photo/person for good.
 - **Flat.** One level of reply at most; realistically, none. Nesting is what
   turns a comment box into a comment section.
 - **Plain text, stored and rendered as text.** No markdown, no HTML. That is the
-  entire XSS story, and it stays that way.
+  entire XSS story, and it stays that way. **Emoji are not an exception** — they
+  ARE plain text, and travelled correctly from the first day, ZWJ sequences and
+  variation selectors included (checked, not assumed). A picker was added later
+  for discovery only: at a desk nobody thinks to reach for the emoji keyboard.
+  Rich text was asked for at the same time and declined, because rendering markup
+  is what would end the one-sentence guarantee above — and the people it is for
+  do not write markdown.
 - **Length-capped**, and covered by the existing global rate limiter.
 - **Soft delete** — author or admin. Removing a note leaves the thread's shape
   intact.
@@ -209,8 +351,13 @@ note lives under that book/photo/person for good.
 
 ### Where they appear
 
-Book and ebook detail, gallery lightbox, family-tree person, and — if
-collections survive — a collection.
+Book and ebook detail, the gallery lightbox, a family-tree person, and — added
+later, when both became sendable — an album and a slideshow.
+
+That last pair was a gap for a while: the route accepted notes on them the moment
+they joined the resolver, but no page rendered one, so a note posted through the
+API would have been unreadable. Anything the resolver understands should be
+note-able AND show its notes; the two halves are one decision.
 
 ### Schema
 
@@ -236,19 +383,43 @@ picker. Two carve-outs, both important:
 
 - **Quotes and highlights stay private.** They are per-user today. Nothing in
   this proposal retroactively publishes them.
-- **Family-tree notes inherit branch scoping.** Family tree access is tag-scoped
-  (`modules/familytree/access.ts`), not "any signed-in user". A note on a person
-  must be gated by the same rule as the person. **This is the one real trap in
-  the whole proposal** — the naive `WHERE entity_id = ?` leaks across branches.
+- **Family-tree persons are readable by everyone signed in.** An earlier draft of
+  this document claimed the tag scoping in `modules/familytree/access.ts` gated
+  reads and called it the one real trap here. It does not: it governs EDITING, and
+  the schema says so outright ("Any signed-in user can view; only admins edit").
+  So person notes need no special case — they follow the same rule as everything
+  else. Checked while building Phase 0.
 
-### Who may post
+### Who may post — changed while building
 
-Reuse the existing role model — `member` or above on the object. A `viewer`
-reads and does not post. **No new permission axis.**
+This document said `member` or above, so a `viewer` would read and not post.
+**Built the other way: if you can see it, you can write on it.** Phase 1 settled
+it — somebody who can see a thing may already *Send* it to a family member with a
+message attached, so refusing them a note on the same thing is incoherent. And
+the accounts the stricter rule would silence are exactly the view-only ones, the
+children, whose remarks on the family photographs are the point of the feature.
+
+The upside is that there is now **one** rule rather than two: visibility and the
+right to post are the same question, asked once, of the subject resolver. Still
+no new permission axis.
+
+### What Phase 2 shipped with
+
+- `modules/social/notes.ts` — list · post · soft-delete, three routes
+- `features/social/NotesSection.tsx`, dropped on book detail, the family-tree
+  person page, and the gallery lightbox's info panel (`compact`)
+- `test/social-notes.test.ts` — 14 cases, including that markup survives the
+  round trip as the literal text it was typed as
+- The person page's **Notes** tab, which held one admin-edited biography field,
+  is now called **Biography**. Two things called Notes on one page is worse than
+  a rename, and the tab id was never in the URL.
+
+Not built, deliberately: editing a note. Delete and repost is enough at this
+size, and an edit history is a feature this does not want yet.
 
 ---
 
-## Phase 3 — The family row
+## Phase 3 — The family row — BUILT
 
 One row on the Home dashboard, reading as sentences:
 
@@ -271,6 +442,57 @@ Tap a line, land on the thing. A `/activity` page shows the longer list.
 
 **Built third on purpose.** A feed shipped before there is anything to feed it is
 an empty box that teaches the family the feature is dead.
+
+### What was built, and why only half
+
+The **"Sent to you"** row is on Home, first on the page, hidden when empty. It
+shows the cover, who sent it, and their line — or, when they wrote none, what
+they are asking: *"Dad wants you to listen to this"*.
+
+This half was pulled forward because it is not polish, it is the **delivery
+mechanism**. A recommendation used to arrive behind the profile menu under a
+small dot: findable by somebody who already knew it was there, and by nobody
+else. For a household where not everyone is comfortable with computers, that
+made the whole feature theoretical. Deciding still happens on Shared with me —
+the row is a pointer, like every other home row.
+
+The **wider feed** followed as **"Around the house"**: six lines on Home, the
+rest at `/activity`. Written as sentences — *"Anna left a note on Dune"*, with
+her words underneath — because a card with a title and a badge makes the reader
+work out what happened, and a sentence just tells them.
+
+Derived, never stored: a capped `UNION` over `notes`, `gallery_albums`,
+`gallery_slideshows` and `family_tree_persons`, ordered by time, then filtered
+through the resolver. Absence from the resolver **is** the access check — it
+leaves out what you cannot see rather than marking it, and unlike an inbox card
+there is no decision pending on a feed line, so it simply stops being news.
+
+What it leaves out, all deliberately:
+
+- **Your own doings.** You know about those, and at five people they would crowd
+  out everybody else's.
+- **New books and photos.** Home already has a "Recently added" row; a second one
+  saying the same thing in sentences is noise, not information.
+- **Recommendations.** "Dad sent Mum a book" is correspondence between two
+  people; the half that concerns you is already the "Sent to you" row.
+
+Two things worth recording from building it:
+
+- The query **over-fetches by 4×** before filtering, because access filtering
+  happens after the query. Without it a viewer who can see little of the library
+  gets a nearly empty page made of the few rows that survived out of `limit`.
+- The first phrasing put the title last in every sentence, which produced
+  *"Dad added to the family tree Grandma"*. A phrase is two halves with the title
+  between them. Real data caught it the moment the feed was looked at — the unit
+  tests never would have, since they assert structure, not English.
+
+### The wording came with it
+
+`features/social/phrasing.ts` turns a subject type into the ask: read, listen,
+watch or look. Everything used to say "sent you this" whatever it was, which
+reads as software reporting an event rather than a person talking. The email
+carries the same intent in its own sentence (a different medium gets its own
+words, so the code is not shared across the wire — only the meaning).
 
 ---
 
@@ -347,11 +569,12 @@ family will actually use, because nobody has to build them.
 
 ## Open questions
 
-1. **Does the bell live in the shell header on desktop *and* in the mobile tab
-   bar**, or does mobile surface the inbox as a Home row instead? The mobile nav
-   is already four tabs.
+1. ~~Where the bell lives on mobile.~~ **Settled while building**: there is no top
+   bar on either breakpoint, so the dot rides on the Profile control, which already
+   opens the menu holding "Sent to me". No fifth tab, one implementation for both.
 2. **Notes on gallery items**: per photo, or per album/folder? Per photo is the
    obvious answer but it means a note on one of 400 holiday photos is nearly
    unfindable. Possibly both, with the album view rolling up its photos' notes.
-3. **Should "Send to" accept more than one recipient at once?** One recipient is
-   simpler and reads as personal; multi-select edges toward broadcast.
+3. **Should "Send to" accept more than one recipient at once?** The API already
+   takes an array; the sheet sends one. One recipient reads as personal, multi-select
+   edges toward broadcast — so it stays single until someone asks.

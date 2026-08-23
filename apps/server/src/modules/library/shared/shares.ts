@@ -12,7 +12,7 @@ import { addDays } from "../../../auth.js";
 import { parseBody, requestOrigin } from "../../../core/shared.js";
 import { pathIsInside } from "./storage-roots.js";
 import { thumbnailAbsolutePath } from "./thumbnail.js";
-import { canUserAccessLibrary, canUserCurateLibrary, getLibraryForBook, type LibraryAccessRow } from "./library-access.js";
+import { accessibleLibraryIds, canUserAccessLibrary, canUserCurateLibrary, getLibraryForBook, type LibraryAccessRow } from "./library-access.js";
 import { resolveShareLink, type ResolvedShareLink } from "./share-access.js";
 import { newlySharedResources, notifyShareGranted } from "./share-notify.js";
 import { parseRangeHeader } from "./document-stream.js";
@@ -125,6 +125,141 @@ function getShareableBook(bookId: string, userId: string, userRole: string): Sha
   if (!canUserAccessLibrary(library, userId, userRole)) return "not_found";
   if (!canUserCurateLibrary(library, userId, userRole)) return "forbidden";
   return { library };
+}
+
+/** Whether the caller may hand another account access to this item. Exported so
+ *  "Send to" can offer people who cannot open a thing yet WITHOUT duplicating the
+ *  rule about who is allowed to widen access. */
+export function canGrantItemAccess(itemId: string, userId: string, userRole: string): boolean {
+  return typeof getShareableBook(itemId, userId, userRole) === "object";
+}
+
+/** Grant one account read access to one item.
+ *
+ *  The single implementation of granting: POST /api/shares/user is a thin wrapper
+ *  over it, and "Send to" calls it when the sender picks somebody who cannot open
+ *  the thing yet. Two code paths that both widen access is how they drift apart.
+ *  Returns a reason instead of throwing so each caller can shape its own reply. */
+export function grantItemAccess(opts: {
+  itemId: string;
+  toUserId: string;
+  by: { id: string; role: string };
+  expiresInDays?: number;
+  /** Origin of the page the sharer is on, for the notification link. */
+  origin: string;
+  ipAddress?: string;
+}): "ok" | "self" | "not_found" | "forbidden" | "no_such_user" {
+  if (opts.toUserId === opts.by.id) return "self";
+  const result = getShareableBook(opts.itemId, opts.by.id, opts.by.role);
+  if (result === "not_found" || result === "forbidden") return result;
+  const module = mediaKind(result.library.type);
+
+  const target = db.prepare(
+    "SELECT id FROM users WHERE id = ? AND deleted_at IS NULL AND is_active = 1"
+  ).get(opts.toUserId) as { id: string } | undefined;
+  if (!target) return "no_such_user";
+
+  const expiresAt = opts.expiresInDays ? addDays(opts.expiresInDays).toISOString() : null;
+  // Checked before the upsert: afterwards a refreshed grant is indistinguishable
+  // from a new one, and only a new one is worth an email.
+  const isNew = newlySharedResources(module, [opts.itemId], opts.toUserId).length > 0;
+  db.prepare(`
+    INSERT INTO shares (id, module, resource_id, user_id, permission, created_by, expires_at)
+    VALUES (?, ?, ?, ?, 'read', ?, ?)
+    ON CONFLICT (module, resource_id, user_id) DO UPDATE SET
+      revoked_at = NULL,
+      expires_at = excluded.expires_at,
+      created_by = excluded.created_by,
+      created_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+  `).run(nanoid(16), module, opts.itemId, opts.toUserId, opts.by.id, expiresAt);
+
+  logActivity({
+    event: "share.granted",
+    actorUserId: opts.by.id,
+    targetType: "book",
+    targetId: opts.itemId,
+    detail: `Shared an ${module} with a user.`,
+    ipAddress: opts.ipAddress
+  });
+  if (isNew) {
+    notifyShareGranted({
+      recipientId: opts.toUserId,
+      sharedById: opts.by.id,
+      origin: opts.origin,
+      expiresAt,
+      thing: { kind: "item", module, itemId: opts.itemId }
+    });
+  }
+  return "ok";
+}
+
+// Only the album's creator or an admin may share it (it's their album). Used by
+// every album-share write, and by "Send to" to decide whether to offer people
+// who cannot see it yet.
+function albumEditableBy(
+  user: { id: string; role: string },
+  albumId: string
+): AlbumShareMeta | "not_found" | "forbidden" {
+  const meta = loadAlbumShareMeta(albumId);
+  if (!meta) return "not_found";
+  if (user.role !== "admin" && meta.created_by !== user.id) return "forbidden";
+  return meta;
+}
+
+/** Whether the caller may hand another account access to this album. */
+export function canGrantAlbumAccess(albumId: string, user: { id: string; role: string }): boolean {
+  return typeof albumEditableBy(user, albumId) === "object";
+}
+
+/** Grant one account read access to one album — the single implementation, shared
+ *  by POST /api/shares/album/user and by "Send to". */
+export function grantAlbumAccess(opts: {
+  albumId: string;
+  toUserId: string;
+  by: { id: string; role: string };
+  expiresInDays?: number;
+  origin: string;
+  ipAddress?: string;
+}): "ok" | "self" | "not_found" | "forbidden" | "no_such_user" {
+  if (opts.toUserId === opts.by.id) return "self";
+  const meta = albumEditableBy(opts.by, opts.albumId);
+  if (meta === "not_found" || meta === "forbidden") return meta;
+
+  const target = db.prepare(
+    "SELECT id FROM users WHERE id = ? AND deleted_at IS NULL AND is_active = 1"
+  ).get(opts.toUserId) as { id: string } | undefined;
+  if (!target) return "no_such_user";
+
+  const expiresAt = opts.expiresInDays ? addDays(opts.expiresInDays).toISOString() : null;
+  const isNew = newlySharedResources("gallery_album", [opts.albumId], opts.toUserId).length > 0;
+  db.prepare(`
+    INSERT INTO shares (id, module, resource_id, user_id, permission, created_by, expires_at)
+    VALUES (?, 'gallery_album', ?, ?, 'read', ?, ?)
+    ON CONFLICT (module, resource_id, user_id) DO UPDATE SET
+      revoked_at = NULL,
+      expires_at = excluded.expires_at,
+      created_by = excluded.created_by,
+      created_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+  `).run(nanoid(16), opts.albumId, opts.toUserId, opts.by.id, expiresAt);
+
+  logActivity({
+    event: "share.granted",
+    actorUserId: opts.by.id,
+    targetType: "share",
+    targetId: opts.toUserId,
+    detail: `Shared gallery album \"${meta.name}\" with a user.`,
+    ipAddress: opts.ipAddress
+  });
+  if (isNew) {
+    notifyShareGranted({
+      recipientId: opts.toUserId,
+      sharedById: opts.by.id,
+      origin: opts.origin,
+      expiresAt,
+      thing: { kind: "album", name: meta.name }
+    });
+  }
+  return "ok";
 }
 
 // Resolve sharing permission into a reply, or return true when allowed. Centralizes
@@ -800,15 +935,6 @@ export async function librarySharesPlugin(app: FastifyInstance) {
 
   // --- Owner: live album shares (guest link + per-user) -------------------
 
-  // Only the album's creator or an admin may share it (it's their album). Used by
-  // every album-share write below.
-  const albumEditableBy = (user: { id: string; role: string }, albumId: string): AlbumShareMeta | "not_found" | "forbidden" => {
-    const meta = loadAlbumShareMeta(albumId);
-    if (!meta) return "not_found";
-    if (user.role !== "admin" && meta.created_by !== user.id) return "forbidden";
-    return meta;
-  };
-
   // Create a live guest link over an album — the URL always reflects the album's
   // current photos (no snapshot, no item cap).
   app.post("/api/shares/album", { preHandler: app.authenticate }, async (request, reply) => {
@@ -887,51 +1013,36 @@ export async function librarySharesPlugin(app: FastifyInstance) {
   // Share an album *with a registered user* — a live grant (module 'gallery_album',
   // resource_id = the album). The recipient sees the album under "Shared with me"
   // and it tracks the album's membership. Upsert refreshes the expiry.
+  // A thin wrapper over grantAlbumAccess(): "Send to" calls the same function,
+  // so there is one implementation of widening access to an album.
   app.post("/api/shares/album/user", { preHandler: app.authenticate }, async (request, reply) => {
     const parsed = parseBody(albumUserShareSchema, request.body);
     if (parsed.error) {
       return reply.code(400).send({ error: "Invalid share details", details: parsed.error });
     }
     const user = request.user!;
-    if (parsed.data.userId === user.id) {
-      return reply.code(400).send({ error: "You already have access to this album" });
-    }
-    const meta = albumEditableBy(user, parsed.data.albumId);
-    if (meta === "not_found") { return reply.code(404).send({ error: "Album not found" }); }
-    if (meta === "forbidden") { return reply.code(403).send({ error: "Only the album's creator or an admin can share it." }); }
-    const target = db.prepare(
-      "SELECT id FROM users WHERE id = ? AND deleted_at IS NULL AND is_active = 1"
-    ).get(parsed.data.userId) as { id: string } | undefined;
-    if (!target) { return reply.code(404).send({ error: "User not found" }); }
-
-    const expiresAt = parsed.data.expiresInDays ? addDays(parsed.data.expiresInDays).toISOString() : null;
-    const isNew = newlySharedResources("gallery_album", [parsed.data.albumId], parsed.data.userId).length > 0;
-    db.prepare(`
-      INSERT INTO shares (id, module, resource_id, user_id, permission, created_by, expires_at)
-      VALUES (?, 'gallery_album', ?, ?, 'read', ?, ?)
-      ON CONFLICT (module, resource_id, user_id) DO UPDATE SET
-        revoked_at = NULL,
-        expires_at = excluded.expires_at,
-        created_by = excluded.created_by,
-        created_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
-    `).run(nanoid(16), parsed.data.albumId, parsed.data.userId, user.id, expiresAt);
-    logActivity({
-      event: "share.granted",
-      actorUserId: user.id,
-      targetType: "share",
-      targetId: parsed.data.userId,
-      detail: `Shared gallery album "${meta.name}" with a user.`,
+    const outcome = grantAlbumAccess({
+      albumId: parsed.data.albumId,
+      toUserId: parsed.data.userId,
+      by: user,
+      expiresInDays: parsed.data.expiresInDays,
+      origin: requestOrigin(request),
       ipAddress: request.ip
     });
-    if (isNew) {
-      notifyShareGranted({
-        recipientId: parsed.data.userId,
-        sharedById: user.id,
-        origin: requestOrigin(request),
-        expiresAt,
-        thing: { kind: "album", name: meta.name }
-      });
+
+    if (outcome === "self") {
+      return reply.code(400).send({ error: "You already have access to this album" });
     }
+    if (outcome === "not_found") {
+      return reply.code(404).send({ error: "Album not found" });
+    }
+    if (outcome === "forbidden") {
+      return reply.code(403).send({ error: "Only the album's creator or an admin can share it." });
+    }
+    if (outcome === "no_such_user") {
+      return reply.code(404).send({ error: "User not found" });
+    }
+
     return reply.code(201).send({ ok: true });
   });
 
@@ -1287,6 +1398,8 @@ export async function librarySharesPlugin(app: FastifyInstance) {
     return { users: users.map((u) => ({ id: u.id, displayName: u.display_name })) };
   });
 
+  // A thin wrapper over grantItemAccess(): validation and the HTTP shape live
+  // here, the grant itself lives in one place that "Send to" also calls.
   app.post("/api/shares/user", { preHandler: app.authenticate }, async (request, reply) => {
     const parsed = parseBody(createUserShareSchema, request.body);
     if (parsed.error) {
@@ -1294,50 +1407,26 @@ export async function librarySharesPlugin(app: FastifyInstance) {
     }
 
     const user = request.user!;
-    if (parsed.data.userId === user.id) {
-      return reply.code(400).send({ error: "You already have access to this book" });
-    }
-    const result = getShareableBook(parsed.data.bookId, user.id, user.role);
-    if (denyIfNotShareable(result, reply)) return reply;
-    const module = mediaKind((result as { library: LibraryAccessRow }).library.type);
-
-    const target = db.prepare(
-      "SELECT id FROM users WHERE id = ? AND deleted_at IS NULL AND is_active = 1"
-    ).get(parsed.data.userId) as { id: string } | undefined;
-    if (!target) {
-      return reply.code(404).send({ error: "User not found" });
-    }
-
-    const shareId = nanoid(16);
-    const expiresAt = parsed.data.expiresInDays ? addDays(parsed.data.expiresInDays).toISOString() : null;
-    // Checked before the upsert: afterwards a refreshed grant is indistinguishable
-    // from a new one, and only a new one is worth an email.
-    const isNew = newlySharedResources(module, [parsed.data.bookId], parsed.data.userId).length > 0;
-    db.prepare(`
-      INSERT INTO shares (id, module, resource_id, user_id, permission, created_by, expires_at)
-      VALUES (?, ?, ?, ?, 'read', ?, ?)
-      ON CONFLICT (module, resource_id, user_id) DO UPDATE SET
-        revoked_at = NULL,
-        expires_at = excluded.expires_at,
-        created_by = excluded.created_by,
-        created_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
-    `).run(shareId, module, parsed.data.bookId, parsed.data.userId, user.id, expiresAt);
-    logActivity({
-      event: "share.granted",
-      actorUserId: user.id,
-      targetType: "book",
-      targetId: parsed.data.bookId,
-      detail: `Shared an ${module} with a user.`,
+    const outcome = grantItemAccess({
+      itemId: parsed.data.bookId,
+      toUserId: parsed.data.userId,
+      by: user,
+      expiresInDays: parsed.data.expiresInDays,
+      origin: requestOrigin(request),
       ipAddress: request.ip
     });
-    if (isNew) {
-      notifyShareGranted({
-        recipientId: parsed.data.userId,
-        sharedById: user.id,
-        origin: requestOrigin(request),
-        expiresAt,
-        thing: { kind: "item", module, itemId: parsed.data.bookId }
-      });
+
+    if (outcome === "self") {
+      return reply.code(400).send({ error: "You already have access to this book" });
+    }
+    if (outcome === "not_found") {
+      return reply.code(404).send({ error: "Book not found" });
+    }
+    if (outcome === "forbidden") {
+      return reply.code(403).send({ error: "Curator access required to share this book." });
+    }
+    if (outcome === "no_such_user") {
+      return reply.code(404).send({ error: "User not found" });
     }
 
     return reply.code(201).send({ ok: true });
