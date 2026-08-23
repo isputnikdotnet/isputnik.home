@@ -597,3 +597,61 @@ a.inbox-title:hover {
   font-size: 0.78rem;
   color: var(--muted);
 }
+
+/* ── Emoji picker ────────────────────────────────────────────────────────── */
+
+/* The form's action row now carries the picker on the left and Post on the
+   right, so it stops being flush-right. */
+.note-form-actions {
+  justify-content: space-between;
+  align-items: center;
+}
+
+.emoji-picker {
+  position: relative;
+  display: inline-flex;
+}
+
+/* Opens upward: the note form sits at the bottom of a long page, and a popover
+   that drops below it would land off-screen as often as not. */
+.emoji-popover {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  z-index: 30;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 2px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-raised);
+  box-shadow: 0 12px 28px var(--shadow);
+}
+
+.emoji-option {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  /* Colour fonts vary; keep the glyphs from nudging each other around. */
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+
+.emoji-option:hover,
+.emoji-option:focus-visible {
+  background: var(--hover);
+}
+
+/* Phones: the grid would run past a 375px viewport at eight across. */
+@media (max-width: 740px) {
+  .emoji-popover {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}

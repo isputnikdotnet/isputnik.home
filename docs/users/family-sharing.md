@@ -136,6 +136,11 @@ That's the whole feature. There are no replies, no reactions, no counts and no
 mentions: a note is a remark left beside something, not a thread. Notes are
 plain text, and appear exactly as you typed them.
 
+**Emoji work** — tap the 🙂 button beside Post for a handful of the usual ones,
+or use your own keyboard's if you'd rather. They go in wherever the cursor is.
+There's no bold or italics, and that's deliberate: keeping notes as plain text is
+what keeps them safe to show.
+
 **Anyone who can see a thing can write on it**, including accounts with
 view-only rights to a library. If you're allowed to look at the family
 photographs, you're allowed to say something about them.

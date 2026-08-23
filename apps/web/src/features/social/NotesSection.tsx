@@ -1,9 +1,10 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { MessageSquare, Trash2 } from "lucide-react";
 import { api } from "../../api";
 import { Button } from "../../shared/Button";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { MessageBox } from "../../shared/MessageBox";
+import { EmojiPicker } from "./EmojiPicker";
 
 // What the household says about a thing, under the thing itself.
 //
@@ -14,6 +15,11 @@ import { MessageBox } from "../../shared/MessageBox";
 // Flat by construction: no replies, no reactions, no mentions, no counts. The
 // body is rendered as TEXT (a React child, never dangerouslySetInnerHTML), which
 // is the whole reason the server can store exactly what was typed.
+//
+// Emoji need nothing from that: they ARE plain text and always travelled fine.
+// The picker beside Post is there because they were hard to FIND at a desk, not
+// because they were unsupported — and rich text is still deliberately absent,
+// since rendering markup is what would end the one-sentence XSS story above.
 
 interface Note {
   id: string;
@@ -52,6 +58,7 @@ export function NotesSection({
   const [error, setError] = useState("");
   const [confirmDelete, setConfirmDelete] = useState<Note | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const load = () => {
     const params = new URLSearchParams({ entityType, entityId });
@@ -82,6 +89,25 @@ export function NotesSection({
     } finally {
       setBusy(false);
     }
+  };
+
+  // Insert where the caret is, not at the end: somebody who has written a
+  // sentence and gone back to the start of it means the emoji to go there.
+  // Focus and caret are restored afterwards so typing simply continues.
+  const insertEmoji = (emoji: string) => {
+    const field = inputRef.current;
+    if (!field) {
+      setDraft((current) => current + emoji);
+      return;
+    }
+    const start = field.selectionStart ?? draft.length;
+    const end = field.selectionEnd ?? start;
+    setDraft(draft.slice(0, start) + emoji + draft.slice(end));
+    requestAnimationFrame(() => {
+      field.focus();
+      const caret = start + emoji.length;
+      field.setSelectionRange(caret, caret);
+    });
   };
 
   const remove = async () => {
@@ -140,6 +166,7 @@ export function NotesSection({
 
       <form className="note-form" onSubmit={submit}>
         <textarea
+          ref={inputRef}
           className="note-input"
           value={draft}
           maxLength={MAX}
@@ -149,6 +176,7 @@ export function NotesSection({
           onChange={(event) => setDraft(event.target.value)}
         />
         <div className="note-form-actions">
+          <EmojiPicker onPick={insertEmoji} disabled={busy} />
           <Button variant="primary" compact type="submit" disabled={busy || draft.trim().length === 0}>
             {busy ? "Posting…" : "Post"}
           </Button>

@@ -336,7 +336,13 @@ note lives under that book/photo/person for good.
 - **Flat.** One level of reply at most; realistically, none. Nesting is what
   turns a comment box into a comment section.
 - **Plain text, stored and rendered as text.** No markdown, no HTML. That is the
-  entire XSS story, and it stays that way.
+  entire XSS story, and it stays that way. **Emoji are not an exception** — they
+  ARE plain text, and travelled correctly from the first day, ZWJ sequences and
+  variation selectors included (checked, not assumed). A picker was added later
+  for discovery only: at a desk nobody thinks to reach for the emoji keyboard.
+  Rich text was asked for at the same time and declined, because rendering markup
+  is what would end the one-sentence guarantee above — and the people it is for
+  do not write markdown.
 - **Length-capped**, and covered by the existing global rate limiter.
 - **Soft delete** — author or admin. Removing a note leaves the thread's shape
   intact.

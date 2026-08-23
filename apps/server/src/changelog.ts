@@ -38,7 +38,8 @@ export const VERSION_UPDATES: VersionUpdate[] = [
       "And it says what is actually being asked. 'Dad wants you to listen to this', 'Mum wants you to see these photos' — read, listen, watch or look, depending on what the thing is, rather than the same 'sent you this' for everything. If they wrote a line, their line is shown instead.",
       "Send to on a book carries its name beside the icon rather than only in a tooltip. It is the one action in that row somebody has to come across rather than go looking for.",
       "And a second row, Around the house, for what everybody else has been doing — notes left, albums and slideshows made, people added to the family tree — written as sentences rather than cards: 'Anna left a note on Dune', with what she actually wrote underneath. Six on the Home page, the rest on their own page.",
-      "It leaves things out on purpose. Your own doings are not listed, because you know about those and at five people they would crowd out everybody else's. New books and photos are not either — the Recently added row already says that. Anything about a thing you cannot see never appears at all."
+      "It leaves things out on purpose. Your own doings are not listed, because you know about those and at five people they would crowd out everybody else's. New books and photos are not either — the Recently added row already says that. Anything about a thing you cannot see never appears at all.",
+      "A note can carry an emoji, and now there is a button to find one with: forty of the ones a household actually uses, inserted where the cursor is. Emoji always worked — they are plain text like the rest of a note — they were just hard to reach at a desk. Notes stay plain text on purpose: rendering formatting is exactly what would turn a note into something that has to be made safe before it can be shown."
     ]
   },
   {
