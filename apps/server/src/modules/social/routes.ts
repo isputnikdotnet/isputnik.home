@@ -277,6 +277,7 @@ export async function socialPlugin(app: FastifyInstance) {
         recipientId: recipient.id,
         senderName,
         subjectTitle: subject.title,
+        entityType,
         message: message ?? null,
         origin
       });

@@ -449,3 +449,75 @@ a.inbox-title:hover {
     opacity: 1;
   }
 }
+
+/* ── "Sent to you" on the Home page ──────────────────────────────────────── */
+
+/* Desktop reuses the shared home tile grid; phones get a compact list, because
+   a row of tiles on a narrow screen shows two things and hides the rest. */
+.home-sent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.home-sent-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  text-decoration: none;
+  min-width: 0;
+}
+
+.home-sent-cover {
+  width: 48px;
+  height: 48px;
+  flex: 0 0 auto;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface-raised);
+  display: grid;
+  place-items: center;
+}
+
+.home-sent-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.home-sent-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.home-sent-copy strong,
+.home-sent-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-sent-copy small {
+  color: var(--muted);
+}
+
+/* An icon button that carries its word. Used for "Send to" on a book, which is
+   the one action in that row somebody has to discover rather than look for. */
+.icon-button.has-label {
+  width: auto;
+  gap: 7px;
+  padding-inline: 12px;
+}
+
+.icon-button-label {
+  font-size: 0.85rem;
+  font-weight: 500;
+  white-space: nowrap;
+}

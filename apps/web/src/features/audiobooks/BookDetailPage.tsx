@@ -821,6 +821,11 @@ function BookDetailView({
     danger?: boolean;
     /** Gold accent, so the main action still reads as primary in a row of icons. */
     cta?: boolean;
+    /** Show the label beside the icon on desktop, not only as a tooltip.
+     *  For actions somebody has to FIND rather than go looking for: a paper
+     *  plane among seven icons is learnable, but only once you know it is
+     *  there, and the people this app is for do not hover to find out. */
+    showLabel?: boolean;
   };
   // Listen/Read: on mobile these render as icons right after the back button;
   // on desktop they stay as the big primary/secondary buttons under the cover.
@@ -872,7 +877,7 @@ function BookDetailView({
       : []),
     // One "Send to" in place of two: the e-reader and the guest link are now
     // destinations inside the sheet rather than separate actions competing for a slot.
-    { key: "send", icon: Send as LucideIcon, label: "Send to", onClick: () => setSendToOpen(true) },
+    { key: "send", icon: Send as LucideIcon, label: "Send to", showLabel: true, onClick: () => setSendToOpen(true) },
     // Desktop keeps Add to collection inline in its original spot; mobile always
     // routes it into the overflow menu instead (see mobileMenuItems below).
     ...(!isMobile ? [collectionAction] : []),
@@ -931,7 +936,7 @@ function BookDetailView({
     ) : (
       <button
         key={a.key}
-        className={`icon-button${a.active ? " offline-saved" : ""}${a.danger ? " danger" : ""}${a.cta ? " accent-gold" : ""}`}
+        className={`icon-button${a.active ? " offline-saved" : ""}${a.danger ? " danger" : ""}${a.cta ? " accent-gold" : ""}${a.showLabel && !isMobile ? " has-label" : ""}`}
         type="button"
         onClick={a.onClick}
         disabled={a.disabled}
@@ -940,6 +945,7 @@ function BookDetailView({
         title={a.label}
       >
         <a.icon size={18} />
+        {a.showLabel && !isMobile && <span className="icon-button-label">{a.label}</span>}
       </button>
     );
 

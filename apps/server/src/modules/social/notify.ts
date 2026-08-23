@@ -20,6 +20,20 @@ function clip(value: string, max = 90): string {
   return value.length > max ? `${value.slice(0, max - 1).trimEnd()}…` : value;
 }
 
+// What is actually being asked. Deliberately the same intent as the in-app
+// wording (features/social/phrasing.ts) without sharing code across the wire —
+// an email is a different medium and gets its own sentence, but "Dad wants you
+// to read this" should not become "Dad sent you this" just because it arrived
+// by post.
+const ASKS: Record<string, string> = {
+  audiobook: "wants you to listen to this",
+  ebook: "wants you to read this",
+  gallery: "wants you to see this",
+  gallery_album: "wants you to see these photos",
+  gallery_slideshow: "wants you to watch this",
+  family_tree_person: "wants you to see this"
+};
+
 interface Recipient {
   email: string | null;
   display_name: string;
@@ -36,6 +50,8 @@ export function notifyRecommendationSent(opts: {
   recipientId: string;
   senderName: string;
   subjectTitle: string;
+  /** Which kind of thing it is, so the mail can say read / listen / watch. */
+  entityType: string;
   /** The sender's one line, if they wrote one. */
   message: string | null;
   /** Origin of the page the sender was on, so the link lands on the same host. */
@@ -45,8 +61,9 @@ export function notifyRecommendationSent(opts: {
   const recipient = loadRecipient(opts.recipientId);
   if (!recipient?.email) return;
 
+  const ask = ASKS[opts.entityType] ?? "sent you this";
   const subject = `${opts.senderName} sent you "${clip(opts.subjectTitle)}"`;
-  const lead = `${opts.senderName} thought you'd like this.`;
+  const lead = `${opts.senderName} ${ask}.`;
 
   const blocks: EmailBlock[] = [
     { kind: "text", text: `Hello ${recipient.display_name},` },

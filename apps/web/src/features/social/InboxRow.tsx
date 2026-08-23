@@ -1,6 +1,7 @@
 import { Check, Heart, X } from "lucide-react";
 import { followRoute } from "../../router";
 import { Button } from "../../shared/Button";
+import { recommendationLine } from "./phrasing";
 
 // One thing a family member sent you, still undecided. Rendered on
 // "Shared with me" under "Waiting for you".
@@ -48,9 +49,8 @@ export function InboxRow({
         : cover}
 
       <div className="inbox-card-body">
-        <p className="inbox-from">
-          <strong>{card.fromName}</strong> sent you this
-        </p>
+        {/* What they are actually asking, not just that an event happened. */}
+        <p className="inbox-from">{recommendationLine(card.fromName, card.entityType)}</p>
         {card.available && card.href ? (
           <a className="inbox-title" href={card.href} onClick={(event) => followRoute(event, card.href)}>
             {card.title}

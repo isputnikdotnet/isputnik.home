@@ -1,7 +1,8 @@
 # Family sharing — proposal
 
-Status: **Phases 0, 1 and 2 are BUILT** (see the phase headings); phases 3 and 4
-remain proposals. Companion to
+Status: **Phases 0, 1 and 2 are BUILT**, and the half of Phase 3 that matters
+("Sent to you" on Home) with it; the wider activity feed and Phase 4 remain
+proposals. Companion to
 [sharing.md](sharing.md) and [library-sharing.md](library-sharing.md), which
 describe the guest-link and per-user grants that exist today.
 
@@ -408,7 +409,7 @@ size, and an edit history is a feature this does not want yet.
 
 ---
 
-## Phase 3 — The family row
+## Phase 3 — The family row — HALF BUILT
 
 One row on the Home dashboard, reading as sentences:
 
@@ -431,6 +432,31 @@ Tap a line, land on the thing. A `/activity` page shows the longer list.
 
 **Built third on purpose.** A feed shipped before there is anything to feed it is
 an empty box that teaches the family the feature is dead.
+
+### What was built, and why only half
+
+The **"Sent to you"** row is on Home, first on the page, hidden when empty. It
+shows the cover, who sent it, and their line — or, when they wrote none, what
+they are asking: *"Dad wants you to listen to this"*.
+
+This half was pulled forward because it is not polish, it is the **delivery
+mechanism**. A recommendation used to arrive behind the profile menu under a
+small dot: findable by somebody who already knew it was there, and by nobody
+else. For a household where not everyone is comfortable with computers, that
+made the whole feature theoretical. Deciding still happens on Shared with me —
+the row is a pointer, like every other home row.
+
+The **wider feed** — what everyone has been up to, notes and new photos and tree
+edits — is still a proposal. It is the "nice to know" half; this was the "you
+have something waiting" half.
+
+### The wording came with it
+
+`features/social/phrasing.ts` turns a subject type into the ask: read, listen,
+watch or look. Everything used to say "sent you this" whatever it was, which
+reads as software reporting an event rather than a person talking. The email
+carries the same intent in its own sentence (a different medium gets its own
+words, so the code is not shared across the wire — only the meaning).
 
 ---
 

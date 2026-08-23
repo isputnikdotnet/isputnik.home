@@ -80,10 +80,18 @@ The last destination makes a guest link: no account needed, expires on a date
 you choose, revocable at any time. This is the one to use for people outside the
 household. See [Sharing](../sharing.md) for the details.
 
+## When somebody sends you something
+
+You'll see it on the **Home page**, at the top, under **Sent to you** — the
+cover, who sent it, and what they said. Tap it and it opens.
+
+That row is only there when something is waiting. Once you've dealt with
+everything, it goes away.
+
 ## Shared with me
 
-Everything other people have put in front of you lands on one page:
-**Shared with me**, in the menu with your name on it.
+The longer list lives on one page: **Shared with me**, in the menu with your
+name on it.
 
 Anything still waiting on a decision sits at the top under **Waiting for you**,
 showing who sent it and what they said, with two buttons:
