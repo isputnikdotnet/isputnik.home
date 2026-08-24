@@ -19,6 +19,15 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.20.2",
+    label: "A backup that takes its time is no longer reported as a failure",
+    changes: [
+      "Creating a backup from the Maintenance page held the browser's request open for the whole time the archive was being written — minutes, on a library of any size. Anything between your browser and the server that won't wait that long (Cloudflare gives up after about a hundred seconds) then reported an error for a backup that was in fact completing fine on the server. Now the server confirms the backup has started right away, and the page watches the list until the finished file appears — then says so, or shows what actually went wrong if something did.",
+      "While it's being written, the backup shows in the list as \"Backing up…\" with its size climbing, and holds back its Restore, Download and Delete buttons until it's whole — a half-written archive is not something to restore from. Pressing Create again during a run politely refuses rather than starting a second one, and a scheduled backup that comes due mid-run is skipped for the day, since the running one is that day's snapshot.",
+      "A backup that fails now says so in two places: on the page, with the reason, and in the activity log — including scheduled runs that fail overnight, which previously had nowhere to report to."
+    ]
+  },
+  {
     version: "3.20.1",
     label: "The reverse-proxy setting keeps meaning what it says",
     changes: [
