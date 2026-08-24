@@ -5,7 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { z } from "zod";
-import archiver from "archiver";
+import { ZipArchive } from "archiver";
 import { db, logActivity } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
 import { pathIsInside } from "../shared/storage-roots.js";
@@ -206,7 +206,7 @@ export async function galleryAlbumRoutesPlugin(app: FastifyInstance) {
 
     const asciiFilename = zipName.replace(/[^\x20-\x7E]/g, "_");
     const encodedFilename = encodeURIComponent(zipName);
-    const archive = archiver("zip", { zlib: { level: 0 } });
+    const archive = new ZipArchive({ zlib: { level: 0 } });
     archive.on("error", (err) => { reply.raw.destroy(err); });
 
     reply.hijack();
