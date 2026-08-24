@@ -644,6 +644,11 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
             .filter((item) => item.person)
             .sort((a, b) => Number(b.union.id === current?.id) - Number(a.union.id === current?.id));
           const children = profile.unions.flatMap((union) => union.children.map((child) => ({ union, child })));
+          const hasRelatives = family.grandparentGroups.length > 0
+            || profile.parents.length > 0
+            || family.siblings.length > 0
+            || partners.length > 0
+            || children.length > 0;
 
           return (
             <div className="book-detail-view ft-person-detail-view">
@@ -840,6 +845,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                       {/* Oldest generation first, reading down to the children.
                           The person's own row carries them, their partners and
                           their siblings, which is where a pedigree puts them. */}
+                      {hasRelatives ? (
                       <div className="ft-tree">
                         <FamilyRow title="Grandparents">
                           {family.grandparentGroups.map((group) => (
@@ -868,7 +874,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                           ))}
                         </FamilyRow>
 
-                        <div className="ft-tree-row ft-tree-self-row has-connector">
+                        <div className={`ft-tree-row ft-tree-self-row${children.length > 0 ? " has-connector" : ""}`}>
                           <h3 className="ft-tree-row-label">
                             {family.siblings.length > 0 ? "This person, partners and siblings" : "This person"}
                           </h3>
@@ -949,17 +955,12 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                             />
                           ))}
                         </FamilyRow>
-
-                        {family.grandparentGroups.length === 0
-                          && profile.parents.length === 0
-                          && family.siblings.length === 0
-                          && partners.length === 0
-                          && children.length === 0 && (
-                          <p className="ft-relation-empty">
-                            No relatives recorded yet.{canEdit ? " Use Add relative above to start." : ""}
-                          </p>
-                        )}
                       </div>
+                      ) : (
+                        <p className="ft-relation-empty">
+                          No relatives recorded yet.{canEdit ? " Use Add relative above to start." : ""}
+                        </p>
+                      )}
                     </section>
                   )}
 
