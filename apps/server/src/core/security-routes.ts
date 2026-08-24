@@ -16,6 +16,8 @@ import {
   getSecurityPolicy,
   setSecurityPolicy,
   getTrustProxyHops,
+  getTrustProxyCidrs,
+  isProxyTrustConfigured,
   wasForwardedHeaderSeen,
   seedKnownLoginNetworks,
   getStoredAbuseIpdbKeyRaw,
@@ -134,7 +136,9 @@ export async function securityRoutes(app: FastifyInstance) {
     policy: publicSecurityPolicy(getSecurityPolicy()),
     proxy: {
       trustProxyHops: getTrustProxyHops(),
-      configured: getTrustProxyHops() > 0,
+      // The address form (TRUST_PROXY); when non-empty it is the one in effect.
+      trustProxyAddresses: getTrustProxyCidrs(),
+      configured: isProxyTrustConfigured(),
       forwardedHeaderSeen: wasForwardedHeaderSeen()
     },
     passwordPolicy: getPasswordPolicy(),

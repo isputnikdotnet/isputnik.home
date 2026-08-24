@@ -126,7 +126,7 @@ export function DeviceLinkPage({ onSignedIn }: { onSignedIn: () => Promise<void>
       <DeviceLinkFrame>
         <MessageBox tone="warning" title="This device can't be linked here">
           {refusal === "proxy"
-            ? "The server can't tell which network this device is on, because something is forwarding requests to it without being configured to say where they came from. Ask whoever runs the server to set TRUST_PROXY_HOPS."
+            ? "The server can't tell which network this device is on, because something is forwarding requests to it without being configured to say where they came from. Ask whoever runs the server to set TRUST_PROXY (or TRUST_PROXY_HOPS)."
             : "Devices can only be linked from your home network, and this one appears to be somewhere else. Ask whoever runs the server if you need to link a device from outside."}
         </MessageBox>
         <div className="device-link-actions">

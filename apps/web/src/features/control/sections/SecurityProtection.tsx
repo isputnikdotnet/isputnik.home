@@ -29,7 +29,7 @@ export interface GradeInput {
     reputationEscalateThreshold: number;
     trustedDeletesOnly: boolean;
   };
-  proxy: { trustProxyHops: number; configured: boolean; forwardedHeaderSeen: boolean };
+  proxy: { trustProxyHops: number; trustProxyAddresses: string[]; configured: boolean; forwardedHeaderSeen: boolean };
   passwordPolicy: { minLength: number; requireComplexity: boolean };
   mailConfigured: boolean;
   trustedNetworkCount: number;
@@ -58,12 +58,20 @@ export function gradePolicies({ policy, proxy, passwordPolicy, mailConfigured, t
     {
       key: "proxy",
       label: "Proxy trust",
-      value: proxyAttention ? "Needs attention" : proxy.configured ? `${proxy.trustProxyHops} hop${proxy.trustProxyHops === 1 ? "" : "s"} trusted` : "Direct connection",
+      value: proxyAttention
+        ? "Needs attention"
+        : proxy.trustProxyAddresses.length > 0
+          ? `${proxy.trustProxyAddresses.length} proxy address${proxy.trustProxyAddresses.length === 1 ? "" : "es"} trusted`
+          : proxy.configured
+            ? `${proxy.trustProxyHops} hop${proxy.trustProxyHops === 1 ? "" : "s"} trusted`
+            : "Direct connection",
       note: proxyAttention
-        ? "Requests carry X-Forwarded-For but TRUST_PROXY_HOPS is not set — every visitor may look like the proxy"
-        : proxy.configured
-          ? "A reverse proxy fronts the app and the client address is read past it"
-          : "No reverse proxy in front — fine at home, a thin front door on the internet",
+        ? "Requests carry X-Forwarded-For but neither TRUST_PROXY nor TRUST_PROXY_HOPS is set — every visitor may look like the proxy"
+        : proxy.trustProxyAddresses.length > 0
+          ? "A reverse proxy fronts the app; forwarding headers are believed only from its own addresses"
+          : proxy.configured
+            ? "A reverse proxy fronts the app and the client address is read past it"
+            : "No reverse proxy in front — fine at home, a thin front door on the internet",
       // A trusted proxy is a layer in its own right: TLS ends there, the app is
       // hidden behind it, and the client address is read correctly. Direct is
       // only half that. The weak case is a proxy that is there but not trusted —
