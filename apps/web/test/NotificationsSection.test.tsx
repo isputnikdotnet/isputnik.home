@@ -46,7 +46,11 @@ const shareBox = () => screen.getByRole("checkbox", { name: /shared with them/i 
 const sendToBox = () => screen.getByRole("checkbox", { name: /sends them a book/i });
 const saveButton = () => screen.getByRole("button", { name: /Save/ });
 
-beforeEach(() => mockApi.mockReset());
+// Block body: returning the mock would make vitest call it as a teardown
+// callback, i.e. api() with no arguments after every test.
+beforeEach(() => {
+  mockApi.mockReset();
+});
 
 describe("notifications tab", () => {
   it("starts switched off", async () => {
