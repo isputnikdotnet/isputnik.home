@@ -228,6 +228,50 @@ async function runBackup(actorUserId: string | null, trigger: "manual" | "schedu
   return { name, sizeBytes: stat.size, createdAt: stat.mtime.toISOString(), kind: "full" };
 }
 
+// ── Run state ───────────────────────────────────────────────────────
+// A backup takes minutes on a real library, which is longer than proxies in
+// front of the app will hold a request open (Cloudflare cuts the origin off
+// at ~100s and the page shows a failure for a backup that succeeded). So
+// creation is start-and-poll: POST starts the run and returns at once, and
+// GET /api/backups reports the run until the finished file shows up in the
+// list. One run at a time — the second starter is told no, not queued.
+let backupStartedAt: string | null = null;
+let backupLastError: string | null = null;
+let backupRunPromise: Promise<void> | null = null;
+
+/** Kick off a backup unless one is already running. True if this call started it. */
+function startBackup(actorUserId: string | null, trigger: "manual" | "scheduled"): boolean {
+  if (backupRunPromise) {
+    return false;
+  }
+  backupStartedAt = new Date().toISOString();
+  backupLastError = null;
+  backupRunPromise = runBackup(actorUserId, trigger)
+    .then(() => undefined)
+    .catch((err) => {
+      backupLastError = err instanceof Error ? err.message : "Backup failed";
+      console.error(`${trigger === "scheduled" ? "Scheduled" : "Manual"} backup failed:`, err);
+      logActivity({
+        event: "backup.failed",
+        actorUserId,
+        targetType: "backup",
+        targetId: null,
+        detail: `${trigger === "scheduled" ? "Scheduled" : "Manual"} backup failed: ${backupLastError}`,
+        ipAddress: null
+      });
+    })
+    .finally(() => {
+      backupStartedAt = null;
+      backupRunPromise = null;
+    });
+  return true;
+}
+
+/** Test hook: resolves when no backup is running (immediately if none is). */
+export function backupRunSettled(): Promise<void> {
+  return backupRunPromise ?? Promise.resolve();
+}
+
 // ── Scheduler ───────────────────────────────────────────────────────
 let scheduleTimer: NodeJS.Timeout | null = null;
 
@@ -252,9 +296,11 @@ function rescheduleBackups() {
     return;
   }
   scheduleTimer = setTimeout(() => {
-    runBackup(null, "scheduled")
-      .catch((err) => console.error("Scheduled backup failed:", err))
-      .finally(() => rescheduleBackups());
+    // A manual run already going covers today's snapshot; skip rather than queue.
+    if (!startBackup(null, "scheduled")) {
+      console.warn("Scheduled backup skipped: a backup is already running.");
+    }
+    rescheduleBackups();
   }, nextRunDelayMs(settings.time));
 }
 
@@ -283,17 +329,17 @@ export async function backupsPlugin(app: FastifyInstance) {
       backupPath: config.backupPath,
       settings: getSettings(),
       coversAvailable: Boolean(configuredThumbnailPathValue()),
-      totalSizeBytes: backups.reduce((sum, b) => sum + b.sizeBytes, 0)
+      totalSizeBytes: backups.reduce((sum, b) => sum + b.sizeBytes, 0),
+      runningSince: backupStartedAt,
+      lastError: backupLastError
     };
   });
 
   app.post("/api/backups", { preHandler: app.requireAdmin }, async (request, reply) => {
-    try {
-      const backup = await runBackup(request.user!.id, "manual");
-      return reply.code(201).send({ backup });
-    } catch (err) {
-      return reply.code(500).send({ error: err instanceof Error ? err.message : "Backup failed" });
+    if (!startBackup(request.user!.id, "manual")) {
+      return reply.code(409).send({ error: "A backup is already running." });
     }
+    return reply.code(202).send({ startedAt: backupStartedAt });
   });
 
   app.patch("/api/backups/settings", { preHandler: app.requireAdmin }, async (request, reply) => {

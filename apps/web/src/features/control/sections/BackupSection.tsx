@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Archive, DatabaseBackup, Download, Folder, Trash2, RotateCcw, Save, UploadCloud } from "lucide-react";
 import { api } from "../../../api";
 import { controlHref, followRoute } from "../../../router";
@@ -30,6 +30,8 @@ interface BackupList {
   settings: BackupSettings;
   coversAvailable: boolean;
   totalSizeBytes: number;
+  runningSince: string | null;
+  lastError: string | null;
 }
 
 export function BackupSection() {
@@ -57,15 +59,36 @@ export function BackupSection() {
     load().catch((err) => setError(err instanceof Error ? err.message : "Unable to load backups"));
   }, [load]);
 
+  // A backup runs for minutes — far longer than a proxy will hold the request
+  // open — so the server answers the start right away and the page watches the
+  // list until the run is over. Scheduled runs and other admins are seen too:
+  // any load that reports runningSince puts the page into the same waiting state.
+  const running = Boolean(data?.runningSince);
+  const sawRun = useRef(false);
+  useEffect(() => {
+    if (running) {
+      sawRun.current = true;
+      const timer = setTimeout(() => { load().catch(() => {}); }, 3000);
+      return () => clearTimeout(timer);
+    }
+    if (sawRun.current) {
+      sawRun.current = false;
+      if (data?.lastError) {
+        setError(`The backup did not finish: ${data.lastError}`);
+      } else {
+        setNotice(`Created ${data?.backups[0]?.name ?? "the backup"}.`);
+      }
+    }
+  }, [running, data, load]);
+
   const createBackup = async () => {
     setCreating(true);
     setError(""); setNotice("");
     try {
-      const payload = await api<{ backup: BackupFile }>("/api/backups", { method: "POST", body: "{}" });
-      setNotice(`Created ${payload.backup.name}.`);
+      await api<{ startedAt: string }>("/api/backups", { method: "POST", body: "{}" });
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to create backup");
+      setError(err instanceof Error ? err.message : "Unable to start the backup");
     } finally {
       setCreating(false);
     }
@@ -155,9 +178,9 @@ export function BackupSection() {
             )}
           </div>
           <div className="backup-hero-actions">
-            <button className="primary-button" onClick={createBackup} disabled={creating}>
+            <button className="primary-button" onClick={createBackup} disabled={creating || running}>
               <DatabaseBackup size={18} />
-              <span>{creating ? "Backing up..." : "Create backup now"}</span>
+              <span>{creating || running ? "Backing up..." : "Create backup now"}</span>
             </button>
             <button className="secondary-button" onClick={() => { setError(""); setNotice(""); setShowUpload(true); }} title="Upload a backup file from your computer">
               <UploadCloud size={18} />
@@ -250,27 +273,34 @@ export function BackupSection() {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.backups.map((backup) => (
-                    <tr key={backup.name}>
-                      <td><strong>{backup.name}</strong></td>
-                      <td className="datagrid-muted">{backup.kind === "full" ? "Full (DB + covers)" : "Database only"}</td>
-                      <td className="col-scan datagrid-muted">{formatManagedDate(backup.createdAt)}</td>
-                      <td className="col-num datagrid-muted">{formatBytes(backup.sizeBytes)}</td>
-                      <td className="col-actions">
-                        <div className="row-actions">
-                          <button className="secondary-button compact-button" title="Restore this backup" onClick={() => { setRestoreCovers(true); setPendingRestore(backup); }}>
-                            <RotateCcw size={14} /> Restore
-                          </button>
-                          <a className="icon-button" title="Download backup" href={`/api/backups/${encodeURIComponent(backup.name)}/download`} download>
-                            <Download size={15} />
-                          </a>
-                          <button className="icon-button danger" title="Delete backup" onClick={() => setPendingDelete(backup)}>
-                            <Trash2 size={15} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                  {data.backups.map((backup) => {
+                    // The file being written is already in the list and grows as we
+                    // poll; it must not offer Restore/Download/Delete half-made.
+                    const writing = running && data.runningSince != null && backup.createdAt >= data.runningSince;
+                    return (
+                      <tr key={backup.name}>
+                        <td><strong>{backup.name}</strong></td>
+                        <td className="datagrid-muted">{writing ? "Backing up…" : backup.kind === "full" ? "Full (DB + covers)" : "Database only"}</td>
+                        <td className="col-scan datagrid-muted">{formatManagedDate(backup.createdAt)}</td>
+                        <td className="col-num datagrid-muted">{formatBytes(backup.sizeBytes)}</td>
+                        <td className="col-actions">
+                          {!writing && (
+                            <div className="row-actions">
+                              <button className="secondary-button compact-button" title="Restore this backup" onClick={() => { setRestoreCovers(true); setPendingRestore(backup); }}>
+                                <RotateCcw size={14} /> Restore
+                              </button>
+                              <a className="icon-button" title="Download backup" href={`/api/backups/${encodeURIComponent(backup.name)}/download`} download>
+                                <Download size={15} />
+                              </a>
+                              <button className="icon-button danger" title="Delete backup" onClick={() => setPendingDelete(backup)}>
+                                <Trash2 size={15} />
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
