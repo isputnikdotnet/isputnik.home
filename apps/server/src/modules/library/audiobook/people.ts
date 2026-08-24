@@ -269,6 +269,16 @@ export function listAuthorLibraries(userId: string, userRole: string): AuthorLib
 }
 
 export async function audiobookPeoplePlugin(app: FastifyInstance) {
+  // The photo upload below takes raw image bytes, so this plugin needs its own
+  // image parser. Fastify scopes addContentTypeParser to the encapsulation
+  // context it runs in, and this plugin is a SIBLING of audiobookBooksPlugin
+  // (see audiobook/index.ts) rather than a child — so the identical parser
+  // registered there does not reach here. Without this the PUT is rejected
+  // with 415 before the handler is ever called.
+  app.addContentTypeParser(["image/jpeg", "image/png", "image/webp"], { parseAs: "buffer" }, (_request, body, done) => {
+    done(null, body);
+  });
+
   app.get("/api/library/people/by-name", { preHandler: app.authenticate }, async (request, reply) => {
     const name = String((request.query as { name?: string }).name ?? "").trim();
     if (!name) {

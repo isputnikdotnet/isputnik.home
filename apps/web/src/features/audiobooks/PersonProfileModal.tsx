@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Globe, ImagePlus, Save, Trash2, UserRound } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Globe, ImagePlus, MapPin, Save, Search, Trash2, UserRound } from "lucide-react";
 import { api } from "../../api";
 import { navigate } from "../../router";
 import { Button } from "../../shared/Button";
@@ -58,13 +58,22 @@ export function PersonProfileModal({
   const [photoBoxOpen, setPhotoBoxOpen] = useState(false);
   const [removeOpen, setRemoveOpen] = useState(false);
   const [removing, setRemoving] = useState(false);
+  // The photo tile takes a dropped file directly — clicking it opens the box
+  // (which also offers Find online), but a drag doesn't need the detour.
+  const [tileDragging, setTileDragging] = useState(false);
+  const [tileUploading, setTileUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [finding, setFinding] = useState(false);
   const [lookingUpLink, setLookingUpLink] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
+  const [linkOpen, setLinkOpen] = useState(false);
   const [candidate, setCandidate] = useState<PersonLookupResult | null>(null);
-  const [applyingPhoto, setApplyingPhoto] = useState(false);
+  // A photo chosen on Find Info is STAGED, not written: it is applied by Save
+  // alongside the text fields. Anything else in this dialog that changes the
+  // photo (the box, a drop, Remove) writes immediately and clears this, so the
+  // two can never both be pending.
+  const [pendingPhotoUrl, setPendingPhotoUrl] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ tone: "info" | "success"; title: string; text: string } | null>(null);
 
   const query = `name=${encodeURIComponent(personName)}`;
@@ -91,6 +100,15 @@ export function PersonProfileModal({
     setSaving(true);
     setError("");
     try {
+      // The staged photo first: it is a download on the server, so if it fails
+      // the profile edit is still untouched and the error names the photo.
+      if (pendingPhotoUrl) {
+        await api(`/api/library/people/by-name/photo-from-url?${query}`, {
+          method: "POST",
+          body: JSON.stringify({ url: pendingPhotoUrl })
+        });
+        setPendingPhotoUrl(null);
+      }
       await api(`/api/library/people/by-name?${query}`, {
         method: "PATCH",
         body: JSON.stringify({
@@ -111,12 +129,44 @@ export function PersonProfileModal({
     }
   };
 
+  // A file dropped straight onto the tile. Same endpoint and same limits the
+  // photo box's Upload tab uses — checked here too so a bad drop fails before
+  // the bytes go over the wire.
+  const uploadDropped = async (file: File | undefined) => {
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setError("Drop a JPEG, PNG, or WebP image.");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setError("That image is larger than the 10 MB limit.");
+      return;
+    }
+    setTileUploading(true);
+    setError("");
+    try {
+      const result = await api<{ updated: boolean; photoUrl: string }>(`/api/library/people/by-name/photo?${query}`, {
+        method: "PUT",
+        headers: { "Content-Type": file.type },
+        body: await file.arrayBuffer()
+      });
+      setPhotoUrl(result.photoUrl);
+      setPendingPhotoUrl(null); // a real upload supersedes anything staged on Find Info
+      setProfile((prev) => prev ? { ...prev, photoUrl: result.photoUrl } : prev);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to upload the photo");
+    } finally {
+      setTileUploading(false);
+    }
+  };
+
   const removePhoto = async () => {
     setRemoving(true);
     setError("");
     try {
       await api(`/api/library/people/by-name/photo?${query}`, { method: "DELETE" });
       setPhotoUrl(null);
+      setPendingPhotoUrl(null); // removing beats a staged pick
       setProfile((prev) => prev ? { ...prev, photoUrl: null } : prev);
       setRemoveOpen(false);
     } catch (err) {
@@ -172,35 +222,26 @@ export function PersonProfileModal({
   const sourceLabel = (source: PersonLookupResult["source"]) =>
     source === "openlibrary" ? "Open Library" : "Wikipedia";
 
+  // Both "use this" actions fill the form and nothing more — the dialog has one
+  // commit point, Save changes, and picking something here must not quietly
+  // become a write the Cancel button can no longer undo.
   const useCandidateBio = () => {
     if (!candidate?.bio) return;
     setBio(candidate.bio);
-    setTab("biography");
-    setNotice({ tone: "success", title: "Bio applied", text: "Review it, then Save changes to keep it." });
   };
 
-  const useCandidatePhoto = async () => {
+  const useCandidatePhoto = () => {
     if (!candidate?.photoUrl) return;
-    setApplyingPhoto(true);
-    setError("");
-    setNotice(null);
-    try {
-      const result = await api<{ updated: boolean; photoUrl: string }>(
-        `/api/library/people/by-name/photo-from-url?${query}`,
-        { method: "POST", body: JSON.stringify({ url: candidate.photoUrl }) }
-      );
-      setPhotoUrl(result.photoUrl);
-      setProfile((prev) => prev ? { ...prev, photoUrl: result.photoUrl } : prev);
-      setNotice({ tone: "success", title: "Photo updated", text: `Applied the ${sourceLabel(candidate.source)} photo.` });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to apply the photo");
-    } finally {
-      setApplyingPhoto(false);
-    }
+    setPendingPhotoUrl(candidate.photoUrl);
+    setPhotoUrl(candidate.photoUrl); // preview only; the server still holds the old one
   };
+
+  const bioMatchesCandidate = Boolean(candidate?.bio) && candidate!.bio!.trim() === bio.trim();
+  const photoStaged = Boolean(candidate?.photoUrl) && pendingPhotoUrl === candidate!.photoUrl;
+  const stagedCount = (bioMatchesCandidate ? 1 : 0) + (photoStaged ? 1 : 0);
 
   const roleLabel = role === "author" ? "Author" : role === "narrator" ? "Narrator" : "Person";
-  const busy = saving || removing || finding || lookingUpLink || applyingPhoto;
+  const busy = saving || removing || finding || lookingUpLink || tileUploading;
 
   return (
     <>
@@ -238,27 +279,36 @@ export function PersonProfileModal({
                     gets a box instead of a hidden <input> behind a dashed frame. */}
                 <button
                   type="button"
-                  className="person-edit-photo-tile"
+                  className={`person-edit-photo-tile${tileDragging ? " dragging" : ""}`}
                   onClick={() => setPhotoBoxOpen(true)}
                   title="Choose a photo"
+                  onDragOver={(event) => { event.preventDefault(); setTileDragging(true); }}
+                  onDragLeave={() => setTileDragging(false)}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    setTileDragging(false);
+                    void uploadDropped(event.dataTransfer.files?.[0]);
+                  }}
                 >
                   {photoUrl ? (
                     <img src={photoUrl} alt="" />
                   ) : (
                     <>
-                      <UserRound size={44} aria-hidden="true" />
-                      <span className="person-edit-photo-title">Click to choose<br />a photo</span>
-                      <span className="person-edit-photo-hint">Upload a file<br />or find one online</span>
+                      <UserRound size={46} aria-hidden="true" />
+                      <span className="person-edit-photo-title">
+                        {tileUploading ? "Uploading…" : <>Drag and drop<br />or click to upload</>}
+                      </span>
+                      <span className="person-edit-photo-hint">JPG, PNG or WEBP<br />Max 10MB</span>
                     </>
                   )}
                 </button>
                 {photoUrl ? (
-                  <Button variant="secondary" danger onClick={() => setRemoveOpen(true)}>
+                  <Button variant="secondary" danger className="person-edit-photo-button" onClick={() => setRemoveOpen(true)}>
                     <Trash2 size={16} aria-hidden="true" />
                     <span>Remove photo</span>
                   </Button>
                 ) : (
-                  <Button variant="secondary" onClick={() => setPhotoBoxOpen(true)}>
+                  <Button variant="secondary" className="person-edit-photo-button" onClick={() => setPhotoBoxOpen(true)}>
                     <ImagePlus size={16} aria-hidden="true" />
                     <span>Choose photo</span>
                   </Button>
@@ -267,8 +317,8 @@ export function PersonProfileModal({
 
               <div className="person-edit-fields">
                 <label className="field">
-                  <span>Name *</span>
-                  <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" />
+                  <span>Name <b className="person-edit-req" aria-hidden="true">*</b></span>
+                  <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" required />
                 </label>
                 <label className="field">
                   <span>Sort name</span>
@@ -280,15 +330,21 @@ export function PersonProfileModal({
                 </label>
                 <label className="field">
                   <span>Website</span>
-                  <input value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="e.g. agriddle.com" />
+                  <span className="person-edit-input">
+                    <Globe size={17} aria-hidden="true" />
+                    <input value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://agriddle.com" />
+                  </span>
                 </label>
                 <label className="field">
                   <span>Location</span>
-                  <input
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    placeholder="e.g. Seattle, Washington, USA"
-                  />
+                  <span className="person-edit-input">
+                    <MapPin size={17} aria-hidden="true" />
+                    <input
+                      value={location}
+                      onChange={(e) => setLocation(e.target.value)}
+                      placeholder="Seattle, Washington, USA"
+                    />
+                  </span>
                 </label>
               </div>
             </div>
@@ -309,80 +365,134 @@ export function PersonProfileModal({
 
           {tab === "find" && (
             <div className="person-lookup">
-              <div className="person-lookup-bar">
-                <Button variant="secondary" compact onClick={() => void handleFindOnline()} disabled={finding}>
+              {/* One obvious way in. The paste-a-link path is the exception —
+                  for when the search finds the wrong person — so it sits below
+                  as an aside rather than as a second button of equal weight. */}
+              <div className="person-find-intro">
+                <Search size={26} aria-hidden="true" />
+                <p className="person-find-lead">
+                  Look <strong>{personName}</strong> up on Wikipedia and Open Library.
+                </p>
+                <p className="person-find-sub">
+                  You choose what to keep — nothing changes until you press Save changes.
+                </p>
+                <Button variant="primary" onClick={() => void handleFindOnline()} disabled={finding}>
                   <Globe size={16} aria-hidden="true" />
-                  <span>{finding ? "Searching…" : "Find online"}</span>
+                  <span>{finding ? "Searching…" : candidate ? "Search again" : "Search the web"}</span>
                 </Button>
-                <label className="search-field person-lookup-input">
-                  <Globe size={16} aria-hidden="true" />
-                  <input
-                    type="url"
-                    value={linkUrl}
-                    onChange={(e) => setLinkUrl(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") void handleLookupLink(); }}
-                    placeholder="…or paste a Wikipedia / Open Library link"
-                    aria-label="Profile link"
-                  />
-                </label>
-                <Button
-                  variant="secondary"
-                  compact
-                  onClick={() => void handleLookupLink()}
-                  disabled={lookingUpLink || !linkUrl.trim()}
+              </div>
+
+              {/* Own state rather than <details>: a closed <details> did not
+                  actually hide this row here, leaving a live, tabbable input
+                  under a disclosure that read as shut. */}
+              <div className="person-find-link">
+                <button
+                  type="button"
+                  className="person-find-link-toggle"
+                  onClick={() => setLinkOpen((open) => !open)}
+                  aria-expanded={linkOpen}
                 >
-                  <Globe size={16} aria-hidden="true" />
-                  <span>{lookingUpLink ? "Looking up…" : "Look up"}</span>
-                </Button>
+                  {linkOpen ? <ChevronUp size={15} aria-hidden="true" /> : <ChevronDown size={15} aria-hidden="true" />}
+                  <span>Found the wrong person? Use a specific page instead</span>
+                </button>
+                {linkOpen && (
+                  <div className="person-find-link-row">
+                    <label className="search-field person-lookup-input">
+                      <Globe size={16} aria-hidden="true" />
+                      <input
+                        type="url"
+                        value={linkUrl}
+                        onChange={(e) => setLinkUrl(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") void handleLookupLink(); }}
+                        placeholder="Paste a Wikipedia or Open Library link"
+                        aria-label="Profile link"
+                      />
+                    </label>
+                    <Button
+                      variant="secondary"
+                      onClick={() => void handleLookupLink()}
+                      disabled={lookingUpLink || !linkUrl.trim()}
+                    >
+                      <span>{lookingUpLink ? "Reading…" : "Read page"}</span>
+                    </Button>
+                  </div>
+                )}
               </div>
 
               {candidate && (
                 <div className="person-compare">
                   <div className="person-compare-head">
-                    <span>Found online</span>
+                    <span>Found on</span>
                     <span className="person-compare-source-tag">{sourceLabel(candidate.source)}</span>
                     {candidate.sourceUrl && (
                       <a href={candidate.sourceUrl} target="_blank" rel="noreferrer">View source ↗</a>
                     )}
                   </div>
 
+                  {stagedCount > 0 && (
+                    <p className="person-find-staged">
+                      {stagedCount === 1 ? "1 change is" : `${stagedCount} changes are`} ready — press
+                      {" "}<strong>Save changes</strong> to keep {stagedCount === 1 ? "it" : "them"}.
+                    </p>
+                  )}
+
                   <div className="person-compare-field">
                     <span className="person-compare-label">Biography</span>
-                    <div className="person-compare-pair">
-                      <div className="person-compare-block">
-                        <small>Current</small>
-                        <p>{bio || "—"}</p>
-                      </div>
-                      <div className="person-compare-block found">
-                        <small>Found</small>
-                        <p>{candidate.bio || "—"}</p>
-                      </div>
-                    </div>
-                    {candidate.bio && candidate.bio.trim() !== bio.trim() && (
-                      <Button variant="secondary" compact onClick={useCandidateBio}>Use this bio</Button>
+                    {!candidate.bio ? (
+                      <p className="person-find-none">No biography on that page.</p>
+                    ) : (
+                      <>
+                        <div className="person-compare-pair">
+                          <div className="person-compare-block">
+                            <small>Current</small>
+                            <p>{bio.trim() || "Nothing yet"}</p>
+                          </div>
+                          <div className="person-compare-block found">
+                            <small>Found</small>
+                            <p>{candidate.bio}</p>
+                          </div>
+                        </div>
+                        {bioMatchesCandidate ? (
+                          <span className="person-find-done">
+                            <Check size={15} aria-hidden="true" />
+                            {profile?.bio?.trim() === candidate.bio.trim() ? "Already saved" : "Added to the form"}
+                          </span>
+                        ) : (
+                          <Button variant="secondary" compact onClick={useCandidateBio}>Use this biography</Button>
+                        )}
+                      </>
                     )}
                   </div>
 
                   <div className="person-compare-field">
                     <span className="person-compare-label">Photo</span>
-                    <div className="person-compare-photos">
-                      <div className="person-compare-block">
-                        <small>Current</small>
-                        <span className="compare-cover-frame">
-                          {photoUrl ? <img src={photoUrl} alt="" /> : <UserRound size={20} />}
-                        </span>
-                      </div>
-                      <div className="person-compare-block found">
-                        <small>Found</small>
-                        <span className="compare-cover-frame">
-                          {candidate.photoUrl ? <img src={candidate.photoUrl} alt="" /> : <UserRound size={20} />}
-                        </span>
-                      </div>
-                    </div>
-                    {candidate.photoUrl && (
-                      <Button variant="secondary" compact onClick={() => void useCandidatePhoto()} disabled={applyingPhoto}>
-                        {applyingPhoto ? "Applying…" : "Use this photo"}
-                      </Button>
+                    {!candidate.photoUrl ? (
+                      <p className="person-find-none">No photo on that page.</p>
+                    ) : (
+                      <>
+                        <div className="person-compare-photos">
+                          <div className="person-compare-block">
+                            <small>Current</small>
+                            <span className="compare-cover-frame">
+                              {profile?.photoUrl ? <img src={profile.photoUrl} alt="" /> : <UserRound size={20} />}
+                            </span>
+                          </div>
+                          <div className="person-compare-block found">
+                            <small>Found</small>
+                            <span className="compare-cover-frame">
+                              <img src={candidate.photoUrl} alt="" />
+                            </span>
+                          </div>
+                        </div>
+                        {photoStaged ? (
+                          <span className="person-find-done">
+                            <Check size={15} aria-hidden="true" />
+                            Ready to save
+                          </span>
+                        ) : (
+                          <Button variant="secondary" compact onClick={useCandidatePhoto}>Use this photo</Button>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
@@ -406,6 +516,7 @@ export function PersonProfileModal({
           currentPhotoUrl={photoUrl}
           onPhotoChanged={(url) => {
             setPhotoUrl(url);
+            setPendingPhotoUrl(null); // the box wrote it already
             setProfile((prev) => prev ? { ...prev, photoUrl: url } : prev);
           }}
           onClose={() => setPhotoBoxOpen(false)}

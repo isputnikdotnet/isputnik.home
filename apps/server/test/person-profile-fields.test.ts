@@ -1,13 +1,17 @@
 // Website and location on an author/narrator profile: plain saved/read-back
 // text fields (no URL validation — the web side displays whatever was typed),
 // carried across a merge the same way bio already is.
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import fastify, { type FastifyInstance } from "fastify";
 import { db } from "../src/db.js";
 import { audiobookPeoplePlugin } from "../src/modules/library/audiobook/people.js";
 import { resetDb, makeUser, grant } from "./helpers/seed.js";
 
 let app: FastifyInstance;
+let thumbDir: string;
 
 beforeEach(async () => {
   resetDb();
@@ -18,6 +22,11 @@ beforeEach(async () => {
   ).run();
   grant("user", "writer", "AUD", "contributor");
   db.prepare("INSERT INTO people (id, name, sort_name) VALUES ('p1', 'Jane Author', 'Author, Jane')").run();
+
+  // The photo upload writes into the thumbnail store, which has to be
+  // configured or thumbnailAbsolutePath throws.
+  thumbDir = fs.mkdtempSync(path.join(os.tmpdir(), "person-photo-"));
+  db.prepare("INSERT OR REPLACE INTO app_settings (key, value) VALUES ('library.thumbnail_path', ?)").run(thumbDir);
 
   app = fastify();
   app.decorate("authenticate", async (request, reply) => {
@@ -33,6 +42,10 @@ beforeEach(async () => {
   });
   await app.register(audiobookPeoplePlugin);
   await app.ready();
+});
+
+afterEach(() => {
+  fs.rmSync(thumbDir, { recursive: true, force: true });
 });
 
 describe("author/narrator profile: website and location", () => {
@@ -70,6 +83,34 @@ describe("author/narrator profile: website and location", () => {
       { website: string | null; location: string | null };
     expect(row.website).toBeNull();
     expect(row.location).toBeNull();
+  });
+
+  // Regression: this plugin is a sibling of audiobookBooksPlugin, and Fastify
+  // scopes content-type parsers to the context they are registered in — so the
+  // image parser over there never reached this one and every photo upload came
+  // back 415 before the handler ran. Assert the bytes actually get through.
+  it("accepts raw image bytes on the photo upload rather than rejecting the media type", async () => {
+    const res = await app.inject({
+      method: "PUT",
+      url: `/api/library/people/by-name/photo?name=${encodeURIComponent("Jane Author")}`,
+      headers: { "x-test-user": "writer", "content-type": "image/png" },
+      payload: Buffer.from("89504e470d0a1a0a0000000d49484452", "hex")
+    });
+    expect(res.statusCode).not.toBe(415);
+    expect(res.statusCode).toBe(200);
+
+    const row = db.prepare("SELECT image_storage_key FROM people WHERE id = 'p1'").get() as { image_storage_key: string | null };
+    expect(row.image_storage_key).toMatch(/^people\/.*\.png$/);
+  });
+
+  it("still refuses a media type that is not an image", async () => {
+    const res = await app.inject({
+      method: "PUT",
+      url: `/api/library/people/by-name/photo?name=${encodeURIComponent("Jane Author")}`,
+      headers: { "x-test-user": "writer", "content-type": "application/pdf" },
+      payload: Buffer.from("%PDF-1.4")
+    });
+    expect(res.statusCode).toBe(415);
   });
 
   it("removes a photo, clearing the key and leaving the rest of the profile alone", async () => {

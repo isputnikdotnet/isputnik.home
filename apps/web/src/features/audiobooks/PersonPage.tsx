@@ -390,20 +390,25 @@ function PersonTitleRow({ item }: { item: PersonItem }) {
   const durationText = item.type === "audiobook" && item.durationSeconds != null
     ? formatDuration(item.durationSeconds)
     : null;
-  const secondLine = [creditLine, durationText].filter(Boolean).join(" · ");
 
   return (
     <button className="person-title-row" onClick={() => navigate(bookHref(item))}>
       <div className="person-title-cover" aria-hidden="true">
-        {item.coverUrl ? <img src={item.coverUrl} alt="" /> : <Icon size={18} />}
+        {item.coverUrl ? <img src={item.coverUrl} alt="" /> : <Icon size={26} />}
       </div>
       <div className="person-title-info">
         <strong>{item.title}</strong>
         <span className="person-title-meta">
-          <Icon size={13} aria-hidden="true" />
+          <Icon size={16} aria-hidden="true" />
           {typeLabel(item.type)}
         </span>
-        {secondLine && <span className="person-title-meta">{secondLine}</span>}
+        {(creditLine || durationText) && (
+          <span className="person-title-meta">
+            {creditLine}
+            {creditLine && durationText && <i className="person-title-sep" aria-hidden="true" />}
+            {durationText}
+          </span>
+        )}
         {item.yearPublished != null && <span className="person-title-meta">Published {item.yearPublished}</span>}
       </div>
     </button>

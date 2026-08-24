@@ -638,345 +638,106 @@
   white-space: pre-line;
 }
 
-/* ── Person edit dialog ──────────────────────────────────────────── */
 
-.person-edit-modal,
-.person-photo-modal {
-  width: min(100%, 640px);
-  height: auto;
-  min-height: 0;
-  max-height: calc(100vh - 48px);
-}
-
-/* Both dialogs end in the same right-aligned action row, ruled off from the
-   content above it the way the book metadata footer is. */
-.person-edit-footer {
-  padding: 14px 16px 16px;
-  border-top: 1px solid var(--line);
-}
-
-/* Details: the photo tile keeps a fixed column, the identity fields take the
-   rest. One column below 560px so the tile doesn't squeeze the inputs. */
-.person-edit-details {
-  display: grid;
-  grid-template-columns: 190px minmax(0, 1fr);
-  gap: 20px;
-  align-items: start;
-}
-
-.person-edit-photo-col {
-  display: grid;
-  gap: 10px;
-}
-
-.person-edit-label {
-  color: var(--muted);
-  font-size: 0.82rem;
-  font-weight: 650;
-}
-
-.person-edit-fields {
-  display: grid;
-  gap: 12px;
-  min-width: 0;
-}
-
-/* The photo tile and the photo box's dropzone are the same dashed frame — one
-   opens the box, the other takes the drop, and they should read as one idea. */
-.person-edit-photo-tile,
-.person-photo-drop {
-  display: grid;
-  place-content: center;
-  justify-items: center;
-  gap: 8px;
-  width: 100%;
-  aspect-ratio: 1;
-  padding: 14px;
-  border: 1px dashed color-mix(in srgb, var(--line) 90%, transparent);
-  border-radius: 10px;
-  color: var(--muted);
-  background: var(--field);
-  text-align: center;
-  cursor: pointer;
-  overflow: hidden;
-}
-
-.person-edit-photo-tile:hover,
-.person-edit-photo-tile:focus-visible,
-.person-photo-drop:hover,
-.person-photo-drop:focus-visible,
-.person-photo-drop.dragging {
-  border-color: var(--mint);
-  color: var(--ink);
-  background: var(--hover);
-  outline: 0;
-}
-
-/* A chosen photo fills the frame — no dashed border showing through. */
-.person-edit-photo-tile:has(img),
-.person-photo-drop:has(img) {
-  padding: 0;
-  border-style: solid;
-}
-
-.person-edit-photo-tile img,
-.person-photo-drop img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.person-edit-photo-tile svg,
-.person-photo-drop svg {
-  color: color-mix(in srgb, var(--mint) 70%, var(--muted));
-}
-
-.person-edit-photo-title,
-.person-photo-drop-title {
-  color: var(--ink);
-  font-size: 0.88rem;
-  font-weight: 650;
-  line-height: 1.35;
-}
-
-.person-edit-photo-hint,
-.person-photo-drop-hint {
-  font-size: 0.76rem;
-  line-height: 1.4;
-}
-
-/* The photo box: the dropzone is centred and capped, so a wide dialog doesn't
-   stretch it into a banner. */
-.person-photo-upload {
-  display: grid;
-  justify-items: center;
-  gap: 14px;
-}
-
-.person-photo-upload .person-photo-drop {
-  width: min(100%, 260px);
-}
-
-.person-photo-upload-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 10px;
-}
-
-.person-photo-online {
-  display: grid;
-  gap: 14px;
-}
-
-.person-photo-online-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.person-photo-online-head p {
-  margin: 0;
-  flex: 1 1 220px;
-  font-size: 0.86rem;
-}
-
-/* Author photos are portraits, not book jackets — the shared candidate tile is
-   2:3, so square them off just inside this grid. */
-.person-photo-online .cover-candidate img {
-  aspect-ratio: 1;
-}
-
-@media (max-width: 560px) {
-  .person-edit-details {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .person-edit-photo-col {
-    justify-items: center;
-  }
-
-  .person-edit-photo-tile {
-    width: min(100%, 220px);
-  }
-}
-
-/* Online lookup: "Find online" + paste-a-link bar, and the compare panel. */
-.person-lookup {
-  display: grid;
-  gap: 12px;
-}
-
-.person-lookup-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
-.person-lookup-input {
-  flex: 1 1 200px;
-  min-width: 0;
-}
-
-.person-compare {
-  display: grid;
-  gap: 14px;
-  padding: 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
-}
-
-.person-compare-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.84rem;
-  font-weight: 760;
-}
-
-.person-compare-head a {
-  margin-left: auto;
-  color: var(--mint);
-  font-weight: 600;
-  font-size: 0.8rem;
-}
-
-.person-compare-source-tag {
-  padding: 1px 8px;
-  border-radius: 999px;
-  background: var(--active);
-  color: var(--mint);
-  font-size: 0.72rem;
-  font-weight: 700;
-}
-
-.person-compare-field {
-  display: grid;
-  gap: 8px;
-  justify-items: start;
-}
-
-.person-compare-label {
-  color: var(--ink);
-  font-weight: 700;
-  font-size: 0.82rem;
-}
-
-.person-compare-pair {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  width: 100%;
-}
-
-.person-compare-block {
-  display: grid;
-  gap: 4px;
-  align-content: start;
-  min-width: 0;
-}
-
-.person-compare-block small {
-  color: var(--muted);
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-
-.person-compare-block p {
-  margin: 0;
-  max-height: 168px;
-  overflow: auto;
-  font-size: 0.86rem;
-  line-height: 1.4;
-  overflow-wrap: anywhere;
-}
-
-.person-compare-block.found p {
-  color: var(--fg);
-}
-
-.person-compare-photos {
-  display: flex;
-  gap: 18px;
-}
-
-@media (max-width: 560px) {
-  .person-compare-pair {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* The "Titles" card under the Overview/Books/Audiobooks tabs: a bordered
-   panel of row cards (small cover + title + credit/duration/year), the same
-   proportions series-book-row uses for its editable list, just read-only. */
+/* The "Titles" card under the Overview/Books/Audiobooks tabs. One bordered
+   panel holds the whole list; the entries inside carry no box of their own —
+   a big cover, the title, and its credits, separated only by a hairline. */
 .person-titles-panel {
-  padding: 20px;
+  padding: 22px 0 4px;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 12px;
   background: var(--surface);
 }
 
 .person-titles-panel > h2 {
-  margin: 0 0 16px;
-  font-size: 1.05rem;
+  margin: 0 22px 6px;
+  font-size: 1.12rem;
 }
 
+/* Two up, like the reference. The columns deliberately have NO gap: each row
+   draws its own top hairline, so touching columns make one unbroken rule
+   across the panel instead of two stubs with a notch between them. */
 .person-title-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 0;
 }
 
 .person-title-row {
   display: flex;
-  gap: 12px;
-  padding: 10px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--field);
+  align-items: center;
+  gap: 26px;
+  padding: 20px 22px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
   text-align: left;
   cursor: pointer;
 }
 
+/* The first row of the grid opens the list, so it needs no rule above it. */
+.person-title-row:nth-child(-n + 2) {
+  border-top: 0;
+}
+
 .person-title-row:hover,
 .person-title-row:focus-visible {
-  border-color: var(--mint);
   background: var(--hover);
   outline: 0;
 }
 
+/* Square frame: an audiobook cover fills it exactly (they are square), and a
+   portrait ebook jacket letterboxes rather than being cropped through — hence
+   contain, not cover. */
+/* Flex, not grid: the child's max-height needs a definite height to resolve
+   against, and an auto-sized grid track is indefinite even inside a fixed-height
+   box — which is what let the cover overflow and get clipped. */
 .person-title-cover {
-  display: grid;
-  place-items: center;
-  width: 56px;
-  height: 74px;
-  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 104px;
+  height: 104px;
+  border-radius: 8px;
   background: var(--active);
   color: var(--mint);
   overflow: hidden;
   flex-shrink: 0;
 }
 
+/* With a real cover the frame gets out of the way, so a portrait jacket simply
+   sits narrower in its slot instead of showing letterbox bars. The tinted
+   square stays only behind the no-cover placeholder icon. */
+.person-title-cover:has(img) {
+  background: transparent;
+  border-radius: 6px;
+}
+
+/* Sized by max-* rather than width/height + object-fit: the frame centres its
+   child with place-items, so a percentage height has no definite track to
+   resolve against and the image overflowed to its intrinsic ratio — clipped by
+   the frame, which cropped exactly what contain was meant to prevent. */
 .person-title-cover img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 6px;
 }
 
 .person-title-info {
   display: grid;
-  gap: 3px;
+  gap: 7px;
   min-width: 0;
   align-content: center;
 }
 
 .person-title-info strong {
-  font-size: 0.94rem;
+  font-size: 1.24rem;
+  font-weight: 650;
+  line-height: 1.25;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -985,16 +746,40 @@
 .person-title-meta {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 8px;
   overflow: hidden;
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: 0.92rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .person-title-meta svg {
   flex-shrink: 0;
+}
+
+/* The upright rule between "Narrated by …" and the running time. */
+.person-title-sep {
+  flex-shrink: 0;
+  width: 1px;
+  height: 13px;
+  margin: 0 3px;
+  background: color-mix(in srgb, var(--muted) 55%, transparent);
+}
+
+/* One column: every row but the very first now needs its own rule. */
+@media (max-width: 900px) {
+  .person-title-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .person-title-row:nth-child(-n + 2) {
+    border-top: 1px solid var(--line);
+  }
+
+  .person-title-row:first-child {
+    border-top: 0;
+  }
 }
 
 /* ── Audiobook grid ─────────────────────────────────────────────── */
