@@ -19,6 +19,21 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.24.0",
+    label: "Author pages, rebuilt — with a website, a location, and an editor that says what it will do",
+    changes: [
+      "An author or narrator's page now looks like every other detail page in the app: a round portrait beside their name, the Back and action buttons together at the top, and an Overview / Books / Audiobooks tab strip under it. Their titles are listed properly too — bigger covers, no box drawn around every entry, and the narrator, running time and year each on their own line.",
+      "Authors gained a website and a location, shown beside their biography and edited like any other field. A bare address is fine: type \"agriddle.com\" and it displays exactly that while still linking out correctly.",
+      "Editing a person is one dialog with three tabs. Details holds the name, sort name, website and location beside the photo; Biography is the long text on its own; Find Info looks them up online. Choosing a picture opens its own box, offering a file from your computer — dragged straight onto the photo, if you like — or one found online.",
+      "Find Info used to open on two similarly-named buttons either side of a box, with nothing to say which one you wanted. It now opens with a single Search button and states plainly that nothing changes until you press Save changes. Each result says what it did — \"Added to the form\", \"Ready to save\", \"Already saved\" — and a line at the top counts what is waiting to be saved. Pasting a link to a specific page is still there for when the search finds the wrong person, folded away until you need it.",
+      "That promise now holds. Taking a biography filled the form and waited for Save, but taking a photo wrote it to the server immediately — so Cancel could not undo it, and nothing warned you. Both are now applied together when you save.",
+      "An author's photo can be removed again, which was never possible before.",
+      "Fixed: uploading a photo for an author had never worked, and was refused before it began. Finding one online still worked, which is likely why it went unnoticed for so long.",
+      "Fixed: the Back button on a person, series, category or tag page now returns to wherever you actually came from, stepping back through your history rather than always jumping to the top of the list. Opening one of those pages from a bookmark or a new tab still falls back to the list, as it must.",
+      "Fixed: a family member's portrait had been quietly drawn as a rounded rectangle instead of a circle."
+    ]
+  },
+  {
     version: "3.23.0",
     label: "Lock a folder, and nothing inside it can be deleted from the app",
     changes: [
