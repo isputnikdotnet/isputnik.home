@@ -19,6 +19,17 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.20.0",
+    label: "A person's relatives read as a family tree, and every one of them is named",
+    changes: [
+      "A person's Relationships were five labelled lists — Parents, Siblings, Grandparents, Partners, Children — which say who somebody is related to but not how. Which parent goes with which, which siblings share which parent, which children came from which partnership: a second marriage was unreadable in that shape. The same cards are now laid out by generation, oldest at the top reading down to the children, with the person themselves marked in the middle row beside their partners and siblings, where a pedigree puts them. Everything the lists could do is still there — edit a relationship, remove a child, add a relative.",
+      "Grandparents are grouped by the parent they came through. Four names in a line say 'these are your grandparents'; two pairs, each under the parent they belong to, say which side of the family each one is, which is the question anybody actually has when they look.",
+      "And every card says what that person IS to you: Father, Mother, Grandmother, Brother, Sister, Son, Daughter, Wife, Husband. The shape of a tree implies the relation; a word states it, which is the difference between a chart you read and one you work out. Where the record does not say a gender the neutral word is used — Parent, Sibling, Child — never a guess.",
+      "The page's own controls moved to where every other page keeps them. A book and a photo carry their actions in a bar at the very top; a person carried the same four a third of the way down, under the birth dates, while the bar above held only Back. The same controls now sit in the same place whatever kind of thing you are looking at, and the back control matches the one those pages use.",
+      "Somebody with no relatives recorded gets a sentence and a pointer at Add relative, rather than a tree of one person. And the little stem that joins one generation to the next is no longer drawn under somebody who has no children — it used to hang there pointing at nothing, for anybody childless, however full the generations above them were."
+    ]
+  },
+  {
     version: "3.19.0",
     label: "The household can pass things to each other, and talk about them where they are",
     changes: [
