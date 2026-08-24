@@ -642,13 +642,13 @@ export function GalleryPage({
   useEffect(() => {
     if (view !== "albums") return;
     const want = selectedAlbum ? `/gallery/albums/${selectedAlbum.id}` : "/gallery/albums";
-    if (window.location.pathname !== want) window.history.replaceState({}, "", want);
+    if (window.location.pathname !== want) window.history.replaceState(window.history.state, "", want);
   }, [view, selectedAlbum]);
 
   useEffect(() => {
     if (view !== "slideshows") return;
     const want = selectedSlideshow ? `/gallery/slideshows/${selectedSlideshow.id}` : "/gallery/slideshows";
-    if (window.location.pathname !== want) window.history.replaceState({}, "", want);
+    if (window.location.pathname !== want) window.history.replaceState(window.history.state, "", want);
   }, [view, selectedSlideshow]);
 
   // Deep link: fetch the asset and open a standalone lightbox.

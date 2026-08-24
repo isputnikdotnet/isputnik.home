@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, BookOpen, Pencil, Plus, Save, Trash2, Upload, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
-import { getReferrer, navigate } from "../../router";
+import { getReferrer, goBack, navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { Modal } from "../../shared/Modal";
@@ -229,7 +229,7 @@ export function SeriesDetailPage({
     return (
       <DashboardShell active={kind === "ebook" ? "ebooks" : "audiobooks"} user={user} logout={logout} sideNav={sideNav}>
         <section className="audiobook-main-page">
-          <button className="audiobook-back-button" type="button" onClick={() => navigate(backTo ?? `${base}/series`)}>
+          <button className="audiobook-back-button" type="button" onClick={() => goBack(backTo ?? `${base}/series`)}>
             <ArrowLeft size={17} aria-hidden="true" />
             <span>{backTo ? "Back" : "Back to series"}</span>
           </button>
@@ -260,7 +260,7 @@ export function SeriesDetailPage({
   return (
     <DashboardShell active={kind === "ebook" ? "ebooks" : "audiobooks"} user={user} logout={logout} sideNav={sideNav}>
       <section className="audiobook-main-page">
-        <button className="audiobook-back-button" type="button" onClick={() => navigate(backTo ?? `${base}/series`)}>
+        <button className="audiobook-back-button" type="button" onClick={() => goBack(backTo ?? `${base}/series`)}>
           <ArrowLeft size={17} aria-hidden="true" />
           <span>{backTo ? "Back" : "Back to series"}</span>
         </button>

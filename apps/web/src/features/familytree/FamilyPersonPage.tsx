@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
-import { followRoute, getReferrer, navigate } from "../../router";
+import { followBack, followRoute, getReferrer, navigate } from "../../router";
 import { ActionMenu } from "../../shared/ActionMenu";
 import { Button } from "../../shared/Button";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
@@ -661,7 +661,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                 <a
                   className="icon-button"
                   href={back}
-                  onClick={(event) => followRoute(event, back)}
+                  onClick={(event) => followBack(event, back)}
                   title="Back"
                   aria-label="Back"
                 >

@@ -11,7 +11,7 @@ import { EditMetadataModal } from "./EditMetadataModal";
 import { EbookReader } from "./reader/EbookReader";
 import { DEFAULT_COVERS } from "./covers";
 import { DashboardShell } from "../../app/DashboardShell";
-import { followRoute, navigate } from "../../router";
+import { followRoute, goBack, navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { SectionNav } from "../../shared/SectionNav";
@@ -106,7 +106,7 @@ export function AudiobookBookPage({
               book={book}
               capabilities={capabilities}
               userId={user.id}
-              onBack={() => navigate(backTo)}
+              onBack={() => goBack(backTo)}
               backLabel={active === "ebooks" ? "Back to ebooks" : "Back to audiobooks"}
               onBookUpdated={setBook}
               onReload={() => setReloadKey((n) => n + 1)}
@@ -527,7 +527,7 @@ function BookDetailView({
     }
     url.searchParams.delete("read");
     url.searchParams.delete("cfi");
-    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
   }, [primaryReadableDoc?.id]);
 
   useEffect(() => {

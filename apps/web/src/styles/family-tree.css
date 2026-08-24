@@ -199,7 +199,12 @@
   gap: 30px;
 }
 
-.ft-person-detail-head {
+/* Compound with the book-detail-* base class they modify (not just added
+   alongside it): book-detail.css is @imported after this file, so a bare
+   .ft-person-detail-head/-cover would lose the grid-column and circle-vs-book
+   overrides below to book-detail.css's same-specificity base rule. The extra
+   class in the selector outweighs source order instead of depending on it. */
+.book-detail-head.ft-person-detail-head {
   grid-template-columns: minmax(190px, 240px) minmax(0, 1fr);
 }
 
@@ -207,7 +212,7 @@
   max-width: 240px;
 }
 
-.ft-person-detail-cover {
+.book-detail-cover.ft-person-detail-cover {
   width: min(100%, 220px);
   aspect-ratio: 1;
   overflow: visible;

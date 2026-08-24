@@ -948,6 +948,8 @@ CREATE TABLE IF NOT EXISTS people (
   name              TEXT NOT NULL UNIQUE COLLATE NOCASE,
   sort_name         TEXT,
   bio               TEXT,
+  website           TEXT,
+  location          TEXT,
   image_storage_key TEXT,
   openlibrary_id    TEXT,
   enriched_at       TEXT,

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ArrowLeft, ImagePlus, Play } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
-import { followRoute } from "../../router";
+import { followBack } from "../../router";
 import { Button } from "../../shared/Button";
 import { LibraryPageHeader } from "../../shared/LibraryPageHeader";
 import { MessageBox } from "../../shared/MessageBox";
@@ -61,7 +61,7 @@ export function FamilyPersonPhotosPage({
     <DashboardShell active="family" user={user} logout={logout} sideNav={<SectionNav {...familyNavProps("people")} />}>
       <section className="audiobook-main-page">
         <div className="book-detail-topbar">
-          <a className="audiobook-back-button" href={back} onClick={(event) => followRoute(event, back)}>
+          <a className="audiobook-back-button" href={back} onClick={(event) => followBack(event, back)}>
             <ArrowLeft size={18} aria-hidden="true" />
             <span>Back to {person?.name ?? "profile"}</span>
           </a>

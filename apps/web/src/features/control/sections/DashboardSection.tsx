@@ -84,21 +84,21 @@ export function DashboardSection() {
   useEffect(() => {
     const requested = new URLSearchParams(window.location.search).get("view");
     if (requested === "devices") {
-      window.history.replaceState({}, "", controlHref("signins"));
+      window.history.replaceState(window.history.state, "", controlHref("signins"));
       window.dispatchEvent(new PopStateEvent("popstate"));
     } else if (requested && requested in RETIRED_VIEWS) {
       // Same page, different tab: just tidy the address to the one that exists.
-      window.history.replaceState({}, "", `${controlHref("dashboard")}?view=${RETIRED_VIEWS[requested]}`);
+      window.history.replaceState(window.history.state, "", `${controlHref("dashboard")}?view=${RETIRED_VIEWS[requested]}`);
     } else {
       const legacy = viewFromLegacyPath();
-      if (legacy) window.history.replaceState({}, "", `${controlHref("dashboard")}?view=${legacy}`);
+      if (legacy) window.history.replaceState(window.history.state, "", `${controlHref("dashboard")}?view=${legacy}`);
     }
   }, []);
 
   const chooseView = (next: DashboardView) => {
     setView(next);
     const href = next === "logins" ? controlHref("dashboard") : `${controlHref("dashboard")}?view=${next}`;
-    window.history.replaceState({}, "", href);
+    window.history.replaceState(window.history.state, "", href);
   };
 
   return (

@@ -38,6 +38,9 @@ beforeEach(() => {
   credit("eb", "p-auth", "author");
   credit("hidden", "p-auth", "author"); // same author, but in the inaccessible library
   credit("ab", "p-narr", "narrator");
+
+  db.prepare("UPDATE item_metadata SET year_published = 2019 WHERE item_id = 'ab'").run();
+  db.prepare("INSERT INTO audiobook_details (item_id, duration_seconds) VALUES ('ab', 57300)").run();
 });
 
 describe("listPersonItems (unified cross-type person page)", () => {
@@ -62,6 +65,23 @@ describe("listPersonItems (unified cross-type person page)", () => {
     expect(items[0].id).toBe("ab");
     expect(items[0].role).toBe("narrator");
     expect(items[0].authors).toEqual(["Shared Author"]); // the audiobook's author, backfilled
+  });
+
+  it("backfills an audiobook's narrators, duration and year regardless of whose page it is", () => {
+    const authorView = listPersonItems("Shared Author", "u1", "member").find((i) => i.id === "ab")!;
+    expect(authorView.narrators).toEqual(["Some Narrator"]);
+    expect(authorView.durationSeconds).toBe(57300);
+    expect(authorView.yearPublished).toBe(2019);
+
+    const narratorView = listPersonItems("Some Narrator", "u1", "member")[0];
+    expect(narratorView.narrators).toEqual(["Some Narrator"]); // includes self, same as `authors` does
+    expect(narratorView.durationSeconds).toBe(57300);
+
+    // The ebook has no audiobook_details row and no year set.
+    const ebook = listPersonItems("Shared Author", "u1", "member").find((i) => i.id === "eb")!;
+    expect(ebook.narrators).toEqual([]);
+    expect(ebook.durationSeconds).toBeNull();
+    expect(ebook.yearPublished).toBeNull();
   });
 
   it("returns nothing when the user can access no libraries", () => {

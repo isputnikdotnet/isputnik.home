@@ -613,21 +613,19 @@
 
 /* ── Person detail ───────────────────────────────────────────────── */
 
-.person-detail-head {
-  display: flex;
+/* Same "big round cover, details beside it" grid a book and a family member
+   use (book-detail-head/cover/ft-person-detail-*) — reused wholesale via
+   those class names, including the ft-avatar ring treatment, rather than
+   rebuilding it here. Only the subtitle line and the row-style titles list
+   below are person-page-specific. */
+.person-detail-subtitle {
+  color: var(--muted);
+}
+
+.person-detail-tabs button {
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
-  margin: 0;
-}
-
-.person-detail-head h1 {
-  margin: 0;
-}
-
-.person-detail-avatar {
-  width: 64px;
-  height: 64px;
-  flex-shrink: 0;
+  gap: 6px;
 }
 
 /* Wikipedia extracts end with a "Source: …" line — keep the line break. */
@@ -640,18 +638,169 @@
   white-space: pre-line;
 }
 
-/* ── Person profile modal ────────────────────────────────────────── */
+/* ── Person edit dialog ──────────────────────────────────────────── */
 
-.person-modal {
-  width: min(100%, 600px);
+.person-edit-modal,
+.person-photo-modal {
+  width: min(100%, 640px);
   height: auto;
   min-height: 0;
   max-height: calc(100vh - 48px);
 }
 
-.person-profile-grid {
+/* Both dialogs end in the same right-aligned action row, ruled off from the
+   content above it the way the book metadata footer is. */
+.person-edit-footer {
+  padding: 14px 16px 16px;
+  border-top: 1px solid var(--line);
+}
+
+/* Details: the photo tile keeps a fixed column, the identity fields take the
+   rest. One column below 560px so the tile doesn't squeeze the inputs. */
+.person-edit-details {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.person-edit-photo-col {
   display: grid;
   gap: 10px;
+}
+
+.person-edit-label {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.person-edit-fields {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* The photo tile and the photo box's dropzone are the same dashed frame — one
+   opens the box, the other takes the drop, and they should read as one idea. */
+.person-edit-photo-tile,
+.person-photo-drop {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 8px;
+  width: 100%;
+  aspect-ratio: 1;
+  padding: 14px;
+  border: 1px dashed color-mix(in srgb, var(--line) 90%, transparent);
+  border-radius: 10px;
+  color: var(--muted);
+  background: var(--field);
+  text-align: center;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.person-edit-photo-tile:hover,
+.person-edit-photo-tile:focus-visible,
+.person-photo-drop:hover,
+.person-photo-drop:focus-visible,
+.person-photo-drop.dragging {
+  border-color: var(--mint);
+  color: var(--ink);
+  background: var(--hover);
+  outline: 0;
+}
+
+/* A chosen photo fills the frame — no dashed border showing through. */
+.person-edit-photo-tile:has(img),
+.person-photo-drop:has(img) {
+  padding: 0;
+  border-style: solid;
+}
+
+.person-edit-photo-tile img,
+.person-photo-drop img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.person-edit-photo-tile svg,
+.person-photo-drop svg {
+  color: color-mix(in srgb, var(--mint) 70%, var(--muted));
+}
+
+.person-edit-photo-title,
+.person-photo-drop-title {
+  color: var(--ink);
+  font-size: 0.88rem;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.person-edit-photo-hint,
+.person-photo-drop-hint {
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+
+/* The photo box: the dropzone is centred and capped, so a wide dialog doesn't
+   stretch it into a banner. */
+.person-photo-upload {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+}
+
+.person-photo-upload .person-photo-drop {
+  width: min(100%, 260px);
+}
+
+.person-photo-upload-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+.person-photo-online {
+  display: grid;
+  gap: 14px;
+}
+
+.person-photo-online-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.person-photo-online-head p {
+  margin: 0;
+  flex: 1 1 220px;
+  font-size: 0.86rem;
+}
+
+/* Author photos are portraits, not book jackets — the shared candidate tile is
+   2:3, so square them off just inside this grid. */
+.person-photo-online .cover-candidate img {
+  aspect-ratio: 1;
+}
+
+@media (max-width: 560px) {
+  .person-edit-details {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .person-edit-photo-col {
+    justify-items: center;
+  }
+
+  .person-edit-photo-tile {
+    width: min(100%, 220px);
+  }
 }
 
 /* Online lookup: "Find online" + paste-a-link bar, and the compare panel. */
@@ -762,46 +911,90 @@
   }
 }
 
-.person-photo-tab {
-  display: grid;
-  justify-items: center;
-  gap: 18px;
-  padding-bottom: 8px;
+/* The "Titles" card under the Overview/Books/Audiobooks tabs: a bordered
+   panel of row cards (small cover + title + credit/duration/year), the same
+   proportions series-book-row uses for its editable list, just read-only. */
+.person-titles-panel {
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
 }
 
-.person-photo-preview {
+.person-titles-panel > h2 {
+  margin: 0 0 16px;
+  font-size: 1.05rem;
+}
+
+.person-title-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 12px;
+}
+
+.person-title-row {
+  display: flex;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--field);
+  text-align: left;
+  cursor: pointer;
+}
+
+.person-title-row:hover,
+.person-title-row:focus-visible {
+  border-color: var(--mint);
+  background: var(--hover);
+  outline: 0;
+}
+
+.person-title-cover {
   display: grid;
   place-items: center;
-  width: 160px;
-  height: 160px;
-  border-radius: 50%;
-  border: 2px solid var(--line);
+  width: 56px;
+  height: 74px;
+  border-radius: 4px;
   background: var(--active);
   color: var(--mint);
   overflow: hidden;
+  flex-shrink: 0;
 }
 
-.person-photo-preview img {
+.person-title-cover img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.person-photo-actions {
+.person-title-info {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  align-content: center;
+}
+
+.person-title-info strong {
+  font-size: 0.94rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.person-title-meta {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 5px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/* Online photo candidates reuse the cover-candidate tiles; the tab centers
-   its children, so the grid must claim the full row itself. */
-.person-photo-candidates {
-  width: 100%;
-  justify-self: stretch;
-}
-
-.person-book-count {
-  margin: 6px 0 20px;
+.person-title-meta svg {
+  flex-shrink: 0;
 }
 
 /* ── Audiobook grid ─────────────────────────────────────────────── */

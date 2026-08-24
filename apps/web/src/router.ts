@@ -606,9 +606,44 @@ export function getReferrer(): string | null {
   return `${resolved.pathname}${resolved.search}${resolved.hash}`;
 }
 
+// Every in-app pushState carries a depth counter, so goBack() can tell "there is
+// app history behind this entry" (history.back() stays on-site) apart from "this
+// page was the landing point" (a deep link, a new tab — Back must navigate to a
+// fallback or it would leave the app / do nothing). window.history.length can't
+// make that call: it counts the previous site's entries too.
+function nextHistoryState(): { appNav: number } {
+  return { appNav: (window.history.state?.appNav ?? 0) + 1 };
+}
+
+// Push a path with the depth stamp but without dispatching popstate — for pages
+// that put drill-down state in the address bar while rendering it from their own
+// React state (Sign-ins' dive). navigate() is this plus the popstate dispatch.
+export function pushPath(path: string) {
+  window.history.pushState(nextHistoryState(), "", path);
+}
+
 export function navigate(path: string) {
-  window.history.pushState({}, "", path);
+  pushPath(path);
   window.dispatchEvent(new PopStateEvent("popstate"));
+}
+
+// The Back button's behaviour everywhere: return to the previous page when the
+// visitor navigated here inside the app, else go to the page's natural parent.
+export function goBack(fallback: string) {
+  if (window.history.state?.appNav) window.history.back();
+  else navigate(fallback);
+}
+
+// goBack for anchor-shaped Back buttons: a plain left click steps back through
+// history; modified clicks fall through to the href (open-in-new-tab keeps
+// working, and a new tab has no trail to step back along anyway).
+export function followBack(event: React.MouseEvent<HTMLAnchorElement>, fallback: string) {
+  if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+    return;
+  }
+
+  event.preventDefault();
+  goBack(fallback);
 }
 
 // Where to go once someone has signed in, when they didn't arrive at the sign-in
@@ -656,7 +691,9 @@ export function replaceQuery(key: string, value: string | null) {
   const url = new URL(window.location.href);
   if (value == null || value === "") url.searchParams.delete(key);
   else url.searchParams.set(key, value);
-  window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+  // Keep the existing state: replacing the entry must not wipe the appNav depth
+  // counter goBack() relies on.
+  window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
 }
 
 export function followRoute(event: React.MouseEvent<HTMLAnchorElement>, path: string) {

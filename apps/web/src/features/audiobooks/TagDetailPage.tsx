@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, BookOpen, Headphones, Images, Play, TreeDeciduous } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
-import { followRoute, getReferrer, navigate } from "../../router";
+import { followRoute, getReferrer, goBack, navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { FeedTile } from "../library/FeedTile";
 import type { FeedItem } from "../library/feed";
@@ -75,7 +75,7 @@ export function TagDetailPage({
   return (
     <DashboardShell active="tags" user={user} logout={logout}>
       <section className="audiobook-main-page">
-        <button className="audiobook-back-button" type="button" onClick={() => navigate(backTo ?? "/tags")}>
+        <button className="audiobook-back-button" type="button" onClick={() => goBack(backTo ?? "/tags")}>
           <ArrowLeft size={17} aria-hidden="true" />
           <span>{backTo ? "Back" : "Back to tags"}</span>
         </button>

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CheckCircle2, ChevronDown, ChevronRight, Download, ListMusic, MoreVertical, RotateCcw, SkipForward, StickyNote, X } from "lucide-react";
 import { api, isAccessOrMissingApiError } from "../../api";
-import { navigate } from "../../router";
+import { goBack } from "../../router";
 import { getDownloadedBookDetail } from "../../offline/downloads";
 import { AudioPlayer } from "./AudioPlayer";
 import { DEFAULT_COVERS } from "./covers";
@@ -29,8 +29,7 @@ export function PlayerPage({ id }: { id: string }) {
   );
   const dismiss = () => {
     if (isPopupWindow) { window.close(); return; }
-    if (window.history.length > 1) window.history.back();
-    else navigate("/");
+    goBack("/");
   };
 
   const [currentId, setCurrentId] = useState(id);
@@ -73,7 +72,7 @@ export function PlayerPage({ id }: { id: string }) {
     setSave(null);
     setNoteEditorOpen(false);
     // Keep the address bar pointed at the book actually playing so a refresh resumes here.
-    window.history.replaceState(null, "", `/player/${currentId}${collectionId ? `?collection=${collectionId}` : ""}`);
+    window.history.replaceState(window.history.state, "", `/player/${currentId}${collectionId ? `?collection=${collectionId}` : ""}`);
     const loadBook = async () => {
       try {
         const { book } = await api<{ book: AudiobookBookDetail }>(`/api/library/books/${currentId}`);

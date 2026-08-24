@@ -18,7 +18,7 @@ import {
   type LucideIcon
 } from "lucide-react";
 import { api } from "../../../../api";
-import { controlHref } from "../../../../router";
+import { controlHref, pushPath } from "../../../../router";
 import { Button } from "../../../../shared/Button";
 import { ConfirmDialog } from "../../../../shared/ConfirmDialog";
 import {
@@ -158,7 +158,7 @@ export function SignInsSection() {
   // A dive is a navigation: the new scope goes into the address bar so the page
   // can be shared and the back button walks back up the dive.
   const dive = useCallback((next: SignInsScopeParams) => {
-    window.history.pushState({}, "", signInsHref(next));
+    pushPath(signInsHref(next));
     setScope(next);
     setIpPage(1);
     setUserPage(1);

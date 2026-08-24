@@ -19,6 +19,8 @@ type AuthorRow = {
   name: string;
   sort_name: string | null;
   bio: string | null;
+  website: string | null;
+  location: string | null;
   cover_storage_key: string | null;
 };
 
@@ -44,7 +46,12 @@ function photoUrl(storageKey: string | null) {
 const personProfileSchema = z.object({
   name: z.string().trim().min(1).max(240).optional(),
   bio: z.string().trim().max(10000).nullable().optional(),
-  sortName: z.string().trim().max(240).nullable().optional()
+  sortName: z.string().trim().max(240).nullable().optional(),
+  // Free text, not a validated URL: displayed as a link (the web side adds a
+  // protocol if one is missing) rather than fetched, so "agriddle.com" is a
+  // legitimate value someone should be able to type as-is.
+  website: z.string().trim().max(300).nullable().optional(),
+  location: z.string().trim().max(200).nullable().optional()
 });
 
 const createPersonSchema = z.object({
@@ -77,6 +84,12 @@ export type PersonItem = {
   role: string;
   title: string;
   authors: string[];
+  // Audiobook credits only; empty for ebooks. Read the same way `authors` is:
+  // the item's OTHER credited people, for a row's "who else worked on this"
+  // line (skip it when this person IS the narrator being shown).
+  narrators: string[];
+  durationSeconds: number | null;
+  yearPublished: number | null;
   coverUrl: string | null;
 };
 
@@ -98,14 +111,20 @@ export function listPersonItems(name: string, userId: string, userRole: string):
       li.folder_path       AS folder_path,
       im.title             AS title,
       im.cover_storage_key AS cover_storage_key,
+      im.year_published    AS year_published,
+      ad.duration_seconds  AS duration_seconds,
       ip.role              AS role,
-      GROUP_CONCAT(DISTINCT authors.name) AS author_names
+      GROUP_CONCAT(DISTINCT authors.name) AS author_names,
+      GROUP_CONCAT(DISTINCT narrators.name) AS narrator_names
     FROM item_people ip
     JOIN people p              ON p.id = ip.person_id
     JOIN library_items li      ON li.id = ip.item_id
     LEFT JOIN item_metadata im ON im.item_id = li.id
+    LEFT JOIN audiobook_details ad ON ad.item_id = li.id
     LEFT JOIN item_people author_credits ON author_credits.item_id = li.id AND author_credits.role = 'author'
     LEFT JOIN people authors   ON authors.id = author_credits.person_id
+    LEFT JOIN item_people narrator_credits ON narrator_credits.item_id = li.id AND narrator_credits.role = 'narrator'
+    LEFT JOIN people narrators ON narrators.id = narrator_credits.person_id
     WHERE p.name = ? COLLATE NOCASE
       AND li.deleted_at IS NULL
       AND li.library_id IN (${placeholders})
@@ -117,6 +136,7 @@ export function listPersonItems(name: string, userId: string, userRole: string):
   `).all(name, ...libraryIds) as {
     id: string; type: string; folder_path: string; title: string | null;
     cover_storage_key: string | null; role: string; author_names: string | null;
+    narrator_names: string | null; year_published: number | null; duration_seconds: number | null;
   }[];
 
   return rows.map((row) => ({
@@ -125,6 +145,9 @@ export function listPersonItems(name: string, userId: string, userRole: string):
     role: row.role,
     title: row.title ?? row.folder_path.split("/").pop() ?? row.folder_path,
     authors: row.author_names ? row.author_names.split(",").map((n) => n.trim()).filter(Boolean) : [],
+    narrators: row.narrator_names ? row.narrator_names.split(",").map((n) => n.trim()).filter(Boolean) : [],
+    durationSeconds: row.duration_seconds,
+    yearPublished: row.year_published,
     coverUrl: row.cover_storage_key ? `/api/library/covers/${row.cover_storage_key}` : null
   }));
 }
@@ -253,13 +276,20 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
     }
 
     const row = db.prepare(`
-      SELECT id, name, sort_name, bio, image_storage_key AS cover_storage_key
+      SELECT id, name, sort_name, bio, website, location, image_storage_key AS cover_storage_key
       FROM people WHERE name = ? LIMIT 1
     `).get(name) as AuthorRow | undefined;
 
     return reply.send({
       person: row
-        ? { name: row.name, sortName: row.sort_name, bio: row.bio, photoUrl: photoUrl(row.cover_storage_key) }
+        ? {
+            name: row.name,
+            sortName: row.sort_name,
+            bio: row.bio,
+            website: row.website,
+            location: row.location,
+            photoUrl: photoUrl(row.cover_storage_key)
+          }
         : null
     });
   });
@@ -334,10 +364,14 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
       return reply.code(400).send({ error: "Invalid profile data", details: parsed.error });
     }
 
-    db.prepare("UPDATE people SET name = COALESCE(?, name), bio = ?, sort_name = ? WHERE name = ?").run(
+    db.prepare(
+      "UPDATE people SET name = COALESCE(?, name), bio = ?, sort_name = ?, website = ?, location = ? WHERE name = ?"
+    ).run(
       parsed.data.name ?? null,
       parsed.data.bio ?? null,
       parsed.data.sortName ?? null,
+      parsed.data.website ?? null,
+      parsed.data.location ?? null,
       name
     );
 
@@ -363,7 +397,7 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
     try {
       const { updatedBio, updatedPhoto, result } = await enrichPerson(name, personLookupLanguages(name));
       const row = db.prepare(`
-        SELECT id, name, sort_name, bio, image_storage_key AS cover_storage_key
+        SELECT id, name, sort_name, bio, website, location, image_storage_key AS cover_storage_key
         FROM people WHERE name = ? LIMIT 1
       `).get(name) as AuthorRow | undefined;
 
@@ -373,7 +407,14 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
         updatedPhoto,
         source: result?.source ?? null,
         person: row
-          ? { name: row.name, sortName: row.sort_name, bio: row.bio, photoUrl: photoUrl(row.cover_storage_key) }
+          ? {
+              name: row.name,
+              sortName: row.sort_name,
+              bio: row.bio,
+              website: row.website,
+              location: row.location,
+              photoUrl: photoUrl(row.cover_storage_key)
+            }
           : null
       });
     } catch {
@@ -531,16 +572,19 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
 
       // People are global: fold the single `from` person into the `into` person.
       const fromRow = db.prepare(
-        "SELECT id, sort_name, bio, image_storage_key FROM people WHERE name = ?"
-      ).get(from) as { id: string; sort_name: string | null; bio: string | null; image_storage_key: string | null } | undefined;
+        "SELECT id, sort_name, bio, website, location, image_storage_key FROM people WHERE name = ?"
+      ).get(from) as {
+        id: string; sort_name: string | null; bio: string | null;
+        website: string | null; location: string | null; image_storage_key: string | null;
+      } | undefined;
       if (!fromRow) return;
 
       let intoRow = db.prepare("SELECT id FROM people WHERE name = ?").get(into) as { id: string } | undefined;
       if (!intoRow) {
         const id = nanoid(16);
         db.prepare(
-          "INSERT INTO people (id, name, sort_name, bio, image_storage_key) VALUES (?, ?, ?, ?, ?)"
-        ).run(id, into, fromRow.sort_name, fromRow.bio, fromRow.image_storage_key);
+          "INSERT INTO people (id, name, sort_name, bio, website, location, image_storage_key) VALUES (?, ?, ?, ?, ?, ?, ?)"
+        ).run(id, into, fromRow.sort_name, fromRow.bio, fromRow.website, fromRow.location, fromRow.image_storage_key);
         intoRow = { id };
       }
       if (intoRow.id !== fromRow.id) {
@@ -606,5 +650,30 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
     removeStoredPhotos(authorRows.map((row) => row.cover_storage_key).filter((key) => key !== storageKey));
 
     return reply.send({ updated: true, photoUrl: `/api/library/covers/${storageKey}` });
+  });
+
+  // Clear a person's photo — the edit dialog's "Remove photo". The stored file
+  // goes with it: a person has exactly one photo at a time (every write path
+  // above unlinks the one it replaces), so nothing else can reference it.
+  app.delete("/api/library/people/by-name/photo", { preHandler: app.authenticate }, async (request, reply) => {
+    if (!canWriteAnyBookLibrary(request.user!)) {
+      return reply.code(403).send({ error: "Write access to a book library is required to edit people." });
+    }
+    const name = String((request.query as { name?: string }).name ?? "").trim();
+    if (!name) {
+      return reply.code(400).send({ error: "Name is required" });
+    }
+
+    const rows = db.prepare(
+      "SELECT id, image_storage_key AS cover_storage_key FROM people WHERE name = ?"
+    ).all(name) as { id: string; cover_storage_key: string | null }[];
+    if (rows.length === 0) {
+      return reply.code(404).send({ error: "Person not found" });
+    }
+
+    db.prepare("UPDATE people SET image_storage_key = NULL WHERE name = ?").run(name);
+    removeStoredPhotos(rows.map((row) => row.cover_storage_key));
+
+    return reply.send({ removed: true });
   });
 }

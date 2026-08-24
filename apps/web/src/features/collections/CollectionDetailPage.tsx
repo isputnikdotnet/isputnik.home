@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, BookOpen, ChevronDown, ChevronUp, ListMusic, Pencil, Play, Trash2, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
-import { navigate } from "../../router";
+import { goBack, navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { formatDuration } from "../../shared/utils";
@@ -103,7 +103,7 @@ export function CollectionDetailPage({
     <DashboardShell active="user" user={user} logout={logout} sideNav={<UserAreaNav active="collections" />}>
       <section className="work-area audiobook-area">
         <div className="book-detail-topbar">
-          <button className="audiobook-back-button" type="button" onClick={() => navigate("/collections")}>
+          <button className="audiobook-back-button" type="button" onClick={() => goBack("/collections")}>
             <ArrowLeft size={18} aria-hidden="true" />
             <span>Back to collections</span>
           </button>

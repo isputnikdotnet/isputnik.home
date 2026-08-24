@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import type { PublicUser } from "../api";
 import { DashboardShell } from "../app/DashboardShell";
-import { followRoute, navigate } from "../router";
+import { followBack, followRoute, navigate } from "../router";
 import { MessageBox } from "../shared/MessageBox";
 import { repoFileUrl } from "../shared/links";
 
@@ -102,7 +102,7 @@ export function GuidePage({
   return (
     <DashboardShell active="help" user={user} logout={logout}>
       <section className="work-area guide-area">
-        <a className="audiobook-back-button" href="/help" onClick={(event) => followRoute(event, "/help")}>
+        <a className="audiobook-back-button" href="/help" onClick={(event) => followBack(event, "/help")}>
           <ArrowLeft size={18} aria-hidden="true" />
           <span>Help &amp; guides</span>
         </a>
