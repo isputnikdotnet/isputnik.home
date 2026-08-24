@@ -19,6 +19,15 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.21.0",
+    label: "Tell the app which machine your proxy is, and forged addresses stop being possible",
+    changes: [
+      "A new setting, TRUST_PROXY, takes the address of your reverse proxy itself — an IP or a range, like 172.18.0.0/16 for a Docker network — and the app believes a forwarded client address only when the machine that passed it along is actually on that list. The old TRUST_PROXY_HOPS counted proxies without checking who they were, which works, but rests on nothing but the promise that the app can't be reached any other way; if it ever can be, a visitor can put any address they like in the forwarding header and be believed. Named addresses close that: a forged header from anyone not on the list is simply ignored.",
+      "Nothing changes for existing setups — TRUST_PROXY_HOPS keeps working exactly as before, and if both are set, the addresses win. The ranges use the same notation as trusted networks, IPv6 included, and a typo in the list is reported at startup and left out rather than trusted by accident.",
+      "Everything that keys on knowing the real client honors the new setting the same as the old: trusted home networks, the skip-two-factor-at-home rule, and TV linking. The Security overview shows which form of trust is in effect, and its advice — along with the hosting guide, the Docker examples and the Unraid template, which gained a \"Trusted Proxy Addresses\" field — now points at the address form first."
+    ]
+  },
+  {
     version: "3.20.2",
     label: "A backup that takes its time is no longer reported as a failure",
     changes: [
