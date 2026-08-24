@@ -10,7 +10,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import archiver from "archiver";
+import { ZipArchive } from "archiver";
 import Database from "better-sqlite3";
 import Fastify, { type FastifyInstance } from "fastify";
 import cookie from "@fastify/cookie";
@@ -40,7 +40,7 @@ async function makeBackupZip(target: string): Promise<void> {
   makeDatabaseFile(dbFile);
 
   const out = fs.createWriteStream(target);
-  const archive = archiver("zip", { zlib: { level: 1 } });
+  const archive = new ZipArchive({ zlib: { level: 1 } });
   archive.pipe(out);
   archive.file(dbFile, { name: "database.sqlite" });
   archive.append("a cover", { name: "thumbnails/covers/one.jpg" });

@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import Database from "better-sqlite3";
-import archiver from "archiver";
+import { ZipArchive } from "archiver";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { db, logActivity } from "../../db.js";
@@ -193,7 +193,7 @@ async function runBackup(actorUserId: string | null, trigger: "manual" | "schedu
   try {
     await new Promise<void>((resolve, reject) => {
       const output = fs.createWriteStream(destination);
-      const archive = archiver("zip", { zlib: { level: 1 } });
+      const archive = new ZipArchive({ zlib: { level: 1 } });
       output.on("close", () => resolve());
       output.on("error", reject);
       archive.on("error", reject);

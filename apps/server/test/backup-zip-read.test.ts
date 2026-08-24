@@ -5,7 +5,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import archiver from "archiver";
+import { ZipArchive } from "archiver";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { extractFromZip, isBackupDatabaseEntry, zipHasEntry } from "../src/modules/backups/zip-read.js";
@@ -16,7 +16,7 @@ let workdir: string;
 async function makeZip(name: string, files: Record<string, string>): Promise<string> {
   const target = path.join(workdir, name);
   const out = fs.createWriteStream(target);
-  const archive = archiver("zip", { zlib: { level: 1 } });
+  const archive = new ZipArchive({ zlib: { level: 1 } });
   archive.pipe(out);
   for (const [entryName, content] of Object.entries(files)) {
     archive.append(content, { name: entryName });

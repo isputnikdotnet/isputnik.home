@@ -3,7 +3,7 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
-import archiver from "archiver";
+import { ZipArchive } from "archiver";
 import sharp from "sharp";
 import { nanoid } from "nanoid";
 import { db, logActivity } from "../../../db.js";
@@ -1890,7 +1890,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
 
     const asciiFilename = zipName.replace(/[^\x20-\x7E]/g, "_");
     const encodedFilename = encodeURIComponent(zipName);
-    const archive = archiver("zip", { zlib: { level: 0 } });
+    const archive = new ZipArchive({ zlib: { level: 0 } });
     archive.on("error", (err) => { reply.raw.destroy(err); });
 
     reply.hijack();
@@ -2114,7 +2114,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
     const zipName = `${safeTitle || "audiobook"}.zip`;
     const asciiFilename = zipName.replace(/[^\x20-\x7E]/g, "_");
     const encodedFilename = encodeURIComponent(zipName);
-    const archive = archiver("zip", { zlib: { level: 0 } });
+    const archive = new ZipArchive({ zlib: { level: 0 } });
     archive.on("error", (err) => {
       reply.raw.destroy(err);
     });
