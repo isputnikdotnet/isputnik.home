@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { FastifyInstance } from "fastify";
-import archiver from "archiver";
+import { ZipArchive } from "archiver";
 import { db, logActivity } from "../../../db.js";
 import { pathIsInside } from "../shared/storage-roots.js";
 import { canUserAccessBook, canUserDownloadBook } from "../shared/library-access.js";
@@ -136,7 +136,7 @@ export async function audiobookStreamPlugin(app: FastifyInstance) {
     const zipName = `${safeTitle}.zip`;
     const asciiFilename = zipName.replace(/[^\x20-\x7E]/g, "_");
     const encodedFilename = encodeURIComponent(zipName);
-    const archive = archiver("zip", { zlib: { level: 0 } });
+    const archive = new ZipArchive({ zlib: { level: 0 } });
 
     archive.on("error", (err) => {
       reply.raw.destroy(err);
