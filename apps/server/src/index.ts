@@ -51,7 +51,12 @@ const app = fastify({
       }
     }
   },
-  trustProxy: trustProxyConfigured ? trustProxyHops : false
+  // Fastify 5.12.1 removed numeric trustProxy (a hop count is now silently
+  // treated as "trust nothing"), so TRUST_PROXY_HOPS is applied as a function
+  // with the pre-5.12.1 semantics: trust the first N forwarding hops. Hop-count
+  // trust can't validate the immediate peer — the existing rule stands that the
+  // app must not be reachable except through the proxy when hops are set.
+  trustProxy: trustProxyConfigured ? (_address: string, hop: number) => hop < trustProxyHops : false
 });
 
 await app.register(cors, {
