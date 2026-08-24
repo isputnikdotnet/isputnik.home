@@ -19,6 +19,15 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.20.1",
+    label: "The reverse-proxy setting keeps meaning what it says",
+    changes: [
+      "The web framework this app is built on dropped support for the way TRUST_PROXY_HOPS was passed to it: a hop count, which used to mean \"trust this many forwarding steps\", is now quietly ignored — trust nothing. Left alone, that would have made every visitor behind your reverse proxy look like they came from the proxy's own address, and everything that works per-address — rate limiting, failed-sign-in lockout, IP blocks, trusted home networks — would have treated the whole household, and the whole internet, as one client. The app now applies the hop count itself, with exactly the meaning it has always had. Nothing to reconfigure; if you never set TRUST_PROXY_HOPS, none of this concerns you.",
+      "The framework changed this for a defensible reason: counting hops can't tell a real proxy from a liar, so the setting is only safe when the app can't be reached except through the proxy. That has always been the rule here — it's in the hosting guide, and the app already warns when the setting doesn't match the traffic it sees — and it is unchanged.",
+      "Under the surface, this release also carries the usual round of library updates, including new major versions of the library that builds zip downloads and the one that keeps offline listening data on your device. No behavior changes; downloads and offline playback work as before."
+    ]
+  },
+  {
     version: "3.20.0",
     label: "A person's relatives read as a family tree, and every one of them is named",
     changes: [
