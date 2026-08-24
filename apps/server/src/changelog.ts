@@ -19,6 +19,15 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.22.0",
+    label: "A video filmed sideways can be turned upright, just like a photo",
+    changes: [
+      "The rotate buttons in the viewer now work on videos. Turn a clip left or right and it rights itself there and then — it keeps playing while it turns — and its thumbnails everywhere in the gallery turn with it. Old phone videos that came in lying on their side can finally stand up.",
+      "As with photos, the file on disk is never modified: the turn is remembered by the app and applied wherever the video is shown. Which also means a downloaded original still plays the way the camera saved it — the turn belongs to the gallery, not to the file.",
+      "While a video is turned, the player wears the app's own control bar — play, seek, mute — instead of the browser's built-in one. The browser draws its controls inside the picture, so they would have lain on their side along with it. Turn the video back upright and the familiar controls return."
+    ]
+  },
+  {
     version: "3.21.0",
     label: "Tell the app which machine your proxy is, and forged addresses stop being possible",
     changes: [
