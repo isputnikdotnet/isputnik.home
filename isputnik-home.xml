@@ -136,11 +136,21 @@ Private self-hosted family media library for audiobooks, ebooks, photos, and oth
           Required="false"
           Mask="false">7</Config>
 
+  <Config Name="Trusted Proxy Addresses"
+          Target="TRUST_PROXY"
+          Default=""
+          Mode=""
+          Description="The reverse proxy's own IP or CIDR range, comma-separated for several (e.g. 172.18.0.0/16 for a Docker network). Preferred over Trusted Proxy Hops: forwarded headers are only believed when they come from these addresses. Leave blank for direct LAN access. Needed for correct per-IP rate limiting, auto-block, and trusted networks."
+          Type="Variable"
+          Display="always"
+          Required="false"
+          Mask="false"></Config>
+
   <Config Name="Trusted Proxy Hops"
           Target="TRUST_PROXY_HOPS"
           Default=""
           Mode=""
-          Description="Number of reverse proxies in front of the app (usually 1 behind a reverse proxy or Cloudflare Tunnel). Leave blank for direct LAN access. Needed for correct per-IP rate limiting, auto-block, and trusted networks — set it to match your proxy count, no higher."
+          Description="Alternative to Trusted Proxy Addresses when the proxy's IP isn't fixed: the number of reverse proxies in front of the app (usually 1 behind a reverse proxy or Cloudflare Tunnel). Leave blank for direct LAN access or when Trusted Proxy Addresses is set (addresses win if both are). Set it to match your proxy count, no higher, and don't expose the app's port directly."
           Type="Variable"
           Display="always"
           Required="false"

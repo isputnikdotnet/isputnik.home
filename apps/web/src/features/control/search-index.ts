@@ -38,7 +38,7 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
   groups: "shared access group membership permissions",
   invites: "invite signup sign-up registration link token new account",
 
-  security: "posture summary proxy hops client ip mode overview",
+  security: "posture summary proxy hops addresses trust client ip mode overview",
   securityPolicies:
     "lockout brute force threshold attempts password minimum length complexity sign-in alerts email abuseipdb reputation abuse score threat intelligence read only readonly delete trusted network protect deletions",
   securityTrusted: "cidr subnet allowlist lan home network exempt whitelist",

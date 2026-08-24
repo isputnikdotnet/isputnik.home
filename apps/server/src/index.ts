@@ -7,7 +7,7 @@ import helmet from "@fastify/helmet";
 import staticFiles from "@fastify/static";
 import { config } from "./config.js";
 import { registerAuthDecorators } from "./auth.js";
-import { isIpBlocked, isTrustedIp, isTrustedRequest, hasForwardedHeader, getTrustProxyHops, noteForwardedHeader, forwardedProto, safeRedirectHost, deletionBlocked } from "./core/security.js";
+import { isIpBlocked, isTrustedIp, isTrustedRequest, hasForwardedHeader, resolveProxyTrust, parseTrustProxyList, noteForwardedHeader, forwardedProto, safeRedirectHost, deletionBlocked } from "./core/security.js";
 import { flagAbusiveRequest } from "./core/security-alerts.js";
 import { isApiSurface, isProbePath } from "./core/probes.js";
 import { maskLogUrl } from "./core/log-redaction.js";
@@ -23,13 +23,15 @@ import { socialPlugin } from "./modules/social/index.js";
 import { familyTreePlugin } from "./modules/familytree/index.js";
 import { maintenancePlugin } from "./modules/maintenance/index.js";
 
-// X-Forwarded-For is only trusted when TRUST_PROXY_HOPS names how many reverse
-// proxies sit in front (e.g. 1 for a single nginx/Caddy/NPM). Left unset we trust
-// nothing and use the raw socket IP, so a direct client can't forge its address —
-// which would otherwise poison audit logs and hand out fresh rate-limit buckets.
-// Operators exposing the app set this to match their proxy chain (see docs/hosting.md).
-const trustProxyHops = getTrustProxyHops();
-const trustProxyConfigured = trustProxyHops > 0;
+// X-Forwarded-For is only trusted when the operator names the reverse proxies in
+// front — TRUST_PROXY with the proxy's own IPs/CIDRs (preferred: the header is
+// believed only while the peer that sent it is itself on the list), or the older
+// TRUST_PROXY_HOPS with a hop count (kept for compatibility; addresses win when
+// both are set). Left unset we trust nothing and use the raw socket IP, so a
+// direct client can't forge its address — which would otherwise poison audit logs
+// and hand out fresh rate-limit buckets. See docs/hosting.md.
+const proxyTrust = resolveProxyTrust();
+const trustProxyConfigured = proxyTrust !== false;
 let proxyMisconfigWarned = false;
 
 const app = fastify({
@@ -52,12 +54,27 @@ const app = fastify({
     }
   },
   // Fastify 5.12.1 removed numeric trustProxy (a hop count is now silently
-  // treated as "trust nothing"), so TRUST_PROXY_HOPS is applied as a function
-  // with the pre-5.12.1 semantics: trust the first N forwarding hops. Hop-count
-  // trust can't validate the immediate peer — the existing rule stands that the
-  // app must not be reachable except through the proxy when hops are set.
-  trustProxy: trustProxyConfigured ? (_address: string, hop: number) => hop < trustProxyHops : false
+  // treated as "trust nothing"), so both settings are applied as a trust
+  // function (see resolveProxyTrust): TRUST_PROXY matches each forwarding peer
+  // against the configured addresses, TRUST_PROXY_HOPS keeps the pre-5.12.1
+  // semantics of trusting the first N hops. Hop-count trust can't validate the
+  // immediate peer — the existing rule stands that the app must not be reachable
+  // except through the proxy when hops are set; address trust closes that hole.
+  trustProxy: proxyTrust
 });
+
+// An unparseable TRUST_PROXY entry is dropped rather than trusted-by-accident;
+// say so at startup, because a typo here otherwise surfaces only as "the client
+// IPs are wrong" much later. If every entry was invalid, proxy trust falls back
+// to TRUST_PROXY_HOPS or (if that is unset too) to trusting nothing.
+{
+  const { invalid } = parseTrustProxyList();
+  if (invalid.length > 0) {
+    app.log.warn(
+      `Ignoring ${invalid.length === 1 ? "an invalid TRUST_PROXY entry" : "invalid TRUST_PROXY entries"}: ${invalid.join(", ")} — each entry must be an IP address or CIDR range (e.g. "172.18.0.0/16").`
+    );
+  }
+}
 
 await app.register(cors, {
   origin: config.appUrl,
@@ -145,14 +162,14 @@ app.addHook("onRequest", async (request, reply) => {
   // it covers every response, not just the ones a crawler reaches through the SPA.
   reply.header("X-Robots-Tag", "noindex, nofollow");
   // Note any proxy forwarding header so the admin UI can show "a proxy is in front".
-  // With TRUST_PROXY_HOPS unset, request.ip is then the proxy — silently breaking the
-  // per-IP controls (and letting everyone match a trusted network). Warn once.
+  // With proxy trust unconfigured, request.ip is then the proxy — silently breaking
+  // the per-IP controls (and letting everyone match a trusted network). Warn once.
   if (hasForwardedHeader(request.headers)) {
     noteForwardedHeader();
     if (!trustProxyConfigured && !proxyMisconfigWarned) {
       proxyMisconfigWarned = true;
       request.log.warn(
-        "Detected an X-Forwarded-For header but TRUST_PROXY_HOPS is unset — request.ip is the proxy's address, not the client's. This breaks per-IP rate limiting and auto-block, and can let every client match a trusted network (bypassing MFA). Set TRUST_PROXY_HOPS to the number of proxies in front (usually 1). See docs/users/exposing-to-the-internet.md."
+        "Detected an X-Forwarded-For header but proxy trust is unconfigured — request.ip is the proxy's address, not the client's. This breaks per-IP rate limiting and auto-block, and can let every client match a trusted network (bypassing MFA). Set TRUST_PROXY to your proxy's IP or CIDR (preferred), or TRUST_PROXY_HOPS to the number of proxies in front (usually 1). See docs/users/exposing-to-the-internet.md."
       );
     }
   }

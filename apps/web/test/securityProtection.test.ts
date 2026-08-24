@@ -20,7 +20,7 @@ const strongInput: GradeInput = {
     reputationEscalateThreshold: 90,
     trustedDeletesOnly: true
   },
-  proxy: { trustProxyHops: 1, configured: true, forwardedHeaderSeen: true },
+  proxy: { trustProxyHops: 1, trustProxyAddresses: [], configured: true, forwardedHeaderSeen: true },
   passwordPolicy: { minLength: 8, requireComplexity: false },
   mailConfigured: true,
   trustedNetworkCount: 1
@@ -44,7 +44,7 @@ describe("protection score", () => {
       strongInput,
       { ...strongInput, policy: { ...strongInput.policy, alertNewIpSignIn: false } },
       { ...strongInput, policy: { ...strongInput.policy, requireMfaOutside: false, hasAbuseIpdbKey: false } },
-      { ...strongInput, proxy: { trustProxyHops: 0, configured: false, forwardedHeaderSeen: true } },
+      { ...strongInput, proxy: { trustProxyHops: 0, trustProxyAddresses: [], configured: false, forwardedHeaderSeen: true } },
       { ...strongInput, passwordPolicy: { minLength: 6, requireComplexity: false }, mailConfigured: false },
       {
         ...strongInput,
@@ -58,7 +58,7 @@ describe("protection score", () => {
           hasAbuseIpdbKey: false,
           trustedDeletesOnly: false
         },
-        proxy: { trustProxyHops: 0, configured: false, forwardedHeaderSeen: false }
+        proxy: { trustProxyHops: 0, trustProxyAddresses: [], configured: false, forwardedHeaderSeen: false }
       }
     ];
     for (const input of variants) {

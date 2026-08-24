@@ -73,14 +73,14 @@ export async function deviceLinkRoutes(app: FastifyInstance) {
       logActivity({
         event: "auth.device_link_rejected",
         detail: verdict.reason === "proxy"
-          ? "Refused a device-link request: a proxy is in front but TRUST_PROXY_HOPS is unset, so the device's address can't be established."
+          ? "Refused a device-link request: a proxy is in front but proxy trust (TRUST_PROXY / TRUST_PROXY_HOPS) is unset, so the device's address can't be established."
           : "Refused a device-link request from outside the home network.",
         ipAddress: request.ip
       });
       alertDeviceLinkRejected(request.ip, verdict.reason);
       return reply.code(403).send({
         error: verdict.reason === "proxy"
-          ? "This server can't tell which network devices are on. Ask your administrator to set TRUST_PROXY_HOPS."
+          ? "This server can't tell which network devices are on. Ask your administrator to set TRUST_PROXY (or TRUST_PROXY_HOPS)."
           : "Devices can only be linked from your home network. Ask your administrator if you need this from elsewhere.",
         reason: verdict.reason
       });

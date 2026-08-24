@@ -101,6 +101,7 @@ interface SecurityData {
   policy: SecurityPolicy;
   proxy: {
     trustProxyHops: number;
+    trustProxyAddresses: string[];
     configured: boolean;
     forwardedHeaderSeen: boolean;
   };
@@ -715,9 +716,10 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
 
                     {data.proxy.forwardedHeaderSeen && !data.proxy.configured && (
                       <MessageBox tone="warning" title="Every sign-in will ask for the second factor">
-                        Requests arrive through a proxy but <code>TRUST_PROXY_HOPS</code> is not set, so the server
-                        cannot tell who is on a trusted network. With this policy on, it plays safe and asks
-                        everyone — including at home — until you set it.
+                        Requests arrive through a proxy but neither <code>TRUST_PROXY</code> nor{" "}
+                        <code>TRUST_PROXY_HOPS</code> is set, so the server cannot tell who is on a trusted
+                        network. With this policy on, it plays safe and asks everyone — including at home —
+                        until you set one.
                       </MessageBox>
                     )}
 
@@ -783,8 +785,9 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
 
                     {data.proxy.forwardedHeaderSeen && !data.proxy.configured && (
                       <MessageBox tone="warning" title="Client IPs aren't accurate yet">
-                        Requests arrive through a proxy but <code>TRUST_PROXY_HOPS</code> is not set, so every visitor
-                        looks like the proxy address. Until you set it, a new network is never detected.
+                        Requests arrive through a proxy but neither <code>TRUST_PROXY</code> nor{" "}
+                        <code>TRUST_PROXY_HOPS</code> is set, so every visitor looks like the proxy address.
+                        Until you set one, a new network is never detected.
                       </MessageBox>
                     )}
 
@@ -915,9 +918,10 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
 
                     {data.proxy.forwardedHeaderSeen && !data.proxy.configured && (
                       <MessageBox tone="warning" title="Device linking is refusing everything">
-                        Requests arrive through a proxy but <code>TRUST_PROXY_HOPS</code> is not set, so every device
-                        looks like it is on the proxy's own address — which would make "home network only" mean
-                        "anyone at all". Linking is refused entirely until you set it.
+                        Requests arrive through a proxy but neither <code>TRUST_PROXY</code> nor{" "}
+                        <code>TRUST_PROXY_HOPS</code> is set, so every device looks like it is on the proxy's
+                        own address — which would make "home network only" mean "anyone at all". Linking is
+                        refused entirely until you set one.
                       </MessageBox>
                     )}
 
@@ -1109,8 +1113,8 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
 
                 <MessageBox tone="warning" title="Use with care" className="security-network-callout">
                   Only add ranges you fully control. If you run behind a reverse proxy, set{" "}
-                  <code>TRUST_PROXY_HOPS</code> first — otherwise every visitor can look like one private IP and bypass
-                  two-factor.
+                  <code>TRUST_PROXY</code> (or <code>TRUST_PROXY_HOPS</code>) first — otherwise every visitor can look
+                  like one private IP and bypass two-factor.
                 </MessageBox>
 
                 <div className="security-list-actions">

@@ -346,16 +346,16 @@ export function alertRemoteDeviceLinked(user: User, request: FastifyRequest, lab
 
 // A device asked to be linked and the server refused before creating anything.
 // Goes to admins, not the owner: nobody owns it yet, and both reasons are the
-// admin's to act on — widen the policy deliberately, or fix TRUST_PROXY_HOPS.
+// admin's to act on — widen the policy deliberately, or configure proxy trust.
 export function alertDeviceLinkRejected(ip: string | null, reason: "scope" | "proxy"): void {
   if (throttled(`devlink:${reason}:${ip ?? "none"}`, 30 * 60_000)) return;
   void notifyAdmins("A device was refused permission to link", [
     reason === "proxy"
-      ? "A device asked to be linked, and the server could not tell where it was asking from: a proxy is in front but TRUST_PROXY_HOPS is unset, so every request appears to come from the proxy's own address."
+      ? "A device asked to be linked, and the server could not tell where it was asking from: a proxy is in front but proxy trust (TRUST_PROXY / TRUST_PROXY_HOPS) is unset, so every request appears to come from the proxy's own address."
       : "A device outside your home network asked to be linked, and device linking is set to accept local devices only.",
     context(ip),
     reason === "proxy"
-      ? "Set TRUST_PROXY_HOPS to the number of proxies in front (usually 1) and device linking will work again. Until then it refuses every request rather than treating the whole internet as local. See docs/users/exposing-to-the-internet.md."
+      ? "Set TRUST_PROXY to your proxy's IP or CIDR (or TRUST_PROXY_HOPS to the number of proxies in front, usually 1) and device linking will work again. Until then it refuses every request rather than treating the whole internet as local. See docs/users/exposing-to-the-internet.md."
       : "If this was you, linking from outside can be allowed in Control panel → Security → Policies. Read what it says there first: it is the setting that lets a stranger start a request and talk someone into approving it."
   ]);
 }

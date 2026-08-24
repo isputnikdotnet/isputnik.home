@@ -142,7 +142,7 @@ Shipped:
   told from a wrong password by how long the answer takes. scrypt is slow enough
   that returning early would otherwise be plainly measurable.
 - **Configurable password policy** — admin-tunable minimum length and optional complexity, enforced on every password-set flow but not on login (`core/password-policy.ts`).
-- **Scoped proxy trust** — `TRUST_PROXY_HOPS`, so a client can't spoof its IP.
+- **Scoped proxy trust** — `TRUST_PROXY` (proxy IPs/CIDRs, preferred) or `TRUST_PROXY_HOPS` (hop count), so a client can't spoof its IP. See `docs/hosting.md`.
 - **Account lockout & IP access control** — accounts lock after repeated failures (defaults: 5 fails / 30 min); an IP auto-blocks after repeated failures; admins manage trusted networks (which relax rate limits, lockout, and MFA), manual IP blocks, and the configurable thresholds under Control panel → Security. Engine in `core/security.ts`.
   A **rejected second factor counts as a failed attempt** alongside a rejected
   password, so guessing codes locks the account and auto-blocks the IP on the same

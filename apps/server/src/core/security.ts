@@ -1,6 +1,6 @@
 import { nanoid } from "nanoid";
 import { db, logActivity } from "../db.js";
-import { ipInAnyCidr, ipNetworkKey, isPrivateIp } from "./cidr.js";
+import { ipInAnyCidr, ipNetworkKey, isPrivateIp, isValidCidr } from "./cidr.js";
 import { ensureSealed, openSecret } from "./mfa.js";
 
 // Brute-force defense and source-IP access control. Pure data/logic over the
@@ -96,7 +96,7 @@ export function getStoredAbuseIpdbKeyRaw(): string {
 }
 
 // True when the request carries a proxy's forwarding header. Used to warn when
-// TRUST_PROXY_HOPS is unset — then request.ip is the proxy, not the client, which
+// proxy trust is unconfigured — then request.ip is the proxy, not the client, which
 // breaks the per-IP controls below. Node lowercases header names.
 export function hasForwardedHeader(headers: Record<string, unknown>): boolean {
   return Boolean(headers["x-forwarded-for"] || headers["forwarded"]);
@@ -130,8 +130,50 @@ export function getTrustProxyHops(): number {
   return Number.isInteger(value) && value > 0 ? value : 0;
 }
 
+// The proxy's own addresses from TRUST_PROXY — a comma-separated list of IPs and
+// CIDRs (e.g. "172.18.0.0/16" or "10.0.0.5, fd00::1"). This is the stronger form
+// of proxy trust: X-Forwarded-For is believed only while the peer that sent it is
+// itself on this list, so a client that reaches the app directly can forge
+// nothing no matter what headers it adds — the guarantee a hop count can't make.
+// Entries that don't parse are dropped (index.ts warns about them at startup);
+// the same CIDR grammar as trusted zones, including a bare address as /32 or /128.
+export function parseTrustProxyList(): { cidrs: string[]; invalid: string[] } {
+  const raw = process.env.TRUST_PROXY;
+  if (!raw?.trim()) return { cidrs: [], invalid: [] };
+  const entries = raw.split(",").map((entry) => entry.trim()).filter(Boolean);
+  return {
+    cidrs: entries.filter((entry) => isValidCidr(entry)),
+    invalid: entries.filter((entry) => !isValidCidr(entry))
+  };
+}
+
+// Read live so the admin UI can surface it, like getTrustProxyHops.
+export function getTrustProxyCidrs(): string[] {
+  return parseTrustProxyList().cidrs;
+}
+
+// Is either form of proxy trust in effect? The fail-closed checks below ask this
+// instead of getTrustProxyHops alone, so an operator on TRUST_PROXY isn't treated
+// as unconfigured. A TRUST_PROXY that is set but entirely invalid counts as off —
+// the trust function built from it would never match anything anyway.
+export function isProxyTrustConfigured(): boolean {
+  return getTrustProxyCidrs().length > 0 || getTrustProxyHops() > 0;
+}
+
+// The value handed to Fastify's trustProxy option (index.ts, once at startup).
+// TRUST_PROXY wins when both are set: it validates the immediate peer, which a
+// hop count cannot. The hop form keeps the pre-fastify-5.12.1 numeric semantics —
+// trust the first N forwarding hops, whoever they are — for existing deployments.
+export function resolveProxyTrust(): ((address: string, hop: number) => boolean) | false {
+  const cidrs = getTrustProxyCidrs();
+  if (cidrs.length > 0) return (address) => ipInAnyCidr(address, cidrs);
+  const hops = getTrustProxyHops();
+  if (hops > 0) return (_address, hop) => hop < hops;
+  return false;
+}
+
 // Runtime signal: has any request arrived with a proxy forwarding header? Lets the
-// admin see "a proxy is in front" even when TRUST_PROXY_HOPS hasn't been set.
+// admin see "a proxy is in front" even when proxy trust hasn't been configured.
 let forwardedHeaderSeen = false;
 export function noteForwardedHeader(): void {
   forwardedHeaderSeen = true;
@@ -161,7 +203,8 @@ export function isTrustedIp(ip: string | null | undefined): boolean {
 }
 
 // isTrustedIp, but refuses to trust the address when it can't be believed.
-// Behind a proxy with TRUST_PROXY_HOPS unset, request.ip is the proxy's own
+// Behind a proxy with proxy trust unconfigured (neither TRUST_PROXY nor
+// TRUST_PROXY_HOPS), request.ip is the proxy's own
 // address — typically a private Docker IP on the Unraid+cloudflared deployment
 // this app targets — so a trusted-network match proves nothing about the real
 // client, and every relaxing exemption keyed on it (rate limits, lockout, the
@@ -169,16 +212,16 @@ export function isTrustedIp(ip: string | null | undefined): boolean {
 // internet. Fail closed there, the same direction mfaRequiredOutside and
 // deviceLinkAllowedFrom already take. Takes the request so the header evidence
 // travels with the address rather than the spoofable process-wide flag. A
-// correctly configured proxy (hops set) or a direct LAN install (no forwarded
-// header) is unaffected — it falls straight through to isTrustedIp.
+// correctly configured proxy (either setting) or a direct LAN install (no
+// forwarded header) is unaffected — it falls straight through to isTrustedIp.
 export function isTrustedRequest(request: { ip: string | null | undefined; headers: Record<string, unknown> }): boolean {
-  if (hasForwardedHeader(request.headers) && getTrustProxyHops() === 0) return false;
+  if (hasForwardedHeader(request.headers) && !isProxyTrustConfigured()) return false;
   return isTrustedIp(request.ip);
 }
 
 // Does the outside-MFA policy force a second factor on this sign-in? True only
 // when the toggle is on and the request is not PROVABLY inside a trusted
-// network. "Provably" is the point: behind a proxy with TRUST_PROXY_HOPS unset,
+// network. "Provably" is the point: behind a proxy with proxy trust unconfigured,
 // request.ip is the proxy's own address, so a trusted-network match proves
 // nothing — that case fails toward requiring the factor, the same direction
 // deviceLinkAllowedFrom refuses in, because guessing wrong the other way would
@@ -186,7 +229,7 @@ export function isTrustedRequest(request: { ip: string | null | undefined; heade
 // there: the process-wide forwarded-header flag is latching and spoofable.
 export function mfaRequiredOutside(ip: string | null | undefined, headers: Record<string, unknown>): boolean {
   if (!getSecurityPolicy().requireMfaOutside) return false;
-  if (hasForwardedHeader(headers) && getTrustProxyHops() === 0) return true;
+  if (hasForwardedHeader(headers) && !isProxyTrustConfigured()) return true;
   return !isTrustedIp(ip);
 }
 
@@ -217,12 +260,12 @@ export function removeTrustedNetwork(id: string): boolean {
 // route because the interesting half of it is about the deployment, not the caller.
 //
 // The 'proxy' refusal is the one worth understanding. Behind a reverse proxy with
-// TRUST_PROXY_HOPS unset, request.ip is the proxy's own address — on Docker,
+// proxy trust unconfigured, request.ip is the proxy's own address — on Docker,
 // something like 172.18.0.2 — so isPrivateIp says yes to every visitor on earth
 // and a 'local' scope would silently permit the open internet. The server already
 // warns about this at startup for the rate limiter and the auto-block, but those
 // degrade toward noise; this one would degrade toward an open door, so it refuses
-// instead. Fixing TRUST_PROXY_HOPS gets the feature back.
+// instead. Setting TRUST_PROXY (or TRUST_PROXY_HOPS) gets the feature back.
 //
 // The question is asked of THIS request's headers rather than the process-wide
 // "a forwarded header has been seen" flag, which would be both too broad and
@@ -237,7 +280,7 @@ export function deviceLinkAllowedFrom(
   ip: string | null | undefined,
   headers: Record<string, unknown>
 ): DeviceLinkVerdict {
-  if (hasForwardedHeader(headers) && getTrustProxyHops() === 0) return { allowed: false, reason: "proxy" };
+  if (hasForwardedHeader(headers) && !isProxyTrustConfigured()) return { allowed: false, reason: "proxy" };
   if (getSecurityPolicy().deviceLinkScope === "any") return { allowed: true };
   if (!ip) return { allowed: false, reason: "scope" };
   return isTrustedIp(ip) || isPrivateIp(ip) ? { allowed: true } : { allowed: false, reason: "scope" };

@@ -15,9 +15,14 @@ services:
       APP_URL: http://localhost:4000
       # Set to "true" only if serving over HTTPS
       COOKIE_SECURE: "false"
-      # Number of reverse proxies in front — set when exposing via a proxy (usually 1)
-      # so rate limits, auto-block, and trusted zones see the real client IP, not the
-      # proxy. Leave unset for direct LAN access. See docs/users/exposing-to-the-internet.md
+      # Set when exposing via a reverse proxy, so rate limits, auto-block, and trusted
+      # zones see the real client IP, not the proxy. Preferred: the proxy's own IP or
+      # CIDR (comma-separated for several) — forwarded headers are then only believed
+      # when they come from it. Leave unset for direct LAN access.
+      # See docs/users/exposing-to-the-internet.md
+      # TRUST_PROXY: 172.18.0.0/16
+      # Older alternative when the proxy's IP isn't fixed: the number of proxies in
+      # front (addresses win if both are set).
       # TRUST_PROXY_HOPS: 1
       # Optional overrides
       # SESSION_DAYS: 14

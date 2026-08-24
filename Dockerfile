@@ -141,7 +141,10 @@ ENV BACKUP_PATH=/config/backups
 ENV GEOIP_PATH=/config/geoip
 # Set to "true" only when served over HTTPS
 ENV COOKIE_SECURE=false
-# Number of reverse proxies in front (usually 1). 0 = trust nothing / direct access.
+# Reverse-proxy trust: prefer TRUST_PROXY (the proxy's own IP/CIDR, comma-separated
+# for several; unset = trust nothing). TRUST_PROXY_HOPS is the older hop-count form
+# (usually 1; 0 = trust nothing / direct access); addresses win if both are set.
+ENV TRUST_PROXY=""
 ENV TRUST_PROXY_HOPS=0
 
 # Who the server runs as. Default to the image's `node` user (uid/gid 1000); the

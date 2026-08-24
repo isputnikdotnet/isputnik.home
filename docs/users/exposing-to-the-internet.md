@@ -29,7 +29,7 @@ proxy is the only way in.
 |---|---|---|
 | `APP_URL` | `https://your-domain` | Your public address; used for links and CORS |
 | `COOKIE_SECURE` | `true` (or `auto`) | Send the session cookie only over HTTPS |
-| `TRUST_PROXY_HOPS` | number of proxies in front (usually `1`) | So rate limits and logs see the real visitor, not the proxy |
+| `TRUST_PROXY` | your proxy's IP or CIDR (e.g. `172.18.0.0/16`) | So rate limits and logs see the real visitor, not the proxy |
 
 `COOKIE_SECURE=auto` follows `APP_URL` instead of stating it twice — secure
 cookies on for an `https://` address, off for a plain-http home install. Set
@@ -48,18 +48,26 @@ is a backstop for proxies that don't, and it depends on the proxy sending an
 `X-Forwarded-Proto` header — without one, the app cannot tell how the visitor
 arrived and deliberately does nothing rather than risk a redirect loop.
 
-### About `TRUST_PROXY_HOPS`
+### About `TRUST_PROXY` (and `TRUST_PROXY_HOPS`)
 
 The app needs the real visitor's IP address for rate limiting and the activity
 log. Behind a proxy, that arrives in an `X-Forwarded-For` header. By default the
 app **trusts nothing** and uses the direct connection's address — correct when
 there's no proxy, but it will show the proxy's address once you add one.
 
-Set `TRUST_PROXY_HOPS` to the number of proxies between the internet and the app
-(one reverse proxy = `1`; a CDN in front of that = `2`). Setting it **higher** than
-the real number would let a visitor forge their address, so match it exactly — and
-make sure port `4000` isn't reachable directly (step 1) so the proxy is always the
-one adding the header.
+Set `TRUST_PROXY` to the proxy's own address — a single IP, a CIDR range, or a
+comma-separated list of both (for example `TRUST_PROXY=172.18.0.0/16` for a
+Docker network, or the CDN's published ranges when one sits in front). The
+forwarded header is then believed only when it actually comes from your proxy,
+so a visitor who somehow reaches the app directly still can't forge their
+address.
+
+The older `TRUST_PROXY_HOPS` still works: set it to the number of proxies
+between the internet and the app (one reverse proxy = `1`; a CDN in front of
+that = `2`). It trusts that many hops *whoever they are*, so it only holds if
+port `4000` isn't reachable directly (step 1) — and setting it **higher** than
+the real number would let a visitor forge their address. Prefer `TRUST_PROXY`
+when you know the proxy's address; if both are set, `TRUST_PROXY` wins.
 
 ## 3. Strongly recommended
 
@@ -99,7 +107,7 @@ read-only (`:ro`) unless you upload through the app.
 [ ] App port not published to the internet directly
 [ ] APP_URL = https://your-domain
 [ ] COOKIE_SECURE = true
-[ ] TRUST_PROXY_HOPS = number of proxies (usually 1)
+[ ] TRUST_PROXY = the proxy's IP/CIDR (or TRUST_PROXY_HOPS = number of proxies)
 [ ] First-run admin setup completed on the home network
 [ ] Two-factor enabled for admin accounts
 [ ] Email configured, so security alerts actually reach you
