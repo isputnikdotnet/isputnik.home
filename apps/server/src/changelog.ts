@@ -19,6 +19,16 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.23.0",
+    label: "Lock a folder, and nothing inside it can be deleted from the app",
+    changes: [
+      "In the gallery's Folders view, an admin looking at a folder — with the filter narrowed to one library — now has a Lock folder button beside Rescan. Locked, that folder and everything below it refuses deletion outright: a photo picked by hand, a whole selection, an audiobook whose folder happens to sit under the locked path — the server says no whoever asks, until the same button unlocks it. Locked folders wear a small padlock on their tile so everyone can see they're protected.",
+      "The lock stops exactly one thing: deleting. Viewing, uploading into the folder, editing dates and places, rotating, tagging and rescanning all carry on as before. It's a guardrail for the folders that must survive a careless moment — the wedding photos, the scans of the old albums — not a read-only switch. Protecting a whole library remains the library's own setting, as ever.",
+      "Duplicate cleanup understands the lock the way it already understands a read-only library. A copy in a locked folder is shown but never offered for removal — it wins the keeper contest instead, so the copies elsewhere are the ones proposed to go. A folder with a lock anywhere inside it is never offered for clearing out, the wizard's Clear choice is greyed for locked folders with the reason on hover, and locking a folder after a cleanup has already scanned makes its affected offers refuse cleanly rather than fail halfway.",
+      "If a selection mixes locked and unlocked items, the unlocked ones still go to the Recycle Bin and the message says how many were left behind because of a lock — distinct from items skipped for lack of permission, so the outcome reads as what actually happened."
+    ]
+  },
+  {
     version: "3.22.0",
     label: "A video filmed sideways can be turned upright, just like a photo",
     changes: [
