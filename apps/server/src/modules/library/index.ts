@@ -7,6 +7,7 @@ import { ebookPlugin } from "./ebook/index.js";
 import { galleryPlugin } from "./gallery/index.js";
 import { libraryMembersPlugin } from "./shared/members.js";
 import { scanRulesPlugin } from "./shared/scan-rules-routes.js";
+import { folderLocksPlugin } from "./shared/folder-locks-routes.js";
 import { registerTrashRoutes } from "./shared/trash-routes.js";
 import { startTrashPurgeWorker } from "./shared/trash.js";
 import { sweepOrphanLibraryThumbnails } from "./shared/thumbnail.js";
@@ -41,6 +42,9 @@ export async function libraryPlugin(app: FastifyInstance) {
 
   // Custom scan rules (cross-type; preview dispatches to the media scanner).
   await app.register(scanRulesPlugin);
+
+  // Folder locks (cross-type; enforced inside trashBook, managed here).
+  await app.register(folderLocksPlugin);
 
   // Cross-type routes live at the library level rather than inside one media
   // plugin: the home feeds (recent / continue across audiobooks + ebooks)…

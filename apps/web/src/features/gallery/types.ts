@@ -282,6 +282,8 @@ export interface GalleryFolder {
   path: string;
   assetCount: number;
   coverUrl: string | null;
+  /** A folder lock covers it — nothing inside can be deleted from the app. */
+  locked: boolean;
 }
 
 // A lightweight map marker — just what a pin + its popup thumbnail need. The full

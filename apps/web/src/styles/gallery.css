@@ -398,6 +398,13 @@
   color: var(--muted);
 }
 
+/* Lock badge beside a tile's item count: the folder is locked, so nothing inside
+   it can be deleted from the app. */
+.gallery-folder-lock {
+  vertical-align: -2px;
+  margin-right: 4px;
+}
+
 /* On a folder-search result: where the folder sits, since the name alone can't tell
    2004's "wedding" from 2019's. One line, middle truncated by direction. */
 .gallery-folder-where {

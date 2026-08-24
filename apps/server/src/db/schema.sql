@@ -922,6 +922,21 @@ CREATE TABLE IF NOT EXISTS library_scan_rule_paths (
 CREATE INDEX IF NOT EXISTS idx_scan_rules_library      ON library_scan_rules(library_id);
 CREATE INDEX IF NOT EXISTS idx_scan_rule_paths_library ON library_scan_rule_paths(library_id);
 
+-- Folder locks: an admin's "nothing under here may be deleted from the app".
+-- A folder has no row of its own — it exists only as a prefix of
+-- library_items.folder_path — so a lock names (library, path) the way scan-rule
+-- paths and job folder preferences do. A lock covers its whole subtree. Locking
+-- "" (the whole library) is the library policy's job (allowDelete/external), not
+-- a row here. Deletion only: uploads, scans and metadata edits inside a locked
+-- folder are unaffected. Enforced inside trashBook(), beside libraryAllowsDelete.
+CREATE TABLE IF NOT EXISTS library_folder_locks (
+  library_id  TEXT NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
+  folder_path TEXT NOT NULL,
+  locked_by   TEXT REFERENCES users(id) ON DELETE SET NULL,
+  locked_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  PRIMARY KEY (library_id, folder_path)
+);
+
 -- ════════════════════════════════════════════════════════════════════════════
 --  People, series, categories, tags  (all global / cross-library)
 -- ════════════════════════════════════════════════════════════════════════════

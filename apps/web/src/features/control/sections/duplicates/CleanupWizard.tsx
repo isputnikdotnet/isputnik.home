@@ -70,6 +70,8 @@ interface FolderOption {
   folderPath: string;
   photoCount: number;
   isProtected: boolean;
+  /** A folder lock covers it — "clear" is refused there too. */
+  isLocked: boolean;
 }
 
 type PreferenceMode = "keep" | "clear";
@@ -473,12 +475,17 @@ export function CleanupWizard({
                             {MODES.map((mode) => {
                               // Clearing out means letting this folder's copies go, which an
                               // external library cannot do — its files are not ours to remove.
-                              const blocked = mode.value === "clear" && option.isProtected;
+                              // A locked folder reads the same way: deletion is refused there.
+                              const blocked = mode.value === "clear" && (option.isProtected || option.isLocked);
                               return (
                                 <label
                                   className={`dup-mode${(preferences[key] ?? "") === mode.value ? " is-on" : ""}${blocked ? " is-blocked" : ""}`}
                                   key={mode.short}
-                                  title={blocked ? `"${option.libraryName}" is external, so nothing can be cleared out of it` : mode.hint}
+                                  title={blocked
+                                    ? (option.isProtected
+                                      ? `"${option.libraryName}" is external, so nothing can be cleared out of it`
+                                      : `"${option.folderPath}" is locked, so nothing can be cleared out of it`)
+                                    : mode.hint}
                                 >
                                   <input
                                     type="radio"

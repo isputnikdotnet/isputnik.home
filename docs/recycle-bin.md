@@ -90,6 +90,11 @@ found under a cleanup's thousands of rows.
 
 Trashing reuses the library **delete** capability — manager+ on a **managed** library with
 `allowDelete` (see [permissions.md](permissions.md)); external/read-only libraries refuse it.
+**Folder locks** are the same rule one level down: an admin locks a `(library, folder)` pair
+(`library_folder_locks`, managed from the Gallery Folders view), and `trashBook` refuses any
+item at or below that path with **423 Locked** — whoever asks, whatever the caller. The lock
+gates trashing only: purge, empty and restore are unaffected, since a trashed item has
+already left the folder.
 Restoring and purging need **manage**. Server admins manage every item, including orphans
 whose library was later deleted. The Recycle Bin screen sits in the **Control Panel**
 (admin-only); the API also serves non-admin managers their own libraries' items for any

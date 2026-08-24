@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Album, ArrowLeft, CalendarClock, CalendarDays, CheckCheck, CheckCircle2, ChevronDown, ChevronRight, Circle, Combine, Compass, Download, Film, FolderOpen, FolderPlus, Image as ImageIcon, ImagePlus, LayoutGrid, LibraryBig, ListMusic, MapPin, MapPinned, Pencil, Play, Plus, Heart, Folder, RefreshCw, Send, Share2, Sparkles, SquareCheck, Trash2, UploadCloud, Users, X } from "lucide-react";
+import { Album, ArrowLeft, CalendarClock, CalendarDays, CheckCheck, CheckCircle2, ChevronDown, ChevronRight, Circle, Combine, Compass, Download, Film, FolderOpen, FolderPlus, Image as ImageIcon, ImagePlus, LayoutGrid, LibraryBig, ListMusic, Lock, LockOpen, MapPin, MapPinned, Pencil, Play, Plus, Heart, Folder, RefreshCw, Send, Share2, Sparkles, SquareCheck, Trash2, UploadCloud, Users, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { followRoute, galleryHref, navigate, type GalleryView } from "../../router";
@@ -190,6 +190,8 @@ export function GalleryPage({
 
   // Folder state.
   const [parent, setParent] = useState("");
+  // Whether the folder currently open is itself locked (deletion refused inside).
+  const [parentLocked, setParentLocked] = useState(false);
   const [folders, setFolders] = useState<GalleryFolder[]>([]);
   const [folderAssets, setFolderAssets] = useState<GalleryAsset[]>([]);
   // Photos/videos sitting DIRECTLY in the open folder (subfolders excluded) — the
@@ -428,13 +430,14 @@ export function GalleryPage({
     setError("");
     try {
       const params = new URLSearchParams({ ...scopeParams(), parent: nextParent, limit: "200", offset: String(offset) } as Record<string, string>);
-      const payload = await api<{ parent: string; folders: GalleryFolder[]; assets: GalleryAsset[]; total: number }>(
+      const payload = await api<{ parent: string; parentLocked: boolean; folders: GalleryFolder[]; assets: GalleryAsset[]; total: number }>(
         `/api/library/gallery/folders?${params}`
       );
       setFolders(payload.folders);
       setFolderAssets((current) => (offset > 0 ? [...current, ...payload.assets] : payload.assets));
       setFolderTotal(payload.total);
       setParent(payload.parent);
+      setParentLocked(payload.parentLocked);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load folder");
     } finally {
@@ -463,6 +466,31 @@ export function GalleryPage({
       setFolderRescanBusy(false);
     }
   }, [soleLibraryId, parent]);
+
+  // Admin: lock or unlock the folder currently open. Locked = nothing at or below
+  // it can be deleted from the app (the server refuses, whoever asks). Same
+  // single-library gate as rescan — a lock names a folder IN a library.
+  const [folderLockBusy, setFolderLockBusy] = useState(false);
+  const toggleFolderLock = useCallback(async () => {
+    if (!soleLibraryId || !parent) return;
+    setFolderLockBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      await api(`/api/library/libraries/${soleLibraryId}/folder-locks`, {
+        method: "PUT",
+        body: JSON.stringify({ folderPath: parent, locked: !parentLocked })
+      });
+      setParentLocked(!parentLocked);
+      setNotice(!parentLocked
+        ? `Locked "${parent}" — nothing in it (or its subfolders) can be deleted from the app until it's unlocked.`
+        : `Unlocked "${parent}" — items there can be deleted again.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to change the folder lock");
+    } finally {
+      setFolderLockBusy(false);
+    }
+  }, [soleLibraryId, parent, parentLocked]);
 
   const loadMap = useCallback(async () => {
     setLoading(true);
@@ -816,7 +844,7 @@ export function GalleryPage({
     setBulkBusy(true);
     setBulkError("");
     try {
-      const result = await api<{ deleted: number; forbidden: number; failed: number }>(
+      const result = await api<{ deleted: number; forbidden: number; locked: number; failed: number }>(
         "/api/library/books/bulk-delete",
         { method: "POST", body: JSON.stringify({ bookIds: [...selectedIds] }) }
       );
@@ -824,6 +852,7 @@ export function GalleryPage({
       exitSelection();
       const parts: string[] = [`Moved ${result.deleted} item${result.deleted === 1 ? "" : "s"} to the Recycle Bin`];
       if (result.forbidden > 0) parts.push(`${result.forbidden} skipped (no permission)`);
+      if (result.locked > 0) parts.push(`${result.locked} in locked folders`);
       if (result.failed > 0) parts.push(`${result.failed} failed`);
       setNotice(`${parts.join(" · ")}.`);
       refreshView();
@@ -2082,7 +2111,10 @@ export function GalleryPage({
                         {folder.path.includes("/") && (
                           <small className="gallery-folder-where">{folder.path.slice(0, folder.path.lastIndexOf("/"))}</small>
                         )}
-                        <small>{folder.assetCount.toLocaleString()} {folder.assetCount === 1 ? "item" : "items"}</small>
+                        <small>
+                          {folder.locked && <Lock size={12} className="gallery-folder-lock" aria-label="Locked" />}
+                          {folder.assetCount.toLocaleString()} {folder.assetCount === 1 ? "item" : "items"}
+                        </small>
                       </button>
                     ))}
                   </div>
@@ -2106,15 +2138,32 @@ export function GalleryPage({
                     })}
                   </div>
                   {isAdmin && soleLibraryId && parent !== "" && (
-                    <Button
-                      variant="secondary"
-                      compact
-                      disabled={folderRescanBusy}
-                      title="Rescan just this folder (leaves the rest of the library untouched)"
-                      onClick={() => void rescanFolder()}
-                    >
-                      <RefreshCw size={14} aria-hidden="true" /> {folderRescanBusy ? "Starting…" : "Rescan this folder"}
-                    </Button>
+                    <>
+                      <Button
+                        variant="secondary"
+                        compact
+                        disabled={folderLockBusy}
+                        title={parentLocked
+                          ? "Unlock: allow deleting from this folder again"
+                          : "Lock: nothing in this folder (or its subfolders) can be deleted from the app"}
+                        onClick={() => void toggleFolderLock()}
+                      >
+                        {parentLocked ? <LockOpen size={14} aria-hidden="true" /> : <Lock size={14} aria-hidden="true" />}
+                        {" "}
+                        {folderLockBusy
+                          ? (parentLocked ? "Unlocking…" : "Locking…")
+                          : (parentLocked ? "Unlock folder" : "Lock folder")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        compact
+                        disabled={folderRescanBusy}
+                        title="Rescan just this folder (leaves the rest of the library untouched)"
+                        onClick={() => void rescanFolder()}
+                      >
+                        <RefreshCw size={14} aria-hidden="true" /> {folderRescanBusy ? "Starting…" : "Rescan this folder"}
+                      </Button>
+                    </>
                   )}
                 </div>
 
@@ -2128,7 +2177,10 @@ export function GalleryPage({
                             {folder.coverUrl ? <img src={folder.coverUrl} alt="" loading="lazy" /> : <Folder size={28} aria-hidden="true" />}
                           </span>
                           <strong>{folder.name}</strong>
-                          <small>{folder.assetCount.toLocaleString()} {folder.assetCount === 1 ? "item" : "items"}</small>
+                          <small>
+                            {folder.locked && <Lock size={12} className="gallery-folder-lock" aria-label="Locked" />}
+                            {folder.assetCount.toLocaleString()} {folder.assetCount === 1 ? "item" : "items"}
+                          </small>
                         </button>
                       ))}
                     </div>

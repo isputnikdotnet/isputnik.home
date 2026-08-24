@@ -120,6 +120,15 @@ member to a face group and their profile fills with photos automatically.
 Re-scan after copying files in. Deleting a photo moves it to the **Recycle Bin**
 first, so it can be restored until the bin is emptied.
 
+**Locking a folder.** An admin browsing the **Folders** view (with a single
+library in scope) can open a folder and press **Lock folder**: from then on
+nothing in it — or in any of its subfolders — can be deleted from the app, by
+anyone, until it's unlocked from the same place. Locked folders wear a small
+padlock on their tile. The lock only stops deleting: viewing, uploading into the
+folder, editing details and rescanning all carry on as normal, and Duplicate
+cleanup treats the locked copies as the ones to keep. It's the right guardrail
+for the folders you'd never want a careless selection or cleanup to touch.
+
 If the same picture has been imported more than once, **Duplicate cleanup** in the
 control panel finds it — identical files, near-identical ones, and whole folders
 that duplicate each other — and moves what you agree to remove to the Recycle Bin.

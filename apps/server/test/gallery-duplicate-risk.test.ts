@@ -52,11 +52,12 @@ describe("what counts as evidence", () => {
     // the preview-copy criterion when it was inserted at rank 3 — a file property
     // graded as though it were a person's decision.
     expect(keeperConfidenceOf(0)).toBe("evidence"); // protected library
-    expect(keeperConfidenceOf(1)).toBe("evidence"); // folder chosen to keep
-    expect(keeperConfidenceOf(3)).toBe("guess");    // not a low-resolution copy
-    expect(keeperConfidenceOf(4)).toBe("evidence"); // tags, albums or people
-    expect(keeperConfidenceOf(5)).toBe("evidence"); // hand-edited details
-    expect(keeperConfidenceOf(6)).toBe("guess");    // not a copy
+    expect(keeperConfidenceOf(1)).toBe("evidence"); // locked folder
+    expect(keeperConfidenceOf(2)).toBe("evidence"); // folder chosen to keep
+    expect(keeperConfidenceOf(4)).toBe("guess");    // not a low-resolution copy
+    expect(keeperConfidenceOf(5)).toBe("evidence"); // tags, albums or people
+    expect(keeperConfidenceOf(6)).toBe("evidence"); // hand-edited details
+    expect(keeperConfidenceOf(7)).toBe("guess");    // not a copy
     expect(keeperConfidenceOf(-1)).toBe("tossup");
   });
 });

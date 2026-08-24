@@ -28,6 +28,7 @@ import { rescanSingleBook } from "../audiobook/scanner.js";
 import { enqueueEbookScan, processEbookScanQueue } from "../ebook/scanner.js";
 import { enqueueGalleryScan, processGalleryScanQueue } from "../gallery/scanner.js";
 import { faceCropKeysForItem, removeFaceCropFiles } from "../gallery/faces/crop-files.js";
+import { lockCovering } from "./folder-locks.js";
 
 const TRASH_DIR = ".trash";
 
@@ -427,6 +428,19 @@ export function trashBook(
     throw new TrashError(
       `"${row.library_name}" is set to external, or has deleting turned off, so its files can't be removed by the app.`,
       403
+    );
+  }
+
+  // Folder locks, enforced HERE for the same reason as the library check above:
+  // every deletion path — hand delete, bulk select, duplicate cleanup — ends at
+  // this function, and only this function knows the item it is about to move.
+  // 423 (Locked) rather than 403 so bulk callers can count locked refusals
+  // separately from permission refusals.
+  const lockedUnder = lockCovering(row.library_id, row.folder_path);
+  if (lockedUnder !== null) {
+    throw new TrashError(
+      `"${lockedUnder}" in "${row.library_name}" is locked, so nothing inside it can be deleted from the app.`,
+      423
     );
   }
 

@@ -5,6 +5,7 @@
 // asset-centric (one row per photo/video) rather than work/edition-centric.
 import { db } from "../../../db.js";
 import { canUserAccessLibrary } from "../shared/library-access.js";
+import { locksByLibrary, lockCoveredIn } from "../shared/folder-locks.js";
 
 const inClause = (n: number) => Array(n).fill("?").join(", ");
 
@@ -373,12 +374,23 @@ export function queryGalleryFolders(userId: string, libIds: string[], parent: st
     SELECT name, cover, cnt FROM sub WHERE rn = 1 ORDER BY name COLLATE NOCASE
   `).all(...scopeArgs) as { name: string; cover: string | null; cnt: number }[];
 
-  const folders = folderRows.map((f) => ({
-    name: f.name,
-    path: cleanParent ? `${cleanParent}/${f.name}` : f.name,
-    assetCount: f.cnt,
-    coverUrl: f.cover ? `/api/library/covers/${f.cover}` : null
-  }));
+  // Locked = a folder lock covers the tile's path in ANY in-scope library. A tile
+  // can aggregate several libraries sharing a relative path; "locked in any" is
+  // close enough for a badge — enforcement is per item, inside trashBook.
+  const locks = locksByLibrary(libIds);
+  const lockedIn = (folderPath: string): boolean =>
+    libIds.some((id) => lockCoveredIn(locks.get(id), folderPath));
+
+  const folders = folderRows.map((f) => {
+    const folderPath = cleanParent ? `${cleanParent}/${f.name}` : f.name;
+    return {
+      name: f.name,
+      path: folderPath,
+      assetCount: f.cnt,
+      coverUrl: f.cover ? `/api/library/covers/${f.cover}` : null,
+      locked: lockedIn(folderPath)
+    };
+  });
 
   // Assets directly in `parent` (no further "/" in the relative path).
   const directWhere = cleanParent
@@ -394,7 +406,14 @@ export function queryGalleryFolders(userId: string, libIds: string[], parent: st
     LIMIT ? OFFSET ?
   `).all(userId, ...directArgs, limit, offset) as AssetRow[];
 
-  return { parent: cleanParent, folders, assets: rows.map(mapAsset), total };
+  return {
+    parent: cleanParent,
+    // Whether the folder being LOOKED AT is itself locked — what the Lock/Unlock
+    // toggle in the folder bar renders its state from. False at the root: the
+    // whole library is the library policy's job, not a lock's.
+    parentLocked: cleanParent !== "" && lockedIn(cleanParent),
+    folders, assets: rows.map(mapAsset), total
+  };
 }
 
 // Find folders BY NAME, anywhere in the scope. The browse query above answers "what
@@ -452,13 +471,15 @@ export function searchGalleryFolders(libIds: string[], q: string, limit: number)
     ORDER BY datetime(gallery_details.taken_at) DESC LIMIT 1
   `);
 
+  const locks = locksByLibrary(libIds);
   const folders = matched.slice(0, limit).map(([folderPath, count]) => {
     const row = coverStmt.get(...libIds, folderPath, `${folderPath}/%`) as { cover: string | null } | undefined;
     return {
       name: folderPath.slice(folderPath.lastIndexOf("/") + 1),
       path: folderPath,
       assetCount: count,
-      coverUrl: row?.cover ? `/api/library/covers/${row.cover}` : null
+      coverUrl: row?.cover ? `/api/library/covers/${row.cover}` : null,
+      locked: libIds.some((id) => lockCoveredIn(locks.get(id), folderPath))
     };
   });
 
