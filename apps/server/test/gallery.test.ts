@@ -12,6 +12,7 @@ import {
   resolveGalleryScopeLibraryIds
 } from "../src/modules/library/gallery/catalog.js";
 import { kindForExtension } from "../src/modules/library/gallery/media.js";
+import { rotateGalleryAsset } from "../src/modules/library/gallery/rotate.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
 
 // A synthetic walked asset. With metaEnabled=false the ingester never reads the
@@ -578,6 +579,13 @@ describe("gallery rotation", () => {
     await ingestGalleryAsset("GAL", asset("a.jpg", at + DAY), false);
 
     expect((db.prepare("SELECT rotation FROM gallery_details WHERE item_id = ?").get(id) as { rotation: number }).rotation).toBe(270);
+  });
+
+  it("admits a video to rotation (no longer photos-only)", async () => {
+    const id = await ingestGalleryAsset("GAL", asset("clip.mp4", at), false);
+    // The synthetic file doesn't exist on disk, so rotation fails THERE — the point
+    // is that a video now gets past the kind gate that used to 400 it outright.
+    expect(await rotateGalleryAsset(id, "cw")).toEqual({ ok: false, status: 404, error: "Asset file not found" });
   });
 
   it("cache-busts the thumbnail URL so a regenerated image reloads", async () => {

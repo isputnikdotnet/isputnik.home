@@ -817,6 +817,62 @@
   object-fit: contain;
 }
 
+/* Custom control bar for a manually-rotated video: the native controls live inside
+   the <video> element, so under its CSS counter-rotation they'd render sideways —
+   GalleryLightbox hides them for a rotated video and drives playback from this bar.
+   Centred over the bottom of the stage; the details-pane inset below mirrors how
+   the Next arrow moves aside. */
+.gallery-video-controls {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 22px;
+  margin: 0 auto;
+  width: min(420px, calc(100% - 32px));
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(15, 17, 22, 0.72);
+  backdrop-filter: blur(6px);
+  z-index: 2;
+}
+
+.gallery-video-controls button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+}
+
+.gallery-video-controls button:hover { background: rgba(255, 255, 255, 0.14); color: #fff; }
+
+.gallery-video-controls input[type="range"] {
+  flex: 1;
+  min-width: 0;
+  accent-color: #fff;
+  cursor: pointer;
+}
+
+.gallery-video-time {
+  flex: none;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+@media (min-width: 700px) {
+  .gallery-lightbox.has-info .gallery-video-controls { right: var(--lb-info-w); }
+}
+
 /* Shown in place of the <video> when the browser can't decode the file (we serve
    originals untranscoded). Poster on top, an explanation, and a download button. */
 .gallery-lightbox-unplayable {

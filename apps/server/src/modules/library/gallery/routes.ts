@@ -666,8 +666,9 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
     return reply.send({ updated, forbidden, noDate });
   });
 
-  // Rotate a photo 90° clockwise/counter-clockwise. Stores the angle and bakes it
-  // into the regenerated thumbnails; videos and the original file are untouched.
+  // Rotate a photo or video 90° clockwise/counter-clockwise. Stores the angle and
+  // bakes it into the regenerated thumbnails (a video's poster frame included);
+  // the original file is untouched — the client rotates video playback via CSS.
   const rotateSchema = z.object({ direction: z.enum(["cw", "ccw"]) });
 
   app.post("/api/library/gallery/assets/:id/rotate", { preHandler: app.authenticate }, async (request, reply) => {
@@ -693,7 +694,7 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
       actorUserId: user.id,
       targetType: "library_item",
       targetId: id,
-      detail: `Rotated gallery photo ${parsed.data.direction === "cw" ? "right" : "left"} (now ${result.rotation}°).`,
+      detail: `Rotated gallery ${result.kind} ${parsed.data.direction === "cw" ? "right" : "left"} (now ${result.rotation}°).`,
       ipAddress: request.ip
     });
 

@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, ChevronLeft, ChevronRight, Download, Heart, ImagePlus, Info, ListMusic, MoreVertical, Pause, Pencil, Play, Plus, RotateCcw, RotateCw, Send, Trash2, X } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Download, Heart, ImagePlus, Info, ListMusic, MoreVertical, Pause, Pencil, Play, Plus, RotateCcw, RotateCw, Send, Trash2, Volume2, VolumeX, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api } from "../../api";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
@@ -180,6 +180,40 @@ export function GalleryLightbox({
   // straight to the fallback instead of stalling on a load that will fail.
   useEffect(() => { setVideoError(asset?.playable === false); }, [asset?.id, asset?.playable]);
 
+  // A rotated video plays the ORIGINAL file (rotation is only baked into the poster
+  // thumbnails — the file on disk is never modified), so the <video> element is
+  // counter-rotated with a CSS transform. A 90°/270° turn swaps which stage side
+  // caps which side of the element, so the stage's content box is measured here and
+  // the caps set inline on the element (see videoStyle below).
+  const videoRotation = asset?.kind === "video" ? asset.rotation : 0;
+  const videoTurned = videoRotation === 90 || videoRotation === 270;
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [stageBox, setStageBox] = useState<{ w: number; h: number } | null>(null);
+  useLayoutEffect(() => {
+    if (!videoTurned) return;
+    const el = stageRef.current;
+    if (!el) return;
+    // contentRect is the content box, so the stage padding (including the details
+    // pane's padding-right on desktop) is already excluded. Fires once on observe.
+    const observer = new ResizeObserver((entries) => {
+      const rect = entries[0].contentRect;
+      setStageBox({ w: rect.width, h: rect.height });
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [videoTurned]);
+
+  // Native <video> controls render inside the element, so on a rotated video they
+  // would appear sideways — a rotated video hides them and drives playback from the
+  // custom bar over the stage instead. This mirrors the element's state for it.
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [vidPlaying, setVidPlaying] = useState(false);
+  const [vidTime, setVidTime] = useState(0);
+  const [vidDuration, setVidDuration] = useState(0);
+  // Deliberately NOT reset per asset — a mute choice sticks while browsing.
+  const [vidMuted, setVidMuted] = useState(false);
+  useEffect(() => { setVidPlaying(false); setVidTime(0); setVidDuration(0); }, [asset?.id]);
+
   // Fire-and-forget view ping for the activity dashboard. Server-side dedup keeps
   // paging back and forth through a set from spamming activity_logs.
   useEffect(() => {
@@ -353,8 +387,9 @@ export function GalleryLightbox({
     }
   };
 
-  // Rotate the photo 90° and refetch so the regenerated (cache-busted) thumbnail
-  // loads. Photos only; the button isn't shown for videos.
+  // Rotate the asset 90° and refetch so the regenerated (cache-busted) thumbnail
+  // loads. For a video the poster/tiles come back rotated and the playing <video>
+  // picks the new angle up live via videoStyle — no remount, playback continues.
   const rotate = async (direction: "cw" | "ccw") => {
     if (rotateBusy) return;
     setRotateBusy(true);
@@ -497,6 +532,27 @@ export function GalleryLightbox({
     } catch { /* leave the chip; the user can retry */ }
   };
 
+  const toggleVideoPlay = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (video.paused) void video.play().catch(() => { /* interrupted by unload */ });
+    else video.pause();
+  };
+
+  // Counter-rotation for a manually-rotated video. The transform doesn't change the
+  // element's LAYOUT box, so for a 90°/270° turn the stage caps are applied swapped:
+  // the box's height becomes the visible width and vice versa, and object-fit keeps
+  // the aspect ratio within them. Until the stage is measured (first frame) the base
+  // max-width/height 100% still bound it, so nothing overflows.
+  const videoStyle: CSSProperties = { ["--lb-transition" as string]: `${transitionSec}s` };
+  if (videoRotation) {
+    videoStyle.transform = `rotate(${videoRotation}deg)`;
+    if (videoTurned && stageBox) {
+      videoStyle.maxWidth = stageBox.h;
+      videoStyle.maxHeight = stageBox.w;
+    }
+  }
+
   const meta = [
     formatTaken(asset.takenAt),
     asset.width && asset.height ? `${asset.width}×${asset.height}` : "",
@@ -588,7 +644,7 @@ export function GalleryLightbox({
       onClick: () => setShowInfo((v) => !v),
       active: showInfo
     },
-    ...(canEdit && asset.kind === "photo"
+    ...(canEdit
       ? [
           { key: "rotate-left", icon: RotateCcw as LucideIcon, label: "Rotate left", onClick: () => void rotate("ccw"), disabled: rotateBusy },
           { key: "rotate-right", icon: RotateCw as LucideIcon, label: "Rotate right", onClick: () => void rotate("cw"), disabled: rotateBusy }
@@ -748,7 +804,7 @@ export function GalleryLightbox({
         </div>
       </div>
 
-      <div className="gallery-lightbox-stage">
+      <div className="gallery-lightbox-stage" ref={stageRef}>
         {hasPrev && (
           <button className="gallery-lightbox-nav prev" type="button" onClick={() => onIndexChange(index - 1)} aria-label="Previous">
             <ChevronLeft size={26} aria-hidden="true" />
@@ -776,22 +832,72 @@ export function GalleryLightbox({
               </a>
             </div>
           ) : (
-            <video
-              key={asset.id}
-              className="gallery-lightbox-media"
-              data-transition={activeTransition === "kenburns" || activeTransition === "slide" ? "fade" : activeTransition}
-              data-playing={playing ? "true" : undefined}
-              style={{ ["--lb-transition" as string]: `${transitionSec}s` } as CSSProperties}
-              src={asset.playbackUrl}
-              controls
-              autoPlay
-              playsInline
-              // Mute the clip when a music bed is chosen so the two don't fight.
-              muted={!!musicUrl && playing}
-              poster={asset.previewUrl ?? undefined}
-              onError={() => setVideoError(true)}
-              onEnded={() => { if (playing && canSlideshow) advance(); }}
-            />
+            <>
+              <video
+                key={asset.id}
+                ref={videoRef}
+                className="gallery-lightbox-media"
+                data-transition={activeTransition === "kenburns" || activeTransition === "slide" ? "fade" : activeTransition}
+                data-playing={playing ? "true" : undefined}
+                style={videoStyle}
+                src={asset.playbackUrl}
+                // A rotated video hides the native controls (they'd render sideways
+                // inside the transformed element) and uses the custom bar below.
+                controls={videoRotation === 0}
+                autoPlay
+                playsInline
+                // Mute the clip when a music bed is chosen so the two don't fight.
+                muted={(!!musicUrl && playing) || vidMuted}
+                // The poster already has the manual rotation baked in, so inside a
+                // CSS-rotated element it would show turned twice — omit it there.
+                poster={videoRotation === 0 ? asset.previewUrl ?? undefined : undefined}
+                onClick={videoRotation !== 0 ? toggleVideoPlay : undefined}
+                onPlay={() => setVidPlaying(true)}
+                onPause={() => setVidPlaying(false)}
+                onTimeUpdate={(event) => setVidTime(event.currentTarget.currentTime)}
+                onDurationChange={(event) => {
+                  const d = event.currentTarget.duration;
+                  setVidDuration(Number.isFinite(d) ? d : 0);
+                }}
+                onError={() => setVideoError(true)}
+                onEnded={() => { if (playing && canSlideshow) advance(); }}
+              />
+              {videoRotation !== 0 && (
+                <div className="gallery-video-controls">
+                  <button
+                    type="button"
+                    onClick={toggleVideoPlay}
+                    aria-label={vidPlaying ? "Pause" : "Play"}
+                    title={vidPlaying ? "Pause" : "Play"}
+                  >
+                    {vidPlaying ? <Pause size={16} aria-hidden="true" /> : <Play size={16} aria-hidden="true" />}
+                  </button>
+                  <span className="gallery-video-time">{formatDuration(vidTime)}</span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={vidDuration || 0}
+                    step={0.1}
+                    value={Math.min(vidTime, vidDuration || 0)}
+                    onChange={(event) => {
+                      const t = Number(event.target.value);
+                      if (videoRef.current) videoRef.current.currentTime = t;
+                      setVidTime(t);
+                    }}
+                    aria-label="Seek"
+                  />
+                  <span className="gallery-video-time">{formatDuration(vidDuration)}</span>
+                  <button
+                    type="button"
+                    onClick={() => setVidMuted((m) => !m)}
+                    aria-label={vidMuted ? "Unmute" : "Mute"}
+                    title={vidMuted ? "Unmute" : "Mute"}
+                  >
+                    {vidMuted ? <VolumeX size={16} aria-hidden="true" /> : <Volume2 size={16} aria-hidden="true" />}
+                  </button>
+                </div>
+              )}
+            </>
           )
         ) : (
           <img

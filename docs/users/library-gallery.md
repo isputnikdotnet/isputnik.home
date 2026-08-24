@@ -55,6 +55,9 @@ the arrow keys, see details in the info panel, rotate, favourite, share, or add
 to an album or slideshow. Videos play inline; a format the browser can't decode
 is offered as a download, and the server can transcode a web-playable copy.
 
+Rotation works for videos too — a clip filmed sideways turns upright in the
+viewer and in its thumbnails, and keeps playing while you turn it.
+
 ## Working with several at once
 
 The **Select** button in the header turns the grid into a picker — click photos
@@ -122,5 +125,6 @@ control panel finds it — identical files, near-identical ones, and whole folde
 that duplicate each other — and moves what you agree to remove to the Recycle Bin.
 It has [its own guide](duplicate-cleanup.md).
 
-Your originals are never modified — rotating a photo in the app changes the
-generated preview, not the file on disk.
+Your originals are never modified — rotating a photo or video in the app changes
+the generated preview, not the file on disk. (This is why a downloaded original
+still has its old orientation.)

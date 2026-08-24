@@ -1,20 +1,21 @@
-// Manual photo rotation. Stores a user-applied clockwise angle (0/90/180/270) in
-// gallery_details.rotation and bakes it into the regenerated thumbnails (cover +
-// preview) on top of the EXIF orientation. The original file on disk is never
-// touched — every gallery view shows a thumbnail, so the rotation is visible
-// everywhere; only a raw download of the original is unaffected. Photos only:
-// videos thumbnail from an ffmpeg poster frame and play the original, so there is
-// nothing to bake a rotation into.
+// Manual rotation for photos AND videos. Stores a user-applied clockwise angle
+// (0/90/180/270) in gallery_details.rotation and bakes it into the regenerated
+// thumbnails (cover + preview) on top of the EXIF orientation — for a video that
+// means the ffmpeg poster frame, so tiles and posters show the turn everywhere.
+// The original file on disk is never touched; video PLAYBACK still streams the
+// original, so the lightbox counter-rotates the <video> element with a CSS
+// transform (GalleryLightbox reads asset.rotation). Only a raw download of the
+// original is unaffected.
 import fs from "node:fs";
 import path from "node:path";
 import { db } from "../../../db.js";
 import { pathIsInside } from "../shared/storage-roots.js";
-import { generateGalleryThumbnails } from "./media.js";
+import { generateGalleryThumbnails, type AssetKind } from "./media.js";
 
 export type RotateDirection = "cw" | "ccw";
 
 export type RotateResult =
-  | { ok: true; rotation: number }
+  | { ok: true; rotation: number; kind: AssetKind }
   | { ok: false; status: number; error: string };
 
 interface RotateRow {
@@ -36,7 +37,10 @@ export async function rotateGalleryAsset(itemId: string, direction: RotateDirect
   `).get(itemId) as RotateRow | undefined;
 
   if (!row) return { ok: false, status: 404, error: "Asset not found" };
-  if (row.kind !== "photo") return { ok: false, status: 400, error: "Only photos can be rotated." };
+  if (row.kind !== "photo" && row.kind !== "video") {
+    return { ok: false, status: 400, error: "This item cannot be rotated." };
+  }
+  const kind = row.kind as AssetKind;
 
   const filePath = path.join(row.source_path, ...row.relative_path.split("/"));
   if (!pathIsInside(filePath, row.source_path) || !fs.existsSync(filePath)) {
@@ -46,8 +50,8 @@ export async function rotateGalleryAsset(itemId: string, direction: RotateDirect
   const delta = direction === "cw" ? 90 : 270; // ccw === -90 (mod 360)
   const rotation = ((row.rotation ?? 0) + delta) % 360;
 
-  const thumbs = await generateGalleryThumbnails(row.library_id, itemId, "photo", filePath, rotation);
-  if (!thumbs) return { ok: false, status: 422, error: "This photo could not be rotated." };
+  const thumbs = await generateGalleryThumbnails(row.library_id, itemId, kind, filePath, rotation);
+  if (!thumbs) return { ok: false, status: 422, error: `This ${kind} could not be rotated.` };
 
   // Thumbnails are regenerated in place under their deterministic keys; bumping
   // updated_at lets the client bust the image cache (see mapAsset's ?v= token).
@@ -58,5 +62,5 @@ export async function rotateGalleryAsset(itemId: string, direction: RotateDirect
       .run(thumbs.coverKey, itemId);
   })();
 
-  return { ok: true, rotation };
+  return { ok: true, rotation, kind };
 }
