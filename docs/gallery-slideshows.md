@@ -108,6 +108,22 @@ the slideshow to its previous state).
   | `blur` | The same slide, blurred (σ 24) — colour and mood, no competing subject. |
   | `collage` | Up to 12 of its photos, spread evenly across the slideshow, tiled on a landscape-leaning grid. |
 
+  **Lettering** (the `card_font` / `card_size` columns, migration 43): the card's text
+  can be set in one of five bundled faces — Classic (DejaVu Sans, the face every
+  earlier movie used), Serif (DejaVu Serif), Bold (DejaVu Sans Bold), Script
+  (Marck Script) and Typewriter (PT Mono) — at Small / Medium / Large
+  (×0.72 / ×1 / ×1.35, applied to the title and second line together; shrink-to-fit
+  still wins, so a long title never leaves the frame). Faces that run optically
+  small or large at equal point size carry a per-face nudge (`CARD_FONT_OPTICAL`)
+  so every style *looks* the same size. A face earns its place by passing two
+  checks — full Cyrillic coverage, and looking right under the drawer's unshaped
+  character-by-character layout — and one that fails is replaced, not
+  special-cased (PT Serif failed: its '6' parsed to a broken fragment through
+  opentype.js, so the serif style is DejaVu Serif; see
+  `apps/server/src/assets/fonts/README.md`). The editor's font chips render in the
+  real faces via copies under `apps/web/public/fonts/`, and a style whose server
+  file goes missing falls back to Classic rather than costing the card.
+
   Anything but `black` is drawn under a 45% black scrim, and the glyphs carry a dark
   outline — white text has to survive landing on a bright sky in a photo nobody chose
   for its contrast. Only PHOTOS can be a background: sharp reads stills, and a video
@@ -117,6 +133,42 @@ the slideshow to its previous state).
 
   The defaults reproduce the fixed card 3.1.x drew, so an untouched slideshow renders
   the same movie it always did.
+
+- **Closing card** (the `closing_*` columns, migration 44; edited on the same
+  dialog's **Closing card** tab): the movie can end on a second card — an end title
+  ("The End" unless renamed, `closingCardLines`) over the same background choices,
+  plus up to **six lines of credits** (`closing_lines`, newline-separated; capped at
+  120 chars/line and 500 in all by the route, and again by the drawer's
+  `splitCardLines`). It is **off by default** — an untouched slideshow still ends on
+  its last photo. The card is appended as the last node, so batching, transitions
+  and cancel treat it exactly like a slide. With music set, the **fade-out anchors
+  to the card**: instead of the fixed 2-second tail, the fade starts where the card
+  starts and runs up to 8 s (`BuildOptions.closingDwell`, applied where the music is
+  muxed — the single pass or the batch join) — the slides end at full volume, the
+  credits play the music down, the movie ends in silence.
+
+  Multi-line text also reaches the **opening** card: "My own line" is now "My own
+  lines", the same six-line/500-char contract. One line keeps the exact geometry
+  drawtext produced (bit-for-bit with every older card); two or more switch to a
+  centred block where all lines share one fitted size, so a long credit shrinks
+  them together instead of rippling the block through several sizes. Scrolling
+  credits are deliberately not offered — an animated roll needs per-frame
+  generation, the cost class that kept Ken Burns out of exports.
+
+- **Opening and closing clips** (`intro_item_id` / `outro_item_id`, migration 45):
+  a gallery **video** that plays before everything else (a home-video "studio
+  logo") and/or after the last photo, before the closing card — final order
+  *intro clip → title card → slides → outro clip → closing card*. Chosen on the
+  matching tab of the same dialog, through the folder browser in a single-pick
+  videos-only mode (`GalleryFolderPicker pick="video"`), from **any** accessible
+  gallery library — deliberately not just slideshow members, since an intro is
+  usually shot for the purpose. Each becomes an ordinary video segment: its own
+  length capped at 20 s, audio dropped (the soundtrack stays the music bed), and
+  the music's fade still anchors to the closing *card*, so an outro clip plays
+  under full music. A clip that has been deleted (`ON DELETE SET NULL`), moved out
+  of reach, or lost its file is **skipped with a warning** — it costs the clip,
+  never the movie. The detail response resolves each id to a summary
+  (`introClip`/`outroClip`: title, thumb, length) against the viewer's access.
 
   The editor previews the card through `GET …/slideshows/:id/title-card.png`, which
   runs the SAME code the render does (`slideshowTitleCardPreview`) and only scales the

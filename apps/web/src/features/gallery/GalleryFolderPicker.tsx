@@ -11,22 +11,31 @@ import { faceFocusStyle } from "./types";
 // (GET /folders) the main Folder view uses. Selection persists across folders so you
 // can gather from several before adding; already-present items show as "Added" and
 // can't be re-selected (the add endpoint would skip them anyway).
+//
+// `pick: "video"` turns the same browser into a single-choice VIDEO picker (the
+// slideshow's opening/closing clips): photos dim, tapping a video hands it to
+// `onPick` and the caller closes — no POST endpoint, no multi-select.
 export function GalleryFolderPicker({
   title,
   endpoint,
   libraries,
   existingIds,
+  pick,
+  onPick,
   onClose,
   onAdded
 }: {
   title: string;
-  /** POST endpoint accepting { itemIds: string[] } and returning { added, skipped }. */
-  endpoint: string;
+  /** POST endpoint accepting { itemIds: string[] } and returning { added, skipped }. Unused with `pick`. */
+  endpoint?: string;
   libraries: GalleryLibrary[];
-  // Item ids already attached (the loaded page) — shown as "Added".
-  existingIds: string[];
+  // Item ids already attached (the loaded page) — shown as "Added". Unused with `pick`.
+  existingIds?: string[];
+  /** Single-choice mode: which kind can be picked. */
+  pick?: "video";
+  onPick?: (asset: GalleryAsset) => void;
   onClose: () => void;
-  onAdded: (added: number) => void;
+  onAdded?: (added: number) => void;
 }) {
   const [scope, setScope] = useState<string>("all"); // "all" or a gallery library id
   const [parent, setParent] = useState("");
@@ -36,7 +45,7 @@ export function GalleryFolderPicker({
   const [error, setError] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   // Already attached, plus anything added during this browse session.
-  const [added, setAdded] = useState<Set<string>>(() => new Set(existingIds));
+  const [added, setAdded] = useState<Set<string>>(() => new Set(existingIds ?? []));
   const [adding, setAdding] = useState(false);
 
   const load = useCallback(async (nextScope: string, nextParent: string) => {
@@ -73,7 +82,7 @@ export function GalleryFolderPicker({
 
   const addSelected = async () => {
     const ids = [...selected].filter((id) => !added.has(id));
-    if (ids.length === 0) return;
+    if (ids.length === 0 || !endpoint) return;
     setAdding(true);
     setError("");
     try {
@@ -83,7 +92,7 @@ export function GalleryFolderPicker({
       });
       setAdded((prev) => new Set([...prev, ...ids]));
       setSelected(new Set());
-      onAdded(result.added);
+      onAdded?.(result.added);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to add the photos");
     } finally {
@@ -154,15 +163,17 @@ export function GalleryFolderPicker({
               {assets.map((asset) => {
                 const isAdded = added.has(asset.id);
                 const isSelected = selected.has(asset.id);
+                // Pick mode: only the pickable kind is clickable, and a click chooses.
+                const unpickable = pick !== undefined && asset.kind !== pick;
                 return (
                   <button
                     key={asset.id}
                     type="button"
-                    className={`gallery-tile slideshow-browse-tile${isAdded ? " is-added" : isSelected ? " is-selected" : ""}`}
-                    onClick={() => toggle(asset.id)}
-                    disabled={isAdded || adding}
-                    aria-pressed={isSelected}
-                    title={isAdded ? "Already added" : asset.title}
+                    className={`gallery-tile slideshow-browse-tile${isAdded ? " is-added" : isSelected ? " is-selected" : ""}${unpickable ? " is-unpickable" : ""}`}
+                    onClick={() => (pick ? onPick?.(asset) : toggle(asset.id))}
+                    disabled={isAdded || adding || unpickable}
+                    aria-pressed={pick ? undefined : isSelected}
+                    title={unpickable ? "Only a video can be chosen here" : isAdded ? "Already added" : asset.title}
                   >
                     {asset.coverUrl ? <img src={asset.coverUrl} alt="" loading="lazy" style={faceFocusStyle(asset)} /> : (
                       <span className="gallery-tile-fallback"><ImageIcon size={26} aria-hidden="true" /></span>
@@ -185,13 +196,24 @@ export function GalleryFolderPicker({
       </div>
 
       <div className="modal-actions slideshow-browse-actions">
-        <span className="muted">{selected.size > 0 ? `${selected.size} selected` : "Select photos to add"}</span>
-        <div className="row-actions">
-          <button type="button" className="secondary-button compact-button" onClick={onClose} disabled={adding}>Done</button>
-          <button type="button" className="primary-button compact-button" onClick={addSelected} disabled={selected.size === 0 || adding}>
-            {adding ? "Adding…" : selected.size === 1 ? "Add 1 photo" : `Add ${selected.size} photos`}
-          </button>
-        </div>
+        {pick ? (
+          <>
+            <span className="muted">Tap a video to choose it.</span>
+            <div className="row-actions">
+              <button type="button" className="secondary-button compact-button" onClick={onClose}>Cancel</button>
+            </div>
+          </>
+        ) : (
+          <>
+            <span className="muted">{selected.size > 0 ? `${selected.size} selected` : "Select photos to add"}</span>
+            <div className="row-actions">
+              <button type="button" className="secondary-button compact-button" onClick={onClose} disabled={adding}>Done</button>
+              <button type="button" className="primary-button compact-button" onClick={addSelected} disabled={selected.size === 0 || adding}>
+                {adding ? "Adding…" : selected.size === 1 ? "Add 1 photo" : `Add ${selected.size} photos`}
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </Modal>
   );

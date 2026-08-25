@@ -97,9 +97,12 @@ export function useGallerySlideshows({ setLoading, setError, setNotice, isAdmin 
     try {
       await api(`/api/library/gallery/slideshows/${slideshowId}`, { method: "PATCH", body: JSON.stringify(fields) });
       if (fields.name !== undefined) { setSlideshowRename(null); void loadSlideshows(); }
-      // A music change alters derived fields (musicTitle/musicUrl) the server resolves,
-      // so re-fetch the detail to pick them up (the optimistic patch only set the id).
-      if (fields.musicTrackId !== undefined) void openSlideshow(slideshowId);
+      // A music or clip change alters derived fields the server resolves
+      // (musicTitle/musicUrl, introClip/outroClip), so re-fetch the detail to pick
+      // them up (the optimistic patch only set the id).
+      if (fields.musicTrackId !== undefined || fields.introItemId !== undefined || fields.outroItemId !== undefined) {
+        void openSlideshow(slideshowId);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to update the slideshow");
       void openSlideshow(slideshowId); // resync on failure

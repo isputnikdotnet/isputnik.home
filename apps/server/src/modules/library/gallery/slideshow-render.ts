@@ -32,9 +32,11 @@ import { thumbnailAbsolutePath, thumbnailStorageKey } from "../shared/thumbnail.
 import {
   getSlideshow,
   getSlideshowRenderItems,
+  getClipRenderItem,
   setSlideshowRenderState,
   setSlideshowMovieAsset,
   titleCardLines,
+  closingCardLines,
   type SlideshowRow,
   type SlideshowRenderItem
 } from "./slideshows.js";
@@ -171,24 +173,37 @@ export function presentRenderItems(items: SlideshowRenderItem[]): SlideshowRende
   });
 }
 
-// What the card's background is built from. Only PHOTOS qualify: sharp reads stills,
+// What a card's background is built from. Only PHOTOS qualify: sharp reads stills,
 // and a video frame would have to be decoded first. A slideshow of nothing but videos
-// therefore falls back to the black card rather than failing.
-export function titleBackgroundFor(slideshow: SlideshowRow, items: SlideshowRenderItem[]): TitleBackground {
-  if (slideshow.title_background === "black") return { kind: "black" };
+// therefore falls back to the black card rather than failing. Shared by the opening
+// and closing cards — each brings its own background setting and chosen photo.
+export function cardBackgroundFor(
+  background: SlideshowRow["title_background"],
+  photoItemId: string | null,
+  items: SlideshowRenderItem[]
+): TitleBackground {
+  if (background === "black") return { kind: "black" };
   const photos = items
     .filter((item) => item.kind === "photo")
     .map((item) => ({ id: item.id, file: renderItemAbsolutePath(item), rotation: item.rotation ?? 0 }))
     .filter((photo): photo is { id: string; file: string; rotation: number } => photo.file !== null);
   if (photos.length === 0) return { kind: "black" };
 
-  if (slideshow.title_background === "collage") {
+  if (background === "collage") {
     return { kind: "collage", photos: photos.map(({ file, rotation }): TitlePhoto => ({ file, rotation })) };
   }
   // A chosen photo that has since left the slideshow (or whose file is gone) falls
   // back to the first slide rather than to black — the setting still means "a photo".
-  const chosen = photos.find((photo) => photo.id === slideshow.title_photo_item_id) ?? photos[0];
-  return { kind: slideshow.title_background, photo: { file: chosen.file, rotation: chosen.rotation } };
+  const chosen = photos.find((photo) => photo.id === photoItemId) ?? photos[0];
+  return { kind: background, photo: { file: chosen.file, rotation: chosen.rotation } };
+}
+
+export function titleBackgroundFor(slideshow: SlideshowRow, items: SlideshowRenderItem[]): TitleBackground {
+  return cardBackgroundFor(slideshow.title_background, slideshow.title_photo_item_id, items);
+}
+
+export function closingBackgroundFor(slideshow: SlideshowRow, items: SlideshowRenderItem[]): TitleBackground {
+  return cardBackgroundFor(slideshow.closing_background, slideshow.closing_photo_item_id, items);
 }
 
 // Draw one slideshow's title card to `outPath`. Shared by the render and the editor's
@@ -200,11 +215,28 @@ export async function renderSlideshowTitleCard(
   outPath: string
 ): Promise<boolean> {
   const { title, subtitle } = titleCardLines(slideshow, items.length);
-  return renderTitleCardPng(title, subtitle, outPath, titleBackgroundFor(slideshow, items));
+  return renderTitleCardPng(title, subtitle, outPath, titleBackgroundFor(slideshow, items), {
+    font: slideshow.card_font,
+    size: slideshow.card_size
+  });
 }
 
-// The same card as a PNG in memory, scaled down for the editor's preview. Null when
-// it can't be drawn — the editor then shows nothing rather than a broken image.
+// The closing card, drawn by the same drawer with the same shared lettering — only
+// its words (closingCardLines) and background come from the closing_* settings.
+export async function renderSlideshowClosingCard(
+  slideshow: SlideshowRow,
+  items: SlideshowRenderItem[],
+  outPath: string
+): Promise<boolean> {
+  const { title, subtitle } = closingCardLines(slideshow);
+  return renderTitleCardPng(title, subtitle, outPath, closingBackgroundFor(slideshow, items), {
+    font: slideshow.card_font,
+    size: slideshow.card_size
+  });
+}
+
+// The same cards as PNGs in memory, scaled down for the editor's preview. Null when
+// one can't be drawn — the editor then shows nothing rather than a broken image.
 export async function slideshowTitleCardPreview(
   slideshow: SlideshowRow,
   items: SlideshowRenderItem[],
@@ -214,7 +246,23 @@ export async function slideshowTitleCardPreview(
   // that counted the ones left out would promise a card the movie never draws.
   const inMovie = items.slice(0, MAX_ITEMS);
   const { title, subtitle } = titleCardLines(slideshow, inMovie.length);
-  return titleCardPngBuffer(title, subtitle, titleBackgroundFor(slideshow, inMovie), width);
+  return titleCardPngBuffer(title, subtitle, titleBackgroundFor(slideshow, inMovie), width, {
+    font: slideshow.card_font,
+    size: slideshow.card_size
+  });
+}
+
+export async function slideshowClosingCardPreview(
+  slideshow: SlideshowRow,
+  items: SlideshowRenderItem[],
+  width: number
+): Promise<Buffer | null> {
+  const inMovie = items.slice(0, MAX_ITEMS);
+  const { title, subtitle } = closingCardLines(slideshow);
+  return titleCardPngBuffer(title, subtitle, closingBackgroundFor(slideshow, inMovie), width, {
+    font: slideshow.card_font,
+    size: slideshow.card_size
+  });
 }
 
 export interface BuildOptions {
@@ -225,6 +273,11 @@ export interface BuildOptions {
   // Batch intermediates are encoded finer than the finished movie, because they get
   // encoded a second time when the batches are joined.
   crf?: number;
+  // The closing card's on-screen seconds, when the movie ends on one. The music
+  // then fades out UNDER the credits — starting where the card starts — instead
+  // of the fixed two-second tail. Only meaningful on a call that muxes music (the
+  // single pass, or the batch JOIN; batch intermediates are video-only).
+  closingDwell?: number;
 }
 
 export function buildFfmpegArgs(
@@ -311,10 +364,16 @@ export function buildFfmpegArgs(
 
   args.push("-filter_complex", filter, "-map", mapV);
   if (musicPath) {
-    const fadeStart = Math.max(0, total - 2).toFixed(2);
+    // With a closing card the music fades out UNDER it: the slides end at full
+    // volume, the credits play it down, the movie ends in silence. Capped at 8s —
+    // a 15s card doesn't need 15s of fade to feel finished. Without one, the
+    // 2-second tail every movie has always had, byte for byte.
+    const closing = options.closingDwell;
+    const fadeDur = closing && closing > 0 ? Math.min(closing, 8) : 2;
+    const fadeStart = Math.max(0, total - (closing && closing > 0 ? closing : 2));
     args.push(
       "-map", `${segs.length}:a`,
-      "-af", `afade=t=out:st=${fadeStart}:d=2`,
+      "-af", `afade=t=out:st=${fadeStart.toFixed(2)}:d=${fadeDur}`,
       "-c:a", "aac", "-b:a", "160k", "-ac", "2", "-ar", "44100",
       "-shortest"
     );
@@ -456,6 +515,8 @@ interface BatchRenderPlan {
   transition: SlideshowRow["transition"];
   transitionSec: number;
   musicPath: string | null;
+  /** See BuildOptions.closingDwell — applied at the JOIN, where the music is muxed. */
+  closingDwell?: number;
   outPath: string;
   tempPathFor: (index: number) => string;
   onProgress: (elapsedSec: number, totalSec: number) => void;
@@ -495,7 +556,7 @@ async function renderInBatches(plan: BatchRenderPlan): Promise<void> {
   if (plan.isCancelled()) throw new Error("Render cancelled.");
   const { args, total } = buildFfmpegArgs(
     joinSegments, plan.transition, plan.musicPath, plan.outPath, plan.transitionSec,
-    undefined, { prePadded: true }
+    undefined, { prePadded: true, closingDwell: plan.closingDwell }
   );
   const { ok, detail } = await runRender(args, total, (done) => report(done), plan.isCancelled);
   if (!ok) {
@@ -717,6 +778,18 @@ export async function renderSlideshow(
     }
   }
 
+  // Closing card: the same machinery, appended as the LAST node. Its dwell also
+  // anchors the music's fade-out (see BuildOptions.closingDwell). Like the opening
+  // card, one that can't be drawn costs the card, never the movie.
+  let closingCard: Segment | null = null;
+  if (slideshow.closing_enabled) {
+    const cardFile = `${finalPath}.title-${nanoid(6)}.png`;
+    if (await renderSlideshowClosingCard(slideshow, present.slice(0, segs.length), cardFile)) {
+      titleFiles.push(cardFile);
+      closingCard = titleCardSegment(cardFile, slideshow.closing_seconds);
+    }
+  }
+
   // Scale the photos to the movie's own size before ffmpeg opens any of them: a
   // render's memory is otherwise the SOURCE resolution times the number of slides,
   // which is how 63 camera photos reached 17 GB. One photo at a time, so this pass
@@ -735,9 +808,37 @@ export async function renderSlideshow(
     throw new Error("Render cancelled.");
   }
 
+  // Opening/closing clips: a gallery video each, resolved against the SAME access
+  // set as the slides. One that is gone, inaccessible, or not on disk is skipped
+  // with a warning — a missing clip costs the clip, never the movie. Each becomes
+  // an ordinary video segment (segmentsFor: own length, capped at 20s, audio
+  // dropped like every clip — the soundtrack stays the music bed).
+  const clipSegmentFor = (itemId: string | null, label: string): Segment | null => {
+    if (!itemId) return null;
+    const clip = getClipRenderItem(libIds, itemId);
+    const usable = clip ? presentRenderItems([clip]) : [];
+    if (usable.length === 0) {
+      console.warn(`slideshow render: the ${label} clip is missing or not accessible — rendering without it.`);
+      return null;
+    }
+    return segmentsFor(usable, slideshow.slide_seconds)[0];
+  };
+  const introClip = clipSegmentFor(slideshow.intro_item_id, "opening");
+  const outroClip = clipSegmentFor(slideshow.outro_item_id, "closing");
+
   const transition = capabilities.xfade ? slideshow.transition : "none";
-  // The card is a node like any other — the first one.
-  const nodes = titleCard ? [titleCard, ...renderSegs] : renderSegs;
+  // The clips and cards are nodes like any other:
+  // intro clip → title card → slides → outro clip → closing card.
+  const nodes = [
+    ...(introClip ? [introClip] : []),
+    ...(titleCard ? [titleCard] : []),
+    ...renderSegs,
+    ...(outroClip ? [outroClip] : []),
+    ...(closingCard ? [closingCard] : [])
+  ];
+  // The music fade anchors to the closing CARD — after the outro clip, which still
+  // plays under full music.
+  const closingDwell = closingCard?.dwell;
 
   const encodeFailed = (detail: string): Error => new Error(
     // ffmpeg's own words, so the failure is readable without shell access to the
@@ -750,13 +851,14 @@ export async function renderSlideshow(
   try {
     if (nodes.length > BATCH_SIZE) {
       await renderInBatches({
-        nodes, transition, transitionSec: slideshow.transition_seconds, musicPath,
+        nodes, transition, transitionSec: slideshow.transition_seconds, musicPath, closingDwell,
         outPath: tmpPath, tempPathFor: (index) => `${finalPath}.batch-${scaleRun}-${index}.mp4`,
         onProgress, isCancelled, onTempFile: (file) => titleFiles.push(file), encodeFailed
       });
     } else {
       const { args, total } = buildFfmpegArgs(
-        nodes, transition, musicPath, tmpPath, slideshow.transition_seconds
+        nodes, transition, musicPath, tmpPath, slideshow.transition_seconds,
+        undefined, { closingDwell }
       );
       const { ok, detail } = await runRender(args, total, onProgress, isCancelled);
       if (!ok) {

@@ -199,6 +199,64 @@ const migrations: { version: number; up: (db: Database.Database) => void }[] = [
     up: (db) => {
       db.prepare("DELETE FROM scheduled_jobs WHERE key = 'empty_recycle_bin'").run();
     }
+  },
+  {
+    // 3.26.0 — lettering for the slideshow movie's title card: which bundled face
+    // the text is set in and how large. New columns on an existing table, so
+    // schema.sql alone can't reach a database that already has one. The defaults
+    // are exactly what every earlier movie rendered (DejaVu Sans at today's size),
+    // so an untouched slideshow re-renders the same card.
+    version: 43,
+    up: (db) => {
+      const columns = new Set(
+        (db.prepare("PRAGMA table_info(gallery_slideshows)").all() as { name: string }[]).map((c) => c.name)
+      );
+      const add = (name: string, definition: string) => {
+        if (!columns.has(name)) db.exec(`ALTER TABLE gallery_slideshows ADD COLUMN ${name} ${definition}`);
+      };
+      add("card_font", "TEXT NOT NULL DEFAULT 'classic' CHECK (card_font IN ('classic', 'serif', 'bold', 'script', 'typewriter'))");
+      add("card_size", "TEXT NOT NULL DEFAULT 'medium' CHECK (card_size IN ('small', 'medium', 'large'))");
+    }
+  },
+  {
+    // 3.26.0 — the movie's closing card: an end title ("The End" unless renamed),
+    // up to six lines of credits, its own length and background, and the music
+    // fading out underneath it. New columns on an existing table, so schema.sql
+    // alone can't reach a database that already has one. closing_enabled defaults
+    // OFF — an untouched slideshow renders exactly the movie it always did.
+    version: 44,
+    up: (db) => {
+      const columns = new Set(
+        (db.prepare("PRAGMA table_info(gallery_slideshows)").all() as { name: string }[]).map((c) => c.name)
+      );
+      const add = (name: string, definition: string) => {
+        if (!columns.has(name)) db.exec(`ALTER TABLE gallery_slideshows ADD COLUMN ${name} ${definition}`);
+      };
+      add("closing_enabled", "INTEGER NOT NULL DEFAULT 0");
+      add("closing_text", "TEXT");
+      add("closing_lines", "TEXT");
+      add("closing_seconds", "REAL NOT NULL DEFAULT 5");
+      add("closing_background", "TEXT NOT NULL DEFAULT 'black' CHECK (closing_background IN ('black', 'photo', 'blur', 'collage'))");
+      add("closing_photo_item_id", "TEXT REFERENCES library_items(id) ON DELETE SET NULL");
+    }
+  },
+  {
+    // 3.26.0 — opening and closing clips: a gallery video that plays before the
+    // title card (a home-video "studio logo") and/or after the slides, before the
+    // closing card. Any accessible gallery video, not just slideshow members; a
+    // deleted item clears itself (SET NULL), and the render skips a clip it can't
+    // reach rather than failing. New columns on an existing table.
+    version: 45,
+    up: (db) => {
+      const columns = new Set(
+        (db.prepare("PRAGMA table_info(gallery_slideshows)").all() as { name: string }[]).map((c) => c.name)
+      );
+      for (const name of ["intro_item_id", "outro_item_id"]) {
+        if (!columns.has(name)) {
+          db.exec(`ALTER TABLE gallery_slideshows ADD COLUMN ${name} TEXT REFERENCES library_items(id) ON DELETE SET NULL`);
+        }
+      }
+    }
   }
 ];
 

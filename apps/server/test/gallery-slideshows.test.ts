@@ -12,6 +12,7 @@ import {
   listSlideshows,
   getSlideshow,
   getSlideshowItems,
+  getClipRenderItem,
   canEditSlideshow
 } from "../src/modules/library/gallery/slideshows.js";
 import { kindForExtension } from "../src/modules/library/gallery/media.js";
@@ -122,6 +123,60 @@ describe("slideshow presentation settings", () => {
     expect(getSlideshow(slideshow.id)!).toMatchObject({
       title_text: null, title_subtitle: "August 2026", title_seconds: 4, title_background: "collage"
     });
+  });
+
+  // The closing card defaults OFF: an untouched slideshow renders the movie it
+  // always did, ending on the last photo with the 2-second music tail.
+  it("defaults the closing card off, and saves every change to it", () => {
+    const slideshow = getSlideshow(createSlideshow(creator, "Summer").id)!;
+    expect(slideshow).toMatchObject({
+      closing_enabled: 0, closing_text: null, closing_lines: null,
+      closing_seconds: 5, closing_background: "black", closing_photo_item_id: null
+    });
+
+    updateSlideshow(slideshow.id, {
+      closingEnabled: true, closingText: "Конец", closingLines: "Filmed by Dad\nMusic: our song",
+      closingSeconds: 8, closingBackground: "blur", closingPhotoItemId: a
+    });
+    expect(getSlideshow(slideshow.id)!).toMatchObject({
+      closing_enabled: 1, closing_text: "Конец", closing_lines: "Filmed by Dad\nMusic: our song",
+      closing_seconds: 8, closing_background: "blur", closing_photo_item_id: a
+    });
+
+    // The same null-vs-omitted contract as the opening card.
+    updateSlideshow(slideshow.id, { closingText: null });
+    expect(getSlideshow(slideshow.id)!).toMatchObject({
+      closing_text: null, closing_lines: "Filmed by Dad\nMusic: our song", closing_enabled: 1
+    });
+  });
+
+  // Opening/closing clips: any accessible gallery VIDEO, deliberately not
+  // restricted to slideshow members (an intro is usually shot for the purpose).
+  it("saves and clears the opening/closing clip ids", async () => {
+    const clip = (await ingestGalleryAsset("GAL", asset("intro.mp4", "2024-05-01T10:00:00Z"), false))!;
+    const slideshow = createSlideshow(creator, "Summer");
+    updateSlideshow(slideshow.id, { introItemId: clip, outroItemId: clip });
+    expect(getSlideshow(slideshow.id)!).toMatchObject({ intro_item_id: clip, outro_item_id: clip });
+    updateSlideshow(slideshow.id, { introItemId: null });
+    expect(getSlideshow(slideshow.id)!).toMatchObject({ intro_item_id: null, outro_item_id: clip });
+  });
+
+  it("resolves a clip only as a VIDEO the given libraries can reach", async () => {
+    const clip = (await ingestGalleryAsset("GAL", asset("intro.mp4", "2024-05-01T10:00:00Z"), false))!;
+    const privClip = (await ingestGalleryAsset("PRIV", asset("secret.mp4", "2024-05-02T10:00:00Z"), false))!;
+    expect(getClipRenderItem(["GAL"], clip)).toMatchObject({ id: clip, kind: "video" });
+    expect(getClipRenderItem(["GAL"], a)).toBeNull(); // a photo is not a clip
+    expect(getClipRenderItem(["GAL"], privClip)).toBeNull(); // out of reach
+    expect(getClipRenderItem([], clip)).toBeNull();
+    expect(getClipRenderItem(["GAL"], null)).toBeNull();
+  });
+
+  it("a deleted clip clears itself from the slideshow", async () => {
+    const clip = (await ingestGalleryAsset("GAL", asset("intro.mp4", "2024-05-01T10:00:00Z"), false))!;
+    const slideshow = createSlideshow(creator, "Summer");
+    updateSlideshow(slideshow.id, { introItemId: clip });
+    db.prepare("DELETE FROM library_items WHERE id = ?").run(clip);
+    expect(getSlideshow(slideshow.id)!.intro_item_id).toBeNull(); // FK ON DELETE SET NULL
   });
 
   it("marks a rendered movie out of date when the title card changes", () => {

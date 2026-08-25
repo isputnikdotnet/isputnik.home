@@ -1822,6 +1822,7 @@ export function GalleryPage({
                     <GallerySlideshowEditor
                       slideshow={selectedSlideshow}
                       assets={slideshowAssets}
+                      libraries={libraries}
                       total={slideshowTotal}
                       loading={loading}
                       canEdit={selectedSlideshow.canEdit}

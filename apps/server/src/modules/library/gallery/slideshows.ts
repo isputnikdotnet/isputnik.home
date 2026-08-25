@@ -9,6 +9,7 @@
 import { nanoid } from "nanoid";
 import { db } from "../../../db.js";
 import { ASSET_COLUMNS, ASSET_JOINS, mapAsset, type GalleryAssetRow } from "./catalog.js";
+import type { CardFont, CardSize } from "./slideshow-title-card.js";
 
 const inClause = (n: number) => Array(n).fill("?").join(", ");
 
@@ -40,6 +41,16 @@ export interface SlideshowRow {
   title_seconds: number;
   title_background: SlideshowTitleBackground;
   title_photo_item_id: string | null;
+  card_font: CardFont; // which bundled face the cards' text is set in (both cards)
+  card_size: CardSize; // small | medium | large; medium = the pre-3.26 card
+  closing_enabled: number; // 1 = the movie ends on a closing card (default 0)
+  closing_text: string | null; // NULL = "The End"
+  closing_lines: string | null; // up to six newline-separated credit lines
+  closing_seconds: number;
+  closing_background: SlideshowTitleBackground;
+  closing_photo_item_id: string | null;
+  intro_item_id: string | null; // a gallery video that plays before the title card
+  outro_item_id: string | null; // …and one after the slides, before the closing card
   cover_item_id: string | null;
   render_status: "draft" | "queued" | "rendering" | "ready" | "failed";
   render_stale: number; // 1 = a 'ready' movie predates the current settings/content
@@ -104,6 +115,16 @@ export interface SlideshowUpdate {
   titleSeconds?: number;
   titleBackground?: SlideshowTitleBackground;
   titlePhotoItemId?: string | null;
+  cardFont?: CardFont;
+  cardSize?: CardSize;
+  closingEnabled?: boolean;
+  closingText?: string | null;
+  closingLines?: string | null;
+  closingSeconds?: number;
+  closingBackground?: SlideshowTitleBackground;
+  closingPhotoItemId?: string | null;
+  introItemId?: string | null;
+  outroItemId?: string | null;
   coverItemId?: string | null;
 }
 
@@ -136,6 +157,16 @@ export function updateSlideshow(slideshowId: string, fields: SlideshowUpdate): b
       title_seconds = COALESCE(?, title_seconds),
       title_background = COALESCE(?, title_background),
       title_photo_item_id = CASE WHEN ? THEN ? ELSE title_photo_item_id END,
+      card_font = COALESCE(?, card_font),
+      card_size = COALESCE(?, card_size),
+      closing_enabled = COALESCE(?, closing_enabled),
+      closing_text = CASE WHEN ? THEN ? ELSE closing_text END,
+      closing_lines = CASE WHEN ? THEN ? ELSE closing_lines END,
+      closing_seconds = COALESCE(?, closing_seconds),
+      closing_background = COALESCE(?, closing_background),
+      closing_photo_item_id = CASE WHEN ? THEN ? ELSE closing_photo_item_id END,
+      intro_item_id = CASE WHEN ? THEN ? ELSE intro_item_id END,
+      outro_item_id = CASE WHEN ? THEN ? ELSE outro_item_id END,
       cover_item_id = CASE WHEN ? THEN ? ELSE cover_item_id END,
       render_stale = CASE WHEN render_status = 'ready' THEN 1 ELSE render_stale END,
       updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
@@ -153,6 +184,16 @@ export function updateSlideshow(slideshowId: string, fields: SlideshowUpdate): b
     fields.titleSeconds ?? null,
     fields.titleBackground ?? null,
     fields.titlePhotoItemId !== undefined ? 1 : 0, fields.titlePhotoItemId ?? null,
+    fields.cardFont ?? null,
+    fields.cardSize ?? null,
+    fields.closingEnabled === undefined ? null : fields.closingEnabled ? 1 : 0,
+    fields.closingText !== undefined ? 1 : 0, fields.closingText ?? null,
+    fields.closingLines !== undefined ? 1 : 0, fields.closingLines ?? null,
+    fields.closingSeconds ?? null,
+    fields.closingBackground ?? null,
+    fields.closingPhotoItemId !== undefined ? 1 : 0, fields.closingPhotoItemId ?? null,
+    fields.introItemId !== undefined ? 1 : 0, fields.introItemId ?? null,
+    fields.outroItemId !== undefined ? 1 : 0, fields.outroItemId ?? null,
     fields.coverItemId !== undefined ? 1 : 0, fields.coverItemId ?? null,
     slideshowId
   );
@@ -173,6 +214,18 @@ export function titleCardLines(
     return { title, subtitle: custom || null };
   }
   return { title, subtitle: `${itemCount} photo${itemCount === 1 ? "" : "s"}` };
+}
+
+// The closing card's lines, same contract as titleCardLines: pure, so the editor's
+// preview and the movie can never disagree. No subtitle MODES here — the closing
+// card is an end title plus free credit lines, and a photo count makes no sense at
+// the end. `subtitle` carries the newline-separated credits (the drawer splits).
+export function closingCardLines(
+  slideshow: Pick<SlideshowRow, "closing_text" | "closing_lines">
+): { title: string; subtitle: string | null } {
+  const title = (slideshow.closing_text ?? "").trim() || "The End";
+  const lines = (slideshow.closing_lines ?? "").trim();
+  return { title, subtitle: lines || null };
 }
 
 export function deleteSlideshow(slideshowId: string): boolean {
@@ -374,6 +427,28 @@ export function getSlideshowRenderItems(libIds: string[], slideshow: SlideshowRo
       AND library_items.library_id IN (${libIn})
     ORDER BY gallery_slideshow_items.position ASC, library_items.id ASC
   `).all(slideshow.id, ...libIds) as SlideshowRenderItem[];
+}
+
+// One gallery VIDEO by id, in the same shape the render items use — for the
+// opening/closing clips, which need not be slideshow members. Filtered by the
+// given library access and by kind, so an id that stopped being reachable (or was
+// never a video) resolves to null and the render simply goes on without it.
+export function getClipRenderItem(libIds: string[], itemId: string | null): SlideshowRenderItem | null {
+  if (!itemId || libIds.length === 0) return null;
+  const libIn = inClause(libIds.length);
+  const row = db.prepare(`
+    SELECT library_items.id AS id, gallery_details.kind AS kind, gallery_details.relative_path AS relative_path,
+           libraries.source_path AS source_path, NULL AS dwell_seconds,
+           gallery_details.duration_seconds AS duration_seconds,
+           gallery_details.rotation AS rotation
+    FROM library_items
+    JOIN gallery_details ON gallery_details.item_id = library_items.id
+    JOIN libraries ON libraries.id = library_items.library_id
+    WHERE library_items.id = ? AND library_items.deleted_at IS NULL
+      AND gallery_details.kind = 'video'
+      AND library_items.library_id IN (${libIn})
+  `).get(itemId, ...libIds) as SlideshowRenderItem | undefined;
+  return row ?? null;
 }
 
 // Set/reset render state. The worker moves a slideshow through queued → rendering →

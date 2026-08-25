@@ -5,7 +5,7 @@ import { SlideshowTitleCardModal } from "./SlideshowTitleCardModal";
 import { MessageBox } from "../../shared/MessageBox";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { formatBytes } from "../../shared/utils";
-import type { GalleryAsset, GallerySlideshowDetail, SlideshowPatch, SlideshowTransition } from "./types";
+import type { GalleryAsset, GalleryLibrary, GallerySlideshowDetail, SlideshowPatch, SlideshowTransition } from "./types";
 import { faceFocusStyle } from "./types";
 
 // The presentation transitions offered in the editor, in display order. The live
@@ -36,6 +36,7 @@ const TRANSITIONS: { value: SlideshowTransition; label: string }[] = [
 export function GallerySlideshowEditor({
   slideshow,
   assets,
+  libraries,
   total,
   loading,
   canEdit,
@@ -50,6 +51,8 @@ export function GallerySlideshowEditor({
 }: {
   slideshow: GallerySlideshowDetail;
   assets: GalleryAsset[];
+  /** For the Title & credits dialog's clip picker. */
+  libraries: GalleryLibrary[];
   total: number;
   loading: boolean;
   canEdit: boolean;
@@ -89,7 +92,8 @@ export function GallerySlideshowEditor({
   // Roughly how long the finished movie runs: the title card, then a slide apiece.
   // Per-slide overrides and video clips make this approximate, which is why it's
   // only ever shown as "about".
-  const titleSeconds = slideshow.titleEnabled ? slideshow.titleSeconds : 0;
+  const titleSeconds = (slideshow.titleEnabled ? slideshow.titleSeconds : 0)
+    + (slideshow.closingEnabled ? slideshow.closingSeconds : 0);
   const movieMinutes = Math.max(1, Math.round((titleSeconds + ordered.length * slideshow.slideSeconds) / 60));
 
   // Per-slide seconds: local for a smooth slider, committed on release so a drag
@@ -204,13 +208,14 @@ export function GallerySlideshowEditor({
             </button>
           </div>
           <div className="slideshow-setting">
-            <span className="slideshow-setting-label">Title card</span>
+            <span className="slideshow-setting-label">Title &amp; credits</span>
             <button type="button" className="slideshow-music-button" onClick={() => setTitleOpen(true)}>
               <Type size={15} aria-hidden="true" />
               <span>
                 {slideshow.titleEnabled
                   ? `${TITLE_BACKGROUND_LABELS[slideshow.titleBackground]} · ${slideshow.titleSeconds}s`
                   : "Off"}
+                {slideshow.closingEnabled ? " + closing" : ""}
               </span>
             </button>
           </div>
@@ -229,6 +234,7 @@ export function GallerySlideshowEditor({
         <SlideshowTitleCardModal
           slideshow={slideshow}
           assets={ordered}
+          libraries={libraries}
           onPatch={onPatch}
           onClose={() => setTitleOpen(false)}
         />

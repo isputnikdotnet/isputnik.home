@@ -20,6 +20,7 @@ import {
   listSlideshows,
   getSlideshowItems,
   getSlideshowRenderItems,
+  getClipRenderItem,
   summarize,
   type SlideshowRow
 } from "./slideshows.js";
@@ -29,7 +30,8 @@ import {
   renderProgressPercent,
   deleteSlideshowRender,
   presentRenderItems,
-  slideshowTitleCardPreview
+  slideshowTitleCardPreview,
+  slideshowClosingCardPreview
 } from "./slideshow-render.js";
 import { parseRangeHeader } from "../shared/document-stream.js";
 import { thumbnailAbsolutePath } from "../shared/thumbnail.js";
@@ -73,6 +75,18 @@ const createSchema = z.object({
   sourceRef: z.string().trim().max(120).nullable().optional()
 });
 
+// Multi-line card text (the opening card's custom second line, the closing card's
+// credits): up to 6 lines of 120 characters, 500 in all — the caps the drawer
+// draws to (splitCardLines caps defensively; this is what stops an over-long value
+// being SAVED). Whitespace-only lines don't count against the line cap because the
+// drawer drops them.
+const cardLinesSchema = z.string().trim().max(500)
+  .refine((value) => value.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).length <= 6,
+    { message: "At most 6 lines" })
+  .refine((value) => value.split(/\r?\n/).every((l) => l.trim().length <= 120),
+    { message: "Each line at most 120 characters" })
+  .nullable().optional();
+
 const updateSchema = z.object({
   name: z.string().trim().min(1).max(120).optional(),
   transition: z.enum(["none", "crossfade", "fade", "slide", "kenburns", "dipblack", "random"]).optional(),
@@ -85,10 +99,25 @@ const updateSchema = z.object({
   titleEnabled: z.boolean().optional(),
   titleText: z.string().trim().max(120).nullable().optional(),
   titleSubtitleMode: z.enum(["count", "custom", "none"]).optional(),
-  titleSubtitle: z.string().trim().max(120).nullable().optional(),
+  titleSubtitle: cardLinesSchema,
   titleSeconds: z.number().min(1).max(15).optional(),
   titleBackground: z.enum(["black", "photo", "blur", "collage"]).optional(),
   titlePhotoItemId: z.string().trim().min(1).max(64).nullable().optional(),
+  cardFont: z.enum(["classic", "serif", "bold", "script", "typewriter"]).optional(),
+  cardSize: z.enum(["small", "medium", "large"]).optional(),
+  // The closing card. Same nullable contract: null = back to the default ("The
+  // End", no credits, the first slide as the background photo).
+  closingEnabled: z.boolean().optional(),
+  closingText: z.string().trim().max(120).nullable().optional(),
+  closingLines: cardLinesSchema,
+  closingSeconds: z.number().min(1).max(15).optional(),
+  closingBackground: z.enum(["black", "photo", "blur", "collage"]).optional(),
+  closingPhotoItemId: z.string().trim().min(1).max(64).nullable().optional(),
+  // Opening/closing clips: any gallery VIDEO the caller can access (validated in
+  // the handler) — deliberately NOT restricted to slideshow members, since an
+  // intro clip is usually shot for the purpose rather than part of the show.
+  introItemId: z.string().trim().min(1).max(64).nullable().optional(),
+  outroItemId: z.string().trim().min(1).max(64).nullable().optional(),
   coverItemId: z.string().trim().min(1).max(64).nullable().optional()
 });
 
@@ -101,7 +130,41 @@ function titleFields(slideshow: SlideshowRow) {
     titleSubtitle: slideshow.title_subtitle,
     titleSeconds: slideshow.title_seconds,
     titleBackground: slideshow.title_background,
-    titlePhotoItemId: slideshow.title_photo_item_id
+    titlePhotoItemId: slideshow.title_photo_item_id,
+    cardFont: slideshow.card_font,
+    cardSize: slideshow.card_size,
+    closingEnabled: slideshow.closing_enabled === 1,
+    closingText: slideshow.closing_text,
+    closingLines: slideshow.closing_lines,
+    closingSeconds: slideshow.closing_seconds,
+    closingBackground: slideshow.closing_background,
+    closingPhotoItemId: slideshow.closing_photo_item_id
+  };
+}
+
+// One opening/closing clip as the editor shows it: enough to draw a row (thumb,
+// name, length) without another request. Resolved against the VIEWER's access, the
+// same way the render resolves it against the renderer's — null when the clip is
+// gone or out of reach, and the editor then offers to choose one.
+function clipSummary(libIds: string[], itemId: string | null) {
+  if (!itemId || libIds.length === 0) return null;
+  const row = db.prepare(`
+    SELECT library_items.id AS id, item_metadata.title AS title,
+           item_metadata.cover_storage_key AS cover_key,
+           gallery_details.duration_seconds AS duration_seconds
+    FROM library_items
+    JOIN gallery_details ON gallery_details.item_id = library_items.id
+    LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
+    WHERE library_items.id = ? AND library_items.deleted_at IS NULL
+      AND gallery_details.kind = 'video'
+      AND library_items.library_id IN (${Array(libIds.length).fill("?").join(", ")})
+  `).get(itemId, ...libIds) as { id: string; title: string | null; cover_key: string | null; duration_seconds: number | null } | undefined;
+  if (!row) return null;
+  return {
+    id: row.id,
+    title: row.title ?? "Video",
+    coverUrl: row.cover_key ? `/api/library/covers/${row.cover_key}` : null,
+    durationSeconds: row.duration_seconds
   };
 }
 
@@ -225,6 +288,8 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
         canEdit: canEditSlideshow(slideshow, user),
         updatedAt: slideshow.updated_at,
         ...titleFields(slideshow),
+        introClip: clipSummary(libIds, slideshow.intro_item_id),
+        outroClip: clipSummary(libIds, slideshow.outro_item_id),
         ...musicFields(slideshow.music_track_id),
         ...renderFields(slideshow)
       },
@@ -324,10 +389,11 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
     }
   });
 
-  // The opening title card as it would be drawn, for the editor's preview. Rendered on
-  // demand from the SAME code the movie uses (slideshowTitleCardPreview), so choosing a
-  // background is not guesswork — but scaled down, since it is being looked at in a
-  // dialog rather than played at 1080p.
+  // A card as it would be drawn, for the editor's preview — `?card=closing` for the
+  // closing card, the opening card otherwise. Rendered on demand from the SAME code
+  // the movie uses (slideshow{Title,Closing}CardPreview), so choosing a background is
+  // not guesswork — but scaled down, since it is being looked at in a dialog rather
+  // than played at 1080p.
   app.get("/api/library/gallery/slideshows/:id/title-card.png", { preHandler: app.authenticate }, async (request, reply) => {
     const slideshow = getSlideshow((request.params as { id: string }).id);
     const user = request.user!;
@@ -338,8 +404,11 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
       return reply.code(404).send({ error: "Slideshow not found" });
     }
     const items = presentRenderItems(getSlideshowRenderItems(libIds, slideshow));
-    const png = await slideshowTitleCardPreview(slideshow, items, PREVIEW_WIDTH);
-    if (!png) return reply.code(503).send({ error: "The title card couldn't be drawn." });
+    const closing = (request.query as { card?: string }).card === "closing";
+    const png = closing
+      ? await slideshowClosingCardPreview(slideshow, items, PREVIEW_WIDTH)
+      : await slideshowTitleCardPreview(slideshow, items, PREVIEW_WIDTH);
+    if (!png) return reply.code(503).send({ error: "The card couldn't be drawn." });
     return reply
       .header("Content-Type", "image/png")
       .header("Cache-Control", "private, no-cache")
@@ -380,12 +449,20 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
     if (parsed.data.musicTrackId && !getMusicTrack(parsed.data.musicTrackId)) {
       return reply.code(400).send({ error: "That music track no longer exists." });
     }
-    // The title card's background photo has to be one of this slideshow's own slides:
-    // the card is built from the slideshow, not from the whole gallery.
-    if (parsed.data.titlePhotoItemId
-      && !db.prepare("SELECT 1 FROM gallery_slideshow_items WHERE slideshow_id = ? AND item_id = ?")
-        .get(slideshow.id, parsed.data.titlePhotoItemId)) {
-      return reply.code(400).send({ error: "That photo isn't in this slideshow." });
+    // A card's background photo has to be one of this slideshow's own slides:
+    // the cards are built from the slideshow, not from the whole gallery.
+    const memberCheck = db.prepare("SELECT 1 FROM gallery_slideshow_items WHERE slideshow_id = ? AND item_id = ?");
+    for (const photoId of [parsed.data.titlePhotoItemId, parsed.data.closingPhotoItemId]) {
+      if (photoId && !memberCheck.get(slideshow.id, photoId)) {
+        return reply.code(400).send({ error: "That photo isn't in this slideshow." });
+      }
+    }
+    // A clip has to be a gallery VIDEO the caller can actually see (any library —
+    // membership not required; see updateSchema).
+    for (const clipId of [parsed.data.introItemId, parsed.data.outroItemId]) {
+      if (clipId && !getClipRenderItem(resolveGalleryScopeLibraryIds(user), clipId)) {
+        return reply.code(400).send({ error: "That video isn't available." });
+      }
     }
     updateSlideshow(slideshow.id, parsed.data);
     return reply.send({ updated: true });

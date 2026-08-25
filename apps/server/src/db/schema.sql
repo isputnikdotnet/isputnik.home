@@ -550,6 +550,30 @@ CREATE TABLE IF NOT EXISTS gallery_slideshows (
   title_background TEXT NOT NULL DEFAULT 'black'
                    CHECK (title_background IN ('black', 'photo', 'blur', 'collage')),
   title_photo_item_id TEXT REFERENCES library_items(id) ON DELETE SET NULL,
+  -- Lettering: which bundled face the card's text is set in, and how large
+  -- (slideshow-title-card.ts CARD_FONTS/CARD_SIZES). The defaults reproduce the
+  -- card every pre-3.26 movie rendered: DejaVu Sans at today's size.
+  card_font      TEXT NOT NULL DEFAULT 'classic'
+                   CHECK (card_font IN ('classic', 'serif', 'bold', 'script', 'typewriter')),
+  card_size      TEXT NOT NULL DEFAULT 'medium'
+                   CHECK (card_size IN ('small', 'medium', 'large')),
+  -- The closing card: an end title over black or the slideshow's own photos, with
+  -- up to six lines of credits (closing_lines, newline-separated) and the music
+  -- fading out underneath it. OFF by default — a movie ends as it always did
+  -- until someone turns it on. closing_text NULL = "The End".
+  closing_enabled INTEGER NOT NULL DEFAULT 0,
+  closing_text   TEXT,
+  closing_lines  TEXT,
+  closing_seconds REAL NOT NULL DEFAULT 5,
+  closing_background TEXT NOT NULL DEFAULT 'black'
+                   CHECK (closing_background IN ('black', 'photo', 'blur', 'collage')),
+  closing_photo_item_id TEXT REFERENCES library_items(id) ON DELETE SET NULL,
+  -- Opening/closing clips: a gallery VIDEO (any the picker can access, not just a
+  -- member) that plays before the title card / after the slides before the closing
+  -- card. Same 20s cap and audio-drop as member videos; the render skips a clip it
+  -- can't reach rather than failing.
+  intro_item_id  TEXT REFERENCES library_items(id) ON DELETE SET NULL,
+  outro_item_id  TEXT REFERENCES library_items(id) ON DELETE SET NULL,
   -- The list-card / detail-header cover. NULL falls back to the first slide in
   -- presentation order that has one — same "explicit pick, else first" shape as
   -- gallery_albums.cover_item_id.

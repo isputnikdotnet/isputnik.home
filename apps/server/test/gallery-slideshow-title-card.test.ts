@@ -10,7 +10,11 @@ import {
   renderTitleCardPng,
   collageGrid,
   spreadPhotos,
+  letteringScale,
+  splitCardLines,
   COLLAGE_MAX,
+  CARD_FONTS,
+  CARD_SIZES,
   CARD_WIDTH,
   CARD_HEIGHT
 } from "../src/modules/library/gallery/slideshow-title-card.js";
@@ -202,6 +206,131 @@ describe("slideshow title card", () => {
         kind: "photo", photo: { file: path.join(dir, "not-here.jpg") }
       })).toBe(true);
       expect(await pixelAt(out, 0.04, 0.06)).toEqual({ r: 0, g: 0, b: 0 });
+    });
+  });
+
+  // ── Multi-line text ───────────────────────────────────────────────────────
+  //
+  // Up to six lines below the title (credits, dedications). One line keeps the
+  // original drawtext geometry bit-for-bit; two or more switch to a centred block
+  // where every line shares one fitted size.
+
+  describe("multi-line text", () => {
+    it("draws each credit line as its own path, dimmed like a subtitle", () => {
+      const svg = titleCardSvg(font!, "The End", "Filmed by Dad\nMusic: our song\nSummer 2026");
+      expect(svg.match(/<path /g)).toHaveLength(4); // title + 3 lines
+      expect(svg.match(/fill-opacity="0.72"/g)).toHaveLength(3);
+    });
+
+    it("splits, trims, drops empties and caps at six lines", () => {
+      expect(splitCardLines(null)).toEqual([]);
+      expect(splitCardLines(" a \r\n\n  \nb ")).toEqual(["a", "b"]);
+      expect(splitCardLines("1\n2\n3\n4\n5\n6\n7\n8")).toHaveLength(6);
+    });
+
+    it("keeps every line inside the frame and stacked downward in order", () => {
+      const svg = titleCardSvg(font!, "Наши каникулы", "Filmed by Dad\nMusic: our song\nFor grandma — with love");
+      const xs = pointsOf(svg).map((p) => p.x);
+      const ys = pointsOf(svg).map((p) => p.y);
+      expect(Math.min(...xs)).toBeGreaterThan(0);
+      expect(Math.max(...xs)).toBeLessThan(CARD_WIDTH);
+      expect(Math.min(...ys)).toBeGreaterThan(0);
+      expect(Math.max(...ys)).toBeLessThan(CARD_HEIGHT);
+    });
+
+    it("gives every line one shared size — a long credit shrinks them together", () => {
+      const long = "A credit line so unreasonably long that it must shrink well below the subtitle size to fit the frame";
+      const widthOf = (svg: string, pathIndex: number) => {
+        const matches = [...svg.matchAll(/ d="([^"]+)"/g)];
+        const numbers = (matches[pathIndex][1].match(/-?\d+(?:\.\d+)?/g) ?? []).map(Number);
+        const xs = numbers.filter((_, i) => i % 2 === 0);
+        return Math.max(...xs) - Math.min(...xs);
+      };
+      // The same short line is drawn narrower when a long sibling drags the shared
+      // size down than it is beside another short line.
+      const alone = titleCardSvg(font!, "T", "Short line\nAnother short");
+      const dragged = titleCardSvg(font!, "T", `Short line\n${long}`);
+      expect(widthOf(dragged, 1)).toBeLessThan(widthOf(alone, 1));
+    });
+
+    it("still draws the block when there is no title", () => {
+      const svg = titleCardSvg(font!, "  ", "Filmed by Dad\nSummer 2026");
+      expect(svg.match(/<path /g)).toHaveLength(2);
+      const ys = pointsOf(svg).map((p) => p.y);
+      expect(Math.min(...ys)).toBeGreaterThan(0);
+      expect(Math.max(...ys)).toBeLessThan(CARD_HEIGHT);
+    });
+  });
+
+  // ── Lettering ─────────────────────────────────────────────────────────────
+  //
+  // Users pick a named style and a size; each style maps to a bundled face. These
+  // run against the real files, because the faces are the thing being shipped.
+
+  describe("lettering", () => {
+    it("ships a parseable file for every style", () => {
+      for (const style of CARD_FONTS) {
+        const p = bundledFontPath(style);
+        expect(p, style).toBeTruthy();
+        const f = loadTitleFont(p!);
+        expect(f, style).toBeTruthy();
+        expect(f!.unitsPerEm, style).toBeGreaterThan(0);
+      }
+    });
+
+    // Every face must draw every kind of character the card meets as a REAL
+    // outline. This is the check that caught PT Serif: its '6' parsed to a broken
+    // fragment through opentype.js (a handful of points where a real glyph has
+    // dozens), which is why the serif style is DejaVu Serif. Per-character, so a
+    // single bad glyph can't hide behind a long healthy title.
+    it("draws Cyrillic, Latin and digits as full glyphs in every face", () => {
+      for (const style of CARD_FONTS) {
+        const f = loadTitleFont(bundledFontPath(style)!)!;
+        for (const char of ["6", "2", "я", "ж", "д", "S", "y", "é"]) {
+          const points = pointsOf(titleCardSvg(f, char, null));
+          expect(points.length, `${style} '${char}'`).toBeGreaterThan(15);
+        }
+      }
+    });
+
+    it("scales the text with the size choice, medium being exactly today's card", () => {
+      expect(letteringScale()).toBe(1);
+      expect(letteringScale({ font: "classic", size: "medium" })).toBe(1);
+      const spread = (scale: number) => {
+        const xs = pointsOf(titleCardSvg(font!, "Summer", "42 photos", "black", scale)).map((p) => p.x);
+        return Math.max(...xs) - Math.min(...xs);
+      };
+      expect(spread(letteringScale({ size: "large" }))).toBeGreaterThan(spread(1));
+      expect(spread(letteringScale({ size: "small" }))).toBeLessThan(spread(1));
+      // scale 1 IS the pre-lettering card: the default draws identical output.
+      expect(titleCardSvg(font!, "Summer", "42 photos", "black", 1))
+        .toBe(titleCardSvg(font!, "Summer", "42 photos"));
+    });
+
+    it("keeps a long title inside the frame at every size", () => {
+      const long = "A slideshow with an unreasonably long name that would once have run straight off both edges";
+      for (const size of CARD_SIZES) {
+        const xs = pointsOf(titleCardSvg(font!, long, "7 photos", "black", letteringScale({ size }))).map((p) => p.x);
+        expect(Math.min(...xs), size).toBeGreaterThan(0);
+        expect(Math.max(...xs), size).toBeLessThan(CARD_WIDTH);
+      }
+    });
+
+    it("draws the card in the chosen face", async () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "title-font-"));
+      try {
+        const out = path.join(dir, "script.png");
+        expect(await renderTitleCardPng("Лето на даче", "48 photos", out, { kind: "black" }, { font: "script" })).toBe(true);
+        const meta = await sharp(out).metadata();
+        expect(meta.width).toBe(CARD_WIDTH);
+        // Different faces produce different pixels; identical output would mean the
+        // lettering never reached the drawer.
+        const classic = path.join(dir, "classic.png");
+        expect(await renderTitleCardPng("Лето на даче", "48 photos", classic, { kind: "black" })).toBe(true);
+        expect(fs.readFileSync(out).equals(fs.readFileSync(classic))).toBe(false);
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
     });
   });
 

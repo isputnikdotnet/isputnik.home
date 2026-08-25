@@ -29,25 +29,77 @@ const SUBTITLE_OPACITY = 0.72;
 const MAX_LINE_WIDTH = CARD_WIDTH * 0.86;
 const MIN_TITLE_SIZE = 34;
 
-// The bundled title-card font, resolved relative to this module so it works from
-// src/ under tsx (dev) and dist/ in production (copy-assets.mjs ships src/assets).
-// DejaVu Sans covers Latin and Cyrillic, so a Russian slideshow name renders.
-export function bundledFontPath(): string | null {
-  const here = path.dirname(fileURLToPath(import.meta.url));
-  const fontPath = path.resolve(here, "../../../assets/fonts/DejaVuSans.ttf");
-  return fs.existsSync(fontPath) ? fontPath : null;
+// ── Lettering: which face the card is set in, and how large ─────────────────
+//
+// Users pick a named STYLE, not a font file; each maps to a face bundled under
+// src/assets/fonts. A face earns its place by passing two checks: full Cyrillic
+// coverage, and looking right under the unshaped character-by-character layout
+// below (a script face that needs contextual alternates renders as disconnected
+// glyphs). 'classic' is the DejaVu Sans every movie used before styles existed.
+export type CardFont = "classic" | "serif" | "bold" | "script" | "typewriter";
+export type CardSize = "small" | "medium" | "large";
+
+export const CARD_FONTS: readonly CardFont[] = ["classic", "serif", "bold", "script", "typewriter"];
+export const CARD_SIZES: readonly CardSize[] = ["small", "medium", "large"];
+
+const CARD_FONT_FILES: Record<CardFont, string> = {
+  classic: "DejaVuSans.ttf",
+  serif: "DejaVuSerif.ttf",
+  bold: "DejaVuSans-Bold.ttf",
+  script: "MarckScript-Regular.ttf",
+  typewriter: "PTMono-Regular.ttf"
+};
+
+// Faces don't look the same size at the same point size: Marck Script's small
+// x-height reads far smaller than DejaVu at 88px, PT Mono's fixed-width caps a
+// touch larger. Each face carries a nudge so every style LOOKS the same size.
+const CARD_FONT_OPTICAL: Record<CardFont, number> = {
+  classic: 1,
+  serif: 1,
+  bold: 1,
+  script: 1.2,
+  typewriter: 0.92
+};
+
+// 'medium' is exactly the card every earlier movie rendered. The multiplier
+// applies to the title and the subtitle together, and shrink-to-fit still wins:
+// a long title never runs off the frame at any size.
+const CARD_SIZE_FACTOR: Record<CardSize, number> = { small: 0.72, medium: 1, large: 1.35 };
+
+export interface CardLettering { font?: CardFont; size?: CardSize }
+
+/** The combined type-scale multiplier for a lettering choice (size × optical). */
+export function letteringScale(lettering: CardLettering = {}): number {
+  return CARD_SIZE_FACTOR[lettering.size ?? "medium"] * CARD_FONT_OPTICAL[lettering.font ?? "classic"];
 }
 
-let cachedFont: { path: string; font: Font } | null = null;
+// A bundled face, resolved relative to this module so it works from src/ under
+// tsx (dev) and dist/ in production (copy-assets.mjs ships src/assets). Every
+// bundled face covers Latin and Cyrillic, so a Russian slideshow name renders.
+// A style whose file is missing falls back to classic — a wrong face is a far
+// smaller loss than no card.
+export function bundledFontPath(style: CardFont = "classic"): string | null {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const fontPath = path.resolve(here, `../../../assets/fonts/${CARD_FONT_FILES[style]}`);
+  if (fs.existsSync(fontPath)) return fontPath;
+  if (style !== "classic") {
+    console.warn(`slideshow render: bundled font for style '${style}' missing — falling back to classic.`);
+    return bundledFontPath("classic");
+  }
+  return null;
+}
 
-// Parsing the TTF costs milliseconds and the file can't change under a running
-// server, so it is read once.
+const fontCache = new Map<string, Font>();
+
+// Parsing a TTF costs milliseconds and the files can't change under a running
+// server, so each face is read once.
 export function loadTitleFont(fontPath: string): Font | null {
-  if (cachedFont?.path === fontPath) return cachedFont.font;
+  const cached = fontCache.get(fontPath);
+  if (cached) return cached;
   try {
     const bytes = fs.readFileSync(fontPath);
     const font = opentype.parse(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
-    cachedFont = { path: fontPath, font };
+    fontCache.set(fontPath, font);
     return font;
   } catch {
     return null;
@@ -115,23 +167,53 @@ const SCRIM_OPACITY = 0.45;
 const HALO_OPACITY = 0.5;
 const HALO_WIDTH = 6;
 
+// The most lines a card's text block carries below the title — enough for
+// "Filmed by · Music · For grandma's 80th", not enough to need a scrolling roll
+// (which the pipeline deliberately doesn't do; see the proposal). The route caps
+// what is SAVED; this caps what is DRAWN, so an over-long value from anywhere
+// degrades to its first six lines rather than to an unreadable card.
+export const CARD_MAX_LINES = 6;
+
+/** A subtitle's renderable lines: split on newlines, trimmed, empties dropped, capped. */
+export function splitCardLines(subtitle: string | null): string[] {
+  if (!subtitle) return [];
+  return subtitle
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, CARD_MAX_LINES);
+}
+
+// Space between the title's bottom and the first credit line, and the leading
+// between credit lines, as fractions of the (scaled) sizes in play. Multi-line
+// only — the single-line card keeps drawtext's original positions.
+const BLOCK_GAP = 44;
+const LINE_LEADING = 1.5;
+
 // The card as an SVG whose text is paths, not <text>: nothing downstream has to find
 // a font, so the rasteriser cannot substitute or silently drop one. Exported because
 // it is pure — the PNG around it is not.
+//
+// One line under the title keeps the exact geometry drawtext produced (baselineFor),
+// so every pre-credits card renders bit-for-bit as it always did. Two lines or more
+// switch to a block layout: the whole block (title + lines) vertically centred, the
+// lines sharing ONE fitted size so a long credit doesn't ripple the block through
+// several sizes.
 export function titleCardSvg(
   font: Font,
   title: string,
   subtitle: string | null,
-  backdrop: TitleBackdrop = "black"
+  backdrop: TitleBackdrop = "black",
+  // The lettering's type-scale multiplier (letteringScale). 1 = the classic
+  // medium card. Applied to the requested sizes only — shrink-to-fit and its
+  // floor are absolute, so a long title behaves the same at every size.
+  scale = 1
 ): string {
   const overPicture = backdrop !== "black";
   const shapes: string[] = [];
-  const draw = (text: string, requested: number, kind: "title" | "subtitle", opacity: number) => {
-    if (!text.trim()) return;
-    const size = fittedSize(font, text, requested);
+  const emit = (text: string, size: number, baseline: number, kind: "title" | "subtitle", opacity: number) => {
     const { width, placed } = layout(font, text, size);
     const left = (CARD_WIDTH - width) / 2;
-    const baseline = baselineFor(font, size, kind, subtitle !== null);
     // toPathData rounds to 2 decimals — invisible at this size, and it keeps the
     // SVG small enough to hand to sharp as a single buffer.
     const data = placed
@@ -149,8 +231,37 @@ export function titleCardSvg(
     shapes.push(`<path d="${data}" fill="#ffffff"${opacity < 1 ? ` fill-opacity="${opacity}"` : ""}/>`);
   };
 
-  draw(title, TITLE_SIZE, "title", 1);
-  if (subtitle) draw(subtitle, SUBTITLE_SIZE, "subtitle", SUBTITLE_OPACITY);
+  const lines = splitCardLines(subtitle);
+  if (lines.length <= 1) {
+    // The original two-line card, positioned exactly as drawtext positioned it.
+    const draw = (text: string, requested: number, kind: "title" | "subtitle", opacity: number) => {
+      if (!text.trim()) return;
+      const size = fittedSize(font, text, requested * scale);
+      emit(text, size, baselineFor(font, size, kind, subtitle !== null), kind, opacity);
+    };
+    draw(title, TITLE_SIZE, "title", 1);
+    if (lines.length === 1) draw(lines[0], SUBTITLE_SIZE, "subtitle", SUBTITLE_OPACITY);
+  } else {
+    const hasTitle = title.trim().length > 0;
+    const titleSize = hasTitle ? fittedSize(font, title, TITLE_SIZE * scale) : 0;
+    // One size for every line: the smallest any of them needs to fit the frame.
+    const lineSize = Math.min(...lines.map((line) => fittedSize(font, line, SUBTITLE_SIZE * scale)));
+    const em = (size: number) => size / font.unitsPerEm;
+    const titleHeight = hasTitle ? (font.ascender - font.descender) * em(titleSize) : 0;
+    const lineHeight = (font.ascender - font.descender) * em(lineSize);
+    const lineAdvance = lineSize * LINE_LEADING;
+    const gap = hasTitle ? BLOCK_GAP * scale : 0;
+    const blockHeight = titleHeight + gap + (lines.length - 1) * lineAdvance + lineHeight;
+    // Centred, but never pushed off the frame by a tall block: the top margin holds
+    // at least a line's worth of air (the caps above keep this from ever clipping).
+    const top = Math.max(lineHeight, (CARD_HEIGHT - blockHeight) / 2);
+    if (hasTitle) emit(title, titleSize, top + font.ascender * em(titleSize), "title", 1);
+    const firstLineTop = top + titleHeight + gap;
+    lines.forEach((line, index) => {
+      const baseline = firstLineTop + index * lineAdvance + font.ascender * em(lineSize);
+      emit(line, lineSize, baseline, "subtitle", SUBTITLE_OPACITY);
+    });
+  }
 
   const frame =
     backdrop === "black" ? `<rect width="${CARD_WIDTH}" height="${CARD_HEIGHT}" fill="#000000"/>`
@@ -270,9 +381,10 @@ export async function titleCardPngBuffer(
   title: string,
   subtitle: string | null,
   background: TitleBackground = { kind: "black" },
-  width = CARD_WIDTH
+  width = CARD_WIDTH,
+  lettering: CardLettering = {}
 ): Promise<Buffer | null> {
-  const fontPath = bundledFontPath();
+  const fontPath = bundledFontPath(lettering.font ?? "classic");
   if (!fontPath) {
     console.warn("slideshow render: bundled title-card font missing — rendering without a title card.");
     return null;
@@ -284,7 +396,7 @@ export async function titleCardPngBuffer(
   }
   try {
     const picture = await titleBackgroundBuffer(background);
-    const svg = Buffer.from(titleCardSvg(font, title, subtitle, picture ? "scrim" : "black"));
+    const svg = Buffer.from(titleCardSvg(font, title, subtitle, picture ? "scrim" : "black", letteringScale(lettering)));
     const card = picture ? sharp(picture).composite([{ input: svg }]) : sharp(svg);
     const full = await card.png().toBuffer();
     // Scaled in a SECOND pass, deliberately: sharp resizes before it composites, so
@@ -307,9 +419,10 @@ export async function renderTitleCardPng(
   title: string,
   subtitle: string | null,
   outPath: string,
-  background: TitleBackground = { kind: "black" }
+  background: TitleBackground = { kind: "black" },
+  lettering: CardLettering = {}
 ): Promise<boolean> {
-  const png = await titleCardPngBuffer(title, subtitle, background);
+  const png = await titleCardPngBuffer(title, subtitle, background, CARD_WIDTH, lettering);
   if (!png) return false;
   try {
     fs.writeFileSync(outPath, png);

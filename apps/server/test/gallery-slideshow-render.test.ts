@@ -16,6 +16,7 @@ import {
   setSlideshowMovieAsset,
   getSlideshowRenderItems,
   titleCardLines,
+  closingCardLines,
   type SlideshowRow,
   type SlideshowRenderItem
 } from "../src/modules/library/gallery/slideshows.js";
@@ -253,12 +254,35 @@ describe("render filtergraph", () => {
   });
 
   it("muxes a music input with an out-fade when a track is given", () => {
-    const { args } = buildFfmpegArgs(segs([4, 4]), "crossfade", "/bed.flac", "/o.mp4");
+    const { args, total } = buildFfmpegArgs(segs([4, 4]), "crossfade", "/bed.flac", "/o.mp4");
     const joined = args.join(" ");
     expect(joined).toContain("-stream_loop -1 -i /bed.flac");
-    expect(joined).toContain("afade=t=out");
+    // Without a closing card: the 2-second tail fade every movie has always had.
+    expect(joined).toContain(`afade=t=out:st=${(total - 2).toFixed(2)}:d=2`);
     expect(joined).toContain("-c:a aac");
     expect(joined).toContain("-shortest");
+  });
+
+  // With a closing card the music fades out UNDER the credits: the fade starts
+  // where the card starts, so the slides end at full volume and the movie ends
+  // in silence.
+  it("anchors the music fade to the closing card when one ends the movie", () => {
+    const { args, total } = buildFfmpegArgs(
+      segs([4, 4, 5]), "crossfade", "/bed.flac", "/o.mp4", 2, undefined, { closingDwell: 5 }
+    );
+    expect(args.join(" ")).toContain(`afade=t=out:st=${(total - 5).toFixed(2)}:d=5`);
+  });
+
+  it("caps the closing fade at 8 seconds — a long card doesn't need a longer fade", () => {
+    const { args, total } = buildFfmpegArgs(
+      segs([6, 6, 15]), "crossfade", "/bed.flac", "/o.mp4", 2, undefined, { closingDwell: 15 }
+    );
+    expect(args.join(" ")).toContain(`afade=t=out:st=${(total - 15).toFixed(2)}:d=8`);
+  });
+
+  it("ignores closingDwell without music — there is nothing to fade", () => {
+    const { args } = buildFfmpegArgs(segs([4, 4]), "crossfade", null, "/o.mp4", 2, undefined, { closingDwell: 5 });
+    expect(args.join(" ")).not.toContain("afade");
   });
 
   it("clamps a photo's on-screen dwell to 1..30s", () => {
@@ -364,6 +388,17 @@ describe("title card settings", () => {
     // 'custom' with nothing written in it is no subtitle, not an empty one.
     expect(lines({ title_subtitle_mode: "custom", title_subtitle: null }).subtitle).toBeNull();
     expect(lines({ title_subtitle_mode: "none" }).subtitle).toBeNull();
+  });
+
+  // The closing card: an end title plus free credit lines — no subtitle modes, and
+  // a photo count would make no sense at the end.
+  it("closes on “The End” unless renamed, with the credits carried as written", () => {
+    expect(closingCardLines({ closing_text: null, closing_lines: null }))
+      .toEqual({ title: "The End", subtitle: null });
+    expect(closingCardLines({ closing_text: "  ", closing_lines: "  " }))
+      .toEqual({ title: "The End", subtitle: null });
+    expect(closingCardLines({ closing_text: "Конец", closing_lines: "Filmed by Dad\nMusic: our song" }))
+      .toEqual({ title: "Конец", subtitle: "Filmed by Dad\nMusic: our song" });
   });
 
   // The background can only be built from PHOTOS the render can read: sharp reads
@@ -690,14 +725,16 @@ describe('schema baseline (3.0.0)', () => {
   it('builds a complete schema in one pass and stamps the current version', () => {
     const scratch = new Database(':memory:');
     migrate(scratch);
-    // 42 = the baseline (32) plus the title-card columns, the alphabet-index
+    // 45 = the baseline (32) plus the title-card columns, the alphabet-index
     // columns, the slideshow cover column, the person cover column, the session
     // kind/label columns, the remote flag on a device-link request, the
     // login-attempt kind column, the reputation country/ISP columns, the person
-    // website/location columns, and dropping the retired empty-recycle-bin job
-    // row — none of which a fresh file needs, since schema.sql builds it complete
-    // and seeds no such job; those migrations are only for databases that predate them.
-    expect(scratch.pragma('user_version', { simple: true })).toBe(42);
+    // website/location columns, dropping the retired empty-recycle-bin job row,
+    // the title-card lettering columns, the closing-card columns, and the
+    // intro/outro clip columns — none of which a fresh file needs, since
+    // schema.sql builds it complete and seeds no such job; those migrations are
+    // only for databases that predate them.
+    expect(scratch.pragma('user_version', { simple: true })).toBe(45);
 
     const userColumns = (scratch.pragma('table_info(users)') as { name: string }[]).map((c) => c.name);
     expect(userColumns).toEqual(
@@ -773,7 +810,7 @@ describe('schema baseline (3.0.0)', () => {
     migrate(current);
     current.pragma('user_version = 31'); // every 2.x migration applied
     expect(() => migrate(current)).not.toThrow();
-    expect(current.pragma('user_version', { simple: true })).toBe(42);
+    expect(current.pragma('user_version', { simple: true })).toBe(45);
     current.close();
   });
 

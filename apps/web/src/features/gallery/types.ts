@@ -117,6 +117,10 @@ export type SlideshowRenderStatus = "draft" | "queued" | "rendering" | "ready" |
 // a collage tiled from several of them.
 export type SlideshowSubtitleMode = "count" | "custom" | "none";
 export type SlideshowTitleBackground = "black" | "photo" | "blur" | "collage";
+// Lettering: which bundled face the card's text is set in, and how large. The
+// server draws the movie's card with the same faces the editor's chips preview.
+export type SlideshowCardFont = "classic" | "serif" | "bold" | "script" | "typewriter";
+export type SlideshowCardSize = "small" | "medium" | "large";
 
 // The title-card settings, carried on the detail and taken by the PATCH. A null in a
 // nullable field means "back to the default": the slideshow's name, no custom
@@ -129,6 +133,16 @@ export interface SlideshowTitleSettings {
   titleSeconds: number;
   titleBackground: SlideshowTitleBackground;
   titlePhotoItemId: string | null;
+  cardFont: SlideshowCardFont;
+  cardSize: SlideshowCardSize;
+  // The closing card. Off by default; closingText null = "The End"; closingLines
+  // holds up to six newline-separated credit lines.
+  closingEnabled: boolean;
+  closingText: string | null;
+  closingLines: string | null;
+  closingSeconds: number;
+  closingBackground: SlideshowTitleBackground;
+  closingPhotoItemId: string | null;
 }
 
 // Everything the slideshow PATCH accepts. One type, so the editor, the hook and the
@@ -139,6 +153,9 @@ export interface SlideshowPatch extends Partial<SlideshowTitleSettings> {
   slideSeconds?: number;
   transitionSeconds?: number;
   musicTrackId?: string | null;
+  // Opening/closing clips, by gallery item id (any accessible video; null clears).
+  introItemId?: string | null;
+  outroItemId?: string | null;
   coverItemId?: string | null;
 }
 
@@ -162,6 +179,16 @@ export interface GallerySlideshow {
 // The slideshow-detail header (items arrive with it / paged, in presentation order).
 // The music fields are resolved server-side from musicTrackId (all null when the
 // slideshow has no music or its track was deleted).
+// An opening/closing clip as the detail carries it: enough for the editor to draw
+// its row. Resolved server-side from intro/outro_item_id against the viewer's
+// access — null when unset, gone, or out of reach.
+export interface SlideshowClipInfo {
+  id: string;
+  title: string;
+  coverUrl: string | null;
+  durationSeconds: number | null;
+}
+
 export interface GallerySlideshowDetail extends SlideshowTitleSettings {
   id: string;
   name: string;
@@ -172,6 +199,8 @@ export interface GallerySlideshowDetail extends SlideshowTitleSettings {
   coverItemId: string | null;
   canEdit: boolean;
   updatedAt: string;
+  introClip: SlideshowClipInfo | null;
+  outroClip: SlideshowClipInfo | null;
   musicTrackId: string | null;
   musicTitle: string | null;
   musicUrl: string | null;
