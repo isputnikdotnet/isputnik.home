@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { db, logActivity } from "../../db.js";
 import { parseBody } from "../../core/shared.js";
-import { emptyTrash } from "../library/shared/trash.js";
+import { purgeExpiredTrash } from "../library/shared/trash.js";
 import { libraryJobRunning } from "../library/shared/scan-lock.js";
 import { enqueueFaceScanBatches } from "../library/gallery/faces/queue.js";
 import { enabledFaceLibraryIds } from "../library/gallery/faces/settings.js";
@@ -135,16 +135,26 @@ const DEFINITIONS: ScheduledJobDef[] = [
     }
   },
   {
-    key: "empty_recycle_bin",
-    label: "Empty recycle bin",
-    description: "Permanently delete every item currently in the recycle bin, regardless of its retention window.",
+    // Replaced "Empty recycle bin" (3.24.0 and earlier), which emptied the whole bin on a
+    // cadence regardless of retention — shipping enabled, that quietly made the 30-day
+    // window mean nothing, and installs that never asked for it lost deleted items a week
+    // after deleting them. This one only removes what has served its own promised time.
+    // Emptying the bin outright is a deliberate act, and stays a button on the bin's page.
+    key: "purge_expired_trash",
+    label: "Purge expired recycle bin items",
+    description: "Permanently delete recycle bin items that have outlived the retention window they were given when they were deleted (30 days by default). Anything still inside its window is left alone. To clear the bin regardless of retention, use Empty bin on the Recycle Bin page.",
     category: "system",
     defaultEnabled: true,
-    defaultFrequency: "weekly",
+    defaultFrequency: "daily",
     defaultTime: "00:45",
     run: () => {
-      const purged = emptyTrash();
-      return `Emptied the recycle bin — purged ${purged} item${purged === 1 ? "" : "s"}.`;
+      // The in-process sweeper (startTrashPurgeWorker) does this every six hours too; this
+      // job is the visible face of it — a schedule an admin can see, move, or switch off.
+      const { purged, eligible } = purgeExpiredTrash();
+      if (eligible === 0) return "Nothing in the recycle bin has outlived its retention window — nothing purged.";
+      const noun = `item${eligible === 1 ? "" : "s"}`;
+      if (purged === eligible) return `Purged ${purged} expired ${noun}.`;
+      return `Purged ${purged} of ${eligible} expired ${noun} — the rest sit on storage that is offline right now, and are retried on the next run.`;
     }
   },
   {

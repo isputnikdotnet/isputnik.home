@@ -302,9 +302,14 @@ database out from under a running server is how databases get corrupted.
 
 The recurring work, one row each: scanning each library type for new files, scanning
 new photos for faces, looking for duplicate photos, purging missing photos, cleaning
-task history, emptying the recycle bin, and converting unplayable videos. Sensible
-defaults ship enabled; the face scan runs after the nightly library scans so the
-day's new photos are already cataloged.
+task history, purging expired recycle bin items, and converting unplayable videos.
+Sensible defaults ship enabled; the face scan runs after the nightly library scans so
+the day's new photos are already cataloged.
+
+None of them ever removes something ahead of its time. **Purge expired recycle bin
+items** takes only what has outlived the window it was given when it was deleted —
+emptying the bin outright stays a button on the Recycle Bin page, where you can see
+what you're about to lose.
 
 Rows are grouped by what the job is about — audiobooks, ebooks, gallery, then the
 system chores — and each carries a matching tag, so the library scans sit together
@@ -323,7 +328,7 @@ the scanner and returns in milliseconds, while the scan itself may run for an ho
 So the button stays spinning, and the message above the table says what was queued
 with a link straight to **Overview → Tasks**, where you can watch the progress bars.
 When the last queued task finishes, the message says so. Jobs that do their work on
-the spot — emptying the recycle bin, purging missing photos — simply report their
+the spot — purging expired recycle bin items, purging missing photos — simply report their
 result and are done. Only one job can be started by hand at a time; several of them
 skip themselves anyway when another heavy task is already running.
 

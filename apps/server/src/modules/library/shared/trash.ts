@@ -679,8 +679,9 @@ export function setTrashRetentionDays(days: number): void {
 }
 
 // Auto-purge everything past the retention window. Items whose source volume is currently
-// offline are skipped (so their files aren't orphaned) and retried on the next sweep.
-export function purgeExpiredTrash(): number {
+// offline are skipped (so their files aren't orphaned) and retried on the next sweep —
+// hence two counts: how many were due, and how many actually went.
+export function purgeExpiredTrash(): { purged: number; eligible: number } {
   // Each row carries its own date, written when it was trashed. Changing the setting
   // now therefore governs only what is deleted from now on — it cannot reach back and
   // shorten a promise already made.
@@ -698,7 +699,7 @@ export function purgeExpiredTrash(): number {
       // leave the row in place; the next sweep retries
     }
   }
-  return purged;
+  return { purged, eligible: expired.length };
 }
 
 // Empty the bin — every item, or just one library's. Returns the count purged.

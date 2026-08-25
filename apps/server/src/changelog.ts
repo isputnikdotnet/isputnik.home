@@ -19,6 +19,15 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.25.0",
+    label: "The recycle bin stops emptying itself",
+    changes: [
+      "Fixed, and it is the reason for this release: a scheduled task named \"Empty recycle bin\" shipped switched on, and it did exactly what its name said — once a week it emptied the bin completely, whatever the retention window sitting beside it promised. Something deleted on Saturday could be gone for good on Sunday, with no warning, having never looked close to expiring. Nobody chose that schedule; it was simply on. It has been removed, and the removal reaches installs that already have it.",
+      "In its place, running nightly, is \"Purge expired recycle bin items\". It takes only what has outlived the window it was given at the moment it was deleted — so 30 days now genuinely means 30 days, and an item still inside its window is never touched. Clearing the bin regardless of retention is still available, as the Empty button on the Recycle Bin page, where you can see what you are about to lose before you lose it.",
+      "The task reports what it actually did, rather than a bare count: that nothing was due, or how many it removed — or, when a library's disk is offline, how many it had to leave for the next run rather than orphaning their files somewhere it could not reach."
+    ]
+  },
+  {
     version: "3.24.0",
     label: "Author pages, rebuilt — with a website, a location, and an editor that says what it will do",
     changes: [
