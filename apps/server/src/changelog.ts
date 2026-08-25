@@ -19,6 +19,19 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.26.0",
+    label: "Slideshow movies open like films now — and end like them",
+    changes: [
+      "The title card's words can be set in one of five faces — Classic, Serif, Bold, Script and Typewriter — at three sizes, chosen from a row of buttons each drawn in its own lettering. Every face covers Russian as well as English, the preview above redraws with the real thing, and a slideshow that never touches the setting keeps rendering exactly the card it always did.",
+      "A movie can end on a closing card: \"The End\" (or anything you write instead) with up to six lines of credits underneath — filmed by, the music, who it's for. Same backgrounds as the opening card, same lettering, its own length. It's off until you turn it on, so existing movies end as they always have.",
+      "With music set, the soundtrack now fades out underneath the closing card — the photos end at full volume, the credits play the music down, and the movie ends in silence — instead of the flat two-second dip every movie used to end on. The opening card's \"my own line\" also grew up: it takes several lines now, not one.",
+      "A movie can open on a clip — a bit of video that plays before everything else, like a studio ident before a film — and can carry a second clip after the last photo, before the credits. Any video in your galleries qualifies, chosen through the same folder browser used for adding photos; up to twenty seconds of it plays.",
+      "A clip brings its own sound, unless you switch that off. While it plays the music pauses — properly pauses, picking up afterwards from where it left off rather than skipping ahead — so a recorded greeting or a toast opens the movie in its own voice and the song carries on underneath the photos. A clip whose file has no sound simply leaves the music running.",
+      "The Title card dialog became Title & credits: the card's picture on the left with what it says right underneath, every setting on the right, and an Opening/Closing switch across the top. The picture never scrolls out of view while you adjust things — choosing lettering you can't see would be guesswork.",
+      "Fixed, found while proving the clips: a video anywhere in a slideshow — not just these new clips — cut the rendered movie short at that video's last frame whenever transitions were on. A photo can hold its final frame through a cross-fade; a video's file simply ends, and everything scheduled after it was silently lost. Videos now hold their last frame through the transition the way photos always have, and the movie runs its full length."
+    ]
+  },
+  {
     version: "3.25.1",
     label: "Emptying the bin now has to be meant",
     changes: [

@@ -361,9 +361,13 @@ export function buildFfmpegArgs(
     // join: 1621 MB as-is, 541 MB with this, for 16% more time. It is the single
     // biggest lever in this file.
     args.push("-threads", "1");
-    // A photo is a still looped for its input length; a video is read for that many
-    // seconds of its own footage (its audio is ignored — only [i:v] is referenced below).
-    if (seg.isVideo) args.push("-t", inputDur(seg).toFixed(3), "-i", seg.file);
+    // A photo is a still looped for its input length — frames forever, so it can
+    // carry the transition overlap. A video is read for its DWELL of footage only;
+    // the overlap it cannot supply is cloned in the filtergraph (tpad below). Asking
+    // -t for dwell+pad instead used to truncate the whole movie: the file EOFs at
+    // its own length, and an xfade whose offset lies past an input's end doesn't
+    // shorten one transition — it ends the chain, and everything after it was lost.
+    if (seg.isVideo) args.push("-t", seg.dwell.toFixed(3), "-i", seg.file);
     else args.push("-loop", "1", "-t", inputDur(seg).toFixed(3), "-i", seg.file);
   }
   if (musicPath) args.push("-stream_loop", "-1", "-i", musicPath);
@@ -373,10 +377,16 @@ export function buildFfmpegArgs(
   for (const clip of clipSounds) args.push("-i", clip.file);
 
   // Normalize every input to the same canvas (letterboxed), fixed fps + pixel format —
-  // photos, video frames and the title card alike, so they transition cleanly.
-  const per = segs.map((_, i) =>
+  // photos, video frames and the title card alike, so they transition cleanly. A video
+  // additionally clones its last frame across the transition overlap (tpad; a second
+  // beyond it as a cushion for probe-vs-delivery rounding) — the padding a looped
+  // photo gets for free, and without which its EOF truncates the movie (see above).
+  // The output -t below trims whatever the cushion adds past the arithmetic total.
+  const per = segs.map((seg, i) =>
     `[${i}:v]scale=${WIDTH}:${HEIGHT}:force_original_aspect_ratio=decrease,` +
-    `pad=${WIDTH}:${HEIGHT}:-1:-1:color=black,setsar=1,fps=${FPS},format=yuv420p[v${i}]`
+    `pad=${WIDTH}:${HEIGHT}:-1:-1:color=black,setsar=1,fps=${FPS},` +
+    (seg.isVideo && pad > 0 ? `tpad=stop_mode=clone:stop_duration=${(pad + 1).toFixed(2)},` : "") +
+    `format=yuv420p[v${i}]`
   );
 
   // Every node's INPUT length in presentation order — each already padded for the
@@ -480,6 +490,9 @@ export function buildFfmpegArgs(
     "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", String(options.crf ?? 22), "-preset", "veryfast",
     "-threads", String(ENCODER_THREADS),
     "-r", String(FPS), "-movflags", "+faststart",
+    // The arithmetic total is the movie: the tpad cushion on a trailing video (and
+    // an infinite music loop) must never stretch past it.
+    "-t", total.toFixed(3),
     "-progress", "pipe:1", "-nostats", "-y", outPath
   );
   return { args, total };

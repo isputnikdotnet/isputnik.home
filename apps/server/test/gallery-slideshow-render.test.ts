@@ -251,7 +251,35 @@ describe("render filtergraph", () => {
     const withVideo = buildFfmpegArgs(
       [{ file: "/clip.mp4", dwell: 6, isVideo: true }, ...segs([4])], "crossfade", null, "/o.mp4"
     ).args.join(" ");
-    expect(withVideo).toContain("-threads 1 -t 8.000 -i /clip.mp4");
+    expect(withVideo).toContain("-threads 1 -t 6.000 -i /clip.mp4");
+  });
+
+  // A photo carries the transition overlap by looping; a video CANNOT — its file
+  // ends when it ends, and an xfade whose offset lies past an input's end doesn't
+  // shorten one transition, it truncates the whole movie (measured: a 6s clip in a
+  // 16s three-node chain produced a 6s movie). So a video is read for its dwell
+  // only and the overlap is cloned from its last frame in the filtergraph.
+  it("clones a video's last frame across the transition overlap instead of asking for footage past its end", () => {
+    const { args, total } = buildFfmpegArgs(
+      [{ file: "/clip.mp4", dwell: 6, isVideo: true }, ...segs([4, 4])], "crossfade", null, "/o.mp4"
+    );
+    const joined = args.join(" ");
+    const filter = args[args.indexOf("-filter_complex") + 1];
+    // The video's chain pads (overlap + a rounding cushion); the photos' don't.
+    expect(filter).toContain("[0:v]");
+    expect(filter.split(";")[0]).toContain("tpad=stop_mode=clone:stop_duration=3.00");
+    expect((filter.match(/tpad/g) ?? [])).toHaveLength(1);
+    // And the output is trimmed to the arithmetic total, so the cushion on a
+    // trailing video can never stretch the movie.
+    expect(joined).toContain(`-t ${total.toFixed(3)} -progress`);
+  });
+
+  it("does not pad video inputs at a prePadded join — batch tails already carry the overlap", () => {
+    const { args } = buildFfmpegArgs(
+      [{ file: "/b1.mp4", dwell: 50, isVideo: true }, { file: "/b2.mp4", dwell: 50, isVideo: true }],
+      "crossfade", null, "/o.mp4", 2, undefined, { prePadded: true }
+    );
+    expect(args[args.indexOf("-filter_complex") + 1]).not.toContain("tpad");
   });
 
   it("muxes a music input with an out-fade when a track is given", () => {
@@ -381,10 +409,12 @@ describe("render filtergraph", () => {
       { file: "/a.jpg", dwell: 4, isVideo: false },
       { file: "/v.mp4", dwell: 6, isVideo: true }
     ], "crossfade", null, "/o.mp4").args.join(" ");
-    // Inputs are padded by the 2s transition: 4→6 for the photo, 6→8 for the clip.
+    // The photo's input is padded by the 2s transition (4→6); the video is read
+    // for its dwell only — asking past its end used to truncate the movie — and
+    // its overlap is cloned in the filtergraph instead (tpad, tested above).
     expect(joined).toContain("-loop 1 -t 6.000 -i /a.jpg");
-    expect(joined).toContain("-t 8.000 -i /v.mp4");
-    expect(joined).not.toContain("-loop 1 -t 8.000 -i /v.mp4");
+    expect(joined).toContain("-t 6.000 -i /v.mp4");
+    expect(joined).not.toContain("-loop 1 -t 6.000 -i /v.mp4");
   });
 });
 
