@@ -166,6 +166,12 @@ The only way to ask "are you sure?". Built on Modal.
 - `danger` for destructive actions → filled danger button + `alertdialog` role.
 - `rich` when the body has its own `<p>` markup; `error` to surface a failed attempt;
   `confirmIcon` for an icon in the confirm button.
+- `challenge={{ value, label }}` makes the reader type `value` back before the confirm
+  button enables. **Rare.** It is for actions that destroy a lot at once with nothing
+  to restore from — emptying the whole Recycle Bin is the one that has it. The value
+  must be something the dialog already states (a count, a name), so answering means
+  having read it. On an ordinary destructive action it is noise, and noise is what
+  teaches people to click through warnings.
 
 ```tsx
 {pendingDelete && (

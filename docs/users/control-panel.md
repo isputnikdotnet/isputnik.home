@@ -381,12 +381,24 @@ was removed — which is how you find the one book you deleted by hand under a
 cleanup's thousands of photos. The two buttons on each tile restore that item or
 delete it for good.
 
-**Restore all**, beside Empty in the header, puts back everything the page is
-showing — so with a library chosen it restores that library's items and leaves the
+**Restore all**, beside Empty in the header, puts back everything in the chosen
+library — so with a library picked it restores that library's items and leaves the
 rest alone. Each item is put back on its own, so one that can't be doesn't stop the
 others: an item whose library has since been removed, or whose old place on disk is
 now occupied, stays in the bin and is named afterwards. Nothing is deleted either
 way, which is why it asks in ordinary terms rather than the red warning Empty gets.
+
+**Empty** follows the same library picker: with a library chosen it empties only
+that one, and says so. With **All libraries** chosen it reaches every library,
+including any the page is not showing — so that one asks you to type the number of
+items back before it will go ahead. Both dialogs open by stating exactly what is
+about to be lost: how many items, how much disk, how many files, and how many of
+them were still inside the retention window they were given and would not have gone
+on their own.
+
+Note that the search box and the source/retention filters narrow the *tiles*, not
+the action. Empty and Restore all always work on the whole library you have picked,
+which is why their dialogs count that rather than what is on screen.
 
 ---
 

@@ -740,6 +740,14 @@ a.icon-button svg {
   color: var(--muted);
 }
 
+/* ConfirmDialog's typed challenge — the "type the number to confirm" box on the
+   few actions that destroy a lot at once. It is a plain .field (which carries the
+   input chrome); all it adds is a narrower box, since what goes in it is a count
+   or a name, never a sentence. */
+.confirm-challenge input {
+  width: min(100%, 200px);
+}
+
 .modal-actions {
   display: flex;
   justify-content: flex-end;

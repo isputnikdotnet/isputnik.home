@@ -364,8 +364,9 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
     }
   };
 
-  // Restores exactly what the page is showing — the library filter counts here, so
-  // "restore all" can never mean more than what is in front of you.
+  // Restores the library scope, which is the only filter the server knows about —
+  // the search box and the source/retention filters narrow the tiles, not the action.
+  // The dialog counts `inScope` for that reason, so what it promises is what happens.
   const confirmRestoreAll = async () => {
     setRestoringAll(true);
     setActionError("");
@@ -399,7 +400,13 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
     setEmptying(true);
     setActionError("");
     try {
-      await api("/api/library/trash/empty", { method: "POST", body: "{}" });
+      // Scoped to the chosen library, exactly like Restore all beside it. Sending {}
+      // here emptied the WHOLE bin however the page was filtered — press Empty while
+      // looking at one library and every other library's deleted files went too.
+      await api("/api/library/trash/empty", {
+        method: "POST",
+        body: JSON.stringify(scopeId ? { libraryId: scopeId } : {})
+      });
       setEmptyOpen(false);
       await load();
     } catch (err) {
@@ -414,6 +421,26 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
   const visibleBytes = visible.reduce((sum, item) => sum + item.sizeBytes, 0);
   const visibleFiles = visible.reduce((sum, item) => sum + item.fileCount, 0);
   const totalBytes = items.reduce((sum, item) => sum + item.sizeBytes, 0);
+
+  // What Empty and Restore all actually reach. NOT `visible`: the server works on the
+  // library scope, ignoring the search box and the source/retention filters, so a
+  // dialog counting the rows on screen would promise less than it takes. The library
+  // picker is the only filter that reaches the server.
+  const inScope = useMemo(
+    () => (scopeId ? items.filter((item) => item.libraryId === scopeId) : items),
+    [items, scopeId]
+  );
+  const scopeBytes = inScope.reduce((sum, item) => sum + item.sizeBytes, 0);
+  const scopeFiles = inScope.reduce((sum, item) => sum + item.fileCount, 0);
+  // Items still owed time. These are the ones an accidental Empty really costs you:
+  // the rest were going anyway, on a date the tile already shows.
+  const scopeUnexpired = inScope.filter(
+    (item) => item.purgesAt === null || Date.parse(item.purgesAt) > Date.now()
+  ).length;
+  // Typing is asked for only when emptying the whole bin — the one action here that
+  // reaches past what the page is showing and cannot be undone. A scoped empty is
+  // bounded by a library you deliberately picked, and gets the plain confirm.
+  const emptyNeedsChallenge = !scopeId && inScope.length > 0;
 
   // Each item carries the date it was given when it was deleted, so a single sentence
   // for the whole page can only describe what happens from here on — the tiles hold
@@ -566,11 +593,16 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
                 <RotateCcw size={18} aria-hidden="true" />
               </Button>
             )}
+            {/* Off when the scope holds nothing: a destructive button that does
+                nothing is still a destructive button someone learns to press. */}
             <Button
               variant="icon"
               danger
-              aria-label="Empty Recycle Bin"
-              title="Empty Recycle Bin"
+              disabled={inScope.length === 0}
+              aria-label={scopeName ? `Empty Recycle Bin for ${scopeName}` : "Empty Recycle Bin"}
+              title={scopeName
+                ? `Empty the Recycle Bin for ${scopeName} — other libraries are left alone`
+                : "Empty the whole Recycle Bin — every library"}
               onClick={() => { setActionError(""); setEmptyOpen(true); }}
             >
               <Trash2 size={18} aria-hidden="true" />
@@ -848,9 +880,9 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
       {restoreAllOpen && (
         <ConfirmDialog
           title={scopeName
-            ? `Restore all ${visible.length} item${visible.length === 1 ? "" : "s"} in “${scopeName}”?`
-            : `Restore all ${visible.length} item${visible.length === 1 ? "" : "s"}?`}
-          confirmLabel={`Restore ${visible.length} item${visible.length === 1 ? "" : "s"}`}
+            ? `Restore all ${inScope.length} item${inScope.length === 1 ? "" : "s"} in “${scopeName}”?`
+            : `Restore all ${inScope.length} item${inScope.length === 1 ? "" : "s"}?`}
+          confirmLabel={`Restore ${inScope.length} item${inScope.length === 1 ? "" : "s"}`}
           busyLabel="Restoring…"
           busy={restoringAll}
           error={actionError}
@@ -876,16 +908,43 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
 
       {emptyOpen && (
         <ConfirmDialog
-          title="Empty the Recycle Bin?"
-          confirmLabel="Empty Recycle Bin"
+          title={scopeName
+            ? `Empty the Recycle Bin for “${scopeName}”?`
+            : "Empty the whole Recycle Bin?"}
+          confirmLabel={scopeName ? "Empty this library" : "Empty Recycle Bin"}
           busyLabel="Emptying…"
           danger
+          rich
           busy={emptying}
           error={actionError}
+          // A count you can only supply by having read the line above it. Deliberately
+          // absent from the scoped case: friction everywhere is friction nowhere.
+          challenge={emptyNeedsChallenge
+            ? { value: String(inScope.length), label: <>Type <strong>{inScope.length}</strong> to confirm</> }
+            : undefined}
           onConfirm={confirmEmpty}
           onCancel={() => setEmptyOpen(false)}
         >
-          Every item in the bin will be permanently deleted, including all their files on disk. This cannot be undone.
+          <p>
+            <strong>{inScope.length} item{inScope.length === 1 ? "" : "s"}</strong> · {formatBytes(scopeBytes)} ·{" "}
+            {scopeFiles.toLocaleString()} file{scopeFiles === 1 ? "" : "s"} will be permanently deleted, including
+            their files on disk. This cannot be undone.
+          </p>
+          {scopeUnexpired > 0 && (
+            <p>
+              {scopeUnexpired === inScope.length
+                ? <>Every one of them is still inside its retention window — none was due to go yet.</>
+                : <><strong>{scopeUnexpired}</strong> of them {scopeUnexpired === 1 ? "is" : "are"} still inside
+                  the retention window {scopeUnexpired === 1 ? "it was" : "they were"} given, and would not have gone
+                  on {scopeUnexpired === 1 ? "its" : "their"} own.</>}
+            </p>
+          )}
+          <p>
+            {scopeName
+              ? <>Only <strong>{scopeName}</strong> is emptied. Deleted items in other libraries are left alone.</>
+              : <>This reaches every library, including any the page is not currently showing. To empty just one,
+                choose it in the library filter first.</>}
+          </p>
         </ConfirmDialog>
       )}
     </>

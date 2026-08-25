@@ -19,6 +19,17 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.25.1",
+    label: "Emptying the bin now has to be meant",
+    changes: [
+      "Fixed, and this one had teeth: narrowing the Recycle Bin to a single library and pressing Empty emptied the entire bin — every other library's deleted files went with it, and nothing on screen suggested they would. Empty now follows the library picker exactly as Restore all beside it always has, and the dialog says which of the two it is about to do.",
+      "Emptying the whole bin now asks you to type the number of items back before it will go ahead. It is the only action in the app that destroys many files at once with nothing left to restore from, so it is the only one that asks. Emptying a single library — bounded by a library you deliberately chose — still asks in the ordinary way.",
+      "Both dialogs now open by saying exactly what is about to be lost: how many items, how much disk, how many files, and how many of those were still inside the retention window they were given and would not have gone on their own. The old wording said only \"every item in the bin\", which reads the same whether the bin holds three or three thousand.",
+      "The counts in those dialogs are now the ones that will actually happen. The search box and the filters narrow the tiles, but Empty and Restore all work on the whole library you picked — so \"Restore all 3 items\" could quietly put back forty. Both now count what they reach.",
+      "The Empty button is switched off while there is nothing to empty, rather than opening a dialog about nothing."
+    ]
+  },
+  {
     version: "3.25.0",
     label: "The recycle bin stops emptying itself",
     changes: [
