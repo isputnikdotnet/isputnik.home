@@ -19,8 +19,6 @@ iSputnik.home is still evolving quickly. Some features are experimental, designs
 * [Technical reference](docs/architecture.md) — architecture, schema, and the
   design notes behind each module.
 
-![The home dashboard](docs/users/images/02-home.png)
-
 ## Current Progress
 
 The project has grown into a working family media library with three media types — audiobooks, ebooks, and a photo/video gallery — sharing one catalog: libraries, scanning, metadata, cover artwork, authors and narrators, series, categories, tags, collections, favorites, and search with an A–Z index run across all of them.
@@ -46,8 +44,6 @@ Development is ongoing, with active work focused on improving the user experienc
 
 ### Listening
 
-![The audiobook library](docs/users/images/30-audiobooks.png)
-
 * Built-in audiobook player with chapter navigation
 * Resume playback across devices
 * Listening progress tracking
@@ -57,8 +53,6 @@ Development is ongoing, with active work focused on improving the user experienc
 
 ### Reading
 
-![The ebook library](docs/users/images/31-ebooks.png)
-
 * Built-in ebook reader for EPUB and FB2, plus in-browser PDF viewing
 * Books that come in more than one format, grouped as one title
 * Editions — multiple releases of the same work under one entry
@@ -66,8 +60,6 @@ Development is ongoing, with active work focused on improving the user experienc
 * Send to e-reader, and OPDS feeds for reading apps
 
 ### Photos & Videos
-
-![The gallery timeline](docs/users/images/32-gallery.png)
 
 * Timeline and folder views, plus albums
 * EXIF metadata and video support
@@ -104,8 +96,6 @@ Development is ongoing, with active work focused on improving the user experienc
   emptied deliberately
 
 ### Family Tree
-
-![The family tree chart](docs/users/images/40-family-tree.png)
 
 * Relatives, relationships, life events, and photos
 * People from the gallery take their place on an interactive chart

@@ -3,8 +3,6 @@
 An audiobook library turns folders of audio files into books you can play, with
 chapters, and with your place kept for each one.
 
-![An audiobook library after scanning](images/30-audiobooks.png)
-
 ## How folders become books
 
 **One folder, one book.** This is the rule that matters when arranging files:
@@ -35,10 +33,9 @@ Supported formats: `.m4b`, `.m4a`, `.mp3`, `.flac`, `.ogg`, `.opus`, `.aac`,
 ## Where titles and authors come from
 
 The scanner reads the files' own tags first — title, author, narrator, series,
-year, cover art — and falls back to the folder name when tags are missing. In
-the screenshot above, one book took its author from the MP3 tags and the other
-fell back to its folder, which is exactly what you'd expect from files tagged to
-different standards.
+year, cover art — and falls back to the folder name when tags are missing, so a
+mixed library where some files are tagged and some aren't still comes out with
+every book named something sensible.
 
 Anything wrong is editable, and **your edits win**: a field you set by hand is
 marked as yours and won't be overwritten by later scans.

@@ -3,8 +3,6 @@
 An ebook library turns a folder of EPUB and PDF files into a searchable reading
 library, with an in-app reader that remembers where you stopped.
 
-![An ebook library after scanning](images/31-ebooks.png)
-
 ## How files become books
 
 **One file, one book.** Each EPUB or PDF becomes its own entry, and the scanner

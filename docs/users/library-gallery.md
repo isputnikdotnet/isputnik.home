@@ -3,8 +3,6 @@
 A gallery library turns a folder of photos and videos into a browsable timeline —
 closer to Google Photos than to a bookshelf.
 
-![A gallery library after scanning](images/32-gallery.png)
-
 ## How files become items
 
 **One photo, one item.** Unlike audiobooks (a folder is a book), every file
@@ -29,9 +27,6 @@ Along the top:
 | **People** | Faces grouped into people, once face recognition has run. |
 
 They're all views of the same photos — nothing is copied or moved between them.
-
-The screenshot above shows the timeline grouping by date, with a Memories tile
-on top, because the sample photos were deliberately dated across several months.
 
 ## How the grid looks
 
