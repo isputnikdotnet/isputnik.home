@@ -171,6 +171,15 @@ describe("slideshow presentation settings", () => {
     expect(getClipRenderItem(["GAL"], null)).toBeNull();
   });
 
+  it("plays a clip's own sound by default, and remembers turning it off", async () => {
+    const slideshow = getSlideshow(createSlideshow(creator, "Summer").id)!;
+    expect(slideshow).toMatchObject({ intro_sound: 1, outro_sound: 1 });
+    updateSlideshow(slideshow.id, { introSound: false });
+    expect(getSlideshow(slideshow.id)!).toMatchObject({ intro_sound: 0, outro_sound: 1 });
+    updateSlideshow(slideshow.id, { introSound: true, outroSound: false });
+    expect(getSlideshow(slideshow.id)!).toMatchObject({ intro_sound: 1, outro_sound: 0 });
+  });
+
   it("a deleted clip clears itself from the slideshow", async () => {
     const clip = (await ingestGalleryAsset("GAL", asset("intro.mp4", "2024-05-01T10:00:00Z"), false))!;
     const slideshow = createSlideshow(creator, "Summer");

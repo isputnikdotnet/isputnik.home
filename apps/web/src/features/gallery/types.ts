@@ -143,6 +143,11 @@ export interface SlideshowTitleSettings {
   closingSeconds: number;
   closingBackground: SlideshowTitleBackground;
   closingPhotoItemId: string | null;
+  // Whether each clip's own audio plays in the movie (the music pauses under it,
+  // resuming where it left off). On by default; a clip file with no audio stream
+  // keeps the music running regardless.
+  introSound: boolean;
+  outroSound: boolean;
 }
 
 // Everything the slideshow PATCH accepts. One type, so the editor, the hook and the

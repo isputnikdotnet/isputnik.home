@@ -574,6 +574,11 @@ CREATE TABLE IF NOT EXISTS gallery_slideshows (
   -- can't reach rather than failing.
   intro_item_id  TEXT REFERENCES library_items(id) ON DELETE SET NULL,
   outro_item_id  TEXT REFERENCES library_items(id) ON DELETE SET NULL,
+  -- A clip's own sound (per clip, on by default): the clip's audio plays and the
+  -- music pauses underneath it, resuming where it left off. A clip whose file has
+  -- no audio stream simply keeps the music running.
+  intro_sound    INTEGER NOT NULL DEFAULT 1,
+  outro_sound    INTEGER NOT NULL DEFAULT 1,
   -- The list-card / detail-header cover. NULL falls back to the first slide in
   -- presentation order that has one — same "explicit pick, else first" shape as
   -- gallery_albums.cover_item_id.

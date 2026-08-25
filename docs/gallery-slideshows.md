@@ -170,6 +170,23 @@ the slideshow to its previous state).
   never the movie. The detail response resolves each id to a summary
   (`introClip`/`outroClip`: title, thumb, length) against the viewer's access.
 
+  **A clip's own sound** (`intro_sound`/`outro_sound`, migration 46; per-clip
+  toggle, ON by default): a sounded clip contributes its audio and the music
+  **pauses** underneath it — silent while the clip plays, then resuming from
+  where it left off, not from where the timeline got to. The soundtrack is then
+  assembled in the filtergraph (`ClipSound`/`musicWindows`/`BuildOptions.clipSounds`):
+  each clip's audio is trimmed to its on-screen window, eased in/out (0.3 s/0.5 s,
+  so the 20 s cap never ends on a click), and delayed to its absolute position;
+  the music fills the gaps between clips; disjoint pieces are laid on one
+  timeline with `amix normalize=0`, and the closing fade applies to the whole
+  soundtrack. In the batched path the clips' audio comes from the **original
+  files** as extra audio-only inputs at the join (their video is already baked
+  into the intermediates), delayed by offsets computed from the node dwells —
+  valid because a node's on-screen start is the sum of the dwells before it,
+  with or without transitions. A clip whose file has **no audio stream**
+  (`probeHasAudio`) keeps the music running instead, and with no sounded clips
+  the audio path is byte-for-byte the pre-clip-sound straight map.
+
   The editor previews the card through `GET …/slideshows/:id/title-card.png`, which
   runs the SAME code the render does (`slideshowTitleCardPreview`) and only scales the
   result down. Choosing a background you cannot see is guesswork; this is a picture of

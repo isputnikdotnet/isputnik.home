@@ -257,25 +257,39 @@ export function SlideshowTitleCardModal({
           <div className="slideshow-title-field">
             <span className="slideshow-setting-label">{opening ? "Opening clip" : "Closing clip"}</span>
             {clip ? (
-              <div className="slideshow-clip-row">
-                <span className="slideshow-clip-thumb">
-                  {clip.coverUrl
-                    ? <img src={clip.coverUrl} alt="" loading="lazy" />
-                    : <Film size={18} aria-hidden="true" />}
-                </span>
-                <span className="slideshow-clip-name">
-                  {clip.title}
-                  {clipLength(clip.durationSeconds) && <small>{clipLength(clip.durationSeconds)}</small>}
-                </span>
-                <Button variant="text" disabled={saving} onClick={() => setClipPickerOpen(true)}>Change</Button>
-                <Button
-                  variant="text"
-                  disabled={saving}
-                  onClick={() => void commit(opening ? { introItemId: null } : { outroItemId: null })}
-                >
-                  Remove
-                </Button>
-              </div>
+              <>
+                <div className="slideshow-clip-row">
+                  <span className="slideshow-clip-thumb">
+                    {clip.coverUrl
+                      ? <img src={clip.coverUrl} alt="" loading="lazy" />
+                      : <Film size={18} aria-hidden="true" />}
+                  </span>
+                  <span className="slideshow-clip-name">
+                    {clip.title}
+                    {clipLength(clip.durationSeconds) && <small>{clipLength(clip.durationSeconds)}</small>}
+                  </span>
+                  <Button variant="text" disabled={saving} onClick={() => setClipPickerOpen(true)}>Change</Button>
+                  <Button
+                    variant="text"
+                    disabled={saving}
+                    onClick={() => void commit(opening ? { introItemId: null } : { outroItemId: null })}
+                  >
+                    Remove
+                  </Button>
+                </div>
+                <div className="slideshow-title-row slideshow-clip-sound">
+                  <ToggleSwitch
+                    checked={opening ? slideshow.introSound : slideshow.outroSound}
+                    disabled={saving}
+                    onChange={(next) => void commit(opening ? { introSound: next } : { outroSound: next })}
+                    ariaLabel="Use the clip’s own sound"
+                  />
+                  <span>
+                    Use the clip’s own sound
+                    <small>The music pauses while it plays, then picks up where it left off.</small>
+                  </span>
+                </div>
+              </>
             ) : (
               <div>
                 <Button variant="secondary" disabled={saving} onClick={() => setClipPickerOpen(true)}>
@@ -285,8 +299,8 @@ export function SlideshowTitleCardModal({
             )}
             <small className="muted">
               {opening
-                ? "A video that plays before everything else — up to 20 seconds of it, without its own sound."
-                : "A video that plays after the last photo, before the closing card — up to 20 seconds, without its own sound."}
+                ? "A video that plays before everything else — up to 20 seconds of it."
+                : "A video that plays after the last photo, before the closing card — up to 20 seconds of it."}
             </small>
           </div>
         </div>

@@ -118,6 +118,9 @@ const updateSchema = z.object({
   // intro clip is usually shot for the purpose rather than part of the show.
   introItemId: z.string().trim().min(1).max(64).nullable().optional(),
   outroItemId: z.string().trim().min(1).max(64).nullable().optional(),
+  // Whether each clip's own audio plays (music pausing under it). On by default.
+  introSound: z.boolean().optional(),
+  outroSound: z.boolean().optional(),
   coverItemId: z.string().trim().min(1).max(64).nullable().optional()
 });
 
@@ -138,7 +141,9 @@ function titleFields(slideshow: SlideshowRow) {
     closingLines: slideshow.closing_lines,
     closingSeconds: slideshow.closing_seconds,
     closingBackground: slideshow.closing_background,
-    closingPhotoItemId: slideshow.closing_photo_item_id
+    closingPhotoItemId: slideshow.closing_photo_item_id,
+    introSound: slideshow.intro_sound === 1,
+    outroSound: slideshow.outro_sound === 1
   };
 }
 

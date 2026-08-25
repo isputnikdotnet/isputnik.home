@@ -265,6 +265,45 @@ export async function slideshowClosingCardPreview(
   });
 }
 
+// ── A clip's own sound ───────────────────────────────────────────────────────
+//
+// An intro/outro clip is often chosen FOR its sound — a recorded greeting, a
+// toast — so a sounded clip contributes its audio to the movie, and the music
+// PAUSES underneath it: silent while the clip plays, resuming from where it left
+// off (not from where the timeline got to). Everything is arithmetic over the
+// same dwell list the video graph uses: a node's on-screen start is the sum of
+// the dwells before it, with or without transitions (the xfade overlap cancels).
+
+/** One clip's audio: the source file and its absolute window on the movie's timeline. */
+export interface ClipSound { file: string; start: number; duration: number }
+
+/**
+ * Where the music actually plays: the gaps between sounded-clip windows, each
+ * carrying the music offset it resumes from (`from`) — a paused song continues,
+ * it doesn't jump. Pure, exported for the tests. Windows shorter than 0.3s are
+ * dropped: a blink of music between clips is noise, not a resume.
+ */
+export function musicWindows(
+  clips: ClipSound[],
+  total: number
+): { at: number; len: number; from: number }[] {
+  const sorted = [...clips].sort((a, b) => a.start - b.start);
+  const windows: { at: number; len: number; from: number }[] = [];
+  let cursor = 0;
+  let consumed = 0;
+  for (const clip of sorted) {
+    const len = clip.start - cursor;
+    if (len >= 0.3) {
+      windows.push({ at: cursor, len, from: consumed });
+      consumed += len;
+    }
+    cursor = Math.max(cursor, clip.start + clip.duration);
+  }
+  const tail = total - cursor;
+  if (tail >= 0.3) windows.push({ at: cursor, len: tail, from: consumed });
+  return windows;
+}
+
 export interface BuildOptions {
   // The inputs are BATCH VIDEOS whose lengths already contain the transition
   // overlap (each was rendered with its own padding), so padding them again would
@@ -278,6 +317,13 @@ export interface BuildOptions {
   // of the fixed two-second tail. Only meaningful on a call that muxes music (the
   // single pass, or the batch JOIN; batch intermediates are video-only).
   closingDwell?: number;
+  // Sounded intro/outro clips (see ClipSound). Like closingDwell, only meaningful
+  // where audio is muxed: the clip files are added as extra AUDIO inputs there —
+  // which is what makes this work in the batched path, where the clips' video is
+  // already baked into intermediates but their sound comes from the originals.
+  // Every entry must have an audio stream (probeHasAudio) — a missing [n:a]
+  // fails the whole graph.
+  clipSounds?: ClipSound[];
 }
 
 export function buildFfmpegArgs(
@@ -321,6 +367,10 @@ export function buildFfmpegArgs(
     else args.push("-loop", "1", "-t", inputDur(seg).toFixed(3), "-i", seg.file);
   }
   if (musicPath) args.push("-stream_loop", "-1", "-i", musicPath);
+  // Sounded clips ride as EXTRA audio-only inputs after the music — their video
+  // is one of the segment inputs (single pass) or baked into a batch video (join).
+  const clipSounds = (options.clipSounds ?? []).filter((clip) => clip.duration > 0.2);
+  for (const clip of clipSounds) args.push("-i", clip.file);
 
   // Normalize every input to the same canvas (letterboxed), fixed fps + pixel format —
   // photos, video frames and the title card alike, so they transition cleanly.
@@ -362,21 +412,69 @@ export function buildFfmpegArgs(
 
   const total = totalDuration(dwells, useXfade, TRANSITION_SEC);
 
-  args.push("-filter_complex", filter, "-map", mapV);
-  if (musicPath) {
-    // With a closing card the music fades out UNDER it: the slides end at full
-    // volume, the credits play it down, the movie ends in silence. Capped at 8s —
-    // a 15s card doesn't need 15s of fade to feel finished. Without one, the
-    // 2-second tail every movie has always had, byte for byte.
-    const closing = options.closingDwell;
-    const fadeDur = closing && closing > 0 ? Math.min(closing, 8) : 2;
-    const fadeStart = Math.max(0, total - (closing && closing > 0 ? closing : 2));
-    args.push(
-      "-map", `${segs.length}:a`,
-      "-af", `afade=t=out:st=${fadeStart.toFixed(2)}:d=${fadeDur}`,
-      "-c:a", "aac", "-b:a", "160k", "-ac", "2", "-ar", "44100",
-      "-shortest"
-    );
+  // With a closing card the music fades out UNDER it: the slides end at full
+  // volume, the credits play it down, the movie ends in silence. Capped at 8s —
+  // a 15s card doesn't need 15s of fade to feel finished. Without one, the
+  // 2-second tail every movie has always had, byte for byte.
+  const closing = options.closingDwell;
+  const fadeDur = closing && closing > 0 ? Math.min(closing, 8) : 2;
+  const fadeStart = Math.max(0, total - (closing && closing > 0 ? closing : 2));
+
+  const audioCodec = ["-c:a", "aac", "-b:a", "160k", "-ac", "2", "-ar", "44100"];
+  if (clipSounds.length === 0) {
+    // No clip sound: the original path, untouched — music mapped straight with
+    // the tail fade, or no audio at all.
+    args.push("-filter_complex", filter, "-map", mapV);
+    if (musicPath) {
+      args.push(
+        "-map", `${segs.length}:a`,
+        "-af", `afade=t=out:st=${fadeStart.toFixed(2)}:d=${fadeDur}`,
+        ...audioCodec,
+        "-shortest"
+      );
+    }
+  } else {
+    // Clip sound: the soundtrack is assembled in the filtergraph. Each clip's
+    // audio is trimmed to its on-screen window, eased in and out (0.3s/0.5s, so a
+    // 20s cap never cuts mid-word with a click), and delayed to its absolute
+    // position; the music fills the gaps BETWEEN clips, resuming from where it
+    // paused. The pieces never overlap, so amix (normalize=0) just lays them on
+    // one timeline, and the closing fade applies to the whole soundtrack.
+    const chains: string[] = [];
+    const mixIn: string[] = [];
+    const firstClipInput = segs.length + (musicPath ? 1 : 0);
+    clipSounds.forEach((clip, k) => {
+      const outFade = Math.min(0.5, clip.duration / 2);
+      const delay = Math.round(clip.start * 1000);
+      chains.push(
+        `[${firstClipInput + k}:a]atrim=0:${clip.duration.toFixed(3)},asetpts=PTS-STARTPTS,` +
+        `afade=t=in:st=0:d=0.3,afade=t=out:st=${Math.max(0, clip.duration - outFade).toFixed(3)}:d=${outFade.toFixed(2)}` +
+        (delay > 0 ? `,adelay=${delay}:all=1` : "") +
+        `[clip${k}]`
+      );
+      mixIn.push(`[clip${k}]`);
+    });
+    if (musicPath) {
+      musicWindows(clipSounds, total).forEach((window, j) => {
+        const delay = Math.round(window.at * 1000);
+        chains.push(
+          `[${segs.length}:a]atrim=${window.from.toFixed(3)}:${(window.from + window.len).toFixed(3)},asetpts=PTS-STARTPTS` +
+          // A resumed window eases back in; the movie-opening window starts clean.
+          (window.at > 0 ? `,afade=t=in:st=0:d=0.3` : "") +
+          (delay > 0 ? `,adelay=${delay}:all=1` : "") +
+          `[music${j}]`
+        );
+        mixIn.push(`[music${j}]`);
+      });
+    }
+    const soundtrack = mixIn.length === 1
+      ? `${mixIn[0]}afade=t=out:st=${fadeStart.toFixed(2)}:d=${fadeDur}[aout]`
+      : `${mixIn.join("")}amix=inputs=${mixIn.length}:duration=longest:normalize=0,` +
+        `afade=t=out:st=${fadeStart.toFixed(2)}:d=${fadeDur}[aout]`;
+    args.push("-filter_complex", `${filter};${chains.join(";")};${soundtrack}`, "-map", mapV);
+    // No -shortest: every audio piece is trimmed to the timeline by construction,
+    // and the video stream is what bounds the movie.
+    args.push("-map", "[aout]", ...audioCodec);
   }
   args.push(
     "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", String(options.crf ?? 22), "-preset", "veryfast",
@@ -510,6 +608,26 @@ export async function probeDurationSeconds(file: string): Promise<number | null>
   });
 }
 
+// Whether a media file carries an audio stream at all. A sounded clip without one
+// keeps the music running instead — and must never reach the filtergraph, where a
+// reference to a missing [n:a] fails the whole render.
+export async function probeHasAudio(file: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    let child: ReturnType<typeof spawn>;
+    try {
+      child = spawn(FFPROBE_BIN, [
+        "-v", "error", "-select_streams", "a", "-show_entries", "stream=codec_type",
+        "-of", "default=nw=1:nk=1", file
+      ], { windowsHide: true });
+    } catch { resolve(false); return; }
+    let text = "";
+    child.stdout?.on("data", (chunk: Buffer) => { text += chunk.toString(); });
+    child.stderr?.on("data", () => { /* drained */ });
+    child.on("error", () => resolve(false));
+    child.on("close", () => resolve(text.includes("audio")));
+  });
+}
+
 interface BatchRenderPlan {
   nodes: Segment[];
   transition: SlideshowRow["transition"];
@@ -517,6 +635,8 @@ interface BatchRenderPlan {
   musicPath: string | null;
   /** See BuildOptions.closingDwell — applied at the JOIN, where the music is muxed. */
   closingDwell?: number;
+  /** See BuildOptions.clipSounds — likewise applied at the JOIN. */
+  clipSounds?: ClipSound[];
   outPath: string;
   tempPathFor: (index: number) => string;
   onProgress: (elapsedSec: number, totalSec: number) => void;
@@ -556,7 +676,7 @@ async function renderInBatches(plan: BatchRenderPlan): Promise<void> {
   if (plan.isCancelled()) throw new Error("Render cancelled.");
   const { args, total } = buildFfmpegArgs(
     joinSegments, plan.transition, plan.musicPath, plan.outPath, plan.transitionSec,
-    undefined, { prePadded: true, closingDwell: plan.closingDwell }
+    undefined, { prePadded: true, closingDwell: plan.closingDwell, clipSounds: plan.clipSounds }
   );
   const { ok, detail } = await runRender(args, total, (done) => report(done), plan.isCancelled);
   if (!ok) {
@@ -836,9 +956,31 @@ export async function renderSlideshow(
     ...(outroClip ? [outroClip] : []),
     ...(closingCard ? [closingCard] : [])
   ];
-  // The music fade anchors to the closing CARD — after the outro clip, which still
-  // plays under full music.
+  // The music fade anchors to the closing CARD — the outro clip before it carries
+  // its own sound (or full music, if its sound is off).
   const closingDwell = closingCard?.dwell;
+
+  // Sounded clips, as absolute windows on the movie's timeline: a node's on-screen
+  // start is the sum of the dwells before it (the xfade overlap cancels — see
+  // musicWindows). Only clips whose file actually HAS an audio stream join in; a
+  // silent file keeps the music running instead.
+  const clipSounds: ClipSound[] = [];
+  const startOfNode = (node: Segment): number => {
+    let sum = 0;
+    for (const n of nodes) {
+      if (n === node) return sum;
+      sum += n.dwell;
+    }
+    return sum;
+  };
+  for (const [clip, wanted] of [
+    [introClip, slideshow.intro_sound === 1],
+    [outroClip, slideshow.outro_sound === 1]
+  ] as const) {
+    if (clip && wanted && await probeHasAudio(clip.file)) {
+      clipSounds.push({ file: clip.file, start: startOfNode(clip), duration: clip.dwell });
+    }
+  }
 
   const encodeFailed = (detail: string): Error => new Error(
     // ffmpeg's own words, so the failure is readable without shell access to the
@@ -851,14 +993,14 @@ export async function renderSlideshow(
   try {
     if (nodes.length > BATCH_SIZE) {
       await renderInBatches({
-        nodes, transition, transitionSec: slideshow.transition_seconds, musicPath, closingDwell,
+        nodes, transition, transitionSec: slideshow.transition_seconds, musicPath, closingDwell, clipSounds,
         outPath: tmpPath, tempPathFor: (index) => `${finalPath}.batch-${scaleRun}-${index}.mp4`,
         onProgress, isCancelled, onTempFile: (file) => titleFiles.push(file), encodeFailed
       });
     } else {
       const { args, total } = buildFfmpegArgs(
         nodes, transition, musicPath, tmpPath, slideshow.transition_seconds,
-        undefined, { closingDwell }
+        undefined, { closingDwell, clipSounds }
       );
       const { ok, detail } = await runRender(args, total, onProgress, isCancelled);
       if (!ok) {

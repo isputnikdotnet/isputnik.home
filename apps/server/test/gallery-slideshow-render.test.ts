@@ -37,6 +37,7 @@ import {
   chunkSegments,
   titleCardSegment,
   titleBackgroundFor,
+  musicWindows,
   TITLE_CARD_SECONDS,
   RANDOM_XFADES,
   RENDER_JOB_TYPE,
@@ -283,6 +284,76 @@ describe("render filtergraph", () => {
   it("ignores closingDwell without music — there is nothing to fade", () => {
     const { args } = buildFfmpegArgs(segs([4, 4]), "crossfade", null, "/o.mp4", 2, undefined, { closingDwell: 5 });
     expect(args.join(" ")).not.toContain("afade");
+  });
+
+  // ── A clip's own sound ────────────────────────────────────────────────────
+  //
+  // A sounded intro/outro clip contributes its audio and the music PAUSES under
+  // it, resuming from where it left off. The soundtrack is then assembled in the
+  // filtergraph instead of the straight music map.
+
+  describe("clip sound", () => {
+    it("plans the music into the gaps between clips, resuming where it paused", () => {
+      // intro [0..16], outro [180..198] in a 205s movie:
+      const windows = musicWindows(
+        [{ file: "/i.mp4", start: 0, duration: 16 }, { file: "/o.mp4", start: 180, duration: 18 }],
+        205
+      );
+      expect(windows).toEqual([
+        { at: 16, len: 164, from: 0 },  // after the intro, from the song's top
+        { at: 198, len: 7, from: 164 }  // after the outro, resuming — not restarting
+      ]);
+      // No clips: one window, the whole movie.
+      expect(musicWindows([], 100)).toEqual([{ at: 0, len: 100, from: 0 }]);
+      // A blink of a gap is dropped, not resumed into.
+      expect(musicWindows([{ file: "/i.mp4", start: 0, duration: 99.9 }], 100)).toEqual([]);
+    });
+
+    it("assembles the soundtrack in the graph: clip audio delayed into place, music in the gaps", () => {
+      const { args } = buildFfmpegArgs(
+        segs([16, 4, 4]), "crossfade", "/bed.flac", "/o.mp4", 2, undefined,
+        { clipSounds: [{ file: "/intro.mp4", start: 0, duration: 16 }] }
+      );
+      const joined = args.join(" ");
+      // The clip rides as an extra input; its audio is trimmed to its window and
+      // eased out so a cap never ends on a click.
+      expect(joined).toContain("-i /intro.mp4");
+      expect(joined).toContain("atrim=0:16.000");
+      expect(joined).toContain("afade=t=out:st=15.500:d=0.50");
+      // Music enters after the clip (delayed to 16s), from the song's top.
+      expect(joined).toContain("atrim=0.000:10.000");
+      expect(joined).toContain("adelay=16000:all=1");
+      // One soundtrack out, no -shortest (the pieces are trimmed by construction).
+      expect(joined).toContain("amix=inputs=2");
+      expect(joined).toContain("-map [aout]");
+      expect(joined).not.toContain("-shortest");
+    });
+
+    it("keeps the closing fade on the assembled soundtrack", () => {
+      const { args, total } = buildFfmpegArgs(
+        segs([16, 4, 5]), "crossfade", "/bed.flac", "/o.mp4", 2, undefined,
+        { closingDwell: 5, clipSounds: [{ file: "/intro.mp4", start: 0, duration: 16 }] }
+      );
+      expect(args.join(" ")).toContain(`afade=t=out:st=${(total - 5).toFixed(2)}:d=5[aout]`);
+    });
+
+    it("carries clip sound alone when there is no music", () => {
+      const { args } = buildFfmpegArgs(
+        segs([16, 4, 4]), "crossfade", null, "/o.mp4", 2, undefined,
+        { clipSounds: [{ file: "/intro.mp4", start: 0, duration: 16 }] }
+      );
+      const joined = args.join(" ");
+      expect(joined).toContain("-i /intro.mp4");
+      expect(joined).toContain("-map [aout]");
+      expect(joined).not.toContain("amix"); // one piece needs no mixer
+    });
+
+    it("changes nothing when no clip carries sound", () => {
+      const plain = buildFfmpegArgs(segs([4, 4]), "crossfade", "/bed.flac", "/o.mp4").args.join(" ");
+      const empty = buildFfmpegArgs(segs([4, 4]), "crossfade", "/bed.flac", "/o.mp4", 2, undefined, { clipSounds: [] }).args.join(" ");
+      expect(empty).toBe(plain);
+      expect(plain).toContain("-shortest"); // the original straight-map path
+    });
   });
 
   it("clamps a photo's on-screen dwell to 1..30s", () => {
@@ -730,11 +801,11 @@ describe('schema baseline (3.0.0)', () => {
     // kind/label columns, the remote flag on a device-link request, the
     // login-attempt kind column, the reputation country/ISP columns, the person
     // website/location columns, dropping the retired empty-recycle-bin job row,
-    // the title-card lettering columns, the closing-card columns, and the
-    // intro/outro clip columns — none of which a fresh file needs, since
-    // schema.sql builds it complete and seeds no such job; those migrations are
-    // only for databases that predate them.
-    expect(scratch.pragma('user_version', { simple: true })).toBe(45);
+    // the title-card lettering columns, the closing-card columns, the
+    // intro/outro clip columns, and the clip-sound flags — none of which a fresh
+    // file needs, since schema.sql builds it complete and seeds no such job;
+    // those migrations are only for databases that predate them.
+    expect(scratch.pragma('user_version', { simple: true })).toBe(46);
 
     const userColumns = (scratch.pragma('table_info(users)') as { name: string }[]).map((c) => c.name);
     expect(userColumns).toEqual(
@@ -810,7 +881,7 @@ describe('schema baseline (3.0.0)', () => {
     migrate(current);
     current.pragma('user_version = 31'); // every 2.x migration applied
     expect(() => migrate(current)).not.toThrow();
-    expect(current.pragma('user_version', { simple: true })).toBe(45);
+    expect(current.pragma('user_version', { simple: true })).toBe(46);
     current.close();
   });
 
