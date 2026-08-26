@@ -26,7 +26,7 @@ import { AddToAlbumModal } from "./AddToAlbumModal";
 import { AddToSlideshowModal } from "./AddToSlideshowModal";
 import { GalleryDateModal } from "./GalleryDateModal";
 import { GalleryLocationModal } from "./GalleryLocationModal";
-import { GalleryFolderPicker } from "./GalleryFolderPicker";
+import { PhotoPicker } from "./PhotoPicker";
 import { GallerySlideshowEditor } from "./GallerySlideshowEditor";
 import { ShareSetModal } from "../share/ShareSetModal";
 import { ShareAlbumModal } from "./ShareAlbumModal";
@@ -1866,7 +1866,6 @@ export function GalleryPage({
                     <GallerySlideshowEditor
                       slideshow={selectedSlideshow}
                       assets={slideshowAssets}
-                      libraries={libraries}
                       total={slideshowTotal}
                       loading={loading}
                       canEdit={selectedSlideshow.canEdit}
@@ -2475,10 +2474,9 @@ export function GalleryPage({
       )}
 
       {browseOpen && selectedSlideshow && (
-        <GalleryFolderPicker
+        <PhotoPicker
           title={`Add photos to “${selectedSlideshow.name}”`}
           endpoint={`/api/library/gallery/slideshows/${selectedSlideshow.id}/items`}
-          libraries={libraries}
           existingIds={slideshowAssets.map((asset) => asset.id)}
           onClose={() => setBrowseOpen(false)}
           onAdded={(added) => {
@@ -2491,10 +2489,9 @@ export function GalleryPage({
       )}
 
       {albumBrowseOpen && selectedAlbum && (
-        <GalleryFolderPicker
+        <PhotoPicker
           title={`Add photos to “${selectedAlbum.name}”`}
           endpoint={`/api/library/gallery/albums/${selectedAlbum.id}/items`}
-          libraries={libraries}
           existingIds={albumAssets.map((asset) => asset.id)}
           onClose={() => setAlbumBrowseOpen(false)}
           onAdded={(added) => {

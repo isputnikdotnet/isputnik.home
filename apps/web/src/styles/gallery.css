@@ -1579,6 +1579,169 @@
   margin-top: 14px;
 }
 
+/* ── The standard photo picker (features/gallery/PhotoPicker) ───────────────
+   Folders / People / Tags / All photos over one persistent selection, with a
+   thumbnail tray in the footer. Builds on the slideshow-browse styles above. */
+.photo-picker-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 16px 10px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--field);
+  color: var(--muted);
+}
+
+.photo-picker-search input {
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  outline: none;
+}
+
+.photo-picker-modal .modal-tabs { margin-bottom: 10px; }
+
+/* Person / tag chips: ONE row that scrolls sideways, so the photo grid below
+   stays in view however many people or tags the library has. Explicit heights,
+   because the row lives inside the modal's grid + scroll containers, where an
+   auto height collapsed (the row shrank to its padding). */
+.photo-picker-chips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 60px;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.photo-picker-chips > * { flex: 0 0 auto; }
+
+.photo-picker-chip { height: 50px; }
+.photo-picker-chip.photo-picker-chip-tag { height: 36px; }
+
+.photo-picker-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 12px 6px 6px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.photo-picker-chip:hover { background: var(--hover); }
+
+.photo-picker-chip.is-active {
+  border-color: color-mix(in srgb, var(--mint) 55%, var(--line));
+  background: color-mix(in srgb, var(--mint) 14%, var(--surface));
+}
+
+.photo-picker-chip-avatar {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--surface-raised);
+  color: var(--muted);
+}
+
+.photo-picker-chip-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+.photo-picker-chip-copy { display: grid; line-height: 1.25; }
+.photo-picker-chip-copy strong { font-size: 0.88rem; font-weight: 650; }
+.photo-picker-chip-copy small { color: var(--muted); font-size: 0.75rem; }
+
+.photo-picker-chip-tag {
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  color: var(--ink);
+  font-size: 0.86rem;
+}
+
+.photo-picker-chip-tag svg { color: var(--muted); }
+
+.photo-picker-more {
+  display: flex;
+  justify-content: center;
+  padding: 14px 0 4px;
+}
+
+/* Footer: the count + removable thumbnails of what's gathered so far. */
+.photo-picker-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 0 16px 14px;
+  margin-top: 14px;
+}
+
+.photo-picker-tray {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.photo-picker-tray-count { color: var(--muted); font-size: 0.9rem; margin-right: 4px; }
+
+.photo-picker-tray-thumb {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  overflow: visible;
+  background: var(--surface-raised);
+  color: var(--muted);
+}
+
+.photo-picker-tray-thumb img {
+  width: 100%;
+  height: 100%;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.photo-picker-tray-remove {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.photo-picker-tray-remove:hover { background: var(--hover); }
+
+.photo-picker-tray-overflow { color: var(--muted); font-size: 0.82rem; font-weight: 650; }
+
 /* Presentation settings above the reorderable grid (transition + timing). */
 .slideshow-settings {
   display: flex;

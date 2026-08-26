@@ -4,7 +4,7 @@ import { Modal } from "../../shared/Modal";
 import { Button } from "../../shared/Button";
 import { ToggleSwitch } from "../../shared/ToggleSwitch";
 import { MessageBox } from "../../shared/MessageBox";
-import { GalleryFolderPicker } from "./GalleryFolderPicker";
+import { PhotoPicker } from "./PhotoPicker";
 import type {
   GalleryAsset, GalleryLibrary, GallerySlideshowDetail, SlideshowPatch, SlideshowCardFont, SlideshowCardSize,
   SlideshowSubtitleMode, SlideshowTitleBackground
@@ -63,14 +63,11 @@ type CardTab = "opening" | "closing";
 export function SlideshowTitleCardModal({
   slideshow,
   assets,
-  libraries,
   onPatch,
   onClose
 }: {
   slideshow: GallerySlideshowDetail;
   assets: GalleryAsset[];
-  /** For the clip picker's library scope dropdown. */
-  libraries: GalleryLibrary[];
   onPatch: (fields: SlideshowPatch) => Promise<void> | void;
   onClose: () => void;
 }) {
@@ -501,9 +498,8 @@ export function SlideshowTitleCardModal({
       </div>
 
       {clipPickerOpen && (
-        <GalleryFolderPicker
+        <PhotoPicker
           title={opening ? "Choose an opening clip" : "Choose a closing clip"}
-          libraries={libraries}
           pick="video"
           onPick={(asset) => {
             setClipPickerOpen(false);

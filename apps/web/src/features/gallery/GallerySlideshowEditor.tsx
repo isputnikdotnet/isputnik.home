@@ -36,7 +36,6 @@ const TRANSITIONS: { value: SlideshowTransition; label: string }[] = [
 export function GallerySlideshowEditor({
   slideshow,
   assets,
-  libraries,
   total,
   loading,
   canEdit,
@@ -51,8 +50,6 @@ export function GallerySlideshowEditor({
 }: {
   slideshow: GallerySlideshowDetail;
   assets: GalleryAsset[];
-  /** For the Title & credits dialog's clip picker. */
-  libraries: GalleryLibrary[];
   total: number;
   loading: boolean;
   canEdit: boolean;
@@ -234,7 +231,6 @@ export function GallerySlideshowEditor({
         <SlideshowTitleCardModal
           slideshow={slideshow}
           assets={ordered}
-          libraries={libraries}
           onPatch={onPatch}
           onClose={() => setTitleOpen(false)}
         />

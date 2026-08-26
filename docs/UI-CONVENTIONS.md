@@ -43,6 +43,17 @@ tokens instead of hard-coding a border.
 <Button variant="icon" danger title="Delete backup" onClick={...}><Trash2 size={15} /></Button>
 ```
 
+### PhotoPicker — `features/gallery/PhotoPicker.tsx`
+
+Choosing gallery photos or videos from anywhere in the app goes through
+`<PhotoPicker>` — one panel modal with Folders / People / Tags / All photos
+tabs, per-tab search, a library-scope dropdown, and one selection that persists
+across all of them, gathered in a removable-thumbnail tray. Multi mode posts
+`{ itemIds }` to the `endpoint` you pass (albums, slideshows); `pick="video"`
+is the single-choice video mode (slideshow intro/outro clips). Never build a
+new photo-browsing dialog; extend this one. (The family tree's
+`FamilyPhotoPicker` predates it and is slated to fold in.)
+
 ### SelectMenu — `shared/SelectMenu.tsx`
 
 Use `<SelectMenu>` for dropdown option sets that should look like app controls
