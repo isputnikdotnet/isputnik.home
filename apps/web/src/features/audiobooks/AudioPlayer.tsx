@@ -870,7 +870,12 @@ export function AudioPlayer({
               <Rewind size={15} />
               <span>30</span>
             </button>
-            <button className="player-btn player-btn-primary" onClick={togglePlay} aria-label={playing ? "Pause" : "Play"}>
+            <button
+              className="player-btn player-btn-primary"
+              onClick={togglePlay}
+              aria-label={playing ? "Pause" : "Play"}
+              data-label={playing ? "Pause" : "Play"}
+            >
               {playing ? <Pause size={21} /> : <Play size={21} />}
             </button>
             <button className="player-btn player-btn-circle" onClick={() => skip(30)} aria-label="Skip forward 30 seconds">
@@ -901,6 +906,7 @@ export function AudioPlayer({
                 value={muted ? 0 : volume}
                 onChange={handleVolumeChange}
                 aria-label="Volume"
+                style={{ ["--volume-fill" as string]: `${(muted ? 0 : volume) * 100}%` }}
               />
               <Volume2 size={16} className="player-vol-max" aria-hidden="true" />
             </div>

@@ -18,6 +18,7 @@ import {
   Network,
   Quote,
   Settings,
+  Star,
   Tag,
   UsersRound,
   UserRound
@@ -371,6 +372,14 @@ export function DashboardShell({
   return (
     <main className={`home-dashboard-shell app-dashboard-shell${isControlPanel ? " home-control-shell" : ""}${isUserArea ? " home-user-shell" : ""}${mobileTabBar ? " home-mobile-tabbar-shell" : ""}`}>
       <aside className="home-sidebar" aria-label={isControlPanel ? "Control panel navigation" : isUserArea ? "User navigation" : "App navigation"}>
+        <a className="home-sidebar-brand" href="/" onClick={(event) => followRoute(event, "/")} aria-label="iSputnik home">
+          <Star className="home-sidebar-brand-star" size={29} fill="currentColor" aria-hidden="true" />
+          <span className="home-sidebar-brand-copy">
+            <strong>iSputnik</strong>
+            <small>ВАШИ ИСТОРИИ — НА ОРБИТЕ</small>
+          </span>
+        </a>
+
         {hasSectionNav && sideNav ? (
           <div className="home-control-nav-wrap">{sideNav}</div>
         ) : (

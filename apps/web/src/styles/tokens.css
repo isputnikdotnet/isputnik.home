@@ -1,24 +1,24 @@
 :root,
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --ink: #f4ead8;
-  --muted: #b8b5a1;
-  --line: rgba(232, 201, 142, 0.16);
-  --canvas: #031116;
-  --surface: #0d252c;
-  --surface-raised: #153640;
-  --field: #071b22;
-  --hover: rgba(191, 151, 92, 0.13);
-  --active: rgba(151, 184, 170, 0.2);
-  --mint: #9bbcaf;
-  --gold: #e8c98e;
-  --amber: #b85a36;
-  --rose: #d58a7d;
-  --blue: #8eb4bf;
-  --success: #90bd99;
-  --warning: #e8c98e;
-  --danger: #d58a7d;
-  --shadow: rgba(0, 7, 9, 0.42);
+  --ink: #f2d9ad;
+  --muted: #b78f5d;
+  --line: rgba(202, 151, 86, 0.28);
+  --canvas: #020b0e;
+  --surface: #07191d;
+  --surface-raised: #0d2528;
+  --field: #041115;
+  --hover: rgba(181, 77, 43, 0.15);
+  --active: rgba(202, 73, 40, 0.22);
+  --mint: #d14b2d;
+  --gold: #c89d62;
+  --amber: #d07c3b;
+  --rose: #e07059;
+  --blue: #83a8a7;
+  --success: #99b982;
+  --warning: #d6ad6f;
+  --danger: #e07059;
+  --shadow: rgba(0, 4, 6, 0.58);
 
   /* Shared icon-only controls. Normal borders are intentionally quiet; tune here. */
   --icon-control-border: transparent;

@@ -19,6 +19,16 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.29.0",
+    label: "Night theme with a space program",
+    changes: [
+      "iSputnik Night is a different place now. The old soft teal made way for a retro cosmos: a near-black sky behind everything, lettering in warm cream and brass, and one deep signal red for whatever matters most on screen. Text sits in a typewriter face, the whole window wears a thin brass frame with a faint star chart behind it, and the sidebar opens with the ship's plate itself — a red star and «ВАШИ ИСТОРИИ — НА ОРБИТЕ».",
+      "The Home page reads like a mission console. Feed cards became riveted panels with an inner frame, progress bars glow launch-red, resume buttons turned into brass instrument knobs, and the little red star marks each card's eyebrow. Navigation rows light up with a red indicator edge when you're on them.",
+      "The audiobook player got the full instrument-panel treatment: the big red launch button now says what pressing it will do (Play or Pause, right on the button), the seek bar became a ticked gauge with a mint thumb, volume and speed live in their own console cluster, and the chapters list opens as a framed overlay panel instead of swallowing the screen.",
+      "Only Night changed — Light, Plain and Expanse are exactly as they were, and the theme picker's swatches show the new palette honestly, so you know what you're choosing before you choose it."
+    ]
+  },
+  {
     version: "3.28.2",
     label: "One photo picker, everywhere",
     changes: [

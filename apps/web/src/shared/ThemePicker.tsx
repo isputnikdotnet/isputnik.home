@@ -18,7 +18,7 @@ const THEMES: { value: Theme; label: string; palette?: Palette }[] = [
   { value: "plain-light", label: "Plain Light", palette: { canvas: "#f3f6fb", surface: "#ffffff", ink: "#1f2937", mint: "#2563eb", muted: "#64748b" } },
   { value: "plain-dark", label: "Plain Dark", palette: { canvas: "#111827", surface: "#1f2937", ink: "#f2f5f8", mint: "#60a5fa", muted: "#a8b3c0" } },
   { value: "light", label: "iSputnik Light", palette: { canvas: "#eef1e7", surface: "#fff9ee", ink: "#17292b", mint: "#3f716a", muted: "#68736b" } },
-  { value: "dark", label: "iSputnik Night", palette: { canvas: "#031116", surface: "#0d252c", ink: "#f4ead8", mint: "#9bbcaf", muted: "#b8b5a1" } }
+  { value: "dark", label: "iSputnik Night", palette: { canvas: "#020b0e", surface: "#07191d", ink: "#f2d9ad", mint: "#d14b2d", muted: "#b78f5d" } }
 ];
 
 function Preview({ palette }: { palette?: Palette }) {
