@@ -19,6 +19,18 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.30.0",
+    label: "Minimalist by default",
+    changes: [
+      "There's a new theme, and it greets everyone at the door. Minimalist is platinum grey and black ink in the spirit of a certain beige computer — near-white windows on a warm grey desktop, a monochrome accent ramp, the primary button in classic black-with-white-type, and no scene artwork anywhere. A fresh install now starts on it: the sign-in screen, the first admin account, and every invited member wear Minimalist until someone chooses otherwise. Existing accounts keep whatever they picked.",
+      "The Expanse theme is retired, but its colours live on: Plain Dark now wears the whole Expanse palette — cyan accent, copper highlights, deep blue-black canvas — without the station backdrops, which is what Plain always promised. Accounts that had Expanse (and an install that had it as the default) move to Plain Dark automatically, so they land on the same colours they chose.",
+      "The sign-in screen got a proper welcome. The big title now introduces the house — \"Your personal hub for stories, knowledge, and imagination\" — the panel carries a small service emblem, and phones finally see the hero instead of a bare form. The sign-in button is the mission control piece now, stars and all. The QR code is gone: \"Link a TV or display\" already does that job properly, and now sits behind a clean «or» divider.",
+      "The big title also stopped wrapping mid-word. \"isputnik\" used to break into \"isputni-k\" on tablets and smaller desktop windows; the title now scales with the room the panel leaves it, at every width.",
+      "The Night theme's pop-out player flies past a new backdrop — a rocket climbing through the dark — and the Light theme's player shares the same artwork in daylight tones, so the two read as the same instrument panel on different shifts.",
+      "Spring cleaning behind the walls: dead styles from the long-retired System tab, a never-rendered metric tile, and a handful of colour variables nothing referenced anymore are gone."
+    ]
+  },
+  {
     version: "3.29.1",
     label: "The sky holds still",
     changes: [

@@ -62,7 +62,7 @@ type Theme = PublicUser["theme"];
 const DEFAULT_THEME_KEY = "isputnik-default-theme";
 
 function cachedDefaultTheme(): Theme {
-  try { return (localStorage.getItem(DEFAULT_THEME_KEY) as Theme | null) ?? "dark"; } catch { return "dark"; }
+  try { return (localStorage.getItem(DEFAULT_THEME_KEY) as Theme | null) ?? "minimalist"; } catch { return "minimalist"; }
 }
 
 interface SessionState {
@@ -109,7 +109,7 @@ async function checkSession(): Promise<SessionCheck> {
       passkeysAvailable?: boolean;
       deviceLinkAvailable?: boolean;
     };
-    const defaultTheme = setup.defaultTheme ?? "dark";
+    const defaultTheme = setup.defaultTheme ?? "minimalist";
     const passkeysAvailable = Boolean(setup.passkeysAvailable);
     const deviceLinkAvailable = Boolean(setup.deviceLinkAvailable);
     if (setup.requiresSetup) return { reachable: true, requiresSetup: true, user: null, defaultTheme, passkeysAvailable, deviceLinkAvailable };

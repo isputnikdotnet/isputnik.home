@@ -832,10 +832,11 @@ describe('schema baseline (3.0.0)', () => {
     // login-attempt kind column, the reputation country/ISP columns, the person
     // website/location columns, dropping the retired empty-recycle-bin job row,
     // the title-card lettering columns, the closing-card columns, the
-    // intro/outro clip columns, and the clip-sound flags — none of which a fresh
-    // file needs, since schema.sql builds it complete and seeds no such job;
-    // those migrations are only for databases that predate them.
-    expect(scratch.pragma('user_version', { simple: true })).toBe(46);
+    // intro/outro clip columns, the clip-sound flags, and the retired-Expanse
+    // theme remap — none of which a fresh file needs, since schema.sql builds
+    // it complete and seeds no such job; those migrations are only for
+    // databases that predate them.
+    expect(scratch.pragma('user_version', { simple: true })).toBe(47);
 
     const userColumns = (scratch.pragma('table_info(users)') as { name: string }[]).map((c) => c.name);
     expect(userColumns).toEqual(
@@ -911,7 +912,7 @@ describe('schema baseline (3.0.0)', () => {
     migrate(current);
     current.pragma('user_version = 31'); // every 2.x migration applied
     expect(() => migrate(current)).not.toThrow();
-    expect(current.pragma('user_version', { simple: true })).toBe(46);
+    expect(current.pragma('user_version', { simple: true })).toBe(47);
     current.close();
   });
 

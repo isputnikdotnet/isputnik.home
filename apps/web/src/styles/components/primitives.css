@@ -231,6 +231,18 @@ a.icon-button svg {
   background: #6d28d9;
 }
 
+/* Minimalist: the classic default button — black with white type. The base
+   rule's dark ink on var(--gold) would be dark-on-dark-grey here. */
+:root[data-theme="minimalist"] .primary-button:not(.danger) {
+  color: #ffffff;
+  background: #1d1d1f;
+}
+
+:root[data-theme="minimalist"] .primary-button:not(.danger):hover:not(:disabled),
+:root[data-theme="minimalist"] .primary-button:not(.danger):focus-visible {
+  background: #3a3a3e;
+}
+
 /* Mint-accented variant of the primary button, for actions that should read as
    distinct from the default gold call-to-action (e.g. bulk "Add to series"). */
 

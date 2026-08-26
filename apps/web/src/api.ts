@@ -3,7 +3,7 @@ export interface PublicUser {
   email: string;
   displayName: string;
   role: "admin" | "member";
-  theme: "system" | "light" | "dark" | "plain-light" | "plain-dark" | "expanse";
+  theme: "system" | "light" | "dark" | "plain-light" | "plain-dark" | "minimalist";
   protectedFromDelete: boolean;
   isActive: boolean;
   createdAt: string;

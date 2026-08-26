@@ -28,28 +28,6 @@
   --icon-control-bg-hover: var(--hover);
 }
 
-:root[data-theme="expanse"] {
-  color-scheme: dark;
-  --ink: #edf2f4;
-  --muted: #9fa9ad;
-  --line: rgba(164, 183, 188, 0.16);
-  --canvas: #04080c;
-  --surface: #0c141a;
-  --surface-raised: #141f27;
-  --field: #080d12;
-  --hover: rgba(221, 143, 66, 0.13);
-  --active: rgba(69, 190, 210, 0.18);
-  --mint: #45bed2;
-  --gold: #df9a55;
-  --amber: #c76638;
-  --rose: #d36c5f;
-  --blue: #7aa7c8;
-  --success: #7ecf90;
-  --warning: #df9a55;
-  --danger: #d36c5f;
-  --shadow: rgba(0, 0, 0, 0.48);
-}
-
 :root[data-theme="light"] {
   color-scheme: light;
   --ink: #17292b;
@@ -72,26 +50,28 @@
   --shadow: rgba(31, 35, 24, 0.13);
 }
 
+/* The palette the retired Expanse theme wore — deep blue-black with a cyan
+   accent — carried on here, minus Expanse's scene backgrounds. */
 :root[data-theme="plain-dark"] {
   color-scheme: dark;
-  --ink: #f2f5f8;
-  --muted: #a8b3c0;
-  --line: rgba(226, 232, 240, 0.14);
-  --canvas: #111827;
-  --surface: #1f2937;
-  --surface-raised: #273449;
-  --field: #151e2e;
-  --hover: rgba(96, 165, 250, 0.12);
-  --active: rgba(96, 165, 250, 0.2);
-  --mint: #60a5fa;
-  --gold: #c4d3e8;
-  --amber: #94a3b8;
-  --rose: #f87171;
-  --blue: #38bdf8;
-  --success: #34d399;
-  --warning: #fbbf24;
-  --danger: #f87171;
-  --shadow: rgba(0, 0, 0, 0.3);
+  --ink: #edf2f4;
+  --muted: #9fa9ad;
+  --line: rgba(164, 183, 188, 0.16);
+  --canvas: #04080c;
+  --surface: #0c141a;
+  --surface-raised: #141f27;
+  --field: #080d12;
+  --hover: rgba(221, 143, 66, 0.13);
+  --active: rgba(69, 190, 210, 0.18);
+  --mint: #45bed2;
+  --gold: #df9a55;
+  --amber: #c76638;
+  --rose: #d36c5f;
+  --blue: #7aa7c8;
+  --success: #7ecf90;
+  --warning: #df9a55;
+  --danger: #d36c5f;
+  --shadow: rgba(0, 0, 0, 0.48);
 }
 
 :root[data-theme="plain-light"] {
@@ -114,4 +94,30 @@
   --warning: #d97706;
   --danger: #dc2626;
   --shadow: rgba(31, 41, 55, 0.11);
+}
+
+/* Minimalist — classic-Macintosh-inspired platinum: warm grey desktop,
+   near-white windows, black ink, and accents kept to a monochrome ramp. The
+   status colors stay recognisably green/amber/red, just muted to sit in the
+   grey world. */
+:root[data-theme="minimalist"] {
+  color-scheme: light;
+  --ink: #1d1d1f;
+  --muted: #58585c;
+  --line: rgba(29, 29, 31, 0.3);
+  --canvas: #e2e2df;
+  --surface: #f2f2ef;
+  --surface-raised: #ffffff;
+  --field: #ffffff;
+  --hover: #e4e4e0;
+  --active: #d4d4cf;
+  --mint: #1d1d1f;
+  --gold: #3f3f42;
+  --amber: #6e6259;
+  --rose: #8a5a52;
+  --blue: #4a5a68;
+  --success: #3e6b4f;
+  --warning: #8a6d3b;
+  --danger: #a13c33;
+  --shadow: rgba(0, 0, 0, 0.22);
 }

@@ -14,10 +14,10 @@
   gap: 8px;
   width: 100%;
   padding: 11px 16px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--auth-frame-soft, var(--line));
   border-radius: 8px;
   background: transparent;
-  color: inherit;
+  color: var(--auth-panel-ink, inherit);
   font: inherit;
   font-weight: 600;
   cursor: pointer;
@@ -25,8 +25,9 @@
 }
 
 .passkey-button:hover:not(:disabled) {
-  border-color: var(--accent, var(--line));
-  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--auth-brass, var(--accent, var(--line)));
+  background: transparent;
+  color: var(--auth-brass-bright, inherit);
 }
 
 .passkey-button:disabled {
@@ -39,8 +40,9 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  color: var(--muted);
+  color: var(--auth-panel-muted, var(--muted));
   font-size: 0.8rem;
+  text-transform: uppercase;
 }
 
 .login-divider::before,
@@ -48,39 +50,46 @@
   content: "";
   flex: 1;
   height: 1px;
-  background: var(--line);
+  background: var(--auth-frame-soft, var(--line));
 }
 
-.login-qr {
+.login-device-divider {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 8px;
-  margin-top: 18px;
-  padding-top: 18px;
-  border-top: 1px solid var(--line);
-  text-align: center;
+  gap: 12px;
+  width: 100%;
+  color: var(--auth-panel-muted, var(--muted));
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
 }
 
-.login-qr-code {
-  padding: 10px;
-  background: #ffffff;
-  border-radius: 10px;
-  line-height: 0;
-}
-
-.login-qr span {
-  font-size: 0.8rem;
-  color: var(--muted);
+.login-device-divider::before,
+.login-device-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--auth-frame-soft, var(--line));
 }
 
 .auth-version {
-  margin: 14px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0 0;
   text-align: center;
   font-size: 0.75rem;
-  letter-spacing: 0.02em;
-  color: var(--muted);
+  letter-spacing: 0;
+  color: var(--auth-panel-muted, var(--muted));
   opacity: 0.75;
+}
+
+.auth-version::before,
+.auth-version::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--auth-frame-soft, var(--line));
 }
 
 :root,
@@ -91,34 +100,32 @@
   --auth-bg-mid: #0d252c;
   --auth-bg-end: #1c3b3f;
   --auth-bottom-fade: rgba(3, 17, 22, 0.9);
-  --auth-scene-image: url("/Assets/brand/isputnik-login-orbit-backdrop.svg");
-  --auth-scene-opacity: 0.46;
-  --auth-scene-filter: none;
-  --auth-scene-shade: linear-gradient(90deg, rgba(15, 34, 56, 0.1), rgba(15, 34, 56, 0.58) 62%, rgba(15, 34, 56, 0.2)),
-    linear-gradient(180deg, rgba(15, 34, 56, 0.05), rgba(15, 34, 56, 0.38));
-  --auth-title: #e8c98e;
+  --auth-scene-image: url("../assets/backgrounds/retro-space-sputnik-scene-v1.webp");
+  --auth-scene-opacity: 1;
+  --auth-scene-filter: saturate(0.86) contrast(1.08) brightness(0.72);
+  --auth-scene-position: center center;
+  --auth-scene-size: cover;
+  --auth-scene-transform: scaleX(-1) scale(1.04);
+  --auth-scene-shade:
+    linear-gradient(90deg, rgba(2, 11, 14, 0.18), rgba(2, 11, 14, 0.34) 52%, rgba(2, 11, 14, 0.78) 100%),
+    linear-gradient(180deg, rgba(2, 11, 14, 0.05), rgba(2, 11, 14, 0.32) 58%, rgba(2, 11, 14, 0.74));
+  --auth-mobile-scene-shade:
+    linear-gradient(180deg, rgba(2, 11, 14, 0.22), rgba(2, 11, 14, 0.6) 42%, rgba(2, 11, 14, 0.86)),
+    linear-gradient(90deg, rgba(2, 11, 14, 0.28), rgba(2, 11, 14, 0.46));
+  --auth-title: #d6ad6f;
   --auth-title-shadow: rgba(5, 11, 21, 0.42);
   --auth-orbit-a: rgba(248, 232, 176, 0.34);
   --auth-orbit-b: rgba(155, 188, 175, 0.24);
   --auth-orbit-c: rgba(255, 255, 255, 0.15);
-}
-
-:root[data-theme="expanse"] {
-  --auth-glow-primary: rgba(199, 102, 56, 0.3);
-  --auth-glow-secondary: rgba(69, 190, 210, 0.22);
-  --auth-bg-start: #04080c;
-  --auth-bg-mid: #0c141a;
-  --auth-bg-end: #1a252d;
-  --auth-bottom-fade: rgba(4, 8, 12, 0.92);
-  --auth-scene-opacity: 0.38;
-  --auth-scene-filter: saturate(0.78) hue-rotate(148deg) contrast(1.08) brightness(0.72);
-  --auth-scene-shade: linear-gradient(90deg, rgba(4, 8, 12, 0.08), rgba(4, 8, 12, 0.64) 62%, rgba(4, 8, 12, 0.22)),
-    linear-gradient(180deg, rgba(4, 8, 12, 0.03), rgba(4, 8, 12, 0.46));
-  --auth-title: #df9a55;
-  --auth-title-shadow: rgba(0, 0, 0, 0.55);
-  --auth-orbit-a: rgba(223, 154, 85, 0.34);
-  --auth-orbit-b: rgba(69, 190, 210, 0.22);
-  --auth-orbit-c: rgba(237, 242, 244, 0.12);
+  --auth-brass: #b99163;
+  --auth-brass-bright: #e4bf82;
+  --auth-red: #d14b2d;
+  --auth-frame: rgba(191, 145, 92, 0.54);
+  --auth-frame-soft: rgba(191, 145, 92, 0.26);
+  --auth-panel-bg: rgba(3, 13, 16, 0.72);
+  --auth-panel-bg-strong: rgba(5, 18, 22, 0.92);
+  --auth-panel-ink: #e6c99b;
+  --auth-panel-muted: #b99163;
 }
 
 :root[data-theme="light"] {
@@ -128,34 +135,67 @@
   --auth-bg-mid: #eef1e7;
   --auth-bg-end: #e5eadf;
   --auth-bottom-fade: rgba(238, 241, 231, 0.86);
-  --auth-scene-image: url("/Assets/brand/isputnik-login-orbit-backdrop-light.svg");
-  --auth-scene-opacity: 0.48;
-  --auth-scene-filter: saturate(1.02) brightness(1.02);
-  --auth-scene-shade: linear-gradient(90deg, rgba(238, 241, 231, 0.05), rgba(238, 241, 231, 0.42) 62%, rgba(238, 241, 231, 0.16)),
-    linear-gradient(180deg, rgba(238, 241, 231, 0.02), rgba(238, 241, 231, 0.28));
+  --auth-scene-image: url("../assets/backgrounds/retro-space-sputnik-scene-v1.webp");
+  --auth-scene-opacity: 1;
+  --auth-scene-filter: sepia(0.18) saturate(0.68) contrast(0.8) brightness(1.34);
+  --auth-scene-position: center center;
+  --auth-scene-size: cover;
+  --auth-scene-transform: scaleX(-1) scale(1.04);
+  --auth-scene-shade:
+    linear-gradient(90deg, rgba(238, 241, 231, 0.34), rgba(238, 241, 231, 0.7) 54%, rgba(238, 241, 231, 0.94) 100%),
+    linear-gradient(180deg, rgba(238, 241, 231, 0.08), rgba(238, 241, 231, 0.62));
+  --auth-mobile-scene-shade:
+    linear-gradient(180deg, rgba(238, 241, 231, 0.08), rgba(238, 241, 231, 0.58) 42%, rgba(238, 241, 231, 0.9)),
+    linear-gradient(90deg, rgba(238, 241, 231, 0.2), rgba(238, 241, 231, 0.48));
   --auth-title: #17292b;
   --auth-title-shadow: rgba(255, 255, 255, 0.56);
   --auth-orbit-a: rgba(184, 135, 70, 0.34);
   --auth-orbit-b: rgba(63, 113, 106, 0.2);
   --auth-orbit-c: rgba(23, 41, 43, 0.13);
+  --auth-brass: #b88746;
+  --auth-brass-bright: #8c612d;
+  --auth-red: #a85635;
+  --auth-frame: rgba(184, 135, 70, 0.36);
+  --auth-frame-soft: rgba(184, 135, 70, 0.18);
+  --auth-panel-bg: rgba(255, 249, 238, 0.88);
+  --auth-panel-bg-strong: rgba(255, 253, 247, 0.94);
+  --auth-panel-ink: #17292b;
+  --auth-panel-muted: #68736b;
 }
 
+/* Wears the retired Expanse theme's palette — cyan and copper on blue-black —
+   but keeps Plain Dark's restraint: the scene stays a faint wash, not artwork. */
 :root[data-theme="plain-dark"] {
-  --auth-glow-primary: rgba(96, 165, 250, 0.18);
-  --auth-glow-secondary: rgba(148, 163, 184, 0.18);
-  --auth-bg-start: #111827;
-  --auth-bg-mid: #182235;
-  --auth-bg-end: #233044;
-  --auth-bottom-fade: rgba(17, 24, 39, 0.9);
+  --auth-glow-primary: rgba(199, 102, 56, 0.3);
+  --auth-glow-secondary: rgba(69, 190, 210, 0.22);
+  --auth-bg-start: #04080c;
+  --auth-bg-mid: #0c141a;
+  --auth-bg-end: #1a252d;
+  --auth-bottom-fade: rgba(4, 8, 12, 0.92);
   --auth-scene-opacity: 0.22;
-  --auth-scene-filter: grayscale(0.75) saturate(0.55) hue-rotate(170deg);
-  --auth-scene-shade: linear-gradient(90deg, rgba(17, 24, 39, 0.08), rgba(17, 24, 39, 0.66) 62%, rgba(17, 24, 39, 0.18)),
-    linear-gradient(180deg, rgba(17, 24, 39, 0.04), rgba(17, 24, 39, 0.44));
-  --auth-title: #e2e8f0;
-  --auth-title-shadow: rgba(0, 0, 0, 0.42);
-  --auth-orbit-a: rgba(196, 211, 232, 0.24);
-  --auth-orbit-b: rgba(96, 165, 250, 0.22);
-  --auth-orbit-c: rgba(226, 232, 240, 0.12);
+  --auth-scene-filter: saturate(0.76) hue-rotate(148deg) contrast(1.08) brightness(0.66);
+  --auth-scene-position: center center;
+  --auth-scene-size: cover;
+  --auth-scene-transform: scaleX(-1) scale(1.04);
+  --auth-scene-shade: linear-gradient(90deg, rgba(4, 8, 12, 0.08), rgba(4, 8, 12, 0.66) 62%, rgba(4, 8, 12, 0.18)),
+    linear-gradient(180deg, rgba(4, 8, 12, 0.04), rgba(4, 8, 12, 0.44));
+  --auth-mobile-scene-shade:
+    linear-gradient(180deg, rgba(4, 8, 12, 0.18), rgba(4, 8, 12, 0.66) 42%, rgba(4, 8, 12, 0.9)),
+    linear-gradient(90deg, rgba(4, 8, 12, 0.24), rgba(4, 8, 12, 0.5));
+  --auth-title: #df9a55;
+  --auth-title-shadow: rgba(0, 0, 0, 0.55);
+  --auth-orbit-a: rgba(223, 154, 85, 0.34);
+  --auth-orbit-b: rgba(69, 190, 210, 0.22);
+  --auth-orbit-c: rgba(237, 242, 244, 0.12);
+  --auth-brass: #b98358;
+  --auth-brass-bright: #df9a55;
+  --auth-red: #c76638;
+  --auth-frame: rgba(199, 102, 56, 0.5);
+  --auth-frame-soft: rgba(199, 102, 56, 0.24);
+  --auth-panel-bg: rgba(4, 8, 12, 0.76);
+  --auth-panel-bg-strong: rgba(8, 14, 18, 0.94);
+  --auth-panel-ink: #e7c09a;
+  --auth-panel-muted: #b99576;
 }
 
 :root[data-theme="plain-light"] {
@@ -168,13 +208,64 @@
   --auth-scene-image: url("/Assets/brand/isputnik-login-orbit-backdrop-light.svg");
   --auth-scene-opacity: 0.3;
   --auth-scene-filter: grayscale(0.82) saturate(0.42) hue-rotate(174deg) brightness(1.18);
+  --auth-scene-position: 10% 50%;
+  --auth-scene-size: min(1040px, 72vw) auto;
+  --auth-scene-transform: none;
   --auth-scene-shade: linear-gradient(90deg, rgba(243, 246, 251, 0.1), rgba(243, 246, 251, 0.54) 62%, rgba(243, 246, 251, 0.22)),
     linear-gradient(180deg, rgba(243, 246, 251, 0.04), rgba(243, 246, 251, 0.38));
+  --auth-mobile-scene-shade:
+    linear-gradient(180deg, rgba(243, 246, 251, 0.14), rgba(243, 246, 251, 0.64) 42%, rgba(243, 246, 251, 0.92)),
+    linear-gradient(90deg, rgba(243, 246, 251, 0.24), rgba(243, 246, 251, 0.54));
   --auth-title: #1f2937;
   --auth-title-shadow: rgba(255, 255, 255, 0.72);
   --auth-orbit-a: rgba(71, 85, 105, 0.2);
   --auth-orbit-b: rgba(37, 99, 235, 0.18);
   --auth-orbit-c: rgba(31, 41, 55, 0.1);
+  --auth-brass: #475569;
+  --auth-brass-bright: #1f2937;
+  --auth-red: #2563eb;
+  --auth-frame: rgba(71, 85, 105, 0.24);
+  --auth-frame-soft: rgba(71, 85, 105, 0.12);
+  --auth-panel-bg: rgba(255, 255, 255, 0.88);
+  --auth-panel-bg-strong: rgba(248, 250, 252, 0.95);
+  --auth-panel-ink: #1f2937;
+  --auth-panel-muted: #64748b;
+}
+
+/* Minimalist: flat platinum grey, black ink, no scene artwork at all — the
+   sign-in screen as a classic system dialog. */
+:root[data-theme="minimalist"] {
+  --auth-glow-primary: rgba(29, 29, 31, 0.06);
+  --auth-glow-secondary: rgba(29, 29, 31, 0.05);
+  --auth-bg-start: #ececea;
+  --auth-bg-mid: #e2e2df;
+  --auth-bg-end: #d8d8d4;
+  --auth-bottom-fade: rgba(226, 226, 223, 0.88);
+  --auth-scene-image: none;
+  --auth-scene-opacity: 0;
+  --auth-scene-filter: none;
+  --auth-scene-position: center center;
+  --auth-scene-size: cover;
+  --auth-scene-transform: none;
+  --auth-scene-shade: linear-gradient(90deg, rgba(226, 226, 223, 0.1), rgba(226, 226, 223, 0.4) 62%, rgba(226, 226, 223, 0.16)),
+    linear-gradient(180deg, rgba(226, 226, 223, 0.05), rgba(226, 226, 223, 0.3));
+  --auth-mobile-scene-shade:
+    linear-gradient(180deg, rgba(226, 226, 223, 0.14), rgba(226, 226, 223, 0.5) 42%, rgba(226, 226, 223, 0.8)),
+    linear-gradient(90deg, rgba(226, 226, 223, 0.2), rgba(226, 226, 223, 0.4));
+  --auth-title: #1d1d1f;
+  --auth-title-shadow: rgba(255, 255, 255, 0.6);
+  --auth-orbit-a: rgba(29, 29, 31, 0.26);
+  --auth-orbit-b: rgba(29, 29, 31, 0.16);
+  --auth-orbit-c: rgba(29, 29, 31, 0.1);
+  --auth-brass: #58585c;
+  --auth-brass-bright: #1d1d1f;
+  --auth-red: #1d1d1f;
+  --auth-frame: rgba(29, 29, 31, 0.4);
+  --auth-frame-soft: rgba(29, 29, 31, 0.16);
+  --auth-panel-bg: rgba(255, 255, 255, 0.92);
+  --auth-panel-bg-strong: rgba(255, 255, 255, 0.97);
+  --auth-panel-ink: #1d1d1f;
+  --auth-panel-muted: #58585c;
 }
 
 /* The holding screen for a signed-in user (AppLoading). Deliberately the plain
@@ -192,16 +283,18 @@
 .app-shell {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(320px, 1fr) minmax(360px, 500px);
+  grid-template-columns: minmax(340px, 1fr) minmax(340px, 480px);
   align-items: center;
-  gap: clamp(40px, 7vw, 100px);
+  gap: clamp(36px, 6vw, 110px);
   min-height: 100vh;
-  padding: clamp(28px, 6vw, 76px);
-  overflow: hidden;
+  min-height: 100dvh;
+  padding: clamp(22px, 4vh, 42px) clamp(24px, 6vw, 88px);
+  overflow-x: hidden;
+  overflow-y: hidden;
   isolation: isolate;
   background:
-    radial-gradient(circle at 78% 20%, var(--auth-glow-primary), transparent 29%),
-    radial-gradient(circle at 18% 74%, var(--auth-glow-secondary), transparent 31%),
+    radial-gradient(circle at 78% 20%, var(--auth-glow-primary), transparent 25%),
+    radial-gradient(circle at 18% 76%, var(--auth-glow-secondary), transparent 32%),
     linear-gradient(145deg, var(--auth-bg-start) 0%, var(--auth-bg-mid) 48%, var(--auth-bg-end) 100%);
 }
 
@@ -223,14 +316,16 @@
 
 .auth-scene::before {
   position: absolute;
-  inset: 0;
+  inset: -1%;
   content: "";
   background-image: var(--auth-scene-image);
-  background-position: 10% 50%;
+  background-position: var(--auth-scene-position);
   background-repeat: no-repeat;
-  background-size: min(1040px, 72vw) auto;
+  background-size: var(--auth-scene-size);
   filter: var(--auth-scene-filter);
   opacity: var(--auth-scene-opacity);
+  transform: var(--auth-scene-transform);
+  transform-origin: center;
 }
 
 .auth-scene::after {
@@ -243,31 +338,83 @@
 .auth-hero {
   position: relative;
   z-index: 1;
-  justify-self: end;
-  width: min(100%, 650px);
+  justify-self: center;
+  width: min(100%, 720px);
+  min-width: 0;
+  padding-top: 2vh;
+  text-align: center;
 }
 
 .auth-hero .eyebrow {
-  margin: 0 0 14px;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  max-width: 100%;
+  margin: 0 0 18px;
+  color: var(--auth-red);
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.5);
+}
+
+.auth-hero .eyebrow::before,
+.auth-hero .eyebrow::after {
+  content: "";
+  width: clamp(32px, 5vw, 72px);
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--auth-brass));
+  opacity: 0.75;
+}
+
+.auth-hero .eyebrow::after {
+  background: linear-gradient(90deg, var(--auth-brass), transparent);
 }
 
 .auth-hero h1 {
   margin: 0;
-  color: var(--auth-title);
-  font-size: clamp(4.6rem, 10vw, 8.4rem);
-  line-height: 0.9;
+  color: transparent;
+  background:
+    linear-gradient(180deg, #f0d5a1 0%, var(--auth-title) 44%, #8b6338 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  /* The hero column is what's left after the panel's 480px and the viewport-
+     scaled gap/padding, so the title tracks the viewport the same way:
+     20vw - 117px ≈ (hero width) / 4.1, the measured width of "isputnik" in
+     ems. A fixed size wraps mid-word between ~1050 and ~1300px. */
+  font-size: clamp(4rem, calc(20vw - 117px), 8.8rem);
+  font-weight: 900;
+  line-height: 0.92;
   text-shadow: 0 18px 60px var(--auth-title-shadow);
+}
+
+/* Minimalist stays monochrome: the shared gradient's gold ends would put brass
+   back into a theme defined by not having any. */
+:root[data-theme="minimalist"] .auth-hero h1 {
+  background:
+    linear-gradient(180deg, #6e6e72 0%, var(--auth-title) 44%, #000000 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+.auth-hero-copy {
+  width: min(100%, 560px);
+  margin: clamp(22px, 3vw, 34px) auto 0;
+  color: var(--auth-panel-ink);
+  font-size: 1.12rem;
+  line-height: 1.55;
+  text-shadow: 0 2px 20px rgba(0, 0, 0, 0.64);
 }
 
 .auth-orbit {
   position: absolute;
-  left: 38%;
-  top: 50%;
-  width: min(78vw, 980px);
+  left: 33%;
+  top: 46%;
+  width: min(76vw, 980px);
   aspect-ratio: 2.6 / 1;
   border: 1px solid var(--auth-orbit-a);
   border-radius: 50%;
   transform: translate(-50%, -48%) rotate(-18deg);
+  opacity: 0.64;
 }
 
 .auth-orbit-b {
@@ -290,19 +437,19 @@
 }
 
 .auth-node-a {
-  top: 25%;
-  right: 40%;
+  top: 17%;
+  right: 52%;
   width: 16px;
   height: 16px;
 }
 
 .auth-node-b {
   left: 13%;
-  bottom: 23%;
+  bottom: 35%;
   width: 10px;
   height: 10px;
-  background: var(--mint);
-  box-shadow: 0 0 26px color-mix(in srgb, var(--mint) 76%, transparent);
+  background: var(--auth-red);
+  box-shadow: 0 0 26px color-mix(in srgb, var(--auth-red) 76%, transparent);
 }
 
 .auth-node-c {
@@ -317,28 +464,68 @@
 .auth-panel {
   position: relative;
   z-index: 2;
-  width: min(100%, 500px);
+  width: min(100%, 480px);
+  min-width: 0;
   justify-self: start;
   transform: none;
-  padding: 28px;
-  border: 1px solid var(--line);
+  padding: clamp(22px, 2.4vw, 28px);
+  border: 1px solid var(--auth-frame);
   border-radius: 8px;
-  background: color-mix(in srgb, var(--surface) 93%, transparent);
-  box-shadow: 0 24px 70px var(--shadow);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--auth-panel-bg-strong) 90%, transparent), var(--auth-panel-bg)),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.025) 0 1px, transparent 1px 5px);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 226, 174, 0.1),
+    0 24px 70px var(--shadow);
   backdrop-filter: blur(18px);
 }
 
+.auth-panel::before,
+.auth-panel::after {
+  position: absolute;
+  content: "";
+  pointer-events: none;
+}
+
+.auth-panel::before {
+  inset: 8px;
+  border: 1px solid var(--auth-frame-soft);
+  border-radius: 6px;
+}
+
+.auth-panel::after {
+  inset: 13px;
+  border-radius: 4px;
+  background:
+    linear-gradient(135deg, var(--auth-brass) 0 1px, transparent 1px) left top / 50px 50px no-repeat,
+    linear-gradient(225deg, var(--auth-brass) 0 1px, transparent 1px) right top / 50px 50px no-repeat,
+    linear-gradient(45deg, var(--auth-brass) 0 1px, transparent 1px) left bottom / 50px 50px no-repeat,
+    linear-gradient(315deg, var(--auth-brass) 0 1px, transparent 1px) right bottom / 50px 50px no-repeat;
+  opacity: 0.55;
+}
+
+.auth-panel > * {
+  position: relative;
+  z-index: 1;
+}
+
 .brand-row {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
   min-width: 0;
+  padding: 4px 4px 18px;
 }
 
 .brand-row img {
-  width: 42px;
-  height: 42px;
+  width: 48px;
+  height: 48px;
+  padding: 6px;
+  border: 1px solid var(--auth-frame-soft);
   border-radius: 8px;
+  background: color-mix(in srgb, var(--auth-panel-bg-strong) 72%, transparent);
+  box-shadow: inset 0 0 0 1px rgba(255, 226, 174, 0.08);
 }
 
 .brand-row div {
@@ -347,18 +534,50 @@
 }
 
 .brand-row span {
-  color: var(--muted);
+  color: var(--auth-panel-muted);
+}
+
+.brand-row strong {
+  color: var(--auth-brass-bright);
+  font-size: 1.15rem;
+  line-height: 1.12;
+}
+
+.auth-panel-emblem {
+  position: relative;
+  flex: 0 0 auto;
+  width: 72px;
+  height: 28px;
+  margin-left: auto;
+  background:
+    linear-gradient(var(--auth-red), var(--auth-red)) left 4px top 9px / 23px 2px no-repeat,
+    linear-gradient(var(--auth-red), var(--auth-red)) left 12px top 15px / 17px 2px no-repeat,
+    linear-gradient(var(--auth-red), var(--auth-red)) right 4px top 9px / 23px 2px no-repeat,
+    linear-gradient(var(--auth-red), var(--auth-red)) right 12px top 15px / 17px 2px no-repeat;
+  opacity: 0.88;
+}
+
+.auth-panel-emblem::after {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 20px;
+  height: 20px;
+  content: "";
+  background: var(--auth-red);
+  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 56%, 79% 91%, 50% 69%, 21% 91%, 32% 56%, 2% 35%, 39% 35%);
+  transform: translate(-50%, -50%);
 }
 
 .stack {
   display: grid;
-  gap: 14px;
-  margin-top: 34px;
+  gap: 11px;
+  margin-top: 24px;
 }
 
 .eyebrow {
   margin: 0;
-  color: var(--mint);
+  color: var(--auth-red, var(--mint));
   font-size: 0.78rem;
   font-weight: 800;
   letter-spacing: 0;
@@ -366,7 +585,247 @@
 }
 
 .auth-panel h1 {
-  font-size: clamp(1.65rem, 4vw, 2.25rem);
+  position: relative;
+  margin-top: 4px;
+  color: var(--auth-brass-bright);
+  font-size: 2.75rem;
+  line-height: 0.95;
+  text-shadow: 0 10px 28px rgba(0, 0, 0, 0.46);
+}
+
+.auth-panel h1::after {
+  display: inline-block;
+  width: clamp(36px, 5vw, 56px);
+  height: 1px;
+  margin-left: 12px;
+  vertical-align: middle;
+  content: "";
+  background: linear-gradient(90deg, var(--auth-brass), transparent);
+  opacity: 0.72;
+}
+
+.auth-panel .stack > p:not(.eyebrow),
+.auth-panel .status {
+  margin: 0;
+  color: var(--auth-panel-muted);
+}
+
+.auth-panel .field {
+  gap: 5px;
+}
+
+.auth-panel .field > span:first-child {
+  color: var(--auth-panel-muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.auth-panel .field input,
+.auth-panel .field textarea,
+.auth-panel .invite-box input {
+  min-height: 48px;
+  border-color: var(--auth-frame-soft);
+  color: var(--auth-panel-ink);
+  background: color-mix(in srgb, var(--auth-panel-bg-strong) 68%, transparent);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 226, 174, 0.05),
+    0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+
+.auth-panel .field input:focus,
+.auth-panel .field textarea:focus,
+.auth-panel .invite-box input:focus {
+  border-color: var(--auth-brass);
+  outline: 3px solid color-mix(in srgb, var(--auth-brass) 22%, transparent);
+}
+
+.auth-panel .field-reveal {
+  color: var(--auth-brass);
+}
+
+.auth-panel .field-reveal:hover {
+  color: var(--auth-brass-bright);
+  background: transparent;
+}
+
+.auth-panel .stack > .primary-button {
+  position: relative;
+  width: 100%;
+  min-height: 52px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--auth-brass) 78%, #1a1007);
+  border-radius: 6px;
+  color: #160e06;
+  background:
+    linear-gradient(90deg, rgba(38, 23, 9, 0.18), transparent 14% 86%, rgba(38, 23, 9, 0.18)),
+    linear-gradient(180deg, #e2c48d, #bf955b 52%, #80552d);
+  box-shadow:
+    inset 0 0 0 3px rgba(69, 43, 18, 0.24),
+    inset 0 1px 0 rgba(255, 241, 203, 0.48),
+    0 10px 26px rgba(0, 0, 0, 0.34);
+  font-weight: 900;
+}
+
+.auth-panel .stack > .primary-button::before,
+.auth-panel .stack > .primary-button::after {
+  position: absolute;
+  top: 50%;
+  width: 15px;
+  height: 15px;
+  content: "";
+  background: #5b3719;
+  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 56%, 79% 91%, 50% 69%, 21% 91%, 32% 56%, 2% 35%, 39% 35%);
+  transform: translateY(-50%);
+}
+
+.auth-panel .stack > .primary-button::before {
+  left: 23px;
+}
+
+.auth-panel .stack > .primary-button::after {
+  right: 23px;
+}
+
+.auth-panel .stack > .primary-button:hover:not(:disabled),
+.auth-panel .stack > .primary-button:focus-visible {
+  background:
+    linear-gradient(90deg, rgba(38, 23, 9, 0.18), transparent 14% 86%, rgba(38, 23, 9, 0.18)),
+    linear-gradient(180deg, #f0d39a, #cda266 52%, #8d6135);
+}
+
+/* Minimalist keeps the stars but not the brass: a flat black button (from the
+   theme's primary-button override) with white stars and no gilded rim. */
+:root[data-theme="minimalist"] .auth-panel .stack > .primary-button {
+  border-color: #1d1d1f;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.22);
+}
+
+:root[data-theme="minimalist"] .auth-panel .stack > .primary-button::before,
+:root[data-theme="minimalist"] .auth-panel .stack > .primary-button::after {
+  background: #ffffff;
+}
+
+.auth-panel .text-button {
+  color: var(--auth-red);
+}
+
+.auth-panel .text-button:hover:not(:disabled),
+.auth-panel .text-button:focus-visible {
+  color: var(--auth-brass-bright);
+  background: transparent;
+}
+
+@media (max-width: 740px) {
+  .auth-scene::before {
+    background-position: 43% center;
+  }
+
+  .auth-scene::after {
+    background: var(--auth-mobile-scene-shade);
+  }
+
+  .auth-hero .eyebrow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    max-width: calc(100vw - 40px);
+    margin-bottom: 10px;
+    font-size: 0.66rem;
+    white-space: normal;
+  }
+
+  .auth-hero .eyebrow::before,
+  .auth-hero .eyebrow::after {
+    width: clamp(24px, 9vw, 54px);
+  }
+
+  .auth-hero h1 {
+    font-size: 4.1rem;
+  }
+
+  .auth-hero-copy {
+    max-width: calc(100vw - 40px);
+    margin-top: 14px;
+    font-size: 0.95rem;
+    line-height: 1.4;
+  }
+
+  .auth-hero,
+  .auth-panel {
+    justify-self: center;
+    max-width: calc(100vw - 40px);
+  }
+
+  .auth-panel h1 {
+    font-size: 2.35rem;
+  }
+}
+
+@media (max-width: 520px) {
+  .auth-hero .eyebrow::before,
+  .auth-hero .eyebrow::after {
+    display: none;
+  }
+
+  .auth-hero h1 {
+    font-size: 3.15rem;
+  }
+
+  .auth-panel h1 {
+    font-size: 2.15rem;
+  }
+
+  .auth-hero-copy {
+    padding-inline: 8px;
+  }
+
+  .brand-row {
+    gap: 10px;
+    padding-bottom: 18px;
+  }
+
+  .brand-row img {
+    width: 44px;
+    height: 44px;
+  }
+
+  .brand-row strong {
+    font-size: 1rem;
+  }
+
+  .auth-panel-emblem {
+    display: none;
+  }
+
+  .auth-panel .stack > .primary-button::before {
+    left: 18px;
+  }
+
+  .auth-panel .stack > .primary-button::after {
+    right: 18px;
+  }
+
+}
+
+@media (max-height: 740px) and (min-width: 741px) {
+  .auth-panel {
+    padding: 20px;
+  }
+
+  .brand-row {
+    padding-bottom: 16px;
+  }
+
+  .stack {
+    gap: 10px;
+    margin-top: 22px;
+  }
+
+  .auth-hero-copy {
+    margin-top: 18px;
+    font-size: 1rem;
+  }
+
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -396,9 +855,8 @@
 
 /* ── Link a device ──────────────────────────────────────────────────
    The one screen in this app read from a sofa rather than at a desk, so it does
-   not reuse .auth-panel (500px of card, sized for a keyboard). Type scales with
-   the viewport: on a 1080p television the code lands around 5rem, on a phone
-   checking the same URL it stays readable. */
+   not reuse .auth-panel (500px of card, sized for a keyboard). Type steps down at
+   the portrait breakpoint so the code stays readable without fluid font sizing. */
 
 .device-link-page {
   position: relative;
@@ -445,7 +903,7 @@
 
 .device-link-head h1 {
   margin: 2px 0 0;
-  font-size: clamp(1.5rem, 2.6vw, 2.2rem);
+  font-size: 2rem;
 }
 
 .device-link-grid {
@@ -469,14 +927,14 @@
 
 .device-link-lead {
   margin: 0;
-  font-size: clamp(1.15rem, 2vw, 1.7rem);
+  font-size: 1.45rem;
   font-weight: 600;
 }
 
 .device-link-note,
 .device-link-or {
   margin: 6px 0 0;
-  font-size: clamp(0.85rem, 1.1vw, 1.05rem);
+  font-size: 0.95rem;
   color: var(--muted);
 }
 
@@ -486,27 +944,26 @@
 
 .device-link-url {
   margin: 4px 0 0;
-  font-size: clamp(1rem, 1.5vw, 1.35rem);
+  font-size: 1.15rem;
   font-weight: 600;
   word-break: break-all;
 }
 
 /* The largest thing on the screen, and the only thing anyone has to copy by
    hand. Monospace so O/0 and I/1 stay distinguishable even though the alphabet
-   already excludes them, and wide tracking so a phone camera and a pair of eyes
-   both cope at four metres. */
+   already excludes them, while the large size keeps it readable at a distance. */
 .device-link-code {
   margin: 8px 0 0;
   font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-  font-size: clamp(2.4rem, 6vw, 5rem);
+  font-size: 4.4rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0;
   line-height: 1.05;
 }
 
 .device-link-expiry {
   margin: clamp(14px, 2vw, 22px) 0 0;
-  font-size: clamp(0.85rem, 1.1vw, 1.05rem);
+  font-size: 0.95rem;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
@@ -521,10 +978,26 @@
 /* Portrait tablets, phones, and the narrow half of a split screen: the QR moves
    above the words rather than shrinking beside them. */
 @media (max-width: 760px) {
+  .device-link-head h1 {
+    font-size: 1.6rem;
+  }
+
   .device-link-grid {
     grid-template-columns: 1fr;
     justify-items: center;
     text-align: center;
+  }
+
+  .device-link-lead {
+    font-size: 1.18rem;
+  }
+
+  .device-link-url {
+    font-size: 1rem;
+  }
+
+  .device-link-code {
+    font-size: 2.8rem;
   }
 
   .device-link-actions {
@@ -532,10 +1005,17 @@
   }
 }
 
+@media (max-width: 430px) {
+  .device-link-code {
+    font-size: 2.35rem;
+  }
+}
+
 /* The way out of the password form for a device that can't fill it in. */
 .login-link-device {
-  display: flex;
-  justify-content: center;
+  display: grid;
+  justify-items: center;
+  gap: 10px;
   margin-top: 4px;
 }
 
@@ -543,6 +1023,14 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
+  color: var(--auth-red);
+  font-weight: 800;
+}
+
+.login-link-device button:hover:not(:disabled),
+.login-link-device button:focus-visible {
+  color: var(--auth-brass-bright);
+  background: transparent;
 }
 
 /* ── Authorizing a device (the phone's half) ───────────────────────── */
@@ -592,7 +1080,7 @@
 .device-confirm-match strong {
   font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   font-size: 1.6rem;
-  letter-spacing: 0.08em;
+  letter-spacing: 0;
 }
 
 .device-confirm-hint {

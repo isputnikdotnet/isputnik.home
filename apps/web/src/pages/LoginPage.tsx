@@ -1,5 +1,4 @@
 import { useState, type FormEvent } from "react";
-import { QRCodeSVG } from "qrcode.react";
 import { KeyRound, MonitorSmartphone } from "lucide-react";
 import { startAuthentication, browserSupportsWebAuthn } from "@simplewebauthn/browser";
 import type { PublicKeyCredentialRequestOptionsJSON } from "@simplewebauthn/browser";
@@ -216,6 +215,7 @@ export function LoginPage({
             to click through refusals. */}
         {deviceLinkAvailable && (
           <div className="login-link-device">
+            <span className="login-device-divider"><span>or</span></span>
             <Button variant="text" onClick={() => navigate("/link")}>
               <MonitorSmartphone size={16} aria-hidden="true" />
               Link a TV or display instead
@@ -223,12 +223,6 @@ export function LoginPage({
           </div>
         )}
 
-        <div className="login-qr">
-          <div className="login-qr-code">
-            <QRCodeSVG value={window.location.href} size={128} bgColor="#ffffff" fgColor="#031116" />
-          </div>
-          <span>Scan to open this page on another device</span>
-        </div>
       </form>
     </Shell>
   );

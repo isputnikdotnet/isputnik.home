@@ -32,6 +32,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       <div className="auth-hero">
         <p className="eyebrow">Open source software for a small trusted orbit</p>
         <h1>isputnik</h1>
+        <p className="auth-hero-copy">Your personal hub for stories, knowledge, and imagination.</p>
       </div>
       <section className="auth-panel">
         <div className="brand-row">
@@ -40,6 +41,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             <strong>isputnik.home</strong>
             <span>our world revolves around you.</span>
           </div>
+          <span className="auth-panel-emblem" aria-hidden="true" />
         </div>
         {children}
         {/* Which build this is, before anyone has signed in — the first thing to ask

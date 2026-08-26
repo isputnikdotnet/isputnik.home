@@ -63,10 +63,11 @@ theme follows you to your phone.
 | | |
 |---|---|
 | **System** | Follows your device's light/dark setting |
-| **Expanse** | Deep blue-black with a cyan accent |
 | **iSputnik Night** | The house dark theme — dark teal, warm text |
 | **iSputnik Light** | The house light theme — soft paper and green |
-| **Plain Dark** / **Plain Light** | Neutral greys, if you'd rather the app got out of the way |
+| **Plain Dark** | Deep blue-black with a cyan accent, no scene artwork |
+| **Plain Light** | Neutral light greys, if you'd rather the app got out of the way |
+| **Minimalist** | Platinum grey and black ink, like a certain beige computer |
 
 ### Devices
 

@@ -10,7 +10,7 @@ export type Role = "admin" | "member";
 // Which second factor an account uses: a rolling code from an authenticator app,
 // or a one-time code emailed at sign-in. Handling lives in core/mfa.ts.
 export type MfaMethod = "totp" | "email";
-export const THEME_PREFERENCES = ["system", "light", "dark", "plain-light", "plain-dark", "expanse"] as const;
+export const THEME_PREFERENCES = ["system", "light", "dark", "plain-light", "plain-dark", "minimalist"] as const;
 export type ThemePreference = (typeof THEME_PREFERENCES)[number];
 
 export interface User {

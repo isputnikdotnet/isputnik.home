@@ -1,35 +1,5 @@
 /* Widest breakpoint first, so the narrower blocks below still win where they
-   overlap.
-
-   The control panel's sidebar takes 208px before the content area starts, so a
-   window that is still "desktop" by every other measure can leave the
-   four-across metric grid too narrow for a label like "Total libraries" or a
-   value like "6.88 GB" to sit on one line. Drop to two across while the cards
-   are still comfortable rather than letting them wrap mid-word; the ≤740px
-   rules take it to two-then-one from there.
-
-   Measured: four across starts wrapping just under 1140px with a value that
-   short. The threshold sits above that on purpose — a bigger library reads
-   "688.12 GB", and the point is to stop before the wrap, not at it. */
-/* `.status-grid-four` also carries `.status-grid`, and responsive.css loads
-   last, so this catches both grids. Keep every selector here at a single class:
-   a `:not()` would out-specify the ≤740px and ≤430px rules below and strand the
-   grid at two columns on a phone. */
-@media (max-width: 1240px) {
-  .status-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-/* The four-across grid holds shorter values than the three-across one (counts
-   and sizes, no filenames or timestamps), so it still fits four the rest of the
-   way down to 1160px. Restore it over the rule above rather than raising that
-   one's specificity. */
-@media (min-width: 1161px) and (max-width: 1240px) {
-  .status-grid-four {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
+   overlap. */
 
 /* Users grid. Its Actions column is pinned at 214px by five icon buttons (see
    admin-pages.css), so the region runs out of room for User long before the
@@ -50,20 +20,6 @@
     display: none;
   }
 
-  /* Sessions loses Expires one tier earlier than the phone rules below. Its two
-     stamps and the Current badge have a floor they can't ellipsize past, and at
-     this width five columns are under it — which shows up as the whole table in
-     a horizontal scroll rather than as anything getting narrower. */
-  .session-table th:nth-child(4),
-  .session-table td:nth-child(4) {
-    display: none;
-  }
-
-  .session-table th:nth-child(1) { width: 30%; }
-  .session-table th:nth-child(2) { width: 28%; }
-  .session-table th:nth-child(3) { width: 22%; }
-  .session-table th:nth-child(5) { width: 20%; }
-
   /* Once User is down to its last hundred-odd pixels the 36px avatar is costing
      a third of the name. It's a generic glyph, identical on every row — the
      first thing that should go. */
@@ -78,19 +34,24 @@
 
 @media (max-width: 740px) {
   .app-shell {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+    justify-items: center;
+    gap: 20px;
+    padding: clamp(18px, 5vw, 28px);
+    overflow-y: auto;
   }
 
   .auth-hero {
-    display: none;
+    display: block;
+    justify-self: center;
+    width: min(100%, 560px);
+    padding-top: clamp(8px, 3vh, 28px);
   }
 
   .auth-orbit {
-    left: 50%;
-    width: 124vw;
+    left: 45%;
+    width: 128vw;
   }
 
   .auth-orbit-b {
@@ -113,7 +74,7 @@
 
   .auth-panel {
     transform: none;
-    width: min(500px, calc(100vw - 48px));
+    width: min(460px, 100%);
   }
 
   .work-area {
@@ -324,19 +285,6 @@
     margin-left: 0;
   }
 
-  .status-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .status-grid-four,
-  .status-rank-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .status-block-head {
-    align-items: start;
-  }
-
   .library-settings-panel {
     grid-template-columns: 1fr;
   }
@@ -376,8 +324,6 @@
 
   .group-table th:nth-child(3),
   .group-table td:nth-child(3),
-  .session-table th:nth-child(4),
-  .session-table td:nth-child(4),
   .invite-table th:nth-child(4),
   .invite-table td:nth-child(4) {
     display: none;
@@ -386,11 +332,6 @@
   .group-table th:nth-child(1) { width: 52%; }
   .group-table th:nth-child(2) { width: 16%; }
   .group-table th:nth-child(4) { width: 32%; }
-
-  .session-table th:nth-child(1) { width: 34%; }
-  .session-table th:nth-child(2) { width: 36%; }
-  .session-table th:nth-child(3) { width: 17%; }
-  .session-table th:nth-child(5) { width: 13%; }
 
   .invite-table th:nth-child(1) { width: 47%; }
   .invite-table th:nth-child(2) { width: 18%; }
@@ -466,14 +407,18 @@
 }
 
 @media (min-width: 741px) and (max-width: 1040px) {
+  /* The panel's 460px ceiling would leave the hero ~214px at the bottom of this
+     band — too narrow for "isputnik" on one line at any legible size. Cap the
+     panel at 44vw so both columns give ground together, and size the title off
+     the viewport so it always fits the width the hero actually gets. */
   .app-shell {
-    grid-template-columns: 1fr minmax(340px, 470px);
-    gap: 24px;
+    grid-template-columns: minmax(0, 1fr) minmax(330px, min(460px, 44vw));
+    gap: clamp(24px, 4vw, 44px);
     padding: 28px;
   }
 
   .auth-hero h1 {
-    font-size: clamp(3.3rem, 8vw, 5.2rem);
+    font-size: clamp(3rem, 7vw, 5.8rem);
   }
 }
 
@@ -487,13 +432,7 @@
 
 @media (max-width: 430px) {
   .auth-panel {
-    padding: 20px 18px;
-  }
-
-  .status-grid,
-  .status-grid-four,
-  .status-rank-grid {
-    grid-template-columns: 1fr;
+    padding: 18px 16px;
   }
 
   .library-table th:nth-child(4),
@@ -516,8 +455,6 @@
 
   .group-table th:nth-child(2),
   .group-table td:nth-child(2),
-  .session-table th:nth-child(3),
-  .session-table td:nth-child(3),
   .invite-table th:nth-child(3),
   .invite-table td:nth-child(3) {
     display: none;
@@ -525,10 +462,6 @@
 
   .group-table th:nth-child(1) { width: 62%; }
   .group-table th:nth-child(4) { width: 38%; }
-
-  .session-table th:nth-child(1) { width: 43%; }
-  .session-table th:nth-child(2) { width: 39%; }
-  .session-table th:nth-child(5) { width: 18%; }
 
   .invite-table th:nth-child(1) { width: 61%; }
   .invite-table th:nth-child(2) { width: 21%; }
@@ -541,10 +474,6 @@
   .library-info-list > div {
     grid-template-columns: 1fr;
     gap: 2px;
-  }
-
-  .status-block-head {
-    display: grid;
   }
 
   .about-stack {

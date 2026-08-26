@@ -14,7 +14,15 @@
   --control-primary-button-shadow: rgba(124, 58, 237, 0.16);
 }
 
+:root[data-theme="minimalist"] .control-work {
+  --control-primary-button: #1d1d1f;
+  --control-primary-button-hover: #3a3a3e;
+  --control-primary-button-ink: #ffffff;
+  --control-primary-button-shadow: rgba(0, 0, 0, 0.18);
+}
+
 :root[data-theme="light"] .control-work .primary-button:not(.danger),
+:root[data-theme="minimalist"] .control-work .primary-button:not(.danger),
 :root[data-theme="plain-light"] .control-work .primary-button:not(.danger) {
   color: var(--control-primary-button-ink);
   background: var(--control-primary-button);
@@ -22,8 +30,10 @@
 }
 
 :root[data-theme="light"] .control-work .primary-button:not(.danger):hover:not(:disabled),
+:root[data-theme="minimalist"] .control-work .primary-button:not(.danger):hover:not(:disabled),
 :root[data-theme="plain-light"] .control-work .primary-button:not(.danger):hover:not(:disabled),
 :root[data-theme="light"] .control-work .primary-button:not(.danger):focus-visible,
+:root[data-theme="minimalist"] .control-work .primary-button:not(.danger):focus-visible,
 :root[data-theme="plain-light"] .control-work .primary-button:not(.danger):focus-visible {
   background: var(--control-primary-button-hover);
 }
@@ -386,16 +396,6 @@
 
 /* ── Health & status ────────────────────────────────────────────── */
 
-.status-metric span {
-  color: var(--muted);
-}
-
-.status-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
-
 .status-stack {
   display: grid;
   gap: 30px;
@@ -409,92 +409,8 @@
   min-width: 0;
 }
 
-.status-block-head {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.status-block-head h2,
 .status-table-title h3 {
   margin: 0;
-}
-
-.status-grid-four {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.status-metric {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 8px 10px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
-  /* No min-height: rows auto-size to content, and .status-grid's default grid
-     stretch equalizes card height within a row on its own — a taller
-     note-bearing card just makes its row taller, no extra rule needed. */
-}
-
-/* The icon still rides inline in the label line rather than its own grid
-   column (a dedicated column was the thing that ate a narrow card's width),
-   but it's a small tinted badge like Security overview's cards — same
-   color + color-mix background idiom, just scaled down to fit a caption line
-   instead of Security's 48px badge. */
-/* span.status-metric-icon (not just .status-metric-icon): needs to match the
-   specificity of ".status-metric span" above, which mutes every bare span in
-   a metric tile — this icon is a span too, and would otherwise lose its mint
-   tint to that rule despite coming later in the file. */
-span.status-metric-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  margin-right: 5px;
-  border-radius: 5px;
-  vertical-align: -3px;
-  flex-shrink: 0;
-  color: var(--mint);
-  background: color-mix(in srgb, var(--mint) 14%, transparent);
-}
-
-.status-metric-label {
-  display: flex;
-  align-items: center;
-  min-width: 0;
-  color: var(--muted);
-  font-size: 0.64rem;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  line-height: 1.2;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.status-metric strong {
-  min-width: 0;
-  overflow: hidden;
-  font-size: 1rem;
-  font-weight: 600;
-  line-height: 1.2;
-  color: var(--ink);
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.status-metric small {
-  min-width: 0;
-  overflow: hidden;
-  color: var(--muted);
-  font-size: 0.66rem;
-  line-height: 1.2;
-  white-space: nowrap;
-  text-overflow: ellipsis;
 }
 
 .status-subsection {
@@ -1262,12 +1178,6 @@ span.status-metric-icon {
   height: 10px;
   border-radius: 2px;
   flex-shrink: 0;
-}
-
-.status-rank-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
 }
 
 /* Dashboard › Libraries: authors, narrators and formats side by side where

@@ -33,7 +33,5 @@ describe("the link-a-device entry point", () => {
     expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/^password/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^sign in$/i })).toBeInTheDocument();
-    // The "open this page on another device" QR is a different feature and stays.
-    expect(screen.getByText(/scan to open this page on another device/i)).toBeInTheDocument();
   });
 });

@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash         TEXT NOT NULL,
   display_name          TEXT NOT NULL,
   role                  TEXT NOT NULL CHECK (role IN ('admin', 'member')),
-  theme                 TEXT NOT NULL DEFAULT 'dark',
+  theme                 TEXT NOT NULL DEFAULT 'minimalist',
   protected_from_delete INTEGER NOT NULL DEFAULT 0 CHECK (protected_from_delete IN (0, 1)),
   is_active             INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
   -- Delivery address for "Send to e-reader" (Kindle/Kobo).
