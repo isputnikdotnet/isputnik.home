@@ -24,7 +24,8 @@ import { AddSiblingModal } from "./AddSiblingModal";
 import { AddUnionModal } from "./AddUnionModal";
 import { CitationEditModal } from "./CitationEditModal";
 import { EventEditModal } from "./EventEditModal";
-import { FamilyPhotoPicker } from "./FamilyPhotoPicker";
+import { PhotoPicker } from "../gallery/PhotoPicker";
+import { useFamilyUploadTarget } from "./useFamilyUploadTarget";
 import { GalleryPersonLinkModal } from "./GalleryPersonLinkModal";
 import { PersonAvatar } from "./PersonAvatar";
 import { PersonEditModal } from "./PersonEditModal";
@@ -458,6 +459,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
   const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set());
   const [expandedEventPhotos, setExpandedEventPhotos] = useState<Set<string>>(new Set());
   const [portraitPicker, setPortraitPicker] = useState(false);
+  const uploadTo = useFamilyUploadTarget();
 
   const loadProfile = useCallback(async () => {
     try {
@@ -1361,19 +1363,21 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
         />
       )}
       {portraitPicker && profile && (
-        <FamilyPhotoPicker
+        <PhotoPicker
           title={`Portrait for ${profile.name}`}
-          single
+          pick="any"
           facePerson={profile.galleryPerson}
-          onPickSingle={(asset) => void setPortraitFromGallery(asset.id)}
+          uploadTo={uploadTo}
+          onPick={(asset) => void setPortraitFromGallery(asset.id)}
           onClose={() => setPortraitPicker(false)}
         />
       )}
       {photoPicker && profile && (
-        <FamilyPhotoPicker
+        <PhotoPicker
           title={`Add photos of ${profile.name}`}
           existingIds={photos.filter((p) => p.attached).map((p) => p.id)}
           facePerson={profile.galleryPerson}
+          uploadTo={uploadTo}
           onAttach={async (itemIds) => {
             await api(`/api/family-tree/persons/${profile.id}/photos`, {
               method: "POST",

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronRight, Folder, FolderOpen, Image as ImageIcon, Play, Search, Tag, User, X } from "lucide-react";
 import { api } from "../../api";
 import { Button } from "../../shared/Button";
+import { FileUpload } from "../../shared/FileUpload";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
 import { EMPTY_GALLERY_FILTERS } from "./GalleryFilter";
@@ -12,23 +13,24 @@ import { faceFocusStyle } from "./types";
 // anywhere in the app. Four ways in — browse by folder, by person (face
 // clusters), by tag, or straight through all photos — with one search box and
 // one selection that persists across all of them, gathered in a tray along the
-// bottom. Successor to GalleryFolderPicker (folders only), built to absorb the
-// family tree's FamilyPhotoPicker next.
+// bottom. Successor to both GalleryFolderPicker (folders only) and the family
+// tree's FamilyPhotoPicker (whose face-matches, upload and portrait modes fold
+// in here as props).
 //
 // Everything rides existing endpoints: /folders + /folders/search for the tree,
 // /people + /people/:id for the clusters, /facets for the tag list, and the
 // timeline query (POST /timeline) for tags, all-photos and text search.
 //
-// `pick: "video"` turns it into a single-choice VIDEO picker (the slideshow's
-// opening/closing clips): photos dim, tapping a video hands it to `onPick` and
-// the caller closes — no POST endpoint, no tray.
+// Single-choice modes: `pick: "video"` (the slideshow's opening/closing clips —
+// photos dim, tapping a video hands it to `onPick`) and `pick: "any"` (a
+// portrait choice — tapping anything hands it over). No POST, no tray.
 
-type PickerTab = "folders" | "people" | "tags" | "all";
+type PickerTab = "folders" | "people" | "tags" | "all" | "upload";
 
 /** Page size for the photo grids — matches the gallery's own views. */
 const PAGE = 80;
 
-const SEARCH_PLACEHOLDER: Record<PickerTab, string> = {
+const SEARCH_PLACEHOLDER: Record<Exclude<PickerTab, "upload">, string> = {
   folders: "Search folders",
   people: "Search people",
   tags: "Search tags",
@@ -40,7 +42,10 @@ export function PhotoPicker({
   endpoint,
   existingIds,
   pick,
+  facePerson,
+  uploadTo,
   onPick,
+  onAttach,
   onClose,
   onAdded
 }: {
@@ -49,15 +54,27 @@ export function PhotoPicker({
   endpoint?: string;
   /** Item ids already attached — shown as "Added", not re-selectable. Unused with `pick`. */
   existingIds?: string[];
-  /** Single-choice mode: which kind can be picked. */
-  pick?: "video";
+  /** Single-choice mode: which kind can be picked ("any" = one tap picks anything). */
+  pick?: "video" | "any";
+  /** A linked gallery person: the picker opens on People with them selected —
+      their face matches beat hunting through folders (the family tree). */
+  facePerson?: { id: string; name: string } | null;
+  /** Offer an Upload tab landing new files in this gallery library, then
+      picking/attaching them in the same step. The tab only appears when the
+      caller may actually upload there (the library's own canUpload). */
+  uploadTo?: { id: string; name: string } | null;
   onPick?: (asset: GalleryAsset) => void;
+  /** Multi mode without a server endpoint: the caller attaches the selection
+      (ids + their asset objects, so it can stage thumbnails without refetching). */
+  onAttach?: (itemIds: string[], assets: GalleryAsset[]) => Promise<void>;
   onClose: () => void;
   onAdded?: (added: number) => void;
 }) {
   const [libraries, setLibraries] = useState<GalleryLibrary[]>([]);
   const [scope, setScope] = useState<string>("all"); // "all" or a gallery library id
-  const [tab, setTab] = useState<PickerTab>("folders");
+  // A linked person means their matches are almost certainly what's wanted.
+  const [tab, setTab] = useState<PickerTab>(facePerson ? "people" : "folders");
+  const [uploadNotice, setUploadNotice] = useState("");
   const [search, setSearch] = useState("");
   // The debounced form the server queries use; chip filtering uses `search` live.
   const [query, setQuery] = useState("");
@@ -157,11 +174,17 @@ export function PhotoPicker({
           (a, b) => Number(Boolean(b.name)) - Number(Boolean(a.name)) || b.faceCount - a.faceCount
         );
         setPeople(sorted);
-        setPerson((current) => current ?? sorted[0] ?? null);
+        // The linked person opens selected; a person the list doesn't carry
+        // (hidden, or freshly linked) still loads through a synthesized entry.
+        const linked = facePerson
+          ? sorted.find((p) => p.id === facePerson.id)
+            ?? { id: facePerson.id, name: facePerson.name, faceCount: 0, coverUrl: null }
+          : null;
+        setPerson((current) => current ?? linked ?? sorted[0] ?? null);
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Unable to load people"))
       .finally(() => setLoading(false));
-  }, [tab, scope, scopeParam]);
+  }, [tab, scope, scopeParam, facePerson]);
 
   const loadPerson = useCallback(async (who: GalleryPerson, offset = 0) => {
     setLoading(true);
@@ -250,22 +273,67 @@ export function PhotoPicker({
     });
   };
 
-  const addSelected = async () => {
-    const ids = [...selected.keys()].filter((id) => !added.has(id));
-    if (ids.length === 0 || !endpoint) return;
-    setAdding(true);
-    setError("");
-    try {
+  // Hand a batch over — to the POST endpoint (albums, slideshows) or to the
+  // caller's own attach handler (the family tree). One path for the tray's Add
+  // button and for freshly uploaded files.
+  const attachIds = useCallback(async (ids: string[], assets: GalleryAsset[]) => {
+    if (endpoint) {
       const result = await api<{ added: number; skipped: number }>(endpoint, {
         method: "POST",
         body: JSON.stringify({ itemIds: ids })
       });
-      setAdded((prev) => new Set([...prev, ...ids]));
-      setSelected(new Map());
-      setAddedAny(true);
       onAdded?.(result.added);
+    } else if (onAttach) {
+      await onAttach(ids, assets);
+      onAdded?.(ids.length);
+    }
+    setAdded((prev) => new Set([...prev, ...ids]));
+    setAddedAny(true);
+  }, [endpoint, onAttach, onAdded]);
+
+  const addSelected = async () => {
+    const ids = [...selected.keys()].filter((id) => !added.has(id));
+    if (ids.length === 0 || (!endpoint && !onAttach)) return;
+    setAdding(true);
+    setError("");
+    try {
+      await attachIds(ids, ids.map((id) => selected.get(id)).filter((a): a is GalleryAsset => a != null));
+      setSelected(new Map());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to add the photos");
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  // Uploading needs a destination the caller nominates; the tab only exists
+  // when that library is in the viewer's list AND lets them upload — a tab
+  // that can only apologise is worse than no tab.
+  const uploadLibrary = uploadTo ? libraries.find((l) => l.id === uploadTo.id) : undefined;
+  const canUploadHere = Boolean(uploadLibrary?.canUpload);
+  const activeTab: PickerTab = tab === "upload" && !canUploadHere ? "folders" : tab;
+
+  const uploadFinished = async (itemIds: string[]) => {
+    if (itemIds.length === 0) return;
+    setAdding(true);
+    setError("");
+    try {
+      // Fetch what was just uploaded so callers that stage thumbnails locally
+      // (the event editor) get real assets, not bare ids.
+      const assets = (await Promise.all(itemIds.map((id) =>
+        api<{ asset: GalleryAsset }>(`/api/library/gallery/assets/${id}`).then((p) => p.asset).catch(() => null)
+      ))).filter((a): a is GalleryAsset => a != null);
+      // Single-choice mode: the file is now a gallery item like any other, so
+      // the caller takes it the same way it takes a browsed one.
+      if (pick) {
+        if (assets[0]) onPick?.(assets[0]);
+        else setError("Uploaded, but the picture couldn't be read back.");
+        return;
+      }
+      await attachIds(itemIds, assets);
+      setUploadNotice(`${itemIds.length} ${itemIds.length === 1 ? "file" : "files"} uploaded and added.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Uploaded, but adding failed");
     } finally {
       setAdding(false);
     }
@@ -284,10 +352,10 @@ export function PhotoPicker({
   const grid = (assets: GalleryAsset[]) => (
     <div className="gallery-grid">
       {assets.map((asset) => {
-        const isAdded = added.has(asset.id);
-        const isSelected = selected.has(asset.id);
-        // Pick mode: only the pickable kind is clickable, and a click chooses.
-        const unpickable = pick !== undefined && asset.kind !== pick;
+        const isAdded = !pick && added.has(asset.id);
+        const isSelected = !pick && selected.has(asset.id);
+        // Video-pick mode: only a video is clickable, and a click chooses.
+        const unpickable = pick === "video" && asset.kind !== "video";
         return (
           <button
             key={asset.id}
@@ -346,29 +414,32 @@ export function PhotoPicker({
       headerAction={librarySelect}
       onClose={onClose}
     >
-      <div className="photo-picker-search">
-        <Search size={16} aria-hidden="true" />
-        <input
-          type="search"
-          value={search}
-          placeholder={SEARCH_PLACEHOLDER[tab]}
-          onChange={(event) => setSearch(event.target.value)}
-          aria-label={SEARCH_PLACEHOLDER[tab]}
-        />
-      </div>
+      {activeTab !== "upload" && (
+        <div className="photo-picker-search">
+          <Search size={16} aria-hidden="true" />
+          <input
+            type="search"
+            value={search}
+            placeholder={SEARCH_PLACEHOLDER[activeTab]}
+            onChange={(event) => setSearch(event.target.value)}
+            aria-label={SEARCH_PLACEHOLDER[activeTab]}
+          />
+        </div>
+      )}
 
       <div className="modal-tabs">
         {([
           ["folders", "Folders"],
           ["people", "People"],
           ["tags", "Tags"],
-          ["all", "All photos"]
+          ["all", "All photos"],
+          ...(canUploadHere ? [["upload", "Upload"] as [PickerTab, string]] : [])
         ] as [PickerTab, string][]).map(([key, label]) => (
           <button
             key={key}
             type="button"
-            className={`modal-tab${tab === key ? " active" : ""}`}
-            onClick={() => setTab(key)}
+            className={`modal-tab${activeTab === key ? " active" : ""}`}
+            onClick={() => { setTab(key); if (key === "upload") setUploadNotice(""); }}
           >
             {label}
           </button>
@@ -378,7 +449,7 @@ export function PhotoPicker({
       {/* The person/tag chips live OUTSIDE the scroll pane, a fixed band like
           the search row above — who/what you're picking from stays in view
           however far the photos scroll. */}
-      {tab === "people" && (
+      {activeTab === "people" && (
         visiblePeople.length > 0 ? (
           <div className="photo-picker-chips" role="tablist" aria-label="People">
             {visiblePeople.map((p) => (
@@ -406,7 +477,7 @@ export function PhotoPicker({
           )
         )
       )}
-      {tab === "tags" && (
+      {activeTab === "tags" && (
         visibleTags.length > 0 ? (
           <div className="photo-picker-chips" role="tablist" aria-label="Tags">
             {visibleTags.map((name) => (
@@ -433,7 +504,31 @@ export function PhotoPicker({
       <div className="modal-tab-content add-to-album-body">
         {error && <MessageBox tone="error" title="Couldn’t load photos">{error}</MessageBox>}
 
-        {tab === "folders" && (folderResults !== null ? (
+        {activeTab === "upload" && uploadLibrary && uploadTo && (
+          <div className="photo-picker-upload">
+            {uploadNotice && <MessageBox tone="success" title="Added">{uploadNotice}</MessageBox>}
+            <p className="photo-picker-hint">
+              {pick
+                ? `The picture is added to “${uploadTo.name}” and chosen in one step — it lives in the gallery like any other photo.`
+                : `Files are added to “${uploadTo.name}” and attached here in one step. They appear in the gallery too, filed by the date they were taken.`}
+            </p>
+            <FileUpload
+              endpoint={`/api/library/gallery-libraries/${uploadLibrary.id}/assets/upload`}
+              accept={uploadLibrary.uploadExtensions}
+              maxBytes={uploadLibrary.maxUploadMB != null ? uploadLibrary.maxUploadMB * 1024 * 1024 : null}
+              multiple={!pick}
+              maxFiles={pick ? 1 : 100}
+              hint={`Accepted: ${uploadLibrary.uploadExtensions.map((ext) => `.${ext}`).join(", ")}${uploadLibrary.maxUploadMB != null ? ` · up to ${uploadLibrary.maxUploadMB} MB per file` : ""}`}
+              onUploaded={(response) => {
+                const payload = response as { itemIds?: string[] };
+                void uploadFinished(payload.itemIds ?? []);
+              }}
+              onBusyChange={setAdding}
+            />
+          </div>
+        )}
+
+        {activeTab === "folders" && (folderResults !== null ? (
           <>
             <p className="gallery-section-label">{folderResults.length === 0 ? "No folders match" : "Matching folders"}</p>
             <div className="gallery-folder-grid">
@@ -488,15 +583,22 @@ export function PhotoPicker({
           </>
         ))}
 
-        {tab === "people" && person && (
+        {activeTab === "people" && person && (
           <>
             <p className="gallery-section-label">Showing photos of <strong>{person.name || "an unnamed person"}</strong></p>
+            {/* The linked person's matches carry the family tree's caveat. */}
+            {facePerson && person.id === facePerson.id && !pick && (
+              <p className="photo-picker-hint">
+                Every photo the face scan matched to “{facePerson.name}”. Adding one attaches it
+                here for good, so it stays even if the match is later corrected.
+              </p>
+            )}
             {grid(personAssets)}
             {loadMore(personAssets.length, personTotal, () => void loadPerson(person, personAssets.length))}
           </>
         )}
 
-        {tab === "tags" && tag && (
+        {activeTab === "tags" && tag && (
           <>
             <p className="gallery-section-label">Tagged <strong>{tag}</strong></p>
             {grid(tagAssets)}
@@ -504,7 +606,7 @@ export function PhotoPicker({
           </>
         )}
 
-        {tab === "all" && (
+        {activeTab === "all" && (
           <>
             {grid(allAssets)}
             {loadMore(allAssets.length, allTotal, () => void loadAll(allAssets.length))}
@@ -520,7 +622,7 @@ export function PhotoPicker({
       <div className="modal-actions photo-picker-actions">
         {pick ? (
           <>
-            <span className="muted">Tap a video to choose it.</span>
+            <span className="muted">{pick === "video" ? "Tap a video to choose it." : "Tap a photo to choose it."}</span>
             <div className="row-actions">
               <Button variant="secondary" compact onClick={onClose}>Cancel</Button>
             </div>

@@ -47,12 +47,14 @@ tokens instead of hard-coding a border.
 
 Choosing gallery photos or videos from anywhere in the app goes through
 `<PhotoPicker>` — one panel modal with Folders / People / Tags / All photos
-tabs, per-tab search, a library-scope dropdown, and one selection that persists
-across all of them, gathered in a removable-thumbnail tray. Multi mode posts
-`{ itemIds }` to the `endpoint` you pass (albums, slideshows); `pick="video"`
-is the single-choice video mode (slideshow intro/outro clips). Never build a
-new photo-browsing dialog; extend this one. (The family tree's
-`FamilyPhotoPicker` predates it and is slated to fold in.)
+tabs (plus Upload when a destination allows it), per-tab search, a
+library-scope dropdown, and one selection that persists across all of them,
+gathered in a removable-thumbnail tray. Multi mode posts `{ itemIds }` to the
+`endpoint` you pass (albums, slideshows) or hands the selection to your
+`onAttach` (the family tree); `pick="video"` / `pick="any"` are the
+single-choice modes (slideshow clips, portraits). `facePerson` opens on People
+with the linked person selected; `uploadTo` names the upload destination.
+Never build a new photo-browsing dialog; extend this one.
 
 ### SelectMenu — `shared/SelectMenu.tsx`
 

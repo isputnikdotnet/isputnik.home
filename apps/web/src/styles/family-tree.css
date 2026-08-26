@@ -1124,19 +1124,6 @@
   gap: 14px;
 }
 
-/* Upload tab of the photo picker. */
-.ft-upload-panel {
-  display: grid;
-  align-content: start;
-  gap: 14px;
-}
-
-.ft-face-more {
-  display: flex;
-  justify-content: center;
-  padding: 14px 0 4px;
-}
-
 /* Tag filter chips on the people page (reuses .book-tag-chip for the look). */
 .ft-tag-filter {
   display: flex;

@@ -1632,6 +1632,20 @@
 
 .photo-picker-chips-empty { margin: 0 16px 8px; }
 
+/* The Upload tab's panel, and the hints the picker prints (upload destination,
+   the family tree's face-match caveat). */
+.photo-picker-upload {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+}
+
+.photo-picker-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
 .photo-picker-chips > * { flex: 0 0 auto; }
 
 .photo-picker-chip { height: 62px; }

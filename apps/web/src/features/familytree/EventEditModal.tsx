@@ -5,7 +5,8 @@ import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
 import type { GalleryAsset } from "../gallery/types";
-import { FamilyPhotoPicker } from "./FamilyPhotoPicker";
+import { PhotoPicker } from "../gallery/PhotoPicker";
+import { useFamilyUploadTarget } from "./useFamilyUploadTarget";
 import { PartialDateField } from "./PartialDateField";
 import { EVENT_TYPE_OPTIONS, type FamilyEvent } from "./types";
 
@@ -60,6 +61,7 @@ export function EventEditModal({
   const [note, setNote] = useState(existing?.note ?? "");
   const [photos, setPhotos] = useState<GalleryAsset[]>(existing?.photos ?? []);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const uploadTo = useFamilyUploadTarget();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -193,10 +195,11 @@ export function EventEditModal({
     </Modal>
 
     {pickerOpen && (
-      <FamilyPhotoPicker
+      <PhotoPicker
         title="Add photos to this event"
         existingIds={photos.map((p) => p.id)}
         facePerson={facePerson}
+        uploadTo={uploadTo}
         onAttach={(_ids, assets) => {
           setPhotos((prev) => {
             const have = new Set(prev.map((p) => p.id));
