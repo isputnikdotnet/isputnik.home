@@ -882,6 +882,8 @@
     radial-gradient(circle at 22% 12%, rgba(202, 151, 86, 0.08), transparent 27%),
     radial-gradient(circle at 84% 72%, rgba(209, 75, 45, 0.12), transparent 30%),
     #020b0e;
+  /* Viewport-sized glows: without this a long page stretches them with it. */
+  background-attachment: fixed;
 }
 
 :root[data-theme="dark"] .home-dashboard-shell::before,
@@ -1075,6 +1077,8 @@
     radial-gradient(circle at 73% 42%, rgba(214, 173, 111, 0.16), transparent 24%),
     radial-gradient(circle at 91% 84%, rgba(242, 217, 173, 0.12), transparent 26%),
     radial-gradient(circle at 63% 18%, rgba(214, 173, 111, 0.1), transparent 19%);
+  /* The shorthand above resets attachment; keep the tint pinned with the image. */
+  background-attachment: fixed;
 }
 
 :root[data-theme="dark"] .home-main {

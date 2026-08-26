@@ -33,12 +33,18 @@
   min-height: 100vh;
 }
 
+/* The scene image and its tint are anchored to the viewport, not the page:
+   with `background-attachment: fixed` the positioning area is the screen, so
+   `cover` sizes the image to one viewport and a long page scrolls over a
+   stationary backdrop instead of stretching it to the full scroll height.
+   (iOS ignores fixed attachment and falls back to the old scrolling look.) */
 .scene-page::before {
   position: absolute;
   z-index: -2;
   inset: 0;
   content: "";
   background-repeat: no-repeat;
+  background-attachment: fixed;
   background-size: cover;
   background-position: center right;
   opacity: 0.86;
@@ -53,6 +59,7 @@
   background:
     linear-gradient(90deg, color-mix(in srgb, var(--canvas) 90%, transparent) 0%, color-mix(in srgb, var(--canvas) 70%, transparent) 46%, color-mix(in srgb, var(--canvas) 18%, transparent) 100%),
     linear-gradient(180deg, color-mix(in srgb, var(--canvas) 34%, transparent), color-mix(in srgb, var(--canvas) 86%, transparent));
+  background-attachment: fixed;
 }
 
 :root[data-theme="plain-light"] .scene-page::before,

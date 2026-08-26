@@ -19,6 +19,14 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.29.1",
+    label: "The sky holds still",
+    changes: [
+      "The scene behind every page is pinned to the screen now. On a long page — a library of hundreds of books, a deep photo timeline — the backdrop used to stretch itself across the entire scroll height, blowing the artwork up into a blur and dragging it along as you scrolled. Now the sky is exactly one screen tall and stays put: the page scrolls, the stars don't.",
+      "The Night theme's warm glows got the same anchoring, so they no longer smear across a long page either. Every scene surface benefits — home, the control panel, and the Expanse theme's stations alike."
+    ]
+  },
+  {
     version: "3.29.0",
     label: "Night theme with a space program",
     changes: [
