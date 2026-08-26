@@ -19,6 +19,17 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.28.1",
+    label: "The memory card earns its place",
+    changes: [
+      "\"On this day\" picks its four photos with intent now. Every year gets a place before any year gets a second one — a single year with many photos can no longer crowd the others out — and within a year, photos with a person in them come first. Four covers chosen for variety beat the first four in date order.",
+      "The card also stays honest about what \"this day\" means. Widening the match by a few days exists to rescue scanned photos dated slightly off, and it now only happens when the day itself is thin — a date with plenty of its own photos shows exactly those, not neighbours dressed up as anniversaries. The Memories page keeps its wider net, where each year labels how close its match is.",
+      "Opening a photo from the card now gives you the same viewer the gallery has, powers included: rotate, delete, editing the description, date, location, people and tags — each appearing exactly when your library permissions allow it — plus the guest-link option when sending, and a folder name that clicks through to that folder. It used to be a look-but-don't-touch copy.",
+      "Tapping the third photo in the strip opens the third photo. It used to open the first photo of that photo's year, which is only the same thing by luck.",
+      "Fixed: on a desktop browser, pressing play on \"pick up where you left off\" swallowed the whole page with the phone player. It now opens the small player window, like every other play button on desktop — the page you were reading stays where it was. Phones and the installed app keep the full-screen player, which is where it belongs."
+    ]
+  },
+  {
     version: "3.28.0",
     label: "A home page that is different every day",
     changes: [
