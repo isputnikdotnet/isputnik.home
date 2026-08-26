@@ -19,6 +19,18 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.27.0",
+    label: "Your year, cut from the photos you liked",
+    changes: [
+      "Slideshows opens on a year card now — \"2025 in review\", and the year before it — built from the photos and videos the household liked over that year. Nothing is saved until you open one and keep it: it arrives in the ordinary slideshow editor with the music, the transitions and the title card all still yours to set. The year still running is honestly labelled \"so far\" rather than pretending to be finished.",
+      "A year film is cut by the calendar first and by the likes second. Sorting a year by likes and taking the best sixty gives you a film about the one week everybody happened to be tapping — usually the summer trip — and nothing else. So every month that has photos in it is guaranteed a place, months you were busiest in get more of them, and the ranking only decides what fills the places. Thirty frames of the same sunset fold down to the best one, and no single face is allowed to carry the whole reel.",
+      "The heart moved onto the photograph. Every tile — Timeline, Folders, Albums, People, Memories — carries one in its top-left corner, so liking a photo as you go past costs a single tap instead of opening it, liking it, and coming back. In the full-screen viewer, F does the same thing: arrow through a trip and press F on the ones worth keeping, without the hand leaving the keyboard.",
+      "The gallery filter learned about likes: show only what you liked, only what anyone in the house liked, or only what nobody has yet. The middle one is exactly the signal a year film is built from, so it is also how to see what next December will have to work with — and what it won't, while there is still time to go and tap some hearts.",
+      "Favorites is called Likes now, in every place it appears: the sidebar, the page, the heart on a book, the heart on a photo, the player. \"Favorite\" and \"like\" mean the same thing to anyone reading them, and having the app print one word while the house says the other was a small tax on every conversation about the feature. The heart itself is unchanged, and old /favorites links still open the right page.",
+      "Fixed: the Likes page counted photographs as books — \"1 book\" underneath a photograph — and its empty state told you to go and open a book. It has held photos and videos ever since the gallery got its heart; it now says so."
+    ]
+  },
+  {
     version: "3.26.0",
     label: "Slideshow movies open like films now — and end like them",
     changes: [
