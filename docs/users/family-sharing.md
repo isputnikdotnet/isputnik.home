@@ -121,8 +121,9 @@ just sits there quietly.
 What everyone else has been up to appears right in the Home feed: notes
 they've left, albums and slideshows they've made, people they've added to the
 family tree — each as its own card, newest first, fading off the page after a
-couple of weeks. Tap one to go to the thing it's about. **Around the house** in
-your menu keeps the full history.
+couple of weeks. Tap one to go to the thing it's about. There's nothing to
+catch up on beyond that: the notes themselves stay on the books and photos
+they were written about.
 
 Your own doings aren't in it — you already know about those. Neither are new
 books, which arrive as their own "joined the library" card. And nothing

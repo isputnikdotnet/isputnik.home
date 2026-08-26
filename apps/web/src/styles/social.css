@@ -464,7 +464,7 @@ a.inbox-title:hover {
   white-space: nowrap;
 }
 
-/* ── "Around the house" — the activity feed ──────────────────────────────── */
+/* ── Activity rows (the home feed's activity cards) ──────────────────────── */
 
 /* Sentences, not cards. The row is a line of text with a thumbnail and a time;
    anything more decorative would compete with the words, which are the point. */

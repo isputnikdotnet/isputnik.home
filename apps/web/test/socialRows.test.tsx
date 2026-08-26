@@ -86,7 +86,7 @@ const activity = (over: Partial<ActivityItem> = {}): ActivityItem => ({
   ...over
 });
 
-describe("Around the house", () => {
+describe("activity cards", () => {
   it("reads as a sentence, with the title in the middle where it belongs", () => {
     // The first version put the title last in every line, which produced
     // "Dad added to the family tree Grandma".

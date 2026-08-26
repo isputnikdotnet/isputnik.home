@@ -9,7 +9,7 @@ import { activityPhrase, timeAgo, type ActivityKind } from "./phrasing";
 // badge reads as a database row someone has styled. The sentence is the whole
 // design; everything else here is a thumbnail and a timestamp.
 //
-// Shared by the Home row and the /activity page, so the two can never drift.
+// Rendered inside the home feed's activity cards — its only surface now.
 
 export interface ActivityItem {
   id: string;

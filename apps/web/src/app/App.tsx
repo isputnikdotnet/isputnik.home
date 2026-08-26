@@ -44,7 +44,6 @@ const TagDetailPage = lazy(() => import("../features/audiobooks/TagDetailPage").
 const LikesPage = lazy(() => import("../features/library/LikesPage").then((m) => ({ default: m.LikesPage })));
 const BookmarksPage = lazy(() => import("../features/library/BookmarksPage").then((m) => ({ default: m.BookmarksPage })));
 const QuotesPage = lazy(() => import("../features/library/QuotesPage").then((m) => ({ default: m.QuotesPage })));
-const ActivityPage = lazy(() => import("../features/social/ActivityPage").then((m) => ({ default: m.ActivityPage })));
 const DownloadsPage = lazy(() => import("../features/library/DownloadsPage").then((m) => ({ default: m.DownloadsPage })));
 const SharedWithMePage = lazy(() => import("../features/library/SharedWithMePage").then((m) => ({ default: m.SharedWithMePage })));
 const LibraryFeedPage = lazy(() => import("../features/library/LibraryFeedPage").then((m) => ({ default: m.LibraryFeedPage })));
@@ -405,10 +404,6 @@ export function App() {
 
     if (route.name === "quotes") {
       return <QuotesPage user={session.user} logout={logout} />;
-    }
-
-    if (route.name === "activity") {
-      return <ActivityPage user={session.user} logout={logout} />;
     }
 
     if (route.name === "downloads") {
