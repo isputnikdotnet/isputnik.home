@@ -8,7 +8,7 @@ import { DashboardShell } from "../app/DashboardShell";
 import { followRoute, navigate } from "../router";
 import { MessageBox } from "../shared/MessageBox";
 import { authorLine, audioRecordToFeedItem, ebookRecordToFeedItem, fetchFeed, saveFeedItemOffline, type FeedItem } from "../features/library/feed";
-import { batchDayLabel, fetchHomeFeed, localDate, toActivityItem, type ActivityCard, type AddedBatchCard, type HomeCard, type MemoryCard, type SentCard, type SeriesNextCard } from "../features/home/feed";
+import { batchDayLabel, fetchHomeFeed, localDate, tightMemoryGroups, toActivityItem, type ActivityCard, type AddedBatchCard, type HomeCard, type MemoryCard, type SentCard, type SeriesNextCard } from "../features/home/feed";
 import { FeedListItem, FeedListItemSkeleton } from "../features/library/FeedListItem";
 import { DEFAULT_COVERS } from "../features/audiobooks/covers";
 import { useIsMobile } from "../shared/useIsMobile";
@@ -333,7 +333,9 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
     setMemoryLoading(true);
     try {
       const full = await api<GalleryMemories>(`/api/library/gallery/memories?date=${localDate()}&perYear=200`);
-      const groups = full.precision === "month" ? [] : full.groups;
+      // Same tightness the card applied, so the viewer pages through exactly
+      // the day the card advertises — not near-days it deliberately left out.
+      const groups = full.precision === "month" ? [] : tightMemoryGroups(full.groups);
       const items = groups.flatMap((group) => group.items);
       if (items.length === 0) { navigate("/gallery/memories"); return; }
       let start = itemId ? items.findIndex((item) => item.id === itemId) : -1;
@@ -368,7 +370,7 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
   const refreshMemoryLightbox = useCallback(async () => {
     try {
       const full = await api<GalleryMemories>(`/api/library/gallery/memories?date=${localDate()}&perYear=200`);
-      const groups = full.precision === "month" ? [] : full.groups;
+      const groups = full.precision === "month" ? [] : tightMemoryGroups(full.groups);
       const items = groups.flatMap((group) => group.items);
       setMemoryLightbox((current) => {
         if (!current) return current;

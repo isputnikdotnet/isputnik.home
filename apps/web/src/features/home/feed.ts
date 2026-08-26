@@ -4,7 +4,7 @@
 import { api } from "../../api";
 import type { InboxCard } from "../social/InboxRow";
 import type { ActivityItem } from "../social/ActivityList";
-import type { GalleryAsset } from "../gallery/types";
+import type { GalleryAsset, GalleryMemoryGroup } from "../gallery/types";
 
 export type SentCard = InboxCard & { type: "sent" };
 
@@ -53,6 +53,20 @@ export function localDate(): string {
 
 export function fetchHomeFeed(): Promise<{ cards: HomeCard[] }> {
   return api<{ cards: HomeCard[] }>(`/api/home/feed?date=${localDate()}`);
+}
+
+/** How many photos the memory card's strip holds — also the tightness bar. */
+export const MEMORY_STRIP_SIZE = 4;
+
+// The home card's tightness rule, mirrored for the viewer it opens (the server
+// applies the same rule building the card — modules/home/feed.ts): when the
+// exact day can fill the strip on its own, the ±3-day near-match years stay
+// out. The viewer must browse the same set the card advertises, or tapping a
+// tight card pages through photos from days the card deliberately left out.
+export function tightMemoryGroups(groups: GalleryMemoryGroup[]): GalleryMemoryGroup[] {
+  const day = groups.filter((group) => group.precision === "day");
+  const dayCount = day.reduce((total, group) => total + group.count, 0);
+  return dayCount >= MEMORY_STRIP_SIZE ? day : groups;
 }
 
 /** An activity card back in the shape ActivityList renders. */
