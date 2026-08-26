@@ -83,6 +83,14 @@ export interface GalleryMemorySuggestion {
   itemIds: string[];
 }
 
+// A year's best, proposed as a slideshow — built from the household's likes and
+// spread across the calendar (server: year-review.ts). Deliberately a GalleryMemory-
+// Suggestion with a year on it, so the preview modal and the create-slideshow path
+// take one unchanged.
+export interface GalleryYearReview extends GalleryMemorySuggestion {
+  year: number;
+}
+
 // A gallery album (hand-curated set spanning libraries). itemCount/coverUrl
 // reflect only the viewer's accessible items; canEdit = creator or admin.
 export interface GalleryAlbum {

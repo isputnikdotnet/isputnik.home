@@ -30,23 +30,23 @@ describe("a card in Waiting for you", () => {
     expect(screen.getByText("Dad wants you to listen to this")).toBeInTheDocument();
   });
 
-  it("offers Favorite by name, because that is where the thing goes", () => {
+  it("offers Like by name, because that is what pressing it does", () => {
     render(<InboxRow card={card()} busy={false} onAct={vi.fn()} />);
-    expect(screen.getByRole("button", { name: /Favorite/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Like/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Not now/ })).toBeInTheDocument();
   });
 
   it("offers a single Done for something with nowhere to be saved to", () => {
     // An album, a slideshow and a person are not library items: there is no
-    // Favorites for them, and "Not now" reads wrong once you have looked.
+    // Like for them, and "Not now" reads wrong once you have looked.
     render(<InboxRow card={card({ entityType: "gallery_album", savable: false })} busy={false} onAct={vi.fn()} />);
-    expect(screen.queryByRole("button", { name: /Favorite/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Like/ })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Done/ })).toBeInTheDocument();
   });
 
-  it("offers no Favorite for something that is no longer available", () => {
+  it("offers no Like for something that is no longer available", () => {
     render(<InboxRow card={card({ available: false })} busy={false} onAct={vi.fn()} />);
-    expect(screen.queryByRole("button", { name: /Favorite/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Like/ })).not.toBeInTheDocument();
     expect(screen.getByText(/isn’t available to you any more/)).toBeInTheDocument();
   });
 
@@ -65,7 +65,7 @@ describe("a card in Waiting for you", () => {
     const onAct = vi.fn();
     render(<InboxRow card={card()} busy={false} onAct={onAct} />);
 
-    await user.click(screen.getByRole("button", { name: /Favorite/ }));
+    await user.click(screen.getByRole("button", { name: /Like/ }));
     expect(onAct).toHaveBeenCalledWith(expect.objectContaining({ id: "r1" }), "save");
 
     await user.click(screen.getByRole("button", { name: /Not now/ }));

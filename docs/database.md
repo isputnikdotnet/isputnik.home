@@ -19,7 +19,7 @@ document explains the model and the conventions behind it.
    `item_id`. Adding a media type = one library `type`, one `*_details` table,
    and its file/progress tables — never a reshape of the core.
 2. **Shared concerns are media-agnostic.** Categories, tags, collections,
-   permissions, sharing, favorites ("My List"), and the recycle bin attach to
+   permissions, sharing, likes (the `item_saves` table), and the recycle bin attach to
    items generically, so every library type gets them for free.
 3. **People are global; series are per-library.** `people` is not scoped to a
    library, so the same author/narrator can appear across libraries; a book

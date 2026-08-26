@@ -16,10 +16,11 @@ export interface GalleryFilters {
   cameras: string[];
   sizes: string[];    // codes: small | medium | large | huge (server-defined byte buckets)
   location: string[]; // codes: with_gps | no_gps
+  likes: string[]; // codes: mine | anyone | none
 }
 
 export const EMPTY_GALLERY_FILTERS: GalleryFilters = {
-  libraries: [], kinds: [], people: [], years: [], months: [], taken: [], tags: [], cameras: [], sizes: [], location: []
+  libraries: [], kinds: [], people: [], years: [], months: [], taken: [], tags: [], cameras: [], sizes: [], location: [], likes: []
 };
 
 const KIND_OPTIONS = [
@@ -56,11 +57,23 @@ const LOCATION_OPTIONS = [
   { value: "no_gps", label: "No location" }
 ];
 
+// The heart, as a filter. "Anyone's" is the household cut — the same signal the
+// year-in-review scores on — so it reads next to "Mine" rather than hiding behind
+// a separate surface.
+const LIKE_OPTIONS = [
+  { value: "mine", label: "Liked by me" },
+  { value: "anyone", label: "Liked by anyone" },
+  { value: "none", label: "Not liked" }
+];
+
 const FACET_ORDER: FacetDef<keyof GalleryFilters>[] = [
   // First, because it's the widest cut: which libraries the rest of the panel is
   // narrowing. Leaving it empty means every library the viewer can reach.
   { key: "libraries", title: "Libraries", searchable: false },
   { key: "kinds", title: "Media type", searchable: false, fixed: KIND_OPTIONS },
+  // High up: "show me the good ones" is a coarser cut than any of the descriptive
+  // facets below, and it's the one the year-in-review is built from.
+  { key: "likes", title: "Likes", searchable: false, fixed: LIKE_OPTIONS },
   { key: "people", title: "People", searchable: true },
   // A family archive can span many decades (scanned prints reach the 1940s), so
   // the year list gets the type-ahead too.
@@ -74,7 +87,7 @@ const FACET_ORDER: FacetDef<keyof GalleryFilters>[] = [
 ];
 
 const CODE_LABELS: Record<string, string> = Object.fromEntries(
-  [...KIND_OPTIONS, ...MONTH_OPTIONS, ...SIZE_OPTIONS, ...LOCATION_OPTIONS].map((o) => [o.value, o.label])
+  [...KIND_OPTIONS, ...MONTH_OPTIONS, ...SIZE_OPTIONS, ...LOCATION_OPTIONS, ...LIKE_OPTIONS].map((o) => [o.value, o.label])
 );
 
 export function activeGalleryFilterCount(filters: GalleryFilters): number {

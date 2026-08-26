@@ -104,7 +104,7 @@ const HELP_SECTIONS: HelpSection[] = [
         icon: UserRound,
         title: "Your account",
         description:
-          "Your name and sign-in email, themes, the e-reader address, and where favorites, bookmarks, quotes and collections live.",
+          "Your name and sign-in email, themes, the e-reader address, and where likes, bookmarks, quotes and collections live.",
         href: guide("your-account.md"),
         external: false
       },

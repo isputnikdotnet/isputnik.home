@@ -249,11 +249,11 @@ precedent: the id seeds the selection once, then the URL follows the selection b
 `replaceState` (opening an album and pressing Back should leave the gallery, not
 walk back through every album looked at on the way).
 
-Neither offers **Favorites**. Favorites earns its place when a set is too big to
+Neither offers **Likes**. Likes earns its place when a set is too big to
 scan — thousands of books, tens of thousands of photos. A household has tens of
 albums and a handful of slideshows, all already on one page, and an album granted
 to you is already permanently in Shared with me. So their cards show a single
-**Done** instead of Favorite / Not now, which also reads better: "Not now" is the
+**Done** instead of Like / Not now, which also reads better: "Not now" is the
 wrong word once you have looked at the thing.
 
 Two bugs caught here, both worth recording.

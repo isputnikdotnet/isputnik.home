@@ -308,7 +308,7 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
   // the viewer re-fetches the complete set.
   const [memoryLightbox, setMemoryLightbox] = useState<{ items: GalleryAsset[]; index: number } | null>(null);
   const [memoryLoading, setMemoryLoading] = useState(false);
-  const [stats, setStats] = useState({ audiobooks: 0, ebooks: 0, inProgress: 0, favorites: 0 });
+  const [stats, setStats] = useState({ audiobooks: 0, ebooks: 0, inProgress: 0, likes: 0 });
   const [error, setError] = useState("");
   const isMobile = useIsMobile();
   const online = useOnlineStatus();
@@ -467,7 +467,7 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
       const sumBooks = (libs: LibraryCountRow[]) => libs.reduce((total, library) => total + (library.bookCount ?? 0), 0);
       if (audioLibs.status === "fulfilled") setStats((prev) => ({ ...prev, audiobooks: sumBooks(audioLibs.value.libraries) }));
       if (ebookLibs.status === "fulfilled") setStats((prev) => ({ ...prev, ebooks: sumBooks(ebookLibs.value.libraries) }));
-      if (saved.status === "fulfilled") setStats((prev) => ({ ...prev, favorites: saved.value.books.length }));
+      if (saved.status === "fulfilled") setStats((prev) => ({ ...prev, likes: saved.value.books.length }));
       if (mems.status === "fulfilled") setMemories(mems.value);
     });
 
@@ -478,7 +478,7 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
     { label: "Audiobooks", value: stats.audiobooks, tone: "violet", icon: Headphones, href: "/audiobooks" },
     { label: "Ebooks", value: stats.ebooks, tone: "green", icon: BookOpen, href: "/ebooks" },
     { label: "In progress", value: stats.inProgress, tone: "blue", icon: Play, href: "/continue" },
-    { label: "Favorites", value: stats.favorites, tone: "rose", icon: Heart, href: "/favorites" }
+    { label: "Likes", value: stats.likes, tone: "rose", icon: Heart, href: "/likes" }
   ];
 
   // When offline on a phone, the home becomes a browser for downloaded books
@@ -711,7 +711,7 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
         canShare={false}
         onClose={() => setMemoryLightbox(null)}
         onIndexChange={(next) => setMemoryLightbox((current) => (current ? { ...current, index: next } : current))}
-        onChanged={() => { /* home is a read-only glance; favorites refresh on next load */ }}
+        onChanged={() => { /* home is a read-only glance; likes refresh on next load */ }}
       />
     )}
 

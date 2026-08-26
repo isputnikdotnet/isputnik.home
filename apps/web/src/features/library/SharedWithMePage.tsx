@@ -143,7 +143,7 @@ function SharedAlbumViewer({ album, onClose }: { album: SharedBook; onClose: () 
 //   Waiting for you — recommendations still undecided, with Save / Not now
 //   Everything else — what you can open, including live album shares
 // Acting on a card moves it down into the second section. Nothing is lost:
-// Save puts it in My List, which is the keeping place.
+// Save likes it, which is the keeping place.
 export function SharedWithMePage({
   user,
   logout

@@ -23,7 +23,9 @@ describe("getRoute", () => {
     ["/about", "about"],
     ["/help", "help"],
     ["/downloads", "downloads"],
-    ["/favorites", "favorites"],
+    ["/likes", "likes"],
+    // The pre-rename path stays an alias — it is in people's bookmarks.
+    ["/favorites", "likes"],
     ["/quotes", "quotes"]
   ])("maps %s to the %s route", (path, name) => {
     at(path);

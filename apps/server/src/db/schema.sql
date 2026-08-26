@@ -1242,7 +1242,9 @@ CREATE TABLE IF NOT EXISTS quotes (
   updated_at       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
--- "My List" — per-user saved items, one row per (user, item).
+-- Likes — per-user liked items, one row per (user, item). The table name is
+-- historical: this shipped as "My List", was renamed to Favorites, and is now
+-- Likes. Renaming the table would need a migration; the product word is Likes.
 CREATE TABLE IF NOT EXISTS item_saves (
   id         TEXT PRIMARY KEY,
   user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -1276,7 +1278,7 @@ CREATE TABLE IF NOT EXISTS recommendations (
   entity_type   TEXT NOT NULL,
   entity_id     TEXT NOT NULL,
   message       TEXT,
-  -- 'new' until the recipient acts. 'saved' means it went to their My List;
+  -- 'new' until the recipient acts. 'saved' means they liked it;
   -- 'dismissed' is "not now". Neither deletes the row — the Sent list stays
   -- honest about what was sent, and the feed can still cite it.
   status        TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'saved', 'dismissed')),

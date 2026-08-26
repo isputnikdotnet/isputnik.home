@@ -184,13 +184,13 @@ function CatalogBookCard({
   onAddToCollection: (book: AudiobookBook) => void;
   onDelete: (book: AudiobookBook) => void;
 }) {
-  const [fav, setFav] = useState(book.saved);
-  const [favBusy, setFavBusy] = useState(false);
+  const [liked, setLiked] = useState(book.saved);
+  const [likeBusy, setLikeBusy] = useState(false);
   const [status, setStatus] = useState<BookStatus>(() => initialStatus(book));
   const [statusBusy, setStatusBusy] = useState(false);
 
   // Re-seed from the server shape when the catalog refreshes.
-  useEffect(() => { setFav(book.saved); }, [book.saved]);
+  useEffect(() => { setLiked(book.saved); }, [book.saved]);
   useEffect(() => { setStatus(initialStatus(book)); }, [book.progress?.completedAt, book.progress?.percentComplete]);
 
   const activate = () => {
@@ -198,18 +198,18 @@ function CatalogBookCard({
     else navigate(`/audiobooks/books/${book.id}`);
   };
 
-  const toggleFav = async () => {
-    if (favBusy) return;
-    const next = !fav;
-    setFav(next);
-    setFavBusy(true);
+  const toggleLike = async () => {
+    if (likeBusy) return;
+    const next = !liked;
+    setLiked(next);
+    setLikeBusy(true);
     try {
       if (next) await api(`/api/library/books/${book.id}/save`, { method: "PUT", body: JSON.stringify({ note: null }) });
       else await api(`/api/library/books/${book.id}/save`, { method: "DELETE" });
     } catch {
-      setFav(!next);
+      setLiked(!next);
     } finally {
-      setFavBusy(false);
+      setLikeBusy(false);
     }
   };
 
@@ -278,16 +278,16 @@ function CatalogBookCard({
             <div className="audiobook-catalog-actions" aria-label={`Actions for ${book.title}`}>
               <div className="audiobook-catalog-action-row">
                 <button
-                  className={`audiobook-catalog-action${fav ? " on" : ""}`}
+                  className={`audiobook-catalog-action${liked ? " on" : ""}`}
                   type="button"
-                  onClick={(event) => { event.stopPropagation(); toggleFav(); }}
-                  aria-pressed={fav}
-                  aria-label={fav ? "Remove from favorites" : "Add to favorites"}
-                  title={fav ? "Favorited" : "Add to favorites"}
-                  disabled={favBusy}
+                  onClick={(event) => { event.stopPropagation(); toggleLike(); }}
+                  aria-pressed={liked}
+                  aria-label={liked ? "Unlike" : "Like"}
+                  title={liked ? "Liked" : "Like"}
+                  disabled={likeBusy}
                 >
-                  <Heart size={16} fill={fav ? "currentColor" : "none"} aria-hidden="true" />
-                  <span>{fav ? "Favorited" : "Favorite"}</span>
+                  <Heart size={16} fill={liked ? "currentColor" : "none"} aria-hidden="true" />
+                  <span>{liked ? "Liked" : "Like"}</span>
                 </button>
                 <button
                   className="audiobook-catalog-action"

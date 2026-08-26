@@ -90,14 +90,14 @@ describe("AssetTile", () => {
     expect(container.querySelector(".gallery-video-badge.unplayable")).toBeInTheDocument();
   });
 
-  it("shows the favourite dot only outside selection mode, where the check goes", () => {
+  it("shows the liked dot only outside selection mode, where the check goes", () => {
     const { container, rerender } = render(
       <AssetTile {...props({ asset: photo({ saved: true }) })} />
     );
-    expect(container.querySelector(".gallery-fav-dot")).toBeInTheDocument();
+    expect(container.querySelector(".gallery-like-dot")).toBeInTheDocument();
 
     rerender(<AssetTile {...props({ asset: photo({ saved: true }), selectionMode: true, selected: true })} />);
-    expect(container.querySelector(".gallery-fav-dot")).toBeNull();
+    expect(container.querySelector(".gallery-like-dot")).toBeNull();
     expect(container.querySelector(".gallery-tile-check")).toBeInTheDocument();
   });
 });

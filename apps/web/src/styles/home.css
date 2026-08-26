@@ -1189,10 +1189,10 @@ a.home-overview-card:focus-visible {
     color: var(--home-icon);
   }
 
-  .home-feed-row-dropdown button.is-fav,
-  .home-feed-row-dropdown button.is-fav svg,
-  .home-feed-row-dropdown a.is-fav,
-  .home-feed-row-dropdown a.is-fav svg {
+  .home-feed-row-dropdown button.is-liked,
+  .home-feed-row-dropdown button.is-liked svg,
+  .home-feed-row-dropdown a.is-liked,
+  .home-feed-row-dropdown a.is-liked svg {
     color: var(--home-accent-strong);
   }
 

@@ -404,7 +404,7 @@
   color: var(--gold);
 }
 
-/* An armed sleep timer reads as active (gold), like the favourited state. */
+/* An armed sleep timer reads as active (gold), like the liked state. */
 .player-speed-btn.active {
   border-color: var(--gold);
   color: var(--gold);
@@ -1109,7 +1109,7 @@
   color: var(--mint);
 }
 
-.player-popup-aux-btn.bookmark-saved {
+.player-popup-aux-btn.is-liked {
   color: var(--mint);
 }
 
@@ -1281,8 +1281,8 @@
   to { opacity: 1; }
 }
 
-/* Bookmark saved state for non-popup */
-.player-speed-btn.bookmark-saved {
+/* Liked state, outside the popup. */
+.player-speed-btn.is-liked {
   border-color: var(--mint);
   color: var(--mint);
 }

@@ -27,7 +27,8 @@ export function AssetTile({
   selected,
   onToggleSelect,
   onRemove,
-  removeTitle = "Not this person — remove from here"
+  removeTitle = "Not this person — remove from here",
+  onToggleLike
 }: {
   asset: GalleryAsset;
   onOpen: () => void;
@@ -38,7 +39,14 @@ export function AssetTile({
   // from the containing set. removeTitle names what it detaches from.
   onRemove?: () => void;
   removeTitle?: string;
+  // When set, the tile carries its own heart. This is the cheap tap the whole
+  // year-in-review depends on: liking from a grid must not cost opening the
+  // photo, hearting it and coming back.
+  onToggleLike?: (next: boolean) => void;
 }) {
+  // No heart while selecting — the tile means "pick me" then, and a second target
+  // on it is a mis-tap waiting to happen.
+  const canLike = Boolean(onToggleLike) && !selectionMode;
   const tile = (
     <button
       type="button"
@@ -52,7 +60,9 @@ export function AssetTile({
       ) : (
         <span className="gallery-tile-fallback"><ImageIcon size={26} aria-hidden="true" /></span>
       )}
-      {asset.saved && !selectionMode && <Heart size={14} className="gallery-fav-dot" fill="currentColor" aria-hidden="true" />}
+      {/* The read-only marker, for grids that don't offer the heart button below —
+          which renders its own filled heart in the same corner. */}
+      {asset.saved && !selectionMode && !canLike && <Heart size={14} className="gallery-like-dot" fill="currentColor" aria-hidden="true" />}
       {asset.kind === "video" && (
         asset.playable === false ? (
           <span className="gallery-video-badge unplayable" title="Can’t play in browser — download to view">
@@ -71,19 +81,36 @@ export function AssetTile({
       )}
     </button>
   );
-  if (!onRemove) return tile;
+  if (!onRemove && !canLike) return tile;
+  // Both overlays are SIBLINGS of the tile, never children of it: the tile is
+  // itself a <button>, and a button inside a button is invalid markup that screen
+  // readers can't reach. gallery-tile-remove already established the shape.
   return (
     <div className="gallery-tile-wrap">
       {tile}
-      <button
-        type="button"
-        className="gallery-tile-remove"
-        onClick={(event) => { event.stopPropagation(); onRemove(); }}
-        aria-label={`Remove ${asset.title}`}
-        title={removeTitle}
-      >
-        <X size={14} aria-hidden="true" />
-      </button>
+      {canLike && (
+        <button
+          type="button"
+          className={`gallery-tile-like${asset.saved ? " on" : ""}`}
+          onClick={(event) => { event.stopPropagation(); onToggleLike!(!asset.saved); }}
+          aria-pressed={asset.saved}
+          aria-label={asset.saved ? `Unlike ${asset.title}` : `Like ${asset.title}`}
+          title={asset.saved ? "Unlike" : "Like"}
+        >
+          <Heart size={15} fill={asset.saved ? "currentColor" : "none"} aria-hidden="true" />
+        </button>
+      )}
+      {onRemove && (
+        <button
+          type="button"
+          className="gallery-tile-remove"
+          onClick={(event) => { event.stopPropagation(); onRemove(); }}
+          aria-label={`Remove ${asset.title}`}
+          title={removeTitle}
+        >
+          <X size={14} aria-hidden="true" />
+        </button>
+      )}
     </div>
   );
 }

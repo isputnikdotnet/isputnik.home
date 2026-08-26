@@ -260,7 +260,7 @@
   background: rgba(180, 83, 9, 0.82);
 }
 
-.gallery-tile .gallery-fav-dot {
+.gallery-tile .gallery-like-dot {
   position: absolute;
   left: 6px;
   top: 6px;
@@ -1453,6 +1453,35 @@
 .gallery-tile-wrap { position: relative; aspect-ratio: 1 / 1; }
 .gallery-tile-wrap .gallery-tile { width: 100%; height: 100%; aspect-ratio: auto; }
 
+/* The heart, on the tile. Top-LEFT, opposite the remove button, in the corner the
+   read-only gallery-like-dot used to occupy — so a hearted photo looks the same
+   whether or not the grid offers the button. */
+.gallery-tile-like {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(18, 18, 20, 0.72);
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease, background 0.12s ease, color 0.12s ease;
+}
+.gallery-tile-wrap:hover .gallery-tile-like,
+.gallery-tile-like:focus-visible { opacity: 1; }
+/* A hearted photo keeps its heart showing: this button IS the indicator, so it
+   can't fade out when the pointer leaves the tile. */
+.gallery-tile-like.on { opacity: 1; color: var(--rose); }
+.gallery-tile-like:hover { background: rgba(18, 18, 20, 0.9); color: var(--rose); }
+
 .gallery-tile-remove {
   position: absolute;
   top: 6px;
@@ -1477,9 +1506,10 @@
 .gallery-tile-remove:focus-visible { opacity: 1; }
 .gallery-tile-remove:hover { background: var(--danger, #c0392b); }
 
-/* No hover on touch devices — keep the control visible so it stays usable. */
+/* No hover on touch devices — keep the controls visible so they stay usable. */
 @media (hover: none) {
-  .gallery-tile-remove { opacity: 1; }
+  .gallery-tile-remove,
+  .gallery-tile-like { opacity: 1; }
 }
 
 /* ── Slideshow editor ─────────────────────────────────────────────────────── */
@@ -2070,6 +2100,34 @@
 
 @media (hover: none) {
   .gallery-memory-play { opacity: 1; background: transparent; }
+}
+
+/* ── Year in review ───────────────────────────────────────────────────────── */
+
+/* What the row is built from isn't guessable from the cards, and it's the thing
+   that makes people go and heart more photos — so it's said once, above them. */
+.gallery-year-hint {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* A shade wider than a memory tile: these are the headline cards of the view, and
+   the subtitle carries more (counts, months, people) than a moment's does. */
+.gallery-suggestion-row .gallery-year-tile { width: 210px; }
+
+/* The year on the cover, so a row of them is scannable without reading titles. */
+.gallery-year-badge {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(18, 18, 20, 0.62);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
 /* Suggestion preview modal: subtitle + action row above a read-only photo grid. */

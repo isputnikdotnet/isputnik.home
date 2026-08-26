@@ -55,18 +55,18 @@ No schema changes; `gallery_details.taken_at` is already indexed.
 
 ## Phase 2 — Extend timeline multi-select (enabler) — SHIPPED
 
-As built: the bulk bar gained **Favorite** and **Add to collection** ("Add to
+As built: the bulk bar gained **Like** and **Add to collection** ("Add to
 album" arrives with Phase 3). Supporting pieces:
 
 - `POST /api/library/books/bulk-save` — one request per selection (mirrors
   bulk-delete's contract: inaccessible items counted as `forbidden`, not
-  errors; idempotent; never clobbers an existing favorite note).
+  errors; idempotent; never clobbers an existing like note).
 - `POST /api/collections/:id/items/batch` — batch append with the same
   access-check-and-skip semantics as the single add; duplicates skipped.
 - `AddToCollectionModal` gained a bulk mode (`entityIds`, a union with the
   single `entityId` so a call site can't pass both): clicking a collection
   batch-adds everything and reports how many were added.
-- Selection is no longer delete-gated — every member can select to favorite or
+- Selection is no longer delete-gated — every member can select to like or
   collect; only the Delete button inside the bar still requires delete rights.
 - The lightbox's collections button was relabeled "Add to collection" (it said
   "Add to album", which would collide with real Albums).

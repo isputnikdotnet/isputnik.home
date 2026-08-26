@@ -75,7 +75,7 @@
   background: color-mix(in srgb, var(--gold) 22%, var(--icon-control-bg));
 }
 
-/* Favorited/active toggle accent — filled rose, e.g. the heart on a book or
+/* Liked/active toggle accent — filled rose, e.g. the heart on a book or
    ebook's detail topbar once saved. */
 .icon-button.on {
   color: #fff;

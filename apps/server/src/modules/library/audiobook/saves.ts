@@ -33,7 +33,7 @@ function currentSave(bookId: string, userId: string) {
   return row ? { saved: true, note: row.note, createdAt: row.created_at, updatedAt: row.updated_at } : { saved: false, note: null };
 }
 
-// Bulk favorite (the gallery multi-select bar). Items outside the user's
+// Bulk like (the gallery multi-select bar). Items outside the user's
 // accessible libraries are counted as forbidden, not errors — same contract as
 // bulk-delete. Already-saved items just stay saved (idempotent); an existing
 // note is never clobbered.
@@ -99,7 +99,7 @@ export async function audiobookSavesPlugin(app: FastifyInstance) {
     return reply.send({ save: { saved: false, note: null } });
   });
 
-  // Bulk favorite — the multi-select bar sends every selected id in one request
+  // Bulk like — the multi-select bar sends every selected id in one request
   // (mirrors /api/library/books/bulk-delete) so a big selection doesn't turn
   // into a burst of per-item PUTs against the rate limiter.
   const bulkSaveSchema = z.object({
@@ -109,14 +109,14 @@ export async function audiobookSavesPlugin(app: FastifyInstance) {
   app.post("/api/library/books/bulk-save", { preHandler: app.authenticate }, async (request, reply) => {
     const parsed = parseBody(bulkSaveSchema, request.body);
     if (parsed.error) {
-      return reply.code(400).send({ error: "Invalid favorites request", details: parsed.error });
+      return reply.code(400).send({ error: "Invalid likes request", details: parsed.error });
     }
     return reply.send(bulkSaveItems(request.user!, parsed.data.bookIds));
   });
 
   app.get("/api/library/saved", { preHandler: app.authenticate }, async (request, reply) => {
     const user = request.user!;
-    // Favorites span every library type the save applies to (audiobooks + ebooks +
+    // Likes span every library type the save applies to (audiobooks + ebooks +
     // gallery). The save itself is item-id based and type-agnostic; this just lists
     // across them. Gallery rows carry no authors and link to the lightbox.
     const libIds = [...bookLibraryIds(user), ...accessibleLibraryIds(user.id, user.role, "gallery")];

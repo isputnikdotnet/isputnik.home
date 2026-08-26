@@ -15,7 +15,7 @@ function initialStatus(book: AudiobookBook): BookStatus {
 }
 
 // Mobile / PWA library row: the homepage FeedListItem look, but the ⋮ menu
-// carries the full library action set (favourite, mark played, add to
+// carries the full library action set (like, mark played, add to
 // collection, view details, download file, edit, delete — permission-gated).
 // Only mounts at the mobile breakpoint; desktop keeps its card grid.
 export function CatalogRowMobile({
@@ -47,27 +47,27 @@ export function CatalogRowMobile({
   onToast?: (message: string) => void;
   onOpenReader?: () => void;
 }) {
-  const [fav, setFav] = useState(book.saved);
-  const [favBusy, setFavBusy] = useState(false);
+  const [liked, setLiked] = useState(book.saved);
+  const [likeBusy, setLikeBusy] = useState(false);
   const [status, setStatus] = useState<BookStatus>(() => initialStatus(book));
   const [statusBusy, setStatusBusy] = useState(false);
 
   // Re-seed from the server shape when the catalog refreshes.
-  useEffect(() => { setFav(book.saved); }, [book.saved]);
+  useEffect(() => { setLiked(book.saved); }, [book.saved]);
   useEffect(() => { setStatus(initialStatus(book)); }, [book.progress?.completedAt, book.progress?.percentComplete]);
 
-  const toggleFav = async () => {
-    if (favBusy) return;
-    const next = !fav;
-    setFav(next);
-    setFavBusy(true);
+  const toggleLike = async () => {
+    if (likeBusy) return;
+    const next = !liked;
+    setLiked(next);
+    setLikeBusy(true);
     try {
       if (next) await api(`/api/library/books/${book.id}/save`, { method: "PUT", body: JSON.stringify({ note: null }) });
       else await api(`/api/library/books/${book.id}/save`, { method: "DELETE" });
     } catch {
-      setFav(!next);
+      setLiked(!next);
     } finally {
-      setFavBusy(false);
+      setLikeBusy(false);
     }
   };
 
@@ -107,7 +107,7 @@ export function CatalogRowMobile({
     : (finished ? "Mark as unplayed" : "Mark as played");
 
   const menuItems: FeedRowMenuItem[] = [
-    { icon: Heart, label: fav ? "Favorited" : "Add to favorites", onClick: () => void toggleFav(), active: fav, disabled: favBusy },
+    { icon: Heart, label: liked ? "Liked" : "Like", onClick: () => void toggleLike(), active: liked, disabled: likeBusy },
     { icon: finished ? RotateCcw : CheckCircle2, label: markLabel, onClick: () => void toggleFinished(), disabled: statusBusy },
     { icon: ListMusic, label: "Add to collection", onClick: () => onAddToCollection(book) },
     { icon: Info, label: "View details", onClick: () => navigate(detailHref) },

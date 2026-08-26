@@ -41,7 +41,7 @@ const CategoryListPage = lazy(() => import("../features/audiobooks/CategoryListP
 const CategoryDetailPage = lazy(() => import("../features/audiobooks/CategoryDetailPage").then((m) => ({ default: m.CategoryDetailPage })));
 const TagListPage = lazy(() => import("../features/audiobooks/TagListPage").then((m) => ({ default: m.TagListPage })));
 const TagDetailPage = lazy(() => import("../features/audiobooks/TagDetailPage").then((m) => ({ default: m.TagDetailPage })));
-const MyListPage = lazy(() => import("../features/library/MyListPage").then((m) => ({ default: m.MyListPage })));
+const LikesPage = lazy(() => import("../features/library/LikesPage").then((m) => ({ default: m.LikesPage })));
 const BookmarksPage = lazy(() => import("../features/library/BookmarksPage").then((m) => ({ default: m.BookmarksPage })));
 const QuotesPage = lazy(() => import("../features/library/QuotesPage").then((m) => ({ default: m.QuotesPage })));
 const ActivityPage = lazy(() => import("../features/social/ActivityPage").then((m) => ({ default: m.ActivityPage })));
@@ -395,8 +395,8 @@ export function App() {
       return <AudiobooksPage user={session.user} logout={logout} />;
     }
 
-    if (route.name === "favorites") {
-      return <MyListPage user={session.user} logout={logout} />;
+    if (route.name === "likes") {
+      return <LikesPage user={session.user} logout={logout} />;
     }
 
     if (route.name === "bookmarks") {

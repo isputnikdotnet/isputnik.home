@@ -8,7 +8,7 @@ import { MessageBox } from "../../shared/MessageBox";
 import { MediaKindBadge } from "../../shared/MediaKindBadge";
 import type { SavedBook } from "../audiobooks/types";
 
-export function MyListPage({
+export function LikesPage({
   user,
   logout
 }: {
@@ -22,7 +22,7 @@ export function MyListPage({
   useEffect(() => {
     api<{ books: SavedBook[] }>("/api/library/saved")
       .then((payload) => setBooks(payload.books))
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load your favorites"));
+      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load your likes"));
   }, []);
 
   const removeBook = async (bookId: string) => {
@@ -32,32 +32,34 @@ export function MyListPage({
       await api(`/api/library/books/${bookId}/save`, { method: "DELETE" });
       setBooks((current) => current?.filter((book) => book.id !== bookId) ?? current);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to remove this book from Favorites");
+      setError(err instanceof Error ? err.message : "Unable to unlike this book");
     } finally {
       setRemovingIds((current) => current.filter((id) => id !== bookId));
     }
   };
 
   return (
-    <DashboardShell active="user" user={user} logout={logout} sideNav={<UserAreaNav active="favorites" />}>
+    <DashboardShell active="user" user={user} logout={logout} sideNav={<UserAreaNav active="likes" />}>
       <section className="work-area audiobook-area">
         <div className="section-head audiobook-head">
           <div>
             <p className="eyebrow">Digital Library</p>
-            <h1>Favorites</h1>
+            <h1>Likes</h1>
           </div>
+          {/* "items", not "books": this list is cross-type — the gallery heart puts
+              photos and videos in here too (see the kind switch below). */}
           {books && books.length > 0 && (
-            <span>{books.length} {books.length === 1 ? "book" : "books"}</span>
+            <span>{books.length} {books.length === 1 ? "item" : "items"}</span>
           )}
         </div>
 
-        {error && <MessageBox tone="error" title="Favorites error">{error}</MessageBox>}
+        {error && <MessageBox tone="error" title="Likes error">{error}</MessageBox>}
 
         {books && books.length === 0 ? (
           <div className="empty-state library-empty">
             <Heart size={58} aria-hidden="true" />
-            <h2>No favorites yet</h2>
-            <p className="muted">Open a book and tap “Add to Favorites” to save it here.</p>
+            <h2>Nothing liked yet</h2>
+            <p className="muted">Tap the heart on a book, a photo or a video to keep it here.</p>
           </div>
         ) : (
           <div className="audiobook-grid">
@@ -93,8 +95,8 @@ export function MyListPage({
                     className="icon-button danger saved-audiobook-remove"
                     onClick={() => removeBook(book.id)}
                     disabled={removing}
-                    aria-label={`Remove ${book.title} from Favorites`}
-                    title="Remove from Favorites"
+                    aria-label={`Unlike ${book.title}`}
+                    title="Unlike"
                   >
                     <Trash2 size={16} />
                   </button>

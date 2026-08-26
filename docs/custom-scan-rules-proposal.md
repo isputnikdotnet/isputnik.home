@@ -61,7 +61,7 @@ Creating or changing a rule re-derives metadata within its assigned scope while
 preserving catalog identity. Items are keyed by their book key (the folder/group
 path), so a rule that only changes derived fields (series, author, position)
 keeps the same `library_items` rows — and with them reading progress, bookmarks,
-shares, favourites, collections, and manual edits. New rows are created only when
+shares, likes, collections, and manual edits. New rows are created only when
 a rule changes the book *boundary* (which files make up a book); that is the only
 case that drops attached data, and the preview flags it so `ConfirmDialog` can
 warn before it happens. Source files are never changed.

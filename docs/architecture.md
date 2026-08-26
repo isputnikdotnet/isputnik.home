@@ -46,7 +46,7 @@ isputnik.home is a private, self-hosted web app for friends and family. It provi
 - Recycle Bin — delete moves source files to a hidden `.trash` folder; restore/purge across library types ([`recycle-bin.md`](recycle-bin.md))
 - Backup & restore tooling — download/upload backups with staged restore-on-restart
 - Categories & Tags — fixed navigation **categories** (keyword-matched per scan) plus global, cross-type **tags**, with global cross-type browse and admin management
-- Cross-type Favorites and Collections — user-curated lists spanning audiobooks and ebooks
+- Cross-type Likes and Collections — user-curated lists spanning audiobooks and ebooks
 - Home dashboard — Continue and Recently added feeds across types
 - PWA/offline — installable app shell, account-aware cache cleanup, durable downloaded-book metadata, offline player/detail fallback, reconnect progress sync, and cover-cache revalidation
 - Security hardening — per-IP rate limiting (tight on auth endpoints), optional TOTP two-factor auth, security headers (helmet), scoped proxy trust (`TRUST_PROXY_HOPS`), SSRF DNS-rebinding fix on remote image fetches, ReDoS fixes, and path-traversal-safe static serving
@@ -98,7 +98,7 @@ from gallery libraries by reference. See [`family-tree.md`](family-tree.md).
 - Background job queue for scans, metadata extraction, thumbnail generation
 - Sharded thumbnail cache at `THUMBNAIL_PATH`
 - Access via the unified permission model — per-object role assignments (Everyone group = public, owner = manager) with per-library write policies; item-level sharing via `shares` and `share_links` ([`permissions.md`](permissions.md))
-- Collections, Favorites, and Tags — cross-type, shared across all library types
+- Collections, Likes, and Tags — cross-type, shared across all library types
 - Recycle Bin — deleting moves source files to a hidden `.trash` folder and removes the row; restore or purge later ([`recycle-bin.md`](recycle-bin.md))
 - Safety rule — source files are never renamed, moved, or deleted (uploads add; the Recycle Bin relocates within the source volume)
 
@@ -246,7 +246,7 @@ SQLite with WAL mode, `synchronous = NORMAL`, and `foreign_keys = ON`. All file 
 7. **Done** — Sharing & access control — unified permission model, public/private libraries, item shares + guest links
 8. **Done** — Backup and restore tooling
 9. **Done** — Ebook library + in-app EPUB reader (foliate-js)
-10. **Done** — Cross-type browse — Categories, Tags, Favorites, Collections, Home feeds
+10. **Done** — Cross-type browse — Categories, Tags, Likes, Collections, Home feeds
 11. **Done** — Security hardening — rate limiting, SSRF/ReDoS/path-traversal fixes
 12. **Future** — Notes module
 13. **Future** — Group ownership/membership for libraries

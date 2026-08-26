@@ -9,7 +9,8 @@ import {
   searchGalleryFolders,
   galleryFacets,
   queryGalleryMapPoints,
-  resolveGalleryScopeLibraryIds
+  resolveGalleryScopeLibraryIds,
+  EMPTY_GALLERY_FILTERS
 } from "../src/modules/library/gallery/catalog.js";
 import { kindForExtension } from "../src/modules/library/gallery/media.js";
 import { rotateGalleryAsset } from "../src/modules/library/gallery/rotate.js";
@@ -367,7 +368,10 @@ describe("gallery advanced filters", () => {
   const timeline = (filters: Partial<Parameters<typeof queryGalleryTimeline>[2]["filters"] & object>) =>
     queryGalleryTimeline("u1", ["GAL"], {
       q: "", kinds: [], limit: 50, offset: 0,
-      filters: { people: [], tags: [], years: [], months: [], taken: [], cameras: [], sizes: [], location: [], ...filters }
+      // Spread the shipped empty object rather than respelling it: a new facet then
+      // reaches every case here for free (spreading a Partial hides a missing key
+      // from the typechecker, so a hand-written list fails at runtime, not build).
+      filters: { ...EMPTY_GALLERY_FILTERS, ...filters }
     });
 
   const tagItem = (itemId: string, displayName: string) => {

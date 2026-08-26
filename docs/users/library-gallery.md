@@ -46,7 +46,7 @@ time:
 ## Viewing
 
 Click a photo to open the viewer. From there: pan and zoom, step through with
-the arrow keys, see details in the info panel, rotate, favourite, share, or add
+the arrow keys, see details in the info panel, rotate, like, share, or add
 to an album or slideshow. Videos play inline; a format the browser can't decode
 is offered as a download, and the server can transcode a web-playable copy.
 
@@ -57,7 +57,7 @@ viewer and in its thumbnails, and keeps playing while you turn it.
 
 The **Select** button in the header turns the grid into a picker — click photos
 to tick them, or use a date header's checkbox to take a whole day. A toolbar of
-icons appears with what you can do to the selection: favourite it, add it to an
+icons appears with what you can do to the selection: like it, add it to an
 album, slideshow or collection, set the date taken, set the location, share it,
 or move it to the Recycle Bin. Hover an icon to see what it does.
 

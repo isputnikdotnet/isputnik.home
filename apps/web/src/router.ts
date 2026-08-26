@@ -236,7 +236,7 @@ export type Route =
   | { name: "home" }
   | { name: "libraryFeed"; mode: "recent" | "continue" }
   | { name: "audiobooks" }
-  | { name: "favorites" }
+  | { name: "likes" }
   | { name: "bookmarks" }
   | { name: "quotes" }
   | { name: "activity" }
@@ -451,9 +451,11 @@ export function getRoute(): Route {
     return { name: "ebookSeriesDetail", seriesId: ebookSeriesDetailMatch[1] };
   }
 
-  // Global, cross-type Favorites (audiobooks + ebooks); old path kept as an alias.
-  if (path === "/favorites" || path === "/audiobooks/saved") {
-    return { name: "favorites" };
+  // Global, cross-type Likes (audiobooks + ebooks + gallery). Both older paths stay
+  // as aliases: /favorites is what this was called before the rename, and it is in
+  // people's bookmarks and PWA shortcuts.
+  if (path === "/likes" || path === "/favorites" || path === "/audiobooks/saved") {
+    return { name: "likes" };
   }
 
   // Cross-type personal-library pages; old /audiobooks/* paths kept as aliases.

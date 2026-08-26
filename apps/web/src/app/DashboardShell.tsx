@@ -100,7 +100,7 @@ function userMenuLinks(): UserMenuLink[] {
   return [
     { label: "Shared with me", href: "/shared", icon: UsersRound },
     { label: "Around the house", href: "/activity", icon: Users },
-    { label: "Favorites", href: "/favorites", icon: Heart },
+    { label: "Likes", href: "/likes", icon: Heart },
     { label: "Bookmarks", href: "/bookmarks", icon: Bookmark },
     { label: "Quotes", href: "/quotes", icon: Quote },
     { label: "Collections", href: "/collections", icon: ListMusic },
@@ -112,7 +112,7 @@ function userMenuLinks(): UserMenuLink[] {
 
 // The user-area routes reachable from the Profile drop-up sheet. The Profile
 // tab highlights for any of them (not just /profile itself).
-const PROFILE_ROUTES = ["/profile", "/favorites", "/bookmarks", "/quotes", "/collections", "/shared", "/inbox", "/activity"];
+const PROFILE_ROUTES = ["/profile", "/likes", "/bookmarks", "/quotes", "/collections", "/shared", "/inbox", "/activity"];
 
 // Four-tab bottom nav for the installed app / phones: Home, Media, Offline,
 // Profile. "Media" and "Profile" aren't pages — each opens a drop-up sheet:
@@ -188,9 +188,9 @@ function MobileNav({
               <UserRound size={26} aria-hidden="true" />
               <span>Profile</span>
             </a>
-            <a className="mobile-media-option" href="/favorites" onClick={(event) => { followRoute(event, "/favorites"); close(); }}>
+            <a className="mobile-media-option" href="/likes" onClick={(event) => { followRoute(event, "/likes"); close(); }}>
               <Heart size={26} aria-hidden="true" />
-              <span>Favorites</span>
+              <span>Likes</span>
             </a>
             <a className="mobile-media-option" href="/bookmarks" onClick={(event) => { followRoute(event, "/bookmarks"); close(); }}>
               <Bookmark size={26} aria-hidden="true" />
@@ -284,7 +284,7 @@ export function DashboardShell({
   // Media sections (Gallery, Ebooks, Audiobooks, Family Tree, …) opt into a
   // contextual nav the same way Control/Profile do: by handing in `sideNav`.
   const hasSectionNav = isControlPanel || isUserArea || sideNav != null;
-  // User-area pages (Profile, Favorites, Downloads, …) and section-nav media
+  // User-area pages (Profile, Likes, Downloads, …) and section-nav media
   // pages drop their top section nav on phones and rely on the bottom tab bar
   // instead — its Media/Profile sheets expose every destination either way.
   // The control panel is the one exception: dense enough that it keeps its own

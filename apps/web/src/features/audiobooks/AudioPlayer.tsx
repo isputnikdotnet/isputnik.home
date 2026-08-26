@@ -937,14 +937,14 @@ export function AudioPlayer({
               {onToggleSave && (
                 <div className="player-popup-aux-item">
                   <button
-                    className={`player-popup-aux-btn${saved ? " bookmark-saved" : ""}`}
+                    className={`player-popup-aux-btn${saved ? " is-liked" : ""}`}
                     onClick={onToggleSave}
                     disabled={savingSave}
                     aria-pressed={saved ?? false}
-                    aria-label={saved ? "Remove from Favorites" : "Add to Favorites"}
+                    aria-label={saved ? "Unlike" : "Like"}
                   >
                     <Heart size={18} fill={saved ? "currentColor" : "none"} />
-                    <span className="player-popup-aux-label">Favorites</span>
+                    <span className="player-popup-aux-label">Like</span>
                   </button>
                 </div>
               )}
@@ -1142,14 +1142,14 @@ export function AudioPlayer({
             </button>
             {onToggleSave && (
               <button
-                className={`player-speed-btn${saved ? " bookmark-saved" : ""}`}
+                className={`player-speed-btn${saved ? " is-liked" : ""}`}
                 onClick={onToggleSave}
                 disabled={savingSave}
                 aria-pressed={saved ?? false}
-                aria-label={saved ? "Remove from Favorites" : "Add to Favorites"}
+                aria-label={saved ? "Unlike" : "Like"}
               >
                 <Heart size={15} fill={saved ? "currentColor" : "none"} />
-                <span>{saved ? "Favorited" : "Favorites"}</span>
+                <span>{saved ? "Liked" : "Like"}</span>
               </button>
             )}
           </>

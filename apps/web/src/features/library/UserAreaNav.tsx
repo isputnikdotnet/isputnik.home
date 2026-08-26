@@ -14,7 +14,7 @@ import { followRoute } from "../../router";
 
 export type UserAreaSection =
   | "profile"
-  | "favorites"
+  | "likes"
   | "bookmarks"
   | "quotes"
   | "activity"
@@ -31,7 +31,7 @@ interface UserNavItem {
 
 export function UserAreaNav({ active }: { active: UserAreaSection }) {
   const libraryLinks: UserNavItem[] = [
-    { section: "favorites", label: "Favorites", href: "/favorites", icon: Heart },
+    { section: "likes", label: "Likes", href: "/likes", icon: Heart },
     { section: "bookmarks", label: "Bookmarks", href: "/bookmarks", icon: Bookmark },
     { section: "quotes", label: "Quotes", href: "/quotes", icon: Quote },
     { section: "collections", label: "Collections", href: "/collections", icon: ListMusic },

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { ArrowLeft, ChevronLeft, ChevronRight, Download, Heart, ImagePlus, Info, ListMusic, MoreVertical, Pause, Pencil, Play, Plus, RotateCcw, RotateCw, Send, Trash2, Volume2, VolumeX, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -156,8 +156,8 @@ export function GalleryLightbox({
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState("");
-  const [fav, setFav] = useState(asset?.saved ?? false);
-  const [favBusy, setFavBusy] = useState(false);
+  const [liked, setLiked] = useState(asset?.saved ?? false);
+  const [likeBusy, setLikeBusy] = useState(false);
   const [rotateBusy, setRotateBusy] = useState(false);
   // Set when the browser's <video> can't decode this asset (unsupported container/
   // codec — legacy AVI/Motion-JPEG, WMV, etc.). We serve originals untranscoded, so
@@ -175,7 +175,7 @@ export function GalleryLightbox({
   const [personBusy, setPersonBusy] = useState(false);
   const [personError, setPersonError] = useState("");
 
-  useEffect(() => { setFav(asset?.saved ?? false); }, [asset?.id, asset?.saved]);
+  useEffect(() => { setLiked(asset?.saved ?? false); }, [asset?.id, asset?.saved]);
   // Each asset gets a fresh playback attempt — but a known-unplayable one goes
   // straight to the fallback instead of stalling on a load that will fail.
   useEffect(() => { setVideoError(asset?.playable === false); }, [asset?.id, asset?.playable]);
@@ -343,6 +343,24 @@ export function GalleryLightbox({
     else audio.pause();
   }, [playing, dialogOpen, musicUrl]);
 
+  // Defined above the keydown effect (and null-guarded) so `F` can reach it — the
+  // early `if (!asset) return null` below would otherwise sit between them.
+  const toggleLike = useCallback(async () => {
+    if (!asset || likeBusy) return;
+    const next = !liked;
+    setLiked(next);
+    setLikeBusy(true);
+    try {
+      if (next) await api(`/api/library/books/${asset.id}/save`, { method: "PUT", body: JSON.stringify({ note: null }) });
+      else await api(`/api/library/books/${asset.id}/save`, { method: "DELETE" });
+      onChanged();
+    } catch {
+      setLiked(!next);
+    } finally {
+      setLikeBusy(false);
+    }
+  }, [asset, liked, likeBusy, onChanged]);
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       // The overflow menu gets its own Escape (closes the menu, not the whole
@@ -364,28 +382,19 @@ export function GalleryLightbox({
         event.preventDefault();
         setPlaying((v) => !v);
       }
+      // F likes the photo. A review pass over a trip is then ←/→ to move and F to
+      // keep, without the pointer ever leaving the keyboard. Modified presses stay
+      // with the browser (⌘F / Ctrl+F is Find).
+      else if ((event.key === "f" || event.key === "F") && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        event.preventDefault();
+        void toggleLike();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [index, assets.length, canSlideshow, onClose, onIndexChange, dialogOpen, moreMenuOpen]);
+  }, [index, assets.length, canSlideshow, onClose, onIndexChange, dialogOpen, moreMenuOpen, toggleLike]);
 
   if (!asset) return null;
-
-  const toggleFav = async () => {
-    if (favBusy) return;
-    const next = !fav;
-    setFav(next);
-    setFavBusy(true);
-    try {
-      if (next) await api(`/api/library/books/${asset.id}/save`, { method: "PUT", body: JSON.stringify({ note: null }) });
-      else await api(`/api/library/books/${asset.id}/save`, { method: "DELETE" });
-      onChanged();
-    } catch {
-      setFav(!next);
-    } finally {
-      setFavBusy(false);
-    }
-  };
 
   // Rotate the asset 90° and refetch so the regenerated (cache-busted) thumbnail
   // loads. For a video the poster/tiles come back rotated and the playing <video>
@@ -611,6 +620,8 @@ export function GalleryLightbox({
     key: string;
     icon: LucideIcon;
     label: string;
+    // Keyboard shortcut, shown in the tooltip so it's findable at all.
+    hint?: string;
     onClick?: () => void;
     href?: string;
     download?: boolean;
@@ -620,12 +631,13 @@ export function GalleryLightbox({
   };
   const candidateActions: LightboxAction[] = [
     {
-      key: "favorite",
+      key: "like",
       icon: Heart,
-      label: fav ? "Remove from favorites" : "Add to favorites",
-      onClick: () => void toggleFav(),
-      disabled: favBusy,
-      active: fav
+      label: liked ? "Unlike" : "Like",
+      hint: "F",
+      onClick: () => void toggleLike(),
+      disabled: likeBusy,
+      active: liked
     },
     { key: "album", icon: ImagePlus, label: "Add to album", onClick: () => setAlbumOpen(true) },
     {
@@ -691,9 +703,11 @@ export function GalleryLightbox({
         disabled={a.disabled}
         aria-pressed={a.active}
         aria-label={a.label}
-        title={a.label}
+        // The shortcut rides in the tooltip only — an aria-label is read aloud, and
+        // "Like F" is not a sentence.
+        title={a.hint ? `${a.label} (${a.hint})` : a.label}
       >
-        <a.icon size={18} fill={a.key === "favorite" && a.active ? "currentColor" : "none"} aria-hidden="true" />
+        <a.icon size={18} fill={a.key === "like" && a.active ? "currentColor" : "none"} aria-hidden="true" />
       </button>
     );
 

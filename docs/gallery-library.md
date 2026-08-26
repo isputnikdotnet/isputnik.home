@@ -145,14 +145,14 @@ Gallery is **not** a `BOOK_LIBRARY_TYPES` member — it stays out of the genre
 Categories taxonomy and the book-only Home feeds. It does join the polymorphic,
 item-keyed systems:
 
-- **Tags**, **Favorites** (`item_saves`), **Recycle Bin** — work per asset
+- **Tags**, **Likes** (`item_saves`), **Recycle Bin** — work per asset
   unchanged (the asset's `folder_path` is a single file, so trash moves that file).
 - **Collections** — gallery assets are collectable (`collections/hydrators.ts`,
   `entityType = "library_item"`, `libraries.type = 'gallery'`), so a Collection
   works as a photo set. Surfaced via **Add to collection** in the lightbox and
   the multi-select bar (batch: `POST /api/collections/:id/items/batch`).
 - **Multi-select bar** (Timeline + Folders) — Select mode is open to every
-  member: **Favorite** (`POST /api/library/books/bulk-save`, one request per
+  member: **Like** (`POST /api/library/books/bulk-save`, one request per
   selection), **Add to collection**, **Share** (curators), and **Delete**
   (delete rights only). Day headers select whole days.
 - **Shares** — the `libraries.type → module` map (`mediaKind`) resolves `'gallery'`,

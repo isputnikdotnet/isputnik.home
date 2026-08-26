@@ -8,7 +8,7 @@ import { DEFAULT_COVERS } from "../audiobooks/covers";
 import { authorLine, feedHref, saveFeedItemOffline, type FeedItem } from "./feed";
 
 // A single ⋮-menu entry. When `menuItems` is supplied the row renders these
-// instead of the default favourites/details menu — this lets the library pages
+// instead of the default likes/details menu — this lets the library pages
 // inject their full action set while keeping the identical row look.
 export interface FeedRowMenuItem {
   icon: LucideIcon;
@@ -53,8 +53,8 @@ export function FeedListItem({ item, progress, downloaded, onDownloaded, onRead,
 
   const [downloading, setDownloading] = useState(false);
   const [opening, setOpening] = useState(false);
-  const [fav, setFav] = useState(false);
-  const [favBusy, setFavBusy] = useState(false);
+  const [liked, setLiked] = useState(false);
+  const [likeBusy, setLikeBusy] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -105,18 +105,18 @@ export function FeedListItem({ item, progress, downloaded, onDownloaded, onRead,
     }
   };
 
-  const toggleFav = async () => {
-    if (favBusy) return;
-    const next = !fav;
-    setFav(next);
-    setFavBusy(true);
+  const toggleLike = async () => {
+    if (likeBusy) return;
+    const next = !liked;
+    setLiked(next);
+    setLikeBusy(true);
     try {
       if (next) await api(`/api/library/books/${item.id}/save`, { method: "PUT", body: JSON.stringify({ note: null }) });
       else await api(`/api/library/books/${item.id}/save`, { method: "DELETE" });
     } catch {
-      setFav(!next);
+      setLiked(!next);
     } finally {
-      setFavBusy(false);
+      setLikeBusy(false);
     }
   };
 
@@ -233,7 +233,7 @@ export function FeedListItem({ item, progress, downloaded, onDownloaded, onRead,
                     role="menuitem"
                     href={entry.href}
                     download
-                    className={entry.active ? "is-fav" : ""}
+                    className={entry.active ? "is-liked" : ""}
                     onClick={() => setMenuOpen(false)}
                   >
                     {inner}
@@ -243,7 +243,7 @@ export function FeedListItem({ item, progress, downloaded, onDownloaded, onRead,
                     key={index}
                     type="button"
                     role="menuitem"
-                    className={`${entry.danger ? "danger" : ""}${entry.active ? " is-fav" : ""}`.trim()}
+                    className={`${entry.danger ? "danger" : ""}${entry.active ? " is-liked" : ""}`.trim()}
                     onClick={() => { setMenuOpen(false); entry.onClick?.(); }}
                     disabled={entry.disabled}
                   >
@@ -256,12 +256,12 @@ export function FeedListItem({ item, progress, downloaded, onDownloaded, onRead,
                 <button
                   type="button"
                   role="menuitem"
-                  className={fav ? "is-fav" : ""}
-                  onClick={() => { setMenuOpen(false); void toggleFav(); }}
-                  disabled={favBusy}
+                  className={liked ? "is-liked" : ""}
+                  onClick={() => { setMenuOpen(false); void toggleLike(); }}
+                  disabled={likeBusy}
                 >
-                  <Heart size={16} fill={fav ? "currentColor" : "none"} aria-hidden="true" />
-                  <span>{fav ? "Favorited" : "Add to favorites"}</span>
+                  <Heart size={16} fill={liked ? "currentColor" : "none"} aria-hidden="true" />
+                  <span>{liked ? "Liked" : "Like"}</span>
                 </button>
                 <button
                   type="button"

@@ -152,29 +152,29 @@ function EbookCatalogCard({
   onDelete: (book: AudiobookBook) => void;
   onRead: (book: EbookBook) => void;
 }) {
-  const [fav, setFav] = useState(book.saved);
-  const [favBusy, setFavBusy] = useState(false);
+  const [liked, setLiked] = useState(book.saved);
+  const [likeBusy, setLikeBusy] = useState(false);
 
   // Re-seed from the server shape when the catalog refreshes.
-  useEffect(() => { setFav(book.saved); }, [book.saved]);
+  useEffect(() => { setLiked(book.saved); }, [book.saved]);
 
   const activate = () => {
     if (selectionMode) onToggleSelect(book.id);
     else navigate(`/ebooks/books/${book.id}`);
   };
 
-  const toggleFav = async () => {
-    if (favBusy) return;
-    const next = !fav;
-    setFav(next);
-    setFavBusy(true);
+  const toggleLike = async () => {
+    if (likeBusy) return;
+    const next = !liked;
+    setLiked(next);
+    setLikeBusy(true);
     try {
       if (next) await api(`/api/library/books/${book.id}/save`, { method: "PUT", body: JSON.stringify({ note: null }) });
       else await api(`/api/library/books/${book.id}/save`, { method: "DELETE" });
     } catch {
-      setFav(!next);
+      setLiked(!next);
     } finally {
-      setFavBusy(false);
+      setLikeBusy(false);
     }
   };
 
@@ -255,16 +255,16 @@ function EbookCatalogCard({
             <div className="audiobook-catalog-actions" aria-label={`Actions for ${book.title}`}>
               <div className="audiobook-catalog-action-row">
                 <button
-                  className={`audiobook-catalog-action${fav ? " on" : ""}`}
+                  className={`audiobook-catalog-action${liked ? " on" : ""}`}
                   type="button"
-                  onClick={(event) => { event.stopPropagation(); void toggleFav(); }}
-                  aria-pressed={fav}
-                  aria-label={fav ? "Remove from favorites" : "Add to favorites"}
-                  title={fav ? "Favorited" : "Add to favorites"}
-                  disabled={favBusy}
+                  onClick={(event) => { event.stopPropagation(); void toggleLike(); }}
+                  aria-pressed={liked}
+                  aria-label={liked ? "Unlike" : "Like"}
+                  title={liked ? "Liked" : "Like"}
+                  disabled={likeBusy}
                 >
-                  <Heart size={16} fill={fav ? "currentColor" : "none"} aria-hidden="true" />
-                  <span>{fav ? "Favorited" : "Favorite"}</span>
+                  <Heart size={16} fill={liked ? "currentColor" : "none"} aria-hidden="true" />
+                  <span>{liked ? "Liked" : "Like"}</span>
                 </button>
                 {book.documentId && (
                   <button

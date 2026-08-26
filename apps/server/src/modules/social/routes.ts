@@ -29,7 +29,7 @@ import {
 import { hydrateEntities, hydrateOne, isSubjectEntityType, type HydratedEntity } from "./subjects.js";
 import { notifyRecommendationSent } from "./notify.js";
 
-// Entity types that are rows in library_items, and so can go to Favorites. A
+// Entity types that are rows in library_items, and so can be liked. A
 // family-tree person, an album and a slideshow are sendable and note-able, but
 // none of them is a library item and none needs a shortlist: a household has
 // tens of albums, not thousands, and they are all already on one page.
@@ -333,7 +333,7 @@ export async function socialPlugin(app: FastifyInstance) {
   });
 
   // Save — the whole tie-in with "Save for Later". It writes to the existing
-  // item_saves ("My List"); there is no second saved-things list.
+  // item_saves (the Likes table); there is no second saved-things list.
   app.post("/api/social/recommendations/:id/save", { preHandler: app.authenticate }, async (request, reply) => {
     const user = request.user!;
     const id = (request.params as { id: string }).id;

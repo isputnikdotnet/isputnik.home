@@ -34,7 +34,7 @@ import { SendToSheet, type SendToSubject } from "../social/SendToSheet";
 import { NotesSection } from "../social/NotesSection";
 import { Modal } from "../../shared/Modal";
 import { ChoiceGroup } from "../../shared/ChoiceGroup";
-import type { GalleryAlbum, GalleryAlbumDetail, GalleryAsset, GalleryFaceSettings, GalleryFacets, GalleryFolder, GalleryLibrary, GalleryMapPoint, GalleryMemories, GalleryMemoryGroup, GalleryMemorySuggestion, GalleryPerson, GallerySlideshow, GallerySlideshowDetail, GallerySlideshowSettings, SlideshowTransition } from "./types";
+import type { GalleryAlbum, GalleryAlbumDetail, GalleryAsset, GalleryFaceSettings, GalleryFacets, GalleryFolder, GalleryLibrary, GalleryMapPoint, GalleryMemories, GalleryMemoryGroup, GalleryMemorySuggestion, GalleryPerson, GallerySlideshow, GallerySlideshowDetail, GallerySlideshowSettings, GalleryYearReview, SlideshowTransition } from "./types";
 import { faceFocusStyle } from "./types";
 
 const PAGE_SIZE = 80;
@@ -183,6 +183,7 @@ export function GalleryPage({
   // dedicated Memories view.
   const [memories, setMemories] = useState<GalleryMemories | null>(null);
   const [memorySuggestions, setMemorySuggestions] = useState<GalleryMemorySuggestion[]>([]);
+  const [yearReviews, setYearReviews] = useState<GalleryYearReview[]>([]);
   // A suggestion opened for PREVIEW — nothing is created until the user picks an
   // action in the modal. previewAssets null = thumbnails still loading.
   const [previewSuggestion, setPreviewSuggestion] = useState<GalleryMemorySuggestion | null>(null);
@@ -234,7 +235,7 @@ export function GalleryPage({
     createSlideshowSubmit, confirmDeleteSlideshow
   } = useGallerySlideshows({ ...status, isAdmin });
   const {
-    people, selectedPerson, setSelectedPerson, personAssets, personTotal,
+    people, selectedPerson, setSelectedPerson, personAssets, setPersonAssets, personTotal,
     renameValue, setRenameValue, mergeOpen, setMergeOpen,
     personCoverPickerOpen, setPersonCoverPickerOpen, setPersonCover,
     personDeleteOpen, setPersonDeleteOpen, personPick, setPersonPick,
@@ -546,6 +547,18 @@ export function GalleryPage({
 
   useEffect(() => { void loadMemorySuggestions(); }, [loadMemorySuggestions]);
 
+  // "2026 in review" cards. A year card is a full selection pass over that year's
+  // items server-side, so only the most recent few are asked for.
+  const loadYearReviews = useCallback(async () => {
+    const params = new URLSearchParams({ ...scopeParams(), limit: "3" } as Record<string, string>);
+    try {
+      const payload = await api<{ suggestions: GalleryYearReview[] }>(`/api/library/gallery/year-review?${params}`);
+      setYearReviews(payload.suggestions);
+    } catch { /* advisory; the section just stays empty */ }
+  }, [scopeParams]);
+
+  useEffect(() => { void loadYearReviews(); }, [loadYearReviews]);
+
   // Open a suggestion for preview: show its photos and let the user choose an action
   // (create a slideshow, or add the photos to an existing/new one). Nothing persists
   // until they pick one.
@@ -818,9 +831,38 @@ export function GalleryPage({
   // stays open through adds).
   useEffect(() => { if (!selectedSlideshow) { setBrowseOpen(false); setSlideshowCoverPickerOpen(false); setMovieDeleteOpen(false); } }, [selectedSlideshow]);
 
-  // Bulk favorite: one request for the whole selection. Items in libraries the
-  // user can't favorite (shouldn't happen from this UI) come back as skipped.
-  const bulkFavorite = async () => {
+  // Set `saved` on one asset wherever it is currently loaded. A photo can sit in
+  // several lists at once (the timeline, a folder, a person, an album, an "on this
+  // day" group), and the lightbox reads `saved` off these same objects — so
+  // patching them all is what makes a like set on a tile already filled when the
+  // photo is opened, with no refetch.
+  const setAssetSaved = useCallback((assetId: string, saved: boolean) => {
+    const patch = (list: GalleryAsset[]) =>
+      (list.some((a) => a.id === assetId) ? list.map((a) => (a.id === assetId ? { ...a, saved } : a)) : list);
+    setAssets(patch);
+    setFolderAssets(patch);
+    setPersonAssets(patch);
+    setAlbumAssets(patch);
+    setMemories((current) => (current ? { ...current, groups: current.groups.map((g) => ({ ...g, items: patch(g.items) })) } : current));
+  }, [setPersonAssets, setAlbumAssets]);
+
+  // The tile heart. Optimistic — the point of the control is that it costs one tap
+  // and no waiting — and rolled back with a message if the request fails.
+  const toggleAssetLike = useCallback(async (asset: GalleryAsset, next: boolean) => {
+    setAssetSaved(asset.id, next);
+    try {
+      await api(`/api/library/books/${asset.id}/save`, next
+        ? { method: "PUT", body: JSON.stringify({ note: null }) }
+        : { method: "DELETE" });
+    } catch (err) {
+      setAssetSaved(asset.id, !next);
+      setError(err instanceof Error ? err.message : "Unable to update likes");
+    }
+  }, [setAssetSaved]);
+
+  // Bulk like: one request for the whole selection. Items in libraries the
+  // user can't like (shouldn't happen from this UI) come back as skipped.
+  const bulkLike = async () => {
     setBulkBusy(true);
     setBulkError("");
     try {
@@ -829,12 +871,12 @@ export function GalleryPage({
         { method: "POST", body: JSON.stringify({ bookIds: [...selectedIds] }) }
       );
       exitSelection();
-      const parts = [`Added ${result.saved} item${result.saved === 1 ? "" : "s"} to Favorites`];
+      const parts = [`Liked ${result.saved} item${result.saved === 1 ? "" : "s"}`];
       if (result.forbidden > 0) parts.push(`${result.forbidden} skipped`);
       setNotice(`${parts.join(" · ")}.`);
       refreshView();
     } catch (err) {
-      setBulkError(err instanceof Error ? err.message : "Unable to add the items to Favorites");
+      setBulkError(err instanceof Error ? err.message : "Unable to like the items");
     } finally {
       setBulkBusy(false);
     }
@@ -1065,7 +1107,7 @@ export function GalleryPage({
 
         {error && <MessageBox tone="error" title="Gallery error">{error}</MessageBox>}
         {notice && <MessageBox tone="success" title="Gallery updated">{notice}</MessageBox>}
-        {/* Favorite/collection failures surface here — the delete flow shows its
+        {/* Like/collection failures surface here — the delete flow shows its
             own error inside the confirm dialog. */}
         {bulkError && !bulkDeleteOpen && <MessageBox tone="error" title="Unable to update">{bulkError}</MessageBox>}
 
@@ -1183,7 +1225,7 @@ export function GalleryPage({
                   {/* Nothing narrows the other list views, so there is nothing to
                       divide the acting controls from. */}
                   {browsingPhotos && <span className="library-toolbar-divider" aria-hidden="true" />}
-                  {/* Selection is not delete-gated: favouriting and adding to a
+                  {/* Selection is not delete-gated: liking and adding to a
                       collection are for every member. Delete inside it still is. */}
                   {/* Desktop only, as on the book pages: bulk editing from a phone
                       is a row of eleven verbs on a 375px screen. */}
@@ -1229,12 +1271,12 @@ export function GalleryPage({
                     <button
                       type="button"
                       className="library-toolbar-button"
-                      onClick={() => void bulkFavorite()}
+                      onClick={() => void bulkLike()}
                       disabled={selectedIds.size === 0 || bulkBusy}
-                      title={bulkBusy ? "Adding…" : "Add to Favorites"}
+                      title={bulkBusy ? "Liking…" : "Like"}
                     >
                       <Heart size={18} aria-hidden="true" />
-                      <span className="toolbar-label">Favorite</span>
+                      <span className="toolbar-label">Like</span>
                     </button>
                     <button
                       type="button"
@@ -1496,6 +1538,7 @@ export function GalleryPage({
                         selectionMode={personPick != null}
                         selected={personPick?.has(asset.id) ?? false}
                         onToggleSelect={() => togglePersonPick(asset.id)}
+                        onToggleLike={(next) => void toggleAssetLike(asset, next)}
                         onRemove={canCuratePeople && !personPick ? () => void removeFromPerson(asset.id) : undefined}
                       />
                     ))}
@@ -1679,6 +1722,7 @@ export function GalleryPage({
                         selectionMode={selectionMode}
                         selected={selectedIds.has(asset.id)}
                         onToggleSelect={() => toggleSelect(asset.id)}
+                        onToggleLike={(next) => void toggleAssetLike(asset, next)}
                         onRemove={selectedAlbum.canEdit && !selectionMode ? () => void removeFromAlbum(selectedAlbum.id, asset.id) : undefined}
                         removeTitle="Remove from this album"
                       />
@@ -1847,6 +1891,38 @@ export function GalleryPage({
                       slideshows: it's the "make something new" prompt, and a
                       single scrollable row (the fetch itself is capped) keeps
                       it from pushing your actual list below the fold. */}
+                  {/* Ahead of the trip/event suggestions: a year card is the one
+                      the household actually built, a tap at a time, all year. */}
+                  {yearReviews.length > 0 && !nameTerm && (
+                    <section className="gallery-memory-suggestions" aria-label="Year in review">
+                      <div className="gallery-memory-suggestions-head">
+                        <h2>Your year</h2>
+                      </div>
+                      <p className="gallery-year-hint">
+                        Built from the photos and videos your family liked, spread across the whole year.
+                      </p>
+                      <div className="gallery-suggestion-row">
+                        {yearReviews.map((review) => (
+                          <button
+                            key={review.id}
+                            type="button"
+                            className="gallery-folder-tile gallery-memory-tile gallery-year-tile"
+                            onClick={() => void openSuggestionPreview(review)}
+                            title={`Preview “${review.title}”`}
+                          >
+                            <span className="gallery-folder-thumb">
+                              {review.coverUrl ? <img src={review.coverUrl} alt="" loading="lazy" /> : <CalendarDays size={28} aria-hidden="true" />}
+                              <span className="gallery-memory-play" aria-hidden="true"><Play size={20} /></span>
+                              <span className="gallery-year-badge" aria-hidden="true">{review.year}</span>
+                            </span>
+                            <strong>{review.title}</strong>
+                            <small>{review.subtitle}</small>
+                          </button>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+
                   {memorySuggestions.length > 0 && !nameTerm && (
                     <section className="gallery-memory-suggestions" aria-label="Suggested slideshows">
                       <div className="gallery-memory-suggestions-head">
@@ -1964,6 +2040,7 @@ export function GalleryPage({
                               selectionMode={selectionMode}
                               selected={selectedIds.has(asset.id)}
                               onToggleSelect={() => toggleSelect(asset.id)}
+                              onToggleLike={(next) => void toggleAssetLike(asset, next)}
                             />
                           ))}
                         </div>
@@ -2023,6 +2100,7 @@ export function GalleryPage({
                         selectionMode={selectionMode}
                         selected={selectedIds.has(asset.id)}
                         onToggleSelect={() => toggleSelect(asset.id)}
+                        onToggleLike={(next) => void toggleAssetLike(asset, next)}
                       />
                     ))}
                   </div>
@@ -2065,6 +2143,7 @@ export function GalleryPage({
                             selectionMode={selectionMode}
                             selected={selectedIds.has(asset.id)}
                             onToggleSelect={() => toggleSelect(asset.id)}
+                            onToggleLike={(next) => void toggleAssetLike(asset, next)}
                           />
                         ))}
                       </div>
@@ -2200,6 +2279,7 @@ export function GalleryPage({
                           selectionMode={selectionMode}
                           selected={selectedIds.has(asset.id)}
                           onToggleSelect={() => toggleSelect(asset.id)}
+                          onToggleLike={(next) => void toggleAssetLike(asset, next)}
                         />
                       ))}
                     </div>

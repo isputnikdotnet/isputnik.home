@@ -212,13 +212,26 @@ export interface GalleryTimelineFilters {
   cameras: string[];  // CAMERA_SQL display strings
   sizes: string[];    // SIZE_BUCKETS codes: small | medium | large | huge
   location: string[]; // 'with_gps' | 'no_gps'
+  likes: string[]; // LIKE_SQL codes: mine | anyone | none
 }
 
 export const EMPTY_GALLERY_FILTERS: GalleryTimelineFilters = {
-  people: [], tags: [], years: [], months: [], taken: [], cameras: [], sizes: [], location: []
+  people: [], tags: [], years: [], months: [], taken: [], cameras: [], sizes: [], location: [], likes: []
 };
 
-function galleryFilterClauses(filters: GalleryTimelineFilters): { clauses: string[]; args: unknown[] } {
+// The Likes facet. `item_saves` is already LEFT JOINed for the `saved` column,
+// but the COUNT(*) half of a timeline query doesn't carry that join — so these are
+// EXISTS subqueries, which read the same on both. 'mine' takes the viewer's id; the
+// other two are viewer-independent ("someone in the house liked it"), which is
+// the signal the year-in-review scores on (see year-review.ts).
+const LIKE_SQL: Record<string, { sql: string; needsUser: boolean }> = {
+  mine:   { sql: "EXISTS (SELECT 1 FROM item_saves s WHERE s.item_id = library_items.id AND s.user_id = ?)", needsUser: true },
+  anyone: { sql: "EXISTS (SELECT 1 FROM item_saves s WHERE s.item_id = library_items.id)", needsUser: false },
+  none:   { sql: "NOT EXISTS (SELECT 1 FROM item_saves s WHERE s.item_id = library_items.id)", needsUser: false }
+};
+const LIKE_ORDER = ["mine", "anyone", "none"];
+
+function galleryFilterClauses(filters: GalleryTimelineFilters, userId: string): { clauses: string[]; args: unknown[] } {
   const clauses: string[] = [];
   const args: unknown[] = [];
   if (filters.people.length > 0) {
@@ -275,6 +288,16 @@ function galleryFilterClauses(filters: GalleryTimelineFilters): { clauses: strin
       ? "gallery_details.gps_lat IS NOT NULL AND gallery_details.gps_lng IS NOT NULL"
       : "(gallery_details.gps_lat IS NULL OR gallery_details.gps_lng IS NULL)");
   }
+  // OR within the facet, like every other list here. Walked in a fixed order so the
+  // placeholders and the args pushed for them can't drift apart. Selecting all three
+  // means "everything", which is the same as selecting none — so it drops out.
+  const likes = LIKE_ORDER.filter((code) => filters.likes.includes(code));
+  if (likes.length > 0 && likes.length < LIKE_ORDER.length) {
+    clauses.push(`(${likes.map((code) => LIKE_SQL[code].sql).join(" OR ")})`);
+    for (const code of likes) {
+      if (LIKE_SQL[code].needsUser) args.push(userId);
+    }
+  }
   return { clauses, args };
 }
 
@@ -307,7 +330,7 @@ export function queryGalleryTimeline(userId: string, libIds: string[], opts: Gal
     args.push(like, like, like, like);
   }
   if (opts.kinds.length > 0) { where.push(`gallery_details.kind IN (${inClause(opts.kinds.length)})`); args.push(...opts.kinds); }
-  const extra = galleryFilterClauses(opts.filters ?? EMPTY_GALLERY_FILTERS);
+  const extra = galleryFilterClauses(opts.filters ?? EMPTY_GALLERY_FILTERS, userId);
   where.push(...extra.clauses);
   args.push(...extra.args);
 

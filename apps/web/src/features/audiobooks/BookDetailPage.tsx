@@ -649,7 +649,7 @@ function BookDetailView({
         setSave(payload.save);
       }
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "Unable to update favorites");
+      setSaveError(err instanceof Error ? err.message : "Unable to update likes");
     } finally {
       setSaveAction(false);
     }
@@ -802,7 +802,7 @@ function BookDetailView({
   const openPlayer = () => window.open(`/player/${book.id}`, "isputnik-player", "width=500,height=700,resizable=yes,scrollbars=yes");
   const showProgressMenu = !isEbook || isFoliateFormat(primaryReadableDoc?.format);
 
-  // The row of icon buttons at the top of the page (listen/read, favorites, edit,
+  // The row of icon buttons at the top of the page (listen/read, likes, edit,
   // download, send, share, delete — whichever apply). Desktop shows them all
   // inline (minus the listen/read CTAs, which stay in their own big button below
   // the cover); mobile/PWA promotes the CTAs to the row right after Back, always
@@ -891,10 +891,10 @@ function BookDetailView({
         }]
       : [])
   ];
-  // Favorite + the CTA icon(s) + the overflow trigger (always shown on mobile —
+  // Like + the CTA icon(s) + the overflow trigger (always shown on mobile —
   // progress actions and Add to collection always live there) all take a slot
   // in the 6-icon row, so whatever's left over shrinks with them.
-  const fixedSlots = 1 /* favorite */ + (isMobile ? ctaActions.length + 1 /* trigger */ : 0);
+  const fixedSlots = 1 /* like */ + (isMobile ? ctaActions.length + 1 /* trigger */ : 0);
   const rowCap = isMobile ? Math.max(0, 6 - fixedSlots) : otherActions.length;
   const visibleIconActions = isMobile ? otherActions.slice(0, rowCap) : otherActions;
   const overflowIconActions = isMobile ? otherActions.slice(rowCap) : [];
@@ -997,8 +997,8 @@ function BookDetailView({
             onClick={toggleSave}
             disabled={saveAction}
             aria-pressed={save?.saved ?? false}
-            aria-label={saveAction ? "Saving favorite" : save?.saved ? "Remove from favorites" : "Add to favorites"}
-            title={saveAction ? "Saving..." : save?.saved ? "Favorited" : "Add to favorites"}
+            aria-label={saveAction ? "Liking" : save?.saved ? "Unlike" : "Like"}
+            title={saveAction ? "Liking…" : save?.saved ? "Liked" : "Like"}
           >
             <Heart size={18} fill={save?.saved ? "currentColor" : "none"} />
           </button>
@@ -1215,7 +1215,7 @@ function BookDetailView({
                   )}
             </div>
           </div>
-          {saveError && <MessageBox tone="error" title="Favorites error">{saveError}</MessageBox>}
+          {saveError && <MessageBox tone="error" title="Likes error">{saveError}</MessageBox>}
           {progressActionError && <MessageBox tone="error" title="Progress error">{progressActionError}</MessageBox>}
           {offline.error && <MessageBox tone="error" title="Download error">{offline.error}</MessageBox>}
           {sendNotice && (

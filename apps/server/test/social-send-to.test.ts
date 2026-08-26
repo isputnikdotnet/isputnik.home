@@ -582,7 +582,7 @@ describe("albums and slideshows", () => {
     expect(db.prepare("SELECT COUNT(*) AS n FROM shares").get()).toEqual({ n: 0 });
   });
 
-  it("offers no Favorites for an album or a slideshow", async () => {
+  it("offers no Like for an album or a slideshow", async () => {
     await makeMember("dad");
     await makeMember("mom");
     makePhoto("p1", "lib-open", { createdBy: "dad", viewers: ["dad", "mom"] });

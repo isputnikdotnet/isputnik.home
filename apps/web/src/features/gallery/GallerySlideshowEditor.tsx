@@ -353,7 +353,7 @@ export function GallerySlideshowEditor({
               ) : (
                 <span className="gallery-tile-fallback"><ImageIcon size={26} aria-hidden="true" /></span>
               )}
-              {asset.saved && <Heart size={14} className="gallery-fav-dot" fill="currentColor" aria-hidden="true" />}
+              {asset.saved && <Heart size={14} className="gallery-like-dot" fill="currentColor" aria-hidden="true" />}
               {asset.kind === "video" && (
                 asset.playable === false ? (
                   <span className="gallery-video-badge unplayable" title="Can’t play in browser — download to view">

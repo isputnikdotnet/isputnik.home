@@ -96,10 +96,10 @@ name on it.
 Anything still waiting on a decision sits at the top under **Waiting for you**,
 showing who sent it and what they said, with two buttons:
 
-- **Favorite** puts it in your Favorites, to get to when you get to it.
+- **Like** puts it in your Likes, to get to when you get to it.
 - **Not now** clears it away. Nothing is deleted and nobody is told.
 
-An album, a slideshow or a person has no Favorites to go in — there are only ever
+An album, a slideshow or a person cannot be liked — there are only ever
 a handful of each and they're all on one page already — so those cards carry a
 single **Done** instead.
 
