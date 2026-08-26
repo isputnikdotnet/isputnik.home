@@ -146,7 +146,56 @@ describe("the memory card", () => {
 
     const memory = cards[memoryIndex] as MemoryCard;
     expect(memory.totalCount).toBe(2);
-    expect(memory.groups.map((group) => group.year)).toEqual([2019, 2018]);
+    expect(memory.years).toEqual([2019, 2018]);
+    expect(memory.strip.map((entry) => entry.year)).toEqual([2019, 2018]);
+  });
+
+  it("picks the strip for variety: every year first, people first within a year", () => {
+    // 2019 has three photos on this day — the middle one has a person in it —
+    // and 2018 has one. Four slots: one per year first, so 2018 is guaranteed a
+    // place even though 2019 alone could fill the strip; within 2019 the photo
+    // with the person leads.
+    makePhoto("p19-a", `2019${TODAY.slice(4)}T08:00:00.000Z`);
+    makePhoto("p19-face", `2019${TODAY.slice(4)}T09:00:00.000Z`);
+    makePhoto("p19-b", `2019${TODAY.slice(4)}T10:00:00.000Z`);
+    makePhoto("p18", `2018${TODAY.slice(4)}T09:00:00.000Z`);
+    db.prepare("INSERT INTO gallery_faces (id, item_id) VALUES ('f1', 'p19-face')").run();
+
+    const memory = loadHomeFeed(dad, TODAY).find((card): card is MemoryCard => card.type === "memory")!;
+    expect(memory.strip).toHaveLength(4);
+    expect(new Set(memory.strip.map((entry) => entry.year))).toEqual(new Set([2019, 2018]));
+    // Newest year leads, and its first photo is the one with a person.
+    expect(memory.strip[0].year).toBe(2019);
+    expect(memory.strip[0].item.id).toBe("p19-face");
+  });
+
+  it("stays on the exact day when it can fill the strip, widening only when thin", () => {
+    // A photo two days off in an old year, plus four photos exactly on the day.
+    const near = new Date(new Date(`${TODAY}T00:00:00Z`).getTime() - 2 * 86_400_000);
+    const nearMonthDay = `${String(near.getUTCMonth() + 1).padStart(2, "0")}-${String(near.getUTCDate()).padStart(2, "0")}`;
+    makePhoto("p-near", `2015-${nearMonthDay}T10:00:00.000Z`);
+    for (let i = 0; i < 4; i++) makePhoto(`p-day-${i}`, `201${6 + i}${TODAY.slice(4)}T10:00:00.000Z`);
+
+    // Four exact-day photos fill the strip — the near year stays out.
+    const full = loadHomeFeed(dad, TODAY).find((card): card is MemoryCard => card.type === "memory")!;
+    expect(full.precision).toBe("day");
+    expect(full.years).not.toContain(2015);
+    expect(full.strip.map((entry) => entry.year)).toEqual([2019, 2018, 2017, 2016]);
+
+    // Thin the day out and the near year is welcome again.
+    db.prepare("DELETE FROM library_items WHERE id IN ('p-day-0', 'p-day-1', 'p-day-2')").run();
+    const thin = loadHomeFeed(dad, TODAY).find((card): card is MemoryCard => card.type === "memory")!;
+    expect(thin.years).toContain(2015);
+  });
+
+  it("ignores rejected face tags when preferring people", () => {
+    makePhoto("p-plain", `2019${TODAY.slice(4)}T08:00:00.000Z`);
+    makePhoto("p-rejected", `2019${TODAY.slice(4)}T09:00:00.000Z`);
+    db.prepare("INSERT INTO gallery_faces (id, item_id, assignment) VALUES ('f1', 'p-rejected', 'rejected')").run();
+
+    const memory = loadHomeFeed(dad, TODAY).find((card): card is MemoryCard => card.type === "memory")!;
+    // No usable face anywhere — chronological order stands.
+    expect(memory.strip.map((entry) => entry.item.id)).toEqual(["p-plain", "p-rejected"]);
   });
 
   it("offers no card when the only match is a whole-month fallback", () => {

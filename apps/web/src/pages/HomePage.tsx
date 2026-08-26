@@ -17,7 +17,7 @@ import { getDownloadedEpubBlob, getEbookDownload, listDownloads, listEbookDownlo
 import { isFoliateFormat } from "../shared/utils";
 import { EbookReader } from "../features/audiobooks/reader/EbookReader";
 import type { AudiobookBookDetail, ReadingProgress } from "../features/audiobooks/types";
-import type { GalleryAsset, GalleryMemories } from "../features/gallery/types";
+import type { GalleryAsset, GalleryLibrary, GalleryMemories } from "../features/gallery/types";
 import { GalleryLightbox } from "../features/gallery/GalleryLightbox";
 
 const count = (value: number) => new Intl.NumberFormat().format(value);
@@ -148,13 +148,12 @@ function ResumeHero({ item, onRead, downloaded, onDownloaded, onDownload, onToas
 
 function MemoryFeedCard({ card, onOpen }: { card: MemoryCard; onOpen: (year: number, itemId: string) => void }) {
   const title = card.precision === "near" ? "Around this day" : "On this day";
-  // One strip across the years, newest first — up to four photos, each jumping
-  // straight into that year's viewer.
-  const photos = card.groups.flatMap((group) => group.items.map((item) => ({ item, year: group.year }))).slice(0, 4);
-  const years = card.groups.map((group) => group.year);
-  const yearSpan = years.length === 1
-    ? String(years[0])
-    : `${years[years.length - 1]} – ${years[0]}`;
+  // The server picked the strip for variety — one photo per year, people
+  // preferred. Each photo jumps straight to itself in the viewer.
+  const photos = card.strip.map(({ item, year }) => ({ item, year }));
+  const yearSpan = card.years.length === 1
+    ? String(card.years[0])
+    : `${card.years[card.years.length - 1]} – ${card.years[0]}`;
   return (
     <section className="home-card home-card-memory" aria-label={title}>
       <header className="home-card-head">
@@ -294,6 +293,10 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
   // re-fetches the complete set.
   const [memoryLightbox, setMemoryLightbox] = useState<{ items: GalleryAsset[]; index: number } | null>(null);
   const [memoryLoading, setMemoryLoading] = useState(false);
+  // Gallery libraries with their permission flags, so the memory lightbox can
+  // offer exactly what the Timeline offers (edit/rotate/delete/guest link).
+  // Fetched once, the first time the viewer opens.
+  const [galleryLibraries, setGalleryLibraries] = useState<GalleryLibrary[] | null>(null);
   const [busySent, setBusySent] = useState<string | null>(null);
   const [error, setError] = useState("");
   const isMobile = useIsMobile();
@@ -348,6 +351,47 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
       setMemoryLoading(false);
     }
   }, [memoryLoading]);
+
+  // Load the permission flags alongside the first viewer open. Until they
+  // land the viewer is read-only, which is also the safe answer on failure.
+  useEffect(() => {
+    if (!memoryLightbox || galleryLibraries !== null) return;
+    api<{ libraries: GalleryLibrary[] }>("/api/library/gallery-libraries")
+      .then((payload) => setGalleryLibraries(payload.libraries))
+      .catch(() => setGalleryLibraries([]));
+  }, [memoryLightbox, galleryLibraries]);
+
+  // After the viewer changes something (a rotate, an edit, a delete), re-fetch
+  // the day and find the photo we were on again — or the one that took its
+  // place when it was the one deleted. The same job refreshView does on the
+  // gallery pages.
+  const refreshMemoryLightbox = useCallback(async () => {
+    try {
+      const full = await api<GalleryMemories>(`/api/library/gallery/memories?date=${localDate()}&perYear=200`);
+      const groups = full.precision === "month" ? [] : full.groups;
+      const items = groups.flatMap((group) => group.items);
+      setMemoryLightbox((current) => {
+        if (!current) return current;
+        if (items.length === 0) return null;
+        const currentId = current.items[current.index]?.id;
+        const found = items.findIndex((item) => item.id === currentId);
+        const index = found >= 0 ? found : Math.min(current.index, items.length - 1);
+        return { items, index };
+      });
+    } catch {
+      // Keep showing what we have; the next open refetches anyway.
+    }
+  }, []);
+
+  // The Details panel's folder line: close the viewer and land in the gallery's
+  // Folders view on that folder, the way the Timeline's viewer does. Segments
+  // are encoded one by one so names with #/% survive while slashes stay slashes.
+  const openMemoryFolder = useCallback((folder: string) => {
+    const asset = memoryLightbox ? memoryLightbox.items[memoryLightbox.index] : null;
+    const path = folder.split("/").filter(Boolean).map(encodeURIComponent).join("/");
+    setMemoryLightbox(null);
+    navigate(`/gallery/folders/${path}${asset ? `?library=${encodeURIComponent(asset.libraryId)}` : ""}`);
+  }, [memoryLightbox]);
 
   // Open an ebook in the inline reader. Works offline: the epub document id comes
   // from the live detail when the server is reachable, else from the saved
@@ -615,18 +659,25 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
       document.body
     )}
 
-    {memoryLightbox && memoryLightbox.items[memoryLightbox.index] && (
-      <GalleryLightbox
-        assets={memoryLightbox.items}
-        index={memoryLightbox.index}
-        canDelete={false}
-        canEdit={false}
-        canShare={false}
-        onClose={() => setMemoryLightbox(null)}
-        onIndexChange={(next) => setMemoryLightbox((current) => (current ? { ...current, index: next } : current))}
-        onChanged={() => { /* home is a read-only glance; likes refresh on next load */ }}
-      />
-    )}
+    {memoryLightbox && memoryLightbox.items[memoryLightbox.index] && (() => {
+      // Per-photo permissions, exactly as the gallery pages compute them.
+      const library = galleryLibraries?.find(
+        (candidate) => candidate.id === memoryLightbox.items[memoryLightbox.index].libraryId
+      );
+      return (
+        <GalleryLightbox
+          assets={memoryLightbox.items}
+          index={memoryLightbox.index}
+          canDelete={library?.canDelete ?? false}
+          canEdit={library?.canWrite ?? false}
+          canShare={library?.canCurate ?? false}
+          onClose={() => setMemoryLightbox(null)}
+          onIndexChange={(next) => setMemoryLightbox((current) => (current ? { ...current, index: next } : current))}
+          onChanged={() => void refreshMemoryLightbox()}
+          onOpenFolder={openMemoryFolder}
+        />
+      );
+    })()}
 
     {viewer && createPortal(
       <EbookReader

@@ -4,15 +4,18 @@
 import { api } from "../../api";
 import type { InboxCard } from "../social/InboxRow";
 import type { ActivityItem } from "../social/ActivityList";
-import type { GalleryMemoryGroup } from "../gallery/types";
+import type { GalleryAsset } from "../gallery/types";
 
 export type SentCard = InboxCard & { type: "sent" };
 
 export interface MemoryCard {
   type: "memory";
   precision: "day" | "near";
-  groups: GalleryMemoryGroup[];
+  /** Every year with photos on this day, newest first. */
+  years: number[];
   totalCount: number;
+  /** The photos shown: one per year first, people preferred (see the server). */
+  strip: { year: number; item: GalleryAsset }[];
 }
 
 export interface AddedBatchCard {

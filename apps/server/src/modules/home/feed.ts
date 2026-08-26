@@ -43,9 +43,12 @@ export interface SentCard extends InboxCardView {
 export interface MemoryCard {
   type: "memory";
   precision: Exclude<GalleryMemoriesPrecision, "month">;
-  /** Same shape the memories page uses; the client's viewer reuses it as is. */
-  groups: GalleryMemoryGroup[];
+  /** Every year with photos on this day, newest first — for the card's label. */
+  years: number[];
   totalCount: number;
+  /** The four photos shown, chosen for variety: one per year first (newest
+   *  years first), photos with a person in them preferred within each year. */
+  strip: { year: number; item: GalleryMemoryGroup["items"][number] }[];
 }
 
 export interface AddedBatchCard {
@@ -108,18 +111,72 @@ function ageDays(iso: string, now: number): number {
 
 const decay = (age: number, halfLife: number) => Math.exp(-age / halfLife);
 
+/** How many photos the memory card shows. */
+const MEMORY_STRIP_SIZE = 4;
+
+// Which of these photos have a person in them (any face that wasn't rejected —
+// auto-detected or hand-tagged both count). Installs without face scanning
+// simply have no rows here, and the strip falls back to chronology.
+function itemsWithPeople(itemIds: string[]): Set<string> {
+  if (itemIds.length === 0) return new Set();
+  const rows = db.prepare(`
+    SELECT DISTINCT item_id FROM gallery_faces
+    WHERE assignment != 'rejected' AND item_id IN (${itemIds.map(() => "?").join(", ")})
+  `).all(...itemIds) as { item_id: string }[];
+  return new Set(rows.map((row) => row.item_id));
+}
+
 function memoryCard(user: RequestUser, date: string): MemoryCard | null {
   const libIds = resolveGalleryScopeLibraryIds(user);
   if (libIds.length === 0) return null;
-  const memories = queryGalleryMemories(user.id, libIds, date, 4);
+  // Over-fetch per year so the strip has face-photo candidates to prefer.
+  const memories = queryGalleryMemories(user.id, libIds, date, 12);
   // A whole-month fallback would put filler on the front page; only a real
   // anniversary (exact day, or a year dated a couple of days off) is a card.
   if (memories.precision === "month" || memories.groups.length === 0) return null;
+
+  // Stay tight when the day itself has enough: the ±3-day widening exists to
+  // rescue scanned photos dated a little off, not to pad a day that can already
+  // fill the strip. Only when exact-day photos can't fill it do near years join.
+  let groups = memories.groups;
+  const dayGroups = groups.filter((group) => group.precision === "day");
+  const dayCount = dayGroups.reduce((total, group) => total + group.count, 0);
+  if (dayCount >= MEMORY_STRIP_SIZE) groups = dayGroups;
+
+  // The strip is picked for variety, not just recency: round one takes one
+  // photo from every year (newest year first), later rounds fill any slots
+  // left. Within a year, photos with a person in them come first (the sort is
+  // stable, so ties stay chronological).
+  const withPeople = itemsWithPeople(groups.flatMap((group) => group.items.map((item) => item.id)));
+  const byYear = groups.map((group) => ({
+    year: group.year,
+    items: [...group.items].sort(
+      (a, b) => Number(withPeople.has(b.id)) - Number(withPeople.has(a.id))
+    )
+  }));
+
+  const strip: MemoryCard["strip"] = [];
+  for (let round = 0; strip.length < MEMORY_STRIP_SIZE; round += 1) {
+    let took = false;
+    for (const group of byYear) {
+      if (strip.length >= MEMORY_STRIP_SIZE) break;
+      const item = group.items[round];
+      if (!item) continue;
+      strip.push({ year: group.year, item });
+      took = true;
+    }
+    if (!took) break;
+  }
+  // Rounds interleave years; the strip reads better newest-to-oldest, with a
+  // year's photos together. Stable, so the face-first order within a year holds.
+  strip.sort((a, b) => b.year - a.year);
+
   return {
     type: "memory",
-    precision: memories.precision,
-    groups: memories.groups,
-    totalCount: memories.groups.reduce((total, group) => total + group.count, 0)
+    precision: groups.every((group) => group.precision === "day") ? "day" : memories.precision,
+    years: groups.map((group) => group.year),
+    totalCount: groups.reduce((total, group) => total + group.count, 0),
+    strip
   };
 }
 
