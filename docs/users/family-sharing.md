@@ -82,11 +82,12 @@ household. See [Sharing](../sharing.md) for the details.
 
 ## When somebody sends you something
 
-You'll see it on the **Home page**, at the top, under **Sent to you** — the
-cover, who sent it, and what they said. Tap it and it opens.
+You'll see it on the **Home page**, at the very top of the feed — the cover,
+who sent it, and what they said. Tap it and it opens, or decide right there:
+**Like** puts it in your Likes, **Not now** clears it away.
 
-That row is only there when something is waiting. Once you've dealt with
-everything, it goes away.
+The card stays put until you decide — it doesn't drift down the page as other
+things happen. Once you've dealt with everything, it goes away.
 
 ## Shared with me
 
@@ -117,13 +118,14 @@ just sits there quietly.
 
 ## Around the house
 
-The other row on the Home page is what everyone else has been up to: notes
+What everyone else has been up to appears right in the Home feed: notes
 they've left, albums and slideshows they've made, people they've added to the
-family tree. Tap a line to go to the thing it's about. **Around the house** in
-your menu has the longer list.
+family tree — each as its own card, newest first, fading off the page after a
+couple of weeks. Tap one to go to the thing it's about. **Around the house** in
+your menu keeps the full history.
 
 Your own doings aren't in it — you already know about those. Neither are new
-books and photos, which have their own **Recently added** row. And nothing
+books, which arrive as their own "joined the library" card. And nothing
 appears about something you can't open.
 
 ## Notes
@@ -156,17 +158,6 @@ phone it's always there. It asks first, then the note stops being shown. An
 administrator can remove anyone's note the same way.
 
 Nothing else about the item changes, and nobody is told.
-
-### Around the house
-
-The other row on the Home page is what everyone else has been up to: notes
-they've left, albums and slideshows they've made, people they've added to the
-family tree. Tap a line to go to the thing it's about. **Around the house** in
-your menu has the longer list.
-
-Your own doings aren't in it — you already know about those. Neither are new
-books and photos, which have their own **Recently added** row. And nothing
-appears about something you can't open.
 
 ## Notes and the family tree
 

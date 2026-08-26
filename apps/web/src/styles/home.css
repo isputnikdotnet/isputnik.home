@@ -19,13 +19,9 @@
   --home-icon: color-mix(in srgb, var(--home-muted) 82%, var(--home-ink));
   --home-subtle-line: color-mix(in srgb, var(--home-line) 82%, transparent);
 
-  /* Recently/Continue tile width — fixed so a tile is the same size at any
-     window width (only the number per row changes). One knob to tune. */
-  --home-tile-w: 180px;
-
-  /* Home rows + feed pages reuse the Audiobooks catalog card so tiles look
-     identical everywhere. Its cover-shadow var is scoped to the audiobooks page,
-     so provide it here too. */
+  /* Feed pages reuse the Audiobooks catalog card so tiles look identical
+     everywhere. Its cover-shadow var is scoped to the audiobooks page, so
+     provide it here too. */
   --audiobook-soft-shadow: 0 8px 18px var(--shadow);
 
   display: grid;
@@ -340,30 +336,6 @@
   margin-top: 26px;
 }
 
-/* Slim library-overview strip above the two "recently" rows. */
-.home-stats {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: clamp(12px, 1.4vw, 16px);
-  margin-top: 22px;
-}
-
-.home-stats .home-overview-card {
-  min-height: 0;
-  gap: 13px;
-  padding: clamp(11px, 1.5vh, 15px) clamp(13px, 1.4vw, 17px);
-}
-
-.home-stats .home-overview-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 11px;
-}
-
-.home-stats .home-overview-card strong {
-  font-size: 1.12rem;
-}
-
 .home-control-nav-wrap {
   flex: 1 1 auto;
   min-height: 0;
@@ -516,36 +488,6 @@
   color: var(--home-accent-strong);
 }
 
-/* ── "Recently" rows ────────────────────────────────────────────────────────
-   Tiles mirror the Audiobooks catalog (same min width + 1.25/1 cover, contained
-   artwork). Each row is a single line that fills with as many tiles as fit and
-   clips the rest — never a horizontal scrollbar, never a wrap to a second row.
-   "View all" is the way to the ones that don't fit. */
-.home-tile-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, var(--home-tile-w));
-  grid-template-rows: 1fr;
-  grid-auto-rows: 0;
-  /* Column gap only. A row gap would still be inserted above each clipped
-     0-height overflow row, padding the grid's height by 16px per wrapped row
-     and letting the tops of the next row's covers bleed below the line. */
-  column-gap: 16px;
-  row-gap: 0;
-  overflow: hidden;
-}
-
-.home-overview-card {
-  color: inherit;
-  text-decoration: none;
-}
-
-a.home-overview-card:hover,
-a.home-overview-card:focus-visible {
-  transform: translateY(-2px);
-  box-shadow: var(--home-shadow);
-  outline: 0;
-}
-
 /* Tiles reuse the Audiobooks catalog card verbatim
    (.audiobook-catalog-card / -cover / -copy, see styles/library-browse.css) so
    they look identical everywhere. This anchor just resets link styling. */
@@ -554,8 +496,7 @@ a.home-overview-card:focus-visible {
   text-decoration: none;
 }
 
-/* "On this day" (gallery memories) tiles reuse the feed tile; the fallback fills
-   the cover box when a memory photo has no thumbnail. */
+/* Fills a cover/photo box when there is no thumbnail to show. */
 .home-memory-fallback {
   display: flex;
   align-items: center;
@@ -563,17 +504,6 @@ a.home-overview-card:focus-visible {
   width: 100%;
   height: 100%;
   color: var(--muted);
-}
-
-/* The home rows clip to one line (overflow: hidden), which would cut off the
-   catalog's hover pop-out. Inside the home rows, keep the cover still on hover —
-   its own dim (cover ::after) is the feedback. The full feed pages, which wrap
-   and don't clip, keep the catalog's lift-and-scale. */
-.home-tile-grid .audiobook-catalog-card:hover .audiobook-catalog-cover,
-.home-tile-grid .audiobook-catalog-card:focus-within .audiobook-catalog-cover {
-  transform: none;
-  border-radius: 10px;
-  box-shadow: var(--audiobook-soft-shadow);
 }
 
 /* Skeleton: a pulsing catalog-shaped cover while the feed loads. */
@@ -590,11 +520,8 @@ a.home-overview-card:focus-visible {
 /* The audiobook/ebook indicator is now the global shared/MediaKindBadge
    component — see .media-kind-badge in components.css. */
 
-/* Unified feed page ("View all" target): the same tiles, but a normal wrapping,
-   scrolling grid instead of the home's single clipped row. */
 /* Recent / Continue pages use the Audiobooks catalog grid exactly: tiles stretch
-   (minmax …, 1fr) to fill the window instead of leaving a fixed-width gap. The
-   home rows keep the compact fixed-width tiles (--home-tile-w) above. */
+   (minmax …, 1fr) to fill the window instead of leaving a fixed-width gap. */
 .library-feed-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(241px, 1fr));
@@ -624,68 +551,256 @@ a.home-overview-card:focus-visible {
   50% { opacity: 0.5; }
 }
 
-.home-overview-card {
+/* ── The home feed ───────────────────────────────────────────────────────────
+   One ranked column of mixed cards (see modules/home/feed.ts for the classes).
+   A single readable column, not a full-width dashboard: the feed reads top to
+   bottom and just ends. */
+.home-feed {
   display: flex;
-  align-items: center;
-  gap: 15px;
-  min-width: 0;
-  min-height: 80px;
-  padding: 15px;
-  border: 1px solid var(--home-line);
-  border-radius: 8px;
-  background: var(--home-panel);
-  box-shadow: 0 8px 18px var(--home-shadow-color);
-  transition: transform 0.16s ease, box-shadow 0.16s ease;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  max-width: 720px;
 }
 
-.home-overview-card > span:last-child {
+.home-card {
+  min-width: 0;
+  padding: 16px 18px;
+  border: 1px solid var(--home-line);
+  border-radius: 14px;
+  background: var(--home-panel);
+}
+
+.home-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.home-card-who {
+  min-width: 0;
+  color: var(--home-muted);
+  font-size: 0.9rem;
+}
+
+.home-card-who strong {
+  color: var(--home-ink);
+  font-weight: 650;
+}
+
+.home-card-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  color: var(--home-ink);
+  font-size: 0.86rem;
+  font-weight: 650;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.home-card-link:hover {
+  color: var(--home-accent-strong);
+}
+
+.home-card-sub {
+  margin: 10px 0 0;
+  color: var(--home-muted);
+  font-size: 0.84rem;
+}
+
+/* Sticky "Sent to you" cards reuse the inbox card (social.css) inside the feed
+   column; this only trims the list chrome to feed spacing. */
+.home-feed-sent {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* "On this day": a photo strip, not book-tile chrome. Each photo opens the
+   viewer at its year. */
+.home-memory-strip {
   display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.home-memory-photo {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 4 / 3;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: var(--home-soft-strong);
+  cursor: pointer;
+}
+
+.home-memory-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.home-memory-photo em {
+  position: absolute;
+  bottom: 6px;
+  left: 8px;
+  color: #fff;
+  font-size: 0.72rem;
+  font-style: normal;
+  font-weight: 650;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.65);
+}
+
+.home-memory-photo:hover img,
+.home-memory-photo:focus-visible img {
+  opacity: 0.85;
+}
+
+/* "N books joined the library" — one card per arrival day with a cover fan. */
+.home-card-batch {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+.home-batch-fan {
+  display: flex;
+  align-items: center;
+}
+
+.home-batch-cover {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 58px;
+  height: 78px;
+  border: 2px solid var(--home-panel);
+  border-radius: 7px;
+  overflow: hidden;
+  background: var(--home-soft-strong);
+  box-shadow: var(--audiobook-soft-shadow);
+  color: var(--home-icon);
+}
+
+.home-batch-cover + .home-batch-cover {
+  margin-left: -20px;
+}
+
+.home-batch-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.home-batch-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 14px;
+  color: var(--home-accent-strong);
+  font-size: 0.86rem;
+  font-weight: 650;
+}
+
+/* Activity events ride the shared activity-row (social.css) inside a card. */
+.home-card-activity {
+  padding: 6px 8px;
+}
+
+.home-card-activity .activity-list {
+  display: block;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Next in the series — the one rotating suggestion. */
+.home-card-suggest {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.home-suggest-cover {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 48px;
+  height: 66px;
+  border-radius: 7px;
+  overflow: hidden;
+  background: var(--home-soft-strong);
+}
+
+.home-suggest-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.home-suggest-copy {
+  display: flex;
+  flex-direction: column;
   gap: 2px;
   min-width: 0;
 }
 
-.home-overview-card strong {
-  color: var(--home-ink);
-  font-size: 1.2rem;
-  line-height: 1.1;
-}
-
-.home-overview-card small {
-  min-width: 0;
-  overflow: hidden;
+.home-suggest-why,
+.home-suggest-series {
   color: var(--home-muted);
-  font-size: 0.84rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: 0.82rem;
 }
 
-.home-overview-icon {
+.home-suggest-why strong {
+  color: var(--home-ink);
+  font-weight: 650;
+}
+
+.home-suggest-title {
+  color: var(--home-ink);
+  font-size: 0.98rem;
+  font-weight: 650;
+}
+
+.home-card-suggest:hover .home-suggest-title,
+.home-card-suggest:focus-visible .home-suggest-title {
+  color: var(--home-accent-strong);
+}
+
+/* The feed just ends — say so instead of trailing off. */
+.home-feed-end {
   display: grid;
-  flex: 0 0 auto;
-  place-items: center;
-  width: 50px;
-  height: 50px;
-  border-radius: 12px;
+  gap: 2px;
+  padding: 18px 0 4px;
+  text-align: center;
 }
 
-.home-overview-icon.violet {
-  color: var(--home-accent);
-  background: color-mix(in srgb, var(--home-accent) 18%, transparent);
+.home-feed-end strong {
+  color: var(--home-accent-strong);
+  font-size: 0.9rem;
 }
 
-.home-overview-icon.green {
-  color: var(--home-green);
-  background: color-mix(in srgb, var(--home-green) 18%, transparent);
+.home-feed-end span {
+  color: var(--home-muted);
+  font-size: 0.82rem;
 }
 
-.home-overview-icon.blue {
-  color: var(--home-blue);
-  background: color-mix(in srgb, var(--home-blue) 18%, transparent);
+.home-card.is-skeleton {
+  pointer-events: none;
 }
 
-.home-overview-icon.rose {
-  color: var(--home-rose);
-  background: color-mix(in srgb, var(--home-rose) 18%, transparent);
+.home-card.is-skeleton .home-skeleton-line {
+  animation: home-pulse 1.3s ease-in-out infinite;
 }
 
 @media (max-width: 1240px) {
@@ -923,15 +1038,12 @@ a.home-overview-card:focus-visible {
     margin-top: 32px;
   }
 
-  .home-stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .home-memory-strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .home-overview-card {
-    align-items: flex-start;
-    min-height: 96px;
-    flex-direction: column;
-    gap: 10px;
+  .home-memory-strip .home-memory-photo:nth-child(n+4) {
+    display: none;
   }
 }
 
@@ -946,17 +1058,16 @@ a.home-overview-card:focus-visible {
 }
 
 /* ── Mobile / PWA Home ───────────────────────────────────────────────────────
-   On phones (and the installed app), drop the library-overview stats strip and
-   render each feed row as a one-book-per-line list (cover · info · play · menu)
-   instead of the desktop's clipped cover-tile grid. Desktop (>740px) keeps the
-   1.2.0 layout untouched. */
+   On phones (and the installed app), tighten the feed column and render each
+   offline downloads row as a one-book-per-line list (cover · info · play ·
+   menu). The feed cards themselves are shared with desktop. */
 @media (max-width: 740px) {
-  .home-page .home-stats {
-    display: none;
-  }
-
   .home-page .home-header {
     margin-bottom: 2px;
+  }
+
+  .home-card {
+    padding: 13px 14px;
   }
 
   .home-content {
@@ -1107,14 +1218,6 @@ a.home-overview-card:focus-visible {
     white-space: nowrap;
   }
 
-  .home-feed-spin {
-    animation: home-feed-spin 0.9s linear infinite;
-  }
-
-  @keyframes home-feed-spin {
-    to { transform: rotate(360deg); }
-  }
-
   .home-feed-row-action {
     display: grid;
     flex: 0 0 auto;
@@ -1206,10 +1309,14 @@ a.home-overview-card:focus-visible {
   }
 }
 
-/* ── Mobile Home "pick up where you left off" resume hero ────────────────────
-   The single most-recent in-progress book, lifted above the Continue row as a
-   one-tap resume card. Mobile only — desktop keeps the tile grid. */
-@media (max-width: 740px) {
+/* ── "Pick up where you left off" resume hero ────────────────────────────────
+   The single most-recent in-progress book as a one-tap resume card, pinned
+   above the feed on every screen size (it started on mobile; desktop adopted
+   it with the feed revamp). */
+.home-resume {
+  max-width: 720px;
+}
+
   .home-resume-card {
     display: flex;
     align-items: center;
@@ -1357,11 +1464,38 @@ a.home-overview-card:focus-visible {
     place-items: center;
     width: 46px;
     height: 46px;
+    border: 0;
     border-radius: 50%;
     background: var(--home-accent);
     color: var(--home-canvas);
+    cursor: pointer;
   }
 
+.home-resume-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: 8px;
+  color: var(--home-muted);
+  font-size: 0.84rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.home-resume-more:hover {
+  color: var(--home-accent-strong);
+}
+
+/* Shared spinner for the hero, feed rows and the download banner. */
+.home-feed-spin {
+  animation: home-feed-spin 0.9s linear infinite;
+}
+
+@keyframes home-feed-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 740px) {
   .home-offline-empty {
     margin-top: 8px;
   }

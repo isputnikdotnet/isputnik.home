@@ -47,7 +47,7 @@ isputnik.home is a private, self-hosted web app for friends and family. It provi
 - Backup & restore tooling — download/upload backups with staged restore-on-restart
 - Categories & Tags — fixed navigation **categories** (keyword-matched per scan) plus global, cross-type **tags**, with global cross-type browse and admin management
 - Cross-type Likes and Collections — user-curated lists spanning audiobooks and ebooks
-- Home dashboard — Continue and Recently added feeds across types
+- Home feed — one ranked card feed (`/api/home/feed`): sticky "Sent to you" cards, an "On this day" photo-memory card, per-day "books joined the library" batch cards, family-activity cards, and a rotating next-in-series suggestion, with a pinned resume hero above it
 - PWA/offline — installable app shell, account-aware cache cleanup, durable downloaded-book metadata, offline player/detail fallback, reconnect progress sync, and cover-cache revalidation
 - Security hardening — per-IP rate limiting (tight on auth endpoints), optional TOTP two-factor auth, security headers (helmet), scoped proxy trust (`TRUST_PROXY_HOPS`), SSRF DNS-rebinding fix on remote image fetches, ReDoS fixes, and path-traversal-safe static serving
 
@@ -179,6 +179,8 @@ apps/server/src/
     uploads/                  ← upload streaming helpers
     backups/                  ← backup / restore
     collections/              ← cross-type user collections
+    home/                     ← the home feed composer (ranked typed cards over
+                                 library / gallery / social loaders)
     familytree/               ← family members, unions/children, events, sources,
                                  gallery photo links, GEDCOM (see family-tree.md).
                                  View: any user. Edit: admin, or tag-scoped "branch

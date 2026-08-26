@@ -1,15 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { BookOpen, ChevronRight, DownloadCloud, HardDrive, Headphones, Heart, Image as ImageIcon, Loader2, Play, Send } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
-import { recommendationLine } from "../features/social/phrasing";
-import { ActivityList, type ActivityItem } from "../features/social/ActivityList";
+import { BookOpen, ChevronRight, DownloadCloud, HardDrive, Image as ImageIcon, Library, Loader2, Play, Sparkles } from "lucide-react";
+import { ActivityList } from "../features/social/ActivityList";
+import { InboxRow, type InboxCard } from "../features/social/InboxRow";
 import { api, type PublicUser } from "../api";
 import { DashboardShell } from "../app/DashboardShell";
 import { followRoute, navigate } from "../router";
 import { MessageBox } from "../shared/MessageBox";
-import { authorLine, audioRecordToFeedItem, ebookRecordToFeedItem, fetchFeed, saveFeedItemOffline, type FeedItem, type FeedMode } from "../features/library/feed";
-import { FeedTile, FeedTileSkeleton } from "../features/library/FeedTile";
+import { authorLine, audioRecordToFeedItem, ebookRecordToFeedItem, fetchFeed, saveFeedItemOffline, type FeedItem } from "../features/library/feed";
+import { batchDayLabel, fetchHomeFeed, localDate, toActivityItem, type ActivityCard, type AddedBatchCard, type HomeCard, type MemoryCard, type SentCard, type SeriesNextCard } from "../features/home/feed";
 import { FeedListItem, FeedListItemSkeleton } from "../features/library/FeedListItem";
 import { DEFAULT_COVERS } from "../features/audiobooks/covers";
 import { useIsMobile } from "../shared/useIsMobile";
@@ -21,159 +20,22 @@ import type { AudiobookBookDetail, ReadingProgress } from "../features/audiobook
 import type { GalleryAsset, GalleryMemories } from "../features/gallery/types";
 import { GalleryLightbox } from "../features/gallery/GalleryLightbox";
 
-// How many books each home row shows. Continue is capped at 5 (one of which
-// becomes the mobile resume hero), Recently added at 10. Desktop clips its row
-// to a single line within these counts; mobile lists them all.
-const CONTINUE_LIMIT = 5;
-const RECENT_LIMIT = 10;
-
-type Tone = "violet" | "green" | "blue" | "rose";
-
-interface LibraryCountRow {
-  bookCount: number;
-}
-
-interface StatCard {
-  label: string;
-  value: number;
-  tone: Tone;
-  icon: LucideIcon;
-  href: string;
-}
-
 const count = (value: number) => new Intl.NumberFormat().format(value);
 
-function RowHeader({ id, title, href }: { id: string; title: string; href: string }) {
-  return (
-    <div className="home-section-title">
-      <h2 id={id}>{title}</h2>
-      <a href={href} onClick={(event) => followRoute(event, href)}>
-        <span>View all</span>
-        <ChevronRight size={18} aria-hidden="true" />
-      </a>
-    </div>
-  );
-}
-
-// What the family has put in front of you, on the front page.
-//
-// This row is the whole delivery mechanism for Send to. Before it, a
-// recommendation lived behind the Profile menu under a small dot — findable by
-// somebody who already knew it was there, and by nobody else. The people this
-// feature is for do not go looking in menus.
-//
-// It shows only what is still undecided, and disappears entirely when there is
-// nothing: an empty row on the front page teaches people the feature is dead.
-// Deciding still happens on "Shared with me" — this is a pointer, like every
-// other home row.
-interface SentToYouItem {
-  id: string;
-  entityType: string;
-  message: string | null;
-  status: "new" | "saved" | "dismissed";
-  fromName: string;
-  available: boolean;
-  title: string;
-  coverUrl: string | null;
-  href: string;
-}
-
-function SentToYouRow({ items, mobile }: { items: SentToYouItem[]; mobile: boolean }) {
-  return (
-    <section className="home-section" aria-labelledby="home-sent-title">
-      <RowHeader id="home-sent-title" title="Sent to you" href="/shared" />
-      <div className={mobile ? "home-sent-list" : "home-tile-grid"}>
-        {items.map((item) => (
-          <a
-            key={item.id}
-            className={mobile ? "home-sent-row" : "audiobook-catalog-card grid home-feed-tile"}
-            href={item.href}
-            onClick={(event) => followRoute(event, item.href)}
-          >
-            <div className={mobile ? "home-sent-cover" : "audiobook-catalog-cover"}>
-              {item.coverUrl
-                ? <img src={item.coverUrl} alt="" loading="lazy" />
-                : <span className="home-memory-fallback"><Send size={22} aria-hidden="true" /></span>}
-            </div>
-            <div className={mobile ? "home-sent-copy" : "audiobook-catalog-copy"}>
-              <strong>{item.title}</strong>
-              {/* The ask, in a person's words — and their own line when they
-                  wrote one, because that is what gets somebody to open it. */}
-              <small>
-                {item.message
-                  ? `${item.fromName}: "${item.message}"`
-                  : recommendationLine(item.fromName, item.entityType)}
-              </small>
-            </div>
-          </a>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function FeedRow({ id, title, mobileTitle, href, mode, items, emptyText, mobile, downloadedIds, onDownloaded, onRead, onToast, onDownload }: {
-  id: string;
-  title: string;
-  mobileTitle?: string;
-  href: string;
-  mode: FeedMode;
-  items: FeedItem[] | null;
-  emptyText: string;
-  mobile: boolean;
-  downloadedIds?: Set<string>;
-  onDownloaded?: (id: string) => void;
-  onRead?: (item: FeedItem) => Promise<void>;
-  onToast?: (message: string) => void;
-  onDownload?: (info: { title: string; progress: number } | null) => void;
-}) {
-  const heading = mobile && mobileTitle ? mobileTitle : title;
-  return (
-    <section className="home-section" aria-labelledby={id}>
-      <RowHeader id={id} title={heading} href={href} />
-      {items !== null && items.length === 0 ? (
-        <p className="home-row-empty">{emptyText}</p>
-      ) : mobile ? (
-        <div className="home-feed-list">
-          {items === null
-            ? Array.from({ length: 5 }).map((_, index) => <FeedListItemSkeleton key={index} />)
-            : items.map((item) => (
-              <FeedListItem
-                key={`${item.kind}-${item.id}`}
-                item={item}
-                progress={mode === "continue"}
-                downloaded={downloadedIds?.has(item.id) ?? false}
-                onDownloaded={onDownloaded}
-                onRead={onRead}
-                onToast={onToast}
-                onDownload={onDownload}
-              />
-            ))}
-        </div>
-      ) : (
-        <div className="home-tile-grid">
-          {items === null
-            ? Array.from({ length: 10 }).map((_, index) => <FeedTileSkeleton key={index} />)
-            : items.map((item) => (
-              <FeedTile key={`${item.kind}-${item.id}`} item={item} progress={mode === "continue"} added={mode === "recent"} />
-            ))}
-        </div>
-      )}
-    </section>
-  );
-}
-
-// Mobile "pick up where you left off" hero — the single most-recent in-progress
-// book, blown up above the Continue row. Tapping the main area resumes (plays an
-// audiobook / opens the inline reader for an ebook); a side column carries the
-// save-for-offline button and the play/read action.
-function ResumeHero({ item, onRead, downloaded, onDownloaded, onDownload, onToast }: {
+// The resume hero — the single most-recent in-progress book, pinned above the
+// feed on every screen size (it grew up on mobile; desktop adopted it in the
+// feed revamp). Tapping the main area resumes; the side column carries the
+// save-for-offline button (phones, where offline matters) and the play/read
+// action.
+function ResumeHero({ item, onRead, downloaded, onDownloaded, onDownload, onToast, showDownload, moreCount }: {
   item: FeedItem;
   onRead: (item: FeedItem) => Promise<void>;
   downloaded: boolean;
   onDownloaded: (id: string) => void;
   onDownload: (info: { title: string; progress: number } | null) => void;
   onToast: (message: string) => void;
+  showDownload: boolean;
+  moreCount: number;
 }) {
   const isEbook = item.kind === "ebook";
   const percent = Math.round((item.percentComplete ?? 0) * 100);
@@ -225,7 +87,7 @@ function ResumeHero({ item, onRead, downloaded, onDownloaded, onDownload, onToas
           </span>
         </button>
         <div className="home-resume-side">
-          {downloaded ? (
+          {showDownload && (downloaded ? (
             <button
               type="button"
               className="home-resume-dl is-saved"
@@ -248,7 +110,7 @@ function ResumeHero({ item, onRead, downloaded, onDownloaded, onDownload, onToas
                 ? <Loader2 size={16} className="home-feed-spin" aria-hidden="true" />
                 : <DownloadCloud size={16} aria-hidden="true" />}
             </button>
-          )}
+          ))}
           <button
             type="button"
             className="home-resume-action"
@@ -265,22 +127,143 @@ function ResumeHero({ item, onRead, downloaded, onDownloaded, onDownload, onToas
           </button>
         </div>
       </div>
+      {moreCount > 0 && (
+        <a className="home-resume-more" href="/continue" onClick={(event) => followRoute(event, "/continue")}>
+          <span>{moreCount === 1 ? "1 more in progress" : `${moreCount} more in progress`}</span>
+          <ChevronRight size={15} aria-hidden="true" />
+        </a>
+      )}
     </section>
   );
 }
 
-function StatTile({ card }: { card: StatCard }) {
-  const Icon = card.icon;
+// ── Feed cards ───────────────────────────────────────────────────────────────
+// Every card renders on the shared .home-card chrome; each type brings its own
+// body. The server owns the order — the client never re-sorts.
+
+function MemoryFeedCard({ card, onOpen }: { card: MemoryCard; onOpen: (year: number) => void }) {
+  const title = card.precision === "near" ? "Around this day" : "On this day";
+  // One strip across the years, newest first — up to four photos, each jumping
+  // straight into that year's viewer.
+  const photos = card.groups.flatMap((group) => group.items.map((item) => ({ item, year: group.year }))).slice(0, 4);
+  const years = card.groups.map((group) => group.year);
+  const yearSpan = years.length === 1
+    ? String(years[0])
+    : `${years[years.length - 1]} – ${years[0]}`;
   return (
-    <a className="home-overview-card" href={card.href} onClick={(event) => followRoute(event, card.href)}>
-      <span className={`home-overview-icon ${card.tone}`} aria-hidden="true">
-        <Icon size={22} />
+    <section className="home-card home-card-memory" aria-label={title}>
+      <header className="home-card-head">
+        <span className="home-card-who"><strong>{title}</strong> · {yearSpan}</span>
+        <a className="home-card-link" href="/gallery/memories" onClick={(event) => followRoute(event, "/gallery/memories")}>
+          <span>View all</span>
+          <ChevronRight size={16} aria-hidden="true" />
+        </a>
+      </header>
+      <div className="home-memory-strip">
+        {photos.map(({ item, year }) => (
+          <button
+            key={item.id}
+            type="button"
+            className="home-memory-photo"
+            onClick={() => onOpen(year)}
+            aria-label={`Photos from ${year}`}
+          >
+            {item.coverUrl
+              ? <img src={item.coverUrl} alt="" loading="lazy" />
+              : <span className="home-memory-fallback"><ImageIcon size={24} aria-hidden="true" /></span>}
+            <em>{year}</em>
+          </button>
+        ))}
+      </div>
+      <p className="home-card-sub">
+        {card.totalCount === 1 ? "1 photo" : `${count(card.totalCount)} photos`} from this day over the years — tap to relive
+      </p>
+    </section>
+  );
+}
+
+function BatchFeedCard({ card }: { card: AddedBatchCard }) {
+  const more = card.count - card.coverUrls.length;
+  return (
+    <a className="home-card home-card-batch" href="/recent" onClick={(event) => followRoute(event, "/recent")}>
+      <header className="home-card-head">
+        <span className="home-card-who">
+          <strong>{card.count === 1 ? "1 book" : `${count(card.count)} books`}</strong>
+          {` joined the library ${batchDayLabel(card.day)}`}
+        </span>
+      </header>
+      <div className="home-batch-fan">
+        {card.coverUrls.map((url) => (
+          <span key={url} className="home-batch-cover"><img src={url} alt="" loading="lazy" /></span>
+        ))}
+        {card.coverUrls.length === 0 && (
+          <span className="home-batch-cover home-batch-cover-empty"><Library size={22} aria-hidden="true" /></span>
+        )}
+        <span className="home-batch-more">{more > 0 ? `+${count(more)} more` : "Browse"} <ChevronRight size={15} aria-hidden="true" /></span>
+      </div>
+    </a>
+  );
+}
+
+function SeriesNextFeedCard({ card }: { card: SeriesNextCard }) {
+  return (
+    <a className="home-card home-card-suggest" href={card.item.href} onClick={(event) => followRoute(event, card.item.href)}>
+      <span className="home-suggest-cover">
+        {card.item.coverUrl
+          ? <img src={card.item.coverUrl} alt="" loading="lazy" />
+          : <span className="home-memory-fallback"><Sparkles size={22} aria-hidden="true" /></span>}
       </span>
-      <span>
-        <strong>{count(card.value)}</strong>
-        <small>{card.label}</small>
+      <span className="home-suggest-copy">
+        <small className="home-suggest-why">You finished <strong>{card.finishedTitle}</strong> —</small>
+        <strong className="home-suggest-title">{card.item.title} is on the shelf</strong>
+        <small className="home-suggest-series">{card.seriesName} · next in the series</small>
       </span>
     </a>
+  );
+}
+
+function FeedCardSkeleton() {
+  return (
+    <div className="home-card is-skeleton" aria-hidden="true">
+      <div className="home-skeleton-line" style={{ width: "40%" }} />
+      <div className="home-skeleton-line" style={{ width: "88%", height: 56, marginTop: 12 }} />
+    </div>
+  );
+}
+
+// Offline home rows (phones with no connection): downloaded books as a list.
+function OfflineRow({ id, title, items, downloadedIds, onRead, onToast }: {
+  id: string;
+  title: string;
+  items: FeedItem[] | null;
+  downloadedIds: Set<string>;
+  onRead?: (item: FeedItem) => Promise<void>;
+  onToast?: (message: string) => void;
+}) {
+  return (
+    <section className="home-section" aria-labelledby={id}>
+      <div className="home-section-title">
+        <h2 id={id}>{title}</h2>
+        <a href="/downloads" onClick={(event) => followRoute(event, "/downloads")}>
+          <span>View all</span>
+          <ChevronRight size={18} aria-hidden="true" />
+        </a>
+      </div>
+      <div className="home-feed-list">
+        {items === null
+          ? Array.from({ length: 5 }).map((_, index) => <FeedListItemSkeleton key={index} />)
+          : items.map((item) => (
+            <FeedListItem
+              key={`${item.kind}-${item.id}`}
+              item={item}
+              progress={false}
+              downloaded={downloadedIds.has(item.id)}
+              onRead={onRead}
+              onToast={onToast}
+            />
+          ))}
+      </div>
+    </section>
   );
 }
 
@@ -297,18 +280,16 @@ interface ViewerState {
 }
 
 export function HomePage({ user, logout }: { user: PublicUser; logout: () => Promise<void> }) {
-  const [continueItems, setContinueItems] = useState<FeedItem[] | null>(null);
-  const [recentItems, setRecentItems] = useState<FeedItem[] | null>(null);
-  const [memories, setMemories] = useState<GalleryMemories | null>(null);
-  const [sentToYou, setSentToYou] = useState<SentToYouItem[]>([]);
-  const [activity, setActivity] = useState<ActivityItem[]>([]);
-  // The "On this day" lightbox opened from a home tile: the FULL day (every
+  const [cards, setCards] = useState<HomeCard[] | null>(null);
+  const [heroItem, setHeroItem] = useState<FeedItem | null>(null);
+  const [inProgressTotal, setInProgressTotal] = useState(0);
+  // The "On this day" lightbox opened from the memory card: the FULL day (every
   // photo, every year, flattened newest-year-first) plus the item currently
-  // shown. The home strip itself only carries one cover per year, so opening
-  // the viewer re-fetches the complete set.
+  // shown. The card itself only carries a few covers, so opening the viewer
+  // re-fetches the complete set.
   const [memoryLightbox, setMemoryLightbox] = useState<{ items: GalleryAsset[]; index: number } | null>(null);
   const [memoryLoading, setMemoryLoading] = useState(false);
-  const [stats, setStats] = useState({ audiobooks: 0, ebooks: 0, inProgress: 0, likes: 0 });
+  const [busySent, setBusySent] = useState<string | null>(null);
   const [error, setError] = useState("");
   const isMobile = useIsMobile();
   const online = useOnlineStatus();
@@ -328,37 +309,20 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
 
   useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
 
-  // Undecided recommendations only. A failure here must never take the home page
-  // with it — the row simply does not appear.
-  useEffect(() => {
-    api<{ items: SentToYouItem[] }>("/api/social/inbox")
-      .then((payload) => setSentToYou(payload.items.filter((item) => item.status === "new")))
-      .catch(() => undefined);
-  }, []);
-
-  // What everybody else has been up to. Six is a glance; /activity is the rest.
-  useEffect(() => {
-    api<{ items: ActivityItem[] }>("/api/social/activity?limit=6")
-      .then((payload) => setActivity(payload.items))
-      .catch(() => undefined);
-  }, []);
-
   const handleDownloaded = useCallback((id: string) => {
     setDownloadedIds((prev) => new Set([...prev, id]));
   }, []);
 
-  // Open the "On this day" viewer at the clicked year. The home tiles carry one
-  // cover per year, so load the full set (all photos, every year) and flatten it
-  // the same way the gallery does — newest year first, chronological within a
-  // year — so Next flows across the whole day. We land on the first photo of the
-  // year that was clicked. Falls back to the Memories page if the fetch fails.
+  // Open the "On this day" viewer at the clicked year. The card carries a few
+  // covers, so load the full set (all photos, every year) and flatten it the
+  // same way the gallery does — newest year first, chronological within a
+  // year — so Next flows across the whole day. We land on the first photo of
+  // the year that was clicked. Falls back to the Memories page on failure.
   const openMemory = useCallback(async (year: number) => {
     if (memoryLoading) return;
     setMemoryLoading(true);
     try {
-      const now = new Date();
-      const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-      const full = await api<GalleryMemories>(`/api/library/gallery/memories?date=${localDate}&perYear=200`);
+      const full = await api<GalleryMemories>(`/api/library/gallery/memories?date=${localDate()}&perYear=200`);
       const groups = full.precision === "month" ? [] : full.groups;
       const items = groups.flatMap((group) => group.items);
       if (items.length === 0) { navigate("/gallery/memories"); return; }
@@ -428,77 +392,77 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
     return () => { alive = false; };
   }, [isMobile]);
 
-  // The home feed lives on the server. Skip it while offline (the offline home
+  // The feed lives on the server. Skip it while offline (the offline home
   // renders downloaded books instead) and refetch when the connection returns.
   useEffect(() => {
     if (!online) return;
     let alive = true;
 
-    // Gallery memories ("On this day") want the viewer's local calendar date —
-    // the server may sit in a different timezone. One cover per year is enough
-    // for the home tiles; the counts come along regardless.
-    const now = new Date();
-    const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    fetchHomeFeed()
+      .then((payload) => { if (alive) setCards(payload.cards); })
+      .catch((reason) => {
+        if (!alive) return;
+        setCards([]);
+        setError(reason instanceof Error ? reason.message : "Unable to load your home feed");
+      });
 
-    Promise.allSettled([
-      fetchFeed("continue", CONTINUE_LIMIT),
-      fetchFeed("recent", RECENT_LIMIT),
-      api<{ libraries: LibraryCountRow[] }>("/api/library/audiobook-libraries"),
-      api<{ libraries: LibraryCountRow[] }>("/api/library/ebook-libraries"),
-      api<{ books: unknown[] }>("/api/library/saved"),
-      api<GalleryMemories>(`/api/library/gallery/memories?date=${localDate}&perYear=1`)
-    ]).then(([cont, recent, audioLibs, ebookLibs, saved, mems]) => {
-      if (!alive) return;
-
-      if (cont.status === "fulfilled") {
-        setContinueItems(cont.value.items);
-        setStats((prev) => ({ ...prev, inProgress: cont.value.total }));
-      } else {
-        setContinueItems([]);
-      }
-
-      if (recent.status === "fulfilled") {
-        setRecentItems(recent.value.items);
-      } else {
-        setRecentItems([]);
-        setError(recent.reason instanceof Error ? recent.reason.message : "Unable to load your library");
-      }
-
-      const sumBooks = (libs: LibraryCountRow[]) => libs.reduce((total, library) => total + (library.bookCount ?? 0), 0);
-      if (audioLibs.status === "fulfilled") setStats((prev) => ({ ...prev, audiobooks: sumBooks(audioLibs.value.libraries) }));
-      if (ebookLibs.status === "fulfilled") setStats((prev) => ({ ...prev, ebooks: sumBooks(ebookLibs.value.libraries) }));
-      if (saved.status === "fulfilled") setStats((prev) => ({ ...prev, likes: saved.value.books.length }));
-      if (mems.status === "fulfilled") setMemories(mems.value);
-    });
+    // The hero is the top of the Continue feed; the total feeds the "more in
+    // progress" link under it.
+    fetchFeed("continue", 1)
+      .then((payload) => {
+        if (!alive) return;
+        setHeroItem(payload.items[0] ?? null);
+        setInProgressTotal(payload.total);
+      })
+      .catch(() => undefined);
 
     return () => { alive = false; };
   }, [online]);
 
-  const statCards: StatCard[] = [
-    { label: "Audiobooks", value: stats.audiobooks, tone: "violet", icon: Headphones, href: "/audiobooks" },
-    { label: "Ebooks", value: stats.ebooks, tone: "green", icon: BookOpen, href: "/ebooks" },
-    { label: "In progress", value: stats.inProgress, tone: "blue", icon: Play, href: "/continue" },
-    { label: "Likes", value: stats.likes, tone: "rose", icon: Heart, href: "/likes" }
-  ];
+  // Deciding a sticky card right on the front page: Like writes to Likes (the
+  // same list as everywhere else), Not now sets it aside. Either way the card
+  // leaves the feed; a failure leaves it standing with a toast.
+  const actOnSent = useCallback(async (card: InboxCard, action: "save" | "dismiss") => {
+    setBusySent(card.id);
+    try {
+      await api(`/api/social/recommendations/${card.id}/${action}`, { method: "POST" });
+      setCards((prev) => (prev ? prev.filter((c) => !(c.type === "sent" && c.id === card.id)) : prev));
+      if (action === "save") showToast("Added to Likes");
+    } catch {
+      showToast(action === "save" ? "Unable to like this" : "Unable to set this aside");
+    } finally {
+      setBusySent(null);
+    }
+  }, [showToast]);
 
   // When offline on a phone, the home becomes a browser for downloaded books
-  // (the server feed is unreachable). Online, the top in-progress book is lifted
-  // out of the Continue row into the resume hero.
+  // (the server feed is unreachable).
   const offlineMode = isMobile && !online;
-  const heroItem = isMobile && online && continueItems && continueItems.length > 0 ? continueItems[0] : null;
-  const continueRest = heroItem ? continueItems!.slice(1) : continueItems;
-  const showContinueRow = !heroItem || (continueRest != null && continueRest.length > 0);
 
-  // "On this day" (gallery memories): only shown for a day-precision match — a
-  // whole-month fallback would put filler on the dashboard. Hidden entirely when
-  // there is nothing to show (no gallery, or no dated past-year photos today).
-  const memoryGroups = memories && memories.precision !== "month" ? memories.groups : [];
-  const memoriesTitle = memories?.precision === "near" ? "Around this day" : "On this day";
+  const sentCards = (cards ?? []).filter((card): card is SentCard => card.type === "sent");
+  const rankedCards = (cards ?? []).filter((card) => card.type !== "sent");
 
   const offlineLoaded = downloads !== null && ebookDownloads !== null;
   const offlineAudioItems = downloads ? downloads.map(audioRecordToFeedItem) : null;
   const offlineEbookItems = ebookDownloads ? ebookDownloads.map(ebookRecordToFeedItem) : null;
   const offlineEmpty = offlineLoaded && (offlineAudioItems?.length ?? 0) === 0 && (offlineEbookItems?.length ?? 0) === 0;
+
+  const renderCard = (card: Exclude<HomeCard, SentCard>) => {
+    switch (card.type) {
+      case "memory":
+        return <MemoryFeedCard key="memory" card={card} onOpen={(year) => void openMemory(year)} />;
+      case "added_batch":
+        return <BatchFeedCard key={`batch-${card.day}`} card={card} />;
+      case "series_next":
+        return <SeriesNextFeedCard key={`series-${card.item.id}`} card={card} />;
+      default:
+        return (
+          <div key={card.id} className="home-card home-card-activity">
+            <ActivityList items={[toActivityItem(card as ActivityCard)]} />
+          </div>
+        );
+    }
+  };
 
   return (
     <>
@@ -535,23 +499,10 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
 
         {error && !offlineMode && <MessageBox tone="error" title="Unable to load home">{error}</MessageBox>}
 
-        <div className="home-stats" aria-label="Library overview">
-          {statCards.map((card) => <StatTile card={card} key={card.label} />)}
-        </div>
-
         {offlineMode ? (
           <div className="home-content">
             {!offlineLoaded ? (
-              <FeedRow
-                id="home-offline-title"
-                title="Downloaded"
-                href="/downloads"
-                mode="recent"
-                items={null}
-                emptyText=""
-                mobile
-                downloadedIds={downloadedIds}
-              />
+              <OfflineRow id="home-offline-title" title="Downloaded" items={null} downloadedIds={downloadedIds} />
             ) : offlineEmpty ? (
               <div className="empty-state home-offline-empty">
                 <DownloadCloud size={52} aria-hidden="true" />
@@ -561,29 +512,19 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
             ) : (
               <>
                 {offlineAudioItems && offlineAudioItems.length > 0 && (
-                  <FeedRow
+                  <OfflineRow
                     id="home-offline-audio"
-                    title="Downloaded audiobooks"
-                    mobileTitle="Audiobooks"
-                    href="/downloads"
-                    mode="recent"
+                    title="Audiobooks"
                     items={offlineAudioItems}
-                    emptyText=""
-                    mobile
                     downloadedIds={downloadedIds}
                     onToast={showToast}
                   />
                 )}
                 {offlineEbookItems && offlineEbookItems.length > 0 && (
-                  <FeedRow
+                  <OfflineRow
                     id="home-offline-ebooks"
-                    title="Downloaded ebooks"
-                    mobileTitle="Ebooks"
-                    href="/downloads"
-                    mode="recent"
+                    title="Ebooks"
                     items={offlineEbookItems}
-                    emptyText=""
-                    mobile
                     downloadedIds={downloadedIds}
                     onRead={handleRead}
                     onToast={showToast}
@@ -594,10 +535,6 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
           </div>
         ) : (
           <div className="home-content">
-            {/* First on the page when it has anything, and absent when it does not.
-                Something a family member picked out for you outranks picking up
-                where you left off — and it is only ever a few rows. */}
-            {sentToYou.length > 0 && <SentToYouRow items={sentToYou} mobile={isMobile} />}
             {heroItem && (
               <ResumeHero
                 item={heroItem}
@@ -606,78 +543,44 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
                 onDownloaded={handleDownloaded}
                 onDownload={setActiveDownload}
                 onToast={showToast}
+                showDownload={isMobile}
+                moreCount={Math.max(0, inProgressTotal - 1)}
               />
             )}
-            {activity.length > 0 && (
-              <section className="home-section" aria-labelledby="home-activity-title">
-                <RowHeader id="home-activity-title" title="Around the house" href="/activity" />
-                <ActivityList items={activity} />
-              </section>
-            )}
-            {showContinueRow && (
-              <FeedRow
-                id="home-continue-title"
-                title="Continue listening & reading"
-                mobileTitle="Continue"
-                href="/continue"
-                mode="continue"
-                items={continueRest}
-                emptyText="Nothing in progress yet — open a book to start."
-                mobile={isMobile}
-                downloadedIds={downloadedIds}
-                onDownloaded={handleDownloaded}
-                onRead={handleRead}
-                onToast={showToast}
-                onDownload={setActiveDownload}
-              />
-            )}
-            {!isMobile && memoryGroups.length > 0 && (
-              <section className="home-section" aria-labelledby="home-memories-title">
-                <RowHeader id="home-memories-title" title={memoriesTitle} href="/gallery/memories" />
-                <div className="home-tile-grid">
-                  {memoryGroups.map((group) => (
-                    <a
-                      key={group.year}
-                      className="audiobook-catalog-card grid home-feed-tile"
-                      href="/gallery/memories"
-                      onClick={(event) => {
-                        // Let modified clicks fall through to /gallery/memories
-                        // (open in a new tab); a plain click opens the viewer.
-                        if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-                        event.preventDefault();
-                        void openMemory(group.year);
-                      }}
-                    >
-                      <div className="audiobook-catalog-cover">
-                        {group.items[0]?.coverUrl ? (
-                          <img src={group.items[0].coverUrl} alt="" loading="lazy" />
-                        ) : (
-                          <span className="home-memory-fallback"><ImageIcon size={26} aria-hidden="true" /></span>
-                        )}
-                      </div>
-                      <div className="audiobook-catalog-copy">
-                        <strong>{group.year}</strong>
-                        <small>{group.count === 1 ? "1 photo" : `${count(group.count)} photos`}</small>
-                      </div>
-                    </a>
+
+            <div className="home-feed">
+              {/* Something a family member picked out for you outranks everything
+                  time-ranked — sticky until decided, decided right here. */}
+              {sentCards.length > 0 && (
+                <ul className="inbox-list home-feed-sent">
+                  {sentCards.map((card) => (
+                    <InboxRow key={card.id} card={card} busy={busySent === card.id} onAct={actOnSent} />
                   ))}
-                </div>
-              </section>
-            )}
-            <FeedRow
-              id="home-recent-title"
-              title="Recently added"
-              href="/recent"
-              mode="recent"
-              items={recentItems}
-              emptyText="No books yet. Newly added audiobooks and ebooks show up here."
-              mobile={isMobile}
-              downloadedIds={downloadedIds}
-              onDownloaded={handleDownloaded}
-              onRead={handleRead}
-              onToast={showToast}
-              onDownload={setActiveDownload}
-            />
+                </ul>
+              )}
+
+              {cards === null ? (
+                <>
+                  <FeedCardSkeleton />
+                  <FeedCardSkeleton />
+                  <FeedCardSkeleton />
+                </>
+              ) : (
+                <>
+                  {rankedCards.map(renderCard)}
+                  {rankedCards.length === 0 && sentCards.length === 0 ? (
+                    <p className="home-row-empty">
+                      A quiet day. New books, today's photo memories and family activity will appear here.
+                    </p>
+                  ) : (
+                    <div className="home-feed-end">
+                      <strong>You're all caught up</strong>
+                      <span>Tomorrow brings a different day's memories.</span>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           </div>
         )}
       </section>

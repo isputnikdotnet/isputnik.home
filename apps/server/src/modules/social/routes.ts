@@ -117,6 +117,8 @@ function displayName(userId: string): string {
 // The card as the inbox renders it. `available` false means the subject is gone
 // or the recipient can no longer see it — the row survives on its snapshot so
 // the card still says what it was about rather than vanishing without trace.
+export type InboxCardView = ReturnType<typeof cardView>;
+
 function cardView(row: RecommendationRow, hydrated: Map<string, HydratedEntity>) {
   const view = hydrated.get(`${row.entity_type}:${row.entity_id}`);
   return {
@@ -136,6 +138,27 @@ function cardView(row: RecommendationRow, hydrated: Map<string, HydratedEntity>)
     // Only library items have somewhere to be saved to.
     savable: LIBRARY_ITEM_TYPES.has(row.entity_type)
   };
+}
+
+// The inbox as this user sees it, hydrated and access-filtered. Shared by the
+// inbox route below and the home feed (undecided cards ride the front page as
+// sticky cards there).
+export function loadInboxCards(
+  user: { id: string; role: string },
+  opts: { onlyNew?: boolean; limit?: number } = {}
+): InboxCardView[] {
+  const rows = db.prepare(`
+    SELECT * FROM recommendations
+    WHERE to_user_id = ?${opts.onlyNew ? " AND status = 'new'" : ""}
+    ORDER BY (status = 'new') DESC, datetime(created_at) DESC
+    LIMIT ?
+  `).all(user.id, opts.limit ?? 50) as RecommendationRow[];
+
+  const hydrated = hydrateEntities(
+    rows.map((row) => ({ entityType: row.entity_type, entityId: row.entity_id })),
+    user
+  );
+  return rows.map((row) => cardView(row, hydrated));
 }
 
 export async function socialPlugin(app: FastifyInstance) {
@@ -305,19 +328,7 @@ export async function socialPlugin(app: FastifyInstance) {
   });
 
   app.get("/api/social/inbox", { preHandler: app.authenticate }, async (request, reply) => {
-    const user = request.user!;
-    const rows = db.prepare(`
-      SELECT * FROM recommendations
-      WHERE to_user_id = ?
-      ORDER BY (status = 'new') DESC, datetime(created_at) DESC
-      LIMIT 50
-    `).all(user.id) as RecommendationRow[];
-
-    const hydrated = hydrateEntities(
-      rows.map((row) => ({ entityType: row.entity_type, entityId: row.entity_id })),
-      user
-    );
-    return reply.send({ items: rows.map((row) => cardView(row, hydrated)) });
+    return reply.send({ items: loadInboxCards(request.user!) });
   });
 
   // Opening the inbox stamps everything in it as seen. Deliberately not per

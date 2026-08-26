@@ -19,7 +19,7 @@ install → offline → theme-picker → responsive
 | `auth.css` | Login / register split-screen (pre-auth) |
 | `layout.css` | App shell — header, sidebar rail, page grid, Control Center panel |
 | `components.css` | Shared UI — fields, buttons, message boxes, modals, datagrid, badges. A barrel over `components/` (see below) |
-| `home.css` | Home dashboard — Continue / Recently added feeds |
+| `home.css` | Home — resume hero + the ranked card feed |
 | `player.css` | Audio player widget |
 | `library-browse.css` | Main audiobook catalog / landing + shared browse toolbar (split from `library.css`) |
 | `gallery.css` | Photo/video timeline + folder grid and the full-screen lightbox |

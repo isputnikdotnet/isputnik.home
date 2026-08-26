@@ -20,6 +20,7 @@ import { backupsPlugin } from "./modules/backups/index.js";
 import { libraryPlugin } from "./modules/library/index.js";
 import { collectionsPlugin } from "./modules/collections/index.js";
 import { socialPlugin } from "./modules/social/index.js";
+import { homePlugin } from "./modules/home/index.js";
 import { familyTreePlugin } from "./modules/familytree/index.js";
 import { maintenancePlugin } from "./modules/maintenance/index.js";
 
@@ -244,6 +245,7 @@ await app.register(backupsPlugin);
 await app.register(libraryPlugin);
 await app.register(collectionsPlugin);
 await app.register(socialPlugin);
+await app.register(homePlugin);
 await app.register(familyTreePlugin);
 await app.register(maintenancePlugin);
 
