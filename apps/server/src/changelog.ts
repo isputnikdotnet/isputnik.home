@@ -19,6 +19,16 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.28.2",
+    label: "One photo picker, everywhere",
+    changes: [
+      "Choosing photos — for an album, a slideshow, a family member, an event, a portrait — is now one dialog everywhere, and it grew real ways in: browse by folder as before, or flip to People (everyone the face scan knows, biggest named people first, each with their photo count), to Tags, or to All photos with a proper text search. One search box adapts to whichever tab you're on.",
+      "What you pick stays picked as you move around. Gather two photos from a folder, three of Grandma from People, one from a tag — the selection rides along the bottom as a row of little thumbnails, each with its ✕, and one Add button takes the lot. The people and tag rows stay put while the photos scroll, so you always know whose photos you're looking at.",
+      "The family tree now uses the same picker instead of its own copy. Its special powers came along: a linked person opens with their face matches already showing, the Upload tab still lands new files in the tree's chosen library and attaches them in one step, and picking a portrait is still one tap. What it gained is everything it never had — tags, text search, other people, the whole timeline.",
+      "Fixed: opening \"On this day\" from the Home page and pressing Next could wander into photos from a day or three away — days the card itself had deliberately left out. The viewer now browses exactly the day the card shows, and only widens when the day itself is thin."
+    ]
+  },
+  {
     version: "3.28.1",
     label: "The memory card earns its place",
     changes: [
