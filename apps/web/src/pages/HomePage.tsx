@@ -27,14 +27,14 @@ const count = (value: number) => new Intl.NumberFormat().format(value);
 // feed revamp). Tapping the main area resumes; the side column carries the
 // save-for-offline button (phones, where offline matters) and the play/read
 // action.
-function ResumeHero({ item, onRead, downloaded, onDownloaded, onDownload, onToast, showDownload, moreCount }: {
+function ResumeHero({ item, onRead, downloaded, onDownloaded, onDownload, onToast, mobile, moreCount }: {
   item: FeedItem;
   onRead: (item: FeedItem) => Promise<void>;
   downloaded: boolean;
   onDownloaded: (id: string) => void;
   onDownload: (info: { title: string; progress: number } | null) => void;
   onToast: (message: string) => void;
-  showDownload: boolean;
+  mobile: boolean;
   moreCount: number;
 }) {
   const isEbook = item.kind === "ebook";
@@ -46,8 +46,13 @@ function ResumeHero({ item, onRead, downloaded, onDownloaded, onDownload, onToas
     if (isEbook) {
       setOpening(true);
       void onRead(item).finally(() => setOpening(false));
-    } else {
+    } else if (mobile) {
+      // Phones / the installed app: the player takes over the screen.
       navigate(`/player/${item.id}`);
+    } else {
+      // Desktop opens the player in its own small window, the same way the
+      // catalog, bookmarks and collections do — the page you're on stays put.
+      window.open(`/player/${item.id}`, "isputnik-player", "width=500,height=700,resizable=yes,scrollbars=yes");
     }
   };
 
@@ -87,7 +92,7 @@ function ResumeHero({ item, onRead, downloaded, onDownloaded, onDownload, onToas
           </span>
         </button>
         <div className="home-resume-side">
-          {showDownload && (downloaded ? (
+          {mobile && (downloaded ? (
             <button
               type="button"
               className="home-resume-dl is-saved"
@@ -141,7 +146,7 @@ function ResumeHero({ item, onRead, downloaded, onDownloaded, onDownload, onToas
 // Every card renders on the shared .home-card chrome; each type brings its own
 // body. The server owns the order — the client never re-sorts.
 
-function MemoryFeedCard({ card, onOpen }: { card: MemoryCard; onOpen: (year: number) => void }) {
+function MemoryFeedCard({ card, onOpen }: { card: MemoryCard; onOpen: (year: number, itemId: string) => void }) {
   const title = card.precision === "near" ? "Around this day" : "On this day";
   // One strip across the years, newest first — up to four photos, each jumping
   // straight into that year's viewer.
@@ -165,7 +170,7 @@ function MemoryFeedCard({ card, onOpen }: { card: MemoryCard; onOpen: (year: num
             key={item.id}
             type="button"
             className="home-memory-photo"
-            onClick={() => onOpen(year)}
+            onClick={() => onOpen(year, item.id)}
             aria-label={`Photos from ${year}`}
           >
             {item.coverUrl
@@ -313,12 +318,14 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
     setDownloadedIds((prev) => new Set([...prev, id]));
   }, []);
 
-  // Open the "On this day" viewer at the clicked year. The card carries a few
+  // Open the "On this day" viewer on the clicked photo. The card carries a few
   // covers, so load the full set (all photos, every year) and flatten it the
   // same way the gallery does — newest year first, chronological within a
-  // year — so Next flows across the whole day. We land on the first photo of
-  // the year that was clicked. Falls back to the Memories page on failure.
-  const openMemory = useCallback(async (year: number) => {
+  // year — so Next flows across the whole day. We land on the exact photo that
+  // was tapped (several strip photos can share a year, so the year alone isn't
+  // enough), falling back to the first photo of that year, then to the
+  // Memories page on failure.
+  const openMemory = useCallback(async (year: number, itemId?: string) => {
     if (memoryLoading) return;
     setMemoryLoading(true);
     try {
@@ -326,10 +333,13 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
       const groups = full.precision === "month" ? [] : full.groups;
       const items = groups.flatMap((group) => group.items);
       if (items.length === 0) { navigate("/gallery/memories"); return; }
-      let start = 0;
-      for (const group of groups) {
-        if (group.year === year) break;
-        start += group.items.length;
+      let start = itemId ? items.findIndex((item) => item.id === itemId) : -1;
+      if (start < 0) {
+        start = 0;
+        for (const group of groups) {
+          if (group.year === year) break;
+          start += group.items.length;
+        }
       }
       setMemoryLightbox({ items, index: Math.min(start, items.length - 1) });
     } catch {
@@ -450,7 +460,7 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
   const renderCard = (card: Exclude<HomeCard, SentCard>) => {
     switch (card.type) {
       case "memory":
-        return <MemoryFeedCard key="memory" card={card} onOpen={(year) => void openMemory(year)} />;
+        return <MemoryFeedCard key="memory" card={card} onOpen={(year, itemId) => void openMemory(year, itemId)} />;
       case "added_batch":
         return <BatchFeedCard key={`batch-${card.day}`} card={card} />;
       case "series_next":
@@ -543,7 +553,7 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
                 onDownloaded={handleDownloaded}
                 onDownload={setActiveDownload}
                 onToast={showToast}
-                showDownload={isMobile}
+                mobile={isMobile}
                 moreCount={Math.max(0, inProgressTotal - 1)}
               />
             )}
