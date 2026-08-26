@@ -19,6 +19,19 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.28.0",
+    label: "A home page that is different every day",
+    changes: [
+      "The Home page is a feed now. Instead of the same fixed rows in the same fixed order — rows that looked identical on Tuesday and on Monday unless somebody added a book — the page is one column of cards, ranked by what deserves your attention today, and it simply ends when it runs out. What kind of thing a card is decides how long it stays: some leave when you act on them, one lives exactly a day, most fade away over a couple of weeks.",
+      "Something a family member sent you sits at the very top, above everything else, and stays there until you decide — it never drifts down the page as other things happen. And deciding no longer means going somewhere else: Like and Not now are right on the card.",
+      "\"On this day\" became a strip of actual photographs, each stamped with its year, opening straight into that year's photos full-screen. It is gone at midnight and tomorrow's day takes its place — the reason the page is worth glancing at even on a day nobody added anything.",
+      "New books arrive as one card per day they came — \"14 books joined the library on Sunday\", a fan of covers, and the rest a tap away — instead of ten loose tiles saying the same thing ten times. What everybody else has been up to — a note left, an album made, someone added to the family tree — appears the same way, each event its own card, written as a sentence.",
+      "When you finish a book in a series and the next one is already on the shelf, the feed says so: \"You finished Foundation — Foundation and Empire is on the shelf.\" One suggestion at a time, rotating daily rather than nagging, and only ever a book you haven't opened.",
+      "Pick up where you left off — the one-tap resume card phones have had since the mobile home — now sits pinned above the feed on every screen, with a quiet count of what else is in progress. The four statistics tiles that used to open the page are gone: numbers that change by single digits a month were furniture, not news.",
+      "The \"Around the house\" page in the profile menu is retired along with its menu entry — the feed is where the household's doings live now. Nothing is lost when a card fades: the notes themselves stay on the books and photos they were written about, where the next person to open them will find them."
+    ]
+  },
+  {
     version: "3.27.0",
     label: "Your year, cut from the photos you liked",
     changes: [
