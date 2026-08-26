@@ -1613,10 +1613,10 @@
 
 .photo-picker-modal .modal-tabs { margin-bottom: 10px; }
 
-/* Person / tag chips: ONE row that scrolls sideways, so the photo grid below
-   stays in view however many people or tags the library has. Explicit heights,
-   because the row lives inside the modal's grid + scroll containers, where an
-   auto height collapsed (the row shrank to its padding). */
+/* Person / tag chips: ONE row that scrolls sideways, sitting OUTSIDE the photo
+   scroll pane (a fixed band like the search row) so who/what you're picking
+   from stays in view however far the photos scroll. Explicit heights, because
+   auto heights collapsed inside this modal's grid/scroll layers. */
 .photo-picker-chips {
   display: flex;
   align-items: flex-start;
@@ -1624,12 +1624,13 @@
   /* Chip height plus the horizontal scrollbar's lane, so the row never grows a
      vertical scrollbar of its own. */
   min-height: 76px;
-  margin-bottom: 8px;
-  padding-bottom: 8px;
+  padding: 0 16px 6px;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: thin;
 }
+
+.photo-picker-chips-empty { margin: 0 16px 8px; }
 
 .photo-picker-chips > * { flex: 0 0 auto; }
 

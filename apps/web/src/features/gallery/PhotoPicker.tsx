@@ -375,6 +375,61 @@ export function PhotoPicker({
         ))}
       </div>
 
+      {/* The person/tag chips live OUTSIDE the scroll pane, a fixed band like
+          the search row above — who/what you're picking from stays in view
+          however far the photos scroll. */}
+      {tab === "people" && (
+        visiblePeople.length > 0 ? (
+          <div className="photo-picker-chips" role="tablist" aria-label="People">
+            {visiblePeople.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                className={`photo-picker-chip${person?.id === p.id ? " is-active" : ""}`}
+                onClick={() => { setPersonAssets([]); setPerson(p); }}
+              >
+                <span className="photo-picker-chip-avatar">
+                  {p.coverUrl ? <img src={p.coverUrl} alt="" loading="lazy" /> : <User size={16} aria-hidden="true" />}
+                </span>
+                <span className="photo-picker-chip-copy">
+                  <strong>{p.name || "Unnamed"}</strong>
+                  <small>{p.faceCount.toLocaleString()} {p.faceCount === 1 ? "photo" : "photos"}</small>
+                </span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          !loading && (
+            <p className="management-empty photo-picker-chips-empty">
+              {chipFilter ? "Nobody matches that." : "No people yet — face scanning builds this list."}
+            </p>
+          )
+        )
+      )}
+      {tab === "tags" && (
+        visibleTags.length > 0 ? (
+          <div className="photo-picker-chips" role="tablist" aria-label="Tags">
+            {visibleTags.map((name) => (
+              <button
+                key={name}
+                type="button"
+                className={`photo-picker-chip photo-picker-chip-tag${tag === name ? " is-active" : ""}`}
+                onClick={() => { setTagAssets([]); setTag(name); }}
+              >
+                <Tag size={13} aria-hidden="true" />
+                <span>{name}</span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          !loading && (
+            <p className="management-empty photo-picker-chips-empty">
+              {chipFilter ? "No tags match that." : "No tags on gallery photos yet."}
+            </p>
+          )
+        )
+      )}
+
       <div className="modal-tab-content add-to-album-body">
         {error && <MessageBox tone="error" title="Couldn’t load photos">{error}</MessageBox>}
 
@@ -433,66 +488,19 @@ export function PhotoPicker({
           </>
         ))}
 
-        {tab === "people" && (
+        {tab === "people" && person && (
           <>
-            {visiblePeople.length > 0 ? (
-              <div className="photo-picker-chips" role="tablist" aria-label="People">
-                {visiblePeople.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    className={`photo-picker-chip${person?.id === p.id ? " is-active" : ""}`}
-                    onClick={() => { setPersonAssets([]); setPerson(p); }}
-                  >
-                    <span className="photo-picker-chip-avatar">
-                      {p.coverUrl ? <img src={p.coverUrl} alt="" loading="lazy" /> : <User size={16} aria-hidden="true" />}
-                    </span>
-                    <span className="photo-picker-chip-copy">
-                      <strong>{p.name || "Unnamed"}</strong>
-                      <small>{p.faceCount.toLocaleString()} {p.faceCount === 1 ? "photo" : "photos"}</small>
-                    </span>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              !loading && <p className="management-empty">{chipFilter ? "Nobody matches that." : "No people yet — face scanning builds this list."}</p>
-            )}
-            {person && (
-              <>
-                <p className="gallery-section-label">Showing photos of <strong>{person.name || "an unnamed person"}</strong></p>
-                {grid(personAssets)}
-                {loadMore(personAssets.length, personTotal, () => void loadPerson(person, personAssets.length))}
-              </>
-            )}
+            <p className="gallery-section-label">Showing photos of <strong>{person.name || "an unnamed person"}</strong></p>
+            {grid(personAssets)}
+            {loadMore(personAssets.length, personTotal, () => void loadPerson(person, personAssets.length))}
           </>
         )}
 
-        {tab === "tags" && (
+        {tab === "tags" && tag && (
           <>
-            {visibleTags.length > 0 ? (
-              <div className="photo-picker-chips" role="tablist" aria-label="Tags">
-                {visibleTags.map((name) => (
-                  <button
-                    key={name}
-                    type="button"
-                    className={`photo-picker-chip photo-picker-chip-tag${tag === name ? " is-active" : ""}`}
-                    onClick={() => { setTagAssets([]); setTag(name); }}
-                  >
-                    <Tag size={13} aria-hidden="true" />
-                    <span>{name}</span>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              !loading && <p className="management-empty">{chipFilter ? "No tags match that." : "No tags on gallery photos yet."}</p>
-            )}
-            {tag && (
-              <>
-                <p className="gallery-section-label">Tagged <strong>{tag}</strong></p>
-                {grid(tagAssets)}
-                {loadMore(tagAssets.length, tagTotal, () => void loadTag(tag, tagAssets.length))}
-              </>
-            )}
+            <p className="gallery-section-label">Tagged <strong>{tag}</strong></p>
+            {grid(tagAssets)}
+            {loadMore(tagAssets.length, tagTotal, () => void loadTag(tag, tagAssets.length))}
           </>
         )}
 
