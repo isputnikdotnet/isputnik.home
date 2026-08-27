@@ -1,4 +1,5 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ChevronRight, Database, Globe2, House, MapPin, ShieldQuestion } from "lucide-react";
 import { api } from "../../../../api";
 import { navigate } from "../../../../router";
@@ -109,6 +110,7 @@ function pageOf<T>(rows: T[], page: number): { rows: T[]; page: number; totalPag
 }
 
 export function LocationsView() {
+  const { t } = useTranslation(["common", "controlDash"]);
   const [range, setRange] = useState<DateRangeValue>(() => resolveDateRange("30d"));
   const [data, setData] = useState<DashboardLocations | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
@@ -127,7 +129,7 @@ export function LocationsView() {
     setError("");
     return api<DashboardLocations>(`/api/dashboard/locations?${query}`)
       .then(setData)
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load locations"));
+      .catch((err) => setError(err instanceof Error ? err.message : t("controlDash:locations.loadFailed")));
   };
 
   useEffect(() => {
@@ -141,7 +143,7 @@ export function LocationsView() {
   const countryLabel = (entry: DashboardLocations["countries"][number]) =>
     entry.name ?? countryName(entry.code) ?? entry.code;
   const placeLabel = (place: DashboardLocations["places"][number]) =>
-    place.city ?? place.region ?? "Unnamed place";
+    place.city ?? place.region ?? t("controlDash:locations.unnamedPlace");
 
   const countries = useMemo(
     () => pageOf([...(data?.countries ?? [])].sort(bySort(countrySort, countryDir, countryLabel)), countryPage),
@@ -187,18 +189,15 @@ export function LocationsView() {
     <div className="status-stack">
       <section className="status-block">
         {data && !data.geoip.available && (
-          <MessageBox tone="info" title="No location database yet">
-            <p>
-              Countries come from a database kept with your data and read on this server — no address is ever sent out
-              to look one up. Fetch the free one (about 9 MB) to start placing connections on the map.
-            </p>
+          <MessageBox tone="info" title={t("controlDash:locations.noDatabaseTitle")}>
+            <p>{t("controlDash:locations.noDatabaseBody")}</p>
             <div className="modal-actions">
-              <Button variant="primary" onClick={() => setDatabaseOpen(true)}>Set up the database</Button>
+              <Button variant="primary" onClick={() => setDatabaseOpen(true)}>{t("controlDash:locations.setUpDatabase")}</Button>
             </div>
           </MessageBox>
         )}
 
-        {error && <MessageBox tone="error" title="Unable to load locations">{error}</MessageBox>}
+        {error && <MessageBox tone="error" title={t("controlDash:locations.loadFailed")}>{error}</MessageBox>}
 
         {data && (
           <>
@@ -206,44 +205,44 @@ export function LocationsView() {
               <KpiCard
                 icon={Globe2}
                 tone="info"
-                label="Countries"
+                label={t("controlDash:locations.countries")}
                 value={String(data.countries.length)}
-                context={`${placed.toLocaleString()} of ${data.total.toLocaleString()} sign-ins placed`}
+                context={t("controlDash:locations.placedContext", { placed: placed.toLocaleString(), total: data.total.toLocaleString() })}
               />
               <KpiCard
                 icon={House}
                 tone="success"
-                label={data.home?.label || "Home network"}
+                label={data.home?.label || t("controlDash:locations.homeNetwork")}
                 value={data.local.connections.toLocaleString()}
-                context={`${data.local.addresses} ${data.local.addresses === 1 ? "address" : "addresses"} inside the house`}
+                context={t("controlDash:locations.addressesInside", { count: data.local.addresses })}
               />
               <KpiCard
                 icon={MapPin}
                 tone="warning"
-                label="From outside"
+                label={t("controlDash:locations.fromOutside")}
                 value={(data.total - data.local.connections).toLocaleString()}
-                context="Sign-ins from the internet"
+                context={t("controlDash:locations.fromInternet")}
               />
               <KpiCard
                 icon={ShieldQuestion}
                 tone="danger"
-                label="Unplaced"
+                label={t("controlDash:locations.unplaced")}
                 value={data.unknown.connections.toLocaleString()}
-                context={data.geoip.available ? "Address not in the database" : "No database yet"}
+                context={data.geoip.available ? t("controlDash:locations.notInDatabase") : t("controlDash:locations.noDatabaseYet")}
               />
             </div>
 
             <div className="status-range-row">
-              <DateRangePicker value={range} onChange={setRange} label="Locations time range" />
+              <DateRangePicker value={range} onChange={setRange} label={t("controlDash:locations.rangeLabel")} />
               <span className="status-range-label">{formatRangeLabel(range)}</span>
             </div>
 
             <div className="status-subsection">
               <div className="status-table-title">
-                <h3>Where connections came from</h3>
+                <h3>{t("controlDash:locations.whereFrom")}</h3>
                 {data.geoip.updatedAt && (
                   <span>
-                    Database {formatManagedDate(data.geoip.updatedAt)}
+                    {t("controlDash:locations.databaseDate", { date: formatManagedDate(data.geoip.updatedAt) })}
                     {data.geoip.sizeBytes ? ` · ${formatBytes(data.geoip.sizeBytes)}` : ""}
                   </span>
                 )}
@@ -262,40 +261,43 @@ export function LocationsView() {
               {/* What the bubbles actually count, said plainly: a map that can
                   only place some of the sign-ins should say how many. */}
               <p className="locations-map-caption">
-                {data.total.toLocaleString()} sign-in{data.total === 1 ? "" : "s"} in this range ·{" "}
-                {placed.toLocaleString()} placed on the map · {data.local.connections.toLocaleString()} from your own
-                network{data.unknown.connections > 0 ? ` · ${data.unknown.connections.toLocaleString()} unplaced` : ""}
+                {t("controlDash:locations.caption", {
+                  signIns: t("controlDash:locations.signIns", { count: data.total }),
+                  placed: placed.toLocaleString(),
+                  local: data.local.connections.toLocaleString()
+                })}
+                {data.unknown.connections > 0
+                  ? t("controlDash:locations.captionUnplaced", { count: data.unknown.connections })
+                  : ""}
               </p>
 
               <div className="locations-map-actions">
                 <Button variant="secondary" onClick={() => setDatabaseOpen(true)}>
                   <Database size={15} aria-hidden="true" />
-                  Location database
+                  {t("controlDash:locations.databaseButton")}
                 </Button>
                 <Button variant="secondary" onClick={() => setHomeOpen(true)}>
                   <House size={15} aria-hidden="true" />
-                  {data.home ? "Move home" : "Set home location"}
+                  {data.home ? t("controlDash:locations.moveHome") : t("controlDash:locations.setHome")}
                 </Button>
               </div>
 
               {data.countries.length > 0 ? (
                 <>
                   <div className="status-table-title">
-                    <h3>Countries</h3>
-                    <span>
-                      {data.countries.length} {data.countries.length === 1 ? "country" : "countries"} in this range
-                    </span>
+                    <h3>{t("controlDash:locations.countries")}</h3>
+                    <span>{t("controlDash:locations.countriesInRange", { count: data.countries.length })}</span>
                   </div>
                   <div className="datagrid-wrap">
                     <table className="datagrid locations-table">
                       <thead>
                         <tr>
-                          <SortHeader column="name" label="Country" sort={countrySort} dir={countryDir} onChange={sortCountries} />
-                          <SortHeader column="connections" label="Connections" sort={countrySort} dir={countryDir} onChange={sortCountries} initial="desc" />
-                          <SortHeader column="failed" label="Failed" sort={countrySort} dir={countryDir} onChange={sortCountries} initial="desc" className="col-num" />
-                          <SortHeader column="addresses" label="Addresses" sort={countrySort} dir={countryDir} onChange={sortCountries} initial="desc" className="col-num" />
-                          <SortHeader column="rate" label="Fail rate" sort={countrySort} dir={countryDir} onChange={sortCountries} initial="desc" className="col-num" />
-                          <th aria-label="Details" />
+                          <SortHeader column="name" label={t("controlDash:table.country")} sort={countrySort} dir={countryDir} onChange={sortCountries} />
+                          <SortHeader column="connections" label={t("controlDash:table.connections")} sort={countrySort} dir={countryDir} onChange={sortCountries} initial="desc" />
+                          <SortHeader column="failed" label={t("controlDash:table.failed")} sort={countrySort} dir={countryDir} onChange={sortCountries} initial="desc" className="col-num" />
+                          <SortHeader column="addresses" label={t("controlDash:table.addresses")} sort={countrySort} dir={countryDir} onChange={sortCountries} initial="desc" className="col-num" />
+                          <SortHeader column="rate" label={t("controlDash:table.failRate")} sort={countrySort} dir={countryDir} onChange={sortCountries} initial="desc" className="col-num" />
+                          <th aria-label={t("controlDash:table.details")} />
                         </tr>
                       </thead>
                       <tbody>
@@ -321,8 +323,8 @@ export function LocationsView() {
                             <td className="locations-row-action">
                               <Button
                                 variant="icon"
-                                aria-label={`Sign-in details for ${countryLabel(entry)}`}
-                                title="Sign-in details"
+                                aria-label={t("controlDash:locations.signInDetailsFor", { name: countryLabel(entry) })}
+                                title={t("controlDash:locations.signInDetails")}
                                 onClick={(event) => {
                                   event.stopPropagation();
                                   navigate(signInsHref({ country: entry.code }));
@@ -340,8 +342,8 @@ export function LocationsView() {
                           <td>
                             <LocationCell
                               flag="🏠"
-                              title={data.home?.label || "Home network"}
-                              sub="Addresses inside the house — never looked up"
+                              title={data.home?.label || t("controlDash:locations.homeNetwork")}
+                              sub={t("controlDash:locations.homeRowNote")}
                             />
                           </td>
                           <td>
@@ -361,34 +363,32 @@ export function LocationsView() {
                       </tbody>
                     </table>
                   </div>
-                  <Pager page={countries.page} totalPages={countries.totalPages} onChange={setCountryPage} label="Country pages" />
+                  <Pager page={countries.page} totalPages={countries.totalPages} onChange={setCountryPage} label={t("controlDash:pagers.country")} />
                 </>
               ) : (
                 <p className="status-empty">
                   {data.local.connections > 0
-                    ? "Every sign-in in this range came from inside the house."
-                    : "No sign-ins in this range."}
+                    ? t("controlDash:locations.allInside")
+                    : t("controlDash:locations.noSignIns")}
                 </p>
               )}
 
               {data.places.length > 0 && (
                 <div className="status-subsection">
                   <div className="status-table-title">
-                    <h3>Towns and cities</h3>
-                    <span>
-                      {data.places.length} {data.places.length === 1 ? "place" : "places"} · from your own city database
-                    </span>
+                    <h3>{t("controlDash:locations.townsTitle")}</h3>
+                    <span>{t("controlDash:locations.placesInRange", { count: data.places.length })}</span>
                   </div>
                   <div className="datagrid-wrap">
                     <table className="datagrid locations-table">
                       <thead>
                         <tr>
-                          <SortHeader column="name" label="Place" sort={placeSort} dir={placeDir} onChange={sortPlaces} />
-                          <SortHeader column="connections" label="Connections" sort={placeSort} dir={placeDir} onChange={sortPlaces} initial="desc" />
-                          <SortHeader column="failed" label="Failed" sort={placeSort} dir={placeDir} onChange={sortPlaces} initial="desc" className="col-num" />
-                          <SortHeader column="addresses" label="Addresses" sort={placeSort} dir={placeDir} onChange={sortPlaces} initial="desc" className="col-num" />
-                          <SortHeader column="rate" label="Fail rate" sort={placeSort} dir={placeDir} onChange={sortPlaces} initial="desc" className="col-num" />
-                          <th aria-label="Details" />
+                          <SortHeader column="name" label={t("controlDash:table.place")} sort={placeSort} dir={placeDir} onChange={sortPlaces} />
+                          <SortHeader column="connections" label={t("controlDash:table.connections")} sort={placeSort} dir={placeDir} onChange={sortPlaces} initial="desc" />
+                          <SortHeader column="failed" label={t("controlDash:table.failed")} sort={placeSort} dir={placeDir} onChange={sortPlaces} initial="desc" className="col-num" />
+                          <SortHeader column="addresses" label={t("controlDash:table.addresses")} sort={placeSort} dir={placeDir} onChange={sortPlaces} initial="desc" className="col-num" />
+                          <SortHeader column="rate" label={t("controlDash:table.failRate")} sort={placeSort} dir={placeDir} onChange={sortPlaces} initial="desc" className="col-num" />
+                          <th aria-label={t("controlDash:table.details")} />
                         </tr>
                       </thead>
                       <tbody>
@@ -420,8 +420,8 @@ export function LocationsView() {
                             <td className="locations-row-action">
                               <Button
                                 variant="icon"
-                                aria-label={`Sign-in details for ${placeLabel(place)}`}
-                                title="Sign-in details"
+                                aria-label={t("controlDash:locations.signInDetailsFor", { name: placeLabel(place) })}
+                                title={t("controlDash:locations.signInDetails")}
                                 onClick={(event) => {
                                   event.stopPropagation();
                                   // Empty strings are deliberate: the server reads
@@ -440,12 +440,12 @@ export function LocationsView() {
                       </tbody>
                     </table>
                   </div>
-                  <Pager page={places.page} totalPages={places.totalPages} onChange={setPlacePage} label="Place pages" />
+                  <Pager page={places.page} totalPages={places.totalPages} onChange={setPlacePage} label={t("controlDash:pagers.place")} />
                 </div>
               )}
 
               {/* CC BY 4.0 requires this line wherever the data is shown. */}
-              <p className="status-empty">Country data © DB-IP.com, licensed CC BY 4.0.</p>
+              <p className="status-empty">{t("controlDash:locations.attribution")}</p>
             </div>
           </>
         )}

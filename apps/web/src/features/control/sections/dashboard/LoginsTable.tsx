@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import {
   ChevronDown,
   ChevronRight,
@@ -18,7 +20,7 @@ import { SortHeader, type SortDirection } from "../../../../shared/SortHeader";
 import { Tooltip } from "../../../../shared/Tooltip";
 import { countryName, formatManagedDate } from "../../../../shared/utils";
 import type { IpReputationEntry, LogEvent } from "../../types";
-import { loginMethodLabel, loginResultLabel } from "./activityEvents";
+import { isFailedLoginEvent, loginMethodLabel, loginResultLabel } from "./activityEvents";
 import type { ActivitySort } from "./useRecentActivity";
 
 // The Logins table proper. A row is the glanceable version — address, a method
@@ -57,16 +59,17 @@ export function isLocalAddress(ip: string | null): boolean {
 // name, and spelled out in full in the opened record.
 function reputationLight(
   ip: string | null,
-  entry: IpReputationEntry | undefined
+  entry: IpReputationEntry | undefined,
+  t: TFunction<readonly ["common", "controlDash"], undefined>
 ): { icon: LucideIcon; tone: string; title: string; filled: boolean } {
   if (isLocalAddress(ip)) {
-    return { icon: House, tone: "local", title: "Local network — never looked up", filled: false };
+    return { icon: House, tone: "local", title: t("controlDash:loginsTable.localNever"), filled: false };
   }
   if (!entry || typeof entry.score !== "number") {
-    return { icon: Shield, tone: "unknown", title: "Not checked yet", filled: false };
+    return { icon: Shield, tone: "unknown", title: t("controlDash:loginsTable.notCheckedYet"), filled: false };
   }
   const place = [countryName(entry.countryCode), entry.isp].filter(Boolean).join(" · ");
-  const title = `${entry.score}% abuse confidence${place ? ` · ${place}` : ""}`;
+  const title = `${t("controlDash:loginsTable.abuseConfidence", { score: entry.score })}${place ? ` · ${place}` : ""}`;
   const tone = entry.score >= 50 ? "bad" : entry.score > 0 ? "watch" : "clean";
   return { icon: Shield, tone, title, filled: true };
 }
@@ -96,15 +99,16 @@ export function LoginsTable({
   checkingIp: string | null;
   onCheck: (ip: string) => void;
 }) {
+  const { t } = useTranslation(["common", "controlDash"]);
   const [expanded, setExpanded] = useState<string | null>(null);
   const columnCount = reputationConfigured ? 6 : 5;
 
   return (
     <>
       <div className="status-table-title">
-        <h3>Logins in this range</h3>
+        <h3>{t("controlDash:loginsTable.title")}</h3>
         <span className="login-table-tools">
-          {total > 0 && <span>{total} {total === 1 ? "entry" : "entries"}</span>}
+          {total > 0 && <span>{t("controlDash:loginsTable.entries", { count: total })}</span>}
           <PageSizeMenu value={pageSize} onChange={onPageSize} />
         </span>
       </div>
@@ -113,32 +117,32 @@ export function LoginsTable({
         <table className="datagrid login-table">
           <thead>
             <tr>
-              <th className="col-expand"><span className="sr-only">Details</span></th>
+              <th className="col-expand"><span className="sr-only">{t("controlDash:table.details")}</span></th>
               <SortHeader
                 columns={[
-                  { column: "ip", label: "IP address" },
-                  { column: "user", label: "User" }
+                  { column: "ip", label: t("controlDash:table.ipAddress") },
+                  { column: "user", label: t("controlDash:table.user") }
                 ]}
                 sort={sort}
                 dir={dir}
                 onChange={onSort}
               />
-              <SortHeader column="event" label="Method" sort={sort} dir={dir} onChange={onSort} />
-              <th>Result</th>
-              {reputationConfigured && <th>Reputation</th>}
-              <SortHeader column="time" label="Time" sort={sort} dir={dir} onChange={onSort} initial="desc" />
+              <SortHeader column="event" label={t("controlDash:table.method")} sort={sort} dir={dir} onChange={onSort} />
+              <th>{t("controlDash:table.result")}</th>
+              {reputationConfigured && <th>{t("controlDash:table.reputation")}</th>}
+              <SortHeader column="time" label={t("controlDash:table.time")} sort={sort} dir={dir} onChange={onSort} initial="desc" />
             </tr>
           </thead>
           <tbody>
             {logs.map((entry) => {
               const open = expanded === entry.id;
-              const failed = loginResultLabel(entry.event) === "Failed";
+              const failed = isFailedLoginEvent(entry.event);
               const MethodIcon = METHOD_ICONS[entry.event] ?? HelpCircle;
               // A failed attempt doesn't record which method was tried, so the
               // glyph needs a name of its own rather than the table's "—".
               const rawMethod = loginMethodLabel(entry.event);
-              const methodLabel = rawMethod === "—" ? "Method not recorded" : rawMethod;
-              const light = reputationLight(entry.ipAddress, entry.ipAddress ? reputation[entry.ipAddress] : undefined);
+              const methodLabel = rawMethod === "—" ? t("controlDash:loginsTable.methodNotRecorded") : rawMethod;
+              const light = reputationLight(entry.ipAddress, entry.ipAddress ? reputation[entry.ipAddress] : undefined, t);
               const Light = light.icon;
 
               return [
@@ -148,8 +152,8 @@ export function LoginsTable({
                       variant="icon"
                       compact
                       aria-expanded={open}
-                      aria-label={open ? "Hide details" : "Show details"}
-                      title={open ? "Hide details" : "Show details"}
+                      aria-label={open ? t("controlDash:loginsTable.hideDetails") : t("controlDash:loginsTable.showDetails")}
+                      title={open ? t("controlDash:loginsTable.hideDetails") : t("controlDash:loginsTable.showDetails")}
                       onClick={() => setExpanded(open ? null : entry.id)}
                     >
                       {open ? <ChevronDown size={16} aria-hidden="true" /> : <ChevronRight size={16} aria-hidden="true" />}
@@ -157,8 +161,8 @@ export function LoginsTable({
                   </td>
                   <td>
                     <span className="datagrid-primary">
-                      <strong>{entry.ipAddress ?? "No address"}</strong>
-                      <small>{entry.actorName ?? "Unknown"}</small>
+                      <strong>{entry.ipAddress ?? t("controlDash:loginsTable.noAddress")}</strong>
+                      <small>{entry.actorName ?? t("controlDash:loginsTable.unknown")}</small>
                     </span>
                   </td>
                   {/* The hover target is the whole cell, not the 18px glyph: an
@@ -221,59 +225,60 @@ function LoginDetails({
   checking: boolean;
   onCheck: (ip: string) => void;
 }) {
+  const { t } = useTranslation(["common", "controlDash"]);
   const ip = entry.ipAddress;
   const place = reputation ? [countryName(reputation.countryCode), reputation.isp].filter(Boolean).join(" · ") : "";
 
   return (
     <dl className="login-detail-grid">
       <div>
-        <dt>User</dt>
-        <dd>{entry.actorName ?? "Unknown — the address gave a name that has no account"}</dd>
+        <dt>{t("controlDash:table.user")}</dt>
+        <dd>{entry.actorName ?? t("controlDash:loginsTable.unknownActor")}</dd>
       </div>
       <div>
-        <dt>IP address</dt>
-        <dd>{ip ?? "Not recorded"}</dd>
+        <dt>{t("controlDash:table.ipAddress")}</dt>
+        <dd>{ip ?? t("controlDash:loginsTable.notRecorded")}</dd>
       </div>
       <div>
-        <dt>Method</dt>
+        <dt>{t("controlDash:table.method")}</dt>
         <dd>{loginMethodLabel(entry.event)}</dd>
       </div>
       <div>
-        <dt>Result</dt>
+        <dt>{t("controlDash:table.result")}</dt>
         <dd>{loginResultLabel(entry.event)}</dd>
       </div>
       <div>
-        <dt>When</dt>
+        <dt>{t("controlDash:table.when")}</dt>
         <dd>{formatManagedDate(entry.createdAt)}</dd>
       </div>
       <div>
-        <dt>Event</dt>
+        <dt>{t("controlDash:table.event")}</dt>
         <dd><code>{entry.event}</code></dd>
       </div>
       <div className="login-detail-wide">
-        <dt>Detail</dt>
+        <dt>{t("controlDash:table.detail")}</dt>
         <dd>{entry.detail || "—"}</dd>
       </div>
       {reputationConfigured && (
         <div className="login-detail-wide">
-          <dt>Reputation</dt>
+          <dt>{t("controlDash:table.reputation")}</dt>
           <dd>
             {isLocalAddress(ip) ? (
-              "Local network — nothing is ever sent to AbuseIPDB for an address inside the house."
+              t("controlDash:loginsTable.localReputation")
             ) : reputation && typeof reputation.score === "number" ? (
               <>
-                {reputation.score}% abuse confidence
-                {reputation.totalReports ? ` · ${reputation.totalReports.toLocaleString()} reports` : ""}
+                {t("controlDash:loginsTable.abuseConfidence", { score: reputation.score })}
+                {reputation.totalReports ? ` · ${t("controlDash:loginsTable.reports", { count: reputation.totalReports })}` : ""}
                 {place ? ` · ${place}` : ""}
-                {reputation.lastReportedAt ? ` · last reported ${formatManagedDate(reputation.lastReportedAt)}` : ""}
-                {` · checked ${formatManagedDate(reputation.checkedAt)}`}
+                {reputation.lastReportedAt ? ` · ${t("controlDash:loginsTable.lastReported", { date: formatManagedDate(reputation.lastReportedAt) })}` : ""}
+                {` · ${t("controlDash:loginsTable.checkedAt", { date: formatManagedDate(reputation.checkedAt) })}`}
               </>
             ) : (
               <>
-                Not checked yet.{" "}
+                {t("controlDash:loginsTable.notCheckedDot")}{" "}
                 {ip && (
                   <Button variant="text" compact disabled={checking} onClick={() => onCheck(ip)}>
-                    {checking ? "Checking…" : "Check with AbuseIPDB"}
+                    {checking ? t("controlDash:loginsTable.checking") : t("controlDash:loginsTable.checkWith")}
                   </Button>
                 )}
               </>

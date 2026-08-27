@@ -2,9 +2,11 @@
 
 Status (2026-08-27): Phases 0–1 complete and verified in-browser. Phase 2
 in progress — namespace infrastructure built, ~2,540 keys authored and
-translated across 6 of 12 namespaces; `common`, `controlAdmin`, `book`, and
-`user` (4 of 6 translated namespaces) are now fully wired (~45 files),
-`reader` partially wired, `controlDash` translated but not yet wired.
+translated across 6 of 12 namespaces; `common`, `controlAdmin`, `book`,
+`user`, and `controlDash` (5 of 6 translated namespaces) are now FULLY
+wired, including `sections/duplicates/` (the `dupes.*` keys, the whole
+duplicate-cleanup wizard) — that batch finished after this doc's last
+save, which briefly left it noted as pending; `reader` partially wired.
 Phase 3 (server error codes) started. Phase 4 not started. Full detail below.
 
 Phase 0 — i18next + typed keys, `users.language` (migration 48), Language picker
@@ -82,10 +84,24 @@ namespace pairs, loaded via `locales/{en,ru}/index.ts` barrels and
   is broken Russian grammar (wrong case) — the distinct key is correct,
   the test assertion was stale.
 
-**Namespaces — translated (en+ru complete) but NOT yet wired into source**:
-- `controlDash` (765 keys) — DashboardSection + everything under
-  `sections/dashboard/` and `sections/duplicates/` (~16 files, incl. the whole
-  duplicate-cleanup wizard)
+- `controlDash` (765 keys) — ALL files wired 2026-08-27, in two parallel
+  batches. Dashboard batch: DashboardSection.tsx + everything under
+  `sections/dashboard/` (~16 files: ActivityView, activityEvents.ts,
+  countryCentroids.ts (no changes needed — pure data), DashboardChart,
+  GeoipDatabaseModal, HomeLocationModal, LibrariesView, LocationsMap,
+  LocationsView, LoginsTable, LoginsView, SignInsFilterModal,
+  SignInsSection, SystemView, TasksView, useRecentActivity.ts). One key
+  added beyond the authored set: `map.osmAttribution` (the Leaflet/
+  OpenStreetMap tile credit, en+ru). Duplicates batch: all 9 files under
+  `sections/duplicates/` (CertaintyBadge, cleanup-types.ts — held word/
+  formatting lookups despite the name, not pure types, DuplicateCleanup
+  Section, CleanupWizard, CleanupJobCard, CleanupResultCard,
+  DuplicateViewer, FolderCompare, shared.tsx). Module-level lookup consts
+  (`STATUS_WORDS`, `SECTION_HEADINGS`, `TOP_LEVEL`, etc.) were converted to
+  functions calling `i18n.t()` so they stay reactive to a language switch
+  instead of freezing English at import time. Both batches: typecheck +
+  check:ui + full web test suite (178 tests) + full server suite (1549
+  tests) all verified together.
 
 **Namespaces — still empty `{}` (nothing done)**: `control` (nav.ts +
 ControlPanelPage + ~9 core sections), `family` (all 26 familytree files),

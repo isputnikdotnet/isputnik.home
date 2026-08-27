@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import {
   Ban,
   ChevronRight,
@@ -93,13 +95,13 @@ function bucketLabel(iso: string, bucket: "hour" | "day"): string {
 }
 
 // The event vocabulary of this page, in words rather than dotted names.
-const EVENT_LABELS: Record<string, string> = {
-  "auth.login": "Password sign-in",
-  "auth.passkey_login": "Passkey sign-in",
-  "auth.mfa_verified": "Two-factor passed",
-  "auth.device_link_approved": "Display approved",
-  "auth.login_failed": "Wrong password",
-  "auth.mfa_failed": "Two-factor failed"
+const EVENT_LABEL_KEYS: Record<string, "eventPasswordSignIn" | "eventPasskeySignIn" | "eventTwoFactorPassed" | "eventDisplayApproved" | "eventWrongPassword" | "eventTwoFactorFailed"> = {
+  "auth.login": "eventPasswordSignIn",
+  "auth.passkey_login": "eventPasskeySignIn",
+  "auth.mfa_verified": "eventTwoFactorPassed",
+  "auth.device_link_approved": "eventDisplayApproved",
+  "auth.login_failed": "eventWrongPassword",
+  "auth.mfa_failed": "eventTwoFactorFailed"
 };
 
 const DEVICE_ICONS: Record<DeviceType, LucideIcon> = {
@@ -112,20 +114,20 @@ const DEVICE_ICONS: Record<DeviceType, LucideIcon> = {
 
 // The order the counter chips render in — displays first because a linked TV is
 // the session type that outlives everything else and the one worth glancing for.
-const DEVICE_TYPES: { value: DeviceType; singular: string; plural: string }[] = [
-  { value: "display", singular: "display", plural: "displays" },
-  { value: "phone", singular: "phone", plural: "phones" },
-  { value: "tablet", singular: "tablet", plural: "tablets" },
-  { value: "computer", singular: "computer", plural: "computers" },
-  { value: "unknown", singular: "unknown", plural: "unknown" }
+const DEVICE_TYPE_ORDER: { value: DeviceType; key: "deviceDisplay" | "devicePhone" | "deviceTablet" | "deviceComputer" | "deviceUnknown" }[] = [
+  { value: "display", key: "deviceDisplay" },
+  { value: "phone", key: "devicePhone" },
+  { value: "tablet", key: "deviceTablet" },
+  { value: "computer", key: "deviceComputer" },
+  { value: "unknown", key: "deviceUnknown" }
 ];
 
-function methodsSummary(methods: SignInsUserRow["methods"]): string {
+function methodsSummary(methods: SignInsUserRow["methods"], t: TFunction<readonly ["common", "controlDash"], undefined>): string {
   const parts: string[] = [];
-  if (methods.password) parts.push(`${methods.password} password`);
-  if (methods.passkey) parts.push(`${methods.passkey} passkey`);
-  if (methods.twoFactor) parts.push(`${methods.twoFactor} two-factor`);
-  if (methods.deviceLink) parts.push(`${methods.deviceLink} display`);
+  if (methods.password) parts.push(t("controlDash:signIns.methodPasswordN", { count: methods.password }));
+  if (methods.passkey) parts.push(t("controlDash:signIns.methodPasskeyN", { count: methods.passkey }));
+  if (methods.twoFactor) parts.push(t("controlDash:signIns.methodTwoFactorN", { count: methods.twoFactor }));
+  if (methods.deviceLink) parts.push(t("controlDash:signIns.methodDisplayN", { count: methods.deviceLink }));
   return parts.join(" · ") || "—";
 }
 
@@ -133,6 +135,7 @@ type IpSort = "connections" | "failed" | "people" | "seen";
 type UserSort = "connections" | "failed" | "addresses" | "seen";
 
 export function SignInsSection() {
+  const { t } = useTranslation(["common", "controlDash"]);
   const [range, setRange] = useState<DateRangeValue>(() => resolveDateRange("30d"));
   const [scope, setScope] = useState<SignInsScopeParams>(() => scopeFromUrl());
   const [data, setData] = useState<DashboardSignIns | null>(null);
@@ -183,7 +186,7 @@ export function SignInsSection() {
     setError("");
     api<DashboardSignIns>(`/api/dashboard/signins?${query}`)
       .then(setData)
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load sign-ins"));
+      .catch((err) => setError(err instanceof Error ? err.message : t("controlDash:signIns.loadFailed")));
   }, [range.from, range.to, scope, reloadNonce]);
 
   const revokeSession = async () => {
@@ -195,7 +198,7 @@ export function SignInsSection() {
       setPendingRevoke(null);
       setReloadNonce((nonce) => nonce + 1);
     } catch (err) {
-      setRevokeError(err instanceof Error ? err.message : "Unable to revoke the session");
+      setRevokeError(err instanceof Error ? err.message : t("controlDash:signIns.revokeFailed"));
     } finally {
       setRevoking(false);
     }
@@ -258,9 +261,10 @@ export function SignInsSection() {
 
   const chartSeries: DashboardChartSeries[] = useMemo(
     () => [
-      { label: "Successful", data: data?.series.success ?? [], colorVar: "--mint" },
-      { label: "Failed", data: data?.series.failed ?? [], colorVar: "--rose" }
+      { label: t("controlDash:signIns.successful"), data: data?.series.success ?? [], colorVar: "--mint" },
+      { label: t("controlDash:signIns.failed"), data: data?.series.failed ?? [], colorVar: "--rose" }
     ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [data]
   );
 
@@ -273,38 +277,38 @@ export function SignInsSection() {
       <ControlSectionHead
         section="signins"
         icon={<Fingerprint size={30} />}
-        description="Every sign-in, from every table that watches the door — dive by country, town, address, or person."
+        description={t("controlDash:signIns.description")}
       />
 
       <section className="status-block">
-        {error && <MessageBox tone="error" title="Unable to load sign-ins">{error}</MessageBox>}
+        {error && <MessageBox tone="error" title={t("controlDash:signIns.loadFailed")}>{error}</MessageBox>}
 
         {data && (
           <>
             {/* Where the dive currently stands. The chip clears back to everything;
                 the address bar carries the same fact for sharing and back-button. */}
             <div className="signins-scope-row">
-              <span className="signins-scope-label">Scope</span>
+              <span className="signins-scope-label">{t("controlDash:signIns.scope")}</span>
               {scoped ? (
                 <span className="signins-scope-chip">
                   {data.scope.code && (
                     <span className="country-flag" aria-hidden="true">{countryFlag(data.scope.code)}</span>
                   )}
                   {data.scope.label}
-                  <Button variant="icon" aria-label="Clear scope" title="Back to all sign-ins" onClick={() => dive({})}>
+                  <Button variant="icon" aria-label={t("controlDash:signIns.clearScope")} title={t("controlDash:signIns.backToAll")} onClick={() => dive({})}>
                     <X size={13} aria-hidden="true" />
                   </Button>
                 </span>
               ) : (
-                <span className="signins-scope-chip is-everything">Everything</span>
+                <span className="signins-scope-chip is-everything">{t("controlDash:signIns.everything")}</span>
               )}
               {data.truncated && (
-                <span className="signins-scope-note">Scope capped at 1,000 addresses — narrow the window.</span>
+                <span className="signins-scope-note">{t("controlDash:signIns.scopeCapped")}</span>
               )}
               <span className="signins-scope-spacer" />
               <Button variant="secondary" onClick={() => setFilterOpen(true)}>
                 <Filter size={15} aria-hidden="true" />
-                Filter
+                {t("common:filters.button")}
               </Button>
             </div>
 
@@ -312,46 +316,46 @@ export function SignInsSection() {
               <KpiCard
                 icon={KeyRound}
                 tone="info"
-                label="Attempts"
+                label={t("controlDash:signIns.attempts")}
                 value={data.totals.attempts.toLocaleString()}
                 context={
                   data.totals.firstSeen
-                    ? `First ${formatManagedDate(data.totals.firstSeen)}`
-                    : "Nothing in this range"
+                    ? t("controlDash:signIns.firstSeen", { date: formatManagedDate(data.totals.firstSeen) })
+                    : t("controlDash:signIns.nothingInRange")
                 }
               />
               <KpiCard
                 icon={Fingerprint}
                 tone="success"
-                label="Successful"
+                label={t("controlDash:signIns.successful")}
                 value={data.totals.success.toLocaleString()}
-                context={methodsSummary(data.methods)}
+                context={methodsSummary(data.methods, t)}
               />
               <KpiCard
                 icon={Ban}
                 tone={data.totals.failed > 0 ? "danger" : "success"}
-                label="Failed"
+                label={t("controlDash:signIns.failed")}
                 value={data.totals.failed.toLocaleString()}
-                context={`${failShare}% of attempts`}
+                context={t("controlDash:logins.shareOfAttempts", { share: failShare })}
               />
               <KpiCard
                 icon={UsersRound}
                 tone="info"
-                label="People"
+                label={t("controlDash:signIns.people")}
                 value={data.totals.people.toLocaleString()}
-                context={`${data.totals.addresses.toLocaleString()} ${data.totals.addresses === 1 ? "address" : "addresses"}`}
+                context={t("controlDash:signIns.addresses", { count: data.totals.addresses })}
               />
             </div>
 
             <div className="status-range-row">
-              <DateRangePicker value={range} onChange={setRange} label="Sign-ins time range" />
+              <DateRangePicker value={range} onChange={setRange} label={t("controlDash:signIns.rangeLabel")} />
               <span className="status-range-label">{formatRangeLabel(range)}</span>
             </div>
 
             <div className="status-subsection">
               <div className="status-table-title">
-                <h3>Over time</h3>
-                <span>{data.series.bucket === "hour" ? "By hour" : "By day"}</span>
+                <h3>{t("controlDash:signIns.overTime")}</h3>
+                <span>{data.series.bucket === "hour" ? t("controlDash:bucket.byHour") : t("controlDash:bucket.byDay")}</span>
               </div>
               <DashboardChartLegend series={chartSeries} />
               <DashboardChart
@@ -368,15 +372,15 @@ export function SignInsSection() {
                 to end it, and the DELETE route refuses it regardless. */}
             <div className="status-subsection">
               <div className="status-table-title">
-                <h3>Devices still signed in</h3>
-                <span>Live right now — not bound to the time range above</span>
+                <h3>{t("controlDash:signIns.devicesTitle")}</h3>
+                <span>{t("controlDash:signIns.devicesNote")}</span>
               </div>
               {data.devices.length > 0 ? (
                 <>
                   {/* Counter and filter in one: each chip counts a kind and
                       narrows the table to it; the active chip clicks back off. */}
-                  <div className="device-type-chips" role="group" aria-label="Filter devices by type">
-                    {DEVICE_TYPES.filter((entry) => deviceCounts[entry.value] > 0).map((entry) => {
+                  <div className="device-type-chips" role="group" aria-label={t("controlDash:signIns.deviceChipsAria")}>
+                    {DEVICE_TYPE_ORDER.filter((entry) => deviceCounts[entry.value] > 0).map((entry) => {
                       const Icon = DEVICE_ICONS[entry.value];
                       const count = deviceCounts[entry.value];
                       const active = deviceKind === entry.value;
@@ -392,7 +396,7 @@ export function SignInsSection() {
                           }}
                         >
                           <Icon size={15} aria-hidden="true" />
-                          <strong>{count}</strong> {count === 1 ? entry.singular : entry.plural}
+                          <strong>{count}</strong> {t(`controlDash:signIns.${entry.key}`, { count })}
                         </button>
                       );
                     })}
@@ -401,12 +405,12 @@ export function SignInsSection() {
                     <table className="datagrid locations-table">
                       <thead>
                         <tr>
-                          <th>Device</th>
-                          <th>Person</th>
-                          <th>IP address</th>
-                          <th>Last seen</th>
-                          <th>Signed in until</th>
-                          <th aria-label="Dive" />
+                          <th>{t("controlDash:table.device")}</th>
+                          <th>{t("controlDash:table.person")}</th>
+                          <th>{t("controlDash:table.ipAddress")}</th>
+                          <th>{t("controlDash:table.lastSeen")}</th>
+                          <th>{t("controlDash:table.signedInUntil")}</th>
+                          <th aria-label={t("controlDash:table.dive")} />
                         </tr>
                       </thead>
                       <tbody>
@@ -420,7 +424,7 @@ export function SignInsSection() {
                                   <span className="datagrid-primary">
                                     <span className="admin-name-line">
                                       <strong>{row.name}</strong>
-                                      {row.current && <span className="status-badge current">This device</span>}
+                                      {row.current && <span className="status-badge current">{t("controlDash:signIns.thisDevice")}</span>}
                                     </span>
                                     {row.name !== row.agent && <small>{row.agent}</small>}
                                   </span>
@@ -435,8 +439,8 @@ export function SignInsSection() {
                                   <Button
                                     variant="icon"
                                     danger
-                                    aria-label={`Revoke this session of ${row.person}`}
-                                    title="Revoke session"
+                                    aria-label={t("controlDash:signIns.revokeSessionOf", { name: row.person })}
+                                    title={t("controlDash:signIns.revokeSession")}
                                     onClick={() => {
                                       setRevokeError("");
                                       setPendingRevoke(row);
@@ -448,8 +452,8 @@ export function SignInsSection() {
                                 {scope.user !== row.personId && (
                                   <Button
                                     variant="icon"
-                                    aria-label={`Dive into ${row.person}`}
-                                    title="Dive into this person"
+                                    aria-label={t("controlDash:signIns.diveInto", { name: row.person })}
+                                    title={t("controlDash:signIns.diveIntoPerson")}
                                     onClick={() => dive({ user: row.personId })}
                                   >
                                     <ChevronRight size={16} aria-hidden="true" />
@@ -462,20 +466,17 @@ export function SignInsSection() {
                       </tbody>
                     </table>
                   </div>
-                  <Pager page={devices.page} totalPages={devices.totalPages} onChange={setDevicePage} label="Device pages" />
+                  <Pager page={devices.page} totalPages={devices.totalPages} onChange={setDevicePage} label={t("controlDash:pagers.device")} />
                 </>
               ) : (
-                <p className="status-empty">Nothing is signed in from this scope right now.</p>
+                <p className="status-empty">{t("controlDash:signIns.noDevices")}</p>
               )}
             </div>
 
             <div className="status-subsection">
               <div className="status-table-title">
-                <h3>Addresses</h3>
-                <span>
-                  {data.ips.length} {data.ips.length === 1 ? "address" : "addresses"} · blocks and scanner traffic
-                  included
-                </span>
+                <h3>{t("controlDash:signIns.addressesTitle")}</h3>
+                <span>{t("controlDash:signIns.addressesNote", { count: data.ips.length })}</span>
               </div>
               {data.ips.length > 0 ? (
                 <>
@@ -483,14 +484,14 @@ export function SignInsSection() {
                     <table className="datagrid locations-table">
                       <thead>
                         <tr>
-                          <th>Address</th>
-                          <SortHeader column="connections" label="Connections" sort={ipSort} dir={ipDir} onChange={(s, d) => { setIpSort(s); setIpDir(d); setIpPage(1); }} initial="desc" />
-                          <SortHeader column="failed" label="Failed" sort={ipSort} dir={ipDir} onChange={(s, d) => { setIpSort(s); setIpDir(d); setIpPage(1); }} initial="desc" className="col-num" />
-                          <SortHeader column="people" label="People" sort={ipSort} dir={ipDir} onChange={(s, d) => { setIpSort(s); setIpDir(d); setIpPage(1); }} initial="desc" className="col-num" />
-                          <th className="col-num">Scanner</th>
-                          <th>Status</th>
-                          <SortHeader column="seen" label="Last seen" sort={ipSort} dir={ipDir} onChange={(s, d) => { setIpSort(s); setIpDir(d); setIpPage(1); }} initial="desc" />
-                          <th aria-label="Dive" />
+                          <th>{t("controlDash:table.address")}</th>
+                          <SortHeader column="connections" label={t("controlDash:table.connections")} sort={ipSort} dir={ipDir} onChange={(s, d) => { setIpSort(s); setIpDir(d); setIpPage(1); }} initial="desc" />
+                          <SortHeader column="failed" label={t("controlDash:table.failed")} sort={ipSort} dir={ipDir} onChange={(s, d) => { setIpSort(s); setIpDir(d); setIpPage(1); }} initial="desc" className="col-num" />
+                          <SortHeader column="people" label={t("controlDash:table.people")} sort={ipSort} dir={ipDir} onChange={(s, d) => { setIpSort(s); setIpDir(d); setIpPage(1); }} initial="desc" className="col-num" />
+                          <th className="col-num">{t("controlDash:table.scanner")}</th>
+                          <th>{t("controlDash:table.status")}</th>
+                          <SortHeader column="seen" label={t("controlDash:table.lastSeen")} sort={ipSort} dir={ipDir} onChange={(s, d) => { setIpSort(s); setIpDir(d); setIpPage(1); }} initial="desc" />
+                          <th aria-label={t("controlDash:table.dive")} />
                         </tr>
                       </thead>
                       <tbody>
@@ -506,7 +507,7 @@ export function SignInsSection() {
                                 )}
                                 <span className="datagrid-primary">
                                   <strong>{row.ip}</strong>
-                                  <small>{row.location ?? "Not in the location database"}</small>
+                                  <small>{row.location ?? t("controlDash:signIns.notInDatabase")}</small>
                                 </span>
                               </span>
                             </td>
@@ -527,13 +528,17 @@ export function SignInsSection() {
                             <td className="col-num datagrid-muted">{row.people.toLocaleString()}</td>
                             <td className={`col-num${row.probes + row.tokens > 0 ? " login-result-failed" : " datagrid-muted"}`}>
                               {row.probes + row.tokens > 0
-                                ? `${(row.probes + row.tokens).toLocaleString()} hits`
+                                ? t("controlDash:signIns.hits", { count: row.probes + row.tokens })
                                 : "—"}
                             </td>
                             <td>
                               {row.blocked ? (
                                 <span className={`rate-pill ${row.blocked.lapsed ? "rate-warn" : "rate-bad"}`}>
-                                  {row.blocked.lapsed ? "Block lapsed" : row.blocked.auto ? "Blocked" : "Blocked by hand"}
+                                  {row.blocked.lapsed
+                                    ? t("controlDash:signIns.blockLapsed")
+                                    : row.blocked.auto
+                                      ? t("controlDash:signIns.blocked")
+                                      : t("controlDash:signIns.blockedByHand")}
                                 </span>
                               ) : (
                                 <span className="datagrid-muted">—</span>
@@ -544,8 +549,8 @@ export function SignInsSection() {
                               {scope.ip !== row.ip && (
                                 <Button
                                   variant="icon"
-                                  aria-label={`Dive into ${row.ip}`}
-                                  title="Dive into this address"
+                                  aria-label={t("controlDash:signIns.diveInto", { name: row.ip })}
+                                  title={t("controlDash:signIns.diveIntoAddress")}
                                   onClick={() => dive({ ip: row.ip })}
                                 >
                                   <ChevronRight size={16} aria-hidden="true" />
@@ -557,17 +562,17 @@ export function SignInsSection() {
                       </tbody>
                     </table>
                   </div>
-                  <Pager page={ips.page} totalPages={ips.totalPages} onChange={setIpPage} label="Address pages" />
+                  <Pager page={ips.page} totalPages={ips.totalPages} onChange={setIpPage} label={t("controlDash:pagers.address")} />
                 </>
               ) : (
-                <p className="status-empty">No addresses in this scope and range.</p>
+                <p className="status-empty">{t("controlDash:signIns.noAddresses")}</p>
               )}
             </div>
 
             <div className="status-subsection">
               <div className="status-table-title">
-                <h3>People</h3>
-                <span>Failures carry no name — they gather under “Not signed in”</span>
+                <h3>{t("controlDash:signIns.peopleTitle")}</h3>
+                <span>{t("controlDash:signIns.peopleNote")}</span>
               </div>
               {data.users.length > 0 ? (
                 <>
@@ -575,13 +580,13 @@ export function SignInsSection() {
                     <table className="datagrid locations-table">
                       <thead>
                         <tr>
-                          <th>Person</th>
-                          <SortHeader column="connections" label="Sign-ins" sort={userSort} dir={userDir} onChange={(s, d) => { setUserSort(s); setUserDir(d); setUserPage(1); }} initial="desc" className="col-num" />
-                          <SortHeader column="failed" label="Failed" sort={userSort} dir={userDir} onChange={(s, d) => { setUserSort(s); setUserDir(d); setUserPage(1); }} initial="desc" className="col-num" />
-                          <SortHeader column="addresses" label="Addresses" sort={userSort} dir={userDir} onChange={(s, d) => { setUserSort(s); setUserDir(d); setUserPage(1); }} initial="desc" className="col-num" />
-                          <th>Methods</th>
-                          <SortHeader column="seen" label="Last seen" sort={userSort} dir={userDir} onChange={(s, d) => { setUserSort(s); setUserDir(d); setUserPage(1); }} initial="desc" />
-                          <th aria-label="Dive" />
+                          <th>{t("controlDash:table.person")}</th>
+                          <SortHeader column="connections" label={t("controlDash:table.signIns")} sort={userSort} dir={userDir} onChange={(s, d) => { setUserSort(s); setUserDir(d); setUserPage(1); }} initial="desc" className="col-num" />
+                          <SortHeader column="failed" label={t("controlDash:table.failed")} sort={userSort} dir={userDir} onChange={(s, d) => { setUserSort(s); setUserDir(d); setUserPage(1); }} initial="desc" className="col-num" />
+                          <SortHeader column="addresses" label={t("controlDash:table.addresses")} sort={userSort} dir={userDir} onChange={(s, d) => { setUserSort(s); setUserDir(d); setUserPage(1); }} initial="desc" className="col-num" />
+                          <th>{t("controlDash:table.methods")}</th>
+                          <SortHeader column="seen" label={t("controlDash:table.lastSeen")} sort={userSort} dir={userDir} onChange={(s, d) => { setUserSort(s); setUserDir(d); setUserPage(1); }} initial="desc" />
+                          <th aria-label={t("controlDash:table.dive")} />
                         </tr>
                       </thead>
                       <tbody>
@@ -589,8 +594,8 @@ export function SignInsSection() {
                           <tr key={row.userId ?? "anonymous"}>
                             <td>
                               <span className="datagrid-primary">
-                                <strong>{row.name ?? "Not signed in"}</strong>
-                                <small>{row.email ?? "Failed attempts — no proven person"}</small>
+                                <strong>{row.name ?? t("controlDash:signIns.notSignedIn")}</strong>
+                                <small>{row.email ?? t("controlDash:signIns.failedNoPerson")}</small>
                               </span>
                             </td>
                             <td className="col-num">{row.connections.toLocaleString()}</td>
@@ -598,14 +603,14 @@ export function SignInsSection() {
                               {row.failed.toLocaleString()}
                             </td>
                             <td className="col-num datagrid-muted">{row.addresses.toLocaleString()}</td>
-                            <td className="datagrid-muted">{methodsSummary(row.methods)}</td>
+                            <td className="datagrid-muted">{methodsSummary(row.methods, t)}</td>
                             <td className="datagrid-muted">{relativeTime(row.lastSeen)}</td>
                             <td className="locations-row-action">
                               {row.userId && scope.user !== row.userId && (
                                 <Button
                                   variant="icon"
-                                  aria-label={`Dive into ${row.name ?? "this person"}`}
-                                  title="Dive into this person"
+                                  aria-label={t("controlDash:signIns.diveInto", { name: row.name ?? t("controlDash:signIns.thisPerson") })}
+                                  title={t("controlDash:signIns.diveIntoPerson")}
                                   onClick={() => dive({ user: row.userId! })}
                                 >
                                   <ChevronRight size={16} aria-hidden="true" />
@@ -617,26 +622,26 @@ export function SignInsSection() {
                       </tbody>
                     </table>
                   </div>
-                  <Pager page={users.page} totalPages={users.totalPages} onChange={setUserPage} label="People pages" />
+                  <Pager page={users.page} totalPages={users.totalPages} onChange={setUserPage} label={t("controlDash:pagers.people")} />
                 </>
               ) : (
-                <p className="status-empty">Nobody signed in from this scope in this range.</p>
+                <p className="status-empty">{t("controlDash:signIns.nobodySignedIn")}</p>
               )}
             </div>
 
             {data.guessedNames.length > 0 && (
               <div className="status-subsection">
                 <div className="status-table-title">
-                  <h3>Names tried</h3>
-                  <span>Sign-in names that belong to no account here — a stranger’s guessing list</span>
+                  <h3>{t("controlDash:signIns.namesTriedTitle")}</h3>
+                  <span>{t("controlDash:signIns.namesTriedNote")}</span>
                 </div>
                 <div className="datagrid-wrap">
                   <table className="datagrid">
                     <thead>
                       <tr>
-                        <th>Name tried</th>
-                        <th className="col-num">Attempts</th>
-                        <th>Last tried</th>
+                        <th>{t("controlDash:table.nameTried")}</th>
+                        <th className="col-num">{t("controlDash:table.attempts")}</th>
+                        <th>{t("controlDash:table.lastTried")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -650,14 +655,14 @@ export function SignInsSection() {
                     </tbody>
                   </table>
                 </div>
-                <Pager page={guessedNames.page} totalPages={guessedNames.totalPages} onChange={setNamePage} label="Name pages" />
+                <Pager page={guessedNames.page} totalPages={guessedNames.totalPages} onChange={setNamePage} label={t("controlDash:pagers.name")} />
               </div>
             )}
 
             <div className="status-subsection">
               <div className="status-table-title">
-                <h3>Recent activity</h3>
-                <span>The newest {data.events.length} events in this scope — the full archive is in Logs</span>
+                <h3>{t("controlDash:signIns.recentTitle")}</h3>
+                <span>{t("controlDash:signIns.recentNote", { count: data.events.length })}</span>
               </div>
               {data.events.length > 0 ? (
                 <>
@@ -665,17 +670,17 @@ export function SignInsSection() {
                     <table className="datagrid">
                       <thead>
                         <tr>
-                          <th>What</th>
-                          <th>Person</th>
-                          <th>IP address</th>
-                          <th>When</th>
+                          <th>{t("controlDash:table.what")}</th>
+                          <th>{t("controlDash:table.person")}</th>
+                          <th>{t("controlDash:table.ipAddress")}</th>
+                          <th>{t("controlDash:table.when")}</th>
                         </tr>
                       </thead>
                       <tbody>
                         {events.rows.map((row) => (
                           <tr key={row.id}>
                             <td className={row.failed ? "login-result-failed" : undefined}>
-                              {EVENT_LABELS[row.event] ?? row.event}
+                              {row.event in EVENT_LABEL_KEYS ? t(`controlDash:signIns.${EVENT_LABEL_KEYS[row.event]}`) : row.event}
                             </td>
                             <td>{row.actor ?? <span className="datagrid-muted">—</span>}</td>
                             <td className="datagrid-muted">{row.ip ?? "—"}</td>
@@ -685,18 +690,18 @@ export function SignInsSection() {
                       </tbody>
                     </table>
                   </div>
-                  <Pager page={events.page} totalPages={events.totalPages} onChange={setEventPage} label="Activity pages" />
+                  <Pager page={events.page} totalPages={events.totalPages} onChange={setEventPage} label={t("controlDash:pagers.activity")} />
                 </>
               ) : (
-                <p className="status-empty">No sign-in activity in this scope and range.</p>
+                <p className="status-empty">{t("controlDash:signIns.noRecent")}</p>
               )}
             </div>
 
             {(data.scope.kind === "country" || data.scope.kind === "place") && (
               <p className="status-empty">
-                <MapPin size={13} aria-hidden="true" /> Scoped from the{" "}
-                <a href={`${controlHref("dashboard")}?view=locations`}>Locations map</a> ·{" "}
-                <Globe2 size={13} aria-hidden="true" /> Country data © DB-IP.com, licensed CC BY 4.0.
+                <MapPin size={13} aria-hidden="true" /> {t("controlDash:signIns.scopedFrom")}{" "}
+                <a href={`${controlHref("dashboard")}?view=locations`}>{t("controlDash:signIns.locationsMap")}</a> ·{" "}
+                <Globe2 size={13} aria-hidden="true" /> {t("controlDash:locations.attribution")}
               </p>
             )}
           </>
@@ -716,9 +721,9 @@ export function SignInsSection() {
 
       {pendingRevoke && (
         <ConfirmDialog
-          title={`Revoke session for "${pendingRevoke.person}"?`}
-          confirmLabel="Revoke session"
-          busyLabel="Revoking…"
+          title={t("controlDash:signIns.revokeTitle", { name: pendingRevoke.person })}
+          confirmLabel={t("controlDash:signIns.revokeSession")}
+          busyLabel={t("controlDash:signIns.revoking")}
           confirmIcon={<LogOut size={15} />}
           danger
           rich
@@ -728,9 +733,11 @@ export function SignInsSection() {
           onCancel={() => setPendingRevoke(null)}
         >
           <p>
-            This signs {pendingRevoke.person} out on {pendingRevoke.name === pendingRevoke.agent ? "that device" : `“${pendingRevoke.name}”`}.
+            {pendingRevoke.name === pendingRevoke.agent
+              ? t("controlDash:signIns.revokeBodyDevice", { person: pendingRevoke.person })
+              : t("controlDash:signIns.revokeBodyNamed", { person: pendingRevoke.person, name: pendingRevoke.name })}
           </p>
-          <p><strong>The account, its password, and its other sessions are not changed.</strong></p>
+          <p><strong>{t("controlDash:signIns.revokeNote")}</strong></p>
         </ConfirmDialog>
       )}
     </div>

@@ -4,6 +4,11 @@
 // cards all read the same shapes — and so a label like "." for the library's own folder
 // has exactly one definition. No JSX in here on purpose: everything is a type, a
 // constant, or a pure function of one.
+//
+// The word-lookup helpers below are plain functions rather than components, so they
+// call i18n.t() directly (see docs/i18n-plan.md's namespace-key typing pitfall #3)
+// instead of the useTranslation() hook.
+import i18n from "../../../../i18n";
 
 export type JobStatus =
   | "draft" | "scanning" | "review" | "processing" | "paused"
@@ -182,7 +187,7 @@ export function sizeShortfallOf(member: SnapshotMember, largestPixels: number): 
   const ratio = largestPixels / pixels;
   if (ratio < 2) return null;
   const times = Math.round(ratio);
-  return { times, severe: ratio >= 4, label: `${times}× smaller` };
+  return { times, severe: ratio >= 4, label: i18n.t("controlDash:dupes.timesSmaller", { times }) };
 }
 
 /** The sentence the card must not swallow: a copy being deleted carries far more
@@ -246,48 +251,30 @@ export const EMPTY_RESULTS: ResultsPage = {
 
 // ── Words for states ────────────────────────────────────────────────────────
 
-export const STATUS_WORDS: Record<JobStatus, string> = {
-  draft: "Not started",
-  scanning: "Scanning",
-  review: "Ready to review",
-  processing: "Deleting",
-  paused: "Paused",
-  completed: "Finished",
-  failed: "Stopped by an error",
-  cancelled: "Cancelled"
-};
+/** JobStatus's own values already match the `dupes.status.*` key suffixes, so no
+ *  lookup map is needed — the literal union types the template directly. */
+export const statusWord = (status: JobStatus): string => i18n.t(`controlDash:dupes.status.${status}`);
 
 /** A heading on the page. Not the same thing as a result_type: single files split into
  *  two sections by TIER, because "identical copies" and "the same picture as a different
  *  file" are different promises and must never be read as one list. */
 export type SectionKey = "folder_set" | "contained" | "overlap" | "photo_set" | "near_set";
 
-export const SECTION_HEADINGS: Record<SectionKey, { title: string; note: string }> = {
-  folder_set: {
-    title: "Identical folders",
-    note: "The same pictures, file for file, whatever the folders are called. One is kept; the others can go whole."
-  },
-  contained: {
-    title: "Folders already stored elsewhere",
-    note: "Every photo in these folders also sits somewhere else, so the folder itself can go and nothing is lost."
-  },
-  overlap: {
-    title: "Folders sharing some photos",
-    note: "Two folders that hold some of the same pictures without either being a copy of the other — half a card re-imported, a \"best of\" pulled from several trips. Both folders stay: only the shared copies leave one side, and whatever each holds on its own is untouched."
-  },
-  photo_set: {
-    title: "Identical files",
-    note: "Byte-identical copies of one picture — the same file twice. One is kept and the rest can go."
-  },
-  // Deliberately does NOT say one copy is derived from the other. On a real library
-  // most of what lands here is consecutive camera frames — IMG_1109 beside IMG_1110,
-  // a second apart, near-identical sizes — and calling those "a re-compressed copy"
-  // tells someone to delete a photograph they have never seen twice.
-  near_set: {
-    title: "Near-identical",
-    note: "Pictures that LOOK the same but are different files. That can mean a resized or re-compressed copy — or two shots taken moments apart, which are two different photographs. Nothing here is a certainty: open them before deleting anything."
-  }
+const SECTION_KEY_PREFIX: Record<SectionKey, "folderSet" | "contained" | "overlap" | "photoSet" | "nearSet"> = {
+  folder_set: "folderSet",
+  contained: "contained",
+  overlap: "overlap",
+  photo_set: "photoSet",
+  near_set: "nearSet"
 };
+
+export function sectionHeading(key: SectionKey): { title: string; note: string } {
+  const prefix = SECTION_KEY_PREFIX[key];
+  return {
+    title: i18n.t(`controlDash:dupes.sections.${prefix}Title`),
+    note: i18n.t(`controlDash:dupes.sections.${prefix}Note`)
+  };
+}
 
 /** The order sections are shown in: strongest statement about a folder first, loose
  *  files after it, and the judgement calls last. The server sorts results the same way,
@@ -313,33 +300,33 @@ export const sectionQuery = (key: string): { type?: ResultType; tier?: ResultTie
 export const typeFilters = (kind: DuplicateKind): { value: string; label: string }[] =>
   kind === "folders"
     ? [
-      { value: "", label: "Everything" },
-      { value: "folder_set", label: "Identical folders" },
-      { value: "contained", label: "Stored elsewhere" },
-      { value: "overlap", label: "Sharing photos" }
+      { value: "", label: i18n.t("controlDash:dupes.filterEverything") },
+      { value: "folder_set", label: i18n.t("controlDash:dupes.filterFolderSet") },
+      { value: "contained", label: i18n.t("controlDash:dupes.filterContained") },
+      { value: "overlap", label: i18n.t("controlDash:dupes.filterOverlap") }
     ]
     : [
-      { value: "", label: "Everything" },
-      { value: "photo_set", label: "Identical files" },
-      { value: "near_set", label: "Near-identical" }
+      { value: "", label: i18n.t("controlDash:dupes.filterEverything") },
+      { value: "photo_set", label: i18n.t("controlDash:dupes.filterPhotoSet") },
+      { value: "near_set", label: i18n.t("controlDash:dupes.filterNearSet") }
     ];
 
 /** Order within each section of the results page. Both descending — either sort
  *  exists to surface the results worth doing first. */
-export const SORT_ORDERS: { value: string; label: string }[] = [
-  { value: "size", label: "Largest first" },
-  { value: "copies", label: "Most copies first" }
+export const sortOrders = (): { value: string; label: string }[] => [
+  { value: "size", label: i18n.t("controlDash:dupes.sortLargest") },
+  { value: "copies", label: i18n.t("controlDash:dupes.sortMostCopies") }
 ];
 
-export const REVIEW_FILTERS: { value: string; label: string }[] = [
-  { value: "", label: "Any state" },
-  { value: "unreviewed", label: "Not looked at" },
-  { value: "reviewed", label: "Looked at" },
-  { value: "skipped", label: "Skipped" }
+export const reviewFilters = (): { value: string; label: string }[] => [
+  { value: "", label: i18n.t("controlDash:dupes.reviewAny") },
+  { value: "unreviewed", label: i18n.t("controlDash:dupes.reviewUnreviewed") },
+  { value: "reviewed", label: i18n.t("controlDash:dupes.reviewReviewed") },
+  { value: "skipped", label: i18n.t("controlDash:dupes.reviewSkipped") }
 ];
 
 export const cleanupKindSummary = (kind: DuplicateKind): string =>
-  kind === "folders" ? "whole folders" : "single files";
+  kind === "folders" ? i18n.t("controlDash:dupes.kindWholeFolders") : i18n.t("controlDash:dupes.kindSingleFiles");
 
 /** The folders a result's copies survive in — the union the snapshot records, which
  *  is the sentence the older card could not say. */
@@ -380,7 +367,7 @@ export const galleryFolderHref = (folder: SnapshotFolder): string => {
 };
 
 export const photoCountLabel = (count: number): string =>
-  `${count} photo${count === 1 ? "" : "s"}`;
+  i18n.t("controlDash:dupes.photoCount", { count });
 
 /** A copy's own name. Every path in a photo set ends in the same filename often enough
  *  that the folder is what tells them apart — but the name still leads, because it is

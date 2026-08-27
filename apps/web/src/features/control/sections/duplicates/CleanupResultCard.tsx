@@ -4,6 +4,7 @@
 // is handed in as three callbacks, so the page owns every request and this file owns
 // every sentence.
 import { useState, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ArrowRight, CircleCheck, Columns2, ExternalLink, Folder, FolderOpen, FolderTree, HardDrive,
   ImageOff, Images, Trash2, TriangleAlert
@@ -11,7 +12,7 @@ import {
 import { formatBytes } from "../../../../shared/utils";
 import { Button } from "../../../../shared/Button";
 import { RiskGauge } from "../../../../shared/RiskGauge";
-import { FolderStrip, TOP_LEVEL, TOP_LEVEL_HINT } from "./shared";
+import { FolderStrip, topLevelHint, topLevelLabel } from "./shared";
 import { DuplicateViewer, type ViewerMember } from "./DuplicateViewer";
 import { FolderCompare } from "./FolderCompare";
 import { CertaintyBadge } from "./CertaintyBadge";
@@ -30,6 +31,7 @@ function CleanupFolderTile({
   badge: string;
   note?: ReactNode;
 }) {
+  const { t } = useTranslation(["common", "controlDash"]);
   return (
     <div className="dup-set-folder-wrap">
       {position > 0 && <ArrowRight className="dup-set-arrow" size={18} aria-hidden="true" />}
@@ -44,10 +46,10 @@ function CleanupFolderTile({
             href={galleryFolderHref(folder)}
             target="_blank"
             rel="noreferrer"
-            title={`Open “${folderLabel(folder)}” in the gallery, in a new tab`}
+            title={t("controlDash:dupes.openInGalleryTitle", { name: folderLabel(folder) })}
           >
             <ExternalLink size={14} aria-hidden="true" />
-            <span className="sr-only">Open {folderLabel(folder)} in the gallery</span>
+            <span className="sr-only">{t("controlDash:dupes.openInGallery", { name: folderLabel(folder) })}</span>
           </a>
         </div>
         <span className="dup-set-name-row">
@@ -65,7 +67,7 @@ function CleanupFolderTile({
             different libraries, and then the library is the difference between them
             — the one thing you cannot work out from the name and path above. The
             date was true and answered a question nobody was asking here. */}
-        <span className="dup-set-line" title={`In the library “${folder.libraryName}”`}>
+        <span className="dup-set-line" title={t("controlDash:dupes.inLibraryTitle", { name: folder.libraryName })}>
           <Images size={12} aria-hidden="true" />
           <span>{folder.libraryName}</span>
         </span>
@@ -108,8 +110,9 @@ function ReviewButtons({
    *  Delete off the card. */
   leading?: ReactNode;
 }) {
+  const { t } = useTranslation(["common", "controlDash"]);
   const deletable = result.members.some((member) => member.role === "delete" && member.status !== "deleted");
-  const label = actions.running ? "Deleting…" : deleteLabel;
+  const label = actions.running ? t("controlDash:dupes.deleting") : deleteLabel;
   return (
     <div className={className}>
       {leading}
@@ -117,19 +120,19 @@ function ReviewButtons({
         variant="secondary"
         compact
         disabled={actions.busy}
-        title="Take it off this cleanup. The next one will offer it again."
+        title={t("controlDash:dupes.skipTitle")}
         onClick={actions.onSkip}
       >
-        {result.reviewStatus === "skipped" ? "Put back" : "Skip"}
+        {result.reviewStatus === "skipped" ? t("controlDash:dupes.putBack") : t("controlDash:dupes.skip")}
       </Button>
       <Button
         variant="secondary"
         compact
         disabled={actions.busy}
-        title="These are not duplicates. No future scan will pair them again."
+        title={t("controlDash:dupes.notSameTitle")}
         onClick={actions.onDismiss}
       >
-        Not the same
+        {t("controlDash:dupes.notSame")}
       </Button>
       <Button
         variant="secondary"
@@ -170,10 +173,11 @@ const viewerMembersOf = (members: SnapshotMember[]): ViewerMember[] =>
  *  other. Same reasoning as the copy viewer — a decision about a whole folder deserves
  *  more than a count and four thumbnails — and available to anyone who can see the job. */
 function CompareFoldersButton({ onOpen }: { onOpen: () => void }) {
+  const { t } = useTranslation(["common", "controlDash"]);
   return (
-    <Button variant="secondary" compact onClick={onOpen} title="See both folders' photos side by side">
+    <Button variant="secondary" compact onClick={onOpen} title={t("controlDash:dupes.compareFoldersTitle")}>
       <Columns2 size={14} aria-hidden="true" />
-      <span>Compare</span>
+      <span>{t("controlDash:dupes.compare")}</span>
     </Button>
   );
 }
@@ -182,25 +186,28 @@ function CompareFoldersButton({ onOpen }: { onOpen: () => void }) {
  *  set: looking is not an action, and a near-identical pair is exactly the case where
  *  the thumbnails on the card cannot answer the question. */
 function LookButton({ onOpen, count }: { onOpen: () => void; count: number }) {
+  const { t } = useTranslation(["common", "controlDash"]);
   return (
     <Button
       variant="secondary"
       compact
       onClick={onOpen}
-      title={count === 2 ? "See both copies full size, side by side" : "See these copies full size"}
+      title={count === 2 ? t("controlDash:dupes.lookTwoTitle") : t("controlDash:dupes.lookManyTitle")}
     >
       <Columns2 size={14} aria-hidden="true" />
-      <span>Compare</span>
+      <span>{t("controlDash:dupes.compare")}</span>
     </Button>
   );
 }
 
-const ReviewedBadge = ({ result }: { result: SnapshotResult }) =>
-  result.reviewStatus === "unreviewed" ? null : (
+function ReviewedBadge({ result }: { result: SnapshotResult }) {
+  const { t } = useTranslation(["common", "controlDash"]);
+  return result.reviewStatus === "unreviewed" ? null : (
     <span>
-      <CircleCheck size={14} aria-hidden="true" /> {result.reviewStatus === "skipped" ? "Skipped" : "Looked at"}
+      <CircleCheck size={14} aria-hidden="true" /> {result.reviewStatus === "skipped" ? t("controlDash:dupes.skipped") : t("controlDash:dupes.lookedAt")}
     </span>
   );
+}
 
 // One card, one destination. A folder whose photos survive in three different places
 // produces three of these rather than one card listing three folders — "this folder
@@ -214,13 +221,14 @@ function ContainedCard({
   canWork: boolean;
   actions: CleanupResultActions;
 }) {
+  const { t } = useTranslation(["common", "controlDash"]);
   const [comparing, setComparing] = useState(false);
   const going = doomedFolder(result);
   const keeper = keeperFolders(result)[0];
   const doomedCount = result.members.filter((member) => member.role === "delete").length;
   const totalPhotos = going?.itemCount ?? doomedCount;
   const otherLibrary = keeper && going && keeper.libraryName !== going.libraryName
-    ? ` in ${keeper.libraryName}`
+    ? ` ${t("controlDash:dupes.inLibrary", { name: keeper.libraryName })}`
     : "";
 
   return (
@@ -238,8 +246,7 @@ function ContainedCard({
             <CertaintyBadge match={result.matchConfidence} keeper={result.keeperConfidence} />
                         {/* One plain sentence, because the card is one plain comparison. */}
             <p className="dup-set-explain datagrid-muted">
-              {totalPhotos === 1 ? "This photo" : `These ${totalPhotos} photos`} also
-              {totalPhotos === 1 ? " sits" : " sit"} in “{keeper ? folderLabel(keeper) : ""}”{otherLibrary}.
+              {t("controlDash:dupes.containedExplain", { count: totalPhotos, keeper: keeper ? folderLabel(keeper) : "", other: otherLibrary })}
             </p>
           </div>
         </div>
@@ -251,7 +258,7 @@ function ContainedCard({
           <ReviewButtons
             result={result}
             actions={actions}
-            deleteLabel="Delete this"
+            deleteLabel={t("controlDash:dupes.deleteThis")}
             className="dup-folder-card-actions"
             deleteClassName="dup-set-delete-action"
             leading={<CompareFoldersButton onOpen={() => setComparing(true)} />}
@@ -268,7 +275,7 @@ function ContainedCard({
               folder={keeper}
               keep
               position={0}
-              badge={keeper.role === "protected" ? "Protected" : "Keep"}
+              badge={keeper.role === "protected" ? t("controlDash:dupes.badgeProtected") : t("controlDash:dupes.badgeKeep")}
             />
           )}
           {going && (
@@ -276,7 +283,7 @@ function ContainedCard({
               folder={going}
               keep={false}
               position={1}
-              badge="Delete"
+              badge={t("controlDash:dupes.badgeDelete")}
             />
           )}
         </div>
@@ -294,6 +301,7 @@ function FolderSetCard({
   canWork: boolean;
   actions: CleanupResultActions;
 }) {
+  const { t } = useTranslation(["common", "controlDash"]);
   const kept = result.folders.find((folder) => folder.role === "keep");
   const going = result.folders.filter((folder) => folder.role !== "keep");
   const deleteFolders = going.filter((folder) => folder.role === "delete");
@@ -309,8 +317,8 @@ function FolderSetCard({
   const shared = going[0]?.itemCount ?? result.members.filter((member) => member.role === "delete").length;
   const totalPhotos = overlap ? shared : (kept?.itemCount ?? going[0]?.itemCount ?? result.members.length);
   const deleteLabel = overlap
-    ? `Delete ${shared} shared cop${shared === 1 ? "y" : "ies"}`
-    : deleteFolders.length === 1 ? "Delete this" : "Delete copies";
+    ? t("controlDash:dupes.deleteShared", { count: shared })
+    : deleteFolders.length === 1 ? t("controlDash:dupes.deleteThis") : t("controlDash:dupes.deleteCopies");
 
   return (
     <div className="dup-set dup-folder-card dup-cleanup-folder-card">
@@ -327,12 +335,11 @@ function FolderSetCard({
             <CertaintyBadge match={result.matchConfidence} keeper={result.keeperConfidence} />
                         {overlap && (
               <p className="dup-set-explain datagrid-muted">
-                Both folders stay. Only these {photoCountLabel(shared)} — the ones they hold in common — leave
-                “{going[0] ? folderLabel(going[0]) : ""}”. Anything either folder has on its own is untouched.
+                {t("controlDash:dupes.overlapExplain", { count: shared, name: going[0] ? folderLabel(going[0]) : "" })}
               </p>
             )}
             {result.keeperReason && (
-              <p className="dup-set-explain datagrid-muted">Kept because: {result.keeperReason}</p>
+              <p className="dup-set-explain datagrid-muted">{t("controlDash:dupes.keptBecause", { reason: result.keeperReason })}</p>
             )}
           </div>
         </div>
@@ -360,7 +367,7 @@ function FolderSetCard({
               folder={kept}
               keep
               position={0}
-              badge={overlap ? "Keeps its copies" : "Keep"}
+              badge={overlap ? t("controlDash:dupes.badgeKeepsCopies") : t("controlDash:dupes.badgeKeep")}
             />
           )}
           {going.map((folder, index) => (
@@ -369,7 +376,7 @@ function FolderSetCard({
               folder={folder}
               keep={folder.role === "protected"}
               position={(kept ? 1 : 0) + index}
-              badge={folder.role === "protected" ? "Protected" : overlap ? "Loses its copies" : "Delete"}
+              badge={folder.role === "protected" ? t("controlDash:dupes.badgeProtected") : overlap ? t("controlDash:dupes.badgeLosesCopies") : t("controlDash:dupes.badgeDelete")}
             />
           ))}
         </div>
@@ -401,13 +408,14 @@ function CopyTile({ member, largestPixels, busy, onToggle }: {
    *  isn't merely unavailable but does not exist. */
   onToggle?: () => void;
 }) {
+  const { t } = useTranslation(["common", "controlDash"]);
   const doomed = member.role === "delete";
   const shortfall = sizeShortfallOf(member, largestPixels);
   // The grid thumbnail, not the web-sized preview: a card shows a dozen of these and
   // the preview is sized for the viewer's full-screen panes.
   const src = member.coverUrl ?? member.previewUrl;
   const folder = folderOfPath(member.path);
-  const badge = member.role === "keep" ? "Keep" : member.role === "protected" ? "Protected" : "Delete";
+  const badge = member.role === "keep" ? t("controlDash:dupes.badgeKeep") : member.role === "protected" ? t("controlDash:dupes.badgeProtected") : t("controlDash:dupes.badgeDelete");
   // alt="" — the filename is written underneath, and the picture itself is not
   // describable here. A copy whose photo has gone shows the empty frame rather than a
   // broken image: the snapshot outlives what it describes.
@@ -425,10 +433,10 @@ function CopyTile({ member, largestPixels, busy, onToggle }: {
           variant="text"
           className="dup-copy-thumb"
           disabled={busy}
-          aria-label={`${doomed ? "Keep" : "Delete"} ${fileNameOf(member.path)} instead`}
+          aria-label={t(doomed ? "controlDash:dupes.keepInstead" : "controlDash:dupes.deleteInstead", { name: fileNameOf(member.path) })}
           title={doomed
-            ? "Marked for deletion — click to keep it instead"
-            : "Marked to keep — click to delete it instead"}
+            ? t("controlDash:dupes.markedDeleteHint")
+            : t("controlDash:dupes.markedKeepHint")}
           onClick={onToggle}
         >
           {picture}
@@ -442,11 +450,11 @@ function CopyTile({ member, largestPixels, busy, onToggle }: {
       <span className="dup-copy-badge">{badge}</span>
       <span className="dup-copy-info">
         <strong className="dup-copy-name" title={member.path}>{fileNameOf(member.path)}</strong>
-        <span className="dup-copy-where" title={folder || TOP_LEVEL_HINT}>
+        <span className="dup-copy-where" title={folder || topLevelHint()}>
           <Folder size={11} aria-hidden="true" />
-          <span>{folder || TOP_LEVEL}</span>
+          <span>{folder || topLevelLabel()}</span>
         </span>
-        <span className="dup-copy-where" title={`In the library “${member.libraryName}”`}>
+        <span className="dup-copy-where" title={t("controlDash:dupes.inLibraryTitle", { name: member.libraryName })}>
           <Images size={11} aria-hidden="true" />
           <span>{member.libraryName}</span>
         </span>
@@ -460,9 +468,7 @@ function CopyTile({ member, largestPixels, busy, onToggle }: {
         {shortfall && (
           <span
             className={`dup-copy-scale${!doomed ? " is-warn" : shortfall.severe ? " is-much" : ""}`}
-            title={`This copy has ${shortfall.times}× fewer pixels than the biggest one in the set${
-              !doomed ? " — and it is the one being kept" : ""
-            }.`}
+            title={t(doomed ? "controlDash:dupes.shortfallHintDoomed" : "controlDash:dupes.shortfallHintKept", { times: shortfall.times })}
           >
             {!doomed && <TriangleAlert size={11} aria-hidden="true" />}
             {shortfall.label}
@@ -487,6 +493,7 @@ function PhotoSetCard({
   // had just decided about was never where you left it, and on a seven-copy set the
   // whole row reshuffled under the cursor. A path never changes, so a tile now holds its
   // place for the life of the card and only its badge moves.
+  const { t } = useTranslation(["common", "controlDash"]);
   const ordered = [...result.members].sort((a, b) => a.path.localeCompare(b.path));
   const keeps = result.members.filter((member) => member.role === "keep");
   // The set's name, from its first copy rather than from whichever copy is kept — the
@@ -521,7 +528,7 @@ function PhotoSetCard({
         <div className="dup-set-summary">
           <h3 className="dup-set-title">{titleMember && fileNameOf(titleMember.path)}</h3>
           <p className="dup-set-meta datagrid-muted">
-            <span><Images size={14} aria-hidden="true" /> {result.members.length} copies</span>
+            <span><Images size={14} aria-hidden="true" /> {t("controlDash:dupes.copies", { count: result.members.length })}</span>
             <span><HardDrive size={14} aria-hidden="true" /> {formatBytes(result.reclaimableBytes)}</span>
             {result.risk && <RiskGauge severity={result.risk.severity} label={result.risk.label} explanation={result.risk.explanation} />}
           </p>
@@ -532,16 +539,14 @@ function PhotoSetCard({
           {near && (
             <p className="dup-set-explain dup-set-near">
               <TriangleAlert size={13} aria-hidden="true" />
-              <span>These only look alike. They may be two different shots — check before deleting.</span>
+              <span>{t("controlDash:dupes.nearWarning")}</span>
             </p>
           )}
           {keepsNothing && (
             <p className="dup-set-explain dup-set-near">
               <TriangleAlert size={13} aria-hidden="true" />
               <span>
-                Nothing here is kept, so this removes the picture from your library, not
-                just its spare copies. {result.members.length === 1 ? "The copy goes" : "All copies go"} to
-                the Recycle Bin, where {result.members.length === 1 ? "it can" : "they can"} still be restored.
+                {t("controlDash:dupes.keepsNothing", { count: result.members.length })}
               </span>
             </p>
           )}
@@ -549,20 +554,19 @@ function PhotoSetCard({
             <p className="dup-set-explain dup-set-near">
               <TriangleAlert size={13} aria-hidden="true" />
               <span>
-                A copy being deleted is much larger than the one being kept. Pixels can't be
-                got back — check you're keeping the right one.
+                {t("controlDash:dupes.keepingSmall")}
               </span>
             </p>
           )}
           {result.keeperReason && (
-            <p className="dup-set-explain datagrid-muted">Kept because: {result.keeperReason}</p>
+            <p className="dup-set-explain datagrid-muted">{t("controlDash:dupes.keptBecause", { reason: result.keeperReason })}</p>
           )}
         </div>
         {canWork ? (
           <ReviewButtons
             result={result}
             actions={actions}
-            deleteLabel="Delete copies"
+            deleteLabel={t("controlDash:dupes.deleteCopies")}
             className="dup-group-actions"
             deleteClassName="dup-delete-action"
             deleteIcon
@@ -597,9 +601,7 @@ function PhotoSetCard({
 
       {viewing && (
         <DuplicateViewer
-          title={near
-            ? `${viewable.length} near-identical copies — check them before deleting`
-            : `${viewable.length} copies of the same photo`}
+          title={t(near ? "controlDash:dupes.viewerNearTitle" : "controlDash:dupes.viewerTitle", { count: viewable.length })}
           members={viewable}
           // Full size is where a near-identical pair is actually settled, so the panes
           // toggle the same way the tiles do rather than showing an answer you have to

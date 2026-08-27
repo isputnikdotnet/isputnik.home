@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import {
   Archive,
   ChevronRight,
@@ -45,6 +46,7 @@ interface Pointer {
 }
 
 export function SystemView({ status, dbInfo }: { status: SystemStatus; dbInfo: DbInfo | null }) {
+  const { t } = useTranslation(["common", "controlDash"]);
   const [lastBackup, setLastBackup] = useState<{ createdAt: string; kind: string } | null | undefined>(undefined);
 
   // The newest backup comes from the Backup page's own listing — one fetch for
@@ -62,42 +64,42 @@ export function SystemView({ status, dbInfo }: { status: SystemStatus; dbInfo: D
   const pointers: Pointer[] = [
     {
       icon: UsersRound,
-      label: "Members",
+      label: t("controlDash:system.members"),
       value: status.users.toLocaleString(),
-      note: "Accounts that can sign in",
+      note: t("controlDash:system.membersNote"),
       section: "users"
     },
     {
       icon: Smartphone,
-      label: "Signed-in devices",
+      label: t("controlDash:system.devices"),
       value: status.activeSessions.toLocaleString(),
-      note: "Live sessions, displays included",
+      note: t("controlDash:system.devicesNote"),
       section: "signins"
     },
     {
       icon: Ticket,
-      label: "Open invite links",
+      label: t("controlDash:system.invites"),
       value: status.activeInvites.toLocaleString(),
-      note: "Unused and not yet expired",
+      note: t("controlDash:system.invitesNote"),
       section: "invites"
     },
     {
       icon: ScrollText,
-      label: "Log entries",
+      label: t("controlDash:system.logEntries"),
       value: status.logEntries.toLocaleString(),
-      note: "Retention is set on the Logs page",
+      note: t("controlDash:system.logEntriesNote"),
       section: "logs"
     },
     {
       icon: Archive,
-      label: "Last backup",
-      value: lastBackup === undefined ? "…" : lastBackup ? relativeTime(lastBackup.createdAt) : "None yet",
+      label: t("controlDash:system.lastBackup"),
+      value: lastBackup === undefined ? "…" : lastBackup ? relativeTime(lastBackup.createdAt) : t("controlDash:system.noneYet"),
       note:
         lastBackup === undefined
-          ? "Checking"
+          ? t("controlDash:system.checkingNote")
           : lastBackup
-            ? `${lastBackup.kind === "full" ? "Full backup" : "Database only"} · ${formatManagedDate(lastBackup.createdAt)}`
-            : "Take or schedule one under Maintenance",
+            ? `${lastBackup.kind === "full" ? t("controlDash:system.fullBackup") : t("controlDash:system.databaseOnly")} · ${formatManagedDate(lastBackup.createdAt)}`
+            : t("controlDash:system.backupHint"),
       section: "backup"
     }
   ];
@@ -109,45 +111,49 @@ export function SystemView({ status, dbInfo }: { status: SystemStatus; dbInfo: D
           <KpiCard
             icon={Clock3}
             tone="info"
-            label="Uptime"
+            label={t("controlDash:system.uptime")}
             value={formatUptime(status.uptimeSeconds)}
-            context={`Version ${status.version} · Node ${status.runtime.replace(/^v/, "")}`}
+            context={t("controlDash:system.uptimeContext", { version: status.version, node: status.runtime.replace(/^v/, "") })}
           />
           <KpiCard
             icon={MemoryStick}
             tone="info"
-            label="Memory"
+            label={t("controlDash:system.memory")}
             value={formatBytes(status.memory.rssBytes)}
-            context={`${formatBytes(status.memory.heapUsedBytes)} of ${formatBytes(status.memory.heapTotalBytes)} heap in use`}
+            context={t("controlDash:system.memoryContext", { used: formatBytes(status.memory.heapUsedBytes), total: formatBytes(status.memory.heapTotalBytes) })}
           />
           <KpiCard
             icon={HardDrive}
             tone={disk ? diskTone(disk.freeBytes, disk.totalBytes) : "info"}
-            label="Free space"
-            value={disk ? formatBytes(disk.freeBytes) : "Unknown"}
+            label={t("controlDash:system.freeSpace")}
+            value={disk ? formatBytes(disk.freeBytes) : t("controlDash:system.unknown")}
             context={
               disk && freeShare !== null
-                ? `${freeShare}% of ${formatBytes(disk.totalBytes)} on the data disk`
-                : "The platform couldn't measure the data disk"
+                ? t("controlDash:system.diskContext", { share: freeShare, total: formatBytes(disk.totalBytes) })
+                : t("controlDash:system.diskUnmeasured")
             }
           />
           <KpiCard
             icon={Database}
             tone="info"
-            label="Database"
+            label={t("controlDash:system.database")}
             value={formatBytes(status.databaseBytes)}
             context={
               dbInfo
-                ? `${formatBytes(dbInfo.sizeBytes)} file · ${formatBytes(dbInfo.walSizeBytes)} WAL · changed ${relativeTime(dbInfo.lastModified ?? status.generatedAt)}`
-                : "On disk, with its WAL and SHM companions"
+                ? t("controlDash:system.databaseContext", {
+                    size: formatBytes(dbInfo.sizeBytes),
+                    wal: formatBytes(dbInfo.walSizeBytes),
+                    when: relativeTime(dbInfo.lastModified ?? status.generatedAt)
+                  })
+                : t("controlDash:system.databaseFallback")
             }
           />
         </div>
 
         <div className="status-subsection">
           <div className="status-table-title">
-            <h3>Where things stand</h3>
-            <span>Counts with pages of their own · checked {formatManagedDate(status.generatedAt)}</span>
+            <h3>{t("controlDash:system.standTitle")}</h3>
+            <span>{t("controlDash:system.standNote", { date: formatManagedDate(status.generatedAt) })}</span>
           </div>
           <div className="datagrid-wrap">
             <table className="datagrid locations-table">
@@ -169,8 +175,8 @@ export function SystemView({ status, dbInfo }: { status: SystemStatus; dbInfo: D
                       <td className="locations-row-action">
                         <Button
                           variant="icon"
-                          aria-label={`Open ${pointer.label}`}
-                          title={`Open ${pointer.label}`}
+                          aria-label={t("controlDash:system.open", { label: pointer.label })}
+                          title={t("controlDash:system.open", { label: pointer.label })}
                           onClick={(event) => {
                             event.stopPropagation();
                             navigate(controlHref(pointer.section));
@@ -190,10 +196,9 @@ export function SystemView({ status, dbInfo }: { status: SystemStatus; dbInfo: D
         {dbInfo && (
           <div className="status-subsection">
             <div className="status-table-title">
-              <h3>Database file</h3>
+              <h3>{t("controlDash:system.databaseFile")}</h3>
               <span>
-                Backups are taken and scheduled under{" "}
-                <a href={controlHref("backup")}>Maintenance › Backup</a>
+                <Trans i18nKey="system.backupNote" ns="controlDash" components={{ link: <a href={controlHref("backup")} /> }} />
               </span>
             </div>
             <p className="muted status-db-path"><code>{dbInfo.path}</code></p>

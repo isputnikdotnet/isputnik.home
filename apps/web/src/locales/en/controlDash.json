@@ -203,7 +203,8 @@
     "towns": "Towns",
     "countries": "Countries",
     "fewer": "Fewer",
-    "more": "More"
+    "more": "More",
+    "osmAttribution": "&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors"
   },
   "locations": {
     "loadFailed": "Unable to load locations",

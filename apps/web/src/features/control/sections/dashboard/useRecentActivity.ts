@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../../../../api";
 import type { LogEvent } from "../../types";
 
@@ -14,6 +15,7 @@ export function useRecentActivity(
   pageSize = 10,
   options: { from?: string; to?: string; page?: number; sort?: ActivitySort; dir?: "asc" | "desc" } = {}
 ) {
+  const { t } = useTranslation(["common", "controlDash"]);
   const [logs, setLogs] = useState<LogEvent[]>([]);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -35,7 +37,7 @@ export function useRecentActivity(
 
   useEffect(() => {
     setError("");
-    load().catch((err) => setError(err instanceof Error ? err.message : "Unable to load activity"));
+    load().catch((err) => setError(err instanceof Error ? err.message : t("controlDash:activity.loadFailed")));
   }, [load]);
 
   return { logs, total, totalPages, error, reload: load };

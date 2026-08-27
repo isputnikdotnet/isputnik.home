@@ -14,6 +14,7 @@
 // Saving locks the scope, because everything the scan writes was worked out under
 // these answers.
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ArrowLeft, ArrowRight, Briefcase, Check, Cloud, File, FolderOpen, HardDrive,
   Image as ImageIcon, Lock, LockOpen, RefreshCw, ShieldCheck, Smartphone, UserRound, Video
@@ -25,28 +26,31 @@ import { ChoiceGroup, type Choice } from "../../../../shared/ChoiceGroup";
 import { InfoHint } from "../../../../shared/InfoHint";
 import { Modal } from "../../../../shared/Modal";
 import { ToggleSwitch } from "../../../../shared/ToggleSwitch";
+import i18n from "../../../../i18n";
 import type { DuplicateJob, DuplicateKind, LibraryOption, MediaKind } from "./cleanup-types";
 
+// Module-level helpers (not components) call i18n.t() directly rather than the
+// useTranslation() hook — see cleanup-types.ts's note on the same pattern.
 const cleanupTypeLabel = (type: DuplicateKind): string =>
-  type === "folders" ? "Duplicate folders" : "Individual files";
+  i18n.t(type === "folders" ? "controlDash:dupes.wizard.typeFolders" : "controlDash:dupes.wizard.typeFiles");
 
 const cleanupTypeDescription = (type: DuplicateKind): string =>
-  type === "folders"
-    ? "Compare duplicate folders and their contents"
-    : "Review duplicate photos or videos one by one";
+  i18n.t(type === "folders" ? "controlDash:dupes.wizard.typeFoldersNote" : "controlDash:dupes.wizard.typeFilesNote");
 
 const mediaTypeLabel = (type: MediaKind): string =>
-  type === "photo" ? "Photos" : type === "video" ? "Videos" : "Photos and videos";
+  i18n.t(type === "photo"
+    ? "controlDash:dupes.wizard.mediaPhotos"
+    : type === "video" ? "controlDash:dupes.wizard.mediaVideos" : "controlDash:dupes.wizard.mediaBoth");
 
 const mediaTypeDescription = (type: MediaKind): string =>
-  type === "photo"
-    ? "Image fingerprints only"
-    : type === "video"
-      ? "Video fingerprints only"
-      : "Include both images and videos";
+  i18n.t(type === "photo"
+    ? "controlDash:dupes.wizard.mediaPhotosNote"
+    : type === "video" ? "controlDash:dupes.wizard.mediaVideosNote" : "controlDash:dupes.wizard.mediaBothNote");
 
 function libraryModeLabel(library: LibraryOption): string {
-  return library.mode === "external" ? "External" : "Internal";
+  return library.mode === "external"
+    ? i18n.t("controlDash:dupes.wizard.modeExternal")
+    : i18n.t("controlDash:dupes.wizard.modeInternal");
 }
 
 function libraryIcon(library: LibraryOption) {
@@ -79,10 +83,10 @@ type PreferenceMode = "keep" | "clear";
 /** Keyed the same way the server stores them: library + path. */
 const folderKey = (libraryId: string, folderPath: string): string => `${libraryId} ${folderPath}`;
 
-const MODES: { value: PreferenceMode | ""; short: string; hint: string }[] = [
-  { value: "keep", short: "Keep", hint: "When copies are in several places, keep this one" },
-  { value: "", short: "—", hint: "Let the usual rules decide" },
-  { value: "clear", short: "Clear", hint: "Keep the copies elsewhere and let this folder's go" }
+const getModes = (): { value: PreferenceMode | ""; short: string; hint: string }[] => [
+  { value: "keep", short: i18n.t("controlDash:dupes.wizard.modeKeep"), hint: i18n.t("controlDash:dupes.wizard.modeKeepHint") },
+  { value: "", short: "—", hint: i18n.t("controlDash:dupes.wizard.modeNoneHint") },
+  { value: "clear", short: i18n.t("controlDash:dupes.wizard.modeClear"), hint: i18n.t("controlDash:dupes.wizard.modeClearHint") }
 ];
 
 // One entry per step, and the only place their order and count is written down —
@@ -90,30 +94,30 @@ const MODES: { value: PreferenceMode | ""; short: string; hint: string }[] = [
 // used to share the first step with the library picker, which made that step three
 // questions long and this one no question at all; they are separate decisions and
 // the second one is easier to answer once the libraries are settled.
-const STEPS: { title: string; note: string; heading: string; blurb: string }[] = [
+const getSteps = (): { title: string; note: string; heading: string; blurb: string }[] => [
   {
-    title: "Libraries",
-    note: "What the scan looks at",
-    heading: "Select libraries",
-    blurb: "Choose which gallery libraries this duplicate cleanup job compares."
+    title: i18n.t("controlDash:dupes.wizard.step1Title"),
+    note: i18n.t("controlDash:dupes.wizard.step1Note"),
+    heading: i18n.t("controlDash:dupes.wizard.step1Heading"),
+    blurb: i18n.t("controlDash:dupes.wizard.step1Blurb")
   },
   {
-    title: "Content type",
-    note: "What counts as a duplicate",
-    heading: "Content type",
-    blurb: "Decide what the scan compares — whole folders or single files, and which media."
+    title: i18n.t("controlDash:dupes.wizard.step2Title"),
+    note: i18n.t("controlDash:dupes.wizard.step2Note"),
+    heading: i18n.t("controlDash:dupes.wizard.step2Heading"),
+    blurb: i18n.t("controlDash:dupes.wizard.step2Blurb")
   },
   {
-    title: "Folder instructions",
-    note: "Which copies to favour",
-    heading: "Folder instructions",
-    blurb: "Optional. Say in advance which folder a photo should be kept in when copies of it turn up in several — the scan then follows that instead of guessing."
+    title: i18n.t("controlDash:dupes.wizard.step3Title"),
+    note: i18n.t("controlDash:dupes.wizard.step3Note"),
+    heading: i18n.t("controlDash:dupes.wizard.step3Heading"),
+    blurb: i18n.t("controlDash:dupes.wizard.step3Blurb")
   },
   {
-    title: "Summary",
-    note: "Review and run",
-    heading: "Summary",
-    blurb: "Review your selections before starting the duplicate cleanup scan."
+    title: i18n.t("controlDash:dupes.wizard.step4Title"),
+    note: i18n.t("controlDash:dupes.wizard.step4Note"),
+    heading: i18n.t("controlDash:dupes.wizard.step4Heading"),
+    blurb: i18n.t("controlDash:dupes.wizard.step4Blurb")
   }
 ];
 
@@ -126,7 +130,10 @@ export function CleanupWizard({
   onClose: () => void;
   onSaved: () => void | Promise<void>;
 }) {
-  const [step, setStep] = useState(Math.min(job?.currentStep ?? 1, STEPS.length));
+  const { t } = useTranslation(["common", "controlDash"]);
+  const steps = getSteps();
+  const modes = getModes();
+  const [step, setStep] = useState(Math.min(job?.currentStep ?? 1, steps.length));
   const [chosen, setChosen] = useState<string[]>(
     job ? job.libraries.filter((library) => library.included).map((library) => library.libraryId)
       : libraries.filter((library) => !library.isProtected).map((library) => library.id)
@@ -188,19 +195,19 @@ export function CleanupWizard({
       || a.folderPath.localeCompare(b.folderPath)),
   [folderOptions, needle]);
   const instructionCount = Object.keys(preferences).length;
-  const current = STEPS[step - 1];
+  const current = steps[step - 1];
 
   const cleanupTypeChoices: Choice<DuplicateKind>[] = [
     {
       value: "folders",
-      label: "Duplicate folders",
-      description: "Compare duplicate folders and their contents",
+      label: t("controlDash:dupes.wizard.typeFolders"),
+      description: t("controlDash:dupes.wizard.typeFoldersNote"),
       icon: <FolderOpen size={22} />
     },
     {
       value: "files",
-      label: "Individual files",
-      description: "Review duplicate photos or videos one by one",
+      label: t("controlDash:dupes.wizard.typeFiles"),
+      description: t("controlDash:dupes.wizard.typeFilesNote"),
       icon: <File size={22} />
     }
   ];
@@ -208,20 +215,20 @@ export function CleanupWizard({
   const mediaTypeChoices: Choice<MediaKind>[] = [
     {
       value: "photo",
-      label: "Photos",
-      description: "Image fingerprints only",
+      label: t("controlDash:dupes.wizard.mediaPhotos"),
+      description: t("controlDash:dupes.wizard.mediaPhotosNote"),
       icon: <ImageIcon size={21} />
     },
     {
       value: "video",
-      label: "Videos",
-      description: "Video fingerprints only",
+      label: t("controlDash:dupes.wizard.mediaVideos"),
+      description: t("controlDash:dupes.wizard.mediaVideosNote"),
       icon: <Video size={21} />
     },
     {
       value: "both",
-      label: "Photos and videos",
-      description: "Include both images and videos",
+      label: t("controlDash:dupes.wizard.mediaBoth"),
+      description: t("controlDash:dupes.wizard.mediaBothNote"),
       icon: (
         <span className="cleanup-choice-pair" aria-hidden="true">
           <ImageIcon size={18} />
@@ -265,7 +272,7 @@ export function CleanupWizard({
       }
       await onSaved();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to save this cleanup");
+      setError(err instanceof Error ? err.message : t("controlDash:dupes.wizard.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -274,8 +281,8 @@ export function CleanupWizard({
   return (
     <Modal
       variant="panel"
-      title={job ? "Change duplicate cleanup job" : "Create duplicate cleanup job"}
-      subtitle={`Step ${step} of ${STEPS.length} · ${current.heading}`}
+      title={job ? t("controlDash:dupes.wizard.editTitle") : t("controlDash:dupes.wizard.createTitle")}
+      subtitle={t("controlDash:dupes.wizard.stepOf", { step, total: steps.length, heading: current.heading })}
       icon={<FolderOpen size={30} />}
       className="cleanup-wizard-modal"
       headerClassName="cleanup-wizard-header"
@@ -283,8 +290,8 @@ export function CleanupWizard({
       onClose={onClose}
     >
       <div className="cleanup-wizard-shell">
-        <aside className="cleanup-wizard-rail" aria-label="Duplicate cleanup steps">
-          {STEPS.map((item, index) => {
+        <aside className="cleanup-wizard-rail" aria-label={t("controlDash:dupes.wizard.railAria")}>
+          {steps.map((item, index) => {
             const value = index + 1;
             const done = step > value;
             const active = step === value;
@@ -307,7 +314,7 @@ export function CleanupWizard({
         </aside>
 
         <div className="cleanup-wizard-content">
-          {error && <MessageBox tone="error" title="Unable to save">{error}</MessageBox>}
+          {error && <MessageBox tone="error" title={t("controlDash:dupes.wizard.saveFailed")}>{error}</MessageBox>}
 
           {step === 1 && (
             <div className="cleanup-wizard-page">
@@ -318,8 +325,8 @@ export function CleanupWizard({
 
               <section className="cleanup-wizard-section">
                 {libraries.length === 0 ? (
-                  <MessageBox tone="warning" title="No gallery libraries">
-                    Create a gallery library before starting a duplicate cleanup job.
+                  <MessageBox tone="warning" title={t("controlDash:dupes.wizard.noLibrariesTitle")}>
+                    {t("controlDash:dupes.wizard.noLibrariesBody")}
                   </MessageBox>
                 ) : (
                   <div className="cleanup-library-list" role="list">
@@ -343,7 +350,7 @@ export function CleanupWizard({
                             checked={included}
                             onChange={() => toggle(library.id)}
                             disabled={saving}
-                            ariaLabel={`${included ? "Exclude" : "Include"} ${library.name}`}
+                            ariaLabel={t(included ? "controlDash:dupes.wizard.exclude" : "controlDash:dupes.wizard.include", { name: library.name })}
                             className="cleanup-library-toggle"
                           />
                           {/* Both states draw something. A cell that renders for
@@ -354,8 +361,8 @@ export function CleanupWizard({
                           <span
                             className={`cleanup-library-lock${library.isProtected ? " is-locked" : ""}`}
                             title={library.isProtected
-                              ? "External: files here can be compared but never removed"
-                              : "Internal: files here can be cleaned up"}
+                              ? t("controlDash:dupes.wizard.lockedHint")
+                              : t("controlDash:dupes.wizard.unlockedHint")}
                           >
                             {library.isProtected
                               ? <Lock size={15} aria-hidden="true" />
@@ -367,8 +374,8 @@ export function CleanupWizard({
                   </div>
                 )}
                 {hasProtected && (
-                  <MessageBox tone="info" title="External libraries stay protected">
-                    External libraries can be included for comparison, but files there cannot be cleaned.
+                  <MessageBox tone="info" title={t("controlDash:dupes.wizard.protectedTitle")}>
+                    {t("controlDash:dupes.wizard.protectedBody")}
                   </MessageBox>
                 )}
               </section>
@@ -384,7 +391,7 @@ export function CleanupWizard({
 
               <section className="cleanup-wizard-section">
                 <ChoiceGroup
-                  legend="Cleanup type"
+                  legend={t("controlDash:dupes.wizard.cleanupType")}
                   className="cleanup-choice-grid"
                   value={duplicateType}
                   onChange={setDuplicateType}
@@ -395,7 +402,7 @@ export function CleanupWizard({
 
               <section className="cleanup-wizard-section">
                 <ChoiceGroup
-                  legend="Media type"
+                  legend={t("controlDash:dupes.wizard.mediaType")}
                   className="cleanup-choice-grid"
                   value={mediaType}
                   onChange={setMediaType}
@@ -415,42 +422,39 @@ export function CleanupWizard({
 
               <section className="cleanup-wizard-section">
                 <h4>
-                  Folders in the chosen libraries
+                  {t("controlDash:dupes.wizard.foldersHeading")}
                   {/* Read once, then in the way. It answers "does this affect other
                       cleanups" and "will Clear empty the folder" — both worth having
                       to hand, neither worth a standing paragraph above the list. */}
-                  <InfoHint label="About folder instructions">
-                    Nothing is inherited and nothing is shared: what you set here shapes this
-                    cleanup and no other. Clearing a folder out never empties it — a photo with no
-                    copy anywhere else is nobody's duplicate, and a set whose copies are all in
-                    cleared folders still keeps one.
+                  <InfoHint label={t("controlDash:dupes.wizard.aboutInstructions")}>
+                    {t("controlDash:dupes.wizard.aboutInstructionsBody")}
                   </InfoHint>
                   {instructionCount > 0 && (
                     <span className="count-badge">
-                      {instructionCount} instruction{instructionCount === 1 ? "" : "s"}
+                      {t("controlDash:dupes.wizard.instructionCount", { count: instructionCount })}
                     </span>
                   )}
                 </h4>
-                <p className="datagrid-muted dup-folder-hint">Biggest folders first.</p>
+                <p className="datagrid-muted dup-folder-hint">{t("controlDash:dupes.wizard.biggestFirst")}</p>
 
                 {folderOptions.length > 0 && (
                   <div className="dup-folder-tools">
                     <input
                       type="search"
                       value={folderQuery}
-                      placeholder="Find a folder"
-                      aria-label="Find a folder in this list"
+                      placeholder={t("controlDash:dupes.wizard.findFolder")}
+                      aria-label={t("controlDash:dupes.wizard.findFolderAria")}
                       onChange={(event) => setFolderQuery(event.target.value)}
                     />
                   </div>
                 )}
 
                 {foldersLoading ? (
-                  <p className="management-empty">Reading the folder list…</p>
+                  <p className="management-empty">{t("controlDash:dupes.wizard.readingFolders")}</p>
                 ) : folderOptions.length === 0 ? (
-                  <p className="management-empty">These libraries hold no photos yet, so there is nothing to instruct.</p>
+                  <p className="management-empty">{t("controlDash:dupes.wizard.noPhotosYet")}</p>
                 ) : shownFolders.length === 0 ? (
-                  <p className="management-empty">No folder matches “{folderQuery.trim()}”.</p>
+                  <p className="management-empty">{t("controlDash:dupes.wizard.noFolderMatch", { query: folderQuery.trim() })}</p>
                 ) : (
                   <div className="dup-folder-picker dup-folder-picker-tall">
                     {shownFolders.map((option) => {
@@ -461,18 +465,20 @@ export function CleanupWizard({
                               instruction covers what is below it, and this one is below the
                               whole library, so it is named as the library. */}
                           <span className="dup-folder-choice-body">
-                            <strong>{option.folderPath || `Everywhere in ${option.libraryName}`}</strong>
+                            <strong>{option.folderPath || t("controlDash:dupes.wizard.everywhereIn", { name: option.libraryName })}</strong>
                             <span className="datagrid-muted">
                               {option.folderPath ? `${option.libraryName} · ` : ""}
-                              {option.photoCount.toLocaleString()} photo{option.photoCount === 1 ? "" : "s"}
+                              {t("controlDash:dupes.photoCount", { count: option.photoCount })}
                             </span>
                           </span>
                           <span
                             className="dup-mode-group"
                             role="radiogroup"
-                            aria-label={`When copies are in several places, ${option.folderPath || `everywhere in ${option.libraryName}`}`}
+                            aria-label={t("controlDash:dupes.wizard.whenCopiesAria", {
+                              where: option.folderPath || t("controlDash:dupes.wizard.everywhereIn", { name: option.libraryName })
+                            })}
                           >
-                            {MODES.map((mode) => {
+                            {modes.map((mode) => {
                               // Clearing out means letting this folder's copies go, which an
                               // external library cannot do — its files are not ours to remove.
                               // A locked folder reads the same way: deletion is refused there.
@@ -483,8 +489,8 @@ export function CleanupWizard({
                                   key={mode.short}
                                   title={blocked
                                     ? (option.isProtected
-                                      ? `"${option.libraryName}" is external, so nothing can be cleared out of it`
-                                      : `"${option.folderPath}" is locked, so nothing can be cleared out of it`)
+                                      ? t("controlDash:dupes.wizard.externalBlocked", { name: option.libraryName })
+                                      : t("controlDash:dupes.wizard.lockedBlocked", { name: option.folderPath }))
                                     : mode.hint}
                                 >
                                   <input
@@ -522,7 +528,7 @@ export function CleanupWizard({
                 </div>
 
                 <section className="cleanup-summary-card">
-                  <h4>Selected libraries</h4>
+                  <h4>{t("controlDash:dupes.wizard.selectedLibraries")}</h4>
                   <div className="cleanup-summary-libraries">
                     {chosenLibraries.map((library) => (
                       <div className="cleanup-summary-library" key={library.id}>
@@ -532,13 +538,13 @@ export function CleanupWizard({
                       </div>
                     ))}
                     {chosenLibraries.length === 0 && (
-                      <p className="datagrid-muted cleanup-summary-empty">No libraries selected.</p>
+                      <p className="datagrid-muted cleanup-summary-empty">{t("controlDash:dupes.wizard.noneSelected")}</p>
                     )}
                   </div>
                   <p className="cleanup-summary-count">
-                    {chosenLibraries.length} librar{chosenLibraries.length === 1 ? "y" : "ies"} selected
-                    {" · "}{internalCount} internal
-                    {" · "}{externalCount} external
+                    {t("controlDash:dupes.wizard.selectedCount", { count: chosenLibraries.length })}
+                    {" · "}{t("controlDash:dupes.wizard.internalCount", { count: internalCount })}
+                    {" · "}{t("controlDash:dupes.wizard.externalCount", { count: externalCount })}
                   </p>
                   {/* What pressing Run scan actually costs. Both numbers are read
                       straight out of the catalogue — no disk — so they are honest about
@@ -546,15 +552,15 @@ export function CleanupWizard({
                       estimate: the scan checks the real files and may read a few more. */}
                   <p className="cleanup-summary-count">
                     {toFingerprint > 0
-                      ? `${toFingerprint.toLocaleString()} photo${toFingerprint === 1 ? "" : "s"} to fingerprint first — read from disk, so this can take a while. The rest of the ${toCheck.toLocaleString()} worth checking are already done.`
+                      ? t("controlDash:dupes.wizard.toFingerprint", { count: toFingerprint, total: toCheck })
                       : toCheck > 0
-                        ? `${toCheck.toLocaleString()} photo${toCheck === 1 ? "" : "s"} to check, all already fingerprinted — this scan will be quick.`
-                        : "Nothing here shares a file size with another photo, so there is nothing for a scan to find."}
+                        ? t("controlDash:dupes.wizard.toCheck", { count: toCheck })
+                        : t("controlDash:dupes.wizard.nothingToScan")}
                   </p>
                 </section>
 
                 <section className="cleanup-summary-card cleanup-summary-choice">
-                  <h4>Cleanup type</h4>
+                  <h4>{t("controlDash:dupes.wizard.cleanupType")}</h4>
                   <div>
                     <span className="cleanup-summary-icon">
                       {duplicateType === "files"
@@ -569,7 +575,7 @@ export function CleanupWizard({
                 </section>
 
                 <section className="cleanup-summary-card cleanup-summary-choice">
-                  <h4>Media type</h4>
+                  <h4>{t("controlDash:dupes.wizard.mediaType")}</h4>
                   <div>
                     <span className="cleanup-summary-icon">
                       {mediaType === "video" ? (
@@ -591,31 +597,31 @@ export function CleanupWizard({
                 </section>
 
                 {externalCount > 0 && (
-                  <MessageBox tone="info" title="External libraries are comparison only">
-                    They are always protected and cannot be cleaned or selected for deletion.
+                  <MessageBox tone="info" title={t("controlDash:dupes.wizard.comparisonOnlyTitle")}>
+                    {t("controlDash:dupes.wizard.comparisonOnlyBody")}
                   </MessageBox>
                 )}
 
                 <div className="cleanup-summary-note">
                   <ShieldCheck size={17} aria-hidden="true" />
-                  <span>This scan creates one active duplicate cleanup job assigned to the current user.</span>
+                  <span>{t("controlDash:dupes.wizard.createsJobNote")}</span>
                 </div>
               </div>
 
-              <aside className="cleanup-overview-card" aria-label="Job overview">
-                <h4>Job overview</h4>
+              <aside className="cleanup-overview-card" aria-label={t("controlDash:dupes.wizard.overviewAria")}>
+                <h4>{t("controlDash:dupes.wizard.overviewTitle")}</h4>
                 <dl>
                   <div>
-                    <dt><UserRound size={20} aria-hidden="true" />Owner</dt>
+                    <dt><UserRound size={20} aria-hidden="true" />{t("controlDash:dupes.wizard.owner")}</dt>
                     <dd>{job?.ownerName ?? ownerName}</dd>
                   </div>
                   <div>
-                    <dt><RefreshCw size={20} aria-hidden="true" />Estimated action</dt>
-                    <dd>Scan and review</dd>
+                    <dt><RefreshCw size={20} aria-hidden="true" />{t("controlDash:dupes.wizard.estimatedAction")}</dt>
+                    <dd>{t("controlDash:dupes.wizard.scanAndReview")}</dd>
                   </div>
                   <div>
-                    <dt><Briefcase size={20} aria-hidden="true" />Job type</dt>
-                    <dd>Duplicate cleanup</dd>
+                    <dt><Briefcase size={20} aria-hidden="true" />{t("controlDash:dupes.wizard.jobType")}</dt>
+                    <dd>{t("controlDash:dupes.wizard.jobTypeValue")}</dd>
                   </div>
                 </dl>
               </aside>
@@ -628,29 +634,29 @@ export function CleanupWizard({
         {step > 1 && (
           <Button variant="secondary" disabled={saving} onClick={() => setStep(step - 1)}>
             <ArrowLeft size={16} aria-hidden="true" />
-            <span>Back</span>
+            <span>{t("controlDash:dupes.wizard.back")}</span>
           </Button>
         )}
-        <Button variant="secondary" disabled={saving} onClick={onClose}>Cancel</Button>
+        <Button variant="secondary" disabled={saving} onClick={onClose}>{t("common.cancel")}</Button>
         <span className="cleanup-wizard-action-spacer" aria-hidden="true" />
-        {step < STEPS.length ? (
+        {step < steps.length ? (
           <Button
             variant="primary"
             disabled={saving || chosen.length === 0}
             onClick={() => setStep(step + 1)}
           >
-            <span>Next</span>
+            <span>{t("controlDash:dupes.wizard.next")}</span>
             <ArrowRight size={16} aria-hidden="true" />
           </Button>
         ) : (
           <>
             {job && (
               <Button variant="secondary" disabled={saving || chosen.length === 0} onClick={() => void save(false)}>
-                {saving ? "Saving…" : "Save changes"}
+                {saving ? t("controlDash:dupes.wizard.saving") : t("controlDash:dupes.wizard.saveChanges")}
               </Button>
             )}
             <Button variant="primary" disabled={saving || chosen.length === 0} onClick={() => void save(true)}>
-              <span>{saving ? "Scanning…" : "Run scan"}</span>
+              <span>{saving ? t("controlDash:dupes.wizard.scanning") : t("controlDash:dupes.wizard.runScan")}</span>
               <ArrowRight size={16} aria-hidden="true" />
             </Button>
           </>

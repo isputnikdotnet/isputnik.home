@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { countryCentroid } from "./countryCentroids";
@@ -58,10 +59,6 @@ function stepFor(connections: number, max: number): number {
   return 1;
 }
 
-function plural(count: number): string {
-  return `${count.toLocaleString()} ${count === 1 ? "connection" : "connections"}`;
-}
-
 export function LocationsMap({
   countries,
   places = [],
@@ -76,6 +73,8 @@ export function LocationsMap({
   selected: string | null;
   onSelect: (code: string | null) => void;
 }) {
+  const { t } = useTranslation(["common", "controlDash"]);
+  const plural = (count: number) => t("controlDash:map.connections", { count });
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const layerRef = useRef<L.LayerGroup | null>(null);
@@ -115,8 +114,9 @@ export function LocationsMap({
       const centre = countryCentroid(entry.code);
       if (connections <= 0 || !centre) return [];
       const name = entry.name ?? entry.code;
-      return [{ code: entry.code, centre, connections, label: inTowns > 0 ? `${name}, elsewhere` : name }];
+      return [{ code: entry.code, centre, connections, label: inTowns > 0 ? t("controlDash:map.elsewhere", { name }) : name }];
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [countries, towns]);
 
   // Create the map once.
@@ -125,7 +125,7 @@ export function LocationsMap({
     const map = L.map(containerRef.current, { worldCopyJump: true, minZoom: 1 }).setView([25, 10], 2);
     L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      attribution: t("controlDash:map.osmAttribution")
     }).addTo(map);
     const layer = L.layerGroup().addTo(map);
     mapRef.current = map;
@@ -198,8 +198,9 @@ export function LocationsMap({
         iconSize: [22, 22],
         iconAnchor: [11, 11]
       });
-      const marker = L.marker(point, { icon, title: home.label || "Home" });
-      marker.bindTooltip(`${home.label || "Home"}: ${plural(home.connections)} from your own network`, {
+      const homeLabel = home.label || t("controlDash:map.home");
+      const marker = L.marker(point, { icon, title: homeLabel });
+      marker.bindTooltip(t("controlDash:map.homeTooltip", { label: homeLabel, connections: plural(home.connections) }), {
         direction: "top"
       });
       layer.addLayer(marker);
@@ -232,21 +233,21 @@ export function LocationsMap({
 
   return (
     <div className="locations-map">
-      <div className="locations-map-canvas" ref={containerRef} aria-label="Connections by country" />
+      <div className="locations-map-canvas" ref={containerRef} aria-label={t("controlDash:map.canvasAria")} />
       {/* Only what is on the map: with a city database every country usually
           resolves to towns, and a key for country bubbles that were never drawn
           sends the reader looking for shapes that aren't there. */}
       <div className="locations-map-scale" aria-hidden="true">
-        {home && <span className="locations-map-scale-home">Home</span>}
-        {towns.length > 0 && <span className="locations-map-scale-town">Towns</span>}
+        {home && <span className="locations-map-scale-home">{t("controlDash:map.home")}</span>}
+        {towns.length > 0 && <span className="locations-map-scale-town">{t("controlDash:map.towns")}</span>}
         {bubbles.length > 0 && (
           <>
-            <span className="locations-map-scale-country">Countries</span>
-            <span>Fewer</span>
+            <span className="locations-map-scale-country">{t("controlDash:map.countries")}</span>
+            <span>{t("controlDash:map.fewer")}</span>
             {[1, 2, 3, 4].map((step) => (
               <span key={step} className={`locations-map-swatch step-${step}`} />
             ))}
-            <span>More</span>
+            <span>{t("controlDash:map.more")}</span>
           </>
         )}
       </div>

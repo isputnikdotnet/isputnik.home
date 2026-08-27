@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useTranslation } from "react-i18next";
 import { Filter } from "lucide-react";
 import { api } from "../../../../api";
 import { Button } from "../../../../shared/Button";
@@ -17,14 +18,6 @@ import type { SignInsScopeParams } from "./SignInsSection";
 // contract visible instead of letting five fields silently fight.
 
 type FilterKind = "all" | "country" | "place" | "ip" | "user";
-
-const KIND_OPTIONS: Choice<FilterKind>[] = [
-  { value: "all", label: "Everything", description: "No filter — every sign-in in the window." },
-  { value: "country", label: "Country", description: "Every address the location database places in one country." },
-  { value: "place", label: "Town or city", description: "One town, as the location database names it." },
-  { value: "ip", label: "Address", description: "One IP address exactly." },
-  { value: "user", label: "Person", description: "One account's own sign-ins." }
-];
 
 // The map's own country table doubles as the picker's list: every code the
 // location database can answer with, named in the reader's language. Compound
@@ -51,6 +44,14 @@ export function SignInsFilterModal({
   onApply: (next: SignInsScopeParams) => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation(["common", "controlDash"]);
+  const KIND_OPTIONS: Choice<FilterKind>[] = [
+    { value: "all", label: t("controlDash:signInsFilter.kindAll"), description: t("controlDash:signInsFilter.kindAllNote") },
+    { value: "country", label: t("controlDash:signInsFilter.kindCountry"), description: t("controlDash:signInsFilter.kindCountryNote") },
+    { value: "place", label: t("controlDash:signInsFilter.kindPlace"), description: t("controlDash:signInsFilter.kindPlaceNote") },
+    { value: "ip", label: t("controlDash:signInsFilter.kindIp"), description: t("controlDash:signInsFilter.kindIpNote") },
+    { value: "user", label: t("controlDash:signInsFilter.kindUser"), description: t("controlDash:signInsFilter.kindUserNote") }
+  ];
   const [kind, setKind] = useState<FilterKind>(() => kindOf(scope));
   const [country, setCountry] = useState(scope.country ?? "");
   const [region, setRegion] = useState(scope.region ?? "");
@@ -66,7 +67,7 @@ export function SignInsFilterModal({
   useEffect(() => {
     api<{ users: ManagedUser[] }>("/api/users")
       .then((payload) => setUsers(payload.users))
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load the member list"));
+      .catch((err) => setError(err instanceof Error ? err.message : t("controlDash:signInsFilter.membersFailed")));
   }, []);
 
   const ready = useMemo(() => {
@@ -97,21 +98,21 @@ export function SignInsFilterModal({
 
   return (
     <Modal
-      title="Filter sign-ins"
+      title={t("controlDash:signInsFilter.title")}
       icon={<Filter size={20} />}
       onClose={onClose}
       onSubmit={apply}
       className="signins-filter-modal"
     >
-      {error && <MessageBox tone="error" title="Unable to load">{error}</MessageBox>}
+      {error && <MessageBox tone="error" title={t("controlDash:signInsFilter.loadFailedTitle")}>{error}</MessageBox>}
 
-      <ChoiceGroup legend="Show sign-ins from" options={KIND_OPTIONS} value={kind} onChange={setKind} />
+      <ChoiceGroup legend={t("controlDash:signInsFilter.legend")} options={KIND_OPTIONS} value={kind} onChange={setKind} />
 
       {(kind === "country" || kind === "place") && (
         <label className="field">
-          <span>Country</span>
+          <span>{t("controlDash:signInsFilter.country")}</span>
           <select value={country} onChange={(event) => setCountry(event.target.value)}>
-            <option value="">Choose a country…</option>
+            <option value="">{t("controlDash:signInsFilter.chooseCountry")}</option>
             {COUNTRY_OPTIONS.map((option) => (
               <option key={option.code} value={option.code}>{option.name}</option>
             ))}
@@ -122,35 +123,32 @@ export function SignInsFilterModal({
       {kind === "place" && (
         <>
           <label className="field">
-            <span>Town or city</span>
+            <span>{t("controlDash:signInsFilter.townOrCity")}</span>
             <input
               type="text"
               value={city}
               maxLength={120}
-              placeholder="Sydney"
+              placeholder={t("controlDash:signInsFilter.cityPlaceholder")}
               onChange={(event) => setCity(event.target.value)}
             />
           </label>
           <label className="field">
-            <span>Region <span className="muted">(optional)</span></span>
+            <span>{t("controlDash:signInsFilter.region")} <span className="muted">{t("controlDash:signInsFilter.optional")}</span></span>
             <input
               type="text"
               value={region}
               maxLength={120}
-              placeholder="New South Wales"
+              placeholder={t("controlDash:signInsFilter.regionPlaceholder")}
               onChange={(event) => setRegion(event.target.value)}
             />
           </label>
-          <p className="muted signins-filter-hint">
-            Names must match the location database's spelling — the Towns table on the Locations page shows them
-            exactly as it will match here.
-          </p>
+          <p className="muted signins-filter-hint">{t("controlDash:signInsFilter.spellingHint")}</p>
         </>
       )}
 
       {kind === "ip" && (
         <label className="field">
-          <span>IP address</span>
+          <span>{t("controlDash:signInsFilter.ipAddress")}</span>
           <input
             type="text"
             value={ip}
@@ -165,9 +163,9 @@ export function SignInsFilterModal({
 
       {kind === "user" && (
         <label className="field">
-          <span>Person</span>
+          <span>{t("controlDash:signInsFilter.person")}</span>
           <select value={userId} disabled={users === null} onChange={(event) => setUserId(event.target.value)}>
-            <option value="">{users === null ? "Loading members…" : "Choose a person…"}</option>
+            <option value="">{users === null ? t("controlDash:signInsFilter.loadingMembers") : t("controlDash:signInsFilter.choosePerson")}</option>
             {(users ?? []).map((user) => (
               <option key={user.id} value={user.id}>
                 {user.displayName} — {user.email}
@@ -178,8 +176,8 @@ export function SignInsFilterModal({
       )}
 
       <div className="modal-actions">
-        <Button variant="secondary" onClick={onClose}>Cancel</Button>
-        <Button variant="primary" type="submit" disabled={!ready}>Apply filter</Button>
+        <Button variant="secondary" onClick={onClose}>{t("common.cancel")}</Button>
+        <Button variant="primary" type="submit" disabled={!ready}>{t("controlDash:signInsFilter.apply")}</Button>
       </div>
     </Modal>
   );

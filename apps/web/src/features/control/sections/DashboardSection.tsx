@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { Globe2, LayoutDashboard, LibraryBig, LineChart, ListTodo, LogIn, Monitor } from "lucide-react";
 import { api } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
@@ -19,14 +20,23 @@ import { TasksView } from "./dashboard/TasksView";
 // from the page-level tab row above so it doesn't read as a second copy of it.
 type DashboardView = "system" | "activity" | "libraries" | "tasks" | "logins" | "locations";
 
+const DASHBOARD_VIEW_LABEL_KEYS: Record<DashboardView, "viewLogins" | "viewLocations" | "viewActivity" | "viewLibraries" | "viewTasks" | "viewSystem"> = {
+  logins: "viewLogins",
+  locations: "viewLocations",
+  activity: "viewActivity",
+  libraries: "viewLibraries",
+  tasks: "viewTasks",
+  system: "viewSystem"
+};
+
 // Logins leads: "who got in, and from where" is what this page gets opened for.
-const DASHBOARD_VIEWS: { value: DashboardView; label: string; icon: ReactNode }[] = [
-  { value: "logins", label: "Logins", icon: <LogIn size={15} aria-hidden="true" /> },
-  { value: "locations", label: "Locations", icon: <Globe2 size={15} aria-hidden="true" /> },
-  { value: "activity", label: "Activity", icon: <LineChart size={15} aria-hidden="true" /> },
-  { value: "libraries", label: "Libraries", icon: <LibraryBig size={15} aria-hidden="true" /> },
-  { value: "tasks", label: "Tasks", icon: <ListTodo size={15} aria-hidden="true" /> },
-  { value: "system", label: "System", icon: <Monitor size={15} aria-hidden="true" /> }
+const DASHBOARD_VIEW_ORDER: { value: DashboardView; icon: ReactNode }[] = [
+  { value: "logins", icon: <LogIn size={15} aria-hidden="true" /> },
+  { value: "locations", icon: <Globe2 size={15} aria-hidden="true" /> },
+  { value: "activity", icon: <LineChart size={15} aria-hidden="true" /> },
+  { value: "libraries", icon: <LibraryBig size={15} aria-hidden="true" /> },
+  { value: "tasks", icon: <ListTodo size={15} aria-hidden="true" /> },
+  { value: "system", icon: <Monitor size={15} aria-hidden="true" /> }
 ];
 
 // Views that used to be their own tab and now live inside another one. Content
@@ -55,10 +65,11 @@ function viewFromUrl(): DashboardView {
   if (legacy) return legacy;
   const value = new URLSearchParams(window.location.search).get("view");
   if (value && value in RETIRED_VIEWS) return RETIRED_VIEWS[value];
-  return DASHBOARD_VIEWS.some((entry) => entry.value === value) ? (value as DashboardView) : "logins";
+  return DASHBOARD_VIEW_ORDER.some((entry) => entry.value === value) ? (value as DashboardView) : "logins";
 }
 
 export function DashboardSection() {
+  const { t } = useTranslation(["common", "controlDash"]);
   const [status, setStatus] = useState<SystemStatus | null>(null);
   const [dbInfo, setDbInfo] = useState<DbInfo | null>(null);
   const [error, setError] = useState("");
@@ -75,7 +86,7 @@ export function DashboardSection() {
   };
 
   useEffect(() => {
-    load().catch((err) => setError(err instanceof Error ? err.message : "Unable to load dashboard"));
+    load().catch((err) => setError(err instanceof Error ? err.message : t("controlDash:dash.loadFailed")));
   }, []);
 
   // Devices lived here as a view until 3.12, when it merged into Overview ›
@@ -106,7 +117,7 @@ export function DashboardSection() {
       <ControlSectionHead
         section="dashboard"
         icon={<LayoutDashboard size={30} />}
-        description="Server health, and activity trends: logins, uploads, downloads, deletes, and what's being read or played."
+        description={t("controlDash:dash.description")}
       >
         <RefreshButton
           onRefresh={async () => {
@@ -114,17 +125,17 @@ export function DashboardSection() {
             try {
               await load();
             } catch (err) {
-              setError(err instanceof Error ? err.message : "Unable to refresh dashboard");
+              setError(err instanceof Error ? err.message : t("controlDash:dash.refreshFailed"));
               throw err;
             }
           }}
         />
       </ControlSectionHead>
 
-      {error && <MessageBox tone="error" title="Dashboard error">{error}</MessageBox>}
+      {error && <MessageBox tone="error" title={t("controlDash:dash.errorTitle")}>{error}</MessageBox>}
 
-      <div className="dashboard-subtabs" role="tablist" aria-label="Dashboard views">
-        {DASHBOARD_VIEWS.map((entry) => (
+      <div className="dashboard-subtabs" role="tablist" aria-label={t("controlDash:dash.viewsAria")}>
+        {DASHBOARD_VIEW_ORDER.map((entry) => (
           <button
             key={entry.value}
             type="button"
@@ -134,7 +145,7 @@ export function DashboardSection() {
             onClick={() => chooseView(entry.value)}
           >
             {entry.icon}
-            {entry.label}
+            {t(`controlDash:dash.${DASHBOARD_VIEW_LABEL_KEYS[entry.value]}`)}
           </button>
         ))}
       </div>

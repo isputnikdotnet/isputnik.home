@@ -219,7 +219,8 @@
     "towns": "Города",
     "countries": "Страны",
     "fewer": "Меньше",
-    "more": "Больше"
+    "more": "Больше",
+    "osmAttribution": "&copy; участники <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a>"
   },
   "locations": {
     "loadFailed": "Не удалось загрузить местоположения",

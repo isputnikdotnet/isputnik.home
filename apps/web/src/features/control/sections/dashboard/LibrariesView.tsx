@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { BookOpen, HardDrive, Headphones, Image, Mic2, UserRound, Video, type LucideIcon } from "lucide-react";
 import { KpiCard } from "../../../../shared/KpiCard";
 import { Pager } from "../../../../shared/Pager";
@@ -17,10 +18,16 @@ import { formatHours } from "../StatusMetric";
 
 type Kind = "audiobook" | "ebook" | "gallery";
 
-const KIND: Record<Kind, { label: string; icon: LucideIcon }> = {
-  audiobook: { label: "Audiobooks", icon: Headphones },
-  ebook: { label: "Ebooks", icon: BookOpen },
-  gallery: { label: "Gallery", icon: Image }
+const KIND_ICON: Record<Kind, LucideIcon> = {
+  audiobook: Headphones,
+  ebook: BookOpen,
+  gallery: Image
+};
+
+const KIND_LABEL_KEYS: Record<Kind, "audiobooks" | "ebooks" | "gallery"> = {
+  audiobook: "audiobooks",
+  ebook: "ebooks",
+  gallery: "gallery"
 };
 
 interface LibraryRow {
@@ -54,6 +61,7 @@ function RankTable({
   empty: string;
   columns: string[];
 }) {
+  const { t } = useTranslation(["common", "controlDash"]);
   if (rows.length === 0) return <p className="status-empty">{empty}</p>;
   return (
     <div className="datagrid-wrap">
@@ -61,7 +69,7 @@ function RankTable({
         <thead>
           <tr>
             <th>#</th>
-            <th>Name</th>
+            <th>{t("controlDash:table.name")}</th>
             {columns.map((column) => (
               <th key={column} className="col-num">{column}</th>
             ))}
@@ -89,6 +97,7 @@ function RankTable({
 }
 
 export function LibrariesView({ status }: { status: SystemStatus }) {
+  const { t } = useTranslation(["common", "controlDash"]);
   const audio = status.libraryStats;
   const ebooks = status.ebookStats;
   const gallery = status.galleryStats;
@@ -159,55 +168,55 @@ export function LibrariesView({ status }: { status: SystemStatus }) {
           <KpiCard
             icon={Headphones}
             tone="info"
-            label="Audiobooks"
+            label={t("controlDash:libs.audiobooks")}
             value={audio.totalBooks.toLocaleString()}
-            context={`${formatHours(audio.totalDurationSeconds)} · ${formatBytes(audio.totalSizeBytes)} · ${audio.totalLibraries} ${audio.totalLibraries === 1 ? "library" : "libraries"}`}
+            context={`${formatHours(audio.totalDurationSeconds)} · ${formatBytes(audio.totalSizeBytes)} · ${t("controlDash:libs.libraryCount", { count: audio.totalLibraries })}`}
           />
           <KpiCard
             icon={BookOpen}
             tone="success"
-            label="Ebooks"
+            label={t("controlDash:libs.ebooks")}
             value={ebooks.totalBooks.toLocaleString()}
-            context={`${formatBytes(ebooks.totalSizeBytes)} · ${ebooks.totalLibraries} ${ebooks.totalLibraries === 1 ? "library" : "libraries"}`}
+            context={`${formatBytes(ebooks.totalSizeBytes)} · ${t("controlDash:libs.libraryCount", { count: ebooks.totalLibraries })}`}
           />
           <KpiCard
             icon={Image}
             tone="warning"
-            label="Photos & videos"
+            label={t("controlDash:libs.photosVideos")}
             value={gallery.totalItems.toLocaleString()}
-            context={`${gallery.totalPhotos.toLocaleString()} photos · ${gallery.totalVideos.toLocaleString()} videos · ${formatHours(gallery.totalDurationSeconds)} of video`}
+            context={`${t("controlDash:libs.photos", { count: gallery.totalPhotos })} · ${t("controlDash:libs.videos", { count: gallery.totalVideos })} · ${t("controlDash:libs.ofVideo", { hours: formatHours(gallery.totalDurationSeconds) })}`}
           />
           <KpiCard
             icon={HardDrive}
             tone="info"
-            label="On disk"
+            label={t("controlDash:libs.onDisk")}
             value={formatBytes(totalBytes)}
-            context={`${totalLibraries} ${totalLibraries === 1 ? "library" : "libraries"} across ${[audio, ebooks, gallery].filter((type) => type.totalLibraries > 0).length} media types`}
+            context={`${t("controlDash:libs.libraryCount", { count: totalLibraries })} · ${t("controlDash:libs.acrossTypes", { count: [audio, ebooks, gallery].filter((type) => type.totalLibraries > 0).length })}`}
           />
         </div>
 
         <div className="status-subsection">
           <div className="status-table-title">
-            <h3>Libraries</h3>
-            <span>{libraries.length} {libraries.length === 1 ? "library" : "libraries"} · biggest first, with its share of the storage</span>
+            <h3>{t("controlDash:libs.librariesTitle")}</h3>
+            <span>{t("controlDash:libs.tableSummary", { count: libraries.length })}</span>
           </div>
           {libraries.length === 0 ? (
-            <p className="status-empty">No libraries have been added yet.</p>
+            <p className="status-empty">{t("controlDash:libs.noLibraries")}</p>
           ) : (
             <>
               <div className="datagrid-wrap">
                 <table className="datagrid locations-table">
                   <thead>
                     <tr>
-                      <th>Library</th>
-                      <th>Storage</th>
-                      <th className="col-num">Items</th>
-                      <th>Detail</th>
+                      <th>{t("controlDash:table.library")}</th>
+                      <th>{t("controlDash:table.storage")}</th>
+                      <th className="col-num">{t("controlDash:table.items")}</th>
+                      <th>{t("controlDash:table.detail")}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {paged.rows.map((library) => {
-                      const Icon = KIND[library.kind].icon;
+                      const Icon = KIND_ICON[library.kind];
                       return (
                         <tr key={library.id}>
                           <td>
@@ -215,7 +224,7 @@ export function LibrariesView({ status }: { status: SystemStatus }) {
                               <Icon size={17} aria-hidden="true" className="signins-device-icon" />
                               <span className="datagrid-primary">
                                 <strong>{library.name}</strong>
-                                <small>{KIND[library.kind].label}</small>
+                                <small>{t(`controlDash:libs.${KIND_LABEL_KEYS[library.kind]}`)}</small>
                               </span>
                             </span>
                           </td>
@@ -238,7 +247,7 @@ export function LibrariesView({ status }: { status: SystemStatus }) {
                   </tbody>
                 </table>
               </div>
-              <Pager page={paged.page} totalPages={paged.totalPages} onChange={setPage} label="Library pages" />
+              <Pager page={paged.page} totalPages={paged.totalPages} onChange={setPage} label={t("controlDash:pagers.library")} />
             </>
           )}
         </div>
@@ -246,18 +255,21 @@ export function LibrariesView({ status }: { status: SystemStatus }) {
         <div className="libraries-rank-grid">
           <div className="status-subsection">
             <div className="status-table-title">
-              <h3><UserRound size={17} aria-hidden="true" /> Top authors</h3>
-              <span>Audiobooks &amp; ebooks</span>
+              <h3><UserRound size={17} aria-hidden="true" /> {t("controlDash:libs.topAuthors")}</h3>
+              <span>{t("controlDash:libs.topAuthorsNote")}</span>
             </div>
             <RankTable
-              columns={["Titles", "Of which"]}
-              empty="No books with author metadata yet."
+              columns={[t("controlDash:table.titles"), t("controlDash:table.ofWhich")]}
+              empty={t("controlDash:libs.noAuthors")}
               rows={authors.map((author) => ({
                 key: author.name,
                 name: author.name,
                 cells: [
                   author.total.toLocaleString(),
-                  [author.audio ? `${author.audio} audio` : null, author.ebook ? `${author.ebook} ebook` : null]
+                  [
+                    author.audio ? t("controlDash:libs.audioN", { count: author.audio }) : null,
+                    author.ebook ? t("controlDash:libs.ebookN", { count: author.ebook }) : null
+                  ]
                     .filter(Boolean)
                     .join(" · ")
                 ]
@@ -266,12 +278,12 @@ export function LibrariesView({ status }: { status: SystemStatus }) {
           </div>
           <div className="status-subsection">
             <div className="status-table-title">
-              <h3><Mic2 size={17} aria-hidden="true" /> Top narrators</h3>
-              <span>By hours read</span>
+              <h3><Mic2 size={17} aria-hidden="true" /> {t("controlDash:libs.topNarrators")}</h3>
+              <span>{t("controlDash:libs.topNarratorsNote")}</span>
             </div>
             <RankTable
-              columns={["Books", "Hours"]}
-              empty="No audiobooks with narrator metadata yet."
+              columns={[t("controlDash:table.books"), t("controlDash:table.hours")]}
+              empty={t("controlDash:libs.noNarrators")}
               rows={audio.topNarrators.slice(0, RANK_ROWS).map((person) => ({
                 key: person.name,
                 name: person.name,
@@ -281,16 +293,16 @@ export function LibrariesView({ status }: { status: SystemStatus }) {
           </div>
           <div className="status-subsection">
             <div className="status-table-title">
-              <h3><Video size={17} aria-hidden="true" /> Biggest files</h3>
-              <span>By size</span>
+              <h3><Video size={17} aria-hidden="true" /> {t("controlDash:libs.biggestFiles")}</h3>
+              <span>{t("controlDash:libs.biggestFilesNote")}</span>
             </div>
             <RankTable
-              columns={["Size"]}
-              empty="No photos or videos yet."
+              columns={[t("controlDash:table.size")]}
+              empty={t("controlDash:libs.noGalleryItems")}
               rows={gallery.largestItems.slice(0, RANK_ROWS).map((item) => ({
                 key: item.id,
                 name: item.title,
-                sub: [item.kind === "video" ? "Video" : "Photo", item.libraryName].join(" · "),
+                sub: [item.kind === "video" ? t("controlDash:libs.video") : t("controlDash:libs.photo"), item.libraryName].join(" · "),
                 cells: [formatBytes(item.totalSizeBytes)]
               }))}
             />

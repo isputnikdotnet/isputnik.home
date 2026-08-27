@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Activity, CheckCircle2, ShieldBan, XCircle } from "lucide-react";
 import { api } from "../../../../api";
 import { MessageBox } from "../../../../shared/MessageBox";
@@ -32,6 +33,7 @@ function bucketLabel(iso: string, bucket: "hour" | "day"): string {
 }
 
 export function LoginsView() {
+  const { t } = useTranslation(["common", "controlDash"]);
   const [range, setRange] = useState<DateRangeValue>(() => resolveDateRange("24h"));
   const [page, setPage] = useState(1);
   const [pageSize, choosePageSize] = usePageSize("isputnik.logins.pageSize");
@@ -60,20 +62,20 @@ export function LoginsView() {
     setError("");
     api<DashboardLogins>(`/api/dashboard/logins?${query}`)
       .then(setLogins)
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load logins"));
+      .catch((err) => setError(err instanceof Error ? err.message : t("controlDash:logins.loadFailed")));
   }, [range.from, range.to]);
 
   const chartSeries = logins
     ? [
-        { label: "Successful", data: logins.series.success, colorVar: "--mint" },
-        { label: "Failed", data: logins.series.failed, colorVar: "--rose" }
+        { label: t("controlDash:logins.successful"), data: logins.series.success, colorVar: "--mint" },
+        { label: t("controlDash:logins.failed"), data: logins.series.failed, colorVar: "--rose" }
       ]
     : [];
   const shareOfAttempts = (n: number) =>
     logins && logins.totals.attempts > 0
-      ? `${((n / logins.totals.attempts) * 100).toFixed(1)}% of attempts`
-      : "No attempts yet";
-  const versus = `vs previous ${formatRangeSpan(range)}`;
+      ? t("controlDash:logins.shareOfAttempts", { share: ((n / logins.totals.attempts) * 100).toFixed(1) })
+      : t("controlDash:logins.noAttempts");
+  const versus = t("controlDash:activity.vsPrevious", { span: formatRangeSpan(range) });
   const sortBy = (nextSort: ActivitySort, nextDir: SortDirection) => {
     setSort(nextSort);
     setDir(nextDir);
@@ -83,14 +85,14 @@ export function LoginsView() {
   return (
     <div className="status-stack">
       <section className="status-block">
-        {error && <MessageBox tone="error" title="Unable to load logins">{error}</MessageBox>}
+        {error && <MessageBox tone="error" title={t("controlDash:logins.loadFailed")}>{error}</MessageBox>}
 
         {logins && (
           <div className="kpi-cards">
             <KpiCard
               icon={Activity}
               tone="info"
-              label="Total attempts"
+              label={t("controlDash:logins.totalAttempts")}
               value={logins.totals.attempts.toLocaleString()}
               change={percentChange(logins.totals.attempts, logins.previous.attempts)}
               context={versus}
@@ -98,7 +100,7 @@ export function LoginsView() {
             <KpiCard
               icon={CheckCircle2}
               tone="success"
-              label="Successful"
+              label={t("controlDash:logins.successful")}
               value={logins.totals.success.toLocaleString()}
               change={percentChange(logins.totals.success, logins.previous.success)}
               goodWhen="up"
@@ -107,7 +109,7 @@ export function LoginsView() {
             <KpiCard
               icon={XCircle}
               tone="danger"
-              label="Failed"
+              label={t("controlDash:logins.failed")}
               value={logins.totals.failed.toLocaleString()}
               change={percentChange(logins.totals.failed, logins.previous.failed)}
               goodWhen="down"
@@ -116,7 +118,7 @@ export function LoginsView() {
             <KpiCard
               icon={ShieldBan}
               tone="warning"
-              label="IPs blocked"
+              label={t("controlDash:logins.ipsBlocked")}
               value={logins.totals.blockedIps.toLocaleString()}
               change={percentChange(logins.totals.blockedIps, logins.previous.blockedIps)}
               goodWhen="down"
@@ -126,15 +128,15 @@ export function LoginsView() {
         )}
 
         <div className="status-range-row">
-          <DateRangePicker value={range} onChange={setRange} label="Logins time range" />
+          <DateRangePicker value={range} onChange={setRange} label={t("controlDash:logins.rangeLabel")} />
           <span className="status-range-label">{formatRangeLabel(range)}</span>
         </div>
 
         {logins && (
           <div className="status-subsection">
             <div className="status-table-title">
-              <h3>Logins</h3>
-              <span>{logins.totals.people} {logins.totals.people === 1 ? "person" : "people"} signed in</span>
+              <h3>{t("controlDash:logins.title")}</h3>
+              <span>{t("controlDash:logins.peopleSignedIn", { count: logins.totals.people })}</span>
             </div>
             <DashboardChartLegend series={chartSeries} />
             <DashboardChart
@@ -146,8 +148,8 @@ export function LoginsView() {
         )}
 
         <div className="status-subsection">
-          {logsError && <MessageBox tone="error" title="Unable to load login history">{logsError}</MessageBox>}
-          {reputation.error && <MessageBox tone="error" title="Unable to check the address">{reputation.error}</MessageBox>}
+          {logsError && <MessageBox tone="error" title={t("controlDash:logins.historyFailed")}>{logsError}</MessageBox>}
+          {reputation.error && <MessageBox tone="error" title={t("controlDash:logins.checkFailed")}>{reputation.error}</MessageBox>}
           {logs.length > 0 ? (
             <>
               <LoginsTable
@@ -163,10 +165,10 @@ export function LoginsView() {
                 checkingIp={reputation.checking}
                 onCheck={reputation.check}
               />
-              <Pager page={page} totalPages={totalPages} onChange={setPage} label="Login pages" />
+              <Pager page={page} totalPages={totalPages} onChange={setPage} label={t("controlDash:pagers.login")} />
             </>
           ) : (
-            <p className="status-empty">No login activity in this range.</p>
+            <p className="status-empty">{t("controlDash:logins.noActivity")}</p>
           )}
         </div>
       </section>
@@ -178,6 +180,7 @@ export function LoginsView() {
 // earlier AbuseIPDB lookups already cached, and an address nobody has asked about
 // shows a Check button rather than being sent anywhere on its own.
 function useIpReputation(addresses: (string | null)[]) {
+  const { t } = useTranslation(["common", "controlDash"]);
   const [byIp, setByIp] = useState<Record<string, IpReputationEntry>>({});
   const [configured, setConfigured] = useState(false);
   const [checking, setChecking] = useState<string | null>(null);
@@ -212,7 +215,7 @@ function useIpReputation(addresses: (string | null)[]) {
       );
       setByIp((current) => ({ ...current, [ip]: payload.reputation }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "The lookup failed");
+      setError(err instanceof Error ? err.message : t("controlDash:logins.lookupFailed"));
     } finally {
       setChecking(null);
     }
