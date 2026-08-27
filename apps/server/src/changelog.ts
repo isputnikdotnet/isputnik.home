@@ -19,6 +19,13 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.31.1",
+    label: "Audiobooks and Ebooks catch up",
+    changes: [
+      "Fixed: Audiobooks and Ebooks were left out of 3.31.0's Russian translation — the browse pages, authors, narrators, series, categories, tags, and the library-creation wizard in the control panel all still spoke English while the rest of the app had switched. They're translated now, along with the Audiobook/Ebook/Gallery badge shown wherever media types mix, and the \"N selected\" count on every browse page's toolbar."
+    ]
+  },
+  {
     version: "3.31.0",
     label: "Speaking your language",
     changes: [
