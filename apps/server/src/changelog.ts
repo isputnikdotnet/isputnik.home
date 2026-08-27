@@ -19,6 +19,16 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.31.0",
+    label: "Speaking your language",
+    changes: [
+      "iSputnik now speaks Russian, top to bottom — not just a few headline screens, but every menu, button, and message across browsing, the audiobook and ebook readers, the family tree, galleries, the control panel, and your profile. Pick it from Profile → Appearance (English / Русский); it applies immediately, is remembered on your account, and is mirrored to this device too, so the sign-in screen and the offline app already know your language before a session even exists.",
+      "Counts read correctly in either language — «1 файл», «2 файла», «5 файлов» — instead of a single English-shaped plural stretched over every number.",
+      "The messages you actually read when something goes wrong are translated too, not just the menus around them: a mistyped password, an expired two-factor code, an email address already in use — these speak your language now instead of switching back to English the moment something fails.",
+      "Left in English on purpose: past release notes on this page, and the open-source credits below them — those are a historical and legal record, not app copy, so translating them after the fact would mean inventing new text for something that already happened. Your own titles, folder names, and photo captions keep whatever language you gave them."
+    ]
+  },
+  {
     version: "3.30.0",
     label: "Minimalist by default",
     changes: [
