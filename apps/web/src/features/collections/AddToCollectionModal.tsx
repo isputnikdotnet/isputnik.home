@@ -31,7 +31,7 @@ export function AddToCollectionModal({
   onClose,
   onAdded
 }: {
-  entityType: "audiobook" | "ebook" | "gallery";
+  entityType: "audiobook" | "ebook" | "gallery" | "quote";
   title: string;
   onClose: () => void;
   // Bulk mode only: called after a successful batch add (collection name + how

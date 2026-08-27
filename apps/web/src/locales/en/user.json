@@ -167,7 +167,8 @@
     "speakerField": "Who said it",
     "speakerNobody": "Nobody in the family tree",
     "spokenBy": "said by {{name}}",
-    "quotesTab": "Quotes"
+    "quotesTab": "Quotes",
+    "addToCollectionAria": "Add quote to a collection"
   },
   "shared": {
     "eyebrow": "Family",

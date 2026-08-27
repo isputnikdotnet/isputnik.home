@@ -259,7 +259,7 @@ Built as planned, with one deliberate departure:
 - Phase 3's attribution (`person_name ?? source_author`) now flows from this, so
   a linked quote shows the speaker on the daily card automatically.
 
-## Phase 5 — Collections (tags done in the revision above)
+## Phase 5 — Collections (tags done in the revision above) — **DONE**
 
 - ~~**Tags**~~ — done: `entity_type = 'quote'` through the import, the editor,
   the card chips and the page filter. What is left here is collections.
@@ -269,8 +269,23 @@ Built as planned, with one deliberate departure:
   **Standing footgun**: every `AddToCollectionModal` call site must pass
   `entityType="quote"` explicitly — the prop defaults to `"audiobook"`.
 
-Tests: hydrator availability/visibility (another user's private quote is not
-`available`), tag attach/detach, import-with-tags.
+Tests: `quotes-collectable.test.ts` — registered as collectable, renders as a
+plain row, long text flattened and truncated, speaker preferred over the book
+author (and a rename followed), and the visibility rules: a family quote
+hydrates for anyone, another user's private one does not hydrate at all, a
+deleted one comes back missing.
+
+Notes:
+
+- **The `entityType` footgun is already gone.** `AddToCollectionModal` takes a
+  required closed union rather than defaulting to `"audiobook"`, so adding
+  `"quote"` was compiler-enforced across every call site — nothing to miss.
+- A collection row for a quote is deliberately plain: no cover, no duration, not
+  playable. The detail page already guards each of those, so it renders as the
+  text plus its attribution and shows no Play all.
+- Rows link to `/quotes?quote=<id>`, and the Quotes page honours it: it clears
+  any active filter (a deep link must always land on its quote), scrolls to it
+  and flashes it briefly.
 
 ## Phase 6 (later) — Anniversary quotes
 

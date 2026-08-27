@@ -195,7 +195,8 @@
     "speakerField": "Кто это сказал",
     "speakerNobody": "Никто из семейного древа",
     "spokenBy": "сказал(а) {{name}}",
-    "quotesTab": "Цитаты"
+    "quotesTab": "Цитаты",
+    "addToCollectionAria": "Добавить цитату в коллекцию"
   },
   "shared": {
     "eyebrow": "Семья",

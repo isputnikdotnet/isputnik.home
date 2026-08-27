@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { BookOpen, Copy, FileUp, Pencil, Plus, Quote as QuoteIcon, Trash2 } from "lucide-react";
+import { BookOpen, Copy, FileUp, ListPlus, Pencil, Plus, Quote as QuoteIcon, Trash2 } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { UserAreaNav } from "./UserAreaNav";
@@ -12,6 +12,7 @@ import { MessageBox } from "../../shared/MessageBox";
 import { relativeTime } from "../../shared/utils";
 import i18n from "../../i18n";
 import { QuoteImportModal } from "./QuoteImportModal";
+import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { PeopleCombobox } from "../audiobooks/PeopleCombobox";
 import type { Quote } from "../audiobooks/types";
 
@@ -379,6 +380,9 @@ export function QuotesPage({
   const [importOpen, setImportOpen] = useState(false);
   const [filter, setFilter] = useState<QuoteFilter>("all");
   const [familyMembers, setFamilyMembers] = useState<{ id: string; name: string }[]>([]);
+  const [collecting, setCollecting] = useState<Quote | null>(null);
+  const [highlighted, setHighlighted] = useState("");
+  const jumped = useRef(false);
 
   const loadQuotes = () =>
     api<{ quotes: Quote[] }>("/api/library/quotes")
@@ -400,6 +404,24 @@ export function QuotesPage({
   const total = visible.length;
   // Which filters would actually show something — a chip that can only ever lead
   // to an empty page is noise, so an install with no imports never sees one.
+  // Arriving from a collection (or any ?quote= link): show that quote whatever
+  // the current filter is, scroll to it, and flash it so the eye finds it in a
+  // long list. Once only — later edits re-set  and must not re-jump.
+  useEffect(() => {
+    if (!quotes || jumped.current) return;
+    const wanted = new URLSearchParams(window.location.search).get("quote");
+    if (!wanted || !quotes.some((quote) => quote.id === wanted)) return;
+    jumped.current = true;
+    setFilter("all");
+    setHighlighted(wanted);
+    window.requestAnimationFrame(() => {
+      document.querySelector(`[data-quote-id="${wanted}"]`)
+        ?.scrollIntoView({ block: "center", behavior: "smooth" });
+    });
+    const timer = window.setTimeout(() => setHighlighted(""), 2500);
+    return () => window.clearTimeout(timer);
+  }, [quotes]);
+
   // Every category anyone has used, for the editor's type-ahead.
   const knownTags = useMemo(
     () => [...new Set((quotes ?? []).flatMap((q) => q.tags))].sort((a, b) => a.localeCompare(b)),
@@ -556,7 +578,11 @@ export function QuotesPage({
                     {group.items.map((quote) => {
                       const href = readerHref(quote);
                       return (
-                        <article className="quote-card" key={quote.id}>
+                        <article
+                          className={`quote-card${highlighted === quote.id ? " is-highlighted" : ""}`}
+                          data-quote-id={quote.id}
+                          key={quote.id}
+                        >
                           <blockquote className="quote-text">{quote.text}</blockquote>
                           {quote.note && <p className="quote-note">{quote.note}</p>}
                           {quote.tags.length > 0 && (
@@ -595,6 +621,15 @@ export function QuotesPage({
                                   <BookOpen size={16} />
                                 </button>
                               )}
+                              <button
+                                type="button"
+                                className="icon-button"
+                                onClick={() => setCollecting(quote)}
+                                aria-label={t("user:quotes.addToCollectionAria")}
+                                title={t("user:collections.addTo")}
+                              >
+                                <ListPlus size={16} />
+                              </button>
                               <button
                                 type="button"
                                 className="icon-button"
@@ -681,6 +716,15 @@ export function QuotesPage({
             setNotice(t("user:quotes.import.done", { count: summary.imported }));
             window.setTimeout(() => setNotice(""), 4000);
           }}
+        />
+      )}
+
+      {collecting && (
+        <AddToCollectionModal
+          entityType="quote"
+          entityId={collecting.id}
+          title={collecting.text}
+          onClose={() => setCollecting(null)}
         />
       )}
 

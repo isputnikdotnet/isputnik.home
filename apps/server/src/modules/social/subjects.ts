@@ -416,10 +416,77 @@ const hydrateSlideshows: Hydrator = (entityIds, user) => {
   return result;
 };
 
+interface QuoteSubjectRow {
+  id: string;
+  text: string;
+  source_title: string | null;
+  source_author: string | null;
+  person_name: string | null;
+  live_person_name: string | null;
+  item_title: string | null;
+}
+
+/** How much of a quote a collection row shows before it is cut short. */
+const QUOTE_TITLE_LENGTH = 120;
+
+// Quotes in a collection — "Things the kids said", "Toasts for the next
+// birthday". The row is deliberately plain: no cover, no duration, not playable,
+// because a quote is words. The detail page guards each of those, so it renders
+// as title + attribution rather than an empty media tile.
+//
+// Visibility is the rule every quote surface uses: yours, plus whatever the
+// family shares. A quote that is gone OR private to someone else simply does not
+// come back, and the caller renders that row as unavailable.
+const hydrateQuotes: Hydrator = (entityIds, user) => {
+  const result = new Map<string, HydratedEntity>();
+  if (entityIds.length === 0) return result;
+
+  const placeholders = entityIds.map(() => "?").join(", ");
+  const rows = db.prepare(`
+    SELECT
+      q.id, q.text, q.source_title, q.source_author, q.person_name,
+      speaker.name AS live_person_name,
+      item_metadata.title AS item_title
+    FROM quotes q
+    LEFT JOIN family_tree_persons AS speaker ON speaker.id = q.family_tree_person_id
+    LEFT JOIN library_items ON library_items.id = q.item_id AND library_items.deleted_at IS NULL
+    LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
+    WHERE q.id IN (${placeholders}) AND (q.user_id = ? OR q.visibility = 'family')
+  `).all(...entityIds, user.id) as QuoteSubjectRow[];
+
+  for (const row of rows) {
+    // A quote may carry newlines; a collection row is one line.
+    const text = row.text.trim().replace(/\s+/g, " ");
+    // Who said it, then what it came from. Prefer the live person over the
+    // snapshot, exactly as the Quotes page does.
+    const attribution = row.live_person_name
+      ?? row.person_name
+      ?? row.source_author
+      ?? row.item_title
+      ?? row.source_title;
+
+    result.set(row.id, {
+      available: true,
+      title: text.length > QUOTE_TITLE_LENGTH
+        ? `${text.slice(0, QUOTE_TITLE_LENGTH - 1).trimEnd()}…`
+        : text,
+      subtitle: attribution,
+      coverUrl: null,
+      durationSeconds: null,
+      fileCount: 0,
+      // Opens the Quotes page scrolled to this one.
+      href: `/quotes?quote=${row.id}`,
+      playable: false
+    });
+  }
+  return result;
+};
+
 const SUBJECTS: Record<string, SubjectType> = {
   audiobook: { hydrate: hydrateAudiobooks, collectable: true },
   ebook: { hydrate: hydrateEbooks, collectable: true },
   gallery: { hydrate: hydrateGallery, collectable: true },
+  quote: { hydrate: hydrateQuotes, collectable: true },
   family_tree_person: { hydrate: hydrateFamilyPersons, collectable: false },
   gallery_album: { hydrate: makeAlbumHydrator(), collectable: false },
   gallery_slideshow: { hydrate: hydrateSlideshows, collectable: false }
