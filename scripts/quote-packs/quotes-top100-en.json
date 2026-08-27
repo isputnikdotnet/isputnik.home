@@ -1,0 +1,761 @@
+{
+  "version": 1,
+  "defaults": {
+    "language": "en",
+    "visibility": "family",
+    "inRotation": true
+  },
+  "quotes": [
+    {
+      "text": "And down the long and silent street, The dawn, with silver-sandalled feet, Crept like a frightened girl.",
+      "author": "Oscar Wilde",
+      "source": "st. 12, in The Dramatic Review (11 April 1885)",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "Philosophy is the science of truth.",
+      "author": "Aristotle",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "He that in his studies wholly applies himself to labour and exercise, and neglects meditation, loses his time, and he that only applies himself to meditation, and neglects labour and exercise, only wanders and loses himself.",
+      "author": "Confucius",
+      "source": "The Morals of Confucius, 2nd edition (London, 1724), Maxim X, p. 114",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "He who is in love is wise and is becoming wiser, sees newly every time he looks at the object beloved, drawing from it with his eyes and his mind those virtues which it possesses.",
+      "author": "Ralph Waldo Emerson",
+      "source": "The Method of Nature (1841), p. 25",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "I haven't a particle of confidence in a man who has no redeeming petty vices whatsoever.",
+      "author": "Mark Twain",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "I am a parcel of vain strivings tiedBy a chance bond together,Dangling this way and that, their linksWere made so loose and wide,Methinks,For milder weather.",
+      "author": "Henry David Thoreau",
+      "source": "\"Sic Vita\", st. 1. The Dial (July 1841) p. 81",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "The hero of my tale, whom I love with all the power of my soul, whom I have tried to portray in all his beauty, who has been, is, and will be beautiful, is Truth.",
+      "author": "Leo Tolstoy",
+      "source": "Sevastopol in May (1855), Ch. 16",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "I believe there is one Supreme most perfect being. ... I believe He is pleased and delights in the happiness of those He has created; and since without virtue man can have no happiness in this world, I firmly believe He delights to see me virtuous.",
+      "author": "Benjamin Franklin",
+      "source": "\"Articles of Belief and Acts of Religion\" (1728)",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "Freier Wille ohne Fatum ist ebenso wenig denkbar, wie Geist ohne Reelles, Gutes ohne Böses.",
+      "author": "Friedrich Nietzsche",
+      "source": "Free will without fate is no more conceivable than spirit without matter, good without evil",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "I will be Chateaubriand or nothing.",
+      "author": "Victor Hugo",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "He was a man who looked at what ought to be done, not to the reputation which is got by a man's acts.",
+      "author": "Marcus Aurelius",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "Here I am once more in this scene of dissipation and vice, and I begin already to find my morals corrupted.",
+      "author": "Jane Austen",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "Painting is poetry which is seen and not heard, and poetry is a painting which is heard but not seen. These two arts, you may call them both either poetry or painting, have here interchanged the senses by which they penetrate to the intellect.",
+      "author": "Leonardo da Vinci",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "I shall assume that your silence gives consent.",
+      "author": "Plato",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "To be angry with a man is to hate him; to hate him is to wish him harm; but to wish him well, even if he has done you harm, is the mark of a great mind.",
+      "author": "Seneca the Younger",
+      "source": "Seneca, On Anger (De Ira) 2.34.5 (translated by John W. Basore)",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "Mr. Augustus Minns was a bachelor, of about forty as he said — of about eight-and-forty as his friends said. He was always exceedingly clean, precise, and tidy: perhaps somewhat priggish, and the most retiring man in the world.",
+      "author": "Charles Dickens",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "Beauty itself doth of itself persuadeThe eyes of men without an orator.",
+      "author": "William Shakespeare",
+      "source": "The Rape of Lucrece (1594)",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "Be warned in time, James, and remain, as I do, incomprehensible: to be great is to be misunderstood.",
+      "author": "Oscar Wilde",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "My lectures are published and not published; they will be intelligible to those who heard them, and to none beside.",
+      "author": "Aristotle",
+      "source": "Letter to Alexander the Great as quoted by William Whewell, History of the Inductive Sciences (1837), Ch. 2, Sect. 2",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "Man has three ways of acting wisely. First, on meditation; that is the noblest. Secondly, on imitation; that is the easiest. Thirdly, on experience; that is the bitterest.",
+      "author": "Confucius",
+      "source": "The Analects, as reported in Chambers Dictionary of Quotations (1997), p. 279",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "I fancy I need more than another to speak (rather than write), with such a formidable tendency to the lapidary style. I build my house of boulders.",
+      "author": "Ralph Waldo Emerson",
+      "source": "Letter to Thomas Carlyle (30 October 1841)",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "I'll risk forty dollars that he can outjump any frog in Calaveras county.",
+      "author": "Mark Twain",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "But now I see I was not plucked for naught,And after in life's vaseOf glass set while I might survive,But by a kind hand broughtAliveTo a strange place.",
+      "author": "Henry David Thoreau",
+      "source": "\"Sic Vita\", st. 6. The Dial (July 1841) p. 82",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "...никогда Христос ... ни одним словом не утверждал личное воскресение и бессмертие личности за гробом...",
+      "author": "Leo Tolstoy",
+      "source": "Never did Christ utter a single word attesting to a personal resurrection and a life beyond the grave",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "If all printers were determined not to print anything till they were sure it would offend nobody, there would be very little printed.",
+      "author": "Benjamin Franklin",
+      "source": "\"Apology for Printers\" (1730); later in Benjamin Franklin's Autobiographical Writings (1945) edited by Carl Van Doren",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "Here the ways of men part: if you wish to strive for peace of soul and pleasure, then believe; if you wish to be a devotee of truth, then inquire.",
+      "author": "Friedrich Nietzsche",
+      "source": "Letter to Elisabeth Nietzsche, Bonn, 1865-06-11, quoted as epigraph in Walter Kaufmann, The Faith of a Heretic (1961)",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "Ces deux moitiés de Dieu, le pape et l'empereur!",
+      "author": "Victor Hugo",
+      "source": "These two halves of God, the Pope and the emperor",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "Ἕωθεν προλέγειν ἑαυτῷ: συντεύξομαι περιέργῳ, ἀχαρίστῳ, ὑβριστῇ, δολερῷ, βασκάνῳ, ἀκοινωνήτῳ: πάντα ταῦτα συμβέβηκεν ἐκείνοις παρὰ τὴν ἄγνοιαν τῶν ἀγαθῶν καὶ κακῶν.",
+      "author": "Marcus Aurelius",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "What dreadful hot weather we have! It keeps one in a continual state of inelegance.",
+      "author": "Jane Austen",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "Oysters open completely when the moon is full; and when the crab sees one it throws a piece of stone or seaweed into it and the oyster cannot close again so that it serves the crab for meat. Such is the fate of him who opens his mouth too much and thereby puts himself at the mercy of the listener.",
+      "author": "Leonardo da Vinci",
+      "source": "As quoted in The 48 Laws of Power (2000) by Robert Greene, p. 33",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "No man of sense can put himself and his soul under the control of names... You must consider courageously and thoroughly and not accept anything carelessly.",
+      "author": "Plato",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "Quaeris Alcidae parem? Nemo est nisi ipse.",
+      "author": "Seneca the Younger",
+      "source": "Do you seek Alcides' equal? None is, except himself",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "If any one were to ask me what in my opinion was the dullest and most stupid spot on the face of the Earth, I should decidedly say Chelmsford.",
+      "author": "Charles Dickens",
+      "source": "Letter to Thomas Beard (11 January 1835), in Madeline House, et al., The Letters of Charles Dickens (1965), p. 53",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "Time's glory is to calm contending kings,To unmask falsehood, and bring truth to light.",
+      "author": "William Shakespeare",
+      "source": "The Rape of Lucrece",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "A thing is not necessarily true because a man dies for it.",
+      "author": "Oscar Wilde",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "Nature does not do anything in vain.",
+      "author": "Aristotle",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "It is not truth that makes man great, but man that makes truth great.",
+      "author": "Confucius",
+      "source": "As quoted in The Importance of Living (1937) by Lin Yutang, p. v",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "Yet a man may love a paradox, without losing either his wit or his honesty.",
+      "author": "Ralph Waldo Emerson",
+      "source": "\"Walter Savage Landor\", from The Dial, xii (1841)",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "I don't see no p'ints about that frog that's any better'n any other frog.",
+      "author": "Mark Twain",
+      "source": "\"The Celebrated Jumping Frog of Calaveras County\" (1865)",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "Let us not underrate the value of a fact; it will one day flower in a truth.",
+      "author": "Henry David Thoreau",
+      "source": "\"Natural History of Massachusetts\". The Dial (July 1842) p. 39",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "Error is the force that welds men together; truth is communicated to men only by deeds of truth. Only deeds of truth, by introducing light into the conscience of each individual, can dissolve the cohesion of error, and detach men one by one from the mass united together by the cohesion of error.",
+      "author": "Leo Tolstoy",
+      "source": "My Religion (1884), Ch. 12",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "Ambition has its disappointments to sour us, but never the good fortune to satisfy us.",
+      "author": "Benjamin Franklin",
+      "source": "\"On True Happiness\", Pennsylvania Gazette (20 November 1735)",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "May I really say it! All truths are bloody truths to me—take a look at my previous writings.",
+      "author": "Friedrich Nietzsche",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "Dieu s'est fait homme; soit. Le diable s'est fait femme!",
+      "author": "Victor Hugo",
+      "source": "God became a man, granted. The devil became a woman",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "γεγόναμεν γὰρ πρὸς συνεργίαν ὡς πόδες, ὡς χεῖρες, ὡς βλέφαρα, ὡς οἱ στοῖχοι τῶν ἄνω καὶ κάτω ὀδόντων. τὸ οὖν ἀντιπράσσειν ἀλλήλοις παρὰ φύσιν.",
+      "author": "Marcus Aurelius",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "Next week I shall begin my operations on my hat, on which you know my principal hopes of happiness depend.",
+      "author": "Jane Austen",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "The painter strives and competes with nature...There is nothing in all nature without its reason. If you know the reason, you do not need the experience...",
+      "author": "Leonardo da Vinci",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "Wonder is the feeling of a philosopher, and philosophy begins in wonder.",
+      "author": "Plato",
+      "source": "155d, The Dialogues of Plato, Volume 3, 1871, p. 377",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "rursus prosperum ac felix scelus virtus vocatur; sontibus parent boni, ius est in armis, opprimit leges timor.",
+      "author": "Seneca the Younger",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "To conceal anything from those to whom I am attached, is not in my nature. I can never close my lips where I have opened my heart.",
+      "author": "Charles Dickens",
+      "source": "Master Humphrey's Clock, (1840) Vol. 1",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "That deep torture may be called a hell,When more is felt than one hath power to tell.",
+      "author": "William Shakespeare",
+      "source": "The Rape of Lucrece",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "Consistency is the last refuge of the unimaginative.",
+      "author": "Oscar Wilde",
+      "source": "\"The Relation of Dress to Art\", The Pall Mall Gazette (February 28, 1885)",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "Knowledge of the fact differs from knowledge of the reason for the fact.",
+      "author": "Aristotle",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "It is more shameful to distrust our friends than to be deceived by them.",
+      "author": "Confucius",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "Literature is the effort of man to indemnify himself for the wrongs of his condition.",
+      "author": "Ralph Waldo Emerson",
+      "source": "\"Walter Savage Landor\", from The Dial, xii (1841)",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "He was ignorant of the commonest accomplishments of youth. He could not even lie.",
+      "author": "Mark Twain",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "Great God, I ask thee for no meaner pelfThan that I may not disappoint myself,That in my action I may soar as highAs I can now discern with this clear eye.",
+      "author": "Henry David Thoreau",
+      "source": "\"Prayer\", st. 1. The Dial (July 1842) p. 79",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "I know that my unity with all people cannot be destroyed by national boundaries and government orders.",
+      "author": "Leo Tolstoy",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "If you would keep your Secret from an enemy, tell it not to a friend.Up, Sluggard, and waste not life; in the grave will be sleeping enough.",
+      "author": "Benjamin Franklin",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "Style ought to prove that one believes in an idea; not only that one thinks it but also feels it.",
+      "author": "Friedrich Nietzsche",
+      "source": "Letter to Lou Andreas-Salomé (August 1881), in Salomé's biography of Nietzsche, tr. Siegfried Mandel (1988)",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "One can no more pray too much than love too much.",
+      "author": "Victor Hugo",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "Give thyself time to learn something new and good, and cease to be whirled around.",
+      "author": "Marcus Aurelius",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "I do not want people to be very agreeable, as it saves me the trouble of liking them a great deal.",
+      "author": "Jane Austen",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "Look at the grace and sweetness of men and women in the street...",
+      "author": "Leonardo da Vinci",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "Perception and knowledge could never be the same.",
+      "author": "Plato",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "inveniet viam aut faciet.",
+      "author": "Seneca the Younger",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "I am quite serious when I say that I do not believe there are, on the whole earth besides, so many intensified bores as in these United States. No man can form an adequate idea of the real meaning of the word, without coming here.",
+      "author": "Charles Dickens",
+      "source": "Comment while on an American tour (March 1842), as quoted in Dickens (1949) by Hesketh Pearson, Ch. 8",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "I was in love with my bed.",
+      "author": "William Shakespeare",
+      "source": "Speed, Act II, scene i",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "A poet can survive everything but a misprint.",
+      "author": "Oscar Wilde",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "The science which has to do with nature clearly concerns itself for the most part with bodies and magnitudes and their properties and movements, but also with the principles of this sort of substance, as many as they may be.",
+      "author": "Aristotle",
+      "source": "On the Heavens Book I, pg. 1 (350 BCE)",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "The more man meditates upon good thoughts, the better will be his world and the world at large.",
+      "author": "Confucius",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "Self-reliance, the height and perfection of man, is reliance on God.",
+      "author": "Ralph Waldo Emerson",
+      "source": "The Fugitive Slave Law, a lecture in NYC (March 7, 1854)",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "I have seen Chinamen abused and maltreated in all the mean, cowardly ways possible to the invention of a degraded nature, but I never saw a policeman interfere in the matter and I never saw a Chinaman righted in a court of justice for wrongs thus done him.",
+      "author": "Mark Twain",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "The life that I aspire to liveNo man proposeth me—No trade upon the streetWears its emblazonry.",
+      "author": "Henry David Thoreau",
+      "source": "\"The Black Knight\", l. 11. The Dial (October 1842) p. 180",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "A man can live and be healthy without killing animals for food; therefore, if he eats meat, he participates in taking animal life merely for the sake of his appetite. And to act so is immoral.",
+      "author": "Leo Tolstoy",
+      "source": "Writings on Civil Disobedience and Nonviolence (1886)",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "Those who would give up essential Liberty, to purchase a little temporary Safety, deserve neither Liberty nor Safety.",
+      "author": "Benjamin Franklin",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "Against that positivism which stops before phenomena, saying \"there are only facts,\" I should say: no, it is precisely facts that do not exist, only interpretations.",
+      "author": "Friedrich Nietzsche",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "Happy, even in anguish, is he to whom God has given a soul worthy of love and of grief!",
+      "author": "Victor Hugo",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "This thou must always bear in mind, what is the nature of the whole...",
+      "author": "Marcus Aurelius",
+      "source": "Τούτων ἀεὶ μεμνῆσθαι, τίς ἡ τῶν ὅλων φύσις",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "You deserve a longer letter than this; but it is my unhappy fate seldom to treat people so well as they deserve.",
+      "author": "Jane Austen",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "Thou, O God, sellest us all benefits, at the cost of our toil....",
+      "author": "Leonardo da Vinci",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "I do see one large and grievous kind of ignorance, separate from the rest, and as weighty as all the other parts put together. Thinking that one knows a thing when one does not know it. Through this, I believe, all the mistakes of the mind are caused in all of us.",
+      "author": "Plato",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "Iniqua raro maximis virtutibus fortuna parcit ; nemo se tuto diu periculis offerre tam crebris potest; quem saepe transit casus, aliquando invenit.",
+      "author": "Seneca the Younger",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "O let us love our occupations,Bless the squire and his relations,Live upon our daily rations,And always know our proper stations.",
+      "author": "Charles Dickens",
+      "source": "The Chimes, Second Quarter (1844)",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "How use doth breed a habit in a man!",
+      "author": "William Shakespeare",
+      "source": "Valentine, Act V, scene iv",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "Most modern calendars mar the sweet simplicity of our lives by reminding us that each day that passes is the anniversary of some perfectly uninteresting event.",
+      "author": "Oscar Wilde",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "The least initial deviation from the truth is multiplied later a thousandfold.",
+      "author": "Aristotle",
+      "source": "I.5. 271b8-10. This line begins the Prologue of Mortimer J. Adler’s book, Ten Philosophical Mistakes",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "Follow the seasons of Ha,Ride in the state carriage of Yau,Wear the ceremonial cap of Chan,Let the music be the Shiu with its pantomimes.",
+      "author": "Confucius",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "The clergy are as like as peas.",
+      "author": "Ralph Waldo Emerson",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "Soap and education are not as sudden as a massacre, but they are more deadly in the long run.",
+      "author": "Mark Twain",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "My books I'd fain cast off, I cannot read,'Twixt every page my thoughts go stray at largeDown in the meadow, where is richer feed,And will not mind to hit their proper targe.",
+      "author": "Henry David Thoreau",
+      "source": "\"The Summer Rain\", st. 1. The Dial (October 1842) p. 224",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "I sit on a man's back, choking him, and making him carry me, and yet assure myself and others that I am very sorry for him and wish to ease his lot by any means possible, except getting off his back.",
+      "author": "Leo Tolstoy",
+      "source": "Writings on Civil Disobedience and Nonviolence (1886)",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "The good particular men may do separately, in relieving the sick, is small, compared with what they may do collectively.",
+      "author": "Benjamin Franklin",
+      "source": "Appeal for the Hospital The Pennsylvania Gazette (8 August 1751)",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "So far no one had had enough courage and intelligence to reveal me to my dear Germans. My problems are new, my psychological horizon frighteningly comprehensive, my language bold and clear; there may well be no books written in German which are richer in ideas and more independent than mine.",
+      "author": "Friedrich Nietzsche",
+      "source": "Letter to Carl Fuchs (14 December 1887)",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "The best way to worship God is to love your wife.",
+      "author": "Victor Hugo",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "Yet living and dying, honour and dishonour, pain and pleasure, riches and poverty, and so forth are equally the lot of good men and bad. Things like these neither elevate nor degrade; and therefore they are no more good than they are evil.",
+      "author": "Marcus Aurelius",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "I had a very pleasant evening, however, though you will probably find out that there was no particular reason for it; but I do not think it worth while to wait for enjoyment until there is some real opportunity for it.",
+      "author": "Jane Austen",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "As a day well spent makes sleep seem pleasant, so a life well employed makes death pleasant. A life well spent is long.",
+      "author": "Leonardo da Vinci",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "No one should be discouraged, Theaetetus, who can make constant progress, even though it be slow.",
+      "author": "Plato",
+      "source": "Original Greek, from Sophist 261b: θαρρεῖν, ὦ Θεαίτητε, χρὴ τὸν καὶ σμικρόν τι δυνάμενον εἰς τὸ πρόσθεν ἀεὶ προϊέναι",
+      "tags": [
+        "Wisdom"
+      ]
+    },
+    {
+      "text": "qui genus iactat suum, aliena laudat.",
+      "author": "Seneca the Younger",
+      "source": "Who vaunts his race, lauds what belongs to others",
+      "tags": [
+        "Wisdom"
+      ]
+    }
+  ]
+}
