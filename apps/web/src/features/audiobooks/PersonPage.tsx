@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { ArrowLeft, BookOpen, Globe, Headphones, MapPin, Merge, Pencil, Search, UserRound, type LucideIcon } from "lucide-react";
 import { api, type PublicUser } from "../../api";
+import i18n from "../../i18n";
 import { DashboardShell } from "../../app/DashboardShell";
 import { getReferrer, goBack, navigate, queryParam, replaceQuery } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
@@ -40,28 +42,37 @@ type PersonProfileInfo = {
 // without forcing anyone to type "https://" into the field.
 const websiteHref = (website: string) => (/^https?:\/\//i.test(website) ? website : `https://${website}`);
 
-const ROLE_LABELS: Record<string, string> = {
-  author: "Author",
-  narrator: "Narrator",
-  editor: "Editor",
-  artist: "Artist",
-  photographer: "Photographer",
-  contributor: "Contributor"
+// Role keys the server may send; anything else falls back to a capitalized
+// echo of the raw role rather than a translation lookup.
+const ROLE_KEYS: Record<string, "roleAuthor" | "roleNarrator" | "roleEditor" | "roleArtist" | "rolePhotographer" | "roleContributor"> = {
+  author: "roleAuthor",
+  narrator: "roleNarrator",
+  editor: "roleEditor",
+  artist: "roleArtist",
+  photographer: "rolePhotographer",
+  contributor: "roleContributor"
 };
 
-const roleLabel = (role: string) => ROLE_LABELS[role] ?? role.charAt(0).toUpperCase() + role.slice(1);
-const typeLabel = (type: string) => (type === "ebook" ? "Ebook" : "Audiobook");
+// Built fresh on every call (not a module-level lookup) so it stays reactive
+// to a language switch — same approach as control/nav.ts.
+const roleLabel = (role: string) => {
+  const key = ROLE_KEYS[role];
+  return key ? i18n.t(`book:personPage.${key}`) : role.charAt(0).toUpperCase() + role.slice(1);
+};
+const typeLabel = (type: string) => (type === "ebook" ? i18n.t("common:mediaKind.ebook") : i18n.t("common:mediaKind.audiobook"));
 const typeIcon = (type: string): LucideIcon => (type === "ebook" ? BookOpen : Headphones);
 const bookHref = (item: PersonItem) =>
   item.type === "ebook" ? `/ebooks/books/${item.id}` : `/audiobooks/books/${item.id}`;
 
 type PersonTab = "overview" | "books" | "audiobooks";
 
-const TABS: { id: PersonTab; label: string; icon: LucideIcon }[] = [
-  { id: "overview", label: "Overview", icon: UserRound },
-  { id: "books", label: "Books", icon: BookOpen },
-  { id: "audiobooks", label: "Audiobooks", icon: Headphones }
-];
+function personTabs(): { id: PersonTab; label: string; icon: LucideIcon }[] {
+  return [
+    { id: "overview", label: i18n.t("book:personPage.tabOverview"), icon: UserRound },
+    { id: "books", label: i18n.t("book:personPage.tabBooks"), icon: BookOpen },
+    { id: "audiobooks", label: i18n.t("common:nav.audiobooks"), icon: Headphones }
+  ];
+}
 
 // The canonical, cross-type person page. People are global (one DB row per
 // name), so this shows everything a person made — audiobooks and ebooks —
@@ -77,6 +88,7 @@ export function PersonPage({
   user: PublicUser;
   logout: () => Promise<void>;
 }) {
+  const { t } = useTranslation(["common", "book"]);
   const [items, setItems] = useState<PersonItem[]>([]);
   const [profile, setProfile] = useState<PersonProfileInfo | null>(null);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
@@ -130,7 +142,7 @@ export function PersonPage({
     setPhotoBroken(false);
     api<{ items: PersonItem[] }>(`/api/library/people/by-name/items?name=${encodeURIComponent(personName)}`)
       .then((payload) => setItems(payload.items))
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load data"));
+      .catch((err) => setError(err instanceof Error ? err.message : t("book:catalog.unableLoadData")));
     void loadProfile();
     // Merge candidates come from the global people list (admins only need it).
     if (user.role === "admin") {
@@ -164,13 +176,15 @@ export function PersonPage({
     : undefined;
   const subtitle = [
     roles.map(roleLabel).join(", "),
-    `${items.length} ${items.length === 1 ? "title" : "titles"}`
+    t("book:catalog.counts.title", { count: items.length })
   ].filter(Boolean).join(" · ");
 
   const visibleItems = activeTab === "overview"
     ? items
     : items.filter((item) => item.type === (activeTab === "books" ? "ebook" : "audiobook"));
-  const emptyLabel = activeTab === "books" ? "ebooks" : activeTab === "audiobooks" ? "audiobooks" : "titles";
+  const emptyMessage = activeTab === "books" ? t("book:personPage.noneYetEbooks")
+    : activeTab === "audiobooks" ? t("book:personPage.noneYetAudiobooks")
+    : t("book:personPage.noneYetTitles");
 
   const mergeCandidates = mergeNames.filter((name) => name !== personName);
   const filteredCandidates = mergeQuery.trim()
@@ -190,7 +204,7 @@ export function PersonPage({
       setMerging(false);
       navigate(`/people/${encodeURIComponent(mergeTarget)}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Merge failed");
+      setError(err instanceof Error ? err.message : t("book:personPage.mergeFailed"));
       setMerging(false);
     }
   };
@@ -211,18 +225,18 @@ export function PersonPage({
             className="icon-button"
             type="button"
             onClick={() => goBack(backTo ?? "/authors")}
-            aria-label={backTo ? "Back" : "Back to authors"}
-            title={backTo ? "Back" : "Back to authors"}
+            aria-label={backTo ? t("book:catalog.back") : t("book:authors.backToAuthors")}
+            title={backTo ? t("book:catalog.back") : t("book:authors.backToAuthors")}
           >
             <ArrowLeft size={18} aria-hidden="true" />
           </button>
           <span className="library-toolbar-divider" aria-hidden="true" />
-          <div className="book-detail-secondary-actions" aria-label="Person actions">
+          <div className="book-detail-secondary-actions" aria-label={t("book:personPage.actionsAria")}>
             <Button
               variant="icon"
               onClick={() => setProfileModalOpen(true)}
-              title="Edit profile"
-              aria-label="Edit profile"
+              title={t("book:personPage.editProfileAria")}
+              aria-label={t("book:personPage.editProfileAria")}
             >
               <Pencil size={18} aria-hidden="true" />
             </Button>
@@ -230,8 +244,8 @@ export function PersonPage({
               <Button
                 variant="icon"
                 onClick={() => { setMergeTarget(""); setMergeQuery(""); setMergeOpen(true); }}
-                title="Merge this person into another"
-                aria-label="Merge this person into another"
+                title={t("book:personPage.mergeAria")}
+                aria-label={t("book:personPage.mergeAria")}
               >
                 <Merge size={18} aria-hidden="true" />
               </Button>
@@ -272,14 +286,14 @@ export function PersonPage({
                 {profile?.website && (
                   <div className="book-detail-meta-item">
                     <Globe size={18} aria-hidden="true" />
-                    <dt>Website</dt>
+                    <dt>{t("book:person.fieldWebsite")}</dt>
                     <dd><a href={websiteHref(profile.website)} target="_blank" rel="noreferrer">{profile.website}</a></dd>
                   </div>
                 )}
                 {profile?.location && (
                   <div className="book-detail-meta-item">
                     <MapPin size={18} aria-hidden="true" />
-                    <dt>Location</dt>
+                    <dt>{t("book:person.fieldLocation")}</dt>
                     <dd>{profile.location}</dd>
                   </div>
                 )}
@@ -288,14 +302,14 @@ export function PersonPage({
           </div>
         </div>
 
-        {error && <MessageBox tone="error" title="Error">{error}</MessageBox>}
+        {error && <MessageBox tone="error" title={t("book:detail.errorTitle")}>{error}</MessageBox>}
 
         {/* The same tab strip a book's own detail page uses (Description /
             Chapters / …), here switching between everything, ebooks only and
             audiobooks only. */}
         <section className="book-detail-tabs-section">
-          <nav className="book-detail-tabs person-detail-tabs" aria-label="Person sections">
-            {TABS.map((tab) => (
+          <nav className="book-detail-tabs person-detail-tabs" aria-label={t("book:personPage.sectionsAria")}>
+            {personTabs().map((tab) => (
               <button
                 key={tab.id}
                 type="button"
@@ -310,9 +324,9 @@ export function PersonPage({
 
           <div className="book-detail-tab-panel">
             <div className="person-titles-panel">
-              <h2>Titles</h2>
+              <h2>{t("book:personPage.titlesHeading")}</h2>
               {visibleItems.length === 0 ? (
-                <p className="management-empty">No {emptyLabel} yet.</p>
+                <p className="management-empty">{emptyMessage}</p>
               ) : (
                 <div className="person-title-grid">
                   {visibleItems.map((item) => (
@@ -337,18 +351,23 @@ export function PersonPage({
       )}
 
       {mergeOpen && (
-        <Modal title={`Merge “${personName}”`} className="merge-modal" busy={merging} onClose={() => setMergeOpen(false)}>
+        <Modal title={t("book:personPage.mergeModalTitle", { name: personName })} className="merge-modal" busy={merging} onClose={() => setMergeOpen(false)}>
           <p>
-            Pick the person to merge <strong>{personName}</strong> into. Their {items.length} {items.length === 1 ? "title moves" : "titles move"} to
-            the chosen name, and future scans will map “{personName}” there automatically.
+            <Trans
+              i18nKey="personPage.mergeIntro"
+              ns="book"
+              count={items.length}
+              values={{ name: personName }}
+              components={{ bold: <strong /> }}
+            />
           </p>
           <label className="facet-search merge-search">
             <Search size={14} aria-hidden="true" />
             <input
               value={mergeQuery}
               onChange={(e) => setMergeQuery(e.target.value)}
-              placeholder="Search people"
-              aria-label="Search people"
+              placeholder={t("book:personPage.searchPeople")}
+              aria-label={t("book:personPage.searchPeople")}
               autoFocus
             />
           </label>
@@ -362,12 +381,12 @@ export function PersonPage({
                 {name}
               </button>
             ))}
-            {filteredCandidates.length === 0 && <p className="facet-empty">No matches</p>}
+            {filteredCandidates.length === 0 && <p className="facet-empty">{t("common:filters.noMatches")}</p>}
           </div>
           <div className="modal-actions">
-            <Button variant="secondary" onClick={() => setMergeOpen(false)} disabled={merging}>Cancel</Button>
+            <Button variant="secondary" onClick={() => setMergeOpen(false)} disabled={merging}>{t("common:common.cancel")}</Button>
             <Button variant="primary" onClick={runMerge} disabled={merging || !mergeTarget}>
-              <Merge size={15} /> {merging ? "Merging…" : "Merge"}
+              <Merge size={15} /> {merging ? t("book:personPage.merging") : t("book:personPage.mergeButton")}
             </Button>
           </div>
         </Modal>
@@ -381,12 +400,13 @@ export function PersonPage({
 // own name would just repeat are left out (the author on an author's own rows,
 // the narrator on a narrator's own rows).
 function PersonTitleRow({ item }: { item: PersonItem }) {
+  const { t } = useTranslation(["common", "book"]);
   const Icon = typeIcon(item.type);
   const creditLine = item.role === "narrator"
-    ? (item.authors.length > 0 ? `by ${item.authors.join(", ")}` : null)
+    ? (item.authors.length > 0 ? t("book:metadata.byAuthors", { authors: item.authors.join(", ") }) : null)
     : item.type === "audiobook" && item.narrators.length > 0
-      ? `Narrated by ${item.narrators.join(", ")}`
-      : (item.role !== "author" && item.authors.length > 0 ? `by ${item.authors.join(", ")}` : null);
+      ? t("book:personPage.narratedByPrefix", { narrators: item.narrators.join(", ") })
+      : (item.role !== "author" && item.authors.length > 0 ? t("book:metadata.byAuthors", { authors: item.authors.join(", ") }) : null);
   const durationText = item.type === "audiobook" && item.durationSeconds != null
     ? formatDuration(item.durationSeconds)
     : null;
@@ -409,7 +429,7 @@ function PersonTitleRow({ item }: { item: PersonItem }) {
             {durationText}
           </span>
         )}
-        {item.yearPublished != null && <span className="person-title-meta">Published {item.yearPublished}</span>}
+        {item.yearPublished != null && <span className="person-title-meta">{t("book:personPage.publishedYear", { year: item.yearPublished })}</span>}
       </div>
     </button>
   );

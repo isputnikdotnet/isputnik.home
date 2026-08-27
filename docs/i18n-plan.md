@@ -1,19 +1,51 @@
 # UI language support (Russian) — implementation plan
 
-Status (2026-08-27): ALL 12 NAMESPACES FULLY WIRED. Phases 0–2 complete and
-verified in-browser. `reader`'s remaining files (PlayerPage.tsx, EbookReader.tsx,
-offline/*.ts) are now wired, closing the one gap left after Phase 2's sweep.
-`AboutDetails.tsx`/`AboutCredits.tsx` (the About page's actual content, out of
-the `misc` batch's original scope) are now wired too — UI chrome and credit
-group names translated, changelog entries and third-party license/attribution
-text intentionally left English (release notes and license identifiers are
-canonical-form content, not UI copy — same treatment as the docs/Help pages).
-Phase 3 (server error codes) is now consumed client-side: `apps/web/src/api.ts`
-maps a response's `code` field to `common:errors.codes.<code>` via
-`i18n.t(key, { defaultValue: payload.error })`, falling back to the server's
-English sentence for any code without a translation — verified in-browser
-(wrong-password sign-in now shows "Неверный email или пароль", not English).
-~5,180 keys total. Full detail below.
+Status (2026-08-27): ALL 12 NAMESPACES FULLY WIRED, and — importantly — this
+has now been verified at FILE granularity, not just namespace granularity.
+The first "complete" declaration this same day was wrong: `book`'s earlier
+pass wired the detail/edit-modal layer but never the actual library-browsing
+pages, so Audiobooks/Ebooks still showed English end-to-end. A user report
+caught it. The fix was a full audit — `grep -L "useTranslation\|i18n" over
+every apps/web/src/**/*.{ts,tsx}` outside tests/locales/vendor, cross-checked
+file by file for whether an "unwired" hit was a real gap (has JSX text /
+literal strings) or a false one (pure types, comments, decorative-only,
+deferred `relativeTime()`/native-language-name style content) — see "Doing a
+completeness audit" below for the reusable method. Found and closed 4 more
+real gaps beyond `book`: the audiobooks/ebooks catalog+browse layer (+352
+`book.json` keys), the library-creation wizard under `control/libraries/`
+(+90 `control.json` keys), 5 pages/ files — device link, PWA install,
+invites, welcome (+130 `common.json` keys), and 2 shared components used
+app-wide (`MediaKindBadge.tsx`, `LibraryPageToolbar.tsx`'s selection count).
+Also closed this same day: `reader`'s remaining files (PlayerPage.tsx,
+EbookReader.tsx, offline/*.ts); `AboutDetails.tsx`/`AboutCredits.tsx` (UI
+chrome + credit group names translated, license/changelog content
+intentionally English, same treatment as docs/Help); Phase 3 server error
+codes now consumed client-side via `apps/web/src/api.ts`'s
+`localizedErrorMessage()` (`common:errors.codes.<code>` with an English
+`defaultValue` fallback) — verified in-browser (wrong-password sign-in
+shows "Неверный email или пароль"). ~5,750 keys total. Full detail below.
+
+## Doing a completeness audit (do this before declaring "done" again)
+
+Namespace-level bookkeeping ("is `book.json` wired?") is not the same
+question as file-level bookkeeping ("is every file that NEEDS `book.json`
+actually using it?") — the first "complete" claim conflated them. To check
+file-level coverage directly:
+
+```bash
+ALL=$(find apps/web/src -name "*.tsx" -o -name "*.ts" | grep -v "/test/\|\.test\.\|/locales/\|/vendor/")
+comm -23 <(echo "$ALL" | sort) <(grep -l "useTranslation\|from [\"'].*i18n[\"']" $ALL 2>/dev/null | sort)
+```
+
+Every hit needs a judgment call, not a rubber stamp: read it and check for
+real hardcoded UI strings (JSX text, `title=`/`aria-label=`/`placeholder=`,
+button labels) vs. a legitimate non-gap — pure TS types, comments-only
+matches, decorative `alt=""`/`aria-hidden` markup, a deferred item already
+on record (`shared/utils.ts`'s `relativeTime()` — the "Dates and numbers"
+phase, not started), or intentionally-invariant content (`shared/alphabets.ts`'s
+script names, which show their OWN native name regardless of UI language,
+same as a language picker's own-language labels). A file showing up unwired
+is a lead to investigate, not automatically a bug.
 
 Phase 0 — i18next + typed keys, `users.language` (migration 48), Language picker
 on Profile → Appearance, localStorage mirror, `check:ui` key-parity rule (which
@@ -82,10 +114,44 @@ namespace pairs, loaded via `locales/{en,ru}/index.ts` barrels and
   (PlayerPage.tsx vs EbookReader.tsx+offline/*.ts, no shared-file conflict).
 
 **Namespaces — fully translated AND wired** (continued):
-- `book` (283 keys) — ALL 4 files wired: PersonPhotoModal.tsx, PersonProfileModal.tsx,
-  EditMetadataModal.tsx (incl. the standalone `ResultCompare` sub-component, which
-  needed its own `useTranslation` call), BookDetailPage.tsx (incl. the in-file
-  `EditionsSwitcher` sub-component) — typecheck + check:ui verified 2026-08-27
+- `book` (635 keys) — the detail/edit-modal layer (PersonPhotoModal.tsx,
+  PersonProfileModal.tsx, EditMetadataModal.tsx incl. the standalone
+  `ResultCompare` sub-component, BookDetailPage.tsx incl. the in-file
+  `EditionsSwitcher` sub-component) was wired 2026-08-27, but the actual
+  library-browsing layer — AudiobooksPage.tsx/EbooksPage.tsx and everything
+  they link to — was never touched in that pass, so Audiobooks/Ebooks still
+  showed English. Closed 2026-08-27 (+352 keys): AudiobooksPage.tsx (~1500
+  lines, incl. CatalogAdminMenu/CatalogBookCard/CatalogTail/BulkEditModal/
+  AddToSeriesModal/GroupAsEditionsModal/UploadBookModal, all shared with
+  EbooksPage.tsx), EbooksPage.tsx (EbookCatalogCard/EbookUploadModal),
+  BookFilter.tsx, CatalogRowMobile.tsx, useAudiobookCatalog.ts,
+  sectionNavItems.ts, AuthorListPage.tsx, NarratorListPage.tsx,
+  SeriesListPage.tsx/SeriesDetailPage.tsx, CategoryListPage.tsx/
+  CategoryDetailPage.tsx, TagListPage.tsx/TagDetailPage.tsx (reuses
+  `family:common.nee` for the "née …" fragment on a tagged family member),
+  PeopleCombobox.tsx, PersonPage.tsx (incl. the in-file `PersonTitleRow`
+  sub-component — the full cross-type person page, not `PersonProfileModal`).
+  `types.ts`/`covers.ts`/`categoryIcons.tsx` needed no changes: `types.ts`'s
+  only label-bearing exports (`LIBRARY_ROLE_OPTIONS`/`PUBLIC_ROLE_OPTIONS`)
+  belong to the control-panel library-members flow, out of this batch's scope
+  (same call the `control` namespace bullet already made). Per pitfall #4/#3,
+  several module-level option lists that were previously frozen `const`s
+  became functions called fresh at render/call time so labels stay reactive
+  to a language switch: `BookFilter.tsx`'s `SORT_OPTIONS`/`EBOOK_SORT_OPTIONS`/
+  facet titles/status+duration labels (now `getSortOptions()` etc.),
+  `useAudiobookCatalog.ts`'s `DENSITY_OPTIONS` (now `getDensityOptions()`),
+  `sectionNavItems.ts`'s `AUDIOBOOK_NAV_ITEMS`/`EBOOK_NAV_ITEMS` (now
+  `audiobookNavItems()`/`ebookNavItems()`), and `TagListPage.tsx`'s
+  `TAG_SCOPES` (now `getTagScopes()`). Verified: typecheck + check:ui + full
+  web test suite (178 tests, incl. `AuthorListPage.test.tsx`'s filter/sort/
+  A–Z-strip assertions which pin several exact English strings) all pass, plus
+  an in-browser pass signed in on the Russian-language dev account over
+  Audiobooks, Ebooks, Authors, Narrators, Series (list + detail), Categories
+  (list + detail), Tags (list + detail), and a Person page — all rendering
+  correctly, including pluralized counts. One pre-existing gap found and
+  flagged separately (out of this batch's scope, `shared/` is not part of
+  it): `shared/LibraryPageToolbar.tsx`'s multi-select "{count} selected"
+  label was never wired in any namespace and still shows raw English.
 - `user` (333 keys) — ALL target files wired across 3 batches 2026-08-27:
   LikesPage/BookmarksPage/QuotesPage/SharedWithMePage/CollectionsPage/
   CollectionDetailPage/AddToCollectionModal/NewCollectionModal; ActivityList

@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { HardDrive } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { LibraryMode } from "../../audiobooks/types";
 
 // Upload policy settings. Uploads accept the same extensions as scanning; only the
@@ -18,6 +19,7 @@ export function UploadSettingsFields({
   onChange: (value: string) => void;
   mode: LibraryMode;
 }) {
+  const { t } = useTranslation(["common", "control"]);
   const external = mode === "external";
   const [limited, setLimited] = useState(maxUploadMB !== "");
   const [customMB, setCustomMB] = useState(maxUploadMB || "500");
@@ -51,7 +53,7 @@ export function UploadSettingsFields({
 
   return (
     <div className="field">
-      <span>Maximum upload size</span>
+      <span>{t("control:libraries.maxUploadSize")}</span>
       <div className="upload-size-options">
         <label className={`upload-size-card${!limited ? " selected" : ""}${external ? " upload-size-card-disabled" : ""}`}>
           <input
@@ -63,10 +65,10 @@ export function UploadSettingsFields({
           />
           <span className="upload-size-card-body">
             <span className="upload-size-card-title">
-              <strong>Standard</strong>
-              <span className="upload-size-recommended">Recommended</span>
+              <strong>{t("control:libraries.uploadStandard")}</strong>
+              <span className="upload-size-recommended">{t("control:libraries.recommended")}</span>
             </span>
-            <small>Up to 10 GB per file — big enough for any single upload, small enough that a runaway upload can&apos;t fill the disk.</small>
+            <small>{t("control:libraries.uploadStandardHint")}</small>
           </span>
           <span className="upload-size-infinity" aria-hidden="true">
             <HardDrive size={32} />
@@ -83,12 +85,12 @@ export function UploadSettingsFields({
               onChange={selectCustom}
             />
             <span className="upload-size-card-body">
-              <strong>Custom limit</strong>
-              <small>Set a maximum size for each file.</small>
+              <strong>{t("control:libraries.uploadCustomLimit")}</strong>
+              <small>{t("control:libraries.uploadCustomHint")}</small>
             </span>
           </label>
           <div className="upload-size-custom-inputs">
-            <label htmlFor="upload-mb-size">Size</label>
+            <label htmlFor="upload-mb-size">{t("control:libraries.sizeLabel")}</label>
             <input
               id="upload-mb-size"
               type="number"
@@ -99,14 +101,14 @@ export function UploadSettingsFields({
               onChange={(event) => changeCustom(event.target.value)}
               onBlur={blurCustom}
             />
-            <select disabled aria-label="Unit">
+            <select disabled aria-label={t("control:libraries.unitAria")}>
               <option value="MB">MB</option>
             </select>
           </div>
         </div>
       </div>
       {external && (
-        <small className="muted">External libraries are read-only — uploads are disabled.</small>
+        <small className="muted">{t("control:libraries.externalReadOnlyHint")}</small>
       )}
     </div>
   );

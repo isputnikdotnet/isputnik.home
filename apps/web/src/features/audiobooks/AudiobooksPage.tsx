@@ -2,8 +2,8 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { BookOpen, Check, CheckCheck, CheckCircle2, CheckSquare, ChevronDown, Compass, Download, Heart, Layers, LayoutGrid, Library, LibraryBig, ListMusic, Loader2, Mic2, MoreHorizontal, Pencil, Play, RotateCcw, Shapes, Square, Trash2, UploadCloud, UserRound, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
-import { activeFilterCount, FilterButton, FilterChips, SORT_OPTIONS, type SortKey } from "./BookFilter";
-import { useAudiobookCatalog, readCatalogView, writeCatalogView, DENSITY_OPTIONS, type CatalogDensity, type CatalogScope } from "./useAudiobookCatalog";
+import { activeFilterCount, FilterButton, FilterChips, getSortOptions, type SortKey } from "./BookFilter";
+import { useAudiobookCatalog, readCatalogView, writeCatalogView, getDensityOptions, type CatalogDensity, type CatalogScope } from "./useAudiobookCatalog";
 import { DashboardShell } from "../../app/DashboardShell";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { EditMetadataModal } from "./EditMetadataModal";
@@ -11,7 +11,7 @@ import { DEFAULT_COVERS } from "./covers";
 import { PeopleCombobox } from "./PeopleCombobox";
 import { followRoute, navigate } from "../../router";
 import { SectionNav } from "../../shared/SectionNav";
-import { AUDIOBOOK_NAV_ITEMS } from "./sectionNavItems";
+import { audiobookNavItems } from "./sectionNavItems";
 import { useIsMobile } from "../../shared/useIsMobile";
 import { CatalogRowMobile } from "./CatalogRowMobile";
 import { listDownloads } from "../../offline/downloads";
@@ -26,6 +26,7 @@ import { LibraryPageHeader } from "../../shared/LibraryPageHeader";
 import { LibraryPageToolbar } from "../../shared/LibraryPageToolbar";
 import { AlphabetBar } from "../../shared/AlphabetBar";
 import { SortMenu } from "../../shared/SortMenu";
+import { Trans, useTranslation } from "react-i18next";
 import type { AudiobookBook, AudiobookBookDetail, AudiobookLibrary, CategorySummary, SeriesSummary } from "./types";
 
 
@@ -41,8 +42,8 @@ export function formatCount(value: number) {
 export function AudiobookHeaderSort({
   value,
   onChange,
-  options = SORT_OPTIONS,
-  ariaLabel = "Sort audiobooks",
+  options,
+  ariaLabel,
   compact = false
 }: {
   value: SortKey;
@@ -51,7 +52,16 @@ export function AudiobookHeaderSort({
   ariaLabel?: string;
   compact?: boolean;
 }) {
-  return <SortMenu value={value} options={options} onChange={onChange} ariaLabel={ariaLabel} presentation={compact ? "icon" : "inline"} />;
+  const { t } = useTranslation(["common", "book"]);
+  return (
+    <SortMenu
+      value={value}
+      options={options ?? getSortOptions()}
+      onChange={onChange}
+      ariaLabel={ariaLabel ?? t("book:catalog.sortAudiobooksAria")}
+      presentation={compact ? "icon" : "inline"}
+    />
+  );
 }
 
 type BookStatus = "finished" | "in_progress" | "none";
@@ -79,6 +89,7 @@ export function CatalogAdminMenu({
   onEdit: (book: AudiobookBook) => void;
   onDelete: (book: AudiobookBook) => void;
 }) {
+  const { t } = useTranslation(["common", "book"]);
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -114,17 +125,17 @@ export function CatalogAdminMenu({
         onClick={() => setOpen((isOpen) => !isOpen)}
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label={`More actions for ${book.title}`}
-        title="More actions"
+        aria-label={t("book:catalog.moreActionsAria", { title: book.title })}
+        title={t("book:catalog.moreActionsTitle")}
       >
         <MoreHorizontal size={16} aria-hidden="true" />
-        <span>More actions</span>
+        <span>{t("book:catalog.moreActionsTitle")}</span>
       </button>
       {open && (
         <div
           className="book-detail-action-menu book-progress-menu audiobook-catalog-admin-menu"
           role="menu"
-          aria-label={`More actions for ${book.title}`}
+          aria-label={t("book:catalog.moreActionsAria", { title: book.title })}
         >
           {canEdit && (
             <button
@@ -136,7 +147,7 @@ export function CatalogAdminMenu({
               }}
             >
               <Pencil size={16} aria-hidden="true" />
-              <span>Edit details</span>
+              <span>{t("book:catalog.editDetails")}</span>
             </button>
           )}
           {canDelete && (
@@ -150,7 +161,7 @@ export function CatalogAdminMenu({
               }}
             >
               <Trash2 size={16} aria-hidden="true" />
-              <span>Delete</span>
+              <span>{t("book:catalog.delete")}</span>
             </button>
           )}
         </div>
@@ -184,6 +195,7 @@ function CatalogBookCard({
   onAddToCollection: (book: AudiobookBook) => void;
   onDelete: (book: AudiobookBook) => void;
 }) {
+  const { t } = useTranslation(["common", "book"]);
   const [liked, setLiked] = useState(book.saved);
   const [likeBusy, setLikeBusy] = useState(false);
   const [status, setStatus] = useState<BookStatus>(() => initialStatus(book));
@@ -243,7 +255,7 @@ function CatalogBookCard({
         role="button"
         tabIndex={0}
         aria-pressed={selectionMode ? selected : undefined}
-        aria-label={selectionMode ? `Select ${book.title}` : `Open ${book.title}`}
+        aria-label={selectionMode ? t("book:catalog.selectAria", { title: book.title }) : t("book:catalog.openAria", { title: book.title })}
         onClick={activate}
         onKeyDown={(event) => {
           if (event.currentTarget !== event.target) return;
@@ -252,7 +264,7 @@ function CatalogBookCard({
       >
         <img src={book.coverUrl ?? DEFAULT_COVERS.audiobook} alt="" />
         {book.editionCount > 1 && (
-          <span className="audiobook-catalog-editions" title={`${book.editionCount} editions`}>
+          <span className="audiobook-catalog-editions" title={t("book:catalog.counts.edition", { count: book.editionCount })}>
             <Layers size={11} aria-hidden="true" />{book.editionCount}
           </span>
         )}
@@ -263,11 +275,11 @@ function CatalogBookCard({
         ) : (
           <>
             {status === "finished" && (
-              <span className="audiobook-catalog-finished" title="Finished"><Check size={14} /></span>
+              <span className="audiobook-catalog-finished" title={t("book:editions.finished")}><Check size={14} /></span>
             )}
             {status === "in_progress" && percent > 0 && (
               <>
-                <span className="audiobook-catalog-pct" title={`${percent}% listened`}>
+                <span className="audiobook-catalog-pct" title={t("book:catalog.percentListenedTitle", { percent })}>
                   <Play size={9} fill="currentColor" aria-hidden="true" />{percent}%
                 </span>
                 <span className="audiobook-catalog-progress" aria-hidden="true">
@@ -275,30 +287,30 @@ function CatalogBookCard({
                 </span>
               </>
             )}
-            <div className="audiobook-catalog-actions" aria-label={`Actions for ${book.title}`}>
+            <div className="audiobook-catalog-actions" aria-label={t("book:catalog.actionsAria", { title: book.title })}>
               <div className="audiobook-catalog-action-row">
                 <button
                   className={`audiobook-catalog-action${liked ? " on" : ""}`}
                   type="button"
                   onClick={(event) => { event.stopPropagation(); toggleLike(); }}
                   aria-pressed={liked}
-                  aria-label={liked ? "Unlike" : "Like"}
-                  title={liked ? "Liked" : "Like"}
+                  aria-label={liked ? t("book:detail.unlike") : t("book:detail.like")}
+                  title={liked ? t("book:detail.liked") : t("book:detail.like")}
                   disabled={likeBusy}
                 >
                   <Heart size={16} fill={liked ? "currentColor" : "none"} aria-hidden="true" />
-                  <span>{liked ? "Liked" : "Like"}</span>
+                  <span>{liked ? t("book:detail.liked") : t("book:detail.like")}</span>
                 </button>
                 <button
                   className="audiobook-catalog-action"
                   type="button"
                   onClick={(event) => { event.stopPropagation(); void toggleFinished(); }}
                   disabled={statusBusy}
-                  aria-label={status === "finished" ? "Mark unfinished" : "Mark finished"}
-                  title={status === "finished" ? "Mark unfinished" : "Mark finished"}
+                  aria-label={status === "finished" ? t("book:catalog.markUnfinishedAria") : t("book:catalog.markFinishedAria")}
+                  title={status === "finished" ? t("book:catalog.markUnfinishedAria") : t("book:catalog.markFinishedAria")}
                 >
                   {status === "finished" ? <RotateCcw size={16} aria-hidden="true" /> : <CheckCircle2 size={16} aria-hidden="true" />}
-                  <span>{status === "finished" ? "Mark Unplayed" : "Mark as Played"}</span>
+                  <span>{status === "finished" ? t("book:catalog.markUnplayedLabel") : t("book:catalog.markAsPlayedLabel")}</span>
                 </button>
                 {canDownload && (
                   <a
@@ -306,22 +318,22 @@ function CatalogBookCard({
                     href={`/api/library/books/${book.id}/download`}
                     download
                     onClick={(event) => event.stopPropagation()}
-                    aria-label={`Download ${book.title}`}
-                    title="Download"
+                    aria-label={t("book:catalog.downloadAria", { title: book.title })}
+                    title={t("book:detail.download")}
                   >
                     <Download size={16} aria-hidden="true" />
-                    <span>Download</span>
+                    <span>{t("book:detail.download")}</span>
                   </a>
                 )}
                 <button
                   className="audiobook-catalog-action"
                   type="button"
                   onClick={(event) => { event.stopPropagation(); onAddToCollection(book); }}
-                  aria-label="Add to collection"
-                  title="Add to collection"
+                  aria-label={t("book:detail.addToCollection")}
+                  title={t("book:detail.addToCollection")}
                 >
                   <ListMusic size={16} aria-hidden="true" />
-                  <span>Add to Collection</span>
+                  <span>{t("book:detail.addToCollection")}</span>
                 </button>
                 <CatalogAdminMenu
                   book={book}
@@ -334,15 +346,15 @@ function CatalogBookCard({
               <div className="audiobook-catalog-hover-info">
                 <div className="audiobook-catalog-hover-text">
                   <strong>{book.title}</strong>
-                  <small>{book.authors.length > 0 ? book.authors.join(", ") : "Unknown author"}</small>
+                  <small>{book.authors.length > 0 ? book.authors.join(", ") : t("book:metadata.unknownAuthor")}</small>
                   {metaParts.length > 0 && <span>{metaParts.join(" · ")}</span>}
                 </div>
                 <button
                   className="audiobook-catalog-action primary"
                   type="button"
                   onClick={(event) => { event.stopPropagation(); openPlayer(book.id); }}
-                  aria-label={`Play ${book.title}`}
-                  title="Play"
+                  aria-label={t("book:catalog.playAria", { title: book.title })}
+                  title={t("book:detail.play")}
                 >
                   <Play size={22} fill="currentColor" aria-hidden="true" />
                 </button>
@@ -354,7 +366,7 @@ function CatalogBookCard({
 
       <div className="audiobook-catalog-copy" onClick={activate}>
         <strong>{book.title}</strong>
-        <small>{book.authors.length > 0 ? book.authors.join(", ") : "Unknown author"}</small>
+        <small>{book.authors.length > 0 ? book.authors.join(", ") : t("book:metadata.unknownAuthor")}</small>
         {metaParts.length > 0 && <span className="audiobook-catalog-meta">{metaParts.join(" · ")}</span>}
       </div>
     </article>
@@ -371,11 +383,12 @@ export function CatalogTail({
   loadMore: () => void;
   sentinelRef: RefObject<HTMLDivElement | null>;
 }) {
+  const { t } = useTranslation(["common", "book"]);
   if (!hasMore) return null;
   return (
     <div className="audiobook-load-more" ref={sentinelRef}>
       <button className="secondary-button" type="button" onClick={loadMore} disabled={loadingMore}>
-        {loadingMore ? "Loading…" : "Load more"}
+        {loadingMore ? t("book:detail.loading") : t("book:catalog.loadMore")}
       </button>
     </div>
   );
@@ -402,6 +415,7 @@ export function BulkEditModal({
   onClose: () => void;
   onSubmit: (fields: Record<string, unknown>) => Promise<void>;
 }) {
+  const { t } = useTranslation(["common", "book"]);
   const [authors, setAuthors] = useState<string[]>([]);
   const [narrators, setNarrators] = useState<string[]>([]);
   const [categoryKey, setCategoryKey] = useState("");
@@ -423,7 +437,7 @@ export function BulkEditModal({
     if (description.trim()) payload.description = description.trim();
 
     if (Object.keys(payload).length === 0) {
-      setError("Fill at least one field to overwrite.");
+      setError(t("book:catalog.bulkNeedField"));
       return;
     }
 
@@ -432,21 +446,21 @@ export function BulkEditModal({
     try {
       await onSubmit(payload);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to update books");
+      setError(err instanceof Error ? err.message : t("book:catalog.unableUpdateBooks"));
       setSaving(false);
     }
   };
 
   return (
     <Modal
-      title={`Edit ${count} ${count === 1 ? "book" : "books"}`}
+      title={t("book:catalog.bulkEditTitle", { count })}
       className="bulk-edit-modal"
       busy={saving}
       onClose={onClose}
       onSubmit={submit}
     >
-        <p className="muted">Overwrites scanned metadata for every selected book. Leave a field blank to keep each book's current value.</p>
-        <div className="modal-tabs" role="tablist" aria-label="Bulk edit sections">
+        <p className="muted">{t("book:catalog.bulkEditIntro")}</p>
+        <div className="modal-tabs" role="tablist" aria-label={t("book:catalog.bulkEditSectionsAria")}>
           <button
             type="button"
             role="tab"
@@ -454,7 +468,7 @@ export function BulkEditModal({
             className={`modal-tab${tab === "details" ? " active" : ""}`}
             onClick={() => setTab("details")}
           >
-            Details
+            {t("book:catalog.tabDetails")}
           </button>
           <button
             type="button"
@@ -463,34 +477,34 @@ export function BulkEditModal({
             className={`modal-tab${tab === "tags" ? " active" : ""}`}
             onClick={() => setTab("tags")}
           >
-            Tags
+            {t("book:catalog.tabTags")}
           </button>
         </div>
         <div className="modal-tab-content">
           {tab === "details" && (
             <div className="override-grid">
               <div className="field">
-                <span>Author</span>
-                <PeopleCombobox value={authors} onChange={setAuthors} suggestions={peopleSuggestions} placeholder="Add author…" />
+                <span>{t("book:catalog.fieldAuthor")}</span>
+                <PeopleCombobox value={authors} onChange={setAuthors} suggestions={peopleSuggestions} placeholder={t("book:metadata.addAuthor")} />
               </div>
               {showNarrator && (
                 <div className="field">
-                  <span>Narrator</span>
-                  <PeopleCombobox value={narrators} onChange={setNarrators} suggestions={peopleSuggestions} placeholder="Add narrator…" />
+                  <span>{t("book:catalog.fieldNarrator")}</span>
+                  <PeopleCombobox value={narrators} onChange={setNarrators} suggestions={peopleSuggestions} placeholder={t("book:metadata.addNarrator")} />
                 </div>
               )}
               <label className="field">
-                <span>Category</span>
+                <span>{t("book:metadata.fieldCategory")}</span>
                 <select value={categoryKey} onChange={(event) => setCategoryKey(event.target.value)}>
-                  <option value="">Keep current</option>
+                  <option value="">{t("book:catalog.keepCurrent")}</option>
                   {categories.map((category) => (
                     <option key={category.key} value={category.key}>{category.name}</option>
                   ))}
                 </select>
               </label>
-              <Field label="Language (e.g. en)" value={language} onChange={setLanguage} required={false} />
+              <Field label={t("book:catalog.fieldLanguageExample")} value={language} onChange={setLanguage} required={false} />
               <label className="field override-desc">
-                <span>Description</span>
+                <span>{t("book:metadata.fieldDescription")}</span>
                 <textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={3} />
               </label>
             </div>
@@ -498,20 +512,20 @@ export function BulkEditModal({
           {tab === "tags" && (
             <div className="bulk-tags-tab">
               <div className="field">
-                <span>Tags</span>
-                <PeopleCombobox value={tags} onChange={setTags} suggestions={tagSuggestions} placeholder="Add tag…" />
+                <span>{t("book:metadata.fieldTags")}</span>
+                <PeopleCombobox value={tags} onChange={setTags} suggestions={tagSuggestions} placeholder={t("book:metadata.addTag")} />
               </div>
-              <p className="muted bulk-tags-note">Tags replace the existing tags on every selected book — leave empty to keep each book's current tags.</p>
+              <p className="muted bulk-tags-note">{t("book:catalog.bulkTagsNote")}</p>
             </div>
           )}
         </div>
-        {error && <MessageBox tone="error" title="Unable to save">{error}</MessageBox>}
+        {error && <MessageBox tone="error" title={t("common:errors.unableToSave")}>{error}</MessageBox>}
         <div className="modal-actions">
           <Button variant="secondary" onClick={onClose} disabled={saving}>
-            Cancel
+            {t("common:common.cancel")}
           </Button>
           <Button variant="primary" type="submit" disabled={saving}>
-            {saving ? "Saving…" : `Overwrite ${count} ${count === 1 ? "book" : "books"}`}
+            {saving ? t("book:detail.saving") : t("book:catalog.overwriteButton", { count })}
           </Button>
         </div>
     </Modal>
@@ -534,6 +548,7 @@ export function AddToSeriesModal({
   onClose: () => void;
   onSubmit: (target: { seriesId: string } | { newName: string }) => Promise<void>;
 }) {
+  const { t } = useTranslation(["common", "book"]);
   const [series, setSeries] = useState<SeriesSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<"existing" | "new">("existing");
@@ -559,7 +574,7 @@ export function AddToSeriesModal({
       ? (newName.trim() ? { newName: newName.trim() } : null)
       : (seriesId ? { seriesId } : null);
     if (!target) {
-      setError(mode === "new" ? "Enter a name for the new series." : "Choose a series.");
+      setError(mode === "new" ? t("book:catalog.enterNewSeriesNameError") : t("book:catalog.chooseSeriesError"));
       return;
     }
     setSaving(true);
@@ -567,28 +582,28 @@ export function AddToSeriesModal({
     try {
       await onSubmit(target);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to add to series");
+      setError(err instanceof Error ? err.message : t("book:catalog.unableAddToSeries"));
       setSaving(false);
     }
   };
 
   return (
     <Modal
-      title={`Add ${count} ${count === 1 ? "book" : "books"} to series`}
+      title={t("book:catalog.addToSeriesModalTitle", { count })}
       style={{ width: "min(100%, 480px)" }}
       busy={saving}
       onClose={onClose}
       onSubmit={submit}
     >
-        <p className="muted">Selected books are appended to the end of the series. You can fine-tune the order afterwards on the series page.</p>
+        <p className="muted">{t("book:catalog.addToSeriesIntro")}</p>
 
         {loading ? (
-          <p className="management-empty">Loading series…</p>
+          <p className="management-empty">{t("book:catalog.loadingSeries")}</p>
         ) : (
           <>
             {series.length > 0 && (
               <div className="field" style={{ marginBottom: 12 }}>
-                <span>Series</span>
+                <span>{t("book:detail.rows.series")}</span>
                 <select
                   value={mode === "existing" ? seriesId : "__new__"}
                   onChange={(event) => {
@@ -600,37 +615,37 @@ export function AddToSeriesModal({
                     }
                   }}
                 >
-                  <option value="">Choose a series…</option>
+                  <option value="">{t("book:catalog.chooseSeriesPlaceholder")}</option>
                   {series.map((item) => (
                     <option key={item.id} value={item.id}>{item.name} ({item.bookCount})</option>
                   ))}
-                  <option value="__new__">+ Create new series…</option>
+                  <option value="__new__">{t("book:catalog.createNewSeriesOption")}</option>
                 </select>
               </div>
             )}
 
             {mode === "new" && (
               <div className="field" style={{ marginBottom: 12 }}>
-                <span>New series name</span>
+                <span>{t("book:catalog.newSeriesNameLabel")}</span>
                 <input
                   autoFocus
                   value={newName}
                   onChange={(event) => setNewName(event.target.value)}
-                  placeholder="e.g. The Stormlight Archive"
+                  placeholder={t("book:series.namePlaceholder")}
                 />
               </div>
             )}
           </>
         )}
 
-        {error && <MessageBox tone="error" title="Unable to add">{error}</MessageBox>}
+        {error && <MessageBox tone="error" title={t("book:catalog.unableToAddTitle")}>{error}</MessageBox>}
 
         <div className="modal-actions">
           <Button variant="secondary" onClick={onClose} disabled={saving}>
-            Cancel
+            {t("common:common.cancel")}
           </Button>
           <Button variant="primary" type="submit" disabled={saving || loading}>
-            {saving ? "Adding…" : "Add to series"}
+            {saving ? t("book:catalog.adding") : t("book:catalog.addToSeriesButton")}
           </Button>
         </div>
     </Modal>
@@ -661,6 +676,7 @@ export function GroupAsEditionsModal({
   onClose: () => void;
   onSubmit: (primaryItemId: string) => Promise<void>;
 }) {
+  const { t } = useTranslation(["common", "book"]);
   // Default the primary to the richest-looking edition: prefer one with a cover and
   // a known author, else the first with a cover, else the first selected.
   const [primaryId, setPrimaryId] = useState(() =>
@@ -675,7 +691,7 @@ export function GroupAsEditionsModal({
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!primaryId) {
-      setError("Choose which edition is the primary.");
+      setError(t("book:catalog.choosePrimaryError"));
       return;
     }
     setSaving(true);
@@ -683,7 +699,7 @@ export function GroupAsEditionsModal({
     try {
       await onSubmit(primaryId);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to group editions");
+      setError(err instanceof Error ? err.message : t("book:catalog.unableGroupEditions"));
       setSaving(false);
     }
   };
@@ -693,17 +709,17 @@ export function GroupAsEditionsModal({
 
   return (
     <Modal
-      title={`Group ${books.length} ${kind === "ebook" ? "ebooks" : "books"} as editions`}
+      title={t(kind === "ebook" ? "book:catalog.groupTitleEbooks" : "book:catalog.groupTitleBooks", { count: books.length })}
       style={{ width: "min(100%, 480px)" }}
       busy={saving}
       onClose={onClose}
       onSubmit={submit}
     >
-      <p className="muted">They become one book. The primary edition supplies the browse cover, title and author; the others stay reachable as alternate editions on the detail page.</p>
+      <p className="muted">{t("book:catalog.groupIntro")}</p>
       <div className="editions-pick-list">
         {books.map((book) => {
           const meta = metaFor(book);
-          const byline = book.authors.length > 0 ? book.authors.join(", ") : "Unknown author";
+          const byline = book.authors.length > 0 ? book.authors.join(", ") : t("book:metadata.unknownAuthor");
           return (
             <label key={book.id} className={`editions-pick-row${primaryId === book.id ? " selected" : ""}`}>
               <input
@@ -717,18 +733,18 @@ export function GroupAsEditionsModal({
                 <strong>{book.title}</strong>
                 <small>{meta ? `${byline} · ${meta}` : byline}</small>
               </span>
-              {primaryId === book.id && <span className="editions-pick-flag">Primary</span>}
+              {primaryId === book.id && <span className="editions-pick-flag">{t("book:editions.primary")}</span>}
             </label>
           );
         })}
       </div>
-      {error && <MessageBox tone="error" title="Unable to group">{error}</MessageBox>}
+      {error && <MessageBox tone="error" title={t("book:catalog.unableToGroupTitle")}>{error}</MessageBox>}
       <div className="modal-actions">
         <Button variant="secondary" onClick={onClose} disabled={saving}>
-          Cancel
+          {t("common:common.cancel")}
         </Button>
         <Button variant="primary" type="submit" disabled={saving}>
-          {saving ? "Grouping…" : `Group ${books.length} editions`}
+          {saving ? t("book:catalog.grouping") : t("book:catalog.groupEditionsButton", { count: books.length })}
         </Button>
       </div>
     </Modal>
@@ -750,6 +766,7 @@ function UploadBookModal({
   onClose: () => void;
   onUploaded: (book: AudiobookBookDetail | null, libraryName: string) => void;
 }) {
+  const { t } = useTranslation(["common", "book"]);
   const [libraryId, setLibraryId] = useState(() => (
     libraries.some((library) => library.id === initialLibraryId) ? initialLibraryId : libraries[0]?.id ?? ""
   ));
@@ -759,19 +776,19 @@ function UploadBookModal({
 
   return (
     <Modal
-      title="Upload audiobook"
+      title={t("book:catalog.uploadAudiobookTitle")}
       className="book-upload-modal"
       busy={busy}
       onClose={onClose}
       headerAction={
-        <button type="button" className="modal-close" onClick={onClose} disabled={busy} aria-label="Close">
+        <button type="button" className="modal-close" onClick={onClose} disabled={busy} aria-label={t("common:common.close")}>
           <X size={18} aria-hidden="true" />
         </button>
       }
     >
       {libraries.length > 1 && (
         <label className="field" style={{ marginBottom: 12 }}>
-          <span>Library</span>
+          <span>{t("book:detail.rows.library")}</span>
           <select value={libraryId} onChange={(event) => setLibraryId(event.target.value)} disabled={busy}>
             {libraries.map((item) => (
               <option key={item.id} value={item.id}>{item.name}</option>
@@ -781,11 +798,11 @@ function UploadBookModal({
       )}
 
       <label className="field" style={{ marginBottom: 12 }}>
-        <span>Title <span className="muted">(leave blank to use the file or folder name)</span></span>
+        <span><Trans i18nKey="catalog.uploadTitleLabel" ns="book" components={{ muted: <span className="muted" /> }} /></span>
         <input
           value={title}
           onChange={(event) => setTitle(event.target.value)}
-          placeholder="e.g. The Martian"
+          placeholder={t("book:catalog.uploadTitlePlaceholder")}
           disabled={busy}
         />
       </label>
@@ -801,7 +818,9 @@ function UploadBookModal({
           multiple
           folders
           maxFiles={500} // mirrors MAX_BOOK_UPLOAD_FILES on the server
-          hint={`Accepted: ${library.uploadExtensions.map((ext) => `.${ext}`).join(", ")}${library.maxUploadMB != null ? ` · up to ${library.maxUploadMB} MB per file` : ""}`}
+          hint={library.maxUploadMB != null
+            ? t("book:catalog.acceptedHintWithSize", { types: library.uploadExtensions.map((ext) => `.${ext}`).join(", "), mb: library.maxUploadMB })
+            : t("book:catalog.acceptedHint", { types: library.uploadExtensions.map((ext) => `.${ext}`).join(", ") })}
           onUploaded={(response) => {
             const payload = response as { book?: AudiobookBookDetail };
             onUploaded(payload.book ?? null, library.name);
@@ -821,6 +840,7 @@ export function AudiobooksPage({
   user: PublicUser;
   logout: () => Promise<void>;
 }) {
+  const { t } = useTranslation(["common", "book"]);
   const [libraries, setLibraries] = useState<AudiobookLibrary[]>([]);
   // Derived, not chosen: exactly one library in the filter behaves as a scope,
   // anything else is "all". Keeps one source of truth for what's in view.
@@ -937,7 +957,7 @@ export function AudiobooksPage({
       "/api/library/works",
       { method: "POST", body: JSON.stringify({ itemIds: [...selectedIds], primaryItemId }) }
     );
-    setBulkNotice(`Grouped ${result.count} ${result.count === 1 ? "edition" : "editions"} into one book`);
+    setBulkNotice(t("book:catalog.groupedEditionsNotice", { count: result.count }));
     cat.refresh();
     exitSelection();
   };
@@ -961,8 +981,8 @@ export function AudiobooksPage({
       `/api/library/series/${seriesId}/books`,
       { method: "POST", body: JSON.stringify({ bookIds: [...selectedIds] }) }
     );
-    const parts = [`Added ${result.added} ${result.added === 1 ? "book" : "books"} to series`];
-    if (result.skipped > 0) parts.push(`${result.skipped} already in series or skipped`);
+    const parts = [t("book:catalog.addedToSeriesNotice", { count: result.added })];
+    if (result.skipped > 0) parts.push(t("book:catalog.skippedAlreadyInSeries", { count: result.skipped }));
     setBulkNotice(parts.join(" · "));
     cat.refresh();
     exitSelection();
@@ -982,9 +1002,9 @@ export function AudiobooksPage({
       "/api/library/books/bulk-metadata",
       { method: "POST", body: JSON.stringify({ bookIds: ids, ...fields }) }
     );
-    const parts = [`Updated ${result.updated} ${result.updated === 1 ? "book" : "books"}`];
-    if (result.forbidden > 0) parts.push(`${result.forbidden} skipped (no write access)`);
-    if (result.missing > 0) parts.push(`${result.missing} not found`);
+    const parts = [t("book:catalog.updatedBooksNotice", { count: result.updated })];
+    if (result.forbidden > 0) parts.push(t("book:catalog.skippedNoWriteAccess", { count: result.forbidden }));
+    if (result.missing > 0) parts.push(t("book:catalog.skippedNotFound", { count: result.missing }));
     setBulkNotice(parts.join(" · "));
     cat.refresh();
   };
@@ -996,7 +1016,9 @@ export function AudiobooksPage({
 
   const handleUploaded = (book: AudiobookBookDetail | null, libraryName: string) => {
     setUploadOpen(false);
-    setBulkNotice(book ? `Uploaded "${book.title}" to ${libraryName}` : `Upload to ${libraryName} complete`);
+    setBulkNotice(book
+      ? t("book:catalog.uploadedBookNotice", { title: book.title, library: libraryName })
+      : t("book:catalog.uploadCompleteNotice", { library: libraryName }));
     cat.refresh();
   };
 
@@ -1006,11 +1028,11 @@ export function AudiobooksPage({
     setDeleteError("");
     try {
       await api(`/api/library/books/${deleteTarget.id}`, { method: "DELETE" });
-      setBulkNotice(`Moved "${deleteTarget.title}" to the Recycle Bin`);
+      setBulkNotice(t("book:catalog.movedOneToRecycleNotice", { title: deleteTarget.title }));
       setDeleteTarget(null);
       cat.refresh();
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : "Unable to move the audiobook to the Recycle Bin");
+      setDeleteError(err instanceof Error ? err.message : t("book:catalog.unableMoveAudiobookToRecycle"));
     } finally {
       setDeleteBusy(false);
     }
@@ -1024,15 +1046,17 @@ export function AudiobooksPage({
         "/api/library/books/bulk-delete",
         { method: "POST", body: JSON.stringify({ bookIds: [...selectedIds] }) }
       );
-      const parts = [`Moved ${result.deleted} ${result.deleted === 1 ? "book" : "books"} to the Recycle Bin`];
-      if (result.forbidden > 0) parts.push(`${result.forbidden} skipped (no delete access)`);
-      if (result.missing > 0) parts.push(`${result.missing} not found`);
-      if (result.failed > 0) parts.push(`${result.failed} failed${result.error ? ` (${result.error})` : ""}`);
+      const parts = [t("book:catalog.movedToRecycleNotice", { count: result.deleted })];
+      if (result.forbidden > 0) parts.push(t("book:catalog.skippedNoDeleteAccess", { count: result.forbidden }));
+      if (result.missing > 0) parts.push(t("book:catalog.skippedNotFound", { count: result.missing }));
+      if (result.failed > 0) parts.push(result.error
+        ? t("book:catalog.failedWithReason", { count: result.failed, error: result.error })
+        : t("book:catalog.failed", { count: result.failed }));
       setBulkNotice(parts.join(" · "));
       exitSelection();
       cat.refresh();
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : "Unable to move the selected books to the Recycle Bin");
+      setDeleteError(err instanceof Error ? err.message : t("book:catalog.unableMoveSelectedAudiobooksToRecycle"));
     } finally {
       setDeleteBusy(false);
     }
@@ -1046,7 +1070,7 @@ export function AudiobooksPage({
       const payload = await api<{ book: AudiobookBookDetail }>(`/api/library/books/${book.id}`);
       setEditDetail(payload.book);
     } catch (err) {
-      setEditLoadError(err instanceof Error ? err.message : "Unable to load book details");
+      setEditLoadError(err instanceof Error ? err.message : t("book:catalog.unableLoadBookDetails"));
     }
   };
 
@@ -1064,7 +1088,7 @@ export function AudiobooksPage({
   useEffect(() => {
     api<{ libraries: AudiobookLibrary[] }>("/api/library/audiobook-libraries")
       .then((payload) => setLibraries(payload.libraries))
-      .catch((err) => setLibrariesError(err instanceof Error ? err.message : "Unable to load libraries"));
+      .catch((err) => setLibrariesError(err instanceof Error ? err.message : t("book:catalog.unableLoadLibraries")));
   }, []);
 
   // While a library is scanning, refresh both the library status and the catalog
@@ -1117,13 +1141,13 @@ export function AudiobooksPage({
   // How many books the chosen shelves hold at all — the difference between "your
   // libraries are empty" and "nothing matched what you asked for".
   const selectedScopeBookCount = scopedLibraries.reduce((sum, library) => sum + library.bookCount, 0);
-  const selectedLibraryLabel = scopedLibraries.length === 1 ? scopedLibraries[0].name : "your libraries";
+  const selectedLibraryLabel = scopedLibraries.length === 1 ? scopedLibraries[0].name : t("book:catalog.yourLibraries");
   const hasActiveCatalogQuery = cat.search.trim().length > 0 || activeFilterCount(cat.filters) > 0 || cat.letter != null;
   const emptyCatalogMessage = selectedScopeBookCount === 0
-    ? `No audiobooks in ${selectedLibraryLabel} yet.`
+    ? t("book:catalog.emptyNoneInLibraryAudiobooks", { library: selectedLibraryLabel })
     : hasActiveCatalogQuery
-      ? "No audiobooks match this search or filter."
-      : "No audiobooks to show.";
+      ? t("book:catalog.emptyNoMatchAudiobooks")
+      : t("book:catalog.emptyNoneAudiobooks");
   const error = librariesError || cat.error || editLoadError;
 
   return (
@@ -1131,30 +1155,30 @@ export function AudiobooksPage({
       active="audiobooks"
       user={user}
       logout={logout}
-      sideNav={<SectionNav ariaLabel="Audiobooks" groupLabel="Audiobooks" items={AUDIOBOOK_NAV_ITEMS} activeKey="books" />}
+      sideNav={<SectionNav ariaLabel={t("common:nav.audiobooks")} groupLabel={t("common:nav.audiobooks")} items={audiobookNavItems()} activeKey="books" />}
     >
       <section className="audiobook-main-page">
         <LibraryPageHeader
-          title="Audiobooks"
-          subtitle={`${formatCount(cat.total)} audiobooks • ${formatCount(cat.facets.authors.length)} authors • ${formatCount(cat.facets.narrators.length)} narrators`}
+          title={t("book:catalog.audiobooksTitle")}
+          subtitle={`${t("book:catalog.counts.audiobook", { count: cat.total })} • ${t("book:catalog.counts.author", { count: cat.facets.authors.length })} • ${t("book:catalog.counts.narrator", { count: cat.facets.narrators.length })}`}
           search={cat.search}
           onSearchChange={cat.setSearch}
-          searchPlaceholder="Search audiobooks..."
+          searchPlaceholder={t("book:catalog.searchAudiobooksPlaceholder")}
           // Every control lives in the toolbar below, Upload included: the header
           // is the page's name and its search box, nothing else.
         />
 
-        {error && <MessageBox tone="error" title="Audiobooks error">{error}</MessageBox>}
-        {bulkNotice && <MessageBox tone="success" title="Library updated">{bulkNotice}</MessageBox>}
+        {error && <MessageBox tone="error" title={t("book:catalog.audiobooksErrorTitle")}>{error}</MessageBox>}
+        {bulkNotice && <MessageBox tone="success" title={t("book:catalog.libraryUpdatedTitle")}>{bulkNotice}</MessageBox>}
 
         {libraries.length === 0 ? (
           <div className="empty-state library-empty">
             <BookOpen size={58} aria-hidden="true" />
-            <h2>No audiobook libraries yet</h2>
+            <h2>{t("book:catalog.noAudiobookLibraries")}</h2>
             {user.role === "admin" ? (
               <>
                 <p className="muted">
-                  Create a library and point it at the folder holding your audiobooks — the scanner takes it from there.
+                  {t("book:catalog.createLibraryHintAudiobooks")}
                 </p>
                 <a
                   className="primary-button"
@@ -1162,11 +1186,11 @@ export function AudiobooksPage({
                   onClick={(event) => followRoute(event, "/control/libraries")}
                 >
                   <LibraryBig size={16} aria-hidden="true" />
-                  Create a library
+                  {t("book:catalog.createLibrary")}
                 </a>
               </>
             ) : (
-              <p className="muted">An administrator can add libraries from the control panel.</p>
+              <p className="muted">{t("book:catalog.adminAddLibraries")}</p>
             )}
           </div>
         ) : (
@@ -1186,10 +1210,10 @@ export function AudiobooksPage({
                         onClick={toggleBrowse}
                         aria-haspopup="menu"
                         aria-expanded={browseOpen}
-                        aria-label="Browse authors, narrators and series"
+                        aria-label={t("book:catalog.browseAudiobooksAria")}
                       >
                         <Compass size={19} aria-hidden="true" />
-                        <span>Browse</span>
+                        <span>{t("book:catalog.browse")}</span>
                         <ChevronDown size={16} aria-hidden="true" />
                       </button>
                       {browseOpen && browsePos && createPortal(
@@ -1197,24 +1221,24 @@ export function AudiobooksPage({
                           ref={browseMenuRef}
                           className="book-detail-action-menu audiobook-library-menu"
                           role="menu"
-                          aria-label="Browse"
+                          aria-label={t("book:catalog.browse")}
                           style={{ position: "fixed", top: browsePos.top, left: browsePos.left ?? undefined, right: browsePos.right ?? undefined }}
                         >
                           <button type="button" role="menuitem" onClick={() => { setBrowseOpen(false); navigate("/authors"); }}>
                             <UserRound size={16} aria-hidden="true" />
-                            <span>Authors</span>
+                            <span>{t("book:catalog.browseAuthors")}</span>
                           </button>
                           <button type="button" role="menuitem" onClick={() => { setBrowseOpen(false); navigate("/audiobooks/narrators"); }}>
                             <Mic2 size={16} aria-hidden="true" />
-                            <span>Narrators</span>
+                            <span>{t("book:catalog.browseNarrators")}</span>
                           </button>
                           <button type="button" role="menuitem" onClick={() => { setBrowseOpen(false); navigate("/audiobooks/series"); }}>
                             <Library size={16} aria-hidden="true" />
-                            <span>Series</span>
+                            <span>{t("book:catalog.browseSeries")}</span>
                           </button>
                           <button type="button" role="menuitem" onClick={() => { setBrowseOpen(false); navigate("/categories"); }}>
                             <Shapes size={16} aria-hidden="true" />
-                            <span>Categories</span>
+                            <span>{t("book:catalog.browseCategories")}</span>
                           </button>
                         </div>,
                         document.body
@@ -1235,34 +1259,34 @@ export function AudiobooksPage({
                     onChange={cat.setFilters}
                     libraries={libraries}
                   />
-                  <SortMenu value={sort} options={SORT_OPTIONS} onChange={setSort} ariaLabel="Sort audiobooks" presentation="labelled" />
+                  <SortMenu value={sort} options={getSortOptions()} onChange={setSort} ariaLabel={t("book:catalog.sortAudiobooksAria")} presentation="labelled" />
                   {/* Desktop only: View sets the grid's tile size, and the phone
                       doesn't render the grid — it renders rows. A control that
                       can't change anything doesn't belong on that screen. */}
                   {!isMobile && (
                     <SortMenu
                       value={density}
-                      options={DENSITY_OPTIONS}
+                      options={getDensityOptions()}
                       onChange={setDensity}
-                      ariaLabel="View"
+                      ariaLabel={t("book:catalog.view")}
                       presentation="labelled"
                       icon={<LayoutGrid size={18} aria-hidden="true" />}
                       // The layout is on screen already; the name reads better than
                       // printing back what you can see.
-                      label="View"
+                      label={t("book:catalog.view")}
                     />
                   )}
                   <span className="library-toolbar-divider" aria-hidden="true" />
                   {!isMobile && canEditScope && (
                     <button type="button" className="library-toolbar-button" onClick={() => { setSelectionMode(true); setBulkNotice(""); }}>
                       <CheckSquare size={18} aria-hidden="true" />
-                      <span className="toolbar-label">Select</span>
+                      <span className="toolbar-label">{t("book:catalog.select")}</span>
                     </button>
                   )}
                   {uploadLibraries.length > 0 && (
                     <button type="button" className="library-toolbar-button primary" onClick={() => { setUploadOpen(true); setBulkNotice(""); }}>
                       <UploadCloud size={18} aria-hidden="true" />
-                      <span className="toolbar-label">Upload</span>
+                      <span className="toolbar-label">{t("book:catalog.upload")}</span>
                     </button>
                   )}
                 </>
@@ -1278,30 +1302,30 @@ export function AudiobooksPage({
                       className="library-toolbar-button"
                       onClick={() => setSelectedIds(new Set(cat.books.map((book) => book.id)))}
                       disabled={cat.books.length === 0}
-                      title="Select every book loaded so far"
+                      title={t("book:catalog.selectAllLoadedAudiobooks")}
                     >
                       <CheckCheck size={18} aria-hidden="true" />
-                      <span className="toolbar-label">All</span>
+                      <span className="toolbar-label">{t("book:catalog.all")}</span>
                     </button>
                     <button
                       type="button"
                       className="library-toolbar-button"
                       onClick={() => setBulkOpen(true)}
                       disabled={selectedIds.size === 0}
-                      title="Edit metadata"
+                      title={t("book:detail.editMetadata")}
                     >
                       <Pencil size={18} aria-hidden="true" />
-                      <span className="toolbar-label">Edit</span>
+                      <span className="toolbar-label">{t("book:catalog.edit")}</span>
                     </button>
                     <button
                       type="button"
                       className="library-toolbar-button"
                       onClick={() => setEditionsModalOpen(true)}
                       disabled={selectedIds.size < 2}
-                      title="Group the selected books as editions of one title"
+                      title={t("book:catalog.groupSelectedAudiobooksTitle")}
                     >
                       <Layers size={18} aria-hidden="true" />
-                      <span className="toolbar-label">Group</span>
+                      <span className="toolbar-label">{t("book:catalog.group")}</span>
                     </button>
                     {canAddToSeries && (
                       <button
@@ -1309,10 +1333,10 @@ export function AudiobooksPage({
                         className="library-toolbar-button"
                         onClick={() => setSeriesModalOpen(true)}
                         disabled={selectedIds.size === 0}
-                        title="Add to series"
+                        title={t("book:catalog.addToSeriesTitle")}
                       >
                         <Library size={18} aria-hidden="true" />
-                        <span className="toolbar-label">Series</span>
+                        <span className="toolbar-label">{t("book:catalog.seriesShort")}</span>
                       </button>
                     )}
                     {canDeleteScope && (
@@ -1321,16 +1345,16 @@ export function AudiobooksPage({
                         className="library-toolbar-button danger"
                         onClick={() => { setDeleteError(""); setBulkDeleteOpen(true); }}
                         disabled={selectedIds.size === 0}
-                        title="Move the selected books to the Recycle Bin"
+                        title={t("book:catalog.deleteSelectedAudiobooksTitle")}
                       >
                         <Trash2 size={18} aria-hidden="true" />
-                        <span className="toolbar-label">Delete</span>
+                        <span className="toolbar-label">{t("book:catalog.delete")}</span>
                       </button>
                     )}
                     <span className="library-toolbar-divider" aria-hidden="true" />
-                    <button type="button" className="library-toolbar-button" onClick={exitSelection} title="Leave selection">
+                    <button type="button" className="library-toolbar-button" onClick={exitSelection} title={t("book:catalog.leaveSelection")}>
                       <X size={18} aria-hidden="true" />
-                      <span className="toolbar-label">Done</span>
+                      <span className="toolbar-label">{t("common:common.done")}</span>
                     </button>
                   </>
                 )
@@ -1339,15 +1363,15 @@ export function AudiobooksPage({
               // can hit accurately, competing with the list they're meant to
               // reach — scrolling and search do that job better there.
               strip={!isMobile && (
-                <AlphabetBar available={cat.facets.letters} value={cat.letter} onChange={cat.setLetter} ariaLabel="Filter audiobooks by letter" />
+                <AlphabetBar available={cat.facets.letters} value={cat.letter} onChange={cat.setLetter} ariaLabel={t("book:catalog.filterAudiobooksByLetterAria")} />
               )}
             />
 
             <FilterChips value={cat.filters} onChange={cat.setFilters} libraries={libraries} />
 
             {libraries.some((library) => library.scanStatus === "scanning") && (
-              <MessageBox tone="info" title="Scanning audiobooks">
-                New metadata and covers will appear as the scan finishes.
+              <MessageBox tone="info" title={t("book:catalog.scanningAudiobooksTitle")}>
+                {t("book:catalog.scanningBody")}
               </MessageBox>
             )}
 
@@ -1441,32 +1465,29 @@ export function AudiobooksPage({
 
         {deleteTarget && (
           <ConfirmDialog
-            title={`Move "${deleteTarget.title}" to the Recycle Bin?`}
-            confirmLabel="Move to Recycle Bin"
-            busyLabel="Moving…"
+            title={t("book:catalog.deleteToRecycleBinTitle", { title: deleteTarget.title })}
+            confirmLabel={t("book:detail.moveToRecycleBin")}
+            busyLabel={t("book:detail.moving")}
             busy={deleteBusy}
             error={deleteError}
             onConfirm={() => void confirmDeleteOne()}
             onCancel={() => { if (!deleteBusy) setDeleteTarget(null); }}
           >
-            Its {deleteTarget.fileCount === 1 ? "audio file" : `${formatCount(deleteTarget.fileCount)} audio files`} move
-            into the Recycle Bin and the book leaves the library for everyone (any shares stop working). You can restore
-            it from the Recycle Bin, or delete it permanently from there.
+            {t("book:catalog.deleteOneAudiobookBody", { files: t("book:catalog.counts.audioFile", { count: deleteTarget.fileCount }) })}
           </ConfirmDialog>
         )}
 
         {bulkDeleteOpen && (
           <ConfirmDialog
-            title={`Move ${formatCount(selectedIds.size)} ${selectedIds.size === 1 ? "book" : "books"} to the Recycle Bin?`}
-            confirmLabel={`Move ${formatCount(selectedIds.size)} ${selectedIds.size === 1 ? "book" : "books"}`}
-            busyLabel="Moving…"
+            title={t("book:catalog.bulkDeleteTitleAudiobooks", { count: selectedIds.size })}
+            confirmLabel={t("book:catalog.bulkDeleteButtonAudiobooks", { count: selectedIds.size })}
+            busyLabel={t("book:detail.moving")}
             busy={deleteBusy}
             error={deleteError}
             onConfirm={() => void confirmBulkDelete()}
             onCancel={() => { if (!deleteBusy) setBulkDeleteOpen(false); }}
           >
-            The selected books move into the Recycle Bin and leave the library for everyone. Books you lack delete
-            access to are skipped. You can restore them from the Recycle Bin anytime.
+            {t("book:catalog.bulkDeleteBodyAudiobooks")}
           </ConfirmDialog>
         )}
 
@@ -1491,7 +1512,7 @@ export function AudiobooksPage({
           <div className="home-dl-banner" role="status" aria-live="polite">
             <Loader2 size={16} className="home-feed-spin" aria-hidden="true" />
             <div className="home-dl-banner-body">
-              <span className="home-dl-banner-label">Downloading {activeDownload.title}</span>
+              <span className="home-dl-banner-label">{t("common:home.downloadingTitle", { title: activeDownload.title })}</span>
               <span className="home-dl-banner-track">
                 <span style={{ width: `${Math.round(activeDownload.progress * 100)}%` }} />
               </span>

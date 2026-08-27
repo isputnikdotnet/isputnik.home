@@ -9,6 +9,7 @@
 // Skipping is a real answer — it marks the guide done and stops it asking on every
 // sign-in — and Settings → About links back here for whenever the answer changes.
 import { useEffect, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import {
   ArrowLeft, ArrowRight, Check, DatabaseBackup, Folder, HardDrive, Lock, Mail, Palette,
   ShieldCheck, Trash2
@@ -63,14 +64,16 @@ type StepKey = "storage" | "bin" | "backup" | "email" | "alerts" | "theme";
 // gone, and both are worth answering before there is anything to lose. It depends on
 // nothing — the archive is written inside the app's own data folder, not into a
 // container you have to approve first.
-const STEPS: { key: StepKey; title: string; note: string; icon: typeof HardDrive }[] = [
-  { key: "storage", title: "Storage", note: "Where files live", icon: HardDrive },
-  { key: "bin", title: "Recycle Bin", note: "Where deleted files wait", icon: Trash2 },
-  { key: "backup", title: "Backups", note: "A copy to go back to", icon: DatabaseBackup },
-  { key: "email", title: "Email", note: "For alerts and codes", icon: Mail },
-  { key: "alerts", title: "Security alerts", note: "Tell me about sign-ins", icon: ShieldCheck },
-  { key: "theme", title: "Appearance", note: "How it looks", icon: Palette }
-];
+const STEP_ORDER: StepKey[] = ["storage", "bin", "backup", "email", "alerts", "theme"];
+
+const STEP_ICONS: Record<StepKey, typeof HardDrive> = {
+  storage: HardDrive,
+  bin: Trash2,
+  backup: DatabaseBackup,
+  email: Mail,
+  alerts: ShieldCheck,
+  theme: Palette
+};
 
 const APP_VERSION = packageInfo.version;
 
@@ -82,6 +85,14 @@ export function WelcomePage({ user, onDone }: {
    *  back — a loop that looked exactly like a button doing nothing. */
   onDone: () => void;
 }) {
+  const { t } = useTranslation();
+  const STEPS = STEP_ORDER.map((key) => ({
+    key,
+    title: t(`welcome.steps.${key}.title`),
+    note: t(`welcome.steps.${key}.note`),
+    icon: STEP_ICONS[key]
+  }));
+
   const [step, setStep] = useState<StepKey>("storage");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -167,8 +178,8 @@ export function WelcomePage({ user, onDone }: {
       body: JSON.stringify({ thumbnailPath })
     });
     setSettings(payload.settings);
-    setStorageSaved("Thumbnail storage saved.");
-  }, "Unable to save the thumbnail path");
+    setStorageSaved(t("welcome.thumbnailSaved"));
+  }, t("welcome.thumbnailSaveFailed"));
 
   const addContainer = () => run(async () => {
     await api("/api/storage/roots", {
@@ -178,8 +189,8 @@ export function WelcomePage({ user, onDone }: {
     const payload = await api<{ roots: StorageRoot[] }>("/api/storage/roots");
     setRoots(payload.roots);
     setRootPath("");
-    setStorageSaved("Container added.");
-  }, "Unable to add the container");
+    setStorageSaved(t("welcome.containerAdded"));
+  }, t("welcome.containerAddFailed"));
 
   const saveBin = (next: string | null) => run(async () => {
     const payload = await api<{ path: string | null }>("/api/storage/trash-root", {
@@ -188,7 +199,7 @@ export function WelcomePage({ user, onDone }: {
     });
     setBinPath(payload.path);
     setBinSaved(true);
-  }, "Unable to save the Recycle Bin location");
+  }, t("welcome.binSaveFailed"));
 
   /** The endpoint takes the whole settings object, so a patch here has to carry the
    *  fields this screen does not show — `includeCovers` above all, which defaults on
@@ -199,9 +210,9 @@ export function WelcomePage({ user, onDone }: {
     await api("/api/backups/settings", { method: "PATCH", body: JSON.stringify(next) });
     setBackup(next);
     setBackupSaved(next.enabled
-      ? `Backing up daily at ${next.time}, keeping the last ${next.retention}.`
-      : "Scheduled backups are off.");
-  }, "Unable to save the backup schedule");
+      ? t("welcome.backupSavedDaily", { time: next.time, count: next.retention })
+      : t("welcome.backupSavedOff"));
+  }, t("welcome.backupSaveFailed"));
 
   const saveMail = () => run(async () => {
     if (!mail) return;
@@ -216,12 +227,12 @@ export function WelcomePage({ user, onDone }: {
     setPassword("");
     setMailSaved(true);
     setTestSent(false);
-  }, "Unable to save the email settings");
+  }, t("welcome.mailSaveFailed"));
 
   const sendTest = () => run(async () => {
     await api("/api/config/mail/test", { method: "POST", body: "{}" });
     setTestSent(true);
-  }, "Unable to send the test email");
+  }, t("welcome.testSendFailed"));
 
   const setSignInAlerts = (on: boolean) => run(async () => {
     if (!policy) return;
@@ -233,13 +244,13 @@ export function WelcomePage({ user, onDone }: {
     });
     setPolicy(payload.policy);
     setAlertsSaved(true);
-  }, "Unable to save the alert setting");
+  }, t("welcome.alertsSaveFailed"));
 
   const saveTheme = (next: Theme) => {
     setTheme(next);
     void run(async () => {
       await api("/api/config", { method: "PATCH", body: JSON.stringify({ defaultTheme: next }) });
-    }, "Unable to save the theme");
+    }, t("welcome.themeSaveFailed"));
   };
 
   /** Finish and Skip are the same write: the guide has been offered.
@@ -267,8 +278,8 @@ export function WelcomePage({ user, onDone }: {
   const storageReady = Boolean(settings?.thumbnailPathReady) && roots.length > 0;
   const mailReady = Boolean(mail?.host && mail.fromAddress);
   const lockedReason = (key: StepKey): string | null => {
-    if (key === "bin" && !storageReady) return "Set up storage first — the bin has to live inside a container you have approved.";
-    if (key === "alerts" && !mailReady) return "Set up email first — an alert nobody receives reads as nothing having happened.";
+    if (key === "bin" && !storageReady) return t("welcome.lockedBinBody");
+    if (key === "alerts" && !mailReady) return t("welcome.lockedAlertsBody");
     return null;
   };
   const index = STEPS.findIndex((entry) => entry.key === step);
@@ -276,20 +287,18 @@ export function WelcomePage({ user, onDone }: {
   return (
     <div className="welcome-page">
       <header className="welcome-head">
-        <p className="eyebrow">Welcome, {user.displayName}</p>
+        <p className="eyebrow">{t("welcome.greeting", { name: user.displayName })}</p>
         <h1>
-          <span>Let's set up your library</span>
+          <span>{t("welcome.heading")}</span>
           <span className="welcome-version">isputnik.home v{APP_VERSION}</span>
         </h1>
         <p>
-          A few things worth settling before anything else. Every one of them is a Control panel
-          page too, so nothing here is your only chance to answer it — and you can leave at any
-          point.
+          {t("welcome.intro")}
         </p>
       </header>
 
       <div className="welcome-shell">
-        <aside className="welcome-rail" aria-label="Setup steps">
+        <aside className="welcome-rail" aria-label={t("welcome.railLabel")}>
           {STEPS.map((entry, position) => {
             const Icon = entry.icon;
             const done = position < index;
@@ -314,7 +323,7 @@ export function WelcomePage({ user, onDone }: {
                 </span>
                 <span className="welcome-step-copy">
                   <strong>{entry.title}</strong>
-                  <span>{locked ? "Needs the step above" : entry.note}</span>
+                  <span>{locked ? t("welcome.lockedNote") : entry.note}</span>
                 </span>
               </button>
             );
@@ -322,34 +331,31 @@ export function WelcomePage({ user, onDone }: {
         </aside>
 
         <section className="welcome-body">
-          {error && <MessageBox tone="error" title="That didn't work">{error}</MessageBox>}
+          {error && <MessageBox tone="error" title={t("welcome.genericError")}>{error}</MessageBox>}
 
           {step === "storage" && (
             <>
-              <h2>Where files live</h2>
+              <h2>{t("welcome.storageHeading")}</h2>
               <p>
-                Two folders, and nothing else works without them: somewhere to keep the covers and
-                previews the app generates, and at least one folder your libraries are allowed to read.
+                {t("welcome.storageIntro")}
               </p>
               <p className="welcome-note">
-                Both are paths as the <strong>server</strong> sees them. In Docker that means the path
-                inside the container — <code>/media</code>, not <code>/mnt/user/media</code>.
+                <Trans i18nKey="welcome.storagePathNote" components={{ strong: <strong />, code: <code /> }} />
               </p>
 
               <div className="welcome-field-row">
-                <Field label="Thumbnail storage" value={thumbnailPath} onChange={setThumbnailPath} />
+                <Field label={t("welcome.thumbnailLabel")} value={thumbnailPath} onChange={setThumbnailPath} />
                 <Button variant="secondary" disabled={busy || !thumbnailPath.trim()} onClick={() => void saveThumbnailPath()}>
-                  {settings?.thumbnailPathReady ? "Change" : "Save"}
+                  {settings?.thumbnailPathReady ? t("welcome.change") : t("welcome.save")}
                 </Button>
               </div>
               {settings?.thumbnailPathReady
-                ? <p className="setting-status ready">Ready</p>
+                ? <p className="setting-status ready">{t("welcome.ready")}</p>
                 : settings?.thumbnailPathError && <p className="setting-status needs-attention">{settings.thumbnailPathError}</p>}
 
-              <h3>Digital Library containers</h3>
+              <h3>{t("welcome.containersHeading")}</h3>
               <p className="welcome-note">
-                A container is a folder you are approving. Libraries can then use it or anything
-                inside it — a mistyped path can't wander off into the rest of the disk.
+                {t("welcome.containersNote")}
               </p>
               {roots.length > 0 && (
                 <ul className="welcome-list">
@@ -359,62 +365,55 @@ export function WelcomePage({ user, onDone }: {
                 </ul>
               )}
               <div className="welcome-field-row">
-                <Field label="Name" value={rootName} onChange={setRootName} />
-                <Field label="Path" value={rootPath} onChange={setRootPath} />
+                <Field label={t("welcome.containerName")} value={rootName} onChange={setRootName} />
+                <Field label={t("welcome.containerPath")} value={rootPath} onChange={setRootPath} />
                 <Button variant="secondary" disabled={busy || !rootPath.trim() || !rootName.trim()} onClick={() => void addContainer()}>
-                  Add
+                  {t("welcome.add")}
                 </Button>
               </div>
-              {storageSaved && <MessageBox tone="success" title="Saved">{storageSaved}</MessageBox>}
+              {storageSaved && <MessageBox tone="success" title={t("welcome.savedTitle")}>{storageSaved}</MessageBox>}
             </>
           )}
 
           {step === "bin" && (
             <>
-              <h2>Where deleted files wait</h2>
+              <h2>{t("welcome.binHeading")}</h2>
               <p>
-                Deleting from the app moves files to the Recycle Bin rather than erasing them.
-                By default each library keeps its own hidden <code>.trash</code> folder — instant
-                to delete into, since nothing leaves the disk it was already on.
+                <Trans i18nKey="welcome.binIntro" components={{ code: <code /> }} />
               </p>
               <p className="welcome-note">
-                One folder for everything is worth choosing if anything else reads the same
-                shares. Immich, a backup job or a sync client will happily index a library's
-                <code>.trash</code> and go on showing everything you deleted as though it were
-                still there.
+                <Trans i18nKey="welcome.binNote" components={{ code: <code /> }} />
               </p>
 
               {lockedReason("bin") ? (
-                <MessageBox tone="info" title="Storage first">{lockedReason("bin")}</MessageBox>
+                <MessageBox tone="info" title={t("welcome.storageFirstTitle")}>{lockedReason("bin")}</MessageBox>
               ) : (
                 <>
                   <div className="field source-folder-field">
-                    <span>Recycle Bin folder</span>
+                    <span>{t("welcome.binFieldLabel")}</span>
                     <div className="source-folder-control">
                       <Folder size={19} aria-hidden="true" />
-                      <span>{binPath || "Each library's own .trash folder"}</span>
+                      <span>{binPath || t("welcome.binDefault")}</span>
                       <Button
                         variant="secondary"
                         compact
                         disabled={busy || !binEditable}
-                        title={binEditable ? undefined : "The bin already holds items — empty it before moving it"}
+                        title={binEditable ? undefined : t("welcome.binBrowseLocked")}
                         onClick={() => { setError(""); setBinPickerOpen(true); }}
                       >
-                        Browse
+                        {t("welcome.binBrowse")}
                       </Button>
                       {binPath && (
                         <Button variant="text" disabled={busy || !binEditable} onClick={() => void saveBin(null)}>
-                          Clear
+                          {t("welcome.binClear")}
                         </Button>
                       )}
                     </div>
                   </div>
                   <p className="welcome-note">
-                    Best decided now: once anything is in the bin, the location can only change
-                    while it is completely empty. Keep it on the same disk as your libraries —
-                    across disks, deleting copies every byte instead of being a rename.
+                    {t("welcome.binPathNote")}
                   </p>
-                  {binSaved && <MessageBox tone="success" title="Saved">Recycle Bin location updated.</MessageBox>}
+                  {binSaved && <MessageBox tone="success" title={t("welcome.savedTitle")}>{t("welcome.binSaved")}</MessageBox>}
                 </>
               )}
             </>
@@ -422,15 +421,12 @@ export function WelcomePage({ user, onDone }: {
 
           {step === "backup" && (
             <>
-              <h2>A copy to go back to</h2>
+              <h2>{t("welcome.backupHeading")}</h2>
               <p>
-                A nightly archive of everything the app knows but your files do not: the
-                catalogue, who has access, what everyone has read and listened to, and every
-                setting on this page. Rebuilt from your media alone, none of that comes back.
+                {t("welcome.backupIntro")}
               </p>
               <p className="welcome-note">
-                Not the media itself — that is far larger and already sitting in your
-                libraries. A backup is small, which is why it can run every night.
+                {t("welcome.backupNote")}
               </p>
 
               <div className="welcome-toggle">
@@ -438,7 +434,7 @@ export function WelcomePage({ user, onDone }: {
                   checked={Boolean(backup?.enabled)}
                   disabled={busy || !backup}
                   onChange={(on) => void saveBackup({ enabled: on })}
-                  label="Back up automatically, once a day"
+                  label={t("welcome.backupToggle")}
                 />
               </div>
 
@@ -448,35 +444,32 @@ export function WelcomePage({ user, onDone }: {
               {backup?.enabled && (
                 <div className="welcome-field-row">
                   <Field
-                    label="Time"
+                    label={t("welcome.backupTime")}
                     type="time"
                     value={backup.time}
                     onChange={(next) => setBackup({ ...backup, time: next })}
                   />
                   <Field
-                    label="Keep the last"
+                    label={t("welcome.backupKeepLast")}
                     type="number"
                     value={String(backup.retention)}
                     onChange={(next) => setBackup({ ...backup, retention: Number(next) || 0 })}
                   />
                   <Button variant="secondary" disabled={busy} onClick={() => void saveBackup({})}>
-                    Save
+                    {t("welcome.save")}
                   </Button>
                 </div>
               )}
 
               {backupPath && (
                 <p className="welcome-note">
-                  Archives are written to <code>{backupPath}</code>. Worth copying somewhere
-                  off this machine as well — a backup on the same disk as the thing it is
-                  backing up survives a mistake, but not a failed drive.
+                  <Trans i18nKey="welcome.backupPathNote" values={{ path: backupPath }} components={{ code: <code /> }} />
                 </p>
               )}
 
               {backupSaved && (
-                <MessageBox tone="success" title="Saved">
-                  {backupSaved} Change it any time in Control panel → Maintenance → Backup,
-                  where you can also make one now or restore from one.
+                <MessageBox tone="success" title={t("welcome.savedTitle")}>
+                  {backupSaved} {t("welcome.backupSavedMore")}
                 </MessageBox>
               )}
             </>
@@ -484,14 +477,13 @@ export function WelcomePage({ user, onDone }: {
 
           {step === "alerts" && (
             <>
-              <h2>Tell me about sign-ins</h2>
+              <h2>{t("welcome.alertsHeading")}</h2>
               <p>
-                The app can write to you when an account signs in from a network it has not seen
-                before — the earliest sign that a password has been guessed, phished or reused.
+                {t("welcome.alertsIntro")}
               </p>
 
               {lockedReason("alerts") ? (
-                <MessageBox tone="info" title="Email first">{lockedReason("alerts")}</MessageBox>
+                <MessageBox tone="info" title={t("welcome.emailFirstTitle")}>{lockedReason("alerts")}</MessageBox>
               ) : (
                 <>
                   <div className="welcome-toggle">
@@ -499,18 +491,17 @@ export function WelcomePage({ user, onDone }: {
                       checked={Boolean(policy?.alertNewIpSignIn)}
                       disabled={busy || !policy}
                       onChange={(on) => void setSignInAlerts(on)}
-                      label="Email me about sign-ins from a new network"
+                      label={t("welcome.alertsToggle")}
                     />
                   </div>
                   {!testSent && (
                     <p className="welcome-note">
-                      Worth sending yourself a test on the previous step first — an alert that
-                      cannot arrive reads exactly like nothing having happened.
+                      {t("welcome.alertsTestNote")}
                     </p>
                   )}
                   {alertsSaved && (
-                    <MessageBox tone="success" title="Saved">
-                      Change it any time in Control panel → Security.
+                    <MessageBox tone="success" title={t("welcome.savedTitle")}>
+                      {t("welcome.alertsSavedBody")}
                     </MessageBox>
                   )}
                 </>
@@ -520,45 +511,43 @@ export function WelcomePage({ user, onDone }: {
 
           {step === "email" && mail && (
             <>
-              <h2>Email</h2>
+              <h2>{t("welcome.emailHeading")}</h2>
               <p>
-                Optional, and worth doing: two-factor codes, invite links, security alerts and
-                Send to e-reader all travel this way. Without it they simply never arrive.
+                {t("welcome.emailIntro")}
               </p>
 
               <div className="welcome-grid">
-                <Field label="SMTP host" value={mail.host} onChange={(host) => setMail({ ...mail, host })} />
-                <Field label="Port" value={String(mail.port)} onChange={(port) => setMail({ ...mail, port: Number(port) || 0 })} />
-                <Field label="Username" value={mail.username} onChange={(username) => setMail({ ...mail, username })} />
+                <Field label={t("welcome.smtpHost")} value={mail.host} onChange={(host) => setMail({ ...mail, host })} />
+                <Field label={t("welcome.port")} value={String(mail.port)} onChange={(port) => setMail({ ...mail, port: Number(port) || 0 })} />
+                <Field label={t("welcome.username")} value={mail.username} onChange={(username) => setMail({ ...mail, username })} />
                 <Field
-                  label="Password"
+                  label={t("common.password")}
                   type="password"
                   value={password}
                   onChange={setPassword}
                   required={false}
-                  placeholder={mail.hasPassword ? "Stored — leave blank to keep it" : ""}
+                  placeholder={mail.hasPassword ? t("welcome.passwordStored") : ""}
                 />
-                <Field label="From address" value={mail.fromAddress} onChange={(fromAddress) => setMail({ ...mail, fromAddress })} />
-                <Field label="From name" value={mail.fromName} onChange={(fromName) => setMail({ ...mail, fromName })} />
+                <Field label={t("welcome.fromAddress")} value={mail.fromAddress} onChange={(fromAddress) => setMail({ ...mail, fromAddress })} />
+                <Field label={t("welcome.fromName")} value={mail.fromName} onChange={(fromName) => setMail({ ...mail, fromName })} />
               </div>
               <label className="welcome-toggle">
-                <ToggleSwitch checked={mail.secure} onChange={(secure) => setMail({ ...mail, secure })} label="Use TLS on connect (port 465)" />
+                <ToggleSwitch checked={mail.secure} onChange={(secure) => setMail({ ...mail, secure })} label={t("welcome.useTls")} />
               </label>
 
               <div className="welcome-actions-inline">
                 <Button variant="secondary" disabled={busy} onClick={() => void saveMail()}>
-                  {busy ? "Saving…" : "Save"}
+                  {busy ? t("profile.account.saving") : t("welcome.save")}
                 </Button>
                 <Button variant="secondary" disabled={busy || !mailReady} onClick={() => void sendTest()}>
-                  Send a test to {user.email}
+                  {t("welcome.sendTestTo", { email: user.email })}
                 </Button>
               </div>
-              {mailSaved && !testSent && <MessageBox tone="info" title="Saved">Send yourself a test to prove it works.</MessageBox>}
+              {mailSaved && !testSent && <MessageBox tone="info" title={t("welcome.savedTitle")}>{t("welcome.sendTestHint")}</MessageBox>}
 
               {testSent && (
-                <MessageBox tone="success" title="Test email sent">
-                  Check {user.email}. If it arrived, email works — and the next step can put it
-                  to use.
+                <MessageBox tone="success" title={t("welcome.testSentTitle")}>
+                  {t("welcome.testSentBody", { email: user.email })}
                 </MessageBox>
               )}
             </>
@@ -566,10 +555,9 @@ export function WelcomePage({ user, onDone }: {
 
           {step === "theme" && (
             <>
-              <h2>Appearance</h2>
+              <h2>{t("welcome.steps.theme.title")}</h2>
               <p>
-                The look the sign-in screen uses, and what a new member starts with. Everyone can
-                change their own afterwards in their profile.
+                {t("welcome.themeIntro")}
               </p>
               <ThemePicker value={theme} onChange={saveTheme} disabled={busy} />
             </>
@@ -579,10 +567,10 @@ export function WelcomePage({ user, onDone }: {
 
       {binPickerOpen && (
         <FolderPickerModal
-          title="Select the Recycle Bin folder"
-          intro="Choose a folder inside an approved container — one outside every library, since anything inside a library is scanned."
+          title={t("welcome.binPickerTitle")}
+          intro={t("welcome.binPickerIntro")}
           storageRoots={roots}
-          confirmLabel="Use this folder"
+          confirmLabel={t("welcome.binPickerConfirm")}
           onPick={({ absolutePath }) => {
             setBinPickerOpen(false);
             void saveBin(absolutePath);
@@ -596,20 +584,20 @@ export function WelcomePage({ user, onDone }: {
         {index > 0 && (
           <Button variant="secondary" disabled={busy} onClick={() => setStep(STEPS[index - 1].key)}>
             <ArrowLeft size={16} aria-hidden="true" />
-            <span>Back</span>
+            <span>{t("welcome.back")}</span>
           </Button>
         )}
-        <Button variant="text" disabled={busy} onClick={() => void leave()}>Skip for now</Button>
+        <Button variant="text" disabled={busy} onClick={() => void leave()}>{t("welcome.skip")}</Button>
         <span className="welcome-actions-spacer" aria-hidden="true" />
         {index < STEPS.length - 1 ? (
           <Button variant="primary" disabled={busy} onClick={() => setStep(STEPS[index + 1].key)}>
-            <span>Next</span>
+            <span>{t("welcome.next")}</span>
             <ArrowRight size={16} aria-hidden="true" />
           </Button>
         ) : (
           <Button variant="primary" disabled={busy} onClick={() => void leave()}>
             <ShieldCheck size={16} aria-hidden="true" />
-            <span>{storageReady ? "Finish" : "Finish anyway"}</span>
+            <span>{storageReady ? t("welcome.finish") : t("welcome.finishAnyway")}</span>
           </Button>
         )}
       </div>

@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { BookOpen, Headphones, Images, Tag as TagIcon, TreeDeciduous } from "lucide-react";
+import i18n from "../../i18n";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
@@ -29,23 +31,28 @@ type TagSort = "count" | "name";
 const TAG_LIMIT = 100;
 
 // Which per-type count each scope reads, and how it labels the toggle. Shared
-// with the tag detail page so both read the same vocabulary.
-export const TAG_SCOPES: {
+// with the tag detail page so both read the same vocabulary. Built fresh on
+// every call (not a module-level const) so the labels stay reactive to a
+// language switch — same approach as control/nav.ts.
+export function getTagScopes(): {
   value: TagScope;
   label: string;
   icon: typeof BookOpen | null;
   countOf: (tag: TagSummary) => number;
-}[] = [
-  { value: "all", label: "All", icon: null, countOf: (tag) => tag.count },
-  { value: "audiobook", label: "Audiobooks", icon: Headphones, countOf: (tag) => tag.audiobookCount },
-  { value: "ebook", label: "Ebooks", icon: BookOpen, countOf: (tag) => tag.ebookCount },
-  { value: "gallery", label: "Gallery", icon: Images, countOf: (tag) => tag.galleryCount },
-  { value: "family", label: "Family tree", icon: TreeDeciduous, countOf: (tag) => tag.familyCount }
-];
+}[] {
+  return [
+    { value: "all", label: i18n.t("common:common.all"), icon: null, countOf: (tag) => tag.count },
+    { value: "audiobook", label: i18n.t("common:nav.audiobooks"), icon: Headphones, countOf: (tag) => tag.audiobookCount },
+    { value: "ebook", label: i18n.t("common:nav.ebooks"), icon: BookOpen, countOf: (tag) => tag.ebookCount },
+    { value: "gallery", label: i18n.t("common:nav.gallery"), icon: Images, countOf: (tag) => tag.galleryCount },
+    { value: "family", label: i18n.t("common:nav.familyTree"), icon: TreeDeciduous, countOf: (tag) => tag.familyCount }
+  ];
+}
 
 // Global, cross-type tag browse: a searchable cloud of every tag in use, across
 // books, the gallery, and the family tree, each linking to its detail page.
 export function TagListPage({ user, logout }: { user: PublicUser; logout: () => Promise<void> }) {
+  const { t } = useTranslation(["common", "book"]);
   const [tags, setTags] = useState<TagSummary[]>([]);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
@@ -56,16 +63,17 @@ export function TagListPage({ user, logout }: { user: PublicUser; logout: () => 
   useEffect(() => {
     api<{ tags: TagSummary[] }>("/api/library/tags")
       .then((payload) => setTags(payload.tags))
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load tags"));
+      .catch((err) => setError(err instanceof Error ? err.message : t("book:tags.unableLoad")));
   }, []);
 
   // Toggle counts are how many TAGS each scope holds — the cloud lists tags, so
   // that is what the number beside the label has to mean.
+  const tagScopes = getTagScopes();
   const scopeCounts = useMemo(
-    () => TAG_SCOPES.map((s) => ({ ...s, tagCount: tags.filter((tag) => s.countOf(tag) > 0).length })),
-    [tags]
+    () => tagScopes.map((s) => ({ ...s, tagCount: tags.filter((tag) => s.countOf(tag) > 0).length })),
+    [tags] // eslint-disable-line react-hooks/exhaustive-deps
   );
-  const activeScope = TAG_SCOPES.find((s) => s.value === scope) ?? TAG_SCOPES[0];
+  const activeScope = tagScopes.find((s) => s.value === scope) ?? tagScopes[0];
 
   const term = search.trim().toLowerCase();
   const matching = useMemo(() => {
@@ -88,17 +96,17 @@ export function TagListPage({ user, logout }: { user: PublicUser; logout: () => 
     <DashboardShell active="tags" user={user} logout={logout}>
       <section className="audiobook-main-page">
         <LibraryPageHeader
-          title="Tags"
-          subtitle={`${tags.length} ${tags.length === 1 ? "tag" : "tags"}`}
+          title={t("book:tags.title")}
+          subtitle={t("book:catalog.counts.tag", { count: tags.length })}
           search={search}
           onSearchChange={setSearch}
-          searchPlaceholder="Search tags..."
+          searchPlaceholder={t("book:tags.searchPlaceholder")}
         />
 
-        {error && <MessageBox tone="error" title="Tags error">{error}</MessageBox>}
+        {error && <MessageBox tone="error" title={t("book:tags.errorTitle")}>{error}</MessageBox>}
 
         <div className="tag-filter-row">
-          <div className="kind-toggle" role="group" aria-label="Filter tags by where they are used">
+          <div className="kind-toggle" role="group" aria-label={t("book:tags.filterUsageAria")}>
             {scopeCounts.map(({ value, label, icon: Icon, tagCount }) => (
               <button
                 key={value}
@@ -117,20 +125,20 @@ export function TagListPage({ user, logout }: { user: PublicUser; logout: () => 
             className="library-filter"
             value={sort}
             onChange={(event) => setSort(event.target.value as TagSort)}
-            aria-label="Sort tags"
+            aria-label={t("book:tags.sortAria")}
           >
-            <option value="count">Sort: Most used</option>
-            <option value="name">Sort: A–Z</option>
+            <option value="count">{t("book:tags.sortMostUsed")}</option>
+            <option value="name">{t("book:tags.sortAZ")}</option>
           </select>
         </div>
 
         {shown.length === 0 ? (
           <p className="management-empty">
             {tags.length === 0
-              ? "No tags yet."
+              ? t("book:tags.noneYet")
               : term
-                ? "No tags match your search."
-                : "No tags here yet."}
+                ? t("book:tags.noneMatchSearch")
+                : t("book:tags.noneHereYet")}
           </p>
         ) : (
           <>
@@ -151,7 +159,7 @@ export function TagListPage({ user, logout }: { user: PublicUser; logout: () => 
             {hidden > 0 && (
               <div className="tag-cloud-more">
                 <Button variant="secondary" onClick={() => setExpanded(true)}>
-                  Show all {matching.length} tags
+                  {t("book:tags.showAllButton", { count: matching.length })}
                 </Button>
               </div>
             )}

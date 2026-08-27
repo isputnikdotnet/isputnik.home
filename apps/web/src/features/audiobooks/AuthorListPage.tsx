@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { BookOpen, Headphones, LibraryBig, UserRound } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
@@ -42,6 +43,7 @@ export function AuthorListPage({
   user: PublicUser;
   logout: () => Promise<void>;
 }) {
+  const { t } = useTranslation(["common", "book"]);
   const [authors, setAuthors] = useState<AuthorSummary[]>([]);
   const [libraries, setLibraries] = useState<AuthorLibrary[]>([]);
   const [photos, setPhotos] = useState<Record<string, string>>({});
@@ -66,7 +68,7 @@ export function AuthorListPage({
         setAuthors(payload.authors);
         setLibraries(payload.libraries);
       })
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load authors"));
+      .catch((err) => setError(err instanceof Error ? err.message : t("book:authors.unableLoad")));
     api<{ photos: Record<string, string> }>("/api/library/people/photos")
       .then((payload) => setPhotos(payload.photos))
       .catch(() => {}); // avatars are decoration — the list works without them
@@ -123,7 +125,7 @@ export function AuthorListPage({
     .sort((a, b) => orderOf(a).localeCompare(orderOf(b)));
 
   const libraryOptions = [
-    { value: "all", label: "All libraries" },
+    { value: "all", label: t("book:catalog.allLibraries") },
     ...libraries.map((lib) => ({ value: lib.id, label: lib.name }))
   ];
 
@@ -141,14 +143,14 @@ export function AuthorListPage({
     >
       <section className="audiobook-main-page">
         <LibraryPageHeader
-          title="Authors"
-          subtitle={`${shown.length} ${shown.length === 1 ? "author" : "authors"}`}
+          title={t("book:authors.title")}
+          subtitle={t("book:catalog.counts.author", { count: shown.length })}
           search={search}
           onSearchChange={setSearch}
-          searchPlaceholder="Search authors..."
+          searchPlaceholder={t("book:authors.searchPlaceholder")}
         />
 
-        {error && <MessageBox tone="error" title="Authors error">{error}</MessageBox>}
+        {error && <MessageBox tone="error" title={t("book:authors.errorTitle")}>{error}</MessageBox>}
 
         {authors.length > 0 && (
           <LibraryPageToolbar
@@ -163,20 +165,20 @@ export function AuthorListPage({
                     value={libraryFilter}
                     options={libraryOptions}
                     icon={<LibraryBig size={19} aria-hidden="true" />}
-                    label="Library"
+                    label={t("book:detail.rows.library")}
                     onChange={setLibraryFilter}
                   />
                 )}
                 {hasBothTypes && (
-                  <div className="kind-toggle" role="group" aria-label="Filter by media type">
+                  <div className="kind-toggle" role="group" aria-label={t("book:people.filterByMediaTypeAria")}>
                     <button type="button" className={kindFilter === "all" ? "is-active" : ""} onClick={() => setKindFilter("all")}>
-                      All<span className="kind-toggle-count">{authors.length}</span>
+                      {t("common:common.all")}<span className="kind-toggle-count">{authors.length}</span>
                     </button>
                     <button type="button" className={kindFilter === "audiobook" ? "is-active" : ""} onClick={() => setKindFilter("audiobook")}>
-                      <Headphones size={15} aria-hidden="true" />Audiobooks<span className="kind-toggle-count">{audiobookAuthors}</span>
+                      <Headphones size={15} aria-hidden="true" />{t("common:nav.audiobooks")}<span className="kind-toggle-count">{audiobookAuthors}</span>
                     </button>
                     <button type="button" className={kindFilter === "ebook" ? "is-active" : ""} onClick={() => setKindFilter("ebook")}>
-                      <BookOpen size={15} aria-hidden="true" />Ebooks<span className="kind-toggle-count">{ebookAuthors}</span>
+                      <BookOpen size={15} aria-hidden="true" />{t("common:nav.ebooks")}<span className="kind-toggle-count">{ebookAuthors}</span>
                     </button>
                   </div>
                 )}
@@ -186,11 +188,11 @@ export function AuthorListPage({
               <SortMenu
                 presentation="labelled"
                 value={nameOrder}
-                ariaLabel="Sort and index by"
+                ariaLabel={t("book:people.sortAndIndexByAria")}
                 onChange={setNameOrder}
                 options={[
-                  { value: "first", label: "First name" },
-                  { value: "last", label: "Last name" }
+                  { value: "first", label: t("book:people.orderFirstName") },
+                  { value: "last", label: t("book:people.orderLastName") }
                 ]}
               />
             }
@@ -199,7 +201,7 @@ export function AuthorListPage({
                 available={availableLetters}
                 value={letter}
                 onChange={setLetter}
-                ariaLabel={`Filter by ${nameOrder} letter`}
+                ariaLabel={nameOrder === "last" ? t("book:people.filterByLastLetter") : t("book:people.filterByFirstLetter")}
               />
             }
           />
@@ -208,7 +210,7 @@ export function AuthorListPage({
         {shown.length === 0 ? (
           <div className="empty-state library-empty">
             <UserRound size={48} aria-hidden="true" />
-            <h2>No authors{term || letter || libraryFilter !== "all" ? " match" : " yet"}</h2>
+            <h2>{term || letter || libraryFilter !== "all" ? t("book:authors.noneMatch") : t("book:authors.noneYet")}</h2>
           </div>
         ) : (
           <div className="person-grid">
@@ -223,7 +225,7 @@ export function AuthorListPage({
                 </div>
                 <div className="person-card-body">
                   <strong>{author.name}</strong>
-                  <span>{cardCount(author)} {cardCount(author) === 1 ? "title" : "titles"}</span>
+                  <span>{t("book:catalog.counts.title", { count: cardCount(author) })}</span>
                 </div>
               </button>
             ))}

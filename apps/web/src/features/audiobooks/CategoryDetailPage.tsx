@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ArrowLeft, BookOpen, Headphones } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
@@ -21,6 +22,7 @@ export function CategoryDetailPage({
   user: PublicUser;
   logout: () => Promise<void>;
 }) {
+  const { t } = useTranslation(["common", "book"]);
   const [category, setCategory] = useState<CategoryDetail | null>(null);
   const [error, setError] = useState("");
   const [kindFilter, setKindFilter] = useState<KindFilter>("all");
@@ -33,7 +35,7 @@ export function CategoryDetailPage({
     setKindFilter("all");
     api<{ category: CategoryDetail }>(`/api/library/categories/${categoryKey}/books`)
       .then((payload) => setCategory(payload.category))
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load category"));
+      .catch((err) => setError(err instanceof Error ? err.message : t("book:categories.unableLoadDetail")));
   }, [categoryKey]);
 
   // Counts drive both the toggle labels and whether the toggle is worth showing
@@ -55,10 +57,10 @@ export function CategoryDetailPage({
       <section className="audiobook-main-page">
         <button className="audiobook-back-button" type="button" onClick={() => goBack(backTo ?? (section ? `/categories?section=${section.active}` : "/categories"))}>
           <ArrowLeft size={17} aria-hidden="true" />
-          <span>{backTo ? "Back" : "Back to categories"}</span>
+          <span>{backTo ? t("book:catalog.back") : t("book:categories.backToCategories")}</span>
         </button>
 
-        {error && <MessageBox tone="error" title="Category error">{error}</MessageBox>}
+        {error && <MessageBox tone="error" title={t("book:categories.detailErrorTitle")}>{error}</MessageBox>}
 
         {category && (
           <>
@@ -67,30 +69,30 @@ export function CategoryDetailPage({
                 <CategoryIcon icon={category.icon} size={44} />
               </div>
               <div className="category-detail-copy">
-                <p className="eyebrow">Category</p>
+                <p className="eyebrow">{t("book:categories.eyebrow")}</p>
                 <h1>{category.name}</h1>
               </div>
               <span className="category-detail-count">
-                {category.books.length} {category.books.length === 1 ? "book" : "books"}
+                {t("book:catalog.counts.book", { count: category.books.length })}
               </span>
             </div>
 
             {hasBothTypes && (
-              <div className="kind-toggle" role="group" aria-label="Filter by media type">
+              <div className="kind-toggle" role="group" aria-label={t("book:people.filterByMediaTypeAria")}>
                 <button type="button" className={kindFilter === "all" ? "is-active" : ""} onClick={() => setKindFilter("all")}>
-                  All<span className="kind-toggle-count">{category.books.length}</span>
+                  {t("common:common.all")}<span className="kind-toggle-count">{category.books.length}</span>
                 </button>
                 <button type="button" className={kindFilter === "audiobook" ? "is-active" : ""} onClick={() => setKindFilter("audiobook")}>
-                  <Headphones size={15} aria-hidden="true" />Audiobooks<span className="kind-toggle-count">{audiobookCount}</span>
+                  <Headphones size={15} aria-hidden="true" />{t("common:nav.audiobooks")}<span className="kind-toggle-count">{audiobookCount}</span>
                 </button>
                 <button type="button" className={kindFilter === "ebook" ? "is-active" : ""} onClick={() => setKindFilter("ebook")}>
-                  <BookOpen size={15} aria-hidden="true" />Ebooks<span className="kind-toggle-count">{ebookCount}</span>
+                  <BookOpen size={15} aria-hidden="true" />{t("common:nav.ebooks")}<span className="kind-toggle-count">{ebookCount}</span>
                 </button>
               </div>
             )}
 
             {shownBooks.length === 0 ? (
-              <p className="management-empty">No books in this category yet.</p>
+              <p className="management-empty">{t("book:categories.noneYetBody")}</p>
             ) : (
               // Mixed view labels each tile by type; a single-type view doesn't need it.
               <div className="library-feed-grid">

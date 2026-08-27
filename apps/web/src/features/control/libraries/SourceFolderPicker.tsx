@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Folder } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Button } from "../../../shared/Button";
 import { FolderPickerModal } from "./FolderPickerModal";
 import type { StorageRoot, StorageBrowse } from "../types";
@@ -20,26 +21,27 @@ export function SourceFolderPicker({
   onBrowse: (rootId: string, relativePath?: string) => Promise<void>;
   onError: (message: string) => void;
 }) {
+  const { t } = useTranslation(["common", "control"]);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const folderLabel = storageBrowse?.selectedPath || "Choose a folder...";
+  const folderLabel = storageBrowse?.selectedPath || t("control:libraries.chooseFolderPlaceholder");
 
   return (
     <>
       <div className="field source-folder-field">
-        <span>Folder</span>
+        <span>{t("control:libraries.folderLabel")}</span>
         <div className="source-folder-control">
           <Folder size={19} aria-hidden="true" />
           <span>{folderLabel}</span>
           <Button variant="secondary" compact onClick={() => setPickerOpen(true)}>
-            Browse
+            {t("common.browse")}
           </Button>
         </div>
       </div>
 
       {pickerOpen && (
         <FolderPickerModal
-          title="Select library folder"
-          intro="Choose a folder inside an approved container."
+          title={t("control:libraries.selectFolderTitle")}
+          intro={t("control:libraries.chooseFolderIntro")}
           storageRoots={storageRoots}
           initialRootId={selectedRootId}
           onPick={async ({ rootId, relativePath }) => {
@@ -47,7 +49,7 @@ export function SourceFolderPicker({
               await onBrowse(rootId, relativePath);
               setPickerOpen(false);
             } catch (err) {
-              onError(err instanceof Error ? err.message : "Unable to browse storage container");
+              onError(err instanceof Error ? err.message : t("control:libraries.unableToBrowseStorage"));
             }
           }}
           onClose={() => setPickerOpen(false)}

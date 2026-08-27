@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { QRCodeSVG } from "qrcode.react";
 import { api, ApiError } from "../api";
 import { Button } from "../shared/Button";
@@ -41,6 +42,7 @@ function formatCountdown(seconds: number): string {
 }
 
 export function DeviceLinkPage({ onSignedIn }: { onSignedIn: () => Promise<void> }) {
+  const { t } = useTranslation();
   const [request, setRequest] = useState<StartResponse | null>(null);
   const [status, setStatus] = useState<PollStatus>("pending");
   const [error, setError] = useState("");
@@ -61,9 +63,9 @@ export function DeviceLinkPage({ onSignedIn }: { onSignedIn: () => Promise<void>
       // devices may be linked from, and the two reasons need different answers.
       const reason = err instanceof ApiError ? (err.body as { reason?: "scope" | "proxy" })?.reason : undefined;
       if (reason) setRefusal(reason);
-      setError(err instanceof Error ? err.message : "Unable to start");
+      setError(err instanceof Error ? err.message : t("deviceLink.unableToStart"));
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void start();
@@ -124,13 +126,11 @@ export function DeviceLinkPage({ onSignedIn }: { onSignedIn: () => Promise<void>
   if (refusal) {
     return (
       <DeviceLinkFrame>
-        <MessageBox tone="warning" title="This device can't be linked here">
-          {refusal === "proxy"
-            ? "The server can't tell which network this device is on, because something is forwarding requests to it without being configured to say where they came from. Ask whoever runs the server to set TRUST_PROXY (or TRUST_PROXY_HOPS)."
-            : "Devices can only be linked from your home network, and this one appears to be somewhere else. Ask whoever runs the server if you need to link a device from outside."}
+        <MessageBox tone="warning" title={t("deviceLink.refusalTitle")}>
+          {refusal === "proxy" ? t("deviceLink.refusalProxy") : t("deviceLink.refusalScope")}
         </MessageBox>
         <div className="device-link-actions">
-          <Button variant="secondary" onClick={() => navigate("/login")}>Back to sign in</Button>
+          <Button variant="secondary" onClick={() => navigate("/login")}>{t("deviceLink.backToSignIn")}</Button>
         </div>
       </DeviceLinkFrame>
     );
@@ -141,15 +141,13 @@ export function DeviceLinkPage({ onSignedIn }: { onSignedIn: () => Promise<void>
       <DeviceLinkFrame>
         <MessageBox
           tone={status === "denied" ? "warning" : "info"}
-          title={status === "denied" ? "That request was refused" : "That code has expired"}
+          title={status === "denied" ? t("deviceLink.deniedTitle") : t("deviceLink.expiredTitle")}
         >
-          {status === "denied"
-            ? "Someone chose not to authorize this device. Nothing has changed, and you can ask again."
-            : "Nobody authorized this device in time. Codes last ten minutes so an unattended screen isn't left open."}
+          {status === "denied" ? t("deviceLink.deniedBody") : t("deviceLink.expiredBody")}
         </MessageBox>
         <div className="device-link-actions">
-          <Button variant="primary" onClick={retry}>Show a new code</Button>
-          <Button variant="secondary" onClick={() => navigate("/login")}>Back to sign in</Button>
+          <Button variant="primary" onClick={retry}>{t("deviceLink.newCode")}</Button>
+          <Button variant="secondary" onClick={() => navigate("/login")}>{t("deviceLink.backToSignIn")}</Button>
         </div>
       </DeviceLinkFrame>
     );
@@ -158,7 +156,7 @@ export function DeviceLinkPage({ onSignedIn }: { onSignedIn: () => Promise<void>
   if (status === "approved") {
     return (
       <DeviceLinkFrame>
-        <p className="device-link-lead">Authorized — signing this device in…</p>
+        <p className="device-link-lead">{t("deviceLink.authorizedLead")}</p>
       </DeviceLinkFrame>
     );
   }
@@ -166,17 +164,17 @@ export function DeviceLinkPage({ onSignedIn }: { onSignedIn: () => Promise<void>
   if (error && !request) {
     return (
       <DeviceLinkFrame>
-        <MessageBox tone="error" title="Unable to start">{error}</MessageBox>
+        <MessageBox tone="error" title={t("deviceLink.unableToStart")}>{error}</MessageBox>
         <div className="device-link-actions">
-          <Button variant="primary" onClick={retry}>Try again</Button>
-          <Button variant="secondary" onClick={() => navigate("/login")}>Back to sign in</Button>
+          <Button variant="primary" onClick={retry}>{t("deviceLink.tryAgain")}</Button>
+          <Button variant="secondary" onClick={() => navigate("/login")}>{t("deviceLink.backToSignIn")}</Button>
         </div>
       </DeviceLinkFrame>
     );
   }
 
   if (!request) {
-    return <DeviceLinkFrame><p className="device-link-lead">Preparing a code…</p></DeviceLinkFrame>;
+    return <DeviceLinkFrame><p className="device-link-lead">{t("deviceLink.preparingCode")}</p></DeviceLinkFrame>;
   }
 
   return (
@@ -187,26 +185,26 @@ export function DeviceLinkPage({ onSignedIn }: { onSignedIn: () => Promise<void>
         </div>
 
         <div className="device-link-steps">
-          <p className="device-link-lead">Scan this with your phone</p>
+          <p className="device-link-lead">{t("deviceLink.scanLead")}</p>
           {/* The one thing that silently breaks this: a phone on mobile data and a
               server that only answers on the house network. Said up front rather
               than left to be discovered as "the QR doesn't work". */}
-          <p className="device-link-note">Your phone needs to be on the same network as this server.</p>
+          <p className="device-link-note">{t("deviceLink.scanNote")}</p>
 
-          <p className="device-link-or">or open this address and enter the code</p>
+          <p className="device-link-or">{t("deviceLink.orEnter")}</p>
           <p className="device-link-url">{request.verificationUrl}</p>
-          <p className="device-link-code" aria-label={`Device code ${request.userCode.split("").join(" ")}`}>
+          <p className="device-link-code" aria-label={t("deviceLink.deviceCodeAria", { code: request.userCode.split("").join(" ") })}>
             {request.userCodeDisplay}
           </p>
 
           <p className="device-link-expiry">
-            Expires in {formatCountdown(remaining)}
+            {t("deviceLink.expiresIn", { countdown: formatCountdown(remaining) })}
           </p>
         </div>
       </div>
 
       <div className="device-link-actions">
-        <Button variant="secondary" onClick={() => navigate("/login")}>Cancel</Button>
+        <Button variant="secondary" onClick={() => navigate("/login")}>{t("common.cancel")}</Button>
       </div>
     </DeviceLinkFrame>
   );
@@ -216,6 +214,7 @@ export function DeviceLinkPage({ onSignedIn }: { onSignedIn: () => Promise<void>
 // card designed to be read at a desk, and everything here has to carry across a
 // room. Same background, so it is recognisably the same app.
 function DeviceLinkFrame({ children }: { children: React.ReactNode }) {
+  const { t } = useTranslation();
   return (
     <main className="device-link-page">
       <div className="auth-scene" aria-hidden="true">
@@ -227,8 +226,8 @@ function DeviceLinkFrame({ children }: { children: React.ReactNode }) {
         <header className="device-link-head">
           <img src="/Assets/brand/isputnik-logo-sputnik-earth-mark.svg" alt="" />
           <div>
-            <p className="eyebrow">Link a device</p>
-            <h1>Sign in to isputnik</h1>
+            <p className="eyebrow">{t("deviceLink.eyebrow")}</p>
+            <h1>{t("deviceLink.heading")}</h1>
           </div>
         </header>
         {children}

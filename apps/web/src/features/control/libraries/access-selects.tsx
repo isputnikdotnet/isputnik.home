@@ -3,11 +3,26 @@
 // dialog's plain fields — embed these, so the option text can't drift between the two.
 import type { ReactNode } from "react";
 import { Eye, Globe2, Shield, UserRound, type LucideIcon } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { PublicRole, LibraryMode } from "../../audiobooks/types";
 import { PUBLIC_ROLE_OPTIONS } from "../../audiobooks/types";
 import type { ManagedUser, ManagedGroup } from "../types";
+// Plain lookup functions rather than module-level consts, so a language switch
+// is picked up (docs/i18n-plan.md's namespace-key typing pitfall #3).
+import i18n from "../../../i18n";
 
 type OwnerType = "user" | "group" | "";
+
+// Translated label for a PUBLIC_ROLE_OPTIONS value. types.ts (out of this batch's
+// scope) still owns the option list itself (the `value`s), but its English `label`
+// strings are never read — every render site sources the label from here instead.
+export function publicRoleLabel(value: PublicRole): string {
+  switch (value) {
+    case "viewer": return i18n.t("control:libraries.publicRoleViewer");
+    case "member": return i18n.t("control:libraries.publicRoleMember");
+    case "contributor": return i18n.t("control:libraries.publicRoleContributor");
+  }
+}
 
 export function OwnerSelect({
   ownerId,
@@ -24,6 +39,7 @@ export function OwnerSelect({
   groups: ManagedGroup[];
   compactLabels?: boolean;
 }) {
+  const { t } = useTranslation(["common", "control"]);
   return (
     <select
       value={ownerId ? `${ownerType}:${ownerId}` : ""}
@@ -34,9 +50,9 @@ export function OwnerSelect({
         onChange(type as "user" | "group", id);
       }}
     >
-      <option value="">No owner (system library)</option>
+      <option value="">{t("control:libraries.noOwnerOption")}</option>
       {users.length > 0 && (
-        <optgroup label="Users">
+        <optgroup label={t("control:libraryMembers.optgroupUsers")}>
           {users.map((user) => (
             <option value={`user:${user.id}`} key={user.id}>
               {compactLabels ? user.displayName : `${user.displayName} (${user.email})`}
@@ -45,7 +61,7 @@ export function OwnerSelect({
         </optgroup>
       )}
       {groups.length > 0 && (
-        <optgroup label="Groups">
+        <optgroup label={t("control:libraryMembers.optgroupGroups")}>
           {groups.map((group) => (
             <option value={`group:${group.id}`} key={group.id}>{group.name}</option>
           ))}
@@ -62,10 +78,11 @@ export function VisibilitySelect({
   value: "public" | "private";
   onChange: (value: "public" | "private") => void;
 }) {
+  const { t } = useTranslation(["common", "control"]);
   return (
     <select value={value} onChange={(event) => onChange(event.target.value as "public" | "private")}>
-      <option value="public">Public — all users can access</option>
-      <option value="private">Private — owner and admins only</option>
+      <option value="public">{t("control:libraries.publicOptionFull")}</option>
+      <option value="private">{t("control:libraries.privateOptionFull")}</option>
     </select>
   );
 }
@@ -80,7 +97,7 @@ export function PublicRoleSelect({
   return (
     <select value={value} onChange={(event) => onChange(event.target.value as PublicRole)}>
       {PUBLIC_ROLE_OPTIONS.map((option) => (
-        <option value={option.value} key={option.value}>{option.label}</option>
+        <option value={option.value} key={option.value}>{publicRoleLabel(option.value)}</option>
       ))}
     </select>
   );
@@ -93,10 +110,11 @@ export function ModeSelect({
   value: LibraryMode;
   onChange: (value: LibraryMode) => void;
 }) {
+  const { t } = useTranslation(["common", "control"]);
   return (
     <select value={value} onChange={(event) => onChange(event.target.value as LibraryMode)}>
-      <option value="managed">Managed — this app owns the files</option>
-      <option value="external">External — read-only, managed outside this app</option>
+      <option value="managed">{t("control:libraries.modeManagedFull")}</option>
+      <option value="external">{t("control:libraries.modeExternalFull")}</option>
     </select>
   );
 }
@@ -123,23 +141,24 @@ export function LibraryAccessRows({
   users: ManagedUser[];
   groups: ManagedGroup[];
 }) {
+  const { t } = useTranslation(["common", "control"]);
   return (
     <div className="library-access-list">
-      <AccessSettingRow icon={UserRound} title="Owner" description="Select who owns this library.">
+      <AccessSettingRow icon={UserRound} title={t("control:libraries.fieldOwner")} description={t("control:libraries.ownerRowDescription")}>
         <OwnerSelect ownerId={ownerId} ownerType={ownerType} onChange={onOwnerChange} users={users} groups={groups} />
       </AccessSettingRow>
 
-      <AccessSettingRow icon={Globe2} title="Visibility" description="Control who can see this library.">
+      <AccessSettingRow icon={Globe2} title={t("control:libraries.visibilityLabel")} description={t("control:libraries.visibilityRowDescription")}>
         <VisibilitySelect value={visibility} onChange={onVisibilityChange} />
       </AccessSettingRow>
 
       {visibility === "public" && (
-        <AccessSettingRow icon={Eye} title="Public access" description="Choose what public users can do.">
+        <AccessSettingRow icon={Eye} title={t("control:libraryMembers.publicAccess")} description={t("control:libraries.publicAccessRowDescription")}>
           <PublicRoleSelect value={publicRole} onChange={onPublicRoleChange} />
         </AccessSettingRow>
       )}
 
-      <AccessSettingRow icon={Shield} title="Mode" description="Determines who manages the files.">
+      <AccessSettingRow icon={Shield} title={t("control:libraries.fieldMode")} description={t("control:libraries.modeRowDescription")}>
         <ModeSelect value={mode} onChange={onModeChange} />
       </AccessSettingRow>
     </div>

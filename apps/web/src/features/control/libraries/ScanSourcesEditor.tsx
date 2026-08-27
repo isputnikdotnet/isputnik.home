@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ChevronDown, ChevronUp, File, Files, Folder, GripVertical, Layers } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Button } from "../../../shared/Button";
 import type { ScanSource, MetadataSourceInfo } from "../../audiobooks/types";
 
@@ -24,6 +25,7 @@ export function ScanSourcesEditor({
   onChange: (sources: ScanSource[]) => void;
   sourceInfo: MetadataSourceInfo[];
 }) {
+  const { t } = useTranslation(["common", "control"]);
   const infoById = new Map(sourceInfo.map((info) => [info.id, info]));
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
@@ -54,7 +56,7 @@ export function ScanSourcesEditor({
 
   return (
     <div className="field">
-      <p className="scan-sources-hint">Select items to scan. Drag the handle or use the arrows to change the order in which they are processed.</p>
+      <p className="scan-sources-hint">{t("control:libraries.scanSourcesHint")}</p>
       <div className="scan-source-table">
         {sources.map((source, index) => {
           const info = infoById.get(source.id);
@@ -76,7 +78,7 @@ export function ScanSourcesEditor({
                 checked={source.enabled}
                 onChange={(event) =>
                   onChange(sources.map((item, i) => (i === index ? { ...item, enabled: event.target.checked } : item)))}
-                aria-label={`Enable ${label}`}
+                aria-label={t("control:libraries.enableSourceAria", { label })}
               />
               <span className="scan-source-icon" aria-hidden="true">
                 <Icon size={20} />
@@ -84,7 +86,7 @@ export function ScanSourcesEditor({
               <span className="scan-source-copy">
                 <span className="scan-source-title-row">
                   <strong>{label}</strong>
-                  {info?.recommended && <span className="scan-source-badge">Recommended</span>}
+                  {info?.recommended && <span className="scan-source-badge">{t("control:libraries.recommended")}</span>}
                 </span>
                 <small>{info?.description ?? ""}</small>
               </span>
@@ -95,8 +97,8 @@ export function ScanSourcesEditor({
                   type="button"
                   className="scan-source-move"
                   disabled={index === 0}
-                  aria-label={`Move ${label} up`}
-                  title="Move up"
+                  aria-label={t("control:libraries.moveUpAria", { label })}
+                  title={t("control:libraries.moveUp")}
                   onClick={() => reorder(index, index - 1)}
                 >
                   <ChevronUp size={16} />
@@ -107,8 +109,8 @@ export function ScanSourcesEditor({
                   type="button"
                   className="scan-source-move"
                   disabled={index === sources.length - 1}
-                  aria-label={`Move ${label} down`}
-                  title="Move down"
+                  aria-label={t("control:libraries.moveDownAria", { label })}
+                  title={t("control:libraries.moveDown")}
                   onClick={() => reorder(index, index + 1)}
                 >
                   <ChevronDown size={16} />
@@ -116,7 +118,7 @@ export function ScanSourcesEditor({
                 <span
                   className="scan-source-grip"
                   aria-hidden="true"
-                  title="Drag to reorder"
+                  title={t("control:libraries.dragToReorder")}
                   draggable
                   onDragStart={() => setDragIndex(index)}
                 >
