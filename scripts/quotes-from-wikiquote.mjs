@@ -1,0 +1,266 @@
+#!/usr/bin/env node
+// Build a quote pack for the Quotes import (docs/users/quotes.md) out of
+// Wikiquote pages.
+//
+//   node scripts/quotes-from-wikiquote.mjs --lang ru --out ru.json \
+//     --tags Литература --pages "Антон Павлович Чехов" "Лев Николаевич Толстой"
+//
+//   node scripts/quotes-from-wikiquote.mjs --lang en --out en.json \
+//     --tags Wisdom --limit 40 --page-file authors.txt
+//
+// A one-off utility, not part of the app — the plan (docs/quotes-plan.md) keeps
+// dataset converters here in scripts/ rather than shipping them.
+//
+// Two things make the output worth importing rather than merely large:
+//
+//   • SECTIONS ARE FILTERED. Wikiquote pages carry "Misattributed", "Disputed"
+//     and "Quotes about X" sections, and scraping a page whole is exactly how
+//     quote collections end up full of things their author never said. Those
+//     sections are skipped; only the person's own quotes are taken.
+//   • ROWS THAT WOULD EMBARRASS YOU ARE DROPPED. Anything still carrying markup
+//     after cleaning, or too short to be a thought, or too long for a card, is
+//     rejected and counted rather than shipped.
+//
+// The result still wants a human pass — run the import's dry run, read the
+// preview, and use the Quotes page's "Imported" filter to weed afterwards.
+//
+// Wikiquote is CC BY-SA. Fine for a private family library; attribute it if you
+// ever republish.
+import fs from "node:fs/promises";
+
+const USER_AGENT = "isputnik-home-quote-import/1.0 (private family library; one-off import)";
+/** Titles per API request. The API's own cap for anonymous callers is 50. */
+const BATCH_SIZE = 20;
+
+// Sections that are not the subject's own words. Scraping these is how a pack
+// ends up asserting that Mark Twain said things Mark Twain never said.
+const SKIP_SECTIONS = {
+  en: /misattributed|disputed|attributed|quotes about|about .*|external links|see also|references|notes|bibliography|further reading/i,
+  ru: /цитаты о|о чехове|приписыва|источник|примечан|ссылк|см\. также|литератур|библиограф/i
+};
+
+function parseArgs(argv) {
+  const args = { lang: "en", tags: [], pages: [], limit: 40, out: null, pageFile: null, maxLength: 300 };
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
+    if (arg === "--lang") args.lang = argv[++i];
+    else if (arg === "--out") args.out = argv[++i];
+    else if (arg === "--limit") args.limit = Number(argv[++i]);
+    else if (arg === "--max-length") args.maxLength = Number(argv[++i]);
+    else if (arg === "--page-file") args.pageFile = argv[++i];
+    else if (arg === "--tags") { while (argv[i + 1] && !argv[i + 1].startsWith("--")) args.tags.push(argv[++i]); }
+    else if (arg === "--pages") { while (argv[i + 1] && !argv[i + 1].startsWith("--")) args.pages.push(argv[++i]); }
+    else throw new Error(`Unknown argument: ${arg}`);
+  }
+  if (!args.out) throw new Error("--out <file> is required");
+  return args;
+}
+
+/** Wikitext → plain text. Order matters: refs and comments go before anything else. */
+function clean(wikitext) {
+  return wikitext
+    .replace(/<ref[^>]*\/>/gi, "")
+    .replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, "")
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .replace(/\{\{[^{}]*\}\}/g, "")            // leftover inline templates
+    .replace(/\[\[[^\]|]*\|([^\]]*)\]\]/g, "$1") // [[target|shown]] → shown
+    .replace(/\[\[([^\]]*)\]\]/g, "$1")          // [[shown]]        → shown
+    .replace(/\[https?:\/\/\S+\s([^\]]*)\]/g, "$1") // [url label]   → label
+    .replace(/'''''|'''|''/g, "")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * A citation is only worth keeping if it names something. Wikiquote's nested
+ * bullets run from "Walden (1854)" to a chapter number to a whole publication
+ * history with links in it — so a source that is markup, a URL, or a bare
+ * "III" is dropped and the quote keeps its attribution alone.
+ */
+function usableSource(source) {
+  if (!source) return null;
+  const trimmed = source
+    .replace(/\s*\[[^\]]*$/, "")
+    // A linked title that cleaned away to nothing leaves its quote marks behind:
+    // `"", st. 12, in The Dramatic Review` — drop the empty pair, keep the rest.
+    .replace(/^["“”']{2}\s*[,;]?\s*/, "")
+    .replace(/[.,;\s]+$/, "")
+    .trim();
+  if (trimmed.length < 8 || trimmed.length > 120) return null;
+  if (/[{}[\]|<>]|https?:\/\//.test(trimmed)) return null;
+  if (/^[IVXLCDM\d\s.,§#-]+$/i.test(trimmed)) return null;   // "III", "§ 6.20", "1854"
+  if (!/\p{L}{3}/u.test(trimmed)) return null;
+  return trimmed;
+}
+
+/** Would this embarrass you on the home page? Then it is not a quote. */
+function isUsable(text, maxLength) {
+  if (text.length < 25 || text.length > maxLength) return false;
+  // Cleaning missed something — markup, a citation, a URL.
+  if (/[{}[\]|<>]|https?:\/\//.test(text)) return false;
+  // Wikiquote's own ellipsis for an editorial cut: the sentence is incomplete.
+  if (text.includes("<…>") || text.includes("…>")) return false;
+  if (!/[.!?…»"']$/.test(text)) return false;
+  // Mostly punctuation or digits is a citation fragment, not a thought.
+  const letters = text.replace(/[^\p{L}]/gu, "").length;
+  return letters / text.length > 0.6;
+}
+
+/**
+ * Russian Wikiquote holds quotes in {{Q|text|Параметр=…}} templates, so the text
+ * is the first POSITIONAL parameter. Braces nest, which is why this scans rather
+ * than matching a regex.
+ */
+function extractTemplateQuotes(wikitext, skip) {
+  const found = [];
+  let section = "";
+  for (let i = 0; i < wikitext.length; i += 1) {
+    if (wikitext.startsWith("==", i)) {
+      const end = wikitext.indexOf("\n", i);
+      section = wikitext.slice(i, end === -1 ? undefined : end).replace(/=/g, "").trim();
+      continue;
+    }
+    if (!wikitext.startsWith("{{Q|", i) && !wikitext.startsWith("{{Q |", i)) continue;
+    if (skip.test(section)) continue;
+
+    let depth = 0;
+    let end = i;
+    for (let j = i; j < wikitext.length; j += 1) {
+      if (wikitext.startsWith("{{", j)) { depth += 1; j += 1; continue; }
+      if (wikitext.startsWith("}}", j)) {
+        depth -= 1;
+        if (depth === 0) { end = j; break; }
+        j += 1;
+      }
+    }
+    if (end === i) continue;
+
+    const body = wikitext.slice(i + 4, end);
+    // Split on the pipes that separate template parameters, ignoring pipes that
+    // belong to a nested [[link|label]] or {{template|arg}}.
+    const parts = [];
+    let depthBrace = 0;
+    let depthBracket = 0;
+    let current = "";
+    for (let j = 0; j < body.length; j += 1) {
+      if (body.startsWith("{{", j)) { depthBrace += 1; current += "{{"; j += 1; continue; }
+      if (body.startsWith("}}", j)) { depthBrace -= 1; current += "}}"; j += 1; continue; }
+      if (body.startsWith("[[", j)) { depthBracket += 1; current += "[["; j += 1; continue; }
+      if (body.startsWith("]]", j)) { depthBracket -= 1; current += "]]"; j += 1; continue; }
+      if (body[j] === "|" && depthBrace === 0 && depthBracket === 0) { parts.push(current); current = ""; continue; }
+      current += body[j];
+    }
+    parts.push(current);
+
+    const positional = parts.find((part) => !/^\s*[\p{L}\w ]+\s*=/u.test(part));
+    if (positional) found.push({ text: clean(positional), source: null });
+    i = end;
+  }
+  return found;
+}
+
+/**
+ * English Wikiquote holds quotes as "* quote" bullets, with the citation on the
+ * "** …" line beneath — which is where the source comes from.
+ */
+function extractBulletQuotes(wikitext, skip) {
+  const found = [];
+  let section = "";
+  const lines = wikitext.split("\n");
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+    if (line.startsWith("==")) { section = line.replace(/=/g, "").trim(); continue; }
+    if (skip.test(section)) continue;
+    if (!/^\*\s*[^*]/.test(line)) continue;
+
+    const text = clean(line.replace(/^\*\s*/, ""));
+    // The nested bullet under it is the citation. Keep it short — these run to
+    // whole publication histories, and a card wants a title, not a footnote.
+    const next = lines[i + 1] ?? "";
+    let source = null;
+    if (/^\*\*\s*[^*]/.test(next)) {
+      const cited = clean(next.replace(/^\*\*\s*/, ""));
+      source = cited;
+    }
+    found.push({ text, source });
+  }
+  return found;
+}
+
+async function fetchWikitext(lang, titles) {
+  const url = new URL(`https://${lang}.wikiquote.org/w/api.php`);
+  url.search = new URLSearchParams({
+    action: "query", format: "json", prop: "revisions", rvprop: "content",
+    rvslots: "main", redirects: "1", titles: titles.join("|")
+  }).toString();
+
+  const response = await fetch(url, { headers: { "User-Agent": USER_AGENT } });
+  if (!response.ok) throw new Error(`Wikiquote replied ${response.status} for ${titles.join(", ")}`);
+  const data = await response.json();
+
+  const pages = new Map();
+  for (const page of Object.values(data.query?.pages ?? {})) {
+    const content = page.revisions?.[0]?.slots?.main?.["*"];
+    if (content) pages.set(page.title, content);
+  }
+  return pages;
+}
+
+async function main() {
+  const args = parseArgs(process.argv.slice(2));
+  const titles = args.pageFile
+    ? (await fs.readFile(args.pageFile, "utf8")).split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#"))
+    : args.pages;
+  if (titles.length === 0) throw new Error("Give at least one --pages title or a --page-file");
+
+  const skip = SKIP_SECTIONS[args.lang] ?? SKIP_SECTIONS.en;
+  const extract = args.lang === "ru" ? extractTemplateQuotes : extractBulletQuotes;
+
+  const quotes = [];
+  const seen = new Set();
+  let rejected = 0;
+
+  for (let i = 0; i < titles.length; i += BATCH_SIZE) {
+    const batch = titles.slice(i, i + BATCH_SIZE);
+    const pages = await fetchWikitext(args.lang, batch);
+    for (const [title, wikitext] of pages) {
+      // "Чехов, Антон Павлович" → "Антон Павлович Чехов"; leave the rest alone.
+      const author = /^[^,]+,\s+.+$/.test(title)
+        ? title.split(/,\s+/).reverse().join(" ")
+        : title;
+
+      let kept = 0;
+      for (const candidate of extract(wikitext, skip)) {
+        if (kept >= args.limit) break;
+        const text = candidate.text;
+        if (!isUsable(text, args.maxLength)) { rejected += 1; continue; }
+        const key = `${text.toLowerCase()}|${author.toLowerCase()}`;
+        if (seen.has(key)) { rejected += 1; continue; }
+        seen.add(key);
+        quotes.push({
+          text,
+          author,
+          ...(usableSource(candidate.source) ? { source: usableSource(candidate.source) } : {}),
+          ...(args.tags.length ? { tags: args.tags } : {})
+        });
+        kept += 1;
+      }
+      console.log(`  ${title} → ${kept}`);
+    }
+  }
+
+  const pack = {
+    version: 1,
+    defaults: { language: args.lang, visibility: "family", inRotation: true },
+    quotes
+  };
+  await fs.writeFile(args.out, `${JSON.stringify(pack, null, 2)}\n`, "utf8");
+  console.log(`\n${quotes.length} quotes → ${args.out}  (${rejected} candidates rejected)`);
+}
+
+main().catch((err) => {
+  console.error(err.message);
+  process.exit(1);
+});

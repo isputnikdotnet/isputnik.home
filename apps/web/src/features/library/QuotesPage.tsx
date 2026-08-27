@@ -382,6 +382,8 @@ export function QuotesPage({
   const [familyMembers, setFamilyMembers] = useState<{ id: string; name: string }[]>([]);
   const [collecting, setCollecting] = useState<Quote | null>(null);
   const [highlighted, setHighlighted] = useState("");
+  const [clearingImports, setClearingImports] = useState(false);
+  const [clearBusy, setClearBusy] = useState(false);
   const jumped = useRef(false);
 
   const loadQuotes = () =>
@@ -421,6 +423,13 @@ export function QuotesPage({
     const timer = window.setTimeout(() => setHighlighted(""), 2500);
     return () => window.clearTimeout(timer);
   }, [quotes]);
+
+  // Mine only: the route deletes the caller's own imported quotes, so the number
+  // the confirmation names has to be the number that will actually go.
+  const myImportCount = useMemo(
+    () => (quotes ?? []).filter((quote) => quote.mine && quote.origin === "import").length,
+    [quotes]
+  );
 
   // Every category anyone has used, for the editor's type-ahead.
   const knownTags = useMemo(
@@ -494,6 +503,22 @@ export function QuotesPage({
     }
   };
 
+  const clearImported = async () => {
+    setClearBusy(true);
+    try {
+      const { deleted } = await api<{ deleted: number }>("/api/library/quotes/imported", { method: "DELETE" });
+      await loadQuotes();
+      setFilter("all");
+      setClearingImports(false);
+      setNotice(t("user:quotes.clearedImported", { count: deleted }));
+      window.setTimeout(() => setNotice(""), 4000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("user:quotes.deleteFailed"));
+    } finally {
+      setClearBusy(false);
+    }
+  };
+
   const copyQuote = async (quote: Quote) => {
     const text = `“${quote.text}”\n— ${attribution(quote)}`;
     try {
@@ -545,6 +570,13 @@ export function QuotesPage({
                   : t(`user:quotes.filters.${key}` as "user:quotes.filters.all")}
               </button>
             ))}
+            {/* The undo for a bulk import, offered where its result is on screen.
+                Counts only your own — the route cannot touch anyone else's. */}
+            {filter === "import" && myImportCount > 0 && (
+              <Button variant="text" danger compact onClick={() => setClearingImports(true)}>
+                <Trash2 size={15} /> {t("user:quotes.clearImported", { count: myImportCount })}
+              </Button>
+            )}
           </div>
         )}
 
@@ -717,6 +749,20 @@ export function QuotesPage({
             window.setTimeout(() => setNotice(""), 4000);
           }}
         />
+      )}
+
+      {clearingImports && (
+        <ConfirmDialog
+          title={t("user:quotes.clearImportedTitle", { count: myImportCount })}
+          confirmLabel={t("user:quotes.clearImportedConfirm")}
+          busyLabel={t("user:actions.deleting")}
+          danger
+          busy={clearBusy}
+          onConfirm={clearImported}
+          onCancel={() => setClearingImports(false)}
+        >
+          {t("user:quotes.clearImportedBody")}
+        </ConfirmDialog>
       )}
 
       {collecting && (

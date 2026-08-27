@@ -196,7 +196,21 @@
     "speakerNobody": "Никто из семейного древа",
     "spokenBy": "сказал(а) {{name}}",
     "quotesTab": "Цитаты",
-    "addToCollectionAria": "Добавить цитату в коллекцию"
+    "addToCollectionAria": "Добавить цитату в коллекцию",
+    "clearImported_one": "Удалить {{count}} импортированную",
+    "clearImported_few": "Удалить все {{count}} импортированные",
+    "clearImported_many": "Удалить все {{count}} импортированных",
+    "clearImported_other": "Удалить все {{count}} импортированные",
+    "clearImportedTitle_one": "Удалить {{count}} импортированную цитату?",
+    "clearImportedTitle_few": "Удалить все {{count}} импортированные цитаты?",
+    "clearImportedTitle_many": "Удалить все {{count}} импортированных цитат?",
+    "clearImportedTitle_other": "Удалить все {{count}} импортированные цитаты?",
+    "clearImportedConfirm": "Удалить импортированные",
+    "clearImportedBody": "Удаляются только цитаты, добавленные из файла. Цитаты, введённые вручную, отрывки, сохранённые при чтении, и цитаты других участников не затрагиваются — а файл всегда можно импортировать снова.",
+    "clearedImported_one": "Удалена {{count}} импортированная цитата.",
+    "clearedImported_few": "Удалено {{count}} импортированные цитаты.",
+    "clearedImported_many": "Удалено {{count}} импортированных цитат.",
+    "clearedImported_other": "Удалено {{count}} импортированные цитаты."
   },
   "shared": {
     "eyebrow": "Семья",

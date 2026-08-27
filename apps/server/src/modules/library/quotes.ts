@@ -21,7 +21,7 @@ import { z } from "zod";
 import path from "node:path";
 import type { FastifyInstance } from "fastify";
 import { nanoid } from "nanoid";
-import { db } from "../../db.js";
+import { db, logActivity } from "../../db.js";
 import { parseBody } from "../../core/shared.js";
 import {
   accessibleLibraryIds,
@@ -413,6 +413,38 @@ export function registerQuoteRoutes(app: FastifyInstance) {
     return reply.send({
       quote: publicQuote(fetchQuote(quoteId)!, user.id, tagsForQuotes([quoteId]).get(quoteId) ?? [])
     });
+  });
+
+  // Undo a bulk import. One click brings in thousands of quotes, and without
+  // this the only way back out is deleting them one at a time — which is no way
+  // to recover from a pack that turned out to be full of rubbish.
+  //
+  // Deliberately narrow: the caller's OWN quotes, and only the ones an import
+  // brought in. It can never touch a reading highlight, a hand-typed quote, or
+  // anyone else's — so the worst case is losing a pack that can be imported
+  // again. Registered before /:id, though fastify would prefer the static
+  // segment anyway; quote ids are 16-character nanoids, so none can read
+  // "imported" and become unreachable.
+  app.delete("/api/library/quotes/imported", { preHandler: app.authenticate }, async (request, reply) => {
+    const user = request.user!;
+    const ids = (db.prepare("SELECT id FROM quotes WHERE user_id = ? AND origin = 'import'")
+      .all(user.id) as { id: string }[]).map((row) => row.id);
+    if (ids.length === 0) return reply.send({ deleted: 0 });
+
+    db.transaction(() => {
+      const dropTags = db.prepare("DELETE FROM taggables WHERE entity_type = ? AND entity_id = ?");
+      for (const id of ids) dropTags.run(QUOTE_ENTITY_TYPE, id);
+      db.prepare(`DELETE FROM quotes WHERE user_id = ? AND origin = 'import'`).run(user.id);
+    })();
+
+    logActivity({
+      event: "quotes.import_cleared",
+      actorUserId: user.id,
+      targetType: "quote",
+      detail: `Deleted ${ids.length} imported quote${ids.length === 1 ? "" : "s"}.`,
+      ipAddress: request.ip
+    });
+    return reply.send({ deleted: ids.length });
   });
 
   app.delete("/api/library/quotes/:id", { preHandler: app.authenticate }, async (request, reply) => {

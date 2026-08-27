@@ -168,7 +168,15 @@
     "speakerNobody": "Nobody in the family tree",
     "spokenBy": "said by {{name}}",
     "quotesTab": "Quotes",
-    "addToCollectionAria": "Add quote to a collection"
+    "addToCollectionAria": "Add quote to a collection",
+    "clearImported_one": "Delete {{count}} imported quote",
+    "clearImported_other": "Delete all {{count}} imported",
+    "clearImportedTitle_one": "Delete {{count}} imported quote?",
+    "clearImportedTitle_other": "Delete all {{count}} imported quotes?",
+    "clearImportedConfirm": "Delete imported quotes",
+    "clearImportedBody": "This removes only the quotes you brought in from a file. Quotes you typed in, passages you highlighted while reading, and everyone else's quotes are not affected — and the pack can always be imported again.",
+    "clearedImported_one": "Deleted {{count}} imported quote.",
+    "clearedImported_other": "Deleted {{count}} imported quotes."
   },
   "shared": {
     "eyebrow": "Family",

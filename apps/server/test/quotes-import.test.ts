@@ -267,3 +267,69 @@ describe("dry run", () => {
     expect(db.prepare("SELECT COUNT(*) AS n FROM taggables WHERE entity_type = 'quote'").get()).toEqual({ n: 0 });
   });
 });
+
+describe("undoing an import", () => {
+  // One click brings in thousands; without a way back out the only undo is
+  // deleting them one at a time. Deliberately narrow — the caller's own
+  // imported rows and nothing else.
+  async function clearImported(user = "admin") {
+    const res = await app.inject({
+      method: "DELETE",
+      url: "/api/library/quotes/imported",
+      headers: { "x-test-user": user }
+    });
+    return { status: res.statusCode, deleted: res.json().deleted as number };
+  }
+
+  async function addByHand(user: string, text: string) {
+    await app.inject({
+      method: "POST",
+      url: "/api/library/quotes",
+      headers: { "x-test-user": user, "content-type": "application/json" },
+      payload: JSON.stringify({ text })
+    });
+  }
+
+  it("removes every imported quote and reports how many", async () => {
+    await importQuotes({ quotes: rows("One", "Two", "Three") });
+    expect(await clearImported()).toEqual({ status: 200, deleted: 3 });
+    expect(storedQuotes("admin")).toHaveLength(0);
+  });
+
+  it("never touches quotes that were not imported", async () => {
+    await importQuotes({ quotes: rows("Imported one") });
+    await addByHand("admin", "Typed by hand");
+
+    expect((await clearImported()).deleted).toBe(1);
+    expect(storedQuotes("admin").map((r) => r.text)).toEqual(["Typed by hand"]);
+  });
+
+  it("never touches anyone else's quotes", async () => {
+    await importQuotes({ quotes: rows("Admin pack") });
+    await addByHand("member", "A member's own");
+
+    await clearImported();
+    expect(storedQuotes("member")).toHaveLength(1);
+  });
+
+  it("clears the tag links too, rather than orphaning them", async () => {
+    await importQuotes({ quotes: [{ text: "Tagged", tags: ["Humour"] }] });
+    await clearImported();
+    expect(db.prepare("SELECT COUNT(*) AS n FROM taggables WHERE entity_type = 'quote'").get()).toEqual({ n: 0 });
+  });
+
+  it("is harmless when there is nothing to clear", async () => {
+    expect(await clearImported()).toEqual({ status: 200, deleted: 0 });
+  });
+
+  it("leaves a single quote's own delete route reachable", async () => {
+    await importQuotes({ quotes: rows("Just this one") });
+    const id = (db.prepare("SELECT id FROM quotes").get() as { id: string }).id;
+    const res = await app.inject({
+      method: "DELETE",
+      url: `/api/library/quotes/${id}`,
+      headers: { "x-test-user": "admin" }
+    });
+    expect(res.statusCode).toBe(200);
+  });
+});
