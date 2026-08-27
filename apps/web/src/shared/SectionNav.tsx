@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Home } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { followRoute } from "../router";
@@ -30,11 +31,12 @@ export function SectionNav({
   items: SectionNavItem[];
   activeKey: string;
 }) {
+  const { t } = useTranslation();
   return (
     <nav className="home-control-nav" aria-label={ariaLabel}>
       <a className="home-nav-link control-nav-exit" href="/" onClick={(event) => followRoute(event, "/")}>
         <Home size={21} aria-hidden="true" />
-        <span>Home</span>
+        <span>{t("nav.home")}</span>
       </a>
 
       <div className="home-control-group">

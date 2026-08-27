@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, lazy, Suspense } from "react";
 import { api, isAdminSession, type PublicUser } from "../api";
+import { setAppLanguage } from "../i18n";
 import { cacheCurrentUser, clearCachedUser, getCachedUser } from "../offline/downloads";
 import { flushProgressQueue } from "../offline/progress";
 import { flushQuoteQueue } from "../offline/quotes";
@@ -227,6 +228,15 @@ export function App() {
     mediaQuery.addEventListener("change", applyTheme);
     return () => mediaQuery.removeEventListener("change", applyTheme);
   }, [session.user?.theme, session.defaultTheme]);
+
+  // Keep the interface language in step with the signed-in user's preference
+  // (setAppLanguage also persists it, so the next boot — and the sign-in screen
+  // after a sign-out — starts in the right language). Signed out, whatever
+  // storedLanguage() booted stays as-is.
+  useEffect(() => {
+    const language = session.user?.language;
+    if (language) void setAppLanguage(language);
+  }, [session.user?.language]);
 
   useEffect(() => {
     if (session.loading) {

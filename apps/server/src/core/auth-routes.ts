@@ -28,7 +28,10 @@ export async function authPlugin(app: FastifyInstance) {
   app.post("/api/auth/login", { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } }, async (request, reply) => {
     const parsed = parseBody(credentialsSchema, request.body);
     if (parsed.error) {
-      return reply.code(400).send({ error: "Invalid login details", details: parsed.error });
+      // `code` is a stable, translatable identifier: the web app shows its own
+      // localized message for a code it knows and falls back to `error` (see
+      // apps/web/src/api.ts). The English sentence stays for API clients.
+      return reply.code(400).send({ error: "Invalid login details", code: "auth.invalid_details", details: parsed.error });
     }
 
     const email = parsed.data.email;
@@ -43,7 +46,7 @@ export async function authPlugin(app: FastifyInstance) {
         detail: `Sign-in refused for ${email}: account temporarily locked after repeated failures.`,
         ipAddress: request.ip
       });
-      return reply.code(429).send({ error: "Too many failed attempts. Please try again in a few minutes." });
+      return reply.code(429).send({ error: "Too many failed attempts. Please try again in a few minutes.", code: "auth.locked" });
     }
 
     const user = getUserByEmail(email);
@@ -80,7 +83,7 @@ export async function authPlugin(app: FastifyInstance) {
         if (blocked) alertIpAutoBlocked(request.ip, blocked);
         if (isAccountLocked(email)) alertAccountLocked(email, request.ip, Boolean(user));
       }
-      return reply.code(401).send({ error: "Invalid email or password" });
+      return reply.code(401).send({ error: "Invalid email or password", code: "auth.invalid_credentials" });
     }
 
     const authed = user!; // ok === true implies the user exists and is active
@@ -109,7 +112,8 @@ export async function authPlugin(app: FastifyInstance) {
         return reply.code(403).send({
           error:
             "Signing in from outside the home network requires a second factor, and this account doesn't have one set up. " +
-            "Sign in from home to set up two-factor authentication, or ask your administrator."
+            "Sign in from home to set up two-factor authentication, or ask your administrator.",
+          code: "auth.mfa_required_outside"
         });
       }
 

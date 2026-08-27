@@ -2,6 +2,7 @@
 // Mirrors apps/server/src/modules/home/feed.ts; the server owns the ranking
 // (class weight × time decay), the client only renders.
 import { api } from "../../api";
+import i18n from "../../i18n";
 import type { InboxCard } from "../social/InboxRow";
 import type { ActivityItem } from "../social/ActivityList";
 import type { GalleryAsset, GalleryMemoryGroup } from "../gallery/types";
@@ -75,15 +76,18 @@ export function toActivityItem(card: ActivityCard): ActivityItem {
   return { ...rest, kind: type };
 }
 
-/** "today", "yesterday", "on Sunday", or the date — for the batch card line. */
+/** "today", "yesterday", "3 days ago", or the date — for the batch card line.
+ *  Recent days use Intl.RelativeTimeFormat rather than a weekday name: weekday
+ *  phrases need case declension in Russian ("в среду"), which the raw weekday
+ *  from toLocaleDateString can't provide, while relative days localize cleanly. */
 export function batchDayLabel(day: string): string {
   const then = new Date(`${day}T00:00:00`);
   if (Number.isNaN(then.getTime())) return day;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const days = Math.round((today.getTime() - then.getTime()) / 86_400_000);
-  if (days <= 0) return "today";
-  if (days === 1) return "yesterday";
-  if (days < 7) return `on ${then.toLocaleDateString(undefined, { weekday: "long" })}`;
-  return `on ${then.toLocaleDateString(undefined, { month: "long", day: "numeric" })}`;
+  if (days <= 0) return i18n.t("home.today");
+  if (days === 1) return i18n.t("home.yesterday");
+  if (days < 7) return new Intl.RelativeTimeFormat(i18n.language, { numeric: "always" }).format(-days, "day");
+  return i18n.t("home.onDate", { date: then.toLocaleDateString(i18n.language, { month: "long", day: "numeric" }) });
 }

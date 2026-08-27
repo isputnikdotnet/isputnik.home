@@ -1,6 +1,10 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
 import { afterEach, vi } from "vitest";
+// Initialize i18n so components using useTranslation render real English
+// strings — text queries in tests keep matching the visible UI. jsdom has no
+// stored language, so this always boots "en" and never loads another bundle.
+import "../src/i18n";
 
 // Unmount between tests so a leaked component can't be found by the next one.
 afterEach(cleanup);

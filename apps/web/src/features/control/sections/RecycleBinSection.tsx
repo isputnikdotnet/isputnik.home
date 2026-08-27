@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import {
   ArrowUpDown, BookOpen, FileQuestion, Folder, Headphones, Hourglass, Image as ImageIcon,
   LibraryBig, RotateCcw, Search, Settings2, SlidersHorizontal, Trash2
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import i18n from "../../../i18n";
 import { api, type PublicUser } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
 import { Button } from "../../../shared/Button";
@@ -65,9 +67,9 @@ function TrashThumb({ item }: { item: TrashedItem }) {
 }
 
 function formatDay(iso: string | null): string {
-  if (!iso) return "Never";
+  if (!iso) return i18n.t("controlAdmin:ui.never");
   const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? "—" : date.toLocaleDateString();
+  return Number.isNaN(date.getTime()) ? "—" : date.toLocaleDateString(i18n.language);
 }
 
 // The folder the item came out of, relative to its library. Empty for something
@@ -79,20 +81,24 @@ function folderOf(item: TrashedItem): string {
 
 type TrashSort = "recent" | "oldest" | "largest" | "name" | "soonest";
 
-const SORT_OPTIONS = [
-  { value: "recent", label: "Recently deleted" },
-  { value: "oldest", label: "Deleted longest ago" },
-  { value: "largest", label: "Largest first" },
-  { value: "name", label: "Name A–Z" },
-  { value: "soonest", label: "Removed soonest" }
-];
+function sortOptions(t: typeof i18n.t) {
+  return [
+    { value: "recent", label: t("controlAdmin:recycleBin.sortRecent") },
+    { value: "oldest", label: t("controlAdmin:recycleBin.sortOldest") },
+    { value: "largest", label: t("controlAdmin:recycleBin.sortLargest") },
+    { value: "name", label: t("controlAdmin:recycleBin.sortName") },
+    { value: "soonest", label: t("controlAdmin:recycleBin.sortSoonest") }
+  ];
+}
 
-const PER_PAGE_OPTIONS = [
-  { value: "12", label: "12 per page" },
-  { value: "24", label: "24 per page" },
-  { value: "48", label: "48 per page" },
-  { value: "all", label: "Show all" }
-];
+function perPageOptions(t: typeof i18n.t) {
+  return [
+    { value: "12", label: t("pageSize.perPage", { count: 12 }) },
+    { value: "24", label: t("pageSize.perPage", { count: 24 }) },
+    { value: "48", label: t("pageSize.perPage", { count: 48 }) },
+    { value: "all", label: t("controlAdmin:recycleBin.showAll") }
+  ];
+}
 
 function sortItems(items: TrashedItem[], sort: TrashSort): TrashedItem[] {
   const list = [...items];
@@ -121,12 +127,14 @@ function retentionWindow(item: TrashedItem): number | null {
 
 const FOREVER = "forever";
 
-const SOURCE_LABEL: Record<string, string> = {
-  manual: "Deleted by hand",
-  duplicate_cleanup: "Duplicate cleanup"
-};
+function sourceLabel(source: string): string {
+  if (source === "manual") return i18n.t("controlAdmin:recycleBin.sourceManual");
+  if (source === "duplicate_cleanup") return i18n.t("controlAdmin:recycleBin.sourceCleanup");
+  return source;
+}
 
 export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) {
+  const { t } = useTranslation(["common", "controlAdmin"]);
   const [items, setItems] = useState<TrashedItem[]>([]);
   const [bins, setBins] = useState<TrashBin[]>([]);
   const [retentionDays, setRetentionDays] = useState(30);
@@ -175,10 +183,10 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
     // showing, and the tally was the widest part of every menu — enough to stop the
     // row fitting on one line, which costs more than it told anyone.
     return [
-      { value: "", label: "All libraries" },
+      { value: "", label: t("controlAdmin:recycleBin.allLibraries") },
       ...[...seen].map(([id, name]) => ({ value: id, label: name }))
     ];
-  }, [items]);
+  }, [items, t]);
 
   // Only offered once the bin actually holds more than one kind — the whole point is
   // to dig a hand delete out from under a cleanup's thousands of rows, and with one
@@ -188,13 +196,13 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
     for (const item of items) counts.set(item.source, (counts.get(item.source) ?? 0) + 1);
     if (counts.size < 2) return [];
     return [
-      { value: "", label: `However removed (${items.length})` },
+      { value: "", label: t("controlAdmin:recycleBin.howeverRemoved", { count: items.length }) },
       ...[...counts].map(([source, count]) => ({
         value: source,
-        label: `${SOURCE_LABEL[source] ?? source} (${count})`
+        label: `${sourceLabel(source)} (${count})`
       }))
     ];
-  }, [items]);
+  }, [items, t]);
 
   // The windows actually present, not a fixed 30/90/180: a bin holds whatever the
   // settings were when each row was stamped, so the menu is built from the rows.
@@ -218,13 +226,13 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
       .sort((a, b) => Number(a) - Number(b));
     const ordered = counts.has(FOREVER) ? [...numeric, FOREVER] : numeric;
     return [
-      { value: "", label: "However long" },
+      { value: "", label: t("controlAdmin:recycleBin.howeverLong") },
       ...ordered.map((key) => ({
         value: key,
-        label: key === FOREVER ? "Until emptied" : `${key} day${key === "1" ? "" : "s"}`
+        label: key === FOREVER ? t("controlAdmin:recycleBin.untilEmptied") : t("dateRange.day", { count: Number(key) })
       }))
     ];
-  }, [items]);
+  }, [items, t]);
 
   const visible = useMemo(() => {
     let list = items;
@@ -287,7 +295,7 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
 
   useEffect(() => {
     load()
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load the Recycle Bin"))
+      .catch((err) => setError(err instanceof Error ? err.message : t("controlAdmin:recycleBin.loadFailed")))
       .finally(() => setLoaded(true));
   }, []);
 
@@ -308,7 +316,7 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
   const saveRetention = async () => {
     const bin = Number.parseInt(binInput, 10);
     if (!Number.isFinite(bin) || bin < 0) {
-      setSettingsError("Days must be a whole number, 0 or more.");
+      setSettingsError(t("controlAdmin:recycleBin.daysInvalid"));
       return;
     }
     // Blank is a real answer here, not a missing one: it puts cleanup back on the
@@ -316,7 +324,7 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
     const cleanupText = cleanupInput.trim();
     const cleanup = cleanupText === "" ? null : Number.parseInt(cleanupText, 10);
     if (cleanup !== null && (!Number.isFinite(cleanup) || cleanup < 0)) {
-      setSettingsError("Days must be a whole number, 0 or more — or blank to follow the Recycle Bin.");
+      setSettingsError(t("controlAdmin:recycleBin.cleanupDaysInvalid"));
       return;
     }
 
@@ -330,7 +338,7 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
       await load();
       setSettingsOpen(false);
     } catch (err) {
-      setSettingsError(err instanceof Error ? err.message : "Unable to save the retention settings");
+      setSettingsError(err instanceof Error ? err.message : t("controlAdmin:recycleBin.saveRetentionFailed"));
     } finally {
       setSavingRetention(false);
     }
@@ -343,7 +351,7 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
       await api(`/api/library/trash/${item.id}/restore`, { method: "POST" });
       await load();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Unable to restore the item");
+      setActionError(err instanceof Error ? err.message : t("controlAdmin:recycleBin.restoreFailed"));
     } finally {
       setRestoringId("");
     }
@@ -358,7 +366,7 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
       setPurgeTarget(null);
       await load();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Unable to delete the item");
+      setActionError(err instanceof Error ? err.message : t("controlAdmin:recycleBin.deleteFailed"));
     } finally {
       setPurging(false);
     }
@@ -383,14 +391,14 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
       await load();
 
       const held: string[] = [];
-      if (result.failed > 0) held.push(`${result.failed} couldn't go back`);
-      if (result.forbidden > 0) held.push(`${result.forbidden} you don't have permission to restore`);
+      if (result.failed > 0) held.push(t("controlAdmin:recycleBin.couldntGoBack", { count: result.failed }));
+      if (result.forbidden > 0) held.push(t("controlAdmin:recycleBin.noPermission", { count: result.forbidden }));
       if (held.length > 0) {
-        const why = result.failures.map((entry) => `“${entry.title}” — ${entry.error}`).join(" ");
-        setNotice(`Restored ${result.restored} item${result.restored === 1 ? "" : "s"}. ${held.join(", ")}, and stayed in the bin. ${why}`.trim());
+        const why = result.failures.map((entry) => t("controlAdmin:recycleBin.failureLine", { title: entry.title, error: entry.error })).join(" ");
+        setNotice(`${t("controlAdmin:recycleBin.restoredCount", { count: result.restored })}. ${held.join(", ")}${t("controlAdmin:recycleBin.stayedSuffix")} ${why}`.trim());
       }
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Unable to restore the items");
+      setActionError(err instanceof Error ? err.message : t("controlAdmin:recycleBin.restoreAllFailed"));
     } finally {
       setRestoringAll(false);
     }
@@ -410,7 +418,7 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
       setEmptyOpen(false);
       await load();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Unable to empty the Recycle Bin");
+      setActionError(err instanceof Error ? err.message : t("controlAdmin:recycleBin.emptyFailed"));
     } finally {
       setEmptying(false);
     }
@@ -445,16 +453,15 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
   // Each item carries the date it was given when it was deleted, so a single sentence
   // for the whole page can only describe what happens from here on — the tiles hold
   // the truth for what is already in the bin.
-  const days = (value: number) => `${value} day${value === 1 ? "" : "s"}`;
   const binClause = retentionDays > 0
-    ? `Deleted items keep their files here for ${days(retentionDays)}`
-    : "Deleted items keep their files here until you remove them";
+    ? t("controlAdmin:recycleBin.blurbKeepDays", { count: retentionDays })
+    : t("controlAdmin:recycleBin.blurbKeepForever");
   const cleanupClause = cleanupRetentionDays == null || cleanupRetentionDays === retentionDays
     ? ""
     : cleanupRetentionDays > 0
-      ? `, duplicate cleanup removals for ${days(cleanupRetentionDays)}`
-      : ", and duplicate cleanup removals stay until you remove them";
-  const retentionBlurb = `${binClause}${cleanupClause}. Every item shows its own date — changing these settings never moves a date already given.`;
+      ? t("controlAdmin:recycleBin.blurbCleanupDays", { count: cleanupRetentionDays })
+      : t("controlAdmin:recycleBin.blurbCleanupForever");
+  const retentionBlurb = `${binClause}${cleanupClause}. ${t("controlAdmin:recycleBin.blurbSuffix")}`;
 
   return (
     <>
@@ -470,12 +477,12 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
         <div className="row-actions control-head-actions">
           <label className="search-field trash-search">
             <Search size={17} aria-hidden="true" />
-            <span className="sr-only">Search deleted items by name, folder or library</span>
+            <span className="sr-only">{t("controlAdmin:recycleBin.searchLabel")}</span>
             <input
               type="search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search the bin..."
+              placeholder={t("controlAdmin:recycleBin.searchPlaceholder")}
             />
           </label>
           {/* Settings live up here rather than in the toolbar below, which only
@@ -486,8 +493,8 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
           {isAdmin && (
             <Button
               variant="icon"
-              aria-label="Recycle Bin settings"
-              title="Recycle Bin settings"
+              aria-label={t("controlAdmin:recycleBin.settingsAria")}
+              title={t("controlAdmin:recycleBin.settingsAria")}
               onClick={() => { setSettingsError(""); setSettingsOpen(true); }}
             >
               <Settings2 size={18} aria-hidden="true" />
@@ -502,10 +509,10 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
           chosen it also says what the whole bin holds. */}
       {items.length > 0 && (
         <p className="trash-status datagrid-muted">
-          {visible.length} item{visible.length === 1 ? "" : "s"}
+          {t("controlAdmin:recycleBin.itemsCount", { count: visible.length })}
           {" · "}{formatBytes(visibleBytes)}
-          {" · "}{visibleFiles} file{visibleFiles === 1 ? "" : "s"}
-          {scopeId ? ` · ${items.length} in the whole bin, ${formatBytes(totalBytes)}` : ""}
+          {" · "}{t("controlAdmin:recycleBin.filesCount", { count: visibleFiles })}
+          {scopeId ? ` · ${t("controlAdmin:recycleBin.wholeBin", { count: items.length, size: formatBytes(totalBytes) })}` : ""}
         </p>
       )}
 
@@ -517,11 +524,11 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
           counts above it. */}
       {shownBins.length > 0 && (
         <p className="trash-bins datagrid-muted">
-          {shownBins.length === 1 ? "Deleted files are kept in " : "Deleted files are kept in each library's own folder: "}
+          {shownBins.length === 1 ? t("controlAdmin:recycleBin.binsKeptSingle") : t("controlAdmin:recycleBin.binsKeptMulti")}
           {shownBins.map((bin, index) => (
             <span key={bin.libraryId}>
               {index > 0 && ", "}
-              <code title={`The Recycle Bin folder for ${bin.libraryName}`}>{bin.path}</code>
+              <code title={t("controlAdmin:recycleBin.binFolderTitle", { name: bin.libraryName })}>{bin.path}</code>
               {shownBins.length > 1 && <> ({bin.libraryName})</>}
             </span>
           ))}
@@ -533,21 +540,27 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
           only time the location can be changed. Admins get the answer and the door. */}
       {isAdmin && trashRoot && items.length === 0 && loaded && !error && (
         <p className="trash-bins datagrid-muted">
-          Deleted files will go to{" "}
-          {trashRoot.path
-            ? <code title="The install-wide Recycle Bin folder">{trashRoot.path}</code>
-            : <>a hidden <code>.trash</code> folder inside each library</>}
-          {" — change this under the "}
-          <Button variant="text" onClick={() => { setSettingsError(""); setSettingsOpen(true); }}>
-            bin's settings
-          </Button>.
+          {trashRoot.path ? (
+            <Trans
+              i18nKey="recycleBin.emptyLocationPath"
+              ns="controlAdmin"
+              values={{ path: trashRoot.path }}
+              components={{ cd: <code title={t("controlAdmin:recycleBin.installWideBinTitle")} />, btn: <Button variant="text" onClick={() => { setSettingsError(""); setSettingsOpen(true); }} /> }}
+            />
+          ) : (
+            <Trans
+              i18nKey="recycleBin.emptyLocationDefault"
+              ns="controlAdmin"
+              components={{ cd: <code />, btn: <Button variant="text" onClick={() => { setSettingsError(""); setSettingsOpen(true); }} /> }}
+            />
+          )}
         </p>
       )}
 
 
-      {error && <MessageBox tone="error" title="Unable to load the Recycle Bin">{error}</MessageBox>}
-      {actionError && <MessageBox tone="error" title="Action failed">{actionError}</MessageBox>}
-      {notice && <MessageBox tone="warning" title="Some items stayed in the bin">{notice}</MessageBox>}
+      {error && <MessageBox tone="error" title={t("controlAdmin:recycleBin.loadFailed")}>{error}</MessageBox>}
+      {actionError && <MessageBox tone="error" title={t("errors.actionFailed")}>{actionError}</MessageBox>}
+      {notice && <MessageBox tone="warning" title={t("controlAdmin:recycleBin.noticeTitle")}>{notice}</MessageBox>}
 
       {items.length > 0 && (
         /* Filter on the left, view controls and the actions on the right — the Logs
@@ -559,14 +572,14 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
             value={scopeId}
             options={libraryOptions}
             icon={<LibraryBig size={19} aria-hidden="true" />}
-            label="Which library's deleted items to show"
+            label={t("controlAdmin:recycleBin.libraryFilterLabel")}
             onChange={setScopeId}
           />
           {sourceOptions.length > 0 && (
             <SelectMenu
               value={sourceFilter}
               options={sourceOptions}
-              label="How the item was removed"
+              label={t("controlAdmin:recycleBin.sourceFilterLabel")}
               onChange={setSourceFilter}
             />
           )}
@@ -574,8 +587,8 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
           <div className="trash-toolbar-controls">
             <Button
               variant="icon"
-              aria-label="View options"
-              title="View options — per page, order and how long items are kept"
+              aria-label={t("controlAdmin:recycleBin.viewOptionsAria")}
+              title={t("controlAdmin:recycleBin.viewOptionsTitle")}
               onClick={() => setViewOpen(true)}
             >
               <SlidersHorizontal size={18} aria-hidden="true" />
@@ -586,8 +599,8 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
               <Button
                 variant="icon"
                 disabled={restoringAll}
-                aria-label="Restore all"
-                title="Restore everything shown"
+                aria-label={t("controlAdmin:recycleBin.restoreAllAria")}
+                title={t("controlAdmin:recycleBin.restoreAllTitle")}
                 onClick={() => { setActionError(""); setNotice(""); setRestoreAllOpen(true); }}
               >
                 <RotateCcw size={18} aria-hidden="true" />
@@ -599,10 +612,10 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
               variant="icon"
               danger
               disabled={inScope.length === 0}
-              aria-label={scopeName ? `Empty Recycle Bin for ${scopeName}` : "Empty Recycle Bin"}
+              aria-label={scopeName ? t("controlAdmin:recycleBin.emptyAriaScoped", { name: scopeName }) : t("controlAdmin:recycleBin.emptyAria")}
               title={scopeName
-                ? `Empty the Recycle Bin for ${scopeName} — other libraries are left alone`
-                : "Empty the whole Recycle Bin — every library"}
+                ? t("controlAdmin:recycleBin.emptyTitleScoped", { name: scopeName })
+                : t("controlAdmin:recycleBin.emptyTitleAll")}
               onClick={() => { setActionError(""); setEmptyOpen(true); }}
             >
               <Trash2 size={18} aria-hidden="true" />
@@ -613,7 +626,7 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
                 try {
                   await load();
                 } catch (err) {
-                  setError(err instanceof Error ? err.message : "Unable to refresh the Recycle Bin");
+                  setError(err instanceof Error ? err.message : t("controlAdmin:recycleBin.refreshFailed"));
                   throw err;
                 }
               }}
@@ -623,7 +636,7 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
       )}
 
       {loaded && items.length === 0 && !error && (
-        <p className="management-empty">The Recycle Bin is empty.</p>
+        <p className="management-empty">{t("controlAdmin:recycleBin.emptyBin")}</p>
       )}
 
       {items.length > 0 && visible.length === 0 && (
@@ -631,14 +644,14 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
           {/* Search is named first when it is on: it is the narrowing you just typed,
               so it is the one you would undo first. */}
           {search.trim()
-            ? `Nothing in the bin matches “${search.trim()}”.`
+            ? t("controlAdmin:recycleBin.noMatchSearch", { query: search.trim() })
             : retentionFilter
-              ? "Nothing in the bin is kept for that long."
+              ? t("controlAdmin:recycleBin.noMatchRetention")
               : sourceFilter && scopeId
-                ? "Nothing removed that way from that library."
+                ? t("controlAdmin:recycleBin.noMatchSourceLibrary")
                 : sourceFilter
-                  ? "Nothing removed that way."
-                  : "Nothing deleted from that library."}
+                  ? t("controlAdmin:recycleBin.noMatchSource")
+                  : t("controlAdmin:recycleBin.noMatchLibrary")}
         </p>
       )}
 
@@ -663,13 +676,13 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
                     <span className="count-badge">{item.libraryType}</span>
                   </span>
                   <span className="trash-tile-line">
-                    {formatBytes(item.sizeBytes)} · {item.fileCount} file{item.fileCount === 1 ? "" : "s"}
+                    {formatBytes(item.sizeBytes)} · {t("controlAdmin:recycleBin.filesCount", { count: item.fileCount })}
                   </span>
                   <span className="trash-tile-line">
-                    Deleted {formatManagedDate(item.trashedAt)}{item.trashedByName ? ` · ${item.trashedByName}` : ""}
+                    {t("controlAdmin:recycleBin.deletedWhen", { date: formatManagedDate(item.trashedAt) })}{item.trashedByName ? ` · ${item.trashedByName}` : ""}
                   </span>
                   <span className="trash-tile-line">
-                    <span>Removes {formatDay(item.purgesAt)}</span>
+                    <span>{t("controlAdmin:recycleBin.removesWhen", { date: formatDay(item.purgesAt) })}</span>
                     {/* Only the cleanup is worth naming: a hand delete is what the bin
                         is for, and badging every row with "Deleted by hand" would be
                         noise on the common case.
@@ -680,8 +693,8 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
                         Not "duplicate photo": a gallery cleanup removes videos too, and
                         this same badge sits on them. */}
                     {item.source === "duplicate_cleanup" && (
-                      <span className="count-badge" title="A duplicate copy, removed by a duplicate cleanup">
-                        duplicate
+                      <span className="count-badge" title={t("controlAdmin:recycleBin.duplicateBadgeTitle")}>
+                        {t("controlAdmin:recycleBin.duplicateBadge")}
                       </span>
                     )}
                   </span>
@@ -690,8 +703,8 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
                       variant="icon"
                       disabled={busyItem}
                       onClick={() => restore(item)}
-                      aria-label={`Restore ${item.title}`}
-                      title={restoringId === item.id ? "Restoring…" : "Restore"}
+                      aria-label={t("controlAdmin:recycleBin.restoreAria", { title: item.title })}
+                      title={restoringId === item.id ? t("controlAdmin:recycleBin.restoring") : t("controlAdmin:recycleBin.restore")}
                     >
                       {restoringId === item.id
                         ? <span className="icon-spin" aria-hidden="true"><RotateCcw size={16} /></span>
@@ -702,8 +715,8 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
                       danger
                       disabled={busyItem}
                       onClick={() => { setActionError(""); setPurgeTarget(item); }}
-                      aria-label={`Delete ${item.title} permanently`}
-                      title="Delete permanently"
+                      aria-label={t("controlAdmin:recycleBin.deleteAria", { title: item.title })}
+                      title={t("controlAdmin:recycleBin.deletePermanentlyTitle")}
                     >
                       <Trash2 size={16} aria-hidden="true" />
                     </Button>
@@ -715,9 +728,9 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
 
           <div className="trash-pager-row">
             <span className="datagrid-muted">
-              Showing {firstShown}–{Math.min(currentPage * pageSize, visible.length)} of {visible.length} item{visible.length === 1 ? "" : "s"}
+              {t("controlAdmin:recycleBin.showingRange", { from: firstShown, to: Math.min(currentPage * pageSize, visible.length), count: visible.length })}
             </span>
-            <Pager page={currentPage} totalPages={totalPages} onChange={setPage} label="Recycle Bin pages" />
+            <Pager page={currentPage} totalPages={totalPages} onChange={setPage} label={t("controlAdmin:recycleBin.pagerLabel")} />
           </div>
         </>
       )}
@@ -728,34 +741,34 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
           the bin. Each applies the moment it is chosen, so there is nothing to save
           and Done is only a way out. */}
       {viewOpen && (
-        <Modal variant="card" title="View options" onClose={() => setViewOpen(false)}>
+        <Modal variant="card" title={t("controlAdmin:recycleBin.viewTitle")} onClose={() => setViewOpen(false)}>
           <div className="trash-view-options">
             <label className="trash-view-row">
-              <span>Items per page</span>
+              <span>{t("controlAdmin:recycleBin.itemsPerPage")}</span>
               <SelectMenu
                 value={perPage}
-                options={PER_PAGE_OPTIONS}
-                label="Items per page"
+                options={perPageOptions(t)}
+                label={t("controlAdmin:recycleBin.itemsPerPage")}
                 onChange={setPerPage}
               />
             </label>
             <label className="trash-view-row">
-              <span>Order</span>
+              <span>{t("controlAdmin:recycleBin.order")}</span>
               <SelectMenu
                 value={sort}
-                options={SORT_OPTIONS}
-                label="Sort deleted items"
+                options={sortOptions(t)}
+                label={t("controlAdmin:recycleBin.sortLabel")}
                 triggerIcon={<ArrowUpDown size={16} aria-hidden="true" />}
                 onChange={(next) => setSort(next as TrashSort)}
               />
             </label>
             {retentionOptions.length > 0 && (
               <label className="trash-view-row">
-                <span>Kept for</span>
+                <span>{t("controlAdmin:recycleBin.keptFor")}</span>
                 <SelectMenu
                   value={retentionFilter}
                   options={retentionOptions}
-                  label="How long the item is kept for"
+                  label={t("controlAdmin:recycleBin.keptForLabel")}
                   triggerIcon={<Hourglass size={16} aria-hidden="true" />}
                   onChange={setRetentionFilter}
                 />
@@ -764,7 +777,7 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
           </div>
 
           <div className="modal-actions">
-            <Button variant="secondary" onClick={() => setViewOpen(false)}>Done</Button>
+            <Button variant="secondary" onClick={() => setViewOpen(false)}>{t("common.done")}</Button>
           </div>
         </Modal>
       )}
@@ -777,14 +790,14 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
       {settingsOpen && (
         <Modal
           variant="card"
-          title="Recycle Bin settings"
+          title={t("controlAdmin:recycleBin.settingsTitle")}
           busy={savingRetention}
           onClose={closeSettings}
           onSubmit={(event) => { event.preventDefault(); void saveRetention(); }}
         >
           <div className="trash-retention">
             <label className="trash-retention-row" htmlFor="trash-retention">
-              <span>Keep deleted items for</span>
+              <span>{t("controlAdmin:recycleBin.keepDeletedFor")}</span>
               <input
                 id="trash-retention"
                 type="number"
@@ -794,29 +807,28 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
                 disabled={savingRetention}
                 onChange={(event) => setBinInput(event.target.value)}
               />
-              <span className="datagrid-muted">days (0 = until you empty the bin)</span>
+              <span className="datagrid-muted">{t("controlAdmin:recycleBin.daysUntilEmpty")}</span>
             </label>
             <label className="trash-retention-row" htmlFor="trash-retention-cleanup">
-              <span>Duplicate cleanup removals for</span>
+              <span>{t("controlAdmin:recycleBin.cleanupFor")}</span>
               <input
                 id="trash-retention-cleanup"
                 type="number"
                 min={0}
                 max={3650}
-                placeholder="same"
+                placeholder={t("controlAdmin:recycleBin.samePlaceholder")}
                 value={cleanupInput}
                 disabled={savingRetention}
                 onChange={(event) => setCleanupInput(event.target.value)}
               />
-              <span className="datagrid-muted">days (blank = same as above)</span>
+              <span className="datagrid-muted">{t("controlAdmin:recycleBin.daysBlankSame")}</span>
             </label>
           </div>
 
           {/* Said here as well as in the header: this is the moment somebody is about
               to change a number and might expect it to reach what is already in the bin. */}
           <p className="datagrid-muted trash-retention-note">
-            Every item keeps the date it was given when it was deleted, so changing these
-            never moves a date already set. They decide what happens from now on.
+            {t("controlAdmin:recycleBin.retentionNote")}
           </p>
 
           {/* The location was reachable only from Library → Storage, which nobody
@@ -825,30 +837,30 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
               set-it-up-first flow. */}
           {trashRoot && (
             <div className="trash-location-row">
-              <span>Deleted files go to</span>
-              <code>{trashRoot.path || "each library's own .trash folder"}</code>
+              <span>{t("controlAdmin:recycleBin.locationGoesTo")}</span>
+              <code>{trashRoot.path || t("controlAdmin:recycleBin.defaultTrash")}</code>
               <Button
                 variant="secondary"
                 compact
                 disabled={!trashRoot.editable}
                 title={trashRoot.editable
                   ? undefined
-                  : "Empty the Recycle Bin first — the location can only change while it holds nothing"}
+                  : t("controlAdmin:recycleBin.locationLockedTitle")}
                 onClick={() => { closeSettings(); setEditLocationOpen(true); }}
               >
-                Change location
+                {t("controlAdmin:recycleBin.changeLocation")}
               </Button>
             </div>
           )}
 
           {settingsError && (
-            <MessageBox tone="error" title="Unable to save">{settingsError}</MessageBox>
+            <MessageBox tone="error" title={t("errors.unableToSave")}>{settingsError}</MessageBox>
           )}
 
           <div className="modal-actions">
-            <Button variant="secondary" disabled={savingRetention} onClick={closeSettings}>Cancel</Button>
+            <Button variant="secondary" disabled={savingRetention} onClick={closeSettings}>{t("common.cancel")}</Button>
             <Button variant="primary" type="submit" disabled={savingRetention || !retentionDirty}>
-              {savingRetention ? "Saving…" : "Save"}
+              {savingRetention ? t("controlAdmin:ui.saving") : t("controlAdmin:ui.save")}
             </Button>
           </div>
         </Modal>
@@ -864,26 +876,26 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
 
       {purgeTarget && (
         <ConfirmDialog
-          title={`Permanently delete "${purgeTarget.title}"?`}
-          confirmLabel="Delete permanently"
-          busyLabel="Deleting…"
+          title={t("controlAdmin:recycleBin.purgeTitle", { title: purgeTarget.title })}
+          confirmLabel={t("controlAdmin:recycleBin.deletePermanently")}
+          busyLabel={t("controlAdmin:recycleBin.deleting")}
           danger
           busy={purging}
           error={actionError}
           onConfirm={confirmPurge}
           onCancel={() => setPurgeTarget(null)}
         >
-          Its {purgeTarget.fileCount} file{purgeTarget.fileCount === 1 ? "" : "s"} will be erased from disk. This cannot be undone — restore it instead if you might want it back.
+          {t("controlAdmin:recycleBin.purgeBody", { count: purgeTarget.fileCount })}
         </ConfirmDialog>
       )}
 
       {restoreAllOpen && (
         <ConfirmDialog
           title={scopeName
-            ? `Restore all ${inScope.length} item${inScope.length === 1 ? "" : "s"} in “${scopeName}”?`
-            : `Restore all ${inScope.length} item${inScope.length === 1 ? "" : "s"}?`}
-          confirmLabel={`Restore ${inScope.length} item${inScope.length === 1 ? "" : "s"}`}
-          busyLabel="Restoring…"
+            ? t("controlAdmin:recycleBin.restoreAllTitleScoped", { count: inScope.length, name: scopeName })
+            : t("controlAdmin:recycleBin.restoreAllTitleAll", { count: inScope.length })}
+          confirmLabel={t("controlAdmin:recycleBin.restoreAllConfirm", { count: inScope.length })}
+          busyLabel={t("controlAdmin:recycleBin.restoring")}
           busy={restoringAll}
           error={actionError}
           onConfirm={confirmRestoreAll}
@@ -892,16 +904,11 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
         >
           <p>
             {scopeName
-              ? <>Everything the bin holds for <strong>{scopeName}</strong> goes back where it came from — its files return
-                to their library folder and it appears in the library again. Deleted items in other libraries are left
-                alone.</>
-              : <>Everything in the bin goes back where it came from — files return to their library folders and the
-                items appear in their libraries again.</>}
+              ? <Trans i18nKey="recycleBin.restoreAllBodyScoped" ns="controlAdmin" values={{ name: scopeName }} components={{ bold: <strong /> }} />
+              : t("controlAdmin:recycleBin.restoreAllBodyAll")}
           </p>
           <p>
-            Each is put back on its own, so one that can't be — its library has been removed, or something else now
-            occupies the place it came from — doesn't stop the rest. Anything that can't go back stays in the bin and
-            is named here afterwards. Nothing is deleted either way.
+            {t("controlAdmin:recycleBin.restoreAllBodyShared")}
           </p>
         </ConfirmDialog>
       )}
@@ -909,10 +916,10 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
       {emptyOpen && (
         <ConfirmDialog
           title={scopeName
-            ? `Empty the Recycle Bin for “${scopeName}”?`
-            : "Empty the whole Recycle Bin?"}
-          confirmLabel={scopeName ? "Empty this library" : "Empty Recycle Bin"}
-          busyLabel="Emptying…"
+            ? t("controlAdmin:recycleBin.emptyDialogTitleScoped", { name: scopeName })
+            : t("controlAdmin:recycleBin.emptyDialogTitleAll")}
+          confirmLabel={scopeName ? t("controlAdmin:recycleBin.emptyConfirmScoped") : t("controlAdmin:recycleBin.emptyConfirmAll")}
+          busyLabel={t("controlAdmin:recycleBin.emptying")}
           danger
           rich
           busy={emptying}
@@ -920,30 +927,30 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
           // A count you can only supply by having read the line above it. Deliberately
           // absent from the scoped case: friction everywhere is friction nowhere.
           challenge={emptyNeedsChallenge
-            ? { value: String(inScope.length), label: <>Type <strong>{inScope.length}</strong> to confirm</> }
+            ? { value: String(inScope.length), label: <Trans i18nKey="recycleBin.challengeLabel" ns="controlAdmin" values={{ count: inScope.length }} components={{ bold: <strong /> }} /> }
             : undefined}
           onConfirm={confirmEmpty}
           onCancel={() => setEmptyOpen(false)}
         >
           <p>
-            <strong>{inScope.length} item{inScope.length === 1 ? "" : "s"}</strong> · {formatBytes(scopeBytes)} ·{" "}
-            {scopeFiles.toLocaleString()} file{scopeFiles === 1 ? "" : "s"} will be permanently deleted, including
-            their files on disk. This cannot be undone.
+            <Trans
+              i18nKey="recycleBin.emptyDialogStats"
+              ns="controlAdmin"
+              values={{ items: t("controlAdmin:recycleBin.itemsCount", { count: inScope.length }), size: formatBytes(scopeBytes), files: t("controlAdmin:recycleBin.filesCount", { count: scopeFiles }) }}
+              components={{ bold: <strong /> }}
+            />
           </p>
           {scopeUnexpired > 0 && (
             <p>
               {scopeUnexpired === inScope.length
-                ? <>Every one of them is still inside its retention window — none was due to go yet.</>
-                : <><strong>{scopeUnexpired}</strong> of them {scopeUnexpired === 1 ? "is" : "are"} still inside
-                  the retention window {scopeUnexpired === 1 ? "it was" : "they were"} given, and would not have gone
-                  on {scopeUnexpired === 1 ? "its" : "their"} own.</>}
+                ? t("controlAdmin:recycleBin.unexpiredAll")
+                : <Trans i18nKey="recycleBin.unexpiredSome" ns="controlAdmin" count={scopeUnexpired} components={{ bold: <strong /> }} />}
             </p>
           )}
           <p>
             {scopeName
-              ? <>Only <strong>{scopeName}</strong> is emptied. Deleted items in other libraries are left alone.</>
-              : <>This reaches every library, including any the page is not currently showing. To empty just one,
-                choose it in the library filter first.</>}
+              ? <Trans i18nKey="recycleBin.emptyScopeOnly" ns="controlAdmin" values={{ name: scopeName }} components={{ bold: <strong /> }} />
+              : t("controlAdmin:recycleBin.emptyReachesAll")}
           </p>
         </ConfirmDialog>
       )}

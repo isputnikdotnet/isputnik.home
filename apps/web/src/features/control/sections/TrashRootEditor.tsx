@@ -3,6 +3,7 @@
 // the rules it explains — inside a container, outside every library, only changeable
 // while the bin is empty — must read identically wherever the door into them is.
 import { useEffect, useState, type FormEvent } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { Folder } from "lucide-react";
 import { api } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
@@ -32,6 +33,7 @@ export function TrashRootEditor({
   onSaved: () => void | Promise<void>;
   onClose: () => void;
 }) {
+  const { t } = useTranslation(["common", "controlAdmin"]);
   const [input, setInput] = useState(current ?? "");
   const [saving, setSaving] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -43,7 +45,7 @@ export function TrashRootEditor({
   useEffect(() => {
     api<{ roots: StorageRoot[] }>("/api/storage/roots")
       .then((payload) => setStorageRoots(payload.roots))
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load storage containers"));
+      .catch((err) => setError(err instanceof Error ? err.message : t("controlAdmin:trashRoot.loadContainersFailed")));
   }, []);
 
   const save = async (event: FormEvent) => {
@@ -60,7 +62,7 @@ export function TrashRootEditor({
       await onSaved();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to save the Recycle Bin location");
+      setError(err instanceof Error ? err.message : t("controlAdmin:trashRoot.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -69,28 +71,24 @@ export function TrashRootEditor({
   return (
     <>
       <Modal
-        title="Edit Recycle Bin location"
+        title={t("controlAdmin:trashRoot.modalTitle")}
         className="edit-thumbnail-modal"
         busy={saving}
         onClose={onClose}
         onSubmit={save}
       >
         <p>
-          Browse to a folder inside a Digital Library container, but <strong>not</strong>{" "}
-          inside a library — anything in a library is scanned, so deleted files would be
-          catalogued straight back in. Clear it to go back to each library's own hidden{" "}
-          <code>.trash</code> folder.
+          <Trans
+            i18nKey="trashRoot.intro"
+            ns="controlAdmin"
+            components={{ bold: <strong />, cd: <code /> }}
+          />
         </p>
-        <MessageBox tone="info" title="Best set before you create libraries">
-          The location can only change while the Recycle Bin is completely empty, so once
-          you are using it, moving it means restoring or permanently deleting everything in
-          it first. Nothing already deleted is moved by a change — every item remembers
-          where its own files went.
+        <MessageBox tone="info" title={t("controlAdmin:trashRoot.infoTitle")}>
+          {t("controlAdmin:trashRoot.infoBody")}
         </MessageBox>
-        <MessageBox tone="warning" title="Keep it on the same storage as your libraries">
-          Deleting into a bin on the same disk is an instant rename. To another disk it is a
-          real copy of every byte, so deleting a large video, or a duplicate cleanup removing
-          thousands of photos, will take much longer.
+        <MessageBox tone="warning" title={t("controlAdmin:trashRoot.warnTitle")}>
+          {t("controlAdmin:trashRoot.warnBody")}
         </MessageBox>
         {/* Browsed, not typed. The path has to be the one the SERVER sees — under
             Docker that is the container path, not the host path an admin knows — and it
@@ -98,35 +96,35 @@ export function TrashRootEditor({
             accessible", which is true and useless. The picker can only offer folders the
             server can actually reach. */}
         <div className="field source-folder-field">
-          <span>Recycle Bin folder</span>
+          <span>{t("controlAdmin:trashRoot.folderLabel")}</span>
           <div className="source-folder-control">
             <Folder size={19} aria-hidden="true" />
-            <span>{input || "Each library's own .trash folder"}</span>
+            <span>{input || t("controlAdmin:storage.defaultTrash")}</span>
             <Button variant="secondary" compact onClick={() => { setError(""); setPickerOpen(true); }}>
-              Browse
+              {t("controlAdmin:scanRules.browseFolders")}
             </Button>
             {input && (
-              <Button variant="text" onClick={() => setInput("")}>Clear</Button>
+              <Button variant="text" onClick={() => setInput("")}>{t("controlAdmin:trashRoot.clear")}</Button>
             )}
           </div>
         </div>
-        {error && <MessageBox tone="error" title="Unable to save the location">{error}</MessageBox>}
+        {error && <MessageBox tone="error" title={t("controlAdmin:trashRoot.saveErrorTitle")}>{error}</MessageBox>}
         <div className="modal-actions">
           <Button variant="secondary" onClick={onClose} disabled={saving} autoFocus>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button variant="primary" type="submit" disabled={saving}>
-            {saving ? "Saving…" : "Save location"}
+            {saving ? t("controlAdmin:ui.saving") : t("controlAdmin:trashRoot.saveLocation")}
           </Button>
         </div>
       </Modal>
 
       {pickerOpen && (
         <FolderPickerModal
-          title="Select the Recycle Bin folder"
-          intro="Choose a folder inside an approved container — one outside every library, since anything inside a library is scanned."
+          title={t("controlAdmin:trashRoot.pickerTitle")}
+          intro={t("controlAdmin:trashRoot.pickerIntro")}
           storageRoots={storageRoots}
-          confirmLabel="Use this folder"
+          confirmLabel={t("controlAdmin:trashRoot.useThisFolder")}
           onPick={({ absolutePath }) => {
             setInput(absolutePath);
             setPickerOpen(false);

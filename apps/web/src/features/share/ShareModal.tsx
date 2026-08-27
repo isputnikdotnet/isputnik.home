@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { Check, Copy, Link2, Trash2 } from "lucide-react";
 import { api } from "../../api";
 import { MessageBox } from "../../shared/MessageBox";
@@ -25,11 +26,7 @@ interface UserShare {
   createdAt: string;
 }
 
-const EXPIRY_OPTIONS = [
-  { label: "1 day", days: 1 },
-  { label: "7 days", days: 7 },
-  { label: "30 days", days: 30 }
-];
+const EXPIRY_OPTIONS = [1, 7, 30];
 
 export function ShareModal({
   bookId,
@@ -42,10 +39,12 @@ export function ShareModal({
   kind?: "audiobook" | "ebook" | "gallery";
   onClose: () => void;
 }) {
+  const { t } = useTranslation(["common", "user"]);
   // Ebooks are read, audiobooks are listened to, gallery items are viewed — the rest
-  // of the share flow is identical across types.
-  const consumeVerb = kind === "ebook" ? "read" : kind === "gallery" ? "view" : "listen";
-  const consumeNoun = kind === "ebook" ? "reading" : kind === "gallery" ? "viewing" : "playback";
+  // of the share flow is identical across types. Each intro is a fully composed
+  // sentence per kind (kept inline at the call site so the literal key type isn't
+  // widened to `string` by an intermediate variable), not built from a verb/noun
+  // pair, since Russian conjugates.
   const [tab, setTab] = useState<Tab>("link");
   const [error, setError] = useState("");
 
@@ -91,7 +90,7 @@ export function ShareModal({
       setLabel("");
       await loadLinks();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not create link");
+      setError(err instanceof Error ? err.message : t("user:share.createFailed"));
     } finally {
       setCreating(false);
     }
@@ -104,7 +103,7 @@ export function ShareModal({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      setError("Copy failed — select and copy the link manually.");
+      setError(t("user:share.copyFailed"));
     }
   };
 
@@ -113,7 +112,7 @@ export function ShareModal({
       await api(`/api/shares/${id}`, { method: "DELETE" });
       setLinks((prev) => prev.filter((l) => l.id !== id));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not revoke link");
+      setError(err instanceof Error ? err.message : t("user:share.revokeLinkFailed"));
     }
   };
 
@@ -122,52 +121,54 @@ export function ShareModal({
       await api(`/api/shares/user/${id}`, { method: "DELETE" });
       setUserShares((prev) => prev.filter((s) => s.id !== id));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not revoke");
+      setError(err instanceof Error ? err.message : t("user:share.revokeFailed"));
     }
   };
 
   return (
-    <Modal variant="panel" title={`Share “${bookTitle}”`} onClose={onClose}>
+    <Modal variant="panel" title={t("user:share.title", { title: bookTitle })} onClose={onClose}>
         <div className="modal-tabs">
           <button className={`modal-tab${tab === "link" ? " active" : ""}`} onClick={() => setTab("link")}>
-            Guest link
+            {t("user:share.guestLink")}
           </button>
           <button className={`modal-tab${tab === "people" ? " active" : ""}`} onClick={() => setTab("people")}>
-            People
+            {t("user:share.people")}
           </button>
         </div>
 
         <div className="modal-tab-content">
-          {error && <MessageBox tone="error" title="Error">{error}</MessageBox>}
+          {error && <MessageBox tone="error" title={t("user:common.errorTitle")}>{error}</MessageBox>}
 
           {tab === "link" && (
             <div className="share-link-tab">
-              <p className="muted">Anyone with the link can {consumeVerb} and download — no account needed. Links expire and can be revoked.</p>
+              <p className="muted">
+                {t(kind === "ebook" ? "user:share.linkIntroEbook" : kind === "gallery" ? "user:share.linkIntroGallery" : "user:share.linkIntroAudiobook")}
+              </p>
 
               <div className="share-create-row">
                 <label className="field">
-                  <span>Expires in</span>
+                  <span>{t("user:share.expiresIn")}</span>
                   <select value={expiresInDays} onChange={(e) => setExpiresInDays(Number(e.target.value))}>
-                    {EXPIRY_OPTIONS.map((o) => <option key={o.days} value={o.days}>{o.label}</option>)}
+                    {EXPIRY_OPTIONS.map((days) => <option key={days} value={days}>{t("user:share.days", { count: days })}</option>)}
                   </select>
                 </label>
                 <label className="field">
-                  <span>Label (optional)</span>
-                  <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="e.g. For Dad" maxLength={100} />
+                  <span>{t("user:share.labelField")}</span>
+                  <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder={t("user:share.labelPlaceholder")} maxLength={100} />
                 </label>
                 <button className="primary-button" onClick={createLink} disabled={creating}>
-                  <Link2 size={16} /><span>{creating ? "Creating…" : "Create link"}</span>
+                  <Link2 size={16} /><span>{creating ? t("user:actions.creating") : t("user:share.createLink")}</span>
                 </button>
               </div>
 
               {newUrl && (
                 <div className="share-new-url">
-                  <p className="muted">Copy this link now — it won’t be shown again.</p>
+                  <p className="muted">{t("user:share.copyNow")}</p>
                   <div className="share-url-row">
                     <input readOnly value={newUrl} onFocus={(e) => e.target.select()} />
                     <button className="secondary-button" onClick={copyUrl}>
                       {copied ? <Check size={16} /> : <Copy size={16} />}
-                      <span>{copied ? "Copied" : "Copy"}</span>
+                      <span>{copied ? t("user:share.copied") : t("user:actions.copy")}</span>
                     </button>
                   </div>
                 </div>
@@ -175,17 +176,17 @@ export function ShareModal({
 
               <div className="share-list">
                 {myLinks.length === 0 ? (
-                  <p className="muted">No active links for this book.</p>
+                  <p className="muted">{t("user:share.noActiveLinks")}</p>
                 ) : (
                   myLinks.map((link) => (
                     <div className="share-list-row" key={link.id}>
                       <div className="share-list-main">
-                        <span className="share-list-label">{link.label || "Guest link"}</span>
+                        <span className="share-list-label">{link.label || t("user:share.guestLink")}</span>
                         <span className="muted">
-                          {link.status === "expired" ? "Expired" : `Expires ${new Date(link.expiresAt).toLocaleDateString()}`}
+                          {link.status === "expired" ? t("user:share.expired") : t("user:share.expiresOn", { date: new Date(link.expiresAt).toLocaleDateString() })}
                         </span>
                       </div>
-                      <button className="icon-button" onClick={() => revokeLink(link.id)} aria-label="Revoke link">
+                      <button className="icon-button" onClick={() => revokeLink(link.id)} aria-label={t("user:share.revokeLink")}>
                         <Trash2 size={16} />
                       </button>
                     </div>
@@ -198,24 +199,26 @@ export function ShareModal({
           {tab === "people" && (
             <div className="share-people-tab">
               <p className="muted">
-                Who can open this in their own account — {consumeNoun}, downloads, and their own
-                progress. To give somebody access, use <strong>Send to</strong>: pick them and it
-                grants access as it tells them.
+                <Trans
+                  i18nKey={kind === "ebook" ? "share.peopleIntroEbook" : kind === "gallery" ? "share.peopleIntroGallery" : "share.peopleIntroAudiobook"}
+                  ns="user"
+                  components={{ bold: <strong /> }}
+                />
               </p>
 
               <div className="share-list">
                 {userShares.length === 0 ? (
-                  <p className="muted">Nobody has been given access to this yet.</p>
+                  <p className="muted">{t("user:share.nobodyAccess")}</p>
                 ) : (
                   userShares.map((s) => (
                     <div className="share-list-row" key={s.id}>
                       <div className="share-list-main">
                         <span className="share-list-label">{s.displayName}</span>
                         <span className="muted">
-                          {s.expiresAt ? `Until ${new Date(s.expiresAt).toLocaleDateString()}` : "No expiry"}
+                          {s.expiresAt ? t("user:share.until", { date: new Date(s.expiresAt).toLocaleDateString() }) : t("user:share.noExpiry")}
                         </span>
                       </div>
-                      <button className="icon-button" onClick={() => revokeUser(s.id)} aria-label="Revoke share">
+                      <button className="icon-button" onClick={() => revokeUser(s.id)} aria-label={t("user:share.revokeShare")}>
                         <Trash2 size={16} />
                       </button>
                     </div>

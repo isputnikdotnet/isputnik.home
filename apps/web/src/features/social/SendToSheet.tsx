@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { Link2, Send, Tablet, UserRound } from "lucide-react";
 import { api } from "../../api";
 import { Modal } from "../../shared/Modal";
@@ -48,6 +49,7 @@ export function SendToSheet({
   /** Mails the file to the caller's own e-reader. Omit to hide the row. */
   onSendToEreader?: () => Promise<void>;
 }) {
+  const { t } = useTranslation(["common", "user"]);
   const [destinations, setDestinations] = useState<Destinations | null>(null);
   const [loadError, setLoadError] = useState("");
   const [recipient, setRecipient] = useState<Person | null>(null);
@@ -60,7 +62,7 @@ export function SendToSheet({
     const params = new URLSearchParams({ entityType: subject.entityType, entityId: subject.entityId });
     api<Destinations>(`/api/social/destinations?${params.toString()}`)
       .then(setDestinations)
-      .catch((err) => setLoadError(err instanceof Error ? err.message : "Unable to load who you can send this to"));
+      .catch((err) => setLoadError(err instanceof Error ? err.message : t("user:sendTo.loadFailed")));
   }, [subject.entityType, subject.entityId]);
 
   const send = async () => {
@@ -81,7 +83,7 @@ export function SendToSheet({
       });
       setSentTo(recipient.displayName);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to send");
+      setError(err instanceof Error ? err.message : t("user:sendTo.sendFailed"));
     } finally {
       setBusy(false);
     }
@@ -93,9 +95,9 @@ export function SendToSheet({
     setError("");
     try {
       await onSendToEreader();
-      setSentTo("your e-reader");
+      setSentTo(t("user:sendTo.yourEreader"));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to send to your e-reader");
+      setError(err instanceof Error ? err.message : t("user:sendTo.ereaderFailed"));
     } finally {
       setBusy(false);
     }
@@ -104,12 +106,12 @@ export function SendToSheet({
   // Sent. One line, one button — there is nothing else to decide here.
   if (sentTo) {
     return (
-      <Modal title="Sent" onClose={onClose}>
+      <Modal title={t("user:sendTo.sentTitle")} onClose={onClose}>
         <p className="send-to-done">
-          On its way to <strong>{sentTo}</strong>.
+          <Trans i18nKey="sendTo.onItsWay" ns="user" values={{ name: sentTo }} components={{ bold: <strong /> }} />
         </p>
         <div className="modal-actions">
-          <Button variant="primary" onClick={onClose}>Done</Button>
+          <Button variant="primary" onClick={onClose}>{t("common:common.done")}</Button>
         </div>
       </Modal>
     );
@@ -119,33 +121,33 @@ export function SendToSheet({
   if (recipient) {
     return (
       <Modal
-        title={`Send to ${recipient.displayName}`}
+        title={t("user:sendTo.sendToName", { name: recipient.displayName })}
         busy={busy}
         onClose={onClose}
         onSubmit={(event) => { event.preventDefault(); void send(); }}
       >
         {destinations && <SubjectCard subject={destinations.subject} />}
         <label className="send-to-field">
-          <span>Say something (optional)</span>
+          <span>{t("user:sendTo.sayField")}</span>
           <input
             type="text"
             value={message}
             maxLength={280}
             autoFocus
-            placeholder="You'll love this"
+            placeholder={t("user:sendTo.sayPlaceholder")}
             onChange={(event) => setMessage(event.target.value)}
           />
         </label>
         <p className="send-to-note">
           {recipient.canOpen
-            ? `${recipient.displayName} gets a link to this on your family server — no file is sent.`
-            : `${recipient.displayName} can't open this yet. Sending will also give them access to it.`}
+            ? t("user:sendTo.linkNote", { name: recipient.displayName })
+            : t("user:sendTo.grantNote", { name: recipient.displayName })}
         </p>
-        {error && <MessageBox tone="error" title="Unable to send">{error}</MessageBox>}
+        {error && <MessageBox tone="error" title={t("user:sendTo.sendFailed")}>{error}</MessageBox>}
         <div className="modal-actions">
-          <Button variant="secondary" onClick={() => setRecipient(null)} disabled={busy}>Back</Button>
+          <Button variant="secondary" onClick={() => setRecipient(null)} disabled={busy}>{t("user:sendTo.back")}</Button>
           <Button variant="primary" type="submit" disabled={busy}>
-            {busy ? "Sending…" : recipient.canOpen ? "Send" : "Give access and send"}
+            {busy ? t("user:actions.sending") : recipient.canOpen ? t("user:actions.send") : t("user:sendTo.giveAccessSend")}
           </Button>
         </div>
       </Modal>
@@ -156,8 +158,8 @@ export function SendToSheet({
   const needsAccess = destinations?.people.filter((person) => !person.canOpen) ?? [];
 
   return (
-    <Modal title="Send to" busy={busy} onClose={onClose}>
-      {loadError && <MessageBox tone="error" title="Unable to load">{loadError}</MessageBox>}
+    <Modal title={t("user:sendTo.title")} busy={busy} onClose={onClose}>
+      {loadError && <MessageBox tone="error" title={t("user:common.unableToLoad")}>{loadError}</MessageBox>}
       {destinations && (
         <>
           <SubjectCard subject={destinations.subject} />
@@ -167,7 +169,7 @@ export function SendToSheet({
               <PersonRow key={person.id} person={person} onPick={setRecipient} />
             ))}
             {destinations.people.length === 0 && (
-              <li className="send-to-empty">There is nobody else on this server yet.</li>
+              <li className="send-to-empty">{t("user:sendTo.nobody")}</li>
             )}
           </ul>
 
@@ -177,7 +179,7 @@ export function SendToSheet({
           {needsAccess.length > 0 && (
             <>
               <p className="send-to-group-label">
-                {destinations.canGrant ? "Doesn't have access yet" : "Can't open this"}
+                {destinations.canGrant ? t("user:sendTo.noAccessYet") : t("user:sendTo.cantOpen")}
               </p>
               <ul className="send-to-list">
                 {needsAccess.map((person) => (
@@ -198,13 +200,13 @@ export function SendToSheet({
                   {destinations.ereader.configured ? (
                     <button type="button" className="send-to-option" disabled={busy} onClick={() => void sendToEreader()}>
                       <Tablet size={18} aria-hidden />
-                      <span className="send-to-option-label">{busy ? "Sending…" : "My e-reader"}</span>
+                      <span className="send-to-option-label">{busy ? t("user:actions.sending") : t("user:sendTo.myEreader")}</span>
                     </button>
                   ) : (
                     <a className="send-to-option" href="/profile">
                       <Tablet size={18} aria-hidden />
-                      <span className="send-to-option-label">Set up my e-reader</span>
-                      <span className="send-to-hint">Kindle / Kobo</span>
+                      <span className="send-to-option-label">{t("user:sendTo.setupEreader")}</span>
+                      <span className="send-to-hint">{t("user:sendTo.ereaderHint")}</span>
                     </a>
                   )}
                 </li>
@@ -213,7 +215,7 @@ export function SendToSheet({
                 <li>
                   <button type="button" className="send-to-option" onClick={onGuestLink}>
                     <Link2 size={18} aria-hidden />
-                    <span className="send-to-option-label">Anyone with a link</span>
+                    <span className="send-to-option-label">{t("user:sendTo.anyoneWithLink")}</span>
                   </button>
                 </li>
               )}
@@ -221,15 +223,16 @@ export function SendToSheet({
           )}
         </>
       )}
-      {error && <MessageBox tone="error" title="Unable to send">{error}</MessageBox>}
+      {error && <MessageBox tone="error" title={t("user:sendTo.sendFailed")}>{error}</MessageBox>}
       <div className="modal-actions">
-        <Button variant="secondary" onClick={onClose} disabled={busy}>Cancel</Button>
+        <Button variant="secondary" onClick={onClose} disabled={busy}>{t("common:common.cancel")}</Button>
       </div>
     </Modal>
   );
 }
 
 function PersonRow({ person, onPick }: { person: Person; onPick?: (person: Person) => void }) {
+  const { t } = useTranslation(["common", "user"]);
   return (
     <li>
       <button
@@ -240,8 +243,10 @@ function PersonRow({ person, onPick }: { person: Person; onPick?: (person: Perso
       >
         <UserRound size={18} aria-hidden />
         <span className="send-to-option-label">{person.displayName}</span>
-        {!person.canOpen && <span className="send-to-hint">{onPick ? "will get access" : "no access"}</span>}
-        {person.canOpen && person.alreadySent && <span className="send-to-hint">already sent</span>}
+        {!person.canOpen && (
+          <span className="send-to-hint">{onPick ? t("user:sendTo.willGetAccess") : t("user:sendTo.noAccess")}</span>
+        )}
+        {person.canOpen && person.alreadySent && <span className="send-to-hint">{t("user:sendTo.alreadySent")}</span>}
       </button>
     </li>
   );

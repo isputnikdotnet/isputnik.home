@@ -1,4 +1,6 @@
+import { useTranslation } from "react-i18next";
 import { CircleAlert, CircleCheck, CircleQuestionMark, Info, ShieldCheck, type LucideIcon } from "lucide-react";
+import i18n from "../../../i18n";
 import { Tooltip } from "../../../shared/Tooltip";
 
 // The protection score behind Security › Overview. Nine settings are each
@@ -54,24 +56,25 @@ const LEVEL_POINTS: Record<Level, number> = { strong: 1, medium: 0.5, weak: 0 };
 
 export function gradePolicies({ policy, proxy, passwordPolicy, mailConfigured, trustedNetworkCount }: GradeInput): PolicyGrade[] {
   const proxyAttention = proxy.forwardedHeaderSeen && !proxy.configured;
+  const t = i18n.t.bind(i18n);
   return [
     {
       key: "proxy",
-      label: "Proxy trust",
+      label: t("controlAdmin:protection.labelProxy"),
       value: proxyAttention
-        ? "Needs attention"
+        ? t("controlAdmin:protection.needsAttention")
         : proxy.trustProxyAddresses.length > 0
-          ? `${proxy.trustProxyAddresses.length} proxy address${proxy.trustProxyAddresses.length === 1 ? "" : "es"} trusted`
+          ? t("controlAdmin:protection.proxyAddresses", { count: proxy.trustProxyAddresses.length })
           : proxy.configured
-            ? `${proxy.trustProxyHops} hop${proxy.trustProxyHops === 1 ? "" : "s"} trusted`
-            : "Direct connection",
+            ? t("controlAdmin:protection.proxyHops", { count: proxy.trustProxyHops })
+            : t("controlAdmin:protection.directConnection"),
       note: proxyAttention
-        ? "Requests carry X-Forwarded-For but neither TRUST_PROXY nor TRUST_PROXY_HOPS is set — every visitor may look like the proxy"
+        ? t("controlAdmin:protection.proxyNoteAttention")
         : proxy.trustProxyAddresses.length > 0
-          ? "A reverse proxy fronts the app; forwarding headers are believed only from its own addresses"
+          ? t("controlAdmin:protection.proxyNoteAddresses")
           : proxy.configured
-            ? "A reverse proxy fronts the app and the client address is read past it"
-            : "No reverse proxy in front — fine at home, a thin front door on the internet",
+            ? t("controlAdmin:protection.proxyNoteHops")
+            : t("controlAdmin:protection.proxyNoteDirect"),
       // A trusted proxy is a layer in its own right: TLS ends there, the app is
       // hidden behind it, and the client address is read correctly. Direct is
       // only half that. The weak case is a proxy that is there but not trusted —
@@ -84,9 +87,9 @@ export function gradePolicies({ policy, proxy, passwordPolicy, mailConfigured, t
     },
     {
       key: "lockout",
-      label: "Account lockout",
-      value: `${policy.lockoutMinutes} min`,
-      note: `After ${policy.lockoutThreshold} failed sign-ins`,
+      label: t("controlAdmin:protection.labelLockout"),
+      value: t("controlAdmin:protection.minutesValue", { count: policy.lockoutMinutes }),
+      note: t("controlAdmin:protection.lockoutNote", { count: policy.lockoutThreshold }),
       level: policy.lockoutThreshold <= 5 ? "strong" : policy.lockoutThreshold <= 10 ? "medium" : "weak",
       issue: false,
       weight: 2,
@@ -94,9 +97,9 @@ export function gradePolicies({ policy, proxy, passwordPolicy, mailConfigured, t
     },
     {
       key: "autoblock",
-      label: "IP auto-block",
-      value: `${policy.ipAutoblockMinutes} min`,
-      note: `After ${policy.ipFailThreshold} failures within ${policy.ipFailWindowMinutes} min`,
+      label: t("controlAdmin:protection.labelAutoblock"),
+      value: t("controlAdmin:protection.minutesValue", { count: policy.ipAutoblockMinutes }),
+      note: t("controlAdmin:protection.autoblockNote", { count: policy.ipFailThreshold, minutes: policy.ipFailWindowMinutes }),
       level:
         policy.ipFailThreshold <= 20 && policy.ipAutoblockMinutes >= 30 ? "strong" : policy.ipFailThreshold <= 50 ? "medium" : "weak",
       issue: false,
@@ -105,11 +108,11 @@ export function gradePolicies({ policy, proxy, passwordPolicy, mailConfigured, t
     },
     {
       key: "mfa",
-      label: "Two-factor outside the house",
-      value: policy.requireMfaOutside ? "Required" : "Optional",
+      label: t("controlAdmin:protection.labelMfa"),
+      value: policy.requireMfaOutside ? t("controlAdmin:protection.required") : t("controlAdmin:protection.optional"),
       note: policy.requireMfaOutside
-        ? mailConfigured ? "Email fallback for anyone not enrolled" : "Email is not set up — the un-enrolled have no fallback"
-        : "Per-account enrollment only",
+        ? mailConfigured ? t("controlAdmin:protection.mfaNoteFallback") : t("controlAdmin:protection.mfaNoteNoMail")
+        : t("controlAdmin:protection.mfaNotePerAccount"),
       level: policy.requireMfaOutside ? (mailConfigured ? "strong" : "medium") : "medium",
       issue: policy.requireMfaOutside && !mailConfigured,
       // Inside the house there is no "outside" to require it from.
@@ -118,11 +121,11 @@ export function gradePolicies({ policy, proxy, passwordPolicy, mailConfigured, t
     },
     {
       key: "alerts",
-      label: "Sign-in alerts",
-      value: policy.alertNewIpSignIn ? "On" : "Off",
+      label: t("controlAdmin:protection.labelAlerts"),
+      value: policy.alertNewIpSignIn ? t("controlAdmin:protection.on") : t("controlAdmin:protection.off"),
       note: policy.alertNewIpSignIn
-        ? mailConfigured ? "Emailed when an account signs in from a new network" : "On, but email is not set up"
-        : "A sign-in from a new network is not announced",
+        ? mailConfigured ? t("controlAdmin:protection.alertsNoteOn") : t("controlAdmin:protection.alertsNoteNoMail")
+        : t("controlAdmin:protection.alertsNoteOff"),
       level: policy.alertNewIpSignIn ? (mailConfigured ? "strong" : "medium") : "weak",
       issue: policy.alertNewIpSignIn && !mailConfigured,
       // Facing the internet this is how an admin hears about a problem at all,
@@ -134,11 +137,11 @@ export function gradePolicies({ policy, proxy, passwordPolicy, mailConfigured, t
     },
     {
       key: "deletes",
-      label: "Deletion protection",
-      value: policy.trustedDeletesOnly ? "Trusted networks only" : "From anywhere",
+      label: t("controlAdmin:protection.labelDeletes"),
+      value: policy.trustedDeletesOnly ? t("controlAdmin:protection.trustedOnly") : t("controlAdmin:protection.fromAnywhere"),
       note: policy.trustedDeletesOnly
-        ? trustedNetworkCount > 0 ? "Deletes are refused from outside the house" : "On, but no trusted network is defined — deletes are refused everywhere"
-        : "Anyone signed in can delete from any network",
+        ? trustedNetworkCount > 0 ? t("controlAdmin:protection.deletesNoteOn") : t("controlAdmin:protection.deletesNoteNoNetworks")
+        : t("controlAdmin:protection.deletesNoteOff"),
       level: policy.trustedDeletesOnly ? (trustedNetworkCount > 0 ? "strong" : "medium") : "weak",
       issue: policy.trustedDeletesOnly && trustedNetworkCount === 0,
       // Refusing deletes from outside means nothing when there is no outside.
@@ -147,9 +150,9 @@ export function gradePolicies({ policy, proxy, passwordPolicy, mailConfigured, t
     },
     {
       key: "devices",
-      label: "Device linking",
-      value: policy.deviceLinkScope === "local" ? "Home network only" : "From anywhere",
-      note: policy.deviceLinkScope === "local" ? "A TV can only be linked from inside the house" : "Linking can be started from the internet",
+      label: t("controlAdmin:protection.labelDevices"),
+      value: policy.deviceLinkScope === "local" ? t("controlAdmin:protection.homeOnly") : t("controlAdmin:protection.fromAnywhere"),
+      note: policy.deviceLinkScope === "local" ? t("controlAdmin:protection.devicesNoteLocal") : t("controlAdmin:protection.devicesNoteAny"),
       level: policy.deviceLinkScope === "local" ? "strong" : "weak",
       issue: false,
       weight: 1,
@@ -157,11 +160,13 @@ export function gradePolicies({ policy, proxy, passwordPolicy, mailConfigured, t
     },
     {
       key: "password",
-      label: "Password policy",
-      value: `${passwordPolicy.minLength}+ characters${passwordPolicy.requireComplexity ? ", mixed" : ""}`,
+      label: t("controlAdmin:protection.labelPassword"),
+      value: passwordPolicy.requireComplexity
+        ? t("controlAdmin:protection.pwValueMixed", { count: passwordPolicy.minLength })
+        : t("controlAdmin:protection.pwValue", { count: passwordPolicy.minLength }),
       note: passwordPolicy.requireComplexity
-        ? "At least three of: lowercase, uppercase, numbers, symbols"
-        : "Length only — any characters will do",
+        ? t("controlAdmin:protection.pwNoteComplex")
+        : t("controlAdmin:protection.pwNoteLength"),
       // Eight characters alone is the floor, not a defence; the mix is what
       // keeps a guessed word from being the password.
       level:
@@ -172,11 +177,13 @@ export function gradePolicies({ policy, proxy, passwordPolicy, mailConfigured, t
     },
     {
       key: "reputation",
-      label: "IP reputation",
-      value: policy.hasAbuseIpdbKey ? "AbuseIPDB connected" : "Not connected",
+      label: t("controlAdmin:protection.labelReputation"),
+      value: policy.hasAbuseIpdbKey ? t("controlAdmin:protection.repConnected") : t("controlAdmin:protection.repNotConnected"),
       note: policy.hasAbuseIpdbKey
-        ? policy.reputationAutoEscalate ? `Blocks go permanent above ${policy.reputationEscalateThreshold}% confidence` : "Scores shown on request"
-        : "Add a key to score blocked addresses",
+        ? policy.reputationAutoEscalate
+          ? t("controlAdmin:protection.repNoteEscalate", { count: policy.reputationEscalateThreshold })
+          : t("controlAdmin:protection.repNoteOnRequest")
+        : t("controlAdmin:protection.repNoteAddKey"),
       level: policy.hasAbuseIpdbKey ? (policy.reputationAutoEscalate ? "strong" : "medium") : "weak",
       issue: false,
       // Strangers' addresses are what reputation scores; a home-only server sees none.
@@ -199,33 +206,28 @@ export interface ProtectionScore {
   waived: PolicyGrade[];
 }
 
-const LEVEL_COPY: Record<ProtectionLevel, { word: string; line: string; detail: string }> = {
-  strong: {
-    word: "Strong",
-    line: "You're well protected.",
-    detail: "Your settings block the common threats and layer several protections."
-  },
-  good: {
-    word: "Good",
-    line: "Mostly protected.",
-    detail: "A setting or two could be tighter — the amber and red rows below say which."
-  },
-  fair: {
-    word: "Fair",
-    line: "Partly protected.",
-    detail: "Several protections are off or weak for the way this server is reached."
-  },
-  weak: {
-    word: "Weak",
-    line: "Thinly protected.",
-    detail: "Most of the protections that matter here are off. Start with the red rows."
-  },
-  critical: {
-    word: "Critical",
-    line: "Exposed.",
-    detail: "Almost nothing stands between a stranger and the sign-in screen."
+// Reads the live i18n instance directly rather than taking a `t` parameter —
+// TFunction's generic type (tied to the caller's namespace tuple) doesn't
+// assign cleanly to a plain function type. The containing component already
+// re-renders on language change via its own useTranslation() call, so this
+// picks up the current language too. Each branch spells out its literal keys
+// (rather than building a "controlAdmin:protection.${x}" template) because a
+// template-literal key doesn't type-check against the closed key union t()
+// expects.
+function levelCopy(level: ProtectionLevel) {
+  switch (level) {
+    case "strong":
+      return { word: i18n.t("controlAdmin:protection.strongWord"), line: i18n.t("controlAdmin:protection.strongLine"), detail: i18n.t("controlAdmin:protection.strongDetail") };
+    case "good":
+      return { word: i18n.t("controlAdmin:protection.goodWord"), line: i18n.t("controlAdmin:protection.goodLine"), detail: i18n.t("controlAdmin:protection.goodDetail") };
+    case "fair":
+      return { word: i18n.t("controlAdmin:protection.fairWord"), line: i18n.t("controlAdmin:protection.fairLine"), detail: i18n.t("controlAdmin:protection.fairDetail") };
+    case "weak":
+      return { word: i18n.t("controlAdmin:protection.weakWord"), line: i18n.t("controlAdmin:protection.weakLine"), detail: i18n.t("controlAdmin:protection.weakDetail") };
+    case "critical":
+      return { word: i18n.t("controlAdmin:protection.criticalWord"), line: i18n.t("controlAdmin:protection.criticalLine"), detail: i18n.t("controlAdmin:protection.criticalDetail") };
   }
-};
+}
 
 export function scoreProtection(grades: PolicyGrade[], exposure: Exposure): ProtectionScore {
   // Every setting is in the denominator for both exposures. At home the waived
@@ -288,32 +290,33 @@ export function ProtectionCard({
   saving: boolean;
   onExposureChange: (next: Exposure) => void;
 }) {
+  const { t } = useTranslation(["common", "controlAdmin"]);
   const result = scoreProtection(grades, exposure);
-  const copy = LEVEL_COPY[result.level];
+  const copy = levelCopy(result.level);
   const counters: { icon: LucideIcon; value: number; label: string; tone: string }[] = [
-    { icon: CircleCheck, value: result.counts.active, label: "Active policies", tone: "good" },
-    { icon: CircleQuestionMark, value: result.counts.optional, label: "Optional", tone: "warn" },
-    { icon: CircleAlert, value: result.counts.off, label: "Off", tone: "bad" },
-    { icon: Info, value: result.counts.issues, label: "Issues", tone: "info" }
+    { icon: CircleCheck, value: result.counts.active, label: t("controlAdmin:protection.countersActive"), tone: "good" },
+    { icon: CircleQuestionMark, value: result.counts.optional, label: t("controlAdmin:protection.countersOptional"), tone: "warn" },
+    { icon: CircleAlert, value: result.counts.off, label: t("controlAdmin:protection.countersOff"), tone: "bad" },
+    { icon: Info, value: result.counts.issues, label: t("controlAdmin:protection.countersIssues"), tone: "info" }
   ];
 
   return (
-    <section className={`protection-card level-${result.level}`} aria-label="Protection level">
+    <section className={`protection-card level-${result.level}`} aria-label={t("controlAdmin:protection.cardAria")}>
       <div className="protection-head">
         <h3>
-          Protection level
+          {t("controlAdmin:protection.heading")}
           <Tooltip
             label={
               exposure === "internet"
-                ? "Graded for a server reachable from the internet: every protection counts, and proxy trust, a second factor from outside and sign-in alerts count most — they are how you keep strangers out and hear about the ones who got close."
-                : "Graded for a server on the home network only: the same exam, but the defences that only matter against strangers — proxy trust, a second factor from outside, deletion protection, IP reputation — are waived and credited in full, and sign-in alerts and device linking count half. The same settings never score lower at home than on the internet."
+                ? t("controlAdmin:protection.tooltipInternet")
+                : t("controlAdmin:protection.tooltipInternal")
             }
           >
             <Info size={15} aria-hidden="true" />
           </Tooltip>
         </h3>
         {/* The one input the server can't measure. Saved on the spot. */}
-        <div className="range-picker protection-exposure" role="group" aria-label="How this server is reached">
+        <div className="range-picker protection-exposure" role="group" aria-label={t("controlAdmin:protection.exposureGroupAria")}>
           <button
             type="button"
             className={exposure === "internal" ? "active" : undefined}
@@ -321,7 +324,7 @@ export function ProtectionCard({
             disabled={saving}
             onClick={() => onExposureChange("internal")}
           >
-            Home network only
+            {t("controlAdmin:protection.homeNetworkOnly")}
           </button>
           <button
             type="button"
@@ -330,7 +333,7 @@ export function ProtectionCard({
             disabled={saving}
             onClick={() => onExposureChange("internet")}
           >
-            Reachable from the internet
+            {t("controlAdmin:protection.reachableInternet")}
           </button>
         </div>
       </div>
@@ -338,13 +341,13 @@ export function ProtectionCard({
       {proxySeen && exposure === "internal" && (
         <p className="protection-hint">
           {proxyConfigured
-            ? "A proxy is in front of this server — if it can be reached from the internet, switch the grading above."
-            : "Requests are arriving through a proxy the app does not trust. If this server can be reached from the internet, say so above — the grading is gentler than it should be until then."}
+            ? t("controlAdmin:protection.hintProxyTrusted")
+            : t("controlAdmin:protection.hintProxyUntrusted")}
         </p>
       )}
 
       <div className="protection-body">
-        <div className="protection-gauge" role="img" aria-label={`${result.score} out of 100 — ${copy.word}`}>
+        <div className="protection-gauge" role="img" aria-label={t("controlAdmin:protection.gaugeAria", { score: result.score, word: copy.word })}>
           <svg viewBox="0 0 128 128" aria-hidden="true">
             <circle className="protection-ring-track" cx="64" cy="64" r={RING_RADIUS} />
             <circle
@@ -392,8 +395,7 @@ export function ProtectionCard({
           </dl>
           {result.waived.length > 0 && (
             <p className="protection-note">
-              {result.waived.length} {result.waived.length === 1 ? "setting is" : "settings are"} waived at home:{" "}
-              {result.waived.map((grade) => grade.label).join(", ")}.
+              {t("controlAdmin:protection.waivedNote", { count: result.waived.length, list: result.waived.map((grade) => grade.label).join(", ") })}
             </p>
           )}
         </div>

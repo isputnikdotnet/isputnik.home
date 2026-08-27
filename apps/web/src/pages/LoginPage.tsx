@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from "react";
+import { useTranslation } from "react-i18next";
 import { KeyRound, MonitorSmartphone } from "lucide-react";
 import { startAuthentication, browserSupportsWebAuthn } from "@simplewebauthn/browser";
 import type { PublicKeyCredentialRequestOptionsJSON } from "@simplewebauthn/browser";
-import { api, NETWORK_BLOCK_MESSAGE, type MfaMethod } from "../api";
+import { api, type MfaMethod } from "../api";
 import { Shell } from "../app/Shell";
 import { Button } from "../shared/Button";
 import { Field } from "../shared/Field";
@@ -24,6 +25,7 @@ export function LoginPage({
    *  left out rather than shown and refused. */
   deviceLinkAvailable: boolean;
 }) {
+  const { t } = useTranslation();
   const [stage, setStage] = useState<"credentials" | "mfa">("credentials");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -74,7 +76,7 @@ export function LoginPage({
       // shouting about — the password form is still sitting right there.
       const name = err instanceof Error ? err.name : "";
       if (name !== "NotAllowedError" && name !== "AbortError") {
-        setError(err instanceof Error ? err.message : "Unable to sign in with a passkey");
+        setError(err instanceof Error ? err.message : t("login.passkeyFailed"));
       }
     } finally {
       setPasskeyBusy(false);
@@ -100,7 +102,7 @@ export function LoginPage({
       }
       await finish();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to sign in");
+      setError(err instanceof Error ? err.message : t("login.failedTitle"));
     }
   };
 
@@ -111,9 +113,9 @@ export function LoginPage({
     try {
       const result = await api<{ sentTo: string }>("/api/auth/mfa/resend", { method: "POST" });
       setEmailSent(true);
-      setNotice(`A new code is on its way to ${result.sentTo}.`);
+      setNotice(t("mfa.sentBody", { address: result.sentTo }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to send another code");
+      setError(err instanceof Error ? err.message : t("mfa.resendFailed"));
     } finally {
       setResending(false);
     }
@@ -126,7 +128,7 @@ export function LoginPage({
       await api("/api/auth/mfa/verify", { method: "POST", body: JSON.stringify({ token: code }) });
       await finish();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to verify the code");
+      setError(err instanceof Error ? err.message : t("mfa.verifyError"));
     }
   };
 
@@ -141,35 +143,32 @@ export function LoginPage({
     return (
       <Shell>
         <form className="stack" onSubmit={submitCode}>
-          <p className="eyebrow">Two-factor authentication</p>
-          <h1>Enter your code</h1>
+          <p className="eyebrow">{t("mfa.eyebrow")}</p>
+          <h1>{t("mfa.title")}</h1>
           {method === "email" ? (
-            <p>
-              We sent a 6-digit code to {sentTo || "your email address"}. It expires in a few minutes. You can also use
-              a backup code.
-            </p>
+            <p>{t("mfa.emailIntro", { address: sentTo || t("mfa.yourEmail") })}</p>
           ) : (
-            <p>Open your authenticator app and enter the 6-digit code. You can also use a backup code.</p>
+            <p>{t("mfa.totpIntro")}</p>
           )}
           {method === "email" && !emailSent && (
-            <MessageBox tone="warning" title="We couldn't email a code">
-              This server can't send email right now. Use one of your backup codes, or ask your administrator.
+            <MessageBox tone="warning" title={t("mfa.noEmailTitle")}>
+              {t("mfa.noEmailBody")}
             </MessageBox>
           )}
-          <Field label="Authentication code" value={code} onChange={setCode} autoComplete="one-time-code" />
-          {notice && <MessageBox tone="info" title="Code sent">{notice}</MessageBox>}
+          <Field label={t("mfa.codeLabel")} value={code} onChange={setCode} autoComplete="one-time-code" />
+          {notice && <MessageBox tone="info" title={t("mfa.sentTitle")}>{notice}</MessageBox>}
           {blocked ? (
-            <MessageBox tone="warning" title="Blocked by your network">{NETWORK_BLOCK_MESSAGE}</MessageBox>
+            <MessageBox tone="warning" title={t("login.blockedTitle")}>{t("network.blocked", { host: window.location.host })}</MessageBox>
           ) : (
-            error && <MessageBox tone="error" title="Unable to verify">{error}</MessageBox>
+            error && <MessageBox tone="error" title={t("mfa.verifyFailed")}>{error}</MessageBox>
           )}
-          <button className="primary-button">Verify</button>
+          <button className="primary-button">{t("mfa.verify")}</button>
           {method === "email" && (
             <button type="button" className="text-button" onClick={resendCode} disabled={resending}>
-              {resending ? "Sending…" : "Send another code"}
+              {resending ? t("mfa.sending") : t("mfa.sendAnother")}
             </button>
           )}
-          <button type="button" className="text-button" onClick={backToCredentials}>Back to sign in</button>
+          <button type="button" className="text-button" onClick={backToCredentials}>{t("mfa.back")}</button>
         </form>
       </Shell>
     );
@@ -178,22 +177,22 @@ export function LoginPage({
   return (
     <Shell>
       <form className="stack" onSubmit={submitCredentials}>
-        <p className="eyebrow">Welcome back</p>
-        <h1>Sign in</h1>
+        <p className="eyebrow">{t("login.welcomeBack")}</p>
+        <h1>{t("login.title")}</h1>
 
         {canUsePasskey && (
           <div className="login-passkey">
             <button type="button" className="passkey-button" onClick={signInWithPasskey} disabled={passkeyBusy}>
               <KeyRound size={18} aria-hidden="true" />
-              {passkeyBusy ? "Waiting for your device…" : "Sign in with a passkey"}
+              {passkeyBusy ? t("login.passkeyWaiting") : t("login.passkey")}
             </button>
-            <span className="login-divider"><span>or</span></span>
+            <span className="login-divider"><span>{t("common.or")}</span></span>
           </div>
         )}
 
-        <Field label="Email" type="email" value={email} onChange={setEmail} autoComplete="username" />
+        <Field label={t("common.email")} type="email" value={email} onChange={setEmail} autoComplete="username" />
         <Field
-          label="Password"
+          label={t("common.password")}
           type="password"
           value={password}
           onChange={setPassword}
@@ -201,11 +200,11 @@ export function LoginPage({
           autoComplete="current-password"
         />
         {blocked ? (
-          <MessageBox tone="warning" title="Blocked by your network">{NETWORK_BLOCK_MESSAGE}</MessageBox>
+          <MessageBox tone="warning" title={t("login.blockedTitle")}>{t("network.blocked", { host: window.location.host })}</MessageBox>
         ) : (
-          error && <MessageBox tone="error" title="Unable to sign in">{error}</MessageBox>
+          error && <MessageBox tone="error" title={t("login.failedTitle")}>{error}</MessageBox>
         )}
-        <button className="primary-button">Sign in</button>
+        <button className="primary-button">{t("login.submit")}</button>
 
         {/* For the device that can't type this form: a TV, a wall display, a
             kiosk. It shows a code, and a phone that IS signed in authorizes it.
@@ -215,10 +214,10 @@ export function LoginPage({
             to click through refusals. */}
         {deviceLinkAvailable && (
           <div className="login-link-device">
-            <span className="login-device-divider"><span>or</span></span>
+            <span className="login-device-divider"><span>{t("common.or")}</span></span>
             <Button variant="text" onClick={() => navigate("/link")}>
               <MonitorSmartphone size={16} aria-hidden="true" />
-              Link a TV or display instead
+              {t("login.linkDevice")}
             </Button>
           </div>
         )}

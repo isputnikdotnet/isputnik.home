@@ -1,5 +1,7 @@
 import { useRef, useState, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { UploadCloud, FileUp, FolderUp } from "lucide-react";
+import i18n from "../i18n";
 import { Button } from "./Button";
 import { MessageBox } from "./MessageBox";
 import { formatBytes } from "./utils";
@@ -74,7 +76,7 @@ function errorFromXhr(xhr: XMLHttpRequest): string {
   } catch {
     /* non-JSON error body */
   }
-  return `Upload failed (${xhr.status || "no response"}).`;
+  return i18n.t("upload.failedStatus", { status: xhr.status || "—" });
 }
 
 // readEntries delivers results in batches (Chrome: 100 at a time) — drain until
@@ -134,6 +136,7 @@ export function FileUpload({
   onUploaded,
   onBusyChange
 }: FileUploadProps) {
+  const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const xhrRef = useRef<XMLHttpRequest | null>(null);
@@ -188,7 +191,7 @@ export function FileUpload({
     xhr.onerror = () => {
       xhrRef.current = null;
       setBusy(false);
-      setError("Network error during upload.");
+      setError(t("upload.networkError"));
     };
     xhr.onabort = () => {
       xhrRef.current = null;
@@ -198,24 +201,24 @@ export function FileUpload({
     setError("");
     setActiveName(items.length === 1
       ? items[0].name
-      : `${items.length} files (${formatBytes(items.reduce((total, item) => total + item.file.size, 0))})`);
+      : t("upload.batchSummary", { count: items.length, size: formatBytes(items.reduce((total, item) => total + item.file.size, 0)) }));
     setProgress(0);
     setBusy(true);
     xhr.send(form);
   };
 
-  const tooMany = () => `Too many files — at most ${maxFiles} per upload.`;
+  const tooMany = () => t("upload.tooMany", { count: maxFiles ?? 0 });
 
   // Explicitly picked files: an unsupported pick is the user's mistake — fail loudly.
   const beginFiles = (picked: File[]) => {
     const files = multiple ? picked : picked.slice(0, 1);
     for (const file of files) {
       const problem = !acceptSet.has(extensionOf(file.name))
-        ? `Choose a ${acceptLabel} file.`
+        ? t("upload.wrongType", { types: acceptLabel })
         : file.size === 0
-          ? "That file is empty."
+          ? t("upload.emptyFile")
           : maxBytes != null && file.size > maxBytes
-            ? `That file is larger than the ${formatBytes(maxBytes)} limit.`
+            ? t("upload.tooLarge", { limit: formatBytes(maxBytes) })
             : "";
       if (problem) {
         setError(files.length > 1 ? `${file.name}: ${problem}` : problem);
@@ -236,7 +239,7 @@ export function FileUpload({
       .filter((item) => acceptSet.has(extensionOf(item.name)) && item.file.size > 0)
       .sort((left, right) => left.name.localeCompare(right.name, undefined, { numeric: true }));
     if (usable.length === 0) {
-      setError(`No ${acceptLabel} files found in that folder.`);
+      setError(t("upload.noneInFolder", { types: acceptLabel }));
       return;
     }
     if (maxFiles != null && usable.length > maxFiles) {
@@ -245,7 +248,7 @@ export function FileUpload({
     }
     const oversize = maxBytes != null ? usable.find((item) => item.file.size > maxBytes) : undefined;
     if (oversize) {
-      setError(`${oversize.name}: larger than the ${formatBytes(maxBytes!)} limit.`);
+      setError(t("upload.oversize", { name: oversize.name, limit: formatBytes(maxBytes!) }));
       return;
     }
     upload(usable, folderName);
@@ -294,7 +297,7 @@ export function FileUpload({
         }
         beginFolder(items, folderName);
       } catch {
-        setError("Could not read the dropped folder.");
+        setError(t("upload.folderReadError"));
       }
     })();
   };
@@ -311,7 +314,7 @@ export function FileUpload({
             <div className="file-upload-fill" style={{ width: `${progress}%` }} />
           </div>
           <div className="file-upload-actions">
-            <Button variant="text" onClick={() => xhrRef.current?.abort()}>Cancel upload</Button>
+            <Button variant="text" onClick={() => xhrRef.current?.abort()}>{t("upload.cancel")}</Button>
           </div>
         </div>
       ) : (
@@ -356,22 +359,22 @@ export function FileUpload({
             <UploadCloud size={30} />
           </span>
           <p className="file-dropzone-title">
-            {folders ? "Drag files or a folder here, or" : multiple ? "Drag files here, or" : "Drag a file here, or"}
+            {folders ? t("upload.dragFilesOrFolder") : multiple ? t("upload.dragFiles") : t("upload.dragFile")}
           </p>
           <div className="file-dropzone-buttons">
             <Button variant="secondary" compact onClick={() => inputRef.current?.click()}>
-              <FileUp size={16} /> {multiple ? "Choose files" : "Choose file"}
+              <FileUp size={16} /> {multiple ? t("upload.chooseFiles") : t("upload.chooseFile")}
             </Button>
             {folders && (
               <Button variant="secondary" compact onClick={() => folderInputRef.current?.click()}>
-                <FolderUp size={16} /> Choose folder
+                <FolderUp size={16} /> {t("upload.chooseFolder")}
               </Button>
             )}
           </div>
-          <p className="file-dropzone-hint muted">{hint ?? `Accepted: ${acceptLabel}`}</p>
+          <p className="file-dropzone-hint muted">{hint ?? t("upload.accepted", { types: acceptLabel })}</p>
         </div>
       )}
-      {error && <MessageBox tone="error" title="Upload failed">{error}</MessageBox>}
+      {error && <MessageBox tone="error" title={t("upload.failedTitle")}>{error}</MessageBox>}
     </div>
   );
 }

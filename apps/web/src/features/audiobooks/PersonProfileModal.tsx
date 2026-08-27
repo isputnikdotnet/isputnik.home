@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { Check, ChevronDown, ChevronUp, Globe, ImagePlus, MapPin, Save, Search, Trash2, UserRound } from "lucide-react";
 import { api } from "../../api";
 import { navigate } from "../../router";
@@ -26,11 +27,12 @@ type PersonLookupResult = {
 
 type Tab = "details" | "biography" | "find";
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: "details", label: "Details" },
-  { id: "biography", label: "Biography" },
-  { id: "find", label: "Find Info" }
-];
+const TAB_KEYS: Record<Tab, "tabDetails" | "tabBiography" | "tabFind"> = {
+  details: "tabDetails",
+  biography: "tabBiography",
+  find: "tabFind"
+};
+const TABS: Tab[] = ["details", "biography", "find"];
 
 // Edit one person's profile. Details carries the identity fields plus the photo
 // tile (which opens PersonPhotoModal — choosing a picture is its own box, since
@@ -47,6 +49,7 @@ export function PersonProfileModal({
   role?: "author" | "narrator";
   onClose: () => void;
 }) {
+  const { t } = useTranslation(["common", "book"]);
   const [tab, setTab] = useState<Tab>("details");
   const [profile, setProfile] = useState<PersonProfile | null>(null);
   const [name, setName] = useState(personName);
@@ -91,7 +94,7 @@ export function PersonProfileModal({
         setBio(p.bio ?? "");
         setPhotoUrl(p.photoUrl);
       })
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load profile"));
+      .catch((err) => setError(err instanceof Error ? err.message : t("book:person.unableLoadProfile")));
   }, [personName]);
 
   const handleSave = async () => {
@@ -124,7 +127,7 @@ export function PersonProfileModal({
         navigate(`/people/${encodeURIComponent(newName)}`);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save");
+      setError(err instanceof Error ? err.message : t("book:person.saveFailed"));
       setSaving(false);
     }
   };
@@ -135,11 +138,11 @@ export function PersonProfileModal({
   const uploadDropped = async (file: File | undefined) => {
     if (!file) return;
     if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-      setError("Drop a JPEG, PNG, or WebP image.");
+      setError(t("book:person.dropTypeError"));
       return;
     }
     if (file.size > 10 * 1024 * 1024) {
-      setError("That image is larger than the 10 MB limit.");
+      setError(t("book:person.tooLarge"));
       return;
     }
     setTileUploading(true);
@@ -154,7 +157,7 @@ export function PersonProfileModal({
       setPendingPhotoUrl(null); // a real upload supersedes anything staged on Find Info
       setProfile((prev) => prev ? { ...prev, photoUrl: result.photoUrl } : prev);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to upload the photo");
+      setError(err instanceof Error ? err.message : t("book:person.uploadFailed"));
     } finally {
       setTileUploading(false);
     }
@@ -170,7 +173,7 @@ export function PersonProfileModal({
       setProfile((prev) => prev ? { ...prev, photoUrl: null } : prev);
       setRemoveOpen(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to remove the photo");
+      setError(err instanceof Error ? err.message : t("book:person.unableRemovePhoto"));
     } finally {
       setRemoving(false);
     }
@@ -188,8 +191,8 @@ export function PersonProfileModal({
       setCandidate(null);
       setNotice({
         tone: "info",
-        title: "No match found",
-        text: url ? "Couldn't read a profile from that link." : "Nothing found online for this name."
+        title: t("book:person.noMatchTitle"),
+        text: url ? t("book:person.noMatchLink") : t("book:person.noMatchName")
       });
       return;
     }
@@ -201,7 +204,7 @@ export function PersonProfileModal({
     try {
       await runLookup();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Online lookup failed");
+      setError(err instanceof Error ? err.message : t("book:person.lookupFailed"));
     } finally {
       setFinding(false);
     }
@@ -213,12 +216,14 @@ export function PersonProfileModal({
     try {
       await runLookup(linkUrl.trim());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Couldn't read that link");
+      setError(err instanceof Error ? err.message : t("book:person.linkReadFailed"));
     } finally {
       setLookingUpLink(false);
     }
   };
 
+  // "Open Library" / "Wikipedia" are proper nouns and stay untranslated in
+  // every language.
   const sourceLabel = (source: PersonLookupResult["source"]) =>
     source === "openlibrary" ? "Open Library" : "Wikipedia";
 
@@ -240,14 +245,18 @@ export function PersonProfileModal({
   const photoStaged = Boolean(candidate?.photoUrl) && pendingPhotoUrl === candidate!.photoUrl;
   const stagedCount = (bioMatchesCandidate ? 1 : 0) + (photoStaged ? 1 : 0);
 
-  const roleLabel = role === "author" ? "Author" : role === "narrator" ? "Narrator" : "Person";
+  const modalTitle = role === "author"
+    ? t("book:person.editAuthor")
+    : role === "narrator"
+      ? t("book:person.editNarrator")
+      : t("book:person.editPerson");
   const busy = saving || removing || finding || lookingUpLink || tileUploading;
 
   return (
     <>
       <Modal
         variant="panel"
-        title={`Edit ${roleLabel}`}
+        title={modalTitle}
         className="person-edit-modal"
         // The photo box opens on top of this one; both listen for Escape on the
         // document, so without this a single press would close them together.
@@ -255,25 +264,25 @@ export function PersonProfileModal({
         onClose={onClose}
       >
         <div className="modal-tabs">
-          {TABS.map((entry) => (
+          {TABS.map((id) => (
             <button
-              key={entry.id}
-              className={`modal-tab${tab === entry.id ? " active" : ""}`}
-              onClick={() => setTab(entry.id)}
+              key={id}
+              className={`modal-tab${tab === id ? " active" : ""}`}
+              onClick={() => setTab(id)}
             >
-              {entry.label}
+              {t(`book:person.${TAB_KEYS[id]}`)}
             </button>
           ))}
         </div>
 
         <div className="modal-tab-content">
-          {error && <MessageBox tone="error" title="Unable to update profile">{error}</MessageBox>}
+          {error && <MessageBox tone="error" title={t("book:person.updateErrorTitle")}>{error}</MessageBox>}
           {notice && <MessageBox tone={notice.tone} title={notice.title}>{notice.text}</MessageBox>}
 
           {tab === "details" && (
             <div className="person-edit-details">
               <div className="person-edit-photo-col">
-                <span className="person-edit-label">Photo</span>
+                <span className="person-edit-label">{t("book:person.photo")}</span>
                 {/* The tile is the way in to the photo box rather than a file
                     input of its own — choosing a picture has two sources, so it
                     gets a box instead of a hidden <input> behind a dashed frame. */}
@@ -281,7 +290,7 @@ export function PersonProfileModal({
                   type="button"
                   className={`person-edit-photo-tile${tileDragging ? " dragging" : ""}`}
                   onClick={() => setPhotoBoxOpen(true)}
-                  title="Choose a photo"
+                  title={t("book:person.choosePhotoTitle")}
                   onDragOver={(event) => { event.preventDefault(); setTileDragging(true); }}
                   onDragLeave={() => setTileDragging(false)}
                   onDrop={(event) => {
@@ -296,53 +305,53 @@ export function PersonProfileModal({
                     <>
                       <UserRound size={46} aria-hidden="true" />
                       <span className="person-edit-photo-title">
-                        {tileUploading ? "Uploading…" : <>Drag and drop<br />or click to upload</>}
+                        {tileUploading ? t("book:person.uploading") : <>{t("book:person.dragDrop")}<br />{t("book:person.orClickToUpload")}</>}
                       </span>
-                      <span className="person-edit-photo-hint">JPG, PNG or WEBP<br />Max 10MB</span>
+                      <span className="person-edit-photo-hint">{t("book:person.photoFormats")}<br />{t("book:person.photoMaxSize")}</span>
                     </>
                   )}
                 </button>
                 {photoUrl ? (
                   <Button variant="secondary" danger className="person-edit-photo-button" onClick={() => setRemoveOpen(true)}>
                     <Trash2 size={16} aria-hidden="true" />
-                    <span>Remove photo</span>
+                    <span>{t("book:person.removePhoto")}</span>
                   </Button>
                 ) : (
                   <Button variant="secondary" className="person-edit-photo-button" onClick={() => setPhotoBoxOpen(true)}>
                     <ImagePlus size={16} aria-hidden="true" />
-                    <span>Choose photo</span>
+                    <span>{t("book:person.choosePhoto")}</span>
                   </Button>
                 )}
               </div>
 
               <div className="person-edit-fields">
                 <label className="field">
-                  <span>Name <b className="person-edit-req" aria-hidden="true">*</b></span>
-                  <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" required />
+                  <span>{t("book:person.fieldName")} <b className="person-edit-req" aria-hidden="true">*</b></span>
+                  <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("book:person.fullName")} required />
                 </label>
                 <label className="field">
-                  <span>Sort name</span>
+                  <span>{t("book:person.fieldSortName")}</span>
                   <input
                     value={sortName}
                     onChange={(e) => setSortName(e.target.value)}
-                    placeholder={`e.g. ${personName.split(" ").reverse().join(", ")}`}
+                    placeholder={t("book:person.sortExample", { example: personName.split(" ").reverse().join(", ") })}
                   />
                 </label>
                 <label className="field">
-                  <span>Website</span>
+                  <span>{t("book:person.fieldWebsite")}</span>
                   <span className="person-edit-input">
                     <Globe size={17} aria-hidden="true" />
                     <input value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://agriddle.com" />
                   </span>
                 </label>
                 <label className="field">
-                  <span>Location</span>
+                  <span>{t("book:person.fieldLocation")}</span>
                   <span className="person-edit-input">
                     <MapPin size={17} aria-hidden="true" />
                     <input
                       value={location}
                       onChange={(e) => setLocation(e.target.value)}
-                      placeholder="Seattle, Washington, USA"
+                      placeholder={t("book:person.locationExample")}
                     />
                   </span>
                 </label>
@@ -352,12 +361,12 @@ export function PersonProfileModal({
 
           {tab === "biography" && (
             <label className="field">
-              <span>Biography</span>
+              <span>{t("book:person.fieldBiography")}</span>
               <textarea
                 rows={12}
                 value={bio}
                 onChange={(e) => setBio(e.target.value)}
-                placeholder="Write a short biography…"
+                placeholder={t("book:person.bioPlaceholder")}
                 maxLength={10000}
               />
             </label>
@@ -371,14 +380,14 @@ export function PersonProfileModal({
               <div className="person-find-intro">
                 <Search size={26} aria-hidden="true" />
                 <p className="person-find-lead">
-                  Look <strong>{personName}</strong> up on Wikipedia and Open Library.
+                  <Trans i18nKey="person.findLead" ns="book" values={{ name: personName }} components={{ bold: <strong /> }} />
                 </p>
                 <p className="person-find-sub">
-                  You choose what to keep — nothing changes until you press Save changes.
+                  {t("book:person.findSub")}
                 </p>
                 <Button variant="primary" onClick={() => void handleFindOnline()} disabled={finding}>
                   <Globe size={16} aria-hidden="true" />
-                  <span>{finding ? "Searching…" : candidate ? "Search again" : "Search the web"}</span>
+                  <span>{finding ? t("book:person.searching") : candidate ? t("book:person.searchAgain") : t("book:person.searchWeb")}</span>
                 </Button>
               </div>
 
@@ -393,7 +402,7 @@ export function PersonProfileModal({
                   aria-expanded={linkOpen}
                 >
                   {linkOpen ? <ChevronUp size={15} aria-hidden="true" /> : <ChevronDown size={15} aria-hidden="true" />}
-                  <span>Found the wrong person? Use a specific page instead</span>
+                  <span>{t("book:person.wrongPerson")}</span>
                 </button>
                 {linkOpen && (
                   <div className="person-find-link-row">
@@ -404,8 +413,8 @@ export function PersonProfileModal({
                         value={linkUrl}
                         onChange={(e) => setLinkUrl(e.target.value)}
                         onKeyDown={(e) => { if (e.key === "Enter") void handleLookupLink(); }}
-                        placeholder="Paste a Wikipedia or Open Library link"
-                        aria-label="Profile link"
+                        placeholder={t("book:person.pasteLink")}
+                        aria-label={t("book:person.profileLinkAria")}
                       />
                     </label>
                     <Button
@@ -413,7 +422,7 @@ export function PersonProfileModal({
                       onClick={() => void handleLookupLink()}
                       disabled={lookingUpLink || !linkUrl.trim()}
                     >
-                      <span>{lookingUpLink ? "Reading…" : "Read page"}</span>
+                      <span>{lookingUpLink ? t("book:person.reading") : t("book:person.readPage")}</span>
                     </Button>
                   </div>
                 )}
@@ -422,63 +431,62 @@ export function PersonProfileModal({
               {candidate && (
                 <div className="person-compare">
                   <div className="person-compare-head">
-                    <span>Found on</span>
+                    <span>{t("book:person.foundOn")}</span>
                     <span className="person-compare-source-tag">{sourceLabel(candidate.source)}</span>
                     {candidate.sourceUrl && (
-                      <a href={candidate.sourceUrl} target="_blank" rel="noreferrer">View source ↗</a>
+                      <a href={candidate.sourceUrl} target="_blank" rel="noreferrer">{t("book:person.viewSource")}</a>
                     )}
                   </div>
 
                   {stagedCount > 0 && (
                     <p className="person-find-staged">
-                      {stagedCount === 1 ? "1 change is" : `${stagedCount} changes are`} ready — press
-                      {" "}<strong>Save changes</strong> to keep {stagedCount === 1 ? "it" : "them"}.
+                      <Trans i18nKey="person.stagedReady" ns="book" count={stagedCount} components={{ bold: <strong /> }} />
                     </p>
                   )}
 
                   <div className="person-compare-field">
-                    <span className="person-compare-label">Biography</span>
+                    <span className="person-compare-label">{t("book:person.fieldBiography")}</span>
                     {!candidate.bio ? (
-                      <p className="person-find-none">No biography on that page.</p>
+                      <p className="person-find-none">{t("book:person.noBioOnPage")}</p>
                     ) : (
                       <>
                         <div className="person-compare-pair">
                           <div className="person-compare-block">
-                            <small>Current</small>
-                            <p>{bio.trim() || "Nothing yet"}</p>
+                            <small>{t("book:person.current")}</small>
+                            <p>{bio.trim() || t("book:person.nothingYet")}</p>
                           </div>
                           <div className="person-compare-block found">
-                            <small>Found</small>
+                            <small>{t("book:person.found")}</small>
                             <p>{candidate.bio}</p>
                           </div>
                         </div>
                         {bioMatchesCandidate ? (
                           <span className="person-find-done">
                             <Check size={15} aria-hidden="true" />
-                            {profile?.bio?.trim() === candidate.bio.trim() ? "Already saved" : "Added to the form"}
+                            {profile?.bio?.trim() === candidate.bio.trim() ? t("book:person.alreadySaved") : t("book:person.addedToForm")}
                           </span>
                         ) : (
-                          <Button variant="secondary" compact onClick={useCandidateBio}>Use this biography</Button>
+                          <Button variant="secondary" compact onClick={useCandidateBio}>{t("book:person.useThisBio")}</Button>
                         )}
                       </>
                     )}
                   </div>
 
                   <div className="person-compare-field">
-                    <span className="person-compare-label">Photo</span>
+                    <span className="person-compare-label">{t("book:person.photo")}</span>
                     {!candidate.photoUrl ? (
-                      <p className="person-find-none">No photo on that page.</p>
+                      <p className="person-find-none">{t("book:person.noPhotoOnPage")}</p>
                     ) : (
                       <>
                         <div className="person-compare-photos">
                           <div className="person-compare-block">
-                            <small>Current</small>
+                            <small>{t("book:person.current")}</small>
                             <span className="compare-cover-frame">
                               {profile?.photoUrl ? <img src={profile.photoUrl} alt="" /> : <UserRound size={20} />}
                             </span>
                           </div>
                           <div className="person-compare-block found">
-                            <small>Found</small>
+                            <small>{t("book:person.found")}</small>
                             <span className="compare-cover-frame">
                               <img src={candidate.photoUrl} alt="" />
                             </span>
@@ -487,10 +495,10 @@ export function PersonProfileModal({
                         {photoStaged ? (
                           <span className="person-find-done">
                             <Check size={15} aria-hidden="true" />
-                            Ready to save
+                            {t("book:person.readyToSave")}
                           </span>
                         ) : (
-                          <Button variant="secondary" compact onClick={useCandidatePhoto}>Use this photo</Button>
+                          <Button variant="secondary" compact onClick={useCandidatePhoto}>{t("book:person.useThisPhoto")}</Button>
                         )}
                       </>
                     )}
@@ -502,10 +510,10 @@ export function PersonProfileModal({
         </div>
 
         <div className="metadata-actions person-edit-footer">
-          <Button variant="secondary" onClick={onClose} disabled={busy}>Cancel</Button>
+          <Button variant="secondary" onClick={onClose} disabled={busy}>{t("common.cancel")}</Button>
           <Button variant="primary" onClick={() => void handleSave()} disabled={busy || !name.trim()}>
             <Save size={16} aria-hidden="true" />
-            <span>{saving ? "Saving…" : "Save changes"}</span>
+            <span>{saving ? t("book:person.saving") : t("book:person.saveChanges")}</span>
           </Button>
         </div>
       </Modal>
@@ -525,15 +533,14 @@ export function PersonProfileModal({
 
       {removeOpen && (
         <ConfirmDialog
-          title={`Remove the photo for "${personName}"?`}
-          confirmLabel="Remove photo"
+          title={t("book:person.removePhotoConfirmTitle", { name: personName })}
+          confirmLabel={t("book:person.removePhoto")}
           busy={removing}
           danger
           onConfirm={() => void removePhoto()}
           onCancel={() => setRemoveOpen(false)}
         >
-          The stored image file is deleted. Their books, bio, and every other detail are untouched,
-          and you can choose a new photo at any time.
+          {t("book:person.removePhotoBody")}
         </ConfirmDialog>
       )}
     </>

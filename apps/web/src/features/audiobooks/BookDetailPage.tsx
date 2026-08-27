@@ -1,5 +1,6 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { Trans, useTranslation } from "react-i18next";
 import { ArrowLeft, Bookmark, BookOpen, Calendar, CheckCircle2, ChevronDown, ChevronUp, Clock, Download, File as FileIcon, FileText, Globe, HardDrive, Headphones, Heart, Layers, Library, ListMusic, MoreHorizontal, MoreVertical, Pencil, Play, RotateCcw, Send, Trash2, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api, isAccessOrMissingApiError, type PublicUser } from "../../api";
@@ -56,6 +57,7 @@ export function AudiobookBookPage({
   active?: "audiobooks" | "ebooks";
   backTo?: string;
 }) {
+  const { t } = useTranslation(["common", "book"]);
   const [book, setBook] = useState<AudiobookBookDetail | null>(null);
   const [capabilities, setCapabilities] = useState<BookCapabilities>(FULL_CAPABILITIES);
   const [error, setError] = useState("");
@@ -81,7 +83,7 @@ export function AudiobookBookPage({
           setBook(fallback);
           setCapabilities(OFFLINE_CAPABILITIES);
         } else {
-          setError(err instanceof Error ? err.message : "Unable to load details");
+          setError(err instanceof Error ? err.message : t("book:detail.unableToLoad"));
         }
       }
     };
@@ -100,19 +102,19 @@ export function AudiobookBookPage({
     >
       <section className="work-area book-detail-area">
         <div className="book-detail-shell">
-          {error && <MessageBox tone="error" title="Error">{error}</MessageBox>}
+          {error && <MessageBox tone="error" title={t("book:detail.errorTitle")}>{error}</MessageBox>}
           {book ? (
             <BookDetailView
               book={book}
               capabilities={capabilities}
               userId={user.id}
               onBack={() => goBack(backTo)}
-              backLabel={active === "ebooks" ? "Back to ebooks" : "Back to audiobooks"}
+              backLabel={active === "ebooks" ? t("book:detail.backToEbooks") : t("book:detail.backToAudiobooks")}
               onBookUpdated={setBook}
               onReload={() => setReloadKey((n) => n + 1)}
             />
           ) : !error ? (
-            <p className="management-empty">Loading…</p>
+            <p className="management-empty">{t("book:detail.loading")}</p>
           ) : null}
         </div>
       </section>
@@ -156,6 +158,7 @@ function EditionsSwitcher({
   linkFrom: string;
   onLeftGroup: () => void;
 }) {
+  const { t } = useTranslation(["common", "book"]);
   const [editions, setEditions] = useState<WorkEdition[] | null>(null);
   const [busyId, setBusyId] = useState("");
   const [error, setError] = useState("");
@@ -180,7 +183,7 @@ function EditionsSwitcher({
       await api(`/api/library/works/${workId}`, { method: "PATCH", body: JSON.stringify({ primaryItemId: edition.id }) });
       load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to set the primary edition");
+      setError(err instanceof Error ? err.message : t("book:editions.unableSetPrimary"));
     } finally {
       setBusyId("");
     }
@@ -200,30 +203,30 @@ function EditionsSwitcher({
       if (result.dissolved || edition.id === currentId) onLeftGroup();
       else load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to remove the edition");
+      setError(err instanceof Error ? err.message : t("book:editions.unableRemove"));
     } finally {
       setBusyId("");
     }
   };
 
   return (
-    <section className="book-detail-editions" aria-label="Editions">
+    <section className="book-detail-editions" aria-label={t("book:editions.title")}>
       <h2 className="book-detail-editions-title">
-        <Layers size={16} aria-hidden="true" /> Editions <span className="muted">({editions.length})</span>
+        <Layers size={16} aria-hidden="true" /> {t("book:editions.title")} <span className="muted">({editions.length})</span>
       </h2>
       <div className="editions-switch-list">
         {editions.map((edition) => {
           const current = edition.id === currentId;
           const pct = edition.progress.completedAt ? 100 : Math.round(Math.max(0, Math.min(1, edition.progress.percentComplete ?? 0)) * 100);
-          const status = edition.progress.completedAt ? "Finished" : pct > 0 ? `${pct}%` : "Not started";
-          const medium = edition.type === "ebook" ? (edition.format ? edition.format.toUpperCase() : "Ebook") : "Audiobook";
+          const status = edition.progress.completedAt ? t("book:editions.finished") : pct > 0 ? `${pct}%` : t("book:editions.notStarted");
+          const medium = edition.type === "ebook" ? (edition.format ? edition.format.toUpperCase() : t("book:editions.ebook")) : t("book:editions.audiobook");
           const meta = [medium, edition.publisher, edition.yearPublished ? String(edition.yearPublished) : null].filter(Boolean).join(" · ");
           const cover = edition.coverUrl ?? (edition.type === "ebook" ? DEFAULT_COVERS.ebook : DEFAULT_COVERS.audiobook);
           const inner = (
             <>
               <img src={cover} alt="" />
               <span className="editions-switch-text">
-                <strong>{edition.title ?? "Untitled"}</strong>
+                <strong>{edition.title ?? t("book:editions.untitled")}</strong>
                 <small>{meta} · {status}</small>
               </span>
             </>
@@ -236,11 +239,11 @@ function EditionsSwitcher({
                 <a className="editions-switch-main" href={routeFor(edition)} onClick={(event) => followRoute(event, routeFor(edition))}>{inner}</a>
               )}
               <div className="editions-switch-side">
-                {edition.isPrimary && <span className="editions-switch-flag">Primary</span>}
-                {current && <span className="editions-switch-here">Viewing</span>}
+                {edition.isPrimary && <span className="editions-switch-flag">{t("book:editions.primary")}</span>}
+                {current && <span className="editions-switch-here">{t("book:editions.viewing")}</span>}
                 {canCurate && !edition.isPrimary && (
                   <button type="button" className="secondary-button compact-button" disabled={busyId !== ""} onClick={() => void makePrimary(edition)}>
-                    Make primary
+                    {t("book:editions.makePrimary")}
                   </button>
                 )}
                 {canCurate && (
@@ -249,8 +252,8 @@ function EditionsSwitcher({
                     className="icon-button"
                     disabled={busyId !== ""}
                     onClick={() => setConfirmRemove(edition)}
-                    aria-label={`Remove ${edition.title ?? "edition"} from the group`}
-                    title="Remove from group"
+                    aria-label={t("book:editions.removeAria", { title: edition.title ?? t("book:editions.thisEdition") })}
+                    title={t("book:editions.removeFromGroup")}
                   >
                     <X size={15} aria-hidden="true" />
                   </button>
@@ -260,18 +263,18 @@ function EditionsSwitcher({
           );
         })}
       </div>
-      {error && <MessageBox tone="error" title="Editions error">{error}</MessageBox>}
+      {error && <MessageBox tone="error" title={t("book:editions.errorTitle")}>{error}</MessageBox>}
       {confirmRemove && (
         <ConfirmDialog
-          title={`Remove "${confirmRemove.title ?? "this edition"}" from the group?`}
-          confirmLabel="Remove from group"
+          title={t("book:editions.removeConfirmTitle", { title: confirmRemove.title ?? t("book:editions.thisEdition") })}
+          confirmLabel={t("book:editions.removeFromGroup")}
           danger
           busy={busyId === confirmRemove.id}
           onConfirm={() => void removeEdition(confirmRemove)}
           onCancel={() => { if (busyId === "") setConfirmRemove(null); }}
         >
-          The book stays in your library — it just stops being grouped as an edition of this title.
-          {editions.length === 2 ? " As only two editions remain, this ungroups them entirely." : ""}
+          {t("book:editions.removeConfirmBody")}
+          {editions.length === 2 ? ` ${t("book:editions.removeConfirmBodyLast")}` : ""}
         </ConfirmDialog>
       )}
     </section>
@@ -295,6 +298,7 @@ function BookDetailView({
   onBookUpdated: (book: AudiobookBookDetail) => void;
   onReload: () => void;
 }) {
+  const { t } = useTranslation(["common", "book"]);
   const isMobile = useIsMobile();
   const [progress, setProgress] = useState<PlaybackProgress | null>(null);
   const [trackProgress, setTrackProgress] = useState<Record<string, TrackProgress>>({});
@@ -335,9 +339,9 @@ function BookDetailView({
     setSendNotice(null);
     try {
       await api(`/api/library/books/${book.id}/send-to-ereader`, { method: "POST" });
-      setSendNotice({ tone: "success", text: "Sent to your e-reader. Delivery can take a few minutes." });
+      setSendNotice({ tone: "success", text: t("book:detail.sentToEreaderBody") });
     } catch (err) {
-      setSendNotice({ tone: "error", text: err instanceof Error ? err.message : "Unable to send to your e-reader." });
+      setSendNotice({ tone: "error", text: err instanceof Error ? err.message : t("book:detail.unableSendEreader") });
       throw err;
     } finally {
       setSending(false);
@@ -354,7 +358,7 @@ function BookDetailView({
       await api(`/api/library/books/${book.id}`, { method: "DELETE" });
       onBack();
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : "Unable to move to the Recycle Bin");
+      setDeleteError(err instanceof Error ? err.message : t("book:detail.unableMoveRecycle"));
       setDeleteBusy(false);
     }
   };
@@ -608,7 +612,7 @@ function BookDetailView({
         ));
       }
     } catch (err) {
-      setProgressActionError(err instanceof Error ? err.message : "Unable to mark book finished");
+      setProgressActionError(err instanceof Error ? err.message : t("book:detail.unableMarkFinished"));
     } finally {
       setProgressAction("");
     }
@@ -628,7 +632,7 @@ function BookDetailView({
         setTrackProgress({});
       }
     } catch (err) {
-      setProgressActionError(err instanceof Error ? err.message : "Unable to reset progress");
+      setProgressActionError(err instanceof Error ? err.message : t("book:detail.unableResetProgress"));
     } finally {
       setProgressAction("");
     }
@@ -649,7 +653,7 @@ function BookDetailView({
         setSave(payload.save);
       }
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "Unable to update likes");
+      setSaveError(err instanceof Error ? err.message : t("book:detail.unableUpdateLikes"));
     } finally {
       setSaveAction(false);
     }
@@ -663,7 +667,7 @@ function BookDetailView({
     .slice(0, 2)
     .join(", ");
   const documentFormat = [...new Set(book.documents.map((doc) => doc.format.toUpperCase()))].join(", ");
-  const formatValue = isEbook ? documentFormat : audioFormat || "Audio";
+  const formatValue = isEbook ? documentFormat : audioFormat || t("book:detail.formatAudio");
   const progressPercent = isEbook
     ? readingProgress?.completedAt ? 100 : Math.round(Math.max(0, Math.min(1, readingProgress?.percentComplete ?? 0)) * 100)
     : progress?.completedAt ? 100 : Math.round(Math.max(0, Math.min(1, progress?.percentComplete ?? 0)) * 100);
@@ -675,15 +679,15 @@ function BookDetailView({
       ? !bookFinished && (Object.keys(trackProgress).length > 0 || progress != null)
       : !bookFinished && progress != null && ((progress.percentComplete ?? 0) > 0 || (progress.positionSeconds ?? 0) > 0 || progress.fileId != null);
   const remainingSeconds = !isEbook && book.durationSeconds != null ? Math.max(0, Math.round(book.durationSeconds * (1 - progressPercent / 100))) : null;
-  const progressTitle = isEbook ? "Reading Progress" : "Listening Progress";
+  const progressTitle = isEbook ? t("book:detail.readingProgress") : t("book:detail.listeningProgress");
   const progressActionLabel = isEbook
-    ? (hasStarted ? "Continue Reading" : "Read")
-    : bookFinished ? "Listen Again" : hasStarted ? "Continue Listening" : "Start Listening";
+    ? (hasStarted ? t("book:detail.continueReading") : t("book:detail.read"))
+    : bookFinished ? t("book:detail.listenAgain") : hasStarted ? t("book:detail.continueListening") : t("book:detail.startListening");
   const progressStatus = bookFinished
-    ? "Completed"
-    : hasStarted ? "In progress" : "Not started";
+    ? t("book:detail.completed")
+    : hasStarted ? t("book:detail.inProgress") : t("book:detail.notStarted");
   const remainingLabel = remainingSeconds != null && !progress?.completedAt
-    ? `${formatDuration(remainingSeconds)} remaining`
+    ? t("book:detail.remaining", { duration: formatDuration(remainingSeconds) })
     : null;
 
   // Authors, series, and the book route differ per media type; link within the
@@ -697,37 +701,37 @@ function BookDetailView({
   type DetailRow = { label: string; value: string; icon: LucideIcon; className?: string; links?: DetailLink[] };
   const heroDetailRows = ([
     book.narrators.length > 0 ? {
-      label: "Narrator",
+      label: t("book:detail.rows.narrator"),
       value: book.narrators.join(", "),
       icon: Headphones,
       links: book.narrators.map((name) => ({ text: name, href: `/people/${encodeURIComponent(name)}${linkFrom}` }))
     } : null,
-    { label: "Library", value: book.libraryName, icon: Library },
-    formatValue ? { label: "Format", value: formatValue, icon: FileIcon } : null,
+    { label: t("book:detail.rows.library"), value: book.libraryName, icon: Library },
+    formatValue ? { label: t("book:detail.rows.format"), value: formatValue, icon: FileIcon } : null,
     book.category ? {
-      label: "Category",
+      label: t("book:detail.rows.category"),
       value: book.category.name,
       icon: Bookmark,
       links: [{ text: book.category.name, href: `/categories/${book.category.key}${linkFrom}` }]
     } : null,
-    book.durationSeconds != null ? { label: isEbook ? "Length" : "Audio Length", value: formatDuration(book.durationSeconds), icon: Clock } : null,
-    book.totalSize > 0 ? { label: "File Size", value: formatBytes(book.totalSize), icon: HardDrive } : null,
+    book.durationSeconds != null ? { label: isEbook ? t("book:detail.rows.length") : t("book:detail.rows.audioLength"), value: formatDuration(book.durationSeconds), icon: Clock } : null,
+    book.totalSize > 0 ? { label: t("book:detail.rows.fileSize"), value: formatBytes(book.totalSize), icon: HardDrive } : null,
     book.series ? {
-      label: "Series",
+      label: t("book:detail.rows.series"),
       value: `${book.series}${book.seriesPosition != null ? ` #${book.seriesPosition}` : ""}`,
       icon: BookOpen,
       links: book.seriesId ? [{ text: `${book.series}${book.seriesPosition != null ? ` #${book.seriesPosition}` : ""}`, href: `${mediaBase}/series/${book.seriesId}${linkFrom}` }] : undefined
     } : null
   ] as (DetailRow | null)[]).filter((row): row is DetailRow => Boolean(row));
   const detailRows = ([
-    book.yearPublished ? { label: "Published", value: String(book.yearPublished), icon: Calendar } : null,
+    book.yearPublished ? { label: t("book:detail.rows.published"), value: String(book.yearPublished), icon: Calendar } : null,
     ...heroDetailRows,
-    { label: "Publisher", value: book.publisher || "Not available", icon: BookOpen },
-    book.language ? { label: "Language", value: book.language, icon: Globe } : null,
-    { label: "ISBN", value: book.isbn || "Not available", icon: FileText },
-    { label: "ASIN", value: book.asin || "Not available", icon: FileText },
+    { label: t("book:detail.rows.publisher"), value: book.publisher || t("book:detail.notAvailable"), icon: BookOpen },
+    book.language ? { label: t("book:detail.rows.language"), value: book.language, icon: Globe } : null,
+    { label: t("book:detail.rows.isbn"), value: book.isbn || t("book:detail.notAvailable"), icon: FileText },
+    { label: t("book:detail.rows.asin"), value: book.asin || t("book:detail.notAvailable"), icon: FileText },
     {
-      label: "Path",
+      label: t("book:detail.rows.path"),
       value: book.folderPath,
       icon: FileText,
       className: "book-folder-path"
@@ -768,9 +772,9 @@ function BookDetailView({
   };
 
   const detailTabs: { id: "description" | "chapters" | "files"; label: string }[] = [
-    { id: "description", label: "Description" },
-    ...(hasChapters ? [{ id: "chapters" as const, label: "Chapters" }] : []),
-    { id: "files", label: "Files" }
+    { id: "description", label: t("book:detail.tabDescription") },
+    ...(hasChapters ? [{ id: "chapters" as const, label: t("book:detail.tabChapters") }] : []),
+    { id: "files", label: t("book:detail.tabFiles") }
   ];
   const descriptionText = book.description?.trim() ?? "";
   const canExpandDescription = descriptionText.length > 420;
@@ -833,15 +837,15 @@ function BookDetailView({
     ? [{ key: "cta", icon: BookOpen, label: progressActionLabel, onClick: openPrimaryReader, disabled: !canReadPrimaryDoc, cta: true }]
     : [
         { key: "cta", icon: Play, label: progressActionLabel, onClick: openPlayer, cta: true },
-        ...(canReadPrimaryDoc ? [{ key: "read", icon: BookOpen as LucideIcon, label: "Read", onClick: openPrimaryReader, cta: true }] : [])
+        ...(canReadPrimaryDoc ? [{ key: "read", icon: BookOpen as LucideIcon, label: t("book:detail.read"), onClick: openPrimaryReader, cta: true }] : [])
       ];
-  const collectionAction: IconAction = { key: "collection", icon: ListMusic, label: "Add to collection", onClick: () => setAddToCollectionOpen(true) };
+  const collectionAction: IconAction = { key: "collection", icon: ListMusic, label: t("book:detail.addToCollection"), onClick: () => setAddToCollectionOpen(true) };
   const otherActions: IconAction[] = [
     ...(!isEbook && isStandalone() && capabilities.canDownload && book.files.some((f) => f.status === "available")
       ? [{
           key: "offline",
           icon: (offline.record?.state === "complete" ? CheckCircle2 : Download) as LucideIcon,
-          label: offline.record?.state === "complete" ? "Saved offline" : offline.busy ? `Downloading ${Math.round(offline.progress * 100)}%` : "Save offline",
+          label: offline.record?.state === "complete" ? t("book:detail.savedOffline") : offline.busy ? t("book:detail.downloadingPct", { percent: Math.round(offline.progress * 100) }) : t("book:detail.saveOffline"),
           onClick: () => {
             if (offline.busy) return;
             if (offline.record?.state === "complete") setConfirmRemoveDownload(true);
@@ -855,7 +859,7 @@ function BookDetailView({
       ? [{
           key: "offline",
           icon: (ebookOffline.record?.state === "complete" ? CheckCircle2 : Download) as LucideIcon,
-          label: ebookOffline.record?.state === "complete" ? "Saved offline" : ebookOffline.busy ? `Downloading ${Math.round(ebookOffline.progress * 100)}%` : "Save offline",
+          label: ebookOffline.record?.state === "complete" ? t("book:detail.savedOffline") : ebookOffline.busy ? t("book:detail.downloadingPct", { percent: Math.round(ebookOffline.progress * 100) }) : t("book:detail.saveOffline"),
           onClick: () => {
             if (ebookOffline.busy) return;
             if (ebookOffline.record?.state === "complete") setConfirmRemoveEbookDownload(true);
@@ -865,19 +869,19 @@ function BookDetailView({
           active: ebookOffline.record?.state === "complete"
         }]
       : []),
-    ...(capabilities.canEdit ? [{ key: "edit", icon: Pencil as LucideIcon, label: "Edit metadata", onClick: () => setMetadataModalOpen(true) }] : []),
+    ...(capabilities.canEdit ? [{ key: "edit", icon: Pencil as LucideIcon, label: t("book:detail.editMetadata"), onClick: () => setMetadataModalOpen(true) }] : []),
     ...(capabilities.canDownload
       ? [{
           key: "download",
           icon: Download as LucideIcon,
-          label: "Download",
+          label: t("book:detail.download"),
           href: isEbook && primaryReadableDoc ? `${primaryReadableDoc.url}?download` : `/api/library/books/${book.id}/download`,
           download: true
         }]
       : []),
     // One "Send to" in place of two: the e-reader and the guest link are now
     // destinations inside the sheet rather than separate actions competing for a slot.
-    { key: "send", icon: Send as LucideIcon, label: "Send to", showLabel: true, onClick: () => setSendToOpen(true) },
+    { key: "send", icon: Send as LucideIcon, label: t("book:detail.sendTo"), showLabel: true, onClick: () => setSendToOpen(true) },
     // Desktop keeps Add to collection inline in its original spot; mobile always
     // routes it into the overflow menu instead (see mobileMenuItems below).
     ...(!isMobile ? [collectionAction] : []),
@@ -885,7 +889,7 @@ function BookDetailView({
       ? [{
           key: "delete",
           icon: Trash2 as LucideIcon,
-          label: "Move to Recycle Bin",
+          label: t("book:detail.moveToRecycleBin"),
           onClick: () => { setDeleteError(""); setConfirmDelete(true); },
           danger: true
         }]
@@ -906,14 +910,14 @@ function BookDetailView({
     mobileMenuItems.push({
       key: "finished",
       icon: CheckCircle2,
-      label: progressAction === "complete" ? "Saving..." : bookFinished ? "Marked finished" : "Mark finished",
+      label: progressAction === "complete" ? t("book:detail.saving") : bookFinished ? t("book:detail.markedFinished") : t("book:detail.markFinished"),
       onClick: () => void markBookFinished(),
       disabled: progressAction !== ""
     });
     mobileMenuItems.push({
       key: "reset",
       icon: RotateCcw,
-      label: progressAction === "reset" ? "Resetting..." : "Reset progress",
+      label: progressAction === "reset" ? t("book:detail.resetting") : t("book:detail.resetProgress"),
       onClick: () => void resetProgress(),
       disabled: progressAction !== ""
     });
@@ -989,7 +993,7 @@ function BookDetailView({
           <ArrowLeft size={18} aria-hidden="true" />
         </button>
         <span className="library-toolbar-divider" aria-hidden="true" />
-        <div className="book-detail-secondary-actions" aria-label="Book actions">
+        <div className="book-detail-secondary-actions" aria-label={t("book:detail.bookActions")}>
           {isMobile && ctaActions.map(renderIconAction)}
           <button
             className={`icon-button${save?.saved ? " on" : ""}`}
@@ -997,8 +1001,8 @@ function BookDetailView({
             onClick={toggleSave}
             disabled={saveAction}
             aria-pressed={save?.saved ?? false}
-            aria-label={saveAction ? "Liking" : save?.saved ? "Unlike" : "Like"}
-            title={saveAction ? "Liking…" : save?.saved ? "Liked" : "Like"}
+            aria-label={saveAction ? t("book:detail.liking") : save?.saved ? t("book:detail.unlike") : t("book:detail.like")}
+            title={saveAction ? t("book:detail.liking") : save?.saved ? t("book:detail.liked") : t("book:detail.like")}
           >
             <Heart size={18} fill={save?.saved ? "currentColor" : "none"} />
           </button>
@@ -1011,13 +1015,13 @@ function BookDetailView({
                 onClick={() => setMoreMenuOpen((open) => !open)}
                 aria-haspopup="menu"
                 aria-expanded={moreMenuOpen}
-                aria-label="More actions"
-                title="More actions"
+                aria-label={t("book:detail.moreActions")}
+                title={t("book:detail.moreActions")}
               >
                 <MoreVertical size={18} />
               </button>
               {moreMenuOpen && (
-                <div className="book-detail-menu" role="menu" aria-label="More actions">
+                <div className="book-detail-menu" role="menu" aria-label={t("book:detail.moreActions")}>
                   {mobileMenuItems.map((item, i) => item === "divider"
                     ? <hr key={`divider-${i}`} className="book-detail-menu-divider" />
                     : renderMenuItem(item))}
@@ -1034,7 +1038,7 @@ function BookDetailView({
             <img src={book.coverLargeUrl ?? book.coverUrl ?? (isEbook ? DEFAULT_COVERS.ebook : DEFAULT_COVERS.audiobook)} alt="" />
           </div>
           {(book.category || book.tags.length > 0) && (
-            <section className="book-tags book-tags-under-cover" aria-label="Tags">
+            <section className="book-tags book-tags-under-cover" aria-label={t("book:detail.tags")}>
               {book.category && (
                 <button
                   className="book-tag-chip book-tag-chip-category"
@@ -1094,10 +1098,10 @@ function BookDetailView({
                 aria-expanded={detailsExpanded}
               >
                 {detailsExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
-                <span>{detailsExpanded ? "Hide details" : "More details"}</span>
+                <span>{detailsExpanded ? t("book:detail.hideDetails") : t("book:detail.moreDetails")}</span>
               </button>
               {detailsExpanded && (
-                <section className="book-detail-more-details-panel" aria-label="More details">
+                <section className="book-detail-more-details-panel" aria-label={t("book:detail.moreDetails")}>
                   <dl className="book-detail-meta-grid full">
                     {moreDetailRows.map((row) => (
                       <div className="book-detail-meta-item" key={`${row.label}-${row.value}`}>
@@ -1141,7 +1145,7 @@ function BookDetailView({
                         onClick={openPrimaryReader}
                       >
                         <BookOpen size={16} />
-                        <span>Read</span>
+                        <span>{t("book:detail.read")}</span>
                       </button>
                     )}
                   </>
@@ -1154,13 +1158,13 @@ function BookDetailView({
                       onClick={() => setProgressMenuOpen((open) => !open)}
                       aria-haspopup="menu"
                       aria-expanded={progressMenuOpen}
-                      aria-label="Progress actions"
-                      title="Progress actions"
+                      aria-label={t("book:detail.progressActions")}
+                      title={t("book:detail.progressActions")}
                     >
                       <MoreHorizontal size={20} aria-hidden="true" />
                     </button>
                     {progressMenuOpen && (
-                      <div className="book-detail-action-menu book-progress-menu" role="menu" aria-label="Progress actions">
+                      <div className="book-detail-action-menu book-progress-menu" role="menu" aria-label={t("book:detail.progressActions")}>
                         <button
                           type="button"
                           role="menuitem"
@@ -1171,7 +1175,7 @@ function BookDetailView({
                           disabled={progressAction !== ""}
                         >
                           <CheckCircle2 size={16} aria-hidden="true" />
-                          <span>{progressAction === "complete" ? "Saving..." : bookFinished ? "Marked finished" : "Mark finished"}</span>
+                          <span>{progressAction === "complete" ? t("book:detail.saving") : bookFinished ? t("book:detail.markedFinished") : t("book:detail.markFinished")}</span>
                         </button>
                         <button
                           type="button"
@@ -1183,7 +1187,7 @@ function BookDetailView({
                           disabled={progressAction !== ""}
                         >
                           <RotateCcw size={16} aria-hidden="true" />
-                          <span>{progressAction === "reset" ? "Resetting..." : "Reset progress"}</span>
+                          <span>{progressAction === "reset" ? t("book:detail.resetting") : t("book:detail.resetProgress")}</span>
                         </button>
                       </div>
                     )}
@@ -1194,9 +1198,9 @@ function BookDetailView({
             <div className="book-progress-inline" aria-label={progressTitle}>
               <Clock size={16} aria-hidden="true" />
               {episodic ? (
-                <span><strong>{playedCount} / {availableFiles.length}</strong> played</span>
+                <span><Trans i18nKey="detail.playedOf" ns="book" values={{ played: playedCount, total: availableFiles.length }} components={{ bold: <strong /> }} /></span>
               ) : (
-                <span>Progress: <strong>{progressPercent}%</strong></span>
+                <span><Trans i18nKey="detail.progressPct" ns="book" values={{ percent: progressPercent }} components={{ bold: <strong /> }} /></span>
               )}
               <span aria-hidden="true">•</span>
               <span>{progressStatus}</span>
@@ -1204,7 +1208,7 @@ function BookDetailView({
                 ? !allPlayed && availableFiles.length - playedCount > 0 && (
                     <>
                       <span aria-hidden="true">•</span>
-                      <span>{availableFiles.length - playedCount} {availableFiles.length - playedCount === 1 ? "episode" : "episodes"} left</span>
+                      <span>{t("book:detail.episodesLeft", { count: availableFiles.length - playedCount })}</span>
                     </>
                   )
                 : remainingLabel && (
@@ -1215,11 +1219,11 @@ function BookDetailView({
                   )}
             </div>
           </div>
-          {saveError && <MessageBox tone="error" title="Likes error">{saveError}</MessageBox>}
-          {progressActionError && <MessageBox tone="error" title="Progress error">{progressActionError}</MessageBox>}
-          {offline.error && <MessageBox tone="error" title="Download error">{offline.error}</MessageBox>}
+          {saveError && <MessageBox tone="error" title={t("book:detail.likesErrorTitle")}>{saveError}</MessageBox>}
+          {progressActionError && <MessageBox tone="error" title={t("book:detail.progressErrorTitle")}>{progressActionError}</MessageBox>}
+          {offline.error && <MessageBox tone="error" title={t("book:detail.downloadErrorTitle")}>{offline.error}</MessageBox>}
           {sendNotice && (
-            <MessageBox tone={sendNotice.tone} title={sendNotice.tone === "success" ? "Sent to e-reader" : "Send failed"}>
+            <MessageBox tone={sendNotice.tone} title={sendNotice.tone === "success" ? t("book:detail.sentToEreaderTitle") : t("book:detail.sendFailedTitle")}>
               {sendNotice.text}
             </MessageBox>
           )}
@@ -1237,7 +1241,7 @@ function BookDetailView({
       )}
 
       <section className="book-detail-tabs-section">
-        <nav className="book-detail-tabs" aria-label="Book detail sections">
+        <nav className="book-detail-tabs" aria-label={t("book:detail.sectionsAria")}>
           {detailTabs.map((tab) => (
             <button
               className={activeBookTab === tab.id ? "active" : ""}
@@ -1264,12 +1268,12 @@ function BookDetailView({
                       aria-expanded={descriptionExpanded}
                     >
                       {descriptionExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
-                      <span>{descriptionExpanded ? "Show less description" : "Show full description"}</span>
+                      <span>{descriptionExpanded ? t("book:detail.showLessDescription") : t("book:detail.showFullDescription")}</span>
                     </button>
                   )}
                 </>
               ) : (
-                <p className="book-description muted">No description yet.</p>
+                <p className="book-description muted">{t("book:detail.noDescription")}</p>
               )}
             </section>
           )}
@@ -1287,8 +1291,8 @@ function BookDetailView({
                           type="button"
                           className="book-file-play"
                           onClick={() => playFrom(chapter.fileId, chapter.startSeconds)}
-                          aria-label="Play from this chapter"
-                          title="Play from this chapter"
+                          aria-label={t("book:detail.playFromChapter")}
+                          title={t("book:detail.playFromChapter")}
                         >
                           <Play size={15} />
                         </button>
@@ -1309,7 +1313,7 @@ function BookDetailView({
             <section className="book-detail-files-tab">
               {book.documents.length > 0 && (
                 <section className="book-documents-section">
-                  <h2 className="book-documents-title">{isEbook ? "Formats" : "Documents"}</h2>
+                  <h2 className="book-documents-title">{isEbook ? t("book:detail.formats") : t("book:detail.documents")}</h2>
                   <div className="book-document-list">
                     {book.documents.map((doc) => (
                       <div className="book-document-row" key={doc.id}>
@@ -1324,12 +1328,12 @@ function BookDetailView({
                             onClick={() => setViewerDoc({ id: doc.id, fileName: doc.fileName, url: doc.url, format: doc.format })}
                           >
                             <BookOpen size={15} />
-                            <span>Read</span>
+                            <span>{t("book:detail.read")}</span>
                           </button>
                         )}
                         <a className="secondary-button compact-button" href={`${doc.url}?download`} download>
                           <Download size={15} />
-                          <span>Download</span>
+                          <span>{t("book:detail.download")}</span>
                         </a>
                       </div>
                     ))}
@@ -1341,11 +1345,11 @@ function BookDetailView({
                 <section className="book-files-section">
                   {episodic && (
                     <div className="book-episode-head">
-                      <span className="muted">{playedCount} / {availableFiles.length} played</span>
+                      <span className="muted">{t("book:detail.playedCount", { played: playedCount, total: availableFiles.length })}</span>
                       {nextEpisode && (
                         <button type="button" className="book-episode-play-next" onClick={playNextEpisode}>
                           <Play size={14} aria-hidden="true" />
-                          {allPlayed ? "Play from start" : "Play next unplayed"}
+                          {allPlayed ? t("book:detail.playFromStart") : t("book:detail.playNextUnplayed")}
                         </button>
                       )}
                     </div>
@@ -1389,8 +1393,8 @@ function BookDetailView({
                             type="button"
                             className="book-file-play"
                             onClick={() => playEpisode(file)}
-                            aria-label="Play"
-                            title="Play"
+                            aria-label={t("book:detail.play")}
+                            title={t("book:detail.play")}
                           >
                             <Play size={15} />
                           </button>
@@ -1407,7 +1411,7 @@ function BookDetailView({
                               progress={pct}
                               complete={played}
                               onClick={() => markTrack(file.id, !played)}
-                              label={played ? "Mark unplayed" : "Mark played"}
+                              label={played ? t("book:detail.markUnplayed") : t("book:detail.markPlayed")}
                             />
                           ) : (
                             <ProgressRing progress={linearProgress} complete={state === "completed"} />
@@ -1469,9 +1473,9 @@ function BookDetailView({
               <div className="doc-viewer-actions">
                 <a className="secondary-button compact-button" href={`${viewerDoc.url}?download`} download>
                   <Download size={15} />
-                  <span>Download</span>
+                  <span>{t("book:detail.download")}</span>
                 </a>
-                <button className="modal-close" onClick={() => setViewerDoc(null)} aria-label="Close reader">
+                <button className="modal-close" onClick={() => setViewerDoc(null)} aria-label={t("book:detail.closeReader")}>
                   <X size={18} />
                 </button>
               </div>
@@ -1492,41 +1496,41 @@ function BookDetailView({
 
       {confirmRemoveDownload && (
         <ConfirmDialog
-          title="Remove download?"
-          confirmLabel="Remove download"
+          title={t("book:detail.removeDownloadTitle")}
+          confirmLabel={t("book:detail.removeDownload")}
           danger
           onConfirm={() => { setConfirmRemoveDownload(false); void offline.remove(); }}
           onCancel={() => setConfirmRemoveDownload(false)}
         >
-          This downloaded book is removed from this device. You can download it again at any time.
+          {t("book:detail.removeDownloadBody")}
         </ConfirmDialog>
       )}
 
       {confirmRemoveEbookDownload && (
         <ConfirmDialog
-          title="Remove download?"
-          confirmLabel="Remove download"
+          title={t("book:detail.removeDownloadTitle")}
+          confirmLabel={t("book:detail.removeDownload")}
           danger
           onConfirm={() => { setConfirmRemoveEbookDownload(false); void ebookOffline.remove(); }}
           onCancel={() => setConfirmRemoveEbookDownload(false)}
         >
-          This ebook is removed from this device. You can download it again at any time.
+          {t("book:detail.removeEbookDownloadBody")}
         </ConfirmDialog>
       )}
 
       {confirmDelete && (
         <ConfirmDialog
-          title={`Move "${book.title}" to the Recycle Bin?`}
-          confirmLabel="Move to Recycle Bin"
-          busyLabel="Moving…"
+          title={t("book:detail.deleteConfirmTitle", { title: book.title })}
+          confirmLabel={t("book:detail.moveToRecycleBin")}
+          busyLabel={t("book:detail.moving")}
           busy={deleteBusy}
           error={deleteError}
           onConfirm={() => void moveToRecycleBin()}
           onCancel={() => { if (!deleteBusy) setConfirmDelete(false); }}
         >
           {isEbook
-            ? "This ebook moves into the Recycle Bin and leaves the library for everyone. An administrator can restore it from Control panel → Maintenance → Recycle Bin."
-            : "This audiobook moves into the Recycle Bin and leaves the library for everyone (any shares stop working). An administrator can restore it from Control panel → Maintenance → Recycle Bin."}
+            ? t("book:detail.deleteEbookBody")
+            : t("book:detail.deleteAudiobookBody")}
         </ConfirmDialog>
       )}
 

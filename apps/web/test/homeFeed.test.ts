@@ -36,6 +36,9 @@ describe("batchDayLabel", () => {
     };
     expect(batchDayLabel(iso(0))).toBe("today");
     expect(batchDayLabel(iso(1))).toBe("yesterday");
-    expect(batchDayLabel(iso(3))).toMatch(/^on /);
+    // Recent days are relative ("3 days ago") — localizable, unlike a weekday
+    // name, which would need case declension in Russian.
+    expect(batchDayLabel(iso(3))).toBe("3 days ago");
+    expect(batchDayLabel(iso(30))).toMatch(/^on /);
   });
 });

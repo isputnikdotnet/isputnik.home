@@ -9,18 +9,26 @@
 // One place, because three surfaces say it: the card under "Waiting for you",
 // the Home row, and (in its own words, being a different medium) the email.
 
-const VERBS: Record<string, string> = {
-  audiobook: "wants you to listen to this",
-  ebook: "wants you to read this",
-  gallery: "wants you to see this",
-  gallery_album: "wants you to see these photos",
-  gallery_slideshow: "wants you to watch this",
-  family_tree_person: "wants you to see this"
-};
+import i18n from "../../i18n";
+
+// Module-level helper (no hook access), so it goes through i18n directly. A
+// switch (not a Record lookup) because entityType is a plain string, not a
+// literal union — see docs/i18n-plan.md's template-literal-key pitfall.
+function recommendVerb(entityType: string): string {
+  switch (entityType) {
+    case "audiobook": return i18n.t("user:phrase.recommend.audiobook");
+    case "ebook": return i18n.t("user:phrase.recommend.ebook");
+    case "gallery": return i18n.t("user:phrase.recommend.gallery");
+    case "gallery_album": return i18n.t("user:phrase.recommend.galleryAlbum");
+    case "gallery_slideshow": return i18n.t("user:phrase.recommend.gallerySlideshow");
+    case "family_tree_person": return i18n.t("user:phrase.recommend.familyTreePerson");
+    default: return i18n.t("user:phrase.recommend.fallback");
+  }
+}
 
 /** "Dad wants you to read this" — the whole line, ready to render. */
 export function recommendationLine(fromName: string, entityType: string): string {
-  return `${fromName} ${VERBS[entityType] ?? "sent you this"}`;
+  return `${fromName} ${recommendVerb(entityType)}`;
 }
 
 // ── The activity feed reads as sentences ────────────────────────────────────
@@ -36,12 +44,26 @@ export type ActivityKind = "note" | "album" | "slideshow" | "person";
 // "Dad added Grandma to the family tree". So a phrase is two halves with the
 // title between them, which the first version got wrong and real data caught the
 // moment the feed was looked at.
-const PHRASES: Record<ActivityKind, { before: string; after: string }> = {
-  note: { before: "left a note on", after: "" },
-  album: { before: "made the album", after: "" },
-  slideshow: { before: "made the slideshow", after: "" },
-  person: { before: "added", after: "to the family tree" }
-};
+function activityPhraseParts(kind: ActivityKind): { before: string; after: string } {
+  switch (kind) {
+    case "note":
+      return { before: i18n.t("user:phrase.activity.noteBefore"), after: i18n.t("user:phrase.activity.noteAfter") };
+    case "album":
+      return { before: i18n.t("user:phrase.activity.albumBefore"), after: i18n.t("user:phrase.activity.albumAfter") };
+    case "slideshow":
+      return {
+        before: i18n.t("user:phrase.activity.slideshowBefore"),
+        after: i18n.t("user:phrase.activity.slideshowAfter")
+      };
+    case "person":
+      return { before: i18n.t("user:phrase.activity.personBefore"), after: i18n.t("user:phrase.activity.personAfter") };
+    default:
+      return {
+        before: i18n.t("user:phrase.activity.fallbackBefore"),
+        after: i18n.t("user:phrase.activity.fallbackAfter")
+      };
+  }
+}
 
 export interface ActivityPhrase {
   /** "Anna left a note on" — everything before the title. */
@@ -51,7 +73,7 @@ export interface ActivityPhrase {
 }
 
 export function activityPhrase(actorName: string, kind: ActivityKind): ActivityPhrase {
-  const phrase = PHRASES[kind] ?? { before: "did something with", after: "" };
+  const phrase = activityPhraseParts(kind);
   return { before: `${actorName} ${phrase.before}`, after: phrase.after };
 }
 

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ALPHABETS, OTHER_BUCKET, alphabetOf, type AlphabetId } from "./alphabets";
 
 // The A–Z index that sits in the second row of LibraryPageToolbar. One letter at
@@ -16,13 +17,14 @@ export function AlphabetBar({
   available,
   value,
   onChange,
-  ariaLabel = "Filter by letter"
+  ariaLabel
 }: {
   available: string[];
   value: string | null;
   onChange: (letter: string | null) => void;
   ariaLabel?: string;
 }) {
+  const { t } = useTranslation();
   const has = useMemo(() => new Set(available), [available]);
   const scripts = useMemo(
     () => ALPHABETS.filter((alphabet) => alphabet.letters.some((letter) => has.has(letter))),
@@ -59,9 +61,9 @@ export function AlphabetBar({
   );
 
   return (
-    <div className="alphabet-bar" role="group" aria-label={ariaLabel}>
+    <div className="alphabet-bar" role="group" aria-label={ariaLabel ?? t("alphabet.label")}>
       {scripts.length > 1 && (
-        <div className="alphabet-scripts" role="group" aria-label="Alphabet">
+        <div className="alphabet-scripts" role="group" aria-label={t("alphabet.scripts")}>
           {scripts.map((alphabet) => (
             <button
               key={alphabet.id}
@@ -84,10 +86,10 @@ export function AlphabetBar({
           aria-pressed={value === null}
           onClick={() => onChange(null)}
         >
-          All
+          {t("alphabet.all")}
         </button>
         {active.letters.map((letter) => letterButton(letter))}
-        {letterButton(OTHER_BUCKET, "Starting with a number or symbol")}
+        {letterButton(OTHER_BUCKET, t("alphabet.other"))}
       </div>
     </div>
   );

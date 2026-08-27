@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Check, Heart, X } from "lucide-react";
 import { followRoute } from "../../router";
 import { Button } from "../../shared/Button";
@@ -36,6 +37,7 @@ export function InboxRow({
   busy: boolean;
   onAct: (card: InboxCard, action: "save" | "dismiss") => Promise<void>;
 }) {
+  const { t } = useTranslation(["common", "user"]);
   const canLike = card.savable && card.available;
 
   const cover = card.coverUrl
@@ -60,7 +62,7 @@ export function InboxRow({
         )}
         {card.subtitle && <p className="inbox-subtitle">{card.subtitle}</p>}
         {card.message && <p className="inbox-message">“{card.message}”</p>}
-        {!card.available && <p className="inbox-gone">This isn’t available to you any more.</p>}
+        {!card.available && <p className="inbox-gone">{t("user:social.unavailable")}</p>}
       </div>
 
       {/* The action names what actually happens. A savable thing goes to
@@ -73,17 +75,17 @@ export function InboxRow({
           <>
             <Button variant="primary" compact disabled={busy} onClick={() => void onAct(card, "save")}>
               <Heart size={16} aria-hidden />
-              <span>{busy ? "Liking…" : "Like"}</span>
+              <span>{busy ? t("user:likes.liking") : t("user:likes.like")}</span>
             </Button>
             <Button variant="secondary" compact disabled={busy} onClick={() => void onAct(card, "dismiss")}>
               <X size={16} aria-hidden />
-              <span>Not now</span>
+              <span>{t("user:social.notNow")}</span>
             </Button>
           </>
         ) : (
           <Button variant="secondary" compact disabled={busy} onClick={() => void onAct(card, "dismiss")}>
             <Check size={16} aria-hidden />
-            <span>Done</span>
+            <span>{t("common:common.done")}</span>
           </Button>
         )}
       </div>

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { Check, Pencil, Trash2, X, Eraser, Search, Plus } from "lucide-react";
 import { api } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
@@ -16,6 +17,7 @@ interface ManageTag {
 const TAG_PAGE_SIZE = 60;
 
 export function TagsSection() {
+  const { t } = useTranslation(["common", "controlAdmin"]);
   const [tags, setTags] = useState<ManageTag[]>([]);
   const [search, setSearch] = useState("");
   const [limit, setLimit] = useState(TAG_PAGE_SIZE);
@@ -36,7 +38,7 @@ export function TagsSection() {
   }, []);
 
   useEffect(() => {
-    load().catch((err) => setError(err instanceof Error ? err.message : "Unable to load tags"));
+    load().catch((err) => setError(err instanceof Error ? err.message : t("controlAdmin:tags.loadFailed")));
   }, [load]);
 
   const startEdit = (tag: ManageTag) => {
@@ -61,9 +63,9 @@ export function TagsSection() {
       });
       setTags(payload.tags);
       setEditingId(null);
-      setNotice(payload.merged ? `Merged into existing tag "${next}".` : "");
+      setNotice(payload.merged ? t("controlAdmin:tags.mergedNotice", { name: next }) : "");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to rename tag");
+      setError(err instanceof Error ? err.message : t("controlAdmin:tags.renameFailed"));
     } finally {
       setBusyId(null);
     }
@@ -78,7 +80,7 @@ export function TagsSection() {
       setPendingDelete(null);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to delete tag");
+      setError(err instanceof Error ? err.message : t("controlAdmin:tags.deleteFailed"));
     } finally {
       setBusyId(null);
     }
@@ -90,10 +92,10 @@ export function TagsSection() {
     setNotice("");
     try {
       const payload = await api<{ pruned: number }>("/api/library/manage/tags/prune", { method: "POST", body: "{}" });
-      setNotice(payload.pruned > 0 ? `Removed ${payload.pruned} unused tag${payload.pruned === 1 ? "" : "s"}.` : "No unused tags to remove.");
+      setNotice(payload.pruned > 0 ? t("controlAdmin:tags.prunedNotice", { count: payload.pruned }) : t("controlAdmin:tags.nonePruned"));
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to prune tags");
+      setError(err instanceof Error ? err.message : t("controlAdmin:tags.pruneFailed"));
     } finally {
       setPruning(false);
     }
@@ -114,9 +116,9 @@ export function TagsSection() {
       setTags(payload.tags);
       setNewTagName("");
       setCreateOpen(false);
-      setNotice(`Created tag "${displayName}".`);
+      setNotice(t("controlAdmin:tags.createdNotice", { name: displayName }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to create tag");
+      setError(err instanceof Error ? err.message : t("controlAdmin:tags.createFailed"));
     } finally {
       setCreating(false);
     }
@@ -129,25 +131,25 @@ export function TagsSection() {
 
   return (
     <>
-      <ControlSectionHead section="tags" description="Free-form labels scanned from your files, across every library.">
+      <ControlSectionHead section="tags" description={t("controlAdmin:tags.headDescription")}>
         <div className="row-actions">
           <button className="primary-button" onClick={() => { setError(""); setNotice(""); setCreateOpen(true); }}>
             <Plus size={18} aria-hidden="true" />
-            <span>New tag</span>
+            <span>{t("controlAdmin:tags.newTag")}</span>
           </button>
           <button className="secondary-button compact-button" onClick={pruneUnused} disabled={pruning || unusedCount === 0}>
             <Eraser size={15} aria-hidden="true" />
-            {pruning ? "Removing…" : `Remove unused${unusedCount > 0 ? ` (${unusedCount})` : ""}`}
+            {pruning ? t("controlAdmin:tags.removing") : unusedCount > 0 ? t("controlAdmin:tags.removeUnusedCount", { count: unusedCount }) : t("controlAdmin:tags.removeUnused")}
           </button>
         </div>
       </ControlSectionHead>
 
       <p className="muted" style={{ marginTop: -6, marginBottom: 16, fontSize: "0.88rem", lineHeight: 1.45 }}>
-        Tags are the descriptive layer for your library and can also be created from scanned genres. Rename to fix typos (renaming onto an existing tag merges them) or delete to remove a tag from all books. Renaming a tag that is also a category keyword won't re-sort books — use "Re-match all books" on the Categories tab afterward if needed.
+        {t("controlAdmin:tags.intro")}
       </p>
 
-      {error && <MessageBox tone="error" title="Tag error">{error}</MessageBox>}
-      {notice && <MessageBox tone="success" title="Tags updated">{notice}</MessageBox>}
+      {error && <MessageBox tone="error" title={t("controlAdmin:tags.errorTitle")}>{error}</MessageBox>}
+      {notice && <MessageBox tone="success" title={t("controlAdmin:tags.updatedTitle")}>{notice}</MessageBox>}
 
       <div className="audiobook-toolbar">
         <label className="search-field">
@@ -156,23 +158,23 @@ export function TagsSection() {
             type="search"
             value={search}
             onChange={(event) => { setSearch(event.target.value); setLimit(TAG_PAGE_SIZE); }}
-            placeholder="Search tags"
-            aria-label="Search tags"
+            placeholder={t("controlAdmin:tags.searchPlaceholder")}
+            aria-label={t("controlAdmin:tags.searchPlaceholder")}
           />
         </label>
-        <span>{visible.length} {visible.length === 1 ? "tag" : "tags"}</span>
+        <span>{t("controlAdmin:tags.tagCount", { count: visible.length })}</span>
       </div>
 
       {tags.length === 0 ? (
-        <p className="management-empty">No tags yet. Create one here or scan books to import their genres.</p>
+        <p className="management-empty">{t("controlAdmin:tags.emptyList")}</p>
       ) : (
         <>
         <div className="datagrid-wrap">
           <table className="datagrid">
             <thead>
               <tr>
-                <th>Tag</th>
-                <th className="col-num">Books</th>
+                <th>{t("controlAdmin:tags.thTag")}</th>
+                <th className="col-num">{t("controlAdmin:tags.thBooks")}</th>
                 <th className="col-actions"></th>
               </tr>
             </thead>
@@ -200,19 +202,19 @@ export function TagsSection() {
                     <div className="row-actions">
                       {editingId === tag.id ? (
                         <>
-                          <button className="icon-button" title="Save" disabled={busyId === tag.id} onClick={() => saveEdit(tag)}>
+                          <button className="icon-button" title={t("controlAdmin:tags.saveTitle")} disabled={busyId === tag.id} onClick={() => saveEdit(tag)}>
                             <Check size={15} />
                           </button>
-                          <button className="icon-button" title="Cancel" disabled={busyId === tag.id} onClick={() => setEditingId(null)}>
+                          <button className="icon-button" title={t("common.cancel")} disabled={busyId === tag.id} onClick={() => setEditingId(null)}>
                             <X size={15} />
                           </button>
                         </>
                       ) : (
                         <>
-                          <button className="icon-button" title="Rename tag" onClick={() => startEdit(tag)}>
+                          <button className="icon-button" title={t("controlAdmin:tags.renameTag")} onClick={() => startEdit(tag)}>
                             <Pencil size={15} />
                           </button>
-                          <button className="icon-button danger" title="Delete tag" onClick={() => setPendingDelete(tag)}>
+                          <button className="icon-button danger" title={t("controlAdmin:tags.deleteTag")} onClick={() => setPendingDelete(tag)}>
                             <Trash2 size={15} />
                           </button>
                         </>
@@ -222,7 +224,7 @@ export function TagsSection() {
                 </tr>
               ))}
               {visible.length === 0 && (
-                <tr><td colSpan={3} className="management-empty">No tags match your search.</td></tr>
+                <tr><td colSpan={3} className="management-empty">{t("controlAdmin:tags.noMatch")}</td></tr>
               )}
             </tbody>
           </table>
@@ -233,7 +235,7 @@ export function TagsSection() {
               className="secondary-button compact-button"
               onClick={() => setLimit((current) => current + TAG_PAGE_SIZE)}
             >
-              Show more ({visible.length - paged.length})
+              {t("controlAdmin:tags.showMore", { count: visible.length - paged.length })}
             </button>
           </div>
         )}
@@ -242,7 +244,7 @@ export function TagsSection() {
 
       {createOpen && (
         <Modal
-          title="New tag"
+          title={t("controlAdmin:tags.newTag")}
           className="create-tag-modal"
           busy={creating}
           onClose={() => setCreateOpen(false)}
@@ -252,7 +254,7 @@ export function TagsSection() {
           }}
         >
             <label className="field">
-              <span>Tag name</span>
+              <span>{t("controlAdmin:tags.tagName")}</span>
               <input
                 autoFocus
                 maxLength={120}
@@ -260,15 +262,15 @@ export function TagsSection() {
                 onChange={(event) => setNewTagName(event.target.value)}
               />
             </label>
-            <p>New tags start unused and can be assigned from a book's metadata editor.</p>
-            {error && <MessageBox tone="error" title="Unable to create tag">{error}</MessageBox>}
+            <p>{t("controlAdmin:tags.modalNote")}</p>
+            {error && <MessageBox tone="error" title={t("controlAdmin:tags.createFailed")}>{error}</MessageBox>}
             <div className="modal-actions">
               <Button variant="secondary" onClick={() => setCreateOpen(false)} disabled={creating}>
-                Cancel
+                {t("common.cancel")}
               </Button>
               <Button variant="primary" type="submit" disabled={creating || !newTagName.trim()}>
                 <Plus size={15} aria-hidden="true" />
-                {creating ? "Creating…" : "Create tag"}
+                {creating ? t("controlAdmin:tags.creating") : t("controlAdmin:tags.createTag")}
               </Button>
             </div>
         </Modal>
@@ -276,16 +278,16 @@ export function TagsSection() {
 
       {pendingDelete && (
         <ConfirmDialog
-          title={`Delete "${pendingDelete.name}"?`}
-          confirmLabel="Delete tag"
-          busyLabel="Deleting…"
+          title={t("controlAdmin:tags.deleteDialogTitle", { name: pendingDelete.name })}
+          confirmLabel={t("controlAdmin:tags.deleteTag")}
+          busyLabel={t("controlAdmin:tags.deleting")}
           confirmIcon={<Trash2 size={15} />}
           danger
           busy={busyId !== null}
           onConfirm={deleteTag}
           onCancel={() => setPendingDelete(null)}
         >
-          This removes the tag from {pendingDelete.bookCount} {pendingDelete.bookCount === 1 ? "book" : "books"}. Books and files are not affected.
+          {t("controlAdmin:tags.deleteBody", { count: pendingDelete.bookCount })}
         </ConfirmDialog>
       )}
     </>

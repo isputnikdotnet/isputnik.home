@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { BookOpen, Copy, Pencil, Plus, Quote as QuoteIcon, Trash2 } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
@@ -9,6 +10,7 @@ import { Modal } from "../../shared/Modal";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { MessageBox } from "../../shared/MessageBox";
 import { relativeTime } from "../../shared/utils";
+import i18n from "../../i18n";
 import type { Quote } from "../audiobooks/types";
 
 // In-reader quotes can be opened back at their spot; the deep link mirrors the
@@ -19,8 +21,9 @@ function readerHref(quote: Quote): string | null {
   return `${base}/books/${quote.itemId}?read=1&cfi=${encodeURIComponent(quote.cfi)}`;
 }
 
+// Module-level helper (no hook access), so it goes through i18n directly.
 function attribution(quote: Quote): string {
-  const title = quote.sourceTitle || "Unattributed";
+  const title = quote.sourceTitle || i18n.t("user:quotes.unattributed");
   return quote.sourceAuthors.length > 0 ? `${title} — ${quote.sourceAuthors.join(", ")}` : title;
 }
 
@@ -44,7 +47,7 @@ function groupBySource(quotes: Quote[]): QuoteGroup[] {
     } else {
       map.set(key, {
         key,
-        title: quote.sourceTitle || "Unattributed",
+        title: quote.sourceTitle || i18n.t("user:quotes.unattributed"),
         authors: quote.sourceAuthors,
         external: !quote.itemId,
         items: [quote]
@@ -81,6 +84,7 @@ function QuoteEditor({
   onSave: (draft: QuoteDraft) => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation(["common", "user"]);
   const [draft, setDraft] = useState<QuoteDraft>(
     editing
       ? {
@@ -96,7 +100,7 @@ function QuoteEditor({
   return (
     <Modal
       variant="card"
-      title={editing ? "Edit quote" : "Add a quote"}
+      title={editing ? t("user:quotes.editTitle") : t("user:quotes.addTitle")}
       icon={<QuoteIcon size={18} />}
       busy={busy}
       onClose={onClose}
@@ -107,52 +111,52 @@ function QuoteEditor({
     >
       <div className="quote-form">
         <label className="quote-field">
-          <span>Quote</span>
+          <span>{t("user:quotes.quoteField")}</span>
           <textarea
             value={draft.text}
             onChange={(e) => setDraft((d) => ({ ...d, text: e.target.value }))}
-            placeholder="Paste or type the passage…"
+            placeholder={t("user:quotes.quotePlaceholder")}
             rows={4}
             autoFocus
             required
           />
         </label>
         {linked ? (
-          <p className="quote-form-linked">From your library: <strong>{attribution(editing!)}</strong></p>
+          <p className="quote-form-linked">{t("user:quotes.fromLibrary")} <strong>{attribution(editing!)}</strong></p>
         ) : (
           <div className="quote-field-row">
             <label className="quote-field">
-              <span>Book / source</span>
+              <span>{t("user:quotes.sourceField")}</span>
               <input
                 value={draft.sourceTitle}
                 onChange={(e) => setDraft((d) => ({ ...d, sourceTitle: e.target.value }))}
-                placeholder="Title"
+                placeholder={t("user:quotes.titlePlaceholder")}
               />
             </label>
             <label className="quote-field">
-              <span>Author</span>
+              <span>{t("user:quotes.authorField")}</span>
               <input
                 value={draft.sourceAuthor}
                 onChange={(e) => setDraft((d) => ({ ...d, sourceAuthor: e.target.value }))}
-                placeholder="Author"
+                placeholder={t("user:quotes.authorField")}
               />
             </label>
           </div>
         )}
         <label className="quote-field">
-          <span>Note <em>(optional)</em></span>
+          <span>{t("user:quotes.noteField")} <em>{t("user:form.optional")}</em></span>
           <textarea
             value={draft.note}
             onChange={(e) => setDraft((d) => ({ ...d, note: e.target.value }))}
-            placeholder="Why this stuck with you…"
+            placeholder={t("user:quotes.notePlaceholder")}
             rows={2}
           />
         </label>
-        {error && <MessageBox tone="error" title="Unable to save">{error}</MessageBox>}
+        {error && <MessageBox tone="error" title={t("common:errors.unableToSave")}>{error}</MessageBox>}
         <div className="modal-actions">
-          <Button variant="secondary" onClick={onClose} disabled={busy}>Cancel</Button>
+          <Button variant="secondary" onClick={onClose} disabled={busy}>{t("common:common.cancel")}</Button>
           <Button variant="primary" type="submit" disabled={busy || !draft.text.trim()}>
-            {busy ? "Saving…" : editing ? "Save" : "Add quote"}
+            {busy ? t("user:actions.saving") : editing ? t("user:actions.save") : t("user:quotes.addQuote")}
           </Button>
         </div>
       </div>
@@ -167,6 +171,7 @@ export function QuotesPage({
   user: PublicUser;
   logout: () => Promise<void>;
 }) {
+  const { t } = useTranslation(["common", "user"]);
   const [quotes, setQuotes] = useState<Quote[] | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -180,7 +185,7 @@ export function QuotesPage({
   useEffect(() => {
     api<{ quotes: Quote[] }>("/api/library/quotes")
       .then((payload) => setQuotes(payload.quotes))
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load your quotes"));
+      .catch((err) => setError(err instanceof Error ? err.message : t("user:quotes.loadFailed")));
   }, []);
 
   const groups = useMemo(() => groupBySource(quotes ?? []), [quotes]);
@@ -220,7 +225,7 @@ export function QuotesPage({
       setEditorOpen(false);
       setEditing(null);
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "Something went wrong saving this quote.");
+      setSaveError(err instanceof Error ? err.message : t("user:quotes.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -234,7 +239,7 @@ export function QuotesPage({
       setQuotes((current) => current?.filter((q) => q.id !== deleting.id) ?? current);
       setDeleting(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to delete this quote.");
+      setError(err instanceof Error ? err.message : t("user:quotes.deleteFailed"));
     } finally {
       setDeleteBusy(false);
     }
@@ -244,10 +249,10 @@ export function QuotesPage({
     const text = `“${quote.text}”\n— ${attribution(quote)}`;
     try {
       await navigator.clipboard.writeText(text);
-      setNotice("Quote copied to clipboard.");
+      setNotice(t("user:quotes.copied"));
       window.setTimeout(() => setNotice(""), 2000);
     } catch {
-      setNotice("Couldn't copy — your browser blocked clipboard access.");
+      setNotice(t("user:quotes.copyBlocked"));
       window.setTimeout(() => setNotice(""), 2500);
     }
   };
@@ -257,24 +262,24 @@ export function QuotesPage({
       <section className="work-area audiobook-area">
         <div className="section-head audiobook-head">
           <div>
-            <p className="eyebrow">Digital Library</p>
-            <h1>Quotes</h1>
+            <p className="eyebrow">{t("user:area.eyebrow")}</p>
+            <h1>{t("common:nav.quotes")}</h1>
           </div>
           <Button variant="primary" compact onClick={openAdd}>
-            <Plus size={16} /> Add quote
+            <Plus size={16} /> {t("user:quotes.addQuote")}
           </Button>
         </div>
 
-        {error && <MessageBox tone="error" title="Quotes error">{error}</MessageBox>}
+        {error && <MessageBox tone="error" title={t("user:quotes.errorTitle")}>{error}</MessageBox>}
 
         {quotes === null ? (
-          <p className="management-empty">Loading your quotes…</p>
+          <p className="management-empty">{t("user:quotes.loading")}</p>
         ) : quotes.length === 0 ? (
           <div className="empty-state library-empty">
             <QuoteIcon size={58} aria-hidden="true" />
-            <h2>No quotes yet</h2>
+            <h2>{t("user:quotes.emptyHeading")}</h2>
             <p className="muted">
-              Highlight a passage while reading to save it here — or add a quote from any book with “Add quote”.
+              {t("user:quotes.empty")}
             </p>
           </div>
         ) : (
@@ -306,8 +311,8 @@ export function QuotesPage({
                                   type="button"
                                   className="icon-button"
                                   onClick={() => navigate(href)}
-                                  aria-label="Open in reader"
-                                  title="Open in reader"
+                                  aria-label={t("user:quotes.openInReader")}
+                                  title={t("user:quotes.openInReader")}
                                 >
                                   <BookOpen size={16} />
                                 </button>
@@ -316,8 +321,8 @@ export function QuotesPage({
                                 type="button"
                                 className="icon-button"
                                 onClick={() => copyQuote(quote)}
-                                aria-label="Copy quote"
-                                title="Copy"
+                                aria-label={t("user:quotes.copyAria")}
+                                title={t("user:actions.copy")}
                               >
                                 <Copy size={16} />
                               </button>
@@ -325,8 +330,8 @@ export function QuotesPage({
                                 type="button"
                                 className="icon-button"
                                 onClick={() => openEdit(quote)}
-                                aria-label="Edit quote"
-                                title="Edit"
+                                aria-label={t("user:quotes.editAria")}
+                                title={t("user:actions.edit")}
                               >
                                 <Pencil size={16} />
                               </button>
@@ -334,8 +339,8 @@ export function QuotesPage({
                                 type="button"
                                 className="icon-button danger"
                                 onClick={() => setDeleting(quote)}
-                                aria-label="Delete quote"
-                                title="Delete"
+                                aria-label={t("user:quotes.deleteAria")}
+                                title={t("user:actions.delete")}
                               >
                                 <Trash2 size={16} />
                               </button>
@@ -350,7 +355,7 @@ export function QuotesPage({
             </div>
 
             <p className="bookmark-footer">
-              {groups.length} {groups.length === 1 ? "source" : "sources"} · {total} {total === 1 ? "quote" : "quotes"}
+              {t("user:quotes.sources", { count: groups.length })} · {t("user:quotes.count", { count: total })}
             </p>
           </>
         )}
@@ -368,15 +373,15 @@ export function QuotesPage({
 
       {deleting && (
         <ConfirmDialog
-          title="Delete this quote?"
-          confirmLabel="Delete quote"
-          busyLabel="Deleting…"
+          title={t("user:quotes.deleteTitle")}
+          confirmLabel={t("user:quotes.deleteConfirm")}
+          busyLabel={t("user:actions.deleting")}
           danger
           busy={deleteBusy}
           onConfirm={confirmDelete}
           onCancel={() => setDeleting(null)}
         >
-          This removes the quote from your collection. The book itself is not affected.
+          {t("user:quotes.deleteBody")}
         </ConfirmDialog>
       )}
 

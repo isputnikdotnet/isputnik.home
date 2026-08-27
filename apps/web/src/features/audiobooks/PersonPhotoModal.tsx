@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Globe, Upload, UserRound } from "lucide-react";
 import { api } from "../../api";
 import { Button } from "../../shared/Button";
@@ -37,6 +38,7 @@ export function PersonPhotoModal({
   onPhotoChanged: (photoUrl: string) => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation(["common", "book"]);
   const [tab, setTab] = useState<Tab>("upload");
   const [error, setError] = useState("");
   const [dragging, setDragging] = useState(false);
@@ -57,11 +59,11 @@ export function PersonPhotoModal({
   const choose = (file: File | undefined) => {
     if (!file) return;
     if (!ACCEPT.includes(file.type)) {
-      setError("Choose a JPEG, PNG, or WebP image.");
+      setError(t("book:photo.typeError"));
       return;
     }
     if (file.size > MAX_BYTES) {
-      setError("That image is larger than the 10 MB limit.");
+      setError(t("book:photo.tooLarge"));
       return;
     }
     setError("");
@@ -84,7 +86,7 @@ export function PersonPhotoModal({
       onPhotoChanged(result.photoUrl);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to upload the photo");
+      setError(err instanceof Error ? err.message : t("book:photo.uploadFailed"));
     } finally {
       setUploading(false);
     }
@@ -100,7 +102,7 @@ export function PersonPhotoModal({
       setCandidates(result.candidates);
       setHidden(new Set());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Online lookup failed");
+      setError(err instanceof Error ? err.message : t("book:photo.lookupFailed"));
     } finally {
       setSearching(false);
     }
@@ -117,7 +119,7 @@ export function PersonPhotoModal({
       onPhotoChanged(result.photoUrl);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to apply that photo");
+      setError(err instanceof Error ? err.message : t("book:photo.applyFailed"));
       setHidden((current) => new Set(current).add(candidate.photoUrl));
     } finally {
       setApplying(null);
@@ -130,7 +132,7 @@ export function PersonPhotoModal({
   return (
     <Modal
       variant="panel"
-      title="Choose photo"
+      title={t("book:photo.title")}
       subtitle={personName}
       className="person-photo-modal"
       busy={busy}
@@ -138,15 +140,15 @@ export function PersonPhotoModal({
     >
       <div className="modal-tabs">
         <button className={`modal-tab${tab === "upload" ? " active" : ""}`} onClick={() => setTab("upload")}>
-          Upload
+          {t("book:photo.tabUpload")}
         </button>
         <button className={`modal-tab${tab === "online" ? " active" : ""}`} onClick={() => setTab("online")}>
-          Find online
+          {t("book:photo.tabOnline")}
         </button>
       </div>
 
       <div className="modal-tab-content">
-        {error && <MessageBox tone="error" title="Unable to set the photo">{error}</MessageBox>}
+        {error && <MessageBox tone="error" title={t("book:photo.errorTitle")}>{error}</MessageBox>}
 
         {tab === "upload" && (
           <div className="person-photo-upload">
@@ -177,8 +179,8 @@ export function PersonPhotoModal({
               ) : (
                 <>
                   <UserRound size={44} aria-hidden="true" />
-                  <span className="person-photo-drop-title">Drag and drop<br />or click to upload</span>
-                  <span className="person-photo-drop-hint">JPG, PNG or WEBP<br />Max 10MB</span>
+                  <span className="person-photo-drop-title">{t("book:photo.dragDrop")}<br />{t("book:photo.orClickToUpload")}</span>
+                  <span className="person-photo-drop-hint">{t("book:photo.formats")}<br />{t("book:photo.maxSize")}</span>
                 </>
               )}
             </button>
@@ -187,7 +189,7 @@ export function PersonPhotoModal({
               <div className="person-photo-upload-actions">
                 <Button variant="primary" onClick={() => void upload()} disabled={uploading}>
                   <Upload size={16} aria-hidden="true" />
-                  <span>{uploading ? "Uploading…" : "Use this photo"}</span>
+                  <span>{uploading ? t("book:photo.uploading") : t("book:photo.useThisPhoto")}</span>
                 </Button>
                 <Button
                   variant="secondary"
@@ -197,7 +199,7 @@ export function PersonPhotoModal({
                     setPending(null);
                   }}
                 >
-                  Choose another
+                  {t("book:photo.chooseAnother")}
                 </Button>
               </div>
             )}
@@ -207,10 +209,10 @@ export function PersonPhotoModal({
         {tab === "online" && (
           <div className="person-photo-online">
             <div className="person-photo-online-head">
-              <p className="muted">Search Wikipedia and Open Library for a picture of {personName}.</p>
+              <p className="muted">{t("book:photo.searchIntro", { name: personName })}</p>
               <Button variant="secondary" onClick={() => void search()} disabled={searching}>
                 <Globe size={16} aria-hidden="true" />
-                <span>{searching ? "Searching…" : candidates ? "Search again" : "Find online"}</span>
+                <span>{searching ? t("book:photo.searching") : candidates ? t("book:photo.searchAgain") : t("book:photo.findOnline")}</span>
               </Button>
             </div>
 
@@ -232,12 +234,12 @@ export function PersonPhotoModal({
                       />
                       <span>{candidate.label}</span>
                       <small>{candidate.hint ?? " "}</small>
-                      <strong>{applying === candidate.photoUrl ? "Applying…" : "Use this photo"}</strong>
+                      <strong>{applying === candidate.photoUrl ? t("book:photo.applying") : t("book:photo.useThisPhoto")}</strong>
                     </button>
                   ))}
                 </div>
               ) : (
-                <p className="management-empty">No photos found online for this name.</p>
+                <p className="management-empty">{t("book:photo.noneFound")}</p>
               )
             )}
           </div>
@@ -245,7 +247,7 @@ export function PersonPhotoModal({
       </div>
 
       <div className="metadata-actions person-edit-footer">
-        <Button variant="secondary" onClick={onClose} disabled={busy}>Cancel</Button>
+        <Button variant="secondary" onClick={onClose} disabled={busy}>{t("common.cancel")}</Button>
       </div>
     </Modal>
   );

@@ -1,4 +1,5 @@
 import React, { useId, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "./Button";
 import { Modal } from "./Modal";
 import { MessageBox } from "./MessageBox";
@@ -58,6 +59,7 @@ export function ConfirmDialog({
   onCancel: () => void;
   children: React.ReactNode;
 }) {
+  const { t } = useTranslation();
   const [typed, setTyped] = useState("");
   const challengeId = useId();
   // Case-sensitive, but forgiving of stray whitespace — a copied count can arrive
@@ -84,10 +86,10 @@ export function ConfirmDialog({
           />
         </label>
       )}
-      {error && <MessageBox tone="error" title="Action failed">{error}</MessageBox>}
+      {error && <MessageBox tone="error" title={t("errors.actionFailed")}>{error}</MessageBox>}
       <div className="modal-actions">
         <Button variant="secondary" onClick={onCancel} disabled={busy} autoFocus={!challenge}>
-          Cancel
+          {t("common.cancel")}
         </Button>
         <Button
           variant={danger ? "danger" : "primary"}

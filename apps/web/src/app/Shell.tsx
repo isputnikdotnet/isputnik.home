@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import packageInfo from "../../../../package.json";
 
 // Same source as the Dashboard footer and the setup guide: the root package.json,
@@ -19,6 +20,7 @@ export function AppLoading({ children }: { children: React.ReactNode }) {
 }
 
 export function Shell({ children }: { children: React.ReactNode }) {
+  const { t } = useTranslation();
   return (
     <main className="app-shell">
       <div className="auth-scene" aria-hidden="true">
@@ -30,16 +32,16 @@ export function Shell({ children }: { children: React.ReactNode }) {
         <span className="auth-node auth-node-c"></span>
       </div>
       <div className="auth-hero">
-        <p className="eyebrow">Open source software for a small trusted orbit</p>
+        <p className="eyebrow">{t("authShell.eyebrow")}</p>
         <h1>isputnik</h1>
-        <p className="auth-hero-copy">Your personal hub for stories, knowledge, and imagination.</p>
+        <p className="auth-hero-copy">{t("authShell.copy")}</p>
       </div>
       <section className="auth-panel">
         <div className="brand-row">
           <img src="/Assets/brand/isputnik-logo-sputnik-earth-mark.svg" alt="" />
           <div>
             <strong>isputnik.home</strong>
-            <span>our world revolves around you.</span>
+            <span>{t("authShell.tagline")}</span>
           </div>
           <span className="auth-panel-emblem" aria-hidden="true" />
         </div>

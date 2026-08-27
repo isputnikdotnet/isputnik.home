@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ListMusic, Plus } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
@@ -15,6 +16,7 @@ export function CollectionsPage({
   user: PublicUser;
   logout: () => Promise<void>;
 }) {
+  const { t } = useTranslation(["common", "user"]);
   const [collections, setCollections] = useState<CollectionSummary[] | null>(null);
   const [error, setError] = useState("");
   const [creating, setCreating] = useState(false);
@@ -22,7 +24,7 @@ export function CollectionsPage({
   const load = () => {
     api<{ collections: CollectionSummary[] }>("/api/collections")
       .then((payload) => setCollections(payload.collections))
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load collections"));
+      .catch((err) => setError(err instanceof Error ? err.message : t("user:collections.loadFailed")));
   };
 
   useEffect(load, []);
@@ -32,22 +34,22 @@ export function CollectionsPage({
       <section className="work-area audiobook-area">
         <div className="section-head audiobook-head">
           <div>
-            <p className="eyebrow">Digital Library</p>
-            <h1>Collections</h1>
+            <p className="eyebrow">{t("user:area.eyebrow")}</p>
+            <h1>{t("common:nav.collections")}</h1>
           </div>
           <button className="primary-button compact-button" onClick={() => setCreating(true)}>
             <Plus size={16} />
-            <span>New collection</span>
+            <span>{t("user:collections.newCollection")}</span>
           </button>
         </div>
 
-        {error && <MessageBox tone="error" title="Collections error">{error}</MessageBox>}
+        {error && <MessageBox tone="error" title={t("user:collections.errorTitle")}>{error}</MessageBox>}
 
         {collections && collections.length === 0 ? (
           <div className="empty-state library-empty">
             <ListMusic size={58} aria-hidden="true" />
-            <h2>No collections yet</h2>
-            <p className="muted">Create a collection, then add books to it from any book’s menu.</p>
+            <h2>{t("user:collections.emptyHeading")}</h2>
+            <p className="muted">{t("user:collections.empty")}</p>
           </div>
         ) : (
           <div className="audiobook-grid">
@@ -66,12 +68,12 @@ export function CollectionsPage({
                 </div>
                 <div className="audiobook-card-body">
                   <strong>{collection.name}</strong>
-                  <span>{collection.itemCount} {collection.itemCount === 1 ? "item" : "items"}</span>
+                  <span>{t("user:count.items", { count: collection.itemCount })}</span>
                   {collection.description && <p className="audiobook-card-note">{collection.description}</p>}
                 </div>
               </button>
             ))}
-            {collections === null && <p className="management-empty">Loading collections…</p>}
+            {collections === null && <p className="management-empty">{t("user:collections.loading")}</p>}
           </div>
         )}
       </section>

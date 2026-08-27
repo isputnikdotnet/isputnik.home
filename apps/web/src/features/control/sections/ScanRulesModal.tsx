@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { Wand2, Plus, Pencil, Trash2, Eye, Folder, FolderSearch, ArrowUp, X } from "lucide-react";
 import { api } from "../../../api";
 import { Modal } from "../../../shared/Modal";
@@ -32,10 +33,10 @@ interface FoldersResponse { path: string; parent: string | null; folders: Browse
 interface RuleForm { id: string; name: string; folders: string[]; pattern: string }
 type FormTab = "folders" | "rule";
 
-const PRESETS: { label: string; pattern: string }[] = [
-  { label: "Series / Book", pattern: "{series}/{position}. {title}" },
-  { label: "Author / Series / Book", pattern: "{author}/{series}/{position}. {title}" },
-  { label: "Author / Book", pattern: "{author}/{title}" }
+const PRESET_DEFS: { labelKey: "presetSeriesBook" | "presetAuthorSeriesBook" | "presetAuthorBook"; pattern: string }[] = [
+  { labelKey: "presetSeriesBook", pattern: "{series}/{position}. {title}" },
+  { labelKey: "presetAuthorSeriesBook", pattern: "{author}/{series}/{position}. {title}" },
+  { labelKey: "presetAuthorBook", pattern: "{author}/{title}" }
 ];
 
 export function ScanRulesModal({
@@ -45,6 +46,8 @@ export function ScanRulesModal({
   library: { id: string; name: string; type: "audiobook" | "ebook" };
   onClose: () => void;
 }) {
+  const { t } = useTranslation(["common", "controlAdmin"]);
+  const PRESETS = PRESET_DEFS.map((preset) => ({ label: t(`controlAdmin:scanRules.${preset.labelKey}`), pattern: preset.pattern }));
   const [rules, setRules] = useState<ScanRule[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -65,12 +68,12 @@ export function ScanRulesModal({
 
   const patternRef = useRef<HTMLInputElement>(null);
   const tokens: { token: string; desc: string }[] = [
-    { token: "{author}", desc: "Author name" },
-    { token: "{series}", desc: "Series name" },
-    { token: "{position}", desc: "Number in the series" },
-    { token: "{title}", desc: "Book title" },
-    ...(library.type === "audiobook" ? [{ token: "{narrator}", desc: "Narrator name (audiobook)" }] : []),
-    { token: "{ignore}", desc: "Skip this folder level" }
+    { token: "{author}", desc: t("controlAdmin:scanRules.tokenAuthor") },
+    { token: "{series}", desc: t("controlAdmin:scanRules.tokenSeries") },
+    { token: "{position}", desc: t("controlAdmin:scanRules.tokenPosition") },
+    { token: "{title}", desc: t("controlAdmin:scanRules.tokenTitle") },
+    ...(library.type === "audiobook" ? [{ token: "{narrator}", desc: t("controlAdmin:scanRules.tokenNarrator") }] : []),
+    { token: "{ignore}", desc: t("controlAdmin:scanRules.tokenIgnore") }
   ];
   const insertToken = (token: string) => {
     setForm((current) => {
@@ -93,7 +96,7 @@ export function ScanRulesModal({
       setRules(payload.rules);
       setError("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to load scan rules");
+      setError(err instanceof Error ? err.message : t("controlAdmin:scanRules.loadFailed"));
     } finally {
       setLoading(false);
     }
@@ -108,9 +111,9 @@ export function ScanRulesModal({
       setBrowseParent(payload.parent);
       setBrowseFolders(payload.folders);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to browse folders");
+      setError(err instanceof Error ? err.message : t("controlAdmin:scanRules.browseFailed"));
     }
-  }, [foldersBase]);
+  }, [foldersBase, t]);
 
   const openForm = (rule?: ScanRule) => {
     setForm(rule
@@ -143,7 +146,7 @@ export function ScanRulesModal({
       });
       setPreview(payload.rows);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Preview failed");
+      setError(err instanceof Error ? err.message : t("controlAdmin:scanRules.previewFailed"));
     } finally {
       setPreviewing(false);
     }
@@ -161,7 +164,7 @@ export function ScanRulesModal({
       setPreview(null);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to save rule");
+      setError(err instanceof Error ? err.message : t("controlAdmin:scanRules.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -175,7 +178,7 @@ export function ScanRulesModal({
       });
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to update rule");
+      setError(err instanceof Error ? err.message : t("controlAdmin:scanRules.updateFailed"));
     }
   };
 
@@ -187,7 +190,7 @@ export function ScanRulesModal({
       setDeleteTarget(null);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to delete rule");
+      setError(err instanceof Error ? err.message : t("controlAdmin:scanRules.deleteFailed"));
     } finally {
       setSaving(false);
     }
@@ -195,25 +198,25 @@ export function ScanRulesModal({
 
   return (
     <>
-      <Modal title={`Scan rules — ${library.name}`} variant="panel" icon={<Wand2 size={28} />} className="scan-rules-modal" busy={saving} onClose={onClose}>
+      <Modal title={t("controlAdmin:scanRules.modalTitle", { name: library.name })} variant="panel" icon={<Wand2 size={28} />} className="scan-rules-modal" busy={saving} onClose={onClose}>
         <div className="scan-rules-body">
-          {error && <MessageBox tone="error" title="Scan rules">{error}</MessageBox>}
+          {error && <MessageBox tone="error" title={t("controlAdmin:scanRules.errorTitle")}>{error}</MessageBox>}
 
           {!form ? (
             <div className="modal-tab-content scan-rules-list">
               <p className="muted" style={{ margin: 0 }}>
-                Custom rules scan specific folders with their own layout, overriding the default scan there. Changes take effect on the next rescan.
+                {t("controlAdmin:scanRules.intro")}
               </p>
               {library.type !== "ebook" && (
-                <MessageBox tone="info" title="Ebook libraries only">Scan rules currently apply when scanning ebook libraries.</MessageBox>
+                <MessageBox tone="info" title={t("controlAdmin:scanRules.ebookOnlyTitle")}>{t("controlAdmin:scanRules.ebookOnlyBody")}</MessageBox>
               )}
               <div className="modal-actions" style={{ justifyContent: "flex-start", marginTop: 0 }}>
-                <Button variant="primary" onClick={() => openForm()}><Plus size={16} aria-hidden="true" /> Add rule</Button>
+                <Button variant="primary" onClick={() => openForm()}><Plus size={16} aria-hidden="true" /> {t("controlAdmin:scanRules.addRule")}</Button>
               </div>
               {loading ? (
-                <p className="muted">Loading…</p>
+                <p className="muted">{t("controlAdmin:ui.loading")}</p>
               ) : rules.length === 0 ? (
-                <p className="muted">No scan rules yet. Add one to organize an unusual folder.</p>
+                <p className="muted">{t("controlAdmin:scanRules.emptyList")}</p>
               ) : (
                 <ul className="scan-rules-rule-list">
                   {rules.map((rule) => (
@@ -221,15 +224,15 @@ export function ScanRulesModal({
                       <div className="scan-rules-rule-meta">
                         <strong>{rule.name}</strong>
                         <code>{rule.pattern}</code>
-                        <small className="muted">{rule.paths.map((path) => path || "Library root").join(" · ")}</small>
+                        <small className="muted">{rule.paths.map((path) => path || t("controlAdmin:scanRules.libraryRoot")).join(" · ")}</small>
                       </div>
                       <label className="field-checkbox" style={{ flex: "0 0 auto" }}>
                         <input type="checkbox" checked={rule.enabled} onChange={() => toggle(rule)} />
-                        <span>Enabled</span>
+                        <span>{t("controlAdmin:scanRules.enabled")}</span>
                       </label>
                       <div className="row-actions">
-                        <Button variant="icon" title="Edit rule" aria-label={`Edit ${rule.name}`} onClick={() => openForm(rule)}><Pencil size={15} /></Button>
-                        <Button variant="icon" danger title="Delete rule" aria-label={`Delete ${rule.name}`} onClick={() => setDeleteTarget(rule)}><Trash2 size={15} /></Button>
+                        <Button variant="icon" title={t("controlAdmin:scanRules.editRule")} aria-label={t("controlAdmin:scanRules.editAria", { name: rule.name })} onClick={() => openForm(rule)}><Pencil size={15} /></Button>
+                        <Button variant="icon" danger title={t("controlAdmin:scanRules.deleteRule")} aria-label={t("controlAdmin:scanRules.deleteAria", { name: rule.name })} onClick={() => setDeleteTarget(rule)}><Trash2 size={15} /></Button>
                       </div>
                     </li>
                   ))}
@@ -240,35 +243,35 @@ export function ScanRulesModal({
             <>
               <div className="modal-tabs scan-rules-tabs">
                 <button className={`modal-tab${activeTab === "folders" ? " active" : ""}`} onClick={() => setActiveTab("folders")}>
-                  Name &amp; folders{form.folders.length > 0 ? ` (${form.folders.length})` : ""}
+                  {form.folders.length > 0 ? t("controlAdmin:scanRules.tabFoldersCount", { count: form.folders.length }) : t("controlAdmin:scanRules.tabFolders")}
                 </button>
                 <button className={`modal-tab${activeTab === "rule" ? " active" : ""}`} onClick={() => setActiveTab("rule")}>
-                  Rule
+                  {t("controlAdmin:scanRules.tabRule")}
                 </button>
               </div>
 
               <div className="modal-tab-content scan-rules-content">
                 {activeTab === "folders" ? (
                   <>
-                    <Field label="Name" value={form.name} onChange={(value) => setForm({ ...form, name: value })} placeholder="e.g. Brandon Sanderson" />
+                    <Field label={t("controlAdmin:scanRules.nameLabel")} value={form.name} onChange={(value) => setForm({ ...form, name: value })} placeholder={t("controlAdmin:scanRules.namePlaceholder")} />
 
                     <div className="field">
                       <div className="scan-rules-folders-head">
-                        <span>Folders</span>
+                        <span>{t("controlAdmin:scanRules.foldersLabel")}</span>
                         <Button variant="secondary" compact onClick={openPicker}>
-                          <FolderSearch size={15} aria-hidden="true" /> Browse folders
+                          <FolderSearch size={15} aria-hidden="true" /> {t("controlAdmin:scanRules.browseFolders")}
                         </Button>
                       </div>
                       {form.folders.length === 0 ? (
                         <button type="button" className="scan-rules-folder-empty" onClick={openPicker}>
                           <Folder size={20} aria-hidden="true" />
-                          <span>No folders chosen yet — browse the library to add one or more.</span>
+                          <span>{t("controlAdmin:scanRules.noFoldersChosen")}</span>
                         </button>
                       ) : (
                         <div className="scan-rules-folder-grid">
                           {form.folders.map((path) => {
                             const segments = path.split("/");
-                            const name = path === "" ? "Library root" : segments[segments.length - 1];
+                            const name = path === "" ? t("controlAdmin:scanRules.libraryRoot") : segments[segments.length - 1];
                             const parent = path === "" ? "" : segments.slice(0, -1).join("/");
                             return (
                               <div key={path} className="scan-rules-folder-card">
@@ -277,7 +280,7 @@ export function ScanRulesModal({
                                   <strong title={path}>{name}</strong>
                                   {parent && <small className="muted">{parent}</small>}
                                 </div>
-                                <Button variant="icon" danger compact title="Remove folder" aria-label={`Remove ${path}`} onClick={() => removeFolder(path)}>
+                                <Button variant="icon" danger compact title={t("controlAdmin:scanRules.removeFolder")} aria-label={t("controlAdmin:scanRules.removeFolderAria", { path })} onClick={() => removeFolder(path)}>
                                   <X size={14} />
                                 </Button>
                               </div>
@@ -290,45 +293,45 @@ export function ScanRulesModal({
                 ) : (
                   <>
                     <label className="field">
-                      <span>Layout preset</span>
+                      <span>{t("controlAdmin:scanRules.layoutPreset")}</span>
                       <select value="" onChange={(event) => { const preset = PRESETS.find((option) => option.label === event.target.value); if (preset) setForm({ ...form, pattern: preset.pattern }); }}>
-                        <option value="">Choose a preset…</option>
+                        <option value="">{t("controlAdmin:scanRules.choosePreset")}</option>
                         {PRESETS.map((preset) => <option key={preset.label} value={preset.label}>{preset.label} — {preset.pattern}</option>)}
                       </select>
                     </label>
 
                     <label className="field">
-                      <span>Pattern</span>
+                      <span>{t("controlAdmin:scanRules.patternLabel")}</span>
                       <input ref={patternRef} type="text" value={form.pattern} onChange={(event) => setForm({ ...form, pattern: event.target.value })} placeholder="{series}/{position}. {title}" style={{ fontFamily: "monospace" }} />
                       <div className="scan-rules-token-palette">
-                        <small className="muted">Insert:</small>
+                        <small className="muted">{t("controlAdmin:scanRules.insert")}</small>
                         {tokens.map((tok) => (
                           <Button key={tok.token} variant="secondary" compact title={tok.desc} onClick={() => insertToken(tok.token)} style={{ fontFamily: "monospace" }}>{tok.token}</Button>
                         ))}
                       </div>
                       <small className="muted" style={{ marginTop: 6 }}>
-                        Folders are separated by “/”; text between tokens is matched literally. Use {"{ignore}"} for a folder level you don't want to map.
+                        {t("controlAdmin:scanRules.patternHelp")}
                       </small>
                     </label>
 
                     <div className="modal-actions" style={{ justifyContent: "flex-start", marginTop: 0 }}>
                       <Button variant="secondary" onClick={runPreview} disabled={previewing || !previewReady}>
-                        <Eye size={16} aria-hidden="true" /> {previewing ? "Previewing…" : "Preview"}
+                        <Eye size={16} aria-hidden="true" /> {previewing ? t("controlAdmin:scanRules.previewing") : t("controlAdmin:scanRules.preview")}
                       </Button>
-                      {!previewReady && <small className="muted">Choose folders and a pattern to preview.</small>}
+                      {!previewReady && <small className="muted">{t("controlAdmin:scanRules.previewHint")}</small>}
                     </div>
                     {preview && (preview.length === 0 ? (
-                      <p className="muted">No files matched in those folders.</p>
+                      <p className="muted">{t("controlAdmin:scanRules.noMatches")}</p>
                     ) : (
                       <div className="scan-rules-preview">
                         <table>
                           <thead>
                             <tr>
-                              <th style={{ width: "30%" }}>From file</th>
-                              <th style={{ width: "20%" }}>Author</th>
-                              <th style={{ width: "22%" }}>Series</th>
+                              <th style={{ width: "30%" }}>{t("controlAdmin:scanRules.thFromFile")}</th>
+                              <th style={{ width: "20%" }}>{t("controlAdmin:scanRules.thAuthor")}</th>
+                              <th style={{ width: "22%" }}>{t("controlAdmin:scanRules.thSeries")}</th>
                               <th style={{ width: "8%", textAlign: "center" }}>#</th>
-                              <th style={{ width: "20%" }}>Title</th>
+                              <th style={{ width: "20%" }}>{t("controlAdmin:scanRules.thTitle")}</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -350,10 +353,10 @@ export function ScanRulesModal({
               </div>
 
               <div className="scan-rules-footer">
-                {!formReady && <small className="muted">Add a name, at least one folder, and a pattern to save.</small>}
+                {!formReady && <small className="muted">{t("controlAdmin:scanRules.footerHint")}</small>}
                 <div className="modal-actions" style={{ marginTop: 0 }}>
-                  <Button variant="secondary" onClick={() => { setForm(null); setPreview(null); }} disabled={saving}>Cancel</Button>
-                  <Button variant="primary" onClick={save} disabled={saving || !formReady}>{saving ? "Saving…" : "Save rule"}</Button>
+                  <Button variant="secondary" onClick={() => { setForm(null); setPreview(null); }} disabled={saving}>{t("common.cancel")}</Button>
+                  <Button variant="primary" onClick={save} disabled={saving || !formReady}>{saving ? t("controlAdmin:ui.saving") : t("controlAdmin:scanRules.saveRule")}</Button>
                 </div>
               </div>
             </>
@@ -362,22 +365,22 @@ export function ScanRulesModal({
       </Modal>
 
       {pickerOpen && form && (
-        <Modal title="Add folders" variant="card" icon={<FolderSearch size={22} />} className="folder-picker-modal scan-rules-picker" onClose={() => setPickerOpen(false)}>
-          <p>Browsing <strong>{library.name}</strong>. Open a folder to go deeper, then add the ones this rule should scan.</p>
+        <Modal title={t("controlAdmin:scanRules.pickerTitle")} variant="card" icon={<FolderSearch size={22} />} className="folder-picker-modal scan-rules-picker" onClose={() => setPickerOpen(false)}>
+          <p><Trans i18nKey="scanRules.pickerIntro" ns="controlAdmin" values={{ name: library.name }} components={{ bold: <strong /> }} /></p>
 
           <div className="folder-picker-browser">
             <div className="folder-picker-head">
               <div>
-                <strong>Current folder</strong>
-                <span>{browsePath ? `/${browsePath}` : "Library root"}</span>
+                <strong>{t("controlAdmin:scanRules.currentFolder")}</strong>
+                <span>{browsePath ? `/${browsePath}` : t("controlAdmin:scanRules.libraryRoot")}</span>
               </div>
               <div className="row-actions">
                 <Button variant="secondary" compact disabled={form.folders.includes(browsePath)} onClick={() => addFolder(browsePath)}>
                   {form.folders.includes(browsePath)
-                    ? "Added"
-                    : <><Plus size={14} aria-hidden="true" /> {browsePath ? "Add this folder" : "Add library root"}</>}
+                    ? t("controlAdmin:scanRules.added")
+                    : <><Plus size={14} aria-hidden="true" /> {browsePath ? t("controlAdmin:scanRules.addThisFolder") : t("controlAdmin:scanRules.addLibraryRoot")}</>}
                 </Button>
-                <Button variant="icon" title="Up one level" aria-label="Up one level" disabled={browseParent === null} onClick={() => browse(browseParent ?? "")}>
+                <Button variant="icon" title={t("controlAdmin:scanRules.upOneLevel")} aria-label={t("controlAdmin:scanRules.upOneLevel")} disabled={browseParent === null} onClick={() => browse(browseParent ?? "")}>
                   <ArrowUp size={16} />
                 </Button>
               </div>
@@ -385,17 +388,17 @@ export function ScanRulesModal({
 
             <div className="folder-picker-list">
               {browseFolders.length === 0 ? (
-                <small className="muted" style={{ padding: "6px 4px" }}>No subfolders here.</small>
+                <small className="muted" style={{ padding: "6px 4px" }}>{t("controlAdmin:scanRules.noSubfolders")}</small>
               ) : browseFolders.map((entry) => {
                 const added = form.folders.includes(entry.relativePath);
                 return (
                   <div key={entry.relativePath} className="scan-rules-pick-row">
-                    <button type="button" className="folder-picker-row text-button" onClick={() => browse(entry.relativePath)} title="Open folder">
+                    <button type="button" className="folder-picker-row text-button" onClick={() => browse(entry.relativePath)} title={t("controlAdmin:scanRules.openFolder")}>
                       <Folder size={18} aria-hidden="true" />
                       <span>{entry.name}</span>
                     </button>
                     <Button variant="secondary" compact disabled={added} onClick={() => addFolder(entry.relativePath)}>
-                      {added ? "Added" : <><Plus size={14} aria-hidden="true" /> Add</>}
+                      {added ? t("controlAdmin:scanRules.added") : <><Plus size={14} aria-hidden="true" /> {t("controlAdmin:scanRules.add")}</>}
                     </Button>
                   </div>
                 );
@@ -405,24 +408,24 @@ export function ScanRulesModal({
 
           <div className="modal-actions" style={{ alignItems: "center" }}>
             <small className="muted" style={{ marginRight: "auto" }}>
-              {form.folders.length === 0 ? "No folders selected" : `${form.folders.length} folder${form.folders.length === 1 ? "" : "s"} selected`}
+              {form.folders.length === 0 ? t("controlAdmin:scanRules.noFoldersSelected") : t("controlAdmin:scanRules.foldersSelected", { count: form.folders.length })}
             </small>
-            <Button variant="primary" onClick={() => setPickerOpen(false)}>Done</Button>
+            <Button variant="primary" onClick={() => setPickerOpen(false)}>{t("common.done")}</Button>
           </div>
         </Modal>
       )}
 
       {deleteTarget && (
         <ConfirmDialog
-          title={`Delete "${deleteTarget.name}"?`}
-          confirmLabel="Delete rule"
-          busyLabel="Deleting…"
+          title={t("controlAdmin:scanRules.deleteDialogTitle", { name: deleteTarget.name })}
+          confirmLabel={t("controlAdmin:scanRules.deleteRule")}
+          busyLabel={t("controlAdmin:scanRules.deleting")}
           busy={saving}
           danger
           onConfirm={() => void remove()}
           onCancel={() => { if (!saving) setDeleteTarget(null); }}
         >
-          The rule's folders return to the default scanner on the next rescan. No catalog data is removed now.
+          {t("controlAdmin:scanRules.deleteBody")}
         </ConfirmDialog>
       )}
     </>

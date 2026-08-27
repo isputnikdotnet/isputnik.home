@@ -32,6 +32,9 @@ CREATE TABLE IF NOT EXISTS users (
   display_name          TEXT NOT NULL,
   role                  TEXT NOT NULL CHECK (role IN ('admin', 'member')),
   theme                 TEXT NOT NULL DEFAULT 'minimalist',
+  -- Interface language ('en', 'ru', …). Validated in code (like theme) so a new
+  -- language doesn't need a schema change.
+  language              TEXT NOT NULL DEFAULT 'en',
   protected_from_delete INTEGER NOT NULL DEFAULT 0 CHECK (protected_from_delete IN (0, 1)),
   is_active             INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
   -- Delivery address for "Send to e-reader" (Kindle/Kobo).

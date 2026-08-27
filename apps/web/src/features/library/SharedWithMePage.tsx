@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 import { BookOpen, ChevronLeft, ChevronRight, Download, Image as ImageIcon, Images, Play, Share2, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
@@ -46,6 +47,7 @@ function sharedItemHref(item: SharedBook): string {
 // A live album shared with the viewer: a photo grid + lightweight viewer. Items
 // reflect the album's current photos each time it opens (resolved server-side).
 function SharedAlbumViewer({ album, onClose }: { album: SharedBook; onClose: () => void }) {
+  const { t } = useTranslation(["common", "user"]);
   const [items, setItems] = useState<SharedAlbumItem[] | null>(null);
   const [error, setError] = useState("");
   const [openIndex, setOpenIndex] = useState<number | null>(null);
@@ -54,7 +56,7 @@ function SharedAlbumViewer({ album, onClose }: { album: SharedBook; onClose: () 
   useEffect(() => {
     api<{ items: SharedAlbumItem[] }>(`/api/library/gallery/shared-albums/${album.id}`)
       .then((payload) => setItems(payload.items))
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to open this album"));
+      .catch((err) => setError(err instanceof Error ? err.message : t("user:shared.albumOpenFailed")));
   }, [album.id]);
 
   useEffect(() => {
@@ -75,10 +77,10 @@ function SharedAlbumViewer({ album, onClose }: { album: SharedBook; onClose: () 
         <div className="share-set-viewer-actions">
           {open && (
             <a className="secondary-button compact-button" href={`${open.fileUrl}${open.fileUrl.includes("?") ? "&" : "?"}download=1`} download>
-              <Download size={15} /><span>Download</span>
+              <Download size={15} /><span>{t("user:actions.download")}</span>
             </a>
           )}
-          <button className="icon-button" onClick={() => (openIndex != null ? setOpenIndex(null) : onClose())} aria-label="Close">
+          <button className="icon-button" onClick={() => (openIndex != null ? setOpenIndex(null) : onClose())} aria-label={t("common:common.close")}>
             <X size={18} />
           </button>
         </div>
@@ -87,7 +89,7 @@ function SharedAlbumViewer({ album, onClose }: { album: SharedBook; onClose: () 
       {open ? (
         <div className="share-set-viewer-body">
           {openIndex! > 0 && (
-            <button className="share-set-nav prev" onClick={() => setOpenIndex(openIndex! - 1)} aria-label="Previous">
+            <button className="share-set-nav prev" onClick={() => setOpenIndex(openIndex! - 1)} aria-label={t("user:viewer.previous")}>
               <ChevronLeft size={26} />
             </button>
           )}
@@ -97,32 +99,32 @@ function SharedAlbumViewer({ album, onClose }: { album: SharedBook; onClose: () 
             <img key={open.id} src={open.previewUrl ?? open.fileUrl} alt={open.title} />
           )}
           {openIndex! < (items?.length ?? 0) - 1 && (
-            <button className="share-set-nav next" onClick={() => setOpenIndex(openIndex! + 1)} aria-label="Next">
+            <button className="share-set-nav next" onClick={() => setOpenIndex(openIndex! + 1)} aria-label={t("user:viewer.next")}>
               <ChevronRight size={26} />
             </button>
           )}
         </div>
       ) : (
         <div className="share-set-viewer-grid-wrap">
-          {error && <MessageBox tone="error" title="Unable to open">{error}</MessageBox>}
+          {error && <MessageBox tone="error" title={t("user:shared.unableToOpen")}>{error}</MessageBox>}
           {items && items.length === 0 && !error && (
-            <p className="muted" style={{ padding: "24px" }}>This album has no photos you can see right now.</p>
+            <p className="muted" style={{ padding: "24px" }}>{t("user:shared.albumEmpty")}</p>
           )}
           {items && items.length > 0 && (
             <div className="share-set-grid">
               {items.map((item, index) => (
-                <button key={item.id} type="button" className="share-set-tile" onClick={() => setOpenIndex(index)} aria-label={`Open ${item.title}`}>
+                <button key={item.id} type="button" className="share-set-tile" onClick={() => setOpenIndex(index)} aria-label={t("user:viewer.openItem", { title: item.title })}>
                   {item.coverUrl ? (
                     <img src={item.coverUrl} alt="" loading="lazy" />
                   ) : (
                     <span className="share-set-fallback"><ImageIcon size={24} aria-hidden="true" /></span>
                   )}
-                  {item.kind === "video" && <span className="share-set-video-badge"><Play size={11} aria-hidden="true" />Video</span>}
+                  {item.kind === "video" && <span className="share-set-video-badge"><Play size={11} aria-hidden="true" />{t("user:viewer.video")}</span>}
                 </button>
               ))}
             </div>
           )}
-          {!items && !error && <p className="management-empty">Loading…</p>}
+          {!items && !error && <p className="management-empty">{t("user:common.loading")}</p>}
         </div>
       )}
     </div>,
@@ -151,6 +153,7 @@ export function SharedWithMePage({
   user: PublicUser;
   logout: () => Promise<void>;
 }) {
+  const { t } = useTranslation(["common", "user"]);
   const [books, setBooks] = useState<SharedBook[] | null>(null);
   const [waiting, setWaiting] = useState<InboxCard[]>([]);
   const [error, setError] = useState("");
@@ -160,7 +163,7 @@ export function SharedWithMePage({
   const loadShares = () =>
     api<{ books: SharedBook[] }>("/api/shared-with-me")
       .then((payload) => setBooks(payload.books))
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load what's been shared with you"));
+      .catch((err) => setError(err instanceof Error ? err.message : t("user:shared.loadFailed")));
 
   const loadWaiting = () =>
     api<{ items: InboxCard[] }>("/api/social/inbox")
@@ -183,7 +186,7 @@ export function SharedWithMePage({
       await api(`/api/social/recommendations/${card.id}/${action}`, { method: "POST" });
       await Promise.all([loadWaiting(), loadShares()]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to update this");
+      setError(err instanceof Error ? err.message : t("user:shared.updateFailed"));
     } finally {
       setBusyId("");
     }
@@ -205,19 +208,19 @@ export function SharedWithMePage({
       <section className="work-area audiobook-area">
         <div className="section-head audiobook-head">
           <div>
-            <p className="eyebrow">Family</p>
-            <h1>Shared with me</h1>
+            <p className="eyebrow">{t("user:shared.eyebrow")}</p>
+            <h1>{t("common:nav.sharedWithMe")}</h1>
           </div>
           {shelf.length > 0 && (
-            <span>{shelf.length} {shelf.length === 1 ? "item" : "items"}</span>
+            <span>{t("user:count.items", { count: shelf.length })}</span>
           )}
         </div>
 
-        {error && <MessageBox tone="error" title="Error">{error}</MessageBox>}
+        {error && <MessageBox tone="error" title={t("user:common.errorTitle")}>{error}</MessageBox>}
 
         {waiting.length > 0 && (
           <>
-            <h2 className="inbox-subhead">Waiting for you</h2>
+            <h2 className="inbox-subhead">{t("user:shared.waitingForYou")}</h2>
             <ul className="inbox-list">
               {waiting.map((card) => (
                 <InboxRow key={card.id} card={card} busy={busyId === card.id} onAct={act} />
@@ -229,15 +232,14 @@ export function SharedWithMePage({
         {nothingAtAll ? (
           <div className="empty-state library-empty">
             <Share2 size={58} aria-hidden="true" />
-            <h2>Nothing shared with you yet</h2>
+            <h2>{t("user:shared.emptyHeading")}</h2>
             <p className="muted">
-              When someone in the family sends you a book, a photo or a person from the family tree,
-              it appears here.
+              {t("user:shared.empty")}
             </p>
           </div>
         ) : (
           <>
-            {waiting.length > 0 && shelf.length > 0 && <h2 className="inbox-subhead">Everything else</h2>}
+            {waiting.length > 0 && shelf.length > 0 && <h2 className="inbox-subhead">{t("user:shared.everythingElse")}</h2>}
             <div className="audiobook-grid">
               {shelf.map((book) => (
                 <article className="saved-audiobook-card" key={`${book.type}-${book.id}`}>
@@ -260,15 +262,15 @@ export function SharedWithMePage({
                       <strong>{book.title}</strong>
                       <span>
                         {book.type === "gallery_album"
-                          ? `Album · ${book.itemCount ?? 0} ${book.itemCount === 1 ? "photo" : "photos"}`
-                          : book.sharedBy ? `Shared by ${book.sharedBy}` : "Shared with you"}
+                          ? `${t("user:shared.album")} · ${t("user:count.photos", { count: book.itemCount ?? 0 })}`
+                          : book.sharedBy ? t("user:shared.sharedBy", { name: book.sharedBy }) : t("user:shared.sharedWithYou")}
                       </span>
-                      <small>{book.expiresAt ? `Until ${new Date(book.expiresAt).toLocaleDateString()}` : "No expiry"}</small>
+                      <small>{book.expiresAt ? t("user:share.until", { date: new Date(book.expiresAt).toLocaleDateString() }) : t("user:share.noExpiry")}</small>
                     </div>
                   </button>
                 </article>
               ))}
-              {books === null && <p className="management-empty">Loading…</p>}
+              {books === null && <p className="management-empty">{t("user:common.loading")}</p>}
             </div>
           </>
         )}

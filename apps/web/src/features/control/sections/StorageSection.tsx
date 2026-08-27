@@ -1,4 +1,5 @@
 import { useState, useEffect, type FormEvent } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { HardDrive, Plus } from "lucide-react";
 import { api } from "../../../api";
 import { Field } from "../../../shared/Field";
@@ -11,6 +12,8 @@ import { ControlSectionHead } from "../ControlSectionHead";
 import { TrashRootEditor, type TrashRootSettings } from "./TrashRootEditor";
 
 export function StorageSection() {
+  const { t } = useTranslation(["common", "controlAdmin"]);
+  const lockedLocationTitle = t("controlAdmin:recycleBin.locationLockedTitle");
   const [librarySettings, setLibrarySettings] = useState<LibrarySettings | null>(null);
   const [storageRoots, setStorageRoots] = useState<StorageRoot[]>([]);
   const [trashRoot, setTrashRoot] = useState<TrashRootSettings | null>(null);
@@ -38,7 +41,7 @@ export function StorageSection() {
   };
 
   useEffect(() => {
-    loadStorage().catch((err) => setError(err instanceof Error ? err.message : "Unable to load storage settings"));
+    loadStorage().catch((err) => setError(err instanceof Error ? err.message : t("controlAdmin:storage.loadFailed")));
   }, []);
 
   useEffect(() => {
@@ -70,7 +73,7 @@ export function StorageSection() {
       setThumbnailPathInput(payload.settings.thumbnailPath);
       setEditThumbnailPathOpen(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to save Digital Library settings");
+      setError(err instanceof Error ? err.message : t("controlAdmin:storage.saveSettingsFailed"));
     } finally {
       setSavingLibrarySettings(false);
     }
@@ -90,7 +93,7 @@ export function StorageSection() {
       setCreateStorageRootOpen(false);
       await loadStorage();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to save storage container");
+      setError(err instanceof Error ? err.message : t("controlAdmin:storage.saveContainerFailed"));
     } finally {
       setSavingStorageRoot(false);
     }
@@ -103,7 +106,7 @@ export function StorageSection() {
       await api(`/api/storage/roots/${root.id}`, { method: "DELETE" });
       await loadStorage();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to delete storage container");
+      setError(err instanceof Error ? err.message : t("controlAdmin:storage.deleteContainerFailed"));
     } finally {
       setDeletingRootId("");
     }
@@ -115,7 +118,7 @@ export function StorageSection() {
         section="storage"
         icon={<HardDrive size={30} />}
         iconClassName="storage"
-        description="Where thumbnails live, and which folders libraries may be created in."
+        description={t("controlAdmin:storage.headDescription")}
       >
         <RefreshButton
           onRefresh={async () => {
@@ -123,29 +126,29 @@ export function StorageSection() {
             try {
               await loadStorage();
             } catch (err) {
-              setError(err instanceof Error ? err.message : "Unable to refresh storage settings");
+              setError(err instanceof Error ? err.message : t("controlAdmin:storage.refreshFailed"));
               throw err;
             }
           }}
         />
       </ControlSectionHead>
 
-      {error && <MessageBox tone="error" title="Storage error">{error}</MessageBox>}
+      {error && <MessageBox tone="error" title={t("controlAdmin:storage.errorTitle")}>{error}</MessageBox>}
 
       <section className="library-settings-panel storage-settings-panel">
         <div>
-          <h2>Thumbnail storage</h2>
-          <p>Generated covers and previews are written here, separate from original library files.</p>
+          <h2>{t("controlAdmin:storage.thumbTitle")}</h2>
+          <p>{t("controlAdmin:storage.thumbDesc")}</p>
         </div>
         <div className="storage-path-summary">
-          <strong>{librarySettings?.thumbnailPath || "Not configured"}</strong>
+          <strong>{librarySettings?.thumbnailPath || t("controlAdmin:storage.notConfigured")}</strong>
         </div>
         <div className="library-settings-actions">
           {librarySettings?.thumbnailPathReady ? (
-            <span className="setting-status ready">Ready</span>
+            <span className="setting-status ready">{t("controlAdmin:storage.ready")}</span>
           ) : (
             <span className="setting-status needs-attention">
-              {librarySettings?.thumbnailPathError || "Required before adding a library"}
+              {librarySettings?.thumbnailPathError || t("controlAdmin:storage.requiredBeforeLibrary")}
             </span>
           )}
           <button
@@ -156,7 +159,7 @@ export function StorageSection() {
               setEditThumbnailPathOpen(true);
             }}
           >
-            Edit path
+            {t("controlAdmin:storage.editPath")}
           </button>
         </div>
       </section>
@@ -165,37 +168,33 @@ export function StorageSection() {
           path, it is a decision that wants making before the first library exists. */}
       <section className="library-settings-panel storage-settings-panel">
         <div>
-          <h2>Recycle Bin location</h2>
+          <h2>{t("controlAdmin:storage.binTitle")}</h2>
           <p>
-            One folder for every library's deleted files, instead of a hidden <code>.trash</code>{" "}
-            inside each library — which other apps reading the same folders will index and show
-            as though nothing had been deleted.
+            <Trans i18nKey="storage.binDesc" ns="controlAdmin" components={{ cd: <code /> }} />
           </p>
         </div>
         <div className="storage-path-summary">
-          <strong>{trashRoot?.path || "Each library's own .trash folder"}</strong>
+          <strong>{trashRoot?.path || t("controlAdmin:storage.defaultTrash")}</strong>
         </div>
         <div className="library-settings-actions">
           {/* Not a fault, just why the button is off — so it states the fact and the
               tooltip on the button explains what to do about it. */}
           {trashRoot && !trashRoot.editable && (
             <span className="setting-status">
-              {trashRoot.itemsInBin} item{trashRoot.itemsInBin === 1 ? "" : "s"} in the bin
+              {t("controlAdmin:storage.itemsInBin", { count: trashRoot.itemsInBin })}
             </span>
           )}
           <Button
             variant="secondary"
             compact
             disabled={!trashRoot?.editable}
-            title={trashRoot?.editable
-              ? undefined
-              : "Empty the Recycle Bin first — the location can only change while it holds nothing"}
+            title={trashRoot?.editable ? undefined : lockedLocationTitle}
             onClick={() => {
               setError("");
               setEditTrashRootOpen(true);
             }}
           >
-            Edit location
+            {t("controlAdmin:storage.editLocation")}
           </Button>
         </div>
       </section>
@@ -203,8 +202,8 @@ export function StorageSection() {
       <section className="storage-section">
         <div className="storage-section-head">
           <div>
-            <h2>Digital Library containers</h2>
-            <p>Containers are approved root folders. Libraries can use the whole container or any folder inside it.</p>
+            <h2>{t("controlAdmin:storage.containersTitle")}</h2>
+            <p>{t("controlAdmin:storage.containersDesc")}</p>
           </div>
           <button
             className="primary-button"
@@ -214,23 +213,23 @@ export function StorageSection() {
               setRootPathInput("");
               setCreateStorageRootOpen(true);
             }}
-            title="Add storage container"
+            title={t("controlAdmin:storage.addContainerTitle")}
           >
             <Plus size={18} />
-            <span>Add container</span>
+            <span>{t("controlAdmin:storage.addContainer")}</span>
           </button>
         </div>
 
         {storageRoots.length === 0 ? (
-          <p className="management-empty">No Digital Library containers configured.</p>
+          <p className="management-empty">{t("controlAdmin:storage.noContainers")}</p>
         ) : (
           <div className="datagrid-wrap">
             <table className="datagrid">
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>Path</th>
-                  <th className="col-num">Libraries</th>
+                  <th>{t("controlAdmin:storage.thName")}</th>
+                  <th>{t("controlAdmin:storage.thPath")}</th>
+                  <th className="col-num">{t("controlAdmin:storage.thLibraries")}</th>
                   <th className="col-actions"></th>
                 </tr>
               </thead>
@@ -251,9 +250,9 @@ export function StorageSection() {
                         className="text-button danger"
                         disabled={root.libraryCount > 0 || deletingRootId === root.id}
                         onClick={() => deleteStorageRoot(root)}
-                        title={root.libraryCount > 0 ? "Remove all libraries using this container first" : undefined}
+                        title={root.libraryCount > 0 ? t("controlAdmin:storage.deleteBlockedTitle") : undefined}
                       >
-                        {deletingRootId === root.id ? "Deleting..." : "Delete"}
+                        {deletingRootId === root.id ? t("controlAdmin:storage.deleting") : t("controlAdmin:storage.delete")}
                       </button>
                     </td>
                   </tr>
@@ -266,21 +265,21 @@ export function StorageSection() {
 
       {editThumbnailPathOpen && (
         <Modal
-          title="Edit thumbnail storage"
+          title={t("controlAdmin:storage.editThumbTitle")}
           className="edit-thumbnail-modal"
           busy={savingLibrarySettings}
           onClose={() => setEditThumbnailPathOpen(false)}
           onSubmit={saveLibrarySettings}
         >
-            <p>Choose a writable folder for generated covers and previews. In Docker, use the container path.</p>
-            <Field label="Thumbnail path" value={thumbnailPathInput} onChange={setThumbnailPathInput} />
-            {error && <MessageBox tone="error" title="Unable to save path">{error}</MessageBox>}
+            <p>{t("controlAdmin:storage.thumbModalIntro")}</p>
+            <Field label={t("controlAdmin:storage.thumbPathLabel")} value={thumbnailPathInput} onChange={setThumbnailPathInput} />
+            {error && <MessageBox tone="error" title={t("controlAdmin:storage.savePathFailedTitle")}>{error}</MessageBox>}
             <div className="modal-actions">
               <Button variant="secondary" onClick={() => setEditThumbnailPathOpen(false)} disabled={savingLibrarySettings} autoFocus>
-                Cancel
+                {t("common.cancel")}
               </Button>
               <Button variant="primary" type="submit" disabled={savingLibrarySettings}>
-                {savingLibrarySettings ? "Saving..." : "Save path"}
+                {savingLibrarySettings ? t("controlAdmin:ui.saving") : t("controlAdmin:storage.savePath")}
               </Button>
             </div>
         </Modal>
@@ -296,22 +295,22 @@ export function StorageSection() {
 
       {createStorageRootOpen && (
         <Modal
-          title="Add storage container"
+          title={t("controlAdmin:storage.addContainerTitle")}
           className="create-storage-modal"
           busy={savingStorageRoot}
           onClose={() => setCreateStorageRootOpen(false)}
           onSubmit={createStorageRoot}
         >
-            <p>Choose an existing server folder that libraries are allowed to scan. In Docker, use the container path.</p>
-            <Field label="Container name" value={rootNameInput} onChange={setRootNameInput} />
-            <Field label="Container path" value={rootPathInput} onChange={setRootPathInput} />
-            {error && <MessageBox tone="error" title="Unable to add container">{error}</MessageBox>}
+            <p>{t("controlAdmin:storage.containerModalIntro")}</p>
+            <Field label={t("controlAdmin:storage.containerName")} value={rootNameInput} onChange={setRootNameInput} />
+            <Field label={t("controlAdmin:storage.containerPath")} value={rootPathInput} onChange={setRootPathInput} />
+            {error && <MessageBox tone="error" title={t("controlAdmin:storage.addContainerFailedTitle")}>{error}</MessageBox>}
             <div className="modal-actions">
               <Button variant="secondary" onClick={() => setCreateStorageRootOpen(false)} disabled={savingStorageRoot} autoFocus>
-                Cancel
+                {t("common.cancel")}
               </Button>
               <Button variant="primary" type="submit" disabled={savingStorageRoot}>
-                {savingStorageRoot ? "Saving..." : "Save container"}
+                {savingStorageRoot ? t("controlAdmin:ui.saving") : t("controlAdmin:storage.saveContainer")}
               </Button>
             </div>
         </Modal>

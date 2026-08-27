@@ -12,6 +12,9 @@ export type Role = "admin" | "member";
 export type MfaMethod = "totp" | "email";
 export const THEME_PREFERENCES = ["system", "light", "dark", "plain-light", "plain-dark", "minimalist"] as const;
 export type ThemePreference = (typeof THEME_PREFERENCES)[number];
+// Interface languages the web app ships strings for (apps/web/src/locales).
+export const LANGUAGE_PREFERENCES = ["en", "ru"] as const;
+export type LanguagePreference = (typeof LANGUAGE_PREFERENCES)[number];
 
 export interface User {
   id: string;
@@ -20,6 +23,7 @@ export interface User {
   display_name: string;
   role: Role;
   theme: ThemePreference;
+  language: LanguagePreference;
   ereader_email: string | null;
   mfa_enabled: 0 | 1;
   mfa_method: MfaMethod;
@@ -143,6 +147,7 @@ export function publicUser(user: User) {
 export function selfUser(user: User) {
   return {
     ...publicUser(user),
+    language: user.language,
     ereaderEmail: user.ereader_email ?? null,
     mfaEnabled: Boolean(user.mfa_enabled),
     mfaMethod: user.mfa_method

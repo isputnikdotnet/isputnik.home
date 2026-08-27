@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 import { BookOpen, DownloadCloud, HardDrive, Play, ShieldCheck, Trash2 } from "lucide-react";
 import type { PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
@@ -43,6 +44,7 @@ export function DownloadsPage({
   user: PublicUser;
   logout: () => Promise<void>;
 }) {
+  const { t } = useTranslation(["common", "user"]);
   const isMobile = useIsMobile();
   const [downloads, setDownloads] = useState<DownloadRecord[] | null>(null);
   const [ebookDownloads, setEbookDownloads] = useState<EbookDownloadRecord[] | null>(null);
@@ -95,7 +97,7 @@ export function DownloadsPage({
       format: record.format ?? "epub",
       blob,
       title: record.title,
-      author: record.authors.length > 0 ? record.authors.join(", ") : "Unknown author",
+      author: record.authors.length > 0 ? record.authors.join(", ") : t("user:feed.unknownAuthor"),
       coverUrl: record.coverUrl,
       initialProgress: null
     });
@@ -106,7 +108,7 @@ export function DownloadsPage({
     (ebookDownloads ?? []).reduce((sum, d) => sum + d.totalBytes, 0);
   const totalCount = (downloads?.length ?? 0) + (ebookDownloads?.length ?? 0);
   const hasAny = totalCount > 0;
-  const statsLabel = hasAny ? `${totalCount} ${totalCount === 1 ? "book" : "books"} · ${formatBytes(totalDownloadedBytes)}` : null;
+  const statsLabel = hasAny ? `${t("user:count.books", { count: totalCount })} · ${formatBytes(totalDownloadedBytes)}` : null;
   const allLoaded = downloads !== null && ebookDownloads !== null;
   const usagePercent = storage && storage.quota > 0 ? Math.min(100, Math.round((storage.usage / storage.quota) * 100)) : null;
 
@@ -116,22 +118,24 @@ export function DownloadsPage({
       <section className="work-area audiobook-area downloads-page">
         <div className="section-head audiobook-head">
           <div>
-            <h1>Downloads</h1>
+            <h1>{t("common:nav.downloads")}</h1>
             {isMobile && statsLabel && <p className="downloads-subtitle">{statsLabel}</p>}
           </div>
           {!isMobile && statsLabel && <span>{statsLabel}</span>}
         </div>
 
         {storage && (
-          <section className="downloads-storage" aria-label="Device storage">
+          <section className="downloads-storage" aria-label={t("user:downloads.deviceStorage")}>
             <div className="downloads-storage-head">
               <span className="downloads-storage-label">
                 <HardDrive size={16} aria-hidden="true" />
-                {formatBytes(storage.usage)} used{storage.quota > 0 ? ` of ${formatBytes(storage.quota)}` : ""}
+                {storage.quota > 0
+                  ? t("user:downloads.usedOf", { used: formatBytes(storage.usage), quota: formatBytes(storage.quota) })
+                  : t("user:downloads.used", { used: formatBytes(storage.usage) })}
               </span>
               {storage.persisted && (
-                <span className="downloads-storage-persisted" title="Downloads are protected from automatic eviction">
-                  <ShieldCheck size={15} aria-hidden="true" /> Protected
+                <span className="downloads-storage-persisted" title={t("user:downloads.protectedHint")}>
+                  <ShieldCheck size={15} aria-hidden="true" /> {t("user:downloads.protected")}
                 </span>
               )}
             </div>
@@ -146,15 +150,15 @@ export function DownloadsPage({
         {allLoaded && !hasAny ? (
           <div className="empty-state library-empty">
             <DownloadCloud size={58} aria-hidden="true" />
-            <h2>No downloads yet</h2>
-            <p className="muted">Open a book and tap "Save offline" to keep it on this device for listening or reading without a connection.</p>
+            <h2>{t("user:downloads.emptyHeading")}</h2>
+            <p className="muted">{t("user:downloads.empty")}</p>
           </div>
         ) : isMobile ? (
           <div>
-            {downloads === null && <p className="management-empty">Loading downloads…</p>}
+            {downloads === null && <p className="management-empty">{t("user:downloads.loading")}</p>}
             {downloads && downloads.length > 0 && (
               <>
-                <h2 className="downloads-section-title">Audiobooks</h2>
+                <h2 className="downloads-section-title">{t("common:nav.audiobooks")}</h2>
                 <div className="home-feed-list">
                   {downloads.map((book) => (
                     <FeedListItem
@@ -170,7 +174,7 @@ export function DownloadsPage({
             )}
             {ebookDownloads && ebookDownloads.length > 0 && (
               <>
-                <h2 className="downloads-section-title">Ebooks</h2>
+                <h2 className="downloads-section-title">{t("common:nav.ebooks")}</h2>
                 <div className="home-feed-list">
                   {ebookDownloads.map((book) => (
                     <FeedListItem
@@ -188,7 +192,7 @@ export function DownloadsPage({
           </div>
         ) : (
           <div>
-          {downloads && downloads.length > 0 && <h2 className="downloads-section-title">Audiobooks</h2>}
+          {downloads && downloads.length > 0 && <h2 className="downloads-section-title">{t("common:nav.audiobooks")}</h2>}
           <div className="audiobook-grid">
             {(downloads ?? []).map((book) => {
               const isRemoving = removing.includes(book.bookId);
@@ -207,11 +211,11 @@ export function DownloadsPage({
                     </div>
                     <div className="audiobook-card-body">
                       <strong>{book.title}</strong>
-                      <span>{book.authors.length > 0 ? book.authors.join(", ") : "Unknown author"}</span>
+                      <span>{book.authors.length > 0 ? book.authors.join(", ") : t("user:feed.unknownAuthor")}</span>
                       <small>
-                        {book.files.length} {book.files.length === 1 ? "chapter" : "chapters"} · {formatBytes(book.totalBytes)}
-                        {book.state === "downloading" && " · downloading…"}
-                        {book.state === "failed" && " · incomplete"}
+                        {t("user:downloads.chapters", { count: book.files.length })} · {formatBytes(book.totalBytes)}
+                        {book.state === "downloading" && ` · ${t("user:downloads.stateDownloading")}`}
+                        {book.state === "failed" && ` · ${t("user:downloads.stateIncomplete")}`}
                       </small>
                     </div>
                   </button>
@@ -219,8 +223,8 @@ export function DownloadsPage({
                     <button
                       className="icon-button"
                       onClick={() => window.open(`/player/${book.bookId}`, "isputnik-player", "width=500,height=700,resizable=yes,scrollbars=yes")}
-                      aria-label={`Play ${book.title}`}
-                      title="Play"
+                      aria-label={t("common:home.playTitle", { title: book.title })}
+                      title={t("common:home.play")}
                     >
                       <Play size={16} />
                     </button>
@@ -228,8 +232,8 @@ export function DownloadsPage({
                       className="icon-button danger"
                       onClick={() => remove(book.bookId)}
                       disabled={isRemoving}
-                      aria-label={`Remove ${book.title} from downloads`}
-                      title="Remove download"
+                      aria-label={t("user:downloads.removeFromDownloadsAria", { title: book.title })}
+                      title={t("user:downloads.removeDownload")}
                     >
                       <Trash2 size={16} />
                     </button>
@@ -237,12 +241,12 @@ export function DownloadsPage({
                 </article>
               );
             })}
-            {downloads === null && <p className="management-empty">Loading downloads…</p>}
+            {downloads === null && <p className="management-empty">{t("user:downloads.loading")}</p>}
           </div>
 
           {ebookDownloads && ebookDownloads.length > 0 && (
             <>
-              <h2 className="downloads-section-title">Ebooks</h2>
+              <h2 className="downloads-section-title">{t("common:nav.ebooks")}</h2>
               <div className="audiobook-grid">
                 {(ebookDownloads ?? []).map((book) => {
                   const isRemoving = removingEbook.includes(book.bookId);
@@ -261,11 +265,11 @@ export function DownloadsPage({
                         </div>
                         <div className="audiobook-card-body">
                           <strong>{book.title}</strong>
-                          <span>{book.authors.length > 0 ? book.authors.join(", ") : "Unknown author"}</span>
+                          <span>{book.authors.length > 0 ? book.authors.join(", ") : t("user:feed.unknownAuthor")}</span>
                           <small>
                             EPUB · {formatBytes(book.totalBytes)}
-                            {book.state === "downloading" && " · downloading…"}
-                            {book.state === "failed" && " · incomplete"}
+                            {book.state === "downloading" && ` · ${t("user:downloads.stateDownloading")}`}
+                            {book.state === "failed" && ` · ${t("user:downloads.stateIncomplete")}`}
                           </small>
                         </div>
                       </button>
@@ -273,8 +277,8 @@ export function DownloadsPage({
                         <button
                           className="icon-button"
                           onClick={() => void openReader(book)}
-                          aria-label={`Read ${book.title}`}
-                          title="Read"
+                          aria-label={t("common:home.readTitle", { title: book.title })}
+                          title={t("common:home.read")}
                         >
                           <BookOpen size={16} />
                         </button>
@@ -282,8 +286,8 @@ export function DownloadsPage({
                           className="icon-button danger"
                           onClick={() => removeEbook(book.bookId)}
                           disabled={isRemoving}
-                          aria-label={`Remove ${book.title} from downloads`}
-                          title="Remove download"
+                          aria-label={t("user:downloads.removeFromDownloadsAria", { title: book.title })}
+                          title={t("user:downloads.removeDownload")}
                         >
                           <Trash2 size={16} />
                         </button>

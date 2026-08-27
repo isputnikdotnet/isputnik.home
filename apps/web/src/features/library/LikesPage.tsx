@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { BookOpen, Headphones, Heart, Image as ImageIcon, Trash2 } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
@@ -15,6 +16,7 @@ export function LikesPage({
   user: PublicUser;
   logout: () => Promise<void>;
 }) {
+  const { t } = useTranslation(["common", "user"]);
   const [books, setBooks] = useState<SavedBook[] | null>(null);
   const [error, setError] = useState("");
   const [removingIds, setRemovingIds] = useState<string[]>([]);
@@ -22,7 +24,7 @@ export function LikesPage({
   useEffect(() => {
     api<{ books: SavedBook[] }>("/api/library/saved")
       .then((payload) => setBooks(payload.books))
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load your likes"));
+      .catch((err) => setError(err instanceof Error ? err.message : t("user:likes.loadFailed")));
   }, []);
 
   const removeBook = async (bookId: string) => {
@@ -32,7 +34,7 @@ export function LikesPage({
       await api(`/api/library/books/${bookId}/save`, { method: "DELETE" });
       setBooks((current) => current?.filter((book) => book.id !== bookId) ?? current);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to unlike this book");
+      setError(err instanceof Error ? err.message : t("user:likes.unlikeFailed"));
     } finally {
       setRemovingIds((current) => current.filter((id) => id !== bookId));
     }
@@ -43,23 +45,23 @@ export function LikesPage({
       <section className="work-area audiobook-area">
         <div className="section-head audiobook-head">
           <div>
-            <p className="eyebrow">Digital Library</p>
-            <h1>Likes</h1>
+            <p className="eyebrow">{t("user:area.eyebrow")}</p>
+            <h1>{t("common:nav.likes")}</h1>
           </div>
           {/* "items", not "books": this list is cross-type — the gallery heart puts
               photos and videos in here too (see the kind switch below). */}
           {books && books.length > 0 && (
-            <span>{books.length} {books.length === 1 ? "item" : "items"}</span>
+            <span>{t("user:count.items", { count: books.length })}</span>
           )}
         </div>
 
-        {error && <MessageBox tone="error" title="Likes error">{error}</MessageBox>}
+        {error && <MessageBox tone="error" title={t("user:likes.errorTitle")}>{error}</MessageBox>}
 
         {books && books.length === 0 ? (
           <div className="empty-state library-empty">
             <Heart size={58} aria-hidden="true" />
-            <h2>Nothing liked yet</h2>
-            <p className="muted">Tap the heart on a book, a photo or a video to keep it here.</p>
+            <h2>{t("user:likes.emptyHeading")}</h2>
+            <p className="muted">{t("user:likes.empty")}</p>
           </div>
         ) : (
           <div className="audiobook-grid">
@@ -86,7 +88,7 @@ export function LikesPage({
                     <div className="audiobook-card-body">
                       <strong>{book.title}</strong>
                       {book.kind !== "gallery" && (
-                        <span>{book.authors.length > 0 ? book.authors.join(", ") : "Unknown author"}</span>
+                        <span>{book.authors.length > 0 ? book.authors.join(", ") : t("user:feed.unknownAuthor")}</span>
                       )}
                       {book.note && <p className="audiobook-card-note">{book.note}</p>}
                     </div>
@@ -95,15 +97,15 @@ export function LikesPage({
                     className="icon-button danger saved-audiobook-remove"
                     onClick={() => removeBook(book.id)}
                     disabled={removing}
-                    aria-label={`Unlike ${book.title}`}
-                    title="Unlike"
+                    aria-label={t("user:likes.unlikeAria", { title: book.title })}
+                    title={t("user:likes.unlike")}
                   >
                     <Trash2 size={16} />
                   </button>
                 </article>
               );
             })}
-            {books === null && <p className="management-empty">Loading your list...</p>}
+            {books === null && <p className="management-empty">{t("user:likes.loading")}</p>}
           </div>
         )}
       </section>

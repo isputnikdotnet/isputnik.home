@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { createPortal } from "react-dom";
 import { BookOpen, ChevronRight, DownloadCloud, HardDrive, Image as ImageIcon, Library, Loader2, Play, Sparkles } from "lucide-react";
 import { ActivityList } from "../features/social/ActivityList";
@@ -20,8 +21,6 @@ import type { AudiobookBookDetail, ReadingProgress } from "../features/audiobook
 import type { GalleryAsset, GalleryLibrary, GalleryMemories } from "../features/gallery/types";
 import { GalleryLightbox } from "../features/gallery/GalleryLightbox";
 
-const count = (value: number) => new Intl.NumberFormat().format(value);
-
 // The resume hero — the single most-recent in-progress book, pinned above the
 // feed on every screen size (it grew up on mobile; desktop adopted it in the
 // feed revamp). Tapping the main area resumes; the side column carries the
@@ -37,6 +36,7 @@ function ResumeHero({ item, onRead, downloaded, onDownloaded, onDownload, onToas
   mobile: boolean;
   moreCount: number;
 }) {
+  const { t } = useTranslation();
   const isEbook = item.kind === "ebook";
   const percent = Math.round((item.percentComplete ?? 0) * 100);
   const [opening, setOpening] = useState(false);
@@ -63,9 +63,9 @@ function ResumeHero({ item, onRead, downloaded, onDownloaded, onDownload, onToas
     try {
       await saveFeedItemOffline(item, (fraction) => onDownload({ title: item.title, progress: fraction }));
       onDownloaded(item.id);
-      onToast("Saved for offline");
+      onToast(t("home.savedOffline"));
     } catch {
-      onToast("Download failed");
+      onToast(t("home.downloadFailed"));
     } finally {
       onDownload(null);
       setDownloading(false);
@@ -73,14 +73,14 @@ function ResumeHero({ item, onRead, downloaded, onDownloaded, onDownload, onToas
   };
 
   return (
-    <section className="home-resume" aria-label="Pick up where you left off">
+    <section className="home-resume" aria-label={t("home.resumeAria")}>
       <div className="home-resume-card">
-        <button type="button" className="home-resume-main" onClick={resume} disabled={opening} aria-label={`Resume ${item.title}`}>
+        <button type="button" className="home-resume-main" onClick={resume} disabled={opening} aria-label={t("home.resume", { title: item.title })}>
           <span className="home-resume-cover">
             <img src={item.coverUrl ?? DEFAULT_COVERS[item.kind]} alt="" />
           </span>
           <span className="home-resume-body">
-            <span className="home-resume-eyebrow">{isEbook ? "Continue reading" : "Continue listening"}</span>
+            <span className="home-resume-eyebrow">{isEbook ? t("home.continueReading") : t("home.continueListening")}</span>
             <strong className="home-resume-title">{item.title}</strong>
             <small className="home-resume-author">{authorLine(item)}</small>
             {percent > 0 && (
@@ -97,8 +97,8 @@ function ResumeHero({ item, onRead, downloaded, onDownloaded, onDownload, onToas
               type="button"
               className="home-resume-dl is-saved"
               onClick={() => navigate("/downloads")}
-              title="Saved for offline"
-              aria-label="Available offline"
+              title={t("home.savedOffline")}
+              aria-label={t("home.availableOffline")}
             >
               <HardDrive size={16} aria-hidden="true" />
             </button>
@@ -108,8 +108,8 @@ function ResumeHero({ item, onRead, downloaded, onDownloaded, onDownload, onToas
               className="home-resume-dl"
               onClick={saveOffline}
               disabled={downloading}
-              title={downloading ? "Downloading…" : "Save for offline"}
-              aria-label={downloading ? "Downloading…" : "Save for offline"}
+              title={downloading ? t("home.downloading") : t("home.saveForOffline")}
+              aria-label={downloading ? t("home.downloading") : t("home.saveForOffline")}
             >
               {downloading
                 ? <Loader2 size={16} className="home-feed-spin" aria-hidden="true" />
@@ -121,8 +121,8 @@ function ResumeHero({ item, onRead, downloaded, onDownloaded, onDownload, onToas
             className="home-resume-action"
             onClick={resume}
             disabled={opening}
-            aria-label={isEbook ? `Read ${item.title}` : `Play ${item.title}`}
-            title={isEbook ? "Read" : "Play"}
+            aria-label={isEbook ? t("home.readTitle", { title: item.title }) : t("home.playTitle", { title: item.title })}
+            title={isEbook ? t("home.read") : t("home.play")}
           >
             {isEbook && opening
               ? <Loader2 size={22} className="home-feed-spin" />
@@ -134,7 +134,7 @@ function ResumeHero({ item, onRead, downloaded, onDownloaded, onDownload, onToas
       </div>
       {moreCount > 0 && (
         <a className="home-resume-more" href="/continue" onClick={(event) => followRoute(event, "/continue")}>
-          <span>{moreCount === 1 ? "1 more in progress" : `${moreCount} more in progress`}</span>
+          <span>{t("home.moreInProgress", { count: moreCount })}</span>
           <ChevronRight size={15} aria-hidden="true" />
         </a>
       )}
@@ -147,7 +147,8 @@ function ResumeHero({ item, onRead, downloaded, onDownloaded, onDownload, onToas
 // body. The server owns the order — the client never re-sorts.
 
 function MemoryFeedCard({ card, onOpen }: { card: MemoryCard; onOpen: (year: number, itemId: string) => void }) {
-  const title = card.precision === "near" ? "Around this day" : "On this day";
+  const { t } = useTranslation();
+  const title = card.precision === "near" ? t("home.aroundThisDay") : t("home.onThisDay");
   // The server picked the strip for variety — one photo per year, people
   // preferred. Each photo jumps straight to itself in the viewer.
   const photos = card.strip.map(({ item, year }) => ({ item, year }));
@@ -159,7 +160,7 @@ function MemoryFeedCard({ card, onOpen }: { card: MemoryCard; onOpen: (year: num
       <header className="home-card-head">
         <span className="home-card-who"><strong>{title}</strong> · {yearSpan}</span>
         <a className="home-card-link" href="/gallery/memories" onClick={(event) => followRoute(event, "/gallery/memories")}>
-          <span>View all</span>
+          <span>{t("common.viewAll")}</span>
           <ChevronRight size={16} aria-hidden="true" />
         </a>
       </header>
@@ -170,7 +171,7 @@ function MemoryFeedCard({ card, onOpen }: { card: MemoryCard; onOpen: (year: num
             type="button"
             className="home-memory-photo"
             onClick={() => onOpen(year, item.id)}
-            aria-label={`Photos from ${year}`}
+            aria-label={t("home.photosFromYear", { year })}
           >
             {item.coverUrl
               ? <img src={item.coverUrl} alt="" loading="lazy" />
@@ -180,20 +181,20 @@ function MemoryFeedCard({ card, onOpen }: { card: MemoryCard; onOpen: (year: num
         ))}
       </div>
       <p className="home-card-sub">
-        {card.totalCount === 1 ? "1 photo" : `${count(card.totalCount)} photos`} from this day over the years — tap to relive
+        {t("home.memorySub", { count: card.totalCount })}
       </p>
     </section>
   );
 }
 
 function BatchFeedCard({ card }: { card: AddedBatchCard }) {
+  const { t } = useTranslation();
   const more = card.count - card.coverUrls.length;
   return (
     <a className="home-card home-card-batch" href="/recent" onClick={(event) => followRoute(event, "/recent")}>
       <header className="home-card-head">
         <span className="home-card-who">
-          <strong>{card.count === 1 ? "1 book" : `${count(card.count)} books`}</strong>
-          {` joined the library ${batchDayLabel(card.day)}`}
+          {t("home.batchJoined", { count: card.count, day: batchDayLabel(card.day) })}
         </span>
       </header>
       <div className="home-batch-fan">
@@ -203,13 +204,14 @@ function BatchFeedCard({ card }: { card: AddedBatchCard }) {
         {card.coverUrls.length === 0 && (
           <span className="home-batch-cover home-batch-cover-empty"><Library size={22} aria-hidden="true" /></span>
         )}
-        <span className="home-batch-more">{more > 0 ? `+${count(more)} more` : "Browse"} <ChevronRight size={15} aria-hidden="true" /></span>
+        <span className="home-batch-more">{more > 0 ? t("home.plusMore", { count: more }) : t("common.browse")} <ChevronRight size={15} aria-hidden="true" /></span>
       </div>
     </a>
   );
 }
 
 function SeriesNextFeedCard({ card }: { card: SeriesNextCard }) {
+  const { t } = useTranslation();
   return (
     <a className="home-card home-card-suggest" href={card.item.href} onClick={(event) => followRoute(event, card.item.href)}>
       <span className="home-suggest-cover">
@@ -218,9 +220,11 @@ function SeriesNextFeedCard({ card }: { card: SeriesNextCard }) {
           : <span className="home-memory-fallback"><Sparkles size={22} aria-hidden="true" /></span>}
       </span>
       <span className="home-suggest-copy">
-        <small className="home-suggest-why">You finished <strong>{card.finishedTitle}</strong> —</small>
-        <strong className="home-suggest-title">{card.item.title} is on the shelf</strong>
-        <small className="home-suggest-series">{card.seriesName} · next in the series</small>
+        <small className="home-suggest-why">
+          <Trans i18nKey="home.youFinished" values={{ title: card.finishedTitle }} components={{ bold: <strong /> }} />
+        </small>
+        <strong className="home-suggest-title">{t("home.onShelf", { title: card.item.title })}</strong>
+        <small className="home-suggest-series">{t("home.nextInSeries", { series: card.seriesName })}</small>
       </span>
     </a>
   );
@@ -244,12 +248,13 @@ function OfflineRow({ id, title, items, downloadedIds, onRead, onToast }: {
   onRead?: (item: FeedItem) => Promise<void>;
   onToast?: (message: string) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <section className="home-section" aria-labelledby={id}>
       <div className="home-section-title">
         <h2 id={id}>{title}</h2>
         <a href="/downloads" onClick={(event) => followRoute(event, "/downloads")}>
-          <span>View all</span>
+          <span>{t("common.viewAll")}</span>
           <ChevronRight size={18} aria-hidden="true" />
         </a>
       </div>
@@ -284,6 +289,7 @@ interface ViewerState {
 }
 
 export function HomePage({ user, logout }: { user: PublicUser; logout: () => Promise<void> }) {
+  const { t } = useTranslation();
   const [cards, setCards] = useState<HomeCard[] | null>(null);
   const [heroItem, setHeroItem] = useState<FeedItem | null>(null);
   const [inProgressTotal, setInProgressTotal] = useState(0);
@@ -413,7 +419,7 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
     if (!docId) { navigate(`/ebooks/books/${item.id}`); return; }
 
     const offlineBlob = await getDownloadedEpubBlob(item.id, docId).catch(() => null);
-    if (!offlineBlob && !networkUrl) { showToast("Not available offline"); return; }
+    if (!offlineBlob && !networkUrl) { showToast(t("home.notAvailableOffline")); return; }
 
     const progressData = await api<{ progress: ReadingProgress | null }>(
       `/api/library/books/${item.id}/reading-progress?documentId=${encodeURIComponent(docId)}`
@@ -430,7 +436,7 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
       blob: offlineBlob,
       initialProgress: progressData.progress
     });
-  }, [showToast]);
+  }, [showToast, t]);
 
   // Local (IndexedDB) download records — both the id set used to flag rows as
   // saved, and the full records that drive the offline home when disconnected.
@@ -459,7 +465,7 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
       .catch((reason) => {
         if (!alive) return;
         setCards([]);
-        setError(reason instanceof Error ? reason.message : "Unable to load your home feed");
+        setError(reason instanceof Error ? reason.message : t("home.loadFailed"));
       });
 
     // The hero is the top of the Continue feed; the total feeds the "more in
@@ -483,13 +489,13 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
     try {
       await api(`/api/social/recommendations/${card.id}/${action}`, { method: "POST" });
       setCards((prev) => (prev ? prev.filter((c) => !(c.type === "sent" && c.id === card.id)) : prev));
-      if (action === "save") showToast("Added to Likes");
+      if (action === "save") showToast(t("home.addedToLikes"));
     } catch {
-      showToast(action === "save" ? "Unable to like this" : "Unable to set this aside");
+      showToast(action === "save" ? t("home.likeFailed") : t("home.dismissFailed"));
     } finally {
       setBusySent(null);
     }
-  }, [showToast]);
+  }, [showToast, t]);
 
   // When offline on a phone, the home becomes a browser for downloaded books
   // (the server feed is unreachable).
@@ -541,36 +547,36 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
             </div>
             <span className={`home-net ${online ? "is-online" : "is-offline"}`} role="status" aria-live="polite">
               <span className="home-net-dot" aria-hidden="true" />
-              {online ? "Online" : "Offline"}
+              {online ? t("common.online") : t("common.offline")}
             </span>
           </header>
         ) : (
           <header className="home-header">
             <div className="home-heading">
-              <h1>Welcome back, {user.displayName}</h1>
-              <p>Here's what's happening in your library</p>
+              <h1>{t("home.welcome", { name: user.displayName })}</h1>
+              <p>{t("home.subtitle")}</p>
             </div>
           </header>
         )}
 
-        {error && !offlineMode && <MessageBox tone="error" title="Unable to load home">{error}</MessageBox>}
+        {error && !offlineMode && <MessageBox tone="error" title={t("home.loadTitle")}>{error}</MessageBox>}
 
         {offlineMode ? (
           <div className="home-content">
             {!offlineLoaded ? (
-              <OfflineRow id="home-offline-title" title="Downloaded" items={null} downloadedIds={downloadedIds} />
+              <OfflineRow id="home-offline-title" title={t("home.downloadedTitle")} items={null} downloadedIds={downloadedIds} />
             ) : offlineEmpty ? (
               <div className="empty-state home-offline-empty">
                 <DownloadCloud size={52} aria-hidden="true" />
-                <h2>Nothing saved offline</h2>
-                <p className="muted">You're offline. Books you save while connected show up here, ready to play or read without a connection.</p>
+                <h2>{t("home.nothingSaved")}</h2>
+                <p className="muted">{t("home.offlineEmptyBody")}</p>
               </div>
             ) : (
               <>
                 {offlineAudioItems && offlineAudioItems.length > 0 && (
                   <OfflineRow
                     id="home-offline-audio"
-                    title="Audiobooks"
+                    title={t("nav.audiobooks")}
                     items={offlineAudioItems}
                     downloadedIds={downloadedIds}
                     onToast={showToast}
@@ -579,7 +585,7 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
                 {offlineEbookItems && offlineEbookItems.length > 0 && (
                   <OfflineRow
                     id="home-offline-ebooks"
-                    title="Ebooks"
+                    title={t("nav.ebooks")}
                     items={offlineEbookItems}
                     downloadedIds={downloadedIds}
                     onRead={handleRead}
@@ -626,12 +632,12 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
                   {rankedCards.map(renderCard)}
                   {rankedCards.length === 0 && sentCards.length === 0 ? (
                     <p className="home-row-empty">
-                      A quiet day. New books, today's photo memories and family activity will appear here.
+                      {t("home.quietDay")}
                     </p>
                   ) : (
                     <div className="home-feed-end">
-                      <strong>You're all caught up</strong>
-                      <span>Tomorrow brings a different day's memories.</span>
+                      <strong>{t("home.caughtUp")}</strong>
+                      <span>{t("home.tomorrow")}</span>
                     </div>
                   )}
                 </>
@@ -651,7 +657,7 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
       <div className="home-dl-banner" role="status" aria-live="polite">
         <Loader2 size={16} className="home-feed-spin" aria-hidden="true" />
         <div className="home-dl-banner-body">
-          <span className="home-dl-banner-label">Downloading {activeDownload.title}</span>
+          <span className="home-dl-banner-label">{t("home.downloadingTitle", { title: activeDownload.title })}</span>
           <span className="home-dl-banner-track">
             <span style={{ width: `${Math.round(activeDownload.progress * 100)}%` }} />
           </span>

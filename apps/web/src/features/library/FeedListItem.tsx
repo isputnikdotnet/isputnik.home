@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { BookOpen, DownloadCloud, HardDrive, Heart, Info, Loader2, MoreVertical, Play, Trash2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api } from "../../api";
@@ -40,6 +41,7 @@ export function FeedListItem({ item, progress, downloaded, onDownloaded, onRead,
   onDelete?: () => void;
   deleting?: boolean;
 }) {
+  const { t } = useTranslation(["common", "user"]);
   const href = feedHref(item);
   const isEbook = item.kind === "ebook";
   const percent = Math.round((item.percentComplete ?? 0) * 100);
@@ -96,9 +98,9 @@ export function FeedListItem({ item, progress, downloaded, onDownloaded, onRead,
     try {
       await saveFeedItemOffline(item, (fraction) => onDownload?.({ title: item.title, progress: fraction }));
       onDownloaded?.(item.id);
-      onToast?.("Saved for offline");
+      onToast?.(t("common:home.savedOffline"));
     } catch {
-      onToast?.("Download failed");
+      onToast?.(t("common:home.downloadFailed"));
     } finally {
       onDownload?.(null);
       setDownloading(false);
@@ -126,7 +128,7 @@ export function FeedListItem({ item, progress, downloaded, onDownloaded, onRead,
         className="home-feed-row-main"
         role="button"
         tabIndex={0}
-        aria-label={`Open ${item.title}`}
+        aria-label={t("user:feed.openItem", { title: item.title })}
         onClick={open}
         onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); open(); } }}
       >
@@ -137,7 +139,7 @@ export function FeedListItem({ item, progress, downloaded, onDownloaded, onRead,
           <strong>{item.title}</strong>
           <small>{authorLine(item)}</small>
           {inProgress && (
-            <span className="home-feed-row-bar" aria-label={`${percent}% complete`}>
+            <span className="home-feed-row-bar" aria-label={t("user:feed.percentComplete", { percent })}>
               <span style={{ width: `${percent}%` }} />
             </span>
           )}
@@ -148,8 +150,8 @@ export function FeedListItem({ item, progress, downloaded, onDownloaded, onRead,
                   type="button"
                   className="home-feed-row-dl is-saved"
                   onClick={(event) => { event.stopPropagation(); navigate(isEbook ? href : "/downloads"); }}
-                  title="Saved for offline"
-                  aria-label="Available offline"
+                  title={t("common:home.savedOffline")}
+                  aria-label={t("common:home.availableOffline")}
                 >
                   <HardDrive size={11} aria-hidden="true" />
                 </button>
@@ -159,8 +161,8 @@ export function FeedListItem({ item, progress, downloaded, onDownloaded, onRead,
                   className="home-feed-row-dl"
                   onClick={(event) => { event.stopPropagation(); void startDownload(); }}
                   disabled={downloading}
-                  title={downloading ? "Downloading…" : "Save for offline"}
-                  aria-label={downloading ? "Downloading…" : "Save for offline"}
+                  title={downloading ? t("common:home.downloading") : t("common:home.saveForOffline")}
+                  aria-label={downloading ? t("common:home.downloading") : t("common:home.saveForOffline")}
                 >
                   {downloading
                     ? <Loader2 size={11} className="home-feed-spin" aria-hidden="true" />
@@ -178,8 +180,8 @@ export function FeedListItem({ item, progress, downloaded, onDownloaded, onRead,
         className="home-feed-row-action"
         onClick={activatePrimary}
         disabled={opening}
-        aria-label={isEbook ? (opening ? "Opening…" : `Read ${item.title}`) : `Play ${item.title}`}
-        title={isEbook ? "Read" : "Play"}
+        aria-label={isEbook ? (opening ? t("user:feed.opening") : t("common:home.readTitle", { title: item.title })) : t("common:home.playTitle", { title: item.title })}
+        title={isEbook ? t("common:home.read") : t("common:home.play")}
       >
         {isEbook && opening ? (
           <Loader2 size={16} className="home-feed-spin" aria-hidden="true" />
@@ -196,8 +198,8 @@ export function FeedListItem({ item, progress, downloaded, onDownloaded, onRead,
           className="home-feed-row-kebab home-feed-row-delete"
           onClick={onDelete}
           disabled={deleting}
-          aria-label={`Remove ${item.title} from downloads`}
-          title="Remove download"
+          aria-label={t("user:downloads.removeFromDownloadsAria", { title: item.title })}
+          title={t("user:downloads.removeDownload")}
         >
           {deleting
             ? <Loader2 size={16} className="home-feed-spin" aria-hidden="true" />
@@ -211,13 +213,13 @@ export function FeedListItem({ item, progress, downloaded, onDownloaded, onRead,
           onClick={() => setMenuOpen((isOpen) => !isOpen)}
           aria-haspopup="menu"
           aria-expanded={menuOpen}
-          aria-label={`More options for ${item.title}`}
-          title="More options"
+          aria-label={t("user:feed.moreOptionsFor", { title: item.title })}
+          title={t("user:feed.moreOptions")}
         >
           <MoreVertical size={18} aria-hidden="true" />
         </button>
         {menuOpen && (
-          <div className="home-feed-row-dropdown" role="menu" aria-label={`Options for ${item.title}`}>
+          <div className="home-feed-row-dropdown" role="menu" aria-label={t("user:feed.optionsFor", { title: item.title })}>
             {menuItems ? (
               menuItems.map((entry, index) => {
                 const MenuIcon = entry.icon;
@@ -261,7 +263,7 @@ export function FeedListItem({ item, progress, downloaded, onDownloaded, onRead,
                   disabled={likeBusy}
                 >
                   <Heart size={16} fill={liked ? "currentColor" : "none"} aria-hidden="true" />
-                  <span>{liked ? "Liked" : "Like"}</span>
+                  <span>{liked ? t("user:likes.liked") : t("user:likes.like")}</span>
                 </button>
                 <button
                   type="button"
@@ -269,7 +271,7 @@ export function FeedListItem({ item, progress, downloaded, onDownloaded, onRead,
                   onClick={() => { setMenuOpen(false); navigate(href); }}
                 >
                   <Info size={16} aria-hidden="true" />
-                  <span>View details</span>
+                  <span>{t("user:feed.viewDetails")}</span>
                 </button>
               </>
             )}

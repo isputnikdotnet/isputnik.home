@@ -1,0 +1,270 @@
+{
+  "common": {
+    "cancel": "Cancel",
+    "close": "Close",
+    "done": "Done",
+    "all": "All",
+    "or": "or",
+    "email": "Email",
+    "password": "Password",
+    "from": "From",
+    "to": "To",
+    "browse": "Browse",
+    "viewAll": "View all",
+    "online": "Online",
+    "offline": "Offline",
+    "searchIn": "Search {{what}}...",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password"
+  },
+  "errors": {
+    "unableToSave": "Unable to save",
+    "actionFailed": "Action failed"
+  },
+  "nav": {
+    "home": "Home",
+    "audiobooks": "Audiobooks",
+    "ebooks": "Ebooks",
+    "gallery": "Gallery",
+    "familyTree": "Family Tree",
+    "tags": "Tags",
+    "about": "About",
+    "info": "Info",
+    "help": "Help",
+    "bugs": "Bugs",
+    "settings": "Settings",
+    "profile": "Profile",
+    "logout": "Logout",
+    "likes": "Likes",
+    "bookmarks": "Bookmarks",
+    "quotes": "Quotes",
+    "collections": "Collections",
+    "sharedWithMe": "Shared with me",
+    "shared": "Shared",
+    "downloads": "Downloads",
+    "myLibrary": "My Library",
+    "media": "Media",
+    "offline": "Offline",
+    "aria": {
+      "primary": "Primary",
+      "appNav": "App navigation",
+      "controlNav": "Control panel navigation",
+      "userNav": "User navigation",
+      "userPages": "User pages",
+      "aboutMenu": "About menu",
+      "profileMenu": "Profile menu",
+      "chooseLibrary": "Choose library",
+      "accountAndLibrary": "Account & library",
+      "primaryTabs": "Primary app tabs",
+      "brandHome": "iSputnik home"
+    }
+  },
+  "pager": {
+    "label": "Pagination",
+    "previous": "Previous page",
+    "next": "Next page",
+    "page": "Page {{page}}",
+    "status": "Page {{page}} of {{total}}"
+  },
+  "alphabet": {
+    "label": "Filter by letter",
+    "scripts": "Alphabet",
+    "all": "All",
+    "other": "Starting with a number or symbol"
+  },
+  "sort": {
+    "label": "Sort",
+    "sortBy": "Sort by"
+  },
+  "pageSize": {
+    "label": "Rows per page",
+    "perPage": "{{count}} per page"
+  },
+  "filters": {
+    "title": "Filters",
+    "button": "Filter",
+    "clearAll": "Clear all",
+    "noMatches": "No matches",
+    "searchFacet": "Search {{title}}"
+  },
+  "dateRange": {
+    "label": "Time range",
+    "allTime": "All time",
+    "custom": "Custom",
+    "customTitle": "Custom range",
+    "localTime": "Times are your local time.",
+    "applyRange": "Apply range",
+    "unableToApply": "Unable to apply",
+    "needBothDates": "Enter both a start and an end date.",
+    "endAfterStart": "The end of the range has to come after its start.",
+    "period": "period",
+    "allTimeSpan": "all time",
+    "hour_one": "{{count}} hour",
+    "hour_other": "{{count}} hours",
+    "day_one": "{{count}} day",
+    "day_other": "{{count}} days"
+  },
+  "refresh": {
+    "refresh": "Refresh",
+    "refreshing": "Refreshing…",
+    "updated": "Updated"
+  },
+  "upload": {
+    "dragFile": "Drag a file here, or",
+    "dragFiles": "Drag files here, or",
+    "dragFilesOrFolder": "Drag files or a folder here, or",
+    "chooseFile": "Choose file",
+    "chooseFiles": "Choose files",
+    "chooseFolder": "Choose folder",
+    "cancel": "Cancel upload",
+    "accepted": "Accepted: {{types}}",
+    "failedTitle": "Upload failed",
+    "failedStatus": "Upload failed ({{status}}).",
+    "networkError": "Network error during upload.",
+    "folderReadError": "Could not read the dropped folder.",
+    "tooMany": "Too many files — at most {{count}} per upload.",
+    "wrongType": "Choose a {{types}} file.",
+    "emptyFile": "That file is empty.",
+    "tooLarge": "That file is larger than the {{limit}} limit.",
+    "oversize": "{{name}}: larger than the {{limit}} limit.",
+    "noneInFolder": "No {{types}} files found in that folder.",
+    "batchSummary_one": "{{count}} file ({{size}})",
+    "batchSummary_other": "{{count}} files ({{size}})"
+  },
+  "theme": {
+    "label": "Theme",
+    "system": "System",
+    "plainLight": "Plain Light",
+    "plainDark": "Plain Dark",
+    "minimalist": "Minimalist",
+    "light": "iSputnik Light",
+    "dark": "iSputnik Night"
+  },
+  "accountForm": {
+    "setupTitle": "Account setup",
+    "policyTitle": "Password policy",
+    "policy": "Use at least 8 characters. A memorable example pattern is two words, a number, and a symbol, like <code>River7Table!</code>.",
+    "mismatch": "Password and confirmation must match.",
+    "createFailed": "Unable to create account",
+    "attention": "Account setup needs attention",
+    "displayName": "Display name",
+    "confirmPassword": "Confirm password"
+  },
+  "authShell": {
+    "eyebrow": "Open source software for a small trusted orbit",
+    "copy": "Your personal hub for stories, knowledge, and imagination.",
+    "tagline": "our world revolves around you."
+  },
+  "login": {
+    "welcomeBack": "Welcome back",
+    "title": "Sign in",
+    "submit": "Sign in",
+    "passkey": "Sign in with a passkey",
+    "passkeyWaiting": "Waiting for your device…",
+    "passkeyFailed": "Unable to sign in with a passkey",
+    "failedTitle": "Unable to sign in",
+    "blockedTitle": "Blocked by your network",
+    "linkDevice": "Link a TV or display instead"
+  },
+  "network": {
+    "blocked": "Something on this network — a corporate proxy, a content filter, or a guest Wi-Fi portal — answered instead of iSputnik. The server itself is fine. Ask whoever runs the network to allow {{host}}, or try a different connection."
+  },
+  "mfa": {
+    "eyebrow": "Two-factor authentication",
+    "title": "Enter your code",
+    "emailIntro": "We sent a 6-digit code to {{address}}. It expires in a few minutes. You can also use a backup code.",
+    "yourEmail": "your email address",
+    "totpIntro": "Open your authenticator app and enter the 6-digit code. You can also use a backup code.",
+    "noEmailTitle": "We couldn't email a code",
+    "noEmailBody": "This server can't send email right now. Use one of your backup codes, or ask your administrator.",
+    "codeLabel": "Authentication code",
+    "sentTitle": "Code sent",
+    "sentBody": "A new code is on its way to {{address}}.",
+    "verify": "Verify",
+    "verifyFailed": "Unable to verify",
+    "verifyError": "Unable to verify the code",
+    "sendAnother": "Send another code",
+    "sending": "Sending…",
+    "resendFailed": "Unable to send another code",
+    "back": "Back to sign in"
+  },
+  "home": {
+    "welcome": "Welcome back, {{name}}",
+    "subtitle": "Here's what's happening in your library",
+    "resumeAria": "Pick up where you left off",
+    "continueReading": "Continue reading",
+    "continueListening": "Continue listening",
+    "resume": "Resume {{title}}",
+    "read": "Read",
+    "play": "Play",
+    "readTitle": "Read {{title}}",
+    "playTitle": "Play {{title}}",
+    "savedOffline": "Saved for offline",
+    "availableOffline": "Available offline",
+    "saveForOffline": "Save for offline",
+    "downloading": "Downloading…",
+    "downloadFailed": "Download failed",
+    "moreInProgress_one": "{{count}} more in progress",
+    "moreInProgress_other": "{{count}} more in progress",
+    "onThisDay": "On this day",
+    "aroundThisDay": "Around this day",
+    "photosFromYear": "Photos from {{year}}",
+    "memorySub_one": "{{count}} photo from this day over the years — tap to relive",
+    "memorySub_other": "{{count}} photos from this day over the years — tap to relive",
+    "batchJoined_one": "{{count}} book joined the library {{day}}",
+    "batchJoined_other": "{{count}} books joined the library {{day}}",
+    "today": "today",
+    "yesterday": "yesterday",
+    "onDate": "on {{date}}",
+    "plusMore": "+{{count}} more",
+    "youFinished": "You finished <bold>{{title}}</bold> —",
+    "onShelf": "{{title}} is on the shelf",
+    "nextInSeries": "{{series}} · next in the series",
+    "quietDay": "A quiet day. New books, today's photo memories and family activity will appear here.",
+    "caughtUp": "You're all caught up",
+    "tomorrow": "Tomorrow brings a different day's memories.",
+    "loadTitle": "Unable to load home",
+    "loadFailed": "Unable to load your home feed",
+    "downloadedTitle": "Downloaded",
+    "nothingSaved": "Nothing saved offline",
+    "offlineEmptyBody": "You're offline. Books you save while connected show up here, ready to play or read without a connection.",
+    "addedToLikes": "Added to Likes",
+    "likeFailed": "Unable to like this",
+    "dismissFailed": "Unable to set this aside",
+    "notAvailableOffline": "Not available offline",
+    "downloadingTitle": "Downloading {{title}}"
+  },
+  "profile": {
+    "eyebrow": "Profile",
+    "heading": "Your account",
+    "description": "Your details, sign-in security, what you've shared, appearance, and devices.",
+    "tabsLabel": "Profile sections",
+    "tabs": {
+      "account": "Account",
+      "security": "Security",
+      "shares": "Shared links",
+      "appearance": "Appearance",
+      "devices": "Devices"
+    },
+    "account": {
+      "displayName": "Display name",
+      "saved": "Profile updated",
+      "savedBody": "Your settings have been saved.",
+      "save": "Save changes",
+      "saving": "Saving…"
+    },
+    "appearance": {
+      "heading": "Appearance",
+      "intro": "Choose how iSputnik looks. Your choice is saved to your account and applies right away."
+    },
+    "language": {
+      "heading": "Language",
+      "intro": "The language of the app's menus, buttons, and messages. Your books and photos keep their own language.",
+      "legend": "App language"
+    }
+  },
+  "languageNames": {
+    "en": "English",
+    "ru": "Русский"
+  }
+}

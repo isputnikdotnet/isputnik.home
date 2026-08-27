@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "./Button";
 
@@ -21,25 +22,26 @@ export function Pager({
   page,
   totalPages,
   onChange,
-  label = "Pagination"
+  label
 }: {
   page: number;
   totalPages: number;
   onChange: (page: number) => void;
   label?: string;
 }) {
+  const { t } = useTranslation();
   // One page needs no controls — rendering them would just be dead furniture.
   if (totalPages <= 1) return null;
 
   return (
-    <nav className="pager" aria-label={label}>
+    <nav className="pager" aria-label={label ?? t("pager.label")}>
       <div className="pager-pages">
         <Button
           variant="icon"
           className="pager-step"
           disabled={page === 1}
-          aria-label="Previous page"
-          title="Previous page"
+          aria-label={t("pager.previous")}
+          title={t("pager.previous")}
           onClick={() => onChange(page - 1)}
         >
           <ChevronLeft size={16} aria-hidden="true" />
@@ -53,7 +55,7 @@ export function Pager({
               key={entry}
               variant={entry === page ? "primary" : "secondary"}
               className="pager-page"
-              aria-label={`Page ${entry}`}
+              aria-label={t("pager.page", { page: entry })}
               aria-current={entry === page ? "page" : undefined}
               onClick={() => onChange(entry)}
             >
@@ -66,15 +68,15 @@ export function Pager({
           variant="icon"
           className="pager-step"
           disabled={page === totalPages}
-          aria-label="Next page"
-          title="Next page"
+          aria-label={t("pager.next")}
+          title={t("pager.next")}
           onClick={() => onChange(page + 1)}
         >
           <ChevronRight size={16} aria-hidden="true" />
         </Button>
       </div>
 
-      <span className="pager-status">Page {page} of {totalPages}</span>
+      <span className="pager-status">{t("pager.status", { page, total: totalPages })}</span>
     </nav>
   );
 }

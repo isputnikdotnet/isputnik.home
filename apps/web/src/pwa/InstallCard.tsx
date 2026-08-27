@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { ChevronDown, Download, Share, Smartphone } from "lucide-react";
 import { useInstall } from "./useInstall";
 import { isIos } from "./platform";
@@ -50,45 +51,53 @@ function PlatformPanel({
   );
 }
 
-const iosSteps = (
-  <ol>
-    <li>Open this page in <strong>Safari</strong>.</li>
-    <li>Tap the Share button <Share className="install-inline-glyph" size={14} aria-label="Share" />.</li>
-    <li>Choose <strong>“Add to Home Screen”</strong>.</li>
-  </ol>
-);
+function IosSteps() {
+  const { t } = useTranslation(["common", "user"]);
+  return (
+    <ol>
+      <li><Trans i18nKey="install.ios1" ns="user" components={{ bold: <strong /> }} /></li>
+      <li>{t("user:install.ios2")} <Share className="install-inline-glyph" size={14} aria-label={t("user:install.shareIcon")} />.</li>
+      <li><Trans i18nKey="install.ios3" ns="user" components={{ bold: <strong /> }} /></li>
+    </ol>
+  );
+}
 
-const androidSteps = (
-  <ol>
-    <li>Open this page in <strong>Chrome</strong>.</li>
-    <li>Tap the <strong>⋮</strong> menu (top-right).</li>
-    <li>Choose <strong>“Install app”</strong> (or “Add to Home screen”).</li>
-  </ol>
-);
+function AndroidSteps() {
+  return (
+    <ol>
+      <li><Trans i18nKey="install.android1" ns="user" components={{ bold: <strong /> }} /></li>
+      <li><Trans i18nKey="install.android2" ns="user" components={{ bold: <strong /> }} /></li>
+      <li><Trans i18nKey="install.android3" ns="user" components={{ bold: <strong /> }} /></li>
+    </ol>
+  );
+}
 
 // Polished, platform-aware install card for the mobile app. Hidden once running
 // as the installed app. Shows the detected platform's instructions; falls back to
 // both phone platforms on desktop, and to a one-tap button when the browser offers it.
 export function InstallCard({
-  title = "Install the mobile app",
-  subtitle = "Add iSputnik to your home screen to listen offline, with lock-screen and Bluetooth controls."
+  title,
+  subtitle
 }: {
   title?: string;
   subtitle?: string;
 }) {
+  const { t } = useTranslation(["common", "user"]);
   const { installed, canPrompt, promptInstall } = useInstall();
   if (installed) return null;
 
   const ios = isIos();
   const android = isAndroid();
+  const cardTitle = title ?? t("user:install.title");
+  const cardSubtitle = subtitle ?? t("user:install.subtitle");
 
   return (
     <div className="install-card">
       <div className="install-card-head">
         <span className="install-card-icon" aria-hidden="true"><Smartphone size={22} /></span>
         <div className="install-card-text">
-          <strong>{title}</strong>
-          <span>{subtitle}</span>
+          <strong>{cardTitle}</strong>
+          <span>{cardSubtitle}</span>
         </div>
       </div>
 
@@ -97,21 +106,21 @@ export function InstallCard({
           <div className="install-platform">
             <div className="install-platform-row static">
               <span className="install-platform-glyph">{android ? <AndroidGlyph /> : <Smartphone size={20} />}</span>
-              <span className="install-platform-name">{android ? "Android" : "This device"}<span>Chrome &amp; Edge</span></span>
+              <span className="install-platform-name">{android ? "Android" : t("user:install.thisDevice")}<span>Chrome &amp; Edge</span></span>
               <button type="button" className="install-cta-btn" onClick={() => void promptInstall()}>
                 <Download size={16} aria-hidden="true" />
-                <span>Install</span>
+                <span>{t("user:install.install")}</span>
               </button>
             </div>
           </div>
         ) : ios ? (
-          <PlatformPanel glyph={<AppleGlyph />} name="iPhone & iPad" sub="Safari" defaultOpen>{iosSteps}</PlatformPanel>
+          <PlatformPanel glyph={<AppleGlyph />} name={t("user:install.iphoneIpad")} sub="Safari" defaultOpen><IosSteps /></PlatformPanel>
         ) : android ? (
-          <PlatformPanel glyph={<AndroidGlyph />} name="Android" sub="Chrome & Edge" defaultOpen>{androidSteps}</PlatformPanel>
+          <PlatformPanel glyph={<AndroidGlyph />} name="Android" sub="Chrome & Edge" defaultOpen><AndroidSteps /></PlatformPanel>
         ) : (
           <>
-            <PlatformPanel glyph={<AppleGlyph />} name="iPhone & iPad" sub="Safari">{iosSteps}</PlatformPanel>
-            <PlatformPanel glyph={<AndroidGlyph />} name="Android" sub="Chrome & Edge">{androidSteps}</PlatformPanel>
+            <PlatformPanel glyph={<AppleGlyph />} name={t("user:install.iphoneIpad")} sub="Safari"><IosSteps /></PlatformPanel>
+            <PlatformPanel glyph={<AndroidGlyph />} name="Android" sub="Chrome & Edge"><AndroidSteps /></PlatformPanel>
           </>
         )}
       </div>

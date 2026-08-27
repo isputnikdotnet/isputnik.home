@@ -116,7 +116,7 @@ describe("who can remove what", () => {
     mount([note({ mine: true, canDelete: true })]);
     await screen.findByText("the middle drags");
 
-    await user.click(screen.getByRole("button", { name: "Remove note by you" }));
+    await user.click(screen.getByRole("button", { name: "Remove your note" }));
 
     const dialog = await screen.findByRole("alertdialog");
     expect(within(dialog).getByText("Remove this note?")).toBeInTheDocument();

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Check, ListMusic, Plus, X } from "lucide-react";
 import { api } from "../../api";
 import { MessageBox } from "../../shared/MessageBox";
@@ -37,6 +38,7 @@ export function AddToCollectionModal({
   // many were actually added, duplicates excluded).
   onAdded?: (collectionName: string, added: number) => void;
 } & AddTarget) {
+  const { t } = useTranslation(["common", "user"]);
   const [collections, setCollections] = useState<CollectionSummary[] | null>(null);
   const [error, setError] = useState("");
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -49,7 +51,7 @@ export function AddToCollectionModal({
     );
     api<{ collections: CollectionSummary[] }>(`/api/collections?${params}`)
       .then((payload) => setCollections(payload.collections))
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load collections"));
+      .catch((err) => setError(err instanceof Error ? err.message : t("user:collections.loadFailed")));
   };
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -83,7 +85,7 @@ export function AddToCollectionModal({
       }
       load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to update collection");
+      setError(err instanceof Error ? err.message : t("user:collections.updateFailed"));
     } finally {
       setPendingId(null);
     }
@@ -110,14 +112,14 @@ export function AddToCollectionModal({
       setCreating(false);
       load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to create collection");
+      setError(err instanceof Error ? err.message : t("user:collections.createFailed"));
     }
   };
 
   return (
     <Modal
       variant="panel"
-      title="Add to collection"
+      title={t("user:collections.addTo")}
       icon={<ListMusic size={20} />}
       className="add-to-collection-modal"
       onClose={onClose}
@@ -125,7 +127,7 @@ export function AddToCollectionModal({
         <div className="modal-tab-content">
           <p className="muted add-to-collection-subtitle">{title}</p>
 
-          {error && <MessageBox tone="error" title="Collections error">{error}</MessageBox>}
+          {error && <MessageBox tone="error" title={t("user:collections.errorTitle")}>{error}</MessageBox>}
 
           <div className="collection-pick-list">
             {(collections ?? []).map((collection) => (
@@ -140,14 +142,14 @@ export function AddToCollectionModal({
                 </span>
                 <span className="collection-pick-text">
                   <strong>{collection.name}</strong>
-                  <small>{collection.itemCount} {collection.itemCount === 1 ? "item" : "items"}</small>
+                  <small>{t("user:count.items", { count: collection.itemCount })}</small>
                 </span>
               </button>
             ))}
             {collections && collections.length === 0 && (
-              <p className="management-empty">No collections yet — create one below.</p>
+              <p className="management-empty">{t("user:collections.noneYetCreate")}</p>
             )}
-            {collections === null && <p className="management-empty">Loading…</p>}
+            {collections === null && <p className="management-empty">{t("user:common.loading")}</p>}
           </div>
 
           {creating ? (
@@ -157,16 +159,16 @@ export function AddToCollectionModal({
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") void createAndAdd(); if (e.key === "Escape") { e.stopPropagation(); setCreating(false); } }}
-                placeholder="New collection name…"
+                placeholder={t("user:collections.newNamePlaceholder")}
                 maxLength={120}
               />
-              <button className="primary-button compact-button" onClick={createAndAdd} disabled={!newName.trim()}>Create &amp; add</button>
+              <button className="primary-button compact-button" onClick={createAndAdd} disabled={!newName.trim()}>{t("user:collections.createAndAdd")}</button>
               <button className="secondary-button compact-button" onClick={() => setCreating(false)}><X size={15} /></button>
             </div>
           ) : (
             <button className="secondary-button add-to-collection-new" onClick={() => setCreating(true)}>
               <Plus size={16} />
-              <span>New collection</span>
+              <span>{t("user:collections.newCollection")}</span>
             </button>
           )}
         </div>
