@@ -1890,3 +1890,64 @@
     transition: box-shadow 0.25s ease, border-color 0.25s ease;
   }
 }
+
+/* The quote editor outgrew the 420px card: ten fields in a column that narrow is
+   a very long scroll. Wider, with the secondary fields two abreast — the quote
+   itself and the note stay full width, since those are what you actually type. */
+.confirm-modal.quote-editor-modal {
+  width: min(94vw, 680px);
+}
+
+@media (min-width: 620px) {
+  .quote-editor-modal .quote-field-row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Search over the whole library, not just the page on screen. */
+.quote-search {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 14px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--field);
+}
+
+.quote-search:focus-within {
+  border-color: var(--mint);
+}
+
+.quote-search svg {
+  flex: none;
+  color: var(--muted);
+}
+
+.quote-search input {
+  width: 100%;
+  min-height: 42px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+}
+
+.quote-search input:focus {
+  outline: none;
+}
+
+/* How many quotes a category holds — counted over the whole match, so it does
+   not change as you scroll. */
+.quote-filter-count {
+  margin-left: 6px;
+  opacity: 0.65;
+  font-size: 0.78rem;
+}
+
+.quote-load-more {
+  display: flex;
+  justify-content: center;
+  margin-top: 18px;
+}

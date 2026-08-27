@@ -210,7 +210,14 @@
     "clearedImported_one": "Удалена {{count}} импортированная цитата.",
     "clearedImported_few": "Удалено {{count}} импортированные цитаты.",
     "clearedImported_many": "Удалено {{count}} импортированных цитат.",
-    "clearedImported_other": "Удалено {{count}} импортированные цитаты."
+    "clearedImported_other": "Удалено {{count}} импортированные цитаты.",
+    "clearImportedAll": "Удалить все мои импортированные",
+    "clearImportedAllTitle": "Удалить все ваши цитаты, добавленные из файлов?",
+    "searchPlaceholder": "Поиск по цитатам, авторам, контексту…",
+    "searchAria": "Поиск по цитатам",
+    "loadMore": "Показать ещё",
+    "loadingMore": "Загрузка…",
+    "showingOf": "Показано {{shown}} из {{total}}"
   },
   "shared": {
     "eyebrow": "Семья",

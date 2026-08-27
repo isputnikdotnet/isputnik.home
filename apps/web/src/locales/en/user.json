@@ -176,7 +176,14 @@
     "clearImportedConfirm": "Delete imported quotes",
     "clearImportedBody": "This removes only the quotes you brought in from a file. Quotes you typed in, passages you highlighted while reading, and everyone else's quotes are not affected — and the pack can always be imported again.",
     "clearedImported_one": "Deleted {{count}} imported quote.",
-    "clearedImported_other": "Deleted {{count}} imported quotes."
+    "clearedImported_other": "Deleted {{count}} imported quotes.",
+    "clearImportedAll": "Delete everything I imported",
+    "clearImportedAllTitle": "Delete every quote you imported from a file?",
+    "searchPlaceholder": "Search quotes, authors, context…",
+    "searchAria": "Search quotes",
+    "loadMore": "Load more",
+    "loadingMore": "Loading…",
+    "showingOf": "Showing {{shown}} of {{total}}"
   },
   "shared": {
     "eyebrow": "Family",

@@ -323,3 +323,120 @@ describe("who said it", () => {
     expect((asOther.json().quotes as { text: string }[]).map((q) => q.text)).toEqual(["Shared saying"]);
   });
 });
+
+describe("searching and paging the quote library", () => {
+  // A family that imports a couple of packs has thousands of these, so the page
+  // asks for a slice. Everything that narrows it happens in SQL — a filter
+  // applied after the LIMIT would page over rows it then discarded, giving short
+  // pages and a total that lies.
+  async function list(params: string, user = "member") {
+    const res = await app.inject({
+      method: "GET",
+      url: `/api/library/quotes${params}`,
+      headers: { "x-test-user": user }
+    });
+    return res.json() as {
+      quotes: { id: string; text: string; tags: string[] }[];
+      total: number;
+      categories: { name: string; count: number }[];
+    };
+  }
+
+  it("returns a page and the true total behind it", async () => {
+    for (let i = 0; i < 12; i += 1) await post({ text: `Quote number ${i}` });
+
+    const first = await list("?limit=5");
+    expect(first.quotes).toHaveLength(5);
+    expect(first.total).toBe(12);
+
+    const second = await list("?limit=5&offset=5");
+    expect(second.quotes).toHaveLength(5);
+    expect(second.total).toBe(12);
+    // No overlap: the two pages are different quotes.
+    const ids = new Set([...first.quotes, ...second.quotes].map((q) => q.id));
+    expect(ids.size).toBe(10);
+
+    // The tail is short, not padded.
+    expect((await list("?limit=5&offset=10")).quotes).toHaveLength(2);
+  });
+
+  it("caps an over-eager limit rather than obeying it", async () => {
+    await post({ text: "Just the one" });
+    const res = await list("?limit=5000");
+    expect(res.quotes).toHaveLength(1);
+  });
+
+  it("searches the words, the author, and the context", async () => {
+    await post({ text: "A passage about sailing", sourceAuthor: "Melville" });
+    await post({ text: "Something else", context: "At the harbour" });
+    await post({ text: "Unrelated" });
+
+    expect((await list("?q=sailing")).total).toBe(1);
+    expect((await list("?q=melville")).total).toBe(1);
+    expect((await list("?q=harbour")).total).toBe(1);
+    expect((await list("?q=nothing here")).total).toBe(0);
+  });
+
+  it("searches Russian case-insensitively, which SQLite alone cannot", async () => {
+    await post({ text: "Цитата дня", sourceAuthor: "Чехов" });
+
+    // Lower-case needle against capitalised text: SQLite's own LIKE folds ASCII
+    // only, so this is the case that proves lower_unicode() is doing the work.
+    expect((await list("?q=цитата")).total).toBe(1);
+    expect((await list("?q=ЧЕХОВ")).total).toBe(1);
+    expect((await list("?q=ЦИТАТА ДНЯ")).total).toBe(1);
+  });
+
+  it("narrows by origin, rotation and owner", async () => {
+    await post({ text: "Typed one", inRotation: true });
+    await post({ text: "Typed two" });
+    makeUser("relative");
+    await post({ text: "Someone else's shared one", visibility: "family" }, "relative");
+
+    expect((await list("")).total).toBe(3);
+    expect((await list("?filter=mine")).total).toBe(2);
+    expect((await list("?filter=rotation")).total).toBe(1);
+    expect((await list("?filter=manual")).total).toBe(3);
+    expect((await list("?filter=import")).total).toBe(0);
+  });
+
+  it("narrows by category, whatever case the chip was written in", async () => {
+    await post({ text: "Funny one", tags: ["Funny"] });
+    await post({ text: "Wise one", tags: ["Wisdom"] });
+
+    expect((await list("?tag=Funny")).total).toBe(1);
+    expect((await list("?tag=funny")).total).toBe(1);
+    expect((await list("?tag=Nonexistent")).total).toBe(0);
+  });
+
+  it("counts categories over the whole match, not just the page on screen", async () => {
+    for (let i = 0; i < 8; i += 1) await post({ text: `Funny ${i}`, tags: ["Funny"] });
+    await post({ text: "Wise one", tags: ["Wisdom"] });
+
+    const page = await list("?limit=2");
+    expect(page.quotes).toHaveLength(2);
+    // Two on screen, but the chip still says how many there are in total.
+    expect(page.categories.find((c) => c.name === "Funny")?.count).toBe(8);
+    expect(page.categories.find((c) => c.name === "Wisdom")?.count).toBe(1);
+  });
+
+  it("counts categories within the active search, so the chips follow it", async () => {
+    await post({ text: "Sailing away", tags: ["Funny"] });
+    await post({ text: "Staying home", tags: ["Funny"] });
+
+    const all = await list("");
+    expect(all.categories.find((c) => c.name === "Funny")?.count).toBe(2);
+
+    const searched = await list("?q=sailing");
+    expect(searched.categories.find((c) => c.name === "Funny")?.count).toBe(1);
+  });
+
+  it("still hands the reader every highlight for its document, unpaged", async () => {
+    for (let i = 0; i < 3; i += 1) {
+      await post({ text: `Highlight ${i}`, itemId: "item1", documentId: "doc1", cfi: `/6/${i}` });
+    }
+    const res = await list("?documentId=doc1&limit=1");
+    // The margin needs all of them, so the reader's request ignores paging.
+    expect(res.quotes).toHaveLength(3);
+  });
+});

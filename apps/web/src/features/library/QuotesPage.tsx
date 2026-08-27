@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { BookOpen, Copy, ListPlus, Pencil, Plus, Quote as QuoteIcon, Trash2 } from "lucide-react";
+import { BookOpen, Copy, ListPlus, Pencil, Plus, Quote as QuoteIcon, Search, Trash2 } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { UserAreaNav } from "./UserAreaNav";
@@ -110,36 +110,21 @@ const UI_LANGUAGES = [
 // Same partial ISO dates as a family member's birth date: a year, a month, or a day.
 const PARTIAL_DATE = /^\d{4}(-\d{2}(-\d{2})?)?$/;
 
-// The page shows the whole house's shared quotes as well as your own, so finding
-// one slice of a long list is the everyday case: who saved it, where it came from,
-// whether it is in the daily card, and which category it wears. A "tag:" filter is
-// any category quotes actually use — free-form, so the row grows only as the
-// library does. Anything richer belongs in a real toolbar, which this user-area
-// page (unlike a library browse page) does not wear.
+// The page shows the whole house's shared quotes as well as your own, and a
+// family that imports a couple of packs has thousands — so searching, filtering
+// and paging all happen on the server, and this file renders what it is given.
+// A "tag:" filter is any category quotes actually wear, offered with its count.
 const QUOTE_FILTERS = ["all", "mine", "import", "reader", "manual", "rotation"] as const;
 type BuiltInFilter = (typeof QUOTE_FILTERS)[number];
 type QuoteFilter = BuiltInFilter | `tag:${string}`;
 
-/** Categories worth offering: the ones quotes actually wear, most-used first. */
-const SHOWN_TAG_FILTERS = 8;
+/** One request's worth of quotes. The server caps this; asking for more is futile. */
+const PAGE_SIZE = 50;
 
-function matchesFilter(quote: Quote, filter: QuoteFilter): boolean {
-  if (filter === "all") return true;
-  if (filter === "mine") return quote.mine;
-  if (filter === "rotation") return quote.inRotation;
-  if (filter.startsWith("tag:")) return quote.tags.includes(filter.slice(4));
-  return quote.origin === filter;
-}
-
-function popularTags(quotes: Quote[]): string[] {
-  const counts = new Map<string, number>();
-  for (const quote of quotes) {
-    for (const tag of quote.tags) counts.set(tag, (counts.get(tag) ?? 0) + 1);
-  }
-  return [...counts.entries()]
-    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-    .slice(0, SHOWN_TAG_FILTERS)
-    .map(([tag]) => tag);
+interface QuotePage {
+  quotes: Quote[];
+  total: number;
+  categories?: { name: string; count: number }[];
 }
 
 // The metadata half of a quote, shaped for both write routes: an emptied field
@@ -206,6 +191,7 @@ function QuoteEditor({
   return (
     <Modal
       variant="card"
+      className="quote-editor-modal"
       title={editing ? t("user:quotes.editTitle") : t("user:quotes.addTitle")}
       icon={<QuoteIcon size={18} />}
       busy={busy}
@@ -382,14 +368,83 @@ export function QuotesPage({
   const [highlighted, setHighlighted] = useState("");
   const [clearingImports, setClearingImports] = useState(false);
   const [clearBusy, setClearBusy] = useState(false);
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [total, setTotal] = useState(0);
+  const [categories, setCategories] = useState<{ name: string; count: number }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const jumped = useRef(false);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
 
-  const loadQuotes = () =>
-    api<{ quotes: Quote[] }>("/api/library/quotes")
-      .then((payload) => setQuotes(payload.quotes))
-      .catch((err) => setError(err instanceof Error ? err.message : t("user:quotes.loadFailed")));
+  // What the server was asked for, so a reply that arrives late — a slow search
+  // overtaken by a faster one — can be dropped instead of overwriting the newer
+  // answer with a stale list.
+  const requestId = useRef(0);
 
-  useEffect(() => { void loadQuotes(); }, []);
+  const query = useMemo(() => {
+    const params = new URLSearchParams({ limit: String(PAGE_SIZE) });
+    if (debouncedSearch) params.set("q", debouncedSearch);
+    if (filter.startsWith("tag:")) params.set("tag", filter.slice(4));
+    else if (filter !== "all") params.set("filter", filter);
+    return params;
+  }, [debouncedSearch, filter]);
+
+  const loadQuotes = useCallback(async () => {
+    const id = ++requestId.current;
+    setLoading(true);
+    try {
+      const payload = await api<QuotePage>(`/api/library/quotes?${query}`);
+      if (requestId.current !== id) return;
+      setQuotes(payload.quotes);
+      setTotal(payload.total);
+      setCategories(payload.categories ?? []);
+      setError("");
+    } catch (err) {
+      if (requestId.current !== id) return;
+      setError(err instanceof Error ? err.message : t("user:quotes.loadFailed"));
+    } finally {
+      if (requestId.current === id) setLoading(false);
+    }
+  }, [query]);
+
+  useEffect(() => { void loadQuotes(); }, [loadQuotes]);
+
+  // The next page, appended. `quotes.length` is the offset because the list only
+  // ever grows forwards — changing the search or a filter starts a fresh load.
+  const loadMore = useCallback(async () => {
+    if (loading || loadingMore || !quotes || quotes.length >= total) return;
+    const id = requestId.current;
+    setLoadingMore(true);
+    try {
+      const payload = await api<QuotePage>(`/api/library/quotes?${query}&offset=${quotes.length}`);
+      if (requestId.current !== id) return;
+      setQuotes((current) => [...(current ?? []), ...payload.quotes]);
+      setTotal(payload.total);
+    } catch {
+      // Leave what is already on screen; the sentinel will try again on scroll.
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loading, loadingMore, quotes, total, query]);
+
+  // Load the next page as the end of the list nears the viewport, with the
+  // button below as the fallback for anyone who never scrolls it into view.
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0]?.isIntersecting) void loadMore();
+    }, { rootMargin: "600px" });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [loadMore]);
+
+  // Typing shouldn't fire a query per keystroke over thousands of rows.
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 250);
+    return () => window.clearTimeout(timer);
+  }, [search]);
 
   // The family tree, for the editor's "who said it" picker. Reading the tree is
   // open to every signed-in user; an install with no tree simply gets no field.
@@ -399,48 +454,54 @@ export function QuotesPage({
       .catch(() => setFamilyMembers([]));
   }, []);
 
-  const visible = useMemo(() => (quotes ?? []).filter((q) => matchesFilter(q, filter)), [quotes, filter]);
-  const groups = useMemo(() => groupBySource(visible), [visible]);
-  const total = visible.length;
+  const groups = useMemo(() => groupBySource(quotes ?? []), [quotes]);
+  const loaded = quotes?.length ?? 0;
+  const hasMore = loaded < total;
   // Which filters would actually show something — a chip that can only ever lead
   // to an empty page is noise, so an install with no imports never sees one.
-  // Arriving from a collection (or any ?quote= link): show that quote whatever
-  // the current filter is, scroll to it, and flash it so the eye finds it in a
-  // long list. Once only — later edits re-set  and must not re-jump.
+  // Arriving from a collection (or any ?quote= link): scroll to that quote and
+  // flash it so the eye finds it. Once only — later edits re-set `quotes` and
+  // must not re-jump.
+  //
+  // The list is paged now, so the quote may simply not be loaded yet. Keep
+  // paging toward it rather than silently doing nothing, which is what the link
+  // would otherwise do for anything past the first page.
   useEffect(() => {
     if (!quotes || jumped.current) return;
     const wanted = new URLSearchParams(window.location.search).get("quote");
-    if (!wanted || !quotes.some((quote) => quote.id === wanted)) return;
+    if (!wanted) { jumped.current = true; return; }
+
+    if (!quotes.some((quote) => quote.id === wanted)) {
+      if (loaded < total) void loadMore();
+      else jumped.current = true;   // Gone, or not ours to see. Stop looking.
+      return;
+    }
+
     jumped.current = true;
-    setFilter("all");
     setHighlighted(wanted);
     window.requestAnimationFrame(() => {
+      // Instant, not smooth: after paging toward a quote 200 rows down, a smooth
+      // scroll takes longer than the flash lasts, so the viewer arrives to find
+      // nothing marked. Jump, then flash.
       document.querySelector(`[data-quote-id="${wanted}"]`)
-        ?.scrollIntoView({ block: "center", behavior: "smooth" });
+        ?.scrollIntoView({ block: "center" });
     });
-    const timer = window.setTimeout(() => setHighlighted(""), 2500);
+    const timer = window.setTimeout(() => setHighlighted(""), 3000);
     return () => window.clearTimeout(timer);
-  }, [quotes]);
+  }, [quotes, loaded, total, loadMore]);
 
-  // Mine only: the route deletes the caller's own imported quotes, so the number
-  // the confirmation names has to be the number that will actually go.
-  const myImportCount = useMemo(
-    () => (quotes ?? []).filter((quote) => quote.mine && quote.origin === "import").length,
-    [quotes]
-  );
-
-  // Every category anyone has used, for the editor's type-ahead.
+  // Categories the server counted over the whole match, so a chip says how many
+  // there are rather than how many happen to be loaded.
   const knownTags = useMemo(
-    () => [...new Set((quotes ?? []).flatMap((q) => q.tags))].sort((a, b) => a.localeCompare(b)),
-    [quotes]
+    () => categories.map((entry) => entry.name).sort((a, b) => a.localeCompare(b)),
+    [categories]
   );
   const offered = useMemo<QuoteFilter[]>(
-    () => [
-      ...QUOTE_FILTERS.filter((key) => key === "all" || (quotes ?? []).some((q) => matchesFilter(q, key))),
-      ...popularTags(quotes ?? []).map((tag) => `tag:${tag}` as QuoteFilter)
-    ],
-    [quotes]
+    () => [...QUOTE_FILTERS, ...categories.map((entry) => `tag:${entry.name}` as QuoteFilter)],
+    [categories]
   );
+  const countFor = (key: QuoteFilter) =>
+    key.startsWith("tag:") ? categories.find((c) => c.name === key.slice(4))?.count : undefined;
 
   const openAdd = () => { setEditing(null); setSaveError(""); setEditorOpen(true); };
   const openEdit = (quote: Quote) => { setEditing(quote); setSaveError(""); setEditorOpen(true); };
@@ -550,6 +611,17 @@ export function QuotesPage({
 
         {error && <MessageBox tone="error" title={t("user:quotes.errorTitle")}>{error}</MessageBox>}
 
+        <label className="quote-search">
+          <Search size={16} aria-hidden="true" />
+          <input
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder={t("user:quotes.searchPlaceholder")}
+            aria-label={t("user:quotes.searchAria")}
+          />
+        </label>
+
         {offered.length > 1 && (
           <div className="quote-filters" role="group" aria-label={t("user:quotes.filterLabel")}>
             {offered.map((key) => (
@@ -563,13 +635,16 @@ export function QuotesPage({
                 {key.startsWith("tag:")
                   ? key.slice(4)
                   : t(`user:quotes.filters.${key}` as "user:quotes.filters.all")}
+                {countFor(key) !== undefined && (
+                  <span className="quote-filter-count">{countFor(key)}</span>
+                )}
               </button>
             ))}
             {/* The undo for a bulk import, offered where its result is on screen.
                 Counts only your own — the route cannot touch anyone else's. */}
-            {filter === "import" && myImportCount > 0 && (
+            {filter === "import" && total > 0 && (
               <Button variant="text" danger compact onClick={() => setClearingImports(true)}>
-                <Trash2 size={15} /> {t("user:quotes.clearImported", { count: myImportCount })}
+                <Trash2 size={15} /> {t("user:quotes.clearImportedAll")}
               </Button>
             )}
           </div>
@@ -578,15 +653,19 @@ export function QuotesPage({
         {quotes === null ? (
           <p className="management-empty">{t("user:quotes.loading")}</p>
         ) : quotes.length === 0 ? (
-          <div className="empty-state library-empty">
-            <QuoteIcon size={58} aria-hidden="true" />
-            <h2>{t("user:quotes.emptyHeading")}</h2>
-            <p className="muted">
-              {t("user:quotes.empty")}
-            </p>
-          </div>
-        ) : visible.length === 0 ? (
-          <p className="management-empty">{t("user:quotes.noneMatchFilter")}</p>
+          // A search or filter that matches nothing is not an empty library, and
+          // saying "no quotes yet" to someone with 3,000 of them would be absurd.
+          debouncedSearch || filter !== "all" ? (
+            <p className="management-empty">{t("user:quotes.noneMatchFilter")}</p>
+          ) : (
+            <div className="empty-state library-empty">
+              <QuoteIcon size={58} aria-hidden="true" />
+              <h2>{t("user:quotes.emptyHeading")}</h2>
+              <p className="muted">
+                {t("user:quotes.empty")}
+              </p>
+            </div>
+          )
         ) : (
           <>
             <div className="quote-groups">
@@ -698,8 +777,21 @@ export function QuotesPage({
               ))}
             </div>
 
+            {/* Infinite scroll, with the button as the fallback for anyone who
+                never brings the sentinel into view. Same pattern the library
+                browse pages use. */}
+            {hasMore && (
+              <div className="quote-load-more" ref={sentinelRef}>
+                <Button variant="secondary" disabled={loadingMore} onClick={() => void loadMore()}>
+                  {loadingMore ? t("user:quotes.loadingMore") : t("user:quotes.loadMore")}
+                </Button>
+              </div>
+            )}
+
             <p className="bookmark-footer">
-              {t("user:quotes.sources", { count: groups.length })} · {t("user:quotes.count", { count: total })}
+              {loaded < total
+                ? t("user:quotes.showingOf", { shown: loaded, total })
+                : t("user:quotes.count", { count: total })}
             </p>
           </>
         )}
@@ -734,7 +826,7 @@ export function QuotesPage({
 
       {clearingImports && (
         <ConfirmDialog
-          title={t("user:quotes.clearImportedTitle", { count: myImportCount })}
+          title={t("user:quotes.clearImportedAllTitle")}
           confirmLabel={t("user:quotes.clearImportedConfirm")}
           busyLabel={t("user:actions.deleting")}
           danger

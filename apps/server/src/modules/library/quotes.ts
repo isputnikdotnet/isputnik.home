@@ -30,7 +30,7 @@ import {
   getReadableDocument
 } from "./shared/library-access.js";
 import { userHasItemShare } from "./shared/share-access.js";
-import { setEntityTags } from "./audiobook/categorize.js";
+import { normalizeText, setEntityTags } from "./audiobook/categorize.js";
 import { mediaKind } from "./shared/library-types.js";
 // A quote's date is the same partial ISO date a family member's birth date is
 // ('YYYY' | 'YYYY-MM' | 'YYYY-MM-DD'), deliberately: the two sort and read alike,
@@ -39,6 +39,12 @@ import { partialDateSchema } from "../familytree/persons.js";
 
 /** A quote's name in the polymorphic tag (and later collection) tables. */
 export const QUOTE_ENTITY_TYPE = "quote";
+
+/** One screenful of the Quotes page, and the most a caller may ask for. */
+const DEFAULT_PAGE = 50;
+const MAX_PAGE = 100;
+/** Category chips offered as filters — the most-used, not every tag ever. */
+const MAX_CATEGORY_FILTERS = 12;
 
 interface QuoteRow {
   id: string;
@@ -227,44 +233,135 @@ function resolveSpeaker(personId: string | null | undefined): { id: string | nul
 export function registerQuoteRoutes(app: FastifyInstance) {
   // All my quotes (Quotes page), or just one document's quotes (the reader, to
   // redraw its highlights) when ?documentId is given.
+  //
+  // The page pages. A family that imports a couple of quote packs has thousands
+  // of these, and answering with every one of them — to be filtered and grouped
+  // in the browser — stopped being reasonable the moment bulk import existed.
+  // Search, filter and paging all happen in SQL; the client renders what it is
+  // given and asks for more.
   app.get("/api/library/quotes", { preHandler: app.authenticate }, async (request, reply) => {
     const user = request.user!;
-    const query = request.query as { documentId?: string; personId?: string };
+    const query = request.query as {
+      documentId?: string; personId?: string; q?: string;
+      filter?: string; tag?: string; offset?: string; limit?: string;
+    };
     const documentId = (query.documentId ?? "").trim();
     const personId = (query.personId ?? "").trim();
+    const search = (query.q ?? "").trim();
+    const filter = (query.filter ?? "").trim();
+    const tag = (query.tag ?? "").trim();
+    const offset = Math.max(0, Number(query.offset) || 0);
+    const limit = Math.min(MAX_PAGE, Math.max(1, Number(query.limit) || DEFAULT_PAGE));
 
     // The reader asks per document and wants ITS OWN highlights back to redraw —
-    // never someone else's. The page, though, is the family's quote library: your
-    // own quotes plus every quote anyone marked as shared.
-    // ?personId scopes to one family member's sayings, for their profile. Reading
-    // the tree is open to every signed-in user, so the only gate is the quote's
-    // own visibility — the same shared-or-mine rule the page uses.
-    const shared = "(q.user_id = ? OR q.visibility = 'family')";
-    const where = documentId
-      ? "WHERE q.user_id = ? AND q.document_id = ?"
-      : personId
-        ? `WHERE ${shared} AND q.family_tree_person_id = ?`
-        : `WHERE ${shared}`;
-    const params = documentId
-      ? [user.id, documentId]
-      : personId ? [user.id, personId] : [user.id];
+    // never someone else's, and never a page of them: it needs the lot to paint
+    // the margins.
+    if (documentId) {
+      const rows = db.prepare(`
+        ${QUOTE_SELECT} WHERE q.user_id = ? AND q.document_id = ?
+        GROUP BY q.id ORDER BY datetime(q.created_at) DESC
+      `).all(user.id, documentId) as QuoteRow[];
+      const tags = tagsForQuotes(rows.map((row) => row.id));
+      return reply.send({
+        quotes: rows.map((row) => publicQuote(row, user.id, tags.get(row.id) ?? [])),
+        total: rows.length
+      });
+    }
+
+    const where: string[] = [];
+    const args: (string | number)[] = [];
+
+    // Your own quotes plus every quote anyone marked as shared — the rule every
+    // quote surface uses.
+    where.push("(q.user_id = ? OR q.visibility = 'family')");
+    args.push(user.id);
+
+    // Access to item-linked quotes, in SQL rather than a JS pass afterwards: a
+    // filter applied after the LIMIT would page over rows it then threw away,
+    // giving short pages and a total that lies.
+    const allowed = [...accessibleLibraryIds(user.id, user.role)];
+    where.push(`(
+      q.item_id IS NULL
+      OR library_items.id IS NULL
+      ${allowed.length > 0 ? `OR library_items.library_id IN (${allowed.map(() => "?").join(", ")})` : ""}
+      OR EXISTS (
+        SELECT 1 FROM shares
+        WHERE shares.resource_id = q.item_id
+          AND shares.user_id = ?
+          AND shares.module = CASE libraries.type
+            WHEN 'ebook' THEN 'ebook' WHEN 'gallery' THEN 'gallery' ELSE 'audiobook' END
+          AND shares.revoked_at IS NULL
+          AND (shares.expires_at IS NULL OR datetime(shares.expires_at) > datetime('now'))
+      )
+    )`);
+    args.push(...allowed, user.id);
+
+    // ?personId scopes to one family member's sayings, for their profile.
+    if (personId) {
+      where.push("q.family_tree_person_id = ?");
+      args.push(personId);
+    }
+    if (filter === "mine") {
+      where.push("q.user_id = ?");
+      args.push(user.id);
+    } else if (filter === "rotation") {
+      where.push("q.in_rotation = 1");
+    } else if (filter === "import" || filter === "reader" || filter === "manual") {
+      where.push("q.origin = ?");
+      args.push(filter);
+    }
+    if (tag) {
+      where.push(`EXISTS (
+        SELECT 1 FROM taggables
+        JOIN tags ON tags.id = taggables.tag_id
+        WHERE taggables.entity_type = ? AND taggables.entity_id = q.id AND tags.key = ?
+      )`);
+      args.push(QUOTE_ENTITY_TYPE, normalizeText(tag));
+    }
+    if (search) {
+      // lower_unicode(), not LIKE's own folding: SQLite only case-folds ASCII, so
+      // a search for "цитата" would miss "Цитата" — half this library is Russian.
+      const columns = ["q.text", "q.source_title", "q.source_author", "q.person_name", "q.context", "q.note"];
+      where.push(`(${columns.map((c) => `lower_unicode(${c}) LIKE ?`).join(" OR ")})`);
+      const needle = `%${search.toLowerCase()}%`;
+      args.push(...columns.map(() => needle));
+    }
+
+    const whereSql = `WHERE ${where.join(" AND ")}`;
+    const from = `
+      FROM quotes q
+      LEFT JOIN library_items ON library_items.id = q.item_id AND library_items.deleted_at IS NULL
+      LEFT JOIN libraries ON libraries.id = library_items.library_id
+    `;
+
+    const { total } = db.prepare(`SELECT COUNT(*) AS total ${from} ${whereSql}`)
+      .get(...args) as { total: number };
+
     const rows = db.prepare(`
-      ${QUOTE_SELECT} ${where} GROUP BY q.id ORDER BY datetime(q.created_at) DESC
-    `).all(...params) as QuoteRow[];
+      ${QUOTE_SELECT} ${whereSql}
+      GROUP BY q.id ORDER BY datetime(q.created_at) DESC
+      LIMIT ? OFFSET ?
+    `).all(...args, limit, offset) as QuoteRow[];
 
-    // Item-linked quotes are filtered by current access; external/orphaned quotes
-    // (no live item) are always the user's own and always shown.
-    const allowed = accessibleLibraryIds(user.id, user.role);
-    const canSee = (row: QuoteRow) => {
-      if (!row.item_id || !row.library_id) return true;
-      return allowed.has(row.library_id)
-        || userHasItemShare(mediaKind(row.library_type!), row.item_id, user.id);
-    };
+    // The categories offered as filters, counted over everything the current
+    // search and filter match — not just this page, or the chips would change
+    // shape as you scrolled. The active tag is excluded from its own count so
+    // clearing it is possible.
+    const categoryArgs = args.slice(0, args.length);
+    const categories = db.prepare(`
+      SELECT tags.display_name AS name, COUNT(*) AS count
+      FROM taggables
+      JOIN tags ON tags.id = taggables.tag_id
+      WHERE taggables.entity_type = ?
+        AND taggables.entity_id IN (SELECT q.id ${from} ${whereSql})
+      GROUP BY tags.id ORDER BY count DESC, name ASC LIMIT ?
+    `).all(QUOTE_ENTITY_TYPE, ...categoryArgs, MAX_CATEGORY_FILTERS) as { name: string; count: number }[];
 
-    const visible = rows.filter(canSee);
-    const tags = tagsForQuotes(visible.map((row) => row.id));
+    const tags = tagsForQuotes(rows.map((row) => row.id));
     return reply.send({
-      quotes: visible.map((row) => publicQuote(row, user.id, tags.get(row.id) ?? []))
+      quotes: rows.map((row) => publicQuote(row, user.id, tags.get(row.id) ?? [])),
+      total,
+      categories
     });
   });
 

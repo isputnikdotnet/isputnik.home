@@ -88,6 +88,19 @@ db.pragma("journal_mode = WAL");
 db.pragma("synchronous = NORMAL");
 db.pragma("foreign_keys = ON");
 
+// SQLite's own LOWER() and LIKE fold ASCII and nothing else, so "Цитата" and
+// "цитата" are different words to it — which makes a case-insensitive search
+// useless in half the languages this app speaks. JS knows better, so lend it to
+// SQL. Deterministic (same input, same output), so SQLite may cache and index it.
+//
+// The alphabet index solves the same problem the other way, with a stored
+// alpha_key column, because it sorts every browse page; a search that runs on
+// demand over one user's quotes is cheaper to fold on the fly than to duplicate
+// on disk.
+db.function("lower_unicode", { deterministic: true }, (value: unknown) =>
+  typeof value === "string" ? value.toLowerCase() : value ?? null
+);
+
 // Apply the canonical schema + ordered migrations, then seed navigation data.
 migrate(db);
 seed(db);
