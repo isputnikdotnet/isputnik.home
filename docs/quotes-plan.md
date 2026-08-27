@@ -317,6 +317,12 @@ ordinary quote, still under the photo memory beside it.
 
 ## Cross-cutting
 
+- **Imports are events** (migration 50): `quote_imports` records each run and
+  `quotes.import_id` points at it, so one pack can be undone without touching
+  another. Importing moved to the control panel — **Utilities › Widgets ›
+  Quotes** — since curating what the house reads is an administrative act; the
+  Quotes page keeps reading, writing and the coarse "delete all imported", which
+  is still the only reach for quotes imported before migration 50.
 - **All six phases are done**, plus the user guide. What is left is a release:
   version bump in the three package.json files and a `versionUpdates` entry in
   status.ts.

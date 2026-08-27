@@ -69,7 +69,11 @@ const rowSchema = z.object({
 const envelopeSchema = z.object({
   version: z.number().int().optional(),
   defaults: defaultsSchema.optional(),
-  quotes: z.array(z.unknown()).min(1)
+  quotes: z.array(z.unknown()).min(1),
+  // What the admin picked, sent by the client so the import can be recognised
+  // later and undone as one event. Cosmetic, so a missing or silly name costs
+  // nothing but a nameless row in the list.
+  fileName: z.string().trim().max(255).optional()
 });
 
 type ImportRow = z.infer<typeof rowSchema>;
@@ -90,6 +94,65 @@ function describe(error: z.ZodError): string {
 }
 
 export function registerQuoteImportRoutes(app: FastifyInstance) {
+  // The runs this admin has made, newest first — the list the manage page shows.
+  // `quoteCount` is recomputed rather than read from the stored count, so a run
+  // whose quotes were deleted one by one reports what is actually left.
+  app.get("/api/library/quotes/imports", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const user = request.user!;
+    const rows = db.prepare(`
+      SELECT i.id, i.file_name, i.created_at, i.quote_count AS imported_count,
+        (SELECT COUNT(*) FROM quotes q WHERE q.import_id = i.id AND q.user_id = i.user_id) AS remaining
+      FROM quote_imports i
+      WHERE i.user_id = ?
+      ORDER BY datetime(i.created_at) DESC
+    `).all(user.id) as {
+      id: string; file_name: string | null; created_at: string;
+      imported_count: number; remaining: number;
+    }[];
+
+    return reply.send({
+      imports: rows.map((row) => ({
+        id: row.id,
+        fileName: row.file_name,
+        createdAt: row.created_at,
+        importedCount: row.imported_count,
+        remainingCount: row.remaining
+      }))
+    });
+  });
+
+  // Undo one run: its quotes, their tag links, and the record itself. Scoped to
+  // the caller's own rows like every other quote delete, so one admin can never
+  // clear another's import.
+  app.delete("/api/library/quotes/imports/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const user = request.user!;
+    const importId = (request.params as { id: string }).id;
+
+    const record = db.prepare("SELECT id, file_name FROM quote_imports WHERE id = ? AND user_id = ?")
+      .get(importId, user.id) as { id: string; file_name: string | null } | undefined;
+    if (!record) return reply.code(404).send({ error: "Import not found" });
+
+    const ids = (db.prepare("SELECT id FROM quotes WHERE import_id = ? AND user_id = ?")
+      .all(importId, user.id) as { id: string }[]).map((row) => row.id);
+
+    db.transaction(() => {
+      const dropTags = db.prepare("DELETE FROM taggables WHERE entity_type = ? AND entity_id = ?");
+      for (const id of ids) dropTags.run(QUOTE_ENTITY_TYPE, id);
+      db.prepare("DELETE FROM quotes WHERE import_id = ? AND user_id = ?").run(importId, user.id);
+      db.prepare("DELETE FROM quote_imports WHERE id = ? AND user_id = ?").run(importId, user.id);
+    })();
+
+    logActivity({
+      event: "quotes.import_deleted",
+      actorUserId: user.id,
+      targetType: "quote",
+      targetId: importId,
+      detail: `Deleted ${ids.length} quote${ids.length === 1 ? "" : "s"} imported from ${record.file_name ?? "a file"}.`,
+      ipAddress: request.ip
+    });
+    return reply.send({ deleted: ids.length });
+  });
+
   // ADMIN ONLY. A pack is a shared library the whole house reads from, not a
   // personal list — so curating it is an administrative act, like adding a
   // library. (The GEDCOM import next door is gated the same way, for the same
@@ -108,7 +171,7 @@ export function registerQuoteImportRoutes(app: FastifyInstance) {
       if (parsed.error) {
         return reply.code(400).send({ error: "Invalid import file", details: parsed.error });
       }
-      const { version, defaults, quotes: rows } = parsed.data;
+      const { version, defaults, quotes: rows, fileName } = parsed.data;
 
       if (version !== undefined && version !== 1) {
         return reply.code(400).send({
@@ -164,11 +227,16 @@ export function registerQuoteImportRoutes(app: FastifyInstance) {
         const insert = db.prepare(`
           INSERT INTO quotes (
             id, user_id, text, source_title, source_author,
-            origin, visibility, in_rotation, language, quote_date, context
+            origin, visibility, in_rotation, language, quote_date, context, import_id
           )
-          VALUES (?, ?, ?, ?, ?, 'import', ?, ?, ?, ?, ?)
+          VALUES (?, ?, ?, ?, ?, 'import', ?, ?, ?, ?, ?, ?)
         `);
+        // The run is recorded before its rows so they can point at it, and only
+        // on a real import — a dry run writes nothing at all, including this.
+        const importId = nanoid(16);
         db.transaction(() => {
+          db.prepare("INSERT INTO quote_imports (id, user_id, file_name, quote_count) VALUES (?, ?, ?, ?)")
+            .run(importId, user.id, fileName ?? null, ready.length);
           for (const row of ready) {
             const id = nanoid(16);
             insert.run(
@@ -181,7 +249,8 @@ export function registerQuoteImportRoutes(app: FastifyInstance) {
               inRotation,
               row.language ?? packLanguage,
               row.date ?? null,
-              row.context ?? null
+              row.context ?? null,
+              importId
             );
             if (row.tags && row.tags.length > 0) addEntityTags(QUOTE_ENTITY_TYPE, id, row.tags);
           }

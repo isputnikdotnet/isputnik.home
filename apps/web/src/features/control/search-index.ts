@@ -79,6 +79,8 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
     "расписание ночное автоматическое повторяющееся таймер задания",
   recycleBin: "trash deleted restore purge retention undelete how long keep days cleanup expiry location folder path custom bin " +
     "корзина удалено восстановить очистить хранение сколько дней очистка истечение расположение папка путь",
+  quotes: "quotes quote of the day import pack json wikiquote widget home card sayings " +
+    "categories delete import undo bulk famous family",
   missingPhotos: "gallery missing gone offline broken files photos videos " +
     "галерея пропавшие исчезли недоступно повреждённые файлы фото видео утерянные",
   // Short labels now that they are views of Duplicates, so the words someone would

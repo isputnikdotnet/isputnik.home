@@ -129,11 +129,13 @@ and each author's lines gather under their name.
 
 ## Importing a pack
 
-**Administrators only.** A pack decides what the whole house reads, so importing
-is an administrative act in the same way adding a library is. Everyone can still
-add their own quotes one at a time.
+**Administrators only**, and it lives in the control panel: **Utilities ›
+Widgets › Quotes**. A pack decides what the whole house reads, so bringing one in
+is an administrative act in the same way adding a library is — and that page is
+where a pack is taken back out again. Everyone can still add their own quotes one
+at a time from the Quotes page.
 
-**Import** on the Quotes page takes a JSON file shaped like this:
+**Import a pack** takes a JSON file shaped like this:
 
 ```json
 {
@@ -172,6 +174,18 @@ line number with the reason, and everything else still comes in.
 
 A single file can hold up to 5,000 quotes. A bigger one is refused rather than
 half-imported — split it and run it twice.
+
+### Undoing an import
+
+Every import is kept as the event it was — the file name, when it came in, and
+how many of its quotes are still here. Each one has its own **Delete**, which
+removes everything that pack brought in and nothing else: quotes typed in by
+hand, passages highlighted while reading, and other people's quotes are all left
+alone, and the file can always be imported again.
+
+That is the safety net for a pack off the internet. Import it, look at what it
+did to the quote of the day, and if you do not like it, one button takes it back
+out.
 
 > **Where to find packs.** Public-domain quote collections are easy to come by
 > online as JSON, in many languages. They rarely match the format above exactly,

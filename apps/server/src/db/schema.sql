@@ -1222,6 +1222,26 @@ CREATE TABLE IF NOT EXISTS reading_bookmarks (
   updated_at       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
+-- One run of the bulk quote import — the file, when it was fed in, and how many
+-- rows it brought. Kept so an import can be undone as the event it was ("delete
+-- everything quotes-ru.json added") rather than one quote at a time.
+--
+-- Rows point at it with ON DELETE SET NULL: losing the record leaves its quotes
+-- in place as ordinary imported ones, the same degrade-don't-cascade rule the
+-- rest of this table follows. Deleting the QUOTES is a deliberate act, never a
+-- side effect of tidying the record away.
+CREATE TABLE IF NOT EXISTS quote_imports (
+  id          TEXT PRIMARY KEY,
+  user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  -- What the admin picked, for recognising it later. Absent on an import made
+  -- straight against the API.
+  file_name   TEXT,
+  quote_count INTEGER NOT NULL DEFAULT 0,
+  created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_quote_imports_user ON quote_imports(user_id, datetime(created_at) DESC);
+
 -- Quotes / highlights. A first-class entity, not just an in-book highlight: a
 -- quote may be captured in the reader (item_id + document_id + cfi all set, with
 -- an on-page highlight anchored by the cfi) OR brought in from outside the library
@@ -1269,6 +1289,9 @@ CREATE TABLE IF NOT EXISTS quotes (
   -- leaves their quotes attributed rather than anonymous.
   family_tree_person_id TEXT REFERENCES family_tree_persons(id) ON DELETE SET NULL,
   person_name      TEXT,
+  -- Which run of the bulk import brought this row in, so one pack can be undone
+  -- without touching another. NULL for everything typed or highlighted by hand.
+  import_id        TEXT REFERENCES quote_imports(id) ON DELETE SET NULL,
   created_at       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   updated_at       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );

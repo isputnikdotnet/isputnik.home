@@ -3,6 +3,7 @@ import {
   Image,
   LibraryBig,
   PocketKnife,
+  Quote,
   Settings,
   ShieldCheck,
   UsersRound,
@@ -36,7 +37,7 @@ export type GroupKey = "overview" | "library" | "members" | "security" | "mainte
 
 /** The branch a group's tabs can hang off in the left nav — a stable id, not the
  *  displayed word, so a language switch never breaks the active-branch match. */
-export type ContextKey = "gallery";
+export type ContextKey = "gallery" | "widgets";
 
 export interface ControlTabDef {
   section: ControlSection;
@@ -109,7 +110,9 @@ export const CONTROL_GROUPS: ControlGroupDef[] = [
     // holds its own snapshot and does everything they did, so they are gone.
     tabs: [
       { section: "duplicateCleanup", context: "gallery" },
-      { section: "missingPhotos", context: "gallery" }
+      { section: "missingPhotos", context: "gallery" },
+      // What the home page shows the family, rather than what a library holds.
+      { section: "quotes", context: "widgets" }
     ]
   },
   {
@@ -193,7 +196,7 @@ export interface ControlNavChild {
 }
 
 /** Icons for the branches. A context without one falls back to its group's. */
-const CONTEXT_ICONS: Record<ContextKey, LucideIcon> = { gallery: Image };
+const CONTEXT_ICONS: Record<ContextKey, LucideIcon> = { gallery: Image, widgets: Quote };
 
 export function navChildrenFor(group: ControlGroupDef): ControlNavChild[] {
   const seen = new Map<ContextKey, ControlSection>();

@@ -13,7 +13,7 @@ export type ControlSection =
   | "security" | "securityPolicies" | "securityTrusted" | "securityBlocked"
   // Maintenance
   | "backup" | "scheduledJobs" | "recycleBin" | "missingPhotos"
-  | "duplicateCleanup"
+  | "duplicateCleanup" | "quotes"
   // Settings
   | "appearance" | "email" | "notifications" | "readerAccess" | "about";
 
@@ -51,6 +51,7 @@ export const CONTROL_PATHS: Record<ControlSection, string> = {
   // One flat row of them, so one flat level of addresses.
   duplicateCleanup: "/control/utilities/duplicate-cleanup",
   missingPhotos: "/control/utilities/missing-photos",
+  quotes: "/control/utilities/quotes",
 
   appearance: "/control/settings",
   email: "/control/settings/email",

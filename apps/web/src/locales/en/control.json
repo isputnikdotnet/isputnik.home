@@ -48,10 +48,12 @@
       "email": "Email",
       "notifications": "Notifications",
       "readerAccess": "Reader access",
-      "about": "About"
+      "about": "About",
+      "quotes": "Quotes"
     },
     "contexts": {
-      "gallery": "Gallery"
+      "gallery": "Gallery",
+      "widgets": "Widgets"
     },
     "exit": "Home",
     "aria": "Control panel",

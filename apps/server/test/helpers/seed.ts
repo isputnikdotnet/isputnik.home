@@ -28,7 +28,7 @@ export function resetDb(): void {
     "device_link_requests", "device_link_windows", "sessions", "mfa_challenges",
     "webauthn_credentials", "webauthn_challenges",
     "login_attempts", "blocked_ips", "trusted_networks", "known_login_networks",
-    "item_saves", "quotes", "item_categories", "item_people", "series_items",
+    "item_saves", "quotes", "quote_imports", "item_categories", "item_people", "series_items",
     "audio_chapters", "audio_files", "document_files",
     "playback_progress", "track_progress", "reading_progress",
     "audio_bookmarks", "reading_bookmarks",

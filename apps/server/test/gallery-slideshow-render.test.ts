@@ -836,7 +836,7 @@ describe('schema baseline (3.0.0)', () => {
     // theme remap, and the interface-language column — none of which a fresh
     // file needs, since schema.sql builds it complete and seeds no such job;
     // those migrations are only for databases that predate them.
-    expect(scratch.pragma('user_version', { simple: true })).toBe(49);
+    expect(scratch.pragma('user_version', { simple: true })).toBe(50);
 
     const userColumns = (scratch.pragma('table_info(users)') as { name: string }[]).map((c) => c.name);
     expect(userColumns).toEqual(
@@ -912,7 +912,7 @@ describe('schema baseline (3.0.0)', () => {
     migrate(current);
     current.pragma('user_version = 31'); // every 2.x migration applied
     expect(() => migrate(current)).not.toThrow();
-    expect(current.pragma('user_version', { simple: true })).toBe(49);
+    expect(current.pragma('user_version', { simple: true })).toBe(50);
     current.close();
   });
 
@@ -973,6 +973,11 @@ describe('schema baseline (3.0.0)', () => {
     expect(old.prepare('SELECT * FROM quotes WHERE id = ?').get('q2')).toMatchObject({
       origin: 'manual', visibility: 'private', in_rotation: 0
     });
+    // Migration 50 lands on the same table: quotes that predate imports-as-events
+    // have no run to belong to, which is what NULL means here.
+    expect((old.pragma('table_info(quotes)') as { name: string }[]).map((c) => c.name))
+      .toContain('import_id');
+    expect(old.prepare('SELECT import_id FROM quotes WHERE id = ?').get('q1')).toEqual({ import_id: null });
     // Idempotent: a second pass must not try to add columns that are already there.
     expect(() => migrate(old)).not.toThrow();
     old.close();

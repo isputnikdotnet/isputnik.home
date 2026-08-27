@@ -333,3 +333,103 @@ describe("undoing an import", () => {
     expect(res.statusCode).toBe(200);
   });
 });
+
+describe("imports as events", () => {
+  // A pack is kept as the run it was, so one can be undone without touching
+  // another — the reason quotes carry an import_id at all.
+  async function listImports(user = "admin") {
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/library/quotes/imports",
+      headers: { "x-test-user": user }
+    });
+    return res.json().imports as {
+      id: string; fileName: string | null; importedCount: number; remainingCount: number;
+    }[];
+  }
+
+  it("records the run, with the file name the client sent", async () => {
+    await importQuotes({ fileName: "quotes-ru.json", quotes: rows("One", "Two") });
+    const [entry] = await listImports();
+    expect(entry).toMatchObject({ fileName: "quotes-ru.json", importedCount: 2, remainingCount: 2 });
+  });
+
+  it("records nothing for a dry run", async () => {
+    await importQuotes({ fileName: "peek.json", quotes: rows("One") }, { dryRun: true });
+    expect(await listImports()).toHaveLength(0);
+  });
+
+  it("deletes one pack without touching another", async () => {
+    await importQuotes({ fileName: "first.json", quotes: rows("A one", "A two") });
+    await importQuotes({ fileName: "second.json", quotes: rows("B one", "B two", "B three") });
+
+    const before = await listImports();
+    const first = before.find((entry) => entry.fileName === "first.json")!;
+
+    const res = await app.inject({
+      method: "DELETE",
+      url: `/api/library/quotes/imports/${first.id}`,
+      headers: { "x-test-user": "admin" }
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().deleted).toBe(2);
+
+    // The other pack is untouched, and the deleted run is gone from the list.
+    expect(storedQuotes("admin").map((r) => r.text).sort()).toEqual(["B one", "B three", "B two"]);
+    expect((await listImports()).map((e) => e.fileName)).toEqual(["second.json"]);
+  });
+
+  it("counts what is left, not what arrived", async () => {
+    await importQuotes({ fileName: "pack.json", quotes: rows("Keep", "Remove") });
+    const id = (db.prepare("SELECT id FROM quotes WHERE text = 'Remove'").get() as { id: string }).id;
+    await app.inject({
+      method: "DELETE",
+      url: `/api/library/quotes/${id}`,
+      headers: { "x-test-user": "admin" }
+    });
+
+    const [entry] = await listImports();
+    expect(entry).toMatchObject({ importedCount: 2, remainingCount: 1 });
+  });
+
+  it("clears the tag links of the pack it deletes", async () => {
+    await importQuotes({ fileName: "tagged.json", quotes: [{ text: "Tagged", tags: ["Humour"] }] });
+    const [entry] = await listImports();
+    await app.inject({
+      method: "DELETE",
+      url: `/api/library/quotes/imports/${entry.id}`,
+      headers: { "x-test-user": "admin" }
+    });
+    expect(db.prepare("SELECT COUNT(*) AS n FROM taggables WHERE entity_type = 'quote'").get()).toEqual({ n: 0 });
+  });
+
+  it("404s an import that is not yours, and one that does not exist", async () => {
+    await importQuotes({ fileName: "mine.json", quotes: rows("Mine") });
+    const [entry] = await listImports();
+
+    makeUser("admin2", "admin");
+    const asOther = await app.inject({
+      method: "DELETE",
+      url: `/api/library/quotes/imports/${entry.id}`,
+      headers: { "x-test-user": "admin2" }
+    });
+    expect(asOther.statusCode).toBe(404);
+    expect(storedQuotes("admin")).toHaveLength(1);
+
+    const missing = await app.inject({
+      method: "DELETE",
+      url: "/api/library/quotes/imports/nope",
+      headers: { "x-test-user": "admin" }
+    });
+    expect(missing.statusCode).toBe(404);
+  });
+
+  it("is admin-only, like importing itself", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/library/quotes/imports",
+      headers: { "x-test-user": "member" }
+    });
+    expect(res.statusCode).toBe(403);
+  });
+});

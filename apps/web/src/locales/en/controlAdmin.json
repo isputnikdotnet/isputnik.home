@@ -827,5 +827,23 @@
     "pkBody_other": "This removes all {{count}} of their passkeys — for when they've lost every device that held one.",
     "pkBodyBold": "Their password and two-factor sign-in still work, and they can add a new passkey afterwards.",
     "unlockFailed": "Unable to unlock account"
+  },
+  "quotes": {
+    "headDescription": "Bring in quote packs for the family to read, and take one back out if it turns out to be full of rubbish.",
+    "import": "Import a pack",
+    "empty": "No packs imported yet. Import one to fill the quote of the day.",
+    "unnamedFile": "Unnamed file",
+    "quoteCount_one": "{{count}} quote",
+    "quoteCount_other": "{{count}} quotes",
+    "quoteCountOf": "{{remaining}} of {{imported}} quotes left",
+    "delete": "Delete",
+    "deleteTitle": "Delete everything {{name}} brought in?",
+    "deleteBody_one": "This deletes the {{count}} quote still here from that import, wherever it appears — the Quotes page, the quote of the day, and any collection holding it. Quotes typed in by hand and passages highlighted while reading are not affected, and the file can always be imported again.",
+    "deleteBody_other": "This deletes the {{count}} quotes still here from that import, wherever they appear — the Quotes page, the quote of the day, and any collection holding them. Quotes typed in by hand and passages highlighted while reading are not affected, and the file can always be imported again.",
+    "deleteConfirm": "Delete these quotes",
+    "deleteFailed": "Unable to delete this import.",
+    "doneTitle": "Done",
+    "deleted_one": "Deleted {{count}} quote.",
+    "deleted_other": "Deleted {{count}} quotes."
   }
 }

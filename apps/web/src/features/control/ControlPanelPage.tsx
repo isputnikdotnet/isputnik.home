@@ -29,6 +29,7 @@ import { CategoriesSection, CategoryEditorPage } from "./sections/CategoriesSect
 import { TagsSection } from "./sections/TagsSection";
 import { GroupsSection } from "./sections/GroupsSection";
 import { ScheduledJobsSection } from "./sections/ScheduledJobsSection";
+import { QuotesSection } from "./sections/QuotesSection";
 import { MissingPhotosSection } from "./sections/MissingPhotosSection";
 import { DuplicateCleanupSection } from "./sections/duplicates/DuplicateCleanupSection";
 import { AppearanceSection } from "./sections/AppearanceSection";
@@ -113,6 +114,7 @@ function ControlSectionBody({
     case "recycleBin":      return <RecycleBinSection currentUser={currentUser} />;
     case "missingPhotos":   return <MissingPhotosSection />;
     case "duplicateCleanup": return <DuplicateCleanupSection currentUser={currentUser} />;
+    case "quotes":          return <QuotesSection />;
 
     case "appearance":      return <AppearanceSection />;
     case "email":           return <MailSection />;

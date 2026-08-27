@@ -36,11 +36,17 @@ export function QuoteImportModal({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  const post = (parsed: unknown, dryRun: boolean) =>
-    api<ImportSummary>(`/api/library/quotes/import${dryRun ? "?dryRun=1" : ""}`, {
+  // The file's name rides along on the real import so the run can be recognised
+  // later and undone as one event. A dry run writes nothing, so it sends none.
+  const post = (parsed: unknown, dryRun: boolean) => {
+    const body = !dryRun && parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? { ...(parsed as Record<string, unknown>), fileName }
+      : parsed;
+    return api<ImportSummary>(`/api/library/quotes/import${dryRun ? "?dryRun=1" : ""}`, {
       method: "POST",
-      body: JSON.stringify(parsed)
+      body: JSON.stringify(body)
     });
+  };
 
   const pickFile = async (file: File | null) => {
     setPayload(null);

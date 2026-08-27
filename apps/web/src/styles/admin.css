@@ -2418,3 +2418,35 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* Imported quote packs (Utilities › Widgets › Quotes). One row per import: what
+   the file was called, when it came in, and how much of it is still here. */
+.quote-import-list {
+  display: grid;
+  gap: 10px;
+}
+
+.quote-import-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+}
+
+.quote-import-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.quote-import-copy strong {
+  overflow-wrap: anywhere;
+}
+
+.quote-import-copy .muted {
+  font-size: 0.83rem;
+}

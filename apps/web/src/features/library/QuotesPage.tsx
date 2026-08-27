@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { BookOpen, Copy, FileUp, ListPlus, Pencil, Plus, Quote as QuoteIcon, Trash2 } from "lucide-react";
+import { BookOpen, Copy, ListPlus, Pencil, Plus, Quote as QuoteIcon, Trash2 } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { UserAreaNav } from "./UserAreaNav";
@@ -11,7 +11,6 @@ import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { MessageBox } from "../../shared/MessageBox";
 import { relativeTime } from "../../shared/utils";
 import i18n from "../../i18n";
-import { QuoteImportModal } from "./QuoteImportModal";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { PeopleCombobox } from "../audiobooks/PeopleCombobox";
 import type { Quote } from "../audiobooks/types";
@@ -377,7 +376,6 @@ export function QuotesPage({
   const [saveError, setSaveError] = useState("");
   const [deleting, setDeleting] = useState<Quote | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
-  const [importOpen, setImportOpen] = useState(false);
   const [filter, setFilter] = useState<QuoteFilter>("all");
   const [familyMembers, setFamilyMembers] = useState<{ id: string; name: string }[]>([]);
   const [collecting, setCollecting] = useState<Quote | null>(null);
@@ -540,13 +538,10 @@ export function QuotesPage({
             <h1>{t("common:nav.quotes")}</h1>
           </div>
           <div className="quote-head-actions">
-            {/* Importing a pack curates what the whole house reads, so it is an
-                admin act — everyone can still add their own quotes by hand. */}
-            {user.role === "admin" && (
-              <Button variant="secondary" compact onClick={() => setImportOpen(true)}>
-                <FileUp size={16} /> {t("user:quotes.import.action")}
-              </Button>
-            )}
+            {/* Bringing in a pack lives in the control panel (Utilities ›
+                Widgets › Quotes): it curates what the whole house reads, and it
+                is undone there too, one import at a time. This page is where
+                everyone reads and writes their own. */}
             <Button variant="primary" compact onClick={openAdd}>
               <Plus size={16} /> {t("user:quotes.addQuote")}
             </Button>
@@ -736,20 +731,6 @@ export function QuotesPage({
         </ConfirmDialog>
       )}
 
-      {importOpen && (
-        <QuoteImportModal
-          onClose={() => setImportOpen(false)}
-          onImported={(summary) => {
-            setImportOpen(false);
-            void loadQuotes();
-            // Imported quotes land in rotation, so point the page at them: after a
-            // 1,200-line pack the list is otherwise unrecognisable.
-            setFilter("import");
-            setNotice(t("user:quotes.import.done", { count: summary.imported }));
-            window.setTimeout(() => setNotice(""), 4000);
-          }}
-        />
-      )}
 
       {clearingImports && (
         <ConfirmDialog
