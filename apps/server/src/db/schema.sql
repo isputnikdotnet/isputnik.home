@@ -1229,6 +1229,10 @@ CREATE TABLE IF NOT EXISTS reading_bookmarks (
 -- NULL (not CASCADE) so removing a book degrades its quotes to external ones rather
 -- than deleting them; source_title/source_author are snapshotted at save time so
 -- attribution survives that. Display prefers the live item when item_id is still set.
+--
+-- Famous quotes, family sayings, and reader highlights are all rows here: the
+-- surfaces that show them (the Quotes page, the Quote of the day card, a family
+-- tree profile) are filters over this one table, never separate stores.
 CREATE TABLE IF NOT EXISTS quotes (
   id               TEXT PRIMARY KEY,
   user_id          TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -1241,6 +1245,30 @@ CREATE TABLE IF NOT EXISTS quotes (
   source_title     TEXT,
   source_author    TEXT,
   percent_complete REAL,
+  -- How the row got here, derived by the server rather than sent by the client.
+  -- It is also what makes a bulk import reviewable afterwards: the Quotes page
+  -- can list exactly what a JSON pack brought in.
+  origin           TEXT NOT NULL DEFAULT 'manual' CHECK (origin IN ('manual', 'reader', 'import')),
+  -- A quote is its owner's alone until raised to 'family'. Every shared surface
+  -- (Quote of the day, a person's profile) shows 'family' rows plus the viewer's
+  -- own, so reading highlights never leak by simply existing.
+  visibility       TEXT NOT NULL DEFAULT 'private' CHECK (visibility IN ('private', 'family')),
+  -- Member of the Quote-of-the-day pool. Imported packs opt in; highlights and
+  -- hand-typed quotes stay out unless chosen, so the daily card is curated.
+  in_rotation      INTEGER NOT NULL DEFAULT 0,
+  -- BCP-47-ish short code ('en', 'ru'), NULL when unknown. The daily card prefers
+  -- the reader's own UI language and falls back to the whole pool.
+  language         TEXT,
+  -- WHEN IT WAS SAID (not when it was saved) — partial ISO dates on the same
+  -- convention as family_tree_persons.birth_date: 'YYYY' | 'YYYY-MM' | 'YYYY-MM-DD'.
+  quote_date       TEXT,
+  -- Free text: the circumstances it was said in.
+  context          TEXT,
+  -- WHO SAID IT, deliberately distinct from source_author (who wrote the source
+  -- work). SET NULL plus the person_name snapshot, so deleting a family member
+  -- leaves their quotes attributed rather than anonymous.
+  family_tree_person_id TEXT REFERENCES family_tree_persons(id) ON DELETE SET NULL,
+  person_name      TEXT,
   created_at       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   updated_at       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );

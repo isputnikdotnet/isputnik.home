@@ -9,8 +9,9 @@
 // ranking story:
 //   • sticky      — "Sent to you": no time decay, leaves when the recipient
 //                   decides, always above the ranked cards
-//   • today-only  — the gallery memory ("On this day"): gone at midnight,
-//                   replaced by tomorrow's — the daily heartbeat of the page
+//   • today-only  — the gallery memory ("On this day") and the quote of the
+//                   day: gone at midnight, replaced by tomorrow's — the daily
+//                   heartbeat of the page
 //   • decaying    — added-batches (one card per scan DAY with a cover fan,
 //                   never N loose tiles) and activity events (notes, albums,
 //                   slideshows, tree people)
@@ -30,6 +31,7 @@ import { loadInboxCards, type InboxCardView } from "../social/routes.js";
 import { bookLibraryIds } from "../library/feed.js";
 import { resolveGalleryScopeLibraryIds } from "../library/gallery/catalog.js";
 import { queryGalleryMemories, type GalleryMemoriesPrecision, type GalleryMemoryGroup } from "../library/gallery/catalog.js";
+import { dailyQuote, type DailyQuote } from "../library/quotes-daily.js";
 
 interface RequestUser {
   id: string;
@@ -86,13 +88,20 @@ export interface SeriesNextCard {
   };
 }
 
-export type HomeCard = SentCard | MemoryCard | AddedBatchCard | ActivityCard | SeriesNextCard;
+export interface QuoteCard extends DailyQuote {
+  type: "quote";
+}
+
+export type HomeCard = SentCard | MemoryCard | AddedBatchCard | ActivityCard | SeriesNextCard | QuoteCard;
 
 // Class weights and half-lives (days). The memory card is always age zero, so
 // its weight IS its score — above a fresh activity line (1.2) and a same-day
 // batch (1.0). The filler's constant puts it under everything time-ranked
 // without ever dropping it off the end.
 const MEMORY_SCORE = 1.6;
+// Also age-zero every day, so this IS its score. Under the memory card (a photo of
+// your own family beats a line from a book) and over a fresh activity line.
+const QUOTE_SCORE = 1.5;
 const ACTIVITY_WEIGHT = 1.2;
 const ACTIVITY_HALF_LIFE = 5;
 const ACTIVITY_MAX_AGE = 14;
@@ -318,7 +327,11 @@ function seriesNextCard(user: RequestUser, now: number): SeriesNextCard | null {
 }
 
 /** The feed: sticky cards first, then everything else by class weight × decay. */
-export function loadHomeFeed(user: RequestUser, date: string): HomeCard[] {
+export function loadHomeFeed(
+  user: RequestUser,
+  date: string,
+  opts: { language?: string; quoteCategory?: string } = {}
+): HomeCard[] {
   const now = Date.now();
 
   const sticky: HomeCard[] = loadInboxCards(user, { onlyNew: true })
@@ -353,6 +366,9 @@ export function loadHomeFeed(user: RequestUser, date: string): HomeCard[] {
       }
     });
   }
+
+  const quote = dailyQuote(user, date, { language: opts.language, category: opts.quoteCategory });
+  if (quote) ranked.push({ score: QUOTE_SCORE, card: { type: "quote", ...quote } });
 
   const next = seriesNextCard(user, now);
   if (next) ranked.push({ score: FILLER_SCORE, card: next });

@@ -17,6 +17,7 @@ import { familyNavProps } from "./sectionNavItems";
 import { MessageBox } from "../../shared/MessageBox";
 import { SendToSheet } from "../social/SendToSheet";
 import { NotesSection } from "../social/NotesSection";
+import { PersonQuotes } from "./PersonQuotes";
 import { GalleryLightbox } from "../gallery/GalleryLightbox";
 import type { GalleryAsset } from "../gallery/types";
 import { faceFocusStyle } from "../gallery/types";
@@ -44,7 +45,7 @@ const PHOTO_PAGE = 40;
 // to the person's full photos page. Photos still open in a lightbox in place —
 // clicking one must never strand the reader in the gallery.
 const PHOTO_PREVIEW = 12;
-const PERSON_DETAIL_TAB_IDS = ["family", "timeline", "photos", "sources", "biography"] as const;
+const PERSON_DETAIL_TAB_IDS = ["family", "timeline", "photos", "sources", "biography", "quotes"] as const;
 
 type PersonDetailTabId = typeof PERSON_DETAIL_TAB_IDS[number];
 
@@ -951,6 +952,12 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                           {t("family:person.relationships.emptyBase")}{canEdit ? t("family:person.relationships.emptyHint") : ""}
                         </p>
                       )}
+                    </section>
+                  )}
+
+                  {activeDetailTab === "quotes" && (
+                    <section className="ft-section ft-profile-section">
+                      <PersonQuotes personId={profile.id} personName={profile.name} />
                     </section>
                   )}
 

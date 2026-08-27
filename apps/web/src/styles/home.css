@@ -772,6 +772,68 @@
 }
 
 /* Next in the series — the one rotating suggestion. */
+/* Quote of the day. Typography-led on purpose — no cover, no thumbnail: the
+   words ARE the card, and it sits among cards that are mostly pictures. */
+.home-card-quote {
+  display: grid;
+  gap: 8px;
+}
+
+.home-card-quote.is-busy {
+  opacity: 0.6;
+}
+
+.home-quote-eyebrow {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.home-quote-text {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1.02rem;
+  font-style: italic;
+  line-height: 1.5;
+}
+
+.home-quote-byline {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.home-quote-categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.home-quote-category {
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.home-quote-category:hover {
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--mint) 45%, var(--line));
+}
+
+.home-quote-category.is-active {
+  border-color: color-mix(in srgb, var(--mint) 45%, var(--line));
+  background: color-mix(in srgb, var(--mint) 12%, transparent);
+  color: var(--ink);
+}
+
 .home-card-suggest {
   display: flex;
   align-items: center;

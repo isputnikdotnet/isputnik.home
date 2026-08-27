@@ -1,7 +1,18 @@
 {
   "options": {
-    "gender": { "female": "Женский", "male": "Мужской", "other": "Другой", "unknown": "Не указан" },
-    "unionStatus": { "married": "В браке", "partners": "Партнёры", "divorced": "В разводе", "widowed": "Вдовец/вдова", "unknown": "Неизвестно" },
+    "gender": {
+      "female": "Женский",
+      "male": "Мужской",
+      "other": "Другой",
+      "unknown": "Не указан"
+    },
+    "unionStatus": {
+      "married": "В браке",
+      "partners": "Партнёры",
+      "divorced": "В разводе",
+      "widowed": "Вдовец/вдова",
+      "unknown": "Неизвестно"
+    },
     "eventType": {
       "award": "Награда",
       "baptism": "Крещение",
@@ -18,7 +29,13 @@
       "occupation": "Работа",
       "custom": "Другое событие"
     },
-    "childRelation": { "biological": "Родной", "adopted": "Приёмный", "step": "Сводный", "foster": "Опекаемый", "unknown": "Неизвестно" }
+    "childRelation": {
+      "biological": "Родной",
+      "adopted": "Приёмный",
+      "step": "Сводный",
+      "foster": "Опекаемый",
+      "unknown": "Неизвестно"
+    }
   },
   "eventLabelHints": {
     "education": "Школа или университет",
@@ -37,17 +54,53 @@
     "custom": "Что произошло"
   },
   "childNoun": {
-    "plain": { "male": "сын", "female": "дочь", "neutral": "ребёнок" },
-    "step": { "male": "пасынок", "female": "падчерица", "neutral": "приёмный ребёнок" },
-    "adopted": { "male": "приёмный сын", "female": "приёмная дочь", "neutral": "приёмный ребёнок" },
-    "foster": { "male": "воспитанник", "female": "воспитанница", "neutral": "воспитанник" }
+    "plain": {
+      "male": "сын",
+      "female": "дочь",
+      "neutral": "ребёнок"
+    },
+    "step": {
+      "male": "пасынок",
+      "female": "падчерица",
+      "neutral": "приёмный ребёнок"
+    },
+    "adopted": {
+      "male": "приёмный сын",
+      "female": "приёмная дочь",
+      "neutral": "приёмный ребёнок"
+    },
+    "foster": {
+      "male": "воспитанник",
+      "female": "воспитанница",
+      "neutral": "воспитанник"
+    }
   },
   "relationWord": {
-    "parent": { "male": "Отец", "female": "Мать", "neutral": "Родитель" },
-    "sibling": { "male": "Брат", "female": "Сестра", "neutral": "Брат/сестра" },
-    "grandparent": { "male": "Дедушка", "female": "Бабушка", "neutral": "Дедушка/бабушка" },
-    "child": { "male": "Сын", "female": "Дочь", "neutral": "Ребёнок" },
-    "partner": { "male": "Муж", "female": "Жена", "neutral": "Партнёр" }
+    "parent": {
+      "male": "Отец",
+      "female": "Мать",
+      "neutral": "Родитель"
+    },
+    "sibling": {
+      "male": "Брат",
+      "female": "Сестра",
+      "neutral": "Брат/сестра"
+    },
+    "grandparent": {
+      "male": "Дедушка",
+      "female": "Бабушка",
+      "neutral": "Дедушка/бабушка"
+    },
+    "child": {
+      "male": "Сын",
+      "female": "Дочь",
+      "neutral": "Ребёнок"
+    },
+    "partner": {
+      "male": "Муж",
+      "female": "Жена",
+      "neutral": "Партнёр"
+    }
   },
   "common": {
     "unableToAdd": "Не удалось добавить",
@@ -416,7 +469,8 @@
       "timeline": "Хроника",
       "photos": "Фото",
       "sources": "Источники",
-      "biography": "Биография"
+      "biography": "Биография",
+      "quotes": "Цитаты"
     },
     "detailSectionsAria": "Разделы страницы человека",
     "notFoundTitle": "Человек не найден",
@@ -535,6 +589,10 @@
       "setPortrait": "Не удалось установить портрет",
       "removePortrait": "Не удалось удалить портрет",
       "actionFailedTitle": "Действие не выполнено"
+    },
+    "quotes": {
+      "empty": "Пока не записано ничего, что сказал(а) {{name}}.",
+      "goToQuotes": "Перейти к цитатам"
     }
   },
   "personPhotos": {

@@ -55,6 +55,21 @@ function syntheticQuote(row: QueuedQuote, display: QuoteDisplay): Quote {
     note: null,
     color: row.color,
     percentComplete: row.percentComplete,
+    // What the server will derive for this row once the queue flushes: a quote
+    // anchored in a document was captured in the reader, and captures are the
+    // owner's own until they say otherwise.
+    origin: "reader",
+    // Yours by definition — you are the one reading the downloaded book.
+    mine: true,
+    ownerName: null,
+    tags: [],
+    personId: null,
+    personName: null,
+    visibility: "private",
+    inRotation: false,
+    language: null,
+    quoteDate: null,
+    context: null,
     sourceTitle: display.sourceTitle,
     sourceAuthors: display.sourceAuthors,
     libraryType: null,

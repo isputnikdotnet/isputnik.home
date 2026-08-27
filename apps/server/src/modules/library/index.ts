@@ -18,6 +18,8 @@ import { registerTagRoutes } from "./tags.js";
 import { registerWorkRoutes } from "./works.js";
 import { registerBookmarkRoutes } from "./bookmarks.js";
 import { registerQuoteRoutes } from "./quotes.js";
+import { registerQuoteImportRoutes } from "./quotes-import.js";
+import { registerDailyQuoteRoutes } from "./quotes-daily.js";
 import { librarySharesPlugin } from "./shared/shares.js";
 
 export async function libraryPlugin(app: FastifyInstance) {
@@ -64,6 +66,8 @@ export async function libraryPlugin(app: FastifyInstance) {
 
   // …quotes / highlights (cross-type; in-reader captures + externally-typed quotes)…
   registerQuoteRoutes(app);
+  registerQuoteImportRoutes(app);
+  registerDailyQuoteRoutes(app);
 
   // …item-level sharing (guest links + user shares) for every book type, with
   // public guest routes that dispatch by the share's module…

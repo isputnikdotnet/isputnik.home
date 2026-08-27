@@ -30,7 +30,7 @@ export function MessageBox({
       <Icon size={18} aria-hidden="true" />
       <div>
         <strong>{title}</strong>
-        <p>{children}</p>
+        <div className="message-box-body">{children}</div>
         {action && <div className="message-box-action">{action}</div>}
       </div>
     </div>

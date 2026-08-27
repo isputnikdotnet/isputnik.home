@@ -1270,7 +1270,8 @@
 }
 
 .quote-field textarea,
-.quote-field input {
+.quote-field input,
+.quote-field select {
   width: 100%;
   padding: 9px 11px;
   border: 1px solid var(--line);
@@ -1282,7 +1283,8 @@
 }
 
 .quote-field textarea:focus,
-.quote-field input:focus {
+.quote-field input:focus,
+.quote-field select:focus {
   outline: none;
   border-color: var(--mint);
 }
@@ -1293,6 +1295,13 @@
   gap: 12px;
 }
 
+/* Sits beside a field in a .quote-field-row, so it lines up with that field's
+   control rather than with its label. */
+.quote-field-toggle {
+  align-self: end;
+  min-height: 40px;
+}
+
 .quote-form-linked {
   margin: 0;
   color: var(--muted);
@@ -1301,6 +1310,94 @@
 
 .quote-form-linked strong {
   color: var(--ink);
+}
+
+/* Import sits beside Add quote in the page head. */
+.quote-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Origin / rotation cuts over the list. Not the browse-page toolbar — this is a
+   user-area page, and one row of toggles is the whole control it needs. */
+.quote-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 18px;
+}
+
+.quote-filter {
+  padding: 5px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.quote-filter:hover {
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--mint) 45%, var(--line));
+}
+
+.quote-filter.is-active {
+  border-color: color-mix(in srgb, var(--mint) 45%, var(--line));
+  background: color-mix(in srgb, var(--mint) 12%, transparent);
+  color: var(--ink);
+}
+
+/* Categories on a card. Clicking one filters the page to it, so they are buttons
+   rather than labels — quieter than the filter row above, which shows state. */
+.quote-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 0;
+}
+
+.quote-tag {
+  padding: 2px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.quote-tag:hover {
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--mint) 45%, var(--line));
+}
+
+.quote-import-intro {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.quote-import-summary,
+.quote-import-issues {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.quote-import-summary li,
+.quote-import-issues li {
+  margin: 2px 0;
+}
+
+/* Per-row complaints from the server — diagnostic detail, so quieter and
+   wrappable however long the reason runs. */
+.quote-import-issues {
+  color: var(--muted);
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
 }
 
 .quote-toast {

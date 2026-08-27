@@ -1,7 +1,18 @@
 {
   "options": {
-    "gender": { "female": "Female", "male": "Male", "other": "Other", "unknown": "Unknown" },
-    "unionStatus": { "married": "Married", "partners": "Partners", "divorced": "Divorced", "widowed": "Widowed", "unknown": "Unknown" },
+    "gender": {
+      "female": "Female",
+      "male": "Male",
+      "other": "Other",
+      "unknown": "Unknown"
+    },
+    "unionStatus": {
+      "married": "Married",
+      "partners": "Partners",
+      "divorced": "Divorced",
+      "widowed": "Widowed",
+      "unknown": "Unknown"
+    },
     "eventType": {
       "award": "Award",
       "baptism": "Baptism",
@@ -18,7 +29,13 @@
       "occupation": "Work",
       "custom": "Other event"
     },
-    "childRelation": { "biological": "Biological", "adopted": "Adopted", "step": "Step", "foster": "Foster", "unknown": "Unknown" }
+    "childRelation": {
+      "biological": "Biological",
+      "adopted": "Adopted",
+      "step": "Step",
+      "foster": "Foster",
+      "unknown": "Unknown"
+    }
   },
   "eventLabelHints": {
     "education": "School or university",
@@ -37,17 +54,53 @@
     "custom": "What happened"
   },
   "childNoun": {
-    "plain": { "male": "son", "female": "daughter", "neutral": "child" },
-    "step": { "male": "stepson", "female": "stepdaughter", "neutral": "stepchild" },
-    "adopted": { "male": "adopted son", "female": "adopted daughter", "neutral": "adopted child" },
-    "foster": { "male": "foster son", "female": "foster daughter", "neutral": "foster child" }
+    "plain": {
+      "male": "son",
+      "female": "daughter",
+      "neutral": "child"
+    },
+    "step": {
+      "male": "stepson",
+      "female": "stepdaughter",
+      "neutral": "stepchild"
+    },
+    "adopted": {
+      "male": "adopted son",
+      "female": "adopted daughter",
+      "neutral": "adopted child"
+    },
+    "foster": {
+      "male": "foster son",
+      "female": "foster daughter",
+      "neutral": "foster child"
+    }
   },
   "relationWord": {
-    "parent": { "male": "Father", "female": "Mother", "neutral": "Parent" },
-    "sibling": { "male": "Brother", "female": "Sister", "neutral": "Sibling" },
-    "grandparent": { "male": "Grandfather", "female": "Grandmother", "neutral": "Grandparent" },
-    "child": { "male": "Son", "female": "Daughter", "neutral": "Child" },
-    "partner": { "male": "Husband", "female": "Wife", "neutral": "Partner" }
+    "parent": {
+      "male": "Father",
+      "female": "Mother",
+      "neutral": "Parent"
+    },
+    "sibling": {
+      "male": "Brother",
+      "female": "Sister",
+      "neutral": "Sibling"
+    },
+    "grandparent": {
+      "male": "Grandfather",
+      "female": "Grandmother",
+      "neutral": "Grandparent"
+    },
+    "child": {
+      "male": "Son",
+      "female": "Daughter",
+      "neutral": "Child"
+    },
+    "partner": {
+      "male": "Husband",
+      "female": "Wife",
+      "neutral": "Partner"
+    }
   },
   "common": {
     "unableToAdd": "Unable to add",
@@ -384,7 +437,8 @@
       "timeline": "Timeline",
       "photos": "Photos",
       "sources": "Sources",
-      "biography": "Biography"
+      "biography": "Biography",
+      "quotes": "Quotes"
     },
     "detailSectionsAria": "Person detail sections",
     "notFoundTitle": "Person not found",
@@ -503,6 +557,10 @@
       "setPortrait": "Unable to set the portrait",
       "removePortrait": "Unable to remove the portrait",
       "actionFailedTitle": "Action failed"
+    },
+    "quotes": {
+      "empty": "Nothing recorded that {{name}} said yet.",
+      "goToQuotes": "Go to Quotes"
     }
   },
   "personPhotos": {

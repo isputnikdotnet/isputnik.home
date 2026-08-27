@@ -9,7 +9,7 @@ import { DashboardShell } from "../app/DashboardShell";
 import { followRoute, navigate } from "../router";
 import { MessageBox } from "../shared/MessageBox";
 import { authorLine, audioRecordToFeedItem, ebookRecordToFeedItem, fetchFeed, saveFeedItemOffline, type FeedItem } from "../features/library/feed";
-import { batchDayLabel, fetchHomeFeed, localDate, tightMemoryGroups, toActivityItem, type ActivityCard, type AddedBatchCard, type HomeCard, type MemoryCard, type SentCard, type SeriesNextCard } from "../features/home/feed";
+import { batchDayLabel, fetchDailyQuote, fetchHomeFeed, localDate, storeQuoteCategory, tightMemoryGroups, toActivityItem, type ActivityCard, type AddedBatchCard, type HomeCard, type MemoryCard, type QuoteCard, type SentCard, type SeriesNextCard } from "../features/home/feed";
 import { FeedListItem, FeedListItemSkeleton } from "../features/library/FeedListItem";
 import { DEFAULT_COVERS } from "../features/audiobooks/covers";
 import { useIsMobile } from "../shared/useIsMobile";
@@ -227,6 +227,63 @@ function SeriesNextFeedCard({ card }: { card: SeriesNextCard }) {
         <small className="home-suggest-series">{t("home.nextInSeries", { series: card.seriesName })}</small>
       </span>
     </a>
+  );
+}
+
+// Quote of the day. The server already picked one honouring the stored category,
+// so this only has to redraw when the viewer switches — one small request that
+// swaps the quote, rather than reloading the whole front page.
+function QuoteFeedCard({ card }: { card: QuoteCard }) {
+  const { t } = useTranslation();
+  const [quote, setQuote] = useState<QuoteCard>(card);
+  const [busy, setBusy] = useState(false);
+  const active = quote.category ?? "";
+
+  const choose = async (category: string) => {
+    if (category === active) return;
+    storeQuoteCategory(category);
+    setBusy(true);
+    try {
+      const { quote: next } = await fetchDailyQuote(category);
+      if (next) setQuote(next);
+    } catch {
+      // Keep showing the quote already on screen.
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const byline = [quote.attribution, quote.source].filter(Boolean).join(" · ");
+
+  return (
+    <div className={`home-card home-card-quote${busy ? " is-busy" : ""}`}>
+      <small className="home-quote-eyebrow">{t("home.quoteOfTheDay")}</small>
+      <blockquote className="home-quote-text">{quote.text}</blockquote>
+      {byline && <p className="home-quote-byline">{byline}</p>}
+      {quote.categories.length > 0 && (
+        <div className="home-quote-categories" role="group" aria-label={t("home.quoteCategoryLabel")}>
+          <button
+            type="button"
+            className={`home-quote-category${active === "" ? " is-active" : ""}`}
+            aria-pressed={active === ""}
+            onClick={() => void choose("")}
+          >
+            {t("home.quoteAllCategories")}
+          </button>
+          {quote.categories.map((category) => (
+            <button
+              key={category}
+              type="button"
+              className={`home-quote-category${active === category ? " is-active" : ""}`}
+              aria-pressed={active === category}
+              onClick={() => void choose(category)}
+            >
+              {category}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -517,6 +574,8 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
         return <BatchFeedCard key={`batch-${card.day}`} card={card} />;
       case "series_next":
         return <SeriesNextFeedCard key={`series-${card.item.id}`} card={card} />;
+      case "quote":
+        return <QuoteFeedCard key="quote" card={card} />;
       default:
         return (
           <div key={card.id} className="home-card home-card-activity">

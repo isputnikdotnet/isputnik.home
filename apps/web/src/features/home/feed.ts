@@ -44,7 +44,48 @@ export interface SeriesNextCard {
   };
 }
 
-export type HomeCard = SentCard | MemoryCard | AddedBatchCard | ActivityCard | SeriesNextCard;
+export interface QuoteCard {
+  type: "quote";
+  quoteId: string;
+  text: string;
+  attribution: string | null;
+  source: string | null;
+  /** The category this pick came from; null when drawn from everything. */
+  category: string | null;
+  /** Every category the pool offers, for the switcher. */
+  categories: string[];
+}
+
+export type HomeCard = SentCard | MemoryCard | AddedBatchCard | ActivityCard | SeriesNextCard | QuoteCard;
+
+// Which category this viewer last chose on the quote card. A per-viewer
+// convenience, so it lives in the browser rather than the database — losing it
+// (a new device, cleared site data) just means the card goes back to All.
+const QUOTE_CATEGORY_KEY = "isputnik.quoteCategory";
+
+export function storedQuoteCategory(): string {
+  try {
+    return window.localStorage.getItem(QUOTE_CATEGORY_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+export function storeQuoteCategory(category: string): void {
+  try {
+    if (category) window.localStorage.setItem(QUOTE_CATEGORY_KEY, category);
+    else window.localStorage.removeItem(QUOTE_CATEGORY_KEY);
+  } catch {
+    // Private mode / quota — the card still works, it just forgets the choice.
+  }
+}
+
+/** Swap just the quote when the viewer changes category, not the whole feed. */
+export function fetchDailyQuote(category: string): Promise<{ quote: QuoteCard | null }> {
+  const params = new URLSearchParams({ date: localDate(), lang: i18n.language });
+  if (category) params.set("category", category);
+  return api<{ quote: QuoteCard | null }>(`/api/library/quotes/daily?${params}`);
+}
 
 /** The viewer's local calendar date — the server may sit in another timezone. */
 export function localDate(): string {
@@ -53,7 +94,11 @@ export function localDate(): string {
 }
 
 export function fetchHomeFeed(): Promise<{ cards: HomeCard[] }> {
-  return api<{ cards: HomeCard[] }>(`/api/home/feed?date=${localDate()}`);
+  // lang + quoteCategory steer the quote of the day only.
+  const params = new URLSearchParams({ date: localDate(), lang: i18n.language });
+  const category = storedQuoteCategory();
+  if (category) params.set("quoteCategory", category);
+  return api<{ cards: HomeCard[] }>(`/api/home/feed?${params}`);
 }
 
 /** How many photos the memory card's strip holds — also the tightness bar. */

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { BookOpen, Copy, Pencil, Plus, Quote as QuoteIcon, Trash2 } from "lucide-react";
+import { BookOpen, Copy, FileUp, Pencil, Plus, Quote as QuoteIcon, Trash2 } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { UserAreaNav } from "./UserAreaNav";
@@ -11,6 +11,8 @@ import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { MessageBox } from "../../shared/MessageBox";
 import { relativeTime } from "../../shared/utils";
 import i18n from "../../i18n";
+import { QuoteImportModal } from "./QuoteImportModal";
+import { PeopleCombobox } from "../audiobooks/PeopleCombobox";
 import type { Quote } from "../audiobooks/types";
 
 // In-reader quotes can be opened back at their spot; the deep link mirrors the
@@ -37,18 +39,27 @@ interface QuoteGroup {
 
 // Group quotes under their source (a library book, or a typed-in title), newest
 // quote first within a group, groups ordered by their most recent quote.
+//
+// An imported pack is mostly author-without-source — a famous line has someone
+// who said it but no book behind it — so keying on the title alone would drop a
+// whole 1,200-quote import into ONE "Unattributed" group wearing whichever
+// author happened to land first. Quotes with no title group by their author and
+// wear that name instead.
 function groupBySource(quotes: Quote[]): QuoteGroup[] {
   const map = new Map<string, QuoteGroup>();
   for (const quote of quotes) {
-    const key = quote.itemId ?? `ext:${(quote.sourceTitle ?? "").toLowerCase()}`;
+    const authorLine = quote.sourceAuthors.join(", ");
+    const key = quote.itemId ?? `ext:${quote.sourceTitle ?? ""}|${authorLine}`.toLowerCase();
     const group = map.get(key);
     if (group) {
       group.items.push(quote);
     } else {
       map.set(key, {
         key,
-        title: quote.sourceTitle || i18n.t("user:quotes.unattributed"),
-        authors: quote.sourceAuthors,
+        title: quote.sourceTitle || authorLine || i18n.t("user:quotes.unattributed"),
+        // Only a second line when the heading is a title — otherwise it would
+        // repeat the author the heading already names.
+        authors: quote.sourceTitle ? quote.sourceAuthors : [],
         external: !quote.itemId,
         items: [quote]
       });
@@ -65,9 +76,85 @@ interface QuoteDraft {
   sourceTitle: string;
   sourceAuthor: string;
   note: string;
+  language: string;
+  quoteDate: string;
+  context: string;
+  visibility: "private" | "family";
+  inRotation: boolean;
+  tags: string[];
+  familyTreePersonId: string;
 }
 
-const emptyDraft: QuoteDraft = { text: "", sourceTitle: "", sourceAuthor: "", note: "" };
+const emptyDraft: QuoteDraft = {
+  text: "",
+  sourceTitle: "",
+  sourceAuthor: "",
+  note: "",
+  language: "",
+  quoteDate: "",
+  context: "",
+  visibility: "private",
+  inRotation: false,
+  tags: [],
+  familyTreePersonId: ""
+};
+
+// The languages the UI itself speaks, by their own names (as the A–Z strip's
+// script toggle does). A quote imported in some other language keeps its code:
+// the editor adds it as an option rather than silently dropping it on save.
+const UI_LANGUAGES = [
+  { code: "en", label: "English" },
+  { code: "ru", label: "Русский" }
+];
+
+// Same partial ISO dates as a family member's birth date: a year, a month, or a day.
+const PARTIAL_DATE = /^\d{4}(-\d{2}(-\d{2})?)?$/;
+
+// The page shows the whole house's shared quotes as well as your own, so finding
+// one slice of a long list is the everyday case: who saved it, where it came from,
+// whether it is in the daily card, and which category it wears. A "tag:" filter is
+// any category quotes actually use — free-form, so the row grows only as the
+// library does. Anything richer belongs in a real toolbar, which this user-area
+// page (unlike a library browse page) does not wear.
+const QUOTE_FILTERS = ["all", "mine", "import", "reader", "manual", "rotation"] as const;
+type BuiltInFilter = (typeof QUOTE_FILTERS)[number];
+type QuoteFilter = BuiltInFilter | `tag:${string}`;
+
+/** Categories worth offering: the ones quotes actually wear, most-used first. */
+const SHOWN_TAG_FILTERS = 8;
+
+function matchesFilter(quote: Quote, filter: QuoteFilter): boolean {
+  if (filter === "all") return true;
+  if (filter === "mine") return quote.mine;
+  if (filter === "rotation") return quote.inRotation;
+  if (filter.startsWith("tag:")) return quote.tags.includes(filter.slice(4));
+  return quote.origin === filter;
+}
+
+function popularTags(quotes: Quote[]): string[] {
+  const counts = new Map<string, number>();
+  for (const quote of quotes) {
+    for (const tag of quote.tags) counts.set(tag, (counts.get(tag) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, SHOWN_TAG_FILTERS)
+    .map(([tag]) => tag);
+}
+
+// The metadata half of a quote, shaped for both write routes: an emptied field
+// goes as null so the column is cleared rather than left behind.
+function metadataBody(draft: QuoteDraft) {
+  return {
+    language: draft.language.trim() || null,
+    quoteDate: draft.quoteDate.trim() || null,
+    context: draft.context.trim() || null,
+    visibility: draft.visibility,
+    inRotation: draft.inRotation,
+    tags: draft.tags,
+    familyTreePersonId: draft.familyTreePersonId || null
+  };
+}
 
 // Add (no editing target) or edit an existing quote. Editing keeps the quote's
 // book link intact — only the text/source/note are editable here.
@@ -75,12 +162,18 @@ function QuoteEditor({
   editing,
   busy,
   error,
+  knownTags,
+  familyMembers,
   onSave,
   onClose
 }: {
   editing: Quote | null;
   busy: boolean;
   error: string;
+  /** Categories already in use, so the house converges on a few rather than 50. */
+  knownTags: string[];
+  /** The family tree, for saying WHO said it. Empty on installs with no tree. */
+  familyMembers: { id: string; name: string }[];
   onSave: (draft: QuoteDraft) => void;
   onClose: () => void;
 }) {
@@ -91,11 +184,24 @@ function QuoteEditor({
           text: editing.text,
           sourceTitle: editing.itemId ? "" : (editing.sourceTitle ?? ""),
           sourceAuthor: editing.itemId ? "" : (editing.sourceAuthors.join(", ") ?? ""),
-          note: editing.note ?? ""
+          note: editing.note ?? "",
+          language: editing.language ?? "",
+          quoteDate: editing.quoteDate ?? "",
+          context: editing.context ?? "",
+          visibility: editing.visibility,
+          inRotation: editing.inRotation,
+          tags: editing.tags,
+          familyTreePersonId: editing.personId ?? ""
         }
       : emptyDraft
   );
+  // Set when the draft itself is wrong (a malformed date), as opposed to `error`,
+  // which is what the server said about a save that was actually attempted.
+  const [draftError, setDraftError] = useState("");
   const linked = Boolean(editing?.itemId);
+  const languageOptions = UI_LANGUAGES.some((l) => l.code === draft.language) || !draft.language
+    ? UI_LANGUAGES
+    : [...UI_LANGUAGES, { code: draft.language, label: draft.language }];
 
   return (
     <Modal
@@ -106,7 +212,14 @@ function QuoteEditor({
       onClose={onClose}
       onSubmit={(event) => {
         event.preventDefault();
-        if (draft.text.trim()) onSave(draft);
+        if (!draft.text.trim()) return;
+        const date = draft.quoteDate.trim();
+        if (date && !PARTIAL_DATE.test(date)) {
+          setDraftError(t("user:quotes.dateInvalid"));
+          return;
+        }
+        setDraftError("");
+        onSave(draft);
       }}
     >
       <div className="quote-form">
@@ -143,6 +256,31 @@ function QuoteEditor({
             </label>
           </div>
         )}
+        {familyMembers.length > 0 && (
+          <label className="quote-field">
+            <span>{t("user:quotes.speakerField")} <em>{t("user:form.optional")}</em></span>
+            <select
+              value={draft.familyTreePersonId}
+              onChange={(e) => setDraft((d) => ({ ...d, familyTreePersonId: e.target.value }))}
+            >
+              <option value="">{t("user:quotes.speakerNobody")}</option>
+              {familyMembers.map((person) => (
+                <option key={person.id} value={person.id}>{person.name}</option>
+              ))}
+            </select>
+          </label>
+        )}
+
+        <div className="quote-field">
+          <span>{t("user:quotes.tagsField")} <em>{t("user:form.optional")}</em></span>
+          <PeopleCombobox
+            value={draft.tags}
+            onChange={(tags) => setDraft((d) => ({ ...d, tags }))}
+            suggestions={knownTags}
+            placeholder={t("user:quotes.tagsPlaceholder")}
+          />
+        </div>
+
         <label className="quote-field">
           <span>{t("user:quotes.noteField")} <em>{t("user:form.optional")}</em></span>
           <textarea
@@ -152,7 +290,64 @@ function QuoteEditor({
             rows={2}
           />
         </label>
-        {error && <MessageBox tone="error" title={t("common:errors.unableToSave")}>{error}</MessageBox>}
+
+        <div className="quote-field-row">
+          <label className="quote-field">
+            <span>{t("user:quotes.languageField")} <em>{t("user:form.optional")}</em></span>
+            <select
+              value={draft.language}
+              onChange={(e) => setDraft((d) => ({ ...d, language: e.target.value }))}
+            >
+              <option value="">{t("user:quotes.languageUnset")}</option>
+              {languageOptions.map((option) => (
+                <option key={option.code} value={option.code}>{option.label}</option>
+              ))}
+            </select>
+          </label>
+          <label className="quote-field">
+            <span>{t("user:quotes.dateField")} <em>{t("user:form.optional")}</em></span>
+            <input
+              value={draft.quoteDate}
+              onChange={(e) => setDraft((d) => ({ ...d, quoteDate: e.target.value }))}
+              placeholder={t("user:quotes.datePlaceholder")}
+              inputMode="numeric"
+            />
+          </label>
+        </div>
+
+        <label className="quote-field">
+          <span>{t("user:quotes.contextField")} <em>{t("user:form.optional")}</em></span>
+          <input
+            value={draft.context}
+            onChange={(e) => setDraft((d) => ({ ...d, context: e.target.value }))}
+            placeholder={t("user:quotes.contextPlaceholder")}
+          />
+        </label>
+
+        <div className="quote-field-row">
+          <label className="quote-field">
+            <span>{t("user:quotes.visibilityField")}</span>
+            <select
+              value={draft.visibility}
+              onChange={(e) => setDraft((d) => ({ ...d, visibility: e.target.value as QuoteDraft["visibility"] }))}
+            >
+              <option value="private">{t("user:quotes.visibilityPrivate")}</option>
+              <option value="family">{t("user:quotes.visibilityFamily")}</option>
+            </select>
+          </label>
+          <label className="field-checkbox quote-field-toggle">
+            <input
+              type="checkbox"
+              checked={draft.inRotation}
+              onChange={(e) => setDraft((d) => ({ ...d, inRotation: e.target.checked }))}
+            />
+            <span>{t("user:quotes.rotationField")}</span>
+          </label>
+        </div>
+
+        {(draftError || error) && (
+          <MessageBox tone="error" title={t("common:errors.unableToSave")}>{draftError || error}</MessageBox>
+        )}
         <div className="modal-actions">
           <Button variant="secondary" onClick={onClose} disabled={busy}>{t("common:common.cancel")}</Button>
           <Button variant="primary" type="submit" disabled={busy || !draft.text.trim()}>
@@ -181,15 +376,42 @@ export function QuotesPage({
   const [saveError, setSaveError] = useState("");
   const [deleting, setDeleting] = useState<Quote | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [filter, setFilter] = useState<QuoteFilter>("all");
+  const [familyMembers, setFamilyMembers] = useState<{ id: string; name: string }[]>([]);
 
-  useEffect(() => {
+  const loadQuotes = () =>
     api<{ quotes: Quote[] }>("/api/library/quotes")
       .then((payload) => setQuotes(payload.quotes))
       .catch((err) => setError(err instanceof Error ? err.message : t("user:quotes.loadFailed")));
+
+  useEffect(() => { void loadQuotes(); }, []);
+
+  // The family tree, for the editor's "who said it" picker. Reading the tree is
+  // open to every signed-in user; an install with no tree simply gets no field.
+  useEffect(() => {
+    api<{ persons: { id: string; name: string }[] }>("/api/family-tree/persons")
+      .then((payload) => setFamilyMembers(payload.persons.map((p) => ({ id: p.id, name: p.name }))))
+      .catch(() => setFamilyMembers([]));
   }, []);
 
-  const groups = useMemo(() => groupBySource(quotes ?? []), [quotes]);
-  const total = quotes?.length ?? 0;
+  const visible = useMemo(() => (quotes ?? []).filter((q) => matchesFilter(q, filter)), [quotes, filter]);
+  const groups = useMemo(() => groupBySource(visible), [visible]);
+  const total = visible.length;
+  // Which filters would actually show something — a chip that can only ever lead
+  // to an empty page is noise, so an install with no imports never sees one.
+  // Every category anyone has used, for the editor's type-ahead.
+  const knownTags = useMemo(
+    () => [...new Set((quotes ?? []).flatMap((q) => q.tags))].sort((a, b) => a.localeCompare(b)),
+    [quotes]
+  );
+  const offered = useMemo<QuoteFilter[]>(
+    () => [
+      ...QUOTE_FILTERS.filter((key) => key === "all" || (quotes ?? []).some((q) => matchesFilter(q, key))),
+      ...popularTags(quotes ?? []).map((tag) => `tag:${tag}` as QuoteFilter)
+    ],
+    [quotes]
+  );
 
   const openAdd = () => { setEditing(null); setSaveError(""); setEditorOpen(true); };
   const openEdit = (quote: Quote) => { setEditing(quote); setSaveError(""); setEditorOpen(true); };
@@ -199,7 +421,11 @@ export function QuotesPage({
     setSaveError("");
     try {
       if (editing) {
-        const body: Record<string, string | null> = { text: draft.text.trim(), note: draft.note.trim() || null };
+        const body: Record<string, string | boolean | string[] | null> = {
+          text: draft.text.trim(),
+          note: draft.note.trim() || null,
+          ...metadataBody(draft)
+        };
         // Source fields are only editable for externally-typed quotes.
         if (!editing.itemId) {
           body.sourceTitle = draft.sourceTitle.trim() || null;
@@ -217,7 +443,8 @@ export function QuotesPage({
             text: draft.text.trim(),
             sourceTitle: draft.sourceTitle.trim() || null,
             sourceAuthor: draft.sourceAuthor.trim() || null,
-            note: draft.note.trim() || null
+            note: draft.note.trim() || null,
+            ...metadataBody(draft)
           })
         });
         setQuotes((current) => [quote, ...(current ?? [])]);
@@ -265,12 +492,39 @@ export function QuotesPage({
             <p className="eyebrow">{t("user:area.eyebrow")}</p>
             <h1>{t("common:nav.quotes")}</h1>
           </div>
-          <Button variant="primary" compact onClick={openAdd}>
-            <Plus size={16} /> {t("user:quotes.addQuote")}
-          </Button>
+          <div className="quote-head-actions">
+            {/* Importing a pack curates what the whole house reads, so it is an
+                admin act — everyone can still add their own quotes by hand. */}
+            {user.role === "admin" && (
+              <Button variant="secondary" compact onClick={() => setImportOpen(true)}>
+                <FileUp size={16} /> {t("user:quotes.import.action")}
+              </Button>
+            )}
+            <Button variant="primary" compact onClick={openAdd}>
+              <Plus size={16} /> {t("user:quotes.addQuote")}
+            </Button>
+          </div>
         </div>
 
         {error && <MessageBox tone="error" title={t("user:quotes.errorTitle")}>{error}</MessageBox>}
+
+        {offered.length > 1 && (
+          <div className="quote-filters" role="group" aria-label={t("user:quotes.filterLabel")}>
+            {offered.map((key) => (
+              <button
+                key={key}
+                type="button"
+                className={`quote-filter${filter === key ? " is-active" : ""}`}
+                aria-pressed={filter === key}
+                onClick={() => setFilter(key)}
+              >
+                {key.startsWith("tag:")
+                  ? key.slice(4)
+                  : t(`user:quotes.filters.${key}` as "user:quotes.filters.all")}
+              </button>
+            ))}
+          </div>
+        )}
 
         {quotes === null ? (
           <p className="management-empty">{t("user:quotes.loading")}</p>
@@ -282,6 +536,8 @@ export function QuotesPage({
               {t("user:quotes.empty")}
             </p>
           </div>
+        ) : visible.length === 0 ? (
+          <p className="management-empty">{t("user:quotes.noneMatchFilter")}</p>
         ) : (
           <>
             <div className="quote-groups">
@@ -303,8 +559,30 @@ export function QuotesPage({
                         <article className="quote-card" key={quote.id}>
                           <blockquote className="quote-text">{quote.text}</blockquote>
                           {quote.note && <p className="quote-note">{quote.note}</p>}
+                          {quote.tags.length > 0 && (
+                            <div className="quote-tags">
+                              {quote.tags.map((tag) => (
+                                <button
+                                  key={tag}
+                                  type="button"
+                                  className="quote-tag"
+                                  onClick={() => setFilter(`tag:${tag}`)}
+                                >
+                                  {tag}
+                                </button>
+                              ))}
+                            </div>
+                          )}
                           <div className="quote-card-foot">
-                            <span className="quote-time">{relativeTime(quote.createdAt)}</span>
+                            <span className="quote-time">
+                              {relativeTime(quote.createdAt)}
+                              {quote.personName && (
+                                <> · {t("user:quotes.spokenBy", { name: quote.personName })}</>
+                              )}
+                              {quote.ownerName && (
+                                <> · {t("user:quotes.savedBy", { name: quote.ownerName })}</>
+                              )}
+                            </span>
                             <div className="quote-card-actions">
                               {href && (
                                 <button
@@ -326,24 +604,28 @@ export function QuotesPage({
                               >
                                 <Copy size={16} />
                               </button>
-                              <button
-                                type="button"
-                                className="icon-button"
-                                onClick={() => openEdit(quote)}
-                                aria-label={t("user:quotes.editAria")}
-                                title={t("user:actions.edit")}
-                              >
-                                <Pencil size={16} />
-                              </button>
-                              <button
-                                type="button"
-                                className="icon-button danger"
-                                onClick={() => setDeleting(quote)}
-                                aria-label={t("user:quotes.deleteAria")}
-                                title={t("user:actions.delete")}
-                              >
-                                <Trash2 size={16} />
-                              </button>
+                              {quote.mine && (
+                                <>
+                                  <button
+                                    type="button"
+                                    className="icon-button"
+                                    onClick={() => openEdit(quote)}
+                                    aria-label={t("user:quotes.editAria")}
+                                    title={t("user:actions.edit")}
+                                  >
+                                    <Pencil size={16} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="icon-button danger"
+                                    onClick={() => setDeleting(quote)}
+                                    aria-label={t("user:quotes.deleteAria")}
+                                    title={t("user:actions.delete")}
+                                  >
+                                    <Trash2 size={16} />
+                                  </button>
+                                </>
+                              )}
                             </div>
                           </div>
                         </article>
@@ -366,6 +648,8 @@ export function QuotesPage({
           editing={editing}
           busy={saving}
           error={saveError}
+          knownTags={knownTags}
+          familyMembers={familyMembers}
           onSave={saveQuote}
           onClose={() => { setEditorOpen(false); setEditing(null); }}
         />
@@ -383,6 +667,21 @@ export function QuotesPage({
         >
           {t("user:quotes.deleteBody")}
         </ConfirmDialog>
+      )}
+
+      {importOpen && (
+        <QuoteImportModal
+          onClose={() => setImportOpen(false)}
+          onImported={(summary) => {
+            setImportOpen(false);
+            void loadQuotes();
+            // Imported quotes land in rotation, so point the page at them: after a
+            // 1,200-line pack the list is otherwise unrecognisable.
+            setFilter("import");
+            setNotice(t("user:quotes.import.done", { count: summary.imported }));
+            window.setTimeout(() => setNotice(""), 4000);
+          }}
+        />
       )}
 
       {notice && <div className="quote-toast" role="status">{notice}</div>}

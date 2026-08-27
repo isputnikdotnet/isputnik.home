@@ -283,6 +283,24 @@ export interface Quote {
   note: string | null;
   color: string | null;
   percentComplete: number | null;
+  // How the quote got here (the server decides), who may see it, and whether it
+  // is in the Quote-of-the-day pool.
+  origin: "manual" | "reader" | "import";
+  /** False for someone else's shared quote: read-only, and ownerName says whose. */
+  mine: boolean;
+  ownerName: string | null;
+  /** The categories it wears (Funny, Kids, …) — the daily card filters on these. */
+  tags: string[];
+  /** WHO SAID IT: a family-tree person, not the author of a book. Null once the
+   *  person is deleted, though personName keeps the snapshot. */
+  personId: string | null;
+  personName: string | null;
+  visibility: "private" | "family";
+  inRotation: boolean;
+  language: string | null;
+  /** When it was SAID: 'YYYY' | 'YYYY-MM' | 'YYYY-MM-DD'. */
+  quoteDate: string | null;
+  context: string | null;
   sourceTitle: string | null;
   sourceAuthors: string[];
   libraryType: "audiobook" | "ebook" | "gallery" | null;

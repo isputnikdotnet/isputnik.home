@@ -267,7 +267,10 @@
     "likeFailed": "Unable to like this",
     "dismissFailed": "Unable to set this aside",
     "notAvailableOffline": "Not available offline",
-    "downloadingTitle": "Downloading {{title}}"
+    "downloadingTitle": "Downloading {{title}}",
+    "quoteOfTheDay": "Quote of the day",
+    "quoteCategoryLabel": "Quote category",
+    "quoteAllCategories": "All"
   },
   "profile": {
     "eyebrow": "Profile",
@@ -376,12 +379,30 @@
     "railLabel": "Setup steps",
     "lockedNote": "Needs the step above",
     "steps": {
-      "storage": { "title": "Storage", "note": "Where files live" },
-      "bin": { "title": "Recycle Bin", "note": "Where deleted files wait" },
-      "backup": { "title": "Backups", "note": "A copy to go back to" },
-      "email": { "title": "Email", "note": "For alerts and codes" },
-      "alerts": { "title": "Security alerts", "note": "Tell me about sign-ins" },
-      "theme": { "title": "Appearance", "note": "How it looks" }
+      "storage": {
+        "title": "Storage",
+        "note": "Where files live"
+      },
+      "bin": {
+        "title": "Recycle Bin",
+        "note": "Where deleted files wait"
+      },
+      "backup": {
+        "title": "Backups",
+        "note": "A copy to go back to"
+      },
+      "email": {
+        "title": "Email",
+        "note": "For alerts and codes"
+      },
+      "alerts": {
+        "title": "Security alerts",
+        "note": "Tell me about sign-ins"
+      },
+      "theme": {
+        "title": "Appearance",
+        "note": "How it looks"
+      }
     },
     "lockedBinBody": "Set up storage first — the bin has to live inside a container you have approved.",
     "lockedAlertsBody": "Set up email first — an alert nobody receives reads as nothing having happened.",

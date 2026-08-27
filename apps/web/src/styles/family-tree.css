@@ -2039,3 +2039,46 @@
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   }
 }
+
+/* A person's own sayings, on their profile. Reads rather than owns: the quotes
+   themselves are edited on the Quotes page, so there are no controls here. */
+.ft-person-quotes {
+  display: grid;
+  gap: 14px;
+}
+
+.ft-person-quote {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.ft-person-quote-mark {
+  flex: none;
+  margin-top: 3px;
+  color: var(--mint);
+  opacity: 0.75;
+}
+
+.ft-person-quote-body {
+  min-width: 0;
+}
+
+.ft-person-quote blockquote {
+  margin: 0;
+  color: var(--ink);
+  font-style: italic;
+  line-height: 1.5;
+}
+
+.ft-person-quote-meta {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.ft-person-quotes-empty {
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+}

@@ -836,7 +836,7 @@ describe('schema baseline (3.0.0)', () => {
     // theme remap, and the interface-language column — none of which a fresh
     // file needs, since schema.sql builds it complete and seeds no such job;
     // those migrations are only for databases that predate them.
-    expect(scratch.pragma('user_version', { simple: true })).toBe(48);
+    expect(scratch.pragma('user_version', { simple: true })).toBe(49);
 
     const userColumns = (scratch.pragma('table_info(users)') as { name: string }[]).map((c) => c.name);
     expect(userColumns).toEqual(
@@ -912,7 +912,7 @@ describe('schema baseline (3.0.0)', () => {
     migrate(current);
     current.pragma('user_version = 31'); // every 2.x migration applied
     expect(() => migrate(current)).not.toThrow();
-    expect(current.pragma('user_version', { simple: true })).toBe(48);
+    expect(current.pragma('user_version', { simple: true })).toBe(49);
     current.close();
   });
 
@@ -936,6 +936,42 @@ describe('schema baseline (3.0.0)', () => {
     expect(old.prepare('SELECT * FROM gallery_slideshows WHERE id = ?').get('s1')).toMatchObject({
       title_enabled: 1, title_text: null, title_subtitle_mode: 'count',
       title_seconds: 3, title_background: 'black', title_photo_item_id: null
+    });
+    // Idempotent: a second pass must not try to add columns that are already there.
+    expect(() => migrate(old)).not.toThrow();
+    old.close();
+  });
+
+  // Migration 49 (quote metadata) has to reach a quotes table that predates every
+  // one of its columns, backfill `origin` for rows captured before it existed, and
+  // build a partial index over a column it has only just added.
+  it('adds the quote metadata columns to a database that predates them', () => {
+    const old = new Database(':memory:');
+    old.exec(`CREATE TABLE quotes (
+      id TEXT PRIMARY KEY, user_id TEXT NOT NULL, item_id TEXT, document_id TEXT,
+      cfi TEXT, text TEXT NOT NULL, note TEXT, color TEXT, source_title TEXT,
+      source_author TEXT, percent_complete REAL,
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+      updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+    )`);
+    old.prepare("INSERT INTO quotes (id, user_id, text, document_id, cfi) VALUES ('q1', 'u1', 'Highlighted', 'd1', '/6/4')").run();
+    old.prepare("INSERT INTO quotes (id, user_id, text) VALUES ('q2', 'u1', 'Typed in')").run();
+
+    migrate(old);
+
+    const columns = (old.pragma('table_info(quotes)') as { name: string }[]).map((c) => c.name);
+    expect(columns).toEqual(expect.arrayContaining([
+      'origin', 'visibility', 'in_rotation', 'language', 'quote_date', 'context',
+      'family_tree_person_id', 'person_name'
+    ]));
+    // A document anchor is what identifies a quote the reader captured; everything
+    // else predating `origin` was typed by hand. Both stay private and out of the
+    // daily rotation until someone says otherwise.
+    expect(old.prepare('SELECT * FROM quotes WHERE id = ?').get('q1')).toMatchObject({
+      origin: 'reader', visibility: 'private', in_rotation: 0, language: null, quote_date: null
+    });
+    expect(old.prepare('SELECT * FROM quotes WHERE id = ?').get('q2')).toMatchObject({
+      origin: 'manual', visibility: 'private', in_rotation: 0
     });
     // Idempotent: a second pass must not try to add columns that are already there.
     expect(() => migrate(old)).not.toThrow();
