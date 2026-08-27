@@ -1,13 +1,16 @@
 # UI language support (Russian) — implementation plan
 
 Status (2026-08-27): Phases 0–1 complete and verified in-browser. Phase 2
-in progress — namespace infrastructure built, ~2,540 keys authored and
+in progress — namespace infrastructure built, ~3,070 keys authored and
 translated across 6 of 12 namespaces; `common`, `controlAdmin`, `book`,
-`user`, and `controlDash` (5 of 6 translated namespaces) are now FULLY
-wired, including `sections/duplicates/` (the `dupes.*` keys, the whole
-duplicate-cleanup wizard) — that batch finished after this doc's last
-save, which briefly left it noted as pending; `reader` partially wired.
-Phase 3 (server error codes) started. Phase 4 not started. Full detail below.
+`user`, `controlDash`, and now `control` (6 of 6 translated-batch namespaces)
+are FULLY wired, including `sections/duplicates/` (the `dupes.*` keys, the
+whole duplicate-cleanup wizard) and every file under `features/control/`
+proper (nav.ts, search-index.ts, ControlPanelPage/ControlSearch, and the 9
+core sections — About/Appearance/Backup/Categories/Groups/Invites/Libraries/
+LibraryMembersModal/Logs); `reader` partially wired. Phase 3 (server error
+codes) started. Phase 4 (`family`/`gallery`/`galleryModals`/`library`/`misc`
+namespaces) not started. Full detail below.
 
 Phase 0 — i18next + typed keys, `users.language` (migration 48), Language picker
 on Profile → Appearance, localStorage mirror, `check:ui` key-parity rule (which
@@ -103,9 +106,35 @@ namespace pairs, loaded via `locales/{en,ru}/index.ts` barrels and
   check:ui + full web test suite (178 tests) + full server suite (1549
   tests) all verified together.
 
-**Namespaces — still empty `{}` (nothing done)**: `control` (nav.ts +
-ControlPanelPage + ~9 core sections), `family` (all 26 familytree files),
-`gallery` (11 page files), `galleryModals` (13 modal files), `library`
+- `control` (534 keys) — ALL files wired 2026-08-27: ControlPanelPage.tsx,
+  ControlSearch.tsx, nav.ts, search-index.ts, and the 9 core sections
+  (AboutSection, AppearanceSection, BackupSection, CategoriesSection,
+  GroupsSection, InvitesSection, LibrariesSection, LibraryMembersModal,
+  LogsSection). ControlSectionHead.tsx and types.ts needed no changes (the
+  former already takes translated strings as props; the latter is pure
+  TypeScript types). `nav.ts` was restructured rather than just translated:
+  `ControlGroupDef`/`ControlTabDef` dropped their literal `label` fields in
+  favor of `groupLabel()`/`tabLabel()`/`contextLabel()` functions keyed off
+  the already-literal-union `GroupKey`/`ControlSection`/new `ContextKey`
+  types, so `i18n.t()` template-literal calls type-check per pitfall #4 and
+  stay reactive to a language switch. `search-index.ts`'s
+  `CONTROL_SEARCH_ENTRIES` (frozen at import time, so it would have cached
+  whatever language was active on first load) became `getControlSearchEntries()`,
+  called fresh by `ControlSearch.tsx`. Its `keywords` corpus is intentionally
+  NOT translation keys — each entry carries hardcoded English AND Russian
+  match terms concatenated together, so typing either language finds a
+  setting regardless of the active UI language (verified in-browser: typing
+  "дубли" while signed in as the Russian-language dev account surfaces
+  "Duplicate cleanup"). `LibraryMembersModal.tsx`'s role dropdown now sources
+  its own `roleName()`/`roleTagline()` lookups instead of the shared
+  (English, out-of-batch-scope) `LIBRARY_ROLE_OPTIONS.label`. Verified:
+  typecheck + check:ui + full web test suite (178 tests), plus an in-browser
+  pass over Libraries/Groups/Invites/Categories/Backup/Logs/About/Appearance,
+  the search palette, and the library-members modal, all signed in on the
+  Russian-language dev account.
+
+**Namespaces — still empty `{}` (nothing done)**: `family` (all 26 familytree
+files), `gallery` (11 page files), `galleryModals` (13 modal files), `library`
 (UserAreaNav done in Phase 1; LikesPage/BookmarksPage/etc. not — overlaps
 with `user`, reconcile ownership before resuming), `misc` (About/Help/Guide
 pages, profile sub-sections: MFA/passkeys/email/password/shares/devices).
@@ -136,10 +165,11 @@ is broken, translation is just incomplete.
 
 Phase 4 (control panel core sections — LibrariesSection, BackupSection,
 GroupsSection, InvitesSection, CategoriesSection, AboutSection, AppearanceSection,
-LibraryMembersModal, nav.ts, search-index.ts) not started; namespace `control`
-reserved for it. Scope: the web app's UI chrome in Russian. Content
-(titles, authors, folder names) is already whatever language the files are in, and
-the Cyrillic A–Z strip already exists (`shared/alphabets.ts` + the server's
+LibraryMembersModal, nav.ts, search-index.ts), namespace `control`, DONE
+2026-08-27 (see the namespace bullet above). Scope: the web app's UI chrome
+in Russian. Content (titles, authors, folder names) is already whatever
+language the files are in, and the Cyrillic A–Z strip already exists
+(`shared/alphabets.ts` + the server's
 alphabet detection) — none of that is part of this work.
 
 ## Decisions
@@ -215,11 +245,14 @@ validation (`fieldErrors` get per-field codes). Each becomes
 layer resolves `code` first. No flag-day — untouched routes keep working via the
 English fallback.
 
-## Phase 4 — Control panel (decide later)
+## Phase 4 — Control panel (DONE 2026-08-27)
 
-Admin-facing; stays English through v1. If translated later it's just more of
-Phase 2 (`control.json`), plus `features/control/search-index.ts` needs its
-search terms in both languages.
+Admin-facing, translated into Russian as part of Phase 2's sweep rather than
+deferred to a later release: `control.json` (534 keys) covers nav.ts,
+ControlPanelPage/ControlSearch, and the 9 core sections, and
+`features/control/search-index.ts`'s search terms are in both languages (as
+a hardcoded bilingual keyword corpus, not translation keys — see the
+`control` namespace bullet in Phase 2's status above for why).
 
 ## Release strategy
 

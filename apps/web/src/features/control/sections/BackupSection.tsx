@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { Archive, DatabaseBackup, Download, Folder, Trash2, RotateCcw, Save, UploadCloud } from "lucide-react";
 import { api } from "../../../api";
 import { controlHref, followRoute } from "../../../router";
@@ -35,6 +36,7 @@ interface BackupList {
 }
 
 export function BackupSection() {
+  const { t } = useTranslation(["common", "control"]);
   const [data, setData] = useState<BackupList | null>(null);
   const [form, setForm] = useState<BackupSettings>({ enabled: false, time: "03:00", retention: 10, includeCovers: true });
   const [error, setError] = useState("");
@@ -56,8 +58,8 @@ export function BackupSection() {
   }, []);
 
   useEffect(() => {
-    load().catch((err) => setError(err instanceof Error ? err.message : "Unable to load backups"));
-  }, [load]);
+    load().catch((err) => setError(err instanceof Error ? err.message : t("control:backup.unableToLoad")));
+  }, [load, t]);
 
   // A backup runs for minutes — far longer than a proxy will hold the request
   // open — so the server answers the start right away and the page watches the
@@ -74,12 +76,12 @@ export function BackupSection() {
     if (sawRun.current) {
       sawRun.current = false;
       if (data?.lastError) {
-        setError(`The backup did not finish: ${data.lastError}`);
+        setError(t("control:backup.notFinished", { reason: data.lastError }));
       } else {
-        setNotice(`Created ${data?.backups[0]?.name ?? "the backup"}.`);
+        setNotice(t("control:backup.created", { name: data?.backups[0]?.name ?? t("control:backup.createdFallback") }));
       }
     }
-  }, [running, data, load]);
+  }, [running, data, load, t]);
 
   const createBackup = async () => {
     setCreating(true);
@@ -88,7 +90,7 @@ export function BackupSection() {
       await api<{ startedAt: string }>("/api/backups", { method: "POST", body: "{}" });
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to start the backup");
+      setError(err instanceof Error ? err.message : t("control:backup.unableToStart"));
     } finally {
       setCreating(false);
     }
@@ -99,10 +101,10 @@ export function BackupSection() {
     setError(""); setNotice("");
     try {
       await api("/api/backups/settings", { method: "PATCH", body: JSON.stringify(form) });
-      setNotice(form.enabled ? `Scheduled daily backup at ${form.time}, keeping ${form.retention}.` : "Scheduled backups disabled.");
+      setNotice(form.enabled ? t("control:backup.scheduleEnabled", { time: form.time, retention: form.retention }) : t("control:backup.scheduleDisabled"));
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to save settings");
+      setError(err instanceof Error ? err.message : t("control:backup.unableToSaveSettings"));
     } finally {
       setSavingSettings(false);
     }
@@ -116,7 +118,7 @@ export function BackupSection() {
       setPendingDelete(null);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to delete backup");
+      setError(err instanceof Error ? err.message : t("control:backup.unableToDelete"));
     } finally {
       setDeleting(false);
     }
@@ -132,12 +134,13 @@ export function BackupSection() {
         body: JSON.stringify({ covers })
       });
       setNotice(
-        `Restore staged from ${pendingRestore.name}${covers ? "" : ", database only — cover art left as it is"}. ` +
-        "Restart the server to apply it."
+        covers
+          ? t("control:backup.restoredNotice", { name: pendingRestore.name })
+          : t("control:backup.restoredNoticeDbOnly", { name: pendingRestore.name })
       );
       setPendingRestore(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to stage restore");
+      setError(err instanceof Error ? err.message : t("control:backup.unableToStageRestore"));
     } finally {
       setRestoring(false);
     }
@@ -147,7 +150,7 @@ export function BackupSection() {
     const res = payload as { backup?: BackupFile };
     setShowUpload(false);
     setError("");
-    setNotice(`Uploaded ${res.backup?.name ?? "the backup"}. It's ready to restore from the list below.`);
+    setNotice(t("control:backup.uploaded", { name: res.backup?.name ?? t("control:backup.uploadedFallback") }));
     await load();
   };
 
@@ -156,13 +159,10 @@ export function BackupSection() {
       <div className="backup-page">
         <div className="backup-hero">
           <div className="backup-hero-copy">
-            <p className="eyebrow">Maintenance</p>
-            <h1>Backup</h1>
+            <p className="eyebrow">{t("control:backup.eyebrow")}</p>
+            <h1>{t("control:backup.title")}</h1>
             <p>
-              Creates a consistent snapshot of the application database (accounts, libraries, metadata,
-              listening progress, bookmarks, saved lists) while the server keeps running. Media files are
-              never modified; thumbnail caches can be regenerated, and cover art can be included with
-              backups below.
+              {t("control:backup.intro")}
             </p>
             {/* A path as the SERVER sees it. In Docker that's a path inside the
                 container, which is not where you'd look on the host — say so, or it
@@ -170,7 +170,7 @@ export function BackupSection() {
             {data && (
               <span
                 className="backup-path-pill"
-                title="Where the server writes backups. In Docker this is a path inside the container — it sits under the folder you mapped to /config."
+                title={t("control:backup.pathTitle")}
               >
                 <Folder size={15} />
                 <code>{data.backupPath}</code>
@@ -180,33 +180,33 @@ export function BackupSection() {
           <div className="backup-hero-actions">
             <button className="primary-button" onClick={createBackup} disabled={creating || running}>
               <DatabaseBackup size={18} />
-              <span>{creating || running ? "Backing up..." : "Create backup now"}</span>
+              <span>{creating || running ? t("control:backup.backingUp") : t("control:backup.createNow")}</span>
             </button>
-            <button className="secondary-button" onClick={() => { setError(""); setNotice(""); setShowUpload(true); }} title="Upload a backup file from your computer">
+            <button className="secondary-button" onClick={() => { setError(""); setNotice(""); setShowUpload(true); }} title={t("control:backup.uploadBackupTitle")}>
               <UploadCloud size={18} />
-              <span>Upload backup</span>
+              <span>{t("control:backup.uploadBackup")}</span>
             </button>
           </div>
         </div>
 
-        {error && <MessageBox tone="error" title="Backup error">{error}</MessageBox>}
-        {notice && <MessageBox tone="success" title="Backups">{notice}</MessageBox>}
+        {error && <MessageBox tone="error" title={t("control:backup.errorTitle")}>{error}</MessageBox>}
+        {notice && <MessageBox tone="success" title={t("control:backup.listTitle")}>{notice}</MessageBox>}
 
         <section className="backup-card backup-settings">
-          <h2>Scheduled backups</h2>
+          <h2>{t("control:backup.scheduledTitle")}</h2>
           <div className="backup-settings-row">
             <ToggleSwitch
               className="backup-auto-toggle"
               checked={form.enabled}
               onChange={(v) => setForm((f) => ({ ...f, enabled: v }))}
-              label="Run a backup automatically every day"
+              label={t("control:backup.runAutomatically")}
             />
             <label className="field backup-field-time">
-              <span>Time</span>
+              <span>{t("control:backup.time")}</span>
               <input type="time" value={form.time} onChange={(e) => setForm((f) => ({ ...f, time: e.target.value }))} disabled={!form.enabled} />
             </label>
             <label className="field backup-field-keep">
-              <span>Keep newest</span>
+              <span>{t("control:backup.keepNewest")}</span>
               <input type="number" min={1} max={100} value={form.retention} onChange={(e) => setForm((f) => ({ ...f, retention: Number(e.target.value) }))} />
             </label>
             <label className="field-checkbox backup-cover-toggle">
@@ -217,15 +217,15 @@ export function BackupSection() {
                 onChange={(e) => setForm((f) => ({ ...f, includeCovers: e.target.checked }))}
               />
               <span>
-                Include cover art
+                {t("control:backup.includeCovers")}
                 {data && !data.coversAvailable && (
                   <small>
-                    No thumbnail store yet — set one under{" "}
+                    {t("control:backup.noThumbnailStore")}{" "}
                     <a
                       href={controlHref("storage")}
                       onClick={(event) => followRoute(event, controlHref("storage"))}
                     >
-                      Library → Storage
+                      {t("control:backup.storageLink")}
                     </a>
                   </small>
                 )}
@@ -235,12 +235,10 @@ export function BackupSection() {
           <div className="backup-card-rule" />
           <div className="backup-settings-footer">
             <button className="primary-button compact-button backup-save-button" onClick={saveSettings} disabled={savingSettings}>
-              <Save size={15} /> {savingSettings ? "Saving..." : "Save"}
+              <Save size={15} /> {savingSettings ? t("control:ui.saving") : t("control:ui.save")}
             </button>
             <p className="muted backup-retention-note">
-              Applies to manual and scheduled backups. Covers can't all be regenerated (uploaded and
-              provider-fetched art), so including them is recommended. Older backups beyond the limit are
-              removed automatically.
+              {t("control:backup.retentionNote")}
             </p>
           </div>
         </section>
@@ -250,25 +248,25 @@ export function BackupSection() {
             <span className="backup-empty-icon" aria-hidden="true">
               <Archive size={30} />
             </span>
-            <h2>No backups yet</h2>
-            <p className="muted">Click "Create backup now" to make one.</p>
+            <h2>{t("control:backup.emptyTitle")}</h2>
+            <p className="muted">{t("control:backup.emptyBody")}</p>
           </section>
         ) : data && (
           <section className="backup-card backup-list-card">
             <div className="backup-list-head">
-              <h2>Backups</h2>
+              <h2>{t("control:backup.listTitle")}</h2>
               <span>
-                Total: {formatBytes(data.totalSizeBytes)} across {data.backups.length} {data.backups.length === 1 ? "backup" : "backups"}.
+                {t("control:backup.totalSummary", { size: formatBytes(data.totalSizeBytes), count: data.backups.length })}
               </span>
             </div>
             <div className="datagrid-wrap">
               <table className="datagrid">
                 <thead>
                   <tr>
-                    <th>Backup</th>
-                    <th>Type</th>
-                    <th className="col-scan">Created</th>
-                    <th className="col-num">Size</th>
+                    <th>{t("control:backup.thBackup")}</th>
+                    <th>{t("control:backup.thType")}</th>
+                    <th className="col-scan">{t("control:backup.thCreated")}</th>
+                    <th className="col-num">{t("control:backup.thSize")}</th>
                     <th className="col-actions"></th>
                   </tr>
                 </thead>
@@ -280,19 +278,19 @@ export function BackupSection() {
                     return (
                       <tr key={backup.name}>
                         <td><strong>{backup.name}</strong></td>
-                        <td className="datagrid-muted">{writing ? "Backing up…" : backup.kind === "full" ? "Full (DB + covers)" : "Database only"}</td>
+                        <td className="datagrid-muted">{writing ? t("control:backup.writingInProgress") : backup.kind === "full" ? t("control:backup.kindFull") : t("control:backup.kindDatabase")}</td>
                         <td className="col-scan datagrid-muted">{formatManagedDate(backup.createdAt)}</td>
                         <td className="col-num datagrid-muted">{formatBytes(backup.sizeBytes)}</td>
                         <td className="col-actions">
                           {!writing && (
                             <div className="row-actions">
-                              <button className="secondary-button compact-button" title="Restore this backup" onClick={() => { setRestoreCovers(true); setPendingRestore(backup); }}>
-                                <RotateCcw size={14} /> Restore
+                              <button className="secondary-button compact-button" title={t("control:backup.restoreTitle")} onClick={() => { setRestoreCovers(true); setPendingRestore(backup); }}>
+                                <RotateCcw size={14} /> {t("control:backup.restore")}
                               </button>
-                              <a className="icon-button" title="Download backup" href={`/api/backups/${encodeURIComponent(backup.name)}/download`} download>
+                              <a className="icon-button" title={t("control:backup.downloadTitle")} href={`/api/backups/${encodeURIComponent(backup.name)}/download`} download>
                                 <Download size={15} />
                               </a>
-                              <button className="icon-button danger" title="Delete backup" onClick={() => setPendingDelete(backup)}>
+                              <button className="icon-button danger" title={t("control:backup.deleteTitle")} onClick={() => setPendingDelete(backup)}>
                                 <Trash2 size={15} />
                               </button>
                             </div>
@@ -310,9 +308,9 @@ export function BackupSection() {
 
       {pendingDelete && (
         <ConfirmDialog
-          title="Delete this backup?"
-          confirmLabel="Delete backup"
-          busyLabel="Deleting…"
+          title={t("control:backup.deleteConfirmTitle")}
+          confirmLabel={t("control:backup.deleteConfirmLabel")}
+          busyLabel={t("control:ui.deleting")}
           confirmIcon={<Trash2 size={15} />}
           danger
           busy={deleting}
@@ -320,15 +318,15 @@ export function BackupSection() {
           onConfirm={deleteBackup}
           onCancel={() => setPendingDelete(null)}
         >
-          <strong>{pendingDelete.name}</strong> ({formatBytes(pendingDelete.sizeBytes)}) will be permanently removed.
+          {t("control:backup.willBeRemoved", { name: pendingDelete.name, size: formatBytes(pendingDelete.sizeBytes) })}
         </ConfirmDialog>
       )}
 
       {pendingRestore && (
         <ConfirmDialog
-          title="Restore from this backup?"
-          confirmLabel="Stage restore"
-          busyLabel="Staging…"
+          title={t("control:backup.restoreConfirmTitle")}
+          confirmLabel={t("control:backup.stageRestore")}
+          busyLabel={t("control:backup.staging")}
           confirmIcon={<RotateCcw size={15} />}
           rich
           busy={restoring}
@@ -337,9 +335,8 @@ export function BackupSection() {
           onCancel={() => setPendingRestore(null)}
         >
           <p>
-            The database in <strong>{pendingRestore.name}</strong> is staged and replaces the current one the next time
-            the server starts (the current database is saved as an automatic backup first).
-            {pendingRestore.kind === "full" && restoreCovers && " Cover art is put back straight away."}
+            {t("control:backup.restoreBody", { name: pendingRestore.name })}
+            {pendingRestore.kind === "full" && restoreCovers && t("control:backup.restoreCoversNote")}
           </p>
           {pendingRestore.kind === "full" && (
             <label className="field-checkbox backup-cover-toggle">
@@ -349,12 +346,12 @@ export function BackupSection() {
                 onChange={(e) => setRestoreCovers(e.target.checked)}
               />
               <span>
-                Also restore cover art
-                <small>Off is quicker and leaves the covers you have now alone — the database comes back either way.</small>
+                {t("control:backup.alsoRestoreCovers")}
+                <small>{t("control:backup.alsoRestoreCoversHint")}</small>
               </span>
             </label>
           )}
-          <p><strong>You must restart the server to finish</strong> — changes made since this backup will be lost.</p>
+          <p><strong>{t("control:backup.restoreRestartWarning")}</strong></p>
         </ConfirmDialog>
       )}
 
@@ -362,26 +359,25 @@ export function BackupSection() {
         <Modal
           variant="card"
           className="backup-upload-modal"
-          title="Upload a backup file"
+          title={t("control:backup.uploadModalTitle")}
           icon={<UploadCloud size={20} />}
           busy={uploadBusy}
           onClose={() => setShowUpload(false)}
         >
           <p className="muted">
-            Add a backup from your computer — a full <code>.zip</code> (database + covers) or a
-            database-only <code>.sqlite</code>. It joins the list below, ready to restore.
+            {t("control:backup.uploadModalBody")}
           </p>
           <FileUpload
             endpoint="/api/backups/upload"
             accept={["zip", "sqlite"]}
             maxBytes={null}
-            hint="isputnik backup: .zip or .sqlite"
+            hint={t("control:backup.uploadHint")}
             onUploaded={handleBackupUploaded}
             onBusyChange={setUploadBusy}
           />
           <div className="modal-actions">
             <Button variant="secondary" onClick={() => setShowUpload(false)} disabled={uploadBusy}>
-              Close
+              {t("control:ui.close")}
             </Button>
           </div>
         </Modal>

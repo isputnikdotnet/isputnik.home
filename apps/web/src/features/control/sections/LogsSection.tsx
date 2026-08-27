@@ -1,4 +1,5 @@
 import { Fragment, useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { ChevronDown, ChevronRight, Download, FileText, Search, Trash2 } from "lucide-react";
 import { api } from "../../../api";
 import { navigate } from "../../../router";
@@ -31,18 +32,7 @@ type LogSort = "time" | "user" | "event" | "ip";
 
 const EMPTY_LOG_FILTERS: Record<LogFilterKey, string[]> = { event: [], user: [], ip: [] };
 
-const LOG_FACET_ORDER: FacetDef<LogFilterKey>[] = [
-  { key: "event", title: "Event", searchable: true },
-  { key: "user", title: "User", searchable: true },
-  { key: "ip", title: "IP address", searchable: true }
-];
-
-const PAGE_SIZE_OPTIONS = [
-  { value: "10", label: "10 rows" },
-  { value: "25", label: "25 rows" },
-  { value: "50", label: "50 rows" },
-  { value: "100", label: "100 rows" }
-];
+const PAGE_SIZE_VALUES = [10, 25, 50, 100];
 
 // Typing straight into the results, without a Search button to press. Each query
 // is a server round-trip, so it waits for a pause in typing rather than firing per
@@ -67,6 +57,16 @@ function isDiveableIp(ip: string | null): ip is string {
 }
 
 export function LogsSection() {
+  const { t } = useTranslation(["common", "control"]);
+  const LOG_FACET_ORDER: FacetDef<LogFilterKey>[] = [
+    { key: "event", title: t("control:logs.facetEvent"), searchable: true },
+    { key: "user", title: t("control:logs.facetUser"), searchable: true },
+    { key: "ip", title: t("control:logs.facetIp"), searchable: true }
+  ];
+  const PAGE_SIZE_OPTIONS = PAGE_SIZE_VALUES.map((value) => ({
+    value: String(value),
+    label: t("control:logs.rowsOption", { count: value })
+  }));
   const [logs, setLogs] = useState<LogEvent[]>([]);
   const [error, setError] = useState("");
   const [logSearchInput, setLogSearchInput] = useState("");
@@ -119,8 +119,8 @@ export function LogsSection() {
   }, [buildQuery, logPage, logPageSize]);
 
   useEffect(() => {
-    loadLogs().catch((err) => setError(err instanceof Error ? err.message : "Unable to load logs"));
-  }, [loadLogs]);
+    loadLogs().catch((err) => setError(err instanceof Error ? err.message : t("control:logs.unableToLoad")));
+  }, [loadLogs, t]);
 
   useEffect(() => {
     if (!pendingCleanup) {
@@ -182,14 +182,14 @@ export function LogsSection() {
         body: JSON.stringify({ olderThanDays: retentionDays })
       });
       setPendingCleanup(false);
-      setLogCleanupStatus(`${payload.deleted} log ${payload.deleted === 1 ? "entry" : "entries"} deleted.`);
+      setLogCleanupStatus(t("control:logs.deletedSummary", { count: payload.deleted }));
       if (logPage === 1) {
         await loadLogs();
       } else {
         setLogPage(1);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to delete old logs");
+      setError(err instanceof Error ? err.message : t("control:logs.unableToDeleteOld"));
       setPendingCleanup(false);
     } finally {
       setDeleting(false);
@@ -202,30 +202,30 @@ export function LogsSection() {
         section="logs"
         icon={<FileText size={30} />}
         iconClassName="logs"
-        description="Review activity history and clean up old records."
+        description={t("control:logs.description")}
       >
         {/* Search rides in the header beside the title, like the Duplicate photos
             page — it's what you reach for first, and it keeps the toolbar below
             for the controls that change the whole view. */}
         <label className="search-field log-search">
           <Search size={17} aria-hidden="true" />
-          <span className="sr-only">Search logs by detail, event, user or IP</span>
+          <span className="sr-only">{t("control:logs.searchAria")}</span>
           <input
             type="search"
             value={logSearchInput}
             onChange={(event) => setLogSearchInput(event.target.value)}
-            placeholder="Search logs..."
+            placeholder={t("control:logs.searchPlaceholder")}
           />
         </label>
       </ControlSectionHead>
 
-      {error && <MessageBox tone="error" title="Logs error">{error}</MessageBox>}
-      {logCleanupStatus && <MessageBox tone="success" title="Logs deleted">{logCleanupStatus}</MessageBox>}
+      {error && <MessageBox tone="error" title={t("control:logs.errorTitle")}>{error}</MessageBox>}
+      {logCleanupStatus && <MessageBox tone="success" title={t("control:logs.deletedTitle")}>{logCleanupStatus}</MessageBox>}
 
       {/* The window first — the same toolbar the dashboard tabs use, with "All"
           added because this is the archive, not a chart. */}
       <div className="status-range-row log-range-row">
-        <DateRangePicker value={range} onChange={changeRange} label="Logs time range" allowAll />
+        <DateRangePicker value={range} onChange={changeRange} label={t("control:logs.timeRangeAria")} allowAll />
         <span className="status-range-label">{formatRangeLabel(range)}</span>
       </div>
 
@@ -243,7 +243,7 @@ export function LogsSection() {
           <SelectMenu
             value={String(logPageSize)}
             options={PAGE_SIZE_OPTIONS}
-            label="Rows per page"
+            label={t("control:logs.rowsPerPage")}
             className="log-page-size"
             onChange={(value) => { setLogPage(1); setLogPageSize(Number(value)); }}
           />
@@ -253,7 +253,7 @@ export function LogsSection() {
               try {
                 await loadLogs();
               } catch (err) {
-                setError(err instanceof Error ? err.message : "Unable to refresh logs");
+                setError(err instanceof Error ? err.message : t("control:logs.unableToRefresh"));
                 throw err;
               }
             }}
@@ -262,8 +262,8 @@ export function LogsSection() {
             variant="icon"
             onClick={exportCsv}
             disabled={logTotal === 0}
-            aria-label="Export these entries as CSV"
-            title={logTotal === 0 ? "Nothing to export" : `Export ${logTotal.toLocaleString()} entries as CSV`}
+            aria-label={t("control:logs.exportAria")}
+            title={logTotal === 0 ? t("control:logs.exportNothing") : t("control:logs.exportTitle", { count: logTotal })}
           >
             <Download size={18} aria-hidden="true" />
           </Button>
@@ -271,8 +271,8 @@ export function LogsSection() {
             variant="icon"
             danger
             onClick={() => { setLogCleanupStatus(""); setPendingCleanup(true); }}
-            aria-label="Delete old logs"
-            title="Delete old logs"
+            aria-label={t("control:logs.deleteOldAria")}
+            title={t("control:logs.deleteOldAria")}
           >
             <Trash2 size={18} aria-hidden="true" />
           </Button>
@@ -287,12 +287,12 @@ export function LogsSection() {
             <table className="datagrid log-table">
               <thead>
                 <tr>
-                  <th className="col-expand" aria-label="Details" />
-                  <SortHeader column="time" label="Time" sort={sort} dir={dir} onChange={sortBy} initial="desc" />
-                  <SortHeader column="event" label="Event" sort={sort} dir={dir} onChange={sortBy} />
-                  <th>Detail</th>
-                  <SortHeader column="user" label="User" sort={sort} dir={dir} onChange={sortBy} />
-                  <SortHeader column="ip" label="IP" sort={sort} dir={dir} onChange={sortBy} />
+                  <th className="col-expand" aria-label={t("control:logs.colDetailsAria")} />
+                  <SortHeader column="time" label={t("control:logs.colTime")} sort={sort} dir={dir} onChange={sortBy} initial="desc" />
+                  <SortHeader column="event" label={t("control:logs.colEvent")} sort={sort} dir={dir} onChange={sortBy} />
+                  <th>{t("control:logs.colDetail")}</th>
+                  <SortHeader column="user" label={t("control:logs.colUser")} sort={sort} dir={dir} onChange={sortBy} />
+                  <SortHeader column="ip" label={t("control:logs.colIp")} sort={sort} dir={dir} onChange={sortBy} />
                 </tr>
               </thead>
               <tbody>
@@ -304,7 +304,7 @@ export function LogsSection() {
                         <td className="col-expand">
                           <Button
                             variant="icon"
-                            aria-label={open ? "Hide details" : "Show details"}
+                            aria-label={open ? t("control:logs.hideDetails") : t("control:logs.showDetails")}
                             aria-expanded={open}
                             onClick={() => setExpanded(open ? null : entry.id)}
                           >
@@ -319,16 +319,16 @@ export function LogsSection() {
                             <a
                               href={signInsHref({ user: entry.actorId })}
                               className="log-dive-link"
-                              title="This person's sign-ins"
+                              title={t("control:logs.signInsForUserTitle")}
                               onClick={(event) => {
                                 event.preventDefault();
                                 navigate(signInsHref({ user: entry.actorId! }));
                               }}
                             >
-                              {entry.actorName ?? "System"}
+                              {entry.actorName ?? t("control:logs.system")}
                             </a>
                           ) : (
-                            entry.actorName ?? "System"
+                            entry.actorName ?? t("control:logs.system")
                           )}
                         </td>
                         <td className="datagrid-muted">
@@ -336,7 +336,7 @@ export function LogsSection() {
                             <a
                               href={signInsHref({ ip: entry.ipAddress })}
                               className="log-dive-link"
-                              title="Sign-ins from this address"
+                              title={t("control:logs.signInsForIpTitle")}
                               onClick={(event) => {
                                 event.preventDefault();
                                 navigate(signInsHref({ ip: entry.ipAddress! }));
@@ -356,23 +356,23 @@ export function LogsSection() {
                                 idiom for "the whole record" across the panel. */}
                             <dl className="login-detail-grid">
                               <div>
-                                <dt>Event</dt>
+                                <dt>{t("control:logs.detailEvent")}</dt>
                                 <dd><code>{entry.event}</code></dd>
                               </div>
                               <div>
-                                <dt>User</dt>
-                                <dd>{entry.actorName ?? "System"}</dd>
+                                <dt>{t("control:logs.detailUser")}</dt>
+                                <dd>{entry.actorName ?? t("control:logs.system")}</dd>
                               </div>
                               <div>
-                                <dt>IP address</dt>
-                                <dd>{entry.ipAddress ?? "Not recorded"}</dd>
+                                <dt>{t("control:logs.detailIp")}</dt>
+                                <dd>{entry.ipAddress ?? t("control:logs.detailIpNotRecorded")}</dd>
                               </div>
                               <div>
-                                <dt>When</dt>
+                                <dt>{t("control:logs.detailWhen")}</dt>
                                 <dd>{formatManagedDate(entry.createdAt)} · <code>{entry.createdAt}</code></dd>
                               </div>
                               <div className="login-detail-wide">
-                                <dt>Detail</dt>
+                                <dt>{t("control:logs.detailDetail")}</dt>
                                 <dd>{entry.detail || "—"}</dd>
                               </div>
                             </dl>
@@ -389,24 +389,24 @@ export function LogsSection() {
               Duplicate photos list ends with. */}
           <div className="log-pager-row">
             <span className="datagrid-muted">
-              Showing {(logPage - 1) * logPageSize + 1}–{Math.min(logPage * logPageSize, logTotal)} of {logTotal.toLocaleString()}
+              {t("control:logs.showingRange", { from: (logPage - 1) * logPageSize + 1, to: Math.min(logPage * logPageSize, logTotal), total: logTotal.toLocaleString() })}
             </span>
-            <Pager page={logPage} totalPages={logTotalPages} onChange={setLogPage} label="Log pages" />
+            <Pager page={logPage} totalPages={logTotalPages} onChange={setLogPage} label={t("control:logs.pagerAria")} />
           </div>
         </>
       ) : (
         <p className="management-empty">
           {range.preset === "all" && !logSearch && Object.values(filters).every((list) => list.length === 0)
-            ? "No log entries yet."
-            : "No log entries match — widen the window or clear a filter."}
+            ? t("control:logs.emptyNone")
+            : t("control:logs.emptyFiltered")}
         </p>
       )}
 
       {pendingCleanup && (
         <ConfirmDialog
-          title="Delete old logs?"
-          confirmLabel={`Delete logs older than ${retentionDays} days`}
-          busyLabel="Deleting…"
+          title={t("control:logs.deleteOldTitle")}
+          confirmLabel={t("control:logs.deleteOldConfirmLabel", { days: retentionDays })}
+          busyLabel={t("control:ui.deleting")}
           danger
           busy={deleting}
           onConfirm={deleteOldLogs}
@@ -417,11 +417,10 @@ export function LogsSection() {
               the moment you delete, and a stray number box beside the results
               looked like a filter. */}
           <p>
-            Log entries older than this are permanently deleted. Nothing else is touched, and the entries
-            currently on screen stay unless they fall outside the window.
+            {t("control:logs.deleteOldBody")}
           </p>
           <label className="log-retention-field">
-            <span>Delete entries older than</span>
+            <span>{t("control:logs.deleteOldFieldLabel")}</span>
             <input
               type="number"
               min={1}
@@ -431,7 +430,7 @@ export function LogsSection() {
               autoFocus
               onChange={(event) => setRetentionDays(Math.max(1, Math.min(3650, Number(event.target.value) || 365)))}
             />
-            <span>days</span>
+            <span>{t("control:logs.deleteOldFieldSuffix")}</span>
           </label>
         </ConfirmDialog>
       )}

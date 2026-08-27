@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { Globe2, Lock, ShieldCheck, Trash2, UserPlus, Users } from "lucide-react";
 import { api } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
@@ -6,22 +7,43 @@ import { Modal } from "../../../shared/Modal";
 import { Button } from "../../../shared/Button";
 import { LIBRARY_ROLE_OPTIONS, type LibraryMember, type LibraryRole, type PublicRole } from "../../audiobooks/types";
 import type { ManagedUser, ManagedGroup } from "../types";
+// Plain lookup functions rather than module-level consts, so a language switch
+// is picked up (docs/i18n-plan.md's namespace-key typing pitfall #3).
+import i18n from "../../../i18n";
 
-// Per-role colour dot + short tagline shown in the role dropdowns. Kept local so the
-// shared LIBRARY_ROLE_OPTIONS (used elsewhere) stays untouched.
-const ROLE_META: Record<LibraryRole, { tagline: string; dot: string }> = {
-  viewer: { tagline: "View only", dot: "#3b82f6" },
-  member: { tagline: "View + download", dot: "#8b5cf6" },
-  contributor: { tagline: "Upload + edit", dot: "#14b8a6" },
-  manager: { tagline: "Full control", dot: "#f59e0b" },
-  deny: { tagline: "No access", dot: "#ef4444" }
+// Per-role colour dot + short tagline + display name shown in the role dropdowns.
+// The name is looked up here rather than taken from the shared LIBRARY_ROLE_OPTIONS
+// (used elsewhere, out of this batch's scope and still English) so the dropdowns
+// read in the active language without touching that shared constant.
+const ROLE_DOT: Record<LibraryRole, string> = {
+  viewer: "#3b82f6",
+  member: "#8b5cf6",
+  contributor: "#14b8a6",
+  manager: "#f59e0b",
+  deny: "#ef4444"
 };
 
-const PUBLIC_DESCRIPTION: Record<PublicRole, string> = {
-  viewer: "Everyone can view this library.",
-  member: "Everyone can view and download from this library.",
-  contributor: "Everyone can view, download, and add content."
-};
+function roleName(role: LibraryRole): string {
+  return i18n.t(`control:libraries.role.${role}`);
+}
+
+function roleTagline(role: LibraryRole): string {
+  switch (role) {
+    case "viewer": return i18n.t("control:libraryMembers.viewerTagline");
+    case "member": return i18n.t("control:libraryMembers.memberTagline");
+    case "contributor": return i18n.t("control:libraryMembers.contributorTagline");
+    case "manager": return i18n.t("control:libraryMembers.managerTagline");
+    case "deny": return i18n.t("control:libraryMembers.denyTagline");
+  }
+}
+
+function publicDescription(role: PublicRole): string {
+  switch (role) {
+    case "viewer": return i18n.t("control:libraryMembers.publicViewer");
+    case "member": return i18n.t("control:libraryMembers.publicMember");
+    case "contributor": return i18n.t("control:libraryMembers.publicContributor");
+  }
+}
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -46,17 +68,18 @@ function RoleControl({
   disabled?: boolean;
   onChange?: (role: LibraryRole) => void;
 }) {
+  const { t } = useTranslation(["common", "control"]);
   return (
     <div className={`member-role-control${disabled ? " is-locked" : ""}`}>
-      <span className="member-role-dot" style={{ background: ROLE_META[value].dot }} aria-hidden="true" />
+      <span className="member-role-dot" style={{ background: ROLE_DOT[value] }} aria-hidden="true" />
       <select
         value={value}
         disabled={disabled}
         onChange={onChange ? (event) => onChange(event.target.value as LibraryRole) : undefined}
-        aria-label="Role"
+        aria-label={t("control:libraryMembers.roleAria")}
       >
         {LIBRARY_ROLE_OPTIONS.map((option) => (
-          <option value={option.value} key={option.value}>{option.label} ({ROLE_META[option.value].tagline})</option>
+          <option value={option.value} key={option.value}>{roleName(option.value)} ({roleTagline(option.value)})</option>
         ))}
       </select>
     </div>
@@ -74,6 +97,7 @@ export function LibraryMembersModal({
   groups: ManagedGroup[];
   onClose: () => void;
 }) {
+  const { t } = useTranslation(["common", "control"]);
   const [members, setMembers] = useState<LibraryMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -90,11 +114,11 @@ export function LibraryMembersModal({
       setMembers(payload.members);
       setError("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to load members");
+      setError(err instanceof Error ? err.message : t("control:libraryMembers.unableToLoad"));
     } finally {
       setLoading(false);
     }
-  }, [library.id]);
+  }, [library.id, t]);
 
   useEffect(() => {
     load();
@@ -102,7 +126,7 @@ export function LibraryMembersModal({
 
   const addGrant = async () => {
     if (!subject) {
-      setError("Choose a user or group to grant a role.");
+      setError(t("control:libraryMembers.chooseSubject"));
       return;
     }
     const [subjectType, subjectId] = subject.split(":");
@@ -117,7 +141,7 @@ export function LibraryMembersModal({
       setRole("member");
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to grant role");
+      setError(err instanceof Error ? err.message : t("control:libraryMembers.unableToGrant"));
     } finally {
       setSaving(false);
     }
@@ -136,7 +160,7 @@ export function LibraryMembersModal({
       });
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to update role");
+      setError(err instanceof Error ? err.message : t("control:libraryMembers.unableToUpdateRole"));
     } finally {
       setSaving(false);
     }
@@ -151,7 +175,7 @@ export function LibraryMembersModal({
       });
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to revoke role");
+      setError(err instanceof Error ? err.message : t("control:libraryMembers.unableToRevoke"));
     } finally {
       setSaving(false);
     }
@@ -161,7 +185,7 @@ export function LibraryMembersModal({
 
   return (
     <Modal
-      title={`Members — ${library.name}`}
+      title={t("control:libraryMembers.title", { name: library.name })}
       className="library-members-modal"
       busy={saving}
       onClose={onClose}
@@ -171,32 +195,32 @@ export function LibraryMembersModal({
           {isPublic ? <Globe2 size={22} /> : <Lock size={20} />}
         </span>
         <div className="member-banner-copy">
-          <strong>{isPublic ? "This library is public." : "This library is private."}</strong>
+          <strong>{isPublic ? t("control:libraryMembers.publicTrue") : t("control:libraryMembers.publicFalse")}</strong>
           <span>
             {isPublic
-              ? PUBLIC_DESCRIPTION[library.publicRole] ?? "Everyone can access this library."
-              : "Only the owner, admins, and the people you add below can access it."}
+              ? publicDescription(library.publicRole) ?? t("control:libraryMembers.publicFallback")
+              : t("control:libraryMembers.privateBody")}
           </span>
         </div>
-        <span className="member-banner-pill">{isPublic ? "Public access" : "Private"}</span>
+        <span className="member-banner-pill">{isPublic ? t("control:libraryMembers.publicAccess") : t("control:libraryMembers.private")}</span>
       </div>
 
       <section className="member-section">
-        <h3 className="member-section-title">Grant access</h3>
+        <h3 className="member-section-title">{t("control:libraryMembers.grantAccess")}</h3>
         <div className="member-grant">
           <div className="member-field member-field-grow">
             <Users size={17} className="member-field-icon" aria-hidden="true" />
-            <select value={subject} onChange={(event) => setSubject(event.target.value)} aria-label="User or group">
-              <option value="">Select a user or group…</option>
+            <select value={subject} onChange={(event) => setSubject(event.target.value)} aria-label={t("control:libraryMembers.userOrGroupAria")}>
+              <option value="">{t("control:libraryMembers.selectUserOrGroup")}</option>
               {users.length > 0 && (
-                <optgroup label="Users">
+                <optgroup label={t("control:libraryMembers.optgroupUsers")}>
                   {users.map((user) => (
                     <option value={`user:${user.id}`} key={`u-${user.id}`}>{user.displayName} ({user.email})</option>
                   ))}
                 </optgroup>
               )}
               {groups.length > 0 && (
-                <optgroup label="Groups">
+                <optgroup label={t("control:libraryMembers.optgroupGroups")}>
                   {groups.map((group) => (
                     <option value={`group:${group.id}`} key={`g-${group.id}`}>{group.name}</option>
                   ))}
@@ -206,25 +230,25 @@ export function LibraryMembersModal({
           </div>
           <div className="member-field">
             <ShieldCheck size={17} className="member-field-icon" aria-hidden="true" />
-            <select value={role} onChange={(event) => setRole(event.target.value as LibraryRole)} aria-label="Role to grant">
+            <select value={role} onChange={(event) => setRole(event.target.value as LibraryRole)} aria-label={t("control:libraryMembers.roleToGrantAria")}>
               {LIBRARY_ROLE_OPTIONS.map((option) => (
-                <option value={option.value} key={option.value}>{option.label} ({ROLE_META[option.value].tagline})</option>
+                <option value={option.value} key={option.value}>{roleName(option.value)} ({roleTagline(option.value)})</option>
               ))}
             </select>
           </div>
           <Button variant="primary" onClick={addGrant} disabled={saving || !subject}>
             <UserPlus size={16} aria-hidden="true" />
-            <span>Add</span>
+            <span>{t("control:libraryMembers.add")}</span>
           </Button>
         </div>
       </section>
 
-      {error && <MessageBox tone="error" title="Members error">{error}</MessageBox>}
+      {error && <MessageBox tone="error" title={t("control:libraryMembers.errorTitle")}>{error}</MessageBox>}
 
       <section className="member-section">
-        <h3 className="member-section-title">Members with access</h3>
+        <h3 className="member-section-title">{t("control:libraryMembers.membersWithAccess")}</h3>
         {loading ? (
-          <p className="management-empty">Loading members…</p>
+          <p className="management-empty">{t("control:libraryMembers.loadingMembers")}</p>
         ) : (
           <div className="member-rows">
             {members.map((member) => {
@@ -244,11 +268,11 @@ export function LibraryMembersModal({
                     </span>
                   )}
                   <div className="member-identity">
-                    <span className="member-name">{member.name}{member.missing ? " (deleted)" : ""}</span>
+                    <span className="member-name">{member.name}{member.missing ? t("control:libraryMembers.deletedSuffix") : ""}</span>
                     <span className="member-sub">
                       {isGroup
-                        ? (count != null ? `${count} member${count === 1 ? "" : "s"}` : "Group")
-                        : (member.email ?? "User")}
+                        ? (count != null ? t("control:libraryMembers.groupMemberCount", { count }) : t("control:libraryMembers.group"))
+                        : (member.email ?? t("control:libraryMembers.user"))}
                     </span>
                   </div>
                   <RoleControl
@@ -259,8 +283,8 @@ export function LibraryMembersModal({
                   <Button
                     variant="icon"
                     danger
-                    title={`Remove ${member.name}`}
-                    aria-label={`Remove ${member.name}`}
+                    title={t("control:libraryMembers.removeAria", { name: member.name })}
+                    aria-label={t("control:libraryMembers.removeAria", { name: member.name })}
                     onClick={() => revoke(member)}
                     disabled={saving}
                   >
@@ -271,27 +295,27 @@ export function LibraryMembersModal({
             })}
 
             {members.length === 0 && (
-              <p className="member-empty">No individual users or groups added yet.</p>
+              <p className="member-empty">{t("control:libraryMembers.noMembersYet")}</p>
             )}
 
             <div className="member-row member-row-everyone">
               <span className="member-avatar member-avatar-neutral" aria-hidden="true"><Globe2 size={18} /></span>
               <div className="member-identity">
                 <span className="member-name">
-                  Everyone <span className="member-baseline-tag">Baseline</span>
+                  {t("control:libraryMembers.everyone")} <span className="member-baseline-tag">{t("control:libraryMembers.baseline")}</span>
                 </span>
-                <span className="member-sub">All users, including guests</span>
+                <span className="member-sub">{t("control:libraryMembers.everyoneSub")}</span>
               </div>
               {isPublic ? (
                 <RoleControl value={library.publicRole} disabled />
               ) : (
-                <span className="member-noaccess">No access</span>
+                <span className="member-noaccess">{t("control:libraryMembers.noAccess")}</span>
               )}
               <Button
                 variant="icon"
                 disabled
-                title="Public access is set in the library's settings"
-                aria-label="Public access is set in the library's settings"
+                title={t("control:libraryMembers.publicSetInLibraryTitle")}
+                aria-label={t("control:libraryMembers.publicSetInLibraryTitle")}
               >
                 <Lock size={14} />
               </Button>
@@ -301,7 +325,7 @@ export function LibraryMembersModal({
       </section>
 
       <div className="modal-actions">
-        <Button variant="secondary" onClick={onClose} disabled={saving}>Close</Button>
+        <Button variant="secondary" onClick={onClose} disabled={saving}>{t("control:ui.close")}</Button>
       </div>
     </Modal>
   );

@@ -10,6 +10,12 @@ import {
   type LucideIcon
 } from "lucide-react";
 import { controlHref, type ControlSection } from "../../router";
+// Plain module-level data + lookup functions, not components — they call i18n.t()
+// directly rather than the useTranslation() hook (see docs/i18n-plan.md's
+// namespace-key typing pitfall #3). `group.key` and `tab.section` are both
+// literal string unions, so the template-literal keys below type-check against
+// the declared `control:nav.groups.*` / `control:nav.tabs.*` keys (pitfall #4).
+import i18n from "../../i18n";
 
 // The shape of the control panel, in one place. The left nav renders the groups,
 // the tab row renders the active group's tabs, each page takes its eyebrow from
@@ -26,18 +32,22 @@ import { controlHref, type ControlSection } from "../../router";
 // the relationship was worth, and the page titles carry it anyway. Related pages
 // sit side by side as peers and share a `context` instead.
 
+export type GroupKey = "overview" | "library" | "members" | "security" | "maintenance" | "utilities" | "settings";
+
+/** The branch a group's tabs can hang off in the left nav — a stable id, not the
+ *  displayed word, so a language switch never breaks the active-branch match. */
+export type ContextKey = "gallery";
+
 export interface ControlTabDef {
   section: ControlSection;
-  label: string;
   /** Grouping that earns a branch in the left nav and a word in the eyebrow, but
    *  not a row of its own: one media type has utilities so far, so "Gallery" says
    *  what these work on without costing a level of navigation. */
-  context?: string;
+  context?: ContextKey;
 }
 
 export interface ControlGroupDef {
-  key: string;
-  label: string;
+  key: GroupKey;
   icon: LucideIcon;
   tabs: ControlTabDef[];
 }
@@ -45,79 +55,72 @@ export interface ControlGroupDef {
 export const CONTROL_GROUPS: ControlGroupDef[] = [
   {
     key: "overview",
-    label: "Overview",
     icon: Activity,
     tabs: [
-      { section: "dashboard", label: "Dashboard" },
-      { section: "signins", label: "Sign-ins" },
-      { section: "logs", label: "Logs" }
+      { section: "dashboard" },
+      { section: "signins" },
+      { section: "logs" }
     ]
   },
   {
     key: "library",
-    label: "Library",
     icon: LibraryBig,
     tabs: [
-      { section: "libraries", label: "Libraries" },
-      { section: "storage", label: "Storage" },
-      { section: "categories", label: "Categories" },
-      { section: "tags", label: "Tags" }
+      { section: "libraries" },
+      { section: "storage" },
+      { section: "categories" },
+      { section: "tags" }
     ]
   },
   {
     key: "members",
-    label: "Members",
     icon: UsersRound,
     tabs: [
-      { section: "users", label: "Users" },
-      { section: "groups", label: "Groups" },
-      { section: "invites", label: "Invite links" }
+      { section: "users" },
+      { section: "groups" },
+      { section: "invites" }
     ]
   },
   {
     key: "security",
-    label: "Security",
     icon: ShieldCheck,
     tabs: [
-      { section: "security", label: "Overview" },
-      { section: "securityPolicies", label: "Policies" },
-      { section: "securityTrusted", label: "Trusted networks" },
-      { section: "securityBlocked", label: "Blocked IPs" }
+      { section: "security" },
+      { section: "securityPolicies" },
+      { section: "securityTrusted" },
+      { section: "securityBlocked" }
     ]
   },
   {
     key: "maintenance",
-    label: "Maintenance",
     icon: Wrench,
     tabs: [
-      { section: "backup", label: "Backup" },
-      { section: "scheduledJobs", label: "Scheduled jobs" },
-      { section: "recycleBin", label: "Recycle Bin" }
+      { section: "backup" },
+      { section: "scheduledJobs" },
+      { section: "recycleBin" }
     ]
   },
   {
     key: "utilities",
-    label: "Utilities",
     icon: PocketKnife,
     // Two peers. There were three duplicate pages here — cleanup, photos, folders —
     // which were three views of one install-wide scan: opening any of them rebuilt it
     // and renumbered everything underneath whoever else was looking. Duplicate cleanup
     // holds its own snapshot and does everything they did, so they are gone.
     tabs: [
-      { section: "duplicateCleanup", label: "Duplicate cleanup", context: "Gallery" },
-      { section: "missingPhotos", label: "Missing photos", context: "Gallery" }
+      { section: "duplicateCleanup", context: "gallery" },
+      { section: "missingPhotos", context: "gallery" }
     ]
   },
   {
     key: "settings",
-    label: "Settings",
     icon: Settings,
     tabs: [
-      { section: "appearance", label: "Appearance" },
-      { section: "email", label: "Email" },
-      { section: "notifications", label: "Notifications" },
-      { section: "readerAccess", label: "Reader access" },
-      { section: "about", label: "About" }
+      { section: "appearance" },
+      { section: "email" },
+      { section: "notifications" },
+      { section: "readerAccess" },
+      { section: "about" }
     ]
   }
 ];
@@ -140,23 +143,39 @@ export function groupForSection(section: ControlSection): ControlGroupDef {
   return GROUP_BY_SECTION.get(section) ?? CONTROL_GROUPS[0];
 }
 
+/** The displayed word for a nav group. Called at render/build time (never cached
+ *  at module scope) so it stays reactive to a language switch. */
+export function groupLabel(key: GroupKey): string {
+  return i18n.t(`control:nav.groups.${key}`);
+}
+
+/** The displayed word for a tab — also the page's own <h1>. */
+export function tabLabel(section: ControlSection): string {
+  return i18n.t(`control:nav.tabs.${section}`);
+}
+
+export function contextLabel(context: ContextKey): string {
+  return i18n.t(`control:nav.contexts.${context}`);
+}
+
 /** The page's own name — its <h1>. The eyebrow above carries the rest of the path. */
 export function sectionTitle(section: ControlSection): string {
-  return TAB_BY_SECTION.get(section)?.label ?? "";
+  return tabLabel(section);
 }
 
 /** The branch a page sits in, where its group has any. */
-const CONTEXT_BY_SECTION = new Map<ControlSection, string>(
+const CONTEXT_BY_SECTION = new Map<ControlSection, ContextKey>(
   ALL_TABS.flatMap((tab) => (tab.context ? [[tab.section, tab.context] as const] : []))
 );
 
-export function sectionContext(section: ControlSection): string | null {
+export function sectionContext(section: ControlSection): ContextKey | null {
   return CONTEXT_BY_SECTION.get(section) ?? null;
 }
 
 /** Where the page sits, as a trail: "Maintenance", or "Utilities › Gallery". */
 export function sectionEyebrow(section: ControlSection): string {
-  return [groupForSection(section).label, CONTEXT_BY_SECTION.get(section)]
+  const context = CONTEXT_BY_SECTION.get(section);
+  return [groupLabel(groupForSection(section).key), context ? contextLabel(context) : null]
     .filter(Boolean)
     .join(" › ");
 }
@@ -168,23 +187,23 @@ export function sectionEyebrow(section: ControlSection): string {
  *
  *  A group with no contexts has no children and stays a plain link. */
 export interface ControlNavChild {
-  label: string;
+  context: ContextKey;
   section: ControlSection;
   icon: LucideIcon;
 }
 
 /** Icons for the branches. A context without one falls back to its group's. */
-const CONTEXT_ICONS: Record<string, LucideIcon> = { Gallery: Image };
+const CONTEXT_ICONS: Record<ContextKey, LucideIcon> = { gallery: Image };
 
 export function navChildrenFor(group: ControlGroupDef): ControlNavChild[] {
-  const seen = new Map<string, ControlSection>();
+  const seen = new Map<ContextKey, ControlSection>();
   for (const tab of group.tabs) {
     if (tab.context && !seen.has(tab.context)) seen.set(tab.context, tab.section);
   }
-  return [...seen].map(([label, section]) => ({
-    label,
+  return [...seen].map(([context, section]) => ({
+    context,
     section,
-    icon: CONTEXT_ICONS[label] ?? group.icon
+    icon: CONTEXT_ICONS[context] ?? group.icon
   }));
 }
 

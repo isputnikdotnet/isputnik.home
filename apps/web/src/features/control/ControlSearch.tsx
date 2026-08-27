@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { CornerDownLeft, Search } from "lucide-react";
 import { Modal } from "../../shared/Modal";
 import { navigate } from "../../router";
-import { CONTROL_SEARCH_ENTRIES, searchControlPanel, type ControlSearchEntry } from "./search-index";
+import { getControlSearchEntries, searchControlPanel, type ControlSearchEntry } from "./search-index";
 
 // Everything in the control panel, one keystroke away. Opens on Ctrl/⌘+K or the
 // button at the top of the nav; picking a result navigates to the tab that owns
@@ -10,17 +11,22 @@ import { CONTROL_SEARCH_ENTRIES, searchControlPanel, type ControlSearchEntry } f
 // nothing, so the palette is useful before you know what to type.
 const EMPTY_STATE_IDS = ["tab:libraries", "tab:users", "tab:backup", "tab:email", "tab:securityPolicies", "tab:logs"];
 
-const EMPTY_STATE = EMPTY_STATE_IDS
-  .map((id) => CONTROL_SEARCH_ENTRIES.find((entry) => entry.id === id))
-  .filter((entry): entry is ControlSearchEntry => Boolean(entry));
-
 export function ControlSearch({ onClose }: { onClose: () => void }) {
+  const { t, i18n } = useTranslation(["common", "control"]);
   const [query, setQuery] = useState("");
   const [highlight, setHighlight] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  const results = useMemo(() => (query.trim() ? searchControlPanel(query) : EMPTY_STATE), [query]);
+  // Rebuilt on every render (cheap — under 40 entries) rather than cached at
+  // module scope, so a language switch is reflected immediately.
+  const results = useMemo(() => {
+    if (query.trim()) return searchControlPanel(query);
+    const entries = getControlSearchEntries();
+    return EMPTY_STATE_IDS
+      .map((id) => entries.find((entry) => entry.id === id))
+      .filter((entry): entry is ControlSearchEntry => Boolean(entry));
+  }, [query, i18n.language]);
   const active = results[highlight];
 
   useEffect(() => {
@@ -59,7 +65,7 @@ export function ControlSearch({ onClose }: { onClose: () => void }) {
     <Modal
       variant="card"
       className="control-search-modal"
-      title="Search the control panel"
+      title={t("control:search.title")}
       icon={<Search size={20} />}
       onClose={onClose}
     >
@@ -69,7 +75,7 @@ export function ControlSearch({ onClose }: { onClose: () => void }) {
           ref={inputRef}
           type="search"
           className="control-search-input"
-          placeholder="Try “smtp”, “lockout”, “duplicate”…"
+          placeholder={t("control:search.placeholder")}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           onKeyDown={onKeyDown}
@@ -83,10 +89,10 @@ export function ControlSearch({ onClose }: { onClose: () => void }) {
       </div>
 
       <div className="control-search-results" id="control-search-results" role="listbox" ref={listRef}>
-        {!query.trim() && <p className="control-search-hint">Jump to a page or a setting</p>}
+        {!query.trim() && <p className="control-search-hint">{t("control:search.hint")}</p>}
         {results.length === 0 ? (
           <p className="control-search-empty">
-            Nothing matches “{query.trim()}”. Try the name of the setting, or a word from it.
+            {t("control:search.empty", { query: query.trim() })}
           </p>
         ) : (
           results.map((entry, index) => (
