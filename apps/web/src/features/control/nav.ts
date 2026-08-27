@@ -3,7 +3,7 @@ import {
   Image,
   LibraryBig,
   PocketKnife,
-  Quote,
+  LayoutDashboard,
   Settings,
   ShieldCheck,
   UsersRound,
@@ -18,11 +18,11 @@ import { controlHref, type ControlSection } from "../../router";
 // the declared `control:nav.groups.*` / `control:nav.tabs.*` keys (pitfall #4).
 import i18n from "../../i18n";
 
-// The shape of the control panel, in one place. The left nav renders the groups,
-// the tab row renders the active group's tabs, each page takes its eyebrow from
-// the group and its <h1> from the tab label, and the search palette indexes the
-// lot. Adding a control page means adding one tab here — there is nowhere else to
-// keep in sync.
+// The shape of the control panel, in one place. The left nav renders the groups
+// and their branches, the tab row renders the tabs of the branch you are standing
+// in, each page takes its eyebrow from the group (and its branch) and its <h1>
+// from the tab label, and the search palette indexes the lot. Adding a control
+// page means adding one tab here — there is nowhere else to keep in sync.
 //
 // Seven groups, and that is the budget. A new page almost always belongs as a tab
 // inside an existing group rather than as an eighth: a long left nav is what this
@@ -31,7 +31,9 @@ import i18n from "../../i18n";
 // ONE row of tabs, and only one. A second row under it was tried, to say that the
 // three duplicate pages are three views of a single scan; it was more chrome than
 // the relationship was worth, and the page titles carry it anyway. Related pages
-// sit side by side as peers and share a `context` instead.
+// sit side by side as peers and share a `context` instead — and that row shows
+// only the branch you are in, so unrelated peers never crowd it. A branch of one
+// page shows no row at all.
 
 export type GroupKey = "overview" | "library" | "members" | "security" | "maintenance" | "utilities" | "settings";
 
@@ -41,9 +43,10 @@ export type ContextKey = "gallery" | "widgets";
 
 export interface ControlTabDef {
   section: ControlSection;
-  /** Grouping that earns a branch in the left nav and a word in the eyebrow, but
-   *  not a row of its own: one media type has utilities so far, so "Gallery" says
-   *  what these work on without costing a level of navigation. */
+  /** Grouping that earns a branch in the left nav, a word in the eyebrow, and a
+   *  tab row of its own peers — never a SECOND row. "Gallery" says what those
+   *  pages work on, "Widgets" what the home page shows, without either costing a
+   *  level of navigation or listing the other's pages. */
   context?: ContextKey;
 }
 
@@ -175,6 +178,22 @@ export function sectionContext(section: ControlSection): ContextKey | null {
   return CONTEXT_BY_SECTION.get(section) ?? null;
 }
 
+/**
+ * The tabs the row should show: the ones sharing the active section's branch.
+ *
+ * A branch is a place of its own, so Gallery's tabs and Widgets' tabs are not
+ * peers just because both hang off Utilities — moving between branches is what
+ * the left nav is for. A group with no contexts is a single branch, so this
+ * returns all of its tabs and nothing changes for it.
+ *
+ * A branch holding one page returns one tab, and the caller drops the row
+ * entirely rather than drawing a row of one.
+ */
+export function tabsInScope(section: ControlSection): ControlTabDef[] {
+  const context = CONTEXT_BY_SECTION.get(section) ?? null;
+  return groupForSection(section).tabs.filter((tab) => (tab.context ?? null) === context);
+}
+
 /** Where the page sits, as a trail: "Maintenance", or "Utilities › Gallery". */
 export function sectionEyebrow(section: ControlSection): string {
   const context = CONTEXT_BY_SECTION.get(section);
@@ -196,7 +215,7 @@ export interface ControlNavChild {
 }
 
 /** Icons for the branches. A context without one falls back to its group's. */
-const CONTEXT_ICONS: Record<ContextKey, LucideIcon> = { gallery: Image, widgets: Quote };
+const CONTEXT_ICONS: Record<ContextKey, LucideIcon> = { gallery: Image, widgets: LayoutDashboard };
 
 export function navChildrenFor(group: ControlGroupDef): ControlNavChild[] {
   const seen = new Map<ContextKey, ControlSection>();

@@ -96,7 +96,10 @@ Full reference: `docs/UI-CONVENTIONS.md`. The short version:
   and pages open with `ControlSectionHead`, which takes eyebrow + title from `nav.ts`.
   **One tab row only** — a second row under it was tried for Duplicates and removed as
   too much chrome. Related pages sit as peers sharing a `context`, which draws a branch
-  in the left nav (Utilities → Gallery) and a word in the eyebrow, not another row.
+  in the left nav (Utilities → Gallery, Utilities → Widgets) and a word in the eyebrow,
+  never another row. That single row shows the tabs of the branch you are in
+  (`tabsInScope`), so branches don't list each other's pages, and a branch holding one
+  page shows no row at all.
   New settings get search terms in `features/control/search-index.ts`. Profile's
   tabs follow the same rule (`PROFILE_PATHS` / `profileHref()`).
 

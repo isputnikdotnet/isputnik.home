@@ -12,7 +12,9 @@ import {
   groupLabel,
   navChildrenFor,
   sectionContext,
+  sectionEyebrow,
   tabLabel,
+  tabsInScope,
   type ControlTabDef
 } from "./nav";
 import { ControlSearch, useControlSearchShortcut } from "./ControlSearch";
@@ -69,8 +71,14 @@ export function ControlPanelPage({
     >
       <div className="control-panel control-panel-single">
         <section className={`work-area control-work${section === "backup" ? " backup-control-work" : ""}`}>
-          {!editingCategory && group.tabs.length > 1 && (
-            <ControlTabs tabs={group.tabs} section={section} label={t("control:nav.tabsAria", { group: groupLabel(group.key) })} />
+          {/* The row shows the branch you are in, not the whole group — and
+              disappears when that branch holds a single page. */}
+          {!editingCategory && tabsInScope(section).length > 1 && (
+            <ControlTabs
+              tabs={tabsInScope(section)}
+              section={section}
+              label={t("control:nav.tabsAria", { group: sectionEyebrow(section) })}
+            />
           )}
           <ControlSectionBody section={section} categoryId={categoryId} currentUser={user} />
         </section>
