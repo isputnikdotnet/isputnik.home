@@ -19,6 +19,14 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.33.1",
+    label: "Tabs that mind their own branch",
+    changes: [
+      "Fixed: the control panel's tab row listed every page in a group, so opening Utilities › Widgets › Quotes put \"Duplicate cleanup\" and \"Missing photos\" beside it — pages that have nothing to do with quotes. The row now shows only the pages in the branch you're standing in, and a branch holding a single page shows no row at all, so Quotes reads as the page it is. Moving between branches is what the left nav is for, and Gallery's two pages still sit side by side exactly as before.",
+      "The Widgets branch also has its own icon now instead of borrowing the one the Quotes page already wears."
+    ]
+  },
+  {
     version: "3.33.0",
     label: "Second thoughts",
     changes: [
