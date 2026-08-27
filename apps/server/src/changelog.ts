@@ -19,6 +19,16 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.33.0",
+    label: "Second thoughts",
+    changes: [
+      "Quote packs are managed from the control panel now, under Utilities › Widgets › Quotes. Bringing one in decides what the whole house reads, which is why it was already something only an administrator could do — so it sits with the other administrative tools rather than on the Quotes page, which is where everyone reads and writes their own.",
+      "More to the point, an import can be taken back out. Every pack you bring in is remembered as the event it was — the file it came from, when it arrived, and how many of its quotes are still here — and each one has its own Delete that removes that pack and nothing else. Quotes you typed in by hand, passages you highlighted while reading, and other people's quotes are all left alone, and the file can always be imported again.",
+      "The list counts what is left rather than what arrived, so a pack you have been weeding by hand reads honestly: \"12 of 40 quotes left\".",
+      "This is what makes a quote pack off the internet worth trying. Import a few hundred, see what they do to the quote of the day, and if they are not what you hoped, one button puts things back. There is also a blunter \"delete all imported\" on the Quotes page for everything that ever came from a file."
+    ]
+  },
+  {
     version: "3.32.0",
     label: "Words worth keeping",
     changes: [
