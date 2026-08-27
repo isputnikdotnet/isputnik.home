@@ -1,4 +1,5 @@
 import { lazy, Suspense, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { MapPinned } from "lucide-react";
 import { api } from "../../api";
 import { Button } from "../../shared/Button";
@@ -20,6 +21,7 @@ export function GalleryLocationModal({
   onClose: () => void;
   onApplied: (updated: number, forbidden: number) => void;
 }) {
+  const { t } = useTranslation(["common", "galleryModals"]);
   const [gps, setGps] = useState<{ lat: number; lng: number } | null>(null);
   const [focus, setFocus] = useState<{ lat: number; lng: number; zoom?: number; nonce: number } | null>(null);
   const [pickedLabel, setPickedLabel] = useState("");
@@ -47,7 +49,7 @@ export function GalleryLocationModal({
       onApplied(result.updated, result.forbidden);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to update the selected items");
+      setError(err instanceof Error ? err.message : t("galleryModals:location.unableToUpdate"));
     } finally {
       setBusy(false);
     }
@@ -55,7 +57,7 @@ export function GalleryLocationModal({
 
   return (
     <Modal
-      title="Set location"
+      title={t("galleryModals:location.title")}
       icon={<MapPinned size={20} />}
       busy={busy}
       className="gallery-bulk-edit-modal"
@@ -63,10 +65,10 @@ export function GalleryLocationModal({
       onSubmit={(event) => { event.preventDefault(); void apply(); }}
     >
       <p className="muted">
-        Applies to {count} selected item{count === 1 ? "" : "s"}. The location you set here survives the next scan.
+        {t("galleryModals:location.appliesTo", { count })}
       </p>
 
-      {error && <MessageBox tone="error" title="Unable to save">{error}</MessageBox>}
+      {error && <MessageBox tone="error" title={t("common:errors.unableToSave")}>{error}</MessageBox>}
 
       <div className="gallery-bulk-edit-field">
         <GalleryPlaceSearch onPick={place} disabled={busy} autoFocus />
@@ -81,14 +83,14 @@ export function GalleryLocationModal({
         <span className="muted gallery-bulk-edit-hint">
           {gps
             ? `${pickedLabel ? `${pickedLabel} — ` : ""}${gps.lat.toFixed(5)}, ${gps.lng.toFixed(5)}`
-            : "Search above, or click the map to mark where these were taken."}
+            : t("galleryModals:location.hintEmpty")}
         </span>
       </div>
 
       <div className="modal-actions">
-        <Button variant="secondary" onClick={onClose} disabled={busy}>Cancel</Button>
+        <Button variant="secondary" onClick={onClose} disabled={busy}>{t("common:common.cancel")}</Button>
         <Button variant="primary" type="submit" disabled={!gps || busy}>
-          {busy ? "Applying…" : "Apply"}
+          {busy ? t("galleryModals:common.applying") : t("galleryModals:common.apply")}
         </Button>
       </div>
     </Modal>

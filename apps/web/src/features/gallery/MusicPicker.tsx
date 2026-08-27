@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Check, Music, Pause, Play, Trash2, UploadCloud, VolumeX, X } from "lucide-react";
 import { api, csrfToken } from "../../api";
 import { Modal } from "../../shared/Modal";
@@ -25,6 +26,7 @@ export function MusicPicker({
   onSelect: (trackId: string | null) => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation(["common", "gallery"]);
   const [tracks, setTracks] = useState<GalleryMusicTrack[] | null>(null);
   const [error, setError] = useState("");
   // What was left out of an upload, and why — a skip is not a failure, so it says
@@ -38,7 +40,7 @@ export function MusicPicker({
   const load = () =>
     api<{ tracks: GalleryMusicTrack[] }>("/api/library/gallery/music")
       .then((payload) => setTracks(payload.tracks))
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load music"));
+      .catch((err) => setError(err instanceof Error ? err.message : t("gallery:musicPicker.errors.load")));
 
   useEffect(() => { void load(); }, []);
 
@@ -55,7 +57,7 @@ export function MusicPicker({
     }
     audio.src = track.url;
     audio.currentTime = 0;
-    void audio.play().then(() => setPreviewingId(track.id)).catch(() => setError("Couldn’t play this track."));
+    void audio.play().then(() => setPreviewingId(track.id)).catch(() => setError(t("gallery:musicPicker.errors.play")));
   };
 
   const upload = async (files: File[]) => {
@@ -77,7 +79,7 @@ export function MusicPicker({
       });
       if (!res.ok) {
         const payload = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(payload.error || "Upload failed");
+        throw new Error(payload.error || t("gallery:musicPicker.errors.uploadGeneric"));
       }
       const { tracks: added, skipped } = (await res.json()) as {
         tracks: GalleryMusicTrack[];
@@ -89,12 +91,12 @@ export function MusicPicker({
       if (added.length > 0) onSelect(added[0].id);
       if (skipped.length > 0) {
         setNotice(
-          `Already here, so left alone: ${skipped.join(", ")}.` +
-            (added.length === 0 ? "" : ` ${added.length} added.`)
+          t("gallery:musicPicker.skippedNotice", { list: skipped.join(", ") }) +
+            (added.length === 0 ? "" : t("gallery:musicPicker.addedSuffix", { count: added.length }))
         );
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to upload the tracks");
+      setError(err instanceof Error ? err.message : t("gallery:musicPicker.errors.upload"));
     } finally {
       setUploading(false);
     }
@@ -108,7 +110,7 @@ export function MusicPicker({
       if (selectedId === track.id) onSelect(null);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to delete the track");
+      setError(err instanceof Error ? err.message : t("gallery:musicPicker.errors.delete"));
     }
   };
 
@@ -120,32 +122,32 @@ export function MusicPicker({
         type="button"
         className="music-row-preview"
         onClick={() => togglePreview(track)}
-        aria-label={previewingId === track.id ? `Stop preview of ${track.title}` : `Preview ${track.title}`}
-        title={previewingId === track.id ? "Stop preview" : "Preview"}
+        aria-label={previewingId === track.id ? t("gallery:musicPicker.stopPreviewAria", { title: track.title }) : t("gallery:musicPicker.previewAria", { title: track.title })}
+        title={previewingId === track.id ? t("gallery:musicPicker.stopPreview") : t("gallery:musicPicker.preview")}
       >
         {previewingId === track.id ? <Pause size={16} /> : <Play size={16} />}
       </button>
       <button type="button" className="music-row-main" onClick={() => onSelect(track.id)}>
         <span className="music-row-title">{track.title}</span>
         <span className="music-row-meta">
-          Your upload{track.durationSeconds != null ? ` · ${formatDuration(track.durationSeconds)}` : ""}
+          {t("gallery:musicPicker.yourUpload")}{track.durationSeconds != null ? ` · ${formatDuration(track.durationSeconds)}` : ""}
         </span>
       </button>
-      {selectedId === track.id && <Check size={18} className="music-row-check" aria-label="Selected" />}
-      <button type="button" className="music-row-delete" onClick={() => void remove(track)} aria-label={`Delete ${track.title}`} title="Delete track">
+      {selectedId === track.id && <Check size={18} className="music-row-check" aria-label={t("gallery:musicPicker.selectedAria")} />}
+      <button type="button" className="music-row-delete" onClick={() => void remove(track)} aria-label={t("gallery:musicPicker.deleteTrackAria", { title: track.title })} title={t("gallery:musicPicker.deleteTrackTitle")}>
         <Trash2 size={15} />
       </button>
     </li>
   );
 
   return (
-    <Modal variant="panel" title="Slideshow music" icon={<Music size={20} />} className="music-picker-modal" onClose={onClose}>
+    <Modal variant="panel" title={t("gallery:musicPicker.modalTitle")} icon={<Music size={20} />} className="music-picker-modal" onClose={onClose}>
       <div className="add-to-album-head">
-        {error && <MessageBox tone="error" title="Music error">{error}</MessageBox>}
-        {notice && <MessageBox tone="info" title="Some tracks were already here">{notice}</MessageBox>}
+        {error && <MessageBox tone="error" title={t("gallery:musicPicker.errorTitle")}>{error}</MessageBox>}
+        {notice && <MessageBox tone="info" title={t("gallery:musicPicker.skippedTitle")}>{notice}</MessageBox>}
         <div className="music-picker-actions">
           <button type="button" className="secondary-button compact-button" onClick={() => fileRef.current?.click()} disabled={uploading}>
-            <UploadCloud size={16} aria-hidden="true" /> {uploading ? "Uploading…" : "Upload tracks"}
+            <UploadCloud size={16} aria-hidden="true" /> {uploading ? t("gallery:musicPicker.uploading") : t("gallery:musicPicker.uploadTracks")}
           </button>
           <input
             ref={fileRef}
@@ -163,21 +165,21 @@ export function MusicPicker({
           <li className={`music-row${selectedId == null ? " is-selected" : ""}`}>
             <span className="music-row-preview is-static" aria-hidden="true"><VolumeX size={16} /></span>
             <button type="button" className="music-row-main" onClick={() => onSelect(null)}>
-              <span className="music-row-title">No music</span>
-              <span className="music-row-meta">Play the slideshow silent</span>
+              <span className="music-row-title">{t("gallery:musicPicker.noMusic")}</span>
+              <span className="music-row-meta">{t("gallery:musicPicker.playSilent")}</span>
             </button>
-            {selectedId == null && <Check size={18} className="music-row-check" aria-label="Selected" />}
+            {selectedId == null && <Check size={18} className="music-row-check" aria-label={t("gallery:musicPicker.selectedAria")} />}
           </li>
         </ul>
 
-        <h4 className="music-group-heading">Your uploads</h4>
+        <h4 className="music-group-heading">{t("gallery:musicPicker.yourUploads")}</h4>
         {uploads.length > 0 ? (
           <ul className="music-list">{uploads.map(row)}</ul>
         ) : (
-          <p className="management-empty">No uploaded tracks yet — add your own above.</p>
+          <p className="management-empty">{t("gallery:musicPicker.emptyUploads")}</p>
         )}
 
-        {tracks === null && <p className="management-empty">Loading…</p>}
+        {tracks === null && <p className="management-empty">{t("gallery:common.loading")}</p>}
       </div>
 
       {/* One shared element drives every row's preview. Loops so a short bed keeps

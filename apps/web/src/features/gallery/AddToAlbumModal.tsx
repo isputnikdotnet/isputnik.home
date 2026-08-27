@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Album, ImagePlus, Plus, Search, X } from "lucide-react";
 import { api } from "../../api";
 import { MessageBox } from "../../shared/MessageBox";
@@ -28,6 +29,7 @@ export function AddToAlbumModal({
   onClose: () => void;
   onAdded: (albumName: string, added: number) => void;
 }) {
+  const { t } = useTranslation(["common", "galleryModals"]);
   const [albums, setAlbums] = useState<GalleryAlbum[] | null>(null);
   const [error, setError] = useState("");
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -38,8 +40,8 @@ export function AddToAlbumModal({
   useEffect(() => {
     api<{ albums: GalleryAlbum[] }>("/api/library/gallery/albums")
       .then((payload) => setAlbums(payload.albums.filter((album) => album.canEdit)))
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load albums"));
-  }, []);
+      .catch((err) => setError(err instanceof Error ? err.message : t("galleryModals:addToAlbum.unableToLoad")));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const filtered = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -58,7 +60,7 @@ export function AddToAlbumModal({
       onAdded(albumName, result.added);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to add to the album");
+      setError(err instanceof Error ? err.message : t("galleryModals:addToAlbum.unableToAdd"));
     } finally {
       setPendingId(null);
     }
@@ -75,14 +77,14 @@ export function AddToAlbumModal({
       });
       await addTo(album.id, album.name);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to create the album");
+      setError(err instanceof Error ? err.message : t("galleryModals:addToAlbum.unableToCreate"));
     }
   };
 
   return (
     <Modal
       variant="panel"
-      title="Add to album"
+      title={t("galleryModals:addToAlbum.title")}
       icon={<ImagePlus size={20} />}
       className="add-to-album-modal"
       onClose={onClose}
@@ -91,14 +93,14 @@ export function AddToAlbumModal({
           readers, then the album search. The card grid below scrolls on its own. */}
       <div className="add-to-album-head">
         <p className="sr-only">{title}</p>
-        {error && <MessageBox tone="error" title="Albums error">{error}</MessageBox>}
+        {error && <MessageBox tone="error" title={t("galleryModals:addToAlbum.errorTitle")}>{error}</MessageBox>}
         <label className="add-to-album-search">
-          <span className="sr-only">Search for an album</span>
+          <span className="sr-only">{t("galleryModals:addToAlbum.searchSr")}</span>
           <input
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search for an album..."
+            placeholder={t("galleryModals:addToAlbum.searchPlaceholder")}
           />
           <span className="add-to-album-search-icon" aria-hidden="true"><Search size={18} /></span>
         </label>
@@ -112,16 +114,16 @@ export function AddToAlbumModal({
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") void createAndAdd(); if (e.key === "Escape") { e.stopPropagation(); setCreating(false); } }}
-              placeholder="New album name…"
+              placeholder={t("galleryModals:addToAlbum.newNamePlaceholder")}
               maxLength={120}
             />
-            <button className="primary-button compact-button" onClick={createAndAdd} disabled={!newName.trim() || pendingId != null}>Create &amp; add</button>
+            <button className="primary-button compact-button" onClick={createAndAdd} disabled={!newName.trim() || pendingId != null}>{t("galleryModals:common.createAndAdd")}</button>
             <button className="secondary-button compact-button" onClick={() => setCreating(false)}><X size={15} /></button>
           </div>
         ) : (
           <button className="secondary-button add-to-album-create" onClick={() => setCreating(true)}>
             <Plus size={18} />
-            <span>Create new album</span>
+            <span>{t("galleryModals:addToAlbum.createNew")}</span>
           </button>
         )}
 
@@ -133,7 +135,7 @@ export function AddToAlbumModal({
                 key={album.id}
                 onClick={() => void addTo(album.id, album.name)}
                 disabled={pendingId != null}
-                title={`Add to "${album.name}"`}
+                title={t("galleryModals:addToAlbum.addToTile", { name: album.name })}
               >
                 <span className="gallery-folder-thumb">
                   {album.coverUrl ? <img src={album.coverUrl} alt="" loading="lazy" /> : <Album size={28} aria-hidden="true" />}
@@ -145,12 +147,12 @@ export function AddToAlbumModal({
           </div>
         )}
 
-        {albums === null && <p className="management-empty">Loading…</p>}
+        {albums === null && <p className="management-empty">{t("galleryModals:common.loading")}</p>}
         {albums && albums.length === 0 && (
-          <p className="management-empty">No albums you can edit yet — create one above.</p>
+          <p className="management-empty">{t("galleryModals:addToAlbum.noneYet")}</p>
         )}
         {albums && albums.length > 0 && filtered.length === 0 && (
-          <p className="management-empty">No albums match “{search.trim()}”.</p>
+          <p className="management-empty">{t("galleryModals:addToAlbum.noMatches", { search: search.trim() })}</p>
         )}
       </div>
     </Modal>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Film, Plus, Search, X } from "lucide-react";
 import { api } from "../../api";
 import { MessageBox } from "../../shared/MessageBox";
@@ -27,6 +28,7 @@ export function AddToSlideshowModal({
   onClose: () => void;
   onAdded: (slideshowName: string, added: number) => void;
 }) {
+  const { t } = useTranslation(["common", "galleryModals"]);
   const [slideshows, setSlideshows] = useState<GallerySlideshow[] | null>(null);
   const [error, setError] = useState("");
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -37,8 +39,8 @@ export function AddToSlideshowModal({
   useEffect(() => {
     api<{ slideshows: GallerySlideshow[] }>("/api/library/gallery/slideshows")
       .then((payload) => setSlideshows(payload.slideshows.filter((s) => s.canEdit)))
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load slideshows"));
-  }, []);
+      .catch((err) => setError(err instanceof Error ? err.message : t("galleryModals:addToSlideshow.unableToLoad")));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const filtered = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -57,7 +59,7 @@ export function AddToSlideshowModal({
       onAdded(slideshowName, result.added);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to add to the slideshow");
+      setError(err instanceof Error ? err.message : t("galleryModals:addToSlideshow.unableToAdd"));
     } finally {
       setPendingId(null);
     }
@@ -74,28 +76,28 @@ export function AddToSlideshowModal({
       });
       await addTo(slideshow.id, slideshow.name);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to create the slideshow");
+      setError(err instanceof Error ? err.message : t("galleryModals:addToSlideshow.unableToCreate"));
     }
   };
 
   return (
     <Modal
       variant="panel"
-      title="Add to slideshow"
+      title={t("galleryModals:addToSlideshow.title")}
       icon={<Film size={20} />}
       className="add-to-album-modal"
       onClose={onClose}
     >
       <div className="add-to-album-head">
         <p className="sr-only">{title}</p>
-        {error && <MessageBox tone="error" title="Slideshows error">{error}</MessageBox>}
+        {error && <MessageBox tone="error" title={t("galleryModals:addToSlideshow.errorTitle")}>{error}</MessageBox>}
         <label className="add-to-album-search">
-          <span className="sr-only">Search for a slideshow</span>
+          <span className="sr-only">{t("galleryModals:addToSlideshow.searchSr")}</span>
           <input
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search for a slideshow..."
+            placeholder={t("galleryModals:addToSlideshow.searchPlaceholder")}
           />
           <span className="add-to-album-search-icon" aria-hidden="true"><Search size={18} /></span>
         </label>
@@ -109,16 +111,16 @@ export function AddToSlideshowModal({
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") void createAndAdd(); if (e.key === "Escape") { e.stopPropagation(); setCreating(false); } }}
-              placeholder="New slideshow name…"
+              placeholder={t("galleryModals:addToSlideshow.newNamePlaceholder")}
               maxLength={120}
             />
-            <button className="primary-button compact-button" onClick={createAndAdd} disabled={!newName.trim() || pendingId != null}>Create &amp; add</button>
+            <button className="primary-button compact-button" onClick={createAndAdd} disabled={!newName.trim() || pendingId != null}>{t("galleryModals:common.createAndAdd")}</button>
             <button className="secondary-button compact-button" onClick={() => setCreating(false)}><X size={15} /></button>
           </div>
         ) : (
           <button className="secondary-button add-to-album-create" onClick={() => setCreating(true)}>
             <Plus size={18} />
-            <span>Create new slideshow</span>
+            <span>{t("galleryModals:addToSlideshow.createNew")}</span>
           </button>
         )}
 
@@ -130,7 +132,7 @@ export function AddToSlideshowModal({
                 key={slideshow.id}
                 onClick={() => void addTo(slideshow.id, slideshow.name)}
                 disabled={pendingId != null}
-                title={`Add to "${slideshow.name}"`}
+                title={t("galleryModals:addToSlideshow.addToTile", { name: slideshow.name })}
               >
                 <span className="gallery-folder-thumb">
                   {slideshow.coverUrl ? <img src={slideshow.coverUrl} alt="" loading="lazy" /> : <Film size={28} aria-hidden="true" />}
@@ -142,12 +144,12 @@ export function AddToSlideshowModal({
           </div>
         )}
 
-        {slideshows === null && <p className="management-empty">Loading…</p>}
+        {slideshows === null && <p className="management-empty">{t("galleryModals:common.loading")}</p>}
         {slideshows && slideshows.length === 0 && (
-          <p className="management-empty">No slideshows you can edit yet — create one above.</p>
+          <p className="management-empty">{t("galleryModals:addToSlideshow.noneYet")}</p>
         )}
         {slideshows && slideshows.length > 0 && filtered.length === 0 && (
-          <p className="management-empty">No slideshows match “{search.trim()}”.</p>
+          <p className="management-empty">{t("galleryModals:addToSlideshow.noMatches", { search: search.trim() })}</p>
         )}
       </div>
     </Modal>

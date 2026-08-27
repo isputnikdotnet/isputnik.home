@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ChevronLeft, ChevronRight, Download, Film, GripVertical, Heart, Image as ImageIcon, Music, Play, RefreshCw, Trash2, Type, X } from "lucide-react";
 import { MusicPicker } from "./MusicPicker";
 import { SlideshowTitleCardModal } from "./SlideshowTitleCardModal";
@@ -10,24 +11,6 @@ import { faceFocusStyle } from "./types";
 
 // The presentation transitions offered in the editor, in display order. The live
 // preview (GalleryLightbox) honours these; the future MP4 render will too.
-// What the "Title card" button says the card is, without opening it. Deliberately the
-// two things a glance wants: what it sits on, and how long it holds.
-const TITLE_BACKGROUND_LABELS: Record<GallerySlideshowDetail["titleBackground"], string> = {
-  black: "Black",
-  photo: "Photo",
-  blur: "Blurred photo",
-  collage: "Collage"
-};
-
-const TRANSITIONS: { value: SlideshowTransition; label: string }[] = [
-  { value: "crossfade", label: "Crossfade" },
-  { value: "fade", label: "Fade" },
-  { value: "slide", label: "Slide" },
-  { value: "kenburns", label: "Ken Burns" },
-  { value: "dipblack", label: "Dip to black" },
-  { value: "random", label: "Random" },
-  { value: "none", label: "None" }
-];
 
 // Slideshow detail + editor. Read-only viewers get the ordered grid and a Play
 // button; editors additionally get drag-reorder (with ‹/› fallbacks for touch/
@@ -62,6 +45,27 @@ export function GallerySlideshowEditor({
   onRender: () => void;
   onDeleteMovie: () => void;
 }) {
+  const { t } = useTranslation(["common", "gallery"]);
+
+  // What the "Title card" button says the card is, without opening it. Deliberately
+  // the two things a glance wants: what it sits on, and how long it holds.
+  const TITLE_BACKGROUND_LABELS: Record<GallerySlideshowDetail["titleBackground"], string> = {
+    black: t("gallery:slideshowEditor.bgBlack"),
+    photo: t("gallery:slideshowEditor.bgPhoto"),
+    blur: t("gallery:slideshowEditor.bgBlurredPhoto"),
+    collage: t("gallery:slideshowEditor.bgCollage")
+  };
+
+  const TRANSITIONS: { value: SlideshowTransition; label: string }[] = [
+    { value: "crossfade", label: t("gallery:slideshowEditor.transitionCrossfade") },
+    { value: "fade", label: t("gallery:slideshowEditor.transitionFade") },
+    { value: "slide", label: t("gallery:slideshowEditor.transitionSlide") },
+    { value: "kenburns", label: t("gallery:slideshowEditor.transitionKenBurns") },
+    { value: "dipblack", label: t("gallery:slideshowEditor.transitionDipBlack") },
+    { value: "random", label: t("gallery:slideshowEditor.transitionRandom") },
+    { value: "none", label: t("gallery:slideshowEditor.transitionNone") }
+  ];
+
   const [musicOpen, setMusicOpen] = useState(false);
   const [titleOpen, setTitleOpen] = useState(false);
   // Rendering is the heaviest thing this app asks of the machine it runs on, and it
@@ -144,25 +148,25 @@ export function GallerySlideshowEditor({
   return (
     <>
       {canEdit && ordered.length > 0 && (
-        <div className="slideshow-settings" role="group" aria-label="Slideshow settings">
+        <div className="slideshow-settings" role="group" aria-label={t("gallery:slideshowEditor.settingsAria")}>
           <div className="slideshow-setting">
-            <span className="slideshow-setting-label">Transition</span>
+            <span className="slideshow-setting-label">{t("gallery:slideshowEditor.transitionLabel")}</span>
             <div className="slideshow-transitions">
-              {TRANSITIONS.map((t) => (
+              {TRANSITIONS.map((tr) => (
                 <button
-                  key={t.value}
+                  key={tr.value}
                   type="button"
-                  className={slideshow.transition === t.value ? "is-on" : ""}
-                  aria-pressed={slideshow.transition === t.value}
-                  onClick={() => { if (slideshow.transition !== t.value) onPatch({ transition: t.value }); }}
+                  className={slideshow.transition === tr.value ? "is-on" : ""}
+                  aria-pressed={slideshow.transition === tr.value}
+                  onClick={() => { if (slideshow.transition !== tr.value) onPatch({ transition: tr.value }); }}
                 >
-                  {t.label}
+                  {tr.label}
                 </button>
               ))}
             </div>
           </div>
           <div className="slideshow-setting">
-            <label className="slideshow-setting-label" htmlFor="slideshow-dwell">Seconds per photo</label>
+            <label className="slideshow-setting-label" htmlFor="slideshow-dwell">{t("gallery:slideshowEditor.secondsPerPhotoLabel")}</label>
             <div className="slideshow-dwell">
               <input
                 id="slideshow-dwell"
@@ -180,7 +184,7 @@ export function GallerySlideshowEditor({
           </div>
           {slideshow.transition !== "none" && (
             <div className="slideshow-setting">
-              <label className="slideshow-setting-label" htmlFor="slideshow-transition-len">Transition length</label>
+              <label className="slideshow-setting-label" htmlFor="slideshow-transition-len">{t("gallery:slideshowEditor.transitionLengthLabel")}</label>
               <div className="slideshow-dwell">
                 <input
                   id="slideshow-transition-len"
@@ -198,21 +202,21 @@ export function GallerySlideshowEditor({
             </div>
           )}
           <div className="slideshow-setting">
-            <span className="slideshow-setting-label">Music</span>
+            <span className="slideshow-setting-label">{t("gallery:slideshowEditor.musicLabel")}</span>
             <button type="button" className="slideshow-music-button" onClick={() => setMusicOpen(true)}>
               <Music size={15} aria-hidden="true" />
-              <span>{slideshow.musicTitle ?? "Add music"}</span>
+              <span>{slideshow.musicTitle ?? t("gallery:slideshowEditor.addMusic")}</span>
             </button>
           </div>
           <div className="slideshow-setting">
-            <span className="slideshow-setting-label">Title &amp; credits</span>
+            <span className="slideshow-setting-label">{t("gallery:slideshowEditor.titleCreditsLabel")}</span>
             <button type="button" className="slideshow-music-button" onClick={() => setTitleOpen(true)}>
               <Type size={15} aria-hidden="true" />
               <span>
                 {slideshow.titleEnabled
-                  ? `${TITLE_BACKGROUND_LABELS[slideshow.titleBackground]} · ${slideshow.titleSeconds}s`
-                  : "Off"}
-                {slideshow.closingEnabled ? " + closing" : ""}
+                  ? t("gallery:slideshowEditor.titleSummary", { bg: TITLE_BACKGROUND_LABELS[slideshow.titleBackground], sec: slideshow.titleSeconds })
+                  : t("gallery:slideshowEditor.titleOff")}
+                {slideshow.closingEnabled ? t("gallery:slideshowEditor.plusClosing") : ""}
               </span>
             </button>
           </div>
@@ -241,26 +245,21 @@ export function GallerySlideshowEditor({
           films. Worth one question and some real numbers before it starts. */}
       {renderConfirm && (
         <ConfirmDialog
-          title={slideshow.renderStatus === "ready" ? "Re-render this movie?" : "Render this movie?"}
-          confirmLabel={slideshow.renderStatus === "ready" ? "Re-render movie" : "Render movie"}
+          title={slideshow.renderStatus === "ready" ? t("gallery:slideshowEditor.rerenderConfirmTitle") : t("gallery:slideshowEditor.renderConfirmTitle")}
+          confirmLabel={slideshow.renderStatus === "ready" ? t("gallery:slideshowEditor.rerenderConfirmLabel") : t("gallery:slideshowEditor.renderConfirmLabel")}
           confirmIcon={<Film size={15} aria-hidden="true" />}
           onConfirm={() => { setRenderConfirm(false); onRender(); }}
           onCancel={() => setRenderConfirm(false)}
           rich
         >
           <p>
-            {ordered.length} {ordered.length === 1 ? "photo" : "photos"} becomes about {movieMinutes} minute
-            {movieMinutes === 1 ? "" : "s"} of video. Every one is re-encoded frame by frame, which is the
-            heaviest thing this server does.
+            {t("gallery:slideshowEditor.renderConfirmBody1", {
+              photos: t("gallery:common.counts.photo", { count: ordered.length }),
+              minutes: t("gallery:slideshowEditor.minutes", { count: movieMinutes })
+            })}
           </p>
-          <p>
-            Expect several minutes, and longer on a small machine. It runs at low priority in the background —
-            you can leave this page — but the rest of the server may feel slower while it works.
-          </p>
-          <p>
-            Nothing is changed until it finishes, and you can stop it at any time from the control panel’s
-            Tasks page.
-          </p>
+          <p>{t("gallery:slideshowEditor.renderConfirmBody2")}</p>
+          <p>{t("gallery:slideshowEditor.renderConfirmBody3")}</p>
         </ConfirmDialog>
       )}
 
@@ -271,26 +270,26 @@ export function GallerySlideshowEditor({
           {slideshow.renderStatus === "ready" && slideshow.movieUrl ? (
             <>
               <div className="slideshow-movie-head">
-                <h3>Movie{slideshow.outputBytes != null ? <span className="muted"> · {formatBytes(slideshow.outputBytes)}</span> : null}</h3>
+                <h3>{t("gallery:slideshowEditor.movieHeading")}{slideshow.outputBytes != null ? <span className="muted"> · {formatBytes(slideshow.outputBytes)}</span> : null}</h3>
                 <div className="slideshow-movie-actions">
                   <a className="secondary-button compact-button" href={`${slideshow.movieUrl}&download`} download>
-                    <Download size={15} aria-hidden="true" /> Download
+                    <Download size={15} aria-hidden="true" /> {t("gallery:common.download")}
                   </a>
                   {canEdit && (
                     <button type="button" className="secondary-button compact-button" onClick={() => setRenderConfirm(true)}>
-                      <RefreshCw size={15} aria-hidden="true" /> Re-render
+                      <RefreshCw size={15} aria-hidden="true" /> {t("gallery:slideshowEditor.rerenderButton")}
                     </button>
                   )}
                   {canEdit && (
                     <button type="button" className="secondary-button compact-button" onClick={onDeleteMovie}>
-                      <Trash2 size={15} aria-hidden="true" /> Delete
+                      <Trash2 size={15} aria-hidden="true" /> {t("gallery:common.deleteWord")}
                     </button>
                   )}
                 </div>
               </div>
               {canEdit && slideshow.renderStale && (
-                <MessageBox tone="warning" title="Movie is out of date">
-                  This movie doesn’t include your latest changes. Re-render to update it.
+                <MessageBox tone="warning" title={t("gallery:slideshowEditor.staleTitle")}>
+                  {t("gallery:slideshowEditor.staleBody")}
                 </MessageBox>
               )}
               <video className="slideshow-movie-video" controls src={slideshow.movieUrl} />
@@ -298,27 +297,27 @@ export function GallerySlideshowEditor({
           ) : slideshow.renderStatus === "queued" || slideshow.renderStatus === "rendering" ? (
             <div className="slideshow-movie-progress" role="status">
               <Film size={16} aria-hidden="true" />
-              <span>{slideshow.renderStatus === "queued" ? "Queued to render…" : `Rendering movie… ${slideshow.renderPercent ?? 0}%`}</span>
+              <span>{slideshow.renderStatus === "queued" ? t("gallery:slideshowEditor.queued") : t("gallery:slideshowEditor.rendering", { percent: slideshow.renderPercent ?? 0 })}</span>
               <div className="slideshow-progress-track">
                 <div className="slideshow-progress-fill" style={{ width: `${slideshow.renderPercent ?? (slideshow.renderStatus === "queued" ? 3 : 6)}%` }} />
               </div>
               <span className="muted gallery-face-hint">
-                Rendering runs in the background and can take a few minutes — you can leave this page and come back.
-                The server is working hard while this runs, so everything else on it may feel slower; you can stop it
-                from the control panel’s Tasks page.
+                {t("gallery:slideshowEditor.renderingHint")}
               </span>
             </div>
           ) : canEdit ? (
             <div className="slideshow-movie-cta">
               {slideshow.renderStatus === "failed" && (
-                <MessageBox tone="error" title="Render failed">{slideshow.renderError || "The movie couldn’t be encoded."}</MessageBox>
+                <MessageBox tone="error" title={t("gallery:slideshowEditor.renderFailedTitle")}>{slideshow.renderError || t("gallery:slideshowEditor.renderFailedBody")}</MessageBox>
               )}
               <div className="slideshow-movie-cta-row">
                 <button type="button" className="primary-button compact-button" onClick={() => setRenderConfirm(true)}>
-                  <Film size={15} aria-hidden="true" /> {slideshow.renderStatus === "failed" ? "Try again" : "Render movie"}
+                  <Film size={15} aria-hidden="true" /> {slideshow.renderStatus === "failed" ? t("gallery:slideshowEditor.tryAgain") : t("gallery:slideshowEditor.renderConfirmLabel")}
                 </button>
                 <span className="muted gallery-face-hint">
-                  Export a downloadable MP4 of your photos and videos, transitions{slideshow.musicTitle ? ", and music" : ""}. {slideshow.titleEnabled ? "The movie opens with the title card set above — its words, its length, and whether it sits on black, a photo, or a collage." : "There is no title card, so the movie opens straight on the first photo."} Rendering runs in the background and can take a few minutes for a large slideshow. Ken Burns exports as a crossfade, and Random varies the transition at every cut. When a default movie library is set, the finished movie is also saved to your gallery.
+                  {t("gallery:slideshowEditor.exportHintBase", { musicClause: slideshow.musicTitle ? t("gallery:slideshowEditor.musicClause") : "" })}{" "}
+                  {slideshow.titleEnabled ? t("gallery:slideshowEditor.titleClauseOn") : t("gallery:slideshowEditor.titleClauseOff")}{" "}
+                  {t("gallery:slideshowEditor.exportHintTail")}
                 </span>
               </div>
             </div>
@@ -342,7 +341,7 @@ export function GallerySlideshowEditor({
               type="button"
               className="gallery-tile"
               onClick={() => onOpenAt(index)}
-              aria-label={`Open ${asset.title}`}
+              aria-label={t("gallery:assetTile.openAria", { title: asset.title })}
             >
               {asset.coverUrl ? (
                 <img src={asset.coverUrl} alt="" loading="lazy" style={faceFocusStyle(asset)} />
@@ -352,22 +351,22 @@ export function GallerySlideshowEditor({
               {asset.saved && <Heart size={14} className="gallery-like-dot" fill="currentColor" aria-hidden="true" />}
               {asset.kind === "video" && (
                 asset.playable === false ? (
-                  <span className="gallery-video-badge unplayable" title="Can’t play in browser — download to view">
-                    <Download size={11} aria-hidden="true" />Video
+                  <span className="gallery-video-badge unplayable" title={t("gallery:assetTile.unplayableTitle")}>
+                    <Download size={11} aria-hidden="true" />{t("gallery:common.video")}
                   </span>
                 ) : (
-                  <span className="gallery-video-badge"><Play size={11} aria-hidden="true" />Video</span>
+                  <span className="gallery-video-badge"><Play size={11} aria-hidden="true" />{t("gallery:common.video")}</span>
                 )
               )}
             </button>
             {canEdit && (
               <>
-                <span className="slideshow-drag-handle" aria-hidden="true" title="Drag to reorder"><GripVertical size={15} /></span>
+                <span className="slideshow-drag-handle" aria-hidden="true" title={t("gallery:slideshowEditor.dragHandleTitle")}><GripVertical size={15} /></span>
                 <div className="slideshow-slide-move">
-                  <button type="button" onClick={() => move(asset.id, -1)} disabled={index === 0} aria-label={`Move ${asset.title} earlier`} title="Move earlier">
+                  <button type="button" onClick={() => move(asset.id, -1)} disabled={index === 0} aria-label={t("gallery:slideshowEditor.moveEarlierAria", { title: asset.title })} title={t("gallery:slideshowEditor.moveEarlierTitle")}>
                     <ChevronLeft size={15} aria-hidden="true" />
                   </button>
-                  <button type="button" onClick={() => move(asset.id, 1)} disabled={index === ordered.length - 1} aria-label={`Move ${asset.title} later`} title="Move later">
+                  <button type="button" onClick={() => move(asset.id, 1)} disabled={index === ordered.length - 1} aria-label={t("gallery:slideshowEditor.moveLaterAria", { title: asset.title })} title={t("gallery:slideshowEditor.moveLaterTitle")}>
                     <ChevronRight size={15} aria-hidden="true" />
                   </button>
                 </div>
@@ -375,8 +374,8 @@ export function GallerySlideshowEditor({
                   type="button"
                   className="gallery-tile-remove"
                   onClick={() => onRemove(asset.id)}
-                  aria-label={`Remove ${asset.title}`}
-                  title="Remove from this slideshow"
+                  aria-label={t("gallery:assetTile.removeAria", { title: asset.title })}
+                  title={t("gallery:slideshowEditor.removeFromSlideshowTitle")}
                 >
                   <X size={14} aria-hidden="true" />
                 </button>
@@ -388,14 +387,14 @@ export function GallerySlideshowEditor({
 
       {!loading && ordered.length === 0 && (
         <p className="management-empty">
-          This slideshow is empty. Use “Add photos” above to browse your galleries by folder, or select photos in the Timeline and use “Add to slideshow”.
+          {t("gallery:slideshowEditor.emptyBody")}
         </p>
       )}
 
       {remaining > 0 && (
         <div style={{ display: "flex", justifyContent: "center", padding: "16px 0" }}>
           <button type="button" className="secondary-button" onClick={onLoadMore} disabled={loading}>
-            {loading ? "Loading…" : `Load more (${remaining})`}
+            {loading ? t("gallery:common.loading") : t("gallery:common.loadMoreCount", { count: remaining })}
           </button>
         </div>
       )}

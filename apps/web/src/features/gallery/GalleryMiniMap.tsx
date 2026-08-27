@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -8,6 +9,7 @@ import "leaflet/dist/leaflet.css";
 // gets hijacked by the map. A divIcon dot avoids Leaflet's bundler-broken default
 // marker images.
 export function GalleryMiniMap({ lat, lng, title }: { lat: number; lng: number; title: string }) {
+  const { t } = useTranslation(["common", "gallery"]);
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
@@ -23,7 +25,7 @@ export function GalleryMiniMap({ lat, lng, title }: { lat: number; lng: number; 
     });
     L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+      attribution: t("gallery:map.osmAttribution")
     }).addTo(map);
     const icon = L.divIcon({ className: "gallery-mini-marker", html: '<span class="gallery-mini-pin"></span>', iconSize: [18, 18], iconAnchor: [9, 9] });
     markerRef.current = L.marker([lat, lng], { icon, title }).addTo(map);
@@ -46,5 +48,5 @@ export function GalleryMiniMap({ lat, lng, title }: { lat: number; lng: number; 
     markerRef.current.setLatLng([lat, lng]);
   }, [lat, lng]);
 
-  return <div className="gallery-mini-map" ref={containerRef} aria-label={`Map showing where ${title} was taken`} />;
+  return <div className="gallery-mini-map" ref={containerRef} aria-label={t("gallery:miniMap.aria", { title })} />;
 }

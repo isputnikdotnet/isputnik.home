@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../../api";
 import type { GalleryAsset, GalleryFaceSettings, GalleryPerson } from "./types";
 import type { GalleryStatus } from "./useGalleryAlbums";
@@ -27,6 +28,7 @@ interface PeopleDeps extends GalleryStatus {
  * and its face settings are admin-only.
  */
 export function useGalleryPeople({ setLoading, setError, setNotice, scopeParams, isAdmin }: PeopleDeps) {
+  const { t } = useTranslation(["common", "gallery"]);
   const [people, setPeople] = useState<GalleryPerson[]>([]);
   const [selectedPerson, setSelectedPerson] = useState<{ id: string; name: string; coverItemId: string | null } | null>(null);
   const [personAssets, setPersonAssets] = useState<GalleryAsset[]>([]);
@@ -60,7 +62,7 @@ export function useGalleryPeople({ setLoading, setError, setNotice, scopeParams,
       const payload = await api<{ people: GalleryPerson[] }>(`/api/library/gallery/people?${params}`);
       setPeople(payload.people);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to load people");
+      setError(err instanceof Error ? err.message : t("gallery:people.errors.load"));
     } finally {
       setLoading(false);
     }
@@ -84,7 +86,7 @@ export function useGalleryPeople({ setLoading, setError, setNotice, scopeParams,
       setPersonAssets((prev) => (offset === 0 ? payload.assets : [...prev, ...payload.assets]));
       setPersonTotal(payload.total);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to load this person's photos");
+      setError(err instanceof Error ? err.message : t("gallery:people.errors.openPerson"));
     } finally {
       setLoading(false);
     }
@@ -109,7 +111,7 @@ export function useGalleryPeople({ setLoading, setError, setNotice, scopeParams,
       setRenameValue(null);
       void loadPeople();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to rename");
+      setError(err instanceof Error ? err.message : t("gallery:people.errors.rename"));
     }
   }, [selectedPerson, renameValue, loadPeople, setError]);
 
@@ -123,9 +125,9 @@ export function useGalleryPeople({ setLoading, setError, setNotice, scopeParams,
       await api(`/api/library/gallery/people/${personId}`, { method: "PATCH", body: JSON.stringify({ coverItemId: itemId }) });
       setSelectedPerson((prev) => (prev && prev.id === personId ? { ...prev, coverItemId: itemId } : prev));
       void loadPeople();
-      setNotice("Person cover updated.");
+      setNotice(t("gallery:people.coverUpdated"));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to update the cover");
+      setError(err instanceof Error ? err.message : t("gallery:people.errors.updateCover"));
     }
   }, [loadPeople, setError, setNotice]);
 
@@ -136,9 +138,9 @@ export function useGalleryPeople({ setLoading, setError, setNotice, scopeParams,
       setMergeOpen(false);
       setSelectedPerson(null);
       void loadPeople();
-      setNotice("People merged.");
+      setNotice(t("gallery:people.merged"));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to merge");
+      setError(err instanceof Error ? err.message : t("gallery:people.errors.merge"));
     }
   }, [selectedPerson, loadPeople, setError, setNotice]);
 
@@ -152,7 +154,7 @@ export function useGalleryPeople({ setLoading, setError, setNotice, scopeParams,
       setPersonTotal((n) => Math.max(0, n - 1));
       void loadPeople();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to remove the photo");
+      setError(err instanceof Error ? err.message : t("gallery:people.errors.removePhoto"));
     }
   }, [selectedPerson, loadPeople, setError]);
 
@@ -188,9 +190,9 @@ export function useGalleryPeople({ setLoading, setError, setNotice, scopeParams,
       setPersonPick(null);
       setMoveNewName(null);
       void loadPeople();
-      setNotice(`${payload.moved} ${payload.moved === 1 ? "photo" : "photos"} moved.`);
+      setNotice(t("gallery:people.movedNotice", { count: payload.moved }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to move the photos");
+      setError(err instanceof Error ? err.message : t("gallery:people.errors.movePhotos"));
     } finally {
       setMovingPhotos(false);
     }
@@ -204,7 +206,7 @@ export function useGalleryPeople({ setLoading, setError, setNotice, scopeParams,
       setSelectedPerson(null);
       void loadPeople();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to delete");
+      setError(err instanceof Error ? err.message : t("gallery:people.errors.delete"));
     }
   }, [selectedPerson, loadPeople, setError]);
 

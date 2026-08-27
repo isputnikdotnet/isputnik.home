@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { MapPin, Search } from "lucide-react";
 import { api } from "../../api";
 import { Button } from "../../shared/Button";
@@ -31,6 +32,7 @@ export function GalleryPlaceSearch({
    *  lightbox panel, which must not steal focus from the photo's key handling. */
   autoFocus?: boolean;
 }) {
+  const { t } = useTranslation(["common", "gallery"]);
   const [search, setSearch] = useState("");
   const [hits, setHits] = useState<PlaceHit[] | null>(null);
   const [searching, setSearching] = useState(false);
@@ -55,7 +57,7 @@ export function GalleryPlaceSearch({
       setHits(payload.results);
     } catch (err) {
       setHits(null);
-      setError(err instanceof Error ? err.message : "The place lookup failed.");
+      setError(err instanceof Error ? err.message : t("gallery:placeSearch.errors.lookup"));
     } finally {
       setSearching(false);
     }
@@ -67,7 +69,7 @@ export function GalleryPlaceSearch({
           handled by hand, and must not fall through to that form's submit. */}
       <div className="gallery-place-search">
         <label>
-          <span className="sr-only">Search for a place, address, postcode, or Plus Code</span>
+          <span className="sr-only">{t("gallery:placeSearch.srLabel")}</span>
           <input
             type="search"
             value={search}
@@ -77,7 +79,7 @@ export function GalleryPlaceSearch({
               event.preventDefault();
               void runSearch();
             }}
-            placeholder="Place, address, Plus Code, or 53.9, 27.56"
+            placeholder={t("gallery:placeSearch.placeholder")}
             disabled={disabled}
             autoFocus={autoFocus}
           />
@@ -88,7 +90,7 @@ export function GalleryPlaceSearch({
           onClick={() => void runSearch()}
           disabled={search.trim().length < 2 || searching || disabled}
         >
-          <Search size={15} aria-hidden="true" /> {searching ? "Searching…" : "Search"}
+          <Search size={15} aria-hidden="true" /> {searching ? t("gallery:placeSearch.searching") : t("gallery:placeSearch.searchButton")}
         </Button>
       </div>
 
@@ -108,7 +110,7 @@ export function GalleryPlaceSearch({
           </ul>
         ) : (
           <span className="gallery-place-search-empty">
-            Nothing found for “{search.trim()}”. Try a broader name, or drop the pin yourself.
+            {t("gallery:placeSearch.noResults", { query: search.trim() })}
           </span>
         )
       )}

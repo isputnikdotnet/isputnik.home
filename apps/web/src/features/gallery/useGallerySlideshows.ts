@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../../api";
 import type {
   GalleryAsset, GallerySlideshow, GallerySlideshowDetail, GallerySlideshowSettings, SlideshowPatch
@@ -20,6 +21,7 @@ interface SlideshowDeps extends GalleryStatus {
  * should not have to re-learn the other.
  */
 export function useGallerySlideshows({ setLoading, setError, setNotice, isAdmin }: SlideshowDeps) {
+  const { t } = useTranslation(["common", "gallery"]);
   const [slideshows, setSlideshows] = useState<GallerySlideshow[]>([]);
   const [selectedSlideshow, setSelectedSlideshow] = useState<GallerySlideshowDetail | null>(null);
   const [slideshowAssets, setSlideshowAssets] = useState<GalleryAsset[]>([]);
@@ -67,7 +69,7 @@ export function useGallerySlideshows({ setLoading, setError, setNotice, isAdmin 
       const payload = await api<{ slideshows: GallerySlideshow[] }>("/api/library/gallery/slideshows");
       setSlideshows(payload.slideshows);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to load slideshows");
+      setError(err instanceof Error ? err.message : t("gallery:slideshows.errors.load"));
     } finally {
       setLoading(false);
     }
@@ -84,7 +86,7 @@ export function useGallerySlideshows({ setLoading, setError, setNotice, isAdmin 
       setSlideshowAssets((prev) => (offset === 0 ? payload.assets : [...prev, ...payload.assets]));
       setSlideshowTotal(payload.total);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to load the slideshow");
+      setError(err instanceof Error ? err.message : t("gallery:slideshows.errors.open"));
     } finally {
       setLoading(false);
     }
@@ -104,7 +106,7 @@ export function useGallerySlideshows({ setLoading, setError, setNotice, isAdmin 
         void openSlideshow(slideshowId);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to update the slideshow");
+      setError(err instanceof Error ? err.message : t("gallery:slideshows.errors.update"));
       void openSlideshow(slideshowId); // resync on failure
     }
   }, [loadSlideshows, openSlideshow, setError]);
@@ -117,7 +119,7 @@ export function useGallerySlideshows({ setLoading, setError, setNotice, isAdmin 
     setNotice("");
     await patchSlideshow(slideshowId, { coverItemId: itemId });
     void loadSlideshows();
-    setNotice("Slideshow cover updated.");
+    setNotice(t("gallery:slideshows.coverUpdated"));
   }, [patchSlideshow, loadSlideshows, setNotice]);
 
   // Kick off (or re-run) an MP4 render. The poll effect below tracks it to completion.
@@ -127,7 +129,7 @@ export function useGallerySlideshows({ setLoading, setError, setNotice, isAdmin 
       await api(`/api/library/gallery/slideshows/${slideshowId}/render`, { method: "POST" });
       setSelectedSlideshow((prev) => (prev && prev.id === slideshowId ? { ...prev, renderStatus: "queued", renderError: null, renderPercent: null } : prev));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to start the render");
+      setError(err instanceof Error ? err.message : t("gallery:slideshows.errors.startRender"));
     }
   }, [setError]);
 
@@ -140,10 +142,10 @@ export function useGallerySlideshows({ setLoading, setError, setNotice, isAdmin 
     try {
       await api(`/api/library/gallery/slideshows/${selectedSlideshow.id}/movie`, { method: "DELETE" });
       setMovieDeleteOpen(false);
-      setNotice("Deleted the rendered movie.");
+      setNotice(t("gallery:slideshows.movieDeleted"));
       void openSlideshow(selectedSlideshow.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to delete the movie");
+      setError(err instanceof Error ? err.message : t("gallery:slideshows.errors.deleteMovie"));
     } finally {
       setMovieDeleteBusy(false);
     }
@@ -179,7 +181,7 @@ export function useGallerySlideshows({ setLoading, setError, setNotice, isAdmin 
         body: JSON.stringify({ itemIds: orderedIds })
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to reorder the slideshow");
+      setError(err instanceof Error ? err.message : t("gallery:slideshows.errors.reorder"));
       void openSlideshow(slideshowId);
     }
   }, [openSlideshow, setError]);
@@ -193,7 +195,7 @@ export function useGallerySlideshows({ setLoading, setError, setNotice, isAdmin 
       setSlideshowAssets((prev) => prev.filter((asset) => asset.id !== assetId));
       setSlideshowTotal((n) => Math.max(0, n - 1));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to remove the photo");
+      setError(err instanceof Error ? err.message : t("gallery:slideshows.errors.removePhoto"));
     }
   }, [setError]);
 
@@ -207,7 +209,7 @@ export function useGallerySlideshows({ setLoading, setError, setNotice, isAdmin 
       setSlideshowNewName("");
       void loadSlideshows();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to create the slideshow");
+      setError(err instanceof Error ? err.message : t("gallery:slideshows.errors.create"));
     } finally {
       setSlideshowBusy(false);
     }
@@ -222,7 +224,7 @@ export function useGallerySlideshows({ setLoading, setError, setNotice, isAdmin 
       setSelectedSlideshow(null);
       void loadSlideshows();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to delete the slideshow");
+      setError(err instanceof Error ? err.message : t("gallery:slideshows.errors.delete"));
     } finally {
       setSlideshowBusy(false);
     }

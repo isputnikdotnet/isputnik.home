@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { CheckCircle2, Download, Heart, Image as ImageIcon, Play, UserRound, X } from "lucide-react";
 import type { GalleryAsset } from "./types";
 import { faceFocusStyle } from "./types";
@@ -27,7 +28,7 @@ export function AssetTile({
   selected,
   onToggleSelect,
   onRemove,
-  removeTitle = "Not this person — remove from here",
+  removeTitle,
   onToggleLike
 }: {
   asset: GalleryAsset;
@@ -44,6 +45,8 @@ export function AssetTile({
   // photo, hearting it and coming back.
   onToggleLike?: (next: boolean) => void;
 }) {
+  const { t } = useTranslation(["common", "gallery"]);
+  const resolvedRemoveTitle = removeTitle ?? t("gallery:assetTile.removeDefaultTitle");
   // No heart while selecting — the tile means "pick me" then, and a second target
   // on it is a mis-tap waiting to happen.
   const canLike = Boolean(onToggleLike) && !selectionMode;
@@ -53,7 +56,7 @@ export function AssetTile({
       className={`gallery-tile${selectionMode ? " selectable" : ""}${selected ? " selected" : ""}`}
       onClick={selectionMode ? onToggleSelect : onOpen}
       aria-pressed={selectionMode ? selected : undefined}
-      aria-label={selectionMode ? `Select ${asset.title}` : `Open ${asset.title}`}
+      aria-label={selectionMode ? t("gallery:assetTile.selectAria", { title: asset.title }) : t("gallery:assetTile.openAria", { title: asset.title })}
     >
       {asset.coverUrl ? (
         <img src={asset.coverUrl} alt="" loading="lazy" style={faceFocusStyle(asset)} />
@@ -65,11 +68,11 @@ export function AssetTile({
       {asset.saved && !selectionMode && !canLike && <Heart size={14} className="gallery-like-dot" fill="currentColor" aria-hidden="true" />}
       {asset.kind === "video" && (
         asset.playable === false ? (
-          <span className="gallery-video-badge unplayable" title="Can’t play in browser — download to view">
-            <Download size={11} aria-hidden="true" />Video
+          <span className="gallery-video-badge unplayable" title={t("gallery:assetTile.unplayableTitle")}>
+            <Download size={11} aria-hidden="true" />{t("gallery:common.video")}
           </span>
         ) : (
-          <span className="gallery-video-badge"><Play size={11} aria-hidden="true" />Video</span>
+          <span className="gallery-video-badge"><Play size={11} aria-hidden="true" />{t("gallery:common.video")}</span>
         )
       )}
       {/* Only a selected tile gets the check overlay — unselected tiles stay
@@ -94,8 +97,8 @@ export function AssetTile({
           className={`gallery-tile-like${asset.saved ? " on" : ""}`}
           onClick={(event) => { event.stopPropagation(); onToggleLike!(!asset.saved); }}
           aria-pressed={asset.saved}
-          aria-label={asset.saved ? `Unlike ${asset.title}` : `Like ${asset.title}`}
-          title={asset.saved ? "Unlike" : "Like"}
+          aria-label={asset.saved ? t("gallery:assetTile.unlikeAria", { title: asset.title }) : t("gallery:assetTile.likeAria", { title: asset.title })}
+          title={asset.saved ? t("gallery:common.unlike") : t("gallery:common.like")}
         >
           <Heart size={15} fill={asset.saved ? "currentColor" : "none"} aria-hidden="true" />
         </button>
@@ -105,8 +108,8 @@ export function AssetTile({
           type="button"
           className="gallery-tile-remove"
           onClick={(event) => { event.stopPropagation(); onRemove(); }}
-          aria-label={`Remove ${asset.title}`}
-          title={removeTitle}
+          aria-label={t("gallery:assetTile.removeAria", { title: asset.title })}
+          title={resolvedRemoveTitle}
         >
           <X size={14} aria-hidden="true" />
         </button>

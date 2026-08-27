@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Check, ChevronRight, Folder, FolderOpen, Image as ImageIcon, Play, Search, Tag, User, X } from "lucide-react";
 import { api } from "../../api";
 import { Button } from "../../shared/Button";
@@ -29,13 +30,6 @@ type PickerTab = "folders" | "people" | "tags" | "all" | "upload";
 
 /** Page size for the photo grids — matches the gallery's own views. */
 const PAGE = 80;
-
-const SEARCH_PLACEHOLDER: Record<Exclude<PickerTab, "upload">, string> = {
-  folders: "Search folders",
-  people: "Search people",
-  tags: "Search tags",
-  all: "Search photos"
-};
 
 export function PhotoPicker({
   title,
@@ -70,6 +64,13 @@ export function PhotoPicker({
   onClose: () => void;
   onAdded?: (added: number) => void;
 }) {
+  const { t } = useTranslation(["common", "gallery"]);
+  const SEARCH_PLACEHOLDER: Record<Exclude<PickerTab, "upload">, string> = {
+    folders: t("gallery:photoPicker.searchFolders"),
+    people: t("gallery:photoPicker.searchPeople"),
+    tags: t("gallery:photoPicker.searchTags"),
+    all: t("gallery:photoPicker.searchPhotos")
+  };
   const [libraries, setLibraries] = useState<GalleryLibrary[]>([]);
   const [scope, setScope] = useState<string>("all"); // "all" or a gallery library id
   // A linked person means their matches are almost certainly what's wanted.
@@ -142,7 +143,7 @@ export function PhotoPicker({
       setFolderAssets(payload.assets);
       setParent(payload.parent);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to load this folder");
+      setError(err instanceof Error ? err.message : t("gallery:photoPicker.errors.loadFolder"));
     } finally {
       setLoading(false);
     }
@@ -154,7 +155,7 @@ export function PhotoPicker({
       setLoading(true);
       api<{ folders: GalleryFolder[] }>(`/api/library/gallery/folders/search?q=${encodeURIComponent(query)}${scopeParam()}`)
         .then((payload) => setFolderResults(payload.folders))
-        .catch((err) => setError(err instanceof Error ? err.message : "Unable to search folders"))
+        .catch((err) => setError(err instanceof Error ? err.message : t("gallery:photoPicker.errors.searchFolders")))
         .finally(() => setLoading(false));
     } else {
       setFolderResults(null);
@@ -182,7 +183,7 @@ export function PhotoPicker({
           : null;
         setPerson((current) => current ?? linked ?? sorted[0] ?? null);
       })
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load people"))
+      .catch((err) => setError(err instanceof Error ? err.message : t("gallery:photoPicker.errors.loadPeople")))
       .finally(() => setLoading(false));
   }, [tab, scope, scopeParam, facePerson]);
 
@@ -196,7 +197,7 @@ export function PhotoPicker({
       setPersonAssets((prev) => (offset === 0 ? payload.assets : [...prev, ...payload.assets]));
       setPersonTotal(payload.total);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to load this person's photos");
+      setError(err instanceof Error ? err.message : t("gallery:photoPicker.errors.loadPersonPhotos"));
     } finally {
       setLoading(false);
     }
@@ -215,7 +216,7 @@ export function PhotoPicker({
         setTags(payload.tags);
         setTag((current) => current ?? payload.tags[0] ?? null);
       })
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load tags"));
+      .catch((err) => setError(err instanceof Error ? err.message : t("gallery:photoPicker.errors.loadTags")));
   }, [tab, scope, scopeParam]);
 
   const queryTimeline = useCallback(async (body: object) => {
@@ -233,7 +234,7 @@ export function PhotoPicker({
       setTagAssets((prev) => (offset === 0 ? payload.assets : [...prev, ...payload.assets]));
       setTagTotal(payload.total);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to load these photos");
+      setError(err instanceof Error ? err.message : t("gallery:photoPicker.errors.loadTaggedPhotos"));
     } finally {
       setLoading(false);
     }
@@ -252,7 +253,7 @@ export function PhotoPicker({
       setAllAssets((prev) => (offset === 0 ? payload.assets : [...prev, ...payload.assets]));
       setAllTotal(payload.total);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to load photos");
+      setError(err instanceof Error ? err.message : t("gallery:photoPicker.errors.loadPhotos"));
     } finally {
       setLoading(false);
     }
@@ -300,7 +301,7 @@ export function PhotoPicker({
       await attachIds(ids, ids.map((id) => selected.get(id)).filter((a): a is GalleryAsset => a != null));
       setSelected(new Map());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to add the photos");
+      setError(err instanceof Error ? err.message : t("gallery:photoPicker.errors.addPhotos"));
     } finally {
       setAdding(false);
     }
@@ -327,13 +328,13 @@ export function PhotoPicker({
       // the caller takes it the same way it takes a browsed one.
       if (pick) {
         if (assets[0]) onPick?.(assets[0]);
-        else setError("Uploaded, but the picture couldn't be read back.");
+        else setError(t("gallery:photoPicker.errors.uploadReadback"));
         return;
       }
       await attachIds(itemIds, assets);
-      setUploadNotice(`${itemIds.length} ${itemIds.length === 1 ? "file" : "files"} uploaded and added.`);
+      setUploadNotice(t("gallery:photoPicker.uploadedNotice", { count: itemIds.length }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Uploaded, but adding failed");
+      setError(err instanceof Error ? err.message : t("gallery:photoPicker.errors.uploadAddFailed"));
     } finally {
       setAdding(false);
     }
@@ -343,10 +344,10 @@ export function PhotoPicker({
   const breadcrumbParts = useMemo(() => (parent ? parent.split("/") : []), [parent]);
   const chipFilter = search.trim().toLocaleLowerCase();
   const visiblePeople = chipFilter
-    ? people.filter((p) => (p.name || "Unnamed").toLocaleLowerCase().includes(chipFilter))
+    ? people.filter((p) => (p.name || t("gallery:common.unnamed")).toLocaleLowerCase().includes(chipFilter))
     : people;
   const visibleTags = chipFilter
-    ? tags.filter((t) => t.toLocaleLowerCase().includes(chipFilter))
+    ? tags.filter((t2) => t2.toLocaleLowerCase().includes(chipFilter))
     : tags;
 
   const grid = (assets: GalleryAsset[]) => (
@@ -364,14 +365,14 @@ export function PhotoPicker({
             onClick={() => (pick ? onPick?.(asset) : toggle(asset))}
             disabled={isAdded || adding || unpickable}
             aria-pressed={pick ? undefined : isSelected}
-            title={unpickable ? "Only a video can be chosen here" : isAdded ? "Already added" : asset.title}
+            title={unpickable ? t("gallery:photoPicker.onlyVideoTitle") : isAdded ? t("gallery:photoPicker.alreadyAddedTitle") : asset.title}
           >
             {asset.coverUrl ? <img src={asset.coverUrl} alt="" loading="lazy" style={faceFocusStyle(asset)} /> : (
               <span className="gallery-tile-fallback"><ImageIcon size={26} aria-hidden="true" /></span>
             )}
-            {asset.kind === "video" && <span className="gallery-video-badge"><Play size={11} aria-hidden="true" />Video</span>}
+            {asset.kind === "video" && <span className="gallery-video-badge"><Play size={11} aria-hidden="true" />{t("gallery:common.video")}</span>}
             {isAdded ? (
-              <span className="slideshow-browse-badge added">Added</span>
+              <span className="slideshow-browse-badge added">{t("gallery:photoPicker.addedBadge")}</span>
             ) : isSelected ? (
               <span className="slideshow-browse-badge selected"><Check size={16} aria-hidden="true" /></span>
             ) : null}
@@ -385,16 +386,16 @@ export function PhotoPicker({
     shown < total && (
       <div className="photo-picker-more">
         <Button variant="secondary" compact disabled={loading} onClick={more}>
-          {loading ? "Loading…" : `Load more (${(total - shown).toLocaleString()} left)`}
+          {loading ? t("gallery:common.loading") : t("gallery:photoPicker.loadMoreLeft", { count: (total - shown).toLocaleString() })}
         </Button>
       </div>
     );
 
   const librarySelect = (
     <label className="slideshow-browse-scope">
-      <span className="sr-only">Gallery library</span>
+      <span className="sr-only">{t("gallery:photoPicker.libraryAria")}</span>
       <select value={scope} onChange={(e) => setScope(e.target.value)} disabled={adding}>
-        <option value="all">All libraries</option>
+        <option value="all">{t("gallery:photoPicker.allLibraries")}</option>
         {libraries.map((library) => (
           <option key={library.id} value={library.id}>{library.name}</option>
         ))}
@@ -429,11 +430,11 @@ export function PhotoPicker({
 
       <div className="modal-tabs">
         {([
-          ["folders", "Folders"],
-          ["people", "People"],
-          ["tags", "Tags"],
-          ["all", "All photos"],
-          ...(canUploadHere ? [["upload", "Upload"] as [PickerTab, string]] : [])
+          ["folders", t("gallery:photoPicker.tabFolders")],
+          ["people", t("gallery:photoPicker.tabPeople")],
+          ["tags", t("gallery:photoPicker.tabTags")],
+          ["all", t("gallery:photoPicker.tabAll")],
+          ...(canUploadHere ? [["upload", t("gallery:photoPicker.tabUpload")] as [PickerTab, string]] : [])
         ] as [PickerTab, string][]).map(([key, label]) => (
           <button
             key={key}
@@ -451,7 +452,7 @@ export function PhotoPicker({
           however far the photos scroll. */}
       {activeTab === "people" && (
         visiblePeople.length > 0 ? (
-          <div className="photo-picker-chips" role="tablist" aria-label="People">
+          <div className="photo-picker-chips" role="tablist" aria-label={t("gallery:photoPicker.tabPeople")}>
             {visiblePeople.map((p) => (
               <button
                 key={p.id}
@@ -463,8 +464,8 @@ export function PhotoPicker({
                   {p.coverUrl ? <img src={p.coverUrl} alt="" loading="lazy" /> : <User size={16} aria-hidden="true" />}
                 </span>
                 <span className="photo-picker-chip-copy">
-                  <strong>{p.name || "Unnamed"}</strong>
-                  <small>{p.faceCount.toLocaleString()} {p.faceCount === 1 ? "photo" : "photos"}</small>
+                  <strong>{p.name || t("gallery:common.unnamed")}</strong>
+                  <small>{t("gallery:common.counts.photo", { count: p.faceCount })}</small>
                 </span>
               </button>
             ))}
@@ -472,14 +473,14 @@ export function PhotoPicker({
         ) : (
           !loading && (
             <p className="management-empty photo-picker-chips-empty">
-              {chipFilter ? "Nobody matches that." : "No people yet — face scanning builds this list."}
+              {chipFilter ? t("gallery:photoPicker.noPeopleMatch") : t("gallery:photoPicker.noPeopleYet")}
             </p>
           )
         )
       )}
       {activeTab === "tags" && (
         visibleTags.length > 0 ? (
-          <div className="photo-picker-chips" role="tablist" aria-label="Tags">
+          <div className="photo-picker-chips" role="tablist" aria-label={t("gallery:photoPicker.tabTags")}>
             {visibleTags.map((name) => (
               <button
                 key={name}
@@ -495,22 +496,22 @@ export function PhotoPicker({
         ) : (
           !loading && (
             <p className="management-empty photo-picker-chips-empty">
-              {chipFilter ? "No tags match that." : "No tags on gallery photos yet."}
+              {chipFilter ? t("gallery:photoPicker.noTagsMatch") : t("gallery:photoPicker.noTagsYet")}
             </p>
           )
         )
       )}
 
       <div className="modal-tab-content add-to-album-body">
-        {error && <MessageBox tone="error" title="Couldn’t load photos">{error}</MessageBox>}
+        {error && <MessageBox tone="error" title={t("gallery:photoPicker.loadErrorTitle")}>{error}</MessageBox>}
 
         {activeTab === "upload" && uploadLibrary && uploadTo && (
           <div className="photo-picker-upload">
-            {uploadNotice && <MessageBox tone="success" title="Added">{uploadNotice}</MessageBox>}
+            {uploadNotice && <MessageBox tone="success" title={t("gallery:photoPicker.addedTitle")}>{uploadNotice}</MessageBox>}
             <p className="photo-picker-hint">
               {pick
-                ? `The picture is added to “${uploadTo.name}” and chosen in one step — it lives in the gallery like any other photo.`
-                : `Files are added to “${uploadTo.name}” and attached here in one step. They appear in the gallery too, filed by the date they were taken.`}
+                ? t("gallery:photoPicker.uploadHintPick", { name: uploadTo.name })
+                : t("gallery:photoPicker.uploadHintMulti", { name: uploadTo.name })}
             </p>
             <FileUpload
               endpoint={`/api/library/gallery-libraries/${uploadLibrary.id}/assets/upload`}
@@ -518,7 +519,7 @@ export function PhotoPicker({
               maxBytes={uploadLibrary.maxUploadMB != null ? uploadLibrary.maxUploadMB * 1024 * 1024 : null}
               multiple={!pick}
               maxFiles={pick ? 1 : 100}
-              hint={`Accepted: ${uploadLibrary.uploadExtensions.map((ext) => `.${ext}`).join(", ")}${uploadLibrary.maxUploadMB != null ? ` · up to ${uploadLibrary.maxUploadMB} MB per file` : ""}`}
+              hint={`${t("common:upload.accepted", { types: uploadLibrary.uploadExtensions.map((ext) => `.${ext}`).join(", ") })}${uploadLibrary.maxUploadMB != null ? t("gallery:photoPicker.maxSizeSuffix", { mb: uploadLibrary.maxUploadMB }) : ""}`}
               onUploaded={(response) => {
                 const payload = response as { itemIds?: string[] };
                 void uploadFinished(payload.itemIds ?? []);
@@ -530,7 +531,7 @@ export function PhotoPicker({
 
         {activeTab === "folders" && (folderResults !== null ? (
           <>
-            <p className="gallery-section-label">{folderResults.length === 0 ? "No folders match" : "Matching folders"}</p>
+            <p className="gallery-section-label">{folderResults.length === 0 ? t("gallery:photoPicker.noFoldersMatch") : t("gallery:photoPicker.matchingFolders")}</p>
             <div className="gallery-folder-grid">
               {folderResults.map((folder) => (
                 <button key={folder.path} type="button" className="gallery-folder-tile" onClick={() => { setSearch(""); void loadFolder(folder.path); }} disabled={adding}>
@@ -538,7 +539,7 @@ export function PhotoPicker({
                     {folder.coverUrl ? <img src={folder.coverUrl} alt="" loading="lazy" /> : <Folder size={28} aria-hidden="true" />}
                   </span>
                   <strong>{folder.name}</strong>
-                  <small>{folder.assetCount.toLocaleString()} {folder.assetCount === 1 ? "item" : "items"}</small>
+                  <small>{t("gallery:common.counts.item", { count: folder.assetCount })}</small>
                 </button>
               ))}
             </div>
@@ -546,7 +547,7 @@ export function PhotoPicker({
         ) : (
           <>
             <div className="gallery-breadcrumb slideshow-browse-crumbs">
-              <button type="button" onClick={() => void loadFolder("")} disabled={adding}>All folders</button>
+              <button type="button" onClick={() => void loadFolder("")} disabled={adding}>{t("gallery:folders.allFolders")}</button>
               {breadcrumbParts.map((part, i) => {
                 const target = breadcrumbParts.slice(0, i + 1).join("/");
                 return (
@@ -559,7 +560,7 @@ export function PhotoPicker({
             </div>
             {folders.length > 0 && (
               <>
-                <p className="gallery-section-label">Folders</p>
+                <p className="gallery-section-label">{t("gallery:photoPicker.tabFolders")}</p>
                 <div className="gallery-folder-grid">
                   {folders.map((folder) => (
                     <button key={folder.path} type="button" className="gallery-folder-tile" onClick={() => void loadFolder(folder.path)} disabled={adding}>
@@ -567,7 +568,7 @@ export function PhotoPicker({
                         {folder.coverUrl ? <img src={folder.coverUrl} alt="" loading="lazy" /> : <Folder size={28} aria-hidden="true" />}
                       </span>
                       <strong>{folder.name}</strong>
-                      <small>{folder.assetCount.toLocaleString()} {folder.assetCount === 1 ? "item" : "items"}</small>
+                      <small>{t("gallery:common.counts.item", { count: folder.assetCount })}</small>
                     </button>
                   ))}
                 </div>
@@ -575,22 +576,21 @@ export function PhotoPicker({
             )}
             {folderAssets.length > 0 && (
               <>
-                <p className="gallery-section-label">Photos &amp; videos</p>
+                <p className="gallery-section-label">{t("gallery:photoPicker.photosVideosHeading")}</p>
                 {grid(folderAssets)}
               </>
             )}
-            {!loading && folders.length === 0 && folderAssets.length === 0 && <p className="management-empty">This folder is empty.</p>}
+            {!loading && folders.length === 0 && folderAssets.length === 0 && <p className="management-empty">{t("gallery:folders.emptyFolder")}</p>}
           </>
         ))}
 
         {activeTab === "people" && person && (
           <>
-            <p className="gallery-section-label">Showing photos of <strong>{person.name || "an unnamed person"}</strong></p>
+            <p className="gallery-section-label">{t("gallery:photoPicker.showingPhotosOf")} <strong>{person.name || t("gallery:photoPicker.unnamedPersonFallback")}</strong></p>
             {/* The linked person's matches carry the family tree's caveat. */}
             {facePerson && person.id === facePerson.id && !pick && (
               <p className="photo-picker-hint">
-                Every photo the face scan matched to “{facePerson.name}”. Adding one attaches it
-                here for good, so it stays even if the match is later corrected.
+                {t("gallery:photoPicker.faceMatchHint", { name: facePerson.name })}
               </p>
             )}
             {grid(personAssets)}
@@ -600,7 +600,7 @@ export function PhotoPicker({
 
         {activeTab === "tags" && tag && (
           <>
-            <p className="gallery-section-label">Tagged <strong>{tag}</strong></p>
+            <p className="gallery-section-label">{t("gallery:photoPicker.taggedHeading")} <strong>{tag}</strong></p>
             {grid(tagAssets)}
             {loadMore(tagAssets.length, tagTotal, () => void loadTag(tag, tagAssets.length))}
           </>
@@ -611,20 +611,20 @@ export function PhotoPicker({
             {grid(allAssets)}
             {loadMore(allAssets.length, allTotal, () => void loadAll(allAssets.length))}
             {!loading && allAssets.length === 0 && (
-              <p className="management-empty">{query ? "No photos match that." : "No photos in scope."}</p>
+              <p className="management-empty">{query ? t("gallery:photoPicker.noPhotosMatch") : t("gallery:photoPicker.noPhotosInScope")}</p>
             )}
           </>
         )}
 
-        {loading && <p className="management-empty">Loading…</p>}
+        {loading && <p className="management-empty">{t("gallery:common.loading")}</p>}
       </div>
 
       <div className="modal-actions photo-picker-actions">
         {pick ? (
           <>
-            <span className="muted">{pick === "video" ? "Tap a video to choose it." : "Tap a photo to choose it."}</span>
+            <span className="muted">{pick === "video" ? t("gallery:photoPicker.tapVideoHint") : t("gallery:photoPicker.tapPhotoHint")}</span>
             <div className="row-actions">
-              <Button variant="secondary" compact onClick={onClose}>Cancel</Button>
+              <Button variant="secondary" compact onClick={onClose}>{t("common:common.cancel")}</Button>
             </div>
           </>
         ) : (
@@ -632,8 +632,8 @@ export function PhotoPicker({
             <div className="photo-picker-tray">
               <span className="photo-picker-tray-count">
                 {selected.size > 0
-                  ? `${selected.size} ${selected.size === 1 ? "photo" : "photos"} selected`
-                  : "Select photos to add"}
+                  ? t("gallery:photoPicker.selectedCount", { count: selected.size })
+                  : t("gallery:photoPicker.selectPrompt")}
               </span>
               {trayEntries.slice(0, 8).map((asset) => (
                 <span key={asset.id} className="photo-picker-tray-thumb">
@@ -644,7 +644,7 @@ export function PhotoPicker({
                     type="button"
                     className="photo-picker-tray-remove"
                     onClick={() => toggle(asset)}
-                    aria-label={`Remove ${asset.title} from the selection`}
+                    aria-label={t("gallery:photoPicker.trayRemoveAria", { title: asset.title })}
                   >
                     <X size={11} aria-hidden="true" />
                   </button>
@@ -654,10 +654,10 @@ export function PhotoPicker({
             </div>
             <div className="row-actions">
               <Button variant="secondary" compact disabled={adding} onClick={onClose}>
-                {addedAny ? "Done" : "Cancel"}
+                {addedAny ? t("common:common.done") : t("common:common.cancel")}
               </Button>
               <Button variant="primary" compact disabled={selected.size === 0 || adding} onClick={() => void addSelected()}>
-                {adding ? "Adding…" : selected.size === 0 ? "Add photos" : selected.size === 1 ? "Add 1 photo" : `Add ${selected.size} photos`}
+                {adding ? t("gallery:common.adding") : selected.size === 0 ? t("gallery:common.addPhotos") : t("gallery:photoPicker.addCount", { count: selected.size })}
               </Button>
             </div>
           </>
