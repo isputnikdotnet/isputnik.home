@@ -287,13 +287,32 @@ Notes:
   any active filter (a deep link must always land on its quote), scrolls to it
   and flashes it briefly.
 
-## Phase 6 (later) — Anniversary quotes
+## Phase 6 — Anniversary quotes — **DONE**
 
-When a family quote's `quote_date` month-day matches today, the QOTD card
-becomes the anniversary variant ("5 years ago today, …") and outranks the
-regular rotation pick. Selection stays a pure function inside the same card
-builder — this is the reason the picker is a small server-side function
-rather than an inline expression. No schema work needed.
+When a family quote's `quote_date` month-day matches today, the card becomes
+the anniversary variant ("7 years ago today") and outranks the regular rotation
+pick. Still one pure function, still no schema work — `dailyQuote()` returns
+`yearsAgo`, and the card reads it to choose its eyebrow.
+
+Tests (in `quotes-daily.test.ts`): fires on the day, not on other days, not in
+the same year (that is not an anniversary), only on a FULL date, only for
+in-rotation quotes, never someone else's private one, stable when several fall
+on one date, and stands aside for a chosen category.
+
+Three judgement calls worth knowing:
+
+- **A chosen category wins over the anniversary.** Picking "Funny" is the viewer
+  steering, and steering has to work — an anniversary that ignored it would make
+  the switcher look broken. On "All" (or a category the pool no longer has) the
+  anniversary comes back.
+- **Language does not filter it.** There is only one thing that was said on that
+  date; dropping it for being in the wrong language would lose the point.
+- **It respects the rotation opt-in** like every other pick, so recording a dated
+  family saying also means ticking "Include in Quote of the day" for its
+  anniversary to come round. Consistent, and it keeps the card opt-in.
+
+The card scores 1.55 when it is an anniversary rather than 1.5 — above an
+ordinary quote, still under the photo memory beside it.
 
 ---
 

@@ -54,6 +54,8 @@ export interface QuoteCard {
   category: string | null;
   /** Every category the pool offers, for the switcher. */
   categories: string[];
+  /** Years since it was said, when today is the anniversary; null otherwise. */
+  yearsAgo: number | null;
 }
 
 export type HomeCard = SentCard | MemoryCard | AddedBatchCard | ActivityCard | SeriesNextCard | QuoteCard;

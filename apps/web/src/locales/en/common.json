@@ -270,7 +270,9 @@
     "downloadingTitle": "Downloading {{title}}",
     "quoteOfTheDay": "Quote of the day",
     "quoteCategoryLabel": "Quote category",
-    "quoteAllCategories": "All"
+    "quoteAllCategories": "All",
+    "quoteYearsAgoToday_one": "{{count}} year ago today",
+    "quoteYearsAgoToday_other": "{{count}} years ago today"
   },
   "profile": {
     "eyebrow": "Profile",

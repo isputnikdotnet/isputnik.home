@@ -257,7 +257,11 @@ function QuoteFeedCard({ card }: { card: QuoteCard }) {
 
   return (
     <div className={`home-card home-card-quote${busy ? " is-busy" : ""}`}>
-      <small className="home-quote-eyebrow">{t("home.quoteOfTheDay")}</small>
+      <small className="home-quote-eyebrow">
+        {quote.yearsAgo === null
+          ? t("home.quoteOfTheDay")
+          : t("home.quoteYearsAgoToday", { count: quote.yearsAgo })}
+      </small>
       <blockquote className="home-quote-text">{quote.text}</blockquote>
       {byline && <p className="home-quote-byline">{byline}</p>}
       {quote.categories.length > 0 && (

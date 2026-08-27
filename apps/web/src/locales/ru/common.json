@@ -284,7 +284,11 @@
     "downloadingTitle": "Загрузка: {{title}}",
     "quoteOfTheDay": "Цитата дня",
     "quoteCategoryLabel": "Категория цитаты",
-    "quoteAllCategories": "Все"
+    "quoteAllCategories": "Все",
+    "quoteYearsAgoToday_one": "{{count}} год назад в этот день",
+    "quoteYearsAgoToday_few": "{{count}} года назад в этот день",
+    "quoteYearsAgoToday_many": "{{count}} лет назад в этот день",
+    "quoteYearsAgoToday_other": "{{count}} года назад в этот день"
   },
   "profile": {
     "eyebrow": "Профиль",

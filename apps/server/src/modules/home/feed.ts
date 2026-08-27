@@ -102,6 +102,9 @@ const MEMORY_SCORE = 1.6;
 // Also age-zero every day, so this IS its score. Under the memory card (a photo of
 // your own family beats a line from a book) and over a fresh activity line.
 const QUOTE_SCORE = 1.5;
+// Something the family actually said on this day, years ago — worth more than a
+// line drawn in turn, still under the photo memory beside it.
+const ANNIVERSARY_QUOTE_SCORE = 1.55;
 const ACTIVITY_WEIGHT = 1.2;
 const ACTIVITY_HALF_LIFE = 5;
 const ACTIVITY_MAX_AGE = 14;
@@ -368,7 +371,12 @@ export function loadHomeFeed(
   }
 
   const quote = dailyQuote(user, date, { language: opts.language, category: opts.quoteCategory });
-  if (quote) ranked.push({ score: QUOTE_SCORE, card: { type: "quote", ...quote } });
+  if (quote) {
+    ranked.push({
+      score: quote.yearsAgo === null ? QUOTE_SCORE : ANNIVERSARY_QUOTE_SCORE,
+      card: { type: "quote", ...quote }
+    });
+  }
 
   const next = seriesNextCard(user, now);
   if (next) ranked.push({ score: FILLER_SCORE, card: next });

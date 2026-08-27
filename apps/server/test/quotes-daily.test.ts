@@ -151,3 +151,88 @@ describe("language", () => {
     expect(picked.quoteId).toBe("funnyRu");
   });
 });
+
+describe("anniversaries", () => {
+  // Something said on this day in an earlier year outranks the rotation — the
+  // point of recording WHEN a family saying was said.
+  const seedDated = (id: string, quoteDate: string, extra: Partial<QuoteSeed> = {}) => {
+    seedQuote({ id, text: `Said on ${quoteDate}`, ...extra });
+    db.prepare("UPDATE quotes SET quote_date = ? WHERE id = ?").run(quoteDate, id);
+  };
+
+  it("surfaces a quote said on this day in an earlier year", () => {
+    for (const id of ["q1", "q2", "q3"]) seedQuote({ id, text: `Filler ${id}` });
+    seedDated("anniversary", "2021-08-27");
+
+    const picked = dailyQuote(me, TODAY)!;
+    expect(picked.quoteId).toBe("anniversary");
+    expect(picked.yearsAgo).toBe(5);
+  });
+
+  it("leaves an ordinary pick unmarked", () => {
+    seedQuote({ id: "q1", text: "No date" });
+    expect(dailyQuote(me, TODAY)!.yearsAgo).toBeNull();
+  });
+
+  it("ignores a date that is not today", () => {
+    seedQuote({ id: "q1", text: "Filler" });
+    seedDated("other", "2021-08-26");
+    expect(dailyQuote(me, TODAY)!.yearsAgo).toBeNull();
+  });
+
+  it("ignores something said earlier the same year — that is not an anniversary", () => {
+    seedQuote({ id: "q1", text: "Filler" });
+    seedDated("today", "2026-08-27");
+    expect(dailyQuote(me, TODAY)!.yearsAgo).toBeNull();
+  });
+
+  it("needs a full date: a year or a month alone has no day to come round", () => {
+    seedQuote({ id: "q1", text: "Filler" });
+    seedDated("yearOnly", "2021");
+    seedDated("monthOnly", "2021-08");
+    expect(dailyQuote(me, TODAY)!.yearsAgo).toBeNull();
+  });
+
+  it("respects the rotation opt-in, like every other pick", () => {
+    seedQuote({ id: "q1", text: "Filler" });
+    seedDated("optedOut", "2021-08-27", { inRotation: false });
+    expect(dailyQuote(me, TODAY)!.quoteId).toBe("q1");
+  });
+
+  it("never surfaces someone else's private anniversary", () => {
+    seedQuote({ id: "q1", text: "Filler" });
+    seedDated("theirs", "2021-08-27", { owner: "relative", visibility: "private" });
+    expect(dailyQuote(me, TODAY)!.quoteId).toBe("q1");
+  });
+
+  it("picks the same one all day when several fall on this date", () => {
+    seedDated("a", "2019-08-27");
+    seedDated("b", "2021-08-27");
+    const first = dailyQuote(me, TODAY)!;
+    expect(dailyQuote(me, TODAY)!.quoteId).toBe(first.quoteId);
+    expect(first.yearsAgo).toBe(first.quoteId === "a" ? 7 : 5);
+  });
+
+  it("stands aside when the viewer has chosen a category, so the switcher works", () => {
+    seedQuote({ id: "funny1", text: "Ha", tags: ["Funny"] });
+    seedDated("anniversary", "2021-08-27");
+
+    // On All, the anniversary wins.
+    expect(dailyQuote(me, TODAY)!.quoteId).toBe("anniversary");
+    // Having asked for Funny, that is what they get.
+    const funny = dailyQuote(me, TODAY, { category: "Funny" })!;
+    expect(funny.quoteId).toBe("funny1");
+    expect(funny.yearsAgo).toBeNull();
+  });
+
+  it("comes back on a stale category, since the pick is not narrowed anyway", () => {
+    seedDated("anniversary", "2021-08-27");
+    expect(dailyQuote(me, TODAY, { category: "GoneForever" })!.quoteId).toBe("anniversary");
+  });
+
+  it("outranks language preference — one thing was said that day", () => {
+    seedQuote({ id: "ru1", text: "Русская", language: "ru" });
+    seedDated("anniversary", "2021-08-27", { language: "en" });
+    expect(dailyQuote(me, TODAY, { language: "ru" })!.quoteId).toBe("anniversary");
+  });
+});
