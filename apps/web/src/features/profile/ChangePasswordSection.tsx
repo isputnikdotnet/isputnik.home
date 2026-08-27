@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../../api";
 import { Button } from "../../shared/Button";
 import { Field } from "../../shared/Field";
@@ -6,6 +7,7 @@ import { Modal } from "../../shared/Modal";
 import { MessageBox } from "../../shared/MessageBox";
 
 export function ChangePasswordSection() {
+  const { t } = useTranslation(["common", "misc"]);
   const [open, setOpen] = useState(false);
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
@@ -25,7 +27,7 @@ export function ChangePasswordSection() {
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (next !== confirm) {
-      setError("The new passwords don't match.");
+      setError(t("misc:changePassword.mismatch"));
       return;
     }
     setSaving(true);
@@ -38,7 +40,7 @@ export function ChangePasswordSection() {
       close();
       setDone(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to change password");
+      setError(err instanceof Error ? err.message : t("misc:changePassword.unableToChange"));
     } finally {
       setSaving(false);
     }
@@ -46,30 +48,30 @@ export function ChangePasswordSection() {
 
   return (
     <section className="password-section" aria-labelledby="password-heading">
-      <h2 id="password-heading">Password</h2>
-      <p className="password-intro">Change the password you use to sign in. Your other devices will be signed out.</p>
-      {done && <MessageBox tone="success" title="Password changed">Your password has been updated.</MessageBox>}
+      <h2 id="password-heading">{t("misc:changePassword.heading")}</h2>
+      <p className="password-intro">{t("misc:changePassword.intro")}</p>
+      {done && <MessageBox tone="success" title={t("misc:changePassword.changedTitle")}>{t("misc:changePassword.changedBody")}</MessageBox>}
       <div className="password-actions">
-        <Button variant="secondary" onClick={() => { setDone(false); setOpen(true); }}>Change password</Button>
+        <Button variant="secondary" onClick={() => { setDone(false); setOpen(true); }}>{t("misc:changePassword.changeButton")}</Button>
       </div>
 
       {open && (
         <Modal
           variant="card"
           className="password-form-modal"
-          title="Change password"
+          title={t("misc:changePassword.changeButton")}
           busy={saving}
           onClose={close}
           onSubmit={submit}
         >
-          <Field label="Current password" type="password" value={current} onChange={setCurrent} autoComplete="current-password" />
-          <Field label="New password" type="password" minLength={8} value={next} onChange={setNext} autoComplete="new-password" />
-          <Field label="Confirm new password" type="password" minLength={8} value={confirm} onChange={setConfirm} autoComplete="new-password" />
-          {error && <MessageBox tone="error" title="Unable to change password">{error}</MessageBox>}
+          <Field label={t("misc:common.currentPassword")} type="password" value={current} onChange={setCurrent} autoComplete="current-password" />
+          <Field label={t("misc:changePassword.newPasswordLabel")} type="password" minLength={8} value={next} onChange={setNext} autoComplete="new-password" />
+          <Field label={t("misc:changePassword.confirmPasswordLabel")} type="password" minLength={8} value={confirm} onChange={setConfirm} autoComplete="new-password" />
+          {error && <MessageBox tone="error" title={t("misc:changePassword.unableToChange")}>{error}</MessageBox>}
           <div className="modal-actions">
-            <Button variant="secondary" onClick={close} disabled={saving}>Cancel</Button>
+            <Button variant="secondary" onClick={close} disabled={saving}>{t("common:common.cancel")}</Button>
             <Button variant="primary" type="submit" disabled={saving || current.length < 1 || next.length < 8}>
-              {saving ? "Changing…" : "Change password"}
+              {saving ? t("misc:common.changing") : t("misc:changePassword.changeButton")}
             </Button>
           </div>
         </Modal>

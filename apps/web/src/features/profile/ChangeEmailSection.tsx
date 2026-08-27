@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { useTranslation } from "react-i18next";
 import { api, type PublicUser } from "../../api";
 import { Button } from "../../shared/Button";
 import { Field } from "../../shared/Field";
@@ -14,6 +15,7 @@ export function ChangeEmailSection({
   mfaEnabled: boolean;
   onChanged: (user: PublicUser) => void;
 }) {
+  const { t } = useTranslation(["common", "misc"]);
   const [open, setOpen] = useState(false);
   const [newEmail, setNewEmail] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
@@ -47,7 +49,7 @@ export function ChangeEmailSection({
       close();
       setDone(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to change email");
+      setError(err instanceof Error ? err.message : t("misc:changeEmail.unableToChange"));
     } finally {
       setSaving(false);
     }
@@ -55,45 +57,45 @@ export function ChangeEmailSection({
 
   return (
     <section className="email-section" aria-labelledby="email-heading">
-      <h2 id="email-heading">Email</h2>
+      <h2 id="email-heading">{t("misc:changeEmail.heading")}</h2>
       <p className="email-intro">
-        The address you sign in with. Changing it needs your current password{mfaEnabled ? " and a two-factor code" : ""}.
+        {mfaEnabled ? t("misc:changeEmail.introMfa") : t("misc:changeEmail.intro")}
       </p>
       <p className="email-current"><strong>{email}</strong></p>
-      {done && <MessageBox tone="success" title="Email changed">Your sign-in email has been updated.</MessageBox>}
+      {done && <MessageBox tone="success" title={t("misc:changeEmail.changedTitle")}>{t("misc:changeEmail.changedBody")}</MessageBox>}
       <div className="email-actions">
-        <Button variant="secondary" onClick={() => { setDone(false); setOpen(true); }}>Change email</Button>
+        <Button variant="secondary" onClick={() => { setDone(false); setOpen(true); }}>{t("misc:changeEmail.changeButton")}</Button>
       </div>
 
       {open && (
         <Modal
           variant="card"
           className="email-form-modal"
-          title="Change email"
+          title={t("misc:changeEmail.changeButton")}
           busy={saving}
           onClose={close}
           onSubmit={submit}
         >
-          <Field label="New email" type="email" value={newEmail} onChange={setNewEmail} autoComplete="email" />
-          <Field label="Current password" type="password" value={currentPassword} onChange={setCurrentPassword} autoComplete="current-password" />
+          <Field label={t("misc:changeEmail.newEmailLabel")} type="email" value={newEmail} onChange={setNewEmail} autoComplete="email" />
+          <Field label={t("misc:common.currentPassword")} type="password" value={currentPassword} onChange={setCurrentPassword} autoComplete="current-password" />
           {mfaEnabled && (
             <Field
-              label="Two-factor code"
+              label={t("misc:common.twoFactorCode")}
               value={code}
               onChange={setCode}
-              placeholder="From your authenticator app, or a backup code"
+              placeholder={t("misc:common.codePlaceholder")}
               autoComplete="one-time-code"
             />
           )}
-          {error && <MessageBox tone="error" title="Unable to change email">{error}</MessageBox>}
+          {error && <MessageBox tone="error" title={t("misc:changeEmail.unableToChange")}>{error}</MessageBox>}
           <div className="modal-actions">
-            <Button variant="secondary" onClick={close} disabled={saving}>Cancel</Button>
+            <Button variant="secondary" onClick={close} disabled={saving}>{t("common:common.cancel")}</Button>
             <Button
               variant="primary"
               type="submit"
               disabled={saving || newEmail.trim().length < 3 || currentPassword.length < 1 || (mfaEnabled && code.trim().length < 6)}
             >
-              {saving ? "Changing…" : "Change email"}
+              {saving ? t("misc:changeEmail.submitBusy") : t("misc:changeEmail.changeButton")}
             </Button>
           </div>
         </Modal>

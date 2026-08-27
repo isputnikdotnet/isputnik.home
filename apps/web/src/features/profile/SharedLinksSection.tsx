@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
 import { BookOpen, Headphones, Image, Images, Link2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { api } from "../../api";
 import { Button } from "../../shared/Button";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { MessageBox } from "../../shared/MessageBox";
+import i18n from "../../i18n";
 
 interface SharedLink {
   id: string;
@@ -37,22 +39,27 @@ const DAY = 24 * 60 * 60 * 1000;
 function expiryText(link: SharedLink): string {
   const expires = new Date(link.expiresAt);
   if (link.status === "expired") {
-    return `Expired ${expires.toLocaleDateString()}`;
+    return i18n.t("misc:sharedLinks.expiredOn", { date: expires.toLocaleDateString() });
   }
   const remaining = expires.getTime() - Date.now();
-  if (remaining < DAY) return "Expires within a day";
+  if (remaining < DAY) return i18n.t("misc:sharedLinks.expiresWithinDay");
   const days = Math.round(remaining / DAY);
-  if (days <= 14) return `Expires in ${days} days`;
-  return `Expires ${expires.toLocaleDateString()}`;
+  if (days <= 14) return i18n.t("misc:sharedLinks.expiresInDays", { count: days });
+  return i18n.t("misc:sharedLinks.expiresOn", { date: expires.toLocaleDateString() });
 }
 
 function describe(link: SharedLink): string {
-  if (link.kind === "set") return `${link.itemCount} photo${link.itemCount === 1 ? "" : "s"}`;
-  if (link.kind === "album") return `Album · ${link.itemCount} item${link.itemCount === 1 ? "" : "s"}`;
-  return link.module === "ebook" ? "Ebook" : link.module === "gallery" ? "Photo" : "Audiobook";
+  if (link.kind === "set") return i18n.t("misc:sharedLinks.describeSet", { count: link.itemCount });
+  if (link.kind === "album") return i18n.t("misc:sharedLinks.describeAlbum", { count: link.itemCount });
+  return link.module === "ebook"
+    ? i18n.t("misc:sharedLinks.describeEbook")
+    : link.module === "gallery"
+      ? i18n.t("misc:sharedLinks.describeGallery")
+      : i18n.t("misc:sharedLinks.describeAudiobook");
 }
 
 export function SharedLinksSection() {
+  const { t } = useTranslation(["common", "misc"]);
   const [links, setLinks] = useState<SharedLink[] | null>(null);
   const [error, setError] = useState("");
   const [revoking, setRevoking] = useState<SharedLink | null>(null);
@@ -62,10 +69,10 @@ export function SharedLinksSection() {
   const load = () => {
     api<{ shares: SharedLink[] }>("/api/shares/mine")
       .then((payload) => setLinks(payload.shares))
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load shared links"));
+      .catch((err) => setError(err instanceof Error ? err.message : t("misc:sharedLinks.unableToLoadFallback")));
   };
 
-  useEffect(load, []);
+  useEffect(load, [t]);
 
   const revoke = async () => {
     if (!revoking) return;
@@ -76,7 +83,7 @@ export function SharedLinksSection() {
       setRevoking(null);
       load();
     } catch (err) {
-      setRevokeError(err instanceof Error ? err.message : "Unable to revoke link");
+      setRevokeError(err instanceof Error ? err.message : t("misc:sharedLinks.unableToRevoke"));
     } finally {
       setBusy(false);
     }
@@ -95,12 +102,12 @@ export function SharedLinksSection() {
           <span className="shared-link-meta">
             {describe(link)}
             {link.label && ` · ${link.label}`}
-            {` · shared ${new Date(link.createdAt).toLocaleDateString()}`}
+            {t("misc:sharedLinks.metaShared", { date: new Date(link.createdAt).toLocaleDateString() })}
           </span>
         </div>
         <span className="shared-link-expiry">{expiryText(link)}</span>
         <Button variant="text" onClick={() => { setRevokeError(""); setRevoking(link); }}>
-          Revoke
+          {t("misc:sharedLinks.revokeButton")}
         </Button>
       </li>
     );
@@ -108,35 +115,31 @@ export function SharedLinksSection() {
 
   return (
     <section className="shared-links-section" aria-labelledby="shared-links-heading">
-      <h2 id="shared-links-heading">Shared links</h2>
+      <h2 id="shared-links-heading">{t("misc:sharedLinks.heading")}</h2>
       <p className="shared-links-intro">
-        Every guest link you have created that has not been revoked. Anyone holding one of
-        these can open what it points at without signing in, until it expires. The link
-        addresses themselves are not stored and cannot be shown again — if you have lost
-        one, revoke it and create a new one.
+        {t("misc:sharedLinks.intro")}
       </p>
 
-      {error && <MessageBox tone="error" title="Unable to load shared links">{error}</MessageBox>}
+      {error && <MessageBox tone="error" title={t("misc:sharedLinks.unableToLoadFallback")}>{error}</MessageBox>}
 
       {links && links.length === 0 && (
-        <MessageBox tone="info" title="Nothing is shared">
-          You have not created any guest links. You can make one from the Share button on any
-          book, photo, or album.
+        <MessageBox tone="info" title={t("misc:sharedLinks.emptyTitle")}>
+          {t("misc:sharedLinks.emptyBody")}
         </MessageBox>
       )}
 
       {active.length > 0 && (
         <>
-          <h3 className="shared-links-group">Active ({active.length})</h3>
+          <h3 className="shared-links-group">{t("misc:sharedLinks.activeGroup", { count: active.length })}</h3>
           <ul className="shared-link-list">{active.map(row)}</ul>
         </>
       )}
 
       {expired.length > 0 && (
         <>
-          <h3 className="shared-links-group">Expired ({expired.length})</h3>
+          <h3 className="shared-links-group">{t("misc:sharedLinks.expiredGroup", { count: expired.length })}</h3>
           <p className="shared-links-note">
-            These no longer grant access. Revoking them just clears them from this list.
+            {t("misc:sharedLinks.expiredNote")}
           </p>
           <ul className="shared-link-list">{expired.map(row)}</ul>
         </>
@@ -144,9 +147,9 @@ export function SharedLinksSection() {
 
       {revoking && (
         <ConfirmDialog
-          title={`Revoke the link to "${revoking.title}"?`}
-          confirmLabel="Revoke link"
-          busyLabel="Revoking…"
+          title={t("misc:sharedLinks.confirmRevokeTitle", { title: revoking.title })}
+          confirmLabel={t("misc:sharedLinks.confirmRevokeLabel")}
+          busyLabel={t("misc:sharedLinks.confirmRevokeBusy")}
           danger
           busy={busy}
           error={revokeError}
@@ -154,8 +157,8 @@ export function SharedLinksSection() {
           onCancel={() => setRevoking(null)}
         >
           {revoking.status === "expired"
-            ? "This link has already expired, so nobody can use it. Revoking removes it from the list."
-            : "Anyone still holding this link will lose access immediately. Nothing is deleted, and people you shared with by account keep their access."}
+            ? t("misc:sharedLinks.confirmRevokeBodyExpired")
+            : t("misc:sharedLinks.confirmRevokeBodyActive")}
         </ConfirmDialog>
       )}
     </section>

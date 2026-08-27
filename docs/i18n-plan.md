@@ -1,16 +1,16 @@
 # UI language support (Russian) — implementation plan
 
-Status (2026-08-27): Phases 0–1 complete and verified in-browser. Phase 2
-in progress — namespace infrastructure built, ~3,070 keys authored and
-translated across 6 of 12 namespaces; `common`, `controlAdmin`, `book`,
-`user`, `controlDash`, and now `control` (6 of 6 translated-batch namespaces)
-are FULLY wired, including `sections/duplicates/` (the `dupes.*` keys, the
-whole duplicate-cleanup wizard) and every file under `features/control/`
-proper (nav.ts, search-index.ts, ControlPanelPage/ControlSearch, and the 9
-core sections — About/Appearance/Backup/Categories/Groups/Invites/Libraries/
-LibraryMembersModal/Logs); `reader` partially wired. Phase 3 (server error
-codes) started. Phase 4 (`family`/`gallery`/`galleryModals`/`library`/`misc`
-namespaces) not started. Full detail below.
+Status (2026-08-27): Phases 0–1 complete and verified in-browser. Phase 2's
+sweep is DONE — namespace infrastructure built, ~5,020 keys authored and
+translated; `common`, `controlAdmin`, `book`, `user`, `controlDash`,
+`control`, `family`, `gallery`, `galleryModals`, and `misc` (10 of 12) are
+FULLY wired; `library` needed no work of its own (fully covered by `user`
+and Phase 1's `common`, see below) — so every namespace originally scoped
+for the everyday user surface is complete. `reader` (144 keys, AudioPlayer.tsx
+wired) is the one namespace left with unwired files — PlayerPage.tsx,
+EbookReader.tsx, and offline/*.ts were authored but never applied, a known
+gap tracked separately rather than "ALL 12 complete". Phase 3 (server error
+codes) started. Full detail below.
 
 Phase 0 — i18next + typed keys, `users.language` (migration 48), Language picker
 on Profile → Appearance, localStorage mirror, `check:ui` key-parity rule (which
@@ -133,11 +133,62 @@ namespace pairs, loaded via `locales/{en,ru}/index.ts` barrels and
   the search palette, and the library-members modal, all signed in on the
   Russian-language dev account.
 
-**Namespaces — still empty `{}` (nothing done)**: `family` (all 26 familytree
-files), `gallery` (11 page files), `galleryModals` (13 modal files), `library`
-(UserAreaNav done in Phase 1; LikesPage/BookmarksPage/etc. not — overlaps
-with `user`, reconcile ownership before resuming), `misc` (About/Help/Guide
-pages, profile sub-sections: MFA/passkeys/email/password/shares/devices).
+- `family` (475 keys) — ALL 23 edited files wired 2026-08-27 (genealogy
+  module): AddChildModal/AddParentModal/AddRelativeModal/AddSiblingModal/
+  AddUnionModal, CitationEditModal, EventEditModal, FamilyFamiliesPage/
+  FamilyPeoplePage/FamilyPersonPage (~1400 lines, incl. the RelationCard
+  sub-component)/FamilyPersonPhotosPage, FamilyTagAccessModal,
+  FamilyTreeChart, FamilyTreePage, FamilyTreeSettingsModal,
+  GalleryPersonLinkModal, GedcomImportModal, PartialDateField,
+  PersonEditModal, PersonPickerModal, UnionEditModal, sectionNavItems.ts,
+  types.ts. PersonAvatar.tsx/chart-layout.ts/useFamilyUploadTarget.ts
+  needed no changes (decorative-only, pure geometry, silent-catch hook).
+  A relative-name matrix (plain/step/adopted/foster × gender) replaces
+  English string concatenation with real Russian words (пасынок/падчерица,
+  etc.); names in confirm-dialog titles use guillemets («»)  to sidestep
+  Russian case declension on arbitrary person names — same technique as
+  `book.json`.
+- `gallery` (550 keys) + `galleryModals` (~230 keys) — ALL files wired
+  2026-08-27, as two parallel agents on non-overlapping files in the same
+  `features/gallery/` directory (gallery.json vs galleryModals.json, no
+  write race since each JSON file had exactly one writer). `gallery`:
+  AssetTile, GalleryFilter, GalleryLightbox, GalleryLocationPicker,
+  GalleryMap, GalleryMiniMap, GalleryPage (~2790 lines), GalleryPlaceSearch,
+  GallerySlideshowEditor, MusicPicker, PhotoPicker, gallery-view.ts,
+  useGalleryAlbums/People/Slideshows.ts hooks (types.ts needed no changes).
+  `galleryModals`: AddToAlbumModal, AddToSlideshowModal, GalleryDateModal,
+  GalleryFaceSettingsModal (incl. ClusterHealthPanel/HealthAvatar
+  sub-components), GalleryLocationModal, GalleryUploadModal, ShareAlbumModal,
+  SlideshowTitleCardModal.
+- `misc` (174 keys) — the last namespace, authored from scratch and wired
+  2026-08-27, all 7 in-scope files: AboutPage.tsx (the thin page shell only —
+  the shared `AboutDetails.tsx`/`AboutCredits.tsx` it renders stayed English,
+  out of scope, same as HelpPage/GuidePage), ChangeEmailSection,
+  ChangePasswordSection, LinkedDevicesSection (incl. the module-level
+  `whenSeen()` helper, converted to `i18n.t()` since it can't call a hook),
+  MfaSection (incl. its 3 in-file setup/regenerate/disable modal
+  sub-components — the densest file in the batch: QR setup, backup codes,
+  TOTP vs. email method choice), PasskeysSection, SharedLinksSection (incl.
+  its module-level `expiryText()`/`describe()` helpers, same `i18n.t()`
+  treatment). Terminology matched `controlAdmin.security`'s admin-side MFA/
+  passkey vocabulary for consistency: "ключ доступа" (passkey), "резервный
+  код" (backup code), "двухфакторная аутентификация"/"двухфакторная
+  проверка" (two-factor). Verified: typecheck + check:ui + full web test
+  suite (178 tests) + an in-browser pass over all 4 touched profile tabs and
+  /about, signed in as the Russian-language dev account.
+
+**`library` namespace — reconciled as done, needs no work**: every file
+under `features/library/` (BookmarksPage, DownloadsPage, FeedListItem,
+FeedTile, LibraryFeedPage, LikesPage, QuotesPage, SharedWithMePage, feed.ts,
+UserAreaNav) is already fully wired — UserAreaNav via `common` in Phase 1,
+everything else via `user` in that namespace's wiring batch (they logically
+belong there: bookmarks/likes/quotes/shares/downloads are all "your library"
+features). `library.json` stays `{}` and registered in the barrel (harmless,
+required for `check:ui`'s en/ru folder-parity check) — there was never a
+distinct `library` concern to translate.
+
+**Namespaces — still empty `{}` (nothing done)**: none. `misc` was the last
+one and is now fully wired (see the bullet above).
 
 **Server (Phase 3, started)**: `code` field added to auth-routes.ts,
 mfa-routes.ts, and modules/users/profile.ts error replies (stable
@@ -159,9 +210,10 @@ once is what caused the failure; resuming this work should go one namespace
 each, not as one giant fan-out.
 
 **Verified as of this checkpoint**: full `npm run typecheck` (both
-workspaces), `node scripts/check-ui-conventions.mjs`, and `npm test` (1549
-server + 178 web) all pass. The repo is in a clean, shippable state — nothing
-is broken, translation is just incomplete.
+workspaces), `node scripts/check-ui-conventions.mjs`, and `npm run test:web`
+(178 tests) all pass after the `misc` namespace landed. The repo is in a
+clean, shippable state — Phase 2's originally-scoped sweep is complete;
+`reader`'s remaining unwired files are the only tracked gap.
 
 Phase 4 (control panel core sections — LibrariesSection, BackupSection,
 GroupsSection, InvitesSection, CategoriesSection, AboutSection, AppearanceSection,
