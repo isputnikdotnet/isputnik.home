@@ -11,7 +11,31 @@
     "eyebrow": "Приложение",
     "heading": "О программе",
     "errorTitle": "Ошибка на странице «О программе»",
-    "unableToLoad": "Не удалось загрузить информацию о приложении"
+    "unableToLoad": "Не удалось загрузить информацию о приложении",
+    "sectionsAria": "Разделы «О программе»",
+    "tabAbout": "О программе",
+    "tabCredits": "Благодарности",
+    "stackRuntime": "Среда выполнения",
+    "stackDatabase": "База данных",
+    "stackServer": "Сервер",
+    "stackFrontend": "Интерфейс",
+    "licenseText": "Свободное ПО по лицензии <agpl>GNU AGPL v3</agpl> — вы имеете право на исходный код используемой вами версии. <source>Получить исходный код</source>",
+    "versionUpdatesAria": "Обновления версий",
+    "whatsNew": "Что нового",
+    "showEarlierVersions": "Показать более ранние версии ({{count}})",
+    "loadingEarlierVersions": "Загрузка более ранних версий…",
+    "unableToLoadEarlier": "Не удалось загрузить более ранние версии. Проверьте подключение и попробуйте снова.",
+    "creditsAria": "Благодарности открытым проектам",
+    "creditsIntro": "isputnik.home создан на основе множества проектов с открытым исходным кодом. Спасибо всем, кто их создаёт.",
+    "creditGroups": {
+      "reading": "Чтение",
+      "faceRecognition": "Распознавание лиц",
+      "photosVideo": "Фото и видео",
+      "locations": "Геолокация",
+      "audiobooks": "Аудиокниги",
+      "serverCore": "Сервер и ядро",
+      "app": "Приложение"
+    }
   },
   "changeEmail": {
     "heading": "Почта",

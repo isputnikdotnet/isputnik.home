@@ -19,7 +19,35 @@
   },
   "errors": {
     "unableToSave": "Unable to save",
-    "actionFailed": "Action failed"
+    "actionFailed": "Action failed",
+    "codes": {
+      "auth": {
+        "invalid_details": "Invalid login details",
+        "locked": "Too many failed attempts. Please try again in a few minutes.",
+        "invalid_credentials": "Invalid email or password",
+        "mfa_required_outside": "Signing in from outside the home network requires a second factor, and this account doesn't have one set up. Sign in from home to set up two-factor authentication, or ask your administrator."
+      },
+      "mfa": {
+        "challenge_expired": "Your sign-in expired. Enter your password again.",
+        "not_email": "This sign-in doesn't use emailed codes.",
+        "resend_cooldown": "Wait 60 seconds before asking for another code.",
+        "resend_exhausted": "No more codes for this sign-in. Enter your password again to start over.",
+        "send_failed": "We couldn't send the code. Use a backup code, or ask your administrator.",
+        "no_challenge": "No sign-in is in progress. Start again.",
+        "code_required": "Enter your 6-digit code or a backup code",
+        "reauth": "Enter your password again.",
+        "too_many": "Too many attempts. Enter your password again.",
+        "totp_outdated": "Your authenticator setup predates this version's security requirements, so its codes can no longer be accepted. Enter one of your backup codes instead, then turn two-factor off and set it up again to get a fresh QR code.",
+        "invalid_code": "Invalid code"
+      },
+      "profile": {
+        "invalid": "Invalid profile details",
+        "invalid_password": "Invalid password",
+        "wrong_password": "Your current password is incorrect.",
+        "invalid_email": "Invalid email",
+        "email_taken": "That email address is already in use."
+      }
+    }
   },
   "nav": {
     "home": "Home",

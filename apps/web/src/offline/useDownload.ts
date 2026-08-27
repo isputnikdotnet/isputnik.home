@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { AudiobookBookDetail } from "../features/audiobooks/types";
 import { deleteDownload, downloadBook, getDownload, type DownloadRecord } from "./downloads";
 
@@ -12,6 +13,7 @@ export interface UseDownload {
 }
 
 export function useDownload(book: AudiobookBookDetail | null): UseDownload {
+  const { t } = useTranslation(["reader"]);
   const [record, setRecord] = useState<DownloadRecord | null>(null);
   const [progress, setProgress] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -39,12 +41,12 @@ export function useDownload(book: AudiobookBookDetail | null): UseDownload {
       const done = await downloadBook(book, setProgress);
       setRecord(done);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Download failed.");
+      setError(err instanceof Error ? err.message : t("reader:offline.downloadFailed"));
       setRecord(await getDownload(book.id).catch(() => null));
     } finally {
       setBusy(false);
     }
-  }, [book]);
+  }, [book, t]);
 
   const remove = useCallback(async () => {
     if (!book) return;

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ALargeSmall, ArrowLeft, Bookmark, BookmarkPlus, BookOpen, ChevronLeft, ChevronRight, Columns2, Copy, Download,
   Highlighter, List, Minus, Pencil, Plus, RotateCcw, ScrollText, Search, Settings, Sun, Trash2
@@ -225,6 +226,7 @@ export function EbookReader({
   onExit,
   guest = false
 }: EbookReaderProps) {
+  const { t } = useTranslation(["common", "reader"]);
   const isMobile = useIsMobile();
   const hostRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<FoliateView | null>(null);
@@ -314,9 +316,9 @@ export function EbookReader({
   const closePanels = useCallback(() => { setPanel(null); }, []);
 
   const goToHref = useCallback((href: string) => {
-    void viewRef.current?.goTo(href).catch(() => setNotice("Could not open that location."));
+    void viewRef.current?.goTo(href).catch(() => setNotice(t("reader:ebook.openLocationFailed")));
     closePanels();
-  }, [closePanels]);
+  }, [closePanels, t]);
 
   // Stable relocate handler — must not depend on changing state or the engine
   // effect would tear down and rebuild the view on every render.
@@ -449,9 +451,9 @@ export function EbookReader({
         if (blob) {
           data = blob;
         } else {
-          if (!url) throw new Error("Could not load this ebook.");
+          if (!url) throw new Error(t("reader:ebook.loadFailed"));
           const res = await fetch(url, { credentials: "include" });
-          if (!res.ok) throw new Error("Could not load this ebook.");
+          if (!res.ok) throw new Error(t("reader:ebook.loadFailed"));
           data = await res.blob();
         }
         if (cancelled) return;
@@ -528,7 +530,7 @@ export function EbookReader({
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Could not load this ebook.");
+          setError(err instanceof Error ? err.message : t("reader:ebook.loadFailed"));
           setLoading(false);
         }
       }
@@ -548,7 +550,7 @@ export function EbookReader({
         try { view.remove(); } catch { /* ignore */ }
       }
     };
-  }, [bookId, documentId, format, url, blob, storageKey, startingProgress, initialCfi, title, author, sendProgress, onRelocate, onLoad, onDrawAnnotation, onShowAnnotation, guest]);
+  }, [bookId, documentId, format, url, blob, storageKey, startingProgress, initialCfi, title, author, sendProgress, onRelocate, onLoad, onDrawAnnotation, onShowAnnotation, guest, t]);
 
   // Typography / theme changes — applied live, no view rebuild.
   useEffect(() => {
@@ -641,19 +643,19 @@ export function EbookReader({
         note: null
       });
       setBookmarks((prev) => sortBookmarks([...prev, bookmark]));
-      setNotice(isLocalBookmarkId(bookmark.id) ? "Bookmark saved — will sync when online." : "");
+      setNotice(isLocalBookmarkId(bookmark.id) ? t("reader:ebook.bookmarkSavedOffline") : "");
     } catch {
-      setNotice("Unable to save this bookmark.");
+      setNotice(t("reader:ebook.unableSaveBookmark"));
     } finally {
       setBookmarkBusy(false);
     }
-  }, [bookId, documentId, sectionLabel]);
+  }, [bookId, documentId, sectionLabel, t]);
 
   const jumpToBookmark = useCallback((bookmark: EbookBookmark) => {
     void viewRef.current?.goTo(bookmark.cfi)
       .then(() => { setNotice(""); closePanels(); })
-      .catch(() => setNotice("This bookmark could not be opened."));
-  }, [closePanels]);
+      .catch(() => setNotice(t("reader:ebook.bookmarkOpenFailed")));
+  }, [closePanels, t]);
 
   const saveBookmarkNote = useCallback(async (id: string, note: string) => {
     try {
@@ -671,9 +673,9 @@ export function EbookReader({
       setBookmarks((prev) => prev.map((entry) => (entry.id === id ? bookmark : entry)));
       setEditingBookmarkId(null);
     } catch {
-      setNotice("Unable to save this note.");
+      setNotice(t("reader:ebook.unableSaveNote"));
     }
-  }, [bookId]);
+  }, [bookId, t]);
 
   const deleteBookmark = useCallback(async (id: string) => {
     try {
@@ -682,9 +684,9 @@ export function EbookReader({
       setBookmarks((prev) => prev.filter((entry) => entry.id !== id));
       setEditingBookmarkId((current) => (current === id ? null : current));
     } catch {
-      setNotice("Unable to delete this bookmark.");
+      setNotice(t("reader:ebook.unableDeleteBookmark"));
     }
-  }, [bookId]);
+  }, [bookId, t]);
 
   const runSearch = useCallback(async () => {
     const view = viewRef.current;
@@ -764,18 +766,18 @@ export function EbookReader({
       );
       quotesRef.current = [...quotesRef.current, quote];
       if (quote.cfi) void viewRef.current?.addAnnotation({ value: quote.cfi, color: quote.color ?? undefined });
-      setNotice(isLocalQuoteId(quote.id) ? "Quote saved — will sync when online." : "Quote saved.");
+      setNotice(isLocalQuoteId(quote.id) ? t("reader:ebook.quoteSavedOffline") : t("reader:ebook.quoteSaved"));
     } catch {
-      setNotice("Unable to save this quote.");
+      setNotice(t("reader:ebook.unableSaveQuote"));
     }
   };
 
   const copyText = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      setNotice("Copied to clipboard.");
+      setNotice(t("reader:ebook.copied"));
     } catch {
-      setNotice("Couldn't copy — clipboard access was blocked.");
+      setNotice(t("reader:ebook.copyBlocked"));
     }
   };
 
@@ -806,7 +808,7 @@ export function EbookReader({
       quotesRef.current = quotesRef.current.map((q) => (q.id === quote.id ? quote : q));
       if (quote.cfi) void viewRef.current?.addAnnotation({ value: quote.cfi, color: quote.color ?? undefined });
     } catch {
-      setNotice("Unable to update this highlight.");
+      setNotice(t("reader:ebook.unableUpdateHighlight"));
     }
   };
 
@@ -819,9 +821,23 @@ export function EbookReader({
       else await api(`/api/library/quotes/${target.id}`, { method: "DELETE" });
       quotesRef.current = quotesRef.current.filter((q) => q.id !== target.id);
       if (target.cfi) void viewRef.current?.deleteAnnotation({ value: target.cfi });
-      setNotice("Highlight removed.");
+      setNotice(t("reader:ebook.highlightRemoved"));
     } catch {
-      setNotice("Unable to remove this highlight.");
+      setNotice(t("reader:ebook.unableRemoveHighlight"));
+    }
+  };
+
+  // HIGHLIGHT_COLORS keys aren't a literal type (Record<string, string>), so a
+  // switch keeps the template-literal key below type-checking (see i18n-plan.md
+  // "Namespace-key typing pitfalls" #4) while degrading gracefully for an unknown color.
+  const colorName = (color: string): string => {
+    switch (color) {
+      case "yellow": return t("reader:ebook.colors.yellow");
+      case "green": return t("reader:ebook.colors.green");
+      case "blue": return t("reader:ebook.colors.blue");
+      case "pink": return t("reader:ebook.colors.pink");
+      case "orange": return t("reader:ebook.colors.orange");
+      default: return color;
     }
   };
 
@@ -835,7 +851,7 @@ export function EbookReader({
       <div className="ebk-reader" data-theme={theme} style={{ background: colors.bg, color: colors.fg }}>
         <div className="ebk-status">
           <p>{error}</p>
-          <button type="button" className="ebk-text-button" onClick={onExit}>Close</button>
+          <button type="button" className="ebk-text-button" onClick={onExit}>{t("common.close")}</button>
         </div>
       </div>
     );
@@ -845,30 +861,30 @@ export function EbookReader({
   // Settings panel, so they stay in sync from one definition.
   const fontRow = (
     <div className="ebk-setting">
-      <label>Font</label>
+      <label>{t("reader:ebook.font")}</label>
       <div className="ebk-seg">
-        <button type="button" className={`ebk-seg-btn${fontFamily === "serif" ? " active" : ""}`} onClick={() => setFontFamily("serif")}>Serif</button>
-        <button type="button" className={`ebk-seg-btn${fontFamily === "sans" ? " active" : ""}`} onClick={() => setFontFamily("sans")}>Sans</button>
+        <button type="button" className={`ebk-seg-btn${fontFamily === "serif" ? " active" : ""}`} onClick={() => setFontFamily("serif")}>{t("reader:ebook.serif")}</button>
+        <button type="button" className={`ebk-seg-btn${fontFamily === "sans" ? " active" : ""}`} onClick={() => setFontFamily("sans")}>{t("reader:ebook.sans")}</button>
       </div>
     </div>
   );
   const fontSizeRow = (
     <div className="ebk-setting">
-      <label>Font size</label>
+      <label>{t("reader:ebook.fontSize")}</label>
       <div className="ebk-stepper">
-        <button type="button" onClick={() => setFontScale((s) => clampFontScale(s - 6))} aria-label="Smaller"><Minus size={16} /></button>
+        <button type="button" onClick={() => setFontScale((s) => clampFontScale(s - 6))} aria-label={t("reader:ebook.smaller")}><Minus size={16} /></button>
         <span>{fontScale}%</span>
-        <button type="button" onClick={() => setFontScale((s) => clampFontScale(s + 6))} aria-label="Larger"><Plus size={16} /></button>
+        <button type="button" onClick={() => setFontScale((s) => clampFontScale(s + 6))} aria-label={t("reader:ebook.larger")}><Plus size={16} /></button>
       </div>
     </div>
   );
   const lineSpacingRow = (
     <div className="ebk-setting">
-      <label>Line spacing</label>
+      <label>{t("reader:ebook.lineSpacing")}</label>
       <div className="ebk-stepper">
-        <button type="button" onClick={() => setLineSpacing((s) => Math.max(1.2, Math.round((s - 0.1) * 10) / 10))} aria-label="Tighter"><Minus size={16} /></button>
+        <button type="button" onClick={() => setLineSpacing((s) => Math.max(1.2, Math.round((s - 0.1) * 10) / 10))} aria-label={t("reader:ebook.tighter")}><Minus size={16} /></button>
         <span>{lineSpacing.toFixed(1)}</span>
-        <button type="button" onClick={() => setLineSpacing((s) => Math.min(2.2, Math.round((s + 0.1) * 10) / 10))} aria-label="Looser"><Plus size={16} /></button>
+        <button type="button" onClick={() => setLineSpacing((s) => Math.min(2.2, Math.round((s + 0.1) * 10) / 10))} aria-label={t("reader:ebook.looser")}><Plus size={16} /></button>
       </div>
     </div>
   );
@@ -876,51 +892,51 @@ export function EbookReader({
   return (
     <div className="ebk-reader" data-theme={theme} style={{ background: colors.bg, color: colors.fg }}>
       <header className={`ebk-topbar${isMobile ? " ebk-topbar-mobile" : ""}`}>
-        <button type="button" className="ebk-icon-btn ebk-back-btn" onClick={onExit} aria-label="Back">
+        <button type="button" className="ebk-icon-btn ebk-back-btn" onClick={onExit} aria-label={t("reader:ebook.back")}>
           <ArrowLeft size={22} />
         </button>
         {!isMobile && (
           <div className="ebk-book">
             {coverUrl ? <img className="ebk-cover" src={coverUrl} alt="" /> : <span className="ebk-cover ebk-cover-fallback"><BookOpen size={18} /></span>}
             <div className="ebk-book-meta">
-              <strong title={title}>{title ?? "Reading"}</strong>
+              <strong title={title}>{title ?? t("reader:ebook.reading")}</strong>
               {author && <span>{author}</span>}
             </div>
           </div>
         )}
         <div className="ebk-topbar-actions">
-          <button type="button" className={`ebk-icon-btn${panel === "search" ? " active" : ""}`} onClick={() => togglePanel("search")} aria-label="Search"><Search size={19} /></button>
-          <button type="button" className={`ebk-icon-btn${panel === "text" ? " active" : ""}`} onClick={() => togglePanel("text")} aria-label="Text options"><ALargeSmall size={20} /></button>
-          <button type="button" className="ebk-icon-btn" onClick={cycleTheme} aria-label="Change theme"><Sun size={19} /></button>
+          <button type="button" className={`ebk-icon-btn${panel === "search" ? " active" : ""}`} onClick={() => togglePanel("search")} aria-label={t("reader:ebook.search")}><Search size={19} /></button>
+          <button type="button" className={`ebk-icon-btn${panel === "text" ? " active" : ""}`} onClick={() => togglePanel("text")} aria-label={t("reader:ebook.textOptions")}><ALargeSmall size={20} /></button>
+          <button type="button" className="ebk-icon-btn" onClick={cycleTheme} aria-label={t("reader:ebook.changeTheme")}><Sun size={19} /></button>
           {!guest && (
-            <button type="button" className={`ebk-icon-btn${panel === "bookmarks" ? " active" : ""}`} onClick={() => togglePanel("bookmarks")} aria-label="Bookmarks"><Bookmark size={19} /></button>
+            <button type="button" className={`ebk-icon-btn${panel === "bookmarks" ? " active" : ""}`} onClick={() => togglePanel("bookmarks")} aria-label={t("reader:ebook.bookmarks")}><Bookmark size={19} /></button>
           )}
-          <button type="button" className={`ebk-icon-btn${panel === "settings" ? " active" : ""}`} onClick={() => togglePanel("settings")} aria-label="Settings"><Settings size={19} /></button>
+          <button type="button" className={`ebk-icon-btn${panel === "settings" ? " active" : ""}`} onClick={() => togglePanel("settings")} aria-label={t("reader:ebook.settings")}><Settings size={19} /></button>
         </div>
       </header>
 
       <div className="ebk-main">
         <div className="ebk-stage" ref={hostRef}>
-          {loading && <div className="ebk-status"><p>Loading…</p></div>}
+          {loading && <div className="ebk-status"><p>{t("reader:ebook.loading")}</p></div>}
         </div>
 
-        <button type="button" className="ebk-page-nav ebk-page-prev" onClick={goLeft} aria-label="Previous page" disabled={loading}>
+        <button type="button" className="ebk-page-nav ebk-page-prev" onClick={goLeft} aria-label={t("reader:ebook.prevPage")} disabled={loading}>
           <span className="ebk-page-circle"><ChevronLeft size={22} /></span>
         </button>
-        <button type="button" className="ebk-page-nav ebk-page-next" onClick={goRight} aria-label="Next page" disabled={loading}>
+        <button type="button" className="ebk-page-nav ebk-page-next" onClick={goRight} aria-label={t("reader:ebook.nextPage")} disabled={loading}>
           <span className="ebk-page-circle"><ChevronRight size={22} /></span>
         </button>
 
-        {panel && <button type="button" className="ebk-scrim" aria-label="Close" onClick={closePanels} />}
+        {panel && <button type="button" className="ebk-scrim" aria-label={t("common.close")} onClick={closePanels} />}
 
         {panel && (
           <aside className={`ebk-drawer ebk-drawer-${drawerSide}`} aria-label={panel}>
             {panel === "toc" && (
               <>
-                <div className="ebk-drawer-head"><strong>Contents</strong><span>{countToc(toc)}</span></div>
+                <div className="ebk-drawer-head"><strong>{t("reader:ebook.contents")}</strong><span>{countToc(toc)}</span></div>
                 <div className="ebk-drawer-body">
                   {toc.length === 0
-                    ? <p className="ebk-empty">No table of contents.</p>
+                    ? <p className="ebk-empty">{t("reader:ebook.noToc")}</p>
                     : <TocList items={toc} currentHref={currentHref} onSelect={goToHref} />}
                 </div>
               </>
@@ -928,13 +944,13 @@ export function EbookReader({
 
             {panel === "bookmarks" && (
               <>
-                <div className="ebk-drawer-head"><strong>Bookmarks</strong><span>{bookmarks.length}</span></div>
+                <div className="ebk-drawer-head"><strong>{t("reader:ebook.bookmarks")}</strong><span>{bookmarks.length}</span></div>
                 <div className="ebk-drawer-body">
                   <button type="button" className="ebk-add-bookmark" onClick={addBookmark} disabled={loading || bookmarkBusy}>
-                    <BookmarkPlus size={15} /> {bookmarkBusy ? "Saving…" : "Bookmark this page"}
+                    <BookmarkPlus size={15} /> {bookmarkBusy ? t("reader:ebook.saving") : t("reader:ebook.bookmarkThisPage")}
                   </button>
                   {bookmarks.length === 0 ? (
-                    <p className="ebk-empty">No bookmarks yet. Save your spot to find it again later.</p>
+                    <p className="ebk-empty">{t("reader:ebook.noBookmarks")}</p>
                   ) : bookmarks.map((bm) => {
                     const editing = editingBookmarkId === bm.id;
                     return (
@@ -942,19 +958,19 @@ export function EbookReader({
                         <div className="ebk-bookmark-row">
                           <button type="button" className="ebk-bookmark-jump" onClick={() => jumpToBookmark(bm)}>
                             <span className="ebk-bookmark-pct">{bookmarkPercent(bm.percentComplete)}</span>
-                            <span className="ebk-bookmark-label">{bm.label || "Bookmark"}</span>
+                            <span className="ebk-bookmark-label">{bm.label || t("reader:ebook.bookmark")}</span>
                           </button>
                           <div className="ebk-bookmark-actions">
-                            <button type="button" onClick={() => { setEditingBookmarkId(bm.id); setNoteDraft(bm.note ?? ""); }} aria-label="Edit note"><Pencil size={14} /></button>
-                            <button type="button" onClick={() => deleteBookmark(bm.id)} aria-label="Delete bookmark"><Trash2 size={14} /></button>
+                            <button type="button" onClick={() => { setEditingBookmarkId(bm.id); setNoteDraft(bm.note ?? ""); }} aria-label={t("reader:ebook.editNote")}><Pencil size={14} /></button>
+                            <button type="button" onClick={() => deleteBookmark(bm.id)} aria-label={t("reader:ebook.deleteBookmark")}><Trash2 size={14} /></button>
                           </div>
                         </div>
                         {editing ? (
                           <div className="ebk-bookmark-edit">
-                            <textarea value={noteDraft} onChange={(e) => setNoteDraft(e.target.value)} placeholder="Add a note…" rows={2} autoFocus />
+                            <textarea value={noteDraft} onChange={(e) => setNoteDraft(e.target.value)} placeholder={t("reader:ebook.addNotePlaceholder")} rows={2} autoFocus />
                             <div className="ebk-bookmark-edit-actions">
-                              <button type="button" onClick={() => saveBookmarkNote(bm.id, noteDraft)}>Save</button>
-                              <button type="button" onClick={() => setEditingBookmarkId(null)}>Cancel</button>
+                              <button type="button" onClick={() => saveBookmarkNote(bm.id, noteDraft)}>{t("reader:ebook.save")}</button>
+                              <button type="button" onClick={() => setEditingBookmarkId(null)}>{t("common.cancel")}</button>
                             </div>
                           </div>
                         ) : (bm.note && <p className="ebk-bookmark-note">{bm.note}</p>)}
@@ -967,20 +983,20 @@ export function EbookReader({
 
             {panel === "search" && (
               <>
-                <div className="ebk-drawer-head"><strong>Search</strong>{searchHits.length > 0 && <span>{searchHits.length}</span>}</div>
+                <div className="ebk-drawer-head"><strong>{t("reader:ebook.search")}</strong>{searchHits.length > 0 && <span>{searchHits.length}</span>}</div>
                 <form className="ebk-search-form" onSubmit={(e) => { e.preventDefault(); void runSearch(); }}>
                   <input
                     type="search"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search this book…"
+                    placeholder={t("reader:ebook.searchPlaceholder")}
                     autoFocus
                   />
-                  <button type="submit" disabled={searching || !searchQuery.trim()}>{searching ? "…" : "Go"}</button>
+                  <button type="submit" disabled={searching || !searchQuery.trim()}>{searching ? "…" : t("reader:ebook.go")}</button>
                 </form>
                 <div className="ebk-drawer-body">
-                  {searching && <p className="ebk-empty">Searching…</p>}
-                  {!searching && searchHits.length === 0 && searchQuery && <p className="ebk-empty">No matches.</p>}
+                  {searching && <p className="ebk-empty">{t("reader:ebook.searching")}</p>}
+                  {!searching && searchHits.length === 0 && searchQuery && <p className="ebk-empty">{t("reader:ebook.noMatches")}</p>}
                   {searchHits.map((hit, i) => (
                     <button type="button" className="ebk-search-hit" key={`${hit.cfi}-${i}`} onClick={() => goToHref(hit.cfi)}>
                       {hit.chapter && <span className="ebk-search-chapter">{hit.chapter}</span>}
@@ -993,13 +1009,15 @@ export function EbookReader({
 
             {panel === "settings" && (
               <>
-                <div className="ebk-drawer-head"><strong>Settings</strong></div>
+                <div className="ebk-drawer-head"><strong>{t("reader:ebook.settings")}</strong></div>
                 <div className="ebk-drawer-body ebk-settings">
                   <div className="ebk-setting">
-                    <label>Theme</label>
+                    <label>{t("reader:ebook.theme")}</label>
                     <div className="ebk-seg">
-                      {THEMES.map((t) => (
-                        <button key={t} type="button" className={`ebk-seg-btn${theme === t ? " active" : ""}`} onClick={() => setTheme(t)}>{t}</button>
+                      {THEMES.map((themeOption) => (
+                        <button key={themeOption} type="button" className={`ebk-seg-btn${theme === themeOption ? " active" : ""}`} onClick={() => setTheme(themeOption)}>
+                          {t(`reader:ebook.themeNames.${themeOption}`)}
+                        </button>
                       ))}
                     </div>
                   </div>
@@ -1007,7 +1025,7 @@ export function EbookReader({
                   {fontSizeRow}
                   {lineSpacingRow}
                   <div className="ebk-setting">
-                    <label>Layout</label>
+                    <label>{t("reader:ebook.layout")}</label>
                     <div className="ebk-seg">
                       <button type="button" className={`ebk-seg-btn${layout === "single" ? " active" : ""}`} onClick={() => setLayout("single")}><BookOpen size={15} /> 1</button>
                       <button type="button" className={`ebk-seg-btn${layout === "double" ? " active" : ""}`} onClick={() => setLayout("double")}><Columns2 size={15} /> 2</button>
@@ -1017,11 +1035,11 @@ export function EbookReader({
                   <div className="ebk-setting-actions">
                     {downloadHref && (
                       <a className="ebk-menu-item" href={downloadHref} download onClick={closePanels}>
-                        <Download size={16} /> Download
+                        <Download size={16} /> {t("reader:ebook.download")}
                       </a>
                     )}
                     <button type="button" className="ebk-menu-item" onClick={resetPosition}>
-                      <RotateCcw size={16} /> Reset position
+                      <RotateCcw size={16} /> {t("reader:ebook.resetPosition")}
                     </button>
                   </div>
                 </div>
@@ -1030,7 +1048,7 @@ export function EbookReader({
 
             {panel === "text" && (
               <>
-                <div className="ebk-drawer-head"><strong>Text</strong></div>
+                <div className="ebk-drawer-head"><strong>{t("reader:ebook.text")}</strong></div>
                 <div className="ebk-drawer-body ebk-settings">
                   {fontRow}
                   {fontSizeRow}
@@ -1043,7 +1061,7 @@ export function EbookReader({
       </div>
 
       <footer className={`ebk-bottombar${isMobile ? " ebk-bottombar-mobile" : ""}`}>
-        <button type="button" className={`ebk-contents${panel === "toc" ? " active" : ""}`} onClick={() => togglePanel("toc")} aria-label="Chapters">
+        <button type="button" className={`ebk-contents${panel === "toc" ? " active" : ""}`} onClick={() => togglePanel("toc")} aria-label={t("reader:ebook.chapters")}>
           <List size={20} />
         </button>
         <div className="ebk-seek">
@@ -1053,7 +1071,7 @@ export function EbookReader({
             max={1000}
             step={1}
             value={Math.round(pct * 1000)}
-            aria-label="Reading progress"
+            aria-label={t("reader:ebook.readingProgress")}
             onChange={(e) => { void viewRef.current?.goToFraction(Number(e.target.value) / 1000); }}
           />
         </div>
@@ -1071,7 +1089,7 @@ export function EbookReader({
             top: `${isMobile ? selection.bottom : selection.top}px`
           }}
           role="toolbar"
-          aria-label="Selection actions"
+          aria-label={t("reader:ebook.selectionActions")}
         >
           {!guest && (
             <>
@@ -1083,14 +1101,14 @@ export function EbookReader({
                   className="ebk-sel-color"
                   style={{ background: highlightFill(color) }}
                   onClick={() => void saveSelectionQuote(color)}
-                  aria-label={`Highlight ${color}`}
-                  title={`Highlight ${color}`}
+                  aria-label={t("reader:ebook.highlightColor", { color: colorName(color) })}
+                  title={t("reader:ebook.highlightColor", { color: colorName(color) })}
                 />
               ))}
               <span className="ebk-sel-divider" aria-hidden="true" />
             </>
           )}
-          <button type="button" className="ebk-sel-btn" onClick={() => void copySelection()} aria-label="Copy" title="Copy">
+          <button type="button" className="ebk-sel-btn" onClick={() => void copySelection()} aria-label={t("reader:ebook.copy")} title={t("reader:ebook.copy")}>
             <Copy size={15} />
           </button>
         </div>
@@ -1099,12 +1117,12 @@ export function EbookReader({
       {/* Popover shown when an existing highlight is tapped. */}
       {activeQuote && (
         <>
-          <button type="button" className="ebk-quote-scrim" aria-label="Close" onClick={() => setActiveQuote(null)} />
+          <button type="button" className="ebk-quote-scrim" aria-label={t("common.close")} onClick={() => setActiveQuote(null)} />
           <div
             className="ebk-quote-pop"
             style={{ left: `${Math.min(Math.max(activeQuote.x, 120), window.innerWidth - 120)}px`, top: `${activeQuote.y}px` }}
             role="dialog"
-            aria-label="Highlight actions"
+            aria-label={t("reader:ebook.highlightActions")}
           >
             {!guest && Object.keys(HIGHLIGHT_COLORS).map((color) => (
               <button
@@ -1113,22 +1131,22 @@ export function EbookReader({
                 className={`ebk-sel-color${activeQuote.quote.color === color ? " active" : ""}`}
                 style={{ background: highlightFill(color) }}
                 onClick={() => void recolorActiveQuote(color)}
-                aria-label={`Recolor ${color}`}
-                title={`Recolor ${color}`}
+                aria-label={t("reader:ebook.recolorColor", { color: colorName(color) })}
+                title={t("reader:ebook.recolorColor", { color: colorName(color) })}
               />
             ))}
             <span className="ebk-sel-divider" aria-hidden="true" />
             <button
               type="button"
               className="ebk-sel-btn"
-              onClick={() => { const t = activeQuote.quote.text; setActiveQuote(null); void copyText(t); }}
-              aria-label="Copy"
-              title="Copy"
+              onClick={() => { const text = activeQuote.quote.text; setActiveQuote(null); void copyText(text); }}
+              aria-label={t("reader:ebook.copy")}
+              title={t("reader:ebook.copy")}
             >
               <Copy size={15} />
             </button>
             {!guest && (
-              <button type="button" className="ebk-sel-btn danger" onClick={() => void deleteActiveQuote()} aria-label="Delete highlight" title="Delete highlight">
+              <button type="button" className="ebk-sel-btn danger" onClick={() => void deleteActiveQuote()} aria-label={t("reader:ebook.deleteHighlight")} title={t("reader:ebook.deleteHighlight")}>
                 <Trash2 size={15} />
               </button>
             )}

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { CheckCircle2, ChevronDown, ChevronRight, Download, ListMusic, MoreVertical, RotateCcw, SkipForward, StickyNote, X } from "lucide-react";
 import { api, isAccessOrMissingApiError } from "../../api";
 import { goBack } from "../../router";
@@ -14,6 +15,7 @@ interface QueueEntry {
 }
 
 export function PlayerPage({ id }: { id: string }) {
+  const { t } = useTranslation(["common", "reader"]);
   // The collection ("playlist") this player is walking through, if any. The book
   // being played is tracked separately so we can advance through the queue
   // without reopening the window.
@@ -86,7 +88,7 @@ export function PlayerPage({ id }: { id: string }) {
           setBook(fallback);
           document.title = `${fallback.title} - isputnik.home`;
         } else {
-          setError(err instanceof Error ? err.message : "Unable to load audiobook");
+          setError(err instanceof Error ? err.message : t("reader:playerPage.unableLoad"));
         }
       }
     };
@@ -201,7 +203,7 @@ export function PlayerPage({ id }: { id: string }) {
   if (!book) {
     return (
       <div className="popup-player-page">
-        <p className="popup-status">Loading...</p>
+        <p className="popup-status">{t("reader:playerPage.loading")}</p>
       </div>
     );
   }
@@ -212,8 +214,8 @@ export function PlayerPage({ id }: { id: string }) {
         <button
           className="popup-menu-btn popup-back-btn"
           onClick={dismiss}
-          aria-label={isPopupWindow ? "Close player" : "Back"}
-          title={isPopupWindow ? "Close" : "Back"}
+          aria-label={isPopupWindow ? t("reader:playerPage.closePlayer") : t("reader:playerPage.back")}
+          title={isPopupWindow ? t("common:common.close") : t("reader:playerPage.back")}
         >
           {isPopupWindow ? <X size={22} /> : <ChevronDown size={24} />}
         </button>
@@ -228,21 +230,21 @@ export function PlayerPage({ id }: { id: string }) {
             className="popup-menu-btn"
             onClick={() => setMenuOpen((o) => !o)}
             aria-haspopup="menu"
-            aria-label="More options"
+            aria-label={t("reader:playerPage.moreOptions")}
             aria-expanded={menuOpen}
-            title="More options"
+            title={t("reader:playerPage.moreOptions")}
           >
             <MoreVertical size={22} />
           </button>
           {menuOpen && (
-            <div className="popup-more-menu" role="menu" aria-label="Player options">
+            <div className="popup-more-menu" role="menu" aria-label={t("reader:playerPage.playerOptions")}>
               <button className="popup-more-item" role="menuitem" onClick={openNoteEditor}>
                 <StickyNote size={15} />
-                <span>Add note</span>
+                <span>{t("reader:playerPage.addNote")}</span>
               </button>
               <button className="popup-more-item" role="menuitem" onClick={markFinished} disabled={marking}>
                 <CheckCircle2 size={15} />
-                <span>{marking ? "Marking..." : "Mark as finished"}</span>
+                <span>{marking ? t("reader:playerPage.marking") : t("reader:playerPage.markFinished")}</span>
               </button>
               <a
                 className="popup-more-item"
@@ -252,11 +254,11 @@ export function PlayerPage({ id }: { id: string }) {
                 onClick={() => setMenuOpen(false)}
               >
                 <Download size={15} />
-                <span>Download</span>
+                <span>{t("reader:playerPage.download")}</span>
               </a>
               <button className="popup-more-item danger" role="menuitem" onClick={resetProgress} disabled={resetting}>
                 <RotateCcw size={15} />
-                <span>{resetting ? "Resetting…" : "Reset progress"}</span>
+                <span>{resetting ? t("reader:playerPage.resetting") : t("reader:playerPage.resetProgress")}</span>
               </button>
             </div>
           )}
@@ -267,27 +269,27 @@ export function PlayerPage({ id }: { id: string }) {
         {noteEditorOpen && (
           <div className="popup-note-editor">
             <div className="popup-note-editor-head">
-              <span>Note for this book</span>
-              <button onClick={() => setNoteEditorOpen(false)} aria-label="Close note editor">
+              <span>{t("reader:playerPage.noteForBook")}</span>
+              <button onClick={() => setNoteEditorOpen(false)} aria-label={t("reader:playerPage.closeNoteEditor")}>
                 <X size={15} />
               </button>
             </div>
             <textarea
               value={noteDraft}
               onChange={(e) => setNoteDraft(e.target.value)}
-              placeholder="Your thoughts on this book…"
+              placeholder={t("reader:playerPage.notePlaceholder")}
               rows={3}
               autoFocus
             />
             <div className="popup-note-editor-actions">
               <button className="primary-button compact-button" onClick={submitNote} disabled={savingSave}>
-                {savingSave ? "Saving..." : "Save note"}
+                {savingSave ? t("reader:playerPage.saving") : t("reader:playerPage.saveNote")}
               </button>
             </div>
           </div>
         )}
 
-        {marked && <p className="popup-marked-notice">Marked as finished</p>}
+        {marked && <p className="popup-marked-notice">{t("reader:playerPage.markedFinished")}</p>}
         {save?.saved && !noteEditorOpen && save.note && (
           <p className="popup-save-note">{save.note}</p>
         )}
@@ -301,7 +303,7 @@ export function PlayerPage({ id }: { id: string }) {
           </p>
         )}
         {book.narrators.length > 0 && (
-          <p className="popup-narrators">Narrated by {book.narrators.join(", ")}</p>
+          <p className="popup-narrators">{t("reader:playerPage.narratedBy", { names: book.narrators.join(", ") })}</p>
         )}
       </div>
       <div className="popup-player-body">
@@ -321,7 +323,7 @@ export function PlayerPage({ id }: { id: string }) {
           <button className="popup-next-up" onClick={() => goToBook(nextEntry.entityId)}>
             <SkipForward size={15} aria-hidden="true" />
             <span className="popup-next-up-text">
-              <small>Up next</small>
+              <small>{t("reader:playerPage.upNext")}</small>
               <strong>{nextEntry.title}</strong>
             </span>
           </button>

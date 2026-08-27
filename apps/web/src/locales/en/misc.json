@@ -11,7 +11,31 @@
     "eyebrow": "Application",
     "heading": "About",
     "errorTitle": "About error",
-    "unableToLoad": "Unable to load application information"
+    "unableToLoad": "Unable to load application information",
+    "sectionsAria": "About sections",
+    "tabAbout": "About",
+    "tabCredits": "Credits",
+    "stackRuntime": "Runtime",
+    "stackDatabase": "Database",
+    "stackServer": "Server",
+    "stackFrontend": "Frontend",
+    "licenseText": "Free software under the <agpl>GNU AGPL v3</agpl> — you are entitled to the source code for the version you are running. <source>Get the source</source>",
+    "versionUpdatesAria": "Version updates",
+    "whatsNew": "What's new",
+    "showEarlierVersions": "Show earlier versions ({{count}})",
+    "loadingEarlierVersions": "Loading earlier versions…",
+    "unableToLoadEarlier": "Could not load earlier versions. Check your connection and try again.",
+    "creditsAria": "Open-source credits",
+    "creditsIntro": "isputnik.home is built on the work of many open-source projects. Thank you to everyone behind them.",
+    "creditGroups": {
+      "reading": "Reading",
+      "faceRecognition": "Face recognition",
+      "photosVideo": "Photos & video",
+      "locations": "Locations",
+      "audiobooks": "Audiobooks",
+      "serverCore": "Server & core",
+      "app": "App"
+    }
   },
   "changeEmail": {
     "heading": "Email",

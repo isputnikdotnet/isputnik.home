@@ -1,6 +1,7 @@
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 import type { PublicUser } from "../api";
 import type { AudiobookBookDetail } from "../features/audiobooks/types";
+import i18n from "../i18n";
 import { foliateFileInfo } from "../shared/utils";
 
 // Offline storage is namespaced per user so a shared family device never exposes
@@ -229,7 +230,7 @@ function detailFromDownloadRecord(record: DownloadRecord): AudiobookBookDetail {
   return {
     id: record.bookId,
     libraryId: "offline",
-    libraryName: "Downloaded",
+    libraryName: i18n.t("reader:offline.downloadedLibrary"),
     progressMode: "linear",
     folderPath: "",
     status: "ready",
@@ -285,7 +286,7 @@ async function responseBlobWithProgress(
   mimeType: string,
   onBytes: (bytes: number) => void
 ): Promise<Blob> {
-  if (!response.body) throw new Error("This browser could not stream the chapter.");
+  if (!response.body) throw new Error(i18n.t("reader:offline.streamUnsupported"));
 
   if ("TransformStream" in window) {
     const stream = response.body.pipeThrough(new TransformStream<Uint8Array, Uint8Array>({
@@ -327,14 +328,14 @@ export async function downloadBook(
   onProgress?: (fraction: number) => void
 ): Promise<DownloadRecord> {
   const handle = db();
-  if (!handle) throw new Error("Sign in to download books for offline use.");
+  if (!handle) throw new Error(i18n.t("reader:offline.signInToDownload"));
   const database = await handle;
 
   // Try to make storage persistent so the OS won't evict downloads under pressure.
   void requestPersistentStorage();
 
   const files = book.files.filter((f) => f.status === "available");
-  if (files.length === 0) throw new Error("This book has no downloadable audio.");
+  if (files.length === 0) throw new Error(i18n.t("reader:offline.noDownloadableAudio"));
 
   const totalBytes = files.reduce((sum, f) => sum + (f.size || 0), 0);
   const record: DownloadRecord = {
@@ -364,7 +365,7 @@ export async function downloadBook(
   try {
     for (const file of files) {
       const res = await fetch(`/api/library/books/${book.id}/stream/${file.id}`, { credentials: "include" });
-      if (!res.ok || !res.body) throw new Error(`Couldn't download a chapter (status ${res.status}).`);
+      if (!res.ok || !res.body) throw new Error(i18n.t("reader:offline.chapterDownloadFailed", { status: res.status }));
 
       const mimeType = file.mimeType ?? "application/octet-stream";
       const blob = await responseBlobWithProgress(res, mimeType, (bytes) => {
@@ -383,7 +384,7 @@ export async function downloadBook(
     record.state = "failed";
     record.downloadedBytes = downloaded;
     await database.put("downloads", record).catch(() => {});
-    throw err instanceof Error ? err : new Error("Download failed.");
+    throw err instanceof Error ? err : new Error(i18n.t("reader:offline.downloadFailed"));
   }
 }
 
@@ -478,7 +479,7 @@ export async function downloadEbook(
 ): Promise<EbookDownloadRecord> {
   const format = meta.format ?? "epub";
   const handle = db();
-  if (!handle) throw new Error("Sign in to download books for offline use.");
+  if (!handle) throw new Error(i18n.t("reader:offline.signInToDownload"));
   const database = await handle;
 
   void requestPersistentStorage();
@@ -501,7 +502,7 @@ export async function downloadEbook(
   let downloaded = 0;
   try {
     const res = await fetch(url, { credentials: "include" });
-    if (!res.ok || !res.body) throw new Error(`Couldn't download ebook (status ${res.status}).`);
+    if (!res.ok || !res.body) throw new Error(i18n.t("reader:offline.ebookDownloadFailed", { status: res.status }));
 
     const blob = await responseBlobWithProgress(res, foliateFileInfo(format).mime, (bytes) => {
       downloaded += bytes;
@@ -519,7 +520,7 @@ export async function downloadEbook(
     record.state = "failed";
     record.downloadedBytes = downloaded;
     await database.put("ebookDownloads", record).catch(() => {});
-    throw err instanceof Error ? err : new Error("Download failed.");
+    throw err instanceof Error ? err : new Error(i18n.t("reader:offline.downloadFailed"));
   }
 }
 

@@ -1,16 +1,19 @@
 # UI language support (Russian) — implementation plan
 
-Status (2026-08-27): Phases 0–1 complete and verified in-browser. Phase 2's
-sweep is DONE — namespace infrastructure built, ~5,020 keys authored and
-translated; `common`, `controlAdmin`, `book`, `user`, `controlDash`,
-`control`, `family`, `gallery`, `galleryModals`, and `misc` (10 of 12) are
-FULLY wired; `library` needed no work of its own (fully covered by `user`
-and Phase 1's `common`, see below) — so every namespace originally scoped
-for the everyday user surface is complete. `reader` (144 keys, AudioPlayer.tsx
-wired) is the one namespace left with unwired files — PlayerPage.tsx,
-EbookReader.tsx, and offline/*.ts were authored but never applied, a known
-gap tracked separately rather than "ALL 12 complete". Phase 3 (server error
-codes) started. Full detail below.
+Status (2026-08-27): ALL 12 NAMESPACES FULLY WIRED. Phases 0–2 complete and
+verified in-browser. `reader`'s remaining files (PlayerPage.tsx, EbookReader.tsx,
+offline/*.ts) are now wired, closing the one gap left after Phase 2's sweep.
+`AboutDetails.tsx`/`AboutCredits.tsx` (the About page's actual content, out of
+the `misc` batch's original scope) are now wired too — UI chrome and credit
+group names translated, changelog entries and third-party license/attribution
+text intentionally left English (release notes and license identifiers are
+canonical-form content, not UI copy — same treatment as the docs/Help pages).
+Phase 3 (server error codes) is now consumed client-side: `apps/web/src/api.ts`
+maps a response's `code` field to `common:errors.codes.<code>` via
+`i18n.t(key, { defaultValue: payload.error })`, falling back to the server's
+English sentence for any code without a translation — verified in-browser
+(wrong-password sign-in now shows "Неверный email или пароль", not English).
+~5,180 keys total. Full detail below.
 
 Phase 0 — i18next + typed keys, `users.language` (migration 48), Language picker
 on Profile → Appearance, localStorage mirror, `check:ui` key-parity rule (which
@@ -65,9 +68,18 @@ namespace pairs, loaded via `locales/{en,ru}/index.ts` barrels and
   confirmed rendering correctly in-browser: Overview/Policies/Trusted
   networks/Blocked IPs, including live seeded data and `<Trans>`-rendered
   `TRUST_PROXY` code snippets)
-- `reader` (144 keys) — AudioPlayer.tsx fully wired; playerPage/ebook/offline
-  sub-keys authored but PlayerPage.tsx / EbookReader.tsx / offline/*.ts NOT
-  yet wired
+- `reader` (144 keys) — ALL files wired 2026-08-27, completing a Phase 1 gap.
+  AudioPlayer.tsx was already done; PlayerPage.tsx (18 strings, reused
+  `common.close` rather than duplicating a Close key), EbookReader.tsx (~75
+  strings — TOC/Bookmarks/Search/Settings/Text panels, selection toolbar,
+  highlight popover; two variables that shadowed the `t` function were
+  renamed, a latent footgun even pre-i18n; a `colorName()` switch-statement
+  helper handles `HIGHLIGHT_COLORS`' `Record<string, string>` typing per
+  pitfall #4), and offline/*.ts (downloads.ts via module-level `i18n.t()`;
+  useDownload.ts/useEbookDownload.ts via `useTranslation()` since they're
+  hooks; bookmarks.ts/progress.ts/quotes.ts needed no changes — pure
+  IndexedDB/API plumbing) are now wired too. Ran as two parallel agents
+  (PlayerPage.tsx vs EbookReader.tsx+offline/*.ts, no shared-file conflict).
 
 **Namespaces — fully translated AND wired** (continued):
 - `book` (283 keys) — ALL 4 files wired: PersonPhotoModal.tsx, PersonProfileModal.tsx,
@@ -160,10 +172,9 @@ namespace pairs, loaded via `locales/{en,ru}/index.ts` barrels and
   GalleryFaceSettingsModal (incl. ClusterHealthPanel/HealthAvatar
   sub-components), GalleryLocationModal, GalleryUploadModal, ShareAlbumModal,
   SlideshowTitleCardModal.
-- `misc` (174 keys) — the last namespace, authored from scratch and wired
-  2026-08-27, all 7 in-scope files: AboutPage.tsx (the thin page shell only —
-  the shared `AboutDetails.tsx`/`AboutCredits.tsx` it renders stayed English,
-  out of scope, same as HelpPage/GuidePage), ChangeEmailSection,
+- `misc` (196 keys, updated) — the last originally-scoped namespace,
+  authored from scratch and wired 2026-08-27, all 7 in-scope files:
+  AboutPage.tsx (the thin page shell), ChangeEmailSection,
   ChangePasswordSection, LinkedDevicesSection (incl. the module-level
   `whenSeen()` helper, converted to `i18n.t()` since it can't call a hook),
   MfaSection (incl. its 3 in-file setup/regenerate/disable modal
@@ -176,6 +187,20 @@ namespace pairs, loaded via `locales/{en,ru}/index.ts` barrels and
   проверка" (two-factor). Verified: typecheck + check:ui + full web test
   suite (178 tests) + an in-browser pass over all 4 touched profile tabs and
   /about, signed in as the Russian-language dev account.
+- `apps/web/src/shared/AboutDetails.tsx` + `AboutCredits.tsx` (24 keys added
+  to `misc:about`) — wired 2026-08-27, closing the gap the `misc` batch had
+  deliberately left. UI chrome (tabs, stack labels, license sentence via
+  `<Trans>` with `agpl`/`source` link components, "What's new", the
+  pluralized "Show earlier versions (N)" button) and AboutCredits' 7 group
+  names (Reading/Face recognition/.../App) are translated; each credit
+  item's `use` description and `license` identifier (MIT, CC BY 4.0, Apache-
+  2.0, etc.) stays English on purpose — third-party attribution and license
+  strings are canonical-form technical/legal text, not UI copy, same
+  treatment as HelpPage/GuidePage's docs content. The version-update
+  `label`/`changes` changelog entries also stay English for the same reason
+  (hand-written release notes, not retroactively translated). Verified
+  in-browser: tab labels, group names, and the interpolated earlier-versions
+  count ("Показать более ранние версии (258)") all render correctly.
 
 **`library` namespace — reconciled as done, needs no work**: every file
 under `features/library/` (BookmarksPage, DownloadsPage, FeedListItem,
@@ -190,13 +215,28 @@ distinct `library` concern to translate.
 **Namespaces — still empty `{}` (nothing done)**: none. `misc` was the last
 one and is now fully wired (see the bullet above).
 
-**Server (Phase 3, started)**: `code` field added to auth-routes.ts,
-mfa-routes.ts, and modules/users/profile.ts error replies (stable
-machine-readable identifiers like `auth.invalid_credentials`,
-`mfa.challenge_expired`) — client-side code→locale mapping NOT yet built in
-api.ts, so these codes aren't consumed anywhere yet. Every other server
+**Server (Phase 3): `code` fields now consumed client-side (2026-08-27)**.
+`code` was added earlier to auth-routes.ts, mfa-routes.ts, and
+modules/users/profile.ts error replies (stable machine-readable identifiers
+like `auth.invalid_credentials`, `mfa.challenge_expired`). `apps/web/src/api.ts`
+now maps them: `localizedErrorMessage()` builds the key
+`` `common:errors.codes.${payload.code}` `` and calls
+`i18n.t(key as any, { defaultValue: payload.error })` — the `as any` is
+deliberate (documented inline) since `code` is a runtime value from the
+server with no literal-union type to check against, unlike every other
+`t()` call in this project. `defaultValue` is what makes the plan's
+"falls back to the English sentence for codes it doesn't know" promise
+real: an unmapped code degrades to the server's English `error` string
+instead of ever showing a raw key. 20 codes translated under
+`common:errors.codes.{auth,mfa,profile}.*` in both languages (`mfa.
+resend_cooldown`'s "60 seconds" is hardcoded on both sides, matching the
+fixed `EMAIL_CODE_RESEND_SECONDS` server constant — no value is sent
+separately to interpolate). Verified in-browser: an invalid-password sign-in
+now shows "Неверный email или пароль", not English. Every other server
 module (uploads, gallery, family tree, collections, control-panel routes)
-untouched.
+still has plain English-only `error` strings with no `code` — extending
+Phase 3 to them is future work, not required for the UI sweep to be
+complete (routes without a `code` simply show `error` as-is, same as always).
 
 **Why progress is uneven**: 11 parallel Task agents were launched to sweep all
 remaining areas at once; all 11 hit a session-wide usage cap mid-task and
@@ -210,10 +250,13 @@ once is what caused the failure; resuming this work should go one namespace
 each, not as one giant fan-out.
 
 **Verified as of this checkpoint**: full `npm run typecheck` (both
-workspaces), `node scripts/check-ui-conventions.mjs`, and `npm run test:web`
-(178 tests) all pass after the `misc` namespace landed. The repo is in a
-clean, shippable state — Phase 2's originally-scoped sweep is complete;
-`reader`'s remaining unwired files are the only tracked gap.
+workspaces), `node scripts/check-ui-conventions.mjs`, and `npm test`
+(1549 server + 178 web = 1727 tests) all pass. The repo is in a clean,
+shippable state — all 12 namespaces are wired, the `reader` gap is closed,
+`AboutDetails.tsx`/`AboutCredits.tsx` are wired, and Phase 3's `code`
+mapping is live in `api.ts`. No tracked gaps remain in the UI sweep;
+extending Phase 3's `code` field to more server routes is optional
+future work (see the Phase 3 section above), not a blocker.
 
 Phase 4 (control panel core sections — LibrariesSection, BackupSection,
 GroupsSection, InvitesSection, CategoriesSection, AboutSection, AppearanceSection,
