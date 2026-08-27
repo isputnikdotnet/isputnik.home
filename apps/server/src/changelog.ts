@@ -19,6 +19,20 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.32.0",
+    label: "Words worth keeping",
+    changes: [
+      "Quotes grew up. What was a private list of passages you'd highlighted while reading is now the family's own book of sayings — the line from a novel, the toast someone makes every year, the thing your four-year-old said at breakfast that everyone still repeats. Mark a quote as shared and the whole house sees it on the Quotes page, with a note of who saved it; keep it private and nobody else ever will. Every reading highlight stays private unless you say otherwise.",
+      "The home page carries a quote of the day. Everyone in the house sees the same one, all day, and a new one the next morning — and it works its way through the whole collection rather than repeating at random. It prefers quotes in the language you read the app in, and each person can point their own card at a category: one of you reads only the funny ones, someone else takes whatever comes.",
+      "Some days it isn't a quote of the day at all. If something was said on this date in an earlier year, that is what the card shows — \"7 years ago today\", above the words and whoever said them. Writing down when a saying was said is what makes it come back.",
+      "Quotes can belong to people. Attach one to someone in your family tree and it appears on their page under a new Quotes tab, with the date and the circumstances you wrote down. Rename them and their sayings follow the new name; remove them from the tree altogether and the sayings stay put, still in their name rather than going anonymous.",
+      "Categories are yours to invent — Funny, Kids, Wisdom, Toasts, Grandma. A quote can wear several, the editor suggests the ones already in use so the family settles on a handful instead of fifty near-duplicates, and only categories that quotes actually wear are ever offered back to you.",
+      "Administrators can bring in a whole collection at once from a JSON file; public-domain quote packs are easy to find online, in any language. Choosing a file only checks it — you see how many are new, how many you already have, and which lines couldn't be read, before anything is saved. Importing the same pack twice is harmless, and one bad line never spoils the rest.",
+      "Quotes go into collections now, alongside books and photos, so \"Things the kids said\" can be a real shelf. There is a new guide for all of it under Help & guides → Quotes.",
+      "Fixed: links inside the built-in guides that pointed at a particular section opened the right guide but left you at the top of it. They jump to the section now."
+    ]
+  },
+  {
     version: "3.31.1",
     label: "Audiobooks and Ebooks catch up",
     changes: [
