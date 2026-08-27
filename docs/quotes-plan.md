@@ -136,9 +136,8 @@ good. Four things the build turned up:
 - **Deleting a quote left its tag rows behind** — `taggables` carries no FK, so
   every other delete path clears it by hand; the quote route now does too.
 
-Still open: a `docs/users/` guide. Quotes shipped without one, and the plan pairs
-the guide with Quote of the day, so it is written in phase 3 rather than written
-now and rewritten then.
+The user guide landed once every phase was in: `docs/users/quotes.md`, listed on
+the Help page (check:ui enforces the pairing) and in `docs/users/README.md`.
 
 ## Revision — 2026-08-27, after the first import landed
 
@@ -318,6 +317,9 @@ ordinary quote, still under the photo memory beside it.
 
 ## Cross-cutting
 
+- **All six phases are done**, plus the user guide. What is left is a release:
+  version bump in the three package.json files and a `versionUpdates` entry in
+  status.ts.
 - Every phase: `npm run typecheck`, `npm run check:ui`, `npm test`; i18n keys
   added to `en` and `ru` together (check:ui fails on drift).
 - User docs: a `docs/users/` guide for Quotes import + QOTD, added to the

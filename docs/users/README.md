@@ -30,6 +30,9 @@ library.
   e-reader address, and where likes, bookmarks, quotes, collections and things
   shared with you live.
 
+- [Quotes](quotes.md) — passages you highlight while reading, famous lines and
+  family sayings; the quote of the day, categories, and importing a pack.
+
 ## Using your libraries
 
 - [Audiobooks](library-audiobooks.md) — how folders become books with chapters,

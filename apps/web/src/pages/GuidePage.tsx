@@ -52,6 +52,15 @@ export async function renderGuideHtml(markdown: string): Promise<string> {
         const titleAttr = title ? ` title="${escapeAttr(title)}"` : "";
         return `<a href="${escapeAttr(href ?? "")}"${titleAttr}${attrs}>${inner}</a>`;
       },
+      // marked stopped emitting heading ids in v5, which quietly broke every
+      // `(guide.md#some-section)` link the guides already carry — the fragment
+      // survived the rewrite above but had nothing to land on. Same slug GitHub
+      // makes, so links keep being written the way authors expect.
+      heading({ tokens, depth, text }) {
+        const inner = this.parser.parseInline(tokens);
+        const id = text.toLowerCase().trim().replace(/[^\w\s-]/g, "").replace(/\s+/g, "-");
+        return `<h${depth} id="${escapeAttr(id)}">${inner}</h${depth}>`;
+      },
       image({ href, title, text }) {
         const src = /^https?:\/\//i.test(href ?? "") ? href : `/guides/${(href ?? "").replace(/^\.?\//, "")}`;
         const titleAttr = title ? ` title="${escapeAttr(title)}"` : "";

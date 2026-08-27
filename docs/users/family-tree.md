@@ -49,7 +49,7 @@ person — from search, All people, or a bookmark — still opens on them.
 
 ## A person's profile
 
-Five tabs:
+Six tabs:
 
 - **Relationships** — parents, siblings, grandparents, partners and children as
   cards you can jump to.
@@ -60,7 +60,9 @@ Five tabs:
 - **Photos** — see below.
 - **Sources** — where a fact came from: a parish register, a certificate, a web
   page. Sources are shared, so one record can back many facts.
-- **Notes** — free text about the person.
+- **Biography** — their life story in your own words.
+- **Quotes** — the things they said, whenever anyone recorded one against their
+  name. See [Quotes](quotes.md).
 
 ## Photos
 
