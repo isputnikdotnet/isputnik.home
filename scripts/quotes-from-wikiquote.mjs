@@ -40,13 +40,14 @@ const SKIP_SECTIONS = {
 };
 
 function parseArgs(argv) {
-  const args = { lang: "en", tags: [], pages: [], limit: 40, out: null, pageFile: null, maxLength: 300 };
+  const args = { lang: "en", tags: [], pages: [], limit: 40, out: null, pageFile: null, maxLength: 300, total: 0 };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === "--lang") args.lang = argv[++i];
     else if (arg === "--out") args.out = argv[++i];
     else if (arg === "--limit") args.limit = Number(argv[++i]);
     else if (arg === "--max-length") args.maxLength = Number(argv[++i]);
+    else if (arg === "--total") args.total = Number(argv[++i]);
     else if (arg === "--page-file") args.pageFile = argv[++i];
     else if (arg === "--tags") { while (argv[i + 1] && !argv[i + 1].startsWith("--")) args.tags.push(argv[++i]); }
     else if (arg === "--pages") { while (argv[i + 1] && !argv[i + 1].startsWith("--")) args.pages.push(argv[++i]); }
@@ -62,6 +63,11 @@ function clean(wikitext) {
     .replace(/<ref[^>]*\/>/gi, "")
     .replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, "")
     .replace(/<!--[\s\S]*?-->/g, "")
+    // Templates that RENDER their first argument, before the blanket removal
+    // below eats it. {{comment|меня|персонажа Ивана Семёныча}} is a word of the
+    // quote plus an editor's note, and dropping the lot turns "У меня много
+    // детей" into "У много детей" — mangled, and mangled invisibly.
+    .replace(/\{\{\s*(?:comment|comment2|nobr|lang-\w+)\s*\|\s*([^|{}]*?)\s*(?:\|[^{}]*)?\}\}/gi, "$1")
     .replace(/\{\{[^{}]*\}\}/g, "")            // leftover inline templates
     .replace(/\[\[[^\]|]*\|([^\]]*)\]\]/g, "$1") // [[target|shown]] → shown
     .replace(/\[\[([^\]]*)\]\]/g, "$1")          // [[shown]]        → shown
@@ -216,11 +222,25 @@ async function main() {
   if (titles.length === 0) throw new Error("Give at least one --pages title or a --page-file");
 
   const skip = SKIP_SECTIONS[args.lang] ?? SKIP_SECTIONS.en;
-  const extract = args.lang === "ru" ? extractTemplateQuotes : extractBulletQuotes;
+
+  // Russian Wikiquote mostly uses {{Q|…}} templates, but not always — some pages
+  // are plain bullet lists like the English edition, and the template extractor
+  // finds nothing at all on those. Fall back rather than reporting the page as
+  // empty: "→ 0" on a page that clearly has quotes is the tool being wrong, not
+  // the page being bare.
+  const extract = args.lang === "ru"
+    ? (wikitext, skipRe) => {
+        const templated = extractTemplateQuotes(wikitext, skipRe);
+        return templated.length > 0 ? templated : extractBulletQuotes(wikitext, skipRe);
+      }
+    : extractBulletQuotes;
 
   const quotes = [];
   const seen = new Set();
   let rejected = 0;
+
+  // Kept per author rather than in one list, so --total can interleave them.
+  const byAuthor = [];
 
   for (let i = 0; i < titles.length; i += BATCH_SIZE) {
     const batch = titles.slice(i, i + BATCH_SIZE);
@@ -231,25 +251,38 @@ async function main() {
         ? title.split(/,\s+/).reverse().join(" ")
         : title;
 
-      let kept = 0;
+      const mine = [];
       for (const candidate of extract(wikitext, skip)) {
-        if (kept >= args.limit) break;
+        if (mine.length >= args.limit) break;
         const text = candidate.text;
         if (!isUsable(text, args.maxLength)) { rejected += 1; continue; }
         const key = `${text.toLowerCase()}|${author.toLowerCase()}`;
         if (seen.has(key)) { rejected += 1; continue; }
         seen.add(key);
-        quotes.push({
+        mine.push({
           text,
           author,
           ...(usableSource(candidate.source) ? { source: usableSource(candidate.source) } : {}),
           ...(args.tags.length ? { tags: args.tags } : {})
         });
-        kept += 1;
       }
-      console.log(`  ${title} → ${kept}`);
+      byAuthor.push({ title, quotes: mine });
+      console.log(`  ${title} → ${mine.length}`);
     }
   }
+
+  // Round-robin, so a --total of 100 across fifteen authors is a spread rather
+  // than the first three authors and nothing else. Wikiquote lists the
+  // best-known quotes near the top of a page, so taking one from each in turn
+  // also takes the most famous ones first.
+  const deepest = Math.max(0, ...byAuthor.map((entry) => entry.quotes.length));
+  for (let rank = 0; rank < deepest; rank += 1) {
+    for (const entry of byAuthor) {
+      if (entry.quotes[rank]) quotes.push(entry.quotes[rank]);
+    }
+  }
+  const total = args.total > 0 ? quotes.splice(args.total) : [];
+  if (total.length > 0) console.log(`\n  (${total.length} beyond --total ${args.total} left out)`);
 
   const pack = {
     version: 1,
