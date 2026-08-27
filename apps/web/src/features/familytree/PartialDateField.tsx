@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 // Free-text partial-date field: "1971", "1971-09", or "1971-09-01". Native
 // date inputs can't express year-only dates — the norm for genealogy data — and
 // silently blank out stored partial values, so every family-tree date goes
@@ -5,7 +7,7 @@
 export function PartialDateField({
   label,
   value,
-  placeholder = "1971 or 1971-09-01",
+  placeholder,
   onChange
 }: {
   label: string;
@@ -13,6 +15,7 @@ export function PartialDateField({
   placeholder?: string;
   onChange: (value: string) => void;
 }) {
+  const { t } = useTranslation(["family"]);
   return (
     <label className="field">
       <span>{label}</span>
@@ -20,9 +23,9 @@ export function PartialDateField({
         type="text"
         inputMode="numeric"
         value={value}
-        placeholder={placeholder}
+        placeholder={placeholder ?? t("family:partialDate.example.default")}
         pattern="\d{4}(-\d{2}(-\d{2})?)?"
-        title="Year, year-month, or full date (1971, 1971-09, 1971-09-01)"
+        title={t("family:partialDate.formatHint")}
         onChange={(event) => onChange(event.target.value)}
       />
     </label>

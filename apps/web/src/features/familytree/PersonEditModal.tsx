@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { UserRound } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { api } from "../../api";
 import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
 import { PeopleCombobox } from "../audiobooks/PeopleCombobox";
 import { PartialDateField } from "./PartialDateField";
-import { GENDER_OPTIONS, type FamilyPerson, type FamilyTag } from "./types";
+import { GENDER_OPTIONS, genderOptionLabel, type FamilyPerson, type FamilyTag } from "./types";
 
 // Create or edit a family member's profile. Uses the standard field pattern:
 // each control sits in a `.field` label, dropdowns are native <select>s, and
@@ -26,6 +27,7 @@ export function PersonEditModal({
   onClose: () => void;
   onSaved: (person: FamilyPerson) => void;
 }) {
+  const { t } = useTranslation(["common", "family"]);
   const [name, setName] = useState(person?.name ?? "");
   const [maidenName, setMaidenName] = useState(person?.maidenName ?? "");
   // "" = no selection. New people start unselected; existing people show their
@@ -81,7 +83,7 @@ export function PersonEditModal({
           });
       onSaved(payload.person);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to save this person");
+      setError(err instanceof Error ? err.message : t("family:personEdit.errors.default"));
       setSaving(false);
     }
   };
@@ -89,28 +91,28 @@ export function PersonEditModal({
   return (
     <Modal
       variant="card"
-      title={person ? `Edit ${person.name}` : "Add family member"}
+      title={person ? t("family:personEdit.titleEdit", { name: person.name }) : t("family:personEdit.titleAdd")}
       icon={<UserRound size={18} />}
       className="ft-modal ft-person-form-modal"
       busy={saving}
       onClose={onClose}
       onSubmit={submit}
     >
-      {error && <MessageBox tone="error" title="Unable to save">{error}</MessageBox>}
+      {error && <MessageBox tone="error" title={t("errors.unableToSave")}>{error}</MessageBox>}
       <div className="modal-tabs ft-person-form-tabs">
         <button
           type="button"
           className={`modal-tab${activeTab === "details" ? " active" : ""}`}
           onClick={() => setActiveTab("details")}
         >
-          Details
+          {t("family:personEdit.tabDetails")}
         </button>
         <button
           type="button"
           className={`modal-tab${activeTab === "notes" ? " active" : ""}`}
           onClick={() => setActiveTab("notes")}
         >
-          Bio / notes
+          {t("family:personEdit.tabNotes")}
         </button>
         {showTags && (
           <button
@@ -118,7 +120,7 @@ export function PersonEditModal({
             className={`modal-tab${activeTab === "tags" ? " active" : ""}`}
             onClick={() => setActiveTab("tags")}
           >
-            Tags
+            {t("family:personEdit.tabTags")}
           </button>
         )}
       </div>
@@ -127,16 +129,16 @@ export function PersonEditModal({
       {activeTab === "details" && (
         <div className="ft-form-grid">
           <label className="field">
-            <span>Name</span>
+            <span>{t("family:personEdit.fieldName")}</span>
             <input type="text" value={name} onChange={(event) => setName(event.target.value)} required autoFocus />
           </label>
           <label className="field">
-            <span>Maiden name</span>
+            <span>{t("family:personEdit.fieldMaidenName")}</span>
             <input type="text" value={maidenName} onChange={(event) => setMaidenName(event.target.value)} />
           </label>
           <div className="field ft-field-span">
-            <span>Gender</span>
-            <div className="ft-gender-radios" role="radiogroup" aria-label="Gender">
+            <span>{t("family:person.meta.gender")}</span>
+            <div className="ft-gender-radios" role="radiogroup" aria-label={t("family:person.meta.gender")}>
               {GENDER_OPTIONS.map((option) => (
                 <label key={option.value} className="ft-radio">
                   <input
@@ -146,19 +148,24 @@ export function PersonEditModal({
                     checked={gender === option.value}
                     onChange={() => setGender(option.value)}
                   />
-                  <span>{option.label}</span>
+                  <span>{genderOptionLabel(option.value)}</span>
                 </label>
               ))}
             </div>
           </div>
-          <PartialDateField label="Born" value={birthDate} onChange={setBirthDate} />
+          <PartialDateField label={t("family:person.meta.born")} value={birthDate} onChange={setBirthDate} />
           <label className="field">
-            <span>Birthplace</span>
+            <span>{t("family:person.meta.birthplace")}</span>
             <input type="text" value={birthplace} onChange={(event) => setBirthplace(event.target.value)} />
           </label>
-          <PartialDateField label="Died" value={deathDate} placeholder="2024 or 2024-03-15" onChange={setDeathDate} />
+          <PartialDateField
+            label={t("family:person.meta.died")}
+            value={deathDate}
+            placeholder={t("family:partialDate.example.death")}
+            onChange={setDeathDate}
+          />
           <label className="field">
-            <span>Place of death</span>
+            <span>{t("family:personEdit.fieldDeathPlace")}</span>
             <input type="text" value={deathPlace} onChange={(event) => setDeathPlace(event.target.value)} />
           </label>
         </div>
@@ -166,28 +173,28 @@ export function PersonEditModal({
 
       {activeTab === "notes" && (
         <label className="field ft-bio-field">
-          <span>Bio / notes</span>
+          <span>{t("family:personEdit.tabNotes")}</span>
           <textarea value={bio} onChange={(event) => setBio(event.target.value)} />
         </label>
       )}
 
       {activeTab === "tags" && showTags && (
         <div className="field">
-          <span>Family tags</span>
+          <span>{t("family:person.meta.familyTags")}</span>
           <PeopleCombobox
             value={tags}
             onChange={setTags}
             suggestions={tagSuggestions}
-            placeholder="Add a family tag (e.g. a last name)…"
+            placeholder={t("family:personEdit.tagsPlaceholder")}
           />
-          <small className="ft-modal-hint">Tags group people by branch and scope edit rights (see Branch access).</small>
+          <small className="ft-modal-hint">{t("family:personEdit.tagsHint")}</small>
         </div>
       )}
       </div>
       <div className="modal-actions">
-        <Button variant="secondary" onClick={onClose} disabled={saving}>Cancel</Button>
+        <Button variant="secondary" onClick={onClose} disabled={saving}>{t("common.cancel")}</Button>
         <Button variant="primary" type="submit" disabled={saving || !name.trim()}>
-          {saving ? "Saving…" : person ? "Save changes" : "Add person"}
+          {saving ? t("family:common.saving") : person ? t("family:common.saveChanges") : t("family:common.addPerson")}
         </Button>
       </div>
     </Modal>

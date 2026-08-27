@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { ArrowLeft, ImagePlus, Play } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { followBack } from "../../router";
@@ -29,6 +30,7 @@ export function FamilyPersonPhotosPage({
   user: PublicUser;
   logout: () => Promise<void>;
 }) {
+  const { t } = useTranslation(["common", "family"]);
   const [person, setPerson] = useState<FamilyPersonProfile | null>(null);
   const [photos, setPhotos] = useState<FamilyPhoto[]>([]);
   const [total, setTotal] = useState(0);
@@ -51,9 +53,9 @@ export function FamilyPersonPhotosPage({
       api<{ person: FamilyPersonProfile }>(`/api/family-tree/persons/${id}`).then((p) => setPerson(p.person)),
       loadPhotos(0)
     ])
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load photos"))
+      .catch((err) => setError(err instanceof Error ? err.message : t("family:personPhotos.errorTitle")))
       .finally(() => setLoading(false));
-  }, [id, loadPhotos]);
+  }, [id, loadPhotos, t]);
 
   const back = `/family/people/${id}`;
 
@@ -63,21 +65,21 @@ export function FamilyPersonPhotosPage({
         <div className="book-detail-topbar">
           <a className="audiobook-back-button" href={back} onClick={(event) => followBack(event, back)}>
             <ArrowLeft size={18} aria-hidden="true" />
-            <span>Back to {person?.name ?? "profile"}</span>
+            <span>{t("family:personPhotos.backTo", { name: person?.name ?? t("family:personPhotos.fallbackName") })}</span>
           </a>
         </div>
 
         <LibraryPageHeader
-          title={person ? `Photos of ${person.name}` : "Photos"}
-          subtitle={total > 0 ? `${total} ${total === 1 ? "photo" : "photos"}` : undefined}
+          title={person ? t("family:personPhotos.title", { name: person.name }) : t("family:personPhotos.titleFallback")}
+          subtitle={total > 0 ? t("family:common.counts.photo", { count: total }) : undefined}
         />
 
-        {error && <MessageBox tone="error" title="Unable to load photos">{error}</MessageBox>}
+        {error && <MessageBox tone="error" title={t("family:personPhotos.errorTitle")}>{error}</MessageBox>}
 
         {!loading && photos.length === 0 ? (
           <div className="ft-empty-panel">
             <ImagePlus size={22} aria-hidden="true" />
-            <strong>No photos yet</strong>
+            <strong>{t("family:personPhotos.noPhotosYetTitle")}</strong>
           </div>
         ) : (
           <div className="gallery-grid ft-photo-grid">
@@ -91,7 +93,7 @@ export function FamilyPersonPhotosPage({
               >
                 {photo.coverUrl && <img src={photo.coverUrl} alt={photo.title} loading="lazy" style={faceFocusStyle(photo)} />}
                 {photo.kind === "video" && (
-                  <span className="gallery-video-badge"><Play size={11} aria-hidden="true" />Video</span>
+                  <span className="gallery-video-badge"><Play size={11} aria-hidden="true" />{t("family:common.video")}</span>
                 )}
               </button>
             ))}
@@ -108,7 +110,7 @@ export function FamilyPersonPhotosPage({
               }}
               disabled={loadingMore}
             >
-              {loadingMore ? "Loading…" : `Show more (${total - photos.length} left)`}
+              {loadingMore ? t("family:personPhotos.loadingMore") : t("family:personPhotos.showMore", { count: total - photos.length })}
             </Button>
           </div>
         )}

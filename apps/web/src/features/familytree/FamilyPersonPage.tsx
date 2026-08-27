@@ -4,6 +4,8 @@ import {
   ExternalLink, FileText, Flag, GraduationCap, Heart, Home as HomeIcon, ImagePlus, Images, Link2, Luggage, MapPin,
   Network, Pencil, Plane, Play, Send, Shield, Tags, Trash2, UserRound, UserRoundPlus, UsersRound, X
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { followBack, followRoute, getReferrer, navigate } from "../../router";
@@ -30,8 +32,9 @@ import { GalleryPersonLinkModal } from "./GalleryPersonLinkModal";
 import { PersonAvatar } from "./PersonAvatar";
 import { PersonEditModal } from "./PersonEditModal";
 import { UnionEditModal } from "./UnionEditModal";
+import i18n from "../../i18n";
 import {
-  lifeYears, EVENT_TYPE_OPTIONS, UNION_STATUS_OPTIONS,
+  lifeYears, childRelationLabel, childRelativeNoun, eventTypeLabel, genderLabel, unionStatusLabel,
   type FamilyCitation, type FamilyEvent, type FamilyPerson, type FamilyPersonProfile, type FamilyPhoto,
   type FamilyTree, type FamilyUnionDetail
 } from "./types";
@@ -41,18 +44,13 @@ const PHOTO_PAGE = 40;
 // to the person's full photos page. Photos still open in a lightbox in place —
 // clicking one must never strand the reader in the gallery.
 const PHOTO_PREVIEW = 12;
-const PERSON_DETAIL_TABS = [
-  { id: "family", label: "Relationships" },
-  { id: "timeline", label: "Timeline" },
-  { id: "photos", label: "Photos" },
-  { id: "sources", label: "Sources" },
-  { id: "biography", label: "Biography" }
-] as const;
+const PERSON_DETAIL_TAB_IDS = ["family", "timeline", "photos", "sources", "biography"] as const;
 
-type PersonDetailTabId = typeof PERSON_DETAIL_TABS[number]["id"];
+type PersonDetailTabId = typeof PERSON_DETAIL_TAB_IDS[number];
 
-const eventTypeLabel = (type: FamilyEvent["type"]) =>
-  EVENT_TYPE_OPTIONS.find((o) => o.value === type)?.label ?? type;
+function personTabLabel(id: PersonDetailTabId, t: TFunction<readonly ["common", "family"], undefined>): string {
+  return t(`family:person.tabs.${id}`);
+}
 
 // One row of the life timeline. Real events carry `event` (editable); birth,
 // marriages, and death are synthesized from person/union fields and edited
@@ -73,7 +71,7 @@ function formatPartialDate(date: string | null): string {
   const [year, month, day] = date.split("-");
   if (!month) return year;
   const monthLabel = new Date(Date.UTC(Number(year), Number(month) - 1, 1))
-    .toLocaleString(undefined, { month: "short", timeZone: "UTC" });
+    .toLocaleString(i18n.language, { month: "short", timeZone: "UTC" });
   return day ? `${monthLabel} ${Number(day)}, ${year}` : `${monthLabel} ${year}`;
 }
 
@@ -88,7 +86,7 @@ function timelineEntries(profile: FamilyPersonProfile): TimelineEntry[] {
       key: "birth",
       sortKey: profile.birthDate ?? "0000",
       dateText: formatPartialDate(profile.birthDate),
-      title: "Born",
+      title: i18n.t("family:person.meta.born"),
       meta: profile.birthplace ? [profile.birthplace] : [],
       note: null,
       tone: "birth",
@@ -101,7 +99,7 @@ function timelineEntries(profile: FamilyPersonProfile): TimelineEntry[] {
         key: `marr-${union.id}`,
         sortKey: union.marriedDate ?? "9998",
         dateText: formatPartialDate(union.marriedDate),
-        title: `Married ${union.partner.name}`,
+        title: i18n.t("family:person.timeline.married", { name: union.partner.name }),
         meta: union.marriedPlace ? [union.marriedPlace] : [],
         note: null,
         tone: "union",
@@ -113,7 +111,7 @@ function timelineEntries(profile: FamilyPersonProfile): TimelineEntry[] {
         key: `div-${union.id}`,
         sortKey: union.divorcedDate,
         dateText: formatPartialDate(union.divorcedDate),
-        title: `Divorced ${union.partner.name}`,
+        title: i18n.t("family:person.timeline.divorced", { name: union.partner.name }),
         meta: [],
         note: null,
         tone: "union",
@@ -121,17 +119,12 @@ function timelineEntries(profile: FamilyPersonProfile): TimelineEntry[] {
       });
     }
     for (const child of union.children) {
-      const noun = child.gender === "male" ? "son" : child.gender === "female" ? "daughter" : "child";
-      const relationNoun = child.relation === "step"
-        ? `step${noun}`
-        : child.relation === "adopted" || child.relation === "foster"
-          ? `${child.relation} ${noun}`
-          : noun;
+      const noun = childRelativeNoun(child.relation, child.gender);
       entries.push({
         key: `child-${child.id}`,
         sortKey: child.birthDate ?? "9998",
         dateText: formatPartialDate(child.birthDate),
-        title: `Birth of ${relationNoun} ${child.name}`,
+        title: i18n.t("family:person.timeline.childBirth", { noun, name: child.name }),
         meta: child.birthplace ? [child.birthplace] : [],
         note: null,
         tone: "birth",
@@ -156,7 +149,7 @@ function timelineEntries(profile: FamilyPersonProfile): TimelineEntry[] {
       key: "death",
       sortKey: profile.deathDate ?? "9999",
       dateText: formatPartialDate(profile.deathDate),
-      title: "Died",
+      title: i18n.t("family:person.meta.died"),
       meta: profile.deathPlace ? [profile.deathPlace] : [],
       note: null,
       tone: "death",
@@ -171,20 +164,22 @@ function timelineEntries(profile: FamilyPersonProfile): TimelineEntry[] {
 function citationContext(citation: FamilyCitation, profile: FamilyPersonProfile): string {
   if (citation.eventId) {
     const event = profile.events.find((e) => e.id === citation.eventId);
-    if (!event) return "Event";
+    if (!event) return i18n.t("family:citation.context.eventFallback");
     const what = event.label || eventTypeLabel(event.type);
-    return event.date ? `${what} (${event.date.slice(0, 4)})` : what;
+    return event.date ? i18n.t("family:citation.eventWithYear", { what, year: event.date.slice(0, 4) }) : what;
   }
   if (citation.unionId) {
     const union = profile.unions.find((u) => u.id === citation.unionId);
     const partner = union?.partner?.name;
-    if (citation.fact === "divorce") return partner ? `Divorce from ${partner}` : "Divorce";
-    return partner ? `Marriage to ${partner}` : "Marriage";
+    if (citation.fact === "divorce") {
+      return partner ? i18n.t("family:citation.targetDivorce", { name: partner }) : i18n.t("family:citation.context.divorcePlain");
+    }
+    return partner ? i18n.t("family:citation.targetMarriage", { name: partner }) : i18n.t("family:citation.context.marriagePlain");
   }
-  if (citation.fact === "name") return "Name";
-  if (citation.fact === "birth") return "Birth";
-  if (citation.fact === "death") return "Death";
-  return "General";
+  if (citation.fact === "name") return i18n.t("family:citation.targetName");
+  if (citation.fact === "birth") return i18n.t("family:citation.targetBirth");
+  if (citation.fact === "death") return i18n.t("family:citation.targetDeath");
+  return i18n.t("family:citation.context.general");
 }
 
 type RelationPerson = Pick<FamilyPerson, "id" | "name" | "gender" | "birthDate" | "deathDate" | "portraitUrl">;
@@ -247,19 +242,9 @@ function extendedFamily(profile: FamilyPersonProfile, tree: FamilyTree | null) {
 // gender gets "Parent", never a guess.
 type RelationKind = "parent" | "sibling" | "grandparent" | "child" | "partner";
 
-const RELATION_WORDS: Record<RelationKind, { male: string; female: string; neutral: string }> = {
-  parent: { male: "Father", female: "Mother", neutral: "Parent" },
-  sibling: { male: "Brother", female: "Sister", neutral: "Sibling" },
-  grandparent: { male: "Grandfather", female: "Grandmother", neutral: "Grandparent" },
-  child: { male: "Son", female: "Daughter", neutral: "Child" },
-  partner: { male: "Husband", female: "Wife", neutral: "Partner" }
-};
-
 function relationWord(kind: RelationKind, person: Pick<FamilyPerson, "gender">): string {
-  const words = RELATION_WORDS[kind];
-  if (person.gender === "male") return words.male;
-  if (person.gender === "female") return words.female;
-  return words.neutral;
+  const genderKey = person.gender === "male" || person.gender === "female" ? person.gender : "neutral";
+  return i18n.t(`family:relationWord.${kind}.${genderKey}`);
 }
 
 function ageFromDates(birthDate: string | null, endDate: string | null): number | null {
@@ -283,13 +268,6 @@ function ageFromDates(birthDate: string | null, endDate: string | null): number 
   return Math.max(0, age);
 }
 
-function genderLabel(gender: FamilyPerson["gender"]): string {
-  if (gender === "male") return "Male";
-  if (gender === "female") return "Female";
-  if (gender === "other") return "Other";
-  return "Unknown";
-}
-
 // The current partner: an undissolved union. Dates win over the status field —
 // a marriage with a divorce date recorded is over regardless of what the
 // status says. If several qualify, the latest start date wins.
@@ -305,25 +283,32 @@ function currentUnion(profile: FamilyPersonProfile): FamilyUnionDetail | null {
 function unionDates(union: FamilyUnionDetail): string {
   const married = union.marriedDate ? formatPartialDate(union.marriedDate) : "";
   const divorced = union.divorcedDate ? formatPartialDate(union.divorcedDate) : "";
-  if (married && divorced) return `${married} – ${divorced}`;
-  if (married) return `since ${married}`;
-  if (divorced) return `until ${divorced}`;
+  if (married && divorced) return i18n.t("family:person.unionDates.range", { start: married, end: divorced });
+  if (married) return i18n.t("family:person.unionDates.since", { date: married });
+  if (divorced) return i18n.t("family:person.unionDates.until", { date: divorced });
   return "";
 }
 
-function relationSummary(profile: FamilyPersonProfile, statusLabel: (status: string) => string) {
+function relationSummary(profile: FamilyPersonProfile): string {
   const current = currentUnion(profile);
   if (current?.partner) {
-    if (current.status === "married") return `Married to ${current.partner.name}`;
-    if (current.status === "partners") return `Together with ${current.partner.name}`;
-    return `${statusLabel(current.status)} · ${current.partner.name}`;
+    if (current.status === "married") return i18n.t("family:person.relationshipSummary.marriedTo", { name: current.partner.name });
+    if (current.status === "partners") return i18n.t("family:person.relationshipSummary.togetherWith", { name: current.partner.name });
+    return i18n.t("family:person.relationshipSummary.statusWithPartner", {
+      status: unionStatusLabel(current.status),
+      name: current.partner.name
+    });
   }
   const past = [...profile.unions]
     .filter((item) => item.partner)
     .sort((a, b) => (b.divorcedDate ?? "").localeCompare(a.divorcedDate ?? ""))[0];
-  if (!past?.partner) return profile.unions.some((item) => item.children.length > 0) ? "Parent" : "No partner recorded";
-  if (past.status === "widowed") return `Widowed from ${past.partner.name}`;
-  return `Divorced from ${past.partner.name}`;
+  if (!past?.partner) {
+    return profile.unions.some((item) => item.children.length > 0)
+      ? i18n.t("family:person.relationshipSummary.parentOnly")
+      : i18n.t("family:person.relationshipSummary.noPartnerRecorded");
+  }
+  if (past.status === "widowed") return i18n.t("family:person.relationshipSummary.widowedFrom", { name: past.partner.name });
+  return i18n.t("family:person.relationshipSummary.divorcedFrom", { name: past.partner.name });
 }
 
 function TimelineIcon({ entry }: { entry: TimelineEntry }) {
@@ -361,6 +346,7 @@ function RelationCard({
   badge?: string;
   action?: React.ReactNode;
 }) {
+  const { t } = useTranslation(["family"]);
   return (
     <span className="ft-relation-card-wrap">
       <a
@@ -373,7 +359,7 @@ function RelationCard({
           <strong>{person.name}</strong>
           <small>
             {badge && <span className="ft-relation-badge">{badge}</span>}
-            {detail || lifeYears(person) || "Life dates unknown"}
+            {detail || lifeYears(person) || t("family:common.lifeDatesUnknown")}
           </small>
         </span>
       </a>
@@ -424,6 +410,7 @@ function FamilyRow({
 // everyone else gets a read-only view of the same layout. Deleting the person,
 // removing relationships, tags, and the gallery link stay admin-only.
 export function FamilyPersonPage({ id, user, logout }: { id: string; user: PublicUser; logout: () => Promise<void> }) {
+  const { t } = useTranslation(["common", "family"]);
   const isAdmin = user.role === "admin";
   const [profile, setProfile] = useState<FamilyPersonProfile | null>(null);
   const [familyTree, setFamilyTree] = useState<FamilyTree | null>(null);
@@ -468,9 +455,9 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
       setNotFound(false);
     } catch (err) {
       if ((err as { status?: number }).status === 404) setNotFound(true);
-      else setError(err instanceof Error ? err.message : "Unable to load this person");
+      else setError(err instanceof Error ? err.message : t("family:person.errors.loadPerson"));
     }
-  }, [id]);
+  }, [id, t]);
 
   const loadFamilyTree = useCallback(async () => {
     try {
@@ -511,7 +498,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
       await api(`/api/family-tree/persons/${id}`, { method: "DELETE" });
       navigate("/family/people");
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : "Unable to delete this person");
+      setDeleteError(err instanceof Error ? err.message : t("family:person.errors.deletePerson"));
       setDeleting(false);
     }
   };
@@ -523,7 +510,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
       setRemoveUnionId(null);
       refresh();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Unable to remove the union");
+      setActionError(err instanceof Error ? err.message : t("family:person.errors.removeUnion"));
       setRemoveUnionId(null);
     }
   };
@@ -533,7 +520,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
       await api(`/api/family-tree/unions/${unionId}/children/${childId}`, { method: "DELETE" });
       refresh();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Unable to remove the child link");
+      setActionError(err instanceof Error ? err.message : t("family:person.errors.removeChildLink"));
     }
   };
 
@@ -544,7 +531,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
       setRemoveEvent(null);
       refresh();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Unable to delete the event");
+      setActionError(err instanceof Error ? err.message : t("family:person.errors.deleteEvent"));
       setRemoveEvent(null);
     }
   };
@@ -556,7 +543,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
       setRemoveCitation(null);
       refresh();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Unable to remove the citation");
+      setActionError(err instanceof Error ? err.message : t("family:person.errors.removeCitation"));
       setRemoveCitation(null);
     }
   };
@@ -567,7 +554,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
       setPhotos((prev) => prev.filter((p) => p.id !== itemId));
       setPhotoTotal((prev) => Math.max(0, prev - 1));
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Unable to remove the photo");
+      setActionError(err instanceof Error ? err.message : t("family:person.errors.removePhoto"));
     }
   };
 
@@ -584,7 +571,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
       setPortraitPicker(false);
       refresh();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Unable to set the portrait");
+      setActionError(err instanceof Error ? err.message : t("family:person.errors.setPortrait"));
     }
   };
 
@@ -594,14 +581,13 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
       await api(`/api/family-tree/persons/${id}/portrait`, { method: "DELETE" });
       refresh();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Unable to remove the portrait");
+      setActionError(err instanceof Error ? err.message : t("family:person.errors.removePortrait"));
     }
   };
 
   // Server-computed: true for admins and for tag-granted branch editors.
   const canEdit = profile?.canEdit ?? false;
   const back = getReferrer() ?? "/family/people";
-  const statusLabel = (status: string) => UNION_STATUS_OPTIONS.find((o) => o.value === status)?.label ?? status;
   // The union this person hangs off as a child — where siblings and the
   // "other parent" attach.
   const parentUnionId = profile && familyTree
@@ -615,8 +601,8 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
     return (
       <DashboardShell active="family" user={user} logout={logout} sideNav={<SectionNav {...familyNavProps("people")} />}>
         <section className="audiobook-main-page">
-          <MessageBox tone="warning" title="Person not found">This family member doesn't exist (anymore).</MessageBox>
-          <p><a href="/family/people" onClick={(event) => followRoute(event, "/family/people")}>Back to family members</a></p>
+          <MessageBox tone="warning" title={t("family:person.notFoundTitle")}>{t("family:person.notFoundBody")}</MessageBox>
+          <p><a href="/family/people" onClick={(event) => followRoute(event, "/family/people")}>{t("family:person.backToFamilyMembers")}</a></p>
         </section>
       </DashboardShell>
     );
@@ -626,18 +612,18 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
     <DashboardShell active="family" user={user} logout={logout} sideNav={<SectionNav {...familyNavProps("people")} />}>
       <section className="work-area book-detail-area ft-profile-page">
         <div className="book-detail-shell">
-          {error && <MessageBox tone="error" title="Unable to load">{error}</MessageBox>}
-          {actionError && <MessageBox tone="error" title="Action failed">{actionError}</MessageBox>}
+          {error && <MessageBox tone="error" title={t("family:common.unableToLoad")}>{error}</MessageBox>}
+          {actionError && <MessageBox tone="error" title={t("family:person.errors.actionFailedTitle")}>{actionError}</MessageBox>}
 
         {profile && (() => {
           const family = extendedFamily(profile, familyTree);
           const entries = timelineEntries(profile);
           const age = ageFromDates(profile.birthDate, profile.deathDate);
           const subtitle = [
-            profile.maidenName ? `née ${profile.maidenName}` : "",
+            profile.maidenName ? t("family:common.nee", { name: profile.maidenName }) : "",
             lifeYears(profile),
-            profile.deathDate ? "Deceased" : "Living",
-            age != null ? `Age ${age}` : ""
+            profile.deathDate ? t("family:person.deceased") : t("family:person.living"),
+            age != null ? t("family:person.ageLabel", { age }) : ""
           ].filter(Boolean).join(" · ");
           const current = currentUnion(profile);
           // Current partner first; former unions follow.
@@ -664,27 +650,27 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                   className="icon-button"
                   href={back}
                   onClick={(event) => followBack(event, back)}
-                  title="Back"
-                  aria-label="Back"
+                  title={t("family:common.back")}
+                  aria-label={t("family:common.back")}
                 >
                   <ArrowLeft size={18} aria-hidden="true" />
                 </a>
                 <span className="library-toolbar-divider" aria-hidden="true" />
-                <div className="book-detail-secondary-actions" aria-label="Person actions">
+                <div className="book-detail-secondary-actions" aria-label={t("family:person.actions.groupAria")}>
                   <a
                     className="icon-button"
                     href={`/family/tree/${profile.id}`}
                     onClick={(event) => followRoute(event, `/family/tree/${profile.id}`)}
-                    title="View in tree"
-                    aria-label="View in tree"
+                    title={t("family:person.actions.viewInTree")}
+                    aria-label={t("family:person.actions.viewInTree")}
                   >
                     <Network size={18} aria-hidden="true" />
                   </a>
                   <Button
                     variant="icon"
                     onClick={() => setSendToOpen(true)}
-                    title="Send to"
-                    aria-label="Send to"
+                    title={t("family:person.actions.sendTo")}
+                    aria-label={t("family:person.actions.sendTo")}
                   >
                     <Send size={18} aria-hidden="true" />
                   </Button>
@@ -692,8 +678,8 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                     <Button
                       variant="icon"
                       onClick={() => setEditOpen(true)}
-                      title="Edit person"
-                      aria-label="Edit person"
+                      title={t("family:common.editPerson")}
+                      aria-label={t("family:common.editPerson")}
                     >
                       <Pencil size={18} aria-hidden="true" />
                     </Button>
@@ -703,8 +689,8 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                       variant="icon"
                       danger
                       onClick={() => setDeleteOpen(true)}
-                      title="Delete person"
-                      aria-label="Delete person"
+                      title={t("family:person.actions.deletePerson")}
+                      aria-label={t("family:person.actions.deletePerson")}
                     >
                       <Trash2 size={18} aria-hidden="true" />
                     </Button>
@@ -720,8 +706,8 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                       <Button
                         variant="icon"
                         className="ft-portrait-button"
-                        title="Change portrait"
-                        aria-label="Change portrait"
+                        title={t("family:person.actions.changePortrait")}
+                        aria-label={t("family:person.actions.changePortrait")}
                         onClick={() => setPortraitPicker(true)}
                       >
                         <Camera size={16} aria-hidden="true" />
@@ -729,9 +715,9 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                     )}
                   </div>
                   {canEdit && (profile.portraitUrl || profile.portraitItemId) && (
-                    <div className="book-tags book-tags-under-cover ft-person-cover-actions" aria-label="Portrait actions">
+                    <div className="book-tags book-tags-under-cover ft-person-cover-actions" aria-label={t("family:person.actions.portraitActionsAria")}>
                       <Button variant="text" compact danger onClick={() => void removePortrait()}>
-                        Remove portrait
+                        {t("family:person.actions.removePortrait")}
                       </Button>
                     </div>
                   )}
@@ -744,28 +730,28 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                   <dl className="book-detail-meta-grid">
                     <div className="book-detail-meta-item">
                       <CalendarDays size={18} aria-hidden="true" />
-                      <dt>Born</dt>
-                      <dd>{profile.birthDate ? formatPartialDate(profile.birthDate) : "Unknown"}</dd>
+                      <dt>{t("family:person.meta.born")}</dt>
+                      <dd>{profile.birthDate ? formatPartialDate(profile.birthDate) : t("family:person.meta.unknown")}</dd>
                     </div>
                     <div className="book-detail-meta-item">
                       <MapPin size={18} aria-hidden="true" />
-                      <dt>Birthplace</dt>
-                      <dd>{profile.birthplace || "Unknown"}</dd>
+                      <dt>{t("family:person.meta.birthplace")}</dt>
+                      <dd>{profile.birthplace || t("family:person.meta.unknown")}</dd>
                     </div>
                     <div className="book-detail-meta-item">
                       <UserRound size={18} aria-hidden="true" />
-                      <dt>Gender</dt>
+                      <dt>{t("family:person.meta.gender")}</dt>
                       <dd>{genderLabel(profile.gender)}</dd>
                     </div>
                     <div className="book-detail-meta-item">
                       <Heart size={18} aria-hidden="true" />
-                      <dt>Relationship</dt>
-                      <dd>{relationSummary(profile, statusLabel)}</dd>
+                      <dt>{t("family:person.meta.relationship")}</dt>
+                      <dd>{relationSummary(profile)}</dd>
                     </div>
                     {profile.tags.length > 0 && (
                       <div className="book-detail-meta-item">
                         <Tags size={18} aria-hidden="true" />
-                        <dt>Family tags</dt>
+                        <dt>{t("family:person.meta.familyTags")}</dt>
                         <dd>
                           <span className="ft-profile-tags">
                             {profile.tags.map((tag) => (
@@ -774,7 +760,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                                 className="book-tag-chip book-tag-chip-tag"
                                 href="/family/people"
                                 onClick={(event) => followRoute(event, "/family/people")}
-                                title={`Show everyone tagged ${tag}`}
+                                title={t("family:person.meta.showTaggedTitle", { tag })}
                               >
                                 {tag}
                               </a>
@@ -790,15 +776,15 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
               </div>
 
               <section className="book-detail-tabs-section ft-person-detail-tabs-section">
-                <nav className="book-detail-tabs" aria-label="Person detail sections">
-                  {PERSON_DETAIL_TABS.map((tab) => (
+                <nav className="book-detail-tabs" aria-label={t("family:person.detailSectionsAria")}>
+                  {PERSON_DETAIL_TAB_IDS.map((tabId) => (
                     <button
-                      key={tab.id}
+                      key={tabId}
                       type="button"
-                      className={activeDetailTab === tab.id ? "active" : ""}
-                      onClick={() => setActiveDetailTab(tab.id)}
+                      className={activeDetailTab === tabId ? "active" : ""}
+                      onClick={() => setActiveDetailTab(tabId)}
                     >
-                      {tab.label}
+                      {personTabLabel(tabId, t)}
                     </button>
                   ))}
                 </nav>
@@ -809,34 +795,34 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                       {canEdit && (
                         <div className="ft-tab-actions">
                           <ActionMenu
-                            label="Add relative"
+                            label={t("family:person.addRelativeMenu.label")}
                             icon={<UserRoundPlus size={15} aria-hidden="true" />}
                             compact
                             items={[
                               {
                                 key: "parent",
-                                label: "Parent",
+                                label: t("family:relationWord.parent.neutral"),
                                 icon: <UsersRound size={15} aria-hidden="true" />,
-                                disabledReason: profile.parents.length >= 2 ? "Both parents are already recorded" : undefined,
+                                disabledReason: profile.parents.length >= 2 ? t("family:person.addRelativeMenu.disabledBothParents") : undefined,
                                 onSelect: () => setParentModal(true)
                               },
                               {
                                 key: "partner",
-                                label: "Partner",
+                                label: t("family:relationWord.partner.neutral"),
                                 icon: <Heart size={15} aria-hidden="true" />,
                                 onSelect: () => setUnionModal(true)
                               },
                               {
                                 key: "child",
-                                label: "Child",
+                                label: t("family:relationWord.child.neutral"),
                                 icon: <Baby size={15} aria-hidden="true" />,
                                 onSelect: () => setChildModal(true)
                               },
                               {
                                 key: "sibling",
-                                label: "Sibling",
+                                label: t("family:relationWord.sibling.neutral"),
                                 icon: <UserRound size={15} aria-hidden="true" />,
-                                disabledReason: parentUnionId ? undefined : "Record a parent first — siblings share parents",
+                                disabledReason: parentUnionId ? undefined : t("family:person.addRelativeMenu.disabledNoParent"),
                                 onSelect: () => setSiblingModal(true)
                               }
                             ]}
@@ -849,10 +835,10 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                           their siblings, which is where a pedigree puts them. */}
                       {hasRelatives ? (
                       <div className="ft-tree">
-                        <FamilyRow title="Grandparents">
+                        <FamilyRow title={t("family:person.relationships.grandparents")}>
                           {family.grandparentGroups.map((group) => (
                             <div className="ft-tree-branch" key={group.parent.id}>
-                              <span className="ft-tree-branch-label">via {group.parent.name}</span>
+                              <span className="ft-tree-branch-label">{t("family:person.relationships.viaParent", { name: group.parent.name })}</span>
                               <div className="ft-tree-branch-cards">
                                 {group.people.map((grandparent) => (
                                   <RelationCard
@@ -865,20 +851,22 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                             </div>
                           ))}
                         </FamilyRow>
-                        <FamilyRow title="Parents">
+                        <FamilyRow title={t("family:person.relationships.parents")}>
                           {profile.parents.map((parent) => (
                             <RelationCard
                               key={parent.id}
                               person={parent}
                               badge={relationWord("parent", parent)}
-                              detail={profile.parentRelation && profile.parentRelation !== "biological" ? profile.parentRelation : undefined}
+                              detail={profile.parentRelation && profile.parentRelation !== "biological" ? childRelationLabel(profile.parentRelation) : undefined}
                             />
                           ))}
                         </FamilyRow>
 
                         <div className={`ft-tree-row ft-tree-self-row${children.length > 0 ? " has-connector" : ""}`}>
                           <h3 className="ft-tree-row-label">
-                            {family.siblings.length > 0 ? "This person, partners and siblings" : "This person"}
+                            {family.siblings.length > 0
+                              ? t("family:person.relationships.selfWithPartnersSiblings")
+                              : t("family:person.relationships.selfOnly")}
                           </h3>
                           <div className="ft-tree-row-cards">
                             {family.siblings.map((sibling) => (
@@ -891,7 +879,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                                 <PersonAvatar person={profile} size={28} />
                                 <span className="ft-relation-card-copy">
                                   <strong>{profile.name}</strong>
-                                  <small>{lifeYears(profile) || "Life dates unknown"}</small>
+                                  <small>{lifeYears(profile) || t("family:common.lifeDatesUnknown")}</small>
                                 </span>
                               </span>
                             </span>
@@ -900,18 +888,18 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                             <RelationCard
                               key={union.id}
                               person={person}
-                              badge={union.status === "married" ? relationWord("partner", person) : "Partner"}
+                              badge={union.status === "married" ? relationWord("partner", person) : t("family:relationWord.partner.neutral")}
                               detail={[
-                                union.id === current?.id ? "Current" : "",
-                                statusLabel(union.status),
+                                union.id === current?.id ? t("family:person.relationships.current") : "",
+                                unionStatusLabel(union.status),
                                 unionDates(union)
                               ].filter(Boolean).join(" · ")}
                               action={canEdit && (
                                 <span className="ft-relation-card-actions">
                                   <Button
                                     variant="icon"
-                                    title={`Edit relationship with ${person.name}`}
-                                    aria-label={`Edit relationship with ${person.name}`}
+                                    title={t("family:person.relationships.editRelationshipAria", { name: person.name })}
+                                    aria-label={t("family:person.relationships.editRelationshipAria", { name: person.name })}
                                     onClick={() => setEditUnion(union)}
                                   >
                                     <Pencil size={13} aria-hidden="true" />
@@ -920,8 +908,8 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                                     <Button
                                       variant="icon"
                                       danger
-                                      title="Remove this union"
-                                      aria-label="Remove this union"
+                                      title={t("family:person.relationships.removeUnionAria")}
+                                      aria-label={t("family:person.relationships.removeUnionAria")}
                                       onClick={() => setRemoveUnionId(union.id)}
                                     >
                                       <X size={14} aria-hidden="true" />
@@ -934,20 +922,20 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                           </div>
                         </div>
 
-                        <FamilyRow title="Children" connector={false}>
+                        <FamilyRow title={t("family:person.relationships.children")} connector={false}>
                           {children.map(({ union, child }) => (
                             <RelationCard
                               key={`${union.id}-${child.id}`}
                               person={child}
                               badge={relationWord("child", child)}
-                              detail={child.relation !== "biological" ? child.relation : undefined}
+                              detail={child.relation !== "biological" ? childRelationLabel(child.relation) : undefined}
                               action={isAdmin && (
                                 <span className="ft-relation-card-actions">
                                   <Button
                                     variant="icon"
                                     danger
-                                    title={`Remove ${child.name} from this family`}
-                                    aria-label={`Remove ${child.name} from this family`}
+                                    title={t("family:person.relationships.removeChildAria", { name: child.name })}
+                                    aria-label={t("family:person.relationships.removeChildAria", { name: child.name })}
                                     onClick={() => void removeChildLink(union.id, child.id)}
                                   >
                                     <X size={14} aria-hidden="true" />
@@ -960,7 +948,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                       </div>
                       ) : (
                         <p className="ft-relation-empty">
-                          No relatives recorded yet.{canEdit ? " Use Add relative above to start." : ""}
+                          {t("family:person.relationships.emptyBase")}{canEdit ? t("family:person.relationships.emptyHint") : ""}
                         </p>
                       )}
                     </section>
@@ -972,7 +960,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                         <div className="ft-tab-actions">
                           <Button variant="secondary" compact onClick={() => setEventModal(null)}>
                             <CalendarPlus size={15} aria-hidden="true" />
-                            Add event
+                            {t("family:person.timeline.addEventButton")}
                           </Button>
                         </div>
                       )}
@@ -980,7 +968,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                       {entries.length === 0 ? (
                         <div className="ft-empty-panel">
                           <CalendarDays size={22} aria-hidden="true" />
-                          <strong>No events yet</strong>
+                          <strong>{t("family:person.timeline.noEventsYetTitle")}</strong>
                         </div>
                       ) : (
                         <ol className="ft-timeline">
@@ -1007,7 +995,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                                             return next;
                                           })}
                                         >
-                                          {open ? "Less" : "More"}
+                                          {open ? t("family:person.timeline.less") : t("family:person.timeline.more")}
                                         </button>
                                       )}
                                     </>
@@ -1044,7 +1032,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                                       )}
                                       {open && all.length > EVENT_PHOTO_PREVIEW && (
                                         <button type="button" className="ft-timeline-photo ft-timeline-photo-more" onClick={toggle}>
-                                          Less
+                                          {t("family:person.timeline.less")}
                                         </button>
                                       )}
                                     </span>
@@ -1055,8 +1043,8 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                                 <span className="ft-timeline-actions">
                                   <Button
                                     variant="icon"
-                                    title="Edit event"
-                                    aria-label={`Edit ${entry.title}`}
+                                    title={t("family:person.timeline.editEventTitle")}
+                                    aria-label={t("family:person.timeline.editEventAria", { title: entry.title })}
                                     onClick={() => setEventModal(entry.event)}
                                   >
                                     <Pencil size={14} aria-hidden="true" />
@@ -1064,8 +1052,8 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                                   <Button
                                     variant="icon"
                                     danger
-                                    title="Delete event"
-                                    aria-label={`Delete ${entry.title}`}
+                                    title={t("family:person.timeline.deleteEventTitle")}
+                                    aria-label={t("family:person.timeline.deleteEventAria", { title: entry.title })}
                                     onClick={() => setRemoveEvent(entry.event)}
                                   >
                                     <Trash2 size={14} aria-hidden="true" />
@@ -1086,12 +1074,14 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                           {isAdmin && (
                             <Button variant="secondary" compact onClick={() => setLinkModal(true)}>
                               <Link2 size={15} aria-hidden="true" />
-                              {profile.galleryPerson ? `Linked: ${profile.galleryPerson.name || "Unnamed"}` : "Link gallery person"}
+                              {profile.galleryPerson
+                                ? t("family:person.photosTab.linkedGalleryPerson", { name: profile.galleryPerson.name || t("family:galleryLink.unnamed") })
+                                : t("family:person.photosTab.linkGalleryPerson")}
                             </Button>
                           )}
                           <Button variant="primary" compact onClick={() => setPhotoPicker(true)}>
                             <ImagePlus size={15} aria-hidden="true" />
-                            Add photos
+                            {t("family:common.addPhotos")}
                           </Button>
                         </div>
                       )}
@@ -1099,7 +1089,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                       {photos.length === 0 ? (
                         <div className="ft-empty-panel">
                           <ImagePlus size={22} aria-hidden="true" />
-                          <strong>No photos yet</strong>
+                          <strong>{t("family:person.photosTab.noPhotosYetTitle")}</strong>
                         </div>
                       ) : (
                         <div className="gallery-grid ft-photo-grid">
@@ -1113,7 +1103,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                               >
                                 {photo.coverUrl && <img src={photo.coverUrl} alt={photo.title} loading="lazy" style={faceFocusStyle(photo)} />}
                                 {photo.kind === "video" && (
-                                  <span className="gallery-video-badge"><Play size={11} aria-hidden="true" />Video</span>
+                                  <span className="gallery-video-badge"><Play size={11} aria-hidden="true" />{t("family:common.video")}</span>
                                 )}
                               </button>
                               {canEdit && photo.attached && (
@@ -1121,8 +1111,8 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                                   variant="icon"
                                   danger
                                   className="ft-photo-remove"
-                                  title="Remove from this person"
-                                  aria-label="Remove from this person"
+                                  title={t("family:person.photosTab.removeFromPersonAria")}
+                                  aria-label={t("family:person.photosTab.removeFromPersonAria")}
                                   onClick={() => void detachPhoto(photo.id)}
                                 >
                                   <X size={14} aria-hidden="true" />
@@ -1140,7 +1130,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                           onClick={(event) => followRoute(event, `/family/people/${profile.id}/photos`)}
                         >
                           <Images size={16} aria-hidden="true" />
-                          View all {photoTotal} photos
+                          {t("family:person.photosTab.viewAllPhotos", { count: photoTotal })}
                         </a>
                       )}
                     </section>
@@ -1152,7 +1142,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                         <div className="ft-tab-actions">
                           <Button variant="secondary" compact onClick={() => setCitationModal(null)}>
                             <BookMarked size={15} aria-hidden="true" />
-                            Add source
+                            {t("family:person.sourcesTab.addSourceButton")}
                           </Button>
                         </div>
                       )}
@@ -1160,7 +1150,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                       {profile.citations.length === 0 ? (
                         <div className="ft-empty-panel">
                           <BookMarked size={22} aria-hidden="true" />
-                          <strong>No sources yet</strong>
+                          <strong>{t("family:citation.noSourcesTitle")}</strong>
                         </div>
                       ) : (
                         <ul className="ft-citations">
@@ -1185,8 +1175,8 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                                   <span className="ft-timeline-actions">
                                     <Button
                                       variant="icon"
-                                      title="Edit citation"
-                                      aria-label={`Edit citation of ${citation.sourceTitle}`}
+                                      title={t("family:citation.titleEdit")}
+                                      aria-label={t("family:person.sourcesTab.editCitationAria", { title: citation.sourceTitle })}
                                       onClick={() => setCitationModal(citation)}
                                     >
                                       <Pencil size={14} aria-hidden="true" />
@@ -1194,8 +1184,8 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                                     <Button
                                       variant="icon"
                                       danger
-                                      title="Remove citation"
-                                      aria-label={`Remove citation of ${citation.sourceTitle}`}
+                                      title={t("family:person.sourcesTab.removeCitationTitle")}
+                                      aria-label={t("family:person.sourcesTab.removeCitationAria", { title: citation.sourceTitle })}
                                       onClick={() => setRemoveCitation(citation)}
                                     >
                                       <Trash2 size={14} aria-hidden="true" />
@@ -1216,7 +1206,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                         <div className="ft-tab-actions">
                           <Button variant="secondary" compact onClick={() => setEditOpen(true)}>
                             <FileText size={15} aria-hidden="true" />
-                            Edit notes
+                            {t("family:person.biographyTab.editNotesButton")}
                           </Button>
                         </div>
                       )}
@@ -1226,7 +1216,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                       ) : (
                         <div className="ft-empty-panel">
                           <FileText size={22} aria-hidden="true" />
-                          <strong>No biography yet</strong>
+                          <strong>{t("family:person.biographyTab.noBiographyYetTitle")}</strong>
                         </div>
                       )}
                     </section>
@@ -1258,28 +1248,27 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
       )}
       {deleteOpen && profile && (
         <ConfirmDialog
-          title={`Delete "${profile.name}"?`}
-          confirmLabel="Delete person"
-          busyLabel="Deleting…"
+          title={t("family:person.dialogs.deleteTitle", { name: profile.name })}
+          confirmLabel={t("family:person.dialogs.deleteConfirmLabel")}
+          busyLabel={t("family:person.dialogs.deleteBusyLabel")}
           danger
           busy={deleting}
           error={deleteError}
           onConfirm={() => void deletePerson()}
           onCancel={() => setDeleteOpen(false)}
         >
-          This removes {profile.name} from the family tree. Their relatives, children, and gallery photos are kept —
-          a remaining partner keeps their children.
+          {t("family:person.dialogs.deleteBody", { name: profile.name })}
         </ConfirmDialog>
       )}
       {removeUnionId && (
         <ConfirmDialog
-          title="Remove this union?"
-          confirmLabel="Remove union"
+          title={t("family:person.dialogs.removeUnionTitle")}
+          confirmLabel={t("family:person.dialogs.removeUnionConfirmLabel")}
           danger
           onConfirm={() => void removeUnion()}
           onCancel={() => setRemoveUnionId(null)}
         >
-          The partnership and its children links are removed. No people or photos are deleted.
+          {t("family:person.dialogs.removeUnionBody")}
         </ConfirmDialog>
       )}
       {eventModal !== false && profile && (
@@ -1294,13 +1283,13 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
       )}
       {removeEvent && (
         <ConfirmDialog
-          title={`Delete "${removeEvent.label || eventTypeLabel(removeEvent.type)}"?`}
-          confirmLabel="Delete event"
+          title={t("family:person.dialogs.deleteEventTitle", { title: removeEvent.label || eventTypeLabel(removeEvent.type) })}
+          confirmLabel={t("family:person.dialogs.deleteEventConfirmLabel")}
           danger
           onConfirm={() => void deleteEvent()}
           onCancel={() => setRemoveEvent(null)}
         >
-          This removes the event from the timeline. Nothing else is affected.
+          {t("family:person.dialogs.deleteEventBody")}
         </ConfirmDialog>
       )}
       {citationModal !== false && profile && (
@@ -1314,13 +1303,13 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
       )}
       {removeCitation && (
         <ConfirmDialog
-          title={`Remove citation of "${removeCitation.sourceTitle}"?`}
-          confirmLabel="Remove citation"
+          title={t("family:person.dialogs.removeCitationTitle", { title: removeCitation.sourceTitle })}
+          confirmLabel={t("family:person.dialogs.removeCitationConfirmLabel")}
           danger
           onConfirm={() => void deleteCitation()}
           onCancel={() => setRemoveCitation(null)}
         >
-          The citation is removed from this fact. The source itself stays available for other citations.
+          {t("family:person.dialogs.removeCitationBody")}
         </ConfirmDialog>
       )}
       {unionModal && profile && (
@@ -1364,7 +1353,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
       )}
       {portraitPicker && profile && (
         <PhotoPicker
-          title={`Portrait for ${profile.name}`}
+          title={t("family:person.portraitPickerTitle", { name: profile.name })}
           pick="any"
           facePerson={profile.galleryPerson}
           uploadTo={uploadTo}
@@ -1374,7 +1363,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
       )}
       {photoPicker && profile && (
         <PhotoPicker
-          title={`Add photos of ${profile.name}`}
+          title={t("family:person.addPhotosOfTitle", { name: profile.name })}
           existingIds={photos.filter((p) => p.attached).map((p) => p.id)}
           facePerson={profile.galleryPerson}
           uploadTo={uploadTo}

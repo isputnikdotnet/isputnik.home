@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Settings, UserRoundPlus } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { followRoute, navigate } from "../../router";
@@ -17,6 +18,7 @@ import { lifeYears, type FamilyPerson, type FamilyTreeAccess } from "./types";
 // beside the chart. Cards open the profile. Tags (family branches) act as a
 // filter here and, for admins, as the edit-permission scope (Branch access).
 export function FamilyPeoplePage({ user, logout }: { user: PublicUser; logout: () => Promise<void> }) {
+  const { t } = useTranslation(["common", "family"]);
   const [persons, setPersons] = useState<FamilyPerson[]>([]);
   const [access, setAccess] = useState<FamilyTreeAccess | null>(null);
   const [search, setSearch] = useState("");
@@ -29,8 +31,8 @@ export function FamilyPeoplePage({ user, logout }: { user: PublicUser; logout: (
   useEffect(() => {
     api<{ persons: FamilyPerson[]; access: FamilyTreeAccess }>("/api/family-tree/persons")
       .then((payload) => { setPersons(payload.persons); setAccess(payload.access); })
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load family members"));
-  }, []);
+      .catch((err) => setError(err instanceof Error ? err.message : t("family:people.errors.loadPersons")));
+  }, [t]);
 
   // Tag filter chips come from the loaded persons, so counts match the grid.
   const tagCounts = useMemo(() => {
@@ -58,17 +60,17 @@ export function FamilyPeoplePage({ user, logout }: { user: PublicUser; logout: (
             links that used to sit here — and the "Back to the tree" above them —
             are gone; the header carries only what acts on this page. */}
         <LibraryPageHeader
-          title="People"
-          subtitle={`${shown.length} ${shown.length === 1 ? "person" : "people"}`}
+          title={t("family:people.title")}
+          subtitle={t("family:common.counts.person", { count: shown.length })}
           search={search}
           onSearchChange={setSearch}
-          searchPlaceholder="Search family members..."
+          searchPlaceholder={t("family:people.searchPlaceholder")}
           actions={isAdmin && (
             <Button
               variant="icon"
               className="audiobook-page-action-icon"
-              aria-label="Family tree settings"
-              title="Family tree settings"
+              aria-label={t("family:treeSettings.title")}
+              title={t("family:treeSettings.title")}
               onClick={() => setAccessOpen(true)}
             >
               <Settings size={18} aria-hidden="true" />
@@ -77,15 +79,15 @@ export function FamilyPeoplePage({ user, logout }: { user: PublicUser; logout: (
           primaryAction={access?.canAdd && (
             <Button variant="primary" onClick={() => setAddOpen(true)}>
               <UserRoundPlus size={16} aria-hidden="true" />
-              <span>Add person</span>
+              <span>{t("family:common.addPerson")}</span>
             </Button>
           )}
         />
 
-        {error && <MessageBox tone="error" title="Unable to load family members">{error}</MessageBox>}
+        {error && <MessageBox tone="error" title={t("family:people.errorTitle")}>{error}</MessageBox>}
 
         {tagCounts.length > 0 && (
-          <div className="ft-tag-filter" role="group" aria-label="Filter by family tag">
+          <div className="ft-tag-filter" role="group" aria-label={t("family:people.filterByTagAria")}>
             {tagCounts.map(([tag, count]) => (
               <button
                 key={tag}
@@ -105,9 +107,9 @@ export function FamilyPeoplePage({ user, logout }: { user: PublicUser; logout: (
           <p className="management-empty">
             {persons.length === 0
               ? access?.canAdd
-                ? "No family members yet. Add the first person to start the tree."
-                : "No family members yet."
-              : "No one matches your search."}
+                ? t("family:people.emptyNoneCanAdd")
+                : t("family:people.emptyNoneCannotAdd")
+              : t("family:people.emptyNoMatches")}
           </p>
         ) : (
           <div className="ft-people-grid">
@@ -121,7 +123,7 @@ export function FamilyPeoplePage({ user, logout }: { user: PublicUser; logout: (
                 <PersonAvatar person={person} size={64} />
                 <strong>{person.name}</strong>
                 <small>
-                  {[person.maidenName ? `née ${person.maidenName}` : "", lifeYears(person)]
+                  {[person.maidenName ? t("family:common.nee", { name: person.maidenName }) : "", lifeYears(person)]
                     .filter(Boolean)
                     .join(" · ") || " "}
                 </small>

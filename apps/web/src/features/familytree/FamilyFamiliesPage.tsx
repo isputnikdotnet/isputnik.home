@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
@@ -34,6 +35,7 @@ function birthYear(person: FamilyPerson): number {
 // person. Choosing a family focuses the chart on that family's oldest member —
 // from there the usual pan/click navigation takes over.
 export function FamilyFamiliesPage({ user, logout }: { user: PublicUser; logout: () => Promise<void> }) {
+  const { t } = useTranslation(["common", "family"]);
   const [persons, setPersons] = useState<FamilyPerson[]>([]);
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
@@ -41,8 +43,8 @@ export function FamilyFamiliesPage({ user, logout }: { user: PublicUser; logout:
   useEffect(() => {
     api<{ persons: FamilyPerson[] }>("/api/family-tree/persons")
       .then((payload) => setPersons(payload.persons))
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load family members"));
-  }, []);
+      .catch((err) => setError(err instanceof Error ? err.message : t("family:families.errors.loadPersons")));
+  }, [t]);
 
   const families = useMemo<FamilyGroup[]>(() => {
     const bySurname = new Map<string, FamilyPerson[]>();
@@ -76,20 +78,20 @@ export function FamilyFamiliesPage({ user, logout }: { user: PublicUser; logout:
     <DashboardShell active="family" user={user} logout={logout} sideNav={<SectionNav {...familyNavProps("families")} />}>
       <section className="audiobook-main-page">
         <LibraryPageHeader
-          title="Families"
-          subtitle={`${shown.length} ${shown.length === 1 ? "family name" : "family names"} · ${persons.length} ${persons.length === 1 ? "person" : "people"}`}
+          title={t("family:families.title")}
+          subtitle={`${t("family:common.counts.familyName", { count: shown.length })} · ${t("family:common.counts.person", { count: persons.length })}`}
           search={search}
           onSearchChange={setSearch}
-          searchPlaceholder="Search family names..."
+          searchPlaceholder={t("family:families.searchPlaceholder")}
         />
 
-        {error && <MessageBox tone="error" title="Unable to load families">{error}</MessageBox>}
+        {error && <MessageBox tone="error" title={t("family:families.errorTitle")}>{error}</MessageBox>}
 
         {shown.length === 0 ? (
           <p className="management-empty">
             {families.length === 0
-              ? "No family members yet — once people are added, their family names appear here."
-              : "No family name matches your search."}
+              ? t("family:families.emptyNoFamilies")
+              : t("family:families.emptyNoMatches")}
           </p>
         ) : (
           <div className="ft-family-name-grid">
@@ -107,11 +109,11 @@ export function FamilyFamiliesPage({ user, logout }: { user: PublicUser; logout:
                 </span>
                 <strong>{family.surname}</strong>
                 <small>
-                  {family.members.length} {family.members.length === 1 ? "person" : "people"}
+                  {t("family:common.counts.person", { count: family.members.length })}
                   {family.span && ` · ${family.span}`}
                 </small>
                 <small className="ft-family-name-anchor">
-                  Opens on {family.anchor.name}
+                  {t("family:families.opensOn", { name: family.anchor.name })}
                   {lifeYears(family.anchor) && ` (${lifeYears(family.anchor)})`}
                 </small>
               </button>

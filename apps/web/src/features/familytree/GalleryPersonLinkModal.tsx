@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link2, Link2Off, Search, UserRound } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { api } from "../../api";
 import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
@@ -24,6 +25,7 @@ export function GalleryPersonLinkModal({
   onClose: () => void;
   onUpdated: (person: FamilyPerson) => void;
 }) {
+  const { t } = useTranslation(["common", "family"]);
   const [people, setPeople] = useState<GalleryPersonRow[]>([]);
   const [search, setSearch] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -32,8 +34,8 @@ export function GalleryPersonLinkModal({
   useEffect(() => {
     api<{ people: GalleryPersonRow[] }>("/api/library/gallery/people")
       .then((payload) => setPeople(payload.people))
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load gallery people"));
-  }, []);
+      .catch((err) => setError(err instanceof Error ? err.message : t("family:galleryLink.errors.loadPeople")));
+  }, [t]);
 
   const setLink = async (galleryPersonId: string | null) => {
     setBusyId(galleryPersonId ?? "unlink");
@@ -45,7 +47,7 @@ export function GalleryPersonLinkModal({
       });
       onUpdated(payload.person);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to update the link");
+      setError(err instanceof Error ? err.message : t("family:galleryLink.errors.updateLink"));
       setBusyId(null);
     }
   };
@@ -56,23 +58,23 @@ export function GalleryPersonLinkModal({
   return (
     <Modal
       variant="card"
-      title={`Link ${person.name} to a gallery person`}
+      title={t("family:galleryLink.modalTitle", { name: person.name })}
       icon={<Link2 size={18} />}
       className="ft-modal ft-picker-modal"
       busy={busyId != null}
       onClose={onClose}
     >
-      {error && <MessageBox tone="error" title="Unable to update">{error}</MessageBox>}
+      {error && <MessageBox tone="error" title={t("family:galleryLink.errors.updateTitle")}>{error}</MessageBox>}
       <p className="ft-modal-hint">
-        Photos where the linked gallery person is tagged (or recognised) will appear on this profile automatically.
+        {t("family:galleryLink.hint")}
       </p>
       <label className="ft-picker-search">
         <Search size={17} aria-hidden="true" />
-        <span className="sr-only">Search gallery people</span>
+        <span className="sr-only">{t("family:galleryLink.searchAria")}</span>
         <input
           type="search"
           value={search}
-          placeholder="Search gallery people…"
+          placeholder={t("family:galleryLink.searchPlaceholder")}
           onChange={(event) => setSearch(event.target.value)}
           autoFocus
         />
@@ -93,14 +95,14 @@ export function GalleryPersonLinkModal({
                 {row.coverUrl ? <img src={row.coverUrl} alt="" loading="lazy" /> : <UserRound size={20} />}
               </span>
               <span className="ft-picker-row-name">
-                <strong>{row.name || "Unnamed"}</strong>
-                <small>{isLinked ? "Linked" : `${row.faceCount} ${row.faceCount === 1 ? "photo" : "photos"}`}</small>
+                <strong>{row.name || t("family:galleryLink.unnamed")}</strong>
+                <small>{isLinked ? t("family:galleryLink.linked") : t("family:common.counts.photo", { count: row.faceCount })}</small>
               </span>
             </button>
           );
         })}
         {shown.length === 0 && (
-          <p className="management-empty">{people.length === 0 ? "No gallery people yet — tag someone in the gallery first." : "No one matches."}</p>
+          <p className="management-empty">{people.length === 0 ? t("family:galleryLink.noGalleryPeopleYet") : t("family:common.noOneMatches")}</p>
         )}
       </div>
 
@@ -108,10 +110,10 @@ export function GalleryPersonLinkModal({
         {person.galleryPersonId && (
           <Button variant="secondary" danger onClick={() => void setLink(null)} disabled={busyId != null}>
             <Link2Off size={16} aria-hidden="true" />
-            {busyId === "unlink" ? "Unlinking…" : "Unlink"}
+            {busyId === "unlink" ? t("family:galleryLink.unlinkingButton") : t("family:galleryLink.unlinkButton")}
           </Button>
         )}
-        <Button variant="secondary" onClick={onClose} disabled={busyId != null}>Close</Button>
+        <Button variant="secondary" onClick={onClose} disabled={busyId != null}>{t("common.close")}</Button>
       </div>
     </Modal>
   );

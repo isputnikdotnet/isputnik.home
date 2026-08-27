@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { FileUp } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { api } from "../../api";
 import { Button } from "../../shared/Button";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
@@ -28,6 +29,7 @@ export function GedcomImportModal({
   onClose: () => void;
   onImported: () => void;
 }) {
+  const { t } = useTranslation(["common", "family"]);
   const [file, setFile] = useState<File | null>(null);
   const [mode, setMode] = useState<"add" | "replace">("add");
   const [busy, setBusy] = useState(false);
@@ -47,34 +49,42 @@ export function GedcomImportModal({
         body: JSON.stringify({ gedcom, mode })
       }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Import failed");
+      setError(err instanceof Error ? err.message : t("family:gedcom.errors.default"));
     } finally {
       setBusy(false);
     }
   };
 
   if (result) {
+    const removedClause = result.personsRemoved > 0
+      ? t("family:gedcom.result.removedClause", { count: result.personsRemoved })
+      : "";
+    const sourcesClause = (result.sourcesCreated > 0 || result.citationsCreated > 0)
+      ? t("family:gedcom.result.sourcesClauseTemplate", {
+          sources: t("family:gedcom.result.sourceCount", { count: result.sourcesCreated }),
+          citations: t("family:gedcom.result.citationCount", { count: result.citationsCreated })
+        })
+      : "";
     return (
-      <Modal variant="card" title="Import complete" onClose={onImported}>
-        <MessageBox tone="success" title={`Added ${result.personsCreated} ${result.personsCreated === 1 ? "person" : "people"}`}>
-          {result.unionsCreated} {result.unionsCreated === 1 ? "family" : "families"},{" "}
-          {result.childrenLinked} parent–child {result.childrenLinked === 1 ? "link" : "links"}, and{" "}
-          {result.eventsCreated} life {result.eventsCreated === 1 ? "event" : "events"} were created
-          {result.personsRemoved > 0 && <>; {result.personsRemoved} previous {result.personsRemoved === 1 ? "person" : "people"} were replaced</>}.
-          {(result.sourcesCreated > 0 || result.citationsCreated > 0) && (
-            <> {result.sourcesCreated} {result.sourcesCreated === 1 ? "source" : "sources"} and{" "}
-            {result.citationsCreated} {result.citationsCreated === 1 ? "citation" : "citations"} came along.</>
-          )}
+      <Modal variant="card" title={t("family:gedcom.importCompleteTitle")} onClose={onImported}>
+        <MessageBox tone="success" title={t("family:gedcom.result.addedTitle", { count: result.personsCreated })}>
+          {t("family:gedcom.result.bodyTemplate", {
+            families: t("family:gedcom.result.familyCount", { count: result.unionsCreated }),
+            links: t("family:gedcom.result.linkCount", { count: result.childrenLinked }),
+            events: t("family:gedcom.result.eventCount", { count: result.eventsCreated }),
+            removedClause
+          })}
+          {sourcesClause}
         </MessageBox>
         {result.warnings.length > 0 && (
-          <MessageBox tone="warning" title={`${result.warnings.length} ${result.warnings.length === 1 ? "entry" : "entries"} needed attention`}>
+          <MessageBox tone="warning" title={t("family:gedcom.result.warningsTitle", { count: result.warnings.length })}>
             <ul className="ft-import-warnings">
               {result.warnings.map((warning, index) => <li key={index}>{warning}</li>)}
             </ul>
           </MessageBox>
         )}
         <div className="modal-actions">
-          <Button variant="primary" onClick={onImported}>Done</Button>
+          <Button variant="primary" onClick={onImported}>{t("common.done")}</Button>
         </div>
       </Modal>
     );
@@ -84,7 +94,7 @@ export function GedcomImportModal({
     <>
       <Modal
         variant="card"
-        title="Import GEDCOM"
+        title={t("family:gedcom.importTitle")}
         busy={busy}
         onClose={onClose}
         onSubmit={(event) => {
@@ -95,11 +105,10 @@ export function GedcomImportModal({
         }}
       >
         <p>
-          Import a family tree from a GEDCOM (.ged) file — the format Ancestry, MyHeritage,
-          FamilySearch, and Gramps export.
+          {t("family:gedcom.introText")}
         </p>
         <label className="field">
-          <span>GEDCOM file</span>
+          <span>{t("family:gedcom.fileFieldLabel")}</span>
           <input
             type="file"
             accept=".ged,.gedcom"
@@ -109,7 +118,7 @@ export function GedcomImportModal({
         </label>
         {personCount > 0 && (
           <fieldset className="ft-import-mode">
-            <legend className="sr-only">What to do with the current tree</legend>
+            <legend className="sr-only">{t("family:gedcom.modeLegendSr")}</legend>
             <label className="ft-radio">
               <input
                 type="radio"
@@ -118,7 +127,7 @@ export function GedcomImportModal({
                 onChange={() => setMode("add")}
                 disabled={busy}
               />
-              <span>Add to the current tree ({personCount} {personCount === 1 ? "person" : "people"} kept)</span>
+              <span>{t("family:gedcom.modeAdd", { count: personCount })}</span>
             </label>
             <label className="ft-radio">
               <input
@@ -128,33 +137,31 @@ export function GedcomImportModal({
                 onChange={() => setMode("replace")}
                 disabled={busy}
               />
-              <span>Replace the current tree</span>
+              <span>{t("family:gedcom.modeReplaceLabel")}</span>
             </label>
           </fieldset>
         )}
-        {error && <MessageBox tone="error" title="Unable to import">{error}</MessageBox>}
+        {error && <MessageBox tone="error" title={t("family:gedcom.errors.title")}>{error}</MessageBox>}
         <div className="modal-actions">
-          <Button variant="secondary" onClick={onClose} disabled={busy}>Cancel</Button>
+          <Button variant="secondary" onClick={onClose} disabled={busy}>{t("common.cancel")}</Button>
           <Button variant="primary" type="submit" disabled={!file || busy}>
             <FileUp size={16} aria-hidden="true" />
-            {busy ? "Importing…" : "Import"}
+            {busy ? t("family:gedcom.submitBusy") : t("family:gedcom.submit")}
           </Button>
         </div>
       </Modal>
 
       {confirming && (
         <ConfirmDialog
-          title="Replace the family tree?"
-          confirmLabel="Replace and import"
-          busyLabel="Importing…"
+          title={t("family:gedcom.confirmReplaceTitle")}
+          confirmLabel={t("family:gedcom.confirmReplaceLabel")}
+          busyLabel={t("family:gedcom.submitBusy")}
           danger
           busy={busy}
           onConfirm={() => void runImport()}
           onCancel={() => setConfirming(false)}
         >
-          All {personCount} current {personCount === 1 ? "person" : "people"}, their relationships,
-          portraits, and photo attachments will be deleted before importing. Gallery photos and
-          face clusters themselves are not affected.
+          {t("family:gedcom.confirmReplaceBody", { count: personCount })}
         </ConfirmDialog>
       )}
     </>

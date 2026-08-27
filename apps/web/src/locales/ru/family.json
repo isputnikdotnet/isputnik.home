@@ -1,1 +1,602 @@
-{}
+{
+  "options": {
+    "gender": { "female": "Женский", "male": "Мужской", "other": "Другой", "unknown": "Не указан" },
+    "unionStatus": { "married": "В браке", "partners": "Партнёры", "divorced": "В разводе", "widowed": "Вдовец/вдова", "unknown": "Неизвестно" },
+    "eventType": {
+      "award": "Награда",
+      "baptism": "Крещение",
+      "burial": "Похороны",
+      "education": "Образование",
+      "emigration": "Эмиграция",
+      "graduation": "Окончание учёбы",
+      "immigration": "Иммиграция",
+      "military": "Военная служба",
+      "naturalization": "Натурализация",
+      "residence": "Проживание",
+      "retirement": "Выход на пенсию",
+      "travel": "Поездка",
+      "occupation": "Работа",
+      "custom": "Другое событие"
+    },
+    "childRelation": { "biological": "Родной", "adopted": "Приёмный", "step": "Сводный", "foster": "Опекаемый", "unknown": "Неизвестно" }
+  },
+  "eventLabelHints": {
+    "education": "Школа или университет",
+    "graduation": "Школа или университет",
+    "occupation": "Должность или работодатель",
+    "retirement": "например, вышел на пенсию с железной дороги",
+    "residence": "например, дом семьи",
+    "military": "Часть или род войск",
+    "immigration": "например, прибыл на корабле",
+    "emigration": "например, уехал на заработки",
+    "naturalization": "например, получил гражданство",
+    "travel": "например, поездка в Италию",
+    "award": "Медаль или награда",
+    "baptism": "Церковь или приход",
+    "burial": "Кладбище",
+    "custom": "Что произошло"
+  },
+  "childNoun": {
+    "plain": { "male": "сын", "female": "дочь", "neutral": "ребёнок" },
+    "step": { "male": "пасынок", "female": "падчерица", "neutral": "приёмный ребёнок" },
+    "adopted": { "male": "приёмный сын", "female": "приёмная дочь", "neutral": "приёмный ребёнок" },
+    "foster": { "male": "воспитанник", "female": "воспитанница", "neutral": "воспитанник" }
+  },
+  "relationWord": {
+    "parent": { "male": "Отец", "female": "Мать", "neutral": "Родитель" },
+    "sibling": { "male": "Брат", "female": "Сестра", "neutral": "Брат/сестра" },
+    "grandparent": { "male": "Дедушка", "female": "Бабушка", "neutral": "Дедушка/бабушка" },
+    "child": { "male": "Сын", "female": "Дочь", "neutral": "Ребёнок" },
+    "partner": { "male": "Муж", "female": "Жена", "neutral": "Партнёр" }
+  },
+  "common": {
+    "unableToAdd": "Не удалось добавить",
+    "unableToLoad": "Не удалось загрузить",
+    "saveChanges": "Сохранить",
+    "saving": "Сохранение…",
+    "adding": "Добавление…",
+    "relation": "Родство",
+    "status": "Статус",
+    "notes": "Заметки",
+    "nee": "урожд. {{name}}",
+    "addPerson": "Добавить человека",
+    "editPerson": "Редактировать человека",
+    "addPhotos": "Добавить фото",
+    "video": "Видео",
+    "lifeDatesUnknown": "Даты жизни неизвестны",
+    "noOneMatches": "Никто не найден.",
+    "back": "Назад",
+    "counts": {
+      "person_one": "{{count}} человек",
+      "person_few": "{{count}} человека",
+      "person_many": "{{count}} человек",
+      "person_other": "{{count}} человека",
+      "familyName_one": "{{count}} фамилия",
+      "familyName_few": "{{count}} фамилии",
+      "familyName_many": "{{count}} фамилий",
+      "familyName_other": "{{count}} фамилии",
+      "photo_one": "{{count}} фото",
+      "photo_few": "{{count}} фото",
+      "photo_many": "{{count}} фото",
+      "photo_other": "{{count}} фото",
+      "source_one": "{{count}} источник",
+      "source_few": "{{count}} источника",
+      "source_many": "{{count}} источников",
+      "source_other": "{{count}} источника",
+      "citation_one": "{{count}} ссылка",
+      "citation_few": "{{count}} ссылки",
+      "citation_many": "{{count}} ссылок",
+      "citation_other": "{{count}} ссылки",
+      "family_one": "{{count}} семья",
+      "family_few": "{{count}} семьи",
+      "family_many": "{{count}} семей",
+      "family_other": "{{count}} семьи"
+    }
+  },
+  "personPicker": {
+    "searchSr": "Поиск людей",
+    "searchPlaceholder": "Поиск людей…",
+    "noPeopleYet": "Пока нет членов семьи.",
+    "orAddNew": "Или добавьте нового",
+    "fullNamePlaceholder": "Полное имя",
+    "creating": "Создание…",
+    "create": "Создать",
+    "errors": {
+      "loadPeople": "Не удалось загрузить людей",
+      "createPerson": "Не удалось создать этого человека"
+    }
+  },
+  "personEdit": {
+    "titleEdit": "Редактировать: {{name}}",
+    "titleAdd": "Добавить члена семьи",
+    "tabDetails": "Основное",
+    "tabNotes": "Биография / заметки",
+    "tabTags": "Теги",
+    "fieldName": "Имя",
+    "fieldMaidenName": "Девичья фамилия",
+    "fieldDeathPlace": "Место смерти",
+    "tagsPlaceholder": "Добавьте семейный тег (например, фамилию)…",
+    "tagsHint": "Теги группируют людей по ветвям семьи и определяют права редактирования (см. «Доступ к ветви»).",
+    "errors": {
+      "default": "Не удалось сохранить этого человека"
+    }
+  },
+  "addChild": {
+    "pickerTitle": "Ребёнок: {{name}}",
+    "modalTitle": "Добавить ребёнка: {{name}}",
+    "chooseChild": "Выбрать ребёнка…",
+    "changeChild": "Изменить ребёнка",
+    "familyFieldLabel": "Семья",
+    "unionOptionWithPartner": "С «{{name}}»",
+    "unionOptionJust": "Только «{{name}}»",
+    "unionOptionJustSingleParent": "Только «{{name}}» (родитель-одиночка)",
+    "submit": "Добавить ребёнка",
+    "errors": {
+      "default": "Не удалось добавить ребёнка"
+    }
+  },
+  "addParent": {
+    "pickerTitle": "Родитель: {{name}}",
+    "modalTitleAddOther": "Добавить второго родителя: {{name}}",
+    "modalTitleAdd": "Добавить родителя: {{name}}",
+    "chooseParent": "Выбрать родителя…",
+    "changeParent": "Изменить родителя",
+    "joinHint": "Присоединяется к семье «{{name}}» — братья и сёстры в ней тоже получат этого родителя.",
+    "submit": "Добавить родителя",
+    "errors": {
+      "default": "Не удалось добавить родителя"
+    }
+  },
+  "addSibling": {
+    "pickerTitle": "Брат или сестра: {{name}}",
+    "modalTitle": "Добавить брата или сестру: {{name}}",
+    "chooseSibling": "Выбрать брата или сестру…",
+    "changeSibling": "Изменить",
+    "addedAsChildOf": "Добавляется как ребёнок {{parents}}.",
+    "sameParentsFallback": "тех же родителей",
+    "relationToParents": "Родство с родителями",
+    "submit": "Добавить",
+    "errors": {
+      "default": "Не удалось добавить брата или сестру"
+    }
+  },
+  "addUnion": {
+    "pickerTitle": "Партнёр: {{name}}",
+    "modalTitle": "Добавить партнёра: {{name}}",
+    "choosePartner": "Выбрать партнёра…",
+    "changePartner": "Изменить партнёра",
+    "noPartnerSingleParent": "Без партнёра (родитель-одиночка)",
+    "marriedSinceLabel": "В браке / вместе с",
+    "placeOfMarriage": "Место заключения брака",
+    "submit": "Добавить союз",
+    "errors": {
+      "default": "Не удалось добавить союз"
+    }
+  },
+  "addRelative": {
+    "modalTitle": "Добавить родственника: {{name}}",
+    "hint": "Партнёры и братья/сёстры добавляются со страницы «{{name}}» — там видна вся остальная семья.",
+    "bothParentsKnown": "У «{{name}}» уже указаны оба родителя.",
+    "errors": {
+      "loadPerson": "Не удалось загрузить этого человека",
+      "continueTitle": "Не удалось продолжить"
+    }
+  },
+  "unionEdit": {
+    "titleWithPartner": "{{name}} и {{partner}}",
+    "titleSingleParent": "Семья «{{name}}» (родитель-одиночка)",
+    "togetherSince": "Вместе с",
+    "married": "В браке с",
+    "divorcedSeparated": "Развод / расставание",
+    "errors": {
+      "default": "Не удалось сохранить отношения"
+    }
+  },
+  "citation": {
+    "titleEdit": "Изменить ссылку на источник",
+    "titleAdd": "Добавить источник: {{name}}",
+    "targetGeneral": "«{{name}}» (общее)",
+    "targetName": "Имя",
+    "targetBirth": "Рождение",
+    "targetDeath": "Смерть",
+    "targetMarriage": "Брак с «{{name}}»",
+    "targetDivorce": "Развод с «{{name}}»",
+    "eventWithYear": "{{what}} ({{year}})",
+    "sourceLabel": "Источник",
+    "editSourceDetails": "Изменить сведения об источнике",
+    "newSourceOption": "+ Новый источник…",
+    "noSourcesTitle": "Пока нет источников",
+    "noSourcesBody": "Добавлять источники в общий список могут только администраторы. Попросите администратора сначала создать источник, а затем сослаться на него здесь.",
+    "titleField": "Название",
+    "authorField": "Автор",
+    "publisherField": "Издатель",
+    "sourceUrlField": "Ссылка на источник",
+    "supportsLabel": "Подтверждает",
+    "detailFieldLabel": "Где именно в источнике (страница, номер записи…)",
+    "linkFieldLabel": "Ссылка на запись",
+    "submit": "Добавить ссылку",
+    "context": {
+      "eventFallback": "Событие",
+      "general": "Общее",
+      "marriagePlain": "Брак",
+      "divorcePlain": "Развод"
+    },
+    "errors": {
+      "titleRequired": "У источника должно быть название.",
+      "loadSources": "Не удалось загрузить источники",
+      "default": "Не удалось сохранить ссылку на источник"
+    }
+  },
+  "event": {
+    "titleEdit": "Изменить событие",
+    "titleAdd": "Добавить событие: {{name}}",
+    "typeLabel": "Тип",
+    "labelFieldRequired": "Название",
+    "labelFieldOptional": "Название (необязательно)",
+    "fromLabel": "С",
+    "toOptionalLabel": "По (необязательно)",
+    "placeLabel": "Место",
+    "photosLabel": "Фото",
+    "removePhotoAria": "Убрать «{{title}}»",
+    "addPhotosToEventTitle": "Добавить фото к этому событию",
+    "submit": "Добавить событие",
+    "errors": {
+      "labelRequired": "Дайте событию короткое название — оно отображается на шкале времени.",
+      "default": "Не удалось сохранить это событие"
+    }
+  },
+  "tagAccess": {
+    "roleEditor": "Редактор",
+    "roleEditorTagline": "Редактирует людей с тегом и добавляет родственников",
+    "roleBlocked": "Заблокирован",
+    "roleBlockedTagline": "Нет прав на редактирование, отменяет другие права",
+    "roleAria": "Роль",
+    "intro": "Семейные теги группируют людей по ветвям. Роль «Редактор» на теге позволяет пользователю или группе редактировать всех людей с этим тегом и добавлять им родственников. Теги назначаются людям через «Редактировать человека» (только администраторы).",
+    "unableToUpdate": "Не удалось изменить доступ к ветви",
+    "loading": "Загрузка…",
+    "noTagsTitle": "Пока нет семейных тегов",
+    "noTagsBody": "Сначала пометьте людей тегами (Редактировать человека → Семейные теги), затем назначайте права на эти теги здесь.",
+    "tagAria": "Семейный тег",
+    "grantTitle": "Права на редактирование",
+    "grantTitleWithTag": "Права на редактирование — {{tag}}",
+    "userOrGroupAria": "Пользователь или группа",
+    "selectUserOrGroupOption": "Выберите пользователя или группу…",
+    "usersGroupLabel": "Пользователи",
+    "groupsGroupLabel": "Группы",
+    "roleToGrantAria": "Назначаемая роль",
+    "addButton": "Добавить",
+    "editorsSectionTitle": "Редакторы",
+    "deletedLabel": "(удалён)",
+    "groupLabel": "Группа",
+    "userLabel": "Пользователь",
+    "removeAria": "Удалить «{{name}}»",
+    "noEditorsYet": "Пока нет редакторов — эту ветвь могут редактировать только администраторы.",
+    "errors": {
+      "loadTags": "Не удалось загрузить семейные теги",
+      "loadEditors": "Не удалось загрузить редакторов",
+      "saveGrant": "Не удалось сохранить право доступа",
+      "revokeGrant": "Не удалось отозвать право доступа"
+    }
+  },
+  "treeSettings": {
+    "title": "Настройки семейного древа",
+    "tabPhotos": "Фотобиблиотека",
+    "tabStart": "Стартовый человек",
+    "tabGedcom": "Импорт / экспорт",
+    "tabSecurity": "Безопасность",
+    "errorTitle": "Ошибка настроек",
+    "photosHint": "Фото и видео, загруженные из семейного древа, добавляются в эту библиотеку галереи и распределяются по дате съёмки. Прикрепление уже существующих в галерее фото работает из любой библиотеки и не зависит от этой настройки.",
+    "noLibraryTitle": "Пока нет библиотеки галереи",
+    "noLibraryBody": "Сначала создайте библиотеку галереи — укажите папку, где будут храниться семейные фото. После этого она появится здесь.",
+    "createLibraryLink": "Создать библиотеку",
+    "uploadPhotosToLabel": "Загружать фото в",
+    "noLibraryOption": "Без библиотеки — загрузка отключена",
+    "saved": "Сохранено.",
+    "startHint": "При открытии семейного древа график центрируется на этом человеке — для всех. Без него график открывается на том, кто оказался первым, что редко бывает тем, кого вы бы выбрали. Переход по ссылке на конкретного человека по-прежнему открывает график на нём.",
+    "noOneYetTitle": "В древе пока никого нет",
+    "noOneYetBody": "Добавьте первого члена семьи, и его можно будет выбрать здесь.",
+    "opensHere": "Древо открывается здесь",
+    "changeButton": "Изменить",
+    "clearStartingPersonAria": "Убрать стартового человека",
+    "choosePersonButton": "Выбрать человека",
+    "chooseStartingPersonTitle": "Выберите стартового человека",
+    "gedcomHint": "GEDCOM — стандартный формат файла генеалогии, который читают Ancestry, MyHeritage, Gramps и другие программы. Экспорт записывает всё древо — людей, семьи, события и источники — в один файл.",
+    "exportButton": "Экспорт GEDCOM",
+    "importButton": "Импорт GEDCOM",
+    "importWarningTitle": "Импорт может заменить древо",
+    "importWarningBody": "Импорт предлагает два режима: добавить к уже существующим {{peopleCount}}, или заменить их полностью. Сначала сделайте экспорт, если хотите сохранить копию текущих данных.",
+    "errors": {
+      "loadSettings": "Не удалось загрузить настройки",
+      "saveLibrary": "Не удалось сохранить библиотеку",
+      "saveStartPerson": "Не удалось сохранить стартового человека"
+    }
+  },
+  "gedcom": {
+    "importTitle": "Импорт GEDCOM",
+    "importCompleteTitle": "Импорт завершён",
+    "introText": "Импортируйте семейное древо из файла GEDCOM (.ged) — формата, который экспортируют Ancestry, MyHeritage, FamilySearch и Gramps.",
+    "fileFieldLabel": "Файл GEDCOM",
+    "modeLegendSr": "Что сделать с текущим древом",
+    "modeAdd_one": "Добавить к текущему древу (сохранится {{count}} человек)",
+    "modeAdd_few": "Добавить к текущему древу (сохранится {{count}} человека)",
+    "modeAdd_many": "Добавить к текущему древу (сохранится {{count}} человек)",
+    "modeAdd_other": "Добавить к текущему древу (сохранится {{count}} человека)",
+    "modeReplaceLabel": "Заменить текущее древо",
+    "submit": "Импортировать",
+    "submitBusy": "Импорт…",
+    "confirmReplaceTitle": "Заменить семейное древо?",
+    "confirmReplaceLabel": "Заменить и импортировать",
+    "confirmReplaceBody_one": "Все {{count}} текущий человек, его связи, портрет и прикреплённые фото будут удалены перед импортом. Сами фото и кластеры лиц в галерее не пострадают.",
+    "confirmReplaceBody_few": "Все {{count}} текущих человека, их связи, портреты и прикреплённые фото будут удалены перед импортом. Сами фото и кластеры лиц в галерее не пострадают.",
+    "confirmReplaceBody_many": "Все {{count}} текущих человек, их связи, портреты и прикреплённые фото будут удалены перед импортом. Сами фото и кластеры лиц в галерее не пострадают.",
+    "confirmReplaceBody_other": "Все {{count}} текущих человека, их связи, портреты и прикреплённые фото будут удалены перед импортом. Сами фото и кластеры лиц в галерее не пострадают.",
+    "result": {
+      "addedTitle_one": "Добавлен {{count}} человек",
+      "addedTitle_few": "Добавлено {{count}} человека",
+      "addedTitle_many": "Добавлено {{count}} человек",
+      "addedTitle_other": "Добавлено {{count}} человека",
+      "bodyTemplate": "Создано: {{families}}, {{links}}, {{events}}{{removedClause}}.",
+      "familyCount_one": "{{count}} семья",
+      "familyCount_few": "{{count}} семьи",
+      "familyCount_many": "{{count}} семей",
+      "familyCount_other": "{{count}} семьи",
+      "linkCount_one": "{{count}} связь «родитель–ребёнок»",
+      "linkCount_few": "{{count}} связи «родитель–ребёнок»",
+      "linkCount_many": "{{count}} связей «родитель–ребёнок»",
+      "linkCount_other": "{{count}} связи «родитель–ребёнок»",
+      "eventCount_one": "{{count}} событие жизни",
+      "eventCount_few": "{{count}} события жизни",
+      "eventCount_many": "{{count}} событий жизни",
+      "eventCount_other": "{{count}} события жизни",
+      "removedClause_one": "; заменён {{count}} прежний человек",
+      "removedClause_few": "; заменено {{count}} прежних человека",
+      "removedClause_many": "; заменено {{count}} прежних человек",
+      "removedClause_other": "; заменено {{count}} прежних человека",
+      "sourcesClauseTemplate": " Также добавлены {{sources}} и {{citations}}.",
+      "sourceCount_one": "{{count}} источник",
+      "sourceCount_few": "{{count}} источника",
+      "sourceCount_many": "{{count}} источников",
+      "sourceCount_other": "{{count}} источника",
+      "citationCount_one": "{{count}} ссылка",
+      "citationCount_few": "{{count}} ссылки",
+      "citationCount_many": "{{count}} ссылок",
+      "citationCount_other": "{{count}} ссылки",
+      "warningsTitle_one": "{{count}} запись потребовала внимания",
+      "warningsTitle_few": "{{count}} записи потребовали внимания",
+      "warningsTitle_many": "{{count}} записей потребовали внимания",
+      "warningsTitle_other": "{{count}} записи потребовали внимания"
+    },
+    "errors": {
+      "title": "Не удалось импортировать",
+      "default": "Импорт не удался"
+    }
+  },
+  "galleryLink": {
+    "modalTitle": "Связать «{{name}}» с человеком из галереи",
+    "hint": "Фото, где отмечен (или распознан) связанный человек из галереи, будут автоматически появляться в этом профиле.",
+    "searchAria": "Поиск людей в галерее",
+    "searchPlaceholder": "Поиск людей в галерее…",
+    "unnamed": "Без имени",
+    "linked": "Связан",
+    "noGalleryPeopleYet": "В галерее пока нет людей — сначала отметьте кого-нибудь в галерее.",
+    "unlinkButton": "Отвязать",
+    "unlinkingButton": "Отвязывание…",
+    "errors": {
+      "loadPeople": "Не удалось загрузить людей из галереи",
+      "updateLink": "Не удалось обновить связь",
+      "updateTitle": "Не удалось обновить"
+    }
+  },
+  "families": {
+    "title": "Семьи",
+    "searchPlaceholder": "Поиск по фамилиям...",
+    "errorTitle": "Не удалось загрузить семьи",
+    "emptyNoFamilies": "Пока нет членов семьи — как только появятся люди, здесь будут показаны их фамилии.",
+    "emptyNoMatches": "Нет фамилий, соответствующих запросу.",
+    "opensOn": "Открывается на «{{name}}»",
+    "errors": {
+      "loadPersons": "Не удалось загрузить членов семьи"
+    }
+  },
+  "people": {
+    "title": "Люди",
+    "searchPlaceholder": "Поиск членов семьи...",
+    "errorTitle": "Не удалось загрузить членов семьи",
+    "filterByTagAria": "Фильтр по семейному тегу",
+    "emptyNoneCanAdd": "Пока нет членов семьи. Добавьте первого человека, чтобы начать древо.",
+    "emptyNoneCannotAdd": "Пока нет членов семьи.",
+    "emptyNoMatches": "Никто не соответствует запросу.",
+    "errors": {
+      "loadPersons": "Не удалось загрузить членов семьи"
+    }
+  },
+  "person": {
+    "tabs": {
+      "family": "Родственники",
+      "timeline": "Хроника",
+      "photos": "Фото",
+      "sources": "Источники",
+      "biography": "Биография"
+    },
+    "detailSectionsAria": "Разделы страницы человека",
+    "notFoundTitle": "Человек не найден",
+    "notFoundBody": "Этого члена семьи больше не существует.",
+    "backToFamilyMembers": "Назад к членам семьи",
+    "actions": {
+      "groupAria": "Действия с человеком",
+      "viewInTree": "Показать в древе",
+      "sendTo": "Отправить",
+      "changePortrait": "Изменить портрет",
+      "deletePerson": "Удалить человека",
+      "removePortrait": "Удалить портрет",
+      "portraitActionsAria": "Действия с портретом"
+    },
+    "meta": {
+      "born": "Дата рождения",
+      "died": "Дата смерти",
+      "birthplace": "Место рождения",
+      "gender": "Пол",
+      "relationship": "Отношения",
+      "familyTags": "Семейные теги",
+      "unknown": "Неизвестно",
+      "showTaggedTitle": "Показать всех с тегом «{{tag}}»"
+    },
+    "addRelativeMenu": {
+      "label": "Добавить родственника",
+      "disabledBothParents": "Оба родителя уже указаны",
+      "disabledNoParent": "Сначала укажите родителя — у братьев и сестёр общие родители"
+    },
+    "relationships": {
+      "grandparents": "Дедушки и бабушки",
+      "viaParent": "через «{{name}}»",
+      "parents": "Родители",
+      "selfWithPartnersSiblings": "Этот человек, партнёры и братья/сёстры",
+      "selfOnly": "Этот человек",
+      "children": "Дети",
+      "emptyBase": "Родственники пока не указаны.",
+      "emptyHint": " Используйте «Добавить родственника» выше, чтобы начать.",
+      "editRelationshipAria": "Изменить отношения с «{{name}}»",
+      "removeUnionAria": "Удалить этот союз",
+      "removeChildAria": "Удалить «{{name}}» из этой семьи",
+      "current": "Текущий"
+    },
+    "timeline": {
+      "addEventButton": "Добавить событие",
+      "noEventsYetTitle": "Пока нет событий",
+      "less": "Свернуть",
+      "more": "Ещё",
+      "editEventTitle": "Изменить событие",
+      "editEventAria": "Изменить «{{title}}»",
+      "deleteEventTitle": "Удалить событие",
+      "deleteEventAria": "Удалить «{{title}}»",
+      "married": "Брак с «{{name}}»",
+      "divorced": "Развод с «{{name}}»",
+      "childBirth": "Рождение: «{{name}}» ({{noun}})"
+    },
+    "photosTab": {
+      "linkedGalleryPerson": "Связан: «{{name}}»",
+      "linkGalleryPerson": "Связать с галереей",
+      "noPhotosYetTitle": "Пока нет фото",
+      "removeFromPersonAria": "Убрать у этого человека",
+      "viewAllPhotos": "Показать все фото ({{count}})"
+    },
+    "sourcesTab": {
+      "addSourceButton": "Добавить источник",
+      "editCitationAria": "Изменить ссылку на «{{title}}»",
+      "removeCitationAria": "Удалить ссылку на «{{title}}»",
+      "removeCitationTitle": "Удалить ссылку"
+    },
+    "biographyTab": {
+      "editNotesButton": "Изменить заметки",
+      "noBiographyYetTitle": "Пока нет биографии"
+    },
+    "relationshipSummary": {
+      "marriedTo": "В браке с «{{name}}»",
+      "togetherWith": "Вместе с «{{name}}»",
+      "statusWithPartner": "{{status}} · {{name}}",
+      "widowedFrom": "Вдовец/вдова после «{{name}}»",
+      "divorcedFrom": "В разводе с «{{name}}»",
+      "parentOnly": "Родитель",
+      "noPartnerRecorded": "Партнёр не указан"
+    },
+    "unionDates": {
+      "since": "с {{date}}",
+      "range": "{{start}} – {{end}}",
+      "until": "до {{date}}"
+    },
+    "ageLabel": "Возраст: {{age}}",
+    "living": "Жив(а)",
+    "deceased": "Умер(ла)",
+    "dialogs": {
+      "deleteTitle": "Удалить «{{name}}»?",
+      "deleteConfirmLabel": "Удалить человека",
+      "deleteBusyLabel": "Удаление…",
+      "deleteBody": "«{{name}}» будет удалён(а) из семейного древа. Родственники, дети и фото в галерее сохранятся — оставшийся партнёр сохранит своих детей.",
+      "removeUnionTitle": "Удалить этот союз?",
+      "removeUnionConfirmLabel": "Удалить союз",
+      "removeUnionBody": "Партнёрство и связи с детьми будут удалены. Люди и фото не удаляются.",
+      "deleteEventTitle": "Удалить «{{title}}»?",
+      "deleteEventConfirmLabel": "Удалить событие",
+      "deleteEventBody": "Событие будет убрано из хроники. Остальное не затрагивается.",
+      "removeCitationTitle": "Удалить ссылку на «{{title}}»?",
+      "removeCitationConfirmLabel": "Удалить ссылку",
+      "removeCitationBody": "Ссылка будет удалена из этого факта. Сам источник останется доступен для других ссылок."
+    },
+    "portraitPickerTitle": "Портрет: {{name}}",
+    "addPhotosOfTitle": "Добавить фото: {{name}}",
+    "errors": {
+      "loadPerson": "Не удалось загрузить этого человека",
+      "deletePerson": "Не удалось удалить этого человека",
+      "removeUnion": "Не удалось удалить союз",
+      "removeChildLink": "Не удалось удалить связь с ребёнком",
+      "deleteEvent": "Не удалось удалить событие",
+      "removeCitation": "Не удалось удалить ссылку",
+      "removePhoto": "Не удалось удалить фото",
+      "setPortrait": "Не удалось установить портрет",
+      "removePortrait": "Не удалось удалить портрет",
+      "actionFailedTitle": "Действие не выполнено"
+    }
+  },
+  "personPhotos": {
+    "backTo": "Назад: {{name}}",
+    "fallbackName": "профиль",
+    "title": "Фото: {{name}}",
+    "titleFallback": "Фото",
+    "errorTitle": "Не удалось загрузить фото",
+    "noPhotosYetTitle": "Пока нет фото",
+    "loadingMore": "Загрузка…",
+    "showMore": "Показать ещё (осталось {{count}})"
+  },
+  "tree": {
+    "findPersonSr": "Найти человека",
+    "findPersonPlaceholder": "Найти человека…",
+    "errorTitle": "Не удалось загрузить древо",
+    "emptyTitle": "Пока нет членов семьи",
+    "emptyBodyCanAdd": "Начните древо с добавления первого человека, затем добавьте партнёров, детей и фото.",
+    "emptyBodyCannotAdd": "Семейное древо ещё не начато."
+  },
+  "chart": {
+    "unionBadgeUnknown": "Партнёры (статус не указан)",
+    "chartAriaLabel": "Схема семейного древа",
+    "actionsForAria": "Действия — «{{name}}»",
+    "openProfile": "Открыть профиль",
+    "addRelative": "Добавить родственника",
+    "addPersonTitle": "Добавить члена семьи",
+    "backToStartTitle": "Назад к стартовому человеку",
+    "allPeopleButton": "Все люди",
+    "everyFamilyMemberTitle": "Все члены семьи",
+    "pickFamilyNameTitle": "Выбрать фамилию для перехода",
+    "importTitle": "Импортировать файл GEDCOM",
+    "importButton": "Импорт",
+    "exportTitle": "Экспортировать всё древо в GEDCOM (.ged)",
+    "exportButton": "Экспорт",
+    "settingsButton": "Настройки",
+    "legendAria": "Обозначения на схеме",
+    "legendTitle": "Обозначения",
+    "legendParentChild": "Родитель / ребёнок",
+    "legendMarriedPartner": "Брак / партнёрство",
+    "legendDivorcedEnded": "Развод / расставание",
+    "legendNotRecorded": "Не указано",
+    "legendFocusedPerson": "Человек в фокусе",
+    "zoomOut": "Уменьшить",
+    "zoomIn": "Увеличить",
+    "currentZoomAria": "Текущий масштаб {{percent}}%",
+    "fitTitle": "По размеру экрана",
+    "fitAria": "Уместить древо на экране",
+    "treeNavigationAria": "Навигация по древу",
+    "viewControlsAria": "Управление видом"
+  },
+  "nav": {
+    "chart": "Схема"
+  },
+  "partialDate": {
+    "formatHint": "Год, год-месяц или полная дата (1971, 1971-09, 1971-09-01)",
+    "example": {
+      "default": "1971 или 1971-09-01",
+      "married": "2010 или 2010-06-12",
+      "endYear": "1975",
+      "death": "2024 или 2024-03-15",
+      "divorced": "2015 или 2015-03-01"
+    }
+  }
+}

@@ -1,1 +1,570 @@
-{}
+{
+  "options": {
+    "gender": { "female": "Female", "male": "Male", "other": "Other", "unknown": "Unknown" },
+    "unionStatus": { "married": "Married", "partners": "Partners", "divorced": "Divorced", "widowed": "Widowed", "unknown": "Unknown" },
+    "eventType": {
+      "award": "Award",
+      "baptism": "Baptism",
+      "burial": "Burial",
+      "education": "Education",
+      "emigration": "Emigration",
+      "graduation": "Graduation",
+      "immigration": "Immigration",
+      "military": "Military service",
+      "naturalization": "Naturalization",
+      "residence": "Residence",
+      "retirement": "Retirement",
+      "travel": "Travel",
+      "occupation": "Work",
+      "custom": "Other event"
+    },
+    "childRelation": { "biological": "Biological", "adopted": "Adopted", "step": "Step", "foster": "Foster", "unknown": "Unknown" }
+  },
+  "eventLabelHints": {
+    "education": "School or university",
+    "graduation": "School or university",
+    "occupation": "Job title or employer",
+    "retirement": "e.g. Retired from the railway",
+    "residence": "e.g. Family home",
+    "military": "Unit or service",
+    "immigration": "e.g. Arrived by ship",
+    "emigration": "e.g. Left for work",
+    "naturalization": "e.g. Became a citizen",
+    "travel": "e.g. Trip to Italy",
+    "award": "Medal or honor",
+    "baptism": "Church or parish",
+    "burial": "Cemetery",
+    "custom": "What happened"
+  },
+  "childNoun": {
+    "plain": { "male": "son", "female": "daughter", "neutral": "child" },
+    "step": { "male": "stepson", "female": "stepdaughter", "neutral": "stepchild" },
+    "adopted": { "male": "adopted son", "female": "adopted daughter", "neutral": "adopted child" },
+    "foster": { "male": "foster son", "female": "foster daughter", "neutral": "foster child" }
+  },
+  "relationWord": {
+    "parent": { "male": "Father", "female": "Mother", "neutral": "Parent" },
+    "sibling": { "male": "Brother", "female": "Sister", "neutral": "Sibling" },
+    "grandparent": { "male": "Grandfather", "female": "Grandmother", "neutral": "Grandparent" },
+    "child": { "male": "Son", "female": "Daughter", "neutral": "Child" },
+    "partner": { "male": "Husband", "female": "Wife", "neutral": "Partner" }
+  },
+  "common": {
+    "unableToAdd": "Unable to add",
+    "unableToLoad": "Unable to load",
+    "saveChanges": "Save changes",
+    "saving": "Saving…",
+    "adding": "Adding…",
+    "relation": "Relation",
+    "status": "Status",
+    "notes": "Notes",
+    "nee": "née {{name}}",
+    "addPerson": "Add person",
+    "editPerson": "Edit person",
+    "addPhotos": "Add photos",
+    "video": "Video",
+    "lifeDatesUnknown": "Life dates unknown",
+    "noOneMatches": "No one matches.",
+    "back": "Back",
+    "counts": {
+      "person_one": "{{count}} person",
+      "person_other": "{{count}} people",
+      "familyName_one": "{{count}} family name",
+      "familyName_other": "{{count}} family names",
+      "photo_one": "{{count}} photo",
+      "photo_other": "{{count}} photos",
+      "source_one": "{{count}} source",
+      "source_other": "{{count}} sources",
+      "citation_one": "{{count}} citation",
+      "citation_other": "{{count}} citations",
+      "family_one": "{{count}} family",
+      "family_other": "{{count}} families"
+    }
+  },
+  "personPicker": {
+    "searchSr": "Search people",
+    "searchPlaceholder": "Search people…",
+    "noPeopleYet": "No family members yet.",
+    "orAddNew": "Or add someone new",
+    "fullNamePlaceholder": "Full name",
+    "creating": "Creating…",
+    "create": "Create",
+    "errors": {
+      "loadPeople": "Unable to load people",
+      "createPerson": "Unable to create this person"
+    }
+  },
+  "personEdit": {
+    "titleEdit": "Edit {{name}}",
+    "titleAdd": "Add family member",
+    "tabDetails": "Details",
+    "tabNotes": "Bio / notes",
+    "tabTags": "Tags",
+    "fieldName": "Name",
+    "fieldMaidenName": "Maiden name",
+    "fieldDeathPlace": "Place of death",
+    "tagsPlaceholder": "Add a family tag (e.g. a last name)…",
+    "tagsHint": "Tags group people by branch and scope edit rights (see Branch access).",
+    "errors": {
+      "default": "Unable to save this person"
+    }
+  },
+  "addChild": {
+    "pickerTitle": "Child of {{name}}",
+    "modalTitle": "Add child of {{name}}",
+    "chooseChild": "Choose child…",
+    "changeChild": "Change child",
+    "familyFieldLabel": "Family",
+    "unionOptionWithPartner": "With {{name}}",
+    "unionOptionJust": "Just {{name}}",
+    "unionOptionJustSingleParent": "Just {{name}} (single parent)",
+    "submit": "Add child",
+    "errors": {
+      "default": "Unable to add the child"
+    }
+  },
+  "addParent": {
+    "pickerTitle": "Parent of {{name}}",
+    "modalTitleAddOther": "Add {{name}}'s other parent",
+    "modalTitleAdd": "Add parent of {{name}}",
+    "chooseParent": "Choose parent…",
+    "changeParent": "Change parent",
+    "joinHint": "Joins {{name}}'s family — siblings in it get this parent too.",
+    "submit": "Add parent",
+    "errors": {
+      "default": "Unable to add the parent"
+    }
+  },
+  "addSibling": {
+    "pickerTitle": "Sibling of {{name}}",
+    "modalTitle": "Add sibling of {{name}}",
+    "chooseSibling": "Choose sibling…",
+    "changeSibling": "Change sibling",
+    "addedAsChildOf": "Added as a child of {{parents}}.",
+    "sameParentsFallback": "the same parents",
+    "relationToParents": "Relation to the parents",
+    "submit": "Add sibling",
+    "errors": {
+      "default": "Unable to add the sibling"
+    }
+  },
+  "addUnion": {
+    "pickerTitle": "Partner of {{name}}",
+    "modalTitle": "Add partner for {{name}}",
+    "choosePartner": "Choose partner…",
+    "changePartner": "Change partner",
+    "noPartnerSingleParent": "No partner (single parent)",
+    "marriedSinceLabel": "Married / together since",
+    "placeOfMarriage": "Place of marriage",
+    "submit": "Add union",
+    "errors": {
+      "default": "Unable to add the union"
+    }
+  },
+  "addRelative": {
+    "modalTitle": "Add a relative to {{name}}",
+    "hint": "Partners and siblings are added from {{name}}'s profile, where the rest of their family is in view.",
+    "bothParentsKnown": "Both of {{name}}'s parents are already recorded.",
+    "errors": {
+      "loadPerson": "Unable to load this person",
+      "continueTitle": "Unable to continue"
+    }
+  },
+  "unionEdit": {
+    "titleWithPartner": "{{name}} & {{partner}}",
+    "titleSingleParent": "{{name}}'s single-parent family",
+    "togetherSince": "Together since",
+    "married": "Married",
+    "divorcedSeparated": "Divorced / separated",
+    "errors": {
+      "default": "Unable to save the relationship"
+    }
+  },
+  "citation": {
+    "titleEdit": "Edit citation",
+    "titleAdd": "Add source for {{name}}",
+    "targetGeneral": "{{name}} (general)",
+    "targetName": "Name",
+    "targetBirth": "Birth",
+    "targetDeath": "Death",
+    "targetMarriage": "Marriage to {{name}}",
+    "targetDivorce": "Divorce from {{name}}",
+    "eventWithYear": "{{what}} ({{year}})",
+    "sourceLabel": "Source",
+    "editSourceDetails": "Edit source details",
+    "newSourceOption": "+ New source…",
+    "noSourcesTitle": "No sources yet",
+    "noSourcesBody": "Only admins can add sources to the shared bibliography. Ask an admin to create the source first, then cite it here.",
+    "titleField": "Title",
+    "authorField": "Author",
+    "publisherField": "Publisher",
+    "sourceUrlField": "Source URL",
+    "supportsLabel": "Supports",
+    "detailFieldLabel": "Where in the source (page, record #…)",
+    "linkFieldLabel": "Link to the record",
+    "submit": "Add citation",
+    "context": {
+      "eventFallback": "Event",
+      "general": "General",
+      "marriagePlain": "Marriage",
+      "divorcePlain": "Divorce"
+    },
+    "errors": {
+      "titleRequired": "The source needs a title.",
+      "loadSources": "Unable to load sources",
+      "default": "Unable to save the citation"
+    }
+  },
+  "event": {
+    "titleEdit": "Edit event",
+    "titleAdd": "Add event for {{name}}",
+    "typeLabel": "Type",
+    "labelFieldRequired": "Label",
+    "labelFieldOptional": "Label (optional)",
+    "fromLabel": "From",
+    "toOptionalLabel": "To (optional)",
+    "placeLabel": "Place",
+    "photosLabel": "Photos",
+    "removePhotoAria": "Remove {{title}}",
+    "addPhotosToEventTitle": "Add photos to this event",
+    "submit": "Add event",
+    "errors": {
+      "labelRequired": "Give this event a short label — it's what the timeline shows.",
+      "default": "Unable to save this event"
+    }
+  },
+  "tagAccess": {
+    "roleEditor": "Editor",
+    "roleEditorTagline": "Edit tagged people + add relatives",
+    "roleBlocked": "Blocked",
+    "roleBlockedTagline": "No edit access, overrides grants",
+    "roleAria": "Role",
+    "intro": "Family tags group people into branches. Granting the Editor role on a tag lets a user or group edit every person carrying that tag and add relatives to them. Assign tags to people via Edit person (admins only).",
+    "unableToUpdate": "Unable to update branch access",
+    "loading": "Loading…",
+    "noTagsTitle": "No family tags yet",
+    "noTagsBody": "Tag people first (Edit person → Family tags), then grant edit rights on those tags here.",
+    "tagAria": "Family tag",
+    "grantTitle": "Grant edit rights",
+    "grantTitleWithTag": "Grant edit rights — {{tag}}",
+    "userOrGroupAria": "User or group",
+    "selectUserOrGroupOption": "Select a user or group…",
+    "usersGroupLabel": "Users",
+    "groupsGroupLabel": "Groups",
+    "roleToGrantAria": "Role to grant",
+    "addButton": "Add",
+    "editorsSectionTitle": "Editors",
+    "deletedLabel": "(deleted)",
+    "groupLabel": "Group",
+    "userLabel": "User",
+    "removeAria": "Remove {{name}}",
+    "noEditorsYet": "No editors yet — only admins can edit this branch.",
+    "errors": {
+      "loadTags": "Unable to load family tags",
+      "loadEditors": "Unable to load editors",
+      "saveGrant": "Unable to save the grant",
+      "revokeGrant": "Unable to revoke the grant"
+    }
+  },
+  "treeSettings": {
+    "title": "Family tree settings",
+    "tabPhotos": "Photo library",
+    "tabStart": "Starting person",
+    "tabGedcom": "Import / export",
+    "tabSecurity": "Security",
+    "errorTitle": "Settings error",
+    "photosHint": "Photos and videos uploaded from the family tree are added to this gallery library, filed by the date they were taken. Attaching photos the gallery already holds works from any library and doesn't need this setting.",
+    "noLibraryTitle": "No gallery library yet",
+    "noLibraryBody": "Create a gallery library first — point it at the folder where family photos should be stored. It will appear here once it exists.",
+    "createLibraryLink": "Create a library",
+    "uploadPhotosToLabel": "Upload photos to",
+    "noLibraryOption": "No library — uploading is off",
+    "saved": "Saved.",
+    "startHint": "Opening the family tree centres the chart on this person, for everyone. Without one it starts on whoever happens to come first, which is rarely the person you'd choose. Following a link to a particular person still opens on them.",
+    "noOneYetTitle": "No one in the tree yet",
+    "noOneYetBody": "Add the first family member and they'll be selectable here.",
+    "opensHere": "The tree opens here",
+    "changeButton": "Change",
+    "clearStartingPersonAria": "Clear the starting person",
+    "choosePersonButton": "Choose a person",
+    "chooseStartingPersonTitle": "Choose the starting person",
+    "gedcomHint": "GEDCOM is the standard genealogy file, readable by Ancestry, MyHeritage, Gramps and others. Exporting writes the whole tree — people, families, events and sources — to one file.",
+    "exportButton": "Export GEDCOM",
+    "importButton": "Import GEDCOM",
+    "importWarningTitle": "Importing can replace the tree",
+    "importWarningBody": "The import offers two modes: add to the {{peopleCount}} already here, or replace them entirely. Export first if you want a copy of what you have.",
+    "errors": {
+      "loadSettings": "Unable to load settings",
+      "saveLibrary": "Unable to save the library",
+      "saveStartPerson": "Unable to save the starting person"
+    }
+  },
+  "gedcom": {
+    "importTitle": "Import GEDCOM",
+    "importCompleteTitle": "Import complete",
+    "introText": "Import a family tree from a GEDCOM (.ged) file — the format Ancestry, MyHeritage, FamilySearch, and Gramps export.",
+    "fileFieldLabel": "GEDCOM file",
+    "modeLegendSr": "What to do with the current tree",
+    "modeAdd_one": "Add to the current tree ({{count}} person kept)",
+    "modeAdd_other": "Add to the current tree ({{count}} people kept)",
+    "modeReplaceLabel": "Replace the current tree",
+    "submit": "Import",
+    "submitBusy": "Importing…",
+    "confirmReplaceTitle": "Replace the family tree?",
+    "confirmReplaceLabel": "Replace and import",
+    "confirmReplaceBody_one": "All {{count}} current person, their relationships, portraits, and photo attachments will be deleted before importing. Gallery photos and face clusters themselves are not affected.",
+    "confirmReplaceBody_other": "All {{count}} current people, their relationships, portraits, and photo attachments will be deleted before importing. Gallery photos and face clusters themselves are not affected.",
+    "result": {
+      "addedTitle_one": "Added {{count}} person",
+      "addedTitle_other": "Added {{count}} people",
+      "bodyTemplate": "{{families}}, {{links}}, and {{events}} were created{{removedClause}}.",
+      "familyCount_one": "{{count}} family",
+      "familyCount_other": "{{count}} families",
+      "linkCount_one": "{{count}} parent–child link",
+      "linkCount_other": "{{count}} parent–child links",
+      "eventCount_one": "{{count}} life event",
+      "eventCount_other": "{{count}} life events",
+      "removedClause_one": "; {{count}} previous person was replaced",
+      "removedClause_other": "; {{count}} previous people were replaced",
+      "sourcesClauseTemplate": " {{sources}} and {{citations}} came along.",
+      "sourceCount_one": "{{count}} source",
+      "sourceCount_other": "{{count}} sources",
+      "citationCount_one": "{{count}} citation",
+      "citationCount_other": "{{count}} citations",
+      "warningsTitle_one": "{{count}} entry needed attention",
+      "warningsTitle_other": "{{count}} entries needed attention"
+    },
+    "errors": {
+      "title": "Unable to import",
+      "default": "Import failed"
+    }
+  },
+  "galleryLink": {
+    "modalTitle": "Link {{name}} to a gallery person",
+    "hint": "Photos where the linked gallery person is tagged (or recognised) will appear on this profile automatically.",
+    "searchAria": "Search gallery people",
+    "searchPlaceholder": "Search gallery people…",
+    "unnamed": "Unnamed",
+    "linked": "Linked",
+    "noGalleryPeopleYet": "No gallery people yet — tag someone in the gallery first.",
+    "unlinkButton": "Unlink",
+    "unlinkingButton": "Unlinking…",
+    "errors": {
+      "loadPeople": "Unable to load gallery people",
+      "updateLink": "Unable to update the link",
+      "updateTitle": "Unable to update"
+    }
+  },
+  "families": {
+    "title": "Families",
+    "searchPlaceholder": "Search family names...",
+    "errorTitle": "Unable to load families",
+    "emptyNoFamilies": "No family members yet — once people are added, their family names appear here.",
+    "emptyNoMatches": "No family name matches your search.",
+    "opensOn": "Opens on {{name}}",
+    "errors": {
+      "loadPersons": "Unable to load family members"
+    }
+  },
+  "people": {
+    "title": "People",
+    "searchPlaceholder": "Search family members...",
+    "errorTitle": "Unable to load family members",
+    "filterByTagAria": "Filter by family tag",
+    "emptyNoneCanAdd": "No family members yet. Add the first person to start the tree.",
+    "emptyNoneCannotAdd": "No family members yet.",
+    "emptyNoMatches": "No one matches your search.",
+    "errors": {
+      "loadPersons": "Unable to load family members"
+    }
+  },
+  "person": {
+    "tabs": {
+      "family": "Relationships",
+      "timeline": "Timeline",
+      "photos": "Photos",
+      "sources": "Sources",
+      "biography": "Biography"
+    },
+    "detailSectionsAria": "Person detail sections",
+    "notFoundTitle": "Person not found",
+    "notFoundBody": "This family member doesn't exist (anymore).",
+    "backToFamilyMembers": "Back to family members",
+    "actions": {
+      "groupAria": "Person actions",
+      "viewInTree": "View in tree",
+      "sendTo": "Send to",
+      "changePortrait": "Change portrait",
+      "deletePerson": "Delete person",
+      "removePortrait": "Remove portrait",
+      "portraitActionsAria": "Portrait actions"
+    },
+    "meta": {
+      "born": "Born",
+      "died": "Died",
+      "birthplace": "Birthplace",
+      "gender": "Gender",
+      "relationship": "Relationship",
+      "familyTags": "Family tags",
+      "unknown": "Unknown",
+      "showTaggedTitle": "Show everyone tagged {{tag}}"
+    },
+    "addRelativeMenu": {
+      "label": "Add relative",
+      "disabledBothParents": "Both parents are already recorded",
+      "disabledNoParent": "Record a parent first — siblings share parents"
+    },
+    "relationships": {
+      "grandparents": "Grandparents",
+      "viaParent": "via {{name}}",
+      "parents": "Parents",
+      "selfWithPartnersSiblings": "This person, partners and siblings",
+      "selfOnly": "This person",
+      "children": "Children",
+      "emptyBase": "No relatives recorded yet.",
+      "emptyHint": " Use Add relative above to start.",
+      "editRelationshipAria": "Edit relationship with {{name}}",
+      "removeUnionAria": "Remove this union",
+      "removeChildAria": "Remove {{name}} from this family",
+      "current": "Current"
+    },
+    "timeline": {
+      "addEventButton": "Add event",
+      "noEventsYetTitle": "No events yet",
+      "less": "Less",
+      "more": "More",
+      "editEventTitle": "Edit event",
+      "editEventAria": "Edit {{title}}",
+      "deleteEventTitle": "Delete event",
+      "deleteEventAria": "Delete {{title}}",
+      "married": "Married {{name}}",
+      "divorced": "Divorced {{name}}",
+      "childBirth": "Birth of {{noun}} {{name}}"
+    },
+    "photosTab": {
+      "linkedGalleryPerson": "Linked: {{name}}",
+      "linkGalleryPerson": "Link gallery person",
+      "noPhotosYetTitle": "No photos yet",
+      "removeFromPersonAria": "Remove from this person",
+      "viewAllPhotos": "View all {{count}} photos"
+    },
+    "sourcesTab": {
+      "addSourceButton": "Add source",
+      "editCitationAria": "Edit citation of {{title}}",
+      "removeCitationAria": "Remove citation of {{title}}",
+      "removeCitationTitle": "Remove citation"
+    },
+    "biographyTab": {
+      "editNotesButton": "Edit notes",
+      "noBiographyYetTitle": "No biography yet"
+    },
+    "relationshipSummary": {
+      "marriedTo": "Married to {{name}}",
+      "togetherWith": "Together with {{name}}",
+      "statusWithPartner": "{{status}} · {{name}}",
+      "widowedFrom": "Widowed from {{name}}",
+      "divorcedFrom": "Divorced from {{name}}",
+      "parentOnly": "Parent",
+      "noPartnerRecorded": "No partner recorded"
+    },
+    "unionDates": {
+      "since": "since {{date}}",
+      "range": "{{start}} – {{end}}",
+      "until": "until {{date}}"
+    },
+    "ageLabel": "Age {{age}}",
+    "living": "Living",
+    "deceased": "Deceased",
+    "dialogs": {
+      "deleteTitle": "Delete \"{{name}}\"?",
+      "deleteConfirmLabel": "Delete person",
+      "deleteBusyLabel": "Deleting…",
+      "deleteBody": "This removes {{name}} from the family tree. Their relatives, children, and gallery photos are kept — a remaining partner keeps their children.",
+      "removeUnionTitle": "Remove this union?",
+      "removeUnionConfirmLabel": "Remove union",
+      "removeUnionBody": "The partnership and its children links are removed. No people or photos are deleted.",
+      "deleteEventTitle": "Delete \"{{title}}\"?",
+      "deleteEventConfirmLabel": "Delete event",
+      "deleteEventBody": "This removes the event from the timeline. Nothing else is affected.",
+      "removeCitationTitle": "Remove citation of \"{{title}}\"?",
+      "removeCitationConfirmLabel": "Remove citation",
+      "removeCitationBody": "The citation is removed from this fact. The source itself stays available for other citations."
+    },
+    "portraitPickerTitle": "Portrait for {{name}}",
+    "addPhotosOfTitle": "Add photos of {{name}}",
+    "errors": {
+      "loadPerson": "Unable to load this person",
+      "deletePerson": "Unable to delete this person",
+      "removeUnion": "Unable to remove the union",
+      "removeChildLink": "Unable to remove the child link",
+      "deleteEvent": "Unable to delete the event",
+      "removeCitation": "Unable to remove the citation",
+      "removePhoto": "Unable to remove the photo",
+      "setPortrait": "Unable to set the portrait",
+      "removePortrait": "Unable to remove the portrait",
+      "actionFailedTitle": "Action failed"
+    }
+  },
+  "personPhotos": {
+    "backTo": "Back to {{name}}",
+    "fallbackName": "profile",
+    "title": "Photos of {{name}}",
+    "titleFallback": "Photos",
+    "errorTitle": "Unable to load photos",
+    "noPhotosYetTitle": "No photos yet",
+    "loadingMore": "Loading…",
+    "showMore": "Show more ({{count}} left)"
+  },
+  "tree": {
+    "findPersonSr": "Find a person",
+    "findPersonPlaceholder": "Find a person…",
+    "errorTitle": "Unable to load the tree",
+    "emptyTitle": "No family members yet",
+    "emptyBodyCanAdd": "Start the tree by adding the first person, then add partners, children, and photos.",
+    "emptyBodyCannotAdd": "The family tree hasn't been started yet."
+  },
+  "chart": {
+    "unionBadgeUnknown": "Partners (status not recorded)",
+    "chartAriaLabel": "Family tree chart",
+    "actionsForAria": "Actions for {{name}}",
+    "openProfile": "Open profile",
+    "addRelative": "Add a relative",
+    "addPersonTitle": "Add a family member",
+    "backToStartTitle": "Back to the starting person",
+    "allPeopleButton": "All People",
+    "everyFamilyMemberTitle": "Every family member",
+    "pickFamilyNameTitle": "Pick a family name to focus on",
+    "importTitle": "Import a GEDCOM file",
+    "importButton": "Import",
+    "exportTitle": "Export the whole tree as GEDCOM (.ged)",
+    "exportButton": "Export",
+    "settingsButton": "Settings",
+    "legendAria": "Chart legend",
+    "legendTitle": "Legend",
+    "legendParentChild": "Parent / Child",
+    "legendMarriedPartner": "Married / Partner",
+    "legendDivorcedEnded": "Divorced / Ended",
+    "legendNotRecorded": "Not recorded",
+    "legendFocusedPerson": "Focused person",
+    "zoomOut": "Zoom out",
+    "zoomIn": "Zoom in",
+    "currentZoomAria": "Current zoom {{percent}}%",
+    "fitTitle": "Fit to view",
+    "fitAria": "Fit tree to view",
+    "treeNavigationAria": "Tree navigation",
+    "viewControlsAria": "Tree view controls"
+  },
+  "nav": {
+    "chart": "Chart"
+  },
+  "partialDate": {
+    "formatHint": "Year, year-month, or full date (1971, 1971-09, 1971-09-01)",
+    "example": {
+      "default": "1971 or 1971-09-01",
+      "married": "2010 or 2010-06-12",
+      "endYear": "1975",
+      "death": "2024 or 2024-03-15",
+      "divorced": "2015 or 2015-03-01"
+    }
+  }
+}

@@ -1,4 +1,5 @@
 // Client shapes for the family-tree API (see modules/familytree on the server).
+import i18n from "../../i18n";
 import type { GalleryAsset } from "../gallery/types";
 
 export interface FamilyPerson {
@@ -131,45 +132,87 @@ export type FamilyPhoto = GalleryAsset & { attached: boolean };
 // UI offers a simple binary; the schema still tolerates other/unknown for
 // quick-created people and any legacy/imported rows.
 export const GENDER_OPTIONS = [
-  { value: "female", label: "Female" },
-  { value: "male", label: "Male" }
+  { value: "female" },
+  { value: "male" }
 ] as const;
 
 export const UNION_STATUS_OPTIONS = [
-  { value: "married", label: "Married" },
-  { value: "partners", label: "Partners" },
-  { value: "divorced", label: "Divorced" },
-  { value: "widowed", label: "Widowed" },
-  { value: "unknown", label: "Unknown" }
+  { value: "married" },
+  { value: "partners" },
+  { value: "divorced" },
+  { value: "widowed" },
+  { value: "unknown" }
 ] as const;
 
 // Timeline event types. `custom` needs a label; for the rest the label is an
 // optional short "what" (occupation title, school name). Alphabetical by
 // label, with the "Other event" catch-all last.
 export const EVENT_TYPE_OPTIONS = [
-  { value: "award", label: "Award" },
-  { value: "baptism", label: "Baptism" },
-  { value: "burial", label: "Burial" },
-  { value: "education", label: "Education" },
-  { value: "emigration", label: "Emigration" },
-  { value: "graduation", label: "Graduation" },
-  { value: "immigration", label: "Immigration" },
-  { value: "military", label: "Military service" },
-  { value: "naturalization", label: "Naturalization" },
-  { value: "residence", label: "Residence" },
-  { value: "retirement", label: "Retirement" },
-  { value: "travel", label: "Travel" },
-  { value: "occupation", label: "Work" },
-  { value: "custom", label: "Other event" }
+  { value: "award" },
+  { value: "baptism" },
+  { value: "burial" },
+  { value: "education" },
+  { value: "emigration" },
+  { value: "graduation" },
+  { value: "immigration" },
+  { value: "military" },
+  { value: "naturalization" },
+  { value: "residence" },
+  { value: "retirement" },
+  { value: "travel" },
+  { value: "occupation" },
+  { value: "custom" }
 ] as const;
 
 export const CHILD_RELATION_OPTIONS = [
-  { value: "biological", label: "Biological" },
-  { value: "adopted", label: "Adopted" },
-  { value: "step", label: "Step" },
-  { value: "foster", label: "Foster" },
-  { value: "unknown", label: "Unknown" }
+  { value: "biological" },
+  { value: "adopted" },
+  { value: "step" },
+  { value: "foster" },
+  { value: "unknown" }
 ] as const;
+
+// Label lookups, called at render/call time (never cached at module scope) so
+// they stay reactive to a language switch — same approach as control/nav.ts.
+export function genderOptionLabel(value: "female" | "male"): string {
+  return i18n.t(`family:options.gender.${value}`);
+}
+
+export function genderLabel(gender: FamilyPerson["gender"]): string {
+  return i18n.t(`family:options.gender.${gender}`);
+}
+
+export function unionStatusLabel(status: FamilyUnion["status"]): string {
+  return i18n.t(`family:options.unionStatus.${status}`);
+}
+
+export function eventTypeLabel(type: FamilyEvent["type"]): string {
+  return i18n.t(`family:options.eventType.${type}`);
+}
+
+export function eventLabelHint(type: FamilyEvent["type"]): string {
+  return i18n.t(`family:eventLabelHints.${type}`);
+}
+
+export function childRelationLabel(relation: FamilyChildLink["relation"]): string {
+  return i18n.t(`family:options.childRelation.${relation}`);
+}
+
+// The gendered noun for a child relative in text like "Birth of {{noun}} {{name}}"
+// — "son"/"daughter"/"child", or "stepson"/"adopted daughter"/"foster child".
+const CHILD_NOUN_BUCKET: Record<FamilyChildLink["relation"], "plain" | "step" | "adopted" | "foster"> = {
+  biological: "plain",
+  unknown: "plain",
+  step: "step",
+  adopted: "adopted",
+  foster: "foster"
+};
+
+export function childRelativeNoun(relation: FamilyChildLink["relation"], gender: FamilyPerson["gender"]): string {
+  const bucket = CHILD_NOUN_BUCKET[relation];
+  const genderKey = gender === "male" || gender === "female" ? gender : "neutral";
+  return i18n.t(`family:childNoun.${bucket}.${genderKey}`);
+}
 
 // "1943–2010", "1943–", "–2010", or "" — years only, from partial dates.
 export function lifeYears(person: Pick<FamilyPerson, "birthDate" | "deathDate">): string {
