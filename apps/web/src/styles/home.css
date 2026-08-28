@@ -2601,3 +2601,42 @@
     background: rgba(63, 113, 106, 0.16);
   }
 }
+
+/* The card's eyebrow shares its line with the preferences button. */
+.home-quote-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.home-quote-tune {
+  flex: none;
+  color: var(--muted);
+}
+
+.home-quote-tune:hover {
+  color: var(--ink);
+}
+
+/* Quote preferences: language, then the categories to draw from. */
+.quote-prefs {
+  display: grid;
+  gap: 16px;
+}
+
+.quote-prefs-hint {
+  margin: 0;
+  font-size: 0.82rem;
+}
+
+/* Wraps rather than scrolls: a family library has a handful of categories, and
+   a scrolling box for six checkboxes reads as more than it is. */
+.quote-prefs-categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin-top: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+}

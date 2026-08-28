@@ -288,7 +288,13 @@
     "quoteYearsAgoToday_one": "{{count}} год назад в этот день",
     "quoteYearsAgoToday_few": "{{count}} года назад в этот день",
     "quoteYearsAgoToday_many": "{{count}} лет назад в этот день",
-    "quoteYearsAgoToday_other": "{{count}} года назад в этот день"
+    "quoteYearsAgoToday_other": "{{count}} года назад в этот день",
+    "quotePrefsTitle": "Настройки цитат",
+    "quotePrefsLanguage": "Язык",
+    "quotePrefsLanguageAuto": "Как в приложении",
+    "quotePrefsCategories": "Категории",
+    "quotePrefsCategoriesHint": "Выберите те, что хотите видеть на карточке. Если не выбрать ни одной — цитаты берутся из всей библиотеки.",
+    "quotePrefsSave": "Сохранить настройки"
   },
   "profile": {
     "eyebrow": "Профиль",

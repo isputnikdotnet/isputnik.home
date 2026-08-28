@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { createPortal } from "react-dom";
-import { BookOpen, ChevronRight, DownloadCloud, HardDrive, Image as ImageIcon, Library, Loader2, Play, Sparkles } from "lucide-react";
+import { BookOpen, ChevronRight, DownloadCloud, HardDrive, Image as ImageIcon, Library, Loader2, Play, SlidersHorizontal, Sparkles } from "lucide-react";
 import { ActivityList } from "../features/social/ActivityList";
 import { InboxRow, type InboxCard } from "../features/social/InboxRow";
 import { api, type PublicUser } from "../api";
 import { DashboardShell } from "../app/DashboardShell";
 import { followRoute, navigate } from "../router";
 import { MessageBox } from "../shared/MessageBox";
+import { Modal } from "../shared/Modal";
+import { Button } from "../shared/Button";
 import { authorLine, audioRecordToFeedItem, ebookRecordToFeedItem, fetchFeed, saveFeedItemOffline, type FeedItem } from "../features/library/feed";
-import { batchDayLabel, fetchDailyQuote, fetchHomeFeed, localDate, storeQuoteCategory, tightMemoryGroups, toActivityItem, type ActivityCard, type AddedBatchCard, type HomeCard, type MemoryCard, type QuoteCard, type SentCard, type SeriesNextCard } from "../features/home/feed";
+import { batchDayLabel, fetchDailyQuote, fetchHomeFeed, localDate, storeQuoteCategory, storeQuotePrefs, storedQuotePrefs, tightMemoryGroups, toActivityItem, type ActivityCard, type AddedBatchCard, type HomeCard, type MemoryCard, type QuoteCard, type QuotePrefs, type SentCard, type SeriesNextCard } from "../features/home/feed";
 import { FeedListItem, FeedListItemSkeleton } from "../features/library/FeedListItem";
 import { DEFAULT_COVERS } from "../features/audiobooks/covers";
 import { useIsMobile } from "../shared/useIsMobile";
@@ -237,14 +239,13 @@ function QuoteFeedCard({ card }: { card: QuoteCard }) {
   const { t } = useTranslation();
   const [quote, setQuote] = useState<QuoteCard>(card);
   const [busy, setBusy] = useState(false);
+  const [tuning, setTuning] = useState(false);
   const active = quote.category ?? "";
 
-  const choose = async (category: string) => {
-    if (category === active) return;
-    storeQuoteCategory(category);
+  const reload = async (category: string, prefs?: QuotePrefs) => {
     setBusy(true);
     try {
-      const { quote: next } = await fetchDailyQuote(category);
+      const { quote: next } = await fetchDailyQuote(category, prefs);
       if (next) setQuote(next);
     } catch {
       // Keep showing the quote already on screen.
@@ -253,15 +254,44 @@ function QuoteFeedCard({ card }: { card: QuoteCard }) {
     }
   };
 
+  const choose = (category: string) => {
+    if (category === active) return;
+    storeQuoteCategory(category);
+    void reload(category);
+  };
+
+  // Changing what you like starts the card over on "All": the chip you were
+  // standing on may not be among your categories any more.
+  const savePrefs = (prefs: QuotePrefs) => {
+    storeQuotePrefs(prefs);
+    storeQuoteCategory("");
+    setTuning(false);
+    void reload("", prefs);
+  };
+
   const byline = [quote.attribution, quote.source].filter(Boolean).join(" · ");
 
   return (
     <div className={`home-card home-card-quote${busy ? " is-busy" : ""}`}>
-      <small className="home-quote-eyebrow">
-        {quote.yearsAgo === null
-          ? t("home.quoteOfTheDay")
-          : t("home.quoteYearsAgoToday", { count: quote.yearsAgo })}
-      </small>
+      <div className="home-quote-head">
+        <small className="home-quote-eyebrow">
+          {quote.yearsAgo === null
+            ? t("home.quoteOfTheDay")
+            : t("home.quoteYearsAgoToday", { count: quote.yearsAgo })}
+        </small>
+        {/* Only worth offering once there is something to choose between. */}
+        {quote.allCategories.length > 0 && (
+          <button
+            type="button"
+            className="icon-button home-quote-tune"
+            onClick={() => setTuning(true)}
+            aria-label={t("home.quotePrefsTitle")}
+            title={t("home.quotePrefsTitle")}
+          >
+            <SlidersHorizontal size={15} />
+          </button>
+        )}
+      </div>
       <blockquote className="home-quote-text">{quote.text}</blockquote>
       {byline && <p className="home-quote-byline">{byline}</p>}
       {quote.categories.length > 0 && (
@@ -287,7 +317,88 @@ function QuoteFeedCard({ card }: { card: QuoteCard }) {
           ))}
         </div>
       )}
+
+      {tuning && (
+        <QuotePrefsModal
+          allCategories={quote.allCategories}
+          onSave={savePrefs}
+          onClose={() => setTuning(false)}
+        />
+      )}
     </div>
+  );
+}
+
+// What this viewer wants from the daily card: which language, and which
+// categories. Kept in the browser rather than the database — it is a per-viewer
+// convenience like the chip choice, and losing it just means the card goes back
+// to the whole library in whatever language the app is being read in.
+function QuotePrefsModal({
+  allCategories,
+  onSave,
+  onClose
+}: {
+  allCategories: string[];
+  onSave: (prefs: QuotePrefs) => void;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const [prefs, setPrefs] = useState<QuotePrefs>(storedQuotePrefs);
+
+  const toggle = (category: string) => {
+    setPrefs((current) => ({
+      ...current,
+      categories: current.categories.includes(category)
+        ? current.categories.filter((name) => name !== category)
+        : [...current.categories, category]
+    }));
+  };
+
+  return (
+    <Modal
+      variant="card"
+      title={t("home.quotePrefsTitle")}
+      onClose={onClose}
+      onSubmit={(event) => { event.preventDefault(); onSave(prefs); }}
+    >
+      <div className="quote-prefs">
+        <label className="field">
+          <span>{t("home.quotePrefsLanguage")}</span>
+          <select
+            value={prefs.language}
+            onChange={(event) => setPrefs((current) => ({ ...current, language: event.target.value }))}
+          >
+            {/* "" follows the app's own language, which is what most people want
+                and what the card did before this dialog existed. */}
+            <option value="">{t("home.quotePrefsLanguageAuto")}</option>
+            <option value="en">English</option>
+            <option value="ru">Русский</option>
+          </select>
+        </label>
+
+        <div className="field">
+          <span>{t("home.quotePrefsCategories")}</span>
+          <p className="muted quote-prefs-hint">{t("home.quotePrefsCategoriesHint")}</p>
+          <div className="quote-prefs-categories">
+            {allCategories.map((category) => (
+              <label className="field-checkbox" key={category}>
+                <input
+                  type="checkbox"
+                  checked={prefs.categories.includes(category)}
+                  onChange={() => toggle(category)}
+                />
+                <span>{category}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div className="modal-actions">
+          <Button variant="secondary" onClick={onClose}>{t("common.cancel")}</Button>
+          <Button variant="primary" type="submit">{t("home.quotePrefsSave")}</Button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 

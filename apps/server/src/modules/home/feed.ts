@@ -333,7 +333,7 @@ function seriesNextCard(user: RequestUser, now: number): SeriesNextCard | null {
 export function loadHomeFeed(
   user: RequestUser,
   date: string,
-  opts: { language?: string; quoteCategory?: string } = {}
+  opts: { language?: string; quoteCategory?: string; quoteCategories?: string[] } = {}
 ): HomeCard[] {
   const now = Date.now();
 
@@ -370,7 +370,11 @@ export function loadHomeFeed(
     });
   }
 
-  const quote = dailyQuote(user, date, { language: opts.language, category: opts.quoteCategory });
+  const quote = dailyQuote(user, date, {
+    language: opts.language,
+    category: opts.quoteCategory,
+    categories: opts.quoteCategories
+  });
   if (quote) {
     ranked.push({
       score: quote.yearsAgo === null ? QUOTE_SCORE : ANNIVERSARY_QUOTE_SCORE,

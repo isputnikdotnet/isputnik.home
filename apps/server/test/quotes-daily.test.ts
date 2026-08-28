@@ -236,3 +236,95 @@ describe("anniversaries", () => {
     expect(dailyQuote(me, TODAY, { language: "ru" })!.quoteId).toBe("anniversary");
   });
 });
+
+describe("which categories the card offers", () => {
+  // A library with thirty categories cannot wear thirty chips, so the card caps
+  // the row — and rotates it, or the first eight alphabetically would own the
+  // card forever and the rest would never be seen.
+  const seedCategories = (names: string[]) => {
+    names.forEach((name, i) => seedQuote({ id: `q${i}`, text: `Quote ${i}`, tags: [name] }));
+  };
+  const twelve = ["Aa", "Bb", "Cc", "Dd", "Ee", "Ff", "Gg", "Hh", "Ii", "Jj", "Kk", "Ll"];
+
+  it("offers everything when the library has few categories", () => {
+    seedCategories(["Funny", "Kids", "Wisdom"]);
+    expect(dailyQuote(me, TODAY)!.categories).toEqual(["Funny", "Kids", "Wisdom"]);
+  });
+
+  it("caps the row at eight, and still reports the rest for the settings", () => {
+    seedCategories(twelve);
+    const picked = dailyQuote(me, TODAY)!;
+    expect(picked.categories).toHaveLength(8);
+    expect(picked.allCategories).toHaveLength(12);
+  });
+
+  it("rotates the window daily, so every category comes round", () => {
+    seedCategories(twelve);
+    const seen = new Set<string>();
+    for (let day = 1; day <= 12; day += 1) {
+      const date = `2026-09-${String(day).padStart(2, "0")}`;
+      for (const name of dailyQuote(me, date)!.categories) seen.add(name);
+    }
+    expect(seen.size).toBe(12);
+  });
+
+  it("shows the same eight to everyone on the same day", () => {
+    seedCategories(twelve);
+    expect(dailyQuote({ id: "relative" }, TODAY)!.categories)
+      .toEqual(dailyQuote(me, TODAY)!.categories);
+  });
+
+  it("keeps the chosen chip in the row even when today's window excludes it", () => {
+    seedCategories(twelve);
+    const rotation = dailyQuote(me, TODAY)!.categories;
+    const excluded = twelve.find((name) => !rotation.includes(name))!;
+
+    const picked = dailyQuote(me, TODAY, { category: excluded })!;
+    expect(picked.categories).toContain(excluded);
+    expect(picked.category).toBe(excluded);
+  });
+});
+
+describe("what the viewer prefers", () => {
+  beforeEach(() => {
+    seedQuote({ id: "funny1", text: "Ha", tags: ["Funny"] });
+    seedQuote({ id: "kids1", text: "Why is the sky?", tags: ["Kids"] });
+    seedQuote({ id: "wise1", text: "Know thyself", tags: ["Wisdom"] });
+    seedQuote({ id: "plain", text: "No category at all" });
+  });
+
+  it("offers exactly the categories they chose, and nothing else", () => {
+    const picked = dailyQuote(me, TODAY, { categories: ["Funny", "Kids"] })!;
+    expect(picked.categories).toEqual(["Funny", "Kids"]);
+    // The settings still need the full list to choose from.
+    expect(picked.allCategories).toEqual(["Funny", "Kids", "Wisdom"]);
+  });
+
+  it("draws from all of them together, not one at a time", () => {
+    const seen = new Set<string>();
+    for (let day = 1; day <= 6; day += 1) {
+      seen.add(dailyQuote(me, `2026-09-0${day}`, { categories: ["Funny", "Kids"] })!.quoteId);
+    }
+    expect([...seen].sort()).toEqual(["funny1", "kids1"]);
+    // Never the uncategorised one, nor a category they did not ask for.
+    expect(seen.has("plain")).toBe(false);
+    expect(seen.has("wise1")).toBe(false);
+  });
+
+  it("lets an explicit chip narrow within what they prefer", () => {
+    const picked = dailyQuote(me, TODAY, { categories: ["Funny", "Kids"], category: "Kids" })!;
+    expect(picked.quoteId).toBe("kids1");
+  });
+
+  it("ignores a preference the library no longer has", () => {
+    const picked = dailyQuote(me, TODAY, { categories: ["Funny", "GoneForever"] })!;
+    expect(picked.categories).toEqual(["Funny"]);
+    expect(picked.quoteId).toBe("funny1");
+  });
+
+  it("falls back to the whole pool when none of the preferences exist", () => {
+    const picked = dailyQuote(me, TODAY, { categories: ["Nope", "AlsoNope"] })!;
+    expect(picked.quoteId).toBeTruthy();
+    expect(picked.categories).toHaveLength(3);
+  });
+});

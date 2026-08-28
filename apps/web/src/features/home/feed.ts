@@ -52,8 +52,10 @@ export interface QuoteCard {
   source: string | null;
   /** The category this pick came from; null when drawn from everything. */
   category: string | null;
-  /** Every category the pool offers, for the switcher. */
+  /** The categories the card offers today — capped, rotating unless chosen. */
   categories: string[];
+  /** Everything the pool wears, for the preferences dialog to choose from. */
+  allCategories: string[];
   /** Years since it was said, when today is the anniversary; null otherwise. */
   yearsAgo: number | null;
 }
@@ -64,6 +66,45 @@ export type HomeCard = SentCard | MemoryCard | AddedBatchCard | ActivityCard | S
 // convenience, so it lives in the browser rather than the database — losing it
 // (a new device, cleared site data) just means the card goes back to All.
 const QUOTE_CATEGORY_KEY = "isputnik.quoteCategory";
+const QUOTE_PREFS_KEY = "isputnik.quotePrefs";
+
+/** What this viewer asked the daily card to show them. */
+export interface QuotePrefs {
+  /** A language code, or "" to follow whatever language the app is being read in. */
+  language: string;
+  /** The categories they care about; empty means the whole library. */
+  categories: string[];
+}
+
+export const EMPTY_QUOTE_PREFS: QuotePrefs = { language: "", categories: [] };
+
+export function storedQuotePrefs(): QuotePrefs {
+  try {
+    const raw = window.localStorage.getItem(QUOTE_PREFS_KEY);
+    if (!raw) return EMPTY_QUOTE_PREFS;
+    const parsed = JSON.parse(raw) as Partial<QuotePrefs>;
+    return {
+      language: typeof parsed.language === "string" ? parsed.language : "",
+      categories: Array.isArray(parsed.categories) ? parsed.categories.filter((c) => typeof c === "string") : []
+    };
+  } catch {
+    // Unreadable or hand-edited: the card works without preferences.
+    return EMPTY_QUOTE_PREFS;
+  }
+}
+
+export function storeQuotePrefs(prefs: QuotePrefs): void {
+  try {
+    window.localStorage.setItem(QUOTE_PREFS_KEY, JSON.stringify(prefs));
+  } catch {
+    // Private mode / quota — the card still works, it just forgets.
+  }
+}
+
+/** The language the card should prefer: the viewer's choice, else the UI's. */
+export function quoteLanguage(prefs: QuotePrefs): string {
+  return prefs.language || i18n.language;
+}
 
 export function storedQuoteCategory(): string {
   try {
@@ -83,9 +124,13 @@ export function storeQuoteCategory(category: string): void {
 }
 
 /** Swap just the quote when the viewer changes category, not the whole feed. */
-export function fetchDailyQuote(category: string): Promise<{ quote: QuoteCard | null }> {
-  const params = new URLSearchParams({ date: localDate(), lang: i18n.language });
+export function fetchDailyQuote(
+  category: string,
+  prefs: QuotePrefs = storedQuotePrefs()
+): Promise<{ quote: QuoteCard | null }> {
+  const params = new URLSearchParams({ date: localDate(), lang: quoteLanguage(prefs) });
   if (category) params.set("category", category);
+  if (prefs.categories.length > 0) params.set("categories", prefs.categories.join(","));
   return api<{ quote: QuoteCard | null }>(`/api/library/quotes/daily?${params}`);
 }
 
@@ -96,10 +141,15 @@ export function localDate(): string {
 }
 
 export function fetchHomeFeed(): Promise<{ cards: HomeCard[] }> {
-  // lang + quoteCategory steer the quote of the day only.
-  const params = new URLSearchParams({ date: localDate(), lang: i18n.language });
+  // The quote-of-the-day parameters, and only those: the viewer's preferred
+  // language and categories, plus whichever chip they were last standing on.
+  // They travel with the FEED request as well as the card's own, or the first
+  // paint would ignore the preferences and correct itself a moment later.
+  const prefs = storedQuotePrefs();
+  const params = new URLSearchParams({ date: localDate(), lang: quoteLanguage(prefs) });
   const category = storedQuoteCategory();
   if (category) params.set("quoteCategory", category);
+  if (prefs.categories.length > 0) params.set("quoteCategories", prefs.categories.join(","));
   return api<{ cards: HomeCard[] }>(`/api/home/feed?${params}`);
 }
 

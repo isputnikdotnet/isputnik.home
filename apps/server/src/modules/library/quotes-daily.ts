@@ -17,6 +17,9 @@ import { db } from "../../db.js";
 import { normalizeText } from "./audiobook/categorize.js";
 import { QUOTE_ENTITY_TYPE } from "./quotes.js";
 
+/** How many category chips the card offers at once. */
+const OFFERED_CATEGORIES = 8;
+
 export interface DailyQuote {
   quoteId: string;
   text: string;
@@ -26,8 +29,11 @@ export interface DailyQuote {
   source: string | null;
   /** The category this pick was drawn from; null when drawn from everything. */
   category: string | null;
-  /** Every category the pool offers, for the card's switcher. */
+  /** The categories the card offers today — capped, and rotating unless the
+   *  viewer has chosen their own. */
   categories: string[];
+  /** Everything the pool wears, for the preferences dialog to choose from. */
+  allCategories: string[];
   /**
    * Years since it was said, when today is the anniversary of the day it was
    * said. Null for an ordinary rotation pick — which is what the card reads to
@@ -67,7 +73,13 @@ function primaryLanguage(value: string | null): string {
 export function dailyQuote(
   user: { id: string },
   date: string,
-  opts: { language?: string; category?: string } = {}
+  opts: {
+    language?: string;
+    /** The chip the viewer is standing on right now. */
+    category?: string;
+    /** The categories they said they care about; empty means everything. */
+    categories?: string[];
+  } = {}
 ): DailyQuote | null {
   const pool = db.prepare(`
     SELECT id, text, source_title, source_author, person_name, language, quote_date
@@ -96,7 +108,35 @@ export function dailyQuote(
     if (keys) keys.add(row.key);
     else keysByQuote.set(row.quote_id, new Set([row.key]));
   }
-  const categories = [...nameByKey.values()].sort((a, b) => a.localeCompare(b));
+  const allCategories = [...nameByKey.values()].sort((a, b) => a.localeCompare(b));
+
+  // YYYYMMDD as a number: one step per day, and every viewer in the house lands
+  // on the same quote because they send the same local date.
+  const dayNumber = Number(date.replace(/-/g, "")) || 0;
+
+  // A card cannot wear thirty chips. Two rules decide which it offers:
+  //
+  //  • Told what you like, it shows exactly that. Chosen categories ARE the
+  //    switcher; nothing else is competing for the row.
+  //  • Told nothing, it rotates: a window of OFFERED_CATEGORIES moves one step
+  //    a day, so everything the library holds comes round instead of the first
+  //    eight alphabetically owning the card forever.
+  //
+  // The active chip is always in the row, or picking one then finding it gone
+  // tomorrow would read as the card forgetting.
+  const preferred = (opts.categories ?? [])
+    .map((name) => nameByKey.get(normalizeText(name)))
+    .filter((name): name is string => Boolean(name));
+
+  let offered: string[];
+  if (preferred.length > 0) {
+    offered = preferred;
+  } else if (allCategories.length <= OFFERED_CATEGORIES) {
+    offered = allCategories;
+  } else {
+    const start = dayNumber % allCategories.length;
+    offered = [...allCategories.slice(start), ...allCategories.slice(0, start)].slice(0, OFFERED_CATEGORIES);
+  }
 
   // A category the pool no longer has (the last Funny quote was deleted, or the
   // viewer's stored choice is stale) falls back to the whole pool rather than
@@ -104,13 +144,23 @@ export function dailyQuote(
   const wantedKey = opts.category ? normalizeText(opts.category) : "";
   const inCategory = wantedKey
     ? pool.filter((row) => keysByQuote.get(row.id)?.has(wantedKey))
-    : pool;
-  const categoryHeld = wantedKey && inCategory.length > 0;
-  let candidates = categoryHeld ? inCategory : pool;
+    : null;
+  const categoryHeld = Boolean(wantedKey && inCategory && inCategory.length > 0);
+  if (categoryHeld) {
+    const active = nameByKey.get(wantedKey)!;
+    if (!offered.includes(active)) offered = [active, ...offered];
+  }
 
-  // YYYYMMDD as a number: one step per day, and every viewer in the house lands
-  // on the same quote because they send the same local date.
-  const dayNumber = Number(date.replace(/-/g, "")) || 0;
+  // With no chip chosen but categories preferred, the card draws from all of
+  // them together — "my kind of quote", rather than one at a time.
+  const preferredKeys = new Set(preferred.map((name) => normalizeText(name)));
+  const inPreferred = preferredKeys.size > 0
+    ? pool.filter((row) => [...(keysByQuote.get(row.id) ?? [])].some((key) => preferredKeys.has(key)))
+    : [];
+
+  let candidates = categoryHeld
+    ? inCategory!
+    : inPreferred.length > 0 ? inPreferred : pool;
 
   // Something said on this day in an earlier year outranks the rotation: a
   // remembered moment beats a line drawn in turn.
@@ -128,7 +178,7 @@ export function dailyQuote(
       .filter((entry): entry is { row: PoolRow; yearsAgo: number } => entry.yearsAgo !== null);
     if (anniversaries.length > 0) {
       const pick = anniversaries[dayNumber % anniversaries.length];
-      return { ...publicShape(pick.row, categories), category: null, yearsAgo: pick.yearsAgo };
+      return { ...publicShape(pick.row, offered, allCategories), category: null, yearsAgo: pick.yearsAgo };
     }
   }
 
@@ -143,20 +193,21 @@ export function dailyQuote(
   const row = candidates[dayNumber % candidates.length];
 
   return {
-    ...publicShape(row, categories),
+    ...publicShape(row, offered, allCategories),
     category: categoryHeld ? (nameByKey.get(wantedKey) ?? null) : null,
     yearsAgo: null
   };
 }
 
 /** The half of the answer that does not depend on how the quote was chosen. */
-function publicShape(row: PoolRow, categories: string[]) {
+function publicShape(row: PoolRow, categories: string[], allCategories: string[]) {
   return {
     quoteId: row.id,
     text: row.text,
     attribution: row.person_name ?? row.source_author,
     source: row.source_title,
-    categories
+    categories,
+    allCategories
   };
 }
 
@@ -165,12 +216,21 @@ export function registerDailyQuoteRoutes(app: FastifyInstance) {
   // switcher calls, so changing category swaps one quote instead of refetching
   // the whole front page.
   app.get("/api/library/quotes/daily", { preHandler: app.authenticate }, async (request, reply) => {
-    const query = request.query as { date?: string; lang?: string; category?: string };
+    const query = request.query as { date?: string; lang?: string; category?: string; categories?: string };
     const date = /^\d{4}-\d{2}-\d{2}$/.test(query.date ?? "") ? query.date! : serverLocalDate();
     return reply.send({
-      quote: dailyQuote(request.user!, date, { language: query.lang, category: query.category })
+      quote: dailyQuote(request.user!, date, {
+        language: query.lang,
+        category: query.category,
+        categories: splitCategories(query.categories)
+      })
     });
   });
+}
+
+/** Preferred categories arrive comma-separated; a name may not contain a comma. */
+function splitCategories(value: string | undefined): string[] {
+  return (value ?? "").split(",").map((name) => name.trim()).filter(Boolean).slice(0, 24);
 }
 
 /** Fallback when the client sends no (or a malformed) local date. */

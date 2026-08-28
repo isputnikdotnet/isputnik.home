@@ -272,7 +272,13 @@
     "quoteCategoryLabel": "Quote category",
     "quoteAllCategories": "All",
     "quoteYearsAgoToday_one": "{{count}} year ago today",
-    "quoteYearsAgoToday_other": "{{count}} years ago today"
+    "quoteYearsAgoToday_other": "{{count}} years ago today",
+    "quotePrefsTitle": "Quote preferences",
+    "quotePrefsLanguage": "Language",
+    "quotePrefsLanguageAuto": "Follow the app",
+    "quotePrefsCategories": "Categories",
+    "quotePrefsCategoriesHint": "Pick the ones you want on your card. Choose none to draw from everything.",
+    "quotePrefsSave": "Save preferences"
   },
   "profile": {
     "eyebrow": "Profile",

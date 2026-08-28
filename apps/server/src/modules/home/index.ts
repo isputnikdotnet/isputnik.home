@@ -9,7 +9,7 @@ export async function homePlugin(app: FastifyInstance) {
   // timezone), same contract as the gallery memories endpoint. A malformed or
   // impossible one falls back to the server's local day.
   app.get("/api/home/feed", { preHandler: app.authenticate }, async (request) => {
-    const qp = request.query as { date?: string; lang?: string; quoteCategory?: string };
+    const qp = request.query as { date?: string; lang?: string; quoteCategory?: string; quoteCategories?: string };
     let date = qp.date ?? "";
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(new Date(`${date}T00:00:00Z`).getTime())) {
       const now = new Date();
@@ -20,7 +20,14 @@ export async function homePlugin(app: FastifyInstance) {
     return {
       cards: loadHomeFeed(request.user!, date, {
         language: qp.lang,
-        quoteCategory: qp.quoteCategory
+        quoteCategory: qp.quoteCategory,
+        // Comma-separated, and capped: a hand-built URL should not be able to
+        // make the card evaluate an unbounded list of names.
+        quoteCategories: (qp.quoteCategories ?? "")
+          .split(",")
+          .map((name) => name.trim())
+          .filter(Boolean)
+          .slice(0, 24)
       })
     };
   });
