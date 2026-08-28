@@ -2630,13 +2630,51 @@
   font-size: 0.82rem;
 }
 
-/* Wraps rather than scrolls: a family library has a handful of categories, and
-   a scrolling box for six checkboxes reads as more than it is. */
+.quote-prefs-group {
+  display: grid;
+  gap: 4px;
+}
+
+.quote-prefs-label {
+  color: var(--muted);
+}
+
+/* A grid, not wrapped flex: columns wide enough to hold a category name on one
+   line. Flex items shrank to fit and broke names apart letter by letter. */
 .quote-prefs-categories {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 18px;
-  margin-top: 6px;
-  max-height: 220px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px 16px;
+  margin-top: 8px;
+  max-height: 240px;
   overflow-y: auto;
+}
+
+.quote-prefs-category {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 0.9rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+/* Its own size, whatever the surrounding form does to inputs. */
+.quote-prefs-category input[type="checkbox"] {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+}
+
+/* One line each. A name too long for its column is clipped rather than wrapped,
+   and the label carries the full text as a tooltip. */
+.quote-prefs-category span {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }

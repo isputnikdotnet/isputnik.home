@@ -376,12 +376,15 @@ function QuotePrefsModal({
           </select>
         </label>
 
-        <div className="field">
-          <span>{t("home.quotePrefsCategories")}</span>
+        {/* Not a .field: that class styles its inputs as full-width 46px text
+            boxes, which turns a checkbox into a giant square and squeezes its
+            label into a one-character column. */}
+        <div className="quote-prefs-group">
+          <span className="quote-prefs-label">{t("home.quotePrefsCategories")}</span>
           <p className="muted quote-prefs-hint">{t("home.quotePrefsCategoriesHint")}</p>
           <div className="quote-prefs-categories">
             {allCategories.map((category) => (
-              <label className="field-checkbox" key={category}>
+              <label className="quote-prefs-category" key={category} title={category}>
                 <input
                   type="checkbox"
                   checked={prefs.categories.includes(category)}

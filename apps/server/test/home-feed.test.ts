@@ -263,3 +263,37 @@ describe("next in series", () => {
     expect(loadHomeFeed(dad, TODAY).some((card) => card.type === "series_next")).toBe(false);
   });
 });
+
+describe("the quote of the day opens the page", () => {
+  // It is the one card that is the same for the whole house and changes every
+  // morning, so it is PINNED rather than ranked: it must not drift down the page
+  // as the day's activity piles up above it.
+  const seedRotating = (id: string, text: string) => {
+    db.prepare(
+      "INSERT INTO quotes (id, user_id, text, source_author, visibility, in_rotation) VALUES (?, 'dad', ?, 'Someone', 'family', 1)"
+    ).run(id, text);
+  };
+
+  it("comes first, ahead of every ranked card", () => {
+    seedRotating("q1", "The quote of the day");
+    const cards = loadHomeFeed(dad, TODAY);
+    expect(cards[0]?.type).toBe("quote");
+    // And it is the only one: a second quote card would be two quotes of the day.
+    expect(cards.filter((card) => card.type === "quote")).toHaveLength(1);
+  });
+
+  it("leaves the rest of the feed in its usual order", () => {
+    seedRotating("q1", "The quote of the day");
+    const withQuote = loadHomeFeed(dad, TODAY).filter((card) => card.type !== "quote");
+
+    db.prepare("DELETE FROM quotes").run();
+    const withoutQuote = loadHomeFeed(dad, TODAY);
+
+    expect(withQuote.map((card) => card.type)).toEqual(withoutQuote.map((card) => card.type));
+  });
+
+  it("simply is not there when nothing is in rotation", () => {
+    const cards = loadHomeFeed(dad, TODAY);
+    expect(cards.some((card) => card.type === "quote")).toBe(false);
+  });
+});
