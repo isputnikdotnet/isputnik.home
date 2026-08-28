@@ -19,6 +19,18 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.35.0",
+    label: "Who's at the door",
+    changes: [
+      "The control panel had two pages answering the same question. Overview had a Sign-ins page, and the Dashboard had a Logins view, and both drew the same chart of successful and failed sign-ins over the same events — but only one of them could tell you where a sign-in came from, and only the other one listed the attempts one by one. They are one page now: Sign-ins is what the Dashboard opens on, and it kept everything both of them did.",
+      "Which means the attempt-by-attempt list finally narrows with the rest of the page. Filter to one country, one address or one person and the raw attempts follow, where before they always showed the whole house no matter what the panels above them were describing.",
+      "What is signed in and what happened now share one card, with a switch between them, because the answer to \"who is at the door\" is both of those things and you should not have to scroll past fifty sessions to reach the second half. Each side carries the graph of its own shape: sign-ins over time, and — new — a bar per person of the devices they are signed in on, which is how you find whoever has quietly accumulated forty of them.",
+      "The list of attempts also stops overstating itself. It holds the newest few hundred, and it now says so plainly, with the true total for the window on the tab beside it and the rest where it always was, in Logs.",
+      "Every link to the old addresses still works, including a shared drill-down with its country or address still attached, so nothing anybody saved has gone stale.",
+      "The Dashboard's Libraries page rearranged its four lists into two pairs: who wrote and who narrated on the top row, what is heaviest and where the photos pile up below. That last one is new — the folders holding the most photos, counting the folder each photo actually sits in rather than rolling everything up into the library it is somewhere inside, so it names the place to go and not the place you started."
+    ]
+  },
+  {
     version: "3.34.1",
     label: "Nothing to see here",
     changes: [
