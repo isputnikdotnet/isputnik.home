@@ -93,6 +93,13 @@ interface CandidateRow {
   role: string;
 }
 
+// Same row plus the address, for the picker: two people called Sergey are told
+// apart by their email and nothing else. hydrateOne only ever reads id and role,
+// so the wider row is safe to pass it.
+interface CandidateWithEmailRow extends CandidateRow {
+  email: string;
+}
+
 interface RecommendationRow {
   id: string;
   from_user_id: string | null;
@@ -182,10 +189,10 @@ export async function socialPlugin(app: FastifyInstance) {
     }
 
     const candidates = db.prepare(`
-      SELECT id, display_name, role FROM users
+      SELECT id, display_name, email, role FROM users
       WHERE id != ? AND is_active = 1 AND deleted_at IS NULL
       ORDER BY display_name COLLATE NOCASE
-    `).all(user.id) as CandidateRow[];
+    `).all(user.id) as CandidateWithEmailRow[];
 
     // Who already has this in their inbox, so the sheet can say so instead of
     // letting someone send the same book three times in a week.
@@ -207,6 +214,10 @@ export async function socialPlugin(app: FastifyInstance) {
     const people = candidates.map((candidate) => ({
       id: candidate.id,
       displayName: candidate.display_name,
+      // Already visible to anyone who can share (GET /api/shares/user lists it
+      // for every existing share), and it is what separates two household
+      // members with the same first name in the picker.
+      email: candidate.email,
       alreadySent: alreadySent.has(candidate.id),
       canOpen: hydrateOne(query.entityType!, query.entityId!, candidate) != null
     }));
@@ -235,7 +246,13 @@ export async function socialPlugin(app: FastifyInstance) {
         : { applicable: false, configured: false },
       // Guest links exist for books, gallery items and albums. A slideshow and a
       // family-tree person have no public page to point at.
-      guestLink: LIBRARY_ITEM_TYPES.has(query.entityType) || query.entityType === "gallery_album"
+      guestLink: LIBRARY_ITEM_TYPES.has(query.entityType) || query.entityType === "gallery_album",
+      // Whether the sheet may also manage guest links and existing per-person
+      // shares for this subject — the work the separate Share dialog used to do.
+      // Both hang off /api/shares, which only knows library items, so an album
+      // (its own share flow) and a family-tree person are excluded here even
+      // though the first of them can be guest-linked.
+      manageLinks: LIBRARY_ITEM_TYPES.has(query.entityType) && canGrant
     });
   });
 

@@ -25,6 +25,450 @@
 
 /* ── Send to sheet ───────────────────────────────────────────────────────── */
 
+/* Wider than a confirm card: three routes across the top and a two-column
+   people grid under them need the room, and the alternative was three routes
+   stacked in a column, which is the flat list this replaced. */
+.send-to-modal {
+  width: min(100%, 720px);
+}
+
+/* The three ways to share, as tiles. They were a segmented row for a moment —
+   the same three words in a third of the height, which read as chrome above the
+   dialog rather than as the choice the dialog opens on. A circle, a name and a
+   line of what it does is what makes them read as three answers.
+
+   Each one now switches the body underneath rather than leaving: Share link
+   used to close this dialog and open a second one over the same endpoints,
+   which is the trip this row removed. */
+.send-to-routes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.send-to-route {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 6px;
+  padding: 20px 12px 18px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.send-to-route:hover:not(.is-active),
+.send-to-route:focus-visible:not(.is-active) {
+  border-color: var(--line);
+  background: var(--hover);
+}
+
+/* The route you are looking at. */
+.send-to-route.is-active {
+  border-color: var(--line);
+  background: var(--field);
+}
+
+.send-to-route strong {
+  color: var(--ink);
+  font-size: 1rem;
+}
+
+.send-to-route > span:last-child {
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+
+/* One circle per route, each in its own tint, because at a glance the colour is
+   what tells three same-shaped tiles apart. */
+.send-to-route-icon {
+  display: grid;
+  place-items: center;
+  width: 68px;
+  height: 68px;
+  margin-bottom: 6px;
+  border-radius: 999px;
+}
+
+.send-to-route-icon.people {
+  color: var(--mint);
+  background: color-mix(in srgb, var(--mint) 15%, transparent);
+}
+
+.send-to-route-icon.link {
+  color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 16%, transparent);
+}
+
+.send-to-route-icon.ereader {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--ink) 9%, transparent);
+}
+
+/* Everything a tab that isn't the people picker puts on screen. */
+.send-to-panel {
+  display: grid;
+  justify-items: start;
+  gap: 16px;
+}
+
+.send-to-section-head {
+  margin: 4px 0 0;
+  color: var(--ink);
+  font-size: 1.02rem;
+}
+
+.send-to-panel-intro {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.send-to-panel-link {
+  color: var(--gold);
+  font-size: 0.92rem;
+}
+
+/* Expiry, label and Create on one line at full width, stacking before the
+   label input gets too narrow to read what you typed into it. */
+.send-to-link-create {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.7fr) minmax(0, 1.3fr) auto;
+  align-items: end;
+  gap: 12px;
+  width: 100%;
+}
+
+.send-to-link-create .send-to-field {
+  margin-bottom: 0;
+}
+
+.send-to-link-create select {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--field);
+  color: var(--ink);
+  font: inherit;
+}
+
+.send-to-link-create .primary-button {
+  min-height: 44px;
+}
+
+.send-to-new-url {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+}
+
+.send-to-new-url p {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.88rem;
+}
+
+.send-to-url-row {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+}
+
+.send-to-url-row input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--field);
+  color: var(--ink);
+  font: inherit;
+}
+
+/* One row per link, and per person who already has access — the two lists the
+   old Share dialog kept in two tabs of its own. */
+.send-to-rows {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.send-to-rows li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.send-to-row-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  border-radius: 8px;
+  color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 12%, transparent);
+}
+
+.send-to-row-main {
+  display: grid;
+  gap: 1px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.send-to-row-main strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 620;
+}
+
+.send-to-row-main > span {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+@media (max-width: 560px) {
+  .send-to-routes {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .send-to-route {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    justify-items: start;
+    align-items: center;
+    gap: 2px 14px;
+    padding: 12px;
+    text-align: left;
+  }
+
+  .send-to-route-icon {
+    grid-row: span 2;
+    width: 48px;
+    height: 48px;
+    margin-bottom: 0;
+  }
+
+  .send-to-link-create {
+    grid-template-columns: 1fr;
+  }
+}
+
+.send-to-quick {
+  display: grid;
+  gap: 12px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.send-to-quick-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.send-to-quick-head h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1.02rem;
+}
+
+/* Only drawn once the household is big enough that reading the grid stops being
+   faster than typing — see SEARCH_THRESHOLD. */
+.send-to-search-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0;
+  border: 0;
+  color: var(--muted);
+  background: transparent;
+  font: inherit;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.send-to-search-toggle:hover,
+.send-to-search-toggle:focus-visible {
+  color: var(--ink);
+}
+
+.send-to-search {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--field);
+  color: var(--ink);
+  font: inherit;
+}
+
+.send-to-people {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* The whole card is the checkbox. A real <input> inside it would be a second
+   tab stop for one decision, and a button cannot legally contain one. */
+.send-to-person {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.send-to-person:hover:not(:disabled),
+.send-to-person:focus-visible {
+  border-color: var(--line);
+  background: var(--hover);
+}
+
+.send-to-person:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.send-to-person.is-picked {
+  border-color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 9%, transparent);
+}
+
+.send-to-avatar {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  color: #fff;
+  /* The one colour in this file not taken from a token, and deliberately: it
+     encodes WHO, not chrome, so it has to differ per person in every theme.
+     Kept low-saturation so eight of them don't shout over a monochrome one. */
+  background: hsl(var(--avatar-hue, 200) 30% 42%);
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.send-to-person-text {
+  display: grid;
+  gap: 1px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.send-to-person-text strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 620;
+}
+
+.send-to-person-text > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.send-to-person-flag {
+  color: var(--gold);
+  font-size: 0.76rem;
+}
+
+.send-to-check {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  border: 1.5px solid var(--line);
+  border-radius: 5px;
+}
+
+.send-to-person.is-picked .send-to-check {
+  position: relative;
+  border-color: var(--gold);
+  background: var(--gold);
+}
+
+.send-to-person.is-picked .send-to-check::after {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 2px;
+  width: 5px;
+  height: 10px;
+  border: solid var(--surface);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.send-to-person:disabled .send-to-check {
+  visibility: hidden;
+}
+
+/* Sharing settings sits opposite the buttons — it leaves this dialog for the
+   page that lists every link you have made, which is a different job from
+   finishing the send in front of you. */
+.send-to-footer {
+  align-items: center;
+}
+
+.send-to-settings {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: auto;
+  color: var(--muted);
+  font-size: 0.88rem;
+  text-decoration: none;
+}
+
+.send-to-settings:hover,
+.send-to-settings:focus-visible {
+  color: var(--ink);
+  text-decoration: underline;
+}
+
+.send-to-recipients {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
 .send-to-subject {
   display: flex;
   align-items: center;
@@ -71,69 +515,6 @@
   color: var(--muted);
 }
 
-.send-to-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-/* Devices and links sit below a rule: people are the common intent, and the
-   separation is what stops "My e-reader" reading as a family member. */
-.send-to-list-devices {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--line);
-}
-
-.send-to-option {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 11px 12px;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--ink);
-  font: inherit;
-  text-align: left;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.send-to-option:hover:not(:disabled),
-.send-to-option:focus-visible {
-  background: var(--hover);
-  border-color: var(--line);
-}
-
-.send-to-option:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
-
-.send-to-option svg {
-  flex: 0 0 auto;
-  color: var(--muted);
-}
-
-.send-to-option-label {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.send-to-hint {
-  flex: 0 0 auto;
-  font-size: 0.78rem;
-  color: var(--muted);
-}
-
 .send-to-empty {
   padding: 12px;
   font-size: 0.9rem;
@@ -174,6 +555,7 @@
   font-size: 0.95rem;
   color: var(--ink);
 }
+
 
 /* ── Sent to me ──────────────────────────────────────────────────────────── */
 

@@ -10,7 +10,6 @@ import { formatBytes } from "../../shared/utils";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { AddToAlbumModal } from "./AddToAlbumModal";
 import { GalleryPlaceSearch } from "./GalleryPlaceSearch";
-import { ShareModal } from "../share/ShareModal";
 import { SendToSheet } from "../social/SendToSheet";
 import { NotesSection } from "../social/NotesSection";
 import { useIsMobile } from "../../shared/useIsMobile";
@@ -148,7 +147,6 @@ export function GalleryLightbox({
   const [editError, setEditError] = useState("");
   const [collectionOpen, setCollectionOpen] = useState(false);
   const [albumOpen, setAlbumOpen] = useState(false);
-  const [shareOpen, setShareOpen] = useState(false);
   const [sendToOpen, setSendToOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   // Mobile/PWA: the bar's overflow menu, holding whichever actions don't fit in
@@ -256,7 +254,7 @@ export function GalleryLightbox({
 
   // Any open sub-dialog freezes the slideshow (a slide must not advance under a
   // confirm/share/collection modal). Also gates the keyboard handler below.
-  const dialogOpen = collectionOpen || albumOpen || deleteOpen || shareOpen || moreMenuOpen;
+  const dialogOpen = collectionOpen || albumOpen || deleteOpen || moreMenuOpen;
 
   // Close the overflow menu on an outside click (Escape is handled in the
   // shared keydown handler below, alongside the lightbox's own Escape-to-close).
@@ -1133,16 +1131,6 @@ export function GalleryLightbox({
         <SendToSheet
           subject={{ entityType: "gallery", entityId: asset.id }}
           onClose={() => setSendToOpen(false)}
-          onGuestLink={canShare ? () => { setSendToOpen(false); setShareOpen(true); } : undefined}
-        />
-      )}
-
-      {shareOpen && (
-        <ShareModal
-          bookId={asset.id}
-          bookTitle={asset.title}
-          kind="gallery"
-          onClose={() => setShareOpen(false)}
         />
       )}
 
