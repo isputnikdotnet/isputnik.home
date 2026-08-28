@@ -10,10 +10,15 @@ const mockApi = vi.mocked(api);
 // The sheet decides what a press is about to DO, and one of its options widens
 // somebody's access. So the words in front of that press are the thing worth
 // pinning: "Send" and "Give access and send" must never be swapped by accident.
+//
+// Picking people is a multi-select now, so the second thing worth pinning is
+// that one person who needs access is enough to turn the whole send into a
+// grant — and that it says so before it does it.
 
 interface Person {
   id: string;
   displayName: string;
+  email: string;
   alreadySent: boolean;
   canOpen: boolean;
 }
@@ -21,12 +26,13 @@ interface Person {
 const destinations = (over: Record<string, unknown> = {}) => ({
   subject: { title: "The Hobbit", subtitle: "Tolkien", coverUrl: null, href: "/ebooks/books/b1" },
   people: [
-    { id: "mom", displayName: "Mum", alreadySent: false, canOpen: true },
-    { id: "guest", displayName: "Guest", alreadySent: false, canOpen: false }
+    { id: "mom", displayName: "Mum", email: "mum@home.local", alreadySent: false, canOpen: true },
+    { id: "guest", displayName: "Guest", email: "guest@home.local", alreadySent: false, canOpen: false }
   ] as Person[],
   canGrant: true,
   ereader: { applicable: false, configured: false },
   guestLink: false,
+  manageLinks: false,
   ...over
 });
 
@@ -44,6 +50,14 @@ function mount(over: Record<string, unknown> = {}, props: Record<string, unknown
     <SendToSheet subject={{ entityType: "ebook", entityId: "b1" }} onClose={vi.fn()} {...props} />
   );
   return { sent };
+}
+
+/** Tick people, then press the button that carries the send to the compose step. */
+async function pick(user: ReturnType<typeof userEvent.setup>, ...names: RegExp[]) {
+  for (const name of names) {
+    await user.click(await screen.findByRole("button", { name }));
+  }
+  await user.click(screen.getByRole("button", { name: /^Send to / }));
 }
 
 beforeEach(() => {
@@ -71,14 +85,46 @@ describe("who is offered", () => {
     expect(screen.getByText("no access")).toBeInTheDocument();
   });
 
+  it("offers no send button until somebody is ticked", async () => {
+    const user = userEvent.setup();
+    mount();
+    await screen.findByRole("button", { name: /Mum/ });
+    expect(screen.queryByRole("button", { name: /^Send to / })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Mum/ }));
+    expect(screen.getByRole("button", { name: "Send to 1 person" })).toBeInTheDocument();
+
+    // And ticking again puts it back.
+    await user.click(screen.getByRole("button", { name: /Mum/ }));
+    expect(screen.queryByRole("button", { name: /^Send to / })).not.toBeInTheDocument();
+  });
+
   it("offers the caller's own e-reader only when it is set up, and points at Profile when not", async () => {
+    const user = userEvent.setup();
     mount({ ereader: { applicable: true, configured: false } }, { onSendToEreader: vi.fn() });
-    expect(await screen.findByText("Set up my e-reader")).toBeInTheDocument();
+    await user.click(await screen.findByRole("tab", { name: /E-reader/ }));
+    // Asserted on the panel, never on the tile: the tile's caption says the same
+    // words in both states, so testing it would prove nothing about either.
+    expect(screen.getByRole("link", { name: "Add your device address first" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Send to my e-reader/ })).not.toBeInTheDocument();
 
     mockApi.mockReset();
     document.body.innerHTML = "";
     mount({ ereader: { applicable: true, configured: true } }, { onSendToEreader: vi.fn() });
-    expect(await screen.findByText("My e-reader")).toBeInTheDocument();
+    await user.click(await screen.findByRole("tab", { name: /E-reader/ }));
+    expect(screen.getByRole("button", { name: /Send to my e-reader/ })).toBeInTheDocument();
+  });
+
+  it("sends to the e-reader through the host page's own handler", async () => {
+    const user = userEvent.setup();
+    const onSendToEreader = vi.fn().mockResolvedValue(undefined);
+    mount({ ereader: { applicable: true, configured: true } }, { onSendToEreader });
+
+    await user.click(await screen.findByRole("tab", { name: /E-reader/ }));
+    await user.click(screen.getByRole("button", { name: /Send to my e-reader/ }));
+
+    await waitFor(() => expect(onSendToEreader).toHaveBeenCalledOnce());
+    expect(await screen.findByText(/your e-reader/)).toBeInTheDocument();
   });
 });
 
@@ -87,7 +133,7 @@ describe("what the press says it will do", () => {
     const user = userEvent.setup();
     const { sent } = mount();
 
-    await user.click(await screen.findByRole("button", { name: /Mum/ }));
+    await pick(user, /Mum/);
 
     expect(screen.getByText(/no file is sent/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Send" }));
@@ -101,9 +147,9 @@ describe("what the press says it will do", () => {
     const user = userEvent.setup();
     const { sent } = mount();
 
-    await user.click(await screen.findByRole("button", { name: /Guest/ }));
+    await pick(user, /Guest/);
 
-    expect(screen.getByText("Guest can't open this yet. Sending will also give them access to it."))
+    expect(screen.getByText("1 of them can't open this yet. Sending will also give them access."))
       .toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Give access and send" }));
@@ -112,11 +158,27 @@ describe("what the press says it will do", () => {
     expect(sent[0]).toMatchObject({ toUserIds: ["guest"], grantAccess: true });
   });
 
+  it("treats a mixed selection as a grant, and says so", async () => {
+    const user = userEvent.setup();
+    const { sent } = mount();
+
+    await pick(user, /Mum/, /Guest/);
+
+    // One of the two needs access, so the whole send is a grant — anything less
+    // would silently drop half the recipients.
+    expect(screen.getByText("1 of them can't open this yet. Sending will also give them access."))
+      .toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Give access and send" }));
+
+    await waitFor(() => expect(sent).toHaveLength(1));
+    expect(sent[0]).toMatchObject({ toUserIds: ["mom", "guest"], grantAccess: true });
+  });
+
   it("carries the line somebody typed, and sends without one", async () => {
     const user = userEvent.setup();
     const { sent } = mount();
 
-    await user.click(await screen.findByRole("button", { name: /Mum/ }));
+    await pick(user, /Mum/);
     await user.type(screen.getByPlaceholderText("You'll love this"), "the middle drags");
     await user.click(screen.getByRole("button", { name: "Send" }));
 
@@ -127,27 +189,71 @@ describe("what the press says it will do", () => {
     const user = userEvent.setup();
     const { sent } = mount();
 
-    await user.click(await screen.findByRole("button", { name: /Mum/ }));
+    await pick(user, /Mum/);
     await user.click(screen.getByRole("button", { name: "Back" }));
 
     expect(await screen.findByRole("button", { name: /Guest/ })).toBeInTheDocument();
     expect(sent).toHaveLength(0);
   });
+
+  it("names anybody the server could not send to", async () => {
+    const user = userEvent.setup();
+    mockApi.mockImplementation(async (path: string, init?: RequestInit) => {
+      if (init?.method === "POST") return { sent: ["Mum"], skipped: ["Guest"], granted: [] };
+      if (path.startsWith("/api/social/destinations")) return destinations();
+      return {};
+    });
+    render(<SendToSheet subject={{ entityType: "ebook", entityId: "b1" }} onClose={vi.fn()} />);
+
+    await pick(user, /Mum/, /Guest/);
+    await user.click(screen.getByRole("button", { name: "Give access and send" }));
+
+    expect(await screen.findByText(/Guest couldn't be sent to/)).toBeInTheDocument();
+  });
 });
 
 describe("the guest link", () => {
-  it("hands off to the host page rather than doing its own thing", async () => {
+  // The separate Share dialog is gone, so this tab has to do the work itself:
+  // handing off was the trip that made "who can already see this" two places.
+  it("creates the link in place, without leaving the dialog", async () => {
+    const user = userEvent.setup();
+    const calls: Array<{ path: string; body: unknown }> = [];
+    mockApi.mockImplementation(async (path: string, init?: RequestInit) => {
+      if (init?.method === "POST") {
+        calls.push({ path, body: JSON.parse(String(init.body ?? "{}")) });
+        return { share: { id: "s1", label: "For Dad", expiresAt: "2026-10-04", url: "https://home/lnk/abc" } };
+      }
+      if (path.startsWith("/api/social/destinations")) return destinations({ guestLink: true, manageLinks: true });
+      if (path === "/api/shares") return { shares: [] };
+      if (path.startsWith("/api/shares/user")) return { shares: [] };
+      return {};
+    });
+    render(<SendToSheet subject={{ entityType: "ebook", entityId: "b1" }} onClose={vi.fn()} />);
+
+    await user.click(await screen.findByRole("tab", { name: /Share link/ }));
+    await user.type(screen.getByPlaceholderText("e.g. For Dad"), "For Dad");
+    await user.click(screen.getByRole("button", { name: /Create link/ }));
+
+    await waitFor(() => expect(calls).toHaveLength(1));
+    expect(calls[0]).toMatchObject({ path: "/api/shares", body: { bookId: "b1", label: "For Dad" } });
+    // The address exists exactly once — only its hash is stored — so the dialog
+    // has to put it in front of the user then and there.
+    expect(await screen.findByDisplayValue("https://home/lnk/abc")).toBeInTheDocument();
+  });
+
+  it("hands off to a host page that owns its own links", async () => {
     const user = userEvent.setup();
     const onGuestLink = vi.fn();
-    mount({ guestLink: true }, { onGuestLink });
+    mount({ guestLink: true, manageLinks: false }, { onGuestLink });
 
-    await user.click(await screen.findByRole("button", { name: "Anyone with a link" }));
+    await user.click(await screen.findByRole("tab", { name: /Share link/ }));
+    await user.click(screen.getByRole("button", { name: /Set up a link/ }));
     expect(onGuestLink).toHaveBeenCalledOnce();
   });
 
-  it("is absent when the host page offers no such flow", async () => {
+  it("is absent when there is no link flow at all", async () => {
     mount({ guestLink: true });
     await screen.findByRole("button", { name: /Mum/ });
-    expect(screen.queryByRole("button", { name: "Anyone with a link" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: /Share link/ })).not.toBeInTheDocument();
   });
 });

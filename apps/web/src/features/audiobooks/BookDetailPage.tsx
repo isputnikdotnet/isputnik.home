@@ -4,7 +4,6 @@ import { Trans, useTranslation } from "react-i18next";
 import { ArrowLeft, Bookmark, BookOpen, Calendar, CheckCircle2, ChevronDown, ChevronUp, Clock, Download, File as FileIcon, FileText, Globe, HardDrive, Headphones, Heart, Layers, Library, ListMusic, MoreHorizontal, MoreVertical, Pencil, Play, RotateCcw, Send, Trash2, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api, isAccessOrMissingApiError, type PublicUser } from "../../api";
-import { ShareModal } from "../share/ShareModal";
 import { SendToSheet } from "../social/SendToSheet";
 import { NotesSection } from "../social/NotesSection";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
@@ -311,7 +310,6 @@ function BookDetailView({
   const [metadataModalOpen, setMetadataModalOpen] = useState(false);
   const [confirmRemoveDownload, setConfirmRemoveDownload] = useState(false);
   const [confirmRemoveEbookDownload, setConfirmRemoveEbookDownload] = useState(false);
-  const [shareModalOpen, setShareModalOpen] = useState(false);
   const [sendToOpen, setSendToOpen] = useState(false);
   const [addToCollectionOpen, setAddToCollectionOpen] = useState(false);
   const [viewerDoc, setViewerDoc] = useState<{ id: string; fileName: string; url: string; format: string; blob?: Blob | null } | null>(null);
@@ -1433,13 +1431,8 @@ function BookDetailView({
         <SendToSheet
           subject={{ entityType: isEbook ? "ebook" : "audiobook", entityId: book.id }}
           onClose={() => setSendToOpen(false)}
-          onGuestLink={capabilities.canShare ? () => { setSendToOpen(false); setShareModalOpen(true); } : undefined}
           onSendToEreader={isEbook && capabilities.canDownload && sendableDoc ? sendToEreader : undefined}
         />
-      )}
-
-      {shareModalOpen && (
-        <ShareModal bookId={book.id} bookTitle={book.title} kind={isEbook ? "ebook" : "audiobook"} onClose={() => setShareModalOpen(false)} />
       )}
 
       {addToCollectionOpen && (
