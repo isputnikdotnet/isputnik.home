@@ -1,16 +1,25 @@
 name: Build & publish Docker image
 
-# Tags publish an image. Pushes to main build the same image and throw it away —
-# packaging is the one thing typecheck, tests and check:ui can't catch, and it used
-# to surface only at release time: v2.4.0 and v2.4.1 were tagged, failed to build
-# (the Dockerfile didn't copy docs/users, which the web build reads), and published
-# nothing. A dry run on main turns that into a red mark on an ordinary commit.
+# Tags publish an image. Pushes to main and pull requests build the same image and
+# throw it away — packaging is the one thing typecheck, tests and check:ui can't
+# catch, and it used to surface only at release time: v2.4.0 and v2.4.1 were tagged,
+# failed to build (the Dockerfile didn't copy docs/users, which the web build reads),
+# and published nothing. A dry run turns that into a red mark on an ordinary commit.
+#
+# Pull requests build for the same reason one step earlier. A dependency bump can
+# carry a NATIVE module without saying so — npm audit fix once moved onnxruntime-node
+# 1.27→1.29 while claiming to patch adm-zip — and nothing else in CI compiles against
+# the Linux image. Without this, a Dependabot PR goes green on CodeQL alone and the
+# packaging check happens only after it lands on main.
 on:
   push:
     branches:
       - main
     tags:
       - "v*"
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
@@ -23,7 +32,11 @@ jobs:
     # Release commits are always subject-prefixed "release: " (docs/architecture.md
     # → Release process); a release committed under any other subject simply builds
     # twice again, as it did before.
-    if: github.ref_type == 'tag' || !startsWith(github.event.head_commit.message, 'release:')
+    #
+    # The head_commit test is spelled as a push-only clause on purpose: only a push
+    # event HAS head_commit, and on a pull request it would resolve to the empty
+    # string and pass by accident rather than by intent.
+    if: github.event_name != 'push' || github.ref_type == 'tag' || !startsWith(github.event.head_commit.message, 'release:')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -75,7 +88,9 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           # The ref this image is built from, so the app's Help links resolve to
           # the matching guides. A tag run gives "v2.3.1"; a manual dispatch gives
-          # the branch name — either way a ref that exists on GitHub.
+          # the branch name — either way a ref that exists on GitHub. A pull
+          # request gives "35/merge", which does not, but only a published image
+          # is ever read for Help links and a pull request never publishes.
           build-args: |
             DOCS_REF=${{ github.ref_name }}
           # Layers are shared between the dry runs and the release build, so the
