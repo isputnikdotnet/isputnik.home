@@ -57,26 +57,51 @@ function parseArgs(argv) {
   return args;
 }
 
+/**
+ * Remove a pattern until the text stops changing. A single pass is a lie
+ * whenever removing the pattern can rebuild it: "<!-<!-- ->-->" leaves a live
+ * "<!--" behind, and "<<ref>ref>" leaves a "<ref>". Wikitext rarely nests that
+ * way by accident, but what this script prints is shipped as data, so it should
+ * be what it claims. Every pattern passed here only ever shrinks the string, so
+ * the loop always settles.
+ */
+function replaceUntilStable(text, pattern, replacement) {
+  let current = text;
+  let previous;
+  do {
+    previous = current;
+    current = current.replace(pattern, replacement);
+  } while (current !== previous);
+  return current;
+}
+
+const stripUntilStable = (text, pattern) => replaceUntilStable(text, pattern, "");
+
 /** Wikitext → plain text. Order matters: refs and comments go before anything else. */
 function clean(wikitext) {
-  return wikitext
-    .replace(/<ref[^>]*\/>/gi, "")
-    .replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, "")
-    .replace(/<!--[\s\S]*?-->/g, "")
-    // Templates that RENDER their first argument, before the blanket removal
-    // below eats it. {{comment|меня|персонажа Ивана Семёныча}} is a word of the
-    // quote plus an editor's note, and dropping the lot turns "У меня много
-    // детей" into "У много детей" — mangled, and mangled invisibly.
-    .replace(/\{\{\s*(?:comment|comment2|nobr|lang-\w+)\s*\|\s*([^|{}]*?)\s*(?:\|[^{}]*)?\}\}/gi, "$1")
-    .replace(/\{\{[^{}]*\}\}/g, "")            // leftover inline templates
+  let text = wikitext;
+  for (const pattern of [/<ref[^>]*\/>/gi, /<ref[^>]*>[\s\S]*?<\/ref>/gi, /<!--[\s\S]*?-->/g]) {
+    text = stripUntilStable(text, pattern);
+  }
+  // Templates that RENDER their first argument, before the blanket removal
+  // below eats it. {{comment|меня|персонажа Ивана Семёныча}} is a word of the
+  // quote plus an editor's note, and dropping the lot turns "У меня много
+  // детей" into "У много детей" — mangled, and mangled invisibly.
+  // Repeated, innermost pair outward: {{nobr|{{lang-la|dixit}}}} renders the
+  // inner one first, and only a second pass can then see the outer as a
+  // rendering template rather than a nested blob the blanket removal eats.
+  text = replaceUntilStable(text, /\{\{\s*(?:comment|comment2|nobr|lang-\w+)\s*\|\s*([^|{}]*?)\s*(?:\|[^{}]*)?\}\}/gi, "$1");
+  // Leftover inline templates, innermost pair first: repeating unwraps a nested
+  // {{a|{{b}}}}, which one pass leaves as a half-eaten "{{a|}}" — and isUsable
+  // then throws the whole quote away for still carrying braces.
+  text = stripUntilStable(text, /\{\{[^{}]*\}\}/g);
+  text = text
     .replace(/\[\[[^\]|]*\|([^\]]*)\]\]/g, "$1") // [[target|shown]] → shown
     .replace(/\[\[([^\]]*)\]\]/g, "$1")          // [[shown]]        → shown
     .replace(/\[https?:\/\/\S+\s([^\]]*)\]/g, "$1") // [url label]   → label
-    .replace(/'''''|'''|''/g, "")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&nbsp;/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+    .replace(/'''''|'''|''/g, "");
+  text = stripUntilStable(text, /<[^>]+>/g);     // any tag that survived
+  return text.replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
 }
 
 /**
