@@ -136,6 +136,14 @@ export interface GallerySizeStats {
   durationSeconds: number;
 }
 
+export interface GalleryFolderStats {
+  /** Relative to the library root; empty for the root itself. */
+  folder: string;
+  libraryName: string;
+  photoCount: number;
+  videoCount: number;
+}
+
 export interface GalleryStats {
   totalLibraries: number;
   totalItems: number;
@@ -145,6 +153,8 @@ export interface GalleryStats {
   totalDurationSeconds: number;
   libraries: GalleryLibraryStatusStats[];
   largestItems: GallerySizeStats[];
+  /** The immediate folders holding the most photos — not rolled up into parents. */
+  fullestFolders: GalleryFolderStats[];
 }
 
 export interface SystemStatus {

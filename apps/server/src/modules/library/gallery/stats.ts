@@ -26,6 +26,13 @@ interface LargestGalleryRow {
   duration_seconds: number;
 }
 
+interface FullestFolderRow {
+  folder: string;
+  library_name: string;
+  photo_count: number;
+  video_count: number;
+}
+
 function galleryLibraryStats() {
   const libraries = db.prepare(`
     SELECT
@@ -61,6 +68,41 @@ function galleryLibraryStats() {
     LIMIT 10
   `).all() as LargestGalleryRow[];
 
+  // Where the photos actually pile up. A gallery item's folder_path is the
+  // FILE's relative path, so the folder is everything before its last slash —
+  // rtrim(p, everything-but-slash) leaves the path up to and including that
+  // slash, and the substr drops it. SQLite has no lastIndexOf, and doing this
+  // in JS would mean pulling one row per photo out of the database to answer a
+  // status card.
+  //
+  // The immediate folder, not every ancestor of it: "which folder holds the
+  // most photos" is a question about one place on disk, and rolling children up
+  // into parents would make the library root win every time. A file sitting at
+  // the root has no slash to cut at and groups under the empty path, which the
+  // client names for what it is.
+  const fullestFolders = db.prepare(`
+    SELECT
+      CASE
+        WHEN instr(library_items.folder_path, '/') = 0 THEN ''
+        ELSE substr(
+          library_items.folder_path,
+          1,
+          length(rtrim(library_items.folder_path, replace(library_items.folder_path, '/', ''))) - 1
+        )
+      END AS folder,
+      libraries.name AS library_name,
+      SUM(CASE WHEN gallery_details.kind = 'photo' THEN 1 ELSE 0 END) AS photo_count,
+      SUM(CASE WHEN gallery_details.kind = 'video' THEN 1 ELSE 0 END) AS video_count
+    FROM library_items
+    JOIN libraries ON libraries.id = library_items.library_id AND libraries.type = 'gallery'
+    JOIN gallery_details ON gallery_details.item_id = library_items.id
+    WHERE library_items.deleted_at IS NULL
+    GROUP BY libraries.id, folder
+    HAVING photo_count > 0
+    ORDER BY photo_count DESC, folder COLLATE NOCASE
+    LIMIT 10
+  `).all() as FullestFolderRow[];
+
   const totalSizeBytes = libraries.reduce((sum, library) => sum + library.total_size_bytes, 0);
   const totalDurationSeconds = libraries.reduce((sum, library) => sum + library.total_duration_seconds, 0);
   const totalItems = libraries.reduce((sum, library) => sum + library.item_count, 0);
@@ -90,6 +132,12 @@ function galleryLibraryStats() {
       kind: item.kind,
       totalSizeBytes: item.total_size_bytes,
       durationSeconds: item.duration_seconds
+    })),
+    fullestFolders: fullestFolders.map((row) => ({
+      folder: row.folder,
+      libraryName: row.library_name,
+      photoCount: row.photo_count,
+      videoCount: row.video_count
     }))
   };
 }

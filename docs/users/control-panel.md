@@ -51,8 +51,11 @@ tabs under the heading — real tabs, not a dropdown:
 - **Libraries** — what's *in* the catalogue, every media type on one page: a card
   each for audiobooks, ebooks and photos & videos, and one for the total on disk;
   every library in one table, biggest first, with its share of the storage drawn
-  beside it; and three short lists side by side — top authors across both book
-  types, top narrators by hours, and the biggest gallery files.
+  beside it; and four short lists, paired two by two. People first — top authors
+  across both book types, top narrators by hours — then what is on the disk: the
+  biggest gallery files, and the folders holding the most photos. That last one
+  counts the folder each photo actually sits in, not its subfolders rolled up, so
+  it names the place to go rather than the library it is somewhere inside.
 - **Tasks** — scans and other background work. Four cards say what is running,
   what is queued, how many tasks failed this week, and when the last one
   finished; a row under them says when the next scheduled run is due and opens
