@@ -19,6 +19,18 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.34.0",
+    label: "A library of quotes, not a list",
+    changes: [
+      "The quote of the day now opens the home page. It is the one card that is the same for everyone in the house and changes every morning, so it sits at the top instead of drifting down as the day's photos and arrivals pile up above it.",
+      "It also stops offering you every category at once. A library with thirty of them made a wall of chips; the card shows eight, and that selection moves along a little each day so everything comes round in time — the same eight for everyone, like the quote itself.",
+      "Or tell it what you like. The card has its own preferences now: a language, so you can read the app in Russian and still get English quotes (or the other way round), and the categories you actually care about. Pick some and they become your card's whole switcher, with the quote drawn from all of them together. Pick none and it draws from everything, as before.",
+      "The Quotes page can cope with thousands. It searches as you type — across the words, the author, the source, who said it and the note — and it searches properly in Russian, where \"цитата\" now finds \"Цитата\" instead of nothing at all. It loads fifty at a time as you scroll and says how many there are, and the category filters carry counts that follow whatever you have searched for.",
+      "Adding a quote is one screen again. The form had grown to ten fields in a narrow column; it is wider now and split in two: the quote, its source, a note and who may see it on the first tab, and the family member who said it, categories, language and dates on the second.",
+      "Fixed: portraits in the family tree were cropped down the middle, which took the top off almost every head — a service portrait or any photo framed with the face high lost its crown. They crop from the top now, so the face survives and it is the shoulders that go."
+    ]
+  },
+  {
     version: "3.33.1",
     label: "Tabs that mind their own branch",
     changes: [
