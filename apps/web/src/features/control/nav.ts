@@ -60,9 +60,11 @@ export const CONTROL_GROUPS: ControlGroupDef[] = [
   {
     key: "overview",
     icon: Activity,
+    // Sign-ins was a tab of its own until it became the Dashboard's opening
+    // view: it and the Dashboard's Logins view drew the same chart over the same
+    // events, and only one of them could answer "from where, and by whom".
     tabs: [
       { section: "dashboard" },
-      { section: "signins" },
       { section: "logs" }
     ]
   },

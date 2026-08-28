@@ -438,6 +438,59 @@
   font-size: 0.86rem;
 }
 
+/* shared/TabStrip: peer panels sharing one card. These sit where the panel's
+   <h3> would, and are sized like it — the active one reads as the heading it
+   replaces, its siblings as the same heading greyed. Not pills: the control
+   tab row and the Dashboard's sub-tabs already own that shape, and a third set
+   of them inside a card would read as a third level of navigation. */
+.tab-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 18px;
+}
+
+.tab-strip button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 0 4px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.98rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tab-strip button:hover {
+  color: var(--ink);
+}
+
+.tab-strip button:focus-visible {
+  outline: 2px solid var(--mint);
+  outline-offset: 3px;
+}
+
+.tab-strip button.is-active {
+  color: var(--ink);
+  border-bottom-color: var(--mint);
+}
+
+/* The size of a panel, said before it is opened — so the tab you are not on
+   still tells you whether it is worth switching to. */
+.tab-strip-count {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.tab-strip button.is-active .tab-strip-count {
+  color: var(--mint);
+}
+
 .status-empty {
   margin: 0;
   padding: 14px;

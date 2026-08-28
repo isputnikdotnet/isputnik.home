@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Globe2, LayoutDashboard, LibraryBig, LineChart, ListTodo, LogIn, Monitor } from "lucide-react";
+import { Fingerprint, Globe2, LayoutDashboard, LibraryBig, LineChart, ListTodo, Monitor } from "lucide-react";
 import { api } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
 import { RefreshButton } from "../../../shared/RefreshButton";
@@ -9,7 +9,7 @@ import { ControlSectionHead } from "../ControlSectionHead";
 import type { DbInfo, SystemStatus } from "../types";
 import { SystemView } from "./dashboard/SystemView";
 import { ActivityView } from "./dashboard/ActivityView";
-import { LoginsView } from "./dashboard/LoginsView";
+import { SignInsView } from "./dashboard/SignInsView";
 import { LocationsView } from "./dashboard/LocationsView";
 import { LibrariesView } from "./dashboard/LibrariesView";
 import { TasksView } from "./dashboard/TasksView";
@@ -18,10 +18,10 @@ import { TasksView } from "./dashboard/TasksView";
 // "Dashboard" (activity trends) — folded into one, with a lighter secondary tab
 // strip switching between them: real tabs (not a dropdown), but visually distinct
 // from the page-level tab row above so it doesn't read as a second copy of it.
-type DashboardView = "system" | "activity" | "libraries" | "tasks" | "logins" | "locations";
+type DashboardView = "system" | "activity" | "libraries" | "tasks" | "signins" | "locations";
 
-const DASHBOARD_VIEW_LABEL_KEYS: Record<DashboardView, "viewLogins" | "viewLocations" | "viewActivity" | "viewLibraries" | "viewTasks" | "viewSystem"> = {
-  logins: "viewLogins",
+const DASHBOARD_VIEW_LABEL_KEYS: Record<DashboardView, "viewSignIns" | "viewLocations" | "viewActivity" | "viewLibraries" | "viewTasks" | "viewSystem"> = {
+  signins: "viewSignIns",
   locations: "viewLocations",
   activity: "viewActivity",
   libraries: "viewLibraries",
@@ -29,9 +29,9 @@ const DASHBOARD_VIEW_LABEL_KEYS: Record<DashboardView, "viewLogins" | "viewLocat
   system: "viewSystem"
 };
 
-// Logins leads: "who got in, and from where" is what this page gets opened for.
+// Sign-ins leads: "who got in, and from where" is what this page gets opened for.
 const DASHBOARD_VIEW_ORDER: { value: DashboardView; icon: ReactNode }[] = [
-  { value: "logins", icon: <LogIn size={15} aria-hidden="true" /> },
+  { value: "signins", icon: <Fingerprint size={15} aria-hidden="true" /> },
   { value: "locations", icon: <Globe2 size={15} aria-hidden="true" /> },
   { value: "activity", icon: <LineChart size={15} aria-hidden="true" /> },
   { value: "libraries", icon: <LibraryBig size={15} aria-hidden="true" /> },
@@ -40,11 +40,16 @@ const DASHBOARD_VIEW_ORDER: { value: DashboardView; icon: ReactNode }[] = [
 ];
 
 // Views that used to be their own tab and now live inside another one. Content
-// activity and Reading and playback folded into Activity in 3.14; the addresses
-// keep resolving so a bookmark lands on the merged page rather than on Logins.
+// activity and Reading and playback folded into Activity in 3.14; Devices went
+// to Sign-ins, which lists the same sessions with revoke; and Logins itself was
+// absorbed by Sign-ins, which answers everything it did and says where from.
+// The addresses keep resolving so a bookmark lands on the page that took the
+// work over rather than on whatever now happens to open first.
 const RETIRED_VIEWS: Record<string, DashboardView> = {
   content: "activity",
-  playback: "activity"
+  playback: "activity",
+  devices: "signins",
+  logins: "signins"
 };
 
 // Statistics and Tasks were pages of their own until they became views here.
@@ -52,7 +57,10 @@ const RETIRED_VIEWS: Record<string, DashboardView> = {
 // so the path is what says which view was meant.
 const LEGACY_PATH_VIEWS: [RegExp, DashboardView][] = [
   [/(statistics|stats)\/?$/, "libraries"],
-  [/(tasks|jobs)\/?$/, "tasks"]
+  [/(tasks|jobs)\/?$/, "tasks"],
+  // Sign-ins was an Overview tab of its own, and Sessions a Members one before
+  // that; both are this view now.
+  [/(sign-ins|sessions)\/?$/, "signins"]
 ];
 
 function viewFromLegacyPath(): DashboardView | null {
@@ -65,7 +73,7 @@ function viewFromUrl(): DashboardView {
   if (legacy) return legacy;
   const value = new URLSearchParams(window.location.search).get("view");
   if (value && value in RETIRED_VIEWS) return RETIRED_VIEWS[value];
-  return DASHBOARD_VIEW_ORDER.some((entry) => entry.value === value) ? (value as DashboardView) : "logins";
+  return DASHBOARD_VIEW_ORDER.some((entry) => entry.value === value) ? (value as DashboardView) : "signins";
 }
 
 export function DashboardSection() {
@@ -89,26 +97,44 @@ export function DashboardSection() {
     load().catch((err) => setError(err instanceof Error ? err.message : t("controlDash:dash.loadFailed")));
   }, []);
 
-  // Devices lived here as a view until 3.12, when it merged into Overview ›
-  // Sign-ins. An old bookmark lands there rather than silently falling back to
-  // Logins; replaceState, so the back button doesn't return to a dead address.
+  // Tidy a retired name or an old path into the address that exists today.
+  // replaceState, so the back button doesn't return to a dead address — and the
+  // rest of the query string is carried over, because a Sign-ins link arriving
+  // at /control/overview/sign-ins?ip=… is a dive, not just a page.
   useEffect(() => {
-    const requested = new URLSearchParams(window.location.search).get("view");
-    if (requested === "devices") {
-      window.history.replaceState(window.history.state, "", controlHref("signins"));
-      window.dispatchEvent(new PopStateEvent("popstate"));
-    } else if (requested && requested in RETIRED_VIEWS) {
-      // Same page, different tab: just tidy the address to the one that exists.
-      window.history.replaceState(window.history.state, "", `${controlHref("dashboard")}?view=${RETIRED_VIEWS[requested]}`);
-    } else {
-      const legacy = viewFromLegacyPath();
-      if (legacy) window.history.replaceState(window.history.state, "", `${controlHref("dashboard")}?view=${legacy}`);
-    }
+    const params = new URLSearchParams(window.location.search);
+    const requested = params.get("view");
+    const target = requested
+      ? requested in RETIRED_VIEWS
+        ? RETIRED_VIEWS[requested]
+        : null
+      : viewFromLegacyPath();
+    if (!target) return;
+    params.set("view", target);
+    window.history.replaceState(window.history.state, "", `${controlHref("dashboard")}?${params}`);
+  }, []);
+
+  // Links from elsewhere in the panel — a Locations arrow, a name on the Logs
+  // page — land on this section with only the query string changed, so the route
+  // itself never re-runs. Reading the view back on popstate is what makes them
+  // arrive on the right tab instead of leaving whichever one was already open.
+  useEffect(() => {
+    const onPop = () => {
+      if (window.location.pathname.startsWith("/control")) setView(viewFromUrl());
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
   }, []);
 
   const chooseView = (next: DashboardView) => {
+    // Clicking the tab you are already on is not a navigation and must not be
+    // treated as one: Sign-ins would lose the dive out of its query string
+    // while the scope chip went on showing it.
+    if (next === view) return;
     setView(next);
-    const href = next === "logins" ? controlHref("dashboard") : `${controlHref("dashboard")}?view=${next}`;
+    // The opening view owns the bare address; the others name themselves. A
+    // dive's scope belongs to the tab being left, so it is dropped here.
+    const href = next === "signins" ? controlHref("dashboard") : `${controlHref("dashboard")}?view=${next}`;
     window.history.replaceState(window.history.state, "", href);
   };
 
@@ -154,7 +180,7 @@ export function DashboardSection() {
       {status && view === "libraries" && <LibrariesView status={status} />}
       {view === "tasks" && <TasksView />}
       {status && view === "activity" && <ActivityView status={status} />}
-      {view === "logins" && <LoginsView />}
+      {view === "signins" && <SignInsView />}
       {view === "locations" && <LocationsView />}
     </>
   );

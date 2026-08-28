@@ -32,20 +32,31 @@ import {
 import { KpiCard } from "../../../../shared/KpiCard";
 import { MessageBox } from "../../../../shared/MessageBox";
 import { Pager } from "../../../../shared/Pager";
+import { PageSizeMenu, usePageSize, type PageSize } from "../../../../shared/PageSizeMenu";
 import { SortHeader, type SortDirection } from "../../../../shared/SortHeader";
+import { TabStrip } from "../../../../shared/TabStrip";
 import { countryFlag, formatManagedDate, relativeTime } from "../../../../shared/utils";
-import { ControlSectionHead } from "../../ControlSectionHead";
-import type { DashboardSignIns, DeviceType, SignInsDeviceRow, SignInsIpRow, SignInsUserRow } from "../../types";
+import type { DashboardSignIns, DeviceType, LogEvent, SignInsDeviceRow, SignInsIpRow, SignInsUserRow } from "../../types";
 import { DashboardChart, DashboardChartLegend, type DashboardChartSeries } from "./DashboardChart";
+import { LoginsTable } from "./LoginsTable";
 import { SignInsFilterModal } from "./SignInsFilterModal";
+import { useIpReputation } from "./useIpReputation";
+import type { ActivitySort } from "./useRecentActivity";
 
-// Overview › Sign-ins — the analytical drill-down behind the Dashboard's login
-// views. One scope at a time (everything, a country, a town, one address, or one
-// person), one window, and every panel answered by the same server query so the
-// chart, the totals and the tables can never disagree about what they describe.
+// Dashboard › Sign-ins — the view the page opens on, and the drill-down behind
+// every arrow on the Locations tables. One scope at a time (everything, a
+// country, a town, one address, or one person), one window, and every panel
+// answered by the same server query so the chart, the totals and the tables can
+// never disagree about what they describe.
 //
-// The scope lives in the URL (?country=, ?ip=, ?user=), which is what makes a
-// dive shareable and the back button honest: every arrow on this page and on the
+// It absorbed the Logins view, which drew the same success-versus-failed chart
+// over the same events with a second date range to keep in step by hand, and
+// could not say where a sign-in came from or end the session it opened. Its one
+// irreplaceable panel — the attempt-by-attempt table with AbuseIPDB reputation —
+// is at the bottom of this page, narrowed by the dive like everything else.
+//
+// The scope lives in the URL (?view=signins&country=/&ip=/&user=), which is what
+// makes a dive shareable and the back button honest: every arrow here and on the
 // Locations tables is just a link to this address with a different query string.
 
 export interface SignInsScopeParams {
@@ -62,8 +73,10 @@ export function signInsHref(scope: SignInsScopeParams): string {
   for (const [key, value] of Object.entries(scope)) {
     if (value !== undefined) query.set(key, value);
   }
+  // view= first, so the address reads as the Dashboard tab it is before the
+  // dive that narrows it.
   const suffix = query.toString();
-  return `${controlHref("signins")}${suffix ? `?${suffix}` : ""}`;
+  return `${controlHref("dashboard")}?view=signins${suffix ? `&${suffix}` : ""}`;
 }
 
 function scopeFromUrl(): SignInsScopeParams {
@@ -79,12 +92,14 @@ function scopeFromUrl(): SignInsScopeParams {
   return {};
 }
 
+// The page's own tables are short and fixed; only the sign-ins table at the
+// bottom lets the reader choose, because it is the one they scroll.
 const PAGE_SIZE = 10;
 
-function pageOf<T>(rows: T[], page: number): { rows: T[]; page: number; totalPages: number } {
-  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+function pageOf<T>(rows: T[], page: number, size = PAGE_SIZE): { rows: T[]; page: number; totalPages: number } {
+  const totalPages = Math.max(1, Math.ceil(rows.length / size));
   const current = Math.min(page, totalPages);
-  return { rows: rows.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE), page: current, totalPages };
+  return { rows: rows.slice((current - 1) * size, current * size), page: current, totalPages };
 }
 
 function bucketLabel(iso: string, bucket: "hour" | "day"): string {
@@ -93,16 +108,6 @@ function bucketLabel(iso: string, bucket: "hour" | "day"): string {
     ? date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
     : date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
-
-// The event vocabulary of this page, in words rather than dotted names.
-const EVENT_LABEL_KEYS: Record<string, "eventPasswordSignIn" | "eventPasskeySignIn" | "eventTwoFactorPassed" | "eventDisplayApproved" | "eventWrongPassword" | "eventTwoFactorFailed"> = {
-  "auth.login": "eventPasswordSignIn",
-  "auth.passkey_login": "eventPasskeySignIn",
-  "auth.mfa_verified": "eventTwoFactorPassed",
-  "auth.device_link_approved": "eventDisplayApproved",
-  "auth.login_failed": "eventWrongPassword",
-  "auth.mfa_failed": "eventTwoFactorFailed"
-};
 
 const DEVICE_ICONS: Record<DeviceType, LucideIcon> = {
   display: Monitor,
@@ -114,13 +119,33 @@ const DEVICE_ICONS: Record<DeviceType, LucideIcon> = {
 
 // The order the counter chips render in — displays first because a linked TV is
 // the session type that outlives everything else and the one worth glancing for.
-const DEVICE_TYPE_ORDER: { value: DeviceType; key: "deviceDisplay" | "devicePhone" | "deviceTablet" | "deviceComputer" | "deviceUnknown" }[] = [
-  { value: "display", key: "deviceDisplay" },
-  { value: "phone", key: "devicePhone" },
-  { value: "tablet", key: "deviceTablet" },
-  { value: "computer", key: "deviceComputer" },
-  { value: "unknown", key: "deviceUnknown" }
+//
+// Two words per kind, not one. `key` is the chip's, which always follows a
+// number ("2 displays") and so must decline with it; `axis` is the chart
+// legend's, which stands alone and must not. English hides the difference,
+// Russian does not: t(deviceDisplay, { count: 2 }) is "дисплея", which reads as
+// a fragment of a phrase the moment the number in front of it is gone.
+const DEVICE_TYPE_ORDER: {
+  value: DeviceType;
+  key: "deviceDisplay" | "devicePhone" | "deviceTablet" | "deviceComputer" | "deviceUnknown";
+  axis: "axisDisplay" | "axisPhone" | "axisTablet" | "axisComputer" | "axisUnknown";
+}[] = [
+  { value: "display", key: "deviceDisplay", axis: "axisDisplay" },
+  { value: "phone", key: "devicePhone", axis: "axisPhone" },
+  { value: "tablet", key: "deviceTablet", axis: "axisTablet" },
+  { value: "computer", key: "deviceComputer", axis: "axisComputer" },
+  { value: "unknown", key: "deviceUnknown", axis: "axisUnknown" }
 ];
+
+// One token per kind, so a bar's colour means the same thing as the chip's
+// icon beside it. Five kinds, five chart tokens — see styles/tokens.css.
+const DEVICE_TYPE_COLORS: Record<DeviceType, string> = {
+  display: "--mint",
+  phone: "--blue",
+  tablet: "--gold",
+  computer: "--amber",
+  unknown: "--rose"
+};
 
 function methodsSummary(methods: SignInsUserRow["methods"], t: TFunction<readonly ["common", "controlDash"], undefined>): string {
   const parts: string[] = [];
@@ -131,10 +156,16 @@ function methodsSummary(methods: SignInsUserRow["methods"], t: TFunction<readonl
   return parts.join(" · ") || "—";
 }
 
+// The two halves of "who is at the door": what is signed in right now, and
+// what happened over the window. They were stacked, which meant scrolling past
+// a long session list to reach the attempts — so they share one card, each with
+// the graph of its own shape above its table.
+type DoorPanel = "devices" | "signins";
+
 type IpSort = "connections" | "failed" | "people" | "seen";
 type UserSort = "connections" | "failed" | "addresses" | "seen";
 
-export function SignInsSection() {
+export function SignInsView() {
   const { t } = useTranslation(["common", "controlDash"]);
   const [range, setRange] = useState<DateRangeValue>(() => resolveDateRange("30d"));
   const [scope, setScope] = useState<SignInsScopeParams>(() => scopeFromUrl());
@@ -146,10 +177,14 @@ export function SignInsSection() {
   const [userSort, setUserSort] = useState<UserSort>("connections");
   const [userDir, setUserDir] = useState<SortDirection>("desc");
   const [userPage, setUserPage] = useState(1);
+  const [panel, setPanel] = useState<DoorPanel>("devices");
   const [devicePage, setDevicePage] = useState(1);
   const [deviceKind, setDeviceKind] = useState<DeviceType | null>(null);
   const [namePage, setNamePage] = useState(1);
   const [eventPage, setEventPage] = useState(1);
+  const [eventSort, setEventSort] = useState<ActivitySort>("time");
+  const [eventDir, setEventDir] = useState<SortDirection>("desc");
+  const [eventPageSize, chooseEventPageSize] = usePageSize("isputnik.logins.pageSize");
   const [filterOpen, setFilterOpen] = useState(false);
   const [pendingRevoke, setPendingRevoke] = useState<SignInsDeviceRow | null>(null);
   const [revoking, setRevoking] = useState(false);
@@ -256,8 +291,57 @@ export function SignInsSection() {
       ),
     [data, deviceKind, devicePage]
   );
+  // Live sessions per person, split by what they are signed in on. The chips
+  // below already total each kind across the household; this says who is
+  // holding them, which a table of fifty rows only answers by scrolling. It
+  // follows the chip filter, so the panel never shows two different sets.
+  const deviceChart = useMemo(() => {
+    const rows = (data?.devices ?? []).filter((device) => !deviceKind || device.type === deviceKind);
+    const byPerson = new Map<string, Record<DeviceType, number>>();
+    for (const device of rows) {
+      const counts =
+        byPerson.get(device.person) ?? { display: 0, phone: 0, tablet: 0, computer: 0, unknown: 0 };
+      counts[device.type] += 1;
+      byPerson.set(device.person, counts);
+    }
+    const total = (counts: Record<DeviceType, number>) =>
+      DEVICE_TYPE_ORDER.reduce((sum, entry) => sum + counts[entry.value], 0);
+    // Busiest first, and capped: this is a glance at who is accumulating
+    // sessions, not a second copy of the table.
+    const people = [...byPerson.entries()].sort((a, b) => total(b[1]) - total(a[1])).slice(0, 10);
+    return {
+      labels: people.map(([person]) => person),
+      series: DEVICE_TYPE_ORDER.filter((entry) => people.some(([, counts]) => counts[entry.value] > 0)).map(
+        (entry) => ({
+          label: t(`controlDash:signIns.${entry.axis}`),
+          data: people.map(([, counts]) => counts[entry.value]),
+          colorVar: DEVICE_TYPE_COLORS[entry.value]
+        })
+      )
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, deviceKind]);
+
   const guessedNames = useMemo(() => pageOf(data?.guessedNames ?? [], namePage), [data, namePage]);
-  const events = useMemo(() => pageOf(data?.events ?? [], eventPage), [data, eventPage]);
+  // Sorted and paged here rather than by the server: the scope's tail is already
+  // in hand, so a column click costs nothing and can't disagree with the totals.
+  const events = useMemo(() => {
+    const key: Record<ActivitySort, (row: LogEvent) => string> = {
+      time: (row) => row.createdAt,
+      user: (row) => row.actorName ?? "",
+      event: (row) => row.event,
+      ip: (row) => row.ipAddress ?? ""
+    };
+    const factor = eventDir === "asc" ? 1 : -1;
+    const sorted = [...(data?.events ?? [])].sort(
+      (a, b) =>
+        key[eventSort](a).localeCompare(key[eventSort](b)) * factor ||
+        b.createdAt.localeCompare(a.createdAt)
+    );
+    return pageOf(sorted, eventPage, Number(eventPageSize));
+  }, [data, eventSort, eventDir, eventPage, eventPageSize]);
+  // Only the addresses on screen are ever looked up.
+  const reputation = useIpReputation(events.rows.map((row) => row.ipAddress));
 
   const chartSeries: DashboardChartSeries[] = useMemo(
     () => [
@@ -271,15 +355,20 @@ export function SignInsSection() {
   const ipMax = useMemo(() => Math.max(...(data?.ips ?? []).map((row) => row.connections), 1), [data]);
   const scoped = Boolean(scope.country || scope.ip || scope.user);
   const failShare = data && data.totals.attempts > 0 ? Math.round((data.totals.failed / data.totals.attempts) * 100) : 0;
+  // What the Logins view spent a whole card on. A block is what failures lead
+  // to, so it reads under them rather than beside them — and unlike that card
+  // this one narrows with the dive.
+  const blockedContext = [
+    t("controlDash:signIns.shareOfAttempts", { share: failShare }),
+    data && data.totals.blockedIps > 0
+      ? t("controlDash:signIns.blockedAddresses", { count: data.totals.blockedIps })
+      : null
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <div className="status-stack compact-tables">
-      <ControlSectionHead
-        section="signins"
-        icon={<Fingerprint size={30} />}
-        description={t("controlDash:signIns.description")}
-      />
-
       <section className="status-block">
         {error && <MessageBox tone="error" title={t("controlDash:signIns.loadFailed")}>{error}</MessageBox>}
 
@@ -336,7 +425,7 @@ export function SignInsSection() {
                 tone={data.totals.failed > 0 ? "danger" : "success"}
                 label={t("controlDash:signIns.failed")}
                 value={data.totals.failed.toLocaleString()}
-                context={t("controlDash:logins.shareOfAttempts", { share: failShare })}
+                context={blockedContext}
               />
               <KpiCard
                 icon={UsersRound}
@@ -352,124 +441,180 @@ export function SignInsSection() {
               <span className="status-range-label">{formatRangeLabel(range)}</span>
             </div>
 
+            {/* The door, in two panels. Devices is Dashboard › Devices and
+                Members › Sessions absorbed — the type counters, the table, and
+                revoke; Sign-ins is the Logins view's attempt-by-attempt table
+                with its chart. Both are scoped by the dive like everything
+                else, and the admin's own session is pinned first and keeps no
+                revoke button — sign-out is the way to end it, and the DELETE
+                route refuses it regardless. */}
             <div className="status-subsection">
               <div className="status-table-title">
-                <h3>{t("controlDash:signIns.overTime")}</h3>
-                <span>{data.series.bucket === "hour" ? t("controlDash:bucket.byHour") : t("controlDash:bucket.byDay")}</span>
+                <TabStrip
+                  items={[
+                    { key: "devices", label: t("controlDash:signIns.devicesTitle"), icon: Laptop, count: data.devices.length },
+                    { key: "signins", label: t("controlDash:loginsTable.title"), icon: KeyRound, count: data.totals.attempts }
+                  ]}
+                  active={panel}
+                  onChange={setPanel}
+                  ariaLabel={t("controlDash:signIns.panelsAria")}
+                />
+                {panel === "devices" ? (
+                  <span>{t("controlDash:signIns.devicesNote")}</span>
+                ) : (
+                  <span className="login-table-tools">
+                    {data.events.length < data.totals.attempts && (
+                      <span className="login-table-note">
+                        {t("controlDash:signIns.newestOnly", { count: data.events.length })}
+                      </span>
+                    )}
+                    <PageSizeMenu
+                      value={eventPageSize}
+                      onChange={(size: PageSize) => {
+                        chooseEventPageSize(size);
+                        setEventPage(1);
+                      }}
+                    />
+                  </span>
+                )}
               </div>
-              <DashboardChartLegend series={chartSeries} />
-              <DashboardChart
-                type="line"
-                labels={data.series.buckets.map((iso) => bucketLabel(iso, data.series.bucket))}
-                series={chartSeries}
-              />
-            </div>
 
-            {/* Dashboard › Devices and Members › Sessions, absorbed here: the
-                inventory glance (the type counters), the table, and revoke —
-                scoped by the dive like everything else. The admin's own session
-                is pinned first and keeps no revoke button; sign-out is the way
-                to end it, and the DELETE route refuses it regardless. */}
-            <div className="status-subsection">
-              <div className="status-table-title">
-                <h3>{t("controlDash:signIns.devicesTitle")}</h3>
-                <span>{t("controlDash:signIns.devicesNote")}</span>
-              </div>
-              {data.devices.length > 0 ? (
-                <>
-                  {/* Counter and filter in one: each chip counts a kind and
-                      narrows the table to it; the active chip clicks back off. */}
-                  <div className="device-type-chips" role="group" aria-label={t("controlDash:signIns.deviceChipsAria")}>
-                    {DEVICE_TYPE_ORDER.filter((entry) => deviceCounts[entry.value] > 0).map((entry) => {
-                      const Icon = DEVICE_ICONS[entry.value];
-                      const count = deviceCounts[entry.value];
-                      const active = deviceKind === entry.value;
-                      return (
-                        <button
-                          key={entry.value}
-                          type="button"
-                          className={`device-type-chip${active ? " is-active" : ""}`}
-                          aria-pressed={active}
-                          onClick={() => {
-                            setDeviceKind(active ? null : entry.value);
-                            setDevicePage(1);
-                          }}
-                        >
-                          <Icon size={15} aria-hidden="true" />
-                          <strong>{count}</strong> {t(`controlDash:signIns.${entry.key}`, { count })}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <div className="datagrid-wrap">
-                    <table className="datagrid locations-table">
-                      <thead>
-                        <tr>
-                          <th>{t("controlDash:table.device")}</th>
-                          <th>{t("controlDash:table.person")}</th>
-                          <th>{t("controlDash:table.ipAddress")}</th>
-                          <th>{t("controlDash:table.lastSeen")}</th>
-                          <th>{t("controlDash:table.signedInUntil")}</th>
-                          <th aria-label={t("controlDash:table.dive")} />
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {devices.rows.map((row) => {
-                          const Icon = DEVICE_ICONS[row.type];
-                          return (
-                            <tr key={row.id}>
-                              <td>
-                                <span className="location-cell">
-                                  <Icon size={17} aria-hidden="true" className="signins-device-icon" />
-                                  <span className="datagrid-primary">
-                                    <span className="admin-name-line">
-                                      <strong>{row.name}</strong>
-                                      {row.current && <span className="status-badge current">{t("controlDash:signIns.thisDevice")}</span>}
+              {panel === "devices" ? (
+                data.devices.length > 0 ? (
+                  <>
+                    {deviceChart.series.length > 0 && (
+                      <>
+                        <DashboardChartLegend series={deviceChart.series} />
+                        <DashboardChart type="bar" labels={deviceChart.labels} series={deviceChart.series} stacked height={180} />
+                      </>
+                    )}
+                    {/* Counter and filter in one: each chip counts a kind and
+                        narrows the table to it; the active chip clicks back off. */}
+                    <div className="device-type-chips" role="group" aria-label={t("controlDash:signIns.deviceChipsAria")}>
+                      {DEVICE_TYPE_ORDER.filter((entry) => deviceCounts[entry.value] > 0).map((entry) => {
+                        const Icon = DEVICE_ICONS[entry.value];
+                        const count = deviceCounts[entry.value];
+                        const active = deviceKind === entry.value;
+                        return (
+                          <button
+                            key={entry.value}
+                            type="button"
+                            className={`device-type-chip${active ? " is-active" : ""}`}
+                            aria-pressed={active}
+                            onClick={() => {
+                              setDeviceKind(active ? null : entry.value);
+                              setDevicePage(1);
+                            }}
+                          >
+                            <Icon size={15} aria-hidden="true" />
+                            <strong>{count}</strong> {t(`controlDash:signIns.${entry.key}`, { count })}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="datagrid-wrap">
+                      <table className="datagrid locations-table">
+                        <thead>
+                          <tr>
+                            <th>{t("controlDash:table.device")}</th>
+                            <th>{t("controlDash:table.person")}</th>
+                            <th>{t("controlDash:table.ipAddress")}</th>
+                            <th>{t("controlDash:table.lastSeen")}</th>
+                            <th>{t("controlDash:table.signedInUntil")}</th>
+                            <th aria-label={t("controlDash:table.dive")} />
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {devices.rows.map((row) => {
+                            const Icon = DEVICE_ICONS[row.type];
+                            return (
+                              <tr key={row.id}>
+                                <td>
+                                  <span className="location-cell">
+                                    <Icon size={17} aria-hidden="true" className="signins-device-icon" />
+                                    <span className="datagrid-primary">
+                                      <span className="admin-name-line">
+                                        <strong>{row.name}</strong>
+                                        {row.current && <span className="status-badge current">{t("controlDash:signIns.thisDevice")}</span>}
+                                      </span>
+                                      {row.name !== row.agent && <small>{row.agent}</small>}
                                     </span>
-                                    {row.name !== row.agent && <small>{row.agent}</small>}
                                   </span>
-                                </span>
-                              </td>
-                              <td>{row.person}</td>
-                              <td className="datagrid-muted">{row.ip ?? "—"}</td>
-                              <td className="datagrid-muted">{relativeTime(row.lastSeen)}</td>
-                              <td className="datagrid-muted">{formatManagedDate(row.expiresAt)}</td>
-                              <td className="locations-row-action signins-device-actions">
-                                {!row.current && (
-                                  <Button
-                                    variant="icon"
-                                    danger
-                                    aria-label={t("controlDash:signIns.revokeSessionOf", { name: row.person })}
-                                    title={t("controlDash:signIns.revokeSession")}
-                                    onClick={() => {
-                                      setRevokeError("");
-                                      setPendingRevoke(row);
-                                    }}
-                                  >
-                                    <LogOut size={15} aria-hidden="true" />
-                                  </Button>
-                                )}
-                                {scope.user !== row.personId && (
-                                  <Button
-                                    variant="icon"
-                                    aria-label={t("controlDash:signIns.diveInto", { name: row.person })}
-                                    title={t("controlDash:signIns.diveIntoPerson")}
-                                    onClick={() => dive({ user: row.personId })}
-                                  >
-                                    <ChevronRight size={16} aria-hidden="true" />
-                                  </Button>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                  <Pager page={devices.page} totalPages={devices.totalPages} onChange={setDevicePage} label={t("controlDash:pagers.device")} />
-                </>
+                                </td>
+                                <td>{row.person}</td>
+                                <td className="datagrid-muted">{row.ip ?? "—"}</td>
+                                <td className="datagrid-muted">{relativeTime(row.lastSeen)}</td>
+                                <td className="datagrid-muted">{formatManagedDate(row.expiresAt)}</td>
+                                <td className="locations-row-action signins-device-actions">
+                                  {!row.current && (
+                                    <Button
+                                      variant="icon"
+                                      danger
+                                      aria-label={t("controlDash:signIns.revokeSessionOf", { name: row.person })}
+                                      title={t("controlDash:signIns.revokeSession")}
+                                      onClick={() => {
+                                        setRevokeError("");
+                                        setPendingRevoke(row);
+                                      }}
+                                    >
+                                      <LogOut size={15} aria-hidden="true" />
+                                    </Button>
+                                  )}
+                                  {scope.user !== row.personId && (
+                                    <Button
+                                      variant="icon"
+                                      aria-label={t("controlDash:signIns.diveInto", { name: row.person })}
+                                      title={t("controlDash:signIns.diveIntoPerson")}
+                                      onClick={() => dive({ user: row.personId })}
+                                    >
+                                      <ChevronRight size={16} aria-hidden="true" />
+                                    </Button>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                    <Pager page={devices.page} totalPages={devices.totalPages} onChange={setDevicePage} label={t("controlDash:pagers.device")} />
+                  </>
+                ) : (
+                  <p className="status-empty">{t("controlDash:signIns.noDevices")}</p>
+                )
               ) : (
-                <p className="status-empty">{t("controlDash:signIns.noDevices")}</p>
+                <>
+                  {reputation.error && (
+                    <MessageBox tone="error" title={t("controlDash:signIns.checkFailed")}>{reputation.error}</MessageBox>
+                  )}
+                  <DashboardChartLegend series={chartSeries} />
+                  <DashboardChart
+                    type="line"
+                    labels={data.series.buckets.map((iso) => bucketLabel(iso, data.series.bucket))}
+                    series={chartSeries}
+                  />
+                  {data.events.length > 0 ? (
+                    <>
+                      <LoginsTable
+                        logs={events.rows}
+                        sort={eventSort}
+                        dir={eventDir}
+                        onSort={(nextSort, nextDir) => {
+                          setEventSort(nextSort);
+                          setEventDir(nextDir);
+                          setEventPage(1);
+                        }}
+                        reputation={reputation.byIp}
+                        reputationConfigured={reputation.configured}
+                        checkingIp={reputation.checking}
+                        onCheck={reputation.check}
+                      />
+                      <Pager page={events.page} totalPages={events.totalPages} onChange={setEventPage} label={t("controlDash:pagers.signIn")} />
+                    </>
+                  ) : (
+                    <p className="status-empty">{t("controlDash:signIns.noRecent")}</p>
+                  )}
+                </>
               )}
             </div>
 
@@ -658,44 +803,6 @@ export function SignInsSection() {
                 <Pager page={guessedNames.page} totalPages={guessedNames.totalPages} onChange={setNamePage} label={t("controlDash:pagers.name")} />
               </div>
             )}
-
-            <div className="status-subsection">
-              <div className="status-table-title">
-                <h3>{t("controlDash:signIns.recentTitle")}</h3>
-                <span>{t("controlDash:signIns.recentNote", { count: data.events.length })}</span>
-              </div>
-              {data.events.length > 0 ? (
-                <>
-                  <div className="datagrid-wrap">
-                    <table className="datagrid">
-                      <thead>
-                        <tr>
-                          <th>{t("controlDash:table.what")}</th>
-                          <th>{t("controlDash:table.person")}</th>
-                          <th>{t("controlDash:table.ipAddress")}</th>
-                          <th>{t("controlDash:table.when")}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {events.rows.map((row) => (
-                          <tr key={row.id}>
-                            <td className={row.failed ? "login-result-failed" : undefined}>
-                              {row.event in EVENT_LABEL_KEYS ? t(`controlDash:signIns.${EVENT_LABEL_KEYS[row.event]}`) : row.event}
-                            </td>
-                            <td>{row.actor ?? <span className="datagrid-muted">—</span>}</td>
-                            <td className="datagrid-muted">{row.ip ?? "—"}</td>
-                            <td className="datagrid-muted">{formatManagedDate(row.at)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  <Pager page={events.page} totalPages={events.totalPages} onChange={setEventPage} label={t("controlDash:pagers.activity")} />
-                </>
-              ) : (
-                <p className="status-empty">{t("controlDash:signIns.noRecent")}</p>
-              )}
-            </div>
 
             {(data.scope.kind === "country" || data.scope.kind === "place") && (
               <p className="status-empty">

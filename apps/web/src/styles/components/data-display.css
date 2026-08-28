@@ -184,6 +184,12 @@
   gap: 12px;
 }
 
+/* The tail cap, said beside the count it would otherwise contradict. Lighter
+   than the count, because it is the caveat and not the number. */
+.login-table-note {
+  opacity: 0.8;
+}
+
 /* AbuseIPDB reputation in a log table: the score on one line, where the address
    sits on the next. Only a score that means something is coloured. */
 .reputation-cell {

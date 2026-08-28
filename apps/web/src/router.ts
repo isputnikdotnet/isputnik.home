@@ -4,7 +4,7 @@ import { useState, useEffect, startTransition } from "react";
 // groups they hang off are described in features/control/nav.ts.
 export type ControlSection =
   // Overview
-  | "dashboard" | "logs" | "signins"
+  | "dashboard" | "logs"
   // Library
   | "libraries" | "storage" | "categories" | "tags"
   // Members
@@ -25,9 +25,6 @@ export type ControlSection =
 export const CONTROL_PATHS: Record<ControlSection, string> = {
   dashboard: "/control/overview",
   logs: "/control/overview/logs",
-  // The drill-down behind the Dashboard's login views: scope arrives in the
-  // query string (?country=, ?ip=, ?user=), so one address covers every dive.
-  signins: "/control/overview/sign-ins",
 
   libraries: "/control/libraries",
   storage: "/control/libraries/storage",
@@ -90,6 +87,16 @@ const CONTROL_ALIASES: Record<string, ControlSection> = {
   "/control/library/stats": "dashboard",
   "/control/libraries/stats": "dashboard",
 
+  // Sign-ins became the Dashboard's opening view — it and the Logins view it
+  // absorbed were two readings of one question, and the duplicated chart above
+  // them had to be kept in step by hand. Three generations of the Sessions tab's
+  // address land there too, since the table with revoke is one of its panels.
+  // DashboardSection reads these paths to pick the view.
+  "/control/overview/sign-ins": "dashboard",
+  "/control/accounts/sessions": "dashboard",
+  "/control/sessions": "dashboard",
+  "/control/members/sessions": "dashboard",
+
   // Tasks became a Dashboard view; DashboardSection reads these paths to pick it.
   "/control/overview/tasks": "dashboard",
   "/control/libraries/tasks": "dashboard",
@@ -118,12 +125,6 @@ const CONTROL_ALIASES: Record<string, ControlSection> = {
   "/control/groups": "groups",
   "/control/accounts/invites": "invites",
   "/control/invites": "invites",
-  // Sessions was a Members tab until it merged into Overview › Sign-ins, which
-  // carries the same table with revoke — three generations of its address now
-  // land there.
-  "/control/accounts/sessions": "signins",
-  "/control/sessions": "signins",
-  "/control/members/sessions": "signins",
 
   // Backup used to hide behind Config; it is Maintenance's first tab now, so the
   // bare /control/maintenance lands there rather than on Tasks.

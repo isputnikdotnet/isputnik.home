@@ -15,7 +15,6 @@ import {
   type LucideIcon
 } from "lucide-react";
 import { Button } from "../../../../shared/Button";
-import { PageSizeMenu, type PageSize } from "../../../../shared/PageSizeMenu";
 import { SortHeader, type SortDirection } from "../../../../shared/SortHeader";
 import { Tooltip } from "../../../../shared/Tooltip";
 import { countryName, formatManagedDate } from "../../../../shared/utils";
@@ -23,9 +22,11 @@ import type { IpReputationEntry, LogEvent } from "../../types";
 import { isFailedLoginEvent, loginMethodLabel, loginResultLabel } from "./activityEvents";
 import type { ActivitySort } from "./useRecentActivity";
 
-// The Logins table proper. A row is the glanceable version — address, a method
-// glyph, the result, a reputation light — and the arrow opens the full record
-// underneath it, so nothing has to be squeezed into a column to be readable.
+// The sign-ins table proper. A row is the glanceable version — address, a
+// method glyph, the result, a reputation light — and the arrow opens the full
+// record underneath it, so nothing has to be squeezed into a column to be
+// readable. The heading above it belongs to whoever placed it: this shares a
+// card with the devices table, and one tab strip names them both.
 
 const METHOD_ICONS: Record<string, LucideIcon> = {
   "auth.login": KeyRound,
@@ -76,9 +77,6 @@ function reputationLight(
 
 export function LoginsTable({
   logs,
-  total,
-  pageSize,
-  onPageSize,
   sort,
   dir,
   onSort,
@@ -88,9 +86,6 @@ export function LoginsTable({
   onCheck
 }: {
   logs: LogEvent[];
-  total: number;
-  pageSize: PageSize;
-  onPageSize: (size: PageSize) => void;
   sort: ActivitySort;
   dir: SortDirection;
   onSort: (sort: ActivitySort, dir: SortDirection) => void;
@@ -104,111 +99,101 @@ export function LoginsTable({
   const columnCount = reputationConfigured ? 6 : 5;
 
   return (
-    <>
-      <div className="status-table-title">
-        <h3>{t("controlDash:loginsTable.title")}</h3>
-        <span className="login-table-tools">
-          {total > 0 && <span>{t("controlDash:loginsTable.entries", { count: total })}</span>}
-          <PageSizeMenu value={pageSize} onChange={onPageSize} />
-        </span>
-      </div>
+    <div className="datagrid-wrap">
+      <table className="datagrid login-table">
+        <thead>
+          <tr>
+            <th className="col-expand"><span className="sr-only">{t("controlDash:table.details")}</span></th>
+            <SortHeader
+              columns={[
+                { column: "ip", label: t("controlDash:table.ipAddress") },
+                { column: "user", label: t("controlDash:table.user") }
+              ]}
+              sort={sort}
+              dir={dir}
+              onChange={onSort}
+            />
+            <SortHeader column="event" label={t("controlDash:table.method")} sort={sort} dir={dir} onChange={onSort} />
+            <th>{t("controlDash:table.result")}</th>
+            {reputationConfigured && <th>{t("controlDash:table.reputation")}</th>}
+            <SortHeader column="time" label={t("controlDash:table.time")} sort={sort} dir={dir} onChange={onSort} initial="desc" />
+          </tr>
+        </thead>
+        <tbody>
+          {logs.map((entry) => {
+            const open = expanded === entry.id;
+            const failed = isFailedLoginEvent(entry.event);
+            const MethodIcon = METHOD_ICONS[entry.event] ?? HelpCircle;
+            // A failed attempt doesn't record which method was tried, so the
+            // glyph needs a name of its own rather than the table's "—".
+            const rawMethod = loginMethodLabel(entry.event);
+            const methodLabel = rawMethod === "—" ? t("controlDash:loginsTable.methodNotRecorded") : rawMethod;
+            const light = reputationLight(entry.ipAddress, entry.ipAddress ? reputation[entry.ipAddress] : undefined, t);
+            const Light = light.icon;
 
-      <div className="datagrid-wrap">
-        <table className="datagrid login-table">
-          <thead>
-            <tr>
-              <th className="col-expand"><span className="sr-only">{t("controlDash:table.details")}</span></th>
-              <SortHeader
-                columns={[
-                  { column: "ip", label: t("controlDash:table.ipAddress") },
-                  { column: "user", label: t("controlDash:table.user") }
-                ]}
-                sort={sort}
-                dir={dir}
-                onChange={onSort}
-              />
-              <SortHeader column="event" label={t("controlDash:table.method")} sort={sort} dir={dir} onChange={onSort} />
-              <th>{t("controlDash:table.result")}</th>
-              {reputationConfigured && <th>{t("controlDash:table.reputation")}</th>}
-              <SortHeader column="time" label={t("controlDash:table.time")} sort={sort} dir={dir} onChange={onSort} initial="desc" />
-            </tr>
-          </thead>
-          <tbody>
-            {logs.map((entry) => {
-              const open = expanded === entry.id;
-              const failed = isFailedLoginEvent(entry.event);
-              const MethodIcon = METHOD_ICONS[entry.event] ?? HelpCircle;
-              // A failed attempt doesn't record which method was tried, so the
-              // glyph needs a name of its own rather than the table's "—".
-              const rawMethod = loginMethodLabel(entry.event);
-              const methodLabel = rawMethod === "—" ? t("controlDash:loginsTable.methodNotRecorded") : rawMethod;
-              const light = reputationLight(entry.ipAddress, entry.ipAddress ? reputation[entry.ipAddress] : undefined, t);
-              const Light = light.icon;
-
-              return [
-                <tr key={entry.id} className={open ? "is-expanded" : undefined}>
-                  <td className="col-expand">
-                    <Button
-                      variant="icon"
-                      compact
-                      aria-expanded={open}
-                      aria-label={open ? t("controlDash:loginsTable.hideDetails") : t("controlDash:loginsTable.showDetails")}
-                      title={open ? t("controlDash:loginsTable.hideDetails") : t("controlDash:loginsTable.showDetails")}
-                      onClick={() => setExpanded(open ? null : entry.id)}
-                    >
-                      {open ? <ChevronDown size={16} aria-hidden="true" /> : <ChevronRight size={16} aria-hidden="true" />}
-                    </Button>
-                  </td>
-                  <td>
-                    <span className="datagrid-primary">
-                      <strong>{entry.ipAddress ?? t("controlDash:loginsTable.noAddress")}</strong>
-                      <small>{entry.actorName ?? t("controlDash:loginsTable.unknown")}</small>
+            return [
+              <tr key={entry.id} className={open ? "is-expanded" : undefined}>
+                <td className="col-expand">
+                  <Button
+                    variant="icon"
+                    compact
+                    aria-expanded={open}
+                    aria-label={open ? t("controlDash:loginsTable.hideDetails") : t("controlDash:loginsTable.showDetails")}
+                    title={open ? t("controlDash:loginsTable.hideDetails") : t("controlDash:loginsTable.showDetails")}
+                    onClick={() => setExpanded(open ? null : entry.id)}
+                  >
+                    {open ? <ChevronDown size={16} aria-hidden="true" /> : <ChevronRight size={16} aria-hidden="true" />}
+                  </Button>
+                </td>
+                <td>
+                  <span className="datagrid-primary">
+                    <strong>{entry.ipAddress ?? t("controlDash:loginsTable.noAddress")}</strong>
+                    <small>{entry.actorName ?? t("controlDash:loginsTable.unknown")}</small>
+                  </span>
+                </td>
+                {/* The hover target is the whole cell, not the 18px glyph: an
+                    icon that small is easy to hover past. */}
+                <td className="col-glyph">
+                  <Tooltip label={methodLabel} className="col-glyph-hit">
+                    <span className="login-method-icon" role="img" aria-label={methodLabel}>
+                      <MethodIcon size={18} aria-hidden="true" />
                     </span>
-                  </td>
-                  {/* The hover target is the whole cell, not the 18px glyph: an
-                      icon that small is easy to hover past. */}
+                  </Tooltip>
+                </td>
+                <td>
+                  <span className={`status-badge ${failed ? "failed" : "completed"}`}>
+                    {loginResultLabel(entry.event)}
+                  </span>
+                </td>
+                {reputationConfigured && (
                   <td className="col-glyph">
-                    <Tooltip label={methodLabel} className="col-glyph-hit">
-                      <span className="login-method-icon" role="img" aria-label={methodLabel}>
-                        <MethodIcon size={18} aria-hidden="true" />
+                    <Tooltip label={light.title} className="col-glyph-hit">
+                      <span className={`reputation-light ${light.tone}`} role="img" aria-label={light.title}>
+                        <Light size={18} fill={light.filled ? "currentColor" : "none"} aria-hidden="true" />
                       </span>
                     </Tooltip>
                   </td>
-                  <td>
-                    <span className={`status-badge ${failed ? "failed" : "completed"}`}>
-                      {loginResultLabel(entry.event)}
-                    </span>
+                )}
+                <td className="datagrid-muted">{formatManagedDate(entry.createdAt)}</td>
+              </tr>,
+              open && (
+                <tr key={`${entry.id}-details`} className="login-detail-row">
+                  <td colSpan={columnCount}>
+                    <LoginDetails
+                      entry={entry}
+                      reputation={entry.ipAddress ? reputation[entry.ipAddress] : undefined}
+                      reputationConfigured={reputationConfigured}
+                      checking={entry.ipAddress === checkingIp}
+                      onCheck={onCheck}
+                    />
                   </td>
-                  {reputationConfigured && (
-                    <td className="col-glyph">
-                      <Tooltip label={light.title} className="col-glyph-hit">
-                        <span className={`reputation-light ${light.tone}`} role="img" aria-label={light.title}>
-                          <Light size={18} fill={light.filled ? "currentColor" : "none"} aria-hidden="true" />
-                        </span>
-                      </Tooltip>
-                    </td>
-                  )}
-                  <td className="datagrid-muted">{formatManagedDate(entry.createdAt)}</td>
-                </tr>,
-                open && (
-                  <tr key={`${entry.id}-details`} className="login-detail-row">
-                    <td colSpan={columnCount}>
-                      <LoginDetails
-                        entry={entry}
-                        reputation={entry.ipAddress ? reputation[entry.ipAddress] : undefined}
-                        reputationConfigured={reputationConfigured}
-                        checking={entry.ipAddress === checkingIp}
-                        onCheck={onCheck}
-                      />
-                    </td>
-                  </tr>
-                )
-              ];
-            })}
-          </tbody>
-        </table>
-      </div>
-    </>
+                </tr>
+              )
+            ];
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }
 

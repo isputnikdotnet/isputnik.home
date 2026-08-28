@@ -58,10 +58,10 @@ const summaryQuerySchema = z.object({
   days: z.coerce.number().int().min(1).max(90).default(14)
 });
 
-// Bounded window for the Logins view. `from`/`to` are ISO instants (the client
-// resolves its 1h/24h/30d presets before asking), and the bucket width follows the
-// span: hourly for anything up to two days, daily beyond that, so a 1h range isn't
-// one lonely point and a 30d range isn't 720 of them.
+// Bounded window for the range-scoped dashboard views. `from`/`to` are ISO
+// instants (the client resolves its 1h/24h/30d presets before asking), and the
+// bucket width follows the span: hourly for anything up to two days, daily
+// beyond that, so a 1h range isn't one lonely point and a 30d range isn't 720.
 const isoInstant = z
   .string()
   .trim()
@@ -86,7 +86,7 @@ const databaseUrlSchema = z.object({
     }, "Expected an http(s) URL")
 });
 
-const loginsQuerySchema = z.object({
+const rangeQuerySchema = z.object({
   from: isoInstant,
   to: isoInstant
 });
@@ -194,130 +194,11 @@ export async function dashboardPlugin(app: FastifyInstance) {
     });
   });
 
-  app.get("/api/dashboard/logins", { preHandler: app.requireAdmin }, async (request, reply) => {
-    const parsed = parseBody(loginsQuerySchema, request.query);
-    if (parsed.error) {
-      return reply.code(400).send({ error: "Invalid logins query", details: parsed.error });
-    }
-
-    const from = new Date(parsed.data.from);
-    const to = new Date(parsed.data.to);
-    if (to.getTime() <= from.getTime()) {
-      return reply.code(400).send({ error: "Invalid logins range", details: "The end of the range must come after its start." });
-    }
-
-    const bucket: "hour" | "day" = to.getTime() - from.getTime() <= HOURLY_MAX_SPAN_MS ? "hour" : "day";
-    const bucketFormat = bucket === "hour" ? "%Y-%m-%dT%H:00:00.000Z" : "%Y-%m-%dT00:00:00.000Z";
-    const range = { from: from.toISOString(), to: to.toISOString() };
-
-    const rows = db.prepare(`
-      SELECT
-        strftime('${bucketFormat}', created_at) AS bucket,
-        SUM(CASE WHEN event IN (${LOGIN_SUCCESS_EVENTS}) THEN 1 ELSE 0 END) AS success,
-        SUM(CASE WHEN event IN (${LOGIN_FAILED_EVENTS}) THEN 1 ELSE 0 END) AS failed
-      FROM activity_logs
-      WHERE event IN (${LOGIN_SUCCESS_EVENTS}, ${LOGIN_FAILED_EVENTS})
-        AND datetime(created_at) >= datetime(@from)
-        AND datetime(created_at) <= datetime(@to)
-      GROUP BY bucket
-    `).all(range) as { bucket: string; success: number; failed: number }[];
-    const byBucket = new Map(rows.map((row) => [row.bucket, row]));
-
-    // Every bucket in the window is emitted, empty ones included — a gap in the
-    // chart should read as "no logins then", not as a missing sample.
-    const buckets: string[] = [];
-    const success: number[] = [];
-    const failed: number[] = [];
-    const step = bucket === "hour" ? HOUR_MS : DAY_MS;
-    for (let cursor = floorToBucket(from, bucket).getTime(); cursor <= to.getTime(); cursor += step) {
-      const key = new Date(cursor).toISOString();
-      buckets.push(key);
-      success.push(byBucket.get(key)?.success ?? 0);
-      failed.push(byBucket.get(key)?.failed ?? 0);
-    }
-
-    // The equal-length window immediately before this one, so each card can say
-    // how the range compares with the stretch that came before it.
-    const previousRange = {
-      from: new Date(from.getTime() - (to.getTime() - from.getTime())).toISOString(),
-      to: range.from
-    };
-
-    const totalsStatement = db.prepare(`
-      SELECT
-        SUM(CASE WHEN event = 'auth.login' THEN 1 ELSE 0 END) AS password,
-        SUM(CASE WHEN event = 'auth.passkey_login' THEN 1 ELSE 0 END) AS passkey,
-        SUM(CASE WHEN event = 'auth.mfa_verified' THEN 1 ELSE 0 END) AS two_factor,
-        SUM(CASE WHEN event = 'auth.device_link_approved' THEN 1 ELSE 0 END) AS device_link,
-        SUM(CASE WHEN event IN (${LOGIN_FAILED_EVENTS}) THEN 1 ELSE 0 END) AS failed,
-        COUNT(DISTINCT CASE WHEN event IN (${LOGIN_SUCCESS_EVENTS}) THEN actor_user_id END) AS people
-      FROM activity_logs
-      WHERE datetime(created_at) >= datetime(@from) AND datetime(created_at) <= datetime(@to)
-    `);
-    // Blocks are counted by when they were placed, not by which are still live —
-    // this card describes what happened during the window, like the ones beside it.
-    const blockedStatement = db.prepare(`
-      SELECT COUNT(*) AS blocked FROM blocked_ips
-      WHERE datetime(created_at) >= datetime(@from) AND datetime(created_at) <= datetime(@to)
-    `);
-
-    const totalsFor = (window: { from: string; to: string }) => {
-      const row = totalsStatement.get(window) as {
-        password: number | null;
-        passkey: number | null;
-        two_factor: number | null;
-        device_link: number | null;
-        failed: number | null;
-        people: number | null;
-      };
-      const password = row.password ?? 0;
-      const passkey = row.passkey ?? 0;
-      const twoFactor = row.two_factor ?? 0;
-      const deviceLink = row.device_link ?? 0;
-      const failed = row.failed ?? 0;
-      const success = password + passkey + twoFactor + deviceLink;
-      const blocked = (blockedStatement.get(window) as { blocked: number }).blocked;
-      return {
-        methods: { password, passkey, twoFactor, deviceLink },
-        attempts: success + failed,
-        success,
-        failed,
-        people: row.people ?? 0,
-        blockedIps: blocked
-      };
-    };
-
-    const current = totalsFor(range);
-    const previous = totalsFor(previousRange);
-
-    return reply.send({
-      from: range.from,
-      to: range.to,
-      bucket,
-      buckets,
-      series: { success, failed },
-      methods: current.methods,
-      totals: {
-        attempts: current.attempts,
-        success: current.success,
-        failed: current.failed,
-        people: current.people,
-        blockedIps: current.blockedIps
-      },
-      previous: {
-        attempts: previous.attempts,
-        success: previous.success,
-        failed: previous.failed,
-        blockedIps: previous.blockedIps
-      }
-    });
-  });
-
   // Where the sign-ins in a window came from. The grouping is done here rather
   // than in SQL because the country of an address is a file lookup, not a column:
   // one row per distinct address, resolved locally, then summed.
   app.get("/api/dashboard/locations", { preHandler: app.requireAdmin }, async (request, reply) => {
-    const parsed = parseBody(loginsQuerySchema, request.query);
+    const parsed = parseBody(rangeQuerySchema, request.query);
     if (parsed.error) {
       return reply.code(400).send({ error: "Invalid locations query", details: parsed.error });
     }
@@ -412,10 +293,10 @@ export async function dashboardPlugin(app: FastifyInstance) {
   });
 
   // ── Sign-in details ────────────────────────────────────────────────────────
-  // The deep-dive behind the arrows on the Locations tables: the same window as
-  // the Logins and Locations views, narrowed to one scope — a country, a town,
-  // one address, or one person — and answered from every table that watches the
-  // door. activity_logs says what happened, login_attempts what the lockout and
+  // The Dashboard's opening view, and the deep-dive behind the arrows on the
+  // Locations tables: one window, narrowed to one scope — everything, a country,
+  // a town, one address, or one person — and answered from every table that
+  // watches the door. activity_logs says what happened, login_attempts what the lockout and
   // auto-block counted (including the anonymous scanner traffic no page shows),
   // sessions what is still signed in from there, and blocked_ips who has been
   // shut out. One endpoint rather than four, so every panel of the page
@@ -557,8 +438,29 @@ export async function dashboardPlugin(app: FastifyInstance) {
       m_device_link: number | null;
     };
 
-    // Same bucketing rule as /api/dashboard/logins: a short window by hour, a
-    // long one by day, empty buckets emitted so a gap reads as "nothing then".
+    // Blocks placed during the window, not blocks still live — this card
+    // describes what happened in the range, like the ones beside it. An address
+    // scope counts its own; a person's counts the addresses they connected from,
+    // since blocked_ips knows nothing about accounts; unscoped counts every
+    // block, scanner traffic included, which is the number worth glancing at.
+    const blockedConditions = [
+      "datetime(created_at) >= datetime(@from)",
+      "datetime(created_at) <= datetime(@to)"
+    ];
+    if (ipSet) blockedConditions.push(ipConditionFor("ip_address"));
+    else if (userId) {
+      blockedConditions.push(`ip_address IN (
+        SELECT DISTINCT ip_address FROM activity_logs WHERE ${where} AND ip_address IS NOT NULL
+      )`);
+    }
+    const blockedIps = (db.prepare(`
+      SELECT COUNT(*) AS blocked FROM blocked_ips WHERE ${blockedConditions.join(" AND ")}
+    `).get(params) as { blocked: number }).blocked;
+
+    // A short window buckets by hour, a long one by day, and empty buckets are
+    // emitted either way so a gap reads as "nothing then" rather than a missing
+    // sample. /api/dashboard/activity follows the same rule, so the two views'
+    // date toolbars behave identically.
     const bucket: "hour" | "day" = to.getTime() - from.getTime() <= HOURLY_MAX_SPAN_MS ? "hour" : "day";
     const bucketFormat = bucket === "hour" ? "%Y-%m-%dT%H:00:00.000Z" : "%Y-%m-%dT00:00:00.000Z";
     const seriesRows = db.prepare(`
@@ -751,28 +653,32 @@ export async function dashboardPlugin(app: FastifyInstance) {
       }));
     }
 
-    // The raw tail of the story, newest first. Thirty is enough to read what has
-    // been happening; the Logs page carries the full archive.
+    // The raw tail of the story, newest first, in the same row shape /api/logs
+    // returns — the client renders it through the very same table, so a sign-in
+    // reads identically here and on the Logs page. Two hundred is a few pages of
+    // reading; the Logs page carries the full archive.
     const events = (db.prepare(`
-      SELECT activity_logs.id, event, detail, ip_address AS ip, activity_logs.created_at, users.display_name AS actor
+      SELECT activity_logs.id, event, detail, ip_address, activity_logs.created_at,
+        users.display_name AS actor_name, users.id AS actor_id
       FROM activity_logs LEFT JOIN users ON users.id = activity_logs.actor_user_id
       WHERE ${where}
-      ORDER BY datetime(activity_logs.created_at) DESC, activity_logs.rowid DESC LIMIT 30
+      ORDER BY datetime(activity_logs.created_at) DESC, activity_logs.rowid DESC LIMIT 200
     `).all(params) as {
       id: string;
       event: string;
       detail: string;
-      ip: string | null;
+      ip_address: string | null;
       created_at: string;
-      actor: string | null;
+      actor_name: string | null;
+      actor_id: string | null;
     }[]).map((row) => ({
       id: row.id,
       event: row.event,
       detail: row.detail,
-      ip: row.ip,
-      at: row.created_at,
-      actor: row.actor,
-      failed: row.event === "auth.login_failed" || row.event === "auth.mfa_failed"
+      ipAddress: row.ip_address,
+      createdAt: row.created_at,
+      actorName: row.actor_name,
+      actorId: row.actor_id
     }));
 
     return reply.send({
@@ -786,6 +692,7 @@ export async function dashboardPlugin(app: FastifyInstance) {
         failed: totalsRow.failed ?? 0,
         people: totalsRow.people,
         addresses: totalsRow.addresses,
+        blockedIps,
         firstSeen: totalsRow.first_seen,
         lastSeen: totalsRow.last_seen
       },
@@ -866,12 +773,12 @@ export async function dashboardPlugin(app: FastifyInstance) {
   });
 
   // The Activity tab's range-scoped payload — the same window and bucketing rule
-  // as /api/dashboard/logins, so the two tabs' date toolbars behave identically.
+  // as /api/dashboard/signins, so the two tabs' date toolbars behave identically.
   // Six series: what was put in or taken out (uploads, downloads, deletes) and
   // what was opened (played, read, viewed), with totals for this window and the
   // equal-length one before it so each card can say how it compares.
   app.get("/api/dashboard/activity", { preHandler: app.requireAdmin }, async (request, reply) => {
-    const parsed = parseBody(loginsQuerySchema, request.query);
+    const parsed = parseBody(rangeQuerySchema, request.query);
     if (parsed.error) {
       return reply.code(400).send({ error: "Invalid activity query", details: parsed.error });
     }

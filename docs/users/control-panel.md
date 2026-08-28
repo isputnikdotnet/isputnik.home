@@ -9,7 +9,7 @@ it points there rather than repeating it.
 
 | Section | Tabs |
 |---|---|
-| **Overview** | Dashboard, Sign-ins, Logs |
+| **Overview** | Dashboard, Logs |
 | **Library** | Libraries, Storage, Categories, Tags |
 | **Members** | Users, Groups, Invite links |
 | **Security** | Overview, Policies, Trusted networks, Blocked IPs |
@@ -61,16 +61,30 @@ tabs under the heading — real tabs, not a dropdown:
   to failures only, to one kind of task, or to one library — so "which scans
   failed, and where?" is a filter, not a scroll. A failed row's error opens
   underneath it.
-- **Logins** — the view the page opens on. Pick a window (1h, 7h, 24h, 7d, 30d,
-  or a custom start and end)
-  and everything below follows it: cards for attempts, successes, failures and
-  IPs blocked — each compared with the window before it — a chart of successful
-  and failed sign-ins, and a table of every sign-in in the window — 10, 20, 50 or
-  100 rows to a page, and it remembers which you picked. A row shows the address
-  with the person under it, the method as an icon (hover for its name), the
-  result, and — with an AbuseIPDB key set under Security → Policies — a coloured
-  reputation light — one shield whose colour is the signal: green for a clean
-  address, amber for one with some history, red for one the community calls
+- **Sign-ins** — the view the page opens on: who got in, from where, and what is
+  still signed in. Pick a window (1h, 7h, 24h, 7d, 30d, or a custom start and
+  end) and everything below follows it: cards for attempts, successes (with the
+  methods behind them) and failures (with any addresses blocked in that window),
+  and how many people signed in from how many addresses.
+
+  Under the cards, the two halves of "who is at the door" share one card, with a
+  count on each so you can see what is in the half you are not looking at:
+
+  **Devices still signed in** — every live session, a display, phone, tablet or
+  computer, who it belongs to, its address, when it was last seen and when it
+  expires, with a revoke button on every row but your own. That is where you go
+  when a laptop is lost, or when a sign-in alert names a device you don't
+  recognise. Above the table, a bar per person split by device kind — who is
+  holding the sessions, which fifty rows only answer by scrolling — and the
+  counter chips, which both count each kind and narrow the panel to it.
+
+  **Sign-ins in this range** — the chart of successful against failed sign-ins
+  over the window, and under it every attempt in it, 10, 20, 50 or 100 rows to a
+  page, and it remembers which you picked. A row shows the address with the
+  person under it, the method as an icon (hover for its name),
+  the result, and — with an AbuseIPDB key set under Security → Policies — a
+  coloured reputation light: one shield whose colour is the signal: green for a
+  clean address, amber for one with some history, red for one the community calls
   abusive, an outlined shield for an address nobody has checked, and a muted
   house for your own network. Hover it for the score and where the address sits.
   The arrow at the start of a row opens the full record underneath it: user,
@@ -78,12 +92,30 @@ tabs under the heading — real tabs, not a dropdown:
   reputation in words with a **Check with AbuseIPDB** button when that address has
   never been looked up. Nothing is sent to AbuseIPDB until you press it, and local
   addresses are never sent at all. Click IP address, User, Method or Time in the
-  heading to sort by it, and again to reverse it.
+  heading to sort by it, and again to reverse it. Only the newest few hundred
+  attempts are kept in the panel; the count beside the tab is the true total for
+  the window, and Logs holds the rest.
+
+  Three tables follow the card. **Addresses** is one row per address with its
+  location, how many connections and failures came from it, whether it is
+  blocked, and any scanner traffic counted against it. **People** is the same by
+  person, with the methods they used; failed attempts prove nothing about who
+  typed them, so they gather under "Not signed in" rather than being hidden.
+  **Names tried** appears when a stranger has been guessing: the sign-in names
+  they tried that belong to no account here.
+
+  **Narrowing it.** Everything above answers one scope at a time, shown as a chip
+  at the top: everything by default, or one country, town, address or person.
+  **Filter** sets it by hand, and the arrow at the end of any row on this page —
+  or on the Locations tables, the Logs page, or Security → Blocked IPs — dives
+  into that address or person. The scope lives in the address bar, so a dive can
+  be sent to somebody, and Back walks up out of it. The ✕ on the chip returns to
+  everything.
 - **Locations** — where sign-ins came from, over the window you pick: a world map
   shaded by how many connections each country sent, and a table of countries with
   connections, failures and how many distinct addresses were behind them. Sign-ins
   from inside your own house are counted separately as "Home network" rather than
-  being dropped, so the numbers always add up to what the Logins page shows — the
+  being dropped, so the numbers always add up to what Sign-ins shows — the
   line under the map spells that out: how many sign-ins the range holds, how many
   the map could place, how many came from your own network, and how many no
   database could place.
@@ -116,7 +148,7 @@ tabs under the heading — real tabs, not a dropdown:
   take that name. It is stored on your server for that one purpose, never sent
   anywhere, and **Take it off the map** removes it again.
 - **Activity** — what the household has been doing with the library, over the
-  window you pick with the same date toolbar Logins has: cards for uploads,
+  window you pick with the same date toolbar Sign-ins has: cards for uploads,
   downloads and deletes (each compared with the stretch before) and storage used;
   two charts (uploads, downloads and deletes; and what was played, read or
   viewed); the content events themselves; and what's currently in progress for
@@ -188,9 +220,9 @@ them across the whole install.
 - **Invite links** — sign-up links, so you don't have to hand out passwords. Create
   one, send it, retire it when it's been used or you've changed your mind.
 
-Signed-in devices moved to Overview → Sign-ins, which lists every session with the
-ability to revoke any of them — where you go when a laptop is lost, or when a
-sign-in alert names a device you don't recognise.
+Signed-in devices moved to the Dashboard's Sign-ins view, which lists every
+session with the ability to revoke any of them — where you go when a laptop is
+lost, or when a sign-in alert names a device you don't recognise.
 
 Library *access* is granted per library (in Library → Libraries → a library →
 members), not here — this section is about who exists, groups are about who they are
@@ -242,11 +274,11 @@ internet](exposing-to-the-internet.md).
   would otherwise expire). The chips above the list count and filter running,
   permanent and lapsed blocks; **Clear lapsed** removes the automatic blocks that
   have already run out in one go. The arrow at the end of a row opens that
-  address's Sign-ins page, where the attempts behind the block are. With an
+  address's Sign-ins dive, where the attempts behind the block are. With an
   AbuseIPDB key set under Policies, the row shows the address's public abuse
   score, and the opened record carries the full picture — reports, country,
   network operator, when it was checked — with the **Check with AbuseIPDB** button
-  there, as on the Logins table.
+  there, as on the Sign-ins table.
 - Under **Policies** you can also connect **AbuseIPDB** (free API key) so blocked
   addresses are checked against a community abuse database — and, if you keep the
   escalation switch on, known-abusive addresses stay blocked permanently instead

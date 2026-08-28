@@ -14,10 +14,11 @@ import {
   type LucideIcon
 } from "lucide-react";
 import { api } from "../../../../api";
-import { controlHref, navigate, type ControlSection } from "../../../../router";
+import { controlHref, navigate } from "../../../../router";
 import { Button } from "../../../../shared/Button";
 import { KpiCard, type KpiTone } from "../../../../shared/KpiCard";
 import { formatBytes, formatManagedDate, formatUptime, relativeTime } from "../../../../shared/utils";
+import { signInsHref } from "./SignInsView";
 import type { DbInfo, SystemStatus } from "../../types";
 
 // Overview › Dashboard › System — is the server well? Four cards answer that with
@@ -42,7 +43,8 @@ interface Pointer {
   label: string;
   value: string;
   note: string;
-  section: ControlSection;
+  /** An address, not a section: Devices lands on a view of this same page. */
+  href: string;
 }
 
 export function SystemView({ status, dbInfo }: { status: SystemStatus; dbInfo: DbInfo | null }) {
@@ -67,28 +69,28 @@ export function SystemView({ status, dbInfo }: { status: SystemStatus; dbInfo: D
       label: t("controlDash:system.members"),
       value: status.users.toLocaleString(),
       note: t("controlDash:system.membersNote"),
-      section: "users"
+      href: controlHref("users")
     },
     {
       icon: Smartphone,
       label: t("controlDash:system.devices"),
       value: status.activeSessions.toLocaleString(),
       note: t("controlDash:system.devicesNote"),
-      section: "signins"
+      href: signInsHref({})
     },
     {
       icon: Ticket,
       label: t("controlDash:system.invites"),
       value: status.activeInvites.toLocaleString(),
       note: t("controlDash:system.invitesNote"),
-      section: "invites"
+      href: controlHref("invites")
     },
     {
       icon: ScrollText,
       label: t("controlDash:system.logEntries"),
       value: status.logEntries.toLocaleString(),
       note: t("controlDash:system.logEntriesNote"),
-      section: "logs"
+      href: controlHref("logs")
     },
     {
       icon: Archive,
@@ -100,7 +102,7 @@ export function SystemView({ status, dbInfo }: { status: SystemStatus; dbInfo: D
           : lastBackup
             ? `${lastBackup.kind === "full" ? t("controlDash:system.fullBackup") : t("controlDash:system.databaseOnly")} · ${formatManagedDate(lastBackup.createdAt)}`
             : t("controlDash:system.backupHint"),
-      section: "backup"
+      href: controlHref("backup")
     }
   ];
 
@@ -161,7 +163,7 @@ export function SystemView({ status, dbInfo }: { status: SystemStatus; dbInfo: D
                 {pointers.map((pointer) => {
                   const Icon = pointer.icon;
                   return (
-                    <tr key={pointer.label} onClick={() => navigate(controlHref(pointer.section))} className="system-pointer-row">
+                    <tr key={pointer.label} onClick={() => navigate(pointer.href)} className="system-pointer-row">
                       <td>
                         <span className="location-cell">
                           <Icon size={17} aria-hidden="true" className="signins-device-icon" />
@@ -179,7 +181,7 @@ export function SystemView({ status, dbInfo }: { status: SystemStatus; dbInfo: D
                           title={t("controlDash:system.open", { label: pointer.label })}
                           onClick={(event) => {
                             event.stopPropagation();
-                            navigate(controlHref(pointer.section));
+                            navigate(pointer.href);
                           }}
                         >
                           <ChevronRight size={16} aria-hidden="true" />
