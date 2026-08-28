@@ -19,6 +19,18 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.37.0",
+    label: "One place to share",
+    changes: [
+      "Sharing something was two dialogs pretending to be one. Send to listed the family and let you tell one of them about a book; choosing \"share link\" closed it and opened a second dialog, built on the same machinery, which made guest links on one tab and listed who already had access on another. So \"who can see this?\" had two answers in two places, and changing your mind halfway meant going back out through a menu. There is one dialog now, and everything finishes inside it.",
+      "It opens on the three ways to share, side by side: people, a link, your e-reader. Choosing one changes what is underneath rather than sending you somewhere — links are made, listed and revoked on the spot, and the list of who already has access, with the button that takes it away, sits at the foot of the people list where it belongs. The old dialog is gone entirely.",
+      "You can now pick several people at once. Tick as many as you like and write one line for all of them; if any of them can't open it yet, the dialog says so before the button changes to \"Give access and send\", and access is given to exactly those who needed it. And if the server couldn't reach somebody after all, it says who, instead of reporting a clean success.",
+      "People in the list carry a coloured initial and their email address, which is the only thing that separates two members of a household who share a first name. Past five of them the list grows a search box.",
+      "Guest links still show their address exactly once, when you make them — only a fingerprint of the link is stored, so nothing can print it again later, and the dialog now says as much where you would look for it. Each link keeps its label, its expiry date and its own Revoke.",
+      "The photo gallery's albums keep their own link flow, since an album link is a snapshot of what was in the album at the time and is not the same animal as a link to one book."
+    ]
+  },
+  {
     version: "3.36.0",
     label: "Which one is your author?",
     changes: [
