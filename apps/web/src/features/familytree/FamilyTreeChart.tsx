@@ -441,7 +441,11 @@ export function FamilyTreeChart({
                     width={photoSize}
                     height={photoSize}
                     clipPath={`url(#ft-clip-${index})`}
-                    preserveAspectRatio="xMidYMid slice"
+                    // Crop from the top of the portrait, not its middle: heads
+                    // live in the upper third, and centring takes the crown off
+                    // them. Same rule as the CSS avatars (object-position: center
+                    // top) — YMin is the SVG spelling of it.
+                    preserveAspectRatio="xMidYMin slice"
                   />
                 ) : (
                   // No clip on this group: a userSpaceOnUse clip rect would be
