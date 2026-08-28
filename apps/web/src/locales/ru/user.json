@@ -217,7 +217,11 @@
     "searchAria": "Поиск по цитатам",
     "loadMore": "Показать ещё",
     "loadingMore": "Загрузка…",
-    "showingOf": "Показано {{shown}} из {{total}}"
+    "showingOf": "Показано {{shown}} из {{total}}",
+    "editorTabs": {
+      "quote": "Цитата",
+      "details": "Подробности"
+    }
   },
   "shared": {
     "eyebrow": "Семья",

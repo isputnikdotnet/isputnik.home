@@ -183,7 +183,11 @@
     "searchAria": "Search quotes",
     "loadMore": "Load more",
     "loadingMore": "Loading…",
-    "showingOf": "Showing {{shown}} of {{total}}"
+    "showingOf": "Showing {{shown}} of {{total}}",
+    "editorTabs": {
+      "quote": "Quote",
+      "details": "Details"
+    }
   },
   "shared": {
     "eyebrow": "Family",

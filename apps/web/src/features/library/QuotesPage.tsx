@@ -118,6 +118,12 @@ const QUOTE_FILTERS = ["all", "mine", "import", "reader", "manual", "rotation"] 
 type BuiltInFilter = (typeof QUOTE_FILTERS)[number];
 type QuoteFilter = BuiltInFilter | `tag:${string}`;
 
+// Two tabs, not ten stacked fields. The first is a complete quote on its own —
+// the words, where they came from, and who may see them — so the quick path is
+// one screen. The second is what enriches it.
+const QUOTE_EDITOR_TABS = ["quote", "details"] as const;
+type QuoteEditorTab = (typeof QUOTE_EDITOR_TABS)[number];
+
 /** One request's worth of quotes. The server caps this; asking for more is futile. */
 const PAGE_SIZE = 50;
 
@@ -183,6 +189,7 @@ function QuoteEditor({
   // Set when the draft itself is wrong (a malformed date), as opposed to `error`,
   // which is what the server said about a save that was actually attempted.
   const [draftError, setDraftError] = useState("");
+  const [tab, setTab] = useState<QuoteEditorTab>("quote");
   const linked = Boolean(editing?.itemId);
   const languageOptions = UI_LANGUAGES.some((l) => l.code === draft.language) || !draft.language
     ? UI_LANGUAGES
@@ -201,6 +208,7 @@ function QuoteEditor({
         if (!draft.text.trim()) return;
         const date = draft.quoteDate.trim();
         if (date && !PARTIAL_DATE.test(date)) {
+          setTab("details");
           setDraftError(t("user:quotes.dateInvalid"));
           return;
         }
@@ -208,7 +216,23 @@ function QuoteEditor({
         onSave(draft);
       }}
     >
+      <div className="modal-tabs quote-editor-tabs" role="tablist">
+        {QUOTE_EDITOR_TABS.map((id) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={tab === id}
+            className={`modal-tab${tab === id ? " active" : ""}`}
+            onClick={() => setTab(id)}
+          >
+            {t(`user:quotes.editorTabs.${id}` as "user:quotes.editorTabs.quote")}
+          </button>
+        ))}
+      </div>
+
       <div className="quote-form">
+        <div className="quote-tab-panel" hidden={tab !== "quote"}>
         <label className="quote-field">
           <span>{t("user:quotes.quoteField")}</span>
           <textarea
@@ -242,6 +266,40 @@ function QuoteEditor({
             </label>
           </div>
         )}
+
+        <label className="quote-field">
+          <span>{t("user:quotes.noteField")} <em>{t("user:form.optional")}</em></span>
+          <textarea
+            value={draft.note}
+            onChange={(e) => setDraft((d) => ({ ...d, note: e.target.value }))}
+            placeholder={t("user:quotes.notePlaceholder")}
+            rows={2}
+          />
+        </label>
+
+        <div className="quote-field-row">
+          <label className="quote-field">
+            <span>{t("user:quotes.visibilityField")}</span>
+            <select
+              value={draft.visibility}
+              onChange={(e) => setDraft((d) => ({ ...d, visibility: e.target.value as QuoteDraft["visibility"] }))}
+            >
+              <option value="private">{t("user:quotes.visibilityPrivate")}</option>
+              <option value="family">{t("user:quotes.visibilityFamily")}</option>
+            </select>
+          </label>
+          <label className="field-checkbox quote-field-toggle">
+            <input
+              type="checkbox"
+              checked={draft.inRotation}
+              onChange={(e) => setDraft((d) => ({ ...d, inRotation: e.target.checked }))}
+            />
+            <span>{t("user:quotes.rotationField")}</span>
+          </label>
+        </div>
+        </div>
+
+        <div className="quote-tab-panel" hidden={tab !== "details"}>
         {familyMembers.length > 0 && (
           <label className="quote-field">
             <span>{t("user:quotes.speakerField")} <em>{t("user:form.optional")}</em></span>
@@ -267,15 +325,6 @@ function QuoteEditor({
           />
         </div>
 
-        <label className="quote-field">
-          <span>{t("user:quotes.noteField")} <em>{t("user:form.optional")}</em></span>
-          <textarea
-            value={draft.note}
-            onChange={(e) => setDraft((d) => ({ ...d, note: e.target.value }))}
-            placeholder={t("user:quotes.notePlaceholder")}
-            rows={2}
-          />
-        </label>
 
         <div className="quote-field-row">
           <label className="quote-field">
@@ -310,25 +359,7 @@ function QuoteEditor({
           />
         </label>
 
-        <div className="quote-field-row">
-          <label className="quote-field">
-            <span>{t("user:quotes.visibilityField")}</span>
-            <select
-              value={draft.visibility}
-              onChange={(e) => setDraft((d) => ({ ...d, visibility: e.target.value as QuoteDraft["visibility"] }))}
-            >
-              <option value="private">{t("user:quotes.visibilityPrivate")}</option>
-              <option value="family">{t("user:quotes.visibilityFamily")}</option>
-            </select>
-          </label>
-          <label className="field-checkbox quote-field-toggle">
-            <input
-              type="checkbox"
-              checked={draft.inRotation}
-              onChange={(e) => setDraft((d) => ({ ...d, inRotation: e.target.checked }))}
-            />
-            <span>{t("user:quotes.rotationField")}</span>
-          </label>
+
         </div>
 
         {(draftError || error) && (

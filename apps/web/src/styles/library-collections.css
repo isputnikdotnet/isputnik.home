@@ -1891,6 +1891,24 @@
   }
 }
 
+/* Tabs inside a card modal. The shared .modal-tabs is built for the panel
+   variant, which has no padding of its own; a card already has 24px, so the row
+   gives its own back and stretches to the card edges instead. */
+.quote-editor-tabs {
+  margin: 4px -24px 0;
+  padding: 0 24px;
+}
+
+/* Each panel keeps the form grid; the hidden one is simply not laid out. */
+.quote-tab-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.quote-tab-panel[hidden] {
+  display: none;
+}
+
 /* The quote editor outgrew the 420px card: ten fields in a column that narrow is
    a very long scroll. Wider, with the secondary fields two abreast — the quote
    itself and the note stay full width, since those are what you actually type. */
