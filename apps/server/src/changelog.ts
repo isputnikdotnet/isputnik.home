@@ -19,6 +19,14 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.34.1",
+    label: "Nothing to see here",
+    changes: [
+      "Housekeeping under the surface, and nothing changes on any page: the engine that finds and recognises faces in your photos moved to its current release, along with a couple of bundled libraries that had patched versions waiting. Face grouping should behave exactly as it did before.",
+      "It goes out on its own rather than riding along with the next set of features, because a change this deep in the machinery is only easy to trace back when it is the only thing in the release."
+    ]
+  },
+  {
     version: "3.34.0",
     label: "A library of quotes, not a list",
     changes: [
