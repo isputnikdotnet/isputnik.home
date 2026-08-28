@@ -10,7 +10,7 @@ import { normalizeLibrarySettings } from "../shared/library-settings.js";
 import { accessibleLibraryIds, canUserWriteLibrary, getAccessibleLibrary } from "../shared/library-access.js";
 import { BOOK_LIBRARY_TYPES } from "../shared/library-types.js";
 import { alphaFieldsFor } from "../shared/alphabet.js";
-import { enrichPerson, lookupPersonByUrl, lookupPersonInfo, lookupPersonPhotoCandidates, removeStoredPhotos, writePersonPhoto } from "./enrich.js";
+import { enrichPerson, lookupPersonByUrl, lookupPersonCandidates, lookupPersonPhotoCandidates, removeStoredPhotos, writePersonPhoto } from "./enrich.js";
 import { MetadataLinkError } from "./providers/types.js";
 import { sortTitle } from "./scanner.js";
 
@@ -56,7 +56,12 @@ const personProfileSchema = z.object({
 
 const createPersonSchema = z.object({
   name: z.string().trim().min(1).max(240),
-  libraryId: z.string().trim().min(1),
+  // Optional: people are global rows, so a library here is only the permission
+  // to create one. The Narrators page names the library it was opened from;
+  // the cross-type Authors browse has no single library to name, and falls back
+  // to "may this user write ANY book library" — the same gate the profile-edit
+  // routes use.
+  libraryId: z.string().trim().min(1).optional(),
   bio: z.string().trim().max(10000).nullable().optional(),
   sortName: z.string().trim().max(240).nullable().optional()
 });
@@ -346,7 +351,8 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
     const user = request.user!;
     return reply.send({
       authors: listAuthors(user.id, user.role),
-      libraries: listAuthorLibraries(user.id, user.role)
+      libraries: listAuthorLibraries(user.id, user.role),
+      canCreate: canWriteAnyBookLibrary(user)
     });
   });
 
@@ -432,9 +438,11 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
     }
   });
 
-  // Preview a person's online profile (Wikipedia / Open Library) without writing
-  // anything: by name, or from a specific pasted author link (?url=). The modal
-  // shows a current-vs-found comparison and applies fields on confirmation.
+  // Preview a person's online profiles (Wikipedia / Open Library) without writing
+  // anything: by name, or from a specific pasted author link (?url=). Both answer
+  // with a LIST — the by-name search because several pages can share a name, the
+  // pasted link with its single result — so the modal always renders one shape:
+  // pick a result, compare it field by field, apply what you want on Save.
   app.get("/api/library/people/by-name/lookup", { preHandler: app.authenticate }, async (request, reply) => {
     const q = request.query as { name?: string; url?: string };
     const name = String(q.name ?? "").trim();
@@ -444,20 +452,22 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
 
     const url = q.url?.trim();
     try {
-      const candidate = url
-        ? await lookupPersonByUrl(url)
-        : await lookupPersonInfo(name, personLookupLanguages(name));
-      return reply.send({ candidate });
+      const candidates = url
+        ? [await lookupPersonByUrl(url)].filter((candidate) => candidate !== null)
+        : await lookupPersonCandidates(name, personLookupLanguages(name));
+      return reply.send({ candidates });
     } catch (err) {
       const status = err instanceof MetadataLinkError ? err.status : 502;
       return reply.code(status).send({ error: err instanceof Error ? err.message : "Online lookup failed" });
     }
   });
 
-  // Create a person manually (profile-only): a library-scoped authors row with
-  // name + optional bio. It becomes a book-edit suggestion immediately and shows
-  // on the browse page once a book credits them. Role isn't stored (it lives on
-  // book_authors), so "author" and "narrator" create the same kind of row.
+  // Create a person manually (profile-only): a people row with name + optional
+  // sort name and bio. The row is GLOBAL, not library-scoped — libraryId, when
+  // given, only says which library's write access is being claimed. It becomes a
+  // book-edit suggestion immediately and shows on the browse page once a book
+  // credits them. Role isn't stored (it lives on item_people), so "author" and
+  // "narrator" create the same kind of row.
   app.post("/api/library/people", { preHandler: app.authenticate }, async (request, reply) => {
     const parsed = parseBody(createPersonSchema, request.body);
     if (parsed.error) {
@@ -465,9 +475,14 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
     }
     const { name, libraryId, bio, sortName } = parsed.data;
 
-    const lib = getAccessibleLibrary(libraryId, request.user!.id, request.user!.role, "audiobook");
-    if (!lib || !canUserWriteLibrary(lib, request.user!.id, request.user!.role)) {
-      return reply.code(403).send({ error: "Write access to the library is required to add people." });
+    if (libraryId) {
+      const lib = getAccessibleLibrary(libraryId, request.user!.id, request.user!.role);
+      if (!lib || !BOOK_LIBRARY_TYPES.includes(lib.type as (typeof BOOK_LIBRARY_TYPES)[number])
+        || !canUserWriteLibrary(lib, request.user!.id, request.user!.role)) {
+        return reply.code(403).send({ error: "Write access to the library is required to add people." });
+      }
+    } else if (!canWriteAnyBookLibrary(request.user!)) {
+      return reply.code(403).send({ error: "Write access to a book library is required to add people." });
     }
 
     const existing = db.prepare("SELECT id FROM people WHERE name = ?").get(name);

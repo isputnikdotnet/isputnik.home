@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { BookOpen, Headphones, LibraryBig, UserRound } from "lucide-react";
+import { BookOpen, Headphones, LibraryBig, UserPlus, UserRound } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate, queryParam, replaceQuery } from "../../router";
 import { AlphabetBar } from "../../shared/AlphabetBar";
+import { Button } from "../../shared/Button";
 import { LibraryPageHeader } from "../../shared/LibraryPageHeader";
 import { LibraryMenu } from "../../shared/LibraryMenu";
 import { LibraryPageToolbar } from "../../shared/LibraryPageToolbar";
 import { MessageBox } from "../../shared/MessageBox";
+import { Modal } from "../../shared/Modal";
 import { SectionNav } from "../../shared/SectionNav";
 import { SortMenu } from "../../shared/SortMenu";
 import { sectionFromQuery, sectionNavProps } from "./sectionNavItems";
@@ -56,6 +58,16 @@ export function AuthorListPage({
   // link opens on it, and goes back with replaceState so Back leaves the page
   // instead of walking out through every letter that was clicked.
   const [letter, setLetter] = useState<string | null>(() => queryParam("letter"));
+  // People are global rows, so creating one asks for no library — the server
+  // answers whether this user may write ANY book library, which is the whole
+  // permission question here.
+  const [canCreate, setCanCreate] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newSortName, setNewSortName] = useState("");
+  const [newBio, setNewBio] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState("");
   const section = sectionFromQuery();
 
   useEffect(() => {
@@ -63,10 +75,11 @@ export function AuthorListPage({
   }, [letter]);
 
   useEffect(() => {
-    api<{ authors: AuthorSummary[]; libraries: AuthorLibrary[] }>("/api/library/people/authors")
+    api<{ authors: AuthorSummary[]; libraries: AuthorLibrary[]; canCreate: boolean }>("/api/library/people/authors")
       .then((payload) => {
         setAuthors(payload.authors);
         setLibraries(payload.libraries);
+        setCanCreate(payload.canCreate);
       })
       .catch((err) => setError(err instanceof Error ? err.message : t("book:authors.unableLoad")));
     api<{ photos: Record<string, string> }>("/api/library/people/photos")
@@ -134,6 +147,37 @@ export function AuthorListPage({
   // list was reached under.
   const backHref = `/authors${section ? `?section=${section.active}` : ""}`;
 
+  const openCreate = () => {
+    setNewName("");
+    setNewSortName("");
+    setNewBio("");
+    setCreateError("");
+    setCreateOpen(true);
+  };
+
+  const createAuthor = async () => {
+    const name = newName.trim();
+    if (!name) return;
+    setCreating(true);
+    setCreateError("");
+    try {
+      await api("/api/library/people", {
+        method: "POST",
+        body: JSON.stringify({
+          name,
+          sortName: newSortName.trim() || null,
+          bio: newBio.trim() || null
+        })
+      });
+      // Straight to the new profile: creating an author is almost always the
+      // first half of filling one in (photo, bio, website).
+      navigate(`/people/${encodeURIComponent(name)}?from=${encodeURIComponent(backHref)}`);
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : t("book:authors.unableCreate"));
+      setCreating(false);
+    }
+  };
+
   return (
     <DashboardShell
       active={section?.active ?? "authors"}
@@ -148,6 +192,12 @@ export function AuthorListPage({
           search={search}
           onSearchChange={setSearch}
           searchPlaceholder={t("book:authors.searchPlaceholder")}
+          primaryAction={canCreate && (
+            <Button variant="primary" onClick={openCreate}>
+              <UserPlus size={16} aria-hidden="true" />
+              <span>{t("book:authors.newAuthor")}</span>
+            </Button>
+          )}
         />
 
         {error && <MessageBox tone="error" title={t("book:authors.errorTitle")}>{error}</MessageBox>}
@@ -232,6 +282,51 @@ export function AuthorListPage({
           </div>
         )}
       </section>
+
+      {createOpen && (
+        <Modal title={t("book:authors.newAuthorModalTitle")} busy={creating} onClose={() => setCreateOpen(false)}>
+          <p className="muted">{t("book:authors.newAuthorIntro")}</p>
+          {createError && <MessageBox tone="error" title={t("book:authors.unableCreate")}>{createError}</MessageBox>}
+          <label className="field">
+            <span>{t("book:person.fieldName")}</span>
+            <input
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder={t("book:authors.namePlaceholder")}
+              autoFocus
+            />
+          </label>
+          <label className="field">
+            <span>{t("book:person.fieldSortName")} <span className="muted">{t("book:authors.optional")}</span></span>
+            <input
+              value={newSortName}
+              onChange={(e) => setNewSortName(e.target.value)}
+              placeholder={t("book:person.sortExample", {
+                example: newName.trim() ? newName.trim().split(" ").reverse().join(", ") : "Rand, Ayn"
+              })}
+            />
+          </label>
+          <label className="field">
+            <span>{t("book:person.fieldBiography")} <span className="muted">{t("book:authors.optional")}</span></span>
+            <textarea
+              rows={5}
+              value={newBio}
+              onChange={(e) => setNewBio(e.target.value)}
+              placeholder={t("book:person.bioPlaceholder")}
+              maxLength={10000}
+            />
+          </label>
+          <div className="modal-actions">
+            <Button variant="secondary" onClick={() => setCreateOpen(false)} disabled={creating}>
+              {t("common:common.cancel")}
+            </Button>
+            <Button variant="primary" onClick={() => void createAuthor()} disabled={creating || !newName.trim()}>
+              <UserPlus size={15} aria-hidden="true" />
+              <span>{creating ? t("book:authors.creating") : t("book:authors.createAuthorButton")}</span>
+            </Button>
+          </div>
+        </Modal>
+      )}
     </DashboardShell>
   );
 }

@@ -36,6 +36,12 @@
   background: var(--pe-surface);
 }
 
+/* Find Info lays the result list beside the comparison, which 680px cannot
+   hold; every other tab is a single column of fields and stays narrow. */
+.person-edit-modal.is-find {
+  width: min(100%, 1080px);
+}
+
 .person-edit-modal .modal-header,
 .person-photo-modal .modal-header {
   padding: 20px 26px 0;
@@ -500,39 +506,114 @@
 
 
 /* ── Find Info ───────────────────────────────────────────────────────
-   One obvious action, and a plain statement of what it will and won't do —
-   the tab used to open on a bare row of two similar buttons flanking an
-   input, with no way to tell which one you wanted. */
+   The tab opens on a plain masthead — icon, what this does, and the two ways
+   in weighted against each other. It used to be a centred card, which read as
+   a thing sitting IN the dialog rather than as the dialog's own first screen. */
 
 .person-find-intro {
   display: grid;
-  justify-items: center;
-  gap: 6px;
-  padding: 26px 20px 24px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--field) 60%, transparent);
-  text-align: center;
+  gap: 20px;
+  padding: 8px 0 22px;
 }
 
-.person-find-intro svg {
-  color: color-mix(in srgb, var(--mint) 80%, transparent);
+.person-find-intro-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
 }
 
-.person-find-lead {
-  margin: 4px 0 0;
+.person-find-intro-icon {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  color: var(--mint);
+  background: color-mix(in srgb, var(--mint) 14%, transparent);
+}
+
+.person-find-intro-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.person-find-intro-copy strong {
   color: var(--ink);
-  font-size: 1.02rem;
+  font-size: 1.14rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
 
-.person-find-sub {
-  margin: 0 0 14px;
-  max-width: 46ch;
+.person-find-intro-copy p {
+  margin: 0;
   color: var(--muted);
-  font-size: 0.88rem;
+  font-size: 0.92rem;
   line-height: 1.5;
 }
 
+/* Equal widths on purpose: neither is the wrong answer, so neither is made to
+   look like an afterthought. The gold fill is the only thing saying which one
+   most people want. */
+.person-find-intro-actions {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+}
+
+.person-find-intro-actions .primary-button,
+.person-find-intro-actions .secondary-button {
+  flex: 1 1 0;
+  justify-content: center;
+  min-height: 52px;
+  padding: 0 20px;
+  border-radius: 8px;
+  font-size: 0.98rem;
+}
+
+/* "or" between two rules, drawn from the row's own height so the lines always
+   meet the buttons they separate. */
+.person-find-or {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 78px;
+  flex: 0 0 auto;
+  color: var(--pe-muted);
+  font-size: 0.92rem;
+}
+
+.person-find-or::before,
+.person-find-or::after {
+  content: "";
+  width: 1px;
+  flex: 1 1 0;
+  background: var(--line);
+}
+
+@media (max-width: 560px) {
+  .person-find-intro-actions {
+    flex-direction: column;
+  }
+
+  .person-find-or {
+    flex-direction: row;
+    width: auto;
+    padding: 6px 0;
+  }
+
+  .person-find-or::before,
+  .person-find-or::after {
+    width: auto;
+    height: 1px;
+  }
+}
+
+/* The escape hatch for a wrong match — collapsed by default so it never
+   competes with the search button above it. Its own state rather than
+   <details>, whose collapse did not reliably hide the row here. */
 /* The escape hatch for a wrong match — collapsed by default so it never
    competes with the search button above it. Its own state rather than
    <details>, whose collapse did not reliably hide the row here. */
@@ -593,4 +674,297 @@
   color: var(--mint);
   font-size: 0.86rem;
   font-weight: 650;
+}
+
+/* ── Find Info: the result shortlist ─────────────────────────────────────
+   The list of matches on the left, the selected match compared against the
+   profile on the right. Only this tab needs the width (see .is-find above),
+   because only this tab shows two documents side by side. */
+
+/* What the intro becomes once a search has answered: what came back, and the
+   way to ask again. Same job, a quarter of the height — the invitation has
+   nothing left to say once there are results under it. */
+.person-find-summary {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--field) 60%, transparent);
+}
+
+.person-find-summary-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  color: var(--mint);
+  background: color-mix(in srgb, var(--mint) 15%, transparent);
+}
+
+.person-find-summary-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.98rem;
+}
+
+/* The paste-a-link escape hatch, now a row of its own: the toggle keeps its
+   place on the left whether the input is out or not, so opening it doesn't
+   shove the results down by a whole block. */
+.person-find-link {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 18px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.person-find-link.is-flush {
+  padding: 16px 0 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+}
+
+.person-find-link .person-find-link-row {
+  flex: 1 1 320px;
+  margin-top: 0;
+}
+
+.person-find-results {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.85fr) minmax(0, 1.15fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.person-result-list {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  /* The list scrolls, the comparison beside it doesn't — a long biography on
+     the right must not push the eighth result off the bottom. */
+  max-height: 62vh;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.person-result-card {
+  display: grid;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.person-result-card.is-selected {
+  border-color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 8%, var(--surface));
+}
+
+/* The card body is one button: selecting a result is the card's main action, so
+   it gets the card's whole surface rather than a hit target in a corner. The
+   row of links below it sits outside — a button can't nest inside a button. */
+.person-result-pick {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 14px;
+  padding: 14px 14px 10px;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.person-result-pick:hover,
+.person-result-pick:focus-visible {
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
+}
+
+.person-result-mark {
+  position: absolute;
+  top: 10px;
+  left: 8px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  color: var(--surface);
+  background: var(--gold);
+}
+
+.person-result-thumb {
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 88px;
+  flex: 0 0 auto;
+  overflow: hidden;
+  border-radius: 8px;
+  color: var(--muted);
+  background: var(--field);
+}
+
+.person-result-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.person-result-body {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  min-width: 0;
+}
+
+.person-result-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.person-result-head strong {
+  color: var(--ink);
+  font-size: 0.98rem;
+}
+
+/* Two lines by default — enough to tell people apart, short enough that eight
+   results still read as a list. Expand trades that for the whole biography. */
+.person-result-desc {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.person-result-desc.is-expanded {
+  display: block;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.person-result-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  padding: 0 14px 12px;
+}
+
+.person-result-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  border: 0;
+  color: var(--muted);
+  background: transparent;
+  font: inherit;
+  font-size: 0.82rem;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.person-result-action:hover,
+.person-result-action:focus-visible {
+  color: var(--ink);
+  text-decoration: underline;
+}
+
+.person-result-action.is-on {
+  color: var(--gold);
+  font-weight: 650;
+}
+
+.person-result-detail {
+  margin: 0;
+}
+
+/* Nothing selected — the pane says what to do rather than sitting blank beside
+   a list that clearly did find something. */
+.person-result-empty {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 6px;
+  min-height: 220px;
+  padding: 24px;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.person-result-empty strong {
+  color: var(--ink);
+  font-size: 0.98rem;
+}
+
+.person-result-empty p {
+  margin: 0;
+  max-width: 34ch;
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
+.person-detail-more {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+}
+
+.person-detail-list {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+}
+
+.person-detail-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.85rem;
+}
+
+.person-detail-row span {
+  color: var(--muted);
+}
+
+.person-detail-row strong {
+  color: var(--ink);
+  font-weight: 620;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+/* One column below the width the two panes need. The list stops scrolling on
+   its own there — the page is the scroller once they're stacked. */
+@media (max-width: 900px) {
+  .person-find-results {
+    grid-template-columns: 1fr;
+  }
+
+  .person-result-list {
+    max-height: none;
+    overflow: visible;
+  }
 }
