@@ -39,9 +39,11 @@ export interface ControlSearchEntry {
 // Extra search terms for the tab pages themselves — English, then the Russian
 // equivalent of the same words, concatenated.
 const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
-  signins: "sign-in details login analytics drill down dive connection ip address country city user person failed attempts blocked scanner probes guessed names sessions devices displays phones tablets computers signed in until expires registered revoke sign out logout tokens linked tv display " +
-    "вход входы подробности аналитика адрес ip страна город пользователь человек неудачные попытки заблокирован сканер зондирование предполагаемые имена сессии устройства экраны телефоны планшеты компьютеры истекает зарегистрирован отозвать выйти выход токены привязанный тв дисплей",
-  dashboard: "system health cpu memory uptime version disk free space database sqlite activity trends charts graphs logins uploads downloads deletes played read viewed in progress playback reading libraries statistics stats numbers counts totals audiobook ebook gallery top authors narrators formats storage " +
+  // Sign-ins' own terms are folded in here: it is the Dashboard's opening view,
+  // so a search for "revoke session" or "blocked scanner" has to land on it.
+  dashboard: "sign-ins sign-in details login analytics drill down dive connection ip address country city user person failed attempts blocked scanner probes guessed names sessions devices displays phones tablets computers signed in until expires registered revoke sign out logout tokens linked tv display " +
+    "system health cpu memory uptime version disk free space database sqlite activity trends charts graphs logins uploads downloads deletes played read viewed in progress playback reading libraries statistics stats numbers counts totals audiobook ebook gallery top authors narrators formats storage " +
+    "вход входы подробности аналитика адрес ip страна город пользователь человек неудачные попытки заблокирован сканер зондирование предполагаемые имена сессии устройства экраны телефоны планшеты компьютеры истекает зарегистрирован отозвать выйти выход токены привязанный тв дисплей " +
     "система здоровье процессор память время работы версия диск свободное место база данных активность тренды графики диаграммы входы загрузки скачивания удаления прослушано прочитано просмотрено в процессе воспроизведение чтение библиотеки статистика цифры количество всего аудиокнига электронная книга галерея топ авторы чтецы форматы хранилище",
   logs: "activity audit trail events sign-in history retention prune clear " +
     "активность аудит журнал события история входов хранение очистка удалить",

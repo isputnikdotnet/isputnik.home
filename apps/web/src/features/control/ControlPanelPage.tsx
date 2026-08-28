@@ -25,7 +25,6 @@ import { AboutSection } from "./sections/AboutSection";
 import { StorageSection } from "./sections/StorageSection";
 import { LibrariesSection } from "./sections/LibrariesSection";
 import { DashboardSection } from "./sections/DashboardSection";
-import { SignInsSection } from "./sections/dashboard/SignInsSection";
 import { BackupSection } from "./sections/BackupSection";
 import { CategoriesSection, CategoryEditorPage } from "./sections/CategoriesSection";
 import { TagsSection } from "./sections/TagsSection";
@@ -100,7 +99,6 @@ function ControlSectionBody({
 }) {
   switch (section) {
     case "dashboard":       return <DashboardSection />;
-    case "signins":         return <SignInsSection />;
     case "logs":            return <LogsSection />;
 
     case "libraries":       return <LibrariesSection />;

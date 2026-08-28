@@ -4,7 +4,7 @@ import { ChevronRight, Database, Globe2, House, MapPin, ShieldQuestion } from "l
 import { api } from "../../../../api";
 import { navigate } from "../../../../router";
 import { Button } from "../../../../shared/Button";
-import { signInsHref } from "./SignInsSection";
+import { signInsHref } from "./SignInsView";
 import { KpiCard } from "../../../../shared/KpiCard";
 import { MessageBox } from "../../../../shared/MessageBox";
 import {

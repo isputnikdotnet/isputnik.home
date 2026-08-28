@@ -8,7 +8,7 @@ import { dashboardPlugin } from "../src/core/dashboard.js";
 import { makeUser, resetDb } from "./helpers/seed.js";
 
 // The Activity tab's date toolbar drives /api/dashboard/activity the way the
-// Logins tab's drives /api/dashboard/logins: same window, same bucketing rule,
+// Sign-ins view drives /api/dashboard/signins: same window, same bucketing rule,
 // same "compared with the stretch before it". These pin that the six series
 // count the right events, that the window edges hold, and that the previous
 // window is the equal-length one immediately before.

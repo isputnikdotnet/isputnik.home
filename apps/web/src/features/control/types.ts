@@ -136,6 +136,14 @@ export interface GallerySizeStats {
   durationSeconds: number;
 }
 
+export interface GalleryFolderStats {
+  /** Relative to the library root; empty for the root itself. */
+  folder: string;
+  libraryName: string;
+  photoCount: number;
+  videoCount: number;
+}
+
 export interface GalleryStats {
   totalLibraries: number;
   totalItems: number;
@@ -145,6 +153,8 @@ export interface GalleryStats {
   totalDurationSeconds: number;
   libraries: GalleryLibraryStatusStats[];
   largestItems: GallerySizeStats[];
+  /** The immediate folders holding the most photos — not rolled up into parents. */
+  fullestFolders: GalleryFolderStats[];
 }
 
 export interface SystemStatus {
@@ -261,8 +271,9 @@ export interface DashboardSummary {
   kpis: { logins24h: number; uploads7d: number; downloads7d: number; deletes7d: number };
 }
 
-// /api/dashboard/activity — the Activity tab's range-scoped payload, shaped like
-// DashboardLogins so the two tabs' date toolbars drive identical machinery.
+// /api/dashboard/activity — the Activity tab's range-scoped payload, shaped
+// like DashboardSignIns' series, so the two tabs' date toolbars drive identical
+// machinery.
 export type ActivityKey = "uploads" | "downloads" | "deletes" | "played" | "read" | "viewed";
 
 export interface DashboardActivity {
@@ -274,20 +285,6 @@ export interface DashboardActivity {
   totals: Record<ActivityKey, number>;
   /** The equal-length window immediately before this one. */
   previous: Record<ActivityKey, number>;
-}
-
-// /api/dashboard/logins — the Logins view's range-scoped payload. `buckets` are
-// ISO instants (hourly or daily, per `bucket`) aligned with each series array.
-export interface DashboardLogins {
-  from: string;
-  to: string;
-  bucket: "hour" | "day";
-  buckets: string[];
-  series: { success: number[]; failed: number[] };
-  methods: { password: number; passkey: number; twoFactor: number; deviceLink: number };
-  totals: { attempts: number; success: number; failed: number; people: number; blockedIps: number };
-  /** The equal-length window immediately before this one, for the change badges. */
-  previous: { attempts: number; success: number; failed: number; blockedIps: number };
 }
 
 // Cached AbuseIPDB reputation for one address (/api/security/ip-reputation).
@@ -407,16 +404,6 @@ export interface SignInsDeviceRow {
   current: boolean;
 }
 
-export interface SignInsEventRow {
-  id: string;
-  event: string;
-  detail: string;
-  ip: string | null;
-  at: string;
-  actor: string | null;
-  failed: boolean;
-}
-
 export interface DashboardSignIns {
   from: string;
   to: string;
@@ -428,6 +415,8 @@ export interface DashboardSignIns {
     failed: number;
     people: number;
     addresses: number;
+    /** Addresses shut out during the window — every block when nothing is scoped. */
+    blockedIps: number;
     firstSeen: string | null;
     lastSeen: string | null;
   };
@@ -437,7 +426,8 @@ export interface DashboardSignIns {
   users: SignInsUserRow[];
   devices: SignInsDeviceRow[];
   guessedNames: { email: string; attempts: number; lastSeen: string }[];
-  events: SignInsEventRow[];
+  /** The scope's raw sign-in rows, in /api/logs' shape so one table renders both. */
+  events: LogEvent[];
 }
 
 export interface DashboardInProgressEntry {

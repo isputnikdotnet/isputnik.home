@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { BookOpen, HardDrive, Headphones, Image, Mic2, UserRound, Video, type LucideIcon } from "lucide-react";
+import { BookOpen, FolderOpen, HardDrive, Headphones, Image, Mic2, UserRound, Video, type LucideIcon } from "lucide-react";
 import { KpiCard } from "../../../../shared/KpiCard";
 import { Pager } from "../../../../shared/Pager";
 import { formatBytes } from "../../../../shared/utils";
@@ -15,6 +15,11 @@ import { formatHours } from "../StatusMetric";
 // up the collection, and the one biggest-files list that earns its place — the
 // gallery's, where a single video can outweigh a thousand photos. The book ones
 // went: the storage bars answer the question they were asked.
+//
+// The four rank tables pair off two by two rather than sitting in one row of
+// three-and-a-bit: people above (who wrote it, who read it aloud), places on
+// disk below (what is heaviest, where the photos pile up). Three columns left
+// each table too narrow for a name and a number once the fourth arrived.
 
 type Kind = "audiobook" | "ebook" | "gallery";
 
@@ -41,9 +46,9 @@ interface LibraryRow {
 }
 
 const PAGE_SIZE = 10;
-// The three side-by-side rank tables share one screen with the cards and the
-// libraries table, so each shows the top five — enough to name the names without
-// turning a glance into a scroll.
+// The four rank tables share one screen with the cards and the libraries table,
+// so each shows the top five — enough to name the names without turning a glance
+// into a scroll.
 const RANK_ROWS = 5;
 
 function pageOf<T>(rows: T[], page: number): { rows: T[]; page: number; totalPages: number } {
@@ -304,6 +309,30 @@ export function LibrariesView({ status }: { status: SystemStatus }) {
                 name: item.title,
                 sub: [item.kind === "video" ? t("controlDash:libs.video") : t("controlDash:libs.photo"), item.libraryName].join(" · "),
                 cells: [formatBytes(item.totalSizeBytes)]
+              }))}
+            />
+          </div>
+          <div className="status-subsection">
+            <div className="status-table-title">
+              <h3><FolderOpen size={17} aria-hidden="true" /> {t("controlDash:libs.fullestFolders")}</h3>
+              <span>{t("controlDash:libs.fullestFoldersNote")}</span>
+            </div>
+            <RankTable
+              columns={[t("controlDash:table.photos")]}
+              empty={t("controlDash:libs.noGalleryItems")}
+              rows={gallery.fullestFolders.slice(0, RANK_ROWS).map((row) => ({
+                // Library and folder together: two libraries can each hold a "2004".
+                key: `${row.libraryName}/${row.folder}`,
+                // The folder's own name leads; the path above it is context, and a
+                // file sitting at the library root has no folder name to show.
+                name: row.folder ? row.folder.slice(row.folder.lastIndexOf("/") + 1) : t("controlDash:libs.libraryRoot"),
+                sub: [
+                  row.folder.includes("/") ? row.folder.slice(0, row.folder.lastIndexOf("/")) : row.libraryName,
+                  row.videoCount ? t("controlDash:libs.videoN", { count: row.videoCount }) : null
+                ]
+                  .filter(Boolean)
+                  .join(" · "),
+                cells: [row.photoCount.toLocaleString()]
               }))}
             />
           </div>

@@ -438,6 +438,59 @@
   font-size: 0.86rem;
 }
 
+/* shared/TabStrip: peer panels sharing one card. These sit where the panel's
+   <h3> would, and are sized like it — the active one reads as the heading it
+   replaces, its siblings as the same heading greyed. Not pills: the control
+   tab row and the Dashboard's sub-tabs already own that shape, and a third set
+   of them inside a card would read as a third level of navigation. */
+.tab-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 18px;
+}
+
+.tab-strip button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 0 4px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.98rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tab-strip button:hover {
+  color: var(--ink);
+}
+
+.tab-strip button:focus-visible {
+  outline: 2px solid var(--mint);
+  outline-offset: 3px;
+}
+
+.tab-strip button.is-active {
+  color: var(--ink);
+  border-bottom-color: var(--mint);
+}
+
+/* The size of a panel, said before it is opened — so the tab you are not on
+   still tells you whether it is worth switching to. */
+.tab-strip-count {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.tab-strip button.is-active .tab-strip-count {
+  color: var(--mint);
+}
+
 .status-empty {
   margin: 0;
   padding: 14px;
@@ -1180,15 +1233,16 @@
   flex-shrink: 0;
 }
 
-/* Dashboard › Libraries: authors, narrators and formats side by side where
-   there is room, stacked where there isn't. */
+/* Dashboard › Libraries: four rank tables two by two where there is room,
+   stacked where there isn't. People on the top row, places on disk below. */
 .libraries-rank-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  /* Two shared rows — titles, then tables — so a title that wraps in one column
-     pushes every table down together and the three stay on one line. */
-  grid-template-rows: auto auto;
-  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  /* Titles and tables get a row each, per pair — so a title that wraps in one
+     column pushes its neighbour's table down with it and the pair stays level,
+     while the pair below is free to start wherever it starts. */
+  grid-template-rows: repeat(4, auto);
+  gap: 14px 18px;
 }
 
 .libraries-rank-grid > .status-subsection {
@@ -1200,15 +1254,18 @@
   align-items: start;
 }
 
-.libraries-rank-grid .status-table-title h3 {
+/* The note is what must not break: it is short, and a flex row this narrow
+   would otherwise squeeze it into a one-character-wide column 300px tall rather
+   than let the title beside it wrap. So the title is the one that gives — the
+   pair's subgrid rows keep its neighbour's table level with it when it does. */
+.libraries-rank-grid .status-table-title span {
+  text-align: right;
   white-space: nowrap;
 }
 
-.libraries-rank-grid .status-table-title span {
-  text-align: right;
-}
-
-@media (max-width: 1200px) {
+/* Two columns need less room than the three this held before, so the stack
+   comes later. */
+@media (max-width: 1000px) {
   .libraries-rank-grid {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: none;

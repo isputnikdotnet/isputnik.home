@@ -9,7 +9,7 @@ import { Modal } from "../../../../shared/Modal";
 import { countryName } from "../../../../shared/utils";
 import type { ManagedUser } from "../../types";
 import { COUNTRY_CENTROIDS } from "./countryCentroids";
-import type { SignInsScopeParams } from "./SignInsSection";
+import type { SignInsScopeParams } from "./SignInsView";
 
 // The manual way into a Sign-ins scope. The dive arrows cover "this thing I can
 // see"; this form covers "the thing I'm looking for" — a country with no rows on

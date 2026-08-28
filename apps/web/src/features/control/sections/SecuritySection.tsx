@@ -24,7 +24,7 @@ import {
 import { api } from "../../../api";
 import { controlHref, navigate, type ControlSection } from "../../../router";
 import { Pager } from "../../../shared/Pager";
-import { signInsHref } from "./dashboard/SignInsSection";
+import { signInsHref } from "./dashboard/SignInsView";
 import { ProtectionCard, gradePolicies, type Exposure } from "./SecurityProtection";
 import { ControlSectionHead } from "../ControlSectionHead";
 import { Button } from "../../../shared/Button";

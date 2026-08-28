@@ -20,7 +20,7 @@ import { SortHeader, type SortDirection } from "../../../shared/SortHeader";
 import { formatManagedDate } from "../../../shared/utils";
 import type { LogEvent } from "../types";
 import { ControlSectionHead } from "../ControlSectionHead";
-import { signInsHref } from "./dashboard/SignInsSection";
+import { signInsHref } from "./dashboard/SignInsView";
 
 // Overview › Logs — the activity archive. Everything the server has recorded,
 // searchable and filterable, with a date toolbar, sortable columns, a row that
