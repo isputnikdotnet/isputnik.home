@@ -19,6 +19,19 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.36.0",
+    label: "Which one is your author?",
+    changes: [
+      "Find Info used to pick one page and hand it to you as the answer. It searched Wikipedia and Open Library, took the first thing that looked plausible, and if that turned out to be a different person with the same name — which happens far more often than you would think — nothing on the screen said so, and there was no way to reach the right one short of hunting down the address yourself. It now brings back everything it found, and you choose.",
+      "The matches sit in a list down one side: a photograph, where it came from, and a line saying who this is, which is usually all it takes to tell two people sharing a name apart before you take anything of theirs. Choose one and it opens beside your author's current biography and photo, side by side, exactly as it always did — the comparison has not changed, only what it is comparing. A match can be expanded to read its whole biography without leaving the list, or opened at its source in a new tab.",
+      "Searching a writer's name also turns up the books written about them and the ideas named after them: Ayn Rand came back with a biography by somebody else and with Objectivism, neither of which is a person you can put in an author profile. Those are gone. Each page is now checked against Wikidata for whether it describes a human being at all, which reads the same in every language — the guard it replaces only ever recognised English job titles, so it did nothing for a Russian library.",
+      "Folded under each match is what settles a tie when the description does not: the language of the page it came from, birth and death dates, what the author is best known for, how many works are on record.",
+      "The tab also opens on something plainer. Two ways in, weighted honestly and side by side — search the web, or paste a page you already have in hand — instead of one button standing next to an input box you had to read twice to work out which was which.",
+      "Fixed: the count of changes waiting to be saved followed whichever match you were looking at, so taking a biography and then glancing at another match made your own change appear to vanish. It counts what you have changed now, and stays put.",
+      "New: authors can be created by hand. The Authors page has a New author button, the way Narrators has had one all along — for the writer whose books have not arrived yet, or the one your files never named properly. A name is enough; a sort name and a biography if you have them. It opens their profile straight away, ready for a photograph."
+    ]
+  },
+  {
     version: "3.35.0",
     label: "Who's at the door",
     changes: [
