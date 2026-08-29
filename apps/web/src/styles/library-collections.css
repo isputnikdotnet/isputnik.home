@@ -622,6 +622,32 @@
   color: var(--muted);
 }
 
+/* One fact per line. A book pairs its meta items two to a row, but a person has
+   only a handful and their values are long — "United Kingdom of Great Britain
+   and Ireland" is a real country answer, and in half a row it truncated to
+   "United Kingdom of Gr…" with the source link crowded in beside it. */
+.book-detail-meta-grid.person-detail-meta {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+}
+
+.book-detail-meta-grid.person-detail-meta .book-detail-meta-item dd {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+}
+
+/* "American novelist and journalist · 1899 – 1961" — the one line of who this
+   person was, sitting between the name and the roles/count line. Carries the
+   weight the subtitle under it doesn't: this is the fact people came for. */
+.person-detail-lifeline {
+  margin: 2px 0 0;
+  color: var(--ink);
+  font-size: 0.95rem;
+  font-weight: 560;
+}
+
 .person-detail-tabs button {
   display: inline-flex;
   align-items: center;

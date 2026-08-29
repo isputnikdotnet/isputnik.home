@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import { ArrowLeft, BookOpen, Globe, Headphones, MapPin, Merge, Pencil, Search, UserRound, type LucideIcon } from "lucide-react";
+import { ArrowLeft, BookOpen, ExternalLink, Flag, Globe, Headphones, MapPin, Merge, Pencil, Search, UserRound, type LucideIcon } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import i18n from "../../i18n";
 import { DashboardShell } from "../../app/DashboardShell";
@@ -11,6 +11,7 @@ import { Button } from "../../shared/Button";
 import { SectionNav } from "../../shared/SectionNav";
 import { formatDuration } from "../../shared/utils";
 import { sectionFromHref, sectionNavProps } from "./sectionNavItems";
+import { formatLifespan } from "./types";
 import { PersonProfileModal } from "./PersonProfileModal";
 
 // One item this person is credited on, in any media type / any accessible
@@ -34,6 +35,12 @@ type PersonProfileInfo = {
   bio: string | null;
   website: string | null;
   location: string | null;
+  // Partial dates: "1899", "1899-07", "1899-07-21".
+  birthDate: string | null;
+  deathDate: string | null;
+  country: string | null;
+  occupation: string | null;
+  wikipediaUrl: string | null;
   photoUrl: string | null;
 };
 
@@ -179,6 +186,11 @@ export function PersonPage({
     t("book:catalog.counts.title", { count: items.length })
   ].filter(Boolean).join(" · ");
 
+  // "American novelist and journalist · 1899 – 1961", above the role line.
+  const lifeLine = [profile?.occupation, formatLifespan(profile?.birthDate ?? null, profile?.deathDate ?? null)]
+    .filter(Boolean).join(" · ");
+  const fullDates = [profile?.birthDate, profile?.deathDate].filter(Boolean).join(" – ");
+
   const visibleItems = activeTab === "overview"
     ? items
     : items.filter((item) => item.type === (activeTab === "books" ? "ebook" : "audiobook"));
@@ -278,11 +290,24 @@ export function PersonPage({
 
           <div className="book-detail-info">
             <h1 className="book-detail-title">{personName}</h1>
+            {lifeLine && (
+              <p className="person-detail-lifeline" title={fullDates || undefined}>{lifeLine}</p>
+            )}
             {subtitle && <p className="book-detail-author person-detail-subtitle">{subtitle}</p>}
             {profile?.bio && <p className="person-bio">{profile.bio}</p>}
 
-            {(profile?.website || profile?.location) && (
-              <dl className="book-detail-meta-grid">
+            {(profile?.website || profile?.location || profile?.country || profile?.wikipediaUrl) && (
+              <dl className="book-detail-meta-grid person-detail-meta">
+                {profile?.country && (
+                  <div className="book-detail-meta-item">
+                    <Flag size={18} aria-hidden="true" />
+                    <dt>{t("book:person.fieldCountry")}</dt>
+                    {/* Wikidata answers with the precise historical state —
+                        "United Kingdom of Great Britain and Ireland" — which the
+                        meta grid truncates, so the full name stays on hover. */}
+                    <dd title={profile.country}>{profile.country}</dd>
+                  </div>
+                )}
                 {profile?.website && (
                   <div className="book-detail-meta-item">
                     <Globe size={18} aria-hidden="true" />
@@ -295,6 +320,17 @@ export function PersonPage({
                     <MapPin size={18} aria-hidden="true" />
                     <dt>{t("book:person.fieldLocation")}</dt>
                     <dd>{profile.location}</dd>
+                  </div>
+                )}
+                {profile?.wikipediaUrl && (
+                  <div className="book-detail-meta-item">
+                    <ExternalLink size={18} aria-hidden="true" />
+                    <dt>{t("book:person.fieldSource")}</dt>
+                    <dd>
+                      <a href={profile.wikipediaUrl} target="_blank" rel="noreferrer">
+                        {t("book:person.sourceWikipedia")}
+                      </a>
+                    </dd>
                   </div>
                 )}
               </dl>

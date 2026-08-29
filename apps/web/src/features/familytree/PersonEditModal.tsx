@@ -6,7 +6,7 @@ import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
 import { PeopleCombobox } from "../audiobooks/PeopleCombobox";
-import { PartialDateField } from "./PartialDateField";
+import { PartialDateField } from "../../shared/PartialDateField";
 import { GENDER_OPTIONS, genderOptionLabel, type FamilyPerson, type FamilyTag } from "./types";
 
 // Create or edit a family member's profile. Uses the standard field pattern:
@@ -161,7 +161,7 @@ export function PersonEditModal({
           <PartialDateField
             label={t("family:person.meta.died")}
             value={deathDate}
-            placeholder={t("family:partialDate.example.death")}
+            placeholder={t("partialDate.example.death")}
             onChange={setDeathDate}
           />
           <label className="field">

@@ -24,10 +24,13 @@
   --pe-accent: var(--gold);
   --pe-danger: var(--rose);
 
-  width: min(100%, 680px);
-  height: auto;
+  width: min(100%, 880px);
+  /* A FIXED box, not one that fits its content: the four tabs hold very
+     different amounts, and sizing to each made the dialog jump — and the tab
+     you were aiming at move — every time you switched. The same height the book
+     metadata dialog uses, and .modal-tab-content already scrolls inside it. */
+  height: min(calc(100vh - 48px), 660px);
   min-height: 0;
-  max-height: calc(100vh - 48px);
   /* header · tabs · content · footer — the base .metadata-modal only names
      three rows, so the footer would otherwise share the content's track. */
   grid-template-rows: auto auto minmax(0, 1fr) auto;
@@ -36,15 +39,16 @@
   background: var(--pe-surface);
 }
 
-/* Find Info lays the result list beside the comparison, which 680px cannot
-   hold; every other tab is a single column of fields and stays narrow. */
-.person-edit-modal.is-find {
-  width: min(100%, 1080px);
-}
-
 .person-edit-modal .modal-header,
 .person-photo-modal .modal-header {
   padding: 20px 26px 0;
+}
+
+/* Room for the icon badge the panel header now carries, matching the book
+   metadata dialog's header. */
+.person-edit-modal .modal-header {
+  min-height: 70px;
+  padding: 16px 26px;
 }
 
 .person-edit-modal .modal-header h2,
@@ -123,18 +127,30 @@
   font-size: 0.95rem;
 }
 
-/* Details: the photo column beside the identity fields. One column below 620px
-   so the tile doesn't squeeze the inputs. */
-.person-edit-details {
+/* Details wears the book metadata dialog's field grid, down to the six-column
+   track and the gaps — the two dialogs edit the same kind of thing and now read
+   the same way. The base .metadata-edit-grid (four columns) and
+   .metadata-field-wide come from metadata-modal.css. */
+.person-edit-modal .metadata-edit-grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 14px 18px;
+}
+
+.person-edit-modal .metadata-field-half {
+  grid-column: span 3;
+}
+
+/* Photo has a tab of its own, the way a book's cover does. The tile keeps the
+   width it had in the old side column rather than stretching across the panel. */
+.person-edit-photo-tab {
   display: grid;
-  grid-template-columns: minmax(0, 0.66fr) minmax(0, 1fr);
-  gap: 30px;
-  align-items: start;
+  justify-content: start;
 }
 
 .person-edit-photo-col {
   display: grid;
   gap: 14px;
+  width: min(100%, 300px);
   min-width: 0;
 }
 
@@ -144,15 +160,31 @@
   font-weight: 500;
 }
 
-.person-edit-fields {
-  display: grid;
-  gap: 20px;
-  min-width: 0;
+/* Two per row while there is room for two, one when there isn't — the same
+   breakpoint behaviour the book dialog's grid has. */
+@media (max-width: 760px) {
+  .person-edit-modal .metadata-edit-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+  }
+
+  .person-edit-modal .metadata-field-half {
+    grid-column: span 1;
+  }
 }
 
-/* Labels sit above their input, the required marker in the accent. */
+/* Labels sit above their input, the required marker in the accent — same
+   proportions as the book metadata dialog's fields. */
 .person-edit-modal .field {
-  gap: 9px;
+  gap: 6px;
+}
+
+.person-edit-modal .field input,
+.person-edit-modal .field select,
+.person-edit-modal .field textarea {
+  min-height: 42px;
+  padding: 9px 12px;
+  font-size: 0.94rem;
 }
 
 .person-edit-modal .field > span:first-child {
@@ -190,41 +222,6 @@
 
 .person-edit-modal .field input:focus,
 .person-edit-modal .field textarea:focus {
-  border-color: var(--pe-accent);
-  outline: 2px solid color-mix(in srgb, var(--pe-accent) 22%, transparent);
-}
-
-/* An input that carries a leading icon — the icon sits inside the frame, so the
-   wrapper takes the border and the input goes bare. */
-.person-edit-input {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-  padding-left: 16px;
-  border: 1px solid var(--pe-line);
-  border-radius: 8px;
-  background: var(--pe-field);
-}
-
-.person-edit-input svg {
-  flex-shrink: 0;
-  color: var(--pe-muted);
-}
-
-.person-edit-modal .person-edit-input input {
-  flex: 1;
-  min-width: 0;
-  padding-left: 0;
-  border: 0;
-  background: transparent;
-}
-
-.person-edit-modal .person-edit-input input:focus {
-  outline: 0;
-}
-
-.person-edit-input:focus-within {
   border-color: var(--pe-accent);
   outline: 2px solid color-mix(in srgb, var(--pe-accent) 22%, transparent);
 }
@@ -381,11 +378,6 @@
     padding-left: 18px;
   }
 
-  .person-edit-details {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 22px;
-  }
-
   .person-edit-photo-col {
     justify-items: center;
   }
@@ -394,257 +386,6 @@
   .person-edit-photo-button.secondary-button {
     width: min(100%, 260px);
   }
-}
-
-/* Online lookup: "Find online" + paste-a-link bar, and the compare panel. */
-.person-lookup {
-  display: grid;
-  gap: 12px;
-}
-
-.person-lookup-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
-.person-lookup-input {
-  flex: 1 1 200px;
-  min-width: 0;
-}
-
-.person-compare {
-  display: grid;
-  gap: 14px;
-  padding: 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
-}
-
-.person-compare-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.84rem;
-  font-weight: 760;
-}
-
-.person-compare-head a {
-  margin-left: auto;
-  color: var(--mint);
-  font-weight: 600;
-  font-size: 0.8rem;
-}
-
-.person-compare-source-tag {
-  padding: 1px 8px;
-  border-radius: 999px;
-  background: var(--active);
-  color: var(--mint);
-  font-size: 0.72rem;
-  font-weight: 700;
-}
-
-.person-compare-field {
-  display: grid;
-  gap: 8px;
-  justify-items: start;
-}
-
-.person-compare-label {
-  color: var(--ink);
-  font-weight: 700;
-  font-size: 0.82rem;
-}
-
-.person-compare-pair {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  width: 100%;
-}
-
-.person-compare-block {
-  display: grid;
-  gap: 4px;
-  align-content: start;
-  min-width: 0;
-}
-
-.person-compare-block small {
-  color: var(--muted);
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-
-.person-compare-block p {
-  margin: 0;
-  max-height: 168px;
-  overflow: auto;
-  font-size: 0.86rem;
-  line-height: 1.4;
-  overflow-wrap: anywhere;
-}
-
-.person-compare-block.found p {
-  color: var(--fg);
-}
-
-.person-compare-photos {
-  display: flex;
-  gap: 18px;
-}
-
-@media (max-width: 560px) {
-  .person-compare-pair {
-    grid-template-columns: 1fr;
-  }
-}
-
-
-/* ── Find Info ───────────────────────────────────────────────────────
-   The tab opens on a plain masthead — icon, what this does, and the two ways
-   in weighted against each other. It used to be a centred card, which read as
-   a thing sitting IN the dialog rather than as the dialog's own first screen. */
-
-.person-find-intro {
-  display: grid;
-  gap: 20px;
-  padding: 8px 0 22px;
-}
-
-.person-find-intro-head {
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
-}
-
-.person-find-intro-icon {
-  display: grid;
-  place-items: center;
-  width: 46px;
-  height: 46px;
-  flex: 0 0 auto;
-  border-radius: 999px;
-  color: var(--mint);
-  background: color-mix(in srgb, var(--mint) 14%, transparent);
-}
-
-.person-find-intro-copy {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-
-.person-find-intro-copy strong {
-  color: var(--ink);
-  font-size: 1.14rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-}
-
-.person-find-intro-copy p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.92rem;
-  line-height: 1.5;
-}
-
-/* Equal widths on purpose: neither is the wrong answer, so neither is made to
-   look like an afterthought. The gold fill is the only thing saying which one
-   most people want. */
-.person-find-intro-actions {
-  display: flex;
-  align-items: stretch;
-  gap: 0;
-}
-
-.person-find-intro-actions .primary-button,
-.person-find-intro-actions .secondary-button {
-  flex: 1 1 0;
-  justify-content: center;
-  min-height: 52px;
-  padding: 0 20px;
-  border-radius: 8px;
-  font-size: 0.98rem;
-}
-
-/* "or" between two rules, drawn from the row's own height so the lines always
-   meet the buttons they separate. */
-.person-find-or {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  width: 78px;
-  flex: 0 0 auto;
-  color: var(--pe-muted);
-  font-size: 0.92rem;
-}
-
-.person-find-or::before,
-.person-find-or::after {
-  content: "";
-  width: 1px;
-  flex: 1 1 0;
-  background: var(--line);
-}
-
-@media (max-width: 560px) {
-  .person-find-intro-actions {
-    flex-direction: column;
-  }
-
-  .person-find-or {
-    flex-direction: row;
-    width: auto;
-    padding: 6px 0;
-  }
-
-  .person-find-or::before,
-  .person-find-or::after {
-    width: auto;
-    height: 1px;
-  }
-}
-
-/* The escape hatch for a wrong match — collapsed by default so it never
-   competes with the search button above it. Its own state rather than
-   <details>, whose collapse did not reliably hide the row here. */
-/* The escape hatch for a wrong match — collapsed by default so it never
-   competes with the search button above it. Its own state rather than
-   <details>, whose collapse did not reliably hide the row here. */
-.person-find-link-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 0;
-  border: 0;
-  color: var(--muted);
-  background: transparent;
-  font: inherit;
-  font-size: 0.87rem;
-  cursor: pointer;
-}
-
-.person-find-link-toggle:hover,
-.person-find-link-toggle:focus-visible {
-  color: var(--ink);
-}
-
-.person-find-link-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-  margin-top: 12px;
-}
-
-.person-find-link-row .person-lookup-input {
-  flex: 1 1 240px;
 }
 
 /* Running tally at the top of the result, so "Save changes" is never a guess. */
@@ -657,314 +398,20 @@
   font-size: 0.86rem;
 }
 
-/* A field the page simply didn't carry — said plainly instead of an em dash in
-   a comparison box that implies something was found. */
-.person-find-none {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.88rem;
-}
-
-/* Replaces the "use this" button once a value is taken, so the row reports its
-   own state rather than leaving an button that looks like it did nothing. */
-.person-find-done {
+/* The third action on a result card — a plain link out to the page the result
+   came from, quieter than the two buttons above it. */
+.person-result-source-link {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: var(--mint);
-  font-size: 0.86rem;
-  font-weight: 650;
-}
-
-/* ── Find Info: the result shortlist ─────────────────────────────────────
-   The list of matches on the left, the selected match compared against the
-   profile on the right. Only this tab needs the width (see .is-find above),
-   because only this tab shows two documents side by side. */
-
-/* What the intro becomes once a search has answered: what came back, and the
-   way to ask again. Same job, a quarter of the height — the invitation has
-   nothing left to say once there are results under it. */
-.person-find-summary {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 12px 14px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--field) 60%, transparent);
-}
-
-.person-find-summary-icon {
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  flex: 0 0 auto;
-  border-radius: 999px;
-  color: var(--mint);
-  background: color-mix(in srgb, var(--mint) 15%, transparent);
-}
-
-.person-find-summary-text {
-  flex: 1 1 auto;
-  min-width: 0;
-  margin: 0;
-  color: var(--ink);
-  font-size: 0.98rem;
-}
-
-/* The paste-a-link escape hatch, now a row of its own: the toggle keeps its
-   place on the left whether the input is out or not, so opening it doesn't
-   shove the results down by a whole block. */
-.person-find-link {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px 18px;
-  padding: 10px 14px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-}
-
-.person-find-link.is-flush {
-  padding: 16px 0 0;
-  border: 0;
-  border-top: 1px solid var(--line);
-  border-radius: 0;
-}
-
-.person-find-link .person-find-link-row {
-  flex: 1 1 320px;
-  margin-top: 0;
-}
-
-.person-find-results {
-  display: grid;
-  grid-template-columns: minmax(280px, 0.85fr) minmax(0, 1.15fr);
-  gap: 16px;
-  align-items: start;
-}
-
-.person-result-list {
-  display: grid;
-  gap: 10px;
-  align-content: start;
-  /* The list scrolls, the comparison beside it doesn't — a long biography on
-     the right must not push the eighth result off the bottom. */
-  max-height: 62vh;
-  overflow: auto;
-  padding-right: 2px;
-}
-
-.person-result-card {
-  display: grid;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--surface);
-  overflow: hidden;
-}
-
-.person-result-card.is-selected {
-  border-color: var(--gold);
-  background: color-mix(in srgb, var(--gold) 8%, var(--surface));
-}
-
-/* The card body is one button: selecting a result is the card's main action, so
-   it gets the card's whole surface rather than a hit target in a corner. The
-   row of links below it sits outside — a button can't nest inside a button. */
-.person-result-pick {
-  position: relative;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 14px;
-  padding: 14px 14px 10px;
-  border: 0;
-  color: inherit;
-  background: transparent;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.person-result-pick:hover,
-.person-result-pick:focus-visible {
-  background: color-mix(in srgb, var(--ink) 4%, transparent);
-}
-
-.person-result-mark {
-  position: absolute;
-  top: 10px;
-  left: 8px;
-  display: grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 999px;
-  color: var(--surface);
-  background: var(--gold);
-}
-
-.person-result-thumb {
-  display: grid;
-  place-items: center;
-  width: 72px;
-  height: 88px;
-  flex: 0 0 auto;
-  overflow: hidden;
-  border-radius: 8px;
-  color: var(--muted);
-  background: var(--field);
-}
-
-.person-result-thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.person-result-body {
-  display: grid;
-  gap: 6px;
-  align-content: start;
-  min-width: 0;
-}
-
-.person-result-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.person-result-head strong {
-  color: var(--ink);
-  font-size: 0.98rem;
-}
-
-/* Two lines by default — enough to tell people apart, short enough that eight
-   results still read as a list. Expand trades that for the whole biography. */
-.person-result-desc {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  color: var(--muted);
-  font-size: 0.86rem;
-  line-height: 1.45;
-}
-
-.person-result-desc.is-expanded {
-  display: block;
-  max-height: 220px;
-  overflow: auto;
-}
-
-.person-result-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 14px;
-  padding: 0 14px 12px;
-}
-
-.person-result-action {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+  justify-content: center;
   padding: 4px 0;
-  border: 0;
   color: var(--muted);
-  background: transparent;
-  font: inherit;
   font-size: 0.82rem;
   text-decoration: none;
-  cursor: pointer;
 }
 
-.person-result-action:hover,
-.person-result-action:focus-visible {
+.person-result-source-link:hover {
   color: var(--ink);
   text-decoration: underline;
-}
-
-.person-result-action.is-on {
-  color: var(--gold);
-  font-weight: 650;
-}
-
-.person-result-detail {
-  margin: 0;
-}
-
-/* Nothing selected — the pane says what to do rather than sitting blank beside
-   a list that clearly did find something. */
-.person-result-empty {
-  display: grid;
-  justify-items: center;
-  align-content: center;
-  gap: 6px;
-  min-height: 220px;
-  padding: 24px;
-  border: 1px dashed var(--line);
-  border-radius: 12px;
-  color: var(--muted);
-  text-align: center;
-}
-
-.person-result-empty strong {
-  color: var(--ink);
-  font-size: 0.98rem;
-}
-
-.person-result-empty p {
-  margin: 0;
-  max-width: 34ch;
-  font-size: 0.86rem;
-  line-height: 1.5;
-}
-
-.person-detail-more {
-  display: grid;
-  justify-items: start;
-  gap: 10px;
-}
-
-.person-detail-list {
-  display: grid;
-  gap: 6px;
-  width: 100%;
-}
-
-.person-detail-row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 16px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid var(--line);
-  font-size: 0.85rem;
-}
-
-.person-detail-row span {
-  color: var(--muted);
-}
-
-.person-detail-row strong {
-  color: var(--ink);
-  font-weight: 620;
-  text-align: right;
-  overflow-wrap: anywhere;
-}
-
-/* One column below the width the two panes need. The list stops scrolling on
-   its own there — the page is the scroller once they're stacked. */
-@media (max-width: 900px) {
-  .person-find-results {
-    grid-template-columns: 1fr;
-  }
-
-  .person-result-list {
-    max-height: none;
-    overflow: visible;
-  }
 }
