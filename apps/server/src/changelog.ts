@@ -19,6 +19,18 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.39.0",
+    label: "A line about the person",
+    changes: [
+      "An author or a narrator had a biography and nothing else — several paragraphs, or a blank space, with no middle ground. The people behind your books now carry the short facts that belong above one: when they were born, when they died, where they were from, and what they did. A page opens with \"American novelist and journalist · 1899 – 1961\" under the name, which is usually the thing you actually wanted to know, and the biography follows for when you want more than that.",
+      "Dates are written the way people know them rather than the way a date picker demands. A bare year is a complete answer for someone born in 1775, and typing one no longer means inventing a month and a day you do not have — the same convention the family tree has always used. Sources spell dates every way imaginable, and whatever they hand over arrives tidy or not at all: nothing half-read gets stored.",
+      "Find info is where most of these will come from, and it has been rebuilt as the same search the books already had. A source to narrow to, a search box, checkboxes for what to take, and a row for pasting a page you have already found. Results arrive as cards with a photo and the facts on them, each with Apply and a Details view that lays the current values beside the found ones and marks what would change. Nothing is written until you press Save, so a result you applied and thought better of costs you a Cancel.",
+      "That search box being editable fixes something that had simply never worked: the old dialog searched the stored name verbatim, so anyone filed as \"Twain, Mark\" could never be found at all. Now you fix the spelling in the box and search again.",
+      "Narrators get all of this too, and one thing more. The automatic lookup that runs during a scan checks that a page is about the right kind of person before trusting it — and its list of occupations was written for authors, so narrators described as plain \"actor\" were being skipped without a word. They are not any more, and the check still throws out the same-name stranger who turns out to be an Irish sportsperson.",
+      "The whole editor now matches the one you get for a book's metadata — the same tabs, the same two-column fields, a photo tab where a book has its cover, and a window that stays the same size whichever tab you are on instead of jumping about as you switch. Editing a book and editing the person who wrote it should not feel like two different applications."
+    ]
+  },
+  {
     version: "3.38.0",
     label: "The whole branch at once",
     changes: [
