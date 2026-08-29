@@ -8,7 +8,7 @@ import { Modal } from "../../shared/Modal";
 import type { GalleryAsset } from "../gallery/types";
 import { PhotoPicker } from "../gallery/PhotoPicker";
 import { useFamilyUploadTarget } from "./useFamilyUploadTarget";
-import { PartialDateField } from "./PartialDateField";
+import { PartialDateField } from "../../shared/PartialDateField";
 import { EVENT_TYPE_OPTIONS, eventLabelHint, eventTypeLabel, type FamilyEvent } from "./types";
 
 // Create or edit a timeline event. Dates are free-text partial dates — a year
@@ -132,7 +132,7 @@ export function EventEditModal({
         <PartialDateField
           label={t("family:event.toOptionalLabel")}
           value={endDate}
-          placeholder={t("family:partialDate.example.endYear")}
+          placeholder={t("partialDate.example.endYear")}
           onChange={setEndDate}
         />
         <label className="field">

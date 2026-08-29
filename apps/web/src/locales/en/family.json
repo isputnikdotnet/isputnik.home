@@ -625,16 +625,6 @@
   "nav": {
     "chart": "Chart"
   },
-  "partialDate": {
-    "formatHint": "Year, year-month, or full date (1971, 1971-09, 1971-09-01)",
-    "example": {
-      "default": "1971 or 1971-09-01",
-      "married": "2010 or 2010-06-12",
-      "endYear": "1975",
-      "death": "2024 or 2024-03-15",
-      "divorced": "2015 or 2015-03-01"
-    }
-  },
   "bulkTags": {
     "title_one": "Family tags for {{count}} person",
     "title_other": "Family tags for {{count}} people",

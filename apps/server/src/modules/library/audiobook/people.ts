@@ -10,9 +10,10 @@ import { normalizeLibrarySettings } from "../shared/library-settings.js";
 import { accessibleLibraryIds, canUserWriteLibrary, getAccessibleLibrary } from "../shared/library-access.js";
 import { BOOK_LIBRARY_TYPES } from "../shared/library-types.js";
 import { alphaFieldsFor } from "../shared/alphabet.js";
-import { enrichPerson, lookupPersonByUrl, lookupPersonCandidates, lookupPersonPhotoCandidates, removeStoredPhotos, writePersonPhoto } from "./enrich.js";
+import { enrichPerson, lookupPersonByUrl, lookupPersonCandidates, lookupPersonPhotoCandidates, removeStoredPhotos, writePersonPhoto, type PersonLookupSource } from "./enrich.js";
 import { MetadataLinkError } from "./providers/types.js";
 import { sortTitle } from "./scanner.js";
+import { partialDateSchema } from "../../familytree/persons.js";
 
 type AuthorRow = {
   id: string;
@@ -21,8 +22,42 @@ type AuthorRow = {
   bio: string | null;
   website: string | null;
   location: string | null;
+  birth_date: string | null;
+  death_date: string | null;
+  country: string | null;
+  occupation: string | null;
+  wikipedia_url: string | null;
   cover_storage_key: string | null;
 };
+
+// Every column a profile is made of, in one place: the read, the save and the
+// enrichment reply all hand back the same shape, and adding a field to a person
+// should not mean remembering three column lists.
+const PROFILE_COLUMNS = `
+  SELECT id, name, sort_name, bio, website, location,
+         birth_date, death_date, country, occupation, wikipedia_url,
+         image_storage_key AS cover_storage_key
+  FROM people WHERE name = ? LIMIT 1
+`;
+
+function personProfile(row: AuthorRow) {
+  return {
+    name: row.name,
+    sortName: row.sort_name,
+    bio: row.bio,
+    website: row.website,
+    location: row.location,
+    // Partial dates — 'YYYY' | 'YYYY-MM' | 'YYYY-MM-DD'. The web side formats
+    // them; nothing here assumes a full date exists.
+    birthDate: row.birth_date,
+    deathDate: row.death_date,
+    country: row.country,
+    occupation: row.occupation,
+    // The page these facts were read from, for the source link beside them.
+    wikipediaUrl: row.wikipedia_url,
+    photoUrl: photoUrl(row.cover_storage_key)
+  };
+}
 
 // People (authors/narrators) are global — one row shared across every book
 // library that credits them — so editing a profile isn't library-scoped. Gate the
@@ -51,7 +86,27 @@ const personProfileSchema = z.object({
   // protocol if one is missing) rather than fetched, so "agriddle.com" is a
   // legitimate value someone should be able to type as-is.
   website: z.string().trim().max(300).nullable().optional(),
-  location: z.string().trim().max(200).nullable().optional()
+  location: z.string().trim().max(200).nullable().optional(),
+  // Same partial-date rule the family tree uses — an author's dates are as
+  // often a bare year as a full one, and a native date input can't say "1899".
+  birthDate: partialDateSchema.nullable().optional(),
+  deathDate: partialDateSchema.nullable().optional(),
+  // Free text, both of them: "Russian Empire" is a real answer, and so is
+  // "Novelist, journalist".
+  country: z.string().trim().max(120).nullable().optional(),
+  occupation: z.string().trim().max(200).nullable().optional(),
+  // Where the facts came from, handed back by the Find info dialog when their
+  // result is applied. Rendered as a link, so the host is pinned to the one
+  // source that can produce these facts rather than trusted as free text.
+  wikipediaUrl: z.string().trim().max(500).refine((value) => {
+    try {
+      const url = new URL(value);
+      return url.protocol === "https:"
+        && (url.hostname === "wikipedia.org" || url.hostname.endsWith(".wikipedia.org"));
+    } catch {
+      return false;
+    }
+  }, "Must be an https Wikipedia link").nullable().optional()
 });
 
 const createPersonSchema = z.object({
@@ -290,23 +345,9 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
       return reply.code(400).send({ error: "Name is required" });
     }
 
-    const row = db.prepare(`
-      SELECT id, name, sort_name, bio, website, location, image_storage_key AS cover_storage_key
-      FROM people WHERE name = ? LIMIT 1
-    `).get(name) as AuthorRow | undefined;
+    const row = db.prepare(PROFILE_COLUMNS).get(name) as AuthorRow | undefined;
 
-    return reply.send({
-      person: row
-        ? {
-            name: row.name,
-            sortName: row.sort_name,
-            bio: row.bio,
-            website: row.website,
-            location: row.location,
-            photoUrl: photoUrl(row.cover_storage_key)
-          }
-        : null
-    });
+    return reply.send({ person: row ? personProfile(row) : null });
   });
 
   // Photos for all people that have one, keyed by name — lets the authors/
@@ -380,14 +421,22 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
       return reply.code(400).send({ error: "Invalid profile data", details: parsed.error });
     }
 
-    db.prepare(
-      "UPDATE people SET name = COALESCE(?, name), bio = ?, sort_name = ?, website = ?, location = ? WHERE name = ?"
-    ).run(
+    db.prepare(`
+      UPDATE people
+      SET name = COALESCE(?, name), bio = ?, sort_name = ?, website = ?, location = ?,
+          birth_date = ?, death_date = ?, country = ?, occupation = ?, wikipedia_url = ?
+      WHERE name = ?
+    `).run(
       parsed.data.name ?? null,
       parsed.data.bio ?? null,
       parsed.data.sortName ?? null,
       parsed.data.website ?? null,
       parsed.data.location ?? null,
+      parsed.data.birthDate ?? null,
+      parsed.data.deathDate ?? null,
+      parsed.data.country ?? null,
+      parsed.data.occupation ?? null,
+      parsed.data.wikipediaUrl ?? null,
       name
     );
 
@@ -411,27 +460,16 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
     }
 
     try {
-      const { updatedBio, updatedPhoto, result } = await enrichPerson(name, personLookupLanguages(name));
-      const row = db.prepare(`
-        SELECT id, name, sort_name, bio, website, location, image_storage_key AS cover_storage_key
-        FROM people WHERE name = ? LIMIT 1
-      `).get(name) as AuthorRow | undefined;
+      const { updatedBio, updatedPhoto, updatedFacts, result } = await enrichPerson(name, personLookupLanguages(name));
+      const row = db.prepare(PROFILE_COLUMNS).get(name) as AuthorRow | undefined;
 
       return reply.send({
         found: Boolean(result),
         updatedBio,
         updatedPhoto,
+        updatedFacts,
         source: result?.source ?? null,
-        person: row
-          ? {
-              name: row.name,
-              sortName: row.sort_name,
-              bio: row.bio,
-              website: row.website,
-              location: row.location,
-              photoUrl: photoUrl(row.cover_storage_key)
-            }
-          : null
+        person: row ? personProfile(row) : null
       });
     } catch {
       return reply.code(502).send({ error: "Online lookup failed. Check the server's internet access and try again." });
@@ -444,17 +482,23 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
   // pasted link with its single result — so the modal always renders one shape:
   // pick a result, compare it field by field, apply what you want on Save.
   app.get("/api/library/people/by-name/lookup", { preHandler: app.authenticate }, async (request, reply) => {
-    const q = request.query as { name?: string; url?: string };
+    const q = request.query as { name?: string; url?: string; q?: string; source?: string };
     const name = String(q.name ?? "").trim();
     if (!name) {
       return reply.code(400).send({ error: "Name is required" });
     }
 
+    // `name` identifies the person (and picks the Wikipedia languages their
+    // libraries speak); `q` is what to actually search for, which the dialog
+    // lets someone edit — a stored "Twain, Mark" finds nothing typed verbatim.
+    const search = String(q.q ?? "").trim() || name;
+    const source: PersonLookupSource = q.source === "wikipedia" || q.source === "openlibrary" ? q.source : "all";
+
     const url = q.url?.trim();
     try {
       const candidates = url
         ? [await lookupPersonByUrl(url)].filter((candidate) => candidate !== null)
-        : await lookupPersonCandidates(name, personLookupLanguages(name));
+        : await lookupPersonCandidates(search, personLookupLanguages(name), source);
       return reply.send({ candidates });
     } catch (err) {
       const status = err instanceof MetadataLinkError ? err.status : 502;
@@ -503,7 +547,8 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
       ipAddress: request.ip
     });
 
-    return reply.send({ person: { name, sortName: resolvedSortName, bio: bio?.trim() || null, photoUrl: null } });
+    const row = db.prepare(PROFILE_COLUMNS).get(name) as AuthorRow | undefined;
+    return reply.send({ person: row ? personProfile(row) : null });
   });
 
   // Photo candidates the user can pick from (Wikipedia per language, Open
@@ -596,20 +641,31 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
       db.prepare("UPDATE person_aliases SET canonical_name = ? WHERE canonical_name = ?").run(into, from);
 
       // People are global: fold the single `from` person into the `into` person.
-      const fromRow = db.prepare(
-        "SELECT id, sort_name, bio, website, location, image_storage_key FROM people WHERE name = ?"
-      ).get(from) as {
+      const fromRow = db.prepare(`
+        SELECT id, sort_name, bio, website, location, birth_date, death_date, country,
+               occupation, wikipedia_url, image_storage_key
+        FROM people WHERE name = ?
+      `).get(from) as {
         id: string; sort_name: string | null; bio: string | null;
-        website: string | null; location: string | null; image_storage_key: string | null;
+        website: string | null; location: string | null;
+        birth_date: string | null; death_date: string | null;
+        country: string | null; occupation: string | null;
+        wikipedia_url: string | null; image_storage_key: string | null;
       } | undefined;
       if (!fromRow) return;
 
       let intoRow = db.prepare("SELECT id FROM people WHERE name = ?").get(into) as { id: string } | undefined;
       if (!intoRow) {
         const id = nanoid(16);
-        db.prepare(
-          "INSERT INTO people (id, name, sort_name, bio, website, location, image_storage_key) VALUES (?, ?, ?, ?, ?, ?, ?)"
-        ).run(id, into, fromRow.sort_name, fromRow.bio, fromRow.website, fromRow.location, fromRow.image_storage_key);
+        db.prepare(`
+          INSERT INTO people (id, name, sort_name, bio, website, location, birth_date, death_date,
+                              country, occupation, wikipedia_url, image_storage_key)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          id, into, fromRow.sort_name, fromRow.bio, fromRow.website, fromRow.location,
+          fromRow.birth_date, fromRow.death_date, fromRow.country, fromRow.occupation,
+          fromRow.wikipedia_url, fromRow.image_storage_key
+        );
         intoRow = { id };
       }
       if (intoRow.id !== fromRow.id) {

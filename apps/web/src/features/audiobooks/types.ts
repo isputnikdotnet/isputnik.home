@@ -1,3 +1,4 @@
+import i18n from "../../i18n";
 import type { FeedItem } from "../library/feed";
 
 // Per-object roles. `deny` is an explicit block, not a tier. See docs/permissions.md.
@@ -427,4 +428,17 @@ export interface CoverCandidate {
   relativePath: string;
   size: number;
   previewUrl: string;
+}
+
+// "1775 – 1817", "b. 1970", "d. 1817" — years only, from partial dates. A month
+// and a day are genealogy-grade precision that a person's page has no use for at
+// a glance, and whatever was stored is still there in the edit dialog. Shared by
+// the person page and the Find info result cards so the two agree.
+export function formatLifespan(birthDate: string | null, deathDate: string | null): string {
+  const born = birthDate?.slice(0, 4) ?? "";
+  const died = deathDate?.slice(0, 4) ?? "";
+  if (born && died) return `${born} – ${died}`;
+  if (born) return i18n.t("book:person.bornYear", { year: born });
+  if (died) return i18n.t("book:person.diedYear", { year: died });
+  return "";
 }

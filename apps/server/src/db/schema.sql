@@ -982,8 +982,22 @@ CREATE TABLE IF NOT EXISTS people (
   bio               TEXT,
   website           TEXT,
   location          TEXT,
+  -- Life facts: the short line that sits above the biography. Dates follow the
+  -- same partial-date convention as family_tree_persons ('YYYY' | 'YYYY-MM' |
+  -- 'YYYY-MM-DD') — a contributor's dates are as often a bare year as a full
+  -- date, and lexicographic order stays chronological either way.
+  birth_date        TEXT,
+  death_date        TEXT,
+  -- Country of origin, and the one-line "English writer and humorist". Both are
+  -- free text rather than codes: country of origin for a 19th-century author is
+  -- a genuinely contested answer (Russian Empire, Austria-Hungary) and a picker
+  -- would force a wrong one.
+  country           TEXT,
+  occupation        TEXT,
   image_storage_key TEXT,
   openlibrary_id    TEXT,
+  -- The page the facts above were read from, for the source link beside them.
+  wikipedia_url     TEXT,
   enriched_at       TEXT,
   created_at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );

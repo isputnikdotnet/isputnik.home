@@ -3,15 +3,14 @@ import { Trans, useTranslation } from "react-i18next";
 import {
   BookMarked,
   Check,
+  CheckCircle2,
   ChevronDown,
   ChevronUp,
   ExternalLink,
-  Eye,
   Globe,
   ImagePlus,
   Link2,
-  MapPin,
-  RefreshCw,
+  Pencil,
   Save,
   Search,
   Trash2,
@@ -23,16 +22,97 @@ import { Button } from "../../shared/Button";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
+import { PartialDateField } from "../../shared/PartialDateField";
 import { PersonPhotoModal } from "./PersonPhotoModal";
+import { formatLifespan } from "./types";
 
-type PersonProfile = {
+// Life facts, on the profile and on every lookup result alike — the modal
+// compares the two field by field, so they have to be the same shape.
+type PersonFacts = {
+  // Partial dates: "1899", "1899-07", "1899-07-21".
+  birthDate: string | null;
+  deathDate: string | null;
+  country: string | null;
+  occupation: string | null;
+  // Only lookup results carry this; a saved profile keeps it alongside.
+  wikipediaUrl?: string | null;
+};
+
+type PersonProfile = PersonFacts & {
   name: string;
   sortName: string | null;
   bio: string | null;
   website: string | null;
   location: string | null;
   photoUrl: string | null;
+  wikipediaUrl: string | null;
 };
+
+const NO_PROFILE_FACTS = { birthDate: null, deathDate: null, country: null, occupation: null };
+
+// Current vs found, field by field — the same table the book dialog puts behind
+// its Details button, so "what would applying this actually change" is answered
+// the same way in both dialogs.
+function PersonResultCompare({
+  candidate,
+  current,
+  currentPhotoUrl,
+  brokenPhotos,
+  onPhotoError
+}: {
+  candidate: PersonLookupCandidate;
+  current: { birthDate: string; deathDate: string; country: string; occupation: string; bio: string };
+  currentPhotoUrl: string | null;
+  brokenPhotos: string[];
+  onPhotoError: (url: string) => void;
+}) {
+  const { t } = useTranslation(["common", "book"]);
+  const rows = [
+    { label: t("book:person.fieldBorn"), current: current.birthDate, next: candidate.facts.birthDate ?? "" },
+    { label: t("book:person.fieldDied"), current: current.deathDate, next: candidate.facts.deathDate ?? "" },
+    { label: t("book:person.fieldCountry"), current: current.country, next: candidate.facts.country ?? "" },
+    { label: t("book:person.fieldOccupation"), current: current.occupation, next: candidate.facts.occupation ?? "" },
+    { label: t("book:person.fieldBiography"), current: current.bio, next: candidate.bio ?? "" }
+  ];
+  const changed = (a: string, b: string) => b.trim().length > 0 && b.trim() !== a.trim();
+  const visible = rows.filter((row) => row.current.trim() || row.next.trim());
+  const nextPhoto = candidate.photoUrl && !brokenPhotos.includes(candidate.photoUrl) ? candidate.photoUrl : null;
+
+  return (
+    <div className="metadata-result-compare">
+      <div className="compare-row compare-head-row" aria-hidden="true">
+        <span></span>
+        <span>{t("book:compare.current")}</span>
+        <span>{t("book:compare.fromResult")}</span>
+      </div>
+      {visible.map((row) => (
+        <div className={`compare-row${changed(row.current, row.next) ? " changed" : ""}`} key={row.label}>
+          <span className="compare-label">{row.label}</span>
+          <span className="compare-current">{row.current || "—"}</span>
+          <span className="compare-next">
+            {row.next || "—"}
+            {changed(row.current, row.next) && <em className="compare-flag">{t("book:compare.changes")}</em>}
+          </span>
+        </div>
+      ))}
+      <div className="compare-row compare-cover-row">
+        <span className="compare-label">{t("book:person.photo")}</span>
+        <span className="compare-current">
+          <span className="compare-cover-frame">
+            {currentPhotoUrl ? <img src={currentPhotoUrl} alt="" /> : <UserRound size={20} />}
+          </span>
+        </span>
+        <span className="compare-next">
+          <span className="compare-cover-frame">
+            {nextPhoto
+              ? <img src={nextPhoto} alt="" onError={() => onPhotoError(nextPhoto)} />
+              : <UserRound size={20} />}
+          </span>
+        </span>
+      </div>
+    </div>
+  );
+}
 
 type PersonLookupCandidate = {
   id: string;
@@ -42,25 +122,33 @@ type PersonLookupCandidate = {
   photoUrl: string | null;
   source: "wikipedia" | "openlibrary";
   sourceUrl: string | null;
+  facts: PersonFacts;
+  // Only what tells two same-name results apart — the facts above are the part
+  // worth keeping.
   details: {
     language?: string;
     pageTitle?: string;
-    birthDate?: string;
-    deathDate?: string;
     topWork?: string;
     workCount?: number;
     olid?: string;
   };
 };
 
-type Tab = "details" | "biography" | "find";
 
-const TAB_KEYS: Record<Tab, "tabDetails" | "tabBiography" | "tabFind"> = {
+
+// Mirrors PersonLookupSource on the server: which of the two person sources to
+// ask. Kept in step with modules/library/audiobook/enrich.ts.
+type PersonLookupSource = "all" | "wikipedia" | "openlibrary";
+
+type Tab = "details" | "biography" | "photo" | "find";
+
+const TAB_KEYS: Record<Tab, "tabDetails" | "tabBiography" | "photo" | "tabFind"> = {
   details: "tabDetails",
   biography: "tabBiography",
+  photo: "photo",
   find: "tabFind"
 };
-const TABS: Tab[] = ["details", "biography", "find"];
+const TABS: Tab[] = ["details", "biography", "photo", "find"];
 
 // Edit one person's profile. Details carries the identity fields plus the photo
 // tile (which opens PersonPhotoModal — choosing a picture is its own box, since
@@ -91,6 +179,13 @@ export function PersonProfileModal({
   const [sortName, setSortName] = useState("");
   const [website, setWebsite] = useState("");
   const [location, setLocation] = useState("");
+  const [birthDate, setBirthDate] = useState("");
+  const [deathDate, setDeathDate] = useState("");
+  const [country, setCountry] = useState("");
+  const [occupation, setOccupation] = useState("");
+  // Not a field anyone types into — it rides along with the facts, so the
+  // source link on the person's page survives a hand-applied result.
+  const [wikipediaUrl, setWikipediaUrl] = useState<string | null>(null);
   const [bio, setBio] = useState("");
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [photoBoxOpen, setPhotoBoxOpen] = useState(false);
@@ -107,12 +202,21 @@ export function PersonProfileModal({
   const [linkUrl, setLinkUrl] = useState("");
   const [linkOpen, setLinkOpen] = useState(false);
   const [candidates, setCandidates] = useState<PersonLookupCandidate[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  // Which card is showing its whole biography inline, and whether the selected
-  // result's fact list is open — both are single-value, since two expanded
-  // things at once is what made the old panel unreadable.
+  // What to search for, and where. The stored name is only a starting point: a
+  // person filed as "Twain, Mark" finds nothing searched verbatim, and until now
+  // there was no way to say so.
+  const [searchQuery, setSearchQuery] = useState(personName);
+  const [source, setSource] = useState<PersonLookupSource>("all");
+  // What Apply takes from a result. All three on by default — the common case is
+  // "this is the right person, take everything".
+  const [takeFacts, setTakeFacts] = useState(true);
+  const [takeBio, setTakeBio] = useState(true);
+  const [takePhoto, setTakePhoto] = useState(true);
+  // The card whose compare table is open, and the last one applied (so its
+  // button can say so). Both single-value: two open tables at once is what made
+  // the old panel unreadable.
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [appliedId, setAppliedId] = useState<string | null>(null);
   // Whether a search has run at all: before it, the tab is an invitation; after
   // it, a result strip. Distinct from "found nothing", which is a real answer.
   const [searched, setSearched] = useState(false);
@@ -133,12 +237,26 @@ export function PersonProfileModal({
     api<{ person: PersonProfile | null }>(`/api/library/people/by-name?${query}`)
       .then((payload) => {
         const p = payload.person
-          ?? { name: personName, sortName: null, bio: null, website: null, location: null, photoUrl: null };
+          ?? {
+            ...NO_PROFILE_FACTS,
+            name: personName,
+            sortName: null,
+            bio: null,
+            website: null,
+            location: null,
+            photoUrl: null,
+            wikipediaUrl: null
+          };
         setProfile(p);
         setName(p.name);
         setSortName(p.sortName ?? "");
         setWebsite(p.website ?? "");
         setLocation(p.location ?? "");
+        setBirthDate(p.birthDate ?? "");
+        setDeathDate(p.deathDate ?? "");
+        setCountry(p.country ?? "");
+        setOccupation(p.occupation ?? "");
+        setWikipediaUrl(p.wikipediaUrl);
         setBio(p.bio ?? "");
         setPhotoUrl(p.photoUrl);
       })
@@ -167,7 +285,12 @@ export function PersonProfileModal({
           bio: bio.trim() || null,
           sortName: sortName.trim() || null,
           website: website.trim() || null,
-          location: location.trim() || null
+          location: location.trim() || null,
+          birthDate: birthDate.trim() || null,
+          deathDate: deathDate.trim() || null,
+          country: country.trim() || null,
+          occupation: occupation.trim() || null,
+          wikipediaUrl
         })
       });
       onClose();
@@ -227,20 +350,21 @@ export function PersonProfileModal({
     }
   };
 
-  // Preview matches without writing anything — by name, or from a pasted
+  // Preview matches without writing anything — by search text, or from a pasted
   // Wikipedia / Open Library link (which simply returns a one-entry list, so the
-  // rest of the tab has a single shape to render). The first result is selected
-  // for you because it is the ranked best guess, not because it is the answer.
+  // rest of the tab has a single shape to render). `name` still identifies the
+  // person; `q` is what gets searched.
   const runLookup = async (url?: string) => {
     setError("");
     setNotice(null);
-    const search = url ? `${query}&url=${encodeURIComponent(url)}` : query;
+    const search = url
+      ? `${query}&url=${encodeURIComponent(url)}`
+      : `${query}&q=${encodeURIComponent(searchQuery.trim() || personName)}&source=${source}`;
     const result = await api<{ candidates: PersonLookupCandidate[] }>(`/api/library/people/by-name/lookup?${search}`);
     const found = result.candidates ?? [];
     setCandidates(found);
-    setSelectedId(found[0]?.id ?? null);
     setExpandedId(null);
-    setDetailsOpen(false);
+    setAppliedId(null);
     setSearched(true);
     if (found.length === 0) {
       setNotice({
@@ -250,16 +374,6 @@ export function PersonProfileModal({
       });
     }
   };
-
-  const selectCandidate = (id: string) => {
-    setSelectedId(id);
-    setDetailsOpen(false);
-  };
-
-  const linkInputRef = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    if (linkOpen) linkInputRef.current?.focus();
-  }, [linkOpen]);
 
   const markPhotoBroken = (url: string) => {
     setBrokenPhotos((broken) => (broken.includes(url) ? broken : [...broken, url]));
@@ -293,45 +407,39 @@ export function PersonProfileModal({
   const sourceLabel = (source: PersonLookupCandidate["source"]) =>
     source === "openlibrary" ? "Open Library" : "Wikipedia";
 
-  const selected = candidates.find((entry) => entry.id === selectedId) ?? null;
-  const selectedPhotoUrl = selected?.photoUrl && !brokenPhotos.includes(selected.photoUrl)
-    ? selected.photoUrl
-    : null;
-
-  // Both "use this" actions fill the form and nothing more — the dialog has one
-  // commit point, Save changes, and picking something here must not quietly
-  // become a write the Cancel button can no longer undo.
-  const useCandidateBio = () => {
-    if (!selected?.bio) return;
-    setBio(selected.bio);
+  // Applying a result stages it into the form; nothing is written until Save.
+  // That is deliberately unlike the book dialog, which applies straight to the
+  // server — this one has a Save button and a Cancel that must still mean it.
+  const applyCandidate = (entry: PersonLookupCandidate) => {
+    if (takeFacts) {
+      if (entry.facts.birthDate) setBirthDate(entry.facts.birthDate);
+      if (entry.facts.deathDate) setDeathDate(entry.facts.deathDate);
+      if (entry.facts.country) setCountry(entry.facts.country);
+      if (entry.facts.occupation) setOccupation(entry.facts.occupation);
+      if (entry.facts.wikipediaUrl) setWikipediaUrl(entry.facts.wikipediaUrl);
+    }
+    if (takeBio && entry.bio) {
+      setBio(entry.bio);
+    }
+    if (takePhoto && entry.photoUrl && !brokenPhotos.includes(entry.photoUrl)) {
+      setPendingPhotoUrl(entry.photoUrl);
+      setPhotoUrl(entry.photoUrl); // preview only; the server still holds the old one
+    }
+    setAppliedId(entry.id);
   };
 
-  const useCandidatePhoto = () => {
-    if (!selectedPhotoUrl) return;
-    setPendingPhotoUrl(selectedPhotoUrl);
-    setPhotoUrl(selectedPhotoUrl); // preview only; the server still holds the old one
-  };
-
-  // Per-field state is about the SELECTED result ("you already took this one"),
-  // but the tally is about the form as a whole — measured against what is saved,
-  // so switching results never makes a change you took look like it vanished.
-  const bioMatchesCandidate = Boolean(selected?.bio) && selected!.bio!.trim() === bio.trim();
-  const photoStaged = Boolean(selectedPhotoUrl) && pendingPhotoUrl === selectedPhotoUrl;
-  const stagedCount = (bio.trim() !== (profile?.bio ?? "").trim() ? 1 : 0) + (pendingPhotoUrl ? 1 : 0);
-
-  // The facts that settle a choice the descriptions leave open. Every one is
-  // optional, and a Wikipedia page and an Open Library record carry different
-  // ones, so the list is built from whatever this result actually has.
-  const detailRows = [
-    selected?.details.language && { label: t("book:person.detailLanguage"), value: selected.details.language.toUpperCase() },
-    selected?.details.pageTitle && { label: t("book:person.detailPage"), value: selected.details.pageTitle },
-    selected?.details.birthDate && { label: t("book:person.detailBorn"), value: selected.details.birthDate },
-    selected?.details.deathDate && { label: t("book:person.detailDied"), value: selected.details.deathDate },
-    selected?.details.topWork && { label: t("book:person.detailTopWork"), value: selected.details.topWork },
-    typeof selected?.details.workCount === "number"
-      && { label: t("book:person.detailWorks"), value: String(selected.details.workCount) },
-    selected?.details.olid && { label: t("book:person.detailOlid"), value: selected.details.olid }
-  ].filter((row): row is { label: string; value: string } => Boolean(row));
+  // How much of the form differs from what is stored — the "N changes ready to
+  // save" line. Measured against the SAVED profile, never against a result, so
+  // applying a second card can't make the first one look undone.
+  const factsChanged = [
+    [birthDate, profile?.birthDate],
+    [deathDate, profile?.deathDate],
+    [country, profile?.country],
+    [occupation, profile?.occupation]
+  ].some(([current, saved]) => (current ?? "").trim() !== (saved ?? ""));
+  const stagedCount = (bio.trim() !== (profile?.bio ?? "").trim() ? 1 : 0)
+    + (pendingPhotoUrl ? 1 : 0)
+    + (factsChanged ? 1 : 0);
 
   const modalTitle = role === "author"
     ? t("book:person.editAuthor")
@@ -345,7 +453,8 @@ export function PersonProfileModal({
       <Modal
         variant="panel"
         title={modalTitle}
-        className={`person-edit-modal${tab === "find" ? " is-find" : ""}`}
+        icon={<Pencil size={22} />}
+        className="person-edit-modal"
         // The photo box opens on top of this one; both listen for Escape on the
         // document, so without this a single press would close them together.
         busy={busy || photoBoxOpen || removeOpen}
@@ -367,8 +476,75 @@ export function PersonProfileModal({
           {error && <MessageBox tone="error" title={t("book:person.updateErrorTitle")}>{error}</MessageBox>}
           {notice && <MessageBox tone={notice.tone} title={notice.title}>{notice.text}</MessageBox>}
 
+          {/* The same field grid the book metadata dialog wears: these two do
+              the same job — editing one library object's metadata — so they
+              should read as one dialog with different fields in it. */}
           {tab === "details" && (
-            <div className="person-edit-details">
+            <div className="metadata-edit-grid">
+              <label className="field metadata-field-wide">
+                <span>{t("book:person.fieldName")} <b className="person-edit-req" aria-hidden="true">*</b></span>
+                <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("book:person.fullName")} required />
+              </label>
+              <label className="field metadata-field-half">
+                <span>{t("book:person.fieldSortName")}</span>
+                <input
+                  value={sortName}
+                  onChange={(e) => setSortName(e.target.value)}
+                  placeholder={t("book:person.sortExample", { example: personName.split(" ").reverse().join(", ") })}
+                />
+              </label>
+              <label className="field metadata-field-half">
+                <span>{t("book:person.fieldWebsite")}</span>
+                <input value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://agriddle.com" />
+              </label>
+              {/* Born and Died are partial dates: a bare year is the usual
+                  answer for an author, and a native date input cannot express
+                  one. */}
+              <PartialDateField
+                className="metadata-field-half"
+                label={t("book:person.fieldBorn")}
+                value={birthDate}
+                placeholder={t("book:person.bornExample")}
+                onChange={setBirthDate}
+              />
+              <PartialDateField
+                className="metadata-field-half"
+                label={t("book:person.fieldDied")}
+                value={deathDate}
+                placeholder={t("book:person.diedExample")}
+                onChange={setDeathDate}
+              />
+              <label className="field metadata-field-half">
+                <span>{t("book:person.fieldCountry")}</span>
+                <input
+                  value={country}
+                  onChange={(e) => setCountry(e.target.value)}
+                  placeholder={t("book:person.countryExample")}
+                />
+              </label>
+              <label className="field metadata-field-half">
+                <span>{t("book:person.fieldOccupation")}</span>
+                <input
+                  value={occupation}
+                  onChange={(e) => setOccupation(e.target.value)}
+                  placeholder={t("book:person.occupationExample")}
+                />
+              </label>
+              <label className="field metadata-field-wide">
+                <span>{t("book:person.fieldLocation")}</span>
+                <input
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  placeholder={t("book:person.locationExample")}
+                />
+              </label>
+            </div>
+          )}
+
+          {/* A person's photo is their cover, and it gets the tab a book's cover
+              gets — which is what leaves the details above as one plain grid. */}
+          {tab === "photo" && (
+            <div className="person-edit-photo-tab">
               <div className="person-edit-photo-col">
                 <span className="person-edit-label">{t("book:person.photo")}</span>
                 {/* The tile is the way in to the photo box rather than a file
@@ -411,39 +587,6 @@ export function PersonProfileModal({
                   </Button>
                 )}
               </div>
-
-              <div className="person-edit-fields">
-                <label className="field">
-                  <span>{t("book:person.fieldName")} <b className="person-edit-req" aria-hidden="true">*</b></span>
-                  <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("book:person.fullName")} required />
-                </label>
-                <label className="field">
-                  <span>{t("book:person.fieldSortName")}</span>
-                  <input
-                    value={sortName}
-                    onChange={(e) => setSortName(e.target.value)}
-                    placeholder={t("book:person.sortExample", { example: personName.split(" ").reverse().join(", ") })}
-                  />
-                </label>
-                <label className="field">
-                  <span>{t("book:person.fieldWebsite")}</span>
-                  <span className="person-edit-input">
-                    <Globe size={17} aria-hidden="true" />
-                    <input value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://agriddle.com" />
-                  </span>
-                </label>
-                <label className="field">
-                  <span>{t("book:person.fieldLocation")}</span>
-                  <span className="person-edit-input">
-                    <MapPin size={17} aria-hidden="true" />
-                    <input
-                      value={location}
-                      onChange={(e) => setLocation(e.target.value)}
-                      placeholder={t("book:person.locationExample")}
-                    />
-                  </span>
-                </label>
-              </div>
             </div>
           )}
 
@@ -460,286 +603,171 @@ export function PersonProfileModal({
             </label>
           )}
 
+          {/* The book metadata dialog's lookup, row for row: where to search,
+              what to take from a result, and a link for when you already know
+              the page. The person sources differ; the shape does not. */}
           {tab === "find" && (
-            <div className="person-lookup">
-              {/* Before the first search: one obvious way in, and a plain
-                  statement of what it will and won't do. Afterwards the same
-                  strip reports what came back and offers to run it again — the
-                  intro would only be repeating itself over a list of answers. */}
-              {!searched ? (
-                <div className="person-find-intro">
-                  <div className="person-find-intro-head">
-                    <span className="person-find-intro-icon" aria-hidden="true"><Search size={22} /></span>
-                    <div className="person-find-intro-copy">
-                      <strong>{t("book:person.findTitle")}</strong>
-                      <p>
-                        <Trans i18nKey="person.findLead" ns="book" values={{ name: personName }} components={{ bold: <strong /> }} />
-                      </p>
-                    </div>
-                  </div>
-                  {/* Two ways in, side by side and honestly weighted: searching
-                      is what almost everyone wants, and pasting a page is what
-                      you reach for when you already know which page is right.
-                      Both open the same row below — the button is the signpost,
-                      the disclosure is the thing itself. */}
-                  <div className="person-find-intro-actions">
-                    <Button variant="primary" onClick={() => void handleFindOnline()} disabled={finding}>
-                      <Globe size={16} aria-hidden="true" />
-                      <span>{finding ? t("book:person.searching") : t("book:person.searchWeb")}</span>
-                    </Button>
-                    <span className="person-find-or">{t("book:person.or")}</span>
-                    <Button variant="secondary" onClick={() => setLinkOpen(true)}>
-                      <Link2 size={16} aria-hidden="true" />
-                      <span>{t("book:person.pasteALink")}</span>
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="person-find-summary">
-                  <span className="person-find-summary-icon" aria-hidden="true"><Search size={20} /></span>
-                  <p className="person-find-summary-text">
-                    <Trans
-                      i18nKey="person.foundResults"
-                      ns="book"
-                      count={candidates.length}
-                      values={{ count: candidates.length, name: personName }}
-                      components={{ bold: <strong /> }}
-                    />
-                  </p>
-                  <Button variant="primary" onClick={() => void handleFindOnline()} disabled={finding}>
-                    <RefreshCw size={16} aria-hidden="true" />
-                    <span>{finding ? t("book:person.searching") : t("book:person.searchAgain")}</span>
-                  </Button>
-                </div>
-              )}
-
-              {/* Own state rather than <details>: a closed <details> did not
-                  actually hide this row here, leaving a live, tabbable input
-                  under a disclosure that read as shut. */}
-              <div className={`person-find-link${searched ? "" : " is-flush"}`}>
-                <button
-                  type="button"
-                  className="person-find-link-toggle"
-                  onClick={() => setLinkOpen((open) => !open)}
-                  aria-expanded={linkOpen}
+            <>
+              <div className="metadata-search-row">
+                <select
+                  className="library-filter"
+                  value={source}
+                  onChange={(e) => setSource(e.target.value as PersonLookupSource)}
+                  aria-label={t("book:person.sourceAria")}
                 >
-                  {linkOpen ? <ChevronUp size={15} aria-hidden="true" /> : <ChevronDown size={15} aria-hidden="true" />}
-                  <span>{searched ? t("book:person.useSpecificPage") : t("book:person.wrongPerson")}</span>
-                </button>
-                {linkOpen && (
-                  <div className="person-find-link-row">
-                    <label className="search-field person-lookup-input">
-                      <Globe size={16} aria-hidden="true" />
-                      <input
-                        ref={linkInputRef}
-                        type="url"
-                        value={linkUrl}
-                        onChange={(e) => setLinkUrl(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === "Enter") void handleLookupLink(); }}
-                        placeholder={t("book:person.pasteLink")}
-                        aria-label={t("book:person.profileLinkAria")}
-                      />
-                    </label>
-                    <Button
-                      variant="secondary"
-                      onClick={() => void handleLookupLink()}
-                      disabled={lookingUpLink || !linkUrl.trim()}
-                    >
-                      <span>{lookingUpLink ? t("book:person.reading") : t("book:person.readPage")}</span>
-                    </Button>
-                  </div>
-                )}
+                  <option value="all">{t("book:metadata.allProviders")}</option>
+                  <option value="wikipedia">Wikipedia</option>
+                  <option value="openlibrary">Open Library</option>
+                </select>
+                <label className="search-field">
+                  <Search size={17} aria-hidden="true" />
+                  <input
+                    type="search"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") void handleFindOnline(); }}
+                    placeholder={t("book:person.searchPlaceholder")}
+                    aria-label={t("book:person.searchAria")}
+                  />
+                </label>
+                <Button
+                  variant="primary"
+                  className="metadata-search-button"
+                  onClick={() => void handleFindOnline()}
+                  disabled={finding || !searchQuery.trim()}
+                >
+                  <Search size={16} aria-hidden="true" />
+                  <span>{finding ? t("book:person.searching") : t("book:metadata.search")}</span>
+                </Button>
               </div>
 
-              {/* The running tally counts the FORM against what is saved, not the
-                  selected result against the form — so switching between results
-                  can't make a change you already took look like it vanished. */}
+              {/* What Apply takes — the person's answer to the book dialog's
+                  "update details / update cover" pair, and the replacement for
+                  the three per-field "use this one" buttons that were here. */}
+              <div className="metadata-apply-controls">
+                <label>
+                  <input type="checkbox" checked={takeFacts} onChange={(e) => setTakeFacts(e.target.checked)} />
+                  <span>{t("book:person.takeFacts")}</span>
+                </label>
+                <label>
+                  <input type="checkbox" checked={takeBio} onChange={(e) => setTakeBio(e.target.checked)} />
+                  <span>{t("book:person.takeBiography")}</span>
+                </label>
+                <label>
+                  <input type="checkbox" checked={takePhoto} onChange={(e) => setTakePhoto(e.target.checked)} />
+                  <span>{t("book:person.takePhoto")}</span>
+                </label>
+              </div>
+
+              <div className="metadata-link-row">
+                <label className="search-field metadata-link-field">
+                  <Link2 size={16} aria-hidden="true" />
+                  <input
+                    type="url"
+                    value={linkUrl}
+                    onChange={(e) => setLinkUrl(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") void handleLookupLink(); }}
+                    placeholder={t("book:person.pasteLink")}
+                    aria-label={t("book:person.profileLinkAria")}
+                  />
+                </label>
+                <Button
+                  variant="secondary"
+                  className="metadata-search-button"
+                  onClick={() => void handleLookupLink()}
+                  disabled={lookingUpLink || !linkUrl.trim()}
+                >
+                  <Link2 size={16} aria-hidden="true" />
+                  <span>{lookingUpLink ? t("book:person.reading") : t("book:metadata.fetch")}</span>
+                </Button>
+                <small className="metadata-link-hint">{t("book:person.linkHint")}</small>
+              </div>
+
+              {/* The running tally counts the FORM against what is saved, so
+                  applying a second result can't make the first look undone. */}
               {stagedCount > 0 && (
                 <p className="person-find-staged">
                   <Trans i18nKey="person.stagedReady" ns="book" count={stagedCount} components={{ bold: <strong /> }} />
                 </p>
               )}
 
-              {candidates.length > 0 && (
-                <div className="person-find-results">
-                  <div className="person-result-list" role="list" aria-label={t("book:person.resultsAria")}>
-                    {candidates.map((entry) => {
-                      const isSelected = entry.id === selectedId;
-                      const isExpanded = entry.id === expandedId;
-                      const thumbUrl = entry.photoUrl && !brokenPhotos.includes(entry.photoUrl) ? entry.photoUrl : null;
-                      return (
-                        <div key={entry.id} role="listitem" className={`person-result-card${isSelected ? " is-selected" : ""}`}>
-                          <button
-                            type="button"
-                            className="person-result-pick"
-                            aria-pressed={isSelected}
-                            onClick={() => selectCandidate(entry.id)}
-                          >
-                            {isSelected && (
-                              <span className="person-result-mark" aria-hidden="true"><Check size={14} /></span>
-                            )}
-                            <span className="person-result-thumb" aria-hidden="true">
-                              {thumbUrl
-                                ? <img src={thumbUrl} alt="" onError={() => markPhotoBroken(thumbUrl)} />
-                                : entry.source === "openlibrary" ? <BookMarked size={24} /> : <Globe size={24} />}
-                            </span>
-                            <span className="person-result-body">
-                              <span className="person-result-head">
-                                <strong>{entry.title}</strong>
-                                <span className="person-compare-source-tag">{sourceLabel(entry.source)}</span>
-                              </span>
-                              <span className={`person-result-desc${isExpanded ? " is-expanded" : ""}`}>
-                                {isExpanded
-                                  ? entry.bio ?? entry.description ?? t("book:person.noBioOnPage")
-                                  : entry.description ?? entry.bio ?? t("book:person.noBioOnPage")}
-                              </span>
-                            </span>
-                          </button>
-                          <div className="person-result-actions">
-                            <button
-                              type="button"
-                              className={`person-result-action${isSelected ? " is-on" : ""}`}
-                              onClick={() => selectCandidate(entry.id)}
-                            >
-                              <Eye size={15} aria-hidden="true" />
-                              <span>{t("book:person.preview")}</span>
-                            </button>
-                            <button
-                              type="button"
-                              className="person-result-action"
-                              aria-expanded={isExpanded}
-                              onClick={() => setExpandedId(isExpanded ? null : entry.id)}
-                            >
-                              {isExpanded ? <ChevronUp size={15} aria-hidden="true" /> : <ChevronDown size={15} aria-hidden="true" />}
-                              <span>{isExpanded ? t("book:person.collapse") : t("book:person.expand")}</span>
-                            </button>
-                            {entry.sourceUrl && (
-                              <a
-                                className="person-result-action"
-                                href={entry.sourceUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                              >
-                                <ExternalLink size={15} aria-hidden="true" />
-                                <span>{t("book:person.visitSource")}</span>
-                              </a>
-                            )}
-                          </div>
+              <div className="metadata-results">
+                {candidates.map((entry) => {
+                  const isExpanded = entry.id === expandedId;
+                  const thumbUrl = entry.photoUrl && !brokenPhotos.includes(entry.photoUrl) ? entry.photoUrl : null;
+                  const lifeLine = [
+                    formatLifespan(entry.facts.birthDate, entry.facts.deathDate),
+                    entry.facts.country,
+                    sourceLabel(entry.source)
+                  ].filter(Boolean).join(" · ");
+                  return (
+                    <article className="metadata-result-card" key={entry.id}>
+                      <div className="metadata-result-cover" aria-hidden="true">
+                        {thumbUrl
+                          ? <img src={thumbUrl} alt="" onError={() => markPhotoBroken(thumbUrl)} />
+                          : entry.source === "openlibrary" ? <BookMarked size={22} /> : <Globe size={22} />}
+                      </div>
+                      <div className="metadata-result-body">
+                        <div className="metadata-result-title-row">
+                          <strong>{entry.title}</strong>
                         </div>
-                      );
-                    })}
-                  </div>
-
-                  {selected ? (
-                    <div className="person-compare person-result-detail">
-                      <div className="person-compare-head">
-                        <span>{selected.title}</span>
-                        <span className="person-compare-source-tag">{sourceLabel(selected.source)}</span>
-                        {selected.sourceUrl && (
-                          <a href={selected.sourceUrl} target="_blank" rel="noreferrer">{t("book:person.visitFullPage")}</a>
-                        )}
+                        <span>{entry.facts.occupation ?? entry.description ?? t("book:person.noBioOnPage")}</span>
+                        <small>{lifeLine}</small>
+                        {entry.bio && <p>{entry.bio}</p>}
                       </div>
-
-                      <div className="person-compare-field">
-                        <span className="person-compare-label">{t("book:person.biographyComparison")}</span>
-                        {!selected.bio ? (
-                          <p className="person-find-none">{t("book:person.noBioOnPage")}</p>
-                        ) : (
-                          <>
-                            <div className="person-compare-pair">
-                              <div className="person-compare-block">
-                                <small>{t("book:person.current")}</small>
-                                <p>{bio.trim() || t("book:person.nothingYet")}</p>
-                              </div>
-                              <div className="person-compare-block found">
-                                <small>{t("book:person.found")}</small>
-                                <p>{selected.bio}</p>
-                              </div>
-                            </div>
-                            {bioMatchesCandidate ? (
-                              <span className="person-find-done">
-                                <Check size={15} aria-hidden="true" />
-                                {profile?.bio?.trim() === selected.bio.trim() ? t("book:person.alreadySaved") : t("book:person.addedToForm")}
-                              </span>
-                            ) : (
-                              <Button variant="secondary" compact onClick={useCandidateBio}>{t("book:person.useThisBio")}</Button>
-                            )}
-                          </>
-                        )}
-                      </div>
-
-                      <div className="person-compare-field">
-                        <span className="person-compare-label">{t("book:person.photoComparison")}</span>
-                        {!selectedPhotoUrl ? (
-                          <p className="person-find-none">
-                            {selected.photoUrl ? t("book:person.photoUnavailable") : t("book:person.noPhotoOnPage")}
-                          </p>
-                        ) : (
-                          <>
-                            <div className="person-compare-photos">
-                              <div className="person-compare-block">
-                                <small>{t("book:person.current")}</small>
-                                <span className="compare-cover-frame">
-                                  {profile?.photoUrl ? <img src={profile.photoUrl} alt="" /> : <UserRound size={20} />}
-                                </span>
-                              </div>
-                              <div className="person-compare-block found">
-                                <small>{t("book:person.found")}</small>
-                                <span className="compare-cover-frame">
-                                  <img src={selectedPhotoUrl} alt="" onError={() => markPhotoBroken(selectedPhotoUrl)} />
-                                </span>
-                              </div>
-                            </div>
-                            {photoStaged ? (
-                              <span className="person-find-done">
-                                <Check size={15} aria-hidden="true" />
-                                {t("book:person.readyToSave")}
-                              </span>
-                            ) : (
-                              <Button variant="secondary" compact onClick={useCandidatePhoto}>{t("book:person.useThisPhoto")}</Button>
-                            )}
-                          </>
-                        )}
-                      </div>
-
-                      {/* The facts that tell two same-name pages apart, folded
-                          away: they settle the choice when the description
-                          doesn't, and clutter it when the description does. */}
-                      <div className="person-detail-more">
-                        <button
-                          type="button"
-                          className="person-find-link-toggle"
-                          aria-expanded={detailsOpen}
-                          onClick={() => setDetailsOpen((open) => !open)}
+                      <div className="metadata-result-actions">
+                        <Button
+                          variant="primary"
+                          compact
+                          className="metadata-apply-button"
+                          onClick={() => applyCandidate(entry)}
+                          disabled={!takeFacts && !takeBio && !takePhoto}
                         >
-                          {detailsOpen ? <ChevronUp size={15} aria-hidden="true" /> : <ChevronDown size={15} aria-hidden="true" />}
-                          <span>{detailsOpen ? t("book:person.hideDetails") : t("book:person.moreDetails")}</span>
-                        </button>
-                        {detailsOpen && (detailRows.length > 0 ? (
-                          <div className="person-detail-list">
-                            {detailRows.map((row) => (
-                              <div key={row.label} className="person-detail-row">
-                                <span>{row.label}</span>
-                                <strong>{row.value}</strong>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="person-find-none">{t("book:person.noDetails")}</p>
-                        ))}
+                          {appliedId === entry.id
+                            ? <Check size={15} aria-hidden="true" />
+                            : <CheckCircle2 size={15} aria-hidden="true" />}
+                          <span>{appliedId === entry.id ? t("book:person.addedToForm") : t("book:metadata.apply")}</span>
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          compact
+                          className="metadata-details-button"
+                          onClick={() => setExpandedId(isExpanded ? null : entry.id)}
+                          aria-expanded={isExpanded}
+                        >
+                          {isExpanded ? <ChevronUp size={15} aria-hidden="true" /> : <ChevronDown size={15} aria-hidden="true" />}
+                          <span>{t("book:metadata.details")}</span>
+                        </Button>
+                        {entry.sourceUrl && (
+                          <a className="person-result-source-link" href={entry.sourceUrl} target="_blank" rel="noreferrer">
+                            <ExternalLink size={14} aria-hidden="true" />
+                            <span>{t("book:person.visitSource")}</span>
+                          </a>
+                        )}
                       </div>
-                    </div>
-                  ) : (
-                    <div className="person-result-empty">
-                      <UserRound size={30} aria-hidden="true" />
-                      <strong>{t("book:person.pickAResult")}</strong>
-                      <p>{t("book:person.pickAResultSub")}</p>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+                      {isExpanded && (
+                        <PersonResultCompare
+                          candidate={entry}
+                          currentPhotoUrl={profile?.photoUrl ?? null}
+                          current={{ birthDate, deathDate, country, occupation, bio }}
+                          onPhotoError={markPhotoBroken}
+                          brokenPhotos={brokenPhotos}
+                        />
+                      )}
+                    </article>
+                  );
+                })}
+                {candidates.length === 0 && (
+                  <p className="management-empty">
+                    {finding ? t("book:person.searching")
+                      : searched ? t("book:person.lookupEmpty")
+                      : t("book:person.lookupIdle")}
+                  </p>
+                )}
+              </div>
+            </>
           )}
+
 
         </div>
 
