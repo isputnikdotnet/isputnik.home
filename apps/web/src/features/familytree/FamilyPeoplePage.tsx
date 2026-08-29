@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Settings, UserRoundPlus } from "lucide-react";
+import { CheckCheck, CheckSquare, Settings, Square, Tags, UserRoundPlus, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
@@ -7,8 +7,10 @@ import { followRoute, navigate } from "../../router";
 import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 import { LibraryPageHeader } from "../../shared/LibraryPageHeader";
+import { LibraryPageToolbar } from "../../shared/LibraryPageToolbar";
 import { SectionNav } from "../../shared/SectionNav";
 import { familyNavProps } from "./sectionNavItems";
+import { BulkTagPeopleModal } from "./BulkTagPeopleModal";
 import { FamilyTreeSettingsModal } from "./FamilyTreeSettingsModal";
 import { PersonAvatar } from "./PersonAvatar";
 import { PersonEditModal } from "./PersonEditModal";
@@ -26,6 +28,12 @@ export function FamilyPeoplePage({ user, logout }: { user: PublicUser; logout: (
   const [error, setError] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [accessOpen, setAccessOpen] = useState(false);
+  // Admin-only bulk tagging: tags are the edit-permission scope, so handing a
+  // branch to someone means tagging everyone in it at once.
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [tagOpen, setTagOpen] = useState(false);
+  const [notice, setNotice] = useState("");
   const isAdmin = user.role === "admin";
 
   useEffect(() => {
@@ -52,6 +60,24 @@ export function FamilyPeoplePage({ user, logout }: { user: PublicUser; logout: (
       ),
     [persons, term, activeTag]
   );
+
+  const selectedPersons = useMemo(
+    () => persons.filter((person) => selectedIds.has(person.id)),
+    [persons, selectedIds]
+  );
+
+  const exitSelection = () => {
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+  };
+
+  const toggleSelected = (id: string) =>
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   return (
     <DashboardShell active="family" user={user} logout={logout} sideNav={<SectionNav {...familyNavProps("people")} />}>
@@ -84,24 +110,77 @@ export function FamilyPeoplePage({ user, logout }: { user: PublicUser; logout: (
           )}
         />
 
-        {error && <MessageBox tone="error" title={t("family:people.errorTitle")}>{error}</MessageBox>}
+        {/* The tag chips ride the toolbar's strip row — the same slot the A–Z
+            index uses on the book pages — so filtering and selecting live in
+            one card and nothing below moves when a selection starts. */}
+        <LibraryPageToolbar
+          tools={isAdmin && persons.length > 0 && (
+            <button
+              type="button"
+              className="library-toolbar-button"
+              onClick={() => { setSelectionMode(true); setNotice(""); }}
+            >
+              <CheckSquare size={18} aria-hidden="true" />
+              <span className="toolbar-label">{t("family:people.select")}</span>
+            </button>
+          )}
+          selection={selectionMode ? {
+            count: selectedIds.size,
+            actions: (
+              <>
+                <button
+                  type="button"
+                  className="library-toolbar-button"
+                  onClick={() => setSelectedIds(new Set(shown.map((person) => person.id)))}
+                  disabled={shown.length === 0}
+                  title={t("family:people.selectAllShownTitle")}
+                >
+                  <CheckCheck size={18} aria-hidden="true" />
+                  <span className="toolbar-label">{t("family:people.selectAll")}</span>
+                </button>
+                <button
+                  type="button"
+                  className="library-toolbar-button primary"
+                  onClick={() => { setNotice(""); setTagOpen(true); }}
+                  disabled={selectedIds.size === 0}
+                  title={t("family:people.tagSelectedTitle")}
+                >
+                  <Tags size={18} aria-hidden="true" />
+                  <span className="toolbar-label">{t("family:people.tagSelected")}</span>
+                </button>
+                <span className="library-toolbar-divider" aria-hidden="true" />
+                <button
+                  type="button"
+                  className="library-toolbar-button"
+                  onClick={exitSelection}
+                  title={t("family:people.leaveSelection")}
+                >
+                  <X size={18} aria-hidden="true" />
+                  <span className="toolbar-label">{t("common.done")}</span>
+                </button>
+              </>
+            )
+          } : null}
+          strip={tagCounts.length > 0 && (
+            <div className="ft-tag-filter" role="group" aria-label={t("family:people.filterByTagAria")}>
+              {tagCounts.map(([tag, count]) => (
+                <button
+                  key={tag}
+                  type="button"
+                  className={`book-tag-chip book-tag-chip-tag${activeTag === tag ? " ft-tag-chip-active" : ""}`}
+                  aria-pressed={activeTag === tag}
+                  title={`${tag} · ${count}`}
+                  onClick={() => setActiveTag(activeTag === tag ? null : tag)}
+                >
+                  {tag} · {count}
+                </button>
+              ))}
+            </div>
+          )}
+        />
 
-        {tagCounts.length > 0 && (
-          <div className="ft-tag-filter" role="group" aria-label={t("family:people.filterByTagAria")}>
-            {tagCounts.map(([tag, count]) => (
-              <button
-                key={tag}
-                type="button"
-                className={`book-tag-chip book-tag-chip-tag${activeTag === tag ? " ft-tag-chip-active" : ""}`}
-                aria-pressed={activeTag === tag}
-                title={`${tag} · ${count}`}
-                onClick={() => setActiveTag(activeTag === tag ? null : tag)}
-              >
-                {tag} · {count}
-              </button>
-            ))}
-          </div>
-        )}
+        {error && <MessageBox tone="error" title={t("family:people.errorTitle")}>{error}</MessageBox>}
+        {notice && <MessageBox tone="success" title={t("family:people.tagsUpdatedTitle")}>{notice}</MessageBox>}
 
         {shown.length === 0 ? (
           <p className="management-empty">
@@ -113,22 +192,41 @@ export function FamilyPeoplePage({ user, logout }: { user: PublicUser; logout: (
           </p>
         ) : (
           <div className="ft-people-grid">
-            {shown.map((person) => (
-              <a
-                key={person.id}
-                className="ft-person-card"
-                href={`/family/people/${person.id}`}
-                onClick={(event) => followRoute(event, `/family/people/${person.id}`)}
-              >
-                <PersonAvatar person={person} size={64} />
-                <strong>{person.name}</strong>
-                <small>
-                  {[person.maidenName ? t("family:common.nee", { name: person.maidenName }) : "", lifeYears(person)]
-                    .filter(Boolean)
-                    .join(" · ") || " "}
-                </small>
-              </a>
-            ))}
+            {shown.map((person) => {
+              const meta =
+                [person.maidenName ? t("family:common.nee", { name: person.maidenName }) : "", lifeYears(person)]
+                  .filter(Boolean)
+                  .join(" · ") || " ";
+              // While selecting, the card picks instead of navigating — a link
+              // that sometimes leaves the page mid-selection loses the set.
+              return selectionMode ? (
+                <button
+                  key={person.id}
+                  type="button"
+                  className={`ft-person-card${selectedIds.has(person.id) ? " is-selected" : ""}`}
+                  aria-pressed={selectedIds.has(person.id)}
+                  onClick={() => toggleSelected(person.id)}
+                >
+                  <span className="ft-person-card-check" aria-hidden="true">
+                    {selectedIds.has(person.id) ? <CheckSquare size={18} /> : <Square size={18} />}
+                  </span>
+                  <PersonAvatar person={person} size={64} />
+                  <strong>{person.name}</strong>
+                  <small>{person.tags.length > 0 ? person.tags.join(" · ") : meta}</small>
+                </button>
+              ) : (
+                <a
+                  key={person.id}
+                  className="ft-person-card"
+                  href={`/family/people/${person.id}`}
+                  onClick={(event) => followRoute(event, `/family/people/${person.id}`)}
+                >
+                  <PersonAvatar person={person} size={64} />
+                  <strong>{person.name}</strong>
+                  <small>{meta}</small>
+                </a>
+              );
+            })}
           </div>
         )}
       </section>
@@ -139,6 +237,20 @@ export function FamilyPeoplePage({ user, logout }: { user: PublicUser; logout: (
           showTags={isAdmin}
           onClose={() => setAddOpen(false)}
           onSaved={(person) => navigate(`/family/people/${person.id}`)}
+        />
+      )}
+
+      {tagOpen && (
+        <BulkTagPeopleModal
+          persons={selectedPersons}
+          onClose={() => setTagOpen(false)}
+          onSaved={(updated) => {
+            const byId = new Map(updated.map((person) => [person.id, person]));
+            setPersons((current) => current.map((person) => byId.get(person.id) ?? person));
+            setTagOpen(false);
+            exitSelection();
+            setNotice(t("family:people.tagsUpdatedBody", { count: updated.length }));
+          }}
         />
       )}
 
