@@ -2091,3 +2091,224 @@
   justify-items: start;
   gap: 12px;
 }
+
+/* ── Bulk tagging (People selection · Families card action) ── */
+
+/* In selection mode the person card is a button, not a link. Same box, plus a
+   corner check and a selected border. */
+.ft-person-card {
+  position: relative;
+  font: inherit;
+  cursor: pointer;
+}
+
+.ft-person-card.is-selected {
+  border-color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 10%, var(--surface));
+}
+
+.ft-person-card-check {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: flex;
+  color: var(--gold);
+}
+
+/* The family card keeps its own hover/lift; the tag action sits over its
+   corner, always visible (a hover-only control is unreachable by touch). */
+.ft-family-name-slot {
+  position: relative;
+  display: flex;
+}
+
+.ft-family-name-slot .ft-family-name-card {
+  flex: 1;
+  min-width: 0;
+}
+
+.ft-family-name-tag {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  opacity: 0.55;
+}
+
+.ft-family-name-slot:hover .ft-family-name-tag,
+.ft-family-name-tag:hover,
+.ft-family-name-tag:focus-visible {
+  opacity: 1;
+}
+
+/* Header · scrolling body · actions, like the settings panel next door. The
+   panel's default three-track grid assumes a tab row this modal doesn't have,
+   which left the actions sharing a track with the content. */
+/* Qualified with .metadata-modal: this file is imported before the panel's own
+   stylesheet, so a bare class here loses the grid-track override. */
+.metadata-modal.ft-bulk-tag-modal {
+  width: min(100%, 680px);
+  /* Sized by its content — one family is a short dialog, a whole tree is a
+     tall one — and only then capped and scrolled. */
+  height: auto;
+  min-height: 0;
+  max-height: calc(100vh - 48px);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.ft-bulk-tag-content {
+  gap: 22px;
+}
+
+.ft-bulk-tag-modal .modal-actions {
+  /* align-items keeps the buttons their own height if the row ever gets a
+     taller track than it asked for. */
+  align-items: center;
+  padding: 0 16px 16px;
+  margin-top: 0;
+}
+
+.ft-bulk-tag-section {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.ft-bulk-tag-section .ft-modal-hint {
+  margin: 0;
+}
+
+.ft-bulk-tag-section h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.ft-bulk-tag-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* The selection is a scrollable chip field: 200 people must not push the tag
+   list and the Apply row off the panel. */
+.ft-bulk-tag-people {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-height: 190px;
+  overflow-y: auto;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--field);
+}
+
+.ft-bulk-tag-person {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px 4px 4px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+}
+
+.ft-bulk-tag-person-name {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 0.85rem;
+}
+
+.ft-bulk-tag-person-name small {
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+
+.ft-bulk-tag-person-drop {
+  display: inline-flex;
+  padding: 2px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.ft-bulk-tag-person-drop:hover {
+  color: var(--danger);
+}
+
+.ft-bulk-tag-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ft-bulk-tag-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ft-bulk-tag-row:hover {
+  border-color: var(--gold);
+}
+
+.ft-bulk-tag-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+
+.ft-bulk-tag-row.is-add .ft-bulk-tag-mark {
+  border-color: var(--mint);
+  background: color-mix(in srgb, var(--mint) 18%, transparent);
+  color: var(--mint);
+}
+
+.ft-bulk-tag-row.is-remove .ft-bulk-tag-mark {
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 16%, transparent);
+  color: var(--danger);
+}
+
+.ft-bulk-tag-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.ft-bulk-tag-state {
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-align: right;
+}
+
+.ft-bulk-tag-new {
+  display: flex;
+  gap: 8px;
+}
+
+.ft-bulk-tag-new input {
+  flex: 1;
+  min-width: 0;
+}

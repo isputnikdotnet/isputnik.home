@@ -417,7 +417,8 @@
     "opensOn": "Opens on {{name}}",
     "errors": {
       "loadPersons": "Unable to load family members"
-    }
+    },
+    "tagFamily": "Assign family tags to the {{name}} family"
   },
   "people": {
     "title": "People",
@@ -429,7 +430,16 @@
     "emptyNoMatches": "No one matches your search.",
     "errors": {
       "loadPersons": "Unable to load family members"
-    }
+    },
+    "select": "Select",
+    "selectAll": "All",
+    "selectAllShownTitle": "Select everyone shown",
+    "tagSelected": "Tags",
+    "tagSelectedTitle": "Assign family tags to the selected people",
+    "leaveSelection": "Leave selection",
+    "tagsUpdatedTitle": "Tags updated",
+    "tagsUpdatedBody_one": "Family tags updated on {{count}} person.",
+    "tagsUpdatedBody_other": "Family tags updated on {{count}} people."
   },
   "person": {
     "tabs": {
@@ -624,5 +634,34 @@
       "death": "2024 or 2024-03-15",
       "divorced": "2015 or 2015-03-01"
     }
+  },
+  "bulkTags": {
+    "title_one": "Family tags for {{count}} person",
+    "title_other": "Family tags for {{count}} people",
+    "errorTitle": "Unable to update tags",
+    "peopleTitle": "Who this applies to",
+    "addRelatives": "Add relatives",
+    "addingRelatives": "Adding relatives…",
+    "relativesHint": "Add relatives pulls in everyone connected to this selection through the tree — partners, children, parents and their families. Names change with marriage; the tree doesn't.",
+    "dropPerson": "Leave {{name}} out",
+    "tagsTitle": "Tags",
+    "tagsHint": "A tag grants edit rights over everyone carrying it. Click a tag to add it to everyone here, click again to remove it from everyone, and a third time to leave each person as they are.",
+    "noTagsYet": "No family tags yet — name one below to create it.",
+    "choiceAdd": "Everyone gets it",
+    "choiceRemove": "Removed from everyone",
+    "choiceKeep_one": "Left as is · {{count}} has it",
+    "choiceKeep_other": "Left as is · {{count}} have it",
+    "newTagLabel": "New tag",
+    "newTagPlaceholder": "New tag — a branch or family name…",
+    "newTagButton": "Create",
+    "apply": "Apply tags",
+    "applying": "Applying…",
+    "errors": {
+      "load": "Unable to load family tags",
+      "relatives": "Unable to add relatives",
+      "apply": "Unable to update tags"
+    },
+    "stateAll": "Everyone has it",
+    "stateNone": "No one has it"
   }
 }

@@ -14,7 +14,8 @@ import {
   partialDateSchema, GENDERS,
   listFamilyPersons, getFamilyPerson, getFamilyPersonProfile, getFamilyTree,
   createFamilyPerson, updateFamilyPerson, deleteFamilyPerson,
-  getPortraitStorageKey, setUploadedPortrait
+  getPortraitStorageKey, setUploadedPortrait,
+  expandToRelatives, applyFamilyPersonTags
 } from "./persons.js";
 import {
   UNION_STATUSES, CHILD_RELATIONS, type RelationError,
@@ -421,6 +422,69 @@ export async function familyTreeRoutesPlugin(app: FastifyInstance) {
       await fs.rm(thumbnailAbsolutePath(oldPortraitKey), { force: true }).catch(() => {});
     }
     return reply.send({ person: decoratePersons(user, [person])[0] });
+  });
+
+  // ── Bulk tagging (admin) ──
+  //
+  // Tags are the permission boundary, so scoping a branch means tagging every
+  // person in it — one profile at a time does not scale past a handful. These
+  // two endpoints back the People page selection and the Families page:
+  // /relatives turns a seed into the whole connected family, /tags applies the
+  // change. Additive by design: a person may carry several branch tags.
+
+  const relativesSchema = z.object({
+    personIds: z.array(z.string().trim().min(1)).min(1).max(2000)
+  });
+
+  app.post("/api/family-tree/persons/relatives", { preHandler: app.authenticate }, async (request, reply) => {
+    const parsed = parseBody(relativesSchema, request.body);
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid selection", details: parsed.error });
+    }
+    return reply.send({ personIds: expandToRelatives(parsed.data.personIds) });
+  });
+
+  const bulkTagsSchema = z.object({
+    personIds: z.array(z.string().trim().min(1)).min(1).max(2000),
+    add: tagsSchema.optional(),
+    remove: tagsSchema.optional()
+  });
+
+  app.post("/api/family-tree/persons/tags", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const user = request.user!;
+    const parsed = parseBody(bulkTagsSchema, request.body);
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid changes", details: parsed.error });
+    }
+    const add = parsed.data.add ?? [];
+    const remove = parsed.data.remove ?? [];
+    if (add.length === 0 && remove.length === 0) {
+      return reply.code(400).send({ error: "Choose at least one tag to add or remove." });
+    }
+    // Unknown ids are dropped rather than failing the batch — a stale selection
+    // (someone deleted in another tab) should still tag everyone who is left.
+    const persons = parsed.data.personIds
+      .map((id) => getFamilyPerson(id))
+      .filter((person): person is NonNullable<typeof person> => person != null);
+    if (persons.length === 0) {
+      return reply.code(404).send({ error: "None of those family members exist any more." });
+    }
+    applyFamilyPersonTags(persons.map((person) => person.id), add, remove);
+    const changes = [
+      add.length > 0 ? `added ${add.join(", ")}` : "",
+      remove.length > 0 ? `removed ${remove.join(", ")}` : ""
+    ].filter(Boolean).join(" and ");
+    logActivity({
+      event: "familytree.persons.tagged",
+      actorUserId: user.id,
+      targetType: "family_tree_person",
+      detail: `Family tags on ${persons.length} ${persons.length === 1 ? "person" : "people"}: ${changes}.`,
+      ipAddress: request.ip
+    });
+    const updated = persons
+      .map((person) => getFamilyPerson(person.id))
+      .filter((person): person is NonNullable<typeof person> => person != null);
+    return reply.send({ persons: decoratePersons(user, updated) });
   });
 
   app.delete("/api/family-tree/persons/:id", { preHandler: app.requireAdmin }, async (request, reply) => {

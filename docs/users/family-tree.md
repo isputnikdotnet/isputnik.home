@@ -107,8 +107,23 @@ That's often too strict for a family where a cousin knows their own side best.
 
 **Branch access** solves it with tags:
 
-1. **Tag the people in a branch.** Edit a person → *Tags* → give them a tag,
-   usually the family surname.
+1. **Tag the people in a branch.** The quickest way is the tag button (🏷) on a
+   family's card on the **Families** page — it opens with that family's members
+   already gathered. **Add relatives** then pulls in everyone connected to them
+   through the tree, which is what you usually want: surnames change with
+   marriage, so a married-in spouse belongs to the branch without sharing its
+   name. Drop anyone who doesn't belong with the **✕** on their chip, type a tag
+   name, **Create** it, and **Apply tags**.
+
+   You can start from **People** instead when the branch isn't one family:
+   **Select**, tick the people (or **All** to take everyone the current search
+   and tag filter leave on screen), then **Tags**. Tagging one person on their
+   own still works from Edit person → *Tags*.
+
+   Tags add up rather than replace: someone who sits in two branches can carry
+   both tags, and a bulk add never disturbs the tags a person already has. Click
+   a tag once to give it to everyone in the selection, again to take it from
+   everyone, and a third time to leave each person as they are.
 2. **Grant editing on that tag.** Settings → Security → pick the tag, choose a
    person or group, and add them as **Editor**.
 
