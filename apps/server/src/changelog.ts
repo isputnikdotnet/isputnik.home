@@ -19,6 +19,17 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.38.0",
+    label: "The whole branch at once",
+    changes: [
+      "Family tags are what decide who may edit which part of the family tree — give a cousin editing rights on a tag and they can maintain everyone carrying it. But tags could only be put on one person at a time, from inside that person's own edit form, so handing somebody their side of the family meant opening every profile in it and typing the same word again. There are now two places to do it to a whole group at once, and a family of thirty is one pass.",
+      "The Families page is the obvious one: every family card carries a tag button, and it opens with that family's members already gathered. The People page is for a branch that isn't one surname — Select turns the grid into checkboxes, All takes everyone the current search and tag filter have left on screen, and Tags acts on what you ticked. Tagging one person on their own still works exactly where it did.",
+      "Add relatives is the part that does the real work. It grows the selection along the tree itself — partners, children, parents, and onwards through theirs — instead of by surname, because a name is a poor guide to a family: a wife who kept her own belongs to the branch without sharing it, and a stranger who happens to be another Ivanov does not. Anyone who doesn't belong comes off the list with a click before you apply anything.",
+      "Tags add up rather than replace. Someone can sit in two branches and carry both, and a bulk add never disturbs what a person already has — which the single-person form, working on a whole tag set at once, could not promise. Each tag has three states rather than a checkbox: give it to everyone in the selection, take it from everyone, or leave each person as they are. A tag nobody has touched says what is true of the selection instead of describing a change that isn't there.",
+      "Assigning tags is still administrators only, for the same reason as before: if editors could tag, they could pull any person into their own branch and hand themselves rights over them."
+    ]
+  },
+  {
     version: "3.37.0",
     label: "One place to share",
     changes: [
