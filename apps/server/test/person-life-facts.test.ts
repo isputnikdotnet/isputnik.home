@@ -120,6 +120,21 @@ describe("trimYearRange", () => {
     expect(trimYearRange("English writer and humorist")).toBe("English writer and humorist");
     expect(trimYearRange("novelist (pen name of Eric Blair)")).toBe("novelist (pen name of Eric Blair)");
     expect(trimYearRange("1816 novel by Jane Austen")).toBe("1816 novel by Jane Austen");
+    // An empty parenthetical says nothing, but there is no date in it either.
+    expect(trimYearRange("translator ()")).toBe("translator ()");
+  });
+
+  // This used to decide "is the parenthetical only dates?" with one repeated
+  // alternation of overlapping fragments (born|…|BCE?|…|[bcdr]), which
+  // backtracks exponentially when the closing ")" never comes: a 49-character
+  // "(bcbcbc…" took 111ms, 57 characters took minutes, and Node has one thread
+  // to wedge. The description is a Wikipedia page's, and anyone can edit those.
+  it("cannot be wedged by a parenthetical that never closes", () => {
+    const attack = `(${"bc".repeat(100_000)}`;
+
+    const started = Date.now();
+    expect(trimYearRange(attack)).toBe(attack);
+    expect(Date.now() - started).toBeLessThan(1000);
   });
 });
 
