@@ -19,6 +19,14 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.40.1",
+    label: "A line that could stop the house",
+    changes: [
+      "A fix worth going out on its own: looking up a person could have hung the whole server, and not by anything you did. The tidy-up that trims a repeated year range off a Wikipedia one-liner — turning “English novelist (1775–1817)” into “English novelist” — could be made to run for minutes on a single short line of text, and while it ran, nothing else in the house was served. Anyone can edit a Wikipedia page, so the line that triggers it was never yours to control. The same tidy-up now finishes in under a millisecond on text a thousand times longer.",
+      "Biographies and blurbs from the online sources also stopped inventing punctuation that was never in them: a source that wrote an escaped angle bracket had it read back as a real one. It never became markup on the page — these are always drawn as plain text — but a biography should say what its source said."
+    ]
+  },
+  {
     version: "3.40.0",
     label: "Only what you searched for",
     changes: [
