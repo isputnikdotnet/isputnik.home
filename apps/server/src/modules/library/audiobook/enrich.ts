@@ -441,12 +441,28 @@ function joinCountries(ids: string[], labels: Map<string, string>): string | nul
 // "English novelist (1775–1817) · 1775 – 1817" on the page. Drop a trailing
 // parenthetical that is nothing but dates; anything with a word in it stays.
 export function trimYearRange(description: string): string {
+  // Take the trailing parenthetical whole, then judge its contents separately.
+  // Deciding both at once needs one alternation of overlapping date fragments
+  // (born|…|BCE?|…|[bcdr]), and a repeated overlapping alternation backtracks
+  // exponentially when the closing ")" never arrives: "(bcbcbc…" at sixty
+  // characters wedged the event loop for minutes (js/redos, alert #254). The
+  // description comes from a Wikipedia page, which anyone can edit.
+  const parenthetical = /\(([^()]*)\)\s*$/.exec(description);
+  if (!parenthetical) {
+    return description.trim();
+  }
+
   // Letters only where they spell a date qualifier — "born", "died", "c.",
   // "b. 1952", "BC". Anything else in the parenthetical keeps it: "(pen name of
-  // Eric Blair)" is the description, not a repeat of the dates beside it.
-  return description
-    .replace(/\s*\((?:born|died|circa|fl\.?|BCE?|AD|[0-9]|[\s.,–—-]|[bcdr])+\)\s*$/i, "")
-    .trim();
+  // Eric Blair)" is the description, not a repeat of the dates beside it. Words
+  // first, then a single character class over what is left: both passes are
+  // linear, with nothing for a backtracker to explore.
+  const remainder = parenthetical[1].replace(/born|died|circa|fl\.?|bce?|ad/gi, " ");
+  if (!/^[0-9\s.,–—bcdr-]+$/i.test(remainder)) {
+    return description.trim();
+  }
+
+  return description.slice(0, parenthetical.index).trim();
 }
 
 // Everything a Wikipedia page says about a person on its own, before Wikidata
