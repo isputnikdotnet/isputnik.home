@@ -19,6 +19,18 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.40.0",
+    label: "Only what you searched for",
+    changes: [
+      "Metadata Lookup used to answer a title with everything loosely related to it. Searching “The Hobbit” brought back Frankenstein, The Housemaid and the King James Bible, because every source behind the dialog runs a keyword search and hands over whatever shares a word. It now returns only results that carry every word you typed, ranked so the closest titles come first — across all sources at once, rather than eight from one and then eight from the next. If a search comes back empty it says so and suggests a shorter query, which is a better answer than a page of wrong books.",
+      "The search box opens with the title alone rather than the title and the author. An author sitting in the box is another word every result has to match, and sources spell names differently enough (“Leo Tolstoy”, “Лев Толстой”) that it quietly ruled out the right book. Type one in yourself when a common title needs narrowing.",
+      "Applying a result is now yours to shape. Instead of “update details” and “update cover”, there is one tick per field a result can fill — cover, title, authors, narrators, year, publisher, language, ISBN, ASIN, tags, description — all on by default. Untick the year and the year you already have stays, while the narrator you were actually after still arrives. A source that is right about one thing and wrong about another is no longer all or nothing. Details lays the two side by side and greys out whatever you excluded, so you can see what applying would do before you do it.",
+      "Applying a match that carried new cover art appeared to do nothing to the cover. The art was fetched and stored correctly — the page simply kept showing the copy your browser already had, because the address of a book’s cover never changes when the picture behind it does. Covers now change address whenever they change, so a new one shows up the moment it lands, in the grid as well as on the book.",
+      "FantLab joins Find info as a source for the people behind your books, alongside Wikipedia and Open Library — which between them know little about Russian authors and nothing about Russian narrators. It answers with a biography, dates, country and a portrait, in Russian. Narrators are covered too: they are a separate kind of record there, and pasting either a fantlab.ru/autor… or a /dictor… link works. Its portraits show up in the photo picker as well.",
+      "Fixed: portraits from Wikipedia were blocked from loading in the Find info results by the app’s own security policy — visible only on a real deployment, never in development."
+    ]
+  },
+  {
     version: "3.39.0",
     label: "A line about the person",
     changes: [
