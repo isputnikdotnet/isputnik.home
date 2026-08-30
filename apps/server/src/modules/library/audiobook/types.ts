@@ -29,6 +29,8 @@ export interface AudiobookBookRow {
   language: string | null;
   duration_seconds: number | null;
   cover_storage_key: string | null;
+  // item_metadata.updated_at — the version stamp on the cover URL (see coverUrl).
+  metadata_updated_at: string | null;
   publisher: string | null;
   asin: string | null;
   author_names: string | null;

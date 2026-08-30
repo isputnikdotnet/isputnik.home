@@ -7,7 +7,7 @@ import {
   type CatalogConfig,
   type CatalogQuery
 } from "../shared/catalog-core.js";
-import { splitGroupConcat, categoryPayload, bookTags, largeCoverUrl } from "../audiobook/book-helpers.js";
+import { splitGroupConcat, categoryPayload, bookTags, coverUrl as buildCoverUrl, largeCoverUrl } from "../audiobook/book-helpers.js";
 
 // Columns/joins for the ebook catalog. Unlike audiobooks, content is documents
 // (document_files) and progress is per-document reading_progress — folded to the
@@ -35,6 +35,7 @@ const EBOOK_LIST_COLUMNS = `
         item_metadata.language,
         item_metadata.year_published,
         item_metadata.cover_storage_key,
+        item_metadata.updated_at AS metadata_updated_at,
         (SELECT ic.category_id FROM item_categories ic WHERE ic.item_id = library_items.id AND ic.is_primary = 1 LIMIT 1) AS category_id,
         GROUP_CONCAT(DISTINCT authors.name) AS author_names,
         (SELECT format FROM document_files WHERE document_files.item_id = library_items.id AND document_files.status = 'available' ORDER BY CASE format WHEN 'epub' THEN 0 WHEN 'pdf' THEN 1 ELSE 2 END, relative_path LIMIT 1) AS format,
@@ -68,6 +69,7 @@ interface EbookCatalogRow {
   language: string | null;
   year_published: number | null;
   cover_storage_key: string | null;
+  metadata_updated_at: string | null;
   category_id: string | null;
   author_names: string | null;
   format: string | null;
@@ -85,7 +87,7 @@ const FORMAT_RANK: Record<string, number> = { epub: 0, pdf: 1 };
 const formatRank = (format: string): number => FORMAT_RANK[format] ?? 2;
 
 function mapEbookRow(row: EbookCatalogRow) {
-  const coverUrl = row.cover_storage_key ? `/api/library/covers/${row.cover_storage_key}` : null;
+  const coverUrl = buildCoverUrl(row.cover_storage_key, row.metadata_updated_at);
   // "id:format" pairs from GROUP_CONCAT → an ordered list (EPUB first) for the format
   // chips and OPDS per-format acquisition links.
   const documents = (row.documents ?? "")
@@ -119,7 +121,7 @@ function mapEbookRow(row: EbookCatalogRow) {
     durationSeconds: null,
     yearPublished: row.year_published,
     coverUrl,
-    coverLargeUrl: largeCoverUrl(row.cover_storage_key),
+    coverLargeUrl: largeCoverUrl(row.cover_storage_key, row.metadata_updated_at),
     publisher: null,
     asin: null,
     progress: { percentComplete: row.progress_percent, completedAt: row.progress_completed_at },

@@ -10,6 +10,33 @@ import type { AudiobookBookDetail, CategorySummary, CoverCandidate, MetadataCand
 
 export type MetadataTab = "edit" | "tags" | "publishing" | "series" | "cover" | "lookup";
 
+// Applying a result is field-by-field: a provider is right about the narrator and
+// wrong about the year often enough that "all of it or none of it" was the wrong
+// question. Order follows the comparison table below, which reads top-down as the
+// book's own summary. Must stay in step with METADATA_APPLY_FIELDS on the server —
+// an unknown field there is a 400.
+const METADATA_APPLY_FIELDS = [
+  "cover", "title", "authors", "narrators", "year",
+  "publisher", "language", "isbn", "asin", "tags", "description"
+] as const;
+
+type ApplyField = typeof METADATA_APPLY_FIELDS[number];
+
+// `as const` keeps these literal so they still typecheck as translation keys.
+const APPLY_FIELD_LABELS = {
+  cover: "book:compare.cover",
+  title: "book:metadata.fieldTitle",
+  authors: "book:metadata.fieldAuthors",
+  narrators: "book:metadata.fieldNarrators",
+  year: "book:metadata.fieldYear",
+  publisher: "book:metadata.fieldPublisher",
+  language: "book:metadata.fieldLanguage",
+  isbn: "book:metadata.fieldIsbn",
+  asin: "book:metadata.fieldAsin",
+  tags: "book:metadata.fieldTags",
+  description: "book:metadata.fieldDescription"
+} as const satisfies Record<ApplyField, string>;
+
 // The full metadata editor used both on the book detail page and from the
 // audiobooks grid "Edit metadata" action. It owns its own metadata-related
 // state; the host only supplies the book, an updated-book callback, and close.
@@ -26,11 +53,19 @@ export function EditMetadataModal({
 }) {
   const { t } = useTranslation(["common", "book"]);
   const [activeMetadataTab, setActiveMetadataTab] = useState<MetadataTab>(initialTab);
-  const [metadataQuery, setMetadataQuery] = useState(`${book.title} ${book.authors[0] ?? ""}`.trim());
+  // Title only. The lookup returns matches for exactly what stands in the box
+  // and nothing else, so an author prefilled here would quietly rule out every
+  // provider that spells the name differently ("Leo Tolstoy" vs "Лев Толстой").
+  // Add one by hand to narrow a common title.
+  const [metadataQuery, setMetadataQuery] = useState(book.title);
   const [metadataProvider, setMetadataProvider] = useState<"all" | MetadataCandidate["source"]>("all");
-  const [updateDetails, setUpdateDetails] = useState(true);
-  const [updateCover, setUpdateCover] = useState(true);
+  // Everything is taken by default; unticking a field is how you keep the value
+  // you already have — the book's own narrator, say, over the provider's.
+  const [applyFields, setApplyFields] = useState<Set<ApplyField>>(() => new Set(METADATA_APPLY_FIELDS));
   const [metadataResults, setMetadataResults] = useState<MetadataCandidate[]>([]);
+  // The query a result list belongs to; "" until the first search. Separates
+  // "nothing searched yet" from "searched, nothing matched what you typed".
+  const [searchedQuery, setSearchedQuery] = useState("");
   const [metadataLoading, setMetadataLoading] = useState(false);
   const [applyingIndex, setApplyingIndex] = useState<number | null>(null);
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
@@ -46,7 +81,7 @@ export function EditMetadataModal({
   const [coverLoading, setCoverLoading] = useState(false);
   const [coverSaving, setCoverSaving] = useState("");
   const [coverError, setCoverError] = useState("");
-  const [coverQuery, setCoverQuery] = useState(`${book.title} ${book.authors[0] ?? ""}`.trim());
+  const [coverQuery, setCoverQuery] = useState(book.title);
   // null = not searched yet; [] = searched, found nothing.
   const [onlineCovers, setOnlineCovers] = useState<{ url: string; source: string }[] | null>(null);
   const [onlineCoversLoading, setOnlineCoversLoading] = useState(false);
@@ -132,13 +167,12 @@ export function EditMetadataModal({
     setMetadataLoading(true);
     setMetadataError("");
     setExpandedIndex(null);
+    const query = metadataQuery.trim() || book.title;
     try {
-      const params = new URLSearchParams({
-        q: metadataQuery || book.title,
-        provider: metadataProvider
-      });
+      const params = new URLSearchParams({ q: query, provider: metadataProvider });
       const payload = await api<{ candidates: MetadataCandidate[] }>(`/api/library/books/${book.id}/metadata-search?${params}`);
       setMetadataResults(payload.candidates);
+      setSearchedQuery(query);
     } catch (err) {
       setMetadataError(err instanceof Error ? err.message : t("book:metadata.unableSearch"));
     } finally {
@@ -160,11 +194,22 @@ export function EditMetadataModal({
       const params = new URLSearchParams({ url });
       const payload = await api<{ candidates: MetadataCandidate[] }>(`/api/library/books/${book.id}/metadata-from-url?${params}`);
       setMetadataResults(payload.candidates);
+      setSearchedQuery("");
     } catch (err) {
       setMetadataError(err instanceof Error ? err.message : t("book:metadata.unableReadLink"));
     } finally {
       setLinkLoading(false);
     }
+  };
+
+  const toggleApplyField = (field: ApplyField) => {
+    setApplyFields((current) => {
+      const next = new Set(current);
+      if (!next.delete(field)) {
+        next.add(field);
+      }
+      return next;
+    });
   };
 
   const applyMetadata = async (candidate: MetadataCandidate, index: number) => {
@@ -173,11 +218,7 @@ export function EditMetadataModal({
     try {
       const payload = await api<{ updated: boolean; book: AudiobookBookDetail }>(`/api/library/books/${book.id}/metadata-match`, {
         method: "POST",
-        body: JSON.stringify({
-          candidate,
-          updateDetails,
-          updateCover: updateCover && Boolean(candidate.coverUrl)
-        })
+        body: JSON.stringify({ candidate, fields: [...applyFields] })
       });
       onBookUpdated(payload.book);
       setMetadataResults([]);
@@ -247,7 +288,7 @@ export function EditMetadataModal({
         method: "POST",
         body: JSON.stringify({ relativePath: cover.relativePath })
       });
-      showUpdatedCover(payload.book);
+      onBookUpdated(payload.book);
     } catch (err) {
       setCoverError(err instanceof Error ? err.message : t("book:metadata.unableApplyCover"));
     } finally {
@@ -268,7 +309,7 @@ export function EditMetadataModal({
         headers: { "Content-Type": file.type || "application/octet-stream" },
         body: file
       });
-      showUpdatedCover(payload.book);
+      onBookUpdated(payload.book);
     } catch (err) {
       setCoverError(err instanceof Error ? err.message : t("book:metadata.unableUploadCover"));
     } finally {
@@ -310,22 +351,13 @@ export function EditMetadataModal({
         method: "POST",
         body: JSON.stringify({ url })
       });
-      showUpdatedCover(payload.book);
+      onBookUpdated(payload.book);
     } catch (err) {
       setCoverError(err instanceof Error ? err.message : t("book:metadata.unableApplyCover"));
       hideOnlineCover(url);
     } finally {
       setCoverSaving("");
     }
-  };
-
-  const showUpdatedCover = (updatedBook: AudiobookBookDetail) => {
-    const version = Date.now();
-    onBookUpdated({
-      ...updatedBook,
-      coverUrl: updatedBook.coverUrl ? `${updatedBook.coverUrl}?v=${version}` : updatedBook.coverUrl,
-      coverLargeUrl: updatedBook.coverLargeUrl ? `${updatedBook.coverLargeUrl}?v=${version}` : updatedBook.coverLargeUrl
-    });
   };
 
   const metadataEditFooter = (
@@ -663,15 +695,29 @@ export function EditMetadataModal({
                 </button>
               </div>
 
-              <div className="metadata-apply-controls">
-                <label>
-                  <input type="checkbox" checked={updateDetails} onChange={(event) => setUpdateDetails(event.target.checked)} />
-                  <span>{t("book:metadata.updateDetails")}</span>
-                </label>
-                <label>
-                  <input type="checkbox" checked={updateCover} onChange={(event) => setUpdateCover(event.target.checked)} />
-                  <span>{t("book:metadata.updateCover")}</span>
-                </label>
+              <div className="metadata-apply-fields">
+                <div className="metadata-apply-fields-head">
+                  <strong>{t("book:metadata.applyFieldsTitle")}</strong>
+                  <span>{t("book:metadata.applyFieldsCount", { count: applyFields.size, total: METADATA_APPLY_FIELDS.length })}</span>
+                  <button type="button" className="metadata-field-link" onClick={() => setApplyFields(new Set(METADATA_APPLY_FIELDS))}>
+                    {t("book:metadata.applyFieldsAll")}
+                  </button>
+                  <button type="button" className="metadata-field-link" onClick={() => setApplyFields(new Set())}>
+                    {t("book:metadata.applyFieldsNone")}
+                  </button>
+                </div>
+                <div className="metadata-apply-controls">
+                  {METADATA_APPLY_FIELDS.map((field) => (
+                    <label key={field}>
+                      <input
+                        type="checkbox"
+                        checked={applyFields.has(field)}
+                        onChange={() => toggleApplyField(field)}
+                      />
+                      <span>{t(APPLY_FIELD_LABELS[field])}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
 
               <div className="metadata-link-row">
@@ -733,11 +779,15 @@ export function EditMetadataModal({
                         <span>{t("book:metadata.details")}</span>
                       </button>
                     </div>
-                    {expandedIndex === index && <ResultCompare book={book} candidate={candidate} />}
+                    {expandedIndex === index && <ResultCompare book={book} candidate={candidate} applyFields={applyFields} />}
                   </article>
                 ))}
                 {!metadataLoading && metadataResults.length === 0 && (
-                  <p className="management-empty">{t("book:metadata.lookupEmpty")}</p>
+                  <p className="management-empty">
+                    {searchedQuery
+                      ? t("book:metadata.lookupNoMatches", { query: searchedQuery })
+                      : t("book:metadata.lookupEmpty")}
+                  </p>
                 )}
               </div>
             </>
@@ -751,24 +801,40 @@ export function EditMetadataModal({
 // exactly what applying it would change before committing. A field is flagged
 // "changes" when the result has a non-empty value that differs from the current
 // one — mirroring the gap-fill/overwrite rules in applyMetadataCandidate.
-function ResultCompare({ book, candidate }: { book: AudiobookBookDetail; candidate: MetadataCandidate }) {
+function ResultCompare({ book, candidate, applyFields }: {
+  book: AudiobookBookDetail;
+  candidate: MetadataCandidate;
+  applyFields: Set<ApplyField>;
+}) {
   const { t } = useTranslation(["common", "book"]);
-  const rows = [
-    { label: t("book:metadata.fieldTitle"), current: book.title, next: candidate.title },
-    { label: t("book:compare.originalTitle"), current: "", next: candidate.subtitle ?? "" },
-    { label: t("book:metadata.fieldAuthors"), current: book.authors.join(", "), next: candidate.authors.join(", ") },
-    { label: t("book:metadata.fieldNarrators"), current: book.narrators.join(", "), next: (candidate.narrators ?? []).join(", ") },
-    { label: t("book:metadata.fieldYear"), current: book.yearPublished?.toString() ?? "", next: candidate.year?.toString() ?? "" },
-    { label: t("book:metadata.fieldPublisher"), current: book.publisher ?? "", next: candidate.publisher ?? "" },
-    { label: t("book:metadata.fieldLanguage"), current: book.language ?? "", next: candidate.language ?? "" },
-    { label: t("book:metadata.fieldIsbn"), current: book.isbn ?? "", next: candidate.isbn ?? "" },
-    { label: t("book:metadata.fieldAsin"), current: book.asin ?? "", next: candidate.asin ?? "" },
-    { label: t("book:metadata.fieldTags"), current: book.tags.join(", "), next: (candidate.genres ?? []).join(", ") },
-    { label: t("book:metadata.fieldDescription"), current: book.description ?? "", next: candidate.description ?? "" }
+  const rows: { field: ApplyField | null; label: string; current: string; next: string }[] = [
+    { field: "title", label: t("book:metadata.fieldTitle"), current: book.title, next: candidate.title },
+    // The original title is shown for context only — nothing applies it.
+    { field: null, label: t("book:compare.originalTitle"), current: "", next: candidate.subtitle ?? "" },
+    { field: "authors", label: t("book:metadata.fieldAuthors"), current: book.authors.join(", "), next: candidate.authors.join(", ") },
+    { field: "narrators", label: t("book:metadata.fieldNarrators"), current: book.narrators.join(", "), next: (candidate.narrators ?? []).join(", ") },
+    { field: "year", label: t("book:metadata.fieldYear"), current: book.yearPublished?.toString() ?? "", next: candidate.year?.toString() ?? "" },
+    { field: "publisher", label: t("book:metadata.fieldPublisher"), current: book.publisher ?? "", next: candidate.publisher ?? "" },
+    { field: "language", label: t("book:metadata.fieldLanguage"), current: book.language ?? "", next: candidate.language ?? "" },
+    { field: "isbn", label: t("book:metadata.fieldIsbn"), current: book.isbn ?? "", next: candidate.isbn ?? "" },
+    { field: "asin", label: t("book:metadata.fieldAsin"), current: book.asin ?? "", next: candidate.asin ?? "" },
+    { field: "tags", label: t("book:metadata.fieldTags"), current: book.tags.join(", "), next: (candidate.genres ?? []).join(", ") },
+    { field: "description", label: t("book:metadata.fieldDescription"), current: book.description ?? "", next: candidate.description ?? "" }
   ];
 
+  // A row is skipped when its field is unticked above — the result has something
+  // to say and this book won't take it. Shown rather than hidden so the toggles
+  // read back here as "what would change".
+  const skipped = (field: ApplyField | null) => field !== null && !applyFields.has(field);
   const changed = (current: string, next: string) => next.trim().length > 0 && next.trim() !== current.trim();
   const visible = rows.filter((row) => row.current.trim() || row.next.trim());
+
+  const rowFlag = (field: ApplyField | null, current: string, next: string) => {
+    if (!changed(current, next)) return null;
+    return skipped(field)
+      ? <em className="compare-flag compare-flag-skipped">{t("book:compare.skipped")}</em>
+      : <em className="compare-flag">{t("book:compare.changes")}</em>;
+  };
 
   return (
     <div className="metadata-result-compare">
@@ -778,16 +844,19 @@ function ResultCompare({ book, candidate }: { book: AudiobookBookDetail; candida
         <span>{t("book:compare.fromResult")}</span>
       </div>
       {visible.map((row) => (
-        <div className={`compare-row${changed(row.current, row.next) ? " changed" : ""}`} key={row.label}>
+        <div
+          className={`compare-row${changed(row.current, row.next) && !skipped(row.field) ? " changed" : ""}${skipped(row.field) ? " skipped" : ""}`}
+          key={row.label}
+        >
           <span className="compare-label">{row.label}</span>
           <span className="compare-current">{row.current || "—"}</span>
           <span className="compare-next">
             {row.next || "—"}
-            {changed(row.current, row.next) && <em className="compare-flag">{t("book:compare.changes")}</em>}
+            {rowFlag(row.field, row.current, row.next)}
           </span>
         </div>
       ))}
-      <div className="compare-row compare-cover-row">
+      <div className={`compare-row compare-cover-row${skipped("cover") ? " skipped" : ""}`}>
         <span className="compare-label">{t("book:compare.cover")}</span>
         <span className="compare-current">
           <span className="compare-cover-frame">
@@ -798,6 +867,9 @@ function ResultCompare({ book, candidate }: { book: AudiobookBookDetail; candida
           <span className="compare-cover-frame">
             {candidate.coverUrl ? <img src={candidate.coverUrl} alt="" /> : <BookOpen size={20} />}
           </span>
+          {candidate.coverUrl && skipped("cover") && (
+            <em className="compare-flag compare-flag-skipped">{t("book:compare.skipped")}</em>
+          )}
         </span>
       </div>
     </div>

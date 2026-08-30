@@ -120,7 +120,7 @@ type PersonLookupCandidate = {
   description: string | null;
   bio: string | null;
   photoUrl: string | null;
-  source: "wikipedia" | "openlibrary";
+  source: "wikipedia" | "openlibrary" | "fantlab";
   sourceUrl: string | null;
   facts: PersonFacts;
   // Only what tells two same-name results apart — the facts above are the part
@@ -136,9 +136,9 @@ type PersonLookupCandidate = {
 
 
 
-// Mirrors PersonLookupSource on the server: which of the two person sources to
-// ask. Kept in step with modules/library/audiobook/enrich.ts.
-type PersonLookupSource = "all" | "wikipedia" | "openlibrary";
+// Mirrors PersonLookupSource on the server: which person source to ask.
+// Kept in step with modules/library/audiobook/enrich.ts.
+type PersonLookupSource = "all" | "wikipedia" | "openlibrary" | "fantlab";
 
 type Tab = "details" | "biography" | "photo" | "find";
 
@@ -402,10 +402,9 @@ export function PersonProfileModal({
     }
   };
 
-  // "Open Library" / "Wikipedia" are proper nouns and stay untranslated in
-  // every language.
+  // Source names are proper nouns and stay untranslated in every language.
   const sourceLabel = (source: PersonLookupCandidate["source"]) =>
-    source === "openlibrary" ? "Open Library" : "Wikipedia";
+    ({ wikipedia: "Wikipedia", openlibrary: "Open Library", fantlab: "FantLab" })[source];
 
   // Applying a result stages it into the form; nothing is written until Save.
   // That is deliberately unlike the book dialog, which applies straight to the
@@ -618,6 +617,7 @@ export function PersonProfileModal({
                   <option value="all">{t("book:metadata.allProviders")}</option>
                   <option value="wikipedia">Wikipedia</option>
                   <option value="openlibrary">Open Library</option>
+                  <option value="fantlab">FantLab</option>
                 </select>
                 <label className="search-field">
                   <Search size={17} aria-hidden="true" />
@@ -705,7 +705,7 @@ export function PersonProfileModal({
                       <div className="metadata-result-cover" aria-hidden="true">
                         {thumbUrl
                           ? <img src={thumbUrl} alt="" onError={() => markPhotoBroken(thumbUrl)} />
-                          : entry.source === "openlibrary" ? <BookMarked size={22} /> : <Globe size={22} />}
+                          : entry.source === "wikipedia" ? <Globe size={22} /> : <BookMarked size={22} />}
                       </div>
                       <div className="metadata-result-body">
                         <div className="metadata-result-title-row">

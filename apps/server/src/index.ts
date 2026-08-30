@@ -112,11 +112,15 @@ await app.register(helmet, {
       //    which on an IPv4-only host could pin to an unreachable AAAA record and
       //    crash the process (ENETUNREACH). Applied covers are still stored locally,
       //    so this only affects the live search preview.
+      //  - Person portraits shown the same transient way in the author/narrator
+      //    "Find info" picker: Wikipedia serves those from Commons, and FantLab
+      //    from the host already listed for its covers.
       imgSrc: [
         "'self'", "data:", "blob:",
         "https://tile.openstreetmap.org", "https://*.tile.openstreetmap.org",
         "https://*.mzstatic.com", "https://m.media-amazon.com",
-        "https://covers.openlibrary.org", "https://fantlab.ru", "https://archive.org"
+        "https://covers.openlibrary.org", "https://fantlab.ru", "https://archive.org",
+        "https://upload.wikimedia.org"
       ],
       mediaSrc: ["'self'", "blob:"],
       fontSrc: ["'self'", "data:"],
