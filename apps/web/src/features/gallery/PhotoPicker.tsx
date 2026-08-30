@@ -149,6 +149,13 @@ export function PhotoPicker({
     }
   }, [scopeParam]);
 
+  // Opening a folder from the search results clears the search box, which
+  // arrives here one debounce later as "the query went empty" — indistinguish-
+  // able from someone emptying the box by hand, and the reset-to-root below
+  // would then land on All Folders on top of the folder they just opened. This
+  // says which of the two happened.
+  const openedFromSearch = useRef(false);
+
   useEffect(() => {
     if (tab !== "folders") return;
     if (query) {
@@ -157,10 +164,14 @@ export function PhotoPicker({
         .then((payload) => setFolderResults(payload.folders))
         .catch((err) => setError(err instanceof Error ? err.message : t("gallery:photoPicker.errors.searchFolders")))
         .finally(() => setLoading(false));
-    } else {
-      setFolderResults(null);
-      void loadFolder("");
+      return;
     }
+    setFolderResults(null);
+    if (openedFromSearch.current) {
+      openedFromSearch.current = false;
+      return;
+    }
+    void loadFolder("");
   }, [tab, query, scope, loadFolder, scopeParam]);
 
   // ── People ─────────────────────────────────────────────────────────────────
@@ -534,7 +545,18 @@ export function PhotoPicker({
             <p className="gallery-section-label">{folderResults.length === 0 ? t("gallery:photoPicker.noFoldersMatch") : t("gallery:photoPicker.matchingFolders")}</p>
             <div className="gallery-folder-grid">
               {folderResults.map((folder) => (
-                <button key={folder.path} type="button" className="gallery-folder-tile" onClick={() => { setSearch(""); void loadFolder(folder.path); }} disabled={adding}>
+                <button
+                  key={folder.path}
+                  type="button"
+                  className="gallery-folder-tile"
+                  onClick={() => {
+                    openedFromSearch.current = true;
+                    setSearch("");
+                    setFolderResults(null);
+                    void loadFolder(folder.path);
+                  }}
+                  disabled={adding}
+                >
                   <span className="gallery-folder-thumb">
                     {folder.coverUrl ? <img src={folder.coverUrl} alt="" loading="lazy" /> : <Folder size={28} aria-hidden="true" />}
                   </span>
