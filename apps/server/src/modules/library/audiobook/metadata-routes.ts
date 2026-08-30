@@ -8,7 +8,7 @@ import { rescanSingleBook, writeCoverImages } from "./scanner.js";
 import { normaliseRelativePath } from "../shared/storage-roots.js";
 import { canUserWriteLibrary, getLibraryForBook } from "../shared/library-access.js";
 import { downloadImage } from "../shared/remote-image.js";
-import { imageMimeType, coverImageExtensions, getBookCoverFolder, coverFilePathFromRelative, updateBookCover, applyMetadataCandidate, updateManualMetadata, getAudiobookBookDetail, metadataMatchSchema, coverSourceSchema, coverFromUrlSchema, manualMetadataSchema } from "./book-helpers.js";
+import { imageMimeType, coverImageExtensions, getBookCoverFolder, coverFilePathFromRelative, updateBookCover, applyMetadataCandidate, resolveMetadataApplyFields, updateManualMetadata, getAudiobookBookDetail, metadataMatchSchema, coverSourceSchema, coverFromUrlSchema, manualMetadataSchema } from "./book-helpers.js";
 
 // The metadata-search, metadata-from-url, and cover-candidate routes below read
 // a specific book's details or browse its on-disk folder to support the Edit
@@ -105,8 +105,7 @@ export function registerMetadataRoutes(app: FastifyInstance) {
       const book = await applyMetadataCandidate(
         id,
         { ...parsed.data.candidate, authors: parsed.data.candidate.authors ?? [] },
-        parsed.data.updateDetails ?? true,
-        parsed.data.updateCover ?? true
+        resolveMetadataApplyFields(parsed.data)
       );
       if (!book) {
         return reply.code(404).send({ error: "Audiobook not found" });

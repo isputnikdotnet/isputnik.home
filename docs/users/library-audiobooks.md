@@ -41,7 +41,10 @@ Anything wrong is editable, and **your edits win**: a field you set by hand is
 marked as yours and won't be overwritten by later scans.
 
 For books with poor tags, the metadata editor can also look the title up online
-(Open Library, Apple Books, LibriVox, FantLab) and apply what it finds.
+(Audible, Open Library, Apple Books, LibriVox, FantLab) and apply what it finds.
+The search returns only results that carry every word you typed, so shorten the
+query if a title comes back empty. Before applying a result, tick off the fields
+you want from it — leave *Cover* or *Year* unticked and yours stays put.
 
 ## Chapters
 
