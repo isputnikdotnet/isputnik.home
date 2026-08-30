@@ -837,10 +837,12 @@ function fantlabText(value: string | null | undefined) {
     .replace(/<[^>]+>/g, " ")
     .replace(/&quot;/g, "\"")
     .replace(/&#0?39;/g, "'")
-    .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&nbsp;/g, " ")
+    // Ampersands last: unescaping them first turns a biography's literal
+    // "&amp;lt;" into a "<" it never said (js/double-escaping, alert #255).
+    .replace(/&amp;/g, "&")
     .replace(/[ \t]+/g, " ")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
