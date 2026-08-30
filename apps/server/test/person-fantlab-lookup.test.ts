@@ -97,6 +97,21 @@ describe("FantLab person candidates", () => {
     expect(found.facts.country).toBe("Польша");
   });
 
+  // Unescaping "&amp;" before "&lt;" reads a blurb's own "&amp;lt;" as an
+  // escaped "<" and hands back a bracket the page never wrote — the same
+  // double-unescape CodeQL flagged (#255). Nothing renders this as markup, but
+  // a biography should say what its source said.
+  it("does not invent brackets out of an escaped ampersand", async () => {
+    stubFantlab({
+      authors: [{ autor_id: 9, rusname: "Тест" }],
+      autorRecords: { 9: { ...LEM, name: "Тест", anons: "Писал про &amp;lt;тег&amp;gt; и Смирнов &amp; сын" } }
+    });
+
+    const [found] = await lookupPersonCandidates("Тест", ["ru"], "fantlab");
+
+    expect(found.bio).toBe("Писал про &lt;тег&gt; и Смирнов & сын");
+  });
+
   it("finds a narrator, who is a different kind of record entirely", async () => {
     stubFantlab({
       persons: [{ person_id: 2061, name: "Геннадий Коршунов", type: "dictor" }],
