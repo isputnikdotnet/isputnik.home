@@ -19,6 +19,14 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.40.2",
+    label: "The folder you clicked",
+    changes: [
+      "Searching for a folder in the photo picker and then clicking the folder you found dropped you back at All folders, with the search box emptied and the folder you picked nowhere in sight — you had to go and find it by hand, which is what you were searching to avoid. Clicking a result now opens that folder, as it always should have. Clearing the search yourself still takes you back to the top, and you can search again from wherever you have got to.",
+      "It showed up in “Add photos to this event” on the family tree, but the same picker is what the gallery and the slideshow title card use, so it was the same everywhere and it is fixed everywhere."
+    ]
+  },
+  {
     version: "3.40.1",
     label: "A line that could stop the house",
     changes: [
