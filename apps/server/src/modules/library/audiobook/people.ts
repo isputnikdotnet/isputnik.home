@@ -492,7 +492,8 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
     // libraries speak); `q` is what to actually search for, which the dialog
     // lets someone edit — a stored "Twain, Mark" finds nothing typed verbatim.
     const search = String(q.q ?? "").trim() || name;
-    const source: PersonLookupSource = q.source === "wikipedia" || q.source === "openlibrary" ? q.source : "all";
+    const named = ["wikipedia", "openlibrary", "fantlab"] as const;
+    const source: PersonLookupSource = named.find((candidate) => candidate === q.source) ?? "all";
 
     const url = q.url?.trim();
     try {
