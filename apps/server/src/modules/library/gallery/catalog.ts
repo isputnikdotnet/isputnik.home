@@ -653,6 +653,45 @@ function monthDayWindow(today: string, span: number): string[] {
   return out;
 }
 
+// Photos and videos that ARRIVED recently — newest-added first, within a window
+// of whole days counted back from now. Unlike the timeline's sort='added', this
+// is bounded by the window itself, so the caller gets an honest total for it:
+// the home feed's "Just added" card advertises that number and its viewer pages
+// exactly that set.
+export function queryGalleryRecentlyAdded(userId: string, libIds: string[], days: number, limit: number): {
+  total: number;
+  /** The newest arrival's discovered_at — the card's age. Null when none. */
+  newestAt: string | null;
+  assets: ReturnType<typeof mapAsset>[];
+} {
+  if (libIds.length === 0) return { total: 0, newestAt: null, assets: [] };
+  // Interpolated because SQLite's date modifier is a literal, not a bindable
+  // parameter; both numbers are clamped integers, never caller text.
+  const windowDays = Math.max(1, Math.min(365, Math.trunc(days)));
+  const take = Math.max(1, Math.min(200, Math.trunc(limit)));
+  const libIn = inClause(libIds.length);
+  const where = `library_items.library_id IN (${libIn})
+    AND library_items.deleted_at IS NULL
+    AND datetime(library_items.discovered_at) >= datetime('now', '-${windowDays} days')`;
+
+  const summary = db.prepare(`
+    SELECT COUNT(*) AS n, MAX(library_items.discovered_at) AS newest
+    FROM library_items
+    JOIN gallery_details ON gallery_details.item_id = library_items.id
+    WHERE ${where}
+  `).get(...libIds) as { n: number; newest: string | null };
+  if (summary.n === 0) return { total: 0, newestAt: null, assets: [] };
+
+  const rows = db.prepare(`
+    SELECT ${ASSET_COLUMNS} ${ASSET_JOINS}
+    WHERE ${where}
+    ORDER BY datetime(library_items.discovered_at) DESC, library_items.id DESC
+    LIMIT ?
+  `).all(userId, ...libIds, take) as AssetRow[];
+
+  return { total: summary.n, newestAt: summary.newest, assets: rows.map(mapAsset) };
+}
+
 type MemoryRow = AssetRow & { mem_year: string; mem_count: number; mem_exact: number };
 
 export function queryGalleryMemories(userId: string, libIds: string[], today: string, perYear: number): {

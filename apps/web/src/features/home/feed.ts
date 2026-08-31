@@ -19,6 +19,17 @@ export interface MemoryCard {
   strip: { year: number; item: GalleryAsset }[];
 }
 
+export interface PhotosAddedCard {
+  type: "photos_added";
+  /** Every photo/video that arrived inside the window, not just the strip. */
+  count: number;
+  /** How far back the window reaches, in days. */
+  days: number;
+  newestAt: string;
+  /** The photos shown, newest arrival first. */
+  strip: GalleryAsset[];
+}
+
 export interface AddedBatchCard {
   type: "added_batch";
   day: string;
@@ -60,7 +71,7 @@ export interface QuoteCard {
   yearsAgo: number | null;
 }
 
-export type HomeCard = SentCard | MemoryCard | AddedBatchCard | ActivityCard | SeriesNextCard | QuoteCard;
+export type HomeCard = SentCard | MemoryCard | PhotosAddedCard | AddedBatchCard | ActivityCard | SeriesNextCard | QuoteCard;
 
 // Which category this viewer last chose on the quote card. A per-viewer
 // convenience, so it lives in the browser rather than the database — losing it
@@ -151,6 +162,23 @@ export function fetchHomeFeed(): Promise<{ cards: HomeCard[] }> {
   if (category) params.set("quoteCategory", category);
   if (prefs.categories.length > 0) params.set("quoteCategories", prefs.categories.join(","));
   return api<{ cards: HomeCard[] }>(`/api/home/feed?${params}`);
+}
+
+// The "Just added" card's viewer: every photo the card counts, newest arrival
+// first, so paging through it matches the number the card advertises. The
+// timeline sorted by arrival already returns exactly that order — the window is
+// applied here, mirroring the server's PHOTOS_WINDOW_DAYS.
+export async function fetchRecentlyAddedPhotos(days: number): Promise<GalleryAsset[]> {
+  const { assets } = await api<{ assets: GalleryAsset[]; total: number }>("/api/library/gallery/timeline", {
+    method: "POST",
+    body: JSON.stringify({ sort: "added", limit: 200 })
+  });
+  const cutoff = Date.now() - days * 86_400_000;
+  return assets.filter((asset) => {
+    // SQLite writes ISO with Z; older rows may carry the space form.
+    const added = Date.parse(asset.addedAt.includes("T") ? asset.addedAt : `${asset.addedAt.replace(" ", "T")}Z`);
+    return !Number.isNaN(added) && added >= cutoff;
+  });
 }
 
 /** How many photos the memory card's strip holds — also the tightness bar. */

@@ -672,8 +672,9 @@
   list-style: none;
 }
 
-/* "On this day": a photo strip, not book-tile chrome. Each photo opens the
-   viewer at its year. */
+/* The photo strips ("On this day" and "New photos"): photos, not book-tile
+   chrome. Each one opens the viewer — the memory card labels its tiles with a
+   year, the arrivals card leaves them bare. */
 .home-memory-strip {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

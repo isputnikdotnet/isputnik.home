@@ -6,7 +6,7 @@ vi.mock("../src/core/mail.js", async (importOriginal) => {
 });
 
 import { db } from "../src/db.js";
-import { loadHomeFeed, type AddedBatchCard, type MemoryCard, type SeriesNextCard } from "../src/modules/home/feed.js";
+import { loadHomeFeed, type AddedBatchCard, type MemoryCard, type PhotosAddedCard, type SeriesNextCard } from "../src/modules/home/feed.js";
 import { grant, makeLibrary, makeUser, resetDb } from "./helpers/seed.js";
 
 // The feed is derived and ranked by lifetime class, so what's worth pinning:
@@ -34,15 +34,19 @@ function makeBook(itemId: string, opts: { libraryId?: string; title?: string; di
   }
 }
 
-function makePhoto(itemId: string, takenAt: string): void {
-  if (!db.prepare("SELECT 1 FROM libraries WHERE id = 'lib-gallery'").get()) {
-    makeLibrary("lib-gallery", { createdBy: "dad", type: "gallery", ownerId: "dad", ownerType: "user" });
-    grant("user", "dad", "lib-gallery", "viewer");
+function makePhoto(itemId: string, takenAt: string, opts: { libraryId?: string; discoveredAt?: string } = {}): void {
+  const libraryId = opts.libraryId ?? "lib-gallery";
+  if (!db.prepare("SELECT 1 FROM libraries WHERE id = ?").get(libraryId)) {
+    makeLibrary(libraryId, { createdBy: "dad", type: "gallery", ownerId: "dad", ownerType: "user" });
+    grant("user", "dad", libraryId, "viewer");
   }
-  db.prepare("INSERT INTO library_items (id, library_id, type, folder_path) VALUES (?, 'lib-gallery', 'gallery', ?)")
-    .run(itemId, `/photos/${itemId}.jpg`);
+  db.prepare("INSERT INTO library_items (id, library_id, type, folder_path) VALUES (?, ?, 'gallery', ?)")
+    .run(itemId, libraryId, `/photos/${itemId}.jpg`);
   db.prepare("INSERT INTO gallery_details (item_id, kind, relative_path, taken_at) VALUES (?, 'photo', ?, ?)")
     .run(itemId, `${itemId}.jpg`, takenAt);
+  if (opts.discoveredAt) {
+    db.prepare("UPDATE library_items SET discovered_at = ? WHERE id = ?").run(opts.discoveredAt, itemId);
+  }
 }
 
 function finish(userId: string, itemId: string): void {
@@ -207,6 +211,60 @@ describe("the memory card", () => {
     makePhoto("p-far", `2019-${TODAY.slice(5, 7)}-${otherDay}T10:00:00.000Z`);
 
     expect(loadHomeFeed(dad, TODAY).some((card) => card.type === "memory")).toBe(false);
+  });
+});
+
+describe("the new-photos card", () => {
+  const daysAgo = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString();
+  const photosCard = (user = dad) =>
+    loadHomeFeed(user, TODAY).find((card): card is PhotosAddedCard => card.type === "photos_added") ?? null;
+
+  it("is one card for the whole week, counting every arrival but showing four", () => {
+    for (let i = 0; i < 6; i++) makePhoto(`p-${i}`, "2024-03-01T10:00:00.000Z", { discoveredAt: daysAgo(i) });
+
+    const cards = loadHomeFeed(dad, TODAY).filter((card) => card.type === "photos_added");
+    expect(cards).toHaveLength(1);
+    const card = cards[0] as PhotosAddedCard;
+    expect(card.count).toBe(6);
+    expect(card.days).toBe(7);
+    expect(card.strip).toHaveLength(4);
+    // Newest arrival first, whatever the photos' own dates say.
+    expect(card.strip.map((item) => item.id)).toEqual(["p-0", "p-1", "p-2", "p-3"]);
+  });
+
+  it("is absent when nothing arrived in the window, however full the gallery is", () => {
+    makePhoto("p-old", "2024-03-01T10:00:00.000Z", { discoveredAt: daysAgo(9) });
+    expect(photosCard()).toBeNull();
+  });
+
+  it("counts only what landed inside the window", () => {
+    makePhoto("p-fresh", "2024-03-01T10:00:00.000Z", { discoveredAt: daysAgo(2) });
+    makePhoto("p-stale", "2024-03-01T10:00:00.000Z", { discoveredAt: daysAgo(30) });
+
+    const card = photosCard()!;
+    expect(card.count).toBe(1);
+    expect(card.strip.map((item) => item.id)).toEqual(["p-fresh"]);
+  });
+
+  it("does not count photos in libraries the viewer cannot browse", () => {
+    makePhoto("p-mine", "2024-03-01T10:00:00.000Z", { discoveredAt: daysAgo(1) });
+    makeLibrary("lib-private-gallery", { createdBy: "mom", type: "gallery", ownerId: "mom", ownerType: "user" });
+    grant("user", "mom", "lib-private-gallery", "viewer");
+    makePhoto("p-secret", "2024-03-01T10:00:00.000Z", { libraryId: "lib-private-gallery", discoveredAt: daysAgo(1) });
+
+    const card = photosCard()!;
+    expect(card.count).toBe(1);
+    expect(card.strip.map((item) => item.id)).toEqual(["p-mine"]);
+  });
+
+  it("sits under the day's memory and fades below a fresher one as it ages", () => {
+    // Photos taken on this day in an old year, all of them scanned in a week ago.
+    makePhoto("p-2019", `2019${TODAY.slice(4)}T10:00:00.000Z`, { discoveredAt: daysAgo(6) });
+    const cards = loadHomeFeed(dad, TODAY);
+    const memoryIndex = cards.findIndex((card) => card.type === "memory");
+    const photosIndex = cards.findIndex((card) => card.type === "photos_added");
+    expect(memoryIndex).toBeGreaterThanOrEqual(0);
+    expect(memoryIndex).toBeLessThan(photosIndex);
   });
 });
 

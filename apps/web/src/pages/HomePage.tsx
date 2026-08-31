@@ -11,7 +11,7 @@ import { MessageBox } from "../shared/MessageBox";
 import { Modal } from "../shared/Modal";
 import { Button } from "../shared/Button";
 import { authorLine, audioRecordToFeedItem, ebookRecordToFeedItem, fetchFeed, saveFeedItemOffline, type FeedItem } from "../features/library/feed";
-import { batchDayLabel, fetchDailyQuote, fetchHomeFeed, localDate, storeQuoteCategory, storeQuotePrefs, storedQuotePrefs, tightMemoryGroups, toActivityItem, type ActivityCard, type AddedBatchCard, type HomeCard, type MemoryCard, type QuoteCard, type QuotePrefs, type SentCard, type SeriesNextCard } from "../features/home/feed";
+import { batchDayLabel, fetchDailyQuote, fetchHomeFeed, fetchRecentlyAddedPhotos, localDate, storeQuoteCategory, storeQuotePrefs, storedQuotePrefs, tightMemoryGroups, toActivityItem, type ActivityCard, type AddedBatchCard, type HomeCard, type MemoryCard, type PhotosAddedCard, type QuoteCard, type QuotePrefs, type SentCard, type SeriesNextCard } from "../features/home/feed";
 import { FeedListItem, FeedListItemSkeleton } from "../features/library/FeedListItem";
 import { DEFAULT_COVERS } from "../features/audiobooks/covers";
 import { useIsMobile } from "../shared/useIsMobile";
@@ -144,6 +144,11 @@ function ResumeHero({ item, onRead, downloaded, onDownloaded, onDownload, onToas
   );
 }
 
+// Which set the home's photo viewer is paging: the day the memory card stands
+// for, or the arrivals the "New photos" card counted (with the window it used,
+// so a re-fetch after an edit asks for exactly the same set).
+type PhotoSource = { kind: "memory" } | { kind: "added"; days: number };
+
 // ── Feed cards ───────────────────────────────────────────────────────────────
 // Every card renders on the shared .home-card chrome; each type brings its own
 // body. The server owns the order — the client never re-sorts.
@@ -185,6 +190,43 @@ function MemoryFeedCard({ card, onOpen }: { card: MemoryCard; onOpen: (year: num
       <p className="home-card-sub">
         {t("home.memorySub", { count: card.totalCount })}
       </p>
+    </section>
+  );
+}
+
+// "New photos": everything the gallery took in over the past week, as one card
+// with a strip — the server leaves it out entirely when nothing arrived, so the
+// front page never carries an empty shortcut to the gallery.
+function PhotosAddedFeedCard({ card, onOpen }: { card: PhotosAddedCard; onOpen: (itemId: string) => void }) {
+  const { t } = useTranslation();
+  const timelineHref = "/gallery?sort=added";
+  return (
+    <section className="home-card home-card-photos" aria-label={t("home.photosAdded")}>
+      <header className="home-card-head">
+        <span className="home-card-who">
+          <strong>{t("home.photosAdded")}</strong> · {t("home.photosAddedWindow", { count: card.days })}
+        </span>
+        <a className="home-card-link" href={timelineHref} onClick={(event) => followRoute(event, timelineHref)}>
+          <span>{t("common.viewAll")}</span>
+          <ChevronRight size={16} aria-hidden="true" />
+        </a>
+      </header>
+      <div className="home-memory-strip">
+        {card.strip.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            className="home-memory-photo"
+            onClick={() => onOpen(item.id)}
+            aria-label={t("home.openPhoto", { title: item.title })}
+          >
+            {item.coverUrl
+              ? <img src={item.coverUrl} alt="" loading="lazy" />
+              : <span className="home-memory-fallback"><ImageIcon size={24} aria-hidden="true" /></span>}
+          </button>
+        ))}
+      </div>
+      <p className="home-card-sub">{t("home.photosAddedSub", { count: card.count })}</p>
     </section>
   );
 }
@@ -468,11 +510,14 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
   const [cards, setCards] = useState<HomeCard[] | null>(null);
   const [heroItem, setHeroItem] = useState<FeedItem | null>(null);
   const [inProgressTotal, setInProgressTotal] = useState(0);
-  // The "On this day" lightbox opened from the memory card: the FULL day (every
-  // photo, every year, flattened newest-year-first) plus the item currently
-  // shown. The card itself only carries a few covers, so opening the viewer
-  // re-fetches the complete set.
-  const [memoryLightbox, setMemoryLightbox] = useState<{ items: GalleryAsset[]; index: number } | null>(null);
+  // The photo viewer opened from a gallery card: the FULL set that card stands
+  // for — every photo of the day for "On this day", the whole week's arrivals
+  // for "New photos" — plus the item currently shown. Either card carries only
+  // a few covers, so opening the viewer re-fetches the complete set, and the
+  // source remembers which one to re-fetch after an edit.
+  const [photoLightbox, setPhotoLightbox] = useState<
+    { items: GalleryAsset[]; index: number; source: PhotoSource } | null
+  >(null);
   const [memoryLoading, setMemoryLoading] = useState(false);
   // Gallery libraries with their permission flags, so the memory lightbox can
   // offer exactly what the Timeline offers (edit/rotate/delete/guest link).
@@ -527,9 +572,27 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
           start += group.items.length;
         }
       }
-      setMemoryLightbox({ items, index: Math.min(start, items.length - 1) });
+      setPhotoLightbox({ items, index: Math.min(start, items.length - 1), source: { kind: "memory" } });
     } catch {
       navigate("/gallery/memories");
+    } finally {
+      setMemoryLoading(false);
+    }
+  }, [memoryLoading]);
+
+  // Open the "New photos" viewer on the clicked photo. Same shape as the memory
+  // opener: the card carries four covers, the viewer pages the whole week the
+  // card counted, and a failure just lands in the gallery sorted by arrival.
+  const openRecentPhoto = useCallback(async (itemId: string, days: number) => {
+    if (memoryLoading) return;
+    setMemoryLoading(true);
+    try {
+      const items = await fetchRecentlyAddedPhotos(days);
+      if (items.length === 0) { navigate("/gallery?sort=added"); return; }
+      const start = Math.max(0, items.findIndex((item) => item.id === itemId));
+      setPhotoLightbox({ items, index: start, source: { kind: "added", days } });
+    } catch {
+      navigate("/gallery?sort=added");
     } finally {
       setMemoryLoading(false);
     }
@@ -538,28 +601,33 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
   // Load the permission flags alongside the first viewer open. Until they
   // land the viewer is read-only, which is also the safe answer on failure.
   useEffect(() => {
-    if (!memoryLightbox || galleryLibraries !== null) return;
+    if (!photoLightbox || galleryLibraries !== null) return;
     api<{ libraries: GalleryLibrary[] }>("/api/library/gallery-libraries")
       .then((payload) => setGalleryLibraries(payload.libraries))
       .catch(() => setGalleryLibraries([]));
-  }, [memoryLightbox, galleryLibraries]);
+  }, [photoLightbox, galleryLibraries]);
 
   // After the viewer changes something (a rotate, an edit, a delete), re-fetch
   // the day and find the photo we were on again — or the one that took its
   // place when it was the one deleted. The same job refreshView does on the
   // gallery pages.
-  const refreshMemoryLightbox = useCallback(async () => {
+  const refreshPhotoLightbox = useCallback(async (source: PhotoSource) => {
     try {
-      const full = await api<GalleryMemories>(`/api/library/gallery/memories?date=${localDate()}&perYear=200`);
-      const groups = full.precision === "month" ? [] : tightMemoryGroups(full.groups);
-      const items = groups.flatMap((group) => group.items);
-      setMemoryLightbox((current) => {
+      let items: GalleryAsset[];
+      if (source.kind === "added") {
+        items = await fetchRecentlyAddedPhotos(source.days);
+      } else {
+        const full = await api<GalleryMemories>(`/api/library/gallery/memories?date=${localDate()}&perYear=200`);
+        const groups = full.precision === "month" ? [] : tightMemoryGroups(full.groups);
+        items = groups.flatMap((group) => group.items);
+      }
+      setPhotoLightbox((current) => {
         if (!current) return current;
         if (items.length === 0) return null;
         const currentId = current.items[current.index]?.id;
         const found = items.findIndex((item) => item.id === currentId);
         const index = found >= 0 ? found : Math.min(current.index, items.length - 1);
-        return { items, index };
+        return { items, index, source: current.source };
       });
     } catch {
       // Keep showing what we have; the next open refetches anyway.
@@ -570,11 +638,11 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
   // Folders view on that folder, the way the Timeline's viewer does. Segments
   // are encoded one by one so names with #/% survive while slashes stay slashes.
   const openMemoryFolder = useCallback((folder: string) => {
-    const asset = memoryLightbox ? memoryLightbox.items[memoryLightbox.index] : null;
+    const asset = photoLightbox ? photoLightbox.items[photoLightbox.index] : null;
     const path = folder.split("/").filter(Boolean).map(encodeURIComponent).join("/");
-    setMemoryLightbox(null);
+    setPhotoLightbox(null);
     navigate(`/gallery/folders/${path}${asset ? `?library=${encodeURIComponent(asset.libraryId)}` : ""}`);
-  }, [memoryLightbox]);
+  }, [photoLightbox]);
 
   // Open an ebook in the inline reader. Works offline: the epub document id comes
   // from the live detail when the server is reachable, else from the saved
@@ -688,6 +756,8 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
     switch (card.type) {
       case "memory":
         return <MemoryFeedCard key="memory" card={card} onOpen={(year, itemId) => void openMemory(year, itemId)} />;
+      case "photos_added":
+        return <PhotosAddedFeedCard key="photos" card={card} onOpen={(itemId) => void openRecentPhoto(itemId, card.days)} />;
       case "added_batch":
         return <BatchFeedCard key={`batch-${card.day}`} card={card} />;
       case "series_next":
@@ -844,21 +914,21 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
       document.body
     )}
 
-    {memoryLightbox && memoryLightbox.items[memoryLightbox.index] && (() => {
+    {photoLightbox && photoLightbox.items[photoLightbox.index] && (() => {
       // Per-photo permissions, exactly as the gallery pages compute them.
       const library = galleryLibraries?.find(
-        (candidate) => candidate.id === memoryLightbox.items[memoryLightbox.index].libraryId
+        (candidate) => candidate.id === photoLightbox.items[photoLightbox.index].libraryId
       );
       return (
         <GalleryLightbox
-          assets={memoryLightbox.items}
-          index={memoryLightbox.index}
+          assets={photoLightbox.items}
+          index={photoLightbox.index}
           canDelete={library?.canDelete ?? false}
           canEdit={library?.canWrite ?? false}
           canShare={library?.canCurate ?? false}
-          onClose={() => setMemoryLightbox(null)}
-          onIndexChange={(next) => setMemoryLightbox((current) => (current ? { ...current, index: next } : current))}
-          onChanged={() => void refreshMemoryLightbox()}
+          onClose={() => setPhotoLightbox(null)}
+          onIndexChange={(next) => setPhotoLightbox((current) => (current ? { ...current, index: next } : current))}
+          onChanged={() => void refreshPhotoLightbox(photoLightbox.source)}
           onOpenFolder={openMemoryFolder}
         />
       );
