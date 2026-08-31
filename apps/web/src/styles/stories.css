@@ -984,3 +984,99 @@
   .story-slide-media img,
   .story-slide-media video { max-height: 66vh; }
 }
+
+/* ── Narration ─────────────────────────────────────────────────────────── */
+
+.story-block-audio {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-raised);
+}
+
+.story-audio-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--field);
+  color: var(--gold);
+}
+
+.story-audio-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.story-audio-body audio { width: 100%; }
+
+.story-audio-body figcaption {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.story-audio-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.story-audio-record {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.story-audio-timer {
+  font-variant-numeric: tabular-nums;
+  font-size: 1.1rem;
+}
+
+/* A recording light, so it is never in doubt that the microphone is live. */
+.story-audio-pulse {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--danger);
+  animation: story-audio-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes story-audio-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .story-audio-pulse { animation: none; }
+}
+
+/* The file input itself is hidden behind its own label, which carries the
+   button look — the standard trick, since a file input can't be styled. */
+.story-audio-upload input { display: none; }
+.story-audio-upload .secondary-button { display: inline-flex; gap: 8px; cursor: pointer; }
+
+/* Narration on the player's stage: nothing to look at, because the point is to
+   listen. */
+.story-slide-audio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  text-align: center;
+}
+
+.story-slide-audio h2 {
+  margin: 0;
+  font-size: clamp(1.4rem, 3vw, 2.2rem);
+}
+
+.story-slide-audio audio { width: min(520px, 80vw); }

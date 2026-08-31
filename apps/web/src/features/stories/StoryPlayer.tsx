@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { ChevronLeft, ChevronRight, MapPin, Pause, Play, Quote, UserRound, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, MapPin, Mic, Pause, Play, Quote, UserRound, X } from "lucide-react";
 import { GalleryMiniMap } from "../gallery/GalleryMiniMap";
 import { StoryMarkdown } from "./StoryMarkdown";
 import { formatPartialDate, formatPartialDateRange } from "../../shared/utils";
@@ -38,7 +38,7 @@ export function StoryPlayer({
   const [paused, setPaused] = useState(false);
   const [idle, setIdle] = useState(false);
   const [done, setDone] = useState(false);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const videoRef = useRef<HTMLMediaElement | null>(null);
 
   const slide = slides[index];
   const atEnd = index >= slides.length - 1;
@@ -189,7 +189,9 @@ function SlideView({
   onEnded
 }: {
   slide: PlayerSlide;
-  videoRef: React.MutableRefObject<HTMLVideoElement | null>;
+  /** Shared by video and narration, so pausing the show pauses whichever is
+   *  running without the player caring which it is. */
+  videoRef: React.MutableRefObject<HTMLMediaElement | null>;
   onEnded: () => void;
 }) {
   const { t } = useTranslation(["common", "stories"]);
@@ -229,7 +231,7 @@ function SlideView({
       <figure className="story-slide story-slide-media">
         {slide.isVideo ? (
           <video
-            ref={videoRef}
+            ref={(el) => { videoRef.current = el; }}
             src={slide.src}
             poster={slide.poster ?? undefined}
             autoPlay
@@ -241,6 +243,25 @@ function SlideView({
         )}
         {slide.caption && <figcaption>{slide.caption}</figcaption>}
       </figure>
+    );
+  }
+
+  // Narration takes the screen while it plays: a name, a microphone and the
+  // clip running. Nothing to look at is the right answer — the point is to
+  // listen.
+  if (slide.kind === "audio") {
+    return (
+      <div className="story-slide story-slide-audio">
+        <span className="story-slide-portrait" aria-hidden="true"><Mic size={40} /></span>
+        {slide.title && <h2>{slide.title}</h2>}
+        <audio
+          ref={(el) => { videoRef.current = el; }}
+          src={slide.src}
+          autoPlay
+          controls
+          onEnded={onEnded}
+        />
+      </div>
     );
   }
 

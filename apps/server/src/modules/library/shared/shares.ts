@@ -20,8 +20,11 @@ import {
   buildStorySharePayload,
   loadStoryShareMediaItem,
   storyShareFiles,
-  storyShareTitle
+  storyShareTitle,
+  storyLinkContext
 } from "../../stories/share.js";
+import { getStoryAudio } from "../../stories/audio.js";
+import { sendNarration } from "../../stories/routes.js";
 import { newlySharedResources, notifyShareGranted } from "./share-notify.js";
 import { parseRangeHeader, pipeFileToReply } from "./document-stream.js";
 import { mediaKind, type MediaModule } from "./library-types.js";
@@ -1920,6 +1923,24 @@ export async function librarySharesPlugin(app: FastifyInstance) {
     }
     return { link, item };
   };
+
+  // A shared story's narration. Belonging to THAT story is the authorization,
+  // the same rule the item routes use — a clip id from elsewhere 404s.
+  app.get("/api/share/:token/audio/:audioId", SHARE_MEDIA_LIMIT, (request, reply) => {
+    const { token, audioId } = request.params as { token: string; audioId: string };
+    const link = resolveShareLink(token, request);
+    if (!link || link.module !== STORY_SHARE_MODULE) {
+      reply.code(404).send({ error: "Share not found or expired" });
+      return;
+    }
+    const ctx = storyLinkContext(link);
+    const audio = getStoryAudio(audioId);
+    if (!ctx || !audio || audio.story_id !== ctx.story.id) {
+      reply.code(404).send({ error: "Recording not found" });
+      return;
+    }
+    return sendNarration(request, reply, audio);
+  });
 
   app.get("/api/share/:token/items/:itemId/cover", SHARE_THUMB_LIMIT, async (request, reply) => {
     const resolved = resolveSetItem(request, reply);

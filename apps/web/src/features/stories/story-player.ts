@@ -16,7 +16,8 @@ export type PlayerSlide =
   | { id: string; kind: "media"; title: string; src: string; poster: string | null; isVideo: boolean; caption: string | null; durationSeconds: number | null }
   | { id: string; kind: "map"; lat: number; lng: number; zoom: number; label: string | null }
   | { id: string; kind: "person"; name: string; years: string; caption: string | null }
-  | { id: string; kind: "quote"; text: string; attribution: string | null };
+  | { id: string; kind: "quote"; text: string; attribution: string | null }
+  | { id: string; kind: "audio"; title: string; src: string; durationSeconds: number | null };
 
 /** Seconds a photo holds before the show moves on, unless the viewer overrides it. */
 export const DEFAULT_PHOTO_SECONDS = 6;
@@ -50,12 +51,15 @@ export function slideSeconds(slide: PlayerSlide, photoSeconds = DEFAULT_PHOTO_SE
     case "map": return MAP_SECONDS;
     case "person": return PERSON_SECONDS;
     case "media": return photoSeconds;
+    // Narration runs to its own end; this is only the fallback if it never loads.
+    case "audio": return slide.durationSeconds ?? MIN_READ_SECONDS;
   }
 }
 
-/** Whether the player should wait for the media element rather than a timer. */
+/** Whether the player should wait for the media element rather than a timer.
+ *  True for anything with its own runtime — a video, or a narration clip. */
 export function waitsForMedia(slide: PlayerSlide): boolean {
-  return slide.kind === "media" && slide.isVideo;
+  return (slide.kind === "media" && slide.isVideo) || slide.kind === "audio";
 }
 
 // A chapter earns an opening card only when it says something — a title, a date
@@ -117,6 +121,11 @@ export function slidesFromStory(
       } else if (block.kind === "quote" && block.title) {
         slides.push({
           id: block.id, kind: "quote", text: block.title, attribution: block.subtitle
+        });
+      } else if (block.kind === "audio" && block.audio) {
+        slides.push({
+          id: block.id, kind: "audio", title: block.audio.title ?? "",
+          src: block.audio.url, durationSeconds: block.audio.durationSeconds
         });
       }
     }
@@ -184,6 +193,11 @@ export function slidesFromShare(payload: StorySharePayload): PlayerSlide[] {
         });
       } else if (block.kind === "quote") {
         slides.push({ id, kind: "quote", text: block.text, attribution: block.attribution });
+      } else if (block.kind === "audio") {
+        slides.push({
+          id, kind: "audio", title: block.title ?? "",
+          src: block.url, durationSeconds: block.durationSeconds
+        });
       }
     });
   });

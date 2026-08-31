@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Download, Images, MapPin, Play, Quote, UserRound } from "lucide-react";
+import { Download, Images, MapPin, Mic, Play, Quote, UserRound } from "lucide-react";
 import { StoryMarkdown } from "../features/stories/StoryMarkdown";
 import { StoryPlayer } from "../features/stories/StoryPlayer";
 import { slidesFromShare } from "../features/stories/story-player";
@@ -34,7 +34,8 @@ export type StoryShareBlock =
   | { kind: "album" | "slideshow"; title: string | null; caption: string | null; itemCount: number; items: StoryShareAsset[] }
   | { kind: "map"; lat: number; lng: number; zoom: number | null; label: string | null; caption: string | null }
   | { kind: "person"; name: string; birthDate: string | null; deathDate: string | null; caption: string | null }
-  | { kind: "quote"; text: string; attribution: string | null; caption: string | null };
+  | { kind: "quote"; text: string; attribution: string | null; caption: string | null }
+  | { kind: "audio"; title: string | null; durationSeconds: number | null; url: string; caption: string | null };
 
 export interface StoryShareChapter {
   title: string | null;
@@ -269,6 +270,19 @@ function ShareBlock({ block, onOpen }: { block: StoryShareBlock; onOpen: (id: st
         </div>
         {block.caption && <p className="story-set-caption">{block.caption}</p>}
       </section>
+    );
+  }
+
+  if (block.kind === "audio") {
+    return (
+      <figure className="story-block story-block-audio">
+        <span className="story-audio-icon" aria-hidden="true"><Mic size={16} /></span>
+        <div className="story-audio-body">
+          <strong>{block.title ?? t("stories:audio.defaultTitle")}</strong>
+          <audio src={block.url} controls preload="none" />
+          {block.caption && <figcaption>{block.caption}</figcaption>}
+        </div>
+      </figure>
     );
   }
 

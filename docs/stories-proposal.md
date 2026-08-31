@@ -428,10 +428,21 @@ target. This is a sequencer over existing players, not a new renderer.
 
 ## Phase 5 (options) — research-backed extensions, each independent
 
-- **Audio narration block**: record/upload a voice memo attached to a block
-  or chapter ("grandma tells this part"). Every genealogy product converged
-  on this (FamilySearch, Remento, MyHeritage); uploads infra exists. The
-  strongest candidate of the three.
+- **Audio narration block** — BUILT. Record in the browser or upload a file;
+  it plays in the reading view, in a guest link, and takes the stage in the
+  player. Notes:
+  - It is a BLOCK kind, not a chapter property. That way it inherits ordering,
+    deletion, the player and the guest payload for free, and "grandma tells
+    this part" sits exactly where the author put it.
+  - Narration is the one story reference the story OWNS rather than points at,
+    so `story_audio` cascades from the story — and `deleteBlock` reclaims the
+    FILE, which no foreign key would have.
+  - Reachability for an audio block is "belongs to THIS story", not a subjects
+    lookup; a clip from someone else's story cannot be embedded.
+  - In the player it is treated exactly like a video: absent from the clock,
+    advancing on `ended`.
+  - MediaRecorder needs a secure context, so where it is unavailable the record
+    half simply does not appear and upload carries it.
 - **Prompt starters**: "New story from…" templates — a memory (the memories
   clusterer already proposes date+place sets), an album, a year-in-review,
   a person. Pre-seeds chapters/blocks the author then edits. Prompts are the

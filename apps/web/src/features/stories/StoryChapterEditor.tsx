@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronDown, ChevronUp, Images, MapPin, Play, Plus, Quote, Trash2, Type, UserRound } from "lucide-react";
+import { ChevronDown, ChevronUp, Images, MapPin, Mic, Play, Plus, Quote, Trash2, Type, UserRound } from "lucide-react";
 import { Button } from "../../shared/Button";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { PartialDateField } from "../../shared/PartialDateField";
@@ -8,6 +8,7 @@ import { PhotoPicker } from "../gallery/PhotoPicker";
 import { StoryBlockEditor } from "./StoryBlockEditor";
 import { StoryRefPicker, type RefKind } from "./StoryRefPicker";
 import { StoryMapModal } from "./StoryMapModal";
+import { StoryAudioModal } from "./StoryAudioModal";
 import type { StoryBlockKind, StoryChapter } from "./types";
 
 // One chapter in the editor: its heading fields, its blocks, and the row that
@@ -15,6 +16,7 @@ import type { StoryBlockKind, StoryChapter } from "./types";
 // this editor, so nothing can be lost by navigating away.
 export function StoryChapterEditor({
   chapter,
+  storyId,
   index,
   total,
   busy,
@@ -27,6 +29,7 @@ export function StoryChapterEditor({
   blockActions
 }: {
   chapter: StoryChapter;
+  storyId: string;
   index: number;
   total: number;
   busy: boolean;
@@ -46,7 +49,7 @@ export function StoryChapterEditor({
   };
 }) {
   const { t } = useTranslation(["common", "stories"]);
-  const [picker, setPicker] = useState<"photo" | "map" | RefKind | null>(null);
+  const [picker, setPicker] = useState<"photo" | "map" | "audio" | RefKind | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [fields, setFields] = useState({
     title: chapter.title ?? "",
@@ -223,6 +226,10 @@ export function StoryChapterEditor({
           <Quote size={15} aria-hidden="true" />
           <span>{t("stories:kind.quote")}</span>
         </Button>
+        <Button variant="secondary" compact onClick={() => setPicker("audio")} disabled={busy}>
+          <Mic size={15} aria-hidden="true" />
+          <span>{t("stories:kind.audio")}</span>
+        </Button>
       </div>
 
       {picker === "photo" && (
@@ -239,6 +246,14 @@ export function StoryChapterEditor({
           kind={picker}
           storyTags={storyTags}
           onPick={(id) => { const kind = picker; setPicker(null); onAddBlock(kind, { entityId: id }); }}
+          onClose={() => setPicker(null)}
+        />
+      )}
+
+      {picker === "audio" && (
+        <StoryAudioModal
+          storyId={storyId}
+          onAdded={(audioId) => { setPicker(null); onAddBlock("audio", { entityId: audioId }); }}
           onClose={() => setPicker(null)}
         />
       )}

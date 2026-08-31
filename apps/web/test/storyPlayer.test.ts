@@ -68,6 +68,7 @@ function block(over: Partial<StoryBlock> & Pick<StoryBlock, "id" | "kind">): Sto
     href: null,
     asset: null,
     preview: [],
+    audio: null,
     ...over
   };
 }
@@ -202,6 +203,13 @@ describe("flattening a shared story", () => {
     expect(slides).toHaveLength(2);
   });
 
+  it("carries narration through to a guest's show", () => {
+    const slides = slidesFromShare(payload([
+      { kind: "audio", title: "Grandma tells it", durationSeconds: 40, url: "/api/share/t/audio/a1", caption: null }
+    ]));
+    expect(slides[0]).toMatchObject({ kind: "audio", title: "Grandma tells it", src: "/api/share/t/audio/a1" });
+  });
+
   it("builds the same slide kinds as the signed-in page", () => {
     const slides = slidesFromShare(payload([
       { kind: "text", body: "prose" },
@@ -231,6 +239,15 @@ describe("how long a slide holds", () => {
     };
     expect(slideSeconds(photo)).toBe(DEFAULT_PHOTO_SECONDS);
     expect(slideSeconds(photo, 12)).toBe(12);
+  });
+
+  it("gives narration the stage for as long as it runs", () => {
+    // A clip and a video are the same problem: something with its own runtime.
+    // The seconds are only a fallback for when the element never loads.
+    const clip: PlayerSlide = { id: "a", kind: "audio", title: "Grandma", src: "/a", durationSeconds: 92 };
+    expect(waitsForMedia(clip)).toBe(true);
+    expect(slideSeconds(clip)).toBe(92);
+    expect(slideSeconds({ id: "b", kind: "audio", title: "", src: "/b", durationSeconds: null })).toBe(5);
   });
 
   it("hands a video its own timing instead of a clock", () => {

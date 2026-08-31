@@ -101,7 +101,8 @@
     "slideshow": "Slideshow",
     "map": "Map",
     "person": "Person",
-    "quote": "Quote"
+    "quote": "Quote",
+    "audio": "Narration"
   },
   "block": {
     "unavailableTitle": "Not available",
@@ -112,7 +113,8 @@
       "slideshow": "This slideshow has been removed, or isn't in a library you can see.",
       "map": "This place is no longer available.",
       "person": "This person has been removed from the family tree.",
-      "quote": "This quote has been removed."
+      "quote": "This quote has been removed.",
+      "audio": "This recording is no longer available."
     },
     "openPhoto": "Open {{title}}",
     "mapFallbackTitle": "This place",
@@ -195,5 +197,18 @@
     "again": "Play again",
     "theEnd": "The end",
     "aria": "Playing the story {{title}}"
+  },
+  "audio": {
+    "title": "Add narration",
+    "intro": "Record someone telling this part of the story, or upload a recording you already have.",
+    "record": "Record",
+    "stop": "Stop",
+    "saving": "Saving…",
+    "upload": "Upload a recording",
+    "defaultTitle": "Narration",
+    "errorTitle": "Unable to add the recording",
+    "uploadFailed": "Unable to save the recording.",
+    "micRefused": "The microphone is not available. Check the browser permission, or upload a file instead.",
+    "noRecorder": "Recording needs a secure connection (https). You can still upload a file."
   }
 }

@@ -1911,3 +1911,22 @@ CREATE INDEX IF NOT EXISTS idx_story_chapters_story ON story_chapters(story_id, 
 CREATE INDEX IF NOT EXISTS idx_story_blocks_chapter ON story_blocks(chapter_id, position);
 CREATE INDEX IF NOT EXISTS idx_story_blocks_entity  ON story_blocks(entity_type, entity_id);
 CREATE INDEX IF NOT EXISTS idx_stories_created_by   ON stories(created_by);
+
+-- Narration recorded or uploaded for a story: "grandma tells this part". Owned
+-- by the story rather than referenced from the library — it exists for this
+-- story and goes with it, which is why this cascades where every other story
+-- reference deliberately does not.
+--
+-- The file lives in the thumbnail store under a 'narration' bucket, the same
+-- arrangement gallery_music_tracks uses for slideshow beds.
+CREATE TABLE IF NOT EXISTS story_audio (
+  id               TEXT PRIMARY KEY,
+  story_id         TEXT NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
+  storage_key      TEXT NOT NULL,
+  title            TEXT,
+  duration_seconds REAL,
+  uploaded_by      TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_story_audio_story ON story_audio(story_id);

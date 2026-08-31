@@ -11,7 +11,7 @@ export type StoryStatus = "draft" | "published";
  *  map = a place · person = someone in the family tree · quote = a pull quote.
  *  Everything but text and map carries an entity reference. */
 export type StoryBlockKind =
-  | "text" | "media" | "album" | "slideshow" | "map" | "person" | "quote";
+  | "text" | "media" | "album" | "slideshow" | "map" | "person" | "quote" | "audio";
 
 export type StoryBlockLayout = "default" | "wide" | "grid";
 
@@ -58,6 +58,8 @@ export interface StoryBlock {
   asset: GalleryAsset | null;
   /** First few visible photos of an album/slideshow, for the inline strip. */
   preview: GalleryAsset[];
+  /** Narration recorded for this story (audio blocks only). */
+  audio: { id: string; title: string | null; durationSeconds: number | null; url: string } | null;
 }
 
 export interface StoryChapter {

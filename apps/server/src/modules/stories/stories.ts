@@ -25,6 +25,7 @@ import { getAlbum, getAlbumItems } from "../library/gallery/albums.js";
 import { getSlideshow, getSlideshowItems } from "../library/gallery/slideshows.js";
 import { deleteEntityTags, entityTagsByIds, getEntityTags } from "../library/audiobook/categorize.js";
 import { deleteSharesForResource } from "../library/shared/share-access.js";
+import { STORY_AUDIO_ENTITY_TYPE, deleteStoryAudio, deleteStoryAudioFiles } from "./audio.js";
 
 const inClause = (n: number) => Array(n).fill("?").join(", ");
 
@@ -33,7 +34,7 @@ const inClause = (n: number) => Array(n).fill("?").join(", ");
 export const STORY_ENTITY_TYPE = "story";
 
 export const STORY_BLOCK_KINDS = [
-  "text", "media", "album", "slideshow", "map", "person", "quote"
+  "text", "media", "album", "slideshow", "map", "person", "quote", "audio"
 ] as const;
 export type StoryBlockKind = (typeof STORY_BLOCK_KINDS)[number];
 
@@ -55,7 +56,10 @@ export const BLOCK_ENTITY_TYPE: Record<StoryBlockKind, string | null> = {
   // Both are already subjects, so they hydrate (and access-check) for free.
   // A person block is the family-tree bridge; a quote block is a pull quote.
   person: "family_tree_person",
-  quote: "quote"
+  quote: "quote",
+  // Narration is the one reference the story OWNS rather than points at, so it
+  // is not a subjects-registry type — see audio.ts.
+  audio: STORY_AUDIO_ENTITY_TYPE
 };
 
 export interface StoryRow {
@@ -184,6 +188,8 @@ export function deleteStory(storyId: string): boolean {
     // at the story the same way and go with it, or they'd linger as dead URLs.
     deleteEntityTags(STORY_ENTITY_TYPE, storyId);
     deleteSharesForResource(STORY_ENTITY_TYPE, storyId);
+    // Narration rows cascade with the story; their FILES would not.
+    deleteStoryAudioFiles(storyId);
     // Chapters cascade, and blocks cascade from chapters.
     removed = db.prepare("DELETE FROM stories WHERE id = ?").run(storyId).changes > 0;
   })();
@@ -458,11 +464,17 @@ export function updateBlock(blockId: string, storyId: string, fields: BlockField
 }
 
 export function deleteBlock(blockId: string, storyId: string): boolean {
+  const block = getBlock(blockId);
   let removed = false;
   db.transaction(() => {
     removed = db.prepare("DELETE FROM story_blocks WHERE id = ?").run(blockId).changes > 0;
     if (removed) touchStory(storyId);
   })();
+  // A narration clip exists only for its block, so it goes with it — file and
+  // all. Outside the transaction because it touches the filesystem.
+  if (removed && block?.kind === "audio" && block.entity_id) {
+    deleteStoryAudio(block.entity_id);
+  }
   return removed;
 }
 

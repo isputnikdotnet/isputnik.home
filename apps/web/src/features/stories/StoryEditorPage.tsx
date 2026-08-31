@@ -164,6 +164,7 @@ export function StoryEditorPage({
               <StoryChapterEditor
                 key={chapter.id}
                 chapter={chapter}
+                storyId={story.id}
                 index={index}
                 total={story.chapters.length}
                 busy={busy}

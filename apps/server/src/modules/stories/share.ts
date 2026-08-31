@@ -26,6 +26,7 @@ import { curatableGalleryLibraryIds } from "../library/shared/shares.js";
 import { getAlbum, getAlbumItems } from "../library/gallery/albums.js";
 import { getSlideshow, getSlideshowItems } from "../library/gallery/slideshows.js";
 import type { ResolvedShareLink } from "../library/shared/share-access.js";
+import { getStoryAudio } from "./audio.js";
 import {
   BLOCK_PREVIEW_LIMIT,
   getStory,
@@ -375,6 +376,20 @@ function storyShareBlock(block: BlockRow, assets: ShareAsset[], token: string, c
       name: person.name,
       birthDate: person.birth_date,
       deathDate: person.death_date,
+      caption: block.caption
+    };
+  }
+
+  // Narration travels with a shared story: it was recorded for this story, and
+  // a story read without the voice is a different thing.
+  if (block.kind === "audio") {
+    const clip = block.entity_id ? getStoryAudio(block.entity_id) : undefined;
+    if (!clip || clip.story_id !== ctx.story.id) return null;
+    return {
+      kind: "audio" as const,
+      title: clip.title,
+      durationSeconds: clip.duration_seconds,
+      url: `/api/share/${token}/audio/${clip.id}`,
       caption: block.caption
     };
   }
