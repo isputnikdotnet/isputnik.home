@@ -33,7 +33,7 @@ import {
   slideshowTitleCardPreview,
   slideshowClosingCardPreview
 } from "./slideshow-render.js";
-import { parseRangeHeader } from "../shared/document-stream.js";
+import { parseRangeHeader, pipeFileToReply } from "../shared/document-stream.js";
 import { thumbnailAbsolutePath } from "../shared/thumbnail.js";
 import fs from "node:fs";
 
@@ -377,7 +377,7 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
         "Content-Disposition": disposition,
         "Cache-Control": "private, no-cache"
       });
-      fs.createReadStream(filePath, { start: range.start, end: range.end }).pipe(reply.raw);
+      pipeFileToReply(reply, filePath, { start: range.start, end: range.end });
     } else {
       reply.raw.writeHead(200, {
         "Content-Type": "video/mp4",
@@ -386,7 +386,7 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
         "Content-Disposition": disposition,
         "Cache-Control": "private, no-cache"
       });
-      fs.createReadStream(filePath).pipe(reply.raw);
+      pipeFileToReply(reply, filePath);
     }
   });
 
