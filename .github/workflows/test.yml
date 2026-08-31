@@ -36,9 +36,14 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v7
         with:
-          # Matches the runtime the image ships (Dockerfile: node:22-slim), so a
+          # Matches the runtime the image ships (Dockerfile: node:26-slim), so a
           # version-sensitive failure shows up here rather than in production.
-          node-version: 22
+          # Moved with the base image in this PR on purpose: left at 22 it would
+          # report green while testing a runtime the image no longer ships, and
+          # a Node major is exactly where the native modules (better-sqlite3,
+          # sharp, onnxruntime-node) break. build-and-push proves the image
+          # compiles; this is what proves the suite runs on it.
+          node-version: 26
           cache: npm
 
       - name: Install
