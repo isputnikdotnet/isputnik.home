@@ -1,5 +1,7 @@
 import { useState, type FormEvent } from "react";
+import { useTranslation } from "react-i18next";
 import { CalendarRange } from "lucide-react";
+import i18n from "../i18n";
 import { Button } from "./Button";
 import { Modal } from "./Modal";
 import { MessageBox } from "./MessageBox";
@@ -45,7 +47,7 @@ function toLocalInput(iso: string): string {
 }
 
 export function formatRangeLabel(range: DateRangeValue): string {
-  if (range.preset === "all") return "All time";
+  if (range.preset === "all") return i18n.t("dateRange.allTime");
   const from = new Date(range.from);
   const to = new Date(range.to);
   if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return "";
@@ -59,23 +61,21 @@ export function formatRangeLabel(range: DateRangeValue): string {
 
 /** How long the window is, phrased the way the picker labels it ("24h", "3 days"). */
 export function formatRangeSpan(range: DateRangeValue): string {
-  if (range.preset === "all") return "all time";
+  if (range.preset === "all") return i18n.t("dateRange.allTimeSpan");
   const preset = PRESETS.find((entry) => entry.value === range.preset);
   if (preset) return preset.label;
   const hours = (new Date(range.to).getTime() - new Date(range.from).getTime()) / 3_600_000;
-  if (!Number.isFinite(hours) || hours <= 0) return "period";
+  if (!Number.isFinite(hours) || hours <= 0) return i18n.t("dateRange.period");
   if (hours < 48) {
-    const rounded = Math.max(1, Math.round(hours));
-    return `${rounded} hour${rounded === 1 ? "" : "s"}`;
+    return i18n.t("dateRange.hour", { count: Math.max(1, Math.round(hours)) });
   }
-  const days = Math.round(hours / 24);
-  return `${days} day${days === 1 ? "" : "s"}`;
+  return i18n.t("dateRange.day", { count: Math.round(hours / 24) });
 }
 
 export function DateRangePicker({
   value,
   onChange,
-  label = "Time range",
+  label,
   disabled = false,
   allowAll = false
 }: {
@@ -87,11 +87,12 @@ export function DateRangePicker({
    *  need a bounded span to bucket. */
   allowAll?: boolean;
 }) {
+  const { t } = useTranslation();
   const [customOpen, setCustomOpen] = useState(false);
 
   return (
     <>
-      <div className="range-picker" role="group" aria-label={label}>
+      <div className="range-picker" role="group" aria-label={label ?? t("dateRange.label")}>
         {allowAll && (
           <button
             type="button"
@@ -100,7 +101,7 @@ export function DateRangePicker({
             disabled={disabled}
             onClick={() => onChange(ALL_TIME)}
           >
-            All
+            {t("common.all")}
           </button>
         )}
         {PRESETS.map((entry) => (
@@ -122,7 +123,7 @@ export function DateRangePicker({
           disabled={disabled}
           onClick={() => setCustomOpen(true)}
         >
-          Custom
+          {t("dateRange.custom")}
           <CalendarRange size={15} aria-hidden="true" />
         </button>
       </div>
@@ -150,6 +151,7 @@ function CustomRangeModal({
   onApply: (range: DateRangeValue) => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const [from, setFrom] = useState(() => toLocalInput(value.from));
   const [to, setTo] = useState(() => toLocalInput(value.to));
   const [error, setError] = useState("");
@@ -159,36 +161,36 @@ function CustomRangeModal({
     const start = new Date(from);
     const end = new Date(to);
     if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-      setError("Enter both a start and an end date.");
+      setError(t("dateRange.needBothDates"));
       return;
     }
     if (end.getTime() <= start.getTime()) {
-      setError("The end of the range has to come after its start.");
+      setError(t("dateRange.endAfterStart"));
       return;
     }
     onApply({ preset: "custom", from: start.toISOString(), to: end.toISOString() });
   };
 
   return (
-    <Modal title="Custom range" onClose={onClose} onSubmit={submit}>
-      <p className="muted">Times are your local time.</p>
+    <Modal title={t("dateRange.customTitle")} onClose={onClose} onSubmit={submit}>
+      <p className="muted">{t("dateRange.localTime")}</p>
 
-      {error && <MessageBox tone="error" title="Unable to apply">{error}</MessageBox>}
+      {error && <MessageBox tone="error" title={t("dateRange.unableToApply")}>{error}</MessageBox>}
 
       <div className="range-picker-custom-fields">
         <label className="field">
-          <span>From</span>
+          <span>{t("common.from")}</span>
           <input type="datetime-local" value={from} onChange={(event) => setFrom(event.target.value)} autoFocus />
         </label>
         <label className="field">
-          <span>To</span>
+          <span>{t("common.to")}</span>
           <input type="datetime-local" value={to} onChange={(event) => setTo(event.target.value)} />
         </label>
       </div>
 
       <div className="modal-actions">
-        <Button variant="secondary" onClick={onClose}>Cancel</Button>
-        <Button variant="primary" type="submit">Apply range</Button>
+        <Button variant="secondary" onClick={onClose}>{t("common.cancel")}</Button>
+        <Button variant="primary" type="submit">{t("dateRange.applyRange")}</Button>
       </div>
     </Modal>
   );

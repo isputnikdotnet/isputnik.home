@@ -8,7 +8,7 @@ import type { FastifyInstance } from "fastify";
 import { db, logActivity } from "../../../db.js";
 import { pathIsInside } from "../shared/storage-roots.js";
 import { canUserAccessBook } from "../shared/library-access.js";
-import { parseRangeHeader } from "../shared/document-stream.js";
+import { parseRangeHeader, pipeFileToReply } from "../shared/document-stream.js";
 import { thumbnailAbsolutePath } from "../shared/thumbnail.js";
 
 /**
@@ -117,7 +117,7 @@ export async function galleryStreamPlugin(app: FastifyInstance) {
         "Content-Disposition": disposition,
         "Cache-Control": "private, no-cache"
       });
-      fs.createReadStream(filePath, { start: range.start, end: range.end }).pipe(reply.raw);
+      pipeFileToReply(reply, filePath, { start: range.start, end: range.end });
     } else {
       reply.raw.writeHead(200, {
         "Content-Type": mimeType,
@@ -126,7 +126,7 @@ export async function galleryStreamPlugin(app: FastifyInstance) {
         "Content-Disposition": disposition,
         "Cache-Control": "private, no-cache"
       });
-      fs.createReadStream(filePath).pipe(reply.raw);
+      pipeFileToReply(reply, filePath);
     }
   });
 }

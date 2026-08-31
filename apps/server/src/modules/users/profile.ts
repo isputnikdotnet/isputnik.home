@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { FastifyInstance } from "fastify";
-import { db, logActivity, selfUser, THEME_PREFERENCES, type User } from "../../db.js";
+import { db, logActivity, selfUser, THEME_PREFERENCES, LANGUAGE_PREFERENCES, type User } from "../../db.js";
 import { parseBody, passwordPolicyField } from "../../core/shared.js";
 import { hashPassword, verifyPassword } from "../../crypto.js";
 import { currentSessionHash } from "../../auth.js";
@@ -10,6 +10,8 @@ import { verifyCurrentSecondFactor, recordSecondFactorFailure, secondFactorThrot
 const profileSchema = z.object({
   displayName: z.string().trim().min(2).max(80),
   theme: z.enum(THEME_PREFERENCES),
+  // Optional: omitted = leave unchanged.
+  language: z.enum(LANGUAGE_PREFERENCES).optional(),
   // Optional: omitted = leave unchanged; "" = clear; otherwise a valid address.
   ereaderEmail: z.union([z.literal(""), z.string().trim().pipe(z.email().max(254))]).optional()
 });
@@ -30,7 +32,9 @@ export async function profilePlugin(app: FastifyInstance) {
   app.patch("/api/profile", { preHandler: app.authenticate }, async (request, reply) => {
     const parsed = parseBody(profileSchema, request.body);
     if (parsed.error) {
-      return reply.code(400).send({ error: "Invalid profile details", details: parsed.error });
+      // `code` lets the web app show a localized message; `error` stays for API
+      // clients. See apps/web/src/api.ts.
+      return reply.code(400).send({ error: "Invalid profile details", code: "profile.invalid", details: parsed.error });
     }
 
     db.prepare(`
@@ -38,6 +42,12 @@ export async function profilePlugin(app: FastifyInstance) {
       SET display_name = ?, theme = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
       WHERE id = ?
     `).run(parsed.data.displayName, parsed.data.theme, request.user!.id);
+
+    // Language is updated only when present, so the other profile forms — which
+    // send displayName + theme — never disturb it.
+    if (parsed.data.language !== undefined) {
+      db.prepare("UPDATE users SET language = ? WHERE id = ?").run(parsed.data.language, request.user!.id);
+    }
 
     // E-reader email is updated only when present in the payload (empty clears it).
     if (parsed.data.ereaderEmail !== undefined) {
@@ -63,7 +73,7 @@ export async function profilePlugin(app: FastifyInstance) {
   app.patch("/api/profile/password", { preHandler: app.authenticate }, async (request, reply) => {
     const parsed = parseBody(passwordSchema, request.body);
     if (parsed.error) {
-      return reply.code(400).send({ error: "Invalid password", details: parsed.error });
+      return reply.code(400).send({ error: "Invalid password", code: "profile.invalid_password", details: parsed.error });
     }
 
     const user = db.prepare("SELECT * FROM users WHERE id = ? AND deleted_at IS NULL").get(request.user!.id) as User | undefined;
@@ -72,7 +82,7 @@ export async function profilePlugin(app: FastifyInstance) {
     }
 
     if (!(await verifyPassword(parsed.data.currentPassword, user.password_hash))) {
-      return reply.code(403).send({ error: "Your current password is incorrect." });
+      return reply.code(403).send({ error: "Your current password is incorrect.", code: "profile.wrong_password" });
     }
 
     const passwordHash = await hashPassword(parsed.data.newPassword);
@@ -106,7 +116,7 @@ export async function profilePlugin(app: FastifyInstance) {
   app.patch("/api/profile/email", { preHandler: app.authenticate, ...MFA_MANAGE_RATE_LIMIT }, async (request, reply) => {
     const parsed = parseBody(emailSchema, request.body);
     if (parsed.error) {
-      return reply.code(400).send({ error: "Invalid email", details: parsed.error });
+      return reply.code(400).send({ error: "Invalid email", code: "profile.invalid_email", details: parsed.error });
     }
 
     const user = db.prepare("SELECT * FROM users WHERE id = ? AND deleted_at IS NULL").get(request.user!.id) as User | undefined;
@@ -115,7 +125,7 @@ export async function profilePlugin(app: FastifyInstance) {
     }
 
     if (!(await verifyPassword(parsed.data.currentPassword, user.password_hash))) {
-      return reply.code(403).send({ error: "Your current password is incorrect." });
+      return reply.code(403).send({ error: "Your current password is incorrect.", code: "profile.wrong_password" });
     }
 
     // No-op when it already matches (emails are stored lower-cased) — succeed quietly
@@ -128,7 +138,7 @@ export async function profilePlugin(app: FastifyInstance) {
     // against all of them and return a friendly conflict instead of a raw constraint.
     const taken = db.prepare("SELECT id FROM users WHERE email = ? COLLATE NOCASE AND id <> ?").get(parsed.data.newEmail, user.id);
     if (taken) {
-      return reply.code(409).send({ error: "That email address is already in use." });
+      return reply.code(409).send({ error: "That email address is already in use.", code: "profile.email_taken" });
     }
 
     // Repointing the login email is second-factor-worthy: for the email MFA method
@@ -154,7 +164,7 @@ export async function profilePlugin(app: FastifyInstance) {
       db.prepare("UPDATE users SET email = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?")
         .run(parsed.data.newEmail, user.id);
     } catch {
-      return reply.code(409).send({ error: "That email address is already in use." });
+      return reply.code(409).send({ error: "That email address is already in use.", code: "profile.email_taken" });
     }
 
     const updated = db.prepare("SELECT * FROM users WHERE id = ?").get(user.id) as User;

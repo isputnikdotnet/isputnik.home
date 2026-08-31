@@ -20,6 +20,7 @@ import {
 } from "../src/modules/library/gallery/duplicates/job-scan.js";
 import { dismissResult } from "../src/modules/library/gallery/duplicates/job-review.js";
 import { NEAR_IDENTICAL_DISTANCE } from "../src/modules/library/gallery/duplicates/items.js";
+import { setFolderLock } from "../src/modules/library/shared/folder-locks.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
 
 const EXTERNAL = JSON.stringify({ mode: "external" });
@@ -450,6 +451,54 @@ describe("the job's own folder instructions", () => {
     ]);
     runJobScan(created.job.id, "u1");
     expect(byType(listJobResults(created.job.id), "contained")).toHaveLength(0);
+  });
+});
+
+// ── Folder locks ────────────────────────────────────────────────────────────
+//
+// A locked folder is the read-only library's rule one level down: nothing under it
+// may be deleted, whoever asks. The scan treats a locked copy exactly like one in a
+// protected library — shown as 'protected', never offered, preferred as keeper.
+
+describe("locked folders", () => {
+  it("shows a copy under a lock but never offers it for deletion", () => {
+    asset("a1", "Album/one.jpg", { hash: "same" });
+    asset("l1", "Vault/one.jpg", { hash: "same" });
+    setFolderLock("GAL", "Vault", true, "u1");
+
+    const sets = byType(scan(["GAL"], "files").results, "photo_set");
+    expect(sets).toHaveLength(1);
+    // The locked copy wins the keeper contest — the only outcome available.
+    expect(sets[0].members.find((member) => member.role === "keep")?.path).toBe("Vault/one.jpg");
+    expect(sets[0].members.find((member) => member.role === "delete")?.path).toBe("Album/one.jpg");
+    expect(sets[0].members.some((member) => member.role === "delete" && member.path.startsWith("Vault/"))).toBe(false);
+  });
+
+  it("never emits a locked duplicate folder as the one to remove", () => {
+    trip("Trip", "a");
+    trip("Backup/Trip", "b");
+    setFolderLock("GAL", "Backup", true, "u1");
+
+    const sets = byType(scan(["GAL"]).results, "folder_set");
+    expect(sets).toHaveLength(1);
+    // "Backup/Trip" would normally lose (named like a copy); locked, it survives.
+    expect(keeperFolder(sets[0])).toBe("Backup/Trip");
+    expect(sets[0].folders.find((folder) => folder.folderPath === "Trip")?.role).toBe("delete");
+  });
+
+  it("never offers to clear out a folder with a lock anywhere inside it", () => {
+    // "Old" is fully covered elsewhere — but its subfolder is locked, so emptying
+    // "Old" would have to delete the locked part. No contained offer for it.
+    asset("o1", "Old/keepsakes/one.jpg", { hash: "pic-1" });
+    asset("o2", "Old/two.jpg", { hash: "pic-2" });
+    asset("n1", "New/one.jpg", { hash: "pic-1" });
+    asset("n2", "New/two.jpg", { hash: "pic-2" });
+    setFolderLock("GAL", "Old/keepsakes", true, "u1");
+
+    const results = scan(["GAL"]).results;
+    for (const result of byType(results, "contained")) {
+      expect(doomedFolder(result)?.folderPath).not.toBe("Old");
+    }
   });
 });
 

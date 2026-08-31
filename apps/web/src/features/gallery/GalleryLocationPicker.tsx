@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -19,6 +20,7 @@ export function GalleryLocationPicker({
    *  view back, and a click on the map never re-fires this. */
   focus?: { lat: number; lng: number; zoom?: number; nonce: number } | null;
 }) {
+  const { t } = useTranslation(["common", "gallery"]);
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
@@ -37,7 +39,7 @@ export function GalleryLocationPicker({
     });
     L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+      attribution: t("gallery:map.osmAttribution")
     }).addTo(map);
     const icon = L.divIcon({ className: "gallery-mini-marker", html: '<span class="gallery-mini-pin"></span>', iconSize: [18, 18], iconAnchor: [9, 9] });
     const addMarker = (latlng: L.LatLng) => {
@@ -84,5 +86,5 @@ export function GalleryLocationPicker({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus?.nonce]);
 
-  return <div className="gallery-mini-map gallery-location-picker" ref={containerRef} aria-label="Pick a location on the map" />;
+  return <div className="gallery-mini-map gallery-location-picker" ref={containerRef} aria-label={t("gallery:locationPicker.aria")} />;
 }

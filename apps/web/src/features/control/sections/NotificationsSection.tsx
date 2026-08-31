@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { BellRing } from "lucide-react";
 import { api } from "../../../api";
 import { Button } from "../../../shared/Button";
@@ -20,6 +21,7 @@ interface NotificationsDto {
 // is read-only and says where to go. The server refuses the same combination, so
 // this is the explanation rather than the enforcement.
 export function NotificationsSection() {
+  const { t } = useTranslation(["common", "controlAdmin"]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [mailConfigured, setMailConfigured] = useState(false);
@@ -38,7 +40,7 @@ export function NotificationsSection() {
         setRecommendationNotifications(payload.notifications.recommendationNotifications);
         setMailConfigured(payload.mailConfigured);
       })
-      .catch((err) => setLoadError(err instanceof Error ? err.message : "Unable to load notification settings"))
+      .catch((err) => setLoadError(err instanceof Error ? err.message : t("controlAdmin:notifications.loadFailed")))
       .finally(() => setLoading(false));
   }, []);
 
@@ -57,7 +59,7 @@ export function NotificationsSection() {
       setMailConfigured(payload.mailConfigured);
       setSaved(true);
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "Unable to save notification settings");
+      setSaveError(err instanceof Error ? err.message : t("controlAdmin:notifications.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -71,31 +73,32 @@ export function NotificationsSection() {
         section="notifications"
         icon={<BellRing size={30} />}
         iconClassName="blue"
-        description="What the app may email people about, beyond the mail they asked for."
+        description={t("controlAdmin:notifications.headDescription")}
       />
 
       <section className="config-block">
         <p className="muted">
-          These are switched off until you turn them on. Security alerts, sign-in codes and
-          “Send to e-reader” are unaffected either way — those are either asked for or too
-          important to be optional.
+          {t("controlAdmin:notifications.intro")}
         </p>
 
-        {loadError && <MessageBox tone="error" title="Notification settings">{loadError}</MessageBox>}
+        {loadError && <MessageBox tone="error" title={t("controlAdmin:notifications.settingsTitle")}>{loadError}</MessageBox>}
 
         {loading ? (
-          <p className="muted">Loading…</p>
+          <p className="muted">{t("controlAdmin:ui.loading")}</p>
         ) : (
           <form className="mail-form" onSubmit={save}>
             {locked && (
-              <MessageBox tone="warning" title="No email server yet">
-                Notifications need somewhere to send from. Set up an outgoing mail server under{" "}
-                <a href={controlHref("email")}>Settings → Email</a>, then come back here.
+              <MessageBox tone="warning" title={t("controlAdmin:notifications.noMailTitle")}>
+                <Trans
+                  i18nKey="notifications.noMailBody"
+                  ns="controlAdmin"
+                  components={{ lnk: <a href={controlHref("email")} /> }}
+                />
               </MessageBox>
             )}
 
             <fieldset className="notify-fieldset" disabled={locked || saving}>
-              <legend className="mail-subhead">Sharing</legend>
+              <legend className="mail-subhead">{t("controlAdmin:notifications.sharingLegend")}</legend>
               <label className="mail-check">
                 <input
                   type="checkbox"
@@ -103,14 +106,13 @@ export function NotificationsSection() {
                   onChange={(event) => setShareNotifications(event.target.checked)}
                 />
                 <span>
-                  Email someone when a photo, book, or album is shared with them. The message says
-                  who shared what and links to “Shared with me”; it never carries the file itself.
+                  {t("controlAdmin:notifications.shareDesc")}
                 </span>
               </label>
             </fieldset>
 
             <fieldset className="notify-fieldset" disabled={locked || saving}>
-              <legend className="mail-subhead">Send to</legend>
+              <legend className="mail-subhead">{t("controlAdmin:notifications.sendToLegend")}</legend>
               <label className="mail-check">
                 <input
                   type="checkbox"
@@ -118,19 +120,17 @@ export function NotificationsSection() {
                   onChange={(event) => setRecommendationNotifications(event.target.checked)}
                 />
                 <span>
-                  Email someone when a family member sends them a book, photo or person. They see
-                  it in the app either way — this is only for households that would rather not have
-                  to look.
+                  {t("controlAdmin:notifications.recommendDesc")}
                 </span>
               </label>
             </fieldset>
 
-            {saveError && <MessageBox tone="error" title="Unable to save">{saveError}</MessageBox>}
-            {saved && <MessageBox tone="success" title="Saved">Notification settings updated.</MessageBox>}
+            {saveError && <MessageBox tone="error" title={t("errors.unableToSave")}>{saveError}</MessageBox>}
+            {saved && <MessageBox tone="success" title={t("controlAdmin:ui.saved")}>{t("controlAdmin:notifications.savedBody")}</MessageBox>}
 
             <div className="mail-actions">
               <Button variant="primary" type="submit" disabled={saving || locked}>
-                {saving ? "Saving…" : "Save"}
+                {saving ? t("controlAdmin:ui.saving") : t("controlAdmin:ui.save")}
               </Button>
             </div>
           </form>

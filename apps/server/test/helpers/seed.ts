@@ -28,7 +28,7 @@ export function resetDb(): void {
     "device_link_requests", "device_link_windows", "sessions", "mfa_challenges",
     "webauthn_credentials", "webauthn_challenges",
     "login_attempts", "blocked_ips", "trusted_networks", "known_login_networks",
-    "item_saves", "item_categories", "item_people", "series_items",
+    "item_saves", "quotes", "quote_imports", "item_categories", "item_people", "series_items",
     "audio_chapters", "audio_files", "document_files",
     "playback_progress", "track_progress", "reading_progress",
     "audio_bookmarks", "reading_bookmarks",
@@ -42,9 +42,10 @@ export function resetDb(): void {
     "duplicate_job_result_members", "duplicate_job_result_folders", "duplicate_job_results",
     "duplicate_job_libraries", "duplicate_jobs",
     "notes", "recommendations", "taggables", "tags", "collection_items", "collections", "work_items", "works",
+    "story_blocks", "story_chapters", "story_audio", "stories",
     "family_tree_photos", "family_tree_event_photos", "family_tree_children", "family_tree_unions", "family_tree_persons",
     "family_tree_events", "family_tree_citations", "family_tree_sources",
-    "library_scan_rule_paths", "library_scan_rules",
+    "library_scan_rule_paths", "library_scan_rules", "library_folder_locks",
     // Deleting goes through trashBook, so any suite that removes an item leaves rows
     // here; without this they accumulate across tests and land in the next one's counts.
     "trashed_items",

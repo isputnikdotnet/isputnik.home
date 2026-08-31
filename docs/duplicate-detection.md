@@ -302,7 +302,9 @@ trusts it. `checkResult` compares every member against the library as it stands:
 
 - the item is still there and still `ready`
 - `size`, `content_hash` and `modified_at` all still match the snapshot
-- for a doomed copy, its library still allows deleting
+- for a doomed copy, its library still allows deleting **and no folder lock covers it**
+  (a folder locked after the snapshot reads as `protected`, the same as a library turned
+  read-only — see [recycle-bin.md](recycle-bin.md))
 - **and the copy that was meant to survive it is itself fine**
 
 **All-or-nothing per result.** A single disagreement refuses the whole set rather than
@@ -312,7 +314,11 @@ opens, so a stale card says so before you press Delete rather than after.
 
 Then, in order: each doomed photo hands its tags, albums, collections and tagged people to
 its keeper, and only then does `trashBook` move the file to the Recycle Bin. Nothing is
-ever erased, and a library the app may only read refuses outright.
+ever erased, and a library the app may only read — or a locked folder — refuses outright.
+
+The scan already treats both the same way: a copy in a protected library or under a folder
+lock is written as `role: 'protected'` (shown, never offered), wins the keeper contest, and
+a folder with a lock anywhere inside it is never proposed for clearing out.
 
 > **Faces are the exception, and the distance decides.** On a byte-identical copy the
 > pixels are the same, so a face box drawn on one describes the same spot on the other. A

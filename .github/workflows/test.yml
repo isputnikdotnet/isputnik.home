@@ -1,0 +1,58 @@
+name: Tests
+
+# typecheck + both Vitest suites + the UI-convention checker, on every push to main
+# and every pull request. Until this existed CI ran nothing but the Docker image
+# build, which compiles the server but never executes a test — so a change could be
+# green on GitHub and still break the suite. That is not hypothetical: the
+# TypeScript 7 bump (#41) merged green and broke reply-send-contract.test.ts,
+# because TS 7's package drops the programmatic compiler API that test walks the
+# AST with. It was reverted in 0141d474. A Dependabot PR in particular is exactly
+# the kind of change no human reads closely, so the suite has to gate it.
+#
+# This is deliberately separate from docker.yml: packaging and correctness fail for
+# different reasons and are worth reading as two marks. Tests finish in a couple of
+# minutes, the image build does not.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        # No LFS, for the same reason docker.yml skips it: the face recogniser is a
+        # release asset, and pulling it through LFS exhausted the repo's budget.
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          # Matches the runtime the image ships (Dockerfile: node:22-slim), so a
+          # version-sensitive failure shows up here rather than in production.
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # ffmpeg/ffprobe come from ffmpeg-static/ffprobe-static, so npm ci is the
+      # whole setup — no apt packages. The face-detection tests skip themselves
+      # when the ONNX model isn't present, which it isn't here (it is fetched
+      # during the image build, not from the lockfile).
+      - name: Test
+        run: npm test
+
+      - name: Check UI conventions
+        run: npm run check:ui

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../../api";
 import { queryParam, replaceQuery } from "../../router";
+import i18n from "../../i18n";
 import { EMPTY_FILTERS, EMPTY_FACETS, type BookFilters, type FacetOptions, type SortKey } from "./BookFilter";
 import type { AudiobookBook } from "./types";
 
@@ -25,10 +27,14 @@ export interface CatalogView {
 // doesn't exist yet — one column of full-size covers isn't a list view.
 export type CatalogDensity = "comfortable" | "compact";
 
-export const DENSITY_OPTIONS: { value: CatalogDensity; label: string }[] = [
-  { value: "comfortable", label: "Comfortable" },
-  { value: "compact", label: "Compact" }
-];
+// Built fresh on every call (not a module-level const) so the labels stay
+// reactive to a language switch — same approach as control/nav.ts.
+export function getDensityOptions(): { value: CatalogDensity; label: string }[] {
+  return [
+    { value: "comfortable", label: i18n.t("book:catalog.densityComfortable") },
+    { value: "compact", label: i18n.t("book:catalog.densityCompact") }
+  ];
+}
 
 const DEFAULT_VIEW: CatalogView = {
   selectedLibraryId: "all", sort: "title", search: "", filters: EMPTY_FILTERS, letter: null, density: "comfortable"
@@ -74,6 +80,7 @@ export function useMediaCatalog<T = AudiobookBook>(
   persistKey: string,
   endpoints: CatalogEndpoints = AUDIOBOOK_ENDPOINTS
 ) {
+  const { t } = useTranslation(["book"]);
   const [search, setSearch] = useState(() => readCatalogView(persistKey).search);
   const [debounced, setDebounced] = useState(() => readCatalogView(persistKey).search.trim());
   const [filters, setFilters] = useState<BookFilters>(() => readCatalogView(persistKey).filters);
@@ -152,7 +159,7 @@ export function useMediaCatalog<T = AudiobookBook>(
       })
       .catch((err) => {
         if (reqId.current !== id) return;
-        setError(err instanceof Error ? err.message : "Unable to load audiobooks");
+        setError(err instanceof Error ? err.message : t("book:catalog.unableLoadCatalogFallback"));
         setLoading(false);
       });
   }, [queryKey]); // eslint-disable-line react-hooks/exhaustive-deps

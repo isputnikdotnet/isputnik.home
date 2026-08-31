@@ -115,6 +115,7 @@ export function registerTrashRoutes(app: FastifyInstance) {
     let deleted = 0;
     let forbidden = 0;
     let missing = 0;
+    let locked = 0;
     let failed = 0;
     let failure = "";
 
@@ -138,16 +139,22 @@ export function registerTrashRoutes(app: FastifyInstance) {
         });
       } catch (err) {
         if (err instanceof TrashError && err.statusCode === 404) { missing += 1; continue; }
+        // 423 = a folder lock refused the item (thrown inside trashBook) — not a
+        // failure, just an item the selection may not touch, like forbidden.
+        if (err instanceof TrashError && err.statusCode === 423) { locked += 1; continue; }
         failed += 1;
         if (!failure) failure = err instanceof Error ? err.message : "Could not move the item to the Recycle Bin.";
       }
     }
 
-    if (deleted === 0 && forbidden > 0 && failed === 0) {
+    if (deleted === 0 && forbidden > 0 && failed === 0 && locked === 0) {
       return reply.code(403).send({ error: "Deleting items is not allowed in the selected libraries." });
     }
+    if (deleted === 0 && locked > 0 && failed === 0) {
+      return reply.code(423).send({ error: "The selected items are in locked folders and can't be deleted." });
+    }
 
-    return reply.send({ deleted, forbidden, missing, failed, ...(failure ? { error: failure } : {}) });
+    return reply.send({ deleted, forbidden, missing, locked, failed, ...(failure ? { error: failure } : {}) });
   });
 
   // The bin — items the caller can manage (admins see all, including orphans).

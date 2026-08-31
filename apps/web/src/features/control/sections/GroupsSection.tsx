@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, type FormEvent } from "react";
+import { useTranslation } from "react-i18next";
 import { Plus, Search, Trash2, UserMinus, Users } from "lucide-react";
 import { api } from "../../../api";
 import { Field } from "../../../shared/Field";
@@ -11,6 +12,7 @@ import type { ManagedGroup, GroupMember, ManagedUser } from "../types";
 import { ControlSectionHead } from "../ControlSectionHead";
 
 export function GroupsSection() {
+  const { t } = useTranslation(["common", "control"]);
   const [groups, setGroups] = useState<ManagedGroup[]>([]);
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [error, setError] = useState("");
@@ -38,18 +40,18 @@ export function GroupsSection() {
   }, []);
 
   useEffect(() => {
-    load().catch((err) => setError(err instanceof Error ? err.message : "Unable to load groups"));
-  }, [load]);
+    load().catch((err) => setError(err instanceof Error ? err.message : t("control:groups.unableToLoad")));
+  }, [load, t]);
 
   const visibleGroups = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     if (!query) return groups;
     return groups.filter((group) => [
       group.name,
-      `${group.memberCount} members`,
-      `${group.libraryCount} libraries`
+      t("control:groups.memberCount", { count: group.memberCount }),
+      String(group.libraryCount)
     ].some((value) => value.toLowerCase().includes(query)));
-  }, [groups, searchQuery]);
+  }, [groups, searchQuery, t]);
 
   const nonMembers = useMemo(
     () => users.filter((user) => !members.some((member) => member.userId === user.id)),
@@ -81,7 +83,7 @@ export function GroupsSection() {
       setNewGroupName("");
       await load();
     } catch (err) {
-      setModalError(err instanceof Error ? err.message : "Unable to create group");
+      setModalError(err instanceof Error ? err.message : t("control:groups.unableToCreate"));
     } finally {
       setCreating(false);
     }
@@ -96,7 +98,7 @@ export function GroupsSection() {
       setPendingDelete(null);
       await load();
     } catch (err) {
-      setModalError(err instanceof Error ? err.message : "Unable to delete group");
+      setModalError(err instanceof Error ? err.message : t("control:groups.unableToDelete"));
     } finally {
       setDeleting(false);
     }
@@ -117,7 +119,7 @@ export function GroupsSection() {
       setAddUserId("");
       await load();
     } catch (err) {
-      setMemberError(err instanceof Error ? err.message : "Unable to add member");
+      setMemberError(err instanceof Error ? err.message : t("control:groups.unableToAddMember"));
     } finally {
       setMemberWorking(false);
     }
@@ -133,7 +135,7 @@ export function GroupsSection() {
       setMembers(payload.members);
       await load();
     } catch (err) {
-      setMemberError(err instanceof Error ? err.message : "Unable to remove member");
+      setMemberError(err instanceof Error ? err.message : t("control:groups.unableToRemoveMember"));
     } finally {
       setMemberWorking(false);
     }
@@ -145,7 +147,7 @@ export function GroupsSection() {
         section="groups"
         icon={<Users size={30} />}
         iconClassName="groups"
-        description="Shared access groups and the libraries they can reach."
+        description={t("control:groups.description")}
       >
         <div className="row-actions">
           <RefreshButton
@@ -154,45 +156,45 @@ export function GroupsSection() {
               try {
                 await load();
               } catch (err) {
-                setError(err instanceof Error ? err.message : "Unable to refresh groups");
+                setError(err instanceof Error ? err.message : t("control:groups.unableToRefresh"));
                 throw err;
               }
             }}
           />
-          <Button variant="primary" onClick={openCreate} title="New group">
+          <Button variant="primary" onClick={openCreate} title={t("control:groups.newGroup")}>
             <Plus size={18} />
-            <span>New group</span>
+            <span>{t("control:groups.newGroup")}</span>
           </Button>
         </div>
       </ControlSectionHead>
 
-      {error && <MessageBox tone="error" title="Groups error">{error}</MessageBox>}
+      {error && <MessageBox tone="error" title={t("control:groups.errorTitle")}>{error}</MessageBox>}
 
       <div className="admin-controls-bar">
         <label className="search-field admin-search">
           <Search size={17} aria-hidden="true" />
-          <span className="sr-only">Search groups</span>
+          <span className="sr-only">{t("control:groups.searchAria")}</span>
           <input
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Search groups..."
+            placeholder={t("control:groups.searchPlaceholder")}
           />
         </label>
       </div>
 
       {visibleGroups.length === 0 ? (
         <p className="management-empty">
-          {groups.length === 0 ? "No groups configured." : "No groups match this search."}
+          {groups.length === 0 ? t("control:groups.emptyNone") : t("control:groups.emptyFiltered")}
         </p>
       ) : (
         <div className="datagrid-wrap admin-table-wrap">
           <table className="datagrid admin-table group-table">
             <thead>
               <tr>
-                <th>Group</th>
-                <th className="col-num">Members</th>
-                <th className="col-num">Libraries</th>
-                <th className="col-actions">Actions</th>
+                <th>{t("control:groups.thGroup")}</th>
+                <th className="col-num">{t("control:groups.thMembers")}</th>
+                <th className="col-num">{t("control:groups.thLibraries")}</th>
+                <th className="col-actions">{t("control:groups.thActions")}</th>
               </tr>
             </thead>
             <tbody>
@@ -201,7 +203,7 @@ export function GroupsSection() {
                   <td>
                     <div className="datagrid-primary">
                       <strong>{group.name}</strong>
-                      <small>{group.memberCount} {group.memberCount === 1 ? "member" : "members"}</small>
+                      <small>{t("control:groups.memberCount", { count: group.memberCount })}</small>
                     </div>
                   </td>
                   <td className="col-num datagrid-muted">{group.memberCount.toLocaleString()}</td>
@@ -211,15 +213,15 @@ export function GroupsSection() {
                       <Button
                         variant="secondary"
                         compact
-                        onClick={() => loadMembers(group).catch((err) => setError(err instanceof Error ? err.message : "Unable to load members"))}
+                        onClick={() => loadMembers(group).catch((err) => setError(err instanceof Error ? err.message : t("control:groups.unableToLoadMembers")))}
                       >
-                        Manage
+                        {t("control:groups.manage")}
                       </Button>
                       <Button
                         variant="icon"
                         danger
-                        title="Delete group"
-                        aria-label={`Delete ${group.name}`}
+                        title={t("control:groups.deleteGroupAria", { name: group.name })}
+                        aria-label={t("control:groups.deleteGroupAria", { name: group.name })}
                         onClick={() => {
                           setModalError("");
                           setPendingDelete(group);
@@ -238,20 +240,20 @@ export function GroupsSection() {
 
       {createOpen && (
         <Modal
-          title="New group"
+          title={t("control:groups.newGroup")}
           className="create-group-modal"
           busy={creating}
           onClose={() => setCreateOpen(false)}
           onSubmit={createGroup}
         >
-          <Field label="Group name" value={newGroupName} onChange={setNewGroupName} />
-          {modalError && <MessageBox tone="error" title="Unable to create group">{modalError}</MessageBox>}
+          <Field label={t("control:groups.groupName")} value={newGroupName} onChange={setNewGroupName} />
+          {modalError && <MessageBox tone="error" title={t("control:groups.unableToCreate")}>{modalError}</MessageBox>}
           <div className="modal-actions">
             <Button variant="secondary" onClick={() => setCreateOpen(false)} disabled={creating} autoFocus>
-              Cancel
+              {t("control:ui.cancel")}
             </Button>
             <Button variant="primary" type="submit" disabled={creating || !newGroupName.trim()}>
-              {creating ? "Creating..." : "Create group"}
+              {creating ? t("control:groups.creatingGroup") : t("control:groups.createGroup")}
             </Button>
           </div>
         </Modal>
@@ -264,17 +266,17 @@ export function GroupsSection() {
           busy={memberWorking}
           onClose={() => setManagingGroup(null)}
         >
-          {memberError && <MessageBox tone="error" title="Group members error">{memberError}</MessageBox>}
+          {memberError && <MessageBox tone="error" title={t("control:groups.membersErrorTitle")}>{memberError}</MessageBox>}
 
           {members.length === 0 ? (
-            <p className="management-empty">No members yet.</p>
+            <p className="management-empty">{t("control:groups.noMembersYet")}</p>
           ) : (
             <div className="datagrid-wrap">
               <table className="datagrid">
                 <thead>
                   <tr>
-                    <th>Member</th>
-                    <th className="col-actions">Actions</th>
+                    <th>{t("control:groups.thMember")}</th>
+                    <th className="col-actions">{t("control:groups.thActions")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -291,8 +293,8 @@ export function GroupsSection() {
                           <Button
                             variant="icon"
                             danger
-                            title="Remove from group"
-                            aria-label={`Remove ${member.displayName} from group`}
+                            title={t("control:groups.removeFromGroupTitle")}
+                            aria-label={t("control:groups.removeFromGroupAria", { name: member.displayName })}
                             disabled={memberWorking}
                             onClick={() => removeMember(member)}
                           >
@@ -310,31 +312,31 @@ export function GroupsSection() {
           {nonMembers.length > 0 && (
             <form className="add-member-form" onSubmit={addMember}>
               <label className="field">
-                <span>Add member</span>
+                <span>{t("control:groups.addMember")}</span>
                 <select value={addUserId} onChange={(event) => setAddUserId(event.target.value)} required>
-                  <option value="">Select user...</option>
+                  <option value="">{t("control:groups.selectUser")}</option>
                   {nonMembers.map((user) => (
                     <option value={user.id} key={user.id}>{user.displayName} ({user.email})</option>
                   ))}
                 </select>
               </label>
               <Button variant="primary" type="submit" disabled={memberWorking || !addUserId}>
-                Add member
+                {t("control:groups.addMember")}
               </Button>
             </form>
           )}
 
           <div className="modal-actions">
-            <Button variant="secondary" onClick={() => setManagingGroup(null)} autoFocus>Close</Button>
+            <Button variant="secondary" onClick={() => setManagingGroup(null)} autoFocus>{t("control:ui.close")}</Button>
           </div>
         </Modal>
       )}
 
       {pendingDelete && (
         <ConfirmDialog
-          title={`Delete "${pendingDelete.name}"?`}
-          confirmLabel="Delete group"
-          busyLabel="Deleting..."
+          title={t("control:groups.deleteConfirmTitle", { name: pendingDelete.name })}
+          confirmLabel={t("control:groups.deleteConfirmLabel")}
+          busyLabel={t("control:ui.deleting")}
           confirmIcon={<Trash2 size={15} />}
           danger
           rich
@@ -343,8 +345,8 @@ export function GroupsSection() {
           onConfirm={deleteGroup}
           onCancel={() => setPendingDelete(null)}
         >
-          <p>This will remove the group and its membership records.</p>
-          <p><strong>User accounts, libraries, and files are not deleted.</strong></p>
+          <p>{t("control:groups.deleteBody1")}</p>
+          <p><strong>{t("control:groups.deleteBody2")}</strong></p>
         </ConfirmDialog>
       )}
     </>

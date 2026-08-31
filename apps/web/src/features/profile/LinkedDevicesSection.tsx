@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Check, MonitorSmartphone, Pencil, Trash2, Tv } from "lucide-react";
+import { Trans, useTranslation } from "react-i18next";
 import { api } from "../../api";
 import { Button } from "../../shared/Button";
 import { Field } from "../../shared/Field";
@@ -7,6 +8,7 @@ import { MessageBox } from "../../shared/MessageBox";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { Modal } from "../../shared/Modal";
 import { navigate } from "../../router";
+import i18n from "../../i18n";
 
 // Everywhere this account is signed in. Linked displays first, because they are
 // the reason the page exists — they were authorized from somewhere else, they
@@ -28,16 +30,17 @@ interface SessionRow {
 
 function whenSeen(iso: string): string {
   const minutes = Math.round((Date.now() - Date.parse(iso)) / 60_000);
-  if (minutes < 2) return "active now";
-  if (minutes < 60) return `${minutes} minutes ago`;
+  if (minutes < 2) return i18n.t("misc:devices.activeNow");
+  if (minutes < 60) return i18n.t("misc:devices.minutesAgo", { count: minutes });
   const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  if (hours < 24) return i18n.t("misc:devices.hoursAgo", { count: hours });
   const days = Math.round(hours / 24);
-  if (days < 7) return `${days} day${days === 1 ? "" : "s"} ago`;
+  if (days < 7) return i18n.t("misc:devices.daysAgo", { count: days });
   return new Date(iso).toLocaleDateString();
 }
 
 export function LinkedDevicesSection() {
+  const { t } = useTranslation(["common", "misc"]);
   const [sessions, setSessions] = useState<SessionRow[] | null>(null);
   const [loadError, setLoadError] = useState("");
   const [error, setError] = useState("");
@@ -60,7 +63,7 @@ export function LinkedDevicesSection() {
       const result = await api<{ sessions: SessionRow[] }>("/api/account/sessions");
       setSessions(result.sessions);
     } catch (err) {
-      setLoadError(err instanceof Error ? err.message : "Unable to load your devices");
+      setLoadError(err instanceof Error ? err.message : t("misc:devices.unableToLoadFallback"));
     }
   };
 
@@ -87,7 +90,7 @@ export function LinkedDevicesSection() {
       setRenaming(null);
       await refresh();
     } catch (err) {
-      setRenameError(err instanceof Error ? err.message : "Unable to save that name");
+      setRenameError(err instanceof Error ? err.message : t("misc:devices.unableToRenameFallback"));
     } finally {
       setSavingName(false);
     }
@@ -102,7 +105,7 @@ export function LinkedDevicesSection() {
       setPendingRemove(null);
       await refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to remove that device");
+      setError(err instanceof Error ? err.message : t("misc:devices.unableToRemoveFallback"));
     } finally {
       setRemoving(false);
     }
@@ -119,19 +122,19 @@ export function LinkedDevicesSection() {
       <div className="device-row-meta">
         <strong>
           {session.name}
-          {session.current && <span className="device-row-tag">This device</span>}
+          {session.current && <span className="device-row-tag">{t("misc:devices.currentDeviceTag")}</span>}
         </strong>
         <span className="device-row-detail">
           {whenSeen(session.lastSeen)}
           {session.ipAddress ? ` · ${session.ipAddress}` : ""}
-          {session.kind === "device" ? ` · linked ${new Date(session.createdAt).toLocaleDateString()}` : ""}
+          {session.kind === "device" ? ` · ${t("misc:devices.linkedOn", { date: new Date(session.createdAt).toLocaleDateString() })}` : ""}
         </span>
       </div>
       <div className="device-row-actions">
         <Button
           variant="icon"
-          title="Rename"
-          aria-label={`Rename ${session.name}`}
+          title={t("misc:devices.rename")}
+          aria-label={t("misc:devices.renameAria", { name: session.name })}
           onClick={() => openRename(session)}
         >
           <Pencil size={16} />
@@ -142,8 +145,8 @@ export function LinkedDevicesSection() {
           <Button
             variant="icon"
             danger
-            title={session.kind === "device" ? "Revoke device" : "Sign this out"}
-            aria-label={`Revoke ${session.name}`}
+            title={session.kind === "device" ? t("misc:devices.revokeDevice") : t("misc:devices.signThisOut")}
+            aria-label={t("misc:devices.revokeAria", { name: session.name })}
             onClick={() => setPendingRemove(session)}
           >
             <Trash2 size={16} />
@@ -155,22 +158,20 @@ export function LinkedDevicesSection() {
 
   return (
     <section className="linked-devices-section" aria-labelledby="linked-devices-heading">
-      <h2 id="linked-devices-heading">Linked devices</h2>
+      <h2 id="linked-devices-heading">{t("misc:devices.heading")}</h2>
       <p className="section-description">
-        Televisions, wall displays and other screens you've signed in by scanning a code. They stay signed in
-        until you remove them, and they can't reach the control panel.
+        {t("misc:devices.description")}
       </p>
 
-      {loadError && <MessageBox tone="error" title="Unable to load">{loadError}</MessageBox>}
-      {error && <MessageBox tone="error" title="Unable to remove">{error}</MessageBox>}
+      {loadError && <MessageBox tone="error" title={t("misc:common.unableToLoad")}>{loadError}</MessageBox>}
+      {error && <MessageBox tone="error" title={t("misc:devices.removeErrorTitle")}>{error}</MessageBox>}
 
       {sessions && (
         <>
           <div className="device-list">
             {devices.length === 0 ? (
               <p className="section-description">
-                No linked devices yet. On the TV or display, open iSputnik and choose
-                <strong> Link a TV or display</strong> — then scan the code it shows with this phone.
+                <Trans i18nKey="devices.emptyBody" ns="misc" components={{ bold: <strong /> }} />
               </p>
             ) : (
               devices.map(row)
@@ -178,14 +179,14 @@ export function LinkedDevicesSection() {
           </div>
 
           <div className="device-actions">
-            <Button variant="secondary" onClick={() => navigate("/link")}>Link a device from here</Button>
+            <Button variant="secondary" onClick={() => navigate("/link")}>{t("misc:devices.linkFromHere")}</Button>
           </div>
 
           <div className="device-others">
             <Button variant="text" onClick={() => setShowOthers((open) => !open)}>
               {showOthers
-                ? "Hide other sign-ins"
-                : `Show ${browsers.length} other sign-in${browsers.length === 1 ? "" : "s"}`}
+                ? t("misc:devices.hideOthers")
+                : t("misc:devices.showOthers", { count: browsers.length })}
             </Button>
             {showOthers && (
               <div className="device-list">
@@ -197,22 +198,22 @@ export function LinkedDevicesSection() {
       )}
 
       {renaming && (
-        <Modal variant="card" title="Rename this device" busy={savingName} onClose={() => setRenaming(null)} onSubmit={saveName}>
+        <Modal variant="card" title={t("misc:devices.renameModalTitle")} busy={savingName} onClose={() => setRenaming(null)} onSubmit={saveName}>
           <Field
-            label="Name"
+            label={t("misc:devices.nameLabel")}
             value={label}
             onChange={setLabel}
             placeholder={renaming.name}
             required={false}
           />
           <p className="section-description">
-            Leave it empty to go back to what the browser reports.
+            {t("misc:devices.nameHint")}
           </p>
-          {renameError && <MessageBox tone="error" title="Unable to save">{renameError}</MessageBox>}
+          {renameError && <MessageBox tone="error" title={t("misc:devices.renameErrorTitle")}>{renameError}</MessageBox>}
           <div className="modal-actions">
-            <Button variant="secondary" onClick={() => setRenaming(null)} disabled={savingName}>Cancel</Button>
+            <Button variant="secondary" onClick={() => setRenaming(null)} disabled={savingName}>{t("common:common.cancel")}</Button>
             <Button variant="primary" type="submit" disabled={savingName}>
-              {savingName ? "Saving…" : <><Check size={16} /> Save name</>}
+              {savingName ? t("misc:common.saving") : <><Check size={16} /> {t("misc:devices.saveName")}</>}
             </Button>
           </div>
         </Modal>
@@ -220,16 +221,15 @@ export function LinkedDevicesSection() {
 
       {pendingRemove && (
         <ConfirmDialog
-          title={`Revoke access for "${pendingRemove.name}"?`}
-          confirmLabel={pendingRemove.kind === "device" ? "Revoke device" : "Sign out"}
-          busyLabel="Revoking…"
+          title={t("misc:devices.confirmRevokeTitle", { name: pendingRemove.name })}
+          confirmLabel={pendingRemove.kind === "device" ? t("misc:devices.confirmRevokeDevice") : t("misc:devices.confirmSignOut")}
+          busyLabel={t("misc:devices.confirmRevokeBusy")}
           danger
           busy={removing}
           onConfirm={remove}
           onCancel={() => setPendingRemove(null)}
         >
-          That device is signed out immediately and will need authorizing again to come back. Nothing else about
-          your account changes, and nothing is deleted.
+          {t("misc:devices.confirmRevokeBody")}
         </ConfirmDialog>
       )}
     </section>

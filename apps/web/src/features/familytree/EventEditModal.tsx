@@ -1,31 +1,15 @@
 import { useState } from "react";
 import { CalendarClock, ImagePlus, Play, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { api } from "../../api";
 import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
 import type { GalleryAsset } from "../gallery/types";
-import { FamilyPhotoPicker } from "./FamilyPhotoPicker";
-import { PartialDateField } from "./PartialDateField";
-import { EVENT_TYPE_OPTIONS, type FamilyEvent } from "./types";
-
-// What goes in the label field, per type — the short "what happened".
-const LABEL_HINTS: Record<FamilyEvent["type"], string> = {
-  education: "School or university",
-  graduation: "School or university",
-  occupation: "Job title or employer",
-  retirement: "e.g. Retired from the railway",
-  residence: "e.g. Family home",
-  military: "Unit or service",
-  immigration: "e.g. Arrived by ship",
-  emigration: "e.g. Left for work",
-  naturalization: "e.g. Became a citizen",
-  travel: "e.g. Trip to Italy",
-  award: "Medal or honor",
-  baptism: "Church or parish",
-  burial: "Cemetery",
-  custom: "What happened"
-};
+import { PhotoPicker } from "../gallery/PhotoPicker";
+import { useFamilyUploadTarget } from "./useFamilyUploadTarget";
+import { PartialDateField } from "../../shared/PartialDateField";
+import { EVENT_TYPE_OPTIONS, eventLabelHint, eventTypeLabel, type FamilyEvent } from "./types";
 
 // Create or edit a timeline event. Dates are free-text partial dates — a year
 // is the norm for "went to school 1971–1975", which native date inputs can't
@@ -60,13 +44,15 @@ export function EventEditModal({
   const [note, setNote] = useState(existing?.note ?? "");
   const [photos, setPhotos] = useState<GalleryAsset[]>(existing?.photos ?? []);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const uploadTo = useFamilyUploadTarget();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const { t } = useTranslation(["common", "family"]);
 
   const submit = async (formEvent: React.FormEvent<HTMLFormElement>) => {
     formEvent.preventDefault();
     if (type === "custom" && !label.trim()) {
-      setError("Give this event a short label — it's what the timeline shows.");
+      setError(t("family:event.errors.labelRequired"));
       return;
     }
     setSaving(true);
@@ -105,7 +91,7 @@ export function EventEditModal({
       }
       onSaved();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to save this event");
+      setError(err instanceof Error ? err.message : t("family:event.errors.default"));
       setSaving(false);
     }
   };
@@ -114,7 +100,7 @@ export function EventEditModal({
     <>
     <Modal
       variant="card"
-      title={existing ? "Edit event" : `Add event for ${personName}`}
+      title={existing ? t("family:event.titleEdit") : t("family:event.titleAdd", { name: personName })}
       icon={<CalendarClock size={18} />}
       className="ft-modal ft-person-form-modal"
       busy={saving}
@@ -123,38 +109,43 @@ export function EventEditModal({
       onClose={() => { if (!pickerOpen) onClose(); }}
       onSubmit={submit}
     >
-      {error && <MessageBox tone="error" title="Unable to save">{error}</MessageBox>}
+      {error && <MessageBox tone="error" title={t("errors.unableToSave")}>{error}</MessageBox>}
       <div className="ft-form-grid">
         <label className="field">
-          <span>Type</span>
+          <span>{t("family:event.typeLabel")}</span>
           <select value={type} onChange={(event) => setType(event.target.value as FamilyEvent["type"])}>
             {EVENT_TYPE_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>{option.label}</option>
+              <option key={option.value} value={option.value}>{eventTypeLabel(option.value)}</option>
             ))}
           </select>
         </label>
         <label className="field">
-          <span>{type === "custom" ? "Label" : "Label (optional)"}</span>
+          <span>{type === "custom" ? t("family:event.labelFieldRequired") : t("family:event.labelFieldOptional")}</span>
           <input
             type="text"
             value={label}
-            placeholder={LABEL_HINTS[type]}
+            placeholder={eventLabelHint(type)}
             onChange={(event) => setLabel(event.target.value)}
           />
         </label>
-        <PartialDateField label="From" value={date} onChange={setDate} />
-        <PartialDateField label="To (optional)" value={endDate} placeholder="1975" onChange={setEndDate} />
+        <PartialDateField label={t("family:event.fromLabel")} value={date} onChange={setDate} />
+        <PartialDateField
+          label={t("family:event.toOptionalLabel")}
+          value={endDate}
+          placeholder={t("partialDate.example.endYear")}
+          onChange={setEndDate}
+        />
         <label className="field">
-          <span>Place</span>
+          <span>{t("family:event.placeLabel")}</span>
           <input type="text" value={place} onChange={(event) => setPlace(event.target.value)} />
         </label>
       </div>
       <label className="field ft-bio-field">
-        <span>Notes</span>
+        <span>{t("family:common.notes")}</span>
         <textarea value={note} rows={3} onChange={(event) => setNote(event.target.value)} />
       </label>
       <div className="field">
-        <span>Photos</span>
+        <span>{t("family:event.photosLabel")}</span>
         <div className="ft-event-photo-strip">
           {photos.map((photo) => (
             <span key={photo.id} className="ft-event-photo-thumb">
@@ -164,8 +155,8 @@ export function EventEditModal({
                 variant="icon"
                 danger
                 className="ft-event-photo-remove"
-                title={`Remove ${photo.title}`}
-                aria-label={`Remove ${photo.title}`}
+                title={t("family:event.removePhotoAria", { title: photo.title })}
+                aria-label={t("family:event.removePhotoAria", { title: photo.title })}
                 onClick={() => setPhotos((prev) => prev.filter((p) => p.id !== photo.id))}
               >
                 <X size={11} aria-hidden="true" />
@@ -179,24 +170,25 @@ export function EventEditModal({
             onClick={() => setPickerOpen(true)}
           >
             <ImagePlus size={15} aria-hidden="true" />
-            Add photos
+            {t("family:common.addPhotos")}
           </Button>
         </div>
       </div>
       <div className="modal-actions">
-        <Button variant="secondary" onClick={onClose} disabled={saving}>Cancel</Button>
+        <Button variant="secondary" onClick={onClose} disabled={saving}>{t("common.cancel")}</Button>
         <Button variant="primary" type="submit" disabled={saving}>
-          {saving ? "Saving…" : existing ? "Save changes" : "Add event"}
+          {saving ? t("family:common.saving") : existing ? t("family:common.saveChanges") : t("family:event.submit")}
         </Button>
       </div>
 
     </Modal>
 
     {pickerOpen && (
-      <FamilyPhotoPicker
-        title="Add photos to this event"
+      <PhotoPicker
+        title={t("family:event.addPhotosToEventTitle")}
         existingIds={photos.map((p) => p.id)}
         facePerson={facePerson}
+        uploadTo={uploadTo}
         onAttach={(_ids, assets) => {
           setPhotos((prev) => {
             const have = new Set(prev.map((p) => p.id));

@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ChevronLeft, ChevronRight, Columns2, ExternalLink, Folder, ImageOff, Images, Square } from "lucide-react";
 import { Modal } from "../../../../shared/Modal";
 import { Button } from "../../../../shared/Button";
 import { formatBytes } from "../../../../shared/utils";
-import { TOP_LEVEL, TOP_LEVEL_HINT } from "./shared";
+import i18n from "../../../../i18n";
+import { topLevelHint, topLevelLabel } from "./shared";
 
 // Full-size look at the copies in one duplicate set, so the decision can be made on
 // the pictures rather than on filenames and byte counts. Two modes: one copy at a
@@ -32,7 +34,7 @@ function fileName(member: ViewerMember): string {
 }
 
 function dimensions(member: ViewerMember): string {
-  return member.width && member.height ? `${member.width} × ${member.height}` : "Unknown size";
+  return member.width && member.height ? `${member.width} × ${member.height}` : i18n.t("controlDash:dupes.unknownSize");
 }
 
 function folderOf(member: ViewerMember): string {
@@ -41,10 +43,10 @@ function folderOf(member: ViewerMember): string {
 }
 
 // Just the folder itself, not its ancestors; the full path is on the tooltip.
-// A copy in no folder reads "Top level", not "Library root" — see TOP_LEVEL.
+// A copy in no folder reads "Top level", not "Library root" — see topLevelLabel().
 function folderName(member: ViewerMember): string {
   const folder = folderOf(member);
-  return folder ? folder.split("/").pop() || folder : TOP_LEVEL;
+  return folder ? folder.split("/").pop() || folder : topLevelLabel();
 }
 
 function Pane({
@@ -60,11 +62,12 @@ function Pane({
   busy: boolean;
   readOnly: boolean;
 }) {
+  const { t } = useTranslation(["common", "controlDash"]);
   const src = member.previewUrl ?? member.coverUrl;
   const picture = src
     ? <img src={src} alt={fileName(member)} />
     : <span className="dup-view-missing"><ImageOff size={28} aria-hidden="true" /></span>;
-  const chip = <span className="dup-view-chip" aria-hidden="true">{mark === "keep" ? "Keep" : "Delete"}</span>;
+  const chip = <span className="dup-view-chip" aria-hidden="true">{mark === "keep" ? t("controlDash:dupes.badgeKeep") : t("controlDash:dupes.badgeDelete")}</span>;
 
   return (
     <div className={`dup-view-pane${mark === "keep" ? " is-keep" : " is-trash"}`}>
@@ -83,7 +86,7 @@ function Pane({
           className="dup-view-stage"
           aria-pressed={mark === "trash"}
           disabled={busy}
-          title={mark === "keep" ? "Marked to keep — click to delete it instead" : "Marked for deletion — click to keep it"}
+          title={mark === "keep" ? t("controlDash:dupes.markedKeepHint") : t("controlDash:dupes.markedDeleteHint")}
           onClick={onToggleMark}
         >
           {picture}
@@ -96,7 +99,7 @@ function Pane({
           <Images size={12} aria-hidden="true" />
           <span>{member.libraryName}</span>
         </span>
-        <span className="dup-view-where" title={folderOf(member) || TOP_LEVEL_HINT}>
+        <span className="dup-view-where" title={folderOf(member) || topLevelHint()}>
           <Folder size={12} aria-hidden="true" />
           <span>{folderName(member)}</span>
         </span>
@@ -105,7 +108,7 @@ function Pane({
         </span>
         {member.fileUrl && (
           <a className="dup-view-original" href={member.fileUrl} target="_blank" rel="noreferrer">
-            <span>Open original</span>
+            <span>{t("controlDash:dupes.openOriginal")}</span>
             <ExternalLink size={13} aria-hidden="true" />
           </a>
         )}
@@ -133,6 +136,7 @@ export function DuplicateViewer({
    *  at scan time, and this view is for checking the answer rather than making it. */
   readOnly?: boolean;
 }) {
+  const { t } = useTranslation(["common", "controlDash"]);
   // A pair opens straight into compare — with exactly two copies that's the only
   // thing anyone came here to do.
   const [compare, setCompare] = useState(members.length === 2);
@@ -171,7 +175,7 @@ export function DuplicateViewer({
           onClick={() => setCompare((current) => !current)}
         >
           {compare ? <Square size={14} aria-hidden="true" /> : <Columns2 size={14} aria-hidden="true" />}
-          <span>{compare ? "View one" : "Compare two"}</span>
+          <span>{compare ? t("controlDash:dupes.viewOne") : t("controlDash:dupes.compareTwo")}</span>
         </Button>
       ) : undefined}
     >
@@ -188,7 +192,7 @@ export function DuplicateViewer({
           {members.length > 2 && (
             <div className="dup-view-pickers">
               <label>
-                <span>Left</span>
+                <span>{t("controlDash:dupes.left")}</span>
                 <select value={index} onChange={(event) => setIndex(Number(event.target.value))}>
                   {members.map((member, position) => (
                     <option key={member.itemId} value={position}>{fileName(member)}</option>
@@ -196,7 +200,7 @@ export function DuplicateViewer({
                 </select>
               </label>
               <label>
-                <span>Right</span>
+                <span>{t("controlDash:dupes.right")}</span>
                 <select value={rightIndex} onChange={(event) => setRightIndex(Number(event.target.value))}>
                   {members.map((member, position) => (
                     <option key={member.itemId} value={position}>{fileName(member)}</option>
@@ -212,8 +216,8 @@ export function DuplicateViewer({
             variant="icon"
             className="dup-view-step"
             disabled={members.length < 2}
-            aria-label="Previous copy"
-            title="Previous copy"
+            aria-label={t("controlDash:dupes.previousCopy")}
+            title={t("controlDash:dupes.previousCopy")}
             onClick={() => step(-1)}
           >
             <ChevronLeft size={20} aria-hidden="true" />
@@ -223,8 +227,8 @@ export function DuplicateViewer({
             variant="icon"
             className="dup-view-step"
             disabled={members.length < 2}
-            aria-label="Next copy"
-            title="Next copy"
+            aria-label={t("controlDash:dupes.nextCopy")}
+            title={t("controlDash:dupes.nextCopy")}
             onClick={() => step(1)}
           >
             <ChevronRight size={20} aria-hidden="true" />
@@ -234,8 +238,8 @@ export function DuplicateViewer({
 
         <p className="dup-view-status datagrid-muted">
           {compare
-            ? `Comparing 2 of ${members.length} copies`
-            : `Copy ${index + 1} of ${members.length} — use ← and → to step through them`}
+            ? t("controlDash:dupes.comparingStatus", { count: members.length })
+            : t("controlDash:dupes.copyStatus", { index: index + 1, count: members.length })}
         </p>
       </div>
       {/* No Close button down here. The panel header carries one, and this is a

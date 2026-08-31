@@ -63,10 +63,11 @@ theme follows you to your phone.
 | | |
 |---|---|
 | **System** | Follows your device's light/dark setting |
-| **Expanse** | Deep blue-black with a cyan accent |
 | **iSputnik Night** | The house dark theme — dark teal, warm text |
 | **iSputnik Light** | The house light theme — soft paper and green |
-| **Plain Dark** / **Plain Light** | Neutral greys, if you'd rather the app got out of the way |
+| **Plain Dark** | Deep blue-black with a cyan accent, no scene artwork |
+| **Plain Light** | Neutral light greys, if you'd rather the app got out of the way |
+| **Minimalist** | Platinum grey and black ink, like a certain beige computer |
 
 ### Devices
 
@@ -102,13 +103,13 @@ untouched.
 | | What it holds | How things get there |
 |---|---|---|
 | **Shared with me** | Books, photos and albums other people have shared with your account | Someone else shares them; they appear here |
-| **Favorites** | Anything worth finding again — audiobooks, ebooks and photos together | The heart on a book's page, or on a photo |
+| **Likes** | Anything worth finding again — audiobooks, ebooks and photos together | The heart on a book's page, or on a photo |
 | **Bookmarks** | Places inside a book: a moment in an audiobook, a page in an ebook | The bookmark button while listening or reading |
 | **Quotes** | Passages worth keeping, with the book and page they came from | Highlight text in the reader, or **Add quote** on any book |
 | **Collections** | Lists you make yourself, which can mix audiobooks, ebooks and photos in one list | **Add to collection** from any item |
 | **Downloads** | Books kept on this device for offline use *(installed app only)* | The download button on a book |
 
-**Favorites vs Collections** is the usual question. Favorites is one flat list —
+**Likes vs Collections** is the usual question. Likes is one flat list —
 one tap, no thinking. A collection is a list you name and curate ("Car trips",
 "Read with the kids"), and one item can sit in as many as you like.
 

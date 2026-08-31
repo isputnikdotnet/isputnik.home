@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Smile } from "lucide-react";
 import { Button } from "../../shared/Button";
 
@@ -26,6 +27,7 @@ const EMOJI = [
 ];
 
 export function EmojiPicker({ onPick, disabled }: { onPick: (emoji: string) => void; disabled?: boolean }) {
+  const { t } = useTranslation(["common", "user"]);
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -52,8 +54,8 @@ export function EmojiPicker({ onPick, disabled }: { onPick: (emoji: string) => v
       <Button
         variant="icon"
         compact
-        title="Add an emoji"
-        aria-label="Add an emoji"
+        title={t("user:social.addEmoji")}
+        aria-label={t("user:social.addEmoji")}
         aria-haspopup="dialog"
         aria-expanded={open}
         disabled={disabled}
@@ -63,7 +65,7 @@ export function EmojiPicker({ onPick, disabled }: { onPick: (emoji: string) => v
       </Button>
 
       {open && (
-        <div className="emoji-popover" role="dialog" aria-label="Emoji">
+        <div className="emoji-popover" role="dialog" aria-label={t("user:social.emoji")}>
           {EMOJI.map((emoji) => (
             <button
               key={emoji}

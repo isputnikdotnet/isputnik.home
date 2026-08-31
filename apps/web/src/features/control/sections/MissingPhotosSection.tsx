@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ImageOff, Trash2, UserRound } from "lucide-react";
+import i18n from "../../../i18n";
 import { api } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
 import { Button } from "../../../shared/Button";
@@ -20,16 +22,17 @@ interface MissingPhoto {
 
 function formatWhen(value: string): string {
   const date = new Date(value.includes("T") ? value : `${value.replace(" ", "T")}Z`);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString(i18n.language);
 }
 
 function formatDay(iso: string | null): string {
-  if (!iso) return "Never";
+  if (!iso) return i18n.t("controlAdmin:ui.never");
   const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? "—" : date.toLocaleDateString();
+  return Number.isNaN(date.getTime()) ? "—" : date.toLocaleDateString(i18n.language);
 }
 
 export function MissingPhotosSection() {
+  const { t } = useTranslation(["common", "controlAdmin"]);
   const [items, setItems] = useState<MissingPhoto[]>([]);
   const [retentionDays, setRetentionDays] = useState(30);
   const [retentionInput, setRetentionInput] = useState("30");
@@ -51,7 +54,7 @@ export function MissingPhotosSection() {
 
   useEffect(() => {
     load()
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load missing photos"))
+      .catch((err) => setError(err instanceof Error ? err.message : t("controlAdmin:missingPhotos.loadFailed")))
       .finally(() => setLoaded(true));
   }, []);
 
@@ -64,7 +67,7 @@ export function MissingPhotosSection() {
   const saveRetention = async () => {
     const value = Number.parseInt(retentionInput, 10);
     if (!Number.isFinite(value) || value < 0) {
-      setActionError("Enter a number of days (0 to keep missing photos forever).");
+      setActionError(t("controlAdmin:missingPhotos.retentionInvalid"));
       return;
     }
     setSavingRetention(true);
@@ -78,7 +81,7 @@ export function MissingPhotosSection() {
       setRetentionInput(String(payload.retentionDays));
       await load();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Unable to save the retention window");
+      setActionError(err instanceof Error ? err.message : t("controlAdmin:missingPhotos.saveRetentionFailed"));
     } finally {
       setSavingRetention(false);
     }
@@ -93,7 +96,7 @@ export function MissingPhotosSection() {
       setPurgeTarget(null);
       await load();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Unable to remove the photo");
+      setActionError(err instanceof Error ? err.message : t("controlAdmin:missingPhotos.removeFailed"));
     } finally {
       setPurging(false);
     }
@@ -107,7 +110,7 @@ export function MissingPhotosSection() {
       setPurgeAllOpen(false);
       await load();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Unable to purge missing photos");
+      setActionError(err instanceof Error ? err.message : t("controlAdmin:missingPhotos.purgeAllFailed"));
     } finally {
       setPurgingAll(false);
     }
@@ -121,20 +124,14 @@ export function MissingPhotosSection() {
         section="missingPhotos"
         className="control-head-compact"
         icon={<ImageOff size={30} />}
-        description={
-          <>
-            Photos whose files have vanished from disk. They're hidden from the gallery but kept here — with their
-            metadata and last-known thumbnail — in case the file comes back. Unmatched after the grace window, they're
-            permanently removed by the weekly cleanup. If a drive was just offline, rescan the library and they revive.
-          </>
-        }
+        description={t("controlAdmin:missingPhotos.headDescription")}
       >
         {/* Refresh last, at the right edge — same position as on Scheduled jobs. */}
         <div className="row-actions control-head-actions">
           {eligibleCount > 0 && (
             <Button variant="danger" compact disabled={busy} onClick={() => { setActionError(""); setPurgeAllOpen(true); }}>
               <Trash2 size={16} />
-              <span>Purge {eligibleCount} eligible now</span>
+              <span>{t("controlAdmin:missingPhotos.purgeEligible", { count: eligibleCount })}</span>
             </Button>
           )}
           <RefreshButton
@@ -143,7 +140,7 @@ export function MissingPhotosSection() {
               try {
                 await load();
               } catch (err) {
-                setError(err instanceof Error ? err.message : "Unable to refresh missing photos");
+                setError(err instanceof Error ? err.message : t("controlAdmin:missingPhotos.refreshFailed"));
                 throw err;
               }
             }}
@@ -152,7 +149,7 @@ export function MissingPhotosSection() {
       </ControlSectionHead>
 
       <div className="missing-retention-row">
-        <label htmlFor="missing-retention">Auto-purge missing photos after</label>
+        <label htmlFor="missing-retention">{t("controlAdmin:missingPhotos.retentionLabel")}</label>
         <input
           id="missing-retention"
           type="number"
@@ -162,32 +159,32 @@ export function MissingPhotosSection() {
           disabled={savingRetention}
           onChange={(event) => setRetentionInput(event.target.value)}
         />
-        <span className="datagrid-muted">days (0 = keep forever)</span>
+        <span className="datagrid-muted">{t("controlAdmin:missingPhotos.daysSuffix")}</span>
         <Button
           variant="secondary"
           compact
           disabled={savingRetention || retentionInput === String(retentionDays)}
           onClick={saveRetention}
         >
-          {savingRetention ? "Saving…" : "Save"}
+          {savingRetention ? t("controlAdmin:ui.saving") : t("controlAdmin:ui.save")}
         </Button>
       </div>
 
-      {error && <MessageBox tone="error" title="Unable to load missing photos">{error}</MessageBox>}
-      {actionError && <MessageBox tone="error" title="Action failed">{actionError}</MessageBox>}
+      {error && <MessageBox tone="error" title={t("controlAdmin:missingPhotos.loadFailed")}>{error}</MessageBox>}
+      {actionError && <MessageBox tone="error" title={t("errors.actionFailed")}>{actionError}</MessageBox>}
 
       {loaded && items.length === 0 && !error ? (
-        <p className="management-empty">No missing photos — every catalogued photo is present on disk.</p>
+        <p className="management-empty">{t("controlAdmin:missingPhotos.empty")}</p>
       ) : items.length > 0 ? (
         <div className="datagrid-wrap">
           <table className="datagrid">
             <thead>
               <tr>
                 <th></th>
-                <th>Photo</th>
-                <th>Library</th>
-                <th>Missing since</th>
-                <th>Auto-removes</th>
+                <th>{t("controlAdmin:missingPhotos.thPhoto")}</th>
+                <th>{t("controlAdmin:missingPhotos.thLibrary")}</th>
+                <th>{t("controlAdmin:missingPhotos.thMissingSince")}</th>
+                <th>{t("controlAdmin:missingPhotos.thAutoRemoves")}</th>
                 <th className="col-actions"></th>
               </tr>
             </thead>
@@ -214,7 +211,7 @@ export function MissingPhotosSection() {
                       disabled={busy}
                       onClick={() => { setActionError(""); setPurgeTarget(item); }}
                     >
-                      Remove now
+                      {t("controlAdmin:missingPhotos.removeNow")}
                     </Button>
                   </td>
                 </tr>
@@ -226,33 +223,31 @@ export function MissingPhotosSection() {
 
       {purgeTarget && (
         <ConfirmDialog
-          title={`Permanently remove "${purgeTarget.title}"?`}
-          confirmLabel="Remove permanently"
-          busyLabel="Removing…"
+          title={t("controlAdmin:missingPhotos.confirmRemoveTitle", { title: purgeTarget.title })}
+          confirmLabel={t("controlAdmin:missingPhotos.confirmRemoveLabel")}
+          busyLabel={t("controlAdmin:missingPhotos.removing")}
           danger
           busy={purging}
           error={actionError}
           onConfirm={confirmPurge}
           onCancel={() => setPurgeTarget(null)}
         >
-          Its catalog entry, cached thumbnail, and any detected faces are deleted. The file is already gone from disk, so
-          there is nothing to restore — this only cleans up the leftover record. It cannot be undone.
+          {t("controlAdmin:missingPhotos.confirmRemoveBody")}
         </ConfirmDialog>
       )}
 
       {purgeAllOpen && (
         <ConfirmDialog
-          title={`Purge ${eligibleCount} missing photo${eligibleCount === 1 ? "" : "s"}?`}
-          confirmLabel={`Purge ${eligibleCount}`}
-          busyLabel="Purging…"
+          title={t("controlAdmin:missingPhotos.confirmPurgeAllTitle", { count: eligibleCount })}
+          confirmLabel={t("controlAdmin:missingPhotos.confirmPurgeAllLabel", { count: eligibleCount })}
+          busyLabel={t("controlAdmin:missingPhotos.purging")}
           danger
           busy={purgingAll}
           error={actionError}
           onConfirm={confirmPurgeAll}
           onCancel={() => setPurgeAllOpen(false)}
         >
-          Every photo missing longer than {retentionDays} day{retentionDays === 1 ? "" : "s"} has its catalog entry,
-          thumbnail, and detected faces permanently removed. The files are already gone from disk. This cannot be undone.
+          {t("controlAdmin:missingPhotos.confirmPurgeAllBody", { count: retentionDays })}
         </ConfirmDialog>
       )}
     </>

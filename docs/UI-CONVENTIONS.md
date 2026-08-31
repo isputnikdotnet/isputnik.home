@@ -43,6 +43,19 @@ tokens instead of hard-coding a border.
 <Button variant="icon" danger title="Delete backup" onClick={...}><Trash2 size={15} /></Button>
 ```
 
+### PhotoPicker — `features/gallery/PhotoPicker.tsx`
+
+Choosing gallery photos or videos from anywhere in the app goes through
+`<PhotoPicker>` — one panel modal with Folders / People / Tags / All photos
+tabs (plus Upload when a destination allows it), per-tab search, a
+library-scope dropdown, and one selection that persists across all of them,
+gathered in a removable-thumbnail tray. Multi mode posts `{ itemIds }` to the
+`endpoint` you pass (albums, slideshows) or hands the selection to your
+`onAttach` (the family tree); `pick="video"` / `pick="any"` are the
+single-choice modes (slideshow clips, portraits). `facePerson` opens on People
+with the linked person selected; `uploadTo` names the upload destination.
+Never build a new photo-browsing dialog; extend this one.
+
 ### SelectMenu — `shared/SelectMenu.tsx`
 
 Use `<SelectMenu>` for dropdown option sets that should look like app controls
@@ -166,6 +179,12 @@ The only way to ask "are you sure?". Built on Modal.
 - `danger` for destructive actions → filled danger button + `alertdialog` role.
 - `rich` when the body has its own `<p>` markup; `error` to surface a failed attempt;
   `confirmIcon` for an icon in the confirm button.
+- `challenge={{ value, label }}` makes the reader type `value` back before the confirm
+  button enables. **Rare.** It is for actions that destroy a lot at once with nothing
+  to restore from — emptying the whole Recycle Bin is the one that has it. The value
+  must be something the dialog already states (a count, a name), so answering means
+  having read it. On an ordinary destructive action it is noise, and noise is what
+  teaches people to click through warnings.
 
 ```tsx
 {pendingDelete && (

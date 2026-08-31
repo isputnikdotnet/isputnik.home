@@ -583,7 +583,10 @@ export async function mfaRoutes(app: FastifyInstance) {
       const challenge = challengeId ? resolveMfaChallenge(challengeId) : null;
       if (!challenge) {
         clearMfaChallengeCookie(reply);
-        return reply.code(401).send({ error: "Your sign-in expired. Enter your password again." });
+        // `code` is a stable, translatable identifier: the web app shows its own
+        // localized message for a code it knows and falls back to `error` (see
+        // apps/web/src/api.ts). The English sentence stays for API clients.
+        return reply.code(401).send({ error: "Your sign-in expired. Enter your password again.", code: "mfa.challenge_expired" });
       }
 
       const user = db.prepare("SELECT * FROM users WHERE id = ? AND deleted_at IS NULL AND is_active = 1").get(
@@ -593,23 +596,22 @@ export async function mfaRoutes(app: FastifyInstance) {
       // enrollment — the outside-MFA fallback mails codes to accounts that never
       // enrolled, and those must be resendable like any other.
       if (!user || !challenge.code_hash) {
-        return reply.code(409).send({ error: "This sign-in doesn't use emailed codes." });
+        return reply.code(409).send({ error: "This sign-in doesn't use emailed codes.", code: "mfa.not_email" });
       }
 
       const outcome = rotateEmailCode(challenge.id);
       if (!outcome.ok) {
-        return reply.code(429).send({
-          error:
-            outcome.reason === "cooldown"
-              ? `Wait ${EMAIL_CODE_RESEND_SECONDS} seconds before asking for another code.`
-              : "No more codes for this sign-in. Enter your password again to start over."
-        });
+        return reply.code(429).send(
+          outcome.reason === "cooldown"
+            ? { error: `Wait ${EMAIL_CODE_RESEND_SECONDS} seconds before asking for another code.`, code: "mfa.resend_cooldown" }
+            : { error: "No more codes for this sign-in. Enter your password again to start over.", code: "mfa.resend_exhausted" }
+        );
       }
 
       try {
         await sendMfaCodeEmail(user.email, outcome.code, "login");
       } catch {
-        return reply.code(502).send({ error: "We couldn't send the code. Use a backup code, or ask your administrator." });
+        return reply.code(502).send({ error: "We couldn't send the code. Use a backup code, or ask your administrator.", code: "mfa.send_failed" });
       }
       logActivity({
         event: "auth.mfa_code_resent",
@@ -630,17 +632,17 @@ export async function mfaRoutes(app: FastifyInstance) {
     async (request, reply) => {
       const challengeId = request.cookies[MFA_COOKIE];
       if (!challengeId) {
-        return reply.code(401).send({ error: "No sign-in is in progress. Start again." });
+        return reply.code(401).send({ error: "No sign-in is in progress. Start again.", code: "mfa.no_challenge" });
       }
       const challenge = resolveMfaChallenge(challengeId);
       if (!challenge) {
         clearMfaChallengeCookie(reply);
-        return reply.code(401).send({ error: "Your sign-in expired. Enter your password again." });
+        return reply.code(401).send({ error: "Your sign-in expired. Enter your password again.", code: "mfa.challenge_expired" });
       }
 
       const parsed = parseBody(codeSchema, request.body);
       if (parsed.error) {
-        return reply.code(400).send({ error: "Enter your 6-digit code or a backup code", details: parsed.error });
+        return reply.code(400).send({ error: "Enter your 6-digit code or a backup code", code: "mfa.code_required", details: parsed.error });
       }
 
       const user = db
@@ -655,7 +657,7 @@ export async function mfaRoutes(app: FastifyInstance) {
       if (!user || !ready) {
         clearMfaChallenge(challengeId);
         clearMfaChallengeCookie(reply);
-        return reply.code(401).send({ error: "Enter your password again." });
+        return reply.code(401).send({ error: "Enter your password again.", code: "mfa.reauth" });
       }
 
       let ok = false;
@@ -703,14 +705,18 @@ export async function mfaRoutes(app: FastifyInstance) {
             alertAccountLocked(user.email, request.ip);
             clearMfaChallenge(challengeId);
             clearMfaChallengeCookie(reply);
-            return reply.code(429).send({ error: "Too many failed attempts. Please try again in a few minutes." });
+            return reply.code(429).send({ error: "Too many failed attempts. Please try again in a few minutes.", code: "auth.locked" });
           }
         }
         if (attempts >= MFA_MAX_ATTEMPTS) {
           clearMfaChallengeCookie(reply);
-          return reply.code(401).send({ error: "Too many attempts. Enter your password again." });
+          return reply.code(401).send({ error: "Too many attempts. Enter your password again.", code: "mfa.too_many" });
         }
-        return reply.code(401).send({ error: outdatedTotp ? TOTP_SECRET_OUTDATED : "Invalid code" });
+        return reply.code(401).send(
+          outdatedTotp
+            ? { error: TOTP_SECRET_OUTDATED, code: "mfa.totp_outdated" }
+            : { error: "Invalid code", code: "mfa.invalid_code" }
+        );
       }
 
       clearMfaChallenge(challengeId);

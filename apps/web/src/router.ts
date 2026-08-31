@@ -4,7 +4,7 @@ import { useState, useEffect, startTransition } from "react";
 // groups they hang off are described in features/control/nav.ts.
 export type ControlSection =
   // Overview
-  | "dashboard" | "logs" | "signins"
+  | "dashboard" | "logs"
   // Library
   | "libraries" | "storage" | "categories" | "tags"
   // Members
@@ -13,7 +13,7 @@ export type ControlSection =
   | "security" | "securityPolicies" | "securityTrusted" | "securityBlocked"
   // Maintenance
   | "backup" | "scheduledJobs" | "recycleBin" | "missingPhotos"
-  | "duplicateCleanup"
+  | "duplicateCleanup" | "quotes"
   // Settings
   | "appearance" | "email" | "notifications" | "readerAccess" | "about";
 
@@ -25,9 +25,6 @@ export type ControlSection =
 export const CONTROL_PATHS: Record<ControlSection, string> = {
   dashboard: "/control/overview",
   logs: "/control/overview/logs",
-  // The drill-down behind the Dashboard's login views: scope arrives in the
-  // query string (?country=, ?ip=, ?user=), so one address covers every dive.
-  signins: "/control/overview/sign-ins",
 
   libraries: "/control/libraries",
   storage: "/control/libraries/storage",
@@ -51,6 +48,7 @@ export const CONTROL_PATHS: Record<ControlSection, string> = {
   // One flat row of them, so one flat level of addresses.
   duplicateCleanup: "/control/utilities/duplicate-cleanup",
   missingPhotos: "/control/utilities/missing-photos",
+  quotes: "/control/utilities/quotes",
 
   appearance: "/control/settings",
   email: "/control/settings/email",
@@ -89,6 +87,16 @@ const CONTROL_ALIASES: Record<string, ControlSection> = {
   "/control/library/stats": "dashboard",
   "/control/libraries/stats": "dashboard",
 
+  // Sign-ins became the Dashboard's opening view — it and the Logins view it
+  // absorbed were two readings of one question, and the duplicated chart above
+  // them had to be kept in step by hand. Three generations of the Sessions tab's
+  // address land there too, since the table with revoke is one of its panels.
+  // DashboardSection reads these paths to pick the view.
+  "/control/overview/sign-ins": "dashboard",
+  "/control/accounts/sessions": "dashboard",
+  "/control/sessions": "dashboard",
+  "/control/members/sessions": "dashboard",
+
   // Tasks became a Dashboard view; DashboardSection reads these paths to pick it.
   "/control/overview/tasks": "dashboard",
   "/control/libraries/tasks": "dashboard",
@@ -117,12 +125,6 @@ const CONTROL_ALIASES: Record<string, ControlSection> = {
   "/control/groups": "groups",
   "/control/accounts/invites": "invites",
   "/control/invites": "invites",
-  // Sessions was a Members tab until it merged into Overview › Sign-ins, which
-  // carries the same table with revoke — three generations of its address now
-  // land there.
-  "/control/accounts/sessions": "signins",
-  "/control/sessions": "signins",
-  "/control/members/sessions": "signins",
 
   // Backup used to hide behind Config; it is Maintenance's first tab now, so the
   // bare /control/maintenance lands there rather than on Tasks.
@@ -236,10 +238,9 @@ export type Route =
   | { name: "home" }
   | { name: "libraryFeed"; mode: "recent" | "continue" }
   | { name: "audiobooks" }
-  | { name: "favorites" }
+  | { name: "likes" }
   | { name: "bookmarks" }
   | { name: "quotes" }
-  | { name: "activity" }
   | { name: "downloads" }
   | { name: "audiobookBook"; id: string }
   | { name: "audiobookPlayer"; id: string }
@@ -260,6 +261,9 @@ export type Route =
   | { name: "ebookSeriesDetail"; seriesId: string }
   | { name: "collections" }
   | { name: "collectionDetail"; id: string }
+  | { name: "stories" }
+  | { name: "storyDetail"; id: string }
+  | { name: "storyEditor"; id: string }
   | { name: "authors" }
   | { name: "personDetail"; personName: string }
   | { name: "audiobookAuthorDetail"; personName: string }
@@ -414,6 +418,21 @@ export function getRoute(): Route {
     return { name: "collectionDetail", id: collectionDetailMatch[1] };
   }
 
+  if (path === "/stories") {
+    return { name: "stories" };
+  }
+
+  // The editor is its own address, so an author can link straight back into it.
+  const storyEditorMatch = path.match(/^\/stories\/([^/]+)\/edit$/);
+  if (storyEditorMatch) {
+    return { name: "storyEditor", id: storyEditorMatch[1] };
+  }
+
+  const storyDetailMatch = path.match(/^\/stories\/([^/]+)$/);
+  if (storyDetailMatch) {
+    return { name: "storyDetail", id: storyDetailMatch[1] };
+  }
+
   // Single, cross-type Authors browse (audiobooks + ebooks, with a type filter).
   if (path === "/authors") {
     return { name: "authors" };
@@ -451,9 +470,11 @@ export function getRoute(): Route {
     return { name: "ebookSeriesDetail", seriesId: ebookSeriesDetailMatch[1] };
   }
 
-  // Global, cross-type Favorites (audiobooks + ebooks); old path kept as an alias.
-  if (path === "/favorites" || path === "/audiobooks/saved") {
-    return { name: "favorites" };
+  // Global, cross-type Likes (audiobooks + ebooks + gallery). Both older paths stay
+  // as aliases: /favorites is what this was called before the rename, and it is in
+  // people's bookmarks and PWA shortcuts.
+  if (path === "/likes" || path === "/favorites" || path === "/audiobooks/saved") {
+    return { name: "likes" };
   }
 
   // Cross-type personal-library pages; old /audiobooks/* paths kept as aliases.
@@ -463,10 +484,6 @@ export function getRoute(): Route {
 
   if (path === "/quotes") {
     return { name: "quotes" };
-  }
-
-  if (path === "/activity") {
-    return { name: "activity" };
   }
 
   if (path === "/downloads" || path === "/audiobooks/downloads") {
@@ -606,9 +623,44 @@ export function getReferrer(): string | null {
   return `${resolved.pathname}${resolved.search}${resolved.hash}`;
 }
 
+// Every in-app pushState carries a depth counter, so goBack() can tell "there is
+// app history behind this entry" (history.back() stays on-site) apart from "this
+// page was the landing point" (a deep link, a new tab — Back must navigate to a
+// fallback or it would leave the app / do nothing). window.history.length can't
+// make that call: it counts the previous site's entries too.
+function nextHistoryState(): { appNav: number } {
+  return { appNav: (window.history.state?.appNav ?? 0) + 1 };
+}
+
+// Push a path with the depth stamp but without dispatching popstate — for pages
+// that put drill-down state in the address bar while rendering it from their own
+// React state (Sign-ins' dive). navigate() is this plus the popstate dispatch.
+export function pushPath(path: string) {
+  window.history.pushState(nextHistoryState(), "", path);
+}
+
 export function navigate(path: string) {
-  window.history.pushState({}, "", path);
+  pushPath(path);
   window.dispatchEvent(new PopStateEvent("popstate"));
+}
+
+// The Back button's behaviour everywhere: return to the previous page when the
+// visitor navigated here inside the app, else go to the page's natural parent.
+export function goBack(fallback: string) {
+  if (window.history.state?.appNav) window.history.back();
+  else navigate(fallback);
+}
+
+// goBack for anchor-shaped Back buttons: a plain left click steps back through
+// history; modified clicks fall through to the href (open-in-new-tab keeps
+// working, and a new tab has no trail to step back along anyway).
+export function followBack(event: React.MouseEvent<HTMLAnchorElement>, fallback: string) {
+  if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+    return;
+  }
+
+  event.preventDefault();
+  goBack(fallback);
 }
 
 // Where to go once someone has signed in, when they didn't arrive at the sign-in
@@ -656,7 +708,9 @@ export function replaceQuery(key: string, value: string | null) {
   const url = new URL(window.location.href);
   if (value == null || value === "") url.searchParams.delete(key);
   else url.searchParams.set(key, value);
-  window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+  // Keep the existing state: replacing the entry must not wipe the appNav depth
+  // counter goBack() relies on.
+  window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
 }
 
 export function followRoute(event: React.MouseEvent<HTMLAnchorElement>, path: string) {

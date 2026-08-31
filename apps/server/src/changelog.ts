@@ -19,6 +19,359 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.43.0",
+    label: "The way you’d tell it",
+    changes: [
+      "Stories are a new way to keep something that happened. A story is a page you write: your own words, with photos and videos, whole albums and slideshows, maps, people from the family tree and quotes, dropped in wherever they belong. Nothing is copied — a story points at what is already in the house, so the photo in a story is the photo in your gallery, and it follows whatever you do to it there.",
+      "A story can be told in chapters, each with a date and a place. Exact if you know it, a year if you don’t, a range if it took a fortnight, and “around 1998” if nobody is quite sure — the same kind of date the family tree has always taken. The date and place sit above the chapter the way a dateline would. A story that needs none of that stays one plain page with no chapter headings at all.",
+      "Writing is Markdown: a heading is a line starting with #, bold is **like this**, a quote is a line starting with >. There is a preview button, and what it shows is exactly what a reader gets.",
+      "Sharing sends the whole story at once, instead of the album and the slideshow and the photos separately. A guest link opens it in any browser with no account, and stays up to date — whoever opens it sees the story as it is now, not as it was the day you sent it. Because a story can carry a whole album, the link asks something the other links don’t: may a guest open that album in full, or only the photos the story actually shows? It is off unless you say otherwise, and off means the rest of the album genuinely cannot be reached through that link.",
+      "Press Play and the story runs itself, full screen. Chapter cards, your words at a size that reads from across the room, the photos, the maps. An album plays all the way through rather than the handful the page had room for. Prose is given time to be read rather than a fixed few seconds, and a video or a recording is never cut off — the show waits for it to end. It works from a shared link too, which is rather the point: a link sent to a phone is a story that can be handed round a table.",
+      "A story can also be told out loud. Record someone telling a part of it, right there in the browser, or upload a recording you already have — the voicemail nobody could bring themselves to delete. It plays inside the story, travels with a shared link, and takes the screen during the show.",
+      "Tags now go on albums and slideshows, not only on photos. That is what lets one tag gather everything about a single summer — the photos, the album, the story, and the people in it — onto one page. Tagging a story puts it there beside them, and while you are building a story the pickers offer anything that shares its tags first.",
+      "Where a slideshow’s finished movie is filed is now that slideshow’s own choice. Before, a single setting took every movie in the house into the same library; nobody had asked for that, and it could not be pointed anywhere else. Each slideshow now says where its movie goes — or that it should not be saved to a library at all, which is the new default. If the name is already taken it asks once and remembers the answer, because a re-render happens in the background with nobody there to ask.",
+      "A slideshow will not try to file its movie into a folder it cannot write to. That used to fail at the very end, after the encoding was done; it is now checked up front and says which library is read-only."
+    ]
+  },
+  {
+    version: "3.42.0",
+    label: "After the credits",
+    changes: [
+      "Tagging photos meant opening them one at a time. A folder of forty from one holiday, all of which should say “Crete 2019”, was forty trips through the viewer. Selecting photos now offers Tags next to Album and Place: type a tag, and it goes on everything you have selected. Tags already in use in your gallery are suggested as you type, and sit under the box as a row you can click.",
+      "It adds rather than replaces, so a photo keeps whatever tags it already had. The same dialog will take a tag back off a selection, which is how a batch tagged by mistake is undone — switch it to Remove and name the same tag again.",
+      "A slideshow’s clip now plays after the closing card instead of before it — the bit after a film’s credits, rather than an interruption between the last photo and the words. The card and the clip are two separate endings: have one, or the other, or both, or neither. With both, the card plays first and the clip follows it, and the music still fades out under the card so the clip arrives in its own voice.",
+      "The clip that used to play at the very start of a movie has been retired. Opening on a home video was the wrong shape for a film, and the same clip does the job properly at the end. If you had chosen an opening clip for a slideshow, that choice does not carry over — there is nowhere left for it to play, and the closing slot is now where a clip belongs.",
+      "Fixed: a finished movie could fail at the very last step with an “operation not permitted” error, throwing away several minutes of encoding, because something else on the server — a virus scanner, a backup or sync agent, the file indexer — happened to be holding the previous movie open for a moment. That last step now waits a few seconds for whatever it is to let go, rather than giving up on work it had already finished."
+    ]
+  },
+  {
+    version: "3.41.1",
+    label: "Where you had got to",
+    changes: [
+      "Browsing deep into the gallery and then liking a photo undid the browsing. Every “Load more” you had pressed was quietly thrown away — the page went back to the first hundred or so photos — and if the photo you were looking at was one of the ones further down, the viewer closed itself as the list shrank underneath it. Liking now changes the heart and nothing else: the viewer stays open, and every page you loaded stays loaded.",
+      "Deleting a photo takes that one photo out of the grid and off the count, rather than starting the whole page again — so the viewer moves on to the next photo with the rest of what you loaded still there.",
+      "The changes that really do redraw the grid — rotating a photo, editing its date, tagging someone in it — still reload, but they now bring back everything that was on screen instead of only the first page. The same is true of liking or deleting a whole selection at once. Both the timeline and the folder view were affected, and both are fixed."
+    ]
+  },
+  {
+    version: "3.41.0",
+    label: "Look what came in",
+    changes: [
+      "Photos arriving in the gallery never announced themselves. Books did — a scan that brought twenty of them in put a card on the home page saying so — but a phone emptied into the house on Sunday left no trace on the page you open first, and you found the photos by remembering to go and look. New photos now has a card of its own: the newest few, the number that came in, and a tap that opens the viewer on all of them rather than the four on show.",
+      "It covers the past week and nothing further back, and in a week when nothing arrived it is simply not there — an empty shortcut to the gallery is not worth a place on the page. It is one card for the whole week rather than one per day: a camera unloaded across three evenings is one arrival to a person, not three. Like everything else in the feed it settles as it ages, opening under the day’s memories and sinking below the week’s conversation.",
+      "“View all” opens the gallery ordered by when things arrived rather than when they were taken, which is the order the card was showing. The timeline’s sort menu always offered that; now a link can ask for it."
+    ]
+  },
+  {
+    version: "3.40.2",
+    label: "The folder you clicked",
+    changes: [
+      "Searching for a folder in the photo picker and then clicking the folder you found dropped you back at All folders, with the search box emptied and the folder you picked nowhere in sight — you had to go and find it by hand, which is what you were searching to avoid. Clicking a result now opens that folder, as it always should have. Clearing the search yourself still takes you back to the top, and you can search again from wherever you have got to.",
+      "It showed up in “Add photos to this event” on the family tree, but the same picker is what the gallery and the slideshow title card use, so it was the same everywhere and it is fixed everywhere."
+    ]
+  },
+  {
+    version: "3.40.1",
+    label: "A line that could stop the house",
+    changes: [
+      "A fix worth going out on its own: looking up a person could have hung the whole server, and not by anything you did. The tidy-up that trims a repeated year range off a Wikipedia one-liner — turning “English novelist (1775–1817)” into “English novelist” — could be made to run for minutes on a single short line of text, and while it ran, nothing else in the house was served. Anyone can edit a Wikipedia page, so the line that triggers it was never yours to control. The same tidy-up now finishes in under a millisecond on text a thousand times longer.",
+      "Biographies and blurbs from the online sources also stopped inventing punctuation that was never in them: a source that wrote an escaped angle bracket had it read back as a real one. It never became markup on the page — these are always drawn as plain text — but a biography should say what its source said."
+    ]
+  },
+  {
+    version: "3.40.0",
+    label: "Only what you searched for",
+    changes: [
+      "Metadata Lookup used to answer a title with everything loosely related to it. Searching “The Hobbit” brought back Frankenstein, The Housemaid and the King James Bible, because every source behind the dialog runs a keyword search and hands over whatever shares a word. It now returns only results that carry every word you typed, ranked so the closest titles come first — across all sources at once, rather than eight from one and then eight from the next. If a search comes back empty it says so and suggests a shorter query, which is a better answer than a page of wrong books.",
+      "The search box opens with the title alone rather than the title and the author. An author sitting in the box is another word every result has to match, and sources spell names differently enough (“Leo Tolstoy”, “Лев Толстой”) that it quietly ruled out the right book. Type one in yourself when a common title needs narrowing.",
+      "Applying a result is now yours to shape. Instead of “update details” and “update cover”, there is one tick per field a result can fill — cover, title, authors, narrators, year, publisher, language, ISBN, ASIN, tags, description — all on by default. Untick the year and the year you already have stays, while the narrator you were actually after still arrives. A source that is right about one thing and wrong about another is no longer all or nothing. Details lays the two side by side and greys out whatever you excluded, so you can see what applying would do before you do it.",
+      "Applying a match that carried new cover art appeared to do nothing to the cover. The art was fetched and stored correctly — the page simply kept showing the copy your browser already had, because the address of a book’s cover never changes when the picture behind it does. Covers now change address whenever they change, so a new one shows up the moment it lands, in the grid as well as on the book.",
+      "FantLab joins Find info as a source for the people behind your books, alongside Wikipedia and Open Library — which between them know little about Russian authors and nothing about Russian narrators. It answers with a biography, dates, country and a portrait, in Russian. Narrators are covered too: they are a separate kind of record there, and pasting either a fantlab.ru/autor… or a /dictor… link works. Its portraits show up in the photo picker as well.",
+      "Fixed: portraits from Wikipedia were blocked from loading in the Find info results by the app’s own security policy — visible only on a real deployment, never in development."
+    ]
+  },
+  {
+    version: "3.39.0",
+    label: "A line about the person",
+    changes: [
+      "An author or a narrator had a biography and nothing else — several paragraphs, or a blank space, with no middle ground. The people behind your books now carry the short facts that belong above one: when they were born, when they died, where they were from, and what they did. A page opens with \"American novelist and journalist · 1899 – 1961\" under the name, which is usually the thing you actually wanted to know, and the biography follows for when you want more than that.",
+      "Dates are written the way people know them rather than the way a date picker demands. A bare year is a complete answer for someone born in 1775, and typing one no longer means inventing a month and a day you do not have — the same convention the family tree has always used. Sources spell dates every way imaginable, and whatever they hand over arrives tidy or not at all: nothing half-read gets stored.",
+      "Find info is where most of these will come from, and it has been rebuilt as the same search the books already had. A source to narrow to, a search box, checkboxes for what to take, and a row for pasting a page you have already found. Results arrive as cards with a photo and the facts on them, each with Apply and a Details view that lays the current values beside the found ones and marks what would change. Nothing is written until you press Save, so a result you applied and thought better of costs you a Cancel.",
+      "That search box being editable fixes something that had simply never worked: the old dialog searched the stored name verbatim, so anyone filed as \"Twain, Mark\" could never be found at all. Now you fix the spelling in the box and search again.",
+      "Narrators get all of this too, and one thing more. The automatic lookup that runs during a scan checks that a page is about the right kind of person before trusting it — and its list of occupations was written for authors, so narrators described as plain \"actor\" were being skipped without a word. They are not any more, and the check still throws out the same-name stranger who turns out to be an Irish sportsperson.",
+      "The whole editor now matches the one you get for a book's metadata — the same tabs, the same two-column fields, a photo tab where a book has its cover, and a window that stays the same size whichever tab you are on instead of jumping about as you switch. Editing a book and editing the person who wrote it should not feel like two different applications."
+    ]
+  },
+  {
+    version: "3.38.0",
+    label: "The whole branch at once",
+    changes: [
+      "Family tags are what decide who may edit which part of the family tree — give a cousin editing rights on a tag and they can maintain everyone carrying it. But tags could only be put on one person at a time, from inside that person's own edit form, so handing somebody their side of the family meant opening every profile in it and typing the same word again. There are now two places to do it to a whole group at once, and a family of thirty is one pass.",
+      "The Families page is the obvious one: every family card carries a tag button, and it opens with that family's members already gathered. The People page is for a branch that isn't one surname — Select turns the grid into checkboxes, All takes everyone the current search and tag filter have left on screen, and Tags acts on what you ticked. Tagging one person on their own still works exactly where it did.",
+      "Add relatives is the part that does the real work. It grows the selection along the tree itself — partners, children, parents, and onwards through theirs — instead of by surname, because a name is a poor guide to a family: a wife who kept her own belongs to the branch without sharing it, and a stranger who happens to be another Ivanov does not. Anyone who doesn't belong comes off the list with a click before you apply anything.",
+      "Tags add up rather than replace. Someone can sit in two branches and carry both, and a bulk add never disturbs what a person already has — which the single-person form, working on a whole tag set at once, could not promise. Each tag has three states rather than a checkbox: give it to everyone in the selection, take it from everyone, or leave each person as they are. A tag nobody has touched says what is true of the selection instead of describing a change that isn't there.",
+      "Assigning tags is still administrators only, for the same reason as before: if editors could tag, they could pull any person into their own branch and hand themselves rights over them."
+    ]
+  },
+  {
+    version: "3.37.0",
+    label: "One place to share",
+    changes: [
+      "Sharing something was two dialogs pretending to be one. Send to listed the family and let you tell one of them about a book; choosing \"share link\" closed it and opened a second dialog, built on the same machinery, which made guest links on one tab and listed who already had access on another. So \"who can see this?\" had two answers in two places, and changing your mind halfway meant going back out through a menu. There is one dialog now, and everything finishes inside it.",
+      "It opens on the three ways to share, side by side: people, a link, your e-reader. Choosing one changes what is underneath rather than sending you somewhere — links are made, listed and revoked on the spot, and the list of who already has access, with the button that takes it away, sits at the foot of the people list where it belongs. The old dialog is gone entirely.",
+      "You can now pick several people at once. Tick as many as you like and write one line for all of them; if any of them can't open it yet, the dialog says so before the button changes to \"Give access and send\", and access is given to exactly those who needed it. And if the server couldn't reach somebody after all, it says who, instead of reporting a clean success.",
+      "People in the list carry a coloured initial and their email address, which is the only thing that separates two members of a household who share a first name. Past five of them the list grows a search box.",
+      "Guest links still show their address exactly once, when you make them — only a fingerprint of the link is stored, so nothing can print it again later, and the dialog now says as much where you would look for it. Each link keeps its label, its expiry date and its own Revoke.",
+      "The photo gallery's albums keep their own link flow, since an album link is a snapshot of what was in the album at the time and is not the same animal as a link to one book."
+    ]
+  },
+  {
+    version: "3.36.0",
+    label: "Which one is your author?",
+    changes: [
+      "Find Info used to pick one page and hand it to you as the answer. It searched Wikipedia and Open Library, took the first thing that looked plausible, and if that turned out to be a different person with the same name — which happens far more often than you would think — nothing on the screen said so, and there was no way to reach the right one short of hunting down the address yourself. It now brings back everything it found, and you choose.",
+      "The matches sit in a list down one side: a photograph, where it came from, and a line saying who this is, which is usually all it takes to tell two people sharing a name apart before you take anything of theirs. Choose one and it opens beside your author's current biography and photo, side by side, exactly as it always did — the comparison has not changed, only what it is comparing. A match can be expanded to read its whole biography without leaving the list, or opened at its source in a new tab.",
+      "Searching a writer's name also turns up the books written about them and the ideas named after them: Ayn Rand came back with a biography by somebody else and with Objectivism, neither of which is a person you can put in an author profile. Those are gone. Each page is now checked against Wikidata for whether it describes a human being at all, which reads the same in every language — the guard it replaces only ever recognised English job titles, so it did nothing for a Russian library.",
+      "Folded under each match is what settles a tie when the description does not: the language of the page it came from, birth and death dates, what the author is best known for, how many works are on record.",
+      "The tab also opens on something plainer. Two ways in, weighted honestly and side by side — search the web, or paste a page you already have in hand — instead of one button standing next to an input box you had to read twice to work out which was which.",
+      "Fixed: the count of changes waiting to be saved followed whichever match you were looking at, so taking a biography and then glancing at another match made your own change appear to vanish. It counts what you have changed now, and stays put.",
+      "New: authors can be created by hand. The Authors page has a New author button, the way Narrators has had one all along — for the writer whose books have not arrived yet, or the one your files never named properly. A name is enough; a sort name and a biography if you have them. It opens their profile straight away, ready for a photograph."
+    ]
+  },
+  {
+    version: "3.35.0",
+    label: "Who's at the door",
+    changes: [
+      "The control panel had two pages answering the same question. Overview had a Sign-ins page, and the Dashboard had a Logins view, and both drew the same chart of successful and failed sign-ins over the same events — but only one of them could tell you where a sign-in came from, and only the other one listed the attempts one by one. They are one page now: Sign-ins is what the Dashboard opens on, and it kept everything both of them did.",
+      "Which means the attempt-by-attempt list finally narrows with the rest of the page. Filter to one country, one address or one person and the raw attempts follow, where before they always showed the whole house no matter what the panels above them were describing.",
+      "What is signed in and what happened now share one card, with a switch between them, because the answer to \"who is at the door\" is both of those things and you should not have to scroll past fifty sessions to reach the second half. Each side carries the graph of its own shape: sign-ins over time, and — new — a bar per person of the devices they are signed in on, which is how you find whoever has quietly accumulated forty of them.",
+      "The list of attempts also stops overstating itself. It holds the newest few hundred, and it now says so plainly, with the true total for the window on the tab beside it and the rest where it always was, in Logs.",
+      "Every link to the old addresses still works, including a shared drill-down with its country or address still attached, so nothing anybody saved has gone stale.",
+      "The Dashboard's Libraries page rearranged its four lists into two pairs: who wrote and who narrated on the top row, what is heaviest and where the photos pile up below. That last one is new — the folders holding the most photos, counting the folder each photo actually sits in rather than rolling everything up into the library it is somewhere inside, so it names the place to go and not the place you started."
+    ]
+  },
+  {
+    version: "3.34.1",
+    label: "Nothing to see here",
+    changes: [
+      "Housekeeping under the surface, and nothing changes on any page: the engine that finds and recognises faces in your photos moved to its current release, along with a couple of bundled libraries that had patched versions waiting. Face grouping should behave exactly as it did before.",
+      "It goes out on its own rather than riding along with the next set of features, because a change this deep in the machinery is only easy to trace back when it is the only thing in the release."
+    ]
+  },
+  {
+    version: "3.34.0",
+    label: "A library of quotes, not a list",
+    changes: [
+      "The quote of the day now opens the home page. It is the one card that is the same for everyone in the house and changes every morning, so it sits at the top instead of drifting down as the day's photos and arrivals pile up above it.",
+      "It also stops offering you every category at once. A library with thirty of them made a wall of chips; the card shows eight, and that selection moves along a little each day so everything comes round in time — the same eight for everyone, like the quote itself.",
+      "Or tell it what you like. The card has its own preferences now: a language, so you can read the app in Russian and still get English quotes (or the other way round), and the categories you actually care about. Pick some and they become your card's whole switcher, with the quote drawn from all of them together. Pick none and it draws from everything, as before.",
+      "The Quotes page can cope with thousands. It searches as you type — across the words, the author, the source, who said it and the note — and it searches properly in Russian, where \"цитата\" now finds \"Цитата\" instead of nothing at all. It loads fifty at a time as you scroll and says how many there are, and the category filters carry counts that follow whatever you have searched for.",
+      "Adding a quote is one screen again. The form had grown to ten fields in a narrow column; it is wider now and split in two: the quote, its source, a note and who may see it on the first tab, and the family member who said it, categories, language and dates on the second.",
+      "Fixed: portraits in the family tree were cropped down the middle, which took the top off almost every head — a service portrait or any photo framed with the face high lost its crown. They crop from the top now, so the face survives and it is the shoulders that go."
+    ]
+  },
+  {
+    version: "3.33.1",
+    label: "Tabs that mind their own branch",
+    changes: [
+      "Fixed: the control panel's tab row listed every page in a group, so opening Utilities › Widgets › Quotes put \"Duplicate cleanup\" and \"Missing photos\" beside it — pages that have nothing to do with quotes. The row now shows only the pages in the branch you're standing in, and a branch holding a single page shows no row at all, so Quotes reads as the page it is. Moving between branches is what the left nav is for, and Gallery's two pages still sit side by side exactly as before.",
+      "The Widgets branch also has its own icon now instead of borrowing the one the Quotes page already wears."
+    ]
+  },
+  {
+    version: "3.33.0",
+    label: "Second thoughts",
+    changes: [
+      "Quote packs are managed from the control panel now, under Utilities › Widgets › Quotes. Bringing one in decides what the whole house reads, which is why it was already something only an administrator could do — so it sits with the other administrative tools rather than on the Quotes page, which is where everyone reads and writes their own.",
+      "More to the point, an import can be taken back out. Every pack you bring in is remembered as the event it was — the file it came from, when it arrived, and how many of its quotes are still here — and each one has its own Delete that removes that pack and nothing else. Quotes you typed in by hand, passages you highlighted while reading, and other people's quotes are all left alone, and the file can always be imported again.",
+      "The list counts what is left rather than what arrived, so a pack you have been weeding by hand reads honestly: \"12 of 40 quotes left\".",
+      "This is what makes a quote pack off the internet worth trying. Import a few hundred, see what they do to the quote of the day, and if they are not what you hoped, one button puts things back. There is also a blunter \"delete all imported\" on the Quotes page for everything that ever came from a file."
+    ]
+  },
+  {
+    version: "3.32.0",
+    label: "Words worth keeping",
+    changes: [
+      "Quotes grew up. What was a private list of passages you'd highlighted while reading is now the family's own book of sayings — the line from a novel, the toast someone makes every year, the thing your four-year-old said at breakfast that everyone still repeats. Mark a quote as shared and the whole house sees it on the Quotes page, with a note of who saved it; keep it private and nobody else ever will. Every reading highlight stays private unless you say otherwise.",
+      "The home page carries a quote of the day. Everyone in the house sees the same one, all day, and a new one the next morning — and it works its way through the whole collection rather than repeating at random. It prefers quotes in the language you read the app in, and each person can point their own card at a category: one of you reads only the funny ones, someone else takes whatever comes.",
+      "Some days it isn't a quote of the day at all. If something was said on this date in an earlier year, that is what the card shows — \"7 years ago today\", above the words and whoever said them. Writing down when a saying was said is what makes it come back.",
+      "Quotes can belong to people. Attach one to someone in your family tree and it appears on their page under a new Quotes tab, with the date and the circumstances you wrote down. Rename them and their sayings follow the new name; remove them from the tree altogether and the sayings stay put, still in their name rather than going anonymous.",
+      "Categories are yours to invent — Funny, Kids, Wisdom, Toasts, Grandma. A quote can wear several, the editor suggests the ones already in use so the family settles on a handful instead of fifty near-duplicates, and only categories that quotes actually wear are ever offered back to you.",
+      "Administrators can bring in a whole collection at once from a JSON file; public-domain quote packs are easy to find online, in any language. Choosing a file only checks it — you see how many are new, how many you already have, and which lines couldn't be read, before anything is saved. Importing the same pack twice is harmless, and one bad line never spoils the rest.",
+      "Quotes go into collections now, alongside books and photos, so \"Things the kids said\" can be a real shelf. There is a new guide for all of it under Help & guides → Quotes.",
+      "Fixed: links inside the built-in guides that pointed at a particular section opened the right guide but left you at the top of it. They jump to the section now."
+    ]
+  },
+  {
+    version: "3.31.1",
+    label: "Audiobooks and Ebooks catch up",
+    changes: [
+      "Fixed: Audiobooks and Ebooks were left out of 3.31.0's Russian translation — the browse pages, authors, narrators, series, categories, tags, and the library-creation wizard in the control panel all still spoke English while the rest of the app had switched. They're translated now, along with the Audiobook/Ebook/Gallery badge shown wherever media types mix, and the \"N selected\" count on every browse page's toolbar."
+    ]
+  },
+  {
+    version: "3.31.0",
+    label: "Speaking your language",
+    changes: [
+      "iSputnik now speaks Russian, top to bottom — not just a few headline screens, but every menu, button, and message across browsing, the audiobook and ebook readers, the family tree, galleries, the control panel, and your profile. Pick it from Profile → Appearance (English / Русский); it applies immediately, is remembered on your account, and is mirrored to this device too, so the sign-in screen and the offline app already know your language before a session even exists.",
+      "Counts read correctly in either language — «1 файл», «2 файла», «5 файлов» — instead of a single English-shaped plural stretched over every number.",
+      "The messages you actually read when something goes wrong are translated too, not just the menus around them: a mistyped password, an expired two-factor code, an email address already in use — these speak your language now instead of switching back to English the moment something fails.",
+      "Left in English on purpose: past release notes on this page, and the open-source credits below them — those are a historical and legal record, not app copy, so translating them after the fact would mean inventing new text for something that already happened. Your own titles, folder names, and photo captions keep whatever language you gave them."
+    ]
+  },
+  {
+    version: "3.30.0",
+    label: "Minimalist by default",
+    changes: [
+      "There's a new theme, and it greets everyone at the door. Minimalist is platinum grey and black ink in the spirit of a certain beige computer — near-white windows on a warm grey desktop, a monochrome accent ramp, the primary button in classic black-with-white-type, and no scene artwork anywhere. A fresh install now starts on it: the sign-in screen, the first admin account, and every invited member wear Minimalist until someone chooses otherwise. Existing accounts keep whatever they picked.",
+      "The Expanse theme is retired, but its colours live on: Plain Dark now wears the whole Expanse palette — cyan accent, copper highlights, deep blue-black canvas — without the station backdrops, which is what Plain always promised. Accounts that had Expanse (and an install that had it as the default) move to Plain Dark automatically, so they land on the same colours they chose.",
+      "The sign-in screen got a proper welcome. The big title now introduces the house — \"Your personal hub for stories, knowledge, and imagination\" — the panel carries a small service emblem, and phones finally see the hero instead of a bare form. The sign-in button is the mission control piece now, stars and all. The QR code is gone: \"Link a TV or display\" already does that job properly, and now sits behind a clean «or» divider.",
+      "The big title also stopped wrapping mid-word. \"isputnik\" used to break into \"isputni-k\" on tablets and smaller desktop windows; the title now scales with the room the panel leaves it, at every width.",
+      "The Night theme's pop-out player flies past a new backdrop — a rocket climbing through the dark — and the Light theme's player shares the same artwork in daylight tones, so the two read as the same instrument panel on different shifts.",
+      "Spring cleaning behind the walls: dead styles from the long-retired System tab, a never-rendered metric tile, and a handful of colour variables nothing referenced anymore are gone."
+    ]
+  },
+  {
+    version: "3.29.1",
+    label: "The sky holds still",
+    changes: [
+      "The scene behind every page is pinned to the screen now. On a long page — a library of hundreds of books, a deep photo timeline — the backdrop used to stretch itself across the entire scroll height, blowing the artwork up into a blur and dragging it along as you scrolled. Now the sky is exactly one screen tall and stays put: the page scrolls, the stars don't.",
+      "The Night theme's warm glows got the same anchoring, so they no longer smear across a long page either. Every scene surface benefits — home, the control panel, and the Expanse theme's stations alike."
+    ]
+  },
+  {
+    version: "3.29.0",
+    label: "Night theme with a space program",
+    changes: [
+      "iSputnik Night is a different place now. The old soft teal made way for a retro cosmos: a near-black sky behind everything, lettering in warm cream and brass, and one deep signal red for whatever matters most on screen. Text sits in a typewriter face, the whole window wears a thin brass frame with a faint star chart behind it, and the sidebar opens with the ship's plate itself — a red star and «ВАШИ ИСТОРИИ — НА ОРБИТЕ».",
+      "The Home page reads like a mission console. Feed cards became riveted panels with an inner frame, progress bars glow launch-red, resume buttons turned into brass instrument knobs, and the little red star marks each card's eyebrow. Navigation rows light up with a red indicator edge when you're on them.",
+      "The audiobook player got the full instrument-panel treatment: the big red launch button now says what pressing it will do (Play or Pause, right on the button), the seek bar became a ticked gauge with a mint thumb, volume and speed live in their own console cluster, and the chapters list opens as a framed overlay panel instead of swallowing the screen.",
+      "Only Night changed — Light, Plain and Expanse are exactly as they were, and the theme picker's swatches show the new palette honestly, so you know what you're choosing before you choose it."
+    ]
+  },
+  {
+    version: "3.28.2",
+    label: "One photo picker, everywhere",
+    changes: [
+      "Choosing photos — for an album, a slideshow, a family member, an event, a portrait — is now one dialog everywhere, and it grew real ways in: browse by folder as before, or flip to People (everyone the face scan knows, biggest named people first, each with their photo count), to Tags, or to All photos with a proper text search. One search box adapts to whichever tab you're on.",
+      "What you pick stays picked as you move around. Gather two photos from a folder, three of Grandma from People, one from a tag — the selection rides along the bottom as a row of little thumbnails, each with its ✕, and one Add button takes the lot. The people and tag rows stay put while the photos scroll, so you always know whose photos you're looking at.",
+      "The family tree now uses the same picker instead of its own copy. Its special powers came along: a linked person opens with their face matches already showing, the Upload tab still lands new files in the tree's chosen library and attaches them in one step, and picking a portrait is still one tap. What it gained is everything it never had — tags, text search, other people, the whole timeline.",
+      "Fixed: opening \"On this day\" from the Home page and pressing Next could wander into photos from a day or three away — days the card itself had deliberately left out. The viewer now browses exactly the day the card shows, and only widens when the day itself is thin."
+    ]
+  },
+  {
+    version: "3.28.1",
+    label: "The memory card earns its place",
+    changes: [
+      "\"On this day\" picks its four photos with intent now. Every year gets a place before any year gets a second one — a single year with many photos can no longer crowd the others out — and within a year, photos with a person in them come first. Four covers chosen for variety beat the first four in date order.",
+      "The card also stays honest about what \"this day\" means. Widening the match by a few days exists to rescue scanned photos dated slightly off, and it now only happens when the day itself is thin — a date with plenty of its own photos shows exactly those, not neighbours dressed up as anniversaries. The Memories page keeps its wider net, where each year labels how close its match is.",
+      "Opening a photo from the card now gives you the same viewer the gallery has, powers included: rotate, delete, editing the description, date, location, people and tags — each appearing exactly when your library permissions allow it — plus the guest-link option when sending, and a folder name that clicks through to that folder. It used to be a look-but-don't-touch copy.",
+      "Tapping the third photo in the strip opens the third photo. It used to open the first photo of that photo's year, which is only the same thing by luck.",
+      "Fixed: on a desktop browser, pressing play on \"pick up where you left off\" swallowed the whole page with the phone player. It now opens the small player window, like every other play button on desktop — the page you were reading stays where it was. Phones and the installed app keep the full-screen player, which is where it belongs."
+    ]
+  },
+  {
+    version: "3.28.0",
+    label: "A home page that is different every day",
+    changes: [
+      "The Home page is a feed now. Instead of the same fixed rows in the same fixed order — rows that looked identical on Tuesday and on Monday unless somebody added a book — the page is one column of cards, ranked by what deserves your attention today, and it simply ends when it runs out. What kind of thing a card is decides how long it stays: some leave when you act on them, one lives exactly a day, most fade away over a couple of weeks.",
+      "Something a family member sent you sits at the very top, above everything else, and stays there until you decide — it never drifts down the page as other things happen. And deciding no longer means going somewhere else: Like and Not now are right on the card.",
+      "\"On this day\" became a strip of actual photographs, each stamped with its year, opening straight into that year's photos full-screen. It is gone at midnight and tomorrow's day takes its place — the reason the page is worth glancing at even on a day nobody added anything.",
+      "New books arrive as one card per day they came — \"14 books joined the library on Sunday\", a fan of covers, and the rest a tap away — instead of ten loose tiles saying the same thing ten times. What everybody else has been up to — a note left, an album made, someone added to the family tree — appears the same way, each event its own card, written as a sentence.",
+      "When you finish a book in a series and the next one is already on the shelf, the feed says so: \"You finished Foundation — Foundation and Empire is on the shelf.\" One suggestion at a time, rotating daily rather than nagging, and only ever a book you haven't opened.",
+      "Pick up where you left off — the one-tap resume card phones have had since the mobile home — now sits pinned above the feed on every screen, with a quiet count of what else is in progress. The four statistics tiles that used to open the page are gone: numbers that change by single digits a month were furniture, not news.",
+      "The \"Around the house\" page in the profile menu is retired along with its menu entry — the feed is where the household's doings live now. Nothing is lost when a card fades: the notes themselves stay on the books and photos they were written about, where the next person to open them will find them."
+    ]
+  },
+  {
+    version: "3.27.0",
+    label: "Your year, cut from the photos you liked",
+    changes: [
+      "Slideshows opens on a year card now — \"2025 in review\", and the year before it — built from the photos and videos the household liked over that year. Nothing is saved until you open one and keep it: it arrives in the ordinary slideshow editor with the music, the transitions and the title card all still yours to set. The year still running is honestly labelled \"so far\" rather than pretending to be finished.",
+      "A year film is cut by the calendar first and by the likes second. Sorting a year by likes and taking the best sixty gives you a film about the one week everybody happened to be tapping — usually the summer trip — and nothing else. So every month that has photos in it is guaranteed a place, months you were busiest in get more of them, and the ranking only decides what fills the places. Thirty frames of the same sunset fold down to the best one, and no single face is allowed to carry the whole reel.",
+      "The heart moved onto the photograph. Every tile — Timeline, Folders, Albums, People, Memories — carries one in its top-left corner, so liking a photo as you go past costs a single tap instead of opening it, liking it, and coming back. In the full-screen viewer, F does the same thing: arrow through a trip and press F on the ones worth keeping, without the hand leaving the keyboard.",
+      "The gallery filter learned about likes: show only what you liked, only what anyone in the house liked, or only what nobody has yet. The middle one is exactly the signal a year film is built from, so it is also how to see what next December will have to work with — and what it won't, while there is still time to go and tap some hearts.",
+      "Favorites is called Likes now, in every place it appears: the sidebar, the page, the heart on a book, the heart on a photo, the player. \"Favorite\" and \"like\" mean the same thing to anyone reading them, and having the app print one word while the house says the other was a small tax on every conversation about the feature. The heart itself is unchanged, and old /favorites links still open the right page.",
+      "Fixed: the Likes page counted photographs as books — \"1 book\" underneath a photograph — and its empty state told you to go and open a book. It has held photos and videos ever since the gallery got its heart; it now says so."
+    ]
+  },
+  {
+    version: "3.26.0",
+    label: "Slideshow movies open like films now — and end like them",
+    changes: [
+      "The title card's words can be set in one of five faces — Classic, Serif, Bold, Script and Typewriter — at three sizes, chosen from a row of buttons each drawn in its own lettering. Every face covers Russian as well as English, the preview above redraws with the real thing, and a slideshow that never touches the setting keeps rendering exactly the card it always did.",
+      "A movie can end on a closing card: \"The End\" (or anything you write instead) with up to six lines of credits underneath — filmed by, the music, who it's for. Same backgrounds as the opening card, same lettering, its own length. It's off until you turn it on, so existing movies end as they always have.",
+      "With music set, the soundtrack now fades out underneath the closing card — the photos end at full volume, the credits play the music down, and the movie ends in silence — instead of the flat two-second dip every movie used to end on. The opening card's \"my own line\" also grew up: it takes several lines now, not one.",
+      "A movie can open on a clip — a bit of video that plays before everything else, like a studio ident before a film — and can carry a second clip after the last photo, before the credits. Any video in your galleries qualifies, chosen through the same folder browser used for adding photos; up to twenty seconds of it plays.",
+      "A clip brings its own sound, unless you switch that off. While it plays the music pauses — properly pauses, picking up afterwards from where it left off rather than skipping ahead — so a recorded greeting or a toast opens the movie in its own voice and the song carries on underneath the photos. A clip whose file has no sound simply leaves the music running.",
+      "The Title card dialog became Title & credits: the card's picture on the left with what it says right underneath, every setting on the right, and an Opening/Closing switch across the top. The picture never scrolls out of view while you adjust things — choosing lettering you can't see would be guesswork.",
+      "Fixed, found while proving the clips: a video anywhere in a slideshow — not just these new clips — cut the rendered movie short at that video's last frame whenever transitions were on. A photo can hold its final frame through a cross-fade; a video's file simply ends, and everything scheduled after it was silently lost. Videos now hold their last frame through the transition the way photos always have, and the movie runs its full length."
+    ]
+  },
+  {
+    version: "3.25.1",
+    label: "Emptying the bin now has to be meant",
+    changes: [
+      "Fixed, and this one had teeth: narrowing the Recycle Bin to a single library and pressing Empty emptied the entire bin — every other library's deleted files went with it, and nothing on screen suggested they would. Empty now follows the library picker exactly as Restore all beside it always has, and the dialog says which of the two it is about to do.",
+      "Emptying the whole bin now asks you to type the number of items back before it will go ahead. It is the only action in the app that destroys many files at once with nothing left to restore from, so it is the only one that asks. Emptying a single library — bounded by a library you deliberately chose — still asks in the ordinary way.",
+      "Both dialogs now open by saying exactly what is about to be lost: how many items, how much disk, how many files, and how many of those were still inside the retention window they were given and would not have gone on their own. The old wording said only \"every item in the bin\", which reads the same whether the bin holds three or three thousand.",
+      "The counts in those dialogs are now the ones that will actually happen. The search box and the filters narrow the tiles, but Empty and Restore all work on the whole library you picked — so \"Restore all 3 items\" could quietly put back forty. Both now count what they reach.",
+      "The Empty button is switched off while there is nothing to empty, rather than opening a dialog about nothing."
+    ]
+  },
+  {
+    version: "3.25.0",
+    label: "The recycle bin stops emptying itself",
+    changes: [
+      "Fixed, and it is the reason for this release: a scheduled task named \"Empty recycle bin\" shipped switched on, and it did exactly what its name said — once a week it emptied the bin completely, whatever the retention window sitting beside it promised. Something deleted on Saturday could be gone for good on Sunday, with no warning, having never looked close to expiring. Nobody chose that schedule; it was simply on. It has been removed, and the removal reaches installs that already have it.",
+      "In its place, running nightly, is \"Purge expired recycle bin items\". It takes only what has outlived the window it was given at the moment it was deleted — so 30 days now genuinely means 30 days, and an item still inside its window is never touched. Clearing the bin regardless of retention is still available, as the Empty button on the Recycle Bin page, where you can see what you are about to lose before you lose it.",
+      "The task reports what it actually did, rather than a bare count: that nothing was due, or how many it removed — or, when a library's disk is offline, how many it had to leave for the next run rather than orphaning their files somewhere it could not reach."
+    ]
+  },
+  {
+    version: "3.24.0",
+    label: "Author pages, rebuilt — with a website, a location, and an editor that says what it will do",
+    changes: [
+      "An author or narrator's page now looks like every other detail page in the app: a round portrait beside their name, the Back and action buttons together at the top, and an Overview / Books / Audiobooks tab strip under it. Their titles are listed properly too — bigger covers, no box drawn around every entry, and the narrator, running time and year each on their own line.",
+      "Authors gained a website and a location, shown beside their biography and edited like any other field. A bare address is fine: type \"agriddle.com\" and it displays exactly that while still linking out correctly.",
+      "Editing a person is one dialog with three tabs. Details holds the name, sort name, website and location beside the photo; Biography is the long text on its own; Find Info looks them up online. Choosing a picture opens its own box, offering a file from your computer — dragged straight onto the photo, if you like — or one found online.",
+      "Find Info used to open on two similarly-named buttons either side of a box, with nothing to say which one you wanted. It now opens with a single Search button and states plainly that nothing changes until you press Save changes. Each result says what it did — \"Added to the form\", \"Ready to save\", \"Already saved\" — and a line at the top counts what is waiting to be saved. Pasting a link to a specific page is still there for when the search finds the wrong person, folded away until you need it.",
+      "That promise now holds. Taking a biography filled the form and waited for Save, but taking a photo wrote it to the server immediately — so Cancel could not undo it, and nothing warned you. Both are now applied together when you save.",
+      "An author's photo can be removed again, which was never possible before.",
+      "Fixed: uploading a photo for an author had never worked, and was refused before it began. Finding one online still worked, which is likely why it went unnoticed for so long.",
+      "Fixed: the Back button on a person, series, category or tag page now returns to wherever you actually came from, stepping back through your history rather than always jumping to the top of the list. Opening one of those pages from a bookmark or a new tab still falls back to the list, as it must.",
+      "Fixed: a family member's portrait had been quietly drawn as a rounded rectangle instead of a circle."
+    ]
+  },
+  {
+    version: "3.23.0",
+    label: "Lock a folder, and nothing inside it can be deleted from the app",
+    changes: [
+      "In the gallery's Folders view, an admin looking at a folder — with the filter narrowed to one library — now has a Lock folder button beside Rescan. Locked, that folder and everything below it refuses deletion outright: a photo picked by hand, a whole selection, an audiobook whose folder happens to sit under the locked path — the server says no whoever asks, until the same button unlocks it. Locked folders wear a small padlock on their tile so everyone can see they're protected.",
+      "The lock stops exactly one thing: deleting. Viewing, uploading into the folder, editing dates and places, rotating, tagging and rescanning all carry on as before. It's a guardrail for the folders that must survive a careless moment — the wedding photos, the scans of the old albums — not a read-only switch. Protecting a whole library remains the library's own setting, as ever.",
+      "Duplicate cleanup understands the lock the way it already understands a read-only library. A copy in a locked folder is shown but never offered for removal — it wins the keeper contest instead, so the copies elsewhere are the ones proposed to go. A folder with a lock anywhere inside it is never offered for clearing out, the wizard's Clear choice is greyed for locked folders with the reason on hover, and locking a folder after a cleanup has already scanned makes its affected offers refuse cleanly rather than fail halfway.",
+      "If a selection mixes locked and unlocked items, the unlocked ones still go to the Recycle Bin and the message says how many were left behind because of a lock — distinct from items skipped for lack of permission, so the outcome reads as what actually happened."
+    ]
+  },
+  {
+    version: "3.22.0",
+    label: "A video filmed sideways can be turned upright, just like a photo",
+    changes: [
+      "The rotate buttons in the viewer now work on videos. Turn a clip left or right and it rights itself there and then — it keeps playing while it turns — and its thumbnails everywhere in the gallery turn with it. Old phone videos that came in lying on their side can finally stand up.",
+      "As with photos, the file on disk is never modified: the turn is remembered by the app and applied wherever the video is shown. Which also means a downloaded original still plays the way the camera saved it — the turn belongs to the gallery, not to the file.",
+      "While a video is turned, the player wears the app's own control bar — play, seek, mute — instead of the browser's built-in one. The browser draws its controls inside the picture, so they would have lain on their side along with it. Turn the video back upright and the familiar controls return."
+    ]
+  },
+  {
+    version: "3.21.0",
+    label: "Tell the app which machine your proxy is, and forged addresses stop being possible",
+    changes: [
+      "A new setting, TRUST_PROXY, takes the address of your reverse proxy itself — an IP or a range, like 172.18.0.0/16 for a Docker network — and the app believes a forwarded client address only when the machine that passed it along is actually on that list. The old TRUST_PROXY_HOPS counted proxies without checking who they were, which works, but rests on nothing but the promise that the app can't be reached any other way; if it ever can be, a visitor can put any address they like in the forwarding header and be believed. Named addresses close that: a forged header from anyone not on the list is simply ignored.",
+      "Nothing changes for existing setups — TRUST_PROXY_HOPS keeps working exactly as before, and if both are set, the addresses win. The ranges use the same notation as trusted networks, IPv6 included, and a typo in the list is reported at startup and left out rather than trusted by accident.",
+      "Everything that keys on knowing the real client honors the new setting the same as the old: trusted home networks, the skip-two-factor-at-home rule, and TV linking. The Security overview shows which form of trust is in effect, and its advice — along with the hosting guide, the Docker examples and the Unraid template, which gained a \"Trusted Proxy Addresses\" field — now points at the address form first."
+    ]
+  },
+  {
     version: "3.20.2",
     label: "A backup that takes its time is no longer reported as a failure",
     changes: [

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ChevronLeft, FolderOpen } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { api } from "../../../api";
 import { Button } from "../../../shared/Button";
 import { Modal } from "../../../shared/Modal";
@@ -17,7 +18,7 @@ export function FolderPickerModal({
   intro,
   storageRoots,
   initialRootId,
-  confirmLabel = "Use this folder",
+  confirmLabel,
   onPick,
   onClose,
   onError
@@ -34,6 +35,8 @@ export function FolderPickerModal({
   onClose: () => void;
   onError: (message: string) => void;
 }) {
+  const { t } = useTranslation(["common", "control"]);
+  const resolvedConfirmLabel = confirmLabel ?? t("control:libraries.useThisFolder");
   const [browse, setBrowse] = useState<StorageBrowse | null>(null);
   const [rootId, setRootId] = useState(initialRootId || storageRoots[0]?.id || "");
   const [loading, setLoading] = useState(false);
@@ -47,7 +50,7 @@ export function FolderPickerModal({
       setRootId(id);
       setBrowse(payload);
     } catch (err) {
-      onError(err instanceof Error ? err.message : "Unable to browse storage container");
+      onError(err instanceof Error ? err.message : t("control:libraries.unableToBrowseStorage"));
     } finally {
       setLoading(false);
     }
@@ -61,7 +64,7 @@ export function FolderPickerModal({
       <p>{intro}</p>
 
       <label className="field">
-        <span>Container</span>
+        <span>{t("control:libraries.containerLabel")}</span>
         <select value={rootId} onChange={(event) => void load(event.target.value)} required>
           {storageRoots.map((root) => (
             <option value={root.id} key={root.id}>{root.name}</option>
@@ -71,12 +74,12 @@ export function FolderPickerModal({
 
       {storageRoots.length === 0 && (
         <p className="management-empty">
-          No Digital Library containers yet — add one above, and its folders can be browsed here.
+          {t("control:libraries.noContainersYet")}
         </p>
       )}
 
       {browse && (
-        <section className="folder-picker-browser" aria-label="Folder browser">
+        <section className="folder-picker-browser" aria-label={t("control:libraries.folderBrowserAria")}>
           <div className="folder-picker-head">
             <div>
               <strong>{browse.currentPath || browse.root.name}</strong>
@@ -91,7 +94,7 @@ export function FolderPickerModal({
                 onClick={() => void load(browse.root.id, browse.parentPath ?? "")}
               >
                 <ChevronLeft size={16} aria-hidden="true" />
-                <span>Up</span>
+                <span>{t("control:libraries.up")}</span>
               </Button>
             )}
           </div>
@@ -109,14 +112,14 @@ export function FolderPickerModal({
               </Button>
             ))}
             {browse.entries.length === 0 && (
-              <p className="management-empty">No child folders found. The current folder can still be used.</p>
+              <p className="management-empty">{t("control:libraries.noChildFolders")}</p>
             )}
           </div>
         </section>
       )}
 
       <div className="modal-actions">
-        <Button variant="secondary" onClick={onClose} disabled={loading}>Cancel</Button>
+        <Button variant="secondary" onClick={onClose} disabled={loading}>{t("common.cancel")}</Button>
         <Button
           variant="primary"
           disabled={!browse || loading}
@@ -129,7 +132,7 @@ export function FolderPickerModal({
             });
           }}
         >
-          {loading ? "Loading…" : confirmLabel}
+          {loading ? t("control:ui.loading") : resolvedConfirmLabel}
         </Button>
       </div>
     </Modal>

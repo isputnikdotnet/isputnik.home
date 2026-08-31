@@ -7,6 +7,7 @@ import { ebookPlugin } from "./ebook/index.js";
 import { galleryPlugin } from "./gallery/index.js";
 import { libraryMembersPlugin } from "./shared/members.js";
 import { scanRulesPlugin } from "./shared/scan-rules-routes.js";
+import { folderLocksPlugin } from "./shared/folder-locks-routes.js";
 import { registerTrashRoutes } from "./shared/trash-routes.js";
 import { startTrashPurgeWorker } from "./shared/trash.js";
 import { sweepOrphanLibraryThumbnails } from "./shared/thumbnail.js";
@@ -17,6 +18,8 @@ import { registerTagRoutes } from "./tags.js";
 import { registerWorkRoutes } from "./works.js";
 import { registerBookmarkRoutes } from "./bookmarks.js";
 import { registerQuoteRoutes } from "./quotes.js";
+import { registerQuoteImportRoutes } from "./quotes-import.js";
+import { registerDailyQuoteRoutes } from "./quotes-daily.js";
 import { librarySharesPlugin } from "./shared/shares.js";
 
 export async function libraryPlugin(app: FastifyInstance) {
@@ -42,6 +45,9 @@ export async function libraryPlugin(app: FastifyInstance) {
   // Custom scan rules (cross-type; preview dispatches to the media scanner).
   await app.register(scanRulesPlugin);
 
+  // Folder locks (cross-type; enforced inside trashBook, managed here).
+  await app.register(folderLocksPlugin);
+
   // Cross-type routes live at the library level rather than inside one media
   // plugin: the home feeds (recent / continue across audiobooks + ebooks)…
   registerFeedRoutes(app);
@@ -60,6 +66,8 @@ export async function libraryPlugin(app: FastifyInstance) {
 
   // …quotes / highlights (cross-type; in-reader captures + externally-typed quotes)…
   registerQuoteRoutes(app);
+  registerQuoteImportRoutes(app);
+  registerDailyQuoteRoutes(app);
 
   // …item-level sharing (guest links + user shares) for every book type, with
   // public guest routes that dispatch by the share's module…

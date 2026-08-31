@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ArrowLeft, BookOpen, Pencil, Plus, Save, Trash2, Upload, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
-import { getReferrer, navigate } from "../../router";
+import { getReferrer, goBack, navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { Modal } from "../../shared/Modal";
@@ -30,6 +31,7 @@ export function SeriesDetailPage({
   logout: () => Promise<void>;
   kind?: "audiobook" | "ebook";
 }) {
+  const { t } = useTranslation(["common", "book"]);
   const mediaLabel = kind === "ebook" ? "ebooks" : "audiobooks";
   const base = `/${mediaLabel}`;
   const libPrefix = `/api/library/${kind}-libraries`;
@@ -75,7 +77,7 @@ export function SeriesDetailPage({
         return api<{ books: AudiobookBook[] }>(`${libPrefix}/${payload.series.libraryId}/books`);
       })
       .then((payload) => setLibraryBooks(payload.books))
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load series"));
+      .catch((err) => setError(err instanceof Error ? err.message : t("book:series.unableLoad")));
   }, [seriesId]);
 
   const backTo = getReferrer();
@@ -134,7 +136,7 @@ export function SeriesDetailPage({
         }))
       } : prev);
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "Unable to save");
+      setSaveError(err instanceof Error ? err.message : t("common:errors.unableToSave"));
     } finally {
       setSaving(false);
     }
@@ -200,7 +202,7 @@ export function SeriesDetailPage({
       setRemoveCover(false);
       setEditModalOpen(false);
     } catch (err) {
-      setEditError(err instanceof Error ? err.message : "Unable to save changes");
+      setEditError(err instanceof Error ? err.message : t("book:series.unableSaveChanges"));
     } finally {
       setEditSaving(false);
     }
@@ -229,11 +231,11 @@ export function SeriesDetailPage({
     return (
       <DashboardShell active={kind === "ebook" ? "ebooks" : "audiobooks"} user={user} logout={logout} sideNav={sideNav}>
         <section className="audiobook-main-page">
-          <button className="audiobook-back-button" type="button" onClick={() => navigate(backTo ?? `${base}/series`)}>
+          <button className="audiobook-back-button" type="button" onClick={() => goBack(backTo ?? `${base}/series`)}>
             <ArrowLeft size={17} aria-hidden="true" />
-            <span>{backTo ? "Back" : "Back to series"}</span>
+            <span>{backTo ? t("book:catalog.back") : t("book:series.backToSeries")}</span>
           </button>
-          <MessageBox tone="error" title="Error">{error}</MessageBox>
+          <MessageBox tone="error" title={t("book:detail.errorTitle")}>{error}</MessageBox>
         </section>
       </DashboardShell>
     );
@@ -243,7 +245,7 @@ export function SeriesDetailPage({
     return (
       <DashboardShell active={kind === "ebook" ? "ebooks" : "audiobooks"} user={user} logout={logout} sideNav={sideNav}>
         <section className="audiobook-main-page">
-          <p className="management-empty">Loading series…</p>
+          <p className="management-empty">{t("book:catalog.loadingSeries")}</p>
         </section>
       </DashboardShell>
     );
@@ -260,15 +262,15 @@ export function SeriesDetailPage({
   return (
     <DashboardShell active={kind === "ebook" ? "ebooks" : "audiobooks"} user={user} logout={logout} sideNav={sideNav}>
       <section className="audiobook-main-page">
-        <button className="audiobook-back-button" type="button" onClick={() => navigate(backTo ?? `${base}/series`)}>
+        <button className="audiobook-back-button" type="button" onClick={() => goBack(backTo ?? `${base}/series`)}>
           <ArrowLeft size={17} aria-hidden="true" />
-          <span>{backTo ? "Back" : "Back to series"}</span>
+          <span>{backTo ? t("book:catalog.back") : t("book:series.backToSeries")}</span>
         </button>
 
         <div className="series-detail-head">
           <div className="series-name-edit">
             <h1>{series.name}</h1>
-            <button className="icon-button" onClick={openEditModal} aria-label="Edit series">
+            <button className="icon-button" onClick={openEditModal} aria-label={t("book:series.editSeriesAria")}>
               <Pencil size={16} />
             </button>
           </div>
@@ -278,29 +280,29 @@ export function SeriesDetailPage({
 
         <div className="series-detail-actions">
           <button className="secondary-button" onClick={openAddModal}>
-            <Plus size={16} /> Add books
+            <Plus size={16} /> {t("book:series.addBooks")}
           </button>
           <button className="primary-button" onClick={saveBooks} disabled={saving || !isDirty}>
-            <Save size={16} /> {saving ? "Saving…" : "Save changes"}
+            <Save size={16} /> {saving ? t("book:detail.saving") : t("book:person.saveChanges")}
           </button>
-          {isDirty && <span className="series-unsaved-badge">Unsaved changes</span>}
+          {isDirty && <span className="series-unsaved-badge">{t("book:series.unsavedChanges")}</span>}
           <button className="secondary-button" onClick={() => setDeleteConfirm(true)} style={{ marginLeft: "auto" }}>
-            <Trash2 size={16} /> Delete series
+            <Trash2 size={16} /> {t("book:series.deleteSeriesButton")}
           </button>
         </div>
 
-        {saveError && <MessageBox tone="error" title="Save error">{saveError}</MessageBox>}
+        {saveError && <MessageBox tone="error" title={t("book:series.saveErrorTitle")}>{saveError}</MessageBox>}
         {isDirty && !saveError && (
-          <MessageBox tone="info" title="Unsaved changes">
-            Your changes to this series aren't saved yet. Click "Save changes" to apply them.
+          <MessageBox tone="info" title={t("book:series.unsavedChanges")}>
+            {t("book:series.unsavedChangesBody")}
           </MessageBox>
         )}
 
         {books.length === 0 ? (
           <div className="empty-state">
             <BookOpen size={40} aria-hidden="true" />
-            <h2>No books yet</h2>
-            <p className="muted">Click "Add books" to add books to this series.</p>
+            <h2>{t("book:series.noBooksYetTitle")}</h2>
+            <p className="muted">{t("book:series.noBooksYetBody")}</p>
           </div>
         ) : (
           <div className="series-book-list">
@@ -314,7 +316,7 @@ export function SeriesDetailPage({
                   placeholder="#"
                   min="0"
                   step="1"
-                  aria-label="Position"
+                  aria-label={t("book:series.positionAria")}
                 />
                 <div className="series-book-cover" aria-hidden="true">
                   {book.coverUrl ? <img src={book.coverUrl} alt="" /> : <BookOpen size={14} />}
@@ -325,7 +327,7 @@ export function SeriesDetailPage({
                   </button>
                   {book.authors.length > 0 && <span>{book.authors.join(", ")}</span>}
                 </div>
-                <button className="icon-button danger" onClick={() => removeBook(book.id)} aria-label="Remove from series">
+                <button className="icon-button danger" onClick={() => removeBook(book.id)} aria-label={t("book:series.removeFromSeriesAria")}>
                   <X size={16} />
                 </button>
               </div>
@@ -336,13 +338,13 @@ export function SeriesDetailPage({
 
       {editModalOpen && (
         <Modal
-          title="Edit series"
+          title={t("book:series.editSeriesModalTitle")}
           style={{ width: "min(100%, 520px)" }}
           busy={editSaving}
           onClose={() => setEditModalOpen(false)}
         >
             <div className="field" style={{ marginBottom: 12 }}>
-              <span>Cover</span>
+              <span>{t("book:compare.cover")}</span>
               <div className="series-cover-edit">
                 <div className="series-cover-preview" aria-hidden="true">
                   {(coverPreview ?? (!removeCover ? series.coverUrl : null))
@@ -352,7 +354,7 @@ export function SeriesDetailPage({
                 <div className="series-cover-buttons">
                   <label className="secondary-button compact-button">
                     <Upload size={15} />
-                    <span>Upload cover</span>
+                    <span>{t("book:series.uploadCover")}</span>
                     <input
                       type="file"
                       accept="image/jpeg,image/png,image/webp"
@@ -366,7 +368,7 @@ export function SeriesDetailPage({
                   </label>
                   {(coverPreview ?? (!removeCover ? series.coverUrl : null)) && (
                     <button type="button" className="secondary-button compact-button" onClick={clearCover}>
-                      <X size={15} /> Remove
+                      <X size={15} /> {t("book:series.removeCover")}
                     </button>
                   )}
                 </div>
@@ -374,7 +376,7 @@ export function SeriesDetailPage({
             </div>
 
             <div className="field" style={{ marginBottom: 12 }}>
-              <span>Name</span>
+              <span>{t("book:person.fieldName")}</span>
               <input
                 autoFocus
                 value={editName}
@@ -384,21 +386,21 @@ export function SeriesDetailPage({
             </div>
 
             <div className="field" style={{ marginBottom: 12 }}>
-              <span>Description</span>
+              <span>{t("book:metadata.fieldDescription")}</span>
               <textarea
                 value={editDescription}
                 onChange={(e) => setEditDescription(e.target.value)}
                 rows={4}
-                placeholder="Optional description…"
+                placeholder={t("book:series.descriptionPlaceholder")}
               />
             </div>
 
-            {editError && <MessageBox tone="error" title="Error">{editError}</MessageBox>}
+            {editError && <MessageBox tone="error" title={t("book:detail.errorTitle")}>{editError}</MessageBox>}
 
             <div className="modal-actions" style={{ marginTop: 16 }}>
-              <Button variant="secondary" onClick={() => setEditModalOpen(false)} disabled={editSaving}>Cancel</Button>
+              <Button variant="secondary" onClick={() => setEditModalOpen(false)} disabled={editSaving}>{t("common:common.cancel")}</Button>
               <Button variant="primary" onClick={saveEdit} disabled={editSaving || !editName.trim()}>
-                {editSaving ? "Saving…" : "Save changes"}
+                {editSaving ? t("book:detail.saving") : t("book:person.saveChanges")}
               </Button>
             </div>
         </Modal>
@@ -406,29 +408,29 @@ export function SeriesDetailPage({
 
       {deleteConfirm && (
         <ConfirmDialog
-          title={`Delete "${series.name}"?`}
-          confirmLabel="Yes, delete series"
-          busyLabel="Deleting…"
+          title={t("book:series.deleteConfirmTitle", { name: series.name })}
+          confirmLabel={t("book:series.deleteConfirmButton")}
+          busyLabel={t("book:series.deletingLabel")}
           confirmIcon={<Trash2 size={16} />}
           danger
           busy={deleting}
           onConfirm={deleteSeries}
           onCancel={() => setDeleteConfirm(false)}
         >
-          This will remove the series and unlink all its books. The books themselves will not be deleted.
+          {t("book:series.deleteConfirmBody")}
         </ConfirmDialog>
       )}
 
       {addModalOpen && (
         <Modal
           variant="panel"
-          title="Add books to series"
+          title={t("book:series.addBooksModalTitle")}
           surfaceClassName="series-add-modal"
           onClose={() => setAddModalOpen(false)}
         >
             <div className="series-add-list">
               {availableBooks.length === 0 ? (
-                <p className="management-empty">All books in this library are already in the series.</p>
+                <p className="management-empty">{t("book:series.allBooksAlreadyInSeries")}</p>
               ) : (
                 availableBooks.map((book) => (
                   <label key={book.id} className="series-add-row">
@@ -443,7 +445,7 @@ export function SeriesDetailPage({
                     <div className="series-book-info">
                       <strong>{book.title}</strong>
                       {book.authors.length > 0 && <span>{book.authors.join(", ")}</span>}
-                      {book.series && <small>Currently in: {book.series}</small>}
+                      {book.series && <small>{t("book:series.currentlyIn", { series: book.series })}</small>}
                     </div>
                   </label>
                 ))
@@ -451,13 +453,13 @@ export function SeriesDetailPage({
             </div>
 
             <div className="modal-actions" style={{ padding: "12px 16px 16px" }}>
-              <Button variant="secondary" onClick={() => setAddModalOpen(false)}>Cancel</Button>
+              <Button variant="secondary" onClick={() => setAddModalOpen(false)}>{t("common:common.cancel")}</Button>
               <Button
                 variant="primary"
                 onClick={confirmAddBooks}
                 disabled={selectedIds.size === 0}
               >
-                Add {selectedIds.size > 0 ? `${selectedIds.size} ` : ""}selected
+                {t("book:series.addSelectedButton", { count: selectedIds.size })}
               </Button>
             </div>
         </Modal>

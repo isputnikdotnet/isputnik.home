@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Baby, UserRoundPlus, UsersRound } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { api } from "../../api";
 import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
@@ -28,6 +29,7 @@ export function AddRelativeModal({
   onClose: () => void;
   onAdded: () => void;
 }) {
+  const { t } = useTranslation(["common", "family"]);
   const [kind, setKind] = useState<"parent" | "child" | null>(null);
   const [profile, setProfile] = useState<FamilyPersonProfile | null>(null);
   const [loading, setLoading] = useState(false);
@@ -47,7 +49,7 @@ export function AddRelativeModal({
       setProfile(payload.person);
       setKind(next);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to load this person");
+      setError(err instanceof Error ? err.message : t("family:addRelative.errors.loadPerson"));
     } finally {
       setLoading(false);
     }
@@ -63,31 +65,31 @@ export function AddRelativeModal({
   return (
     <Modal
       variant="card"
-      title={`Add a relative to ${person.name}`}
+      title={t("family:addRelative.modalTitle", { name: person.name })}
       icon={<UserRoundPlus size={18} />}
       className="ft-modal"
       busy={loading}
       onClose={onClose}
     >
-      {error && <MessageBox tone="error" title="Unable to continue">{error}</MessageBox>}
+      {error && <MessageBox tone="error" title={t("family:addRelative.errors.continueTitle")}>{error}</MessageBox>}
       <p className="ft-modal-hint">
-        Partners and siblings are added from {person.name}'s profile, where the rest of their family is in view.
+        {t("family:addRelative.hint", { name: person.name })}
       </p>
       <div className="ft-relative-choices">
         <Button variant="secondary" disabled={loading || bothParentsKnown} onClick={() => void choose("parent")}>
           <UsersRound size={16} aria-hidden="true" />
-          Parent
+          {t("family:relationWord.parent.neutral")}
         </Button>
         <Button variant="secondary" disabled={loading} onClick={() => void choose("child")}>
           <Baby size={16} aria-hidden="true" />
-          Child
+          {t("family:relationWord.child.neutral")}
         </Button>
       </div>
       {bothParentsKnown && (
-        <p className="ft-modal-hint">Both of {person.name}'s parents are already recorded.</p>
+        <p className="ft-modal-hint">{t("family:addRelative.bothParentsKnown", { name: person.name })}</p>
       )}
       <div className="modal-actions">
-        <Button variant="secondary" onClick={onClose} disabled={loading}>Cancel</Button>
+        <Button variant="secondary" onClick={onClose} disabled={loading}>{t("common.cancel")}</Button>
       </div>
     </Modal>
   );

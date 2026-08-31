@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
 
 // The single way to render a modal. Owns the backdrop, dismissal (backdrop
@@ -47,6 +48,7 @@ export function Modal({
   style?: React.CSSProperties;
   children: React.ReactNode;
 }) {
+  const { t } = useTranslation();
   const titleId = useRef(`modal-title-${Math.random().toString(36).slice(2, 9)}`).current;
   const busyRef = useRef(busy);
   busyRef.current = busy;
@@ -87,7 +89,7 @@ export function Modal({
             className="modal-close"
             onClick={onClose}
             disabled={busy}
-            aria-label="Close"
+            aria-label={t("common.close")}
           >
             <X size={20} />
           </button>

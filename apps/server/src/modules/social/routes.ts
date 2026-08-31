@@ -29,7 +29,7 @@ import {
 import { hydrateEntities, hydrateOne, isSubjectEntityType, type HydratedEntity } from "./subjects.js";
 import { notifyRecommendationSent } from "./notify.js";
 
-// Entity types that are rows in library_items, and so can go to Favorites. A
+// Entity types that are rows in library_items, and so can be liked. A
 // family-tree person, an album and a slideshow are sendable and note-able, but
 // none of them is a library item and none needs a shortlist: a household has
 // tens of albums, not thousands, and they are all already on one page.
@@ -38,7 +38,11 @@ const LIBRARY_ITEM_TYPES = new Set(["audiobook", "ebook", "gallery"]);
 // Which subjects have access that CAN be widened, and how. A slideshow is absent
 // because no slideshow share exists — it is scoped by the photos in it, like an
 // album, but there is no mechanism to hand one over. A family-tree person is
-// absent because every signed-in account can already read the tree.
+// absent because every signed-in account can already read the tree. A story is
+// absent for the same reason once published — and an unpublished one is not
+// sendable at all, so there is nothing to widen (see docs/stories-proposal.md,
+// Phase 3: in-app story sharing is member visibility plus Send to; guest links
+// are the part that needed building).
 type Grantable = "item" | "album";
 const GRANTABLE: Record<string, Grantable> = {
   audiobook: "item",
@@ -93,6 +97,13 @@ interface CandidateRow {
   role: string;
 }
 
+// Same row plus the address, for the picker: two people called Sergey are told
+// apart by their email and nothing else. hydrateOne only ever reads id and role,
+// so the wider row is safe to pass it.
+interface CandidateWithEmailRow extends CandidateRow {
+  email: string;
+}
+
 interface RecommendationRow {
   id: string;
   from_user_id: string | null;
@@ -117,6 +128,8 @@ function displayName(userId: string): string {
 // The card as the inbox renders it. `available` false means the subject is gone
 // or the recipient can no longer see it — the row survives on its snapshot so
 // the card still says what it was about rather than vanishing without trace.
+export type InboxCardView = ReturnType<typeof cardView>;
+
 function cardView(row: RecommendationRow, hydrated: Map<string, HydratedEntity>) {
   const view = hydrated.get(`${row.entity_type}:${row.entity_id}`);
   return {
@@ -136,6 +149,27 @@ function cardView(row: RecommendationRow, hydrated: Map<string, HydratedEntity>)
     // Only library items have somewhere to be saved to.
     savable: LIBRARY_ITEM_TYPES.has(row.entity_type)
   };
+}
+
+// The inbox as this user sees it, hydrated and access-filtered. Shared by the
+// inbox route below and the home feed (undecided cards ride the front page as
+// sticky cards there).
+export function loadInboxCards(
+  user: { id: string; role: string },
+  opts: { onlyNew?: boolean; limit?: number } = {}
+): InboxCardView[] {
+  const rows = db.prepare(`
+    SELECT * FROM recommendations
+    WHERE to_user_id = ?${opts.onlyNew ? " AND status = 'new'" : ""}
+    ORDER BY (status = 'new') DESC, datetime(created_at) DESC
+    LIMIT ?
+  `).all(user.id, opts.limit ?? 50) as RecommendationRow[];
+
+  const hydrated = hydrateEntities(
+    rows.map((row) => ({ entityType: row.entity_type, entityId: row.entity_id })),
+    user
+  );
+  return rows.map((row) => cardView(row, hydrated));
 }
 
 export async function socialPlugin(app: FastifyInstance) {
@@ -159,10 +193,10 @@ export async function socialPlugin(app: FastifyInstance) {
     }
 
     const candidates = db.prepare(`
-      SELECT id, display_name, role FROM users
+      SELECT id, display_name, email, role FROM users
       WHERE id != ? AND is_active = 1 AND deleted_at IS NULL
       ORDER BY display_name COLLATE NOCASE
-    `).all(user.id) as CandidateRow[];
+    `).all(user.id) as CandidateWithEmailRow[];
 
     // Who already has this in their inbox, so the sheet can say so instead of
     // letting someone send the same book three times in a week.
@@ -184,6 +218,10 @@ export async function socialPlugin(app: FastifyInstance) {
     const people = candidates.map((candidate) => ({
       id: candidate.id,
       displayName: candidate.display_name,
+      // Already visible to anyone who can share (GET /api/shares/user lists it
+      // for every existing share), and it is what separates two household
+      // members with the same first name in the picker.
+      email: candidate.email,
       alreadySent: alreadySent.has(candidate.id),
       canOpen: hydrateOne(query.entityType!, query.entityId!, candidate) != null
     }));
@@ -212,7 +250,13 @@ export async function socialPlugin(app: FastifyInstance) {
         : { applicable: false, configured: false },
       // Guest links exist for books, gallery items and albums. A slideshow and a
       // family-tree person have no public page to point at.
-      guestLink: LIBRARY_ITEM_TYPES.has(query.entityType) || query.entityType === "gallery_album"
+      guestLink: LIBRARY_ITEM_TYPES.has(query.entityType) || query.entityType === "gallery_album",
+      // Whether the sheet may also manage guest links and existing per-person
+      // shares for this subject — the work the separate Share dialog used to do.
+      // Both hang off /api/shares, which only knows library items, so an album
+      // (its own share flow) and a family-tree person are excluded here even
+      // though the first of them can be guest-linked.
+      manageLinks: LIBRARY_ITEM_TYPES.has(query.entityType) && canGrant
     });
   });
 
@@ -305,19 +349,7 @@ export async function socialPlugin(app: FastifyInstance) {
   });
 
   app.get("/api/social/inbox", { preHandler: app.authenticate }, async (request, reply) => {
-    const user = request.user!;
-    const rows = db.prepare(`
-      SELECT * FROM recommendations
-      WHERE to_user_id = ?
-      ORDER BY (status = 'new') DESC, datetime(created_at) DESC
-      LIMIT 50
-    `).all(user.id) as RecommendationRow[];
-
-    const hydrated = hydrateEntities(
-      rows.map((row) => ({ entityType: row.entity_type, entityId: row.entity_id })),
-      user
-    );
-    return reply.send({ items: rows.map((row) => cardView(row, hydrated)) });
+    return reply.send({ items: loadInboxCards(request.user!) });
   });
 
   // Opening the inbox stamps everything in it as seen. Deliberately not per
@@ -333,7 +365,7 @@ export async function socialPlugin(app: FastifyInstance) {
   });
 
   // Save — the whole tie-in with "Save for Later". It writes to the existing
-  // item_saves ("My List"); there is no second saved-things list.
+  // item_saves (the Likes table); there is no second saved-things list.
   app.post("/api/social/recommendations/:id/save", { preHandler: app.authenticate }, async (request, reply) => {
     const user = request.user!;
     const id = (request.params as { id: string }).id;

@@ -260,8 +260,8 @@ describe("the folders an instruction can be attached to", () => {
     photo("p3", "GAL", "2024/other.jpg");
 
     expect(jobFolderOptions(["GAL"])).toEqual([
-      { libraryId: "GAL", libraryName: "GAL", folderPath: "2024", photoCount: 1, isProtected: false },
-      { libraryId: "GAL", libraryName: "GAL", folderPath: "2024/Trip", photoCount: 2, isProtected: false }
+      { libraryId: "GAL", libraryName: "GAL", folderPath: "2024", photoCount: 1, isProtected: false, isLocked: false },
+      { libraryId: "GAL", libraryName: "GAL", folderPath: "2024/Trip", photoCount: 2, isProtected: false, isLocked: false }
     ]);
   });
 
@@ -273,7 +273,7 @@ describe("the folders an instruction can be attached to", () => {
     // A photo at the library root belongs to the library itself, which is the row an
     // instruction about the whole library is attached to.
     expect(jobFolderOptions(["GAL"])).toEqual([
-      { libraryId: "GAL", libraryName: "GAL", folderPath: "", photoCount: 1, isProtected: false }
+      { libraryId: "GAL", libraryName: "GAL", folderPath: "", photoCount: 1, isProtected: false, isLocked: false }
     ]);
   });
 

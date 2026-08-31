@@ -5,7 +5,7 @@ import { ZipArchive } from "archiver";
 import { db, logActivity } from "../../../db.js";
 import { pathIsInside } from "../shared/storage-roots.js";
 import { canUserAccessBook, canUserDownloadBook } from "../shared/library-access.js";
-import { parseRangeHeader, streamDocumentFile } from "../shared/document-stream.js";
+import { parseRangeHeader, pipeFileToReply, streamDocumentFile } from "../shared/document-stream.js";
 
 export async function audiobookStreamPlugin(app: FastifyInstance) {
   app.get("/api/library/books/:id/stream/:fileId", { preHandler: app.authenticate }, (request, reply) => {
@@ -70,7 +70,7 @@ export async function audiobookStreamPlugin(app: FastifyInstance) {
         "Accept-Ranges": "bytes",
         "Cache-Control": "private, no-cache"
       });
-      fs.createReadStream(filePath, { start: range.start, end: range.end }).pipe(reply.raw);
+      pipeFileToReply(reply, filePath, { start: range.start, end: range.end });
     } else {
       reply.raw.writeHead(200, {
         "Content-Type": mimeType,
@@ -78,7 +78,7 @@ export async function audiobookStreamPlugin(app: FastifyInstance) {
         "Accept-Ranges": "bytes",
         "Cache-Control": "private, no-cache"
       });
-      fs.createReadStream(filePath).pipe(reply.raw);
+      pipeFileToReply(reply, filePath);
     }
   });
 

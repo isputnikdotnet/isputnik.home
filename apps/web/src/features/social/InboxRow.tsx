@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Check, Heart, X } from "lucide-react";
 import { followRoute } from "../../router";
 import { Button } from "../../shared/Button";
@@ -6,7 +7,7 @@ import { recommendationLine } from "./phrasing";
 // One thing a family member sent you, still undecided. Rendered on
 // "Shared with me" under "Waiting for you".
 //
-// Neither decision is urgent: put it in Favorites, or set it aside. The page
+// Neither decision is urgent: like it, or set it aside. The page
 // clears the unseen dot on open, so a card that sits here is not nagging anyone.
 
 export interface InboxCard {
@@ -22,7 +23,7 @@ export interface InboxCard {
   subtitle: string | null;
   coverUrl: string | null;
   href: string;
-  /** Only library items have Favorites to be saved to. An album, a slideshow or
+  /** Only library items can be liked. An album, a slideshow or
    *  a person is not one, and none of them needs a shortlist. */
   savable: boolean;
 }
@@ -36,7 +37,8 @@ export function InboxRow({
   busy: boolean;
   onAct: (card: InboxCard, action: "save" | "dismiss") => Promise<void>;
 }) {
-  const canFavorite = card.savable && card.available;
+  const { t } = useTranslation(["common", "user"]);
+  const canLike = card.savable && card.available;
 
   const cover = card.coverUrl
     ? <img className="inbox-cover" src={card.coverUrl} alt="" />
@@ -60,30 +62,30 @@ export function InboxRow({
         )}
         {card.subtitle && <p className="inbox-subtitle">{card.subtitle}</p>}
         {card.message && <p className="inbox-message">“{card.message}”</p>}
-        {!card.available && <p className="inbox-gone">This isn’t available to you any more.</p>}
+        {!card.available && <p className="inbox-gone">{t("user:social.unavailable")}</p>}
       </div>
 
       {/* The action names what actually happens. A savable thing goes to
-          Favorites, so the button says so rather than a vague "Save" that
+          Likes, so the button says so rather than a vague "Save" that
           leaves you wondering where it went. Everything else has nowhere to be
           saved to, and "Not now" reads wrong once you have looked at it — so it
           gets a single Done. */}
       <div className="inbox-actions">
-        {canFavorite ? (
+        {canLike ? (
           <>
             <Button variant="primary" compact disabled={busy} onClick={() => void onAct(card, "save")}>
               <Heart size={16} aria-hidden />
-              <span>{busy ? "Saving…" : "Favorite"}</span>
+              <span>{busy ? t("user:likes.liking") : t("user:likes.like")}</span>
             </Button>
             <Button variant="secondary" compact disabled={busy} onClick={() => void onAct(card, "dismiss")}>
               <X size={16} aria-hidden />
-              <span>Not now</span>
+              <span>{t("user:social.notNow")}</span>
             </Button>
           </>
         ) : (
           <Button variant="secondary" compact disabled={busy} onClick={() => void onAct(card, "dismiss")}>
             <Check size={16} aria-hidden />
-            <span>Done</span>
+            <span>{t("common:common.done")}</span>
           </Button>
         )}
       </div>

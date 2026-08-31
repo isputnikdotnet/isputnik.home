@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { LibraryBig, UserPlus, UserRound } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
@@ -40,6 +41,7 @@ export function NarratorListPage({
   user: PublicUser;
   logout: () => Promise<void>;
 }) {
+  const { t } = useTranslation(["common", "book"]);
   const [libraries, setLibraries] = useState<AudiobookLibrary[]>([]);
   const [persons, setPersons] = useState<NarratorSummary[]>([]);
   const [photos, setPhotos] = useState<Record<string, string>>({});
@@ -66,11 +68,11 @@ export function NarratorListPage({
     // library and folding them client-side.
     api<{ narrators: NarratorSummary[] }>("/api/library/people/narrators")
       .then((payload) => setPersons(payload.narrators))
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load narrators"));
+      .catch((err) => setError(err instanceof Error ? err.message : t("book:narrators.unableLoad")));
     // The libraries list is still needed: it gates "New narrator" on write access.
     api<{ libraries: AudiobookLibrary[] }>("/api/library/audiobook-libraries")
       .then((payload) => setLibraries(payload.libraries))
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load data"));
+      .catch((err) => setError(err instanceof Error ? err.message : t("book:catalog.unableLoadData")));
     api<{ photos: Record<string, string> }>("/api/library/people/photos")
       .then((payload) => setPhotos(payload.photos))
       .catch(() => {}); // avatars are decoration — the list works without them
@@ -99,7 +101,7 @@ export function NarratorListPage({
     .sort((a, b) => orderOf(a).localeCompare(orderOf(b)));
 
   const libraryOptions = [
-    { value: "all", label: "All libraries" },
+    { value: "all", label: t("book:catalog.allLibraries") },
     ...libraries.map((lib) => ({ value: lib.id, label: lib.name }))
   ];
 
@@ -130,7 +132,7 @@ export function NarratorListPage({
       });
       navigate(`/people/${encodeURIComponent(name)}`);
     } catch (err) {
-      setCreateError(err instanceof Error ? err.message : "Unable to create narrator");
+      setCreateError(err instanceof Error ? err.message : t("book:narrators.unableCreate"));
       setCreating(false);
     }
   };
@@ -144,20 +146,20 @@ export function NarratorListPage({
     >
       <section className="audiobook-main-page">
         <LibraryPageHeader
-          title="Narrators"
-          subtitle={`${filtered.length} ${filtered.length === 1 ? "narrator" : "narrators"}`}
+          title={t("book:narrators.title")}
+          subtitle={t("book:catalog.counts.narrator", { count: filtered.length })}
           search={search}
           onSearchChange={setSearch}
-          searchPlaceholder="Search narrators..."
+          searchPlaceholder={t("book:narrators.searchPlaceholder")}
           primaryAction={canCreate && (
             <Button variant="primary" onClick={openCreate}>
               <UserPlus size={16} aria-hidden="true" />
-              <span>New narrator</span>
+              <span>{t("book:narrators.newNarrator")}</span>
             </Button>
           )}
         />
 
-        {error && <MessageBox tone="error" title="Error">{error}</MessageBox>}
+        {error && <MessageBox tone="error" title={t("book:detail.errorTitle")}>{error}</MessageBox>}
 
         {persons.length > 0 && (
           <LibraryPageToolbar
@@ -166,7 +168,7 @@ export function NarratorListPage({
                 value={libraryFilter}
                 options={libraryOptions}
                 icon={<LibraryBig size={19} aria-hidden="true" />}
-                label="Library"
+                label={t("book:detail.rows.library")}
                 onChange={setLibraryFilter}
               />
             )}
@@ -174,11 +176,11 @@ export function NarratorListPage({
               <SortMenu
                 presentation="labelled"
                 value={nameOrder}
-                ariaLabel="Sort and index by"
+                ariaLabel={t("book:people.sortAndIndexByAria")}
                 onChange={setNameOrder}
                 options={[
-                  { value: "first", label: "First name" },
-                  { value: "last", label: "Last name" }
+                  { value: "first", label: t("book:people.orderFirstName") },
+                  { value: "last", label: t("book:people.orderLastName") }
                 ]}
               />
             }
@@ -187,7 +189,7 @@ export function NarratorListPage({
                 available={availableLetters}
                 value={letter}
                 onChange={setLetter}
-                ariaLabel={`Filter by ${nameOrder} letter`}
+                ariaLabel={nameOrder === "last" ? t("book:people.filterByLastLetter") : t("book:people.filterByFirstLetter")}
               />
             }
           />
@@ -196,13 +198,13 @@ export function NarratorListPage({
         {libraries.length === 0 ? (
           <div className="empty-state library-empty">
             <UserRound size={58} aria-hidden="true" />
-            <h2>No audiobook libraries yet</h2>
-            <p className="muted">An administrator can add libraries from the control panel.</p>
+            <h2>{t("book:catalog.noAudiobookLibraries")}</h2>
+            <p className="muted">{t("book:catalog.adminAddLibraries")}</p>
           </div>
         ) : filtered.length === 0 ? (
           <div className="empty-state library-empty">
             <UserRound size={48} aria-hidden="true" />
-            <h2>No narrators match</h2>
+            <h2>{t("book:narrators.noneMatch")}</h2>
           </div>
         ) : (
           <div className="person-grid">
@@ -221,7 +223,7 @@ export function NarratorListPage({
                 </div>
                 <div className="person-card-body">
                   <strong>{person.name}</strong>
-                  <span>{person.audiobookCount} {person.audiobookCount === 1 ? "book" : "books"}</span>
+                  <span>{t("book:catalog.counts.book", { count: person.audiobookCount })}</span>
                 </div>
               </button>
             ))}
@@ -230,20 +232,20 @@ export function NarratorListPage({
       </section>
 
       {createOpen && (
-        <Modal title="New narrator" busy={creating} onClose={() => setCreateOpen(false)}>
+        <Modal title={t("book:narrators.newNarratorModalTitle")} busy={creating} onClose={() => setCreateOpen(false)}>
           <p className="muted">
-            Create a narrator ahead of time. They become available when editing a book and appear on this page once a book credits them.
+            {t("book:narrators.newNarratorIntro")}
           </p>
-          {createError && <MessageBox tone="error" title="Unable to create narrator">{createError}</MessageBox>}
+          {createError && <MessageBox tone="error" title={t("book:narrators.unableCreate")}>{createError}</MessageBox>}
           <label className="field">
-            <span>Name</span>
-            <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Full name" autoFocus />
+            <span>{t("book:person.fieldName")}</span>
+            <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder={t("book:narrators.namePlaceholder")} autoFocus />
           </label>
           {writableLibraries.length > 1 && (
             <label className="field">
-              <span>Library</span>
+              <span>{t("book:detail.rows.library")}</span>
               <select value={newLibraryId} onChange={(e) => setNewLibraryId(e.target.value)}>
-                <option value="">Choose a library…</option>
+                <option value="">{t("book:narrators.chooseLibraryPlaceholder")}</option>
                 {writableLibraries.map((lib) => (
                   <option key={lib.id} value={lib.id}>{lib.name}</option>
                 ))}
@@ -251,20 +253,20 @@ export function NarratorListPage({
             </label>
           )}
           <label className="field">
-            <span>Biography <span className="muted">(optional)</span></span>
+            <span>{t("book:person.fieldBiography")} <span className="muted">{t("book:narrators.optional")}</span></span>
             <textarea
               rows={5}
               value={newBio}
               onChange={(e) => setNewBio(e.target.value)}
-              placeholder="Write a short biography…"
+              placeholder={t("book:person.bioPlaceholder")}
               maxLength={10000}
             />
           </label>
           <div className="modal-actions">
-            <Button variant="secondary" onClick={() => setCreateOpen(false)} disabled={creating}>Cancel</Button>
+            <Button variant="secondary" onClick={() => setCreateOpen(false)} disabled={creating}>{t("common:common.cancel")}</Button>
             <Button variant="primary" onClick={createNarrator} disabled={creating || !newName.trim() || !newLibraryId}>
               <UserPlus size={15} />
-              <span>{creating ? "Creating…" : "Create narrator"}</span>
+              <span>{creating ? t("book:narrators.creating") : t("book:narrators.createNarratorButton")}</span>
             </Button>
           </div>
         </Modal>

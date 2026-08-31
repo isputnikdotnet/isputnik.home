@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import type { PublicUser } from "../api";
 import { DashboardShell } from "../app/DashboardShell";
-import { followRoute, navigate } from "../router";
+import { followBack, followRoute, navigate } from "../router";
 import { MessageBox } from "../shared/MessageBox";
 import { repoFileUrl } from "../shared/links";
 
@@ -51,6 +51,15 @@ export async function renderGuideHtml(markdown: string): Promise<string> {
         const attrs = external ? ' target="_blank" rel="noreferrer"' : "";
         const titleAttr = title ? ` title="${escapeAttr(title)}"` : "";
         return `<a href="${escapeAttr(href ?? "")}"${titleAttr}${attrs}>${inner}</a>`;
+      },
+      // marked stopped emitting heading ids in v5, which quietly broke every
+      // `(guide.md#some-section)` link the guides already carry — the fragment
+      // survived the rewrite above but had nothing to land on. Same slug GitHub
+      // makes, so links keep being written the way authors expect.
+      heading({ tokens, depth, text }) {
+        const inner = this.parser.parseInline(tokens);
+        const id = text.toLowerCase().trim().replace(/[^\w\s-]/g, "").replace(/\s+/g, "-");
+        return `<h${depth} id="${escapeAttr(id)}">${inner}</h${depth}>`;
       },
       image({ href, title, text }) {
         const src = /^https?:\/\//i.test(href ?? "") ? href : `/guides/${(href ?? "").replace(/^\.?\//, "")}`;
@@ -102,7 +111,7 @@ export function GuidePage({
   return (
     <DashboardShell active="help" user={user} logout={logout}>
       <section className="work-area guide-area">
-        <a className="audiobook-back-button" href="/help" onClick={(event) => followRoute(event, "/help")}>
+        <a className="audiobook-back-button" href="/help" onClick={(event) => followBack(event, "/help")}>
           <ArrowLeft size={18} aria-hidden="true" />
           <span>Help &amp; guides</span>
         </a>

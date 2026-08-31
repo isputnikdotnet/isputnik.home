@@ -18,6 +18,7 @@ import {
 import {
   checkResult, resolveJobResult, sweepJobResults
 } from "../src/modules/library/gallery/duplicates/job-resolve.js";
+import { setFolderLock } from "../src/modules/library/shared/folder-locks.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
 
 // Fingerprints as bit patterns: bits(0) and bits(3) are two bits apart, inside the
@@ -122,6 +123,24 @@ describe("the re-check", () => {
     // Only the copy being REMOVED is a problem — a keeper in a read-only library is
     // exactly what should happen.
     expect(check.problems.map((problem) => problem.role)).toEqual(["delete"]);
+  });
+
+  it("notices a folder locked after the snapshot", () => {
+    const { jobId, result } = twoCopies();
+    setFolderLock("GAL", "Downloads", true, "u1");
+
+    const check = checkResult(jobId, result.id)!;
+    expect(check.ok).toBe(false);
+    // Same reading as a read-only library: policy forbids deleting this copy. Only
+    // the doomed copy is a problem — a keeper under a lock is exactly what should
+    // happen.
+    expect(check.problems.map((problem) => [problem.path, problem.stale])).toEqual([
+      ["Downloads/one.jpg", "protected"]
+    ]);
+
+    // The resolve refuses cleanly on the re-check, before trashBook's backstop.
+    const outcome = resolveJobResult(jobId, "u1", result.id);
+    expect(outcome.ok).toBe(false);
   });
 
   it("writes the reason onto the member, so the page can say which row is stale", () => {

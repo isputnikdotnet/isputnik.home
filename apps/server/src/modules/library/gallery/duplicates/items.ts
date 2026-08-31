@@ -27,6 +27,7 @@ import { libraryJobRunning } from "../../shared/scan-lock.js";
 import { requeueInterruptedJobs } from "../../shared/job-recovery.js";
 import { jobProgressWriter } from "../../shared/job-progress.js";
 import { trashBook, libraryAllowsDelete } from "../../shared/trash.js";
+import { allFolderLocks, lockCoveredIn } from "../../shared/folder-locks.js";
 import { applyItemAlphaIndex } from "../../shared/alphabet-index.js";
 import { recomputeFaceCount } from "../people.js";
 // Same shape of mutual import, for the same reason: a cleanup job's scan is this
@@ -436,6 +437,8 @@ interface Scored extends DetailRow {
   preference: FolderPreferenceMode | null;
   /** Its library forbids deleting — external, or deleting turned off. */
   protectedLibrary: boolean;
+  /** A folder lock covers its path, so this copy can't be deleted. */
+  lockedFolder: boolean;
 }
 
 // Which libraries refuse deletion, answered once and reused for every copy scored.
@@ -448,6 +451,7 @@ function score(
   row: DetailRow,
   preferences: FolderPreference[] = [],
   protectedLibs: Set<string> = protectedLibraries(),
+  locks: Map<string, string[]> = allFolderLocks(),
   /** Ids this set's own names give away as copies. Empty when a row is scored on its
    *  own — the read paths do that for display, and only read linkCount from it. */
   derived: Set<string> = new Set(),
@@ -475,7 +479,8 @@ function score(
     copyMarker: derived.has(row.item_id) || COPY_MARKERS.some((re) => re.test(baseName)),
     derivedFolder: segments.slice(0, -1).some((seg) => DERIVED_FOLDERS.test(seg)),
     previewCopy: previews.has(row.item_id),
-    protectedLibrary: protectedLibs.has(row.library_id)
+    protectedLibrary: protectedLibs.has(row.library_id),
+    lockedFolder: lockCoveredIn(locks.get(row.library_id), row.relative_path)
   };
 }
 
@@ -497,6 +502,9 @@ const KEEPER_CRITERIA: { label: string; decision?: boolean; value: (row: Scored)
   // only reads, the readable one keeps its copy and the ordinary one gives its up — the
   // only outcome that is actually available.
   { label: "in a library its files can't be deleted from", decision: true, value: (r) => (r.protectedLibrary ? 1 : 0) },
+  // The same fact one level down: a folder lock covers this copy, so naming it the
+  // loser proposes an action trashBook will refuse. A lock is somebody's decision.
+  { label: "in a locked folder", decision: true, value: (r) => (r.lockedFolder ? 1 : 0) },
   // Explicit instructions beat every guess below them, in both directions. Nothing is
   // lost by obeying them: the losing copies' tags and people are merged onto the
   // keeper either way. "Clearing out" ranks above hand-filed work for the same reason
@@ -570,9 +578,10 @@ export function pickKeeper(rows: DetailRow[], instructions?: FolderPreference[])
   // choice the page that set it would not recognise.
   const preferences = instructions ?? [];
   const protectedLibs = protectedLibraries();
+  const locks = allFolderLocks();
   const derived = derivedCopyIds(rows);
   const previews = previewCopyIds(rows);
-  const scored = rows.map((row) => score(row, preferences, protectedLibs, derived, previews)).sort(compareCandidates);
+  const scored = rows.map((row) => score(row, preferences, protectedLibs, locks, derived, previews)).sort(compareCandidates);
   const winner = scored[0];
   const runnerUp = scored[1];
   if (!runnerUp) return { keeperId: winner.item_id, reason: null, rank: -1 };

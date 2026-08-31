@@ -7,11 +7,13 @@ import { issueSession, registerAuthDecorators } from "../src/auth.js";
 import { dashboardPlugin } from "../src/core/dashboard.js";
 import { makeUser, resetDb } from "./helpers/seed.js";
 
-// The Sign-in details page asks one endpoint for everything it shows, scoped to
-// an address, a person, or a place. These pin the scoping: every panel of the
-// response must describe the same rows, failures must gather under the null
-// actor rather than vanish, and the side tables (blocks, scanner traffic, live
-// sessions) must follow the same scope as the main counts.
+// The Dashboard's Sign-ins view asks one endpoint for everything it shows,
+// scoped to an address, a person, or a place. These pin the scoping: every panel
+// of the response must describe the same rows, failures must gather under the
+// null actor rather than vanish, and the side tables (blocks, scanner traffic,
+// live sessions) must follow the same scope as the main counts. The second
+// block pins the window itself — those cases came from /api/dashboard/logins,
+// which this endpoint absorbed along with the view.
 
 let app: FastifyInstance;
 let admin: string;
@@ -60,6 +62,12 @@ function logAttempt(email: string | null, ip: string, kind: string, hoursBack = 
   `).run(`att-${seq}`, email, ip, kind, new Date(Date.now() - hoursBack * 3_600_000).toISOString());
 }
 
+function block(ip: string, at: Date): void {
+  db.prepare(
+    "INSERT INTO blocked_ips (ip_address, reason, auto, created_at) VALUES (?, 'Too many failed sign-ins', 1, ?)"
+  ).run(ip, at.toISOString());
+}
+
 function makeSession(userId: string, ip: string, agent: string): void {
   seq += 1;
   db.prepare(`
@@ -77,6 +85,11 @@ function makeSession(userId: string, ip: string, agent: string): void {
 }
 
 const dayAgo = () => new Date(Date.now() - 24 * 3_600_000);
+const hoursAgo = (n: number) => new Date(Date.now() - n * 3_600_000);
+const daysAgo = (n: number) => new Date(Date.now() - n * 24 * 3_600_000);
+
+/** `extra` is spread last, so a case can widen or move the default 24h window. */
+const window = (from: Date, to = new Date()) => ({ from: from.toISOString(), to: to.toISOString() });
 
 async function signins(session: string, extra: Record<string, string> = {}) {
   const query = new URLSearchParams({ from: dayAgo().toISOString(), to: new Date().toISOString(), ...extra });
@@ -176,5 +189,121 @@ describe("GET /api/dashboard/signins", () => {
     expect(country.status).toBe(200);
     expect(country.body.totals.attempts).toBe(0);
     expect(country.body.ips).toEqual([]);
+  });
+});
+
+describe("GET /api/dashboard/signins over a window", () => {
+  it("buckets a short window by hour and counts only what falls inside it", async () => {
+    logLogin("auth.login", "9.9.9.9", admin, 2);
+    logLogin("auth.passkey_login", "9.9.9.9", member, 2);
+    logLogin("auth.login_failed", "8.8.8.8", null, 1);
+    logLogin("auth.login", "9.9.9.9", admin, 30); // outside a 24h window
+
+    const session = await signIn(admin);
+    const { status, body } = await signins(session, window(hoursAgo(24)));
+
+    expect(status).toBe(200);
+    expect(body.series.bucket).toBe("hour");
+    // 24 hours of buckets, plus the partial one the window opened in.
+    expect(body.series.buckets.length).toBe(25);
+    expect(body.series.buckets.length).toBe(body.series.success.length);
+    expect(body.totals).toMatchObject({ attempts: 3, success: 2, failed: 1 });
+    expect(body.methods).toMatchObject({ password: 1, passkey: 1, deviceLink: 0 });
+    expect(body.series.success.reduce((sum: number, n: number) => sum + n, 0)).toBe(2);
+    expect(body.series.failed.reduce((sum: number, n: number) => sum + n, 0)).toBe(1);
+  });
+
+  it("counts a two-factor sign-in, which is the only kind an MFA household makes", async () => {
+    // With a second factor on, the password step logs auth.mfa_required and stops;
+    // the session is issued when the code is accepted, logging auth.mfa_verified.
+    // No auth.login is ever written, so leaving mfa_verified out made every such
+    // sign-in invisible here while the Logs page listed them (3.11.0 did exactly
+    // that). auth.mfa_required is the middle of one sign-in, and must NOT add a
+    // second count for it.
+    logLogin("auth.mfa_required", "9.9.9.9", admin, 2);
+    logLogin("auth.mfa_verified", "9.9.9.9", admin, 2);
+    logLogin("auth.mfa_failed", "8.8.8.8", null, 1);
+
+    const session = await signIn(admin);
+    const { body } = await signins(session, window(hoursAgo(24)));
+
+    expect(body.totals).toMatchObject({ attempts: 2, success: 1, failed: 1 });
+    expect(body.methods.twoFactor).toBe(1);
+    expect(body.methods.password).toBe(0);
+  });
+
+  it("adds every method up to the success total", async () => {
+    logLogin("auth.login", "9.9.9.9", admin, 4);
+    logLogin("auth.passkey_login", "9.9.9.9", admin, 3);
+    logLogin("auth.mfa_verified", "9.9.9.9", admin, 2);
+    logLogin("auth.device_link_approved", "9.9.9.9", admin, 1);
+
+    const session = await signIn(admin);
+    const { body } = await signins(session, window(hoursAgo(24)));
+
+    expect(body.methods).toMatchObject({ password: 1, passkey: 1, twoFactor: 1, deviceLink: 1 });
+    expect(body.totals.success).toBe(4);
+  });
+
+  it("buckets a long window by day", async () => {
+    logLogin("auth.login", "9.9.9.9", admin, 3 * 24);
+    logLogin("auth.device_link_approved", "9.9.9.9", admin, 10 * 24);
+
+    const session = await signIn(admin);
+    const { body } = await signins(session, window(daysAgo(30)));
+
+    expect(body.series.bucket).toBe("day");
+    expect(body.series.buckets.length).toBe(31);
+    expect(body.totals.success).toBe(2);
+    expect(body.methods.deviceLink).toBe(1);
+  });
+
+  it("counts the addresses blocked during the window, and narrows them with the scope", async () => {
+    logLogin("auth.login_failed", "203.0.113.7", null, 2);
+    logLogin("auth.login", "9.9.9.9", admin, 2);
+    block("203.0.113.7", hoursAgo(2));
+    block("203.0.113.8", daysAgo(5)); // outside the window
+
+    const session = await signIn(admin);
+    const unscoped = await signins(session, window(hoursAgo(24)));
+    expect(unscoped.body.totals.blockedIps).toBe(1);
+
+    // An address scope counts its own blocks, not the house's.
+    const scoped = await signins(session, { ...window(hoursAgo(24)), ip: "9.9.9.9" });
+    expect(scoped.body.totals.blockedIps).toBe(0);
+  });
+
+  it("counts each person once, however often they signed in", async () => {
+    logLogin("auth.login", "9.9.9.9", admin, 3);
+    logLogin("auth.login", "9.9.9.9", admin, 2);
+    logLogin("auth.passkey_login", "7.7.7.7", member, 1);
+
+    const session = await signIn(admin);
+    const { body } = await signins(session, window(hoursAgo(24)));
+
+    expect(body.totals.success).toBe(3);
+    expect(body.totals.people).toBe(2);
+  });
+
+  it("returns the scope's raw rows in the shape /api/logs uses, so one table renders both", async () => {
+    logLogin("auth.login", "9.9.9.9", admin, 1);
+
+    const session = await signIn(admin);
+    const { body } = await signins(session, window(hoursAgo(24)));
+
+    expect(body.events).toHaveLength(1);
+    expect(body.events[0]).toMatchObject({ event: "auth.login", ipAddress: "9.9.9.9", actorId: admin });
+    expect(body.events[0].createdAt).toBeTruthy();
+    expect(body.events[0].actorName).toBeTruthy();
+  });
+
+  it("rejects a backwards range and a garbage date", async () => {
+    const session = await signIn(admin);
+
+    const backwards = await signins(session, window(new Date(), hoursAgo(1)));
+    expect(backwards.status).toBe(400);
+
+    const garbage = await signins(session, { from: "yesterday", to: "now" });
+    expect(garbage.status).toBe(400);
   });
 });

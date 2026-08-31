@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Shapes } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
@@ -19,6 +20,7 @@ export function CategoryListPage({
   user: PublicUser;
   logout: () => Promise<void>;
 }) {
+  const { t } = useTranslation(["common", "book"]);
   const [categories, setCategories] = useState<CategorySummary[]>([]);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
@@ -30,7 +32,7 @@ export function CategoryListPage({
   useEffect(() => {
     api<{ categories: CategorySummary[] }>("/api/library/categories")
       .then((payload) => setCategories(payload.categories))
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load categories"));
+      .catch((err) => setError(err instanceof Error ? err.message : t("book:categories.unableLoad")));
   }, []);
 
   const term = search.trim().toLowerCase();
@@ -52,14 +54,14 @@ export function CategoryListPage({
     >
       <section className="audiobook-main-page">
         <LibraryPageHeader
-          title="Categories"
-          subtitle={`${shown.length} ${shown.length === 1 ? "category" : "categories"}`}
+          title={t("book:categories.title")}
+          subtitle={t("book:catalog.counts.category", { count: shown.length })}
           search={search}
           onSearchChange={setSearch}
-          searchPlaceholder="Search categories..."
+          searchPlaceholder={t("book:categories.searchPlaceholder")}
         />
 
-        {error && <MessageBox tone="error" title="Categories error">{error}</MessageBox>}
+        {error && <MessageBox tone="error" title={t("book:categories.errorTitle")}>{error}</MessageBox>}
 
         {/* Same toolbar as its sibling browse pages, with only the control this one
             can use: the taxonomy is a fixed, curated shelf of a few dozen names —
@@ -71,12 +73,12 @@ export function CategoryListPage({
               <SortMenu
                 presentation="labelled"
                 value={sort}
-                ariaLabel="Sort categories"
+                ariaLabel={t("book:categories.sortAria")}
                 onChange={setSort}
                 options={[
-                  { value: "shelf", label: "Shelf order" },
-                  { value: "name", label: "Name (A–Z)" },
-                  { value: "books", label: "Most books" }
+                  { value: "shelf", label: t("book:categories.sortShelfOrder") },
+                  { value: "name", label: t("book:series.sortNameAsc") },
+                  { value: "books", label: t("book:series.sortMostBooks") }
                 ]}
               />
             }
@@ -86,7 +88,7 @@ export function CategoryListPage({
         {shown.length === 0 && !error ? (
           <div className="empty-state library-empty">
             <Shapes size={48} aria-hidden="true" />
-            <h2>No categories{term ? " match" : " yet"}</h2>
+            <h2>{term ? t("book:categories.noneMatch") : t("book:categories.noneYet")}</h2>
           </div>
         ) : (
         <div className="category-grid">
@@ -98,7 +100,7 @@ export function CategoryListPage({
             >
               <CategoryIcon icon={category.icon} size={26} />
               <strong>{category.name}</strong>
-              <span>{category.bookCount} {category.bookCount === 1 ? "book" : "books"}</span>
+              <span>{t("book:catalog.counts.book", { count: category.bookCount })}</span>
             </button>
           ))}
         </div>

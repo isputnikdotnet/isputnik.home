@@ -1,13 +1,18 @@
+import i18n from "./i18n";
+
 export interface PublicUser {
   id: string;
   email: string;
   displayName: string;
   role: "admin" | "member";
-  theme: "system" | "light" | "dark" | "plain-light" | "plain-dark" | "expanse";
+  theme: "system" | "light" | "dark" | "plain-light" | "plain-dark" | "minimalist";
   protectedFromDelete: boolean;
   isActive: boolean;
   createdAt: string;
   deletedAt: string | null;
+  // Self-only: the interface language (session + profile payloads), mirrored to
+  // localStorage by App so the sign-in screen speaks it before a session exists.
+  language?: "en" | "ru";
   // Self-only: present on the signed-in user (session + profile), absent on the
   // admin user list. Used by Send-to-e-reader and the Profile field.
   ereaderEmail?: string | null;
@@ -39,10 +44,32 @@ export function isAdminSession(user: PublicUser | null | undefined): boolean {
 
 interface ApiErrorPayload {
   error?: string;
+  /** A stable machine-readable identifier (e.g. "auth.invalid_credentials"), sent
+   *  alongside `error` by routes that have been given one. The client maps it to a
+   *  localized message via {@link localizedErrorMessage}; routes without a `code`
+   *  (most of them, so far — this is an incremental sweep) just show `error` as-is,
+   *  in English. */
+  code?: string;
   details?: {
     fieldErrors?: Record<string, string[]>;
     formErrors?: string[];
   };
+}
+
+/** Resolves a server error `code` to a localized message, falling back to the
+ *  server's English `error` sentence for a code with no translation yet — the
+ *  whole point of shipping `code` is that this fallback degrades gracefully
+ *  instead of ever showing the user a raw key like "auth.invalid_credentials". */
+function localizedErrorMessage(payload: ApiErrorPayload): string | undefined {
+  if (!payload.code) return payload.error;
+  // `code` is a runtime value from the server, not a key from the typed key
+  // union react-i18next generates from common.json — there is no literal-union
+  // type to check it against, so this is the one deliberate `any` in the i18n
+  // sweep. `defaultValue` is what makes the graceful-fallback promise real: a
+  // code with no entry under errors.codes.* returns `error` unchanged.
+  const fallback = payload.error ?? "";
+  const message = i18n.t(`common:errors.codes.${payload.code}` as any, { defaultValue: fallback }) as string;
+  return message || undefined;
 }
 
 export class ApiError extends Error {
@@ -144,7 +171,7 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
       : "";
     const formMessage = payload.details?.formErrors?.join("; ") ?? "";
     throw new ApiError(
-      fieldMessage || formMessage || payload.error || "Request failed",
+      fieldMessage || formMessage || localizedErrorMessage(payload) || "Request failed",
       response.status,
       payload
     );

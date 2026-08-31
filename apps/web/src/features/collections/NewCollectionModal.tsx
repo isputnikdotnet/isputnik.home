@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ListMusic } from "lucide-react";
 import { api } from "../../api";
 import { MessageBox } from "../../shared/MessageBox";
@@ -15,6 +16,7 @@ export function NewCollectionModal({
   onClose: () => void;
   onCreated: (collection: CollectionSummary) => void;
 }) {
+  const { t } = useTranslation(["common", "user"]);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [error, setError] = useState("");
@@ -32,7 +34,7 @@ export function NewCollectionModal({
       });
       onCreated(collection);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to create collection");
+      setError(err instanceof Error ? err.message : t("user:collections.createFailed"));
       setSaving(false);
     }
   };
@@ -40,7 +42,7 @@ export function NewCollectionModal({
   return (
     <Modal
       variant="panel"
-      title="New collection"
+      title={t("user:collections.newCollection")}
       icon={<ListMusic size={20} />}
       className="new-collection-modal"
       busy={saving}
@@ -50,34 +52,34 @@ export function NewCollectionModal({
           className="modal-tab-content new-collection-form"
           onSubmit={(e) => { e.preventDefault(); void submit(); }}
         >
-          {error && <MessageBox tone="error" title="Collections error">{error}</MessageBox>}
+          {error && <MessageBox tone="error" title={t("user:collections.errorTitle")}>{error}</MessageBox>}
 
           <label className="field">
-            <span>Name</span>
+            <span>{t("user:collections.nameField")}</span>
             <input
               autoFocus
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Weekend listening"
+              placeholder={t("user:collections.namePlaceholder")}
               maxLength={120}
             />
           </label>
 
           <label className="field">
-            <span>Description <small className="muted">(optional)</small></span>
+            <span>{t("user:collections.descriptionField")} <small className="muted">{t("user:form.optional")}</small></span>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="What's this collection for?"
+              placeholder={t("user:collections.descriptionPlaceholder")}
               rows={3}
               maxLength={2000}
             />
           </label>
 
           <div className="metadata-actions new-collection-actions">
-            <Button variant="secondary" onClick={onClose} disabled={saving}>Cancel</Button>
+            <Button variant="secondary" onClick={onClose} disabled={saving}>{t("common:common.cancel")}</Button>
             <Button variant="primary" type="submit" disabled={saving || !name.trim()}>
-              {saving ? "Creating…" : "Create collection"}
+              {saving ? t("user:actions.creating") : t("user:collections.create")}
             </Button>
           </div>
         </form>

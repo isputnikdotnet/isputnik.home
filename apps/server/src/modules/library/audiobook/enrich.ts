@@ -15,6 +15,11 @@ import { searchOpenLibrary } from "./providers/open-library.js";
 import { MetadataLinkError, type MetadataCandidate } from "./providers/types.js";
 
 const REQUEST_TIMEOUT_MS = 12_000;
+// Open Library's per-author record is regularly the slowest thing in a person
+// lookup — 10s and sometimes a hard failure, measured. It only adds a biography
+// to a card that already stands without one, so it gets a short budget of its
+// own rather than holding the whole shortlist at the wall.
+const OPEN_LIBRARY_DETAIL_TIMEOUT_MS = 5_000;
 // Pause between consecutive online lookups, shared across the whole process so
 // concurrent scan workers can't hammer the public APIs.
 const POLITENESS_DELAY_MS = 250;
@@ -36,10 +41,10 @@ function enqueueLookup<T>(task: () => Promise<T>): Promise<T> {
   return run;
 }
 
-async function fetchJson<T>(url: string): Promise<T | null> {
+async function fetchJson<T>(url: string, timeoutMs = REQUEST_TIMEOUT_MS): Promise<T | null> {
   const response = await fetch(url, {
     headers: { "user-agent": REMOTE_FETCH_USER_AGENT, accept: "application/json" },
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
+    signal: AbortSignal.timeout(timeoutMs)
   });
   if (!response.ok) {
     return null;
@@ -165,17 +170,343 @@ export async function lookupOnlineBookMetadata(input: OnlineBookLookupInput): Pr
   });
 }
 
+// ── Life facts ───────────────────────────────────────────────────────────────
+
+// The short line that sits above a biography: born, died, country of origin,
+// and what this person did. Wikidata answers the first three exactly and in a
+// language-independent way; the occupation is the Wikipedia page's own one-line
+// description ("English writer and humorist"), which is already localized and
+// costs nothing extra to read. Every field is optional, every one is editable
+// afterwards, and nothing here ever replaces a value someone typed.
+export interface PersonFacts {
+  // Partial dates — 'YYYY' | 'YYYY-MM' | 'YYYY-MM-DD', the convention the
+  // people table shares with the family tree.
+  birthDate: string | null;
+  deathDate: string | null;
+  country: string | null;
+  occupation: string | null;
+  wikidataId: string | null;
+  wikipediaUrl: string | null;
+}
+
+export const EMPTY_PERSON_FACTS: PersonFacts = {
+  birthDate: null,
+  deathDate: null,
+  country: null,
+  occupation: null,
+  wikidataId: null,
+  wikipediaUrl: null
+};
+
+// The people columns each fact writes to, in one place: enrichPerson fills them
+// and the profile routes read them back. wikidataId is missing on purpose — it
+// is how a lookup finds the item it is reading, not something the table keeps.
+export const PERSON_FACT_COLUMNS: Array<[keyof PersonFacts, string]> = [
+  ["birthDate", "birth_date"],
+  ["deathDate", "death_date"],
+  ["country", "country"],
+  ["occupation", "occupation"],
+  ["wikipediaUrl", "wikipedia_url"]
+];
+
+const MONTH_NAMES = [
+  "january", "february", "march", "april", "may", "june",
+  "july", "august", "september", "october", "november", "december"
+];
+
+// "September", "Sep", "sept." → "09". Three letters is enough to be unambiguous
+// in English, the only language these sources spell months in.
+function monthNumber(word: string): string | null {
+  const wanted = word.toLowerCase().replace(/\.$/, "");
+  if (wanted.length < 3) return null;
+  const index = MONTH_NAMES.findIndex((month) => month.startsWith(wanted.slice(0, 3)));
+  return index < 0 ? null : String(index + 1).padStart(2, "0");
+}
+
+// Assemble a partial date, dropping any part that doesn't hold up: an
+// impossible month leaves the year, an impossible day leaves the month. The
+// result always satisfies the YYYY[-MM[-DD]] shape the profile route validates.
+function partialDate(year: string, month?: string | null, day?: string | null): string | null {
+  if (!/^\d{4}$/.test(year)) return null;
+  const monthNo = month == null ? NaN : Number(month);
+  if (!Number.isInteger(monthNo) || monthNo < 1 || monthNo > 12) return year;
+  const mm = String(monthNo).padStart(2, "0");
+  const dayNo = day == null ? NaN : Number(day);
+  const daysInMonth = new Date(Date.UTC(Number(year), monthNo, 0)).getUTCDate();
+  if (!Number.isInteger(dayNo) || dayNo < 1 || dayNo > daysInMonth) return `${year}-${mm}`;
+  return `${year}-${mm}-${String(dayNo).padStart(2, "0")}`;
+}
+
+// Sources spell dates however they like — one Open Library field returns
+// "2 September 1952", "1952", and "1899?". Everything lands as a partial ISO
+// date or as nothing; a value that can only be read as a year becomes the year,
+// which is what the person page shows anyway.
+export function normalizePartialDate(raw: string | null | undefined): string | null {
+  const value = raw?.trim();
+  if (!value) return null;
+
+  const iso = /^(\d{4})(?:-(\d{1,2})(?:-(\d{1,2}))?)?$/.exec(value);
+  if (iso) return partialDate(iso[1], iso[2], iso[3]);
+
+  const dayFirst = /^(\d{1,2})\s+([A-Za-z.]+),?\s+(\d{4})$/.exec(value);
+  if (dayFirst) return partialDate(dayFirst[3], monthNumber(dayFirst[2]), dayFirst[1]);
+
+  const monthFirst = /^([A-Za-z.]+)\s+(\d{1,2}),?\s+(\d{4})$/.exec(value);
+  if (monthFirst) return partialDate(monthFirst[3], monthNumber(monthFirst[1]), monthFirst[2]);
+
+  const monthYear = /^([A-Za-z.]+)\s+(\d{4})$/.exec(value);
+  if (monthYear) return partialDate(monthYear[2], monthNumber(monthYear[1]));
+
+  // "c. 1849", "1899?", "born 1920" — the year is still worth keeping.
+  const year = /(?:^|\D)(1\d{3}|20\d{2})(?:\D|$)/.exec(value);
+  return year ? year[1] : null;
+}
+
+// Wikidata property ids. P31 answers "is this item a person at all" — the guard
+// the candidate list has always had — and the rest are the facts themselves.
+const WIKIDATA_INSTANCE_OF = "P31";
+const WIKIDATA_HUMAN = "Q5";
+const WIKIDATA_BIRTH = "P569";
+const WIKIDATA_DEATH = "P570";
+const WIKIDATA_CITIZENSHIP = "P27";
+
+interface WikidataStatement {
+  rank?: string;
+  value?: { type?: string; content?: unknown };
+}
+
+// One property per request, deliberately: the REST endpoint filtered to a single
+// property answers in about a kilobyte, where the same item's full statement set
+// is ~190KB (measured on Q42, Q34660, Q7245). Three or four small requests in
+// parallel beat one enormous one, and a scan enriching a hundred authors would
+// feel the difference.
+async function wikidataStatements(qid: string, property: string): Promise<WikidataStatement[] | null> {
+  const body = await fetchJson<Record<string, WikidataStatement[]>>(
+    `https://www.wikidata.org/w/rest.php/wikibase/v1/entities/items/${encodeURIComponent(qid)}/statements`
+    + `?property=${property}`
+  ).catch(() => null);
+  if (!body) return null;
+  const claims = body[property];
+  return Array.isArray(claims) ? claims : [];
+}
+
+// Wikidata records contested facts as several statements: a "deprecated" one is
+// known to be wrong, and a "preferred" one is the value to show.
+function bestStatement(claims: WikidataStatement[]): WikidataStatement | null {
+  const usable = claims.filter((claim) => claim.rank !== "deprecated" && claim.value?.type === "value");
+  return usable.find((claim) => claim.rank === "preferred") ?? usable[0] ?? null;
+}
+
+// Wikidata times carry their own precision: 11 is a day, 10 a month, 9 a year,
+// anything coarser a decade or worse. A year-precision time still arrives as
+// "+1952-00-00T00:00:00Z", so partialDate's own checks would degrade it even
+// without the precision — this reads it anyway, because a day-precision time
+// that genuinely falls on 1 January must not be trimmed to a year. BCE dates
+// have no place in the YYYY convention, so a classical author gets no dates
+// rather than a wrong one.
+function wikidataDate(claims: WikidataStatement[] | null): string | null {
+  const claim = claims ? bestStatement(claims) : null;
+  const content = claim?.value?.content as { time?: string; precision?: number } | undefined;
+  const parsed = typeof content?.time === "string" ? /^\+(\d{4})-(\d{2})-(\d{2})T/.exec(content.time) : null;
+  if (!parsed) return null;
+  const [, year, month, day] = parsed;
+  const precision = content?.precision ?? 11;
+  if (precision >= 11) return partialDate(year, month, day);
+  if (precision === 10) return partialDate(year, month);
+  if (precision === 9) return partialDate(year);
+  return null;
+}
+
+function wikidataItemIds(claims: WikidataStatement[] | null): string[] {
+  return (claims ?? [])
+    .filter((claim) => claim.rank !== "deprecated")
+    .map((claim) => claim.value?.content)
+    .filter((content): content is string => typeof content === "string" && /^Q\d+$/.test(content));
+}
+
+export interface WikidataPersonFacts {
+  // null means "couldn't tell" — a network failure must not hide a real person,
+  // so callers keep anything this can't answer for.
+  human: boolean | null;
+  birthDate: string | null;
+  deathDate: string | null;
+  countryIds: string[];
+}
+
+const NO_WIKIDATA_FACTS: WikidataPersonFacts = {
+  human: null, birthDate: null, deathDate: null, countryIds: []
+};
+
+// Answered items, kept for the life of the process — the same author is looked
+// up again every time the dialog is reopened, and the same item answers for a
+// page in two languages. Only a COMPLETE read is stored: a request Wikidata
+// declined returns null rather than an empty claim list, and remembering that
+// as "no dates" would make one rate-limited moment permanent.
+const wikidataFactsCache = new Map<string, WikidataPersonFacts>();
+
+// askHuman is false wherever a person already chose the page (a pasted link) or
+// the occupation guard has already run: the P31 request only earns its place
+// when a machine is picking between same-name results.
+//
+// One property per await, never in parallel. Four concurrent requests for the
+// same item came back partly answered — a lookup for Jane Austen returned her
+// birth date but no death date and no country, both of which Wikidata plainly
+// holds (measured) — and a dropped answer is indistinguishable from "Wikidata
+// doesn't know", so the fact just goes quietly missing. Serial is also what
+// Wikimedia asks of anonymous clients.
+async function fetchWikidataFacts(qid: string, askHuman: boolean): Promise<WikidataPersonFacts> {
+  const cached = wikidataFactsCache.get(qid);
+  if (cached) return cached;
+
+  // The guard goes first and alone. A name search turns up the books ABOUT an
+  // author as much as the author, and an item that isn't a person is about to
+  // be dropped — asking it for a birthday as well would spend three quarters of
+  // this function's requests on exactly the results nobody can use.
+  const instanceOf = askHuman ? await wikidataStatements(qid, WIKIDATA_INSTANCE_OF) : null;
+  const human = instanceOf === null ? null : instanceOf.some((claim) => claim.value?.content === WIKIDATA_HUMAN);
+  if (human === false) {
+    const facts = { ...NO_WIKIDATA_FACTS, human };
+    wikidataFactsCache.set(qid, facts);
+    return facts;
+  }
+
+  const birth = await wikidataStatements(qid, WIKIDATA_BIRTH);
+  const death = await wikidataStatements(qid, WIKIDATA_DEATH);
+  const citizenship = await wikidataStatements(qid, WIKIDATA_CITIZENSHIP);
+  const facts = {
+    human,
+    birthDate: wikidataDate(birth),
+    deathDate: wikidataDate(death),
+    // Two is the whole of the "country of origin" story anyone wants to read; a
+    // much-travelled author can carry a dozen citizenships.
+    countryIds: wikidataItemIds(citizenship).slice(0, 2)
+  };
+  // Every property answered — including the guard, when it was asked — so this
+  // is what Wikidata actually holds and is worth not asking twice.
+  if (birth && death && citizenship && (!askHuman || instanceOf)) {
+    wikidataFactsCache.set(qid, facts);
+  }
+  return facts;
+}
+
+// Country labels repeat relentlessly — a family's library draws its authors
+// from a handful of countries — so each item is asked about once per process
+// rather than once per person. This is also the main defence against Wikidata's
+// anonymous rate limit: the country is the one fact that needs a second request
+// to become readable, so it is the first thing a 429 costs, and a scan over a
+// hundred authors should make a handful of label requests rather than a hundred.
+// A null caches "no label in these languages"; a FAILED request caches nothing,
+// so a rate-limited lookup is retried rather than remembered as an answer.
+const labelCache = new Map<string, string | null>();
+
+// Labels for the country items above — one batched request, answered in the
+// first library language that has a label and falling back to English. Free
+// text is what gets stored, so this is the whole of a country's localization.
+async function wikidataLabels(qids: string[], languages: string[]): Promise<Map<string, string>> {
+  const langs = wikiLanguages(languages);
+  const cacheKey = (qid: string) => `${qid}|${langs.join(",")}`;
+
+  const labels = new Map<string, string>();
+  const missing: string[] = [];
+  for (const qid of new Set(qids)) {
+    const cached = labelCache.get(cacheKey(qid));
+    if (cached === undefined) missing.push(qid);
+    else if (cached !== null) labels.set(qid, cached);
+  }
+  if (missing.length === 0) return labels;
+
+  const ids = missing.slice(0, 50);
+  const body = await fetchJson<{ entities?: Record<string, { labels?: Record<string, { value?: string }> }> }>(
+    "https://www.wikidata.org/w/api.php?action=wbgetentities&format=json&props=labels"
+    + `&languages=${langs.join("|")}&ids=${ids.join("|")}`
+  ).catch(() => null);
+  if (!body?.entities) return labels;
+
+  for (const qid of ids) {
+    const entityLabels = body.entities[qid]?.labels;
+    const value = langs.map((lang) => entityLabels?.[lang]?.value?.trim()).find(Boolean) ?? null;
+    labelCache.set(cacheKey(qid), value);
+    if (value) labels.set(qid, value);
+  }
+  return labels;
+}
+
+function joinCountries(ids: string[], labels: Map<string, string>): string | null {
+  const names = ids.map((id) => labels.get(id)).filter((name): name is string => Boolean(name));
+  return names.length > 0 ? names.join(", ") : null;
+}
+
+// Wikipedia's short description regularly ends with the very years that sit
+// beside it once the dates land — "English novelist (1775–1817)" reading as
+// "English novelist (1775–1817) · 1775 – 1817" on the page. Drop a trailing
+// parenthetical that is nothing but dates; anything with a word in it stays.
+export function trimYearRange(description: string): string {
+  // Take the trailing parenthetical whole, then judge its contents separately.
+  // Deciding both at once needs one alternation of overlapping date fragments
+  // (born|…|BCE?|…|[bcdr]), and a repeated overlapping alternation backtracks
+  // exponentially when the closing ")" never arrives: "(bcbcbc…" at sixty
+  // characters wedged the event loop for minutes (js/redos, alert #254). The
+  // description comes from a Wikipedia page, which anyone can edit.
+  const parenthetical = /\(([^()]*)\)\s*$/.exec(description);
+  if (!parenthetical) {
+    return description.trim();
+  }
+
+  // Letters only where they spell a date qualifier — "born", "died", "c.",
+  // "b. 1952", "BC". Anything else in the parenthetical keeps it: "(pen name of
+  // Eric Blair)" is the description, not a repeat of the dates beside it. Words
+  // first, then a single character class over what is left: both passes are
+  // linear, with nothing for a backtracker to explore.
+  const remainder = parenthetical[1].replace(/born|died|circa|fl\.?|bce?|ad/gi, " ");
+  if (!/^[0-9\s.,–—bcdr-]+$/i.test(remainder)) {
+    return description.trim();
+  }
+
+  return description.slice(0, parenthetical.index).trim();
+}
+
+// Everything a Wikipedia page says about a person on its own, before Wikidata
+// is asked: the one-line description, and where the facts came from.
+function wikipediaFacts(summary: WikipediaSummary, pageUrl: string | null): PersonFacts {
+  const description = summary.description?.trim();
+  return {
+    ...EMPTY_PERSON_FACTS,
+    occupation: description ? trimYearRange(description) || null : null,
+    wikidataId: summary.wikibase_item ?? null,
+    wikipediaUrl: pageUrl
+  };
+}
+
+// Fill a fact set's birth/death/country from its own Wikidata item, when it
+// named one. Failures leave the facts exactly as they came in: an unreachable
+// Wikidata must not cost a page its biography.
+async function withWikidataFacts(facts: PersonFacts, languages: string[], askHuman = false): Promise<PersonFacts> {
+  if (!facts.wikidataId) return facts;
+  const wikidata = await fetchWikidataFacts(facts.wikidataId, askHuman).catch(() => null);
+  if (!wikidata) return facts;
+  const labels = await wikidataLabels(wikidata.countryIds, languages).catch(() => new Map<string, string>());
+  return {
+    ...facts,
+    birthDate: wikidata.birthDate,
+    deathDate: wikidata.deathDate,
+    country: joinCountries(wikidata.countryIds, labels)
+  };
+}
+
 // ── Person lookup (photo + bio) ──────────────────────────────────────────────
 
 export interface PersonLookupResult {
   bio: string | null;
   photoUrl: string | null;
-  source: "wikipedia" | "openlibrary";
+  source: "wikipedia" | "openlibrary" | "fantlab";
   sourceUrl: string | null;
+  facts: PersonFacts;
 }
 
 interface WikipediaSummary {
   type?: string;
+  titles?: { normalized?: string };
+  wikibase_item?: string;
   description?: string;
   extract?: string;
   thumbnail?: { source?: string };
@@ -185,32 +516,60 @@ interface WikipediaSummary {
 
 // Guard against same-name pages about unrelated people (athletes, musicians…).
 // Applied to English pages, where descriptions are predictable.
+//
+// The second line is for NARRATORS, who are mostly actors and were mostly being
+// rejected: measured on real pages, Simon Vance ("British audiobook narrator"),
+// Scott Brick and Kate Reading all passed on "narrator", but Jim Dale ("British
+// actor, singer, songwriter") and Bahni Turpin ("American actor") did not, so
+// the automatic lookup silently skipped them. Widening this admits a few more
+// same-name strangers, which is the right trade for a library that is half
+// read aloud by actors — and the guard still rejects the Joe Barrett who is an
+// "Irish sportsperson" rather than the one who narrates.
 const OCCUPATION_PATTERN = new RegExp(
   "\\b(author|writer|novelist|poet|playwright|essayist|journalist|philosopher|historian|biographer|"
   + "dramatist|naturalist|theologian|critic|scholar|translator|cleric|clergyman|preacher|economist|"
   + "scientist|physicist|psychologist|mathematician|statesman|emperor|narrator|humorist|satirist|"
-  + "storyteller|lexicographer|polymath|fabulist)\\b", "i"
+  + "storyteller|lexicographer|polymath|fabulist|"
+  + "actor|actress|performer|broadcaster|presenter|voice artist|voice-over)\\b", "i"
 );
 
-async function lookupWikipediaPerson(name: string, lang: string): Promise<PersonLookupResult | null> {
+// Does this page read like it is about someone a library credits — a writer or
+// the actor who read them aloud? Exported so a test can pin the real
+// descriptions this has to accept and the ones it must keep rejecting.
+export function looksLikeContributor(text: string): boolean {
+  return OCCUPATION_PATTERN.test(text);
+}
+
+async function lookupWikipediaPerson(name: string, lang: string, languages: string[]): Promise<PersonLookupResult | null> {
   const title = encodeURIComponent(name.trim().replace(/\s+/g, "_"));
   const summary = await fetchJson<WikipediaSummary>(`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${title}`);
   if (!summary || summary.type !== "standard" || !summary.extract) {
     return null;
   }
-  if (lang === "en" && !OCCUPATION_PATTERN.test(`${summary.description ?? ""} ${summary.extract.slice(0, 240)}`)) {
+  if (lang === "en" && !looksLikeContributor(`${summary.description ?? ""} ${summary.extract.slice(0, 240)}`)) {
     return null;
   }
+  const pageUrl = summary.content_urls?.desktop?.page ?? null;
   return {
     bio: summary.extract,
     photoUrl: summary.thumbnail?.source ?? summary.originalimage?.source ?? null,
     source: "wikipedia",
-    sourceUrl: summary.content_urls?.desktop?.page ?? null
+    sourceUrl: pageUrl,
+    // The guard above has already accepted this page, so no P31 question is
+    // asked here — this is only about the dates and the country.
+    facts: await withWikidataFacts(wikipediaFacts(summary, pageUrl), languages)
   };
 }
 
 interface OpenLibraryAuthorSearch {
-  docs?: Array<{ key?: string; name?: string; top_work?: string; birth_date?: string; death_date?: string }>;
+  docs?: Array<{
+    key?: string;
+    name?: string;
+    top_work?: string;
+    birth_date?: string;
+    death_date?: string;
+    work_count?: number;
+  }>;
 }
 
 async function lookupOpenLibraryPerson(name: string): Promise<PersonLookupResult | null> {
@@ -232,7 +591,14 @@ async function lookupOpenLibraryPerson(name: string): Promise<PersonLookupResult
     // 404s (instead of a placeholder) when the author has no photo.
     photoUrl: `https://covers.openlibrary.org/a/olid/${olid}-L.jpg?default=false`,
     source: "openlibrary",
-    sourceUrl: `https://openlibrary.org/authors/${olid}`
+    sourceUrl: `https://openlibrary.org/authors/${olid}`,
+    // Open Library has no country and no occupation to give; the dates it does
+    // have arrive as prose ("2 September 1952") and are normalized on the way in.
+    facts: {
+      ...EMPTY_PERSON_FACTS,
+      birthDate: normalizePartialDate(doc.birth_date),
+      deathDate: normalizePartialDate(doc.death_date)
+    }
   };
 }
 
@@ -245,7 +611,7 @@ function wikiLanguages(languages: string[]) {
 export async function lookupPersonInfo(name: string, languages: string[]): Promise<PersonLookupResult | null> {
   return enqueueLookup(async () => {
     for (const lang of wikiLanguages(languages)) {
-      const result = await lookupWikipediaPerson(name, lang).catch(() => null);
+      const result = await lookupWikipediaPerson(name, lang, languages).catch(() => null);
       if (result) {
         return result;
       }
@@ -254,11 +620,414 @@ export async function lookupPersonInfo(name: string, languages: string[]): Promi
   });
 }
 
+// ── Person candidates (the Find Info picker) ─────────────────────────────────
+
+// Everything the picker needs to tell two same-name matches apart BEFORE
+// applying either — which is why this sits next to lookupPersonInfo rather than
+// replacing it: the scanner wants one confident answer, a person at the dialog
+// wants the shortlist that answer was chosen from.
+// Only the things that tell two same-name results apart. The facts a result can
+// actually contribute to a profile live on `facts` (see PersonLookupResult),
+// which this inherits — birth and death dates are facts, not trivia.
+export interface PersonCandidateDetails {
+  language?: string;
+  pageTitle?: string;
+  topWork?: string;
+  workCount?: number;
+  olid?: string;
+}
+
+export interface PersonLookupCandidate extends PersonLookupResult {
+  // Stable within one response — the list's React key and selection handle.
+  id: string;
+  title: string;
+  description: string | null;
+  details: PersonCandidateDetails;
+}
+
+interface WikipediaSearchResponse {
+  pages?: Array<{ key?: string; title?: string; description?: string | null }>;
+}
+
+// A Wikipedia candidate carries the Wikidata id its summary reported, which is
+// what answers "is this page even about a person?" — see isHumanEntity.
+interface WikiCandidate {
+  candidate: PersonLookupCandidate;
+  qid: string | null;
+}
+
+// At most this many Wikipedia pages per language, and this many results in all —
+// every extra page costs a summary request, and a list longer than a screen
+// stops being a shortlist.
+const MAX_WIKI_PAGES_PER_LANGUAGE = 3;
+const MAX_PERSON_CANDIDATES = 8;
+
+// The one line a result card shows when the page carried no short description.
+function candidateSnippet(bio: string | null): string | null {
+  if (!bio) return null;
+  const line = bio.replace(/\s+/g, " ").trim();
+  if (!line) return null;
+  return line.length <= 190 ? line : `${line.slice(0, 189).replace(/\s+\S*$/, "")}…`;
+}
+
+function wikipediaSummaryUrl(lang: string, key: string) {
+  return `https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(key)}`;
+}
+
+// A search for an author's name also turns up the books ABOUT them and the ideas
+// named after them ("Ayn Rand: The Russian Radical", "Objectivism") — the one
+// kind of wrong result a person cannot use at all. fetchWikidataFacts answers
+// "is this a human" (P31) in the same breath as the dates and the country, so
+// the guard costs one request rather than a round of its own.
+
+// Every Wikipedia page worth offering for a name, in one language: the
+// exact-title page first (the usual hit), then whatever the site search adds.
+// No occupation guard here — a same-name athlete is a visible, rejectable entry
+// in a list, where the automatic lookup had to drop it silently because nobody
+// was there to say no. Pages that aren't about a PERSON are dropped later, by
+// isHumanEntity.
+async function wikipediaCandidates(name: string, lang: string): Promise<WikiCandidate[]> {
+  const search = await fetchJson<WikipediaSearchResponse>(
+    `https://${lang}.wikipedia.org/w/rest.php/v1/search/page?q=${encodeURIComponent(name)}&limit=5`
+  ).catch(() => null);
+
+  const keys: string[] = [];
+  const searchKeys = (search?.pages ?? []).map((page) => page.key).filter((key): key is string => Boolean(key));
+  for (const key of [name.trim().replace(/\s+/g, "_"), ...searchKeys]) {
+    if (keys.length >= MAX_WIKI_PAGES_PER_LANGUAGE) break;
+    if (!keys.some((seen) => seen.toLowerCase() === key.toLowerCase())) keys.push(key);
+  }
+
+  const summaries = await Promise.all(
+    keys.map((key) => fetchJson<WikipediaSummary>(wikipediaSummaryUrl(lang, key)).catch(() => null))
+  );
+
+  return summaries.flatMap((summary, index) => {
+    if (!summary || summary.type !== "standard" || !summary.extract) return [];
+    const title = summary.titles?.normalized ?? keys[index].replace(/_/g, " ");
+    return [{
+      qid: summary.wikibase_item ?? null,
+      candidate: {
+        id: `wikipedia:${lang}:${keys[index]}`,
+        title,
+        description: summary.description ?? candidateSnippet(summary.extract),
+        bio: summary.extract,
+        photoUrl: summary.thumbnail?.source ?? summary.originalimage?.source ?? null,
+        source: "wikipedia" as const,
+        sourceUrl: summary.content_urls?.desktop?.page ?? null,
+        facts: wikipediaFacts(summary, summary.content_urls?.desktop?.page ?? null),
+        details: { language: lang, pageTitle: title }
+      }
+    }];
+  });
+}
+
+// Open Library author records sharing the exact name — the same rule the photo
+// picker uses, because a looser match there returns another person's books.
+async function openLibraryCandidates(name: string): Promise<PersonLookupCandidate[]> {
+  const search = await fetchJson<OpenLibraryAuthorSearch>(
+    `https://openlibrary.org/search/authors.json?q=${encodeURIComponent(name)}&limit=10`
+  ).catch(() => null);
+  const wanted = normalizeText(name);
+  const docs = (search?.docs ?? [])
+    .filter((doc) => doc.key && doc.name && normalizeText(doc.name) === wanted)
+    .slice(0, 3);
+
+  const details = await Promise.all(docs.map((doc) =>
+    fetchJson<{ bio?: string | { value?: string } }>(
+      `https://openlibrary.org/authors/${encodeURIComponent(doc.key!.replace(/^\/authors\//, ""))}.json`,
+      OPEN_LIBRARY_DETAIL_TIMEOUT_MS
+    ).catch(() => null)
+  ));
+
+  return docs.map((doc, index) => {
+    const olid = doc.key!.replace(/^\/authors\//, "");
+    const raw = details[index]?.bio;
+    const bio = (typeof raw === "string" ? raw : raw?.value ?? null)?.trim() || null;
+    const years = [doc.birth_date, doc.death_date].filter(Boolean).join(" – ");
+    return {
+      id: `openlibrary:${olid}`,
+      title: doc.name!,
+      description: doc.top_work
+        ? `${doc.top_work}${years ? ` (${years})` : ""}`
+        : years || candidateSnippet(bio),
+      bio,
+      // 404s (instead of a placeholder) when the record has no photo; the
+      // picker drops a candidate photo whose image fails to load.
+      photoUrl: `https://covers.openlibrary.org/a/olid/${olid}-L.jpg?default=false`,
+      source: "openlibrary" as const,
+      sourceUrl: `https://openlibrary.org/authors/${olid}`,
+      facts: {
+        ...EMPTY_PERSON_FACTS,
+        birthDate: normalizePartialDate(doc.birth_date),
+        deathDate: normalizePartialDate(doc.death_date)
+      },
+      details: {
+        olid,
+        topWork: doc.top_work,
+        workCount: doc.work_count
+      }
+    };
+  });
+}
+
+// ── FantLab people ───────────────────────────────────────────────────────────
+// The Russian-language source. Wikipedia and Open Library between them know
+// almost nothing about the authors a Russian shelf is full of — and nothing at
+// all about its narrators — while what they do know is in English. FantLab's
+// records carry the biography, the dates, the country, and a portrait, all in
+// Russian.
+//
+// Writers and narrators are separate entities there, each with its own search,
+// its own record endpoint, and its own page (fantlab.ru/autor1073 vs
+// /dictor2061), so a name is looked up as both and whichever answers wins.
+
+const FANTLAB_SITE = "https://fantlab.ru";
+const FANTLAB_API = "https://api.fantlab.ru";
+const FANTLAB_MAX_PEOPLE = 3;
+
+// "autor" is FantLab's own spelling; "dictor" is its word for a narrator.
+type FantlabPersonKind = "autor" | "dictor";
+
+interface FantlabAuthorMatch {
+  autor_id?: number;
+  rusname?: string;
+  name?: string;
+}
+
+// search-persons is the index for everyone who isn't a writer — narrators,
+// translators, cover artists — so the type has to be checked, not assumed.
+interface FantlabPersonMatch {
+  person_id?: number;
+  name?: string;
+  type?: string;
+}
+
+interface FantlabPersonRecord {
+  id?: number;
+  name?: string;
+  name_orig?: string;
+  anons?: string;
+  birthday?: string | null;
+  deathday?: string | null;
+  // Author records name one country; narrator records list them.
+  country_name?: string | null;
+  countries?: Array<{ name?: string }>;
+  image?: string | null;
+  image_preview?: string | null;
+}
+
+// FantLab records a known day with an unknown year as "0000-09-06". That is a
+// birthday, not a birth date, and the profile has nowhere to put it.
+function fantlabDate(value: string | null | undefined) {
+  return value && !value.startsWith("0000") ? normalizePartialDate(value) : null;
+}
+
+function fantlabImageUrl(path: string | null | undefined) {
+  if (!path) return null;
+  return path.startsWith("http") ? path : `${FANTLAB_SITE}${path}`;
+}
+
+// Biographies arrive as HTML with the odd inline link.
+function fantlabText(value: string | null | undefined) {
+  if (!value) return null;
+  const text = value
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&quot;/g, "\"")
+    .replace(/&#0?39;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&nbsp;/g, " ")
+    // Ampersands last: unescaping them first turns a biography's literal
+    // "&amp;lt;" into a "<" it never said (js/double-escaping, alert #255).
+    .replace(/&amp;/g, "&")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  return text || null;
+}
+
+function fantlabCountry(record: FantlabPersonRecord) {
+  const listed = record.countries?.map((entry) => entry.name?.trim()).filter(Boolean).join(", ");
+  return record.country_name?.trim() || listed || null;
+}
+
+function fantlabCandidate(record: FantlabPersonRecord, kind: FantlabPersonKind, id: number): PersonLookupCandidate | null {
+  const title = record.name?.trim();
+  if (!title) return null;
+  const bio = fantlabText(record.anons);
+  const original = record.name_orig?.trim();
+  return {
+    id: `fantlab:${kind}:${id}`,
+    title,
+    // The Latin spelling is exactly what tells two same-name results apart here.
+    description: original || candidateSnippet(bio),
+    bio,
+    photoUrl: fantlabImageUrl(record.image ?? record.image_preview),
+    source: "fantlab" as const,
+    sourceUrl: `${FANTLAB_SITE}/${kind}${id}`,
+    facts: {
+      ...EMPTY_PERSON_FACTS,
+      birthDate: fantlabDate(record.birthday),
+      deathDate: fantlabDate(record.deathday),
+      country: fantlabCountry(record)
+    },
+    // Its pages are Russian, which is what puts them first for a Russian shelf
+    // (see candidateScore).
+    details: { language: "ru" }
+  };
+}
+
+async function fantlabRecordCandidate(kind: FantlabPersonKind, id: number) {
+  const record = await fetchJson<FantlabPersonRecord>(`${FANTLAB_API}/${kind}/${id}`).catch(() => null);
+  return record ? fantlabCandidate(record, kind, id) : null;
+}
+
+// Both searches are fuzzy enough to answer "Толстой" with every Tolstoy; keep
+// the ones actually named what was asked for, the same rule Open Library gets.
+function fantlabNamed(name: string) {
+  const wanted = normalizeText(name);
+  return (candidateName: string | undefined) => normalizeText(candidateName ?? "") === wanted;
+}
+
+async function fantlabAuthorIds(name: string): Promise<number[]> {
+  const search = await fetchJson<{ matches?: FantlabAuthorMatch[] }>(
+    `${FANTLAB_API}/search-autors?q=${encodeURIComponent(name)}&page=1`
+  ).catch(() => null);
+  const named = fantlabNamed(name);
+  return (search?.matches ?? [])
+    .filter((match) => match.autor_id && named(match.rusname || match.name))
+    .map((match) => match.autor_id!)
+    .slice(0, FANTLAB_MAX_PEOPLE);
+}
+
+// Narrators live in the search-persons index, which also holds translators and
+// cover artists — everyone who isn't a writer. Only the narrators belong here:
+// this app's people are authors and narrators, nothing else.
+async function fantlabNarratorIds(name: string): Promise<number[]> {
+  const search = await fetchJson<{ matches?: FantlabPersonMatch[] }>(
+    `${FANTLAB_API}/search-persons?q=${encodeURIComponent(name)}`
+  ).catch(() => null);
+  const named = fantlabNamed(name);
+  return (search?.matches ?? [])
+    .filter((match) => match.person_id && match.type === "dictor" && named(match.name))
+    .map((match) => match.person_id!)
+    .slice(0, FANTLAB_MAX_PEOPLE);
+}
+
+// A name is looked up as both a writer and a narrator: the dialog doesn't know
+// which role brought someone here (people are shared across roles), and asking
+// both costs one extra search on a name only one of them will answer.
+async function fantlabPersonCandidates(name: string): Promise<PersonLookupCandidate[]> {
+  const [authorIds, narratorIds] = await Promise.all([
+    fantlabAuthorIds(name).catch(() => []),
+    fantlabNarratorIds(name).catch(() => [])
+  ]);
+  const wanted: Array<[FantlabPersonKind, number]> = [
+    ...authorIds.map((id): [FantlabPersonKind, number] => ["autor", id]),
+    ...narratorIds.map((id): [FantlabPersonKind, number] => ["dictor", id])
+  ];
+
+  const candidates = await Promise.all(wanted.map(([kind, id]) => fantlabRecordCandidate(kind, id)));
+  return candidates.filter((candidate): candidate is PersonLookupCandidate => candidate !== null);
+}
+
+// What belongs at the top: the page actually named after this person, in the
+// language their library speaks, that reads like a page about a writer. The
+// user still chooses — this only decides who gets read first.
+function candidateScore(candidate: PersonLookupCandidate, name: string, languages: string[]) {
+  let score = 0;
+  if (normalizeText(candidate.title) === normalizeText(name)) score += 4;
+  if (looksLikeContributor(`${candidate.description ?? ""} ${candidate.bio?.slice(0, 240) ?? ""}`)) score += 3;
+  if (candidate.photoUrl) score += 1;
+  const langIndex = candidate.details.language ? languages.indexOf(candidate.details.language) : -1;
+  if (langIndex === 0) score += 2;
+  else if (langIndex > 0) score += 1;
+  return score;
+}
+
+// Which person source to ask. "all" is the default and what almost everyone
+// wants; narrowing is for when a name turns up noise from one of them.
+export type PersonLookupSource = "all" | "wikipedia" | "openlibrary" | "fantlab";
+
+export async function lookupPersonCandidates(
+  name: string,
+  languages: string[],
+  source: PersonLookupSource = "all"
+): Promise<PersonLookupCandidate[]> {
+  return enqueueLookup(async () => {
+    const langs = wikiLanguages(languages);
+    const asked = (which: PersonLookupSource) => source === "all" || source === which;
+    const [wikiGroups, openLibrary, fantlab] = await Promise.all([
+      asked("wikipedia")
+        ? Promise.all(langs.map((lang) => wikipediaCandidates(name, lang).catch(() => [] as WikiCandidate[])))
+        : Promise.resolve([] as WikiCandidate[][]),
+      asked("openlibrary")
+        ? openLibraryCandidates(name).catch(() => [] as PersonLookupCandidate[])
+        : Promise.resolve([] as PersonLookupCandidate[]),
+      asked("fantlab")
+        ? fantlabPersonCandidates(name).catch(() => [] as PersonLookupCandidate[])
+        : Promise.resolve([] as PersonLookupCandidate[])
+    ]);
+    const wiki = wikiGroups.flat();
+
+    // One round of questions per Wikidata item, not per page: the same article
+    // in two languages shares an id, so a bilingual library asks once.
+    const factsByQid = new Map<string, WikidataPersonFacts>();
+    for (const qid of new Set(wiki.map((entry) => entry.qid).filter((qid): qid is string => Boolean(qid)))) {
+      factsByQid.set(qid, await fetchWikidataFacts(qid, true).catch(() => null) ?? NO_WIKIDATA_FACTS);
+    }
+    // Every country named across the whole shortlist, resolved to labels in one
+    // request rather than one per result.
+    const countryLabels = await wikidataLabels(
+      [...factsByQid.values()].flatMap((facts) => facts.countryIds),
+      langs
+    ).catch(() => new Map<string, string>());
+
+    // Different-language wikis routinely resolve to one article, and a repeated
+    // result reads as two separate findings.
+    const seen = new Set<string>();
+    const unique = [
+      ...wiki
+        .filter((entry) => entry.qid === null || factsByQid.get(entry.qid)?.human !== false)
+        .map((entry) => {
+          const wikidata = entry.qid ? factsByQid.get(entry.qid) : null;
+          if (!wikidata) return entry.candidate;
+          return {
+            ...entry.candidate,
+            facts: {
+              ...entry.candidate.facts,
+              birthDate: wikidata.birthDate,
+              deathDate: wikidata.deathDate,
+              country: joinCountries(wikidata.countryIds, countryLabels)
+            }
+          };
+        }),
+      ...openLibrary,
+      ...fantlab
+    ].filter((candidate) => {
+      if (!candidate.bio && !candidate.photoUrl) return false;
+      const key = candidate.sourceUrl ?? candidate.id;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    return unique
+      .map((candidate, index) => ({ candidate, index, score: candidateScore(candidate, name, langs) }))
+      .sort((a, b) => b.score - a.score || a.index - b.index)
+      .slice(0, MAX_PERSON_CANDIDATES)
+      .map((entry) => entry.candidate);
+  });
+}
+
 // Resolve a single pasted person link to a bio + photo. Only the two person
 // sources are accepted (a deliberate boundary, mirroring the book custom-link
 // allowlist). Unlike the auto lookup, no occupation guard is applied — an
 // explicit link is a trusted choice.
-export async function lookupPersonByUrl(rawUrl: string): Promise<PersonLookupResult | null> {
+export async function lookupPersonByUrl(rawUrl: string): Promise<PersonLookupCandidate | null> {
   let url: URL;
   try {
     url = new URL(rawUrl);
@@ -283,11 +1052,20 @@ export async function lookupPersonByUrl(rawUrl: string): Promise<PersonLookupRes
       if (!summary || summary.type !== "standard" || !summary.extract) {
         return null;
       }
+      const pageTitle = summary.titles?.normalized ?? decodeURIComponent(title).replace(/_/g, " ");
       return {
+        id: `wikipedia:${lang}:${title}`,
+        title: pageTitle,
+        description: summary.description ?? candidateSnippet(summary.extract),
         bio: summary.extract,
         photoUrl: summary.originalimage?.source ?? summary.thumbnail?.source ?? null,
         source: "wikipedia",
-        sourceUrl: summary.content_urls?.desktop?.page ?? url.href
+        sourceUrl: summary.content_urls?.desktop?.page ?? url.href,
+        facts: await withWikidataFacts(
+          wikipediaFacts(summary, summary.content_urls?.desktop?.page ?? url.href),
+          [lang]
+        ),
+        details: { language: lang, pageTitle }
       };
     }
 
@@ -296,24 +1074,45 @@ export async function lookupPersonByUrl(rawUrl: string): Promise<PersonLookupRes
       if (!olid) {
         throw new MetadataLinkError("That doesn't look like an Open Library author link.");
       }
-      const detail = await fetchJson<{ bio?: string | { value?: string } }>(
-        `https://openlibrary.org/authors/${olid}.json`
-      );
+      const detail = await fetchJson<{
+        name?: string;
+        bio?: string | { value?: string };
+        birth_date?: string;
+        death_date?: string;
+      }>(`https://openlibrary.org/authors/${olid}.json`);
       if (!detail) {
         return null;
       }
-      const bio = typeof detail.bio === "string" ? detail.bio : detail.bio?.value ?? null;
+      const bio = (typeof detail.bio === "string" ? detail.bio : detail.bio?.value ?? null)?.trim() || null;
       return {
-        bio: bio?.trim() || null,
+        id: `openlibrary:${olid}`,
+        title: detail.name ?? olid,
+        description: candidateSnippet(bio),
+        bio,
         // 404s (rather than a placeholder) when the author has no photo; the UI
         // drops it on image-load error.
         photoUrl: `https://covers.openlibrary.org/a/olid/${olid}-L.jpg?default=false`,
         source: "openlibrary",
-        sourceUrl: `https://openlibrary.org/authors/${olid}`
+        sourceUrl: `https://openlibrary.org/authors/${olid}`,
+        facts: {
+          ...EMPTY_PERSON_FACTS,
+          birthDate: normalizePartialDate(detail.birth_date),
+          deathDate: normalizePartialDate(detail.death_date)
+        },
+        details: { olid }
       };
     }
 
-    throw new MetadataLinkError("Paste a Wikipedia or Open Library author link.");
+    if (host === "fantlab.ru" || host === "www.fantlab.ru") {
+      // A writer's page and a narrator's page are different entities there.
+      const person = url.pathname.match(/^\/(autor|dictor)(\d+)/i);
+      if (!person) {
+        throw new MetadataLinkError("That doesn't look like a FantLab person link (expected fantlab.ru/autorNNNN or /dictorNNNN).");
+      }
+      return fantlabRecordCandidate(person[1].toLowerCase() as FantlabPersonKind, Number(person[2]));
+    }
+
+    throw new MetadataLinkError("Paste a Wikipedia, Open Library, or FantLab person link.");
   });
 }
 
@@ -372,6 +1171,19 @@ export async function lookupPersonPhotoCandidates(name: string, languages: strin
       });
     }
 
+    // FantLab portraits: the only source with a picture of most Russian authors.
+    for (const candidate of await fantlabPersonCandidates(name).catch(() => [])) {
+      if (candidate.photoUrl) {
+        candidates.push({
+          photoUrl: candidate.photoUrl,
+          previewUrl: candidate.photoUrl,
+          label: "FantLab",
+          hint: candidate.description,
+          sourceUrl: candidate.sourceUrl
+        });
+      }
+    }
+
     // Different language wikis frequently share one Commons image.
     const seen = new Set<string>();
     return candidates.filter((candidate) => {
@@ -421,15 +1233,15 @@ function bioWithAttribution(result: PersonLookupResult) {
   return `${result.bio}\n\nSource: ${source}${result.sourceUrl ? ` — ${result.sourceUrl}` : ""}`;
 }
 
-// Fills bio/photo for one person. People are identified by name across
-// libraries (same model as the people routes), so updates apply by name and
-// only to rows where the field is still empty.
-export async function enrichPerson(name: string, languages: string[]): Promise<{ updatedBio: boolean; updatedPhoto: boolean; result: PersonLookupResult | null }> {
+// Fills bio/photo/life facts for one person. People are identified by name
+// across libraries (same model as the people routes), so updates apply by name
+// and only to rows where the field is still empty.
+export async function enrichPerson(name: string, languages: string[]): Promise<{ updatedBio: boolean; updatedPhoto: boolean; updatedFacts: boolean; result: PersonLookupResult | null }> {
   const rows = db.prepare(
     "SELECT id, name, bio, image_storage_key AS cover_storage_key FROM people WHERE name = ?"
   ).all(name) as AuthorToEnrich[];
   if (rows.length === 0) {
-    return { updatedBio: false, updatedPhoto: false, result: null };
+    return { updatedBio: false, updatedPhoto: false, updatedFacts: false, result: null };
   }
 
   const needsBio = rows.some((row) => !row.bio);
@@ -437,7 +1249,7 @@ export async function enrichPerson(name: string, languages: string[]): Promise<{
   const result = await lookupPersonInfo(name, languages);
   db.prepare("UPDATE people SET enriched_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE name = ?").run(name);
   if (!result) {
-    return { updatedBio: false, updatedPhoto: false, result: null };
+    return { updatedBio: false, updatedPhoto: false, updatedFacts: false, result: null };
   }
 
   let updatedBio = false;
@@ -458,7 +1270,20 @@ export async function enrichPerson(name: string, languages: string[]): Promise<{
     }
   }
 
-  return { updatedBio, updatedPhoto, result };
+  // Life facts land one column at a time, and only into a column that is still
+  // empty: a hand-typed birth year survives every later rescan, and a lookup
+  // that only knows the dates doesn't blank out a country someone filled in.
+  let updatedFacts = false;
+  for (const [key, column] of PERSON_FACT_COLUMNS) {
+    const value = result.facts[key];
+    if (!value) continue;
+    const changed = db.prepare(
+      `UPDATE people SET ${column} = ? WHERE name = ? AND (${column} IS NULL OR ${column} = '')`
+    ).run(value, name).changes;
+    if (changed > 0) updatedFacts = true;
+  }
+
+  return { updatedBio, updatedPhoto, updatedFacts, result };
 }
 
 export interface EnrichAuthorsOptions {
@@ -480,7 +1305,7 @@ export async function enrichLibraryAuthors(libraryId: string, options: EnrichAut
     JOIN library_items ON library_items.id = item_people.item_id
     WHERE library_items.library_id = ?
       ${options.bookId ? "AND item_people.item_id = ?" : ""}
-      AND (people.bio IS NULL OR people.image_storage_key IS NULL)
+      AND (people.bio IS NULL OR people.image_storage_key IS NULL OR people.birth_date IS NULL)
       AND (people.enriched_at IS NULL OR datetime(people.enriched_at) < datetime('now', ?))
     GROUP BY people.id
     ORDER BY people.enriched_at IS NOT NULL, people.name
@@ -501,7 +1326,7 @@ export async function enrichLibraryAuthors(libraryId: string, options: EnrichAut
     }
     try {
       const result = await enrichPerson(name, [defaultLanguage]);
-      if (result.updatedBio || result.updatedPhoto) {
+      if (result.updatedBio || result.updatedPhoto || result.updatedFacts) {
         updated += 1;
       }
     } catch {

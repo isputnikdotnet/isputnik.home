@@ -9,6 +9,7 @@
 // and "Not the same" on the card are for — an action surface here would have to
 // re-implement the revalidation that makes deleting safe.
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Folder, ImageOff, Images } from "lucide-react";
 import { Modal } from "../../../../shared/Modal";
 import { Pager } from "../../../../shared/Pager";
@@ -27,12 +28,13 @@ const dimensions = (member: SnapshotMember): string =>
   member.width && member.height ? `${member.width} × ${member.height}` : "";
 
 function Cell({ member, side }: { member: SnapshotMember | null; side: "keep" | "going" }) {
+  const { t } = useTranslation(["common", "controlDash"]);
   if (!member) {
     // Nothing opposite: this photo is in one folder and not the other. Said plainly
     // rather than left as a gap, which reads as a rendering fault.
     return (
       <div className="dup-compare-cell is-empty">
-        <span className="datagrid-muted">Not in this folder</span>
+        <span className="datagrid-muted">{t("controlDash:dupes.notInFolder")}</span>
       </div>
     );
   }
@@ -58,12 +60,13 @@ function Cell({ member, side }: { member: SnapshotMember | null; side: "keep" | 
 }
 
 function FolderHead({ folder, side }: { folder: SnapshotFolder | undefined; side: "keep" | "going" }) {
+  const { t } = useTranslation(["common", "controlDash"]);
   if (!folder) return <div className="dup-compare-head" />;
   return (
     <div className={`dup-compare-head is-${side}`}>
       {/* Its own badge, not .dup-copy-badge: that one is positioned to sit OVER a
           thumbnail, and reusing it here laid it across the folder name. */}
-      <span className="dup-compare-badge">{side === "keep" ? "Keeping" : "Going"}</span>
+      <span className="dup-compare-badge">{side === "keep" ? t("controlDash:dupes.keeping") : t("controlDash:dupes.going")}</span>
       <span className="dup-compare-head-name">
         <Folder size={15} aria-hidden="true" />
         <strong title={folder.folderPath || "/"}>{folderLabel(folder)}</strong>
@@ -76,6 +79,7 @@ function FolderHead({ folder, side }: { folder: SnapshotFolder | undefined; side
 }
 
 export function FolderCompare({ result, onClose }: { result: SnapshotResult; onClose: () => void }) {
+  const { t } = useTranslation(["common", "controlDash"]);
   const keepFolder = result.folders.find((folder) => folder.role !== "delete");
   const goingFolders = result.folders.filter((folder) => folder.role === "delete");
   const [goingId, setGoingId] = useState(goingFolders[0]?.id ?? "");
@@ -126,15 +130,15 @@ export function FolderCompare({ result, onClose }: { result: SnapshotResult; onC
   return (
     <Modal
       variant="panel"
-      title={`“${keepFolder ? folderLabel(keepFolder) : ""}” against “${going ? folderLabel(going) : ""}”`}
-      subtitle={`${pairs} photo${pairs === 1 ? "" : "s"} the two hold in common`}
+      title={t("controlDash:dupes.compareTitle", { keep: keepFolder ? folderLabel(keepFolder) : "", going: going ? folderLabel(going) : "" })}
+      subtitle={t("controlDash:dupes.inCommon", { count: pairs })}
       className="dup-compare-modal"
       onClose={onClose}
       headerAction={goingFolders.length > 1 ? (
         <SelectMenu
           value={goingId}
           options={goingFolders.map((folder) => ({ value: folder.id, label: folderLabel(folder) }))}
-          label="Folder to compare against"
+          label={t("controlDash:dupes.folderToCompare")}
           onChange={setGoingId}
         />
       ) : undefined}
@@ -154,7 +158,7 @@ export function FolderCompare({ result, onClose }: { result: SnapshotResult; onC
           ))}
         </div>
         {rows.length === 0 && (
-          <p className="management-empty">This result records no files to compare.</p>
+          <p className="management-empty">{t("controlDash:dupes.noFilesToCompare")}</p>
         )}
       </div>
 
@@ -164,10 +168,13 @@ export function FolderCompare({ result, onClose }: { result: SnapshotResult; onC
       {rows.length > COMPARE_PER_PAGE && (
         <div className="dup-pager-row dup-compare-pager">
           <span className="datagrid-muted">
-            Showing {(current - 1) * COMPARE_PER_PAGE + 1}–
-            {Math.min(current * COMPARE_PER_PAGE, rows.length)} of {rows.length}
+            {t("controlDash:dupes.showingRange", {
+              from: (current - 1) * COMPARE_PER_PAGE + 1,
+              to: Math.min(current * COMPARE_PER_PAGE, rows.length),
+              total: rows.length
+            })}
           </span>
-          <Pager page={current} totalPages={totalPages} onChange={setPage} label="Compared file pages" />
+          <Pager page={current} totalPages={totalPages} onChange={setPage} label={t("controlDash:pagers.comparedFiles")} />
         </div>
       )}
       {/* Same as the copy viewer: the panel header's close is the only one. Nothing

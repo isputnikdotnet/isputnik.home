@@ -1,4 +1,5 @@
 import { useRef, useState, type FormEvent } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { Database } from "lucide-react";
 import { api } from "../../../../api";
 import { Button } from "../../../../shared/Button";
@@ -13,11 +14,13 @@ import type { GeoipStatus } from "../../types";
 
 type Tab = "country" | "city" | "files";
 
-const TABS: { value: Tab; label: string }[] = [
-  { value: "country", label: "Free database" },
-  { value: "city", label: "City database" },
-  { value: "files", label: "Files" }
-];
+const TAB_LABEL_KEYS: Record<Tab, "tabCountry" | "tabCity" | "tabFiles"> = {
+  country: "tabCountry",
+  city: "tabCity",
+  files: "tabFiles"
+};
+
+const TAB_ORDER: Tab[] = ["country", "city", "files"];
 
 export function GeoipDatabaseModal({
   geoip,
@@ -28,6 +31,7 @@ export function GeoipDatabaseModal({
   onChanged: () => Promise<void> | void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation(["common", "controlDash"]);
   const [tab, setTab] = useState<Tab>(geoip.available ? "city" : "country");
   const [url, setUrl] = useState("");
   const [busy, setBusy] = useState<"country" | "url" | "file" | null>(null);
@@ -45,7 +49,7 @@ export function GeoipDatabaseModal({
     setInstalled("");
     try {
       const result = await call();
-      setInstalled(result.installed ? `Now using ${result.installed.name}.` : "Database installed.");
+      setInstalled(result.installed ? t("controlDash:geoip.nowUsing", { name: result.installed.name }) : t("controlDash:geoip.installed"));
       await onChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : failure);
@@ -56,7 +60,7 @@ export function GeoipDatabaseModal({
   };
 
   const fetchCountry = () =>
-    run("country", () => api("/api/dashboard/locations/database", { method: "POST" }), "The download failed");
+    run("country", () => api("/api/dashboard/locations/database", { method: "POST" }), t("controlDash:geoip.countryFailed"));
 
   const fetchUrl = (event: FormEvent) => {
     event.preventDefault();
@@ -71,7 +75,7 @@ export function GeoipDatabaseModal({
         setUrl("");
         return result;
       },
-      "That download failed"
+      t("controlDash:geoip.urlFailed")
     );
   };
 
@@ -81,52 +85,53 @@ export function GeoipDatabaseModal({
     return run(
       "file",
       () => api("/api/dashboard/locations/database/upload", { method: "POST", body: form }),
-      "That file could not be installed"
+      t("controlDash:geoip.fileFailed")
     );
   };
 
   return (
     <Modal
       variant="panel"
-      title="Location database"
+      title={t("controlDash:geoip.title")}
       subtitle={
         geoip.available
-          ? `${geoip.databaseType ?? "In use"} · ${geoip.tier === "city" ? "town detail" : "country detail"}`
-          : "None yet — nothing can be placed on the map"
+          ? `${geoip.databaseType ?? t("controlDash:geoip.subtitleInUse")} · ${geoip.tier === "city" ? t("controlDash:geoip.subtitleTownDetail") : t("controlDash:geoip.subtitleCountryDetail")}`
+          : t("controlDash:geoip.subtitleNone")
       }
       icon={<Database size={20} />}
       busy={busy !== null}
       className="geoip-modal"
       onClose={onClose}
     >
-      <div className="modal-tabs" role="tablist" aria-label="Location database">
-        {TABS.map((entry) => (
+      <div className="modal-tabs" role="tablist" aria-label={t("controlDash:geoip.title")}>
+        {TAB_ORDER.map((value) => (
           <button
-            key={entry.value}
+            key={value}
             type="button"
             role="tab"
-            aria-selected={tab === entry.value}
-            className={`modal-tab${tab === entry.value ? " active" : ""}`}
-            onClick={() => setTab(entry.value)}
+            aria-selected={tab === value}
+            className={`modal-tab${tab === value ? " active" : ""}`}
+            onClick={() => setTab(value)}
           >
-            {entry.label}
+            {t(`controlDash:geoip.${TAB_LABEL_KEYS[value]}`)}
           </button>
         ))}
       </div>
 
       <div className="modal-tab-content geoip-modal-content">
-        {error && <MessageBox tone="error" title="Unable to install">{error}</MessageBox>}
-        {installed && <MessageBox tone="success" title="Installed">{installed}</MessageBox>}
+        {error && <MessageBox tone="error" title={t("controlDash:geoip.installFailedTitle")}>{error}</MessageBox>}
+        {installed && <MessageBox tone="success" title={t("controlDash:geoip.installedTitle")}>{installed}</MessageBox>}
 
         {tab === "country" && (
           <>
-            <p className="muted">
-              DB-IP Country Lite: about 9 MB, free, no account. Says which country a sign-in came from. Fetch it again
-              every few months — addresses move between networks.
-            </p>
+            <p className="muted">{t("controlDash:geoip.countryIntro")}</p>
             <div className="geoip-actions">
               <Button variant="primary" disabled={busy !== null} onClick={fetchCountry}>
-                {busy === "country" ? "Downloading…" : geoip.countryFilePresent ? "Download again" : "Download"}
+                {busy === "country"
+                  ? t("controlDash:geoip.downloading")
+                  : geoip.countryFilePresent
+                    ? t("controlDash:geoip.downloadAgain")
+                    : t("controlDash:geoip.download")}
               </Button>
             </div>
           </>
@@ -135,14 +140,12 @@ export function GeoipDatabaseModal({
         {tab === "city" && (
           <>
             <p className="muted">
-              For town-level detail, download a city database yourself — DB-IP City Lite or GeoLite2-City — then fetch
-              it here or upload it. A <code>.mmdb.gz</code> is unpacked for you, and a city database always wins over
-              the country one.
+              <Trans i18nKey="geoip.cityIntro" ns="controlDash" components={{ code: <code /> }} />
             </p>
 
             <form className="geoip-source" onSubmit={fetchUrl}>
               <label className="field">
-                <span>Download link</span>
+                <span>{t("controlDash:geoip.downloadLink")}</span>
                 <input
                   type="url"
                   value={url}
@@ -152,12 +155,12 @@ export function GeoipDatabaseModal({
                 />
               </label>
               <Button variant="primary" type="submit" disabled={busy !== null || !url.trim()}>
-                {busy === "url" ? "Fetching…" : "Fetch"}
+                {busy === "url" ? t("controlDash:geoip.fetching") : t("controlDash:geoip.fetch")}
               </Button>
             </form>
 
             <label className="field geoip-file-field">
-              <span>Or a file from this computer</span>
+              <span>{t("controlDash:geoip.orFile")}</span>
               <input
                 ref={fileRef}
                 type="file"
@@ -168,14 +171,14 @@ export function GeoipDatabaseModal({
                   if (file) upload(file);
                 }}
               />
-              {busy === "file" && <small className="muted">Uploading…</small>}
+              {busy === "file" && <small className="muted">{t("controlDash:geoip.uploading")}</small>}
             </label>
           </>
         )}
 
         {tab === "files" && (
           <>
-            <p className="muted">Anything dropped in this folder is picked up on the next lookup — no restart.</p>
+            <p className="muted">{t("controlDash:geoip.filesIntro")}</p>
             <p className="status-db-path"><code>{geoip.directory}</code></p>
 
             {geoip.databases.length > 0 ? (
@@ -185,21 +188,25 @@ export function GeoipDatabaseModal({
                     <code>{entry.name}</code>
                     <small>
                       {entry.databaseType} · {formatBytes(entry.sizeBytes)}
-                      {entry.buildDate ? ` · built ${formatManagedDate(entry.buildDate)}` : ""}
-                      {index === 0 ? " · in use" : entry.tier === geoip.tier ? " · ignored" : " · ignored, less detail"}
+                      {entry.buildDate ? ` · ${t("controlDash:geoip.builtOn", { date: formatManagedDate(entry.buildDate) })}` : ""}
+                      {index === 0
+                        ? ` · ${t("controlDash:geoip.inUse")}`
+                        : entry.tier === geoip.tier
+                          ? ` · ${t("controlDash:geoip.ignored")}`
+                          : ` · ${t("controlDash:geoip.ignoredLessDetail")}`}
                     </small>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="status-empty">The folder is empty.</p>
+              <p className="status-empty">{t("controlDash:geoip.folderEmpty")}</p>
             )}
           </>
         )}
       </div>
 
       <div className="modal-actions geoip-modal-actions">
-        <Button variant="secondary" onClick={onClose} disabled={busy !== null}>Close</Button>
+        <Button variant="secondary" onClick={onClose} disabled={busy !== null}>{t("common.close")}</Button>
       </div>
     </Modal>
   );

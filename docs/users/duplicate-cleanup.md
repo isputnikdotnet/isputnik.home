@@ -78,7 +78,9 @@ folder, there is no preferred survivor, the ordinary rules take over, and one is
 Clearing a folder means "these are safe elsewhere", not "delete these".
 
 "Clear" isn't offered for a library the app may only read — its files are not the app's to
-remove.
+remove. The same goes for a [locked folder](library-gallery.md#housekeeping): deleting is
+refused there, so the scan shows its copies as protected, prefers them as the ones to keep,
+and never offers to clear the folder out.
 
 The instructions belong to this cleanup. They start from whatever is saved for the install
 and are this job's from then on, so changing them here leaves other cleanups alone.

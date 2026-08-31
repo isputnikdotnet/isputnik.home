@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { ScanFace, RefreshCw, Trash2, FlaskConical, UserRound, Combine, Stethoscope } from "lucide-react";
+import i18n from "../../i18n";
 import { api } from "../../api";
 import { Modal } from "../../shared/Modal";
 import { Button } from "../../shared/Button";
@@ -8,9 +10,10 @@ import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { MessageBox } from "../../shared/MessageBox";
 import type { ClusterHealth, ClusterHealthPair, ClusterHealthPerson, GalleryFaceLibrary, GalleryFaceSettings } from "./types";
 
+// Module-level helper (not a component) — imports i18n directly since it can't call a hook.
 function personLabel(p: ClusterHealthPerson): string {
-  const count = `${p.faceCount.toLocaleString()} photo${p.faceCount === 1 ? "" : "s"}`;
-  return `${p.name.trim() || "Unnamed"} · ${count}`;
+  const count = i18n.t("galleryModals:common.photoCount", { count: p.faceCount });
+  return `${p.name.trim() || i18n.t("galleryModals:faceSettings.unnamed")} · ${count}`;
 }
 
 // One person's avatar in a suggestion, with the same graceful fallback the People grid
@@ -36,22 +39,23 @@ function ClusterHealthPanel({ health, loading, error, mergingKey, onMerge, onRec
   onMerge: (pair: ClusterHealthPair) => void;
   onRecheck: () => void;
 }) {
+  const { t } = useTranslation(["common", "galleryModals"]);
   return (
     <div className="gallery-face-health">
-      {error && <MessageBox tone="error" title="Unable to check">{error}</MessageBox>}
+      {error && <MessageBox tone="error" title={t("galleryModals:faceSettings.unableToCheckTitle")}>{error}</MessageBox>}
       {loading && (
-        <p className="management-empty">Checking every person for likely duplicates… this can take a few seconds on a big library.</p>
+        <p className="management-empty">{t("galleryModals:faceSettings.checkingBody")}</p>
       )}
       {!loading && health && (health.totalPeople === 0 ? (
-        <MessageBox tone="info" title="No people to analyse">
-          Turn on face recognition and run a scan first — there are no groups to check yet.
+        <MessageBox tone="info" title={t("galleryModals:faceSettings.noPeopleTitle")}>
+          {t("galleryModals:faceSettings.noPeopleBody")}
         </MessageBox>
       ) : (
         <>
           <p className="gallery-health-summary">
-            <strong>{health.totalPeople.toLocaleString()}</strong> people ·{" "}
-            <strong>{health.peopleWithTwin.toLocaleString()}</strong> look like they have a duplicate
-            {" "}(another cluster that's probably the same person).
+            <strong>{t("galleryModals:faceSettings.summaryTotal", { count: health.totalPeople })}</strong> ·{" "}
+            <strong>{t("galleryModals:faceSettings.summaryTwin", { count: health.peopleWithTwin })}</strong>
+            {" "}{t("galleryModals:faceSettings.summaryTwinHint")}
           </p>
 
           {(() => {
@@ -68,22 +72,20 @@ function ClusterHealthPanel({ health, loading, error, mergingKey, onMerge, onRec
             );
             return (
               <div className="gallery-health-bars">
-                {bar(`≥ ${health.mergeLine}`, health.bands.nearCertain, "near-certain")}
-                {bar(`0.52–${health.mergeLine}`, health.bands.likely, "likely same")}
-                {bar("0.45–0.52", health.bands.possible, "possible")}
+                {bar(`≥ ${health.mergeLine}`, health.bands.nearCertain, t("galleryModals:faceSettings.bandNearCertain"))}
+                {bar(`0.52–${health.mergeLine}`, health.bands.likely, t("galleryModals:faceSettings.bandLikely"))}
+                {bar("0.45–0.52", health.bands.possible, t("galleryModals:faceSettings.bandPossible"))}
               </div>
             );
           })()}
 
           <p className="muted gallery-health-explain">
-            These pairs sit just under the automatic merge line ({health.mergeLine}) — grouping is deliberately
-            cautious, so one person can end up split across clusters. A big pile-up here means it's under-merging.
-            Merge the suggestions below to consolidate them; your names and manual fixes are kept.
+            {t("galleryModals:faceSettings.explain", { mergeLine: health.mergeLine })}
           </p>
 
           {health.pairs.length === 0 ? (
-            <MessageBox tone="success" title="Looks well-merged">
-              No likely-duplicate clusters found — grouping isn't obviously under-merging.
+            <MessageBox tone="success" title={t("galleryModals:faceSettings.wellMergedTitle")}>
+              {t("galleryModals:faceSettings.wellMergedBody")}
             </MessageBox>
           ) : (
             <ul className="gallery-health-pairs">
@@ -98,10 +100,10 @@ function ClusterHealthPanel({ health, loading, error, mergingKey, onMerge, onRec
                     <div className="gallery-health-pair-info">
                       <span>{personLabel(pair.a)}</span>
                       <span className="muted">{personLabel(pair.b)}</span>
-                      <span className="gallery-health-sim">{Math.round(pair.similarity * 100)}% match</span>
+                      <span className="gallery-health-sim">{t("galleryModals:faceSettings.matchPercent", { percent: Math.round(pair.similarity * 100) })}</span>
                     </div>
                     <Button variant="primary" compact disabled={mergingKey === key} onClick={() => onMerge(pair)}>
-                      <Combine size={14} aria-hidden="true" /> {mergingKey === key ? "Merging…" : "Merge"}
+                      <Combine size={14} aria-hidden="true" /> {mergingKey === key ? t("galleryModals:faceSettings.merging") : t("galleryModals:faceSettings.merge")}
                     </Button>
                   </li>
                 );
@@ -111,7 +113,7 @@ function ClusterHealthPanel({ health, loading, error, mergingKey, onMerge, onRec
 
           <div className="gallery-health-recheck">
             <Button variant="secondary" compact disabled={loading} onClick={onRecheck}>
-              <Stethoscope size={14} aria-hidden="true" /> Re-check
+              <Stethoscope size={14} aria-hidden="true" /> {t("galleryModals:faceSettings.recheck")}
             </Button>
           </div>
         </>
@@ -125,6 +127,7 @@ function ClusterHealthPanel({ health, loading, error, mergingKey, onMerge, onRec
 // "Rescan" reprocesses every photo from scratch. Live scan progress is shown on the
 // Tasks page (Control panel → Overview → Tasks), not here.
 export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () => void; onChanged: () => void }) {
+  const { t } = useTranslation(["common", "galleryModals"]);
   const [libraries, setLibraries] = useState<GalleryFaceLibrary[]>([]);
   const [strength, setStrength] = useState(8); // matches server DEFAULT_FACE_K until the real value loads
   const [loaded, setLoaded] = useState(false);
@@ -148,7 +151,7 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
       setStrength(payload.groupingStrength);
       setLoaded(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to load face-recognition settings");
+      setError(err instanceof Error ? err.message : t("galleryModals:faceSettings.unableToLoad"));
     }
   };
 
@@ -162,10 +165,10 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
     try {
       await api("/api/library/gallery/faces/settings", { method: "PATCH", body: JSON.stringify({ groupingStrength: value }) });
       await api("/api/library/gallery/faces/recompute", { method: "POST" });
-      setNotice("Regrouping… the first time also prepares face thumbnails, so it can take a minute. Reopen the People tab to see the result.");
+      setNotice(t("galleryModals:faceSettings.regroupingNotice"));
       onChanged();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to apply");
+      setError(err instanceof Error ? err.message : t("galleryModals:faceSettings.unableToApply"));
     } finally {
       setRecomputing(false);
     }
@@ -177,7 +180,7 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
     try {
       setHealth(await api<ClusterHealth>("/api/library/gallery/faces/cluster-health"));
     } catch (err) {
-      setHealthError(err instanceof Error ? err.message : "Unable to check clustering");
+      setHealthError(err instanceof Error ? err.message : t("galleryModals:faceSettings.unableToCheckClustering"));
     } finally {
       setHealthLoading(false);
     }
@@ -193,7 +196,7 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
       setHealth((h) => (h ? { ...h, pairs: h.pairs.filter((p) => `${p.a.id}:${p.b.id}` !== key), peopleWithTwin: Math.max(0, h.peopleWithTwin - 2) } : h));
       onChanged();
     } catch (err) {
-      setHealthError(err instanceof Error ? err.message : "Unable to merge");
+      setHealthError(err instanceof Error ? err.message : t("galleryModals:faceSettings.unableToMerge"));
     } finally {
       setMergingKey(null);
     }
@@ -217,10 +220,10 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
         body: JSON.stringify({ libraryId: library.id, enabled })
       });
       setLibraries(payload.libraries);
-      if (enabled) setNotice(`Face recognition on for "${library.name}" — scanning has started. Follow progress under Control panel → Overview → Tasks.`);
+      if (enabled) setNotice(t("galleryModals:faceSettings.enabledNotice", { name: library.name }));
       onChanged();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to update");
+      setError(err instanceof Error ? err.message : t("galleryModals:faceSettings.unableToUpdate"));
     } finally {
       setBusyId(null);
     }
@@ -232,12 +235,12 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
     setNotice("");
     try {
       await api("/api/library/gallery/faces/scan", { method: "POST", body: JSON.stringify({ libraryId: library.id, force: true }) });
-      setNotice(`Full rescan started for "${library.name}". People update as photos are reprocessed — follow progress under Control panel → Overview → Tasks.`);
+      setNotice(t("galleryModals:faceSettings.rescanNotice", { name: library.name }));
       setConfirmRescan(null);
       await load();
       onChanged();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to start the rescan");
+      setError(err instanceof Error ? err.message : t("galleryModals:faceSettings.unableToRescan"));
     } finally {
       setBusyId(null);
     }
@@ -253,11 +256,11 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
         body: JSON.stringify({ libraryId: library.id })
       });
       setLibraries(payload.libraries);
-      setNotice(`Removed all face data for "${library.name}".`);
+      setNotice(t("galleryModals:faceSettings.clearedNotice", { name: library.name }));
       setConfirmClear(null);
       onChanged();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to remove face data");
+      setError(err instanceof Error ? err.message : t("galleryModals:faceSettings.unableToClear"));
     } finally {
       setBusyId(null);
     }
@@ -265,30 +268,29 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
 
   return (
     <>
-    <Modal variant="card" className="gallery-face-modal" title="Face recognition" icon={<ScanFace size={22} />} onClose={onClose}>
+    <Modal variant="card" className="gallery-face-modal" title={t("galleryModals:faceSettings.title")} icon={<ScanFace size={22} />} onClose={onClose}>
       <p className="gallery-face-experimental">
         <FlaskConical size={14} aria-hidden="true" />
-        <span><strong>Experimental</strong> — face recognition is still being refined. Grouping isn't perfect, so expect to merge or rename people now and then.</span>
+        <span><Trans i18nKey="faceSettings.experimental" ns="galleryModals" components={{ bold: <strong /> }} /></span>
       </p>
 
-      {error && <MessageBox tone="error" title="Unable to save">{error}</MessageBox>}
-      {notice && <MessageBox tone="success" title="Started">{notice}</MessageBox>}
+      {error && <MessageBox tone="error" title={t("common:errors.unableToSave")}>{error}</MessageBox>}
+      {notice && <MessageBox tone="success" title={t("galleryModals:faceSettings.startedTitle")}>{notice}</MessageBox>}
 
       <div className="modal-tabs" role="tablist">
-        <button type="button" role="tab" aria-selected={tab === "libraries"} className={`modal-tab${tab === "libraries" ? " active" : ""}`} onClick={() => setTab("libraries")}>Libraries</button>
-        <button type="button" role="tab" aria-selected={tab === "grouping"} className={`modal-tab${tab === "grouping" ? " active" : ""}`} onClick={() => setTab("grouping")}>Grouping</button>
-        <button type="button" role="tab" aria-selected={tab === "health"} className={`modal-tab${tab === "health" ? " active" : ""}`} onClick={() => setTab("health")}>Health</button>
+        <button type="button" role="tab" aria-selected={tab === "libraries"} className={`modal-tab${tab === "libraries" ? " active" : ""}`} onClick={() => setTab("libraries")}>{t("galleryModals:faceSettings.tabLibraries")}</button>
+        <button type="button" role="tab" aria-selected={tab === "grouping"} className={`modal-tab${tab === "grouping" ? " active" : ""}`} onClick={() => setTab("grouping")}>{t("galleryModals:faceSettings.tabGrouping")}</button>
+        <button type="button" role="tab" aria-selected={tab === "health"} className={`modal-tab${tab === "health" ? " active" : ""}`} onClick={() => setTab("health")}>{t("galleryModals:faceSettings.tabHealth")}</button>
       </div>
 
       <div className="modal-tab-content">
         {tab === "libraries" ? (
           <>
             <p className="muted gallery-face-modal-intro">
-              Find faces in your photos and group the same person together — entirely on this server,
-              nothing is sent to the internet. Turn it on per library.
+              {t("galleryModals:faceSettings.intro")}
             </p>
             {loaded && libraries.length === 0 ? (
-              <p className="management-empty">No gallery libraries yet.</p>
+              <p className="management-empty">{t("galleryModals:faceSettings.noLibraries")}</p>
             ) : (
               <ul className="gallery-face-lib-list">
                 {libraries.map((library) => (
@@ -298,17 +300,17 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
                         checked={library.enabled}
                         disabled={busyId === library.id}
                         onChange={(enabled) => void toggle(library, enabled)}
-                        ariaLabel={`Face recognition for ${library.name}`}
+                        ariaLabel={t("galleryModals:faceSettings.toggleAria", { name: library.name })}
                       />
                       <span>
                         {library.name}
                         <small>
                           {library.enabled
-                            ? `${library.scanned.toLocaleString()} of ${library.photos.toLocaleString()} photos scanned`
-                            : `${library.photos.toLocaleString()} photos`}
+                            ? t("galleryModals:faceSettings.scannedOf", { scanned: library.scanned.toLocaleString(), count: library.photos })
+                            : t("galleryModals:common.photoCount", { count: library.photos })}
                           {library.enabled && library.unreadable > 0 && (
-                            <span title="These photos could not be read (corrupt or unsupported files) and are skipped. A rescan tries them again.">
-                              {` · ${library.unreadable.toLocaleString()} unreadable`}
+                            <span title={t("galleryModals:faceSettings.unreadableHint")}>
+                              {t("galleryModals:faceSettings.unreadableCount", { count: library.unreadable })}
                             </span>
                           )}
                         </small>
@@ -318,8 +320,8 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
                       <div className="row-actions gallery-face-row-actions">
                         <Button
                           variant="icon"
-                          title="Rescan all photos"
-                          aria-label={`Rescan ${library.name}`}
+                          title={t("galleryModals:faceSettings.rescanTitle")}
+                          aria-label={t("galleryModals:faceSettings.rescanAria", { name: library.name })}
                           disabled={busyId === library.id}
                           onClick={() => setConfirmRescan(library)}
                         >
@@ -332,8 +334,8 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
                         <Button
                           variant="icon"
                           danger
-                          title="Remove face data"
-                          aria-label={`Remove face data for ${library.name}`}
+                          title={t("galleryModals:faceSettings.removeDataTitle")}
+                          aria-label={t("galleryModals:faceSettings.removeDataAria", { name: library.name })}
                           disabled={busyId === library.id}
                           onClick={() => { setError(""); setConfirmClear(library); }}
                         >
@@ -350,21 +352,20 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
           anyEnabled ? (
             <div className="gallery-face-grouping">
               <div className="gallery-face-strength-head">
-                <span>Grouping strength</span>
+                <span>{t("galleryModals:faceSettings.strengthLabel")}</span>
                 <strong>{strength}</strong>
               </div>
               <input type="range" min={2} max={8} step={1} value={strength} disabled={recomputing} onChange={(event) => setStrength(Number(event.target.value))} />
               <p className="muted gallery-face-strength-desc">
-                Lower = stricter: fewer different people wrongly merged, but more small groups to combine.
-                Higher = more consolidated (8, the default). Applies to every library.
+                {t("galleryModals:faceSettings.strengthDesc")}
               </p>
               <Button variant="primary" compact disabled={recomputing} onClick={() => void applyStrength(strength)}>
-                {recomputing ? "Regrouping…" : "Regroup people"}
+                {recomputing ? t("galleryModals:faceSettings.regrouping") : t("galleryModals:faceSettings.regroup")}
               </Button>
             </div>
           ) : (
-            <MessageBox tone="info" title="No libraries enabled">
-              Turn on face recognition for a library on the Libraries tab, then come back here to tune how strongly faces are grouped.
+            <MessageBox tone="info" title={t("galleryModals:faceSettings.noLibrariesEnabledTitle")}>
+              {t("galleryModals:faceSettings.noLibrariesEnabledBody")}
             </MessageBox>
           )
         ) : (
@@ -380,29 +381,28 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
       </div>
 
       <div className="modal-actions">
-        <Button variant="secondary" onClick={onClose}>Close</Button>
+        <Button variant="secondary" onClick={onClose}>{t("common:common.close")}</Button>
       </div>
     </Modal>
 
     {confirmRescan && (
       <ConfirmDialog
-        title={`Rescan "${confirmRescan.name}"?`}
-        confirmLabel="Rescan"
-        busyLabel="Starting…"
+        title={t("galleryModals:faceSettings.rescanConfirmTitle", { name: confirmRescan.name })}
+        confirmLabel={t("galleryModals:faceSettings.rescanConfirmLabel")}
+        busyLabel={t("galleryModals:faceSettings.starting")}
         busy={busyId === confirmRescan.id}
         onConfirm={() => void rescan(confirmRescan)}
         onCancel={() => { if (busyId == null) setConfirmRescan(null); }}
       >
-        This rebuilds the automatic face groups for this library from scratch. Your person names,
-        manual tags, and the photos you've removed from named people are kept.
+        {t("galleryModals:faceSettings.rescanConfirmBody")}
       </ConfirmDialog>
     )}
 
     {confirmClear && (
       <ConfirmDialog
-        title={`Remove face data for "${confirmClear.name}"?`}
-        confirmLabel="Remove face data"
-        busyLabel="Removing…"
+        title={t("galleryModals:faceSettings.clearConfirmTitle", { name: confirmClear.name })}
+        confirmLabel={t("galleryModals:faceSettings.clearConfirmLabel")}
+        busyLabel={t("galleryModals:faceSettings.removing")}
         confirmIcon={<Trash2 size={15} />}
         danger
         rich
@@ -412,13 +412,10 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
         onCancel={() => { if (busyId == null) setConfirmClear(null); }}
       >
         <p>
-          This permanently deletes every detected face, automatic grouping, and face tag for
-          <strong> {confirmClear.name}</strong>. People made up only of this library's faces will
-          disappear from the People tab.
+          <Trans i18nKey="faceSettings.clearConfirmBody1" ns="galleryModals" values={{ name: confirmClear.name }} components={{ bold: <strong /> }} />
         </p>
         <p>
-          <strong>Your photos are not deleted</strong>, and named people who also appear in other
-          libraries are kept. You can run face recognition again later to rebuild the groups.
+          <Trans i18nKey="faceSettings.clearConfirmBody2" ns="galleryModals" components={{ bold: <strong /> }} />
         </p>
       </ConfirmDialog>
     )}

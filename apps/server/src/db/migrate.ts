@@ -168,6 +168,276 @@ const migrations: { version: number; up: (db: Database.Database) => void }[] = [
         db.exec("ALTER TABLE ip_reputation ADD COLUMN isp TEXT");
       }
     }
+  },
+  {
+    // 3.24.0 — a website and a location on an author/narrator profile, shown
+    // beside their bio. New columns on an existing table, so schema.sql alone
+    // can't reach a database that already has one.
+    version: 41,
+    up: (db) => {
+      const columns = new Set(
+        (db.prepare("PRAGMA table_info(people)").all() as { name: string }[]).map((c) => c.name)
+      );
+      if (!columns.has("website")) {
+        db.exec("ALTER TABLE people ADD COLUMN website TEXT");
+      }
+      if (!columns.has("location")) {
+        db.exec("ALTER TABLE people ADD COLUMN location TEXT");
+      }
+    }
+  },
+  {
+    // 3.25.0 — the "Empty recycle bin" scheduled job is gone, replaced by
+    // "purge_expired_trash". It emptied the entire bin on a cadence regardless of
+    // retention, and it shipped enabled, so an install that never chose it lost
+    // hand-deleted items a week after deleting them — the 30-day window it sat
+    // beside was never reached. Drop the row: no definition answers to that key
+    // any more, and the enabled flag on it was seeded rather than asked for. An
+    // admin who genuinely wants the whole bin cleared still has the button on the
+    // Recycle Bin page. Not something schema.sql can do — it is stored state.
+    version: 42,
+    up: (db) => {
+      db.prepare("DELETE FROM scheduled_jobs WHERE key = 'empty_recycle_bin'").run();
+    }
+  },
+  {
+    // 3.26.0 — lettering for the slideshow movie's title card: which bundled face
+    // the text is set in and how large. New columns on an existing table, so
+    // schema.sql alone can't reach a database that already has one. The defaults
+    // are exactly what every earlier movie rendered (DejaVu Sans at today's size),
+    // so an untouched slideshow re-renders the same card.
+    version: 43,
+    up: (db) => {
+      const columns = new Set(
+        (db.prepare("PRAGMA table_info(gallery_slideshows)").all() as { name: string }[]).map((c) => c.name)
+      );
+      const add = (name: string, definition: string) => {
+        if (!columns.has(name)) db.exec(`ALTER TABLE gallery_slideshows ADD COLUMN ${name} ${definition}`);
+      };
+      add("card_font", "TEXT NOT NULL DEFAULT 'classic' CHECK (card_font IN ('classic', 'serif', 'bold', 'script', 'typewriter'))");
+      add("card_size", "TEXT NOT NULL DEFAULT 'medium' CHECK (card_size IN ('small', 'medium', 'large'))");
+    }
+  },
+  {
+    // 3.26.0 — the movie's closing card: an end title ("The End" unless renamed),
+    // up to six lines of credits, its own length and background, and the music
+    // fading out underneath it. New columns on an existing table, so schema.sql
+    // alone can't reach a database that already has one. closing_enabled defaults
+    // OFF — an untouched slideshow renders exactly the movie it always did.
+    version: 44,
+    up: (db) => {
+      const columns = new Set(
+        (db.prepare("PRAGMA table_info(gallery_slideshows)").all() as { name: string }[]).map((c) => c.name)
+      );
+      const add = (name: string, definition: string) => {
+        if (!columns.has(name)) db.exec(`ALTER TABLE gallery_slideshows ADD COLUMN ${name} ${definition}`);
+      };
+      add("closing_enabled", "INTEGER NOT NULL DEFAULT 0");
+      add("closing_text", "TEXT");
+      add("closing_lines", "TEXT");
+      add("closing_seconds", "REAL NOT NULL DEFAULT 5");
+      add("closing_background", "TEXT NOT NULL DEFAULT 'black' CHECK (closing_background IN ('black', 'photo', 'blur', 'collage'))");
+      add("closing_photo_item_id", "TEXT REFERENCES library_items(id) ON DELETE SET NULL");
+    }
+  },
+  {
+    // 3.26.0 — opening and closing clips: a gallery video that plays before the
+    // title card (a home-video "studio logo") and/or after the slides, before the
+    // closing card. Any accessible gallery video, not just slideshow members; a
+    // deleted item clears itself (SET NULL), and the render skips a clip it can't
+    // reach rather than failing. New columns on an existing table.
+    version: 45,
+    up: (db) => {
+      const columns = new Set(
+        (db.prepare("PRAGMA table_info(gallery_slideshows)").all() as { name: string }[]).map((c) => c.name)
+      );
+      for (const name of ["intro_item_id", "outro_item_id"]) {
+        if (!columns.has(name)) {
+          db.exec(`ALTER TABLE gallery_slideshows ADD COLUMN ${name} TEXT REFERENCES library_items(id) ON DELETE SET NULL`);
+        }
+      }
+    }
+  },
+  {
+    // 3.26.0 — a clip's own sound. An intro/outro clip is often chosen FOR its
+    // sound (a recorded greeting, a toast), so each clip carries a per-clip
+    // toggle, on by default: the clip's audio plays and the music pauses under
+    // it, resuming where it left off. New columns on an existing table.
+    version: 46,
+    up: (db) => {
+      const columns = new Set(
+        (db.prepare("PRAGMA table_info(gallery_slideshows)").all() as { name: string }[]).map((c) => c.name)
+      );
+      for (const name of ["intro_sound", "outro_sound"]) {
+        if (!columns.has(name)) {
+          db.exec(`ALTER TABLE gallery_slideshows ADD COLUMN ${name} INTEGER NOT NULL DEFAULT 1`);
+        }
+      }
+    }
+  },
+  {
+    // 3.30.0 — the Expanse theme is retired; Plain Dark took over its palette, so
+    // accounts (and a stored install default) pointing at it land on the theme that
+    // now looks the way they chose. "hard-orbit" was Expanse's pre-release name,
+    // until now remapped at read time rather than in the data.
+    version: 47,
+    up: (db) => {
+      db.prepare("UPDATE users SET theme = 'plain-dark' WHERE theme IN ('expanse', 'hard-orbit')").run();
+      db.prepare(
+        "UPDATE app_settings SET value = 'plain-dark' WHERE key = 'default_theme' AND value IN ('expanse', 'hard-orbit')"
+      ).run();
+    }
+  },
+  {
+    // 3.31.0 — per-user interface language (i18n). A new column on an existing
+    // table, so schema.sql alone can't reach a database that already has one.
+    // Everyone starts on English, the language the UI has always been.
+    version: 48,
+    up: (db) => {
+      const columns = new Set(
+        (db.prepare("PRAGMA table_info(users)").all() as { name: string }[]).map((c) => c.name)
+      );
+      if (!columns.has("language")) {
+        db.exec("ALTER TABLE users ADD COLUMN language TEXT NOT NULL DEFAULT 'en'");
+      }
+    }
+  },
+  {
+    // 3.32.0 — the metadata a quote needs to be more than a reading highlight:
+    // where it came from, who may see it, whether it joins the Quote-of-the-day
+    // rotation, and language/date/context. The family-tree speaker link lands in
+    // the same pass so the table is only rewritten once, though nothing reads it
+    // until the profile work. New columns on an existing table, so schema.sql
+    // alone can't reach a database that already has one.
+    version: 49,
+    up: (db) => {
+      const columns = new Set(
+        (db.prepare("PRAGMA table_info(quotes)").all() as { name: string }[]).map((c) => c.name)
+      );
+      const add = (name: string, definition: string) => {
+        if (!columns.has(name)) db.exec(`ALTER TABLE quotes ADD COLUMN ${name} ${definition}`);
+      };
+      add("origin", "TEXT NOT NULL DEFAULT 'manual' CHECK (origin IN ('manual', 'reader', 'import'))");
+      add("visibility", "TEXT NOT NULL DEFAULT 'private' CHECK (visibility IN ('private', 'family'))");
+      add("in_rotation", "INTEGER NOT NULL DEFAULT 0");
+      add("language", "TEXT");
+      add("quote_date", "TEXT");
+      add("context", "TEXT");
+      add("family_tree_person_id", "TEXT REFERENCES family_tree_persons(id) ON DELETE SET NULL");
+      add("person_name", "TEXT");
+      // Existing rows predate `origin` and land on its 'manual' default, which is
+      // right for hand-typed quotes but wrong for the ones the reader captured —
+      // and a document anchor is exactly what identifies those.
+      db.prepare("UPDATE quotes SET origin = 'reader' WHERE document_id IS NOT NULL").run();
+      // The daily card's pool lookup. This index cannot live in schema.sql: that
+      // file is executed in full BEFORE these migrations run, so an index over a
+      // column this migration has yet to add would throw on every upgrade. Move
+      // it there when migrations are next folded back into the baseline.
+      db.exec("CREATE INDEX IF NOT EXISTS idx_quotes_rotation ON quotes(visibility, user_id) WHERE in_rotation = 1");
+    }
+  },
+  {
+    // 3.33.0 — remember which import run brought a quote in, so one pack can be
+    // undone without touching another. The quote_imports table is new, so
+    // schema.sql creates it unaided; this is only the column on the released
+    // quotes table. Quotes imported before this have no run to belong to and
+    // stay reachable through "delete all imported", exactly as they were.
+    version: 50,
+    up: (db) => {
+      const columns = new Set(
+        (db.prepare("PRAGMA table_info(quotes)").all() as { name: string }[]).map((c) => c.name)
+      );
+      if (!columns.has("import_id")) {
+        db.exec("ALTER TABLE quotes ADD COLUMN import_id TEXT REFERENCES quote_imports(id) ON DELETE SET NULL");
+      }
+      // Same reason as the rotation index above: schema.sql runs before this.
+      db.exec("CREATE INDEX IF NOT EXISTS idx_quotes_import ON quotes(import_id) WHERE import_id IS NOT NULL");
+    }
+  },
+  {
+    // 3.39.0 — life facts on a contributor: the born/died/country/occupation
+    // line above the biography. Every column is nullable and stays NULL on an
+    // existing install, so the upgrade shows nothing new until someone edits a
+    // person or re-runs Find info. Same additive shape as migration 41, which
+    // added website and location to this table.
+    version: 51,
+    up: (db) => {
+      const columns = new Set(
+        (db.prepare("PRAGMA table_info(people)").all() as { name: string }[]).map((c) => c.name)
+      );
+      for (const name of ["birth_date", "death_date", "country", "occupation", "wikipedia_url"]) {
+        if (!columns.has(name)) db.exec(`ALTER TABLE people ADD COLUMN ${name} TEXT`);
+      }
+    }
+  },
+  {
+    // 3.42.0 — the opening clip is retired (migration 45 added it, 46 its sound).
+    // A movie that opens on a video was the wrong shape: the clip now plays LAST,
+    // after the closing card, as a post-credit stinger. The closing clip keeps its
+    // columns and its setting; only the opening pair goes. Whoever had chosen an
+    // opening clip loses that choice — there is nowhere left to play it.
+    version: 52,
+    up: (db) => {
+      const columns = new Set(
+        (db.prepare("PRAGMA table_info(gallery_slideshows)").all() as { name: string }[]).map((c) => c.name)
+      );
+      for (const name of ["intro_item_id", "intro_sound"]) {
+        if (columns.has(name)) db.exec(`ALTER TABLE gallery_slideshows DROP COLUMN ${name}`);
+      }
+    }
+  },
+  {
+    // 3.43.0 — saving a movie to a library becomes a per-slideshow choice. Until now a
+    // single server-wide setting took EVERY render into one library, which nobody opted
+    // into and which could not be pointed anywhere else.
+    //
+    // Continuity matters more than a clean slate here: a slideshow whose movie is already
+    // in a library keeps saving to that same library, so nothing silently stops updating.
+    // Every other slideshow starts with saving off, which is the new default. The old
+    // global setting is removed in the same pass — leaving it would be a dead key that
+    // still reads as configuration.
+    version: 53,
+    up: (db) => {
+      const columns = new Set(
+        (db.prepare("PRAGMA table_info(gallery_slideshows)").all() as { name: string }[]).map((c) => c.name)
+      );
+      const add = (name: string, definition: string) => {
+        if (!columns.has(name)) db.exec(`ALTER TABLE gallery_slideshows ADD COLUMN ${name} ${definition}`);
+      };
+      add("movie_target_library_id", "TEXT REFERENCES libraries(id) ON DELETE SET NULL");
+      add("movie_on_conflict", "TEXT NOT NULL DEFAULT 'keep_both' CHECK (movie_on_conflict IN ('overwrite', 'keep_both'))");
+      add("movie_file_stem", "TEXT");
+      add("movie_save_error", "TEXT");
+
+      // Carry the ones already saved. movie_library_id is only ever set by a save that
+      // succeeded, so this targets exactly the slideshows that were being auto-saved.
+      // Guarded on the column existing: a database old enough to predate it has nothing
+      // to carry, and referencing it would fail the whole migration.
+      if (columns.has("movie_library_id")) {
+        db.prepare(`
+          UPDATE gallery_slideshows
+          SET movie_target_library_id = movie_library_id
+          WHERE movie_library_id IS NOT NULL AND movie_target_library_id IS NULL
+        `).run();
+      }
+
+      db.prepare("DELETE FROM app_settings WHERE key = 'gallery.slideshow.render_library'").run();
+    }
+  },
+  {
+    // 3.43.0 — story guest links. A story embeds albums and slideshows, so a
+    // link needs to say whether a guest may open the whole set or only the
+    // photos the story shows inline. Off for every existing link, which is the
+    // narrower reading and the right default for the ones minted from now on.
+    version: 54,
+    up: (db) => {
+      const columns = new Set(
+        (db.prepare("PRAGMA table_info(share_links)").all() as { name: string }[]).map((c) => c.name)
+      );
+      if (!columns.has("expand_albums")) {
+        db.exec("ALTER TABLE share_links ADD COLUMN expand_albums INTEGER NOT NULL DEFAULT 0");
+      }
+    }
   }
 ];
 

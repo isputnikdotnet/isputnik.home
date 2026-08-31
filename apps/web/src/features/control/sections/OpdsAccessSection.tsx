@@ -1,4 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { useTranslation } from "react-i18next";
+import i18n from "../../../i18n";
 import { QRCodeSVG } from "qrcode.react";
 import { BookOpen, Check, Copy, Plus, Trash2 } from "lucide-react";
 import { api } from "../../../api";
@@ -29,11 +31,12 @@ interface CreatedToken {
 }
 
 function CopyRow({ label, value, copied, onCopy }: { label: string; value: string; copied: boolean; onCopy: () => void }) {
+  const { t } = useTranslation(["common", "controlAdmin"]);
   return (
     <div className="opds-copy-row">
       <span className="opds-copy-label">{label}</span>
       <code className="opds-copy-value">{value}</code>
-      <Button variant="icon" title={`Copy ${label.toLowerCase()}`} aria-label={`Copy ${label.toLowerCase()}`} onClick={onCopy}>
+      <Button variant="icon" title={t("controlAdmin:opds.copyLabel", { label })} aria-label={t("controlAdmin:opds.copyLabel", { label })} onClick={onCopy}>
         {copied ? <Check size={16} /> : <Copy size={16} />}
       </Button>
     </div>
@@ -41,6 +44,7 @@ function CopyRow({ label, value, copied, onCopy }: { label: string; value: strin
 }
 
 export function OpdsAccessSection() {
+  const { t } = useTranslation(["common", "controlAdmin"]);
   const [tokens, setTokens] = useState<OpdsToken[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -60,7 +64,7 @@ export function OpdsAccessSection() {
       const payload = await api<{ tokens: OpdsToken[] }>("/api/account/tokens");
       setTokens(payload.tokens);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to load reader tokens");
+      setError(err instanceof Error ? err.message : t("controlAdmin:opds.loadFailed"));
     } finally {
       setLoading(false);
     }
@@ -106,7 +110,7 @@ export function OpdsAccessSection() {
       setCreated(payload);
       await load();
     } catch (err) {
-      setCreateError(err instanceof Error ? err.message : "Unable to create token");
+      setCreateError(err instanceof Error ? err.message : t("controlAdmin:opds.createFailed"));
     } finally {
       setCreating(false);
     }
@@ -121,7 +125,7 @@ export function OpdsAccessSection() {
       setPendingRemove(null);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to remove token");
+      setError(err instanceof Error ? err.message : t("controlAdmin:opds.removeFailed"));
     } finally {
       setRemoving(false);
     }
@@ -133,42 +137,43 @@ export function OpdsAccessSection() {
         section="readerAccess"
         icon={<BookOpen size={30} />}
         iconClassName="blue"
-        description="Open your ebooks in KOReader, Moon+ Reader or Thorium over OPDS."
+        description={t("controlAdmin:opds.headDescription")}
       />
 
       <p className="opds-intro">
-        Create a token for a device, then paste its catalog link into the reader. Each token is read-only and can be
-        removed at any time.
+        {t("controlAdmin:opds.intro")}
       </p>
 
-      {error && <MessageBox tone="error" title="Reader access">{error}</MessageBox>}
+      {error && <MessageBox tone="error" title={t("controlAdmin:opds.errorTitle")}>{error}</MessageBox>}
 
       <div className="opds-actions">
         <Button variant="primary" onClick={openCreate}>
-          <Plus size={16} /> Create token
+          <Plus size={16} /> {t("controlAdmin:opds.createToken")}
         </Button>
       </div>
 
       <div className="opds-token-list">
         {loading ? (
-          <p className="opds-intro">Loading…</p>
+          <p className="opds-intro">{t("controlAdmin:ui.loading")}</p>
         ) : tokens.length === 0 ? (
-          <p className="opds-intro">No reader tokens yet.</p>
+          <p className="opds-intro">{t("controlAdmin:opds.noTokens")}</p>
         ) : (
           tokens.map((token) => (
             <div className="opds-token-row" key={token.id}>
               <div className="opds-token-meta">
-                <strong>{token.label || "Reader token"}</strong>
+                <strong>{token.label || t("controlAdmin:opds.defaultLabel")}</strong>
                 <span className="opds-intro">
-                  Added {new Date(token.createdAt).toLocaleDateString()}
-                  {token.lastSeen ? ` · last used ${new Date(token.lastSeen).toLocaleDateString()}` : " · never used"}
+                  {t("controlAdmin:opds.added", { date: new Date(token.createdAt).toLocaleDateString(i18n.language) })}
+                  {token.lastSeen
+                    ? t("controlAdmin:opds.lastUsed", { date: new Date(token.lastSeen).toLocaleDateString(i18n.language) })
+                    : t("controlAdmin:opds.neverUsed")}
                 </span>
               </div>
               <Button
                 variant="icon"
                 danger
-                title="Remove token"
-                aria-label={`Remove ${token.label || "reader token"}`}
+                title={t("controlAdmin:opds.removeToken")}
+                aria-label={t("controlAdmin:opds.removeAria", { label: token.label || t("controlAdmin:opds.defaultLabel") })}
                 onClick={() => setPendingRemove(token)}
               >
                 <Trash2 size={18} />
@@ -182,44 +187,44 @@ export function OpdsAccessSection() {
         <Modal
           variant="card"
           className="opds-token-modal"
-          title={created ? "Reader token created" : "Create reader token"}
+          title={created ? t("controlAdmin:opds.modalTitleCreated") : t("controlAdmin:opds.modalTitleCreate")}
           busy={creating}
           onClose={closeCreate}
           onSubmit={created ? undefined : create}
         >
           {created ? (
             <div className="opds-created">
-              <MessageBox tone="success" title="Copy it now">
-                This is the only time the token is shown. Paste the catalog link into your reader to finish.
+              <MessageBox tone="success" title={t("controlAdmin:opds.copyNowTitle")}>
+                {t("controlAdmin:opds.copyNowBody")}
               </MessageBox>
 
-              <CopyRow label="Catalog link" value={created.catalogUrl} copied={copied === "catalog"} onCopy={() => copy("catalog", created.catalogUrl)} />
+              <CopyRow label={t("controlAdmin:opds.catalogLink")} value={created.catalogUrl} copied={copied === "catalog"} onCopy={() => copy("catalog", created.catalogUrl)} />
 
               <div className="opds-qr">
                 <QRCodeSVG value={created.catalogUrl} size={140} bgColor="#ffffff" fgColor="#031116" />
-                <span className="opds-intro">Scan to add the catalog on a phone or tablet.</span>
+                <span className="opds-intro">{t("controlAdmin:opds.qrHint")}</span>
               </div>
 
               <details className="opds-basic">
-                <summary>Prefer a username &amp; password? (HTTP Basic)</summary>
-                <CopyRow label="Server URL" value={created.basicUrl} copied={copied === "basicurl"} onCopy={() => copy("basicurl", created.basicUrl)} />
-                <CopyRow label="Username" value={created.username} copied={copied === "user"} onCopy={() => copy("user", created.username)} />
-                <CopyRow label="Password (token)" value={created.token} copied={copied === "pwd"} onCopy={() => copy("pwd", created.token)} />
+                <summary>{t("controlAdmin:opds.basicSummary")}</summary>
+                <CopyRow label={t("controlAdmin:opds.serverUrl")} value={created.basicUrl} copied={copied === "basicurl"} onCopy={() => copy("basicurl", created.basicUrl)} />
+                <CopyRow label={t("controlAdmin:ui.username")} value={created.username} copied={copied === "user"} onCopy={() => copy("user", created.username)} />
+                <CopyRow label={t("controlAdmin:opds.passwordToken")} value={created.token} copied={copied === "pwd"} onCopy={() => copy("pwd", created.token)} />
               </details>
 
               <div className="modal-actions">
-                <Button variant="primary" onClick={closeCreate}>Done</Button>
+                <Button variant="primary" onClick={closeCreate}>{t("common.done")}</Button>
               </div>
             </div>
           ) : (
             <>
-              <p className="opds-intro">Name the device this token is for, so you can recognise it later.</p>
-              <Field label="Device name" value={label} onChange={setLabel} placeholder="e.g. Kobo Clara" required={false} />
-              {createError && <MessageBox tone="error" title="Unable to create token">{createError}</MessageBox>}
+              <p className="opds-intro">{t("controlAdmin:opds.deviceNameIntro")}</p>
+              <Field label={t("controlAdmin:opds.deviceName")} value={label} onChange={setLabel} placeholder={t("controlAdmin:opds.deviceNamePlaceholder")} required={false} />
+              {createError && <MessageBox tone="error" title={t("controlAdmin:opds.createFailed")}>{createError}</MessageBox>}
               <div className="modal-actions">
-                <Button variant="secondary" onClick={closeCreate} disabled={creating}>Cancel</Button>
+                <Button variant="secondary" onClick={closeCreate} disabled={creating}>{t("common.cancel")}</Button>
                 <Button variant="primary" type="submit" disabled={creating}>
-                  {creating ? "Creating…" : "Create token"}
+                  {creating ? t("controlAdmin:opds.creating") : t("controlAdmin:opds.createToken")}
                 </Button>
               </div>
             </>
@@ -229,15 +234,15 @@ export function OpdsAccessSection() {
 
       {pendingRemove && (
         <ConfirmDialog
-          title={`Remove "${pendingRemove.label || "Reader token"}"?`}
-          confirmLabel="Remove token"
-          busyLabel="Removing…"
+          title={t("controlAdmin:opds.confirmRemoveTitle", { label: pendingRemove.label || t("controlAdmin:opds.defaultLabel") })}
+          confirmLabel={t("controlAdmin:opds.removeToken")}
+          busyLabel={t("controlAdmin:opds.removing")}
           danger
           busy={removing}
           onConfirm={remove}
           onCancel={() => setPendingRemove(null)}
         >
-          That device will lose access to your ebooks at its next catalog refresh. Your other devices are not affected.
+          {t("controlAdmin:opds.confirmRemoveBody")}
         </ConfirmDialog>
       )}
     </section>

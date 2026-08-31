@@ -14,6 +14,7 @@
 // erased — trashBook refuses outright for a library the app may only read.
 import { db, logActivity } from "../../../../db.js";
 import { trashBook, libraryAllowsDelete } from "../../shared/trash.js";
+import { lockCovering } from "../../shared/folder-locks.js";
 import { absorbDuplicateMetadata } from "./items.js";
 import { getJob, recordAction, type JobOutcome } from "./jobs.js";
 import { sweepableResultIds, type ResultFilter } from "./job-scan.js";
@@ -114,8 +115,11 @@ export function checkResult(jobId: string, resultId: string): ResultCheck | null
     if (changed) return { ...base, stale: "modified" as const };
 
     // Only the copies being removed care about the library's policy — a keeper in a
-    // read-only library is exactly what should happen.
-    if (member.role === "delete" && !libraryAllowsDelete(member.library_id)) {
+    // read-only library is exactly what should happen. A folder locked AFTER the
+    // snapshot reads the same way: policy forbids deleting this copy, so the offer
+    // refuses cleanly here instead of hitting trashBook's backstop mid-set.
+    if (member.role === "delete"
+        && (!libraryAllowsDelete(member.library_id) || lockCovering(member.library_id, member.path) !== null)) {
       return { ...base, stale: "protected" as const };
     }
     return { ...base, stale: null };

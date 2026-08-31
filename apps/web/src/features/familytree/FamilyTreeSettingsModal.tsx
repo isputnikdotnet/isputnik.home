@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Download, FileUp, Settings, UserRound, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { api } from "../../api";
 import { followRoute } from "../../router";
 import { Button } from "../../shared/Button";
@@ -31,6 +32,7 @@ export function FamilyTreeSettingsModal({
   /** A GEDCOM import rewrites the tree — the caller reloads. */
   onChanged: () => void;
 }) {
+  const { t } = useTranslation(["common", "family"]);
   const [tab, setTab] = useState<SettingsTab>("photos");
   const [libraries, setLibraries] = useState<GalleryLibrary[]>([]);
   const [libraryId, setLibraryId] = useState("");
@@ -53,8 +55,8 @@ export function FamilyTreeSettingsModal({
         setLibraryId(settings.galleryLibrary?.id ?? "");
         setStartPerson(settings.defaultPerson);
       })
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load settings"));
-  }, []);
+      .catch((err) => setError(err instanceof Error ? err.message : t("family:treeSettings.errors.loadSettings")));
+  }, [t]);
 
   // One saver for both settings: the PUT takes either field on its own and
   // merges, so sending one never disturbs the other.
@@ -76,7 +78,7 @@ export function FamilyTreeSettingsModal({
 
   const saveLibrary = async (nextId: string) => {
     setLibraryId(nextId);
-    await save({ galleryLibraryId: nextId || null }, "Unable to save the library");
+    await save({ galleryLibraryId: nextId || null }, t("family:treeSettings.errors.saveLibrary"));
   };
 
   const saveStartPerson = async (person: FamilyPerson | null) => {
@@ -84,27 +86,29 @@ export function FamilyTreeSettingsModal({
     setStartPerson(person);
     setPickerOpen(false);
     // The chart reads this from the tree payload, so the caller reloads.
-    if (await save({ defaultPersonId: person?.id ?? null }, "Unable to save the starting person")) onChanged();
+    if (await save({ defaultPersonId: person?.id ?? null }, t("family:treeSettings.errors.saveStartPerson"))) onChanged();
     else setStartPerson(previous);
   };
+
+  const tabs: { id: SettingsTab; label: string }[] = [
+    { id: "photos", label: t("family:treeSettings.tabPhotos") },
+    { id: "start", label: t("family:treeSettings.tabStart") },
+    { id: "gedcom", label: t("family:treeSettings.tabGedcom") },
+    { id: "security", label: t("family:treeSettings.tabSecurity") }
+  ];
 
   return (
     <>
       <Modal
         variant="panel"
-        title="Family tree settings"
+        title={t("family:treeSettings.title")}
         icon={<Settings size={20} />}
         className="ft-settings-modal"
         busy={saving}
         onClose={() => { if (!importOpen && !pickerOpen) onClose(); }}
       >
         <div className="modal-tabs">
-          {([
-            ["photos", "Photo library"],
-            ["start", "Starting person"],
-            ["gedcom", "Import / export"],
-            ["security", "Security"]
-          ] as const).map(([id, label]) => (
+          {tabs.map(({ id, label }) => (
             <button
               key={id}
               type="button"
@@ -117,43 +121,40 @@ export function FamilyTreeSettingsModal({
         </div>
 
         <div className="modal-tab-content ft-settings-content">
-          {error && <MessageBox tone="error" title="Settings error">{error}</MessageBox>}
+          {error && <MessageBox tone="error" title={t("family:treeSettings.errorTitle")}>{error}</MessageBox>}
 
           {tab === "photos" && (
             <>
               <p className="ft-modal-hint">
-                Photos and videos uploaded from the family tree are added to this gallery library, filed by the
-                date they were taken. Attaching photos the gallery already holds works from any library and
-                doesn't need this setting.
+                {t("family:treeSettings.photosHint")}
               </p>
 
               {libraries.length === 0 ? (
                 <MessageBox
                   tone="info"
-                  title="No gallery library yet"
+                  title={t("family:treeSettings.noLibraryTitle")}
                   action={
                     <a
                       className="primary-button compact-button"
                       href="/control/libraries"
                       onClick={(event) => followRoute(event, "/control/libraries")}
                     >
-                      Create a library
+                      {t("family:treeSettings.createLibraryLink")}
                     </a>
                   }
                 >
-                  Create a gallery library first — point it at the folder where family photos should be stored.
-                  It will appear here once it exists.
+                  {t("family:treeSettings.noLibraryBody")}
                 </MessageBox>
               ) : (
                 <label className="field">
-                  <span>Upload photos to</span>
+                  <span>{t("family:treeSettings.uploadPhotosToLabel")}</span>
                   <select value={libraryId} onChange={(event) => void saveLibrary(event.target.value)} disabled={saving}>
-                    <option value="">No library — uploading is off</option>
+                    <option value="">{t("family:treeSettings.noLibraryOption")}</option>
                     {libraries.map((library) => (
                       <option key={library.id} value={library.id}>{library.name}</option>
                     ))}
                   </select>
-                  {saved && <small className="ft-modal-hint">Saved.</small>}
+                  {saved && <small className="ft-modal-hint">{t("family:treeSettings.saved")}</small>}
                 </label>
               )}
             </>
@@ -162,30 +163,28 @@ export function FamilyTreeSettingsModal({
           {tab === "start" && (
             <>
               <p className="ft-modal-hint">
-                Opening the family tree centres the chart on this person, for everyone. Without one it starts on
-                whoever happens to come first, which is rarely the person you'd choose. Following a link to a
-                particular person still opens on them.
+                {t("family:treeSettings.startHint")}
               </p>
 
               {personCount === 0 ? (
-                <MessageBox tone="info" title="No one in the tree yet">
-                  Add the first family member and they'll be selectable here.
+                <MessageBox tone="info" title={t("family:treeSettings.noOneYetTitle")}>
+                  {t("family:treeSettings.noOneYetBody")}
                 </MessageBox>
               ) : startPerson ? (
                 <div className="ft-settings-person">
                   <PersonAvatar person={{ name: startPerson.name, portraitUrl: startPerson.portraitUrl ?? null }} size={40} />
                   <span className="ft-picker-row-name">
                     <strong>{startPerson.name}</strong>
-                    <small>The tree opens here</small>
+                    <small>{t("family:treeSettings.opensHere")}</small>
                   </span>
                   <div className="ft-settings-row">
                     <Button variant="secondary" compact onClick={() => setPickerOpen(true)} disabled={saving}>
-                      Change
+                      {t("family:treeSettings.changeButton")}
                     </Button>
                     <Button
                       variant="icon"
-                      title="Clear the starting person"
-                      aria-label="Clear the starting person"
+                      title={t("family:treeSettings.clearStartingPersonAria")}
+                      aria-label={t("family:treeSettings.clearStartingPersonAria")}
                       disabled={saving}
                       onClick={() => void saveStartPerson(null)}
                     >
@@ -196,33 +195,31 @@ export function FamilyTreeSettingsModal({
               ) : (
                 <Button variant="primary" onClick={() => setPickerOpen(true)} disabled={saving}>
                   <UserRound size={16} aria-hidden="true" />
-                  Choose a person
+                  {t("family:treeSettings.choosePersonButton")}
                 </Button>
               )}
-              {saved && <small className="ft-modal-hint">Saved.</small>}
+              {saved && <small className="ft-modal-hint">{t("family:treeSettings.saved")}</small>}
             </>
           )}
 
           {tab === "gedcom" && (
             <>
               <p className="ft-modal-hint">
-                GEDCOM is the standard genealogy file, readable by Ancestry, MyHeritage, Gramps and others.
-                Exporting writes the whole tree — people, families, events and sources — to one file.
+                {t("family:treeSettings.gedcomHint")}
               </p>
               <div className="ft-settings-row">
                 <Button variant="secondary" onClick={() => window.location.assign("/api/family-tree/export")}>
                   <Download size={16} aria-hidden="true" />
-                  Export GEDCOM
+                  {t("family:treeSettings.exportButton")}
                 </Button>
                 <Button variant="secondary" onClick={() => setImportOpen(true)}>
                   <FileUp size={16} aria-hidden="true" />
-                  Import GEDCOM
+                  {t("family:treeSettings.importButton")}
                 </Button>
               </div>
               {personCount > 0 && (
-                <MessageBox tone="warning" title="Importing can replace the tree">
-                  The import offers two modes: add to the {personCount} {personCount === 1 ? "person" : "people"} already
-                  here, or replace them entirely. Export first if you want a copy of what you have.
+                <MessageBox tone="warning" title={t("family:treeSettings.importWarningTitle")}>
+                  {t("family:treeSettings.importWarningBody", { peopleCount: t("family:common.counts.person", { count: personCount }) })}
                 </MessageBox>
               )}
             </>
@@ -232,13 +229,13 @@ export function FamilyTreeSettingsModal({
         </div>
 
         <div className="modal-actions">
-          <Button variant="secondary" onClick={onClose} disabled={saving}>Close</Button>
+          <Button variant="secondary" onClick={onClose} disabled={saving}>{t("common.close")}</Button>
         </div>
       </Modal>
 
       {pickerOpen && (
         <PersonPickerModal
-          title="Choose the starting person"
+          title={t("family:treeSettings.chooseStartingPersonTitle")}
           allowCreate={false}
           onPick={(person) => void saveStartPerson(person)}
           onClose={() => setPickerOpen(false)}

@@ -14,12 +14,31 @@ import { type AudiobookBookRow, type BookFileRow } from "./types.js";
 import { normalizeLibrarySettings } from "../shared/library-settings.js";
 import { downloadImage } from "../shared/remote-image.js";
 
-export function largeCoverUrl(storageKey: string | null) {
+// A book's cover file is overwritten in place under a key derived from its id,
+// so the URL alone can't tell a new cover from the old one: a browser that
+// already has the image on screen keeps showing it after an edit, which is why
+// applying a metadata match looked like it left the cover alone even though the
+// file on disk had changed. Stamp the metadata row's updated_at on the URL —
+// every write that can touch the cover bumps it, so a changed cover always
+// arrives under a new URL (and the covers route can then cache it immutably).
+function coverVersionSuffix(metadataUpdatedAt: string | null | undefined) {
+  return metadataUpdatedAt ? `?v=${encodeURIComponent(metadataUpdatedAt)}` : "";
+}
+
+export function coverUrl(storageKey: string | null, metadataUpdatedAt?: string | null) {
   if (!storageKey) {
     return null;
   }
 
-  return `/api/library/covers/${storageKey.replace(/-cover\.webp$/i, "-cover-large.webp")}`;
+  return `/api/library/covers/${storageKey}${coverVersionSuffix(metadataUpdatedAt)}`;
+}
+
+export function largeCoverUrl(storageKey: string | null, metadataUpdatedAt?: string | null) {
+  if (!storageKey) {
+    return null;
+  }
+
+  return `/api/library/covers/${storageKey.replace(/-cover\.webp$/i, "-cover-large.webp")}${coverVersionSuffix(metadataUpdatedAt)}`;
 }
 
 export const progressUpdateSchema = z.object({
@@ -43,11 +62,36 @@ const metadataCandidateSchema = z.object({
   source: z.enum(["itunes", "openlibrary", "fantlab", "librivox", "audible"])
 });
 
+// Applying a lookup result is field-by-field: the dialog offers one toggle per
+// field a result can fill, and only the ticked ones are written. A provider is
+// right about the narrator and wrong about the year often enough that "take all
+// of it or none of it" was the wrong question to ask.
+export const METADATA_APPLY_FIELDS = [
+  "cover", "title", "authors", "narrators", "year",
+  "publisher", "language", "isbn", "asin", "tags", "description"
+] as const;
+
+export type MetadataApplyField = typeof METADATA_APPLY_FIELDS[number];
+
 export const metadataMatchSchema = z.object({
   candidate: metadataCandidateSchema,
+  fields: z.array(z.enum(METADATA_APPLY_FIELDS)).optional(),
+  // The coarse pair this replaced. Kept so a client running older code (a PWA
+  // still on a cached bundle) applies what it meant to instead of nothing.
   updateDetails: z.boolean().default(true),
   updateCover: z.boolean().default(true)
 });
+
+// The fields a request asks for: an explicit list, or everything the old
+// details/cover pair covered.
+export function resolveMetadataApplyFields(request: z.infer<typeof metadataMatchSchema>): Set<MetadataApplyField> {
+  if (request.fields) {
+    return new Set(request.fields);
+  }
+  const fields = METADATA_APPLY_FIELDS.filter((field) =>
+    field === "cover" ? request.updateCover : request.updateDetails);
+  return new Set(fields);
+}
 
 export const coverSourceSchema = z.object({
   relativePath: z.string().trim().min(1).max(1000)
@@ -275,26 +319,32 @@ function exportBookMetadata(bookId: string) {
   }
 }
 
-export async function applyMetadataCandidate(bookId: string, candidate: MetadataCandidate, updateDetails: boolean, updateCover: boolean) {
+// Writes exactly the fields the caller ticked; everything else on the book is
+// left as it stands. A ticked field the result has nothing for keeps its current
+// value too — accepting a result never blanks something out.
+export async function applyMetadataCandidate(bookId: string, candidate: MetadataCandidate, fields: Set<MetadataApplyField>) {
   const current = getBookForMetadata(bookId);
   if (!current) {
     return null;
   }
 
   let coverStorageKey = current.cover_storage_key;
-  if (updateCover && candidate.coverUrl) {
+  if (fields.has("cover") && candidate.coverUrl) {
     const cover = await downloadImage(candidate.coverUrl);
     coverStorageKey = await writeCoverImages(current.library_id, bookId, cover);
   }
 
+  const take = <T>(field: MetadataApplyField, incoming: T | undefined, currentValue: T) =>
+    fields.has(field) ? incoming ?? currentValue : currentValue;
+
   const next = {
-    title: updateDetails || !current.title ? candidate.title : current.title,
-    description: updateDetails || !current.description ? candidate.description ?? current.description : current.description,
-    yearPublished: updateDetails || !current.year_published ? candidate.year ?? current.year_published : current.year_published,
-    language: updateDetails || !current.language ? candidate.language ?? current.language : current.language,
-    isbn: updateDetails || !current.isbn ? candidate.isbn ?? current.isbn : current.isbn,
-    asin: updateDetails || !current.asin ? candidate.asin ?? current.asin : current.asin,
-    publisher: updateDetails || !current.publisher ? candidate.publisher ?? current.publisher : current.publisher
+    title: fields.has("title") ? candidate.title : current.title,
+    description: take("description", candidate.description, current.description),
+    yearPublished: take("year", candidate.year, current.year_published),
+    language: take("language", candidate.language, current.language),
+    isbn: take("isbn", candidate.isbn, current.isbn),
+    asin: take("asin", candidate.asin, current.asin),
+    publisher: take("publisher", candidate.publisher, current.publisher)
   };
 
   db.transaction(() => {
@@ -332,13 +382,13 @@ export async function applyMetadataCandidate(bookId: string, candidate: Metadata
       ON CONFLICT(item_id) DO UPDATE SET asin = excluded.asin
     `).run(bookId, next.asin);
 
-    if (updateDetails || splitGroupConcat(current.author_names).length === 0) {
+    if (fields.has("authors") && candidate.authors.length > 0) {
       replaceBookPeople(bookId, current.library_id, "author", candidate.authors);
     }
-    if (candidate.narrators && (updateDetails || splitGroupConcat(current.narrator_names).length === 0)) {
+    if (fields.has("narrators") && candidate.narrators?.length) {
       replaceBookPeople(bookId, current.library_id, "narrator", candidate.narrators);
     }
-    if (candidate.genres && (updateDetails || bookTags(current.id).length === 0)) {
+    if (fields.has("tags") && candidate.genres?.length) {
       addEntityTags("library_item", bookId, candidate.genres);
     }
   })();
@@ -497,6 +547,7 @@ export function getAudiobookBookDetail(id: string) {
       item_metadata.language,
       audiobook_details.duration_seconds,
       item_metadata.cover_storage_key,
+      item_metadata.updated_at AS metadata_updated_at,
       item_metadata.source AS metadata_source,
       item_metadata.isbn,
       audiobook_details.asin,
@@ -612,8 +663,8 @@ export function getAudiobookBookDetail(id: string) {
     editionCount: book.edition_count ?? 0,
     workId: book.work_id ?? null,
     durationSeconds: book.duration_seconds,
-    coverUrl: book.cover_storage_key ? `/api/library/covers/${book.cover_storage_key}` : null,
-    coverLargeUrl: largeCoverUrl(book.cover_storage_key),
+    coverUrl: coverUrl(book.cover_storage_key, book.metadata_updated_at),
+    coverLargeUrl: largeCoverUrl(book.cover_storage_key, book.metadata_updated_at),
     isbn: book.isbn,
     asin: book.asin,
     publisher: book.publisher,
@@ -664,6 +715,7 @@ export const BOOK_LIST_COLUMNS = `
         item_metadata.language,
         audiobook_details.duration_seconds,
         item_metadata.cover_storage_key,
+        item_metadata.updated_at AS metadata_updated_at,
         item_metadata.publisher,
         audiobook_details.asin,
         (SELECT ic.category_id FROM item_categories ic WHERE ic.item_id = library_items.id AND ic.is_primary = 1 LIMIT 1) AS category_id,
@@ -721,8 +773,8 @@ export function mapBookListRow(book: BookListRow) {
     totalSize: book.total_size ?? 0,
     editionCount: book.edition_count ?? 0,
     durationSeconds: book.duration_seconds,
-    coverUrl: book.cover_storage_key ? `/api/library/covers/${book.cover_storage_key}` : null,
-    coverLargeUrl: largeCoverUrl(book.cover_storage_key),
+    coverUrl: coverUrl(book.cover_storage_key, book.metadata_updated_at),
+    coverLargeUrl: largeCoverUrl(book.cover_storage_key, book.metadata_updated_at),
     publisher: book.publisher,
     asin: book.asin,
     progress: {

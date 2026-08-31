@@ -46,8 +46,8 @@ isputnik.home is a private, self-hosted web app for friends and family. It provi
 - Recycle Bin — delete moves source files to a hidden `.trash` folder; restore/purge across library types ([`recycle-bin.md`](recycle-bin.md))
 - Backup & restore tooling — download/upload backups with staged restore-on-restart
 - Categories & Tags — fixed navigation **categories** (keyword-matched per scan) plus global, cross-type **tags**, with global cross-type browse and admin management
-- Cross-type Favorites and Collections — user-curated lists spanning audiobooks and ebooks
-- Home dashboard — Continue and Recently added feeds across types
+- Cross-type Likes and Collections — user-curated lists spanning audiobooks and ebooks
+- Home feed — one ranked card feed (`/api/home/feed`): sticky "Sent to you" cards, an "On this day" photo-memory card, per-day "books joined the library" batch cards, family-activity cards, and a rotating next-in-series suggestion, with a pinned resume hero above it
 - PWA/offline — installable app shell, account-aware cache cleanup, durable downloaded-book metadata, offline player/detail fallback, reconnect progress sync, and cover-cache revalidation
 - Security hardening — per-IP rate limiting (tight on auth endpoints), optional TOTP two-factor auth, security headers (helmet), scoped proxy trust (`TRUST_PROXY_HOPS`), SSRF DNS-rebinding fix on remote image fetches, ReDoS fixes, and path-traversal-safe static serving
 
@@ -98,7 +98,7 @@ from gallery libraries by reference. See [`family-tree.md`](family-tree.md).
 - Background job queue for scans, metadata extraction, thumbnail generation
 - Sharded thumbnail cache at `THUMBNAIL_PATH`
 - Access via the unified permission model — per-object role assignments (Everyone group = public, owner = manager) with per-library write policies; item-level sharing via `shares` and `share_links` ([`permissions.md`](permissions.md))
-- Collections, Favorites, and Tags — cross-type, shared across all library types
+- Collections, Likes, and Tags — cross-type, shared across all library types
 - Recycle Bin — deleting moves source files to a hidden `.trash` folder and removes the row; restore or purge later ([`recycle-bin.md`](recycle-bin.md))
 - Safety rule — source files are never renamed, moved, or deleted (uploads add; the Recycle Bin relocates within the source volume)
 
@@ -169,8 +169,8 @@ Routes are registered as Fastify plugins, grouped by domain:
 ```
 apps/server/src/
   index.ts                    ← registers corePlugin, usersPlugin, backupsPlugin,
-                                 libraryPlugin, collectionsPlugin, familyTreePlugin,
-                                 maintenancePlugin
+                                 libraryPlugin, collectionsPlugin, storiesPlugin,
+                                 familyTreePlugin, maintenancePlugin
   core/                       ← platform infrastructure ONLY: auth-routes, sessions,
                                  device-link (sign a TV in by QR — see auth.md),
                                  permissions, app-config, setup, logs, status, shared
@@ -179,6 +179,12 @@ apps/server/src/
     uploads/                  ← upload streaming helpers
     backups/                  ← backup / restore
     collections/              ← cross-type user collections
+    stories/                  ← authored narrative pages over existing content:
+                                 chapters (partial dates + place) holding text /
+                                 photo / album / slideshow / map blocks, all by
+                                 reference (see stories-proposal.md)
+    home/                     ← the home feed composer (ranked typed cards over
+                                 library / gallery / social loaders)
     familytree/               ← family members, unions/children, events, sources,
                                  gallery photo links, GEDCOM (see family-tree.md).
                                  View: any user. Edit: admin, or tag-scoped "branch
@@ -212,6 +218,7 @@ apps/web/src/
     audiobooks/  └ reader/    ← audiobook pages + in-app reader
     library/                  ← cross-type library feed / tiles
     collections/  share/      ← collections UI, share dialogs
+    stories/                  ← story index, reading view, block editor
     familytree/               ← person-centered SVG chart, people list, profiles
     control/  └ libraries/ sections/   ← control panel (admin)
   offline/  pwa/              ← installable-app + offline concerns
@@ -246,7 +253,7 @@ SQLite with WAL mode, `synchronous = NORMAL`, and `foreign_keys = ON`. All file 
 7. **Done** — Sharing & access control — unified permission model, public/private libraries, item shares + guest links
 8. **Done** — Backup and restore tooling
 9. **Done** — Ebook library + in-app EPUB reader (foliate-js)
-10. **Done** — Cross-type browse — Categories, Tags, Favorites, Collections, Home feeds
+10. **Done** — Cross-type browse — Categories, Tags, Likes, Collections, Home feeds
 11. **Done** — Security hardening — rate limiting, SSRF/ReDoS/path-traversal fixes
 12. **Future** — Notes module
 13. **Future** — Group ownership/membership for libraries

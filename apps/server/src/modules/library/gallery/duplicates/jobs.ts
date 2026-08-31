@@ -26,6 +26,7 @@
 import { nanoid } from "nanoid";
 import { db } from "../../../../db.js";
 import { parsePolicy } from "../../../../core/permissions.js";
+import { locksByLibrary, lockCoveredIn } from "../../shared/folder-locks.js";
 import {
   duplicateCandidateCount, duplicatePendingCount, type FolderPreferenceMode
 } from "./items.js";
@@ -168,6 +169,10 @@ export interface JobFolderOption {
   photoCount: number;
   /** A library the app may read but not delete from — "clear" is meaningless there. */
   isProtected: boolean;
+  /** A folder lock covers it, so nothing in it can go — "clear" is refused there
+   *  too. Covering only: a lock merely INSIDE the folder still leaves the rest
+   *  clearable, and the scan protects the locked part on its own. */
+  isLocked: boolean;
 }
 
 /** The folders a cleanup's instructions can be attached to: every folder holding photos
@@ -189,6 +194,7 @@ export function jobFolderOptions(libraryIds: string[]): JobFolderOption[] {
     library_id: string; library_name: string; policy_json: string; relative_path: string;
   }[];
 
+  const locks = locksByLibrary(libraryIds);
   const options = new Map<string, JobFolderOption>();
   for (const row of rows) {
     const cut = row.relative_path.lastIndexOf("/");
@@ -204,7 +210,8 @@ export function jobFolderOptions(libraryIds: string[]): JobFolderOption[] {
       libraryName: row.library_name,
       folderPath,
       photoCount: 1,
-      isProtected: libraryProtection(row.policy_json).isProtected
+      isProtected: libraryProtection(row.policy_json).isProtected,
+      isLocked: lockCoveredIn(locks.get(row.library_id), folderPath)
     });
   }
 

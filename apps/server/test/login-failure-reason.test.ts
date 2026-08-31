@@ -101,7 +101,7 @@ describe("what the log says about a failed sign-in", () => {
     const wrong = await attempt(REAL, "not-the-password");
 
     // The whole point of the split: the reason is for the log, never the response.
-    expect(typo.json()).toEqual({ error: "Invalid email or password" });
+    expect(typo.json()).toEqual({ error: "Invalid email or password", code: "auth.invalid_credentials" });
     expect(wrong.json()).toEqual(typo.json());
   });
 });

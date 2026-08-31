@@ -1,6 +1,9 @@
 import { useState, type FormEvent } from "react";
+import { useTranslation } from "react-i18next";
 import { Link2, Palette, ShieldCheck, Smartphone, UserRound, type LucideIcon } from "lucide-react";
 import { api, type PublicUser } from "../api";
+import { LANGUAGES, setAppLanguage, type Language } from "../i18n";
+import { ChoiceGroup } from "../shared/ChoiceGroup";
 import { DashboardShell } from "../app/DashboardShell";
 import { followRoute, profileHref, type ProfileTab } from "../router";
 import { UserAreaNav } from "../features/library/UserAreaNav";
@@ -16,12 +19,13 @@ import { PasskeysSection } from "../features/profile/PasskeysSection";
 import { SharedLinksSection } from "../features/profile/SharedLinksSection";
 import { LinkedDevicesSection } from "../features/profile/LinkedDevicesSection";
 
-const PROFILE_TABS: { key: ProfileTab; label: string; icon: LucideIcon }[] = [
-  { key: "account", label: "Account", icon: UserRound },
-  { key: "security", label: "Security", icon: ShieldCheck },
-  { key: "shares", label: "Shared links", icon: Link2 },
-  { key: "appearance", label: "Appearance", icon: Palette },
-  { key: "devices", label: "Devices", icon: Smartphone }
+// Labels come from t(`profile.tabs.${key}`) at render, so they follow the language.
+const PROFILE_TABS: { key: ProfileTab; icon: LucideIcon }[] = [
+  { key: "account", icon: UserRound },
+  { key: "security", icon: ShieldCheck },
+  { key: "shares", icon: Link2 },
+  { key: "appearance", icon: Palette },
+  { key: "devices", icon: Smartphone }
 ];
 
 export function ProfilePage({
@@ -35,11 +39,14 @@ export function ProfilePage({
   logout: () => Promise<void>;
   onUpdated: (user: PublicUser) => void;
 }) {
+  const { t } = useTranslation();
   const [displayName, setDisplayName] = useState(user.displayName);
   const [status, setStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [error, setError] = useState("");
   const [themeSaving, setThemeSaving] = useState(false);
   const [themeError, setThemeError] = useState("");
+  const [languageSaving, setLanguageSaving] = useState(false);
+  const [languageError, setLanguageError] = useState("");
   const [ereaderEmail, setEreaderEmail] = useState(user.ereaderEmail ?? "");
   const [ereaderStatus, setEreaderStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [ereaderError, setEreaderError] = useState("");
@@ -84,6 +91,31 @@ export function ProfilePage({
     }
   };
 
+  // Like theme: applied optimistically (the whole UI re-renders in the new
+  // language at once), then persisted, reverting both if the request fails.
+  const chooseLanguage = async (language: Language) => {
+    const current = user.language ?? "en";
+    if (languageSaving || language === current) return;
+    setLanguageError("");
+    setLanguageSaving(true);
+    const previous = user;
+    onUpdated({ ...user, language });
+    void setAppLanguage(language);
+    try {
+      const payload = await api<{ user: PublicUser }>("/api/profile", {
+        method: "PATCH",
+        body: JSON.stringify({ displayName: user.displayName, theme: user.theme, language })
+      });
+      onUpdated(payload.user);
+    } catch (err) {
+      onUpdated(previous);
+      void setAppLanguage(current);
+      setLanguageError(err instanceof Error ? err.message : t("errors.unableToSave"));
+    } finally {
+      setLanguageSaving(false);
+    }
+  };
+
   // Saved on its own (a blank value clears it). Other fields are passed through
   // unchanged so this never disturbs the display name or theme.
   const saveEreader = async (event: FormEvent) => {
@@ -112,16 +144,16 @@ export function ProfilePage({
               <UserRound size={30} />
             </span>
             <div className="user-heading-copy">
-              <p className="eyebrow">Profile</p>
-              <h1>Your account</h1>
-              <p className="section-description">Your details, sign-in security, what you've shared, appearance, and devices.</p>
+              <p className="eyebrow">{t("profile.eyebrow")}</p>
+              <h1>{t("profile.heading")}</h1>
+              <p className="section-description">{t("profile.description")}</p>
             </div>
           </div>
         </div>
 
         {/* Real links, so a panel can be bookmarked, linked to from a guide, and
             returned to with the back button. */}
-        <div className="control-tabs profile-tabs" role="tablist" aria-label="Profile sections">
+        <div className="control-tabs profile-tabs" role="tablist" aria-label={t("profile.tabsLabel")}>
           {PROFILE_TABS.map((tab) => {
             const selected = activeTab === tab.key;
             const Icon = tab.icon;
@@ -138,7 +170,7 @@ export function ProfilePage({
                 onClick={(event) => followRoute(event, href)}
               >
                 <Icon className="profile-tab-icon" size={18} aria-hidden="true" />
-                <span>{tab.label}</span>
+                <span>{t(`profile.tabs.${tab.key}`)}</span>
               </a>
             );
           })}
@@ -160,11 +192,11 @@ export function ProfilePage({
                   <span>{user.email}</span>
                 </div>
               </div>
-              <Field label="Display name" value={displayName} onChange={setDisplayName} autoComplete="name" />
-              {error && <MessageBox tone="error" title="Unable to save">{error}</MessageBox>}
-              {status === "saved" && <MessageBox tone="success" title="Profile updated">Your settings have been saved.</MessageBox>}
+              <Field label={t("profile.account.displayName")} value={displayName} onChange={setDisplayName} autoComplete="name" />
+              {error && <MessageBox tone="error" title={t("errors.unableToSave")}>{error}</MessageBox>}
+              {status === "saved" && <MessageBox tone="success" title={t("profile.account.saved")}>{t("profile.account.savedBody")}</MessageBox>}
               <Button variant="primary" type="submit" disabled={status === "saving"}>
-                {status === "saving" ? "Saving..." : "Save changes"}
+                {status === "saving" ? t("profile.account.saving") : t("profile.account.save")}
               </Button>
             </form>
 
@@ -203,10 +235,28 @@ export function ProfilePage({
             hidden={activeTab !== "appearance"}
           >
             <section className="appearance-section" aria-labelledby="appearance-heading">
-              <h2 id="appearance-heading">Appearance</h2>
-              <p className="appearance-intro">Choose how iSputnik looks. Your choice is saved to your account and applies right away.</p>
+              <h2 id="appearance-heading">{t("profile.appearance.heading")}</h2>
+              <p className="appearance-intro">{t("profile.appearance.intro")}</p>
               <ThemePicker value={user.theme} onChange={chooseTheme} disabled={themeSaving} />
-              {themeError && <MessageBox tone="error" title="Unable to save">{themeError}</MessageBox>}
+              {themeError && <MessageBox tone="error" title={t("errors.unableToSave")}>{themeError}</MessageBox>}
+            </section>
+
+            <section className="appearance-section language-section" aria-labelledby="language-heading">
+              <h2 id="language-heading">{t("profile.language.heading")}</h2>
+              <p className="appearance-intro">{t("profile.language.intro")}</p>
+              <ChoiceGroup
+                legend={t("profile.language.legend")}
+                options={LANGUAGES.map((language) => ({
+                  value: language,
+                  // Endonyms on purpose: your own language is findable even when
+                  // the app is currently in one you can't read.
+                  label: t(`languageNames.${language}`)
+                }))}
+                value={user.language ?? "en"}
+                onChange={chooseLanguage}
+                disabled={languageSaving}
+              />
+              {languageError && <MessageBox tone="error" title={t("errors.unableToSave")}>{languageError}</MessageBox>}
             </section>
           </div>
 

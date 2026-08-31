@@ -23,6 +23,7 @@
 import { nanoid } from "nanoid";
 import { db } from "../../../../db.js";
 import { libraryAllowsDelete } from "../../shared/trash.js";
+import { locksByLibrary, lockCoveredIn, lockIntersectsIn } from "../../shared/folder-locks.js";
 import {
   containedIgnoreKeys,
   fingerprintFolders,
@@ -81,6 +82,16 @@ const dirOf = (filePath: string): string => {
   const cut = filePath.lastIndexOf("/");
   return cut === -1 ? "" : filePath.slice(0, cut);
 };
+
+/** What may never be deleted, from two sources the scan treats identically: a
+ *  protected LIBRARY (external / deleting turned off) and a locked FOLDER. `path`
+ *  answers for one file or folder path — is it covered by either? `subtree` answers
+ *  for a folder the scan wants to clear OUT — also true when a lock sits somewhere
+ *  inside it, because clearing the folder would have to delete the locked part. */
+interface DeletionBlocks {
+  path(libraryId: string, relPath: string): boolean;
+  subtree(libraryId: string, folderPath: string): boolean;
+}
 
 // A (library, folder) pair as a map key. NUL separates the two because a folder
 // path may contain anything else a filesystem allows — and because a plain space
@@ -205,7 +216,7 @@ function snapshotPhotoSets(
   write: Writer,
   files: ScanFile[],
   preferences: FolderPreference[],
-  protectedLibs: Set<string>
+  blocks: DeletionBlocks
 ): { written: number; suppressed: Set<string> } {
   // Every copy an exact set already speaks for. The near tier below must skip these:
   // an identical set is presented as one row, and without this every byte-identical
@@ -247,9 +258,10 @@ function snapshotPhotoSets(
     const keeperFile = group.find((file) => file.itemId === choice.keeperId) ?? group[0];
     const others = group.filter((file) => file.itemId !== keeperFile.itemId);
 
-    // Every copy outside a protected library can go; the ones inside are shown and
-    // never offered, so the card can say which copy is staying and why.
-    const doomed = others.filter((file) => !protectedLibs.has(file.libraryId));
+    // Every copy outside a protected library or locked folder can go; the ones
+    // inside are shown and never offered, so the card can say which copy is
+    // staying and why.
+    const doomed = others.filter((file) => !blocks.path(file.libraryId, file.path));
     const reclaimable = doomed.reduce((sum, file) => sum + (file.size ?? 0), 0);
 
     const resultId = write.result({
@@ -258,10 +270,11 @@ function snapshotPhotoSets(
     });
     const keeperMemberId = write.member(resultId, { file: keeperFile, role: "keep" });
     for (const file of others) {
+      const blocked = blocks.path(file.libraryId, file.path);
       write.member(resultId, {
         file,
-        role: protectedLibs.has(file.libraryId) ? "protected" : "delete",
-        keeperMemberId: protectedLibs.has(file.libraryId) ? null : keeperMemberId
+        role: blocked ? "protected" : "delete",
+        keeperMemberId: blocked ? null : keeperMemberId
       });
       suppressed.add(file.itemId);
     }
@@ -379,7 +392,7 @@ function snapshotNearSets(
   files: ScanFile[],
   suppressed: Set<string>,
   preferences: FolderPreference[],
-  protectedLibs: Set<string>
+  blocks: DeletionBlocks
 ): { written: number; separateShots: number } {
   const candidates = files.filter((file) => file.phash && !suppressed.has(file.itemId));
   if (candidates.length < 2) return { written: 0, separateShots: 0 };
@@ -415,7 +428,7 @@ function snapshotNearSets(
     const keeperFile = group.find((file) => file.itemId === choice.keeperId) ?? group[0];
     const others = group.filter((file) => file.itemId !== keeperFile.itemId);
 
-    const doomed = others.filter((file) => !protectedLibs.has(file.libraryId));
+    const doomed = others.filter((file) => !blocks.path(file.libraryId, file.path));
     if (doomed.length === 0) continue;
 
     // Graded against the copy that survives: if every FILE property agrees and only the
@@ -437,7 +450,7 @@ function snapshotNearSets(
     });
     const keeperMemberId = write.member(resultId, { file: keeperFile, role: "keep" });
     for (const file of others) {
-      const isProtected = protectedLibs.has(file.libraryId);
+      const isProtected = blocks.path(file.libraryId, file.path);
       write.member(resultId, {
         file,
         role: isProtected ? "protected" : "delete",
@@ -474,7 +487,7 @@ function snapshotFolderSets(
   prints: FolderFingerprint[],
   filesByFolder: (print: FolderFingerprint) => ScanFile[],
   preferences: FolderPreference[],
-  protectedLibs: Set<string>
+  blocks: DeletionBlocks
 ): { written: number; claimed: Set<string> } {
   const byDigest = new Map<string, FolderFingerprint[]>();
   const byKey = new Map<string, FolderFingerprint>();
@@ -522,7 +535,7 @@ function snapshotFolderSets(
     const keeper = group.find((print) =>
       print.libraryId === choice.keeper.libraryId && print.folderPath === choice.keeper.folderPath) ?? group[0];
     const others = group.filter((print) => print !== keeper);
-    const doomed = others.filter((print) => !protectedLibs.has(print.libraryId));
+    const doomed = others.filter((print) => !blocks.subtree(print.libraryId, print.folderPath));
     if (doomed.length === 0) continue;
 
     const resultId = write.result({
@@ -546,7 +559,7 @@ function snapshotFolderSets(
     }
 
     for (const print of others) {
-      const role: MemberRole = protectedLibs.has(print.libraryId) ? "protected" : "delete";
+      const role: MemberRole = blocks.subtree(print.libraryId, print.folderPath) ? "protected" : "delete";
       const folderId = write.folder(resultId, {
         libraryId: print.libraryId, folderPath: print.folderPath,
         role, itemCount: print.itemCount, bytes: print.bytes
@@ -580,7 +593,7 @@ function snapshotContained(
   filesByFolder: (print: FolderFingerprint) => ScanFile[],
   claimed: Set<string>,
   preferences: FolderPreference[],
-  protectedLibs: Set<string>,
+  blocks: DeletionBlocks,
   preferenceFor: (libraryId: string, path: string) => "keep" | "clear" | null
 ): number {
   // Every file that could be somebody's counterpart, by digest.
@@ -618,7 +631,7 @@ function snapshotContained(
       // Which copy is named as the survivor, best first: one that cannot be deleted
       // anyway, then a folder marked keep, then whatever sorts first.
       const best = options.sort((a, b) =>
-        Number(protectedLibs.has(b.libraryId)) - Number(protectedLibs.has(a.libraryId))
+        Number(blocks.path(b.libraryId, b.path)) - Number(blocks.path(a.libraryId, a.path))
         || Number(preferenceFor(b.libraryId, b.path) === "keep") - Number(preferenceFor(a.libraryId, a.path) === "keep")
         || (a.path < b.path ? -1 : 1))[0];
       taken.add(best.itemId);
@@ -642,7 +655,9 @@ function snapshotContained(
     if (print.itemCount < MIN_FOLDER_FILES) return false;
     // Never propose removing a folder the job says to keep photos in.
     if (preferenceFor(print.libraryId, print.folderPath) === "keep") return false;
-    return !protectedLibs.has(print.libraryId);
+    // Nor one a protected library or a folder lock forbids clearing out — a lock
+    // ANYWHERE inside counts, because emptying the folder would delete the locked part.
+    return !blocks.subtree(print.libraryId, print.folderPath);
   };
 
   let written = 0;
@@ -754,7 +769,7 @@ function snapshotContained(
       });
       const keeperFolderId = write.folder(resultId, {
         libraryId: destLibraryId, folderPath: destFolderPath,
-        role: protectedLibs.has(destLibraryId) ? "protected" : "keep",
+        role: blocks.path(destLibraryId, destFolderPath) ? "protected" : "keep",
         itemCount: group.length,
         bytes: group.reduce((sum, pair) => sum + (pair.counterpart.size ?? 0), 0)
       });
@@ -811,7 +826,7 @@ function snapshotOverlaps(
   files: ScanFile[],
   jobId: string,
   preferences: FolderPreference[],
-  protectedLibs: Set<string>
+  blocks: DeletionBlocks
 ): number {
   // Every hashed file, by the folder it sits DIRECTLY in — an overlap is about two
   // folders' own contents, not their subtrees. Direct contents make even a folder and
@@ -907,7 +922,9 @@ function snapshotOverlaps(
     const loseFiles = aKeeps ? pair.bFiles : pair.aFiles;
 
     // Nothing may be removed from the losing side, so there is no offer to make.
-    if (protectedLibs.has(loseRef.libraryId)) continue;
+    // The copies going are the folder's DIRECT contents, so a lock covering the
+    // folder covers all of them; a lock deeper down is some other folder's problem.
+    if (blocks.path(loseRef.libraryId, loseRef.folderPath)) continue;
     // A pair where either side's copies carry no detail row lost its items between
     // grouping and writing.
     if (loseFiles.some((file) => !details.has(file.itemId))) continue;
@@ -920,7 +937,7 @@ function snapshotOverlaps(
 
     const keepFolderId = write.folder(resultId, {
       libraryId: keepRef.libraryId, folderPath: keepRef.folderPath,
-      role: protectedLibs.has(keepRef.libraryId) ? "protected" : "keep",
+      role: blocks.path(keepRef.libraryId, keepRef.folderPath) ? "protected" : "keep",
       itemCount: keepFiles.length,
       bytes: keepFiles.reduce((sum, file) => sum + (file.size ?? 0), 0)
     });
@@ -1023,6 +1040,13 @@ export function runJobScan(jobId: string, userId: string): JobOutcome<DuplicateJ
     return best?.mode ?? null;
   };
   const protectedLibs = new Set(libraryIds.filter((id) => !libraryAllowsDelete(id)));
+  const locks = locksByLibrary(libraryIds);
+  const blocks: DeletionBlocks = {
+    path: (libraryId, relPath) =>
+      protectedLibs.has(libraryId) || lockCoveredIn(locks.get(libraryId), relPath),
+    subtree: (libraryId, folderPath) =>
+      protectedLibs.has(libraryId) || lockIntersectsIn(locks.get(libraryId), folderPath)
+  };
 
   let summary: ScanSummary = {
     photoSets: 0, nearSets: 0, separateShots: 0, folderSets: 0, contained: 0, overlaps: 0, results: 0
@@ -1056,19 +1080,19 @@ export function runJobScan(jobId: string, userId: string): JobOutcome<DuplicateJ
         // Strongest statement first, each pass deferring to the ones before it: an
         // identical-folders set speaks for everything inside it, a stored-elsewhere card
         // speaks for its whole folder, and overlaps are only what is left over.
-        const sets = snapshotFolderSets(write, prints, filesByFolder, preferences, protectedLibs);
+        const sets = snapshotFolderSets(write, prints, filesByFolder, preferences, blocks);
         summary.folderSets = sets.written;
         summary.contained = snapshotContained(
-          write, prints, files, filesByFolder, sets.claimed, preferences, protectedLibs, preferenceFor
+          write, prints, files, filesByFolder, sets.claimed, preferences, blocks, preferenceFor
         );
-        summary.overlaps = snapshotOverlaps(write, files, jobId, preferences, protectedLibs);
+        summary.overlaps = snapshotOverlaps(write, files, jobId, preferences, blocks);
       } else {
         // Exact first, then near over what it did not already speak for. The order is
         // not a preference: run the other way round and every byte-identical copy
         // appears twice, once in its own set and once inside a near set beside it.
-        const exact = snapshotPhotoSets(write, files, preferences, protectedLibs);
+        const exact = snapshotPhotoSets(write, files, preferences, blocks);
         summary.photoSets = exact.written;
-        const near = snapshotNearSets(write, files, exact.suppressed, preferences, protectedLibs);
+        const near = snapshotNearSets(write, files, exact.suppressed, preferences, blocks);
         summary.nearSets = near.written;
         summary.separateShots = near.separateShots;
       }

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { Info, Heart, Scale } from "lucide-react";
 import { api } from "../api";
 import { Button } from "./Button";
@@ -36,12 +37,13 @@ const CHANGELOG_PAGE = 25;
 
 type AboutTab = "about" | "credits";
 
-const ABOUT_TABS: { key: AboutTab; label: string; icon: typeof Info }[] = [
-  { key: "about", label: "About", icon: Info },
-  { key: "credits", label: "Credits", icon: Heart }
+const ABOUT_TABS: { key: AboutTab; labelKey: "tabAbout" | "tabCredits"; icon: typeof Info }[] = [
+  { key: "about", labelKey: "tabAbout", icon: Info },
+  { key: "credits", labelKey: "tabCredits", icon: Heart }
 ];
 
 export function AboutDetails({ about }: { about: AboutInfo }) {
+  const { t } = useTranslation(["common", "misc"]);
   const [tab, setTab] = useState<AboutTab>("about");
   // The release history runs to hundreds of entries, so /api/about sends only
   // the newest few and the rest arrive a page at a time from here.
@@ -60,17 +62,17 @@ export function AboutDetails({ about }: { about: AboutInfo }) {
       );
       setEarlier((current) => [...current, ...payload.versionUpdates]);
     } catch {
-      setEarlierError("Could not load earlier versions. Check your connection and try again.");
+      setEarlierError(t("misc:about.unableToLoadEarlier"));
     } finally {
       setLoadingEarlier(false);
     }
   };
 
   const stack = [
-    { label: "Runtime", value: about.runtime },
-    { label: "Database", value: about.database },
-    { label: "Server", value: about.server },
-    { label: "Frontend", value: about.frontend },
+    { label: t("misc:about.stackRuntime"), value: about.runtime },
+    { label: t("misc:about.stackDatabase"), value: about.database },
+    { label: t("misc:about.stackServer"), value: about.server },
+    { label: t("misc:about.stackFrontend"), value: about.frontend },
   ];
 
   return (
@@ -86,8 +88,8 @@ export function AboutDetails({ about }: { about: AboutInfo }) {
         </div>
       </div>
 
-      <div className="control-tabs about-tabs" role="tablist" aria-label="About sections">
-        {ABOUT_TABS.map(({ key, label, icon: Icon }) => {
+      <div className="control-tabs about-tabs" role="tablist" aria-label={t("misc:about.sectionsAria")}>
+        {ABOUT_TABS.map(({ key, labelKey, icon: Icon }) => {
           const selected = tab === key;
           return (
             <Button
@@ -101,7 +103,7 @@ export function AboutDetails({ about }: { about: AboutInfo }) {
               onClick={() => setTab(key)}
             >
               <Icon className="config-tab-icon" size={18} aria-hidden="true" />
-              <span>{label}</span>
+              <span>{t(`misc:about.${labelKey}`)}</span>
             </Button>
           );
         })}
@@ -122,15 +124,19 @@ export function AboutDetails({ about }: { about: AboutInfo }) {
         <div className="about-license">
           <Scale className="about-license-icon" size={18} aria-hidden="true" />
           <p className="about-license-text">
-            Free software under the{" "}
-            <a className="about-license-link" href={LICENSE_URL} target="_blank" rel="noreferrer">GNU AGPL v3</a>
-            {" — "}you are entitled to the source code for the version you are running.{" "}
-            <a className="about-license-link" href={SOURCE_URL} target="_blank" rel="noreferrer">Get the source</a>
+            <Trans
+              i18nKey="about.licenseText"
+              ns="misc"
+              components={{
+                agpl: <a className="about-license-link" href={LICENSE_URL} target="_blank" rel="noreferrer" />,
+                source: <a className="about-license-link" href={SOURCE_URL} target="_blank" rel="noreferrer" />
+              }}
+            />
           </p>
         </div>
 
-        <section className="version-updates" aria-label="Version updates">
-          <p className="version-updates-eyebrow">What's new</p>
+        <section className="version-updates" aria-label={t("misc:about.versionUpdatesAria")}>
+          <p className="version-updates-eyebrow">{t("misc:about.whatsNew")}</p>
           <div className="version-timeline-frame">
             <div className="version-timeline">
               {updates.map((update, index) => (
@@ -153,11 +159,11 @@ export function AboutDetails({ about }: { about: AboutInfo }) {
             </div>
             {/* Inside the scroll frame, so it meets the reader at the end of the
                 list rather than sitting below a box that still looks scrollable. */}
-            {earlierError && <MessageBox tone="error" title="Unable to load">{earlierError}</MessageBox>}
+            {earlierError && <MessageBox tone="error" title={t("misc:common.unableToLoad")}>{earlierError}</MessageBox>}
             {remaining > 0 && (
               <div className="version-updates-more">
                 <Button variant="secondary" onClick={loadEarlier} disabled={loadingEarlier}>
-                  {loadingEarlier ? "Loading earlier versions…" : `Show earlier versions (${remaining})`}
+                  {loadingEarlier ? t("misc:about.loadingEarlierVersions") : t("misc:about.showEarlierVersions", { count: remaining })}
                 </Button>
               </div>
             )}

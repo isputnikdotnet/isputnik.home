@@ -49,7 +49,7 @@ never confused.
 `rescanSingleBook` for audiobooks, a library rescan for ebooks.
 
 **What restore does and doesn't bring back:** the **files and the item** come back, freshly
-catalogued. Per-user listening/reading progress, bookmarks, favorites, shares, and
+catalogued. Per-user listening/reading progress, bookmarks, likes, shares, and
 collection entries from before are **not** resurrected (they were cleared on delete, just
 like a hard delete + re-add). In-app metadata that wasn't written to disk is re-derived by
 the rescan. Restoring needs the original library to still exist.
@@ -90,6 +90,11 @@ found under a cleanup's thousands of rows.
 
 Trashing reuses the library **delete** capability — manager+ on a **managed** library with
 `allowDelete` (see [permissions.md](permissions.md)); external/read-only libraries refuse it.
+**Folder locks** are the same rule one level down: an admin locks a `(library, folder)` pair
+(`library_folder_locks`, managed from the Gallery Folders view), and `trashBook` refuses any
+item at or below that path with **423 Locked** — whoever asks, whatever the caller. The lock
+gates trashing only: purge, empty and restore are unaffected, since a trashed item has
+already left the folder.
 Restoring and purging need **manage**. Server admins manage every item, including orphans
 whose library was later deleted. The Recycle Bin screen sits in the **Control Panel**
 (admin-only); the API also serves non-admin managers their own libraries' items for any

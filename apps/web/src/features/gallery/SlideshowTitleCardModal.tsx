@@ -1,36 +1,35 @@
 import { useEffect, useState } from "react";
-import { Image as ImageIcon, Type } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { Film, Image as ImageIcon, Type } from "lucide-react";
 import { Modal } from "../../shared/Modal";
 import { Button } from "../../shared/Button";
 import { ToggleSwitch } from "../../shared/ToggleSwitch";
 import { MessageBox } from "../../shared/MessageBox";
+import { PhotoPicker } from "./PhotoPicker";
 import type {
-  GalleryAsset, GallerySlideshowDetail, SlideshowPatch, SlideshowSubtitleMode, SlideshowTitleBackground
+  GalleryAsset, GalleryLibrary, GallerySlideshowDetail, SlideshowPatch, SlideshowCardFont, SlideshowCardSize,
+  SlideshowSubtitleMode, SlideshowTitleBackground
 } from "./types";
 import { faceFocusStyle } from "./types";
 
-const BACKGROUNDS: { value: SlideshowTitleBackground; label: string; hint: string }[] = [
-  { value: "black", label: "Black", hint: "White text on a plain black frame." },
-  { value: "photo", label: "A photo", hint: "One slide fills the frame, darkened behind the words." },
-  { value: "blur", label: "Blurred photo", hint: "The same slide, blurred — colour and mood without a competing subject." },
-  { value: "collage", label: "Collage", hint: "A grid tiled from photos spread across the whole slideshow." }
-];
+// A clip's length as the row shows it — "1:23" past a minute, "45s" under one.
+function clipLength(seconds: number | null): string | null {
+  if (!seconds || !Number.isFinite(seconds) || seconds <= 0) return null;
+  const whole = Math.max(1, Math.round(seconds));
+  if (whole < 60) return `${whole}s`;
+  return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
+}
 
-const SUBTITLES: { value: SlideshowSubtitleMode; label: string }[] = [
-  { value: "count", label: "Photo count" },
-  { value: "custom", label: "My own line" },
-  { value: "none", label: "Nothing" }
-];
+type CardTab = "opening" | "closing";
 
 /**
- * The movie's opening title card: what it says, how long it holds, and what the words
- * sit on. Every change is saved as it is made and the preview above is redrawn by the
- * SAME code the render uses — choosing a background over a photo nobody has seen is
- * guesswork, and this is a picture of the actual first three seconds.
- *
- * The background can only be the slideshow's own photos: videos would have to be
- * decoded to yield a frame, so they are left out of the picker and a slideshow of
- * nothing but videos falls back to the black card.
+ * The movie's opening title card and closing credits card, edited side by side with
+ * the picture they produce. One dialog, two tabs — Opening and Closing — over the
+ * same body: the preview and the card's own text on the left, the settings on the
+ * right. Every change is saved as it is made and the preview is redrawn by the SAME
+ * code the render uses, so what you see is the movie's actual first (or last)
+ * seconds. Font style and text size are shared by both cards — one typographic
+ * voice per movie.
  */
 export function SlideshowTitleCardModal({
   slideshow,
@@ -43,11 +42,45 @@ export function SlideshowTitleCardModal({
   onPatch: (fields: SlideshowPatch) => Promise<void> | void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation(["common", "galleryModals"]);
+  // Built fresh on every render (not module-level consts) so they stay reactive to a
+  // language switch — see the i18n plan's namespace-key typing pitfalls.
+  const BACKGROUNDS: { value: SlideshowTitleBackground; label: string; hint: string }[] = [
+    { value: "black", label: t("galleryModals:titleCard.bg.black.label"), hint: t("galleryModals:titleCard.bg.black.hint") },
+    { value: "photo", label: t("galleryModals:titleCard.bg.photo.label"), hint: t("galleryModals:titleCard.bg.photo.hint") },
+    { value: "blur", label: t("galleryModals:titleCard.bg.blur.label"), hint: t("galleryModals:titleCard.bg.blur.hint") },
+    { value: "collage", label: t("galleryModals:titleCard.bg.collage.label"), hint: t("galleryModals:titleCard.bg.collage.hint") }
+  ];
+  const SUBTITLES: { value: SlideshowSubtitleMode; label: string }[] = [
+    { value: "count", label: t("galleryModals:titleCard.subtitleCount") },
+    { value: "custom", label: t("galleryModals:titleCard.subtitleCustom") },
+    { value: "none", label: t("galleryModals:titleCard.subtitleNone") }
+  ];
+  // Each chip is drawn in its own face (the @font-face set in gallery.css, copies of
+  // the very files the server renders with), so picking a style is never blind — and
+  // the preview above redraws through the render code as the final word.
+  const FONTS: { value: SlideshowCardFont; label: string; hint: string }[] = [
+    { value: "classic", label: t("galleryModals:titleCard.font.classic.label"), hint: t("galleryModals:titleCard.font.classic.hint") },
+    { value: "serif", label: t("galleryModals:titleCard.font.serif.label"), hint: t("galleryModals:titleCard.font.serif.hint") },
+    { value: "bold", label: t("galleryModals:titleCard.font.bold.label"), hint: t("galleryModals:titleCard.font.bold.hint") },
+    { value: "script", label: t("galleryModals:titleCard.font.script.label"), hint: t("galleryModals:titleCard.font.script.hint") },
+    { value: "typewriter", label: t("galleryModals:titleCard.font.typewriter.label"), hint: t("galleryModals:titleCard.font.typewriter.hint") }
+  ];
+  const SIZES: { value: SlideshowCardSize; label: string }[] = [
+    { value: "small", label: t("galleryModals:titleCard.size.small") },
+    { value: "medium", label: t("galleryModals:titleCard.size.medium") },
+    { value: "large", label: t("galleryModals:titleCard.size.large") }
+  ];
+  const [card, setCard] = useState<CardTab>("opening");
+  const [clipPickerOpen, setClipPickerOpen] = useState(false);
   // The text fields are local until they lose focus: a PATCH per keystroke would be a
   // request per letter, and a preview redrawn mid-word.
   const [titleText, setTitleText] = useState(slideshow.titleText ?? "");
   const [subtitle, setSubtitle] = useState(slideshow.titleSubtitle ?? "");
+  const [closingText, setClosingText] = useState(slideshow.closingText ?? "");
+  const [closingLines, setClosingLines] = useState(slideshow.closingLines ?? "");
   const [seconds, setSeconds] = useState(slideshow.titleSeconds);
+  const [closingSeconds, setClosingSeconds] = useState(slideshow.closingSeconds);
   // Bumped after every saved change so the browser fetches a fresh card rather than
   // the one it already has for this URL.
   const [version, setVersion] = useState(0);
@@ -57,6 +90,7 @@ export function SlideshowTitleCardModal({
   const [error, setError] = useState("");
 
   useEffect(() => { setSeconds(slideshow.titleSeconds); }, [slideshow.titleSeconds]);
+  useEffect(() => { setClosingSeconds(slideshow.closingSeconds); }, [slideshow.closingSeconds]);
 
   const commit = async (fields: SlideshowPatch) => {
     setSaving(true);
@@ -67,67 +101,102 @@ export function SlideshowTitleCardModal({
       setLoadingPreview(true);
       setVersion((n) => n + 1);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to save the title card");
+      setError(err instanceof Error ? err.message : t("galleryModals:titleCard.unableToSave"));
     } finally {
       setSaving(false);
     }
   };
 
+  const opening = card === "opening";
+  const enabled = opening ? slideshow.titleEnabled : slideshow.closingEnabled;
+  const clip = slideshow.outroClip;
   const photos = assets.filter((asset) => asset.kind === "photo");
-  const usesPhoto = slideshow.titleBackground === "photo" || slideshow.titleBackground === "blur";
+  const background = opening ? slideshow.titleBackground : slideshow.closingBackground;
+  const photoItemId = opening ? slideshow.titlePhotoItemId : slideshow.closingPhotoItemId;
+  const usesPhoto = background === "photo" || background === "blur";
   // A background photo that was never chosen means the first slide, which is what the
   // render does — so the strip shows that one as selected rather than nothing.
-  const selectedPhotoId = slideshow.titlePhotoItemId ?? photos[0]?.id ?? null;
-  const previewUrl = `/api/library/gallery/slideshows/${slideshow.id}/title-card.png?v=${version}`;
+  const selectedPhotoId = photoItemId ?? photos[0]?.id ?? null;
+  const previewUrl = `/api/library/gallery/slideshows/${slideshow.id}/title-card.png?${opening ? "" : "card=closing&"}v=${version}`;
+
+  const switchCard = (next: CardTab) => {
+    if (next === card) return;
+    setCard(next);
+    setPreviewFailed(false);
+    setLoadingPreview(true);
+  };
 
   return (
     <Modal
       variant="panel"
-      title="Title card"
-      subtitle="The opening seconds of the rendered movie."
+      title={t("galleryModals:titleCard.title")}
+      subtitle={t("galleryModals:titleCard.subtitle")}
       icon={<Type size={20} />}
       className="slideshow-title-modal"
       onClose={onClose}
     >
-      <div className="modal-tab-content slideshow-title-body">
-        {error && <MessageBox tone="error" title="Unable to save">{error}</MessageBox>}
+      {/* Two panes: the preview (with the card's own text and its enable toggle)
+          fixed on the left while the settings scroll on the right — every change is
+          judged against the picture it produces, so the picture must never scroll
+          away. With the card switched off there are no settings, and the stage sits
+          alone, centred. */}
+      <div className={`modal-tab-content slideshow-title-body${enabled ? "" : " is-disabled"}`}>
+        <div className="slideshow-title-tabs" role="tablist" aria-label={t("galleryModals:titleCard.tabsAria")}>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={opening}
+            className={opening ? "is-on" : ""}
+            onClick={() => switchCard("opening")}
+          >
+            {t("galleryModals:titleCard.tabOpening")}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={!opening}
+            className={opening ? "" : "is-on"}
+            onClick={() => switchCard("closing")}
+          >
+            {t("galleryModals:titleCard.tabClosing")}
+          </button>
+        </div>
 
-        <div className="slideshow-title-preview">
-          {slideshow.titleEnabled ? (
-            previewFailed ? (
-              <p className="management-empty">The preview couldn’t be drawn. The movie will still render.</p>
+        {error && (
+          <div className="slideshow-title-error">
+            <MessageBox tone="error" title={t("common:errors.unableToSave")}>{error}</MessageBox>
+          </div>
+        )}
+
+        <div className="slideshow-title-stage">
+          <div className="slideshow-title-preview">
+            {enabled ? (
+              previewFailed ? (
+                <p className="management-empty">{t("galleryModals:titleCard.previewFailed")}</p>
+              ) : (
+                <img
+                  key={`${card}-${version}`}
+                  src={previewUrl}
+                  alt={opening ? t("galleryModals:titleCard.previewAltOpening") : t("galleryModals:titleCard.previewAltClosing")}
+                  className={loadingPreview || saving ? "is-loading" : ""}
+                  onLoad={() => setLoadingPreview(false)}
+                  onError={() => { setLoadingPreview(false); setPreviewFailed(true); }}
+                />
+              )
             ) : (
-              <img
-                key={version}
-                src={previewUrl}
-                alt="Preview of the movie’s title card"
-                className={loadingPreview || saving ? "is-loading" : ""}
-                onLoad={() => setLoadingPreview(false)}
-                onError={() => { setLoadingPreview(false); setPreviewFailed(true); }}
-              />
-            )
-          ) : (
-            <p className="management-empty">No title card — the movie opens straight on the first photo.</p>
-          )}
-        </div>
+              <p className="management-empty">
+                {opening
+                  ? t("galleryModals:titleCard.disabledOpening")
+                  : t("galleryModals:titleCard.disabledClosing")}
+              </p>
+            )}
+          </div>
 
-        <div className="slideshow-title-row">
-          <ToggleSwitch
-            checked={slideshow.titleEnabled}
-            disabled={saving}
-            onChange={(enabled) => void commit({ titleEnabled: enabled })}
-            ariaLabel="Open the movie with a title card"
-          />
-          <span>
-            Open the movie with a title card
-            <small>It cross-fades into the first photo with the slideshow’s own transition.</small>
-          </span>
-        </div>
-
-        {slideshow.titleEnabled && (
-          <>
-            <div className="slideshow-title-field">
-              <label htmlFor="slideshow-title-text">Title</label>
+          {/* What the card says lives with the picture that shows it: type here, see
+              it drawn above on the next save. */}
+          {enabled && (opening ? (
+            <div className="slideshow-title-field" key="opening-title">
+              <label htmlFor="slideshow-title-text">{t("galleryModals:titleCard.titleFieldLabel")}</label>
               <input
                 id="slideshow-title-text"
                 type="text"
@@ -141,75 +210,169 @@ export function SlideshowTitleCardModal({
                 }}
                 onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }}
               />
-              <small className="muted">Leave it empty to use the slideshow’s name.</small>
+              <small className="muted">{t("galleryModals:titleCard.titleEmptyHint")}</small>
             </div>
+          ) : (
+            <div className="slideshow-title-field" key="closing-title">
+              <label htmlFor="slideshow-closing-text">{t("galleryModals:titleCard.endTitleFieldLabel")}</label>
+              <input
+                id="slideshow-closing-text"
+                type="text"
+                maxLength={120}
+                value={closingText}
+                placeholder={t("galleryModals:titleCard.theEndPlaceholder")}
+                onChange={(event) => setClosingText(event.target.value)}
+                onBlur={() => {
+                  const next = closingText.trim();
+                  if (next !== (slideshow.closingText ?? "")) void commit({ closingText: next || null });
+                }}
+                onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }}
+              />
+              <small className="muted">{t("galleryModals:titleCard.closingEmptyHint")}</small>
+            </div>
+          ))}
 
-            <div className="slideshow-title-field">
-              <span className="slideshow-setting-label">Second line</span>
-              <div className="slideshow-transitions">
-                {SUBTITLES.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    className={slideshow.titleSubtitleMode === option.value ? "is-on" : ""}
-                    aria-pressed={slideshow.titleSubtitleMode === option.value}
+          <div className="slideshow-title-row">
+            <ToggleSwitch
+              checked={enabled}
+              disabled={saving}
+              onChange={(next) => void commit(opening ? { titleEnabled: next } : { closingEnabled: next })}
+              ariaLabel={opening ? t("galleryModals:titleCard.openToggleAria") : t("galleryModals:titleCard.closeToggleAria")}
+            />
+            <span>
+              {opening ? t("galleryModals:titleCard.openToggleAria") : t("galleryModals:titleCard.closeToggleAria")}
+              <small>
+                {opening
+                  ? t("galleryModals:titleCard.openCrossfadeHint")
+                  : t("galleryModals:titleCard.closeSilenceHint")}
+              </small>
+            </span>
+          </div>
+
+          {/* The post-credit clip shares the closing tab with the card, but it is a
+              SEPARATE ending, not a setting of the card: either can end the movie on
+              its own, and with both the card plays first. So it lives outside the
+              enabled-only settings — visible, and editable, with the card switched
+              off — behind a rule that keeps the two from reading as one control. */}
+          {!opening && (
+          <div className="slideshow-title-field slideshow-clip-field">
+            <span className="slideshow-setting-label">{t("galleryModals:titleCard.closingClipLabel")}</span>
+            {clip ? (
+              <>
+                <div className="slideshow-clip-row">
+                  <span className="slideshow-clip-thumb">
+                    {clip.coverUrl
+                      ? <img src={clip.coverUrl} alt="" loading="lazy" />
+                      : <Film size={18} aria-hidden="true" />}
+                  </span>
+                  <span className="slideshow-clip-name">
+                    {clip.title}
+                    {clipLength(clip.durationSeconds) && <small>{clipLength(clip.durationSeconds)}</small>}
+                  </span>
+                  <Button variant="text" disabled={saving} onClick={() => setClipPickerOpen(true)}>{t("galleryModals:titleCard.change")}</Button>
+                  <Button
+                    variant="text"
                     disabled={saving}
-                    onClick={() => {
-                      if (slideshow.titleSubtitleMode !== option.value) void commit({ titleSubtitleMode: option.value });
-                    }}
+                    onClick={() => void commit({ outroItemId: null })}
                   >
-                    {option.label}
-                  </button>
-                ))}
+                    {t("galleryModals:titleCard.remove")}
+                  </Button>
+                </div>
+                <div className="slideshow-title-row slideshow-clip-sound">
+                  <ToggleSwitch
+                    checked={slideshow.outroSound}
+                    disabled={saving}
+                    onChange={(next) => void commit({ outroSound: next })}
+                    ariaLabel={t("galleryModals:titleCard.useClipSoundAria")}
+                  />
+                  <span>
+                    {t("galleryModals:titleCard.useClipSoundAria")}
+                    <small>{t("galleryModals:titleCard.clipSoundHint")}</small>
+                  </span>
+                </div>
+              </>
+            ) : (
+              <div>
+                <Button variant="secondary" disabled={saving} onClick={() => setClipPickerOpen(true)}>
+                  <Film size={15} aria-hidden="true" /> {t("galleryModals:titleCard.chooseVideo")}
+                </Button>
               </div>
-              {slideshow.titleSubtitleMode === "custom" && (
-                <input
-                  type="text"
-                  maxLength={120}
-                  value={subtitle}
-                  placeholder="Summer 2026 · Sicily"
-                  aria-label="Second line of the title card"
-                  onChange={(event) => setSubtitle(event.target.value)}
+            )}
+            <small className="muted">{t("galleryModals:titleCard.closingClipHint")}</small>
+          </div>
+          )}
+        </div>
+
+        {enabled && (
+          <div className="slideshow-title-fields">
+            {opening ? (
+              <div className="slideshow-title-field">
+                <span className="slideshow-setting-label">{t("galleryModals:titleCard.secondLineLabel")}</span>
+                <div className="slideshow-transitions">
+                  {SUBTITLES.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      className={slideshow.titleSubtitleMode === option.value ? "is-on" : ""}
+                      aria-pressed={slideshow.titleSubtitleMode === option.value}
+                      disabled={saving}
+                      onClick={() => {
+                        if (slideshow.titleSubtitleMode !== option.value) void commit({ titleSubtitleMode: option.value });
+                      }}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+                {slideshow.titleSubtitleMode === "custom" && (
+                  <>
+                    <textarea
+                      rows={3}
+                      maxLength={500}
+                      value={subtitle}
+                      placeholder={t("galleryModals:titleCard.subtitlePlaceholder")}
+                      aria-label={t("galleryModals:titleCard.customLinesAria")}
+                      onChange={(event) => setSubtitle(event.target.value)}
+                      onBlur={() => {
+                        const next = subtitle.trim();
+                        if (next !== (slideshow.titleSubtitle ?? "")) void commit({ titleSubtitle: next || null });
+                      }}
+                    />
+                    <small className="muted">{t("galleryModals:titleCard.sixLinesHint")}</small>
+                  </>
+                )}
+              </div>
+            ) : (
+              <div className="slideshow-title-field">
+                <label className="slideshow-setting-label" htmlFor="slideshow-closing-lines">{t("galleryModals:titleCard.creditsLabel")}</label>
+                <textarea
+                  id="slideshow-closing-lines"
+                  rows={4}
+                  maxLength={500}
+                  value={closingLines}
+                  placeholder={t("galleryModals:titleCard.creditsPlaceholder")}
+                  onChange={(event) => setClosingLines(event.target.value)}
                   onBlur={() => {
-                    const next = subtitle.trim();
-                    if (next !== (slideshow.titleSubtitle ?? "")) void commit({ titleSubtitle: next || null });
+                    const next = closingLines.trim();
+                    if (next !== (slideshow.closingLines ?? "")) void commit({ closingLines: next || null });
                   }}
-                  onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }}
                 />
-              )}
-            </div>
-
-            <div className="slideshow-title-field">
-              <label className="slideshow-setting-label" htmlFor="slideshow-title-seconds">On screen for</label>
-              <div className="slideshow-dwell">
-                <input
-                  id="slideshow-title-seconds"
-                  type="range"
-                  min={1}
-                  max={10}
-                  step={1}
-                  value={seconds}
-                  disabled={saving}
-                  onChange={(event) => setSeconds(Number(event.target.value))}
-                  onPointerUp={() => { if (seconds !== slideshow.titleSeconds) void commit({ titleSeconds: seconds }); }}
-                  onKeyUp={() => { if (seconds !== slideshow.titleSeconds) void commit({ titleSeconds: seconds }); }}
-                />
-                <span className="slideshow-dwell-value">{seconds}s</span>
+                <small className="muted">{t("galleryModals:titleCard.sixLinesHintClosing")}</small>
               </div>
-            </div>
+            )}
 
             <div className="slideshow-title-field">
-              <span className="slideshow-setting-label">Background</span>
+              <span className="slideshow-setting-label">{t("galleryModals:titleCard.fontStyleLabel")}</span>
               <div className="slideshow-transitions">
-                {BACKGROUNDS.map((option) => (
+                {FONTS.map((option) => (
                   <button
                     key={option.value}
                     type="button"
-                    className={slideshow.titleBackground === option.value ? "is-on" : ""}
-                    aria-pressed={slideshow.titleBackground === option.value}
+                    className={`slideshow-card-font is-${option.value}${slideshow.cardFont === option.value ? " is-on" : ""}`}
+                    aria-pressed={slideshow.cardFont === option.value}
                     disabled={saving}
                     onClick={() => {
-                      if (slideshow.titleBackground !== option.value) void commit({ titleBackground: option.value });
+                      if (slideshow.cardFont !== option.value) void commit({ cardFont: option.value });
                     }}
                   >
                     {option.label}
@@ -217,19 +380,90 @@ export function SlideshowTitleCardModal({
                 ))}
               </div>
               <small className="muted">
-                {BACKGROUNDS.find((option) => option.value === slideshow.titleBackground)?.hint}
+                {FONTS.find((option) => option.value === slideshow.cardFont)?.hint}{t("galleryModals:titleCard.fontHintSuffix")}
+              </small>
+            </div>
+
+            <div className="slideshow-title-field">
+              <span className="slideshow-setting-label">{t("galleryModals:titleCard.textSizeLabel")}</span>
+              <div className="slideshow-transitions">
+                {SIZES.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    className={slideshow.cardSize === option.value ? "is-on" : ""}
+                    aria-pressed={slideshow.cardSize === option.value}
+                    disabled={saving}
+                    onClick={() => {
+                      if (slideshow.cardSize !== option.value) void commit({ cardSize: option.value });
+                    }}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+              <small className="muted">{t("galleryModals:titleCard.sizeHint")}</small>
+            </div>
+
+            <div className="slideshow-title-field">
+              <label className="slideshow-setting-label" htmlFor="slideshow-card-seconds">{t("galleryModals:titleCard.onScreenForLabel")}</label>
+              <div className="slideshow-dwell">
+                <input
+                  id="slideshow-card-seconds"
+                  type="range"
+                  min={1}
+                  max={opening ? 10 : 15}
+                  step={1}
+                  value={opening ? seconds : closingSeconds}
+                  disabled={saving}
+                  onChange={(event) => (opening ? setSeconds : setClosingSeconds)(Number(event.target.value))}
+                  onPointerUp={() => {
+                    if (opening && seconds !== slideshow.titleSeconds) void commit({ titleSeconds: seconds });
+                    if (!opening && closingSeconds !== slideshow.closingSeconds) void commit({ closingSeconds });
+                  }}
+                  onKeyUp={() => {
+                    if (opening && seconds !== slideshow.titleSeconds) void commit({ titleSeconds: seconds });
+                    if (!opening && closingSeconds !== slideshow.closingSeconds) void commit({ closingSeconds });
+                  }}
+                />
+                <span className="slideshow-dwell-value">{opening ? seconds : closingSeconds}s</span>
+              </div>
+              {!opening && <small className="muted">{t("galleryModals:titleCard.closingFadeHint")}</small>}
+            </div>
+
+            <div className="slideshow-title-field">
+              <span className="slideshow-setting-label">{t("galleryModals:titleCard.backgroundLabel")}</span>
+              <div className="slideshow-transitions">
+                {BACKGROUNDS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    className={background === option.value ? "is-on" : ""}
+                    aria-pressed={background === option.value}
+                    disabled={saving}
+                    onClick={() => {
+                      if (background !== option.value) {
+                        void commit(opening ? { titleBackground: option.value } : { closingBackground: option.value });
+                      }
+                    }}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+              <small className="muted">
+                {BACKGROUNDS.find((option) => option.value === background)?.hint}
               </small>
             </div>
 
             {usesPhoto && (
               photos.length === 0 ? (
-                <MessageBox tone="info" title="No photo to use">
-                  This slideshow has only videos, and a video can’t be used as a background. The card
-                  will be drawn on black until you add a photo.
+                <MessageBox tone="info" title={t("galleryModals:titleCard.noPhotoTitle")}>
+                  {t("galleryModals:titleCard.noPhotoBody")}
                 </MessageBox>
               ) : (
                 <div className="slideshow-title-field">
-                  <span className="slideshow-setting-label">Which photo</span>
+                  <span className="slideshow-setting-label">{t("galleryModals:titleCard.whichPhotoLabel")}</span>
                   <div className="slideshow-title-photos">
                     {photos.map((photo) => (
                       <button
@@ -239,8 +473,12 @@ export function SlideshowTitleCardModal({
                         aria-pressed={photo.id === selectedPhotoId}
                         disabled={saving}
                         title={photo.title}
-                        aria-label={`Use ${photo.title} as the title-card background`}
-                        onClick={() => { if (photo.id !== slideshow.titlePhotoItemId) void commit({ titlePhotoItemId: photo.id }); }}
+                        aria-label={t("galleryModals:titleCard.usePhotoAria", { title: photo.title })}
+                        onClick={() => {
+                          if (photo.id !== photoItemId) {
+                            void commit(opening ? { titlePhotoItemId: photo.id } : { closingPhotoItemId: photo.id });
+                          }
+                        }}
                       >
                         {photo.coverUrl
                           ? <img src={photo.coverUrl} alt="" loading="lazy" style={faceFocusStyle(photo)} />
@@ -251,13 +489,25 @@ export function SlideshowTitleCardModal({
                 </div>
               )
             )}
-          </>
+          </div>
         )}
       </div>
 
       <div className="modal-actions">
-        <Button variant="secondary" onClick={onClose}>Close</Button>
+        <Button variant="secondary" onClick={onClose}>{t("common:common.close")}</Button>
       </div>
+
+      {clipPickerOpen && (
+        <PhotoPicker
+          title={t("galleryModals:titleCard.pickClosingClip")}
+          pick="video"
+          onPick={(asset) => {
+            setClipPickerOpen(false);
+            void commit({ outroItemId: asset.id });
+          }}
+          onClose={() => setClipPickerOpen(false)}
+        />
+      )}
     </Modal>
   );
 }

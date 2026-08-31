@@ -3,8 +3,6 @@
 Before you can add a library, the server needs to know two things. Both live in
 **Control panel → Library → Storage**.
 
-![Storage before anything is configured](images/10-storage-empty.png)
-
 | | What it is | Why it's needed |
 |---|---|---|
 | **Thumbnail storage** | One writable folder where the app keeps the covers and previews it generates | These are *generated* files. They're kept away from your originals so your media folders stay exactly as you arranged them. |
@@ -35,8 +33,6 @@ container or any folder inside it.
 
 Choose **Add container** and give it a name and a path:
 
-![Adding a storage container](images/12-storage-add-container.png)
-
 | Field | Example |
 |---|---|
 | **Container name** | `Family media` — a label for you, shown when picking folders |
@@ -44,8 +40,6 @@ Choose **Add container** and give it a name and a path:
 
 The folder has to exist already; the app won't create it. If the path is wrong
 or unreadable, you're told immediately rather than at scan time.
-
-![Storage once both are set](images/11-storage-configured.png)
 
 Both green? You're ready for **[Setting up libraries](libraries.md)**.
 

@@ -1,13 +1,13 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Album, ArrowLeft, CalendarClock, CalendarDays, CheckCheck, CheckCircle2, ChevronDown, ChevronRight, Circle, Combine, Compass, Download, Film, FolderOpen, FolderPlus, Image as ImageIcon, ImagePlus, LayoutGrid, LibraryBig, ListMusic, MapPin, MapPinned, Pencil, Play, Plus, Heart, Folder, RefreshCw, Send, Share2, Sparkles, SquareCheck, Trash2, UploadCloud, Users, X } from "lucide-react";
+import { Trans, useTranslation } from "react-i18next";
+import { Album, ArrowLeft, CalendarClock, CalendarDays, CheckCheck, CheckCircle2, ChevronDown, ChevronRight, Circle, Combine, Compass, Download, Film, FolderOpen, FolderPlus, Image as ImageIcon, ImagePlus, LayoutGrid, LibraryBig, ListMusic, Lock, LockOpen, MapPin, MapPinned, Pencil, Play, Plus, Heart, Folder, RefreshCw, Send, Share2, Sparkles, SquareCheck, Tags, Trash2, UploadCloud, Users, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { followRoute, galleryHref, navigate, type GalleryView } from "../../router";
 import { Button } from "../../shared/Button";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { MessageBox } from "../../shared/MessageBox";
-import { formatCount } from "../audiobooks/AudiobooksPage";
 import { LibraryPageHeader } from "../../shared/LibraryPageHeader";
 import { LibraryPageToolbar } from "../../shared/LibraryPageToolbar";
 import { SortMenu } from "../../shared/SortMenu";
@@ -17,16 +17,19 @@ import { AssetTile, PersonAvatar, type LightboxSource } from "./AssetTile";
 import { useGalleryAlbums } from "./useGalleryAlbums";
 import { useGallerySlideshows } from "./useGallerySlideshows";
 import { useGalleryPeople } from "./useGalleryPeople";
-import { GalleryLightbox } from "./GalleryLightbox";
+import { GalleryLightbox, type GalleryAssetChange } from "./GalleryLightbox";
 import { GalleryUploadModal } from "./GalleryUploadModal";
+import { GallerySetTags } from "./GallerySetTags";
 import { GalleryFilterButton, GalleryFilterChips, EMPTY_GALLERY_FILTERS, activeGalleryFilterCount, type GalleryFilters } from "./GalleryFilter";
-import { GROUPING_OPTIONS, TILE_SIZE_OPTIONS, galleryGridClass, readGalleryView, writeGalleryView, type GalleryGrouping, type GalleryTileSize, type GalleryViewPrefs } from "./gallery-view";
+import { getGroupingOptions, getTileSizeOptions, galleryGridClass, readGalleryView, writeGalleryView, type GalleryGrouping, type GalleryTileSize, type GalleryViewPrefs } from "./gallery-view";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { AddToAlbumModal } from "./AddToAlbumModal";
 import { AddToSlideshowModal } from "./AddToSlideshowModal";
 import { GalleryDateModal } from "./GalleryDateModal";
 import { GalleryLocationModal } from "./GalleryLocationModal";
-import { GalleryFolderPicker } from "./GalleryFolderPicker";
+import { GalleryTagsModal } from "./GalleryTagsModal";
+import { SlideshowMovieLibraryModal } from "./SlideshowMovieLibraryModal";
+import { PhotoPicker } from "./PhotoPicker";
 import { GallerySlideshowEditor } from "./GallerySlideshowEditor";
 import { ShareSetModal } from "../share/ShareSetModal";
 import { ShareAlbumModal } from "./ShareAlbumModal";
@@ -36,8 +39,13 @@ import { Modal } from "../../shared/Modal";
 import { ChoiceGroup } from "../../shared/ChoiceGroup";
 import type { GalleryAlbum, GalleryAlbumDetail, GalleryAsset, GalleryFaceSettings, GalleryFacets, GalleryFolder, GalleryLibrary, GalleryMapPoint, GalleryMemories, GalleryMemoryGroup, GalleryMemorySuggestion, GalleryPerson, GallerySlideshow, GallerySlideshowDetail, GallerySlideshowSettings, SlideshowTransition } from "./types";
 import { faceFocusStyle } from "./types";
+import i18n from "../../i18n";
 
 const PAGE_SIZE = 80;
+// The most a single browse request may ask for (the server caps it there). A
+// refresh re-fetches what is already on screen in chunks this size, so a visitor
+// deep into "Load more" keeps every page they asked for.
+const MAX_PAGE_SIZE = 200;
 // The People grid can hold thousands of clusters; render them a page at a time so a
 // wall of avatar thumbnails doesn't flood the cover route (and trip its rate limit).
 const PEOPLE_PAGE = 120;
@@ -51,35 +59,44 @@ type TimelineSort = "taken" | "added";
 // What the page calls itself in each view. The Timeline is the gallery's own
 // front page, so it keeps the section's name; every other view is titled after
 // the nav item that opens it, the way Series and Narrators are under Audiobooks.
-const VIEW_TITLES: Record<GalleryView, string> = {
-  timeline: "Gallery",
-  memories: "Memories",
-  albums: "Albums",
-  slideshows: "Slideshows",
-  folder: "Folders",
-  people: "People",
-  map: "Map"
-};
+//
+// A function, not a frozen const, so a language switch is picked up on the next
+// render instead of caching whichever language was active on first import.
+function getViewTitles(): Record<GalleryView, string> {
+  return {
+    timeline: i18n.t("gallery:page.views.timeline"),
+    memories: i18n.t("gallery:page.views.memories"),
+    albums: i18n.t("gallery:page.views.albums"),
+    slideshows: i18n.t("gallery:page.views.slideshows"),
+    folder: i18n.t("gallery:page.views.folder"),
+    people: i18n.t("gallery:page.views.people"),
+    map: i18n.t("gallery:page.views.map")
+  };
+}
 
 // Timeline sort, presented through the same compact dropdown the audiobooks/ebooks
 // header uses, so the controls line up visually. The media-type (photo/video)
 // filter lives in the Filter panel with the other facets.
-const SORT_OPTIONS = [
-  { value: "taken" as const, label: "Date taken" },
-  { value: "added" as const, label: "Date uploaded" }
-];
+function getSortOptions() {
+  return [
+    { value: "taken" as const, label: i18n.t("gallery:page.sort.taken") },
+    { value: "added" as const, label: i18n.t("gallery:page.sort.added") }
+  ];
+}
 
 // Titles for the Memories strip — the server reports how wide it had to match
 // before it found anything, and the heading must not overpromise.
-const MEMORIES_TITLES: Record<GalleryMemories["precision"], string> = {
-  day: "On this day",
-  near: "Around this day",
-  month: "This month over the years"
-};
+function getMemoriesTitles(): Record<GalleryMemories["precision"], string> {
+  return {
+    day: i18n.t("gallery:memories.titleDay"),
+    near: i18n.t("gallery:memories.titleNear"),
+    month: i18n.t("gallery:memories.titleMonth")
+  };
+}
 
 function yearsAgo(year: number): string {
   const diff = new Date().getFullYear() - year;
-  return diff === 1 ? "1 year ago" : `${diff} years ago`;
+  return i18n.t("gallery:memories.yearsAgo", { count: diff });
 }
 
 // Date heading for one year group in the Memories view — today's month/day
@@ -94,14 +111,14 @@ function memoryDateLabel(precision: GalleryMemoryGroup["precision"], year: numbe
   }
   const day = new Date(year, now.getMonth(), now.getDate())
     .toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
-  return precision === "near" ? `Around ${day}` : day;
+  return precision === "near" ? i18n.t("gallery:memories.aroundDate", { date: day }) : day;
 }
 
 // Calendar-day label for the timeline header from an asset's takenAt.
 function dayLabel(takenAt: string | null): string {
-  if (!takenAt) return "Undated";
+  if (!takenAt) return i18n.t("gallery:timeline.undated");
   const d = new Date(takenAt);
-  if (Number.isNaN(d.getTime())) return "Undated";
+  if (Number.isNaN(d.getTime())) return i18n.t("gallery:timeline.undated");
   return d.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
 }
 
@@ -130,6 +147,10 @@ export function GalleryPage({
   initialFolder?: string;
   initialLibraryId?: string | null;
 }) {
+  const { t } = useTranslation(["common", "gallery"]);
+  const VIEW_TITLES = getViewTitles();
+  const SORT_OPTIONS = getSortOptions();
+  const MEMORIES_TITLES = getMemoriesTitles();
   const [libraries, setLibraries] = useState<GalleryLibrary[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
@@ -146,7 +167,12 @@ export function GalleryPage({
   // the slideshow topbars.
   const [sendToSubject, setSendToSubject] = useState<SendToSubject | null>(null);
 
-  const [sort, setSort] = useState<TimelineSort>("taken");
+  // Seeded from the address so a deep link can ask for a particular order — the
+  // home's "New photos" card links to /gallery?sort=added, and the page it opens
+  // is then the set that card was advertising. Anything else means the default.
+  const [sort, setSort] = useState<TimelineSort>(
+    () => (new URLSearchParams(window.location.search).get("sort") === "added" ? "added" : "taken")
+  );
 
   // How the photo grids look: tile size, and whether the timeline comes in dated
   // sections or as one uninterrupted grid. Both live behind the toolbar's View
@@ -190,6 +216,8 @@ export function GalleryPage({
 
   // Folder state.
   const [parent, setParent] = useState("");
+  // Whether the folder currently open is itself locked (deletion refused inside).
+  const [parentLocked, setParentLocked] = useState(false);
   const [folders, setFolders] = useState<GalleryFolder[]>([]);
   const [folderAssets, setFolderAssets] = useState<GalleryAsset[]>([]);
   // Photos/videos sitting DIRECTLY in the open folder (subfolders excluded) — the
@@ -226,13 +254,13 @@ export function GalleryPage({
     bulkSlideshowOpen, setBulkSlideshowOpen, browseOpen, setBrowseOpen,
     slideshowCoverPickerOpen, setSlideshowCoverPickerOpen,
     movieDeleteOpen, setMovieDeleteOpen, movieDeleteBusy,
-    slideshowSettings, loadSlideshowSettings, setRenderLibrary,
+    slideshowSettings, loadSlideshowSettings,
     loadSlideshows, openSlideshow, patchSlideshow, setSlideshowCover, renderSlideshowMovie,
     deleteSlideshowMovie, reorderSlideshow, removeFromSlideshow,
     createSlideshowSubmit, confirmDeleteSlideshow
   } = useGallerySlideshows({ ...status, isAdmin });
   const {
-    people, selectedPerson, setSelectedPerson, personAssets, personTotal,
+    people, selectedPerson, setSelectedPerson, personAssets, setPersonAssets, personTotal,
     renameValue, setRenameValue, mergeOpen, setMergeOpen,
     personCoverPickerOpen, setPersonCoverPickerOpen, setPersonCover,
     personDeleteOpen, setPersonDeleteOpen, personPick, setPersonPick,
@@ -272,11 +300,11 @@ export function GalleryPage({
   // Slideshows which only step aside while something specific is open.
   const showToolbar = showBrowseChrome && view !== "people";
   const searchPlaceholder = view === "timeline"
-    ? "Search photos & videos..."
-    : view === "folder" ? "Search folders..."
-      : view === "albums" ? "Search albums..."
-        : view === "slideshows" ? "Search slideshows..."
-          : "Search people...";
+    ? t("gallery:page.search.photos")
+    : view === "folder" ? t("gallery:page.search.folders")
+      : view === "albums" ? t("gallery:page.search.albums")
+        : view === "slideshows" ? t("gallery:page.search.slideshows")
+          : t("gallery:page.search.people");
 
   // Folder to open on the next switch into the Folders view (set by the lightbox's
   // Folder link); the view-change effect consumes it instead of loading the root.
@@ -322,6 +350,7 @@ export function GalleryPage({
   const [bulkCollectionOpen, setBulkCollectionOpen] = useState(false);
   const [bulkDateOpen, setBulkDateOpen] = useState(false);
   const [bulkLocationOpen, setBulkLocationOpen] = useState(false);
+  const [bulkTagsOpen, setBulkTagsOpen] = useState(false);
   // Share is opened over an explicit id set — the bulk bar passes the current
   // selection, a day/year header passes just that group. null = closed.
   const [shareIds, setShareIds] = useState<string[] | null>(null);
@@ -334,7 +363,7 @@ export function GalleryPage({
       setLibraries(payload.libraries);
       setLoaded(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to load gallery libraries");
+      setError(err instanceof Error ? err.message : t("gallery:page.errors.loadLibraries"));
     }
   }, []);
 
@@ -384,7 +413,7 @@ export function GalleryPage({
         );
         if (!cancelled) setFolderMatches(payload);
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Unable to search folders");
+        if (!cancelled) setError(err instanceof Error ? err.message : t("gallery:page.errors.searchFolders"));
       }
     })();
     return () => { cancelled = true; };
@@ -398,49 +427,91 @@ export function GalleryPage({
     setQuery("");
   }, [view]);
 
+  // Which libraries this draws from is already inside `filters.libraries` — the
+  // POST body's JSON carries it natively, unlike the GET views below which need
+  // scopeParams()'s query-string form.
+  const fetchTimelinePage = useCallback((offset: number, limit: number) =>
+    api<{ assets: GalleryAsset[]; total: number }>("/api/library/gallery/timeline", {
+      method: "POST",
+      body: JSON.stringify({ q: query, kinds: filters.kinds, filters, sort, limit, offset })
+    }), [sort, query, filters]);
+
   const loadTimeline = useCallback(async (offset: number) => {
     setLoading(true);
     setError("");
     try {
-      // Which libraries this draws from is already inside `filters.libraries` —
-      // the POST body's JSON carries it natively, unlike the GET views below
-      // which need scopeParams()'s query-string form.
-      const payload = await api<{ assets: GalleryAsset[]; total: number }>("/api/library/gallery/timeline", {
-        method: "POST",
-        body: JSON.stringify({ q: query, kinds: filters.kinds, filters, sort, limit: PAGE_SIZE, offset })
-      });
+      const payload = await fetchTimelinePage(offset, PAGE_SIZE);
       setAssets((prev) => (offset === 0 ? payload.assets : [...prev, ...payload.assets]));
       setTotal(payload.total);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to load photos");
+      setError(err instanceof Error ? err.message : t("gallery:page.errors.loadTimeline"));
     } finally {
       setLoading(false);
     }
-  }, [sort, query, filters]);
+  }, [fetchTimelinePage]);
+
+  // Re-fetch everything currently on screen rather than only the first page: a
+  // visitor who pressed "Load more" four times should not have those pages
+  // silently thrown away by a rotate or an edit — and with the viewer open on a
+  // later page, a shrinking list closed it under them. Pages come back in
+  // sequence and swap in as one, so the grid never flashes a short list.
+  const reloadTimeline = useCallback(async (keep: number) => {
+    setLoading(true);
+    setError("");
+    try {
+      const collected: GalleryAsset[] = [];
+      let total = 0;
+      do {
+        const page = await fetchTimelinePage(collected.length, MAX_PAGE_SIZE);
+        total = page.total;
+        collected.push(...page.assets);
+        if (page.assets.length < MAX_PAGE_SIZE) break;
+      } while (collected.length < keep);
+      setAssets(collected);
+      setTotal(total);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("gallery:page.errors.loadTimeline"));
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchTimelinePage]);
+
+  const fetchFolderPage = useCallback((nextParent: string, offset: number) => {
+    const params = new URLSearchParams({ ...scopeParams(), parent: nextParent, limit: String(MAX_PAGE_SIZE), offset: String(offset) } as Record<string, string>);
+    return api<{ parent: string; parentLocked: boolean; folders: GalleryFolder[]; assets: GalleryAsset[]; total: number }>(
+      `/api/library/gallery/folders?${params}`
+    );
+  }, [scopeParams]);
 
   // `offset` > 0 is the "Load more" path: keep what is on screen and append the
   // next page (the folder list itself is identical, so it is simply re-set).
-  const loadFolder = useCallback(async (nextParent: string, offset = 0) => {
+  // `keep` is the refresh path — re-fetch every page that was loaded, for the
+  // same reason reloadTimeline does.
+  const loadFolder = useCallback(async (nextParent: string, offset = 0, keep = 0) => {
     // The deep link has served its purpose once a folder is being loaded; from here
     // browsing (and any scope change) starts from the root like a normal visit.
     setDeepLinkFolder((current) => (current === null ? current : null));
     setLoading(true);
     setError("");
     try {
-      const params = new URLSearchParams({ ...scopeParams(), parent: nextParent, limit: "200", offset: String(offset) } as Record<string, string>);
-      const payload = await api<{ parent: string; folders: GalleryFolder[]; assets: GalleryAsset[]; total: number }>(
-        `/api/library/gallery/folders?${params}`
-      );
+      const payload = await fetchFolderPage(nextParent, offset);
+      const collected = [...payload.assets];
+      while (collected.length < keep && collected.length < payload.total && payload.assets.length === MAX_PAGE_SIZE) {
+        const page = await fetchFolderPage(payload.parent, collected.length);
+        if (page.assets.length === 0) break;
+        collected.push(...page.assets);
+      }
       setFolders(payload.folders);
-      setFolderAssets((current) => (offset > 0 ? [...current, ...payload.assets] : payload.assets));
+      setFolderAssets((current) => (offset > 0 ? [...current, ...payload.assets] : collected));
       setFolderTotal(payload.total);
       setParent(payload.parent);
+      setParentLocked(payload.parentLocked);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to load folder");
+      setError(err instanceof Error ? err.message : t("gallery:page.errors.loadFolder"));
     } finally {
       setLoading(false);
     }
-  }, [scopeParams]);
+  }, [fetchFolderPage]);
 
   // Admin: rescan just the folder currently open (a single library must be in
   // scope — a folder path can exist under several libraries otherwise). The scan
@@ -456,13 +527,38 @@ export function GalleryPage({
         method: "POST",
         body: JSON.stringify({ folder: parent })
       });
-      setNotice(`Rescanning "${parent}" — new, changed, and removed files there update shortly. Follow progress under Control panel → Overview → Tasks.`);
+      setNotice(t("gallery:folders.rescanNotice", { folder: parent }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to start the folder rescan");
+      setError(err instanceof Error ? err.message : t("gallery:folders.errors.rescan"));
     } finally {
       setFolderRescanBusy(false);
     }
   }, [soleLibraryId, parent]);
+
+  // Admin: lock or unlock the folder currently open. Locked = nothing at or below
+  // it can be deleted from the app (the server refuses, whoever asks). Same
+  // single-library gate as rescan — a lock names a folder IN a library.
+  const [folderLockBusy, setFolderLockBusy] = useState(false);
+  const toggleFolderLock = useCallback(async () => {
+    if (!soleLibraryId || !parent) return;
+    setFolderLockBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      await api(`/api/library/libraries/${soleLibraryId}/folder-locks`, {
+        method: "PUT",
+        body: JSON.stringify({ folderPath: parent, locked: !parentLocked })
+      });
+      setParentLocked(!parentLocked);
+      setNotice(!parentLocked
+        ? t("gallery:folders.lockedNotice", { folder: parent })
+        : t("gallery:folders.unlockedNotice", { folder: parent }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("gallery:folders.errors.toggleLock"));
+    } finally {
+      setFolderLockBusy(false);
+    }
+  }, [soleLibraryId, parent, parentLocked]);
 
   const loadMap = useCallback(async () => {
     setLoading(true);
@@ -472,7 +568,7 @@ export function GalleryPage({
       const payload = await api<{ points: GalleryMapPoint[] }>(`/api/library/gallery/map?${params}`);
       setMapPoints(payload.points);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to load the map");
+      setError(err instanceof Error ? err.message : t("gallery:mapView.errors.load"));
     } finally {
       setLoading(false);
     }
@@ -548,9 +644,9 @@ export function GalleryPage({
       setSlideshowTotal(0);
       goToView("slideshows");
       await openSlideshow(slideshow.id);
-      setNotice(`Created slideshow “${slideshow.name}” from a memory.`);
+      setNotice(t("gallery:memories.createdSlideshowNotice", { name: slideshow.name }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to create the slideshow");
+      setError(err instanceof Error ? err.message : t("gallery:memories.errors.createSlideshow"));
     }
   }, [openSlideshow, goToView]);
 
@@ -614,13 +710,13 @@ export function GalleryPage({
   useEffect(() => {
     if (view !== "albums") return;
     const want = selectedAlbum ? `/gallery/albums/${selectedAlbum.id}` : "/gallery/albums";
-    if (window.location.pathname !== want) window.history.replaceState({}, "", want);
+    if (window.location.pathname !== want) window.history.replaceState(window.history.state, "", want);
   }, [view, selectedAlbum]);
 
   useEffect(() => {
     if (view !== "slideshows") return;
     const want = selectedSlideshow ? `/gallery/slideshows/${selectedSlideshow.id}` : "/gallery/slideshows";
-    if (window.location.pathname !== want) window.history.replaceState({}, "", want);
+    if (window.location.pathname !== want) window.history.replaceState(window.history.state, "", want);
   }, [view, selectedSlideshow]);
 
   // Deep link: fetch the asset and open a standalone lightbox.
@@ -707,19 +803,24 @@ export function GalleryPage({
   const canEditCurrent = currentLibrary?.canWrite ?? false;
   const canShareCurrent = currentLibrary?.canCurate ?? false;
 
+  // The movie-target libraries are needed by the slideshow editor as well as the list,
+  // and a deep link opens the editor without ever passing through the list — so load them
+  // whenever the Slideshows view is active rather than only on the way in.
+  useEffect(() => { if (view === "slideshows") void loadSlideshowSettings(); }, [view, loadSlideshowSettings]);
+
   const uploadLibraries = libraries.filter((library) => library.canUpload);
 
   // Reload whichever view is active plus the library list (counts / scan badges).
   const refreshView = useCallback(() => {
-    if (view === "timeline") void loadTimeline(0);
-    else if (view === "folder") void loadFolder(parent);
+    if (view === "timeline") void reloadTimeline(assets.length);
+    else if (view === "folder") void loadFolder(parent, 0, folderAssets.length);
     else if (view === "people") { void loadPeople(); if (selectedPerson) void openPerson(selectedPerson); }
     else if (view === "albums") { if (selectedAlbum) void openAlbum(selectedAlbum.id); else void loadAlbums(); }
     else if (view === "slideshows") { if (selectedSlideshow) void openSlideshow(selectedSlideshow.id); else void loadSlideshows(); }
     else if (view === "memories") void loadMemories();
     else if (view === "map") void loadMap();
     void loadLibraries();
-  }, [view, parent, selectedPerson, selectedAlbum, selectedSlideshow, loadTimeline, loadFolder, loadPeople, openPerson, openAlbum, loadAlbums, openSlideshow, loadSlideshows, loadMemories, loadMap, loadLibraries]);
+  }, [view, parent, assets.length, folderAssets.length, selectedPerson, selectedAlbum, selectedSlideshow, reloadTimeline, loadFolder, loadPeople, openPerson, openAlbum, loadAlbums, openSlideshow, loadSlideshows, loadMemories, loadMap, loadLibraries]);
 
   // Assets currently shown (the selectable set depends on the active view).
   const displayedAssets = view === "timeline" ? assets : view === "memories" ? memoryItems : view === "albums" ? albumAssets : folderAssets;
@@ -747,15 +848,15 @@ export function GalleryPage({
   // that parent list; from a list root / Memories / Map it returns to the Timeline.
   const backTarget: { label: string; onClick: () => void } | null =
     view === "albums" && selectedAlbum
-      ? { label: "Back to albums", onClick: () => { setSelectedAlbum(null); setAlbumRename(null); void loadAlbums(); } }
+      ? { label: t("gallery:page.back.albums"), onClick: () => { setSelectedAlbum(null); setAlbumRename(null); void loadAlbums(); } }
       : view === "slideshows" && selectedSlideshow
-        ? { label: "Back to slideshows", onClick: () => { setSelectedSlideshow(null); setSlideshowRename(null); void loadSlideshows(); } }
+        ? { label: t("gallery:page.back.slideshows"), onClick: () => { setSelectedSlideshow(null); setSlideshowRename(null); void loadSlideshows(); } }
       : view === "people" && selectedPerson
-        ? { label: "Back to people", onClick: () => { setSelectedPerson(null); setRenameValue(null); setMergeOpen(false); void loadPeople(); } }
+        ? { label: t("gallery:page.back.people"), onClick: () => { setSelectedPerson(null); setRenameValue(null); setMergeOpen(false); void loadPeople(); } }
         : view === "folder" && parent
-          ? { label: "Back to folders", onClick: () => void loadFolder("") }
+          ? { label: t("gallery:page.back.folders"), onClick: () => void loadFolder("") }
           : view !== "timeline"
-            ? { label: "Back to gallery", onClick: () => goToView("timeline") }
+            ? { label: t("gallery:page.back.gallery"), onClick: () => goToView("timeline") }
             : null;
   const canDeleteAny = libraries.some((library) => library.canDelete);
   // Stamping a date/location is a metadata write; the server re-checks per item's
@@ -790,9 +891,78 @@ export function GalleryPage({
   // stays open through adds).
   useEffect(() => { if (!selectedSlideshow) { setBrowseOpen(false); setSlideshowCoverPickerOpen(false); setMovieDeleteOpen(false); } }, [selectedSlideshow]);
 
-  // Bulk favorite: one request for the whole selection. Items in libraries the
-  // user can't favorite (shouldn't happen from this UI) come back as skipped.
-  const bulkFavorite = async () => {
+  // Set `saved` on one asset wherever it is currently loaded. A photo can sit in
+  // several lists at once (the timeline, a folder, a person, an album, an "on this
+  // day" group), and the lightbox reads `saved` off these same objects — so
+  // patching them all is what makes a like set on a tile already filled when the
+  // photo is opened, with no refetch.
+  const setAssetSaved = useCallback((assetId: string, saved: boolean) => {
+    const patch = (list: GalleryAsset[]) =>
+      (list.some((a) => a.id === assetId) ? list.map((a) => (a.id === assetId ? { ...a, saved } : a)) : list);
+    setAssets(patch);
+    setFolderAssets(patch);
+    setPersonAssets(patch);
+    setAlbumAssets(patch);
+    setMemories((current) => (current ? { ...current, groups: current.groups.map((g) => ({ ...g, items: patch(g.items) })) } : current));
+  }, [setPersonAssets, setAlbumAssets]);
+
+  // Drop one asset from every list it is loaded in, and take it off the counts
+  // the "Load more" buttons read. The photo really is gone, so this is the whole
+  // truth of it — and it costs nothing, where re-fetching the view would throw
+  // away the pages the visitor had loaded to reach it.
+  const removeAsset = useCallback((assetId: string) => {
+    const drop = (list: GalleryAsset[]) =>
+      (list.some((a) => a.id === assetId) ? list.filter((a) => a.id !== assetId) : list);
+    setAssets((current) => {
+      if (current.some((a) => a.id === assetId)) setTotal((n) => Math.max(0, n - 1));
+      return drop(current);
+    });
+    setFolderAssets((current) => {
+      if (current.some((a) => a.id === assetId)) setFolderTotal((n) => Math.max(0, n - 1));
+      return drop(current);
+    });
+    setPersonAssets(drop);
+    setAlbumAssets(drop);
+    setMemories((current) => (current
+      ? { ...current, groups: current.groups.map((g) => ({ ...g, items: drop(g.items) })) }
+      : current));
+    setSelectedIds((current) => {
+      if (!current.has(assetId)) return current;
+      const next = new Set(current);
+      next.delete(assetId);
+      return next;
+    });
+  }, [setPersonAssets, setAlbumAssets]);
+
+  // What a change made inside the viewer costs the page. A like moves nothing,
+  // so it is patched where the photo already sits — reloading the view for it
+  // threw away every "Load more" page and, when the photo lived on one of them,
+  // closed the viewer under the visitor. A delete takes that one row out.
+  // Anything that can reorder or redraw the grid (a rotate, an edited date, a
+  // person tagged) still reloads, now keeping the pages that were loaded.
+  const handleAssetChange = useCallback((change: GalleryAssetChange) => {
+    if (change.kind === "like") { setAssetSaved(change.id, change.saved); return; }
+    if (change.kind === "deleted") { removeAsset(change.id); void loadLibraries(); return; }
+    refreshView();
+  }, [setAssetSaved, removeAsset, loadLibraries, refreshView]);
+
+  // The tile heart. Optimistic — the point of the control is that it costs one tap
+  // and no waiting — and rolled back with a message if the request fails.
+  const toggleAssetLike = useCallback(async (asset: GalleryAsset, next: boolean) => {
+    setAssetSaved(asset.id, next);
+    try {
+      await api(`/api/library/books/${asset.id}/save`, next
+        ? { method: "PUT", body: JSON.stringify({ note: null }) }
+        : { method: "DELETE" });
+    } catch (err) {
+      setAssetSaved(asset.id, !next);
+      setError(err instanceof Error ? err.message : t("gallery:page.errors.updateLikes"));
+    }
+  }, [setAssetSaved]);
+
+  // Bulk like: one request for the whole selection. Items in libraries the
+  // user can't like (shouldn't happen from this UI) come back as skipped.
+  const bulkLike = async () => {
     setBulkBusy(true);
     setBulkError("");
     try {
@@ -801,12 +971,12 @@ export function GalleryPage({
         { method: "POST", body: JSON.stringify({ bookIds: [...selectedIds] }) }
       );
       exitSelection();
-      const parts = [`Added ${result.saved} item${result.saved === 1 ? "" : "s"} to Favorites`];
-      if (result.forbidden > 0) parts.push(`${result.forbidden} skipped`);
+      const parts = [t("gallery:bulk.likedNotice", { count: result.saved })];
+      if (result.forbidden > 0) parts.push(t("gallery:bulk.skippedNotice", { count: result.forbidden }));
       setNotice(`${parts.join(" · ")}.`);
       refreshView();
     } catch (err) {
-      setBulkError(err instanceof Error ? err.message : "Unable to add the items to Favorites");
+      setBulkError(err instanceof Error ? err.message : t("gallery:bulk.errors.like"));
     } finally {
       setBulkBusy(false);
     }
@@ -816,19 +986,20 @@ export function GalleryPage({
     setBulkBusy(true);
     setBulkError("");
     try {
-      const result = await api<{ deleted: number; forbidden: number; failed: number }>(
+      const result = await api<{ deleted: number; forbidden: number; locked: number; failed: number }>(
         "/api/library/books/bulk-delete",
         { method: "POST", body: JSON.stringify({ bookIds: [...selectedIds] }) }
       );
       setBulkDeleteOpen(false);
       exitSelection();
-      const parts: string[] = [`Moved ${result.deleted} item${result.deleted === 1 ? "" : "s"} to the Recycle Bin`];
-      if (result.forbidden > 0) parts.push(`${result.forbidden} skipped (no permission)`);
-      if (result.failed > 0) parts.push(`${result.failed} failed`);
+      const parts: string[] = [t("gallery:bulk.movedNotice", { count: result.deleted })];
+      if (result.forbidden > 0) parts.push(t("gallery:bulk.skippedPermissionNotice", { count: result.forbidden }));
+      if (result.locked > 0) parts.push(t("gallery:bulk.lockedFoldersNotice", { count: result.locked }));
+      if (result.failed > 0) parts.push(t("gallery:bulk.failedNotice", { count: result.failed }));
       setNotice(`${parts.join(" · ")}.`);
       refreshView();
     } catch (err) {
-      setBulkError(err instanceof Error ? err.message : "Unable to move the items to the Recycle Bin");
+      setBulkError(err instanceof Error ? err.message : t("gallery:bulk.errors.delete"));
     } finally {
       setBulkBusy(false);
     }
@@ -887,16 +1058,22 @@ export function GalleryPage({
   // Folder counts: what sits directly here, and — when there are subfolders — the
   // whole subtree, so the number matches what the folder's tile advertised.
   const folderSubtreeTotal = folderTotal + folders.reduce((sum, folder) => sum + folder.assetCount, 0);
-  const folderCountLabel = `${formatCount(folderTotal)} ${folderTotal === 1 ? "item" : "items"}`;
+  const folderCountLabel = t("gallery:common.counts.item", { count: folderTotal });
   const folderSubtitle = loading && folders.length === 0 && folderTotal === 0
-    ? "Browsing by folder"
+    ? t("gallery:folders.browsing")
     : folders.length === 0
       ? folderCountLabel
       // Loose files at this level are worth calling out separately; with none (the
       // usual shape of a library root) the subtree count alone reads better.
       : folderTotal === 0
-        ? `${formatCount(folderSubtreeTotal)} ${folderSubtreeTotal === 1 ? "item" : "items"} in ${formatCount(folders.length)} ${folders.length === 1 ? "folder" : "folders"}`
-        : `${folderCountLabel} here · ${formatCount(folderSubtreeTotal)} with subfolders`;
+        ? t("gallery:folders.itemsInFoldersTemplate", {
+            items: t("gallery:common.counts.item", { count: folderSubtreeTotal }),
+            folders: t("gallery:common.counts.folder", { count: folders.length })
+          })
+        : t("gallery:folders.hereWithSubTemplate", {
+            here: folderCountLabel,
+            subtree: t("gallery:common.counts.item", { count: folderSubtreeTotal })
+          });
   const memoriesTotal = memories?.groups.reduce((sum, group) => sum + group.count, 0) ?? 0;
 
   // The name filter the list views run on the box. Kept apart from `query` — the
@@ -910,39 +1087,39 @@ export function GalleryPage({
   const shownPeople = nameTerm ? people.filter((person) => person.name.toLowerCase().includes(nameTerm)) : people;
 
   const subtitle = view === "map"
-    ? `${formatCount(mapPoints.length)} on the map`
+    ? t("gallery:mapView.subtitleOnMap", { count: mapPoints.length })
     : view === "people"
       // An open person shows its own count under its cover title too — see
       // the album/slideshow cases below.
-      ? (selectedPerson ? undefined : `${formatCount(shownPeople.length)} ${shownPeople.length === 1 ? "person" : "people"}`)
+      ? (selectedPerson ? undefined : t("gallery:common.counts.person", { count: shownPeople.length }))
       : view === "memories"
-        ? `${formatCount(memoriesTotal)} ${memoriesTotal === 1 ? "photo" : "photos"} from past years`
+        ? t("gallery:memories.subtitle", { count: memoriesTotal })
         : view === "albums"
           // An open album shows its own count under its cover title too — see
           // the slideshow case below.
-          ? (selectedAlbum ? undefined : `${formatCount(shownAlbums.length)} ${shownAlbums.length === 1 ? "album" : "albums"}`)
+          ? (selectedAlbum ? undefined : t("gallery:common.counts.album", { count: shownAlbums.length }))
           : view === "slideshows"
             // An open slideshow shows its own count under its cover title — the
             // page-level subtitle would just be saying it a second time.
-            ? (selectedSlideshow ? undefined : `${formatCount(shownSlideshows.length)} ${shownSlideshows.length === 1 ? "slideshow" : "slideshows"}`)
+            ? (selectedSlideshow ? undefined : t("gallery:common.counts.slideshow", { count: shownSlideshows.length }))
           : view === "timeline"
-            ? `${formatCount(total)} ${total === 1 ? "item" : "items"}`
+            ? t("gallery:common.counts.item", { count: total })
             : folderSubtitle;
 
   // Ordinary links to ordinary addresses. Memories and Map only appear when there
   // is something behind them — no memories on file, nothing geotagged in scope —
   // which is why they are the two conditional entries.
   const galleryNavItems: SectionNavItem[] = [
-    { key: "timeline", label: "Timeline", href: galleryHref("timeline"), icon: CalendarDays },
+    { key: "timeline", label: VIEW_TITLES.timeline, href: galleryHref("timeline"), icon: CalendarDays },
     ...((memories?.groups.length ?? 0) > 0
-      ? [{ key: "memories", label: "Memories", href: galleryHref("memories"), icon: Sparkles }]
+      ? [{ key: "memories", label: VIEW_TITLES.memories, href: galleryHref("memories"), icon: Sparkles }]
       : []),
-    { key: "albums", label: "Albums", href: galleryHref("albums"), icon: Album },
-    { key: "slideshows", label: "Slideshows", href: galleryHref("slideshows"), icon: Film },
-    { key: "folder", label: "Folders", href: galleryHref("folder"), icon: FolderOpen },
-    { key: "people", label: "People", href: galleryHref("people"), icon: Users },
+    { key: "albums", label: VIEW_TITLES.albums, href: galleryHref("albums"), icon: Album },
+    { key: "slideshows", label: VIEW_TITLES.slideshows, href: galleryHref("slideshows"), icon: Film },
+    { key: "folder", label: VIEW_TITLES.folder, href: galleryHref("folder"), icon: FolderOpen },
+    { key: "people", label: VIEW_TITLES.people, href: galleryHref("people"), icon: Users },
     ...(mapCount > 0
-      ? [{ key: "map", label: "Map", href: galleryHref("map"), icon: MapPin }]
+      ? [{ key: "map", label: VIEW_TITLES.map, href: galleryHref("map"), icon: MapPin }]
       : [])
   ];
 
@@ -960,10 +1137,10 @@ export function GalleryPage({
         onClick={toggleViewMenu}
         aria-haspopup="menu"
         aria-expanded={viewMenuOpen}
-        aria-label="Browse gallery views"
+        aria-label={t("gallery:page.toolbar.browseViewsAria")}
       >
         <Compass size={19} aria-hidden="true" />
-        <span>Browse</span>
+        <span>{t("common:common.browse")}</span>
         <ChevronDown size={16} aria-hidden="true" />
       </button>
       {viewMenuOpen && viewMenuPos && createPortal(
@@ -971,7 +1148,7 @@ export function GalleryPage({
           ref={viewMenuRef}
           className="book-detail-action-menu audiobook-library-menu"
           role="menu"
-          aria-label="Browse"
+          aria-label={t("common:common.browse")}
           style={{ position: "fixed", top: viewMenuPos.top, left: viewMenuPos.left ?? undefined, right: viewMenuPos.right ?? undefined }}
         >
           {/* The phone's version of the left nav, off the same list, so a view
@@ -1003,12 +1180,12 @@ export function GalleryPage({
   const primaryAction = view === "albums" && !selectedAlbum ? (
     <Button variant="primary" onClick={() => setAlbumCreateOpen(true)}>
       <Plus size={16} aria-hidden="true" />
-      <span>New album</span>
+      <span>{t("gallery:page.toolbar.newAlbum")}</span>
     </Button>
   ) : view === "slideshows" && !selectedSlideshow ? (
     <Button variant="primary" onClick={() => setSlideshowCreateOpen(true)}>
       <Plus size={16} aria-hidden="true" />
-      <span>New slideshow</span>
+      <span>{t("gallery:page.toolbar.newSlideshow")}</span>
     </Button>
   ) : null;
 
@@ -1017,7 +1194,7 @@ export function GalleryPage({
       active="gallery"
       user={user}
       logout={logout}
-      sideNav={<SectionNav ariaLabel="Gallery" groupLabel="Gallery" items={galleryNavItems} activeKey={view} />}
+      sideNav={<SectionNav ariaLabel={t("common:nav.gallery")} groupLabel={t("common:nav.gallery")} items={galleryNavItems} activeKey={view} />}
     >
       <section className={`audiobook-main-page gallery-page${selectionMode ? " is-selecting" : ""}`}>
         {showBrowseChrome && (
@@ -1034,20 +1211,20 @@ export function GalleryPage({
         />
         )}
 
-        {error && <MessageBox tone="error" title="Gallery error">{error}</MessageBox>}
-        {notice && <MessageBox tone="success" title="Gallery updated">{notice}</MessageBox>}
-        {/* Favorite/collection failures surface here — the delete flow shows its
+        {error && <MessageBox tone="error" title={t("gallery:page.errors.galleryErrorTitle")}>{error}</MessageBox>}
+        {notice && <MessageBox tone="success" title={t("gallery:page.notices.galleryUpdatedTitle")}>{notice}</MessageBox>}
+        {/* Like/collection failures surface here — the delete flow shows its
             own error inside the confirm dialog. */}
-        {bulkError && !bulkDeleteOpen && <MessageBox tone="error" title="Unable to update">{bulkError}</MessageBox>}
+        {bulkError && !bulkDeleteOpen && <MessageBox tone="error" title={t("gallery:page.errors.unableToUpdateTitle")}>{bulkError}</MessageBox>}
 
         {loaded && libraries.length === 0 ? (
           <div className="empty-state library-empty">
             <ImageIcon size={58} aria-hidden="true" />
-            <h2>No gallery libraries yet</h2>
+            <h2>{t("gallery:page.empty.noLibrariesTitle")}</h2>
             {isAdmin ? (
               <>
                 <p className="muted">
-                  Create a library and point it at the folder holding your photos and videos — the scanner takes it from there.
+                  {t("gallery:page.empty.noLibrariesBodyAdmin")}
                 </p>
                 <a
                   className="primary-button"
@@ -1055,11 +1232,11 @@ export function GalleryPage({
                   onClick={(event) => followRoute(event, "/control/libraries")}
                 >
                   <LibraryBig size={16} aria-hidden="true" />
-                  Create a library
+                  {t("gallery:page.empty.createLibraryButton")}
                 </a>
               </>
             ) : (
-              <p className="muted">An administrator can add a gallery library from the control panel.</p>
+              <p className="muted">{t("gallery:page.empty.noLibrariesBodyUser")}</p>
             )}
           </div>
         ) : (
@@ -1095,7 +1272,7 @@ export function GalleryPage({
                         value={sort}
                         onChange={setSort}
                         options={SORT_OPTIONS}
-                        ariaLabel="Sort timeline"
+                        ariaLabel={t("gallery:page.toolbar.sortTimelineAria")}
                         presentation="labelled"
                       />
                       {/* One menu, two settings — how big the tiles are, and (on
@@ -1105,21 +1282,21 @@ export function GalleryPage({
                           Folders has no dates to group by, so it gets the size
                           section alone. */}
                       <SortMenu
-                        ariaLabel="View"
-                        label="View"
+                        ariaLabel={t("gallery:page.toolbar.viewLabel")}
+                        label={t("gallery:page.toolbar.viewLabel")}
                         presentation="labelled"
                         icon={<LayoutGrid size={18} aria-hidden="true" />}
                         groups={[
                           {
-                            heading: "Tile size",
+                            heading: t("gallery:page.toolbar.tileSizeHeading"),
                             value: viewPrefs.tileSize,
-                            options: TILE_SIZE_OPTIONS,
+                            options: getTileSizeOptions(),
                             onChange: (value) => setViewPrefs((prefs) => ({ ...prefs, tileSize: value as GalleryTileSize }))
                           },
                           ...(view === "timeline" ? [{
-                            heading: "Dates",
+                            heading: t("gallery:page.toolbar.datesHeading"),
                             value: viewPrefs.grouping,
-                            options: GROUPING_OPTIONS,
+                            options: getGroupingOptions(),
                             onChange: (value: string) => setViewPrefs((prefs) => ({ ...prefs, grouping: value as GalleryGrouping }))
                           }] : [])
                         ]}
@@ -1139,22 +1316,10 @@ export function GalleryPage({
                       the label carries it — same reasoning as Sort showing the
                       order it's in. Admin-only, and only once there's somewhere
                       to save one. */}
-                  {view === "slideshows" && !selectedSlideshow && isAdmin && slideshowSettings && slideshowSettings.libraries.length > 0 && (
-                    <button
-                      type="button"
-                      className="library-toolbar-button"
-                      onClick={() => setMovieLibraryOpen(true)}
-                    >
-                      <LibraryBig size={18} aria-hidden="true" />
-                      <span className="toolbar-label">
-                        {(slideshowSettings.renderLibraryId && slideshowSettings.libraries.find((lib) => lib.id === slideshowSettings.renderLibraryId)?.name) || "Movie library"}
-                      </span>
-                    </button>
-                  )}
                   {/* Nothing narrows the other list views, so there is nothing to
                       divide the acting controls from. */}
                   {browsingPhotos && <span className="library-toolbar-divider" aria-hidden="true" />}
-                  {/* Selection is not delete-gated: favouriting and adding to a
+                  {/* Selection is not delete-gated: liking and adding to a
                       collection are for every member. Delete inside it still is. */}
                   {/* Desktop only, as on the book pages: bulk editing from a phone
                       is a row of eleven verbs on a 375px screen. */}
@@ -1165,7 +1330,7 @@ export function GalleryPage({
                       onClick={() => { setNotice(""); setSelectionMode(true); }}
                     >
                       <SquareCheck size={18} aria-hidden="true" />
-                      <span className="toolbar-label">Select</span>
+                      <span className="toolbar-label">{t("gallery:common.select")}</span>
                     </button>
                   )}
                   {uploadLibraries.length > 0 && (
@@ -1177,7 +1342,7 @@ export function GalleryPage({
                       onClick={() => { setNotice(""); setUploadOpen(true); }}
                     >
                       <UploadCloud size={18} aria-hidden="true" />
-                      <span className="toolbar-label">Upload</span>
+                      <span className="toolbar-label">{t("gallery:page.toolbar.upload")}</span>
                     </button>
                   )}
                   {primaryAction}
@@ -1192,50 +1357,50 @@ export function GalleryPage({
                       className="library-toolbar-button"
                       onClick={() => setSelectedIds(new Set(displayedAssets.map((asset) => asset.id)))}
                       disabled={displayedAssets.length === 0}
-                      title="Select everything loaded so far"
+                      title={t("gallery:bulk.selectAllTitle")}
                     >
                       <CheckCheck size={18} aria-hidden="true" />
-                      <span className="toolbar-label">All</span>
+                      <span className="toolbar-label">{t("gallery:bulk.all")}</span>
                     </button>
                     <button
                       type="button"
                       className="library-toolbar-button"
-                      onClick={() => void bulkFavorite()}
+                      onClick={() => void bulkLike()}
                       disabled={selectedIds.size === 0 || bulkBusy}
-                      title={bulkBusy ? "Adding…" : "Add to Favorites"}
+                      title={bulkBusy ? t("gallery:bulk.liking") : t("gallery:bulk.like")}
                     >
                       <Heart size={18} aria-hidden="true" />
-                      <span className="toolbar-label">Favorite</span>
+                      <span className="toolbar-label">{t("gallery:bulk.like")}</span>
                     </button>
                     <button
                       type="button"
                       className="library-toolbar-button"
                       onClick={() => { setBulkError(""); setBulkAlbumOpen(true); }}
                       disabled={selectedIds.size === 0 || bulkBusy}
-                      title="Add to album"
+                      title={t("gallery:bulk.addToAlbumTitle")}
                     >
                       <ImagePlus size={18} aria-hidden="true" />
-                      <span className="toolbar-label">Album</span>
+                      <span className="toolbar-label">{t("gallery:bulk.albumLabel")}</span>
                     </button>
                     <button
                       type="button"
                       className="library-toolbar-button"
                       onClick={() => { setBulkError(""); setBulkSlideshowOpen(true); }}
                       disabled={selectedIds.size === 0 || bulkBusy}
-                      title="Add to slideshow"
+                      title={t("gallery:bulk.addToSlideshowTitle")}
                     >
                       <Film size={18} aria-hidden="true" />
-                      <span className="toolbar-label">Slideshow</span>
+                      <span className="toolbar-label">{t("gallery:bulk.slideshowLabel")}</span>
                     </button>
                     <button
                       type="button"
                       className="library-toolbar-button"
                       onClick={() => { setBulkError(""); setBulkCollectionOpen(true); }}
                       disabled={selectedIds.size === 0 || bulkBusy}
-                      title="Add to collection"
+                      title={t("gallery:bulk.addToCollectionTitle")}
                     >
                       <ListMusic size={18} aria-hidden="true" />
-                      <span className="toolbar-label">Collection</span>
+                      <span className="toolbar-label">{t("gallery:bulk.collectionLabel")}</span>
                     </button>
                     {canShareAny && (
                       <button
@@ -1243,10 +1408,22 @@ export function GalleryPage({
                         className="library-toolbar-button"
                         onClick={() => { setBulkError(""); setShareIds([...selectedIds]); }}
                         disabled={selectedIds.size === 0 || bulkBusy}
-                        title="Share"
+                        title={t("gallery:bulk.shareTitle")}
                       >
                         <Share2 size={18} aria-hidden="true" />
-                        <span className="toolbar-label">Share</span>
+                        <span className="toolbar-label">{t("gallery:bulk.shareTitle")}</span>
+                      </button>
+                    )}
+                    {canWriteAny && (
+                      <button
+                        type="button"
+                        className="library-toolbar-button"
+                        onClick={() => { setBulkError(""); setBulkTagsOpen(true); }}
+                        disabled={selectedIds.size === 0 || bulkBusy}
+                        title={t("gallery:bulk.tagTitle")}
+                      >
+                        <Tags size={18} aria-hidden="true" />
+                        <span className="toolbar-label">{t("gallery:bulk.tagLabel")}</span>
                       </button>
                     )}
                     {canWriteAny && (
@@ -1255,10 +1432,10 @@ export function GalleryPage({
                         className="library-toolbar-button"
                         onClick={() => { setBulkError(""); setBulkDateOpen(true); }}
                         disabled={selectedIds.size === 0 || bulkBusy}
-                        title="Set date taken"
+                        title={t("gallery:bulk.setDateTitle")}
                       >
                         <CalendarClock size={18} aria-hidden="true" />
-                        <span className="toolbar-label">Date</span>
+                        <span className="toolbar-label">{t("gallery:bulk.dateLabel")}</span>
                       </button>
                     )}
                     {canWriteAny && (
@@ -1267,10 +1444,10 @@ export function GalleryPage({
                         className="library-toolbar-button"
                         onClick={() => { setBulkError(""); setBulkLocationOpen(true); }}
                         disabled={selectedIds.size === 0 || bulkBusy}
-                        title="Set location"
+                        title={t("gallery:bulk.setLocationTitle")}
                       >
                         <MapPinned size={18} aria-hidden="true" />
-                        <span className="toolbar-label">Place</span>
+                        <span className="toolbar-label">{t("gallery:bulk.placeLabel")}</span>
                       </button>
                     )}
                     {canDeleteAny && (
@@ -1279,16 +1456,16 @@ export function GalleryPage({
                         className="library-toolbar-button danger"
                         onClick={() => { setBulkError(""); setBulkDeleteOpen(true); }}
                         disabled={selectedIds.size === 0 || bulkBusy}
-                        title="Move the selected photos to the Recycle Bin"
+                        title={t("gallery:bulk.deleteTitle")}
                       >
                         <Trash2 size={18} aria-hidden="true" />
-                        <span className="toolbar-label">Delete</span>
+                        <span className="toolbar-label">{t("gallery:bulk.deleteLabel")}</span>
                       </button>
                     )}
                     <span className="library-toolbar-divider" aria-hidden="true" />
-                    <button type="button" className="library-toolbar-button" onClick={exitSelection} title="Leave selection">
+                    <button type="button" className="library-toolbar-button" onClick={exitSelection} title={t("gallery:bulk.leaveSelectionTitle")}>
                       <X size={18} aria-hidden="true" />
-                      <span className="toolbar-label">Done</span>
+                      <span className="toolbar-label">{t("common:common.done")}</span>
                     </button>
                   </>
                 )
@@ -1299,16 +1476,16 @@ export function GalleryPage({
             {view === "timeline" && <GalleryFilterChips value={filters} onChange={setFilters} libraries={libraries} />}
 
             {libraries.some((library) => library.scanStatus === "scanning") && (
-              <MessageBox tone="info" title="Scanning">Thumbnails appear as the scan finishes.</MessageBox>
+              <MessageBox tone="info" title={t("gallery:page.notices.scanningTitle")}>{t("gallery:page.notices.scanningBody")}</MessageBox>
             )}
 
             {view === "map" ? (
               <>
-                <Suspense fallback={<p className="management-empty">Loading map…</p>}>
+                <Suspense fallback={<p className="management-empty">{t("gallery:common.loading")}</p>}>
                   <GalleryMap points={mapPoints} onOpen={openAssetById} />
                 </Suspense>
                 {!loading && mapPoints.length === 0 && (
-                  <p className="management-empty">No photos or videos with location data{filters.kinds.length > 0 ? ` of this type` : ""} in this library.</p>
+                  <p className="management-empty">{filters.kinds.length > 0 ? t("gallery:mapView.emptyNoLocationOfType") : t("gallery:mapView.emptyNoLocation")}</p>
                 )}
               </>
             ) : view === "people" ? (
@@ -1321,8 +1498,8 @@ export function GalleryPage({
                   <div className="slideshow-detail-topbar">
                     <Button
                       variant="icon"
-                      title="Back to people"
-                      aria-label="Back to people"
+                      title={t("gallery:page.back.people")}
+                      aria-label={t("gallery:page.back.people")}
                       onClick={() => { setSelectedPerson(null); setRenameValue(null); setMergeOpen(false); void loadPeople(); }}
                     >
                       <ArrowLeft size={18} aria-hidden="true" />
@@ -1331,24 +1508,24 @@ export function GalleryPage({
                       <>
                         <span className="library-toolbar-divider" aria-hidden="true" />
                         {people.length > 1 && (
-                          <Button variant="icon" title="Merge all" aria-label="Merge all" onClick={() => setMergeOpen((v) => !v)}>
+                          <Button variant="icon" title={t("gallery:people.mergeAllTitle")} aria-label={t("gallery:people.mergeAllTitle")} onClick={() => setMergeOpen((v) => !v)}>
                             <Combine size={18} aria-hidden="true" />
                           </Button>
                         )}
                         <Button
                           variant="icon"
-                          title={personPick ? "Cancel selection" : "Pick photos"}
-                          aria-label={personPick ? "Cancel selection" : "Pick photos"}
+                          title={personPick ? t("gallery:people.cancelSelection") : t("gallery:people.pickPhotos")}
+                          aria-label={personPick ? t("gallery:people.cancelSelection") : t("gallery:people.pickPhotos")}
                           onClick={() => { setPersonPick(personPick ? null : new Set()); setMoveNewName(null); setMergeOpen(false); }}
                         >
                           <SquareCheck size={18} aria-hidden="true" />
                         </Button>
                         {personAssets.length > 0 && (
-                          <Button variant="icon" title="Set cover photo" aria-label="Set cover photo" onClick={() => { setNotice(""); setPersonCoverPickerOpen(true); }}>
+                          <Button variant="icon" title={t("gallery:common.setCoverPhoto")} aria-label={t("gallery:common.setCoverPhoto")} onClick={() => { setNotice(""); setPersonCoverPickerOpen(true); }}>
                             <ImageIcon size={18} aria-hidden="true" />
                           </Button>
                         )}
-                        <Button variant="icon" danger title="Delete" aria-label="Delete" onClick={() => setPersonDeleteOpen(true)}>
+                        <Button variant="icon" danger title={t("gallery:common.deleteWord")} aria-label={t("gallery:common.deleteWord")} onClick={() => setPersonDeleteOpen(true)}>
                           <Trash2 size={18} aria-hidden="true" />
                         </Button>
                       </>
@@ -1362,12 +1539,12 @@ export function GalleryPage({
                     <div className="gallery-album-heading">
                       {renameValue == null ? (
                         <div className="gallery-title-row">
-                          <h2 className={selectedPerson.name ? undefined : "gallery-person-unnamed"}>{selectedPerson.name || "Unnamed"}</h2>
+                          <h2 className={selectedPerson.name ? undefined : "gallery-person-unnamed"}>{selectedPerson.name || t("gallery:common.unnamed")}</h2>
                           {canCuratePeople && (
                             <Button
                               variant="icon"
-                              title={selectedPerson.name ? "Rename" : "Name person"}
-                              aria-label={selectedPerson.name ? "Rename" : "Name person"}
+                              title={selectedPerson.name ? t("gallery:common.rename") : t("gallery:people.namePersonTitle")}
+                              aria-label={selectedPerson.name ? t("gallery:common.rename") : t("gallery:people.namePersonTitle")}
                               onClick={() => setRenameValue(selectedPerson.name)}
                             >
                               <Pencil size={18} aria-hidden="true" />
@@ -1376,34 +1553,34 @@ export function GalleryPage({
                         </div>
                       ) : (
                         <form className="gallery-person-rename" onSubmit={(event) => { event.preventDefault(); void submitRename(); }}>
-                          <input value={renameValue} onChange={(event) => setRenameValue(event.target.value)} placeholder="Name" autoFocus maxLength={120} />
-                          <button type="submit" className="primary-button compact-button" disabled={!renameValue.trim()}>Save</button>
-                          <button type="button" className="icon-button" onClick={() => setRenameValue(null)} aria-label="Cancel"><X size={14} aria-hidden="true" /></button>
+                          <input value={renameValue} onChange={(event) => setRenameValue(event.target.value)} placeholder={t("gallery:common.name")} autoFocus maxLength={120} />
+                          <button type="submit" className="primary-button compact-button" disabled={!renameValue.trim()}>{t("gallery:common.save")}</button>
+                          <button type="button" className="icon-button" onClick={() => setRenameValue(null)} aria-label={t("common:common.cancel")}><X size={14} aria-hidden="true" /></button>
                         </form>
                       )}
                       <p className="gallery-album-sub">
-                        {formatCount(personTotal)} {personTotal === 1 ? "photo" : "photos"}
+                        {t("gallery:common.counts.photo", { count: personTotal })}
                       </p>
                     </div>
                   </div>
 
                   {mergeOpen && (
                     <div className="gallery-merge-panel">
-                      <span>Merge <strong>{selectedPerson.name || "Unnamed"}</strong> into:</span>
+                      <Trans i18nKey="people.mergeInto" ns="gallery" values={{ name: selectedPerson.name || t("gallery:common.unnamed") }} components={{ bold: <strong /> }} />
                       <select defaultValue="" onChange={(event) => { if (event.target.value) void confirmMerge(event.target.value); }}>
-                        <option value="" disabled>Choose a person…</option>
+                        <option value="" disabled>{t("gallery:people.choosePersonOption")}</option>
                         {people.filter((p) => p.id !== selectedPerson.id).map((p) => (
-                          <option key={p.id} value={p.id}>{(p.name || "Unnamed")} ({p.faceCount})</option>
+                          <option key={p.id} value={p.id}>{(p.name || t("gallery:common.unnamed"))} ({p.faceCount})</option>
                         ))}
                       </select>
-                      <button type="button" className="icon-button" onClick={() => setMergeOpen(false)} aria-label="Cancel"><X size={14} aria-hidden="true" /></button>
+                      <button type="button" className="icon-button" onClick={() => setMergeOpen(false)} aria-label={t("common:common.cancel")}><X size={14} aria-hidden="true" /></button>
                     </div>
                   )}
 
                   {personPick && (
                     <div className="gallery-move-panel">
                       <span className="audiobook-bulk-count">
-                        {personPick.size} selected
+                        {t("gallery:common.counts.selected", { count: personPick.size })}
                       </span>
                       <button
                         type="button"
@@ -1411,11 +1588,11 @@ export function GalleryPage({
                         onClick={() => setPersonPick(new Set(personAssets.map((asset) => asset.id)))}
                         disabled={personAssets.length === 0 || movingPhotos}
                       >
-                        Select all loaded
+                        {t("gallery:people.selectAllLoaded")}
                       </button>
                       {moveNewName == null ? (
                         <label className="gallery-move-target">
-                          <span className="sr-only">Move the selected photos to</span>
+                          <span className="sr-only">{t("gallery:people.moveToPlaceholder")}</span>
                           <select
                             value=""
                             disabled={personPick.size === 0 || movingPhotos}
@@ -1425,11 +1602,11 @@ export function GalleryPage({
                               else if (value) void movePickedPhotos({ intoId: value });
                             }}
                           >
-                            <option value="" disabled>{movingPhotos ? "Moving…" : "Move to…"}</option>
+                            <option value="" disabled>{movingPhotos ? t("gallery:common.moving") : t("gallery:people.moveToPlaceholder")}</option>
                             {people.filter((p) => p.id !== selectedPerson.id).map((p) => (
-                              <option key={p.id} value={p.id}>{(p.name || "Unnamed")} ({p.faceCount})</option>
+                              <option key={p.id} value={p.id}>{(p.name || t("gallery:common.unnamed"))} ({p.faceCount})</option>
                             ))}
-                            <option value="__new">New person…</option>
+                            <option value="__new">{t("gallery:people.newPersonOption")}</option>
                           </select>
                         </label>
                       ) : (
@@ -1440,20 +1617,20 @@ export function GalleryPage({
                           <input
                             value={moveNewName}
                             onChange={(event) => setMoveNewName(event.target.value)}
-                            placeholder="New person's name"
+                            placeholder={t("gallery:people.newPersonNamePlaceholder")}
                             autoFocus
                             maxLength={120}
                           />
                           <button type="submit" className="primary-button compact-button" disabled={!moveNewName.trim() || movingPhotos}>
-                            {movingPhotos ? "Moving…" : "Move"}
+                            {movingPhotos ? t("gallery:common.moving") : t("gallery:people.moveButton")}
                           </button>
-                          <button type="button" className="icon-button" onClick={() => setMoveNewName(null)} aria-label="Cancel">
+                          <button type="button" className="icon-button" onClick={() => setMoveNewName(null)} aria-label={t("common:common.cancel")}>
                             <X size={14} aria-hidden="true" />
                           </button>
                         </form>
                       )}
                       <span className="muted gallery-move-hint">
-                        Photos of someone else? Move them instead of removing — the correction survives the next scan.
+                        {t("gallery:people.moveHint")}
                       </span>
                     </div>
                   )}
@@ -1467,17 +1644,18 @@ export function GalleryPage({
                         selectionMode={personPick != null}
                         selected={personPick?.has(asset.id) ?? false}
                         onToggleSelect={() => togglePersonPick(asset.id)}
+                        onToggleLike={(next) => void toggleAssetLike(asset, next)}
                         onRemove={canCuratePeople && !personPick ? () => void removeFromPerson(asset.id) : undefined}
                       />
                     ))}
                   </div>
                   {!loading && personAssets.length === 0 && (
-                    <p className="management-empty">No photos for this person yet.</p>
+                    <p className="management-empty">{t("gallery:people.emptyNoPhotos")}</p>
                   )}
                   {personAssets.length < personTotal && (
                     <div style={{ display: "flex", justifyContent: "center", padding: "16px 0" }}>
                       <button type="button" className="secondary-button" onClick={() => void openPerson(selectedPerson, personAssets.length)} disabled={loading}>
-                        {loading ? "Loading…" : "Load more"}
+                        {loading ? t("gallery:common.loading") : t("gallery:common.loadMore")}
                       </button>
                     </div>
                   )}
@@ -1497,13 +1675,13 @@ export function GalleryPage({
                         <span className="gallery-person-avatar">
                           <PersonAvatar url={person.coverUrl} />
                         </span>
-                        <strong className={person.name ? undefined : "gallery-person-unnamed"}>{person.name || "Unnamed"}</strong>
-                        <small>{person.faceCount.toLocaleString()} {person.faceCount === 1 ? "photo" : "photos"}</small>
+                        <strong className={person.name ? undefined : "gallery-person-unnamed"}>{person.name || t("gallery:common.unnamed")}</strong>
+                        <small>{t("gallery:common.counts.photo", { count: person.faceCount })}</small>
                       </button>
                     );
                     const showMore = (onClick: () => void) => (
                       <div style={{ display: "flex", justifyContent: "center", padding: "16px 0" }}>
-                        <button type="button" className="secondary-button" onClick={onClick}>Show more people</button>
+                        <button type="button" className="secondary-button" onClick={onClick}>{t("gallery:people.showMore")}</button>
                       </div>
                     );
                     return (
@@ -1514,7 +1692,7 @@ export function GalleryPage({
                           <div className="gallery-small-groups">
                             <button type="button" className="gallery-small-toggle" onClick={() => setShowSmallGroups((v) => !v)}>
                               <ChevronRight size={15} className={showSmallGroups ? "rotated" : ""} aria-hidden="true" />
-                              {small.length.toLocaleString()} small group{small.length === 1 ? "" : "s"} (one photo each)
+                              {t("gallery:people.smallGroupsToggle", { count: small.length })}
                             </button>
                             {showSmallGroups && (
                               <>
@@ -1530,18 +1708,18 @@ export function GalleryPage({
                   {!loading && shownPeople.length === 0 && nameTerm && (
                     <div className="empty-state library-empty">
                       <Users size={48} aria-hidden="true" />
-                      <h2>No one matches</h2>
-                      <p className="muted">Unnamed groups have no name to search — clear the box to see them again.</p>
+                      <h2>{t("gallery:people.noMatchTitle")}</h2>
+                      <p className="muted">{t("gallery:people.noMatchBody")}</p>
                     </div>
                   )}
                   {!loading && people.length === 0 && (
                     <div className="empty-state library-empty">
                       <Users size={48} aria-hidden="true" />
-                      <h2>No people yet</h2>
+                      <h2>{t("gallery:people.emptyTitle")}</h2>
                       <p className="muted">
                         {isAdmin && !anyFaceEnabled
-                          ? "Turn on face recognition from Control Panel → Libraries to auto-detect people — or open a photo's details to tag someone by hand."
-                          : "Open a photo, show its details, and add a person to start grouping by who's in them."}
+                          ? t("gallery:people.emptyBodyAdmin")
+                          : t("gallery:people.emptyBodyDefault")}
                       </p>
                     </div>
                   )}
@@ -1558,8 +1736,8 @@ export function GalleryPage({
                   <div className="slideshow-detail-topbar">
                     <Button
                       variant="icon"
-                      title="Back to albums"
-                      aria-label="Back to albums"
+                      title={t("gallery:page.back.albums")}
+                      aria-label={t("gallery:page.back.albums")}
                       onClick={() => { setSelectedAlbum(null); setAlbumRename(null); void loadAlbums(); }}
                     >
                       <ArrowLeft size={18} aria-hidden="true" />
@@ -1568,46 +1746,46 @@ export function GalleryPage({
                     <Button
                       variant="icon"
                       disabled={albumAssets.length < 2}
-                      title={albumAssets.length < 2 ? "Add more photos to play a slideshow" : "Play this album as a slideshow"}
-                      aria-label="Play this album as a slideshow"
+                      title={albumAssets.length < 2 ? t("gallery:albums.playDisabledTitle") : t("gallery:albums.playTitle")}
+                      aria-label={t("gallery:albums.playTitle")}
                       onClick={startSlideshow}
                     >
                       <Play size={18} aria-hidden="true" />
                     </Button>
                     {selectedAlbum.canEdit && (
-                      <Button variant="icon" title="Add photos" aria-label="Add photos" onClick={() => setAlbumBrowseOpen(true)}>
+                      <Button variant="icon" title={t("gallery:common.addPhotos")} aria-label={t("gallery:common.addPhotos")} onClick={() => setAlbumBrowseOpen(true)}>
                         <FolderPlus size={18} aria-hidden="true" />
                       </Button>
                     )}
                     <Button
                       variant="icon"
-                      title="Send to"
-                      aria-label="Send to"
+                      title={t("gallery:common.sendTo")}
+                      aria-label={t("gallery:common.sendTo")}
                       onClick={() => setSendToSubject({ entityType: "gallery_album", entityId: selectedAlbum.id })}
                     >
                       <Send size={18} aria-hidden="true" />
                     </Button>
                     {selectedAlbum.canEdit && (
-                      <Button variant="icon" title="Set cover photo" aria-label="Set cover photo" onClick={() => { setNotice(""); setCoverPickerOpen(true); }}>
+                      <Button variant="icon" title={t("gallery:common.setCoverPhoto")} aria-label={t("gallery:common.setCoverPhoto")} onClick={() => { setNotice(""); setCoverPickerOpen(true); }}>
                         <ImageIcon size={18} aria-hidden="true" />
                       </Button>
                     )}
                     <a
                       className="icon-button"
-                      title="Download album"
-                      aria-label="Download album"
+                      title={t("gallery:albums.downloadTitle")}
+                      aria-label={t("gallery:albums.downloadTitle")}
                       href={`/api/library/gallery/albums/${selectedAlbum.id}/download`}
                       download
                     >
                       <Download size={18} aria-hidden="true" />
                     </a>
                     {selectedAlbum.canEdit && (
-                      <Button variant="icon" danger title="Delete" aria-label="Delete album" onClick={() => setAlbumDeleteOpen(true)}>
+                      <Button variant="icon" danger title={t("gallery:albums.deleteIconTitle")} aria-label={t("gallery:albums.deleteAlbumAria")} onClick={() => setAlbumDeleteOpen(true)}>
                         <Trash2 size={18} aria-hidden="true" />
                       </Button>
                     )}
                     {!isMobile && !selectionMode && (
-                      <Button variant="icon" title="Select" aria-label="Select photos" onClick={() => { setNotice(""); setSelectionMode(true); }}>
+                      <Button variant="icon" title={t("gallery:common.select")} aria-label={t("gallery:common.selectPhotosAria")} onClick={() => { setNotice(""); setSelectionMode(true); }}>
                         <SquareCheck size={18} aria-hidden="true" />
                       </Button>
                     )}
@@ -1622,22 +1800,30 @@ export function GalleryPage({
                         <div className="gallery-title-row">
                           <h2>{selectedAlbum.name}</h2>
                           {selectedAlbum.canEdit && (
-                            <Button variant="icon" title="Rename" aria-label="Rename" onClick={() => setAlbumRename(selectedAlbum.name)}>
+                            <Button variant="icon" title={t("gallery:common.rename")} aria-label={t("gallery:common.rename")} onClick={() => setAlbumRename(selectedAlbum.name)}>
                               <Pencil size={18} aria-hidden="true" />
                             </Button>
                           )}
                         </div>
                       ) : (
                         <form className="gallery-person-rename" onSubmit={(event) => { event.preventDefault(); if (albumRename.trim()) void patchAlbum(selectedAlbum.id, { name: albumRename.trim() }); }}>
-                          <input value={albumRename} onChange={(event) => setAlbumRename(event.target.value)} placeholder="Album name" autoFocus maxLength={120} />
-                          <button type="submit" className="primary-button compact-button" disabled={!albumRename.trim()}>Save</button>
-                          <button type="button" className="icon-button" onClick={() => setAlbumRename(null)} aria-label="Cancel"><X size={14} aria-hidden="true" /></button>
+                          <input value={albumRename} onChange={(event) => setAlbumRename(event.target.value)} placeholder={t("gallery:albums.namePlaceholder")} autoFocus maxLength={120} />
+                          <button type="submit" className="primary-button compact-button" disabled={!albumRename.trim()}>{t("gallery:common.save")}</button>
+                          <button type="button" className="icon-button" onClick={() => setAlbumRename(null)} aria-label={t("common:common.cancel")}><X size={14} aria-hidden="true" /></button>
                         </form>
                       )}
                       <p className="gallery-album-sub">
-                        {formatCount(albumTotal)} {albumTotal === 1 ? "item" : "items"}
+                        {t("gallery:common.counts.item", { count: albumTotal })}
                         {selectedAlbum.description ? <> · {selectedAlbum.description}</> : null}
                       </p>
+                      {/* Tagging the album is what links it to the stories,
+                          photos and people that share the tag. */}
+                      <GallerySetTags
+                        endpoint={`/api/library/gallery/albums/${selectedAlbum.id}/tags`}
+                        tags={selectedAlbum.tags}
+                        canEdit={selectedAlbum.canEdit}
+                        onSaved={(tags) => setSelectedAlbum({ ...selectedAlbum, tags })}
+                      />
                     </div>
                   </div>
 
@@ -1650,20 +1836,21 @@ export function GalleryPage({
                         selectionMode={selectionMode}
                         selected={selectedIds.has(asset.id)}
                         onToggleSelect={() => toggleSelect(asset.id)}
+                        onToggleLike={(next) => void toggleAssetLike(asset, next)}
                         onRemove={selectedAlbum.canEdit && !selectionMode ? () => void removeFromAlbum(selectedAlbum.id, asset.id) : undefined}
-                        removeTitle="Remove from this album"
+                        removeTitle={t("gallery:albums.removeFromAlbumTitle")}
                       />
                     ))}
                   </div>
                   {!loading && albumAssets.length === 0 && (
                     <p className="management-empty">
-                      This album is empty. Use “Add photos” above to browse your galleries by folder, or select photos in the Timeline and use “Add to album”.
+                      {t("gallery:albums.emptyBody")}
                     </p>
                   )}
                   {albumAssets.length < albumTotal && (
                     <div style={{ display: "flex", justifyContent: "center", padding: "16px 0" }}>
                       <button type="button" className="secondary-button" onClick={() => void openAlbum(selectedAlbum.id, albumAssets.length)} disabled={loading}>
-                        {loading ? "Loading…" : "Load more"}
+                        {loading ? t("gallery:common.loading") : t("gallery:common.loadMore")}
                       </button>
                     </div>
                   )}
@@ -1677,7 +1864,7 @@ export function GalleryPage({
                       every other page's Create button. */}
                   <div className="gallery-person-toolbar">
                     <span className="muted gallery-face-hint">
-                      Albums organize photos across libraries. Anyone can view; only the creator and admins can change one.
+                      {t("gallery:albums.introHint")}
                     </span>
                   </div>
 
@@ -1689,7 +1876,7 @@ export function GalleryPage({
                             {album.coverUrl ? <img src={album.coverUrl} alt="" loading="lazy" /> : <Album size={28} aria-hidden="true" />}
                           </span>
                           <strong>{album.name}</strong>
-                          <small>{album.itemCount.toLocaleString()} {album.itemCount === 1 ? "item" : "items"}</small>
+                          <small>{t("gallery:common.counts.item", { count: album.itemCount })}</small>
                         </button>
                       ))}
                     </div>
@@ -1697,15 +1884,15 @@ export function GalleryPage({
                   {!loading && albums.length > 0 && shownAlbums.length === 0 && (
                     <div className="empty-state library-empty">
                       <Album size={48} aria-hidden="true" />
-                      <h2>No albums match</h2>
+                      <h2>{t("gallery:albums.noMatchTitle")}</h2>
                     </div>
                   )}
                   {!loading && albums.length === 0 && (
                     <div className="empty-state library-empty">
                       <Album size={48} aria-hidden="true" />
-                      <h2>No albums yet</h2>
+                      <h2>{t("gallery:albums.emptyTitle")}</h2>
                       <p className="muted">
-                        Create an album here, or select photos in the Timeline and use “Add to album”.
+                        {t("gallery:albums.emptyBody2")}
                       </p>
                     </div>
                   )}
@@ -1722,8 +1909,8 @@ export function GalleryPage({
                     <div className="slideshow-detail-topbar">
                       <Button
                         variant="icon"
-                        title="Back to slideshows"
-                        aria-label="Back to slideshows"
+                        title={t("gallery:page.back.slideshows")}
+                        aria-label={t("gallery:page.back.slideshows")}
                         onClick={() => { setSelectedSlideshow(null); setSlideshowRename(null); void loadSlideshows(); }}
                       >
                         <ArrowLeft size={18} aria-hidden="true" />
@@ -1732,32 +1919,32 @@ export function GalleryPage({
                       <Button
                         variant="icon"
                         disabled={slideshowAssets.length === 0}
-                        title={slideshowAssets.length < 2 ? "Add more photos to play a slideshow" : "Play this slideshow"}
-                        aria-label="Play this slideshow"
+                        title={slideshowAssets.length < 2 ? t("gallery:slideshows.playDisabledTitle") : t("gallery:slideshows.playTitle")}
+                        aria-label={t("gallery:slideshows.playTitle")}
                         onClick={startSlideshow}
                       >
                         <Play size={18} aria-hidden="true" />
                       </Button>
                       <Button
                         variant="icon"
-                        title="Send to"
-                        aria-label="Send to"
+                        title={t("gallery:common.sendTo")}
+                        aria-label={t("gallery:common.sendTo")}
                         onClick={() => setSendToSubject({ entityType: "gallery_slideshow", entityId: selectedSlideshow.id })}
                       >
                         <Send size={18} aria-hidden="true" />
                       </Button>
                       {selectedSlideshow.canEdit && (
-                        <Button variant="icon" title="Add photos" aria-label="Add photos" onClick={() => setBrowseOpen(true)}>
+                        <Button variant="icon" title={t("gallery:common.addPhotos")} aria-label={t("gallery:common.addPhotos")} onClick={() => setBrowseOpen(true)}>
                           <FolderPlus size={18} aria-hidden="true" />
                         </Button>
                       )}
                       {selectedSlideshow.canEdit && (
-                        <Button variant="icon" title="Set cover photo" aria-label="Set cover photo" onClick={() => { setNotice(""); setSlideshowCoverPickerOpen(true); }}>
+                        <Button variant="icon" title={t("gallery:common.setCoverPhoto")} aria-label={t("gallery:common.setCoverPhoto")} onClick={() => { setNotice(""); setSlideshowCoverPickerOpen(true); }}>
                           <ImageIcon size={18} aria-hidden="true" />
                         </Button>
                       )}
                       {selectedSlideshow.canEdit && (
-                        <Button variant="icon" danger title="Delete" aria-label="Delete" onClick={() => setSlideshowDeleteOpen(true)}>
+                        <Button variant="icon" danger title={t("gallery:common.deleteWord")} aria-label={t("gallery:common.deleteWord")} onClick={() => setSlideshowDeleteOpen(true)}>
                           <Trash2 size={18} aria-hidden="true" />
                         </Button>
                       )}
@@ -1772,21 +1959,27 @@ export function GalleryPage({
                           <div className="gallery-title-row">
                             <h2>{selectedSlideshow.name}</h2>
                             {selectedSlideshow.canEdit && (
-                              <Button variant="icon" title="Rename" aria-label="Rename" onClick={() => setSlideshowRename(selectedSlideshow.name)}>
+                              <Button variant="icon" title={t("gallery:common.rename")} aria-label={t("gallery:common.rename")} onClick={() => setSlideshowRename(selectedSlideshow.name)}>
                                 <Pencil size={18} aria-hidden="true" />
                               </Button>
                             )}
                           </div>
                         ) : (
                           <form className="gallery-person-rename" onSubmit={(event) => { event.preventDefault(); if (slideshowRename.trim()) void patchSlideshow(selectedSlideshow.id, { name: slideshowRename.trim() }); }}>
-                            <input value={slideshowRename} onChange={(event) => setSlideshowRename(event.target.value)} placeholder="Slideshow name" autoFocus maxLength={120} />
-                            <button type="submit" className="primary-button compact-button" disabled={!slideshowRename.trim()}>Save</button>
-                            <button type="button" className="icon-button" onClick={() => setSlideshowRename(null)} aria-label="Cancel"><X size={14} aria-hidden="true" /></button>
+                            <input value={slideshowRename} onChange={(event) => setSlideshowRename(event.target.value)} placeholder={t("gallery:slideshows.namePlaceholder")} autoFocus maxLength={120} />
+                            <button type="submit" className="primary-button compact-button" disabled={!slideshowRename.trim()}>{t("gallery:common.save")}</button>
+                            <button type="button" className="icon-button" onClick={() => setSlideshowRename(null)} aria-label={t("common:common.cancel")}><X size={14} aria-hidden="true" /></button>
                           </form>
                         )}
                         <p className="gallery-album-sub">
-                          {formatCount(slideshowTotal)} {slideshowTotal === 1 ? "photo" : "photos"}
+                          {t("gallery:common.counts.photo", { count: slideshowTotal })}
                         </p>
+                        <GallerySetTags
+                          endpoint={`/api/library/gallery/slideshows/${selectedSlideshow.id}/tags`}
+                          tags={selectedSlideshow.tags}
+                          canEdit={selectedSlideshow.canEdit}
+                          onSaved={(tags) => setSelectedSlideshow({ ...selectedSlideshow, tags })}
+                        />
                       </div>
                     </div>
 
@@ -1803,7 +1996,8 @@ export function GalleryPage({
                       onRemove={(id) => void removeFromSlideshow(selectedSlideshow.id, id)}
                       onPatch={(fields) => patchSlideshow(selectedSlideshow.id, fields)}
                       onRender={() => void renderSlideshowMovie(selectedSlideshow.id)}
-                      onDeleteMovie={() => setMovieDeleteOpen(true)}
+                      onOpenMovieLibrary={() => setMovieLibraryOpen(true)}
+              onDeleteMovie={() => setMovieDeleteOpen(true)}
                     />
 
                     <NotesSection entityType="gallery_slideshow" entityId={selectedSlideshow.id} />
@@ -1818,15 +2012,15 @@ export function GalleryPage({
                       single scrollable row (the fetch itself is capped) keeps
                       it from pushing your actual list below the fold. */}
                   {memorySuggestions.length > 0 && !nameTerm && (
-                    <section className="gallery-memory-suggestions" aria-label="Suggested slideshows">
+                    <section className="gallery-memory-suggestions" aria-label={t("gallery:suggestions.heading")}>
                       <div className="gallery-memory-suggestions-head">
-                        <h2>Suggested slideshows</h2>
+                        <h2>{t("gallery:suggestions.heading")}</h2>
                         <button
                           type="button"
                           className="secondary-button compact-button"
                           onClick={() => { const pick = memorySuggestions[Math.floor(Math.random() * memorySuggestions.length)]; if (pick) void openSuggestionPreview(pick); }}
                         >
-                          <Sparkles size={15} aria-hidden="true" /> Surprise me
+                          <Sparkles size={15} aria-hidden="true" /> {t("gallery:suggestions.surpriseMe")}
                         </button>
                       </div>
                       <div className="gallery-suggestion-row">
@@ -1836,7 +2030,7 @@ export function GalleryPage({
                             type="button"
                             className="gallery-folder-tile gallery-memory-tile"
                             onClick={() => void openSuggestionPreview(memory)}
-                            title={`Preview “${memory.title}”`}
+                            title={t("gallery:suggestions.previewTitle", { title: memory.title })}
                           >
                             <span className="gallery-folder-thumb">
                               {memory.coverUrl ? <img src={memory.coverUrl} alt="" loading="lazy" /> : <Sparkles size={28} aria-hidden="true" />}
@@ -1852,17 +2046,17 @@ export function GalleryPage({
 
                   {shownSlideshows.length > 0 && (
                     <>
-                      {memorySuggestions.length > 0 && !nameTerm && <h2 className="gallery-memories-title">Your slideshows</h2>}
+                      {memorySuggestions.length > 0 && !nameTerm && <h2 className="gallery-memories-title">{t("gallery:slideshows.yourSlideshowsHeading")}</h2>}
                       <div className="gallery-folder-grid">
                         {shownSlideshows.map((slideshow) => (
                           <button key={slideshow.id} type="button" className="gallery-folder-tile" onClick={() => { setSlideshowAssets([]); setSlideshowTotal(0); void openSlideshow(slideshow.id); }}>
                             <span className="gallery-folder-thumb">
                               {slideshow.coverUrl ? <img src={slideshow.coverUrl} alt="" loading="lazy" /> : <Film size={28} aria-hidden="true" />}
-                              {slideshow.renderStatus === "ready" && <span className="slideshow-card-badge ready" title="Movie ready"><Play size={11} aria-hidden="true" />Movie</span>}
-                              {(slideshow.renderStatus === "rendering" || slideshow.renderStatus === "queued") && <span className="slideshow-card-badge busy" title="Rendering a movie">Rendering…</span>}
+                              {slideshow.renderStatus === "ready" && <span className="slideshow-card-badge ready" title={t("gallery:slideshows.movieBadgeTitle")}><Play size={11} aria-hidden="true" />{t("gallery:slideshows.movieBadge")}</span>}
+                              {(slideshow.renderStatus === "rendering" || slideshow.renderStatus === "queued") && <span className="slideshow-card-badge busy" title={t("gallery:slideshows.renderingBadgeTitle")}>{t("gallery:slideshows.renderingBadge")}</span>}
                             </span>
                             <strong>{slideshow.name}</strong>
-                            <small>{slideshow.itemCount.toLocaleString()} {slideshow.itemCount === 1 ? "photo" : "photos"}</small>
+                            <small>{t("gallery:common.counts.photo", { count: slideshow.itemCount })}</small>
                           </button>
                         ))}
                       </div>
@@ -1872,15 +2066,15 @@ export function GalleryPage({
                   {!loading && slideshows.length > 0 && shownSlideshows.length === 0 && (
                     <div className="empty-state library-empty">
                       <Film size={48} aria-hidden="true" />
-                      <h2>No slideshows match</h2>
+                      <h2>{t("gallery:slideshows.noMatchTitle")}</h2>
                     </div>
                   )}
                   {!loading && slideshows.length === 0 && memorySuggestions.length === 0 && (
                     <div className="empty-state library-empty">
                       <Film size={48} aria-hidden="true" />
-                      <h2>No slideshows yet</h2>
+                      <h2>{t("gallery:slideshows.emptyTitle")}</h2>
                       <p className="muted">
-                        Create a slideshow here, or select photos in the Timeline and use “Add to slideshow”.
+                        {t("gallery:slideshows.emptyBody")}
                       </p>
                     </div>
                   )}
@@ -1898,7 +2092,7 @@ export function GalleryPage({
                     const ids = group.items.map((asset) => asset.id);
                     const allSelected = ids.length > 0 && ids.every((id) => selectedIds.has(id));
                     return (
-                      <section key={group.year} id={`gallery-memories-${group.year}`} className="gallery-memories-year" aria-label={`Memories from ${group.year}`}>
+                      <section key={group.year} id={`gallery-memories-${group.year}`} className="gallery-memories-year" aria-label={t("gallery:memories.sectionAria", { year: group.year })}>
                         <div className="gallery-memories-year-head">
                           <button
                             type="button"
@@ -1906,8 +2100,8 @@ export function GalleryPage({
                             onClick={() => toggleDaySelect(ids)}
                             role="checkbox"
                             aria-checked={allSelected}
-                            aria-label={`Select all from ${memoryDateLabel(group.precision, group.year)}`}
-                            title={allSelected ? "Deselect these photos" : "Select these photos"}
+                            aria-label={t("gallery:memories.selectAllAria", { label: memoryDateLabel(group.precision, group.year) })}
+                            title={allSelected ? t("gallery:memories.deselectTitle") : t("gallery:memories.selectTitle")}
                           >
                             {allSelected ? <CheckCircle2 size={18} /> : <Circle size={18} />}
                           </button>
@@ -1916,14 +2110,14 @@ export function GalleryPage({
                               type="button"
                               className="gallery-day-share"
                               onClick={() => setShareIds(ids)}
-                              aria-label={`Share photos from ${memoryDateLabel(group.precision, group.year)}`}
-                              title="Share these photos"
+                              aria-label={t("gallery:memories.shareAria", { label: memoryDateLabel(group.precision, group.year) })}
+                              title={t("gallery:common.shareTheseTitle")}
                             >
-                              Share
+                              {t("gallery:common.share")}
                             </button>
                           )}
                           <h2>{memoryDateLabel(group.precision, group.year)}</h2>
-                          <small>{yearsAgo(group.year)} · {group.count} {group.count === 1 ? "photo" : "photos"}</small>
+                          <small>{yearsAgo(group.year)} · {t("gallery:common.counts.photo", { count: group.count })}</small>
                         </div>
                         <div className="gallery-grid">
                           {group.items.map((asset, i) => (
@@ -1934,6 +2128,7 @@ export function GalleryPage({
                               selectionMode={selectionMode}
                               selected={selectedIds.has(asset.id)}
                               onToggleSelect={() => toggleSelect(asset.id)}
+                              onToggleLike={(next) => void toggleAssetLike(asset, next)}
                             />
                           ))}
                         </div>
@@ -1944,18 +2139,16 @@ export function GalleryPage({
               ) : (
                 <div className="empty-state library-empty">
                   <Sparkles size={48} aria-hidden="true" />
-                  <h2>No memories yet</h2>
+                  <h2>{t("gallery:memories.emptyTitle")}</h2>
                   <p className="muted">
-                    Memories resurfaces shots from past years on their anniversary. Add dates to
-                    more photos and they'll start appearing here. Looking to turn a trip into a
-                    slideshow? Those suggestions now live under Slideshows.
+                    {t("gallery:memories.emptyBody")}
                   </p>
                 </div>
               )
             ) : view === "timeline" ? (
               <>
                 {memories && memories.groups.length > 0 && !query && activeGalleryFilterCount(filters) === 0 && !selectionMode && (
-                  <section className="gallery-memories" aria-label="Memories">
+                  <section className="gallery-memories" aria-label={t("gallery:page.views.memories")}>
                     <h2 className="gallery-memories-title">{MEMORIES_TITLES[memories.precision]}</h2>
                     <div className="gallery-memories-row">
                       {memories.groups.map((group) => (
@@ -1964,7 +2157,7 @@ export function GalleryPage({
                           type="button"
                           className="gallery-memory-card"
                           onClick={() => openMemoryYear(group.year)}
-                          aria-label={`${MEMORIES_TITLES[memories.precision]} in ${group.year} — ${group.count} ${group.count === 1 ? "photo" : "photos"}`}
+                          aria-label={t("gallery:timeline.memoryCardAria", { title: MEMORIES_TITLES[memories.precision], year: group.year, count: t("gallery:common.counts.photo", { count: group.count }) })}
                         >
                           {group.items[0]?.coverUrl ? (
                             <img src={group.items[0].coverUrl} alt="" loading="lazy" />
@@ -1973,7 +2166,7 @@ export function GalleryPage({
                           )}
                           <span className="gallery-memory-overlay">
                             <strong>{group.year}</strong>
-                            <small>{yearsAgo(group.year)} · {group.count} {group.count === 1 ? "photo" : "photos"}</small>
+                            <small>{yearsAgo(group.year)} · {t("gallery:common.counts.photo", { count: group.count })}</small>
                           </span>
                         </button>
                       ))}
@@ -1993,6 +2186,7 @@ export function GalleryPage({
                         selectionMode={selectionMode}
                         selected={selectedIds.has(asset.id)}
                         onToggleSelect={() => toggleSelect(asset.id)}
+                        onToggleLike={(next) => void toggleAssetLike(asset, next)}
                       />
                     ))}
                   </div>
@@ -2008,8 +2202,8 @@ export function GalleryPage({
                           onClick={() => toggleDaySelect(ids)}
                           role="checkbox"
                           aria-checked={allSelected}
-                          aria-label={`Select all from ${day.label}`}
-                          title={allSelected ? "Deselect this day" : "Select this day"}
+                          aria-label={t("gallery:memories.selectAllAria", { label: day.label })}
+                          title={allSelected ? t("gallery:timeline.deselectDayTitle") : t("gallery:timeline.selectDayTitle")}
                         >
                           {allSelected ? <CheckCircle2 size={18} /> : <Circle size={18} />}
                         </button>
@@ -2018,10 +2212,10 @@ export function GalleryPage({
                             type="button"
                             className="gallery-day-share"
                             onClick={() => setShareIds(ids)}
-                            aria-label={`Share photos from ${day.label}`}
-                            title="Share these photos"
+                            aria-label={t("gallery:memories.shareAria", { label: day.label })}
+                            title={t("gallery:common.shareTheseTitle")}
                           >
-                            Share
+                            {t("gallery:common.share")}
                           </button>
                         )}
                         <h2 className="gallery-day-label">{day.label}</h2>
@@ -2035,6 +2229,7 @@ export function GalleryPage({
                             selectionMode={selectionMode}
                             selected={selectedIds.has(asset.id)}
                             onToggleSelect={() => toggleSelect(asset.id)}
+                            onToggleLike={(next) => void toggleAssetLike(asset, next)}
                           />
                         ))}
                       </div>
@@ -2042,12 +2237,12 @@ export function GalleryPage({
                   );
                 })}
                 {!loading && assets.length === 0 && (
-                  <p className="management-empty">{query ? "No photos or videos match this search." : "No photos or videos to show."}</p>
+                  <p className="management-empty">{query ? t("gallery:timeline.emptyNoMatch") : t("gallery:timeline.emptyNone")}</p>
                 )}
                 {assets.length < total && (
                   <div style={{ display: "flex", justifyContent: "center", padding: "16px 0" }}>
                     <button type="button" className="secondary-button" onClick={() => void loadTimeline(assets.length)} disabled={loading}>
-                      {loading ? "Loading…" : "Load more"}
+                      {loading ? t("gallery:common.loading") : t("gallery:common.loadMore")}
                     </button>
                   </div>
                 )}
@@ -2060,8 +2255,10 @@ export function GalleryPage({
               <>
                 <p className="gallery-section-label">
                   {folderMatches.total === 0
-                    ? "No folders match"
-                    : `Folders matching “${folderQuery}” (${formatCount(folderMatches.total)}${folderMatches.total > folderMatches.folders.length ? `, first ${formatCount(folderMatches.folders.length)}` : ""})`}
+                    ? t("gallery:folders.noMatchTitle")
+                    : folderMatches.total > folderMatches.folders.length
+                      ? t("gallery:folders.matchingHeadingLimited", { query: folderQuery, total: folderMatches.total, shown: folderMatches.folders.length })
+                      : t("gallery:folders.matchingHeading", { query: folderQuery, total: folderMatches.total })}
                 </p>
                 {folderMatches.folders.length > 0 ? (
                   <div className="gallery-folder-grid">
@@ -2082,19 +2279,22 @@ export function GalleryPage({
                         {folder.path.includes("/") && (
                           <small className="gallery-folder-where">{folder.path.slice(0, folder.path.lastIndexOf("/"))}</small>
                         )}
-                        <small>{folder.assetCount.toLocaleString()} {folder.assetCount === 1 ? "item" : "items"}</small>
+                        <small>
+                          {folder.locked && <Lock size={12} className="gallery-folder-lock" aria-label={t("gallery:folders.lockedAria")} />}
+                          {t("gallery:common.counts.item", { count: folder.assetCount })}
+                        </small>
                       </button>
                     ))}
                   </div>
                 ) : (
-                  <p className="management-empty">No folder name contains “{folderQuery}”.</p>
+                  <p className="management-empty">{t("gallery:folders.noNameContains", { query: folderQuery })}</p>
                 )}
               </>
             ) : (
               <>
                 <div className="gallery-folder-bar">
                   <div className="gallery-breadcrumb">
-                    <button type="button" onClick={() => void loadFolder("")}>All folders</button>
+                    <button type="button" onClick={() => void loadFolder("")}>{t("gallery:folders.allFolders")}</button>
                     {breadcrumbParts.map((part, i) => {
                       const target = breadcrumbParts.slice(0, i + 1).join("/");
                       return (
@@ -2106,21 +2306,38 @@ export function GalleryPage({
                     })}
                   </div>
                   {isAdmin && soleLibraryId && parent !== "" && (
-                    <Button
-                      variant="secondary"
-                      compact
-                      disabled={folderRescanBusy}
-                      title="Rescan just this folder (leaves the rest of the library untouched)"
-                      onClick={() => void rescanFolder()}
-                    >
-                      <RefreshCw size={14} aria-hidden="true" /> {folderRescanBusy ? "Starting…" : "Rescan this folder"}
-                    </Button>
+                    <>
+                      <Button
+                        variant="secondary"
+                        compact
+                        disabled={folderLockBusy}
+                        title={parentLocked
+                          ? t("gallery:folders.unlockTitle")
+                          : t("gallery:folders.lockTitle")}
+                        onClick={() => void toggleFolderLock()}
+                      >
+                        {parentLocked ? <LockOpen size={14} aria-hidden="true" /> : <Lock size={14} aria-hidden="true" />}
+                        {" "}
+                        {folderLockBusy
+                          ? (parentLocked ? t("gallery:folders.unlocking") : t("gallery:folders.locking"))
+                          : (parentLocked ? t("gallery:folders.unlockFolder") : t("gallery:folders.lockFolder"))}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        compact
+                        disabled={folderRescanBusy}
+                        title={t("gallery:folders.rescanTitle")}
+                        onClick={() => void rescanFolder()}
+                      >
+                        <RefreshCw size={14} aria-hidden="true" /> {folderRescanBusy ? t("gallery:folders.rescanStarting") : t("gallery:folders.rescanButton")}
+                      </Button>
+                    </>
                   )}
                 </div>
 
                 {folders.length > 0 && (
                   <>
-                    <p className="gallery-section-label">Folders ({formatCount(folders.length)})</p>
+                    <p className="gallery-section-label">{t("gallery:folders.foldersHeading", { count: folders.length })}</p>
                     <div className="gallery-folder-grid">
                       {folders.map((folder) => (
                         <button key={folder.path} type="button" className="gallery-folder-tile" onClick={() => void loadFolder(folder.path)}>
@@ -2128,7 +2345,10 @@ export function GalleryPage({
                             {folder.coverUrl ? <img src={folder.coverUrl} alt="" loading="lazy" /> : <Folder size={28} aria-hidden="true" />}
                           </span>
                           <strong>{folder.name}</strong>
-                          <small>{folder.assetCount.toLocaleString()} {folder.assetCount === 1 ? "item" : "items"}</small>
+                          <small>
+                            {folder.locked && <Lock size={12} className="gallery-folder-lock" aria-label={t("gallery:folders.lockedAria")} />}
+                            {t("gallery:common.counts.item", { count: folder.assetCount })}
+                          </small>
                         </button>
                       ))}
                     </div>
@@ -2137,7 +2357,7 @@ export function GalleryPage({
 
                 {folderAssets.length > 0 && (
                   <>
-                    <p className="gallery-section-label">Photos &amp; videos ({formatCount(folderTotal)})</p>
+                    <p className="gallery-section-label">{t("gallery:folders.photosVideosHeading", { count: folderTotal })}</p>
                     <div className={gridClass}>
                       {folderAssets.map((asset, index) => (
                         <AssetTile
@@ -2147,13 +2367,14 @@ export function GalleryPage({
                           selectionMode={selectionMode}
                           selected={selectedIds.has(asset.id)}
                           onToggleSelect={() => toggleSelect(asset.id)}
+                          onToggleLike={(next) => void toggleAssetLike(asset, next)}
                         />
                       ))}
                     </div>
                     {folderAssets.length < folderTotal && (
                       <div style={{ display: "flex", justifyContent: "center", padding: "16px 0" }}>
                         <button type="button" className="secondary-button" onClick={() => void loadFolder(parent, folderAssets.length)} disabled={loading}>
-                          {loading ? "Loading…" : "Load more"}
+                          {loading ? t("gallery:common.loading") : t("gallery:common.loadMore")}
                         </button>
                       </div>
                     )}
@@ -2161,7 +2382,7 @@ export function GalleryPage({
                 )}
 
                 {!loading && folders.length === 0 && folderAssets.length === 0 && (
-                  <p className="management-empty">This folder is empty.</p>
+                  <p className="management-empty">{t("gallery:folders.emptyFolder")}</p>
                 )}
               </>
             )}
@@ -2183,7 +2404,7 @@ export function GalleryPage({
           musicUrl={lightbox.source === "slideshow" ? selectedSlideshow?.musicUrl ?? undefined : undefined}
           onClose={closeLightbox}
           onIndexChange={(next) => setLightbox((current) => (current ? { ...current, index: next } : current))}
-          onChanged={refreshView}
+          onChanged={handleAssetChange}
           onOpenFolder={openAssetFolder}
         />
       )}
@@ -2194,7 +2415,7 @@ export function GalleryPage({
           onClose={() => setUploadOpen(false)}
           onUploaded={(count, libraryName) => {
             setUploadOpen(false);
-            setNotice(`Added ${count} item${count === 1 ? "" : "s"} to ${libraryName}.`);
+            setNotice(t("gallery:page.notices.uploadedNotice", { count, library: libraryName }));
             refreshView();
           }}
         />
@@ -2230,12 +2451,12 @@ export function GalleryPage({
       {bulkAlbumOpen && (
         <AddToAlbumModal
           itemIds={[...selectedIds]}
-          title={`${selectedIds.size} selected ${selectedIds.size === 1 ? "item" : "items"}`}
+          title={t("gallery:bulk.selectedItemsTitle", { count: selectedIds.size })}
           onClose={() => setBulkAlbumOpen(false)}
           onAdded={(albumName, added) => {
             setBulkAlbumOpen(false);
             exitSelection();
-            setNotice(`Added ${added} item${added === 1 ? "" : "s"} to "${albumName}".`);
+            setNotice(t("gallery:albums.addedNotice", { count: added, name: albumName }));
           }}
         />
       )}
@@ -2243,12 +2464,12 @@ export function GalleryPage({
       {bulkSlideshowOpen && (
         <AddToSlideshowModal
           itemIds={[...selectedIds]}
-          title={`${selectedIds.size} selected ${selectedIds.size === 1 ? "item" : "items"}`}
+          title={t("gallery:bulk.selectedItemsTitle", { count: selectedIds.size })}
           onClose={() => setBulkSlideshowOpen(false)}
           onAdded={(slideshowName, added) => {
             setBulkSlideshowOpen(false);
             exitSelection();
-            setNotice(`Added ${added} photo${added === 1 ? "" : "s"} to "${slideshowName}".`);
+            setNotice(t("gallery:slideshows.addedPhotosNotice", { count: added, name: slideshowName }));
           }}
         />
       )}
@@ -2260,9 +2481,9 @@ export function GalleryPage({
           onApplied={(updated, forbidden, noDate) => {
             setBulkDateOpen(false);
             exitSelection();
-            const parts = [`Dated ${updated} item${updated === 1 ? "" : "s"}`];
-            if (noDate > 0) parts.push(`${noDate} had no date to shift`);
-            if (forbidden > 0) parts.push(`${forbidden} skipped (no permission)`);
+            const parts = [t("gallery:bulk.datedNotice", { count: updated })];
+            if (noDate > 0) parts.push(t("gallery:bulk.noDateNotice", { count: noDate }));
+            if (forbidden > 0) parts.push(t("gallery:bulk.skippedPermissionNotice", { count: forbidden }));
             setNotice(`${parts.join(" · ")}.`);
             refreshView();
           }}
@@ -2276,8 +2497,28 @@ export function GalleryPage({
           onApplied={(updated, forbidden) => {
             setBulkLocationOpen(false);
             exitSelection();
-            const parts = [`Placed ${updated} item${updated === 1 ? "" : "s"} on the map`];
-            if (forbidden > 0) parts.push(`${forbidden} skipped (no permission)`);
+            const parts = [t("gallery:bulk.placedNotice", { count: updated })];
+            if (forbidden > 0) parts.push(t("gallery:bulk.skippedPermissionNotice", { count: forbidden }));
+            setNotice(`${parts.join(" · ")}.`);
+            refreshView();
+          }}
+        />
+      )}
+
+      {bulkTagsOpen && (
+        <GalleryTagsModal
+          itemIds={[...selectedIds]}
+          suggestions={facets?.tags ?? []}
+          onClose={() => setBulkTagsOpen(false)}
+          onApplied={(updated, forbidden, mode, tags) => {
+            setBulkTagsOpen(false);
+            exitSelection();
+            const parts = [
+              mode === "add"
+                ? t("gallery:bulk.taggedNotice", { count: updated, tags: tags.join(", ") })
+                : t("gallery:bulk.untaggedNotice", { count: updated, tags: tags.join(", ") })
+            ];
+            if (forbidden > 0) parts.push(t("gallery:bulk.skippedPermissionNotice", { count: forbidden }));
             setNotice(`${parts.join(" · ")}.`);
             refreshView();
           }}
@@ -2302,22 +2543,22 @@ export function GalleryPage({
                 className="primary-button compact-button"
                 onClick={() => { const suggestion = previewSuggestion; setPreviewSuggestion(null); void createFromMemory(suggestion); }}
               >
-                <Film size={15} aria-hidden="true" /> Create slideshow
+                <Film size={15} aria-hidden="true" /> {t("gallery:slideshows.createTitle")}
               </button>
             </div>
           </div>
           <div className="modal-tab-content add-to-album-body">
             {previewAssets === null ? (
-              <p className="management-empty">Loading photos…</p>
+              <p className="management-empty">{t("gallery:suggestions.loadingPhotos")}</p>
             ) : previewAssets.length === 0 ? (
-              <p className="management-empty">None of these photos are available right now.</p>
+              <p className="management-empty">{t("gallery:suggestions.previewEmpty")}</p>
             ) : (
               <div className="gallery-folder-grid suggestion-preview-grid">
                 {previewAssets.map((asset) => (
                   <div key={asset.id} className="gallery-folder-tile suggestion-preview-tile">
                     <span className="gallery-folder-thumb">
                       {asset.coverUrl ? <img src={asset.coverUrl} alt={asset.title} loading="lazy" /> : <ImageIcon size={26} aria-hidden="true" />}
-                      {asset.kind === "video" && <span className="gallery-video-badge"><Play size={11} aria-hidden="true" />Video</span>}
+                      {asset.kind === "video" && <span className="gallery-video-badge"><Play size={11} aria-hidden="true" />{t("gallery:common.video")}</span>}
                     </span>
                   </div>
                 ))}
@@ -2329,28 +2570,27 @@ export function GalleryPage({
 
       {movieDeleteOpen && selectedSlideshow && (
         <ConfirmDialog
-          title="Delete this movie?"
-          confirmLabel="Delete movie"
+          title={t("gallery:slideshows.deleteMovieTitle")}
+          confirmLabel={t("gallery:slideshows.deleteMovieConfirm")}
           danger
           busy={movieDeleteBusy}
           onConfirm={() => void deleteSlideshowMovie()}
           onCancel={() => { if (!movieDeleteBusy) setMovieDeleteOpen(false); }}
         >
-          This removes the rendered MP4 and any leftover temporary files. You can re-render it anytime.
-          {selectedSlideshow.movieSavedToLibrary && " The copy already saved to your gallery is kept."}
+          {t("gallery:slideshows.deleteMovieBody")}
+          {selectedSlideshow.movieSavedToLibrary && t("gallery:slideshows.movieCopyKeptNote")}
         </ConfirmDialog>
       )}
 
       {browseOpen && selectedSlideshow && (
-        <GalleryFolderPicker
-          title={`Add photos to “${selectedSlideshow.name}”`}
+        <PhotoPicker
+          title={t("gallery:page.dialogs.addPhotosToTitle", { name: selectedSlideshow.name })}
           endpoint={`/api/library/gallery/slideshows/${selectedSlideshow.id}/items`}
-          libraries={libraries}
           existingIds={slideshowAssets.map((asset) => asset.id)}
           onClose={() => setBrowseOpen(false)}
           onAdded={(added) => {
             if (added > 0) {
-              setNotice(`Added ${added} photo${added === 1 ? "" : "s"} to "${selectedSlideshow.name}".`);
+              setNotice(t("gallery:page.dialogs.addedPhotosNotice", { count: added, name: selectedSlideshow.name }));
               void openSlideshow(selectedSlideshow.id);
             }
           }}
@@ -2358,15 +2598,14 @@ export function GalleryPage({
       )}
 
       {albumBrowseOpen && selectedAlbum && (
-        <GalleryFolderPicker
-          title={`Add photos to “${selectedAlbum.name}”`}
+        <PhotoPicker
+          title={t("gallery:page.dialogs.addPhotosToTitle", { name: selectedAlbum.name })}
           endpoint={`/api/library/gallery/albums/${selectedAlbum.id}/items`}
-          libraries={libraries}
           existingIds={albumAssets.map((asset) => asset.id)}
           onClose={() => setAlbumBrowseOpen(false)}
           onAdded={(added) => {
             if (added > 0) {
-              setNotice(`Added ${added} photo${added === 1 ? "" : "s"} to "${selectedAlbum.name}".`);
+              setNotice(t("gallery:page.dialogs.addedPhotosNotice", { count: added, name: selectedAlbum.name }));
               void openAlbum(selectedAlbum.id);
             }
           }}
@@ -2376,83 +2615,67 @@ export function GalleryPage({
       {slideshowCreateOpen && (
         <Modal
           variant="card"
-          title="Create slideshow"
+          title={t("gallery:slideshows.createTitle")}
           onClose={() => { if (!slideshowBusy) setSlideshowCreateOpen(false); }}
         >
           <form onSubmit={(event) => { event.preventDefault(); void createSlideshowSubmit(); }}>
             <label className="field">
-              <span>Name</span>
-              <input value={slideshowNewName} onChange={(event) => setSlideshowNewName(event.target.value)} placeholder="e.g. Summer 2026" autoFocus maxLength={120} />
+              <span>{t("gallery:common.name")}</span>
+              <input value={slideshowNewName} onChange={(event) => setSlideshowNewName(event.target.value)} placeholder={t("gallery:slideshows.namePlaceholderExample")} autoFocus maxLength={120} />
             </label>
             <div className="modal-actions">
-              <button type="button" className="secondary-button" onClick={() => setSlideshowCreateOpen(false)} disabled={slideshowBusy}>Cancel</button>
+              <button type="button" className="secondary-button" onClick={() => setSlideshowCreateOpen(false)} disabled={slideshowBusy}>{t("common:common.cancel")}</button>
               <button type="submit" className="primary-button" disabled={!slideshowNewName.trim() || slideshowBusy}>
-                {slideshowBusy ? "Creating…" : "Create slideshow"}
+                {slideshowBusy ? t("gallery:common.creating") : t("gallery:slideshows.createTitle")}
               </button>
             </div>
           </form>
         </Modal>
       )}
 
-      {movieLibraryOpen && slideshowSettings && (
-        <Modal
-          variant="card"
-          title="Save rendered movies to"
-          icon={<LibraryBig size={20} />}
+      {movieLibraryOpen && selectedSlideshow && slideshowSettings && (
+        <SlideshowMovieLibraryModal
+          slideshow={selectedSlideshow}
+          libraries={slideshowSettings.libraries}
           onClose={() => setMovieLibraryOpen(false)}
-        >
-          <p className="muted">
-            When a slideshow is rendered into a movie, it can also be saved into one of your
-            gallery libraries so it shows up alongside your photos.
-          </p>
-          <ChoiceGroup
-            legend="Movie library"
-            value={slideshowSettings.renderLibraryId ?? ""}
-            onChange={(value) => void setRenderLibrary(value)}
-            options={[
-              { value: "", label: "Don’t save to a library" },
-              ...slideshowSettings.libraries.map((lib) => ({ value: lib.id, label: lib.name }))
-            ]}
-          />
-          <div className="modal-actions">
-            <button type="button" className="primary-button" onClick={() => setMovieLibraryOpen(false)}>Done</button>
-          </div>
-        </Modal>
+          onPatch={async (fields) => { await patchSlideshow(selectedSlideshow.id, fields); }}
+          onSaved={(message) => setNotice(message)}
+        />
       )}
 
       {slideshowDeleteOpen && selectedSlideshow && (
         <ConfirmDialog
-          title={`Delete "${selectedSlideshow.name}"?`}
-          confirmLabel="Delete slideshow"
+          title={t("gallery:slideshows.deleteConfirmTitle", { name: selectedSlideshow.name })}
+          confirmLabel={t("gallery:slideshows.deleteConfirmLabel")}
           danger
           busy={slideshowBusy}
           onConfirm={confirmDeleteSlideshow}
           onCancel={() => { if (!slideshowBusy) setSlideshowDeleteOpen(false); }}
         >
-          This removes the slideshow and its order and settings. The photos themselves stay in the gallery.
-          {selectedSlideshow.movieSavedToLibrary && " The rendered movie already saved to your gallery is kept."}
+          {t("gallery:slideshows.deleteConfirmBody")}
+          {selectedSlideshow.movieSavedToLibrary && t("gallery:slideshows.movieRenderedKeptNote")}
         </ConfirmDialog>
       )}
 
       {albumCreateOpen && (
         <Modal
           variant="card"
-          title="Create album"
+          title={t("gallery:albums.createTitle")}
           onClose={() => { if (!albumBusy) setAlbumCreateOpen(false); }}
         >
           <form onSubmit={(event) => { event.preventDefault(); void createAlbumSubmit(); }}>
             <label className="field">
-              <span>Name</span>
-              <input value={albumNewName} onChange={(event) => setAlbumNewName(event.target.value)} placeholder="e.g. Summer 2026" autoFocus maxLength={120} />
+              <span>{t("gallery:common.name")}</span>
+              <input value={albumNewName} onChange={(event) => setAlbumNewName(event.target.value)} placeholder={t("gallery:albums.namePlaceholderExample")} autoFocus maxLength={120} />
             </label>
             <label className="field">
-              <span>Description (optional)</span>
-              <input value={albumNewDesc} onChange={(event) => setAlbumNewDesc(event.target.value)} placeholder="What's in this album?" maxLength={2000} />
+              <span>{t("gallery:albums.descriptionLabel")}</span>
+              <input value={albumNewDesc} onChange={(event) => setAlbumNewDesc(event.target.value)} placeholder={t("gallery:albums.descriptionPlaceholder")} maxLength={2000} />
             </label>
             <div className="modal-actions">
-              <button type="button" className="secondary-button" onClick={() => setAlbumCreateOpen(false)} disabled={albumBusy}>Cancel</button>
+              <button type="button" className="secondary-button" onClick={() => setAlbumCreateOpen(false)} disabled={albumBusy}>{t("common:common.cancel")}</button>
               <button type="submit" className="primary-button" disabled={!albumNewName.trim() || albumBusy}>
-                {albumBusy ? "Creating…" : "Create album"}
+                {albumBusy ? t("gallery:common.creating") : t("gallery:albums.createTitle")}
               </button>
             </div>
           </form>
@@ -2462,15 +2685,15 @@ export function GalleryPage({
       {coverPickerOpen && selectedAlbum && (
         <Modal
           variant="panel"
-          title="Set cover photo"
+          title={t("gallery:common.setCoverPhoto")}
           icon={<ImageIcon size={20} />}
           className="gallery-cover-modal"
           onClose={() => setCoverPickerOpen(false)}
         >
           <div className="modal-tab-content">
-            <p className="muted">Choose a photo to use as this album’s cover.</p>
+            <p className="muted">{t("gallery:albums.coverPickerHint")}</p>
             {albumAssets.length === 0 ? (
-              <p className="management-empty">This album has no photos yet.</p>
+              <p className="management-empty">{t("gallery:albums.coverPickerEmpty")}</p>
             ) : (
               <div className="gallery-grid gallery-cover-grid">
                 {albumAssets.map((asset) => (
@@ -2479,8 +2702,8 @@ export function GalleryPage({
                     type="button"
                     className={`gallery-tile${asset.id === selectedAlbum.coverItemId ? " selected" : ""}`}
                     onClick={() => void setAlbumCover(selectedAlbum.id, asset.id)}
-                    aria-label={`Use ${asset.title} as the cover`}
-                    title={`Use ${asset.title} as the cover`}
+                    aria-label={t("gallery:page.dialogs.useAsCoverAria", { title: asset.title })}
+                    title={t("gallery:page.dialogs.useAsCoverAria", { title: asset.title })}
                   >
                     {asset.coverUrl ? (
                       <img src={asset.coverUrl} alt="" loading="lazy" />
@@ -2501,15 +2724,15 @@ export function GalleryPage({
       {slideshowCoverPickerOpen && selectedSlideshow && (
         <Modal
           variant="panel"
-          title="Set cover photo"
+          title={t("gallery:common.setCoverPhoto")}
           icon={<ImageIcon size={20} />}
           className="gallery-cover-modal"
           onClose={() => setSlideshowCoverPickerOpen(false)}
         >
           <div className="modal-tab-content">
-            <p className="muted">Choose a photo to use as this slideshow’s cover.</p>
+            <p className="muted">{t("gallery:slideshows.coverPickerHint")}</p>
             {slideshowAssets.length === 0 ? (
-              <p className="management-empty">This slideshow has no photos yet.</p>
+              <p className="management-empty">{t("gallery:slideshows.coverPickerEmpty")}</p>
             ) : (
               <div className="gallery-grid gallery-cover-grid">
                 {slideshowAssets.map((asset) => (
@@ -2518,8 +2741,8 @@ export function GalleryPage({
                     type="button"
                     className={`gallery-tile${asset.id === selectedSlideshow.coverItemId ? " selected" : ""}`}
                     onClick={() => void setSlideshowCover(selectedSlideshow.id, asset.id)}
-                    aria-label={`Use ${asset.title} as the cover`}
-                    title={`Use ${asset.title} as the cover`}
+                    aria-label={t("gallery:page.dialogs.useAsCoverAria", { title: asset.title })}
+                    title={t("gallery:page.dialogs.useAsCoverAria", { title: asset.title })}
                   >
                     {asset.coverUrl ? (
                       <img src={asset.coverUrl} alt="" loading="lazy" />
@@ -2540,15 +2763,15 @@ export function GalleryPage({
       {personCoverPickerOpen && selectedPerson && (
         <Modal
           variant="panel"
-          title="Set cover photo"
+          title={t("gallery:common.setCoverPhoto")}
           icon={<ImageIcon size={20} />}
           className="gallery-cover-modal"
           onClose={() => setPersonCoverPickerOpen(false)}
         >
           <div className="modal-tab-content">
-            <p className="muted">Choose a photo to use as {selectedPerson.name ? `${selectedPerson.name}’s` : "this person’s"} cover.</p>
+            <p className="muted">{selectedPerson.name ? t("gallery:people.coverPickerHintNamed", { name: selectedPerson.name }) : t("gallery:people.coverPickerHintGeneric")}</p>
             {personAssets.length === 0 ? (
-              <p className="management-empty">No photos yet.</p>
+              <p className="management-empty">{t("gallery:people.coverPickerEmpty")}</p>
             ) : (
               <div className="gallery-grid gallery-cover-grid">
                 {personAssets.map((asset) => (
@@ -2557,8 +2780,8 @@ export function GalleryPage({
                     type="button"
                     className={`gallery-tile${asset.id === selectedPerson.coverItemId ? " selected" : ""}`}
                     onClick={() => void setPersonCover(selectedPerson.id, asset.id)}
-                    aria-label={`Use ${asset.title} as the cover`}
-                    title={`Use ${asset.title} as the cover`}
+                    aria-label={t("gallery:page.dialogs.useAsCoverAria", { title: asset.title })}
+                    title={t("gallery:page.dialogs.useAsCoverAria", { title: asset.title })}
                   >
                     {asset.coverUrl ? (
                       <img src={asset.coverUrl} alt="" loading="lazy" />
@@ -2578,16 +2801,15 @@ export function GalleryPage({
 
       {albumDeleteOpen && selectedAlbum && (
         <ConfirmDialog
-          title={`Delete "${selectedAlbum.name}"?`}
-          confirmLabel="Delete album"
-          busyLabel="Deleting…"
+          title={t("gallery:albums.deleteConfirmTitle", { name: selectedAlbum.name })}
+          confirmLabel={t("gallery:albums.deleteConfirmLabel")}
+          busyLabel={t("gallery:common.deleting")}
           busy={albumBusy}
           danger
           onConfirm={() => void confirmDeleteAlbum()}
           onCancel={() => { if (!albumBusy) setAlbumDeleteOpen(false); }}
         >
-          This removes the album only. The photos inside stay in the gallery and in any
-          other albums or collections.
+          {t("gallery:albums.deleteConfirmBody")}
         </ConfirmDialog>
       )}
 
@@ -2595,42 +2817,40 @@ export function GalleryPage({
         <AddToCollectionModal
           entityType="gallery"
           entityIds={[...selectedIds]}
-          title={`${selectedIds.size} selected ${selectedIds.size === 1 ? "item" : "items"}`}
+          title={t("gallery:bulk.selectedItemsTitle", { count: selectedIds.size })}
           onClose={() => setBulkCollectionOpen(false)}
           onAdded={(collectionName, added) => {
             setBulkCollectionOpen(false);
             exitSelection();
-            setNotice(`Added ${added} item${added === 1 ? "" : "s"} to "${collectionName}".`);
+            setNotice(t("gallery:bulk.addedToCollectionNotice", { count: added, name: collectionName }));
           }}
         />
       )}
 
       {bulkDeleteOpen && (
         <ConfirmDialog
-          title={`Move ${selectedIds.size} ${selectedIds.size === 1 ? "item" : "items"} to the Recycle Bin?`}
-          confirmLabel={`Move ${selectedIds.size} ${selectedIds.size === 1 ? "item" : "items"}`}
-          busyLabel="Moving…"
+          title={t("gallery:bulk.deleteConfirmTitle", { count: selectedIds.size })}
+          confirmLabel={t("gallery:bulk.deleteConfirmLabel", { count: selectedIds.size })}
+          busyLabel={t("gallery:common.moving")}
           busy={bulkBusy}
           error={bulkError}
           danger
           onConfirm={() => void confirmBulkDelete()}
           onCancel={() => { if (!bulkBusy) setBulkDeleteOpen(false); }}
         >
-          These items move into the Recycle Bin and leave the gallery for everyone. You can restore them
-          from the Recycle Bin, or delete them permanently from there.
+          {t("gallery:bulk.deleteConfirmBody")}
         </ConfirmDialog>
       )}
 
       {personDeleteOpen && selectedPerson && (
         <ConfirmDialog
-          title={`Delete "${selectedPerson.name || "Unnamed"}"?`}
-          confirmLabel="Delete person"
+          title={t("gallery:people.deleteConfirmTitle", { name: selectedPerson.name || t("gallery:common.unnamed") })}
+          confirmLabel={t("gallery:people.deleteConfirmLabel")}
           danger
           onConfirm={() => void confirmDeletePerson()}
           onCancel={() => setPersonDeleteOpen(false)}
         >
-          This removes the person and untags their photos. The photos themselves are not affected, and
-          you can tag them again later.
+          {t("gallery:people.deleteConfirmBody")}
         </ConfirmDialog>
       )}
     </DashboardShell>

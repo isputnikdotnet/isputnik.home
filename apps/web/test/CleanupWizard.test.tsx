@@ -125,9 +125,9 @@ describe("cleanup wizard steps", () => {
 
 describe("folder instructions", () => {
   const FOLDERS = [
-    { libraryId: "Family", libraryName: "Family", folderPath: "/odds-and-ends", photoCount: 4, isProtected: false },
-    { libraryId: "Family", libraryName: "Family", folderPath: "/holidays", photoCount: 4210, isProtected: false },
-    { libraryId: "Family", libraryName: "Family", folderPath: "/phone-dump", photoCount: 380, isProtected: false }
+    { libraryId: "Family", libraryName: "Family", folderPath: "/odds-and-ends", photoCount: 4, isProtected: false, isLocked: false },
+    { libraryId: "Family", libraryName: "Family", folderPath: "/holidays", photoCount: 4210, isProtected: false, isLocked: false },
+    { libraryId: "Family", libraryName: "Family", folderPath: "/phone-dump", photoCount: 380, isProtected: false, isLocked: false }
   ];
 
   const openInstructions = async (user: ReturnType<typeof userEvent.setup>) => {
@@ -181,6 +181,34 @@ describe("folder instructions", () => {
 
     await user.unhover(screen.getByRole("button", { name: "About folder instructions" }));
     expect(screen.queryByText(/Nothing is inherited/)).not.toBeInTheDocument();
+  });
+
+  it("refuses Clear on a locked folder, with the lock as the reason", async () => {
+    const user = userEvent.setup();
+    mockApi.mockResolvedValue({
+      folders: [
+        ...FOLDERS,
+        { libraryId: "Family", libraryName: "Family", folderPath: "/vault", photoCount: 12, isProtected: false, isLocked: true }
+      ]
+    } as never);
+    mount();
+    await user.click(next());
+    await user.click(next());
+
+    const row = [...document.querySelectorAll(".dup-folder-choice")].find((el) =>
+      el.querySelector(".dup-folder-choice-body strong")?.textContent === "/vault"
+    ) as HTMLElement;
+    const clear = [...row.querySelectorAll("label.dup-mode")].find((el) => el.textContent?.includes("Clear")) as HTMLElement;
+    expect(clear.className).toContain("is-blocked");
+    expect(clear.getAttribute("title")).toMatch(/locked/i);
+    expect(clear.querySelector("input")).toBeDisabled();
+
+    // An unlocked sibling's Clear stays live.
+    const free = [...document.querySelectorAll(".dup-folder-choice")].find((el) =>
+      el.querySelector(".dup-folder-choice-body strong")?.textContent === "/holidays"
+    ) as HTMLElement;
+    const freeClear = [...free.querySelectorAll("label.dup-mode")].find((el) => el.textContent?.includes("Clear")) as HTMLElement;
+    expect(freeClear.querySelector("input")).not.toBeDisabled();
   });
 
   it("does not snatch a pinned explanation away when the pointer leaves", async () => {

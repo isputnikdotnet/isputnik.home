@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import L from "leaflet";
 import "leaflet.markercluster";
 import "leaflet/dist/leaflet.css";
@@ -12,6 +13,7 @@ import type { GalleryMapPoint } from "./types";
 // in the lightbox. Base tiles come from OpenStreetMap (the one external resource the
 // CSP allows — see imgSrc in the server).
 export function GalleryMap({ points, onOpen }: { points: GalleryMapPoint[]; onOpen: (id: string) => void }) {
+  const { t } = useTranslation(["common", "gallery"]);
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const clusterRef = useRef<L.MarkerClusterGroup | null>(null);
@@ -26,7 +28,7 @@ export function GalleryMap({ points, onOpen }: { points: GalleryMapPoint[]; onOp
     const map = L.map(containerRef.current, { worldCopyJump: true }).setView([20, 0], 2);
     L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      attribution: t("gallery:map.osmAttributionContributors")
     }).addTo(map);
     const cluster = L.markerClusterGroup({ maxClusterRadius: 50 });
     map.addLayer(cluster);

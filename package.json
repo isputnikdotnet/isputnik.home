@@ -1,7 +1,7 @@
 {
   "name": "isputnik-home",
   "private": true,
-  "version": "3.20.2",
+  "version": "3.43.0",
   "description": "Private self-hosted family media library.",
   "license": "AGPL-3.0-only",
   "workspaces": [
@@ -22,7 +22,7 @@
     "test:web": "npm run test --workspace apps/web"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2",
+    "concurrently": "^10.0.5",
     "cross-env": "^10.1.0"
   },
   "overrides": {

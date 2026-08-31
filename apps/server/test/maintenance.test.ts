@@ -33,7 +33,7 @@ describe("scheduled jobs registry", () => {
     expect(jobs.map((j) => j.key).sort()).toEqual([
       "cleanup_job_logs",
       "convert_unplayable_videos",
-      "empty_recycle_bin",
+      "purge_expired_trash",
       "purge_missing_gallery",
       "scan_audiobook_libraries",
       "scan_ebook_libraries",
@@ -46,7 +46,7 @@ describe("scheduled jobs registry", () => {
     // Face scan runs LAST, after the randomized 01:00–04:59 library-scan window.
     expect(byKey.scan_new_faces).toMatchObject({ enabled: true, frequency: "daily", time: "05:00" });
     expect(byKey.cleanup_job_logs).toMatchObject({ enabled: true, frequency: "weekly", time: "00:30" });
-    expect(byKey.empty_recycle_bin).toMatchObject({ enabled: true, frequency: "weekly", time: "00:45" });
+    expect(byKey.purge_expired_trash).toMatchObject({ enabled: true, frequency: "daily", time: "00:45" });
     expect(byKey.scan_audiobook_libraries).toMatchObject({ enabled: true, frequency: "daily" });
     expect(byKey.scan_ebook_libraries).toMatchObject({ enabled: true, frequency: "daily" });
     expect(byKey.scan_gallery_libraries).toMatchObject({ enabled: true, frequency: "daily" });
@@ -84,7 +84,7 @@ describe("scheduled jobs registry", () => {
     expect(byKey).toEqual({
       cleanup_job_logs: "system",
       convert_unplayable_videos: "gallery",
-      empty_recycle_bin: "system",
+      purge_expired_trash: "system",
       purge_missing_gallery: "gallery",
       scan_audiobook_libraries: "audiobooks",
       scan_ebook_libraries: "ebooks",
@@ -95,14 +95,14 @@ describe("scheduled jobs registry", () => {
 
   it("seeding writes default rows the worker can see, without overriding admin choices", () => {
     // Admin has already turned one job off; the others were never configured.
-    configureScheduledJob("empty_recycle_bin", false, { frequency: "weekly" }, null);
+    configureScheduledJob("purge_expired_trash", false, { frequency: "weekly" }, null);
     seedScheduledJobDefaults();
 
     const rows = db.prepare("SELECT key, enabled FROM scheduled_jobs ORDER BY key").all() as { key: string; enabled: number }[];
     expect(rows.map((r) => r.key)).toEqual([
       "cleanup_job_logs",
       "convert_unplayable_videos",
-      "empty_recycle_bin",
+      "purge_expired_trash",
       "purge_missing_gallery",
       "scan_audiobook_libraries",
       "scan_ebook_libraries",
@@ -112,7 +112,7 @@ describe("scheduled jobs registry", () => {
     // Never-configured jobs seed enabled; the admin-disabled one is left off.
     expect(rows.find((r) => r.key === "scan_new_faces")!.enabled).toBe(1);
     expect(rows.find((r) => r.key === "cleanup_job_logs")!.enabled).toBe(1);
-    expect(rows.find((r) => r.key === "empty_recycle_bin")!.enabled).toBe(0);
+    expect(rows.find((r) => r.key === "purge_expired_trash")!.enabled).toBe(0);
   });
 
   it("seeding gives nightly library scans a persisted random quiet-hours time", () => {
@@ -177,7 +177,7 @@ describe("configuring a scheduled job", () => {
 
   it("a monthly job's next run lands on the chosen day of month", () => {
     const job = configureScheduledJob(
-      "empty_recycle_bin",
+      "purge_expired_trash",
       true,
       { frequency: "monthly", dayOfMonth: 15, time: "02:00" },
       null
@@ -231,17 +231,42 @@ describe("clean task history", () => {
   });
 });
 
-describe("empty recycle bin", () => {
-  it("purges every trashed item and reports the count", () => {
-    for (let i = 0; i < 3; i++) {
-      db.prepare(
-        "INSERT INTO trashed_items (id, library_id, library_type, library_name, source_path, title, origin_path, trash_path) VALUES (?, 'lib', 'audiobook', 'Lib', ?, ?, ?, ?)"
-      ).run(`t${i}`, `/nope/src${i}`, `Item ${i}`, `/nope/src${i}/item`, ".trash/tok");
-    }
-    const result = runScheduledJob("empty_recycle_bin", null);
+// The job this replaced emptied the bin outright on a cadence, which made the retention
+// window beside it meaningless. Whatever else changes here, it must never take an item
+// that still has time left on the clock it was given.
+describe("purge expired recycle bin items", () => {
+  // `shift` is a SQLite date modifier ('-1 day'), or null for keep-for-ever.
+  function trashRow(id: string, shift: string | null) {
+    const expiry = shift === null ? "NULL" : "datetime('now', ?)";
+    const statement = db.prepare(
+      `INSERT INTO trashed_items (id, library_id, library_type, library_name, source_path, title, origin_path, trash_path, expires_at)
+       VALUES (?, 'lib', 'audiobook', 'Lib', ?, ?, ?, '.trash/tok', ${expiry})`
+    );
+    const args = [id, `/nope/${id}`, `Item ${id}`, `/nope/${id}/item`];
+    if (shift === null) statement.run(...args);
+    else statement.run(...args, shift);
+  }
+
+  it("leaves items that are still inside their retention window", () => {
+    trashRow("a", "+10 days");
+    trashRow("b", null); // keep for ever
+
+    const result = runScheduledJob("purge_expired_trash", null);
     expect(result?.lastStatus).toBe("success");
-    expect(result?.lastMessage).toContain("purged 3 items");
-    expect((db.prepare("SELECT COUNT(*) AS n FROM trashed_items").get() as { n: number }).n).toBe(0);
+    expect(result?.lastMessage).toContain("Nothing in the recycle bin has outlived");
+    expect((db.prepare("SELECT COUNT(*) AS n FROM trashed_items").get() as { n: number }).n).toBe(2);
+  });
+
+  it("reports the ones it could not reach rather than dropping their rows", () => {
+    // The source volume in these rows does not exist, which is how an offline disk
+    // looks — the files must not be orphaned, so the rows stay and are retried.
+    trashRow("a", "-1 day");
+    trashRow("b", "+10 days");
+
+    const result = runScheduledJob("purge_expired_trash", null);
+    expect(result?.lastStatus).toBe("success");
+    expect(result?.lastMessage).toContain("Purged 0 of 1 expired item");
+    expect((db.prepare("SELECT COUNT(*) AS n FROM trashed_items").get() as { n: number }).n).toBe(2);
   });
 });
 
@@ -265,7 +290,7 @@ describe("tasks created by a manual run", () => {
     db.prepare(
       "INSERT INTO trashed_items (id, library_id, library_type, library_name, source_path, title, origin_path, trash_path) VALUES ('t1', 'lib', 'audiobook', 'Lib', '/nope/src', 'Item', '/nope/src/item', '.trash/tok')"
     ).run();
-    const { result, taskIds } = withNewTaskIds(() => runScheduledJob("empty_recycle_bin", null));
+    const { result, taskIds } = withNewTaskIds(() => runScheduledJob("purge_expired_trash", null));
     expect(result?.lastStatus).toBe("success");
     expect(taskIds).toEqual([]);
   });
@@ -492,9 +517,9 @@ describe("due-job worker", () => {
   });
 
   it("leaves disabled jobs untouched", () => {
-    configureScheduledJob("empty_recycle_bin", false, { frequency: "weekly" }, null);
+    configureScheduledJob("purge_expired_trash", false, { frequency: "weekly" }, null);
     processDueScheduledJobs();
-    const [job] = listScheduledJobs().filter((j) => j.key === "empty_recycle_bin");
+    const [job] = listScheduledJobs().filter((j) => j.key === "purge_expired_trash");
     expect(job.lastRunAt).toBeNull();
   });
 });

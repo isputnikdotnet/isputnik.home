@@ -101,9 +101,11 @@ describe("destinations", () => {
     expect(body.subject.title).toBe("The Hobbit");
     // Dad is never offered himself. Guest is listed but flagged: hiding people who
     // lack access is what used to push you into a separate Share dialog.
+    // The address rides along: it is what tells two household members with the
+    // same first name apart in the picker.
     expect(body.people).toEqual([
-      { id: "guest", displayName: "guest", alreadySent: false, canOpen: false },
-      { id: "mom", displayName: "mom", alreadySent: false, canOpen: true }
+      { id: "guest", displayName: "guest", email: "guest@test.local", alreadySent: false, canOpen: false },
+      { id: "mom", displayName: "mom", email: "mom@test.local", alreadySent: false, canOpen: true }
     ]);
     expect(body.canGrant).toBe(true);
   });
@@ -582,7 +584,7 @@ describe("albums and slideshows", () => {
     expect(db.prepare("SELECT COUNT(*) AS n FROM shares").get()).toEqual({ n: 0 });
   });
 
-  it("offers no Favorites for an album or a slideshow", async () => {
+  it("offers no Like for an album or a slideshow", async () => {
     await makeMember("dad");
     await makeMember("mom");
     makePhoto("p1", "lib-open", { createdBy: "dad", viewers: ["dad", "mom"] });

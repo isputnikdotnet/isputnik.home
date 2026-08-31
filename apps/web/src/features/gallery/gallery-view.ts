@@ -1,4 +1,5 @@
 import type { SortOption } from "../../shared/SortMenu";
+import i18n from "../../i18n";
 
 // How the gallery's photo grids look. Both settings sit behind one View control
 // in the browse toolbar, next to Filter and Sort — see GalleryPage.
@@ -19,16 +20,27 @@ export interface GalleryViewPrefs {
   grouping: GalleryGrouping;
 }
 
-export const TILE_SIZE_OPTIONS: SortOption<GalleryTileSize>[] = [
-  { value: "small", label: "Small" },
-  { value: "medium", label: "Medium" },
-  { value: "large", label: "Large" }
-];
+// Functions rather than frozen consts, so a language switch is picked up on the
+// next render instead of caching whichever language was active on first import.
+export function getTileSizeOptions(): SortOption<GalleryTileSize>[] {
+  return [
+    { value: "small", label: i18n.t("gallery:view.tileSmall") },
+    { value: "medium", label: i18n.t("gallery:view.tileMedium") },
+    { value: "large", label: i18n.t("gallery:view.tileLarge") }
+  ];
+}
 
-export const GROUPING_OPTIONS: SortOption<GalleryGrouping>[] = [
-  { value: "day", label: "Group by day" },
-  { value: "none", label: "One continuous grid" }
-];
+export function getGroupingOptions(): SortOption<GalleryGrouping>[] {
+  return [
+    { value: "day", label: i18n.t("gallery:view.groupByDay") },
+    { value: "none", label: i18n.t("gallery:view.oneContinuousGrid") }
+  ];
+}
+
+// The valid values themselves — not the (now language-dependent) display
+// labels — are what a stored preference is checked against.
+const TILE_SIZE_VALUES: GalleryTileSize[] = ["small", "medium", "large"];
+const GROUPING_VALUES: GalleryGrouping[] = ["day", "none"];
 
 const DEFAULTS: GalleryViewPrefs = { tileSize: "medium", grouping: "day" };
 const STORE_KEY = "gallery.view";
@@ -40,8 +52,8 @@ export function readGalleryView(): GalleryViewPrefs {
     const stored = JSON.parse(raw) as Partial<GalleryViewPrefs>;
     // Anything the options no longer offer (an older build's value, a hand-edited
     // entry) falls back rather than leaving the grid in a state with no CSS.
-    const tileSize = TILE_SIZE_OPTIONS.some((option) => option.value === stored.tileSize);
-    const grouping = GROUPING_OPTIONS.some((option) => option.value === stored.grouping);
+    const tileSize = TILE_SIZE_VALUES.includes(stored.tileSize as GalleryTileSize);
+    const grouping = GROUPING_VALUES.includes(stored.grouping as GalleryGrouping);
     return {
       tileSize: tileSize ? stored.tileSize! : DEFAULTS.tileSize,
       grouping: grouping ? stored.grouping! : DEFAULTS.grouping

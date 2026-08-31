@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Bookmark, BookOpen, ChevronDown, Headphones, Play, Trash2 } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
@@ -7,6 +8,7 @@ import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { MediaKindBadge } from "../../shared/MediaKindBadge";
 import { formatDuration, relativeTime } from "../../shared/utils";
+import i18n from "../../i18n";
 import type { SavedBookmark } from "../audiobooks/types";
 
 function percentLabel(value: number | null): number {
@@ -24,11 +26,14 @@ function detailHref(bookmark: SavedBookmark): string {
 
 // Real stored position — a listen timestamp or a read percentage. (We don't store
 // page numbers, so the progress position stands in for "where in the book".)
+// Module-level helper (no hook access), so it goes through i18n directly.
 function positionLabel(bookmark: SavedBookmark): string {
   if (bookmark.kind === "listen") {
-    return `At ${formatDuration(bookmark.bookPositionSeconds ?? bookmark.positionSeconds)}`;
+    return i18n.t("user:bookmarks.atPosition", { position: formatDuration(bookmark.bookPositionSeconds ?? bookmark.positionSeconds) });
   }
-  return bookmark.percentComplete != null ? `At ${percentLabel(bookmark.percentComplete)}%` : "Saved spot";
+  return bookmark.percentComplete != null
+    ? i18n.t("user:bookmarks.atPercent", { percent: percentLabel(bookmark.percentComplete) })
+    : i18n.t("user:bookmarks.savedSpot");
 }
 
 function removeEndpoint(bookmark: SavedBookmark): string {
@@ -92,6 +97,7 @@ export function BookmarksPage({
   user: PublicUser;
   logout: () => Promise<void>;
 }) {
+  const { t } = useTranslation(["common", "user"]);
   const [bookmarks, setBookmarks] = useState<SavedBookmark[] | null>(null);
   const [error, setError] = useState("");
   const [removingIds, setRemovingIds] = useState<string[]>([]);
@@ -101,7 +107,7 @@ export function BookmarksPage({
   useEffect(() => {
     api<{ bookmarks: SavedBookmark[] }>("/api/library/bookmarks")
       .then((payload) => setBookmarks(payload.bookmarks))
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load your bookmarks"));
+      .catch((err) => setError(err instanceof Error ? err.message : t("user:bookmarks.loadFailed")));
   }, []);
 
   const groups = useMemo(() => groupByBook(bookmarks ?? []), [bookmarks]);
@@ -133,7 +139,7 @@ export function BookmarksPage({
       await api(removeEndpoint(bookmark), { method: "DELETE" });
       setBookmarks((current) => current?.filter((item) => item.id !== bookmark.id) ?? current);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to remove this bookmark");
+      setError(err instanceof Error ? err.message : t("user:bookmarks.removeFailed"));
     } finally {
       setRemovingIds((current) => current.filter((id) => id !== bookmark.id));
     }
@@ -144,26 +150,26 @@ export function BookmarksPage({
       <section className="work-area audiobook-area">
         <div className="section-head audiobook-head">
           <div>
-            <p className="eyebrow">Digital Library</p>
-            <h1>Bookmarks</h1>
+            <p className="eyebrow">{t("user:area.eyebrow")}</p>
+            <h1>{t("common:nav.bookmarks")}</h1>
           </div>
           {total > 0 && (
             <span className="bookmark-total">
               <Bookmark size={15} aria-hidden="true" />
-              {total} {total === 1 ? "Bookmark" : "Bookmarks"}
+              {t("user:bookmarks.total", { count: total })}
             </span>
           )}
         </div>
 
-        {error && <MessageBox tone="error" title="Bookmarks error">{error}</MessageBox>}
+        {error && <MessageBox tone="error" title={t("user:bookmarks.errorTitle")}>{error}</MessageBox>}
 
         {bookmarks === null ? (
-          <p className="management-empty">Loading your bookmarks…</p>
+          <p className="management-empty">{t("user:bookmarks.loading")}</p>
         ) : bookmarks.length === 0 ? (
           <div className="empty-state library-empty">
             <Bookmark size={58} aria-hidden="true" />
-            <h2>No bookmarks yet</h2>
-            <p className="muted">While reading or listening, tap the bookmark button to save your spot here.</p>
+            <h2>{t("user:bookmarks.emptyHeading")}</h2>
+            <p className="muted">{t("user:bookmarks.empty")}</p>
           </div>
         ) : (
           <>
@@ -187,7 +193,7 @@ export function BookmarksPage({
                         <strong>{group.bookTitle}</strong>
                         {group.bookAuthors.length > 0 && <span>{group.bookAuthors.join(", ")}</span>}
                       </span>
-                      <span className="bookmark-count">{count} {count === 1 ? "bookmark" : "bookmarks"}</span>
+                      <span className="bookmark-count">{t("user:bookmarks.count", { count })}</span>
                       <ChevronDown className={`bookmark-chevron${open ? " is-open" : ""}`} size={20} aria-hidden="true" />
                     </button>
 
@@ -203,7 +209,7 @@ export function BookmarksPage({
                                   <Cover url={bookmark.coverUrl} title={bookmark.bookTitle} libraryType={bookmark.libraryType} />
                                 </span>
                                 <span className="bookmark-row-body">
-                                  <strong className="bookmark-chapter">{bookmark.label || "Bookmark"}</strong>
+                                  <strong className="bookmark-chapter">{bookmark.label || t("user:bookmarks.defaultLabel")}</strong>
                                   <span className="bookmark-meta">
                                     {positionLabel(bookmark)}
                                     <span className="bookmark-meta-dot" aria-hidden="true">•</span>
@@ -217,8 +223,8 @@ export function BookmarksPage({
                                 <button
                                   className="icon-button bookmark-open"
                                   onClick={() => openBookmark(bookmark)}
-                                  aria-label={bookmark.kind === "read" ? `Read ${bookmark.bookTitle}` : `Play ${bookmark.bookTitle}`}
-                                  title={bookmark.kind === "read" ? "Read" : "Play"}
+                                  aria-label={bookmark.kind === "read" ? t("common:home.readTitle", { title: bookmark.bookTitle }) : t("common:home.playTitle", { title: bookmark.bookTitle })}
+                                  title={bookmark.kind === "read" ? t("common:home.read") : t("common:home.play")}
                                 >
                                   {bookmark.kind === "read" ? <BookOpen size={16} /> : <Play size={16} />}
                                 </button>
@@ -226,8 +232,8 @@ export function BookmarksPage({
                                   className="icon-button danger bookmark-remove"
                                   onClick={() => removeBookmark(bookmark)}
                                   disabled={removing}
-                                  aria-label={`Remove bookmark from ${bookmark.bookTitle}`}
-                                  title="Remove bookmark"
+                                  aria-label={t("user:bookmarks.removeFromAria", { title: bookmark.bookTitle })}
+                                  title={t("user:bookmarks.remove")}
                                 >
                                   <Trash2 size={16} />
                                 </button>
@@ -243,7 +249,10 @@ export function BookmarksPage({
             </div>
 
             <p className="bookmark-footer">
-              Showing {groups.length} {groups.length === 1 ? "book" : "books"} with {total} {total === 1 ? "bookmark" : "bookmarks"}
+              {t("user:bookmarks.footer", {
+                books: t("user:count.books", { count: groups.length }),
+                bookmarks: t("user:bookmarks.count", { count: total })
+              })}
             </p>
           </>
         )}

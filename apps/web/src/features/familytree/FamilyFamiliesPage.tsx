@@ -1,11 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
+import { Tags } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
+import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 import { LibraryPageHeader } from "../../shared/LibraryPageHeader";
 import { SectionNav } from "../../shared/SectionNav";
 import { familyNavProps } from "./sectionNavItems";
+import { BulkTagPeopleModal } from "./BulkTagPeopleModal";
 import { PersonAvatar } from "./PersonAvatar";
 import { lifeYears, type FamilyPerson } from "./types";
 
@@ -34,15 +38,20 @@ function birthYear(person: FamilyPerson): number {
 // person. Choosing a family focuses the chart on that family's oldest member —
 // from there the usual pan/click navigation takes over.
 export function FamilyFamiliesPage({ user, logout }: { user: PublicUser; logout: () => Promise<void> }) {
+  const { t } = useTranslation(["common", "family"]);
   const [persons, setPersons] = useState<FamilyPerson[]>([]);
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
+  // Admin-only: the family whose members are being tagged in bulk.
+  const [tagTarget, setTagTarget] = useState<FamilyGroup | null>(null);
+  const [notice, setNotice] = useState("");
+  const isAdmin = user.role === "admin";
 
   useEffect(() => {
     api<{ persons: FamilyPerson[] }>("/api/family-tree/persons")
       .then((payload) => setPersons(payload.persons))
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load family members"));
-  }, []);
+      .catch((err) => setError(err instanceof Error ? err.message : t("family:families.errors.loadPersons")));
+  }, [t]);
 
   const families = useMemo<FamilyGroup[]>(() => {
     const bySurname = new Map<string, FamilyPerson[]>();
@@ -76,49 +85,78 @@ export function FamilyFamiliesPage({ user, logout }: { user: PublicUser; logout:
     <DashboardShell active="family" user={user} logout={logout} sideNav={<SectionNav {...familyNavProps("families")} />}>
       <section className="audiobook-main-page">
         <LibraryPageHeader
-          title="Families"
-          subtitle={`${shown.length} ${shown.length === 1 ? "family name" : "family names"} · ${persons.length} ${persons.length === 1 ? "person" : "people"}`}
+          title={t("family:families.title")}
+          subtitle={`${t("family:common.counts.familyName", { count: shown.length })} · ${t("family:common.counts.person", { count: persons.length })}`}
           search={search}
           onSearchChange={setSearch}
-          searchPlaceholder="Search family names..."
+          searchPlaceholder={t("family:families.searchPlaceholder")}
         />
 
-        {error && <MessageBox tone="error" title="Unable to load families">{error}</MessageBox>}
+        {error && <MessageBox tone="error" title={t("family:families.errorTitle")}>{error}</MessageBox>}
+        {notice && <MessageBox tone="success" title={t("family:people.tagsUpdatedTitle")}>{notice}</MessageBox>}
 
         {shown.length === 0 ? (
           <p className="management-empty">
             {families.length === 0
-              ? "No family members yet — once people are added, their family names appear here."
-              : "No family name matches your search."}
+              ? t("family:families.emptyNoFamilies")
+              : t("family:families.emptyNoMatches")}
           </p>
         ) : (
           <div className="ft-family-name-grid">
             {shown.map((family) => (
-              <button
-                key={family.surname}
-                type="button"
-                className="ft-family-name-card"
-                onClick={() => navigate(`/family/tree/${family.anchor.id}`)}
-              >
-                <span className="ft-family-name-faces" aria-hidden="true">
-                  {family.members.slice(0, 4).map((person) => (
-                    <PersonAvatar key={person.id} person={person} size={38} />
-                  ))}
-                </span>
-                <strong>{family.surname}</strong>
-                <small>
-                  {family.members.length} {family.members.length === 1 ? "person" : "people"}
-                  {family.span && ` · ${family.span}`}
-                </small>
-                <small className="ft-family-name-anchor">
-                  Opens on {family.anchor.name}
-                  {lifeYears(family.anchor) && ` (${lifeYears(family.anchor)})`}
-                </small>
-              </button>
+              <div className="ft-family-name-slot" key={family.surname}>
+                <button
+                  type="button"
+                  className="ft-family-name-card"
+                  onClick={() => navigate(`/family/tree/${family.anchor.id}`)}
+                >
+                  <span className="ft-family-name-faces" aria-hidden="true">
+                    {family.members.slice(0, 4).map((person) => (
+                      <PersonAvatar key={person.id} person={person} size={38} />
+                    ))}
+                  </span>
+                  <strong>{family.surname}</strong>
+                  <small>
+                    {t("family:common.counts.person", { count: family.members.length })}
+                    {family.span && ` · ${family.span}`}
+                  </small>
+                  <small className="ft-family-name-anchor">
+                    {t("family:families.opensOn", { name: family.anchor.name })}
+                    {lifeYears(family.anchor) && ` (${lifeYears(family.anchor)})`}
+                  </small>
+                </button>
+                {/* Tagging a whole family is the reason this page is a useful
+                    starting point for branch access: the surname group is the
+                    seed, and the modal grows it along the tree from there. */}
+                {isAdmin && (
+                  <Button
+                    variant="icon"
+                    className="ft-family-name-tag"
+                    aria-label={t("family:families.tagFamily", { name: family.surname })}
+                    title={t("family:families.tagFamily", { name: family.surname })}
+                    onClick={() => setTagTarget(family)}
+                  >
+                    <Tags size={16} aria-hidden="true" />
+                  </Button>
+                )}
+              </div>
             ))}
           </div>
         )}
       </section>
+
+      {tagTarget && (
+        <BulkTagPeopleModal
+          persons={tagTarget.members}
+          onClose={() => setTagTarget(null)}
+          onSaved={(updated) => {
+            const byId = new Map(updated.map((person) => [person.id, person]));
+            setPersons((current) => current.map((person) => byId.get(person.id) ?? person));
+            setTagTarget(null);
+            setNotice(t("family:people.tagsUpdatedBody", { count: updated.length }));
+          }}
+        />
+      )}
     </DashboardShell>
   );
 }

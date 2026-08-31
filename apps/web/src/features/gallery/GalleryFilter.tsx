@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+import i18n from "../../i18n";
 import { FacetFilterButton, FacetFilterChips, countActiveFilters, type FacetDef } from "../../shared/FacetFilter";
 import type { GalleryFacets } from "./types";
 
@@ -16,66 +18,97 @@ export interface GalleryFilters {
   cameras: string[];
   sizes: string[];    // codes: small | medium | large | huge (server-defined byte buckets)
   location: string[]; // codes: with_gps | no_gps
+  likes: string[]; // codes: mine | anyone | none
 }
 
 export const EMPTY_GALLERY_FILTERS: GalleryFilters = {
-  libraries: [], kinds: [], people: [], years: [], months: [], taken: [], tags: [], cameras: [], sizes: [], location: []
+  libraries: [], kinds: [], people: [], years: [], months: [], taken: [], tags: [], cameras: [], sizes: [], location: [], likes: []
 };
 
-const KIND_OPTIONS = [
-  { value: "photo", label: "Photos" },
-  { value: "video", label: "Videos" }
-];
+// Functions rather than frozen consts, so these stay reactive to a language
+// switch instead of freezing whichever language was active on first import
+// (same pattern as controlDash's DashboardChart / search-index.ts).
+function getKindOptions() {
+  return [
+    { value: "photo", label: i18n.t("gallery:filter.kindPhotos") },
+    { value: "video", label: i18n.t("gallery:filter.kindVideos") }
+  ];
+}
 
 // Calendar months as fixed codes matching substr(taken_at, 6, 2) on the server;
 // a month selection spans every year (e.g. "July" across the whole archive).
-const MONTH_OPTIONS = [
-  { value: "01", label: "January" },
-  { value: "02", label: "February" },
-  { value: "03", label: "March" },
-  { value: "04", label: "April" },
-  { value: "05", label: "May" },
-  { value: "06", label: "June" },
-  { value: "07", label: "July" },
-  { value: "08", label: "August" },
-  { value: "09", label: "September" },
-  { value: "10", label: "October" },
-  { value: "11", label: "November" },
-  { value: "12", label: "December" }
-];
+function getMonthOptions() {
+  return [
+    { value: "01", label: i18n.t("gallery:filter.monthJanuary") },
+    { value: "02", label: i18n.t("gallery:filter.monthFebruary") },
+    { value: "03", label: i18n.t("gallery:filter.monthMarch") },
+    { value: "04", label: i18n.t("gallery:filter.monthApril") },
+    { value: "05", label: i18n.t("gallery:filter.monthMay") },
+    { value: "06", label: i18n.t("gallery:filter.monthJune") },
+    { value: "07", label: i18n.t("gallery:filter.monthJuly") },
+    { value: "08", label: i18n.t("gallery:filter.monthAugust") },
+    { value: "09", label: i18n.t("gallery:filter.monthSeptember") },
+    { value: "10", label: i18n.t("gallery:filter.monthOctober") },
+    { value: "11", label: i18n.t("gallery:filter.monthNovember") },
+    { value: "12", label: i18n.t("gallery:filter.monthDecember") }
+  ];
+}
 
-const SIZE_OPTIONS = [
-  { value: "small", label: "Under 1 MB" },
-  { value: "medium", label: "1–5 MB" },
-  { value: "large", label: "5–25 MB" },
-  { value: "huge", label: "25 MB+" }
-];
+function getSizeOptions() {
+  return [
+    { value: "small", label: i18n.t("gallery:filter.sizeUnder1mb") },
+    { value: "medium", label: i18n.t("gallery:filter.size1to5mb") },
+    { value: "large", label: i18n.t("gallery:filter.size5to25mb") },
+    { value: "huge", label: i18n.t("gallery:filter.size25plusMb") }
+  ];
+}
 
-const LOCATION_OPTIONS = [
-  { value: "with_gps", label: "Has location" },
-  { value: "no_gps", label: "No location" }
-];
+function getLocationOptions() {
+  return [
+    { value: "with_gps", label: i18n.t("gallery:filter.locationHasGps") },
+    { value: "no_gps", label: i18n.t("gallery:filter.locationNoGps") }
+  ];
+}
 
-const FACET_ORDER: FacetDef<keyof GalleryFilters>[] = [
-  // First, because it's the widest cut: which libraries the rest of the panel is
-  // narrowing. Leaving it empty means every library the viewer can reach.
-  { key: "libraries", title: "Libraries", searchable: false },
-  { key: "kinds", title: "Media type", searchable: false, fixed: KIND_OPTIONS },
-  { key: "people", title: "People", searchable: true },
-  // A family archive can span many decades (scanned prints reach the 1940s), so
-  // the year list gets the type-ahead too.
-  { key: "years", title: "Years", searchable: true },
-  { key: "months", title: "Months", searchable: false, fixed: MONTH_OPTIONS },
-  { key: "taken", title: "Date taken", searchable: false, type: "daterange" },
-  { key: "tags", title: "Tags", searchable: true },
-  { key: "cameras", title: "Cameras", searchable: true },
-  { key: "sizes", title: "File size", searchable: false, fixed: SIZE_OPTIONS },
-  { key: "location", title: "Location", searchable: false, fixed: LOCATION_OPTIONS }
-];
+// The heart, as a filter. "Anyone's" is the household cut — the same signal the
+// year-in-review scores on — so it reads next to "Mine" rather than hiding behind
+// a separate surface.
+function getLikeOptions() {
+  return [
+    { value: "mine", label: i18n.t("gallery:filter.likeMine") },
+    { value: "anyone", label: i18n.t("gallery:filter.likeAnyone") },
+    { value: "none", label: i18n.t("gallery:filter.likeNone") }
+  ];
+}
 
-const CODE_LABELS: Record<string, string> = Object.fromEntries(
-  [...KIND_OPTIONS, ...MONTH_OPTIONS, ...SIZE_OPTIONS, ...LOCATION_OPTIONS].map((o) => [o.value, o.label])
-);
+function getFacetOrder(): FacetDef<keyof GalleryFilters>[] {
+  return [
+    // First, because it's the widest cut: which libraries the rest of the panel is
+    // narrowing. Leaving it empty means every library the viewer can reach.
+    { key: "libraries", title: i18n.t("gallery:filter.facetLibraries"), searchable: false },
+    { key: "kinds", title: i18n.t("gallery:filter.facetMediaType"), searchable: false, fixed: getKindOptions() },
+    // High up: "show me the good ones" is a coarser cut than any of the descriptive
+    // facets below, and it's the one the year-in-review is built from.
+    { key: "likes", title: i18n.t("gallery:filter.facetLikes"), searchable: false, fixed: getLikeOptions() },
+    { key: "people", title: i18n.t("gallery:filter.facetPeople"), searchable: true },
+    // A family archive can span many decades (scanned prints reach the 1940s), so
+    // the year list gets the type-ahead too.
+    { key: "years", title: i18n.t("gallery:filter.facetYears"), searchable: true },
+    { key: "months", title: i18n.t("gallery:filter.facetMonths"), searchable: false, fixed: getMonthOptions() },
+    { key: "taken", title: i18n.t("gallery:filter.facetDateTaken"), searchable: false, type: "daterange" },
+    { key: "tags", title: i18n.t("gallery:filter.facetTags"), searchable: true },
+    { key: "cameras", title: i18n.t("gallery:filter.facetCameras"), searchable: true },
+    { key: "sizes", title: i18n.t("gallery:filter.facetFileSize"), searchable: false, fixed: getSizeOptions() },
+    { key: "location", title: i18n.t("gallery:filter.facetLocation"), searchable: false, fixed: getLocationOptions() }
+  ];
+}
+
+function getCodeLabels(): Record<string, string> {
+  return Object.fromEntries(
+    [...getKindOptions(), ...getMonthOptions(), ...getSizeOptions(), ...getLocationOptions(), ...getLikeOptions()]
+      .map((o) => [o.value, o.label])
+  );
+}
 
 export function activeGalleryFilterCount(filters: GalleryFilters): number {
   return countActiveFilters(filters);
@@ -96,7 +129,9 @@ export function GalleryFilterButton({
   libraries?: { id: string; name: string }[];
   compact?: boolean;
 }) {
-  const order = (fields ? FACET_ORDER.filter((facet) => fields.includes(facet.key)) : FACET_ORDER)
+  useTranslation(["common", "gallery"]); // keeps this component reactive to a language switch
+  const facetOrder = getFacetOrder();
+  const order = (fields ? facetOrder.filter((facet) => fields.includes(facet.key)) : facetOrder)
     .flatMap((facet) => {
       if (facet.key !== "libraries") return [facet];
       if (!libraries || libraries.length < 2) return [];
@@ -120,8 +155,8 @@ export function GalleryFilterButton({
 }
 
 function chipLabel(value: string): string | undefined {
-  if (value.startsWith("from:")) return `From ${value.slice(5)}`;
-  if (value.startsWith("to:")) return `To ${value.slice(3)}`;
+  if (value.startsWith("from:")) return i18n.t("gallery:filter.chipFrom", { date: value.slice(5) });
+  if (value.startsWith("to:")) return i18n.t("gallery:filter.chipTo", { date: value.slice(3) });
   return undefined;
 }
 
@@ -133,8 +168,9 @@ export function GalleryFilterChips({
   // Library chips carry ids; without this they'd read as nanoids.
   libraries?: { id: string; name: string }[];
 }) {
+  useTranslation(["common", "gallery"]); // keeps this component reactive to a language switch
   const labels = libraries?.length
-    ? { ...CODE_LABELS, ...Object.fromEntries(libraries.map((library) => [library.id, library.name])) }
-    : CODE_LABELS;
+    ? { ...getCodeLabels(), ...Object.fromEntries(libraries.map((library) => [library.id, library.name])) }
+    : getCodeLabels();
   return <FacetFilterChips value={value} onChange={onChange} empty={EMPTY_GALLERY_FILTERS} labels={labels} formatLabel={chipLabel} />;
 }

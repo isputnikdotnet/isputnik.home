@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { useTranslation } from "react-i18next";
 import { Mail } from "lucide-react";
 import { api } from "../../../api";
 import { Button } from "../../../shared/Button";
@@ -20,6 +21,7 @@ interface MailDto {
 // is write-only: the server never returns it, only whether one is stored, so the
 // field stays blank and an empty save keeps the existing secret.
 export function MailSection() {
+  const { t } = useTranslation(["common", "controlAdmin"]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
@@ -54,7 +56,7 @@ export function MailSection() {
   useEffect(() => {
     api<{ mail: MailDto; configured: boolean }>("/api/config/mail")
       .then((payload) => applyDto(payload.mail))
-      .catch((err) => setLoadError(err instanceof Error ? err.message : "Unable to load email settings"))
+      .catch((err) => setLoadError(err instanceof Error ? err.message : t("controlAdmin:mail.loadFailed")))
       .finally(() => setLoading(false));
   }, []);
 
@@ -83,7 +85,7 @@ export function MailSection() {
       applyDto(payload.mail);
       setSaved(true);
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "Unable to save email settings");
+      setSaveError(err instanceof Error ? err.message : t("controlAdmin:mail.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -97,7 +99,7 @@ export function MailSection() {
       await api("/api/config/mail/test", { method: "POST" });
       setTested(true);
     } catch (err) {
-      setTestError(err instanceof Error ? err.message : "Unable to send test email");
+      setTestError(err instanceof Error ? err.message : t("controlAdmin:mail.testFailed"));
     } finally {
       setTesting(false);
     }
@@ -109,58 +111,56 @@ export function MailSection() {
         section="email"
         icon={<Mail size={30} />}
         iconClassName="blue"
-        description="The outgoing mail server. What the app may send through it lives under Notifications."
+        description={t("controlAdmin:mail.headDescription")}
       />
 
       <section className="config-block">
         <p className="muted">
-          Point this at your mail provider or relay (e.g. a Gmail app password, Fastmail, or your own SMTP server).
-          Most providers need an app password rather than your account password. The password is stored on the
-          server and never shown again.
+          {t("controlAdmin:mail.intro")}
         </p>
 
-        {loadError && <MessageBox tone="error" title="Email settings">{loadError}</MessageBox>}
+        {loadError && <MessageBox tone="error" title={t("controlAdmin:mail.settingsTitle")}>{loadError}</MessageBox>}
 
         {loading ? (
-          <p className="muted">Loading…</p>
+          <p className="muted">{t("controlAdmin:ui.loading")}</p>
         ) : (
           <form className="mail-form" onSubmit={save}>
-            <Field label="SMTP host" value={host} onChange={setHost} placeholder="smtp.example.com" autoComplete="off" required={false} />
-            <Field label="Port" value={port} onChange={setPort} type="number" placeholder="587" autoComplete="off" required={false} />
+            <Field label={t("controlAdmin:mail.smtpHost")} value={host} onChange={setHost} placeholder="smtp.example.com" autoComplete="off" required={false} />
+            <Field label={t("controlAdmin:mail.port")} value={port} onChange={setPort} type="number" placeholder="587" autoComplete="off" required={false} />
 
             <label className="mail-check">
               <input type="checkbox" checked={secure} onChange={(event) => setSecure(event.target.checked)} />
-              <span>Use implicit TLS (port 465). Leave off for STARTTLS on 587.</span>
+              <span>{t("controlAdmin:mail.implicitTls")}</span>
             </label>
 
-            <Field label="Username" value={username} onChange={setUsername} placeholder="login@example.com" autoComplete="off" required={false} />
+            <Field label={t("controlAdmin:ui.username")} value={username} onChange={setUsername} placeholder="login@example.com" autoComplete="off" required={false} />
             <Field
-              label="Password"
+              label={t("common.password")}
               value={password}
               onChange={setPassword}
               type="password"
-              placeholder={hasPassword ? "•••••••• (unchanged)" : "SMTP password"}
+              placeholder={hasPassword ? t("controlAdmin:mail.passwordUnchanged") : t("controlAdmin:mail.passwordPlaceholder")}
               autoComplete="new-password"
               required={false}
             />
 
-            <Field label="From address" value={fromAddress} onChange={setFromAddress} type="email" placeholder="library@example.com" autoComplete="off" required={false} />
-            <Field label="From name" value={fromName} onChange={setFromName} placeholder="iSputnik Library" autoComplete="off" required={false} />
+            <Field label={t("controlAdmin:mail.fromAddress")} value={fromAddress} onChange={setFromAddress} type="email" placeholder="library@example.com" autoComplete="off" required={false} />
+            <Field label={t("controlAdmin:mail.fromName")} value={fromName} onChange={setFromName} placeholder={t("controlAdmin:mail.fromNamePlaceholder")} autoComplete="off" required={false} />
 
-            {saveError && <MessageBox tone="error" title="Unable to save">{saveError}</MessageBox>}
-            {saved && <MessageBox tone="success" title="Saved">Email settings updated.</MessageBox>}
-            {testError && <MessageBox tone="error" title="Test failed">{testError}</MessageBox>}
-            {tested && <MessageBox tone="success" title="Test sent">A test email was sent to your account address. Check your inbox.</MessageBox>}
+            {saveError && <MessageBox tone="error" title={t("errors.unableToSave")}>{saveError}</MessageBox>}
+            {saved && <MessageBox tone="success" title={t("controlAdmin:ui.saved")}>{t("controlAdmin:mail.savedBody")}</MessageBox>}
+            {testError && <MessageBox tone="error" title={t("controlAdmin:mail.testFailedTitle")}>{testError}</MessageBox>}
+            {tested && <MessageBox tone="success" title={t("controlAdmin:mail.testSentTitle")}>{t("controlAdmin:mail.testSentBody")}</MessageBox>}
 
             <div className="mail-actions">
               <Button variant="primary" type="submit" disabled={saving}>
-                {saving ? "Saving…" : "Save"}
+                {saving ? t("controlAdmin:ui.saving") : t("controlAdmin:ui.save")}
               </Button>
               <Button variant="secondary" type="button" onClick={sendTest} disabled={testing || saving}>
-                {testing ? "Sending…" : "Send test email"}
+                {testing ? t("controlAdmin:mail.sending") : t("controlAdmin:mail.sendTest")}
               </Button>
             </div>
-            <p className="muted">The test uses the last saved settings, so save before testing.</p>
+            <p className="muted">{t("controlAdmin:mail.testNote")}</p>
           </form>
         )}
       </section>

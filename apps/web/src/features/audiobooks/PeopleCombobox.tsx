@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 // Multi-select chip input with type-ahead suggestions. Used for authors,
 // narrators, and tags in both the book-detail edit form and the bulk-edit form,
@@ -15,6 +16,7 @@ export function PeopleCombobox({
   suggestions: string[];
   placeholder?: string;
 }) {
+  const { t } = useTranslation(["common", "book"]);
   const [inputValue, setInputValue] = useState("");
   const [open, setOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -70,7 +72,7 @@ export function PeopleCombobox({
         {value.map((name) => (
           <span key={name} className="people-chip">
             {name}
-            <button type="button" onClick={(e) => { e.stopPropagation(); remove(name); }} aria-label={`Remove ${name}`}>
+            <button type="button" onClick={(e) => { e.stopPropagation(); remove(name); }} aria-label={t("book:catalog.combobox.removeAria", { name })}>
               <X size={12} />
             </button>
           </span>
@@ -93,7 +95,7 @@ export function PeopleCombobox({
           ))}
           {showNew && (
             <button type="button" className="people-combobox-option people-combobox-option-new" onMouseDown={(e) => { e.preventDefault(); add(inputValue); }}>
-              Add "{inputValue.trim()}"
+              {t("book:catalog.combobox.addNew", { name: inputValue.trim() })}
             </button>
           )}
         </div>

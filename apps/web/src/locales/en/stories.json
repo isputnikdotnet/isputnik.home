@@ -1,0 +1,214 @@
+{
+  "title": "Stories",
+  "eyebrow": "Built from your library",
+  "backTo": "Back to stories",
+  "newStory": "New story",
+  "common": {
+    "loading": "Loading…"
+  },
+  "status": {
+    "draft": "Draft",
+    "draftTitle": "This story is a draft",
+    "draftBody": "Only you can see it. Publish it when you want the rest of the family to find it.",
+    "publishedTitle": "This story is published",
+    "publishedBody": "Everyone with an account can read it. Photos, albums and slideshows still follow their own library access."
+  },
+  "empty": {
+    "heading": "No stories yet",
+    "body": "A story weaves photos, albums, slideshows, maps and your own writing into one page — the trip, the wedding, the year you moved."
+  },
+  "count": {
+    "chapters_one": "{{count}} chapter",
+    "chapters_other": "{{count}} chapters",
+    "blocks_one": "{{count}} piece",
+    "blocks_other": "{{count}} pieces",
+    "photos_one": "{{count}} photo",
+    "photos_other": "{{count}} photos"
+  },
+  "fields": {
+    "title": "Title",
+    "titlePlaceholder": "Minnesota, summer 2004",
+    "subtitle": "Subtitle",
+    "subtitlePlaceholder": "Three weeks, two tents, one very tired dog",
+    "optional": "optional"
+  },
+  "actions": {
+    "create": "Create story",
+    "creating": "Creating…",
+    "edit": "Edit",
+    "read": "Read",
+    "publish": "Publish",
+    "unpublish": "Back to draft",
+    "delete": "Delete",
+    "save": "Save",
+    "preview": "Preview",
+    "write": "Write",
+    "toggleWide": "Full width",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "removeBlock": "Remove",
+    "moveChapterUp": "Move chapter up",
+    "moveChapterDown": "Move chapter down",
+    "removeChapter": "Delete chapter",
+    "applyDates": "Apply dates",
+    "send": "Send",
+    "shareLink": "Share link"
+  },
+  "errors": {
+    "load": "Unable to load this story.",
+    "loadTitle": "Unable to load",
+    "create": "Unable to create the story.",
+    "createTitle": "Unable to create",
+    "save": "Unable to save the change.",
+    "saveTitle": "Unable to save",
+    "delete": "Unable to delete.",
+    "playSlideshow": "Unable to play this slideshow."
+  },
+  "read": {
+    "emptyTitle": "Nothing here yet",
+    "emptyAuthor": "Open the editor to add your first words, photos or albums.",
+    "emptyReader": "The author hasn't added anything to this story yet.",
+    "chapterEmpty": "This chapter is empty."
+  },
+  "edit": {
+    "eyebrow": "Editing story",
+    "backToStory": "Back to the story",
+    "addBlock": "Add",
+    "addChapter": "Add chapter",
+    "addChapterDetails": "Add a date, place or chapter title",
+    "chapterEmpty": "Nothing in this chapter yet — add something below."
+  },
+  "chapter": {
+    "number": "Chapter {{number}}",
+    "approx": "around {{date}}",
+    "titleField": "Chapter title",
+    "titlePlaceholder": "The drive north",
+    "dateField": "Date",
+    "datePlaceholder": "2004 or 2004-07-12",
+    "endDateField": "Until",
+    "endDatePlaceholder": "2004-07-19",
+    "approxLabel": "The date is approximate",
+    "placeField": "Place",
+    "placePlaceholder": "Lake Superior, Minnesota",
+    "descriptionField": "Chapter note",
+    "descriptionPlaceholder": "A line of context under the chapter heading",
+    "lastOne": "A story keeps at least one chapter."
+  },
+  "kind": {
+    "text": "Text",
+    "media": "Photo",
+    "album": "Album",
+    "slideshow": "Slideshow",
+    "map": "Map",
+    "person": "Person",
+    "quote": "Quote",
+    "audio": "Narration"
+  },
+  "block": {
+    "unavailableTitle": "Not available",
+    "unavailable": {
+      "text": "This text is no longer available.",
+      "media": "This photo has been removed, or isn't in a library you can see.",
+      "album": "This album has been removed, or isn't in a library you can see.",
+      "slideshow": "This slideshow has been removed, or isn't in a library you can see.",
+      "map": "This place is no longer available.",
+      "person": "This person has been removed from the family tree.",
+      "quote": "This quote has been removed.",
+      "audio": "This recording is no longer available."
+    },
+    "openPhoto": "Open {{title}}",
+    "mapFallbackTitle": "This place",
+    "albumLabel": "Album",
+    "slideshowLabel": "Slideshow",
+    "play": "Play",
+    "openAlbum": "Open album",
+    "openSlideshow": "Open slideshow",
+    "caption": "Caption",
+    "captionPlaceholder": "A line under this one",
+    "textPlaceholder": "Write here. Markdown works: # heading, **bold**, > quote, - list, [link](https://example.com).",
+    "openPerson": "Open profile"
+  },
+  "picker": {
+    "albumTitle": "Add an album",
+    "slideshowTitle": "Add a slideshow",
+    "photoTitle": "Add a photo or video",
+    "search": "Search by name",
+    "noMatches": "Nothing matches that.",
+    "personTitle": "Add someone from the family tree",
+    "quoteTitle": "Add a quote",
+    "albumEmpty": "There are no albums to add yet.",
+    "slideshowEmpty": "There are no slideshows to add yet.",
+    "personEmpty": "There is nobody in the family tree yet.",
+    "quoteEmpty": "There are no quotes to add yet.",
+    "suggested": "Suggested — shares a tag with this story",
+    "everything": "Everything else"
+  },
+  "map": {
+    "addTitle": "Add a map",
+    "editTitle": "Edit this map",
+    "labelField": "Place name",
+    "labelPlaceholder": "Lake Superior, Minnesota",
+    "addBlock": "Add map"
+  },
+  "confirm": {
+    "removeBlockTitle": "Remove this {{kind}}?",
+    "removeBlockBody": "It comes out of the story. The photo, album or slideshow itself is not affected.",
+    "removeChapterTitle": "Delete \"{{name}}\"?",
+    "removeChapterBody_one": "The chapter and the {{count}} piece in it come out of the story. The photos, albums and slideshows themselves are not affected.",
+    "removeChapterBody_other": "The chapter and the {{count}} pieces in it come out of the story. The photos, albums and slideshows themselves are not affected.",
+    "deleteStoryTitle": "Delete \"{{name}}\"?",
+    "deleteStoryConfirm": "Delete story",
+    "deleteStoryBody": "The story and its chapters are deleted. The photos, albums and slideshows it used are not affected."
+  },
+  "tags": {
+    "label": "Tags",
+    "placeholder": "Family, Minnesota, 2004…",
+    "hint": "Tags connect this story with the photos, people and other stories that share them."
+  },
+  "share": {
+    "title": "Share \"{{name}}\"",
+    "intro": "A guest link opens this story in a browser, with no account. It stays up to date — whoever opens it sees the story as it is now.",
+    "expiresIn": "Link expires in",
+    "labelField": "Label (optional)",
+    "createLink": "Create link",
+    "creating": "Creating…",
+    "expandAlbums": "Let guests open whole albums",
+    "expandAlbumsHint": "Off, a guest sees only the photos this story shows. On, they can open every photo in the albums and slideshows it embeds.",
+    "copyNow": "Copy it now — this link is shown only once.",
+    "copy": "Copy",
+    "copied": "Copied",
+    "noLinks": "No guest links for this story yet.",
+    "defaultLabel": "Guest link",
+    "expandedBadge": "albums openable",
+    "expired": "Expired",
+    "expiresOn": "Expires {{date}}",
+    "revokeAria": "Revoke this link",
+    "unableTitle": "Unable to share",
+    "unableToCreate": "Unable to create the link.",
+    "unableToRevoke": "Unable to revoke the link."
+  },
+  "player": {
+    "play": "Play",
+    "starting": "Preparing…",
+    "pause": "Pause",
+    "previous": "Previous",
+    "next": "Next",
+    "close": "Close",
+    "again": "Play again",
+    "theEnd": "The end",
+    "aria": "Playing the story {{title}}"
+  },
+  "audio": {
+    "title": "Add narration",
+    "intro": "Record someone telling this part of the story, or upload a recording you already have.",
+    "record": "Record",
+    "stop": "Stop",
+    "saving": "Saving…",
+    "upload": "Upload a recording",
+    "defaultTitle": "Narration",
+    "errorTitle": "Unable to add the recording",
+    "uploadFailed": "Unable to save the recording.",
+    "micRefused": "The microphone is not available. Check the browser permission, or upload a file instead.",
+    "noRecorder": "Recording needs a secure connection (https). You can still upload a file."
+  }
+}

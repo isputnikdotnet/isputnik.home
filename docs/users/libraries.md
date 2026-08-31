@@ -13,8 +13,6 @@ out, [storage](storage.md) isn't set up yet.
 
 ### 1. What kind of media?
 
-![Choosing a library type](images/20-library-wizard-type.png)
-
 | Type | Use it for | How files become items |
 |---|---|---|
 | **Audiobooks** | Spoken-word audio | A *folder* of audio files becomes one book, its files becoming tracks/chapters |
@@ -29,8 +27,6 @@ again; your files are untouched either way.
 
 Give it a name, then choose the folder with **Browse**. You can only pick
 inside an approved container, and you can go into subfolders:
-
-![Choosing the library folder](images/22-library-wizard-folder.png)
 
 <a id="who-can-see-it"></a>
 
@@ -50,8 +46,6 @@ library's Edit dialog.
 
 ### 3. Review
 
-![Reviewing before creating](images/23-library-wizard-review.png)
-
 The last step lists everything back to you — type, folder, visibility, formats,
 where metadata comes from — before anything happens. **Add and scan** creates
 the library and immediately starts reading the folder.
@@ -60,8 +54,6 @@ the library and immediately starts reading the folder.
 
 Scanning runs in the background; you don't have to wait on the page. While it
 runs the library shows **Scanning**, and item counts climb as it goes.
-
-![Three libraries after their first scan](images/21-libraries-list.png)
 
 What a scan does:
 

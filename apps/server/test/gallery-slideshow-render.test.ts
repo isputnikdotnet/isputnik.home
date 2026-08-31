@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "../src/db.js";
 import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
 import { ingestGalleryAsset } from "../src/modules/library/gallery/scanner.js";
@@ -14,8 +14,10 @@ import {
   updateSlideshow,
   setSlideshowRenderState,
   setSlideshowMovieAsset,
+  setSlideshowSaveError,
   getSlideshowRenderItems,
   titleCardLines,
+  closingCardLines,
   type SlideshowRow,
   type SlideshowRenderItem
 } from "../src/modules/library/gallery/slideshows.js";
@@ -36,13 +38,16 @@ import {
   chunkSegments,
   titleCardSegment,
   titleBackgroundFor,
+  musicWindows,
+  swapRenderIntoPlace,
+  foreignItemAt,
+  movieStemFor,
   TITLE_CARD_SECONDS,
   RANDOM_XFADES,
   RENDER_JOB_TYPE,
   type Segment
 } from "../src/modules/library/gallery/slideshow-render.js";
 import { thumbnailPathSettingKey, thumbnailStorageKey, thumbnailAbsolutePath } from "../src/modules/library/shared/thumbnail.js";
-import { getRenderLibraryId, setRenderLibraryId } from "../src/modules/library/gallery/slideshow-settings.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
 
 function asset(relativePath: string, takenAtIso: string, kind = kindForExtension(`.${relativePath.split(".").pop()}`)!) {
@@ -249,16 +254,161 @@ describe("render filtergraph", () => {
     const withVideo = buildFfmpegArgs(
       [{ file: "/clip.mp4", dwell: 6, isVideo: true }, ...segs([4])], "crossfade", null, "/o.mp4"
     ).args.join(" ");
-    expect(withVideo).toContain("-threads 1 -t 8.000 -i /clip.mp4");
+    expect(withVideo).toContain("-threads 1 -t 6.000 -i /clip.mp4");
+  });
+
+  // A photo carries the transition overlap by looping; a video CANNOT — its file
+  // ends when it ends, and an xfade whose offset lies past an input's end doesn't
+  // shorten one transition, it truncates the whole movie (measured: a 6s clip in a
+  // 16s three-node chain produced a 6s movie). So a video is read for its dwell
+  // only and the overlap is cloned from its last frame in the filtergraph.
+  it("clones a video's last frame across the transition overlap instead of asking for footage past its end", () => {
+    const { args, total } = buildFfmpegArgs(
+      [{ file: "/clip.mp4", dwell: 6, isVideo: true }, ...segs([4, 4])], "crossfade", null, "/o.mp4"
+    );
+    const joined = args.join(" ");
+    const filter = args[args.indexOf("-filter_complex") + 1];
+    // The video's chain pads (overlap + a rounding cushion); the photos' don't.
+    expect(filter).toContain("[0:v]");
+    expect(filter.split(";")[0]).toContain("tpad=stop_mode=clone:stop_duration=3.00");
+    expect((filter.match(/tpad/g) ?? [])).toHaveLength(1);
+    // And the output is trimmed to the arithmetic total, so the cushion on a
+    // trailing video can never stretch the movie.
+    expect(joined).toContain(`-t ${total.toFixed(3)} -progress`);
+  });
+
+  it("does not pad video inputs at a prePadded join — batch tails already carry the overlap", () => {
+    const { args } = buildFfmpegArgs(
+      [{ file: "/b1.mp4", dwell: 50, isVideo: true }, { file: "/b2.mp4", dwell: 50, isVideo: true }],
+      "crossfade", null, "/o.mp4", 2, undefined, { prePadded: true }
+    );
+    expect(args[args.indexOf("-filter_complex") + 1]).not.toContain("tpad");
   });
 
   it("muxes a music input with an out-fade when a track is given", () => {
-    const { args } = buildFfmpegArgs(segs([4, 4]), "crossfade", "/bed.flac", "/o.mp4");
+    const { args, total } = buildFfmpegArgs(segs([4, 4]), "crossfade", "/bed.flac", "/o.mp4");
     const joined = args.join(" ");
     expect(joined).toContain("-stream_loop -1 -i /bed.flac");
-    expect(joined).toContain("afade=t=out");
+    // Without a closing card: the 2-second tail fade every movie has always had.
+    expect(joined).toContain(`afade=t=out:st=${(total - 2).toFixed(2)}:d=2`);
     expect(joined).toContain("-c:a aac");
     expect(joined).toContain("-shortest");
+  });
+
+  // With a closing card the music fades out UNDER the credits: the fade starts
+  // where the card starts, so the slides end at full volume and the movie ends
+  // in silence.
+  it("anchors the music fade to the closing card when one ends the movie", () => {
+    const { args, total } = buildFfmpegArgs(
+      segs([4, 4, 5]), "crossfade", "/bed.flac", "/o.mp4", 2, undefined, { closingDwell: 5 }
+    );
+    expect(args.join(" ")).toContain(`afade=t=out:st=${(total - 5).toFixed(2)}:d=5`);
+  });
+
+  it("caps the closing fade at 8 seconds — a long card doesn't need a longer fade", () => {
+    const { args, total } = buildFfmpegArgs(
+      segs([6, 6, 15]), "crossfade", "/bed.flac", "/o.mp4", 2, undefined, { closingDwell: 15 }
+    );
+    expect(args.join(" ")).toContain(`afade=t=out:st=${(total - 15).toFixed(2)}:d=8`);
+  });
+
+  it("ignores closingDwell without music — there is nothing to fade", () => {
+    const { args } = buildFfmpegArgs(segs([4, 4]), "crossfade", null, "/o.mp4", 2, undefined, { closingDwell: 5 });
+    expect(args.join(" ")).not.toContain("afade");
+  });
+
+  // ── A clip's own sound ────────────────────────────────────────────────────
+  //
+  // A sounded post-credit clip contributes its audio and the music PAUSES under
+  // it, resuming from where it left off. The soundtrack is then assembled in the
+  // filtergraph instead of the straight music map.
+
+  describe("clip sound", () => {
+    it("plans the music into the gaps between clips, resuming where it paused", () => {
+      // two clips at [0..16] and [180..198] in a 205s movie:
+      const windows = musicWindows(
+        [{ file: "/i.mp4", start: 0, duration: 16 }, { file: "/o.mp4", start: 180, duration: 18 }],
+        205
+      );
+      expect(windows).toEqual([
+        { at: 16, len: 164, from: 0 },  // after the first clip, from the song's top
+        { at: 198, len: 7, from: 164 }  // after the second, resuming — not restarting
+      ]);
+      // No clips: one window, the whole movie.
+      expect(musicWindows([], 100)).toEqual([{ at: 0, len: 100, from: 0 }]);
+      // A blink of a gap is dropped, not resumed into.
+      expect(musicWindows([{ file: "/i.mp4", start: 0, duration: 99.9 }], 100)).toEqual([]);
+    });
+
+    it("assembles the soundtrack in the graph: clip audio delayed into place, music in the gaps", () => {
+      const { args } = buildFfmpegArgs(
+        segs([16, 4, 4]), "crossfade", "/bed.flac", "/o.mp4", 2, undefined,
+        { clipSounds: [{ file: "/clip.mp4", start: 0, duration: 16 }] }
+      );
+      const joined = args.join(" ");
+      // The clip rides as an extra input; its audio is trimmed to its window and
+      // eased out so a cap never ends on a click.
+      expect(joined).toContain("-i /clip.mp4");
+      expect(joined).toContain("atrim=0:16.000");
+      expect(joined).toContain("afade=t=out:st=15.500:d=0.50");
+      // Music enters after the clip (delayed to 16s), from the song's top.
+      expect(joined).toContain("atrim=0.000:10.000");
+      expect(joined).toContain("adelay=16000:all=1");
+      // One soundtrack out, no -shortest (the pieces are trimmed by construction).
+      expect(joined).toContain("amix=inputs=2");
+      expect(joined).toContain("-map [aout]");
+      expect(joined).not.toContain("-shortest");
+    });
+
+    // The closing fade belongs to the MUSIC chain, not to the finished mix: a
+    // post-credit clip plays after the credits have taken the song to zero, and a
+    // fade on the mix would silence the clip's own sound along with it.
+    it("fades the music, not the mix that carries the clip's sound", () => {
+      const { args, total } = buildFfmpegArgs(
+        segs([16, 4, 5]), "crossfade", "/bed.flac", "/o.mp4", 2, undefined,
+        { closingDwell: 5, clipSounds: [{ file: "/clip.mp4", start: 0, duration: 16 }] }
+      );
+      const joined = args.join(" ");
+      const fade = `afade=t=out:st=${(total - 5).toFixed(2)}:d=5`;
+      expect(joined).toContain(`${fade}[music0]`);
+      expect(joined).not.toContain(`${fade}[aout]`);
+      expect(joined).toContain("normalize=0[aout]"); // the mix itself is unfaded
+    });
+
+    // A post-credit clip is the tail: the song still plays out under the CARD, so
+    // the fade is anchored a clip's length from the end rather than at it.
+    it("anchors the fade to the closing card when a post-credit clip follows", () => {
+      const { args, total } = buildFfmpegArgs(
+        segs([4, 4, 5, 12]), "crossfade", "/bed.flac", "/o.mp4", 2, undefined,
+        { closingDwell: 5, closingTail: 12 }
+      );
+      expect(args.join(" ")).toContain(`afade=t=out:st=${(total - 12 - 5).toFixed(2)}:d=5`);
+    });
+
+    it("pushes even the plain two-second tail ahead of a post-credit clip", () => {
+      const { args, total } = buildFfmpegArgs(
+        segs([4, 4, 12]), "crossfade", "/bed.flac", "/o.mp4", 2, undefined, { closingTail: 12 }
+      );
+      expect(args.join(" ")).toContain(`afade=t=out:st=${(total - 12 - 2).toFixed(2)}:d=2`);
+    });
+
+    it("carries clip sound alone when there is no music", () => {
+      const { args } = buildFfmpegArgs(
+        segs([16, 4, 4]), "crossfade", null, "/o.mp4", 2, undefined,
+        { clipSounds: [{ file: "/clip.mp4", start: 0, duration: 16 }] }
+      );
+      const joined = args.join(" ");
+      expect(joined).toContain("-i /clip.mp4");
+      expect(joined).toContain("-map [aout]");
+      expect(joined).not.toContain("amix"); // one piece needs no mixer
+    });
+
+    it("changes nothing when no clip carries sound", () => {
+      const plain = buildFfmpegArgs(segs([4, 4]), "crossfade", "/bed.flac", "/o.mp4").args.join(" ");
+      const empty = buildFfmpegArgs(segs([4, 4]), "crossfade", "/bed.flac", "/o.mp4", 2, undefined, { clipSounds: [] }).args.join(" ");
+      expect(empty).toBe(plain);
+      expect(plain).toContain("-shortest"); // the original straight-map path
+    });
   });
 
   it("clamps a photo's on-screen dwell to 1..30s", () => {
@@ -286,10 +436,12 @@ describe("render filtergraph", () => {
       { file: "/a.jpg", dwell: 4, isVideo: false },
       { file: "/v.mp4", dwell: 6, isVideo: true }
     ], "crossfade", null, "/o.mp4").args.join(" ");
-    // Inputs are padded by the 2s transition: 4→6 for the photo, 6→8 for the clip.
+    // The photo's input is padded by the 2s transition (4→6); the video is read
+    // for its dwell only — asking past its end used to truncate the movie — and
+    // its overlap is cloned in the filtergraph instead (tpad, tested above).
     expect(joined).toContain("-loop 1 -t 6.000 -i /a.jpg");
-    expect(joined).toContain("-t 8.000 -i /v.mp4");
-    expect(joined).not.toContain("-loop 1 -t 8.000 -i /v.mp4");
+    expect(joined).toContain("-t 6.000 -i /v.mp4");
+    expect(joined).not.toContain("-loop 1 -t 6.000 -i /v.mp4");
   });
 });
 
@@ -364,6 +516,17 @@ describe("title card settings", () => {
     // 'custom' with nothing written in it is no subtitle, not an empty one.
     expect(lines({ title_subtitle_mode: "custom", title_subtitle: null }).subtitle).toBeNull();
     expect(lines({ title_subtitle_mode: "none" }).subtitle).toBeNull();
+  });
+
+  // The closing card: an end title plus free credit lines — no subtitle modes, and
+  // a photo count would make no sense at the end.
+  it("closes on “The End” unless renamed, with the credits carried as written", () => {
+    expect(closingCardLines({ closing_text: null, closing_lines: null }))
+      .toEqual({ title: "The End", subtitle: null });
+    expect(closingCardLines({ closing_text: "  ", closing_lines: "  " }))
+      .toEqual({ title: "The End", subtitle: null });
+    expect(closingCardLines({ closing_text: "Конец", closing_lines: "Filmed by Dad\nMusic: our song" }))
+      .toEqual({ title: "Конец", subtitle: "Filmed by Dad\nMusic: our song" });
   });
 
   // The background can only be built from PHOTOS the render can read: sharp reads
@@ -584,28 +747,80 @@ describe("enqueue + progress", () => {
   });
 });
 
-describe("default movie library setting", () => {
-  it("stores and clears the default library", () => {
-    expect(getRenderLibraryId()).toBeNull();
-    setRenderLibraryId("GAL", "creator");
-    expect(getRenderLibraryId()).toBe("GAL");
-    setRenderLibraryId(null, "creator");
-    expect(getRenderLibraryId()).toBeNull();
+// Saving a movie into a library is a per-slideshow choice, off until someone makes it.
+describe("the per-slideshow movie target", () => {
+  it("is off for a new slideshow, and keeps both by default", () => {
+    const s = getSlideshow(createSlideshow(creator, "Summer").id)!;
+    expect(s.movie_target_library_id).toBeNull();
+    expect(s.movie_on_conflict).toBe("keep_both");
+    expect(s.movie_file_stem).toBeNull();
+    expect(s.movie_save_error).toBeNull();
   });
 
-  it("ignores a target that isn't an existing gallery library", () => {
-    makeLibrary("AUD", { createdBy: "creator", type: "audiobook" });
-    setRenderLibraryId("AUD", "creator"); // not a gallery library
-    expect(getRenderLibraryId()).toBeNull();
+  it("stores a target, a policy and a rename, and clears them again", () => {
+    const s = createSlideshow(creator, "Summer");
+    updateSlideshow(s.id, { movieTargetLibraryId: "GAL", movieOnConflict: "overwrite", movieFileStem: "Our summer" });
+    expect(getSlideshow(s.id)!).toMatchObject({
+      movie_target_library_id: "GAL", movie_on_conflict: "overwrite", movie_file_stem: "Our summer"
+    });
+    updateSlideshow(s.id, { movieTargetLibraryId: null, movieFileStem: null });
+    expect(getSlideshow(s.id)!).toMatchObject({ movie_target_library_id: null, movie_file_stem: null });
+    // The policy is remembered even with saving off — turning it back on shouldn't re-ask.
+    expect(getSlideshow(s.id)!.movie_on_conflict).toBe("overwrite");
+  });
 
-    setRenderLibraryId("GAL", "creator");
-    db.prepare("DELETE FROM libraries WHERE id = 'GAL'").run(); // library removed
-    expect(getRenderLibraryId()).toBeNull();
+  it("a deleted target library turns saving off rather than dangling", () => {
+    const s = createSlideshow(creator, "Summer");
+    updateSlideshow(s.id, { movieTargetLibraryId: "GAL" });
+    db.prepare("DELETE FROM libraries WHERE id = 'GAL'").run();
+    expect(getSlideshow(s.id)!.movie_target_library_id).toBeNull(); // ON DELETE SET NULL
+  });
+
+  // Choosing where a movie is filed changes no frame of it, so it must not flag a
+  // finished movie out of date — that would invite a needless three-minute re-encode.
+  it("does not mark a rendered movie stale, though a content edit still does", () => {
+    const s = createSlideshow(creator, "Summer");
+    const ready = () => db.prepare("UPDATE gallery_slideshows SET render_status = 'ready', render_stale = 0 WHERE id = ?").run(s.id);
+
+    ready();
+    updateSlideshow(s.id, { movieTargetLibraryId: "GAL", movieOnConflict: "overwrite", movieFileStem: "x" });
+    expect(getSlideshow(s.id)!.render_stale).toBe(0);
+
+    ready();
+    updateSlideshow(s.id, { slideSeconds: 7 });
+    expect(getSlideshow(s.id)!.render_stale).toBe(1);
+  });
+
+  it("records why a save failed, and clears it on a later success", () => {
+    const s = createSlideshow(creator, "Summer");
+    setSlideshowSaveError(s.id, "This library's folder is read-only.");
+    expect(getSlideshow(s.id)!.movie_save_error).toBe("This library's folder is read-only.");
+    setSlideshowSaveError(s.id, null);
+    expect(getSlideshow(s.id)!.movie_save_error).toBeNull();
+  });
+});
+
+// Overwriting must never destroy a video someone actually has. foreignItemAt is what
+// separates "a loose file with that name" from "somebody's catalogued clip".
+describe("refusing to overwrite someone else's video", () => {
+  it("reports a catalogued item at the path, and ignores our own movie", async () => {
+    const id = await ingestGalleryAsset("GAL", asset("Slideshow movies/Trip.mp4", "2024-01-01T00:00:00Z"), false);
+    expect(foreignItemAt("GAL", "Slideshow movies/Trip.mp4", null)).toBe(id);
+    // Ours: the same path, but it IS this slideshow's movie item.
+    expect(foreignItemAt("GAL", "Slideshow movies/Trip.mp4", id)).toBeNull();
+    // A free name is not a conflict at all.
+    expect(foreignItemAt("GAL", "Slideshow movies/Nothing.mp4", null)).toBeNull();
+  });
+
+  it("stops seeing a soft-deleted item as a conflict", async () => {
+    const id = await ingestGalleryAsset("GAL", asset("Slideshow movies/Gone.mp4", "2024-01-01T00:00:00Z"), false);
+    db.prepare("UPDATE library_items SET deleted_at = '2024-02-02T00:00:00Z' WHERE id = ?").run(id);
+    expect(foreignItemAt("GAL", "Slideshow movies/Gone.mp4", null)).toBeNull();
   });
 });
 
 describe("saveMovieToLibrary path selection", () => {
-  const base = { name: "Summer 2024", movie_library_id: null, movie_relative_path: null };
+  const base = { name: "Summer 2024", movie_file_stem: null, movie_library_id: null, movie_relative_path: null };
 
   it("files a first render under 'Slideshow movies/<name>.mp4'", () => {
     expect(movieRelativePathFor(base, "GAL", () => false)).toBe("Slideshow movies/Summer 2024.mp4");
@@ -683,6 +898,97 @@ describe("random transition persistence", () => {
   });
 });
 
+// The refusal that matters, exercised through the real save rather than only through
+// foreignItemAt: a name can come to belong to someone's video BETWEEN choosing the library
+// and the render finishing, so the check has to hold at the moment of writing. Overwrite is
+// forced on here deliberately — the dialog would never offer it for this case.
+describe("saveMovieToLibrary refuses to overwrite someone else's video", () => {
+  let sourceRoot: string;
+  let thumbRoot: string;
+
+  beforeEach(() => {
+    sourceRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ss-save-src-"));
+    thumbRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ss-save-thumbs-"));
+    db.prepare("INSERT INTO app_settings (key, value, updated_by) VALUES (?, ?, 'creator') ON CONFLICT(key) DO UPDATE SET value = excluded.value")
+      .run(thumbnailPathSettingKey, thumbRoot);
+    // The source must sit inside a configured storage container, as a real one does.
+    db.prepare("INSERT OR REPLACE INTO storage_roots (id, name, path, created_by) VALUES ('sr-movie', 'test', ?, 'creator')").run(fs.realpathSync(sourceRoot));
+    db.prepare("UPDATE libraries SET source_path = ? WHERE id = 'GAL'").run(sourceRoot);
+  });
+  afterEach(() => {
+    fs.rmSync(sourceRoot, { recursive: true, force: true });
+    fs.rmSync(thumbRoot, { recursive: true, force: true });
+  });
+
+  // A finished render sitting in the thumbnail store, ready to be filed.
+  const stagedRender = (slideshowId: string) => {
+    const key = thumbnailStorageKey("slideshows", slideshowId, `${slideshowId}.mp4`);
+    const abs = thumbnailAbsolutePath(key);
+    fs.mkdirSync(path.dirname(abs), { recursive: true });
+    fs.writeFileSync(abs, "movie-bytes");
+    return key;
+  };
+
+  it("leaves the other video untouched and says why", async () => {
+    // Somebody's clip already occupies the name this movie wants.
+    const theirs = path.join(sourceRoot, "Slideshow movies", "Trip.mp4");
+    fs.mkdirSync(path.dirname(theirs), { recursive: true });
+    fs.writeFileSync(theirs, "their-precious-video");
+    const theirItem = await ingestGalleryAsset("GAL", asset("Slideshow movies/Trip.mp4", "2019-08-12T00:00:00Z"), false);
+    expect(theirItem).toBeTruthy();
+
+    const show = createSlideshow(creator, "Trip");
+    updateSlideshow(show.id, { movieTargetLibraryId: "GAL", movieOnConflict: "overwrite" });
+    const key = stagedRender(show.id);
+
+    const result = await saveMovieToLibrary(getSlideshow(show.id)!, key);
+
+    expect(result.saved).toBe(false);
+    expect(result.error).toMatch(/already a video in that library/);
+    // The whole point: their file is byte-for-byte what it was.
+    expect(fs.readFileSync(theirs, "utf8")).toBe("their-precious-video");
+    expect((db.prepare("SELECT deleted_at FROM library_items WHERE id = ?").get(theirItem) as { deleted_at: string | null }).deleted_at).toBeNull();
+  });
+
+  it("keeps both instead, when that is the policy", async () => {
+    const theirs = path.join(sourceRoot, "Slideshow movies", "Trip.mp4");
+    fs.mkdirSync(path.dirname(theirs), { recursive: true });
+    fs.writeFileSync(theirs, "their-precious-video");
+    await ingestGalleryAsset("GAL", asset("Slideshow movies/Trip.mp4", "2019-08-12T00:00:00Z"), false);
+
+    const show = createSlideshow(creator, "Trip");
+    updateSlideshow(show.id, { movieTargetLibraryId: "GAL", movieOnConflict: "keep_both" });
+    const result = await saveMovieToLibrary(getSlideshow(show.id)!, stagedRender(show.id));
+
+    expect(result.saved).toBe(true);
+    expect(result.error).toBeNull();
+    expect(getSlideshow(show.id)!.movie_relative_path).toBe("Slideshow movies/Trip (2).mp4");
+    expect(fs.readFileSync(theirs, "utf8")).toBe("their-precious-video");
+  });
+
+  it("does nothing at all when no library was chosen", async () => {
+    const show = createSlideshow(creator, "Trip");
+    const result = await saveMovieToLibrary(getSlideshow(show.id)!, stagedRender(show.id));
+    expect(result).toEqual({ saved: false, itemId: null, error: null });
+  });
+
+  // Re-rendering must keep updating ONE item rather than accumulating a movie per render.
+  it("overwrites its own previous movie in place", async () => {
+    const show = createSlideshow(creator, "Trip");
+    updateSlideshow(show.id, { movieTargetLibraryId: "GAL" });
+    const key = stagedRender(show.id);
+
+    const first = await saveMovieToLibrary(getSlideshow(show.id)!, key);
+    expect(first.saved).toBe(true);
+    expect(getSlideshow(show.id)!.movie_relative_path).toBe("Slideshow movies/Trip.mp4");
+
+    const second = await saveMovieToLibrary(getSlideshow(show.id)!, key);
+    expect(second.saved).toBe(true);
+    expect(second.itemId).toBe(first.itemId);
+    expect(getSlideshow(show.id)!.movie_relative_path).toBe("Slideshow movies/Trip.mp4");
+  });
+});
+
 describe('schema baseline (3.0.0)', () => {
   // 3.0.0 folded migrations 24-31 into schema.sql, as 2.0.0 folded 2-22 before them.
   // What those migrations used to guarantee is now a property of the schema itself, so
@@ -690,13 +996,19 @@ describe('schema baseline (3.0.0)', () => {
   it('builds a complete schema in one pass and stamps the current version', () => {
     const scratch = new Database(':memory:');
     migrate(scratch);
-    // 40 = the baseline (32) plus the title-card columns, the alphabet-index
+    // 53 = the baseline (32) plus the title-card columns, the alphabet-index
     // columns, the slideshow cover column, the person cover column, the session
     // kind/label columns, the remote flag on a device-link request, the
-    // login-attempt kind column, and the reputation country/ISP columns — all of
-    // which schema.sql already builds for a fresh file; those migrations are only
-    // for databases that predate them.
-    expect(scratch.pragma('user_version', { simple: true })).toBe(40);
+    // login-attempt kind column, the reputation country/ISP columns, the person
+    // website/location columns, dropping the retired empty-recycle-bin job row,
+    // the title-card lettering columns, the closing-card columns, the slideshow
+    // clip columns, the clip-sound flags, the retired-Expanse theme remap, the
+    // interface-language column, the quote columns, the person life-fact columns,
+    // dropping the retired opening-clip columns, and the per-slideshow movie target —
+    // none of which a fresh file
+    // needs, since schema.sql builds it complete and seeds no such job; those
+    // migrations are only for databases that predate them.
+    expect(scratch.pragma('user_version', { simple: true })).toBe(54);
 
     const userColumns = (scratch.pragma('table_info(users)') as { name: string }[]).map((c) => c.name);
     expect(userColumns).toEqual(
@@ -772,7 +1084,7 @@ describe('schema baseline (3.0.0)', () => {
     migrate(current);
     current.pragma('user_version = 31'); // every 2.x migration applied
     expect(() => migrate(current)).not.toThrow();
-    expect(current.pragma('user_version', { simple: true })).toBe(40);
+    expect(current.pragma('user_version', { simple: true })).toBe(54);
     current.close();
   });
 
@@ -797,6 +1109,47 @@ describe('schema baseline (3.0.0)', () => {
       title_enabled: 1, title_text: null, title_subtitle_mode: 'count',
       title_seconds: 3, title_background: 'black', title_photo_item_id: null
     });
+    // Idempotent: a second pass must not try to add columns that are already there.
+    expect(() => migrate(old)).not.toThrow();
+    old.close();
+  });
+
+  // Migration 49 (quote metadata) has to reach a quotes table that predates every
+  // one of its columns, backfill `origin` for rows captured before it existed, and
+  // build a partial index over a column it has only just added.
+  it('adds the quote metadata columns to a database that predates them', () => {
+    const old = new Database(':memory:');
+    old.exec(`CREATE TABLE quotes (
+      id TEXT PRIMARY KEY, user_id TEXT NOT NULL, item_id TEXT, document_id TEXT,
+      cfi TEXT, text TEXT NOT NULL, note TEXT, color TEXT, source_title TEXT,
+      source_author TEXT, percent_complete REAL,
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+      updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+    )`);
+    old.prepare("INSERT INTO quotes (id, user_id, text, document_id, cfi) VALUES ('q1', 'u1', 'Highlighted', 'd1', '/6/4')").run();
+    old.prepare("INSERT INTO quotes (id, user_id, text) VALUES ('q2', 'u1', 'Typed in')").run();
+
+    migrate(old);
+
+    const columns = (old.pragma('table_info(quotes)') as { name: string }[]).map((c) => c.name);
+    expect(columns).toEqual(expect.arrayContaining([
+      'origin', 'visibility', 'in_rotation', 'language', 'quote_date', 'context',
+      'family_tree_person_id', 'person_name'
+    ]));
+    // A document anchor is what identifies a quote the reader captured; everything
+    // else predating `origin` was typed by hand. Both stay private and out of the
+    // daily rotation until someone says otherwise.
+    expect(old.prepare('SELECT * FROM quotes WHERE id = ?').get('q1')).toMatchObject({
+      origin: 'reader', visibility: 'private', in_rotation: 0, language: null, quote_date: null
+    });
+    expect(old.prepare('SELECT * FROM quotes WHERE id = ?').get('q2')).toMatchObject({
+      origin: 'manual', visibility: 'private', in_rotation: 0
+    });
+    // Migration 50 lands on the same table: quotes that predate imports-as-events
+    // have no run to belong to, which is what NULL means here.
+    expect((old.pragma('table_info(quotes)') as { name: string }[]).map((c) => c.name))
+      .toContain('import_id');
+    expect(old.prepare('SELECT import_id FROM quotes WHERE id = ?').get('q1')).toEqual({ import_id: null });
     // Idempotent: a second pass must not try to add columns that are already there.
     expect(() => migrate(old)).not.toThrow();
     old.close();
@@ -865,3 +1218,71 @@ describe("deleteSlideshowRender", () => {
     expect(fs.existsSync(tmp)).toBe(false);
   });
 });
+
+// A finished render still has to replace the previous movie, and on Windows that
+// rename is refused while anything holds the old file open — a <video> on the very
+// page the Rebuild button lives on is enough. The encode is already done and correct
+// by then, so the swap waits the viewer out instead of discarding the work.
+describe("swapping a finished render into place", () => {
+  let dir: string;
+  beforeEach(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), "ss-swap-")); });
+  afterEach(() => { fs.rmSync(dir, { recursive: true, force: true }); });
+
+  const paths = () => {
+    const tmp = path.join(dir, "movie.tmp.mp4");
+    const final = path.join(dir, "movie.mp4");
+    fs.writeFileSync(tmp, "new");
+    return { tmp, final };
+  };
+  const locked = (code: string) => Object.assign(new Error(code), { code });
+
+  it("renames on the first try when nothing holds the destination", async () => {
+    const { tmp, final } = paths();
+    await swapRenderIntoPlace(tmp, final, [0, 0]);
+    expect(fs.readFileSync(final, "utf8")).toBe("new");
+    expect(fs.existsSync(tmp)).toBe(false);
+  });
+
+  it("waits out a destination that is briefly locked, then lands the movie", async () => {
+    const { tmp, final } = paths();
+    const real = fs.renameSync;
+    let calls = 0;
+    const spy = vi.spyOn(fs, "renameSync").mockImplementation((from, to) => {
+      calls += 1;
+      if (calls <= 2) throw locked("EPERM");   // a viewer still mid-buffer
+      return real(from as string, to as string);
+    });
+    try {
+      await swapRenderIntoPlace(tmp, final, [0, 0, 0, 0]);
+    } finally { spy.mockRestore(); }
+
+    expect(calls).toBe(3);
+    expect(fs.readFileSync(final, "utf8")).toBe("new");
+  });
+
+  it("gives up once the retries run out, and clears the temp file away", async () => {
+    const { tmp, final } = paths();
+    let calls = 0;
+    const spy = vi.spyOn(fs, "renameSync").mockImplementation(() => { calls += 1; throw locked("EBUSY"); });
+    try {
+      await expect(swapRenderIntoPlace(tmp, final, [0, 0])).rejects.toMatchObject({ code: "EBUSY" });
+    } finally { spy.mockRestore(); }
+
+    expect(calls).toBe(3);                    // the first go plus one per delay
+    expect(fs.existsSync(tmp)).toBe(false);   // no temp left on the thumbnail drive
+    expect(fs.existsSync(final)).toBe(false);
+  });
+
+  it("does not sit through the backoff for a failure waiting cannot cure", async () => {
+    const { tmp, final } = paths();
+    let calls = 0;
+    const spy = vi.spyOn(fs, "renameSync").mockImplementation(() => { calls += 1; throw locked("ENOENT"); });
+    try {
+      await expect(swapRenderIntoPlace(tmp, final, [0, 0, 0])).rejects.toMatchObject({ code: "ENOENT" });
+    } finally { spy.mockRestore(); }
+
+    expect(calls).toBe(1);
+    expect(fs.existsSync(tmp)).toBe(false);
+  });
+});
+

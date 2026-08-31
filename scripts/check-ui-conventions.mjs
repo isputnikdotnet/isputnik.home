@@ -81,8 +81,71 @@ if (existsSync(GUIDES_DIR) && existsSync(HELP_PAGE)) {
   }
 }
 
+// ── Locale key parity ──
+// English (apps/web/src/locales/en) is the source of truth; every other language
+// must carry exactly the same keys in the same files. Runtime fallback would hide
+// a missing translation behind an English string, so drift is caught here instead.
+const LOCALES_DIR = join(ROOT, "locales");
+
+if (existsSync(LOCALES_DIR)) {
+  const flatten = (value, prefix = "") =>
+    value !== null && typeof value === "object"
+      ? Object.entries(value).flatMap(([key, child]) => flatten(child, prefix ? `${prefix}.${key}` : key))
+      : [prefix];
+  // Languages legitimately differ in which CLDR plural forms they carry (English
+  // has one/other, Russian one/few/many/other), so compare plural keys by their
+  // base name — "hour_few" counts as "hour".
+  const dePlural = (key) => key.replace(/_(zero|one|two|few|many|other)$/, "");
+  const keysOf = (lang, file) => {
+    try {
+      return new Set(flatten(JSON.parse(readFileSync(join(LOCALES_DIR, lang, file), "utf8"))).map(dePlural));
+    } catch (err) {
+      console.error(`apps/web/src/locales/${lang}/${file}  Invalid JSON: ${err.message}`);
+      failures++;
+      return new Set();
+    }
+  };
+  const jsonIn = (dir) => (existsSync(dir) ? readdirSync(dir).filter((name) => name.endsWith(".json")) : []);
+
+  const enFiles = jsonIn(join(LOCALES_DIR, "en"));
+  const languages = readdirSync(LOCALES_DIR, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && entry.name !== "en")
+    .map((entry) => entry.name);
+
+  for (const lang of languages) {
+    const langFiles = jsonIn(join(LOCALES_DIR, lang));
+    for (const file of langFiles) {
+      if (!enFiles.includes(file)) {
+        console.error(`apps/web/src/locales/${lang}/${file}  Has no English counterpart (en is the source of truth).`);
+        failures++;
+      }
+    }
+    for (const file of enFiles) {
+      if (!langFiles.includes(file)) {
+        console.error(`apps/web/src/locales/en/${file}  Missing from locales/${lang}/ — every language mirrors en.`);
+        failures++;
+        continue;
+      }
+      const enKeys = keysOf("en", file);
+      const langKeys = keysOf(lang, file);
+      for (const key of enKeys) {
+        if (!langKeys.has(key)) {
+          console.error(`apps/web/src/locales/${lang}/${file}  Missing key "${key}" (present in en).`);
+          failures++;
+        }
+      }
+      for (const key of langKeys) {
+        if (!enKeys.has(key)) {
+          console.error(`apps/web/src/locales/${lang}/${file}  Key "${key}" doesn't exist in en — removed, renamed, or a typo.`);
+          failures++;
+        }
+      }
+    }
+  }
+}
+
 if (failures > 0) {
   console.error(`\ncheck:ui failed — ${failures} violation${failures === 1 ? "" : "s"}. See docs/UI-CONVENTIONS.md.`);
   process.exit(1);
 }
-console.log("check:ui passed — UI conventions hold, Help lists every guide.");
+console.log("check:ui passed — UI conventions hold, Help lists every guide, locales are in sync.");

@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ChevronDown, Home, Search } from "lucide-react";
 import type { PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
@@ -6,9 +7,14 @@ import { controlHref, followRoute } from "../../router";
 import type { ControlSection } from "../../router";
 import {
   CONTROL_GROUPS,
+  contextLabel,
   groupForSection,
+  groupLabel,
   navChildrenFor,
   sectionContext,
+  sectionEyebrow,
+  tabLabel,
+  tabsInScope,
   type ControlTabDef
 } from "./nav";
 import { ControlSearch, useControlSearchShortcut } from "./ControlSearch";
@@ -19,12 +25,12 @@ import { AboutSection } from "./sections/AboutSection";
 import { StorageSection } from "./sections/StorageSection";
 import { LibrariesSection } from "./sections/LibrariesSection";
 import { DashboardSection } from "./sections/DashboardSection";
-import { SignInsSection } from "./sections/dashboard/SignInsSection";
 import { BackupSection } from "./sections/BackupSection";
 import { CategoriesSection, CategoryEditorPage } from "./sections/CategoriesSection";
 import { TagsSection } from "./sections/TagsSection";
 import { GroupsSection } from "./sections/GroupsSection";
 import { ScheduledJobsSection } from "./sections/ScheduledJobsSection";
+import { QuotesSection } from "./sections/QuotesSection";
 import { MissingPhotosSection } from "./sections/MissingPhotosSection";
 import { DuplicateCleanupSection } from "./sections/duplicates/DuplicateCleanupSection";
 import { AppearanceSection } from "./sections/AppearanceSection";
@@ -45,6 +51,7 @@ export function ControlPanelPage({
   user: PublicUser;
   logout: () => Promise<void>;
 }) {
+  const { t } = useTranslation(["common", "control"]);
   const [searchOpen, setSearchOpen] = useState(false);
   const openSearch = useCallback(() => setSearchOpen(true), []);
   useControlSearchShortcut(openSearch);
@@ -63,8 +70,14 @@ export function ControlPanelPage({
     >
       <div className="control-panel control-panel-single">
         <section className={`work-area control-work${section === "backup" ? " backup-control-work" : ""}`}>
-          {!editingCategory && group.tabs.length > 1 && (
-            <ControlTabs tabs={group.tabs} section={section} label={`${group.label} sections`} />
+          {/* The row shows the branch you are in, not the whole group — and
+              disappears when that branch holds a single page. */}
+          {!editingCategory && tabsInScope(section).length > 1 && (
+            <ControlTabs
+              tabs={tabsInScope(section)}
+              section={section}
+              label={t("control:nav.tabsAria", { group: sectionEyebrow(section) })}
+            />
           )}
           <ControlSectionBody section={section} categoryId={categoryId} currentUser={user} />
         </section>
@@ -86,7 +99,6 @@ function ControlSectionBody({
 }) {
   switch (section) {
     case "dashboard":       return <DashboardSection />;
-    case "signins":         return <SignInsSection />;
     case "logs":            return <LogsSection />;
 
     case "libraries":       return <LibrariesSection />;
@@ -108,6 +120,7 @@ function ControlSectionBody({
     case "recycleBin":      return <RecycleBinSection currentUser={currentUser} />;
     case "missingPhotos":   return <MissingPhotosSection />;
     case "duplicateCleanup": return <DuplicateCleanupSection currentUser={currentUser} />;
+    case "quotes":          return <QuotesSection />;
 
     case "appearance":      return <AppearanceSection />;
     case "email":           return <MailSection />;
@@ -118,6 +131,7 @@ function ControlSectionBody({
 }
 
 function ControlPanelNav({ section, onSearch }: { section: ControlSection; onSearch: () => void }) {
+  const { t } = useTranslation(["common", "control"]);
   const activeGroup = groupForSection(section);
   const activeContext = sectionContext(section);
   // Open on the branch you are standing in. Landing on a page whose group shows as a
@@ -139,18 +153,19 @@ function ControlPanelNav({ section, onSearch }: { section: ControlSection; onSea
   }, []);
 
   return (
-    <nav className="home-control-nav" aria-label="Control panel">
+    <nav className="home-control-nav" aria-label={t("control:nav.aria")}>
       {/* The way back out, first — the same position Home holds in the main nav,
           so leaving the control panel is where the hand already expects it. */}
       <a className="home-nav-link control-nav-exit" href="/" onClick={(event) => followRoute(event, "/")}>
         <Home size={21} aria-hidden="true" />
-        <span>Home</span>
+        <span>{t("control:nav.exit")}</span>
       </a>
 
       <div className="home-control-group">
         {CONTROL_GROUPS.map((group) => {
           const Icon = group.icon;
           const active = group.key === activeGroup.key;
+          const label = groupLabel(group.key);
           // Each group links to its first tab, which is its landing page.
           const href = controlHref(group.tabs[0].section);
           // Derived from the tabs' own `context`, so a second Gallery tab joins the
@@ -169,7 +184,7 @@ function ControlPanelNav({ section, onSearch }: { section: ControlSection; onSea
                   onClick={() => toggleBranch(group.key)}
                 >
                   <Icon size={21} aria-hidden="true" />
-                  <span>{group.label}</span>
+                  <span>{label}</span>
                   <ChevronDown className="control-nav-toggle-icon" size={16} aria-hidden="true" />
                 </button>
               ) : (
@@ -180,32 +195,33 @@ function ControlPanelNav({ section, onSearch }: { section: ControlSection; onSea
                   onClick={(event) => followRoute(event, href)}
                 >
                   <Icon size={21} aria-hidden="true" />
-                  <span>{group.label}</span>
+                  <span>{label}</span>
                 </a>
               )}
               {nestedLinks.length > 0 && (
                 <div
                   className="control-nav-nested"
                   id={nestedId}
-                  aria-label={`${group.label} destinations`}
+                  aria-label={t("control:nav.nestedAria", { group: label })}
                   hidden={!expanded}
                 >
                   {nestedLinks.map((item) => {
                     const ChildIcon = item.icon;
                     const childHref = controlHref(item.section);
+                    const childLabel = contextLabel(item.context);
                     // The branch you are actually in, not merely the group — with two
                     // branches, highlighting on the group alone would light both.
-                    const childActive = active && activeContext === item.label;
+                    const childActive = active && activeContext === item.context;
                     return (
                       <a
                         className={`home-nav-link control-nav-child${childActive ? " is-active" : ""}`}
                         href={childHref}
                         aria-current={childActive ? "page" : undefined}
                         onClick={(event) => followRoute(event, childHref)}
-                        key={item.label}
+                        key={item.context}
                       >
                         <ChildIcon size={17} aria-hidden="true" />
-                        <span>{item.label}</span>
+                        <span>{childLabel}</span>
                       </a>
                     );
                   })}
@@ -220,7 +236,7 @@ function ControlPanelNav({ section, onSearch }: { section: ControlSection; onSea
           it searches rather than above it. */}
       <button type="button" className="control-search-trigger" onClick={onSearch}>
         <Search size={18} aria-hidden="true" />
-        <span>Search…</span>
+        <span>{t("control:nav.searchTrigger")}</span>
         <kbd aria-hidden="true">Ctrl K</kbd>
       </button>
     </nav>
@@ -253,7 +269,7 @@ function ControlTabs({
             href={href}
             onClick={(event) => followRoute(event, href)}
           >
-            {tab.label}
+            {tabLabel(tab.section)}
           </a>
         );
       })}

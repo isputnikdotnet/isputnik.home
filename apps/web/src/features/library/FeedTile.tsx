@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Play } from "lucide-react";
 import { DEFAULT_COVERS } from "../audiobooks/covers";
 import { followRoute } from "../../router";
@@ -8,6 +9,7 @@ import { authorLine, feedHref, timeAgo, type FeedItem } from "./feed";
 // continue tiles look identical to the main library. `progress` shows the
 // in-progress pill + bar; `added` appends "· 3 days ago" to the author line.
 export function FeedTile({ item, progress, added, kindLabel }: { item: FeedItem; progress?: boolean; added?: boolean; kindLabel?: boolean }) {
+  const { t } = useTranslation(["common", "user"]);
   const href = feedHref(item);
   const percent = Math.round((item.percentComplete ?? 0) * 100);
   const meta = added
@@ -21,7 +23,7 @@ export function FeedTile({ item, progress, added, kindLabel }: { item: FeedItem;
         <MediaKindBadge kind={item.kind} overlay showLabel={kindLabel} />
         {progress && percent > 0 && (
           <>
-            <span className="audiobook-catalog-pct" title={`${percent}% complete`}>
+            <span className="audiobook-catalog-pct" title={t("user:feed.percentComplete", { percent })}>
               <Play size={9} fill="currentColor" aria-hidden="true" />{percent}%
             </span>
             <span className="audiobook-catalog-progress" aria-hidden="true">

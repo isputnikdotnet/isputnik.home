@@ -1,3 +1,5 @@
+import i18n from "../../../../i18n";
+
 // Curated event lists for the Dashboard's detail tables. Full event names (not
 // bare categories), matched exactly by the /api/logs event filter — see logs.ts.
 
@@ -22,15 +24,21 @@ export const CONTENT_EVENTS = [...UPLOAD_EVENTS, ...DOWNLOAD_EVENTS, ...DELETE_E
 
 export function loginMethodLabel(event: string): string {
   switch (event) {
-    case "auth.login": return "Password";
-    case "auth.passkey_login": return "Passkey";
-    case "auth.mfa_verified": return "Password + two-factor";
-    case "auth.mfa_failed": return "Two-factor code";
-    case "auth.device_link_approved": return "Device link";
+    case "auth.login": return i18n.t("controlDash:events.methodPassword");
+    case "auth.passkey_login": return i18n.t("controlDash:events.methodPasskey");
+    case "auth.mfa_verified": return i18n.t("controlDash:events.methodPasswordTwoFactor");
+    case "auth.mfa_failed": return i18n.t("controlDash:events.methodTwoFactorCode");
+    case "auth.device_link_approved": return i18n.t("controlDash:events.methodDeviceLink");
     default: return "—";
   }
 }
 
-export function loginResultLabel(event: string): "Success" | "Failed" {
-  return event === "auth.login_failed" || event === "auth.mfa_failed" ? "Failed" : "Success";
+// The event name itself decides pass/fail — use this instead of comparing
+// loginResultLabel()'s translated text, which is only for display.
+export function isFailedLoginEvent(event: string): boolean {
+  return event === "auth.login_failed" || event === "auth.mfa_failed";
+}
+
+export function loginResultLabel(event: string): string {
+  return isFailedLoginEvent(event) ? i18n.t("controlDash:events.resultFailed") : i18n.t("controlDash:events.resultSuccess");
 }

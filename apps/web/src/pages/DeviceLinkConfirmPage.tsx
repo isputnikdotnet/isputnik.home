@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useTranslation } from "react-i18next";
 import { MonitorSmartphone } from "lucide-react";
 import { api, ApiError } from "../api";
+import i18n from "../i18n";
 import { Button } from "../shared/Button";
 import { Field } from "../shared/Field";
 import { MessageBox } from "../shared/MessageBox";
@@ -28,12 +30,13 @@ interface RequestDetails {
 
 function requestedAgo(iso: string): string {
   const seconds = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 1000));
-  if (seconds < 60) return "just now";
+  if (seconds < 60) return i18n.t("deviceLinkConfirm.justNow");
   const minutes = Math.round(seconds / 60);
-  return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+  return i18n.t("deviceLinkConfirm.minutesAgo", { count: minutes });
 }
 
 export function DeviceLinkConfirmPage({ userCode }: { userCode: string }) {
+  const { t } = useTranslation();
   const [details, setDetails] = useState<RequestDetails | null>(null);
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -45,9 +48,9 @@ export function DeviceLinkConfirmPage({ userCode }: { userCode: string }) {
     try {
       setDetails(await api<RequestDetails>(`/api/auth/device/${encodeURIComponent(userCode)}`));
     } catch (err) {
-      setLoadError(err instanceof Error ? err.message : "Unable to read that code");
+      setLoadError(err instanceof Error ? err.message : t("deviceLinkConfirm.readError"));
     }
-  }, [userCode]);
+  }, [userCode, t]);
 
   useEffect(() => {
     void load();
@@ -71,9 +74,9 @@ export function DeviceLinkConfirmPage({ userCode }: { userCode: string }) {
       setError(
         err instanceof Error
           ? remaining !== undefined && remaining > 0
-            ? `${err.message} ${remaining} ${remaining === 1 ? "try" : "tries"} left.`
+            ? `${err.message} ${t("deviceLinkConfirm.triesLeft", { count: remaining })}`
             : err.message
-          : "Unable to authorize this device"
+          : t("deviceLinkConfirm.authorizeFailed")
       );
     } finally {
       setBusy(null);
@@ -87,7 +90,7 @@ export function DeviceLinkConfirmPage({ userCode }: { userCode: string }) {
       await api(`/api/auth/device/${encodeURIComponent(userCode)}/deny`, { method: "POST", body: "{}" });
       setDone("denied");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to refuse this device");
+      setError(err instanceof Error ? err.message : t("deviceLinkConfirm.denyFailed"));
     } finally {
       setBusy(null);
     }
@@ -97,18 +100,21 @@ export function DeviceLinkConfirmPage({ userCode }: { userCode: string }) {
     return (
       <Shell>
         <div className="stack">
-          <p className="eyebrow">Link a device</p>
-          <h1>{done === "approved" ? "Device authorized" : "Device refused"}</h1>
-          <MessageBox tone={done === "approved" ? "success" : "info"} title={done === "approved" ? "It's signing in now" : "Nothing was changed"}>
+          <p className="eyebrow">{t("deviceLink.eyebrow")}</p>
+          <h1>{done === "approved" ? t("deviceLinkConfirm.approvedTitle") : t("deviceLinkConfirm.refusedTitle")}</h1>
+          <MessageBox
+            tone={done === "approved" ? "success" : "info"}
+            title={done === "approved" ? t("deviceLinkConfirm.signingInNow") : t("deviceLinkConfirm.nothingChanged")}
+          >
             {done === "approved"
-              ? `${details?.device ?? "The device"} can now use your account. It appears in Profile → Devices, where you can rename it or remove it at any time.`
-              : "That device was not given access to your account."}
+              ? t("deviceLinkConfirm.approvedBody", { device: details?.device ?? t("deviceLinkConfirm.genericDevice") })
+              : t("deviceLinkConfirm.deniedBody")}
           </MessageBox>
           {/* Not an automatic redirect: the next thing anyone wants after
               approving something is confirmation that it did what they think. */}
           <div className="device-confirm-actions">
-            <Button variant="secondary" onClick={() => navigate("/profile/devices")}>Your devices</Button>
-            <Button variant="text" onClick={() => navigate("/")}>Done</Button>
+            <Button variant="secondary" onClick={() => navigate("/profile/devices")}>{t("deviceLinkConfirm.yourDevices")}</Button>
+            <Button variant="text" onClick={() => navigate("/")}>{t("common.done")}</Button>
           </div>
         </div>
       </Shell>
@@ -119,14 +125,14 @@ export function DeviceLinkConfirmPage({ userCode }: { userCode: string }) {
     return (
       <Shell>
         <div className="stack">
-          <p className="eyebrow">Link a device</p>
-          <h1>That code doesn't work</h1>
-          <MessageBox tone="warning" title="Nothing is waiting for this code">{loadError}</MessageBox>
+          <p className="eyebrow">{t("deviceLink.eyebrow")}</p>
+          <h1>{t("deviceLinkConfirm.codeInvalidTitle")}</h1>
+          <MessageBox tone="warning" title={t("deviceLinkConfirm.nothingWaiting")}>{loadError}</MessageBox>
           <p className="device-confirm-hint">
-            Codes last ten minutes. Ask the device to show a new one, then scan or type it again.
+            {t("deviceLinkConfirm.codeHint")}
           </p>
           <div className="device-confirm-actions">
-            <Button variant="secondary" onClick={() => navigate("/")}>Back to iSputnik</Button>
+            <Button variant="secondary" onClick={() => navigate("/")}>{t("deviceLinkConfirm.backToApp")}</Button>
           </div>
         </div>
       </Shell>
@@ -134,14 +140,14 @@ export function DeviceLinkConfirmPage({ userCode }: { userCode: string }) {
   }
 
   if (!details) {
-    return <Shell><p className="status">Looking up that code…</p></Shell>;
+    return <Shell><p className="status">{t("deviceLinkConfirm.loading")}</p></Shell>;
   }
 
   return (
     <Shell>
       <form className="stack" onSubmit={approve}>
-        <p className="eyebrow">Link a device</p>
-        <h1>Authorize this device?</h1>
+        <p className="eyebrow">{t("deviceLink.eyebrow")}</p>
+        <h1>{t("deviceLinkConfirm.authorizeTitle")}</h1>
 
         <div className="device-confirm-card">
           <MonitorSmartphone size={22} aria-hidden="true" />
@@ -150,35 +156,34 @@ export function DeviceLinkConfirmPage({ userCode }: { userCode: string }) {
                 rather than echoed — see describeUserAgent on the server. */}
             <strong>{details.device}</strong>
             <span>{details.network}{details.ipAddress ? ` · ${details.ipAddress}` : ""}</span>
-            <span>Asked {requestedAgo(details.requestedAt)}</span>
+            <span>{t("deviceLinkConfirm.askedAgo", { ago: requestedAgo(details.requestedAt) })}</span>
           </div>
         </div>
 
         <div className="device-confirm-match">
-          <span>Check this matches the code on that screen</span>
+          <span>{t("deviceLinkConfirm.matchLabel")}</span>
           <strong>{details.userCodeDisplay}</strong>
         </div>
 
         <Field
-          label="Your password"
+          label={t("deviceLinkConfirm.passwordLabel")}
           type="password"
           value={password}
           onChange={setPassword}
           autoComplete="current-password"
         />
         <p className="device-confirm-hint">
-          Authorizing signs that device in and keeps it signed in. Your password is asked for the same
-          reason it is when you change your two-factor settings.
+          {t("deviceLinkConfirm.passwordHint")}
         </p>
 
-        {error && <MessageBox tone="error" title="Unable to authorize">{error}</MessageBox>}
+        {error && <MessageBox tone="error" title={t("deviceLinkConfirm.unableToAuthorize")}>{error}</MessageBox>}
 
         <div className="device-confirm-actions">
           <Button variant="primary" type="submit" disabled={busy !== null || password.length === 0}>
-            {busy === "approve" ? "Authorizing…" : "Authorize device"}
+            {busy === "approve" ? t("deviceLinkConfirm.authorizing") : t("deviceLinkConfirm.authorize")}
           </Button>
           <Button variant="secondary" onClick={deny} disabled={busy !== null}>
-            {busy === "deny" ? "Refusing…" : "Deny"}
+            {busy === "deny" ? t("deviceLinkConfirm.refusing") : t("deviceLinkConfirm.deny")}
           </Button>
         </div>
       </form>

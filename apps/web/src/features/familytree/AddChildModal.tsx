@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { Baby } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { api } from "../../api";
 import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
 import { PersonAvatar } from "./PersonAvatar";
 import { PersonPickerModal } from "./PersonPickerModal";
-import { CHILD_RELATION_OPTIONS, type FamilyChildLink, type FamilyPersonProfile } from "./types";
+import { CHILD_RELATION_OPTIONS, childRelationLabel, type FamilyChildLink, type FamilyPersonProfile } from "./types";
 import type { FamilyPerson } from "./types";
 
 // Add a child under one of `person`'s unions. With no union yet (or "just
@@ -21,6 +22,7 @@ export function AddChildModal({
   onClose: () => void;
   onAdded: () => void;
 }) {
+  const { t } = useTranslation(["common", "family"]);
   const singleUnion = person.unions.find((u) => u.partner == null);
   const [unionId, setUnionId] = useState<string>(person.unions[0]?.id ?? "single");
   const [child, setChild] = useState<FamilyPerson | null>(null);
@@ -32,10 +34,14 @@ export function AddChildModal({
   const unionOptions = [
     ...person.unions.map((u) => ({
       value: u.id,
-      label: u.partner ? `With ${u.partner.name}` : `Just ${person.name}`
+      label: u.partner
+        ? t("family:addChild.unionOptionWithPartner", { name: u.partner.name })
+        : t("family:addChild.unionOptionJust", { name: person.name })
     })),
     // Offer an on-the-fly single-parent family unless one already exists.
-    ...(singleUnion ? [] : [{ value: "single", label: `Just ${person.name} (single parent)` }])
+    ...(singleUnion
+      ? []
+      : [{ value: "single", label: t("family:addChild.unionOptionJustSingleParent", { name: person.name }) }])
   ];
 
   const excludeIds = [
@@ -64,7 +70,7 @@ export function AddChildModal({
       });
       onAdded();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to add the child");
+      setError(err instanceof Error ? err.message : t("family:addChild.errors.default"));
       setSaving(false);
     }
   };
@@ -72,7 +78,7 @@ export function AddChildModal({
   if (pickerOpen) {
     return (
       <PersonPickerModal
-        title={`Child of ${person.name}`}
+        title={t("family:addChild.pickerTitle", { name: person.name })}
         excludeIds={excludeIds}
         onPick={(picked) => { setChild(picked); setPickerOpen(false); }}
         onClose={() => setPickerOpen(false)}
@@ -83,30 +89,30 @@ export function AddChildModal({
   return (
     <Modal
       variant="card"
-      title={`Add child of ${person.name}`}
+      title={t("family:addChild.modalTitle", { name: person.name })}
       icon={<Baby size={18} />}
       className="ft-modal"
       busy={saving}
       onClose={onClose}
       onSubmit={submit}
     >
-      {error && <MessageBox tone="error" title="Unable to add">{error}</MessageBox>}
+      {error && <MessageBox tone="error" title={t("family:common.unableToAdd")}>{error}</MessageBox>}
       <div className="ft-partner-pick">
         {child ? (
           <button type="button" className="ft-picker-row" onClick={() => setPickerOpen(true)} disabled={saving}>
             <PersonAvatar person={child} size={36} />
-            <span className="ft-picker-row-name"><strong>{child.name}</strong><small>Change child</small></span>
+            <span className="ft-picker-row-name"><strong>{child.name}</strong><small>{t("family:addChild.changeChild")}</small></span>
           </button>
         ) : (
           <Button variant="secondary" onClick={() => setPickerOpen(true)} disabled={saving}>
-            Choose child…
+            {t("family:addChild.chooseChild")}
           </Button>
         )}
       </div>
       <div className="ft-field-stack">
         {unionOptions.length > 1 && (
           <label className="field">
-            <span>Family</span>
+            <span>{t("family:addChild.familyFieldLabel")}</span>
             <select value={unionId} onChange={(event) => setUnionId(event.target.value)}>
               {unionOptions.map((option) => (
                 <option key={option.value} value={option.value}>{option.label}</option>
@@ -115,18 +121,18 @@ export function AddChildModal({
           </label>
         )}
         <label className="field">
-          <span>Relation</span>
+          <span>{t("family:common.relation")}</span>
           <select value={relation} onChange={(event) => setRelation(event.target.value as FamilyChildLink["relation"])}>
             {CHILD_RELATION_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>{option.label}</option>
+              <option key={option.value} value={option.value}>{childRelationLabel(option.value)}</option>
             ))}
           </select>
         </label>
       </div>
       <div className="modal-actions">
-        <Button variant="secondary" onClick={onClose} disabled={saving}>Cancel</Button>
+        <Button variant="secondary" onClick={onClose} disabled={saving}>{t("common.cancel")}</Button>
         <Button variant="primary" type="submit" disabled={saving || !child}>
-          {saving ? "Adding…" : "Add child"}
+          {saving ? t("family:common.adding") : t("family:addChild.submit")}
         </Button>
       </div>
     </Modal>

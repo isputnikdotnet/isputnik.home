@@ -5,6 +5,7 @@
 // asset-centric (one row per photo/video) rather than work/edition-centric.
 import { db } from "../../../db.js";
 import { canUserAccessLibrary } from "../shared/library-access.js";
+import { locksByLibrary, lockCoveredIn } from "../shared/folder-locks.js";
 
 const inClause = (n: number) => Array(n).fill("?").join(", ");
 
@@ -211,13 +212,26 @@ export interface GalleryTimelineFilters {
   cameras: string[];  // CAMERA_SQL display strings
   sizes: string[];    // SIZE_BUCKETS codes: small | medium | large | huge
   location: string[]; // 'with_gps' | 'no_gps'
+  likes: string[]; // LIKE_SQL codes: mine | anyone | none
 }
 
 export const EMPTY_GALLERY_FILTERS: GalleryTimelineFilters = {
-  people: [], tags: [], years: [], months: [], taken: [], cameras: [], sizes: [], location: []
+  people: [], tags: [], years: [], months: [], taken: [], cameras: [], sizes: [], location: [], likes: []
 };
 
-function galleryFilterClauses(filters: GalleryTimelineFilters): { clauses: string[]; args: unknown[] } {
+// The Likes facet. `item_saves` is already LEFT JOINed for the `saved` column,
+// but the COUNT(*) half of a timeline query doesn't carry that join — so these are
+// EXISTS subqueries, which read the same on both. 'mine' takes the viewer's id; the
+// other two are viewer-independent ("someone in the house liked it"), which is
+// the signal the year-in-review scores on (see year-review.ts).
+const LIKE_SQL: Record<string, { sql: string; needsUser: boolean }> = {
+  mine:   { sql: "EXISTS (SELECT 1 FROM item_saves s WHERE s.item_id = library_items.id AND s.user_id = ?)", needsUser: true },
+  anyone: { sql: "EXISTS (SELECT 1 FROM item_saves s WHERE s.item_id = library_items.id)", needsUser: false },
+  none:   { sql: "NOT EXISTS (SELECT 1 FROM item_saves s WHERE s.item_id = library_items.id)", needsUser: false }
+};
+const LIKE_ORDER = ["mine", "anyone", "none"];
+
+function galleryFilterClauses(filters: GalleryTimelineFilters, userId: string): { clauses: string[]; args: unknown[] } {
   const clauses: string[] = [];
   const args: unknown[] = [];
   if (filters.people.length > 0) {
@@ -274,6 +288,16 @@ function galleryFilterClauses(filters: GalleryTimelineFilters): { clauses: strin
       ? "gallery_details.gps_lat IS NOT NULL AND gallery_details.gps_lng IS NOT NULL"
       : "(gallery_details.gps_lat IS NULL OR gallery_details.gps_lng IS NULL)");
   }
+  // OR within the facet, like every other list here. Walked in a fixed order so the
+  // placeholders and the args pushed for them can't drift apart. Selecting all three
+  // means "everything", which is the same as selecting none — so it drops out.
+  const likes = LIKE_ORDER.filter((code) => filters.likes.includes(code));
+  if (likes.length > 0 && likes.length < LIKE_ORDER.length) {
+    clauses.push(`(${likes.map((code) => LIKE_SQL[code].sql).join(" OR ")})`);
+    for (const code of likes) {
+      if (LIKE_SQL[code].needsUser) args.push(userId);
+    }
+  }
   return { clauses, args };
 }
 
@@ -306,7 +330,7 @@ export function queryGalleryTimeline(userId: string, libIds: string[], opts: Gal
     args.push(like, like, like, like);
   }
   if (opts.kinds.length > 0) { where.push(`gallery_details.kind IN (${inClause(opts.kinds.length)})`); args.push(...opts.kinds); }
-  const extra = galleryFilterClauses(opts.filters ?? EMPTY_GALLERY_FILTERS);
+  const extra = galleryFilterClauses(opts.filters ?? EMPTY_GALLERY_FILTERS, userId);
   where.push(...extra.clauses);
   args.push(...extra.args);
 
@@ -373,12 +397,23 @@ export function queryGalleryFolders(userId: string, libIds: string[], parent: st
     SELECT name, cover, cnt FROM sub WHERE rn = 1 ORDER BY name COLLATE NOCASE
   `).all(...scopeArgs) as { name: string; cover: string | null; cnt: number }[];
 
-  const folders = folderRows.map((f) => ({
-    name: f.name,
-    path: cleanParent ? `${cleanParent}/${f.name}` : f.name,
-    assetCount: f.cnt,
-    coverUrl: f.cover ? `/api/library/covers/${f.cover}` : null
-  }));
+  // Locked = a folder lock covers the tile's path in ANY in-scope library. A tile
+  // can aggregate several libraries sharing a relative path; "locked in any" is
+  // close enough for a badge — enforcement is per item, inside trashBook.
+  const locks = locksByLibrary(libIds);
+  const lockedIn = (folderPath: string): boolean =>
+    libIds.some((id) => lockCoveredIn(locks.get(id), folderPath));
+
+  const folders = folderRows.map((f) => {
+    const folderPath = cleanParent ? `${cleanParent}/${f.name}` : f.name;
+    return {
+      name: f.name,
+      path: folderPath,
+      assetCount: f.cnt,
+      coverUrl: f.cover ? `/api/library/covers/${f.cover}` : null,
+      locked: lockedIn(folderPath)
+    };
+  });
 
   // Assets directly in `parent` (no further "/" in the relative path).
   const directWhere = cleanParent
@@ -394,7 +429,14 @@ export function queryGalleryFolders(userId: string, libIds: string[], parent: st
     LIMIT ? OFFSET ?
   `).all(userId, ...directArgs, limit, offset) as AssetRow[];
 
-  return { parent: cleanParent, folders, assets: rows.map(mapAsset), total };
+  return {
+    parent: cleanParent,
+    // Whether the folder being LOOKED AT is itself locked — what the Lock/Unlock
+    // toggle in the folder bar renders its state from. False at the root: the
+    // whole library is the library policy's job, not a lock's.
+    parentLocked: cleanParent !== "" && lockedIn(cleanParent),
+    folders, assets: rows.map(mapAsset), total
+  };
 }
 
 // Find folders BY NAME, anywhere in the scope. The browse query above answers "what
@@ -452,13 +494,15 @@ export function searchGalleryFolders(libIds: string[], q: string, limit: number)
     ORDER BY datetime(gallery_details.taken_at) DESC LIMIT 1
   `);
 
+  const locks = locksByLibrary(libIds);
   const folders = matched.slice(0, limit).map(([folderPath, count]) => {
     const row = coverStmt.get(...libIds, folderPath, `${folderPath}/%`) as { cover: string | null } | undefined;
     return {
       name: folderPath.slice(folderPath.lastIndexOf("/") + 1),
       path: folderPath,
       assetCount: count,
-      coverUrl: row?.cover ? `/api/library/covers/${row.cover}` : null
+      coverUrl: row?.cover ? `/api/library/covers/${row.cover}` : null,
+      locked: libIds.some((id) => lockCoveredIn(locks.get(id), folderPath))
     };
   });
 
@@ -607,6 +651,45 @@ function monthDayWindow(today: string, span: number): string[] {
     out.push(new Date(base.getTime() + offset * 86_400_000).toISOString().slice(5, 10));
   }
   return out;
+}
+
+// Photos and videos that ARRIVED recently — newest-added first, within a window
+// of whole days counted back from now. Unlike the timeline's sort='added', this
+// is bounded by the window itself, so the caller gets an honest total for it:
+// the home feed's "Just added" card advertises that number and its viewer pages
+// exactly that set.
+export function queryGalleryRecentlyAdded(userId: string, libIds: string[], days: number, limit: number): {
+  total: number;
+  /** The newest arrival's discovered_at — the card's age. Null when none. */
+  newestAt: string | null;
+  assets: ReturnType<typeof mapAsset>[];
+} {
+  if (libIds.length === 0) return { total: 0, newestAt: null, assets: [] };
+  // Interpolated because SQLite's date modifier is a literal, not a bindable
+  // parameter; both numbers are clamped integers, never caller text.
+  const windowDays = Math.max(1, Math.min(365, Math.trunc(days)));
+  const take = Math.max(1, Math.min(200, Math.trunc(limit)));
+  const libIn = inClause(libIds.length);
+  const where = `library_items.library_id IN (${libIn})
+    AND library_items.deleted_at IS NULL
+    AND datetime(library_items.discovered_at) >= datetime('now', '-${windowDays} days')`;
+
+  const summary = db.prepare(`
+    SELECT COUNT(*) AS n, MAX(library_items.discovered_at) AS newest
+    FROM library_items
+    JOIN gallery_details ON gallery_details.item_id = library_items.id
+    WHERE ${where}
+  `).get(...libIds) as { n: number; newest: string | null };
+  if (summary.n === 0) return { total: 0, newestAt: null, assets: [] };
+
+  const rows = db.prepare(`
+    SELECT ${ASSET_COLUMNS} ${ASSET_JOINS}
+    WHERE ${where}
+    ORDER BY datetime(library_items.discovered_at) DESC, library_items.id DESC
+    LIMIT ?
+  `).all(userId, ...libIds, take) as AssetRow[];
+
+  return { total: summary.n, newestAt: summary.newest, assets: rows.map(mapAsset) };
 }
 
 type MemoryRow = AssetRow & { mem_year: string; mem_count: number; mem_exact: number };

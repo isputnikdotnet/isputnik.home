@@ -32,16 +32,19 @@ import { thumbnailAbsolutePath, thumbnailStorageKey } from "../shared/thumbnail.
 import {
   getSlideshow,
   getSlideshowRenderItems,
+  getClipRenderItem,
   setSlideshowRenderState,
   setSlideshowMovieAsset,
+  setSlideshowSaveError,
   titleCardLines,
+  closingCardLines,
   type SlideshowRow,
-  type SlideshowRenderItem
+  type SlideshowRenderItem,
+  type MovieConflictPolicy
 } from "./slideshows.js";
 import { getMusicTrack, musicFileAbsolutePath } from "./music.js";
 import { renderTitleCardPng, titleCardPngBuffer, type TitleBackground, type TitlePhoto } from "./slideshow-title-card.js";
 import { resolveGalleryScopeLibraryIds } from "./catalog.js";
-import { getRenderLibraryId } from "./slideshow-settings.js";
 import { scanSingleGalleryFile } from "./scanner.js";
 
 const FFMPEG_BIN: string = (ffmpegStatic as unknown as string | null) || "ffmpeg";
@@ -171,24 +174,37 @@ export function presentRenderItems(items: SlideshowRenderItem[]): SlideshowRende
   });
 }
 
-// What the card's background is built from. Only PHOTOS qualify: sharp reads stills,
+// What a card's background is built from. Only PHOTOS qualify: sharp reads stills,
 // and a video frame would have to be decoded first. A slideshow of nothing but videos
-// therefore falls back to the black card rather than failing.
-export function titleBackgroundFor(slideshow: SlideshowRow, items: SlideshowRenderItem[]): TitleBackground {
-  if (slideshow.title_background === "black") return { kind: "black" };
+// therefore falls back to the black card rather than failing. Shared by the opening
+// and closing cards — each brings its own background setting and chosen photo.
+export function cardBackgroundFor(
+  background: SlideshowRow["title_background"],
+  photoItemId: string | null,
+  items: SlideshowRenderItem[]
+): TitleBackground {
+  if (background === "black") return { kind: "black" };
   const photos = items
     .filter((item) => item.kind === "photo")
     .map((item) => ({ id: item.id, file: renderItemAbsolutePath(item), rotation: item.rotation ?? 0 }))
     .filter((photo): photo is { id: string; file: string; rotation: number } => photo.file !== null);
   if (photos.length === 0) return { kind: "black" };
 
-  if (slideshow.title_background === "collage") {
+  if (background === "collage") {
     return { kind: "collage", photos: photos.map(({ file, rotation }): TitlePhoto => ({ file, rotation })) };
   }
   // A chosen photo that has since left the slideshow (or whose file is gone) falls
   // back to the first slide rather than to black — the setting still means "a photo".
-  const chosen = photos.find((photo) => photo.id === slideshow.title_photo_item_id) ?? photos[0];
-  return { kind: slideshow.title_background, photo: { file: chosen.file, rotation: chosen.rotation } };
+  const chosen = photos.find((photo) => photo.id === photoItemId) ?? photos[0];
+  return { kind: background, photo: { file: chosen.file, rotation: chosen.rotation } };
+}
+
+export function titleBackgroundFor(slideshow: SlideshowRow, items: SlideshowRenderItem[]): TitleBackground {
+  return cardBackgroundFor(slideshow.title_background, slideshow.title_photo_item_id, items);
+}
+
+export function closingBackgroundFor(slideshow: SlideshowRow, items: SlideshowRenderItem[]): TitleBackground {
+  return cardBackgroundFor(slideshow.closing_background, slideshow.closing_photo_item_id, items);
 }
 
 // Draw one slideshow's title card to `outPath`. Shared by the render and the editor's
@@ -200,11 +216,28 @@ export async function renderSlideshowTitleCard(
   outPath: string
 ): Promise<boolean> {
   const { title, subtitle } = titleCardLines(slideshow, items.length);
-  return renderTitleCardPng(title, subtitle, outPath, titleBackgroundFor(slideshow, items));
+  return renderTitleCardPng(title, subtitle, outPath, titleBackgroundFor(slideshow, items), {
+    font: slideshow.card_font,
+    size: slideshow.card_size
+  });
 }
 
-// The same card as a PNG in memory, scaled down for the editor's preview. Null when
-// it can't be drawn — the editor then shows nothing rather than a broken image.
+// The closing card, drawn by the same drawer with the same shared lettering — only
+// its words (closingCardLines) and background come from the closing_* settings.
+export async function renderSlideshowClosingCard(
+  slideshow: SlideshowRow,
+  items: SlideshowRenderItem[],
+  outPath: string
+): Promise<boolean> {
+  const { title, subtitle } = closingCardLines(slideshow);
+  return renderTitleCardPng(title, subtitle, outPath, closingBackgroundFor(slideshow, items), {
+    font: slideshow.card_font,
+    size: slideshow.card_size
+  });
+}
+
+// The same cards as PNGs in memory, scaled down for the editor's preview. Null when
+// one can't be drawn — the editor then shows nothing rather than a broken image.
 export async function slideshowTitleCardPreview(
   slideshow: SlideshowRow,
   items: SlideshowRenderItem[],
@@ -214,7 +247,62 @@ export async function slideshowTitleCardPreview(
   // that counted the ones left out would promise a card the movie never draws.
   const inMovie = items.slice(0, MAX_ITEMS);
   const { title, subtitle } = titleCardLines(slideshow, inMovie.length);
-  return titleCardPngBuffer(title, subtitle, titleBackgroundFor(slideshow, inMovie), width);
+  return titleCardPngBuffer(title, subtitle, titleBackgroundFor(slideshow, inMovie), width, {
+    font: slideshow.card_font,
+    size: slideshow.card_size
+  });
+}
+
+export async function slideshowClosingCardPreview(
+  slideshow: SlideshowRow,
+  items: SlideshowRenderItem[],
+  width: number
+): Promise<Buffer | null> {
+  const inMovie = items.slice(0, MAX_ITEMS);
+  const { title, subtitle } = closingCardLines(slideshow);
+  return titleCardPngBuffer(title, subtitle, closingBackgroundFor(slideshow, inMovie), width, {
+    font: slideshow.card_font,
+    size: slideshow.card_size
+  });
+}
+
+// ── A clip's own sound ───────────────────────────────────────────────────────
+//
+// The post-credit clip is often chosen FOR its sound — a recorded greeting, a
+// toast — so a sounded clip contributes its audio to the movie, and the music
+// PAUSES underneath it: silent while the clip plays, resuming from where it left
+// off (not from where the timeline got to). Everything is arithmetic over the
+// same dwell list the video graph uses: a node's on-screen start is the sum of
+// the dwells before it, with or without transitions (the xfade overlap cancels).
+
+/** One clip's audio: the source file and its absolute window on the movie's timeline. */
+export interface ClipSound { file: string; start: number; duration: number }
+
+/**
+ * Where the music actually plays: the gaps between sounded-clip windows, each
+ * carrying the music offset it resumes from (`from`) — a paused song continues,
+ * it doesn't jump. Pure, exported for the tests. Windows shorter than 0.3s are
+ * dropped: a blink of music between clips is noise, not a resume.
+ */
+export function musicWindows(
+  clips: ClipSound[],
+  total: number
+): { at: number; len: number; from: number }[] {
+  const sorted = [...clips].sort((a, b) => a.start - b.start);
+  const windows: { at: number; len: number; from: number }[] = [];
+  let cursor = 0;
+  let consumed = 0;
+  for (const clip of sorted) {
+    const len = clip.start - cursor;
+    if (len >= 0.3) {
+      windows.push({ at: cursor, len, from: consumed });
+      consumed += len;
+    }
+    cursor = Math.max(cursor, clip.start + clip.duration);
+  }
+  const tail = total - cursor;
+  if (tail >= 0.3) windows.push({ at: cursor, len: tail, from: consumed });
+  return windows;
 }
 
 export interface BuildOptions {
@@ -225,6 +313,23 @@ export interface BuildOptions {
   // Batch intermediates are encoded finer than the finished movie, because they get
   // encoded a second time when the batches are joined.
   crf?: number;
+  // The closing card's on-screen seconds, when the movie ends on one. The music
+  // then fades out UNDER the credits — starting where the card starts — instead
+  // of the fixed two-second tail. Only meaningful on a call that muxes music (the
+  // single pass, or the batch JOIN; batch intermediates are video-only).
+  closingDwell?: number;
+  // Seconds of movie AFTER the closing card — the post-credit clip. The music
+  // still fades out under the CARD, so the fade is anchored this far from the end
+  // rather than at it; the stinger then plays past a soundtrack already at zero.
+  // 0/undefined = the movie ends on the card (or the last slide).
+  closingTail?: number;
+  // Sounded clips (see ClipSound). Like closingDwell, only meaningful
+  // where audio is muxed: the clip files are added as extra AUDIO inputs there —
+  // which is what makes this work in the batched path, where the clips' video is
+  // already baked into intermediates but their sound comes from the originals.
+  // Every entry must have an audio stream (probeHasAudio) — a missing [n:a]
+  // fails the whole graph.
+  clipSounds?: ClipSound[];
 }
 
 export function buildFfmpegArgs(
@@ -262,18 +367,32 @@ export function buildFfmpegArgs(
     // join: 1621 MB as-is, 541 MB with this, for 16% more time. It is the single
     // biggest lever in this file.
     args.push("-threads", "1");
-    // A photo is a still looped for its input length; a video is read for that many
-    // seconds of its own footage (its audio is ignored — only [i:v] is referenced below).
-    if (seg.isVideo) args.push("-t", inputDur(seg).toFixed(3), "-i", seg.file);
+    // A photo is a still looped for its input length — frames forever, so it can
+    // carry the transition overlap. A video is read for its DWELL of footage only;
+    // the overlap it cannot supply is cloned in the filtergraph (tpad below). Asking
+    // -t for dwell+pad instead used to truncate the whole movie: the file EOFs at
+    // its own length, and an xfade whose offset lies past an input's end doesn't
+    // shorten one transition — it ends the chain, and everything after it was lost.
+    if (seg.isVideo) args.push("-t", seg.dwell.toFixed(3), "-i", seg.file);
     else args.push("-loop", "1", "-t", inputDur(seg).toFixed(3), "-i", seg.file);
   }
   if (musicPath) args.push("-stream_loop", "-1", "-i", musicPath);
+  // Sounded clips ride as EXTRA audio-only inputs after the music — their video
+  // is one of the segment inputs (single pass) or baked into a batch video (join).
+  const clipSounds = (options.clipSounds ?? []).filter((clip) => clip.duration > 0.2);
+  for (const clip of clipSounds) args.push("-i", clip.file);
 
   // Normalize every input to the same canvas (letterboxed), fixed fps + pixel format —
-  // photos, video frames and the title card alike, so they transition cleanly.
-  const per = segs.map((_, i) =>
+  // photos, video frames and the title card alike, so they transition cleanly. A video
+  // additionally clones its last frame across the transition overlap (tpad; a second
+  // beyond it as a cushion for probe-vs-delivery rounding) — the padding a looped
+  // photo gets for free, and without which its EOF truncates the movie (see above).
+  // The output -t below trims whatever the cushion adds past the arithmetic total.
+  const per = segs.map((seg, i) =>
     `[${i}:v]scale=${WIDTH}:${HEIGHT}:force_original_aspect_ratio=decrease,` +
-    `pad=${WIDTH}:${HEIGHT}:-1:-1:color=black,setsar=1,fps=${FPS},format=yuv420p[v${i}]`
+    `pad=${WIDTH}:${HEIGHT}:-1:-1:color=black,setsar=1,fps=${FPS},` +
+    (seg.isVideo && pad > 0 ? `tpad=stop_mode=clone:stop_duration=${(pad + 1).toFixed(2)},` : "") +
+    `format=yuv420p[v${i}]`
   );
 
   // Every node's INPUT length in presentation order — each already padded for the
@@ -309,20 +428,86 @@ export function buildFfmpegArgs(
 
   const total = totalDuration(dwells, useXfade, TRANSITION_SEC);
 
-  args.push("-filter_complex", filter, "-map", mapV);
-  if (musicPath) {
-    const fadeStart = Math.max(0, total - 2).toFixed(2);
-    args.push(
-      "-map", `${segs.length}:a`,
-      "-af", `afade=t=out:st=${fadeStart}:d=2`,
-      "-c:a", "aac", "-b:a", "160k", "-ac", "2", "-ar", "44100",
-      "-shortest"
-    );
+  // With a closing card the music fades out UNDER it: the slides end at full
+  // volume, the credits play it down, the movie ends in silence. Capped at 8s —
+  // a 15s card doesn't need 15s of fade to feel finished. Without one, the
+  // 2-second tail every movie has always had, byte for byte. A post-credit clip
+  // (closingTail) sits after all of that, so the fade is measured from where the
+  // card ends rather than from the end of the movie.
+  const closing = options.closingDwell;
+  const tail = Math.max(0, options.closingTail ?? 0);
+  const fadeDur = closing && closing > 0 ? Math.min(closing, 8) : 2;
+  const fadeStart = Math.max(0, total - tail - (closing && closing > 0 ? closing : 2));
+
+  const audioCodec = ["-c:a", "aac", "-b:a", "160k", "-ac", "2", "-ar", "44100"];
+  if (clipSounds.length === 0) {
+    // No clip sound: the original path, untouched — music mapped straight with
+    // the tail fade, or no audio at all.
+    args.push("-filter_complex", filter, "-map", mapV);
+    if (musicPath) {
+      args.push(
+        "-map", `${segs.length}:a`,
+        "-af", `afade=t=out:st=${fadeStart.toFixed(2)}:d=${fadeDur}`,
+        ...audioCodec,
+        "-shortest"
+      );
+    }
+  } else {
+    // Clip sound: the soundtrack is assembled in the filtergraph. Each clip's
+    // audio is trimmed to its on-screen window, eased in and out (0.3s/0.5s, so a
+    // 20s cap never cuts mid-word with a click), and delayed to its absolute
+    // position; the music fills the gaps BETWEEN clips, resuming from where it
+    // paused. The pieces never overlap, so amix (normalize=0) just lays them on
+    // one timeline, and the closing fade applies to the whole soundtrack.
+    const chains: string[] = [];
+    const mixIn: string[] = [];
+    const firstClipInput = segs.length + (musicPath ? 1 : 0);
+    clipSounds.forEach((clip, k) => {
+      const outFade = Math.min(0.5, clip.duration / 2);
+      const delay = Math.round(clip.start * 1000);
+      chains.push(
+        `[${firstClipInput + k}:a]atrim=0:${clip.duration.toFixed(3)},asetpts=PTS-STARTPTS,` +
+        `afade=t=in:st=0:d=0.3,afade=t=out:st=${Math.max(0, clip.duration - outFade).toFixed(3)}:d=${outFade.toFixed(2)}` +
+        (delay > 0 ? `,adelay=${delay}:all=1` : "") +
+        `[clip${k}]`
+      );
+      mixIn.push(`[clip${k}]`);
+    });
+    // The closing fade belongs to the MUSIC, not to the finished mix: a post-credit
+    // clip plays once the credits have taken the song to zero, and fading the mix
+    // would take the clip's own sound down with it. Applied after adelay, whose
+    // silence makes the window's timestamps absolute — so one `st` fits every
+    // window, and a window that ends before the fade simply never reaches it.
+    const fadeOut = `afade=t=out:st=${fadeStart.toFixed(2)}:d=${fadeDur}`;
+    if (musicPath) {
+      musicWindows(clipSounds, total).forEach((window, j) => {
+        const delay = Math.round(window.at * 1000);
+        chains.push(
+          `[${segs.length}:a]atrim=${window.from.toFixed(3)}:${(window.from + window.len).toFixed(3)},asetpts=PTS-STARTPTS` +
+          // A resumed window eases back in; the movie-opening window starts clean.
+          (window.at > 0 ? `,afade=t=in:st=0:d=0.3` : "") +
+          (delay > 0 ? `,adelay=${delay}:all=1` : "") +
+          `,${fadeOut}` +
+          `[music${j}]`
+        );
+        mixIn.push(`[music${j}]`);
+      });
+    }
+    const soundtrack = mixIn.length === 1
+      ? `${mixIn[0]}anull[aout]`
+      : `${mixIn.join("")}amix=inputs=${mixIn.length}:duration=longest:normalize=0[aout]`;
+    args.push("-filter_complex", `${filter};${chains.join(";")};${soundtrack}`, "-map", mapV);
+    // No -shortest: every audio piece is trimmed to the timeline by construction,
+    // and the video stream is what bounds the movie.
+    args.push("-map", "[aout]", ...audioCodec);
   }
   args.push(
     "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", String(options.crf ?? 22), "-preset", "veryfast",
     "-threads", String(ENCODER_THREADS),
     "-r", String(FPS), "-movflags", "+faststart",
+    // The arithmetic total is the movie: the tpad cushion on a trailing video (and
+    // an infinite music loop) must never stretch past it.
+    "-t", total.toFixed(3),
     "-progress", "pipe:1", "-nostats", "-y", outPath
   );
   return { args, total };
@@ -451,11 +636,37 @@ export async function probeDurationSeconds(file: string): Promise<number | null>
   });
 }
 
+// Whether a media file carries an audio stream at all. A sounded clip without one
+// keeps the music running instead — and must never reach the filtergraph, where a
+// reference to a missing [n:a] fails the whole render.
+export async function probeHasAudio(file: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    let child: ReturnType<typeof spawn>;
+    try {
+      child = spawn(FFPROBE_BIN, [
+        "-v", "error", "-select_streams", "a", "-show_entries", "stream=codec_type",
+        "-of", "default=nw=1:nk=1", file
+      ], { windowsHide: true });
+    } catch { resolve(false); return; }
+    let text = "";
+    child.stdout?.on("data", (chunk: Buffer) => { text += chunk.toString(); });
+    child.stderr?.on("data", () => { /* drained */ });
+    child.on("error", () => resolve(false));
+    child.on("close", () => resolve(text.includes("audio")));
+  });
+}
+
 interface BatchRenderPlan {
   nodes: Segment[];
   transition: SlideshowRow["transition"];
   transitionSec: number;
   musicPath: string | null;
+  /** See BuildOptions.closingDwell — applied at the JOIN, where the music is muxed. */
+  closingDwell?: number;
+  /** See BuildOptions.closingTail — likewise applied at the JOIN. */
+  closingTail?: number;
+  /** See BuildOptions.clipSounds — likewise applied at the JOIN. */
+  clipSounds?: ClipSound[];
   outPath: string;
   tempPathFor: (index: number) => string;
   onProgress: (elapsedSec: number, totalSec: number) => void;
@@ -495,7 +706,9 @@ async function renderInBatches(plan: BatchRenderPlan): Promise<void> {
   if (plan.isCancelled()) throw new Error("Render cancelled.");
   const { args, total } = buildFfmpegArgs(
     joinSegments, plan.transition, plan.musicPath, plan.outPath, plan.transitionSec,
-    undefined, { prePadded: true }
+    undefined, {
+      prePadded: true, closingDwell: plan.closingDwell, closingTail: plan.closingTail, clipSounds: plan.clipSounds
+    }
   );
   const { ok, detail } = await runRender(args, total, (done) => report(done), plan.isCancelled);
   if (!ok) {
@@ -717,6 +930,20 @@ export async function renderSlideshow(
     }
   }
 
+  // Closing card: the same machinery, appended after the slides. Its dwell also
+  // anchors the music's fade-out (see BuildOptions.closingDwell). Like the opening
+  // card, one that can't be drawn costs the card, never the movie. It is entirely
+  // independent of the post-credit clip below — either can end the movie on its
+  // own, and with both the card plays first.
+  let closingCard: Segment | null = null;
+  if (slideshow.closing_enabled) {
+    const cardFile = `${finalPath}.title-${nanoid(6)}.png`;
+    if (await renderSlideshowClosingCard(slideshow, present.slice(0, segs.length), cardFile)) {
+      titleFiles.push(cardFile);
+      closingCard = titleCardSegment(cardFile, slideshow.closing_seconds);
+    }
+  }
+
   // Scale the photos to the movie's own size before ffmpeg opens any of them: a
   // render's memory is otherwise the SOURCE resolution times the number of slides,
   // which is how 63 camera photos reached 17 GB. One photo at a time, so this pass
@@ -735,9 +962,55 @@ export async function renderSlideshow(
     throw new Error("Render cancelled.");
   }
 
+  // The post-credit clip: a gallery video resolved against the SAME access set as
+  // the slides. One that is gone, inaccessible, or not on disk is skipped with a
+  // warning — a missing clip costs the clip, never the movie. It becomes an
+  // ordinary video segment (segmentsFor: own length, capped at 20s, audio dropped
+  // like every clip — the soundtrack stays the music bed unless outro_sound is on).
+  const clipSegmentFor = (itemId: string | null, label: string): Segment | null => {
+    if (!itemId) return null;
+    const clip = getClipRenderItem(libIds, itemId);
+    const usable = clip ? presentRenderItems([clip]) : [];
+    if (usable.length === 0) {
+      console.warn(`slideshow render: the ${label} clip is missing or not accessible — rendering without it.`);
+      return null;
+    }
+    return segmentsFor(usable, slideshow.slide_seconds)[0];
+  };
+  const outroClip = clipSegmentFor(slideshow.outro_item_id, "post-credit");
+
   const transition = capabilities.xfade ? slideshow.transition : "none";
-  // The card is a node like any other — the first one.
-  const nodes = titleCard ? [titleCard, ...renderSegs] : renderSegs;
+  // The clip and cards are nodes like any other:
+  // title card → slides → closing card → post-credit clip. The clip plays LAST,
+  // after the credits — a film's stinger, not a second ending.
+  const nodes = [
+    ...(titleCard ? [titleCard] : []),
+    ...renderSegs,
+    ...(closingCard ? [closingCard] : []),
+    ...(outroClip ? [outroClip] : [])
+  ];
+  // The music still fades under the closing CARD, so the fade is anchored a clip's
+  // length from the end rather than at it: the credits play the song out and the
+  // stinger runs on its own sound (or in silence, if its sound is off).
+  const closingDwell = closingCard?.dwell;
+  const closingTail = outroClip?.dwell ?? 0;
+
+  // Sounded clips, as absolute windows on the movie's timeline: a node's on-screen
+  // start is the sum of the dwells before it (the xfade overlap cancels — see
+  // musicWindows). Only clips whose file actually HAS an audio stream join in; a
+  // silent file keeps the music running instead.
+  const clipSounds: ClipSound[] = [];
+  const startOfNode = (node: Segment): number => {
+    let sum = 0;
+    for (const n of nodes) {
+      if (n === node) return sum;
+      sum += n.dwell;
+    }
+    return sum;
+  };
+  if (outroClip && slideshow.outro_sound === 1 && await probeHasAudio(outroClip.file)) {
+    clipSounds.push({ file: outroClip.file, start: startOfNode(outroClip), duration: outroClip.dwell });
+  }
 
   const encodeFailed = (detail: string): Error => new Error(
     // ffmpeg's own words, so the failure is readable without shell access to the
@@ -750,13 +1023,14 @@ export async function renderSlideshow(
   try {
     if (nodes.length > BATCH_SIZE) {
       await renderInBatches({
-        nodes, transition, transitionSec: slideshow.transition_seconds, musicPath,
+        nodes, transition, transitionSec: slideshow.transition_seconds, musicPath, closingDwell, closingTail, clipSounds,
         outPath: tmpPath, tempPathFor: (index) => `${finalPath}.batch-${scaleRun}-${index}.mp4`,
         onProgress, isCancelled, onTempFile: (file) => titleFiles.push(file), encodeFailed
       });
     } else {
       const { args, total } = buildFfmpegArgs(
-        nodes, transition, musicPath, tmpPath, slideshow.transition_seconds
+        nodes, transition, musicPath, tmpPath, slideshow.transition_seconds,
+        undefined, { closingDwell, closingTail, clipSounds }
       );
       const { ok, detail } = await runRender(args, total, onProgress, isCancelled);
       if (!ok) {
@@ -765,18 +1039,49 @@ export async function renderSlideshow(
         throw encodeFailed(detail);
       }
     }
-    // Swap the finished temp file into place. If the rename fails — on Windows it throws
-    // EPERM when the destination movie is still open (e.g. a <video> is streaming the
-    // previous render) — clean up the temp so it can't pile up on the thumbnail drive.
-    try {
-      fs.renameSync(tmpPath, finalPath);
-    } catch (err) {
-      fs.rmSync(tmpPath, { force: true });
-      throw err;
-    }
+    // Swap the finished temp file into place, retrying while the destination is
+    // held open (see swapRenderIntoPlace).
+    await swapRenderIntoPlace(tmpPath, finalPath);
     return { storageKey, bytes: fs.statSync(finalPath).size };
   } finally {
     for (const file of titleFiles) fs.rmSync(file, { force: true });
+  }
+}
+
+// Replacing the previous movie fails with EPERM on Windows whenever another
+// process holds the destination open without FILE_SHARE_DELETE — an antivirus or
+// Search-indexer pass over the freshly written file, a sync client, Explorer's
+// preview handler. All of them let go within seconds. (Our own streaming route is
+// NOT a cause: Node opens files with FILE_SHARE_DELETE, so a viewer streaming the
+// old movie does not block the rename. Measured, after assuming otherwise.)
+//
+// By this point the encode is finished and correct, so surrendering minutes of work
+// to a scanner that will release the file imminently is the wrong trade — wait it
+// out. Only lock-shaped failures are retried; a missing temp file or a bad path
+// will not fix itself and should fail at once rather than eight seconds later.
+const LOCKED_CODES = new Set(["EPERM", "EACCES", "EBUSY"]);
+const RENAME_RETRY_MS = [100, 250, 500, 1000, 1500, 2000, 2500];
+
+export async function swapRenderIntoPlace(
+  tmpPath: string,
+  finalPath: string,
+  // Injectable so the tests don't sit through the real backoff.
+  delaysMs: number[] = RENAME_RETRY_MS
+): Promise<void> {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      fs.renameSync(tmpPath, finalPath);
+      return;
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code ?? "";
+      if (attempt >= delaysMs.length || !LOCKED_CODES.has(code)) {
+        // Out of patience, or a failure waiting won't cure: drop the temp so it
+        // can't pile up on the thumbnail drive, and report what actually happened.
+        fs.rmSync(tmpPath, { force: true });
+        throw err;
+      }
+      await new Promise((resolve) => setTimeout(resolve, delaysMs[attempt]));
+    }
   }
 }
 
@@ -793,29 +1098,23 @@ function musicPathFor(musicTrackId: string | null): string | null {
 }
 
 // ── Auto-save the rendered movie into a gallery library ──────────────────────
-// When an admin has set a default "movie library" (slideshow-settings.ts), a finished
-// render is ALSO filed into that library as a video item, so the movie becomes a durable,
-// browsable gallery asset — not just the copy in the thumbnail store the editor streams.
+// A slideshow can name a library to file its finished movie into, so the movie becomes a
+// durable, browsable gallery asset — not just the copy in the thumbnail store the editor
+// streams. The choice is per slideshow and off by default (movie_target_library_id).
 
 // Rendered movies live under this fixed subfolder of the target library (they carry no
 // capture date, so a dated folder like uploads use would just scatter them).
 const MOVIE_SUBFOLDER = "Slideshow movies";
 
-// The library-relative path a render is saved to. It FOLLOWS the slideshow's CURRENT
-// name: an unchanged name lands on the stored path and overwrites in place (same
-// catalog item, no duplicate); after a rename the movie saves under the new name and
-// saveMovieToLibrary retires the old file/item. The slideshow's own stored file never
-// counts as a collision — reaching it just means overwrite. Pure + injectable so the
-// logic is testable without touching the disk or the encoder.
-export function movieRelativePathFor(
-  slideshow: Pick<SlideshowRow, "name" | "movie_library_id" | "movie_relative_path">,
-  libraryId: string,
-  exists: (relativePath: string) => boolean
-): string {
-  const own = slideshow.movie_library_id === libraryId ? slideshow.movie_relative_path : null;
-  // A safe stem: strip separators/control chars and a leading dot (the scanner skips
-  // dot-entries), then disambiguate with " (2)", " (3)", … Mirrors uniqueGalleryFileName.
-  const stem = Array.from(slideshow.name)
+// The stem a movie is filed under: an explicit Rename if there is one, otherwise the
+// slideshow's own name. Exported for the conflict preview, which has to show the exact
+// filename BEFORE anything is written.
+export function movieStemFor(slideshow: Pick<SlideshowRow, "name" | "movie_file_stem">): string {
+  return safeMovieStem(slideshow.movie_file_stem || slideshow.name);
+}
+
+export function safeMovieStem(raw: string): string {
+  return Array.from(raw)
     .filter((ch) => ch.charCodeAt(0) >= 32)
     .join("")
     .replace(/[\\/:*?"<>|]+/g, " ")
@@ -824,7 +1123,33 @@ export function movieRelativePathFor(
     .replace(/^\.+/, "")
     .slice(0, 120)
     .replace(/[\s.]+$/g, "") || "slideshow";
-  let relativePath = `${MOVIE_SUBFOLDER}/${stem}.mp4`;
+}
+
+// The library-relative path a render is saved to. It follows the slideshow's CURRENT name
+// unless Rename set a stem: the same name lands on the stored path and overwrites in place
+// (same catalog item, no duplicate); after a rename the movie saves under the new name and
+// saveMovieToLibrary retires the old file/item. The slideshow's own stored file never
+// counts as a collision — reaching it just means overwrite.
+//
+// `policy` decides what a collision with SOMEONE ELSE'S file does: "keep_both" numbers
+// this movie out of the way, "overwrite" takes the name. Overwrite is only ever offered
+// for a file that is not a catalogued item belonging to something else — that check is
+// saveMovieToLibrary's, because it needs the database. Pure + injectable so the logic is
+// testable without touching the disk or the encoder.
+export function movieRelativePathFor(
+  slideshow: Pick<SlideshowRow, "name" | "movie_file_stem" | "movie_library_id" | "movie_relative_path">,
+  libraryId: string,
+  exists: (relativePath: string) => boolean,
+  policy: MovieConflictPolicy = "keep_both"
+): string {
+  const own = slideshow.movie_library_id === libraryId ? slideshow.movie_relative_path : null;
+  const stem = movieStemFor(slideshow);
+  const first = `${MOVIE_SUBFOLDER}/${stem}.mp4`;
+  // Overwrite means "take the name" — no numbering, whatever is sitting there.
+  if (policy === "overwrite") return first;
+
+  // Otherwise disambiguate with " (2)", " (3)", … Mirrors uniqueGalleryFileName.
+  let relativePath = first;
   let counter = 2;
   while (relativePath !== own && exists(relativePath)) {
     relativePath = `${MOVIE_SUBFOLDER}/${stem} (${counter}).mp4`;
@@ -833,31 +1158,80 @@ export function movieRelativePathFor(
   return relativePath;
 }
 
-// Copy a finished render (the thumbnail-store MP4 at `storageKey`) into the default movie
-// library and catalog it as a video item. Best-effort by contract: the caller treats any
-// throw as "not saved" and leaves the render 'ready' regardless. Re-renders reuse the
-// slideshow's stored path so the same file is overwritten and the SAME catalog item is
-// updated (ingestGalleryAsset keys on library_id + relative_path) — no duplicate items.
+/**
+ * Whether a path in a library is a catalogued item that is NOT this slideshow's own movie
+ * — someone's actual video that happens to share the name. Overwriting one would destroy
+ * it and tombstone their item, so it is refused outright rather than confirmed away.
+ * Returns the offending item's id, or null when the name is free or already ours.
+ */
+export function foreignItemAt(
+  libraryId: string,
+  relativePath: string,
+  ownItemId: string | null
+): string | null {
+  const row = db.prepare(`
+    SELECT library_items.id AS id
+    FROM gallery_details
+    JOIN library_items ON library_items.id = gallery_details.item_id
+    WHERE library_items.library_id = ?
+      AND gallery_details.relative_path = ?
+      AND library_items.deleted_at IS NULL
+  `).get(libraryId, relativePath) as { id: string } | undefined;
+  if (!row) return null;
+  return row.id === ownItemId ? null : row.id;
+}
+
+/**
+ * Copy a finished render (the thumbnail-store MP4 at `storageKey`) into the slideshow's
+ * chosen library and catalog it as a video item. No target = nothing to do, which is the
+ * default. Best-effort by contract: the caller treats any throw as "not saved" and leaves
+ * the render 'ready' regardless — but the REASON is recorded on the slideshow so the
+ * editor can say why instead of silently not saving.
+ *
+ * Re-renders reuse the slideshow's stored path so the same file is overwritten and the
+ * SAME catalog item is updated (ingestGalleryAsset keys on library_id + relative_path) —
+ * no duplicate items.
+ */
 export async function saveMovieToLibrary(
   slideshow: SlideshowRow,
   storageKey: string
-): Promise<{ saved: boolean; itemId: string | null }> {
-  const libId = getRenderLibraryId();
-  if (!libId) return { saved: false, itemId: null };
+): Promise<{ saved: boolean; itemId: string | null; error: string | null }> {
+  const libId = slideshow.movie_target_library_id;
+  if (!libId) return { saved: false, itemId: null, error: null };
 
   const library = db.prepare("SELECT id, source_path FROM libraries WHERE id = ? AND type = 'gallery'")
     .get(libId) as { id: string; source_path: string } | undefined;
-  if (!library) return { saved: false, itemId: null };
+  if (!library) {
+    return { saved: false, itemId: null, error: "The library this movie saves to no longer exists." };
+  }
 
   const root = validateLibrarySource(library.source_path); // throws on an unusable mount
 
-  const relativePath = movieRelativePathFor(slideshow, libId, (rel) => fs.existsSync(path.join(root, ...rel.split("/"))));
+  const relativePath = movieRelativePathFor(
+    slideshow,
+    libId,
+    (rel) => fs.existsSync(path.join(root, ...rel.split("/"))),
+    slideshow.movie_on_conflict
+  );
+
+  // The one thing overwrite must never do. A name can come to belong to a real video
+  // between choosing the library and rendering — someone drops a clip in, or a scan picks
+  // one up — so the check is here, at the moment of writing, not only in the dialog.
+  const foreign = foreignItemAt(libId, relativePath, slideshow.movie_item_id);
+  if (foreign) {
+    return {
+      saved: false,
+      itemId: null,
+      error: `"${relativePath.split("/").pop()}" is already a video in that library. Rename the movie or choose "Keep both".`
+    };
+  }
+
   const target = path.join(root, ...relativePath.split("/"));
   fs.mkdirSync(path.dirname(target), { recursive: true });
   fs.copyFileSync(thumbnailAbsolutePath(storageKey), target);
 
   const itemId = await scanSingleGalleryFile(libId, normaliseRelativePath(relativePath));
-  if (!itemId) return { saved: false, itemId: null };
+  if (!itemId) return { saved: false, itemId: null, error: "The movie was copied but could not be catalogued." };
 
   // A previous save under another name (slideshow renamed) or in another library is now
   // stale: best-effort remove the old file and soft-delete its catalog item right away
@@ -881,7 +1255,7 @@ export async function saveMovieToLibrary(
   }
 
   setSlideshowMovieAsset(slideshow.id, { libraryId: libId, relativePath, itemId });
-  return { saved: true, itemId };
+  return { saved: true, itemId, error: null };
 }
 
 // Delete a slideshow's rendered movie: the MP4 in the thumbnail store plus any leftover
@@ -1031,14 +1405,22 @@ export async function processSlideshowRenderQueue(): Promise<void> {
           renderedAt: new Date().toISOString(), error: null
         });
 
-        // Auto-save the movie into the default library, if one is configured. Best-effort:
-        // a failure here (unusable mount, etc.) must NOT fail the render — the movie is
-        // still ready and playable/downloadable in the editor.
+        // File the movie into the slideshow's chosen library, if it named one. Best-effort:
+        // a failure here (unusable mount, a name taken by someone's video) must NOT fail the
+        // render — the movie is still ready and playable/downloadable in the editor. The
+        // reason is stored so the editor can say why rather than just not saving.
         let savedToLibrary = false;
         try {
-          savedToLibrary = (await saveMovieToLibrary(getSlideshow(slideshow.id)!, storageKey)).saved;
+          const result = await saveMovieToLibrary(getSlideshow(slideshow.id)!, storageKey);
+          savedToLibrary = result.saved;
+          setSlideshowSaveError(slideshow.id, result.error);
+          if (result.error) {
+            console.warn(`slideshow render: movie encoded but not saved to the library: ${result.error}`);
+          }
         } catch (saveErr) {
-          console.warn(`slideshow render: movie encoded but couldn't be saved to the library: ${saveErr instanceof Error ? saveErr.message : saveErr}`);
+          const message = saveErr instanceof Error ? saveErr.message : String(saveErr);
+          setSlideshowSaveError(slideshow.id, message);
+          console.warn(`slideshow render: movie encoded but couldn't be saved to the library: ${message}`);
         }
 
         // Record a result on the job so the Tasks page history shows an outcome.

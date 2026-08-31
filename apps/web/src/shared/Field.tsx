@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Eye, EyeOff } from "lucide-react";
 
 export function Field({
@@ -26,6 +27,7 @@ export function Field({
   placeholder?: string;
   required?: boolean;
 }) {
+  const { t } = useTranslation();
   const id = useMemo(() => label.toLowerCase().replace(/\s+/g, "-"), [label]);
   const [revealed, setRevealed] = useState(false);
   const isPassword = type === "password";
@@ -52,7 +54,7 @@ export function Field({
             type="button"
             className="field-reveal"
             onClick={() => setRevealed((shown) => !shown)}
-            aria-label={revealed ? "Hide password" : "Show password"}
+            aria-label={revealed ? t("common.hidePassword") : t("common.showPassword")}
             aria-pressed={revealed}
             tabIndex={-1}
           >

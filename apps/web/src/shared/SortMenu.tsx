@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { createPortal } from "react-dom";
 import { ArrowDownUp, ChevronDown } from "lucide-react";
 
@@ -54,7 +55,8 @@ export function SortMenu<T extends string>(props: SortMenuChrome & (
   // trigger needs `label` — there is no one chosen option to print.
   | { groups: SortMenuGroup[]; value?: undefined; options?: undefined; onChange?: undefined }
 )) {
-  const { ariaLabel = "Sort", presentation = "inline", icon, label } = props;
+  const { t } = useTranslation();
+  const { ariaLabel = t("sort.label"), presentation = "inline", icon, label } = props;
   const compact = presentation === "icon";
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number | null; right: number | null; width: number } | null>(null);
@@ -148,7 +150,7 @@ export function SortMenu<T extends string>(props: SortMenuChrome & (
         </button>
       ) : (
         <>
-          <span>Sort by</span>
+          <span>{t("sort.sortBy")}</span>
           <button
             ref={triggerRef}
             type="button"

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FileUp, Search, Settings, UserRoundPlus } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
@@ -29,6 +30,7 @@ export function FamilyTreePage({
   logout: () => Promise<void>;
   focusId: string | null;
 }) {
+  const { t } = useTranslation(["common", "family"]);
   const isAdmin = user.role === "admin";
   const [tree, setTree] = useState<FamilyTree | null>(null);
   const [error, setError] = useState("");
@@ -44,9 +46,9 @@ export function FamilyTreePage({
   const loadTree = () => {
     api<FamilyTree>("/api/family-tree/tree")
       .then(setTree)
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load the family tree"));
+      .catch((err) => setError(err instanceof Error ? err.message : t("family:tree.errorTitle")));
   };
-  useEffect(loadTree, []);
+  useEffect(loadTree, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!searchOpen) return;
@@ -95,20 +97,20 @@ export function FamilyTreePage({
             there is a chart they live on ITS toolbar, beside Home, Import and
             Export — offering them in both places would be two of each. */}
         <LibraryPageHeader
-          title="Family Tree"
+          title={t("nav.familyTree")}
           subtitle={tree && tree.persons.length > 0
-            ? `${tree.persons.length} ${tree.persons.length === 1 ? "person" : "people"}`
+            ? t("family:common.counts.person", { count: tree.persons.length })
             : undefined}
           actions={
             <>
               <div className="ft-tree-search" ref={searchRef}>
                 <label className="ft-picker-search">
                   <Search size={17} aria-hidden="true" />
-                  <span className="sr-only">Find a person</span>
+                  <span className="sr-only">{t("family:tree.findPersonSr")}</span>
                   <input
                     type="search"
                     value={search}
-                    placeholder="Find a person…"
+                    placeholder={t("family:tree.findPersonPlaceholder")}
                     onChange={(event) => { setSearch(event.target.value); setSearchOpen(true); }}
                     onFocus={() => setSearchOpen(true)}
                   />
@@ -131,8 +133,8 @@ export function FamilyTreePage({
                 <Button
                   variant="icon"
                   className="audiobook-page-action-icon"
-                  aria-label="Family tree settings"
-                  title="Family tree settings"
+                  aria-label={t("family:treeSettings.title")}
+                  title={t("family:treeSettings.title")}
                   onClick={() => setSettingsOpen(true)}
                 >
                   <Settings size={18} aria-hidden="true" />
@@ -143,12 +145,12 @@ export function FamilyTreePage({
           primaryAction={canAdd && tree && tree.persons.length === 0 && (
             <Button variant="primary" onClick={() => setAddOpen(true)}>
               <UserRoundPlus size={16} aria-hidden="true" />
-              <span>Add person</span>
+              <span>{t("family:common.addPerson")}</span>
             </Button>
           )}
         />
 
-        {error && <MessageBox tone="error" title="Unable to load the tree">{error}</MessageBox>}
+        {error && <MessageBox tone="error" title={t("family:tree.errorTitle")}>{error}</MessageBox>}
 
         {tree && tree.persons.length === 0 && !error && (
           <div className="ft-tree-empty">
@@ -166,22 +168,22 @@ export function FamilyTreePage({
               <span className="ft-tree-empty-mark" aria-hidden="true">
                 <FamilyPersonMark />
               </span>
-              <h2>No family members yet</h2>
+              <h2>{t("family:tree.emptyTitle")}</h2>
               <p>
                 {tree.access.canAdd
-                  ? "Start the tree by adding the first person, then add partners, children, and photos."
-                  : "The family tree hasn't been started yet."}
+                  ? t("family:tree.emptyBodyCanAdd")
+                  : t("family:tree.emptyBodyCannotAdd")}
               </p>
               {tree.access.canAdd && (
                 <div className="ft-tree-empty-actions">
                   <Button variant="primary" onClick={() => setAddOpen(true)}>
                     <UserRoundPlus size={16} aria-hidden="true" />
-                    Add person
+                    {t("family:common.addPerson")}
                   </Button>
                   {isAdmin && (
                     <Button variant="secondary" onClick={() => setImportOpen(true)}>
                       <FileUp size={16} aria-hidden="true" />
-                      Import GEDCOM
+                      {t("family:treeSettings.importButton")}
                     </Button>
                   )}
                 </div>

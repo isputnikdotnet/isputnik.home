@@ -1,4 +1,5 @@
-// What the household has been up to — the other half of the family row.
+// What the household has been up to — rendered as activity cards in the home
+// feed (modules/home), which is now its only surface.
 //
 // DERIVED, never stored. A capped UNION over the tables that already record
 // who did what and when, ordered by time and then filtered through the subject
@@ -23,7 +24,6 @@
 //     people. The half that concerns you is already the "Sent to you" row
 //   • your own actions — you know what you did, and at five people your own
 //     activity would crowd out everybody else's
-import type { FastifyInstance } from "fastify";
 import { db } from "../../db.js";
 import { hydrateEntities, type HydratedEntity } from "./subjects.js";
 
@@ -146,12 +146,4 @@ export function loadActivity(user: { id: string; role: string }, limit: number) 
     if (out.length >= limit) break;
   }
   return out;
-}
-
-export async function activityPlugin(app: FastifyInstance) {
-  app.get("/api/social/activity", { preHandler: app.authenticate }, async (request) => {
-    const query = request.query as { limit?: string };
-    const limit = Math.min(Math.max(Number.parseInt(query.limit ?? "12", 10) || 12, 1), 50);
-    return { items: loadActivity(request.user!, limit) };
-  });
 }

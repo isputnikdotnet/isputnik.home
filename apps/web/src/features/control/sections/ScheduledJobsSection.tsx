@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { CalendarClock, CheckCircle2, Info, Play, XCircle } from "lucide-react";
 import { api } from "../../../api";
 import { controlHref, followRoute } from "../../../router";
@@ -38,19 +39,20 @@ interface RunState {
   phase: "working" | "done" | "failed";
 }
 
-const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const WEEKDAY_KEYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"] as const;
 const MONTH_DAYS = Array.from({ length: 28 }, (_, i) => i + 1);
 
-const CATEGORY_LABEL: Record<Category, string> = {
-  audiobooks: "Audiobooks",
-  ebooks: "Ebooks",
-  gallery: "Gallery",
-  system: "System"
+const CATEGORY_LABEL_KEYS: Record<Category, "catAudiobooks" | "catEbooks" | "catGallery" | "catSystem"> = {
+  audiobooks: "catAudiobooks",
+  ebooks: "catEbooks",
+  gallery: "catGallery",
+  system: "catSystem"
 };
 
 const POLL_MS = 2000;
 
 export function ScheduledJobsSection() {
+  const { t } = useTranslation(["common", "controlAdmin"]);
   const [jobs, setJobs] = useState<ScheduledJob[]>([]);
   const [error, setError] = useState("");
   const [run, setRun] = useState<RunState | null>(null);
@@ -61,7 +63,7 @@ export function ScheduledJobsSection() {
   }, []);
 
   useEffect(() => {
-    load().catch((err) => setError(err instanceof Error ? err.message : "Unable to load scheduled jobs"));
+    load().catch((err) => setError(err instanceof Error ? err.message : t("controlAdmin:scheduledJobs.loadFailed")));
   }, [load]);
 
   // Follow the tasks a manual run queued until every one of them has left the
@@ -82,8 +84,8 @@ export function ScheduledJobsSection() {
             ...current,
             phase: failed > 0 ? "failed" : "done",
             message: failed > 0
-              ? `${failed} of ${run.taskIds.length} task${run.taskIds.length === 1 ? "" : "s"} failed.`
-              : `All ${run.taskIds.length} task${run.taskIds.length === 1 ? "" : "s"} finished.`
+              ? t("controlAdmin:scheduledJobs.tasksFailed", { failed, count: run.taskIds.length })
+              : t("controlAdmin:scheduledJobs.tasksFinished", { count: run.taskIds.length })
           });
           void load().catch(() => undefined);
         })
@@ -94,7 +96,7 @@ export function ScheduledJobsSection() {
 
   const startRun = async (job: ScheduledJob) => {
     setError("");
-    setRun({ jobKey: job.key, label: job.label, message: "Starting…", taskIds: [], phase: "working" });
+    setRun({ jobKey: job.key, label: job.label, message: t("controlAdmin:scheduledJobs.starting"), taskIds: [], phase: "working" });
     try {
       const result = await api<{ taskIds: string[]; job: ScheduledJob }>(
         `/api/scheduled-jobs/${job.key}/run`,
@@ -106,14 +108,14 @@ export function ScheduledJobsSection() {
         label: job.label,
         // The job's own summary is the useful sentence — "Queued a scan for 3
         // libraries", "Purged 12 photos" — so lead with it.
-        message: result.job?.lastMessage ?? "Finished.",
+        message: result.job?.lastMessage ?? t("controlAdmin:scheduledJobs.finished"),
         taskIds: result.taskIds ?? [],
         // No queued tasks means the work happened inside the request: already done.
         phase: (result.taskIds ?? []).length === 0 ? "done" : "working"
       });
     } catch (err) {
       setRun(null);
-      setError(err instanceof Error ? err.message : "Job failed to run");
+      setError(err instanceof Error ? err.message : t("controlAdmin:scheduledJobs.runFailed"));
       await load().catch(() => undefined);
     }
   };
@@ -129,7 +131,7 @@ export function ScheduledJobsSection() {
             try {
               await load();
             } catch (err) {
-              setError(err instanceof Error ? err.message : "Unable to refresh scheduled jobs");
+              setError(err instanceof Error ? err.message : t("controlAdmin:scheduledJobs.refreshFailed"));
               throw err;
             }
           }}
@@ -137,21 +139,20 @@ export function ScheduledJobsSection() {
       </ControlSectionHead>
 
       <p className="scheduled-jobs-intro muted">
-        Recurring upkeep tasks. Pick how often each one runs — and on which day, at what time — or turn it off
-        entirely. Changes save as you make them. <strong>Run now</strong> starts one immediately.
+        <Trans i18nKey="scheduledJobs.intro" ns="controlAdmin" components={{ bold: <strong /> }} />
       </p>
 
-      {error && <MessageBox tone="error" title="Scheduled jobs error">{error}</MessageBox>}
+      {error && <MessageBox tone="error" title={t("controlAdmin:scheduledJobs.errorTitle")}>{error}</MessageBox>}
 
       {run && (
         <MessageBox
           tone={run.phase === "working" ? "info" : run.phase === "failed" ? "warning" : "success"}
           title={
             run.phase === "working"
-              ? `Running “${run.label}”…`
+              ? t("controlAdmin:scheduledJobs.runningTitle", { label: run.label })
               : run.phase === "failed"
-                ? `“${run.label}” finished with errors`
-                : `“${run.label}” finished`
+                ? t("controlAdmin:scheduledJobs.finishedWithErrorsTitle", { label: run.label })
+                : t("controlAdmin:scheduledJobs.finishedTitle", { label: run.label })
           }
         >
           {run.message}
@@ -159,7 +160,7 @@ export function ScheduledJobsSection() {
             <>
               {" "}
               <a href={`${controlHref("dashboard")}?view=tasks`} onClick={(event) => followRoute(event, `${controlHref("dashboard")}?view=tasks`)}>
-                {run.phase === "working" ? "Watch progress on Tasks" : "See it on Tasks"}
+                {run.phase === "working" ? t("controlAdmin:scheduledJobs.watchProgress") : t("controlAdmin:scheduledJobs.seeOnTasks")}
               </a>
               .
             </>
@@ -171,11 +172,11 @@ export function ScheduledJobsSection() {
         <table className="datagrid scheduled-jobs-table">
           <thead>
             <tr>
-              <th scope="col">Job</th>
-              <th scope="col">Schedule</th>
-              <th scope="col">Run</th>
-              <th scope="col" className="scheduled-col-enabled">Enabled</th>
-              <th scope="col" className="scheduled-col-actions">Actions</th>
+              <th scope="col">{t("controlAdmin:scheduledJobs.thJob")}</th>
+              <th scope="col">{t("controlAdmin:scheduledJobs.thSchedule")}</th>
+              <th scope="col">{t("controlAdmin:scheduledJobs.thRun")}</th>
+              <th scope="col" className="scheduled-col-enabled">{t("controlAdmin:scheduledJobs.thEnabled")}</th>
+              <th scope="col" className="scheduled-col-actions">{t("controlAdmin:scheduledJobs.thActions")}</th>
             </tr>
           </thead>
           <tbody>
@@ -194,7 +195,7 @@ export function ScheduledJobsSection() {
         </table>
       </div>
 
-      {jobs.length === 0 && <p className="management-empty">No scheduled jobs.</p>}
+      {jobs.length === 0 && <p className="management-empty">{t("controlAdmin:scheduledJobs.empty")}</p>}
     </>
   );
 }
@@ -214,6 +215,7 @@ function ScheduledJobRow({
   onError: (message: string) => void;
   onRun: () => void;
 }) {
+  const { t } = useTranslation(["common", "controlAdmin"]);
   const [saving, setSaving] = useState(false);
 
   // Every control writes straight through — the row has no Save button, so an
@@ -236,7 +238,7 @@ function ScheduledJobRow({
       });
       await onChanged();
     } catch (err) {
-      onError(err instanceof Error ? err.message : "Unable to save scheduled job");
+      onError(err instanceof Error ? err.message : t("controlAdmin:scheduledJobs.saveFailed"));
       await onChanged().catch(() => undefined);
     } finally {
       setSaving(false);
@@ -255,7 +257,7 @@ function ScheduledJobRow({
             <span className="sr-only">{job.description}</span>
           </span>
         </div>
-        <span className={`scheduled-job-chip ${job.category}`}>{CATEGORY_LABEL[job.category]}</span>
+        <span className={`scheduled-job-chip ${job.category}`}>{t(`controlAdmin:scheduledJobs.${CATEGORY_LABEL_KEYS[job.category]}`)}</span>
       </td>
 
       <td>
@@ -263,22 +265,22 @@ function ScheduledJobRow({
           <select
             value={job.frequency}
             disabled={controlsDisabled}
-            aria-label={`${job.label}: frequency`}
+            aria-label={t("controlAdmin:scheduledJobs.ariaFrequency", { label: job.label })}
             onChange={(e) => void save({ frequency: e.target.value as Frequency })}
           >
-            <option value="daily">Every day</option>
-            <option value="weekly">Every week</option>
-            <option value="monthly">Every month</option>
+            <option value="daily">{t("controlAdmin:scheduledJobs.freqDaily")}</option>
+            <option value="weekly">{t("controlAdmin:scheduledJobs.freqWeekly")}</option>
+            <option value="monthly">{t("controlAdmin:scheduledJobs.freqMonthly")}</option>
           </select>
           {job.frequency === "weekly" && (
             <select
               value={job.dayOfWeek}
               disabled={controlsDisabled}
-              aria-label={`${job.label}: day of week`}
+              aria-label={t("controlAdmin:scheduledJobs.ariaDayOfWeek", { label: job.label })}
               onChange={(e) => void save({ dayOfWeek: Number(e.target.value) })}
             >
-              {WEEKDAYS.map((name, i) => (
-                <option key={name} value={i}>{name}</option>
+              {WEEKDAY_KEYS.map((key, i) => (
+                <option key={key} value={i}>{t(`controlAdmin:scheduledJobs.${key}`)}</option>
               ))}
             </select>
           )}
@@ -286,11 +288,11 @@ function ScheduledJobRow({
             <select
               value={job.dayOfMonth}
               disabled={controlsDisabled}
-              aria-label={`${job.label}: day of month`}
+              aria-label={t("controlAdmin:scheduledJobs.ariaDayOfMonth", { label: job.label })}
               onChange={(e) => void save({ dayOfMonth: Number(e.target.value) })}
             >
               {MONTH_DAYS.map((day) => (
-                <option key={day} value={day}>Day {day}</option>
+                <option key={day} value={day}>{t("controlAdmin:scheduledJobs.dayN", { day })}</option>
               ))}
             </select>
           )}
@@ -298,7 +300,7 @@ function ScheduledJobRow({
             type="time"
             value={job.time}
             disabled={controlsDisabled}
-            aria-label={`${job.label}: time of day`}
+            aria-label={t("controlAdmin:scheduledJobs.ariaTime", { label: job.label })}
             onChange={(e) => { if (e.target.value) void save({ time: e.target.value }); }}
           />
         </div>
@@ -317,17 +319,17 @@ function ScheduledJobRow({
               <span>{formatManagedDate(job.lastRunAt)}</span>
             </span>
           ) : (
-            <span className="scheduled-job-run-line muted">Never run</span>
+            <span className="scheduled-job-run-line muted">{t("controlAdmin:scheduledJobs.neverRun")}</span>
           )}
           {job.enabled && job.nextRunAt ? (
-            <span className="scheduled-job-run-line muted" title="Next run">
+            <span className="scheduled-job-run-line muted" title={t("controlAdmin:scheduledJobs.nextRun")}>
               <CalendarClock size={15} aria-hidden="true" />
               <span>{formatManagedDate(job.nextRunAt)}</span>
             </span>
           ) : (
             <span className="scheduled-job-run-line muted">
               <CalendarClock size={15} aria-hidden="true" />
-              <span>Not scheduled</span>
+              <span>{t("controlAdmin:scheduledJobs.notScheduled")}</span>
             </span>
           )}
         </div>
@@ -338,7 +340,7 @@ function ScheduledJobRow({
           checked={job.enabled}
           disabled={controlsDisabled}
           onChange={(next) => void save({ enabled: next })}
-          ariaLabel={`${job.label}: ${job.enabled ? "on" : "off"}`}
+          ariaLabel={job.enabled ? t("controlAdmin:scheduledJobs.ariaToggleOn", { label: job.label }) : t("controlAdmin:scheduledJobs.ariaToggleOff", { label: job.label })}
         />
       </td>
 
@@ -349,8 +351,8 @@ function ScheduledJobRow({
           // One at a time: these jobs queue heavy work and several skip themselves
           // when another is already running, which would look like a dead button.
           disabled={saving || anyRunning}
-          aria-label={running ? `Running ${job.label}` : `Run ${job.label} now`}
-          title={running ? "Running…" : "Run now"}
+          aria-label={running ? t("controlAdmin:scheduledJobs.runningAria", { label: job.label }) : t("controlAdmin:scheduledJobs.runNowAria", { label: job.label })}
+          title={running ? t("controlAdmin:scheduledJobs.running") : t("controlAdmin:scheduledJobs.runNow")}
         >
           {running
             ? <span className="icon-spin" aria-hidden="true"><Play size={16} /></span>

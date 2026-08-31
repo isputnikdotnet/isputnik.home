@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Check, RefreshCw } from "lucide-react";
 import { Button } from "./Button";
 
@@ -15,7 +16,7 @@ const DONE_MS = 1600;
 
 export function RefreshButton({
   onRefresh,
-  label = "Refresh",
+  label,
   compact = true,
   className,
   title
@@ -28,6 +29,7 @@ export function RefreshButton({
   className?: string;
   title?: string;
 }) {
+  const { t } = useTranslation();
   const [state, setState] = useState<"idle" | "busy" | "done">("idle");
   // Unmounting mid-refresh (navigating away as it lands) must not set state on a
   // dead component, and the pending "back to idle" timer has to be dropped.
@@ -81,17 +83,17 @@ export function RefreshButton({
       {state === "busy" ? (
         <>
           <span className="icon-spin" aria-hidden="true"><RefreshCw size={15} /></span>
-          Refreshing…
+          {t("refresh.refreshing")}
         </>
       ) : state === "done" ? (
         <>
           <Check size={15} aria-hidden="true" />
-          Updated
+          {t("refresh.updated")}
         </>
       ) : (
         <>
           <RefreshCw size={15} aria-hidden="true" />
-          {label}
+          {label ?? t("refresh.refresh")}
         </>
       )}
     </Button>

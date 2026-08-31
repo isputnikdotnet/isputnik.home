@@ -10,7 +10,7 @@
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import { db } from "../../db.js";
-import { setEntityTags } from "../library/audiobook/categorize.js";
+import { addEntityTags, normalizeText, setEntityTags } from "../library/audiobook/categorize.js";
 import { FAMILY_PERSON_ENTITY_TYPE } from "./access.js";
 import { listFamilyEvents, type FamilyEventSummary } from "./events.js";
 import { listPersonCitations, type FamilyCitationSummary } from "./sources.js";
@@ -406,4 +406,80 @@ export function getFamilyPersonProfile(personId: string): FamilyPersonProfile | 
     citations: listPersonCitations(personId),
     galleryPerson
   };
+}
+
+// Everyone reachable from `seedIds` through the relationship graph — partners,
+// children, parents and, transitively, their relatives. "The whole family" is a
+// graph question, not a surname one: spouses keep their own names and
+// married-in relatives share none, so a surname sweep both misses and
+// over-reaches. Loads both edge tables once (the tree is hundreds of rows) and
+// walks them breadth-first. Seeds are included; unknown ids drop out.
+export function expandToRelatives(seedIds: string[]): string[] {
+  const unions = db.prepare(
+    "SELECT id, person1_id, person2_id FROM family_tree_unions"
+  ).all() as { id: string; person1_id: string; person2_id: string | null }[];
+  const children = db.prepare(
+    "SELECT union_id, child_id FROM family_tree_children"
+  ).all() as { union_id: string; child_id: string }[];
+
+  // Union id -> everyone standing in it (partners + children). Every member of
+  // a union is a relative of every other, which makes the walk a single hop.
+  const membersOfUnion = new Map<string, string[]>();
+  const unionsOfPerson = new Map<string, string[]>();
+  const join = (unionId: string, personId: string) => {
+    const members = membersOfUnion.get(unionId) ?? [];
+    members.push(personId);
+    membersOfUnion.set(unionId, members);
+    const ids = unionsOfPerson.get(personId) ?? [];
+    ids.push(unionId);
+    unionsOfPerson.set(personId, ids);
+  };
+  for (const union of unions) {
+    join(union.id, union.person1_id);
+    if (union.person2_id) join(union.id, union.person2_id);
+  }
+  for (const child of children) join(child.union_id, child.child_id);
+
+  const known = new Set(
+    (db.prepare("SELECT id FROM family_tree_persons").all() as { id: string }[]).map((row) => row.id)
+  );
+  const found = new Set<string>();
+  const queue = seedIds.filter((id) => known.has(id));
+  for (const id of queue) found.add(id);
+  while (queue.length > 0) {
+    const current = queue.pop()!;
+    for (const unionId of unionsOfPerson.get(current) ?? []) {
+      for (const member of membersOfUnion.get(unionId) ?? []) {
+        if (found.has(member)) continue;
+        found.add(member);
+        queue.push(member);
+      }
+    }
+  }
+  return [...found];
+}
+
+// Add and/or remove family tags across many people in one transaction. Adding
+// is additive — a person can carry several branch tags — so this never
+// replaces a tag set the way updateFamilyPerson's `tags` field does.
+export function applyFamilyPersonTags(personIds: string[], add: string[], remove: string[]): void {
+  const removeKeys = [...new Set(remove.map(normalizeText).filter(Boolean))];
+  const removeIds = removeKeys.length > 0
+    ? (db.prepare(
+        `SELECT id FROM tags WHERE key IN (${removeKeys.map(() => "?").join(", ")})`
+      ).all(...removeKeys) as { id: string }[]).map((row) => row.id)
+    : [];
+  const deleteTags = removeIds.length > 0
+    ? db.prepare(
+        `DELETE FROM taggables WHERE entity_type = ? AND entity_id = ?
+           AND tag_id IN (${removeIds.map(() => "?").join(", ")})`
+      )
+    : null;
+
+  db.transaction(() => {
+    for (const personId of personIds) {
+      if (add.length > 0) addEntityTags(FAMILY_PERSON_ENTITY_TYPE, personId, add);
+      deleteTags?.run(FAMILY_PERSON_ENTITY_TYPE, personId, ...removeIds);
+    }
+  })();
 }

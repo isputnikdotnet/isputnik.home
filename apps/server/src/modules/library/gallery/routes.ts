@@ -10,6 +10,7 @@ import { canUserAccessLibrary, canUserAccessBook, libraryCapabilities, deleteLib
 import { publicLibrary, type LibraryListRow } from "../shared/library-serializer.js";
 import { deleteSharesForLibrary } from "../shared/share-access.js";
 import { deleteCollectionItemsForLibrary } from "../../collections/cleanup.js";
+import { deleteStoryBlocksForLibrary } from "../../stories/cleanup.js";
 import { coreLibraryCreateSchema, coreLibraryUpdateSchema, createLibraryRecord, updateLibraryRecord, resolveUploadMaxBytes } from "../shared/library-crud.js";
 import { METADATA_SOURCE_IDS } from "../shared/metadata-sources.js";
 import { validateLibrarySource, LibrarySourceError } from "../shared/library-source.js";
@@ -34,9 +35,10 @@ import {
   queryGalleryMemories,
   EMPTY_GALLERY_FILTERS
 } from "./catalog.js";
-import { setGalleryPlaceAndTime, updateGalleryAsset } from "./edit.js";
+import { changeGalleryTags, setGalleryPlaceAndTime, updateGalleryAsset } from "./edit.js";
 import { searchPlaces } from "./geocode.js";
 import { suggestGalleryMemories } from "./memories.js";
+import { suggestYearReviews, buildYearReview } from "./year-review.js";
 import { rotateGalleryAsset } from "./rotate.js";
 
 // Each uploaded file becomes its own asset (one photo/video = one item), so this
@@ -173,6 +175,7 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
       db.prepare("DELETE FROM taggables WHERE entity_type = 'library_item' AND entity_id IN (SELECT id FROM library_items WHERE library_id = ?)").run(id);
       deleteSharesForLibrary("gallery", id);
       deleteCollectionItemsForLibrary("gallery", id);
+      deleteStoryBlocksForLibrary("gallery", id);
       deleteLibraryAccess(id);
       db.prepare("DELETE FROM libraries WHERE id = ?").run(id);
     })();
@@ -347,7 +350,8 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
       taken: z.array(z.string().regex(/^(from|to):\d{4}-\d{2}-\d{2}$/)).max(2).default([]),
       cameras: filterList,
       sizes: z.array(z.enum(["small", "medium", "large", "huge"])).max(4).default([]),
-      location: z.array(z.enum(["with_gps", "no_gps"])).max(2).default([])
+      location: z.array(z.enum(["with_gps", "no_gps"])).max(2).default([]),
+      likes: z.array(z.enum(["mine", "anyone", "none"])).max(3).default([])
       // prefault, not default: zod 4 requires a `.default()` to be the finished
       // OUTPUT object, so `{}` no longer type-checks. `.prefault({})` keeps zod 3's
       // behaviour of feeding the value back through the schema, which lets each
@@ -458,6 +462,28 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
     const libIds = resolveGalleryScopeLibraryIds(request.user!, parseLibraryIds(qp.libraryIds));
     const limit = Math.min(Math.max(Number.parseInt(qp.limit ?? "12", 10) || 12, 1), 40);
     return { suggestions: suggestGalleryMemories(libIds, { limit }) };
+  });
+
+  // "2026 in review": a year's best, proposed as a slideshow. Same contract as the
+  // memory suggestions above — nothing is persisted until the user saves one — but
+  // built from the household's likes rather than from time clustering, and
+  // spread across the calendar so the film covers the year (see year-review.ts).
+  //
+  // `year` picks one; without it the most recent few years with material are
+  // returned, newest first. Each one is a real selection pass, so the count stays
+  // small by default.
+  app.get("/api/library/gallery/year-review", { preHandler: app.authenticate }, async (request) => {
+    const qp = request.query as { libraryIds?: string; year?: string; limit?: string; maxItems?: string };
+    const libIds = resolveGalleryScopeLibraryIds(request.user!, parseLibraryIds(qp.libraryIds));
+    const maxItems = qp.maxItems ? Math.min(Math.max(Number.parseInt(qp.maxItems, 10) || 60, 12), 200) : undefined;
+
+    const year = Number.parseInt(qp.year ?? "", 10);
+    if (Number.isFinite(year) && year > 1800 && year < 3000) {
+      const review = buildYearReview(libIds, request.user!.id, year, { maxItems });
+      return { suggestions: review ? [review] : [] };
+    }
+    const limit = Math.min(Math.max(Number.parseInt(qp.limit ?? "3", 10) || 3, 1), 12);
+    return { suggestions: suggestYearReviews(libIds, request.user!.id, { limit, maxItems }) };
   });
 
   // Bulk asset lookup by ids (the suggestion-preview grid fetches a montage's
@@ -666,8 +692,61 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
     return reply.send({ updated, forbidden, noDate });
   });
 
-  // Rotate a photo 90° clockwise/counter-clockwise. Stores the angle and bakes it
-  // into the regenerated thumbnails; videos and the original file are untouched.
+  // Bulk tagging from the multi-select bar — label a whole holiday in one go.
+  // Add and remove rather than replace, so a photo keeps the tags it already
+  // carries; both may travel in one request. Permission is checked per item's
+  // library and items the user can't write are counted, not fatal.
+  const bulkTagsSchema = z
+    .object({
+      ids: z.array(z.string().trim().min(1).max(64)).min(1).max(200),
+      add: z.array(z.string().trim().min(1).max(80)).max(20).optional(),
+      remove: z.array(z.string().trim().min(1).max(80)).max(20).optional()
+    })
+    .refine((body) => (body.add?.length ?? 0) > 0 || (body.remove?.length ?? 0) > 0, {
+      message: "Send at least one tag to add or remove."
+    });
+
+  app.post("/api/library/gallery/assets/bulk-tags", { preHandler: app.authenticate }, async (request, reply) => {
+    const parsed = parseBody(bulkTagsSchema, request.body);
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid tags", details: parsed.error });
+    }
+
+    const user = request.user!;
+    const allowed: string[] = [];
+    let forbidden = 0;
+    for (const id of parsed.data.ids) {
+      const lib = getLibraryForBook(id);
+      if (!lib || lib.type !== "gallery" || !canUserWriteLibrary(lib, user.id, user.role)) {
+        forbidden += 1;
+        continue;
+      }
+      allowed.push(id);
+    }
+
+    const { updated } = changeGalleryTags(allowed, { add: parsed.data.add, remove: parsed.data.remove });
+
+    if (updated > 0) {
+      const what = [
+        parsed.data.add?.length ? `added ${parsed.data.add.join(", ")}` : null,
+        parsed.data.remove?.length ? `removed ${parsed.data.remove.join(", ")}` : null
+      ].filter(Boolean).join(" and ");
+      logActivity({
+        event: "library.gallery.edited",
+        actorUserId: user.id,
+        targetType: "library_item",
+        targetId: allowed[0],
+        detail: `Tagged ${updated} gallery item${updated === 1 ? "" : "s"} (${what}).`,
+        ipAddress: request.ip
+      });
+    }
+
+    return reply.send({ updated, forbidden });
+  });
+
+  // Rotate a photo or video 90° clockwise/counter-clockwise. Stores the angle and
+  // bakes it into the regenerated thumbnails (a video's poster frame included);
+  // the original file is untouched — the client rotates video playback via CSS.
   const rotateSchema = z.object({ direction: z.enum(["cw", "ccw"]) });
 
   app.post("/api/library/gallery/assets/:id/rotate", { preHandler: app.authenticate }, async (request, reply) => {
@@ -693,7 +772,7 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
       actorUserId: user.id,
       targetType: "library_item",
       targetId: id,
-      detail: `Rotated gallery photo ${parsed.data.direction === "cw" ? "right" : "left"} (now ${result.rotation}°).`,
+      detail: `Rotated gallery ${result.kind} ${parsed.data.direction === "cw" ? "right" : "left"} (now ${result.rotation}°).`,
       ipAddress: request.ip
     });
 

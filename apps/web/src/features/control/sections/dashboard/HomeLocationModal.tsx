@@ -1,4 +1,5 @@
 import { Suspense, lazy, useState, type FormEvent } from "react";
+import { useTranslation } from "react-i18next";
 import { House } from "lucide-react";
 import { api } from "../../../../api";
 import { Button } from "../../../../shared/Button";
@@ -23,6 +24,7 @@ export function HomeLocationModal({
   onSaved: (home: HomeLocation | null) => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation(["common", "controlDash"]);
   const [point, setPoint] = useState<{ lat: number; lng: number } | null>(
     home ? { lat: home.latitude, lng: home.longitude } : null
   );
@@ -42,7 +44,7 @@ export function HomeLocationModal({
       });
       onSaved(payload.home);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to save the location");
+      setError(err instanceof Error ? err.message : t("controlDash:homeLoc.saveFailed"));
       setBusy(false);
     }
   };
@@ -57,43 +59,40 @@ export function HomeLocationModal({
       });
       onSaved(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to clear the location");
+      setError(err instanceof Error ? err.message : t("controlDash:homeLoc.clearFailed"));
       setBusy(false);
     }
   };
 
   return (
     <Modal
-      title="Where is home?"
+      title={t("controlDash:homeLoc.title")}
       icon={<House size={20} />}
       busy={busy}
       className="gallery-bulk-edit-modal"
       onClose={onClose}
       onSubmit={save}
     >
-      <p className="muted">
-        Click the map to mark where this server lives. It is used for one thing — drawing your own dot on the Locations
-        map — and it is never sent anywhere.
-      </p>
+      <p className="muted">{t("controlDash:homeLoc.intro")}</p>
 
-      {error && <MessageBox tone="error" title="Unable to save">{error}</MessageBox>}
+      {error && <MessageBox tone="error" title={t("controlDash:homeLoc.saveFailed")}>{error}</MessageBox>}
 
       <div className="gallery-bulk-edit-field">
         <Suspense fallback={<div className="gallery-mini-map gallery-mini-map--loading" />}>
           <LocationPicker value={point} onChange={setPoint} />
         </Suspense>
         <span className="muted gallery-bulk-edit-hint">
-          {point ? `${point.lat.toFixed(4)}, ${point.lng.toFixed(4)}` : "Nothing picked yet — click the map."}
+          {point ? `${point.lat.toFixed(4)}, ${point.lng.toFixed(4)}` : t("controlDash:homeLoc.nothingPicked")}
         </span>
       </div>
 
       <label className="field">
-        <span>What to call it</span>
+        <span>{t("controlDash:homeLoc.labelField")}</span>
         <input
           type="text"
           value={label}
           maxLength={60}
-          placeholder="Home"
+          placeholder={t("controlDash:homeLoc.labelPlaceholder")}
           disabled={busy}
           onChange={(event) => setLabel(event.target.value)}
         />
@@ -102,12 +101,12 @@ export function HomeLocationModal({
       <div className="modal-actions">
         {home && (
           <Button variant="text" danger disabled={busy} onClick={clear}>
-            Take it off the map
+            {t("controlDash:homeLoc.clear")}
           </Button>
         )}
-        <Button variant="secondary" onClick={onClose} disabled={busy}>Cancel</Button>
+        <Button variant="secondary" onClick={onClose} disabled={busy}>{t("common.cancel")}</Button>
         <Button variant="primary" type="submit" disabled={!point || busy}>
-          {busy ? "Saving…" : "Save"}
+          {busy ? t("controlDash:homeLoc.saving") : t("controlDash:homeLoc.save")}
         </Button>
       </div>
     </Modal>

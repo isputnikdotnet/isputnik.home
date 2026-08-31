@@ -19,7 +19,9 @@ import { usersPlugin } from "./modules/users/index.js";
 import { backupsPlugin } from "./modules/backups/index.js";
 import { libraryPlugin } from "./modules/library/index.js";
 import { collectionsPlugin } from "./modules/collections/index.js";
+import { storiesPlugin } from "./modules/stories/index.js";
 import { socialPlugin } from "./modules/social/index.js";
+import { homePlugin } from "./modules/home/index.js";
 import { familyTreePlugin } from "./modules/familytree/index.js";
 import { maintenancePlugin } from "./modules/maintenance/index.js";
 
@@ -111,11 +113,15 @@ await app.register(helmet, {
       //    which on an IPv4-only host could pin to an unreachable AAAA record and
       //    crash the process (ENETUNREACH). Applied covers are still stored locally,
       //    so this only affects the live search preview.
+      //  - Person portraits shown the same transient way in the author/narrator
+      //    "Find info" picker: Wikipedia serves those from Commons, and FantLab
+      //    from the host already listed for its covers.
       imgSrc: [
         "'self'", "data:", "blob:",
         "https://tile.openstreetmap.org", "https://*.tile.openstreetmap.org",
         "https://*.mzstatic.com", "https://m.media-amazon.com",
-        "https://covers.openlibrary.org", "https://fantlab.ru", "https://archive.org"
+        "https://covers.openlibrary.org", "https://fantlab.ru", "https://archive.org",
+        "https://upload.wikimedia.org"
       ],
       mediaSrc: ["'self'", "blob:"],
       fontSrc: ["'self'", "data:"],
@@ -243,7 +249,9 @@ await app.register(usersPlugin);
 await app.register(backupsPlugin);
 await app.register(libraryPlugin);
 await app.register(collectionsPlugin);
+await app.register(storiesPlugin);
 await app.register(socialPlugin);
+await app.register(homePlugin);
 await app.register(familyTreePlugin);
 await app.register(maintenancePlugin);
 

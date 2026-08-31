@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Check, ChevronDown, Search, SlidersHorizontal, X } from "lucide-react";
 import { Modal } from "./Modal";
 import { Button } from "./Button";
@@ -39,6 +40,7 @@ function FacetSection({
   onToggle: (value: string) => void;
   searchable: boolean;
 }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   if (options.length === 0) return null;
@@ -65,8 +67,8 @@ function FacetSection({
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder={`Search ${title.toLowerCase()}`}
-                aria-label={`Search ${title}`}
+                placeholder={t("filters.searchFacet", { title: title.toLowerCase() })}
+                aria-label={t("filters.searchFacet", { title })}
               />
             </label>
           )}
@@ -86,7 +88,7 @@ function FacetSection({
                 </button>
               );
             })}
-            {shown.length === 0 && <p className="facet-empty">No matches</p>}
+            {shown.length === 0 && <p className="facet-empty">{t("filters.noMatches")}</p>}
           </div>
         </div>
       )}
@@ -104,6 +106,7 @@ function DateRangeSection({
   selected: string[];
   onChange: (next: string[]) => void;
 }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const from = selected.find((v) => v.startsWith("from:"))?.slice(5) ?? "";
   const to = selected.find((v) => v.startsWith("to:"))?.slice(3) ?? "";
@@ -123,12 +126,12 @@ function DateRangeSection({
       {open && (
         <div className="facet-body facet-daterange">
           <label>
-            <span>From</span>
-            <input type="date" value={from} max={to || undefined} onChange={(e) => set("from", e.target.value)} aria-label={`${title} from`} />
+            <span>{t("common.from")}</span>
+            <input type="date" value={from} max={to || undefined} onChange={(e) => set("from", e.target.value)} aria-label={`${title} — ${t("common.from")}`} />
           </label>
           <label>
-            <span>To</span>
-            <input type="date" value={to} min={from || undefined} onChange={(e) => set("to", e.target.value)} aria-label={`${title} to`} />
+            <span>{t("common.to")}</span>
+            <input type="date" value={to} min={from || undefined} onChange={(e) => set("to", e.target.value)} aria-label={`${title} — ${t("common.to")}`} />
           </label>
         </div>
       )}
@@ -148,6 +151,7 @@ export function FacetFilterButton<K extends string>({
   empty: Record<K, string[]>;
   compact?: boolean;
 }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const count = countActiveFilters(value);
 
@@ -158,13 +162,13 @@ export function FacetFilterButton<K extends string>({
 
   return (
     <>
-      <button className={`filter-button${count > 0 ? " active" : ""}${compact ? " compact" : ""}`} onClick={() => setOpen(true)} aria-label="Filters" title={compact ? "Filter" : undefined}>
+      <button className={`filter-button${count > 0 ? " active" : ""}${compact ? " compact" : ""}`} onClick={() => setOpen(true)} aria-label={t("filters.title")} title={compact ? t("filters.button") : undefined}>
         <SlidersHorizontal size={16} aria-hidden="true" />
-        {!compact && <span>Filter</span>}
+        {!compact && <span>{t("filters.button")}</span>}
         {count > 0 && <span className="filter-badge">{count}</span>}
       </button>
       {open && (
-        <Modal variant="panel" title="Filters" surfaceClassName="filter-modal" onClose={() => setOpen(false)}>
+        <Modal variant="panel" title={t("filters.title")} surfaceClassName="filter-modal" onClose={() => setOpen(false)}>
             <div className="filter-modal-body">
               {order.map((facet) => {
                 if (facet.type === "daterange") {
@@ -192,9 +196,9 @@ export function FacetFilterButton<K extends string>({
             </div>
             <div className="filter-modal-foot">
               <Button variant="secondary" onClick={() => onChange(empty)} disabled={count === 0}>
-                Clear all
+                {t("filters.clearAll")}
               </Button>
-              <Button variant="primary" onClick={() => setOpen(false)}>Done</Button>
+              <Button variant="primary" onClick={() => setOpen(false)}>{t("common.done")}</Button>
             </div>
         </Modal>
       )}
@@ -214,6 +218,7 @@ export function FacetFilterChips<K extends string>({
   // returning undefined falls through to `labels`/the raw value.
   formatLabel?: (value: string) => string | undefined;
 }) {
+  const { t } = useTranslation();
   const chips = (Object.keys(value) as K[]).flatMap((key) =>
     value[key].map((v) => ({ key, value: v, label: formatLabel?.(v) ?? labels[v] ?? v }))
   );
@@ -230,7 +235,7 @@ export function FacetFilterChips<K extends string>({
           <X size={13} aria-hidden="true" />
         </button>
       ))}
-      <button className="filter-chips-clear" onClick={() => onChange(empty)}>Clear all</button>
+      <button className="filter-chips-clear" onClick={() => onChange(empty)}>{t("filters.clearAll")}</button>
     </div>
   );
 }

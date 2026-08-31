@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 import { Clock, Headphones, Loader2, type LucideIcon } from "lucide-react";
 import type { PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
@@ -13,22 +14,10 @@ import { FeedListItem, FeedListItemSkeleton } from "./FeedListItem";
 // The page shows the most recent N — no pagination, just the latest slice.
 const LIMIT = 50;
 
-const MODES: Record<FeedMode, { title: string; emptyHeading: string; empty: string; icon: LucideIcon }> = {
-  recent: {
-    title: "Recently added",
-    emptyHeading: "Nothing added yet",
-    empty: "Newly added audiobooks and ebooks show up here.",
-    icon: Clock
-  },
-  continue: {
-    title: "Continue listening & reading",
-    emptyHeading: "Nothing in progress",
-    empty: "Open a book to start — it'll show up here so you can pick up where you left off.",
-    icon: Headphones
-  }
+const MODE_ICONS: Record<FeedMode, LucideIcon> = {
+  recent: Clock,
+  continue: Headphones
 };
-
-const count = (value: number) => new Intl.NumberFormat().format(value);
 
 // Unified, cross-type feed page behind the home rows' "View all" links. `recent`
 // lists newest additions across audiobooks + ebooks; `continue` lists in-progress.
@@ -42,7 +31,20 @@ export function LibraryFeedPage({ mode, user, logout }: { mode: FeedMode; user: 
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [activeDownload, setActiveDownload] = useState<{ title: string; progress: number } | null>(null);
-  const meta = MODES[mode];
+  const { t } = useTranslation(["common", "user"]);
+  // Literal key-suffix lookup (not a plain string) so t()'s overload resolves —
+  // see the namespace-key typing pitfalls in docs/i18n-plan.md.
+  const MODE_KEYS: Record<FeedMode, { title: "recentTitle" | "continueTitle"; emptyHeading: "recentEmptyHeading" | "continueEmptyHeading"; empty: "recentEmpty" | "continueEmpty" }> = {
+    recent: { title: "recentTitle", emptyHeading: "recentEmptyHeading", empty: "recentEmpty" },
+    continue: { title: "continueTitle", emptyHeading: "continueEmptyHeading", empty: "continueEmpty" }
+  };
+  const modeKeys = MODE_KEYS[mode];
+  const meta = {
+    title: t(`user:feed.${modeKeys.title}`),
+    emptyHeading: t(`user:feed.${modeKeys.emptyHeading}`),
+    empty: t(`user:feed.${modeKeys.empty}`),
+    icon: MODE_ICONS[mode]
+  };
 
   const showToast = useCallback((message: string) => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -78,7 +80,7 @@ export function LibraryFeedPage({ mode, user, logout }: { mode: FeedMode; user: 
       .catch((err) => {
         if (!alive) return;
         setItems([]);
-        setError(err instanceof Error ? err.message : "Unable to load this list");
+        setError(err instanceof Error ? err.message : t("user:feed.loadFailed"));
       });
     return () => { alive = false; };
   }, [mode]);
@@ -93,15 +95,15 @@ export function LibraryFeedPage({ mode, user, logout }: { mode: FeedMode; user: 
       <section className="audiobook-main-page">
         <div className="section-head audiobook-head">
           <div>
-            <p className="eyebrow">Digital library</p>
+            <p className="eyebrow">{t("user:feed.eyebrow")}</p>
             <h1>{meta.title}</h1>
           </div>
           {items != null && items.length > 0 && (
-            <span>{count(items.length)} {items.length === 1 ? "item" : "items"}</span>
+            <span>{t("user:count.items", { count: items.length })}</span>
           )}
         </div>
 
-        {error && <MessageBox tone="error" title="Unable to load">{error}</MessageBox>}
+        {error && <MessageBox tone="error" title={t("user:common.unableToLoad")}>{error}</MessageBox>}
 
         {items != null && items.length === 0 && !error ? (
           <div className="empty-state library-empty">
@@ -146,7 +148,7 @@ export function LibraryFeedPage({ mode, user, logout }: { mode: FeedMode; user: 
       <div className="home-dl-banner" role="status" aria-live="polite">
         <Loader2 size={16} className="home-feed-spin" aria-hidden="true" />
         <div className="home-dl-banner-body">
-          <span className="home-dl-banner-label">Downloading {activeDownload.title}</span>
+          <span className="home-dl-banner-label">{t("common:home.downloadingTitle", { title: activeDownload.title })}</span>
           <span className="home-dl-banner-track">
             <span style={{ width: `${Math.round(activeDownload.progress * 100)}%` }} />
           </span>

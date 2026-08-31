@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ShieldCheck, Tags, Trash2, UserPlus, Users } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { api } from "../../api";
 import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
@@ -13,10 +15,12 @@ import type { FamilyTag } from "./types";
 // meaningful grants are "can edit" and an explicit block.
 type EditorRole = "contributor" | "deny";
 
-const ROLE_OPTIONS: { value: EditorRole; label: string; tagline: string; dot: string }[] = [
-  { value: "contributor", label: "Editor", tagline: "Edit tagged people + add relatives", dot: "#14b8a6" },
-  { value: "deny", label: "Blocked", tagline: "No edit access, overrides grants", dot: "#ef4444" }
-];
+function roleOptions(t: TFunction<readonly ["common", "family"], undefined>): { value: EditorRole; label: string; tagline: string; dot: string }[] {
+  return [
+    { value: "contributor", label: t("family:tagAccess.roleEditor"), tagline: t("family:tagAccess.roleEditorTagline"), dot: "#14b8a6" },
+    { value: "deny", label: t("family:tagAccess.roleBlocked"), tagline: t("family:tagAccess.roleBlockedTagline"), dot: "#ef4444" }
+  ];
+}
 
 interface TagEditor {
   subjectType: "user" | "group";
@@ -36,7 +40,9 @@ function RoleControl({
   disabled?: boolean;
   onChange?: (role: EditorRole) => void;
 }) {
-  const meta = ROLE_OPTIONS.find((o) => o.value === value) ?? ROLE_OPTIONS[0];
+  const { t } = useTranslation(["common", "family"]);
+  const options = roleOptions(t);
+  const meta = options.find((o) => o.value === value) ?? options[0];
   return (
     <div className={`member-role-control${disabled ? " is-locked" : ""}`}>
       <span className="member-role-dot" style={{ background: meta.dot }} aria-hidden="true" />
@@ -44,9 +50,9 @@ function RoleControl({
         value={value}
         disabled={disabled}
         onChange={onChange ? (event) => onChange(event.target.value as EditorRole) : undefined}
-        aria-label="Role"
+        aria-label={t("family:tagAccess.roleAria")}
       >
-        {ROLE_OPTIONS.map((option) => (
+        {options.map((option) => (
           <option value={option.value} key={option.value}>{option.label} ({option.tagline})</option>
         ))}
       </select>
@@ -57,6 +63,7 @@ function RoleControl({
 // The branch-access body, rendered as the Security tab of the family-tree
 // settings modal (it used to be a modal of its own).
 export function FamilyTagAccessPanel() {
+  const { t } = useTranslation(["common", "family"]);
   const [tags, setTags] = useState<FamilyTag[]>([]);
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [groups, setGroups] = useState<ManagedGroup[]>([]);
@@ -80,9 +87,9 @@ export function FamilyTagAccessPanel() {
         setGroups(groupPayload.groups);
         if (tagPayload.tags.length > 0) setTagId((prev) => prev || tagPayload.tags[0].id);
       })
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load family tags"))
+      .catch((err) => setError(err instanceof Error ? err.message : t("family:tagAccess.errors.loadTags")))
       .finally(() => setLoading(false));
-  }, []);
+  }, [t]);
 
   const loadEditors = useCallback(async (id: string) => {
     if (!id) {
@@ -94,9 +101,9 @@ export function FamilyTagAccessPanel() {
       setEditors(payload.editors);
       setError("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to load editors");
+      setError(err instanceof Error ? err.message : t("family:tagAccess.errors.loadEditors"));
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void loadEditors(tagId);
@@ -112,7 +119,7 @@ export function FamilyTagAccessPanel() {
       });
       await loadEditors(tagId);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to save the grant");
+      setError(err instanceof Error ? err.message : t("family:tagAccess.errors.saveGrant"));
     } finally {
       setSaving(false);
     }
@@ -133,58 +140,60 @@ export function FamilyTagAccessPanel() {
       await api(`/api/family-tree/tags/${tagId}/editors/${editor.subjectType}/${editor.subjectId}`, { method: "DELETE" });
       await loadEditors(tagId);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to revoke the grant");
+      setError(err instanceof Error ? err.message : t("family:tagAccess.errors.revokeGrant"));
     } finally {
       setSaving(false);
     }
   };
 
-  const activeTag = tags.find((t) => t.id === tagId) ?? null;
+  const activeTag = tags.find((tag) => tag.id === tagId) ?? null;
+  const options = roleOptions(t);
 
   return (
     <div className="ft-access-panel">
       <p className="ft-modal-hint">
-        Family tags group people into branches. Granting the Editor role on a tag lets a user or group edit
-        every person carrying that tag and add relatives to them. Assign tags to people via Edit person (admins only).
+        {t("family:tagAccess.intro")}
       </p>
 
-      {error && <MessageBox tone="error" title="Unable to update branch access">{error}</MessageBox>}
+      {error && <MessageBox tone="error" title={t("family:tagAccess.unableToUpdate")}>{error}</MessageBox>}
 
       {loading ? (
-        <p className="management-empty">Loading…</p>
+        <p className="management-empty">{t("family:tagAccess.loading")}</p>
       ) : tags.length === 0 ? (
-        <MessageBox tone="info" title="No family tags yet">
-          Tag people first (Edit person → Family tags), then grant edit rights on those tags here.
+        <MessageBox tone="info" title={t("family:tagAccess.noTagsTitle")}>
+          {t("family:tagAccess.noTagsBody")}
         </MessageBox>
       ) : (
         <>
           <div className="member-field member-field-grow">
             <Tags size={17} className="member-field-icon" aria-hidden="true" />
-            <select value={tagId} onChange={(event) => setTagId(event.target.value)} aria-label="Family tag">
+            <select value={tagId} onChange={(event) => setTagId(event.target.value)} aria-label={t("family:tagAccess.tagAria")}>
               {tags.map((tag) => (
                 <option key={tag.id} value={tag.id}>
-                  {tag.name} — {tag.count} {tag.count === 1 ? "person" : "people"}
+                  {tag.name} — {t("family:common.counts.person", { count: tag.count })}
                 </option>
               ))}
             </select>
           </div>
 
           <section className="member-section">
-            <h3 className="member-section-title">Grant edit rights{activeTag ? ` — ${activeTag.name}` : ""}</h3>
+            <h3 className="member-section-title">
+              {activeTag ? t("family:tagAccess.grantTitleWithTag", { tag: activeTag.name }) : t("family:tagAccess.grantTitle")}
+            </h3>
             <div className="member-grant">
               <div className="member-field member-field-grow">
                 <Users size={17} className="member-field-icon" aria-hidden="true" />
-                <select value={subject} onChange={(event) => setSubject(event.target.value)} aria-label="User or group">
-                  <option value="">Select a user or group…</option>
+                <select value={subject} onChange={(event) => setSubject(event.target.value)} aria-label={t("family:tagAccess.userOrGroupAria")}>
+                  <option value="">{t("family:tagAccess.selectUserOrGroupOption")}</option>
                   {users.length > 0 && (
-                    <optgroup label="Users">
+                    <optgroup label={t("family:tagAccess.usersGroupLabel")}>
                       {users.map((user) => (
                         <option value={`user:${user.id}`} key={`u-${user.id}`}>{user.displayName} ({user.email})</option>
                       ))}
                     </optgroup>
                   )}
                   {groups.length > 0 && (
-                    <optgroup label="Groups">
+                    <optgroup label={t("family:tagAccess.groupsGroupLabel")}>
                       {groups.map((group) => (
                         <option value={`group:${group.id}`} key={`g-${group.id}`}>{group.name}</option>
                       ))}
@@ -194,33 +203,33 @@ export function FamilyTagAccessPanel() {
               </div>
               <div className="member-field">
                 <ShieldCheck size={17} className="member-field-icon" aria-hidden="true" />
-                <select value={role} onChange={(event) => setRole(event.target.value as EditorRole)} aria-label="Role to grant">
-                  {ROLE_OPTIONS.map((option) => (
+                <select value={role} onChange={(event) => setRole(event.target.value as EditorRole)} aria-label={t("family:tagAccess.roleToGrantAria")}>
+                  {options.map((option) => (
                     <option value={option.value} key={option.value}>{option.label} ({option.tagline})</option>
                   ))}
                 </select>
               </div>
               <Button variant="primary" onClick={() => void addGrant()} disabled={saving || !subject}>
                 <UserPlus size={16} aria-hidden="true" />
-                <span>Add</span>
+                <span>{t("family:tagAccess.addButton")}</span>
               </Button>
             </div>
           </section>
 
           <section className="member-section">
-            <h3 className="member-section-title">Editors</h3>
+            <h3 className="member-section-title">{t("family:tagAccess.editorsSectionTitle")}</h3>
             <div className="member-rows">
               {editors.map((editor) => {
                 const isGroup = editor.subjectType === "group";
-                const label = editor.name ?? "(deleted)";
+                const label = editor.name ?? t("family:tagAccess.deletedLabel");
                 return (
                   <div className="member-row" key={`${editor.subjectType}:${editor.subjectId}`}>
                     <span className="member-avatar member-avatar-neutral" aria-hidden="true">
                       <Users size={18} />
                     </span>
                     <div className="member-identity">
-                      <span className="member-name">{label}{editor.missing ? " (deleted)" : ""}</span>
-                      <span className="member-sub">{isGroup ? "Group" : (editor.email ?? "User")}</span>
+                      <span className="member-name">{label}{editor.missing ? ` ${t("family:tagAccess.deletedLabel")}` : ""}</span>
+                      <span className="member-sub">{isGroup ? t("family:tagAccess.groupLabel") : (editor.email ?? t("family:tagAccess.userLabel"))}</span>
                     </div>
                     <RoleControl
                       value={editor.role}
@@ -230,8 +239,8 @@ export function FamilyTagAccessPanel() {
                     <Button
                       variant="icon"
                       danger
-                      title={`Remove ${label}`}
-                      aria-label={`Remove ${label}`}
+                      title={t("family:tagAccess.removeAria", { name: label })}
+                      aria-label={t("family:tagAccess.removeAria", { name: label })}
                       onClick={() => void revoke(editor)}
                       disabled={saving}
                     >
@@ -241,7 +250,7 @@ export function FamilyTagAccessPanel() {
                 );
               })}
               {editors.length === 0 && (
-                <p className="member-empty">No editors yet — only admins can edit this branch.</p>
+                <p className="member-empty">{t("family:tagAccess.noEditorsYet")}</p>
               )}
             </div>
           </section>

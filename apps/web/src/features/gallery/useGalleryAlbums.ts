@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../../api";
 import type { GalleryAlbum, GalleryAlbumDetail, GalleryAsset } from "./types";
 
@@ -28,6 +29,7 @@ export interface GalleryStatus {
  * other and should keep doing so.
  */
 export function useGalleryAlbums({ setLoading, setError, setNotice }: GalleryStatus) {
+  const { t } = useTranslation(["common", "gallery"]);
   const [albums, setAlbums] = useState<GalleryAlbum[]>([]);
   const [selectedAlbum, setSelectedAlbum] = useState<GalleryAlbumDetail | null>(null);
   const [albumAssets, setAlbumAssets] = useState<GalleryAsset[]>([]);
@@ -56,7 +58,7 @@ export function useGalleryAlbums({ setLoading, setError, setNotice }: GallerySta
       const payload = await api<{ albums: GalleryAlbum[] }>("/api/library/gallery/albums");
       setAlbums(payload.albums);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to load albums");
+      setError(err instanceof Error ? err.message : t("gallery:albums.errors.load"));
     } finally {
       setLoading(false);
     }
@@ -73,7 +75,7 @@ export function useGalleryAlbums({ setLoading, setError, setNotice }: GallerySta
       setAlbumAssets((prev) => (offset === 0 ? payload.assets : [...prev, ...payload.assets]));
       setAlbumTotal(payload.total);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to load the album");
+      setError(err instanceof Error ? err.message : t("gallery:albums.errors.open"));
     } finally {
       setLoading(false);
     }
@@ -88,7 +90,7 @@ export function useGalleryAlbums({ setLoading, setError, setNotice }: GallerySta
       void openAlbum(albumId);
       void loadAlbums();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to update the album");
+      setError(err instanceof Error ? err.message : t("gallery:albums.errors.update"));
     }
   }, [openAlbum, loadAlbums, setError]);
 
@@ -97,7 +99,7 @@ export function useGalleryAlbums({ setLoading, setError, setNotice }: GallerySta
     setCoverPickerOpen(false);
     setNotice("");
     await patchAlbum(albumId, { coverItemId: itemId });
-    setNotice("Album cover updated.");
+    setNotice(t("gallery:albums.coverUpdated"));
   }, [patchAlbum, setNotice]);
 
   const removeFromAlbum = useCallback(async (albumId: string, assetId: string) => {
@@ -109,7 +111,7 @@ export function useGalleryAlbums({ setLoading, setError, setNotice }: GallerySta
       setAlbumAssets((prev) => prev.filter((asset) => asset.id !== assetId));
       setAlbumTotal((n) => Math.max(0, n - 1));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to remove the photo");
+      setError(err instanceof Error ? err.message : t("gallery:albums.errors.removePhoto"));
     }
   }, [setError]);
 
@@ -127,7 +129,7 @@ export function useGalleryAlbums({ setLoading, setError, setNotice }: GallerySta
       setAlbumNewDesc("");
       void loadAlbums();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to create the album");
+      setError(err instanceof Error ? err.message : t("gallery:albums.errors.create"));
     } finally {
       setAlbumBusy(false);
     }
@@ -142,7 +144,7 @@ export function useGalleryAlbums({ setLoading, setError, setNotice }: GallerySta
       setSelectedAlbum(null);
       void loadAlbums();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to delete the album");
+      setError(err instanceof Error ? err.message : t("gallery:albums.errors.delete"));
     } finally {
       setAlbumBusy(false);
     }

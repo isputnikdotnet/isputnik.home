@@ -11,21 +11,14 @@
   --home-accent: var(--mint);
   --home-accent-strong: var(--mint);
   --home-green: var(--success);
-  --home-blue: var(--blue);
   --home-amber: var(--amber);
   --home-rose: var(--rose);
   --home-shadow-color: var(--shadow);
-  --home-shadow: 0 18px 45px var(--home-shadow-color);
   --home-icon: color-mix(in srgb, var(--home-muted) 82%, var(--home-ink));
-  --home-subtle-line: color-mix(in srgb, var(--home-line) 82%, transparent);
 
-  /* Recently/Continue tile width — fixed so a tile is the same size at any
-     window width (only the number per row changes). One knob to tune. */
-  --home-tile-w: 180px;
-
-  /* Home rows + feed pages reuse the Audiobooks catalog card so tiles look
-     identical everywhere. Its cover-shadow var is scoped to the audiobooks page,
-     so provide it here too. */
+  /* Feed pages reuse the Audiobooks catalog card so tiles look identical
+     everywhere. Its cover-shadow var is scoped to the audiobooks page, so
+     provide it here too. */
   --audiobook-soft-shadow: 0 8px 18px var(--shadow);
 
   display: grid;
@@ -54,6 +47,58 @@
   overflow: hidden;
   background: color-mix(in srgb, var(--home-panel) 88%, transparent);
   backdrop-filter: blur(18px);
+}
+
+.home-sidebar-brand {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px 13px 12px;
+  border: 1px solid var(--home-line);
+  border-radius: 8px;
+  color: var(--home-ink);
+  text-decoration: none;
+}
+
+.home-sidebar-brand:hover,
+.home-sidebar-brand:focus-visible {
+  background: var(--home-soft-strong);
+  outline: 0;
+}
+
+.home-sidebar-brand-star {
+  flex: 0 0 auto;
+  color: var(--home-accent);
+  filter: drop-shadow(0 0 12px color-mix(in srgb, var(--home-accent) 46%, transparent));
+}
+
+.home-sidebar-brand-copy {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.home-sidebar-brand-copy strong {
+  overflow: hidden;
+  color: var(--home-ink);
+  font-size: 1.13rem;
+  font-weight: 800;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-sidebar-brand-copy small {
+  overflow: hidden;
+  color: var(--home-muted);
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .home-user-link {
@@ -340,30 +385,6 @@
   margin-top: 26px;
 }
 
-/* Slim library-overview strip above the two "recently" rows. */
-.home-stats {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: clamp(12px, 1.4vw, 16px);
-  margin-top: 22px;
-}
-
-.home-stats .home-overview-card {
-  min-height: 0;
-  gap: 13px;
-  padding: clamp(11px, 1.5vh, 15px) clamp(13px, 1.4vw, 17px);
-}
-
-.home-stats .home-overview-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 11px;
-}
-
-.home-stats .home-overview-card strong {
-  font-size: 1.12rem;
-}
-
 .home-control-nav-wrap {
   flex: 1 1 auto;
   min-height: 0;
@@ -516,36 +537,6 @@
   color: var(--home-accent-strong);
 }
 
-/* ── "Recently" rows ────────────────────────────────────────────────────────
-   Tiles mirror the Audiobooks catalog (same min width + 1.25/1 cover, contained
-   artwork). Each row is a single line that fills with as many tiles as fit and
-   clips the rest — never a horizontal scrollbar, never a wrap to a second row.
-   "View all" is the way to the ones that don't fit. */
-.home-tile-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, var(--home-tile-w));
-  grid-template-rows: 1fr;
-  grid-auto-rows: 0;
-  /* Column gap only. A row gap would still be inserted above each clipped
-     0-height overflow row, padding the grid's height by 16px per wrapped row
-     and letting the tops of the next row's covers bleed below the line. */
-  column-gap: 16px;
-  row-gap: 0;
-  overflow: hidden;
-}
-
-.home-overview-card {
-  color: inherit;
-  text-decoration: none;
-}
-
-a.home-overview-card:hover,
-a.home-overview-card:focus-visible {
-  transform: translateY(-2px);
-  box-shadow: var(--home-shadow);
-  outline: 0;
-}
-
 /* Tiles reuse the Audiobooks catalog card verbatim
    (.audiobook-catalog-card / -cover / -copy, see styles/library-browse.css) so
    they look identical everywhere. This anchor just resets link styling. */
@@ -554,8 +545,7 @@ a.home-overview-card:focus-visible {
   text-decoration: none;
 }
 
-/* "On this day" (gallery memories) tiles reuse the feed tile; the fallback fills
-   the cover box when a memory photo has no thumbnail. */
+/* Fills a cover/photo box when there is no thumbnail to show. */
 .home-memory-fallback {
   display: flex;
   align-items: center;
@@ -563,17 +553,6 @@ a.home-overview-card:focus-visible {
   width: 100%;
   height: 100%;
   color: var(--muted);
-}
-
-/* The home rows clip to one line (overflow: hidden), which would cut off the
-   catalog's hover pop-out. Inside the home rows, keep the cover still on hover —
-   its own dim (cover ::after) is the feedback. The full feed pages, which wrap
-   and don't clip, keep the catalog's lift-and-scale. */
-.home-tile-grid .audiobook-catalog-card:hover .audiobook-catalog-cover,
-.home-tile-grid .audiobook-catalog-card:focus-within .audiobook-catalog-cover {
-  transform: none;
-  border-radius: 10px;
-  box-shadow: var(--audiobook-soft-shadow);
 }
 
 /* Skeleton: a pulsing catalog-shaped cover while the feed loads. */
@@ -590,11 +569,8 @@ a.home-overview-card:focus-visible {
 /* The audiobook/ebook indicator is now the global shared/MediaKindBadge
    component — see .media-kind-badge in components.css. */
 
-/* Unified feed page ("View all" target): the same tiles, but a normal wrapping,
-   scrolling grid instead of the home's single clipped row. */
 /* Recent / Continue pages use the Audiobooks catalog grid exactly: tiles stretch
-   (minmax …, 1fr) to fill the window instead of leaving a fixed-width gap. The
-   home rows keep the compact fixed-width tiles (--home-tile-w) above. */
+   (minmax …, 1fr) to fill the window instead of leaving a fixed-width gap. */
 .library-feed-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(241px, 1fr));
@@ -624,68 +600,979 @@ a.home-overview-card:focus-visible {
   50% { opacity: 0.5; }
 }
 
-.home-overview-card {
+/* ── The home feed ───────────────────────────────────────────────────────────
+   One ranked column of mixed cards (see modules/home/feed.ts for the classes).
+   A single readable column, not a full-width dashboard: the feed reads top to
+   bottom and just ends. */
+.home-feed {
   display: flex;
-  align-items: center;
-  gap: 15px;
-  min-width: 0;
-  min-height: 80px;
-  padding: 15px;
-  border: 1px solid var(--home-line);
-  border-radius: 8px;
-  background: var(--home-panel);
-  box-shadow: 0 8px 18px var(--home-shadow-color);
-  transition: transform 0.16s ease, box-shadow 0.16s ease;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  max-width: 720px;
 }
 
-.home-overview-card > span:last-child {
+.home-card {
+  min-width: 0;
+  padding: 16px 18px;
+  border: 1px solid var(--home-line);
+  border-radius: 14px;
+  background: var(--home-panel);
+}
+
+.home-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.home-card-who {
+  min-width: 0;
+  color: var(--home-muted);
+  font-size: 0.9rem;
+}
+
+.home-card-who strong {
+  color: var(--home-ink);
+  font-weight: 650;
+}
+
+.home-card-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  color: var(--home-ink);
+  font-size: 0.86rem;
+  font-weight: 650;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.home-card-link:hover {
+  color: var(--home-accent-strong);
+}
+
+.home-card-sub {
+  margin: 10px 0 0;
+  color: var(--home-muted);
+  font-size: 0.84rem;
+}
+
+/* Sticky "Sent to you" cards reuse the inbox card (social.css) inside the feed
+   column; this only trims the list chrome to feed spacing. */
+.home-feed-sent {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The photo strips ("On this day" and "New photos"): photos, not book-tile
+   chrome. Each one opens the viewer — the memory card labels its tiles with a
+   year, the arrivals card leaves them bare. */
+.home-memory-strip {
   display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.home-memory-photo {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 4 / 3;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: var(--home-soft-strong);
+  cursor: pointer;
+}
+
+.home-memory-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.home-memory-photo em {
+  position: absolute;
+  bottom: 6px;
+  left: 8px;
+  color: #fff;
+  font-size: 0.72rem;
+  font-style: normal;
+  font-weight: 650;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.65);
+}
+
+.home-memory-photo:hover img,
+.home-memory-photo:focus-visible img {
+  opacity: 0.85;
+}
+
+/* "N books joined the library" — one card per arrival day with a cover fan. */
+.home-card-batch {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+.home-batch-fan {
+  display: flex;
+  align-items: center;
+}
+
+.home-batch-cover {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 58px;
+  height: 78px;
+  border: 2px solid var(--home-panel);
+  border-radius: 7px;
+  overflow: hidden;
+  background: var(--home-soft-strong);
+  box-shadow: var(--audiobook-soft-shadow);
+  color: var(--home-icon);
+}
+
+.home-batch-cover + .home-batch-cover {
+  margin-left: -20px;
+}
+
+.home-batch-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.home-batch-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 14px;
+  color: var(--home-accent-strong);
+  font-size: 0.86rem;
+  font-weight: 650;
+}
+
+/* Activity events ride the shared activity-row (social.css) inside a card. */
+.home-card-activity {
+  padding: 6px 8px;
+}
+
+.home-card-activity .activity-list {
+  display: block;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Next in the series — the one rotating suggestion. */
+/* Quote of the day. Typography-led on purpose — no cover, no thumbnail: the
+   words ARE the card, and it sits among cards that are mostly pictures. */
+.home-card-quote {
+  display: grid;
+  gap: 8px;
+}
+
+.home-card-quote.is-busy {
+  opacity: 0.6;
+}
+
+.home-quote-eyebrow {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.home-quote-text {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1.02rem;
+  font-style: italic;
+  line-height: 1.5;
+}
+
+.home-quote-byline {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.home-quote-categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.home-quote-category {
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.home-quote-category:hover {
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--mint) 45%, var(--line));
+}
+
+.home-quote-category.is-active {
+  border-color: color-mix(in srgb, var(--mint) 45%, var(--line));
+  background: color-mix(in srgb, var(--mint) 12%, transparent);
+  color: var(--ink);
+}
+
+.home-card-suggest {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.home-suggest-cover {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 48px;
+  height: 66px;
+  border-radius: 7px;
+  overflow: hidden;
+  background: var(--home-soft-strong);
+}
+
+.home-suggest-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.home-suggest-copy {
+  display: flex;
+  flex-direction: column;
   gap: 2px;
   min-width: 0;
 }
 
-.home-overview-card strong {
-  color: var(--home-ink);
-  font-size: 1.2rem;
-  line-height: 1.1;
-}
-
-.home-overview-card small {
-  min-width: 0;
-  overflow: hidden;
+.home-suggest-why,
+.home-suggest-series {
   color: var(--home-muted);
-  font-size: 0.84rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: 0.82rem;
 }
 
-.home-overview-icon {
+.home-suggest-why strong {
+  color: var(--home-ink);
+  font-weight: 650;
+}
+
+.home-suggest-title {
+  color: var(--home-ink);
+  font-size: 0.98rem;
+  font-weight: 650;
+}
+
+.home-card-suggest:hover .home-suggest-title,
+.home-card-suggest:focus-visible .home-suggest-title {
+  color: var(--home-accent-strong);
+}
+
+/* The feed just ends — say so instead of trailing off. */
+.home-feed-end {
   display: grid;
-  flex: 0 0 auto;
-  place-items: center;
-  width: 50px;
-  height: 50px;
-  border-radius: 12px;
+  gap: 2px;
+  padding: 18px 0 4px;
+  text-align: center;
 }
 
-.home-overview-icon.violet {
+.home-feed-end strong {
+  color: var(--home-accent-strong);
+  font-size: 0.9rem;
+}
+
+.home-feed-end span {
+  color: var(--home-muted);
+  font-size: 0.82rem;
+}
+
+.home-card.is-skeleton {
+  pointer-events: none;
+}
+
+.home-card.is-skeleton .home-skeleton-line {
+  animation: home-pulse 1.3s ease-in-out infinite;
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-dashboard-shell {
+  --home-ink: #f2d9ad;
+  --home-muted: #b78f5d;
+  --home-soft: rgba(209, 75, 45, 0.19);
+  --home-soft-strong: rgba(194, 145, 86, 0.11);
+  --home-line: rgba(202, 151, 86, 0.34);
+  --home-panel: rgba(5, 18, 21, 0.76);
+  --home-panel-raised: rgba(10, 29, 32, 0.88);
+  --home-field: rgba(2, 11, 14, 0.78);
+  --home-canvas: #020b0e;
+  --home-accent: #d14b2d;
+  --home-accent-strong: #e05a37;
+  --home-green: #99b982;
+  --home-amber: #d07c3b;
+  --home-rose: #e07059;
+  --home-shadow-color: rgba(0, 4, 6, 0.64);
+  --home-icon: #c7a06b;
+
+  position: relative;
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 22% 12%, rgba(202, 151, 86, 0.08), transparent 27%),
+    radial-gradient(circle at 84% 72%, rgba(209, 75, 45, 0.12), transparent 30%),
+    #020b0e;
+  /* Viewport-sized glows: without this a long page stretches them with it. */
+  background-attachment: fixed;
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-dashboard-shell::before,
+:root:is([data-theme="dark"], [data-theme="light"]) .home-dashboard-shell::after {
+  position: fixed;
+  content: "";
+  pointer-events: none;
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-dashboard-shell::before {
+  z-index: 70;
+  inset: 8px;
+  border: 1px solid rgba(202, 151, 86, 0.46);
+  border-radius: 6px;
+  box-shadow:
+    inset 0 0 0 1px rgba(202, 151, 86, 0.13),
+    inset 0 0 34px rgba(202, 151, 86, 0.08);
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-dashboard-shell::after {
+  z-index: 71;
+  inset: 0;
+  opacity: 0.28;
+  mix-blend-mode: soft-light;
+  background-image:
+    radial-gradient(circle at 18% 32%, rgba(255, 226, 171, 0.18) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 62% 72%, rgba(255, 226, 171, 0.15) 0 1px, transparent 1.5px),
+    linear-gradient(rgba(255, 226, 171, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 226, 171, 0.035) 1px, transparent 1px);
+  background-size: 71px 59px, 113px 97px, 100% 4px, 4px 100%;
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-sidebar,
+:root:is([data-theme="dark"], [data-theme="light"]) .home-page {
+  font-family: "CardTypewriter", "Courier New", ui-monospace, monospace;
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-sidebar {
+  top: 8px;
+  height: calc(100vh - 16px);
+  margin: 8px 0 8px 8px;
+  padding: 18px 14px 18px;
+  border: 1px solid rgba(202, 151, 86, 0.38);
+  border-radius: 6px;
+  background:
+    linear-gradient(180deg, rgba(5, 17, 20, 0.92), rgba(3, 13, 16, 0.86)),
+    radial-gradient(circle at 50% 0%, rgba(202, 151, 86, 0.1), transparent 34%);
+  box-shadow:
+    inset 0 0 0 1px rgba(202, 151, 86, 0.11),
+    inset 0 0 42px rgba(202, 151, 86, 0.05),
+    16px 0 42px rgba(0, 4, 6, 0.4);
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-sidebar-brand {
+  position: relative;
+  min-height: 92px;
+  border-color: rgba(202, 151, 86, 0.36);
+  border-radius: 4px;
+  background:
+    linear-gradient(180deg, rgba(10, 29, 32, 0.72), rgba(3, 13, 16, 0.72)),
+    radial-gradient(circle at 18% 24%, rgba(209, 75, 45, 0.1), transparent 38%);
+  box-shadow:
+    inset 0 0 0 1px rgba(242, 217, 173, 0.06),
+    0 12px 28px rgba(0, 4, 6, 0.36);
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-sidebar-brand::before,
+:root:is([data-theme="dark"], [data-theme="light"]) .home-sidebar-brand::after {
+  position: absolute;
+  right: 14px;
+  left: 14px;
+  height: 1px;
+  content: "";
+  background: linear-gradient(90deg, transparent, rgba(202, 151, 86, 0.54), transparent);
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-sidebar-brand::before {
+  top: 11px;
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-sidebar-brand::after {
+  bottom: 11px;
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-sidebar-brand-copy strong {
+  color: #d1a66f;
+  font-size: 1.25rem;
+  text-transform: none;
+  text-shadow: 0 0 18px rgba(202, 151, 86, 0.22);
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-sidebar-brand-copy small {
+  color: #c39156;
+  font-size: 0.55rem;
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-sidebar-brand-star {
   color: var(--home-accent);
-  background: color-mix(in srgb, var(--home-accent) 18%, transparent);
+  stroke: #7a2a1e;
+  stroke-width: 1.5;
 }
 
-.home-overview-icon.green {
-  color: var(--home-green);
-  background: color-mix(in srgb, var(--home-green) 18%, transparent);
+:root:is([data-theme="dark"], [data-theme="light"]) .home-primary-nav {
+  gap: 9px;
+  margin-top: 18px;
 }
 
-.home-overview-icon.blue {
-  color: var(--home-blue);
-  background: color-mix(in srgb, var(--home-blue) 18%, transparent);
+:root:is([data-theme="dark"], [data-theme="light"]) .home-sidebar-bottom {
+  position: relative;
+  padding-top: 22px;
+  border-top-color: rgba(202, 151, 86, 0.26);
 }
 
-.home-overview-icon.rose {
-  color: var(--home-rose);
-  background: color-mix(in srgb, var(--home-rose) 18%, transparent);
+:root:is([data-theme="dark"], [data-theme="light"]) .home-sidebar-bottom::before {
+  position: absolute;
+  top: -7px;
+  left: 50%;
+  width: 9px;
+  height: 9px;
+  content: "";
+  background: var(--home-accent);
+  box-shadow: -84px 0 0 -4px rgba(202, 151, 86, 0.7), 84px 0 0 -4px rgba(202, 151, 86, 0.7);
+  transform: translateX(-50%) rotate(45deg);
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-nav-link,
+:root:is([data-theme="dark"], [data-theme="light"]) .home-user-link,
+:root:is([data-theme="dark"], [data-theme="light"]) .home-user-menu-link {
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--home-muted);
+  font-weight: 700;
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-nav-link svg,
+:root:is([data-theme="dark"], [data-theme="light"]) .home-user-link svg,
+:root:is([data-theme="dark"], [data-theme="light"]) .home-user-menu-link svg {
+  color: var(--home-icon);
+  stroke-width: 1.8;
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-nav-link:hover,
+:root:is([data-theme="dark"], [data-theme="light"]) .home-nav-link:focus-visible,
+:root:is([data-theme="dark"], [data-theme="light"]) .home-user-link:hover,
+:root:is([data-theme="dark"], [data-theme="light"]) .home-user-link:focus-visible,
+:root:is([data-theme="dark"], [data-theme="light"]) .home-user-menu-link:hover,
+:root:is([data-theme="dark"], [data-theme="light"]) .home-user-menu-link:focus-visible {
+  color: var(--home-ink);
+  border-color: rgba(202, 151, 86, 0.22);
+  background: rgba(202, 151, 86, 0.08);
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-nav-link.is-active,
+:root:is([data-theme="dark"], [data-theme="light"]) .home-user-link.is-active,
+:root:is([data-theme="dark"], [data-theme="light"]) .home-user-menu-link.is-active {
+  color: #f0c489;
+  border-color: rgba(202, 151, 86, 0.42);
+  background:
+    linear-gradient(90deg, rgba(209, 75, 45, 0.22), rgba(202, 151, 86, 0.06)),
+    rgba(2, 11, 14, 0.58);
+  box-shadow:
+    inset 0 0 0 1px rgba(242, 217, 173, 0.06),
+    inset 4px 0 0 rgba(209, 75, 45, 0.95);
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-nav-link.is-active svg,
+:root:is([data-theme="dark"], [data-theme="light"]) .home-user-link.is-active svg,
+:root:is([data-theme="dark"], [data-theme="light"]) .home-user-menu-link.is-active svg {
+  color: var(--home-accent-strong);
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-user-menu,
+:root:is([data-theme="dark"], [data-theme="light"]) .home-primary-menu {
+  border-color: rgba(202, 151, 86, 0.36);
+  border-radius: 5px;
+  background: rgba(5, 18, 21, 0.96);
+  box-shadow: 0 18px 46px rgba(0, 4, 6, 0.7), inset 0 0 0 1px rgba(242, 217, 173, 0.06);
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-main.sputnik-scene::before {
+  opacity: 1;
+  background-position: center right;
+  background-size: cover;
+  filter: saturate(1.08) contrast(1.12) brightness(0.94);
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-main.sputnik-scene::after {
+  background:
+    linear-gradient(90deg, rgba(2, 11, 14, 0.82) 0%, rgba(2, 11, 14, 0.58) 40%, rgba(2, 11, 14, 0.12) 68%, rgba(2, 11, 14, 0.04) 100%),
+    linear-gradient(180deg, rgba(2, 11, 14, 0.04), rgba(2, 11, 14, 0.34)),
+    radial-gradient(circle at 73% 42%, rgba(214, 173, 111, 0.16), transparent 24%),
+    radial-gradient(circle at 91% 84%, rgba(242, 217, 173, 0.12), transparent 26%),
+    radial-gradient(circle at 63% 18%, rgba(214, 173, 111, 0.1), transparent 19%);
+  /* The shorthand above resets attachment; keep the tint pinned with the image. */
+  background-attachment: fixed;
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-main {
+  padding-top: 32px;
+  padding-bottom: 20px;
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-page {
+  max-width: 760px;
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-header {
+  position: relative;
+  padding-top: 8px;
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-header::before {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: min(100%, 620px);
+  height: 1px;
+  content: "";
+  background: linear-gradient(90deg, rgba(202, 151, 86, 0.74), transparent 42%, rgba(202, 151, 86, 0.42) 76%, transparent);
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-heading h1 {
+  color: #d7b27b;
+  font-size: 2.05rem;
+  font-weight: 800;
+  text-shadow: 0 2px 18px rgba(0, 4, 6, 0.5);
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-heading p {
+  color: #c49a66;
+  font-weight: 700;
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-content {
+  gap: 16px;
+  margin-top: 20px;
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-feed,
+:root:is([data-theme="dark"], [data-theme="light"]) .home-resume {
+  max-width: 720px;
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-feed {
+  gap: 14px;
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-card,
+:root:is([data-theme="dark"], [data-theme="light"]) .home-resume-card,
+:root:is([data-theme="dark"], [data-theme="light"]) .home-feed-row {
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(202, 151, 86, 0.4);
+  border-radius: 6px;
+  background:
+    linear-gradient(180deg, rgba(7, 25, 29, 0.82), rgba(3, 13, 16, 0.78)),
+    radial-gradient(circle at 10% 0%, rgba(209, 75, 45, 0.08), transparent 36%);
+  box-shadow:
+    inset 0 0 0 1px rgba(242, 217, 173, 0.06),
+    inset 0 0 28px rgba(202, 151, 86, 0.05),
+    0 18px 42px rgba(0, 4, 6, 0.44);
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-card::before,
+:root:is([data-theme="dark"], [data-theme="light"]) .home-resume-card::before,
+:root:is([data-theme="dark"], [data-theme="light"]) .home-feed-row::before {
+  position: absolute;
+  inset: 5px;
+  border: 1px solid rgba(202, 151, 86, 0.16);
+  border-radius: 4px;
+  content: "";
+  pointer-events: none;
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-resume-card {
+  padding: 14px 16px;
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-card {
+  padding: 14px 16px;
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-resume-eyebrow,
+:root:is([data-theme="dark"], [data-theme="light"]) .home-card-link,
+:root:is([data-theme="dark"], [data-theme="light"]) .home-batch-more,
+:root:is([data-theme="dark"], [data-theme="light"]) .home-resume-more {
+  color: var(--home-accent-strong);
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-resume-eyebrow::before,
+:root:is([data-theme="dark"], [data-theme="light"]) .home-card-who::before {
+  content: "★";
+  margin-right: 8px;
+  color: var(--home-accent);
+  text-shadow: 0 0 10px rgba(209, 75, 45, 0.42);
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-resume-title,
+:root:is([data-theme="dark"], [data-theme="light"]) .home-card-who strong,
+:root:is([data-theme="dark"], [data-theme="light"]) .home-suggest-title {
+  color: #f2d9ad;
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-resume-author,
+:root:is([data-theme="dark"], [data-theme="light"]) .home-card-who,
+:root:is([data-theme="dark"], [data-theme="light"]) .home-card-sub,
+:root:is([data-theme="dark"], [data-theme="light"]) .home-suggest-why,
+:root:is([data-theme="dark"], [data-theme="light"]) .home-suggest-series {
+  color: #b78f5d;
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-resume-cover,
+:root:is([data-theme="dark"], [data-theme="light"]) .home-suggest-cover,
+:root:is([data-theme="dark"], [data-theme="light"]) .home-batch-cover,
+:root:is([data-theme="dark"], [data-theme="light"]) .home-memory-photo {
+  border: 1px solid rgba(202, 151, 86, 0.28);
+  border-radius: 4px;
+  background: rgba(2, 11, 14, 0.7);
+  box-shadow: 0 10px 22px rgba(0, 4, 6, 0.5);
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-batch-cover + .home-batch-cover {
+  margin-left: 8px;
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-resume-bar,
+:root:is([data-theme="dark"], [data-theme="light"]) .home-feed-row-bar,
+:root:is([data-theme="dark"], [data-theme="light"]) .home-dl-banner-track,
+:root:is([data-theme="dark"], [data-theme="light"]) .home-skeleton-line {
+  background: rgba(202, 151, 86, 0.16);
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-resume-bar > span,
+:root:is([data-theme="dark"], [data-theme="light"]) .home-feed-row-bar > span,
+:root:is([data-theme="dark"], [data-theme="light"]) .home-dl-banner-track > span {
+  background: linear-gradient(90deg, #aa2f22, #e05a37);
+  box-shadow: 0 0 14px rgba(209, 75, 45, 0.42);
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-resume-action,
+:root:is([data-theme="dark"], [data-theme="light"]) .home-resume-dl,
+:root:is([data-theme="dark"], [data-theme="light"]) .home-feed-row-action,
+:root:is([data-theme="dark"], [data-theme="light"]) .home-feed-row-dl {
+  border: 1px solid rgba(242, 217, 173, 0.34);
+  background: radial-gradient(circle at 34% 26%, #f2d9ad, #b9854d 58%, #4a2f20 100%);
+  color: #061316;
+  box-shadow:
+    inset 0 0 0 2px rgba(2, 11, 14, 0.35),
+    0 10px 22px rgba(0, 4, 6, 0.42);
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-memory-photo em {
+  color: #f4e6cb;
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-row-empty {
+  border-color: rgba(202, 151, 86, 0.36);
+  border-radius: 6px;
+  background: rgba(5, 18, 21, 0.64);
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-feed-end {
+  position: relative;
+  margin-top: 4px;
+  padding-top: 24px;
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-feed-end::before {
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  width: min(280px, 88%);
+  height: 1px;
+  content: "";
+  background: linear-gradient(90deg, transparent, rgba(202, 151, 86, 0.46), transparent);
+  transform: translateX(-50%);
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-feed-end strong::before {
+  content: "★ ";
+  color: var(--home-accent);
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-user-link {
+  min-height: 64px;
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .home-user-copy strong {
+  display: -webkit-box;
+  overflow: hidden;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+/* iSputnik Light shares Night's retro composition and typography. Only the
+   material and ink change: warm enamel, paper, brass, and the existing sage
+   accent replace Night's dark metal and signal red. */
+:root[data-theme="light"] .home-dashboard-shell {
+  --home-ink: #17292b;
+  --home-muted: #68736b;
+  --home-soft: rgba(63, 113, 106, 0.14);
+  --home-soft-strong: rgba(184, 135, 70, 0.11);
+  --home-line: rgba(105, 84, 52, 0.3);
+  --home-panel: rgba(255, 249, 238, 0.88);
+  --home-panel-raised: rgba(255, 253, 247, 0.96);
+  --home-field: rgba(255, 253, 247, 0.82);
+  --home-canvas: #eef1e7;
+  --home-accent: #3f716a;
+  --home-accent-strong: #315f59;
+  --home-green: #47715a;
+  --home-amber: #a85635;
+  --home-rose: #a94e48;
+  --home-shadow-color: rgba(31, 35, 24, 0.16);
+  --home-icon: #65766c;
+
+  background:
+    radial-gradient(circle at 22% 12%, rgba(184, 135, 70, 0.12), transparent 27%),
+    radial-gradient(circle at 84% 72%, rgba(63, 113, 106, 0.11), transparent 30%),
+    #eef1e7;
+}
+
+:root[data-theme="light"] .home-dashboard-shell::before {
+  border-color: rgba(139, 103, 57, 0.42);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.54),
+    inset 0 0 34px rgba(184, 135, 70, 0.08);
+}
+
+:root[data-theme="light"] .home-dashboard-shell::after {
+  opacity: 0.18;
+  mix-blend-mode: multiply;
+  background-image:
+    radial-gradient(circle at 18% 32%, rgba(87, 70, 45, 0.18) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 62% 72%, rgba(63, 113, 106, 0.13) 0 1px, transparent 1.5px),
+    linear-gradient(rgba(105, 84, 52, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(105, 84, 52, 0.03) 1px, transparent 1px);
+}
+
+:root[data-theme="light"] .home-sidebar {
+  border-color: rgba(139, 103, 57, 0.34);
+  background:
+    linear-gradient(180deg, rgba(255, 253, 247, 0.94), rgba(244, 240, 224, 0.9)),
+    radial-gradient(circle at 50% 0%, rgba(184, 135, 70, 0.13), transparent 34%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.62),
+    inset 0 0 42px rgba(184, 135, 70, 0.05),
+    16px 0 34px rgba(31, 35, 24, 0.12);
+}
+
+:root[data-theme="light"] .home-sidebar-brand {
+  border-color: rgba(139, 103, 57, 0.32);
+  background:
+    linear-gradient(180deg, rgba(255, 253, 247, 0.92), rgba(239, 237, 219, 0.88)),
+    radial-gradient(circle at 18% 24%, rgba(63, 113, 106, 0.1), transparent 38%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.68),
+    0 12px 24px rgba(31, 35, 24, 0.1);
+}
+
+:root[data-theme="light"] .home-sidebar-brand::before,
+:root[data-theme="light"] .home-sidebar-brand::after {
+  background: linear-gradient(90deg, transparent, rgba(139, 103, 57, 0.48), transparent);
+}
+
+:root[data-theme="light"] .home-sidebar-brand-copy strong {
+  color: #71532f;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+:root[data-theme="light"] .home-sidebar-brand-copy small {
+  color: #7d694b;
+}
+
+:root[data-theme="light"] .home-sidebar-brand-star {
+  color: var(--home-accent);
+  stroke: #274f4a;
+}
+
+:root[data-theme="light"] .home-sidebar-bottom {
+  border-top-color: rgba(139, 103, 57, 0.24);
+}
+
+:root[data-theme="light"] .home-sidebar-bottom::before {
+  background: var(--home-accent);
+  box-shadow: -84px 0 0 -4px rgba(139, 103, 57, 0.58), 84px 0 0 -4px rgba(139, 103, 57, 0.58);
+}
+
+:root[data-theme="light"] .home-nav-link:hover,
+:root[data-theme="light"] .home-nav-link:focus-visible,
+:root[data-theme="light"] .home-user-link:hover,
+:root[data-theme="light"] .home-user-link:focus-visible,
+:root[data-theme="light"] .home-user-menu-link:hover,
+:root[data-theme="light"] .home-user-menu-link:focus-visible {
+  border-color: rgba(139, 103, 57, 0.22);
+  background: rgba(184, 135, 70, 0.09);
+}
+
+:root[data-theme="light"] .home-nav-link.is-active,
+:root[data-theme="light"] .home-user-link.is-active,
+:root[data-theme="light"] .home-user-menu-link.is-active {
+  color: #244b47;
+  border-color: rgba(63, 113, 106, 0.44);
+  background:
+    linear-gradient(90deg, rgba(63, 113, 106, 0.2), rgba(184, 135, 70, 0.08)),
+    rgba(255, 253, 247, 0.72);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.56),
+    inset 4px 0 0 rgba(63, 113, 106, 0.92);
+}
+
+:root[data-theme="light"] .home-user-menu,
+:root[data-theme="light"] .home-primary-menu {
+  border-color: rgba(139, 103, 57, 0.34);
+  background: rgba(255, 253, 247, 0.97);
+  box-shadow: 0 18px 42px rgba(31, 35, 24, 0.16), inset 0 0 0 1px rgba(255, 255, 255, 0.7);
+}
+
+:root[data-theme="light"] .home-main.sputnik-scene::before {
+  opacity: 0.54;
+  filter: sepia(0.16) saturate(0.72) contrast(0.8) brightness(1.28);
+}
+
+:root[data-theme="light"] .home-main.sputnik-scene::after {
+  background:
+    linear-gradient(90deg, rgba(238, 241, 231, 0.94) 0%, rgba(238, 241, 231, 0.78) 40%, rgba(238, 241, 231, 0.28) 70%, rgba(238, 241, 231, 0.12) 100%),
+    linear-gradient(180deg, rgba(238, 241, 231, 0.16), rgba(238, 241, 231, 0.62)),
+    radial-gradient(circle at 73% 42%, rgba(184, 135, 70, 0.13), transparent 24%),
+    radial-gradient(circle at 91% 84%, rgba(63, 113, 106, 0.1), transparent 26%);
+  background-attachment: fixed;
+}
+
+:root[data-theme="light"] .home-header::before {
+  background: linear-gradient(90deg, rgba(139, 103, 57, 0.64), transparent 42%, rgba(63, 113, 106, 0.34) 76%, transparent);
+}
+
+:root[data-theme="light"] .home-heading h1 {
+  color: #5e482b;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.82);
+}
+
+:root[data-theme="light"] .home-heading p {
+  color: #68736b;
+}
+
+:root[data-theme="light"] .home-card,
+:root[data-theme="light"] .home-resume-card,
+:root[data-theme="light"] .home-feed-row {
+  border-color: rgba(139, 103, 57, 0.34);
+  background:
+    linear-gradient(180deg, rgba(255, 253, 247, 0.9), rgba(244, 240, 224, 0.86)),
+    radial-gradient(circle at 10% 0%, rgba(63, 113, 106, 0.08), transparent 36%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.62),
+    inset 0 0 28px rgba(184, 135, 70, 0.05),
+    0 16px 34px rgba(31, 35, 24, 0.13);
+}
+
+:root[data-theme="light"] .home-card::before,
+:root[data-theme="light"] .home-resume-card::before,
+:root[data-theme="light"] .home-feed-row::before {
+  border-color: rgba(139, 103, 57, 0.14);
+}
+
+:root[data-theme="light"] .home-resume-eyebrow::before,
+:root[data-theme="light"] .home-card-who::before {
+  color: var(--home-accent);
+  text-shadow: none;
+}
+
+:root[data-theme="light"] .home-resume-title,
+:root[data-theme="light"] .home-card-who strong,
+:root[data-theme="light"] .home-suggest-title {
+  color: var(--home-ink);
+}
+
+:root[data-theme="light"] .home-resume-author,
+:root[data-theme="light"] .home-card-who,
+:root[data-theme="light"] .home-card-sub,
+:root[data-theme="light"] .home-suggest-why,
+:root[data-theme="light"] .home-suggest-series {
+  color: var(--home-muted);
+}
+
+:root[data-theme="light"] .home-resume-cover,
+:root[data-theme="light"] .home-suggest-cover,
+:root[data-theme="light"] .home-batch-cover,
+:root[data-theme="light"] .home-memory-photo {
+  border-color: rgba(139, 103, 57, 0.26);
+  background: rgba(255, 253, 247, 0.76);
+  box-shadow: 0 9px 20px rgba(31, 35, 24, 0.16);
+}
+
+:root[data-theme="light"] .home-resume-bar,
+:root[data-theme="light"] .home-feed-row-bar,
+:root[data-theme="light"] .home-dl-banner-track,
+:root[data-theme="light"] .home-skeleton-line {
+  background: rgba(105, 84, 52, 0.14);
+}
+
+:root[data-theme="light"] .home-resume-bar > span,
+:root[data-theme="light"] .home-feed-row-bar > span,
+:root[data-theme="light"] .home-dl-banner-track > span {
+  background: linear-gradient(90deg, #315f59, #4e837b);
+  box-shadow: 0 0 12px rgba(63, 113, 106, 0.24);
+}
+
+:root[data-theme="light"] .home-resume-action,
+:root[data-theme="light"] .home-resume-dl,
+:root[data-theme="light"] .home-feed-row-action,
+:root[data-theme="light"] .home-feed-row-dl {
+  border-color: rgba(105, 84, 52, 0.34);
+  background: radial-gradient(circle at 34% 26%, #fffdf7, #d9c08f 58%, #8c673b 100%);
+  color: #17292b;
+  box-shadow:
+    inset 0 0 0 2px rgba(255, 255, 255, 0.42),
+    0 8px 18px rgba(31, 35, 24, 0.16);
+}
+
+:root[data-theme="light"] .home-memory-photo em {
+  color: #fffdf7;
+}
+
+:root[data-theme="light"] .home-row-empty {
+  border-color: rgba(139, 103, 57, 0.3);
+  background: rgba(255, 253, 247, 0.72);
+}
+
+:root[data-theme="light"] .home-feed-end::before {
+  background: linear-gradient(90deg, transparent, rgba(139, 103, 57, 0.4), transparent);
 }
 
 @media (max-width: 1240px) {
@@ -713,6 +1600,12 @@ a.home-overview-card:focus-visible {
     padding: 14px;
     border-right: 0;
     border-bottom: 1px solid var(--home-line);
+  }
+
+  .home-sidebar-brand {
+    width: max-content;
+    max-width: 100%;
+    padding: 8px 11px;
   }
 
   .home-user-link {
@@ -923,15 +1816,12 @@ a.home-overview-card:focus-visible {
     margin-top: 32px;
   }
 
-  .home-stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .home-memory-strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .home-overview-card {
-    align-items: flex-start;
-    min-height: 96px;
-    flex-direction: column;
-    gap: 10px;
+  .home-memory-strip .home-memory-photo:nth-child(n+4) {
+    display: none;
   }
 }
 
@@ -946,17 +1836,16 @@ a.home-overview-card:focus-visible {
 }
 
 /* ── Mobile / PWA Home ───────────────────────────────────────────────────────
-   On phones (and the installed app), drop the library-overview stats strip and
-   render each feed row as a one-book-per-line list (cover · info · play · menu)
-   instead of the desktop's clipped cover-tile grid. Desktop (>740px) keeps the
-   1.2.0 layout untouched. */
+   On phones (and the installed app), tighten the feed column and render each
+   offline downloads row as a one-book-per-line list (cover · info · play ·
+   menu). The feed cards themselves are shared with desktop. */
 @media (max-width: 740px) {
-  .home-page .home-stats {
-    display: none;
-  }
-
   .home-page .home-header {
     margin-bottom: 2px;
+  }
+
+  .home-card {
+    padding: 13px 14px;
   }
 
   .home-content {
@@ -1107,14 +1996,6 @@ a.home-overview-card:focus-visible {
     white-space: nowrap;
   }
 
-  .home-feed-spin {
-    animation: home-feed-spin 0.9s linear infinite;
-  }
-
-  @keyframes home-feed-spin {
-    to { transform: rotate(360deg); }
-  }
-
   .home-feed-row-action {
     display: grid;
     flex: 0 0 auto;
@@ -1189,10 +2070,10 @@ a.home-overview-card:focus-visible {
     color: var(--home-icon);
   }
 
-  .home-feed-row-dropdown button.is-fav,
-  .home-feed-row-dropdown button.is-fav svg,
-  .home-feed-row-dropdown a.is-fav,
-  .home-feed-row-dropdown a.is-fav svg {
+  .home-feed-row-dropdown button.is-liked,
+  .home-feed-row-dropdown button.is-liked svg,
+  .home-feed-row-dropdown a.is-liked,
+  .home-feed-row-dropdown a.is-liked svg {
     color: var(--home-accent-strong);
   }
 
@@ -1206,10 +2087,14 @@ a.home-overview-card:focus-visible {
   }
 }
 
-/* ── Mobile Home "pick up where you left off" resume hero ────────────────────
-   The single most-recent in-progress book, lifted above the Continue row as a
-   one-tap resume card. Mobile only — desktop keeps the tile grid. */
-@media (max-width: 740px) {
+/* ── "Pick up where you left off" resume hero ────────────────────────────────
+   The single most-recent in-progress book as a one-tap resume card, pinned
+   above the feed on every screen size (it started on mobile; desktop adopted
+   it with the feed revamp). */
+.home-resume {
+  max-width: 720px;
+}
+
   .home-resume-card {
     display: flex;
     align-items: center;
@@ -1357,11 +2242,38 @@ a.home-overview-card:focus-visible {
     place-items: center;
     width: 46px;
     height: 46px;
+    border: 0;
     border-radius: 50%;
     background: var(--home-accent);
     color: var(--home-canvas);
+    cursor: pointer;
   }
 
+.home-resume-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: 8px;
+  color: var(--home-muted);
+  font-size: 0.84rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.home-resume-more:hover {
+  color: var(--home-accent-strong);
+}
+
+/* Shared spinner for the hero, feed rows and the download banner. */
+.home-feed-spin {
+  animation: home-feed-spin 0.9s linear infinite;
+}
+
+@keyframes home-feed-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 740px) {
   .home-offline-empty {
     margin-top: 8px;
   }
@@ -1602,4 +2514,168 @@ a.home-overview-card:focus-visible {
   color: var(--muted);
   font-size: 0.78rem;
   font-weight: 600;
+}
+
+@media (max-width: 740px) {
+  :root:is([data-theme="dark"], [data-theme="light"]) .home-dashboard-shell::before {
+    inset: 4px;
+    border-radius: 5px;
+  }
+
+  :root:is([data-theme="dark"], [data-theme="light"]) .home-sidebar {
+    top: 0;
+    height: auto;
+    margin: 0;
+    padding: 14px;
+    border: 0;
+    border-bottom: 1px solid rgba(202, 151, 86, 0.34);
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  :root:is([data-theme="dark"], [data-theme="light"]) .home-sidebar-brand {
+    min-height: 56px;
+    padding: 8px 11px;
+  }
+
+  :root:is([data-theme="dark"], [data-theme="light"]) .home-primary-nav,
+  :root:is([data-theme="dark"], [data-theme="light"]) .home-sidebar-bottom {
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  :root:is([data-theme="dark"], [data-theme="light"]) .home-sidebar-bottom::before {
+    display: none;
+  }
+
+  :root:is([data-theme="dark"], [data-theme="light"]) .home-main {
+    padding-top: 18px;
+  }
+
+  :root:is([data-theme="dark"], [data-theme="light"]) .home-page {
+    max-width: none;
+  }
+
+  :root:is([data-theme="dark"], [data-theme="light"]) .home-mobile-nav,
+  :root:is([data-theme="dark"], [data-theme="light"]) .mobile-media-menu {
+    border-color: rgba(202, 151, 86, 0.34);
+    background: rgba(5, 18, 21, 0.96);
+  }
+
+  :root:is([data-theme="dark"], [data-theme="light"]) .home-mobile-nav-item,
+  :root:is([data-theme="dark"], [data-theme="light"]) .mobile-media-option {
+    border: 1px solid transparent;
+    border-radius: 5px;
+  }
+
+  :root:is([data-theme="dark"], [data-theme="light"]) .home-mobile-nav-item.is-active,
+  :root:is([data-theme="dark"], [data-theme="light"]) .mobile-media-option:hover,
+  :root:is([data-theme="dark"], [data-theme="light"]) .mobile-media-option:focus-visible {
+    border-color: rgba(202, 151, 86, 0.28);
+    background: rgba(209, 75, 45, 0.18);
+  }
+
+  :root:is([data-theme="dark"], [data-theme="light"]) .home-batch-cover + .home-batch-cover {
+    margin-left: -14px;
+  }
+
+  :root:is([data-theme="dark"], [data-theme="light"]) .home-batch-more {
+    margin-left: 10px;
+  }
+
+  :root[data-theme="light"] .home-sidebar {
+    border-bottom-color: rgba(139, 103, 57, 0.32);
+  }
+
+  :root[data-theme="light"] .home-mobile-nav,
+  :root[data-theme="light"] .mobile-media-menu {
+    border-color: rgba(139, 103, 57, 0.32);
+    background: rgba(255, 253, 247, 0.97);
+  }
+
+  :root[data-theme="light"] .home-mobile-nav-item.is-active,
+  :root[data-theme="light"] .mobile-media-option:hover,
+  :root[data-theme="light"] .mobile-media-option:focus-visible {
+    border-color: rgba(63, 113, 106, 0.3);
+    background: rgba(63, 113, 106, 0.16);
+  }
+}
+
+/* The card's eyebrow shares its line with the preferences button. */
+.home-quote-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.home-quote-tune {
+  flex: none;
+  color: var(--muted);
+}
+
+.home-quote-tune:hover {
+  color: var(--ink);
+}
+
+/* Quote preferences: language, then the categories to draw from. */
+.quote-prefs {
+  display: grid;
+  gap: 16px;
+}
+
+.quote-prefs-hint {
+  margin: 0;
+  font-size: 0.82rem;
+}
+
+.quote-prefs-group {
+  display: grid;
+  gap: 4px;
+}
+
+.quote-prefs-label {
+  color: var(--muted);
+}
+
+/* A grid, not wrapped flex: columns wide enough to hold a category name on one
+   line. Flex items shrank to fit and broke names apart letter by letter. */
+.quote-prefs-categories {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px 16px;
+  margin-top: 8px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.quote-prefs-category {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 0.9rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+/* Its own size, whatever the surrounding form does to inputs. */
+.quote-prefs-category input[type="checkbox"] {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+}
+
+/* One line each. A name too long for its column is clipped rather than wrapped,
+   and the label carries the full text as a tooltip. */
+.quote-prefs-category span {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }

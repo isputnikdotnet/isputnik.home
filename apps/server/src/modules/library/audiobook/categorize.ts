@@ -69,6 +69,22 @@ export function addEntityTags(entityType: string, entityId: string, displayNames
   }
 }
 
+// Detach tags from an entity, leaving the rest of its tags (and the tag rows
+// themselves — an unused tag is pruned by the manage screen, not here) alone.
+// Matches on the normalized key, so "Family Trip" removes "family trip".
+export function removeEntityTags(entityType: string, entityId: string, displayNames: string[]) {
+  const detach = db.prepare(`
+    DELETE FROM taggables
+    WHERE entity_type = ? AND entity_id = ?
+      AND tag_id IN (SELECT id FROM tags WHERE key = ?)
+  `);
+  for (const name of displayNames) {
+    const key = normalizeText(name);
+    if (!key) continue;
+    detach.run(entityType, entityId, key);
+  }
+}
+
 // Recompute the primary category of every non-manual book (any book-like library
 // type) from its existing tags and the current alias table. Cheap (DB-only) — no
 // file rescan. Returns rows changed.
@@ -117,4 +133,40 @@ export function rematchAllCategories(): number {
 export function setEntityTags(entityType: string, entityId: string, displayNames: string[]) {
   db.prepare("DELETE FROM taggables WHERE entity_type = ? AND entity_id = ?").run(entityType, entityId);
   addEntityTags(entityType, entityId, displayNames);
+}
+
+/** Drop every tag on an entity — for the owning module's delete path, since
+ *  taggables carries no FK on entity_id. */
+export function deleteEntityTags(entityType: string, entityId: string) {
+  db.prepare("DELETE FROM taggables WHERE entity_type = ? AND entity_id = ?").run(entityType, entityId);
+}
+
+/** One entity's tags, alphabetical. */
+export function getEntityTags(entityType: string, entityId: string): string[] {
+  return (db.prepare(`
+    SELECT tags.display_name AS name FROM taggables
+    JOIN tags ON tags.id = taggables.tag_id
+    WHERE taggables.entity_type = ? AND taggables.entity_id = ?
+    ORDER BY tags.display_name COLLATE NOCASE
+  `).all(entityType, entityId) as { name: string }[]).map((row) => row.name);
+}
+
+/** Tags for many entities of one type, keyed by id — so a list endpoint reads
+ *  them in one query instead of one per row. */
+export function entityTagsByIds(entityType: string, entityIds: string[]): Map<string, string[]> {
+  const out = new Map<string, string[]>();
+  if (entityIds.length === 0) return out;
+  const rows = db.prepare(`
+    SELECT taggables.entity_id AS id, tags.display_name AS name
+    FROM taggables
+    JOIN tags ON tags.id = taggables.tag_id
+    WHERE taggables.entity_type = ? AND taggables.entity_id IN (${entityIds.map(() => "?").join(", ")})
+    ORDER BY tags.display_name COLLATE NOCASE
+  `).all(entityType, ...entityIds) as { id: string; name: string }[];
+  for (const row of rows) {
+    const list = out.get(row.id) ?? [];
+    list.push(row.name);
+    out.set(row.id, list);
+  }
+  return out;
 }

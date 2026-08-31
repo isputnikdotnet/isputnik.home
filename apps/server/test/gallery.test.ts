@@ -2,16 +2,18 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../src/db.js";
 import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
 import { ingestGalleryAsset, reconcileGalleryItems } from "../src/modules/library/gallery/scanner.js";
-import { setGalleryPlaceAndTime, updateGalleryAsset } from "../src/modules/library/gallery/edit.js";
+import { changeGalleryTags, setGalleryPlaceAndTime, updateGalleryAsset } from "../src/modules/library/gallery/edit.js";
 import {
   queryGalleryTimeline,
   queryGalleryFolders,
   searchGalleryFolders,
   galleryFacets,
   queryGalleryMapPoints,
-  resolveGalleryScopeLibraryIds
+  resolveGalleryScopeLibraryIds,
+  EMPTY_GALLERY_FILTERS
 } from "../src/modules/library/gallery/catalog.js";
 import { kindForExtension } from "../src/modules/library/gallery/media.js";
+import { rotateGalleryAsset } from "../src/modules/library/gallery/rotate.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
 
 // A synthetic walked asset. With metaEnabled=false the ingester never reads the
@@ -316,6 +318,52 @@ describe("gallery bulk date & location", () => {
   });
 });
 
+describe("gallery bulk tags", () => {
+  const rows = () => queryGalleryTimeline("u1", ["GAL"], { q: "", kinds: [], limit: 50, offset: 0 }).assets;
+  const tagsOf = (id: string) => rows().find((r) => r.id === id)!.tags;
+
+  it("adds the same tags to the whole selection without touching existing ones", async () => {
+    const a = await ingestGalleryAsset("GAL", asset("a.jpg", Date.parse("2024-02-02T00:00:00Z")), false);
+    const b = await ingestGalleryAsset("GAL", asset("b.jpg", Date.parse("2024-03-03T00:00:00Z")), false);
+    updateGalleryAsset(a, { title: "a.jpg", description: null, takenAt: null, tags: ["Family"] });
+
+    expect(changeGalleryTags([a, b], { add: ["Crete 2019", "Beach"] })).toEqual({ updated: 2 });
+    expect(tagsOf(a).sort()).toEqual(["Beach", "Crete 2019", "Family"]);
+    expect(tagsOf(b).sort()).toEqual(["Beach", "Crete 2019"]);
+  });
+
+  it("removes only the named tags, matching case-insensitively", async () => {
+    const id = await ingestGalleryAsset("GAL", asset("a.jpg", Date.parse("2024-02-02T00:00:00Z")), false);
+    updateGalleryAsset(id, { title: "a.jpg", description: null, takenAt: null, tags: ["Beach", "Family"] });
+
+    expect(changeGalleryTags([id], { remove: ["beach"] })).toEqual({ updated: 1 });
+    expect(tagsOf(id)).toEqual(["Family"]);
+  });
+
+  it("is idempotent: adding a tag twice leaves one, removing an absent tag is a no-op", async () => {
+    const id = await ingestGalleryAsset("GAL", asset("a.jpg", Date.parse("2024-02-02T00:00:00Z")), false);
+    changeGalleryTags([id], { add: ["Beach"] });
+    changeGalleryTags([id], { add: ["Beach"] });
+    expect(tagsOf(id)).toEqual(["Beach"]);
+    expect(changeGalleryTags([id], { remove: ["Nowhere"] })).toEqual({ updated: 1 });
+    expect(tagsOf(id)).toEqual(["Beach"]);
+  });
+
+  it("applies a remove and an add in one pass, and skips unknown ids", async () => {
+    const id = await ingestGalleryAsset("GAL", asset("a.jpg", Date.parse("2024-02-02T00:00:00Z")), false);
+    updateGalleryAsset(id, { title: "a.jpg", description: null, takenAt: null, tags: ["Draft"] });
+
+    expect(changeGalleryTags([id, "no-such-item"], { remove: ["Draft"], add: ["Final"] })).toEqual({ updated: 1 });
+    expect(tagsOf(id)).toEqual(["Final"]);
+  });
+
+  it("does nothing when no tags are sent", async () => {
+    const id = await ingestGalleryAsset("GAL", asset("a.jpg", Date.parse("2024-02-02T00:00:00Z")), false);
+    expect(changeGalleryTags([id], {})).toEqual({ updated: 0 });
+    expect(changeGalleryTags([id], { add: ["  "] })).toEqual({ updated: 0 });
+  });
+});
+
 describe("gallery access scoping", () => {
   it("hides a private gallery from a user with no grant", async () => {
     // A second gallery with NO Everyone grant — private to its members.
@@ -366,7 +414,10 @@ describe("gallery advanced filters", () => {
   const timeline = (filters: Partial<Parameters<typeof queryGalleryTimeline>[2]["filters"] & object>) =>
     queryGalleryTimeline("u1", ["GAL"], {
       q: "", kinds: [], limit: 50, offset: 0,
-      filters: { people: [], tags: [], years: [], months: [], taken: [], cameras: [], sizes: [], location: [], ...filters }
+      // Spread the shipped empty object rather than respelling it: a new facet then
+      // reaches every case here for free (spreading a Partial hides a missing key
+      // from the typechecker, so a hand-written list fails at runtime, not build).
+      filters: { ...EMPTY_GALLERY_FILTERS, ...filters }
     });
 
   const tagItem = (itemId: string, displayName: string) => {
@@ -578,6 +629,13 @@ describe("gallery rotation", () => {
     await ingestGalleryAsset("GAL", asset("a.jpg", at + DAY), false);
 
     expect((db.prepare("SELECT rotation FROM gallery_details WHERE item_id = ?").get(id) as { rotation: number }).rotation).toBe(270);
+  });
+
+  it("admits a video to rotation (no longer photos-only)", async () => {
+    const id = await ingestGalleryAsset("GAL", asset("clip.mp4", at), false);
+    // The synthetic file doesn't exist on disk, so rotation fails THERE — the point
+    // is that a video now gets past the kind gate that used to 400 it outright.
+    expect(await rotateGalleryAsset(id, "cw")).toEqual({ ok: false, status: 404, error: "Asset file not found" });
   });
 
   it("cache-busts the thumbnail URL so a regenerated image reloads", async () => {

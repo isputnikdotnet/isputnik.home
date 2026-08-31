@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { BookOpen, Download, HardDrive, Headphones, Trash2, Upload } from "lucide-react";
 import { api } from "../../../../api";
 import {
@@ -59,6 +60,7 @@ function bucketLabel(iso: string, bucket: "hour" | "day"): string {
 }
 
 export function ActivityView({ status }: { status: SystemStatus }) {
+  const { t } = useTranslation(["common", "controlDash"]);
   const storageBytes = status.libraryStats.totalSizeBytes + status.ebookStats.totalSizeBytes + status.galleryStats.totalSizeBytes;
   const [range, setRange] = useState<DateRangeValue>(() => resolveDateRange("7d"));
   const [activity, setActivity] = useState<DashboardActivity | null>(null);
@@ -79,46 +81,46 @@ export function ActivityView({ status }: { status: SystemStatus }) {
     setError("");
     api<DashboardActivity>(`/api/dashboard/activity?${query}`)
       .then(setActivity)
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load activity"));
+      .catch((err) => setError(err instanceof Error ? err.message : t("controlDash:activity.loadFailed")));
   }, [range.from, range.to]);
 
   useEffect(() => {
     api<{ inProgress: DashboardInProgressEntry[] }>("/api/dashboard/in-progress")
       .then((payload) => setInProgress(payload.inProgress))
-      .catch((err) => setInProgressError(err instanceof Error ? err.message : "Unable to load what's in progress"));
+      .catch((err) => setInProgressError(err instanceof Error ? err.message : t("controlDash:activity.inProgressFailed")));
   }, []);
 
   const contentSeries = activity
     ? [
-        { label: "Uploads", data: activity.series.uploads, colorVar: "--blue" },
-        { label: "Downloads", data: activity.series.downloads, colorVar: "--gold" },
-        { label: "Deletes", data: activity.series.deletes, colorVar: "--rose" }
+        { label: t("controlDash:activity.uploads"), data: activity.series.uploads, colorVar: "--blue" },
+        { label: t("controlDash:activity.downloads"), data: activity.series.downloads, colorVar: "--gold" },
+        { label: t("controlDash:activity.deletes"), data: activity.series.deletes, colorVar: "--rose" }
       ]
     : [];
   // The other half of the story, which used to go uncharted: not what was put
   // in or taken out, but what was actually opened.
   const engagementSeries = activity
     ? [
-        { label: "Played", data: activity.series.played, colorVar: "--mint" },
-        { label: "Read", data: activity.series.read, colorVar: "--blue" },
-        { label: "Viewed", data: activity.series.viewed, colorVar: "--gold" }
+        { label: t("controlDash:activity.played"), data: activity.series.played, colorVar: "--mint" },
+        { label: t("controlDash:activity.read"), data: activity.series.read, colorVar: "--blue" },
+        { label: t("controlDash:activity.viewed"), data: activity.series.viewed, colorVar: "--gold" }
       ]
     : [];
-  const versus = `vs previous ${formatRangeSpan(range)}`;
+  const versus = t("controlDash:activity.vsPrevious", { span: formatRangeSpan(range) });
   const opened = activity ? activity.totals.played + activity.totals.read + activity.totals.viewed : 0;
   const progress = pageOf(inProgress, progressPage);
 
   return (
     <div className="status-stack">
       <section className="status-block">
-        {error && <MessageBox tone="error" title="Unable to load activity">{error}</MessageBox>}
+        {error && <MessageBox tone="error" title={t("controlDash:activity.loadFailed")}>{error}</MessageBox>}
 
         {activity && (
           <div className="kpi-cards">
             <KpiCard
               icon={Upload}
               tone="info"
-              label="Uploads"
+              label={t("controlDash:activity.uploads")}
               value={activity.totals.uploads.toLocaleString()}
               change={percentChange(activity.totals.uploads, activity.previous.uploads)}
               goodWhen="up"
@@ -127,7 +129,7 @@ export function ActivityView({ status }: { status: SystemStatus }) {
             <KpiCard
               icon={Download}
               tone="success"
-              label="Downloads"
+              label={t("controlDash:activity.downloads")}
               value={activity.totals.downloads.toLocaleString()}
               change={percentChange(activity.totals.downloads, activity.previous.downloads)}
               goodWhen="up"
@@ -136,7 +138,7 @@ export function ActivityView({ status }: { status: SystemStatus }) {
             <KpiCard
               icon={Trash2}
               tone={activity.totals.deletes > 0 ? "danger" : "info"}
-              label="Deletes"
+              label={t("controlDash:activity.deletes")}
               value={activity.totals.deletes.toLocaleString()}
               change={percentChange(activity.totals.deletes, activity.previous.deletes)}
               context={versus}
@@ -144,15 +146,19 @@ export function ActivityView({ status }: { status: SystemStatus }) {
             <KpiCard
               icon={HardDrive}
               tone="warning"
-              label="Storage used"
+              label={t("controlDash:activity.storageUsed")}
               value={formatBytes(storageBytes)}
-              context={`${formatBytes(status.libraryStats.totalSizeBytes)} audio · ${formatBytes(status.ebookStats.totalSizeBytes)} books · ${formatBytes(status.galleryStats.totalSizeBytes)} photos`}
+              context={t("controlDash:activity.storageSplit", {
+                audio: formatBytes(status.libraryStats.totalSizeBytes),
+                books: formatBytes(status.ebookStats.totalSizeBytes),
+                photos: formatBytes(status.galleryStats.totalSizeBytes)
+              })}
             />
           </div>
         )}
 
         <div className="status-range-row">
-          <DateRangePicker value={range} onChange={setRange} label="Activity time range" />
+          <DateRangePicker value={range} onChange={setRange} label={t("controlDash:activity.rangeLabel")} />
           <span className="status-range-label">{formatRangeLabel(range)}</span>
         </div>
 
@@ -160,8 +166,8 @@ export function ActivityView({ status }: { status: SystemStatus }) {
           <div className="activity-charts">
             <div className="status-subsection">
               <div className="status-table-title">
-                <h3>Content activity</h3>
-                <span>{activity.bucket === "hour" ? "By hour" : "By day"}</span>
+                <h3>{t("controlDash:activity.contentActivity")}</h3>
+                <span>{activity.bucket === "hour" ? t("controlDash:bucket.byHour") : t("controlDash:bucket.byDay")}</span>
               </div>
               <DashboardChartLegend series={contentSeries} />
               <DashboardChart
@@ -173,8 +179,8 @@ export function ActivityView({ status }: { status: SystemStatus }) {
             </div>
             <div className="status-subsection">
               <div className="status-table-title">
-                <h3>Reading, listening and viewing</h3>
-                <span>{opened.toLocaleString()} {opened === 1 ? "item" : "items"} opened</span>
+                <h3>{t("controlDash:activity.engagementTitle")}</h3>
+                <span>{t("controlDash:activity.itemsOpened", { count: opened })}</span>
               </div>
               <DashboardChartLegend series={engagementSeries} />
               <DashboardChart
@@ -189,11 +195,8 @@ export function ActivityView({ status }: { status: SystemStatus }) {
 
         <div className="status-subsection">
           <div className="status-table-title">
-            <h3>Content activity in this range</h3>
-            <span>
-              {recent.total.toLocaleString()} {recent.total === 1 ? "event" : "events"} · uploads, downloads, deletes,
-              and what was opened — the full archive is in Logs
-            </span>
+            <h3>{t("controlDash:activity.recentTitle")}</h3>
+            <span>{t("controlDash:activity.eventsSummary", { count: recent.total })}</span>
           </div>
           {recent.error && <p className="status-empty">{recent.error}</p>}
           {recent.logs.length > 0 ? (
@@ -202,18 +205,18 @@ export function ActivityView({ status }: { status: SystemStatus }) {
                 <table className="datagrid">
                   <thead>
                     <tr>
-                      <th>Event</th>
-                      <th>User</th>
-                      <th>Detail</th>
-                      <th>IP address</th>
-                      <th>Time</th>
+                      <th>{t("controlDash:table.event")}</th>
+                      <th>{t("controlDash:table.user")}</th>
+                      <th>{t("controlDash:table.detail")}</th>
+                      <th>{t("controlDash:table.ipAddress")}</th>
+                      <th>{t("controlDash:table.time")}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {recent.logs.map((entry) => (
                       <tr key={entry.id}>
                         <td><EventCell event={entry.event} /></td>
-                        <td className="datagrid-muted">{entry.actorName ?? "System"}</td>
+                        <td className="datagrid-muted">{entry.actorName ?? t("controlDash:activity.systemActor")}</td>
                         <td>{entry.detail}</td>
                         <td className="datagrid-muted">{entry.ipAddress ?? "—"}</td>
                         <td className="datagrid-muted">{formatManagedDate(entry.createdAt)}</td>
@@ -222,20 +225,20 @@ export function ActivityView({ status }: { status: SystemStatus }) {
                   </tbody>
                 </table>
               </div>
-              <Pager page={page} totalPages={recent.totalPages} onChange={setPage} label="Activity pages" />
+              <Pager page={page} totalPages={recent.totalPages} onChange={setPage} label={t("controlDash:pagers.activity")} />
             </>
           ) : (
-            !recent.error && <p className="status-empty">No uploads, downloads, deletes or opens in this range.</p>
+            !recent.error && <p className="status-empty">{t("controlDash:activity.noEvents")}</p>
           )}
         </div>
 
         <div className="status-subsection">
           <div className="status-table-title">
-            <h3>Currently in progress</h3>
+            <h3>{t("controlDash:activity.inProgressTitle")}</h3>
             {/* A position, not a history: reading and listening progress is
                 overwritten in place, so this is where everyone is right now —
                 whatever the range above says. */}
-            <span>Where each person is right now — a snapshot, not bound to the range above</span>
+            <span>{t("controlDash:activity.inProgressNote")}</span>
           </div>
           {inProgressError && <p className="status-empty">{inProgressError}</p>}
           {inProgress.length > 0 ? (
@@ -244,11 +247,11 @@ export function ActivityView({ status }: { status: SystemStatus }) {
                 <table className="datagrid">
                   <thead>
                     <tr>
-                      <th>User</th>
-                      <th>Item</th>
-                      <th>Type</th>
-                      <th className="col-num">Progress</th>
-                      <th>Updated</th>
+                      <th>{t("controlDash:table.user")}</th>
+                      <th>{t("controlDash:table.item")}</th>
+                      <th>{t("controlDash:table.type")}</th>
+                      <th className="col-num">{t("controlDash:table.progress")}</th>
+                      <th>{t("controlDash:table.updated")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -259,7 +262,7 @@ export function ActivityView({ status }: { status: SystemStatus }) {
                         <td className="datagrid-muted">
                           <span className="log-event-cell">
                             {entry.kind === "audiobook" ? <Headphones size={14} aria-hidden="true" /> : <BookOpen size={14} aria-hidden="true" />}
-                            {entry.kind === "audiobook" ? "Audiobook" : "Ebook"}
+                            {entry.kind === "audiobook" ? t("controlDash:activity.audiobook") : t("controlDash:activity.ebook")}
                           </span>
                         </td>
                         <td className="col-num datagrid-muted">
@@ -271,10 +274,10 @@ export function ActivityView({ status }: { status: SystemStatus }) {
                   </tbody>
                 </table>
               </div>
-              <Pager page={progress.page} totalPages={progress.totalPages} onChange={setProgressPage} label="In-progress pages" />
+              <Pager page={progress.page} totalPages={progress.totalPages} onChange={setProgressPage} label={t("controlDash:pagers.inProgress")} />
             </>
           ) : (
-            !inProgressError && <p className="status-empty">Nobody has an audiobook or ebook in progress right now.</p>
+            !inProgressError && <p className="status-empty">{t("controlDash:activity.nobodyInProgress")}</p>
           )}
         </div>
       </section>

@@ -21,6 +21,7 @@
 // a result LOOKS like lives in CleanupResultCard, the header and job summary in
 // CleanupJobCard, and the scope wizard in CleanupWizard.
 import { useEffect, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { Briefcase, Search, SlidersHorizontal, Trash2, TriangleAlert } from "lucide-react";
 import { api, ApiError, type PublicUser } from "../../../../api";
 import { formatBytes } from "../../../../shared/utils";
@@ -36,13 +37,14 @@ import { CleanupHero, JobCard } from "./CleanupJobCard";
 import { CleanupWizard } from "./CleanupWizard";
 import { CleanupResultCard } from "./CleanupResultCard";
 import {
-  EMPTY_PAYLOAD, EMPTY_RESULTS, REVIEW_FILTERS, RESULT_SECTIONS, SECTION_HEADINGS, SORT_ORDERS, folderLabel,
-  keeperFolders, sectionQuery, typeFilters,
+  EMPTY_PAYLOAD, EMPTY_RESULTS, RESULT_SECTIONS, folderLabel,
+  keeperFolders, reviewFilters, sectionHeading, sectionQuery, sortOrders, typeFilters,
   type DuplicateJob, type JobsPayload, type MemberCheck, type ResultCheck, type ResultsPage,
   type SnapshotResult, type StaleReason
 } from "./cleanup-types";
 
 export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUser }) {
+  const { t } = useTranslation(["common", "controlDash"]);
   const [payload, setPayload] = useState<JobsPayload>(EMPTY_PAYLOAD);
   const [results, setResults] = useState<ResultsPage>(EMPTY_RESULTS);
   const [loaded, setLoaded] = useState(false);
@@ -110,7 +112,7 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
 
   useEffect(() => {
     load()
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load duplicate cleanup"))
+      .catch((err) => setError(err instanceof Error ? err.message : t("controlDash:dupes.loadFailed")))
       .finally(() => setLoaded(true));
   }, []);
 
@@ -118,7 +120,7 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
     if (!job || job.status === "draft") { setResults(EMPTY_RESULTS); return; }
     const handle = window.setTimeout(() => {
       loadResults(job.id).catch((err) =>
-        setError(err instanceof Error ? err.message : "Unable to load the results"));
+        setError(err instanceof Error ? err.message : t("controlDash:dupes.resultsFailed")));
     }, search ? 250 : 0);
     return () => window.clearTimeout(handle);
   }, [job?.id, job?.status, job?.scanCompletedAt, search, typeFilter, reviewFilter, sortOrder, page]);
@@ -162,7 +164,7 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
         // The snapshot moved under us, so bring the list up to date behind the dialog.
         await reload().catch(() => { /* the error below is the thing worth saying */ });
       }
-      setActionError(err instanceof Error ? err.message : "Unable to remove these copies");
+      setActionError(err instanceof Error ? err.message : t("controlDash:dupes.removeCopiesFailed"));
     } finally {
       setBusyId("");
     }
@@ -228,7 +230,7 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
     } catch (err) {
       setActionError(err instanceof Error
         ? err.message
-        : role === "keep" ? "Unable to keep that copy" : "Unable to mark that copy for deletion");
+        : role === "keep" ? t("controlDash:dupes.keepFailed") : t("controlDash:dupes.markDeleteFailed"));
     } finally {
       setBusyId("");
     }
@@ -276,20 +278,20 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
                 <Briefcase size={24} />
               </span>
               <div className="dup-job-card-body">
-                <p className="eyebrow">No active cleanup</p>
-                <h2>No cleanup in progress</h2>
+                <p className="eyebrow">{t("controlDash:dupes.noActiveEyebrow")}</p>
+                <h2>{t("controlDash:dupes.noActiveTitle")}</h2>
                 <p className="dup-note">
-                  A cleanup remembers what it found and what you decided, so you can stop and come back to it.
+                  {t("controlDash:dupes.noActiveNote")}
                 </p>
                 <p className="dup-note">
                   {worthChecking === 0
-                    ? "No two photos here share a file size, so nothing can be a copy of anything. There is nothing to clean up."
-                    : `${worthChecking.toLocaleString()} photo${worthChecking === 1 ? " shares" : "s share"} a file size with another one, which is the first thing a copy has to do.`}
+                    ? t("controlDash:dupes.nothingToClean")
+                    : t("controlDash:dupes.worthChecking", { count: worthChecking })}
                 </p>
               </div>
             </div>
             <Button variant="primary" onClick={() => { setActionError(""); setWizardOpen(true); }}>
-              Start a cleanup
+              {t("controlDash:dupes.startCleanup")}
             </Button>
           </div>
         )}
@@ -299,7 +301,7 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
             job={job}
             isOwner={payload.isOwner}
             busy={busy}
-            onScan={() => void post(`/api/library/gallery/duplicate-jobs/${job.id}/scan`, job.id, "The scan could not run")}
+            onScan={() => void post(`/api/library/gallery/duplicate-jobs/${job.id}/scan`, job.id, t("controlDash:dupes.scanFailed"))}
             onFinish={() => { setActionError(""); setFinishing(true); }}
             onCancel={() => { setActionError(""); setCancelling(true); }}
             onTakeOver={() => { setActionError(""); setTakingOver(true); }}
@@ -315,30 +317,30 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
               onClick={() => setFiltersOpen(true)}
             >
               <SlidersHorizontal size={16} aria-hidden="true" />
-              <span>{narrowed ? "Filters (on)" : "Filters"}</span>
+              <span>{narrowed ? t("controlDash:dupes.filtersOn") : t("controlDash:dupes.filters")}</span>
             </Button>
             {/* Order within each section — the sections (folders before files,
                 certain before uncertain) hold either way. */}
             <SortMenu
               value={sortOrder}
-              options={SORT_ORDERS}
+              options={sortOrders()}
               presentation="labelled"
-              ariaLabel="Order the results"
+              ariaLabel={t("controlDash:dupes.orderResults")}
               onChange={(value) => setSortOrder(value as "size" | "copies")}
             />
             <label className="search-field dup-folder-search">
               <Search size={17} aria-hidden="true" />
-              <span className="sr-only">Search this cleanup by folder, file or library</span>
+              <span className="sr-only">{t("controlDash:dupes.searchSr")}</span>
               <input
                 type="search"
                 value={search}
-                placeholder="Search this cleanup..."
+                placeholder={t("controlDash:dupes.searchPlaceholder")}
                 onChange={(event) => setSearch(event.target.value)}
               />
             </label>
             <div className="dup-toolbar-controls">
               <span className="datagrid-muted">
-                {results.total} of {results.allResults} shown
+                {t("controlDash:dupes.shownOf", { shown: results.total, all: results.allResults })}
               </span>
               {/* Only ever the certain ones, so it is offered only when there are some.
                   A page of near-identical sets shows no sweep at all rather than a
@@ -352,7 +354,7 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
                   onClick={() => { setActionError(""); setSweeping(true); }}
                 >
                   <Trash2 size={15} aria-hidden="true" />
-                  <span>Delete {results.sweep.copies} identical cop{results.sweep.copies === 1 ? "y" : "ies"}</span>
+                  <span>{t("controlDash:dupes.sweepButton", { count: results.sweep.copies })}</span>
                 </Button>
               )}
             </div>
@@ -360,41 +362,37 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
         )}
       </div>
 
-      {error && <MessageBox tone="error" title="Unable to load duplicate cleanup">{error}</MessageBox>}
+      {error && <MessageBox tone="error" title={t("controlDash:dupes.loadFailed")}>{error}</MessageBox>}
       {actionError && !confirm && !dismissing && (
-        <MessageBox tone="error" title="Action failed">{actionError}</MessageBox>
+        <MessageBox tone="error" title={t("common:errors.actionFailed")}>{actionError}</MessageBox>
       )}
 
       {job && job.status === "draft" && (
-        <MessageBox tone="info" title="Nothing scanned yet">
-          The cleanup knows which libraries to compare. Run the scan and it will fingerprint anything new before
-          looking — the first scan of a library can take a while, and you can leave the page while it runs.
+        <MessageBox tone="info" title={t("controlDash:dupes.nothingScannedTitle")}>
+          {t("controlDash:dupes.nothingScannedBody")}
         </MessageBox>
       )}
 
       {job && job.status !== "draft" && job.status !== "scanning" && results.allResults === 0 && (
         unread > 0 ? (
-          <MessageBox tone="warning" title="Some photos could not be read">
-            {unread.toLocaleString()} photo{unread === 1 ? "" : "s"} in this cleanup's libraries still
-            {unread === 1 ? " has" : " have"} no fingerprint, so {unread === 1 ? "it was" : "they were"} never
-            compared. That usually means the library's storage was unavailable while the scan ran. Check the library
-            is reachable and scan again.
+          <MessageBox tone="warning" title={t("controlDash:dupes.unreadTitle")}>
+            {t("controlDash:dupes.unreadBody", { count: unread })}
           </MessageBox>
         ) : (
           <p className="management-empty">
-            This cleanup found nothing to remove. Finish it, and start another whenever you like.
+            {t("controlDash:dupes.nothingFound")}
           </p>
         )
       )}
 
       {job && results.allResults > 0 && results.total === 0 && (
-        <p className="management-empty">Nothing matches what you've narrowed this to.</p>
+        <p className="management-empty">{t("controlDash:dupes.noMatches")}</p>
       )}
 
       {grouped.map((group) => (
         <div key={group.section.key}>
-          <h2 className="dup-tier-heading">{SECTION_HEADINGS[group.section.key].title}</h2>
-          <p className="dup-tier-note">{SECTION_HEADINGS[group.section.key].note}</p>
+          <h2 className="dup-tier-heading">{sectionHeading(group.section.key).title}</h2>
+          <p className="dup-tier-note">{sectionHeading(group.section.key).note}</p>
           <div className="dup-sets">
             {group.items.map((result) => (
               <CleanupResultCard
@@ -407,7 +405,7 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
                   onSkip: () => void post(
                     `/api/library/gallery/duplicate-jobs/${job!.id}/results/${result.id}/mark`,
                     result.id,
-                    "Unable to skip this one",
+                    t("controlDash:dupes.skipFailed"),
                     { mark: result.reviewStatus === "skipped" ? "unreviewed" : "skipped" }
                   ),
                   onDismiss: () => { setActionError(""); setDismissing(result); },
@@ -426,10 +424,13 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
       {results.total > results.perPage && (
         <div className="dup-pager-row">
           <span className="datagrid-muted">
-            Showing {(results.page - 1) * results.perPage + 1}–
-            {Math.min(results.page * results.perPage, results.total)} of {results.total}
+            {t("controlDash:dupes.showingRange", {
+              from: (results.page - 1) * results.perPage + 1,
+              to: Math.min(results.page * results.perPage, results.total),
+              total: results.total
+            })}
           </span>
-          <Pager page={results.page} totalPages={totalPages} onChange={setPage} label="Cleanup result pages" />
+          <Pager page={results.page} totalPages={totalPages} onChange={setPage} label={t("controlDash:pagers.cleanupResults")} />
         </div>
       )}
 
@@ -445,20 +446,20 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
       )}
 
       {filtersOpen && (
-        <Modal title="Narrow what's shown" onClose={() => setFiltersOpen(false)}>
+        <Modal title={t("controlDash:dupes.narrowTitle")} onClose={() => setFiltersOpen(false)}>
           <div className="dup-filter-form">
             <label className="dup-filter-field">
-              <span className="dup-filter-label">Kind of result</span>
+              <span className="dup-filter-label">{t("controlDash:dupes.kindOfResult")}</span>
               <SelectMenu
                 value={typeFilter}
                 options={typeFilters(job?.duplicateType ?? "folders")}
-                label="Kind of result"
+                label={t("controlDash:dupes.kindOfResult")}
                 onChange={setTypeFilter}
               />
             </label>
             <label className="dup-filter-field">
-              <span className="dup-filter-label">Where you've got to</span>
-              <SelectMenu value={reviewFilter} options={REVIEW_FILTERS} label="Review state" onChange={setReviewFilter} />
+              <span className="dup-filter-label">{t("controlDash:dupes.whereGotTo")}</span>
+              <SelectMenu value={reviewFilter} options={reviewFilters()} label={t("controlDash:dupes.reviewState")} onChange={setReviewFilter} />
             </label>
           </div>
           <div className="modal-actions">
@@ -467,9 +468,9 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
               disabled={!narrowed}
               onClick={() => { setSearch(""); setTypeFilter(""); setReviewFilter(""); }}
             >
-              Clear filters
+              {t("controlDash:dupes.clearFilters")}
             </Button>
-            <Button variant="secondary" onClick={() => setFiltersOpen(false)}>Done</Button>
+            <Button variant="secondary" onClick={() => setFiltersOpen(false)}>{t("common.done")}</Button>
           </div>
         </Modal>
       )}
@@ -486,9 +487,9 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
         const leavesFolder = confirm.type !== "photo_set";
         return (
           <ConfirmDialog
-            title={`Delete ${doomed.length} cop${doomed.length === 1 ? "y" : "ies"}?`}
-            confirmLabel={`Delete ${doomed.length} cop${doomed.length === 1 ? "y" : "ies"}`}
-            busyLabel="Deleting…"
+            title={t("controlDash:dupes.deleteCopiesTitle", { count: doomed.length })}
+            confirmLabel={t("controlDash:dupes.deleteCopiesLabel", { count: doomed.length })}
+            busyLabel={t("controlDash:dupes.deleting")}
             danger
             busy={busyId === confirm.id || checking}
             // Nothing would be removed anyway — the server refuses all-or-nothing — so
@@ -499,23 +500,23 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
             onCancel={() => { setConfirm(null); setActionError(""); setStale([]); }}
             rich
           >
-            {checking && <p className="datagrid-muted">Checking these are still as the scan found them…</p>}
+            {checking && <p className="datagrid-muted">{t("controlDash:dupes.checkingStill")}</p>}
             {stale.length > 0 && <StaleNotice problems={stale} />}
             <p>
-              Every one of these {doomed.length} photo{doomed.length === 1 ? "" : "s"} also sits in
-              {" "}<strong>{survivesIn}</strong>, which is not touched.
+              <Trans
+                i18nKey="dupes.deleteBody1"
+                ns="controlDash"
+                count={doomed.length}
+                values={{ place: survivesIn }}
+                components={{ bold: <strong /> }}
+              />
             </p>
             <p>
-              That is checked again the moment you confirm, against the library as it stands rather than as the scan
-              found it. If a photo has been deleted, edited or moved since then, nothing at all is removed and this
-              card says what changed.
+              {t("controlDash:dupes.deleteBody2")}
             </p>
             <p>
-              Each photo hands its tags, albums, collections and tagged people to the copy that survives it first.
-              Everything removed goes to the Recycle Bin and can be restored until you empty it.
-              {leavesFolder
-                ? " Only the photos go: the folder itself is left behind on disk, empty."
-                : ""}
+              {t("controlDash:dupes.deleteBody3")}
+              {leavesFolder ? t("controlDash:dupes.deleteBody3Folder") : ""}
             </p>
           </ConfirmDialog>
         );
@@ -523,16 +524,16 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
 
       {dismissing && (
         <ConfirmDialog
-          title="Mark these as not duplicates?"
-          confirmLabel="Not the same"
-          busyLabel="Saving…"
+          title={t("controlDash:dupes.dismissTitle")}
+          confirmLabel={t("controlDash:dupes.dismissConfirm")}
+          busyLabel={t("controlDash:dupes.saving")}
           busy={busyId === dismissing.id}
           error={actionError}
           onConfirm={async () => {
             const ok = await post(
               `/api/library/gallery/duplicate-jobs/${job!.id}/results/${dismissing.id}/dismiss`,
               dismissing.id,
-              "Unable to dismiss this one"
+              t("controlDash:dupes.dismissFailed")
             );
             if (ok) setDismissing(null);
           }}
@@ -540,20 +541,19 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
           rich
         >
           <p>
-            This is a standing decision, not a note on this cleanup: no future scan will pair these again, on this page
-            or the older ones. Nothing is deleted and no photo is changed.
+            {t("controlDash:dupes.dismissBody1")}
           </p>
           <p>
-            To set it aside for now and see it again next time, use <strong>Skip</strong> instead.
+            <Trans i18nKey="dupes.dismissBody2" ns="controlDash" components={{ bold: <strong /> }} />
           </p>
         </ConfirmDialog>
       )}
 
       {sweeping && job && (
         <ConfirmDialog
-          title={`Delete ${results.sweep.copies} identical cop${results.sweep.copies === 1 ? "y" : "ies"}?`}
-          confirmLabel={`Delete ${results.sweep.copies} cop${results.sweep.copies === 1 ? "y" : "ies"}`}
-          busyLabel="Deleting…"
+          title={t("controlDash:dupes.sweepTitle", { count: results.sweep.copies })}
+          confirmLabel={t("controlDash:dupes.sweepConfirm", { count: results.sweep.copies })}
+          busyLabel={t("controlDash:dupes.deleting")}
           danger
           busy={busyId === job.id}
           error={actionError}
@@ -561,7 +561,7 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
             const ok = await post(
               `/api/library/gallery/duplicate-jobs/${job.id}/results/sweep?${resultQuery()}`,
               job.id,
-              "The sweep could not finish"
+              t("controlDash:dupes.sweepFailed")
             );
             if (ok) setSweeping(false);
           }}
@@ -569,67 +569,65 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
           rich
         >
           <p>
-            Across <strong>{results.sweep.results} set{results.sweep.results === 1 ? "" : "s"}</strong>, freeing
-            about {formatBytes(results.sweep.bytes)}. One copy of every picture stays, and each copy that goes
-            hands its tags, albums and people to the one that survives it first.
+            <Trans
+              i18nKey="dupes.sweepBody1"
+              ns="controlDash"
+              count={results.sweep.results}
+              values={{ bytes: formatBytes(results.sweep.bytes) }}
+              components={{ bold: <strong /> }}
+            />
           </p>
           <p>
-            Only <strong>byte-identical</strong> copies — the same file twice, where the copies are
-            interchangeable. Near-identical sets are never swept: those are different files, and each one is a
-            judgement to make by looking.
+            <Trans i18nKey="dupes.sweepBody2" ns="controlDash" components={{ bold: <strong /> }} />
           </p>
           {narrowed && (
             <p>
-              This follows the filters you have on, so it covers only what is on screen — {results.total} of
-              the {results.allResults} results this cleanup found.
+              {t("controlDash:dupes.sweepBody3", { shown: results.total, all: results.allResults })}
             </p>
           )}
           <p>
-            Every set is re-checked against the library first, exactly as deleting one at a time is. Any whose
-            photos have moved since the scan is left alone and the rest go ahead. Everything removed goes to
-            the Recycle Bin.
+            {t("controlDash:dupes.sweepBody4")}
           </p>
         </ConfirmDialog>
       )}
 
       {finishing && job && (
         <ConfirmDialog
-          title="Finish this cleanup?"
-          confirmLabel="Finish cleanup"
-          busyLabel="Finishing…"
+          title={t("controlDash:dupes.finishTitle")}
+          confirmLabel={t("controlDash:dupes.finishConfirm")}
+          busyLabel={t("controlDash:dupes.finishing")}
           busy={busyId === job.id}
           error={actionError}
           onConfirm={async () => {
-            const ok = await post(`/api/library/gallery/duplicate-jobs/${job.id}/complete`, job.id, "Unable to finish");
+            const ok = await post(`/api/library/gallery/duplicate-jobs/${job.id}/complete`, job.id, t("controlDash:dupes.finishFailed"));
             if (ok) setFinishing(false);
           }}
           onCancel={() => setFinishing(false)}
           rich
         >
           <p>
-            The cleanup is closed and kept as a record: {job.totals.deleted} cop{job.totals.deleted === 1 ? "y" : "ies"}
-            {" "}removed, {formatBytes(job.totals.reclaimedBytes)} freed. Nothing more can be deleted from it.
+            {t("controlDash:dupes.finishBody1", { count: job.totals.deleted, bytes: formatBytes(job.totals.reclaimedBytes) })}
           </p>
           <p>
             {job.totals.remaining > 0
-              ? `${job.totals.remaining} result${job.totals.remaining === 1 ? "" : "s"} you haven't acted on will simply be found again by the next cleanup.`
-              : "You can start a new cleanup straight away."}
+              ? t("controlDash:dupes.finishBody2", { count: job.totals.remaining })
+              : t("controlDash:dupes.finishBodyNone")}
           </p>
         </ConfirmDialog>
       )}
 
       {takingOver && job && (
         <ConfirmDialog
-          title={`Take this cleanup over from ${job.ownerName}?`}
-          confirmLabel="Take over"
-          busyLabel="Taking over…"
+          title={t("controlDash:dupes.takeOverTitle", { name: job.ownerName })}
+          confirmLabel={t("controlDash:dupes.takeOverConfirm")}
+          busyLabel={t("controlDash:dupes.takingOver")}
           busy={busyId === job.id}
           error={actionError}
           onConfirm={async () => {
             const ok = await post(
               `/api/library/gallery/duplicate-jobs/${job.id}/reassign`,
               job.id,
-              "Unable to take this cleanup over",
+              t("controlDash:dupes.takeOverFailed"),
               { userId: currentUser.id }
             );
             if (ok) setTakingOver(false);
@@ -638,36 +636,33 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
           rich
         >
           <p>
-            It becomes yours: you scan, review and delete, and {job.ownerName} can no longer act on it.
-            Everything it found and every decision already made is kept exactly as it is.
+            {t("controlDash:dupes.takeOverBody1", { name: job.ownerName })}
           </p>
           <p>
-            For when the person who started a cleanup isn't coming back to it — only one can be active
-            at a time, so theirs holds the slot until it is finished, cancelled, or taken over.
+            {t("controlDash:dupes.takeOverBody2")}
           </p>
         </ConfirmDialog>
       )}
 
       {cancelling && job && (
         <ConfirmDialog
-          title="Cancel this cleanup?"
-          confirmLabel="Cancel cleanup"
-          busyLabel="Cancelling…"
+          title={t("controlDash:dupes.cancelTitle")}
+          confirmLabel={t("controlDash:dupes.cancelConfirm")}
+          busyLabel={t("controlDash:dupes.cancelling")}
           danger
           busy={busyId === job.id}
           error={actionError}
           onConfirm={async () => {
-            const ok = await post(`/api/library/gallery/duplicate-jobs/${job.id}/cancel`, job.id, "Unable to cancel");
+            const ok = await post(`/api/library/gallery/duplicate-jobs/${job.id}/cancel`, job.id, t("controlDash:dupes.cancelFailed"));
             if (ok) setCancelling(false);
           }}
           onCancel={() => setCancelling(false)}
           rich
         >
           <p>
-            The cleanup stops and its list is discarded. Photos already moved to the Recycle Bin stay there — cancelling
-            does not put them back, and nothing here empties the bin.
+            {t("controlDash:dupes.cancelBody1")}
           </p>
-          <p>You can start a new cleanup afterwards.</p>
+          <p>{t("controlDash:dupes.cancelBody2")}</p>
         </ConfirmDialog>
       )}
     </>
@@ -677,25 +672,24 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
 /** Shown when a result's copies have moved on since the scan. */
 // Each reason gets its own words because each has its own remedy: re-scan, look at the
 // file, or change the library's settings. "Something changed" sends someone hunting.
-const STALE_WORDS: Record<StaleReason, string> = {
-  missing: "no longer there",
-  modified: "changed on disk since the scan",
-  protected: "now in a library nothing may be deleted from"
+const STALE_KEY: Record<StaleReason, "staleMissing" | "staleModified" | "staleProtected"> = {
+  missing: "staleMissing",
+  modified: "staleModified",
+  protected: "staleProtected"
 };
 
 function StaleNotice({ problems }: { problems: MemberCheck[] }) {
+  const { t } = useTranslation(["common", "controlDash"]);
   return (
-    <MessageBox tone="warning" title="These have changed since the scan">
+    <MessageBox tone="warning" title={t("controlDash:dupes.staleTitle")}>
       <p>
-        Nothing will be removed while this is true — the whole set is refused rather than the part that still
-        matches, so no photo is ever deleted without the copy that was meant to survive it. Scan again to pick
-        the change up.
+        {t("controlDash:dupes.staleBody")}
       </p>
       <ul>
         {problems.map((problem) => (
           <li key={problem.memberId}>
             <TriangleAlert size={12} aria-hidden="true" /> {problem.path}
-            {" — "}{problem.stale ? STALE_WORDS[problem.stale] : "no longer usable"}
+            {" — "}{problem.stale ? t(`controlDash:dupes.${STALE_KEY[problem.stale]}`) : t("controlDash:dupes.staleUnusable")}
           </li>
         ))}
       </ul>

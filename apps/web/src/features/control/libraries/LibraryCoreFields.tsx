@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Field } from "../../../shared/Field";
 import type { PublicRole, LibraryMode } from "../../audiobooks/types";
 import type { ManagedUser, ManagedGroup } from "../types";
@@ -25,24 +26,25 @@ export function LibraryAccessFields({
   users: ManagedUser[];
   groups: ManagedGroup[];
 }) {
+  const { t } = useTranslation(["common", "control"]);
   return (
     <>
       <label className="field">
-        <span>Owner</span>
+        <span>{t("control:libraries.fieldOwner")}</span>
         <OwnerSelect ownerId={ownerId} ownerType={ownerType} onChange={onOwnerChange} users={users} groups={groups} />
       </label>
       <label className="field">
-        <span>Visibility</span>
+        <span>{t("control:libraries.visibilityLabel")}</span>
         <VisibilitySelect value={visibility} onChange={onVisibilityChange} />
       </label>
       {visibility === "public" && (
         <label className="field">
-          <span>Public access</span>
+          <span>{t("control:libraryMembers.publicAccess")}</span>
           <PublicRoleSelect value={publicRole} onChange={onPublicRoleChange} />
         </label>
       )}
       <label className="field">
-        <span>Mode</span>
+        <span>{t("control:libraries.fieldMode")}</span>
         <ModeSelect value={mode} onChange={onModeChange} />
       </label>
     </>
@@ -57,9 +59,10 @@ export function LibraryCoreFields({
   name: string;
   onNameChange: (value: string) => void;
 } & Parameters<typeof LibraryAccessFields>[0]) {
+  const { t } = useTranslation(["common", "control"]);
   return (
     <>
-      <Field label="Library name" value={name} onChange={onNameChange} />
+      <Field label={t("control:libraries.libraryName")} value={name} onChange={onNameChange} />
       <LibraryAccessFields {...accessProps} />
     </>
   );

@@ -13,6 +13,8 @@ import {
   UserRoundPlus,
   UsersRound
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { navigate } from "../../router";
 import { Button } from "../../shared/Button";
 import {
@@ -23,18 +25,14 @@ import {
   type ChartLayout,
   type PlacedUnionDot
 } from "./chart-layout";
-import { lifeYears, type FamilyPerson, type FamilyTree, type FamilyUnion } from "./types";
+import { lifeYears, unionStatusLabel, type FamilyPerson, type FamilyTree, type FamilyUnion } from "./types";
 
 const MIN_SCALE = 0.3;
 const MAX_SCALE = 3;
 // Hover text on the union badge — the icon says current or ended, this says why.
-const UNION_BADGE_LABEL: Record<FamilyUnion["status"], string> = {
-  married: "Married",
-  partners: "Partners",
-  divorced: "Divorced",
-  widowed: "Widowed",
-  unknown: "Partners (status not recorded)"
-};
+function unionBadgeLabel(status: FamilyUnion["status"], t: TFunction<readonly ["family"], undefined>): string {
+  return status === "unknown" ? t("family:chart.unionBadgeUnknown") : unionStatusLabel(status);
+}
 // Card menu popover size, used to keep it inside the chart frame.
 const CARD_MENU_W = 208;
 const CARD_MENU_H = 176;
@@ -91,6 +89,7 @@ function ActionBadge({
 // union ended by death keeps the rings linked but drawn as an outline. All three
 // are built from arcs rather than an icon font so they survive any zoom.
 function UnionBadge({ dot }: { dot: PlacedUnionDot }) {
+  const { t } = useTranslation(["family"]);
   const { x, y, status } = dot;
   const ended = isEndedUnion(status);
   const parted = status === "divorced";
@@ -104,7 +103,7 @@ function UnionBadge({ dot }: { dot: PlacedUnionDot }) {
 
   return (
     <g className={`ft-chart-union-badge is-${status}${ended ? " is-ended" : ""}`}>
-      <title>{UNION_BADGE_LABEL[status]}</title>
+      <title>{unionBadgeLabel(status, t)}</title>
       <circle className="ft-chart-union-plate" cx={x} cy={y} r={12} />
       <circle className="ft-chart-union-ring" cx={x + offset} cy={y} r={ringR} />
       <circle className="ft-chart-union-ring" cx={x - offset} cy={y} r={ringR} />
@@ -195,6 +194,7 @@ export function FamilyTreeChart({
   onExport?: () => void;
   onSettings?: () => void;
 }) {
+  const { t } = useTranslation(["common", "family"]);
   const layout: ChartLayout = useMemo(() => computeChartLayout(tree, focusId), [tree, focusId]);
   const svgRef = useRef<SVGSVGElement>(null);
   const [view, setView] = useState<ViewBox | null>(null);
@@ -374,7 +374,7 @@ export function FamilyTreeChart({
         className="ft-chart"
         viewBox={`${box.x} ${box.y} ${box.w} ${box.h}`}
         role="img"
-        aria-label="Family tree chart"
+        aria-label={t("family:chart.chartAriaLabel")}
         onWheel={onWheel}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -441,7 +441,11 @@ export function FamilyTreeChart({
                     width={photoSize}
                     height={photoSize}
                     clipPath={`url(#ft-clip-${index})`}
-                    preserveAspectRatio="xMidYMid slice"
+                    // Crop from the top of the portrait, not its middle: heads
+                    // live in the upper third, and centring takes the crown off
+                    // them. Same rule as the CSS avatars (object-position: center
+                    // top) — YMin is the SVG spelling of it.
+                    preserveAspectRatio="xMidYMin slice"
                   />
                 ) : (
                   // No clip on this group: a userSpaceOnUse clip rect would be
@@ -471,7 +475,7 @@ export function FamilyTreeChart({
                 <ActionBadge
                   cx={left + NODE_W - 15}
                   cy={top + 15}
-                  label={`Actions for ${person.name}`}
+                  label={t("family:chart.actionsForAria", { name: person.name })}
                   onActivate={() => {
                     if (movedRef.current) return;
                     setCardMenuId(cardMenuAtPointerDown.current === person.id ? null : person.id);
@@ -497,7 +501,7 @@ export function FamilyTreeChart({
           className="ft-chart-card-menu"
           style={{ left: cardMenuPos.left, top: cardMenuPos.top, width: CARD_MENU_W }}
           role="menu"
-          aria-label={`Actions for ${cardMenuNode.person.name}`}
+          aria-label={t("family:chart.actionsForAria", { name: cardMenuNode.person.name })}
         >
           <p className="ft-chart-card-menu-name">{cardMenuNode.person.name}</p>
           <Button
@@ -507,7 +511,7 @@ export function FamilyTreeChart({
             onClick={() => { setCardMenuId(null); onOpenProfile(cardMenuNode.person.id); }}
           >
             <span className="select-menu-option-icon" aria-hidden="true"><UserRound size={16} /></span>
-            <span>Open profile</span>
+            <span>{t("family:chart.openProfile")}</span>
           </Button>
           {cardMenuNode.person.canEdit && (
             <Button
@@ -517,7 +521,7 @@ export function FamilyTreeChart({
               onClick={() => { setCardMenuId(null); onEditPerson(cardMenuNode.person); }}
             >
               <span className="select-menu-option-icon" aria-hidden="true"><Pencil size={16} /></span>
-              <span>Edit person</span>
+              <span>{t("family:common.editPerson")}</span>
             </Button>
           )}
           {cardMenuNode.person.canEdit && (
@@ -528,7 +532,7 @@ export function FamilyTreeChart({
               onClick={() => { setCardMenuId(null); onAddRelative(cardMenuNode.person); }}
             >
               <span className="select-menu-option-icon" aria-hidden="true"><UserRoundPlus size={16} /></span>
-              <span>Add a relative</span>
+              <span>{t("family:chart.addRelative")}</span>
             </Button>
           )}
         </div>
@@ -537,74 +541,74 @@ export function FamilyTreeChart({
       {/* Standing rail, top-left of the frame: the call to action, then the ways
           out of the current view. Kept out of the page header so the chart owns
           its own chrome. */}
-      <nav className="ft-chart-rail" aria-label="Tree navigation">
+      <nav className="ft-chart-rail" aria-label={t("family:chart.treeNavigationAria")}>
         {onAddPerson && (
           <>
             <Button
               variant="text"
               className="ft-chart-rail-button is-accent"
-              title="Add a family member"
+              title={t("family:chart.addPersonTitle")}
               onClick={onAddPerson}
             >
               <UserRoundPlus size={19} aria-hidden="true" />
-              <span>Add person</span>
+              <span>{t("family:common.addPerson")}</span>
             </Button>
             <span className="ft-chart-rail-divider" />
           </>
         )}
 
-        <Button variant="text" className="ft-chart-rail-button" title="Back to the starting person" onClick={goHome}>
+        <Button variant="text" className="ft-chart-rail-button" title={t("family:chart.backToStartTitle")} onClick={goHome}>
           <House size={19} aria-hidden="true" />
-          <span>Home</span>
+          <span>{t("nav.home")}</span>
         </Button>
         <Button
           variant="text"
           className="ft-chart-rail-button"
-          title="Every family member"
+          title={t("family:chart.everyFamilyMemberTitle")}
           onClick={() => navigate("/family/people")}
         >
           <UsersRound size={19} aria-hidden="true" />
-          <span>All People</span>
+          <span>{t("family:chart.allPeopleButton")}</span>
         </Button>
         <Button
           variant="text"
           className="ft-chart-rail-button"
-          title="Pick a family name to focus on"
+          title={t("family:chart.pickFamilyNameTitle")}
           onClick={() => navigate("/family/families")}
         >
           <Network size={19} aria-hidden="true" />
-          <span>Families</span>
+          <span>{t("family:families.title")}</span>
         </Button>
 
         {(onImport || onExport || onSettings) && <span className="ft-chart-rail-divider" />}
 
         {onImport && (
-          <Button variant="text" className="ft-chart-rail-button" title="Import a GEDCOM file" onClick={onImport}>
+          <Button variant="text" className="ft-chart-rail-button" title={t("family:chart.importTitle")} onClick={onImport}>
             <FileUp size={19} aria-hidden="true" />
-            <span>Import</span>
+            <span>{t("family:chart.importButton")}</span>
           </Button>
         )}
         {onExport && (
           <Button
             variant="text"
             className="ft-chart-rail-button"
-            title="Export the whole tree as GEDCOM (.ged)"
+            title={t("family:chart.exportTitle")}
             onClick={onExport}
           >
             <Download size={19} aria-hidden="true" />
-            <span>Export</span>
+            <span>{t("family:chart.exportButton")}</span>
           </Button>
         )}
         {onSettings && (
-          <Button variant="text" className="ft-chart-rail-button" title="Family tree settings" onClick={onSettings}>
+          <Button variant="text" className="ft-chart-rail-button" title={t("family:treeSettings.title")} onClick={onSettings}>
             <Settings size={19} aria-hidden="true" />
-            <span>Settings</span>
+            <span>{t("family:chart.settingsButton")}</span>
           </Button>
         )}
       </nav>
 
-      <aside className="ft-chart-legend" aria-label="Chart legend">
-        <strong className="ft-chart-legend-title">Legend</strong>
+      <aside className="ft-chart-legend" aria-label={t("family:chart.legendAria")}>
+        <strong className="ft-chart-legend-title">{t("family:chart.legendTitle")}</strong>
         <ul className="ft-chart-legend-list">
           <li>
             <span className="ft-legend-mark" aria-hidden="true">
@@ -612,7 +616,7 @@ export function FamilyTreeChart({
                 <path className="ft-legend-edge" d="M4 5h7v12h7" />
               </svg>
             </span>
-            Parent / Child
+            {t("family:chart.legendParentChild")}
           </li>
           <li>
             <span className="ft-legend-mark" aria-hidden="true">
@@ -623,7 +627,7 @@ export function FamilyTreeChart({
                 <path className="ft-legend-union-ring" d="M10.19 8.66 A 4.3 4.3 0 0 1 12.05 7.07" />
               </svg>
             </span>
-            Married / Partner
+            {t("family:chart.legendMarriedPartner")}
           </li>
           <li>
             <span className="ft-legend-mark" aria-hidden="true">
@@ -634,24 +638,24 @@ export function FamilyTreeChart({
                 <path className="ft-legend-union-ring is-ended" d="M11.5 15.4 L12.7 6.6" />
               </svg>
             </span>
-            Divorced / Ended
+            {t("family:chart.legendDivorcedEnded")}
           </li>
-          <li><span className="ft-legend-swatch is-male" aria-hidden="true" />Male</li>
-          <li><span className="ft-legend-swatch is-female" aria-hidden="true" />Female</li>
-          <li><span className="ft-legend-swatch is-unknown" aria-hidden="true" />Not recorded</li>
-          <li><span className="ft-legend-swatch is-focus" aria-hidden="true" />Focused person</li>
+          <li><span className="ft-legend-swatch is-male" aria-hidden="true" />{t("family:options.gender.male")}</li>
+          <li><span className="ft-legend-swatch is-female" aria-hidden="true" />{t("family:options.gender.female")}</li>
+          <li><span className="ft-legend-swatch is-unknown" aria-hidden="true" />{t("family:chart.legendNotRecorded")}</li>
+          <li><span className="ft-legend-swatch is-focus" aria-hidden="true" />{t("family:chart.legendFocusedPerson")}</li>
         </ul>
       </aside>
 
-      <div className="ft-chart-controls" aria-label="Tree view controls">
-        <Button variant="icon" aria-label="Zoom out" title="Zoom out" onClick={() => zoomAt(1 / 1.3)}>
+      <div className="ft-chart-controls" aria-label={t("family:chart.viewControlsAria")}>
+        <Button variant="icon" aria-label={t("family:chart.zoomOut")} title={t("family:chart.zoomOut")} onClick={() => zoomAt(1 / 1.3)}>
           <Minus size={17} />
         </Button>
-        <span className="ft-chart-zoom-value" aria-label={`Current zoom ${currentScale}%`}>{currentScale}%</span>
-        <Button variant="icon" aria-label="Zoom in" title="Zoom in" onClick={() => zoomAt(1.3)}>
+        <span className="ft-chart-zoom-value" aria-label={t("family:chart.currentZoomAria", { percent: currentScale })}>{currentScale}%</span>
+        <Button variant="icon" aria-label={t("family:chart.zoomIn")} title={t("family:chart.zoomIn")} onClick={() => zoomAt(1.3)}>
           <Plus size={17} />
         </Button>
-        <Button variant="icon" aria-label="Fit tree to view" title="Fit to view" onClick={fit}>
+        <Button variant="icon" aria-label={t("family:chart.fitAria")} title={t("family:chart.fitTitle")} onClick={fit}>
           <Maximize size={17} />
         </Button>
       </div>

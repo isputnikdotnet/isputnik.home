@@ -9,6 +9,10 @@
 import { nanoid } from "nanoid";
 import { db } from "../../../db.js";
 import { ASSET_COLUMNS, ASSET_JOINS, mapAsset, type GalleryAssetRow } from "./catalog.js";
+import type { CardFont, CardSize } from "./slideshow-title-card.js";
+import { entityTagsByIds } from "../audiobook/categorize.js";
+
+const SLIDESHOW_TAG_TYPE = "gallery_slideshow";
 
 const inClause = (n: number) => Array(n).fill("?").join(", ");
 
@@ -23,6 +27,14 @@ export type SlideshowTransition = "none" | "crossfade" | "fade" | "slide" | "ken
 // photos (sharp or blurred), or a collage tiled from several of them.
 export type SlideshowSubtitleMode = "count" | "custom" | "none";
 export type SlideshowTitleBackground = "black" | "photo" | "blur" | "collage";
+
+/**
+ * What to do when the movie's filename is already taken in the target library.
+ * "keep_both" numbers the new file (" (2)"); "overwrite" replaces it — but only ever a
+ * file that is not a catalogued item belonging to something else (see saveMovieToLibrary),
+ * so this can never quietly destroy a video someone filmed.
+ */
+export type MovieConflictPolicy = "overwrite" | "keep_both";
 
 export interface SlideshowRow {
   id: string;
@@ -40,6 +52,17 @@ export interface SlideshowRow {
   title_seconds: number;
   title_background: SlideshowTitleBackground;
   title_photo_item_id: string | null;
+  card_font: CardFont; // which bundled face the cards' text is set in (both cards)
+  card_size: CardSize; // small | medium | large; medium = the pre-3.26 card
+  closing_enabled: number; // 1 = the movie ends on a closing card (default 0)
+  closing_text: string | null; // NULL = "The End"
+  closing_lines: string | null; // up to six newline-separated credit lines
+  closing_seconds: number;
+  closing_background: SlideshowTitleBackground;
+  closing_photo_item_id: string | null;
+  // The post-credit clip: a gallery video that plays last, after the closing card.
+  outro_item_id: string | null;
+  outro_sound: number; // 1 = the clip's own audio plays, music pausing under it
   cover_item_id: string | null;
   render_status: "draft" | "queued" | "rendering" | "ready" | "failed";
   render_stale: number; // 1 = a 'ready' movie predates the current settings/content
@@ -48,8 +71,13 @@ export interface SlideshowRow {
   output_bytes: number | null;
   rendered_at: string | null;
   render_error: string | null;
-  // Where the latest render was auto-saved as a gallery item (null until saved to a
-  // library). See slideshow-render.ts saveMovieToLibrary and slideshow-settings.ts.
+  // Saving the movie into a library, chosen per slideshow. Target NULL = don't save.
+  // See slideshow-render.ts saveMovieToLibrary.
+  movie_target_library_id: string | null;
+  movie_on_conflict: MovieConflictPolicy;
+  movie_file_stem: string | null;
+  movie_save_error: string | null;
+  // Where the latest render actually landed (null until saved to a library).
   movie_library_id: string | null;
   movie_relative_path: string | null;
   movie_item_id: string | null;
@@ -104,12 +132,33 @@ export interface SlideshowUpdate {
   titleSeconds?: number;
   titleBackground?: SlideshowTitleBackground;
   titlePhotoItemId?: string | null;
+  cardFont?: CardFont;
+  cardSize?: CardSize;
+  closingEnabled?: boolean;
+  closingText?: string | null;
+  closingLines?: string | null;
+  closingSeconds?: number;
+  closingBackground?: SlideshowTitleBackground;
+  closingPhotoItemId?: string | null;
+  outroItemId?: string | null;
+  outroSound?: boolean;
+  // null clears the target, which turns saving to a library off.
+  movieTargetLibraryId?: string | null;
+  movieOnConflict?: MovieConflictPolicy;
+  // null clears a Rename, putting the file back on the slideshow's own name.
+  movieFileStem?: string | null;
   coverItemId?: string | null;
 }
+
+// Fields that change only WHERE the finished movie is filed, never a frame of it. An
+// edit confined to these must not flag the rendered movie out of date: choosing a
+// library is not a reason to re-encode three minutes of video.
+const FILING_ONLY_FIELDS: (keyof SlideshowUpdate)[] = ['movieTargetLibraryId', 'movieOnConflict', 'movieFileStem'];
 
 export function updateSlideshow(slideshowId: string, fields: SlideshowUpdate): boolean {
   const slideshow = getSlideshow(slideshowId);
   if (!slideshow) return false;
+  const touchesContent = Object.keys(fields).some((key) => !FILING_ONLY_FIELDS.includes(key as keyof SlideshowUpdate));
   // A cover must be a member of the slideshow (or null to fall back to the first
   // slide) — same rule as gallery_albums.cover_item_id.
   if (fields.coverItemId) {
@@ -136,8 +185,21 @@ export function updateSlideshow(slideshowId: string, fields: SlideshowUpdate): b
       title_seconds = COALESCE(?, title_seconds),
       title_background = COALESCE(?, title_background),
       title_photo_item_id = CASE WHEN ? THEN ? ELSE title_photo_item_id END,
+      card_font = COALESCE(?, card_font),
+      card_size = COALESCE(?, card_size),
+      closing_enabled = COALESCE(?, closing_enabled),
+      closing_text = CASE WHEN ? THEN ? ELSE closing_text END,
+      closing_lines = CASE WHEN ? THEN ? ELSE closing_lines END,
+      closing_seconds = COALESCE(?, closing_seconds),
+      closing_background = COALESCE(?, closing_background),
+      closing_photo_item_id = CASE WHEN ? THEN ? ELSE closing_photo_item_id END,
+      outro_item_id = CASE WHEN ? THEN ? ELSE outro_item_id END,
+      outro_sound = COALESCE(?, outro_sound),
+      movie_target_library_id = CASE WHEN ? THEN ? ELSE movie_target_library_id END,
+      movie_on_conflict = COALESCE(?, movie_on_conflict),
+      movie_file_stem = CASE WHEN ? THEN ? ELSE movie_file_stem END,
       cover_item_id = CASE WHEN ? THEN ? ELSE cover_item_id END,
-      render_stale = CASE WHEN render_status = 'ready' THEN 1 ELSE render_stale END,
+      render_stale = CASE WHEN ? AND render_status = 'ready' THEN 1 ELSE render_stale END,
       updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
     WHERE id = ?
   `).run(
@@ -153,7 +215,21 @@ export function updateSlideshow(slideshowId: string, fields: SlideshowUpdate): b
     fields.titleSeconds ?? null,
     fields.titleBackground ?? null,
     fields.titlePhotoItemId !== undefined ? 1 : 0, fields.titlePhotoItemId ?? null,
+    fields.cardFont ?? null,
+    fields.cardSize ?? null,
+    fields.closingEnabled === undefined ? null : fields.closingEnabled ? 1 : 0,
+    fields.closingText !== undefined ? 1 : 0, fields.closingText ?? null,
+    fields.closingLines !== undefined ? 1 : 0, fields.closingLines ?? null,
+    fields.closingSeconds ?? null,
+    fields.closingBackground ?? null,
+    fields.closingPhotoItemId !== undefined ? 1 : 0, fields.closingPhotoItemId ?? null,
+    fields.outroItemId !== undefined ? 1 : 0, fields.outroItemId ?? null,
+    fields.outroSound === undefined ? null : fields.outroSound ? 1 : 0,
+    fields.movieTargetLibraryId !== undefined ? 1 : 0, fields.movieTargetLibraryId ?? null,
+    fields.movieOnConflict ?? null,
+    fields.movieFileStem !== undefined ? 1 : 0, fields.movieFileStem ?? null,
     fields.coverItemId !== undefined ? 1 : 0, fields.coverItemId ?? null,
+    touchesContent ? 1 : 0,
     slideshowId
   );
   return true;
@@ -173,6 +249,18 @@ export function titleCardLines(
     return { title, subtitle: custom || null };
   }
   return { title, subtitle: `${itemCount} photo${itemCount === 1 ? "" : "s"}` };
+}
+
+// The closing card's lines, same contract as titleCardLines: pure, so the editor's
+// preview and the movie can never disagree. No subtitle MODES here — the closing
+// card is an end title plus free credit lines, and a photo count makes no sense at
+// the end. `subtitle` carries the newline-separated credits (the drawer splits).
+export function closingCardLines(
+  slideshow: Pick<SlideshowRow, "closing_text" | "closing_lines">
+): { title: string; subtitle: string | null } {
+  const title = (slideshow.closing_text ?? "").trim() || "The End";
+  const lines = (slideshow.closing_lines ?? "").trim();
+  return { title, subtitle: lines || null };
 }
 
 export function deleteSlideshow(slideshowId: string): boolean {
@@ -286,9 +374,12 @@ export function listSlideshows(user: { id: string; role: string }, libIds: strin
     ORDER BY datetime(gallery_slideshows.updated_at) DESC
   `).all(...libArgs, ...libArgs, ...libArgs) as SlideshowListRow[];
 
-  return rows
-    .filter((row) => row.visible_count > 0 || canEditSlideshow(row, user))
-    .map((row) => summarize(row, row.visible_count, row.cover_key, canEditSlideshow(row, user)));
+  const visible = rows.filter((row) => row.visible_count > 0 || canEditSlideshow(row, user));
+  const tags = entityTagsByIds(SLIDESHOW_TAG_TYPE, visible.map((row) => row.id));
+  return visible.map((row) => ({
+    ...summarize(row, row.visible_count, row.cover_key, canEditSlideshow(row, user)),
+    tags: tags.get(row.id) ?? []
+  }));
 }
 
 // Shape one slideshow for the client. Kept in one place so the list, create, and
@@ -376,6 +467,28 @@ export function getSlideshowRenderItems(libIds: string[], slideshow: SlideshowRo
   `).all(slideshow.id, ...libIds) as SlideshowRenderItem[];
 }
 
+// One gallery VIDEO by id, in the same shape the render items use — for the
+// opening/closing clips, which need not be slideshow members. Filtered by the
+// given library access and by kind, so an id that stopped being reachable (or was
+// never a video) resolves to null and the render simply goes on without it.
+export function getClipRenderItem(libIds: string[], itemId: string | null): SlideshowRenderItem | null {
+  if (!itemId || libIds.length === 0) return null;
+  const libIn = inClause(libIds.length);
+  const row = db.prepare(`
+    SELECT library_items.id AS id, gallery_details.kind AS kind, gallery_details.relative_path AS relative_path,
+           libraries.source_path AS source_path, NULL AS dwell_seconds,
+           gallery_details.duration_seconds AS duration_seconds,
+           gallery_details.rotation AS rotation
+    FROM library_items
+    JOIN gallery_details ON gallery_details.item_id = library_items.id
+    JOIN libraries ON libraries.id = library_items.library_id
+    WHERE library_items.id = ? AND library_items.deleted_at IS NULL
+      AND gallery_details.kind = 'video'
+      AND library_items.library_id IN (${libIn})
+  `).get(itemId, ...libIds) as SlideshowRenderItem | undefined;
+  return row ?? null;
+}
+
 // Set/reset render state. The worker moves a slideshow through queued → rendering →
 // ready|failed; edits (see updateSlideshow) flag a 'ready' movie stale. Every transition
 // here reflects a fresh/absent render, so the stale flag always clears.
@@ -414,6 +527,12 @@ export function setSlideshowRenderState(
 // Record where the latest render was auto-saved as a gallery video item, so a re-render
 // overwrites the same file (and updates the same catalog item) instead of duplicating it.
 // Cleared by passing null everywhere (e.g. if saving to a library ever needs to reset).
+// Why the last save into a library failed, or null when it worked. Kept on the slideshow
+// so the editor can explain a movie that rendered fine but never reached the library.
+export function setSlideshowSaveError(slideshowId: string, error: string | null): void {
+  db.prepare('UPDATE gallery_slideshows SET movie_save_error = ? WHERE id = ?').run(error, slideshowId);
+}
+
 export function setSlideshowMovieAsset(
   slideshowId: string,
   fields: { libraryId: string | null; relativePath: string | null; itemId: string | null }

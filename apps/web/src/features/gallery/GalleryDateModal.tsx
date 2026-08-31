@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { CalendarClock } from "lucide-react";
 import { api } from "../../api";
 import { Button } from "../../shared/Button";
@@ -22,6 +23,7 @@ export function GalleryDateModal({
   onClose: () => void;
   onApplied: (updated: number, forbidden: number, noDate: number) => void;
 }) {
+  const { t } = useTranslation(["common", "galleryModals"]);
   const [mode, setMode] = useState<"set" | "shift">("set");
   const [date, setDate] = useState("");
   const [shiftAmount, setShiftAmount] = useState("1");
@@ -52,7 +54,7 @@ export function GalleryDateModal({
       onApplied(result.updated, result.forbidden, result.noDate);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to update the selected items");
+      setError(err instanceof Error ? err.message : t("galleryModals:date.unableToUpdate"));
     } finally {
       setBusy(false);
     }
@@ -60,7 +62,7 @@ export function GalleryDateModal({
 
   return (
     <Modal
-      title="Set date taken"
+      title={t("galleryModals:date.title")}
       icon={<CalendarClock size={20} />}
       busy={busy}
       className="gallery-bulk-edit-modal"
@@ -68,19 +70,19 @@ export function GalleryDateModal({
       onSubmit={(event) => { event.preventDefault(); void apply(); }}
     >
       <p className="muted">
-        Applies to {count} selected item{count === 1 ? "" : "s"}. The date you set here survives the next scan.
+        {t("galleryModals:date.appliesTo", { count })}
       </p>
 
-      {error && <MessageBox tone="error" title="Unable to save">{error}</MessageBox>}
+      {error && <MessageBox tone="error" title={t("common:errors.unableToSave")}>{error}</MessageBox>}
 
-      <div className="gallery-bulk-edit-modes" role="radiogroup" aria-label="How to change the date">
+      <div className="gallery-bulk-edit-modes" role="radiogroup" aria-label={t("galleryModals:date.modeAria")}>
         <label>
           <input type="radio" name="date-mode" checked={mode === "set"} onChange={() => setMode("set")} disabled={busy} />
-          <span>Set one date</span>
+          <span>{t("galleryModals:date.modeSet")}</span>
         </label>
         <label>
           <input type="radio" name="date-mode" checked={mode === "shift"} onChange={() => setMode("shift")} disabled={busy} />
-          <span>Shift by an offset</span>
+          <span>{t("galleryModals:date.modeShift")}</span>
         </label>
       </div>
 
@@ -88,7 +90,7 @@ export function GalleryDateModal({
         {mode === "set" ? (
           <>
             <label>
-              <span className="sr-only">Date and time taken</span>
+              <span className="sr-only">{t("galleryModals:date.dateTimeSr")}</span>
               <input
                 type="datetime-local"
                 value={date}
@@ -98,14 +100,14 @@ export function GalleryDateModal({
               />
             </label>
             <span className="muted gallery-bulk-edit-hint">
-              Every selected item gets this exact date and time, so they’ll sort together in the timeline.
+              {t("galleryModals:date.setHint")}
             </span>
           </>
         ) : (
           <>
             <div className="gallery-bulk-edit-shift">
               <label>
-                <span className="sr-only">Shift amount</span>
+                <span className="sr-only">{t("galleryModals:date.shiftAmountSr")}</span>
                 <input
                   type="number"
                   min={1}
@@ -117,33 +119,32 @@ export function GalleryDateModal({
                 />
               </label>
               <label>
-                <span className="sr-only">Unit</span>
+                <span className="sr-only">{t("galleryModals:date.unitSr")}</span>
                 <select value={shiftUnit} onChange={(event) => setShiftUnit(event.target.value as ShiftUnit)} disabled={busy}>
-                  <option value="minutes">minutes</option>
-                  <option value="hours">hours</option>
-                  <option value="days">days</option>
+                  <option value="minutes">{t("galleryModals:date.unitMinutes")}</option>
+                  <option value="hours">{t("galleryModals:date.unitHours")}</option>
+                  <option value="days">{t("galleryModals:date.unitDays")}</option>
                 </select>
               </label>
               <label>
-                <span className="sr-only">Direction</span>
+                <span className="sr-only">{t("galleryModals:date.directionSr")}</span>
                 <select value={shiftBack ? "back" : "forward"} onChange={(event) => setShiftBack(event.target.value === "back")} disabled={busy}>
-                  <option value="forward">later</option>
-                  <option value="back">earlier</option>
+                  <option value="forward">{t("galleryModals:date.later")}</option>
+                  <option value="back">{t("galleryModals:date.earlier")}</option>
                 </select>
               </label>
             </div>
             <span className="muted gallery-bulk-edit-hint">
-              Each item moves by this much from its own date, so the order and spacing the camera
-              recorded are kept. Items with no date at all can’t be shifted.
+              {t("galleryModals:date.shiftHint")}
             </span>
           </>
         )}
       </div>
 
       <div className="modal-actions">
-        <Button variant="secondary" onClick={onClose} disabled={busy}>Cancel</Button>
+        <Button variant="secondary" onClick={onClose} disabled={busy}>{t("common:common.cancel")}</Button>
         <Button variant="primary" type="submit" disabled={!ready || busy}>
-          {busy ? "Applying…" : "Apply"}
+          {busy ? t("galleryModals:common.applying") : t("galleryModals:common.apply")}
         </Button>
       </div>
     </Modal>

@@ -10,8 +10,11 @@ export type Role = "admin" | "member";
 // Which second factor an account uses: a rolling code from an authenticator app,
 // or a one-time code emailed at sign-in. Handling lives in core/mfa.ts.
 export type MfaMethod = "totp" | "email";
-export const THEME_PREFERENCES = ["system", "light", "dark", "plain-light", "plain-dark", "expanse"] as const;
+export const THEME_PREFERENCES = ["system", "light", "dark", "plain-light", "plain-dark", "minimalist"] as const;
 export type ThemePreference = (typeof THEME_PREFERENCES)[number];
+// Interface languages the web app ships strings for (apps/web/src/locales).
+export const LANGUAGE_PREFERENCES = ["en", "ru"] as const;
+export type LanguagePreference = (typeof LANGUAGE_PREFERENCES)[number];
 
 export interface User {
   id: string;
@@ -20,6 +23,7 @@ export interface User {
   display_name: string;
   role: Role;
   theme: ThemePreference;
+  language: LanguagePreference;
   ereader_email: string | null;
   mfa_enabled: 0 | 1;
   mfa_method: MfaMethod;
@@ -84,6 +88,19 @@ db.pragma("journal_mode = WAL");
 db.pragma("synchronous = NORMAL");
 db.pragma("foreign_keys = ON");
 
+// SQLite's own LOWER() and LIKE fold ASCII and nothing else, so "Цитата" and
+// "цитата" are different words to it — which makes a case-insensitive search
+// useless in half the languages this app speaks. JS knows better, so lend it to
+// SQL. Deterministic (same input, same output), so SQLite may cache and index it.
+//
+// The alphabet index solves the same problem the other way, with a stored
+// alpha_key column, because it sorts every browse page; a search that runs on
+// demand over one user's quotes is cheaper to fold on the fly than to duplicate
+// on disk.
+db.function("lower_unicode", { deterministic: true }, (value: unknown) =>
+  typeof value === "string" ? value.toLowerCase() : value ?? null
+);
+
 // Apply the canonical schema + ordered migrations, then seed navigation data.
 migrate(db);
 seed(db);
@@ -143,6 +160,7 @@ export function publicUser(user: User) {
 export function selfUser(user: User) {
   return {
     ...publicUser(user),
+    language: user.language,
     ereaderEmail: user.ereader_email ?? null,
     mfaEnabled: Boolean(user.mfa_enabled),
     mfaMethod: user.mfa_method

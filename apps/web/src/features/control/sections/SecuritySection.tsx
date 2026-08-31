@@ -1,4 +1,6 @@
 import { Fragment, useState, useEffect, useCallback, type FormEvent } from "react";
+import { Trans, useTranslation } from "react-i18next";
+import i18n from "../../../i18n";
 import {
   Ban,
   ChevronDown,
@@ -22,7 +24,7 @@ import {
 import { api } from "../../../api";
 import { controlHref, navigate, type ControlSection } from "../../../router";
 import { Pager } from "../../../shared/Pager";
-import { signInsHref } from "./dashboard/SignInsSection";
+import { signInsHref } from "./dashboard/SignInsView";
 import { ProtectionCard, gradePolicies, type Exposure } from "./SecurityProtection";
 import { ControlSectionHead } from "../ControlSectionHead";
 import { Button } from "../../../shared/Button";
@@ -127,14 +129,15 @@ const TAB_FOR_SECTION: Record<SecuritySectionKey, SecurityTab> = {
   securityBlocked: "blocked"
 };
 
-const HEAD_DESCRIPTION: Record<SecurityTab, string> = {
-  overview: "How sign-in protection is currently set up.",
-  policies: "Lockout, IP auto-blocking, password rules and sign-in alerts.",
-  trusted: "Networks that skip the IP auto-block, such as your own LAN.",
-  blocked: "Addresses that cannot reach the sign-in screen."
+const HEAD_DESCRIPTION_KEYS: Record<SecurityTab, "descOverview" | "descPolicies" | "descTrusted" | "descBlocked"> = {
+  overview: "descOverview",
+  policies: "descPolicies",
+  trusted: "descTrusted",
+  blocked: "descBlocked"
 };
 
 export function SecuritySection({ section }: { section: SecuritySectionKey }) {
+  const { t } = useTranslation(["common", "controlAdmin"]);
   const [data, setData] = useState<SecurityData | null>(null);
   const [error, setError] = useState("");
   const activeTab = TAB_FOR_SECTION[section];
@@ -190,9 +193,9 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
     try {
       await fetchSecurity();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to load security settings");
+      setError(err instanceof Error ? err.message : t("controlAdmin:security.loadFailed"));
     }
-  }, [fetchSecurity]);
+  }, [fetchSecurity, t]);
 
   useEffect(() => {
     load();
@@ -223,14 +226,14 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
     } catch (err) {
       const fallback =
         scope === "alerts"
-          ? "Unable to save alert settings"
+          ? t("controlAdmin:security.saveAlertsFailed")
           : scope === "mfa"
-            ? "Unable to save two-factor sign-in"
+            ? t("controlAdmin:security.saveMfaFailed")
             : scope === "reputation"
-              ? "Unable to save reputation settings"
+              ? t("controlAdmin:security.saveRepFailed")
               : scope === "deletes"
-                ? "Unable to save deletion protection"
-                : "Unable to save thresholds";
+                ? t("controlAdmin:security.saveDeletesFailed")
+                : t("controlAdmin:security.saveThresholdsFailed");
       setPolicyError({ scope, message: err instanceof Error ? err.message : fallback });
     } finally {
       setSavingPolicy(null);
@@ -253,7 +256,7 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
       setPolicySaved("reputation");
       await load();
     } catch (err) {
-      setPolicyError({ scope: "reputation", message: err instanceof Error ? err.message : "Unable to remove the key" });
+      setPolicyError({ scope: "reputation", message: err instanceof Error ? err.message : t("controlAdmin:security.removeKeyFailed") });
     } finally {
       setSavingPolicy(null);
     }
@@ -274,7 +277,7 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
       setPwSaved(true);
       await load();
     } catch (err) {
-      setPwError(err instanceof Error ? err.message : "Unable to save password policy");
+      setPwError(err instanceof Error ? err.message : t("controlAdmin:security.savePwFailed"));
     } finally {
       setSavingPw(false);
     }
@@ -301,7 +304,7 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
       await load();
       setTrustedOpen(false);
     } catch (err) {
-      setTrustedError(err instanceof Error ? err.message : "Unable to add network");
+      setTrustedError(err instanceof Error ? err.message : t("controlAdmin:security.addTrustedFailed"));
     } finally {
       setAddingTrusted(false);
     }
@@ -313,7 +316,7 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
       await api(`/api/security/trusted-networks/${id}`, { method: "DELETE" });
       await load();
     } catch (err) {
-      setTrustedError(err instanceof Error ? err.message : "Unable to remove network");
+      setTrustedError(err instanceof Error ? err.message : t("controlAdmin:security.removeTrustedFailed"));
     }
   };
 
@@ -338,7 +341,7 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
       await load();
       setBlockOpen(false);
     } catch (err) {
-      setBlockError(err instanceof Error ? err.message : "Unable to block IP");
+      setBlockError(err instanceof Error ? err.message : t("controlAdmin:security.blockIpFailed"));
     } finally {
       setBlocking(false);
     }
@@ -350,7 +353,7 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
       await api(`/api/security/blocked-ips/${encodeURIComponent(value)}`, { method: "DELETE" });
       await load();
     } catch (err) {
-      setBlockError(err instanceof Error ? err.message : "Unable to unblock IP");
+      setBlockError(err instanceof Error ? err.message : t("controlAdmin:security.unblockFailed"));
     }
   };
 
@@ -361,7 +364,7 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
       await api(`/api/security/blocked-ips/${encodeURIComponent(value)}/reputation`, { method: "POST" });
       await load();
     } catch (err) {
-      setBlockError(err instanceof Error ? err.message : "Unable to check reputation");
+      setBlockError(err instanceof Error ? err.message : t("controlAdmin:security.checkRepFailed"));
     } finally {
       setCheckingIp(null);
     }
@@ -377,7 +380,7 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
       setPermanentTarget(null);
     } catch (err) {
       // Keep the dialog open — the error renders inside it, next to Cancel.
-      setPermanentError(err instanceof Error ? err.message : "Unable to make the block permanent");
+      setPermanentError(err instanceof Error ? err.message : t("controlAdmin:security.makePermanentFailed"));
     } finally {
       setMakingPermanent(false);
     }
@@ -396,7 +399,7 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
       setPolicyForm(res.policy);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to save how the server is reached");
+      setError(err instanceof Error ? err.message : t("controlAdmin:security.exposureFailed"));
     } finally {
       setSavingExposure(false);
     }
@@ -410,7 +413,7 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
       setPendingClearLapsed(false);
       await fetchSecurity();
     } catch (err) {
-      setBlockError(err instanceof Error ? err.message : "Unable to clear lapsed blocks");
+      setBlockError(err instanceof Error ? err.message : t("controlAdmin:security.clearLapsedFailed"));
       setPendingClearLapsed(false);
     } finally {
       setClearingLapsed(false);
@@ -435,7 +438,7 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
         section={section}
         icon={<ShieldCheck size={30} />}
         iconClassName="blue"
-        description={HEAD_DESCRIPTION[activeTab]}
+        description={t(`controlAdmin:security.${HEAD_DESCRIPTION_KEYS[activeTab]}`)}
       >
         <RefreshButton
           onRefresh={async () => {
@@ -443,14 +446,14 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
             try {
               await fetchSecurity();
             } catch (err) {
-              setError(err instanceof Error ? err.message : "Unable to refresh security settings");
+              setError(err instanceof Error ? err.message : t("controlAdmin:security.refreshFailed"));
               throw err;
             }
           }}
         />
       </ControlSectionHead>
 
-      {error && <MessageBox tone="error" title="Unable to load">{error}</MessageBox>}
+      {error && <MessageBox tone="error" title={t("controlAdmin:security.loadErrorTitle")}>{error}</MessageBox>}
 
       {data && (
         <>
@@ -462,7 +465,7 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
             >
               {/* Where every setting stands, each row a door to the policy that
                   owns it — coloured when something needs attention. */}
-              <section className="security-overview-dashboard compact-tables" aria-label="Security overview">
+              <section className="security-overview-dashboard compact-tables" aria-label={t("controlAdmin:security.overviewAria")}>
                 <ProtectionCard
                   grades={gradePolicies({
                     policy: data.policy,
@@ -480,8 +483,8 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
 
                 <div className="status-subsection">
                   <div className="status-table-title">
-                    <h3>Policies</h3>
-                    <span>Each row opens the setting that owns it</span>
+                    <h3>{t("controlAdmin:security.policiesHeading")}</h3>
+                    <span>{t("controlAdmin:security.policiesSubtitle")}</span>
                   </div>
                   <div className="datagrid-wrap">
                     <table className="datagrid locations-table">
@@ -529,14 +532,14 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                                       row.level === "strong" ? "good" : row.level === "medium" ? "warn" : "bad"
                                     }`}
                                   >
-                                    {row.level === "strong" ? "Strong" : row.level === "medium" ? "Medium" : "Weak"}
+                                    {row.level === "strong" ? t("controlAdmin:security.pillStrong") : row.level === "medium" ? t("controlAdmin:security.pillMedium") : t("controlAdmin:security.pillWeak")}
                                   </span>
                                 </td>
                                 <td className="locations-row-action">
                                   <Button
                                     variant="icon"
-                                    aria-label={"section" in row.target ? `Open ${row.label} settings` : "Read the exposing-to-the-internet guide"}
-                                    title={"section" in row.target ? "Open the setting" : "Read the guide"}
+                                    aria-label={"section" in row.target ? t("controlAdmin:security.openSettingAria", { label: row.label }) : t("controlAdmin:security.readGuideAria")}
+                                    title={"section" in row.target ? t("controlAdmin:security.openSetting") : t("controlAdmin:security.readGuide")}
                                     onClick={(event) => {
                                       event.stopPropagation();
                                       open();
@@ -567,16 +570,16 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                     <ShieldCheck size={24} />
                   </span>
                   <div>
-                    <h2 id="policy-heading">Protection thresholds</h2>
-                    <p className="section-description">Tune the lockout and IP auto-block. Changes apply immediately.</p>
+                    <h2 id="policy-heading">{t("controlAdmin:security.thresholdsTitle")}</h2>
+                    <p className="section-description">{t("controlAdmin:security.thresholdsDesc")}</p>
                   </div>
                 </div>
                 {policyForm && (
                   <form className="security-policy-form" onSubmit={(event) => savePolicy(event, "thresholds")}>
                     <label className="security-setting-row">
                       <span className="security-setting-copy">
-                        <span className="security-setting-label">Lock account after (failed sign-ins)</span>
-                        <span className="security-setting-help">Number of consecutive failed sign-in attempts.</span>
+                        <span className="security-setting-label">{t("controlAdmin:security.lockAfterLabel")}</span>
+                        <span className="security-setting-help">{t("controlAdmin:security.lockAfterHelp")}</span>
                       </span>
                       <input
                         type="number"
@@ -589,8 +592,8 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                     </label>
                     <label className="security-setting-row">
                       <span className="security-setting-copy">
-                        <span className="security-setting-label">Lockout duration (minutes)</span>
-                        <span className="security-setting-help">Time the account remains locked.</span>
+                        <span className="security-setting-label">{t("controlAdmin:security.lockoutDurationLabel")}</span>
+                        <span className="security-setting-help">{t("controlAdmin:security.lockoutDurationHelp")}</span>
                       </span>
                       <input
                         type="number"
@@ -603,8 +606,8 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                     </label>
                     <label className="security-setting-row">
                       <span className="security-setting-copy">
-                        <span className="security-setting-label">Auto-block IP after (failed sign-ins)</span>
-                        <span className="security-setting-help">Number of failed sign-ins before an IP is blocked.</span>
+                        <span className="security-setting-label">{t("controlAdmin:security.autoblockAfterLabel")}</span>
+                        <span className="security-setting-help">{t("controlAdmin:security.autoblockAfterHelp")}</span>
                       </span>
                       <input
                         type="number"
@@ -617,8 +620,8 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                     </label>
                     <label className="security-setting-row">
                       <span className="security-setting-copy">
-                        <span className="security-setting-label">IP failure window (minutes)</span>
-                        <span className="security-setting-help">Time window to count failed sign-ins from the same IP.</span>
+                        <span className="security-setting-label">{t("controlAdmin:security.failWindowLabel")}</span>
+                        <span className="security-setting-help">{t("controlAdmin:security.failWindowHelp")}</span>
                       </span>
                       <input
                         type="number"
@@ -631,8 +634,8 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                     </label>
                     <label className="security-setting-row">
                       <span className="security-setting-copy">
-                        <span className="security-setting-label">Auto-block duration (minutes)</span>
-                        <span className="security-setting-help">Time the IP remains blocked.</span>
+                        <span className="security-setting-label">{t("controlAdmin:security.autoblockDurationLabel")}</span>
+                        <span className="security-setting-help">{t("controlAdmin:security.autoblockDurationHelp")}</span>
                       </span>
                       <input
                         type="number"
@@ -644,10 +647,10 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                       />
                     </label>
                     {policyError?.scope === "thresholds" && (
-                      <MessageBox tone="error" title="Unable to save">{policyError.message}</MessageBox>
+                      <MessageBox tone="error" title={t("errors.unableToSave")}>{policyError.message}</MessageBox>
                     )}
                     {policySaved === "thresholds" && (
-                      <MessageBox tone="success" title="Saved">Thresholds updated.</MessageBox>
+                      <MessageBox tone="success" title={t("controlAdmin:ui.saved")}>{t("controlAdmin:security.thresholdsSaved")}</MessageBox>
                     )}
                     <div className="security-policy-actions">
                       <Button
@@ -657,7 +660,7 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                         disabled={savingPolicy !== null}
                       >
                         <Save size={16} />
-                        {savingPolicy === "thresholds" ? "Saving…" : "Save thresholds"}
+                        {savingPolicy === "thresholds" ? t("controlAdmin:ui.saving") : t("controlAdmin:security.saveThresholds")}
                       </Button>
                     </div>
                   </form>
@@ -670,9 +673,9 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                     <ShieldCheck size={24} />
                   </span>
                   <div>
-                    <h2 id="mfa-outside-heading">Two-factor sign-in</h2>
+                    <h2 id="mfa-outside-heading">{t("controlAdmin:security.mfaTitle")}</h2>
                     <p className="section-description">
-                      Whether a password alone is enough to sign in from outside your trusted networks.
+                      {t("controlAdmin:security.mfaDesc")}
                     </p>
                   </div>
                 </div>
@@ -688,46 +691,39 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                       />
                       <span className="security-setting-copy">
                         <span className="security-setting-label">
-                          Require a second factor outside trusted networks
+                          {t("controlAdmin:security.mfaLabel")}
                         </span>
                         <span className="security-setting-help">
-                          Even a stolen or guessed password is then not enough to get in from the internet. Accounts
-                          with two-factor set up use their usual method; accounts without get a one-time code emailed
-                          to their sign-in address. Passkey sign-ins already count as two factors. At home — on a
-                          trusted network — nothing changes.
+                          {t("controlAdmin:security.mfaHelp")}
                         </span>
                       </span>
                     </label>
 
                     {policyForm.requireMfaOutside && !data.mailConfigured && (
-                      <MessageBox tone="warning" title="Email is not set up">
-                        The emailed-code fallback needs SMTP, configured under Control panel → Settings → Email.
-                        Without it, accounts that haven't set up two-factor cannot sign in from outside at all
-                        until they enroll from home.
+                      <MessageBox tone="warning" title={t("controlAdmin:security.noMailTitle")}>
+                        {t("controlAdmin:security.mfaNoMailBody")}
                       </MessageBox>
                     )}
 
                     {policyForm.requireMfaOutside && data.usersWithoutMfa.length > 0 && (
-                      <MessageBox tone="info" title="Accounts without two-factor set up">
-                        {data.usersWithoutMfa.join(", ")} — {data.usersWithoutMfa.length === 1 ? "this account" : "these accounts"}{" "}
-                        will {data.mailConfigured ? "get a code by email when signing in from outside" : "be unable to sign in from outside until two-factor is set up or email is configured"}.
+                      <MessageBox tone="info" title={t("controlAdmin:security.usersWithoutTitle")}>
+                        {data.mailConfigured
+                          ? t("controlAdmin:security.usersWithoutMail", { count: data.usersWithoutMfa.length, list: data.usersWithoutMfa.join(", ") })
+                          : t("controlAdmin:security.usersWithoutNoMail", { count: data.usersWithoutMfa.length, list: data.usersWithoutMfa.join(", ") })}
                       </MessageBox>
                     )}
 
                     {data.proxy.forwardedHeaderSeen && !data.proxy.configured && (
-                      <MessageBox tone="warning" title="Every sign-in will ask for the second factor">
-                        Requests arrive through a proxy but neither <code>TRUST_PROXY</code> nor{" "}
-                        <code>TRUST_PROXY_HOPS</code> is set, so the server cannot tell who is on a trusted
-                        network. With this policy on, it plays safe and asks everyone — including at home —
-                        until you set one.
+                      <MessageBox tone="warning" title={t("controlAdmin:security.proxyAsksTitle")}>
+                        <Trans i18nKey="security.proxyAsksBody" ns="controlAdmin" components={{ cd: <code /> }} />
                       </MessageBox>
                     )}
 
                     {policyError?.scope === "mfa" && (
-                      <MessageBox tone="error" title="Unable to save">{policyError.message}</MessageBox>
+                      <MessageBox tone="error" title={t("errors.unableToSave")}>{policyError.message}</MessageBox>
                     )}
                     {policySaved === "mfa" && (
-                      <MessageBox tone="success" title="Saved">Two-factor sign-in updated.</MessageBox>
+                      <MessageBox tone="success" title={t("controlAdmin:ui.saved")}>{t("controlAdmin:security.mfaSaved")}</MessageBox>
                     )}
                     <div className="security-policy-actions">
                       <Button
@@ -737,7 +733,7 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                         disabled={savingPolicy !== null}
                       >
                         <Save size={16} />
-                        {savingPolicy === "mfa" ? "Saving…" : "Save two-factor sign-in"}
+                        {savingPolicy === "mfa" ? t("controlAdmin:ui.saving") : t("controlAdmin:security.saveMfa")}
                       </Button>
                     </div>
                   </form>
@@ -750,9 +746,9 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                     <MailWarning size={24} />
                   </span>
                   <div>
-                    <h2 id="signin-alert-heading">Sign-in alerts</h2>
+                    <h2 id="signin-alert-heading">{t("controlAdmin:security.alertsTitle")}</h2>
                     <p className="section-description">
-                      Warn about a successful sign-in from somewhere the account has never been used.
+                      {t("controlAdmin:security.alertsDesc")}
                     </p>
                   </div>
                 </div>
@@ -767,35 +763,30 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                         }
                       />
                       <span className="security-setting-copy">
-                        <span className="security-setting-label">Email on a sign-in from a new network</span>
+                        <span className="security-setting-label">{t("controlAdmin:security.alertsLabel")}</span>
                         <span className="security-setting-help">
-                          The account owner and the admins are emailed. Networks are matched loosely (the /24 for
-                          IPv4, the /64 for IPv6) so a changing home or mobile address doesn't alert every time.
-                          Sign-ins from trusted networks never alert.
+                          {t("controlAdmin:security.alertsHelp")}
                         </span>
                       </span>
                     </label>
 
                     {!data.mailConfigured && (
-                      <MessageBox tone="warning" title="Email is not set up">
-                        These alerts are sent over SMTP. Configure it under Control panel → Settings → Email,
-                        or this setting has no effect.
+                      <MessageBox tone="warning" title={t("controlAdmin:security.noMailTitle")}>
+                        {t("controlAdmin:security.alertsNoMailBody")}
                       </MessageBox>
                     )}
 
                     {data.proxy.forwardedHeaderSeen && !data.proxy.configured && (
-                      <MessageBox tone="warning" title="Client IPs aren't accurate yet">
-                        Requests arrive through a proxy but neither <code>TRUST_PROXY</code> nor{" "}
-                        <code>TRUST_PROXY_HOPS</code> is set, so every visitor looks like the proxy address.
-                        Until you set one, a new network is never detected.
+                      <MessageBox tone="warning" title={t("controlAdmin:security.ipsInaccurateTitle")}>
+                        <Trans i18nKey="security.ipsInaccurateBody" ns="controlAdmin" components={{ cd: <code /> }} />
                       </MessageBox>
                     )}
 
                     {policyError?.scope === "alerts" && (
-                      <MessageBox tone="error" title="Unable to save">{policyError.message}</MessageBox>
+                      <MessageBox tone="error" title={t("errors.unableToSave")}>{policyError.message}</MessageBox>
                     )}
                     {policySaved === "alerts" && (
-                      <MessageBox tone="success" title="Saved">Sign-in alerts updated.</MessageBox>
+                      <MessageBox tone="success" title={t("controlAdmin:ui.saved")}>{t("controlAdmin:security.alertsSaved")}</MessageBox>
                     )}
                     <div className="security-policy-actions">
                       <Button
@@ -805,7 +796,7 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                         disabled={savingPolicy !== null}
                       >
                         <Save size={16} />
-                        {savingPolicy === "alerts" ? "Saving…" : "Save sign-in alerts"}
+                        {savingPolicy === "alerts" ? t("controlAdmin:ui.saving") : t("controlAdmin:security.saveAlerts")}
                       </Button>
                     </div>
                   </form>
@@ -818,10 +809,9 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                     <Trash2 size={24} />
                   </span>
                   <div>
-                    <h2 id="deletes-heading">Deletion protection</h2>
+                    <h2 id="deletes-heading">{t("controlAdmin:security.deletesTitle")}</h2>
                     <p className="section-description">
-                      Keep destructive actions to networks you trust, so stolen credentials used from the internet
-                      can't destroy the library.
+                      {t("controlAdmin:security.deletesDesc")}
                     </p>
                   </div>
                 </div>
@@ -836,25 +826,22 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                         }
                       />
                       <span className="security-setting-copy">
-                        <span className="security-setting-label">Allow deletions only from trusted networks</span>
+                        <span className="security-setting-label">{t("controlAdmin:security.deletesLabel")}</span>
                         <span className="security-setting-help">
-                          Applies to every account, admins included. Away from home, everything still works — browsing,
-                          uploads, edits, progress — but deleting items, emptying the Recycle Bin, cleaning up
-                          duplicates, and restoring backups are refused until you're back on a trusted network.
+                          {t("controlAdmin:security.deletesHelp")}
                         </span>
                       </span>
                     </label>
                     {policyForm.trustedDeletesOnly && data.trustedNetworks.length === 0 && (
-                      <MessageBox tone="warning" title="No trusted networks are defined">
-                        With this on and no trusted networks, nobody can delete anything from anywhere. Add your home
-                        network under Trusted networks, or turn this off.
+                      <MessageBox tone="warning" title={t("controlAdmin:security.noTrustedTitle")}>
+                        {t("controlAdmin:security.noTrustedBody")}
                       </MessageBox>
                     )}
                     {policyError?.scope === "deletes" && (
-                      <MessageBox tone="error" title="Unable to save">{policyError.message}</MessageBox>
+                      <MessageBox tone="error" title={t("errors.unableToSave")}>{policyError.message}</MessageBox>
                     )}
                     {policySaved === "deletes" && (
-                      <MessageBox tone="success" title="Saved">Deletion protection updated.</MessageBox>
+                      <MessageBox tone="success" title={t("controlAdmin:ui.saved")}>{t("controlAdmin:security.deletesSaved")}</MessageBox>
                     )}
                     <div className="security-policy-actions">
                       <Button
@@ -864,7 +851,7 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                         disabled={savingPolicy !== null}
                       >
                         <Save size={16} />
-                        {savingPolicy === "deletes" ? "Saving…" : "Save deletion protection"}
+                        {savingPolicy === "deletes" ? t("controlAdmin:ui.saving") : t("controlAdmin:security.saveDeletes")}
                       </Button>
                     </div>
                   </form>
@@ -876,9 +863,9 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                     <MonitorSmartphone size={24} />
                   </span>
                   <div>
-                    <h2 id="device-link-heading">Linking devices</h2>
+                    <h2 id="device-link-heading">{t("controlAdmin:security.devicesTitle")}</h2>
                     <p className="section-description">
-                      Where a TV, display or kiosk may ask to be signed in from by showing a code.
+                      {t("controlAdmin:security.devicesDesc")}
                     </p>
                   </div>
                 </div>
@@ -892,10 +879,9 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                         onChange={() => setPolicyForm({ ...policyForm, deviceLinkScope: "local" })}
                       />
                       <span className="security-setting-copy">
-                        <span className="security-setting-label">Only devices on your home network</span>
+                        <span className="security-setting-label">{t("controlAdmin:security.devicesLocalLabel")}</span>
                         <span className="security-setting-help">
-                          The recommended setting. A wall display is always in the house, and this is what stops a
-                          stranger elsewhere from starting a request at all.
+                          {t("controlAdmin:security.devicesLocalHelp")}
                         </span>
                       </span>
                     </label>
@@ -907,29 +893,24 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                         onChange={() => setPolicyForm({ ...policyForm, deviceLinkScope: "any" })}
                       />
                       <span className="security-setting-copy">
-                        <span className="security-setting-label">Any device that can reach the server</span>
+                        <span className="security-setting-label">{t("controlAdmin:security.devicesAnyLabel")}</span>
                         <span className="security-setting-help">
-                          Needed only if you link devices while away from home. It also lets someone else start a
-                          request and send you its code — approving one still needs your password, so never approve a
-                          device you didn't just set up, and check the code matches the screen in front of you.
+                          {t("controlAdmin:security.devicesAnyHelp")}
                         </span>
                       </span>
                     </label>
 
                     {data.proxy.forwardedHeaderSeen && !data.proxy.configured && (
-                      <MessageBox tone="warning" title="Device linking is refusing everything">
-                        Requests arrive through a proxy but neither <code>TRUST_PROXY</code> nor{" "}
-                        <code>TRUST_PROXY_HOPS</code> is set, so every device looks like it is on the proxy's
-                        own address — which would make "home network only" mean "anyone at all". Linking is
-                        refused entirely until you set one.
+                      <MessageBox tone="warning" title={t("controlAdmin:security.linkRefusedTitle")}>
+                        <Trans i18nKey="security.linkRefusedBody" ns="controlAdmin" components={{ cd: <code /> }} />
                       </MessageBox>
                     )}
 
                     {policyError?.scope === "devices" && (
-                      <MessageBox tone="error" title="Unable to save">{policyError.message}</MessageBox>
+                      <MessageBox tone="error" title={t("errors.unableToSave")}>{policyError.message}</MessageBox>
                     )}
                     {policySaved === "devices" && (
-                      <MessageBox tone="success" title="Saved">Device linking updated.</MessageBox>
+                      <MessageBox tone="success" title={t("controlAdmin:ui.saved")}>{t("controlAdmin:security.devicesSaved")}</MessageBox>
                     )}
                     <div className="security-policy-actions">
                       <Button
@@ -939,7 +920,7 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                         disabled={savingPolicy !== null}
                       >
                         <Save size={16} />
-                        {savingPolicy === "devices" ? "Saving…" : "Save device linking"}
+                        {savingPolicy === "devices" ? t("controlAdmin:ui.saving") : t("controlAdmin:security.saveDevices")}
                       </Button>
                     </div>
                   </form>
@@ -952,9 +933,9 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                     <LockKeyhole size={24} />
                   </span>
                   <div>
-                    <h2 id="pw-heading">Password policy</h2>
+                    <h2 id="pw-heading">{t("controlAdmin:security.pwTitle")}</h2>
                     <p className="section-description">
-                      Applies when a password is set or changed. Existing passwords keep working.
+                      {t("controlAdmin:security.pwDesc")}
                     </p>
                   </div>
                 </div>
@@ -962,8 +943,8 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                   <form className="security-policy-form" onSubmit={savePwPolicy}>
                     <label className="security-setting-row">
                       <span className="security-setting-copy">
-                        <span className="security-setting-label">Minimum length</span>
-                        <span className="security-setting-help">Minimum number of characters.</span>
+                        <span className="security-setting-label">{t("controlAdmin:security.pwMinLabel")}</span>
+                        <span className="security-setting-help">{t("controlAdmin:security.pwMinHelp")}</span>
                       </span>
                       <input
                         type="number"
@@ -981,19 +962,19 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                       />
                       <span className="security-setting-copy">
                         <span className="security-setting-label">
-                          Require a mix of letters, numbers, and symbols (at least 3 of 4)
+                          {t("controlAdmin:security.pwMixLabel")}
                         </span>
                         <span className="security-setting-help">
-                          Improve password strength by requiring character variety.
+                          {t("controlAdmin:security.pwMixHelp")}
                         </span>
                       </span>
                     </label>
-                    {pwError && <MessageBox tone="error" title="Unable to save">{pwError}</MessageBox>}
-                    {pwSaved && <MessageBox tone="success" title="Saved">Password policy updated.</MessageBox>}
+                    {pwError && <MessageBox tone="error" title={t("errors.unableToSave")}>{pwError}</MessageBox>}
+                    {pwSaved && <MessageBox tone="success" title={t("controlAdmin:ui.saved")}>{t("controlAdmin:security.pwSaved")}</MessageBox>}
                     <div className="security-policy-actions">
                       <Button variant="primary" className="security-save-button" type="submit" disabled={savingPw}>
                         <Save size={16} />
-                        {savingPw ? "Saving…" : "Save password policy"}
+                        {savingPw ? t("controlAdmin:ui.saving") : t("controlAdmin:security.savePw")}
                       </Button>
                     </div>
                   </form>
@@ -1006,10 +987,9 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                     <ShieldQuestion size={24} />
                   </span>
                   <div>
-                    <h2 id="reputation-heading">IP reputation (AbuseIPDB)</h2>
+                    <h2 id="reputation-heading">{t("controlAdmin:security.repTitle")}</h2>
                     <p className="section-description">
-                      Look up addresses this server has already flagged against AbuseIPDB's community database, and
-                      show the result next to each blocked IP.
+                      {t("controlAdmin:security.repDesc")}
                     </p>
                   </div>
                 </div>
@@ -1017,19 +997,17 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                   <form className="security-policy-form" onSubmit={(event) => savePolicy(event, "reputation")}>
                     <label className="security-setting-row">
                       <span className="security-setting-copy">
-                        <span className="security-setting-label">AbuseIPDB API key</span>
+                        <span className="security-setting-label">{t("controlAdmin:security.repKeyLabel")}</span>
                         <span className="security-setting-help">
-                          Free at abuseipdb.com. Leave empty to keep reputation lookups off — with a key set, addresses
-                          that trip the auto-block (and ones you check by hand) are sent to AbuseIPDB. Only already-
-                          flagged addresses are ever looked up, never regular visitors.
-                          {policyForm.hasAbuseIpdbKey && " A key is saved; type a new one to replace it."}
+                          {t("controlAdmin:security.repKeyHelp")}
+                          {policyForm.hasAbuseIpdbKey && t("controlAdmin:security.repKeySavedNote")}
                         </span>
                       </span>
                       <input
                         type="password"
                         autoComplete="off"
                         spellCheck={false}
-                        placeholder={policyForm.hasAbuseIpdbKey ? "•••••••• (saved)" : ""}
+                        placeholder={policyForm.hasAbuseIpdbKey ? t("controlAdmin:security.repKeyPlaceholder") : ""}
                         value={abuseKeyInput}
                         onChange={(event) => setAbuseKeyInput(event.target.value)}
                       />
@@ -1037,7 +1015,7 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                     {policyForm.hasAbuseIpdbKey && (
                       <div className="security-setting-row">
                         <Button type="button" variant="text" onClick={removeAbuseKey} disabled={savingPolicy !== null}>
-                          Remove saved key
+                          {t("controlAdmin:security.removeSavedKey")}
                         </Button>
                       </div>
                     )}
@@ -1050,18 +1028,17 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                         }
                       />
                       <span className="security-setting-copy">
-                        <span className="security-setting-label">Make auto-blocks permanent for known abusive IPs</span>
+                        <span className="security-setting-label">{t("controlAdmin:security.repEscalateLabel")}</span>
                         <span className="security-setting-help">
-                          When an address gets auto-blocked and AbuseIPDB reports it above the score below, the block
-                          keeps no expiry instead of the usual cooldown. You can always unblock it by hand.
+                          {t("controlAdmin:security.repEscalateHelp")}
                         </span>
                       </span>
                     </label>
                     <label className="security-setting-row">
                       <span className="security-setting-copy">
-                        <span className="security-setting-label">Abuse confidence score to escalate at (50–100)</span>
+                        <span className="security-setting-label">{t("controlAdmin:security.repThresholdLabel")}</span>
                         <span className="security-setting-help">
-                          AbuseIPDB's 0–100 confidence that an address is abusive. 90+ keeps false positives rare.
+                          {t("controlAdmin:security.repThresholdHelp")}
                         </span>
                       </span>
                       <input
@@ -1075,10 +1052,10 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                       />
                     </label>
                     {policyError?.scope === "reputation" && (
-                      <MessageBox tone="error" title="Unable to save">{policyError.message}</MessageBox>
+                      <MessageBox tone="error" title={t("errors.unableToSave")}>{policyError.message}</MessageBox>
                     )}
                     {policySaved === "reputation" && (
-                      <MessageBox tone="success" title="Saved">Reputation settings updated.</MessageBox>
+                      <MessageBox tone="success" title={t("controlAdmin:ui.saved")}>{t("controlAdmin:security.repSaved")}</MessageBox>
                     )}
                     <div className="security-policy-actions">
                       <Button
@@ -1088,7 +1065,7 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                         disabled={savingPolicy !== null}
                       >
                         <Save size={16} />
-                        {savingPolicy === "reputation" ? "Saving…" : "Save reputation settings"}
+                        {savingPolicy === "reputation" ? t("controlAdmin:ui.saving") : t("controlAdmin:security.saveRep")}
                       </Button>
                     </div>
                   </form>
@@ -1104,17 +1081,14 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
             >
               <section className="security-block security-network-view compact-tables" aria-labelledby="trusted-heading">
                 <div className="security-network-head">
-                  <h2 id="trusted-heading">Trusted networks</h2>
+                  <h2 id="trusted-heading">{t("controlAdmin:security.trustedHeading")}</h2>
                   <p className="section-description">
-                    Requests from these ranges skip rate limits, account lockout, and two-factor — handy on your home
-                    LAN. Leave empty unless you need it.
+                    {t("controlAdmin:security.trustedDesc")}
                   </p>
                 </div>
 
-                <MessageBox tone="warning" title="Use with care" className="security-network-callout">
-                  Only add ranges you fully control. If you run behind a reverse proxy, set{" "}
-                  <code>TRUST_PROXY</code> (or <code>TRUST_PROXY_HOPS</code>) first — otherwise every visitor can look
-                  like one private IP and bypass two-factor.
+                <MessageBox tone="warning" title={t("controlAdmin:security.trustedCalloutTitle")} className="security-network-callout">
+                  <Trans i18nKey="security.trustedCalloutBody" ns="controlAdmin" components={{ cd: <code /> }} />
                 </MessageBox>
 
                 <div className="security-list-actions">
@@ -1126,12 +1100,12 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                     }}
                   >
                     <Plus size={16} />
-                    Add network
+                    {t("controlAdmin:security.addNetwork")}
                   </Button>
                 </div>
 
                 {trustedError && !trustedOpen && (
-                  <MessageBox tone="error" title="Unable to update trusted networks">{trustedError}</MessageBox>
+                  <MessageBox tone="error" title={t("controlAdmin:security.updateTrustedFailed")}>{trustedError}</MessageBox>
                 )}
 
                 {data.trustedNetworks.length === 0 ? (
@@ -1142,14 +1116,13 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                       <Globe className="security-empty-spark spark-b" size={18} />
                     </div>
                     <div className="security-network-empty-copy">
-                      <h3>No trusted networks yet</h3>
+                      <h3>{t("controlAdmin:security.trustedEmptyHeading")}</h3>
                       <p>
-                        When you add a network range here, requests from those IPs will skip rate limits, account
-                        lockout, and two-factor.
+                        {t("controlAdmin:security.trustedEmptyBody")}
                       </p>
                       <div className="security-network-empty-note">
                         <ShieldCheck size={18} aria-hidden="true" />
-                        <span>Two-factor and lockout apply everywhere.</span>
+                        <span>{t("controlAdmin:security.trustedEmptyNote")}</span>
                       </div>
                     </div>
                   </div>
@@ -1158,11 +1131,11 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                     <table className="datagrid trusted-table">
                       <thead>
                         <tr>
-                          <th>Range</th>
-                          <th>Label</th>
-                          <th className="col-num">In use</th>
-                          <th>Added</th>
-                          <th className="col-actions">Actions</th>
+                          <th>{t("controlAdmin:security.thRange")}</th>
+                          <th>{t("controlAdmin:security.thLabel")}</th>
+                          <th className="col-num">{t("controlAdmin:security.thInUse")}</th>
+                          <th>{t("controlAdmin:security.thAdded")}</th>
+                          <th className="col-actions">{t("controlAdmin:security.thActions")}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1174,7 +1147,7 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                             <td className="datagrid-muted">{network.label || "—"}</td>
                             <td className={`col-num${network.liveSessions > 0 ? "" : " datagrid-muted"}`}>
                               {network.liveSessions > 0
-                                ? `${network.liveSessions} ${network.liveSessions === 1 ? "session" : "sessions"}`
+                                ? t("controlAdmin:ui.sessions", { count: network.liveSessions })
                                 : "—"}
                             </td>
                             <td className="datagrid-muted">{formatManagedDate(network.createdAt)}</td>
@@ -1182,8 +1155,8 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                               <Button
                                 variant="icon"
                                 danger
-                                title="Remove trusted network"
-                                aria-label={`Remove ${network.cidr}`}
+                                title={t("controlAdmin:security.removeTrustedTitle")}
+                                aria-label={t("controlAdmin:security.removeTrustedAria", { cidr: network.cidr })}
                                 onClick={() => removeTrusted(network.id)}
                               >
                                 <Trash2 size={15} />
@@ -1205,10 +1178,9 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
             >
               <section className="security-block security-network-view compact-tables" aria-labelledby="blocked-heading">
                 <div className="security-network-head">
-                  <h2 id="blocked-heading">Blocked IPs</h2>
+                  <h2 id="blocked-heading">{t("controlAdmin:security.blockedHeading")}</h2>
                   <p className="section-description">
-                    Blocked addresses are refused everywhere. Automatic blocks expire on their own and are then labeled
-                    Expired — remove them whenever you want to tidy the list. Manual blocks stay until you remove them.
+                    {t("controlAdmin:security.blockedDesc")}
                   </p>
                 </div>
 
@@ -1216,12 +1188,12 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                   {/* Counter and filter in one, like the device chips on Sign-ins:
                       running blocks matter today, permanent ones were chosen,
                       lapsed ones are history. */}
-                  <div className="device-type-chips" role="group" aria-label="Filter blocked addresses">
+                  <div className="device-type-chips" role="group" aria-label={t("controlAdmin:security.chipsAria")}>
                     {([
-                      ["live", "running"],
-                      ["permanent", "permanent"],
-                      ["lapsed", "lapsed"]
-                    ] as const).map(([kind, word]) => (
+                      ["live", "chipRunning"],
+                      ["permanent", "chipPermanent"],
+                      ["lapsed", "chipLapsed"]
+                    ] as const).map(([kind, wordKey]) => (
                       <button
                         key={kind}
                         type="button"
@@ -1232,7 +1204,7 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                           setBlockPage(1);
                         }}
                       >
-                        <strong>{blockCounts[kind]}</strong> {word}
+                        <strong>{blockCounts[kind]}</strong> {t(`controlAdmin:security.${wordKey}`)}
                       </button>
                     ))}
                   </div>
@@ -1246,7 +1218,7 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                       }}
                     >
                       <Trash2 size={15} aria-hidden="true" />
-                      Clear {blockCounts.lapsed} lapsed
+                      {t("controlAdmin:security.clearLapsed", { count: blockCounts.lapsed })}
                     </Button>
                   )}
                   <Button
@@ -1257,12 +1229,12 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                     }}
                   >
                     <Ban size={16} />
-                    Block IP
+                    {t("controlAdmin:security.blockIp")}
                   </Button>
                 </div>
 
                 {blockError && !blockOpen && (
-                  <MessageBox tone="error" title="Unable to update blocked IPs">{blockError}</MessageBox>
+                  <MessageBox tone="error" title={t("controlAdmin:security.updateBlockedFailed")}>{blockError}</MessageBox>
                 )}
 
                 {data.blockedIps.length === 0 ? (
@@ -1273,13 +1245,13 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                       <ShieldCheck className="security-empty-spark spark-b" size={18} />
                     </div>
                     <div className="security-network-empty-copy">
-                      <h3>No blocked IPs yet</h3>
+                      <h3>{t("controlAdmin:security.blockedEmptyHeading")}</h3>
                       <p>
-                        Manually blocked addresses will appear here. Automatic blocks also show up while they are active.
+                        {t("controlAdmin:security.blockedEmptyBody")}
                       </p>
                       <div className="security-network-empty-note">
                         <ShieldCheck size={18} aria-hidden="true" />
-                        <span>No addresses are currently refused manually.</span>
+                        <span>{t("controlAdmin:security.blockedEmptyNote")}</span>
                       </div>
                     </div>
                   </div>
@@ -1288,12 +1260,12 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                     <table className="datagrid blocked-table">
                       <thead>
                         <tr>
-                          <th className="col-expand" aria-label="Details" />
-                          <th>Address</th>
-                          <th>Reason</th>
-                          <th>Reputation</th>
-                          <th>Expires</th>
-                          <th className="col-actions">Actions</th>
+                          <th className="col-expand" aria-label={t("controlAdmin:security.thDetails")} />
+                          <th>{t("controlAdmin:security.thAddress")}</th>
+                          <th>{t("controlAdmin:security.thReason")}</th>
+                          <th>{t("controlAdmin:security.thReputation")}</th>
+                          <th>{t("controlAdmin:security.thExpires")}</th>
+                          <th className="col-actions">{t("controlAdmin:security.thActions")}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1308,7 +1280,7 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                                 <td className="col-expand">
                                   <Button
                                     variant="icon"
-                                    aria-label={open ? "Hide details" : "Show details"}
+                                    aria-label={open ? t("controlAdmin:security.hideDetails") : t("controlAdmin:security.showDetails")}
                                     aria-expanded={open}
                                     onClick={() => setExpandedBlock(open ? null : entry.ip)}
                                   >
@@ -1318,7 +1290,7 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                                 <td>
                                   <span className="datagrid-primary">
                                     <strong><code>{entry.ip}</code></strong>
-                                    <small>{entry.auto ? "Automatic" : "Manual"}</small>
+                                    <small>{entry.auto ? t("controlAdmin:security.auto") : t("controlAdmin:security.manual")}</small>
                                   </span>
                                 </td>
                                 <td className="datagrid-muted">{entry.reason || "—"}</td>
@@ -1329,7 +1301,7 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                                         entry.reputation.score >= 50 ? "bad" : entry.reputation.score > 0 ? "watch" : "clean"
                                       }`}
                                     >
-                                      {entry.reputation.score}% abuse
+                                      {t("controlAdmin:security.abusePct", { score: entry.reputation.score })}
                                     </span>
                                   ) : (
                                     "—"
@@ -1337,19 +1309,19 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                                 </td>
                                 <td className="datagrid-muted">
                                   {entry.expired ? (
-                                    <span className="status-badge expired">Expired</span>
+                                    <span className="status-badge expired">{t("controlAdmin:security.expired")}</span>
                                   ) : entry.expiresAt ? (
                                     formatManagedDate(entry.expiresAt)
                                   ) : (
-                                    "Never"
+                                    t("controlAdmin:ui.never")
                                   )}
                                 </td>
                                 <td className="col-actions">
                                   {entry.expiresAt && (
                                     <Button
                                       variant="icon"
-                                      title={entry.expired ? "Re-arm as a permanent block" : "Make permanent"}
-                                      aria-label={`Make block on ${entry.ip} permanent`}
+                                      title={entry.expired ? t("controlAdmin:security.makePermanentRearm") : t("controlAdmin:security.makePermanent")}
+                                      aria-label={t("controlAdmin:security.makePermanentAria", { ip: entry.ip })}
                                       onClick={() => {
                                         setPermanentError("");
                                         setPermanentTarget(entry);
@@ -1360,16 +1332,16 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                                   )}
                                   <Button
                                     variant="icon"
-                                    title={entry.expired ? "Remove expired block" : "Unblock"}
-                                    aria-label={`${entry.expired ? "Remove expired block for" : "Unblock"} ${entry.ip}`}
+                                    title={entry.expired ? t("controlAdmin:security.removeExpiredBlock") : t("controlAdmin:security.unblock")}
+                                    aria-label={entry.expired ? t("controlAdmin:security.removeExpiredAria", { ip: entry.ip }) : t("controlAdmin:security.unblockAria", { ip: entry.ip })}
                                     onClick={() => unblock(entry.ip)}
                                   >
                                     <Trash2 size={15} />
                                   </Button>
                                   <Button
                                     variant="icon"
-                                    title="Sign-ins from this address"
-                                    aria-label={`Sign-ins from ${entry.ip}`}
+                                    title={t("controlAdmin:security.signInsFromTitle")}
+                                    aria-label={t("controlAdmin:security.signInsFromAria", { ip: entry.ip })}
                                     onClick={() => navigate(signInsHref({ ip: entry.ip }))}
                                   >
                                     <ChevronRight size={16} aria-hidden="true" />
@@ -1383,36 +1355,36 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                                         Logs tables open their rows into. */}
                                     <dl className="login-detail-grid">
                                       <div>
-                                        <dt>Address</dt>
+                                        <dt>{t("controlAdmin:security.dtAddress")}</dt>
                                         <dd><code>{entry.ip}</code></dd>
                                       </div>
                                       <div>
-                                        <dt>Kind</dt>
-                                        <dd>{entry.auto ? "Automatic — placed by the failed-sign-in rule" : "Manual — placed by an administrator"}</dd>
+                                        <dt>{t("controlAdmin:security.dtKind")}</dt>
+                                        <dd>{entry.auto ? t("controlAdmin:security.kindAuto") : t("controlAdmin:security.kindManual")}</dd>
                                       </div>
                                       <div>
-                                        <dt>Blocked</dt>
+                                        <dt>{t("controlAdmin:security.dtBlocked")}</dt>
                                         <dd>{formatManagedDate(entry.createdAt)}</dd>
                                       </div>
                                       <div>
-                                        <dt>{entry.expired ? "Expired" : "Expires"}</dt>
-                                        <dd>{entry.expiresAt ? formatManagedDate(entry.expiresAt) : "Never — stays until you unblock it"}</dd>
+                                        <dt>{entry.expired ? t("controlAdmin:security.dtExpired") : t("controlAdmin:security.dtExpires")}</dt>
+                                        <dd>{entry.expiresAt ? formatManagedDate(entry.expiresAt) : t("controlAdmin:security.neverStays")}</dd>
                                       </div>
                                       <div className="login-detail-wide">
-                                        <dt>Reason</dt>
+                                        <dt>{t("controlAdmin:security.dtReason")}</dt>
                                         <dd>{entry.reason || "—"}</dd>
                                       </div>
                                       <div className="login-detail-wide">
-                                        <dt>Reputation</dt>
+                                        <dt>{t("controlAdmin:security.dtReputation")}</dt>
                                         <dd>
                                           {entry.reputation ? (
                                             <>
                                               {[
-                                                `${entry.reputation.score}% abuse confidence`,
-                                                entry.reputation.totalReports ? `${entry.reputation.totalReports.toLocaleString()} reports` : null,
+                                                t("controlAdmin:security.repConfidence", { score: entry.reputation.score }),
+                                                entry.reputation.totalReports ? t("controlAdmin:security.repReports", { count: entry.reputation.totalReports }) : null,
                                                 place || null,
-                                                entry.reputation.lastReportedAt ? `last reported ${formatManagedDate(entry.reputation.lastReportedAt)}` : null,
-                                                `checked ${formatManagedDate(entry.reputation.checkedAt)}`
+                                                entry.reputation.lastReportedAt ? t("controlAdmin:security.lastReported", { date: formatManagedDate(entry.reputation.lastReportedAt) }) : null,
+                                                t("controlAdmin:security.checkedAt", { date: formatManagedDate(entry.reputation.checkedAt) })
                                               ]
                                                 .filter(Boolean)
                                                 .join(" · ")}{" "}
@@ -1423,24 +1395,24 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                                                   disabled={checkingIp === entry.ip}
                                                   onClick={() => checkReputation(entry.ip)}
                                                 >
-                                                  {checkingIp === entry.ip ? "Checking…" : "Check again"}
+                                                  {checkingIp === entry.ip ? t("controlAdmin:security.checking") : t("controlAdmin:security.checkAgain")}
                                                 </Button>
                                               )}
                                             </>
                                           ) : data.policy.hasAbuseIpdbKey ? (
                                             <>
-                                              Not checked yet.{" "}
+                                              {t("controlAdmin:security.notCheckedYet")}{" "}
                                               <Button
                                                 variant="text"
                                                 compact
                                                 disabled={checkingIp === entry.ip}
                                                 onClick={() => checkReputation(entry.ip)}
                                               >
-                                                {checkingIp === entry.ip ? "Checking…" : "Check with AbuseIPDB"}
+                                                {checkingIp === entry.ip ? t("controlAdmin:security.checking") : t("controlAdmin:security.checkWith")}
                                               </Button>
                                             </>
                                           ) : (
-                                            "Add an AbuseIPDB key under Policies to score addresses"
+                                            t("controlAdmin:security.addKeyHint")
                                           )}
                                         </dd>
                                       </div>
@@ -1454,12 +1426,18 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                       </tbody>
                     </table>
                     {blockedRows.length === 0 && (
-                      <p className="status-empty">No {blockFilter} blocks right now.</p>
+                      <p className="status-empty">
+                        {blockFilter === "live"
+                          ? t("controlAdmin:security.noBlocksLive")
+                          : blockFilter === "permanent"
+                            ? t("controlAdmin:security.noBlocksPermanent")
+                            : t("controlAdmin:security.noBlocksLapsed")}
+                      </p>
                     )}
                   </div>
                 )}
                 {data.blockedIps.length > 0 && (
-                  <Pager page={blockCurrent} totalPages={blockTotalPages} onChange={setBlockPage} label="Blocked address pages" />
+                  <Pager page={blockCurrent} totalPages={blockTotalPages} onChange={setBlockPage} label={t("controlAdmin:security.blockedPagerLabel")} />
                 )}
               </section>
             </div>
@@ -1467,24 +1445,23 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
 
           {pendingClearLapsed && (
             <ConfirmDialog
-              title={`Clear ${blockCounts.lapsed} lapsed ${blockCounts.lapsed === 1 ? "block" : "blocks"}?`}
-              confirmLabel="Clear lapsed blocks"
-              busyLabel="Clearing…"
+              title={t("controlAdmin:security.clearLapsedTitle", { count: blockCounts.lapsed })}
+              confirmLabel={t("controlAdmin:security.clearLapsedConfirm")}
+              busyLabel={t("controlAdmin:security.clearing")}
               confirmIcon={<Trash2 size={16} />}
               busy={clearingLapsed}
               onConfirm={clearLapsed}
               onCancel={() => setPendingClearLapsed(false)}
             >
-              Automatic blocks that have already run out are removed from the list. Running and permanent blocks are
-              not touched, and an address that misbehaves again is blocked again.
+              {t("controlAdmin:security.clearLapsedBody")}
             </ConfirmDialog>
           )}
 
           {permanentTarget && (
             <ConfirmDialog
-              title={`Block ${permanentTarget.ip} permanently?`}
-              confirmLabel="Block permanently"
-              busyLabel="Blocking…"
+              title={t("controlAdmin:security.permanentTitle", { ip: permanentTarget.ip })}
+              confirmLabel={t("controlAdmin:security.permanentConfirm")}
+              busyLabel={t("controlAdmin:security.blocking")}
               confirmIcon={<InfinityIcon size={16} />}
               busy={makingPermanent}
               error={permanentError}
@@ -1495,37 +1472,37 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
               }}
             >
               {permanentTarget.expired
-                ? "This block has already expired. Making it permanent re-arms it, and it then stays until you unblock this address."
-                : `This block currently expires ${formatManagedDate(permanentTarget.expiresAt!)}. It will become a manual block that stays until you unblock this address.`}
+                ? t("controlAdmin:security.permanentBodyExpired")
+                : t("controlAdmin:security.permanentBodyActive", { date: formatManagedDate(permanentTarget.expiresAt!) })}
             </ConfirmDialog>
           )}
 
           {trustedOpen && (
             <Modal
               variant="card"
-              title="Add trusted network"
+              title={t("controlAdmin:security.addTrustedTitle")}
               icon={<Plus size={22} />}
               className="security-form-modal"
               busy={addingTrusted}
               onClose={closeTrustedModal}
               onSubmit={addTrusted}
             >
-              <Field label="IP or CIDR range" value={cidr} onChange={setCidr} placeholder="192.168.1.0/24" />
+              <Field label={t("controlAdmin:security.cidrLabel")} value={cidr} onChange={setCidr} placeholder="192.168.1.0/24" />
               <Field
-                label="Label (optional)"
+                label={t("controlAdmin:security.labelOptional")}
                 value={label}
                 onChange={setLabel}
-                placeholder="Home LAN"
+                placeholder={t("controlAdmin:security.labelPlaceholder")}
                 required={false}
               />
-              {trustedError && <MessageBox tone="error" title="Unable to add">{trustedError}</MessageBox>}
+              {trustedError && <MessageBox tone="error" title={t("controlAdmin:security.addFailedTitle")}>{trustedError}</MessageBox>}
               <div className="modal-actions">
                 <Button variant="secondary" onClick={closeTrustedModal} disabled={addingTrusted} autoFocus>
-                  Cancel
+                  {t("common.cancel")}
                 </Button>
                 <Button variant="primary" type="submit" disabled={addingTrusted || !cidr.trim()}>
                   <Plus size={16} />
-                  {addingTrusted ? "Adding…" : "Add network"}
+                  {addingTrusted ? t("controlAdmin:security.adding") : t("controlAdmin:security.addNetwork")}
                 </Button>
               </div>
             </Modal>
@@ -1534,29 +1511,29 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
           {blockOpen && (
             <Modal
               variant="card"
-              title="Block IP address"
+              title={t("controlAdmin:security.blockModalTitle")}
               icon={<Ban size={22} />}
               className="security-form-modal"
               busy={blocking}
               onClose={closeBlockModal}
               onSubmit={addBlock}
             >
-              <Field label="IP address" value={ip} onChange={setIp} placeholder="203.0.113.10" />
+              <Field label={t("controlAdmin:security.ipLabel")} value={ip} onChange={setIp} placeholder="203.0.113.10" />
               <Field
-                label="Reason (optional)"
+                label={t("controlAdmin:security.reasonLabel")}
                 value={reason}
                 onChange={setReason}
-                placeholder="Why it's blocked"
+                placeholder={t("controlAdmin:security.reasonPlaceholder")}
                 required={false}
               />
-              {blockError && <MessageBox tone="error" title="Unable to block">{blockError}</MessageBox>}
+              {blockError && <MessageBox tone="error" title={t("controlAdmin:security.blockFailedTitle")}>{blockError}</MessageBox>}
               <div className="modal-actions">
                 <Button variant="secondary" onClick={closeBlockModal} disabled={blocking} autoFocus>
-                  Cancel
+                  {t("common.cancel")}
                 </Button>
                 <Button variant="danger" type="submit" disabled={blocking || !ip.trim()}>
                   <Ban size={16} />
-                  {blocking ? "Blocking…" : "Block IP"}
+                  {blocking ? t("controlAdmin:security.blocking") : t("controlAdmin:security.blockIp")}
                 </Button>
               </div>
             </Modal>

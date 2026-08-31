@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 
 // The one toolbar every browse page wears, directly under LibraryPageHeader.
 // Audiobooks, Ebooks, Gallery and the list pages they link to (Authors,
@@ -39,6 +40,7 @@ export function LibraryPageToolbar({
   strip?: ReactNode;
   className?: string;
 }) {
+  const { t } = useTranslation(["common"]);
   const selecting = selection != null;
   return (
     <div className={["library-toolbar", selecting ? "is-selecting" : "", className].filter(Boolean).join(" ")}>
@@ -46,7 +48,7 @@ export function LibraryPageToolbar({
         <div className="library-toolbar-scope">{scope}</div>
         {selecting ? (
           <div className="library-toolbar-tools is-selection">
-            <span className="library-toolbar-count">{selection.count} selected</span>
+            <span className="library-toolbar-count">{t("common.selectedCount", { count: selection.count })}</span>
             <div className="row-actions library-toolbar-selection-actions">{selection.actions}</div>
           </div>
         ) : (

@@ -2,6 +2,7 @@
 // one job that may be active. Both are told what to show and what their buttons do —
 // the page owns every request.
 import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import {
   CircleCheck, FlaskConical, Lock, RefreshCw, Search, Sparkles, Trash2, TriangleAlert
 } from "lucide-react";
@@ -9,9 +10,10 @@ import { formatBytes } from "../../../../shared/utils";
 import { MessageBox } from "../../../../shared/MessageBox";
 import { Button } from "../../../../shared/Button";
 import { formatWhen } from "./shared";
-import { cleanupKindSummary, STATUS_WORDS, type DuplicateJob } from "./cleanup-types";
+import { cleanupKindSummary, statusWord, type DuplicateJob } from "./cleanup-types";
 
 export function CleanupHero() {
+  const { t } = useTranslation(["common", "controlDash"]);
   return (
     <section className="dup-cleanup-hero" aria-labelledby="dup-cleanup-title">
       <div className="dup-cleanup-hero-main">
@@ -19,19 +21,18 @@ export function CleanupHero() {
           <Trash2 size={54} />
         </span>
         <div className="dup-cleanup-hero-copy">
-          <h1 id="dup-cleanup-title">Duplicate cleanup</h1>
-          <p>One saved cleanup at a time: choose what to compare, scan once, and work through it whenever you like.</p>
+          <h1 id="dup-cleanup-title">{t("controlDash:dupes.heroTitle")}</h1>
+          <p>{t("controlDash:dupes.heroIntro")}</p>
 
           <div className="dup-cleanup-experiment">
             <div className="dup-cleanup-experiment-label" tabIndex={0}>
               <FlaskConical size={20} aria-hidden="true" />
-              <strong>Experimental</strong>
+              <strong>{t("controlDash:dupes.experimental")}</strong>
             </div>
             <div className="dup-cleanup-experiment-card" role="status">
               <TriangleAlert size={28} aria-hidden="true" />
               <p>
-                Duplicate detection is still being proven. Check sets before deleting. Items go to the Recycle Bin and
-                can be restored until emptied.
+                {t("controlDash:dupes.experimentalNote")}
               </p>
             </div>
           </div>
@@ -72,6 +73,7 @@ export function JobCard({
   /** Any admin may take a cleanup over — see the note on the non-owner branch. */
   onTakeOver: () => void;
 }) {
+  const { t } = useTranslation(["common", "controlDash"]);
   const included = job.libraries.filter((library) => library.included);
   // A library that changed under the job. Worth saying: the results were worked out
   // when it was something else.
@@ -79,16 +81,19 @@ export function JobCard({
     !library.missing && (library.mode !== library.currentMode || library.isProtected !== library.currentlyProtected));
   const canScan = job.status === "draft" || job.status === "review";
   const scanning = job.status === "scanning";
-  const scopeTitle = `${included.length} librar${included.length === 1 ? "y" : "ies"} • ${cleanupKindSummary(job.duplicateType)}`;
+  const scopeTitle = t("controlDash:dupes.scopeTitle", {
+    libraries: t("controlDash:libs.libraryCount", { count: included.length }),
+    kind: cleanupKindSummary(job.duplicateType)
+  });
 
   return (
     <div className="dup-job-card">
       <div className="dup-job-title-row">
         <div className="dup-job-card-body">
-          <p className="eyebrow">{STATUS_WORDS[job.status]}</p>
+          <p className="eyebrow">{statusWord(job.status)}</p>
           <h2>{scopeTitle}</h2>
           <p className="datagrid-muted">
-            Started by {job.ownerName} • last touched {formatWhen(job.lastActivityAt)}
+            {t("controlDash:dupes.startedBy", { name: job.ownerName, when: formatWhen(job.lastActivityAt) })}
           </p>
           {job.statusDetail && <p className="datagrid-muted">{job.statusDetail}</p>}
         </div>
@@ -102,21 +107,21 @@ export function JobCard({
                job stays the owner's: to act on results you take it over first. */
             <>
               <span className="datagrid-muted dup-job-owner-note">
-                <Lock size={14} aria-hidden="true" /> {job.ownerName} is working on this
+                <Lock size={14} aria-hidden="true" /> {t("controlDash:dupes.workingOnThis", { name: job.ownerName })}
               </span>
-              <Button variant="secondary" compact disabled={busy} onClick={onTakeOver}>Take over</Button>
-              <Button variant="secondary" danger compact disabled={busy} onClick={onCancel}>Cancel</Button>
+              <Button variant="secondary" compact disabled={busy} onClick={onTakeOver}>{t("controlDash:dupes.takeOver")}</Button>
+              <Button variant="secondary" danger compact disabled={busy} onClick={onCancel}>{t("common.cancel")}</Button>
             </>
           ) : (
             <>
               {canScan && (
                 <Button variant="primary" compact className="dup-job-scan-action" disabled={busy} onClick={onScan}>
                   <RefreshCw size={18} aria-hidden="true" />
-                  <span>{job.status === "draft" ? "Run scan" : "Scan again"}</span>
+                  <span>{job.status === "draft" ? t("controlDash:dupes.runScan") : t("controlDash:dupes.scanAgain")}</span>
                 </Button>
               )}
-              <Button variant="secondary" compact disabled={busy || scanning} onClick={onFinish}>Finish</Button>
-              <Button variant="secondary" danger compact disabled={busy} onClick={onCancel}>Cancel</Button>
+              <Button variant="secondary" compact disabled={busy || scanning} onClick={onFinish}>{t("controlDash:dupes.finish")}</Button>
+              <Button variant="secondary" danger compact disabled={busy} onClick={onCancel}>{t("common.cancel")}</Button>
             </>
           )}
         </div>
@@ -137,32 +142,30 @@ export function JobCard({
               aria-valuenow={job.scanProgress}
               aria-valuemin={0}
               aria-valuemax={100}
-              aria-label="Fingerprinting progress"
+              aria-label={t("controlDash:dupes.fingerprintingAria")}
             />
           </div>
           <p className="datagrid-muted">
             {job.scanProgress === 0
-              ? "Waiting to start — a library or face scan is using the disk. This carries on without you."
-              : `Fingerprinting photos… ${job.scanProgress}%. This carries on if you close the page.`}
+              ? t("controlDash:dupes.waitingToStart")
+              : t("controlDash:dupes.fingerprinting", { percent: job.scanProgress })}
           </p>
         </div>
       )}
 
-      <div className="dup-job-metrics" aria-label="Cleanup job summary">
-        <JobMetric icon={<Search size={22} />} value={job.totals.results} label="found" />
-        <JobMetric icon={<Trash2 size={22} />} value={job.totals.reviewed} label="looked at" />
-        <JobMetric icon={<CircleCheck size={22} />} value={job.totals.deleted} label="removed" />
-        <JobMetric icon={<Sparkles size={22} />} value={formatBytes(job.totals.reclaimableBytes)} label="to reclaim" strong />
+      <div className="dup-job-metrics" aria-label={t("controlDash:dupes.jobSummaryAria")}>
+        <JobMetric icon={<Search size={22} />} value={job.totals.results} label={t("controlDash:dupes.metricFound")} />
+        <JobMetric icon={<Trash2 size={22} />} value={job.totals.reviewed} label={t("controlDash:dupes.metricLookedAt")} />
+        <JobMetric icon={<CircleCheck size={22} />} value={job.totals.deleted} label={t("controlDash:dupes.metricRemoved")} />
+        <JobMetric icon={<Sparkles size={22} />} value={formatBytes(job.totals.reclaimableBytes)} label={t("controlDash:dupes.metricToReclaim")} strong />
         {job.totals.errors > 0 && (
-          <JobMetric icon={<TriangleAlert size={22} />} value={job.totals.errors} label="with problems" />
+          <JobMetric icon={<TriangleAlert size={22} />} value={job.totals.errors} label={t("controlDash:dupes.metricWithProblems")} />
         )}
       </div>
 
       {changed.length > 0 && (
-        <MessageBox tone="warning" title="A library has changed since this cleanup started">
-          {changed.map((library) => library.name).join(", ")} {changed.length === 1 ? "is" : "are"} not what
-          {" "}{changed.length === 1 ? "it was" : "they were"} when this was set up. Anything affected is re-checked
-          before it can be deleted, and will be refused rather than acted on.
+        <MessageBox tone="warning" title={t("controlDash:dupes.changedTitle")}>
+          {t("controlDash:dupes.changedBody", { count: changed.length, names: changed.map((library) => library.name).join(", ") })}
         </MessageBox>
       )}
     </div>

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Check } from "lucide-react";
 import type { PublicUser } from "../api";
 
@@ -12,13 +13,15 @@ interface Palette {
 }
 
 // Palettes mirror styles/tokens.css so each card previews the real theme colors.
-const THEMES: { value: Theme; label: string; palette?: Palette }[] = [
-  { value: "system", label: "System" },
-  { value: "expanse", label: "Expanse", palette: { canvas: "#04080c", surface: "#141f27", ink: "#edf2f4", mint: "#45bed2", muted: "#9fa9ad" } },
-  { value: "plain-light", label: "Plain Light", palette: { canvas: "#f3f6fb", surface: "#ffffff", ink: "#1f2937", mint: "#2563eb", muted: "#64748b" } },
-  { value: "plain-dark", label: "Plain Dark", palette: { canvas: "#111827", surface: "#1f2937", ink: "#f2f5f8", mint: "#60a5fa", muted: "#a8b3c0" } },
-  { value: "light", label: "iSputnik Light", palette: { canvas: "#eef1e7", surface: "#fff9ee", ink: "#17292b", mint: "#3f716a", muted: "#68736b" } },
-  { value: "dark", label: "iSputnik Night", palette: { canvas: "#031116", surface: "#0d252c", ink: "#f4ead8", mint: "#9bbcaf", muted: "#b8b5a1" } }
+// Labels come from the theme.* locale keys ("System" is the one that localizes;
+// the named themes are product names and stay as they are in every language).
+const THEMES: { value: Theme; labelKey: "system" | "plainLight" | "plainDark" | "minimalist" | "light" | "dark"; palette?: Palette }[] = [
+  { value: "system", labelKey: "system" },
+  { value: "plain-light", labelKey: "plainLight", palette: { canvas: "#f3f6fb", surface: "#ffffff", ink: "#1f2937", mint: "#2563eb", muted: "#64748b" } },
+  { value: "plain-dark", labelKey: "plainDark", palette: { canvas: "#04080c", surface: "#141f27", ink: "#edf2f4", mint: "#45bed2", muted: "#9fa9ad" } },
+  { value: "minimalist", labelKey: "minimalist", palette: { canvas: "#e2e2df", surface: "#ffffff", ink: "#1d1d1f", mint: "#1d1d1f", muted: "#58585c" } },
+  { value: "light", labelKey: "light", palette: { canvas: "#eef1e7", surface: "#fff9ee", ink: "#17292b", mint: "#3f716a", muted: "#68736b" } },
+  { value: "dark", labelKey: "dark", palette: { canvas: "#020b0e", surface: "#07191d", ink: "#f2d9ad", mint: "#d14b2d", muted: "#b78f5d" } }
 ];
 
 function Preview({ palette }: { palette?: Palette }) {
@@ -52,8 +55,9 @@ export function ThemePicker({
   onChange: (theme: Theme) => void;
   disabled?: boolean;
 }) {
+  const { t } = useTranslation();
   return (
-    <div className="theme-grid" role="radiogroup" aria-label="Theme">
+    <div className="theme-grid" role="radiogroup" aria-label={t("theme.label")}>
       {THEMES.map((theme) => {
         const selected = value === theme.value;
         return (
@@ -68,7 +72,7 @@ export function ThemePicker({
           >
             <Preview palette={theme.palette} />
             <span className="theme-card-label">
-              <span>{theme.label}</span>
+              <span>{t(`theme.${theme.labelKey}`)}</span>
               {selected && <Check className="theme-card-check" size={16} aria-hidden="true" />}
             </span>
           </button>

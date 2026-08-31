@@ -231,6 +231,18 @@ a.icon-button svg {
   background: #6d28d9;
 }
 
+/* Minimalist: the classic default button — black with white type. The base
+   rule's dark ink on var(--gold) would be dark-on-dark-grey here. */
+:root[data-theme="minimalist"] .primary-button:not(.danger) {
+  color: #ffffff;
+  background: #1d1d1f;
+}
+
+:root[data-theme="minimalist"] .primary-button:not(.danger):hover:not(:disabled),
+:root[data-theme="minimalist"] .primary-button:not(.danger):focus-visible {
+  background: #3a3a3e;
+}
+
 /* Mint-accented variant of the primary button, for actions that should read as
    distinct from the default gold call-to-action (e.g. bulk "Add to series"). */
 
@@ -616,7 +628,8 @@ a.icon-button svg {
   margin-bottom: 3px;
 }
 
-.message-box p {
+.message-box p,
+.message-box .message-box-body {
   margin: 0;
   color: inherit;
 }
@@ -672,6 +685,13 @@ a.icon-button svg {
   inset: 0;
   display: grid;
   place-items: center;
+  /* A card taller than the window (a long form on a laptop) would otherwise
+     centre itself with its action row past the bottom edge and no way to reach
+     it. `safe` centring switches to start-aligned exactly when that happens, and
+     the backdrop scrolls the rest. The panel variant caps its own height
+     instead (.metadata-modal); cards are free to be as tall as their content. */
+  align-items: safe center;
+  overflow-y: auto;
   padding: 20px;
   background: rgba(3, 12, 21, 0.64);
 }
@@ -738,6 +758,14 @@ a.icon-button svg {
 .confirm-modal p {
   margin: 12px 0 24px;
   color: var(--muted);
+}
+
+/* ConfirmDialog's typed challenge — the "type the number to confirm" box on the
+   few actions that destroy a lot at once. It is a plain .field (which carries the
+   input chrome); all it adds is a narrower box, since what goes in it is a count
+   or a name, never a sentence. */
+.confirm-challenge input {
+  width: min(100%, 200px);
 }
 
 .modal-actions {

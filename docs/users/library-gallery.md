@@ -3,8 +3,6 @@
 A gallery library turns a folder of photos and videos into a browsable timeline —
 closer to Google Photos than to a bookshelf.
 
-![A gallery library after scanning](images/32-gallery.png)
-
 ## How files become items
 
 **One photo, one item.** Unlike audiobooks (a folder is a book), every file
@@ -30,9 +28,6 @@ Along the top:
 
 They're all views of the same photos — nothing is copied or moved between them.
 
-The screenshot above shows the timeline grouping by date, with a Memories tile
-on top, because the sample photos were deliberately dated across several months.
-
 ## How the grid looks
 
 **View**, next to Filter and Sort, sets two things and remembers them for next
@@ -51,15 +46,18 @@ time:
 ## Viewing
 
 Click a photo to open the viewer. From there: pan and zoom, step through with
-the arrow keys, see details in the info panel, rotate, favourite, share, or add
+the arrow keys, see details in the info panel, rotate, like, share, or add
 to an album or slideshow. Videos play inline; a format the browser can't decode
 is offered as a download, and the server can transcode a web-playable copy.
+
+Rotation works for videos too — a clip filmed sideways turns upright in the
+viewer and in its thumbnails, and keeps playing while you turn it.
 
 ## Working with several at once
 
 The **Select** button in the header turns the grid into a picker — click photos
 to tick them, or use a date header's checkbox to take a whole day. A toolbar of
-icons appears with what you can do to the selection: favourite it, add it to an
+icons appears with what you can do to the selection: like it, add it to an
 album, slideshow or collection, set the date taken, set the location, share it,
 or move it to the Recycle Bin. Hover an icon to see what it does.
 
@@ -117,10 +115,20 @@ member to a face group and their profile fills with photos automatically.
 Re-scan after copying files in. Deleting a photo moves it to the **Recycle Bin**
 first, so it can be restored until the bin is emptied.
 
+**Locking a folder.** An admin browsing the **Folders** view (with a single
+library in scope) can open a folder and press **Lock folder**: from then on
+nothing in it — or in any of its subfolders — can be deleted from the app, by
+anyone, until it's unlocked from the same place. Locked folders wear a small
+padlock on their tile. The lock only stops deleting: viewing, uploading into the
+folder, editing details and rescanning all carry on as normal, and Duplicate
+cleanup treats the locked copies as the ones to keep. It's the right guardrail
+for the folders you'd never want a careless selection or cleanup to touch.
+
 If the same picture has been imported more than once, **Duplicate cleanup** in the
 control panel finds it — identical files, near-identical ones, and whole folders
 that duplicate each other — and moves what you agree to remove to the Recycle Bin.
 It has [its own guide](duplicate-cleanup.md).
 
-Your originals are never modified — rotating a photo in the app changes the
-generated preview, not the file on disk.
+Your originals are never modified — rotating a photo or video in the app changes
+the generated preview, not the file on disk. (This is why a downloaded original
+still has its old orientation.)

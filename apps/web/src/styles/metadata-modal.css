@@ -254,6 +254,60 @@
   accent-color: var(--mint);
 }
 
+/* Per-field opt-out for a lookup result: one checkbox per field the apply can
+   write, over a header that counts them and offers all/none. Reads as one
+   grouped control rather than a loose row of ticks. */
+.metadata-apply-fields {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2, rgba(127, 127, 127, 0.06));
+}
+
+.metadata-apply-fields-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 0.86rem;
+}
+
+.metadata-apply-fields-head span {
+  flex: 1 1 auto;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.metadata-field-link {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--mint);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.metadata-field-link:hover,
+.metadata-field-link:focus-visible {
+  text-decoration: underline;
+}
+
+/* A field the apply will leave alone: the row still shows what the result says,
+   greyed, so the toggles above read back as "what would change". */
+.compare-row.skipped .compare-next,
+.compare-row.skipped .compare-cover-frame {
+  opacity: 0.45;
+}
+
+.compare-flag-skipped {
+  background: var(--line);
+  color: var(--muted);
+}
+
 .metadata-results {
   display: grid;
   gap: 0;

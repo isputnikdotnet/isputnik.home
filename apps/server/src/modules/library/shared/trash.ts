@@ -24,10 +24,12 @@ import { pathIsInside, normaliseRelativePath, findStorageRootForPath } from "./s
 import { thumbnailStorageKey, thumbnailAbsolutePath } from "./thumbnail.js";
 import { deleteSharesForResource } from "./share-access.js";
 import { deleteCollectionItemsForResource } from "../../collections/cleanup.js";
+import { deleteStoryBlocksForResource } from "../../stories/cleanup.js";
 import { rescanSingleBook } from "../audiobook/scanner.js";
 import { enqueueEbookScan, processEbookScanQueue } from "../ebook/scanner.js";
 import { enqueueGalleryScan, processGalleryScanQueue } from "../gallery/scanner.js";
 import { faceCropKeysForItem, removeFaceCropFiles } from "../gallery/faces/crop-files.js";
+import { lockCovering } from "./folder-locks.js";
 
 const TRASH_DIR = ".trash";
 
@@ -372,12 +374,13 @@ function coverToKeep(libraryId: string, bookId: string, coverStorageKey: string 
 
 // DB teardown — identical to the old hard delete. FK cascades clear audio_files/metadata/
 // item_people/documents/progress/bookmarks/saves; the polymorphic tables (taggables, shares,
-// collections) have no FK and are cleaned explicitly. shares/collections are namespaced by
-// the library type; taggables use 'library_item' for every type.
+// collections, story blocks) have no FK and are cleaned explicitly. shares/collections are
+// namespaced by the library type; taggables use 'library_item' for every type.
 function deleteBookRecord(bookId: string, libraryType: string): void {
   db.prepare("DELETE FROM taggables WHERE entity_type = 'library_item' AND entity_id = ?").run(bookId);
   deleteSharesForResource(libraryType, bookId);
   deleteCollectionItemsForResource(libraryType, bookId);
+  deleteStoryBlocksForResource(libraryType, bookId);
   db.prepare("DELETE FROM library_items WHERE id = ?").run(bookId);
 }
 
@@ -427,6 +430,19 @@ export function trashBook(
     throw new TrashError(
       `"${row.library_name}" is set to external, or has deleting turned off, so its files can't be removed by the app.`,
       403
+    );
+  }
+
+  // Folder locks, enforced HERE for the same reason as the library check above:
+  // every deletion path — hand delete, bulk select, duplicate cleanup — ends at
+  // this function, and only this function knows the item it is about to move.
+  // 423 (Locked) rather than 403 so bulk callers can count locked refusals
+  // separately from permission refusals.
+  const lockedUnder = lockCovering(row.library_id, row.folder_path);
+  if (lockedUnder !== null) {
+    throw new TrashError(
+      `"${lockedUnder}" in "${row.library_name}" is locked, so nothing inside it can be deleted from the app.`,
+      423
     );
   }
 
@@ -665,8 +681,9 @@ export function setTrashRetentionDays(days: number): void {
 }
 
 // Auto-purge everything past the retention window. Items whose source volume is currently
-// offline are skipped (so their files aren't orphaned) and retried on the next sweep.
-export function purgeExpiredTrash(): number {
+// offline are skipped (so their files aren't orphaned) and retried on the next sweep —
+// hence two counts: how many were due, and how many actually went.
+export function purgeExpiredTrash(): { purged: number; eligible: number } {
   // Each row carries its own date, written when it was trashed. Changing the setting
   // now therefore governs only what is deleted from now on — it cannot reach back and
   // shorten a promise already made.
@@ -684,7 +701,7 @@ export function purgeExpiredTrash(): number {
       // leave the row in place; the next sweep retries
     }
   }
-  return purged;
+  return { purged, eligible: expired.length };
 }
 
 // Empty the bin — every item, or just one library's. Returns the count purged.

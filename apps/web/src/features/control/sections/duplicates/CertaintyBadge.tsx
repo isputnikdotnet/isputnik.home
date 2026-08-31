@@ -20,40 +20,26 @@
 // the same way. It sits with the copy count and size because it is the same kind of
 // fact: one glanceable property of the set. The chips stay here with the detail.
 import { CircleCheck, CircleHelp, TriangleAlert } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { KeeperConfidence, MatchConfidence } from "./cleanup-types";
 
-const MATCH: Record<MatchConfidence, { label: string; title: string; tone: string }> = {
-  certain: {
-    label: "Identical",
-    tone: "is-certain",
-    title: "The same file, byte for byte. The copies are interchangeable."
-  },
-  likely: {
-    label: "Looks the same",
-    tone: "is-likely",
-    title: "Matched on what the picture looks like, not on its bytes. Probably a copy — worth a look."
-  },
-  unsure: {
-    label: "Might not match",
-    tone: "is-unsure",
-    title: "Same size and dimensions but taken at quite different moments, so these may be two "
-      + "different photographs that merely look alike. Open them before deleting anything."
-  }
+const MATCH_TONE: Record<MatchConfidence, string> = {
+  certain: "is-certain",
+  likely: "is-likely",
+  unsure: "is-unsure"
 };
 
-const KEEPER: Record<KeeperConfidence, { label: string; title: string } | null> = {
-  // Chosen on something a person did — no badge, because it needs no caveat.
+const MATCH_KEY: Record<MatchConfidence, "matchCertain" | "matchLikely" | "matchUnsure"> = {
+  certain: "matchCertain",
+  likely: "matchLikely",
+  unsure: "matchUnsure"
+};
+
+// Chosen on something a person did — no badge, because it needs no caveat.
+const KEEPER_KEY: Record<KeeperConfidence, "keeperGuess" | "keeperTossup" | null> = {
   evidence: null,
-  guess: {
-    label: "Kept on a guess",
-    title: "Nothing you did separated these, so the choice came from the files themselves — "
-      + "resolution, size, which was added first."
-  },
-  tossup: {
-    label: "Either would do",
-    title: "Nothing at all separated the copies, so which one stays was decided by a tiebreak. "
-      + "It makes no difference which survives."
-  }
+  guess: "keeperGuess",
+  tossup: "keeperTossup"
 };
 
 export function CertaintyBadge({
@@ -63,21 +49,22 @@ export function CertaintyBadge({
   match: MatchConfidence;
   keeper: KeeperConfidence;
 }) {
-  const matchWord = MATCH[match];
-  const keeperWord = KEEPER[keeper];
+  const { t } = useTranslation(["common", "controlDash"]);
+  const matchKey = MATCH_KEY[match];
+  const keeperKey = KEEPER_KEY[keeper];
   const Icon = match === "certain" ? CircleCheck : match === "likely" ? CircleHelp : TriangleAlert;
 
   return (
     <span className="dup-certainty">
-      <span className={`dup-certainty-chip ${matchWord.tone}`} title={matchWord.title}>
+      <span className={`dup-certainty-chip ${MATCH_TONE[match]}`} title={t(`controlDash:dupes.${matchKey}Hint`)}>
         <Icon size={12} aria-hidden="true" />
-        <span>{matchWord.label}</span>
+        <span>{t(`controlDash:dupes.${matchKey}`)}</span>
       </span>
       {/* Only when it needs saying. A keeper chosen on your own tags or folder rules is
           the expected case, and a badge on every card teaches people to ignore badges. */}
-      {keeperWord && (
-        <span className="dup-certainty-chip is-keeper" title={keeperWord.title}>
-          <span>{keeperWord.label}</span>
+      {keeperKey && (
+        <span className="dup-certainty-chip is-keeper" title={t(`controlDash:dupes.${keeperKey}Hint`)}>
+          <span>{t(`controlDash:dupes.${keeperKey}`)}</span>
         </span>
       )}
     </span>

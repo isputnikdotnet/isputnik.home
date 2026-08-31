@@ -9,8 +9,6 @@ and can configure everything else.
 Open the app in a browser. Instead of a sign-in form you get **First run —
 Create the setup admin**:
 
-![Creating the setup admin on a brand-new install](images/00-first-run.png)
-
 Fill in three things:
 
 | Field | Notes |
@@ -58,8 +56,6 @@ somewhere new.
 
 ## Signing in afterwards
 
-![The sign-in screen](images/01-login.png)
-
 From then on the app opens at the sign-in screen. The QR code beside the form
 opens the same page on another device on your network — handy for getting the
 app onto a phone or tablet without typing the address.
@@ -68,8 +64,6 @@ If you later turn on [two-factor authentication](two-factor-authentication.md),
 a code prompt follows the password.
 
 ## What you see before anything is set up
-
-![The Home page on a new install](images/02-home.png)
 
 Home is empty on a new install, and every library section says it has nothing in
 it — that's expected. Each one offers a **Create a library** button that takes

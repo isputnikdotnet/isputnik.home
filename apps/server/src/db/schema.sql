@@ -31,7 +31,10 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash         TEXT NOT NULL,
   display_name          TEXT NOT NULL,
   role                  TEXT NOT NULL CHECK (role IN ('admin', 'member')),
-  theme                 TEXT NOT NULL DEFAULT 'dark',
+  theme                 TEXT NOT NULL DEFAULT 'minimalist',
+  -- Interface language ('en', 'ru', …). Validated in code (like theme) so a new
+  -- language doesn't need a schema change.
+  language              TEXT NOT NULL DEFAULT 'en',
   protected_from_delete INTEGER NOT NULL DEFAULT 0 CHECK (protected_from_delete IN (0, 1)),
   is_active             INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
   -- Delivery address for "Send to e-reader" (Kindle/Kobo).
@@ -550,6 +553,34 @@ CREATE TABLE IF NOT EXISTS gallery_slideshows (
   title_background TEXT NOT NULL DEFAULT 'black'
                    CHECK (title_background IN ('black', 'photo', 'blur', 'collage')),
   title_photo_item_id TEXT REFERENCES library_items(id) ON DELETE SET NULL,
+  -- Lettering: which bundled face the card's text is set in, and how large
+  -- (slideshow-title-card.ts CARD_FONTS/CARD_SIZES). The defaults reproduce the
+  -- card every pre-3.26 movie rendered: DejaVu Sans at today's size.
+  card_font      TEXT NOT NULL DEFAULT 'classic'
+                   CHECK (card_font IN ('classic', 'serif', 'bold', 'script', 'typewriter')),
+  card_size      TEXT NOT NULL DEFAULT 'medium'
+                   CHECK (card_size IN ('small', 'medium', 'large')),
+  -- The closing card: an end title over black or the slideshow's own photos, with
+  -- up to six lines of credits (closing_lines, newline-separated) and the music
+  -- fading out underneath it. OFF by default — a movie ends as it always did
+  -- until someone turns it on. closing_text NULL = "The End".
+  closing_enabled INTEGER NOT NULL DEFAULT 0,
+  closing_text   TEXT,
+  closing_lines  TEXT,
+  closing_seconds REAL NOT NULL DEFAULT 5,
+  closing_background TEXT NOT NULL DEFAULT 'black'
+                   CHECK (closing_background IN ('black', 'photo', 'blur', 'collage')),
+  closing_photo_item_id TEXT REFERENCES library_items(id) ON DELETE SET NULL,
+  -- The post-credit clip: a gallery VIDEO (any the picker can access, not just a
+  -- member) that plays LAST, after the closing card — the stinger after a film's
+  -- credits. Same 20s cap as member videos; the render skips a clip it can't reach
+  -- rather than failing. (A clip before the title card was offered until 3.42.0
+  -- and dropped: nobody wanted a movie that opens on one.)
+  outro_item_id  TEXT REFERENCES library_items(id) ON DELETE SET NULL,
+  -- The clip's own sound (on by default): the clip's audio plays and the music
+  -- pauses underneath it, resuming where it left off. A clip whose file has no
+  -- audio stream simply keeps the music running.
+  outro_sound    INTEGER NOT NULL DEFAULT 1,
   -- The list-card / detail-header cover. NULL falls back to the first slide in
   -- presentation order that has one — same "explicit pick, else first" shape as
   -- gallery_albums.cover_item_id.
@@ -565,12 +596,26 @@ CREATE TABLE IF NOT EXISTS gallery_slideshows (
   output_bytes   INTEGER,
   rendered_at    TEXT,
   render_error   TEXT,
-  -- Where the LATEST successful render was auto-saved as a gallery video item, when a
-  -- default "movie library" is configured (see slideshow-settings.ts). The path follows
-  -- the slideshow's CURRENT name: an unchanged name overwrites the same file/item on
-  -- re-render (no duplicates); after a rename the movie saves under the new name and the
-  -- old file/item are retired (see saveMovieToLibrary). All NULL until a render is saved
-  -- to a library. movie_item_id is SET NULL if that item is later removed.
+  -- Saving the movie into a gallery library, chosen PER SLIDESHOW (3.43.0; before that
+  -- one server-wide default library took every render, which nobody opted into).
+  --
+  -- movie_target_library_id NULL = don't save, which is the default for a new slideshow.
+  -- movie_on_conflict is the answer given when the target name was already taken, kept so
+  -- a re-render never has to ask again — and a background render could not ask anyway.
+  -- movie_file_stem is set only by Rename (NULL = follow the slideshow's own name).
+  -- movie_save_error carries why the last save failed (a read-only mount, a name taken by
+  -- someone else's video) so the editor can say so; NULL when the last save was fine.
+  movie_target_library_id TEXT REFERENCES libraries(id) ON DELETE SET NULL,
+  movie_on_conflict   TEXT NOT NULL DEFAULT 'keep_both'
+                        CHECK (movie_on_conflict IN ('overwrite', 'keep_both')),
+  movie_file_stem     TEXT,
+  movie_save_error    TEXT,
+  -- Where the LATEST successful render actually landed as a gallery video item. The path
+  -- follows the slideshow's CURRENT name unless movie_file_stem overrides it: the same
+  -- name overwrites the same file/item on re-render (no duplicates); after a rename the
+  -- movie saves under the new name and the old file/item are retired (see
+  -- saveMovieToLibrary). All NULL until a render is saved to a library. movie_item_id is
+  -- SET NULL if that item is later removed.
   movie_library_id    TEXT REFERENCES libraries(id) ON DELETE SET NULL,
   movie_relative_path TEXT,
   movie_item_id       TEXT REFERENCES library_items(id) ON DELETE SET NULL,
@@ -922,6 +967,21 @@ CREATE TABLE IF NOT EXISTS library_scan_rule_paths (
 CREATE INDEX IF NOT EXISTS idx_scan_rules_library      ON library_scan_rules(library_id);
 CREATE INDEX IF NOT EXISTS idx_scan_rule_paths_library ON library_scan_rule_paths(library_id);
 
+-- Folder locks: an admin's "nothing under here may be deleted from the app".
+-- A folder has no row of its own — it exists only as a prefix of
+-- library_items.folder_path — so a lock names (library, path) the way scan-rule
+-- paths and job folder preferences do. A lock covers its whole subtree. Locking
+-- "" (the whole library) is the library policy's job (allowDelete/external), not
+-- a row here. Deletion only: uploads, scans and metadata edits inside a locked
+-- folder are unaffected. Enforced inside trashBook(), beside libraryAllowsDelete.
+CREATE TABLE IF NOT EXISTS library_folder_locks (
+  library_id  TEXT NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
+  folder_path TEXT NOT NULL,
+  locked_by   TEXT REFERENCES users(id) ON DELETE SET NULL,
+  locked_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  PRIMARY KEY (library_id, folder_path)
+);
+
 -- ════════════════════════════════════════════════════════════════════════════
 --  People, series, categories, tags  (all global / cross-library)
 -- ════════════════════════════════════════════════════════════════════════════
@@ -933,8 +993,24 @@ CREATE TABLE IF NOT EXISTS people (
   name              TEXT NOT NULL UNIQUE COLLATE NOCASE,
   sort_name         TEXT,
   bio               TEXT,
+  website           TEXT,
+  location          TEXT,
+  -- Life facts: the short line that sits above the biography. Dates follow the
+  -- same partial-date convention as family_tree_persons ('YYYY' | 'YYYY-MM' |
+  -- 'YYYY-MM-DD') — a contributor's dates are as often a bare year as a full
+  -- date, and lexicographic order stays chronological either way.
+  birth_date        TEXT,
+  death_date        TEXT,
+  -- Country of origin, and the one-line "English writer and humorist". Both are
+  -- free text rather than codes: country of origin for a 19th-century author is
+  -- a genuinely contested answer (Russian Empire, Austria-Hungary) and a picker
+  -- would force a wrong one.
+  country           TEXT,
+  occupation        TEXT,
   image_storage_key TEXT,
   openlibrary_id    TEXT,
+  -- The page the facts above were read from, for the source link beside them.
+  wikipedia_url     TEXT,
   enriched_at       TEXT,
   created_at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
@@ -1173,6 +1249,26 @@ CREATE TABLE IF NOT EXISTS reading_bookmarks (
   updated_at       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
+-- One run of the bulk quote import — the file, when it was fed in, and how many
+-- rows it brought. Kept so an import can be undone as the event it was ("delete
+-- everything quotes-ru.json added") rather than one quote at a time.
+--
+-- Rows point at it with ON DELETE SET NULL: losing the record leaves its quotes
+-- in place as ordinary imported ones, the same degrade-don't-cascade rule the
+-- rest of this table follows. Deleting the QUOTES is a deliberate act, never a
+-- side effect of tidying the record away.
+CREATE TABLE IF NOT EXISTS quote_imports (
+  id          TEXT PRIMARY KEY,
+  user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  -- What the admin picked, for recognising it later. Absent on an import made
+  -- straight against the API.
+  file_name   TEXT,
+  quote_count INTEGER NOT NULL DEFAULT 0,
+  created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_quote_imports_user ON quote_imports(user_id, datetime(created_at) DESC);
+
 -- Quotes / highlights. A first-class entity, not just an in-book highlight: a
 -- quote may be captured in the reader (item_id + document_id + cfi all set, with
 -- an on-page highlight anchored by the cfi) OR brought in from outside the library
@@ -1180,6 +1276,10 @@ CREATE TABLE IF NOT EXISTS reading_bookmarks (
 -- NULL (not CASCADE) so removing a book degrades its quotes to external ones rather
 -- than deleting them; source_title/source_author are snapshotted at save time so
 -- attribution survives that. Display prefers the live item when item_id is still set.
+--
+-- Famous quotes, family sayings, and reader highlights are all rows here: the
+-- surfaces that show them (the Quotes page, the Quote of the day card, a family
+-- tree profile) are filters over this one table, never separate stores.
 CREATE TABLE IF NOT EXISTS quotes (
   id               TEXT PRIMARY KEY,
   user_id          TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -1192,11 +1292,40 @@ CREATE TABLE IF NOT EXISTS quotes (
   source_title     TEXT,
   source_author    TEXT,
   percent_complete REAL,
+  -- How the row got here, derived by the server rather than sent by the client.
+  -- It is also what makes a bulk import reviewable afterwards: the Quotes page
+  -- can list exactly what a JSON pack brought in.
+  origin           TEXT NOT NULL DEFAULT 'manual' CHECK (origin IN ('manual', 'reader', 'import')),
+  -- A quote is its owner's alone until raised to 'family'. Every shared surface
+  -- (Quote of the day, a person's profile) shows 'family' rows plus the viewer's
+  -- own, so reading highlights never leak by simply existing.
+  visibility       TEXT NOT NULL DEFAULT 'private' CHECK (visibility IN ('private', 'family')),
+  -- Member of the Quote-of-the-day pool. Imported packs opt in; highlights and
+  -- hand-typed quotes stay out unless chosen, so the daily card is curated.
+  in_rotation      INTEGER NOT NULL DEFAULT 0,
+  -- BCP-47-ish short code ('en', 'ru'), NULL when unknown. The daily card prefers
+  -- the reader's own UI language and falls back to the whole pool.
+  language         TEXT,
+  -- WHEN IT WAS SAID (not when it was saved) — partial ISO dates on the same
+  -- convention as family_tree_persons.birth_date: 'YYYY' | 'YYYY-MM' | 'YYYY-MM-DD'.
+  quote_date       TEXT,
+  -- Free text: the circumstances it was said in.
+  context          TEXT,
+  -- WHO SAID IT, deliberately distinct from source_author (who wrote the source
+  -- work). SET NULL plus the person_name snapshot, so deleting a family member
+  -- leaves their quotes attributed rather than anonymous.
+  family_tree_person_id TEXT REFERENCES family_tree_persons(id) ON DELETE SET NULL,
+  person_name      TEXT,
+  -- Which run of the bulk import brought this row in, so one pack can be undone
+  -- without touching another. NULL for everything typed or highlighted by hand.
+  import_id        TEXT REFERENCES quote_imports(id) ON DELETE SET NULL,
   created_at       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   updated_at       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
--- "My List" — per-user saved items, one row per (user, item).
+-- Likes — per-user liked items, one row per (user, item). The table name is
+-- historical: this shipped as "My List", was renamed to Favorites, and is now
+-- Likes. Renaming the table would need a migration; the product word is Likes.
 CREATE TABLE IF NOT EXISTS item_saves (
   id         TEXT PRIMARY KEY,
   user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -1230,7 +1359,7 @@ CREATE TABLE IF NOT EXISTS recommendations (
   entity_type   TEXT NOT NULL,
   entity_id     TEXT NOT NULL,
   message       TEXT,
-  -- 'new' until the recipient acts. 'saved' means it went to their My List;
+  -- 'new' until the recipient acts. 'saved' means they liked it;
   -- 'dismissed' is "not now". Neither deletes the row — the Sent list stays
   -- honest about what was sent, and the feed can still cite it.
   status        TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'saved', 'dismissed')),
@@ -1331,7 +1460,12 @@ CREATE TABLE IF NOT EXISTS share_links (
   expires_at  TEXT NOT NULL,
   created_by  TEXT NOT NULL REFERENCES users(id),
   created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-  revoked_at  TEXT
+  revoked_at  TEXT,
+  -- Story links only (module 'story'): may a guest open a whole album or
+  -- slideshow the story embeds, or only the photos shown inline? Off by
+  -- default — sharing a story is not the same as sharing everything it
+  -- mentions. Ignored by every other module.
+  expand_albums INTEGER NOT NULL DEFAULT 0
 );
 
 -- Members of a multi-item guest link (gallery "quick links", module
@@ -1708,3 +1842,91 @@ CREATE INDEX IF NOT EXISTS idx_ft_children_child        ON family_tree_children(
 CREATE INDEX IF NOT EXISTS idx_ft_events_person         ON family_tree_events(person_id);
 CREATE INDEX IF NOT EXISTS idx_ft_photos_item           ON family_tree_photos(item_id);
 CREATE INDEX IF NOT EXISTS idx_ft_persons_gallery_person ON family_tree_persons(gallery_person_id);
+
+-- ════════════════════════════════════════════════════════════════════════════
+--  Stories (modules/stories)
+-- ════════════════════════════════════════════════════════════════════════════
+-- An authored narrative page built from content the library already holds:
+-- prose, photos/videos, albums, slideshows and maps, organised into dated
+-- chapters. Everything is REFERENCED, never copied — a story is a presentation
+-- layer (see docs/stories-proposal.md).
+--
+-- Access mirrors gallery albums: every member may read a published story,
+-- edit is creator + admins. Referenced content is filtered per viewer at read
+-- time, so a story never widens access to anything.
+CREATE TABLE IF NOT EXISTS stories (
+  id            TEXT PRIMARY KEY,
+  title         TEXT NOT NULL,
+  subtitle      TEXT,
+  cover_item_id TEXT REFERENCES library_items(id) ON DELETE SET NULL,
+  status        TEXT NOT NULL DEFAULT 'draft',   -- 'draft' | 'published'
+  created_by    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  updated_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+-- The narrative spine. Every story has at least one chapter (a new story gets
+-- an untitled one), so the reader and editor only ever handle one shape — a
+-- single untitled, undated chapter simply renders without chapter chrome.
+-- Dates are partial ISO like the family tree ('YYYY' | 'YYYY-MM' |
+-- 'YYYY-MM-DD', lexicographic = chronological); end_date makes a range, both
+-- NULL means undated, and date_approx renders "around ...".
+CREATE TABLE IF NOT EXISTS story_chapters (
+  id          TEXT PRIMARY KEY,
+  story_id    TEXT NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
+  position    REAL NOT NULL,
+  title       TEXT,
+  date        TEXT,
+  end_date    TEXT,
+  date_approx INTEGER NOT NULL DEFAULT 0,
+  place       TEXT,
+  place_lat   REAL,
+  place_lng   REAL,
+  description TEXT
+);
+
+-- One unit of narrative. Reference kinds (media/album/slideshow) carry the
+-- polymorphic (entity_type, entity_id) pair used by collection_items and
+-- taggables — deliberately without an FK, so a deleted album degrades to an
+-- "unavailable" placeholder through the subjects hydrator rather than taking
+-- the story's rows with it. idx_story_blocks_entity lets the delete paths
+-- sweep dead references.
+CREATE TABLE IF NOT EXISTS story_blocks (
+  id          TEXT PRIMARY KEY,
+  chapter_id  TEXT NOT NULL REFERENCES story_chapters(id) ON DELETE CASCADE,
+  position    REAL NOT NULL,
+  kind        TEXT NOT NULL,   -- 'text' | 'media' | 'album' | 'slideshow' | 'map'
+  entity_type TEXT,
+  entity_id   TEXT,
+  body        TEXT,            -- 'text' kind: markdown source
+  lat         REAL,            -- 'map' kind
+  lng         REAL,
+  zoom        INTEGER,
+  label       TEXT,
+  caption     TEXT,
+  layout      TEXT             -- 'default' | 'wide' | 'grid'
+);
+
+CREATE INDEX IF NOT EXISTS idx_story_chapters_story ON story_chapters(story_id, position);
+CREATE INDEX IF NOT EXISTS idx_story_blocks_chapter ON story_blocks(chapter_id, position);
+CREATE INDEX IF NOT EXISTS idx_story_blocks_entity  ON story_blocks(entity_type, entity_id);
+CREATE INDEX IF NOT EXISTS idx_stories_created_by   ON stories(created_by);
+
+-- Narration recorded or uploaded for a story: "grandma tells this part". Owned
+-- by the story rather than referenced from the library — it exists for this
+-- story and goes with it, which is why this cascades where every other story
+-- reference deliberately does not.
+--
+-- The file lives in the thumbnail store under a 'narration' bucket, the same
+-- arrangement gallery_music_tracks uses for slideshow beds.
+CREATE TABLE IF NOT EXISTS story_audio (
+  id               TEXT PRIMARY KEY,
+  story_id         TEXT NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
+  storage_key      TEXT NOT NULL,
+  title            TEXT,
+  duration_seconds REAL,
+  uploaded_by      TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_story_audio_story ON story_audio(story_id);

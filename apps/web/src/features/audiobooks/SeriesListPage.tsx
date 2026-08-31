@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { BookOpen, LibraryBig, Plus } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
@@ -24,6 +25,7 @@ export function SeriesListPage({
   logout: () => Promise<void>;
   kind?: "audiobook" | "ebook";
 }) {
+  const { t } = useTranslation(["common", "book"]);
   const mediaLabel = kind === "ebook" ? "ebooks" : "audiobooks";
   const base = `/${mediaLabel}`;
   const libPrefix = `/api/library/${kind}-libraries`;
@@ -59,7 +61,7 @@ export function SeriesListPage({
         setNewLibraryId(payload.libraries[0]?.id ?? "");
         await Promise.all(payload.libraries.map((lib) => loadSeries(lib.id)));
       })
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load series"));
+      .catch((err) => setError(err instanceof Error ? err.message : t("book:series.unableLoad")));
   }, []);
 
   const allSeries = libraries.flatMap((lib) =>
@@ -81,7 +83,7 @@ export function SeriesListPage({
     .sort((a, b) => (sort === "books" ? b.bookCount - a.bookCount : a.sortKey.localeCompare(b.sortKey)));
 
   const libraryOptions = [
-    { value: "all", label: "All libraries" },
+    { value: "all", label: t("book:catalog.allLibraries") },
     ...libraries.map((lib) => ({ value: lib.id, label: lib.name }))
   ];
 
@@ -104,7 +106,7 @@ export function SeriesListPage({
       setModalOpen(false);
       navigate(`${base}/series/${payload.series.id}`);
     } catch (err) {
-      setCreateError(err instanceof Error ? err.message : "Unable to create series");
+      setCreateError(err instanceof Error ? err.message : t("book:series.unableCreate"));
     } finally {
       setCreating(false);
     }
@@ -119,20 +121,20 @@ export function SeriesListPage({
     >
       <section className="audiobook-main-page">
         <LibraryPageHeader
-          title="Series"
-          subtitle={`${filteredSeries.length} series`}
+          title={t("book:series.title")}
+          subtitle={t("book:catalog.counts.series", { count: filteredSeries.length })}
           search={search}
           onSearchChange={setSearch}
-          searchPlaceholder="Search series..."
+          searchPlaceholder={t("book:series.searchPlaceholder")}
           primaryAction={
             <Button variant="primary" onClick={openModal}>
               <Plus size={16} aria-hidden="true" />
-              <span>New series</span>
+              <span>{t("book:series.newSeries")}</span>
             </Button>
           }
         />
 
-        {error && <MessageBox tone="error" title="Series error">{error}</MessageBox>}
+        {error && <MessageBox tone="error" title={t("book:series.errorTitle")}>{error}</MessageBox>}
 
         {allSeries.length > 0 && (
           <LibraryPageToolbar
@@ -141,7 +143,7 @@ export function SeriesListPage({
                 value={libraryFilter}
                 options={libraryOptions}
                 icon={<LibraryBig size={19} aria-hidden="true" />}
-                label="Library"
+                label={t("book:detail.rows.library")}
                 onChange={setLibraryFilter}
               />
             )}
@@ -149,11 +151,11 @@ export function SeriesListPage({
               <SortMenu
                 presentation="labelled"
                 value={sort}
-                ariaLabel="Sort series"
+                ariaLabel={t("book:series.sortAria")}
                 onChange={setSort}
                 options={[
-                  { value: "name", label: "Name (A–Z)" },
-                  { value: "books", label: "Most books" }
+                  { value: "name", label: t("book:series.sortNameAsc") },
+                  { value: "books", label: t("book:series.sortMostBooks") }
                 ]}
               />
             }
@@ -162,7 +164,7 @@ export function SeriesListPage({
                 available={availableLetters}
                 value={letter}
                 onChange={setLetter}
-                ariaLabel="Filter series by letter"
+                ariaLabel={t("book:series.filterByLetterAria")}
               />
             }
           />
@@ -171,13 +173,13 @@ export function SeriesListPage({
         {allSeries.length === 0 && !error ? (
           <div className="empty-state library-empty">
             <BookOpen size={48} aria-hidden="true" />
-            <h2>No series yet</h2>
-            <p className="muted">Create a series and add books to it.</p>
+            <h2>{t("book:series.noneYetTitle")}</h2>
+            <p className="muted">{t("book:series.noneYetBody")}</p>
           </div>
         ) : filteredSeries.length === 0 ? (
           <div className="empty-state library-empty">
             <BookOpen size={48} aria-hidden="true" />
-            <h2>No series match</h2>
+            <h2>{t("book:series.noneMatchTitle")}</h2>
           </div>
         ) : (
           <div className="series-grid">
@@ -199,7 +201,7 @@ export function SeriesListPage({
                 </div>
                 <div className="series-card-body">
                   <strong>{s.name}</strong>
-                  <span>{s.bookCount} {s.bookCount === 1 ? "book" : "books"}</span>
+                  <span>{t("book:catalog.counts.book", { count: s.bookCount })}</span>
                   {libraries.length > 1 && <small>{s.libraryName}</small>}
                 </div>
               </button>
@@ -209,30 +211,30 @@ export function SeriesListPage({
       </section>
 
       {modalOpen && (
-        <Modal title="New Series" busy={creating} onClose={() => setModalOpen(false)}>
+        <Modal title={t("book:series.createSeriesModalTitle")} busy={creating} onClose={() => setModalOpen(false)}>
             <div className="field" style={{ marginBottom: 12 }}>
-              <span>Series name</span>
+              <span>{t("book:series.seriesNameLabel")}</span>
               <input
                 autoFocus
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
-                placeholder="e.g. The Stormlight Archive"
+                placeholder={t("book:series.namePlaceholder")}
               />
             </div>
 
             <div className="field" style={{ marginBottom: 12 }}>
-              <span>Description</span>
+              <span>{t("book:metadata.fieldDescription")}</span>
               <textarea
                 value={newDescription}
                 onChange={(e) => setNewDescription(e.target.value)}
                 rows={3}
-                placeholder="Optional description…"
+                placeholder={t("book:series.descriptionPlaceholder")}
               />
             </div>
 
             {libraries.length > 1 && (
               <div className="field" style={{ marginBottom: 12 }}>
-                <span>Library</span>
+                <span>{t("book:detail.rows.library")}</span>
                 <select value={newLibraryId} onChange={(e) => setNewLibraryId(e.target.value)}>
                   {libraries.map((lib) => (
                     <option key={lib.id} value={lib.id}>{lib.name}</option>
@@ -241,16 +243,16 @@ export function SeriesListPage({
               </div>
             )}
 
-            {createError && <MessageBox tone="error" title="Error">{createError}</MessageBox>}
+            {createError && <MessageBox tone="error" title={t("book:detail.errorTitle")}>{createError}</MessageBox>}
 
             <div className="modal-actions" style={{ marginTop: 16 }}>
-              <Button variant="secondary" onClick={() => setModalOpen(false)}>Cancel</Button>
+              <Button variant="secondary" onClick={() => setModalOpen(false)}>{t("common:common.cancel")}</Button>
               <Button
                 variant="primary"
                 onClick={createSeries}
                 disabled={creating || !newName.trim()}
               >
-                {creating ? "Creating…" : "Create Series"}
+                {creating ? t("book:series.creating") : t("book:series.createSeriesButton")}
               </Button>
             </div>
         </Modal>

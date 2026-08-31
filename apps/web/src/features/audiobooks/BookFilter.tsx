@@ -1,4 +1,6 @@
+import { useTranslation } from "react-i18next";
 import { FacetFilterButton, FacetFilterChips, countActiveFilters, type FacetDef } from "../../shared/FacetFilter";
+import i18n from "../../i18n";
 import type { AudiobookBook } from "./types";
 
 // A book row in the grids — the list type plus the libraryName the pages attach.
@@ -59,56 +61,70 @@ export function facetsFromBooks(books: FilterableBook[]): FacetOptions {
 
 export type SortKey = "title" | "title_desc" | "recent" | "duration" | "author" | "series";
 
-export const SORT_OPTIONS: { value: SortKey; label: string }[] = [
-  { value: "title", label: "Title (A–Z)" },
-  { value: "title_desc", label: "Title (Z–A)" },
-  { value: "recent", label: "Recently added" },
-  { value: "duration", label: "Longest first" },
-  { value: "author", label: "Author" },
-  { value: "series", label: "Series order" }
-];
+// Built fresh on every call (not a module-level const) so the labels stay
+// reactive to a language switch — same approach as control/nav.ts.
+export function getSortOptions(): { value: SortKey; label: string }[] {
+  return [
+    { value: "title", label: i18n.t("book:filter.sortTitleAsc") },
+    { value: "title_desc", label: i18n.t("book:filter.sortTitleDesc") },
+    { value: "recent", label: i18n.t("book:filter.sortRecent") },
+    { value: "duration", label: i18n.t("book:filter.sortDuration") },
+    { value: "author", label: i18n.t("book:filter.sortAuthor") },
+    { value: "series", label: i18n.t("book:filter.sortSeries") }
+  ];
+}
 
 // Ebooks have no duration or series, so they offer the subset of sorts that apply.
-export const EBOOK_SORT_OPTIONS: { value: SortKey; label: string }[] = [
-  { value: "title", label: "Title (A–Z)" },
-  { value: "title_desc", label: "Title (Z–A)" },
-  { value: "recent", label: "Recently added" },
-  { value: "author", label: "Author" }
-];
+export function getEbookSortOptions(): { value: SortKey; label: string }[] {
+  return [
+    { value: "title", label: i18n.t("book:filter.sortTitleAsc") },
+    { value: "title_desc", label: i18n.t("book:filter.sortTitleDesc") },
+    { value: "recent", label: i18n.t("book:filter.sortRecent") },
+    { value: "author", label: i18n.t("book:filter.sortAuthor") }
+  ];
+}
 
-const STATUS_OPTIONS = [
-  { value: "in_progress", label: "In progress" },
-  { value: "finished", label: "Finished" },
-  { value: "not_started", label: "Not started" }
-];
+function getStatusOptions() {
+  return [
+    { value: "in_progress", label: i18n.t("book:filter.statusInProgress") },
+    { value: "finished", label: i18n.t("book:filter.statusFinished") },
+    { value: "not_started", label: i18n.t("book:filter.statusNotStarted") }
+  ];
+}
 
-const DURATION_OPTIONS = [
-  { value: "short", label: "Under 2h" },
-  { value: "medium", label: "2–6h" },
-  { value: "long", label: "6–12h" },
-  { value: "epic", label: "12h+" }
-];
+function getDurationOptions() {
+  return [
+    { value: "short", label: i18n.t("book:filter.durationShort") },
+    { value: "medium", label: i18n.t("book:filter.durationMedium") },
+    { value: "long", label: i18n.t("book:filter.durationLong") },
+    { value: "epic", label: i18n.t("book:filter.durationEpic") }
+  ];
+}
 
 // Facets keyed to the BookFilters fields, in display order. Status/duration are
 // fixed enumerations; libraries are supplied per page (ids with names to show);
 // the rest are derived from the loaded books.
-const FACET_ORDER: FacetDef<keyof BookFilters>[] = [
-  // First, because it is the widest cut: which shelves the rest of the panel is
-  // narrowing. Leaving it empty means every library you can reach.
-  { key: "libraries", title: "Libraries", searchable: false },
-  { key: "status", title: "Status", searchable: false, fixed: STATUS_OPTIONS },
-  { key: "authors", title: "Authors", searchable: true },
-  { key: "narrators", title: "Narrators", searchable: true },
-  { key: "categories", title: "Categories", searchable: true },
-  { key: "tags", title: "Tags", searchable: true },
-  { key: "series", title: "Series", searchable: true },
-  { key: "languages", title: "Language", searchable: true },
-  { key: "durations", title: "Length", searchable: false, fixed: DURATION_OPTIONS }
-];
+function getFacetOrder(): FacetDef<keyof BookFilters>[] {
+  return [
+    // First, because it is the widest cut: which shelves the rest of the panel is
+    // narrowing. Leaving it empty means every library you can reach.
+    { key: "libraries", title: i18n.t("book:filter.facetLibraries"), searchable: false },
+    { key: "status", title: i18n.t("book:filter.facetStatus"), searchable: false, fixed: getStatusOptions() },
+    { key: "authors", title: i18n.t("book:filter.facetAuthors"), searchable: true },
+    { key: "narrators", title: i18n.t("book:filter.facetNarrators"), searchable: true },
+    { key: "categories", title: i18n.t("book:filter.facetCategories"), searchable: true },
+    { key: "tags", title: i18n.t("book:filter.facetTags"), searchable: true },
+    { key: "series", title: i18n.t("book:filter.facetSeries"), searchable: true },
+    { key: "languages", title: i18n.t("book:filter.facetLanguage"), searchable: true },
+    { key: "durations", title: i18n.t("book:filter.facetLength"), searchable: false, fixed: getDurationOptions() }
+  ];
+}
 
-const CODE_LABELS: Record<string, string> = Object.fromEntries(
-  [...STATUS_OPTIONS, ...DURATION_OPTIONS].map((o) => [o.value, o.label])
-);
+function getCodeLabels(): Record<string, string> {
+  return Object.fromEntries(
+    [...getStatusOptions(), ...getDurationOptions()].map((o) => [o.value, o.label])
+  );
+}
 
 export function bookStatus(book: FilterableBook): string {
   const p = book.progress;
@@ -187,7 +203,8 @@ export function FilterButton({
   libraries?: { id: string; name: string }[];
   compact?: boolean;
 }) {
-  const order = (fields ? FACET_ORDER.filter((facet) => fields.includes(facet.key)) : FACET_ORDER)
+  const facetOrder = getFacetOrder();
+  const order = (fields ? facetOrder.filter((facet) => fields.includes(facet.key)) : facetOrder)
     .flatMap((facet) => {
       if (facet.key !== "libraries") return [facet];
       if (!libraries || libraries.length < 2) return [];
@@ -206,14 +223,16 @@ export function FilterButton({
 }
 
 export function SortSelect({ value, onChange }: { value: SortKey; onChange: (sort: SortKey) => void }) {
+  const { t } = useTranslation(["common", "book"]);
+  const sortOptions = getSortOptions();
   return (
     <select
       className="library-filter"
       value={value}
       onChange={(e) => onChange(e.target.value as SortKey)}
-      aria-label="Sort books"
+      aria-label={t("common:sort.sortBy")}
     >
-      {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>Sort: {o.label}</option>)}
+      {sortOptions.map((o) => <option key={o.value} value={o.value}>{t("common:sort.label")}: {o.label}</option>)}
     </select>
   );
 }
@@ -226,8 +245,9 @@ export function FilterChips({
   // Library chips carry ids; without this they would read as nanoids.
   libraries?: { id: string; name: string }[];
 }) {
+  const codeLabels = getCodeLabels();
   const labels = libraries?.length
-    ? { ...CODE_LABELS, ...Object.fromEntries(libraries.map((library) => [library.id, library.name])) }
-    : CODE_LABELS;
+    ? { ...codeLabels, ...Object.fromEntries(libraries.map((library) => [library.id, library.name])) }
+    : codeLabels;
   return <FacetFilterChips value={value} onChange={onChange} empty={EMPTY_FILTERS} labels={labels} />;
 }

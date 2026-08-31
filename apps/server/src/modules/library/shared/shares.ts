@@ -14,8 +14,19 @@ import { pathIsInside } from "./storage-roots.js";
 import { thumbnailAbsolutePath } from "./thumbnail.js";
 import { accessibleLibraryIds, canUserAccessLibrary, canUserCurateLibrary, getLibraryForBook, type LibraryAccessRow } from "./library-access.js";
 import { resolveShareLink, type ResolvedShareLink } from "./share-access.js";
+import {
+  STORY_SHARE_MODULE,
+  createStoryShare,
+  buildStorySharePayload,
+  loadStoryShareMediaItem,
+  storyShareFiles,
+  storyShareTitle,
+  storyLinkContext
+} from "../../stories/share.js";
+import { getStoryAudio } from "../../stories/audio.js";
+import { sendNarration } from "../../stories/routes.js";
 import { newlySharedResources, notifyShareGranted } from "./share-notify.js";
-import { parseRangeHeader } from "./document-stream.js";
+import { parseRangeHeader, pipeFileToReply } from "./document-stream.js";
 import { mediaKind, type MediaModule } from "./library-types.js";
 import { decodePhotoToJpeg } from "../gallery/media.js";
 
@@ -63,6 +74,21 @@ const createAlbumLinkSchema = z.object({
   albumId: z.string().trim().min(1).max(64),
   expiresInDays: z.number().int().min(1).max(30).default(30),
   label: z.string().trim().max(100).optional()
+});
+
+const createStoryLinkSchema = z.object({
+  storyId: z.string().trim().min(1).max(64),
+  expiresInDays: z.number().int().min(1).max(30).default(30),
+  label: z.string().trim().max(100).optional(),
+  // Whether a guest may open a whole album/slideshow the story embeds, or only
+  // the photos it shows inline. Off by default — see share.ts in modules/stories.
+  expandAlbums: z.boolean().default(false)
+});
+
+const storyUserShareSchema = z.object({
+  storyId: z.string().trim().min(1).max(64),
+  userId: z.string().min(1),
+  expiresInDays: z.number().int().min(1).max(3650).optional()
 });
 
 const albumUserShareSchema = z.object({
@@ -700,10 +726,10 @@ function sendFile(
   };
   if (range) {
     reply.raw.writeHead(206, { ...baseHeaders, "Content-Range": `bytes ${range.start}-${range.end}/${totalSize}`, "Content-Length": range.size });
-    fs.createReadStream(opts.absolutePath, { start: range.start, end: range.end }).pipe(reply.raw);
+    pipeFileToReply(reply, opts.absolutePath, { start: range.start, end: range.end });
   } else {
     reply.raw.writeHead(200, { ...baseHeaders, "Content-Length": totalSize });
-    fs.createReadStream(opts.absolutePath).pipe(reply.raw);
+    pipeFileToReply(reply, opts.absolutePath);
   }
 }
 
@@ -971,6 +997,81 @@ export async function librarySharesPlugin(app: FastifyInstance) {
         url: `${base}/share/${result.token}`
       }
     });
+  });
+
+  // A live guest link for a story: the page renders the story as it stands, with
+  // its media resolved against this creator's rights at serve time.
+  app.post("/api/shares/story", { preHandler: app.authenticate }, async (request, reply) => {
+    const parsed = parseBody(createStoryLinkSchema, request.body);
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid share details", details: parsed.error });
+    }
+    const user = request.user!;
+    const result = createStoryShare(user, {
+      storyId: parsed.data.storyId,
+      expiresInDays: parsed.data.expiresInDays ?? 30,
+      label: parsed.data.label ?? null,
+      expandAlbums: parsed.data.expandAlbums
+    });
+    if (result === "not_found") { return reply.code(404).send({ error: "Story not found" }); }
+    if (result === "forbidden") { return reply.code(403).send({ error: "Only the story's author or an admin can share it." }); }
+
+    logActivity({
+      event: "share.created",
+      actorUserId: user.id,
+      targetType: "share_link",
+      targetId: result.shareId,
+      detail: `Created a live guest link for a story${parsed.data.expandAlbums ? " (albums openable)" : ""}.`,
+      ipAddress: request.ip
+    });
+
+    const base = requestOrigin(request);
+    return reply.code(201).send({
+      share: {
+        id: result.shareId,
+        label: parsed.data.label ?? null,
+        expiresAt: result.expiresAt,
+        expandAlbums: parsed.data.expandAlbums,
+        // Shown exactly once — the raw token is not stored and cannot be re-displayed.
+        url: `${base}/share/${result.token}`
+      }
+    });
+  });
+
+  // The caller's active story links.
+  app.get("/api/shares/stories", { preHandler: app.authenticate }, async (request) => {
+    const user = request.user!;
+    const rows = db.prepare(`
+      SELECT
+        share_links.id,
+        share_links.resource_id AS story_id,
+        share_links.label,
+        share_links.created_at,
+        share_links.expires_at,
+        share_links.expand_albums,
+        stories.title AS story_title
+      FROM share_links
+      JOIN stories ON stories.id = share_links.resource_id
+      WHERE share_links.created_by = ? AND share_links.module = '${STORY_SHARE_MODULE}'
+        AND share_links.revoked_at IS NULL
+      ORDER BY datetime(share_links.created_at) DESC
+    `).all(user.id) as {
+      id: string; story_id: string; label: string | null; created_at: string;
+      expires_at: string; expand_albums: number; story_title: string;
+    }[];
+    const now = Date.now();
+    return {
+      shares: rows.map((row) => ({
+        id: row.id,
+        storyId: row.story_id,
+        storyTitle: row.story_title,
+        label: row.label,
+        expandAlbums: row.expand_albums === 1,
+        createdAt: row.created_at,
+        expiresAt: row.expires_at,
+        status: new Date(row.expires_at).getTime() <= now ? "expired" : "active"
+      }))
+    };
   });
 
   // The caller's active album links, with the album's name + current photo count.
@@ -1304,6 +1405,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
         item_metadata.title      AS item_title,
         library_items.folder_path AS item_folder,
         gallery_albums.name      AS album_name,
+        stories.title            AS story_title,
         (SELECT COUNT(*) FROM share_link_items
           WHERE share_link_items.share_link_id = share_links.id) AS set_count,
         (SELECT COUNT(*) FROM gallery_album_items
@@ -1315,18 +1417,21 @@ export async function librarySharesPlugin(app: FastifyInstance) {
       -- id, so an unguarded join to library_items would match nothing useful.
       LEFT JOIN library_items
         ON library_items.id = share_links.resource_id
-       AND share_links.module NOT IN ('gallery_set', 'gallery_album')
+       AND share_links.module NOT IN ('gallery_set', 'gallery_album', 'story')
       LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
       LEFT JOIN gallery_albums
         ON gallery_albums.id = share_links.resource_id
        AND share_links.module = 'gallery_album'
+      LEFT JOIN stories
+        ON stories.id = share_links.resource_id
+       AND share_links.module = 'story'
       WHERE share_links.created_by = ? AND share_links.revoked_at IS NULL
       ORDER BY datetime(share_links.created_at) DESC
     `).all(user.id) as {
       id: string; module: string; resource_id: string; label: string | null;
       created_at: string; expires_at: string;
       item_title: string | null; item_folder: string | null;
-      album_name: string | null; set_count: number; album_count: number;
+      album_name: string | null; story_title: string | null; set_count: number; album_count: number;
     }[];
     const now = Date.now();
 
@@ -1334,14 +1439,17 @@ export async function librarySharesPlugin(app: FastifyInstance) {
       shares: rows.map((row) => {
         const isAlbum = row.module === "gallery_album";
         const isSet = row.module === "gallery_set";
-        const kind = isAlbum ? "album" : isSet ? "set" : "item";
+        const isStory = row.module === "story";
+        const kind = isAlbum ? "album" : isSet ? "set" : isStory ? "story" : "item";
         // A set is a bag of photos with no resource of its own to name; an item
         // whose row has since been deleted leaves the joins null.
         const title = isAlbum
           ? row.album_name ?? "Deleted album"
           : isSet
             ? "Selected photos"
-            : row.item_title ?? (row.item_folder ? path.basename(row.item_folder) : "Deleted item");
+            : isStory
+              ? row.story_title ?? "Deleted story"
+              : row.item_title ?? (row.item_folder ? path.basename(row.item_folder) : "Deleted item");
         return {
           id: row.id,
           kind,
@@ -1350,6 +1458,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
           title,
           label: row.label,
           itemCount: isAlbum ? row.album_count : isSet ? row.set_count : 1,
+          // A story is one thing, however many photos it happens to show.
           createdAt: row.created_at,
           expiresAt: row.expires_at,
           status: new Date(row.expires_at).getTime() <= now ? "expired" : "active"
@@ -1611,6 +1720,25 @@ export async function librarySharesPlugin(app: FastifyInstance) {
     // have no single resource for it to load.
     const rawToken = (request.params as { token: string }).token;
     const setLink = resolveShareLink(rawToken, request);
+
+    // A story link has no single library item either; the stories module owns
+    // the shape of what it serves.
+    if (setLink && setLink.module === STORY_SHARE_MODULE) {
+      const built = buildStorySharePayload(setLink, rawToken);
+      if (!built) {
+        return reply.code(404).send({ error: "Share not found or expired" });
+      }
+      logActivity({
+        event: "share.accessed",
+        actorUserId: null,
+        targetType: "share_link",
+        targetId: setLink.id,
+        detail: `Opened a shared story "${built.title}" (${built.photoCount} photo${built.photoCount === 1 ? "" : "s"}).`,
+        ipAddress: request.ip
+      });
+      return reply.send(built.payload);
+    }
+
     if (setLink && GALLERY_MULTI_MODULES.has(setLink.module)) {
       const meta = db.prepare(`
         SELECT share_links.label, share_links.expires_at, users.display_name AS shared_by
@@ -1775,20 +1903,44 @@ export async function librarySharesPlugin(app: FastifyInstance) {
   // Membership in share_link_items is the whole authorization: a valid set
   // token plus an item id inside that set. Anything else is a uniform 404.
 
+  // The item routes below serve any link whose resource is a SET of photos —
+  // a quick link, an album, or a story. Each module answers "is this item mine
+  // to serve?" its own way, and that answer IS the authorization: an id the
+  // link doesn't cover is indistinguishable from a missing file.
   const resolveSetItem = (request: FastifyRequest, reply: FastifyReply) => {
     const { token, itemId } = request.params as { token: string; itemId: string };
     const link = resolveShareLink(token, request);
-    if (!link || !GALLERY_MULTI_MODULES.has(link.module)) {
+    if (!link || !(GALLERY_MULTI_MODULES.has(link.module) || link.module === STORY_SHARE_MODULE)) {
       reply.code(404).send({ error: "Share not found or expired" });
       return null;
     }
-    const item = galleryMultiShareMediaItem(link, itemId);
+    const item = link.module === STORY_SHARE_MODULE
+      ? loadStoryShareMediaItem(link, itemId)
+      : galleryMultiShareMediaItem(link, itemId);
     if (!item) {
       reply.code(404).send({ error: "File not found" });
       return null;
     }
     return { link, item };
   };
+
+  // A shared story's narration. Belonging to THAT story is the authorization,
+  // the same rule the item routes use — a clip id from elsewhere 404s.
+  app.get("/api/share/:token/audio/:audioId", SHARE_MEDIA_LIMIT, (request, reply) => {
+    const { token, audioId } = request.params as { token: string; audioId: string };
+    const link = resolveShareLink(token, request);
+    if (!link || link.module !== STORY_SHARE_MODULE) {
+      reply.code(404).send({ error: "Share not found or expired" });
+      return;
+    }
+    const ctx = storyLinkContext(link);
+    const audio = getStoryAudio(audioId);
+    if (!ctx || !audio || audio.story_id !== ctx.story.id) {
+      reply.code(404).send({ error: "Recording not found" });
+      return;
+    }
+    return sendNarration(request, reply, audio);
+  });
 
   app.get("/api/share/:token/items/:itemId/cover", SHARE_THUMB_LIMIT, async (request, reply) => {
     const resolved = resolveSetItem(request, reply);
@@ -1860,11 +2012,14 @@ export async function librarySharesPlugin(app: FastifyInstance) {
   app.get("/api/share/:token/download-all", SHARE_ZIP_LIMIT, async (request, reply) => {
     const token = (request.params as { token: string }).token;
     const link = resolveShareLink(token, request);
-    if (!link || !GALLERY_MULTI_MODULES.has(link.module)) {
+    const isStory = link?.module === STORY_SHARE_MODULE;
+    if (!link || !(GALLERY_MULTI_MODULES.has(link.module) || isStory)) {
       return reply.code(404).send({ error: "Share not found or expired" });
     }
 
-    const available = galleryMultiShareFiles(link).filter((file) => {
+    // A story's zip is every photo the link exposes — which, with expandAlbums
+    // off, is only what the page actually shows.
+    const available = (isStory ? storyShareFiles(link) : galleryMultiShareFiles(link)).filter((file) => {
       const filePath = path.join(file.source_path, ...file.relative_path.split("/"));
       return pathIsInside(filePath, file.source_path) && fs.existsSync(filePath);
     });
@@ -1874,8 +2029,10 @@ export async function librarySharesPlugin(app: FastifyInstance) {
 
     const meta = db.prepare("SELECT label FROM share_links WHERE id = ?").get(link.id) as { label: string | null } | undefined;
     const isAlbum = link.module === "gallery_album";
-    const resourceName = meta?.label ?? (isAlbum ? loadAlbumShareMeta(link.resource_id)?.name ?? null : null);
-    const kindWord = isAlbum ? "album" : "set";
+    const resourceName = meta?.label
+      ?? (isAlbum ? loadAlbumShareMeta(link.resource_id)?.name : null)
+      ?? (isStory ? storyShareTitle(link.resource_id) : null);
+    const kindWord = isStory ? "story" : isAlbum ? "album" : "set";
     const safeBase = (resourceName ?? "shared-photos").replace(/[/\\?%*:|"<>]/g, "_").trim() || "shared-photos";
     const zipName = `${safeBase}.zip`;
 

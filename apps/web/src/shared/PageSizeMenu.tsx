@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { SelectMenu } from "./SelectMenu";
 
 // "How many rows at a time", for the tables that offer the choice. The value is
@@ -28,11 +29,12 @@ export function usePageSize(storageKey: string): [PageSize, (next: PageSize) => 
 }
 
 export function PageSizeMenu({ value, onChange }: { value: PageSize; onChange: (next: PageSize) => void }) {
+  const { t } = useTranslation();
   return (
     <SelectMenu
       value={value}
-      options={PAGE_SIZES.map((size) => ({ value: size, label: `${size} per page` }))}
-      label="Rows per page"
+      options={PAGE_SIZES.map((size) => ({ value: size, label: t("pageSize.perPage", { count: Number(size) }) }))}
+      label={t("pageSize.label")}
       onChange={onChange}
     />
   );

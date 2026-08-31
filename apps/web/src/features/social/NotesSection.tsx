@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useTranslation } from "react-i18next";
 import { MessageSquare, Trash2 } from "lucide-react";
 import { api } from "../../api";
 import { Button } from "../../shared/Button";
@@ -52,6 +53,7 @@ export function NotesSection({
   entityId: string;
   compact?: boolean;
 }) {
+  const { t } = useTranslation(["common", "user"]);
   const [notes, setNotes] = useState<Note[] | null>(null);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
@@ -85,7 +87,7 @@ export function NotesSection({
       setNotes((current) => [...(current ?? []), payload.note]);
       setDraft("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to post this note");
+      setError(err instanceof Error ? err.message : t("user:notes.postFailed"));
     } finally {
       setBusy(false);
     }
@@ -119,17 +121,17 @@ export function NotesSection({
       setNotes((current) => (current ?? []).filter((note) => note.id !== confirmDelete.id));
       setConfirmDelete(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to remove this note");
+      setError(err instanceof Error ? err.message : t("user:notes.removeFailed"));
     } finally {
       setDeleting(false);
     }
   };
 
   return (
-    <section className={`notes-section${compact ? " is-compact" : ""}`} aria-label="Notes">
+    <section className={`notes-section${compact ? " is-compact" : ""}`} aria-label={t("user:notes.title")}>
       <h2 className="notes-heading">
         <MessageSquare size={16} aria-hidden />
-        <span>Notes</span>
+        <span>{t("user:notes.title")}</span>
       </h2>
 
       {notes && notes.length > 0 && (
@@ -137,7 +139,7 @@ export function NotesSection({
           {notes.map((note) => (
             <li className="note" key={note.id}>
               <div className="note-head">
-                <strong>{note.mine ? "You" : note.authorName}</strong>
+                <strong>{note.mine ? t("user:notes.you") : note.authorName}</strong>
                 <span className="note-when">{when(note.createdAt)}</span>
                 {note.canDelete && (
                   <Button
@@ -145,8 +147,8 @@ export function NotesSection({
                     danger
                     compact
                     className="note-remove"
-                    title="Remove note"
-                    aria-label={`Remove note by ${note.mine ? "you" : note.authorName}`}
+                    title={t("user:notes.remove")}
+                    aria-label={note.mine ? t("user:notes.removeMineAria") : t("user:notes.removeByAria", { name: note.authorName })}
                     onClick={() => setConfirmDelete(note)}
                   >
                     <Trash2 size={14} aria-hidden />
@@ -161,7 +163,7 @@ export function NotesSection({
       )}
 
       {notes && notes.length === 0 && (
-        <p className="notes-empty">Nothing here yet. Say something about it.</p>
+        <p className="notes-empty">{t("user:notes.empty")}</p>
       )}
 
       <form className="note-form" onSubmit={submit}>
@@ -171,31 +173,31 @@ export function NotesSection({
           value={draft}
           maxLength={MAX}
           rows={compact ? 2 : 3}
-          placeholder="Add a note…"
+          placeholder={t("user:notes.placeholder")}
           disabled={busy}
           onChange={(event) => setDraft(event.target.value)}
         />
         <div className="note-form-actions">
           <EmojiPicker onPick={insertEmoji} disabled={busy} />
           <Button variant="primary" compact type="submit" disabled={busy || draft.trim().length === 0}>
-            {busy ? "Posting…" : "Post"}
+            {busy ? t("user:notes.posting") : t("user:notes.post")}
           </Button>
         </div>
       </form>
 
-      {error && <MessageBox tone="error" title="Unable to save">{error}</MessageBox>}
+      {error && <MessageBox tone="error" title={t("common:errors.unableToSave")}>{error}</MessageBox>}
 
       {confirmDelete && (
         <ConfirmDialog
-          title="Remove this note?"
-          confirmLabel="Remove note"
-          busyLabel="Removing…"
+          title={t("user:notes.removeTitle")}
+          confirmLabel={t("user:notes.remove")}
+          busyLabel={t("user:actions.removing")}
           busy={deleting}
           danger
           onConfirm={() => void remove()}
           onCancel={() => setConfirmDelete(null)}
         >
-          It stops showing under this. Nothing else about the {entityType === "family_tree_person" ? "person" : "item"} changes.
+          {entityType === "family_tree_person" ? t("user:notes.removeBodyPerson") : t("user:notes.removeBodyItem")}
         </ConfirmDialog>
       )}
     </section>

@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { BookMarked } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { api } from "../../api";
 import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
-import { EVENT_TYPE_OPTIONS, type FamilyCitation, type FamilyPersonProfile, type FamilySource } from "./types";
+import { eventTypeLabel, type FamilyCitation, type FamilyPersonProfile, type FamilySource } from "./types";
 
 const NEW_SOURCE = "__new__";
 
@@ -16,26 +18,34 @@ interface TargetOption {
   body: { personId?: string; eventId?: string; unionId?: string; fact?: string | null };
 }
 
-function targetOptions(profile: FamilyPersonProfile): TargetOption[] {
+function targetOptions(profile: FamilyPersonProfile, t: TFunction<readonly ["common", "family"], undefined>): TargetOption[] {
   const options: TargetOption[] = [
-    { value: "general", label: `${profile.name} (general)`, body: { personId: profile.id, fact: null } },
-    { value: "name", label: "Name", body: { personId: profile.id, fact: "name" } },
-    { value: "birth", label: "Birth", body: { personId: profile.id, fact: "birth" } },
-    { value: "death", label: "Death", body: { personId: profile.id, fact: "death" } }
+    { value: "general", label: t("family:citation.targetGeneral", { name: profile.name }), body: { personId: profile.id, fact: null } },
+    { value: "name", label: t("family:citation.targetName"), body: { personId: profile.id, fact: "name" } },
+    { value: "birth", label: t("family:citation.targetBirth"), body: { personId: profile.id, fact: "birth" } },
+    { value: "death", label: t("family:citation.targetDeath"), body: { personId: profile.id, fact: "death" } }
   ];
   for (const union of profile.unions) {
     if (!union.partner) continue;
-    options.push({ value: `marr:${union.id}`, label: `Marriage to ${union.partner.name}`, body: { unionId: union.id, fact: "marriage" } });
+    options.push({
+      value: `marr:${union.id}`,
+      label: t("family:citation.targetMarriage", { name: union.partner.name }),
+      body: { unionId: union.id, fact: "marriage" }
+    });
     if (union.divorcedDate || union.status === "divorced") {
-      options.push({ value: `div:${union.id}`, label: `Divorce from ${union.partner.name}`, body: { unionId: union.id, fact: "divorce" } });
+      options.push({
+        value: `div:${union.id}`,
+        label: t("family:citation.targetDivorce", { name: union.partner.name }),
+        body: { unionId: union.id, fact: "divorce" }
+      });
     }
   }
   for (const event of profile.events) {
-    const typeLabel = EVENT_TYPE_OPTIONS.find((o) => o.value === event.type)?.label ?? event.type;
+    const typeLabel = eventTypeLabel(event.type);
     const what = event.label || typeLabel;
     options.push({
       value: `event:${event.id}`,
-      label: `${what}${event.date ? ` (${event.date.slice(0, 4)})` : ""}`,
+      label: event.date ? t("family:citation.eventWithYear", { what, year: event.date.slice(0, 4) }) : what,
       body: { eventId: event.id }
     });
   }
@@ -73,8 +83,9 @@ export function CitationEditModal({
   const [note, setNote] = useState(existing?.note ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const { t } = useTranslation(["common", "family"]);
 
-  const targets = useMemo(() => targetOptions(profile), [profile]);
+  const targets = useMemo(() => targetOptions(profile, t), [profile, t]);
 
   useEffect(() => {
     api<{ sources: FamilySource[] }>("/api/family-tree/sources")
@@ -83,8 +94,8 @@ export function CitationEditModal({
         // Adding with existing sources available: default to the first one.
         if (!existing && payload.sources.length > 0) setSourceId(payload.sources[0].id);
       })
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load sources"));
-  }, [existing]);
+      .catch((err) => setError(err instanceof Error ? err.message : t("family:citation.errors.loadSources")));
+  }, [existing, t]);
 
   // Editing a source's shared details starts from its current values.
   const beginEditSource = () => {
@@ -105,7 +116,7 @@ export function CitationEditModal({
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (showSourceFields && !title.trim()) {
-      setError("The source needs a title.");
+      setError(t("family:citation.errors.titleRequired"));
       return;
     }
     setSaving(true);
@@ -132,7 +143,7 @@ export function CitationEditModal({
       if (existing) {
         await api(`/api/family-tree/citations/${existing.id}`, { method: "PATCH", body: JSON.stringify(annotation) });
       } else {
-        const picked = targets.find((t) => t.value === target) ?? targets[0];
+        const picked = targets.find((opt) => opt.value === target) ?? targets[0];
         await api("/api/family-tree/citations", {
           method: "POST",
           body: JSON.stringify({ sourceId: citedSourceId, ...picked.body, ...annotation })
@@ -140,7 +151,7 @@ export function CitationEditModal({
       }
       onSaved();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to save the citation");
+      setError(err instanceof Error ? err.message : t("family:citation.errors.default"));
       setSaving(false);
     }
   };
@@ -148,18 +159,18 @@ export function CitationEditModal({
   return (
     <Modal
       variant="card"
-      title={existing ? "Edit citation" : `Add source for ${profile.name}`}
+      title={existing ? t("family:citation.titleEdit") : t("family:citation.titleAdd", { name: profile.name })}
       icon={<BookMarked size={18} />}
       className="ft-modal ft-person-form-modal"
       busy={saving}
       onClose={onClose}
       onSubmit={submit}
     >
-      {error && <MessageBox tone="error" title="Unable to save">{error}</MessageBox>}
+      {error && <MessageBox tone="error" title={t("errors.unableToSave")}>{error}</MessageBox>}
       <div className="ft-field-stack">
         {existing ? (
           <label className="field">
-            <span>Source</span>
+            <span>{t("family:citation.sourceLabel")}</span>
             {editSource
               ? <input type="text" value={title} onChange={(event) => setTitle(event.target.value)} required />
               : (
@@ -167,7 +178,7 @@ export function CitationEditModal({
                   <span className="ft-citation-source-name">{existing.sourceTitle}</span>
                   {canEditSources && (
                     <Button variant="text" compact onClick={beginEditSource} disabled={saving || sources.length === 0}>
-                      Edit source details
+                      {t("family:citation.editSourceDetails")}
                     </Button>
                   )}
                 </span>
@@ -175,7 +186,7 @@ export function CitationEditModal({
           </label>
         ) : (
           <label className="field">
-            <span>Source</span>
+            <span>{t("family:citation.sourceLabel")}</span>
             <select
               value={sourceId}
               onChange={(event) => { setSourceId(event.target.value); setEditSource(false); }}
@@ -183,45 +194,45 @@ export function CitationEditModal({
               {sources.map((source) => (
                 <option key={source.id} value={source.id}>{source.title}</option>
               ))}
-              {canEditSources && <option value={NEW_SOURCE}>+ New source…</option>}
+              {canEditSources && <option value={NEW_SOURCE}>{t("family:citation.newSourceOption")}</option>}
             </select>
           </label>
         )}
         {noSourceAvailable && (
-          <MessageBox tone="info" title="No sources yet">
-            Only admins can add sources to the shared bibliography. Ask an admin to create the source first, then cite it here.
+          <MessageBox tone="info" title={t("family:citation.noSourcesTitle")}>
+            {t("family:citation.noSourcesBody")}
           </MessageBox>
         )}
         {canEditSources && !existing && sourceId !== NEW_SOURCE && selectedSource && (
           <Button variant="text" compact onClick={beginEditSource} disabled={saving || editSource}>
-            Edit source details
+            {t("family:citation.editSourceDetails")}
           </Button>
         )}
         {showSourceFields && (
           <div className="ft-form-grid">
             {sourceId === NEW_SOURCE && (
               <label className="field">
-                <span>Title</span>
+                <span>{t("family:citation.titleField")}</span>
                 <input type="text" value={title} onChange={(event) => setTitle(event.target.value)} required />
               </label>
             )}
             <label className="field">
-              <span>Author</span>
+              <span>{t("family:citation.authorField")}</span>
               <input type="text" value={author} onChange={(event) => setAuthor(event.target.value)} />
             </label>
             <label className="field">
-              <span>Publisher</span>
+              <span>{t("family:citation.publisherField")}</span>
               <input type="text" value={publisher} onChange={(event) => setPublisher(event.target.value)} />
             </label>
             <label className="field">
-              <span>Source URL</span>
+              <span>{t("family:citation.sourceUrlField")}</span>
               <input type="url" value={sourceUrl} placeholder="https://…" onChange={(event) => setSourceUrl(event.target.value)} />
             </label>
           </div>
         )}
         {!existing && (
           <label className="field">
-            <span>Supports</span>
+            <span>{t("family:citation.supportsLabel")}</span>
             <select value={target} onChange={(event) => setTarget(event.target.value)}>
               {targets.map((option) => (
                 <option key={option.value} value={option.value}>{option.label}</option>
@@ -230,22 +241,22 @@ export function CitationEditModal({
           </label>
         )}
         <label className="field">
-          <span>Where in the source (page, record #…)</span>
+          <span>{t("family:citation.detailFieldLabel")}</span>
           <input type="text" value={detail} onChange={(event) => setDetail(event.target.value)} />
         </label>
         <label className="field">
-          <span>Link to the record</span>
+          <span>{t("family:citation.linkFieldLabel")}</span>
           <input type="url" value={url} placeholder="https://…" onChange={(event) => setUrl(event.target.value)} />
         </label>
         <label className="field">
-          <span>Notes</span>
+          <span>{t("family:common.notes")}</span>
           <textarea value={note} rows={2} onChange={(event) => setNote(event.target.value)} />
         </label>
       </div>
       <div className="modal-actions">
-        <Button variant="secondary" onClick={onClose} disabled={saving}>Cancel</Button>
+        <Button variant="secondary" onClick={onClose} disabled={saving}>{t("common.cancel")}</Button>
         <Button variant="primary" type="submit" disabled={saving || noSourceAvailable}>
-          {saving ? "Saving…" : existing ? "Save changes" : "Add citation"}
+          {saving ? t("family:common.saving") : existing ? t("family:common.saveChanges") : t("family:citation.submit")}
         </Button>
       </div>
     </Modal>

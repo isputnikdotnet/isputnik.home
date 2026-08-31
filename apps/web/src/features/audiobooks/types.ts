@@ -1,3 +1,4 @@
+import i18n from "../../i18n";
 import type { FeedItem } from "../library/feed";
 
 // Per-object roles. `deny` is an explicit block, not a tier. See docs/permissions.md.
@@ -283,6 +284,24 @@ export interface Quote {
   note: string | null;
   color: string | null;
   percentComplete: number | null;
+  // How the quote got here (the server decides), who may see it, and whether it
+  // is in the Quote-of-the-day pool.
+  origin: "manual" | "reader" | "import";
+  /** False for someone else's shared quote: read-only, and ownerName says whose. */
+  mine: boolean;
+  ownerName: string | null;
+  /** The categories it wears (Funny, Kids, …) — the daily card filters on these. */
+  tags: string[];
+  /** WHO SAID IT: a family-tree person, not the author of a book. Null once the
+   *  person is deleted, though personName keeps the snapshot. */
+  personId: string | null;
+  personName: string | null;
+  visibility: "private" | "family";
+  inRotation: boolean;
+  language: string | null;
+  /** When it was SAID: 'YYYY' | 'YYYY-MM' | 'YYYY-MM-DD'. */
+  quoteDate: string | null;
+  context: string | null;
   sourceTitle: string | null;
   sourceAuthors: string[];
   libraryType: "audiobook" | "ebook" | "gallery" | null;
@@ -409,4 +428,17 @@ export interface CoverCandidate {
   relativePath: string;
   size: number;
   previewUrl: string;
+}
+
+// "1775 – 1817", "b. 1970", "d. 1817" — years only, from partial dates. A month
+// and a day are genealogy-grade precision that a person's page has no use for at
+// a glance, and whatever was stored is still there in the edit dialog. Shared by
+// the person page and the Find info result cards so the two agree.
+export function formatLifespan(birthDate: string | null, deathDate: string | null): string {
+  const born = birthDate?.slice(0, 4) ?? "";
+  const died = deathDate?.slice(0, 4) ?? "";
+  if (born && died) return `${born} – ${died}`;
+  if (born) return i18n.t("book:person.bornYear", { year: born });
+  if (died) return i18n.t("book:person.diedYear", { year: died });
+  return "";
 }

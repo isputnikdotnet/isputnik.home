@@ -6,6 +6,35 @@ import { pathIsInside } from "./storage-roots.js";
 import { canUserAccessBook, canUserDownloadBook } from "./library-access.js";
 import { mediaKind } from "./library-types.js";
 
+/**
+ * Pipe a file to a hijacked reply, closing the read stream when the response ends.
+ *
+ * Every media route here serves seekable files, which means clients abandon requests
+ * constantly: a <video> scrubs by opening ranges and dropping them, and leaving a
+ * page drops whatever was still loading. `pipe()` does not tear the source down when
+ * the destination closes early, so each abandoned request leaves a descriptor open
+ * until the garbage collector happens to reach it. Tying it to the response instead
+ * makes the release deterministic.
+ *
+ * This is hygiene, not a fix for a known failure. In particular it does NOT affect
+ * whether a file can be renamed, moved, or deleted afterwards: Node opens files with
+ * FILE_SHARE_DELETE, so an in-flight read never blocked that, on Windows or anywhere
+ * else. (Measured, after a render's EPERM was wrongly blamed on it — see
+ * swapRenderIntoPlace in slideshow-render.ts for what actually causes those.)
+ */
+export function pipeFileToReply(
+  reply: FastifyReply,
+  filePath: string,
+  options?: { start: number; end: number }
+): void {
+  const stream = fs.createReadStream(filePath, options);
+  reply.raw.on("close", () => stream.destroy());
+  // A read error after the headers are out cannot become a status code — the only
+  // honest signal left is to break the connection so the client sees a short read.
+  stream.on("error", () => reply.raw.destroy());
+  stream.pipe(reply.raw);
+}
+
 // Parse a single-range `Range` header against the resource size. Returns null for
 // a malformed or unsatisfiable range. Shared by the audio and document streamers.
 export function parseRangeHeader(header: string, totalSize: number) {
@@ -125,9 +154,9 @@ export function streamDocumentFile(request: FastifyRequest, reply: FastifyReply,
   };
   if (range) {
     reply.raw.writeHead(206, { ...baseHeaders, "Content-Range": `bytes ${range.start}-${range.end}/${totalSize}`, "Content-Length": range.size });
-    fs.createReadStream(filePath, { start: range.start, end: range.end }).pipe(reply.raw);
+    pipeFileToReply(reply, filePath, { start: range.start, end: range.end });
   } else {
     reply.raw.writeHead(200, { ...baseHeaders, "Content-Length": totalSize });
-    fs.createReadStream(filePath).pipe(reply.raw);
+    pipeFileToReply(reply, filePath);
   }
 }

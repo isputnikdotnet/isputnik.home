@@ -91,7 +91,7 @@ describe("recycle bin retention", () => {
     trashBook(makeBook("bk1"), "u1", { source: "duplicate_cleanup" });
 
     expect(binRow("Title bk1").expires_at).toBeNull();
-    expect(purgeExpiredTrash()).toBe(0);
+    expect(purgeExpiredTrash()).toEqual({ purged: 0, eligible: 0 });
   });
 
   it("purges on the date the item carries, not on today's setting", () => {
@@ -104,7 +104,7 @@ describe("recycle bin retention", () => {
     db.prepare("UPDATE trashed_items SET expires_at = datetime('now', '-1 day') WHERE title = 'Title bk1'").run();
     setTrashRetentionDays(1);
 
-    expect(purgeExpiredTrash()).toBe(1);
+    expect(purgeExpiredTrash()).toEqual({ purged: 1, eligible: 1 });
     const left = db.prepare("SELECT title FROM trashed_items").all() as { title: string }[];
     expect(left.map((row) => row.title)).toEqual(["Title bk2"]);
   });

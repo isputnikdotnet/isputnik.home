@@ -1,4 +1,5 @@
 import { api } from "../../api";
+import i18n from "../../i18n";
 import { downloadBook, downloadEbook, type DownloadRecord, type EbookDownloadRecord } from "../../offline/downloads";
 import { isFoliateFormat } from "../../shared/utils";
 import type { AudiobookBookDetail } from "../audiobooks/types";
@@ -35,8 +36,9 @@ export function feedHref(item: FeedItem): string {
   return item.kind === "ebook" ? `/ebooks/books/${item.id}` : `/audiobooks/books/${item.id}`;
 }
 
+// Module-level helper (no hook access), so it goes through i18n directly.
 export function authorLine(item: FeedItem): string {
-  return item.authors.length > 0 ? item.authors.join(", ") : "Unknown author";
+  return item.authors.length > 0 ? item.authors.join(", ") : i18n.t("user:feed.unknownAuthor");
 }
 
 // Fetch a feed item's full detail and save it to the offline store — all the

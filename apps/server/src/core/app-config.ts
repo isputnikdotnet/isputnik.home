@@ -7,14 +7,14 @@ export const DEFAULT_THEME_KEY = "default_theme";
 
 const configSchema = z.object({ defaultTheme: z.enum(THEME_PREFERENCES) });
 
-/** App-wide default theme used for the sign-in screen and new accounts. */
+/** App-wide default theme used for the sign-in screen and new accounts.
+    Until an admin picks one, the site defaults to Minimalist. */
 export function getDefaultTheme(): ThemePreference {
   const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(DEFAULT_THEME_KEY) as
     | { value: string }
     | undefined;
   const value = row?.value ?? "";
-  if (value === "hard-orbit") return "expanse";
-  return (THEME_PREFERENCES as readonly string[]).includes(value) ? (value as ThemePreference) : "dark";
+  return (THEME_PREFERENCES as readonly string[]).includes(value) ? (value as ThemePreference) : "minimalist";
 }
 
 export async function appConfigPlugin(app: FastifyInstance) {

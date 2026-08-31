@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Search } from "lucide-react";
 import type { ReactNode } from "react";
 
@@ -44,6 +45,7 @@ export function LibraryPageHeader({
   /** The page's single Create/New button — always rendered last in the row. */
   primaryAction?: ReactNode;
 }) {
+  const { t } = useTranslation();
   return (
     <header className="audiobook-page-header">
       <div className="audiobook-page-title">
@@ -55,13 +57,13 @@ export function LibraryPageHeader({
           {nav}
           {onSearchChange && (
             <label className="audiobook-page-search">
-              <span className="sr-only">{searchPlaceholder ?? `Search ${title.toLowerCase()}`}</span>
+              <span className="sr-only">{searchPlaceholder ?? t("common.searchIn", { what: title.toLowerCase() })}</span>
               <Search size={22} aria-hidden="true" />
               <input
                 type="search"
                 value={search ?? ""}
                 onChange={(event) => onSearchChange(event.target.value)}
-                placeholder={searchPlaceholder ?? `Search ${title.toLowerCase()}...`}
+                placeholder={searchPlaceholder ?? t("common.searchIn", { what: title.toLowerCase() })}
               />
             </label>
           )}

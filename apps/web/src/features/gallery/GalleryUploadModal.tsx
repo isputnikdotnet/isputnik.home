@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
 import { Modal } from "../../shared/Modal";
 import { FileUpload } from "../../shared/FileUpload";
@@ -18,25 +19,26 @@ export function GalleryUploadModal({
   onClose: () => void;
   onUploaded: (count: number, libraryName: string) => void;
 }) {
+  const { t } = useTranslation(["common", "galleryModals"]);
   const [libraryId, setLibraryId] = useState(() => libraries[0]?.id ?? "");
   const [busy, setBusy] = useState(false);
   const library = libraries.find((item) => item.id === libraryId);
 
   return (
     <Modal
-      title="Upload photos & videos"
+      title={t("galleryModals:upload.title")}
       className="book-upload-modal"
       busy={busy}
       onClose={onClose}
       headerAction={
-        <button type="button" className="modal-close" onClick={onClose} disabled={busy} aria-label="Close">
+        <button type="button" className="modal-close" onClick={onClose} disabled={busy} aria-label={t("common:common.close")}>
           <X size={18} aria-hidden="true" />
         </button>
       }
     >
       {libraries.length > 1 && (
         <label className="field" style={{ marginBottom: 12 }}>
-          <span>Library</span>
+          <span>{t("galleryModals:upload.libraryLabel")}</span>
           <select value={libraryId} onChange={(event) => setLibraryId(event.target.value)} disabled={busy}>
             {libraries.map((item) => (
               <option key={item.id} value={item.id}>{item.name}</option>
@@ -53,7 +55,7 @@ export function GalleryUploadModal({
           multiple
           folders
           maxFiles={200} // mirrors MAX_GALLERY_UPLOAD_FILES on the server
-          hint={`Accepted: ${library.uploadExtensions.map((ext) => `.${ext}`).join(", ")}${library.maxUploadMB != null ? ` · up to ${library.maxUploadMB} MB per file` : ""}`}
+          hint={`${t("galleryModals:upload.hintAccepted", { extensions: library.uploadExtensions.map((ext) => `.${ext}`).join(", ") })}${library.maxUploadMB != null ? t("galleryModals:upload.hintMaxSize", { mb: library.maxUploadMB }) : ""}`}
           onUploaded={(response) => {
             const payload = response as { uploaded?: number };
             onUploaded(payload.uploaded ?? 0, library.name);

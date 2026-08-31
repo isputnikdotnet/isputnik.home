@@ -1,4 +1,5 @@
 import { useState, useEffect, type FormEvent } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { api, type MfaMethod } from "../../api";
 import { Button } from "../../shared/Button";
 import { ChoiceGroup } from "../../shared/ChoiceGroup";
@@ -46,6 +47,7 @@ function BackupCodes({ codes }: { codes: string[] }) {
 }
 
 export function MfaSection() {
+  const { t } = useTranslation(["common", "misc"]);
   const [status, setStatus] = useState<MfaStatus | null>(null);
   const [loadError, setLoadError] = useState("");
   const [mode, setMode] = useState<Mode>(null);
@@ -54,7 +56,7 @@ export function MfaSection() {
     try {
       setStatus(await api<MfaStatus>("/api/profile/mfa"));
     } catch (err) {
-      setLoadError(err instanceof Error ? err.message : "Unable to load two-factor status");
+      setLoadError(err instanceof Error ? err.message : t("misc:mfa.unableToLoadFallback"));
     }
   };
 
@@ -69,39 +71,37 @@ export function MfaSection() {
 
   return (
     <section className="mfa-section" aria-labelledby="mfa-heading">
-      <h2 id="mfa-heading">Two-factor authentication</h2>
+      <h2 id="mfa-heading">{t("misc:mfa.heading")}</h2>
       <p className="mfa-intro">
-        Ask for a one-time code at sign-in — from an authenticator app or sent to your email — so a stolen password
-        alone can't reach your account.
+        {t("misc:mfa.intro")}
       </p>
-      {loadError && <MessageBox tone="error" title="Unable to load">{loadError}</MessageBox>}
+      {loadError && <MessageBox tone="error" title={t("misc:common.unableToLoad")}>{loadError}</MessageBox>}
 
       {status?.enabled && (
         <>
-          <MessageBox tone="success" title="Two-factor is on">
+          <MessageBox tone="success" title={t("misc:mfa.onTitle")}>
             {status.method === "email"
-              ? `You'll enter a code sent to ${status.emailAddress} when you sign in. `
-              : "You'll enter a code from your authenticator app when you sign in. "}
+              ? t("misc:mfa.onBodyEmail", { email: status.emailAddress })
+              : t("misc:mfa.onBodyTotp")}
             {status.backupCodesRemaining > 0
-              ? `${status.backupCodesRemaining} backup code${status.backupCodesRemaining === 1 ? "" : "s"} remaining.`
-              : "No backup codes left — regenerate a set."}
+              ? t("misc:mfa.backupRemaining", { count: status.backupCodesRemaining })
+              : t("misc:mfa.noBackupCodes")}
           </MessageBox>
           {status.method === "email" && !status.emailAvailable && (
-            <MessageBox tone="warning" title="This server can't send email">
-              Your codes have nowhere to go until an administrator sets email up again. Use a backup code to sign in
-              meanwhile.
+            <MessageBox tone="warning" title={t("misc:mfa.noEmailTitle")}>
+              {t("misc:mfa.noEmailBody")}
             </MessageBox>
           )}
           <div className="mfa-actions">
-            <Button variant="secondary" onClick={() => setMode("regenerate")}>Regenerate backup codes</Button>
-            <Button variant="danger" onClick={() => setMode("disable")}>Turn off</Button>
+            <Button variant="secondary" onClick={() => setMode("regenerate")}>{t("misc:mfa.regenerateButton")}</Button>
+            <Button variant="danger" onClick={() => setMode("disable")}>{t("misc:mfa.turnOffButton")}</Button>
           </div>
         </>
       )}
 
       {status && !status.enabled && (
         <div className="mfa-actions">
-          <Button variant="primary" onClick={() => setMode("setup")}>Set up two-factor</Button>
+          <Button variant="primary" onClick={() => setMode("setup")}>{t("misc:mfa.setUpButton")}</Button>
         </div>
       )}
 
@@ -132,6 +132,7 @@ function MfaSetupModal({
   onClose: () => void;
   onDone: () => void;
 }) {
+  const { t } = useTranslation(["common", "misc"]);
   const [step, setStep] = useState<"password" | "confirm" | "codes">("password");
   const [method, setMethod] = useState<MfaMethod>("totp");
   const [password, setPassword] = useState("");
@@ -155,7 +156,7 @@ function MfaSetupModal({
       setCode("");
       setStep("confirm");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to start setup");
+      setError(err instanceof Error ? err.message : t("misc:mfa.unableToStartSetup"));
     } finally {
       setBusy(false);
     }
@@ -173,7 +174,7 @@ function MfaSetupModal({
       setBackupCodes(payload.backupCodes);
       setStep("codes");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to turn on two-factor");
+      setError(err instanceof Error ? err.message : t("misc:mfa.unableToEnable"));
     } finally {
       setBusy(false);
     }
@@ -181,36 +182,35 @@ function MfaSetupModal({
 
   if (step === "password") {
     return (
-      <Modal variant="card" title="Set up two-factor" busy={busy} onClose={onClose} onSubmit={startSetup}>
+      <Modal variant="card" title={t("misc:mfa.setupTitle")} busy={busy} onClose={onClose} onSubmit={startSetup}>
         <ChoiceGroup
-          legend="How you'll get your codes"
+          legend={t("misc:mfa.methodLegend")}
           value={method}
           onChange={setMethod}
           disabled={busy}
           options={[
             {
               value: "totp",
-              label: "Authenticator app",
-              description:
-                "A rolling code from Google Authenticator, Authy, Apple Passwords… Works offline and never leaves your phone."
+              label: t("misc:mfa.methodTotpLabel"),
+              description: t("misc:mfa.methodTotpDesc")
             },
             {
               value: "email",
-              label: "Email",
-              description: `A one-time code sent to ${emailAddress} each time you sign in. Nothing to install.`,
+              label: t("misc:mfa.methodEmailLabel"),
+              description: t("misc:mfa.methodEmailDesc", { email: emailAddress }),
               disabled: !emailAvailable,
               note: emailAvailable
-                ? "Less secure: codes travel by email, so anyone who can read that inbox can get in."
-                : "Unavailable — this server can't send email. An administrator sets it up in Control panel → Settings → Email."
+                ? t("misc:mfa.methodEmailNoteAvailable")
+                : t("misc:mfa.methodEmailNoteUnavailable")
             }
           ]}
         />
-        <Field label="Current password" type="password" value={password} onChange={setPassword} autoComplete="current-password" />
-        {error && <MessageBox tone="error" title="Unable to continue">{error}</MessageBox>}
+        <Field label={t("misc:common.currentPassword")} type="password" value={password} onChange={setPassword} autoComplete="current-password" />
+        {error && <MessageBox tone="error" title={t("misc:mfa.continueErrorTitle")}>{error}</MessageBox>}
         <div className="modal-actions">
-          <Button variant="secondary" onClick={onClose} disabled={busy}>Cancel</Button>
+          <Button variant="secondary" onClick={onClose} disabled={busy}>{t("common:common.cancel")}</Button>
           <Button variant="primary" type="submit" disabled={busy || password.length < 1}>
-            {busy ? "Checking…" : "Continue"}
+            {busy ? t("misc:mfa.checkingBusy") : t("misc:mfa.continueButton")}
           </Button>
         </div>
       </Modal>
@@ -219,25 +219,24 @@ function MfaSetupModal({
 
   if (step === "confirm" && setupData?.method === "totp") {
     return (
-      <Modal variant="card" title="Scan the QR code" busy={busy} onClose={onClose} onSubmit={confirmCode}>
+      <Modal variant="card" title={t("misc:mfa.scanTitle")} busy={busy} onClose={onClose} onSubmit={confirmCode}>
         <p>
-          Scan this with your authenticator app (Google Authenticator, Authy, Apple Passwords…), then enter the 6-digit
-          code it shows to confirm.
+          {t("misc:mfa.scanIntro")}
         </p>
         <div className="mfa-qr">
-          <img src={setupData.qrDataUrl} alt="Two-factor setup QR code" width={180} height={180} />
+          <img src={setupData.qrDataUrl} alt={t("misc:mfa.qrAlt")} width={180} height={180} />
         </div>
         <p className="mfa-secret">
-          Can't scan? Enter this key manually:
+          {t("misc:mfa.manualEntryIntro")}
           <br />
           <code>{setupData.secret}</code>
         </p>
-        <Field label="6-digit code" value={code} onChange={setCode} autoComplete="one-time-code" />
-        {error && <MessageBox tone="error" title="Unable to turn on two-factor">{error}</MessageBox>}
+        <Field label={t("misc:common.twoFactorCode")} value={code} onChange={setCode} autoComplete="one-time-code" />
+        {error && <MessageBox tone="error" title={t("misc:mfa.turnOnErrorTitle")}>{error}</MessageBox>}
         <div className="modal-actions">
-          <Button variant="secondary" onClick={onClose} disabled={busy}>Cancel</Button>
+          <Button variant="secondary" onClick={onClose} disabled={busy}>{t("common:common.cancel")}</Button>
           <Button variant="primary" type="submit" disabled={busy || code.trim().length < 6}>
-            {busy ? "Verifying…" : "Turn on two-factor"}
+            {busy ? t("misc:mfa.verifyingBusy") : t("misc:mfa.turnOnButton")}
           </Button>
         </div>
       </Modal>
@@ -246,18 +245,23 @@ function MfaSetupModal({
 
   if (step === "confirm" && setupData?.method === "email") {
     return (
-      <Modal variant="card" title="Check your email" busy={busy} onClose={onClose} onSubmit={confirmCode}>
+      <Modal variant="card" title={t("misc:mfa.emailStepTitle")} busy={busy} onClose={onClose} onSubmit={confirmCode}>
         <p>
-          We sent a 6-digit code to <strong>{setupData.sentTo}</strong>. Enter it to confirm the address can reach you.
-          It expires in {setupData.expiresInMinutes} minutes.
+          <Trans
+            i18nKey="mfa.emailStepIntro"
+            ns="misc"
+            count={setupData.expiresInMinutes}
+            values={{ email: setupData.sentTo }}
+            components={{ bold: <strong /> }}
+          />
         </p>
-        <Field label="6-digit code" value={code} onChange={setCode} autoComplete="one-time-code" />
-        {error && <MessageBox tone="error" title="Unable to turn on two-factor">{error}</MessageBox>}
+        <Field label={t("misc:common.twoFactorCode")} value={code} onChange={setCode} autoComplete="one-time-code" />
+        {error && <MessageBox tone="error" title={t("misc:mfa.turnOnErrorTitle")}>{error}</MessageBox>}
         <div className="modal-actions">
-          <Button variant="text" onClick={() => startSetup()} disabled={busy}>Send another code</Button>
-          <Button variant="secondary" onClick={onClose} disabled={busy}>Cancel</Button>
+          <Button variant="text" onClick={() => startSetup()} disabled={busy}>{t("misc:mfa.sendAnother")}</Button>
+          <Button variant="secondary" onClick={onClose} disabled={busy}>{t("common:common.cancel")}</Button>
           <Button variant="primary" type="submit" disabled={busy || code.trim().length < 6}>
-            {busy ? "Verifying…" : "Turn on two-factor"}
+            {busy ? t("misc:mfa.verifyingBusy") : t("misc:mfa.turnOnButton")}
           </Button>
         </div>
       </Modal>
@@ -265,21 +269,21 @@ function MfaSetupModal({
   }
 
   return (
-    <Modal variant="card" title="Save your backup codes" onClose={onDone}>
-      <MessageBox tone="warning" title="Save these now">
-        Each code lets you sign in once if your second factor is out of reach — a lost authenticator, or an inbox you
-        can't get to. They won't be shown again.
+    <Modal variant="card" title={t("misc:mfa.codesTitle")} onClose={onDone}>
+      <MessageBox tone="warning" title={t("misc:mfa.saveNowTitle")}>
+        {t("misc:mfa.saveNowBodySetup")}
       </MessageBox>
       <BackupCodes codes={backupCodes} />
       <div className="modal-actions">
-        <Button variant="secondary" onClick={() => downloadCodes(backupCodes)}>Download</Button>
-        <Button variant="primary" onClick={onDone}>Done</Button>
+        <Button variant="secondary" onClick={() => downloadCodes(backupCodes)}>{t("misc:mfa.download")}</Button>
+        <Button variant="primary" onClick={onDone}>{t("common:common.done")}</Button>
       </div>
     </Modal>
   );
 }
 
 function MfaRegenerateModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+  const { t } = useTranslation(["common", "misc"]);
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
   const [codes, setCodes] = useState<string[] | null>(null);
@@ -297,7 +301,7 @@ function MfaRegenerateModal({ onClose, onDone }: { onClose: () => void; onDone: 
       });
       setCodes(payload.backupCodes);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to regenerate codes");
+      setError(err instanceof Error ? err.message : t("misc:mfa.unableToRegenerate"));
     } finally {
       setBusy(false);
     }
@@ -305,35 +309,35 @@ function MfaRegenerateModal({ onClose, onDone }: { onClose: () => void; onDone: 
 
   if (codes) {
     return (
-      <Modal variant="card" title="New backup codes" onClose={onDone}>
-        <MessageBox tone="warning" title="Save these now">
-          These replace your old codes, which no longer work. They won't be shown again.
+      <Modal variant="card" title={t("misc:mfa.newCodesTitle")} onClose={onDone}>
+        <MessageBox tone="warning" title={t("misc:mfa.saveNowTitle")}>
+          {t("misc:mfa.newCodesBody")}
         </MessageBox>
         <BackupCodes codes={codes} />
         <div className="modal-actions">
-          <Button variant="secondary" onClick={() => downloadCodes(codes)}>Download</Button>
-          <Button variant="primary" onClick={onDone}>Done</Button>
+          <Button variant="secondary" onClick={() => downloadCodes(codes)}>{t("misc:mfa.download")}</Button>
+          <Button variant="primary" onClick={onDone}>{t("common:common.done")}</Button>
         </div>
       </Modal>
     );
   }
 
   return (
-    <Modal variant="card" title="Regenerate backup codes" busy={busy} onClose={onClose} onSubmit={submit}>
-      <p>Confirm your password and a current two-factor code. This replaces your existing backup codes with a fresh set.</p>
-      <Field label="Current password" type="password" value={password} onChange={setPassword} autoComplete="current-password" />
+    <Modal variant="card" title={t("misc:mfa.regenerateTitle")} busy={busy} onClose={onClose} onSubmit={submit}>
+      <p>{t("misc:mfa.regenerateIntro")}</p>
+      <Field label={t("misc:common.currentPassword")} type="password" value={password} onChange={setPassword} autoComplete="current-password" />
       <Field
-        label="Two-factor code"
+        label={t("misc:common.twoFactorCode")}
         value={code}
         onChange={setCode}
-        placeholder="From your authenticator app, or a backup code"
+        placeholder={t("misc:common.codePlaceholder")}
         autoComplete="one-time-code"
       />
-      {error && <MessageBox tone="error" title="Unable to regenerate">{error}</MessageBox>}
+      {error && <MessageBox tone="error" title={t("misc:mfa.regenerateErrorTitle")}>{error}</MessageBox>}
       <div className="modal-actions">
-        <Button variant="secondary" onClick={onClose} disabled={busy}>Cancel</Button>
+        <Button variant="secondary" onClick={onClose} disabled={busy}>{t("common:common.cancel")}</Button>
         <Button variant="primary" type="submit" disabled={busy || password.length < 1 || code.trim().length < 6}>
-          {busy ? "Generating…" : "Regenerate"}
+          {busy ? t("misc:mfa.generatingBusy") : t("misc:mfa.regenerateSubmit")}
         </Button>
       </div>
     </Modal>
@@ -341,6 +345,7 @@ function MfaRegenerateModal({ onClose, onDone }: { onClose: () => void; onDone: 
 }
 
 function MfaDisableModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+  const { t } = useTranslation(["common", "misc"]);
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
@@ -357,30 +362,29 @@ function MfaDisableModal({ onClose, onDone }: { onClose: () => void; onDone: () 
       });
       onDone();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to turn off two-factor");
+      setError(err instanceof Error ? err.message : t("misc:mfa.unableToDisable"));
       setBusy(false);
     }
   };
 
   return (
-    <Modal variant="card" title="Turn off two-factor authentication?" alert busy={busy} onClose={onClose} onSubmit={submit}>
+    <Modal variant="card" title={t("misc:mfa.disableTitle")} alert busy={busy} onClose={onClose} onSubmit={submit}>
       <p>
-        Your account will be protected by your password alone. Confirm your password and a current
-        two-factor code to turn it off.
+        {t("misc:mfa.disableIntro")}
       </p>
-      <Field label="Current password" type="password" value={password} onChange={setPassword} autoComplete="current-password" />
+      <Field label={t("misc:common.currentPassword")} type="password" value={password} onChange={setPassword} autoComplete="current-password" />
       <Field
-        label="Two-factor code"
+        label={t("misc:common.twoFactorCode")}
         value={code}
         onChange={setCode}
-        placeholder="From your authenticator app, or a backup code"
+        placeholder={t("misc:common.codePlaceholder")}
         autoComplete="one-time-code"
       />
-      {error && <MessageBox tone="error" title="Unable to turn off">{error}</MessageBox>}
+      {error && <MessageBox tone="error" title={t("misc:mfa.disableErrorTitle")}>{error}</MessageBox>}
       <div className="modal-actions">
-        <Button variant="secondary" onClick={onClose} disabled={busy}>Cancel</Button>
+        <Button variant="secondary" onClick={onClose} disabled={busy}>{t("common:common.cancel")}</Button>
         <Button variant="danger" type="submit" disabled={busy || password.length < 1 || code.trim().length < 6}>
-          {busy ? "Turning off…" : "Turn off"}
+          {busy ? t("misc:mfa.turningOffBusy") : t("misc:mfa.turnOffButton")}
         </Button>
       </div>
     </Modal>

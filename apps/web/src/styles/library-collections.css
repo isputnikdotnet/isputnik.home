@@ -613,21 +613,45 @@
 
 /* ── Person detail ───────────────────────────────────────────────── */
 
-.person-detail-head {
-  display: flex;
-  align-items: center;
+/* Same "big round cover, details beside it" grid a book and a family member
+   use (book-detail-head/cover/ft-person-detail-*) — reused wholesale via
+   those class names, including the ft-avatar ring treatment, rather than
+   rebuilding it here. Only the subtitle line and the row-style titles list
+   below are person-page-specific. */
+.person-detail-subtitle {
+  color: var(--muted);
+}
+
+/* One fact per line. A book pairs its meta items two to a row, but a person has
+   only a handful and their values are long — "United Kingdom of Great Britain
+   and Ireland" is a real country answer, and in half a row it truncated to
+   "United Kingdom of Gr…" with the source link crowded in beside it. */
+.book-detail-meta-grid.person-detail-meta {
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
-  margin: 0;
 }
 
-.person-detail-head h1 {
-  margin: 0;
+.book-detail-meta-grid.person-detail-meta .book-detail-meta-item dd {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
 }
 
-.person-detail-avatar {
-  width: 64px;
-  height: 64px;
-  flex-shrink: 0;
+/* "American novelist and journalist · 1899 – 1961" — the one line of who this
+   person was, sitting between the name and the roles/count line. Carries the
+   weight the subtitle under it doesn't: this is the fact people came for. */
+.person-detail-lifeline {
+  margin: 2px 0 0;
+  color: var(--ink);
+  font-size: 0.95rem;
+  font-weight: 560;
+}
+
+.person-detail-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 /* Wikipedia extracts end with a "Source: …" line — keep the line break. */
@@ -640,168 +664,148 @@
   white-space: pre-line;
 }
 
-/* ── Person profile modal ────────────────────────────────────────── */
 
-.person-modal {
-  width: min(100%, 600px);
-  height: auto;
-  min-height: 0;
-  max-height: calc(100vh - 48px);
-}
-
-.person-profile-grid {
-  display: grid;
-  gap: 10px;
-}
-
-/* Online lookup: "Find online" + paste-a-link bar, and the compare panel. */
-.person-lookup {
-  display: grid;
-  gap: 12px;
-}
-
-.person-lookup-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
-.person-lookup-input {
-  flex: 1 1 200px;
-  min-width: 0;
-}
-
-.person-compare {
-  display: grid;
-  gap: 14px;
-  padding: 12px;
+/* The "Titles" card under the Overview/Books/Audiobooks tabs. One bordered
+   panel holds the whole list; the entries inside carry no box of their own —
+   a big cover, the title, and its credits, separated only by a hairline. */
+.person-titles-panel {
+  padding: 22px 0 4px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 12px;
   background: var(--surface);
 }
 
-.person-compare-head {
+.person-titles-panel > h2 {
+  margin: 0 22px 6px;
+  font-size: 1.12rem;
+}
+
+/* Two up, like the reference. The columns deliberately have NO gap: each row
+   draws its own top hairline, so touching columns make one unbroken rule
+   across the panel instead of two stubs with a notch between them. */
+.person-title-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 0;
+}
+
+.person-title-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 0.84rem;
-  font-weight: 760;
+  gap: 26px;
+  padding: 20px 22px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
 }
 
-.person-compare-head a {
-  margin-left: auto;
-  color: var(--mint);
-  font-weight: 600;
-  font-size: 0.8rem;
+/* The first row of the grid opens the list, so it needs no rule above it. */
+.person-title-row:nth-child(-n + 2) {
+  border-top: 0;
 }
 
-.person-compare-source-tag {
-  padding: 1px 8px;
-  border-radius: 999px;
-  background: var(--active);
-  color: var(--mint);
-  font-size: 0.72rem;
-  font-weight: 700;
+.person-title-row:hover,
+.person-title-row:focus-visible {
+  background: var(--hover);
+  outline: 0;
 }
 
-.person-compare-field {
-  display: grid;
-  gap: 8px;
-  justify-items: start;
-}
-
-.person-compare-label {
-  color: var(--ink);
-  font-weight: 700;
-  font-size: 0.82rem;
-}
-
-.person-compare-pair {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  width: 100%;
-}
-
-.person-compare-block {
-  display: grid;
-  gap: 4px;
-  align-content: start;
-  min-width: 0;
-}
-
-.person-compare-block small {
-  color: var(--muted);
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-
-.person-compare-block p {
-  margin: 0;
-  max-height: 168px;
-  overflow: auto;
-  font-size: 0.86rem;
-  line-height: 1.4;
-  overflow-wrap: anywhere;
-}
-
-.person-compare-block.found p {
-  color: var(--fg);
-}
-
-.person-compare-photos {
+/* Square frame: an audiobook cover fills it exactly (they are square), and a
+   portrait ebook jacket letterboxes rather than being cropped through — hence
+   contain, not cover. */
+/* Flex, not grid: the child's max-height needs a definite height to resolve
+   against, and an auto-sized grid track is indefinite even inside a fixed-height
+   box — which is what let the cover overflow and get clipped. */
+.person-title-cover {
   display: flex;
-  gap: 18px;
-}
-
-@media (max-width: 560px) {
-  .person-compare-pair {
-    grid-template-columns: 1fr;
-  }
-}
-
-.person-photo-tab {
-  display: grid;
-  justify-items: center;
-  gap: 18px;
-  padding-bottom: 8px;
-}
-
-.person-photo-preview {
-  display: grid;
-  place-items: center;
-  width: 160px;
-  height: 160px;
-  border-radius: 50%;
-  border: 2px solid var(--line);
+  align-items: center;
+  justify-content: center;
+  width: 104px;
+  height: 104px;
+  border-radius: 8px;
   background: var(--active);
   color: var(--mint);
   overflow: hidden;
+  flex-shrink: 0;
 }
 
-.person-photo-preview img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+/* With a real cover the frame gets out of the way, so a portrait jacket simply
+   sits narrower in its slot instead of showing letterbox bars. The tinted
+   square stays only behind the no-cover placeholder icon. */
+.person-title-cover:has(img) {
+  background: transparent;
+  border-radius: 6px;
 }
 
-.person-photo-actions {
+/* Sized by max-* rather than width/height + object-fit: the frame centres its
+   child with place-items, so a percentage height has no definite track to
+   resolve against and the image overflowed to its intrinsic ratio — clipped by
+   the frame, which cropped exactly what contain was meant to prevent. */
+.person-title-cover img {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 6px;
+}
+
+.person-title-info {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  align-content: center;
+}
+
+.person-title-info strong {
+  font-size: 1.24rem;
+  font-weight: 650;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.person-title-meta {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.92rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/* Online photo candidates reuse the cover-candidate tiles; the tab centers
-   its children, so the grid must claim the full row itself. */
-.person-photo-candidates {
-  width: 100%;
-  justify-self: stretch;
+.person-title-meta svg {
+  flex-shrink: 0;
 }
 
-.person-book-count {
-  margin: 6px 0 20px;
+/* The upright rule between "Narrated by …" and the running time. */
+.person-title-sep {
+  flex-shrink: 0;
+  width: 1px;
+  height: 13px;
+  margin: 0 3px;
+  background: color-mix(in srgb, var(--muted) 55%, transparent);
+}
+
+/* One column: every row but the very first now needs its own rule. */
+@media (max-width: 900px) {
+  .person-title-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .person-title-row:nth-child(-n + 2) {
+    border-top: 1px solid var(--line);
+  }
+
+  .person-title-row:first-child {
+    border-top: 0;
+  }
 }
 
 /* ── Audiobook grid ─────────────────────────────────────────────── */
@@ -1292,7 +1296,8 @@
 }
 
 .quote-field textarea,
-.quote-field input {
+.quote-field input,
+.quote-field select {
   width: 100%;
   padding: 9px 11px;
   border: 1px solid var(--line);
@@ -1304,7 +1309,8 @@
 }
 
 .quote-field textarea:focus,
-.quote-field input:focus {
+.quote-field input:focus,
+.quote-field select:focus {
   outline: none;
   border-color: var(--mint);
 }
@@ -1315,6 +1321,13 @@
   gap: 12px;
 }
 
+/* Sits beside a field in a .quote-field-row, so it lines up with that field's
+   control rather than with its label. */
+.quote-field-toggle {
+  align-self: end;
+  min-height: 40px;
+}
+
 .quote-form-linked {
   margin: 0;
   color: var(--muted);
@@ -1323,6 +1336,94 @@
 
 .quote-form-linked strong {
   color: var(--ink);
+}
+
+/* Import sits beside Add quote in the page head. */
+.quote-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Origin / rotation cuts over the list. Not the browse-page toolbar — this is a
+   user-area page, and one row of toggles is the whole control it needs. */
+.quote-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 18px;
+}
+
+.quote-filter {
+  padding: 5px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.quote-filter:hover {
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--mint) 45%, var(--line));
+}
+
+.quote-filter.is-active {
+  border-color: color-mix(in srgb, var(--mint) 45%, var(--line));
+  background: color-mix(in srgb, var(--mint) 12%, transparent);
+  color: var(--ink);
+}
+
+/* Categories on a card. Clicking one filters the page to it, so they are buttons
+   rather than labels — quieter than the filter row above, which shows state. */
+.quote-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 0;
+}
+
+.quote-tag {
+  padding: 2px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.quote-tag:hover {
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--mint) 45%, var(--line));
+}
+
+.quote-import-intro {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.quote-import-summary,
+.quote-import-issues {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.quote-import-summary li,
+.quote-import-issues li {
+  margin: 2px 0;
+}
+
+/* Per-row complaints from the server — diagnostic detail, so quieter and
+   wrappable however long the reason runs. */
+.quote-import-issues {
+  color: var(--muted);
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
 }
 
 .quote-toast {
@@ -1801,4 +1902,96 @@
 .new-collection-actions {
   justify-content: flex-end;
   margin-top: 4px;
+}
+
+/* Arriving from a collection row (/quotes?quote=…): a brief ring so the eye
+   finds the one quote in a long list. Fades on its own after a couple seconds. */
+.quote-card.is-highlighted {
+  border-color: color-mix(in srgb, var(--mint) 55%, var(--line));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mint) 18%, transparent);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .quote-card.is-highlighted {
+    transition: box-shadow 0.25s ease, border-color 0.25s ease;
+  }
+}
+
+/* Tabs inside a card modal. The shared .modal-tabs is built for the panel
+   variant, which has no padding of its own; a card already has 24px, so the row
+   gives its own back and stretches to the card edges instead. */
+.quote-editor-tabs {
+  margin: 4px -24px 0;
+  padding: 0 24px;
+}
+
+/* Each panel keeps the form grid; the hidden one is simply not laid out. */
+.quote-tab-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.quote-tab-panel[hidden] {
+  display: none;
+}
+
+/* The quote editor outgrew the 420px card: ten fields in a column that narrow is
+   a very long scroll. Wider, with the secondary fields two abreast — the quote
+   itself and the note stay full width, since those are what you actually type. */
+.confirm-modal.quote-editor-modal {
+  width: min(94vw, 680px);
+}
+
+@media (min-width: 620px) {
+  .quote-editor-modal .quote-field-row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Search over the whole library, not just the page on screen. */
+.quote-search {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 14px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--field);
+}
+
+.quote-search:focus-within {
+  border-color: var(--mint);
+}
+
+.quote-search svg {
+  flex: none;
+  color: var(--muted);
+}
+
+.quote-search input {
+  width: 100%;
+  min-height: 42px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+}
+
+.quote-search input:focus {
+  outline: none;
+}
+
+/* How many quotes a category holds — counted over the whole match, so it does
+   not change as you scroll. */
+.quote-filter-count {
+  margin-left: 6px;
+  opacity: 0.65;
+  font-size: 0.78rem;
+}
+
+.quote-load-more {
+  display: flex;
+  justify-content: center;
+  margin-top: 18px;
 }

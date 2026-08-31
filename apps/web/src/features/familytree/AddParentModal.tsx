@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { UsersRound } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { api } from "../../api";
 import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
 import { PersonAvatar } from "./PersonAvatar";
 import { PersonPickerModal } from "./PersonPickerModal";
-import { CHILD_RELATION_OPTIONS, type FamilyChildLink, type FamilyPerson, type FamilyPersonProfile } from "./types";
+import { CHILD_RELATION_OPTIONS, childRelationLabel, type FamilyChildLink, type FamilyPerson, type FamilyPersonProfile } from "./types";
 
 // Add a parent for `person`. With no parents recorded this creates a new
 // single-parent union and hangs the person under it; with one parent recorded
@@ -24,6 +25,7 @@ export function AddParentModal({
   onClose: () => void;
   onAdded: () => void;
 }) {
+  const { t } = useTranslation(["common", "family"]);
   const addingSecond = parentUnionId != null && person.parents.length === 1;
   const [parent, setParent] = useState<FamilyPerson | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -60,7 +62,7 @@ export function AddParentModal({
       }
       onAdded();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to add the parent");
+      setError(err instanceof Error ? err.message : t("family:addParent.errors.default"));
       setSaving(false);
     }
   };
@@ -68,7 +70,7 @@ export function AddParentModal({
   if (pickerOpen) {
     return (
       <PersonPickerModal
-        title={`Parent of ${person.name}`}
+        title={t("family:addParent.pickerTitle", { name: person.name })}
         excludeIds={excludeIds}
         onPick={(picked) => { setParent(picked); setPickerOpen(false); }}
         onClose={() => setPickerOpen(false)}
@@ -79,47 +81,49 @@ export function AddParentModal({
   return (
     <Modal
       variant="card"
-      title={addingSecond ? `Add ${person.name}'s other parent` : `Add parent of ${person.name}`}
+      title={addingSecond
+        ? t("family:addParent.modalTitleAddOther", { name: person.name })
+        : t("family:addParent.modalTitleAdd", { name: person.name })}
       icon={<UsersRound size={18} />}
       className="ft-modal"
       busy={saving}
       onClose={onClose}
       onSubmit={submit}
     >
-      {error && <MessageBox tone="error" title="Unable to add">{error}</MessageBox>}
+      {error && <MessageBox tone="error" title={t("family:common.unableToAdd")}>{error}</MessageBox>}
       {addingSecond && (
         <p className="ft-modal-hint">
-          Joins {person.parents[0].name}'s family — siblings in it get this parent too.
+          {t("family:addParent.joinHint", { name: person.parents[0].name })}
         </p>
       )}
       <div className="ft-partner-pick">
         {parent ? (
           <button type="button" className="ft-picker-row" onClick={() => setPickerOpen(true)} disabled={saving}>
             <PersonAvatar person={parent} size={36} />
-            <span className="ft-picker-row-name"><strong>{parent.name}</strong><small>Change parent</small></span>
+            <span className="ft-picker-row-name"><strong>{parent.name}</strong><small>{t("family:addParent.changeParent")}</small></span>
           </button>
         ) : (
           <Button variant="secondary" onClick={() => setPickerOpen(true)} disabled={saving}>
-            Choose parent…
+            {t("family:addParent.chooseParent")}
           </Button>
         )}
       </div>
       {!addingSecond && (
         <div className="ft-field-stack">
           <label className="field">
-            <span>Relation</span>
+            <span>{t("family:common.relation")}</span>
             <select value={relation} onChange={(event) => setRelation(event.target.value as FamilyChildLink["relation"])}>
               {CHILD_RELATION_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
+                <option key={option.value} value={option.value}>{childRelationLabel(option.value)}</option>
               ))}
             </select>
           </label>
         </div>
       )}
       <div className="modal-actions">
-        <Button variant="secondary" onClick={onClose} disabled={saving}>Cancel</Button>
+        <Button variant="secondary" onClick={onClose} disabled={saving}>{t("common.cancel")}</Button>
         <Button variant="primary" type="submit" disabled={saving || !parent}>
-          {saving ? "Adding…" : "Add parent"}
+          {saving ? t("family:common.adding") : t("family:addParent.submit")}
         </Button>
       </div>
     </Modal>

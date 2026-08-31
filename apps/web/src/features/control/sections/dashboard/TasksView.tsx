@@ -1,4 +1,6 @@
 import { Fragment, useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { AlertTriangle, CalendarClock, CheckCircle2, ChevronRight, ListTodo, Loader2, XCircle } from "lucide-react";
 import { api } from "../../../../api";
 import { controlHref, navigate } from "../../../../router";
@@ -20,23 +22,25 @@ import type { Job } from "../../types";
 
 const PAGE_SIZE = 10;
 
-function taskTypeLabel(type: string) {
+type T = TFunction<readonly ["common", "controlDash"], undefined>;
+
+function taskTypeLabel(type: string, t: T) {
   switch (type) {
-    case "SCAN_AUDIOBOOK_LIBRARY": return "Audiobook scan";
-    case "SCAN_EBOOK_LIBRARY": return "Ebook scan";
-    case "SCAN_GALLERY_LIBRARY": return "Photo & video scan";
-    case "SCAN_GALLERY_FACES": return "Face scan";
-    case "gallery-slideshow-render": return "Slideshow movie";
-    case "TRANSCODE_GALLERY_VIDEO": return "Video conversion";
-    case "SCAN_GALLERY_DUPLICATES": return "Duplicate photo scan";
+    case "SCAN_AUDIOBOOK_LIBRARY": return t("controlDash:tasks.typeAudiobookScan");
+    case "SCAN_EBOOK_LIBRARY": return t("controlDash:tasks.typeEbookScan");
+    case "SCAN_GALLERY_LIBRARY": return t("controlDash:tasks.typeGalleryScan");
+    case "SCAN_GALLERY_FACES": return t("controlDash:tasks.typeFaceScan");
+    case "gallery-slideshow-render": return t("controlDash:tasks.typeSlideshow");
+    case "TRANSCODE_GALLERY_VIDEO": return t("controlDash:tasks.typeTranscode");
+    case "SCAN_GALLERY_DUPLICATES": return t("controlDash:tasks.typeDuplicateScan");
     default: return type;
   }
 }
 
 // "Face scan · batch 2/5" for jobs that are part of a pre-queued batch group.
-function taskLabel(task: Job) {
-  const base = taskTypeLabel(task.type);
-  return task.batch ? `${base} · batch ${task.batch.index}/${task.batch.total}` : base;
+function taskLabel(task: Job, t: T) {
+  const base = taskTypeLabel(task.type, t);
+  return task.batch ? `${base} · ${t("controlDash:tasks.batch", { index: task.batch.index, total: task.batch.total })}` : base;
 }
 
 function duration(start: string, end: string | null) {
@@ -53,8 +57,8 @@ function runningMinutes(start: string) {
 
 // "3 of 12 books · 25% · about 2 min left" — mirrors the wording the
 // face-recognition window used before this moved here.
-function progressText(progress: NonNullable<Job["progress"]>): string {
-  const parts = [`${progress.processed.toLocaleString()} of ${progress.total.toLocaleString()} ${progress.unit}`];
+function progressText(progress: NonNullable<Job["progress"]>, t: T): string {
+  const parts = [t("controlDash:tasks.ofUnit", { processed: progress.processed.toLocaleString(), total: progress.total.toLocaleString(), unit: progress.unit })];
   if (progress.total > 0) parts.push(`${Math.round((progress.processed / progress.total) * 100)}%`);
   if (progress.etaSeconds != null) parts.push(formatEta(progress.etaSeconds));
   return parts.join(" · ");
@@ -76,13 +80,13 @@ interface ScheduledSummary {
   nextRunAt: string | null;
 }
 
-const STATUS_OPTIONS = [
-  { value: "", label: "Finished and failed" },
-  { value: "failed", label: "Failed only" },
-  { value: "completed", label: "Finished only" }
-];
-
 export function TasksView() {
+  const { t } = useTranslation(["common", "controlDash"]);
+  const STATUS_OPTIONS = [
+    { value: "", label: t("controlDash:tasks.outcomeAll") },
+    { value: "failed", label: t("controlDash:tasks.outcomeFailed") },
+    { value: "completed", label: t("controlDash:tasks.outcomeFinished") }
+  ];
   const [data, setData] = useState<TasksPayload | null>(null);
   const [error, setError] = useState("");
   const [cancelling, setCancelling] = useState<string | null>(null);
@@ -104,7 +108,7 @@ export function TasksView() {
   }, [page, status, type, library]);
 
   useEffect(() => {
-    loadTasks().catch((err) => setError(err instanceof Error ? err.message : "Unable to load tasks"));
+    loadTasks().catch((err) => setError(err instanceof Error ? err.message : t("controlDash:tasks.loadFailed")));
   }, [loadTasks]);
 
   // The soonest enabled schedule, so this tab can say what is coming as well as
@@ -136,7 +140,7 @@ export function TasksView() {
       await api(`/api/jobs/${taskId}/cancel`, { method: "POST", body: "{}" });
       await loadTasks();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to cancel task");
+      setError(err instanceof Error ? err.message : t("controlDash:tasks.cancelFailed"));
     } finally {
       setCancelling(null);
     }
@@ -148,55 +152,55 @@ export function TasksView() {
   const filtered = Boolean(status || type || library);
 
   const typeOptions = [
-    { value: "", label: "Every kind" },
-    ...(data?.facets.types ?? []).map((value) => ({ value, label: taskTypeLabel(value) }))
+    { value: "", label: t("controlDash:tasks.everyKind") },
+    ...(data?.facets.types ?? []).map((value) => ({ value, label: taskTypeLabel(value, t) }))
   ];
   const libraryOptions = [
-    { value: "", label: "Every library" },
+    { value: "", label: t("controlDash:tasks.everyLibrary") },
     ...(data?.facets.libraries ?? []).map((entry) => ({ value: entry.id, label: entry.name }))
   ];
 
   return (
     <div className="status-stack compact-tables">
       <section className="status-block">
-        {error && <MessageBox tone="error" title="Tasks error">{error}</MessageBox>}
+        {error && <MessageBox tone="error" title={t("controlDash:tasks.errorTitle")}>{error}</MessageBox>}
 
         {data && (
           <div className="kpi-cards">
             <KpiCard
               icon={Loader2}
               tone={data.summary.running > 0 ? "success" : "info"}
-              label="Running"
+              label={t("controlDash:tasks.running")}
               value={String(data.summary.running)}
               context={
                 running[0]
-                  ? `${taskLabel(running[0])}${running[0].libraryName ? ` · ${running[0].libraryName}` : ""}`
-                  : "Nothing is running"
+                  ? `${taskLabel(running[0], t)}${running[0].libraryName ? ` · ${running[0].libraryName}` : ""}`
+                  : t("controlDash:tasks.nothingRunning")
               }
             />
             <KpiCard
               icon={ListTodo}
               tone="info"
-              label="Queued"
+              label={t("controlDash:tasks.queued")}
               value={String(data.summary.queued)}
-              context={queued[0] ? `Next up: ${taskLabel(queued[0])}` : "The queue is empty"}
+              context={queued[0] ? t("controlDash:tasks.nextUp", { label: taskLabel(queued[0], t) }) : t("controlDash:tasks.queueEmpty")}
             />
             <KpiCard
               icon={AlertTriangle}
               tone={data.summary.failedWeek > 0 ? "danger" : "success"}
-              label="Failed"
+              label={t("controlDash:tasks.failed")}
               value={String(data.summary.failedWeek)}
-              context="In the last 7 days"
+              context={t("controlDash:tasks.lastSevenDays")}
             />
             <KpiCard
               icon={CheckCircle2}
               tone="info"
-              label="Last finished"
+              label={t("controlDash:tasks.lastFinished")}
               value={data.summary.lastFinished?.completedAt ? relativeTime(data.summary.lastFinished.completedAt) : "—"}
               context={
                 data.summary.lastFinished
-                  ? `${taskLabel(data.summary.lastFinished)}${data.summary.lastFinished.libraryName ? ` · ${data.summary.lastFinished.libraryName}` : ""}`
-                  : "No task has finished yet"
+                  ? `${taskLabel(data.summary.lastFinished, t)}${data.summary.lastFinished.libraryName ? ` · ${data.summary.lastFinished.libraryName}` : ""}`
+                  : t("controlDash:tasks.noneFinished")
               }
             />
           </div>
@@ -213,11 +217,11 @@ export function TasksView() {
                     <span className="location-cell">
                       <CalendarClock size={17} aria-hidden="true" className="signins-device-icon" />
                       <span className="datagrid-primary">
-                        <strong>{nextScheduled ? `Next scheduled: ${nextScheduled.label}` : "Nothing is scheduled"}</strong>
+                        <strong>{nextScheduled ? t("controlDash:tasks.nextScheduled", { label: nextScheduled.label }) : t("controlDash:tasks.nothingScheduled")}</strong>
                         <small>
                           {nextScheduled
                             ? `${relativeTime(nextScheduled.nextRunAt!)} · ${formatManagedDate(nextScheduled.nextRunAt!)}`
-                            : "Set up nightly scans and backups under Maintenance › Scheduled jobs"}
+                            : t("controlDash:tasks.scheduleHint")}
                         </small>
                       </span>
                     </span>
@@ -225,8 +229,8 @@ export function TasksView() {
                   <td className="locations-row-action">
                     <Button
                       variant="icon"
-                      aria-label="Open Scheduled jobs"
-                      title="Open Scheduled jobs"
+                      aria-label={t("controlDash:tasks.openScheduled")}
+                      title={t("controlDash:tasks.openScheduled")}
                       onClick={(event) => {
                         event.stopPropagation();
                         navigate(controlHref("scheduledJobs"));
@@ -244,18 +248,18 @@ export function TasksView() {
         {running.length > 0 && (
           <div className="status-subsection">
             <div className="status-table-title">
-              <h3>Running</h3>
-              <span>{running.length} {running.length === 1 ? "task" : "tasks"} · refreshes every few seconds</span>
+              <h3>{t("controlDash:tasks.running")}</h3>
+              <span>{t("controlDash:tasks.runningCount", { count: running.length })}</span>
             </div>
             <div className="datagrid-wrap task-active-grid">
               <table className="datagrid">
                 <thead>
                   <tr>
-                    <th>Task</th>
-                    <th>Library</th>
-                    <th>Progress</th>
-                    <th className="col-scan">Started</th>
-                    <th className="col-actions" aria-label="Actions" />
+                    <th>{t("controlDash:table.task")}</th>
+                    <th>{t("controlDash:table.library")}</th>
+                    <th>{t("controlDash:table.progress")}</th>
+                    <th className="col-scan">{t("controlDash:table.started")}</th>
+                    <th className="col-actions" aria-label={t("controlDash:table.actions")} />
                   </tr>
                 </thead>
                 <tbody>
@@ -267,21 +271,21 @@ export function TasksView() {
                         <td>
                           <span className="task-name">
                             <ProgressRing progress={percent ?? 0} indeterminate={percent === null} size={22} strokeWidth={3} />
-                            {taskLabel(task)}
+                            {taskLabel(task, t)}
                           </span>
                         </td>
                         <td className="datagrid-muted">{task.libraryName ?? <span className="muted">—</span>}</td>
                         <td className="datagrid-muted">
-                          {task.progress ? progressText(task.progress) : "Working…"}
-                          {mins >= 10 && <span className="task-long-running"> · running {mins}m</span>}
+                          {task.progress ? progressText(task.progress, t) : t("controlDash:tasks.working")}
+                          {mins >= 10 && <span className="task-long-running"> · {t("controlDash:tasks.runningFor", { minutes: mins })}</span>}
                         </td>
                         <td className="col-scan datagrid-muted">{formatManagedDate(task.createdAt)}</td>
                         <td className="col-actions">
                           <Button
                             variant="icon"
                             danger
-                            title="Cancel task"
-                            aria-label={`Cancel ${taskLabel(task)}`}
+                            title={t("controlDash:tasks.cancelTask")}
+                            aria-label={t("controlDash:tasks.cancelNamed", { label: taskLabel(task, t) })}
                             disabled={cancelling === task.id}
                             onClick={() => cancelTask(task.id)}
                           >
@@ -300,33 +304,33 @@ export function TasksView() {
         {queued.length > 0 && (
           <div className="status-subsection">
             <div className="status-table-title">
-              <h3>Queued</h3>
-              <span>{queued.length} waiting · in the order they will run</span>
+              <h3>{t("controlDash:tasks.queued")}</h3>
+              <span>{t("controlDash:tasks.queuedCount", { count: queued.length })}</span>
             </div>
             <div className="datagrid-wrap task-queued-grid">
               <table className="datagrid">
                 <thead>
                   <tr>
                     <th className="task-queue-pos">#</th>
-                    <th>Task</th>
-                    <th>Library</th>
-                    <th className="col-scan">Queued</th>
-                    <th className="col-actions" aria-label="Actions" />
+                    <th>{t("controlDash:table.task")}</th>
+                    <th>{t("controlDash:table.library")}</th>
+                    <th className="col-scan">{t("controlDash:tasks.queued")}</th>
+                    <th className="col-actions" aria-label={t("controlDash:table.actions")} />
                   </tr>
                 </thead>
                 <tbody>
                   {queued.map((task, index) => (
                     <tr key={task.id}>
                       <td className="task-queue-pos datagrid-muted">{index + 1}</td>
-                      <td>{taskLabel(task)}</td>
+                      <td>{taskLabel(task, t)}</td>
                       <td className="datagrid-muted">{task.libraryName ?? <span className="muted">—</span>}</td>
                       <td className="col-scan datagrid-muted">{formatManagedDate(task.createdAt)}</td>
                       <td className="col-actions">
                         <Button
                           variant="icon"
                           danger
-                          title="Cancel task"
-                          aria-label={`Cancel ${taskLabel(task)}`}
+                          title={t("controlDash:tasks.cancelTask")}
+                          aria-label={t("controlDash:tasks.cancelNamed", { label: taskLabel(task, t) })}
                           disabled={cancelling === task.id}
                           onClick={() => cancelTask(task.id)}
                         >
@@ -343,11 +347,8 @@ export function TasksView() {
 
         <div className="status-subsection">
           <div className="status-table-title">
-            <h3>History</h3>
-            <span>
-              {(data?.total ?? 0).toLocaleString()} {data?.total === 1 ? "task" : "tasks"}
-              {filtered ? " match" : ""}
-            </span>
+            <h3>{t("controlDash:tasks.history")}</h3>
+            <span>{filtered ? t("controlDash:tasks.historyCountMatch", { count: data?.total ?? 0 }) : t("controlDash:tasks.historyCount", { count: data?.total ?? 0 })}</span>
           </div>
 
           {/* Three narrowings that AND together. Each is a menu rather than a
@@ -357,42 +358,42 @@ export function TasksView() {
             <SelectMenu
               value={status}
               options={STATUS_OPTIONS}
-              label="Outcome"
+              label={t("controlDash:tasks.outcome")}
               onChange={(value) => { setStatus(value); setPage(1); }}
             />
             <SelectMenu
               value={type}
               options={typeOptions}
-              label="Kind of task"
+              label={t("controlDash:tasks.kindOfTask")}
               onChange={(value) => { setType(value); setPage(1); }}
             />
             <SelectMenu
               value={library}
               options={libraryOptions}
-              label="Library"
+              label={t("controlDash:tasks.library")}
               onChange={(value) => { setLibrary(value); setPage(1); }}
             />
             {filtered && (
               <Button variant="text" onClick={() => { setStatus(""); setType(""); setLibrary(""); setPage(1); }}>
-                Clear filters
+                {t("controlDash:tasks.clearFilters")}
               </Button>
             )}
           </div>
 
           {data && finished.length === 0 && !error ? (
-            <p className="status-empty">{filtered ? "No finished tasks match these filters." : "No finished tasks yet."}</p>
+            <p className="status-empty">{filtered ? t("controlDash:tasks.noMatches") : t("controlDash:tasks.noneYet")}</p>
           ) : (
             <>
               <div className="datagrid-wrap">
                 <table className="datagrid">
                   <thead>
                     <tr>
-                      <th>Task</th>
-                      <th>Library</th>
-                      <th>Status</th>
-                      <th className="col-scan">Started</th>
-                      <th className="col-scan">Duration</th>
-                      <th>Result / Error</th>
+                      <th>{t("controlDash:table.task")}</th>
+                      <th>{t("controlDash:table.library")}</th>
+                      <th>{t("controlDash:table.status")}</th>
+                      <th className="col-scan">{t("controlDash:table.started")}</th>
+                      <th className="col-scan">{t("controlDash:table.duration")}</th>
+                      <th>{t("controlDash:table.resultError")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -408,10 +409,16 @@ export function TasksView() {
                       return (
                         <Fragment key={task.id}>
                           <tr>
-                            <td>{taskLabel(task)}</td>
+                            <td>{taskLabel(task, t)}</td>
                             <td className="datagrid-muted">{task.libraryName ?? <span className="muted">—</span>}</td>
                             <td>
-                              <span className={`status-badge ${task.status}`}>{task.status}</span>
+                              <span className={`status-badge ${task.status}`}>
+                                {task.status === "completed"
+                                  ? t("controlDash:tasks.statusCompleted")
+                                  : task.status === "failed"
+                                    ? t("controlDash:tasks.statusFailed")
+                                    : task.status}
+                              </span>
                             </td>
                             <td className="col-scan datagrid-muted">{formatManagedDate(startedAt)}</td>
                             <td className="col-scan datagrid-muted">{d ?? <span className="muted">—</span>}</td>
@@ -422,7 +429,7 @@ export function TasksView() {
                                     type="button"
                                     className="job-error-toggle task-result-text"
                                     onClick={() => setExpandedError(expandedError === task.id ? null : task.id)}
-                                    title="Show skipped items"
+                                    title={t("controlDash:tasks.showSkipped")}
                                   >
                                     {task.summary}
                                   </button>
@@ -464,7 +471,7 @@ export function TasksView() {
                 </table>
               </div>
               {data && (
-                <Pager page={data.page} totalPages={data.totalPages} onChange={setPage} label="Task pages" />
+                <Pager page={data.page} totalPages={data.totalPages} onChange={setPage} label={t("controlDash:pagers.task")} />
               )}
             </>
           )}

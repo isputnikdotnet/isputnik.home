@@ -82,13 +82,24 @@ Full reference: `docs/UI-CONVENTIONS.md`. The short version:
   lives in `modules/library/shared/alphabet.ts` only.
 - New UI pattern needed? Extend the shared component (prop/variant) in
   `apps/web/src/shared/` first — never inline a one-off.
+- **UI language (i18n)**: user-facing strings go through react-i18next's `t()`
+  (`useTranslation`). Keys live in `apps/web/src/locales/en/common.json` (source
+  of truth) and are mirrored in `ru/` — `npm run check:ui` fails when the key
+  sets drift. Keys are typed (a bad key fails typecheck). Counts must use
+  `t(key, { count })`, never hand-built plurals (Russian has three forms). The
+  sweep is incremental (see `docs/i18n-plan.md`); an untranslated string simply
+  stays English, so don't block a feature on translation — but new strings in
+  already-swept files must be keys, not literals.
 - **Control panel**: its whole shape (7 nav groups × their tabs) is declared in
   `features/control/nav.ts`; canonical URLs in `CONTROL_PATHS` (`router.ts`), linked
   via `controlHref()`. Every tab is a real route — no `useState` tab rows in there —
   and pages open with `ControlSectionHead`, which takes eyebrow + title from `nav.ts`.
   **One tab row only** — a second row under it was tried for Duplicates and removed as
   too much chrome. Related pages sit as peers sharing a `context`, which draws a branch
-  in the left nav (Utilities → Gallery) and a word in the eyebrow, not another row.
+  in the left nav (Utilities → Gallery, Utilities → Widgets) and a word in the eyebrow,
+  never another row. That single row shows the tabs of the branch you are in
+  (`tabsInScope`), so branches don't list each other's pages, and a branch holding one
+  page shows no row at all.
   New settings get search terms in `features/control/search-index.ts`. Profile's
   tabs follow the same rule (`PROFILE_PATHS` / `profileHref()`).
 

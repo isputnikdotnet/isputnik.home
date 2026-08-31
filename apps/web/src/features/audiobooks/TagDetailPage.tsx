@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, BookOpen, Headphones, Images, Play, TreeDeciduous } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { ArrowLeft, BookOpen, BookText, Headphones, Images, Play, TreeDeciduous } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
-import { followRoute, getReferrer, navigate } from "../../router";
+import { followRoute, getReferrer, goBack, navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { FeedTile } from "../library/FeedTile";
 import type { FeedItem } from "../library/feed";
@@ -11,15 +12,21 @@ import type { GalleryAsset } from "../gallery/types";
 import { faceFocusStyle } from "../gallery/types";
 import { PersonAvatar } from "../familytree/PersonAvatar";
 import { lifeYears, type FamilyPerson } from "../familytree/types";
+import { StoryCard } from "../stories/StoryCard";
+import type { StorySummary } from "../stories/types";
+import type { GalleryAlbum, GallerySlideshow } from "../gallery/types";
 
 interface TagDetail {
   name: string;
   books: FeedItem[];
   photos: GalleryAsset[];
   people: FamilyPerson[];
+  stories: StorySummary[];
+  albums: GalleryAlbum[];
+  slideshows: GallerySlideshow[];
 }
 
-type KindFilter = "all" | "audiobook" | "ebook" | "gallery" | "family";
+type KindFilter = "all" | "audiobook" | "ebook" | "gallery" | "family" | "story";
 
 export function TagDetailPage({
   tagName,
@@ -30,6 +37,7 @@ export function TagDetailPage({
   user: PublicUser;
   logout: () => Promise<void>;
 }) {
+  const { t } = useTranslation(["common", "book", "family"]);
   const [tag, setTag] = useState<TagDetail | null>(null);
   const [error, setError] = useState("");
   const [kindFilter, setKindFilter] = useState<KindFilter>("all");
@@ -44,23 +52,28 @@ export function TagDetailPage({
     setKindFilter("all");
     api<{ tag: TagDetail }>(`/api/library/tags/${encodeURIComponent(tagName)}/books`)
       .then((payload) => setTag(payload.tag))
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load tag"));
+      .catch((err) => setError(err instanceof Error ? err.message : t("book:tags.unableLoadDetail")));
   }, [tagName]);
 
   const audiobookCount = tag?.books.filter((book) => book.kind === "audiobook").length ?? 0;
   const ebookCount = tag?.books.filter((book) => book.kind === "ebook").length ?? 0;
-  const galleryCount = tag?.photos.length ?? 0;
+  // Albums and slideshows count as gallery matches: they are gallery things,
+  // and the scope toggle lists media types rather than container kinds.
+  const setCount = (tag?.albums.length ?? 0) + (tag?.slideshows.length ?? 0);
+  const galleryCount = (tag?.photos.length ?? 0) + setCount;
   const familyCount = tag?.people.length ?? 0;
-  const total = (tag?.books.length ?? 0) + galleryCount + familyCount;
+  const storyCount = tag?.stories.length ?? 0;
+  const total = (tag?.books.length ?? 0) + galleryCount + familyCount + storyCount;
 
   // The toggle earns its place only when the tag spans more than one type.
   const scopes = useMemo(() => ([
-    { value: "all" as const, label: "All", icon: null, count: total },
-    { value: "audiobook" as const, label: "Audiobooks", icon: Headphones, count: audiobookCount },
-    { value: "ebook" as const, label: "Ebooks", icon: BookOpen, count: ebookCount },
-    { value: "gallery" as const, label: "Gallery", icon: Images, count: galleryCount },
-    { value: "family" as const, label: "Family tree", icon: TreeDeciduous, count: familyCount }
-  ]), [total, audiobookCount, ebookCount, galleryCount, familyCount]);
+    { value: "all" as const, label: t("common:common.all"), icon: null, count: total },
+    { value: "audiobook" as const, label: t("common:nav.audiobooks"), icon: Headphones, count: audiobookCount },
+    { value: "ebook" as const, label: t("common:nav.ebooks"), icon: BookOpen, count: ebookCount },
+    { value: "gallery" as const, label: t("common:nav.gallery"), icon: Images, count: galleryCount },
+    { value: "family" as const, label: t("common:nav.familyTree"), icon: TreeDeciduous, count: familyCount },
+    { value: "story" as const, label: t("common:nav.stories"), icon: BookText, count: storyCount }
+  ]), [total, audiobookCount, ebookCount, galleryCount, familyCount, storyCount, t]);
   const populated = scopes.filter((s) => s.value !== "all" && s.count > 0);
   const showToggle = populated.length > 1;
 
@@ -69,31 +82,37 @@ export function TagDetailPage({
     ? (kindFilter === "all" ? tag.books : tag.books.filter((book) => book.kind === kindFilter))
     : [];
   const shownPhotos = tag && (kindFilter === "all" || kindFilter === "gallery") ? tag.photos : [];
+  const inGallery = kindFilter === "all" || kindFilter === "gallery";
+  const shownAlbums = tag && inGallery ? tag.albums : [];
+  const shownSlideshows = tag && inGallery ? tag.slideshows : [];
   const shownPeople = tag && (kindFilter === "all" || kindFilter === "family") ? tag.people : [];
-  const nothingShown = shownBooks.length === 0 && shownPhotos.length === 0 && shownPeople.length === 0;
+  const shownStories = tag && (kindFilter === "all" || kindFilter === "story") ? tag.stories : [];
+  const nothingShown = shownBooks.length === 0 && shownPhotos.length === 0
+    && shownPeople.length === 0 && shownStories.length === 0
+    && shownAlbums.length === 0 && shownSlideshows.length === 0;
 
   return (
     <DashboardShell active="tags" user={user} logout={logout}>
       <section className="audiobook-main-page">
-        <button className="audiobook-back-button" type="button" onClick={() => navigate(backTo ?? "/tags")}>
+        <button className="audiobook-back-button" type="button" onClick={() => goBack(backTo ?? "/tags")}>
           <ArrowLeft size={17} aria-hidden="true" />
-          <span>{backTo ? "Back" : "Back to tags"}</span>
+          <span>{backTo ? t("book:catalog.back") : t("book:tags.backToTags")}</span>
         </button>
 
-        {error && <MessageBox tone="error" title="Tag error">{error}</MessageBox>}
+        {error && <MessageBox tone="error" title={t("book:tags.detailErrorTitle")}>{error}</MessageBox>}
 
         {tag && (
           <>
             <div className="section-head audiobook-head">
               <div>
-                <p className="eyebrow">Tag</p>
+                <p className="eyebrow">{t("book:tags.eyebrow")}</p>
                 <h1>{tag.name}</h1>
               </div>
-              <span>{total} {total === 1 ? "item" : "items"}</span>
+              <span>{t("book:catalog.counts.item", { count: total })}</span>
             </div>
 
             {showToggle && (
-              <div className="kind-toggle" role="group" aria-label="Filter by type">
+              <div className="kind-toggle" role="group" aria-label={t("book:tags.filterByTypeAria")}>
                 {scopes.filter((s) => s.value === "all" || s.count > 0).map(({ value, label, icon: Icon, count }) => (
                   <button
                     key={value}
@@ -109,7 +128,7 @@ export function TagDetailPage({
               </div>
             )}
 
-            {nothingShown && <p className="management-empty">Nothing carries this tag yet.</p>}
+            {nothingShown && <p className="management-empty">{t("book:tags.nothingYet")}</p>}
 
             {shownBooks.length > 0 && (
               <div className="library-feed-grid">
@@ -121,7 +140,7 @@ export function TagDetailPage({
 
             {shownPhotos.length > 0 && (
               <>
-                {kindFilter === "all" && <p className="gallery-section-label">Photos &amp; videos</p>}
+                {kindFilter === "all" && <p className="gallery-section-label">{t("book:tags.photosVideosLabel")}</p>}
                 <div className="gallery-grid tag-photo-grid">
                   {shownPhotos.map((photo, index) => (
                     <button
@@ -133,7 +152,7 @@ export function TagDetailPage({
                     >
                       {photo.coverUrl && <img src={photo.coverUrl} alt={photo.title} loading="lazy" style={faceFocusStyle(photo)} />}
                       {photo.kind === "video" && (
-                        <span className="gallery-video-badge"><Play size={11} aria-hidden="true" />Video</span>
+                        <span className="gallery-video-badge"><Play size={11} aria-hidden="true" />{t("book:tags.videoBadge")}</span>
                       )}
                     </button>
                   ))}
@@ -141,9 +160,49 @@ export function TagDetailPage({
               </>
             )}
 
+            {(shownAlbums.length > 0 || shownSlideshows.length > 0) && (
+              <>
+                <p className="gallery-section-label">{t("book:tags.setsLabel")}</p>
+                <div className="audiobook-grid story-grid">
+                  {[
+                    ...shownAlbums.map((album) => ({ set: album, href: `/gallery/albums/${album.id}`, kind: "album" as const })),
+                    ...shownSlideshows.map((show) => ({ set: show, href: `/gallery/slideshows/${show.id}`, kind: "slideshow" as const }))
+                  ].map(({ set, href, kind }) => (
+                    <a
+                      key={`${kind}-${set.id}`}
+                      className="audiobook-card story-card"
+                      href={href}
+                      onClick={(event) => followRoute(event, href)}
+                    >
+                      <div className="story-card-cover" aria-hidden="true">
+                        {set.coverUrl ? <img src={set.coverUrl} alt="" loading="lazy" /> : <Images size={28} />}
+                      </div>
+                      <div className="audiobook-card-body">
+                        <strong>{set.name}</strong>
+                        <span>
+                          {kind === "album" ? t("book:tags.albumLabel") : t("book:tags.slideshowLabel")}
+                          {" · "}
+                          {t("book:catalog.counts.item", { count: set.itemCount })}
+                        </span>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {shownStories.length > 0 && (
+              <>
+                {kindFilter === "all" && <p className="gallery-section-label">{t("book:tags.storiesLabel")}</p>}
+                <div className="audiobook-grid story-grid">
+                  {shownStories.map((story) => <StoryCard key={story.id} story={story} />)}
+                </div>
+              </>
+            )}
+
             {shownPeople.length > 0 && (
               <>
-                {kindFilter === "all" && <p className="gallery-section-label">Family members</p>}
+                {kindFilter === "all" && <p className="gallery-section-label">{t("book:tags.familyMembersLabel")}</p>}
                 <div className="ft-people-grid">
                   {shownPeople.map((person) => (
                     <a
@@ -155,7 +214,7 @@ export function TagDetailPage({
                       <PersonAvatar person={person} size={64} />
                       <strong>{person.name}</strong>
                       <small>
-                        {[person.maidenName ? `née ${person.maidenName}` : "", lifeYears(person)]
+                        {[person.maidenName ? t("family:common.nee", { name: person.maidenName }) : "", lifeYears(person)]
                           .filter(Boolean)
                           .join(" · ") || " "}
                       </small>

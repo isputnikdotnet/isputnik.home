@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   deleteEbookDownload, downloadEbook, getEbookDownload,
   type EbookDownloadRecord
@@ -27,6 +28,7 @@ export interface UseEbookDownload {
 }
 
 export function useEbookDownload(meta: EbookMeta | null): UseEbookDownload {
+  const { t } = useTranslation(["reader"]);
   const [record, setRecord] = useState<EbookDownloadRecord | null>(null);
   const [progress, setProgress] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -60,12 +62,12 @@ export function useEbookDownload(meta: EbookMeta | null): UseEbookDownload {
       );
       setRecord(done);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Download failed.");
+      setError(err instanceof Error ? err.message : t("reader:offline.downloadFailed"));
       setRecord(await getEbookDownload(meta.bookId).catch(() => null));
     } finally {
       setBusy(false);
     }
-  }, [meta]);
+  }, [meta, t]);
 
   const remove = useCallback(async () => {
     if (!meta) return;

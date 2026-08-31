@@ -5,19 +5,18 @@ import {
   Home,
   ListMusic,
   Quote,
-  Users,
   UsersRound
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { isStandalone } from "../../pwa/platform";
 import { followRoute } from "../../router";
 
 export type UserAreaSection =
   | "profile"
-  | "favorites"
+  | "likes"
   | "bookmarks"
   | "quotes"
-  | "activity"
   | "collections"
   | "shared"
   | "downloads";
@@ -30,24 +29,24 @@ interface UserNavItem {
 }
 
 export function UserAreaNav({ active }: { active: UserAreaSection }) {
+  const { t } = useTranslation();
   const libraryLinks: UserNavItem[] = [
-    { section: "favorites", label: "Favorites", href: "/favorites", icon: Heart },
-    { section: "bookmarks", label: "Bookmarks", href: "/bookmarks", icon: Bookmark },
-    { section: "quotes", label: "Quotes", href: "/quotes", icon: Quote },
-    { section: "collections", label: "Collections", href: "/collections", icon: ListMusic },
-    { section: "shared", label: "Shared with me", href: "/shared", icon: UsersRound },
-    { section: "activity", label: "Around the house", href: "/activity", icon: Users },
+    { section: "likes", label: t("nav.likes"), href: "/likes", icon: Heart },
+    { section: "bookmarks", label: t("nav.bookmarks"), href: "/bookmarks", icon: Bookmark },
+    { section: "quotes", label: t("nav.quotes"), href: "/quotes", icon: Quote },
+    { section: "collections", label: t("nav.collections"), href: "/collections", icon: ListMusic },
+    { section: "shared", label: t("nav.sharedWithMe"), href: "/shared", icon: UsersRound },
     ...(isStandalone() || active === "downloads"
-      ? [{ section: "downloads" as const, label: "Downloads", href: "/downloads", icon: DownloadCloud }]
+      ? [{ section: "downloads" as const, label: t("nav.downloads"), href: "/downloads", icon: DownloadCloud }]
       : [])
   ];
 
   return (
-    <nav className="home-control-nav" aria-label="User pages">
-      <UserNavLink icon={Home} label="Home" href="/" active={false} />
+    <nav className="home-control-nav" aria-label={t("nav.aria.userPages")}>
+      <UserNavLink icon={Home} label={t("nav.home")} href="/" active={false} />
 
       <div className="home-control-group">
-        <p>My Library</p>
+        <p>{t("nav.myLibrary")}</p>
         {libraryLinks.map((item) => (
           <UserNavLink
             key={item.section}

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { Check, Copy, Link2, Trash2 } from "lucide-react";
 import { api } from "../../api";
 import { MessageBox } from "../../shared/MessageBox";
@@ -30,13 +31,10 @@ interface AlbumRecipient {
   expiresAt: string | null;
 }
 
-const EXPIRY_OPTIONS = [
-  { label: "1 day", days: 1 },
-  { label: "7 days", days: 7 },
-  { label: "30 days", days: 30 }
-];
+const EXPIRY_OPTIONS = [1, 7, 30];
 
 export function ShareAlbumModal({ albumId, albumName, onClose }: { albumId: string; albumName: string; onClose: () => void }) {
+  const { t } = useTranslation(["common", "galleryModals"]);
   const [tab, setTab] = useState<Tab>("link");
   const [error, setError] = useState("");
 
@@ -81,7 +79,7 @@ export function ShareAlbumModal({ albumId, albumName, onClose }: { albumId: stri
       setLabel("");
       await loadLinks();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not create link");
+      setError(err instanceof Error ? err.message : t("galleryModals:shareAlbum.unableToCreateLink"));
     } finally {
       setCreating(false);
     }
@@ -94,7 +92,7 @@ export function ShareAlbumModal({ albumId, albumName, onClose }: { albumId: stri
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      setError("Copy failed — select and copy the link manually.");
+      setError(t("galleryModals:shareAlbum.copyFailed"));
     }
   };
 
@@ -103,7 +101,7 @@ export function ShareAlbumModal({ albumId, albumName, onClose }: { albumId: stri
       await api(`/api/shares/${id}`, { method: "DELETE" });
       setLinks((prev) => prev.filter((l) => l.id !== id));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not revoke link");
+      setError(err instanceof Error ? err.message : t("galleryModals:shareAlbum.unableToRevokeLink"));
     }
   };
 
@@ -116,60 +114,61 @@ export function ShareAlbumModal({ albumId, albumName, onClose }: { albumId: stri
       });
       setRecipients((prev) => prev.filter((r) => r.userId !== userId));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not revoke");
+      setError(err instanceof Error ? err.message : t("galleryModals:shareAlbum.unableToRevokeUser"));
     }
   };
 
   return (
     <Modal
       variant="panel"
-      title={`Share “${albumName}”`}
+      title={t("galleryModals:shareAlbum.title", { name: albumName })}
       icon={<Link2 size={20} />}
       onClose={onClose}
     >
       <div className="modal-tabs">
         <button className={`modal-tab${tab === "link" ? " active" : ""}`} onClick={() => setTab("link")}>
-          Guest link
+          {t("galleryModals:shareAlbum.tabLink")}
         </button>
         <button className={`modal-tab${tab === "people" ? " active" : ""}`} onClick={() => setTab("people")}>
-          People
+          {t("galleryModals:shareAlbum.tabPeople")}
         </button>
       </div>
 
       <div className="modal-tab-content">
-        {error && <MessageBox tone="error" title="Unable to share">{error}</MessageBox>}
+        {error && <MessageBox tone="error" title={t("galleryModals:shareAlbum.unableToShareTitle")}>{error}</MessageBox>}
 
         {tab === "link" && (
           <div className="share-link-tab">
             <p className="muted">
-              Anyone with the link can view and download this album’s photos — no account needed.
-              The link stays in step with the album: photos you add or remove appear and disappear automatically.
+              {t("galleryModals:shareAlbum.linkIntro")}
             </p>
 
             <div className="share-create-row">
               <label className="field">
-                <span>Expires in</span>
+                <span>{t("galleryModals:shareAlbum.expiresInLabel")}</span>
                 <select value={expiresInDays} onChange={(e) => setExpiresInDays(Number(e.target.value))}>
-                  {EXPIRY_OPTIONS.map((o) => <option key={o.days} value={o.days}>{o.label}</option>)}
+                  {EXPIRY_OPTIONS.map((days) => (
+                    <option key={days} value={days}>{t("common:dateRange.day", { count: days })}</option>
+                  ))}
                 </select>
               </label>
               <label className="field">
-                <span>Label (optional)</span>
+                <span>{t("galleryModals:shareAlbum.labelFieldLabel")}</span>
                 <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder={albumName} maxLength={100} />
               </label>
               <button className="primary-button" onClick={() => void createLink()} disabled={creating}>
-                <Link2 size={16} /><span>{creating ? "Creating…" : "Create link"}</span>
+                <Link2 size={16} /><span>{creating ? t("galleryModals:shareAlbum.creating") : t("galleryModals:shareAlbum.createLink")}</span>
               </button>
             </div>
 
             {newUrl && (
               <div className="share-new-url">
-                <p className="muted">Copy this link now — it won’t be shown again.</p>
+                <p className="muted">{t("galleryModals:shareAlbum.copyNowHint")}</p>
                 <div className="share-url-row">
                   <input readOnly value={newUrl} onFocus={(e) => e.target.select()} />
                   <button className="secondary-button" onClick={() => void copyUrl()}>
                     {copied ? <Check size={16} /> : <Copy size={16} />}
-                    <span>{copied ? "Copied" : "Copy"}</span>
+                    <span>{copied ? t("galleryModals:shareAlbum.copied") : t("galleryModals:shareAlbum.copy")}</span>
                   </button>
                 </div>
               </div>
@@ -177,19 +176,21 @@ export function ShareAlbumModal({ albumId, albumName, onClose }: { albumId: stri
 
             <div className="share-list">
               {links.length === 0 ? (
-                <p className="muted">No active links for this album.</p>
+                <p className="muted">{t("galleryModals:shareAlbum.noLinks")}</p>
               ) : (
                 links.map((link) => (
                   <div className="share-list-row" key={link.id}>
                     <div className="share-list-main">
                       <span className="share-list-label">
-                        {link.label || "Album link"} · {link.itemCount} {link.itemCount === 1 ? "photo" : "photos"}
+                        {link.label || t("galleryModals:shareAlbum.defaultLinkLabel")} · {t("galleryModals:common.photoCount", { count: link.itemCount })}
                       </span>
                       <span className="muted">
-                        {link.status === "expired" ? "Expired" : `Expires ${new Date(link.expiresAt).toLocaleDateString()}`}
+                        {link.status === "expired"
+                          ? t("galleryModals:shareAlbum.expiredLabel")
+                          : t("galleryModals:shareAlbum.expiresOn", { date: new Date(link.expiresAt).toLocaleDateString() })}
                       </span>
                     </div>
-                    <button className="icon-button" onClick={() => void revokeLink(link.id)} aria-label="Revoke link">
+                    <button className="icon-button" onClick={() => void revokeLink(link.id)} aria-label={t("galleryModals:shareAlbum.revokeLinkAria")}>
                       <Trash2 size={16} />
                     </button>
                   </div>
@@ -202,24 +203,24 @@ export function ShareAlbumModal({ albumId, albumName, onClose }: { albumId: stri
         {tab === "people" && (
           <div className="share-people-tab">
             <p className="muted">
-              Who has their own live copy under “Shared with me” — always the album’s current photos,
-              even ones in a library they can’t otherwise browse. To give somebody access, use{" "}
-              <strong>Send to</strong>: pick them and it grants access as it tells them.
+              <Trans i18nKey="shareAlbum.peopleIntro" ns="galleryModals" components={{ bold: <strong /> }} />
             </p>
 
             <div className="share-list">
               {recipients.length === 0 ? (
-                <p className="muted">Nobody has been given access to this album yet.</p>
+                <p className="muted">{t("galleryModals:shareAlbum.noRecipients")}</p>
               ) : (
                 recipients.map((r) => (
                   <div className="share-list-row" key={r.userId}>
                     <div className="share-list-main">
                       <span className="share-list-label">{r.displayName}</span>
                       <span className="muted">
-                        {r.expiresAt ? `Until ${new Date(r.expiresAt).toLocaleDateString()}` : "No expiry"}
+                        {r.expiresAt
+                          ? t("galleryModals:shareAlbum.untilDate", { date: new Date(r.expiresAt).toLocaleDateString() })
+                          : t("galleryModals:shareAlbum.noExpiry")}
                       </span>
                     </div>
-                    <button className="icon-button" onClick={() => void revokeUser(r.userId)} aria-label={`Remove ${r.displayName}`}>
+                    <button className="icon-button" onClick={() => void revokeUser(r.userId)} aria-label={t("galleryModals:shareAlbum.removeUserAria", { name: r.displayName })}>
                       <Trash2 size={16} />
                     </button>
                   </div>

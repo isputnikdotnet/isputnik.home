@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { Chart, type ChartType } from "chart.js/auto";
 
 // Canvas can't resolve CSS custom properties, so chart colors are read from the
@@ -29,6 +30,7 @@ export function DashboardChart({
   stacked?: boolean;
   height?: number;
 }) {
+  const { t } = useTranslation(["common", "controlDash"]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const chartRef = useRef<Chart | null>(null);
 
@@ -93,7 +95,7 @@ export function DashboardChart({
       <canvas
         ref={canvasRef}
         role="img"
-        aria-label={`${type === "line" ? "Line" : "Bar"} chart: ${series.map((s) => s.label).join(", ")}`}
+        aria-label={t(type === "line" ? "controlDash:chart.lineAria" : "controlDash:chart.barAria", { series: series.map((s) => s.label).join(", ") })}
       />
     </div>
   );

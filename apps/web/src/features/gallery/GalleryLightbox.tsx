@@ -1,6 +1,7 @@
-import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, ChevronLeft, ChevronRight, Download, Heart, ImagePlus, Info, ListMusic, MoreVertical, Pause, Pencil, Play, Plus, RotateCcw, RotateCw, Send, Trash2, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { ArrowLeft, ChevronLeft, ChevronRight, Download, Heart, ImagePlus, Info, ListMusic, MoreVertical, Pause, Pencil, Play, Plus, RotateCcw, RotateCw, Send, Trash2, Volume2, VolumeX, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api } from "../../api";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
@@ -9,7 +10,6 @@ import { formatBytes } from "../../shared/utils";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { AddToAlbumModal } from "./AddToAlbumModal";
 import { GalleryPlaceSearch } from "./GalleryPlaceSearch";
-import { ShareModal } from "../share/ShareModal";
 import { SendToSheet } from "../social/SendToSheet";
 import { NotesSection } from "../social/NotesSection";
 import { useIsMobile } from "../../shared/useIsMobile";
@@ -63,6 +63,18 @@ const RANDOM_TRANSITIONS: SlideshowTransition[] = ["crossfade", "fade", "slide",
 // reload) so the speed choice sticks across slideshows without persisting to disk.
 let sessionSlideshowInterval = 5;
 
+// What just happened to the photo on screen. The viewer does not know what its
+// host has loaded, so it says what changed and lets the host decide how much to
+// redo: a like moves nothing and can be patched where the photo already sits, a
+// delete removes one row, and everything else can reorder or redraw the grid.
+// Reloading the view for a like used to throw away every "Load more" page the
+// visitor had asked for — and closed the viewer under them when the photo they
+// were looking at lived on one of those pages.
+export type GalleryAssetChange =
+  | { kind: "like"; id: string; saved: boolean }
+  | { kind: "deleted"; id: string }
+  | { kind: "asset"; id: string };
+
 // Full-screen photo/video viewer with keyboard navigation. Renders into a portal
 // over the whole app (not a shared/Modal — a media lightbox is full-bleed and owns
 // its own chrome). Per-asset actions act on the current item.
@@ -86,7 +98,7 @@ export function GalleryLightbox({
   index: number;
   onClose: () => void;
   onIndexChange: (next: number) => void;
-  onChanged: () => void;
+  onChanged: (change: GalleryAssetChange) => void;
   // When set, the Info panel's Folder entry becomes a link that closes the
   // lightbox and opens that folder in the gallery's Folders view.
   onOpenFolder?: (folder: string) => void;
@@ -108,6 +120,7 @@ export function GalleryLightbox({
   // slideshow runs; absent for ad-hoc slideshows and single-photo viewing.
   musicUrl?: string;
 }) {
+  const { t } = useTranslation(["common", "gallery"]);
   const asset = assets[index];
   const isMobile = useIsMobile();
   // The Info panel opens with the photo on desktop — details are part of viewing,
@@ -146,7 +159,6 @@ export function GalleryLightbox({
   const [editError, setEditError] = useState("");
   const [collectionOpen, setCollectionOpen] = useState(false);
   const [albumOpen, setAlbumOpen] = useState(false);
-  const [shareOpen, setShareOpen] = useState(false);
   const [sendToOpen, setSendToOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   // Mobile/PWA: the bar's overflow menu, holding whichever actions don't fit in
@@ -156,8 +168,8 @@ export function GalleryLightbox({
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState("");
-  const [fav, setFav] = useState(asset?.saved ?? false);
-  const [favBusy, setFavBusy] = useState(false);
+  const [liked, setLiked] = useState(asset?.saved ?? false);
+  const [likeBusy, setLikeBusy] = useState(false);
   const [rotateBusy, setRotateBusy] = useState(false);
   // Set when the browser's <video> can't decode this asset (unsupported container/
   // codec — legacy AVI/Motion-JPEG, WMV, etc.). We serve originals untranscoded, so
@@ -175,10 +187,44 @@ export function GalleryLightbox({
   const [personBusy, setPersonBusy] = useState(false);
   const [personError, setPersonError] = useState("");
 
-  useEffect(() => { setFav(asset?.saved ?? false); }, [asset?.id, asset?.saved]);
+  useEffect(() => { setLiked(asset?.saved ?? false); }, [asset?.id, asset?.saved]);
   // Each asset gets a fresh playback attempt — but a known-unplayable one goes
   // straight to the fallback instead of stalling on a load that will fail.
   useEffect(() => { setVideoError(asset?.playable === false); }, [asset?.id, asset?.playable]);
+
+  // A rotated video plays the ORIGINAL file (rotation is only baked into the poster
+  // thumbnails — the file on disk is never modified), so the <video> element is
+  // counter-rotated with a CSS transform. A 90°/270° turn swaps which stage side
+  // caps which side of the element, so the stage's content box is measured here and
+  // the caps set inline on the element (see videoStyle below).
+  const videoRotation = asset?.kind === "video" ? asset.rotation : 0;
+  const videoTurned = videoRotation === 90 || videoRotation === 270;
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [stageBox, setStageBox] = useState<{ w: number; h: number } | null>(null);
+  useLayoutEffect(() => {
+    if (!videoTurned) return;
+    const el = stageRef.current;
+    if (!el) return;
+    // contentRect is the content box, so the stage padding (including the details
+    // pane's padding-right on desktop) is already excluded. Fires once on observe.
+    const observer = new ResizeObserver((entries) => {
+      const rect = entries[0].contentRect;
+      setStageBox({ w: rect.width, h: rect.height });
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [videoTurned]);
+
+  // Native <video> controls render inside the element, so on a rotated video they
+  // would appear sideways — a rotated video hides them and drives playback from the
+  // custom bar over the stage instead. This mirrors the element's state for it.
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [vidPlaying, setVidPlaying] = useState(false);
+  const [vidTime, setVidTime] = useState(0);
+  const [vidDuration, setVidDuration] = useState(0);
+  // Deliberately NOT reset per asset — a mute choice sticks while browsing.
+  const [vidMuted, setVidMuted] = useState(false);
+  useEffect(() => { setVidPlaying(false); setVidTime(0); setVidDuration(0); }, [asset?.id]);
 
   // Fire-and-forget view ping for the activity dashboard. Server-side dedup keeps
   // paging back and forth through a set from spamming activity_logs.
@@ -220,7 +266,7 @@ export function GalleryLightbox({
 
   // Any open sub-dialog freezes the slideshow (a slide must not advance under a
   // confirm/share/collection modal). Also gates the keyboard handler below.
-  const dialogOpen = collectionOpen || albumOpen || deleteOpen || shareOpen || moreMenuOpen;
+  const dialogOpen = collectionOpen || albumOpen || deleteOpen || moreMenuOpen;
 
   // Close the overflow menu on an outside click (Escape is handled in the
   // shared keydown handler below, alongside the lightbox's own Escape-to-close).
@@ -309,6 +355,24 @@ export function GalleryLightbox({
     else audio.pause();
   }, [playing, dialogOpen, musicUrl]);
 
+  // Defined above the keydown effect (and null-guarded) so `F` can reach it — the
+  // early `if (!asset) return null` below would otherwise sit between them.
+  const toggleLike = useCallback(async () => {
+    if (!asset || likeBusy) return;
+    const next = !liked;
+    setLiked(next);
+    setLikeBusy(true);
+    try {
+      if (next) await api(`/api/library/books/${asset.id}/save`, { method: "PUT", body: JSON.stringify({ note: null }) });
+      else await api(`/api/library/books/${asset.id}/save`, { method: "DELETE" });
+      onChanged({ kind: "like", id: asset.id, saved: next });
+    } catch {
+      setLiked(!next);
+    } finally {
+      setLikeBusy(false);
+    }
+  }, [asset, liked, likeBusy, onChanged]);
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       // The overflow menu gets its own Escape (closes the menu, not the whole
@@ -330,31 +394,23 @@ export function GalleryLightbox({
         event.preventDefault();
         setPlaying((v) => !v);
       }
+      // F likes the photo. A review pass over a trip is then ←/→ to move and F to
+      // keep, without the pointer ever leaving the keyboard. Modified presses stay
+      // with the browser (⌘F / Ctrl+F is Find).
+      else if ((event.key === "f" || event.key === "F") && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        event.preventDefault();
+        void toggleLike();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [index, assets.length, canSlideshow, onClose, onIndexChange, dialogOpen, moreMenuOpen]);
+  }, [index, assets.length, canSlideshow, onClose, onIndexChange, dialogOpen, moreMenuOpen, toggleLike]);
 
   if (!asset) return null;
 
-  const toggleFav = async () => {
-    if (favBusy) return;
-    const next = !fav;
-    setFav(next);
-    setFavBusy(true);
-    try {
-      if (next) await api(`/api/library/books/${asset.id}/save`, { method: "PUT", body: JSON.stringify({ note: null }) });
-      else await api(`/api/library/books/${asset.id}/save`, { method: "DELETE" });
-      onChanged();
-    } catch {
-      setFav(!next);
-    } finally {
-      setFavBusy(false);
-    }
-  };
-
-  // Rotate the photo 90° and refetch so the regenerated (cache-busted) thumbnail
-  // loads. Photos only; the button isn't shown for videos.
+  // Rotate the asset 90° and refetch so the regenerated (cache-busted) thumbnail
+  // loads. For a video the poster/tiles come back rotated and the playing <video>
+  // picks the new angle up live via videoStyle — no remount, playback continues.
   const rotate = async (direction: "cw" | "ccw") => {
     if (rotateBusy) return;
     setRotateBusy(true);
@@ -363,7 +419,7 @@ export function GalleryLightbox({
         method: "POST",
         body: JSON.stringify({ direction })
       });
-      onChanged();
+      onChanged({ kind: "asset", id: asset.id });
     } catch {
       /* leave the image as-is; the user can retry */
     } finally {
@@ -377,12 +433,12 @@ export function GalleryLightbox({
     try {
       await api(`/api/library/books/${asset.id}`, { method: "DELETE" });
       setDeleteOpen(false);
-      onChanged();
+      onChanged({ kind: "deleted", id: asset.id });
       // Move to a neighbour, or close when it was the last asset.
       if (assets.length <= 1) onClose();
       else onIndexChange(Math.min(index, assets.length - 2));
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : "Unable to move the item to the Recycle Bin");
+      setDeleteError(err instanceof Error ? err.message : t("gallery:lightbox.errors.delete"));
     } finally {
       setDeleteBusy(false);
     }
@@ -425,9 +481,9 @@ export function GalleryLightbox({
         })
       });
       setEditingField(null);
-      onChanged();
+      onChanged({ kind: "asset", id: asset.id });
     } catch (err) {
-      setEditError(err instanceof Error ? err.message : "Unable to save the location");
+      setEditError(err instanceof Error ? err.message : t("gallery:lightbox.errors.saveLocation"));
     } finally {
       setEditBusy(false);
     }
@@ -453,9 +509,9 @@ export function GalleryLightbox({
     try {
       await api(`/api/library/gallery/assets/${asset.id}`, { method: "PATCH", body: JSON.stringify(body) });
       setEditingField(null);
-      onChanged();
+      onChanged({ kind: "asset", id: asset.id });
     } catch (err) {
-      setEditError(err instanceof Error ? err.message : "Unable to save changes");
+      setEditError(err instanceof Error ? err.message : t("gallery:lightbox.errors.saveChanges"));
     } finally {
       setEditBusy(false);
     }
@@ -478,9 +534,9 @@ export function GalleryLightbox({
       setPeople(res.asset.people ?? []);
       setPersonName("");
       setAddingPerson(false);
-      onChanged();
+      onChanged({ kind: "asset", id: asset.id });
     } catch (err) {
-      setPersonError(err instanceof Error ? err.message : "Unable to tag this person");
+      setPersonError(err instanceof Error ? err.message : t("gallery:lightbox.errors.tagPerson"));
     } finally {
       setPersonBusy(false);
     }
@@ -493,9 +549,30 @@ export function GalleryLightbox({
         { method: "DELETE" }
       );
       setPeople(res.asset.people ?? []);
-      onChanged();
+      onChanged({ kind: "asset", id: asset.id });
     } catch { /* leave the chip; the user can retry */ }
   };
+
+  const toggleVideoPlay = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (video.paused) void video.play().catch(() => { /* interrupted by unload */ });
+    else video.pause();
+  };
+
+  // Counter-rotation for a manually-rotated video. The transform doesn't change the
+  // element's LAYOUT box, so for a 90°/270° turn the stage caps are applied swapped:
+  // the box's height becomes the visible width and vice versa, and object-fit keeps
+  // the aspect ratio within them. Until the stage is measured (first frame) the base
+  // max-width/height 100% still bound it, so nothing overflows.
+  const videoStyle: CSSProperties = { ["--lb-transition" as string]: `${transitionSec}s` };
+  if (videoRotation) {
+    videoStyle.transform = `rotate(${videoRotation}deg)`;
+    if (videoTurned && stageBox) {
+      videoStyle.maxWidth = stageBox.h;
+      videoStyle.maxHeight = stageBox.w;
+    }
+  }
 
   const meta = [
     formatTaken(asset.takenAt),
@@ -510,8 +587,8 @@ export function GalleryLightbox({
         type="button"
         className="gallery-info-edit"
         onClick={() => startEdit(field)}
-        aria-label={`Edit ${label}`}
-        title={`Edit ${label}`}
+        aria-label={t("gallery:lightbox.editAria", { label })}
+        title={t("gallery:lightbox.editAria", { label })}
       >
         <Pencil size={12} aria-hidden="true" />
       </button>
@@ -532,15 +609,15 @@ export function GalleryLightbox({
         <input
           value={editValue}
           onChange={(event) => setEditValue(event.target.value)}
-          placeholder="e.g. vacation, family"
+          placeholder={t("gallery:lightbox.tagsPlaceholder")}
           autoFocus
         />
       )}
       <div className="gallery-info-form-actions">
         <button type="submit" className="primary-button compact-button" disabled={editBusy}>
-          {editBusy ? "Saving…" : "Save"}
+          {editBusy ? t("gallery:common.saving") : t("gallery:common.save")}
         </button>
-        <button type="button" className="secondary-button compact-button" onClick={cancelEdit} disabled={editBusy}>Cancel</button>
+        <button type="button" className="secondary-button compact-button" onClick={cancelEdit} disabled={editBusy}>{t("common:common.cancel")}</button>
       </div>
       {editError && <span className="gallery-info-error">{editError}</span>}
     </form>
@@ -555,6 +632,8 @@ export function GalleryLightbox({
     key: string;
     icon: LucideIcon;
     label: string;
+    // Keyboard shortcut, shown in the tooltip so it's findable at all.
+    hint?: string;
     onClick?: () => void;
     href?: string;
     download?: boolean;
@@ -564,41 +643,42 @@ export function GalleryLightbox({
   };
   const candidateActions: LightboxAction[] = [
     {
-      key: "favorite",
+      key: "like",
       icon: Heart,
-      label: fav ? "Remove from favorites" : "Add to favorites",
-      onClick: () => void toggleFav(),
-      disabled: favBusy,
-      active: fav
+      label: liked ? t("gallery:common.unlike") : t("gallery:common.like"),
+      hint: "F",
+      onClick: () => void toggleLike(),
+      disabled: likeBusy,
+      active: liked
     },
-    { key: "album", icon: ImagePlus, label: "Add to album", onClick: () => setAlbumOpen(true) },
+    { key: "album", icon: ImagePlus, label: t("gallery:lightbox.addToAlbum"), onClick: () => setAlbumOpen(true) },
     {
       key: "download",
       icon: Download,
-      label: "Download",
+      label: t("gallery:common.download"),
       href: `${asset.fileUrl}${asset.fileUrl.includes("?") ? "&" : "?"}download=1`,
       download: true
     },
-    { key: "send", icon: Send as LucideIcon, label: "Send to", onClick: () => setSendToOpen(true) },
-    { key: "collection", icon: ListMusic, label: "Add to collection", onClick: () => setCollectionOpen(true) },
+    { key: "send", icon: Send as LucideIcon, label: t("gallery:common.sendTo"), onClick: () => setSendToOpen(true) },
+    { key: "collection", icon: ListMusic, label: t("gallery:lightbox.addToCollection"), onClick: () => setCollectionOpen(true) },
     {
       key: "details",
       icon: Info,
-      label: "Details",
+      label: t("gallery:lightbox.detailsHeading"),
       onClick: () => setShowInfo((v) => !v),
       active: showInfo
     },
-    ...(canEdit && asset.kind === "photo"
+    ...(canEdit
       ? [
-          { key: "rotate-left", icon: RotateCcw as LucideIcon, label: "Rotate left", onClick: () => void rotate("ccw"), disabled: rotateBusy },
-          { key: "rotate-right", icon: RotateCw as LucideIcon, label: "Rotate right", onClick: () => void rotate("cw"), disabled: rotateBusy }
+          { key: "rotate-left", icon: RotateCcw as LucideIcon, label: t("gallery:lightbox.rotateLeft"), onClick: () => void rotate("ccw"), disabled: rotateBusy },
+          { key: "rotate-right", icon: RotateCw as LucideIcon, label: t("gallery:lightbox.rotateRight"), onClick: () => void rotate("cw"), disabled: rotateBusy }
         ]
       : []),
     ...(canDelete
       ? [{
           key: "delete",
           icon: Trash2 as LucideIcon,
-          label: "Delete",
+          label: t("gallery:common.deleteWord"),
           onClick: () => { setDeleteError(""); setDeleteOpen(true); },
           danger: true
         }]
@@ -635,9 +715,11 @@ export function GalleryLightbox({
         disabled={a.disabled}
         aria-pressed={a.active}
         aria-label={a.label}
-        title={a.label}
+        // The shortcut rides in the tooltip only — an aria-label is read aloud, and
+        // "Like F" is not a sentence.
+        title={a.hint ? `${a.label} (${a.hint})` : a.label}
       >
-        <a.icon size={18} fill={a.key === "favorite" && a.active ? "currentColor" : "none"} aria-hidden="true" />
+        <a.icon size={18} fill={a.key === "like" && a.active ? "currentColor" : "none"} aria-hidden="true" />
       </button>
     );
 
@@ -677,7 +759,7 @@ export function GalleryLightbox({
             itself is right below, and the name reads as crowding the bar). */}
         {isMobile ? (
           <>
-            <button className="gallery-lightbox-action" type="button" onClick={onClose} aria-label="Back" title="Back">
+            <button className="gallery-lightbox-action" type="button" onClick={onClose} aria-label={t("gallery:common.back")} title={t("gallery:common.back")}>
               <ArrowLeft size={18} aria-hidden="true" />
             </button>
             <span className="gallery-lightbox-divider" aria-hidden="true" />
@@ -696,13 +778,13 @@ export function GalleryLightbox({
                 type="button"
                 onClick={() => setPlaying((v) => !v)}
                 aria-pressed={playing}
-                aria-label={playing ? "Pause slideshow" : "Play slideshow"}
-                title={playing ? "Pause slideshow" : "Play slideshow"}
+                aria-label={playing ? t("gallery:lightbox.pauseSlideshow") : t("gallery:lightbox.playSlideshow")}
+                title={playing ? t("gallery:lightbox.pauseSlideshow") : t("gallery:lightbox.playSlideshow")}
               >
                 {playing ? <Pause size={18} aria-hidden="true" /> : <Play size={18} aria-hidden="true" />}
               </button>
               {playing && (
-                <div className="gallery-lightbox-speed" role="group" aria-label="Slideshow speed">
+                <div className="gallery-lightbox-speed" role="group" aria-label={t("gallery:lightbox.speedGroupAria")}>
                   {SLIDESHOW_INTERVALS.map((sec) => (
                     <button
                       key={sec}
@@ -710,7 +792,7 @@ export function GalleryLightbox({
                       className={intervalSec === sec ? "is-on" : ""}
                       onClick={() => setIntervalSec(sec)}
                       aria-pressed={intervalSec === sec}
-                      title={`${sec} seconds per photo`}
+                      title={t("gallery:lightbox.secondsPerPhotoTitle", { sec })}
                     >
                       {sec}s
                     </button>
@@ -728,29 +810,29 @@ export function GalleryLightbox({
                 onClick={() => setMoreMenuOpen((open) => !open)}
                 aria-haspopup="menu"
                 aria-expanded={moreMenuOpen}
-                aria-label="More actions"
-                title="More actions"
+                aria-label={t("gallery:lightbox.moreActionsAria")}
+                title={t("gallery:lightbox.moreActionsAria")}
               >
                 <MoreVertical size={18} aria-hidden="true" />
               </button>
               {moreMenuOpen && (
-                <div className="gallery-lightbox-menu" role="menu" aria-label="More actions">
+                <div className="gallery-lightbox-menu" role="menu" aria-label={t("gallery:lightbox.moreActionsAria")}>
                   {overflowActions.map(renderMenuItem)}
                 </div>
               )}
             </div>
           )}
           {!isMobile && (
-            <button className="gallery-lightbox-action" type="button" onClick={onClose} aria-label="Close" title="Close">
+            <button className="gallery-lightbox-action" type="button" onClick={onClose} aria-label={t("common:common.close")} title={t("common:common.close")}>
               <X size={18} aria-hidden="true" />
             </button>
           )}
         </div>
       </div>
 
-      <div className="gallery-lightbox-stage">
+      <div className="gallery-lightbox-stage" ref={stageRef}>
         {hasPrev && (
-          <button className="gallery-lightbox-nav prev" type="button" onClick={() => onIndexChange(index - 1)} aria-label="Previous">
+          <button className="gallery-lightbox-nav prev" type="button" onClick={() => onIndexChange(index - 1)} aria-label={t("gallery:lightbox.previousAria")}>
             <ChevronLeft size={26} aria-hidden="true" />
           </button>
         )}
@@ -767,31 +849,82 @@ export function GalleryLightbox({
           videoError ? (
             <div className="gallery-lightbox-unplayable" role="alert">
               {asset.previewUrl && <img src={asset.previewUrl} alt={asset.title} />}
-              <MessageBox tone="warning" title="Can’t play this video here">
-                {formatLabel(asset.title) ? `${formatLabel(asset.title)} files use a format` : "This video uses a format"}{" "}
-                your browser can’t decode. Download it to watch in a desktop player like VLC.
+              <MessageBox tone="warning" title={t("gallery:lightbox.unplayableVideoTitle")}>
+                {formatLabel(asset.title)
+                  ? t("gallery:lightbox.unplayableWithExt", { ext: formatLabel(asset.title) })
+                  : t("gallery:lightbox.unplayableGeneric")}
               </MessageBox>
               <a className="gallery-lightbox-download-cta" href={`${asset.fileUrl}${asset.fileUrl.includes("?") ? "&" : "?"}download=1`} download>
-                <Download size={16} aria-hidden="true" /> Download video
+                <Download size={16} aria-hidden="true" /> {t("gallery:lightbox.downloadVideoLink")}
               </a>
             </div>
           ) : (
-            <video
-              key={asset.id}
-              className="gallery-lightbox-media"
-              data-transition={activeTransition === "kenburns" || activeTransition === "slide" ? "fade" : activeTransition}
-              data-playing={playing ? "true" : undefined}
-              style={{ ["--lb-transition" as string]: `${transitionSec}s` } as CSSProperties}
-              src={asset.playbackUrl}
-              controls
-              autoPlay
-              playsInline
-              // Mute the clip when a music bed is chosen so the two don't fight.
-              muted={!!musicUrl && playing}
-              poster={asset.previewUrl ?? undefined}
-              onError={() => setVideoError(true)}
-              onEnded={() => { if (playing && canSlideshow) advance(); }}
-            />
+            <>
+              <video
+                key={asset.id}
+                ref={videoRef}
+                className="gallery-lightbox-media"
+                data-transition={activeTransition === "kenburns" || activeTransition === "slide" ? "fade" : activeTransition}
+                data-playing={playing ? "true" : undefined}
+                style={videoStyle}
+                src={asset.playbackUrl}
+                // A rotated video hides the native controls (they'd render sideways
+                // inside the transformed element) and uses the custom bar below.
+                controls={videoRotation === 0}
+                autoPlay
+                playsInline
+                // Mute the clip when a music bed is chosen so the two don't fight.
+                muted={(!!musicUrl && playing) || vidMuted}
+                // The poster already has the manual rotation baked in, so inside a
+                // CSS-rotated element it would show turned twice — omit it there.
+                poster={videoRotation === 0 ? asset.previewUrl ?? undefined : undefined}
+                onClick={videoRotation !== 0 ? toggleVideoPlay : undefined}
+                onPlay={() => setVidPlaying(true)}
+                onPause={() => setVidPlaying(false)}
+                onTimeUpdate={(event) => setVidTime(event.currentTarget.currentTime)}
+                onDurationChange={(event) => {
+                  const d = event.currentTarget.duration;
+                  setVidDuration(Number.isFinite(d) ? d : 0);
+                }}
+                onError={() => setVideoError(true)}
+                onEnded={() => { if (playing && canSlideshow) advance(); }}
+              />
+              {videoRotation !== 0 && (
+                <div className="gallery-video-controls">
+                  <button
+                    type="button"
+                    onClick={toggleVideoPlay}
+                    aria-label={vidPlaying ? t("gallery:common.pause") : t("gallery:common.play")}
+                    title={vidPlaying ? t("gallery:common.pause") : t("gallery:common.play")}
+                  >
+                    {vidPlaying ? <Pause size={16} aria-hidden="true" /> : <Play size={16} aria-hidden="true" />}
+                  </button>
+                  <span className="gallery-video-time">{formatDuration(vidTime)}</span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={vidDuration || 0}
+                    step={0.1}
+                    value={Math.min(vidTime, vidDuration || 0)}
+                    onChange={(event) => {
+                      const time = Number(event.target.value);
+                      if (videoRef.current) videoRef.current.currentTime = time;
+                      setVidTime(time);
+                    }}
+                    aria-label={t("gallery:lightbox.seekAria")}
+                  />
+                  <span className="gallery-video-time">{formatDuration(vidDuration)}</span>
+                  <button
+                    type="button"
+                    onClick={() => setVidMuted((m) => !m)}
+                    aria-label={vidMuted ? t("gallery:lightbox.unmute") : t("gallery:lightbox.mute")}
+                    title={vidMuted ? t("gallery:lightbox.unmute") : t("gallery:lightbox.mute")}
+                  >
+                    {vidMuted ? <VolumeX size={16} aria-hidden="true" /> : <Volume2 size={16} aria-hidden="true" />}
+                  </button>
+                </div>
+              )}
+            </>
           )
         ) : (
           <img
@@ -805,43 +938,43 @@ export function GalleryLightbox({
           />
         )}
         {hasNext && (
-          <button className="gallery-lightbox-nav next" type="button" onClick={() => onIndexChange(index + 1)} aria-label="Next">
+          <button className="gallery-lightbox-nav next" type="button" onClick={() => onIndexChange(index + 1)} aria-label={t("gallery:lightbox.nextAria")}>
             <ChevronRight size={26} aria-hidden="true" />
           </button>
         )}
       </div>
 
       {showInfo && (
-        <aside className="gallery-lightbox-info" aria-label="Details">
-          <h3>Details</h3>
+        <aside className="gallery-lightbox-info" aria-label={t("gallery:lightbox.detailsHeading")}>
+          <h3>{t("gallery:lightbox.detailsHeading")}</h3>
           <dl>
-            <div><dt>Name</dt><dd>{asset.title}</dd></div>
+            <div><dt>{t("gallery:lightbox.labelName")}</dt><dd>{asset.title}</dd></div>
             {(asset.description || canEdit) && (
               <div>
-                <dt>Description{editPencil("description", "description")}</dt>
+                <dt>{t("gallery:lightbox.labelDescription")}{editPencil("description", t("gallery:lightbox.fieldDescription"))}</dt>
                 <dd>{editingField === "description" ? editForm("description") : (asset.description || <span className="muted">—</span>)}</dd>
               </div>
             )}
             {(asset.takenAt || canEdit) && (
               <div>
-                <dt>Date{editPencil("takenAt", "date")}</dt>
+                <dt>{t("gallery:lightbox.labelDate")}{editPencil("takenAt", t("gallery:lightbox.fieldDate"))}</dt>
                 <dd>{editingField === "takenAt" ? editForm("takenAt") : (formatTaken(asset.takenAt) || <span className="muted">—</span>)}</dd>
               </div>
             )}
-            <div><dt>Type</dt><dd>{asset.kind === "video" ? "Video" : "Photo"}</dd></div>
+            <div><dt>{t("gallery:lightbox.labelType")}</dt><dd>{asset.kind === "video" ? t("gallery:common.video") : t("gallery:common.photo")}</dd></div>
             {asset.width != null && asset.height != null && (
-              <div><dt>Dimensions</dt><dd>{asset.width} × {asset.height}</dd></div>
+              <div><dt>{t("gallery:lightbox.labelDimensions")}</dt><dd>{asset.width} × {asset.height}</dd></div>
             )}
             {asset.kind === "video" && asset.durationSeconds != null && (
-              <div><dt>Duration</dt><dd>{formatDuration(asset.durationSeconds)}</dd></div>
+              <div><dt>{t("gallery:lightbox.labelDuration")}</dt><dd>{formatDuration(asset.durationSeconds)}</dd></div>
             )}
-            {asset.size != null && <div><dt>Size</dt><dd>{formatBytes(asset.size)}</dd></div>}
+            {asset.size != null && <div><dt>{t("gallery:lightbox.labelSize")}</dt><dd>{formatBytes(asset.size)}</dd></div>}
             {asset.camera && (asset.camera.make || asset.camera.model) && (
-              <div><dt>Camera</dt><dd>{[asset.camera.make, asset.camera.model].filter(Boolean).join(" ")}</dd></div>
+              <div><dt>{t("gallery:lightbox.labelCamera")}</dt><dd>{[asset.camera.make, asset.camera.model].filter(Boolean).join(" ")}</dd></div>
             )}
             {(asset.gps || canEdit) && (
               <div>
-                <dt>Location{editPencil("gps", "location")}</dt>
+                <dt>{t("gallery:lightbox.labelLocation")}{editPencil("gps", t("gallery:lightbox.fieldLocation"))}</dt>
                 <dd>
                   {editingField === "gps" ? (
                     <div className="gallery-info-form">
@@ -863,16 +996,16 @@ export function GalleryLightbox({
                       <span className="gallery-info-hint">
                         {editGps
                           ? `${editGpsLabel ? `${editGpsLabel} — ` : ""}${editGps.lat.toFixed(5)}, ${editGps.lng.toFixed(5)}`
-                          : "Search above, or click the map to mark where this was taken."}
+                          : t("gallery:lightbox.locationHint")}
                       </span>
                       <div className="gallery-info-form-actions">
                         <button type="button" className="primary-button compact-button" onClick={() => { if (editGps) void saveLocation(editGps); }} disabled={editBusy || !editGps}>
-                          {editBusy ? "Saving…" : "Save"}
+                          {editBusy ? t("gallery:common.saving") : t("gallery:common.save")}
                         </button>
-                        <button type="button" className="secondary-button compact-button" onClick={cancelEdit} disabled={editBusy}>Cancel</button>
+                        <button type="button" className="secondary-button compact-button" onClick={cancelEdit} disabled={editBusy}>{t("common:common.cancel")}</button>
                         {asset.gps && (
                           <button type="button" className="danger-button compact-button" onClick={() => void saveLocation(null)} disabled={editBusy}>
-                            Remove
+                            {t("gallery:common.remove")}
                           </button>
                         )}
                       </div>
@@ -900,20 +1033,20 @@ export function GalleryLightbox({
             )}
             {(people.length > 0 || canEdit) && (
               <div>
-                <dt>People</dt>
+                <dt>{t("gallery:lightbox.labelPeople")}</dt>
                 <dd>
                   <div className="gallery-people-tags">
                     {people.length === 0 && !canEdit && <span className="muted">—</span>}
                     {people.map((person) => (
                       <span key={person.id} className={`gallery-person-chip${person.name ? "" : " gallery-person-chip-unnamed"}`}>
-                        {person.name || "Unnamed"}
+                        {person.name || t("gallery:common.unnamed")}
                         {canEdit && (
                           <button
                             type="button"
                             className="gallery-person-chip-remove"
                             onClick={() => void removePerson(person.id)}
-                            aria-label={`Remove ${person.name || "this person"}`}
-                            title={`Remove ${person.name || "this person"}`}
+                            aria-label={t("gallery:lightbox.removePersonAria", { name: person.name || t("gallery:lightbox.personFallback") })}
+                            title={t("gallery:lightbox.removePersonAria", { name: person.name || t("gallery:lightbox.personFallback") })}
                           >
                             <X size={12} aria-hidden="true" />
                           </button>
@@ -922,7 +1055,7 @@ export function GalleryLightbox({
                     ))}
                     {canEdit && !addingPerson && (
                       <button type="button" className="gallery-person-add" onClick={() => setAddingPerson(true)}>
-                        <Plus size={13} aria-hidden="true" /> Add person
+                        <Plus size={13} aria-hidden="true" /> {t("gallery:lightbox.addPersonButton")}
                       </button>
                     )}
                   </div>
@@ -932,7 +1065,7 @@ export function GalleryLightbox({
                         list="gallery-people-suggestions"
                         value={personName}
                         onChange={(event) => setPersonName(event.target.value)}
-                        placeholder="Name"
+                        placeholder={t("gallery:common.name")}
                         maxLength={120}
                         autoFocus
                       />
@@ -940,13 +1073,13 @@ export function GalleryLightbox({
                         {allPeople.map((person) => <option key={person.id} value={person.name} />)}
                       </datalist>
                       <button type="submit" className="secondary-button compact-button" disabled={personBusy || !personName.trim()}>
-                        {personBusy ? "Adding…" : "Add"}
+                        {personBusy ? t("gallery:common.adding") : t("gallery:common.add")}
                       </button>
                       <button
                         type="button"
                         className="icon-button"
                         onClick={() => { setAddingPerson(false); setPersonName(""); setPersonError(""); }}
-                        aria-label="Cancel"
+                        aria-label={t("common:common.cancel")}
                       >
                         <X size={14} aria-hidden="true" />
                       </button>
@@ -957,14 +1090,14 @@ export function GalleryLightbox({
               </div>
             )}
             <div>
-              <dt>Folder</dt>
+              <dt>{t("gallery:lightbox.labelFolder")}</dt>
               <dd>
                 {onOpenFolder ? (
                   <button
                     type="button"
                     className="gallery-info-link"
                     onClick={() => onOpenFolder(asset.folder)}
-                    title="Open this folder"
+                    title={t("gallery:lightbox.openFolderTitle")}
                   >
                     {asset.folder || "/"}
                   </button>
@@ -975,11 +1108,11 @@ export function GalleryLightbox({
                 libraries carry the same folder shapes (the duplicate pages exist
                 because they do). */}
             {asset.libraryName && (
-              <div><dt>Library</dt><dd>{asset.libraryName}</dd></div>
+              <div><dt>{t("gallery:lightbox.labelLibrary")}</dt><dd>{asset.libraryName}</dd></div>
             )}
             {(asset.tags.length > 0 || canEdit) && (
               <div>
-                <dt>Tags{editPencil("tags", "tags")}</dt>
+                <dt>{t("gallery:lightbox.labelTags")}{editPencil("tags", t("gallery:lightbox.fieldTags"))}</dt>
                 <dd>{editingField === "tags" ? editForm("tags") : (asset.tags.length > 0 ? asset.tags.join(", ") : <span className="muted">—</span>)}</dd>
               </div>
             )}
@@ -1010,32 +1143,21 @@ export function GalleryLightbox({
         <SendToSheet
           subject={{ entityType: "gallery", entityId: asset.id }}
           onClose={() => setSendToOpen(false)}
-          onGuestLink={canShare ? () => { setSendToOpen(false); setShareOpen(true); } : undefined}
-        />
-      )}
-
-      {shareOpen && (
-        <ShareModal
-          bookId={asset.id}
-          bookTitle={asset.title}
-          kind="gallery"
-          onClose={() => setShareOpen(false)}
         />
       )}
 
       {deleteOpen && (
         <ConfirmDialog
-          title={`Move "${asset.title}" to the Recycle Bin?`}
-          confirmLabel="Move to Recycle Bin"
-          busyLabel="Moving…"
+          title={t("gallery:lightbox.deleteConfirmTitle", { title: asset.title })}
+          confirmLabel={t("gallery:lightbox.deleteConfirmLabel")}
+          busyLabel={t("gallery:common.moving")}
           busy={deleteBusy}
           error={deleteError}
           danger
           onConfirm={() => void confirmRemove()}
           onCancel={() => { if (!deleteBusy) setDeleteOpen(false); }}
         >
-          This item moves into the Recycle Bin and leaves the gallery for everyone. You can restore it
-          from the Recycle Bin, or delete it permanently from there.
+          {t("gallery:lightbox.deleteConfirmBody")}
         </ConfirmDialog>
       )}
     </div>,

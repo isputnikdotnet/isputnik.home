@@ -11,6 +11,9 @@ import { bookLibraryIds, crossTypeBooksByFilter } from "./feed.js";
 import { accessibleLibraryIds } from "./shared/library-access.js";
 import { ASSET_COLUMNS, ASSET_JOINS, mapAsset, type GalleryAssetRow } from "./gallery/catalog.js";
 import { listFamilyPersonsByTag } from "../familytree/persons.js";
+import { listStories, STORY_ENTITY_TYPE } from "../stories/stories.js";
+import { listAlbums } from "./gallery/albums.js";
+import { listSlideshows } from "./gallery/slideshows.js";
 
 const placeholders = (n: number) => Array(n).fill("?").join(", ");
 
@@ -50,13 +53,48 @@ export function registerTagRoutes(app: FastifyInstance) {
       GROUP BY tags.id
     `).all() as { id: string; name: string; count: number }[];
 
+    // Published stories, plus the viewer's own drafts — the same visibility rule
+    // listStories applies, so a tag never counts a story you can't open.
+    const storyRows = db.prepare(`
+      SELECT tags.id, tags.display_name AS name, COUNT(*) AS count
+      FROM taggables
+      JOIN tags ON tags.id = taggables.tag_id
+      JOIN stories ON stories.id = taggables.entity_id
+      WHERE taggables.entity_type = '${STORY_ENTITY_TYPE}'
+        AND (stories.status = 'published' OR stories.created_by = ? OR ? = 'admin')
+      GROUP BY tags.id
+    `).all(user.id, user.role) as { id: string; name: string; count: number }[];
+
+    // Albums and slideshows the viewer can actually reach. listAlbums /
+    // listSlideshows own the "zero visible items hides it" rule, so ask them
+    // rather than re-deriving it here.
+    const galleryScope = [...accessibleLibraryIds(user.id, user.role, "gallery")];
+    const reachableSets = new Set([
+      ...listAlbums(user, galleryScope).map((album) => album.id),
+      ...listSlideshows(user, galleryScope).map((slideshow) => slideshow.id)
+    ]);
+    const setRows = (db.prepare(`
+      SELECT tags.id, tags.display_name AS name, taggables.entity_id AS entity_id
+      FROM taggables
+      JOIN tags ON tags.id = taggables.tag_id
+      WHERE taggables.entity_type IN ('gallery_album', 'gallery_slideshow')
+    `).all() as { id: string; name: string; entity_id: string }[])
+      .filter((row) => reachableSets.has(row.entity_id))
+      .reduce((acc, row) => {
+        const found = acc.get(row.id) ?? { id: row.id, name: row.name, count: 0 };
+        found.count += 1;
+        acc.set(row.id, found);
+        return acc;
+      }, new Map<string, { id: string; name: string; count: number }>());
+
     const byTag = new Map<string, {
       name: string; count: number;
-      audiobookCount: number; ebookCount: number; galleryCount: number; familyCount: number;
+      audiobookCount: number; ebookCount: number; galleryCount: number;
+      familyCount: number; storyCount: number;
     }>();
     const entry = (id: string, name: string) => {
       const found = byTag.get(id)
-        ?? { name, count: 0, audiobookCount: 0, ebookCount: 0, galleryCount: 0, familyCount: 0 };
+        ?? { name, count: 0, audiobookCount: 0, ebookCount: 0, galleryCount: 0, familyCount: 0, storyCount: 0 };
       byTag.set(id, found);
       return found;
     };
@@ -71,6 +109,19 @@ export function registerTagRoutes(app: FastifyInstance) {
       const tag = entry(row.id, row.name);
       tag.count += row.count;
       tag.familyCount += row.count;
+    }
+    for (const row of storyRows) {
+      const tag = entry(row.id, row.name);
+      tag.count += row.count;
+      tag.storyCount += row.count;
+    }
+    // Albums and slideshows are gallery things, so they add to the gallery
+    // count rather than earning scopes of their own — the tag toggle stays a
+    // list of media types, not of container kinds.
+    for (const row of setRows.values()) {
+      const tag = entry(row.id, row.name);
+      tag.count += row.count;
+      tag.galleryCount += row.count;
     }
 
     const tags = [...byTag.values()].sort((a, b) =>
@@ -108,8 +159,23 @@ export function registerTagRoutes(app: FastifyInstance) {
       ORDER BY datetime(gallery_details.taken_at) DESC, library_items.id DESC
     `).all(user.id, tag.id, ...galleryIds) as GalleryAssetRow[]).map(mapAsset);
 
+    const taggedIds = new Set((db.prepare(`
+      SELECT entity_id FROM taggables
+      WHERE tag_id = ? AND entity_type IN ('gallery_album', 'gallery_slideshow')
+    `).all(tag.id) as { entity_id: string }[]).map((row) => row.entity_id));
+
     return reply.send({
-      tag: { name: tag.display_name, books, photos, people: listFamilyPersonsByTag(tag.id) }
+      tag: {
+        name: tag.display_name,
+        books,
+        photos,
+        people: listFamilyPersonsByTag(tag.id),
+        stories: listStories(user, galleryIds, tag.id),
+        // Reachability comes from the list functions; this only narrows to the
+        // ones wearing the tag.
+        albums: listAlbums(user, galleryIds).filter((album) => taggedIds.has(album.id)),
+        slideshows: listSlideshows(user, galleryIds).filter((show) => taggedIds.has(show.id))
+      }
     });
   });
 }

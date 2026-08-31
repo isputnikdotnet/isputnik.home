@@ -83,6 +83,14 @@ export interface GalleryMemorySuggestion {
   itemIds: string[];
 }
 
+// A year's best, proposed as a slideshow — built from the household's likes and
+// spread across the calendar (server: year-review.ts). Deliberately a GalleryMemory-
+// Suggestion with a year on it, so the preview modal and the create-slideshow path
+// take one unchanged.
+export interface GalleryYearReview extends GalleryMemorySuggestion {
+  year: number;
+}
+
 // A gallery album (hand-curated set spanning libraries). itemCount/coverUrl
 // reflect only the viewer's accessible items; canEdit = creator or admin.
 export interface GalleryAlbum {
@@ -105,6 +113,8 @@ export interface GalleryAlbumDetail {
   coverItemId: string | null;
   canEdit: boolean;
   updatedAt: string;
+  /** Tags on the album itself — how it joins the cross-type tag browse. */
+  tags: string[];
 }
 
 // "random" varies the transition on every slide change (player and MP4 render alike).
@@ -117,6 +127,10 @@ export type SlideshowRenderStatus = "draft" | "queued" | "rendering" | "ready" |
 // a collage tiled from several of them.
 export type SlideshowSubtitleMode = "count" | "custom" | "none";
 export type SlideshowTitleBackground = "black" | "photo" | "blur" | "collage";
+// Lettering: which bundled face the card's text is set in, and how large. The
+// server draws the movie's card with the same faces the editor's chips preview.
+export type SlideshowCardFont = "classic" | "serif" | "bold" | "script" | "typewriter";
+export type SlideshowCardSize = "small" | "medium" | "large";
 
 // The title-card settings, carried on the detail and taken by the PATCH. A null in a
 // nullable field means "back to the default": the slideshow's name, no custom
@@ -129,6 +143,20 @@ export interface SlideshowTitleSettings {
   titleSeconds: number;
   titleBackground: SlideshowTitleBackground;
   titlePhotoItemId: string | null;
+  cardFont: SlideshowCardFont;
+  cardSize: SlideshowCardSize;
+  // The closing card. Off by default; closingText null = "The End"; closingLines
+  // holds up to six newline-separated credit lines.
+  closingEnabled: boolean;
+  closingText: string | null;
+  closingLines: string | null;
+  closingSeconds: number;
+  closingBackground: SlideshowTitleBackground;
+  closingPhotoItemId: string | null;
+  // Whether the post-credit clip's own audio plays in the movie (the music pauses
+  // under it, resuming where it left off). On by default; a clip file with no
+  // audio stream keeps the music running regardless.
+  outroSound: boolean;
 }
 
 // Everything the slideshow PATCH accepts. One type, so the editor, the hook and the
@@ -139,6 +167,13 @@ export interface SlideshowPatch extends Partial<SlideshowTitleSettings> {
   slideSeconds?: number;
   transitionSeconds?: number;
   musicTrackId?: string | null;
+  // The post-credit clip, by gallery item id (any accessible video; null clears).
+  outroItemId?: string | null;
+  // Where the finished movie is filed. null = don't save (the default).
+  movieTargetLibraryId?: string | null;
+  movieOnConflict?: MovieConflictPolicy;
+  // Rename: the filename without ".mp4". null puts it back on the slideshow's name.
+  movieFileStem?: string | null;
   coverItemId?: string | null;
 }
 
@@ -162,6 +197,16 @@ export interface GallerySlideshow {
 // The slideshow-detail header (items arrive with it / paged, in presentation order).
 // The music fields are resolved server-side from musicTrackId (all null when the
 // slideshow has no music or its track was deleted).
+// An opening/closing clip as the detail carries it: enough for the editor to draw
+// its row. Resolved server-side from intro/outro_item_id against the viewer's
+// access — null when unset, gone, or out of reach.
+export interface SlideshowClipInfo {
+  id: string;
+  title: string;
+  coverUrl: string | null;
+  durationSeconds: number | null;
+}
+
 export interface GallerySlideshowDetail extends SlideshowTitleSettings {
   id: string;
   name: string;
@@ -172,6 +217,17 @@ export interface GallerySlideshowDetail extends SlideshowTitleSettings {
   coverItemId: string | null;
   canEdit: boolean;
   updatedAt: string;
+  /** Tags on the slideshow itself — how it joins the cross-type tag browse. */
+  tags: string[];
+  outroClip: SlideshowClipInfo | null;
+  // Where this slideshow files its movie. movieFileName is the name the next save would
+  // use, so the editor never has to work it out; movieSaveError says why the last one
+  // didn't land (a read-only folder, a name taken by someone's video).
+  movieTargetLibraryId: string | null;
+  movieOnConflict: MovieConflictPolicy;
+  movieFileStem: string | null;
+  movieFileName: string;
+  movieSaveError: string | null;
   musicTrackId: string | null;
   musicTitle: string | null;
   musicUrl: string | null;
@@ -249,9 +305,40 @@ export interface GalleryFaceSettings {
 
 // Global slideshow-movie settings (admin): the default gallery library every rendered
 // movie is auto-saved into. renderLibraryId is null when saving to a library is off.
+/** A gallery library as a possible home for a movie, with WHY it can't be one. */
+export interface MovieLibraryOption {
+  id: string;
+  name: string;
+  canWrite: boolean;      // this viewer's permission
+  writable: boolean;      // …and the folder itself accepts writes
+  reason: "permission" | "readonly" | null;
+}
+
 export interface GallerySlideshowSettings {
-  renderLibraryId: string | null;
-  libraries: { id: string; name: string }[];
+  libraries: MovieLibraryOption[];
+}
+
+/** What to do when the movie's filename is already taken in the chosen library. */
+export type MovieConflictPolicy = "overwrite" | "keep_both";
+
+/**
+ * What saving into a library WOULD do, asked before anything is written.
+ *
+ * `conflict`: "none" the name is free · "own" it's this slideshow's own movie, which is
+ * just a re-save · "file" a loose file has the name (overwrite is offered) · "item" a
+ * catalogued video someone has in their gallery, where overwrite is REFUSED and the only
+ * ways forward are Rename or Keep both.
+ */
+export interface MovieTargetPreview {
+  usable: boolean;
+  reason?: string;
+  wantedPath?: string;
+  resolvedPath?: string;
+  fileName?: string;
+  conflict?: "none" | "own" | "file" | "item";
+  canOverwrite?: boolean;
+  existingTitle?: string | null;
+  existingTakenAt?: string | null;
 }
 
 // Clustering-health diagnostic: how many people are likely the same person split across
@@ -282,6 +369,8 @@ export interface GalleryFolder {
   path: string;
   assetCount: number;
   coverUrl: string | null;
+  /** A folder lock covers it — nothing inside can be deleted from the app. */
+  locked: boolean;
 }
 
 // A lightweight map marker — just what a pin + its popup thumbnail need. The full

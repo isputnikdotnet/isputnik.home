@@ -10,6 +10,25 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      # @types/node majors track Node majors, so a bump here types the source
+      # against APIs the runtime may not have. It must follow the Dockerfile's
+      # base image, never lead it — raise this by hand as part of a Node upgrade
+      # (and drop the entry once the base image moves off 22). Minor and patch
+      # releases within the current major still arrive in npm-minor-patch.
+      - dependency-name: "@types/node"
+        update-types:
+          - version-update:semver-major
+      # TypeScript 7 is the Go port, and its npm package exports two symbols —
+      # the programmatic compiler API is gone. reply-send-contract.test.ts walks
+      # the AST with it to keep 878 async handlers returning their reply, so the
+      # bump breaks the suite while typechecking and building perfectly (#41,
+      # merged and reverted in 0141d474). Drop this entry once the native port
+      # ships the compiler API; until then the PR can only be re-reviewed and
+      # re-closed every week. 5.x minors and patches still arrive as usual.
+      - dependency-name: "typescript"
+        update-types:
+          - version-update:semver-major
     groups:
       # One PR for the routine minor/patch churn; majors still come alone so a
       # breaking bump gets its own review.

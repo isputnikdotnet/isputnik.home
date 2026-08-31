@@ -375,17 +375,6 @@
 .group-table th:nth-child(3) { width: 14%; }
 .group-table th:nth-child(4) { width: 27%; }
 
-/* Last seen and Expires carry a two-line stamp (see .datagrid-stamp) and Actions
-   a "Current" badge — none of which can ellipsize away, so those three columns
-   are given enough to hold their content and the two text columns, which do
-   ellipsize, take what is left. Under-sizing them is what put this table in a
-   horizontal scroll. */
-.session-table th:nth-child(1) { width: 25%; }
-.session-table th:nth-child(2) { width: 26%; }
-.session-table th:nth-child(3) { width: 17%; }
-.session-table th:nth-child(4) { width: 17%; }
-.session-table th:nth-child(5) { width: 15%; }
-
 .invite-table th:nth-child(1) { width: 37%; }
 .invite-table th:nth-child(2) { width: 12%; }
 .invite-table th:nth-child(3) { width: 18%; }

@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 import { BookOpen, ChevronDown, ChevronLeft, ChevronRight, Download, FastForward, Headphones, Image as ImageIcon, List, Moon, Pause, Play, Rewind, SkipBack, SkipForward, Volume2, VolumeX, X } from "lucide-react";
 import { EbookReader } from "../features/audiobooks/reader/EbookReader";
+import { StoryShareView, type StorySharePayload } from "./StoryShareView";
 import { isFoliateFormat } from "../shared/utils";
 
 interface ShareFile {
@@ -79,7 +81,7 @@ interface GallerySetSharePayload {
   items: GallerySetItem[];
 }
 
-type SharePayload = AudiobookSharePayload | EbookSharePayload | GallerySharePayload | GallerySetSharePayload;
+type SharePayload = AudiobookSharePayload | EbookSharePayload | GallerySharePayload | GallerySetSharePayload | StorySharePayload;
 
 function formatTime(seconds: number) {
   if (!isFinite(seconds) || seconds < 0) seconds = 0;
@@ -99,6 +101,7 @@ type SleepMode = "off" | "chapter" | (typeof SLEEP_MINUTES)[number];
 const RATES = [0.75, 1, 1.25, 1.5, 1.75, 2];
 
 export function SharePage({ token }: { token: string }) {
+  const { t } = useTranslation(["common", "user"]);
   const [payload, setPayload] = useState<SharePayload | null>(null);
   const [loadError, setLoadError] = useState("");
 
@@ -107,7 +110,7 @@ export function SharePage({ token }: { token: string }) {
       .then(async (res) => {
         if (!res.ok) {
           const body = (await res.json().catch(() => ({}))) as { error?: string };
-          throw new Error(body.error || "This share is no longer available.");
+          throw new Error(body.error || t("user:sharePage.gone"));
         }
         return res.json() as Promise<SharePayload>;
       })
@@ -115,12 +118,14 @@ export function SharePage({ token }: { token: string }) {
         setPayload(data);
         const name = data.type === "gallery"
           ? data.asset.title
-          : data.type === "gallery_set"
-            ? data.share.label ?? `${data.items.length} shared ${data.items.length === 1 ? "photo" : "photos"}`
-            : data.book.title;
-        document.title = `${name} — shared on isputnik.home`;
+          : data.type === "story"
+            ? data.story.title
+            : data.type === "gallery_set"
+              ? data.share.label ?? t("user:sharePage.sharedPhotos", { count: data.items.length })
+              : data.book.title;
+        document.title = t("user:sharePage.docTitle", { name });
       })
-      .catch((err) => setLoadError(err instanceof Error ? err.message : "This share is no longer available."));
+      .catch((err) => setLoadError(err instanceof Error ? err.message : t("user:sharePage.gone")));
   }, [token]);
 
   if (loadError) {
@@ -128,7 +133,7 @@ export function SharePage({ token }: { token: string }) {
       <div className="share-page">
         <div className="share-card share-card--message">
           <BookOpen size={40} aria-hidden="true" />
-          <h1>Share unavailable</h1>
+          <h1>{t("user:sharePage.unavailableTitle")}</h1>
           <p className="muted">{loadError}</p>
         </div>
       </div>
@@ -139,12 +144,13 @@ export function SharePage({ token }: { token: string }) {
     return (
       <div className="share-page">
         <div className="share-card share-card--message">
-          <p className="muted">Loading…</p>
+          <p className="muted">{t("user:common.loading")}</p>
         </div>
       </div>
     );
   }
 
+  if (payload.type === "story") return <StoryShareView token={token} payload={payload} />;
   if (payload.type === "gallery") return <GalleryShareView token={token} payload={payload} />;
   if (payload.type === "gallery_set") return <GallerySetShareView token={token} payload={payload} />;
   return payload.type === "ebook"
@@ -156,6 +162,7 @@ export function SharePage({ token }: { token: string }) {
 // Prev/next and Escape work from the keyboard; each item downloads individually,
 // and "Download all" zips the whole set.
 function GallerySetShareView({ token, payload }: { token: string; payload: GallerySetSharePayload }) {
+  const { t } = useTranslation(["common", "user"]);
   const { items, share } = payload;
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const open = openIndex != null ? items[openIndex] : null;
@@ -171,7 +178,7 @@ function GallerySetShareView({ token, payload }: { token: string; payload: Galle
     return () => window.removeEventListener("keydown", onKey);
   }, [openIndex, items.length]);
 
-  const heading = share.label ?? `${items.length} shared ${items.length === 1 ? "photo" : "photos"}`;
+  const heading = share.label ?? t("user:sharePage.sharedPhotos", { count: items.length });
 
   return (
     <div className="share-page">
@@ -179,31 +186,31 @@ function GallerySetShareView({ token, payload }: { token: string; payload: Galle
         <div className="share-book-header">
           <h1 className="share-title">{heading}</h1>
           {share.sharedBy && (
-            <p className="share-shared-by">{share.sharedBy} shared these {items.length === 1 ? "photo" : "photos"} with you</p>
+            <p className="share-shared-by">{t("user:sharePage.sharedTheseBy", { name: share.sharedBy, count: items.length })}</p>
           )}
-          <p className="share-authors">{items.length} {items.length === 1 ? "item" : "items"}</p>
+          <p className="share-authors">{t("user:count.items", { count: items.length })}</p>
         </div>
 
         {items.length > 0 && (
           <div className="share-actions">
             <a className="primary-button" href={`/api/share/${token}/download-all`} download>
-              <Download size={16} /><span>Download all</span>
+              <Download size={16} /><span>{t("user:sharePage.downloadAll")}</span>
             </a>
           </div>
         )}
 
         {items.length === 0 ? (
-          <p className="muted">The shared photos are no longer available.</p>
+          <p className="muted">{t("user:sharePage.photosGone")}</p>
         ) : (
           <div className="share-set-grid">
             {items.map((item, index) => (
-              <button key={item.id} type="button" className="share-set-tile" onClick={() => setOpenIndex(index)} aria-label={`Open ${item.title}`}>
+              <button key={item.id} type="button" className="share-set-tile" onClick={() => setOpenIndex(index)} aria-label={t("user:viewer.openItem", { title: item.title })}>
                 {item.coverUrl ? (
                   <img src={item.coverUrl} alt="" loading="lazy" />
                 ) : (
                   <span className="share-set-fallback"><ImageIcon size={24} aria-hidden="true" /></span>
                 )}
-                {item.kind === "video" && <span className="share-set-video-badge"><Play size={11} aria-hidden="true" />Video</span>}
+                {item.kind === "video" && <span className="share-set-video-badge"><Play size={11} aria-hidden="true" />{t("user:viewer.video")}</span>}
               </button>
             ))}
           </div>
@@ -211,7 +218,7 @@ function GallerySetShareView({ token, payload }: { token: string; payload: Galle
 
         <p className="share-footer muted">
           <ImageIcon size={13} aria-hidden="true" style={{ verticalAlign: "-2px", marginRight: 4 }} />
-          Shared via isputnik.home · link expires {new Date(share.expiresAt).toLocaleDateString()}
+          {t("user:sharePage.footer", { date: new Date(share.expiresAt).toLocaleDateString() })}
         </p>
       </div>
 
@@ -221,16 +228,16 @@ function GallerySetShareView({ token, payload }: { token: string; payload: Galle
             <span className="share-set-viewer-title">{open.title}</span>
             <div className="share-set-viewer-actions">
               <a className="secondary-button compact-button" href={open.downloadUrl} download>
-                <Download size={15} /><span>Download</span>
+                <Download size={15} /><span>{t("user:actions.download")}</span>
               </a>
-              <button className="icon-button" onClick={() => setOpenIndex(null)} aria-label="Close">
+              <button className="icon-button" onClick={() => setOpenIndex(null)} aria-label={t("common:common.close")}>
                 <X size={18} />
               </button>
             </div>
           </div>
           <div className="share-set-viewer-body">
             {openIndex! > 0 && (
-              <button className="share-set-nav prev" onClick={() => setOpenIndex(openIndex! - 1)} aria-label="Previous">
+              <button className="share-set-nav prev" onClick={() => setOpenIndex(openIndex! - 1)} aria-label={t("user:viewer.previous")}>
                 <ChevronLeft size={26} />
               </button>
             )}
@@ -240,7 +247,7 @@ function GallerySetShareView({ token, payload }: { token: string; payload: Galle
               <img key={open.id} src={open.previewUrl ?? open.fileUrl} alt={open.title} />
             )}
             {openIndex! < items.length - 1 && (
-              <button className="share-set-nav next" onClick={() => setOpenIndex(openIndex! + 1)} aria-label="Next">
+              <button className="share-set-nav next" onClick={() => setOpenIndex(openIndex! + 1)} aria-label={t("user:viewer.next")}>
                 <ChevronRight size={26} />
               </button>
             )}
@@ -255,6 +262,7 @@ function GallerySetShareView({ token, payload }: { token: string; payload: Galle
 // --- Gallery share: a single photo or video shown full-bleed in the card, with a
 // download. The whole file is delivered to view it, so view and download are peers.
 function GalleryShareView({ token, payload }: { token: string; payload: GallerySharePayload }) {
+  const { t } = useTranslation(["common", "user"]);
   const { asset, share } = payload;
   const fileUrl = `/api/share/${token}/file`;
   const downloadUrl = `/api/share/${token}/download`;
@@ -273,14 +281,16 @@ function GalleryShareView({ token, payload }: { token: string; payload: GalleryS
         <div className="share-book-header">
           <h1 className="share-title">{asset.title}</h1>
           {share.sharedBy && (
-            <p className="share-shared-by">{share.sharedBy} shared this {asset.kind === "video" ? "video" : "photo"} with you</p>
+            <p className="share-shared-by">
+              {t(asset.kind === "video" ? "user:sharePage.sharedVideoBy" : "user:sharePage.sharedPhotoBy", { name: share.sharedBy })}
+            </p>
           )}
-          <p className="share-authors">{asset.kind === "video" ? "Video" : "Photo"}</p>
+          <p className="share-authors">{asset.kind === "video" ? t("user:viewer.video") : t("user:viewer.photo")}</p>
         </div>
 
         <div className="share-actions">
           <a className="primary-button" href={downloadUrl} download>
-            <Download size={16} /><span>Download</span>
+            <Download size={16} /><span>{t("user:actions.download")}</span>
           </a>
         </div>
 
@@ -288,7 +298,7 @@ function GalleryShareView({ token, payload }: { token: string; payload: GalleryS
 
         <p className="share-footer muted">
           <ImageIcon size={13} aria-hidden="true" style={{ verticalAlign: "-2px", marginRight: 4 }} />
-          Shared via isputnik.home · link expires {new Date(share.expiresAt).toLocaleDateString()}
+          {t("user:sharePage.footer", { date: new Date(share.expiresAt).toLocaleDateString() })}
         </p>
       </div>
     </div>
@@ -299,6 +309,7 @@ function GalleryShareView({ token, payload }: { token: string; payload: GalleryS
 // browser's native viewer (PDF). The whole file is delivered to read it, so Read
 // and Download are peers — neither protects the content more than the other.
 function EbookShareView({ token, payload }: { token: string; payload: EbookSharePayload }) {
+  const { t } = useTranslation(["common", "user"]);
   const { book, share } = payload;
   const [reading, setReading] = useState(false);
   const fileUrl = `/api/share/${token}/file`;
@@ -322,16 +333,16 @@ function EbookShareView({ token, payload }: { token: string; payload: EbookShare
 
           <div className="share-actions">
             <button className="primary-button" onClick={() => setReading(true)}>
-              <BookOpen size={16} /><span>Read</span>
+              <BookOpen size={16} /><span>{t("common:home.read")}</span>
             </button>
             <a className="secondary-button" href={downloadUrl} download>
-              <Download size={16} /><span>Download</span>
+              <Download size={16} /><span>{t("user:actions.download")}</span>
             </a>
           </div>
 
           {book.description && <p className="share-description">{book.description}</p>}
 
-          <p className="share-footer muted">Shared via isputnik.home · link expires {new Date(share.expiresAt).toLocaleDateString()}</p>
+          <p className="share-footer muted">{t("user:sharePage.footer", { date: new Date(share.expiresAt).toLocaleDateString() })}</p>
         </div>
       </div>
 
@@ -359,9 +370,9 @@ function EbookShareView({ token, payload }: { token: string; payload: EbookShare
             <span className="share-doc-viewer-title">{book.title}</span>
             <div className="share-doc-viewer-actions">
               <a className="secondary-button compact-button" href={downloadUrl} download>
-                <Download size={15} /><span>Download</span>
+                <Download size={15} /><span>{t("user:actions.download")}</span>
               </a>
-              <button className="icon-button" onClick={() => setReading(false)} aria-label="Close">
+              <button className="icon-button" onClick={() => setReading(false)} aria-label={t("common:common.close")}>
                 <X size={18} />
               </button>
             </div>
@@ -377,6 +388,7 @@ function EbookShareView({ token, payload }: { token: string; payload: EbookShare
 // --- Audiobook share: a self-contained lightweight player (no progress sync for
 // guests) plus a ZIP download.
 function AudiobookShareView({ token, payload }: { token: string; payload: AudiobookSharePayload }) {
+  const { t } = useTranslation(["common", "user"]);
   const { book, share } = payload;
   const audioRef = useRef<HTMLAudioElement>(null);
   const autoPlayRef = useRef(false);
@@ -417,7 +429,7 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
     const audio = audioRef.current;
     if (!audio) return;
     if (playing) audio.pause();
-    else { setPlayerError(""); audio.play().catch(() => setPlayerError("Your browser could not play this audio format.")); }
+    else { setPlayerError(""); audio.play().catch(() => setPlayerError(t("user:sharePage.audioFormatError"))); }
   };
 
   const goToPrev = () => {
@@ -535,7 +547,7 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
   const sleepLabel = sleepMode === "off"
     ? null
     : sleepMode === "chapter"
-      ? "Chapter"
+      ? t("user:sharePage.chapter")
       : formatTime(sleepRemaining ?? sleepMode * 60);
 
   const seekPct = fileDuration > 0 ? Math.min(100, (currentTime / fileDuration) * 100) : 0;
@@ -551,7 +563,7 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
           )}
           <h1 className="share-title">{book.title}</h1>
           {book.authors.length > 0 && <p className="share-authors">{book.authors.join(", ")}</p>}
-          {book.narrators.length > 0 && <p className="share-narrators">Narrated by {book.narrators.join(", ")}</p>}
+          {book.narrators.length > 0 && <p className="share-narrators">{t("user:sharePage.narratedBy", { names: book.narrators.join(", ") })}</p>}
         </div>
 
         <audio
@@ -573,13 +585,13 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
               setPlaying(false);
             }
           }}
-          onError={() => { setPlaying(false); setPlayerError("Your browser could not play this audio format."); }}
+          onError={() => { setPlaying(false); setPlayerError(t("user:sharePage.audioFormatError")); }}
         />
 
         {currentFile && (
           <div className="share-chapter">
-            <strong>Chapter {fileIndex + 1} / {files.length}</strong>
-            <span>{currentFile.chapterTitle || `Chapter ${fileIndex + 1}`}</span>
+            <strong>{t("user:sharePage.chapterOf", { current: fileIndex + 1, total: files.length })}</strong>
+            <span>{currentFile.chapterTitle || t("user:sharePage.chapterN", { n: fileIndex + 1 })}</span>
           </div>
         )}
 
@@ -593,7 +605,7 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
             step={1}
             value={currentTime}
             onChange={handleSeek}
-            aria-label="Seek"
+            aria-label={t("user:sharePage.seek")}
             style={{
               // Unplayed track uses a translucent --ink so it stays visible on light
               // themes (a hardcoded white was invisible against the light card).
@@ -604,26 +616,26 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
         </div>
 
         <div className="share-controls">
-          <button className="player-btn" onClick={goToPrev} disabled={fileIndex === 0 && currentTime <= 3} aria-label="Previous chapter">
+          <button className="player-btn" onClick={goToPrev} disabled={fileIndex === 0 && currentTime <= 3} aria-label={t("user:sharePage.prevChapter")}>
             <SkipBack size={20} />
           </button>
-          <button className="player-btn player-btn-circle" onClick={() => skip(-30)} aria-label="Skip back 30 seconds">
+          <button className="player-btn player-btn-circle" onClick={() => skip(-30)} aria-label={t("user:sharePage.back30")}>
             <Rewind size={15} /><span>30</span>
           </button>
-          <button className="player-btn player-btn-primary" onClick={togglePlay} aria-label={playing ? "Pause" : "Play"}>
+          <button className="player-btn player-btn-primary" onClick={togglePlay} aria-label={playing ? t("user:sharePage.pause") : t("user:sharePage.play")}>
             {playing ? <Pause size={22} /> : <Play size={22} />}
           </button>
-          <button className="player-btn player-btn-circle" onClick={() => skip(30)} aria-label="Skip forward 30 seconds">
+          <button className="player-btn player-btn-circle" onClick={() => skip(30)} aria-label={t("user:sharePage.fwd30")}>
             <FastForward size={15} /><span>30</span>
           </button>
-          <button className="player-btn" onClick={goToNext} disabled={fileIndex >= files.length - 1} aria-label="Next chapter">
+          <button className="player-btn" onClick={goToNext} disabled={fileIndex >= files.length - 1} aria-label={t("user:sharePage.nextChapter")}>
             <SkipForward size={20} />
           </button>
         </div>
 
         <div className="share-tools">
           <div className="share-vol">
-            <button className="player-vol-icon" onClick={toggleMute} aria-label={muted ? "Unmute" : "Mute"}>
+            <button className="player-vol-icon" onClick={toggleMute} aria-label={muted ? t("user:sharePage.unmute") : t("user:sharePage.mute")}>
               {muted || volume === 0 ? <VolumeX size={17} /> : <Volume2 size={17} />}
             </button>
             <input
@@ -634,7 +646,7 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
               step={0.02}
               value={muted ? 0 : volume}
               onChange={handleVolumeChange}
-              aria-label="Volume"
+              aria-label={t("user:sharePage.volume")}
             />
           </div>
 
@@ -643,8 +655,8 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
               className={`share-tool-btn${speedOpen ? " open" : ""}`}
               onClick={toggleSpeedMenu}
               aria-expanded={speedOpen}
-              aria-label="Playback speed"
-              title="Playback speed"
+              aria-label={t("user:sharePage.speed")}
+              title={t("user:sharePage.speed")}
             >
               <span>{playbackRate === 1 ? "1×" : `${playbackRate}×`}</span>
               <ChevronDown size={14} aria-hidden="true" />
@@ -670,11 +682,11 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
               className={`share-tool-btn${sleepOpen ? " open" : ""}${sleepMode !== "off" ? " active" : ""}`}
               onClick={toggleSleepMenu}
               aria-expanded={sleepOpen}
-              aria-label="Sleep timer"
-              title="Sleep timer"
+              aria-label={t("user:sharePage.sleepTimer")}
+              title={t("user:sharePage.sleepTimer")}
             >
               <Moon size={15} aria-hidden="true" />
-              <span>{sleepLabel ?? "Sleep"}</span>
+              <span>{sleepLabel ?? t("user:sharePage.sleep")}</span>
             </button>
             {sleepOpen && (
               <div className="share-menu" onClick={(e) => e.stopPropagation()}>
@@ -683,7 +695,7 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
                   onClick={() => chooseSleep("off")}
                   aria-pressed={sleepMode === "off"}
                 >
-                  Off
+                  {t("user:sharePage.off")}
                 </button>
                 {SLEEP_MINUTES.map((min) => (
                   <button
@@ -692,7 +704,7 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
                     onClick={() => chooseSleep(min)}
                     aria-pressed={sleepMode === min}
                   >
-                    {min} min
+                    {t("user:sharePage.min", { count: min })}
                   </button>
                 ))}
                 <button
@@ -700,7 +712,7 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
                   onClick={() => chooseSleep("chapter")}
                   aria-pressed={sleepMode === "chapter"}
                 >
-                  End of chapter
+                  {t("user:sharePage.endOfChapter")}
                 </button>
               </div>
             )}
@@ -711,7 +723,7 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
           {files.length > 1 && (
             <div className="share-menu-anchor">
               <button className="secondary-button" onClick={toggleChapters} aria-expanded={chaptersOpen}>
-                <List size={16} /><span>Chapters</span>
+                <List size={16} /><span>{t("user:sharePage.chapters")}</span>
               </button>
               {chaptersOpen && (
                 <div className="share-chapter-menu" onClick={(e) => e.stopPropagation()}>
@@ -722,7 +734,7 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
                       onClick={() => jumpToChapter(index)}
                     >
                       <span className="share-chapter-num">{index + 1}</span>
-                      <span className="share-chapter-name">{file.chapterTitle || `Chapter ${index + 1}`}</span>
+                      <span className="share-chapter-name">{file.chapterTitle || t("user:sharePage.chapterN", { n: index + 1 })}</span>
                       {file.durationSeconds != null && (
                         <span className="share-chapter-dur">{formatTime(file.durationSeconds)}</span>
                       )}
@@ -733,7 +745,7 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
             </div>
           )}
           <a className="secondary-button" href={`/api/share/${token}/download`} download>
-            <Download size={16} /><span>Download</span>
+            <Download size={16} /><span>{t("user:actions.download")}</span>
           </a>
         </div>
 
@@ -741,7 +753,7 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
 
         {book.description && <p className="share-description">{book.description}</p>}
 
-        <p className="share-footer muted">Shared via isputnik.home · link expires {new Date(share.expiresAt).toLocaleDateString()}</p>
+        <p className="share-footer muted">{t("user:sharePage.footer", { date: new Date(share.expiresAt).toLocaleDateString() })}</p>
       </div>
     </div>
   );

@@ -9,11 +9,13 @@
 @import "./styles/gallery.css";
 @import "./styles/family-tree.css";
 @import "./styles/library-collections.css";
+@import "./styles/stories.css";
 @import "./styles/book-detail.css";
 @import "./styles/category-images.css";
 @import "./styles/book-media.css";
 @import "./styles/ebook-reader.css";
 @import "./styles/metadata-modal.css";
+@import "./styles/person-edit.css";
 @import "./styles/admin.css";
 @import "./styles/welcome.css";
 @import "./styles/duplicates.css";

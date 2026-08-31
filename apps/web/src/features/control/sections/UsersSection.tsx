@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, type FormEvent } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { Fingerprint, KeyRound, LockOpen, MonitorSmartphone, MonitorX, Pencil, Plus, Search, ShieldCheck, ShieldOff, Trash2, User, Users } from "lucide-react";
+import i18n from "../../../i18n";
 import { api, type PublicUser } from "../../../api";
 import { Field } from "../../../shared/Field";
 import { MessageBox } from "../../../shared/MessageBox";
@@ -14,13 +16,12 @@ import { ControlSectionHead } from "../ControlSectionHead";
 
 type UserRole = "admin" | "member";
 
-const ROLE_LABEL: Record<UserRole, string> = {
-  admin: "Admin",
-  member: "Member"
-};
+function roleLabel(role: UserRole): string {
+  return role === "admin" ? i18n.t("controlAdmin:users.roleAdmin") : i18n.t("controlAdmin:users.roleMember");
+}
 
 function formatSessionCount(value: number) {
-  return `${value.toLocaleString()} ${value === 1 ? "session" : "sessions"}`;
+  return i18n.t("controlAdmin:ui.sessions", { count: value });
 }
 
 /** Whole minutes until an ISO instant, floored at zero. Read off a badge, so a
@@ -37,6 +38,7 @@ const MAX_WINDOW_MINUTES = 60;
 const DEFAULT_WINDOW_MINUTES = 60;
 
 export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
+  const { t } = useTranslation(["common", "controlAdmin"]);
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -82,8 +84,8 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
   }, []);
 
   useEffect(() => {
-    loadUsers().catch((err) => setError(err instanceof Error ? err.message : "Unable to load users"));
-  }, [loadUsers]);
+    loadUsers().catch((err) => setError(err instanceof Error ? err.message : t("controlAdmin:users.loadFailed")));
+  }, [loadUsers, t]);
 
   const visibleUsers = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -91,7 +93,7 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
     return users.filter((account) => [
       account.displayName,
       account.email,
-      ROLE_LABEL[account.role],
+      roleLabel(account.role),
       account.protectedFromDelete ? "protected" : "",
       account.id === currentUser.id ? "current" : ""
     ].some((value) => value.toLowerCase().includes(query)));
@@ -143,13 +145,13 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
       // obvious, and the admin is the one who has to tell the new user.
       setNotice(
         result.restored
-          ? `This email belonged to a deleted account, so ${newDisplayName} takes it over — anything it still owns, like libraries or collections, comes with it. Its old two-factor setup and passkeys were removed.`
+          ? t("controlAdmin:users.restoredNotice", { name: newDisplayName })
           : ""
       );
       setCreateOpen(false);
       await loadUsers();
     } catch (err) {
-      setModalError(err instanceof Error ? err.message : "Unable to create user");
+      setModalError(err instanceof Error ? err.message : t("controlAdmin:users.createFailed"));
     } finally {
       setCreating(false);
     }
@@ -173,7 +175,7 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
       setEditingUser(null);
       await loadUsers();
     } catch (err) {
-      setModalError(err instanceof Error ? err.message : "Unable to save user");
+      setModalError(err instanceof Error ? err.message : t("controlAdmin:users.saveUserFailed"));
     } finally {
       setSaving(false);
     }
@@ -193,7 +195,7 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
       setPasswordUser(null);
       await loadUsers();
     } catch (err) {
-      setModalError(err instanceof Error ? err.message : "Unable to change password");
+      setModalError(err instanceof Error ? err.message : t("controlAdmin:users.pwFailed"));
     } finally {
       setChangingPassword(false);
     }
@@ -209,7 +211,7 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
       setPendingDelete(null);
       await loadUsers();
     } catch (err) {
-      setModalError(err instanceof Error ? err.message : "Unable to delete user");
+      setModalError(err instanceof Error ? err.message : t("controlAdmin:users.deleteFailed"));
     } finally {
       setDeleting(false);
     }
@@ -232,7 +234,7 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
       setPendingWindow(null);
       await loadUsers();
     } catch (err) {
-      setModalError(err instanceof Error ? err.message : "Unable to allow remote linking");
+      setModalError(err instanceof Error ? err.message : t("controlAdmin:users.allowFailed"));
     } finally {
       setOpeningWindow(false);
     }
@@ -245,7 +247,7 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
       await api(`/api/users/${account.id}/device-link-window`, { method: "DELETE" });
       await loadUsers();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to cancel remote linking");
+      setError(err instanceof Error ? err.message : t("controlAdmin:users.cancelWindowFailed"));
     } finally {
       setClosingWindowId(null);
     }
@@ -261,7 +263,7 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
       setPendingMfaReset(null);
       await loadUsers();
     } catch (err) {
-      setModalError(err instanceof Error ? err.message : "Unable to reset two-factor");
+      setModalError(err instanceof Error ? err.message : t("controlAdmin:users.resetMfaFailed"));
     } finally {
       setResettingMfa(false);
     }
@@ -277,7 +279,7 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
       setPendingPasskeyReset(null);
       await loadUsers();
     } catch (err) {
-      setModalError(err instanceof Error ? err.message : "Unable to remove passkeys");
+      setModalError(err instanceof Error ? err.message : t("controlAdmin:users.removePasskeysFailed"));
     } finally {
       setResettingPasskeys(false);
     }
@@ -290,7 +292,7 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
       await api(`/api/users/${account.id}/unlock`, { method: "POST" });
       await loadUsers();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to unlock account");
+      setError(err instanceof Error ? err.message : t("controlAdmin:users.unlockFailed"));
     } finally {
       setUnlockingId(null);
     }
@@ -304,7 +306,7 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
         section="users"
         icon={<Users size={30} />}
         iconClassName="blue"
-        description="Accounts, roles, and password resets."
+        description={t("controlAdmin:users.headDescription")}
       >
         <div className="row-actions">
           <RefreshButton
@@ -313,51 +315,51 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
               try {
                 await loadUsers();
               } catch (err) {
-                setError(err instanceof Error ? err.message : "Unable to refresh users");
+                setError(err instanceof Error ? err.message : t("controlAdmin:users.refreshFailed"));
                 throw err;
               }
             }}
           />
-          <Button variant="primary" onClick={openCreate} title="New user">
+          <Button variant="primary" onClick={openCreate} title={t("controlAdmin:users.newUser")}>
             <Plus size={18} />
-            <span>New user</span>
+            <span>{t("controlAdmin:users.newUser")}</span>
           </Button>
         </div>
       </ControlSectionHead>
 
-      {error && <MessageBox tone="error" title="User management error">{error}</MessageBox>}
-      {notice && <MessageBox tone="info" title="An existing email was reused">{notice}</MessageBox>}
+      {error && <MessageBox tone="error" title={t("controlAdmin:users.errorTitle")}>{error}</MessageBox>}
+      {notice && <MessageBox tone="info" title={t("controlAdmin:users.reusedTitle")}>{notice}</MessageBox>}
 
       <div className="user-controls-bar">
         <label className="search-field user-search">
           <Search size={17} aria-hidden="true" />
-          <span className="sr-only">Search users</span>
+          <span className="sr-only">{t("controlAdmin:users.searchUsers")}</span>
           <input
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Search users..."
+            placeholder={t("controlAdmin:users.searchPlaceholder")}
           />
         </label>
       </div>
 
       {visibleUsers.length === 0 ? (
         <p className="management-empty">
-          {users.length === 0 ? "No users configured." : "No users match this search."}
+          {users.length === 0 ? t("controlAdmin:users.noUsers") : t("controlAdmin:users.noMatch")}
         </p>
       ) : (
         <div className="datagrid-wrap">
           <table className="datagrid user-table">
             <thead>
               <tr>
-                <th>User</th>
-                <th>Role</th>
-                <th className="col-num">Sessions</th>
-                <th>Created</th>
+                <th>{t("controlAdmin:users.thUser")}</th>
+                <th>{t("controlAdmin:users.thRole")}</th>
+                <th className="col-num">{t("controlAdmin:users.thSessions")}</th>
+                <th>{t("controlAdmin:users.thCreated")}</th>
                 {/* The word is wider than the column now that the column holds one
                     ⋮ button, and in a fixed-layout table a heading that doesn't fit
                     puts the whole grid into a horizontal scroll. Kept for screen
                     readers, which is the only audience it was serving anyway. */}
-                <th className="col-actions"><span className="sr-only">Actions</span></th>
+                <th className="col-actions"><span className="sr-only">{t("controlAdmin:users.thActions")}</span></th>
               </tr>
             </thead>
             <tbody>
@@ -374,15 +376,15 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
                         <div className="datagrid-primary">
                           <span className="user-name-line">
                             <strong>{account.displayName}</strong>
-                            {isCurrent && <span className="status-badge current">Current</span>}
-                            {account.protectedFromDelete && <span className="status-badge protected">Protected</span>}
-                            {account.locked && <span className="status-badge locked">Locked</span>}
+                            {isCurrent && <span className="status-badge current">{t("controlAdmin:users.badgeCurrent")}</span>}
+                            {account.protectedFromDelete && <span className="status-badge protected">{t("controlAdmin:users.badgeProtected")}</span>}
+                            {account.locked && <span className="status-badge locked">{t("controlAdmin:users.badgeLocked")}</span>}
                             {/* Only ever visible for the hour it is open, which is
                                 the whole design: there is no lasting state here to
                                 forget about. */}
                             {account.deviceLinkWindowExpiresAt && (
                               <span className="status-badge device-window">
-                                Remote linking · {minutesLeft(account.deviceLinkWindowExpiresAt)} min left
+                                {t("controlAdmin:users.remoteLinking", { count: minutesLeft(account.deviceLinkWindowExpiresAt) })}
                               </span>
                             )}
                           </span>
@@ -391,7 +393,7 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
                       </div>
                     </td>
                     <td>
-                      <span className={`status-badge ${account.role}`}>{ROLE_LABEL[account.role]}</span>
+                      <span className={`status-badge ${account.role}`}>{roleLabel(account.role)}</span>
                     </td>
                     <td className="col-num datagrid-muted">{formatSessionCount(account.activeSessions)}</td>
                     <td className="datagrid-muted">{formatManagedDate(account.createdAt)}</td>
@@ -405,27 +407,27 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
                       <div className="row-actions">
                         <ActionMenu
                           trigger="icon"
-                          label={`Manage ${account.displayName}`}
+                          label={t("controlAdmin:users.manageAria", { name: account.displayName })}
                           items={[
                             {
                               key: "edit",
-                              label: "Edit user",
+                              label: t("controlAdmin:users.editUser"),
                               icon: <Pencil size={15} />,
                               onSelect: () => openEdit(account)
                             },
                             {
                               key: "password",
-                              label: "Change password",
+                              label: t("controlAdmin:users.changePassword"),
                               icon: <KeyRound size={15} />,
                               onSelect: () => openPassword(account)
                             },
                             {
                               key: "mfa",
                               label: account.mfaEnabled
-                                ? `Reset two-factor (${account.mfaMethod === "email" ? "codes by email" : "authenticator app"})`
-                                : "Reset two-factor",
+                                ? (account.mfaMethod === "email" ? t("controlAdmin:users.resetMfaEmail") : t("controlAdmin:users.resetMfaApp"))
+                                : t("controlAdmin:users.resetMfa"),
                               icon: <ShieldOff size={15} />,
-                              disabledReason: account.mfaEnabled ? undefined : "This user doesn't have two-factor on",
+                              disabledReason: account.mfaEnabled ? undefined : t("controlAdmin:users.noMfa"),
                               onSelect: () => {
                                 setModalError("");
                                 setPendingMfaReset(account);
@@ -434,10 +436,10 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
                             {
                               key: "passkeys",
                               label: account.passkeyCount > 0
-                                ? `Remove ${account.passkeyCount} passkey${account.passkeyCount === 1 ? "" : "s"}`
-                                : "Remove passkeys",
+                                ? t("controlAdmin:users.removePasskeysCount", { count: account.passkeyCount })
+                                : t("controlAdmin:users.removePasskeys"),
                               icon: <Fingerprint size={15} />,
-                              disabledReason: account.passkeyCount > 0 ? undefined : "This user has no passkeys",
+                              disabledReason: account.passkeyCount > 0 ? undefined : t("controlAdmin:users.noPasskeys"),
                               onSelect: () => {
                                 setModalError("");
                                 setPendingPasskeyReset(account);
@@ -446,17 +448,17 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
                             account.deviceLinkWindowExpiresAt
                               ? {
                                   key: "device-window",
-                                  label: "Cancel remote device linking",
+                                  label: t("controlAdmin:users.cancelRemoteLinking"),
                                   icon: <MonitorX size={15} />,
                                   danger: true,
-                                  disabledReason: closingWindowId === account.id ? "Cancelling…" : undefined,
+                                  disabledReason: closingWindowId === account.id ? t("controlAdmin:users.cancelling") : undefined,
                                   onSelect: () => closeWindow(account)
                                 }
                               : {
                                   key: "device-window",
-                                  label: "Allow a device from outside",
+                                  label: t("controlAdmin:users.allowDeviceOutside"),
                                   icon: <MonitorSmartphone size={15} />,
-                                  disabledReason: account.isActive ? undefined : "This account is deactivated",
+                                  disabledReason: account.isActive ? undefined : t("controlAdmin:users.deactivated"),
                                   onSelect: () => {
                                     setModalError("");
                                     setWindowMinutes(String(DEFAULT_WINDOW_MINUTES));
@@ -465,7 +467,7 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
                                 },
                             {
                               key: "unlock",
-                              label: "Clear sign-in lockout",
+                              label: t("controlAdmin:users.clearLockout"),
                               icon: <LockOpen size={15} />,
                               // Never disabled on the "Locked" badge: that badge is
                               // computed when the list is fetched, from failures inside
@@ -473,15 +475,15 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
                               // after it loads and goes false on its own well before an
                               // admin looking at this page believes it has. Clearing an
                               // account that isn't locked costs nothing.
-                              disabledReason: unlockingId === account.id ? "Clearing…" : undefined,
+                              disabledReason: unlockingId === account.id ? t("controlAdmin:users.clearing") : undefined,
                               onSelect: () => unlockUser(account)
                             },
                             {
                               key: "delete",
-                              label: "Delete user",
+                              label: t("controlAdmin:users.deleteUser"),
                               icon: <Trash2 size={15} />,
                               danger: true,
-                              disabledReason: deleteDisabled ? "This user cannot be deleted here" : undefined,
+                              disabledReason: deleteDisabled ? t("controlAdmin:users.cannotDelete") : undefined,
                               onSelect: () => {
                                 setModalError("");
                                 setPendingDelete(account);
@@ -501,16 +503,16 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
 
       {createOpen && (
         <Modal
-          title="New user"
+          title={t("controlAdmin:users.createUser")}
           className="user-form-modal"
           busy={creating}
           onClose={() => setCreateOpen(false)}
           onSubmit={createUser}
         >
-          <Field label="Display name" value={newDisplayName} onChange={setNewDisplayName} autoComplete="name" />
-          <Field label="Email" type="email" value={newEmail} onChange={setNewEmail} autoComplete="email" />
+          <Field label={t("controlAdmin:users.displayName")} value={newDisplayName} onChange={setNewDisplayName} autoComplete="name" />
+          <Field label={t("common.email")} type="email" value={newEmail} onChange={setNewEmail} autoComplete="email" />
           <Field
-            label="Password"
+            label={t("common.password")}
             type="password"
             minLength={8}
             value={newPassword}
@@ -518,23 +520,23 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
             autoComplete="new-password"
           />
           <label className="field">
-            <span>Role</span>
+            <span>{t("controlAdmin:users.role")}</span>
             <select value={newRole} onChange={(event) => setNewRole(event.target.value as UserRole)}>
-              <option value="member">Member</option>
-              <option value="admin">Admin</option>
+              <option value="member">{t("controlAdmin:users.roleMember")}</option>
+              <option value="admin">{t("controlAdmin:users.roleAdmin")}</option>
             </select>
           </label>
-          {modalError && <MessageBox tone="error" title="Unable to create user">{modalError}</MessageBox>}
+          {modalError && <MessageBox tone="error" title={t("controlAdmin:users.createFailed")}>{modalError}</MessageBox>}
           <div className="modal-actions">
             <Button variant="secondary" onClick={() => setCreateOpen(false)} disabled={creating} autoFocus>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button
               variant="primary"
               type="submit"
               disabled={creating || !newDisplayName.trim() || !newEmail.trim() || newPassword.length < 8}
             >
-              {creating ? "Creating..." : "Create user"}
+              {creating ? t("controlAdmin:users.creating") : t("controlAdmin:users.createUser")}
             </Button>
           </div>
         </Modal>
@@ -542,37 +544,37 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
 
       {editingUser && (
         <Modal
-          title={`Edit ${editingUser.displayName}`}
+          title={t("controlAdmin:users.editTitle", { name: editingUser.displayName })}
           className="user-form-modal"
           busy={saving}
           onClose={() => setEditingUser(null)}
           onSubmit={saveUser}
         >
-          <Field label="Display name" value={editDisplayName} onChange={setEditDisplayName} autoComplete="name" />
-          <Field label="Email" type="email" value={editEmail} onChange={setEditEmail} autoComplete="email" />
+          <Field label={t("controlAdmin:users.displayName")} value={editDisplayName} onChange={setEditDisplayName} autoComplete="name" />
+          <Field label={t("common.email")} type="email" value={editEmail} onChange={setEditEmail} autoComplete="email" />
           <label className="field">
-            <span>Role</span>
+            <span>{t("controlAdmin:users.role")}</span>
             <select
               value={editRole}
               disabled={roleLocked}
               onChange={(event) => setEditRole(event.target.value as UserRole)}
             >
-              <option value="member">Member</option>
-              <option value="admin">Admin</option>
+              <option value="member">{t("controlAdmin:users.roleMember")}</option>
+              <option value="admin">{t("controlAdmin:users.roleAdmin")}</option>
             </select>
           </label>
           {roleLocked && (
-            <MessageBox tone="info" title="Role locked">
-              This administrator role is protected from changes here.
+            <MessageBox tone="info" title={t("controlAdmin:users.roleLockedTitle")}>
+              {t("controlAdmin:users.roleLockedBody")}
             </MessageBox>
           )}
-          {modalError && <MessageBox tone="error" title="Unable to save user">{modalError}</MessageBox>}
+          {modalError && <MessageBox tone="error" title={t("controlAdmin:users.saveUserFailed")}>{modalError}</MessageBox>}
           <div className="modal-actions">
             <Button variant="secondary" onClick={() => setEditingUser(null)} disabled={saving} autoFocus>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button variant="primary" type="submit" disabled={saving || !editDisplayName.trim() || !editEmail.trim()}>
-              {saving ? "Saving..." : "Save changes"}
+              {saving ? t("controlAdmin:ui.saving") : t("controlAdmin:users.saveChanges")}
             </Button>
           </div>
         </Modal>
@@ -580,28 +582,28 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
 
       {passwordUser && (
         <Modal
-          title={`Change password for ${passwordUser.displayName}`}
+          title={t("controlAdmin:users.pwTitle", { name: passwordUser.displayName })}
           className="user-form-modal"
           busy={changingPassword}
           onClose={() => setPasswordUser(null)}
           onSubmit={changePassword}
         >
           <Field
-            label="New password"
+            label={t("controlAdmin:users.newPassword")}
             type="password"
             minLength={8}
             value={password}
             onChange={setPassword}
             autoComplete="new-password"
           />
-          {modalError && <MessageBox tone="error" title="Unable to change password">{modalError}</MessageBox>}
+          {modalError && <MessageBox tone="error" title={t("controlAdmin:users.pwFailed")}>{modalError}</MessageBox>}
           <div className="modal-actions">
             <Button variant="secondary" onClick={() => setPasswordUser(null)} disabled={changingPassword} autoFocus>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button variant="primary" type="submit" disabled={changingPassword || password.length < 8}>
               <ShieldCheck size={15} />
-              {changingPassword ? "Changing..." : "Change password"}
+              {changingPassword ? t("controlAdmin:users.changing") : t("controlAdmin:users.changePassword")}
             </Button>
           </div>
         </Modal>
@@ -609,9 +611,9 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
 
       {pendingDelete && (
         <ConfirmDialog
-          title={`Delete "${pendingDelete.displayName}"?`}
-          confirmLabel="Delete user"
-          busyLabel="Deleting..."
+          title={t("controlAdmin:users.deleteTitle", { name: pendingDelete.displayName })}
+          confirmLabel={t("controlAdmin:users.deleteUser")}
+          busyLabel={t("controlAdmin:users.deleting")}
           confirmIcon={<Trash2 size={15} />}
           danger
           rich
@@ -620,8 +622,8 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
           onConfirm={deleteUser}
           onCancel={() => setPendingDelete(null)}
         >
-          <p>This will deactivate the account and sign the user out on all devices.</p>
-          <p><strong>Libraries, groups, activity history, and files are not deleted.</strong></p>
+          <p>{t("controlAdmin:users.deleteBody1")}</p>
+          <p><strong>{t("controlAdmin:users.deleteBody2")}</strong></p>
         </ConfirmDialog>
       )}
 
@@ -630,17 +632,16 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
       {pendingWindow && (
         <Modal
           variant="card"
-          title={`Allow "${pendingWindow.displayName}" to link a device from outside?`}
+          title={t("controlAdmin:users.windowTitle", { name: pendingWindow.displayName })}
           busy={openingWindow}
           onClose={() => setPendingWindow(null)}
           onSubmit={openWindow}
         >
           <p className="section-description">
-            They can sign a TV, display or kiosk in from anywhere, instead of only from your home network. It ends
-            as soon as one device is linked, or when the time below runs out — whichever comes first.
+            {t("controlAdmin:users.windowIntro")}
           </p>
           <Field
-            label="Minutes"
+            label={t("controlAdmin:users.minutes")}
             type="number"
             value={windowMinutes}
             onChange={setWindowMinutes}
@@ -648,19 +649,17 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
             max={MAX_WINDOW_MINUTES}
           />
           <p className="section-description">
-            Between {MIN_WINDOW_MINUTES} and {MAX_WINDOW_MINUTES} minutes. Long enough to walk someone through it;
-            short enough that forgetting costs nothing.
+            {t("controlAdmin:users.windowRange", { min: MIN_WINDOW_MINUTES, max: MAX_WINDOW_MINUTES })}
           </p>
           <p className="section-description">
-            <strong>They will still need their own password to authorize it</strong>, and the linked device still
-            can't reach the control panel or authorize others. You'll be emailed if one is linked.
+            <Trans i18nKey="users.windowNote" ns="controlAdmin" components={{ bold: <strong /> }} />
           </p>
-          {modalError && <MessageBox tone="error" title="Unable to allow remote linking">{modalError}</MessageBox>}
+          {modalError && <MessageBox tone="error" title={t("controlAdmin:users.allowFailed")}>{modalError}</MessageBox>}
           <div className="modal-actions">
-            <Button variant="secondary" onClick={() => setPendingWindow(null)} disabled={openingWindow}>Cancel</Button>
+            <Button variant="secondary" onClick={() => setPendingWindow(null)} disabled={openingWindow}>{t("common.cancel")}</Button>
             <Button variant="primary" type="submit" disabled={openingWindow}>
               <MonitorSmartphone size={15} />
-              {openingWindow ? "Allowing…" : `Allow for ${windowMinutes} min`}
+              {openingWindow ? t("controlAdmin:users.allowing") : t("controlAdmin:users.allowFor", { count: windowMinutes })}
             </Button>
           </div>
         </Modal>
@@ -668,9 +667,9 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
 
       {pendingMfaReset && (
         <ConfirmDialog
-          title={`Reset two-factor for "${pendingMfaReset.displayName}"?`}
-          confirmLabel="Reset two-factor"
-          busyLabel="Resetting…"
+          title={t("controlAdmin:users.mfaTitle", { name: pendingMfaReset.displayName })}
+          confirmLabel={t("controlAdmin:users.mfaConfirm")}
+          busyLabel={t("controlAdmin:users.resetting")}
           confirmIcon={<ShieldOff size={15} />}
           danger
           rich
@@ -680,18 +679,17 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
           onCancel={() => setPendingMfaReset(null)}
         >
           <p>
-            This turns off two-factor and clears their backup codes along with
-            {pendingMfaReset.mfaMethod === "email" ? " the emailed-code setting" : " their authenticator"}.
+            {pendingMfaReset.mfaMethod === "email" ? t("controlAdmin:users.mfaBodyEmail") : t("controlAdmin:users.mfaBodyApp")}
           </p>
-          <p><strong>They'll sign in with just their password until they set it up again.</strong></p>
+          <p><strong>{t("controlAdmin:users.mfaBodyBold")}</strong></p>
         </ConfirmDialog>
       )}
 
       {pendingPasskeyReset && (
         <ConfirmDialog
-          title={`Remove passkeys for "${pendingPasskeyReset.displayName}"?`}
-          confirmLabel="Remove passkeys"
-          busyLabel="Removing…"
+          title={t("controlAdmin:users.pkTitle", { name: pendingPasskeyReset.displayName })}
+          confirmLabel={t("controlAdmin:users.pkConfirm")}
+          busyLabel={t("controlAdmin:users.removing")}
           confirmIcon={<Fingerprint size={15} />}
           danger
           rich
@@ -701,10 +699,9 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
           onCancel={() => setPendingPasskeyReset(null)}
         >
           <p>
-            This removes all {pendingPasskeyReset.passkeyCount} of their passkeys — for when they've lost every device
-            that held one.
+            {t("controlAdmin:users.pkBody", { count: pendingPasskeyReset.passkeyCount })}
           </p>
-          <p><strong>Their password and two-factor sign-in still work, and they can add a new passkey afterwards.</strong></p>
+          <p><strong>{t("controlAdmin:users.pkBodyBold")}</strong></p>
         </ConfirmDialog>
       )}
     </>

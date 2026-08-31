@@ -260,7 +260,7 @@
   background: rgba(180, 83, 9, 0.82);
 }
 
-.gallery-tile .gallery-fav-dot {
+.gallery-tile .gallery-like-dot {
   position: absolute;
   left: 6px;
   top: 6px;
@@ -396,6 +396,13 @@
 
 .gallery-folder-tile small {
   color: var(--muted);
+}
+
+/* Lock badge beside a tile's item count: the folder is locked, so nothing inside
+   it can be deleted from the app. */
+.gallery-folder-lock {
+  vertical-align: -2px;
+  margin-right: 4px;
 }
 
 /* On a folder-search result: where the folder sits, since the name alone can't tell
@@ -817,6 +824,62 @@
   object-fit: contain;
 }
 
+/* Custom control bar for a manually-rotated video: the native controls live inside
+   the <video> element, so under its CSS counter-rotation they'd render sideways —
+   GalleryLightbox hides them for a rotated video and drives playback from this bar.
+   Centred over the bottom of the stage; the details-pane inset below mirrors how
+   the Next arrow moves aside. */
+.gallery-video-controls {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 22px;
+  margin: 0 auto;
+  width: min(420px, calc(100% - 32px));
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(15, 17, 22, 0.72);
+  backdrop-filter: blur(6px);
+  z-index: 2;
+}
+
+.gallery-video-controls button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+}
+
+.gallery-video-controls button:hover { background: rgba(255, 255, 255, 0.14); color: #fff; }
+
+.gallery-video-controls input[type="range"] {
+  flex: 1;
+  min-width: 0;
+  accent-color: #fff;
+  cursor: pointer;
+}
+
+.gallery-video-time {
+  flex: none;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+@media (min-width: 700px) {
+  .gallery-lightbox.has-info .gallery-video-controls { right: var(--lb-info-w); }
+}
+
 /* Shown in place of the <video> when the browser can't decode the file (we serve
    originals untranscoded). Poster on top, an explanation, and a download button. */
 .gallery-lightbox-unplayable {
@@ -1008,6 +1071,55 @@
 
 .gallery-bulk-edit-shift select {
   width: auto;
+}
+
+/* The post-credit clip is a second, separate ending — not a setting of the closing
+   card it shares a tab with. The rule keeps the two from reading as one control,
+   and it stays put when the card is switched off. */
+.slideshow-clip-field {
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+  margin-top: 4px;
+}
+
+/* Chosen tags in the bulk "Tag photos" dialog, and the one-click row of tags the
+   gallery already knows about underneath the input. */
+.gallery-tag-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gallery-tag-chips li {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 4px 3px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-raised);
+  font-size: 0.85rem;
+}
+
+.gallery-tag-chips .icon-button {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+}
+
+.gallery-tag-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.gallery-tag-suggestions .muted {
+  font-size: 0.8rem;
 }
 
 /* Place search above the map picker: a query row, then the hit list. Shared by
@@ -1390,6 +1502,35 @@
 .gallery-tile-wrap { position: relative; aspect-ratio: 1 / 1; }
 .gallery-tile-wrap .gallery-tile { width: 100%; height: 100%; aspect-ratio: auto; }
 
+/* The heart, on the tile. Top-LEFT, opposite the remove button, in the corner the
+   read-only gallery-like-dot used to occupy — so a hearted photo looks the same
+   whether or not the grid offers the button. */
+.gallery-tile-like {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(18, 18, 20, 0.72);
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease, background 0.12s ease, color 0.12s ease;
+}
+.gallery-tile-wrap:hover .gallery-tile-like,
+.gallery-tile-like:focus-visible { opacity: 1; }
+/* A hearted photo keeps its heart showing: this button IS the indicator, so it
+   can't fade out when the pointer leaves the tile. */
+.gallery-tile-like.on { opacity: 1; color: var(--rose); }
+.gallery-tile-like:hover { background: rgba(18, 18, 20, 0.9); color: var(--rose); }
+
 .gallery-tile-remove {
   position: absolute;
   top: 6px;
@@ -1414,9 +1555,10 @@
 .gallery-tile-remove:focus-visible { opacity: 1; }
 .gallery-tile-remove:hover { background: var(--danger, #c0392b); }
 
-/* No hover on touch devices — keep the control visible so it stays usable. */
+/* No hover on touch devices — keep the controls visible so they stay usable. */
 @media (hover: none) {
-  .gallery-tile-remove { opacity: 1; }
+  .gallery-tile-remove,
+  .gallery-tile-like { opacity: 1; }
 }
 
 /* ── Slideshow editor ─────────────────────────────────────────────────────── */
@@ -1485,6 +1627,193 @@
   padding: 0 16px 14px;
   margin-top: 14px;
 }
+
+/* ── The standard photo picker (features/gallery/PhotoPicker) ───────────────
+   Folders / People / Tags / All photos over one persistent selection, with a
+   thumbnail tray in the footer. Builds on the slideshow-browse styles above. */
+.photo-picker-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 16px 10px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--field);
+  color: var(--muted);
+}
+
+/* The picker's grids run a step smaller than the gallery's own — the modal is
+   narrower than a page, and picking wants more candidates per screen. */
+.photo-picker-modal .gallery-grid {
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+}
+
+.photo-picker-search input {
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  outline: none;
+}
+
+.photo-picker-modal .modal-tabs { margin-bottom: 10px; }
+
+/* Person / tag chips: ONE row that scrolls sideways, sitting OUTSIDE the photo
+   scroll pane (a fixed band like the search row) so who/what you're picking
+   from stays in view however far the photos scroll. Explicit heights, because
+   auto heights collapsed inside this modal's grid/scroll layers. */
+.photo-picker-chips {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  /* Chip height plus the horizontal scrollbar's lane, so the row never grows a
+     vertical scrollbar of its own. */
+  min-height: 76px;
+  padding: 0 16px 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+
+.photo-picker-chips-empty { margin: 0 16px 8px; }
+
+/* The Upload tab's panel, and the hints the picker prints (upload destination,
+   the family tree's face-match caveat). */
+.photo-picker-upload {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+}
+
+.photo-picker-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.photo-picker-chips > * { flex: 0 0 auto; }
+
+.photo-picker-chip { height: 62px; }
+.photo-picker-chip.photo-picker-chip-tag { height: 38px; }
+
+.photo-picker-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 12px 6px 6px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.photo-picker-chip:hover { background: var(--hover); }
+
+.photo-picker-chip.is-active {
+  border-color: color-mix(in srgb, var(--mint) 55%, var(--line));
+  background: color-mix(in srgb, var(--mint) 14%, var(--surface));
+}
+
+.photo-picker-chip-avatar {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--surface-raised);
+  color: var(--muted);
+}
+
+.photo-picker-chip-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+.photo-picker-chip-copy { display: grid; line-height: 1.25; }
+.photo-picker-chip-copy strong { font-size: 0.88rem; font-weight: 650; }
+.photo-picker-chip-copy small { color: var(--muted); font-size: 0.75rem; }
+
+.photo-picker-chip-tag {
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  color: var(--ink);
+  font-size: 0.86rem;
+}
+
+.photo-picker-chip-tag svg { color: var(--muted); }
+
+.photo-picker-more {
+  display: flex;
+  justify-content: center;
+  padding: 14px 0 4px;
+}
+
+/* Footer: the count + removable thumbnails of what's gathered so far. */
+.photo-picker-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 0 16px 14px;
+  margin-top: 14px;
+}
+
+.photo-picker-tray {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.photo-picker-tray-count { color: var(--muted); font-size: 0.9rem; margin-right: 4px; }
+
+.photo-picker-tray-thumb {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  overflow: visible;
+  background: var(--surface-raised);
+  color: var(--muted);
+}
+
+.photo-picker-tray-thumb img {
+  width: 100%;
+  height: 100%;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.photo-picker-tray-remove {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.photo-picker-tray-remove:hover { background: var(--hover); }
+
+.photo-picker-tray-overflow { color: var(--muted); font-size: 0.82rem; font-weight: 650; }
 
 /* Presentation settings above the reorderable grid (transition + timing). */
 .slideshow-settings {
@@ -1634,20 +1963,167 @@
 
 /* ── Title card ───────────────────────────────────────────────────────────── */
 
-.metadata-modal.slideshow-title-modal { max-width: 720px; }
-.slideshow-title-body { display: flex; flex-direction: column; gap: 18px; }
+/* Two panes: the preview (with its enable toggle) fixed on the left, the settings
+   scrolling on the right. The preview is the point of the dialog — every change is
+   judged against it, so it must never scroll away. The modal's default grid rows
+   (auto auto 1fr, meant for header + tabs + content) also clipped the action row
+   here; header + body + actions is what this dialog actually has. */
+.metadata-modal.slideshow-title-modal {
+  width: min(100%, 980px);
+  max-width: none;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  /* Grown to fit rather than fixed at 680px: the settings should be one column
+     with NO scrollbar. Only a viewport too short to hold everything caps the
+     dialog, and then the fields column scrolls as the fallback. */
+  height: auto;
+  min-height: 0;
+  max-height: calc(100vh - 40px);
+}
 
-/* The preview is the point of the dialog, so it leads — at the movie's own 16:9,
-   on black, so a card WITH a black background still reads as a picture of one. */
+.slideshow-title-modal .modal-actions {
+  margin: 0;
+  padding: 12px 26px 18px;
+  border-top: 1px solid var(--line);
+}
+
+.slideshow-title-body {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 4fr);
+  gap: 18px 26px;
+  align-content: start;
+  padding: 20px 26px;
+  overflow: hidden; /* the fields column scrolls; the stage stays put */
+  min-height: 0;
+}
+
+/* No card, no settings: the stage sits alone, centred, at a comfortable width. */
+.slideshow-title-body.is-disabled { grid-template-columns: minmax(0, 1fr); }
+.slideshow-title-body.is-disabled .slideshow-title-stage {
+  width: min(100%, 620px);
+  margin: 0 auto;
+}
+
+.slideshow-title-error { grid-column: 1 / -1; }
+
+/* Opening | Closing, spanning both panes. Same pill language as every chip row in
+   this dialog, sized up a step because it switches the whole surface, not a value. */
+.slideshow-title-tabs {
+  grid-column: 1 / -1;
+  display: inline-flex;
+  gap: 6px;
+}
+.slideshow-title-tabs button {
+  padding: 8px 18px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--field);
+  color: var(--ink);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.slideshow-title-tabs button:hover { background: var(--hover); }
+.slideshow-title-tabs button.is-on {
+  background: color-mix(in srgb, var(--mint) 22%, transparent);
+  border-color: color-mix(in srgb, var(--mint) 55%, transparent);
+  font-weight: 600;
+}
+
+/* The chosen opening/closing clip, as one row: thumb, name + length, actions. */
+.slideshow-clip-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.slideshow-clip-thumb {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 72px;
+  height: 48px;
+  border-radius: 8px;
+  background: var(--field);
+  color: var(--muted);
+  overflow: hidden;
+}
+.slideshow-clip-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.slideshow-clip-name {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.slideshow-clip-name small { color: var(--muted); font-size: 12px; }
+
+/* Pick mode: everything that can't be chosen fades back, so the videos read as
+   the only live tiles. */
+.slideshow-browse-tile.is-unpickable { opacity: 0.35; cursor: default; }
+
+/* Multi-line card text (the custom second line, the closing credits): the same
+   chrome as the dialog's text inputs, sized for a few lines. */
+.slideshow-title-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--ink);
+  background: var(--field);
+  font: inherit;
+  resize: vertical;
+  min-height: 74px;
+}
+.slideshow-title-field textarea:focus {
+  border-color: var(--mint);
+  outline: 3px solid color-mix(in srgb, var(--mint) 28%, transparent);
+}
+
+.slideshow-title-stage {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.slideshow-title-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
+  /* Normally everything fits (the modal grows to its content); this only bites
+     on a viewport too short for the whole dialog. */
+  overflow-y: auto;
+  padding-right: 6px; /* room for the scrollbar, off the controls */
+}
+
+/* The preview at the movie's own 16:9, on black, so a card WITH a black background
+   still reads as a picture of one. flex-shrink 0 is load-bearing: an aspect-ratio
+   flex child has ~zero min-content height and once collapsed to a 1px line here. */
 .slideshow-title-preview {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   aspect-ratio: 16 / 9;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: #000;
   overflow: hidden;
+}
+
+/* Below the two-pane width the panes stack and the body itself scrolls — the
+   desktop layout above is the baseline, this only relaxes it where it can't fit. */
+@media (max-width: 860px) {
+  .slideshow-title-body {
+    grid-template-columns: minmax(0, 1fr);
+    overflow-y: auto;
+  }
+  .slideshow-title-fields { overflow-y: visible; padding-right: 0; }
 }
 .slideshow-title-preview img { width: 100%; height: 100%; object-fit: contain; display: block; }
 /* Dimmed rather than removed while a change is saving: the card that was there is
@@ -1686,6 +2162,46 @@
 .slideshow-title-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .slideshow-title-photo.is-selected { border-color: var(--mint); }
 .slideshow-title-photo:disabled { cursor: default; opacity: 0.6; }
+
+/* The title card's font-style chips, each drawn in its own face. The files are
+   copies of the very TTFs the server renders the movie with (public/fonts, see
+   apps/server/src/assets/fonts/README.md) — a chip is a truthful sample, and the
+   preview image above it is the final word. Loaded lazily: a browser only fetches
+   a face once a chip actually uses it, i.e. when this dialog opens. */
+@font-face {
+  font-family: "CardClassic";
+  src: url("/fonts/DejaVuSans.ttf") format("truetype");
+  font-display: swap;
+}
+@font-face {
+  font-family: "CardSerif";
+  src: url("/fonts/DejaVuSerif.ttf") format("truetype");
+  font-display: swap;
+}
+@font-face {
+  font-family: "CardBold";
+  src: url("/fonts/DejaVuSans-Bold.ttf") format("truetype");
+  font-display: swap;
+}
+@font-face {
+  font-family: "CardScript";
+  src: url("/fonts/MarckScript-Regular.ttf") format("truetype");
+  font-display: swap;
+}
+@font-face {
+  font-family: "CardTypewriter";
+  src: url("/fonts/PTMono-Regular.ttf") format("truetype");
+  font-display: swap;
+}
+
+/* A touch larger than the plain chips so the faces are recognizable at a glance;
+   Script gets the same optical nudge the render applies (small x-height). */
+.slideshow-transitions button.slideshow-card-font { font-size: 14px; }
+.slideshow-card-font.is-classic { font-family: "CardClassic", Verdana, sans-serif; }
+.slideshow-card-font.is-serif { font-family: "CardSerif", Georgia, serif; }
+.slideshow-card-font.is-bold { font-family: "CardBold", Verdana, sans-serif; font-weight: 700; }
+.slideshow-card-font.is-script { font-family: "CardScript", cursive; font-size: 16px; }
+.slideshow-card-font.is-typewriter { font-family: "CardTypewriter", Consolas, monospace; }
 
 /* ── Music picker ─────────────────────────────────────────────────────────── */
 
@@ -1820,6 +2336,34 @@
 
 @media (hover: none) {
   .gallery-memory-play { opacity: 1; background: transparent; }
+}
+
+/* ── Year in review ───────────────────────────────────────────────────────── */
+
+/* What the row is built from isn't guessable from the cards, and it's the thing
+   that makes people go and heart more photos — so it's said once, above them. */
+.gallery-year-hint {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* A shade wider than a memory tile: these are the headline cards of the view, and
+   the subtitle carries more (counts, months, people) than a moment's does. */
+.gallery-suggestion-row .gallery-year-tile { width: 210px; }
+
+/* The year on the cover, so a row of them is scannable without reading titles. */
+.gallery-year-badge {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(18, 18, 20, 0.62);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
 /* Suggestion preview modal: subtitle + action row above a read-only photo grid. */
@@ -2114,4 +2658,91 @@
   min-height: 0;
   padding: 5px 8px;
   font-size: 0.88rem;
+}
+
+/* Where a slideshow's movie is filed. The unusable libraries are listed rather than
+   hidden, each with its reason, so a missing choice is explained instead of mysterious. */
+.slideshow-movie-filed {
+  margin: 6px 0 0;
+  font-size: 0.85rem;
+}
+
+.gallery-movie-unusable {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.gallery-movie-unusable li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gallery-movie-unusable small {
+  opacity: 0.85;
+}
+
+/* The chosen filename, shown before anything is written. */
+.gallery-movie-filename {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.gallery-movie-filename code {
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-raised);
+  word-break: break-all;
+}
+
+.gallery-movie-clash {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+/* Tags on an album or slideshow (GallerySetTags): chips that lead into the
+   cross-type tag browse, swapping to the shared TagInput for an editor. */
+.gallery-set-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.gallery-set-tags.is-editing {
+  flex-direction: column;
+  align-items: stretch;
+  max-width: 420px;
+}
+
+.gallery-set-tag {
+  padding: 2px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-raised);
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-decoration: none;
+}
+
+.gallery-set-tag:hover {
+  border-color: var(--gold);
+  color: var(--ink);
+}
+
+.gallery-set-tag-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
 }

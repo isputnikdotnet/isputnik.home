@@ -1,6 +1,6 @@
 import {
   BookOpen, Bug, ExternalLink, FolderTree, HardDrive, Headphones, Images, Info, KeyRound, LibraryBig,
-  Mail, MonitorSmartphone, Rocket, Send, Settings, ShieldCheck, Trash2, UserRound, Wifi, type LucideIcon
+  Mail, MonitorSmartphone, Quote, Rocket, Send, Settings, ShieldCheck, Trash2, UserRound, Wifi, type LucideIcon
 } from "lucide-react";
 import type { PublicUser } from "../api";
 import { DashboardShell } from "../app/DashboardShell";
@@ -104,8 +104,16 @@ const HELP_SECTIONS: HelpSection[] = [
         icon: UserRound,
         title: "Your account",
         description:
-          "Your name and sign-in email, themes, the e-reader address, and where favorites, bookmarks, quotes and collections live.",
+          "Your name and sign-in email, themes, the e-reader address, and where likes, bookmarks, quotes and collections live.",
         href: guide("your-account.md"),
+        external: false
+      },
+      {
+        icon: Quote,
+        title: "Quotes",
+        description:
+          "Passages you highlight while reading, famous lines, and the things your family says — plus the quote of the day, categories, and importing a pack.",
+        href: guide("quotes.md"),
         external: false
       },
       {

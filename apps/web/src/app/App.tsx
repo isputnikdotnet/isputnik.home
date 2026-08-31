@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, lazy, Suspense } from "react";
 import { api, isAdminSession, type PublicUser } from "../api";
+import { setAppLanguage } from "../i18n";
 import { cacheCurrentUser, clearCachedUser, getCachedUser } from "../offline/downloads";
 import { flushProgressQueue } from "../offline/progress";
 import { flushQuoteQueue } from "../offline/quotes";
@@ -41,15 +42,17 @@ const CategoryListPage = lazy(() => import("../features/audiobooks/CategoryListP
 const CategoryDetailPage = lazy(() => import("../features/audiobooks/CategoryDetailPage").then((m) => ({ default: m.CategoryDetailPage })));
 const TagListPage = lazy(() => import("../features/audiobooks/TagListPage").then((m) => ({ default: m.TagListPage })));
 const TagDetailPage = lazy(() => import("../features/audiobooks/TagDetailPage").then((m) => ({ default: m.TagDetailPage })));
-const MyListPage = lazy(() => import("../features/library/MyListPage").then((m) => ({ default: m.MyListPage })));
+const LikesPage = lazy(() => import("../features/library/LikesPage").then((m) => ({ default: m.LikesPage })));
 const BookmarksPage = lazy(() => import("../features/library/BookmarksPage").then((m) => ({ default: m.BookmarksPage })));
 const QuotesPage = lazy(() => import("../features/library/QuotesPage").then((m) => ({ default: m.QuotesPage })));
-const ActivityPage = lazy(() => import("../features/social/ActivityPage").then((m) => ({ default: m.ActivityPage })));
 const DownloadsPage = lazy(() => import("../features/library/DownloadsPage").then((m) => ({ default: m.DownloadsPage })));
 const SharedWithMePage = lazy(() => import("../features/library/SharedWithMePage").then((m) => ({ default: m.SharedWithMePage })));
 const LibraryFeedPage = lazy(() => import("../features/library/LibraryFeedPage").then((m) => ({ default: m.LibraryFeedPage })));
 const CollectionsPage = lazy(() => import("../features/collections/CollectionsPage").then((m) => ({ default: m.CollectionsPage })));
 const CollectionDetailPage = lazy(() => import("../features/collections/CollectionDetailPage").then((m) => ({ default: m.CollectionDetailPage })));
+const StoriesPage = lazy(() => import("../features/stories/StoriesPage").then((m) => ({ default: m.StoriesPage })));
+const StoryDetailPage = lazy(() => import("../features/stories/StoryDetailPage").then((m) => ({ default: m.StoryDetailPage })));
+const StoryEditorPage = lazy(() => import("../features/stories/StoryEditorPage").then((m) => ({ default: m.StoryEditorPage })));
 const GalleryPage = lazy(() => import("../features/gallery/GalleryPage").then((m) => ({ default: m.GalleryPage })));
 const FamilyTreePage = lazy(() => import("../features/familytree/FamilyTreePage").then((m) => ({ default: m.FamilyTreePage })));
 const FamilyPeoplePage = lazy(() => import("../features/familytree/FamilyPeoplePage").then((m) => ({ default: m.FamilyPeoplePage })));
@@ -63,7 +66,7 @@ type Theme = PublicUser["theme"];
 const DEFAULT_THEME_KEY = "isputnik-default-theme";
 
 function cachedDefaultTheme(): Theme {
-  try { return (localStorage.getItem(DEFAULT_THEME_KEY) as Theme | null) ?? "dark"; } catch { return "dark"; }
+  try { return (localStorage.getItem(DEFAULT_THEME_KEY) as Theme | null) ?? "minimalist"; } catch { return "minimalist"; }
 }
 
 interface SessionState {
@@ -110,7 +113,7 @@ async function checkSession(): Promise<SessionCheck> {
       passkeysAvailable?: boolean;
       deviceLinkAvailable?: boolean;
     };
-    const defaultTheme = setup.defaultTheme ?? "dark";
+    const defaultTheme = setup.defaultTheme ?? "minimalist";
     const passkeysAvailable = Boolean(setup.passkeysAvailable);
     const deviceLinkAvailable = Boolean(setup.deviceLinkAvailable);
     if (setup.requiresSetup) return { reachable: true, requiresSetup: true, user: null, defaultTheme, passkeysAvailable, deviceLinkAvailable };
@@ -228,6 +231,15 @@ export function App() {
     mediaQuery.addEventListener("change", applyTheme);
     return () => mediaQuery.removeEventListener("change", applyTheme);
   }, [session.user?.theme, session.defaultTheme]);
+
+  // Keep the interface language in step with the signed-in user's preference
+  // (setAppLanguage also persists it, so the next boot — and the sign-in screen
+  // after a sign-out — starts in the right language). Signed out, whatever
+  // storedLanguage() booted stays as-is.
+  useEffect(() => {
+    const language = session.user?.language;
+    if (language) void setAppLanguage(language);
+  }, [session.user?.language]);
 
   useEffect(() => {
     if (session.loading) {
@@ -395,8 +407,8 @@ export function App() {
       return <AudiobooksPage user={session.user} logout={logout} />;
     }
 
-    if (route.name === "favorites") {
-      return <MyListPage user={session.user} logout={logout} />;
+    if (route.name === "likes") {
+      return <LikesPage user={session.user} logout={logout} />;
     }
 
     if (route.name === "bookmarks") {
@@ -405,10 +417,6 @@ export function App() {
 
     if (route.name === "quotes") {
       return <QuotesPage user={session.user} logout={logout} />;
-    }
-
-    if (route.name === "activity") {
-      return <ActivityPage user={session.user} logout={logout} />;
     }
 
     if (route.name === "downloads") {
@@ -491,6 +499,18 @@ export function App() {
 
     if (route.name === "collectionDetail") {
       return <CollectionDetailPage id={route.id} user={session.user} logout={logout} />;
+    }
+
+    if (route.name === "stories") {
+      return <StoriesPage user={session.user} logout={logout} />;
+    }
+
+    if (route.name === "storyDetail") {
+      return <StoryDetailPage id={route.id} user={session.user} logout={logout} />;
+    }
+
+    if (route.name === "storyEditor") {
+      return <StoryEditorPage id={route.id} user={session.user} logout={logout} />;
     }
 
     if (route.name === "ebookBook") {

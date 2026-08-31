@@ -14,7 +14,15 @@
   --control-primary-button-shadow: rgba(124, 58, 237, 0.16);
 }
 
+:root[data-theme="minimalist"] .control-work {
+  --control-primary-button: #1d1d1f;
+  --control-primary-button-hover: #3a3a3e;
+  --control-primary-button-ink: #ffffff;
+  --control-primary-button-shadow: rgba(0, 0, 0, 0.18);
+}
+
 :root[data-theme="light"] .control-work .primary-button:not(.danger),
+:root[data-theme="minimalist"] .control-work .primary-button:not(.danger),
 :root[data-theme="plain-light"] .control-work .primary-button:not(.danger) {
   color: var(--control-primary-button-ink);
   background: var(--control-primary-button);
@@ -22,8 +30,10 @@
 }
 
 :root[data-theme="light"] .control-work .primary-button:not(.danger):hover:not(:disabled),
+:root[data-theme="minimalist"] .control-work .primary-button:not(.danger):hover:not(:disabled),
 :root[data-theme="plain-light"] .control-work .primary-button:not(.danger):hover:not(:disabled),
 :root[data-theme="light"] .control-work .primary-button:not(.danger):focus-visible,
+:root[data-theme="minimalist"] .control-work .primary-button:not(.danger):focus-visible,
 :root[data-theme="plain-light"] .control-work .primary-button:not(.danger):focus-visible {
   background: var(--control-primary-button-hover);
 }
@@ -386,16 +396,6 @@
 
 /* ── Health & status ────────────────────────────────────────────── */
 
-.status-metric span {
-  color: var(--muted);
-}
-
-.status-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
-
 .status-stack {
   display: grid;
   gap: 30px;
@@ -409,92 +409,8 @@
   min-width: 0;
 }
 
-.status-block-head {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.status-block-head h2,
 .status-table-title h3 {
   margin: 0;
-}
-
-.status-grid-four {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.status-metric {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 8px 10px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
-  /* No min-height: rows auto-size to content, and .status-grid's default grid
-     stretch equalizes card height within a row on its own — a taller
-     note-bearing card just makes its row taller, no extra rule needed. */
-}
-
-/* The icon still rides inline in the label line rather than its own grid
-   column (a dedicated column was the thing that ate a narrow card's width),
-   but it's a small tinted badge like Security overview's cards — same
-   color + color-mix background idiom, just scaled down to fit a caption line
-   instead of Security's 48px badge. */
-/* span.status-metric-icon (not just .status-metric-icon): needs to match the
-   specificity of ".status-metric span" above, which mutes every bare span in
-   a metric tile — this icon is a span too, and would otherwise lose its mint
-   tint to that rule despite coming later in the file. */
-span.status-metric-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  margin-right: 5px;
-  border-radius: 5px;
-  vertical-align: -3px;
-  flex-shrink: 0;
-  color: var(--mint);
-  background: color-mix(in srgb, var(--mint) 14%, transparent);
-}
-
-.status-metric-label {
-  display: flex;
-  align-items: center;
-  min-width: 0;
-  color: var(--muted);
-  font-size: 0.64rem;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  line-height: 1.2;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.status-metric strong {
-  min-width: 0;
-  overflow: hidden;
-  font-size: 1rem;
-  font-weight: 600;
-  line-height: 1.2;
-  color: var(--ink);
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.status-metric small {
-  min-width: 0;
-  overflow: hidden;
-  color: var(--muted);
-  font-size: 0.66rem;
-  line-height: 1.2;
-  white-space: nowrap;
-  text-overflow: ellipsis;
 }
 
 .status-subsection {
@@ -520,6 +436,59 @@ span.status-metric-icon {
 .status-empty {
   color: var(--muted);
   font-size: 0.86rem;
+}
+
+/* shared/TabStrip: peer panels sharing one card. These sit where the panel's
+   <h3> would, and are sized like it — the active one reads as the heading it
+   replaces, its siblings as the same heading greyed. Not pills: the control
+   tab row and the Dashboard's sub-tabs already own that shape, and a third set
+   of them inside a card would read as a third level of navigation. */
+.tab-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 18px;
+}
+
+.tab-strip button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 0 4px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.98rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tab-strip button:hover {
+  color: var(--ink);
+}
+
+.tab-strip button:focus-visible {
+  outline: 2px solid var(--mint);
+  outline-offset: 3px;
+}
+
+.tab-strip button.is-active {
+  color: var(--ink);
+  border-bottom-color: var(--mint);
+}
+
+/* The size of a panel, said before it is opened — so the tab you are not on
+   still tells you whether it is worth switching to. */
+.tab-strip-count {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.tab-strip button.is-active .tab-strip-count {
+  color: var(--mint);
 }
 
 .status-empty {
@@ -1264,21 +1233,16 @@ span.status-metric-icon {
   flex-shrink: 0;
 }
 
-.status-rank-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-}
-
-/* Dashboard › Libraries: authors, narrators and formats side by side where
-   there is room, stacked where there isn't. */
+/* Dashboard › Libraries: four rank tables two by two where there is room,
+   stacked where there isn't. People on the top row, places on disk below. */
 .libraries-rank-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  /* Two shared rows — titles, then tables — so a title that wraps in one column
-     pushes every table down together and the three stay on one line. */
-  grid-template-rows: auto auto;
-  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  /* Titles and tables get a row each, per pair — so a title that wraps in one
+     column pushes its neighbour's table down with it and the pair stays level,
+     while the pair below is free to start wherever it starts. */
+  grid-template-rows: repeat(4, auto);
+  gap: 14px 18px;
 }
 
 .libraries-rank-grid > .status-subsection {
@@ -1290,15 +1254,18 @@ span.status-metric-icon {
   align-items: start;
 }
 
-.libraries-rank-grid .status-table-title h3 {
+/* The note is what must not break: it is short, and a flex row this narrow
+   would otherwise squeeze it into a one-character-wide column 300px tall rather
+   than let the title beside it wrap. So the title is the one that gives — the
+   pair's subgrid rows keep its neighbour's table level with it when it does. */
+.libraries-rank-grid .status-table-title span {
+  text-align: right;
   white-space: nowrap;
 }
 
-.libraries-rank-grid .status-table-title span {
-  text-align: right;
-}
-
-@media (max-width: 1200px) {
+/* Two columns need less room than the three this held before, so the stack
+   comes later. */
+@media (max-width: 1000px) {
   .libraries-rank-grid {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: none;
@@ -2507,4 +2474,36 @@ span.status-metric-icon {
   .protection-counts {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+
+/* Imported quote packs (Utilities › Widgets › Quotes). One row per import: what
+   the file was called, when it came in, and how much of it is still here. */
+.quote-import-list {
+  display: grid;
+  gap: 10px;
+}
+
+.quote-import-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+}
+
+.quote-import-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.quote-import-copy strong {
+  overflow-wrap: anywhere;
+}
+
+.quote-import-copy .muted {
+  font-size: 0.83rem;
 }

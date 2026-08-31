@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { ArrowLeft, Check, List, Pencil, Plus, RefreshCw, Search, Tags as TagsIcon, Trash2, Upload, X } from "lucide-react";
 import { api } from "../../../api";
 import { controlHref, navigate } from "../../../router";
@@ -55,6 +56,7 @@ async function loadCategoryListData() {
 }
 
 export function CategoriesSection() {
+  const { t } = useTranslation(["common", "control"]);
   const [categories, setCategories] = useState<ManageCategory[]>([]);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -69,9 +71,9 @@ export function CategoriesSection() {
       setCategories(data.categories);
       setOrderDraft(Object.fromEntries(data.categories.map((category) => [category.id, String(category.sortOrder)])));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to load categories");
+      setError(err instanceof Error ? err.message : t("control:categories.unableToLoad"));
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -91,9 +93,9 @@ export function CategoriesSection() {
         body: JSON.stringify({ sortOrder })
       });
       await load();
-      flash("Category order saved.");
+      flash(t("control:categories.orderSaved"));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to save category order");
+      setError(err instanceof Error ? err.message : t("control:categories.unableToSaveOrder"));
     } finally {
       setOrderSavingId("");
     }
@@ -105,9 +107,9 @@ export function CategoriesSection() {
     try {
       const { changed } = await api<{ changed: number }>("/api/library/manage/rematch", { method: "POST", body: "{}" });
       await load();
-      flash(`Re-matched categories — ${changed} book${changed === 1 ? "" : "s"} updated.`);
+      flash(t("control:categories.rematchedSummary", { count: changed }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to re-match");
+      setError(err instanceof Error ? err.message : t("control:categories.unableToRematch"));
     } finally {
       setRematching(false);
     }
@@ -115,13 +117,13 @@ export function CategoriesSection() {
 
   return (
     <>
-      <ControlSectionHead section="categories" description="Shelves books land on automatically, based on their tags.">
+      <ControlSectionHead section="categories" description={t("control:categories.description")}>
         <div className="category-head-actions">
           <button className="primary-button" onClick={() => navigate(`${controlHref("categories")}/new`)}>
-            <Plus size={16} /> Add category
+            <Plus size={16} /> {t("control:categories.addCategory")}
           </button>
-          <button className="secondary-button" onClick={rematch} disabled={rematching} title="Recompute every book's category from its tags using the current mappings">
-            <RefreshCw size={15} /> {rematching ? "Re-matching..." : "Re-match all"}
+          <button className="secondary-button" onClick={rematch} disabled={rematching} title={t("control:categories.rematchTitle")}>
+            <RefreshCw size={15} /> {rematching ? t("control:categories.rematching") : t("control:categories.rematchAll")}
           </button>
         </div>
       </ControlSectionHead>
@@ -129,47 +131,46 @@ export function CategoriesSection() {
       <details className="category-help-panel category-help-disclosure">
         <summary className="category-help-summary">
           <List size={18} />
-          <span>How category mapping works</span>
+          <span>{t("control:categories.helpDisclosure")}</span>
         </summary>
         <div className="category-help-grid">
           <div className="category-help-item">
-            <strong>Tags are the source</strong>
-            <span>When books are scanned, their genre values are saved as tags, such as detective, sci-fi, memoir, or history.</span>
+            <strong>{t("control:categories.helpTagsSourceTitle")}</strong>
+            <span>{t("control:categories.helpTagsSourceBody")}</span>
           </div>
           <div className="category-help-item">
-            <strong>Mappings are keywords</strong>
-            <span>Each category has keywords. If a book tag contains one of those keywords, the book can be placed in that category.</span>
+            <strong>{t("control:categories.helpMappingsTitle")}</strong>
+            <span>{t("control:categories.helpMappingsBody")}</span>
           </div>
           <div className="category-help-item">
-            <strong>Priority breaks ties</strong>
-            <span>If multiple keywords match the same book, the keyword with the higher priority wins.</span>
+            <strong>{t("control:categories.helpPriorityTitle")}</strong>
+            <span>{t("control:categories.helpPriorityBody")}</span>
           </div>
           <div className="category-help-item">
-            <strong>No match goes to General / Other</strong>
-            <span>Books without a matching keyword stay in General / Other until a better keyword is added.</span>
+            <strong>{t("control:categories.helpFallbackTitle")}</strong>
+            <span>{t("control:categories.helpFallbackBody")}</span>
           </div>
         </div>
         <div className="category-help-example">
-          <strong>Example</strong>
+          <strong>{t("control:categories.helpExampleTitle")}</strong>
           <span>
-            A book has the tag <code>historical mystery</code>. If Mystery &amp; Thriller has keyword <code>mystery</code> with priority 20,
-            and History has keyword <code>history</code> with priority 10, the book goes to Mystery &amp; Thriller because <code>mystery</code> matches and has the higher priority.
+            <Trans i18nKey="categories.helpExampleBody" ns="control" components={{ code: <code /> }} />
           </span>
         </div>
         <p className="category-help-note">
-          Open a category and use <strong>Mappings</strong> to add keywords manually, or <strong>Tags</strong> to turn a scanned tag into a keyword. After changing mappings, run <strong>Re-match all</strong> to update existing books.
+          <Trans i18nKey="categories.helpNote" ns="control" components={{ bold: <strong /> }} />
         </p>
       </details>
 
-      {error && <MessageBox tone="error" title="Categories error">{error}</MessageBox>}
-      {notice && <MessageBox tone="success" title="Done">{notice}</MessageBox>}
+      {error && <MessageBox tone="error" title={t("control:categories.errorTitle")}>{error}</MessageBox>}
+      {notice && <MessageBox tone="success" title={t("control:categories.doneTitle")}>{notice}</MessageBox>}
 
       <div className="datagrid-wrap" style={{ marginTop: 12 }}>
         <table className="datagrid">
           <thead>
             <tr>
-              <th></th><th>Name</th>
-              <th className="col-num">Order</th><th className="col-num">Books</th><th className="col-num">Mappings</th><th className="col-actions"></th>
+              <th></th><th>{t("control:categories.thName")}</th>
+              <th className="col-num">{t("control:categories.thOrder")}</th><th className="col-num">{t("control:categories.thBooks")}</th><th className="col-num">{t("control:categories.thMappings")}</th><th className="col-actions"></th>
             </tr>
           </thead>
           <tbody>
@@ -207,10 +208,10 @@ export function CategoriesSection() {
                         disabled={!orderDirty || orderSavingId === category.id}
                         onClick={() => saveCategoryOrder(category)}
                       >
-                        <Check size={14} /> Save order
+                        <Check size={14} /> {t("control:categories.saveOrder")}
                       </button>
                       <button className="secondary-button compact-button" onClick={() => navigate(`${controlHref("categories")}/${category.id}`)}>
-                        <Pencil size={14} /> Edit
+                        <Pencil size={14} /> {t("control:categories.edit")}
                       </button>
                     </div>
                   </td>
@@ -234,6 +235,7 @@ function KeywordChip({ alias, onSaveKeyword, onSavePriority, onDelete }: {
   onSavePriority: (id: string, priority: number) => void;
   onDelete: (id: string) => void;
 }) {
+  const { t } = useTranslation(["common", "control"]);
   const [text, setText] = useState(alias.keyword);
   const [busy, setBusy] = useState(false);
   // Re-sync when the list reloads (e.g. after a successful rename).
@@ -256,7 +258,7 @@ function KeywordChip({ alias, onSaveKeyword, onSavePriority, onDelete }: {
     <div className="category-keyword-chip">
       <input
         className="category-keyword-name"
-        aria-label={`Keyword "${alias.keyword}"`}
+        aria-label={t("control:categories.keywordAria", { keyword: alias.keyword })}
         value={text}
         disabled={busy}
         onChange={(event) => setText(event.target.value)}
@@ -267,7 +269,7 @@ function KeywordChip({ alias, onSaveKeyword, onSavePriority, onDelete }: {
         }}
       />
       <input
-        aria-label={`Priority for ${alias.keyword}`}
+        aria-label={t("control:categories.priorityAria", { keyword: alias.keyword })}
         type="number"
         defaultValue={alias.priority}
         onBlur={(event) => {
@@ -277,7 +279,7 @@ function KeywordChip({ alias, onSaveKeyword, onSavePriority, onDelete }: {
           }
         }}
       />
-      <button type="button" onClick={() => onDelete(alias.id)} aria-label={`Delete ${alias.keyword}`}>
+      <button type="button" onClick={() => onDelete(alias.id)} aria-label={t("control:categories.deleteAria", { keyword: alias.keyword })}>
         <X size={16} />
       </button>
     </div>
@@ -285,6 +287,7 @@ function KeywordChip({ alias, onSaveKeyword, onSavePriority, onDelete }: {
 }
 
 export function CategoryEditorPage({ categoryId }: { categoryId: string | null }) {
+  const { t } = useTranslation(["common", "control"]);
   const isNew = categoryId === null;
   const [aliases, setAliases] = useState<ManageAlias[]>([]);
   const [tags, setTags] = useState<TagSummary[]>([]);
@@ -330,7 +333,7 @@ export function CategoryEditorPage({ categoryId }: { categoryId: string | null }
 
       const found = data.categories.find((item) => item.id === categoryId) ?? null;
       if (!found) {
-        setError("Category not found");
+        setError(t("control:categories.categoryNotFound"));
         setCategory(null);
         return;
       }
@@ -340,9 +343,9 @@ export function CategoryEditorPage({ categoryId }: { categoryId: string | null }
       setIcon(found.icon ?? "layout-grid");
       setImageUrl(found.imageUrl);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to load category");
+      setError(err instanceof Error ? err.message : t("control:categories.unableToLoadCategory"));
     }
-  }, [categoryId, isNew]);
+  }, [categoryId, isNew, t]);
 
   const loadAliases = useCallback(async () => {
     const payload = await api<{ aliases: ManageAlias[] }>("/api/library/manage/aliases");
@@ -413,9 +416,9 @@ export function CategoryEditorPage({ categoryId }: { categoryId: string | null }
       setImagePreviewUrl(null);
       setRemoveImage(false);
       await load();
-      flash("Category saved.");
+      flash(t("control:categories.categorySaved"));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to save category");
+      setError(err instanceof Error ? err.message : t("control:categories.unableToSaveCategory"));
     } finally {
       setSaving(false);
     }
@@ -433,7 +436,7 @@ export function CategoryEditorPage({ categoryId }: { categoryId: string | null }
       await api<{ movedBooks: number }>(`/api/library/manage/categories/${category.id}`, { method: "DELETE" });
       navigate(controlHref("categories"));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to delete category");
+      setError(err instanceof Error ? err.message : t("control:categories.unableToDeleteCategory"));
     } finally {
       setDeleting(false);
     }
@@ -456,9 +459,9 @@ export function CategoryEditorPage({ categoryId }: { categoryId: string | null }
       }
       setKeyword("");
       await loadAliases();
-      flash(`${keywords.length} mapping${keywords.length === 1 ? "" : "s"} added.`);
+      flash(t("control:categories.mappingsAdded", { count: keywords.length }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to add mapping");
+      setError(err instanceof Error ? err.message : t("control:categories.unableToAddMapping"));
     }
   };
 
@@ -470,7 +473,7 @@ export function CategoryEditorPage({ categoryId }: { categoryId: string | null }
       await api(`/api/library/manage/aliases/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
       await loadAliases();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to update mapping");
+      setError(err instanceof Error ? err.message : t("control:categories.unableToUpdateMapping"));
       throw err;
     }
   };
@@ -481,7 +484,7 @@ export function CategoryEditorPage({ categoryId }: { categoryId: string | null }
       await api(`/api/library/manage/aliases/${id}`, { method: "DELETE" });
       await loadAliases();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to delete mapping");
+      setError(err instanceof Error ? err.message : t("control:categories.unableToDeleteMapping"));
     }
   };
 
@@ -494,9 +497,9 @@ export function CategoryEditorPage({ categoryId }: { categoryId: string | null }
         body: JSON.stringify({ keyword: tag.name, categoryId: category.id, priority: Number(priority) || 20 })
       });
       await loadAliases();
-      flash(`Added "${tag.name}" as a keyword.`);
+      flash(t("control:categories.tagAddedAsKeyword", { tag: tag.name }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to add tag as keyword");
+      setError(err instanceof Error ? err.message : t("control:categories.unableToAddTagAsKeyword"));
     }
   };
 
@@ -513,23 +516,23 @@ export function CategoryEditorPage({ categoryId }: { categoryId: string | null }
       <div className="category-editor-page-head">
         <button className="text-button category-editor-back" onClick={() => navigate(controlHref("categories"))}>
           <ArrowLeft size={15} />
-          Categories
+          {t("control:categories.backToCategories")}
         </button>
         <div className="category-editor-title-row">
-          <h1>{isNew ? "Add category" : "Edit category"}</h1>
+          <h1>{isNew ? t("control:categories.addCategoryTitle") : t("control:categories.editCategoryTitle")}</h1>
           <div className="category-head-actions">
             <button className="secondary-button" type="button" onClick={() => navigate(controlHref("categories"))} disabled={saving || deleting}>
-              Cancel
+              {t("control:ui.cancel")}
             </button>
             <button className="primary-button" type="button" onClick={saveCategory} disabled={saving || deleting || !name.trim()}>
-              <Check size={16} /> {saving ? "Saving..." : "Save changes"}
+              <Check size={16} /> {saving ? t("control:ui.saving") : t("control:ui.saveChanges")}
             </button>
           </div>
         </div>
       </div>
 
-      {error && <MessageBox tone="error" title="Category error">{error}</MessageBox>}
-      {notice && <MessageBox tone="success" title="Done">{notice}</MessageBox>}
+      {error && <MessageBox tone="error" title={t("control:categories.categoryErrorTitle")}>{error}</MessageBox>}
+      {notice && <MessageBox tone="success" title={t("control:categories.doneTitle")}>{notice}</MessageBox>}
 
       <div className="category-editor-page-layout">
         <aside className="category-editor-side">
@@ -544,7 +547,7 @@ export function CategoryEditorPage({ categoryId }: { categoryId: string | null }
           <div className="category-image-actions">
             <label className="secondary-button compact-button">
               <Upload size={15} />
-              <span>Upload image</span>
+              <span>{t("control:categories.uploadImage")}</span>
               <input
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
@@ -557,26 +560,26 @@ export function CategoryEditorPage({ categoryId }: { categoryId: string | null }
               />
             </label>
             {currentImageUrl && (
-              <button className="icon-button danger" type="button" onClick={clearImage} aria-label="Remove image">
+              <button className="icon-button danger" type="button" onClick={clearImage} aria-label={t("control:categories.removeImageAria")}>
                 <X size={15} />
               </button>
             )}
           </div>
 
           <label className="field">
-            <span>Name</span>
+            <span>{t("control:categories.name")}</span>
             <input value={name} onChange={(event) => setName(event.target.value)} maxLength={80} />
           </label>
 
           <label className="field">
-            <span>Icon</span>
+            <span>{t("control:categories.icon")}</span>
             <select value={icon} onChange={(event) => setIcon(event.target.value)}>
               {CATEGORY_ICON_KEYS.map((key) => <option key={key} value={key}>{key}</option>)}
             </select>
           </label>
 
           <label className="field">
-            <span>Order</span>
+            <span>{t("control:categories.order")}</span>
             <input type="number" min={0} max={999} value={sortOrder} onChange={(event) => setSortOrder(event.target.value)} />
           </label>
 
@@ -584,16 +587,16 @@ export function CategoryEditorPage({ categoryId }: { categoryId: string | null }
             <div className="category-danger-zone">
               {deleteConfirm && (
                 <span>
-                  Delete this category and move {category.bookCount} book{category.bookCount === 1 ? "" : "s"} to General / Other?
+                  {t("control:categories.deleteMoveConfirm", { count: category.bookCount })}
                 </span>
               )}
               <button className="text-button danger" type="button" onClick={deleteCategory} disabled={saving || deleting}>
                 <Trash2 size={15} />
-                {deleteConfirm ? (deleting ? "Deleting..." : "Confirm delete") : "Delete category"}
+                {deleteConfirm ? (deleting ? t("control:ui.deleting") : t("control:categories.confirmDelete")) : t("control:categories.deleteCategory")}
               </button>
               {deleteConfirm && (
                 <button className="secondary-button compact-button" type="button" onClick={() => setDeleteConfirm(false)} disabled={deleting}>
-                  Cancel delete
+                  {t("control:categories.cancelDelete")}
                 </button>
               )}
             </div>
@@ -608,7 +611,7 @@ export function CategoryEditorPage({ categoryId }: { categoryId: string | null }
               onClick={() => setEditorTab("mappings")}
             >
               <List size={18} />
-              <span>Mappings</span>
+              <span>{t("control:categories.mappingsTab")}</span>
               <strong>{editorAliases.length}</strong>
             </button>
             <button
@@ -617,7 +620,7 @@ export function CategoryEditorPage({ categoryId }: { categoryId: string | null }
               onClick={() => setEditorTab("tags")}
             >
               <TagsIcon size={18} />
-              <span>Tags</span>
+              <span>{t("control:categories.tagsTab")}</span>
               <strong>{tags.length}</strong>
             </button>
           </div>
@@ -627,8 +630,8 @@ export function CategoryEditorPage({ categoryId }: { categoryId: string | null }
               <div className="category-mapping-panel">
                 <div className="category-mapping-head">
                   <div>
-                    <h2>Mapped keywords</h2>
-                    <span>{editorAliases.length} keyword{editorAliases.length === 1 ? "" : "s"}</span>
+                    <h2>{t("control:categories.mappedKeywords")}</h2>
+                    <span>{t("control:categories.keywordCount", { count: editorAliases.length })}</span>
                   </div>
                 </div>
 
@@ -647,7 +650,7 @@ export function CategoryEditorPage({ categoryId }: { categoryId: string | null }
 
               <div className="category-quick-add">
                 <label className="field">
-                  <span>Add keyword</span>
+                  <span>{t("control:categories.addKeyword")}</span>
                   <input
                     value={keyword}
                     onChange={(event) => setKeyword(event.target.value)}
@@ -657,11 +660,11 @@ export function CategoryEditorPage({ categoryId }: { categoryId: string | null }
                         addCategoryAliases();
                       }
                     }}
-                    placeholder="e.g. mystery, detective, crime"
+                    placeholder={t("control:categories.addKeywordPlaceholder")}
                   />
                 </label>
                 <label className="field">
-                  <span>Default priority</span>
+                  <span>{t("control:categories.defaultPriority")}</span>
                   <input type="number" min={0} max={999} value={priority} onChange={(event) => setPriority(event.target.value)} />
                 </label>
                 <button
@@ -670,7 +673,7 @@ export function CategoryEditorPage({ categoryId }: { categoryId: string | null }
                   onClick={addCategoryAliases}
                   disabled={!category || !keyword.trim()}
                 >
-                  Add
+                  {t("control:ui.add")}
                 </button>
               </div>
             </>
@@ -680,11 +683,15 @@ export function CategoryEditorPage({ categoryId }: { categoryId: string | null }
             <div className="category-mapping-panel">
               <div className="category-mapping-head">
                 <div>
-                  <h2>Scanned tags</h2>
-                  <span>{tagTerm ? `${filteredTags.length} of ${tags.length}` : tags.length} tag{tags.length === 1 ? "" : "s"}{tagTerm ? " matching" : " available as keyword candidates"}</span>
+                  <h2>{t("control:categories.scannedTags")}</h2>
+                  <span>
+                    {tagTerm
+                      ? t("control:categories.tagsMatchingCount", { shown: filteredTags.length, count: tags.length })
+                      : t("control:categories.tagsAvailableCount", { count: tags.length })}
+                  </span>
                 </div>
                 <label className="category-tag-priority">
-                  <span>Default priority</span>
+                  <span>{t("control:categories.defaultPriority")}</span>
                   <input type="number" min={0} max={999} value={priority} onChange={(event) => setPriority(event.target.value)} />
                 </label>
               </div>
@@ -696,16 +703,16 @@ export function CategoryEditorPage({ categoryId }: { categoryId: string | null }
                     type="search"
                     value={tagSearch}
                     onChange={(event) => { setTagSearch(event.target.value); setTagLimit(TAG_PAGE_SIZE); }}
-                    placeholder="Search tags"
-                    aria-label="Search scanned tags"
+                    placeholder={t("control:categories.searchTagsPlaceholder")}
+                    aria-label={t("control:categories.searchTagsAria")}
                   />
                 </label>
               )}
 
               {tags.length === 0 ? (
-                <p className="management-empty">No tags yet. Scan a library and tags appear from book genres.</p>
+                <p className="management-empty">{t("control:categories.noTagsYet")}</p>
               ) : filteredTags.length === 0 ? (
-                <p className="management-empty">No tags match your search.</p>
+                <p className="management-empty">{t("control:categories.noTagsMatch")}</p>
               ) : (
                 <>
                 <div className="category-keyword-grid category-tag-grid">
@@ -717,14 +724,14 @@ export function CategoryEditorPage({ categoryId }: { categoryId: string | null }
                       <div className={`category-tag-chip${addedHere ? " added" : ""}`} key={tag.name}>
                         <div className="category-tag-copy">
                           <strong title={tag.name}>{tag.name}</strong>
-                          <span>{tag.count} book{tag.count === 1 ? "" : "s"}</span>
+                          <span>{t("control:categories.bookCount", { count: tag.count })}</span>
                         </div>
                         {addedHere ? (
                           <span className="category-tag-status">
-                            <Check size={14} /> Added
+                            <Check size={14} /> {t("control:categories.added")}
                           </span>
                         ) : mappedElsewhere ? (
-                          <span className="category-tag-status" title={`Mapped to ${existingAlias.categoryName}`}>
+                          <span className="category-tag-status" title={t("control:categories.mappedToOther", { category: existingAlias.categoryName })}>
                             {existingAlias.categoryName}
                           </span>
                         ) : (
@@ -734,7 +741,7 @@ export function CategoryEditorPage({ categoryId }: { categoryId: string | null }
                             onClick={() => addTagAsKeyword(tag)}
                             disabled={!category}
                           >
-                            <Plus size={14} /> Add
+                            <Plus size={14} /> {t("control:ui.add")}
                           </button>
                         )}
                       </div>
@@ -748,7 +755,7 @@ export function CategoryEditorPage({ categoryId }: { categoryId: string | null }
                       type="button"
                       onClick={() => setTagLimit((limit) => limit + TAG_PAGE_SIZE)}
                     >
-                      Show more ({filteredTags.length - visibleTags.length})
+                      {t("control:categories.showMore", { count: filteredTags.length - visibleTags.length })}
                     </button>
                   </div>
                 )}

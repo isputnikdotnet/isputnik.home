@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { createPortal } from "react-dom";
 import {
   Bookmark,
   BookOpen,
+  BookText,
   Bug,
   ChevronDown,
   DownloadCloud,
@@ -18,8 +21,8 @@ import {
   Network,
   Quote,
   Settings,
+  Star,
   Tag,
-  Users,
   UsersRound,
   UserRound
 } from "lucide-react";
@@ -36,7 +39,7 @@ const APP_VERSION = packageInfo.version;
 // The control panel's landing page — Overview › Dashboard.
 const CONTROL_HOME = controlHref("dashboard");
 
-export type DashboardActive = "home" | "audiobooks" | "ebooks" | "gallery" | "family" | "authors" | "categories" | "tags" | "about" | "help" | "control" | "user";
+export type DashboardActive = "home" | "audiobooks" | "ebooks" | "gallery" | "family" | "stories" | "authors" | "categories" | "tags" | "about" | "help" | "control" | "user";
 
 interface AboutMenuLink {
   href: string;
@@ -48,11 +51,13 @@ interface AboutMenuLink {
 
 // Info / Help / Bugs — reached from the "About" item at the end of the primary
 // nav, rather than as their own icon row in the footer.
-const ABOUT_MENU_LINKS: AboutMenuLink[] = [
-  { href: "/about", icon: Info, label: "Info", activeKey: "about" },
-  { href: "/help", icon: HelpCircle, label: "Help", activeKey: "help" },
-  { href: REPO_ISSUES_URL, icon: Bug, label: "Bugs", external: true }
-];
+function aboutMenuLinks(t: TFunction): AboutMenuLink[] {
+  return [
+    { href: "/about", icon: Info, label: t("nav.info"), activeKey: "about" },
+    { href: "/help", icon: HelpCircle, label: t("nav.help"), activeKey: "help" },
+    { href: REPO_ISSUES_URL, icon: Bug, label: t("nav.bugs"), external: true }
+  ];
+}
 
 interface MainNavItem {
   label: string;
@@ -85,34 +90,34 @@ function DashboardNavLink({ item }: { item: MainNavItem }) {
 // Authors and Categories are reached from the Audiobooks/Ebooks pages (their
 // tab rows and mobile Browse menus) rather than the primary nav — they only
 // describe book-like libraries, so they don't belong beside the media types.
-function mainNavItems(active: DashboardActive): MainNavItem[] {
+function mainNavItems(active: DashboardActive, t: TFunction): MainNavItem[] {
   return [
-    { label: "Home", href: "/", icon: Home, active: active === "home" },
-    { label: "Audiobooks", href: "/audiobooks", icon: Headphones, active: active === "audiobooks" },
-    { label: "Ebooks", href: "/ebooks", icon: BookOpen, active: active === "ebooks" },
-    { label: "Gallery", href: "/gallery", icon: Image, active: active === "gallery" },
-    { label: "Family Tree", href: "/family", icon: Network, active: active === "family" },
-    { label: "Tags", href: "/tags", icon: Tag, active: active === "tags" }
+    { label: t("nav.home"), href: "/", icon: Home, active: active === "home" },
+    { label: t("nav.audiobooks"), href: "/audiobooks", icon: Headphones, active: active === "audiobooks" },
+    { label: t("nav.ebooks"), href: "/ebooks", icon: BookOpen, active: active === "ebooks" },
+    { label: t("nav.gallery"), href: "/gallery", icon: Image, active: active === "gallery" },
+    { label: t("nav.familyTree"), href: "/family", icon: Network, active: active === "family" },
+    { label: t("nav.stories"), href: "/stories", icon: BookText, active: active === "stories" },
+    { label: t("nav.tags"), href: "/tags", icon: Tag, active: active === "tags" }
   ];
 }
 
-function userMenuLinks(): UserMenuLink[] {
+function userMenuLinks(t: TFunction): UserMenuLink[] {
   return [
-    { label: "Shared with me", href: "/shared", icon: UsersRound },
-    { label: "Around the house", href: "/activity", icon: Users },
-    { label: "Favorites", href: "/favorites", icon: Heart },
-    { label: "Bookmarks", href: "/bookmarks", icon: Bookmark },
-    { label: "Quotes", href: "/quotes", icon: Quote },
-    { label: "Collections", href: "/collections", icon: ListMusic },
+    { label: t("nav.sharedWithMe"), href: "/shared", icon: UsersRound },
+    { label: t("nav.likes"), href: "/likes", icon: Heart },
+    { label: t("nav.bookmarks"), href: "/bookmarks", icon: Bookmark },
+    { label: t("nav.quotes"), href: "/quotes", icon: Quote },
+    { label: t("nav.collections"), href: "/collections", icon: ListMusic },
     // Offline downloads only exist in the installed app, so only surface the
     // Downloads screen there.
-    ...(isStandalone() ? [{ label: "Downloads", href: "/downloads", icon: DownloadCloud }] : [])
+    ...(isStandalone() ? [{ label: t("nav.downloads"), href: "/downloads", icon: DownloadCloud }] : [])
   ];
 }
 
 // The user-area routes reachable from the Profile drop-up sheet. The Profile
 // tab highlights for any of them (not just /profile itself).
-const PROFILE_ROUTES = ["/profile", "/favorites", "/bookmarks", "/quotes", "/collections", "/shared", "/inbox", "/activity"];
+const PROFILE_ROUTES = ["/profile", "/likes", "/bookmarks", "/quotes", "/collections", "/shared", "/inbox"];
 
 // Four-tab bottom nav for the installed app / phones: Home, Media, Offline,
 // Profile. "Media" and "Profile" aren't pages — each opens a drop-up sheet:
@@ -128,6 +133,7 @@ function MobileNav({
   user: PublicUser;
   logout: () => Promise<void>;
 }) {
+  const { t } = useTranslation();
   const [openSheet, setOpenSheet] = useState<"media" | "profile" | null>(null);
   const unseen = useInboxSummary();
 
@@ -140,6 +146,7 @@ function MobileNav({
     currentPath.startsWith("/tags") ||
     currentPath.startsWith("/gallery") ||
     currentPath.startsWith("/family") ||
+    currentPath.startsWith("/stories") ||
     (currentPath.startsWith("/audiobooks") && !downloadsActive);
   const profileActive = PROFILE_ROUTES.some((route) => currentPath === route || currentPath.startsWith(`${route}/`));
 
@@ -156,79 +163,83 @@ function MobileNav({
     <>
       {openSheet && <div className="mobile-media-backdrop" onClick={close} aria-hidden="true" />}
       {openSheet === "media" && (
-        <div className="mobile-media-menu" role="dialog" aria-label="Choose library">
+        <div className="mobile-media-menu" role="dialog" aria-label={t("nav.aria.chooseLibrary")}>
           <div className="mobile-media-menu-grid">
             <a className="mobile-media-option" href="/audiobooks" onClick={(event) => { followRoute(event, "/audiobooks"); close(); }}>
               <Headphones size={26} aria-hidden="true" />
-              <span>Audiobooks</span>
+              <span>{t("nav.audiobooks")}</span>
             </a>
             <a className="mobile-media-option" href="/ebooks" onClick={(event) => { followRoute(event, "/ebooks"); close(); }}>
               <BookOpen size={26} aria-hidden="true" />
-              <span>Ebooks</span>
+              <span>{t("nav.ebooks")}</span>
             </a>
             <a className="mobile-media-option" href="/gallery" onClick={(event) => { followRoute(event, "/gallery"); close(); }}>
               <Image size={26} aria-hidden="true" />
-              <span>Gallery</span>
+              <span>{t("nav.gallery")}</span>
             </a>
             <a className="mobile-media-option" href="/family" onClick={(event) => { followRoute(event, "/family"); close(); }}>
               <Network size={26} aria-hidden="true" />
-              <span>Family Tree</span>
+              <span>{t("nav.familyTree")}</span>
+            </a>
+            <a className="mobile-media-option" href="/stories" onClick={(event) => { followRoute(event, "/stories"); close(); }}>
+              <BookText size={26} aria-hidden="true" />
+              <span>{t("nav.stories")}</span>
             </a>
             <a className="mobile-media-option" href="/tags" onClick={(event) => { followRoute(event, "/tags"); close(); }}>
               <Tag size={26} aria-hidden="true" />
-              <span>Tags</span>
+              <span>{t("nav.tags")}</span>
             </a>
           </div>
         </div>
       )}
       {openSheet === "profile" && (
-        <div className="mobile-media-menu" role="dialog" aria-label="Account & library">
+        <div className="mobile-media-menu" role="dialog" aria-label={t("nav.aria.accountAndLibrary")}>
           <div className="mobile-media-menu-grid">
             <a className="mobile-media-option" href="/profile" onClick={(event) => { followRoute(event, "/profile"); close(); }}>
               <UserRound size={26} aria-hidden="true" />
-              <span>Profile</span>
+              <span>{t("nav.profile")}</span>
             </a>
-            <a className="mobile-media-option" href="/favorites" onClick={(event) => { followRoute(event, "/favorites"); close(); }}>
+            <a className="mobile-media-option" href="/likes" onClick={(event) => { followRoute(event, "/likes"); close(); }}>
               <Heart size={26} aria-hidden="true" />
-              <span>Favorites</span>
+              <span>{t("nav.likes")}</span>
             </a>
             <a className="mobile-media-option" href="/bookmarks" onClick={(event) => { followRoute(event, "/bookmarks"); close(); }}>
               <Bookmark size={26} aria-hidden="true" />
-              <span>Bookmarks</span>
+              <span>{t("nav.bookmarks")}</span>
             </a>
             <a className="mobile-media-option" href="/quotes" onClick={(event) => { followRoute(event, "/quotes"); close(); }}>
               <Quote size={26} aria-hidden="true" />
-              <span>Quotes</span>
+              <span>{t("nav.quotes")}</span>
             </a>
             <a className="mobile-media-option" href="/collections" onClick={(event) => { followRoute(event, "/collections"); close(); }}>
               <ListMusic size={26} aria-hidden="true" />
-              <span>Collections</span>
+              <span>{t("nav.collections")}</span>
             </a>
             <a className="mobile-media-option" href="/shared" onClick={(event) => { followRoute(event, "/shared"); close(); }}>
               <UsersRound size={26} aria-hidden="true" />
-              <span>Shared</span>
+              <span>{t("nav.shared")}</span>
             </a>
             {isAdminSession(user) && (
               <a className="mobile-media-option" href={CONTROL_HOME} onClick={(event) => { followRoute(event, CONTROL_HOME); close(); }}>
                 <Settings size={26} aria-hidden="true" />
-                <span>Settings</span>
+                <span>{t("nav.settings")}</span>
               </a>
             )}
             <button className="mobile-media-option" type="button" onClick={() => { close(); void logout(); }}>
               <LogOut size={26} aria-hidden="true" />
-              <span>Logout</span>
+              <span>{t("nav.logout")}</span>
             </button>
           </div>
         </div>
       )}
-      <nav className="home-mobile-nav" aria-label="Primary app tabs">
+      <nav className="home-mobile-nav" aria-label={t("nav.aria.primaryTabs")}>
         <a
           className={`home-mobile-nav-item${active === "home" && currentPath === "/" ? " is-active" : ""}`}
           href="/"
           onClick={(event) => { followRoute(event, "/"); close(); }}
         >
           <Home size={17} aria-hidden="true" />
-          <span>Home</span>
+          <span>{t("nav.home")}</span>
         </a>
         <button
           type="button"
@@ -238,7 +249,7 @@ function MobileNav({
           aria-expanded={openSheet === "media"}
         >
           <Library size={17} aria-hidden="true" />
-          <span>Media</span>
+          <span>{t("nav.media")}</span>
         </button>
         <a
           className={`home-mobile-nav-item${downloadsActive ? " is-active" : ""}`}
@@ -246,7 +257,7 @@ function MobileNav({
           onClick={(event) => { followRoute(event, "/downloads"); close(); }}
         >
           <DownloadCloud size={17} aria-hidden="true" />
-          <span>Offline</span>
+          <span>{t("nav.offline")}</span>
         </a>
         <button
           type="button"
@@ -259,7 +270,7 @@ function MobileNav({
             <UserRound size={17} aria-hidden="true" />
             {unseen > 0 && <span className="nav-dot" />}
           </span>
-          <span>Profile</span>
+          <span>{t("nav.profile")}</span>
         </button>
       </nav>
     </>
@@ -279,12 +290,13 @@ export function DashboardShell({
   sideNav?: ReactNode;
   children: ReactNode;
 }) {
+  const { t } = useTranslation();
   const isControlPanel = active === "control";
   const isUserArea = active === "user";
   // Media sections (Gallery, Ebooks, Audiobooks, Family Tree, …) opt into a
   // contextual nav the same way Control/Profile do: by handing in `sideNav`.
   const hasSectionNav = isControlPanel || isUserArea || sideNav != null;
-  // User-area pages (Profile, Favorites, Downloads, …) and section-nav media
+  // User-area pages (Profile, Likes, Downloads, …) and section-nav media
   // pages drop their top section nav on phones and rely on the bottom tab bar
   // instead — its Media/Profile sheets expose every destination either way.
   // The control panel is the one exception: dense enough that it keeps its own
@@ -372,13 +384,21 @@ export function DashboardShell({
 
   return (
     <main className={`home-dashboard-shell app-dashboard-shell${isControlPanel ? " home-control-shell" : ""}${isUserArea ? " home-user-shell" : ""}${mobileTabBar ? " home-mobile-tabbar-shell" : ""}`}>
-      <aside className="home-sidebar" aria-label={isControlPanel ? "Control panel navigation" : isUserArea ? "User navigation" : "App navigation"}>
+      <aside className="home-sidebar" aria-label={isControlPanel ? t("nav.aria.controlNav") : isUserArea ? t("nav.aria.userNav") : t("nav.aria.appNav")}>
+        <a className="home-sidebar-brand" href="/" onClick={(event) => followRoute(event, "/")} aria-label={t("nav.aria.brandHome")}>
+          <Star className="home-sidebar-brand-star" size={29} fill="currentColor" aria-hidden="true" />
+          <span className="home-sidebar-brand-copy">
+            <strong>iSputnik</strong>
+            <small>ВАШИ ИСТОРИИ — НА ОРБИТЕ</small>
+          </span>
+        </a>
+
         {hasSectionNav && sideNav ? (
           <div className="home-control-nav-wrap">{sideNav}</div>
         ) : (
-          <nav className="home-primary-nav" aria-label="Primary">
-            {mainNavItems(active).map((item) => (
-              <DashboardNavLink item={item} key={item.label} />
+          <nav className="home-primary-nav" aria-label={t("nav.aria.primary")}>
+            {mainNavItems(active, t).map((item) => (
+              <DashboardNavLink item={item} key={item.href} />
             ))}
 
             <button
@@ -390,7 +410,7 @@ export function DashboardShell({
               aria-expanded={aboutMenuOpen}
             >
               <Info size={21} aria-hidden="true" />
-              <span>About</span>
+              <span>{t("nav.about")}</span>
               <ChevronDown className="home-user-chevron" size={16} aria-hidden="true" />
             </button>
           </nav>
@@ -401,10 +421,10 @@ export function DashboardShell({
             ref={aboutMenuRef}
             className="home-primary-menu"
             role="menu"
-            aria-label="About menu"
+            aria-label={t("nav.aria.aboutMenu")}
             style={{ position: "fixed", top: aboutMenuPos.top, left: aboutMenuPos.left, minWidth: aboutMenuPos.width }}
           >
-            {ABOUT_MENU_LINKS.map((item) => {
+            {aboutMenuLinks(t).map((item) => {
               const Icon = item.icon;
               const isActiveLink = item.activeKey !== undefined && active === item.activeKey;
               return item.external ? (
@@ -458,7 +478,7 @@ export function DashboardShell({
               onClick={(event) => followRoute(event, CONTROL_HOME)}
             >
               <Settings size={21} aria-hidden="true" />
-              <span>Settings</span>
+              <span>{t("nav.settings")}</span>
             </a>
           )}
 
@@ -481,7 +501,7 @@ export function DashboardShell({
             </button>
 
             {userMenuOpen && (
-              <div className="home-user-menu" role="menu" aria-label="Profile menu">
+              <div className="home-user-menu" role="menu" aria-label={t("nav.aria.profileMenu")}>
                 <a
                   className={`home-user-menu-link${currentPath === "/profile" ? " is-active" : ""}`}
                   href="/profile"
@@ -492,9 +512,9 @@ export function DashboardShell({
                   }}
                 >
                   <UserRound size={19} aria-hidden="true" />
-                  <span>Profile</span>
+                  <span>{t("nav.profile")}</span>
                 </a>
-                {userMenuLinks().map((item) => {
+                {userMenuLinks(t).map((item) => {
                   const Icon = item.icon;
                   return (
                     <a
@@ -522,7 +542,7 @@ export function DashboardShell({
                   }}
                 >
                   <LogOut size={19} aria-hidden="true" />
-                  <span>Logout</span>
+                  <span>{t("nav.logout")}</span>
                 </button>
               </div>
             )}

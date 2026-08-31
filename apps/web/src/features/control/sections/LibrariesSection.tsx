@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, type FormEvent, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Plus,
   RefreshCw,
@@ -40,6 +41,9 @@ import { LibraryMembersModal } from "./LibraryMembersModal";
 import { ScanRulesModal } from "./ScanRulesModal";
 import { GalleryFaceSettingsModal } from "../../gallery/GalleryFaceSettingsModal";
 import { ControlSectionHead } from "../ControlSectionHead";
+// Plain lookup functions rather than module-level consts, so a language switch
+// is picked up (docs/i18n-plan.md's namespace-key typing pitfall #3).
+import i18n from "../../../i18n";
 
 type ManagedLibraryType = "audiobook" | "ebook" | "gallery";
 
@@ -49,37 +53,45 @@ interface ManagedLibrary extends Omit<AudiobookLibrary, "type" | "fileCount"> {
   fileCount: number | null;
 }
 
-const TYPE_META: Record<ManagedLibraryType, { label: string; icon: typeof Headphones }> = {
-  audiobook: { label: "Audiobooks", icon: Headphones },
-  ebook: { label: "Ebooks", icon: BookOpen },
-  gallery: { label: "Gallery", icon: Image }
+const TYPE_ICON: Record<ManagedLibraryType, typeof Headphones> = {
+  audiobook: Headphones,
+  ebook: BookOpen,
+  gallery: Image
 };
 
-const TYPE_FILTERS: { value: "all" | ManagedLibraryType; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "audiobook", label: "Audiobooks" },
-  { value: "ebook", label: "Ebooks" },
-  { value: "gallery", label: "Gallery" }
-];
+function typeLabel(type: ManagedLibraryType): string {
+  switch (type) {
+    case "audiobook": return i18n.t("control:libraries.typeAudiobooks");
+    case "ebook": return i18n.t("control:libraries.typeEbooks");
+    case "gallery": return i18n.t("control:libraries.typeGallery");
+  }
+}
 
-const MODE_LABEL: Record<LibraryMode, string> = {
-  managed: "Managed",
-  external: "External / read-only"
+const TYPE_FILTER_VALUES: ("all" | ManagedLibraryType)[] = ["all", "audiobook", "ebook", "gallery"];
+
+function typeFilterLabel(value: "all" | ManagedLibraryType): string {
+  return value === "all" ? i18n.t("control:libraries.filterAll") : typeLabel(value);
+}
+
+function modeLabel(mode: LibraryMode): string {
+  return mode === "managed" ? i18n.t("control:libraries.modeManaged") : i18n.t("control:libraries.modeExternal");
+}
+
+const ROLE_KEY: Record<string, "viewer" | "member" | "contributor" | "manager" | "deny"> = {
+  viewer: "viewer",
+  member: "member",
+  contributor: "contributor",
+  manager: "manager",
+  deny: "deny"
 };
 
-const ROLE_LABEL: Record<string, string> = {
-  viewer: "Viewer",
-  member: "Member",
-  contributor: "Contributor",
-  manager: "Manager",
-  deny: "Denied"
-};
-
-const SCAN_STATUS_LABEL: Record<ManagedLibrary["scanStatus"], string> = {
-  idle: "Idle",
-  scanning: "Scanning",
-  error: "Error"
-};
+function scanStatusLabel(status: ManagedLibrary["scanStatus"]): string {
+  switch (status) {
+    case "idle": return i18n.t("control:libraries.scanIdle");
+    case "scanning": return i18n.t("control:libraries.scanScanning");
+    case "error": return i18n.t("control:libraries.scanError");
+  }
+}
 
 function formatCount(value: number | null | undefined) {
   return value == null ? "—" : value.toLocaleString();
@@ -90,25 +102,27 @@ function formatLibrarySize(value: number | null | undefined) {
 }
 
 function roleLabel(role: string | null | undefined) {
-  return role ? ROLE_LABEL[role] ?? role : "None";
+  const key = role ? ROLE_KEY[role] : undefined;
+  return key ? i18n.t(`control:libraries.role.${key}`) : i18n.t("control:libraries.role.none");
 }
 
 function accessSummary(library: ManagedLibrary) {
-  return library.visibility === "public" ? "Public" : "Private";
+  return library.visibility === "public" ? i18n.t("control:libraries.public") : i18n.t("control:libraries.private");
 }
 
 function capabilityLabels(library: ManagedLibrary) {
   return [
-    library.canDownload ? "Download" : null,
-    library.canWrite ? "Edit content" : null,
-    library.canUpload ? "Upload" : null,
-    library.canCurate ? "Curate" : null,
-    library.canManageMembers ? "Manage members" : null,
-    library.canManageLibrary ? "Manage settings" : null
+    library.canDownload ? i18n.t("control:libraries.capabilityDownload") : null,
+    library.canWrite ? i18n.t("control:libraries.capabilityEdit") : null,
+    library.canUpload ? i18n.t("control:libraries.capabilityUpload") : null,
+    library.canCurate ? i18n.t("control:libraries.capabilityCurate") : null,
+    library.canManageMembers ? i18n.t("control:libraries.capabilityManageMembers") : null,
+    library.canManageLibrary ? i18n.t("control:libraries.capabilityManageSettings") : null
   ].filter(Boolean) as string[];
 }
 
 export function LibrariesSection() {
+  const { t } = useTranslation(["common", "control"]);
   const [libraries, setLibraries] = useState<ManagedLibrary[]>([]);
   const [librarySettings, setLibrarySettings] = useState<LibrarySettings | null>(null);
   const [metadataSources, setMetadataSources] = useState<MetadataSourceInfo[]>([]);
@@ -191,8 +205,8 @@ export function LibrariesSection() {
   }, [loadStorage]);
 
   useEffect(() => {
-    loadLibraries().catch((err) => setError(err instanceof Error ? err.message : "Unable to load libraries"));
-  }, [loadLibraries]);
+    loadLibraries().catch((err) => setError(err instanceof Error ? err.message : t("control:libraries.unableToLoad")));
+  }, [loadLibraries, t]);
 
   useEffect(() => {
     if (!libraries.some((library) => library.scanStatus === "scanning")) {
@@ -200,11 +214,11 @@ export function LibrariesSection() {
     }
 
     const timer = window.setInterval(() => {
-      loadLibraries().catch((err) => setError(err instanceof Error ? err.message : "Unable to load libraries"));
+      loadLibraries().catch((err) => setError(err instanceof Error ? err.message : t("control:libraries.unableToLoad")));
     }, 2500);
 
     return () => window.clearInterval(timer);
-  }, [libraries, loadLibraries]);
+  }, [libraries, loadLibraries, t]);
 
   const maxUploadValue = (raw: string) => {
     const value = Number.parseInt(raw, 10);
@@ -238,7 +252,7 @@ export function LibrariesSection() {
       setTakeOwnershipConfirmLibrary(null);
       await loadLibraries();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to take ownership");
+      setError(err instanceof Error ? err.message : t("control:libraries.unableToTakeOwnership"));
     } finally {
       setTakingOwnership(false);
     }
@@ -269,7 +283,7 @@ export function LibrariesSection() {
       setEditingLibrary(null);
       await loadLibraries();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to save changes");
+      setError(err instanceof Error ? err.message : t("control:libraries.unableToSaveChanges"));
     } finally {
       setSaving(false);
     }
@@ -288,7 +302,7 @@ export function LibrariesSection() {
     setError("");
     api(`${apiBase(library)}/${library.id}/rescan`, { method: "POST", body: "{}" })
       .then(() => loadLibraries())
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to rescan"))
+      .catch((err) => setError(err instanceof Error ? err.message : t("control:libraries.unableToStartRescan")))
       .finally(() => setRescanningId(""));
   };
 
@@ -307,7 +321,7 @@ export function LibrariesSection() {
       setRescanTarget(null);
       await loadLibraries();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to scan library");
+      setError(err instanceof Error ? err.message : t("control:libraries.unableToScanLibrary"));
     } finally {
       setRescanRunning(false);
     }
@@ -322,7 +336,7 @@ export function LibrariesSection() {
       setDeleteConfirmLibrary(null);
       await loadLibraries();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to delete library");
+      setError(err instanceof Error ? err.message : t("control:libraries.unableToDeleteLibrary"));
     } finally {
       setDeleting(false);
     }
@@ -331,35 +345,35 @@ export function LibrariesSection() {
   const libraryOwnerLabel = useCallback(
     (library: ManagedLibrary) => {
       if (library.ownerType === "user") {
-        return users.find((user) => user.id === library.ownerId)?.displayName ?? "Unknown user";
+        return users.find((user) => user.id === library.ownerId)?.displayName ?? t("control:libraries.unknownUser");
       }
       if (library.ownerType === "group") {
-        const groupName = groups.find((group) => group.id === library.ownerId)?.name ?? "Unknown group";
-        return `${groupName} (group)`;
+        const groupName = groups.find((group) => group.id === library.ownerId)?.name ?? t("control:libraries.unknownGroup");
+        return t("control:libraries.groupSuffix", { name: groupName });
       }
-      return "System library";
+      return t("control:libraries.systemLibrary");
     },
-    [groups, users]
+    [groups, users, t]
   );
 
   const scanSourceSummary = useCallback(
     (library: ManagedLibrary) => {
       const sources = library.settings?.scanSources;
-      if (!sources?.length) return "Default";
+      if (!sources?.length) return t("control:libraries.scanDefault");
       const enabled = sources
         .filter((source) => source.enabled)
         .map((source) => metadataSources.find((info) => info.id === source.id)?.label ?? source.id);
-      return enabled.length ? enabled.join(" > ") : "None";
+      return enabled.length ? enabled.join(" > ") : t("control:libraries.scanNone");
     },
-    [metadataSources]
+    [metadataSources, t]
   );
 
   const extensionSummary = useCallback(
     (library: ManagedLibrary) => {
       const extensions = library.settings?.scanExtensions ?? typeDefaults[library.type]?.extensions ?? [];
-      return extensions.length ? extensions.join(", ") : "Not configured";
+      return extensions.length ? extensions.join(", ") : t("control:libraries.notConfigured");
     },
-    [typeDefaults]
+    [typeDefaults, t]
   );
 
   const visibleLibraries = useMemo(
@@ -370,7 +384,7 @@ export function LibrariesSection() {
       return typeFiltered.filter((library) => [
         library.name,
         library.sourcePath ?? "",
-        TYPE_META[library.type].label,
+        typeLabel(library.type),
         libraryOwnerLabel(library),
         accessSummary(library),
         library.scanStatus
@@ -388,7 +402,7 @@ export function LibrariesSection() {
         section="libraries"
         className="library-section-head"
         icon={<LibraryBig size={30} />}
-        description="Every library on this server, what it scans, and who can see it."
+        description={t("control:libraries.description")}
       >
         <div className="row-actions">
           <RefreshButton
@@ -397,7 +411,7 @@ export function LibrariesSection() {
               try {
                 await loadLibraries();
               } catch (err) {
-                setError(err instanceof Error ? err.message : "Unable to refresh libraries");
+                setError(err instanceof Error ? err.message : t("control:libraries.unableToRefresh"));
                 throw err;
               }
             }}
@@ -406,19 +420,19 @@ export function LibrariesSection() {
             variant="primary"
             disabled={!setupReady}
             onClick={() => { setError(""); setCreateLibraryOpen(true); }}
-            title="Add library"
+            title={t("control:libraries.addLibrary")}
           >
             <Plus size={18} />
-            <span>Add library</span>
+            <span>{t("control:libraries.addLibrary")}</span>
           </Button>
         </div>
       </ControlSectionHead>
 
-      {error && <MessageBox tone="error" title="Library error">{error}</MessageBox>}
+      {error && <MessageBox tone="error" title={t("control:libraries.errorTitle")}>{error}</MessageBox>}
       {!setupReady && (
         <MessageBox
           tone="warning"
-          title="Storage setup required"
+          title={t("control:libraries.storageSetupTitle")}
           action={
             <a
               className="primary-button compact-button"
@@ -426,18 +440,16 @@ export function LibrariesSection() {
               onClick={(event) => followRoute(event, controlHref("storage"))}
             >
               <HardDrive size={16} aria-hidden="true" />
-              Set up storage
+              {t("control:libraries.setUpStorage")}
             </a>
           }
         >
-          Configure thumbnail storage and at least one Digital Library container before adding libraries.
+          {t("control:libraries.storageSetupBody")}
         </MessageBox>
       )}
       {scanningLibraries.length > 0 && (
-        <MessageBox tone="info" title="Scan in progress">
-          {scanningLibraries.length === 1
-            ? `"${scanningLibraries[0].name}" is being scanned — file counts update automatically as it runs.`
-            : `${scanningLibraries.length} libraries are being scanned — file counts update automatically as they run.`}
+        <MessageBox tone="info" title={t("control:libraries.scanInProgressTitle")}>
+          {t("control:libraries.scanInProgress", { count: scanningLibraries.length, name: scanningLibraries[0]?.name })}
         </MessageBox>
       )}
 
@@ -445,48 +457,49 @@ export function LibrariesSection() {
         <SelectMenu
           className="library-type-filter"
           value={typeFilter}
-          label="Filter by library type"
+          label={t("control:libraries.filterByType")}
           onChange={setTypeFilter}
-          options={TYPE_FILTERS.map((option) => ({
-            ...option,
-            icon: option.value === "audiobook"
+          options={TYPE_FILTER_VALUES.map((value) => ({
+            value,
+            label: typeFilterLabel(value),
+            icon: value === "audiobook"
               ? <Headphones size={18} />
-              : option.value === "ebook"
+              : value === "ebook"
                 ? <BookOpen size={18} />
                 : <LayoutGrid size={18} />
           }))}
         />
         <label className="search-field library-search">
           <Search size={17} aria-hidden="true" />
-          <span className="sr-only">Search libraries</span>
+          <span className="sr-only">{t("control:libraries.searchAria")}</span>
           <input
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Search libraries..."
+            placeholder={t("control:libraries.searchPlaceholder")}
           />
         </label>
       </div>
 
       {visibleLibraries.length === 0 ? (
         <p className="management-empty">
-          {libraries.length === 0 ? "No libraries configured." : "No libraries match these filters."}
+          {libraries.length === 0 ? t("control:libraries.emptyNone") : t("control:libraries.emptyFiltered")}
         </p>
       ) : (
         <div className="datagrid-wrap library-table-wrap">
           <table className="datagrid library-table">
             <thead>
               <tr>
-                <th>Library</th>
-                <th>Type</th>
-                <th>Access</th>
-                <th className="col-num">Files</th>
-                <th className="col-num">Size</th>
-                <th className="col-actions">Actions</th>
+                <th>{t("control:libraries.thLibrary")}</th>
+                <th>{t("control:libraries.thType")}</th>
+                <th>{t("control:libraries.thAccess")}</th>
+                <th className="col-num">{t("control:libraries.thFiles")}</th>
+                <th className="col-num">{t("control:libraries.thSize")}</th>
+                <th className="col-actions">{t("control:libraries.thActions")}</th>
               </tr>
             </thead>
             <tbody>
               {visibleLibraries.map((library) => {
-                const TypeIcon = TYPE_META[library.type].icon;
+                const TypeIcon = TYPE_ICON[library.type];
                 const scanning = library.scanStatus === "scanning" || rescanningId === library.id;
                 return (
                   <tr key={library.id}>
@@ -502,8 +515,8 @@ export function LibrariesSection() {
                               variant="icon"
                               compact
                               className="library-info-button"
-                              title={`View ${library.name} details`}
-                              aria-label={`View ${library.name} details`}
+                              title={t("control:libraries.viewDetailsTitle", { name: library.name })}
+                              aria-label={t("control:libraries.viewDetailsTitle", { name: library.name })}
                               onClick={() => setInfoLibrary(library)}
                             >
                               <Info size={14} />
@@ -515,13 +528,13 @@ export function LibrariesSection() {
                     </td>
                     <td>
                       <span className="library-type-cell">
-                        <TypeIcon size={14} aria-hidden="true" /> {TYPE_META[library.type].label}
+                        <TypeIcon size={14} aria-hidden="true" /> {typeLabel(library.type)}
                       </span>
                     </td>
                     <td>
                       <span className="library-access-cell">
                         <span className={`status-badge ${library.visibility}`}>
-                          {library.visibility === "public" ? "Public" : "Private"}
+                          {library.visibility === "public" ? t("control:libraries.public") : t("control:libraries.private")}
                         </span>
                       </span>
                     </td>
@@ -537,8 +550,8 @@ export function LibrariesSection() {
                             {library.type === "ebook" ? (
                               <Button
                                 variant="icon"
-                                title="Scan rules"
-                                aria-label={`Scan rules for ${library.name}`}
+                                title={t("control:libraries.scanRulesTitle")}
+                                aria-label={t("control:libraries.scanRulesAria", { name: library.name })}
                                 onClick={() => setScanRulesLibrary(library)}
                               >
                                 <Wand2 size={15} />
@@ -546,8 +559,8 @@ export function LibrariesSection() {
                             ) : library.type === "gallery" ? (
                               <Button
                                 variant="icon"
-                                title="Face recognition"
-                                aria-label={`Face recognition for ${library.name}`}
+                                title={t("control:libraries.faceRecognitionTitle")}
+                                aria-label={t("control:libraries.faceRecognitionAria", { name: library.name })}
                                 onClick={() => { setError(""); setFaceSettingsOpen(true); }}
                               >
                                 <ScanFace size={15} />
@@ -557,16 +570,16 @@ export function LibrariesSection() {
                             )}
                             <Button
                               variant="icon"
-                              title="Manage members & roles"
-                              aria-label={`Manage ${library.name} members and roles`}
+                              title={t("control:libraries.manageMembersTitle")}
+                              aria-label={t("control:libraries.manageMembersAria", { name: library.name })}
                               onClick={() => setMembersLibrary(library)}
                             >
                               <Users size={15} />
                             </Button>
                             <Button
                               variant="icon"
-                              title="Edit library"
-                              aria-label={`Edit ${library.name}`}
+                              title={t("control:libraries.editTitle")}
+                              aria-label={t("control:libraries.editAria", { name: library.name })}
                               onClick={() => openEdit(library)}
                             >
                               <Pencil size={15} />
@@ -576,8 +589,8 @@ export function LibrariesSection() {
                               className="rescan-library-button"
                               disabled={scanning}
                               onClick={() => startRescan(library)}
-                              title={scanning ? "Scanning…" : "Rescan library"}
-                              aria-label={`${scanning ? "Scanning" : "Rescan"} ${library.name}`}
+                              title={scanning ? t("control:libraries.rescanningTitle") : t("control:libraries.rescanTitle")}
+                              aria-label={scanning ? t("control:libraries.rescanningAria", { name: library.name }) : t("control:libraries.rescanAria", { name: library.name })}
                             >
                               {scanning ? (
                                 <span className="icon-spin" aria-hidden="true">
@@ -590,8 +603,8 @@ export function LibrariesSection() {
                             <Button
                               variant="icon"
                               danger
-                              title="Delete library"
-                              aria-label={`Delete ${library.name}`}
+                              title={t("control:libraries.deleteTitle")}
+                              aria-label={t("control:libraries.deleteAria", { name: library.name })}
                               onClick={() => setDeleteConfirmLibrary(library)}
                             >
                               <Trash2 size={15} />
@@ -602,13 +615,13 @@ export function LibrariesSection() {
                           <Button
                             variant="secondary"
                             compact
-                            title="This private library is owned by someone else. Take ownership to manage it (logged)."
+                            title={t("control:libraries.takeOwnershipTitle")}
                             onClick={() => {
                               setError("");
                               setTakeOwnershipConfirmLibrary(library);
                             }}
                           >
-                            <KeyRound size={14} /> Take ownership
+                            <KeyRound size={14} /> {t("control:libraries.takeOwnership")}
                           </Button>
                         )}
                       </div>
@@ -632,7 +645,7 @@ export function LibrariesSection() {
           typeDefaults={typeDefaults}
           onClose={() => setCreateLibraryOpen(false)}
           onCreated={() => {
-            loadLibraries().catch((err) => setError(err instanceof Error ? err.message : "Unable to load libraries"));
+            loadLibraries().catch((err) => setError(err instanceof Error ? err.message : t("control:libraries.unableToLoad")));
           }}
         />
       )}
@@ -656,7 +669,7 @@ export function LibrariesSection() {
       {faceSettingsOpen && (
         <GalleryFaceSettingsModal
           onClose={() => setFaceSettingsOpen(false)}
-          onChanged={() => { loadLibraries().catch((err) => setError(err instanceof Error ? err.message : "Unable to load libraries")); }}
+          onChanged={() => { loadLibraries().catch((err) => setError(err instanceof Error ? err.message : t("control:libraries.unableToLoad"))); }}
         />
       )}
 
@@ -672,32 +685,32 @@ export function LibrariesSection() {
 
       {rescanTarget && (
         <Modal
-          title={`Rescan "${rescanTarget.name}"`}
+          title={t("control:libraries.rescanModalTitle", { name: rescanTarget.name })}
           className="rescan-modal"
           busy={rescanRunning}
           onClose={() => setRescanTarget(null)}
         >
-            <p>Re-index this library from disk. Your files are never modified, and manually edited metadata is kept.</p>
+            <p>{t("control:libraries.rescanIntro")}</p>
             <ScanSourcesEditor
               sources={rescanSources}
               onChange={setRescanSources}
               sourceInfo={sourceInfoFor(rescanTarget.type)}
             />
             <p className="muted" style={{ fontSize: "0.8rem", lineHeight: 1.4 }}>
-              These choices apply to this scan only — edit the library to change its defaults.
+              {t("control:libraries.rescanScopeNote")}
             </p>
             <TagEncodingField
               value={rescanEncoding}
               onChange={setRescanEncoding}
-              noneLabel="Library default — leave tags as-is"
+              noneLabel={t("control:libraries.tagEncodingNoneLabel")}
             />
-            {error && <MessageBox tone="error" title="Rescan error">{error}</MessageBox>}
+            {error && <MessageBox tone="error" title={t("control:libraries.rescanErrorTitle")}>{error}</MessageBox>}
             <div className="modal-actions">
               <Button variant="secondary" onClick={() => setRescanTarget(null)} disabled={rescanRunning} autoFocus>
-                Cancel
+                {t("control:ui.cancel")}
               </Button>
               <Button variant="primary" onClick={runRescan} disabled={rescanRunning}>
-                <RefreshCw size={15} /> {rescanRunning ? "Starting…" : "Start rescan"}
+                <RefreshCw size={15} /> {rescanRunning ? t("control:libraries.startingRescan") : t("control:libraries.startRescan")}
               </Button>
             </div>
         </Modal>
@@ -705,9 +718,9 @@ export function LibrariesSection() {
 
       {deleteConfirmLibrary && (
         <ConfirmDialog
-          title={`Delete "${deleteConfirmLibrary.name}"?`}
-          confirmLabel="Delete library"
-          busyLabel="Deleting…"
+          title={t("control:libraries.deleteConfirmTitle", { name: deleteConfirmLibrary.name })}
+          confirmLabel={t("control:libraries.deleteConfirmLabel")}
+          busyLabel={t("control:ui.deleting")}
           confirmIcon={<Trash2 size={15} />}
           danger
           rich
@@ -716,16 +729,16 @@ export function LibrariesSection() {
           onConfirm={deleteLibrary}
           onCancel={() => setDeleteConfirmLibrary(null)}
         >
-          <p>This will remove the library and all its book records, metadata, series, and genres from the database.</p>
-          <p><strong>Your files on disk will not be touched.</strong> You can re-add this library at any time and it will be re-scanned from the same folder.</p>
+          <p>{t("control:libraries.deleteBody1")}</p>
+          <p><strong>{t("control:libraries.deleteBody2")}</strong></p>
         </ConfirmDialog>
       )}
 
       {takeOwnershipConfirmLibrary && (
         <ConfirmDialog
-          title={`Take ownership of "${takeOwnershipConfirmLibrary.name}"?`}
-          confirmLabel="Take ownership"
-          busyLabel="Taking ownership..."
+          title={t("control:libraries.takeOwnershipConfirmTitle", { name: takeOwnershipConfirmLibrary.name })}
+          confirmLabel={t("control:libraries.takeOwnershipConfirmLabel")}
+          busyLabel={t("control:libraries.takingOwnership")}
           confirmIcon={<KeyRound size={15} />}
           rich
           busy={takingOwnership}
@@ -733,15 +746,15 @@ export function LibrariesSection() {
           onConfirm={takeOwnership}
           onCancel={() => setTakeOwnershipConfirmLibrary(null)}
         >
-          <p>This will give you manager access so you can manage this private library. The action is logged for audit history.</p>
-          <p><strong>The library contents and existing owner are not deleted.</strong> Files on disk are not changed.</p>
+          <p>{t("control:libraries.takeOwnershipBody1")}</p>
+          <p><strong>{t("control:libraries.takeOwnershipBody2")}</strong></p>
         </ConfirmDialog>
       )}
 
       {editingLibrary && (
         <Modal
           variant="panel"
-          title={`Edit ${TYPE_META[editingLibrary.type].label.toLowerCase()} library`}
+          title={t("control:libraries.editModalTitle", { type: typeLabel(editingLibrary.type).toLowerCase() })}
           icon={<Pencil size={22} />}
           className="edit-library-panel"
           headerClassName="edit-library-header"
@@ -750,20 +763,20 @@ export function LibrariesSection() {
         >
           <div className="modal-tabs">
             <button type="button" className={`modal-tab${editTab === "access" ? " active" : ""}`} onClick={() => setEditTab("access")}>
-              Access
+              {t("control:libraries.tabAccess")}
             </button>
             <button type="button" className={`modal-tab${editTab === "upload" ? " active" : ""}`} onClick={() => setEditTab("upload")}>
-              Upload
+              {t("control:libraries.tabUpload")}
             </button>
             <button type="button" className={`modal-tab${editTab === "scanning" ? " active" : ""}`} onClick={() => setEditTab("scanning")}>
-              Scanning
+              {t("control:libraries.tabScanning")}
             </button>
           </div>
 
           <form id="edit-library-form" className="modal-tab-content edit-library-content" onSubmit={saveEdit}>
             {editTab === "access" && (
               <>
-                <Field label="Library name" value={editName} onChange={setEditName} />
+                <Field label={t("control:libraries.libraryName")} value={editName} onChange={setEditName} />
                 <LibraryAccessRows
                   ownerId={editOwnerId}
                   ownerType={editOwnerType}
@@ -786,14 +799,14 @@ export function LibrariesSection() {
                   extensions={editExtensions}
                   onChange={setEditExtensions}
                   defaults={typeDefaults[editingLibrary.type]?.extensions ?? []}
-                  label="Supported file extensions (scanning & upload)"
+                  label={t("control:libraries.extensionsLabel")}
                 />
                 <ExtensionsEditor
                   extensions={editCompanions}
                   onChange={setEditCompanions}
                   defaults={typeDefaults[editingLibrary.type]?.companions ?? []}
-                  label="Companion files (upload only — covers, metadata, documents)"
-                  emptyHint="No companion files — uploads accept the formats above only."
+                  label={t("control:libraries.companionsLabel")}
+                  emptyHint={t("control:libraries.companionsEmptyHint")}
                 />
                 <UploadSettingsFields
                   maxUploadMB={editMaxUploadMB}
@@ -815,13 +828,13 @@ export function LibrariesSection() {
                 )}
                 {editingLibrary.type === "audiobook" && (
                   <label className="field">
-                    <span>Progress tracking</span>
+                    <span>{t("control:libraries.progressTracking")}</span>
                     <select value={editProgressMode} onChange={(event) => setEditProgressMode(event.target.value as "linear" | "episodic")}>
-                      <option value="linear">Audiobook — one resume point for the whole book</option>
-                      <option value="episodic">Episodic — track each track separately (radio shows, podcasts)</option>
+                      <option value="linear">{t("control:libraries.progressLinear")}</option>
+                      <option value="episodic">{t("control:libraries.progressEpisodic")}</option>
                     </select>
                     <small className="muted">
-                      Episodic gives each track its own played/unplayed state, so skipping one never marks the others done.
+                      {t("control:libraries.progressEpisodicHint")}
                     </small>
                   </label>
                 )}
@@ -830,13 +843,13 @@ export function LibrariesSection() {
           </form>
 
           <div className="edit-library-footer">
-            {error && <MessageBox tone="error" title="Unable to save">{error}</MessageBox>}
+            {error && <MessageBox tone="error" title={t("control:libraries.unableToSave")}>{error}</MessageBox>}
             <div className="modal-actions">
               <Button variant="secondary" onClick={() => setEditingLibrary(null)} disabled={saving}>
-                Cancel
+                {t("control:ui.cancel")}
               </Button>
               <Button variant="primary" type="submit" form="edit-library-form" disabled={saving || !editName.trim() || editExtensions.length === 0}>
-                {saving ? "Saving…" : "Save changes"}
+                {saving ? t("control:ui.saving") : t("control:ui.saveChanges")}
               </Button>
             </div>
           </div>
@@ -859,41 +872,42 @@ function LibraryDetailsModal({
   extensions: string;
   onClose: () => void;
 }) {
-  const TypeIcon = TYPE_META[library.type].icon;
+  const { t } = useTranslation(["common", "control"]);
+  const TypeIcon = TYPE_ICON[library.type];
   const capabilities = capabilityLabels(library);
 
   return (
-    <Modal title={`${library.name} details`} className="library-info-modal" onClose={onClose}>
+    <Modal title={t("control:libraries.detailsTitle", { name: library.name })} className="library-info-modal" onClose={onClose}>
       <div className="library-info-hero">
         <span className={`library-type-icon ${library.type}`} aria-hidden="true">
           <TypeIcon size={22} />
         </span>
         <div>
           <strong>{library.name}</strong>
-          <span>{TYPE_META[library.type].label}</span>
+          <span>{typeLabel(library.type)}</span>
         </div>
       </div>
 
       <div className="library-info-grid">
         <section className="library-info-section">
-          <h3>Library</h3>
+          <h3>{t("control:libraries.sectionLibrary")}</h3>
           <dl className="library-info-list">
-            <LibraryInfoRow label="Name">{library.name}</LibraryInfoRow>
-            <LibraryInfoRow label="Type">{TYPE_META[library.type].label}</LibraryInfoRow>
-            <LibraryInfoRow label="Path">
-              <code>{library.sourcePath ?? "Source path hidden"}</code>
+            <LibraryInfoRow label={t("control:libraries.fieldName")}>{library.name}</LibraryInfoRow>
+            <LibraryInfoRow label={t("control:libraries.fieldType")}>{typeLabel(library.type)}</LibraryInfoRow>
+            <LibraryInfoRow label={t("control:libraries.fieldPath")}>
+              <code>{library.sourcePath ?? t("control:libraries.pathHidden")}</code>
             </LibraryInfoRow>
-            <LibraryInfoRow label="Owner">{ownerLabel}</LibraryInfoRow>
+            <LibraryInfoRow label={t("control:libraries.fieldOwner")}>{ownerLabel}</LibraryInfoRow>
           </dl>
         </section>
 
         <section className="library-info-section">
-          <h3>Access</h3>
+          <h3>{t("control:libraries.sectionAccess")}</h3>
           <dl className="library-info-list">
-            <LibraryInfoRow label="Access">{accessSummary(library)}</LibraryInfoRow>
-            <LibraryInfoRow label="Mode">{MODE_LABEL[library.mode ?? "managed"]}</LibraryInfoRow>
-            <LibraryInfoRow label="Your role">{roleLabel(library.myRole)}</LibraryInfoRow>
-            <LibraryInfoRow label="Capabilities">
+            <LibraryInfoRow label={t("control:libraries.fieldAccess")}>{accessSummary(library)}</LibraryInfoRow>
+            <LibraryInfoRow label={t("control:libraries.fieldMode")}>{modeLabel(library.mode ?? "managed")}</LibraryInfoRow>
+            <LibraryInfoRow label={t("control:libraries.fieldYourRole")}>{roleLabel(library.myRole)}</LibraryInfoRow>
+            <LibraryInfoRow label={t("control:libraries.fieldCapabilities")}>
               {capabilities.length > 0 ? (
                 <span className="library-info-chips">
                   {capabilities.map((capability) => (
@@ -901,47 +915,47 @@ function LibraryDetailsModal({
                   ))}
                 </span>
               ) : (
-                "None"
+                t("control:libraries.role.none")
               )}
             </LibraryInfoRow>
           </dl>
         </section>
 
         <section className="library-info-section">
-          <h3>Contents</h3>
+          <h3>{t("control:libraries.sectionContents")}</h3>
           <dl className="library-info-list">
-            <LibraryInfoRow label="Files">{formatCount(library.fileCount)}</LibraryInfoRow>
-            <LibraryInfoRow label="Size">{formatLibrarySize(library.totalSizeBytes)}</LibraryInfoRow>
-            <LibraryInfoRow label="Status">
-              <span className={`status-badge ${library.scanStatus}`}>{SCAN_STATUS_LABEL[library.scanStatus]}</span>
+            <LibraryInfoRow label={t("control:libraries.fieldFiles")}>{formatCount(library.fileCount)}</LibraryInfoRow>
+            <LibraryInfoRow label={t("control:libraries.fieldSize")}>{formatLibrarySize(library.totalSizeBytes)}</LibraryInfoRow>
+            <LibraryInfoRow label={t("control:libraries.fieldStatus")}>
+              <span className={`status-badge ${library.scanStatus}`}>{scanStatusLabel(library.scanStatus)}</span>
             </LibraryInfoRow>
-            <LibraryInfoRow label="Last scanned">
-              {library.lastScannedAt ? formatManagedDate(library.lastScannedAt) : "Not yet"}
+            <LibraryInfoRow label={t("control:libraries.fieldLastScanned")}>
+              {library.lastScannedAt ? formatManagedDate(library.lastScannedAt) : t("control:libraries.notYet")}
             </LibraryInfoRow>
           </dl>
         </section>
 
         <section className="library-info-section">
-          <h3>Scanning</h3>
+          <h3>{t("control:libraries.sectionScanning")}</h3>
           <dl className="library-info-list">
-            <LibraryInfoRow label="Sources">{scanSources}</LibraryInfoRow>
-            <LibraryInfoRow label="Extensions">{extensions}</LibraryInfoRow>
-            <LibraryInfoRow label="Upload limit">
-              {library.settings?.maxUploadMB != null ? `${library.settings.maxUploadMB} MB` : "10 GB (standard)"}
+            <LibraryInfoRow label={t("control:libraries.fieldSources")}>{scanSources}</LibraryInfoRow>
+            <LibraryInfoRow label={t("control:libraries.fieldExtensions")}>{extensions}</LibraryInfoRow>
+            <LibraryInfoRow label={t("control:libraries.fieldUploadLimit")}>
+              {library.settings?.maxUploadMB != null ? t("control:libraries.uploadLimitValue", { mb: library.settings.maxUploadMB }) : t("control:libraries.uploadLimitDefault")}
             </LibraryInfoRow>
             {library.type === "audiobook" && (
-              <LibraryInfoRow label="Tag encoding">
-                {library.settings?.tagEncoding ?? "Library default"}
+              <LibraryInfoRow label={t("control:libraries.fieldTagEncoding")}>
+                {library.settings?.tagEncoding ?? t("control:libraries.tagEncodingDefault")}
               </LibraryInfoRow>
             )}
-            <LibraryInfoRow label="Created">{formatManagedDate(library.createdAt)}</LibraryInfoRow>
-            <LibraryInfoRow label="Updated">{formatManagedDate(library.updatedAt)}</LibraryInfoRow>
+            <LibraryInfoRow label={t("control:libraries.fieldCreated")}>{formatManagedDate(library.createdAt)}</LibraryInfoRow>
+            <LibraryInfoRow label={t("control:libraries.fieldUpdated")}>{formatManagedDate(library.updatedAt)}</LibraryInfoRow>
           </dl>
         </section>
       </div>
 
       <div className="modal-actions">
-        <Button variant="secondary" onClick={onClose} autoFocus>Close</Button>
+        <Button variant="secondary" onClick={onClose} autoFocus>{t("control:ui.close")}</Button>
       </div>
     </Modal>
   );

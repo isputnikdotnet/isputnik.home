@@ -9,7 +9,7 @@ it points there rather than repeating it.
 
 | Section | Tabs |
 |---|---|
-| **Overview** | Dashboard, Sign-ins, Logs |
+| **Overview** | Dashboard, Logs |
 | **Library** | Libraries, Storage, Categories, Tags |
 | **Members** | Users, Groups, Invite links |
 | **Security** | Overview, Policies, Trusted networks, Blocked IPs |
@@ -51,8 +51,11 @@ tabs under the heading — real tabs, not a dropdown:
 - **Libraries** — what's *in* the catalogue, every media type on one page: a card
   each for audiobooks, ebooks and photos & videos, and one for the total on disk;
   every library in one table, biggest first, with its share of the storage drawn
-  beside it; and three short lists side by side — top authors across both book
-  types, top narrators by hours, and the biggest gallery files.
+  beside it; and four short lists, paired two by two. People first — top authors
+  across both book types, top narrators by hours — then what is on the disk: the
+  biggest gallery files, and the folders holding the most photos. That last one
+  counts the folder each photo actually sits in, not its subfolders rolled up, so
+  it names the place to go rather than the library it is somewhere inside.
 - **Tasks** — scans and other background work. Four cards say what is running,
   what is queued, how many tasks failed this week, and when the last one
   finished; a row under them says when the next scheduled run is due and opens
@@ -61,16 +64,30 @@ tabs under the heading — real tabs, not a dropdown:
   to failures only, to one kind of task, or to one library — so "which scans
   failed, and where?" is a filter, not a scroll. A failed row's error opens
   underneath it.
-- **Logins** — the view the page opens on. Pick a window (1h, 7h, 24h, 7d, 30d,
-  or a custom start and end)
-  and everything below follows it: cards for attempts, successes, failures and
-  IPs blocked — each compared with the window before it — a chart of successful
-  and failed sign-ins, and a table of every sign-in in the window — 10, 20, 50 or
-  100 rows to a page, and it remembers which you picked. A row shows the address
-  with the person under it, the method as an icon (hover for its name), the
-  result, and — with an AbuseIPDB key set under Security → Policies — a coloured
-  reputation light — one shield whose colour is the signal: green for a clean
-  address, amber for one with some history, red for one the community calls
+- **Sign-ins** — the view the page opens on: who got in, from where, and what is
+  still signed in. Pick a window (1h, 7h, 24h, 7d, 30d, or a custom start and
+  end) and everything below follows it: cards for attempts, successes (with the
+  methods behind them) and failures (with any addresses blocked in that window),
+  and how many people signed in from how many addresses.
+
+  Under the cards, the two halves of "who is at the door" share one card, with a
+  count on each so you can see what is in the half you are not looking at:
+
+  **Devices still signed in** — every live session, a display, phone, tablet or
+  computer, who it belongs to, its address, when it was last seen and when it
+  expires, with a revoke button on every row but your own. That is where you go
+  when a laptop is lost, or when a sign-in alert names a device you don't
+  recognise. Above the table, a bar per person split by device kind — who is
+  holding the sessions, which fifty rows only answer by scrolling — and the
+  counter chips, which both count each kind and narrow the panel to it.
+
+  **Sign-ins in this range** — the chart of successful against failed sign-ins
+  over the window, and under it every attempt in it, 10, 20, 50 or 100 rows to a
+  page, and it remembers which you picked. A row shows the address with the
+  person under it, the method as an icon (hover for its name),
+  the result, and — with an AbuseIPDB key set under Security → Policies — a
+  coloured reputation light: one shield whose colour is the signal: green for a
+  clean address, amber for one with some history, red for one the community calls
   abusive, an outlined shield for an address nobody has checked, and a muted
   house for your own network. Hover it for the score and where the address sits.
   The arrow at the start of a row opens the full record underneath it: user,
@@ -78,12 +95,30 @@ tabs under the heading — real tabs, not a dropdown:
   reputation in words with a **Check with AbuseIPDB** button when that address has
   never been looked up. Nothing is sent to AbuseIPDB until you press it, and local
   addresses are never sent at all. Click IP address, User, Method or Time in the
-  heading to sort by it, and again to reverse it.
+  heading to sort by it, and again to reverse it. Only the newest few hundred
+  attempts are kept in the panel; the count beside the tab is the true total for
+  the window, and Logs holds the rest.
+
+  Three tables follow the card. **Addresses** is one row per address with its
+  location, how many connections and failures came from it, whether it is
+  blocked, and any scanner traffic counted against it. **People** is the same by
+  person, with the methods they used; failed attempts prove nothing about who
+  typed them, so they gather under "Not signed in" rather than being hidden.
+  **Names tried** appears when a stranger has been guessing: the sign-in names
+  they tried that belong to no account here.
+
+  **Narrowing it.** Everything above answers one scope at a time, shown as a chip
+  at the top: everything by default, or one country, town, address or person.
+  **Filter** sets it by hand, and the arrow at the end of any row on this page —
+  or on the Locations tables, the Logs page, or Security → Blocked IPs — dives
+  into that address or person. The scope lives in the address bar, so a dive can
+  be sent to somebody, and Back walks up out of it. The ✕ on the chip returns to
+  everything.
 - **Locations** — where sign-ins came from, over the window you pick: a world map
   shaded by how many connections each country sent, and a table of countries with
   connections, failures and how many distinct addresses were behind them. Sign-ins
   from inside your own house are counted separately as "Home network" rather than
-  being dropped, so the numbers always add up to what the Logins page shows — the
+  being dropped, so the numbers always add up to what Sign-ins shows — the
   line under the map spells that out: how many sign-ins the range holds, how many
   the map could place, how many came from your own network, and how many no
   database could place.
@@ -116,7 +151,7 @@ tabs under the heading — real tabs, not a dropdown:
   take that name. It is stored on your server for that one purpose, never sent
   anywhere, and **Take it off the map** removes it again.
 - **Activity** — what the household has been doing with the library, over the
-  window you pick with the same date toolbar Logins has: cards for uploads,
+  window you pick with the same date toolbar Sign-ins has: cards for uploads,
   downloads and deletes (each compared with the stretch before) and storage used;
   two charts (uploads, downloads and deletes; and what was played, read or
   viewed); the content events themselves; and what's currently in progress for
@@ -188,9 +223,9 @@ them across the whole install.
 - **Invite links** — sign-up links, so you don't have to hand out passwords. Create
   one, send it, retire it when it's been used or you've changed your mind.
 
-Signed-in devices moved to Overview → Sign-ins, which lists every session with the
-ability to revoke any of them — where you go when a laptop is lost, or when a
-sign-in alert names a device you don't recognise.
+Signed-in devices moved to the Dashboard's Sign-ins view, which lists every
+session with the ability to revoke any of them — where you go when a laptop is
+lost, or when a sign-in alert names a device you don't recognise.
 
 Library *access* is granted per library (in Library → Libraries → a library →
 members), not here — this section is about who exists, groups are about who they are
@@ -242,11 +277,11 @@ internet](exposing-to-the-internet.md).
   would otherwise expire). The chips above the list count and filter running,
   permanent and lapsed blocks; **Clear lapsed** removes the automatic blocks that
   have already run out in one go. The arrow at the end of a row opens that
-  address's Sign-ins page, where the attempts behind the block are. With an
+  address's Sign-ins dive, where the attempts behind the block are. With an
   AbuseIPDB key set under Policies, the row shows the address's public abuse
   score, and the opened record carries the full picture — reports, country,
   network operator, when it was checked — with the **Check with AbuseIPDB** button
-  there, as on the Logins table.
+  there, as on the Sign-ins table.
 - Under **Policies** you can also connect **AbuseIPDB** (free API key) so blocked
   addresses are checked against a community abuse database — and, if you keep the
   escalation switch on, known-abusive addresses stay blocked permanently instead
@@ -302,9 +337,14 @@ database out from under a running server is how databases get corrupted.
 
 The recurring work, one row each: scanning each library type for new files, scanning
 new photos for faces, looking for duplicate photos, purging missing photos, cleaning
-task history, emptying the recycle bin, and converting unplayable videos. Sensible
-defaults ship enabled; the face scan runs after the nightly library scans so the
-day's new photos are already cataloged.
+task history, purging expired recycle bin items, and converting unplayable videos.
+Sensible defaults ship enabled; the face scan runs after the nightly library scans so
+the day's new photos are already cataloged.
+
+None of them ever removes something ahead of its time. **Purge expired recycle bin
+items** takes only what has outlived the window it was given when it was deleted —
+emptying the bin outright stays a button on the Recycle Bin page, where you can see
+what you're about to lose.
 
 Rows are grouped by what the job is about — audiobooks, ebooks, gallery, then the
 system chores — and each carries a matching tag, so the library scans sit together
@@ -323,7 +363,7 @@ the scanner and returns in milliseconds, while the scan itself may run for an ho
 So the button stays spinning, and the message above the table says what was queued
 with a link straight to **Overview → Tasks**, where you can watch the progress bars.
 When the last queued task finishes, the message says so. Jobs that do their work on
-the spot — emptying the recycle bin, purging missing photos — simply report their
+the spot — purging expired recycle bin items, purging missing photos — simply report their
 result and are done. Only one job can be started by hand at a time; several of them
 skip themselves anyway when another heavy task is already running.
 
@@ -376,12 +416,24 @@ was removed — which is how you find the one book you deleted by hand under a
 cleanup's thousands of photos. The two buttons on each tile restore that item or
 delete it for good.
 
-**Restore all**, beside Empty in the header, puts back everything the page is
-showing — so with a library chosen it restores that library's items and leaves the
+**Restore all**, beside Empty in the header, puts back everything in the chosen
+library — so with a library picked it restores that library's items and leaves the
 rest alone. Each item is put back on its own, so one that can't be doesn't stop the
 others: an item whose library has since been removed, or whose old place on disk is
 now occupied, stays in the bin and is named afterwards. Nothing is deleted either
 way, which is why it asks in ordinary terms rather than the red warning Empty gets.
+
+**Empty** follows the same library picker: with a library chosen it empties only
+that one, and says so. With **All libraries** chosen it reaches every library,
+including any the page is not showing — so that one asks you to type the number of
+items back before it will go ahead. Both dialogs open by stating exactly what is
+about to be lost: how many items, how much disk, how many files, and how many of
+them were still inside the retention window they were given and would not have gone
+on their own.
+
+Note that the search box and the source/retention filters narrow the *tiles*, not
+the action. Empty and Restore all always work on the whole library you have picked,
+which is why their dialogs count that rather than what is on screen.
 
 ---
 

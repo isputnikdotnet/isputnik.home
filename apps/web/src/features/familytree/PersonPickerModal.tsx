@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Search, UserRoundPlus, UsersRound } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { api } from "../../api";
 import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
@@ -28,6 +29,7 @@ export function PersonPickerModal({
   onPick: (person: FamilyPerson) => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation(["common", "family"]);
   const [persons, setPersons] = useState<FamilyPerson[]>([]);
   const [search, setSearch] = useState("");
   const [newName, setNewName] = useState("");
@@ -37,8 +39,8 @@ export function PersonPickerModal({
   useEffect(() => {
     api<{ persons: FamilyPerson[] }>("/api/family-tree/persons")
       .then((payload) => setPersons(payload.persons))
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load people"));
-  }, []);
+      .catch((err) => setError(err instanceof Error ? err.message : t("family:personPicker.errors.loadPeople")));
+  }, [t]);
 
   const excluded = useMemo(() => new Set(excludeIds), [excludeIds]);
   const term = search.trim().toLowerCase();
@@ -60,7 +62,7 @@ export function PersonPickerModal({
       });
       onPick(payload.person);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to create this person");
+      setError(err instanceof Error ? err.message : t("family:personPicker.errors.createPerson"));
       setCreating(false);
     }
   };
@@ -74,14 +76,14 @@ export function PersonPickerModal({
       busy={creating}
       onClose={onClose}
     >
-      {error && <MessageBox tone="error" title="Unable to load people">{error}</MessageBox>}
+      {error && <MessageBox tone="error" title={t("family:personPicker.errors.loadPeople")}>{error}</MessageBox>}
       <label className="ft-picker-search">
         <Search size={17} aria-hidden="true" />
-        <span className="sr-only">Search people</span>
+        <span className="sr-only">{t("family:personPicker.searchSr")}</span>
         <input
           type="search"
           value={search}
-          placeholder="Search people…"
+          placeholder={t("family:personPicker.searchPlaceholder")}
           onChange={(event) => setSearch(event.target.value)}
           autoFocus
         />
@@ -94,25 +96,25 @@ export function PersonPickerModal({
             <span className="ft-picker-row-name">
               <strong>{person.name}</strong>
               {(person.maidenName || lifeYears(person)) && (
-                <small>{[person.maidenName ? `née ${person.maidenName}` : "", lifeYears(person)].filter(Boolean).join(" · ")}</small>
+                <small>{[person.maidenName ? t("family:common.nee", { name: person.maidenName }) : "", lifeYears(person)].filter(Boolean).join(" · ")}</small>
               )}
             </span>
           </button>
         ))}
         {shown.length === 0 && (
-          <p className="management-empty">{persons.length === 0 ? "No family members yet." : "No one matches."}</p>
+          <p className="management-empty">{persons.length === 0 ? t("family:personPicker.noPeopleYet") : t("family:common.noOneMatches")}</p>
         )}
       </div>
 
       {allowCreate && (
       <div className="ft-picker-create">
         <label className="field">
-          <span>Or add someone new</span>
+          <span>{t("family:personPicker.orAddNew")}</span>
           <div className="field-input-wrap">
             <input
               type="text"
               value={newName}
-              placeholder="Full name"
+              placeholder={t("family:personPicker.fullNamePlaceholder")}
               onChange={(event) => setNewName(event.target.value)}
               onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void createAndPick(); } }}
             />
@@ -120,7 +122,7 @@ export function PersonPickerModal({
         </label>
         <Button variant="primary" compact onClick={() => void createAndPick()} disabled={creating || !newName.trim()}>
           <UserRoundPlus size={16} aria-hidden="true" />
-          {creating ? "Creating…" : "Create"}
+          {creating ? t("family:personPicker.creating") : t("family:personPicker.create")}
         </Button>
       </div>
       )}

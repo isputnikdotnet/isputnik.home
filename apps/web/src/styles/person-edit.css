@@ -1,0 +1,417 @@
+/* Person edit dialog + photo box (features/audiobooks/PersonProfileModal,
+   PersonPhotoModal).
+
+   Loaded AFTER metadata-modal.css on purpose: both dialogs are built on the
+   shared .metadata-modal panel, and these rules restyle it — the surface, the
+   tab strip, the fields and the footer. At equal specificity the later file
+   wins, so ordering is what lets these override the panel defaults without
+   compounding every selector with .metadata-modal. */
+
+/* ── Person edit dialog ──────────────────────────────────────────── */
+
+/* One name per role, mapped straight onto the active theme's tokens — so these
+   dialogs wear exactly what the merge dialog beside them wears, in every theme.
+   The layout below is written against these names rather than the tokens
+   directly, which is what lets the whole palette move in one place. */
+.person-edit-modal,
+.person-photo-modal {
+  --pe-surface: var(--surface-raised);
+  --pe-field: var(--field);
+  --pe-line: var(--line);
+  --pe-line-soft: var(--line);
+  --pe-ink: var(--ink);
+  --pe-muted: var(--muted);
+  --pe-accent: var(--gold);
+  --pe-danger: var(--rose);
+
+  width: min(100%, 880px);
+  /* A FIXED box, not one that fits its content: the four tabs hold very
+     different amounts, and sizing to each made the dialog jump — and the tab
+     you were aiming at move — every time you switched. The same height the book
+     metadata dialog uses, and .modal-tab-content already scrolls inside it. */
+  height: min(calc(100vh - 48px), 660px);
+  min-height: 0;
+  /* header · tabs · content · footer — the base .metadata-modal only names
+     three rows, so the footer would otherwise share the content's track. */
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  border-color: var(--pe-line-soft);
+  color: var(--pe-ink);
+  background: var(--pe-surface);
+}
+
+.person-edit-modal .modal-header,
+.person-photo-modal .modal-header {
+  padding: 20px 26px 0;
+}
+
+/* Room for the icon badge the panel header now carries, matching the book
+   metadata dialog's header. */
+.person-edit-modal .modal-header {
+  min-height: 70px;
+  padding: 16px 26px;
+}
+
+.person-edit-modal .modal-header h2,
+.person-photo-modal .modal-header h2 {
+  color: var(--pe-ink);
+  font-size: 1.36rem;
+  letter-spacing: -0.01em;
+}
+
+.person-edit-modal .modal-subtitle,
+.person-photo-modal .modal-subtitle {
+  color: var(--pe-muted);
+}
+
+.person-edit-modal .modal-close,
+.person-photo-modal .modal-close {
+  color: var(--pe-muted);
+}
+
+.person-edit-modal .modal-close:hover,
+.person-photo-modal .modal-close:hover {
+  color: var(--pe-ink);
+  background: color-mix(in srgb, var(--pe-ink) 10%, transparent);
+}
+
+/* Tabs: the active one is simply the lit word with a rule under it — no accent
+   colour, which is what keeps the header quiet in the mockup. */
+.person-edit-modal .modal-tabs,
+.person-photo-modal .modal-tabs {
+  gap: 8px;
+  padding: 14px 26px 0;
+  border-bottom-color: var(--pe-line-soft);
+}
+
+.person-edit-modal .modal-tab,
+.person-photo-modal .modal-tab {
+  padding: 0 4px 12px;
+  margin-right: 18px;
+  border-bottom-width: 2px;
+  color: var(--pe-muted);
+  font-size: 0.96rem;
+}
+
+.person-edit-modal .modal-tab:hover,
+.person-photo-modal .modal-tab:hover {
+  color: var(--pe-ink);
+}
+
+.person-edit-modal .modal-tab.active,
+.person-photo-modal .modal-tab.active {
+  color: var(--pe-ink);
+  border-bottom-color: var(--pe-ink);
+}
+
+.person-edit-modal .modal-tab-content,
+.person-photo-modal .modal-tab-content {
+  padding: 24px 26px 26px;
+  gap: 18px;
+}
+
+/* Both dialogs end in the same right-aligned action row, ruled off with real
+   breathing room above it so the form never crowds the buttons. */
+.person-edit-footer {
+  gap: 12px;
+  padding: 20px 26px 22px;
+  border-top: 1px solid var(--pe-line-soft);
+}
+
+/* Size only — the fill, text and hover come from the shared button variants, so
+   these read exactly like the merge dialog's Cancel / Merge pair. */
+.person-edit-footer .secondary-button,
+.person-edit-footer .primary-button {
+  min-height: 46px;
+  padding: 0 22px;
+  border-radius: 8px;
+  font-size: 0.95rem;
+}
+
+/* Details wears the book metadata dialog's field grid, down to the six-column
+   track and the gaps — the two dialogs edit the same kind of thing and now read
+   the same way. The base .metadata-edit-grid (four columns) and
+   .metadata-field-wide come from metadata-modal.css. */
+.person-edit-modal .metadata-edit-grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 14px 18px;
+}
+
+.person-edit-modal .metadata-field-half {
+  grid-column: span 3;
+}
+
+/* Photo has a tab of its own, the way a book's cover does. The tile keeps the
+   width it had in the old side column rather than stretching across the panel. */
+.person-edit-photo-tab {
+  display: grid;
+  justify-content: start;
+}
+
+.person-edit-photo-col {
+  display: grid;
+  gap: 14px;
+  width: min(100%, 300px);
+  min-width: 0;
+}
+
+.person-edit-label {
+  color: var(--pe-muted);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+/* Two per row while there is room for two, one when there isn't — the same
+   breakpoint behaviour the book dialog's grid has. */
+@media (max-width: 760px) {
+  .person-edit-modal .metadata-edit-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+  }
+
+  .person-edit-modal .metadata-field-half {
+    grid-column: span 1;
+  }
+}
+
+/* Labels sit above their input, the required marker in the accent — same
+   proportions as the book metadata dialog's fields. */
+.person-edit-modal .field {
+  gap: 6px;
+}
+
+.person-edit-modal .field input,
+.person-edit-modal .field select,
+.person-edit-modal .field textarea {
+  min-height: 42px;
+  padding: 9px 12px;
+  font-size: 0.94rem;
+}
+
+.person-edit-modal .field > span:first-child {
+  color: var(--pe-ink);
+  font-size: 0.94rem;
+  font-weight: 500;
+}
+
+.person-edit-req {
+  color: var(--pe-accent);
+  font-weight: 700;
+}
+
+.person-edit-modal .field input,
+.person-edit-modal .field textarea {
+  min-height: 50px;
+  padding: 0 16px;
+  border: 1px solid var(--pe-line);
+  border-radius: 8px;
+  color: var(--pe-ink);
+  background: var(--pe-field);
+  font-size: 0.98rem;
+}
+
+.person-edit-modal .field textarea {
+  min-height: 0;
+  padding: 14px 16px;
+  line-height: 1.6;
+}
+
+.person-edit-modal .field input::placeholder,
+.person-edit-modal .field textarea::placeholder {
+  color: color-mix(in srgb, var(--pe-muted) 82%, transparent);
+}
+
+.person-edit-modal .field input:focus,
+.person-edit-modal .field textarea:focus {
+  border-color: var(--pe-accent);
+  outline: 2px solid color-mix(in srgb, var(--pe-accent) 22%, transparent);
+}
+
+/* The photo tile and the photo box's dropzone are the same dashed frame — one
+   opens the box, the other takes the drop, and they should read as one idea. */
+.person-edit-photo-tile,
+.person-photo-drop {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 14px;
+  width: 100%;
+  aspect-ratio: 1;
+  padding: 18px;
+  border: 1px dashed var(--pe-line);
+  border-radius: 12px;
+  color: var(--pe-muted);
+  background: color-mix(in srgb, var(--pe-field) 55%, transparent);
+  text-align: center;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.person-edit-photo-tile:hover,
+.person-edit-photo-tile:focus-visible,
+.person-edit-photo-tile.dragging,
+.person-photo-drop:hover,
+.person-photo-drop:focus-visible,
+.person-photo-drop.dragging {
+  border-color: var(--pe-accent);
+  background: color-mix(in srgb, var(--pe-field) 85%, transparent);
+  outline: 0;
+}
+
+/* A chosen photo fills the frame — no dashed border showing through. */
+.person-edit-photo-tile:has(img),
+.person-photo-drop:has(img) {
+  padding: 0;
+  border-style: solid;
+}
+
+.person-edit-photo-tile img,
+.person-photo-drop img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.person-edit-photo-tile svg,
+.person-photo-drop svg {
+  color: color-mix(in srgb, var(--pe-muted) 78%, transparent);
+}
+
+.person-edit-photo-title,
+.person-photo-drop-title {
+  color: color-mix(in srgb, var(--pe-ink) 88%, transparent);
+  font-size: 0.98rem;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.person-edit-photo-hint,
+.person-photo-drop-hint {
+  color: var(--pe-muted);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+/* Remove / Choose photo: a full-width outlined button under the tile. */
+.person-edit-photo-button.secondary-button {
+  justify-content: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 48px;
+  border-color: var(--pe-line);
+  border-radius: 10px;
+  background: transparent;
+}
+
+.person-edit-photo-button.secondary-button:hover:not(:disabled) {
+  border-color: var(--pe-muted);
+  background: var(--hover);
+}
+
+/* Removing is destructive, so that one wears the rose the app gives every other
+   remove — including on hover, where the neutral tint above would undersell it. */
+.person-edit-photo-button.secondary-button.danger {
+  color: var(--pe-danger);
+}
+
+.person-edit-photo-button.secondary-button.danger:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--pe-danger) 55%, var(--pe-line));
+  background: color-mix(in srgb, var(--pe-danger) 10%, transparent);
+}
+
+/* The photo box: the dropzone is centred and capped, so a wide dialog doesn't
+   stretch it into a banner. */
+.person-photo-upload {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+}
+
+.person-photo-upload .person-photo-drop {
+  width: min(100%, 260px);
+}
+
+.person-photo-upload-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+.person-photo-online {
+  display: grid;
+  gap: 14px;
+}
+
+.person-photo-online-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.person-photo-online-head p {
+  margin: 0;
+  flex: 1 1 220px;
+  color: var(--pe-muted);
+  font-size: 0.9rem;
+}
+
+/* The photo box's buttons and candidate tiles are the shared components in the
+   shared colours — nothing to restate now that the palette is the theme's. */
+
+/* Author photos are portraits, not book jackets — the shared candidate tile is
+   2:3, so square them off just inside this grid. */
+.person-photo-online .cover-candidate img {
+  aspect-ratio: 1;
+}
+
+@media (max-width: 620px) {
+  .person-edit-modal .modal-header,
+  .person-photo-modal .modal-header,
+  .person-edit-modal .modal-tabs,
+  .person-photo-modal .modal-tabs,
+  .person-edit-modal .modal-tab-content,
+  .person-photo-modal .modal-tab-content,
+  .person-edit-footer {
+    padding-right: 18px;
+    padding-left: 18px;
+  }
+
+  .person-edit-photo-col {
+    justify-items: center;
+  }
+
+  .person-edit-photo-tile,
+  .person-edit-photo-button.secondary-button {
+    width: min(100%, 260px);
+  }
+}
+
+/* Running tally at the top of the result, so "Save changes" is never a guess. */
+.person-find-staged {
+  margin: 0;
+  padding: 9px 12px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--mint) 13%, transparent);
+  color: var(--ink);
+  font-size: 0.86rem;
+}
+
+/* The third action on a result card — a plain link out to the page the result
+   came from, quieter than the two buttons above it. */
+.person-result-source-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: center;
+  padding: 4px 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  text-decoration: none;
+}
+
+.person-result-source-link:hover {
+  color: var(--ink);
+  text-decoration: underline;
+}

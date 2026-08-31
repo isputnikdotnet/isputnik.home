@@ -1,8 +1,7 @@
 import { ArrowDown, ArrowUp, type LucideIcon } from "lucide-react";
 
 // A headline number with its own tinted icon, a change badge, and one line of
-// context under it — the "how is this doing right now" card, as opposed to
-// StatusMetric's compact tile for dense stat grids.
+// context under it — the "how is this doing right now" card.
 //
 // The badge is coloured by meaning, not by direction: `goodWhen` says which way
 // is the good way for this number, so a drop in failed sign-ins reads green and a
