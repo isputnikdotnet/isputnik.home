@@ -2030,7 +2030,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
     const meta = db.prepare("SELECT label FROM share_links WHERE id = ?").get(link.id) as { label: string | null } | undefined;
     const isAlbum = link.module === "gallery_album";
     const resourceName = meta?.label
-      ?? (isAlbum ? loadAlbumShareMeta(link.resource_id)?.name ?? null : null)
+      ?? (isAlbum ? loadAlbumShareMeta(link.resource_id)?.name : null)
       ?? (isStory ? storyShareTitle(link.resource_id) : null);
     const kindWord = isStory ? "story" : isAlbum ? "album" : "set";
     const safeBase = (resourceName ?? "shared-photos").replace(/[/\\?%*:|"<>]/g, "_").trim() || "shared-photos";
