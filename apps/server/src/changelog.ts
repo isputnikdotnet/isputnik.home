@@ -19,6 +19,15 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.41.1",
+    label: "Where you had got to",
+    changes: [
+      "Browsing deep into the gallery and then liking a photo undid the browsing. Every “Load more” you had pressed was quietly thrown away — the page went back to the first hundred or so photos — and if the photo you were looking at was one of the ones further down, the viewer closed itself as the list shrank underneath it. Liking now changes the heart and nothing else: the viewer stays open, and every page you loaded stays loaded.",
+      "Deleting a photo takes that one photo out of the grid and off the count, rather than starting the whole page again — so the viewer moves on to the next photo with the rest of what you loaded still there.",
+      "The changes that really do redraw the grid — rotating a photo, editing its date, tagging someone in it — still reload, but they now bring back everything that was on screen instead of only the first page. The same is true of liking or deleting a whole selection at once. Both the timeline and the folder view were affected, and both are fixed."
+    ]
+  },
+  {
     version: "3.41.0",
     label: "Look what came in",
     changes: [
