@@ -50,7 +50,8 @@
     "moveChapterUp": "Move chapter up",
     "moveChapterDown": "Move chapter down",
     "removeChapter": "Delete chapter",
-    "applyDates": "Apply dates"
+    "applyDates": "Apply dates",
+    "send": "Send"
   },
   "errors": {
     "load": "Unable to load this story.",

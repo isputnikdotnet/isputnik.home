@@ -4,7 +4,7 @@ import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
 import { ingestGalleryAsset } from "../src/modules/library/gallery/scanner.js";
 import { kindForExtension } from "../src/modules/library/gallery/media.js";
 import { createAlbum, addAlbumItems, deleteAlbum } from "../src/modules/library/gallery/albums.js";
-import { hydrateEntities } from "../src/modules/social/subjects.js";
+import { hydrateEntities, isSubjectEntityType, COLLECTABLE_ENTITY_TYPES } from "../src/modules/social/subjects.js";
 import { setEntityTags } from "../src/modules/library/audiobook/categorize.js";
 import { deleteStoryBlocksForResource, deleteStoryBlocksForLibrary } from "../src/modules/stories/cleanup.js";
 import {
@@ -341,6 +341,32 @@ describe("tags", () => {
     expect(db.prepare(
       "SELECT COUNT(*) AS n FROM taggables WHERE entity_type = ?"
     ).get(STORY_ENTITY_TYPE)).toEqual({ n: 0 });
+  });
+});
+
+describe("as a subject (Send to, Notes)", () => {
+  it("hydrates a published story for any member", () => {
+    const story = createStory(author, "Minnesota", "Three weeks");
+    updateStory(story.id, { status: "published" });
+    const view = hydrateEntities([{ entityType: "story", entityId: story.id }], viewer).get(`story:${story.id}`);
+    expect(view?.available).toBe(true);
+    expect(view?.title).toBe("Minnesota");
+    expect(view?.subtitle).toBe("Three weeks");
+    expect(view?.href).toBe(`/stories/${story.id}`);
+    expect(view?.playable).toBe(false);
+  });
+
+  it("hides a draft from other members, like every other read path", () => {
+    const story = createStory(author, "Draft", null);
+    expect(hydrateEntities([{ entityType: "story", entityId: story.id }], author)
+      .get(`story:${story.id}`)?.available).toBe(true);
+    expect(hydrateEntities([{ entityType: "story", entityId: story.id }], viewer)
+      .get(`story:${story.id}`)).toBeUndefined();
+  });
+
+  it("is not collectable — a collection offers playback a story hasn't got", () => {
+    expect(COLLECTABLE_ENTITY_TYPES).not.toContain("story");
+    expect(isSubjectEntityType("story")).toBe(true);
   });
 });
 

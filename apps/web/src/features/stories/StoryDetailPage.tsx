@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, MapPin, Pencil } from "lucide-react";
+import { ArrowLeft, MapPin, Pencil, Send } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { followRoute, goBack, navigate } from "../../router";
@@ -10,6 +10,8 @@ import { formatPartialDate, formatPartialDateRange } from "../../shared/utils";
 import { GalleryLightbox } from "../gallery/GalleryLightbox";
 import type { GalleryAsset } from "../gallery/types";
 import type { SlideshowTransition } from "../gallery/types";
+import { NotesSection } from "../social/NotesSection";
+import { SendToSheet } from "../social/SendToSheet";
 import { StoryBlockView } from "./StoryBlockView";
 import { chapterDateText, groupIntoRows } from "./story-layout";
 import { hasChapterStructure, type StoryBlock, type StoryChapter, type StoryDetail } from "./types";
@@ -29,6 +31,7 @@ export function StoryDetailPage({
   const { t } = useTranslation(["common", "stories"]);
   const [story, setStory] = useState<StoryDetail | null>(null);
   const [error, setError] = useState("");
+  const [sending, setSending] = useState(false);
   const [lightbox, setLightbox] = useState<
     { assets: GalleryAsset[]; index: number; autoPlay?: boolean; transition?: SlideshowTransition; interval?: number; transitionSeconds?: number; musicUrl?: string } | null
   >(null);
@@ -117,14 +120,22 @@ export function StoryDetailPage({
                   ))}
                 </ul>
               )}
-              {story.canEdit && (
-                <div className="story-read-actions">
+              <div className="story-read-actions">
+                {story.canEdit && (
                   <Button variant="secondary" compact onClick={() => navigate(`/stories/${story.id}/edit`)}>
                     <Pencil size={15} aria-hidden="true" />
                     <span>{t("stories:actions.edit")}</span>
                   </Button>
-                </div>
-              )}
+                )}
+                {/* Sending is how a story reaches one person before real story
+                    shares land; a draft has nobody to send to yet. */}
+                {story.status === "published" && (
+                  <Button variant="secondary" compact onClick={() => setSending(true)}>
+                    <Send size={15} aria-hidden="true" />
+                    <span>{t("stories:actions.send")}</span>
+                  </Button>
+                )}
+              </div>
             </header>
 
             {story.chapters.every((chapter) => chapter.blocks.length === 0) && (
@@ -142,9 +153,20 @@ export function StoryDetailPage({
                 onPlaySlideshow={playSlideshow}
               />
             ))}
+
+            {/* The family's reaction to the story belongs with the story, the
+                way notes hang off a photo or a book. */}
+            <NotesSection entityType="story" entityId={story.id} />
           </article>
         )}
       </section>
+
+      {story && sending && (
+        <SendToSheet
+          subject={{ entityType: "story", entityId: story.id }}
+          onClose={() => setSending(false)}
+        />
+      )}
 
       {lightbox && (
         <GalleryLightbox

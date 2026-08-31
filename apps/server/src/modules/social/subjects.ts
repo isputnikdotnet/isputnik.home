@@ -482,6 +482,72 @@ const hydrateQuotes: Hydrator = (entityIds, user) => {
   return result;
 };
 
+// A story is a narrative page over content the library already holds. Same
+// visibility rule the stories module applies everywhere: published to every
+// member, drafts to their author (and admins). The cover falls back to the
+// first visible photo a media block points at, exactly as the story index does.
+//
+// Not collectable, for the same reason albums and slideshows aren't: a
+// collection renders playback/file affordances, and a story has neither. It is
+// send-able and note-able, which is what sharing a story with someone means
+// before real story shares land.
+const hydrateStories: Hydrator = (entityIds, user) => {
+  const result = new Map<string, HydratedEntity>();
+  if (entityIds.length === 0) return result;
+
+  const libIds = [...accessibleLibraryIds(user.id, user.role, "gallery")];
+  const libArgs = libIds.length > 0 ? libIds : [""];
+  const libIn = libArgs.map(() => "?").join(", ");
+  const idIn = entityIds.map(() => "?").join(", ");
+
+  const rows = db.prepare(`
+    SELECT
+      stories.id,
+      stories.title,
+      stories.subtitle,
+      stories.status,
+      stories.created_by,
+      (SELECT COUNT(*) FROM story_blocks
+        JOIN story_chapters ON story_chapters.id = story_blocks.chapter_id
+        WHERE story_chapters.story_id = stories.id) AS block_count,
+      COALESCE(
+        (SELECT item_metadata.cover_storage_key FROM library_items
+          JOIN item_metadata ON item_metadata.item_id = library_items.id
+          WHERE library_items.id = stories.cover_item_id AND library_items.deleted_at IS NULL
+            AND library_items.library_id IN (${libIn})),
+        (SELECT item_metadata.cover_storage_key FROM story_blocks
+          JOIN story_chapters ON story_chapters.id = story_blocks.chapter_id
+          JOIN library_items ON library_items.id = story_blocks.entity_id AND library_items.deleted_at IS NULL
+          JOIN item_metadata ON item_metadata.item_id = library_items.id
+          WHERE story_chapters.story_id = stories.id
+            AND story_blocks.entity_type = 'gallery'
+            AND library_items.library_id IN (${libIn})
+            AND item_metadata.cover_storage_key IS NOT NULL
+          ORDER BY story_chapters.position, story_blocks.position LIMIT 1)
+      ) AS cover_key
+    FROM stories
+    WHERE stories.id IN (${idIn})
+      AND (stories.status = 'published' OR stories.created_by = ? OR ? = 'admin')
+  `).all(...libArgs, ...libArgs, ...entityIds, user.id, user.role) as {
+    id: string; title: string; subtitle: string | null; status: string;
+    created_by: string; block_count: number; cover_key: string | null;
+  }[];
+
+  for (const row of rows) {
+    result.set(row.id, {
+      available: true,
+      title: row.title,
+      subtitle: row.subtitle,
+      coverUrl: row.cover_key ? `/api/library/covers/${row.cover_key}` : null,
+      durationSeconds: null,
+      fileCount: row.block_count,
+      href: `/stories/${row.id}`,
+      playable: false
+    });
+  }
+  return result;
+};
+
 const SUBJECTS: Record<string, SubjectType> = {
   audiobook: { hydrate: hydrateAudiobooks, collectable: true },
   ebook: { hydrate: hydrateEbooks, collectable: true },
@@ -489,7 +555,8 @@ const SUBJECTS: Record<string, SubjectType> = {
   quote: { hydrate: hydrateQuotes, collectable: true },
   family_tree_person: { hydrate: hydrateFamilyPersons, collectable: false },
   gallery_album: { hydrate: makeAlbumHydrator(), collectable: false },
-  gallery_slideshow: { hydrate: hydrateSlideshows, collectable: false }
+  gallery_slideshow: { hydrate: hydrateSlideshows, collectable: false },
+  story: { hydrate: hydrateStories, collectable: false }
 };
 
 /** The subset a Collection accepts. Narrower than the above; see SubjectType. */
