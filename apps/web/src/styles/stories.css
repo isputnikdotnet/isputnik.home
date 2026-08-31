@@ -720,3 +720,15 @@
   color: var(--muted);
   font-size: 0.88rem;
 }
+
+/* Group heading inside a picker list ("Suggested", "Everything else"). */
+.story-picker-group {
+  margin: 10px 0 2px;
+  padding: 0 8px;
+  color: var(--gold);
+  font-size: 0.74rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.story-picker-group:first-child { margin-top: 0; }

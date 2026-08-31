@@ -162,6 +162,7 @@ export function StoryEditorPage({
                 total={story.chapters.length}
                 busy={busy}
                 showChapterFields={structured || showChapterFields}
+                storyTags={story.tags}
                 onPatch={(fields) => void editor.patchChapter(chapter.id, fields)}
                 onRemove={() => void editor.removeChapter(chapter.id)}
                 onMove={(direction) => void editor.moveChapter(chapter.id, direction)}

@@ -10,6 +10,9 @@ import { nanoid } from "nanoid";
 import { db } from "../../../db.js";
 import { ASSET_COLUMNS, ASSET_JOINS, mapAsset, type GalleryAssetRow } from "./catalog.js";
 import type { CardFont, CardSize } from "./slideshow-title-card.js";
+import { entityTagsByIds } from "../audiobook/categorize.js";
+
+const SLIDESHOW_TAG_TYPE = "gallery_slideshow";
 
 const inClause = (n: number) => Array(n).fill("?").join(", ");
 
@@ -371,9 +374,12 @@ export function listSlideshows(user: { id: string; role: string }, libIds: strin
     ORDER BY datetime(gallery_slideshows.updated_at) DESC
   `).all(...libArgs, ...libArgs, ...libArgs) as SlideshowListRow[];
 
-  return rows
-    .filter((row) => row.visible_count > 0 || canEditSlideshow(row, user))
-    .map((row) => summarize(row, row.visible_count, row.cover_key, canEditSlideshow(row, user)));
+  const visible = rows.filter((row) => row.visible_count > 0 || canEditSlideshow(row, user));
+  const tags = entityTagsByIds(SLIDESHOW_TAG_TYPE, visible.map((row) => row.id));
+  return visible.map((row) => ({
+    ...summarize(row, row.visible_count, row.cover_key, canEditSlideshow(row, user)),
+    tags: tags.get(row.id) ?? []
+  }));
 }
 
 // Shape one slideshow for the client. Kept in one place so the list, create, and

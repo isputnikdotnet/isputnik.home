@@ -7,6 +7,7 @@
 import { nanoid } from "nanoid";
 import { db } from "../../../db.js";
 import { ASSET_COLUMNS, ASSET_JOINS, mapAsset, type GalleryAssetRow } from "./catalog.js";
+import { entityTagsByIds } from "../audiobook/categorize.js";
 
 const inClause = (n: number) => Array(n).fill("?").join(", ");
 
@@ -161,8 +162,9 @@ export function listAlbums(user: { id: string; role: string }, libIds: string[])
     ORDER BY datetime(gallery_albums.updated_at) DESC
   `).all(...libArgs, ...libArgs, ...libArgs) as AlbumListRow[];
 
-  return rows
-    .filter((row) => row.visible_count > 0 || canEditAlbum(row, user))
+  const visible = rows.filter((row) => row.visible_count > 0 || canEditAlbum(row, user));
+  const tags = entityTagsByIds("gallery_album", visible.map((row) => row.id));
+  return visible
     .map((row) => ({
       id: row.id,
       name: row.name,
@@ -170,6 +172,7 @@ export function listAlbums(user: { id: string; role: string }, libIds: string[])
       itemCount: row.visible_count,
       coverUrl: row.cover_key ? `/api/library/covers/${row.cover_key}` : null,
       sortMode: row.sort_mode,
+      tags: tags.get(row.id) ?? [],
       canEdit: canEditAlbum(row, user),
       updatedAt: row.updated_at
     }));

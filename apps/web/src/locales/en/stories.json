@@ -136,7 +136,9 @@
     "albumEmpty": "There are no albums to add yet.",
     "slideshowEmpty": "There are no slideshows to add yet.",
     "personEmpty": "There is nobody in the family tree yet.",
-    "quoteEmpty": "There are no quotes to add yet."
+    "quoteEmpty": "There are no quotes to add yet.",
+    "suggested": "Suggested — shares a tag with this story",
+    "everything": "Everything else"
   },
   "map": {
     "addTitle": "Add a map",

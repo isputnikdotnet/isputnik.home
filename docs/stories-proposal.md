@@ -1,7 +1,8 @@
 # Stories — proposal
 
-Status: **Phase 1 built** (schema, `modules/stories`, index / reading view /
-editor); phases 2–5 remain proposals. Companion to
+Status: **Phases 1 and 2 built** (schema, `modules/stories`, index / reading
+view / editor; tags, person and quote blocks, suggestions, subject registry).
+Phases 3–5 remain proposals. Companion to
 [gallery-library.md](gallery-library.md),
 [gallery-memories-albums-proposal.md](gallery-memories-albums-proposal.md)
 (albums/slideshows, largely shipped), [sharing.md](sharing.md), and
@@ -278,7 +279,35 @@ type later ("New story: …").
 **i18n**: all new strings are keys from day one (en + ru), per the sweep
 rules.
 
-## Phase 2 — Connections: tags, people, quotes, suggestions
+## Phase 2 — Connections: tags, people, quotes, suggestions — BUILT
+
+Built as proposed, all six items. As-built notes:
+
+- **Stories are top-level**, not in the "My Library" side nav where phase 1
+  put them (that group is things you *saved*; a story is *authored*) and not a
+  gallery view either — every gallery tab is a way of looking at gallery
+  assets, and a story isn't one. Family tree is the precedent.
+- **Albums and slideshows count as gallery matches** in the tag browse rather
+  than earning scopes of their own: the toggle lists media types, not
+  container kinds. They get one "Albums & slideshows" section.
+- **Tag reachability is delegated**, not re-derived — `listAlbums` /
+  `listSlideshows` / `listStories` already own their visibility rules, so the
+  tag routes filter their output instead of writing the rule a second time.
+- **`shared/TagInput`** was extracted rather than inlined a second time, and
+  commits the draft on blur as well as on Enter. That closes the gap the
+  gallery's bulk tag dialog worked around with "anything still in the box
+  counts".
+- **The tag readers moved to `categorize.ts`** beside the writers
+  (`getEntityTags` / `entityTagsByIds` / `deleteEntityTags`), so stories,
+  albums and slideshows share one implementation.
+- **Suggestions are tag-matched**, shown as a "Suggested" group above
+  "Everything else", and collapse to a single list while searching — a search
+  is the intent, and two lists would hide matches.
+- Stories are **not collectable**, matching albums and slideshows: a
+  collection renders playback/file affordances a story hasn't got. They are
+  send-able and note-able, and the reading view gained both.
+
+## Phase 2 — as proposed
 
 - **Tags on stories**: write `taggables` rows with `entity_type='story'`;
   add per-type counts to `GET /api/library/tags` and a `stories` group on
@@ -347,9 +376,8 @@ target. This is a sequencer over existing players, not a new renderer.
 
 ## Build order
 
-Core ✓ → connections (tags/person/suggestions) → sharing → player → options.
-Each phase independently shippable; core was by far the largest (the editor
-dominates).
+Core ✓ → connections ✓ → sharing → player → options. Each phase
+independently shippable; core was by far the largest (the editor dominates).
 
 ## Open questions
 
@@ -366,9 +394,10 @@ Still open:
 - **Chapter-level tags**: Phase 2 ships story-level only — is per-chapter
   discovery worth a second taggable type (`story_chapter`), or do story tags
   cover it?
-- **Stories in collections?** A story could be a collectable subject
-  (`COLLECTABLE_ENTITY_TYPES`). Proposal: yes, it's one registry line — but
-  decide before writing the SUBJECTS entry in Phase 2.
+- ~~Stories in collections?~~ Resolved while building phase 2: **not
+  collectable**, matching albums and slideshows — a collection renders
+  playback and file affordances a story hasn't got. Revisit only if
+  collections grow a plain "reading list" mode.
 - **Cover picker**: the list falls back to the first visible photo. Worth a
   "Set as story cover" action on a media block, or is the fallback enough?
 

@@ -19,6 +19,7 @@ export function StoryChapterEditor({
   total,
   busy,
   showChapterFields,
+  storyTags,
   onPatch,
   onRemove,
   onMove,
@@ -32,6 +33,8 @@ export function StoryChapterEditor({
   /** A single untitled chapter hides its heading fields behind "Add chapter
    *  details" — a simple journal page shouldn't open with a form. */
   showChapterFields: boolean;
+  /** The story's tags, so the pickers can offer matching content first. */
+  storyTags: string[];
   onPatch: (fields: Record<string, unknown>) => void;
   onRemove: () => void;
   onMove: (direction: -1 | 1) => void;
@@ -234,6 +237,7 @@ export function StoryChapterEditor({
       {(picker === "album" || picker === "slideshow" || picker === "person" || picker === "quote") && (
         <StoryRefPicker
           kind={picker}
+          storyTags={storyTags}
           onPick={(id) => { const kind = picker; setPicker(null); onAddBlock(kind, { entityId: id }); }}
           onClose={() => setPicker(null)}
         />

@@ -17,6 +17,8 @@ export type RefKind = "album" | "slideshow" | "person" | "quote";
 interface Row {
   id: string;
   title: string;
+  /** The row's own tags — what a suggestion is matched on. */
+  tags: string[];
   /** Ready-made second line (a person's life years, a quote's speaker). */
   detail: string;
   /** Photo count, when the second line is a count the component pluralizes. */
@@ -33,10 +35,13 @@ const ICONS: Record<RefKind, typeof Images> = {
 
 export function StoryRefPicker({
   kind,
+  storyTags = [],
   onPick,
   onClose
 }: {
   kind: RefKind;
+  /** The story's own tags. Anything sharing one is offered first. */
+  storyTags?: string[];
   onPick: (id: string) => void;
   onClose: () => void;
 }) {
@@ -59,6 +64,30 @@ export function StoryRefPicker({
   const term = search.trim().toLowerCase();
   const visible = (rows ?? []).filter((row) =>
     !term || row.title.toLowerCase().includes(term) || row.detail.toLowerCase().includes(term));
+
+  // Anything sharing a tag with the story is almost certainly what the author
+  // is reaching for, so it goes first under its own heading. Searching drops
+  // the split — a search IS the intent, and two lists would just hide matches.
+  const wanted = new Set(storyTags.map((tag) => tag.toLowerCase()));
+  const suggested = term || wanted.size === 0
+    ? []
+    : visible.filter((row) => row.tags.some((tag) => wanted.has(tag.toLowerCase())));
+  const suggestedIds = new Set(suggested.map((row) => row.id));
+  const rest = visible.filter((row) => !suggestedIds.has(row.id));
+
+  const renderRow = (row: Row) => (
+    <button type="button" className="story-picker-row" key={row.id} onClick={() => onPick(row.id)}>
+      <span className="story-picker-cover" aria-hidden="true">
+        {row.coverUrl ? <img src={row.coverUrl} alt="" /> : <Icon size={18} />}
+      </span>
+      <span className="story-picker-text">
+        <strong>{row.title}</strong>
+        {(row.count != null || row.detail) && (
+          <small>{row.count != null ? t("stories:count.photos", { count: row.count }) : row.detail}</small>
+        )}
+      </span>
+    </button>
+  );
 
   return (
     <Modal
@@ -90,19 +119,14 @@ export function StoryRefPicker({
         )}
 
         <div className="story-picker-list">
-          {visible.map((row) => (
-            <button type="button" className="story-picker-row" key={row.id} onClick={() => onPick(row.id)}>
-              <span className="story-picker-cover" aria-hidden="true">
-                {row.coverUrl ? <img src={row.coverUrl} alt="" /> : <Icon size={18} />}
-              </span>
-              <span className="story-picker-text">
-                <strong>{row.title}</strong>
-                {(row.count != null || row.detail) && (
-                  <small>{row.count != null ? t("stories:count.photos", { count: row.count }) : row.detail}</small>
-                )}
-              </span>
-            </button>
-          ))}
+          {suggested.length > 0 && (
+            <>
+              <p className="story-picker-group">{t("stories:picker.suggested")}</p>
+              {suggested.map(renderRow)}
+              {rest.length > 0 && <p className="story-picker-group">{t("stories:picker.everything")}</p>}
+            </>
+          )}
+          {rest.map(renderRow)}
         </div>
       </div>
     </Modal>
@@ -115,15 +139,16 @@ export function StoryRefPicker({
 async function loadRows(kind: RefKind): Promise<Row[]> {
   if (kind === "album" || kind === "slideshow") {
     const payload = await api<{
-      albums?: { id: string; name: string; itemCount: number; coverUrl: string | null }[];
-      slideshows?: { id: string; name: string; itemCount: number; coverUrl: string | null }[];
+      albums?: { id: string; name: string; itemCount: number; coverUrl: string | null; tags: string[] }[];
+      slideshows?: { id: string; name: string; itemCount: number; coverUrl: string | null; tags: string[] }[];
     }>(kind === "album" ? "/api/library/gallery/albums" : "/api/library/gallery/slideshows");
     return (payload.albums ?? payload.slideshows ?? []).map((row) => ({
       id: row.id,
       title: row.name,
       detail: "",
       count: row.itemCount,
-      coverUrl: row.coverUrl
+      coverUrl: row.coverUrl,
+      tags: row.tags ?? []
     }));
   }
 
@@ -133,7 +158,8 @@ async function loadRows(kind: RefKind): Promise<Row[]> {
       id: person.id,
       title: person.name,
       detail: lifeYears(person),
-      coverUrl: person.portraitUrl
+      coverUrl: person.portraitUrl,
+      tags: person.tags
     }));
   }
 
@@ -143,6 +169,7 @@ async function loadRows(kind: RefKind): Promise<Row[]> {
     // A quote can run to several lines; a picker row is one.
     title: quote.text.replace(/\s+/g, " ").trim(),
     detail: quote.personName ?? quote.sourceAuthors[0] ?? quote.sourceTitle ?? "",
-    coverUrl: null
+    coverUrl: null,
+    tags: quote.tags
   }));
 }
