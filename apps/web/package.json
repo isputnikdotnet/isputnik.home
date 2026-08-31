@@ -41,7 +41,7 @@
     "@types/react-dom": "^19.2.5",
     "@types/svg-maps__common": "^0.0.4",
     "jsdom": "^30.0.1",
-    "typescript": "^7.0.2",
+    "typescript": "^5.8.2",
     "vite-plugin-pwa": "^1.3.0",
     "vitest": "^4.1.11"
   }
