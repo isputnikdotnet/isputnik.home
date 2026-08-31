@@ -435,7 +435,10 @@
     "min_other": "{{count}} min",
     "endOfChapter": "End of chapter",
     "chapter": "Chapter",
-    "chapters": "Chapters"
+    "chapters": "Chapters",
+    "sharedBy": "Shared by {{name}}",
+    "download": "Download",
+    "storyExpanded": "Albums in this story can be opened in full."
   },
   "downloads": {
     "deviceStorage": "Device storage",

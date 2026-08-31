@@ -38,7 +38,11 @@ const LIBRARY_ITEM_TYPES = new Set(["audiobook", "ebook", "gallery"]);
 // Which subjects have access that CAN be widened, and how. A slideshow is absent
 // because no slideshow share exists — it is scoped by the photos in it, like an
 // album, but there is no mechanism to hand one over. A family-tree person is
-// absent because every signed-in account can already read the tree.
+// absent because every signed-in account can already read the tree. A story is
+// absent for the same reason once published — and an unpublished one is not
+// sendable at all, so there is nothing to widen (see docs/stories-proposal.md,
+// Phase 3: in-app story sharing is member visibility plus Send to; guest links
+// are the part that needed building).
 type Grantable = "item" | "album";
 const GRANTABLE: Record<string, Grantable> = {
   audiobook: "item",

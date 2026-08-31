@@ -24,6 +24,7 @@ import {
 import { getAlbum, getAlbumItems } from "../library/gallery/albums.js";
 import { getSlideshow, getSlideshowItems } from "../library/gallery/slideshows.js";
 import { deleteEntityTags, entityTagsByIds, getEntityTags } from "../library/audiobook/categorize.js";
+import { deleteSharesForResource } from "../library/shared/share-access.js";
 
 const inClause = (n: number) => Array(n).fill("?").join(", ");
 
@@ -179,8 +180,10 @@ export function deleteStory(storyId: string): boolean {
   let removed = false;
   db.transaction(() => {
     // taggables is polymorphic with no FK, so the story's tags are dropped here
-    // — the same contract every other taggable type follows.
+    // — the same contract every other taggable type follows. Guest links point
+    // at the story the same way and go with it, or they'd linger as dead URLs.
     deleteEntityTags(STORY_ENTITY_TYPE, storyId);
+    deleteSharesForResource(STORY_ENTITY_TYPE, storyId);
     // Chapters cascade, and blocks cascade from chapters.
     removed = db.prepare("DELETE FROM stories WHERE id = ?").run(storyId).changes > 0;
   })();

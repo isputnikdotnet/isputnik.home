@@ -1460,7 +1460,12 @@ CREATE TABLE IF NOT EXISTS share_links (
   expires_at  TEXT NOT NULL,
   created_by  TEXT NOT NULL REFERENCES users(id),
   created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-  revoked_at  TEXT
+  revoked_at  TEXT,
+  -- Story links only (module 'story'): may a guest open a whole album or
+  -- slideshow the story embeds, or only the photos shown inline? Off by
+  -- default — sharing a story is not the same as sharing everything it
+  -- mentions. Ignored by every other module.
+  expand_albums INTEGER NOT NULL DEFAULT 0
 );
 
 -- Members of a multi-item guest link (gallery "quick links", module

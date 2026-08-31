@@ -211,6 +211,7 @@
     "confirmRevokeBusy": "Revoking…",
     "confirmRevokeBodyExpired": "This link has already expired, so nobody can use it. Revoking removes it from the list.",
     "confirmRevokeBodyActive": "Anyone still holding this link will lose access immediately. Nothing is deleted, and people you shared with by account keep their access.",
-    "unableToRevoke": "Unable to revoke link"
+    "unableToRevoke": "Unable to revoke link",
+    "describeStory": "A story"
   }
 }

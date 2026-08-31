@@ -51,7 +51,8 @@
     "moveChapterDown": "Move chapter down",
     "removeChapter": "Delete chapter",
     "applyDates": "Apply dates",
-    "send": "Send"
+    "send": "Send",
+    "shareLink": "Share link"
   },
   "errors": {
     "load": "Unable to load this story.",
@@ -161,5 +162,27 @@
     "label": "Tags",
     "placeholder": "Family, Minnesota, 2004…",
     "hint": "Tags connect this story with the photos, people and other stories that share them."
+  },
+  "share": {
+    "title": "Share \"{{name}}\"",
+    "intro": "A guest link opens this story in a browser, with no account. It stays up to date — whoever opens it sees the story as it is now.",
+    "expiresIn": "Link expires in",
+    "labelField": "Label (optional)",
+    "createLink": "Create link",
+    "creating": "Creating…",
+    "expandAlbums": "Let guests open whole albums",
+    "expandAlbumsHint": "Off, a guest sees only the photos this story shows. On, they can open every photo in the albums and slideshows it embeds.",
+    "copyNow": "Copy it now — this link is shown only once.",
+    "copy": "Copy",
+    "copied": "Copied",
+    "noLinks": "No guest links for this story yet.",
+    "defaultLabel": "Guest link",
+    "expandedBadge": "albums openable",
+    "expired": "Expired",
+    "expiresOn": "Expires {{date}}",
+    "revokeAria": "Revoke this link",
+    "unableTitle": "Unable to share",
+    "unableToCreate": "Unable to create the link.",
+    "unableToRevoke": "Unable to revoke the link."
   }
 }

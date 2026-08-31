@@ -1,8 +1,8 @@
 # Stories — proposal
 
-Status: **Phases 1 and 2 built** (schema, `modules/stories`, index / reading
-view / editor; tags, person and quote blocks, suggestions, subject registry).
-Phases 3–5 remain proposals. Companion to
+Status: **Phases 1–3 built** (schema, `modules/stories`, index / reading view /
+editor; tags, person and quote blocks, suggestions, subject registry; guest
+links with a public viewer). Phases 4–5 remain proposals. Companion to
 [gallery-library.md](gallery-library.md),
 [gallery-memories-albums-proposal.md](gallery-memories-albums-proposal.md)
 (albums/slideshows, largely shipped), [sharing.md](sharing.md), and
@@ -327,7 +327,40 @@ Built as proposed, all six items. As-built notes:
 - **Subjects registry**: add a `story` entry to `SUBJECTS` (not collectable,
   or collectable — see open questions) so Send-to and Notes work on stories.
 
-## Phase 3 — Sharing
+## Phase 3 — Sharing — BUILT
+
+Guest links built as proposed. The in-app half turned out to need nothing:
+
+- **In-app sharing was already there.** A published story is readable by every
+  member, and Send to puts it in their inbox (phase 2's subject entry). A
+  `shares` row with `module='story'` would have granted nothing a member didn't
+  already have — and a draft isn't sendable at all, so there is nothing to
+  widen. `GRANTABLE` in `modules/social/routes.ts` records why story is absent,
+  beside the same note for family-tree people. So Phase 3 is guest links.
+- **Story knowledge lives in `modules/stories/share.ts`**, not in the
+  2,100-line `shares.ts`, which gained only a dispatch seam. The item routes
+  now serve "any link whose resource is a set of photos" — quick link, album,
+  or story — with each module answering membership its own way.
+- **The reachable set is computed in JS**, from the same helpers the reading
+  view uses, rather than as a second SQL query. That is what makes "a guest can
+  open exactly what the page shows them" true by construction instead of by
+  two queries agreeing.
+- **`expandAlbums` is enforced, not cosmetic**: with it off, the photos past an
+  album's inline preview 404 through the token. Tested both ways.
+- **A retired creator kills the link.** `storyLinkContext` requires
+  `is_active = 1 AND deleted_at IS NULL` — accounts are retired by soft delete
+  (share_links.created_by has an FK, so the row never goes away), and a
+  lookup by id alone would keep a deactivated person's links serving. The album
+  path has the same lookup and the same gap; it is filed separately rather than
+  changed here.
+- **Guests get no in-app links.** Person blocks lose their "Open profile"
+  button, album blocks lose "Open album" — every such link would bounce a guest
+  to a sign-in screen. A test asserts the payload contains no `/gallery/` or
+  `/stories/` URL.
+- **Deferred as planned**: an embedded slideshow shows its photos rather than
+  playing with music — that needs token-scoped music routes.
+
+## Phase 3 — as proposed
 
 - **In-app**: `shares` rows with `module='story'` (read permission);
   stories appear on `/shared`. Cheap because member visibility already
@@ -376,7 +409,7 @@ target. This is a sequencer over existing players, not a new renderer.
 
 ## Build order
 
-Core ✓ → connections ✓ → sharing → player → options. Each phase
+Core ✓ → connections ✓ → sharing ✓ → player → options. Each phase
 independently shippable; core was by far the largest (the editor dominates).
 
 ## Open questions

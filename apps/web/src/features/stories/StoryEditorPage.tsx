@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, BookOpen, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, BookOpen, Link2, Plus, Trash2 } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
@@ -8,6 +8,7 @@ import { MessageBox } from "../../shared/MessageBox";
 import { Button } from "../../shared/Button";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { TagInput } from "../../shared/TagInput";
+import { ShareStoryModal } from "./ShareStoryModal";
 import { StoryChapterEditor } from "./StoryChapterEditor";
 import { useStoryEditor } from "./useStoryEditor";
 import { hasChapterStructure } from "./types";
@@ -29,6 +30,7 @@ export function StoryEditorPage({
   const editor = useStoryEditor(id);
   const { story, error, busy } = editor;
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const [title, setTitle] = useState("");
   const [subtitle, setSubtitle] = useState("");
   // Revealed on demand for a one-chapter story: a journal page shouldn't open
@@ -120,6 +122,10 @@ export function StoryEditorPage({
                 >
                   {story.status === "published" ? t("stories:actions.unpublish") : t("stories:actions.publish")}
                 </Button>
+                <Button variant="secondary" compact onClick={() => setSharing(true)}>
+                  <Link2 size={15} aria-hidden="true" />
+                  <span>{t("stories:actions.shareLink")}</span>
+                </Button>
                 <Button variant="secondary" compact danger onClick={() => setConfirmDelete(true)}>
                   <Trash2 size={15} aria-hidden="true" />
                   <span>{t("stories:actions.delete")}</span>
@@ -184,6 +190,10 @@ export function StoryEditorPage({
           </>
         )}
       </section>
+
+      {sharing && story && (
+        <ShareStoryModal storyId={story.id} storyTitle={story.title} onClose={() => setSharing(false)} />
+      )}
 
       {confirmDelete && story && (
         <ConfirmDialog

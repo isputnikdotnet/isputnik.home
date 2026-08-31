@@ -732,3 +732,20 @@
 }
 
 .story-picker-group:first-child { margin-top: 0; }
+
+/* The one story-specific control in the share modal: how far a guest may go
+   into an embedded album. */
+.story-share-expand {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.story-share-expand input { width: auto; margin-top: 3px; }
+
+.story-share-expand span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}

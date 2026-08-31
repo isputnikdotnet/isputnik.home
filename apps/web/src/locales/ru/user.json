@@ -493,7 +493,10 @@
     "min_other": "{{count}} мин",
     "endOfChapter": "До конца главы",
     "chapter": "Глава",
-    "chapters": "Главы"
+    "chapters": "Главы",
+    "sharedBy": "Поделился(ась) {{name}}",
+    "download": "Скачать",
+    "storyExpanded": "Альбомы в этой истории можно открыть целиком."
   },
   "downloads": {
     "deviceStorage": "Память устройства",

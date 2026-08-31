@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { BookOpen, ChevronDown, ChevronLeft, ChevronRight, Download, FastForward, Headphones, Image as ImageIcon, List, Moon, Pause, Play, Rewind, SkipBack, SkipForward, Volume2, VolumeX, X } from "lucide-react";
 import { EbookReader } from "../features/audiobooks/reader/EbookReader";
+import { StoryShareView, type StorySharePayload } from "./StoryShareView";
 import { isFoliateFormat } from "../shared/utils";
 
 interface ShareFile {
@@ -80,7 +81,7 @@ interface GallerySetSharePayload {
   items: GallerySetItem[];
 }
 
-type SharePayload = AudiobookSharePayload | EbookSharePayload | GallerySharePayload | GallerySetSharePayload;
+type SharePayload = AudiobookSharePayload | EbookSharePayload | GallerySharePayload | GallerySetSharePayload | StorySharePayload;
 
 function formatTime(seconds: number) {
   if (!isFinite(seconds) || seconds < 0) seconds = 0;
@@ -117,9 +118,11 @@ export function SharePage({ token }: { token: string }) {
         setPayload(data);
         const name = data.type === "gallery"
           ? data.asset.title
-          : data.type === "gallery_set"
-            ? data.share.label ?? t("user:sharePage.sharedPhotos", { count: data.items.length })
-            : data.book.title;
+          : data.type === "story"
+            ? data.story.title
+            : data.type === "gallery_set"
+              ? data.share.label ?? t("user:sharePage.sharedPhotos", { count: data.items.length })
+              : data.book.title;
         document.title = t("user:sharePage.docTitle", { name });
       })
       .catch((err) => setLoadError(err instanceof Error ? err.message : t("user:sharePage.gone")));
@@ -147,6 +150,7 @@ export function SharePage({ token }: { token: string }) {
     );
   }
 
+  if (payload.type === "story") return <StoryShareView token={token} payload={payload} />;
   if (payload.type === "gallery") return <GalleryShareView token={token} payload={payload} />;
   if (payload.type === "gallery_set") return <GallerySetShareView token={token} payload={payload} />;
   return payload.type === "ebook"
