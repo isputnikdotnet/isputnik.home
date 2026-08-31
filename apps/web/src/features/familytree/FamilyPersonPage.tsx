@@ -1400,7 +1400,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
           canShare={false}
           onClose={() => setLightbox(null)}
           onIndexChange={(next) => setLightbox((current) => (current ? { ...current, index: next } : current))}
-          onChanged={refresh}
+          onChanged={(change) => { if (change.kind !== "like") refresh(); }}
         />
       )}
     </DashboardShell>
