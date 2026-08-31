@@ -113,13 +113,11 @@ const updateSchema = z.object({
   closingSeconds: z.number().min(1).max(15).optional(),
   closingBackground: z.enum(["black", "photo", "blur", "collage"]).optional(),
   closingPhotoItemId: z.string().trim().min(1).max(64).nullable().optional(),
-  // Opening/closing clips: any gallery VIDEO the caller can access (validated in
-  // the handler) — deliberately NOT restricted to slideshow members, since an
-  // intro clip is usually shot for the purpose rather than part of the show.
-  introItemId: z.string().trim().min(1).max(64).nullable().optional(),
+  // The post-credit clip: any gallery VIDEO the caller can access (validated in
+  // the handler) — deliberately NOT restricted to slideshow members, since a clip
+  // like this is usually shot for the purpose rather than part of the show.
   outroItemId: z.string().trim().min(1).max(64).nullable().optional(),
-  // Whether each clip's own audio plays (music pausing under it). On by default.
-  introSound: z.boolean().optional(),
+  // Whether the clip's own audio plays (music pausing under it). On by default.
   outroSound: z.boolean().optional(),
   coverItemId: z.string().trim().min(1).max(64).nullable().optional()
 });
@@ -142,12 +140,11 @@ function titleFields(slideshow: SlideshowRow) {
     closingSeconds: slideshow.closing_seconds,
     closingBackground: slideshow.closing_background,
     closingPhotoItemId: slideshow.closing_photo_item_id,
-    introSound: slideshow.intro_sound === 1,
     outroSound: slideshow.outro_sound === 1
   };
 }
 
-// One opening/closing clip as the editor shows it: enough to draw a row (thumb,
+// The post-credit clip as the editor shows it: enough to draw a row (thumb,
 // name, length) without another request. Resolved against the VIEWER's access, the
 // same way the render resolves it against the renderer's — null when the clip is
 // gone or out of reach, and the editor then offers to choose one.
@@ -293,7 +290,6 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
         canEdit: canEditSlideshow(slideshow, user),
         updatedAt: slideshow.updated_at,
         ...titleFields(slideshow),
-        introClip: clipSummary(libIds, slideshow.intro_item_id),
         outroClip: clipSummary(libIds, slideshow.outro_item_id),
         ...musicFields(slideshow.music_track_id),
         ...renderFields(slideshow)
@@ -462,12 +458,10 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
         return reply.code(400).send({ error: "That photo isn't in this slideshow." });
       }
     }
-    // A clip has to be a gallery VIDEO the caller can actually see (any library —
+    // The clip has to be a gallery VIDEO the caller can actually see (any library —
     // membership not required; see updateSchema).
-    for (const clipId of [parsed.data.introItemId, parsed.data.outroItemId]) {
-      if (clipId && !getClipRenderItem(resolveGalleryScopeLibraryIds(user), clipId)) {
-        return reply.code(400).send({ error: "That video isn't available." });
-      }
+    if (parsed.data.outroItemId && !getClipRenderItem(resolveGalleryScopeLibraryIds(user), parsed.data.outroItemId)) {
+      return reply.code(400).send({ error: "That video isn't available." });
     }
     updateSlideshow(slideshow.id, parsed.data);
     return reply.send({ updated: true });

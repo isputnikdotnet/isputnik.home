@@ -267,7 +267,7 @@ export async function slideshowClosingCardPreview(
 
 // ── A clip's own sound ───────────────────────────────────────────────────────
 //
-// An intro/outro clip is often chosen FOR its sound — a recorded greeting, a
+// The post-credit clip is often chosen FOR its sound — a recorded greeting, a
 // toast — so a sounded clip contributes its audio to the movie, and the music
 // PAUSES underneath it: silent while the clip plays, resuming from where it left
 // off (not from where the timeline got to). Everything is arithmetic over the
@@ -317,7 +317,12 @@ export interface BuildOptions {
   // of the fixed two-second tail. Only meaningful on a call that muxes music (the
   // single pass, or the batch JOIN; batch intermediates are video-only).
   closingDwell?: number;
-  // Sounded intro/outro clips (see ClipSound). Like closingDwell, only meaningful
+  // Seconds of movie AFTER the closing card — the post-credit clip. The music
+  // still fades out under the CARD, so the fade is anchored this far from the end
+  // rather than at it; the stinger then plays past a soundtrack already at zero.
+  // 0/undefined = the movie ends on the card (or the last slide).
+  closingTail?: number;
+  // Sounded clips (see ClipSound). Like closingDwell, only meaningful
   // where audio is muxed: the clip files are added as extra AUDIO inputs there —
   // which is what makes this work in the batched path, where the clips' video is
   // already baked into intermediates but their sound comes from the originals.
@@ -425,10 +430,13 @@ export function buildFfmpegArgs(
   // With a closing card the music fades out UNDER it: the slides end at full
   // volume, the credits play it down, the movie ends in silence. Capped at 8s —
   // a 15s card doesn't need 15s of fade to feel finished. Without one, the
-  // 2-second tail every movie has always had, byte for byte.
+  // 2-second tail every movie has always had, byte for byte. A post-credit clip
+  // (closingTail) sits after all of that, so the fade is measured from where the
+  // card ends rather than from the end of the movie.
   const closing = options.closingDwell;
+  const tail = Math.max(0, options.closingTail ?? 0);
   const fadeDur = closing && closing > 0 ? Math.min(closing, 8) : 2;
-  const fadeStart = Math.max(0, total - (closing && closing > 0 ? closing : 2));
+  const fadeStart = Math.max(0, total - tail - (closing && closing > 0 ? closing : 2));
 
   const audioCodec = ["-c:a", "aac", "-b:a", "160k", "-ac", "2", "-ar", "44100"];
   if (clipSounds.length === 0) {
@@ -464,6 +472,12 @@ export function buildFfmpegArgs(
       );
       mixIn.push(`[clip${k}]`);
     });
+    // The closing fade belongs to the MUSIC, not to the finished mix: a post-credit
+    // clip plays once the credits have taken the song to zero, and fading the mix
+    // would take the clip's own sound down with it. Applied after adelay, whose
+    // silence makes the window's timestamps absolute — so one `st` fits every
+    // window, and a window that ends before the fade simply never reaches it.
+    const fadeOut = `afade=t=out:st=${fadeStart.toFixed(2)}:d=${fadeDur}`;
     if (musicPath) {
       musicWindows(clipSounds, total).forEach((window, j) => {
         const delay = Math.round(window.at * 1000);
@@ -472,15 +486,15 @@ export function buildFfmpegArgs(
           // A resumed window eases back in; the movie-opening window starts clean.
           (window.at > 0 ? `,afade=t=in:st=0:d=0.3` : "") +
           (delay > 0 ? `,adelay=${delay}:all=1` : "") +
+          `,${fadeOut}` +
           `[music${j}]`
         );
         mixIn.push(`[music${j}]`);
       });
     }
     const soundtrack = mixIn.length === 1
-      ? `${mixIn[0]}afade=t=out:st=${fadeStart.toFixed(2)}:d=${fadeDur}[aout]`
-      : `${mixIn.join("")}amix=inputs=${mixIn.length}:duration=longest:normalize=0,` +
-        `afade=t=out:st=${fadeStart.toFixed(2)}:d=${fadeDur}[aout]`;
+      ? `${mixIn[0]}anull[aout]`
+      : `${mixIn.join("")}amix=inputs=${mixIn.length}:duration=longest:normalize=0[aout]`;
     args.push("-filter_complex", `${filter};${chains.join(";")};${soundtrack}`, "-map", mapV);
     // No -shortest: every audio piece is trimmed to the timeline by construction,
     // and the video stream is what bounds the movie.
@@ -648,6 +662,8 @@ interface BatchRenderPlan {
   musicPath: string | null;
   /** See BuildOptions.closingDwell — applied at the JOIN, where the music is muxed. */
   closingDwell?: number;
+  /** See BuildOptions.closingTail — likewise applied at the JOIN. */
+  closingTail?: number;
   /** See BuildOptions.clipSounds — likewise applied at the JOIN. */
   clipSounds?: ClipSound[];
   outPath: string;
@@ -689,7 +705,9 @@ async function renderInBatches(plan: BatchRenderPlan): Promise<void> {
   if (plan.isCancelled()) throw new Error("Render cancelled.");
   const { args, total } = buildFfmpegArgs(
     joinSegments, plan.transition, plan.musicPath, plan.outPath, plan.transitionSec,
-    undefined, { prePadded: true, closingDwell: plan.closingDwell, clipSounds: plan.clipSounds }
+    undefined, {
+      prePadded: true, closingDwell: plan.closingDwell, closingTail: plan.closingTail, clipSounds: plan.clipSounds
+    }
   );
   const { ok, detail } = await runRender(args, total, (done) => report(done), plan.isCancelled);
   if (!ok) {
@@ -911,9 +929,11 @@ export async function renderSlideshow(
     }
   }
 
-  // Closing card: the same machinery, appended as the LAST node. Its dwell also
+  // Closing card: the same machinery, appended after the slides. Its dwell also
   // anchors the music's fade-out (see BuildOptions.closingDwell). Like the opening
-  // card, one that can't be drawn costs the card, never the movie.
+  // card, one that can't be drawn costs the card, never the movie. It is entirely
+  // independent of the post-credit clip below — either can end the movie on its
+  // own, and with both the card plays first.
   let closingCard: Segment | null = null;
   if (slideshow.closing_enabled) {
     const cardFile = `${finalPath}.title-${nanoid(6)}.png`;
@@ -941,11 +961,11 @@ export async function renderSlideshow(
     throw new Error("Render cancelled.");
   }
 
-  // Opening/closing clips: a gallery video each, resolved against the SAME access
-  // set as the slides. One that is gone, inaccessible, or not on disk is skipped
-  // with a warning — a missing clip costs the clip, never the movie. Each becomes
-  // an ordinary video segment (segmentsFor: own length, capped at 20s, audio
-  // dropped like every clip — the soundtrack stays the music bed).
+  // The post-credit clip: a gallery video resolved against the SAME access set as
+  // the slides. One that is gone, inaccessible, or not on disk is skipped with a
+  // warning — a missing clip costs the clip, never the movie. It becomes an
+  // ordinary video segment (segmentsFor: own length, capped at 20s, audio dropped
+  // like every clip — the soundtrack stays the music bed unless outro_sound is on).
   const clipSegmentFor = (itemId: string | null, label: string): Segment | null => {
     if (!itemId) return null;
     const clip = getClipRenderItem(libIds, itemId);
@@ -956,22 +976,23 @@ export async function renderSlideshow(
     }
     return segmentsFor(usable, slideshow.slide_seconds)[0];
   };
-  const introClip = clipSegmentFor(slideshow.intro_item_id, "opening");
-  const outroClip = clipSegmentFor(slideshow.outro_item_id, "closing");
+  const outroClip = clipSegmentFor(slideshow.outro_item_id, "post-credit");
 
   const transition = capabilities.xfade ? slideshow.transition : "none";
-  // The clips and cards are nodes like any other:
-  // intro clip → title card → slides → outro clip → closing card.
+  // The clip and cards are nodes like any other:
+  // title card → slides → closing card → post-credit clip. The clip plays LAST,
+  // after the credits — a film's stinger, not a second ending.
   const nodes = [
-    ...(introClip ? [introClip] : []),
     ...(titleCard ? [titleCard] : []),
     ...renderSegs,
-    ...(outroClip ? [outroClip] : []),
-    ...(closingCard ? [closingCard] : [])
+    ...(closingCard ? [closingCard] : []),
+    ...(outroClip ? [outroClip] : [])
   ];
-  // The music fade anchors to the closing CARD — the outro clip before it carries
-  // its own sound (or full music, if its sound is off).
+  // The music still fades under the closing CARD, so the fade is anchored a clip's
+  // length from the end rather than at it: the credits play the song out and the
+  // stinger runs on its own sound (or in silence, if its sound is off).
   const closingDwell = closingCard?.dwell;
+  const closingTail = outroClip?.dwell ?? 0;
 
   // Sounded clips, as absolute windows on the movie's timeline: a node's on-screen
   // start is the sum of the dwells before it (the xfade overlap cancels — see
@@ -986,13 +1007,8 @@ export async function renderSlideshow(
     }
     return sum;
   };
-  for (const [clip, wanted] of [
-    [introClip, slideshow.intro_sound === 1],
-    [outroClip, slideshow.outro_sound === 1]
-  ] as const) {
-    if (clip && wanted && await probeHasAudio(clip.file)) {
-      clipSounds.push({ file: clip.file, start: startOfNode(clip), duration: clip.dwell });
-    }
+  if (outroClip && slideshow.outro_sound === 1 && await probeHasAudio(outroClip.file)) {
+    clipSounds.push({ file: outroClip.file, start: startOfNode(outroClip), duration: outroClip.dwell });
   }
 
   const encodeFailed = (detail: string): Error => new Error(
@@ -1006,14 +1022,14 @@ export async function renderSlideshow(
   try {
     if (nodes.length > BATCH_SIZE) {
       await renderInBatches({
-        nodes, transition, transitionSec: slideshow.transition_seconds, musicPath, closingDwell, clipSounds,
+        nodes, transition, transitionSec: slideshow.transition_seconds, musicPath, closingDwell, closingTail, clipSounds,
         outPath: tmpPath, tempPathFor: (index) => `${finalPath}.batch-${scaleRun}-${index}.mp4`,
         onProgress, isCancelled, onTempFile: (file) => titleFiles.push(file), encodeFailed
       });
     } else {
       const { args, total } = buildFfmpegArgs(
         nodes, transition, musicPath, tmpPath, slideshow.transition_seconds,
-        undefined, { closingDwell, clipSounds }
+        undefined, { closingDwell, closingTail, clipSounds }
       );
       const { ok, detail } = await runRender(args, total, onProgress, isCancelled);
       if (!ok) {
@@ -1022,18 +1038,49 @@ export async function renderSlideshow(
         throw encodeFailed(detail);
       }
     }
-    // Swap the finished temp file into place. If the rename fails — on Windows it throws
-    // EPERM when the destination movie is still open (e.g. a <video> is streaming the
-    // previous render) — clean up the temp so it can't pile up on the thumbnail drive.
-    try {
-      fs.renameSync(tmpPath, finalPath);
-    } catch (err) {
-      fs.rmSync(tmpPath, { force: true });
-      throw err;
-    }
+    // Swap the finished temp file into place, retrying while the destination is
+    // held open (see swapRenderIntoPlace).
+    await swapRenderIntoPlace(tmpPath, finalPath);
     return { storageKey, bytes: fs.statSync(finalPath).size };
   } finally {
     for (const file of titleFiles) fs.rmSync(file, { force: true });
+  }
+}
+
+// Replacing the previous movie fails with EPERM on Windows whenever another
+// process holds the destination open without FILE_SHARE_DELETE — an antivirus or
+// Search-indexer pass over the freshly written file, a sync client, Explorer's
+// preview handler. All of them let go within seconds. (Our own streaming route is
+// NOT a cause: Node opens files with FILE_SHARE_DELETE, so a viewer streaming the
+// old movie does not block the rename. Measured, after assuming otherwise.)
+//
+// By this point the encode is finished and correct, so surrendering minutes of work
+// to a scanner that will release the file imminently is the wrong trade — wait it
+// out. Only lock-shaped failures are retried; a missing temp file or a bad path
+// will not fix itself and should fail at once rather than eight seconds later.
+const LOCKED_CODES = new Set(["EPERM", "EACCES", "EBUSY"]);
+const RENAME_RETRY_MS = [100, 250, 500, 1000, 1500, 2000, 2500];
+
+export async function swapRenderIntoPlace(
+  tmpPath: string,
+  finalPath: string,
+  // Injectable so the tests don't sit through the real backoff.
+  delaysMs: number[] = RENAME_RETRY_MS
+): Promise<void> {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      fs.renameSync(tmpPath, finalPath);
+      return;
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code ?? "";
+      if (attempt >= delaysMs.length || !LOCKED_CODES.has(code)) {
+        // Out of patience, or a failure waiting won't cure: drop the temp so it
+        // can't pile up on the thumbnail drive, and report what actually happened.
+        fs.rmSync(tmpPath, { force: true });
+        throw err;
+      }
+      await new Promise((resolve) => setTimeout(resolve, delaysMs[attempt]));
+    }
   }
 }
 

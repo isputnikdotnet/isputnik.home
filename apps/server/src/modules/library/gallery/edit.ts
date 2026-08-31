@@ -3,7 +3,7 @@
 // or location is given, the matching gallery_details *_source = 'manual', so a
 // rescan preserves the edits.
 import { db } from "../../../db.js";
-import { setEntityTags } from "../audiobook/categorize.js";
+import { addEntityTags, removeEntityTags, setEntityTags } from "../audiobook/categorize.js";
 import { applyItemAlphaIndex } from "../shared/alphabet-index.js";
 
 export interface GalleryAssetEdit {
@@ -118,5 +118,32 @@ export function setGalleryPlaceAndTime(
       if (touched) updated += 1;
     }
     return { updated, noDate };
+  })();
+}
+
+// Bulk tag edit from the multi-select bar: attach or detach the same tags across
+// a whole selection. Additive/subtractive rather than a replace — the point is to
+// label a batch of holiday photos without wiping whatever each one already
+// carries. Ids without a gallery_details row (never scanned, wrong media type)
+// are skipped. Permission is the caller's job.
+export function changeGalleryTags(
+  itemIds: string[],
+  data: { add?: string[]; remove?: string[] }
+): { updated: number } {
+  const add = (data.add ?? []).filter((tag) => tag.trim() !== "");
+  const remove = (data.remove ?? []).filter((tag) => tag.trim() !== "");
+  if (itemIds.length === 0 || (add.length === 0 && remove.length === 0)) return { updated: 0 };
+
+  const read = db.prepare("SELECT item_id FROM gallery_details WHERE item_id = ?");
+
+  return db.transaction(() => {
+    let updated = 0;
+    for (const itemId of itemIds) {
+      if (!read.get(itemId)) continue;
+      if (remove.length > 0) removeEntityTags("library_item", itemId, remove);
+      if (add.length > 0) addEntityTags("library_item", itemId, add);
+      updated += 1;
+    }
+    return { updated };
   })();
 }

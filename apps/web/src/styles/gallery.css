@@ -1073,6 +1073,55 @@
   width: auto;
 }
 
+/* The post-credit clip is a second, separate ending — not a setting of the closing
+   card it shares a tab with. The rule keeps the two from reading as one control,
+   and it stays put when the card is switched off. */
+.slideshow-clip-field {
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+  margin-top: 4px;
+}
+
+/* Chosen tags in the bulk "Tag photos" dialog, and the one-click row of tags the
+   gallery already knows about underneath the input. */
+.gallery-tag-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gallery-tag-chips li {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 4px 3px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-raised);
+  font-size: 0.85rem;
+}
+
+.gallery-tag-chips .icon-button {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+}
+
+.gallery-tag-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.gallery-tag-suggestions .muted {
+  font-size: 0.8rem;
+}
+
 /* Place search above the map picker: a query row, then the hit list. Shared by
    the bulk "Set location" dialog and the lightbox Info panel — the panel is a
    narrow dark sidebar, so the row wraps and the colours are overridden below. */

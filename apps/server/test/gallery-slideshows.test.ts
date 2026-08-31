@@ -150,19 +150,19 @@ describe("slideshow presentation settings", () => {
     });
   });
 
-  // Opening/closing clips: any accessible gallery VIDEO, deliberately not
-  // restricted to slideshow members (an intro is usually shot for the purpose).
-  it("saves and clears the opening/closing clip ids", async () => {
-    const clip = (await ingestGalleryAsset("GAL", asset("intro.mp4", "2024-05-01T10:00:00Z"), false))!;
+  // The post-credit clip: any accessible gallery VIDEO, deliberately not restricted
+  // to slideshow members (a clip like this is usually shot for the purpose).
+  it("saves and clears the post-credit clip id", async () => {
+    const clip = (await ingestGalleryAsset("GAL", asset("stinger.mp4", "2024-05-01T10:00:00Z"), false))!;
     const slideshow = createSlideshow(creator, "Summer");
-    updateSlideshow(slideshow.id, { introItemId: clip, outroItemId: clip });
-    expect(getSlideshow(slideshow.id)!).toMatchObject({ intro_item_id: clip, outro_item_id: clip });
-    updateSlideshow(slideshow.id, { introItemId: null });
-    expect(getSlideshow(slideshow.id)!).toMatchObject({ intro_item_id: null, outro_item_id: clip });
+    updateSlideshow(slideshow.id, { outroItemId: clip });
+    expect(getSlideshow(slideshow.id)!).toMatchObject({ outro_item_id: clip });
+    updateSlideshow(slideshow.id, { outroItemId: null });
+    expect(getSlideshow(slideshow.id)!).toMatchObject({ outro_item_id: null });
   });
 
   it("resolves a clip only as a VIDEO the given libraries can reach", async () => {
-    const clip = (await ingestGalleryAsset("GAL", asset("intro.mp4", "2024-05-01T10:00:00Z"), false))!;
+    const clip = (await ingestGalleryAsset("GAL", asset("stinger.mp4", "2024-05-01T10:00:00Z"), false))!;
     const privClip = (await ingestGalleryAsset("PRIV", asset("secret.mp4", "2024-05-02T10:00:00Z"), false))!;
     expect(getClipRenderItem(["GAL"], clip)).toMatchObject({ id: clip, kind: "video" });
     expect(getClipRenderItem(["GAL"], a)).toBeNull(); // a photo is not a clip
@@ -171,21 +171,21 @@ describe("slideshow presentation settings", () => {
     expect(getClipRenderItem(["GAL"], null)).toBeNull();
   });
 
-  it("plays a clip's own sound by default, and remembers turning it off", async () => {
+  it("plays the clip's own sound by default, and remembers turning it off", async () => {
     const slideshow = getSlideshow(createSlideshow(creator, "Summer").id)!;
-    expect(slideshow).toMatchObject({ intro_sound: 1, outro_sound: 1 });
-    updateSlideshow(slideshow.id, { introSound: false });
-    expect(getSlideshow(slideshow.id)!).toMatchObject({ intro_sound: 0, outro_sound: 1 });
-    updateSlideshow(slideshow.id, { introSound: true, outroSound: false });
-    expect(getSlideshow(slideshow.id)!).toMatchObject({ intro_sound: 1, outro_sound: 0 });
+    expect(slideshow).toMatchObject({ outro_sound: 1 });
+    updateSlideshow(slideshow.id, { outroSound: false });
+    expect(getSlideshow(slideshow.id)!).toMatchObject({ outro_sound: 0 });
+    updateSlideshow(slideshow.id, { outroSound: true });
+    expect(getSlideshow(slideshow.id)!).toMatchObject({ outro_sound: 1 });
   });
 
   it("a deleted clip clears itself from the slideshow", async () => {
-    const clip = (await ingestGalleryAsset("GAL", asset("intro.mp4", "2024-05-01T10:00:00Z"), false))!;
+    const clip = (await ingestGalleryAsset("GAL", asset("stinger.mp4", "2024-05-01T10:00:00Z"), false))!;
     const slideshow = createSlideshow(creator, "Summer");
-    updateSlideshow(slideshow.id, { introItemId: clip });
+    updateSlideshow(slideshow.id, { outroItemId: clip });
     db.prepare("DELETE FROM library_items WHERE id = ?").run(clip);
-    expect(getSlideshow(slideshow.id)!.intro_item_id).toBeNull(); // FK ON DELETE SET NULL
+    expect(getSlideshow(slideshow.id)!.outro_item_id).toBeNull(); // FK ON DELETE SET NULL
   });
 
   it("marks a rendered movie out of date when the title card changes", () => {

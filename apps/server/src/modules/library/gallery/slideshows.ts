@@ -49,10 +49,9 @@ export interface SlideshowRow {
   closing_seconds: number;
   closing_background: SlideshowTitleBackground;
   closing_photo_item_id: string | null;
-  intro_item_id: string | null; // a gallery video that plays before the title card
-  outro_item_id: string | null; // …and one after the slides, before the closing card
-  intro_sound: number; // 1 = the clip's own audio plays, music pausing under it
-  outro_sound: number;
+  // The post-credit clip: a gallery video that plays last, after the closing card.
+  outro_item_id: string | null;
+  outro_sound: number; // 1 = the clip's own audio plays, music pausing under it
   cover_item_id: string | null;
   render_status: "draft" | "queued" | "rendering" | "ready" | "failed";
   render_stale: number; // 1 = a 'ready' movie predates the current settings/content
@@ -125,9 +124,7 @@ export interface SlideshowUpdate {
   closingSeconds?: number;
   closingBackground?: SlideshowTitleBackground;
   closingPhotoItemId?: string | null;
-  introItemId?: string | null;
   outroItemId?: string | null;
-  introSound?: boolean;
   outroSound?: boolean;
   coverItemId?: string | null;
 }
@@ -169,9 +166,7 @@ export function updateSlideshow(slideshowId: string, fields: SlideshowUpdate): b
       closing_seconds = COALESCE(?, closing_seconds),
       closing_background = COALESCE(?, closing_background),
       closing_photo_item_id = CASE WHEN ? THEN ? ELSE closing_photo_item_id END,
-      intro_item_id = CASE WHEN ? THEN ? ELSE intro_item_id END,
       outro_item_id = CASE WHEN ? THEN ? ELSE outro_item_id END,
-      intro_sound = COALESCE(?, intro_sound),
       outro_sound = COALESCE(?, outro_sound),
       cover_item_id = CASE WHEN ? THEN ? ELSE cover_item_id END,
       render_stale = CASE WHEN render_status = 'ready' THEN 1 ELSE render_stale END,
@@ -198,9 +193,7 @@ export function updateSlideshow(slideshowId: string, fields: SlideshowUpdate): b
     fields.closingSeconds ?? null,
     fields.closingBackground ?? null,
     fields.closingPhotoItemId !== undefined ? 1 : 0, fields.closingPhotoItemId ?? null,
-    fields.introItemId !== undefined ? 1 : 0, fields.introItemId ?? null,
     fields.outroItemId !== undefined ? 1 : 0, fields.outroItemId ?? null,
-    fields.introSound === undefined ? null : fields.introSound ? 1 : 0,
     fields.outroSound === undefined ? null : fields.outroSound ? 1 : 0,
     fields.coverItemId !== undefined ? 1 : 0, fields.coverItemId ?? null,
     slideshowId

@@ -34,7 +34,7 @@ import {
   queryGalleryMemories,
   EMPTY_GALLERY_FILTERS
 } from "./catalog.js";
-import { setGalleryPlaceAndTime, updateGalleryAsset } from "./edit.js";
+import { changeGalleryTags, setGalleryPlaceAndTime, updateGalleryAsset } from "./edit.js";
 import { searchPlaces } from "./geocode.js";
 import { suggestGalleryMemories } from "./memories.js";
 import { suggestYearReviews, buildYearReview } from "./year-review.js";
@@ -688,6 +688,58 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
     }
 
     return reply.send({ updated, forbidden, noDate });
+  });
+
+  // Bulk tagging from the multi-select bar — label a whole holiday in one go.
+  // Add and remove rather than replace, so a photo keeps the tags it already
+  // carries; both may travel in one request. Permission is checked per item's
+  // library and items the user can't write are counted, not fatal.
+  const bulkTagsSchema = z
+    .object({
+      ids: z.array(z.string().trim().min(1).max(64)).min(1).max(200),
+      add: z.array(z.string().trim().min(1).max(80)).max(20).optional(),
+      remove: z.array(z.string().trim().min(1).max(80)).max(20).optional()
+    })
+    .refine((body) => (body.add?.length ?? 0) > 0 || (body.remove?.length ?? 0) > 0, {
+      message: "Send at least one tag to add or remove."
+    });
+
+  app.post("/api/library/gallery/assets/bulk-tags", { preHandler: app.authenticate }, async (request, reply) => {
+    const parsed = parseBody(bulkTagsSchema, request.body);
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid tags", details: parsed.error });
+    }
+
+    const user = request.user!;
+    const allowed: string[] = [];
+    let forbidden = 0;
+    for (const id of parsed.data.ids) {
+      const lib = getLibraryForBook(id);
+      if (!lib || lib.type !== "gallery" || !canUserWriteLibrary(lib, user.id, user.role)) {
+        forbidden += 1;
+        continue;
+      }
+      allowed.push(id);
+    }
+
+    const { updated } = changeGalleryTags(allowed, { add: parsed.data.add, remove: parsed.data.remove });
+
+    if (updated > 0) {
+      const what = [
+        parsed.data.add?.length ? `added ${parsed.data.add.join(", ")}` : null,
+        parsed.data.remove?.length ? `removed ${parsed.data.remove.join(", ")}` : null
+      ].filter(Boolean).join(" and ");
+      logActivity({
+        event: "library.gallery.edited",
+        actorUserId: user.id,
+        targetType: "library_item",
+        targetId: allowed[0],
+        detail: `Tagged ${updated} gallery item${updated === 1 ? "" : "s"} (${what}).`,
+        ipAddress: request.ip
+      });
+    }
+
+    return reply.send({ updated, forbidden });
   });
 
   // Rotate a photo or video 90° clockwise/counter-clockwise. Stores the angle and

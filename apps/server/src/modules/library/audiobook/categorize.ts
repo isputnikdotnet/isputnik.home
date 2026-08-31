@@ -69,6 +69,22 @@ export function addEntityTags(entityType: string, entityId: string, displayNames
   }
 }
 
+// Detach tags from an entity, leaving the rest of its tags (and the tag rows
+// themselves — an unused tag is pruned by the manage screen, not here) alone.
+// Matches on the normalized key, so "Family Trip" removes "family trip".
+export function removeEntityTags(entityType: string, entityId: string, displayNames: string[]) {
+  const detach = db.prepare(`
+    DELETE FROM taggables
+    WHERE entity_type = ? AND entity_id = ?
+      AND tag_id IN (SELECT id FROM tags WHERE key = ?)
+  `);
+  for (const name of displayNames) {
+    const key = normalizeText(name);
+    if (!key) continue;
+    detach.run(entityType, entityId, key);
+  }
+}
+
 // Recompute the primary category of every non-manual book (any book-like library
 // type) from its existing tags and the current alias table. Cheap (DB-only) — no
 // file rescan. Returns rows changed.

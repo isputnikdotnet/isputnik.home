@@ -19,6 +19,17 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.42.0",
+    label: "After the credits",
+    changes: [
+      "Tagging photos meant opening them one at a time. A folder of forty from one holiday, all of which should say “Crete 2019”, was forty trips through the viewer. Selecting photos now offers Tags next to Album and Place: type a tag, and it goes on everything you have selected. Tags already in use in your gallery are suggested as you type, and sit under the box as a row you can click.",
+      "It adds rather than replaces, so a photo keeps whatever tags it already had. The same dialog will take a tag back off a selection, which is how a batch tagged by mistake is undone — switch it to Remove and name the same tag again.",
+      "A slideshow’s clip now plays after the closing card instead of before it — the bit after a film’s credits, rather than an interruption between the last photo and the words. The card and the clip are two separate endings: have one, or the other, or both, or neither. With both, the card plays first and the clip follows it, and the music still fades out under the card so the clip arrives in its own voice.",
+      "The clip that used to play at the very start of a movie has been retired. Opening on a home video was the wrong shape for a film, and the same clip does the job properly at the end. If you had chosen an opening clip for a slideshow, that choice does not carry over — there is nowhere left for it to play, and the closing slot is now where a clip belongs.",
+      "Fixed: a finished movie could fail at the very last step with an “operation not permitted” error, throwing away several minutes of encoding, because something else on the server — a virus scanner, a backup or sync agent, the file indexer — happened to be holding the previous movie open for a moment. That last step now waits a few seconds for whatever it is to let go, rather than giving up on work it had already finished."
+    ]
+  },
+  {
     version: "3.41.1",
     label: "Where you had got to",
     changes: [

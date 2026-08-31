@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "../src/db.js";
 import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
 import { ingestGalleryAsset } from "../src/modules/library/gallery/scanner.js";
@@ -38,6 +38,7 @@ import {
   titleCardSegment,
   titleBackgroundFor,
   musicWindows,
+  swapRenderIntoPlace,
   TITLE_CARD_SECONDS,
   RANDOM_XFADES,
   RENDER_JOB_TYPE,
@@ -316,20 +317,20 @@ describe("render filtergraph", () => {
 
   // ── A clip's own sound ────────────────────────────────────────────────────
   //
-  // A sounded intro/outro clip contributes its audio and the music PAUSES under
+  // A sounded post-credit clip contributes its audio and the music PAUSES under
   // it, resuming from where it left off. The soundtrack is then assembled in the
   // filtergraph instead of the straight music map.
 
   describe("clip sound", () => {
     it("plans the music into the gaps between clips, resuming where it paused", () => {
-      // intro [0..16], outro [180..198] in a 205s movie:
+      // two clips at [0..16] and [180..198] in a 205s movie:
       const windows = musicWindows(
         [{ file: "/i.mp4", start: 0, duration: 16 }, { file: "/o.mp4", start: 180, duration: 18 }],
         205
       );
       expect(windows).toEqual([
-        { at: 16, len: 164, from: 0 },  // after the intro, from the song's top
-        { at: 198, len: 7, from: 164 }  // after the outro, resuming — not restarting
+        { at: 16, len: 164, from: 0 },  // after the first clip, from the song's top
+        { at: 198, len: 7, from: 164 }  // after the second, resuming — not restarting
       ]);
       // No clips: one window, the whole movie.
       expect(musicWindows([], 100)).toEqual([{ at: 0, len: 100, from: 0 }]);
@@ -340,12 +341,12 @@ describe("render filtergraph", () => {
     it("assembles the soundtrack in the graph: clip audio delayed into place, music in the gaps", () => {
       const { args } = buildFfmpegArgs(
         segs([16, 4, 4]), "crossfade", "/bed.flac", "/o.mp4", 2, undefined,
-        { clipSounds: [{ file: "/intro.mp4", start: 0, duration: 16 }] }
+        { clipSounds: [{ file: "/clip.mp4", start: 0, duration: 16 }] }
       );
       const joined = args.join(" ");
       // The clip rides as an extra input; its audio is trimmed to its window and
       // eased out so a cap never ends on a click.
-      expect(joined).toContain("-i /intro.mp4");
+      expect(joined).toContain("-i /clip.mp4");
       expect(joined).toContain("atrim=0:16.000");
       expect(joined).toContain("afade=t=out:st=15.500:d=0.50");
       // Music enters after the clip (delayed to 16s), from the song's top.
@@ -357,21 +358,45 @@ describe("render filtergraph", () => {
       expect(joined).not.toContain("-shortest");
     });
 
-    it("keeps the closing fade on the assembled soundtrack", () => {
+    // The closing fade belongs to the MUSIC chain, not to the finished mix: a
+    // post-credit clip plays after the credits have taken the song to zero, and a
+    // fade on the mix would silence the clip's own sound along with it.
+    it("fades the music, not the mix that carries the clip's sound", () => {
       const { args, total } = buildFfmpegArgs(
         segs([16, 4, 5]), "crossfade", "/bed.flac", "/o.mp4", 2, undefined,
-        { closingDwell: 5, clipSounds: [{ file: "/intro.mp4", start: 0, duration: 16 }] }
+        { closingDwell: 5, clipSounds: [{ file: "/clip.mp4", start: 0, duration: 16 }] }
       );
-      expect(args.join(" ")).toContain(`afade=t=out:st=${(total - 5).toFixed(2)}:d=5[aout]`);
+      const joined = args.join(" ");
+      const fade = `afade=t=out:st=${(total - 5).toFixed(2)}:d=5`;
+      expect(joined).toContain(`${fade}[music0]`);
+      expect(joined).not.toContain(`${fade}[aout]`);
+      expect(joined).toContain("normalize=0[aout]"); // the mix itself is unfaded
+    });
+
+    // A post-credit clip is the tail: the song still plays out under the CARD, so
+    // the fade is anchored a clip's length from the end rather than at it.
+    it("anchors the fade to the closing card when a post-credit clip follows", () => {
+      const { args, total } = buildFfmpegArgs(
+        segs([4, 4, 5, 12]), "crossfade", "/bed.flac", "/o.mp4", 2, undefined,
+        { closingDwell: 5, closingTail: 12 }
+      );
+      expect(args.join(" ")).toContain(`afade=t=out:st=${(total - 12 - 5).toFixed(2)}:d=5`);
+    });
+
+    it("pushes even the plain two-second tail ahead of a post-credit clip", () => {
+      const { args, total } = buildFfmpegArgs(
+        segs([4, 4, 12]), "crossfade", "/bed.flac", "/o.mp4", 2, undefined, { closingTail: 12 }
+      );
+      expect(args.join(" ")).toContain(`afade=t=out:st=${(total - 12 - 2).toFixed(2)}:d=2`);
     });
 
     it("carries clip sound alone when there is no music", () => {
       const { args } = buildFfmpegArgs(
         segs([16, 4, 4]), "crossfade", null, "/o.mp4", 2, undefined,
-        { clipSounds: [{ file: "/intro.mp4", start: 0, duration: 16 }] }
+        { clipSounds: [{ file: "/clip.mp4", start: 0, duration: 16 }] }
       );
       const joined = args.join(" ");
-      expect(joined).toContain("-i /intro.mp4");
+      expect(joined).toContain("-i /clip.mp4");
       expect(joined).toContain("-map [aout]");
       expect(joined).not.toContain("amix"); // one piece needs no mixer
     });
@@ -826,18 +851,18 @@ describe('schema baseline (3.0.0)', () => {
   it('builds a complete schema in one pass and stamps the current version', () => {
     const scratch = new Database(':memory:');
     migrate(scratch);
-    // 45 = the baseline (32) plus the title-card columns, the alphabet-index
+    // 52 = the baseline (32) plus the title-card columns, the alphabet-index
     // columns, the slideshow cover column, the person cover column, the session
     // kind/label columns, the remote flag on a device-link request, the
     // login-attempt kind column, the reputation country/ISP columns, the person
     // website/location columns, dropping the retired empty-recycle-bin job row,
-    // the title-card lettering columns, the closing-card columns, the
-    // intro/outro clip columns, the clip-sound flags, the retired-Expanse
-    // theme remap, the interface-language column, the quote columns, and the
-    // person life-fact columns — none of which a fresh file needs, since
-    // schema.sql builds it complete and seeds no such job; those migrations are
-    // only for databases that predate them.
-    expect(scratch.pragma('user_version', { simple: true })).toBe(51);
+    // the title-card lettering columns, the closing-card columns, the slideshow
+    // clip columns, the clip-sound flags, the retired-Expanse theme remap, the
+    // interface-language column, the quote columns, the person life-fact columns,
+    // and dropping the retired opening-clip columns — none of which a fresh file
+    // needs, since schema.sql builds it complete and seeds no such job; those
+    // migrations are only for databases that predate them.
+    expect(scratch.pragma('user_version', { simple: true })).toBe(52);
 
     const userColumns = (scratch.pragma('table_info(users)') as { name: string }[]).map((c) => c.name);
     expect(userColumns).toEqual(
@@ -913,7 +938,7 @@ describe('schema baseline (3.0.0)', () => {
     migrate(current);
     current.pragma('user_version = 31'); // every 2.x migration applied
     expect(() => migrate(current)).not.toThrow();
-    expect(current.pragma('user_version', { simple: true })).toBe(51);
+    expect(current.pragma('user_version', { simple: true })).toBe(52);
     current.close();
   });
 
@@ -1047,3 +1072,71 @@ describe("deleteSlideshowRender", () => {
     expect(fs.existsSync(tmp)).toBe(false);
   });
 });
+
+// A finished render still has to replace the previous movie, and on Windows that
+// rename is refused while anything holds the old file open — a <video> on the very
+// page the Rebuild button lives on is enough. The encode is already done and correct
+// by then, so the swap waits the viewer out instead of discarding the work.
+describe("swapping a finished render into place", () => {
+  let dir: string;
+  beforeEach(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), "ss-swap-")); });
+  afterEach(() => { fs.rmSync(dir, { recursive: true, force: true }); });
+
+  const paths = () => {
+    const tmp = path.join(dir, "movie.tmp.mp4");
+    const final = path.join(dir, "movie.mp4");
+    fs.writeFileSync(tmp, "new");
+    return { tmp, final };
+  };
+  const locked = (code: string) => Object.assign(new Error(code), { code });
+
+  it("renames on the first try when nothing holds the destination", async () => {
+    const { tmp, final } = paths();
+    await swapRenderIntoPlace(tmp, final, [0, 0]);
+    expect(fs.readFileSync(final, "utf8")).toBe("new");
+    expect(fs.existsSync(tmp)).toBe(false);
+  });
+
+  it("waits out a destination that is briefly locked, then lands the movie", async () => {
+    const { tmp, final } = paths();
+    const real = fs.renameSync;
+    let calls = 0;
+    const spy = vi.spyOn(fs, "renameSync").mockImplementation((from, to) => {
+      calls += 1;
+      if (calls <= 2) throw locked("EPERM");   // a viewer still mid-buffer
+      return real(from as string, to as string);
+    });
+    try {
+      await swapRenderIntoPlace(tmp, final, [0, 0, 0, 0]);
+    } finally { spy.mockRestore(); }
+
+    expect(calls).toBe(3);
+    expect(fs.readFileSync(final, "utf8")).toBe("new");
+  });
+
+  it("gives up once the retries run out, and clears the temp file away", async () => {
+    const { tmp, final } = paths();
+    let calls = 0;
+    const spy = vi.spyOn(fs, "renameSync").mockImplementation(() => { calls += 1; throw locked("EBUSY"); });
+    try {
+      await expect(swapRenderIntoPlace(tmp, final, [0, 0])).rejects.toMatchObject({ code: "EBUSY" });
+    } finally { spy.mockRestore(); }
+
+    expect(calls).toBe(3);                    // the first go plus one per delay
+    expect(fs.existsSync(tmp)).toBe(false);   // no temp left on the thumbnail drive
+    expect(fs.existsSync(final)).toBe(false);
+  });
+
+  it("does not sit through the backoff for a failure waiting cannot cure", async () => {
+    const { tmp, final } = paths();
+    let calls = 0;
+    const spy = vi.spyOn(fs, "renameSync").mockImplementation(() => { calls += 1; throw locked("ENOENT"); });
+    try {
+      await expect(swapRenderIntoPlace(tmp, final, [0, 0, 0])).rejects.toMatchObject({ code: "ENOENT" });
+    } finally { spy.mockRestore(); }
+
+    expect(calls).toBe(1);
+    expect(fs.existsSync(tmp)).toBe(false);
+  });
+});
+

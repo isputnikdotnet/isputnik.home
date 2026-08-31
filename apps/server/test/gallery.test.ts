@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../src/db.js";
 import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
 import { ingestGalleryAsset, reconcileGalleryItems } from "../src/modules/library/gallery/scanner.js";
-import { setGalleryPlaceAndTime, updateGalleryAsset } from "../src/modules/library/gallery/edit.js";
+import { changeGalleryTags, setGalleryPlaceAndTime, updateGalleryAsset } from "../src/modules/library/gallery/edit.js";
 import {
   queryGalleryTimeline,
   queryGalleryFolders,
@@ -315,6 +315,52 @@ describe("gallery bulk date & location", () => {
     expect(setGalleryPlaceAndTime([id], { shiftMinutes: 30, gps: { lat: 1, lng: 2 } }))
       .toEqual({ updated: 1, noDate: 1 });
     expect(rows().find((r) => r.id === id)!.gps).toEqual({ lat: 1, lng: 2 });
+  });
+});
+
+describe("gallery bulk tags", () => {
+  const rows = () => queryGalleryTimeline("u1", ["GAL"], { q: "", kinds: [], limit: 50, offset: 0 }).assets;
+  const tagsOf = (id: string) => rows().find((r) => r.id === id)!.tags;
+
+  it("adds the same tags to the whole selection without touching existing ones", async () => {
+    const a = await ingestGalleryAsset("GAL", asset("a.jpg", Date.parse("2024-02-02T00:00:00Z")), false);
+    const b = await ingestGalleryAsset("GAL", asset("b.jpg", Date.parse("2024-03-03T00:00:00Z")), false);
+    updateGalleryAsset(a, { title: "a.jpg", description: null, takenAt: null, tags: ["Family"] });
+
+    expect(changeGalleryTags([a, b], { add: ["Crete 2019", "Beach"] })).toEqual({ updated: 2 });
+    expect(tagsOf(a).sort()).toEqual(["Beach", "Crete 2019", "Family"]);
+    expect(tagsOf(b).sort()).toEqual(["Beach", "Crete 2019"]);
+  });
+
+  it("removes only the named tags, matching case-insensitively", async () => {
+    const id = await ingestGalleryAsset("GAL", asset("a.jpg", Date.parse("2024-02-02T00:00:00Z")), false);
+    updateGalleryAsset(id, { title: "a.jpg", description: null, takenAt: null, tags: ["Beach", "Family"] });
+
+    expect(changeGalleryTags([id], { remove: ["beach"] })).toEqual({ updated: 1 });
+    expect(tagsOf(id)).toEqual(["Family"]);
+  });
+
+  it("is idempotent: adding a tag twice leaves one, removing an absent tag is a no-op", async () => {
+    const id = await ingestGalleryAsset("GAL", asset("a.jpg", Date.parse("2024-02-02T00:00:00Z")), false);
+    changeGalleryTags([id], { add: ["Beach"] });
+    changeGalleryTags([id], { add: ["Beach"] });
+    expect(tagsOf(id)).toEqual(["Beach"]);
+    expect(changeGalleryTags([id], { remove: ["Nowhere"] })).toEqual({ updated: 1 });
+    expect(tagsOf(id)).toEqual(["Beach"]);
+  });
+
+  it("applies a remove and an add in one pass, and skips unknown ids", async () => {
+    const id = await ingestGalleryAsset("GAL", asset("a.jpg", Date.parse("2024-02-02T00:00:00Z")), false);
+    updateGalleryAsset(id, { title: "a.jpg", description: null, takenAt: null, tags: ["Draft"] });
+
+    expect(changeGalleryTags([id, "no-such-item"], { remove: ["Draft"], add: ["Final"] })).toEqual({ updated: 1 });
+    expect(tagsOf(id)).toEqual(["Final"]);
+  });
+
+  it("does nothing when no tags are sent", async () => {
+    const id = await ingestGalleryAsset("GAL", asset("a.jpg", Date.parse("2024-02-02T00:00:00Z")), false);
+    expect(changeGalleryTags([id], {})).toEqual({ updated: 0 });
+    expect(changeGalleryTags([id], { add: ["  "] })).toEqual({ updated: 0 });
   });
 });
 
