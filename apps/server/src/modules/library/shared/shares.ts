@@ -15,7 +15,7 @@ import { thumbnailAbsolutePath } from "./thumbnail.js";
 import { accessibleLibraryIds, canUserAccessLibrary, canUserCurateLibrary, getLibraryForBook, type LibraryAccessRow } from "./library-access.js";
 import { resolveShareLink, type ResolvedShareLink } from "./share-access.js";
 import { newlySharedResources, notifyShareGranted } from "./share-notify.js";
-import { parseRangeHeader } from "./document-stream.js";
+import { parseRangeHeader, pipeFileToReply } from "./document-stream.js";
 import { mediaKind, type MediaModule } from "./library-types.js";
 import { decodePhotoToJpeg } from "../gallery/media.js";
 
@@ -700,10 +700,10 @@ function sendFile(
   };
   if (range) {
     reply.raw.writeHead(206, { ...baseHeaders, "Content-Range": `bytes ${range.start}-${range.end}/${totalSize}`, "Content-Length": range.size });
-    fs.createReadStream(opts.absolutePath, { start: range.start, end: range.end }).pipe(reply.raw);
+    pipeFileToReply(reply, opts.absolutePath, { start: range.start, end: range.end });
   } else {
     reply.raw.writeHead(200, { ...baseHeaders, "Content-Length": totalSize });
-    fs.createReadStream(opts.absolutePath).pipe(reply.raw);
+    pipeFileToReply(reply, opts.absolutePath);
   }
 }
 

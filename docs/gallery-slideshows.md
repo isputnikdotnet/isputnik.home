@@ -155,31 +155,49 @@ the slideshow to its previous state).
   credits are deliberately not offered — an animated roll needs per-frame
   generation, the cost class that kept Ken Burns out of exports.
 
-- **Opening and closing clips** (`intro_item_id` / `outro_item_id`, migration 45):
-  a gallery **video** that plays before everything else (a home-video "studio
-  logo") and/or after the last photo, before the closing card — final order
-  *intro clip → title card → slides → outro clip → closing card*. Chosen on the
-  matching tab of the same dialog, through the folder browser in a single-pick
-  videos-only mode (`GalleryFolderPicker pick="video"`), from **any** accessible
-  gallery library — deliberately not just slideshow members, since an intro is
-  usually shot for the purpose. Each becomes an ordinary video segment: its own
-  length capped at 20 s, audio dropped (the soundtrack stays the music bed), and
-  the music's fade still anchors to the closing *card*, so an outro clip plays
-  under full music. A clip that has been deleted (`ON DELETE SET NULL`), moved out
-  of reach, or lost its file is **skipped with a warning** — it costs the clip,
-  never the movie. The detail response resolves each id to a summary
-  (`introClip`/`outroClip`: title, thumb, length) against the viewer's access.
+- **The post-credit clip** (`outro_item_id`, migration 45): a gallery **video**
+  that plays **last of all**, after the closing card — a film's stinger. Final
+  order *title card → slides → closing card → post-credit clip*.
 
-  **A clip's own sound** (`intro_sound`/`outro_sound`, migration 46; per-clip
-  toggle, ON by default): a sounded clip contributes its audio and the music
-  **pauses** underneath it — silent while the clip plays, then resuming from
+  The clip and the closing card are **two independent endings**, not one setting:
+  the card answers to `closing_enabled`, the clip to whether `outro_item_id` names
+  a reachable video, and each is assembled on its own. So a movie can end on the
+  card alone, on the clip alone, on both — the **card always first** — or on
+  neither. The dialog keeps them apart the same way: the clip sits outside the
+  card's enabled-only settings, behind a rule (`.slideshow-clip-field`), so it
+  stays visible and editable with the card switched off.
+
+  Chosen on the closing tab of the same dialog, through the folder browser
+  in a single-pick videos-only mode (`GalleryFolderPicker pick="video"`), from
+  **any** accessible gallery library — deliberately not just slideshow members,
+  since a clip like this is usually shot for the purpose. It becomes an ordinary
+  video segment: its own length capped at 20 s, video-only (the soundtrack stays
+  the music bed unless its sound is on). A clip that has been deleted
+  (`ON DELETE SET NULL`), moved out of reach, or lost its file is **skipped with a
+  warning** — it costs the clip, never the movie. The detail response resolves the
+  id to a summary (`outroClip`: title, thumb, length) against the viewer's access.
+
+  A clip *before* the title card was offered from 3.26.0 and **retired in 3.42.0**
+  (migration 52 drops `intro_item_id`/`intro_sound`): a movie that opens on a
+  video was the wrong shape, and the same clip does the job properly at the end.
+
+  Because the clip is the movie's tail, the music's fade still belongs to the
+  closing **card**: `BuildOptions.closingTail` carries the clip's length so the
+  fade is anchored that far from the end rather than at it. The credits play the
+  song out, and the stinger runs on its own sound — or in silence.
+
+  **The clip's own sound** (`outro_sound`, migration 46; ON by default): a sounded
+  clip contributes its audio and the music **pauses** underneath it — silent
+  while the clip plays, then resuming from
   where it left off, not from where the timeline got to. The soundtrack is then
   assembled in the filtergraph (`ClipSound`/`musicWindows`/`BuildOptions.clipSounds`):
   each clip's audio is trimmed to its on-screen window, eased in/out (0.3 s/0.5 s,
   so the 20 s cap never ends on a click), and delayed to its absolute position;
   the music fills the gaps between clips; disjoint pieces are laid on one
-  timeline with `amix normalize=0`, and the closing fade applies to the whole
-  soundtrack. In the batched path the clips' audio comes from the **original
+  timeline with `amix normalize=0`. The closing fade is applied to the **music
+  chains**, not to the finished mix — a post-credit clip plays after the credits
+  have taken the song to zero, and fading the mix would silence the clip's own
+  sound along with it. In the batched path the clips' audio comes from the **original
   files** as extra audio-only inputs at the join (their video is already baked
   into the intermediates), delayed by offsets computed from the node dwells —
   valid because a node's on-screen start is the sum of the dwells before it,

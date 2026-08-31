@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Trans, useTranslation } from "react-i18next";
-import { Album, ArrowLeft, CalendarClock, CalendarDays, CheckCheck, CheckCircle2, ChevronDown, ChevronRight, Circle, Combine, Compass, Download, Film, FolderOpen, FolderPlus, Image as ImageIcon, ImagePlus, LayoutGrid, LibraryBig, ListMusic, Lock, LockOpen, MapPin, MapPinned, Pencil, Play, Plus, Heart, Folder, RefreshCw, Send, Share2, Sparkles, SquareCheck, Trash2, UploadCloud, Users, X } from "lucide-react";
+import { Album, ArrowLeft, CalendarClock, CalendarDays, CheckCheck, CheckCircle2, ChevronDown, ChevronRight, Circle, Combine, Compass, Download, Film, FolderOpen, FolderPlus, Image as ImageIcon, ImagePlus, LayoutGrid, LibraryBig, ListMusic, Lock, LockOpen, MapPin, MapPinned, Pencil, Play, Plus, Heart, Folder, RefreshCw, Send, Share2, Sparkles, SquareCheck, Tags, Trash2, UploadCloud, Users, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { followRoute, galleryHref, navigate, type GalleryView } from "../../router";
@@ -26,6 +26,7 @@ import { AddToAlbumModal } from "./AddToAlbumModal";
 import { AddToSlideshowModal } from "./AddToSlideshowModal";
 import { GalleryDateModal } from "./GalleryDateModal";
 import { GalleryLocationModal } from "./GalleryLocationModal";
+import { GalleryTagsModal } from "./GalleryTagsModal";
 import { PhotoPicker } from "./PhotoPicker";
 import { GallerySlideshowEditor } from "./GallerySlideshowEditor";
 import { ShareSetModal } from "../share/ShareSetModal";
@@ -348,6 +349,7 @@ export function GalleryPage({
   const [bulkCollectionOpen, setBulkCollectionOpen] = useState(false);
   const [bulkDateOpen, setBulkDateOpen] = useState(false);
   const [bulkLocationOpen, setBulkLocationOpen] = useState(false);
+  const [bulkTagsOpen, setBulkTagsOpen] = useState(false);
   // Share is opened over an explicit id set — the bulk bar passes the current
   // selection, a day/year header passes just that group. null = closed.
   const [shareIds, setShareIds] = useState<string[] | null>(null);
@@ -1428,6 +1430,18 @@ export function GalleryPage({
                       >
                         <Share2 size={18} aria-hidden="true" />
                         <span className="toolbar-label">{t("gallery:bulk.shareTitle")}</span>
+                      </button>
+                    )}
+                    {canWriteAny && (
+                      <button
+                        type="button"
+                        className="library-toolbar-button"
+                        onClick={() => { setBulkError(""); setBulkTagsOpen(true); }}
+                        disabled={selectedIds.size === 0 || bulkBusy}
+                        title={t("gallery:bulk.tagTitle")}
+                      >
+                        <Tags size={18} aria-hidden="true" />
+                        <span className="toolbar-label">{t("gallery:bulk.tagLabel")}</span>
                       </button>
                     )}
                     {canWriteAny && (
@@ -2519,6 +2533,26 @@ export function GalleryPage({
             setBulkLocationOpen(false);
             exitSelection();
             const parts = [t("gallery:bulk.placedNotice", { count: updated })];
+            if (forbidden > 0) parts.push(t("gallery:bulk.skippedPermissionNotice", { count: forbidden }));
+            setNotice(`${parts.join(" · ")}.`);
+            refreshView();
+          }}
+        />
+      )}
+
+      {bulkTagsOpen && (
+        <GalleryTagsModal
+          itemIds={[...selectedIds]}
+          suggestions={facets?.tags ?? []}
+          onClose={() => setBulkTagsOpen(false)}
+          onApplied={(updated, forbidden, mode, tags) => {
+            setBulkTagsOpen(false);
+            exitSelection();
+            const parts = [
+              mode === "add"
+                ? t("gallery:bulk.taggedNotice", { count: updated, tags: tags.join(", ") })
+                : t("gallery:bulk.untaggedNotice", { count: updated, tags: tags.join(", ") })
+            ];
             if (forbidden > 0) parts.push(t("gallery:bulk.skippedPermissionNotice", { count: forbidden }));
             setNotice(`${parts.join(" · ")}.`);
             refreshView();

@@ -62,6 +62,21 @@
     "unableToUpdate": "Unable to update the selected items",
     "hintEmpty": "Search above, or click the map to mark where these were taken."
   },
+  "tags": {
+    "title": "Add or remove tags",
+    "appliesTo_one": "Applies to {{count}} selected item. Tags you set here survive the next scan.",
+    "appliesTo_other": "Applies to {{count}} selected items. Tags you set here survive the next scan.",
+    "unableToUpdate": "Unable to tag the selected items",
+    "modeAria": "Add or remove tags",
+    "modeAdd": "Add tags",
+    "modeRemove": "Remove tags",
+    "inputSr": "Tag",
+    "placeholder": "Type a tag and press Enter",
+    "addHint": "Each item keeps the tags it already has — these are added on top.",
+    "removeHint": "Only these tags come off; the rest of each item’s tags stay.",
+    "suggestionsLabel": "In use:",
+    "removeChipTitle": "Remove “{{tag}}”"
+  },
   "faceSettings": {
     "unnamed": "Unnamed",
     "title": "Face recognition",
@@ -183,15 +198,13 @@
     "closeToggleAria": "End the movie with a closing card",
     "openCrossfadeHint": "It cross-fades into the first photo with the slideshow’s own transition.",
     "closeSilenceHint": "The music fades out underneath it, and the movie ends in silence.",
-    "openingClipLabel": "Opening clip",
-    "closingClipLabel": "Closing clip",
+    "closingClipLabel": "Post-credit clip",
     "change": "Change",
     "remove": "Remove",
     "useClipSoundAria": "Use the clip’s own sound",
     "clipSoundHint": "The music pauses while it plays, then picks up where it left off.",
     "chooseVideo": "Choose a video…",
-    "openingClipHint": "A video that plays before everything else — up to 20 seconds of it.",
-    "closingClipHint": "A video that plays after the last photo, before the closing card — up to 20 seconds of it.",
+    "closingClipHint": "Plays last of all: after the closing card if you have one, otherwise straight after the last photo. Up to 20 seconds of it.",
     "secondLineLabel": "Second line",
     "subtitleCount": "Photo count",
     "subtitleCustom": "My own lines",
@@ -213,20 +226,46 @@
     "noPhotoBody": "This slideshow has only videos, and a video can’t be used as a background. The card will be drawn on black until you add a photo.",
     "whichPhotoLabel": "Which photo",
     "usePhotoAria": "Use {{title}} as the card background",
-    "pickOpeningClip": "Choose an opening clip",
-    "pickClosingClip": "Choose a closing clip",
+    "pickClosingClip": "Choose a post-credit clip",
     "bg": {
-      "black": { "label": "Black", "hint": "White text on a plain black frame." },
-      "photo": { "label": "A photo", "hint": "One slide fills the frame, darkened behind the words." },
-      "blur": { "label": "Blurred photo", "hint": "The same slide, blurred — colour and mood without a competing subject." },
-      "collage": { "label": "Collage", "hint": "A grid tiled from photos spread across the whole slideshow." }
+      "black": {
+        "label": "Black",
+        "hint": "White text on a plain black frame."
+      },
+      "photo": {
+        "label": "A photo",
+        "hint": "One slide fills the frame, darkened behind the words."
+      },
+      "blur": {
+        "label": "Blurred photo",
+        "hint": "The same slide, blurred — colour and mood without a competing subject."
+      },
+      "collage": {
+        "label": "Collage",
+        "hint": "A grid tiled from photos spread across the whole slideshow."
+      }
     },
     "font": {
-      "classic": { "label": "Classic", "hint": "The face every movie uses today — clean and neutral." },
-      "serif": { "label": "Serif", "hint": "A book feel — suits anniversaries and quiet slideshows." },
-      "bold": { "label": "Bold", "hint": "Poster weight — carries a short title across a bright collage." },
-      "script": { "label": "Script", "hint": "Handwritten — birthdays, weddings, the family occasions." },
-      "typewriter": { "label": "Typewriter", "hint": "Archival — old scans and home-movie collections." }
+      "classic": {
+        "label": "Classic",
+        "hint": "The face every movie uses today — clean and neutral."
+      },
+      "serif": {
+        "label": "Serif",
+        "hint": "A book feel — suits anniversaries and quiet slideshows."
+      },
+      "bold": {
+        "label": "Bold",
+        "hint": "Poster weight — carries a short title across a bright collage."
+      },
+      "script": {
+        "label": "Script",
+        "hint": "Handwritten — birthdays, weddings, the family occasions."
+      },
+      "typewriter": {
+        "label": "Typewriter",
+        "hint": "Archival — old scans and home-movie collections."
+      }
     },
     "size": {
       "small": "Small",

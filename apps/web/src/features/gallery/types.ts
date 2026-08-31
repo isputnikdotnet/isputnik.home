@@ -151,10 +151,9 @@ export interface SlideshowTitleSettings {
   closingSeconds: number;
   closingBackground: SlideshowTitleBackground;
   closingPhotoItemId: string | null;
-  // Whether each clip's own audio plays in the movie (the music pauses under it,
-  // resuming where it left off). On by default; a clip file with no audio stream
-  // keeps the music running regardless.
-  introSound: boolean;
+  // Whether the post-credit clip's own audio plays in the movie (the music pauses
+  // under it, resuming where it left off). On by default; a clip file with no
+  // audio stream keeps the music running regardless.
   outroSound: boolean;
 }
 
@@ -166,8 +165,7 @@ export interface SlideshowPatch extends Partial<SlideshowTitleSettings> {
   slideSeconds?: number;
   transitionSeconds?: number;
   musicTrackId?: string | null;
-  // Opening/closing clips, by gallery item id (any accessible video; null clears).
-  introItemId?: string | null;
+  // The post-credit clip, by gallery item id (any accessible video; null clears).
   outroItemId?: string | null;
   coverItemId?: string | null;
 }
@@ -212,7 +210,6 @@ export interface GallerySlideshowDetail extends SlideshowTitleSettings {
   coverItemId: string | null;
   canEdit: boolean;
   updatedAt: string;
-  introClip: SlideshowClipInfo | null;
   outroClip: SlideshowClipInfo | null;
   musicTrackId: string | null;
   musicTitle: string | null;

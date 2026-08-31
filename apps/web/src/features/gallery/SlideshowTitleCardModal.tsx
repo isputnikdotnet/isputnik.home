@@ -109,7 +109,7 @@ export function SlideshowTitleCardModal({
 
   const opening = card === "opening";
   const enabled = opening ? slideshow.titleEnabled : slideshow.closingEnabled;
-  const clip = opening ? slideshow.introClip : slideshow.outroClip;
+  const clip = slideshow.outroClip;
   const photos = assets.filter((asset) => asset.kind === "photo");
   const background = opening ? slideshow.titleBackground : slideshow.closingBackground;
   const photoItemId = opening ? slideshow.titlePhotoItemId : slideshow.closingPhotoItemId;
@@ -249,10 +249,14 @@ export function SlideshowTitleCardModal({
             </span>
           </div>
 
-          {/* The clip is independent of the card — it plays whether or not the card
-              is on, so it lives outside the enabled-only settings. */}
-          <div className="slideshow-title-field">
-            <span className="slideshow-setting-label">{opening ? t("galleryModals:titleCard.openingClipLabel") : t("galleryModals:titleCard.closingClipLabel")}</span>
+          {/* The post-credit clip shares the closing tab with the card, but it is a
+              SEPARATE ending, not a setting of the card: either can end the movie on
+              its own, and with both the card plays first. So it lives outside the
+              enabled-only settings — visible, and editable, with the card switched
+              off — behind a rule that keeps the two from reading as one control. */}
+          {!opening && (
+          <div className="slideshow-title-field slideshow-clip-field">
+            <span className="slideshow-setting-label">{t("galleryModals:titleCard.closingClipLabel")}</span>
             {clip ? (
               <>
                 <div className="slideshow-clip-row">
@@ -269,16 +273,16 @@ export function SlideshowTitleCardModal({
                   <Button
                     variant="text"
                     disabled={saving}
-                    onClick={() => void commit(opening ? { introItemId: null } : { outroItemId: null })}
+                    onClick={() => void commit({ outroItemId: null })}
                   >
                     {t("galleryModals:titleCard.remove")}
                   </Button>
                 </div>
                 <div className="slideshow-title-row slideshow-clip-sound">
                   <ToggleSwitch
-                    checked={opening ? slideshow.introSound : slideshow.outroSound}
+                    checked={slideshow.outroSound}
                     disabled={saving}
-                    onChange={(next) => void commit(opening ? { introSound: next } : { outroSound: next })}
+                    onChange={(next) => void commit({ outroSound: next })}
                     ariaLabel={t("galleryModals:titleCard.useClipSoundAria")}
                   />
                   <span>
@@ -294,12 +298,9 @@ export function SlideshowTitleCardModal({
                 </Button>
               </div>
             )}
-            <small className="muted">
-              {opening
-                ? t("galleryModals:titleCard.openingClipHint")
-                : t("galleryModals:titleCard.closingClipHint")}
-            </small>
+            <small className="muted">{t("galleryModals:titleCard.closingClipHint")}</small>
           </div>
+          )}
         </div>
 
         {enabled && (
@@ -498,11 +499,11 @@ export function SlideshowTitleCardModal({
 
       {clipPickerOpen && (
         <PhotoPicker
-          title={opening ? t("galleryModals:titleCard.pickOpeningClip") : t("galleryModals:titleCard.pickClosingClip")}
+          title={t("galleryModals:titleCard.pickClosingClip")}
           pick="video"
           onPick={(asset) => {
             setClipPickerOpen(false);
-            void commit(opening ? { introItemId: asset.id } : { outroItemId: asset.id });
+            void commit({ outroItemId: asset.id });
           }}
           onClose={() => setClipPickerOpen(false)}
         />

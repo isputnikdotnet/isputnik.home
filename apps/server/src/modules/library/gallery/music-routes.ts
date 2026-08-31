@@ -7,7 +7,7 @@ import type { FastifyInstance } from "fastify";
 import { db, logActivity } from "../../../db.js";
 import { canUserWriteLibrary } from "../shared/library-access.js";
 import { receiveUploadBatch, UploadError } from "../../uploads/index.js";
-import { parseRangeHeader } from "../shared/document-stream.js";
+import { parseRangeHeader, pipeFileToReply } from "../shared/document-stream.js";
 import {
   listMusicTracks,
   createUserTrack,
@@ -135,7 +135,7 @@ export async function galleryMusicRoutesPlugin(app: FastifyInstance) {
         "Accept-Ranges": "bytes",
         "Cache-Control": "private, max-age=86400"
       });
-      fs.createReadStream(filePath, { start: range.start, end: range.end }).pipe(reply.raw);
+      pipeFileToReply(reply, filePath, { start: range.start, end: range.end });
     } else {
       reply.raw.writeHead(200, {
         "Content-Type": mimeType,
@@ -143,7 +143,7 @@ export async function galleryMusicRoutesPlugin(app: FastifyInstance) {
         "Accept-Ranges": "bytes",
         "Cache-Control": "private, max-age=86400"
       });
-      fs.createReadStream(filePath).pipe(reply.raw);
+      pipeFileToReply(reply, filePath);
     }
   });
 }
