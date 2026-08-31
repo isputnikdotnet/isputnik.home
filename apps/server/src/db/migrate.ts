@@ -425,7 +425,7 @@ const migrations: { version: number; up: (db: Database.Database) => void }[] = [
     }
   },
   {
-    // 3.44.0 — story guest links. A story embeds albums and slideshows, so a
+    // 3.43.0 — story guest links. A story embeds albums and slideshows, so a
     // link needs to say whether a guest may open the whole set or only the
     // photos the story shows inline. Off for every existing link, which is the
     // narrower reading and the right default for the ones minted from now on.

@@ -19,6 +19,21 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.43.0",
+    label: "The way you’d tell it",
+    changes: [
+      "Stories are a new way to keep something that happened. A story is a page you write: your own words, with photos and videos, whole albums and slideshows, maps, people from the family tree and quotes, dropped in wherever they belong. Nothing is copied — a story points at what is already in the house, so the photo in a story is the photo in your gallery, and it follows whatever you do to it there.",
+      "A story can be told in chapters, each with a date and a place. Exact if you know it, a year if you don’t, a range if it took a fortnight, and “around 1998” if nobody is quite sure — the same kind of date the family tree has always taken. The date and place sit above the chapter the way a dateline would. A story that needs none of that stays one plain page with no chapter headings at all.",
+      "Writing is Markdown: a heading is a line starting with #, bold is **like this**, a quote is a line starting with >. There is a preview button, and what it shows is exactly what a reader gets.",
+      "Sharing sends the whole story at once, instead of the album and the slideshow and the photos separately. A guest link opens it in any browser with no account, and stays up to date — whoever opens it sees the story as it is now, not as it was the day you sent it. Because a story can carry a whole album, the link asks something the other links don’t: may a guest open that album in full, or only the photos the story actually shows? It is off unless you say otherwise, and off means the rest of the album genuinely cannot be reached through that link.",
+      "Press Play and the story runs itself, full screen. Chapter cards, your words at a size that reads from across the room, the photos, the maps. An album plays all the way through rather than the handful the page had room for. Prose is given time to be read rather than a fixed few seconds, and a video or a recording is never cut off — the show waits for it to end. It works from a shared link too, which is rather the point: a link sent to a phone is a story that can be handed round a table.",
+      "A story can also be told out loud. Record someone telling a part of it, right there in the browser, or upload a recording you already have — the voicemail nobody could bring themselves to delete. It plays inside the story, travels with a shared link, and takes the screen during the show.",
+      "Tags now go on albums and slideshows, not only on photos. That is what lets one tag gather everything about a single summer — the photos, the album, the story, and the people in it — onto one page. Tagging a story puts it there beside them, and while you are building a story the pickers offer anything that shares its tags first.",
+      "Where a slideshow’s finished movie is filed is now that slideshow’s own choice. Before, a single setting took every movie in the house into the same library; nobody had asked for that, and it could not be pointed anywhere else. Each slideshow now says where its movie goes — or that it should not be saved to a library at all, which is the new default. If the name is already taken it asks once and remembers the answer, because a re-render happens in the background with nobody there to ask.",
+      "A slideshow will not try to file its movie into a folder it cannot write to. That used to fail at the very end, after the encoding was done; it is now checked up front and says which library is read-only."
+    ]
+  },
+  {
     version: "3.42.0",
     label: "After the credits",
     changes: [
