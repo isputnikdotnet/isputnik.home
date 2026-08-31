@@ -25,6 +25,14 @@ export type SlideshowTransition = "none" | "crossfade" | "fade" | "slide" | "ken
 export type SlideshowSubtitleMode = "count" | "custom" | "none";
 export type SlideshowTitleBackground = "black" | "photo" | "blur" | "collage";
 
+/**
+ * What to do when the movie's filename is already taken in the target library.
+ * "keep_both" numbers the new file (" (2)"); "overwrite" replaces it — but only ever a
+ * file that is not a catalogued item belonging to something else (see saveMovieToLibrary),
+ * so this can never quietly destroy a video someone filmed.
+ */
+export type MovieConflictPolicy = "overwrite" | "keep_both";
+
 export interface SlideshowRow {
   id: string;
   name: string;
@@ -60,8 +68,13 @@ export interface SlideshowRow {
   output_bytes: number | null;
   rendered_at: string | null;
   render_error: string | null;
-  // Where the latest render was auto-saved as a gallery item (null until saved to a
-  // library). See slideshow-render.ts saveMovieToLibrary and slideshow-settings.ts.
+  // Saving the movie into a library, chosen per slideshow. Target NULL = don't save.
+  // See slideshow-render.ts saveMovieToLibrary.
+  movie_target_library_id: string | null;
+  movie_on_conflict: MovieConflictPolicy;
+  movie_file_stem: string | null;
+  movie_save_error: string | null;
+  // Where the latest render actually landed (null until saved to a library).
   movie_library_id: string | null;
   movie_relative_path: string | null;
   movie_item_id: string | null;
@@ -126,12 +139,23 @@ export interface SlideshowUpdate {
   closingPhotoItemId?: string | null;
   outroItemId?: string | null;
   outroSound?: boolean;
+  // null clears the target, which turns saving to a library off.
+  movieTargetLibraryId?: string | null;
+  movieOnConflict?: MovieConflictPolicy;
+  // null clears a Rename, putting the file back on the slideshow's own name.
+  movieFileStem?: string | null;
   coverItemId?: string | null;
 }
+
+// Fields that change only WHERE the finished movie is filed, never a frame of it. An
+// edit confined to these must not flag the rendered movie out of date: choosing a
+// library is not a reason to re-encode three minutes of video.
+const FILING_ONLY_FIELDS: (keyof SlideshowUpdate)[] = ['movieTargetLibraryId', 'movieOnConflict', 'movieFileStem'];
 
 export function updateSlideshow(slideshowId: string, fields: SlideshowUpdate): boolean {
   const slideshow = getSlideshow(slideshowId);
   if (!slideshow) return false;
+  const touchesContent = Object.keys(fields).some((key) => !FILING_ONLY_FIELDS.includes(key as keyof SlideshowUpdate));
   // A cover must be a member of the slideshow (or null to fall back to the first
   // slide) — same rule as gallery_albums.cover_item_id.
   if (fields.coverItemId) {
@@ -168,8 +192,11 @@ export function updateSlideshow(slideshowId: string, fields: SlideshowUpdate): b
       closing_photo_item_id = CASE WHEN ? THEN ? ELSE closing_photo_item_id END,
       outro_item_id = CASE WHEN ? THEN ? ELSE outro_item_id END,
       outro_sound = COALESCE(?, outro_sound),
+      movie_target_library_id = CASE WHEN ? THEN ? ELSE movie_target_library_id END,
+      movie_on_conflict = COALESCE(?, movie_on_conflict),
+      movie_file_stem = CASE WHEN ? THEN ? ELSE movie_file_stem END,
       cover_item_id = CASE WHEN ? THEN ? ELSE cover_item_id END,
-      render_stale = CASE WHEN render_status = 'ready' THEN 1 ELSE render_stale END,
+      render_stale = CASE WHEN ? AND render_status = 'ready' THEN 1 ELSE render_stale END,
       updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
     WHERE id = ?
   `).run(
@@ -195,7 +222,11 @@ export function updateSlideshow(slideshowId: string, fields: SlideshowUpdate): b
     fields.closingPhotoItemId !== undefined ? 1 : 0, fields.closingPhotoItemId ?? null,
     fields.outroItemId !== undefined ? 1 : 0, fields.outroItemId ?? null,
     fields.outroSound === undefined ? null : fields.outroSound ? 1 : 0,
+    fields.movieTargetLibraryId !== undefined ? 1 : 0, fields.movieTargetLibraryId ?? null,
+    fields.movieOnConflict ?? null,
+    fields.movieFileStem !== undefined ? 1 : 0, fields.movieFileStem ?? null,
     fields.coverItemId !== undefined ? 1 : 0, fields.coverItemId ?? null,
+    touchesContent ? 1 : 0,
     slideshowId
   );
   return true;
@@ -490,6 +521,12 @@ export function setSlideshowRenderState(
 // Record where the latest render was auto-saved as a gallery video item, so a re-render
 // overwrites the same file (and updates the same catalog item) instead of duplicating it.
 // Cleared by passing null everywhere (e.g. if saving to a library ever needs to reset).
+// Why the last save into a library failed, or null when it worked. Kept on the slideshow
+// so the editor can explain a movie that rendered fine but never reached the library.
+export function setSlideshowSaveError(slideshowId: string, error: string | null): void {
+  db.prepare('UPDATE gallery_slideshows SET movie_save_error = ? WHERE id = ?').run(error, slideshowId);
+}
+
 export function setSlideshowMovieAsset(
   slideshowId: string,
   fields: { libraryId: string | null; relativePath: string | null; itemId: string | null }

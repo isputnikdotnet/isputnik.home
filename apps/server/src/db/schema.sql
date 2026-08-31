@@ -596,12 +596,26 @@ CREATE TABLE IF NOT EXISTS gallery_slideshows (
   output_bytes   INTEGER,
   rendered_at    TEXT,
   render_error   TEXT,
-  -- Where the LATEST successful render was auto-saved as a gallery video item, when a
-  -- default "movie library" is configured (see slideshow-settings.ts). The path follows
-  -- the slideshow's CURRENT name: an unchanged name overwrites the same file/item on
-  -- re-render (no duplicates); after a rename the movie saves under the new name and the
-  -- old file/item are retired (see saveMovieToLibrary). All NULL until a render is saved
-  -- to a library. movie_item_id is SET NULL if that item is later removed.
+  -- Saving the movie into a gallery library, chosen PER SLIDESHOW (3.43.0; before that
+  -- one server-wide default library took every render, which nobody opted into).
+  --
+  -- movie_target_library_id NULL = don't save, which is the default for a new slideshow.
+  -- movie_on_conflict is the answer given when the target name was already taken, kept so
+  -- a re-render never has to ask again — and a background render could not ask anyway.
+  -- movie_file_stem is set only by Rename (NULL = follow the slideshow's own name).
+  -- movie_save_error carries why the last save failed (a read-only mount, a name taken by
+  -- someone else's video) so the editor can say so; NULL when the last save was fine.
+  movie_target_library_id TEXT REFERENCES libraries(id) ON DELETE SET NULL,
+  movie_on_conflict   TEXT NOT NULL DEFAULT 'keep_both'
+                        CHECK (movie_on_conflict IN ('overwrite', 'keep_both')),
+  movie_file_stem     TEXT,
+  movie_save_error    TEXT,
+  -- Where the LATEST successful render actually landed as a gallery video item. The path
+  -- follows the slideshow's CURRENT name unless movie_file_stem overrides it: the same
+  -- name overwrites the same file/item on re-render (no duplicates); after a rename the
+  -- movie saves under the new name and the old file/item are retired (see
+  -- saveMovieToLibrary). All NULL until a render is saved to a library. movie_item_id is
+  -- SET NULL if that item is later removed.
   movie_library_id    TEXT REFERENCES libraries(id) ON DELETE SET NULL,
   movie_relative_path TEXT,
   movie_item_id       TEXT REFERENCES library_items(id) ON DELETE SET NULL,

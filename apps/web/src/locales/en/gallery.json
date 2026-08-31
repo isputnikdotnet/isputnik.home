@@ -229,7 +229,12 @@
     "moveLaterAria": "Move {{title}} later",
     "moveLaterTitle": "Move later",
     "removeFromSlideshowTitle": "Remove from this slideshow",
-    "emptyBody": "This slideshow is empty. Use “Add photos” above to browse your galleries by folder, or select photos in the Timeline and use “Add to slideshow”."
+    "emptyBody": "This slideshow is empty. Use “Add photos” above to browse your galleries by folder, or select photos in the Timeline and use “Add to slideshow”.",
+    "movieLibraryButton": "Save to…",
+    "movieFiledAs": "Saved into your gallery as {{name}} — a re-render replaces that copy.",
+    "movieNotFiled": "This movie lives here only. Use “Save to…” to keep a copy in one of your galleries.",
+    "movieSaveFailedTitle": "The movie rendered, but wasn't saved to the library",
+    "movieWillFileAs": "When it's made, it will be saved into your gallery as {{name}}."
   },
   "musicPicker": {
     "modalTitle": "Slideshow music",
@@ -363,11 +368,6 @@
     "movieRenderedKeptNote": " The rendered movie already saved to your gallery is kept.",
     "createTitle": "Create slideshow",
     "namePlaceholderExample": "e.g. Summer 2026",
-    "movieLibraryTitle": "Save rendered movies to",
-    "movieLibraryBody": "When a slideshow is rendered into a movie, it can also be saved into one of your gallery libraries so it shows up alongside your photos.",
-    "movieLibraryLegend": "Movie library",
-    "movieLibraryFallback": "Movie library",
-    "dontSaveOption": "Don’t save to a library",
     "deleteMovieTitle": "Delete this movie?",
     "deleteMovieConfirm": "Delete movie",
     "deleteMovieBody": "This removes the rendered MP4 and any leftover temporary files. You can re-render it anytime.",

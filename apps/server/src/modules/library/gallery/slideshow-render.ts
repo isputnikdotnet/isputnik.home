@@ -35,15 +35,16 @@ import {
   getClipRenderItem,
   setSlideshowRenderState,
   setSlideshowMovieAsset,
+  setSlideshowSaveError,
   titleCardLines,
   closingCardLines,
   type SlideshowRow,
-  type SlideshowRenderItem
+  type SlideshowRenderItem,
+  type MovieConflictPolicy
 } from "./slideshows.js";
 import { getMusicTrack, musicFileAbsolutePath } from "./music.js";
 import { renderTitleCardPng, titleCardPngBuffer, type TitleBackground, type TitlePhoto } from "./slideshow-title-card.js";
 import { resolveGalleryScopeLibraryIds } from "./catalog.js";
-import { getRenderLibraryId } from "./slideshow-settings.js";
 import { scanSingleGalleryFile } from "./scanner.js";
 
 const FFMPEG_BIN: string = (ffmpegStatic as unknown as string | null) || "ffmpeg";
@@ -1097,29 +1098,23 @@ function musicPathFor(musicTrackId: string | null): string | null {
 }
 
 // ── Auto-save the rendered movie into a gallery library ──────────────────────
-// When an admin has set a default "movie library" (slideshow-settings.ts), a finished
-// render is ALSO filed into that library as a video item, so the movie becomes a durable,
-// browsable gallery asset — not just the copy in the thumbnail store the editor streams.
+// A slideshow can name a library to file its finished movie into, so the movie becomes a
+// durable, browsable gallery asset — not just the copy in the thumbnail store the editor
+// streams. The choice is per slideshow and off by default (movie_target_library_id).
 
 // Rendered movies live under this fixed subfolder of the target library (they carry no
 // capture date, so a dated folder like uploads use would just scatter them).
 const MOVIE_SUBFOLDER = "Slideshow movies";
 
-// The library-relative path a render is saved to. It FOLLOWS the slideshow's CURRENT
-// name: an unchanged name lands on the stored path and overwrites in place (same
-// catalog item, no duplicate); after a rename the movie saves under the new name and
-// saveMovieToLibrary retires the old file/item. The slideshow's own stored file never
-// counts as a collision — reaching it just means overwrite. Pure + injectable so the
-// logic is testable without touching the disk or the encoder.
-export function movieRelativePathFor(
-  slideshow: Pick<SlideshowRow, "name" | "movie_library_id" | "movie_relative_path">,
-  libraryId: string,
-  exists: (relativePath: string) => boolean
-): string {
-  const own = slideshow.movie_library_id === libraryId ? slideshow.movie_relative_path : null;
-  // A safe stem: strip separators/control chars and a leading dot (the scanner skips
-  // dot-entries), then disambiguate with " (2)", " (3)", … Mirrors uniqueGalleryFileName.
-  const stem = Array.from(slideshow.name)
+// The stem a movie is filed under: an explicit Rename if there is one, otherwise the
+// slideshow's own name. Exported for the conflict preview, which has to show the exact
+// filename BEFORE anything is written.
+export function movieStemFor(slideshow: Pick<SlideshowRow, "name" | "movie_file_stem">): string {
+  return safeMovieStem(slideshow.movie_file_stem || slideshow.name);
+}
+
+export function safeMovieStem(raw: string): string {
+  return Array.from(raw)
     .filter((ch) => ch.charCodeAt(0) >= 32)
     .join("")
     .replace(/[\\/:*?"<>|]+/g, " ")
@@ -1128,7 +1123,33 @@ export function movieRelativePathFor(
     .replace(/^\.+/, "")
     .slice(0, 120)
     .replace(/[\s.]+$/g, "") || "slideshow";
-  let relativePath = `${MOVIE_SUBFOLDER}/${stem}.mp4`;
+}
+
+// The library-relative path a render is saved to. It follows the slideshow's CURRENT name
+// unless Rename set a stem: the same name lands on the stored path and overwrites in place
+// (same catalog item, no duplicate); after a rename the movie saves under the new name and
+// saveMovieToLibrary retires the old file/item. The slideshow's own stored file never
+// counts as a collision — reaching it just means overwrite.
+//
+// `policy` decides what a collision with SOMEONE ELSE'S file does: "keep_both" numbers
+// this movie out of the way, "overwrite" takes the name. Overwrite is only ever offered
+// for a file that is not a catalogued item belonging to something else — that check is
+// saveMovieToLibrary's, because it needs the database. Pure + injectable so the logic is
+// testable without touching the disk or the encoder.
+export function movieRelativePathFor(
+  slideshow: Pick<SlideshowRow, "name" | "movie_file_stem" | "movie_library_id" | "movie_relative_path">,
+  libraryId: string,
+  exists: (relativePath: string) => boolean,
+  policy: MovieConflictPolicy = "keep_both"
+): string {
+  const own = slideshow.movie_library_id === libraryId ? slideshow.movie_relative_path : null;
+  const stem = movieStemFor(slideshow);
+  const first = `${MOVIE_SUBFOLDER}/${stem}.mp4`;
+  // Overwrite means "take the name" — no numbering, whatever is sitting there.
+  if (policy === "overwrite") return first;
+
+  // Otherwise disambiguate with " (2)", " (3)", … Mirrors uniqueGalleryFileName.
+  let relativePath = first;
   let counter = 2;
   while (relativePath !== own && exists(relativePath)) {
     relativePath = `${MOVIE_SUBFOLDER}/${stem} (${counter}).mp4`;
@@ -1137,31 +1158,80 @@ export function movieRelativePathFor(
   return relativePath;
 }
 
-// Copy a finished render (the thumbnail-store MP4 at `storageKey`) into the default movie
-// library and catalog it as a video item. Best-effort by contract: the caller treats any
-// throw as "not saved" and leaves the render 'ready' regardless. Re-renders reuse the
-// slideshow's stored path so the same file is overwritten and the SAME catalog item is
-// updated (ingestGalleryAsset keys on library_id + relative_path) — no duplicate items.
+/**
+ * Whether a path in a library is a catalogued item that is NOT this slideshow's own movie
+ * — someone's actual video that happens to share the name. Overwriting one would destroy
+ * it and tombstone their item, so it is refused outright rather than confirmed away.
+ * Returns the offending item's id, or null when the name is free or already ours.
+ */
+export function foreignItemAt(
+  libraryId: string,
+  relativePath: string,
+  ownItemId: string | null
+): string | null {
+  const row = db.prepare(`
+    SELECT library_items.id AS id
+    FROM gallery_details
+    JOIN library_items ON library_items.id = gallery_details.item_id
+    WHERE library_items.library_id = ?
+      AND gallery_details.relative_path = ?
+      AND library_items.deleted_at IS NULL
+  `).get(libraryId, relativePath) as { id: string } | undefined;
+  if (!row) return null;
+  return row.id === ownItemId ? null : row.id;
+}
+
+/**
+ * Copy a finished render (the thumbnail-store MP4 at `storageKey`) into the slideshow's
+ * chosen library and catalog it as a video item. No target = nothing to do, which is the
+ * default. Best-effort by contract: the caller treats any throw as "not saved" and leaves
+ * the render 'ready' regardless — but the REASON is recorded on the slideshow so the
+ * editor can say why instead of silently not saving.
+ *
+ * Re-renders reuse the slideshow's stored path so the same file is overwritten and the
+ * SAME catalog item is updated (ingestGalleryAsset keys on library_id + relative_path) —
+ * no duplicate items.
+ */
 export async function saveMovieToLibrary(
   slideshow: SlideshowRow,
   storageKey: string
-): Promise<{ saved: boolean; itemId: string | null }> {
-  const libId = getRenderLibraryId();
-  if (!libId) return { saved: false, itemId: null };
+): Promise<{ saved: boolean; itemId: string | null; error: string | null }> {
+  const libId = slideshow.movie_target_library_id;
+  if (!libId) return { saved: false, itemId: null, error: null };
 
   const library = db.prepare("SELECT id, source_path FROM libraries WHERE id = ? AND type = 'gallery'")
     .get(libId) as { id: string; source_path: string } | undefined;
-  if (!library) return { saved: false, itemId: null };
+  if (!library) {
+    return { saved: false, itemId: null, error: "The library this movie saves to no longer exists." };
+  }
 
   const root = validateLibrarySource(library.source_path); // throws on an unusable mount
 
-  const relativePath = movieRelativePathFor(slideshow, libId, (rel) => fs.existsSync(path.join(root, ...rel.split("/"))));
+  const relativePath = movieRelativePathFor(
+    slideshow,
+    libId,
+    (rel) => fs.existsSync(path.join(root, ...rel.split("/"))),
+    slideshow.movie_on_conflict
+  );
+
+  // The one thing overwrite must never do. A name can come to belong to a real video
+  // between choosing the library and rendering — someone drops a clip in, or a scan picks
+  // one up — so the check is here, at the moment of writing, not only in the dialog.
+  const foreign = foreignItemAt(libId, relativePath, slideshow.movie_item_id);
+  if (foreign) {
+    return {
+      saved: false,
+      itemId: null,
+      error: `"${relativePath.split("/").pop()}" is already a video in that library. Rename the movie or choose "Keep both".`
+    };
+  }
+
   const target = path.join(root, ...relativePath.split("/"));
   fs.mkdirSync(path.dirname(target), { recursive: true });
   fs.copyFileSync(thumbnailAbsolutePath(storageKey), target);
 
   const itemId = await scanSingleGalleryFile(libId, normaliseRelativePath(relativePath));
-  if (!itemId) return { saved: false, itemId: null };
+  if (!itemId) return { saved: false, itemId: null, error: "The movie was copied but could not be catalogued." };
 
   // A previous save under another name (slideshow renamed) or in another library is now
   // stale: best-effort remove the old file and soft-delete its catalog item right away
@@ -1185,7 +1255,7 @@ export async function saveMovieToLibrary(
   }
 
   setSlideshowMovieAsset(slideshow.id, { libraryId: libId, relativePath, itemId });
-  return { saved: true, itemId };
+  return { saved: true, itemId, error: null };
 }
 
 // Delete a slideshow's rendered movie: the MP4 in the thumbnail store plus any leftover
@@ -1335,14 +1405,22 @@ export async function processSlideshowRenderQueue(): Promise<void> {
           renderedAt: new Date().toISOString(), error: null
         });
 
-        // Auto-save the movie into the default library, if one is configured. Best-effort:
-        // a failure here (unusable mount, etc.) must NOT fail the render — the movie is
-        // still ready and playable/downloadable in the editor.
+        // File the movie into the slideshow's chosen library, if it named one. Best-effort:
+        // a failure here (unusable mount, a name taken by someone's video) must NOT fail the
+        // render — the movie is still ready and playable/downloadable in the editor. The
+        // reason is stored so the editor can say why rather than just not saving.
         let savedToLibrary = false;
         try {
-          savedToLibrary = (await saveMovieToLibrary(getSlideshow(slideshow.id)!, storageKey)).saved;
+          const result = await saveMovieToLibrary(getSlideshow(slideshow.id)!, storageKey);
+          savedToLibrary = result.saved;
+          setSlideshowSaveError(slideshow.id, result.error);
+          if (result.error) {
+            console.warn(`slideshow render: movie encoded but not saved to the library: ${result.error}`);
+          }
         } catch (saveErr) {
-          console.warn(`slideshow render: movie encoded but couldn't be saved to the library: ${saveErr instanceof Error ? saveErr.message : saveErr}`);
+          const message = saveErr instanceof Error ? saveErr.message : String(saveErr);
+          setSlideshowSaveError(slideshow.id, message);
+          console.warn(`slideshow render: movie encoded but couldn't be saved to the library: ${message}`);
         }
 
         // Record a result on the job so the Tasks page history shows an outcome.

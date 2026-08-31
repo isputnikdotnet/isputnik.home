@@ -27,6 +27,7 @@ import { AddToSlideshowModal } from "./AddToSlideshowModal";
 import { GalleryDateModal } from "./GalleryDateModal";
 import { GalleryLocationModal } from "./GalleryLocationModal";
 import { GalleryTagsModal } from "./GalleryTagsModal";
+import { SlideshowMovieLibraryModal } from "./SlideshowMovieLibraryModal";
 import { PhotoPicker } from "./PhotoPicker";
 import { GallerySlideshowEditor } from "./GallerySlideshowEditor";
 import { ShareSetModal } from "../share/ShareSetModal";
@@ -35,7 +36,7 @@ import { SendToSheet, type SendToSubject } from "../social/SendToSheet";
 import { NotesSection } from "../social/NotesSection";
 import { Modal } from "../../shared/Modal";
 import { ChoiceGroup } from "../../shared/ChoiceGroup";
-import type { GalleryAlbum, GalleryAlbumDetail, GalleryAsset, GalleryFaceSettings, GalleryFacets, GalleryFolder, GalleryLibrary, GalleryMapPoint, GalleryMemories, GalleryMemoryGroup, GalleryMemorySuggestion, GalleryPerson, GallerySlideshow, GallerySlideshowDetail, GallerySlideshowSettings, GalleryYearReview, SlideshowTransition } from "./types";
+import type { GalleryAlbum, GalleryAlbumDetail, GalleryAsset, GalleryFaceSettings, GalleryFacets, GalleryFolder, GalleryLibrary, GalleryMapPoint, GalleryMemories, GalleryMemoryGroup, GalleryMemorySuggestion, GalleryPerson, GallerySlideshow, GallerySlideshowDetail, GallerySlideshowSettings, SlideshowTransition } from "./types";
 import { faceFocusStyle } from "./types";
 import i18n from "../../i18n";
 
@@ -207,7 +208,6 @@ export function GalleryPage({
   // dedicated Memories view.
   const [memories, setMemories] = useState<GalleryMemories | null>(null);
   const [memorySuggestions, setMemorySuggestions] = useState<GalleryMemorySuggestion[]>([]);
-  const [yearReviews, setYearReviews] = useState<GalleryYearReview[]>([]);
   // A suggestion opened for PREVIEW — nothing is created until the user picks an
   // action in the modal. previewAssets null = thumbnails still loading.
   const [previewSuggestion, setPreviewSuggestion] = useState<GalleryMemorySuggestion | null>(null);
@@ -253,7 +253,7 @@ export function GalleryPage({
     bulkSlideshowOpen, setBulkSlideshowOpen, browseOpen, setBrowseOpen,
     slideshowCoverPickerOpen, setSlideshowCoverPickerOpen,
     movieDeleteOpen, setMovieDeleteOpen, movieDeleteBusy,
-    slideshowSettings, loadSlideshowSettings, setRenderLibrary,
+    slideshowSettings, loadSlideshowSettings,
     loadSlideshows, openSlideshow, patchSlideshow, setSlideshowCover, renderSlideshowMovie,
     deleteSlideshowMovie, reorderSlideshow, removeFromSlideshow,
     createSlideshowSubmit, confirmDeleteSlideshow
@@ -613,18 +613,6 @@ export function GalleryPage({
 
   useEffect(() => { void loadMemorySuggestions(); }, [loadMemorySuggestions]);
 
-  // "2026 in review" cards. A year card is a full selection pass over that year's
-  // items server-side, so only the most recent few are asked for.
-  const loadYearReviews = useCallback(async () => {
-    const params = new URLSearchParams({ ...scopeParams(), limit: "3" } as Record<string, string>);
-    try {
-      const payload = await api<{ suggestions: GalleryYearReview[] }>(`/api/library/gallery/year-review?${params}`);
-      setYearReviews(payload.suggestions);
-    } catch { /* advisory; the section just stays empty */ }
-  }, [scopeParams]);
-
-  useEffect(() => { void loadYearReviews(); }, [loadYearReviews]);
-
   // Open a suggestion for preview: show its photos and let the user choose an action
   // (create a slideshow, or add the photos to an existing/new one). Nothing persists
   // until they pick one.
@@ -813,6 +801,11 @@ export function GalleryPage({
   const canDeleteCurrent = currentLibrary?.canDelete ?? false;
   const canEditCurrent = currentLibrary?.canWrite ?? false;
   const canShareCurrent = currentLibrary?.canCurate ?? false;
+
+  // The movie-target libraries are needed by the slideshow editor as well as the list,
+  // and a deep link opens the editor without ever passing through the list — so load them
+  // whenever the Slideshows view is active rather than only on the way in.
+  useEffect(() => { if (view === "slideshows") void loadSlideshowSettings(); }, [view, loadSlideshowSettings]);
 
   const uploadLibraries = libraries.filter((library) => library.canUpload);
 
@@ -1322,18 +1315,6 @@ export function GalleryPage({
                       the label carries it — same reasoning as Sort showing the
                       order it's in. Admin-only, and only once there's somewhere
                       to save one. */}
-                  {view === "slideshows" && !selectedSlideshow && isAdmin && slideshowSettings && slideshowSettings.libraries.length > 0 && (
-                    <button
-                      type="button"
-                      className="library-toolbar-button"
-                      onClick={() => setMovieLibraryOpen(true)}
-                    >
-                      <LibraryBig size={18} aria-hidden="true" />
-                      <span className="toolbar-label">
-                        {(slideshowSettings.renderLibraryId && slideshowSettings.libraries.find((lib) => lib.id === slideshowSettings.renderLibraryId)?.name) || t("gallery:slideshows.movieLibraryFallback")}
-                      </span>
-                    </button>
-                  )}
                   {/* Nothing narrows the other list views, so there is nothing to
                       divide the acting controls from. */}
                   {browsingPhotos && <span className="library-toolbar-divider" aria-hidden="true" />}
@@ -2000,7 +1981,8 @@ export function GalleryPage({
                       onRemove={(id) => void removeFromSlideshow(selectedSlideshow.id, id)}
                       onPatch={(fields) => patchSlideshow(selectedSlideshow.id, fields)}
                       onRender={() => void renderSlideshowMovie(selectedSlideshow.id)}
-                      onDeleteMovie={() => setMovieDeleteOpen(true)}
+                      onOpenMovieLibrary={() => setMovieLibraryOpen(true)}
+              onDeleteMovie={() => setMovieDeleteOpen(true)}
                     />
 
                     <NotesSection entityType="gallery_slideshow" entityId={selectedSlideshow.id} />
@@ -2014,38 +1996,6 @@ export function GalleryPage({
                       slideshows: it's the "make something new" prompt, and a
                       single scrollable row (the fetch itself is capped) keeps
                       it from pushing your actual list below the fold. */}
-                  {/* Ahead of the trip/event suggestions: a year card is the one
-                      the household actually built, a tap at a time, all year. */}
-                  {yearReviews.length > 0 && !nameTerm && (
-                    <section className="gallery-memory-suggestions" aria-label={t("gallery:yearReview.heading")}>
-                      <div className="gallery-memory-suggestions-head">
-                        <h2>{t("gallery:yearReview.heading")}</h2>
-                      </div>
-                      <p className="gallery-year-hint">
-                        {t("gallery:yearReview.hint")}
-                      </p>
-                      <div className="gallery-suggestion-row">
-                        {yearReviews.map((review) => (
-                          <button
-                            key={review.id}
-                            type="button"
-                            className="gallery-folder-tile gallery-memory-tile gallery-year-tile"
-                            onClick={() => void openSuggestionPreview(review)}
-                            title={t("gallery:yearReview.previewTitle", { title: review.title })}
-                          >
-                            <span className="gallery-folder-thumb">
-                              {review.coverUrl ? <img src={review.coverUrl} alt="" loading="lazy" /> : <CalendarDays size={28} aria-hidden="true" />}
-                              <span className="gallery-memory-play" aria-hidden="true"><Play size={20} /></span>
-                              <span className="gallery-year-badge" aria-hidden="true">{review.year}</span>
-                            </span>
-                            <strong>{review.title}</strong>
-                            <small>{review.subtitle}</small>
-                          </button>
-                        ))}
-                      </div>
-                    </section>
-                  )}
-
                   {memorySuggestions.length > 0 && !nameTerm && (
                     <section className="gallery-memory-suggestions" aria-label={t("gallery:suggestions.heading")}>
                       <div className="gallery-memory-suggestions-head">
@@ -2668,29 +2618,14 @@ export function GalleryPage({
         </Modal>
       )}
 
-      {movieLibraryOpen && slideshowSettings && (
-        <Modal
-          variant="card"
-          title={t("gallery:slideshows.movieLibraryTitle")}
-          icon={<LibraryBig size={20} />}
+      {movieLibraryOpen && selectedSlideshow && slideshowSettings && (
+        <SlideshowMovieLibraryModal
+          slideshow={selectedSlideshow}
+          libraries={slideshowSettings.libraries}
           onClose={() => setMovieLibraryOpen(false)}
-        >
-          <p className="muted">
-            {t("gallery:slideshows.movieLibraryBody")}
-          </p>
-          <ChoiceGroup
-            legend={t("gallery:slideshows.movieLibraryLegend")}
-            value={slideshowSettings.renderLibraryId ?? ""}
-            onChange={(value) => void setRenderLibrary(value)}
-            options={[
-              { value: "", label: t("gallery:slideshows.dontSaveOption") },
-              ...slideshowSettings.libraries.map((lib) => ({ value: lib.id, label: lib.name }))
-            ]}
-          />
-          <div className="modal-actions">
-            <button type="button" className="primary-button" onClick={() => setMovieLibraryOpen(false)}>{t("common:common.done")}</button>
-          </div>
-        </Modal>
+          onPatch={async (fields) => { await patchSlideshow(selectedSlideshow.id, fields); }}
+          onSaved={(message) => setNotice(message)}
+        />
       )}
 
       {slideshowDeleteOpen && selectedSlideshow && (

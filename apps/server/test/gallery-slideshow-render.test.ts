@@ -14,6 +14,7 @@ import {
   updateSlideshow,
   setSlideshowRenderState,
   setSlideshowMovieAsset,
+  setSlideshowSaveError,
   getSlideshowRenderItems,
   titleCardLines,
   closingCardLines,
@@ -39,13 +40,14 @@ import {
   titleBackgroundFor,
   musicWindows,
   swapRenderIntoPlace,
+  foreignItemAt,
+  movieStemFor,
   TITLE_CARD_SECONDS,
   RANDOM_XFADES,
   RENDER_JOB_TYPE,
   type Segment
 } from "../src/modules/library/gallery/slideshow-render.js";
 import { thumbnailPathSettingKey, thumbnailStorageKey, thumbnailAbsolutePath } from "../src/modules/library/shared/thumbnail.js";
-import { getRenderLibraryId, setRenderLibraryId } from "../src/modules/library/gallery/slideshow-settings.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
 
 function asset(relativePath: string, takenAtIso: string, kind = kindForExtension(`.${relativePath.split(".").pop()}`)!) {
@@ -745,28 +747,80 @@ describe("enqueue + progress", () => {
   });
 });
 
-describe("default movie library setting", () => {
-  it("stores and clears the default library", () => {
-    expect(getRenderLibraryId()).toBeNull();
-    setRenderLibraryId("GAL", "creator");
-    expect(getRenderLibraryId()).toBe("GAL");
-    setRenderLibraryId(null, "creator");
-    expect(getRenderLibraryId()).toBeNull();
+// Saving a movie into a library is a per-slideshow choice, off until someone makes it.
+describe("the per-slideshow movie target", () => {
+  it("is off for a new slideshow, and keeps both by default", () => {
+    const s = getSlideshow(createSlideshow(creator, "Summer").id)!;
+    expect(s.movie_target_library_id).toBeNull();
+    expect(s.movie_on_conflict).toBe("keep_both");
+    expect(s.movie_file_stem).toBeNull();
+    expect(s.movie_save_error).toBeNull();
   });
 
-  it("ignores a target that isn't an existing gallery library", () => {
-    makeLibrary("AUD", { createdBy: "creator", type: "audiobook" });
-    setRenderLibraryId("AUD", "creator"); // not a gallery library
-    expect(getRenderLibraryId()).toBeNull();
+  it("stores a target, a policy and a rename, and clears them again", () => {
+    const s = createSlideshow(creator, "Summer");
+    updateSlideshow(s.id, { movieTargetLibraryId: "GAL", movieOnConflict: "overwrite", movieFileStem: "Our summer" });
+    expect(getSlideshow(s.id)!).toMatchObject({
+      movie_target_library_id: "GAL", movie_on_conflict: "overwrite", movie_file_stem: "Our summer"
+    });
+    updateSlideshow(s.id, { movieTargetLibraryId: null, movieFileStem: null });
+    expect(getSlideshow(s.id)!).toMatchObject({ movie_target_library_id: null, movie_file_stem: null });
+    // The policy is remembered even with saving off — turning it back on shouldn't re-ask.
+    expect(getSlideshow(s.id)!.movie_on_conflict).toBe("overwrite");
+  });
 
-    setRenderLibraryId("GAL", "creator");
-    db.prepare("DELETE FROM libraries WHERE id = 'GAL'").run(); // library removed
-    expect(getRenderLibraryId()).toBeNull();
+  it("a deleted target library turns saving off rather than dangling", () => {
+    const s = createSlideshow(creator, "Summer");
+    updateSlideshow(s.id, { movieTargetLibraryId: "GAL" });
+    db.prepare("DELETE FROM libraries WHERE id = 'GAL'").run();
+    expect(getSlideshow(s.id)!.movie_target_library_id).toBeNull(); // ON DELETE SET NULL
+  });
+
+  // Choosing where a movie is filed changes no frame of it, so it must not flag a
+  // finished movie out of date — that would invite a needless three-minute re-encode.
+  it("does not mark a rendered movie stale, though a content edit still does", () => {
+    const s = createSlideshow(creator, "Summer");
+    const ready = () => db.prepare("UPDATE gallery_slideshows SET render_status = 'ready', render_stale = 0 WHERE id = ?").run(s.id);
+
+    ready();
+    updateSlideshow(s.id, { movieTargetLibraryId: "GAL", movieOnConflict: "overwrite", movieFileStem: "x" });
+    expect(getSlideshow(s.id)!.render_stale).toBe(0);
+
+    ready();
+    updateSlideshow(s.id, { slideSeconds: 7 });
+    expect(getSlideshow(s.id)!.render_stale).toBe(1);
+  });
+
+  it("records why a save failed, and clears it on a later success", () => {
+    const s = createSlideshow(creator, "Summer");
+    setSlideshowSaveError(s.id, "This library's folder is read-only.");
+    expect(getSlideshow(s.id)!.movie_save_error).toBe("This library's folder is read-only.");
+    setSlideshowSaveError(s.id, null);
+    expect(getSlideshow(s.id)!.movie_save_error).toBeNull();
+  });
+});
+
+// Overwriting must never destroy a video someone actually has. foreignItemAt is what
+// separates "a loose file with that name" from "somebody's catalogued clip".
+describe("refusing to overwrite someone else's video", () => {
+  it("reports a catalogued item at the path, and ignores our own movie", async () => {
+    const id = await ingestGalleryAsset("GAL", asset("Slideshow movies/Trip.mp4", "2024-01-01T00:00:00Z"), false);
+    expect(foreignItemAt("GAL", "Slideshow movies/Trip.mp4", null)).toBe(id);
+    // Ours: the same path, but it IS this slideshow's movie item.
+    expect(foreignItemAt("GAL", "Slideshow movies/Trip.mp4", id)).toBeNull();
+    // A free name is not a conflict at all.
+    expect(foreignItemAt("GAL", "Slideshow movies/Nothing.mp4", null)).toBeNull();
+  });
+
+  it("stops seeing a soft-deleted item as a conflict", async () => {
+    const id = await ingestGalleryAsset("GAL", asset("Slideshow movies/Gone.mp4", "2024-01-01T00:00:00Z"), false);
+    db.prepare("UPDATE library_items SET deleted_at = '2024-02-02T00:00:00Z' WHERE id = ?").run(id);
+    expect(foreignItemAt("GAL", "Slideshow movies/Gone.mp4", null)).toBeNull();
   });
 });
 
 describe("saveMovieToLibrary path selection", () => {
-  const base = { name: "Summer 2024", movie_library_id: null, movie_relative_path: null };
+  const base = { name: "Summer 2024", movie_file_stem: null, movie_library_id: null, movie_relative_path: null };
 
   it("files a first render under 'Slideshow movies/<name>.mp4'", () => {
     expect(movieRelativePathFor(base, "GAL", () => false)).toBe("Slideshow movies/Summer 2024.mp4");
@@ -844,6 +898,97 @@ describe("random transition persistence", () => {
   });
 });
 
+// The refusal that matters, exercised through the real save rather than only through
+// foreignItemAt: a name can come to belong to someone's video BETWEEN choosing the library
+// and the render finishing, so the check has to hold at the moment of writing. Overwrite is
+// forced on here deliberately — the dialog would never offer it for this case.
+describe("saveMovieToLibrary refuses to overwrite someone else's video", () => {
+  let sourceRoot: string;
+  let thumbRoot: string;
+
+  beforeEach(() => {
+    sourceRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ss-save-src-"));
+    thumbRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ss-save-thumbs-"));
+    db.prepare("INSERT INTO app_settings (key, value, updated_by) VALUES (?, ?, 'creator') ON CONFLICT(key) DO UPDATE SET value = excluded.value")
+      .run(thumbnailPathSettingKey, thumbRoot);
+    // The source must sit inside a configured storage container, as a real one does.
+    db.prepare("INSERT OR REPLACE INTO storage_roots (id, name, path, created_by) VALUES ('sr-movie', 'test', ?, 'creator')").run(fs.realpathSync(sourceRoot));
+    db.prepare("UPDATE libraries SET source_path = ? WHERE id = 'GAL'").run(sourceRoot);
+  });
+  afterEach(() => {
+    fs.rmSync(sourceRoot, { recursive: true, force: true });
+    fs.rmSync(thumbRoot, { recursive: true, force: true });
+  });
+
+  // A finished render sitting in the thumbnail store, ready to be filed.
+  const stagedRender = (slideshowId: string) => {
+    const key = thumbnailStorageKey("slideshows", slideshowId, `${slideshowId}.mp4`);
+    const abs = thumbnailAbsolutePath(key);
+    fs.mkdirSync(path.dirname(abs), { recursive: true });
+    fs.writeFileSync(abs, "movie-bytes");
+    return key;
+  };
+
+  it("leaves the other video untouched and says why", async () => {
+    // Somebody's clip already occupies the name this movie wants.
+    const theirs = path.join(sourceRoot, "Slideshow movies", "Trip.mp4");
+    fs.mkdirSync(path.dirname(theirs), { recursive: true });
+    fs.writeFileSync(theirs, "their-precious-video");
+    const theirItem = await ingestGalleryAsset("GAL", asset("Slideshow movies/Trip.mp4", "2019-08-12T00:00:00Z"), false);
+    expect(theirItem).toBeTruthy();
+
+    const show = createSlideshow(creator, "Trip");
+    updateSlideshow(show.id, { movieTargetLibraryId: "GAL", movieOnConflict: "overwrite" });
+    const key = stagedRender(show.id);
+
+    const result = await saveMovieToLibrary(getSlideshow(show.id)!, key);
+
+    expect(result.saved).toBe(false);
+    expect(result.error).toMatch(/already a video in that library/);
+    // The whole point: their file is byte-for-byte what it was.
+    expect(fs.readFileSync(theirs, "utf8")).toBe("their-precious-video");
+    expect((db.prepare("SELECT deleted_at FROM library_items WHERE id = ?").get(theirItem) as { deleted_at: string | null }).deleted_at).toBeNull();
+  });
+
+  it("keeps both instead, when that is the policy", async () => {
+    const theirs = path.join(sourceRoot, "Slideshow movies", "Trip.mp4");
+    fs.mkdirSync(path.dirname(theirs), { recursive: true });
+    fs.writeFileSync(theirs, "their-precious-video");
+    await ingestGalleryAsset("GAL", asset("Slideshow movies/Trip.mp4", "2019-08-12T00:00:00Z"), false);
+
+    const show = createSlideshow(creator, "Trip");
+    updateSlideshow(show.id, { movieTargetLibraryId: "GAL", movieOnConflict: "keep_both" });
+    const result = await saveMovieToLibrary(getSlideshow(show.id)!, stagedRender(show.id));
+
+    expect(result.saved).toBe(true);
+    expect(result.error).toBeNull();
+    expect(getSlideshow(show.id)!.movie_relative_path).toBe("Slideshow movies/Trip (2).mp4");
+    expect(fs.readFileSync(theirs, "utf8")).toBe("their-precious-video");
+  });
+
+  it("does nothing at all when no library was chosen", async () => {
+    const show = createSlideshow(creator, "Trip");
+    const result = await saveMovieToLibrary(getSlideshow(show.id)!, stagedRender(show.id));
+    expect(result).toEqual({ saved: false, itemId: null, error: null });
+  });
+
+  // Re-rendering must keep updating ONE item rather than accumulating a movie per render.
+  it("overwrites its own previous movie in place", async () => {
+    const show = createSlideshow(creator, "Trip");
+    updateSlideshow(show.id, { movieTargetLibraryId: "GAL" });
+    const key = stagedRender(show.id);
+
+    const first = await saveMovieToLibrary(getSlideshow(show.id)!, key);
+    expect(first.saved).toBe(true);
+    expect(getSlideshow(show.id)!.movie_relative_path).toBe("Slideshow movies/Trip.mp4");
+
+    const second = await saveMovieToLibrary(getSlideshow(show.id)!, key);
+    expect(second.saved).toBe(true);
+    expect(second.itemId).toBe(first.itemId);
+    expect(getSlideshow(show.id)!.movie_relative_path).toBe("Slideshow movies/Trip.mp4");
+  });
+});
+
 describe('schema baseline (3.0.0)', () => {
   // 3.0.0 folded migrations 24-31 into schema.sql, as 2.0.0 folded 2-22 before them.
   // What those migrations used to guarantee is now a property of the schema itself, so
@@ -851,7 +996,7 @@ describe('schema baseline (3.0.0)', () => {
   it('builds a complete schema in one pass and stamps the current version', () => {
     const scratch = new Database(':memory:');
     migrate(scratch);
-    // 52 = the baseline (32) plus the title-card columns, the alphabet-index
+    // 53 = the baseline (32) plus the title-card columns, the alphabet-index
     // columns, the slideshow cover column, the person cover column, the session
     // kind/label columns, the remote flag on a device-link request, the
     // login-attempt kind column, the reputation country/ISP columns, the person
@@ -859,10 +1004,11 @@ describe('schema baseline (3.0.0)', () => {
     // the title-card lettering columns, the closing-card columns, the slideshow
     // clip columns, the clip-sound flags, the retired-Expanse theme remap, the
     // interface-language column, the quote columns, the person life-fact columns,
-    // and dropping the retired opening-clip columns — none of which a fresh file
+    // dropping the retired opening-clip columns, and the per-slideshow movie target —
+    // none of which a fresh file
     // needs, since schema.sql builds it complete and seeds no such job; those
     // migrations are only for databases that predate them.
-    expect(scratch.pragma('user_version', { simple: true })).toBe(52);
+    expect(scratch.pragma('user_version', { simple: true })).toBe(53);
 
     const userColumns = (scratch.pragma('table_info(users)') as { name: string }[]).map((c) => c.name);
     expect(userColumns).toEqual(
@@ -938,7 +1084,7 @@ describe('schema baseline (3.0.0)', () => {
     migrate(current);
     current.pragma('user_version = 31'); // every 2.x migration applied
     expect(() => migrate(current)).not.toThrow();
-    expect(current.pragma('user_version', { simple: true })).toBe(52);
+    expect(current.pragma('user_version', { simple: true })).toBe(53);
     current.close();
   });
 

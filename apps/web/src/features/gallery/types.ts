@@ -167,6 +167,11 @@ export interface SlideshowPatch extends Partial<SlideshowTitleSettings> {
   musicTrackId?: string | null;
   // The post-credit clip, by gallery item id (any accessible video; null clears).
   outroItemId?: string | null;
+  // Where the finished movie is filed. null = don't save (the default).
+  movieTargetLibraryId?: string | null;
+  movieOnConflict?: MovieConflictPolicy;
+  // Rename: the filename without ".mp4". null puts it back on the slideshow's name.
+  movieFileStem?: string | null;
   coverItemId?: string | null;
 }
 
@@ -211,6 +216,14 @@ export interface GallerySlideshowDetail extends SlideshowTitleSettings {
   canEdit: boolean;
   updatedAt: string;
   outroClip: SlideshowClipInfo | null;
+  // Where this slideshow files its movie. movieFileName is the name the next save would
+  // use, so the editor never has to work it out; movieSaveError says why the last one
+  // didn't land (a read-only folder, a name taken by someone's video).
+  movieTargetLibraryId: string | null;
+  movieOnConflict: MovieConflictPolicy;
+  movieFileStem: string | null;
+  movieFileName: string;
+  movieSaveError: string | null;
   musicTrackId: string | null;
   musicTitle: string | null;
   musicUrl: string | null;
@@ -288,9 +301,40 @@ export interface GalleryFaceSettings {
 
 // Global slideshow-movie settings (admin): the default gallery library every rendered
 // movie is auto-saved into. renderLibraryId is null when saving to a library is off.
+/** A gallery library as a possible home for a movie, with WHY it can't be one. */
+export interface MovieLibraryOption {
+  id: string;
+  name: string;
+  canWrite: boolean;      // this viewer's permission
+  writable: boolean;      // …and the folder itself accepts writes
+  reason: "permission" | "readonly" | null;
+}
+
 export interface GallerySlideshowSettings {
-  renderLibraryId: string | null;
-  libraries: { id: string; name: string }[];
+  libraries: MovieLibraryOption[];
+}
+
+/** What to do when the movie's filename is already taken in the chosen library. */
+export type MovieConflictPolicy = "overwrite" | "keep_both";
+
+/**
+ * What saving into a library WOULD do, asked before anything is written.
+ *
+ * `conflict`: "none" the name is free · "own" it's this slideshow's own movie, which is
+ * just a re-save · "file" a loose file has the name (overwrite is offered) · "item" a
+ * catalogued video someone has in their gallery, where overwrite is REFUSED and the only
+ * ways forward are Rename or Keep both.
+ */
+export interface MovieTargetPreview {
+  usable: boolean;
+  reason?: string;
+  wantedPath?: string;
+  resolvedPath?: string;
+  fileName?: string;
+  conflict?: "none" | "own" | "file" | "item";
+  canOverwrite?: boolean;
+  existingTitle?: string | null;
+  existingTakenAt?: string | null;
 }
 
 // Clustering-health diagnostic: how many people are likely the same person split across

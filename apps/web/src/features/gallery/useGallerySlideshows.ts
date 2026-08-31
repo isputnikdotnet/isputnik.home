@@ -39,26 +39,16 @@ export function useGallerySlideshows({ setLoading, setError, setNotice, isAdmin 
   // Confirm + delete the open slideshow's rendered movie.
   const [movieDeleteOpen, setMovieDeleteOpen] = useState(false);
   const [movieDeleteBusy, setMovieDeleteBusy] = useState(false);
-  // Global "default movie library" (admin): where rendered movies are auto-saved.
+  // The libraries a movie could be filed into, each carrying whether it is usable and
+  // why not. Every member sees this now — where a movie is saved is a per-slideshow
+  // choice made by whoever edits the slideshow, not an install-wide admin setting.
   const [slideshowSettings, setSlideshowSettings] = useState<GallerySlideshowSettings | null>(null);
 
   const loadSlideshowSettings = useCallback(async () => {
-    if (!isAdmin) return;
     try {
       setSlideshowSettings(await api<GallerySlideshowSettings>("/api/library/gallery/slideshows/settings"));
-    } catch { /* non-admins / errors just hide the control */ }
-  }, [isAdmin]);
-
-  // Set (or clear, with "") the default movie library. Optimistic; reloads on any error.
-  const setRenderLibrary = useCallback(async (libraryId: string) => {
-    const next = libraryId || null;
-    setSlideshowSettings((prev) => (prev ? { ...prev, renderLibraryId: next } : prev));
-    try {
-      await api("/api/library/gallery/slideshows/settings", { method: "PATCH", body: JSON.stringify({ renderLibraryId: next }) });
-    } catch {
-      void loadSlideshowSettings();
-    }
-  }, [loadSlideshowSettings]);
+    } catch { /* advisory; the picker just offers nothing */ }
+  }, []);
 
   // Slideshows list + one slideshow's items (paged like albums, but in
   // presentation order). A larger page keeps a whole slideshow in one request.
@@ -245,7 +235,7 @@ export function useGallerySlideshows({ setLoading, setError, setNotice, isAdmin 
     slideshowCoverPickerOpen, setSlideshowCoverPickerOpen,
     movieDeleteOpen, setMovieDeleteOpen,
     movieDeleteBusy, setMovieDeleteBusy,
-    slideshowSettings, loadSlideshowSettings, setRenderLibrary,
+    slideshowSettings, loadSlideshowSettings,
     loadSlideshows, openSlideshow, patchSlideshow, setSlideshowCover,
     renderSlideshowMovie, deleteSlideshowMovie, reorderSlideshow,
     removeFromSlideshow, createSlideshowSubmit, confirmDeleteSlideshow

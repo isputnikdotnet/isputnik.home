@@ -272,5 +272,30 @@
       "medium": "Medium",
       "large": "Large"
     }
+  },
+  "movieLibrary": {
+    "title": "Where this movie is saved",
+    "body": "A finished movie can be filed into one of your galleries, so it sits with your photos instead of only living in this editor. Off unless you choose a library.",
+    "legend": "Save the movie into",
+    "dontSave": "Don't save it to a library",
+    "noneTitle": "No library can take a movie",
+    "noneBody": "Saving a movie needs a gallery library you can add to, whose folder isn't read-only.",
+    "reasonPermission": "you can't add to this one",
+    "reasonReadonly": "this folder is read-only",
+    "fileNameLabel": "Saved as",
+    "rename": "Rename",
+    "checking": "Checking that name…",
+    "ownHint": "This replaces the copy already there, so you don't collect one movie per render.",
+    "freeHint": "The name is free. Re-rendering replaces this file rather than adding another.",
+    "clashFileTitle": "“{{name}}” is already there",
+    "clashFileBody": "A file of that name is already in this folder, but nothing in your gallery points at it. Keep both to save alongside it, or overwrite it.",
+    "clashItemTitle": "“{{name}}” is a video in your gallery",
+    "clashItemBody": "Saving over “{{title}}” would delete it, so that isn't offered. Rename this movie, or keep both.",
+    "turnOff": "Stop saving",
+    "overwrite": "Overwrite",
+    "keepBoth": "Keep both",
+    "savedNotice": "Saved the movie to your gallery as {{name}}.",
+    "unableToSave": "Unable to change where this movie is saved",
+    "takenHint": "That name is taken, so this would be saved as {{name}} instead."
   }
 }

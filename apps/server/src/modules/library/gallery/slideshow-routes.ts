@@ -7,7 +7,6 @@ import { z } from "zod";
 import { db, logActivity } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
 import { resolveGalleryScopeLibraryIds } from "./catalog.js";
-import { getRenderLibraryId, setRenderLibraryId } from "./slideshow-settings.js";
 import {
   getSlideshow,
   canEditSlideshow,
@@ -21,19 +20,30 @@ import {
   getSlideshowItems,
   getSlideshowRenderItems,
   getClipRenderItem,
+  setSlideshowSaveError,
   summarize,
-  type SlideshowRow
+  type SlideshowRow,
+  type MovieConflictPolicy
 } from "./slideshows.js";
 import { getMusicTrack, summarizeTrack } from "./music.js";
+import path from "node:path";
+import { validateLibrarySource } from "../shared/library-source.js";
 import {
   enqueueSlideshowRender,
   renderProgressPercent,
   deleteSlideshowRender,
   presentRenderItems,
   slideshowTitleCardPreview,
-  slideshowClosingCardPreview
+  slideshowClosingCardPreview,
+  saveMovieToLibrary,
+  movieRelativePathFor,
+  movieStemFor,
+  foreignItemAt
 } from "./slideshow-render.js";
 import { parseRangeHeader, pipeFileToReply } from "../shared/document-stream.js";
+import { sourceIsWritable } from "../shared/library-source.js";
+import { canUserWriteLibrary } from "../shared/library-access.js";
+import type { LibraryListRow } from "../shared/library-serializer.js";
 import { thumbnailAbsolutePath } from "../shared/thumbnail.js";
 import fs from "node:fs";
 
@@ -119,6 +129,12 @@ const updateSchema = z.object({
   outroItemId: z.string().trim().min(1).max(64).nullable().optional(),
   // Whether the clip's own audio plays (music pausing under it). On by default.
   outroSound: z.boolean().optional(),
+  // Where a finished movie is filed. null = don't save, the default. The library is
+  // checked for BOTH write permission and a writable source folder in the handler.
+  movieTargetLibraryId: z.string().trim().min(1).max(64).nullable().optional(),
+  movieOnConflict: z.enum(["overwrite", "keep_both"]).optional(),
+  // Rename: the filename stem without ".mp4". null puts it back on the slideshow's name.
+  movieFileStem: z.string().trim().min(1).max(120).nullable().optional(),
   coverItemId: z.string().trim().min(1).max(64).nullable().optional()
 });
 
@@ -142,6 +158,28 @@ function titleFields(slideshow: SlideshowRow) {
     closingPhotoItemId: slideshow.closing_photo_item_id,
     outroSound: slideshow.outro_sound === 1
   };
+}
+
+// Where this slideshow files its movie, as the editor shows it. movieFileName is the
+// name the NEXT save would use, so the editor never has to guess it.
+function movieTargetFields(slideshow: SlideshowRow) {
+  return {
+    movieTargetLibraryId: slideshow.movie_target_library_id,
+    movieOnConflict: slideshow.movie_on_conflict,
+    movieFileStem: slideshow.movie_file_stem,
+    movieFileName: `${movieStemFor(slideshow)}.mp4`,
+    movieSaveError: slideshow.movie_save_error
+  };
+}
+
+// A library is a usable movie target only if the caller can write it AND its folder is
+// writable. Returns an error message, or null when it is fine.
+function movieTargetProblem(libraryId: string, user: { id: string; role: string }): string | null {
+  const row = db.prepare("SELECT * FROM libraries WHERE id = ? AND type = 'gallery'").get(libraryId) as LibraryListRow | undefined;
+  if (!row) return "That gallery library no longer exists.";
+  if (!canUserWriteLibrary(row, user.id, user.role)) return "You don't have permission to add to that library.";
+  const writable = sourceIsWritable(row.source_path);
+  return writable.ok ? null : writable.reason;
 }
 
 // The post-credit clip as the editor shows it: enough to draw a row (thumb,
@@ -209,35 +247,26 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
     return { slideshows: listSlideshows(request.user!, libIds) };
   });
 
-  // The global "default movie library" (admin): where every successful render is auto-saved
-  // as a gallery video item. `renderLibraryId` is null when saving-to-a-library is off.
-  // (Static path — Fastify routes this ahead of the "/:id" route below.)
-  app.get("/api/library/gallery/slideshows/settings", { preHandler: app.requireAdmin }, async () => {
-    const libraries = db.prepare("SELECT id, name FROM libraries WHERE type = 'gallery' ORDER BY name COLLATE NOCASE").all() as { id: string; name: string }[];
-    return { renderLibraryId: getRenderLibraryId(), libraries };
-  });
-
-  const settingsSchema = z.object({ renderLibraryId: z.string().trim().min(1).max(64).nullable() });
-
-  app.patch("/api/library/gallery/slideshows/settings", { preHandler: app.requireAdmin }, async (request, reply) => {
-    const parsed = parseBody(settingsSchema, request.body);
-    if (parsed.error) {
-      return reply.code(400).send({ error: "Invalid movie settings", details: parsed.error });
-    }
-    const libraryId = parsed.data.renderLibraryId;
-    if (libraryId && !db.prepare("SELECT 1 FROM libraries WHERE id = ? AND type = 'gallery'").get(libraryId)) {
-      return reply.code(400).send({ error: "That gallery library no longer exists." });
-    }
-    setRenderLibraryId(libraryId, request.user!.id);
-    logActivity({
-      event: "gallery.slideshow.settings",
-      actorUserId: request.user!.id,
-      targetType: "app_setting",
-      targetId: "gallery.slideshow.render_library",
-      detail: libraryId ? `Set the default slideshow-movie library.` : `Turned off saving slideshow movies to a library.`,
-      ipAddress: request.ip
+  // The libraries a movie could be filed into: gallery libraries this caller can write,
+  // whose source folder is actually writable. Both checks matter and they fail differently
+  // — permission is per user, a read-only mount is per install — so each unusable library
+  // is returned WITH its reason rather than omitted, or the picker silently loses entries
+  // and nobody can tell why. (Static path — Fastify routes this ahead of "/:id" below.)
+  app.get("/api/library/gallery/slideshows/settings", { preHandler: app.authenticate }, async (request) => {
+    const user = request.user!;
+    const rows = db.prepare("SELECT * FROM libraries WHERE type = 'gallery' ORDER BY name COLLATE NOCASE").all() as LibraryListRow[];
+    const libraries = rows.map((row) => {
+      const canWrite = canUserWriteLibrary(row, user.id, user.role);
+      const writable = canWrite ? sourceIsWritable(row.source_path) : { ok: true as const };
+      return {
+        id: row.id,
+        name: row.name,
+        canWrite,
+        writable: canWrite && writable.ok,
+        reason: !canWrite ? "permission" : writable.ok ? null : "readonly"
+      };
     });
-    return reply.send({ renderLibraryId: getRenderLibraryId() });
+    return { libraries };
   });
 
   app.post("/api/library/gallery/slideshows", { preHandler: app.authenticate }, async (request, reply) => {
@@ -290,6 +319,7 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
         canEdit: canEditSlideshow(slideshow, user),
         updatedAt: slideshow.updated_at,
         ...titleFields(slideshow),
+        ...movieTargetFields(slideshow),
         outroClip: clipSummary(libIds, slideshow.outro_item_id),
         ...musicFields(slideshow.music_track_id),
         ...renderFields(slideshow)
@@ -458,6 +488,12 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
         return reply.code(400).send({ error: "That photo isn't in this slideshow." });
       }
     }
+    // A movie target has to be writable in both senses (see movieTargetProblem).
+    if (parsed.data.movieTargetLibraryId) {
+      const problem = movieTargetProblem(parsed.data.movieTargetLibraryId, user);
+      if (problem) return reply.code(400).send({ error: problem });
+    }
+
     // The clip has to be a gallery VIDEO the caller can actually see (any library —
     // membership not required; see updateSchema).
     if (parsed.data.outroItemId && !getClipRenderItem(resolveGalleryScopeLibraryIds(user), parsed.data.outroItemId)) {
@@ -465,6 +501,108 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
     }
     updateSlideshow(slideshow.id, parsed.data);
     return reply.send({ updated: true });
+  });
+
+  // What filing this movie into a library WOULD do, without doing it. The picker calls
+  // this before saving so a clash can be raised while a person is present to answer —
+  // a background render cannot ask, so the answer has to be collected here and stored.
+  //
+  // `conflict` distinguishes the two cases that need different words: "file" is some
+  // loose file with the same name (overwriting is offered), "item" is a catalogued video
+  // someone actually has in their gallery (overwriting is REFUSED — see saveMovieToLibrary).
+  app.get("/api/library/gallery/slideshows/:id/movie-target/preview", { preHandler: app.authenticate }, async (request, reply) => {
+    const user = request.user!;
+    const slideshow = editable((request.params as { id: string }).id, user, reply);
+    if (!slideshow) return reply;
+
+    const query = request.query as { libraryId?: string; stem?: string; onConflict?: string };
+    const libraryId = (query.libraryId ?? "").trim();
+    if (!libraryId) return reply.code(400).send({ error: "Name a library to check." });
+
+    const problem = movieTargetProblem(libraryId, user);
+    if (problem) return reply.send({ usable: false, reason: problem });
+
+    const library = db.prepare("SELECT source_path FROM libraries WHERE id = ?").get(libraryId) as { source_path: string };
+    const root = validateLibrarySource(library.source_path);
+    const probe = { ...slideshow, movie_file_stem: query.stem?.trim() || slideshow.movie_file_stem };
+    const policy: MovieConflictPolicy = query.onConflict === "overwrite" ? "overwrite" : "keep_both";
+
+    // Always resolve at the FIRST-CHOICE name, so the dialog reports the clash rather than
+    // silently showing the numbered name "keep both" would land on.
+    const wanted = movieRelativePathFor(probe, libraryId, () => false, "overwrite");
+    const onDisk = fs.existsSync(path.join(root, ...wanted.split("/")));
+    const own = slideshow.movie_library_id === libraryId && slideshow.movie_relative_path === wanted;
+    const foreign = onDisk ? foreignItemAt(libraryId, wanted, slideshow.movie_item_id) : null;
+
+    const resolved = movieRelativePathFor(
+      probe, libraryId,
+      (rel) => fs.existsSync(path.join(root, ...rel.split("/"))),
+      policy
+    );
+
+    let conflict: "none" | "own" | "file" | "item" = "none";
+    if (own) conflict = "own";
+    else if (foreign) conflict = "item";
+    else if (onDisk) conflict = "file";
+
+    const existing = foreign
+      ? db.prepare(`
+          SELECT item_metadata.title AS title, gallery_details.taken_at AS takenAt
+          FROM gallery_details LEFT JOIN item_metadata ON item_metadata.item_id = gallery_details.item_id
+          WHERE gallery_details.item_id = ?
+        `).get(foreign) as { title: string | null; takenAt: string | null } | undefined
+      : undefined;
+
+    return reply.send({
+      usable: true,
+      wantedPath: wanted,
+      resolvedPath: resolved,
+      fileName: resolved.split("/").pop(),
+      conflict,
+      // Overwrite is offered for a loose file, never for someone's catalogued video.
+      canOverwrite: conflict === "none" || conflict === "own" || conflict === "file",
+      existingTitle: existing?.title ?? null,
+      existingTakenAt: existing?.takenAt ?? null
+    });
+  });
+
+  // Save an ALREADY-RENDERED movie into a library now — the one-off copy, separate from
+  // the slideshow's standing target. Uses whatever target/policy/stem the slideshow
+  // currently carries, so the caller PATCHes those first and then calls this.
+  app.post("/api/library/gallery/slideshows/:id/save-to-library", { preHandler: app.authenticate }, async (request, reply) => {
+    const user = request.user!;
+    const slideshow = editable((request.params as { id: string }).id, user, reply);
+    if (!slideshow) return reply;
+
+    if (slideshow.render_status !== "ready" || !slideshow.output_storage_key) {
+      return reply.code(409).send({ error: "There is no finished movie to save yet." });
+    }
+    if (!slideshow.movie_target_library_id) {
+      return reply.code(400).send({ error: "Choose a library for this movie first." });
+    }
+    const problem = movieTargetProblem(slideshow.movie_target_library_id, user);
+    if (problem) return reply.code(400).send({ error: problem });
+
+    try {
+      const result = await saveMovieToLibrary(slideshow, slideshow.output_storage_key);
+      setSlideshowSaveError(slideshow.id, result.error);
+      if (!result.saved) {
+        return reply.code(409).send({ error: result.error ?? "The movie could not be saved to that library." });
+      }
+      logActivity({
+        event: "gallery.slideshow.saved_to_library",
+        actorUserId: user.id,
+        targetType: "gallery_slideshow",
+        targetId: slideshow.id,
+        detail: `Saved the movie of slideshow "${slideshow.name}" into a gallery library.`,
+        ipAddress: request.ip
+      });
+      return reply.send({ saved: true, itemId: result.itemId });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "The movie could not be saved to that library.";
+      setSlideshowSaveError(slideshow.id, message);
+      return reply.code(409).send({ error: message });
+    }
   });
 
   app.delete("/api/library/gallery/slideshows/:id", { preHandler: app.authenticate }, async (request, reply) => {

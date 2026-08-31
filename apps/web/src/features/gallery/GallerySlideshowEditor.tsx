@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronLeft, ChevronRight, Download, Film, GripVertical, Heart, Image as ImageIcon, Music, Play, RefreshCw, Trash2, Type, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Film, GripVertical, Heart, Image as ImageIcon, LibraryBig, Music, Play, RefreshCw, Trash2, Type, X } from "lucide-react";
 import { MusicPicker } from "./MusicPicker";
 import { SlideshowTitleCardModal } from "./SlideshowTitleCardModal";
 import { MessageBox } from "../../shared/MessageBox";
@@ -29,7 +29,8 @@ export function GallerySlideshowEditor({
   onRemove,
   onPatch,
   onRender,
-  onDeleteMovie
+  onDeleteMovie,
+  onOpenMovieLibrary
 }: {
   slideshow: GallerySlideshowDetail;
   assets: GalleryAsset[];
@@ -44,6 +45,7 @@ export function GallerySlideshowEditor({
   onPatch: (fields: SlideshowPatch) => Promise<void> | void;
   onRender: () => void;
   onDeleteMovie: () => void;
+  onOpenMovieLibrary: () => void;
 }) {
   const { t } = useTranslation(["common", "gallery"]);
 
@@ -281,12 +283,31 @@ export function GallerySlideshowEditor({
                     </button>
                   )}
                   {canEdit && (
+                    <button type="button" className="secondary-button compact-button" onClick={onOpenMovieLibrary}>
+                      <LibraryBig size={15} aria-hidden="true" /> {t("gallery:slideshowEditor.movieLibraryButton")}
+                    </button>
+                  )}
+                  {canEdit && (
                     <button type="button" className="secondary-button compact-button" onClick={onDeleteMovie}>
                       <Trash2 size={15} aria-hidden="true" /> {t("gallery:common.deleteWord")}
                     </button>
                   )}
                 </div>
               </div>
+              {/* Where this movie is filed, stated rather than hidden behind the button:
+                  a copy quietly appearing in someone's gallery should never be a surprise. */}
+              {canEdit && (
+                <p className="slideshow-movie-filed muted">
+                  {slideshow.movieTargetLibraryId
+                    ? t("gallery:slideshowEditor.movieFiledAs", { name: slideshow.movieFileName })
+                    : t("gallery:slideshowEditor.movieNotFiled")}
+                </p>
+              )}
+              {canEdit && slideshow.movieSaveError && (
+                <MessageBox tone="warning" title={t("gallery:slideshowEditor.movieSaveFailedTitle")}>
+                  {slideshow.movieSaveError}
+                </MessageBox>
+              )}
               {canEdit && slideshow.renderStale && (
                 <MessageBox tone="warning" title={t("gallery:slideshowEditor.staleTitle")}>
                   {t("gallery:slideshowEditor.staleBody")}
@@ -310,6 +331,17 @@ export function GallerySlideshowEditor({
               {slideshow.renderStatus === "failed" && (
                 <MessageBox tone="error" title={t("gallery:slideshowEditor.renderFailedTitle")}>{slideshow.renderError || t("gallery:slideshowEditor.renderFailedBody")}</MessageBox>
               )}
+              {/* Choosing the library BEFORE the first render, so the very first movie
+                  is filed rather than needing a second trip through here afterwards. */}
+              <p className="slideshow-movie-filed muted">
+                {slideshow.movieTargetLibraryId
+                  ? t("gallery:slideshowEditor.movieWillFileAs", { name: slideshow.movieFileName })
+                  : t("gallery:slideshowEditor.movieNotFiled")}
+                {" "}
+                <button type="button" className="link-button" onClick={onOpenMovieLibrary}>
+                  {t("gallery:slideshowEditor.movieLibraryButton")}
+                </button>
+              </p>
               <div className="slideshow-movie-cta-row">
                 <button type="button" className="primary-button compact-button" onClick={() => setRenderConfirm(true)}>
                   <Film size={15} aria-hidden="true" /> {slideshow.renderStatus === "failed" ? t("gallery:slideshowEditor.tryAgain") : t("gallery:slideshowEditor.renderConfirmLabel")}

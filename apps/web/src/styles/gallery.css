@@ -2659,3 +2659,53 @@
   padding: 5px 8px;
   font-size: 0.88rem;
 }
+
+/* Where a slideshow's movie is filed. The unusable libraries are listed rather than
+   hidden, each with its reason, so a missing choice is explained instead of mysterious. */
+.slideshow-movie-filed {
+  margin: 6px 0 0;
+  font-size: 0.85rem;
+}
+
+.gallery-movie-unusable {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.gallery-movie-unusable li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gallery-movie-unusable small {
+  opacity: 0.85;
+}
+
+/* The chosen filename, shown before anything is written. */
+.gallery-movie-filename {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.gallery-movie-filename code {
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-raised);
+  word-break: break-all;
+}
+
+.gallery-movie-clash {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
