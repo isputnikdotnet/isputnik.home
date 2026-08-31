@@ -19,6 +19,16 @@ updates:
       - dependency-name: "@types/node"
         update-types:
           - version-update:semver-major
+      # TypeScript 7 is the Go port, and its npm package exports two symbols —
+      # the programmatic compiler API is gone. reply-send-contract.test.ts walks
+      # the AST with it to keep 878 async handlers returning their reply, so the
+      # bump breaks the suite while typechecking and building perfectly (#41,
+      # merged and reverted in 0141d474). Drop this entry once the native port
+      # ships the compiler API; until then the PR can only be re-reviewed and
+      # re-closed every week. 5.x minors and patches still arrive as usual.
+      - dependency-name: "typescript"
+        update-types:
+          - version-update:semver-major
     groups:
       # One PR for the routine minor/patch churn; majors still come alone so a
       # breaking bump gets its own review.
