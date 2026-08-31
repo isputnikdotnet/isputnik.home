@@ -8,7 +8,21 @@ import "leaflet/dist/leaflet.css";
 // off the initial bundle. Scroll-wheel zoom is off so scrolling the Info panel never
 // gets hijacked by the map. A divIcon dot avoids Leaflet's bundler-broken default
 // marker images.
-export function GalleryMiniMap({ lat, lng, title }: { lat: number; lng: number; title: string }) {
+export function GalleryMiniMap({
+  lat,
+  lng,
+  title,
+  zoom = 14,
+  className
+}: {
+  lat: number;
+  lng: number;
+  title: string;
+  /** Closer for a photo's exact spot, wider for a story's "somewhere around here". */
+  zoom?: number;
+  /** Extra class for a caller with its own sizing (a story map block is tall). */
+  className?: string;
+}) {
   const { t } = useTranslation(["common", "gallery"]);
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -19,7 +33,7 @@ export function GalleryMiniMap({ lat, lng, title }: { lat: number; lng: number; 
     if (!containerRef.current || mapRef.current) return;
     const map = L.map(containerRef.current, {
       center: [lat, lng],
-      zoom: 14,
+      zoom,
       scrollWheelZoom: false,
       attributionControl: true
     });
@@ -48,5 +62,11 @@ export function GalleryMiniMap({ lat, lng, title }: { lat: number; lng: number; 
     markerRef.current.setLatLng([lat, lng]);
   }, [lat, lng]);
 
-  return <div className="gallery-mini-map" ref={containerRef} aria-label={t("gallery:miniMap.aria", { title })} />;
+  return (
+    <div
+      className={["gallery-mini-map", className].filter(Boolean).join(" ")}
+      ref={containerRef}
+      aria-label={t("gallery:miniMap.aria", { title })}
+    />
+  );
 }

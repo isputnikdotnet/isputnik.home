@@ -1,4 +1,5 @@
 import {
+  BookText,
   Bookmark,
   DownloadCloud,
   Heart,
@@ -17,6 +18,7 @@ export type UserAreaSection =
   | "likes"
   | "bookmarks"
   | "quotes"
+  | "stories"
   | "collections"
   | "shared"
   | "downloads";
@@ -34,6 +36,7 @@ export function UserAreaNav({ active }: { active: UserAreaSection }) {
     { section: "likes", label: t("nav.likes"), href: "/likes", icon: Heart },
     { section: "bookmarks", label: t("nav.bookmarks"), href: "/bookmarks", icon: Bookmark },
     { section: "quotes", label: t("nav.quotes"), href: "/quotes", icon: Quote },
+    { section: "stories", label: t("nav.stories"), href: "/stories", icon: BookText },
     { section: "collections", label: t("nav.collections"), href: "/collections", icon: ListMusic },
     { section: "shared", label: t("nav.sharedWithMe"), href: "/shared", icon: UsersRound },
     ...(isStandalone() || active === "downloads"

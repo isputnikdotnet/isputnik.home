@@ -92,7 +92,8 @@
       "accountAndLibrary": "Account & library",
       "primaryTabs": "Primary app tabs",
       "brandHome": "iSputnik home"
-    }
+    },
+    "stories": "Stories"
   },
   "pager": {
     "label": "Pagination",

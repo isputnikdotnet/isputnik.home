@@ -6,6 +6,7 @@ import type { FastifyInstance, FastifyReply } from "fastify";
 import { z } from "zod";
 import { db, logActivity } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
+import { deleteStoryBlocksForResource } from "../../stories/cleanup.js";
 import { resolveGalleryScopeLibraryIds } from "./catalog.js";
 import {
   getSlideshow,
@@ -614,6 +615,9 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
       try { fs.rmSync(thumbnailAbsolutePath(slideshow.output_storage_key), { force: true }); } catch { /* best-effort */ }
     }
     deleteSlideshow(slideshow.id);
+    // Story blocks reference a slideshow by id with no FK — sweep them so a
+    // story doesn't keep an empty slot where the slideshow used to be.
+    deleteStoryBlocksForResource("gallery_slideshow", slideshow.id);
     logActivity({
       event: "gallery.slideshow.deleted",
       actorUserId: user.id,

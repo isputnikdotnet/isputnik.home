@@ -50,6 +50,9 @@ const SharedWithMePage = lazy(() => import("../features/library/SharedWithMePage
 const LibraryFeedPage = lazy(() => import("../features/library/LibraryFeedPage").then((m) => ({ default: m.LibraryFeedPage })));
 const CollectionsPage = lazy(() => import("../features/collections/CollectionsPage").then((m) => ({ default: m.CollectionsPage })));
 const CollectionDetailPage = lazy(() => import("../features/collections/CollectionDetailPage").then((m) => ({ default: m.CollectionDetailPage })));
+const StoriesPage = lazy(() => import("../features/stories/StoriesPage").then((m) => ({ default: m.StoriesPage })));
+const StoryDetailPage = lazy(() => import("../features/stories/StoryDetailPage").then((m) => ({ default: m.StoryDetailPage })));
+const StoryEditorPage = lazy(() => import("../features/stories/StoryEditorPage").then((m) => ({ default: m.StoryEditorPage })));
 const GalleryPage = lazy(() => import("../features/gallery/GalleryPage").then((m) => ({ default: m.GalleryPage })));
 const FamilyTreePage = lazy(() => import("../features/familytree/FamilyTreePage").then((m) => ({ default: m.FamilyTreePage })));
 const FamilyPeoplePage = lazy(() => import("../features/familytree/FamilyPeoplePage").then((m) => ({ default: m.FamilyPeoplePage })));
@@ -496,6 +499,18 @@ export function App() {
 
     if (route.name === "collectionDetail") {
       return <CollectionDetailPage id={route.id} user={session.user} logout={logout} />;
+    }
+
+    if (route.name === "stories") {
+      return <StoriesPage user={session.user} logout={logout} />;
+    }
+
+    if (route.name === "storyDetail") {
+      return <StoryDetailPage id={route.id} user={session.user} logout={logout} />;
+    }
+
+    if (route.name === "storyEditor") {
+      return <StoryEditorPage id={route.id} user={session.user} logout={logout} />;
     }
 
     if (route.name === "ebookBook") {

@@ -34,6 +34,7 @@ import { PersonAvatar } from "./PersonAvatar";
 import { PersonEditModal } from "./PersonEditModal";
 import { UnionEditModal } from "./UnionEditModal";
 import i18n from "../../i18n";
+import { formatPartialDate, formatPartialDateRange } from "../../shared/utils";
 import {
   lifeYears, childRelationLabel, childRelativeNoun, eventTypeLabel, genderLabel, unionStatusLabel,
   type FamilyCitation, type FamilyEvent, type FamilyPerson, type FamilyPersonProfile, type FamilyPhoto,
@@ -67,18 +68,8 @@ interface TimelineEntry {
   event: FamilyEvent | null;
 }
 
-function formatPartialDate(date: string | null): string {
-  if (!date) return "";
-  const [year, month, day] = date.split("-");
-  if (!month) return year;
-  const monthLabel = new Date(Date.UTC(Number(year), Number(month) - 1, 1))
-    .toLocaleString(i18n.language, { month: "short", timeZone: "UTC" });
-  return day ? `${monthLabel} ${Number(day)}, ${year}` : `${monthLabel} ${year}`;
-}
-
-function formatDateRange(start: string | null, end: string | null): string {
-  return [formatPartialDate(start), formatPartialDate(end)].filter(Boolean).join("–");
-}
+// Both live in shared/utils now — story chapters format the same partial dates.
+const formatDateRange = formatPartialDateRange;
 
 function timelineEntries(profile: FamilyPersonProfile): TimelineEntry[] {
   const entries: TimelineEntry[] = [];

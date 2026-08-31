@@ -1837,3 +1837,72 @@ CREATE INDEX IF NOT EXISTS idx_ft_children_child        ON family_tree_children(
 CREATE INDEX IF NOT EXISTS idx_ft_events_person         ON family_tree_events(person_id);
 CREATE INDEX IF NOT EXISTS idx_ft_photos_item           ON family_tree_photos(item_id);
 CREATE INDEX IF NOT EXISTS idx_ft_persons_gallery_person ON family_tree_persons(gallery_person_id);
+
+-- ════════════════════════════════════════════════════════════════════════════
+--  Stories (modules/stories)
+-- ════════════════════════════════════════════════════════════════════════════
+-- An authored narrative page built from content the library already holds:
+-- prose, photos/videos, albums, slideshows and maps, organised into dated
+-- chapters. Everything is REFERENCED, never copied — a story is a presentation
+-- layer (see docs/stories-proposal.md).
+--
+-- Access mirrors gallery albums: every member may read a published story,
+-- edit is creator + admins. Referenced content is filtered per viewer at read
+-- time, so a story never widens access to anything.
+CREATE TABLE IF NOT EXISTS stories (
+  id            TEXT PRIMARY KEY,
+  title         TEXT NOT NULL,
+  subtitle      TEXT,
+  cover_item_id TEXT REFERENCES library_items(id) ON DELETE SET NULL,
+  status        TEXT NOT NULL DEFAULT 'draft',   -- 'draft' | 'published'
+  created_by    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  updated_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+-- The narrative spine. Every story has at least one chapter (a new story gets
+-- an untitled one), so the reader and editor only ever handle one shape — a
+-- single untitled, undated chapter simply renders without chapter chrome.
+-- Dates are partial ISO like the family tree ('YYYY' | 'YYYY-MM' |
+-- 'YYYY-MM-DD', lexicographic = chronological); end_date makes a range, both
+-- NULL means undated, and date_approx renders "around ...".
+CREATE TABLE IF NOT EXISTS story_chapters (
+  id          TEXT PRIMARY KEY,
+  story_id    TEXT NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
+  position    REAL NOT NULL,
+  title       TEXT,
+  date        TEXT,
+  end_date    TEXT,
+  date_approx INTEGER NOT NULL DEFAULT 0,
+  place       TEXT,
+  place_lat   REAL,
+  place_lng   REAL,
+  description TEXT
+);
+
+-- One unit of narrative. Reference kinds (media/album/slideshow) carry the
+-- polymorphic (entity_type, entity_id) pair used by collection_items and
+-- taggables — deliberately without an FK, so a deleted album degrades to an
+-- "unavailable" placeholder through the subjects hydrator rather than taking
+-- the story's rows with it. idx_story_blocks_entity lets the delete paths
+-- sweep dead references.
+CREATE TABLE IF NOT EXISTS story_blocks (
+  id          TEXT PRIMARY KEY,
+  chapter_id  TEXT NOT NULL REFERENCES story_chapters(id) ON DELETE CASCADE,
+  position    REAL NOT NULL,
+  kind        TEXT NOT NULL,   -- 'text' | 'media' | 'album' | 'slideshow' | 'map'
+  entity_type TEXT,
+  entity_id   TEXT,
+  body        TEXT,            -- 'text' kind: markdown source
+  lat         REAL,            -- 'map' kind
+  lng         REAL,
+  zoom        INTEGER,
+  label       TEXT,
+  caption     TEXT,
+  layout      TEXT             -- 'default' | 'wide' | 'grid'
+);
+
+CREATE INDEX IF NOT EXISTS idx_story_chapters_story ON story_chapters(story_id, position);
+CREATE INDEX IF NOT EXISTS idx_story_blocks_chapter ON story_blocks(chapter_id, position);
+CREATE INDEX IF NOT EXISTS idx_story_blocks_entity  ON story_blocks(entity_type, entity_id);
+CREATE INDEX IF NOT EXISTS idx_stories_created_by   ON stories(created_by);

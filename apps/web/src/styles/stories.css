@@ -1,0 +1,596 @@
+/* Stories — the reading view, the editor, and the block surfaces they share.
+   A story reads like a page, not like a library screen: one narrow measure of
+   prose, photos allowed to break wider, and no browse chrome. */
+
+/* ── Index ─────────────────────────────────────────────────────────────── */
+
+.story-card-cover {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 3 / 2;
+  overflow: hidden;
+  border-radius: 12px 12px 0 0;
+  background: var(--field);
+  color: var(--muted);
+}
+
+.story-card-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.story-draft-badge {
+  align-self: flex-start;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--field);
+  color: var(--muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* ── Reading view ──────────────────────────────────────────────────────── */
+
+.story-read {
+  --story-measure: 68ch;
+  display: flex;
+  flex-direction: column;
+  gap: 34px;
+  margin: 0 auto;
+  max-width: 900px;
+}
+
+.story-read-head {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid var(--line);
+}
+
+.story-read-head h1 {
+  margin: 0;
+  font-size: 2.1rem;
+  line-height: 1.15;
+}
+
+.story-read-subtitle {
+  margin: 0;
+  max-width: var(--story-measure);
+  color: var(--muted);
+  font-size: 1.05rem;
+}
+
+.story-read-span {
+  margin: 0;
+  color: var(--gold);
+  font-size: 0.9rem;
+  letter-spacing: 0.03em;
+}
+
+.story-read-actions {
+  margin-top: 6px;
+}
+
+.story-chapter {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.story-chapter-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 10px;
+}
+
+.story-chapter-head h2 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+/* The date and place read as a dateline above the chapter title. */
+.story-chapter-meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  color: var(--gold);
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.story-chapter-place {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.story-chapter-description {
+  margin: 0;
+  max-width: var(--story-measure);
+  color: var(--muted);
+}
+
+.story-chapter-empty {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.story-blocks {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ── Blocks ────────────────────────────────────────────────────────────── */
+
+.story-block {
+  margin: 0;
+}
+
+/* Prose keeps a comfortable measure even when a photo beside it goes wide. */
+.story-prose {
+  max-width: var(--story-measure, 68ch);
+  line-height: 1.7;
+}
+
+.story-prose > :first-child { margin-top: 0; }
+.story-prose > :last-child { margin-bottom: 0; }
+
+.story-prose h1,
+.story-prose h2,
+.story-prose h3 {
+  margin: 1.4em 0 0.5em;
+  line-height: 1.25;
+}
+
+.story-prose p { margin: 0 0 1em; }
+
+.story-prose blockquote {
+  margin: 1.2em 0;
+  padding-left: 16px;
+  border-left: 3px solid var(--gold);
+  color: var(--muted);
+  font-style: italic;
+}
+
+.story-prose ul,
+.story-prose ol { margin: 0 0 1em; padding-left: 1.4em; }
+
+.story-prose code {
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: var(--field);
+  font-size: 0.92em;
+}
+
+.story-prose pre {
+  overflow-x: auto;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--field);
+}
+
+.story-block-media img,
+.story-block-media video {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+  background: var(--field);
+}
+
+.story-media-button {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+}
+
+.story-block-media figcaption,
+.story-block-map figcaption {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+/* A wide photo breaks out of the prose measure — the photo-essay beat. */
+.story-block-media.is-wide img {
+  border-radius: 14px;
+}
+
+/* Consecutive photos share a row instead of stacking full width. */
+.story-media-row {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.story-media-row[data-count="3"] {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.story-media-row .story-block-media img {
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+}
+
+.story-map {
+  height: 320px;
+  border-radius: 12px;
+}
+
+/* An embedded album or slideshow: a header line plus a thumbnail strip, so the
+   set is visible in the flow of the story rather than only linked. */
+.story-block-set {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-raised);
+}
+
+.story-set-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.story-set-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--field);
+  color: var(--gold);
+}
+
+.story-set-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.story-set-copy small { color: var(--muted); }
+
+.story-set-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.story-set-strip {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 14px;
+  overflow-x: auto;
+}
+
+.story-set-thumb {
+  flex: 0 0 auto;
+  width: 96px;
+  height: 96px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--field);
+  cursor: zoom-in;
+}
+
+.story-set-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.story-set-more {
+  flex: 0 0 auto;
+  padding: 0 12px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.story-set-caption {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+/* ── Editor ────────────────────────────────────────────────────────────── */
+
+.story-edit-area .story-edit-head {
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.story-edit-title-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.story-title-input,
+.story-subtitle-input {
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+}
+
+/* Editable-in-place titles: they look like the heading until you reach for them. */
+.story-title-input {
+  padding: 2px 8px;
+  font-size: 1.9rem;
+  font-weight: 600;
+}
+
+.story-subtitle-input {
+  padding: 4px 8px;
+  color: var(--muted);
+  font-size: 1rem;
+}
+
+.story-title-input:hover,
+.story-subtitle-input:hover {
+  border-color: var(--line);
+}
+
+.story-title-input:focus,
+.story-subtitle-input:focus {
+  border-color: var(--gold);
+  background: var(--field);
+  outline: none;
+}
+
+.story-edit-head-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.story-chapter-reveal { margin-top: -8px; }
+
+.story-edit-chapter {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 22px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.story-edit-chapter-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.story-edit-chapter-number {
+  color: var(--gold);
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.story-edit-chapter-actions,
+.story-edit-block-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.story-chapter-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.story-chapter-date-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.story-chapter-date-row .field { flex: 1 1 160px; }
+
+/* Checkbox beside its words, not stacked under a label — same grid/flex
+   override as the picker search. */
+.story-chapter-approx {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.story-chapter-approx input { width: auto; }
+
+.story-edit-blocks {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.story-edit-block {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-raised);
+}
+
+.story-edit-block-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.story-edit-kind {
+  color: var(--muted);
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.story-wide-glyph {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.story-text-input {
+  width: 100%;
+  min-height: 160px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--field);
+  color: var(--ink);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.story-caption-field { margin-top: 10px; }
+
+.story-add-block {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 12px;
+  border-top: 1px dashed var(--line);
+}
+
+.story-add-block-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-right: 4px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.story-add-chapter {
+  display: flex;
+  justify-content: center;
+  margin-top: 22px;
+}
+
+/* ── Pickers ───────────────────────────────────────────────────────────── */
+
+/* .field is a grid (label over control); the search box is one row instead, so
+   it must switch display, not just the direction. */
+.story-picker-search {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--field);
+  color: var(--muted);
+}
+
+.story-picker-search input { flex: 1; }
+
+.story-picker-search input {
+  border: 0;
+  background: none;
+  color: var(--ink);
+}
+
+.story-picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 52vh;
+  overflow-y: auto;
+}
+
+.story-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.story-picker-row:hover {
+  border-color: var(--line);
+  background: var(--hover);
+}
+
+.story-picker-cover {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 46px;
+  height: 46px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--field);
+  color: var(--muted);
+}
+
+.story-picker-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.story-picker-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.story-picker-text small { color: var(--muted); }
+
+.story-map-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.story-map-modal .gallery-location-picker { height: 300px; }
+
+/* Phones: the grid of side-by-side photos becomes a single column, and the
+   editor's control rows wrap instead of squeezing. */
+@media (max-width: 740px) {
+  .story-read-head h1 { font-size: 1.6rem; }
+  .story-title-input { font-size: 1.45rem; }
+  .story-media-row,
+  .story-media-row[data-count="3"] { grid-template-columns: 1fr; }
+  .story-map { height: 240px; }
+  .story-set-head { align-items: flex-start; }
+}

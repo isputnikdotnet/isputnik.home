@@ -10,6 +10,7 @@ import { canUserAccessLibrary, canUserAccessBook, libraryCapabilities, deleteLib
 import { publicLibrary, type LibraryListRow } from "../shared/library-serializer.js";
 import { deleteSharesForLibrary } from "../shared/share-access.js";
 import { deleteCollectionItemsForLibrary } from "../../collections/cleanup.js";
+import { deleteStoryBlocksForLibrary } from "../../stories/cleanup.js";
 import { coreLibraryCreateSchema, coreLibraryUpdateSchema, createLibraryRecord, updateLibraryRecord, resolveUploadMaxBytes } from "../shared/library-crud.js";
 import { METADATA_SOURCE_IDS } from "../shared/metadata-sources.js";
 import { validateLibrarySource, LibrarySourceError } from "../shared/library-source.js";
@@ -174,6 +175,7 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
       db.prepare("DELETE FROM taggables WHERE entity_type = 'library_item' AND entity_id IN (SELECT id FROM library_items WHERE library_id = ?)").run(id);
       deleteSharesForLibrary("gallery", id);
       deleteCollectionItemsForLibrary("gallery", id);
+      deleteStoryBlocksForLibrary("gallery", id);
       deleteLibraryAccess(id);
       db.prepare("DELETE FROM libraries WHERE id = ?").run(id);
     })();

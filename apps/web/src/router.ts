@@ -261,6 +261,9 @@ export type Route =
   | { name: "ebookSeriesDetail"; seriesId: string }
   | { name: "collections" }
   | { name: "collectionDetail"; id: string }
+  | { name: "stories" }
+  | { name: "storyDetail"; id: string }
+  | { name: "storyEditor"; id: string }
   | { name: "authors" }
   | { name: "personDetail"; personName: string }
   | { name: "audiobookAuthorDetail"; personName: string }
@@ -413,6 +416,21 @@ export function getRoute(): Route {
   const collectionDetailMatch = path.match(/^\/collections\/([^/]+)$/);
   if (collectionDetailMatch) {
     return { name: "collectionDetail", id: collectionDetailMatch[1] };
+  }
+
+  if (path === "/stories") {
+    return { name: "stories" };
+  }
+
+  // The editor is its own address, so an author can link straight back into it.
+  const storyEditorMatch = path.match(/^\/stories\/([^/]+)\/edit$/);
+  if (storyEditorMatch) {
+    return { name: "storyEditor", id: storyEditorMatch[1] };
+  }
+
+  const storyDetailMatch = path.match(/^\/stories\/([^/]+)$/);
+  if (storyDetailMatch) {
+    return { name: "storyDetail", id: storyDetailMatch[1] };
   }
 
   // Single, cross-type Authors browse (audiobooks + ebooks, with a type filter).

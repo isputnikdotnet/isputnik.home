@@ -1,3 +1,5 @@
+import i18n from "../i18n";
+
 // SQLite hands back "YYYY-MM-DD HH:MM:SS" with no zone; anything already
 // carrying a T is a real ISO string and is left alone.
 function parseManagedDate(value: string) {
@@ -126,4 +128,26 @@ function relativeSpan(seconds: number): string {
   if (months < 12) return `${months} ${months === 1 ? "month" : "months"}`;
   const years = Math.round(months / 12);
   return `${years} ${years === 1 ? "year" : "years"}`;
+}
+
+// Partial ISO dates — "1971", "1971-09", "1971-09-01" — as prose in the
+// reader's own language. The convention is shared by the family tree, author
+// life facts and story chapters (server-side: partialDateSchema), so the
+// formatting lives here rather than in any one feature.
+export function formatPartialDate(date: string | null | undefined): string {
+  if (!date) return "";
+  const [year, month, day] = date.split("-");
+  if (!month) return year;
+  const monthLabel = new Date(Date.UTC(Number(year), Number(month) - 1, 1))
+    .toLocaleString(i18n.language, { month: "short", timeZone: "UTC" });
+  return day ? `${monthLabel} ${Number(day)}, ${year}` : `${monthLabel} ${year}`;
+}
+
+/** A span of partial dates: "2004", "Jul 2004–Aug 2004". One date alone
+ *  formats as itself, so a range field left empty reads naturally. */
+export function formatPartialDateRange(
+  start: string | null | undefined,
+  end: string | null | undefined
+): string {
+  return [formatPartialDate(start), formatPartialDate(end)].filter(Boolean).join("–");
 }

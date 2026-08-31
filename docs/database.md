@@ -51,7 +51,7 @@ document explains the model and the conventions behind it.
   User-initiated deletion goes through the Recycle Bin (`trashed_items`,
   see [`recycle-bin.md`](recycle-bin.md)).
 - **Polymorphic links** (`assignments`, `taggables`, `collection_items`,
-  `shares`, `share_links`, `trashed_items`) carry **no FK** on the polymorphic
+  `story_blocks`, `shares`, `share_links`, `trashed_items`) carry **no FK** on the polymorphic
   id by necessity — the owning module must delete their rows when a resource is
   removed. This is the schema's one integrity trade-off; the cleanup helpers and
   the access-control tests guard it.
@@ -435,6 +435,10 @@ content = the ebook itself, companion = a doc bundled with an audiobook).
 
 **Collections & sharing** — `collections` + `collection_items` (polymorphic);
 `shares` + `share_links` (item-level; see [`sharing.md`](sharing.md)).
+
+**Stories** — `stories` → `story_chapters` (partial dates + place) →
+`story_blocks`. A block is text/map, or a polymorphic reference to a photo,
+album or slideshow; see [`stories-proposal.md`](stories-proposal.md).
 
 **System** — `trashed_items` (recycle bin), `activity_logs`, `app_settings`,
 `jobs`, `storage_roots`.

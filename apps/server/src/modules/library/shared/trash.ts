@@ -24,6 +24,7 @@ import { pathIsInside, normaliseRelativePath, findStorageRootForPath } from "./s
 import { thumbnailStorageKey, thumbnailAbsolutePath } from "./thumbnail.js";
 import { deleteSharesForResource } from "./share-access.js";
 import { deleteCollectionItemsForResource } from "../../collections/cleanup.js";
+import { deleteStoryBlocksForResource } from "../../stories/cleanup.js";
 import { rescanSingleBook } from "../audiobook/scanner.js";
 import { enqueueEbookScan, processEbookScanQueue } from "../ebook/scanner.js";
 import { enqueueGalleryScan, processGalleryScanQueue } from "../gallery/scanner.js";
@@ -373,12 +374,13 @@ function coverToKeep(libraryId: string, bookId: string, coverStorageKey: string 
 
 // DB teardown — identical to the old hard delete. FK cascades clear audio_files/metadata/
 // item_people/documents/progress/bookmarks/saves; the polymorphic tables (taggables, shares,
-// collections) have no FK and are cleaned explicitly. shares/collections are namespaced by
-// the library type; taggables use 'library_item' for every type.
+// collections, story blocks) have no FK and are cleaned explicitly. shares/collections are
+// namespaced by the library type; taggables use 'library_item' for every type.
 function deleteBookRecord(bookId: string, libraryType: string): void {
   db.prepare("DELETE FROM taggables WHERE entity_type = 'library_item' AND entity_id = ?").run(bookId);
   deleteSharesForResource(libraryType, bookId);
   deleteCollectionItemsForResource(libraryType, bookId);
+  deleteStoryBlocksForResource(libraryType, bookId);
   db.prepare("DELETE FROM library_items WHERE id = ?").run(bookId);
 }
 

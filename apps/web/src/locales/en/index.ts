@@ -12,6 +12,7 @@ import gallery from "./gallery.json";
 import galleryModals from "./galleryModals.json";
 import family from "./family.json";
 import user from "./user.json";
+import stories from "./stories.json";
 import misc from "./misc.json";
 import control from "./control.json";
 import controlAdmin from "./controlAdmin.json";
@@ -26,6 +27,7 @@ const resources = {
   galleryModals,
   family,
   user,
+  stories,
   misc,
   control,
   controlAdmin,

@@ -169,8 +169,8 @@ Routes are registered as Fastify plugins, grouped by domain:
 ```
 apps/server/src/
   index.ts                    ← registers corePlugin, usersPlugin, backupsPlugin,
-                                 libraryPlugin, collectionsPlugin, familyTreePlugin,
-                                 maintenancePlugin
+                                 libraryPlugin, collectionsPlugin, storiesPlugin,
+                                 familyTreePlugin, maintenancePlugin
   core/                       ← platform infrastructure ONLY: auth-routes, sessions,
                                  device-link (sign a TV in by QR — see auth.md),
                                  permissions, app-config, setup, logs, status, shared
@@ -179,6 +179,10 @@ apps/server/src/
     uploads/                  ← upload streaming helpers
     backups/                  ← backup / restore
     collections/              ← cross-type user collections
+    stories/                  ← authored narrative pages over existing content:
+                                 chapters (partial dates + place) holding text /
+                                 photo / album / slideshow / map blocks, all by
+                                 reference (see stories-proposal.md)
     home/                     ← the home feed composer (ranked typed cards over
                                  library / gallery / social loaders)
     familytree/               ← family members, unions/children, events, sources,
@@ -214,6 +218,7 @@ apps/web/src/
     audiobooks/  └ reader/    ← audiobook pages + in-app reader
     library/                  ← cross-type library feed / tiles
     collections/  share/      ← collections UI, share dialogs
+    stories/                  ← story index, reading view, block editor
     familytree/               ← person-centered SVG chart, people list, profiles
     control/  └ libraries/ sections/   ← control panel (admin)
   offline/  pwa/              ← installable-app + offline concerns

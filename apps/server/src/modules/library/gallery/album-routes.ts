@@ -10,6 +10,7 @@ import { db, logActivity } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
 import { pathIsInside } from "../shared/storage-roots.js";
 import { deleteSharesForResource } from "../shared/share-access.js";
+import { deleteStoryBlocksForResource } from "../../stories/cleanup.js";
 import { loadAlbumShareMeta, loadAlbumShareItems, curatableGalleryLibraryIds } from "../shared/shares.js";
 import { resolveGalleryScopeLibraryIds } from "./catalog.js";
 import {
@@ -252,8 +253,10 @@ export async function galleryAlbumRoutesPlugin(app: FastifyInstance) {
     if (!album) return reply;
     deleteAlbum(album.id);
     // Live album shares reference the album by id with no FK, so drop them here or
-    // they'd linger as dead links / phantom "Shared with me" tiles.
+    // they'd linger as dead links / phantom "Shared with me" tiles. Story blocks
+    // point at it the same way — same reason, same sweep.
     deleteSharesForResource("gallery_album", album.id);
+    deleteStoryBlocksForResource("gallery_album", album.id);
     logActivity({
       event: "gallery.album.deleted",
       actorUserId: user.id,
