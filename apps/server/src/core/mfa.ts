@@ -58,6 +58,11 @@ export function encryptSecret(plain: string): string {
 
 export function decryptSecret(stored: string): string {
   const raw = Buffer.from(stored, "base64");
+  // A shorter buffer can't hold the fixed iv+tag prefix, so the subarrays below
+  // would silently yield a truncated auth tag. GCM accepts one (weakly) and Node
+  // warns (DEP0182) on its way to making it an error — reject it as the corruption
+  // it is instead. Callers already treat any throw here as "unreadable".
+  if (raw.length < 28) throw new Error("malformed sealed value");
   const iv = raw.subarray(0, 12);
   const tag = raw.subarray(12, 28);
   const enc = raw.subarray(28);
