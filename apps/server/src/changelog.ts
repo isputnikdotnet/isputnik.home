@@ -19,6 +19,16 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.43.1",
+    label: "The engine room",
+    changes: [
+      "Housekeeping under the surface, and nothing changes on any page: the server now runs on a newer Node — the engine everything else sits on — and the bundled libraries moved to their current releases. Everything should behave exactly as it did before.",
+      "The two-factor codes were given a proper check while one of those libraries was moving, because that library has form: an earlier version of it changed the unit it counted time in, and the codes an authenticator app produced stopped being the codes the house expected. They are now measured against the published reference values every authenticator follows, rather than only against themselves — which is the difference between knowing they are right and knowing they agree with us. Nobody needs to re-enrol.",
+      "A stored secret too damaged to be one — a truncated setting, a half-written value — is now turned away at the door rather than handed to the decoder in pieces.",
+      "It goes out on its own rather than riding along with the next set of features, because a change this deep in the machinery is only easy to trace back when it is the only thing in the release."
+    ]
+  },
+  {
     version: "3.43.0",
     label: "The way you’d tell it",
     changes: [
