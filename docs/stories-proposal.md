@@ -1,8 +1,9 @@
 # Stories — proposal
 
-Status: **Phases 1–3 built** (schema, `modules/stories`, index / reading view /
+Status: **Phases 1–4 built** (schema, `modules/stories`, index / reading view /
 editor; tags, person and quote blocks, suggestions, subject registry; guest
-links with a public viewer). Phases 4–5 remain proposals. Companion to
+links with a public viewer; presentation mode). Phase 5 is a menu of options,
+none started. Companion to
 [gallery-library.md](gallery-library.md),
 [gallery-memories-albums-proposal.md](gallery-memories-albums-proposal.md)
 (albums/slideshows, largely shipped), [sharing.md](sharing.md), and
@@ -379,7 +380,42 @@ Guest links built as proposed. The in-app half turned out to need nothing:
   music* needs token-scoped music/asset routes that don't exist; v1 guest
   links show the slideshow's photos as a set. Add the routes when wanted.
 
-## Phase 4 — Story player (presentation mode)
+## Phase 4 — Story player (presentation mode) — BUILT
+
+Built as proposed, with one honest departure and one nice consequence:
+
+- **It is a sequencer, not a second reader.** `story-player.ts` flattens a
+  story into one list of `PlayerSlide`s and `StoryPlayer.tsx` steps through
+  them; neither knows where the story came from.
+- **It is NOT built on GalleryLightbox**, which the proposal suggested. That
+  component is 1,100 lines of gallery-asset machinery — info panel, editing,
+  people tagging — and a story's slides are heterogeneous (chapter cards,
+  prose, maps, quotes), so there was nothing to reuse but the idea. The player
+  keeps the ideas — crossfade on slide change, preload the next photo — and
+  drops the coupling.
+- **Both payload shapes feed the same player.** `slidesFromStory` (signed-in)
+  and `slidesFromShare` (guest) are the only two things that know about
+  payloads. A guest show therefore honours the link's `expandAlbums` setting
+  for free: the server already trimmed the album, so the player just plays what
+  it was given, with no second decision to get wrong.
+- **Albums play through.** The reading view holds only a preview strip, so
+  pressing Play fetches each album's and slideshow's full contents first; a set
+  that fails to load falls back to the strip rather than stopping the show.
+- **Timing follows the content**: prose and quotes get a reading-pace dwell
+  (floored so a one-liner doesn't blink past, capped so a long passage doesn't
+  strand the room), photos take a fixed pace, and a video is absent from the
+  clock entirely — it advances on `ended`, so a clip is never cut off and never
+  leaves dead air.
+- **A chapter earns an opening card only when it says something**, so the
+  single untitled chapter a plain journal page carries doesn't open the show
+  with a blank frame.
+- The show **ends rather than loops** — a story has a shape — offering "Play
+  again" and "Close".
+
+Not built: music under the show, and a cast/credits card. Both belong with the
+Phase 5 options if presentation mode gets real use.
+
+## Phase 4 — as proposed
 
 Full-screen "Play story" that walks the story linearly — chapter title card
 (reuse the slideshow title-card look) → blocks in order: text rendered as
@@ -409,7 +445,7 @@ target. This is a sequencer over existing players, not a new renderer.
 
 ## Build order
 
-Core ✓ → connections ✓ → sharing ✓ → player → options. Each phase
+Core ✓ → connections ✓ → sharing ✓ → player ✓ → options. Each phase
 independently shippable; core was by far the largest (the editor dominates).
 
 ## Open questions

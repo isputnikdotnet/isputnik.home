@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Download, Images, MapPin, Play, Quote, UserRound } from "lucide-react";
 import { StoryMarkdown } from "../features/stories/StoryMarkdown";
+import { StoryPlayer } from "../features/stories/StoryPlayer";
+import { slidesFromShare } from "../features/stories/story-player";
 import { GalleryMiniMap } from "../features/gallery/GalleryMiniMap";
 import { formatPartialDate, formatPartialDateRange } from "../shared/utils";
 
@@ -67,6 +69,10 @@ export function StoryShareView({ token, payload }: { token: string; payload: Sto
     )
   );
   const [openId, setOpenId] = useState<string | null>(null);
+  const [playing, setPlaying] = useState(false);
+  // Built from the payload, so the show plays exactly what the link exposes —
+  // an album stops where expandAlbums said it should.
+  const slides = slidesFromShare(payload);
   const openIndex = openId == null ? -1 : gallery.findIndex((asset) => asset.id === openId);
   const open = openIndex >= 0 ? gallery[openIndex] : null;
 
@@ -94,14 +100,20 @@ export function StoryShareView({ token, payload }: { token: string; payload: Sto
             {share.sharedBy && (
               <p className="share-shared-by">{t("user:sharePage.sharedBy", { name: share.sharedBy })}</p>
             )}
-            {gallery.length > 0 && (
-              <div className="story-read-actions">
+            <div className="story-read-actions">
+              {slides.length > 0 && (
+                <button className="primary-button compact-button" onClick={() => setPlaying(true)}>
+                  <Play size={15} aria-hidden="true" />
+                  <span>{t("stories:player.play")}</span>
+                </button>
+              )}
+              {gallery.length > 0 && (
                 <a className="secondary-button compact-button" href={`/api/share/${token}/download-all`} download>
                   <Download size={15} aria-hidden="true" />
                   <span>{t("user:sharePage.downloadAll")}</span>
                 </a>
-              </div>
-            )}
+              )}
+            </div>
           </header>
 
           {story.chapters.every((chapter) => chapter.blocks.length === 0) && (
@@ -118,6 +130,10 @@ export function StoryShareView({ token, payload }: { token: string; payload: Sto
           ))}
         </article>
       </div>
+
+      {playing && (
+        <StoryPlayer slides={slides} title={story.title} onClose={() => setPlaying(false)} />
+      )}
 
       {open && (
         <div className="share-viewer" role="dialog" aria-modal="true" onClick={() => setOpenId(null)}>

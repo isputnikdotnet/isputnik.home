@@ -184,5 +184,16 @@
     "unableTitle": "Unable to share",
     "unableToCreate": "Unable to create the link.",
     "unableToRevoke": "Unable to revoke the link."
+  },
+  "player": {
+    "play": "Play",
+    "starting": "Preparing…",
+    "pause": "Pause",
+    "previous": "Previous",
+    "next": "Next",
+    "close": "Close",
+    "again": "Play again",
+    "theEnd": "The end",
+    "aria": "Playing the story {{title}}"
   }
 }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, MapPin, Pencil, Send } from "lucide-react";
+import { ArrowLeft, MapPin, Pencil, Play, Send } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { followRoute, goBack, navigate } from "../../router";
@@ -13,6 +13,8 @@ import type { SlideshowTransition } from "../gallery/types";
 import { NotesSection } from "../social/NotesSection";
 import { SendToSheet } from "../social/SendToSheet";
 import { StoryBlockView } from "./StoryBlockView";
+import { StoryPlayer } from "./StoryPlayer";
+import { slidesFromStory, type PlayerSlide } from "./story-player";
 import { chapterDateText, groupIntoRows } from "./story-layout";
 import { hasChapterStructure, type StoryBlock, type StoryChapter, type StoryDetail } from "./types";
 
@@ -32,6 +34,8 @@ export function StoryDetailPage({
   const [story, setStory] = useState<StoryDetail | null>(null);
   const [error, setError] = useState("");
   const [sending, setSending] = useState(false);
+  const [slides, setSlides] = useState<PlayerSlide[] | null>(null);
+  const [starting, setStarting] = useState(false);
   const [lightbox, setLightbox] = useState<
     { assets: GalleryAsset[]; index: number; autoPlay?: boolean; transition?: SlideshowTransition; interval?: number; transitionSeconds?: number; musicUrl?: string } | null
   >(null);
@@ -73,6 +77,38 @@ export function StoryDetailPage({
   };
 
   const openMedia = (assets: GalleryAsset[], index: number) => setLightbox({ assets, index });
+
+  // Presentation mode. The reading view only holds a preview strip of each
+  // album and slideshow, but a show should play them through — so their full
+  // contents are fetched first, and the player is opened with the whole thing.
+  const startPlayer = async () => {
+    if (!story) return;
+    setStarting(true);
+    try {
+      const expansions = new Map<string, GalleryAsset[]>();
+      const sets = story.chapters
+        .flatMap((chapter) => chapter.blocks)
+        .filter((block) => block.available && block.entityId
+          && (block.kind === "album" || block.kind === "slideshow"));
+
+      await Promise.all(sets.map(async (block) => {
+        const url = block.kind === "album"
+          ? `/api/library/gallery/albums/${block.entityId}?limit=200`
+          : `/api/library/gallery/slideshows/${block.entityId}?limit=200`;
+        try {
+          const payload = await api<{ assets: GalleryAsset[] }>(url);
+          expansions.set(block.id, payload.assets);
+        } catch {
+          // One unreachable set shouldn't stop the show — it falls back to the
+          // preview strip the page already has.
+        }
+      }));
+
+      setSlides(slidesFromStory(story, expansions));
+    } finally {
+      setStarting(false);
+    }
+  };
 
   const structured = story ? hasChapterStructure(story) : false;
   const span = story
@@ -121,6 +157,10 @@ export function StoryDetailPage({
                 </ul>
               )}
               <div className="story-read-actions">
+                <Button variant="primary" compact onClick={() => void startPlayer()} disabled={starting}>
+                  <Play size={15} aria-hidden="true" />
+                  <span>{starting ? t("stories:player.starting") : t("stories:player.play")}</span>
+                </Button>
                 {story.canEdit && (
                   <Button variant="secondary" compact onClick={() => navigate(`/stories/${story.id}/edit`)}>
                     <Pencil size={15} aria-hidden="true" />
@@ -160,6 +200,10 @@ export function StoryDetailPage({
           </article>
         )}
       </section>
+
+      {slides && slides.length > 0 && story && (
+        <StoryPlayer slides={slides} title={story.title} onClose={() => setSlides(null)} />
+      )}
 
       {story && sending && (
         <SendToSheet

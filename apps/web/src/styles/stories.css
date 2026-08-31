@@ -749,3 +749,238 @@
   flex-direction: column;
   gap: 2px;
 }
+
+/* ── Player (presentation mode) ────────────────────────────────────────── */
+/* Full screen, dark, built for a television or a tablet passed around. The
+   controls retreat while the show runs and come back on any input. */
+
+.story-player {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  /* bar · stage · controls — the stage takes everything left over. */
+  grid-template-rows: auto 1fr auto;
+  background: #05070a;
+  color: #f4f1ea;
+}
+
+.story-player-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  padding: 24px;
+  cursor: pointer;
+}
+
+/* Every slide fades in, which is what makes the show read as one piece
+   rather than a series of jumps. */
+.story-slide {
+  margin: 0;
+  max-width: min(1100px, 100%);
+  max-height: 100%;
+  animation: story-slide-in 520ms ease both;
+}
+
+@keyframes story-slide-in {
+  from { opacity: 0; transform: scale(1.012); }
+  to   { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .story-slide { animation: none; }
+}
+
+.story-slide-media {
+  display: grid;
+  place-items: center;
+  gap: 12px;
+  width: 100%;
+  height: 100%;
+}
+
+.story-slide-media img,
+.story-slide-media video {
+  max-width: 100%;
+  max-height: 78vh;
+  object-fit: contain;
+  border-radius: 10px;
+}
+
+.story-slide-media figcaption {
+  color: rgba(244, 241, 234, 0.72);
+  font-size: 1rem;
+  text-align: center;
+}
+
+.story-slide-chapter,
+.story-slide-person {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.story-slide-chapter h2,
+.story-slide-person h2 {
+  margin: 0;
+  font-size: clamp(2rem, 5vw, 3.4rem);
+  line-height: 1.1;
+}
+
+.story-slide-dateline {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--gold);
+  font-size: clamp(0.85rem, 1.6vw, 1.05rem);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.story-slide-note {
+  margin: 0;
+  max-width: 58ch;
+  color: rgba(244, 241, 234, 0.75);
+  font-size: clamp(1rem, 2vw, 1.25rem);
+}
+
+.story-slide-portrait {
+  display: grid;
+  place-items: center;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: rgba(244, 241, 234, 0.1);
+}
+
+/* Prose on a screen across the room wants to be much larger than prose in a
+   page, and narrower than the stage. */
+.story-slide-text { width: min(70ch, 100%); }
+
+.story-slide-prose {
+  font-size: clamp(1.15rem, 2.4vw, 1.8rem);
+  line-height: 1.55;
+}
+
+.story-slide-prose h1,
+.story-slide-prose h2,
+.story-slide-prose h3 { line-height: 1.15; }
+
+.story-slide-quote {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  max-width: 60ch;
+  color: var(--gold);
+  text-align: center;
+}
+
+.story-slide-quote p {
+  margin: 0;
+  color: #f4f1ea;
+  font-size: clamp(1.3rem, 3vw, 2.2rem);
+  font-style: italic;
+  line-height: 1.35;
+}
+
+.story-slide-quote footer {
+  color: rgba(244, 241, 234, 0.7);
+  font-size: 1rem;
+}
+
+.story-slide-map { width: min(1000px, 100%); }
+.story-player-map { height: min(70vh, 620px); border-radius: 12px; }
+
+.story-player-bar,
+.story-player-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  transition: opacity 260ms ease;
+}
+
+.story-player-bar { justify-content: space-between; }
+.story-player-controls { justify-content: center; }
+
+.story-player-title { font-weight: 600; }
+.story-player-count { color: rgba(244, 241, 234, 0.6); font-variant-numeric: tabular-nums; }
+
+.story-player .icon-button {
+  color: #f4f1ea;
+  background: rgba(244, 241, 234, 0.08);
+  border-color: transparent;
+}
+
+.story-player .icon-button:hover:not(:disabled) { background: rgba(244, 241, 234, 0.18); }
+.story-player .icon-button:disabled { opacity: 0.35; }
+
+/* Idle hides the chrome but never the slide — and never while paused, since a
+   paused show is one someone is looking at deliberately. */
+.story-player.is-idle .story-player-bar,
+.story-player.is-idle .story-player-controls {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.story-player-progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: rgba(244, 241, 234, 0.14);
+}
+
+.story-player-progress span {
+  display: block;
+  height: 100%;
+  background: var(--gold);
+  transition: width 300ms ease;
+}
+
+.story-player-end {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  /* Nearly opaque: the last slide should recede, not compete with the words. */
+  background: rgba(5, 7, 10, 0.96);
+}
+
+.story-player-end p {
+  margin: 0;
+  color: var(--gold);
+  font-size: clamp(1.4rem, 3vw, 2.2rem);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.story-player-end-actions { display: flex; gap: 12px; }
+
+/* The page's button tokens are tuned for a light surface; on the player's dark
+   ground they need their own treatment. */
+.story-player-end .secondary-button {
+  border: 1px solid rgba(244, 241, 234, 0.35);
+  background: transparent;
+  color: #f4f1ea;
+}
+
+.story-player-end .secondary-button:hover {
+  border-color: rgba(244, 241, 234, 0.7);
+  background: rgba(244, 241, 234, 0.08);
+}
+
+@media (max-width: 740px) {
+  .story-player-stage { padding: 12px; }
+  .story-slide-media img,
+  .story-slide-media video { max-height: 66vh; }
+}
