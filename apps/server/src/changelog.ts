@@ -19,6 +19,15 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.41.0",
+    label: "Look what came in",
+    changes: [
+      "Photos arriving in the gallery never announced themselves. Books did — a scan that brought twenty of them in put a card on the home page saying so — but a phone emptied into the house on Sunday left no trace on the page you open first, and you found the photos by remembering to go and look. New photos now has a card of its own: the newest few, the number that came in, and a tap that opens the viewer on all of them rather than the four on show.",
+      "It covers the past week and nothing further back, and in a week when nothing arrived it is simply not there — an empty shortcut to the gallery is not worth a place on the page. It is one card for the whole week rather than one per day: a camera unloaded across three evenings is one arrival to a person, not three. Like everything else in the feed it settles as it ages, opening under the day’s memories and sinking below the week’s conversation.",
+      "“View all” opens the gallery ordered by when things arrived rather than when they were taken, which is the order the card was showing. The timeline’s sort menu always offered that; now a link can ask for it."
+    ]
+  },
+  {
     version: "3.40.2",
     label: "The folder you clicked",
     changes: [
