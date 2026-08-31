@@ -17,7 +17,7 @@ import { AssetTile, PersonAvatar, type LightboxSource } from "./AssetTile";
 import { useGalleryAlbums } from "./useGalleryAlbums";
 import { useGallerySlideshows } from "./useGallerySlideshows";
 import { useGalleryPeople } from "./useGalleryPeople";
-import { GalleryLightbox } from "./GalleryLightbox";
+import { GalleryLightbox, type GalleryAssetChange } from "./GalleryLightbox";
 import { GalleryUploadModal } from "./GalleryUploadModal";
 import { GalleryFilterButton, GalleryFilterChips, EMPTY_GALLERY_FILTERS, activeGalleryFilterCount, type GalleryFilters } from "./GalleryFilter";
 import { getGroupingOptions, getTileSizeOptions, galleryGridClass, readGalleryView, writeGalleryView, type GalleryGrouping, type GalleryTileSize, type GalleryViewPrefs } from "./gallery-view";
@@ -39,6 +39,10 @@ import { faceFocusStyle } from "./types";
 import i18n from "../../i18n";
 
 const PAGE_SIZE = 80;
+// The most a single browse request may ask for (the server caps it there). A
+// refresh re-fetches what is already on screen in chunks this size, so a visitor
+// deep into "Load more" keeps every page they asked for.
+const MAX_PAGE_SIZE = 200;
 // The People grid can hold thousands of clusters; render them a page at a time so a
 // wall of avatar thumbnails doesn't flood the cover route (and trip its rate limit).
 const PEOPLE_PAGE = 120;
@@ -420,17 +424,20 @@ export function GalleryPage({
     setQuery("");
   }, [view]);
 
+  // Which libraries this draws from is already inside `filters.libraries` — the
+  // POST body's JSON carries it natively, unlike the GET views below which need
+  // scopeParams()'s query-string form.
+  const fetchTimelinePage = useCallback((offset: number, limit: number) =>
+    api<{ assets: GalleryAsset[]; total: number }>("/api/library/gallery/timeline", {
+      method: "POST",
+      body: JSON.stringify({ q: query, kinds: filters.kinds, filters, sort, limit, offset })
+    }), [sort, query, filters]);
+
   const loadTimeline = useCallback(async (offset: number) => {
     setLoading(true);
     setError("");
     try {
-      // Which libraries this draws from is already inside `filters.libraries` —
-      // the POST body's JSON carries it natively, unlike the GET views below
-      // which need scopeParams()'s query-string form.
-      const payload = await api<{ assets: GalleryAsset[]; total: number }>("/api/library/gallery/timeline", {
-        method: "POST",
-        body: JSON.stringify({ q: query, kinds: filters.kinds, filters, sort, limit: PAGE_SIZE, offset })
-      });
+      const payload = await fetchTimelinePage(offset, PAGE_SIZE);
       setAssets((prev) => (offset === 0 ? payload.assets : [...prev, ...payload.assets]));
       setTotal(payload.total);
     } catch (err) {
@@ -438,23 +445,61 @@ export function GalleryPage({
     } finally {
       setLoading(false);
     }
-  }, [sort, query, filters]);
+  }, [fetchTimelinePage]);
+
+  // Re-fetch everything currently on screen rather than only the first page: a
+  // visitor who pressed "Load more" four times should not have those pages
+  // silently thrown away by a rotate or an edit — and with the viewer open on a
+  // later page, a shrinking list closed it under them. Pages come back in
+  // sequence and swap in as one, so the grid never flashes a short list.
+  const reloadTimeline = useCallback(async (keep: number) => {
+    setLoading(true);
+    setError("");
+    try {
+      const collected: GalleryAsset[] = [];
+      let total = 0;
+      do {
+        const page = await fetchTimelinePage(collected.length, MAX_PAGE_SIZE);
+        total = page.total;
+        collected.push(...page.assets);
+        if (page.assets.length < MAX_PAGE_SIZE) break;
+      } while (collected.length < keep);
+      setAssets(collected);
+      setTotal(total);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("gallery:page.errors.loadTimeline"));
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchTimelinePage]);
+
+  const fetchFolderPage = useCallback((nextParent: string, offset: number) => {
+    const params = new URLSearchParams({ ...scopeParams(), parent: nextParent, limit: String(MAX_PAGE_SIZE), offset: String(offset) } as Record<string, string>);
+    return api<{ parent: string; parentLocked: boolean; folders: GalleryFolder[]; assets: GalleryAsset[]; total: number }>(
+      `/api/library/gallery/folders?${params}`
+    );
+  }, [scopeParams]);
 
   // `offset` > 0 is the "Load more" path: keep what is on screen and append the
   // next page (the folder list itself is identical, so it is simply re-set).
-  const loadFolder = useCallback(async (nextParent: string, offset = 0) => {
+  // `keep` is the refresh path — re-fetch every page that was loaded, for the
+  // same reason reloadTimeline does.
+  const loadFolder = useCallback(async (nextParent: string, offset = 0, keep = 0) => {
     // The deep link has served its purpose once a folder is being loaded; from here
     // browsing (and any scope change) starts from the root like a normal visit.
     setDeepLinkFolder((current) => (current === null ? current : null));
     setLoading(true);
     setError("");
     try {
-      const params = new URLSearchParams({ ...scopeParams(), parent: nextParent, limit: "200", offset: String(offset) } as Record<string, string>);
-      const payload = await api<{ parent: string; parentLocked: boolean; folders: GalleryFolder[]; assets: GalleryAsset[]; total: number }>(
-        `/api/library/gallery/folders?${params}`
-      );
+      const payload = await fetchFolderPage(nextParent, offset);
+      const collected = [...payload.assets];
+      while (collected.length < keep && collected.length < payload.total && payload.assets.length === MAX_PAGE_SIZE) {
+        const page = await fetchFolderPage(payload.parent, collected.length);
+        if (page.assets.length === 0) break;
+        collected.push(...page.assets);
+      }
       setFolders(payload.folders);
-      setFolderAssets((current) => (offset > 0 ? [...current, ...payload.assets] : payload.assets));
+      setFolderAssets((current) => (offset > 0 ? [...current, ...payload.assets] : collected));
       setFolderTotal(payload.total);
       setParent(payload.parent);
       setParentLocked(payload.parentLocked);
@@ -463,7 +508,7 @@ export function GalleryPage({
     } finally {
       setLoading(false);
     }
-  }, [scopeParams]);
+  }, [fetchFolderPage]);
 
   // Admin: rescan just the folder currently open (a single library must be in
   // scope — a folder path can exist under several libraries otherwise). The scan
@@ -771,15 +816,15 @@ export function GalleryPage({
 
   // Reload whichever view is active plus the library list (counts / scan badges).
   const refreshView = useCallback(() => {
-    if (view === "timeline") void loadTimeline(0);
-    else if (view === "folder") void loadFolder(parent);
+    if (view === "timeline") void reloadTimeline(assets.length);
+    else if (view === "folder") void loadFolder(parent, 0, folderAssets.length);
     else if (view === "people") { void loadPeople(); if (selectedPerson) void openPerson(selectedPerson); }
     else if (view === "albums") { if (selectedAlbum) void openAlbum(selectedAlbum.id); else void loadAlbums(); }
     else if (view === "slideshows") { if (selectedSlideshow) void openSlideshow(selectedSlideshow.id); else void loadSlideshows(); }
     else if (view === "memories") void loadMemories();
     else if (view === "map") void loadMap();
     void loadLibraries();
-  }, [view, parent, selectedPerson, selectedAlbum, selectedSlideshow, loadTimeline, loadFolder, loadPeople, openPerson, openAlbum, loadAlbums, openSlideshow, loadSlideshows, loadMemories, loadMap, loadLibraries]);
+  }, [view, parent, assets.length, folderAssets.length, selectedPerson, selectedAlbum, selectedSlideshow, reloadTimeline, loadFolder, loadPeople, openPerson, openAlbum, loadAlbums, openSlideshow, loadSlideshows, loadMemories, loadMap, loadLibraries]);
 
   // Assets currently shown (the selectable set depends on the active view).
   const displayedAssets = view === "timeline" ? assets : view === "memories" ? memoryItems : view === "albums" ? albumAssets : folderAssets;
@@ -864,6 +909,46 @@ export function GalleryPage({
     setAlbumAssets(patch);
     setMemories((current) => (current ? { ...current, groups: current.groups.map((g) => ({ ...g, items: patch(g.items) })) } : current));
   }, [setPersonAssets, setAlbumAssets]);
+
+  // Drop one asset from every list it is loaded in, and take it off the counts
+  // the "Load more" buttons read. The photo really is gone, so this is the whole
+  // truth of it — and it costs nothing, where re-fetching the view would throw
+  // away the pages the visitor had loaded to reach it.
+  const removeAsset = useCallback((assetId: string) => {
+    const drop = (list: GalleryAsset[]) =>
+      (list.some((a) => a.id === assetId) ? list.filter((a) => a.id !== assetId) : list);
+    setAssets((current) => {
+      if (current.some((a) => a.id === assetId)) setTotal((n) => Math.max(0, n - 1));
+      return drop(current);
+    });
+    setFolderAssets((current) => {
+      if (current.some((a) => a.id === assetId)) setFolderTotal((n) => Math.max(0, n - 1));
+      return drop(current);
+    });
+    setPersonAssets(drop);
+    setAlbumAssets(drop);
+    setMemories((current) => (current
+      ? { ...current, groups: current.groups.map((g) => ({ ...g, items: drop(g.items) })) }
+      : current));
+    setSelectedIds((current) => {
+      if (!current.has(assetId)) return current;
+      const next = new Set(current);
+      next.delete(assetId);
+      return next;
+    });
+  }, [setPersonAssets, setAlbumAssets]);
+
+  // What a change made inside the viewer costs the page. A like moves nothing,
+  // so it is patched where the photo already sits — reloading the view for it
+  // threw away every "Load more" page and, when the photo lived on one of them,
+  // closed the viewer under the visitor. A delete takes that one row out.
+  // Anything that can reorder or redraw the grid (a rotate, an edited date, a
+  // person tagged) still reloads, now keeping the pages that were loaded.
+  const handleAssetChange = useCallback((change: GalleryAssetChange) => {
+    if (change.kind === "like") { setAssetSaved(change.id, change.saved); return; }
+    if (change.kind === "deleted") { removeAsset(change.id); void loadLibraries(); return; }
+    refreshView();
+  }, [setAssetSaved, removeAsset, loadLibraries, refreshView]);
 
   // The tile heart. Optimistic — the point of the control is that it costs one tap
   // and no waiting — and rolled back with a message if the request fails.
@@ -2340,7 +2425,7 @@ export function GalleryPage({
           musicUrl={lightbox.source === "slideshow" ? selectedSlideshow?.musicUrl ?? undefined : undefined}
           onClose={closeLightbox}
           onIndexChange={(next) => setLightbox((current) => (current ? { ...current, index: next } : current))}
-          onChanged={refreshView}
+          onChanged={handleAssetChange}
           onOpenFolder={openAssetFolder}
         />
       )}

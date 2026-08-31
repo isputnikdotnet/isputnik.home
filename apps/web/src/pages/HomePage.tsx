@@ -928,7 +928,7 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
           canShare={library?.canCurate ?? false}
           onClose={() => setPhotoLightbox(null)}
           onIndexChange={(next) => setPhotoLightbox((current) => (current ? { ...current, index: next } : current))}
-          onChanged={() => void refreshPhotoLightbox(photoLightbox.source)}
+          onChanged={(change) => { if (change.kind !== "like") void refreshPhotoLightbox(photoLightbox.source); }}
           onOpenFolder={openMemoryFolder}
         />
       );

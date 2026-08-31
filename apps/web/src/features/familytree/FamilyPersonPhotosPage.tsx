@@ -125,7 +125,7 @@ export function FamilyPersonPhotosPage({
           canShare={false}
           onClose={() => setLightboxIndex(null)}
           onIndexChange={setLightboxIndex}
-          onChanged={() => { void loadPhotos(0); }}
+          onChanged={(change) => { if (change.kind !== "like") void loadPhotos(0); }}
         />
       )}
     </DashboardShell>

@@ -63,6 +63,18 @@ const RANDOM_TRANSITIONS: SlideshowTransition[] = ["crossfade", "fade", "slide",
 // reload) so the speed choice sticks across slideshows without persisting to disk.
 let sessionSlideshowInterval = 5;
 
+// What just happened to the photo on screen. The viewer does not know what its
+// host has loaded, so it says what changed and lets the host decide how much to
+// redo: a like moves nothing and can be patched where the photo already sits, a
+// delete removes one row, and everything else can reorder or redraw the grid.
+// Reloading the view for a like used to throw away every "Load more" page the
+// visitor had asked for — and closed the viewer under them when the photo they
+// were looking at lived on one of those pages.
+export type GalleryAssetChange =
+  | { kind: "like"; id: string; saved: boolean }
+  | { kind: "deleted"; id: string }
+  | { kind: "asset"; id: string };
+
 // Full-screen photo/video viewer with keyboard navigation. Renders into a portal
 // over the whole app (not a shared/Modal — a media lightbox is full-bleed and owns
 // its own chrome). Per-asset actions act on the current item.
@@ -86,7 +98,7 @@ export function GalleryLightbox({
   index: number;
   onClose: () => void;
   onIndexChange: (next: number) => void;
-  onChanged: () => void;
+  onChanged: (change: GalleryAssetChange) => void;
   // When set, the Info panel's Folder entry becomes a link that closes the
   // lightbox and opens that folder in the gallery's Folders view.
   onOpenFolder?: (folder: string) => void;
@@ -353,7 +365,7 @@ export function GalleryLightbox({
     try {
       if (next) await api(`/api/library/books/${asset.id}/save`, { method: "PUT", body: JSON.stringify({ note: null }) });
       else await api(`/api/library/books/${asset.id}/save`, { method: "DELETE" });
-      onChanged();
+      onChanged({ kind: "like", id: asset.id, saved: next });
     } catch {
       setLiked(!next);
     } finally {
@@ -407,7 +419,7 @@ export function GalleryLightbox({
         method: "POST",
         body: JSON.stringify({ direction })
       });
-      onChanged();
+      onChanged({ kind: "asset", id: asset.id });
     } catch {
       /* leave the image as-is; the user can retry */
     } finally {
@@ -421,7 +433,7 @@ export function GalleryLightbox({
     try {
       await api(`/api/library/books/${asset.id}`, { method: "DELETE" });
       setDeleteOpen(false);
-      onChanged();
+      onChanged({ kind: "deleted", id: asset.id });
       // Move to a neighbour, or close when it was the last asset.
       if (assets.length <= 1) onClose();
       else onIndexChange(Math.min(index, assets.length - 2));
@@ -469,7 +481,7 @@ export function GalleryLightbox({
         })
       });
       setEditingField(null);
-      onChanged();
+      onChanged({ kind: "asset", id: asset.id });
     } catch (err) {
       setEditError(err instanceof Error ? err.message : t("gallery:lightbox.errors.saveLocation"));
     } finally {
@@ -497,7 +509,7 @@ export function GalleryLightbox({
     try {
       await api(`/api/library/gallery/assets/${asset.id}`, { method: "PATCH", body: JSON.stringify(body) });
       setEditingField(null);
-      onChanged();
+      onChanged({ kind: "asset", id: asset.id });
     } catch (err) {
       setEditError(err instanceof Error ? err.message : t("gallery:lightbox.errors.saveChanges"));
     } finally {
@@ -522,7 +534,7 @@ export function GalleryLightbox({
       setPeople(res.asset.people ?? []);
       setPersonName("");
       setAddingPerson(false);
-      onChanged();
+      onChanged({ kind: "asset", id: asset.id });
     } catch (err) {
       setPersonError(err instanceof Error ? err.message : t("gallery:lightbox.errors.tagPerson"));
     } finally {
@@ -537,7 +549,7 @@ export function GalleryLightbox({
         { method: "DELETE" }
       );
       setPeople(res.asset.people ?? []);
-      onChanged();
+      onChanged({ kind: "asset", id: asset.id });
     } catch { /* leave the chip; the user can retry */ }
   };
 
