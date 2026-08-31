@@ -22,7 +22,7 @@
     "test:web": "npm run test --workspace apps/web"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2",
+    "concurrently": "^10.0.5",
     "cross-env": "^10.1.0"
   },
   "overrides": {
