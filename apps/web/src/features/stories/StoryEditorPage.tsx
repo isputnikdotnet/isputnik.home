@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, BookOpen, Plus, Trash2 } from "lucide-react";
-import type { PublicUser } from "../../api";
+import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
-import { UserAreaNav } from "../library/UserAreaNav";
 import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { Button } from "../../shared/Button";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
+import { TagInput } from "../../shared/TagInput";
 import { StoryChapterEditor } from "./StoryChapterEditor";
 import { useStoryEditor } from "./useStoryEditor";
 import { hasChapterStructure } from "./types";
@@ -34,6 +34,15 @@ export function StoryEditorPage({
   // Revealed on demand for a one-chapter story: a journal page shouldn't open
   // with a form, but a chaptered one needs its dates in reach.
   const [showChapterFields, setShowChapterFields] = useState(false);
+  // Every tag already in use, so an author reaches for the family's existing
+  // vocabulary ("Minnesota") instead of inventing a near-duplicate.
+  const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
+
+  useEffect(() => {
+    api<{ tags: { name: string }[] }>("/api/library/tags")
+      .then((payload) => setTagSuggestions(payload.tags.map((tag) => tag.name)))
+      .catch(() => setTagSuggestions([]));
+  }, []);
 
   useEffect(() => {
     if (!story) return;
@@ -52,7 +61,7 @@ export function StoryEditorPage({
   const structured = story ? hasChapterStructure(story) : false;
 
   return (
-    <DashboardShell active="user" user={user} logout={logout} sideNav={<UserAreaNav active="stories" />}>
+    <DashboardShell active="stories" user={user} logout={logout}>
       <section className="work-area story-edit-area">
         <div className="book-detail-topbar">
           <button className="audiobook-back-button" type="button" onClick={() => navigate(`/stories/${id}`)}>
@@ -123,6 +132,19 @@ export function StoryEditorPage({
             }>
               {story.status === "published" ? t("stories:status.publishedBody") : t("stories:status.draftBody")}
             </MessageBox>
+
+            <div className="story-tags-field">
+              <p className="story-tags-label">{t("stories:tags.label")}</p>
+              <TagInput
+                value={story.tags}
+                onChange={(tags) => void editor.setTags(tags)}
+                suggestions={tagSuggestions}
+                disabled={busy}
+                listId="story-tag-suggestions"
+                placeholder={t("stories:tags.placeholder")}
+                hint={t("stories:tags.hint")}
+              />
+            </div>
 
             {!structured && !showChapterFields && (
               <div className="story-chapter-reveal">

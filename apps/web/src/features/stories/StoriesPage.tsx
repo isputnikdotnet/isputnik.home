@@ -3,12 +3,11 @@ import { useTranslation } from "react-i18next";
 import { BookText, Plus } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
-import { UserAreaNav } from "../library/UserAreaNav";
 import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
 import { Button } from "../../shared/Button";
-import { formatPartialDateRange } from "../../shared/utils";
+import { StoryCard } from "./StoryCard";
 import type { StorySummary } from "./types";
 
 // The story index: every published story, plus the viewer's own drafts.
@@ -32,7 +31,7 @@ export function StoriesPage({
   }, []);
 
   return (
-    <DashboardShell active="user" user={user} logout={logout} sideNav={<UserAreaNav active="stories" />}>
+    <DashboardShell active="stories" user={user} logout={logout}>
       <section className="work-area audiobook-area">
         <div className="section-head audiobook-head">
           <div>
@@ -59,37 +58,7 @@ export function StoriesPage({
 
         {stories && stories.length > 0 && (
           <div className="audiobook-grid story-grid">
-            {stories.map((story) => (
-              <button
-                className="audiobook-card story-card"
-                key={story.id}
-                onClick={() => navigate(`/stories/${story.id}`)}
-              >
-                <div className="story-card-cover" aria-hidden="true">
-                  {story.coverUrl ? <img src={story.coverUrl} alt="" /> : <BookText size={28} />}
-                </div>
-                <div className="audiobook-card-body">
-                  <strong>{story.title}</strong>
-                  <span>
-                    {[
-                      // The date span leads when the story has one — that is
-                      // what a reader recognises it by.
-                      formatPartialDateRange(
-                        story.firstDate,
-                        story.lastDate === story.firstDate ? null : story.lastDate
-                      ),
-                      story.chapterCount > 1
-                        ? t("stories:count.chapters", { count: story.chapterCount })
-                        : t("stories:count.blocks", { count: story.blockCount })
-                    ].filter(Boolean).join(" · ")}
-                  </span>
-                  {story.subtitle && <p className="audiobook-card-note">{story.subtitle}</p>}
-                  {story.status === "draft" && (
-                    <span className="story-draft-badge">{t("stories:status.draft")}</span>
-                  )}
-                </div>
-              </button>
-            ))}
+            {stories.map((story) => <StoryCard key={story.id} story={story} />)}
           </div>
         )}
       </section>

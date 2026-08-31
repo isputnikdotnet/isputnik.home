@@ -5,8 +5,10 @@ import { ingestGalleryAsset } from "../src/modules/library/gallery/scanner.js";
 import { kindForExtension } from "../src/modules/library/gallery/media.js";
 import { createAlbum, addAlbumItems, deleteAlbum } from "../src/modules/library/gallery/albums.js";
 import { hydrateEntities } from "../src/modules/social/subjects.js";
+import { setEntityTags } from "../src/modules/library/audiobook/categorize.js";
 import { deleteStoryBlocksForResource, deleteStoryBlocksForLibrary } from "../src/modules/stories/cleanup.js";
 import {
+  STORY_ENTITY_TYPE,
   createStory,
   updateStory,
   deleteStory,
@@ -14,6 +16,7 @@ import {
   canEditStory,
   canViewStory,
   getStory,
+  getStoryTags,
   getChapters,
   createChapter,
   updateChapter,
@@ -280,6 +283,54 @@ describe("list covers", () => {
     expect(row.firstDate).toBe("2004-07");
     expect(row.lastDate).toBe("2007");
     expect(row.chapterCount).toBe(2);
+  });
+});
+
+describe("tags", () => {
+  it("stores and reads a story's tags", () => {
+    const story = createStory(author, "Minnesota", null);
+    setEntityTags(STORY_ENTITY_TYPE, story.id, ["Family", "Minnesota", "2004"]);
+    // Sorted by display name, case-insensitively.
+    expect(getStoryTags(story.id)).toEqual(["2004", "Family", "Minnesota"]);
+  });
+
+  it("replaces the whole set rather than merging", () => {
+    const story = createStory(author, "Minnesota", null);
+    setEntityTags(STORY_ENTITY_TYPE, story.id, ["Family", "Minnesota"]);
+    setEntityTags(STORY_ENTITY_TYPE, story.id, ["Vacation"]);
+    expect(getStoryTags(story.id)).toEqual(["Vacation"]);
+  });
+
+  it("carries tags on the list, batched", () => {
+    const a = createStory(author, "One", null);
+    const b = createStory(author, "Two", null);
+    setEntityTags(STORY_ENTITY_TYPE, a.id, ["Family"]);
+    const rows = listStories(author, GAL_LIBS);
+    expect(rows.find((row) => row.id === a.id)!.tags).toEqual(["Family"]);
+    expect(rows.find((row) => row.id === b.id)!.tags).toEqual([]);
+  });
+
+  it("filters the list by tag, keeping the draft visibility rule", () => {
+    const mine = createStory(author, "Mine", null);
+    const published = createStory(author, "Published", null);
+    setEntityTags(STORY_ENTITY_TYPE, mine.id, ["Family"]);
+    setEntityTags(STORY_ENTITY_TYPE, published.id, ["Family"]);
+    updateStory(published.id, { status: "published" });
+
+    const tagId = (db.prepare("SELECT id FROM tags WHERE key = 'family'").get() as { id: string }).id;
+    expect(listStories(author, GAL_LIBS, tagId).map((row) => row.id).sort())
+      .toEqual([mine.id, published.id].sort());
+    // The other member sees only the published one, tag or no tag.
+    expect(listStories(viewer, ["GAL"], tagId).map((row) => row.id)).toEqual([published.id]);
+  });
+
+  it("drops the tag rows when the story is deleted", () => {
+    const story = createStory(author, "Minnesota", null);
+    setEntityTags(STORY_ENTITY_TYPE, story.id, ["Family"]);
+    deleteStory(story.id);
+    expect(db.prepare(
+      "SELECT COUNT(*) AS n FROM taggables WHERE entity_type = ?"
+    ).get(STORY_ENTITY_TYPE)).toEqual({ n: 0 });
   });
 });
 

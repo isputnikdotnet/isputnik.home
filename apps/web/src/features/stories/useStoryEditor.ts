@@ -58,6 +58,10 @@ export function useStoryEditor(id: string) {
     }
   }, [id, t]);
 
+  const setTags = useCallback((tags: string[]) =>
+    run(() => api(`/api/stories/${id}/tags`, { method: "PUT", body: JSON.stringify({ tags }) }), t("stories:errors.save")),
+  [id, run, t]);
+
   const addChapter = useCallback(() =>
     run(() => api(`/api/stories/${id}/chapters`, { method: "POST", body: JSON.stringify({}) }), t("stories:errors.save")),
   [id, run, t]);
@@ -136,6 +140,7 @@ export function useStoryEditor(id: string) {
     reload,
     patchStory,
     removeStory,
+    setTags,
     addChapter,
     patchChapter,
     removeChapter,

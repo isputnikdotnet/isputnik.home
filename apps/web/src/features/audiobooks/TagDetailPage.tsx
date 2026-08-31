@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, BookOpen, Headphones, Images, Play, TreeDeciduous } from "lucide-react";
+import { ArrowLeft, BookOpen, BookText, Headphones, Images, Play, TreeDeciduous } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { followRoute, getReferrer, goBack, navigate } from "../../router";
@@ -12,15 +12,18 @@ import type { GalleryAsset } from "../gallery/types";
 import { faceFocusStyle } from "../gallery/types";
 import { PersonAvatar } from "../familytree/PersonAvatar";
 import { lifeYears, type FamilyPerson } from "../familytree/types";
+import { StoryCard } from "../stories/StoryCard";
+import type { StorySummary } from "../stories/types";
 
 interface TagDetail {
   name: string;
   books: FeedItem[];
   photos: GalleryAsset[];
   people: FamilyPerson[];
+  stories: StorySummary[];
 }
 
-type KindFilter = "all" | "audiobook" | "ebook" | "gallery" | "family";
+type KindFilter = "all" | "audiobook" | "ebook" | "gallery" | "family" | "story";
 
 export function TagDetailPage({
   tagName,
@@ -53,7 +56,8 @@ export function TagDetailPage({
   const ebookCount = tag?.books.filter((book) => book.kind === "ebook").length ?? 0;
   const galleryCount = tag?.photos.length ?? 0;
   const familyCount = tag?.people.length ?? 0;
-  const total = (tag?.books.length ?? 0) + galleryCount + familyCount;
+  const storyCount = tag?.stories.length ?? 0;
+  const total = (tag?.books.length ?? 0) + galleryCount + familyCount + storyCount;
 
   // The toggle earns its place only when the tag spans more than one type.
   const scopes = useMemo(() => ([
@@ -61,8 +65,9 @@ export function TagDetailPage({
     { value: "audiobook" as const, label: t("common:nav.audiobooks"), icon: Headphones, count: audiobookCount },
     { value: "ebook" as const, label: t("common:nav.ebooks"), icon: BookOpen, count: ebookCount },
     { value: "gallery" as const, label: t("common:nav.gallery"), icon: Images, count: galleryCount },
-    { value: "family" as const, label: t("common:nav.familyTree"), icon: TreeDeciduous, count: familyCount }
-  ]), [total, audiobookCount, ebookCount, galleryCount, familyCount, t]);
+    { value: "family" as const, label: t("common:nav.familyTree"), icon: TreeDeciduous, count: familyCount },
+    { value: "story" as const, label: t("common:nav.stories"), icon: BookText, count: storyCount }
+  ]), [total, audiobookCount, ebookCount, galleryCount, familyCount, storyCount, t]);
   const populated = scopes.filter((s) => s.value !== "all" && s.count > 0);
   const showToggle = populated.length > 1;
 
@@ -72,7 +77,9 @@ export function TagDetailPage({
     : [];
   const shownPhotos = tag && (kindFilter === "all" || kindFilter === "gallery") ? tag.photos : [];
   const shownPeople = tag && (kindFilter === "all" || kindFilter === "family") ? tag.people : [];
-  const nothingShown = shownBooks.length === 0 && shownPhotos.length === 0 && shownPeople.length === 0;
+  const shownStories = tag && (kindFilter === "all" || kindFilter === "story") ? tag.stories : [];
+  const nothingShown = shownBooks.length === 0 && shownPhotos.length === 0
+    && shownPeople.length === 0 && shownStories.length === 0;
 
   return (
     <DashboardShell active="tags" user={user} logout={logout}>
@@ -139,6 +146,15 @@ export function TagDetailPage({
                       )}
                     </button>
                   ))}
+                </div>
+              </>
+            )}
+
+            {shownStories.length > 0 && (
+              <>
+                {kindFilter === "all" && <p className="gallery-section-label">{t("book:tags.storiesLabel")}</p>}
+                <div className="audiobook-grid story-grid">
+                  {shownStories.map((story) => <StoryCard key={story.id} story={story} />)}
                 </div>
               </>
             )}

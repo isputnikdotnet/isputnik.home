@@ -4,6 +4,20 @@
 
 /* ── Index ─────────────────────────────────────────────────────────────── */
 
+/* The card is an <a> so it opens in a new tab like any link; it must still
+   look like a card, not like body copy with a link in it. */
+.story-card,
+.story-card:hover {
+  color: inherit;
+  text-decoration: none;
+}
+
+.story-card strong,
+.story-card span,
+.story-card p {
+  text-decoration: none;
+}
+
 .story-card-cover {
   display: grid;
   place-items: center;
@@ -593,4 +607,47 @@
   .story-media-row[data-count="3"] { grid-template-columns: 1fr; }
   .story-map { height: 240px; }
   .story-set-head { align-items: flex-start; }
+}
+
+/* Tags: a chip row under the story head, and the editor's field above the
+   chapters — both lean on the shared .tag-input styles. */
+.story-read-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.story-read-tags a {
+  display: inline-block;
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-raised);
+  color: var(--muted);
+  font-size: 0.82rem;
+  text-decoration: none;
+}
+
+.story-read-tags a:hover {
+  border-color: var(--gold);
+  color: var(--ink);
+}
+
+.story-tags-field {
+  margin-top: 18px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.story-tags-label {
+  margin: 0 0 8px;
+  color: var(--gold);
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }

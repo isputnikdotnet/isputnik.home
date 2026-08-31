@@ -26,6 +26,10 @@ import { getSlideshow, getSlideshowItems } from "../library/gallery/slideshows.j
 
 const inClause = (n: number) => Array(n).fill("?").join(", ");
 
+/** How a story appears in `taggables` — the same polymorphic tag table that
+ *  carries library items, family-tree people and quotes. */
+export const STORY_ENTITY_TYPE = "story";
+
 export const STORY_BLOCK_KINDS = ["text", "media", "album", "slideshow", "map"] as const;
 export type StoryBlockKind = (typeof STORY_BLOCK_KINDS)[number];
 
@@ -165,8 +169,16 @@ export function updateStory(storyId: string, fields: StoryUpdate): void {
 }
 
 export function deleteStory(storyId: string): boolean {
-  // Chapters cascade, and blocks cascade from chapters.
-  return db.prepare("DELETE FROM stories WHERE id = ?").run(storyId).changes > 0;
+  let removed = false;
+  db.transaction(() => {
+    // taggables is polymorphic with no FK, so the story's tags are dropped here
+    // — the same contract every other taggable type follows.
+    db.prepare("DELETE FROM taggables WHERE entity_type = ? AND entity_id = ?")
+      .run(STORY_ENTITY_TYPE, storyId);
+    // Chapters cascade, and blocks cascade from chapters.
+    removed = db.prepare("DELETE FROM stories WHERE id = ?").run(storyId).changes > 0;
+  })();
+  return removed;
 }
 
 interface StoryListRow extends StoryRow {
@@ -181,7 +193,10 @@ interface StoryListRow extends StoryRow {
 // plus their own drafts. The cover prefers the chosen cover photo, else the
 // first visible photo any media block points at — so a story looks like
 // something on the index page before anyone sets a cover.
-export function listStories(user: { id: string; role: string }, libIds: string[]) {
+//
+// `tagId` narrows to the stories carrying that tag, which is what the cross-type
+// tag browse asks for — same visibility rule, same card shape.
+export function listStories(user: { id: string; role: string }, libIds: string[], tagId?: string) {
   const libArgs = libIds.length > 0 ? libIds : [""];
   const libIn = inClause(libArgs.length);
   const rows = db.prepare(`
@@ -211,10 +226,13 @@ export function listStories(user: { id: string; role: string }, libIds: string[]
           ORDER BY story_chapters.position, story_blocks.position LIMIT 1)
       ) AS cover_key
     FROM stories
-    WHERE stories.status = 'published' OR stories.created_by = ? OR ? = 'admin'
+    WHERE (stories.status = 'published' OR stories.created_by = ? OR ? = 'admin')
+      ${tagId ? `AND EXISTS (SELECT 1 FROM taggables WHERE taggables.entity_type = '${STORY_ENTITY_TYPE}'
+            AND taggables.entity_id = stories.id AND taggables.tag_id = ?)` : ""}
     ORDER BY datetime(stories.updated_at) DESC
-  `).all(...libArgs, ...libArgs, user.id, user.role) as StoryListRow[];
+  `).all(...libArgs, ...libArgs, user.id, user.role, ...(tagId ? [tagId] : [])) as StoryListRow[];
 
+  const tags = storyTagsByStory(rows.map((row) => row.id));
   return rows.map((row) => ({
     id: row.id,
     title: row.title,
@@ -225,10 +243,40 @@ export function listStories(user: { id: string; role: string }, libIds: string[]
     firstDate: row.first_date,
     lastDate: row.last_date,
     coverUrl: row.cover_key ? `/api/library/covers/${row.cover_key}` : null,
+    tags: tags.get(row.id) ?? [],
     canEdit: canEditStory(row, user),
     createdAt: row.created_at,
     updatedAt: row.updated_at
   }));
+}
+
+/** One story's tags, in display order. */
+export function getStoryTags(storyId: string): string[] {
+  return (db.prepare(`
+    SELECT tags.display_name AS name FROM taggables
+    JOIN tags ON tags.id = taggables.tag_id
+    WHERE taggables.entity_type = ? AND taggables.entity_id = ?
+    ORDER BY tags.display_name COLLATE NOCASE
+  `).all(STORY_ENTITY_TYPE, storyId) as { name: string }[]).map((row) => row.name);
+}
+
+/** Tags for many stories at once, so the index doesn't run a query per card. */
+export function storyTagsByStory(storyIds: string[]): Map<string, string[]> {
+  const out = new Map<string, string[]>();
+  if (storyIds.length === 0) return out;
+  const rows = db.prepare(`
+    SELECT taggables.entity_id AS story_id, tags.display_name AS name
+    FROM taggables
+    JOIN tags ON tags.id = taggables.tag_id
+    WHERE taggables.entity_type = ? AND taggables.entity_id IN (${inClause(storyIds.length)})
+    ORDER BY tags.display_name COLLATE NOCASE
+  `).all(STORY_ENTITY_TYPE, ...storyIds) as { story_id: string; name: string }[];
+  for (const row of rows) {
+    const list = out.get(row.story_id) ?? [];
+    list.push(row.name);
+    out.set(row.story_id, list);
+  }
+  return out;
 }
 
 export function getChapters(storyId: string): ChapterRow[] {

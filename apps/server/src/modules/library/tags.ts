@@ -11,6 +11,7 @@ import { bookLibraryIds, crossTypeBooksByFilter } from "./feed.js";
 import { accessibleLibraryIds } from "./shared/library-access.js";
 import { ASSET_COLUMNS, ASSET_JOINS, mapAsset, type GalleryAssetRow } from "./gallery/catalog.js";
 import { listFamilyPersonsByTag } from "../familytree/persons.js";
+import { listStories, STORY_ENTITY_TYPE } from "../stories/stories.js";
 
 const placeholders = (n: number) => Array(n).fill("?").join(", ");
 
@@ -50,13 +51,26 @@ export function registerTagRoutes(app: FastifyInstance) {
       GROUP BY tags.id
     `).all() as { id: string; name: string; count: number }[];
 
+    // Published stories, plus the viewer's own drafts — the same visibility rule
+    // listStories applies, so a tag never counts a story you can't open.
+    const storyRows = db.prepare(`
+      SELECT tags.id, tags.display_name AS name, COUNT(*) AS count
+      FROM taggables
+      JOIN tags ON tags.id = taggables.tag_id
+      JOIN stories ON stories.id = taggables.entity_id
+      WHERE taggables.entity_type = '${STORY_ENTITY_TYPE}'
+        AND (stories.status = 'published' OR stories.created_by = ? OR ? = 'admin')
+      GROUP BY tags.id
+    `).all(user.id, user.role) as { id: string; name: string; count: number }[];
+
     const byTag = new Map<string, {
       name: string; count: number;
-      audiobookCount: number; ebookCount: number; galleryCount: number; familyCount: number;
+      audiobookCount: number; ebookCount: number; galleryCount: number;
+      familyCount: number; storyCount: number;
     }>();
     const entry = (id: string, name: string) => {
       const found = byTag.get(id)
-        ?? { name, count: 0, audiobookCount: 0, ebookCount: 0, galleryCount: 0, familyCount: 0 };
+        ?? { name, count: 0, audiobookCount: 0, ebookCount: 0, galleryCount: 0, familyCount: 0, storyCount: 0 };
       byTag.set(id, found);
       return found;
     };
@@ -71,6 +85,11 @@ export function registerTagRoutes(app: FastifyInstance) {
       const tag = entry(row.id, row.name);
       tag.count += row.count;
       tag.familyCount += row.count;
+    }
+    for (const row of storyRows) {
+      const tag = entry(row.id, row.name);
+      tag.count += row.count;
+      tag.storyCount += row.count;
     }
 
     const tags = [...byTag.values()].sort((a, b) =>
@@ -109,7 +128,13 @@ export function registerTagRoutes(app: FastifyInstance) {
     `).all(user.id, tag.id, ...galleryIds) as GalleryAssetRow[]).map(mapAsset);
 
     return reply.send({
-      tag: { name: tag.display_name, books, photos, people: listFamilyPersonsByTag(tag.id) }
+      tag: {
+        name: tag.display_name,
+        books,
+        photos,
+        people: listFamilyPersonsByTag(tag.id),
+        stories: listStories(user, galleryIds, tag.id)
+      }
     });
   });
 }

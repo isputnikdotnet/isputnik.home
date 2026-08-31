@@ -665,7 +665,8 @@
     "nothingYet": "Nothing carries this tag yet.",
     "photosVideosLabel": "Photos & videos",
     "familyMembersLabel": "Family members",
-    "videoBadge": "Video"
+    "videoBadge": "Video",
+    "storiesLabel": "Stories"
   },
   "personPage": {
     "roleAuthor": "Author",

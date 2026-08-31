@@ -1,6 +1,6 @@
 {
   "title": "Stories",
-  "eyebrow": "My library",
+  "eyebrow": "Built from your library",
   "backTo": "Back to stories",
   "newStory": "New story",
   "common": {
@@ -144,5 +144,10 @@
     "deleteStoryTitle": "Delete \"{{name}}\"?",
     "deleteStoryConfirm": "Delete story",
     "deleteStoryBody": "The story and its chapters are deleted. The photos, albums and slideshows it used are not affected."
+  },
+  "tags": {
+    "label": "Tags",
+    "placeholder": "Family, Minnesota, 2004…",
+    "hint": "Tags connect this story with the photos, people and other stories that share them."
   }
 }

@@ -3,8 +3,7 @@ import { useTranslation } from "react-i18next";
 import { ArrowLeft, MapPin, Pencil } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
-import { UserAreaNav } from "../library/UserAreaNav";
-import { goBack, navigate } from "../../router";
+import { followRoute, goBack, navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { Button } from "../../shared/Button";
 import { formatPartialDate, formatPartialDateRange } from "../../shared/utils";
@@ -81,7 +80,7 @@ export function StoryDetailPage({
     : "";
 
   return (
-    <DashboardShell active="user" user={user} logout={logout} sideNav={<UserAreaNav active="stories" />}>
+    <DashboardShell active="stories" user={user} logout={logout}>
       <section className="work-area story-read-area">
         <div className="book-detail-topbar">
           <button className="audiobook-back-button" type="button" onClick={() => goBack("/stories")}>
@@ -102,6 +101,22 @@ export function StoryDetailPage({
               <h1>{story.title}</h1>
               {story.subtitle && <p className="story-read-subtitle">{story.subtitle}</p>}
               {span && <p className="story-read-span">{span}</p>}
+              {story.tags.length > 0 && (
+                <ul className="story-read-tags">
+                  {story.tags.map((tag) => (
+                    <li key={tag}>
+                      {/* Straight into the cross-type tag browse: the photos,
+                          people and other stories that share this tag. */}
+                      <a
+                        href={`/tags/${encodeURIComponent(tag)}`}
+                        onClick={(event) => followRoute(event, `/tags/${encodeURIComponent(tag)}`)}
+                      >
+                        {tag}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
               {story.canEdit && (
                 <div className="story-read-actions">
                   <Button variant="secondary" compact onClick={() => navigate(`/stories/${story.id}/edit`)}>

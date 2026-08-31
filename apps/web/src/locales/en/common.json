@@ -507,5 +507,10 @@
       "death": "2024 or 2024-03-15",
       "divorced": "2015 or 2015-03-01"
     }
+  },
+  "tagInput": {
+    "label": "Add a tag",
+    "placeholder": "Add a tag",
+    "remove": "Remove {{tag}}"
   }
 }

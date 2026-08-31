@@ -24,6 +24,7 @@ export interface StorySummary {
   firstDate: string | null;
   lastDate: string | null;
   coverUrl: string | null;
+  tags: string[];
   canEdit: boolean;
   createdAt: string;
   updatedAt: string;
@@ -83,6 +84,8 @@ export interface StoryDetail {
   updatedAt: string;
   /** How many photos an album/slideshow block previews inline. */
   previewLimit: number;
+  /** Story-level tags — how a story joins the cross-type tag browse. */
+  tags: string[];
   chapters: StoryChapter[];
 }
 

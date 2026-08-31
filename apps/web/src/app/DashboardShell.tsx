@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import {
   Bookmark,
   BookOpen,
+  BookText,
   Bug,
   ChevronDown,
   DownloadCloud,
@@ -38,7 +39,7 @@ const APP_VERSION = packageInfo.version;
 // The control panel's landing page — Overview › Dashboard.
 const CONTROL_HOME = controlHref("dashboard");
 
-export type DashboardActive = "home" | "audiobooks" | "ebooks" | "gallery" | "family" | "authors" | "categories" | "tags" | "about" | "help" | "control" | "user";
+export type DashboardActive = "home" | "audiobooks" | "ebooks" | "gallery" | "family" | "stories" | "authors" | "categories" | "tags" | "about" | "help" | "control" | "user";
 
 interface AboutMenuLink {
   href: string;
@@ -96,6 +97,7 @@ function mainNavItems(active: DashboardActive, t: TFunction): MainNavItem[] {
     { label: t("nav.ebooks"), href: "/ebooks", icon: BookOpen, active: active === "ebooks" },
     { label: t("nav.gallery"), href: "/gallery", icon: Image, active: active === "gallery" },
     { label: t("nav.familyTree"), href: "/family", icon: Network, active: active === "family" },
+    { label: t("nav.stories"), href: "/stories", icon: BookText, active: active === "stories" },
     { label: t("nav.tags"), href: "/tags", icon: Tag, active: active === "tags" }
   ];
 }
@@ -144,6 +146,7 @@ function MobileNav({
     currentPath.startsWith("/tags") ||
     currentPath.startsWith("/gallery") ||
     currentPath.startsWith("/family") ||
+    currentPath.startsWith("/stories") ||
     (currentPath.startsWith("/audiobooks") && !downloadsActive);
   const profileActive = PROFILE_ROUTES.some((route) => currentPath === route || currentPath.startsWith(`${route}/`));
 
@@ -177,6 +180,10 @@ function MobileNav({
             <a className="mobile-media-option" href="/family" onClick={(event) => { followRoute(event, "/family"); close(); }}>
               <Network size={26} aria-hidden="true" />
               <span>{t("nav.familyTree")}</span>
+            </a>
+            <a className="mobile-media-option" href="/stories" onClick={(event) => { followRoute(event, "/stories"); close(); }}>
+              <BookText size={26} aria-hidden="true" />
+              <span>{t("nav.stories")}</span>
             </a>
             <a className="mobile-media-option" href="/tags" onClick={(event) => { followRoute(event, "/tags"); close(); }}>
               <Tag size={26} aria-hidden="true" />

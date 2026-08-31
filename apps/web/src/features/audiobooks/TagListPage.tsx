@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { BookOpen, Headphones, Images, Tag as TagIcon, TreeDeciduous } from "lucide-react";
+import { BookOpen, BookText, Headphones, Images, Tag as TagIcon, TreeDeciduous } from "lucide-react";
 import i18n from "../../i18n";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
@@ -19,9 +19,10 @@ export interface TagSummary {
   ebookCount: number;
   galleryCount: number;
   familyCount: number;
+  storyCount: number;
 }
 
-export type TagScope = "all" | "audiobook" | "ebook" | "gallery" | "family";
+export type TagScope = "all" | "audiobook" | "ebook" | "gallery" | "family" | "story";
 
 type TagSort = "count" | "name";
 
@@ -45,7 +46,8 @@ export function getTagScopes(): {
     { value: "audiobook", label: i18n.t("common:nav.audiobooks"), icon: Headphones, countOf: (tag) => tag.audiobookCount },
     { value: "ebook", label: i18n.t("common:nav.ebooks"), icon: BookOpen, countOf: (tag) => tag.ebookCount },
     { value: "gallery", label: i18n.t("common:nav.gallery"), icon: Images, countOf: (tag) => tag.galleryCount },
-    { value: "family", label: i18n.t("common:nav.familyTree"), icon: TreeDeciduous, countOf: (tag) => tag.familyCount }
+    { value: "family", label: i18n.t("common:nav.familyTree"), icon: TreeDeciduous, countOf: (tag) => tag.familyCount },
+    { value: "story", label: i18n.t("common:nav.stories"), icon: BookText, countOf: (tag) => tag.storyCount }
   ];
 }
 

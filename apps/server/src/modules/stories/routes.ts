@@ -10,7 +10,9 @@ import { parseBody } from "../../core/shared.js";
 import { hydrateEntities } from "../social/subjects.js";
 import { resolveGalleryScopeLibraryIds } from "../library/gallery/catalog.js";
 import { partialDateSchema } from "../familytree/persons.js";
+import { setEntityTags } from "../library/audiobook/categorize.js";
 import {
+  STORY_ENTITY_TYPE,
   STORY_BLOCK_KINDS,
   STORY_STATUSES,
   BLOCK_ENTITY_TYPE,
@@ -22,6 +24,7 @@ import {
   updateStory,
   deleteStory,
   listStories,
+  getStoryTags,
   getChapters,
   getChapter,
   createChapter,
@@ -87,6 +90,13 @@ const blockUpdateSchema = blockCreateSchema.omit({ chapterId: true, kind: true }
 
 const reorderSchema = z.object({
   orderedIds: z.array(entityId).min(1).max(500)
+});
+
+// The whole tag set, replaced in one call — the editor shows every tag as a
+// chip row, so "these are the tags now" is what it actually means. Blank names
+// are dropped by the tag helper's normalizer.
+const tagsSchema = z.object({
+  tags: z.array(z.string().trim().min(1).max(80)).max(50)
 });
 
 const blockReorderSchema = reorderSchema.extend({ chapterId: entityId });
@@ -209,6 +219,7 @@ export async function storiesPlugin(app: FastifyInstance) {
         createdAt: story.created_at,
         updatedAt: story.updated_at,
         previewLimit: BLOCK_PREVIEW_LIMIT,
+        tags: getStoryTags(story.id),
         chapters: chapters.map((chapter) => ({
           id: chapter.id,
           position: chapter.position,
@@ -256,6 +267,20 @@ export async function storiesPlugin(app: FastifyInstance) {
       ipAddress: request.ip
     });
     return reply.send({ deleted: true });
+  });
+
+  // Replace the story's tags. Tagging a story is how it joins the cross-type
+  // tag browse alongside the photos, people and quotes that share the tag.
+  app.put("/api/stories/:id/tags", { preHandler: app.authenticate }, async (request, reply) => {
+    const user = request.user!;
+    const story = editableStory((request.params as { id: string }).id, user, reply);
+    if (!story) return reply;
+    const parsed = parseBody(tagsSchema, request.body);
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid tags", details: parsed.error });
+    }
+    setEntityTags(STORY_ENTITY_TYPE, story.id, parsed.data.tags);
+    return reply.send({ tags: getStoryTags(story.id) });
   });
 
   app.post("/api/stories/:id/chapters", { preHandler: app.authenticate }, async (request, reply) => {
