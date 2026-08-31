@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronDown, ChevronUp, Images, MapPin, Play, Plus, Trash2, Type } from "lucide-react";
+import { ChevronDown, ChevronUp, Images, MapPin, Play, Plus, Quote, Trash2, Type, UserRound } from "lucide-react";
 import { Button } from "../../shared/Button";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { PartialDateField } from "../../shared/PartialDateField";
 import { PhotoPicker } from "../gallery/PhotoPicker";
 import { StoryBlockEditor } from "./StoryBlockEditor";
-import { StorySetPicker } from "./StorySetPicker";
+import { StoryRefPicker, type RefKind } from "./StoryRefPicker";
 import { StoryMapModal } from "./StoryMapModal";
 import type { StoryBlockKind, StoryChapter } from "./types";
 
@@ -43,7 +43,7 @@ export function StoryChapterEditor({
   };
 }) {
   const { t } = useTranslation(["common", "stories"]);
-  const [picker, setPicker] = useState<"photo" | "album" | "slideshow" | "map" | null>(null);
+  const [picker, setPicker] = useState<"photo" | "map" | RefKind | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [fields, setFields] = useState({
     title: chapter.title ?? "",
@@ -212,6 +212,14 @@ export function StoryChapterEditor({
           <MapPin size={15} aria-hidden="true" />
           <span>{t("stories:kind.map")}</span>
         </Button>
+        <Button variant="secondary" compact onClick={() => setPicker("person")} disabled={busy}>
+          <UserRound size={15} aria-hidden="true" />
+          <span>{t("stories:kind.person")}</span>
+        </Button>
+        <Button variant="secondary" compact onClick={() => setPicker("quote")} disabled={busy}>
+          <Quote size={15} aria-hidden="true" />
+          <span>{t("stories:kind.quote")}</span>
+        </Button>
       </div>
 
       {picker === "photo" && (
@@ -223,8 +231,8 @@ export function StoryChapterEditor({
         />
       )}
 
-      {(picker === "album" || picker === "slideshow") && (
-        <StorySetPicker
+      {(picker === "album" || picker === "slideshow" || picker === "person" || picker === "quote") && (
+        <StoryRefPicker
           kind={picker}
           onPick={(id) => { const kind = picker; setPicker(null); onAddBlock(kind, { entityId: id }); }}
           onClose={() => setPicker(null)}

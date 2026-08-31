@@ -30,7 +30,9 @@ const inClause = (n: number) => Array(n).fill("?").join(", ");
  *  carries library items, family-tree people and quotes. */
 export const STORY_ENTITY_TYPE = "story";
 
-export const STORY_BLOCK_KINDS = ["text", "media", "album", "slideshow", "map"] as const;
+export const STORY_BLOCK_KINDS = [
+  "text", "media", "album", "slideshow", "map", "person", "quote"
+] as const;
 export type StoryBlockKind = (typeof STORY_BLOCK_KINDS)[number];
 
 export const STORY_STATUSES = ["draft", "published"] as const;
@@ -47,7 +49,11 @@ export const BLOCK_ENTITY_TYPE: Record<StoryBlockKind, string | null> = {
   media: "gallery",
   album: "gallery_album",
   slideshow: "gallery_slideshow",
-  map: null
+  map: null,
+  // Both are already subjects, so they hydrate (and access-check) for free.
+  // A person block is the family-tree bridge; a quote block is a pull quote.
+  person: "family_tree_person",
+  quote: "quote"
 };
 
 export interface StoryRow {

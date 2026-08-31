@@ -97,7 +97,9 @@
     "media": "Photo",
     "album": "Album",
     "slideshow": "Slideshow",
-    "map": "Map"
+    "map": "Map",
+    "person": "Person",
+    "quote": "Quote"
   },
   "block": {
     "unavailableTitle": "Not available",
@@ -106,7 +108,9 @@
       "media": "This photo has been removed, or isn't in a library you can see.",
       "album": "This album has been removed, or isn't in a library you can see.",
       "slideshow": "This slideshow has been removed, or isn't in a library you can see.",
-      "map": "This place is no longer available."
+      "map": "This place is no longer available.",
+      "person": "This person has been removed from the family tree.",
+      "quote": "This quote has been removed."
     },
     "openPhoto": "Open {{title}}",
     "mapFallbackTitle": "This place",
@@ -117,16 +121,21 @@
     "openSlideshow": "Open slideshow",
     "caption": "Caption",
     "captionPlaceholder": "A line under this one",
-    "textPlaceholder": "Write here. Markdown works: # heading, **bold**, > quote, - list, [link](https://example.com)."
+    "textPlaceholder": "Write here. Markdown works: # heading, **bold**, > quote, - list, [link](https://example.com).",
+    "openPerson": "Open profile"
   },
   "picker": {
     "albumTitle": "Add an album",
     "slideshowTitle": "Add a slideshow",
     "photoTitle": "Add a photo or video",
     "search": "Search by name",
-    "noAlbums": "There are no albums to add yet.",
-    "noSlideshows": "There are no slideshows to add yet.",
-    "noMatches": "Nothing matches that."
+    "noMatches": "Nothing matches that.",
+    "personTitle": "Add someone from the family tree",
+    "quoteTitle": "Add a quote",
+    "albumEmpty": "There are no albums to add yet.",
+    "slideshowEmpty": "There are no slideshows to add yet.",
+    "personEmpty": "There is nobody in the family tree yet.",
+    "quoteEmpty": "There are no quotes to add yet."
   },
   "map": {
     "addTitle": "Add a map",

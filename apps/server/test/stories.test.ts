@@ -172,6 +172,16 @@ describe("blocks", () => {
     expect(text.entity_id).toBeNull();
   });
 
+  it("maps every reference kind to its subject type", () => {
+    const story = createStory(author, "Minnesota", null);
+    const chapter = getChapters(story.id)[0];
+    const kinds = ["media", "album", "slideshow", "person", "quote"] as const;
+    const made = kinds.map((kind) => createBlock(chapter.id, story.id, kind, { entityId: "x" }));
+    expect(made.map((block) => block.entity_type)).toEqual([
+      "gallery", "gallery_album", "gallery_slideshow", "family_tree_person", "quote"
+    ]);
+  });
+
   it("reorders blocks and moves them between chapters in one call", () => {
     const story = createStory(author, "Minnesota", null);
     const first = getChapters(story.id)[0];

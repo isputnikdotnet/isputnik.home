@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { AlertTriangle, Images, MapPin, Play } from "lucide-react";
+import { AlertTriangle, Images, MapPin, Play, Quote, UserRound } from "lucide-react";
 import { GalleryMiniMap } from "../gallery/GalleryMiniMap";
 import { MessageBox } from "../../shared/MessageBox";
 import { followRoute } from "../../router";
@@ -79,6 +79,48 @@ export function StoryBlockView({
           <MapPin size={14} aria-hidden="true" />
           <span>{block.label ?? block.caption ?? t("stories:block.mapFallbackTitle")}</span>
         </figcaption>
+      </figure>
+    );
+  }
+
+  // Someone in the family tree, as a card in the flow of the story — the
+  // bridge between "who this is about" and the tree that knows them.
+  if (block.kind === "person") {
+    return (
+      <aside className="story-block story-block-person">
+        <span className="story-person-portrait" aria-hidden="true">
+          {block.coverUrl ? <img src={block.coverUrl} alt="" loading="lazy" /> : <UserRound size={22} />}
+        </span>
+        <div className="story-person-copy">
+          <strong>{block.title}</strong>
+          {block.subtitle && <small>{block.subtitle}</small>}
+          {block.caption && <p>{block.caption}</p>}
+        </div>
+        {block.href && (
+          <a
+            className="secondary-button compact-button"
+            href={block.href}
+            onClick={(event) => followRoute(event, block.href!)}
+          >
+            {t("stories:block.openPerson")}
+          </a>
+        )}
+      </aside>
+    );
+  }
+
+  if (block.kind === "quote") {
+    return (
+      <figure className="story-block story-block-quote">
+        <Quote size={18} aria-hidden="true" className="story-quote-mark" />
+        <blockquote>{block.title}</blockquote>
+        {(block.subtitle || block.caption) && (
+          <figcaption>
+            {block.subtitle}
+            {block.subtitle && block.caption && <span aria-hidden="true"> · </span>}
+            {block.caption}
+          </figcaption>
+        )}
       </figure>
     );
   }

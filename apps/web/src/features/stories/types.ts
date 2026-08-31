@@ -8,8 +8,10 @@ import type { GalleryAsset } from "../gallery/types";
 export type StoryStatus = "draft" | "published";
 
 /** text = markdown prose · media = one photo/video · album/slideshow = a set ·
- *  map = a place. Only the middle three carry an entity reference. */
-export type StoryBlockKind = "text" | "media" | "album" | "slideshow" | "map";
+ *  map = a place · person = someone in the family tree · quote = a pull quote.
+ *  Everything but text and map carries an entity reference. */
+export type StoryBlockKind =
+  | "text" | "media" | "album" | "slideshow" | "map" | "person" | "quote";
 
 export type StoryBlockLayout = "default" | "wide" | "grid";
 
