@@ -113,6 +113,8 @@ export interface GalleryAlbumDetail {
   coverItemId: string | null;
   canEdit: boolean;
   updatedAt: string;
+  /** Tags on the album itself — how it joins the cross-type tag browse. */
+  tags: string[];
 }
 
 // "random" varies the transition on every slide change (player and MP4 render alike).
@@ -215,6 +217,8 @@ export interface GallerySlideshowDetail extends SlideshowTitleSettings {
   coverItemId: string | null;
   canEdit: boolean;
   updatedAt: string;
+  /** Tags on the slideshow itself — how it joins the cross-type tag browse. */
+  tags: string[];
   outroClip: SlideshowClipInfo | null;
   // Where this slideshow files its movie. movieFileName is the name the next save would
   // use, so the editor never has to work it out; movieSaveError says why the last one

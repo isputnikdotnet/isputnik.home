@@ -14,6 +14,7 @@ import { PersonAvatar } from "../familytree/PersonAvatar";
 import { lifeYears, type FamilyPerson } from "../familytree/types";
 import { StoryCard } from "../stories/StoryCard";
 import type { StorySummary } from "../stories/types";
+import type { GalleryAlbum, GallerySlideshow } from "../gallery/types";
 
 interface TagDetail {
   name: string;
@@ -21,6 +22,8 @@ interface TagDetail {
   photos: GalleryAsset[];
   people: FamilyPerson[];
   stories: StorySummary[];
+  albums: GalleryAlbum[];
+  slideshows: GallerySlideshow[];
 }
 
 type KindFilter = "all" | "audiobook" | "ebook" | "gallery" | "family" | "story";
@@ -54,7 +57,10 @@ export function TagDetailPage({
 
   const audiobookCount = tag?.books.filter((book) => book.kind === "audiobook").length ?? 0;
   const ebookCount = tag?.books.filter((book) => book.kind === "ebook").length ?? 0;
-  const galleryCount = tag?.photos.length ?? 0;
+  // Albums and slideshows count as gallery matches: they are gallery things,
+  // and the scope toggle lists media types rather than container kinds.
+  const setCount = (tag?.albums.length ?? 0) + (tag?.slideshows.length ?? 0);
+  const galleryCount = (tag?.photos.length ?? 0) + setCount;
   const familyCount = tag?.people.length ?? 0;
   const storyCount = tag?.stories.length ?? 0;
   const total = (tag?.books.length ?? 0) + galleryCount + familyCount + storyCount;
@@ -76,10 +82,14 @@ export function TagDetailPage({
     ? (kindFilter === "all" ? tag.books : tag.books.filter((book) => book.kind === kindFilter))
     : [];
   const shownPhotos = tag && (kindFilter === "all" || kindFilter === "gallery") ? tag.photos : [];
+  const inGallery = kindFilter === "all" || kindFilter === "gallery";
+  const shownAlbums = tag && inGallery ? tag.albums : [];
+  const shownSlideshows = tag && inGallery ? tag.slideshows : [];
   const shownPeople = tag && (kindFilter === "all" || kindFilter === "family") ? tag.people : [];
   const shownStories = tag && (kindFilter === "all" || kindFilter === "story") ? tag.stories : [];
   const nothingShown = shownBooks.length === 0 && shownPhotos.length === 0
-    && shownPeople.length === 0 && shownStories.length === 0;
+    && shownPeople.length === 0 && shownStories.length === 0
+    && shownAlbums.length === 0 && shownSlideshows.length === 0;
 
   return (
     <DashboardShell active="tags" user={user} logout={logout}>
@@ -145,6 +155,37 @@ export function TagDetailPage({
                         <span className="gallery-video-badge"><Play size={11} aria-hidden="true" />{t("book:tags.videoBadge")}</span>
                       )}
                     </button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {(shownAlbums.length > 0 || shownSlideshows.length > 0) && (
+              <>
+                <p className="gallery-section-label">{t("book:tags.setsLabel")}</p>
+                <div className="audiobook-grid story-grid">
+                  {[
+                    ...shownAlbums.map((album) => ({ set: album, href: `/gallery/albums/${album.id}`, kind: "album" as const })),
+                    ...shownSlideshows.map((show) => ({ set: show, href: `/gallery/slideshows/${show.id}`, kind: "slideshow" as const }))
+                  ].map(({ set, href, kind }) => (
+                    <a
+                      key={`${kind}-${set.id}`}
+                      className="audiobook-card story-card"
+                      href={href}
+                      onClick={(event) => followRoute(event, href)}
+                    >
+                      <div className="story-card-cover" aria-hidden="true">
+                        {set.coverUrl ? <img src={set.coverUrl} alt="" loading="lazy" /> : <Images size={28} />}
+                      </div>
+                      <div className="audiobook-card-body">
+                        <strong>{set.name}</strong>
+                        <span>
+                          {kind === "album" ? t("book:tags.albumLabel") : t("book:tags.slideshowLabel")}
+                          {" · "}
+                          {t("book:catalog.counts.item", { count: set.itemCount })}
+                        </span>
+                      </div>
+                    </a>
                   ))}
                 </div>
               </>

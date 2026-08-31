@@ -7,6 +7,7 @@ import { z } from "zod";
 import { db, logActivity } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
 import { deleteStoryBlocksForResource } from "../../stories/cleanup.js";
+import { deleteEntityTags, getEntityTags, setEntityTags } from "../audiobook/categorize.js";
 import { resolveGalleryScopeLibraryIds } from "./catalog.js";
 import {
   getSlideshow,
@@ -219,6 +220,11 @@ function musicFields(musicTrackId: string | null) {
   return { musicTrackId: track.id, musicTitle: track.title, musicUrl: summary.url };
 }
 
+// A slideshow's tags, replaced in one call — same contract as albums/stories.
+const tagsSchema = z.object({
+  tags: z.array(z.string().trim().min(1).max(80)).max(50)
+});
+
 const itemsSchema = z.object({
   itemIds: z.array(z.string().trim().min(1).max(64)).min(1).max(500)
 });
@@ -226,6 +232,8 @@ const itemsSchema = z.object({
 const reorderSchema = z.object({
   itemIds: z.array(z.string().trim().min(1).max(64)).min(1).max(2000)
 });
+
+export const SLIDESHOW_ENTITY_TYPE = "gallery_slideshow";
 
 export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
   // Load + authorize a slideshow for a write. A clear 403 (rather than a uniform
@@ -319,6 +327,7 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
         coverItemId: slideshow.cover_item_id,
         canEdit: canEditSlideshow(slideshow, user),
         updatedAt: slideshow.updated_at,
+        tags: getEntityTags(SLIDESHOW_ENTITY_TYPE, slideshow.id),
         ...titleFields(slideshow),
         ...movieTargetFields(slideshow),
         outroClip: clipSummary(libIds, slideshow.outro_item_id),
@@ -617,7 +626,8 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
     deleteSlideshow(slideshow.id);
     // Story blocks reference a slideshow by id with no FK — sweep them so a
     // story doesn't keep an empty slot where the slideshow used to be.
-    deleteStoryBlocksForResource("gallery_slideshow", slideshow.id);
+    deleteStoryBlocksForResource(SLIDESHOW_ENTITY_TYPE, slideshow.id);
+    deleteEntityTags(SLIDESHOW_ENTITY_TYPE, slideshow.id);
     logActivity({
       event: "gallery.slideshow.deleted",
       actorUserId: user.id,
@@ -627,6 +637,20 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
       ipAddress: request.ip
     });
     return reply.send({ deleted: true });
+  });
+
+  // Tagging a slideshow puts it in the cross-type tag browse beside the photos,
+  // albums and stories that share the tag.
+  app.put("/api/library/gallery/slideshows/:id/tags", { preHandler: app.authenticate }, async (request, reply) => {
+    const user = request.user!;
+    const slideshow = editable((request.params as { id: string }).id, user, reply);
+    if (!slideshow) return reply;
+    const parsed = parseBody(tagsSchema, request.body);
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid tags", details: parsed.error });
+    }
+    setEntityTags(SLIDESHOW_ENTITY_TYPE, slideshow.id, parsed.data.tags);
+    return reply.send({ tags: getEntityTags(SLIDESHOW_ENTITY_TYPE, slideshow.id) });
   });
 
   app.post("/api/library/gallery/slideshows/:id/items", { preHandler: app.authenticate }, async (request, reply) => {

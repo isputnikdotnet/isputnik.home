@@ -644,5 +644,10 @@
       "addedPhotosNotice_one": "Added {{count}} photo to \"{{name}}\".",
       "addedPhotosNotice_other": "Added {{count}} photos to \"{{name}}\"."
     }
+  },
+  "setTags": {
+    "add": "Add tags",
+    "edit": "Edit tags",
+    "saving": "Saving…"
   }
 }

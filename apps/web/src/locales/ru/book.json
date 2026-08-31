@@ -749,7 +749,10 @@
     "photosVideosLabel": "Фото и видео",
     "familyMembersLabel": "Члены семьи",
     "videoBadge": "Видео",
-    "storiesLabel": "Истории"
+    "storiesLabel": "Истории",
+    "setsLabel": "Альбомы и слайд-шоу",
+    "albumLabel": "Альбом",
+    "slideshowLabel": "Слайд-шоу"
   },
   "personPage": {
     "roleAuthor": "Автор",

@@ -718,5 +718,10 @@
       "addedPhotosNotice_many": "В «{{name}}» добавлено {{count}} фото.",
       "addedPhotosNotice_other": "В «{{name}}» добавлено {{count}} фото."
     }
+  },
+  "setTags": {
+    "add": "Добавить теги",
+    "edit": "Изменить теги",
+    "saving": "Сохранение…"
   }
 }

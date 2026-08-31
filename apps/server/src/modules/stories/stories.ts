@@ -23,6 +23,7 @@ import {
 } from "../library/gallery/catalog.js";
 import { getAlbum, getAlbumItems } from "../library/gallery/albums.js";
 import { getSlideshow, getSlideshowItems } from "../library/gallery/slideshows.js";
+import { deleteEntityTags, entityTagsByIds, getEntityTags } from "../library/audiobook/categorize.js";
 
 const inClause = (n: number) => Array(n).fill("?").join(", ");
 
@@ -179,8 +180,7 @@ export function deleteStory(storyId: string): boolean {
   db.transaction(() => {
     // taggables is polymorphic with no FK, so the story's tags are dropped here
     // — the same contract every other taggable type follows.
-    db.prepare("DELETE FROM taggables WHERE entity_type = ? AND entity_id = ?")
-      .run(STORY_ENTITY_TYPE, storyId);
+    deleteEntityTags(STORY_ENTITY_TYPE, storyId);
     // Chapters cascade, and blocks cascade from chapters.
     removed = db.prepare("DELETE FROM stories WHERE id = ?").run(storyId).changes > 0;
   })();
@@ -256,33 +256,14 @@ export function listStories(user: { id: string; role: string }, libIds: string[]
   }));
 }
 
-/** One story's tags, in display order. */
+/** One story's tags, and tags for many stories at once — thin names over the
+ *  shared tag readers, so a caller doesn't have to remember the entity type. */
 export function getStoryTags(storyId: string): string[] {
-  return (db.prepare(`
-    SELECT tags.display_name AS name FROM taggables
-    JOIN tags ON tags.id = taggables.tag_id
-    WHERE taggables.entity_type = ? AND taggables.entity_id = ?
-    ORDER BY tags.display_name COLLATE NOCASE
-  `).all(STORY_ENTITY_TYPE, storyId) as { name: string }[]).map((row) => row.name);
+  return getEntityTags(STORY_ENTITY_TYPE, storyId);
 }
 
-/** Tags for many stories at once, so the index doesn't run a query per card. */
 export function storyTagsByStory(storyIds: string[]): Map<string, string[]> {
-  const out = new Map<string, string[]>();
-  if (storyIds.length === 0) return out;
-  const rows = db.prepare(`
-    SELECT taggables.entity_id AS story_id, tags.display_name AS name
-    FROM taggables
-    JOIN tags ON tags.id = taggables.tag_id
-    WHERE taggables.entity_type = ? AND taggables.entity_id IN (${inClause(storyIds.length)})
-    ORDER BY tags.display_name COLLATE NOCASE
-  `).all(STORY_ENTITY_TYPE, ...storyIds) as { story_id: string; name: string }[];
-  for (const row of rows) {
-    const list = out.get(row.story_id) ?? [];
-    list.push(row.name);
-    out.set(row.story_id, list);
-  }
-  return out;
+  return entityTagsByIds(STORY_ENTITY_TYPE, storyIds);
 }
 
 export function getChapters(storyId: string): ChapterRow[] {

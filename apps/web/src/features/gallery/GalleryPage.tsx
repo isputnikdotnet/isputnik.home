@@ -19,6 +19,7 @@ import { useGallerySlideshows } from "./useGallerySlideshows";
 import { useGalleryPeople } from "./useGalleryPeople";
 import { GalleryLightbox, type GalleryAssetChange } from "./GalleryLightbox";
 import { GalleryUploadModal } from "./GalleryUploadModal";
+import { GallerySetTags } from "./GallerySetTags";
 import { GalleryFilterButton, GalleryFilterChips, EMPTY_GALLERY_FILTERS, activeGalleryFilterCount, type GalleryFilters } from "./GalleryFilter";
 import { getGroupingOptions, getTileSizeOptions, galleryGridClass, readGalleryView, writeGalleryView, type GalleryGrouping, type GalleryTileSize, type GalleryViewPrefs } from "./gallery-view";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
@@ -1815,6 +1816,14 @@ export function GalleryPage({
                         {t("gallery:common.counts.item", { count: albumTotal })}
                         {selectedAlbum.description ? <> · {selectedAlbum.description}</> : null}
                       </p>
+                      {/* Tagging the album is what links it to the stories,
+                          photos and people that share the tag. */}
+                      <GallerySetTags
+                        endpoint={`/api/library/gallery/albums/${selectedAlbum.id}/tags`}
+                        tags={selectedAlbum.tags}
+                        canEdit={selectedAlbum.canEdit}
+                        onSaved={(tags) => setSelectedAlbum({ ...selectedAlbum, tags })}
+                      />
                     </div>
                   </div>
 
@@ -1965,6 +1974,12 @@ export function GalleryPage({
                         <p className="gallery-album-sub">
                           {t("gallery:common.counts.photo", { count: slideshowTotal })}
                         </p>
+                        <GallerySetTags
+                          endpoint={`/api/library/gallery/slideshows/${selectedSlideshow.id}/tags`}
+                          tags={selectedSlideshow.tags}
+                          canEdit={selectedSlideshow.canEdit}
+                          onSaved={(tags) => setSelectedSlideshow({ ...selectedSlideshow, tags })}
+                        />
                       </div>
                     </div>
 

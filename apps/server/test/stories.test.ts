@@ -5,7 +5,7 @@ import { ingestGalleryAsset } from "../src/modules/library/gallery/scanner.js";
 import { kindForExtension } from "../src/modules/library/gallery/media.js";
 import { createAlbum, addAlbumItems, deleteAlbum } from "../src/modules/library/gallery/albums.js";
 import { hydrateEntities, isSubjectEntityType, COLLECTABLE_ENTITY_TYPES } from "../src/modules/social/subjects.js";
-import { setEntityTags } from "../src/modules/library/audiobook/categorize.js";
+import { setEntityTags, getEntityTags, deleteEntityTags } from "../src/modules/library/audiobook/categorize.js";
 import { deleteStoryBlocksForResource, deleteStoryBlocksForLibrary } from "../src/modules/stories/cleanup.js";
 import {
   STORY_ENTITY_TYPE,
@@ -341,6 +341,31 @@ describe("tags", () => {
     expect(db.prepare(
       "SELECT COUNT(*) AS n FROM taggables WHERE entity_type = ?"
     ).get(STORY_ENTITY_TYPE)).toEqual({ n: 0 });
+  });
+});
+
+// Albums and slideshows became taggable so a tag can join a story to the sets
+// it embeds. Same table, same helpers — this guards the wiring, not the helpers.
+describe("taggable albums and slideshows", () => {
+  it("tags an album and reads it back", () => {
+    const album = createAlbum(author, "Trip", null);
+    setEntityTags("gallery_album", album.id, ["Minnesota", "Family"]);
+    expect(getEntityTags("gallery_album", album.id)).toEqual(["Family", "Minnesota"]);
+  });
+
+  it("keeps each set's tags to itself", () => {
+    const a = createAlbum(author, "One", null);
+    const b = createAlbum(author, "Two", null);
+    setEntityTags("gallery_album", a.id, ["Minnesota"]);
+    expect(getEntityTags("gallery_album", b.id)).toEqual([]);
+  });
+
+  it("drops an album's tags when the album goes", () => {
+    const album = createAlbum(author, "Trip", null);
+    setEntityTags("gallery_album", album.id, ["Minnesota"]);
+    deleteAlbum(album.id);
+    deleteEntityTags("gallery_album", album.id);
+    expect(getEntityTags("gallery_album", album.id)).toEqual([]);
   });
 });
 

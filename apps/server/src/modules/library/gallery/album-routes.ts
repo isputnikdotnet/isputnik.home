@@ -11,6 +11,7 @@ import { parseBody } from "../../../core/shared.js";
 import { pathIsInside } from "../shared/storage-roots.js";
 import { deleteSharesForResource } from "../shared/share-access.js";
 import { deleteStoryBlocksForResource } from "../../stories/cleanup.js";
+import { deleteEntityTags, getEntityTags, setEntityTags } from "../audiobook/categorize.js";
 import { loadAlbumShareMeta, loadAlbumShareItems, curatableGalleryLibraryIds } from "../shared/shares.js";
 import { resolveGalleryScopeLibraryIds } from "./catalog.js";
 import {
@@ -39,9 +40,16 @@ const updateSchema = z.object({
   coverItemId: z.string().trim().min(1).max(64).nullable().optional()
 });
 
+// An album's tags, replaced in one call — the same contract stories use.
+const tagsSchema = z.object({
+  tags: z.array(z.string().trim().min(1).max(80)).max(50)
+});
+
 const itemsSchema = z.object({
   itemIds: z.array(z.string().trim().min(1).max(64)).min(1).max(500)
 });
+
+export const ALBUM_ENTITY_TYPE = "gallery_album";
 
 export async function galleryAlbumRoutesPlugin(app: FastifyInstance) {
   // Load + authorize an album for a write. Uniform 404 for "missing" and
@@ -118,11 +126,26 @@ export async function galleryAlbumRoutesPlugin(app: FastifyInstance) {
         sortMode: album.sort_mode,
         coverItemId: album.cover_item_id,
         canEdit: canEditAlbum(album, user),
-        updatedAt: album.updated_at
+        updatedAt: album.updated_at,
+        tags: getEntityTags(ALBUM_ENTITY_TYPE, album.id)
       },
       assets,
       total
     });
+  });
+
+  // Tagging an album is what connects it to the stories, photos and people that
+  // share the tag — the cross-type browse treats it as one more taggable thing.
+  app.put("/api/library/gallery/albums/:id/tags", { preHandler: app.authenticate }, async (request, reply) => {
+    const user = request.user!;
+    const album = editableAlbum((request.params as { id: string }).id, user, reply);
+    if (!album) return reply;
+    const parsed = parseBody(tagsSchema, request.body);
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid tags", details: parsed.error });
+    }
+    setEntityTags(ALBUM_ENTITY_TYPE, album.id, parsed.data.tags);
+    return reply.send({ tags: getEntityTags(ALBUM_ENTITY_TYPE, album.id) });
   });
 
   // A recipient's view of an album shared *with them* (or the owner previewing
@@ -255,8 +278,9 @@ export async function galleryAlbumRoutesPlugin(app: FastifyInstance) {
     // Live album shares reference the album by id with no FK, so drop them here or
     // they'd linger as dead links / phantom "Shared with me" tiles. Story blocks
     // point at it the same way — same reason, same sweep.
-    deleteSharesForResource("gallery_album", album.id);
-    deleteStoryBlocksForResource("gallery_album", album.id);
+    deleteSharesForResource(ALBUM_ENTITY_TYPE, album.id);
+    deleteStoryBlocksForResource(ALBUM_ENTITY_TYPE, album.id);
+    deleteEntityTags(ALBUM_ENTITY_TYPE, album.id);
     logActivity({
       event: "gallery.album.deleted",
       actorUserId: user.id,

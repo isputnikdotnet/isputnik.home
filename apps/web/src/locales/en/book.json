@@ -666,7 +666,10 @@
     "photosVideosLabel": "Photos & videos",
     "familyMembersLabel": "Family members",
     "videoBadge": "Video",
-    "storiesLabel": "Stories"
+    "storiesLabel": "Stories",
+    "setsLabel": "Albums & slideshows",
+    "albumLabel": "Album",
+    "slideshowLabel": "Slideshow"
   },
   "personPage": {
     "roleAuthor": "Author",
