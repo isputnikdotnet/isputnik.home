@@ -10,6 +10,15 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      # @types/node majors track Node majors, so a bump here types the source
+      # against APIs the runtime may not have. It must follow the Dockerfile's
+      # base image, never lead it — raise this by hand as part of a Node upgrade
+      # (and drop the entry once the base image moves off 22). Minor and patch
+      # releases within the current major still arrive in npm-minor-patch.
+      - dependency-name: "@types/node"
+        update-types:
+          - version-update:semver-major
     groups:
       # One PR for the routine minor/patch churn; majors still come alone so a
       # breaking bump gets its own review.
