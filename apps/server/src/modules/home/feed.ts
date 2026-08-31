@@ -15,8 +15,9 @@
 //   • today-only  — the gallery memory ("On this day"): gone at midnight,
 //                   replaced by tomorrow's — the daily heartbeat of the page
 //   • decaying    — added-batches (one card per scan DAY with a cover fan,
-//                   never N loose tiles) and activity events (notes, albums,
-//                   slideshows, tree people)
+//                   never N loose tiles), the week's new photos (ONE card for
+//                   the whole window, absent when nothing arrived) and activity
+//                   events (notes, albums, slideshows, tree people)
 //   • filler      — next-in-series: at most one, rotating daily — a treat,
 //                   not a nag
 //
@@ -32,7 +33,7 @@ import { loadActivity } from "../social/activity.js";
 import { loadInboxCards, type InboxCardView } from "../social/routes.js";
 import { bookLibraryIds } from "../library/feed.js";
 import { resolveGalleryScopeLibraryIds } from "../library/gallery/catalog.js";
-import { queryGalleryMemories, type GalleryMemoriesPrecision, type GalleryMemoryGroup } from "../library/gallery/catalog.js";
+import { queryGalleryMemories, queryGalleryRecentlyAdded, type GalleryMemoriesPrecision, type GalleryMemoryGroup } from "../library/gallery/catalog.js";
 import { dailyQuote, type DailyQuote } from "../library/quotes-daily.js";
 
 interface RequestUser {
@@ -53,6 +54,18 @@ export interface MemoryCard {
   /** The four photos shown, chosen for variety: one per year first (newest
    *  years first), photos with a person in them preferred within each year. */
   strip: { year: number; item: GalleryMemoryGroup["items"][number] }[];
+}
+
+export interface PhotosAddedCard {
+  type: "photos_added";
+  /** Every photo/video that arrived inside the window, not just the strip. */
+  count: number;
+  /** How far back the window reaches, in days — the card says so out loud. */
+  days: number;
+  /** The newest arrival's discovered_at: the card's age for ranking. */
+  newestAt: string;
+  /** The photos shown, newest arrival first. */
+  strip: GalleryMemoryGroup["items"];
 }
 
 export interface AddedBatchCard {
@@ -94,7 +107,7 @@ export interface QuoteCard extends DailyQuote {
   type: "quote";
 }
 
-export type HomeCard = SentCard | MemoryCard | AddedBatchCard | ActivityCard | SeriesNextCard | QuoteCard;
+export type HomeCard = SentCard | MemoryCard | PhotosAddedCard | AddedBatchCard | ActivityCard | SeriesNextCard | QuoteCard;
 
 // Class weights and half-lives (days). The memory card is always age zero, so
 // its weight IS its score — above a fresh activity line (1.2) and a same-day
@@ -104,6 +117,13 @@ const MEMORY_SCORE = 1.6;
 const ACTIVITY_WEIGHT = 1.2;
 const ACTIVITY_HALF_LIFE = 5;
 const ACTIVITY_MAX_AGE = 14;
+const PHOTOS_WEIGHT = 1.1;
+const PHOTOS_HALF_LIFE = 4;
+// The photo card's whole window: nothing older than this counts, and a week
+// with no new photos simply has no card. Both are deliberate — the card is
+// "what just arrived", not a standing shortcut to the gallery.
+export const PHOTOS_WINDOW_DAYS = 7;
+const PHOTOS_STRIP_SIZE = 4;
 const BATCH_WEIGHT = 1.0;
 const BATCH_HALF_LIFE = 7;
 const BATCH_MAX_AGE = 28;
@@ -185,6 +205,24 @@ function memoryCard(user: RequestUser, date: string): MemoryCard | null {
     years: groups.map((group) => group.year),
     totalCount: groups.reduce((total, group) => total + group.count, 0),
     strip
+  };
+}
+
+// The week's new photos: one card for the whole window, never one per day — a
+// phone that dumps 200 holiday shots over three evenings is one arrival to a
+// person, not three. Absent entirely when nothing arrived, which is the point:
+// the card says "look what came in", so it must have something to say.
+function photosAddedCard(user: RequestUser): PhotosAddedCard | null {
+  const libIds = resolveGalleryScopeLibraryIds(user);
+  if (libIds.length === 0) return null;
+  const recent = queryGalleryRecentlyAdded(user.id, libIds, PHOTOS_WINDOW_DAYS, PHOTOS_STRIP_SIZE);
+  if (recent.total === 0 || !recent.newestAt) return null;
+  return {
+    type: "photos_added",
+    count: recent.total,
+    days: PHOTOS_WINDOW_DAYS,
+    newestAt: recent.newestAt,
+    strip: recent.assets
   };
 }
 
@@ -340,6 +378,16 @@ export function loadHomeFeed(
 
   const memory = memoryCard(user, date);
   if (memory) ranked.push({ score: MEMORY_SCORE, card: memory });
+
+  // Ranked, not pinned: a week-old batch of photos should sink under today's
+  // conversation the same way every other arrival does.
+  const photos = photosAddedCard(user);
+  if (photos) {
+    ranked.push({
+      score: PHOTOS_WEIGHT * decay(ageDays(photos.newestAt, now), PHOTOS_HALF_LIFE),
+      card: photos
+    });
+  }
 
   for (const batch of addedBatchCards(user)) {
     const age = ageDays(batch.newestAt, now);

@@ -160,7 +160,12 @@ export function GalleryPage({
   // the slideshow topbars.
   const [sendToSubject, setSendToSubject] = useState<SendToSubject | null>(null);
 
-  const [sort, setSort] = useState<TimelineSort>("taken");
+  // Seeded from the address so a deep link can ask for a particular order — the
+  // home's "New photos" card links to /gallery?sort=added, and the page it opens
+  // is then the set that card was advertising. Anything else means the default.
+  const [sort, setSort] = useState<TimelineSort>(
+    () => (new URLSearchParams(window.location.search).get("sort") === "added" ? "added" : "taken")
+  );
 
   // How the photo grids look: tile size, and whether the timeline comes in dated
   // sections or as one uninterrupted grid. Both live behind the toolbar's View
