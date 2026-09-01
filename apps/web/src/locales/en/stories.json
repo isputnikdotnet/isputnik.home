@@ -89,8 +89,13 @@
     "label": "What kind of story",
     "free": { "name": "Story", "hint": "A blank page — anything at all." },
     "memory": { "name": "Memory", "hint": "One moment worth keeping." },
-    "journal": { "name": "Travel journal", "hint": "Day by day — chapters count as Day 1, Day 2." },
+    "journal": { "name": "Travel blog", "hint": "Day by day — chapters count as Day 1, Day 2." },
     "review": { "name": "Review", "hint": "Your verdict on a book — with stars." }
+  },
+  "create": {
+    "journalRangeHint": "Give both dates and the days are laid out for you — Day 1 to the last — each already dated. Up to a month; longer trips start with the range on Day 1.",
+    "pickBook": "Choose the book",
+    "changeBook": "Change book"
   },
   "related": {
     "bookHeading": "Reviews & stories",

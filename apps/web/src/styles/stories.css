@@ -1445,6 +1445,28 @@
 
 .story-kind-option small { color: var(--muted); font-size: 0.76rem; }
 
+/* Kind-specific fields in the New story modal. */
+.story-create-row {
+  display: flex;
+  gap: 14px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.story-create-row .field { flex: 1 1 200px; }
+
+.story-create-hint { margin: -4px 0 0; font-size: 0.82rem; }
+
+.story-create-book { align-items: center; }
+
+.story-create-book-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
 .story-related-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));

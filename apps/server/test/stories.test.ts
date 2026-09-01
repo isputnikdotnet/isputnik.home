@@ -542,3 +542,43 @@ describe("story kinds (v2 step 7)", () => {
     expect(getChapters(story.id)).toHaveLength(2);
   });
 });
+
+describe("creation seeding (friendlier New story)", () => {
+  it("a memory opens dated and placed", () => {
+    const story = createStory(author, "That evening", null, null, {
+      kind: "memory", date: "2004-07", place: "Duluth"
+    });
+    const [chapter] = getChapters(story.id);
+    expect(chapter.date).toBe("2004-07");
+    expect(chapter.place).toBe("Duluth");
+  });
+
+  it("a journal with a full range lays out one dated chapter per day", () => {
+    const story = createStory(author, "Vienna", null, null, {
+      kind: "journal", date: "2026-04-18", endDate: "2026-04-21"
+    });
+    const chapters = getChapters(story.id);
+    expect(chapters.map((c) => c.date)).toEqual(["2026-04-18", "2026-04-19", "2026-04-20", "2026-04-21"]);
+    expect(story.chapter_noun).toBe("Day");
+  });
+
+  it("caps the day layout at a month and falls back to a range", () => {
+    const story = createStory(author, "The long year", null, null, {
+      kind: "journal", date: "2026-01-01", endDate: "2026-03-01"
+    });
+    const chapters = getChapters(story.id);
+    expect(chapters).toHaveLength(1);
+    expect(chapters[0].date).toBe("2026-01-01");
+    expect(chapters[0].end_date).toBe("2026-03-01");
+  });
+
+  it("keeps a partial date as a range on chapter one, never guessing days", () => {
+    const story = createStory(author, "Summer", null, null, {
+      kind: "journal", date: "2004-07", endDate: "2004-08"
+    });
+    const chapters = getChapters(story.id);
+    expect(chapters).toHaveLength(1);
+    expect(chapters[0].date).toBe("2004-07");
+    expect(chapters[0].end_date).toBe("2004-08");
+  });
+});

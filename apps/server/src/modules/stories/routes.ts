@@ -84,7 +84,12 @@ const createSchema = z.object({
   reviewOf: z.object({
     entityType: z.enum(BOOK_ENTITY_TYPES),
     entityId
-  }).nullable().optional()
+  }).nullable().optional(),
+  // Seeds the first chapter (a journal with a full from–to range seeds one
+  // chapter per day). All ordinary chapter fields afterwards.
+  date: optionalDate,
+  endDate: optionalDate,
+  place: z.string().trim().max(200).nullable().optional()
 });
 
 const updateSchema = z.object({
@@ -372,7 +377,10 @@ export async function storiesPlugin(app: FastifyInstance) {
     }
     const story = createStory(request.user!, parsed.data.title, parsed.data.subtitle ?? null, collectionId, {
       kind: parsed.data.kind,
-      reviewOf
+      reviewOf,
+      date: parsed.data.date ?? null,
+      endDate: parsed.data.endDate ?? null,
+      place: parsed.data.place ?? null
     });
     logActivity({
       event: "story.created",

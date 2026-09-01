@@ -8,7 +8,9 @@ import { formatPartialDateRange } from "../../shared/utils";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
 import { Button } from "../../shared/Button";
+import { PartialDateField } from "../../shared/PartialDateField";
 import { StoryCard } from "./StoryCard";
+import { StoryRefPicker } from "./StoryRefPicker";
 import { STORY_KINDS, type StoryCollectionSummary, type StoryKind, type StorySummary } from "./types";
 
 // The story index: a Collections shelf ("Family Story", "Trips") over the
@@ -188,25 +190,41 @@ function NewCollectionModal({ onClose }: { onClose: () => void }) {
 
 // A new story opens straight into its editor — there is nothing to look at
 // until something is written. The kind is a TEMPLATE choice made here and
-// only here: it seeds the shape (a journal counts its days, a review opens on
-// a book) and is never managed afterward.
+// only here, and the modal's fields follow it: a memory asks when and where,
+// a travel blog asks from–to (a full range lays out one chapter per day), a
+// review asks which book. Everything is skippable, everything it seeds is an
+// ordinary field afterwards, and the kind gates nothing.
 function NewStoryModal({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation(["common", "stories"]);
   const [title, setTitle] = useState("");
   const [subtitle, setSubtitle] = useState("");
   const [kind, setKind] = useState<StoryKind>("free");
+  const [date, setDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [place, setPlace] = useState("");
+  const [book, setBook] = useState<{ id: string; entityType: "audiobook" | "ebook"; title: string } | null>(null);
+  const [pickingBook, setPickingBook] = useState(false);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
   const submit = async () => {
-    const trimmed = title.trim();
+    // A review with a chosen book can go out untitled — the book names it.
+    const trimmed = title.trim() || (kind === "review" ? book?.title ?? "" : "");
     if (!trimmed || saving) return;
     setSaving(true);
     setError("");
     try {
       const { story } = await api<{ story: { id: string } }>("/api/stories", {
         method: "POST",
-        body: JSON.stringify({ title: trimmed, subtitle: subtitle.trim() || null, kind })
+        body: JSON.stringify({
+          title: trimmed,
+          subtitle: subtitle.trim() || null,
+          kind,
+          date: kind !== "review" && date.trim() ? date.trim() : null,
+          endDate: kind === "journal" && endDate.trim() ? endDate.trim() : null,
+          place: kind === "memory" && place.trim() ? place.trim() : null,
+          reviewOf: kind === "review" && book ? { entityType: book.entityType, entityId: book.id } : null
+        })
       });
       navigate(`/stories/${story.id}/edit`);
     } catch (err) {
@@ -264,13 +282,81 @@ function NewStoryModal({ onClose }: { onClose: () => void }) {
           />
         </label>
 
+        {(kind === "memory" || kind === "free") && (
+          <div className="story-create-row">
+            <PartialDateField
+              label={`${t("stories:chapter.dateField")} (${t("stories:fields.optional")})`}
+              value={date}
+              onChange={setDate}
+              placeholder={t("stories:chapter.datePlaceholder")}
+            />
+            {kind === "memory" && (
+              <label className="field">
+                <span>{t("stories:chapter.placeField")} <small className="muted">{t("stories:fields.optional")}</small></span>
+                <input
+                  value={place}
+                  onChange={(event) => setPlace(event.target.value)}
+                  placeholder={t("stories:chapter.placePlaceholder")}
+                  maxLength={200}
+                />
+              </label>
+            )}
+          </div>
+        )}
+
+        {kind === "journal" && (
+          <>
+            <div className="story-create-row">
+              <PartialDateField
+                label={`${t("stories:chapter.dateField")} (${t("stories:fields.optional")})`}
+                value={date}
+                onChange={setDate}
+                placeholder={t("stories:chapter.datePlaceholder")}
+              />
+              <PartialDateField
+                label={t("stories:chapter.endDateField")}
+                value={endDate}
+                onChange={setEndDate}
+                placeholder={t("stories:chapter.endDatePlaceholder")}
+              />
+            </div>
+            <p className="muted story-create-hint">{t("stories:create.journalRangeHint")}</p>
+          </>
+        )}
+
+        {kind === "review" && (
+          <div className="story-create-row story-create-book">
+            <Button variant="secondary" compact onClick={() => setPickingBook(true)} disabled={saving}>
+              <BookText size={15} aria-hidden="true" />
+              <span>{book ? t("stories:create.changeBook") : t("stories:create.pickBook")}</span>
+            </Button>
+            {book && <span className="story-create-book-title">{book.title}</span>}
+          </div>
+        )}
+
         <div className="modal-actions">
           <Button variant="secondary" onClick={onClose} disabled={saving}>{t("common:common.cancel")}</Button>
-          <Button variant="primary" type="submit" disabled={saving || !title.trim()}>
+          <Button
+            variant="primary"
+            type="submit"
+            disabled={saving || (!title.trim() && !(kind === "review" && book))}
+          >
             {saving ? t("stories:actions.creating") : t("stories:actions.create")}
           </Button>
         </div>
       </div>
+
+      {pickingBook && (
+        <StoryRefPicker
+          kind="book"
+          onPick={(id, entityType, bookTitle) => {
+            setPickingBook(false);
+            if (!entityType) return;
+            setBook({ id, entityType, title: bookTitle ?? "" });
+          }}
+          onClose={() => setPickingBook(false)}
+        />
+      )}
     </Modal>
   );
 }

@@ -179,6 +179,12 @@ export function storyOfBlock(blockId: string): StoryRow | undefined {
 // the player only ever handle one shape. A story that needs no structure just
 // leaves its single chapter untitled and undated, and the UI hides the chapter
 // chrome — "flat journal page" and "chaptered documentary" are the same rows.
+/** How many chapters a journal's date range may seed — a month of days. A
+ *  longer trip gets the range on chapter one and adds days by hand. */
+export const MAX_SEEDED_DAYS = 31;
+
+const FULL_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
 export function createStory(
   user: { id: string },
   title: string,
@@ -186,15 +192,21 @@ export function createStory(
   collectionId: string | null = null,
   opts: {
     kind?: StoryKind;
-    /** review kind, started from a book page: the card to seed. */
+    /** review kind, started from a book page or the picker: the card to seed. */
     reviewOf?: { entityType: string; entityId: string } | null;
+    /** Seeds the first chapter's date (any kind); with endDate on a journal,
+     *  seeds one chapter per day when both are full dates. Partial dates
+     *  ("2004", "2004-07") land as-is on chapter one. */
+    date?: string | null;
+    endDate?: string | null;
+    place?: string | null;
   } = {}
 ): StoryRow {
   const id = nanoid(16);
   const kind = opts.kind ?? "free";
   // The kind's whole template power, exercised once at creation: a travel
   // journal counts its days, a review opens on the book it judges. From here
-  // on the story is just a story.
+  // on the story is just a story — everything seeded is an ordinary field.
   const chapterNoun = kind === "journal" ? "Day" : null;
   db.transaction(() => {
     db.prepare("INSERT INTO stories (id, title, subtitle, created_by, collection_id, kind, chapter_noun) VALUES (?, ?, ?, ?, ?, ?, ?)")
@@ -202,6 +214,29 @@ export function createStory(
     const chapterId = nanoid(16);
     db.prepare("INSERT INTO story_chapters (id, story_id, position) VALUES (?, ?, 1)")
       .run(chapterId, id);
+
+    // A journal with a full from–to range opens with its days already laid
+    // out: Day 1 … Day N, each dated — the Polarsteps shape, built in one go.
+    let seededDays = false;
+    if (kind === "journal" && opts.date && opts.endDate
+      && FULL_DATE.test(opts.date) && FULL_DATE.test(opts.endDate)) {
+      const start = Date.parse(`${opts.date}T00:00:00Z`);
+      const end = Date.parse(`${opts.endDate}T00:00:00Z`);
+      const days = Math.round((end - start) / 86_400_000) + 1;
+      if (days >= 2 && days <= MAX_SEEDED_DAYS) {
+        db.prepare("UPDATE story_chapters SET date = ? WHERE id = ?").run(opts.date, chapterId);
+        const insert = db.prepare("INSERT INTO story_chapters (id, story_id, position, date) VALUES (?, ?, ?, ?)");
+        for (let day = 1; day < days; day += 1) {
+          insert.run(nanoid(16), id, day + 1, new Date(start + day * 86_400_000).toISOString().slice(0, 10));
+        }
+        seededDays = true;
+      }
+    }
+    if (!seededDays && (opts.date || opts.place)) {
+      db.prepare("UPDATE story_chapters SET date = ?, end_date = ?, place = ? WHERE id = ?")
+        .run(opts.date ?? null, opts.endDate ?? null, opts.place ?? null, chapterId);
+    }
+
     if (kind === "review" && opts.reviewOf) {
       db.prepare(`
         INSERT INTO story_blocks (id, chapter_id, position, kind, entity_type, entity_id)

@@ -16,18 +16,24 @@ reach appears as a polite placeholder rather than a leak.
 
 ## Starting a story
 
-**Stories → New story.** It asks for a title and what kind of story this is:
+**Stories → New story.** It asks for a title and what kind of story this is,
+and the form follows your choice:
 
-- **Story** — a blank page, anything at all.
-- **Memory** — one moment worth keeping.
-- **Travel journal** — day by day; its chapters automatically read **Day 1,
-  Day 2** from the first keystroke.
-- **Review** — your verdict on a book, with stars. (There's a shortcut: see
-  [Reviews](#reviews) below.)
+- **Story** — a blank page, anything at all; give it a date if it has one.
+- **Memory** — one moment worth keeping; it asks when and where, so the
+  moment lands on timelines straight away.
+- **Travel blog** — day by day; its chapters automatically read **Day 1,
+  Day 2**. Give it both dates of the trip and **the days are laid out for
+  you** — Day 1 to the last, each already dated, ready to be filled in. (Up
+  to a month of days; a longer trip starts with the range on Day 1.)
+- **Review** — your verdict on a book, with stars. Choose the book right in
+  the form and the review opens on its card, titled after it. (There's an
+  even shorter way: see [Reviews](#reviews) below.)
 
-The kind shapes how the story *starts* and nothing more — a memory can still
-grow into a ten-chapter epic. It can't be changed later because it never
-needs to be: everything it set up is an ordinary field you can edit.
+Everything is skippable, and the kind shapes how the story *starts* and
+nothing more — a memory can still grow into a ten-chapter epic. It can't be
+changed later because it never needs to be: everything it set up is an
+ordinary field you can edit.
 
 A new story is a **draft**: only you (and admins) can see it. **Publish**
 when it's ready for the family; **Back to draft** any time.
