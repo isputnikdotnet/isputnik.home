@@ -89,8 +89,9 @@ export function listCollections(user: { id: string; role: string }, libIds: stri
   const libArgs = libIds.length > 0 ? libIds : [""];
   const libIn = inClause(libArgs.length);
   // A story counts toward its collection's card by the same rule it lists:
-  // published, or the viewer's own, or the viewer is an admin.
-  const storyVisible = "(stories.status = 'published' OR stories.created_by = ? OR ? = 'admin')";
+  // published, or the viewer's own, or the viewer is an admin — and never
+  // one sitting in the Recycle Bin.
+  const storyVisible = "(stories.deleted_at IS NULL AND (stories.status = 'published' OR stories.created_by = ? OR ? = 'admin'))";
   const rows = db.prepare(`
     SELECT
       story_collections.*,

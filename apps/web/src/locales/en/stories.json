@@ -93,7 +93,8 @@
     "undated": "No date",
     "pickerLabel": "Collection",
     "none": "None — standalone",
-    "pickerHint": "The shelf this story sits on. Its access then decides who sees the story."
+    "pickerHint": "The shelf this story sits on. Its access then decides who sees the story.",
+    "deleteRestrictedWarning": "This collection is restricted: once it is gone, its published stories become visible to everyone with an account."
   },
   "kinds": {
     "label": "What kind of story",
@@ -291,7 +292,7 @@
     "removeChapterBody_other": "The chapter and the {{count}} pieces in it come out of the story. The photos, albums and slideshows themselves are not affected.",
     "deleteStoryTitle": "Delete \"{{name}}\"?",
     "deleteStoryConfirm": "Delete story",
-    "deleteStoryBody": "The story and its chapters are deleted. The photos, albums and slideshows it used are not affected."
+    "deleteStoryBody": "The story moves to the Recycle Bin, where an administrator can restore it. The photos, albums and slideshows it used are not affected."
   },
   "tags": {
     "label": "Tags",

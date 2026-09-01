@@ -535,6 +535,7 @@ const hydrateStories: Hydrator = (entityIds, user) => {
       ) AS cover_key
     FROM stories
     WHERE stories.id IN (${idIn})
+      AND stories.deleted_at IS NULL
       AND (stories.status = 'published' OR stories.created_by = ? OR ? = 'admin')
       ${collectionClause}
   `).all(

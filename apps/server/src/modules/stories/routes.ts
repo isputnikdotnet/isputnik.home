@@ -47,7 +47,10 @@ import {
   canViewStory,
   createStory,
   updateStory,
-  deleteStory,
+  softDeleteStory,
+  restoreStory,
+  purgeStory,
+  listDeletedStories,
   listStories,
   setStorySaved,
   isStorySaved,
@@ -545,20 +548,67 @@ export async function storiesPlugin(app: FastifyInstance) {
     return reply.send({ updated: true });
   });
 
+  // "Delete" moves the story to the Recycle Bin, where an admin can restore
+  // it until its retention window runs out. Guest links and tags go dark with
+  // it and come back on restore; the media it references was never its own.
   app.delete("/api/stories/:id", { preHandler: app.authenticate }, async (request, reply) => {
     const user = request.user!;
     const story = editableStory((request.params as { id: string }).id, user, reply);
     if (!story) return reply;
-    deleteStory(story.id);
+    softDeleteStory(story.id);
     logActivity({
       event: "story.deleted",
       actorUserId: user.id,
       targetType: "story",
       targetId: story.id,
-      detail: `Deleted story "${story.title}". The photos, albums and slideshows it used were not affected.`,
+      detail: `Moved story "${story.title}" to the Recycle Bin. The photos, albums and slideshows it used were not affected.`,
       ipAddress: request.ip
     });
     return reply.send({ deleted: true });
+  });
+
+  // ── The Recycle Bin's story rows (admin — it lives in the control panel) ──
+
+  app.get("/api/stories/trash", { preHandler: app.requireAdmin }, async (_request, reply) => {
+    return reply.send({ stories: listDeletedStories() });
+  });
+
+  app.post("/api/stories/trash/:id/restore", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const user = request.user!;
+    const story = getStory((request.params as { id: string }).id);
+    if (!story || !story.deleted_at) {
+      return reply.code(404).send({ error: "Story not found in the Recycle Bin" });
+    }
+    restoreStory(story.id);
+    logActivity({
+      event: "story.restored",
+      actorUserId: user.id,
+      targetType: "story",
+      targetId: story.id,
+      detail: `Restored story "${story.title}" from the Recycle Bin.`,
+      ipAddress: request.ip
+    });
+    return reply.send({ restored: true });
+  });
+
+  app.delete("/api/stories/trash/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const user = request.user!;
+    const story = getStory((request.params as { id: string }).id);
+    // Only rows already in the bin purge here — the normal delete route is the
+    // only door into it, so "delete forever" can never skip the bin.
+    if (!story || !story.deleted_at) {
+      return reply.code(404).send({ error: "Story not found in the Recycle Bin" });
+    }
+    purgeStory(story.id);
+    logActivity({
+      event: "story.purged",
+      actorUserId: user.id,
+      targetType: "story",
+      targetId: story.id,
+      detail: `Permanently deleted story "${story.title}" from the Recycle Bin.`,
+      ipAddress: request.ip
+    });
+    return reply.send({ purged: true });
   });
 
   // Replace the story's tags. Tagging a story is how it joins the cross-type

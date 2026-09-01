@@ -17,7 +17,7 @@ import {
   BLOCK_PREVIEW_LIMIT,
   createStory,
   createBlock,
-  deleteStory,
+  purgeStory,
   getChapters,
   updateStory,
   updateChapter
@@ -233,7 +233,7 @@ describe("the guest payload", () => {
 describe("cleanup", () => {
   it("takes its links with the story", () => {
     const { token } = mintLink();
-    deleteStory(storyId);
+    purgeStory(storyId);
     expect(resolveShareLink(token)).toBeNull();
     expect(db.prepare("SELECT COUNT(*) AS n FROM share_links WHERE module = 'story'").get()).toEqual({ n: 0 });
   });

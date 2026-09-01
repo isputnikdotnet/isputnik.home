@@ -1878,6 +1878,13 @@ CREATE TABLE IF NOT EXISTS stories (
   -- which SQLite resolves lazily (nullable, only set later) — the same
   -- arrangement library_items.scan_rule_id uses.
   collection_id TEXT REFERENCES story_collections(id) ON DELETE SET NULL,
+  -- Soft delete (the Recycle Bin): set when the story is deleted, cleared on
+  -- restore. purge_after is stamped from the bin's retention at delete time —
+  -- rows keep the window they were promised, like trashed_items.expires_at;
+  -- NULL purge_after = kept until deleted by hand. Both added by migration 60,
+  -- which no-ops here on a fresh database.
+  deleted_at    TEXT,
+  purge_after   TEXT,
   created_by    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   updated_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))

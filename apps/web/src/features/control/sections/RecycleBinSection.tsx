@@ -17,6 +17,7 @@ import { RefreshButton } from "../../../shared/RefreshButton";
 import { SelectMenu } from "../../../shared/SelectMenu";
 import { formatBytes, formatManagedDate } from "../../../shared/utils";
 import { ControlSectionHead } from "../ControlSectionHead";
+import { DeletedStoriesPanel } from "./DeletedStoriesPanel";
 import { TrashRootEditor, type TrashRootSettings } from "./TrashRootEditor";
 
 interface TrashedItem {
@@ -734,6 +735,11 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
           </div>
         </>
       )}
+
+      {/* Deleted stories share the bin (and its retention clock) but are rows,
+          not files, so they sit in their own compact block. Admin-only, like
+          the /api/stories/trash routes behind it. */}
+      {isAdmin && <DeletedStoriesPanel />}
 
       {/* How the list is laid out, in one place. These three used to sit in the
           toolbar and, spelled out, took more width than the row had — and they are

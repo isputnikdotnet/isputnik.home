@@ -18,12 +18,17 @@ const admin = { id: "u1", role: "admin", displayName: "Boss", email: "boss@test.
 const member = { id: "u2", role: "member", displayName: "Kid", email: "kid@test.local" } as PublicUser;
 
 function mount(user: PublicUser, items: unknown[] = []) {
-  mockApi.mockImplementation(async () => ({
-    items,
-    bins: [],
-    retentionDays: 30,
-    cleanupRetentionDays: null
-  }));
+  mockApi.mockImplementation(async (path: string) => {
+    // The admin page also asks for the bin's deleted stories; an empty answer
+    // keeps that panel out of these tests' way.
+    if (path === "/api/stories/trash") return { stories: [] };
+    return {
+      items,
+      bins: [],
+      retentionDays: 30,
+      cleanupRetentionDays: null
+    };
+  });
   render(<RecycleBinSection currentUser={user} />);
 }
 

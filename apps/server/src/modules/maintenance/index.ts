@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db, logActivity } from "../../db.js";
 import { parseBody } from "../../core/shared.js";
 import { purgeExpiredTrash } from "../library/shared/trash.js";
+import { purgeExpiredStories } from "../stories/stories.js";
 import { libraryJobRunning } from "../library/shared/scan-lock.js";
 import { enqueueFaceScanBatches } from "../library/gallery/faces/queue.js";
 import { enabledFaceLibraryIds } from "../library/gallery/faces/settings.js";
@@ -151,10 +152,20 @@ const DEFINITIONS: ScheduledJobDef[] = [
       // The in-process sweeper (startTrashPurgeWorker) does this every six hours too; this
       // job is the visible face of it — a schedule an admin can see, move, or switch off.
       const { purged, eligible } = purgeExpiredTrash();
-      if (eligible === 0) return "Nothing in the recycle bin has outlived its retention window — nothing purged.";
+      // Deleted STORIES share the bin and its window; they are rows, not
+      // files, so this can't fail the way an offline disk can.
+      const stories = purgeExpiredStories();
+      const storyNote = stories.purged > 0
+        ? ` Also purged ${stories.purged} expired stor${stories.purged === 1 ? "y" : "ies"}.`
+        : "";
+      if (eligible === 0) {
+        return stories.purged > 0
+          ? `Purged ${stories.purged} expired stor${stories.purged === 1 ? "y" : "ies"}; no library items had outlived their window.`
+          : "Nothing in the recycle bin has outlived its retention window — nothing purged.";
+      }
       const noun = `item${eligible === 1 ? "" : "s"}`;
-      if (purged === eligible) return `Purged ${purged} expired ${noun}.`;
-      return `Purged ${purged} of ${eligible} expired ${noun} — the rest sit on storage that is offline right now, and are retried on the next run.`;
+      if (purged === eligible) return `Purged ${purged} expired ${noun}.${storyNote}`;
+      return `Purged ${purged} of ${eligible} expired ${noun} — the rest sit on storage that is offline right now, and are retried on the next run.${storyNote}`;
     }
   },
   {

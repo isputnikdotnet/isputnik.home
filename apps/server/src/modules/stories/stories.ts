@@ -25,6 +25,7 @@ import { getAlbum, getAlbumItems } from "../library/gallery/albums.js";
 import { getSlideshow, getSlideshowItems } from "../library/gallery/slideshows.js";
 import { deleteEntityTags, entityTagsByIds, getEntityTags } from "../library/audiobook/categorize.js";
 import { deleteSharesForResource } from "../library/shared/share-access.js";
+import { getTrashRetentionDays } from "../library/shared/trash.js";
 import { STORY_AUDIO_ENTITY_TYPE, deleteStoryAudio, deleteStoryAudioFiles } from "./audio.js";
 import { canManageCollection, canViewCollection, visibleCollectionIds } from "./collection-access.js";
 
@@ -96,6 +97,10 @@ export interface StoryRow {
   created_by: string;
   created_at: string;
   updated_at: string;
+  /** Set = the story sits in the Recycle Bin (soft-deleted). */
+  deleted_at: string | null;
+  /** When the auto-purge may take it; NULL = kept until deleted by hand. */
+  purge_after: string | null;
 }
 
 export interface ChapterRow {
@@ -135,9 +140,11 @@ export function getStory(storyId: string): StoryRow | undefined {
 }
 
 export function canEditStory(
-  story: Pick<StoryRow, "created_by" | "collection_id">,
+  story: Pick<StoryRow, "created_by" | "collection_id" | "deleted_at">,
   user: { id: string; role: string }
 ): boolean {
+  // A story in the Recycle Bin is not edited, it is restored — from the bin.
+  if (story.deleted_at) return false;
   if (user.role === "admin" || story.created_by === user.id) return true;
   // A collection manager edits every story on their shelf.
   return story.collection_id != null && canManageCollection(user, story.collection_id);
@@ -145,8 +152,11 @@ export function canEditStory(
 
 /** A draft is visible only to the people who could edit it — and a story in a
  *  restricted collection only to that collection's members. The author always
- *  sees their own story, or an access change could take their writing away. */
+ *  sees their own story, or an access change could take their writing away.
+ *  A story in the Recycle Bin is visible to nobody here — it exists only on
+ *  the bin's own page until restored. */
 export function canViewStory(story: StoryRow, user: { id: string; role: string }): boolean {
+  if (story.deleted_at) return false;
   const base = story.status === "published" || canEditStory(story, user);
   if (!base) return false;
   if (story.collection_id == null || story.created_by === user.id || user.role === "admin") return true;
@@ -290,7 +300,31 @@ export function updateStory(storyId: string, fields: StoryUpdate): void {
   );
 }
 
-export function deleteStory(storyId: string): boolean {
+/** Move a story to the Recycle Bin. Everything stays — chapters, blocks,
+ *  tags, favorites, guest links — so a restore brings the story back exactly
+ *  as it was; while it sits in the bin nothing serves it (canViewStory says
+ *  no, and guest links resolve to nothing). The purge date is stamped from
+ *  the bin's retention NOW, the same promise trashed_items makes: changing
+ *  the setting later never re-times what is already in the bin. */
+export function softDeleteStory(storyId: string): boolean {
+  const retention = getTrashRetentionDays();
+  return db.prepare(`
+    UPDATE stories SET
+      deleted_at  = strftime('%Y-%m-%dT%H:%M:%fZ','now'),
+      purge_after = ${retention > 0 ? "strftime('%Y-%m-%dT%H:%M:%fZ','now', ?)" : "NULL"}
+    WHERE id = ? AND deleted_at IS NULL
+  `).run(...(retention > 0 ? [`+${retention} days`] : []), storyId).changes > 0;
+}
+
+/** Bring a story back from the Recycle Bin, exactly as it was. */
+export function restoreStory(storyId: string): boolean {
+  return db.prepare(
+    "UPDATE stories SET deleted_at = NULL, purge_after = NULL WHERE id = ? AND deleted_at IS NOT NULL"
+  ).run(storyId).changes > 0;
+}
+
+/** Permanent removal — the Recycle Bin's "delete forever" and the auto-purge. */
+export function purgeStory(storyId: string): boolean {
   let removed = false;
   db.transaction(() => {
     // taggables is polymorphic with no FK, so the story's tags are dropped here
@@ -304,6 +338,38 @@ export function deleteStory(storyId: string): boolean {
     removed = db.prepare("DELETE FROM stories WHERE id = ?").run(storyId).changes > 0;
   })();
   return removed;
+}
+
+/** The bin's story rows, newest deletion first — the Recycle Bin page. */
+export function listDeletedStories() {
+  const rows = db.prepare(`
+    SELECT stories.*, users.display_name AS author_name,
+      (SELECT COUNT(*) FROM story_chapters WHERE story_chapters.story_id = stories.id) AS chapter_count
+    FROM stories
+    LEFT JOIN users ON users.id = stories.created_by
+    WHERE stories.deleted_at IS NOT NULL
+    ORDER BY datetime(stories.deleted_at) DESC
+  `).all() as (StoryRow & { author_name: string | null; chapter_count: number })[];
+  return rows.map((row) => ({
+    id: row.id,
+    title: row.title,
+    status: row.status,
+    kind: row.kind,
+    chapterCount: row.chapter_count,
+    authorName: row.author_name,
+    deletedAt: row.deleted_at,
+    purgesAt: row.purge_after
+  }));
+}
+
+/** Purge every binned story that has outlived its promised window. Run by the
+ *  same scheduled job that purges expired trashed_items. */
+export function purgeExpiredStories(): { purged: number } {
+  const rows = db.prepare(
+    "SELECT id FROM stories WHERE deleted_at IS NOT NULL AND purge_after IS NOT NULL AND datetime(purge_after) <= datetime('now')"
+  ).all() as { id: string }[];
+  for (const row of rows) purgeStory(row.id);
+  return { purged: rows.length };
 }
 
 interface StoryListRow extends StoryRow {
@@ -408,7 +474,8 @@ export function listStories(
           ORDER BY story_chapters.position, story_blocks.position LIMIT 1)
       ) AS cover_key
     FROM stories
-    WHERE (stories.status = 'published' OR stories.created_by = ? OR ? = 'admin')
+    WHERE stories.deleted_at IS NULL
+      AND (stories.status = 'published' OR stories.created_by = ? OR ? = 'admin')
       ${collectionClause}
       ${collectionId ? "AND stories.collection_id = ?" : ""}
       ${tagId ? `AND EXISTS (SELECT 1 FROM taggables WHERE taggables.entity_type = '${STORY_ENTITY_TYPE}'

@@ -11,7 +11,11 @@ import {
   STORY_ENTITY_TYPE,
   createStory,
   updateStory,
-  deleteStory,
+  purgeStory,
+  softDeleteStory,
+  restoreStory,
+  listDeletedStories,
+  purgeExpiredStories,
   listStories,
   setStorySaved,
   isStorySaved,
@@ -340,7 +344,7 @@ describe("tags", () => {
   it("drops the tag rows when the story is deleted", () => {
     const story = createStory(author, "Minnesota", null);
     setEntityTags(STORY_ENTITY_TYPE, story.id, ["Family"]);
-    deleteStory(story.id);
+    purgeStory(story.id);
     expect(db.prepare(
       "SELECT COUNT(*) AS n FROM taggables WHERE entity_type = ?"
     ).get(STORY_ENTITY_TYPE)).toEqual({ n: 0 });
@@ -429,7 +433,7 @@ describe("cleanup of dangling references", () => {
     const chapter = getChapters(story.id)[0];
     createBlock(chapter.id, story.id, "text", { body: "gone" });
 
-    deleteStory(story.id);
+    purgeStory(story.id);
 
     expect(getStory(story.id)).toBeUndefined();
     expect(db.prepare("SELECT COUNT(*) AS n FROM story_chapters").get()).toEqual({ n: 0 });
@@ -614,7 +618,7 @@ describe("favorites", () => {
   it("goes away with the story", () => {
     const story = createStory(author, "Doomed", null);
     setStorySaved(story.id, author.id, true);
-    deleteStory(story.id);
+    purgeStory(story.id);
     expect(db.prepare("SELECT COUNT(*) AS n FROM story_saves").get()).toEqual({ n: 0 });
   });
 });
@@ -640,5 +644,69 @@ describe("card geography", () => {
     const card = listStories(viewer, GAL_LIBS).find((row) => row.id === story.id)!;
     expect(card.placesCount).toBe(0);
     expect(card.firstPlace).toBeNull();
+  });
+});
+
+describe("recycle bin (soft delete)", () => {
+  it("hides a binned story from every read path and restores it intact", () => {
+    const story = createStory(author, "Binned", null);
+    updateStory(story.id, { status: "published" });
+    setEntityTags(STORY_ENTITY_TYPE, story.id, ["camping"]);
+    setStorySaved(story.id, viewer.id, true);
+
+    expect(softDeleteStory(story.id)).toBe(true);
+    const binned = getStory(story.id)!;
+    expect(binned.deleted_at).toBeTruthy();
+    expect(canViewStory(binned, viewer)).toBe(false);
+    expect(canViewStory(binned, author)).toBe(false);
+    expect(canViewStory(binned, admin)).toBe(false);
+    expect(canEditStory(binned, author)).toBe(false);
+    expect(listStories(admin, GAL_LIBS).map((row) => row.id)).not.toContain(story.id);
+
+    expect(restoreStory(story.id)).toBe(true);
+    const back = getStory(story.id)!;
+    expect(back.deleted_at).toBeNull();
+    expect(canViewStory(back, viewer)).toBe(true);
+    // Tags and favorites rode along untouched.
+    expect(getEntityTags(STORY_ENTITY_TYPE, story.id)).toEqual(["camping"]);
+    expect(isStorySaved(story.id, viewer.id)).toBe(true);
+  });
+
+  it("stamps a purge date from the bin's retention and honors it", () => {
+    const story = createStory(author, "Expiring", null);
+    softDeleteStory(story.id);
+    expect(getStory(story.id)!.purge_after).toBeTruthy();
+
+    // Not yet expired — the sweep leaves it alone.
+    expect(purgeExpiredStories().purged).toBe(0);
+    expect(getStory(story.id)).toBeTruthy();
+
+    // Backdate the promise and sweep again.
+    db.prepare("UPDATE stories SET purge_after = datetime('now', '-1 day') WHERE id = ?").run(story.id);
+    expect(purgeExpiredStories().purged).toBe(1);
+    expect(getStory(story.id)).toBeUndefined();
+  });
+
+  it("lists binned stories for the bin page, and purge removes everything", () => {
+    const story = createStory(author, "Doomed for good", null);
+    setEntityTags(STORY_ENTITY_TYPE, story.id, ["gone"]);
+    softDeleteStory(story.id);
+
+    const bin = listDeletedStories();
+    expect(bin.map((row) => row.id)).toContain(story.id);
+    expect(bin.find((row) => row.id === story.id)!.authorName).toBe("author");
+
+    expect(purgeStory(story.id)).toBe(true);
+    expect(getStory(story.id)).toBeUndefined();
+    expect(getEntityTags(STORY_ENTITY_TYPE, story.id)).toEqual([]);
+    expect(listDeletedStories()).toHaveLength(0);
+  });
+
+  it("soft delete and restore are idempotent", () => {
+    const story = createStory(author, "Once", null);
+    expect(softDeleteStory(story.id)).toBe(true);
+    expect(softDeleteStory(story.id)).toBe(false);
+    expect(restoreStory(story.id)).toBe(true);
+    expect(restoreStory(story.id)).toBe(false);
   });
 });

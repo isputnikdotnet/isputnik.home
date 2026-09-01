@@ -108,6 +108,12 @@ export async function storyCollectionsPlugin(app: FastifyInstance) {
       ? hydrateEntities([{ entityType: "gallery", entityId: collection.cover_item_id }], user)
           .get(`gallery:${collection.cover_item_id}`)
       : undefined;
+    // No Everyone row = the shelf is restricted to its member list. The
+    // delete dialog needs this to warn honestly: deleting a restricted shelf
+    // makes its published stories visible to everyone again.
+    const everyone = db.prepare(
+      "SELECT role FROM assignments WHERE subject_type = 'group' AND subject_id = ? AND object_type = ? AND object_id = ?"
+    ).get(EVERYONE_GROUP_ID, STORY_COLLECTION_OBJECT_TYPE, collection.id) as { role: string } | undefined;
     return reply.send({
       collection: {
         id: collection.id,
@@ -117,6 +123,7 @@ export async function storyCollectionsPlugin(app: FastifyInstance) {
         coverUrl: cover?.available ? cover.coverUrl ?? null : null,
         canContribute: canContributeToCollection(user, collection.id),
         canManage: canManageCollection(user, collection.id),
+        restricted: !everyone || everyone.role === "deny",
         createdAt: collection.created_at,
         updatedAt: collection.updated_at
       },

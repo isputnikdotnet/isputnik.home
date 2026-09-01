@@ -22,6 +22,9 @@ interface CollectionDetail {
   coverUrl: string | null;
   canContribute: boolean;
   canManage: boolean;
+  /** No Everyone access row — the shelf is members-only. Deleting it lifts
+   *  that restriction, which the delete dialog must say out loud. */
+  restricted: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -255,6 +258,12 @@ export function StoryCollectionPage({
           onCancel={() => setConfirmDelete(false)}
         >
           {t("stories:collections.deleteBody")}
+          {collection.restricted && (
+            <>
+              {" "}
+              <strong>{t("stories:collections.deleteRestrictedWarning")}</strong>
+            </>
+          )}
         </ConfirmDialog>
       )}
     </DashboardShell>

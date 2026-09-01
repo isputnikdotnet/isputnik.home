@@ -96,7 +96,9 @@ interface StoryLinkContext {
  *  removed), and deactivating someone should stop the links they handed out. */
 export function storyLinkContext(link: ResolvedShareLink): StoryLinkContext | null {
   const story = getStory(link.resource_id);
-  if (!story) return null;
+  // A story in the Recycle Bin serves nothing — its guest links go dark with
+  // it, and come back to life if it is restored.
+  if (!story || story.deleted_at) return null;
   const creator = db.prepare(
     "SELECT id, role FROM users WHERE id = ? AND is_active = 1 AND deleted_at IS NULL"
   ).get(link.created_by) as ShareCreator | undefined;
