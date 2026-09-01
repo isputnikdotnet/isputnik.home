@@ -8,6 +8,7 @@
   },
   "status": {
     "draft": "Draft",
+    "published": "Published",
     "draftTitle": "This story is a draft",
     "draftBody": "Only you can see it. Publish it when you want the rest of the family to find it.",
     "publishedTitle": "This story is published",
@@ -48,10 +49,17 @@
   "collections": {
     "heading": "Collections",
     "new": "New collection",
+    "create": "Create collection",
+    "creating": "Creating…",
+    "createIntro": "Create a collection to group your stories together.",
     "eyebrow": "Collection",
     "titlePlaceholder": "Family Story",
+    "titleHint": "Choose a clear, memorable name for your collection.",
     "descriptionField": "Description",
     "descriptionPlaceholder": "Our family, one story at a time",
+    "descriptionHint": "Briefly describe what this collection is about.",
+    "preview": "Preview",
+    "coverImage": "Cover image",
     "storyCount_one": "{{count}} story",
     "storyCount_other": "{{count}} stories",
     "addStory": "Add story",
@@ -107,6 +115,8 @@
     }
   },
   "create": {
+    "intro": "Start a new story, memory, travel journal, or review.",
+    "coverImage": "Cover image",
     "journalRangeHint": "Give both dates and the days are laid out for you — Day 1 to the last — each already dated. Up to a month; longer trips start with the range on Day 1.",
     "pickBook": "Choose the book",
     "changeBook": "Change book"
@@ -335,6 +345,7 @@
     "viewLabel": "View",
     "viewGrid": "Grid",
     "viewList": "List",
+    "loadMore": "Load more stories",
     "noneMatch": "No stories match"
   },
   "nav": {

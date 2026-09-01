@@ -19,6 +19,16 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.49.0",
+    label: "Pick your own cover",
+    changes: [
+      "Starting a story or a collection now lets you choose its cover on the spot — the same photo picker as everywhere else, right there in the creation form, with your choice showing in the live preview before you even save. Skip it and nothing changes: a story still falls back to its first photo, a collection to its fullest shelf, exactly as before.",
+      "The Collections shelf reflows into an even row of cards instead of one oversized feature — each with its own cover, its story count, and the dates it spans — and past six it steps back behind a View all, so a growing archive doesn't crowd out the stories underneath it.",
+      "Story cards on the index carry more at a glance now: published or draft shows right on the cover, and a story that lives on a shelf names it alongside its dates, stars and places. The grid opens nine at a time with a Load more underneath, so a long shelf still opens fast.",
+      "Search, sort and the grid/list switch moved up to sit together above the shelf — the same place you'd look for them on every other library page — instead of squeezed into a heading that could wrap mid-word."
+    ]
+  },
+  {
     version: "3.48.1",
     label: "Steadier on its feet",
     changes: [
