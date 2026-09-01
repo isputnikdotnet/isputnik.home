@@ -19,6 +19,13 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.48.1",
+    label: "Steadier on its feet",
+    changes: [
+      "A safety net under the whole server. If something deep inside ever fails the way a damaged photo once did — an error surfacing minutes later, far from any page or scan — the server now writes down exactly what happened and carries on serving, instead of going dark until someone restarts the container. Starting up is unchanged on purpose: a server that cannot boot still stops loudly, so a real configuration problem is never papered over."
+    ]
+  },
+  {
     version: "3.48.0",
     label: "The front page",
     changes: [
