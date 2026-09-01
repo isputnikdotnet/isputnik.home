@@ -1,5 +1,5 @@
 import {
-  BookOpen, Bug, ExternalLink, FolderTree, HardDrive, Headphones, Images, Info, KeyRound, LibraryBig,
+  BookOpen, BookText, Bug, ExternalLink, FolderTree, HardDrive, Headphones, Images, Info, KeyRound, LibraryBig,
   Mail, MonitorSmartphone, Quote, Rocket, Send, Settings, ShieldCheck, Trash2, UserRound, Wifi, type LucideIcon
 } from "lucide-react";
 import type { PublicUser } from "../api";
@@ -93,6 +93,14 @@ const HELP_SECTIONS: HelpSection[] = [
         title: "Family tree",
         description: "Adding relatives, life events and photos, and letting someone edit their own branch.",
         href: guide("family-tree.md"),
+        external: false
+      },
+      {
+        icon: BookText,
+        title: "Stories",
+        description:
+          "Writing a page from what the house already holds — chapters and their pages, narration, collections with their own access, reviews, and guest links.",
+        href: guide("stories.md"),
         external: false
       }
     ]

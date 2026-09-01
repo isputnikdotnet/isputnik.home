@@ -43,6 +43,9 @@ library.
   face recognition.
 - [Family tree](family-tree.md) — adding relatives, life events and photos, and
   letting someone edit their own branch.
+- [Stories](stories.md) — writing a page from what the house already holds:
+  chapters and their pages, narration, collections with their own access,
+  reviews, and guest links.
 
 ## Running the server
 
