@@ -19,6 +19,18 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.48.0",
+    label: "The front page",
+    changes: [
+      "The Stories page was rebuilt into a proper front page. Your collections lead it — the fullest shelf as one wide card with its cover behind it, the rest alongside — and the stories follow as richer cards: the cover carries the draft flag and where the story begins, the line beneath gives its dates, its stars, and how many places it visits, and the story's kind wears a small tag. There is search now, sorting — by freshness, by date, by title — and a list view for reading the shelf as lines instead of tiles.",
+      "Stories can be favorites. Every card grew a star; press it and the story is yours to find again under Favorites in the menu. The star is personal — each member keeps their own — and it follows the story wherever its card appears.",
+      "The menu on the left grew up with the page. All stories, drafts, published, favorites; then the kinds — travel blogs, memories, reviews; then your collections — each line with its count, and each one a real address you can bookmark or open in a new tab.",
+      "Starting a story now asks the questions that fit its kind. A memory asks when and where it happened. A travel blog asks from when to when — give it the dates and it lays out a chapter per day before you type a word. A review asks which book, and can borrow the book's name if you leave the title blank. Everything is skippable, and nothing chosen here is ever locked in.",
+      "And the Back button finally behaves. However many chapters you wander through, a story counts as one step — Back returns you to wherever you came from, not backwards through every page you turned.",
+      "One repair below decks: a photo with a damaged information block could, on rare occasions, take the whole server down mid-scan. It is now skipped with a shrug like any other unreadable file."
+    ]
+  },
+  {
     version: "3.47.0",
     label: "The guest gets the good seats",
     changes: [
