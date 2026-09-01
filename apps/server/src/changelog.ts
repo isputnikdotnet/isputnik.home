@@ -19,6 +19,18 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.46.0",
+    label: "The family shelf",
+    changes: [
+      "Stories can now live in collections — shelves with a name and a cover, like “Family Story” or “Trips”. A collection's page lays its stories out year by year, and the years come from the stories' own chapter dates, so a shelf built over time reads as a timeline without anyone arranging one. Stories that belong to no shelf carry on exactly as before.",
+      "A collection can be private. Its manager decides who sees it: leave it open to everyone, or restrict it to the people and groups on its list — viewers who can read, contributors who can add their own stories, managers who can tend to all of it. A restricted shelf keeps its stories out of sight properly — not just off this page but out of search, tags, book pages and sharing — for everyone except its members. Your own stories you always see, wherever they are shelved: nobody's access decision can take your writing away from you.",
+      "Anyone can start a collection, and a new one starts open — restricting it is a deliberate act, one switch on its Access panel, and the panel says in plain words what the restriction does before you make it.",
+      "Creating a story now asks one small question first: what kind? A plain story, a memory, a travel journal, or a review. It shapes the start — a travel journal counts its chapters as Day 1, Day 2 from the first keystroke — and shapes nothing after: any story can still become anything.",
+      "And book pages grew a “Write a review” button. One press starts a review of that book — the book's card already in place, the star rating a field away, the title prefilled and yours to change. Finished reviews were already finding their way onto book pages; now starting one is just as short a trip.",
+      "This closes out the stories rework that began three releases ago: the site view, the recordings library, book cards and ratings, the cross-links, and now the shelf to keep it all on."
+    ]
+  },
+  {
     version: "3.45.0",
     label: "For the record",
     changes: [

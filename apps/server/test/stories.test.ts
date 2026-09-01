@@ -503,3 +503,42 @@ describe("back-links (v2 step 5)", () => {
       .toEqual([story.id]);
   });
 });
+
+describe("story kinds (v2 step 7)", () => {
+  it("defaults to free with no template applied", () => {
+    const story = createStory(author, "Plain", null);
+    expect(story.kind).toBe("free");
+    expect(story.chapter_noun).toBeNull();
+    expect(getBlocks(story.id)).toHaveLength(0);
+  });
+
+  it("a journal counts its days", () => {
+    const story = createStory(author, "Vienna trip", null, null, { kind: "journal" });
+    expect(story.kind).toBe("journal");
+    expect(story.chapter_noun).toBe("Day");
+  });
+
+  it("a review from a book page opens on that book's card", () => {
+    const story = createStory(author, "12 Rules for Life", null, null, {
+      kind: "review",
+      reviewOf: { entityType: "audiobook", entityId: "bk1" }
+    });
+    expect(story.kind).toBe("review");
+    const blocks = getBlocks(story.id);
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0].kind).toBe("book");
+    expect(blocks[0].entity_type).toBe("audiobook");
+    expect(blocks[0].entity_id).toBe("bk1");
+    // The review then shows on the book page via the ordinary back-links.
+    updateStory(story.id, { status: "published" });
+    expect(listStories(viewer, GAL_LIBS, undefined, { entityTypes: ["audiobook", "ebook"], entityIds: ["bk1"] })
+      .map((s) => s.id)).toEqual([story.id]);
+  });
+
+  it("never gates anything: a memory can still become a chaptered epic", () => {
+    const story = createStory(author, "That evening", null, null, { kind: "memory" });
+    createChapter(story.id, { title: "Part 2" });
+    createBlock(getChapters(story.id)[0].id, story.id, "media", { entityId: open });
+    expect(getChapters(story.id)).toHaveLength(2);
+  });
+});

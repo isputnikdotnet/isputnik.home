@@ -7,6 +7,10 @@ import type { GalleryAsset } from "../gallery/types";
 
 export type StoryStatus = "draft" | "published";
 
+/** What shape a story was created as — a template choice, nothing more. */
+export type StoryKind = "free" | "memory" | "journal" | "review";
+export const STORY_KINDS: StoryKind[] = ["free", "memory", "journal", "review"];
+
 /** text = markdown prose · media = one photo/video · album/slideshow = a set ·
  *  map = a place · person = someone in the family tree · quote = a pull quote.
  *  Everything but text and map carries an entity reference. */
@@ -27,9 +31,30 @@ export interface StorySummary {
   lastDate: string | null;
   /** Stars (1–5), mostly on review-shaped stories; null = unrated. */
   rating: number | null;
+  /** The shelf this story sits on; null = standalone. */
+  collectionId: string | null;
+  kind: StoryKind;
   coverUrl: string | null;
   tags: string[];
   canEdit: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** A shelf of stories ("Family Story", "Trips") — date span and count derived
+ *  from its member stories, never entered. */
+export interface StoryCollectionSummary {
+  id: string;
+  title: string;
+  description: string | null;
+  storyCount: number;
+  firstDate: string | null;
+  lastDate: string | null;
+  coverUrl: string | null;
+  /** May create stories in it (contributor and up). */
+  canContribute: boolean;
+  /** May edit every story in it and the access itself (manager and up). */
+  canManage: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -105,6 +130,10 @@ export interface StoryDetail {
   intro: string | null;
   /** Stars (1–5), mostly on review-shaped stories; null = unrated. */
   rating: number | null;
+  /** The shelf this story sits on; null = standalone. */
+  collectionId: string | null;
+  collection: { id: string; title: string } | null;
+  kind: StoryKind;
   chapters: StoryChapter[];
 }
 

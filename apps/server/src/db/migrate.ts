@@ -531,6 +531,34 @@ const migrations: { version: number; up: (db: Database.Database) => void }[] = [
         db.exec("ALTER TABLE stories ADD COLUMN rating INTEGER CHECK (rating IS NULL OR rating BETWEEN 1 AND 5)");
       }
     }
+  },
+  {
+    // 3.46.0 — story collections (stories v2 step 6). The story_collections
+    // table itself auto-applies from schema.sql; an existing stories table
+    // needs the membership column and its index.
+    version: 58,
+    up: (db) => {
+      const columns = new Set(
+        (db.prepare("PRAGMA table_info(stories)").all() as { name: string }[]).map((c) => c.name)
+      );
+      if (!columns.has("collection_id")) {
+        db.exec("ALTER TABLE stories ADD COLUMN collection_id TEXT REFERENCES story_collections(id) ON DELETE SET NULL");
+      }
+      db.exec("CREATE INDEX IF NOT EXISTS idx_stories_collection ON stories(collection_id)");
+    }
+  },
+  {
+    // 3.46.0 — story kinds (stories v2 step 7). Every existing story reads as
+    // 'free', which is exactly what it was.
+    version: 59,
+    up: (db) => {
+      const columns = new Set(
+        (db.prepare("PRAGMA table_info(stories)").all() as { name: string }[]).map((c) => c.name)
+      );
+      if (!columns.has("kind")) {
+        db.exec("ALTER TABLE stories ADD COLUMN kind TEXT NOT NULL DEFAULT 'free'");
+      }
+    }
   }
 ];
 

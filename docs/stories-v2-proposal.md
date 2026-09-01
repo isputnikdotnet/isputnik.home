@@ -422,7 +422,57 @@ Each step independently shippable, in this order:
      surfaces only (a guest page has no shelves to link back into).
 6. **Collections** — shelf, timeline page, access, visibility join. Largest
    security-sensitive step, so it goes last, alone in its release.
+   **BUILT** (2026-09-01, uncommitted). As-built notes:
+   - `story_collections` (schema.sql) + `stories.collection_id` (migration
+     58). The membership index lives in the MIGRATION only — putting it in
+     schema.sql crash-looped upgraded databases (schema runs before
+     migrations) while every fresh-DB test stayed green; a v57-upgrade
+     regression test now pins that, and the recurring rule is written into
+     schema.sql itself.
+   - Access exactly as designed: `assignments` object_type
+     `story_collection`, roles viewer/contributor/manager(+deny), creator →
+     manager, Everyone → viewer on create ("No access" on the Everyone row is
+     what restricts). Admins always pass — no take-ownership dance, unlike
+     libraries. All helpers in `collection-access.ts`, dependency-light so
+     the subjects hydrator can import it without cycles.
+   - **The visibility override lives in exactly three places** —
+     `listStories` (which tags and back-links already delegate to),
+     `canViewStory`, and the send-to hydrator — each with the same author
+     carve-out: a story's creator always sees their own story, or an access
+     change could take their writing away. Eight security tests pin deny >
+     Everyone, group grants, the override on all three surfaces, and
+     manager-edits-members.
+   - Guest links unchanged: minting requires edit rights, and the creator of
+     a link to a shelved story had access by construction.
+   - The access modal is manager-reachable (not admin-only like the library
+     one), so its GET carries its own user/group candidate lists — the same
+     names-only disclosure the send-to sheet already makes.
+   - Collection endpoints register before the story routes;
+     `/stories/collections/:id` matches before the single-segment story
+     detail in the web router for the same reason.
+   - Deleting a shelf frees its stories (FK SET NULL) and sweeps its
+     assignments; it never deletes a story.
 7. **Kinds/templates** — creation flow polish once everything else stands.
+   **BUILT** (2026-09-01, uncommitted) — the whole v2 build order is done.
+   As-built notes:
+   - `stories.kind` (migration 59, app-enforced like `status` so a future
+     kind needs no schema change). Existing stories read as `free`.
+   - A kind is chosen ONCE, in the New story modal (four cards: Story /
+     Memory / Travel journal / Review), and is deliberately not editable
+     afterward — the external review's "mostly a creation-template choice".
+     It gates nothing: a memory can still become a chaptered epic (tested).
+   - Templates, exercised at creation inside `createStory`: journal →
+     `chapter_noun` "Day"; review → the book card seeded when the review
+     starts from a book.
+   - The review surfacing that matters is **"Write a review" on the book
+     detail page**: `RelatedStories` gained a `reviewTitle` prop — the
+     section then stays on the page even with no stories ("Nobody has
+     written about this book yet"), and one click creates a review-kind
+     story titled after the book with its card pre-seeded, straight into the
+     editor. Reviews reach the page through the ordinary back-links.
+   - Deliberately thin: memory-kind prompt starters (seed from an album or
+     memory cluster) and on-this-day surfacing stay Phase-5 options; the
+     kind column is where they plug in.
 
 ## Open questions
 

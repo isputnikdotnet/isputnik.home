@@ -26,6 +26,8 @@ import {
   type StoryAudioRow
 } from "./audio.js";
 import { ensureAudioScanExtensions, getRecordingsLibrary, setStoriesSettings } from "./settings.js";
+import { canContributeToCollection } from "./collection-access.js";
+import { getCollection } from "./collections.js";
 import {
   RecordingError,
   migrateLegacyNarrations,
@@ -36,6 +38,7 @@ import {
   STORY_ENTITY_TYPE,
   STORY_BLOCK_KINDS,
   BOOK_ENTITY_TYPES,
+  STORY_KINDS,
   STORY_STATUSES,
   BLOCK_ENTITY_TYPE,
   BLOCK_PREVIEW_LIMIT,
@@ -71,7 +74,17 @@ const entityId = z.string().trim().min(1).max(64);
 
 const createSchema = z.object({
   title: z.string().trim().min(1).max(160),
-  subtitle: z.string().trim().max(300).nullable().optional()
+  subtitle: z.string().trim().max(300).nullable().optional(),
+  // Born onto a shelf: needs contributor rights there ("Add story" on the
+  // collection page, or the picker at creation).
+  collectionId: entityId.nullable().optional(),
+  // The creation template. Never changes what the story may become.
+  kind: z.enum(STORY_KINDS).optional(),
+  // "Write a review" from a book page: the card the review opens on.
+  reviewOf: z.object({
+    entityType: z.enum(BOOK_ENTITY_TYPES),
+    entityId
+  }).nullable().optional()
 });
 
 const updateSchema = z.object({
@@ -83,7 +96,9 @@ const updateSchema = z.object({
   chapterNoun: z.string().trim().max(30).nullable().optional(),
   intro: z.string().trim().max(5000).nullable().optional(),
   // Stars, mostly for review-shaped stories. Null clears.
-  rating: z.number().int().min(1).max(5).nullable().optional()
+  rating: z.number().int().min(1).max(5).nullable().optional(),
+  // Move onto / off a shelf. Null = standalone.
+  collectionId: entityId.nullable().optional()
 });
 
 const chapterSchema = z.object({
@@ -345,7 +360,20 @@ export async function storiesPlugin(app: FastifyInstance) {
     if (parsed.error) {
       return reply.code(400).send({ error: "Invalid story details", details: parsed.error });
     }
-    const story = createStory(request.user!, parsed.data.title, parsed.data.subtitle ?? null);
+    const collectionId = parsed.data.collectionId ?? null;
+    if (collectionId && (!getCollection(collectionId) || !canContributeToCollection(request.user!, collectionId))) {
+      return reply.code(403).send({ error: "You can't add stories to that collection." });
+    }
+    // A seeded review card is a reference like any other: only a book the
+    // author can actually reach.
+    const reviewOf = parsed.data.kind === "review" ? parsed.data.reviewOf ?? null : null;
+    if (reviewOf && !referenceIsReachable("book", reviewOf.entityId, request.user!, reviewOf.entityType)) {
+      return reply.code(400).send({ error: "That book isn't available to review." });
+    }
+    const story = createStory(request.user!, parsed.data.title, parsed.data.subtitle ?? null, collectionId, {
+      kind: parsed.data.kind,
+      reviewOf
+    });
     logActivity({
       event: "story.created",
       actorUserId: request.user!.id,
@@ -451,6 +479,14 @@ export async function storiesPlugin(app: FastifyInstance) {
         chapterNoun: story.chapter_noun,
         intro: story.intro,
         rating: story.rating,
+        kind: story.kind,
+        collectionId: story.collection_id,
+        // The shelf's name for the site view's breadcrumb and the editor's
+        // picker label; the id alone would make the client fetch the list.
+        collection: (() => {
+          const shelf = story.collection_id ? getCollection(story.collection_id) : undefined;
+          return shelf ? { id: shelf.id, title: shelf.title } : null;
+        })(),
         // The chosen cover resolved for this viewer — the Story Home hero.
         cover: story.cover_item_id ? assets.get(story.cover_item_id) ?? null : null,
         chapters: chapters.map((chapter) => ({
@@ -486,6 +522,13 @@ export async function storiesPlugin(app: FastifyInstance) {
     // A cover must be a photo the author can reach, like any other reference.
     if (parsed.data.coverItemId && !referenceIsReachable("media", parsed.data.coverItemId, user)) {
       return reply.code(400).send({ error: "That photo isn't available to use as a cover." });
+    }
+    // Moving ONTO a shelf needs contributor rights there; moving off one only
+    // needs edit rights on the story, which this route already has.
+    if (parsed.data.collectionId != null
+      && parsed.data.collectionId !== story.collection_id
+      && (!getCollection(parsed.data.collectionId) || !canContributeToCollection(user, parsed.data.collectionId))) {
+      return reply.code(403).send({ error: "You can't add stories to that collection." });
     }
     updateStory(story.id, parsed.data);
     return reply.send({ updated: true });

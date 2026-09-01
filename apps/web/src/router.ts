@@ -265,6 +265,7 @@ export type Route =
   | { name: "stories" }
   | { name: "storyDetail"; id: string }
   | { name: "storyChapter"; id: string; chapterId: string }
+  | { name: "storyCollection"; id: string }
   | { name: "storyEditor"; id: string }
   | { name: "authors" }
   | { name: "personDetail"; personName: string }
@@ -434,6 +435,13 @@ export function getRoute(): Route {
   const storyChapterMatch = path.match(/^\/stories\/([^/]+)\/chapters\/([^/]+)$/);
   if (storyChapterMatch) {
     return { name: "storyChapter", id: storyChapterMatch[1], chapterId: storyChapterMatch[2] };
+  }
+
+  // A collection (the shelf) — matched before the single-segment story detail,
+  // or /stories/collections/<id> would read as a story called "collections".
+  const storyCollectionMatch = path.match(/^\/stories\/collections\/([^/]+)$/);
+  if (storyCollectionMatch) {
+    return { name: "storyCollection", id: storyCollectionMatch[1] };
   }
 
   const storyDetailMatch = path.match(/^\/stories\/([^/]+)$/);

@@ -26,6 +26,7 @@ import { getSlideshow, getSlideshowItems } from "../library/gallery/slideshows.j
 import { deleteEntityTags, entityTagsByIds, getEntityTags } from "../library/audiobook/categorize.js";
 import { deleteSharesForResource } from "../library/shared/share-access.js";
 import { STORY_AUDIO_ENTITY_TYPE, deleteStoryAudio, deleteStoryAudioFiles } from "./audio.js";
+import { canManageCollection, canViewCollection, visibleCollectionIds } from "./collection-access.js";
 
 const inClause = (n: number) => Array(n).fill("?").join(", ");
 
@@ -44,6 +45,14 @@ export const BOOK_ENTITY_TYPES = ["audiobook", "ebook"] as const;
 
 export const STORY_STATUSES = ["draft", "published"] as const;
 export type StoryStatus = (typeof STORY_STATUSES)[number];
+
+/** What shape a story was created as. A kind does exactly three things —
+ *  picks the creation template, sets defaults (journal → chapter noun "Day"),
+ *  and adds surfacing (a review joins its book's page via back-links). It
+ *  NEVER affects permissions, validation, or what the editor allows: any
+ *  story can still become anything. */
+export const STORY_KINDS = ["free", "memory", "journal", "review"] as const;
+export type StoryKind = (typeof STORY_KINDS)[number];
 
 /** How many photos an album/slideshow block shows inline before "View all". */
 export const BLOCK_PREVIEW_LIMIT = 6;
@@ -82,6 +91,8 @@ export interface StoryRow {
   chapter_noun: string | null;
   intro: string | null;
   rating: number | null;
+  collection_id: string | null;
+  kind: StoryKind;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -123,13 +134,23 @@ export function getStory(storyId: string): StoryRow | undefined {
   return db.prepare("SELECT * FROM stories WHERE id = ?").get(storyId) as StoryRow | undefined;
 }
 
-export function canEditStory(story: Pick<StoryRow, "created_by">, user: { id: string; role: string }): boolean {
-  return user.role === "admin" || story.created_by === user.id;
+export function canEditStory(
+  story: Pick<StoryRow, "created_by" | "collection_id">,
+  user: { id: string; role: string }
+): boolean {
+  if (user.role === "admin" || story.created_by === user.id) return true;
+  // A collection manager edits every story on their shelf.
+  return story.collection_id != null && canManageCollection(user, story.collection_id);
 }
 
-/** A draft is visible only to the people who could edit it. */
+/** A draft is visible only to the people who could edit it — and a story in a
+ *  restricted collection only to that collection's members. The author always
+ *  sees their own story, or an access change could take their writing away. */
 export function canViewStory(story: StoryRow, user: { id: string; role: string }): boolean {
-  return story.status === "published" || canEditStory(story, user);
+  const base = story.status === "published" || canEditStory(story, user);
+  if (!base) return false;
+  if (story.collection_id == null || story.created_by === user.id || user.role === "admin") return true;
+  return canViewCollection(user, story.collection_id);
 }
 
 function touchStory(storyId: string): void {
@@ -158,13 +179,35 @@ export function storyOfBlock(blockId: string): StoryRow | undefined {
 // the player only ever handle one shape. A story that needs no structure just
 // leaves its single chapter untitled and undated, and the UI hides the chapter
 // chrome — "flat journal page" and "chaptered documentary" are the same rows.
-export function createStory(user: { id: string }, title: string, subtitle: string | null): StoryRow {
+export function createStory(
+  user: { id: string },
+  title: string,
+  subtitle: string | null,
+  collectionId: string | null = null,
+  opts: {
+    kind?: StoryKind;
+    /** review kind, started from a book page: the card to seed. */
+    reviewOf?: { entityType: string; entityId: string } | null;
+  } = {}
+): StoryRow {
   const id = nanoid(16);
+  const kind = opts.kind ?? "free";
+  // The kind's whole template power, exercised once at creation: a travel
+  // journal counts its days, a review opens on the book it judges. From here
+  // on the story is just a story.
+  const chapterNoun = kind === "journal" ? "Day" : null;
   db.transaction(() => {
-    db.prepare("INSERT INTO stories (id, title, subtitle, created_by) VALUES (?, ?, ?, ?)")
-      .run(id, title, subtitle, user.id);
+    db.prepare("INSERT INTO stories (id, title, subtitle, created_by, collection_id, kind, chapter_noun) VALUES (?, ?, ?, ?, ?, ?, ?)")
+      .run(id, title, subtitle, user.id, collectionId, kind, chapterNoun);
+    const chapterId = nanoid(16);
     db.prepare("INSERT INTO story_chapters (id, story_id, position) VALUES (?, ?, 1)")
-      .run(nanoid(16), id);
+      .run(chapterId, id);
+    if (kind === "review" && opts.reviewOf) {
+      db.prepare(`
+        INSERT INTO story_blocks (id, chapter_id, position, kind, entity_type, entity_id)
+        VALUES (?, ?, 1, 'book', ?, ?)
+      `).run(nanoid(16), chapterId, opts.reviewOf.entityType, opts.reviewOf.entityId);
+    }
   })();
   return getStory(id)!;
 }
@@ -177,6 +220,7 @@ export interface StoryUpdate {
   chapterNoun?: string | null;
   intro?: string | null;
   rating?: number | null;
+  collectionId?: string | null;
 }
 
 export function updateStory(storyId: string, fields: StoryUpdate): void {
@@ -189,6 +233,7 @@ export function updateStory(storyId: string, fields: StoryUpdate): void {
       chapter_noun  = CASE WHEN ? THEN ? ELSE chapter_noun END,
       intro         = CASE WHEN ? THEN ? ELSE intro END,
       rating        = CASE WHEN ? THEN ? ELSE rating END,
+      collection_id = CASE WHEN ? THEN ? ELSE collection_id END,
       updated_at    = strftime('%Y-%m-%dT%H:%M:%fZ','now')
     WHERE id = ?
   `).run(
@@ -204,6 +249,8 @@ export function updateStory(storyId: string, fields: StoryUpdate): void {
     fields.intro ?? null,
     fields.rating !== undefined ? 1 : 0,
     fields.rating ?? null,
+    fields.collectionId !== undefined ? 1 : 0,
+    fields.collectionId ?? null,
     storyId
   );
 }
@@ -248,10 +295,19 @@ export function listStories(
   user: { id: string; role: string },
   libIds: string[],
   tagId?: string,
-  ref?: { entityTypes: string[]; entityIds: string[] }
+  ref?: { entityTypes: string[]; entityIds: string[] },
+  collectionId?: string
 ) {
   const libArgs = libIds.length > 0 ? libIds : [""];
   const libIn = inClause(libArgs.length);
+  // Collection access overrides member visibility: a story on a restricted
+  // shelf lists only for that shelf's members — its author aside. null =
+  // admin, no clause at all.
+  const visibleCollections = visibleCollectionIds(user);
+  const collectionClause = visibleCollections === null
+    ? ""
+    : `AND (stories.collection_id IS NULL OR stories.created_by = ?
+        ${visibleCollections.length > 0 ? `OR stories.collection_id IN (${inClause(visibleCollections.length)})` : ""})`;
   const refClause = ref && ref.entityTypes.length > 0 && ref.entityIds.length > 0
     ? `AND EXISTS (SELECT 1 FROM story_blocks
         JOIN story_chapters AS ref_chapters ON ref_chapters.id = story_blocks.chapter_id
@@ -290,12 +346,16 @@ export function listStories(
       ) AS cover_key
     FROM stories
     WHERE (stories.status = 'published' OR stories.created_by = ? OR ? = 'admin')
+      ${collectionClause}
+      ${collectionId ? "AND stories.collection_id = ?" : ""}
       ${tagId ? `AND EXISTS (SELECT 1 FROM taggables WHERE taggables.entity_type = '${STORY_ENTITY_TYPE}'
             AND taggables.entity_id = stories.id AND taggables.tag_id = ?)` : ""}
       ${refClause}
     ORDER BY datetime(stories.updated_at) DESC
   `).all(
     ...libArgs, ...libArgs, user.id, user.role,
+    ...(collectionClause ? [user.id, ...(visibleCollections ?? [])] : []),
+    ...(collectionId ? [collectionId] : []),
     ...(tagId ? [tagId] : []),
     ...(refClause ? [...ref!.entityTypes, ...ref!.entityIds] : [])
   ) as StoryListRow[];
@@ -311,6 +371,8 @@ export function listStories(
     firstDate: row.first_date,
     lastDate: row.last_date,
     rating: row.rating,
+    collectionId: row.collection_id,
+    kind: row.kind,
     coverUrl: row.cover_key ? `/api/library/covers/${row.cover_key}` : null,
     tags: tags.get(row.id) ?? [],
     canEdit: canEditStory(row, user),

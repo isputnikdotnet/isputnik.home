@@ -11,7 +11,7 @@ import { TagInput } from "../../shared/TagInput";
 import { ShareStoryModal } from "./ShareStoryModal";
 import { StoryChapterEditor } from "./StoryChapterEditor";
 import { useStoryEditor } from "./useStoryEditor";
-import { hasChapterStructure } from "./types";
+import { hasChapterStructure, type StoryCollectionSummary } from "./types";
 
 // The editor. One scrolling surface that mirrors the reading view, with an
 // insert row under each chapter. Every field saves on blur and every structural
@@ -41,11 +41,16 @@ export function StoryEditorPage({
   // Every tag already in use, so an author reaches for the family's existing
   // vocabulary ("Minnesota") instead of inventing a near-duplicate.
   const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
+  // Shelves this author may put the story on (plus wherever it already is).
+  const [collections, setCollections] = useState<StoryCollectionSummary[]>([]);
 
   useEffect(() => {
     api<{ tags: { name: string }[] }>("/api/library/tags")
       .then((payload) => setTagSuggestions(payload.tags.map((tag) => tag.name)))
       .catch(() => setTagSuggestions([]));
+    api<{ collections: StoryCollectionSummary[] }>("/api/stories/collections")
+      .then((payload) => setCollections(payload.collections))
+      .catch(() => setCollections([]));
   }, []);
 
   useEffect(() => {
@@ -188,6 +193,22 @@ export function StoryEditorPage({
                 />
                 <span className="muted">{t("stories:fields.chapterNounHint")}</span>
               </label>
+              <div className="story-field story-field-noun">
+                <span>{t("stories:collections.pickerLabel")}</span>
+                <select
+                  value={story.collectionId ?? ""}
+                  onChange={(event) => void editor.patchStory({ collectionId: event.target.value || null })}
+                  disabled={busy}
+                >
+                  <option value="">{t("stories:collections.none")}</option>
+                  {collections
+                    .filter((collection) => collection.canContribute || collection.id === story.collectionId)
+                    .map((collection) => (
+                      <option key={collection.id} value={collection.id}>{collection.title}</option>
+                    ))}
+                </select>
+                <span className="muted">{t("stories:collections.pickerHint")}</span>
+              </div>
               <div className="story-field story-field-rating">
                 <span>{t("stories:rating.label")}</span>
                 <div className="story-rating-row">

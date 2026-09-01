@@ -52,6 +52,7 @@ const CollectionsPage = lazy(() => import("../features/collections/CollectionsPa
 const CollectionDetailPage = lazy(() => import("../features/collections/CollectionDetailPage").then((m) => ({ default: m.CollectionDetailPage })));
 const StoriesPage = lazy(() => import("../features/stories/StoriesPage").then((m) => ({ default: m.StoriesPage })));
 const StoryDetailPage = lazy(() => import("../features/stories/StoryDetailPage").then((m) => ({ default: m.StoryDetailPage })));
+const StoryCollectionPage = lazy(() => import("../features/stories/StoryCollectionPage").then((m) => ({ default: m.StoryCollectionPage })));
 const StoryEditorPage = lazy(() => import("../features/stories/StoryEditorPage").then((m) => ({ default: m.StoryEditorPage })));
 const GalleryPage = lazy(() => import("../features/gallery/GalleryPage").then((m) => ({ default: m.GalleryPage })));
 const FamilyTreePage = lazy(() => import("../features/familytree/FamilyTreePage").then((m) => ({ default: m.FamilyTreePage })));
@@ -512,6 +513,10 @@ export function App() {
 
     if (route.name === "storyChapter") {
       return <StoryDetailPage id={route.id} chapterId={route.chapterId} />;
+    }
+
+    if (route.name === "storyCollection") {
+      return <StoryCollectionPage id={route.id} user={session.user} logout={logout} />;
     }
 
     if (route.name === "storyEditor") {

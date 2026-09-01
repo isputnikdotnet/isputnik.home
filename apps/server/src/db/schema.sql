@@ -1867,6 +1867,17 @@ CREATE TABLE IF NOT EXISTS stories (
   intro         TEXT,
   -- Optional star rating (reviews mostly, but any story may carry one).
   rating        INTEGER CHECK (rating IS NULL OR rating BETWEEN 1 AND 5),
+  -- What shape the story was created as: 'free' | 'memory' | 'journal' |
+  -- 'review'. A kind only picked the creation template (seeded chapters and
+  -- blocks, a default chapter noun) and extra surfacing — it never affects
+  -- permissions, validation, or what the editor allows. App-enforced like
+  -- `status`, so a future kind needs no schema change.
+  kind          TEXT NOT NULL DEFAULT 'free',
+  -- The shelf this story sits on; NULL = standalone (today's album rules).
+  -- Forward reference: story_collections is created further down this file,
+  -- which SQLite resolves lazily (nullable, only set later) — the same
+  -- arrangement library_items.scan_rule_id uses.
+  collection_id TEXT REFERENCES story_collections(id) ON DELETE SET NULL,
   created_by    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   updated_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
@@ -1918,10 +1929,35 @@ CREATE TABLE IF NOT EXISTS story_blocks (
   layout      TEXT             -- 'default' | 'wide' | 'grid'
 );
 
+-- idx_stories_collection deliberately lives in migration 58, NOT here: this
+-- file executes on every boot BEFORE migrations, and on an upgraded database
+-- the collection_id column doesn't exist until 58 runs — an index on it here
+-- aborts the whole schema pass. Migrations run on fresh databases too, so 58
+-- builds the index everywhere.
 CREATE INDEX IF NOT EXISTS idx_story_chapters_story ON story_chapters(story_id, position);
 CREATE INDEX IF NOT EXISTS idx_story_blocks_chapter ON story_blocks(chapter_id, position);
 CREATE INDEX IF NOT EXISTS idx_story_blocks_entity  ON story_blocks(entity_type, entity_id);
 CREATE INDEX IF NOT EXISTS idx_stories_created_by   ON stories(created_by);
+
+-- A story collection: the shelf above stories ("Family Story", "Trips") —
+-- title, cover, description, access, member stories. Deliberately LIGHT: the
+-- stories stay the heavy objects, and the collection page derives its
+-- timeline from their chapter dates. Access rides `assignments` rows with
+-- object_type 'story_collection' (viewer sees, contributor adds stories and
+-- edits their own, manager edits everything and the access itself); a new
+-- collection grants Everyone→viewer so an unrestricted one behaves exactly
+-- like the flat list, and removing that row is what restricts it. Collection
+-- access OVERRIDES member visibility: a story in a restricted collection is
+-- invisible to non-members everywhere (docs/stories-v2-proposal.md).
+CREATE TABLE IF NOT EXISTS story_collections (
+  id            TEXT PRIMARY KEY,
+  title         TEXT NOT NULL,
+  description   TEXT,
+  cover_item_id TEXT REFERENCES library_items(id) ON DELETE SET NULL,
+  created_by    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  updated_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
 
 -- Narration recorded or uploaded for a story: "grandma tells this part". Owned
 -- by the story rather than referenced from the library — it exists for this

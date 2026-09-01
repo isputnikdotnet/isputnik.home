@@ -1211,6 +1211,173 @@
   object-fit: cover;
 }
 
+/* ── Collections (the shelf) ───────────────────────────────────────────── */
+
+.story-index-actions { display: flex; gap: 8px; }
+
+.story-collection-shelf {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.story-collection-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-raised);
+  color: inherit;
+  text-decoration: none;
+}
+
+.story-collection-card:hover { background: var(--hover); }
+
+.story-collection-cover {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 84px;
+  height: 60px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--field);
+  color: var(--muted);
+}
+
+.story-collection-cover img { width: 100%; height: 100%; object-fit: cover; }
+
+.story-collection-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.story-collection-body strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.story-collection-body small {
+  color: var(--gold);
+  font-size: 0.74rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The collection page hero — the shelf's cover with its name over it. */
+.story-collection-hero {
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--surface-raised);
+  margin-bottom: 24px;
+}
+
+.story-collection-hero img {
+  width: 100%;
+  max-height: 34vh;
+  object-fit: cover;
+  display: block;
+}
+
+.story-collection-hero-text {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 18px 22px;
+}
+
+.story-collection-hero.has-image .story-collection-hero-text {
+  position: absolute;
+  inset: auto 0 0 0;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.72));
+  color: #fff;
+}
+
+.story-collection-hero h1 { margin: 0; font-size: clamp(1.5rem, 3.6vw, 2.1rem); }
+
+.story-collection-meta {
+  margin: 0;
+  color: var(--gold);
+  font-size: 0.82rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
+
+.story-collection-hero.has-image .story-collection-meta { color: rgba(255, 255, 255, 0.85); }
+
+.story-collection-description { margin: 0; max-width: 68ch; color: var(--muted); }
+
+.story-collection-description-input {
+  max-width: 68ch;
+  resize: vertical;
+}
+
+.story-collection-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+
+/* Year groups on the collection page — the derived timeline. */
+.story-collection-year { margin-bottom: 22px; }
+
+.story-collection-year-label {
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Access modal rows. */
+.story-access { display: flex; flex-direction: column; gap: 10px; }
+
+.story-access-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-raised);
+}
+
+.story-access-icon {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--hover);
+  color: var(--gold);
+}
+
+.story-access-who {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.story-access-who strong,
+.story-access-who small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.story-access-add {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.story-access-add select:first-child { flex: 1 1 220px; min-width: 0; }
+
 /* ── Back-links ("Reviews & stories" / "Appears in stories") ──────────── */
 
 .story-related {
@@ -1221,6 +1388,43 @@
 }
 
 .story-related h2 { margin: 0; font-size: 1.1rem; }
+
+.story-related-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* The kind chooser in the New story modal — four small cards, one current. */
+.story-kind-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.story-kind-option {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-raised);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.story-kind-option:hover { background: var(--hover); }
+.story-kind-option.is-current {
+  border-color: var(--mint);
+  background: var(--active);
+}
+
+.story-kind-option small { color: var(--muted); font-size: 0.76rem; }
 
 .story-related-grid {
   display: grid;

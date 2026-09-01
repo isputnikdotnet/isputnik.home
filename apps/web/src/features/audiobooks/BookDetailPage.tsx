@@ -1426,8 +1426,9 @@ function BookDetailView({
 
           {/* Stories whose blocks reference this book — reviews, mostly.
               Queried across the whole work, so a review of the audiobook
-              edition shows here on the ebook's page too, labeled. */}
-          <RelatedStories entityType={isEbook ? "ebook" : "audiobook"} entityId={book.id} />
+              edition shows here on the ebook's page too, labeled. The CTA
+              starts a review story pre-seeded with this book's card. */}
+          <RelatedStories entityType={isEbook ? "ebook" : "audiobook"} entityId={book.id} reviewTitle={book.title} />
 
           <NotesSection entityType={isEbook ? "ebook" : "audiobook"} entityId={book.id} />
         </div>

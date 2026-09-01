@@ -10,6 +10,7 @@
 import path from "node:path";
 import { db } from "../../db.js";
 import { accessibleLibraryIds, canUserAccessBook } from "../library/shared/library-access.js";
+import { visibleCollectionIds } from "../stories/collection-access.js";
 import type { BookLibraryType } from "../library/shared/library-types.js";
 
 // Display data for one subject, independent of which entity type it is.
@@ -499,6 +500,13 @@ const hydrateStories: Hydrator = (entityIds, user) => {
   const libArgs = libIds.length > 0 ? libIds : [""];
   const libIn = libArgs.map(() => "?").join(", ");
   const idIn = entityIds.map(() => "?").join(", ");
+  // Collection access overrides member visibility (stories v2): a story on a
+  // restricted shelf hydrates only for that shelf's members — author aside.
+  const visibleCollections = visibleCollectionIds(user);
+  const collectionClause = visibleCollections === null
+    ? ""
+    : `AND (stories.collection_id IS NULL OR stories.created_by = ?
+        ${visibleCollections.length > 0 ? `OR stories.collection_id IN (${visibleCollections.map(() => "?").join(", ")})` : ""})`;
 
   const rows = db.prepare(`
     SELECT
@@ -528,7 +536,11 @@ const hydrateStories: Hydrator = (entityIds, user) => {
     FROM stories
     WHERE stories.id IN (${idIn})
       AND (stories.status = 'published' OR stories.created_by = ? OR ? = 'admin')
-  `).all(...libArgs, ...libArgs, ...entityIds, user.id, user.role) as {
+      ${collectionClause}
+  `).all(
+    ...libArgs, ...libArgs, ...entityIds, user.id, user.role,
+    ...(collectionClause ? [user.id, ...(visibleCollections ?? [])] : [])
+  ) as {
     id: string; title: string; subtitle: string | null; status: string;
     created_by: string; block_count: number; cover_key: string | null;
   }[];
