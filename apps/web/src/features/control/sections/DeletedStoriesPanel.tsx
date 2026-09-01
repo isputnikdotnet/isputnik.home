@@ -22,7 +22,11 @@ interface DeletedStory {
 // rows, not files — no size, no bin folder — so they get a compact list of
 // their own rather than tiles in the grid above. Renders nothing while the
 // block would be empty; admin-only, like the routes it calls.
-export function DeletedStoriesPanel() {
+//
+// `reloadSignal` refetches the rows whenever the host page reloads its own —
+// the Refresh button and every restore/empty action bump it, so a story
+// deleted while the bin sat open appears without a full page reload.
+export function DeletedStoriesPanel({ reloadSignal = 0 }: { reloadSignal?: number }) {
   const { t } = useTranslation(["common", "controlAdmin"]);
   const [stories, setStories] = useState<DeletedStory[]>([]);
   const [error, setError] = useState("");
@@ -34,7 +38,7 @@ export function DeletedStoriesPanel() {
       .then((payload) => { setStories(payload.stories ?? []); setError(""); })
       .catch((err) => setError(err instanceof Error ? err.message : t("controlAdmin:recycleBin.stories.loadFailed")));
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { void load(); }, [reloadSignal]);
 
   const restore = async (story: DeletedStory) => {
     setBusyId(story.id);

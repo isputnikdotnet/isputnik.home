@@ -153,6 +153,8 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
   const [editLocationOpen, setEditLocationOpen] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
+  // Bumped by load() so the Deleted-stories block refetches with the page.
+  const [storiesReload, setStoriesReload] = useState(0);
   const [restoringId, setRestoringId] = useState("");
   const [purgeTarget, setPurgeTarget] = useState<TrashedItem | null>(null);
   const [purging, setPurging] = useState(false);
@@ -273,6 +275,10 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
   useEffect(() => { setPage(1); }, [scopeId, sourceFilter, retentionFilter, search, sort, perPage]);
 
   const load = async () => {
+    // The Deleted-stories block fetches its own rows; nudging this counter
+    // makes it reload whenever the page does — the Refresh button included —
+    // so a story deleted while the bin was open shows up on the same press.
+    setStoriesReload((tick) => tick + 1);
     const payload = await api<{
       items: TrashedItem[];
       retentionDays: number;
@@ -739,7 +745,7 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
       {/* Deleted stories share the bin (and its retention clock) but are rows,
           not files, so they sit in their own compact block. Admin-only, like
           the /api/stories/trash routes behind it. */}
-      {isAdmin && <DeletedStoriesPanel />}
+      {isAdmin && <DeletedStoriesPanel reloadSignal={storiesReload} />}
 
       {/* How the list is laid out, in one place. These three used to sit in the
           toolbar and, spelled out, took more width than the row had — and they are
