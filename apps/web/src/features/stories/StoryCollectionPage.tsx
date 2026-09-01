@@ -10,6 +10,7 @@ import { Modal } from "../../shared/Modal";
 import { Button } from "../../shared/Button";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { PhotoPicker } from "../gallery/PhotoPicker";
+import { StoriesSectionNav } from "./StoriesSectionNav";
 import { StoryCard } from "./StoryCard";
 import type { StorySummary } from "./types";
 
@@ -106,7 +107,7 @@ export function StoryCollectionPage({
     : "";
 
   return (
-    <DashboardShell active="stories" user={user} logout={logout}>
+    <DashboardShell active="stories" user={user} logout={logout} sideNav={<StoriesSectionNav activeKey={id} />}>
       <section className="work-area audiobook-area">
         <div className="book-detail-topbar">
           <button className="audiobook-back-button" type="button" onClick={() => goBack("/stories")}>

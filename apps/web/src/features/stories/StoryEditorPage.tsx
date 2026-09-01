@@ -10,6 +10,7 @@ import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { TagInput } from "../../shared/TagInput";
 import { PhotoPicker } from "../gallery/PhotoPicker";
 import { ShareStoryModal } from "./ShareStoryModal";
+import { StoriesSectionNav } from "./StoriesSectionNav";
 import { StoryChapterEditor } from "./StoryChapterEditor";
 import { useStoryEditor } from "./useStoryEditor";
 import { hasChapterStructure, type StoryCollectionSummary } from "./types";
@@ -74,7 +75,12 @@ export function StoryEditorPage({
   const structured = story ? hasChapterStructure(story) : false;
 
   return (
-    <DashboardShell active="stories" user={user} logout={logout}>
+    <DashboardShell
+      active="stories"
+      user={user}
+      logout={logout}
+      sideNav={<StoriesSectionNav activeKey={story?.collectionId ?? "all"} />}
+    >
       <section className="work-area story-edit-area">
         <div className="book-detail-topbar">
           <button className="audiobook-back-button" type="button" onClick={() => navigate(`/stories/${id}`)}>

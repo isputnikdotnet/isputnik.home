@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type MouseEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, ChevronLeft, ChevronRight, MapPin, Pencil, Send, Star } from "lucide-react";
 import { api } from "../../api";
-import { followRoute, goBack, navigate } from "../../router";
+import { followRoute, goBack, navigate, replaceNavigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { Button } from "../../shared/Button";
 import { formatPartialDate, formatPartialDateRange } from "../../shared/utils";
@@ -80,20 +80,31 @@ export function StoryDetailPage({ id, chapterId }: { id: string; chapterId?: str
 
   const openMedia = (assets: GalleryAsset[], index: number) => setLightbox({ assets, index });
 
-  const openChapter = (targetId: string) => navigate(`/stories/${id}/chapters/${targetId}`);
+  // Chapter moves REPLACE the history entry: the whole story is one step in
+  // the trail, so Back leaves to wherever the reader came from (a book page,
+  // the collection, the feed) instead of replaying every day. The strip and
+  // prev/next are the story's own way of stepping through days.
+  const openChapter = (targetId: string) => replaceNavigate(`/stories/${id}/chapters/${targetId}`);
+  const followInSite = (event: MouseEvent<HTMLAnchorElement>, path: string) => {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    replaceNavigate(path);
+  };
 
   return (
     <div className="story-site">
       <header className="story-site-bar">
+        {/* Honest label: with chapter moves collapsed into one history entry,
+            this returns to wherever the reader came from. */}
         <button className="story-site-exit" type="button" onClick={() => goBack("/stories")}>
           <ArrowLeft size={18} aria-hidden="true" />
-          <span>{t("stories:backTo")}</span>
+          <span>{t("stories:site.exit")}</span>
         </button>
         {story && (
           <a
             className="story-site-name"
             href={`/stories/${story.id}`}
-            onClick={(event) => followRoute(event, `/stories/${story.id}`)}
+            onClick={(event) => followInSite(event, `/stories/${story.id}`)}
           >
             {story.title}
           </a>
@@ -123,7 +134,7 @@ export function StoryDetailPage({ id, chapterId }: { id: string; chapterId?: str
           <a
             href={`/stories/${story.id}`}
             className={chapter ? "" : "is-current"}
-            onClick={(event) => followRoute(event, `/stories/${story.id}`)}
+            onClick={(event) => followInSite(event, `/stories/${story.id}`)}
           >
             {t("stories:site.overview")}
           </a>
@@ -132,7 +143,7 @@ export function StoryDetailPage({ id, chapterId }: { id: string; chapterId?: str
               key={item.id}
               href={`/stories/${story.id}/chapters/${item.id}`}
               className={item.id === chapterId ? "is-current" : ""}
-              onClick={(event) => followRoute(event, `/stories/${story.id}/chapters/${item.id}`)}
+              onClick={(event) => followInSite(event, `/stories/${story.id}/chapters/${item.id}`)}
             >
               {chapterLabel(story, item, index)}
             </a>

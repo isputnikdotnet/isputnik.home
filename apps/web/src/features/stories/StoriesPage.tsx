@@ -9,6 +9,7 @@ import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
 import { Button } from "../../shared/Button";
 import { PartialDateField } from "../../shared/PartialDateField";
+import { StoriesSectionNav } from "./StoriesSectionNav";
 import { StoryCard } from "./StoryCard";
 import { StoryRefPicker } from "./StoryRefPicker";
 import { STORY_KINDS, type StoryCollectionSummary, type StoryKind, type StorySummary } from "./types";
@@ -42,7 +43,7 @@ export function StoriesPage({
   }, []);
 
   return (
-    <DashboardShell active="stories" user={user} logout={logout}>
+    <DashboardShell active="stories" user={user} logout={logout} sideNav={<StoriesSectionNav activeKey="all" />}>
       <section className="work-area audiobook-area">
         <div className="section-head audiobook-head">
           <div>

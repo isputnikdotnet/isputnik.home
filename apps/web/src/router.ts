@@ -660,6 +660,16 @@ export function navigate(path: string) {
   window.dispatchEvent(new PopStateEvent("popstate"));
 }
 
+// Navigate without adding a history entry — for a page's INTERNAL views (a
+// story's chapters): the whole visit stays one step in the trail, so Back
+// leaves to the previous page instead of replaying every view. The current
+// entry's state rides along untouched, which keeps goBack()'s "did they get
+// here inside the app?" answer honest.
+export function replaceNavigate(path: string) {
+  window.history.replaceState(window.history.state, "", path);
+  window.dispatchEvent(new PopStateEvent("popstate"));
+}
+
 // The Back button's behaviour everywhere: return to the previous page when the
 // visitor navigated here inside the app, else go to the page's natural parent.
 export function goBack(fallback: string) {

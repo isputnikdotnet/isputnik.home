@@ -116,6 +116,7 @@
   },
   "site": {
     "overview": "Overview",
+    "exit": "Back",
     "stripAria": "Story chapters",
     "chapterMissing": "This chapter doesn't exist — it may have been removed.",
     "mapHeading": "Where it happened",
