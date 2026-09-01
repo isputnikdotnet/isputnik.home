@@ -6,6 +6,7 @@ import type { LucideIcon } from "lucide-react";
 import { api, isAccessOrMissingApiError, type PublicUser } from "../../api";
 import { SendToSheet } from "../social/SendToSheet";
 import { NotesSection } from "../social/NotesSection";
+import { RelatedStories } from "../stories/RelatedStories";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { EditMetadataModal } from "./EditMetadataModal";
 import { EbookReader } from "./reader/EbookReader";
@@ -1422,6 +1423,11 @@ function BookDetailView({
               )}
             </section>
           )}
+
+          {/* Stories whose blocks reference this book — reviews, mostly.
+              Queried across the whole work, so a review of the audiobook
+              edition shows here on the ebook's page too, labeled. */}
+          <RelatedStories entityType={isEbook ? "ebook" : "audiobook"} entityId={book.id} />
 
           <NotesSection entityType={isEbook ? "ebook" : "audiobook"} entityId={book.id} />
         </div>

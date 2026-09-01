@@ -17,6 +17,7 @@ import { familyNavProps } from "./sectionNavItems";
 import { MessageBox } from "../../shared/MessageBox";
 import { SendToSheet } from "../social/SendToSheet";
 import { NotesSection } from "../social/NotesSection";
+import { RelatedStories } from "../stories/RelatedStories";
 import { PersonQuotes } from "./PersonQuotes";
 import { GalleryLightbox } from "../gallery/GalleryLightbox";
 import type { GalleryAsset } from "../gallery/types";
@@ -1222,6 +1223,9 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                 </div>
               </section>
 
+              {/* Stories whose person blocks feature them — the tree's bridge
+                  back into the family's storytelling. */}
+              {profile && <RelatedStories entityType="family_tree_person" entityId={profile.id} personName={profile.name} />}
               {profile && <NotesSection entityType="family_tree_person" entityId={profile.id} />}
             </div>
           );

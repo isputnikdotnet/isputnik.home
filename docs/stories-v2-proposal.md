@@ -381,7 +381,45 @@ Each step independently shippable, in this order:
      chapter ids + hero/coords in the share payload and a share URL scheme —
      small, but its own change.
 4. **`book` + `audio` blocks, rating** — with the guest scoping above.
+   **BUILT** (2026-09-01, uncommitted). As-built notes:
+   - Migration 57 adds `stories.rating` (INTEGER, CHECK 1–5, nullable). Stars
+     show on the Story Home meta line, the flat story head, and the index
+     card ("★ 4"); the editor's picker is five stars + Clear.
+   - The `book` block is the ONE block whose entity type is chosen per block:
+     `entity_type` is `audiobook` or `ebook` (`BOOK_ENTITY_TYPES`), picked in
+     `StoryRefPicker` (both catalogs merged into one searchable list, tag
+     suggestions included) and settled at creation — a patch can re-point the
+     reference but never change the type. Hydration and per-viewer access come
+     free from the subjects registry, so the card (cover · title · author ·
+     type label · "Open book") needed no new server queries.
+   - Guests get a text-only book card (title/author/type) resolved against the
+     link creator's access via the same hydrator — no cover (no token route
+     for book covers) and no in-app link, per the guest rules.
+   - **Deferred: the audio block playing an AUDIOBOOK inline.** A recording is
+     one file; an audiobook is many files with chapters and progress — an
+     honest inline player for it is a real feature, not a source switch. The
+     book card (linking to the book page, where the real player lives) covers
+     the use meanwhile. Revisit if a genuine "play this audiobook inside the
+     story" need shows up.
 5. **Back-links** — book/person/album pages list referencing stories.
+   **BUILT** (2026-09-01, uncommitted). As-built notes:
+   - `listStories` gained an optional `ref` filter (EXISTS over
+     `idx_story_blocks_entity`), so back-links carry the exact index
+     visibility rule and card shape; `storyRefMatches` answers "which of the
+     queried entities did this story actually reference", in reading order.
+   - One endpoint, `GET /api/stories/referencing?type=&id=` — for a book it
+     widens to the whole WORK (every `work_items` sibling, both book types)
+     and each card carries `refEntityType`, rendered as an "Audiobook
+     edition"/"Ebook edition" chip. Decided earlier: reviews live on the
+     work, edition noted.
+   - One shared component, `RelatedStories`, derives its own heading by
+     entity type ("Reviews & stories" / "Stories featuring {name}" /
+     "Appears in stories") and renders NOTHING when no story matches — no
+     permanent empty furniture. Mounted above the Notes section on the book
+     detail page, the family person page, and the album and slideshow
+     details in GalleryPage.
+   - Deferred with the rest of the guest work: back-links are signed-in
+     surfaces only (a guest page has no shelves to link back into).
 6. **Collections** — shelf, timeline page, access, visibility join. Largest
    security-sensitive step, so it goes last, alone in its release.
 7. **Kinds/templates** — creation flow polish once everything else stands.

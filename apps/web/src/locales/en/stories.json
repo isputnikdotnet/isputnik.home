@@ -37,6 +37,20 @@
     "chapterNounHint": "Chapters then read “Day 1”, “Day 2”. Leave empty to use their titles.",
     "optional": "optional"
   },
+  "related": {
+    "bookHeading": "Reviews & stories",
+    "personHeading": "Stories featuring {{name}}",
+    "setHeading": "Appears in stories",
+    "audiobookEdition": "Audiobook edition",
+    "ebookEdition": "Ebook edition"
+  },
+  "rating": {
+    "label": "Rating",
+    "hint": "Stars for a review — of a book, a place, anything the story judges.",
+    "clear": "Clear",
+    "setAria": "Rate {{count}} of 5",
+    "aria": "Rated {{count}} of 5"
+  },
   "site": {
     "overview": "Overview",
     "stripAria": "Story chapters",
@@ -126,7 +140,8 @@
     "map": "Map",
     "person": "Person",
     "quote": "Quote",
-    "audio": "Narration"
+    "audio": "Narration",
+    "book": "Book"
   },
   "block": {
     "unavailableTitle": "Not available",
@@ -138,9 +153,13 @@
       "map": "This place is no longer available.",
       "person": "This person has been removed from the family tree.",
       "quote": "This quote has been removed.",
-      "audio": "This recording is no longer available."
+      "audio": "This recording is no longer available.",
+      "book": "This book has been removed, or isn’t in a library you can see."
     },
     "openPhoto": "Open {{title}}",
+    "openBook": "Open book",
+    "audiobookLabel": "Audiobook",
+    "ebookLabel": "Ebook",
     "mapFallbackTitle": "This place",
     "albumLabel": "Album",
     "slideshowLabel": "Slideshow",
@@ -164,6 +183,8 @@
     "slideshowEmpty": "There are no slideshows to add yet.",
     "personEmpty": "There is nobody in the family tree yet.",
     "quoteEmpty": "There are no quotes to add yet.",
+    "bookTitle": "Add a book",
+    "bookEmpty": "There are no books to add yet.",
     "suggested": "Suggested — shares a tag with this story",
     "everything": "Everything else"
   },

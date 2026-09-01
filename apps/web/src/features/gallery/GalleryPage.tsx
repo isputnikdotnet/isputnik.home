@@ -35,6 +35,7 @@ import { ShareSetModal } from "../share/ShareSetModal";
 import { ShareAlbumModal } from "./ShareAlbumModal";
 import { SendToSheet, type SendToSubject } from "../social/SendToSheet";
 import { NotesSection } from "../social/NotesSection";
+import { RelatedStories } from "../stories/RelatedStories";
 import { Modal } from "../../shared/Modal";
 import { ChoiceGroup } from "../../shared/ChoiceGroup";
 import type { GalleryAlbum, GalleryAlbumDetail, GalleryAsset, GalleryFaceSettings, GalleryFacets, GalleryFolder, GalleryLibrary, GalleryMapPoint, GalleryMemories, GalleryMemoryGroup, GalleryMemorySuggestion, GalleryPerson, GallerySlideshow, GallerySlideshowDetail, GallerySlideshowSettings, SlideshowTransition } from "./types";
@@ -1855,6 +1856,9 @@ export function GalleryPage({
                     </div>
                   )}
 
+                  {/* The stories this album appears in — the back-link half of
+                      "stories reference, never copy". */}
+                  <RelatedStories entityType="gallery_album" entityId={selectedAlbum.id} />
                   <NotesSection entityType="gallery_album" entityId={selectedAlbum.id} />
                 </>
                 );
@@ -2000,6 +2004,7 @@ export function GalleryPage({
               onDeleteMovie={() => setMovieDeleteOpen(true)}
                     />
 
+                    <RelatedStories entityType="gallery_slideshow" entityId={selectedSlideshow.id} />
                     <NotesSection entityType="gallery_slideshow" entityId={selectedSlideshow.id} />
                   </>
                 );

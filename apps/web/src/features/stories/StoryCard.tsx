@@ -11,9 +11,11 @@ export function StoryCard({ story }: { story: StorySummary }) {
   const href = `/stories/${story.id}`;
 
   // The date span leads when the story has one — that is what a reader
-  // recognises it by; otherwise fall back to how much is in it.
+  // recognises it by; otherwise fall back to how much is in it. A rated story
+  // (a review, usually) wears its stars in the same line.
   const meta = [
     formatPartialDateRange(story.firstDate, story.lastDate === story.firstDate ? null : story.lastDate),
+    story.rating != null ? `★ ${story.rating}` : "",
     story.chapterCount > 1
       ? t("stories:count.chapters", { count: story.chapterCount })
       : t("stories:count.blocks", { count: story.blockCount })

@@ -23,6 +23,7 @@ import { nanoid } from "nanoid";
 import { sha256 } from "../../crypto.js";
 import { addDays } from "../../auth.js";
 import { curatableGalleryLibraryIds } from "../library/shared/shares.js";
+import { hydrateEntities } from "../social/subjects.js";
 import { getAlbum, getAlbumItems } from "../library/gallery/albums.js";
 import { getSlideshow, getSlideshowItems } from "../library/gallery/slideshows.js";
 import type { ResolvedShareLink } from "../library/shared/share-access.js";
@@ -80,6 +81,9 @@ interface StoryLinkContext {
   /** The libraries the LINK CREATOR may curate right now. */
   libIds: string[];
   creatorId: string;
+  /** The creator as a subject-hydration user — book cards resolve through
+   *  the same per-user hydrator the reading view uses. */
+  creator: ShareCreator;
   expandAlbums: boolean;
 }
 
@@ -103,6 +107,7 @@ export function storyLinkContext(link: ResolvedShareLink): StoryLinkContext | nu
     story,
     libIds: curatableGalleryLibraryIds(creator),
     creatorId: creator.id,
+    creator,
     expandAlbums: (row?.expand_albums ?? 0) === 1
   };
 }
@@ -410,6 +415,24 @@ function storyShareBlock(block: BlockRow, assets: ShareAsset[], token: string, c
       title: clip.title,
       durationSeconds: clip.duration_seconds,
       url: `/api/share/${token}/audio/${clip.id}`,
+      caption: block.caption
+    };
+  }
+
+  // A book card for a guest is text only: title and author, no cover (there is
+  // no token-scoped route for book covers) and no in-app link (a guest has no
+  // account to open it with). Resolved against the CREATOR's current library
+  // access through the same hydrator the reading view uses.
+  if (block.kind === "book") {
+    if (!block.entity_type || !block.entity_id) return null;
+    const view = hydrateEntities([{ entityType: block.entity_type, entityId: block.entity_id }], ctx.creator)
+      .get(`${block.entity_type}:${block.entity_id}`);
+    if (!view?.available) return null;
+    return {
+      kind: "book" as const,
+      title: view.title,
+      author: view.subtitle ?? null,
+      bookType: block.entity_type,
       caption: block.caption
     };
   }

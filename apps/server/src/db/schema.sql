@@ -1865,6 +1865,8 @@ CREATE TABLE IF NOT EXISTS stories (
   chapter_noun  TEXT,
   -- Story Home opening prose. Belongs to the story, not to any chapter.
   intro         TEXT,
+  -- Optional star rating (reviews mostly, but any story may carry one).
+  rating        INTEGER CHECK (rating IS NULL OR rating BETWEEN 1 AND 5),
   created_by    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   updated_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))

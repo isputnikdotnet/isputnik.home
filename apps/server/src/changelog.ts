@@ -19,6 +19,17 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.45.0",
+    label: "For the record",
+    changes: [
+      "A story can now hold a book. Next to photos, albums and people there is a Book block: pick anything from your shelves — audiobook or ebook, one list, searchable — and it sits in the story as a card with its cover, its author, and a way straight to the book itself. “We read this aloud that summer” finally has somewhere to point.",
+      "Stories can carry a star rating, one to five, set in the editor and shown wherever the story appears. It is there for reviews — of a book, a film, a restaurant on the trip — but nothing stops you rating the family holiday.",
+      "And this is the part that makes reviews real: a story that mentions a book now shows up on that book's page, under “Reviews & stories”. It works across editions — write about the audiobook and your review is there on the ebook's page too, with a small note saying which one you actually read. The books already knew their editions belong together; now the reviews do.",
+      "The same thread runs the other way everywhere. A person's page in the family tree lists the stories they appear in. An album or a slideshow says which stories it appears in. Stories have always pointed at the things in the house; now the things point back.",
+      "None of it needs anything new from you — the connections come from what stories already reference. The sections simply aren't there until there is something to show."
+    ]
+  },
+  {
     version: "3.44.0",
     label: "A place of its own",
     changes: [

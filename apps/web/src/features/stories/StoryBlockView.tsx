@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { AlertTriangle, Images, MapPin, Mic, Play, Quote, UserRound } from "lucide-react";
+import { AlertTriangle, BookOpen, Headphones, Images, MapPin, Mic, Play, Quote, UserRound } from "lucide-react";
 import { GalleryMiniMap } from "../gallery/GalleryMiniMap";
 import { MessageBox } from "../../shared/MessageBox";
 import { followRoute } from "../../router";
@@ -103,6 +103,38 @@ export function StoryBlockView({
             onClick={(event) => followRoute(event, block.href!)}
           >
             {t("stories:block.openPerson")}
+          </a>
+        )}
+      </aside>
+    );
+  }
+
+  // A book from the shelves — a review's subject, or "we read this that
+  // summer". Same card shape as a person: cover, title, author, a way in.
+  if (block.kind === "book") {
+    const isAudiobook = block.entityType === "audiobook";
+    return (
+      <aside className="story-block story-block-person story-block-book">
+        <span className="story-person-portrait story-book-cover" aria-hidden="true">
+          {block.coverUrl
+            ? <img src={block.coverUrl} alt="" loading="lazy" />
+            : isAudiobook ? <Headphones size={22} /> : <BookOpen size={22} />}
+        </span>
+        <div className="story-person-copy">
+          <strong>{block.title}</strong>
+          {block.subtitle && <small>{block.subtitle}</small>}
+          <small className="muted">
+            {isAudiobook ? t("stories:block.audiobookLabel") : t("stories:block.ebookLabel")}
+          </small>
+          {block.caption && <p>{block.caption}</p>}
+        </div>
+        {block.href && (
+          <a
+            className="secondary-button compact-button"
+            href={block.href}
+            onClick={(event) => followRoute(event, block.href!)}
+          >
+            {t("stories:block.openBook")}
           </a>
         )}
       </aside>

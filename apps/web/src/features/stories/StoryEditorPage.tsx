@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, BookOpen, Link2, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, BookOpen, Link2, Plus, Star, Trash2 } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
@@ -188,6 +188,35 @@ export function StoryEditorPage({
                 />
                 <span className="muted">{t("stories:fields.chapterNounHint")}</span>
               </label>
+              <div className="story-field story-field-rating">
+                <span>{t("stories:rating.label")}</span>
+                <div className="story-rating-row">
+                  {[1, 2, 3, 4, 5].map((value) => (
+                    <button
+                      key={value}
+                      type="button"
+                      className="story-rating-star"
+                      onClick={() => void editor.patchStory({ rating: value })}
+                      disabled={busy}
+                      aria-pressed={story.rating != null && story.rating >= value}
+                      aria-label={t("stories:rating.setAria", { count: value })}
+                      title={t("stories:rating.setAria", { count: value })}
+                    >
+                      <Star
+                        size={20}
+                        aria-hidden="true"
+                        fill={story.rating != null && story.rating >= value ? "currentColor" : "none"}
+                      />
+                    </button>
+                  ))}
+                  {story.rating != null && (
+                    <Button variant="text" compact onClick={() => void editor.patchStory({ rating: null })} disabled={busy}>
+                      {t("stories:rating.clear")}
+                    </Button>
+                  )}
+                </div>
+                <span className="muted">{t("stories:rating.hint")}</span>
+              </div>
             </div>
 
             {!structured && !showChapterFields && (

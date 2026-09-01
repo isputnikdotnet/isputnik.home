@@ -1006,11 +1006,11 @@ describe('schema baseline (3.0.0)', () => {
     // remap, the interface-language column, the quote columns, the person
     // life-fact columns, dropping the retired opening-clip columns, the
     // per-slideshow movie target, the story-link expand_albums flag, the
-    // gallery_details rebuild for the audio kind, and the story chapter-page
-    // columns — none of which a fresh file
+    // gallery_details rebuild for the audio kind, the story chapter-page
+    // columns, and the story rating column — none of which a fresh file
     // needs, since schema.sql builds it complete and seeds no such job; those
     // migrations are only for databases that predate them.
-    expect(scratch.pragma('user_version', { simple: true })).toBe(56);
+    expect(scratch.pragma('user_version', { simple: true })).toBe(57);
 
     const userColumns = (scratch.pragma('table_info(users)') as { name: string }[]).map((c) => c.name);
     expect(userColumns).toEqual(
@@ -1086,7 +1086,7 @@ describe('schema baseline (3.0.0)', () => {
     migrate(current);
     current.pragma('user_version = 31'); // every 2.x migration applied
     expect(() => migrate(current)).not.toThrow();
-    expect(current.pragma('user_version', { simple: true })).toBe(56);
+    expect(current.pragma('user_version', { simple: true })).toBe(57);
     current.close();
   });
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Images, Play, Quote, Search, UserRound } from "lucide-react";
+import { BookOpen, Images, Play, Quote, Search, UserRound } from "lucide-react";
 import { api } from "../../api";
 import { Modal } from "../../shared/Modal";
 import { MessageBox } from "../../shared/MessageBox";
@@ -12,7 +12,7 @@ import type { Quote as QuoteRecord } from "../audiobooks/types";
 // endpoints, because it is the same choice every time — only the source and the
 // line under each row differ. Photos and videos keep their own door
 // (PhotoPicker), which is a grid rather than a list.
-export type RefKind = "album" | "slideshow" | "person" | "quote";
+export type RefKind = "album" | "slideshow" | "person" | "quote" | "book";
 
 interface Row {
   id: string;
@@ -24,13 +24,16 @@ interface Row {
   /** Photo count, when the second line is a count the component pluralizes. */
   count?: number;
   coverUrl: string | null;
+  /** Book rows only: which book type this is — handed back through onPick. */
+  entityType?: "audiobook" | "ebook";
 }
 
 const ICONS: Record<RefKind, typeof Images> = {
   album: Images,
   slideshow: Play,
   person: UserRound,
-  quote: Quote
+  quote: Quote,
+  book: BookOpen
 };
 
 export function StoryRefPicker({
@@ -42,7 +45,8 @@ export function StoryRefPicker({
   kind: RefKind;
   /** The story's own tags. Anything sharing one is offered first. */
   storyTags?: string[];
-  onPick: (id: string) => void;
+  /** Book picks also say which book type was chosen. */
+  onPick: (id: string, entityType?: "audiobook" | "ebook") => void;
   onClose: () => void;
 }) {
   const { t } = useTranslation(["common", "stories"]);
@@ -76,7 +80,7 @@ export function StoryRefPicker({
   const rest = visible.filter((row) => !suggestedIds.has(row.id));
 
   const renderRow = (row: Row) => (
-    <button type="button" className="story-picker-row" key={row.id} onClick={() => onPick(row.id)}>
+    <button type="button" className="story-picker-row" key={`${row.entityType ?? kind}:${row.id}`} onClick={() => onPick(row.id, row.entityType)}>
       <span className="story-picker-cover" aria-hidden="true">
         {row.coverUrl ? <img src={row.coverUrl} alt="" /> : <Icon size={18} />}
       </span>
@@ -161,6 +165,31 @@ async function loadRows(kind: RefKind): Promise<Row[]> {
       coverUrl: person.portraitUrl,
       tags: person.tags
     }));
+  }
+
+  if (kind === "book") {
+    // Both shelves in one list — a story doesn't care which kind of book it
+    // mentions, but the block records it (the reference's entity type).
+    type CatalogBook = { id: string; title: string; authors: string[]; coverUrl: string | null; tags: string[] };
+    const load = (url: string) =>
+      api<{ books: CatalogBook[] }>(url, { method: "POST", body: JSON.stringify({ limit: 200 }) })
+        .catch(() => ({ books: [] as CatalogBook[] }));
+    const [audiobooks, ebooks] = await Promise.all([
+      load("/api/library/audiobooks/catalog"),
+      load("/api/library/ebooks/catalog")
+    ]);
+    const toRow = (entityType: "audiobook" | "ebook") => (book: CatalogBook): Row => ({
+      id: book.id,
+      title: book.title,
+      detail: book.authors.join(", "),
+      coverUrl: book.coverUrl,
+      tags: book.tags ?? [],
+      entityType
+    });
+    return [
+      ...audiobooks.books.map(toRow("audiobook")),
+      ...ebooks.books.map(toRow("ebook"))
+    ].sort((a, b) => a.title.localeCompare(b.title));
   }
 
   const payload = await api<{ quotes: QuoteRecord[] }>("/api/library/quotes?limit=200");

@@ -11,7 +11,7 @@ export type StoryStatus = "draft" | "published";
  *  map = a place · person = someone in the family tree · quote = a pull quote.
  *  Everything but text and map carries an entity reference. */
 export type StoryBlockKind =
-  | "text" | "media" | "album" | "slideshow" | "map" | "person" | "quote" | "audio";
+  | "text" | "media" | "album" | "slideshow" | "map" | "person" | "quote" | "audio" | "book";
 
 export type StoryBlockLayout = "default" | "wide" | "grid";
 
@@ -25,6 +25,8 @@ export interface StorySummary {
   /** Span of the chapters that carry dates — partial ISO, may be null. */
   firstDate: string | null;
   lastDate: string | null;
+  /** Stars (1–5), mostly on review-shaped stories; null = unrated. */
+  rating: number | null;
   coverUrl: string | null;
   tags: string[];
   canEdit: boolean;
@@ -101,6 +103,8 @@ export interface StoryDetail {
   chapterNoun: string | null;
   /** Story Home opening prose (markdown, like text blocks). */
   intro: string | null;
+  /** Stars (1–5), mostly on review-shaped stories; null = unrated. */
+  rating: number | null;
   chapters: StoryChapter[];
 }
 

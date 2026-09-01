@@ -6,7 +6,7 @@
 import fs from "node:fs";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
-import { logActivity } from "../../db.js";
+import { db, logActivity } from "../../db.js";
 import { parseBody } from "../../core/shared.js";
 import { hydrateEntities } from "../social/subjects.js";
 import { resolveGalleryScopeLibraryIds } from "../library/gallery/catalog.js";
@@ -35,6 +35,7 @@ import {
 import {
   STORY_ENTITY_TYPE,
   STORY_BLOCK_KINDS,
+  BOOK_ENTITY_TYPES,
   STORY_STATUSES,
   BLOCK_ENTITY_TYPE,
   BLOCK_PREVIEW_LIMIT,
@@ -45,6 +46,7 @@ import {
   updateStory,
   deleteStory,
   listStories,
+  storyRefMatches,
   getStoryTags,
   getChapters,
   getChapter,
@@ -79,7 +81,9 @@ const updateSchema = z.object({
   coverItemId: entityId.nullable().optional(),
   // Authored text ("Day", "Stop"), NOT translated — it belongs to the story.
   chapterNoun: z.string().trim().max(30).nullable().optional(),
-  intro: z.string().trim().max(5000).nullable().optional()
+  intro: z.string().trim().max(5000).nullable().optional(),
+  // Stars, mostly for review-shaped stories. Null clears.
+  rating: z.number().int().min(1).max(5).nullable().optional()
 });
 
 const chapterSchema = z.object({
@@ -103,6 +107,8 @@ const blockCreateSchema = z.object({
   chapterId: entityId,
   kind: z.enum(STORY_BLOCK_KINDS),
   entityId: entityId.nullable().optional(),
+  // Book blocks only: which book type the reference is (audiobook | ebook).
+  entityType: z.enum(BOOK_ENTITY_TYPES).optional(),
   body: z.string().max(MARKDOWN_MAX).nullable().optional(),
   lat: z.number().min(-90).max(90).nullable().optional(),
   lng: z.number().min(-180).max(180).nullable().optional(),
@@ -112,7 +118,8 @@ const blockCreateSchema = z.object({
   layout: z.enum(["default", "wide", "grid"]).nullable().optional()
 });
 
-const blockUpdateSchema = blockCreateSchema.omit({ chapterId: true, kind: true });
+// A block's kind — and a book block's chosen type — are settled at creation.
+const blockUpdateSchema = blockCreateSchema.omit({ chapterId: true, kind: true, entityType: true });
 
 const reorderSchema = z.object({
   orderedIds: z.array(entityId).min(1).max(500)
@@ -219,9 +226,11 @@ export async function storiesPlugin(app: FastifyInstance) {
   const referenceIsReachable = (
     kind: StoryBlockKind,
     id: string | null | undefined,
-    user: { id: string; role: string }
+    user: { id: string; role: string },
+    // Book blocks carry their own type; everything else derives it from kind.
+    explicitType?: string | null
   ): boolean => {
-    const entityType = BLOCK_ENTITY_TYPE[kind];
+    const entityType = explicitType ?? BLOCK_ENTITY_TYPE[kind];
     if (!entityType) return true;
     if (!id) return false;
     // Audio validates as a gallery asset here (the v2 model — a new block can
@@ -233,6 +242,46 @@ export async function storiesPlugin(app: FastifyInstance) {
   app.get("/api/stories", { preHandler: app.authenticate }, async (request) => {
     const user = request.user!;
     return { stories: listStories(user, resolveGalleryScopeLibraryIds(user)) };
+  });
+
+  // Back-links: the stories whose blocks reference an entity — "Reviews &
+  // stories" on a book page, "Stories featuring…" on a person, "Appears in…"
+  // on an album. Same visibility rule and card shape as the index. For a book
+  // the net is the whole WORK (every edition, both book types): a review is
+  // about the story, not the file — each card then says which edition it
+  // actually referenced.
+  const REFERENCING_TYPES = new Set([
+    "audiobook", "ebook", "family_tree_person", "gallery_album", "gallery_slideshow"
+  ]);
+
+  app.get("/api/stories/referencing", { preHandler: app.authenticate }, async (request, reply) => {
+    const qp = request.query as { type?: string; id?: string };
+    const type = qp.type ?? "";
+    const id = (qp.id ?? "").trim();
+    if (!REFERENCING_TYPES.has(type) || !id || id.length > 64) {
+      return reply.code(400).send({ error: "Invalid reference query" });
+    }
+
+    let entityTypes = [type];
+    let entityIds = [id];
+    if (type === "audiobook" || type === "ebook") {
+      const work = db.prepare("SELECT work_id FROM work_items WHERE item_id = ?").get(id) as { work_id: string } | undefined;
+      if (work) {
+        entityIds = (db.prepare("SELECT item_id FROM work_items WHERE work_id = ?").all(work.work_id) as { item_id: string }[])
+          .map((row) => row.item_id);
+      }
+      entityTypes = ["audiobook", "ebook"];
+    }
+
+    const user = request.user!;
+    const stories = listStories(user, resolveGalleryScopeLibraryIds(user), undefined, { entityTypes, entityIds });
+    const matches = storyRefMatches(stories.map((story) => story.id), entityTypes, entityIds);
+    return reply.send({
+      stories: stories.map((story) => ({
+        ...story,
+        refEntityType: matches.get(story.id)?.entityType ?? null
+      }))
+    });
   });
 
   // ── Recordings-library setting (Control → Settings → Stories) ──
@@ -401,6 +450,7 @@ export async function storiesPlugin(app: FastifyInstance) {
         tags: getStoryTags(story.id),
         chapterNoun: story.chapter_noun,
         intro: story.intro,
+        rating: story.rating,
         // The chosen cover resolved for this viewer — the Story Home hero.
         cover: story.cover_item_id ? assets.get(story.cover_item_id) ?? null : null,
         chapters: chapters.map((chapter) => ({
@@ -608,7 +658,11 @@ export async function storiesPlugin(app: FastifyInstance) {
     if (!chapter || chapter.story_id !== story.id) {
       return reply.code(404).send({ error: "Chapter not found" });
     }
-    if (!referenceIsReachable(parsed.data.kind, parsed.data.entityId, user)) {
+    // A book block must say which book type it references.
+    if (parsed.data.kind === "book" && !parsed.data.entityType) {
+      return reply.code(400).send({ error: "Invalid block", details: "A book block needs its book type." });
+    }
+    if (!referenceIsReachable(parsed.data.kind, parsed.data.entityId, user, parsed.data.kind === "book" ? parsed.data.entityType : undefined)) {
       return reply.code(400).send({ error: "That content isn't available to add." });
     }
     const block = createBlock(chapter.id, story.id, parsed.data.kind, parsed.data);
@@ -644,7 +698,8 @@ export async function storiesPlugin(app: FastifyInstance) {
     if (parsed.error) {
       return reply.code(400).send({ error: "Invalid block", details: parsed.error });
     }
-    if (parsed.data.entityId !== undefined && !referenceIsReachable(block.kind, parsed.data.entityId, user)) {
+    if (parsed.data.entityId !== undefined
+      && !referenceIsReachable(block.kind, parsed.data.entityId, user, block.kind === "book" ? block.entity_type : undefined)) {
       return reply.code(400).send({ error: "That content isn't available to add." });
     }
     updateBlock(block.id, story.id, parsed.data);

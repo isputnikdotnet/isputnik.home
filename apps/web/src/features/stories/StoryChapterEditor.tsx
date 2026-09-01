@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronDown, ChevronUp, Images, MapPin, Mic, Play, Plus, Quote, Trash2, Type, UserRound } from "lucide-react";
+import { BookOpen, ChevronDown, ChevronUp, Images, MapPin, Mic, Play, Plus, Quote, Trash2, Type, UserRound } from "lucide-react";
 import { Button } from "../../shared/Button";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { PartialDateField } from "../../shared/PartialDateField";
@@ -266,6 +266,10 @@ export function StoryChapterEditor({
           <Quote size={15} aria-hidden="true" />
           <span>{t("stories:kind.quote")}</span>
         </Button>
+        <Button variant="secondary" compact onClick={() => setPicker("book")} disabled={busy}>
+          <BookOpen size={15} aria-hidden="true" />
+          <span>{t("stories:kind.book")}</span>
+        </Button>
         {/* Recording needs a destination: the affordance exists only once an
             admin has nominated the recordings library. Members see nothing
             until then; an admin sees it disabled, pointing at the setting. */}
@@ -321,11 +325,16 @@ export function StoryChapterEditor({
         />
       )}
 
-      {(picker === "album" || picker === "slideshow" || picker === "person" || picker === "quote") && (
+      {(picker === "album" || picker === "slideshow" || picker === "person" || picker === "quote" || picker === "book") && (
         <StoryRefPicker
           kind={picker}
           storyTags={storyTags}
-          onPick={(id) => { const kind = picker; setPicker(null); onAddBlock(kind, { entityId: id }); }}
+          onPick={(id, entityType) => {
+            const kind = picker;
+            setPicker(null);
+            // A book pick carries which shelf it came from; the block keeps it.
+            onAddBlock(kind, kind === "book" ? { entityId: id, entityType } : { entityId: id });
+          }}
           onClose={() => setPicker(null)}
         />
       )}

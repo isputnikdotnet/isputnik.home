@@ -13,6 +13,7 @@ import {
   updateStory,
   deleteStory,
   listStories,
+  storyRefMatches,
   canEditStory,
   canViewStory,
   getStory,
@@ -431,5 +432,74 @@ describe("cleanup of dangling references", () => {
     expect(getStory(story.id)).toBeUndefined();
     expect(db.prepare("SELECT COUNT(*) AS n FROM story_chapters").get()).toEqual({ n: 0 });
     expect(db.prepare("SELECT COUNT(*) AS n FROM story_blocks").get()).toEqual({ n: 0 });
+  });
+});
+
+describe("ratings and book blocks (v2 step 4)", () => {
+  it("stores and clears a star rating", () => {
+    const story = createStory(author, "The Master and Margarita, read at last", null);
+    expect(getStory(story.id)!.rating).toBeNull();
+    updateStory(story.id, { rating: 4 });
+    expect(getStory(story.id)!.rating).toBe(4);
+    // Patching another field leaves the stars alone.
+    updateStory(story.id, { subtitle: "A review" });
+    expect(getStory(story.id)!.rating).toBe(4);
+    updateStory(story.id, { rating: null });
+    expect(getStory(story.id)!.rating).toBeNull();
+  });
+
+  it("refuses stars outside 1..5 at the schema", () => {
+    const story = createStory(author, "Impossible", null);
+    expect(() =>
+      db.prepare("UPDATE stories SET rating = 9 WHERE id = ?").run(story.id)
+    ).toThrow();
+  });
+
+  it("stores whichever book type the picker chose on a book block", () => {
+    const story = createStory(author, "Summer reading", null);
+    const chapterId = getChapters(story.id)[0].id;
+    const asEbook = createBlock(chapterId, story.id, "book", { entityId: "b1", entityType: "ebook" });
+    const asAudio = createBlock(chapterId, story.id, "book", { entityId: "b2", entityType: "audiobook" });
+    expect(asEbook.entity_type).toBe("ebook");
+    expect(asAudio.entity_type).toBe("audiobook");
+    // Patching the reference keeps the chosen type — kind and type are settled
+    // at creation.
+    updateBlock(asEbook.id, story.id, { entityId: "b3" });
+    expect(getBlocks(story.id).find((row) => row.id === asEbook.id)!.entity_type).toBe("ebook");
+  });
+});
+
+describe("back-links (v2 step 5)", () => {
+  it("finds the stories referencing an entity, with the usual visibility", () => {
+    const review = createStory(author, "Review of a book", null);
+    updateStory(review.id, { status: "published" });
+    createBlock(getChapters(review.id)[0].id, review.id, "book", { entityId: "b1", entityType: "ebook" });
+    // A draft referencing the same book is the author's business only.
+    const draft = createStory(author, "Half-written review", null);
+    createBlock(getChapters(draft.id)[0].id, draft.id, "book", { entityId: "b1", entityType: "ebook" });
+
+    const ref = { entityTypes: ["audiobook", "ebook"], entityIds: ["b1"] };
+    expect(listStories(viewer, GAL_LIBS, undefined, ref).map((s) => s.id)).toEqual([review.id]);
+    expect(new Set(listStories(author, GAL_LIBS, undefined, ref).map((s) => s.id)))
+      .toEqual(new Set([review.id, draft.id]));
+    // A different entity finds nothing.
+    expect(listStories(viewer, GAL_LIBS, undefined, { entityTypes: ["ebook"], entityIds: ["b2"] })).toHaveLength(0);
+
+    // The edition note: which of the queried entities the story referenced.
+    const matches = storyRefMatches([review.id], ["audiobook", "ebook"], ["b1"]);
+    expect(matches.get(review.id)).toEqual({ entityType: "ebook", entityId: "b1" });
+  });
+
+  it("finds stories through album and person blocks too", () => {
+    const story = createStory(author, "Minnesota", null);
+    updateStory(story.id, { status: "published" });
+    const chapterId = getChapters(story.id)[0].id;
+    db.prepare("INSERT INTO story_blocks (id, chapter_id, position, kind, entity_type, entity_id) VALUES ('alb1', ?, 1, 'album', 'gallery_album', 'A1')").run(chapterId);
+    db.prepare("INSERT INTO story_blocks (id, chapter_id, position, kind, entity_type, entity_id) VALUES ('per1', ?, 2, 'person', 'family_tree_person', 'P1')").run(chapterId);
+
+    expect(listStories(viewer, GAL_LIBS, undefined, { entityTypes: ["gallery_album"], entityIds: ["A1"] }).map((s) => s.id))
+      .toEqual([story.id]);
+    expect(listStories(viewer, GAL_LIBS, undefined, { entityTypes: ["family_tree_person"], entityIds: ["P1"] }).map((s) => s.id))
+      .toEqual([story.id]);
   });
 });

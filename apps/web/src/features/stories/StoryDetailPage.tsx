@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, ChevronLeft, ChevronRight, MapPin, Pencil, Send } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, MapPin, Pencil, Send, Star } from "lucide-react";
 import { api } from "../../api";
 import { followRoute, goBack, navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
@@ -196,6 +196,18 @@ export function StoryDetailPage({ id, chapterId }: { id: string; chapterId?: str
   );
 }
 
+/** The story's stars, read-only — five outlines, `value` of them filled. */
+function StoryStars({ value }: { value: number }) {
+  const { t } = useTranslation(["stories"]);
+  return (
+    <span className="story-stars" role="img" aria-label={t("stories:rating.aria", { count: value })}>
+      {[1, 2, 3, 4, 5].map((step) => (
+        <Star key={step} size={14} aria-hidden="true" fill={step <= value ? "currentColor" : "none"} />
+      ))}
+    </span>
+  );
+}
+
 /** The best image a chapter can offer its card: the hero, else the first
  *  visible photo any of its blocks shows. */
 function chapterThumb(chapter: StoryChapter): string | null {
@@ -261,13 +273,14 @@ function StoryHome({ story, onOpenChapter }: { story: StoryDetail; onOpenChapter
           )}
           <h1>{story.title}</h1>
           {story.subtitle && <p className="story-read-subtitle">{story.subtitle}</p>}
-          {(span || primaryPlace) && (
+          {(span || primaryPlace || story.rating != null) && (
             <p className="story-home-meta">
               {span}
               {span && primaryPlace && <span aria-hidden="true"> · </span>}
               {primaryPlace && (
                 <span className="story-chapter-place"><MapPin size={13} aria-hidden="true" /> {primaryPlace}</span>
               )}
+              {story.rating != null && <StoryStars value={story.rating} />}
             </p>
           )}
         </div>
@@ -361,6 +374,7 @@ function FlatStory({
         )}
         <h1>{story.title}</h1>
         {story.subtitle && <p className="story-read-subtitle">{story.subtitle}</p>}
+        {story.rating != null && <p className="story-home-meta"><StoryStars value={story.rating} /></p>}
         {story.intro && <StoryMarkdown source={story.intro} />}
         {story.tags.length > 0 && (
           <ul className="story-read-tags">

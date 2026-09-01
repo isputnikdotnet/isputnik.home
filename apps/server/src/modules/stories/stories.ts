@@ -34,9 +34,13 @@ const inClause = (n: number) => Array(n).fill("?").join(", ");
 export const STORY_ENTITY_TYPE = "story";
 
 export const STORY_BLOCK_KINDS = [
-  "text", "media", "album", "slideshow", "map", "person", "quote", "audio"
+  "text", "media", "album", "slideshow", "map", "person", "quote", "audio", "book"
 ] as const;
 export type StoryBlockKind = (typeof STORY_BLOCK_KINDS)[number];
+
+/** A book card references an ebook or an audiobook — the one block whose
+ *  entity type is chosen per block rather than fixed by its kind. */
+export const BOOK_ENTITY_TYPES = ["audiobook", "ebook"] as const;
 
 export const STORY_STATUSES = ["draft", "published"] as const;
 export type StoryStatus = (typeof STORY_STATUSES)[number];
@@ -62,7 +66,11 @@ export const BLOCK_ENTITY_TYPE: Record<StoryBlockKind, string | null> = {
   // entity_type 'story_audio' (a story-owned clip, audio.ts) and keep serving
   // until the one-time import in recordings.ts moves them; the read paths
   // accept both shapes.
-  audio: "gallery"
+  audio: "gallery",
+  // Nominal only: a book block's REAL type is per block (BOOK_ENTITY_TYPES),
+  // chosen by the picker and stored on the row — this entry just marks the
+  // kind as a reference. createBlock and reachability use the chosen type.
+  book: "audiobook"
 };
 
 export interface StoryRow {
@@ -73,6 +81,7 @@ export interface StoryRow {
   status: StoryStatus;
   chapter_noun: string | null;
   intro: string | null;
+  rating: number | null;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -167,6 +176,7 @@ export interface StoryUpdate {
   coverItemId?: string | null;
   chapterNoun?: string | null;
   intro?: string | null;
+  rating?: number | null;
 }
 
 export function updateStory(storyId: string, fields: StoryUpdate): void {
@@ -178,6 +188,7 @@ export function updateStory(storyId: string, fields: StoryUpdate): void {
       cover_item_id = CASE WHEN ? THEN ? ELSE cover_item_id END,
       chapter_noun  = CASE WHEN ? THEN ? ELSE chapter_noun END,
       intro         = CASE WHEN ? THEN ? ELSE intro END,
+      rating        = CASE WHEN ? THEN ? ELSE rating END,
       updated_at    = strftime('%Y-%m-%dT%H:%M:%fZ','now')
     WHERE id = ?
   `).run(
@@ -191,6 +202,8 @@ export function updateStory(storyId: string, fields: StoryUpdate): void {
     fields.chapterNoun ?? null,
     fields.intro !== undefined ? 1 : 0,
     fields.intro ?? null,
+    fields.rating !== undefined ? 1 : 0,
+    fields.rating ?? null,
     storyId
   );
 }
@@ -226,9 +239,26 @@ interface StoryListRow extends StoryRow {
 //
 // `tagId` narrows to the stories carrying that tag, which is what the cross-type
 // tag browse asks for — same visibility rule, same card shape.
-export function listStories(user: { id: string; role: string }, libIds: string[], tagId?: string) {
+//
+// `ref` narrows to the stories whose blocks reference one of the given
+// entities — the back-links query ("Reviews & stories" on a book page,
+// "Stories featuring…" on a person). Types come as a list because a book's
+// back-links span its whole WORK: every edition, audiobook and ebook alike.
+export function listStories(
+  user: { id: string; role: string },
+  libIds: string[],
+  tagId?: string,
+  ref?: { entityTypes: string[]; entityIds: string[] }
+) {
   const libArgs = libIds.length > 0 ? libIds : [""];
   const libIn = inClause(libArgs.length);
+  const refClause = ref && ref.entityTypes.length > 0 && ref.entityIds.length > 0
+    ? `AND EXISTS (SELECT 1 FROM story_blocks
+        JOIN story_chapters AS ref_chapters ON ref_chapters.id = story_blocks.chapter_id
+        WHERE ref_chapters.story_id = stories.id
+          AND story_blocks.entity_type IN (${inClause(ref.entityTypes.length)})
+          AND story_blocks.entity_id IN (${inClause(ref.entityIds.length)}))`
+    : "";
   const rows = db.prepare(`
     SELECT
       stories.*,
@@ -262,8 +292,13 @@ export function listStories(user: { id: string; role: string }, libIds: string[]
     WHERE (stories.status = 'published' OR stories.created_by = ? OR ? = 'admin')
       ${tagId ? `AND EXISTS (SELECT 1 FROM taggables WHERE taggables.entity_type = '${STORY_ENTITY_TYPE}'
             AND taggables.entity_id = stories.id AND taggables.tag_id = ?)` : ""}
+      ${refClause}
     ORDER BY datetime(stories.updated_at) DESC
-  `).all(...libArgs, ...libArgs, user.id, user.role, ...(tagId ? [tagId] : [])) as StoryListRow[];
+  `).all(
+    ...libArgs, ...libArgs, user.id, user.role,
+    ...(tagId ? [tagId] : []),
+    ...(refClause ? [...ref!.entityTypes, ...ref!.entityIds] : [])
+  ) as StoryListRow[];
 
   const tags = storyTagsByStory(rows.map((row) => row.id));
   return rows.map((row) => ({
@@ -275,12 +310,38 @@ export function listStories(user: { id: string; role: string }, libIds: string[]
     blockCount: row.block_count,
     firstDate: row.first_date,
     lastDate: row.last_date,
+    rating: row.rating,
     coverUrl: row.cover_key ? `/api/library/covers/${row.cover_key}` : null,
     tags: tags.get(row.id) ?? [],
     canEdit: canEditStory(row, user),
     createdAt: row.created_at,
     updatedAt: row.updated_at
   }));
+}
+
+/** Which of the given entities each story's blocks actually reference — the
+ *  edition note on a work-wide book query ("reviewed the audiobook edition").
+ *  First match per story, in reading order. */
+export function storyRefMatches(
+  storyIds: string[],
+  entityTypes: string[],
+  entityIds: string[]
+): Map<string, { entityType: string; entityId: string }> {
+  const out = new Map<string, { entityType: string; entityId: string }>();
+  if (storyIds.length === 0 || entityTypes.length === 0 || entityIds.length === 0) return out;
+  const rows = db.prepare(`
+    SELECT story_chapters.story_id AS story_id, story_blocks.entity_type AS entity_type, story_blocks.entity_id AS entity_id
+    FROM story_blocks
+    JOIN story_chapters ON story_chapters.id = story_blocks.chapter_id
+    WHERE story_chapters.story_id IN (${inClause(storyIds.length)})
+      AND story_blocks.entity_type IN (${inClause(entityTypes.length)})
+      AND story_blocks.entity_id IN (${inClause(entityIds.length)})
+    ORDER BY story_chapters.position ASC, story_blocks.position ASC
+  `).all(...storyIds, ...entityTypes, ...entityIds) as { story_id: string; entity_type: string; entity_id: string }[];
+  for (const row of rows) {
+    if (!out.has(row.story_id)) out.set(row.story_id, { entityType: row.entity_type, entityId: row.entity_id });
+  }
+  return out;
 }
 
 /** One story's tags, and tags for many stories at once — thin names over the
@@ -423,6 +484,8 @@ export function getBlock(blockId: string): BlockRow | undefined {
 
 export interface BlockFields {
   entityId?: string | null;
+  /** Book blocks only: which of BOOK_ENTITY_TYPES the reference is. */
+  entityType?: string | null;
   body?: string | null;
   lat?: number | null;
   lng?: number | null;
@@ -434,7 +497,9 @@ export interface BlockFields {
 
 export function createBlock(chapterId: string, storyId: string, kind: StoryBlockKind, fields: BlockFields): BlockRow {
   const id = nanoid(16);
-  const entityType = BLOCK_ENTITY_TYPE[kind];
+  // A book block stores whichever of the two book types the picker chose;
+  // every other kind's entity type is fixed by the kind itself.
+  const entityType = kind === "book" ? fields.entityType ?? null : BLOCK_ENTITY_TYPE[kind];
   db.transaction(() => {
     db.prepare(`
       INSERT INTO story_blocks

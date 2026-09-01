@@ -518,6 +518,19 @@ const migrations: { version: number; up: (db: Database.Database) => void }[] = [
         db.exec("ALTER TABLE story_chapters ADD COLUMN hero_item_id TEXT REFERENCES library_items(id) ON DELETE SET NULL");
       }
     }
+  },
+  {
+    // 3.45.0 — story ratings (stories v2 step 4, mostly for review-shaped
+    // stories: a review without stars reads as unfinished).
+    version: 57,
+    up: (db) => {
+      const columns = new Set(
+        (db.prepare("PRAGMA table_info(stories)").all() as { name: string }[]).map((c) => c.name)
+      );
+      if (!columns.has("rating")) {
+        db.exec("ALTER TABLE stories ADD COLUMN rating INTEGER CHECK (rating IS NULL OR rating BETWEEN 1 AND 5)");
+      }
+    }
   }
 ];
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Download, Images, MapPin, Mic, Play, Quote, UserRound } from "lucide-react";
+import { BookOpen, Download, Headphones, Images, MapPin, Mic, Play, Quote, UserRound } from "lucide-react";
 import { StoryMarkdown } from "../features/stories/StoryMarkdown";
 import { GalleryMiniMap } from "../features/gallery/GalleryMiniMap";
 import { formatPartialDate, formatPartialDateRange } from "../shared/utils";
@@ -33,7 +33,8 @@ export type StoryShareBlock =
   | { kind: "map"; lat: number; lng: number; zoom: number | null; label: string | null; caption: string | null }
   | { kind: "person"; name: string; birthDate: string | null; deathDate: string | null; caption: string | null }
   | { kind: "quote"; text: string; attribution: string | null; caption: string | null }
-  | { kind: "audio"; title: string | null; durationSeconds: number | null; url: string; caption: string | null };
+  | { kind: "audio"; title: string | null; durationSeconds: number | null; url: string; caption: string | null }
+  | { kind: "book"; title: string | null; author: string | null; bookType: string; caption: string | null };
 
 export interface StoryShareChapter {
   title: string | null;
@@ -278,6 +279,26 @@ function ShareBlock({ block, onOpen }: { block: StoryShareBlock; onOpen: (id: st
         <div className="story-person-copy">
           <strong>{block.name}</strong>
           {years && <small>{years}</small>}
+          {block.caption && <p>{block.caption}</p>}
+        </div>
+      </aside>
+    );
+  }
+
+  // A book card for a guest: text only — no cover route through the token,
+  // and no in-app link a guest could follow.
+  if (block.kind === "book") {
+    return (
+      <aside className="story-block story-block-person story-block-book">
+        <span className="story-person-portrait story-book-cover" aria-hidden="true">
+          {block.bookType === "audiobook" ? <Headphones size={22} /> : <BookOpen size={22} />}
+        </span>
+        <div className="story-person-copy">
+          <strong>{block.title}</strong>
+          {block.author && <small>{block.author}</small>}
+          <small className="muted">
+            {block.bookType === "audiobook" ? t("stories:block.audiobookLabel") : t("stories:block.ebookLabel")}
+          </small>
           {block.caption && <p>{block.caption}</p>}
         </div>
       </aside>
