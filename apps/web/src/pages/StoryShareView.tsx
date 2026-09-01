@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { BookOpen, Download, Headphones, Images, MapPin, Mic, Play, Quote, UserRound } from "lucide-react";
+import { BookOpen, ChevronLeft, ChevronRight, Download, Headphones, Images, MapPin, Mic, Play, Quote, Star, UserRound } from "lucide-react";
 import { StoryMarkdown } from "../features/stories/StoryMarkdown";
 import { GalleryMiniMap } from "../features/gallery/GalleryMiniMap";
 import { formatPartialDate, formatPartialDateRange } from "../shared/utils";
@@ -11,7 +11,10 @@ import { formatPartialDate, formatPartialDateRange } from "../shared/utils";
 // link chose to expose.
 //
 // The layout classes are the reading view's (styles/stories.css), so a story
-// looks the same to a guest as it does to the family.
+// looks the same to a guest as it does to the family — including the site
+// shape: a chaptered story gets a front page and per-chapter pages, navigated
+// with a ?chapter= query on the one share URL (the payload already holds
+// every chapter, so no extra route or request is needed).
 
 export interface StoryShareAsset {
   id: string;
@@ -37,12 +40,18 @@ export type StoryShareBlock =
   | { kind: "book"; title: string | null; author: string | null; bookType: string; caption: string | null };
 
 export interface StoryShareChapter {
+  /** A bare handle for the guest page's own ?chapter= navigation. */
+  id: string;
   title: string | null;
   date: string | null;
   endDate: string | null;
   dateApprox: boolean;
   place: string | null;
+  placeLat: number | null;
+  placeLng: number | null;
+  standfirst: string | null;
   description: string | null;
+  hero: StoryShareAsset | null;
   blocks: StoryShareBlock[];
 }
 
@@ -52,9 +61,36 @@ export interface StorySharePayload {
   story: {
     title: string;
     subtitle: string | null;
+    chapterNoun: string | null;
+    intro: string | null;
+    rating: number | null;
+    cover: StoryShareAsset | null;
     expandAlbums: boolean;
     chapters: StoryShareChapter[];
   };
+}
+
+/** "Day 1" / the chapter's title / its date / a number — same resolution as
+ *  the signed-in site view. */
+function shareChapterLabel(story: StorySharePayload["story"], chapter: StoryShareChapter, index: number): string {
+  if (story.chapterNoun) return `${story.chapterNoun} ${index + 1}`;
+  return chapter.title ?? chapter.date ?? String(index + 1);
+}
+
+/** Every photo a chapter's blocks show — the "Photos from Day N" strip. */
+function chapterAssets(chapter: StoryShareChapter): StoryShareAsset[] {
+  const seen = new Set<string>();
+  const out: StoryShareAsset[] = [];
+  for (const block of chapter.blocks) {
+    const assets = block.kind === "media" ? [block.asset]
+      : block.kind === "album" || block.kind === "slideshow" ? block.items : [];
+    for (const asset of assets) {
+      if (seen.has(asset.id)) continue;
+      seen.add(asset.id);
+      out.push(asset);
+    }
+  }
+  return out;
 }
 
 export function StoryShareView({ token, payload }: { token: string; payload: StorySharePayload }) {
@@ -63,11 +99,7 @@ export function StoryShareView({ token, payload }: { token: string; payload: Sto
 
   // One flat list of every photo the page shows, so the viewer can step through
   // the whole story rather than being trapped inside one block.
-  const gallery: StoryShareAsset[] = story.chapters.flatMap((chapter) =>
-    chapter.blocks.flatMap((block) =>
-      block.kind === "media" ? [block.asset] : block.kind === "album" || block.kind === "slideshow" ? block.items : []
-    )
-  );
+  const gallery: StoryShareAsset[] = story.chapters.flatMap(chapterAssets);
   const [openId, setOpenId] = useState<string | null>(null);
   const openIndex = openId == null ? -1 : gallery.findIndex((asset) => asset.id === openId);
   const open = openIndex >= 0 ? gallery[openIndex] : null;
@@ -86,39 +118,95 @@ export function StoryShareView({ token, payload }: { token: string; payload: Sto
   const hasStructure = story.chapters.length > 1
     || Boolean(story.chapters[0] && (story.chapters[0].title || story.chapters[0].date || story.chapters[0].place));
 
+  // Which chapter page the guest is on (null = the front page). Kept in the
+  // URL's ?chapter= so a guest can share or reload a specific day; Back works
+  // because the browser's history carries the query.
+  const [chapterId, setChapterId] = useState<string | null>(
+    () => new URLSearchParams(window.location.search).get("chapter")
+  );
+  const goTo = (id: string | null) => {
+    const url = new URL(window.location.href);
+    if (id) url.searchParams.set("chapter", id);
+    else url.searchParams.delete("chapter");
+    window.history.pushState({}, "", url);
+    setChapterId(id);
+    window.scrollTo(0, 0);
+  };
+  useEffect(() => {
+    const onPop = () => setChapterId(new URLSearchParams(window.location.search).get("chapter"));
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  const chapterIndex = chapterId ? story.chapters.findIndex((chapter) => chapter.id === chapterId) : -1;
+  const chapter = chapterIndex >= 0 ? story.chapters[chapterIndex] : null;
+
   return (
     <div className="share-page">
       <div className="share-card share-card--story">
-        <article className="story-read">
-          <header className="story-read-head">
-            <h1>{story.title}</h1>
-            {story.subtitle && <p className="story-read-subtitle">{story.subtitle}</p>}
-            {share.sharedBy && (
-              <p className="share-shared-by">{t("user:sharePage.sharedBy", { name: share.sharedBy })}</p>
-            )}
-            <div className="story-read-actions">
-              {gallery.length > 0 && (
-                <a className="secondary-button compact-button" href={`/api/share/${token}/download-all`} download>
-                  <Download size={15} aria-hidden="true" />
-                  <span>{t("user:sharePage.downloadAll")}</span>
-                </a>
+        {hasStructure && (
+          <nav className="story-site-strip" aria-label={t("stories:site.stripAria")}>
+            <button type="button" className={chapter ? "" : "is-current"} onClick={() => goTo(null)}>
+              {t("stories:site.overview")}
+            </button>
+            {story.chapters.map((item, index) => (
+              <button
+                key={item.id}
+                type="button"
+                className={item.id === chapterId ? "is-current" : ""}
+                onClick={() => goTo(item.id)}
+              >
+                {shareChapterLabel(story, item, index)}
+              </button>
+            ))}
+          </nav>
+        )}
+
+        {hasStructure && chapter ? (
+          <ShareChapterPage
+            story={story}
+            chapter={chapter}
+            index={chapterIndex}
+            onOpen={setOpenId}
+            onGoTo={goTo}
+          />
+        ) : hasStructure ? (
+          <ShareStoryHome
+            story={story}
+            sharedBy={share.sharedBy}
+            token={token}
+            galleryCount={gallery.length}
+            onGoTo={goTo}
+          />
+        ) : (
+          <article className="story-read">
+            <header className="story-read-head">
+              <h1>{story.title}</h1>
+              {story.subtitle && <p className="story-read-subtitle">{story.subtitle}</p>}
+              {story.rating != null && <ShareStars value={story.rating} />}
+              {story.intro && <StoryMarkdown source={story.intro} />}
+              {share.sharedBy && (
+                <p className="share-shared-by">{t("user:sharePage.sharedBy", { name: share.sharedBy })}</p>
               )}
-            </div>
-          </header>
+              <div className="story-read-actions">
+                {gallery.length > 0 && (
+                  <a className="secondary-button compact-button" href={`/api/share/${token}/download-all`} download>
+                    <Download size={15} aria-hidden="true" />
+                    <span>{t("user:sharePage.downloadAll")}</span>
+                  </a>
+                )}
+              </div>
+            </header>
 
-          {story.chapters.every((chapter) => chapter.blocks.length === 0) && (
-            <p className="muted">{t("stories:read.emptyReader")}</p>
-          )}
+            {story.chapters.every((item) => item.blocks.length === 0) && (
+              <p className="muted">{t("stories:read.emptyReader")}</p>
+            )}
 
-          {story.chapters.map((chapter, index) => (
-            <ChapterSection
-              key={index}
-              chapter={chapter}
-              showHeader={hasStructure}
-              onOpen={setOpenId}
-            />
-          ))}
-        </article>
+            {story.chapters.map((item, index) => (
+              <ChapterSection key={index} chapter={item} showHeader={false} onOpen={setOpenId} />
+            ))}
+          </article>
+        )}
       </div>
 
       {open && (
@@ -140,6 +228,181 @@ export function StoryShareView({ token, payload }: { token: string; payload: Sto
         </div>
       )}
     </div>
+  );
+}
+
+function ShareStars({ value }: { value: number }) {
+  const { t } = useTranslation(["stories"]);
+  return (
+    <span className="story-stars" role="img" aria-label={t("stories:rating.aria", { count: value })}>
+      {[1, 2, 3, 4, 5].map((step) => (
+        <Star key={step} size={14} aria-hidden="true" fill={step <= value ? "currentColor" : "none"} />
+      ))}
+    </span>
+  );
+}
+
+// The guest front page — the same shape the family sees: hero, intro, a card
+// per chapter, the download of everything the link exposes.
+function ShareStoryHome({
+  story,
+  sharedBy,
+  token,
+  galleryCount,
+  onGoTo
+}: {
+  story: StorySharePayload["story"];
+  sharedBy: string | null;
+  token: string;
+  galleryCount: number;
+  onGoTo: (id: string) => void;
+}) {
+  const { t } = useTranslation(["common", "user", "stories"]);
+  const heroUrl = story.cover?.previewUrl
+    ?? story.chapters.find((chapter) => chapter.hero)?.hero?.previewUrl
+    ?? null;
+
+  return (
+    <article className="story-home">
+      <header className={`story-home-hero${heroUrl ? " has-image" : ""}`}>
+        {heroUrl && <img src={heroUrl} alt="" />}
+        <div className="story-home-hero-text">
+          <h1>{story.title}</h1>
+          {story.subtitle && <p className="story-read-subtitle">{story.subtitle}</p>}
+          {story.rating != null && <p className="story-home-meta"><ShareStars value={story.rating} /></p>}
+        </div>
+      </header>
+
+      {story.intro && <div className="story-home-intro"><StoryMarkdown source={story.intro} /></div>}
+
+      {sharedBy && <p className="share-shared-by">{t("user:sharePage.sharedBy", { name: sharedBy })}</p>}
+
+      <div className="story-home-chapters">
+        {story.chapters.map((chapter, index) => {
+          const label = shareChapterLabel(story, chapter, index);
+          const thumb = chapter.hero?.coverUrl ?? chapterAssets(chapter)[0]?.coverUrl ?? null;
+          const dateText = chapter.date
+            ? (chapter.endDate ? formatPartialDateRange(chapter.date, chapter.endDate) : formatPartialDate(chapter.date))
+            : "";
+          const dateLabel = dateText && chapter.dateApprox ? t("stories:chapter.approx", { date: dateText }) : dateText;
+          return (
+            <button key={chapter.id} type="button" className="story-home-card" onClick={() => onGoTo(chapter.id)}>
+              {thumb ? <img src={thumb} alt="" loading="lazy" /> : <span className="story-home-card-blank" aria-hidden="true" />}
+              <span className="story-home-card-body">
+                <span className="story-home-card-eyebrow">{label}</span>
+                {chapter.title && chapter.title !== label && (
+                  <span className="story-home-card-title">{chapter.title}</span>
+                )}
+                {(dateLabel || chapter.place) && (
+                  <span className="story-home-card-meta">
+                    {dateLabel}
+                    {dateLabel && chapter.place ? " · " : ""}
+                    {chapter.place ?? ""}
+                  </span>
+                )}
+                {chapter.standfirst && <span className="story-home-card-standfirst">{chapter.standfirst}</span>}
+              </span>
+              <ChevronRight size={18} aria-hidden="true" className="story-home-card-go" />
+            </button>
+          );
+        })}
+      </div>
+
+      {galleryCount > 0 && (
+        <div className="story-read-actions">
+          <a className="secondary-button compact-button" href={`/api/share/${token}/download-all`} download>
+            <Download size={15} aria-hidden="true" />
+            <span>{t("user:sharePage.downloadAll")}</span>
+          </a>
+        </div>
+      )}
+    </article>
+  );
+}
+
+// One chapter as its own guest page: hero band, blocks, the photo strip,
+// and a way to the day before and after.
+function ShareChapterPage({
+  story,
+  chapter,
+  index,
+  onOpen,
+  onGoTo
+}: {
+  story: StorySharePayload["story"];
+  chapter: StoryShareChapter;
+  index: number;
+  onOpen: (id: string) => void;
+  onGoTo: (id: string | null) => void;
+}) {
+  const { t } = useTranslation(["common", "stories"]);
+  const label = shareChapterLabel(story, chapter, index);
+  const heading = chapter.title ?? label;
+  const eyebrow = label !== heading ? label : null;
+  const dateText = chapter.date
+    ? (chapter.endDate ? formatPartialDateRange(chapter.date, chapter.endDate) : formatPartialDate(chapter.date))
+    : "";
+  const dateLabel = dateText && chapter.dateApprox ? t("stories:chapter.approx", { date: dateText }) : dateText;
+  const photos = chapterAssets(chapter);
+  const prev = index > 0 ? story.chapters[index - 1] : null;
+  const next = index < story.chapters.length - 1 ? story.chapters[index + 1] : null;
+
+  return (
+    <article className="story-read story-chapter-page">
+      <header className={`story-chapter-hero${chapter.hero ? " has-image" : ""}`}>
+        {chapter.hero && <img src={chapter.hero.previewUrl} alt="" />}
+        <div className="story-chapter-hero-text">
+          <p className="story-chapter-meta">
+            {[eyebrow, dateLabel].filter(Boolean).join(" · ")}
+            {(eyebrow || dateLabel) && chapter.place && <span aria-hidden="true"> · </span>}
+            {chapter.place && (
+              <span className="story-chapter-place"><MapPin size={13} aria-hidden="true" /> {chapter.place}</span>
+            )}
+          </p>
+          <h1>{heading}</h1>
+          {chapter.standfirst && <p className="story-chapter-standfirst">{chapter.standfirst}</p>}
+        </div>
+      </header>
+
+      {chapter.description && <p className="story-chapter-description">{chapter.description}</p>}
+
+      <div className="story-blocks">
+        {chapter.blocks.map((block, blockIndex) => (
+          <ShareBlock key={blockIndex} block={block} onOpen={onOpen} />
+        ))}
+      </div>
+
+      {photos.length > 0 && (
+        <section className="story-chapter-photos">
+          <h2>
+            {t("stories:site.photosFrom", { label })}
+            <span className="story-chapter-photos-count"> · {t("stories:site.shotCount", { count: photos.length })}</span>
+          </h2>
+          <div className="story-chapter-photos-strip">
+            {photos.map((asset) => (
+              <button key={asset.id} type="button" onClick={() => onOpen(asset.id)}>
+                <img src={asset.coverUrl} alt={asset.title} loading="lazy" />
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <nav className="story-chapter-nav">
+        {prev ? (
+          <button type="button" onClick={() => onGoTo(prev.id)}>
+            <ChevronLeft size={16} aria-hidden="true" />
+            <span>{shareChapterLabel(story, prev, index - 1)}</span>
+          </button>
+        ) : <span />}
+        {next ? (
+          <button type="button" onClick={() => onGoTo(next.id)}>
+            <span>{shareChapterLabel(story, next, index + 1)}</span>
+            <ChevronRight size={16} aria-hidden="true" />
+          </button>
+        ) : <span />}
+      </nav>
+    </article>
   );
 }
 

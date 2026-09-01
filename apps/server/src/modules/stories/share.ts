@@ -183,11 +183,15 @@ function mediaAssetById(ctx: StoryLinkContext, itemId: string): ShareAsset[] {
 /**
  * Every item id this link may serve, and the assets each block shows. Computed
  * from the same helpers the reading view uses, so the guest's reach is exactly
- * what their page displays.
+ * what their page displays. Chapter heroes and the story cover join the reach
+ * the same way — they are what the guest's front page and chapter pages
+ * render, all bounded by the creator's current libraries.
  */
 export function storyShareReach(ctx: StoryLinkContext): {
   byBlock: Map<string, ShareAsset[]>;
   itemIds: Set<string>;
+  heroByChapter: Map<string, ShareAsset>;
+  cover: ShareAsset | null;
 } {
   const byBlock = new Map<string, ShareAsset[]>();
   const itemIds = new Set<string>();
@@ -197,7 +201,23 @@ export function storyShareReach(ctx: StoryLinkContext): {
     byBlock.set(block.id, assets);
     for (const asset of assets) itemIds.add(asset.id);
   }
-  return { byBlock, itemIds };
+  const heroByChapter = new Map<string, ShareAsset>();
+  let cover: ShareAsset | null = null;
+  if (ctx.libIds.length > 0) {
+    for (const chapter of getChapters(ctx.story.id)) {
+      if (!chapter.hero_item_id) continue;
+      const [asset] = mediaAssetById(ctx, chapter.hero_item_id);
+      if (asset) {
+        heroByChapter.set(chapter.id, asset);
+        itemIds.add(asset.id);
+      }
+    }
+    if (ctx.story.cover_item_id) {
+      cover = mediaAssetById(ctx, ctx.story.cover_item_id)[0] ?? null;
+      if (cover) itemIds.add(cover.id);
+    }
+  }
+  return { byBlock, itemIds, heroByChapter, cover };
 }
 
 /** One reachable item with everything the media routes need. Membership in the
@@ -291,7 +311,7 @@ export function buildStorySharePayload(link: ResolvedShareLink, token: string) {
     WHERE share_links.id = ?
   `).get(link.id) as { label: string | null; expires_at: string; shared_by: string | null };
 
-  const { byBlock } = storyShareReach(ctx);
+  const { byBlock, heroByChapter, cover } = storyShareReach(ctx);
   const blocks = getBlocks(ctx.story.id);
   const byChapter = new Map<string, typeof blocks>();
   for (const block of blocks) {
@@ -301,13 +321,23 @@ export function buildStorySharePayload(link: ResolvedShareLink, token: string) {
   }
 
   let photoCount = 0;
+  // The chapter id is a bare handle for the guest page's own navigation
+  // (?chapter=…) — it links to nothing inside the app.
   const chapters = getChapters(ctx.story.id).map((chapter) => ({
+    id: chapter.id,
     title: chapter.title,
     date: chapter.date,
     endDate: chapter.end_date,
     dateApprox: chapter.date_approx === 1,
     place: chapter.place,
+    placeLat: chapter.place_lat,
+    placeLng: chapter.place_lng,
+    standfirst: chapter.standfirst,
     description: chapter.description,
+    hero: (() => {
+      const asset = heroByChapter.get(chapter.id);
+      return asset ? shareAssetView(asset, token) : null;
+    })(),
     blocks: (byChapter.get(chapter.id) ?? [])
       .map((block) => {
         const assets = byBlock.get(block.id) ?? [];
@@ -324,6 +354,10 @@ export function buildStorySharePayload(link: ResolvedShareLink, token: string) {
       story: {
         title: ctx.story.title,
         subtitle: ctx.story.subtitle,
+        chapterNoun: ctx.story.chapter_noun,
+        intro: ctx.story.intro,
+        rating: ctx.story.rating,
+        cover: cover ? shareAssetView(cover, token) : null,
         expandAlbums: ctx.expandAlbums,
         chapters
       }

@@ -18,7 +18,9 @@ import {
   createStory,
   createBlock,
   deleteStory,
-  getChapters
+  getChapters,
+  updateStory,
+  updateChapter
 } from "../src/modules/stories/stories.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
 
@@ -234,5 +236,44 @@ describe("cleanup", () => {
     deleteStory(storyId);
     expect(resolveShareLink(token)).toBeNull();
     expect(db.prepare("SELECT COUNT(*) AS n FROM share_links WHERE module = 'story'").get()).toEqual({ n: 0 });
+  });
+});
+
+describe("guest chapter pages", () => {
+  it("carries chapter identity, standfirst, hero and the story's front-page fields", () => {
+    updateStory(storyId, { chapterNoun: "Day", intro: "How we remember it.", rating: 5, coverItemId: photos[0] });
+    updateChapter(chapterId, storyId, { title: "The drive north", standfirst: "Out before dawn.", heroItemId: photos[1] });
+    createBlock(chapterId, storyId, "media", { entityId: photos[2] });
+
+    const { payload } = buildStorySharePayload(mintLink().link)!;
+    expect(payload.story.chapterNoun).toBe("Day");
+    expect(payload.story.intro).toBe("How we remember it.");
+    expect(payload.story.rating).toBe(5);
+    expect(payload.story.cover?.id).toBe(photos[0]);
+    const [chapter] = payload.story.chapters;
+    expect(chapter.id).toBe(chapterId);
+    expect(chapter.standfirst).toBe("Out before dawn.");
+    expect(chapter.hero?.id).toBe(photos[1]);
+    // Hero and cover URLs are token-scoped like everything else a guest sees.
+    expect(chapter.hero?.previewUrl).toContain("/api/share/");
+    expect(payload.story.cover?.previewUrl).toContain("/api/share/");
+    // And the token actually serves them: they joined the link's reach.
+    const link = mintLink().link;
+    expect(loadStoryShareMediaItem(link, photos[0])).toBeDefined();
+    expect(loadStoryShareMediaItem(link, photos[1])).toBeDefined();
+  });
+
+  it("drops a hero or cover the creator can no longer reach, and never serves it", () => {
+    updateStory(storyId, { coverItemId: secret });
+    updateChapter(chapterId, storyId, { heroItemId: secret });
+    createBlock(chapterId, storyId, "media", { entityId: photos[0] });
+    // Take PRIV away from the author — the link keeps working, minus PRIV.
+    db.prepare("DELETE FROM assignments WHERE object_id = 'PRIV'").run();
+
+    const link = mintLink().link;
+    const { payload } = buildStorySharePayload(link)!;
+    expect(payload.story.cover).toBeNull();
+    expect(payload.story.chapters[0].hero).toBeNull();
+    expect(loadStoryShareMediaItem(link, secret)).toBeUndefined();
   });
 });

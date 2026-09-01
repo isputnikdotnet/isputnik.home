@@ -35,6 +35,12 @@
     "chapterNoun": "What to call a chapter",
     "chapterNounPlaceholder": "Day",
     "chapterNounHint": "Chapters then read “Day 1”, “Day 2”. Leave empty to use their titles.",
+    "cover": "Cover",
+    "setCover": "Choose a photo",
+    "changeCover": "Change photo",
+    "clearCover": "Remove",
+    "coverPickerTitle": "Story cover photo",
+    "coverHint": "The front page and the story's card wear it. Without one, the first photo in the story stands in.",
     "optional": "optional"
   },
   "collections": {
@@ -47,6 +53,8 @@
     "storyCount_one": "{{count}} story",
     "storyCount_other": "{{count}} stories",
     "addStory": "Add story",
+    "setCover": "Set cover",
+    "coverPickerTitle": "Collection cover photo",
     "access": "Access",
     "accessTitle": "Access to “{{name}}”",
     "accessIntro": "People listed here see this collection and its stories — everywhere, including search and tags. Contributors can also add stories to it; managers can edit every story and this list. Admins always have full access.",

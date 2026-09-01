@@ -8,6 +8,7 @@ import { MessageBox } from "../../shared/MessageBox";
 import { Button } from "../../shared/Button";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { TagInput } from "../../shared/TagInput";
+import { PhotoPicker } from "../gallery/PhotoPicker";
 import { ShareStoryModal } from "./ShareStoryModal";
 import { StoryChapterEditor } from "./StoryChapterEditor";
 import { useStoryEditor } from "./useStoryEditor";
@@ -31,6 +32,7 @@ export function StoryEditorPage({
   const { story, error, busy } = editor;
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const [pickingCover, setPickingCover] = useState(false);
   const [title, setTitle] = useState("");
   const [subtitle, setSubtitle] = useState("");
   const [chapterNoun, setChapterNoun] = useState("");
@@ -193,6 +195,24 @@ export function StoryEditorPage({
                 />
                 <span className="muted">{t("stories:fields.chapterNounHint")}</span>
               </label>
+              {/* The story cover — the Story Home hero and the index card.
+                  Without one, both fall back to the first photo the story
+                  shows, so this is a choice, never a chore. */}
+              <div className="story-field story-field-noun">
+                <span>{t("stories:fields.cover")}</span>
+                <div className="story-chapter-hero-row">
+                  {story.cover?.coverUrl && <img className="story-chapter-hero-thumb" src={story.cover.coverUrl} alt="" />}
+                  <Button variant="secondary" compact onClick={() => setPickingCover(true)} disabled={busy}>
+                    {story.coverItemId ? t("stories:fields.changeCover") : t("stories:fields.setCover")}
+                  </Button>
+                  {story.coverItemId && (
+                    <Button variant="text" compact onClick={() => void editor.patchStory({ coverItemId: null })} disabled={busy}>
+                      {t("stories:fields.clearCover")}
+                    </Button>
+                  )}
+                </div>
+                <span className="muted">{t("stories:fields.coverHint")}</span>
+              </div>
               <div className="story-field story-field-noun">
                 <span>{t("stories:collections.pickerLabel")}</span>
                 <select
@@ -282,6 +302,15 @@ export function StoryEditorPage({
 
       {sharing && story && (
         <ShareStoryModal storyId={story.id} storyTitle={story.title} onClose={() => setSharing(false)} />
+      )}
+
+      {pickingCover && story && (
+        <PhotoPicker
+          title={t("stories:fields.coverPickerTitle")}
+          pick="any"
+          onPick={(asset) => { setPickingCover(false); void editor.patchStory({ coverItemId: asset.id }); }}
+          onClose={() => setPickingCover(false)}
+        />
       )}
 
       {confirmDelete && story && (

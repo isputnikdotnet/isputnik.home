@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, Globe2, Library, Plus, ShieldCheck, Trash2, UserRound, UsersRound } from "lucide-react";
+import { ArrowLeft, Globe2, Image as ImageIcon, Library, Plus, ShieldCheck, Trash2, UserRound, UsersRound } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { goBack, navigate } from "../../router";
@@ -9,6 +9,7 @@ import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
 import { Button } from "../../shared/Button";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
+import { PhotoPicker } from "../gallery/PhotoPicker";
 import { StoryCard } from "./StoryCard";
 import type { StorySummary } from "./types";
 
@@ -44,6 +45,7 @@ export function StoryCollectionPage({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [adding, setAdding] = useState(false);
+  const [pickingCover, setPickingCover] = useState(false);
   const [accessOpen, setAccessOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -166,6 +168,20 @@ export function StoryCollectionPage({
                       <span>{t("stories:collections.addStory")}</span>
                     </Button>
                   )}
+                  {/* The hero above shows the result, so this needs no thumb
+                      of its own. Without a chosen cover the shelf card falls
+                      back to a member story's photo. */}
+                  {collection.canManage && (
+                    <Button variant="secondary" compact onClick={() => setPickingCover(true)}>
+                      <ImageIcon size={15} aria-hidden="true" />
+                      <span>{collection.coverItemId ? t("stories:fields.changeCover") : t("stories:collections.setCover")}</span>
+                    </Button>
+                  )}
+                  {collection.canManage && collection.coverItemId && (
+                    <Button variant="text" compact onClick={() => void patch({ coverItemId: null })}>
+                      {t("stories:fields.clearCover")}
+                    </Button>
+                  )}
                   {collection.canManage && (
                     <Button variant="secondary" compact onClick={() => setAccessOpen(true)}>
                       <ShieldCheck size={15} aria-hidden="true" />
@@ -212,6 +228,15 @@ export function StoryCollectionPage({
 
       {adding && collection && (
         <AddStoryModal collectionId={collection.id} onClose={() => setAdding(false)} />
+      )}
+
+      {pickingCover && collection && (
+        <PhotoPicker
+          title={t("stories:collections.coverPickerTitle")}
+          pick="any"
+          onPick={(asset) => { setPickingCover(false); void patch({ coverItemId: asset.id }); }}
+          onClose={() => setPickingCover(false)}
+        />
       )}
 
       {accessOpen && collection && (

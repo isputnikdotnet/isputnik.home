@@ -376,10 +376,16 @@ Each step independently shippable, in this order:
    - **Player deleted**: `StoryPlayer.tsx`, `story-player.ts`, their test
      file, ~250 lines of CSS, and the `player.*` i18n keys; the share view
      lost its Play button. Slideshow blocks still play via `GalleryLightbox`.
-   - Deliberately deferred: the guest share view keeps its v1 single-scroll
-     rendering (already chrome-free); giving guests chapter pages needs
-     chapter ids + hero/coords in the share payload and a share URL scheme —
-     small, but its own change.
+   - ~~Deliberately deferred: guest chapter pages.~~ **Done post-3.46.1**:
+     the share payload gained chapter ids, standfirsts, heroes and the
+     story's front-page fields (chapterNoun/intro/rating/cover), with heroes
+     and cover joining the link's reach so the token serves them; the guest
+     page navigates its chapters with a `?chapter=` query on the one share
+     URL (the payload holds everything, so no new route). The guest Home and
+     chapter pages mirror the signed-in site view — same CSS, still zero
+     in-app links. A **story cover picker** landed in the editor at the same
+     time (PhotoPicker, next to the chapter-noun field), closing the v1 open
+     question.
 4. **`book` + `audio` blocks, rating** — with the guest scoping above.
    **BUILT** (2026-09-01, uncommitted). As-built notes:
    - Migration 57 adds `stories.rating` (INTEGER, CHECK 1–5, nullable). Stars

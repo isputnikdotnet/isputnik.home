@@ -19,6 +19,15 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.47.0",
+    label: "The guest gets the good seats",
+    changes: [
+      "A story shared by link now reads the way it reads at home. A guest opening a chaptered story lands on its front page — the cover, your introduction, the stars if you gave any, and a card for each day — and each chapter opens as its own page, with its photo and opening line up top, the photos of that day gathered at the bottom, and a way to the day before and after. The address changes as they go, so a guest can send someone a link straight to Day 3. Everything a guest can see is still exactly what you can see, checked the moment they open it, and still nothing on their page leads into the app.",
+      "Stories and collections can now be given a cover by hand. A story's cover is chosen in its editor; a collection's right on its page. Both fall back as before — the first photo in the story, the first story on the shelf — so nothing changes until you choose, and choosing is one photo picker away. The cover fronts the story's page, its card in the index, and what a guest sees first.",
+      "A small repair that came out of choosing covers: a collection's title, typed right on top of a dark cover photo, could be almost unreadable while editing. It sits on its own quiet backing now."
+    ]
+  },
+  {
     version: "3.46.1",
     label: "The manual, at last",
     changes: [

@@ -893,17 +893,26 @@
   overflow-x: auto;
 }
 
-.story-site-strip a {
+/* Anchors on the signed-in site, buttons on the guest page (its navigation is
+   a query on one URL) — one look for both. */
+.story-site-strip a,
+.story-site-strip button {
   padding: 5px 12px;
+  border: 0;
   border-radius: 999px;
+  background: transparent;
   color: var(--muted);
+  font: inherit;
   font-size: 0.86rem;
   text-decoration: none;
   white-space: nowrap;
+  cursor: pointer;
 }
 
-.story-site-strip a:hover { background: var(--hover); color: var(--ink); }
-.story-site-strip a.is-current { background: var(--active); color: var(--ink); font-weight: 600; }
+.story-site-strip a:hover,
+.story-site-strip button:hover { background: var(--hover); color: var(--ink); }
+.story-site-strip a.is-current,
+.story-site-strip button.is-current { background: var(--active); color: var(--ink); font-weight: 600; }
 
 .story-site-page {
   flex: 1;
@@ -1313,6 +1322,16 @@
 }
 
 .story-collection-hero.has-image .story-collection-meta { color: rgba(255, 255, 255, 0.85); }
+
+/* The manager's inline title input sits ON the cover — without this it wears
+   the page's ink color and vanishes into the photo. */
+.story-collection-hero.has-image .story-title-input {
+  color: #fff;
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 8px;
+}
+
+.story-collection-hero.has-image .story-title-input::placeholder { color: rgba(255, 255, 255, 0.6); }
 
 .story-collection-description { margin: 0; max-width: 68ch; color: var(--muted); }
 
