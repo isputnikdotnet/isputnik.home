@@ -49,6 +49,8 @@ import {
   updateStory,
   deleteStory,
   listStories,
+  setStorySaved,
+  isStorySaved,
   storyRefMatches,
   getStoryTags,
   getChapters,
@@ -488,6 +490,7 @@ export async function storiesPlugin(app: FastifyInstance) {
         intro: story.intro,
         rating: story.rating,
         kind: story.kind,
+        saved: isStorySaved(story.id, user.id),
         collectionId: story.collection_id,
         // The shelf's name for the site view's breadcrumb and the editor's
         // picker label; the id alone would make the client fetch the list.
@@ -570,6 +573,23 @@ export async function storiesPlugin(app: FastifyInstance) {
     }
     setEntityTags(STORY_ENTITY_TYPE, story.id, parsed.data.tags);
     return reply.send({ tags: getStoryTags(story.id) });
+  });
+
+  // Favorite / unfavorite. Any viewer can save a story they can see — it's a
+  // personal bookmark, not a change to the story, so canView is the whole
+  // permission check.
+  app.put("/api/stories/:id/save", { preHandler: app.authenticate }, async (request, reply) => {
+    const user = request.user!;
+    const story = getStory((request.params as { id: string }).id);
+    if (!story || !canViewStory(story, user)) {
+      return reply.code(404).send({ error: "Story not found" });
+    }
+    const body = request.body as { saved?: unknown } | null;
+    if (!body || typeof body.saved !== "boolean") {
+      return reply.code(400).send({ error: "saved must be a boolean" });
+    }
+    setStorySaved(story.id, user.id, body.saved);
+    return reply.send({ saved: body.saved });
   });
 
   // Upload a narration clip for this story. The file lands in the admin-chosen

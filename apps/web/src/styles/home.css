@@ -340,6 +340,17 @@
   color: var(--home-accent);
 }
 
+/* A section nav item's tally ("Drafts 3") — pushed to the far edge, quiet
+   enough not to compete with the label. */
+.home-nav-link .section-nav-count {
+  flex: 0 0 auto;
+  margin-left: auto;
+  color: var(--home-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
 .home-mobile-nav {
   display: none;
 }

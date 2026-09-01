@@ -23,7 +23,9 @@
     "blocks_one": "{{count}} piece",
     "blocks_other": "{{count}} pieces",
     "photos_one": "{{count}} photo",
-    "photos_other": "{{count}} photos"
+    "photos_other": "{{count}} photos",
+    "places_one": "{{count}} place",
+    "places_other": "{{count}} places"
   },
   "fields": {
     "title": "Title",
@@ -87,10 +89,22 @@
   },
   "kinds": {
     "label": "What kind of story",
-    "free": { "name": "Story", "hint": "A blank page — anything at all." },
-    "memory": { "name": "Memory", "hint": "One moment worth keeping." },
-    "journal": { "name": "Travel blog", "hint": "Day by day — chapters count as Day 1, Day 2." },
-    "review": { "name": "Review", "hint": "Your verdict on a book — with stars." }
+    "free": {
+      "name": "Story",
+      "hint": "A blank page — anything at all."
+    },
+    "memory": {
+      "name": "Memory",
+      "hint": "One moment worth keeping."
+    },
+    "journal": {
+      "name": "Travel blog",
+      "hint": "Day by day — chapters count as Day 1, Day 2."
+    },
+    "review": {
+      "name": "Review",
+      "hint": "Your verdict on a book — with stars."
+    }
   },
   "create": {
     "journalRangeHint": "Give both dates and the days are laid out for you — Day 1 to the last — each already dated. Up to a month; longer trips start with the range on Day 1.",
@@ -309,5 +323,31 @@
     "uploadFailed": "Unable to save the recording.",
     "micRefused": "The microphone is not available. Check the browser permission, or upload a file instead.",
     "noRecorder": "Recording needs a secure connection (https). You can still upload a file."
+  },
+  "index": {
+    "tagline": "Capture moments, preserve memories, and share your world.",
+    "searchPlaceholder": "Search stories…",
+    "sortAria": "Sort stories",
+    "sortUpdated": "Recently updated",
+    "sortDate": "By date",
+    "sortTitle": "By title",
+    "viewAria": "Choose the layout",
+    "viewLabel": "View",
+    "viewGrid": "Grid",
+    "viewList": "List",
+    "noneMatch": "No stories match"
+  },
+  "nav": {
+    "kinds": "Kinds"
+  },
+  "filters": {
+    "all": "All stories",
+    "drafts": "Drafts",
+    "published": "Published",
+    "favorites": "Favorites"
+  },
+  "card": {
+    "save": "Add to favorites",
+    "unsave": "Remove from favorites"
   }
 }

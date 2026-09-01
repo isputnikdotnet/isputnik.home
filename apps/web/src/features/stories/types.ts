@@ -29,6 +29,12 @@ export interface StorySummary {
   /** Span of the chapters that carry dates — partial ISO, may be null. */
   firstDate: string | null;
   lastDate: string | null;
+  /** How many chapters are pinned on the map — the card's "7 places". */
+  placesCount: number;
+  /** The first chapter's named place — the card cover's location chip. */
+  firstPlace: string | null;
+  /** This viewer marked it a favorite. */
+  saved: boolean;
   /** Stars (1–5), mostly on review-shaped stories; null = unrated. */
   rating: number | null;
   /** The shelf this story sits on; null = standalone. */
@@ -130,6 +136,8 @@ export interface StoryDetail {
   intro: string | null;
   /** Stars (1–5), mostly on review-shaped stories; null = unrated. */
   rating: number | null;
+  /** This viewer marked it a favorite. */
+  saved: boolean;
   /** The shelf this story sits on; null = standalone. */
   collectionId: string | null;
   collection: { id: string; title: string } | null;

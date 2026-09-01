@@ -1959,6 +1959,16 @@ CREATE TABLE IF NOT EXISTS story_collections (
   updated_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
+-- A member's favorite stories — the same heart the gallery keeps in
+-- item_saves, but stories aren't library items, so they save here. Rows
+-- cascade with the story and with the account.
+CREATE TABLE IF NOT EXISTS story_saves (
+  story_id   TEXT NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
+  user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  PRIMARY KEY (story_id, user_id)
+);
+
 -- Narration recorded or uploaded for a story: "grandma tells this part". Owned
 -- by the story rather than referenced from the library — it exists for this
 -- story and goes with it, which is why this cascades where every other story

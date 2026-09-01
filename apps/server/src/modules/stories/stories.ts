@@ -311,7 +311,28 @@ interface StoryListRow extends StoryRow {
   block_count: number;
   first_date: string | null;
   last_date: string | null;
+  places_count: number;
+  first_place: string | null;
+  saved: number;
   cover_key: string | null;
+}
+
+/** Mark or unmark a story as one of the user's favorites. Idempotent both
+ *  ways — saving twice or unsaving a story never saved is fine. */
+export function setStorySaved(storyId: string, userId: string, saved: boolean): void {
+  if (saved) {
+    db.prepare(
+      "INSERT OR IGNORE INTO story_saves (story_id, user_id) VALUES (?, ?)"
+    ).run(storyId, userId);
+  } else {
+    db.prepare("DELETE FROM story_saves WHERE story_id = ? AND user_id = ?").run(storyId, userId);
+  }
+}
+
+export function isStorySaved(storyId: string, userId: string): boolean {
+  return db.prepare(
+    "SELECT 1 FROM story_saves WHERE story_id = ? AND user_id = ?"
+  ).get(storyId, userId) !== undefined;
 }
 
 // Stories the viewer should see, newest-updated first: everything published,
@@ -361,6 +382,13 @@ export function listStories(
         WHERE story_chapters.story_id = stories.id AND date IS NOT NULL) AS first_date,
       (SELECT MAX(COALESCE(end_date, date)) FROM story_chapters
         WHERE story_chapters.story_id = stories.id AND date IS NOT NULL) AS last_date,
+      (SELECT COUNT(*) FROM story_chapters
+        WHERE story_chapters.story_id = stories.id AND place_lat IS NOT NULL) AS places_count,
+      (SELECT place FROM story_chapters
+        WHERE story_chapters.story_id = stories.id AND place IS NOT NULL AND place != ''
+        ORDER BY position LIMIT 1) AS first_place,
+      EXISTS (SELECT 1 FROM story_saves
+        WHERE story_saves.story_id = stories.id AND story_saves.user_id = ?) AS saved,
       COALESCE(
         (SELECT item_metadata.cover_storage_key FROM library_items
           JOIN item_metadata ON item_metadata.item_id = library_items.id
@@ -388,7 +416,7 @@ export function listStories(
       ${refClause}
     ORDER BY datetime(stories.updated_at) DESC
   `).all(
-    ...libArgs, ...libArgs, user.id, user.role,
+    user.id, ...libArgs, ...libArgs, user.id, user.role,
     ...(collectionClause ? [user.id, ...(visibleCollections ?? [])] : []),
     ...(collectionId ? [collectionId] : []),
     ...(tagId ? [tagId] : []),
@@ -405,6 +433,9 @@ export function listStories(
     blockCount: row.block_count,
     firstDate: row.first_date,
     lastDate: row.last_date,
+    placesCount: row.places_count,
+    firstPlace: row.first_place,
+    saved: Boolean(row.saved),
     rating: row.rating,
     collectionId: row.collection_id,
     kind: row.kind,

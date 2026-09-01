@@ -13,6 +13,8 @@ import {
   updateStory,
   deleteStory,
   listStories,
+  setStorySaved,
+  isStorySaved,
   storyRefMatches,
   canEditStory,
   canViewStory,
@@ -580,5 +582,63 @@ describe("creation seeding (friendlier New story)", () => {
     expect(chapters).toHaveLength(1);
     expect(chapters[0].date).toBe("2004-07");
     expect(chapters[0].end_date).toBe("2004-08");
+  });
+});
+
+describe("favorites", () => {
+  it("saves per user, idempotently both ways", () => {
+    const story = createStory(author, "Keeper", null);
+    updateStory(story.id, { status: "published" });
+
+    setStorySaved(story.id, viewer.id, true);
+    setStorySaved(story.id, viewer.id, true);
+    expect(isStorySaved(story.id, viewer.id)).toBe(true);
+    expect(isStorySaved(story.id, author.id)).toBe(false);
+
+    setStorySaved(story.id, viewer.id, false);
+    setStorySaved(story.id, viewer.id, false);
+    expect(isStorySaved(story.id, viewer.id)).toBe(false);
+  });
+
+  it("flags saved stories in the list for the saving user only", () => {
+    const story = createStory(author, "Keeper", null);
+    updateStory(story.id, { status: "published" });
+    setStorySaved(story.id, viewer.id, true);
+
+    const forViewer = listStories(viewer, GAL_LIBS).find((row) => row.id === story.id);
+    const forAuthor = listStories(author, GAL_LIBS).find((row) => row.id === story.id);
+    expect(forViewer?.saved).toBe(true);
+    expect(forAuthor?.saved).toBe(false);
+  });
+
+  it("goes away with the story", () => {
+    const story = createStory(author, "Doomed", null);
+    setStorySaved(story.id, author.id, true);
+    deleteStory(story.id);
+    expect(db.prepare("SELECT COUNT(*) AS n FROM story_saves").get()).toEqual({ n: 0 });
+  });
+});
+
+describe("card geography", () => {
+  it("counts pinned chapters and surfaces the first named place", () => {
+    const story = createStory(author, "Road trip", null);
+    updateStory(story.id, { status: "published" });
+    const [first] = getChapters(story.id);
+    updateChapter(first.id, story.id, { place: "Duluth, MN", placeLat: 46.78, placeLng: -92.1 });
+    const second = createChapter(story.id, { place: "Ely, MN", placeLat: 47.9, placeLng: -91.86 });
+    createChapter(story.id, { place: "Named but unpinned" });
+
+    const card = listStories(viewer, GAL_LIBS).find((row) => row.id === story.id)!;
+    expect(second).toBeTruthy();
+    expect(card.placesCount).toBe(2);
+    expect(card.firstPlace).toBe("Duluth, MN");
+  });
+
+  it("leaves both empty on a story with no places", () => {
+    const story = createStory(author, "Homebody", null);
+    updateStory(story.id, { status: "published" });
+    const card = listStories(viewer, GAL_LIBS).find((row) => row.id === story.id)!;
+    expect(card.placesCount).toBe(0);
+    expect(card.firstPlace).toBeNull();
   });
 });

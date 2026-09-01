@@ -4,8 +4,30 @@
 
 /* ── Index ─────────────────────────────────────────────────────────────── */
 
+/* The index page's headline steps out of the app's sans for a bookish serif —
+   this is the shelf of the family's own writing, and it may as well look it. */
+.story-index .audiobook-page-title h1 {
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.story-index .audiobook-page-title p {
+  font-style: italic;
+}
+
 /* The card is an <a> so it opens in a new tab like any link; it must still
-   look like a card, not like body copy with a link in it. */
+   look like a card, not like body copy with a link in it. The wrapper exists
+   for the favorite star: a button cannot live inside a link, so it floats as
+   a sibling over the card's corner. */
+.story-card-wrap {
+  position: relative;
+  min-width: 0;
+  display: flex;
+}
+
+.story-card-wrap .story-card { flex: 1; }
+
 .story-card,
 .story-card:hover {
   color: inherit;
@@ -19,6 +41,7 @@
 }
 
 .story-card-cover {
+  position: relative;
   display: grid;
   place-items: center;
   aspect-ratio: 3 / 2;
@@ -35,6 +58,7 @@
 }
 
 .story-draft-badge {
+  display: inline-block;
   align-self: flex-start;
   padding: 2px 8px;
   border: 1px solid var(--line);
@@ -44,6 +68,176 @@
   font-size: 0.72rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+
+/* On the cover the flags read over the photo, so they wear a scrim. */
+.story-card-cover .story-draft-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  border-color: transparent;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+}
+
+.story-card-place {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  max-width: calc(100% - 16px);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 0.74rem;
+}
+
+.story-card-place svg { flex: 0 0 auto; }
+
+.story-card-place span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The favorite star, over the cover's far corner. */
+.story-card-save {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  cursor: pointer;
+}
+
+.story-card-save:hover { background: rgba(0, 0, 0, 0.65); }
+
+.story-card-save.is-saved { color: var(--gold); }
+
+.story-card-save.is-saved svg { fill: currentColor; }
+
+.story-card-save.is-static { cursor: default; pointer-events: none; }
+
+.story-kind-chip {
+  align-self: flex-start;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--field);
+  color: var(--gold);
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* The list view: one row per story, the card's facts in a line. */
+.story-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.story-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px 8px 8px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-raised);
+}
+
+.story-row:hover { background: var(--hover); }
+
+.story-row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.story-row-cover {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 44px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--field);
+  color: var(--muted);
+}
+
+.story-row-cover img { width: 100%; height: 100%; object-fit: cover; }
+
+.story-row-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.story-row-body strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.story-row-body .story-draft-badge { margin-left: 8px; }
+
+.story-row-body small {
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.story-row-meta {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.story-row-places {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* In a row the star sits in the flow, not over a cover. */
+.story-card-save.story-row-save {
+  position: static;
+  background: transparent;
+  color: var(--muted);
+}
+
+.story-card-save.story-row-save:hover { background: var(--hover); }
+
+.story-card-save.story-row-save.is-saved { color: var(--gold); }
+
+/* The phone drops the row's meta line — title and note carry it. */
+@media (max-width: 740px) {
+  .story-row-meta { display: none; }
 }
 
 /* ── Reading view ──────────────────────────────────────────────────────── */
@@ -1222,13 +1416,78 @@
 
 /* ── Collections (the shelf) ───────────────────────────────────────────── */
 
-.story-index-actions { display: flex; gap: 8px; }
-
 .story-collection-shelf {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 14px;
   margin-bottom: 22px;
+}
+
+/* The fullest shelf leads: a wide card across the whole row, its cover as
+   the backdrop. Without a cover it is simply a bigger sibling of the small
+   cards below it. */
+.story-collection-feature {
+  grid-column: 1 / -1;
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  min-height: 150px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--surface-raised);
+  color: inherit;
+  text-decoration: none;
+}
+
+.story-collection-feature img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.story-collection-feature-body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  padding: 28px 20px 14px;
+}
+
+.story-collection-feature.has-image .story-collection-feature-body {
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.72));
+  color: #fff;
+}
+
+.story-collection-feature-body strong {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.25rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.story-collection-feature-body p {
+  margin: 0;
+  font-size: 0.9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.story-collection-feature.has-image .story-collection-feature-body p { color: rgba(255, 255, 255, 0.85); }
+
+.story-collection-feature:not(.has-image) .story-collection-feature-body p { color: var(--muted); }
+
+.story-collection-feature-body small {
+  color: var(--gold);
+  font-size: 0.74rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
 }
 
 .story-collection-card {
