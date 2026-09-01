@@ -569,6 +569,13 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
       {actionError && <MessageBox tone="error" title={t("errors.actionFailed")}>{actionError}</MessageBox>}
       {notice && <MessageBox tone="warning" title={t("controlAdmin:recycleBin.noticeTitle")}>{notice}</MessageBox>}
 
+      {/* Deleted stories go ABOVE the file grid: a handful of compact rows
+          that a bin full of photo tiles would otherwise scroll out of sight —
+          they sat at the bottom once, and looked exactly like something the
+          library filter had hidden (it can't: stories belong to no library).
+          Admin-only, like the /api/stories/trash routes behind it. */}
+      {isAdmin && <DeletedStoriesPanel reloadSignal={storiesReload} />}
+
       {items.length > 0 && (
         /* Filter on the left, view controls and the actions on the right — the Logs
            toolbar. What NARROWS the list stays on the page, because you change it
@@ -742,10 +749,6 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
         </>
       )}
 
-      {/* Deleted stories share the bin (and its retention clock) but are rows,
-          not files, so they sit in their own compact block. Admin-only, like
-          the /api/stories/trash routes behind it. */}
-      {isAdmin && <DeletedStoriesPanel reloadSignal={storiesReload} />}
 
       {/* How the list is laid out, in one place. These three used to sit in the
           toolbar and, spelled out, took more width than the row had — and they are

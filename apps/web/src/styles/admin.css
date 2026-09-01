@@ -2508,12 +2508,11 @@
   font-size: 0.83rem;
 }
 
-/* Deleted stories — the bin's second block. Rows, not tiles: a story has no
-   size or bin folder, just a name, its dates and two buttons. */
+/* Deleted stories — the bin's story block, above the file grid so a bin full
+   of photo tiles can't scroll it out of sight. Rows, not tiles: a story has
+   no size or bin folder, just a name, its dates and two buttons. */
 .trash-stories {
-  margin-top: 30px;
-  padding-top: 18px;
-  border-top: 1px solid var(--line);
+  margin: 8px 0 26px;
 }
 
 .trash-stories-heading {
@@ -2521,7 +2520,13 @@
   font-size: 1.05rem;
 }
 
-.trash-stories-blurb { margin: 0 0 14px; }
+/* datagrid-muted is nowrap (it lives in table cells); these are sentences. */
+.trash-stories-blurb {
+  margin: 0 0 14px;
+  white-space: normal;
+}
+
+.trash-stories-body small { white-space: normal; }
 
 .trash-stories-list {
   display: flex;
