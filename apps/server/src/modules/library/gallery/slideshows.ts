@@ -463,6 +463,9 @@ export function getSlideshowRenderItems(libIds: string[], slideshow: SlideshowRo
     JOIN libraries ON libraries.id = library_items.library_id
     WHERE gallery_slideshow_items.slideshow_id = ?
       AND library_items.library_id IN (${libIn})
+      -- The renderer knows photo (still) and video (clip) slides only; an audio
+      -- member (added via album bulk-add or a future picker) is simply skipped.
+      AND gallery_details.kind != 'audio'
     ORDER BY gallery_slideshow_items.position ASC, library_items.id ASC
   `).all(slideshow.id, ...libIds) as SlideshowRenderItem[];
 }

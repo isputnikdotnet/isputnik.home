@@ -193,10 +193,13 @@
     "libraryRoot": "Library root",
     "videoN_one": "{{count}} video",
     "videoN_other": "{{count}} videos",
+    "audioN_one": "{{count}} recording",
+    "audioN_other": "{{count}} recordings",
     "biggestFilesNote": "By size",
     "noGalleryItems": "No photos or videos yet.",
     "video": "Video",
-    "photo": "Photo"
+    "photo": "Photo",
+    "audio": "Audio"
   },
   "map": {
     "connections_one": "{{count}} connection",

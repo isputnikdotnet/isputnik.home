@@ -189,7 +189,13 @@ export function LibrariesView({ status }: { status: SystemStatus }) {
             tone="warning"
             label={t("controlDash:libs.photosVideos")}
             value={gallery.totalItems.toLocaleString()}
-            context={`${t("controlDash:libs.photos", { count: gallery.totalPhotos })} · ${t("controlDash:libs.videos", { count: gallery.totalVideos })} · ${t("controlDash:libs.ofVideo", { hours: formatHours(gallery.totalDurationSeconds) })}`}
+            context={[
+              t("controlDash:libs.photos", { count: gallery.totalPhotos }),
+              t("controlDash:libs.videos", { count: gallery.totalVideos }),
+              // Recordings only once any exist — most installs have none yet.
+              gallery.totalAudio > 0 ? t("controlDash:libs.audioN", { count: gallery.totalAudio }) : null,
+              t("controlDash:libs.ofVideo", { hours: formatHours(gallery.totalDurationSeconds) })
+            ].filter(Boolean).join(" · ")}
           />
           <KpiCard
             icon={HardDrive}
@@ -307,7 +313,10 @@ export function LibrariesView({ status }: { status: SystemStatus }) {
               rows={gallery.largestItems.slice(0, RANK_ROWS).map((item) => ({
                 key: item.id,
                 name: item.title,
-                sub: [item.kind === "video" ? t("controlDash:libs.video") : t("controlDash:libs.photo"), item.libraryName].join(" · "),
+                sub: [
+                  item.kind === "video" ? t("controlDash:libs.video") : item.kind === "audio" ? t("controlDash:libs.audio") : t("controlDash:libs.photo"),
+                  item.libraryName
+                ].join(" · "),
                 cells: [formatBytes(item.totalSizeBytes)]
               }))}
             />

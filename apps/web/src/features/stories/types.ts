@@ -74,6 +74,11 @@ export interface StoryChapter {
   placeLat: number | null;
   placeLng: number | null;
   description: string | null;
+  /** One-line teaser under the chapter page's dateline. */
+  standfirst: string | null;
+  heroItemId: string | null;
+  /** The hero photo resolved for this viewer; null = unset or out of reach. */
+  hero: GalleryAsset | null;
   blocks: StoryBlock[];
 }
 
@@ -83,6 +88,8 @@ export interface StoryDetail {
   subtitle: string | null;
   status: StoryStatus;
   coverItemId: string | null;
+  /** The chosen cover resolved for this viewer — the Story Home hero. */
+  cover: GalleryAsset | null;
   canEdit: boolean;
   createdAt: string;
   updatedAt: string;
@@ -90,7 +97,18 @@ export interface StoryDetail {
   previewLimit: number;
   /** Story-level tags — how a story joins the cross-type tag browse. */
   tags: string[];
+  /** What this story calls a chapter ("Day", "Stop") — authored, renders "Day 1". */
+  chapterNoun: string | null;
+  /** Story Home opening prose (markdown, like text blocks). */
+  intro: string | null;
   chapters: StoryChapter[];
+}
+
+/** "Day 1" / the chapter's title / its date / a bare number — the strip label,
+ *  card eyebrow and chapter-page fallback title all resolve the same way. */
+export function chapterLabel(story: Pick<StoryDetail, "chapterNoun">, chapter: StoryChapter, index: number): string {
+  if (story.chapterNoun) return `${story.chapterNoun} ${index + 1}`;
+  return chapter.title ?? chapter.date ?? String(index + 1);
 }
 
 /** A story with one untitled, undated chapter is a flat journal page — the

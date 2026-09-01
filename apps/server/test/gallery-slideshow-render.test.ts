@@ -996,19 +996,21 @@ describe('schema baseline (3.0.0)', () => {
   it('builds a complete schema in one pass and stamps the current version', () => {
     const scratch = new Database(':memory:');
     migrate(scratch);
-    // 53 = the baseline (32) plus the title-card columns, the alphabet-index
-    // columns, the slideshow cover column, the person cover column, the session
-    // kind/label columns, the remote flag on a device-link request, the
-    // login-attempt kind column, the reputation country/ISP columns, the person
-    // website/location columns, dropping the retired empty-recycle-bin job row,
-    // the title-card lettering columns, the closing-card columns, the slideshow
-    // clip columns, the clip-sound flags, the retired-Expanse theme remap, the
-    // interface-language column, the quote columns, the person life-fact columns,
-    // dropping the retired opening-clip columns, and the per-slideshow movie target —
-    // none of which a fresh file
+    // The baseline (32) plus every later migration: title-card columns, the
+    // alphabet-index columns, the slideshow cover column, the person cover column,
+    // the session kind/label columns, the remote flag on a device-link request,
+    // the login-attempt kind column, the reputation country/ISP columns, the
+    // person website/location columns, dropping the retired empty-recycle-bin job
+    // row, the title-card lettering columns, the closing-card columns, the
+    // slideshow clip columns, the clip-sound flags, the retired-Expanse theme
+    // remap, the interface-language column, the quote columns, the person
+    // life-fact columns, dropping the retired opening-clip columns, the
+    // per-slideshow movie target, the story-link expand_albums flag, the
+    // gallery_details rebuild for the audio kind, and the story chapter-page
+    // columns — none of which a fresh file
     // needs, since schema.sql builds it complete and seeds no such job; those
     // migrations are only for databases that predate them.
-    expect(scratch.pragma('user_version', { simple: true })).toBe(54);
+    expect(scratch.pragma('user_version', { simple: true })).toBe(56);
 
     const userColumns = (scratch.pragma('table_info(users)') as { name: string }[]).map((c) => c.name);
     expect(userColumns).toEqual(
@@ -1084,7 +1086,7 @@ describe('schema baseline (3.0.0)', () => {
     migrate(current);
     current.pragma('user_version = 31'); // every 2.x migration applied
     expect(() => migrate(current)).not.toThrow();
-    expect(current.pragma('user_version', { simple: true })).toBe(54);
+    expect(current.pragma('user_version', { simple: true })).toBe(56);
     current.close();
   });
 

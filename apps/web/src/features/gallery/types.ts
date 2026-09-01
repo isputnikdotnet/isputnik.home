@@ -6,7 +6,7 @@ export interface GalleryAsset {
   libraryName: string | null;
   folderPath: string;
   folder: string;
-  kind: "photo" | "video";
+  kind: "photo" | "video" | "audio";
   title: string;
   description: string | null;
   takenAt: string | null;
@@ -18,8 +18,8 @@ export interface GalleryAsset {
   rotation: number; // user-applied clockwise angle (0/90/180/270), baked into thumbnails
   durationSeconds: number | null;
   // Video only: false = the browser can't decode this file (unsupported container/
-  // codec) so the UI offers a download instead; true = playable; null = photo or
-  // not yet probed (attempt playback, fall back on error).
+  // codec) so the UI offers a download instead; true = playable; null = photo,
+  // audio, or not yet probed (attempt playback, fall back on error).
   playable: boolean | null;
   mimeType: string | null;
   size: number | null;
@@ -28,8 +28,8 @@ export interface GalleryAsset {
   coverUrl: string | null;
   previewUrl: string | null;
   fileUrl: string; // the ORIGINAL — used for downloads
-  // What the <video> plays: a converted web copy when the original codec isn't
-  // browser-decodable, otherwise the same as fileUrl.
+  // What the <video>/<audio> plays: a converted web copy when a video's original
+  // codec isn't browser-decodable, otherwise the same as fileUrl.
   playbackUrl: string;
   tags: string[];
   saved: boolean;
@@ -377,7 +377,7 @@ export interface GalleryFolder {
 // asset is fetched on click for the lightbox.
 export interface GalleryMapPoint {
   id: string;
-  kind: "photo" | "video";
+  kind: "photo" | "video" | "audio";
   title: string;
   lat: number;
   lng: number;

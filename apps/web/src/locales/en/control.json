@@ -46,6 +46,7 @@
       "appearance": "Appearance",
       "email": "Email",
       "notifications": "Notifications",
+      "storySettings": "Stories",
       "readerAccess": "Reader access",
       "about": "About",
       "quotes": "Quotes"
@@ -91,7 +92,8 @@
       "sendTestEmail": "Send a test email",
       "opdsReaderTokens": "OPDS reader tokens",
       "twoFactorAlertsDelivery": "Two-factor & security alerts delivery",
-      "shareNotifications": "Share notifications"
+      "shareNotifications": "Share notifications",
+      "recordingsLibrary": "Story recordings library"
     }
   },
   "about": {

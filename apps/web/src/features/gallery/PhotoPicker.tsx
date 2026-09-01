@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Check, ChevronRight, Folder, FolderOpen, Image as ImageIcon, Play, Search, Tag, User, X } from "lucide-react";
+import { Check, ChevronRight, Folder, FolderOpen, Image as ImageIcon, Mic, Play, Search, Tag, User, X } from "lucide-react";
 import { api } from "../../api";
 import { Button } from "../../shared/Button";
 import { FileUpload } from "../../shared/FileUpload";
@@ -367,7 +367,11 @@ export function PhotoPicker({
         const isAdded = !pick && added.has(asset.id);
         const isSelected = !pick && selected.has(asset.id);
         // Video-pick mode: only a video is clickable, and a click chooses.
-        const unpickable = pick === "video" && asset.kind !== "video";
+        // Audio is never pickable here — every caller wants something visual
+        // (albums, slideshows, covers, portraits); recordings join sets from
+        // the gallery page's own selection, and a story's audio block will
+        // bring its own picker mode when it lands.
+        const unpickable = (pick === "video" && asset.kind !== "video") || asset.kind === "audio";
         return (
           <button
             key={asset.id}
@@ -376,12 +380,19 @@ export function PhotoPicker({
             onClick={() => (pick ? onPick?.(asset) : toggle(asset))}
             disabled={isAdded || adding || unpickable}
             aria-pressed={pick ? undefined : isSelected}
-            title={unpickable ? t("gallery:photoPicker.onlyVideoTitle") : isAdded ? t("gallery:photoPicker.alreadyAddedTitle") : asset.title}
+            title={
+              unpickable
+                ? (asset.kind === "audio" ? t("gallery:photoPicker.audioUnpickableTitle") : t("gallery:photoPicker.onlyVideoTitle"))
+                : isAdded ? t("gallery:photoPicker.alreadyAddedTitle") : asset.title
+            }
           >
             {asset.coverUrl ? <img src={asset.coverUrl} alt="" loading="lazy" style={faceFocusStyle(asset)} /> : (
-              <span className="gallery-tile-fallback"><ImageIcon size={26} aria-hidden="true" /></span>
+              <span className="gallery-tile-fallback">
+                {asset.kind === "audio" ? <Mic size={26} aria-hidden="true" /> : <ImageIcon size={26} aria-hidden="true" />}
+              </span>
             )}
             {asset.kind === "video" && <span className="gallery-video-badge"><Play size={11} aria-hidden="true" />{t("gallery:common.video")}</span>}
+            {asset.kind === "audio" && <span className="gallery-video-badge"><Mic size={11} aria-hidden="true" />{t("gallery:common.audio")}</span>}
             {isAdded ? (
               <span className="slideshow-browse-badge added">{t("gallery:photoPicker.addedBadge")}</span>
             ) : isSelected ? (

@@ -24,13 +24,21 @@ const PHOTO_EXTENSIONS = new Set([
 const VIDEO_EXTENSIONS = new Set([
   ".mp4", ".mov", ".m4v", ".webm", ".avi", ".mkv", ".wmv", ".flv", ".mpg", ".mpeg", ".3gp"
 ]);
+// Voice recordings / narration clips. ".webm" stays a video extension (a camera
+// clip is the far likelier owner); audio-in-webm uses ".weba", which is what a
+// MediaRecorder capture should be saved as. The dotless list is exported for
+// the places that opt a library into audio (the recordings-library setting
+// merges it into that library's scan extensions).
+export const AUDIO_SCAN_EXTENSIONS = ["mp3", "m4a", "aac", "ogg", "oga", "opus", "flac", "wav", "wma", "weba"];
+const AUDIO_EXTENSIONS = new Set(AUDIO_SCAN_EXTENSIONS.map((ext) => `.${ext}`));
 
-export type AssetKind = "photo" | "video";
+export type AssetKind = "photo" | "video" | "audio";
 
 export function kindForExtension(extension: string): AssetKind | null {
   const ext = extension.toLowerCase();
   if (PHOTO_EXTENSIONS.has(ext)) return "photo";
   if (VIDEO_EXTENSIONS.has(ext)) return "video";
+  if (AUDIO_EXTENSIONS.has(ext)) return "audio";
   return null;
 }
 
@@ -40,7 +48,10 @@ const MIME_BY_EXTENSION: Record<string, string> = {
   ".tif": "image/tiff", ".bmp": "image/bmp", ".avif": "image/avif",
   ".mp4": "video/mp4", ".mov": "video/quicktime", ".m4v": "video/x-m4v", ".webm": "video/webm",
   ".avi": "video/x-msvideo", ".mkv": "video/x-matroska", ".wmv": "video/x-ms-wmv",
-  ".flv": "video/x-flv", ".mpg": "video/mpeg", ".mpeg": "video/mpeg", ".3gp": "video/3gpp"
+  ".flv": "video/x-flv", ".mpg": "video/mpeg", ".mpeg": "video/mpeg", ".3gp": "video/3gpp",
+  ".mp3": "audio/mpeg", ".m4a": "audio/mp4", ".aac": "audio/aac", ".ogg": "audio/ogg",
+  ".oga": "audio/ogg", ".opus": "audio/opus", ".flac": "audio/flac", ".wav": "audio/wav",
+  ".wma": "audio/x-ms-wma", ".weba": "audio/webm"
 };
 
 export function mimeForExtension(extension: string): string {
@@ -156,7 +167,9 @@ async function readPhotoMetadata(absolutePath: string): Promise<AssetMetadata> {
   return meta;
 }
 
-// Video metadata via ffprobe (JSON). Missing ffprobe → empty metadata.
+// Video/audio metadata via ffprobe (JSON). Missing ffprobe → empty metadata.
+// Audio files simply have no video stream: width/height/videoCodec stay null
+// while duration, audio codec, and any creation_time tag come through.
 async function readVideoMetadata(absolutePath: string): Promise<AssetMetadata> {
   const meta: AssetMetadata = { ...EMPTY_METADATA };
   const probe = await run(FFPROBE_BIN, [
@@ -186,7 +199,7 @@ async function readVideoMetadata(absolutePath: string): Promise<AssetMetadata> {
 }
 
 export function readAssetMetadata(kind: AssetKind, absolutePath: string): Promise<AssetMetadata> {
-  return kind === "video" ? readVideoMetadata(absolutePath) : readPhotoMetadata(absolutePath);
+  return kind === "photo" ? readPhotoMetadata(absolutePath) : readVideoMetadata(absolutePath);
 }
 
 // Extract a poster frame from a video as a JPEG buffer (ffmpeg). Seeks ~1s in to
@@ -247,10 +260,13 @@ export interface ThumbnailKeys {
 }
 
 // Generate a grid thumbnail + a larger preview for one asset. For photos the source
-// is the file; for videos it's an ffmpeg poster frame. `rotation` is a user-applied
-// clockwise angle (0/90/180/270) baked in on top of the EXIF orientation. Returns
-// null when no image could be produced (e.g. an undecodable HEIC or a video with
-// ffmpeg missing) — the asset is still indexed, just without artwork.
+// is the file; for videos it's an ffmpeg poster frame; for audio it's embedded cover
+// art when the file carries any (ID3/MP4 attached picture — the no-seek ffmpeg frame
+// extraction pulls it out; a plain voice memo yields nothing and the asset renders
+// with the audio placeholder tile). `rotation` is a user-applied clockwise angle
+// (0/90/180/270) baked in on top of the EXIF orientation. Returns null when no image
+// could be produced (e.g. an undecodable HEIC or a video with ffmpeg missing) — the
+// asset is still indexed, just without artwork.
 export async function generateGalleryThumbnails(
   libraryId: string,
   itemId: string,
@@ -258,7 +274,7 @@ export async function generateGalleryThumbnails(
   absolutePath: string,
   rotation = 0
 ): Promise<ThumbnailKeys | null> {
-  const source: Buffer | string | null = kind === "video" ? await videoPosterBuffer(absolutePath) : absolutePath;
+  const source: Buffer | string | null = kind === "photo" ? absolutePath : await videoPosterBuffer(absolutePath);
   if (!source) return null;
   const render = async (input: Buffer | string): Promise<ThumbnailKeys> => {
     const coverKey = thumbnailStorageKey(libraryId, itemId, `${itemId}-cover.webp`);

@@ -506,7 +506,12 @@ export function App() {
     }
 
     if (route.name === "storyDetail") {
-      return <StoryDetailPage id={route.id} user={session.user} logout={logout} />;
+      // Chrome-free story site view (like the audiobook player page) — no shell.
+      return <StoryDetailPage id={route.id} />;
+    }
+
+    if (route.name === "storyChapter") {
+      return <StoryDetailPage id={route.id} chapterId={route.chapterId} />;
     }
 
     if (route.name === "storyEditor") {

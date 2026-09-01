@@ -9,6 +9,7 @@ import { StoryBlockEditor } from "./StoryBlockEditor";
 import { StoryRefPicker, type RefKind } from "./StoryRefPicker";
 import { StoryMapModal } from "./StoryMapModal";
 import { StoryAudioModal } from "./StoryAudioModal";
+import { useRecordingsTarget } from "./useRecordingsTarget";
 import type { StoryBlockKind, StoryChapter } from "./types";
 
 // One chapter in the editor: its heading fields, its blocks, and the row that
@@ -49,14 +50,16 @@ export function StoryChapterEditor({
   };
 }) {
   const { t } = useTranslation(["common", "stories"]);
-  const [picker, setPicker] = useState<"photo" | "map" | "audio" | RefKind | null>(null);
+  const recordings = useRecordingsTarget();
+  const [picker, setPicker] = useState<"photo" | "map" | "audio" | "hero" | "chapterPlace" | RefKind | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [fields, setFields] = useState({
     title: chapter.title ?? "",
     date: chapter.date ?? "",
     endDate: chapter.endDate ?? "",
     place: chapter.place ?? "",
-    description: chapter.description ?? ""
+    description: chapter.description ?? "",
+    standfirst: chapter.standfirst ?? ""
   });
 
   // Adopt server values after a reload without discarding an in-progress edit.
@@ -66,7 +69,8 @@ export function StoryChapterEditor({
       date: chapter.date ?? "",
       endDate: chapter.endDate ?? "",
       place: chapter.place ?? "",
-      description: chapter.description ?? ""
+      description: chapter.description ?? "",
+      standfirst: chapter.standfirst ?? ""
     });
   }, [chapter.title, chapter.date, chapter.endDate, chapter.place, chapter.description]);
 
@@ -152,15 +156,51 @@ export function StoryChapterEditor({
           </label>
 
           <label className="field">
-            <span>{t("stories:chapter.placeField")} <small className="muted">{t("stories:fields.optional")}</small></span>
+            <span>{t("stories:chapter.standfirstField")} <small className="muted">{t("stories:fields.optional")}</small></span>
             <input
-              value={fields.place}
-              onChange={(event) => setFields((state) => ({ ...state, place: event.target.value }))}
-              onBlur={() => commit("place", chapter.place)}
-              placeholder={t("stories:chapter.placePlaceholder")}
-              maxLength={200}
+              value={fields.standfirst}
+              onChange={(event) => setFields((state) => ({ ...state, standfirst: event.target.value }))}
+              onBlur={() => commit("standfirst", chapter.standfirst)}
+              placeholder={t("stories:chapter.standfirstPlaceholder")}
+              maxLength={300}
             />
           </label>
+
+          <div className="story-chapter-place-row">
+            <label className="field">
+              <span>{t("stories:chapter.placeField")} <small className="muted">{t("stories:fields.optional")}</small></span>
+              <input
+                value={fields.place}
+                onChange={(event) => setFields((state) => ({ ...state, place: event.target.value }))}
+                onBlur={() => commit("place", chapter.place)}
+                placeholder={t("stories:chapter.placePlaceholder")}
+                maxLength={200}
+              />
+            </label>
+            {/* Coordinates put the chapter on the Story Home map. */}
+            <Button variant="secondary" compact onClick={() => setPicker("chapterPlace")} disabled={busy}>
+              <MapPin size={15} aria-hidden="true" />
+              <span>{chapter.placeLat != null ? t("stories:chapter.movePin") : t("stories:chapter.setPin")}</span>
+            </Button>
+            {chapter.placeLat != null && (
+              <Button variant="text" compact onClick={() => onPatch({ placeLat: null, placeLng: null })} disabled={busy}>
+                {t("stories:chapter.clearPin")}
+              </Button>
+            )}
+          </div>
+
+          <div className="story-chapter-hero-row">
+            <span className="story-tags-label">{t("stories:chapter.heroField")}</span>
+            {chapter.hero?.coverUrl && <img className="story-chapter-hero-thumb" src={chapter.hero.coverUrl} alt="" />}
+            <Button variant="secondary" compact onClick={() => setPicker("hero")} disabled={busy}>
+              {chapter.heroItemId ? t("stories:chapter.changeHero") : t("stories:chapter.setHero")}
+            </Button>
+            {chapter.heroItemId && (
+              <Button variant="text" compact onClick={() => onPatch({ heroItemId: null })} disabled={busy}>
+                {t("stories:chapter.clearHero")}
+              </Button>
+            )}
+          </div>
 
           <label className="field">
             <span>{t("stories:chapter.descriptionField")} <small className="muted">{t("stories:fields.optional")}</small></span>
@@ -226,10 +266,20 @@ export function StoryChapterEditor({
           <Quote size={15} aria-hidden="true" />
           <span>{t("stories:kind.quote")}</span>
         </Button>
-        <Button variant="secondary" compact onClick={() => setPicker("audio")} disabled={busy}>
-          <Mic size={15} aria-hidden="true" />
-          <span>{t("stories:kind.audio")}</span>
-        </Button>
+        {/* Recording needs a destination: the affordance exists only once an
+            admin has nominated the recordings library. Members see nothing
+            until then; an admin sees it disabled, pointing at the setting. */}
+        {recordings.enabled ? (
+          <Button variant="secondary" compact onClick={() => setPicker("audio")} disabled={busy}>
+            <Mic size={15} aria-hidden="true" />
+            <span>{t("stories:kind.audio")}</span>
+          </Button>
+        ) : recordings.isAdmin ? (
+          <Button variant="secondary" compact disabled title={t("stories:audio.needsLibraryHint")}>
+            <Mic size={15} aria-hidden="true" />
+            <span>{t("stories:kind.audio")}</span>
+          </Button>
+        ) : null}
       </div>
 
       {picker === "photo" && (
@@ -237,6 +287,36 @@ export function StoryChapterEditor({
           title={t("stories:picker.photoTitle")}
           pick="any"
           onPick={(asset) => { setPicker(null); onAddBlock("media", { entityId: asset.id }); }}
+          onClose={() => setPicker(null)}
+        />
+      )}
+
+      {picker === "hero" && (
+        <PhotoPicker
+          title={t("stories:chapter.heroPickerTitle")}
+          pick="any"
+          onPick={(asset) => { setPicker(null); onPatch({ heroItemId: asset.id }); }}
+          onClose={() => setPicker(null)}
+        />
+      )}
+
+      {picker === "chapterPlace" && (
+        <StoryMapModal
+          initial={chapter.placeLat != null && chapter.placeLng != null
+            ? { lat: chapter.placeLat, lng: chapter.placeLng, zoom: null, label: chapter.place }
+            : null}
+          onSave={(value) => {
+            setPicker(null);
+            // The pin names the place too, unless the author already typed one.
+            onPatch({
+              placeLat: value.lat,
+              placeLng: value.lng,
+              ...(value.label && !fields.place.trim() ? { place: value.label } : {})
+            });
+            if (value.label && !fields.place.trim()) {
+              setFields((state) => ({ ...state, place: value.label ?? "" }));
+            }
+          }}
           onClose={() => setPicker(null)}
         />
       )}

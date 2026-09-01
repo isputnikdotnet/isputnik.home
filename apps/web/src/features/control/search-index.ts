@@ -112,7 +112,7 @@ type SettingKey =
   | "newSignInAlerts" | "twoFactorSignIn" | "linkingDevices" | "ipReputation"
   | "deletionProtection" | "addTrustedNetwork" | "scheduledBackups" | "defaultTheme"
   | "smtpServer" | "sendTestEmail" | "opdsReaderTokens" | "twoFactorAlertsDelivery"
-  | "shareNotifications";
+  | "shareNotifications" | "recordingsLibrary";
 
 // Settings that live inside a page. `section` is where they are; search takes
 // you to that tab and the setting is on it.
@@ -164,6 +164,11 @@ const SETTING_ENTRIES: { titleKey: SettingKey; section: ControlSection; keywords
     titleKey: "shareNotifications",
     section: "notifications",
     keywords: "notify members when a photo book album is shared with them turn on enable share notification recipient уведомления поделились фото книга альбом включить получатель"
+  },
+  {
+    titleKey: "recordingsLibrary",
+    section: "storySettings",
+    keywords: "story narration audio recording voice record microphone library destination where recordings saved озвучка история запись аудио голос микрофон библиотека записей куда сохраняются"
   }
 ];
 

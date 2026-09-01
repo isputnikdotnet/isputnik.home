@@ -900,6 +900,43 @@
 
 .gallery-lightbox-unplayable .message-box { text-align: left; }
 
+/* An audio recording on the lightbox stage: cover art (or the mic glyph),
+   the file's name, and the browser's own player. Same footprint rules as the
+   unplayable-video card so the stage composition matches. */
+.gallery-lightbox-audio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  max-width: min(520px, 90%);
+  text-align: center;
+}
+
+.gallery-lightbox-audio img {
+  max-width: 100%;
+  max-height: 45vh;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+.gallery-lightbox-audio-glyph {
+  display: grid;
+  place-items: center;
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.gallery-lightbox-audio-title {
+  color: #fff;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.gallery-lightbox-audio audio { width: min(440px, 100%); }
+
 .gallery-lightbox-download-cta {
   display: inline-flex;
   align-items: center;

@@ -90,6 +90,14 @@ describe("AssetTile", () => {
     expect(container.querySelector(".gallery-video-badge.unplayable")).toBeInTheDocument();
   });
 
+  it("badges an audio recording and falls back to the mic, not the photo icon", () => {
+    const { container } = render(
+      <AssetTile {...props({ asset: photo({ kind: "audio", coverUrl: null }) })} />
+    );
+    expect(container.querySelector(".gallery-video-badge")).toHaveTextContent("Audio");
+    expect(container.querySelector(".gallery-tile-fallback svg.lucide-mic")).toBeInTheDocument();
+  });
+
   it("shows the liked dot only outside selection mode, where the check goes", () => {
     const { container, rerender } = render(
       <AssetTile {...props({ asset: photo({ saved: true }) })} />

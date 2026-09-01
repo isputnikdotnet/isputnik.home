@@ -124,6 +124,8 @@ export function suggestGalleryMemories(libIds: string[], opts: { limit?: number 
     WHERE library_items.library_id IN (${inClause(libIds.length)})
       AND library_items.deleted_at IS NULL
       AND gallery_details.taken_at IS NOT NULL
+      -- Moments are visual: audio recordings never seed or join a memory.
+      AND gallery_details.kind != 'audio'
     ORDER BY datetime(gallery_details.taken_at) ASC, library_items.id ASC
   `).all(...libIds) as ItemRow[];
   if (rows.length < MIN_ITEMS) return [];

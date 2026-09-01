@@ -33,7 +33,23 @@
     "titlePlaceholder": "Миннесота, лето 2004",
     "subtitle": "Подзаголовок",
     "subtitlePlaceholder": "Три недели, две палатки и очень уставшая собака",
+    "intro": "Вступление",
+    "introPlaceholder": "Несколько вступительных строк для главной страницы истории",
+    "chapterNoun": "Как называть главу",
+    "chapterNounPlaceholder": "День",
+    "chapterNounHint": "Главы будут читаться как «День 1», «День 2». Оставьте пустым, чтобы использовать их названия.",
     "optional": "необязательно"
+  },
+  "site": {
+    "overview": "Обзор",
+    "stripAria": "Главы истории",
+    "chapterMissing": "Такой главы нет — возможно, её удалили.",
+    "mapHeading": "Где это было",
+    "photosFrom": "Фото: {{label}}",
+    "shotCount_one": "{{count}} кадр",
+    "shotCount_few": "{{count}} кадра",
+    "shotCount_many": "{{count}} кадров",
+    "shotCount_other": "{{count}} кадра"
   },
   "actions": {
     "create": "Создать историю",
@@ -93,6 +109,16 @@
     "approxLabel": "Дата приблизительная",
     "placeField": "Место",
     "placePlaceholder": "Озеро Верхнее, Миннесота",
+    "standfirstField": "Подводка",
+    "standfirstPlaceholder": "Одна строка, задающая тон этой главе",
+    "setPin": "Отметить на карте",
+    "movePin": "Передвинуть метку",
+    "clearPin": "Убрать метку",
+    "heroField": "Обложка главы",
+    "setHero": "Выбрать фото",
+    "changeHero": "Сменить фото",
+    "clearHero": "Убрать",
+    "heroPickerTitle": "Фото обложки главы",
     "descriptionField": "Заметка к главе",
     "descriptionPlaceholder": "Строка пояснения под заголовком главы",
     "lastOne": "В истории остаётся хотя бы одна глава."
@@ -191,18 +217,8 @@
     "unableToCreate": "Не удалось создать ссылку.",
     "unableToRevoke": "Не удалось отозвать ссылку."
   },
-  "player": {
-    "play": "Смотреть",
-    "starting": "Подготовка…",
-    "pause": "Пауза",
-    "previous": "Назад",
-    "next": "Вперёд",
-    "close": "Закрыть",
-    "again": "Смотреть снова",
-    "theEnd": "Конец",
-    "aria": "Воспроизведение истории «{{title}}»"
-  },
   "audio": {
+    "needsLibraryHint": "Сначала выберите библиотеку записей — Панель управления → Настройки → Истории",
     "title": "Добавить озвучку",
     "intro": "Запишите, как кто-то рассказывает эту часть истории, или загрузите готовую запись.",
     "record": "Записать",

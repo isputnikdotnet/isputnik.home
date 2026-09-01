@@ -88,7 +88,7 @@ function itemFacts(itemId: string): { title: string; noun: string } | null {
   if (!row) return null;
   return {
     title: row.title?.trim() || path.basename(row.folder_path) || "an item",
-    noun: row.kind === "video" ? "a video" : row.kind === "photo" ? "a photo" : ""
+    noun: row.kind === "video" ? "a video" : row.kind === "photo" ? "a photo" : row.kind === "audio" ? "a recording" : ""
   };
 }
 

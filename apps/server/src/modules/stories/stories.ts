@@ -57,9 +57,12 @@ export const BLOCK_ENTITY_TYPE: Record<StoryBlockKind, string | null> = {
   // A person block is the family-tree bridge; a quote block is a pull quote.
   person: "family_tree_person",
   quote: "quote",
-  // Narration is the one reference the story OWNS rather than points at, so it
-  // is not a subjects-registry type — see audio.ts.
-  audio: STORY_AUDIO_ENTITY_TYPE
+  // A recording is a gallery audio asset in the recordings library (v2 —
+  // "stories reference, period"). Blocks written before that change carry
+  // entity_type 'story_audio' (a story-owned clip, audio.ts) and keep serving
+  // until the one-time import in recordings.ts moves them; the read paths
+  // accept both shapes.
+  audio: "gallery"
 };
 
 export interface StoryRow {
@@ -68,6 +71,8 @@ export interface StoryRow {
   subtitle: string | null;
   cover_item_id: string | null;
   status: StoryStatus;
+  chapter_noun: string | null;
+  intro: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -85,6 +90,8 @@ export interface ChapterRow {
   place_lat: number | null;
   place_lng: number | null;
   description: string | null;
+  standfirst: string | null;
+  hero_item_id: string | null;
 }
 
 export interface BlockRow {
@@ -158,6 +165,8 @@ export interface StoryUpdate {
   subtitle?: string | null;
   status?: StoryStatus;
   coverItemId?: string | null;
+  chapterNoun?: string | null;
+  intro?: string | null;
 }
 
 export function updateStory(storyId: string, fields: StoryUpdate): void {
@@ -167,6 +176,8 @@ export function updateStory(storyId: string, fields: StoryUpdate): void {
       subtitle      = CASE WHEN ? THEN ? ELSE subtitle END,
       status        = COALESCE(?, status),
       cover_item_id = CASE WHEN ? THEN ? ELSE cover_item_id END,
+      chapter_noun  = CASE WHEN ? THEN ? ELSE chapter_noun END,
+      intro         = CASE WHEN ? THEN ? ELSE intro END,
       updated_at    = strftime('%Y-%m-%dT%H:%M:%fZ','now')
     WHERE id = ?
   `).run(
@@ -176,6 +187,10 @@ export function updateStory(storyId: string, fields: StoryUpdate): void {
     fields.status ?? null,
     fields.coverItemId !== undefined ? 1 : 0,
     fields.coverItemId ?? null,
+    fields.chapterNoun !== undefined ? 1 : 0,
+    fields.chapterNoun ?? null,
+    fields.intro !== undefined ? 1 : 0,
+    fields.intro ?? null,
     storyId
   );
 }
@@ -236,6 +251,9 @@ export function listStories(user: { id: string; role: string }, libIds: string[]
           JOIN item_metadata ON item_metadata.item_id = library_items.id
           WHERE story_chapters.story_id = stories.id
             AND story_blocks.entity_type = 'gallery'
+            -- media only: a recording's embedded cover art must not become the
+            -- story's card (audio blocks are entity_type 'gallery' too).
+            AND story_blocks.kind = 'media'
             AND library_items.library_id IN (${libIn})
             AND item_metadata.cover_storage_key IS NOT NULL
           ORDER BY story_chapters.position, story_blocks.position LIMIT 1)
@@ -294,6 +312,8 @@ export interface ChapterFields {
   placeLat?: number | null;
   placeLng?: number | null;
   description?: string | null;
+  standfirst?: string | null;
+  heroItemId?: string | null;
 }
 
 function nextPosition(table: "story_chapters" | "story_blocks", column: "story_id" | "chapter_id", parentId: string): number {
@@ -307,8 +327,8 @@ export function createChapter(storyId: string, fields: ChapterFields): ChapterRo
   db.transaction(() => {
     db.prepare(`
       INSERT INTO story_chapters
-        (id, story_id, position, title, date, end_date, date_approx, place, place_lat, place_lng, description)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (id, story_id, position, title, date, end_date, date_approx, place, place_lat, place_lng, description, standfirst, hero_item_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       id,
       storyId,
@@ -320,7 +340,9 @@ export function createChapter(storyId: string, fields: ChapterFields): ChapterRo
       fields.place ?? null,
       fields.placeLat ?? null,
       fields.placeLng ?? null,
-      fields.description ?? null
+      fields.description ?? null,
+      fields.standfirst ?? null,
+      fields.heroItemId ?? null
     );
     touchStory(storyId);
   })();
@@ -339,7 +361,9 @@ export function updateChapter(chapterId: string, storyId: string, fields: Chapte
         place       = CASE WHEN ? THEN ? ELSE place END,
         place_lat   = CASE WHEN ? THEN ? ELSE place_lat END,
         place_lng   = CASE WHEN ? THEN ? ELSE place_lng END,
-        description = CASE WHEN ? THEN ? ELSE description END
+        description = CASE WHEN ? THEN ? ELSE description END,
+        standfirst  = CASE WHEN ? THEN ? ELSE standfirst END,
+        hero_item_id = CASE WHEN ? THEN ? ELSE hero_item_id END
       WHERE id = ?
     `).run(
       set("title"), fields.title ?? null,
@@ -350,6 +374,8 @@ export function updateChapter(chapterId: string, storyId: string, fields: Chapte
       set("placeLat"), fields.placeLat ?? null,
       set("placeLng"), fields.placeLng ?? null,
       set("description"), fields.description ?? null,
+      set("standfirst"), fields.standfirst ?? null,
+      set("heroItemId"), fields.heroItemId ?? null,
       chapterId
     );
     touchStory(storyId);
@@ -470,9 +496,11 @@ export function deleteBlock(blockId: string, storyId: string): boolean {
     removed = db.prepare("DELETE FROM story_blocks WHERE id = ?").run(blockId).changes > 0;
     if (removed) touchStory(storyId);
   })();
-  // A narration clip exists only for its block, so it goes with it — file and
-  // all. Outside the transaction because it touches the filesystem.
-  if (removed && block?.kind === "audio" && block.entity_id) {
+  // A LEGACY narration clip exists only for its block, so it goes with it —
+  // file and all. Outside the transaction because it touches the filesystem.
+  // A gallery-backed recording (entity_type 'gallery') is library content and
+  // is never deleted with the block that referenced it.
+  if (removed && block?.kind === "audio" && block.entity_type === STORY_AUDIO_ENTITY_TYPE && block.entity_id) {
     deleteStoryAudio(block.entity_id);
   }
   return removed;

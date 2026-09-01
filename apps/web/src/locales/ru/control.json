@@ -46,6 +46,7 @@
       "appearance": "Внешний вид",
       "email": "Почта",
       "notifications": "Уведомления",
+      "storySettings": "Истории",
       "readerAccess": "Доступ для читалок",
       "about": "О программе",
       "quotes": "Цитаты"
@@ -91,7 +92,8 @@
       "sendTestEmail": "Отправка тестового письма",
       "opdsReaderTokens": "Токены доступа для читалок (OPDS)",
       "twoFactorAlertsDelivery": "Доставка кодов и оповещений безопасности",
-      "shareNotifications": "Уведомления о доступе"
+      "shareNotifications": "Уведомления о доступе",
+      "recordingsLibrary": "Библиотека записей историй"
     }
   },
   "about": {

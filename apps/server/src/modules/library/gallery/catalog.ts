@@ -303,7 +303,7 @@ function galleryFilterClauses(filters: GalleryTimelineFilters, userId: string): 
 
 export interface GalleryTimelineQuery {
   q: string;
-  kinds: string[];      // ['photo'|'video'] subset; empty = both
+  kinds: string[];      // ['photo'|'video'|'audio'] subset; empty = all
   filters?: GalleryTimelineFilters;
   // 'taken' (default) = newest-first by the EXIF date; 'added' = newest-first by
   // when the scanner/upload discovered the item (library_items.discovered_at).
@@ -672,6 +672,7 @@ export function queryGalleryRecentlyAdded(userId: string, libIds: string[], days
   const libIn = inClause(libIds.length);
   const where = `library_items.library_id IN (${libIn})
     AND library_items.deleted_at IS NULL
+    AND gallery_details.kind != 'audio'
     AND datetime(library_items.discovered_at) >= datetime('now', '-${windowDays} days')`;
 
   const summary = db.prepare(`
@@ -713,6 +714,7 @@ export function queryGalleryMemories(userId: string, libIds: string[], today: st
         CASE WHEN substr(gallery_details.taken_at, 6, 5) = ? THEN 1 ELSE 0 END AS mem_exact
       ${ASSET_JOINS}
       WHERE library_items.library_id IN (${libIn}) AND library_items.deleted_at IS NULL
+        AND gallery_details.kind != 'audio'
         AND substr(gallery_details.taken_at, 1, 4) < ?
         AND substr(gallery_details.taken_at, 6, 5) IN (${inClause(7)})
     ),
@@ -765,6 +767,7 @@ export function queryGalleryMemories(userId: string, libIds: string[], today: st
         COUNT(*) OVER (PARTITION BY substr(gallery_details.taken_at, 1, 4)) AS mem_count
       ${ASSET_JOINS}
       WHERE library_items.library_id IN (${libIn}) AND library_items.deleted_at IS NULL
+        AND gallery_details.kind != 'audio'
         AND substr(gallery_details.taken_at, 1, 4) < ?
         AND substr(gallery_details.taken_at, 6, 2) = ?
     )
@@ -793,7 +796,7 @@ interface MapPointRow {
 }
 
 export interface GalleryMapQuery {
-  kinds: string[];  // ['photo'|'video'] subset; empty = both
+  kinds: string[];  // ['photo'|'video'|'audio'] subset; empty = all
   limit: number;
 }
 

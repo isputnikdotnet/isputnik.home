@@ -23,6 +23,7 @@
     "unnamed": "Без имени",
     "video": "Видео",
     "photo": "Фото",
+    "audio": "Аудио",
     "like": "Нравится",
     "unlike": "Убрать из нравится",
     "play": "Воспроизвести",
@@ -84,6 +85,7 @@
   "filter": {
     "kindPhotos": "Фото",
     "kindVideos": "Видео",
+    "kindAudio": "Аудио",
     "monthJanuary": "Январь",
     "monthFebruary": "Февраль",
     "monthMarch": "Март",
@@ -317,6 +319,7 @@
     "noPhotosMatch": "Фото не найдены.",
     "noPhotosInScope": "В этой области нет фото.",
     "onlyVideoTitle": "Здесь можно выбрать только видео",
+    "audioUnpickableTitle": "Аудиозапись нельзя выбрать здесь",
     "alreadyAddedTitle": "Уже добавлено",
     "addedBadge": "Добавлено",
     "tapVideoHint": "Нажмите на видео, чтобы выбрать его.",

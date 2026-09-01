@@ -50,7 +50,9 @@ const MAX_GALLERY_UPLOAD_FILES = 200;
 // dot-entries, and ".upload-*" is reserved for staging), then disambiguate against
 // existing files with " (2)", " (3)", … Returns null if nothing usable remains.
 // Mirrors the ebook uploader.
-function uniqueGalleryFileName(dir: string, filename: string): string | null {
+// Exported for the story narration flow, which lands recordings in a gallery
+// library through the same naming rules as a regular upload.
+export function uniqueGalleryFileName(dir: string, filename: string): string | null {
   const ext = path.extname(filename);
   const stem = Array.from(path.basename(filename, ext))
     .filter((ch) => ch.charCodeAt(0) >= 32)
@@ -338,7 +340,7 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
   const filterList = z.array(z.string().trim().min(1).max(200)).max(100).default([]);
   const timelineSchema = z.object({
     q: z.string().trim().max(200).default(""),
-    kinds: z.array(z.enum(["photo", "video"])).default([]),
+    kinds: z.array(z.enum(["photo", "video", "audio"])).default([]),
     filters: z.object({
       // Which gallery libraries this scopes to — the first cut, so it stays
       // outside the AND-of-facets loop below and reads that way in catalog.ts.
@@ -511,7 +513,7 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
   app.get("/api/library/gallery/map", { preHandler: app.authenticate }, async (request) => {
     const qp = request.query as { libraryIds?: string; kinds?: string };
     const libIds = resolveGalleryScopeLibraryIds(request.user!, parseLibraryIds(qp.libraryIds));
-    const kinds = (qp.kinds ?? "").split(",").map((k) => k.trim()).filter((k) => k === "photo" || k === "video");
+    const kinds = (qp.kinds ?? "").split(",").map((k) => k.trim()).filter((k) => k === "photo" || k === "video" || k === "audio");
     return queryGalleryMapPoints(libIds, { kinds, limit: 5000 });
   });
 

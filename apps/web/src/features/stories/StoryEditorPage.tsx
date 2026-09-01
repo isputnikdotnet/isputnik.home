@@ -33,6 +33,8 @@ export function StoryEditorPage({
   const [sharing, setSharing] = useState(false);
   const [title, setTitle] = useState("");
   const [subtitle, setSubtitle] = useState("");
+  const [chapterNoun, setChapterNoun] = useState("");
+  const [intro, setIntro] = useState("");
   // Revealed on demand for a one-chapter story: a journal page shouldn't open
   // with a form, but a chaptered one needs its dates in reach.
   const [showChapterFields, setShowChapterFields] = useState(false);
@@ -50,9 +52,11 @@ export function StoryEditorPage({
     if (!story) return;
     setTitle(story.title);
     setSubtitle(story.subtitle ?? "");
+    setChapterNoun(story.chapterNoun ?? "");
+    setIntro(story.intro ?? "");
     document.title = `${story.title} — isputnik.home`;
     if (hasChapterStructure(story)) setShowChapterFields(true);
-  }, [story?.id, story?.title, story?.subtitle]);
+  }, [story?.id, story?.title, story?.subtitle, story?.chapterNoun, story?.intro]);
 
   // Someone else's story (or a reader who guessed the URL) never gets the
   // editor — the server refuses the writes anyway, but the page shouldn't lie.
@@ -150,6 +154,40 @@ export function StoryEditorPage({
                 placeholder={t("stories:tags.placeholder")}
                 hint={t("stories:tags.hint")}
               />
+            </div>
+
+            {/* Story Home fields: the intro opens the front page, and the
+                chapter noun is authored text ("Day", "Stop") rendered "Day 1"
+                — deliberately NOT translated, it belongs to this story. */}
+            <div className="story-home-fields">
+              <label className="story-field">
+                <span>{t("stories:fields.intro")}</span>
+                <textarea
+                  value={intro}
+                  rows={3}
+                  maxLength={5000}
+                  onChange={(event) => setIntro(event.target.value)}
+                  onBlur={() => {
+                    const next = intro.trim();
+                    if (next !== (story.intro ?? "")) void editor.patchStory({ intro: next || null });
+                  }}
+                  placeholder={t("stories:fields.introPlaceholder")}
+                />
+              </label>
+              <label className="story-field story-field-noun">
+                <span>{t("stories:fields.chapterNoun")}</span>
+                <input
+                  value={chapterNoun}
+                  maxLength={30}
+                  onChange={(event) => setChapterNoun(event.target.value)}
+                  onBlur={() => {
+                    const next = chapterNoun.trim();
+                    if (next !== (story.chapterNoun ?? "")) void editor.patchStory({ chapterNoun: next || null });
+                  }}
+                  placeholder={t("stories:fields.chapterNounPlaceholder")}
+                />
+                <span className="muted">{t("stories:fields.chapterNounHint")}</span>
+              </label>
             </div>
 
             {!structured && !showChapterFields && (

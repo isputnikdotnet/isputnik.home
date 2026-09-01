@@ -1,8 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, MapPin, Pencil, Play, Send } from "lucide-react";
-import { api, type PublicUser } from "../../api";
-import { DashboardShell } from "../../app/DashboardShell";
+import { ArrowLeft, ChevronLeft, ChevronRight, MapPin, Pencil, Send } from "lucide-react";
+import { api } from "../../api";
 import { followRoute, goBack, navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { Button } from "../../shared/Button";
@@ -13,29 +12,22 @@ import type { SlideshowTransition } from "../gallery/types";
 import { NotesSection } from "../social/NotesSection";
 import { SendToSheet } from "../social/SendToSheet";
 import { StoryBlockView } from "./StoryBlockView";
-import { StoryPlayer } from "./StoryPlayer";
-import { slidesFromStory, type PlayerSlide } from "./story-player";
+import { StoryMarkdown } from "./StoryMarkdown";
+import { StoryMap } from "./StoryMap";
 import { chapterDateText, groupIntoRows } from "./story-layout";
-import { hasChapterStructure, type StoryBlock, type StoryChapter, type StoryDetail } from "./types";
+import { chapterLabel, hasChapterStructure, type StoryBlock, type StoryChapter, type StoryDetail } from "./types";
 
-// The reading view: a story as one scrolling page. Presentation only — no
-// library chrome, no selection, no editing affordances beyond the author's own
-// "Edit" button.
-export function StoryDetailPage({
-  id,
-  user,
-  logout
-}: {
-  id: string;
-  user: PublicUser;
-  logout: () => Promise<void>;
-}) {
+// The story SITE: reading a story is chrome-free — no app nav, only the
+// story's own navigation (docs/stories-v2-proposal.md, "Site view replaces the
+// player"). /stories/:id is the Story Home (hero, intro, chapter cards, story
+// map); each chapter is its own page at /stories/:id/chapters/:chapterId. A
+// story with one bare chapter collapses to a single reading page at the story
+// URL, exactly as v1 rendered it.
+export function StoryDetailPage({ id, chapterId }: { id: string; chapterId?: string }) {
   const { t } = useTranslation(["common", "stories"]);
   const [story, setStory] = useState<StoryDetail | null>(null);
   const [error, setError] = useState("");
   const [sending, setSending] = useState(false);
-  const [slides, setSlides] = useState<PlayerSlide[] | null>(null);
-  const [starting, setStarting] = useState(false);
   const [lightbox, setLightbox] = useState<
     { assets: GalleryAsset[]; index: number; autoPlay?: boolean; transition?: SlideshowTransition; interval?: number; transitionSeconds?: number; musicUrl?: string } | null
   >(null);
@@ -44,12 +36,22 @@ export function StoryDetailPage({
     setStory(null);
     setError("");
     api<{ story: StoryDetail }>(`/api/stories/${id}`)
-      .then((payload) => {
-        setStory(payload.story);
-        document.title = `${payload.story.title} — isputnik.home`;
-      })
+      .then((payload) => setStory(payload.story))
       .catch((err) => setError(err instanceof Error ? err.message : t("stories:errors.load")));
   }, [id]);
+
+  const structured = story ? hasChapterStructure(story) : false;
+  const chapterIndex = story && chapterId
+    ? story.chapters.findIndex((chapter) => chapter.id === chapterId)
+    : -1;
+  const chapter = chapterIndex >= 0 ? story!.chapters[chapterIndex] : null;
+
+  useEffect(() => {
+    if (!story) return;
+    document.title = chapter
+      ? `${chapterLabel(story, chapter, chapterIndex)} — ${story.title} — isputnik.home`
+      : `${story.title} — isputnik.home`;
+  }, [story, chapter, chapterIndex]);
 
   // A slideshow block plays with its own settings, so it looks the same inside a
   // story as it does in the gallery. The block only carries a preview strip, so
@@ -78,132 +80,92 @@ export function StoryDetailPage({
 
   const openMedia = (assets: GalleryAsset[], index: number) => setLightbox({ assets, index });
 
-  // Presentation mode. The reading view only holds a preview strip of each
-  // album and slideshow, but a show should play them through — so their full
-  // contents are fetched first, and the player is opened with the whole thing.
-  const startPlayer = async () => {
-    if (!story) return;
-    setStarting(true);
-    try {
-      const expansions = new Map<string, GalleryAsset[]>();
-      const sets = story.chapters
-        .flatMap((chapter) => chapter.blocks)
-        .filter((block) => block.available && block.entityId
-          && (block.kind === "album" || block.kind === "slideshow"));
-
-      await Promise.all(sets.map(async (block) => {
-        const url = block.kind === "album"
-          ? `/api/library/gallery/albums/${block.entityId}?limit=200`
-          : `/api/library/gallery/slideshows/${block.entityId}?limit=200`;
-        try {
-          const payload = await api<{ assets: GalleryAsset[] }>(url);
-          expansions.set(block.id, payload.assets);
-        } catch {
-          // One unreachable set shouldn't stop the show — it falls back to the
-          // preview strip the page already has.
-        }
-      }));
-
-      setSlides(slidesFromStory(story, expansions));
-    } finally {
-      setStarting(false);
-    }
-  };
-
-  const structured = story ? hasChapterStructure(story) : false;
-  const span = story
-    ? formatPartialDateRange(
-        story.chapters.find((chapter) => chapter.date)?.date ?? null,
-        [...story.chapters].reverse().find((chapter) => chapter.endDate ?? chapter.date)?.endDate ?? null
-      )
-    : "";
+  const openChapter = (targetId: string) => navigate(`/stories/${id}/chapters/${targetId}`);
 
   return (
-    <DashboardShell active="stories" user={user} logout={logout}>
-      <section className="work-area story-read-area">
-        <div className="book-detail-topbar">
-          <button className="audiobook-back-button" type="button" onClick={() => goBack("/stories")}>
-            <ArrowLeft size={18} aria-hidden="true" />
-            <span>{t("stories:backTo")}</span>
-          </button>
-        </div>
+    <div className="story-site">
+      <header className="story-site-bar">
+        <button className="story-site-exit" type="button" onClick={() => goBack("/stories")}>
+          <ArrowLeft size={18} aria-hidden="true" />
+          <span>{t("stories:backTo")}</span>
+        </button>
+        {story && (
+          <a
+            className="story-site-name"
+            href={`/stories/${story.id}`}
+            onClick={(event) => followRoute(event, `/stories/${story.id}`)}
+          >
+            {story.title}
+          </a>
+        )}
+        {story && (
+          <div className="story-site-actions">
+            {story.canEdit && (
+              <Button variant="secondary" compact onClick={() => navigate(`/stories/${story.id}/edit`)}>
+                <Pencil size={15} aria-hidden="true" />
+                <span>{t("stories:actions.edit")}</span>
+              </Button>
+            )}
+            {/* Sending is how a story reaches one person before real story
+                shares land; a draft has nobody to send to yet. */}
+            {story.status === "published" && (
+              <Button variant="secondary" compact onClick={() => setSending(true)}>
+                <Send size={15} aria-hidden="true" />
+                <span>{t("stories:actions.send")}</span>
+              </Button>
+            )}
+          </div>
+        )}
+      </header>
 
+      {story && structured && (
+        <nav className="story-site-strip" aria-label={t("stories:site.stripAria")}>
+          <a
+            href={`/stories/${story.id}`}
+            className={chapter ? "" : "is-current"}
+            onClick={(event) => followRoute(event, `/stories/${story.id}`)}
+          >
+            {t("stories:site.overview")}
+          </a>
+          {story.chapters.map((item, index) => (
+            <a
+              key={item.id}
+              href={`/stories/${story.id}/chapters/${item.id}`}
+              className={item.id === chapterId ? "is-current" : ""}
+              onClick={(event) => followRoute(event, `/stories/${story.id}/chapters/${item.id}`)}
+            >
+              {chapterLabel(story, item, index)}
+            </a>
+          ))}
+        </nav>
+      )}
+
+      <main className="story-site-page">
         {error && <MessageBox tone="error" title={t("stories:errors.loadTitle")}>{error}</MessageBox>}
         {!story && !error && <p className="management-empty">{t("stories:common.loading")}</p>}
 
-        {story && (
-          <article className="story-read">
-            <header className="story-read-head">
-              {story.status === "draft" && (
-                <span className="story-draft-badge">{t("stories:status.draft")}</span>
-              )}
-              <h1>{story.title}</h1>
-              {story.subtitle && <p className="story-read-subtitle">{story.subtitle}</p>}
-              {span && <p className="story-read-span">{span}</p>}
-              {story.tags.length > 0 && (
-                <ul className="story-read-tags">
-                  {story.tags.map((tag) => (
-                    <li key={tag}>
-                      {/* Straight into the cross-type tag browse: the photos,
-                          people and other stories that share this tag. */}
-                      <a
-                        href={`/tags/${encodeURIComponent(tag)}`}
-                        onClick={(event) => followRoute(event, `/tags/${encodeURIComponent(tag)}`)}
-                      >
-                        {tag}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <div className="story-read-actions">
-                <Button variant="primary" compact onClick={() => void startPlayer()} disabled={starting}>
-                  <Play size={15} aria-hidden="true" />
-                  <span>{starting ? t("stories:player.starting") : t("stories:player.play")}</span>
-                </Button>
-                {story.canEdit && (
-                  <Button variant="secondary" compact onClick={() => navigate(`/stories/${story.id}/edit`)}>
-                    <Pencil size={15} aria-hidden="true" />
-                    <span>{t("stories:actions.edit")}</span>
-                  </Button>
-                )}
-                {/* Sending is how a story reaches one person before real story
-                    shares land; a draft has nobody to send to yet. */}
-                {story.status === "published" && (
-                  <Button variant="secondary" compact onClick={() => setSending(true)}>
-                    <Send size={15} aria-hidden="true" />
-                    <span>{t("stories:actions.send")}</span>
-                  </Button>
-                )}
-              </div>
-            </header>
-
-            {story.chapters.every((chapter) => chapter.blocks.length === 0) && (
-              <MessageBox tone="info" title={t("stories:read.emptyTitle")}>
-                {story.canEdit ? t("stories:read.emptyAuthor") : t("stories:read.emptyReader")}
-              </MessageBox>
-            )}
-
-            {story.chapters.map((chapter) => (
-              <ChapterSection
-                key={chapter.id}
-                chapter={chapter}
-                showHeader={structured}
-                onOpenMedia={openMedia}
-                onPlaySlideshow={playSlideshow}
-              />
-            ))}
-
-            {/* The family's reaction to the story belongs with the story, the
-                way notes hang off a photo or a book. */}
-            <NotesSection entityType="story" entityId={story.id} />
-          </article>
+        {story && chapterId && !chapter && (
+          <MessageBox tone="error" title={t("stories:errors.loadTitle")}>
+            {t("stories:site.chapterMissing")}
+          </MessageBox>
         )}
-      </section>
 
-      {slides && slides.length > 0 && story && (
-        <StoryPlayer slides={slides} title={story.title} onClose={() => setSlides(null)} />
-      )}
+        {story && chapter && (
+          <ChapterPage
+            story={story}
+            chapter={chapter}
+            index={chapterIndex}
+            onOpenMedia={openMedia}
+            onPlaySlideshow={playSlideshow}
+            onOpenChapter={openChapter}
+          />
+        )}
+
+        {story && !chapterId && (structured
+          ? <StoryHome story={story} onOpenChapter={openChapter} />
+          : <FlatStory story={story} onOpenMedia={openMedia} onPlaySlideshow={playSlideshow} />
+        )}
+      </main>
 
       {story && sending && (
         <SendToSheet
@@ -230,78 +192,343 @@ export function StoryDetailPage({
           musicUrl={lightbox.musicUrl}
         />
       )}
-    </DashboardShell>
+    </div>
   );
 }
 
-function ChapterSection({
-  chapter,
-  showHeader,
+/** The best image a chapter can offer its card: the hero, else the first
+ *  visible photo any of its blocks shows. */
+function chapterThumb(chapter: StoryChapter): string | null {
+  if (chapter.hero?.coverUrl) return chapter.hero.coverUrl;
+  for (const block of chapter.blocks) {
+    if (block.asset?.coverUrl && block.asset.kind !== "audio") return block.asset.coverUrl;
+    const preview = block.preview.find((asset) => asset.coverUrl);
+    if (preview?.coverUrl) return preview.coverUrl;
+  }
+  return null;
+}
+
+/** Every photo/video a chapter's blocks show — the "Photos from Day N" footer. */
+function chapterGallery(chapter: StoryChapter): GalleryAsset[] {
+  const seen = new Set<string>();
+  const out: GalleryAsset[] = [];
+  for (const block of chapter.blocks) {
+    for (const asset of [block.asset, ...block.preview]) {
+      if (!asset || asset.kind === "audio" || seen.has(asset.id)) continue;
+      seen.add(asset.id);
+      out.push(asset);
+    }
+  }
+  return out;
+}
+
+// ── Story Home ─────────────────────────────────────────────────────────────
+
+function StoryHome({ story, onOpenChapter }: { story: StoryDetail; onOpenChapter: (id: string) => void }) {
+  const { t } = useTranslation(["common", "stories"]);
+
+  const span = formatPartialDateRange(
+    story.chapters.find((item) => item.date)?.date ?? null,
+    [...story.chapters].reverse().find((item) => item.endDate ?? item.date)?.endDate ?? null
+  );
+
+  // The story's primary location: the place its chapters name most often.
+  const primaryPlace = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const item of story.chapters) {
+      if (item.place) counts.set(item.place, (counts.get(item.place) ?? 0) + 1);
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+  }, [story]);
+
+  const heroUrl = story.cover?.previewUrl
+    ?? story.chapters.find((item) => item.hero?.previewUrl)?.hero?.previewUrl
+    ?? null;
+
+  const pins = story.chapters
+    .map((item, index) => (item.placeLat != null && item.placeLng != null
+      ? { id: item.id, lat: item.placeLat, lng: item.placeLng, label: String(index + 1), title: chapterLabel(story, item, index) }
+      : null))
+    .filter((pin): pin is NonNullable<typeof pin> => pin != null);
+
+  return (
+    <article className="story-home">
+      <header className={`story-home-hero${heroUrl ? " has-image" : ""}`}>
+        {heroUrl && <img src={heroUrl} alt="" />}
+        <div className="story-home-hero-text">
+          {story.status === "draft" && (
+            <span className="story-draft-badge">{t("stories:status.draft")}</span>
+          )}
+          <h1>{story.title}</h1>
+          {story.subtitle && <p className="story-read-subtitle">{story.subtitle}</p>}
+          {(span || primaryPlace) && (
+            <p className="story-home-meta">
+              {span}
+              {span && primaryPlace && <span aria-hidden="true"> · </span>}
+              {primaryPlace && (
+                <span className="story-chapter-place"><MapPin size={13} aria-hidden="true" /> {primaryPlace}</span>
+              )}
+            </p>
+          )}
+        </div>
+      </header>
+
+      {story.intro && (
+        <div className="story-home-intro">
+          <StoryMarkdown source={story.intro} />
+        </div>
+      )}
+
+      {story.tags.length > 0 && (
+        <ul className="story-read-tags">
+          {story.tags.map((tag) => (
+            <li key={tag}>
+              <a
+                href={`/tags/${encodeURIComponent(tag)}`}
+                onClick={(event) => followRoute(event, `/tags/${encodeURIComponent(tag)}`)}
+              >
+                {tag}
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="story-home-chapters">
+        {story.chapters.map((item, index) => {
+          const thumb = chapterThumb(item);
+          const label = chapterLabel(story, item, index);
+          const dateText = chapterDateText(item, formatPartialDate, formatPartialDateRange);
+          const dateLabel = dateText && item.dateApprox ? t("stories:chapter.approx", { date: dateText }) : dateText;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              className="story-home-card"
+              onClick={() => onOpenChapter(item.id)}
+            >
+              {thumb ? <img src={thumb} alt="" loading="lazy" /> : <span className="story-home-card-blank" aria-hidden="true" />}
+              <span className="story-home-card-body">
+                <span className="story-home-card-eyebrow">{label}</span>
+                {/* Without a chapter noun the label already IS the title. */}
+                {item.title && item.title !== label && <span className="story-home-card-title">{item.title}</span>}
+                {(dateLabel || item.place) && (
+                  <span className="story-home-card-meta">
+                    {dateLabel}
+                    {dateLabel && item.place ? " · " : ""}
+                    {item.place ?? ""}
+                  </span>
+                )}
+                {item.standfirst && <span className="story-home-card-standfirst">{item.standfirst}</span>}
+              </span>
+              <ChevronRight size={18} aria-hidden="true" className="story-home-card-go" />
+            </button>
+          );
+        })}
+      </div>
+
+      {pins.length > 0 && (
+        <section className="story-home-map-section">
+          <h2>{t("stories:site.mapHeading")}</h2>
+          <StoryMap pins={pins} onOpen={onOpenChapter} />
+        </section>
+      )}
+
+      {/* The family's reaction to the story belongs with the story, the way
+          notes hang off a photo or a book. */}
+      <NotesSection entityType="story" entityId={story.id} />
+    </article>
+  );
+}
+
+// ── A flat (single bare chapter) story — the v1 journal page, unchanged ────
+
+function FlatStory({
+  story,
   onOpenMedia,
   onPlaySlideshow
 }: {
-  chapter: StoryChapter;
-  showHeader: boolean;
+  story: StoryDetail;
   onOpenMedia: (assets: GalleryAsset[], index: number) => void;
   onPlaySlideshow: (block: StoryBlock) => void;
 }) {
   const { t } = useTranslation(["common", "stories"]);
+  return (
+    <article className="story-read">
+      <header className="story-read-head">
+        {story.status === "draft" && (
+          <span className="story-draft-badge">{t("stories:status.draft")}</span>
+        )}
+        <h1>{story.title}</h1>
+        {story.subtitle && <p className="story-read-subtitle">{story.subtitle}</p>}
+        {story.intro && <StoryMarkdown source={story.intro} />}
+        {story.tags.length > 0 && (
+          <ul className="story-read-tags">
+            {story.tags.map((tag) => (
+              <li key={tag}>
+                <a
+                  href={`/tags/${encodeURIComponent(tag)}`}
+                  onClick={(event) => followRoute(event, `/tags/${encodeURIComponent(tag)}`)}
+                >
+                  {tag}
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
+      </header>
+
+      {story.chapters.every((item) => item.blocks.length === 0) && (
+        <MessageBox tone="info" title={t("stories:read.emptyTitle")}>
+          {story.canEdit ? t("stories:read.emptyAuthor") : t("stories:read.emptyReader")}
+        </MessageBox>
+      )}
+
+      {story.chapters.map((item) => (
+        <section className="story-chapter" key={item.id}>
+          <ChapterBlocks chapter={item} onOpenMedia={onOpenMedia} onPlaySlideshow={onPlaySlideshow} />
+        </section>
+      ))}
+
+      <NotesSection entityType="story" entityId={story.id} />
+    </article>
+  );
+}
+
+// ── One chapter as its own page ────────────────────────────────────────────
+
+function ChapterPage({
+  story,
+  chapter,
+  index,
+  onOpenMedia,
+  onPlaySlideshow,
+  onOpenChapter
+}: {
+  story: StoryDetail;
+  chapter: StoryChapter;
+  index: number;
+  onOpenMedia: (assets: GalleryAsset[], index: number) => void;
+  onPlaySlideshow: (block: StoryBlock) => void;
+  onOpenChapter: (id: string) => void;
+}) {
+  const { t } = useTranslation(["common", "stories"]);
+  const label = chapterLabel(story, chapter, index);
+  const heading = chapter.title ?? label;
+  const eyebrow = label !== heading ? label : null;
   const dateText = chapterDateText(chapter, formatPartialDate, formatPartialDateRange);
   const dateLabel = dateText && chapter.dateApprox
     ? t("stories:chapter.approx", { date: dateText })
     : dateText;
+  const gallery = chapterGallery(chapter);
+  const prev = index > 0 ? story.chapters[index - 1] : null;
+  const next = index < story.chapters.length - 1 ? story.chapters[index + 1] : null;
 
   return (
-    <section className="story-chapter">
-      {showHeader && (
-        <header className="story-chapter-head">
-          {(dateLabel || chapter.place) && (
-            <p className="story-chapter-meta">
-              {dateLabel}
-              {dateLabel && chapter.place && <span aria-hidden="true"> · </span>}
-              {chapter.place && (
-                <span className="story-chapter-place">
-                  <MapPin size={13} aria-hidden="true" /> {chapter.place}
-                </span>
-              )}
-            </p>
-          )}
-          {chapter.title && <h2>{chapter.title}</h2>}
-          {chapter.description && <p className="story-chapter-description">{chapter.description}</p>}
-        </header>
+    <article className="story-read story-chapter-page">
+      <header className={`story-chapter-hero${chapter.hero?.previewUrl ? " has-image" : ""}`}>
+        {chapter.hero?.previewUrl && <img src={chapter.hero.previewUrl} alt="" />}
+        <div className="story-chapter-hero-text">
+          <p className="story-chapter-meta">
+            {/* Without a chapter noun the label is the heading below — no echo. */}
+            {[eyebrow, dateLabel].filter(Boolean).join(" · ")}
+            {(eyebrow || dateLabel) && chapter.place && <span aria-hidden="true"> · </span>}
+            {chapter.place && (
+              <span className="story-chapter-place"><MapPin size={13} aria-hidden="true" /> {chapter.place}</span>
+            )}
+          </p>
+          <h1>{heading}</h1>
+          {chapter.standfirst && <p className="story-chapter-standfirst">{chapter.standfirst}</p>}
+        </div>
+      </header>
+
+      {chapter.placeLat != null && chapter.placeLng != null && (
+        <StoryMap
+          pins={[{ id: chapter.id, lat: chapter.placeLat, lng: chapter.placeLng, label: String(index + 1), title: label }]}
+          onOpen={() => {}}
+        />
       )}
 
-      <div className="story-blocks">
-        {groupIntoRows(chapter.blocks).map((row) =>
-          row.length === 1 ? (
-            <StoryBlockView
-              key={row[0].id}
-              block={row[0]}
-              onOpenMedia={onOpenMedia}
-              onPlaySlideshow={onPlaySlideshow}
-            />
-          ) : (
-            // Consecutive photos read as one plate rather than a stack of
-            // full-width images — the photo-essay convention.
-            <div className="story-media-row" key={row[0].id} data-count={row.length}>
-              {row.map((block) => (
-                <StoryBlockView
-                  key={block.id}
-                  block={block}
-                  onOpenMedia={() => onOpenMedia(
-                    row.map((item) => item.asset).filter((asset): asset is GalleryAsset => Boolean(asset)),
-                    row.filter((item) => item.asset).findIndex((item) => item.id === block.id)
-                  )}
-                  onPlaySlideshow={onPlaySlideshow}
-                />
-              ))}
-            </div>
-          )
-        )}
-        {chapter.blocks.length === 0 && showHeader && (
-          <p className="muted story-chapter-empty">{t("stories:read.chapterEmpty")}</p>
-        )}
-      </div>
-    </section>
+      {chapter.description && <p className="story-chapter-description">{chapter.description}</p>}
+
+      <ChapterBlocks chapter={chapter} onOpenMedia={onOpenMedia} onPlaySlideshow={onPlaySlideshow} />
+
+      {gallery.length > 0 && (
+        <section className="story-chapter-photos">
+          <h2>
+            {t("stories:site.photosFrom", { label })}
+            <span className="story-chapter-photos-count"> · {t("stories:site.shotCount", { count: gallery.length })}</span>
+          </h2>
+          <div className="story-chapter-photos-strip">
+            {gallery.map((asset, assetIndex) => (
+              <button key={asset.id} type="button" onClick={() => onOpenMedia(gallery, assetIndex)}>
+                {asset.coverUrl && <img src={asset.coverUrl} alt={asset.title} loading="lazy" />}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <nav className="story-chapter-nav">
+        {prev ? (
+          <button type="button" onClick={() => onOpenChapter(prev.id)}>
+            <ChevronLeft size={16} aria-hidden="true" />
+            <span>{chapterLabel(story, prev, index - 1)}</span>
+          </button>
+        ) : <span />}
+        {next ? (
+          <button type="button" onClick={() => onOpenChapter(next.id)}>
+            <span>{chapterLabel(story, next, index + 1)}</span>
+            <ChevronRight size={16} aria-hidden="true" />
+          </button>
+        ) : <span />}
+      </nav>
+    </article>
+  );
+}
+
+// The block stream, shared by the flat story and the chapter page.
+function ChapterBlocks({
+  chapter,
+  onOpenMedia,
+  onPlaySlideshow
+}: {
+  chapter: StoryChapter;
+  onOpenMedia: (assets: GalleryAsset[], index: number) => void;
+  onPlaySlideshow: (block: StoryBlock) => void;
+}) {
+  const { t } = useTranslation(["common", "stories"]);
+  return (
+    <div className="story-blocks">
+      {groupIntoRows(chapter.blocks).map((row) =>
+        row.length === 1 ? (
+          <StoryBlockView
+            key={row[0].id}
+            block={row[0]}
+            onOpenMedia={onOpenMedia}
+            onPlaySlideshow={onPlaySlideshow}
+          />
+        ) : (
+          // Consecutive photos read as one plate rather than a stack of
+          // full-width images — the photo-essay convention.
+          <div className="story-media-row" key={row[0].id} data-count={row.length}>
+            {row.map((block) => (
+              <StoryBlockView
+                key={block.id}
+                block={block}
+                onOpenMedia={() => onOpenMedia(
+                  row.map((item) => item.asset).filter((asset): asset is GalleryAsset => Boolean(asset)),
+                  row.filter((item) => item.asset).findIndex((item) => item.id === block.id)
+                )}
+                onPlaySlideshow={onPlaySlideshow}
+              />
+            ))}
+          </div>
+        )
+      )}
+      {chapter.blocks.length === 0 && (
+        <p className="muted story-chapter-empty">{t("stories:read.chapterEmpty")}</p>
+      )}
+    </div>
   );
 }

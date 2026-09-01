@@ -184,6 +184,7 @@ export function galleryReviewableYears(libIds: string[]): number[] {
     WHERE library_items.library_id IN (${inClause(libIds.length)})
       AND library_items.deleted_at IS NULL
       AND gallery_details.taken_at IS NOT NULL
+      AND gallery_details.kind != 'audio'
     GROUP BY year
     HAVING n >= ?
     ORDER BY year DESC
@@ -213,6 +214,8 @@ export function buildYearReview(libIds: string[], userId: string, year: number, 
     WHERE library_items.library_id IN (${inClause(libIds.length)})
       AND library_items.deleted_at IS NULL
       AND substr(gallery_details.taken_at, 1, 4) = ?
+      -- A year review is a slideshow: audio recordings can't be rendered as slides.
+      AND gallery_details.kind != 'audio'
     ORDER BY datetime(gallery_details.taken_at) ASC, library_items.id ASC
   `).all(userId, ...libIds, yearKey) as YearItemRow[];
   if (rows.length < MIN_ITEMS) return null;

@@ -1,5 +1,10 @@
 # Stories — proposal
 
+> **Superseded as a design direction** by
+> [stories-v2-proposal.md](stories-v2-proposal.md) (collections, chapter
+> pages, kinds, narration moved into the library — agreed 2026-09-01). This
+> document remains the accurate as-built record of what shipped in 3.43.0.
+
 Status: **Phases 1–4 built** (schema, `modules/stories`, index / reading view /
 editor; tags, person and quote blocks, suggestions, subject registry; guest
 links with a public viewer; presentation mode). Phase 5 is a menu of options,

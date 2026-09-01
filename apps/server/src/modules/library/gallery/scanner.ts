@@ -1,5 +1,6 @@
-// Gallery scanner. Unlike the book scanners, EACH FILE IS ONE ITEM (one photo or
-// one video = one library_items row) — the Immich/Google-Photos "asset" model. The
+// Gallery scanner. Unlike the book scanners, EACH FILE IS ONE ITEM (one photo,
+// video, or audio recording = one library_items row) — the Immich/Google-Photos
+// "asset" model. The
 // item's folder_path is the file's relative path: its directory powers the Folder
 // view and its EXIF date (gallery_details.taken_at) powers the Timeline. There are
 // no scan rules, series, authors, or categories for gallery — just assets.

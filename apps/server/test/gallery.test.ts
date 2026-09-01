@@ -20,7 +20,7 @@ import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
 // file for EXIF; thumbnail generation just fails gracefully (no cover) since the
 // path doesn't exist — so we can exercise the catalog without real media on disk.
 // taken_at falls back to the file mtime, which we control via `modifiedMs`.
-function asset(relativePath: string, modifiedMs: number, kindOverride?: "photo" | "video") {
+function asset(relativePath: string, modifiedMs: number, kindOverride?: "photo" | "video" | "audio") {
   const extension = `.${relativePath.split(".").pop()}`;
   return {
     absolutePath: `/src/GAL/${relativePath}`,
@@ -43,11 +43,15 @@ beforeEach(() => {
 });
 
 describe("kindForExtension", () => {
-  it("classifies photos and videos, ignoring other files", () => {
+  it("classifies photos, videos and audio, ignoring other files", () => {
     expect(kindForExtension(".jpg")).toBe("photo");
     expect(kindForExtension(".HEIC")).toBe("photo");
     expect(kindForExtension(".mp4")).toBe("video");
     expect(kindForExtension(".mov")).toBe("video");
+    expect(kindForExtension(".mp3")).toBe("audio");
+    expect(kindForExtension(".weba")).toBe("audio");
+    // .webm stays a VIDEO extension — audio-in-webm must be saved as .weba.
+    expect(kindForExtension(".webm")).toBe("video");
     expect(kindForExtension(".txt")).toBeNull();
   });
 });
@@ -80,11 +84,16 @@ describe("gallery ingest + timeline", () => {
     const t = Date.parse("2024-06-01T00:00:00Z");
     await ingestGalleryAsset("GAL", asset("a.jpg", t), false);
     await ingestGalleryAsset("GAL", asset("clip.mp4", t + 1000), false);
+    await ingestGalleryAsset("GAL", asset("memo.mp3", t + 2000), false);
 
     const photos = queryGalleryTimeline("u1", ["GAL"], { q: "", kinds: ["photo"], limit: 50, offset: 0 });
     expect(photos.assets.map((a) => a.kind)).toEqual(["photo"]);
     const videos = queryGalleryTimeline("u1", ["GAL"], { q: "", kinds: ["video"], limit: 50, offset: 0 });
     expect(videos.assets.map((a) => a.kind)).toEqual(["video"]);
+    const audio = queryGalleryTimeline("u1", ["GAL"], { q: "", kinds: ["audio"], limit: 50, offset: 0 });
+    expect(audio.assets.map((a) => a.kind)).toEqual(["audio"]);
+    const all = queryGalleryTimeline("u1", ["GAL"], { q: "", kinds: [], limit: 50, offset: 0 });
+    expect(all.total).toBe(3);
   });
 });
 

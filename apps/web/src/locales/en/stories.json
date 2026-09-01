@@ -30,7 +30,21 @@
     "titlePlaceholder": "Minnesota, summer 2004",
     "subtitle": "Subtitle",
     "subtitlePlaceholder": "Three weeks, two tents, one very tired dog",
+    "intro": "Introduction",
+    "introPlaceholder": "A few opening lines for the story's front page",
+    "chapterNoun": "What to call a chapter",
+    "chapterNounPlaceholder": "Day",
+    "chapterNounHint": "Chapters then read “Day 1”, “Day 2”. Leave empty to use their titles.",
     "optional": "optional"
+  },
+  "site": {
+    "overview": "Overview",
+    "stripAria": "Story chapters",
+    "chapterMissing": "This chapter doesn't exist — it may have been removed.",
+    "mapHeading": "Where it happened",
+    "photosFrom": "Photos from {{label}}",
+    "shotCount_one": "{{count}} shot",
+    "shotCount_other": "{{count}} shots"
   },
   "actions": {
     "create": "Create story",
@@ -90,6 +104,16 @@
     "approxLabel": "The date is approximate",
     "placeField": "Place",
     "placePlaceholder": "Lake Superior, Minnesota",
+    "standfirstField": "Standfirst",
+    "standfirstPlaceholder": "One line that sets up this chapter",
+    "setPin": "Pin on map",
+    "movePin": "Move pin",
+    "clearPin": "Remove pin",
+    "heroField": "Chapter cover",
+    "setHero": "Choose a photo",
+    "changeHero": "Change photo",
+    "clearHero": "Remove",
+    "heroPickerTitle": "Chapter cover photo",
     "descriptionField": "Chapter note",
     "descriptionPlaceholder": "A line of context under the chapter heading",
     "lastOne": "A story keeps at least one chapter."
@@ -187,18 +211,8 @@
     "unableToCreate": "Unable to create the link.",
     "unableToRevoke": "Unable to revoke the link."
   },
-  "player": {
-    "play": "Play",
-    "starting": "Preparing…",
-    "pause": "Pause",
-    "previous": "Previous",
-    "next": "Next",
-    "close": "Close",
-    "again": "Play again",
-    "theEnd": "The end",
-    "aria": "Playing the story {{title}}"
-  },
   "audio": {
+    "needsLibraryHint": "Choose a recordings library first — Control panel → Settings → Stories",
     "title": "Add narration",
     "intro": "Record someone telling this part of the story, or upload a recording you already have.",
     "record": "Record",

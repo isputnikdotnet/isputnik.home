@@ -129,6 +129,13 @@ function blockAssets(block: BlockRow, ctx: StoryLinkContext): ShareAsset[] {
   if (block.kind === "media") {
     return ctx.libIds.length === 0 ? [] : mediaAssetById(ctx, block.entity_id);
   }
+  // A gallery-backed recording (v2 audio block) joins the link's reach like a
+  // photo would, so the token-scoped item routes serve it — "recordings stream
+  // through the token from day one". Legacy 'story_audio' blocks serve through
+  // their own /api/share/:token/audio route instead and contribute no items.
+  if (block.kind === "audio" && block.entity_type === "gallery") {
+    return ctx.libIds.length === 0 ? [] : mediaAssetById(ctx, block.entity_id);
+  }
   return [];
 }
 
@@ -160,7 +167,7 @@ function mediaAssetById(ctx: StoryLinkContext, itemId: string): ShareAsset[] {
   return [{
     id: row.id,
     title: row.title ?? row.folder_path.split("/").pop() ?? row.folder_path,
-    kind: row.kind as "photo" | "video",
+    kind: row.kind as "photo" | "video" | "audio",
     width: swap ? row.height : row.width,
     height: swap ? row.width : row.height,
     durationSeconds: row.duration_seconds,
@@ -381,8 +388,21 @@ function storyShareBlock(block: BlockRow, assets: ShareAsset[], token: string, c
   }
 
   // Narration travels with a shared story: it was recorded for this story, and
-  // a story read without the voice is a different thing.
+  // a story read without the voice is a different thing. Gallery-backed
+  // recordings (v2) stream through the token item routes; legacy story-owned
+  // clips keep their dedicated audio route until the one-time import runs.
   if (block.kind === "audio") {
+    if (block.entity_type === "gallery") {
+      if (assets.length === 0) return null;
+      const clip = assets[0];
+      return {
+        kind: "audio" as const,
+        title: clip.title,
+        durationSeconds: clip.durationSeconds,
+        url: `/api/share/${token}/items/${clip.id}/file`,
+        caption: block.caption
+      };
+    }
     const clip = block.entity_id ? getStoryAudio(block.entity_id) : undefined;
     if (!clip || clip.story_id !== ctx.story.id) return null;
     return {

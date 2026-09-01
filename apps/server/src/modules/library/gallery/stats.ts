@@ -13,6 +13,7 @@ interface GalleryLibraryStatsRow {
   item_count: number;
   photo_count: number;
   video_count: number;
+  audio_count: number;
   total_size_bytes: number;
   total_duration_seconds: number;
 }
@@ -41,6 +42,7 @@ function galleryLibraryStats() {
       COUNT(library_items.id) AS item_count,
       COALESCE(SUM(CASE WHEN gallery_details.kind = 'photo' THEN 1 ELSE 0 END), 0) AS photo_count,
       COALESCE(SUM(CASE WHEN gallery_details.kind = 'video' THEN 1 ELSE 0 END), 0) AS video_count,
+      COALESCE(SUM(CASE WHEN gallery_details.kind = 'audio' THEN 1 ELSE 0 END), 0) AS audio_count,
       COALESCE(SUM(COALESCE(gallery_details.size, 0)), 0) AS total_size_bytes,
       COALESCE(SUM(COALESCE(gallery_details.duration_seconds, 0)), 0) AS total_duration_seconds
     FROM libraries
@@ -108,12 +110,14 @@ function galleryLibraryStats() {
   const totalItems = libraries.reduce((sum, library) => sum + library.item_count, 0);
   const totalPhotos = libraries.reduce((sum, library) => sum + library.photo_count, 0);
   const totalVideos = libraries.reduce((sum, library) => sum + library.video_count, 0);
+  const totalAudio = libraries.reduce((sum, library) => sum + library.audio_count, 0);
 
   return {
     totalLibraries: libraries.length,
     totalItems,
     totalPhotos,
     totalVideos,
+    totalAudio,
     totalSizeBytes,
     totalDurationSeconds,
     libraries: libraries.map((library) => ({
@@ -122,6 +126,7 @@ function galleryLibraryStats() {
       itemCount: library.item_count,
       photoCount: library.photo_count,
       videoCount: library.video_count,
+      audioCount: library.audio_count,
       totalSizeBytes: library.total_size_bytes,
       totalDurationSeconds: library.total_duration_seconds
     })),

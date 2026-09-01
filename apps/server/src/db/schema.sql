@@ -398,7 +398,7 @@ CREATE TABLE IF NOT EXISTS ebook_details (
 -- view, the lightbox Info panel, and the location/camera filters.
 CREATE TABLE IF NOT EXISTS gallery_details (
   item_id             TEXT PRIMARY KEY REFERENCES library_items(id) ON DELETE CASCADE,
-  kind                TEXT NOT NULL DEFAULT 'photo' CHECK (kind IN ('photo', 'video')),
+  kind                TEXT NOT NULL DEFAULT 'photo' CHECK (kind IN ('photo', 'video', 'audio')),
   relative_path       TEXT NOT NULL,
   mime_type           TEXT,
   size                INTEGER,
@@ -1860,6 +1860,11 @@ CREATE TABLE IF NOT EXISTS stories (
   subtitle      TEXT,
   cover_item_id TEXT REFERENCES library_items(id) ON DELETE SET NULL,
   status        TEXT NOT NULL DEFAULT 'draft',   -- 'draft' | 'published'
+  -- What this story calls a chapter — authored text ("Day", "Part", "Stop"),
+  -- rendered as "Day 1"; NULL = chapters show only their titles/dates.
+  chapter_noun  TEXT,
+  -- Story Home opening prose. Belongs to the story, not to any chapter.
+  intro         TEXT,
   created_by    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   updated_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
@@ -1872,17 +1877,21 @@ CREATE TABLE IF NOT EXISTS stories (
 -- 'YYYY-MM-DD', lexicographic = chronological); end_date makes a range, both
 -- NULL means undated, and date_approx renders "around ...".
 CREATE TABLE IF NOT EXISTS story_chapters (
-  id          TEXT PRIMARY KEY,
-  story_id    TEXT NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
-  position    REAL NOT NULL,
-  title       TEXT,
-  date        TEXT,
-  end_date    TEXT,
-  date_approx INTEGER NOT NULL DEFAULT 0,
-  place       TEXT,
-  place_lat   REAL,
-  place_lng   REAL,
-  description TEXT
+  id           TEXT PRIMARY KEY,
+  story_id     TEXT NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
+  position     REAL NOT NULL,
+  title        TEXT,
+  date         TEXT,
+  end_date     TEXT,
+  date_approx  INTEGER NOT NULL DEFAULT 0,
+  place        TEXT,
+  place_lat    REAL,
+  place_lng    REAL,
+  description  TEXT,
+  -- Chapter-page hero: a one-line teaser under the dateline, and the cover
+  -- photo the dateline/title render over (per-viewer filtered like any asset).
+  standfirst   TEXT,
+  hero_item_id TEXT REFERENCES library_items(id) ON DELETE SET NULL
 );
 
 -- One unit of narrative. Reference kinds (media/album/slideshow) carry the

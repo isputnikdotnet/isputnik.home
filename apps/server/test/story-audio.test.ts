@@ -22,13 +22,26 @@ import {
 } from "../src/modules/stories/stories.js";
 import { resetDb, makeUser } from "./helpers/seed.js";
 
-// Narration is the one story reference the story OWNS. These hold the part that
-// is easy to get wrong: the FILE, which no foreign key will clean up.
+// LEGACY narration: story-owned clips (v1). No new clips can be created from
+// the routes any more — recordings land in the recordings library (see
+// stories-recordings.test.ts) — but existing rows keep serving until the
+// one-time import moves them, and these hold that read/reclaim path: the FILE,
+// which no foreign key will clean up.
 
 const author = { id: "author", role: "member" };
 let storyId = "";
 let chapterId = "";
 let store = "";
+
+/** A legacy audio block, as v1 wrote it. createBlock stamps 'gallery' now, so
+ *  the pre-import shape has to be inserted the way an old database holds it. */
+function legacyAudioBlock(entityId: string): { id: string } {
+  const id = `blk-${Math.random().toString(36).slice(2, 10)}`;
+  db.prepare(
+    "INSERT INTO story_blocks (id, chapter_id, position, kind, entity_type, entity_id) VALUES (?, ?, 99, 'audio', 'story_audio', ?)"
+  ).run(id, chapterId, entityId);
+  return { id };
+}
 
 /** A stand-in upload: the routes hand createStoryAudio a temp file to move. */
 async function addClip(filename = "grandma-1998.m4a") {
@@ -84,9 +97,9 @@ describe("reclaiming the file", () => {
     expect(fs.existsSync(file)).toBe(false);
   });
 
-  it("takes the clip and its file when the narration block goes", async () => {
+  it("takes the clip and its file when the legacy narration block goes", async () => {
     const clip = await addClip();
-    const block = createBlock(chapterId, storyId, "audio", { entityId: clip.id });
+    const block = legacyAudioBlock(clip.id);
     const file = thumbnailAbsolutePath(clip.storage_key);
 
     expect(deleteBlock(block.id, storyId)).toBe(true);
@@ -100,12 +113,21 @@ describe("reclaiming the file", () => {
   it("leaves other blocks' clips alone", async () => {
     const kept = await addClip("kept.m4a");
     const going = await addClip("going.m4a");
-    createBlock(chapterId, storyId, "audio", { entityId: kept.id });
-    const doomed = createBlock(chapterId, storyId, "audio", { entityId: going.id });
+    legacyAudioBlock(kept.id);
+    const doomed = legacyAudioBlock(going.id);
 
     deleteBlock(doomed.id, storyId);
     expect(getStoryAudio(kept.id)).toBeDefined();
     expect(fs.existsSync(thumbnailAbsolutePath(kept.storage_key))).toBe(true);
+  });
+
+  it("never reclaims a gallery-backed recording with its block", () => {
+    // A v2 audio block references library content; deleting the block must not
+    // touch anything beyond the block row itself.
+    const block = createBlock(chapterId, storyId, "audio", { entityId: "some-gallery-item" });
+    expect(block.entity_type).toBe("gallery");
+    expect(deleteBlock(block.id, storyId)).toBe(true);
+    expect(getBlocks(storyId)).toHaveLength(0);
   });
 
   it("reclaims every file a story owns", async () => {
@@ -119,15 +141,15 @@ describe("reclaiming the file", () => {
   it("finds a clip no block points at any more", async () => {
     const used = await addClip("used.m4a");
     const loose = await addClip("loose.m4a");
-    createBlock(chapterId, storyId, "audio", { entityId: used.id });
+    legacyAudioBlock(used.id);
     expect(orphanedStoryAudio(storyId)).toEqual([loose.id]);
   });
 });
 
 describe("the block reference", () => {
-  it("stamps the story_audio namespace, not a subjects type", () => {
+  it("stamps new audio blocks as gallery references (the v2 model)", () => {
     const block = createBlock(chapterId, storyId, "audio", { entityId: "a1" });
-    expect(block.entity_type).toBe("story_audio");
+    expect(block.entity_type).toBe("gallery");
     expect(block.entity_id).toBe("a1");
   });
 

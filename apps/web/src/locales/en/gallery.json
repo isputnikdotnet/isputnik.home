@@ -23,6 +23,7 @@
     "unnamed": "Unnamed",
     "video": "Video",
     "photo": "Photo",
+    "audio": "Audio",
     "like": "Like",
     "unlike": "Unlike",
     "play": "Play",
@@ -68,6 +69,7 @@
   "filter": {
     "kindPhotos": "Photos",
     "kindVideos": "Videos",
+    "kindAudio": "Audio",
     "monthJanuary": "January",
     "monthFebruary": "February",
     "monthMarch": "March",
@@ -297,6 +299,7 @@
     "noPhotosMatch": "No photos match that.",
     "noPhotosInScope": "No photos in scope.",
     "onlyVideoTitle": "Only a video can be chosen here",
+    "audioUnpickableTitle": "A recording can't be chosen here",
     "alreadyAddedTitle": "Already added",
     "addedBadge": "Added",
     "tapVideoHint": "Tap a video to choose it.",

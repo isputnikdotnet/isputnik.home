@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, ChevronLeft, ChevronRight, Download, Heart, ImagePlus, Info, ListMusic, MoreVertical, Pause, Pencil, Play, Plus, RotateCcw, RotateCw, Send, Trash2, Volume2, VolumeX, X } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Download, Heart, ImagePlus, Info, ListMusic, Mic, MoreVertical, Pause, Pencil, Play, Plus, RotateCcw, RotateCw, Send, Trash2, Volume2, VolumeX, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api } from "../../api";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
@@ -287,11 +287,13 @@ export function GalleryLightbox({
   useEffect(() => { sessionSlideshowInterval = intervalSec; }, [intervalSec]);
 
   // Dwell timer. Photos advance after `intervalSec`; a playable video is skipped
-  // here and advances from its own onEnded so it plays in full. An unplayable video
-  // (videoError) has no end event, so it falls back to the timer like a photo.
+  // here and advances from its own onEnded so it plays in full — and so does a
+  // recording, for the same reason. An unplayable video (videoError) has no end
+  // event, so it falls back to the timer like a photo.
   useEffect(() => {
     if (!playing || !canSlideshow || dialogOpen) return;
     if (asset?.kind === "video" && !videoError) return;
+    if (asset?.kind === "audio") return;
     const timer = window.setTimeout(advance, intervalSec * 1000);
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -577,7 +579,7 @@ export function GalleryLightbox({
   const meta = [
     formatTaken(asset.takenAt),
     asset.width && asset.height ? `${asset.width}×${asset.height}` : "",
-    asset.kind === "video" ? formatDuration(asset.durationSeconds) : ""
+    asset.kind === "video" || asset.kind === "audio" ? formatDuration(asset.durationSeconds) : ""
   ].filter(Boolean).join(" · ");
 
   // The pencil beside an editable field's label (hidden while that field is open).
@@ -668,7 +670,8 @@ export function GalleryLightbox({
       onClick: () => setShowInfo((v) => !v),
       active: showInfo
     },
-    ...(canEdit
+    // No rotate on a recording — there is nothing to turn (the server refuses too).
+    ...(canEdit && asset.kind !== "audio"
       ? [
           { key: "rotate-left", icon: RotateCcw as LucideIcon, label: t("gallery:lightbox.rotateLeft"), onClick: () => void rotate("ccw"), disabled: rotateBusy },
           { key: "rotate-right", icon: RotateCw as LucideIcon, label: t("gallery:lightbox.rotateRight"), onClick: () => void rotate("cw"), disabled: rotateBusy }
@@ -926,6 +929,24 @@ export function GalleryLightbox({
               )}
             </>
           )
+        ) : asset.kind === "audio" ? (
+          // A recording: embedded cover art when the file carries any, the mic
+          // glyph otherwise, and the browser's own audio controls underneath.
+          <div className="gallery-lightbox-audio">
+            {asset.previewUrl ? (
+              <img src={asset.previewUrl} alt="" aria-hidden="true" />
+            ) : (
+              <span className="gallery-lightbox-audio-glyph"><Mic size={64} aria-hidden="true" /></span>
+            )}
+            <span className="gallery-lightbox-audio-title">{asset.title}</span>
+            <audio
+              key={asset.id}
+              src={asset.playbackUrl}
+              controls
+              autoPlay
+              onEnded={() => { if (playing && canSlideshow) advance(); }}
+            />
+          </div>
         ) : (
           <img
             key={asset.id}
@@ -961,11 +982,11 @@ export function GalleryLightbox({
                 <dd>{editingField === "takenAt" ? editForm("takenAt") : (formatTaken(asset.takenAt) || <span className="muted">—</span>)}</dd>
               </div>
             )}
-            <div><dt>{t("gallery:lightbox.labelType")}</dt><dd>{asset.kind === "video" ? t("gallery:common.video") : t("gallery:common.photo")}</dd></div>
+            <div><dt>{t("gallery:lightbox.labelType")}</dt><dd>{asset.kind === "video" ? t("gallery:common.video") : asset.kind === "audio" ? t("gallery:common.audio") : t("gallery:common.photo")}</dd></div>
             {asset.width != null && asset.height != null && (
               <div><dt>{t("gallery:lightbox.labelDimensions")}</dt><dd>{asset.width} × {asset.height}</dd></div>
             )}
-            {asset.kind === "video" && asset.durationSeconds != null && (
+            {(asset.kind === "video" || asset.kind === "audio") && asset.durationSeconds != null && (
               <div><dt>{t("gallery:lightbox.labelDuration")}</dt><dd>{formatDuration(asset.durationSeconds)}</dd></div>
             )}
             {asset.size != null && <div><dt>{t("gallery:lightbox.labelSize")}</dt><dd>{formatBytes(asset.size)}</dd></div>}

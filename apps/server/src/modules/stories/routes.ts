@@ -18,7 +18,6 @@ import {
   STORY_AUDIO_ENTITY_TYPE,
   NARRATION_EXTENSIONS,
   NARRATION_MAX_BYTES,
-  createStoryAudio,
   getStoryAudio,
   storyAudioByIds,
   narrationAbsolutePath,
@@ -26,6 +25,13 @@ import {
   narrationTempDir,
   type StoryAudioRow
 } from "./audio.js";
+import { ensureAudioScanExtensions, getRecordingsLibrary, setStoriesSettings } from "./settings.js";
+import {
+  RecordingError,
+  migrateLegacyNarrations,
+  pendingLegacyNarrations,
+  storeRecording
+} from "./recordings.js";
 import {
   STORY_ENTITY_TYPE,
   STORY_BLOCK_KINDS,
@@ -70,7 +76,10 @@ const updateSchema = z.object({
   title: z.string().trim().min(1).max(160).optional(),
   subtitle: z.string().trim().max(300).nullable().optional(),
   status: z.enum(STORY_STATUSES).optional(),
-  coverItemId: entityId.nullable().optional()
+  coverItemId: entityId.nullable().optional(),
+  // Authored text ("Day", "Stop"), NOT translated — it belongs to the story.
+  chapterNoun: z.string().trim().max(30).nullable().optional(),
+  intro: z.string().trim().max(5000).nullable().optional()
 });
 
 const chapterSchema = z.object({
@@ -81,7 +90,9 @@ const chapterSchema = z.object({
   place: z.string().trim().max(200).nullable().optional(),
   placeLat: z.number().min(-90).max(90).nullable().optional(),
   placeLng: z.number().min(-180).max(180).nullable().optional(),
-  description: z.string().trim().max(2000).nullable().optional()
+  description: z.string().trim().max(2000).nullable().optional(),
+  standfirst: z.string().trim().max(300).nullable().optional(),
+  heroItemId: entityId.nullable().optional()
 });
 
 // Markdown source. The cap is generous — a chapter of prose is the point —
@@ -116,13 +127,27 @@ const tagsSchema = z.object({
 
 const blockReorderSchema = reorderSchema.extend({ chapterId: entityId });
 
-/** A narration block's clip, shaped for the reader. */
+/** A narration block's clip, shaped for the reader. Two shapes coexist: a
+ *  gallery-backed recording (entity_type 'gallery', the v2 model — per-viewer
+ *  filtered like any asset) and a legacy story-owned clip ('story_audio',
+ *  serving until the one-time import moves it into the recordings library). */
 function audioView(
-  block: { kind: string; entity_id: string | null },
+  block: { kind: string; entity_type: string | null; entity_id: string | null },
   narration: Map<string, StoryAudioRow>,
+  assets: Map<string, { id: string; title: string; durationSeconds: number | null; playbackUrl: string }>,
   storyId: string
 ) {
   if (block.kind !== "audio" || !block.entity_id) return null;
+  if (block.entity_type === "gallery") {
+    const asset = assets.get(block.entity_id);
+    if (!asset) return null;
+    return {
+      id: asset.id,
+      title: asset.title,
+      durationSeconds: asset.durationSeconds,
+      url: asset.playbackUrl
+    };
+  }
   const clip = narration.get(block.entity_id);
   if (!clip) return null;
   return {
@@ -194,23 +219,76 @@ export async function storiesPlugin(app: FastifyInstance) {
   const referenceIsReachable = (
     kind: StoryBlockKind,
     id: string | null | undefined,
-    user: { id: string; role: string },
-    storyId?: string
+    user: { id: string; role: string }
   ): boolean => {
     const entityType = BLOCK_ENTITY_TYPE[kind];
     if (!entityType) return true;
     if (!id) return false;
-    // Narration is the story's own, so "reachable" means "belongs to this
-    // story" — a clip from someone else's story can't be embedded here.
-    if (entityType === STORY_AUDIO_ENTITY_TYPE) {
-      return getStoryAudio(id)?.story_id === storyId;
-    }
+    // Audio validates as a gallery asset here (the v2 model — a new block can
+    // only ever reference a library recording). Legacy 'story_audio' rows are
+    // read-path only: nothing can create or re-point one any more.
     return Boolean(hydrateEntities([{ entityType, entityId: id }], user).get(`${entityType}:${id}`)?.available);
   };
 
   app.get("/api/stories", { preHandler: app.authenticate }, async (request) => {
     const user = request.user!;
     return { stories: listStories(user, resolveGalleryScopeLibraryIds(user)) };
+  });
+
+  // ── Recordings-library setting (Control → Settings → Stories) ──
+  // Readable by every member: the story editor asks it whether Record/Upload
+  // should appear at all. Only admins learn about the legacy-clip backlog.
+  app.get("/api/stories/settings", { preHandler: app.authenticate }, async (request) => {
+    const user = request.user!;
+    const library = getRecordingsLibrary();
+    return {
+      recordingsLibrary: library ? { id: library.id, name: library.name } : null,
+      isAdmin: user.role === "admin",
+      ...(user.role === "admin" ? { pendingNarrations: pendingLegacyNarrations() } : {})
+    };
+  });
+
+  const settingsSchema = z.object({
+    recordingsLibraryId: z.string().trim().min(1).max(64).nullable()
+  });
+
+  app.put("/api/stories/settings", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const parsed = parseBody(settingsSchema, request.body);
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid settings", details: parsed.error });
+    }
+    const id = parsed.data.recordingsLibraryId;
+    // Choosing a library also opts it into audio — its scan extensions gate
+    // both uploads and what a rescan keeps.
+    if (id != null && !ensureAudioScanExtensions(id)) {
+      return reply.code(404).send({ error: "That gallery library doesn't exist." });
+    }
+    setStoriesSettings({ recordingsLibraryId: id }, request.user!.id);
+    const library = getRecordingsLibrary();
+    logActivity({
+      event: "config.updated",
+      actorUserId: request.user!.id,
+      targetType: "setting",
+      targetId: "stories_settings",
+      detail: library ? `Set the story recordings library to "${library.name}".` : "Cleared the story recordings library.",
+      ipAddress: request.ip
+    });
+    return reply.send({
+      recordingsLibrary: library ? { id: library.id, name: library.name } : null,
+      isAdmin: true,
+      pendingNarrations: pendingLegacyNarrations()
+    });
+  });
+
+  // One-time import of the legacy story-owned clips into the recordings
+  // library. Safe to re-run: a clip that fails stays put and stays counted.
+  app.post("/api/stories/settings/migrate-narrations", { preHandler: app.requireAdmin }, async (request, reply) => {
+    try {
+      return reply.send(await migrateLegacyNarrations(request.user!.id));
+    } catch (err) {
+      if (err instanceof RecordingError) { return reply.code(err.statusCode).send({ error: err.message }); }
+      throw err;
+    }
   });
 
   app.post("/api/stories", { preHandler: app.authenticate }, async (request, reply) => {
@@ -248,13 +326,28 @@ export async function storiesPlugin(app: FastifyInstance) {
         .map((block) => ({ entityType: block.entity_type!, entityId: block.entity_id! })),
       user
     );
+    // Gallery-backed blocks: media, and audio blocks in the v2 shape (a
+    // recording in the recordings library — filtered by this viewer's access
+    // like any other asset).
     const assets = galleryAssetsByIds(
       user.id,
       libIds,
-      blocks.filter((block) => block.kind === "media" && block.entity_id).map((block) => block.entity_id!)
+      [
+        ...blocks
+          .filter((block) => block.entity_id
+            && (block.kind === "media" || (block.kind === "audio" && block.entity_type === "gallery")))
+          .map((block) => block.entity_id!),
+        // Chapter-page heroes and the story cover ride the same per-viewer
+        // hydration.
+        ...chapters.filter((chapter) => chapter.hero_item_id).map((chapter) => chapter.hero_item_id!),
+        ...(story.cover_item_id ? [story.cover_item_id] : [])
+      ]
     );
+    // Legacy story-owned clips, serving until the one-time import moves them.
     const narration = storyAudioByIds(
-      blocks.filter((block) => block.kind === "audio" && block.entity_id).map((block) => block.entity_id!)
+      blocks
+        .filter((block) => block.kind === "audio" && block.entity_type === STORY_AUDIO_ENTITY_TYPE && block.entity_id)
+        .map((block) => block.entity_id!)
     );
 
     const blockViews = blocks.map((block) => {
@@ -262,7 +355,7 @@ export async function storiesPlugin(app: FastifyInstance) {
         ? hydrated.get(`${block.entity_type}:${block.entity_id}`)
         : undefined;
       const isReference = Boolean(BLOCK_ENTITY_TYPE[block.kind]);
-      const clip = block.kind === "audio" && block.entity_id ? narration.get(block.entity_id) : undefined;
+      const audio = audioView(block, narration, assets, story.id);
       return {
         id: block.id,
         chapterId: block.chapter_id,
@@ -279,7 +372,7 @@ export async function storiesPlugin(app: FastifyInstance) {
         layout: block.layout,
         // Text and map blocks are always "available" — they carry their own
         // content and have nothing to point at.
-        available: block.kind === "audio" ? Boolean(clip) : isReference ? view?.available ?? false : true,
+        available: block.kind === "audio" ? Boolean(audio) : isReference ? view?.available ?? false : true,
         title: view?.title ?? null,
         subtitle: view?.subtitle ?? null,
         coverUrl: view?.coverUrl ?? null,
@@ -287,7 +380,7 @@ export async function storiesPlugin(app: FastifyInstance) {
         href: view?.href ?? null,
         asset: block.kind === "media" && block.entity_id ? assets.get(block.entity_id) ?? null : null,
         // Narration: the clip plus a URL the reader can play it from.
-        audio: audioView(block, narration, story.id),
+        audio,
         preview: view?.available && block.entity_id
           ? blockPreviewAssets(block.kind, block.entity_id, user.id, libIds)
           : []
@@ -306,6 +399,10 @@ export async function storiesPlugin(app: FastifyInstance) {
         updatedAt: story.updated_at,
         previewLimit: BLOCK_PREVIEW_LIMIT,
         tags: getStoryTags(story.id),
+        chapterNoun: story.chapter_noun,
+        intro: story.intro,
+        // The chosen cover resolved for this viewer — the Story Home hero.
+        cover: story.cover_item_id ? assets.get(story.cover_item_id) ?? null : null,
         chapters: chapters.map((chapter) => ({
           id: chapter.id,
           position: chapter.position,
@@ -317,6 +414,11 @@ export async function storiesPlugin(app: FastifyInstance) {
           placeLat: chapter.place_lat,
           placeLng: chapter.place_lng,
           description: chapter.description,
+          standfirst: chapter.standfirst,
+          heroItemId: chapter.hero_item_id,
+          // The hero resolved for THIS viewer; null when unset or out of reach
+          // (the page then falls back to text-on-ground).
+          hero: chapter.hero_item_id ? assets.get(chapter.hero_item_id) ?? null : null,
           blocks: blockViews.filter((block) => block.chapterId === chapter.id)
         }))
       }
@@ -369,9 +471,12 @@ export async function storiesPlugin(app: FastifyInstance) {
     return reply.send({ tags: getStoryTags(story.id) });
   });
 
-  // Upload a narration clip for this story. It returns the clip, not a block —
-  // the caller then adds an `audio` block pointing at it, the same two steps a
-  // photo takes (pick, then place).
+  // Upload a narration clip for this story. The file lands in the admin-chosen
+  // RECORDINGS LIBRARY as a normal gallery audio asset (v2 — stories reference,
+  // period), and what comes back is that asset's id — the caller then adds an
+  // `audio` block pointing at it, the same two steps a photo takes (pick, then
+  // place). Without a recordings library the editor hides this affordance; a
+  // direct call gets the 409 with the same explanation.
   app.post("/api/stories/:id/audio", { preHandler: app.authenticate }, async (request, reply) => {
     const user = request.user!;
     const story = editableStory((request.params as { id: string }).id, user, reply);
@@ -389,10 +494,24 @@ export async function storiesPlugin(app: FastifyInstance) {
       return reply.code(400).send({ error: err instanceof Error ? err.message : "Upload failed." });
     }
 
-    const audio = await createStoryAudio(story.id, user, received.tmpPath, received.filename, received.extension);
-    return reply.code(201).send({
-      audio: { id: audio.id, title: audio.title, durationSeconds: audio.duration_seconds }
-    });
+    try {
+      const stored = await storeRecording(received.tmpPath, received.filename, received.extension);
+      logActivity({
+        event: "story.narration_recorded",
+        actorUserId: user.id,
+        targetType: "story",
+        targetId: story.id,
+        detail: `Added a recording to story "${story.title}".`,
+        ipAddress: request.ip
+      });
+      return reply.code(201).send({
+        audio: { id: stored.itemId, title: stored.title, durationSeconds: stored.durationSeconds }
+      });
+    } catch (err) {
+      fs.rmSync(received.tmpPath, { force: true });
+      if (err instanceof RecordingError) { return reply.code(err.statusCode).send({ error: err.message }); }
+      return reply.code(500).send({ error: err instanceof Error ? err.message : "The recording could not be stored." });
+    }
   });
 
   // Stream a narration clip to someone who can read the story. Ranged, so a
@@ -423,6 +542,9 @@ export async function storiesPlugin(app: FastifyInstance) {
     if (parsed.error) {
       return reply.code(400).send({ error: "Invalid chapter details", details: parsed.error });
     }
+    if (parsed.data.heroItemId && !referenceIsReachable("media", parsed.data.heroItemId, user)) {
+      return reply.code(400).send({ error: "That photo isn't available to use as a hero." });
+    }
     const chapter = createChapter(story.id, parsed.data);
     return reply.code(201).send({ chapterId: chapter.id });
   });
@@ -451,6 +573,9 @@ export async function storiesPlugin(app: FastifyInstance) {
     const parsed = parseBody(chapterSchema, request.body);
     if (parsed.error) {
       return reply.code(400).send({ error: "Invalid chapter details", details: parsed.error });
+    }
+    if (parsed.data.heroItemId && !referenceIsReachable("media", parsed.data.heroItemId, user)) {
+      return reply.code(400).send({ error: "That photo isn't available to use as a hero." });
     }
     updateChapter(chapter.id, story.id, parsed.data);
     return reply.send({ updated: true });
@@ -483,7 +608,7 @@ export async function storiesPlugin(app: FastifyInstance) {
     if (!chapter || chapter.story_id !== story.id) {
       return reply.code(404).send({ error: "Chapter not found" });
     }
-    if (!referenceIsReachable(parsed.data.kind, parsed.data.entityId, user, story.id)) {
+    if (!referenceIsReachable(parsed.data.kind, parsed.data.entityId, user)) {
       return reply.code(400).send({ error: "That content isn't available to add." });
     }
     const block = createBlock(chapter.id, story.id, parsed.data.kind, parsed.data);
@@ -519,7 +644,7 @@ export async function storiesPlugin(app: FastifyInstance) {
     if (parsed.error) {
       return reply.code(400).send({ error: "Invalid block", details: parsed.error });
     }
-    if (parsed.data.entityId !== undefined && !referenceIsReachable(block.kind, parsed.data.entityId, user, story.id)) {
+    if (parsed.data.entityId !== undefined && !referenceIsReachable(block.kind, parsed.data.entityId, user)) {
       return reply.code(400).send({ error: "That content isn't available to add." });
     }
     updateBlock(block.id, story.id, parsed.data);

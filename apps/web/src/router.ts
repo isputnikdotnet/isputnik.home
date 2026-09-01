@@ -15,7 +15,7 @@ export type ControlSection =
   | "backup" | "scheduledJobs" | "recycleBin" | "missingPhotos"
   | "duplicateCleanup" | "quotes"
   // Settings
-  | "appearance" | "email" | "notifications" | "readerAccess" | "about";
+  | "appearance" | "email" | "notifications" | "storySettings" | "readerAccess" | "about";
 
 // The canonical address of every control-panel destination. The nav, the tab
 // rows and the search palette all link through controlHref(), so this table is
@@ -53,6 +53,7 @@ export const CONTROL_PATHS: Record<ControlSection, string> = {
   appearance: "/control/settings",
   email: "/control/settings/email",
   notifications: "/control/settings/notifications",
+  storySettings: "/control/settings/stories",
   readerAccess: "/control/settings/reader-access",
   about: "/control/settings/about"
 };
@@ -263,6 +264,7 @@ export type Route =
   | { name: "collectionDetail"; id: string }
   | { name: "stories" }
   | { name: "storyDetail"; id: string }
+  | { name: "storyChapter"; id: string; chapterId: string }
   | { name: "storyEditor"; id: string }
   | { name: "authors" }
   | { name: "personDetail"; personName: string }
@@ -426,6 +428,12 @@ export function getRoute(): Route {
   const storyEditorMatch = path.match(/^\/stories\/([^/]+)\/edit$/);
   if (storyEditorMatch) {
     return { name: "storyEditor", id: storyEditorMatch[1] };
+  }
+
+  // A chapter is its own page — /stories/:id is the story's front page.
+  const storyChapterMatch = path.match(/^\/stories\/([^/]+)\/chapters\/([^/]+)$/);
+  if (storyChapterMatch) {
+    return { name: "storyChapter", id: storyChapterMatch[1], chapterId: storyChapterMatch[2] };
   }
 
   const storyDetailMatch = path.match(/^\/stories\/([^/]+)$/);

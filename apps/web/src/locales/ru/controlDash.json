@@ -209,10 +209,15 @@
     "videoN_few": "{{count}} видео",
     "videoN_many": "{{count}} видео",
     "videoN_other": "{{count}} видео",
+    "audioN_one": "{{count}} запись",
+    "audioN_few": "{{count}} записи",
+    "audioN_many": "{{count}} записей",
+    "audioN_other": "{{count}} записи",
     "biggestFilesNote": "По размеру",
     "noGalleryItems": "Пока нет фото или видео.",
     "video": "Видео",
-    "photo": "Фото"
+    "photo": "Фото",
+    "audio": "Аудио"
   },
   "map": {
     "connections_one": "{{count}} подключение",

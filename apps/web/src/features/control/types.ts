@@ -123,6 +123,7 @@ export interface GalleryLibraryStatusStats {
   itemCount: number;
   photoCount: number;
   videoCount: number;
+  audioCount: number;
   totalSizeBytes: number;
   totalDurationSeconds: number;
 }
@@ -149,6 +150,7 @@ export interface GalleryStats {
   totalItems: number;
   totalPhotos: number;
   totalVideos: number;
+  totalAudio: number;
   totalSizeBytes: number;
   totalDurationSeconds: number;
   libraries: GalleryLibraryStatusStats[];

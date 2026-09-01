@@ -438,6 +438,86 @@ const migrations: { version: number; up: (db: Database.Database) => void }[] = [
         db.exec("ALTER TABLE share_links ADD COLUMN expand_albums INTEGER NOT NULL DEFAULT 0");
       }
     }
+  },
+  {
+    // 3.44.0 — gallery audio assets (voice recordings / narration). Widens the
+    // gallery_details.kind CHECK to admit 'audio'. SQLite cannot alter a CHECK,
+    // so the table is rebuilt: stage the rows, drop, recreate with the widened
+    // constraint, restore. No RENAME anywhere (ALTER TABLE RENAME rewrites
+    // referencing FKs and has corrupted a dev database before). Nothing
+    // references gallery_details, so drop/recreate is FK-safe, and the insert
+    // uses an explicit column list read from the staged table — upgraded
+    // databases can carry these columns in a different order than schema.sql.
+    version: 55,
+    up: (db) => {
+      const ddl = (db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'gallery_details'")
+        .get() as { sql: string } | undefined)?.sql ?? "";
+      if (ddl.includes("'audio'")) return; // fresh DB built from the current schema.sql
+
+      db.exec("CREATE TABLE gallery_details_migr AS SELECT * FROM gallery_details");
+      db.exec("DROP TABLE gallery_details");
+      db.exec(`
+        CREATE TABLE gallery_details (
+          item_id             TEXT PRIMARY KEY REFERENCES library_items(id) ON DELETE CASCADE,
+          kind                TEXT NOT NULL DEFAULT 'photo' CHECK (kind IN ('photo', 'video', 'audio')),
+          relative_path       TEXT NOT NULL,
+          mime_type           TEXT,
+          size                INTEGER,
+          width               INTEGER,
+          height              INTEGER,
+          orientation         INTEGER,
+          rotation            INTEGER NOT NULL DEFAULT 0,
+          duration_seconds    REAL,
+          taken_at            TEXT,
+          taken_at_source     TEXT NOT NULL DEFAULT 'scan' CHECK (taken_at_source IN ('scan', 'manual')),
+          modified_at         TEXT,
+          gps_lat             REAL,
+          gps_lng             REAL,
+          gps_source          TEXT NOT NULL DEFAULT 'scan' CHECK (gps_source IN ('scan', 'manual')),
+          camera_make         TEXT,
+          camera_model        TEXT,
+          preview_storage_key TEXT,
+          playable            INTEGER,
+          phash               TEXT,
+          content_hash        TEXT,
+          content_hash_at     TEXT,
+          web_video_key       TEXT,
+          web_video_attempts  INTEGER NOT NULL DEFAULT 0,
+          updated_at          TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+        )
+      `);
+      const staged = (db.prepare("PRAGMA table_info(gallery_details_migr)").all() as { name: string }[])
+        .map((c) => c.name);
+      const rebuilt = new Set(
+        (db.prepare("PRAGMA table_info(gallery_details)").all() as { name: string }[]).map((c) => c.name)
+      );
+      const cols = staged.filter((name) => rebuilt.has(name)).map((name) => `"${name}"`).join(", ");
+      db.exec(`INSERT INTO gallery_details (${cols}) SELECT ${cols} FROM gallery_details_migr`);
+      db.exec("DROP TABLE gallery_details_migr");
+      db.exec("CREATE INDEX IF NOT EXISTS idx_gallery_taken_at ON gallery_details(taken_at)");
+      db.exec("CREATE INDEX IF NOT EXISTS idx_gallery_size ON gallery_details(size)");
+      db.exec("CREATE INDEX IF NOT EXISTS idx_gallery_content_hash ON gallery_details(content_hash) WHERE content_hash IS NOT NULL");
+    }
+  },
+  {
+    // 3.44.0 — story chapter pages (stories v2 step 3). A story gains its
+    // chapter noun ("Day 1") and a Story Home intro; a chapter gains its
+    // page hero: the standfirst teaser and a hero photo.
+    version: 56,
+    up: (db) => {
+      const storyColumns = new Set(
+        (db.prepare("PRAGMA table_info(stories)").all() as { name: string }[]).map((c) => c.name)
+      );
+      if (!storyColumns.has("chapter_noun")) db.exec("ALTER TABLE stories ADD COLUMN chapter_noun TEXT");
+      if (!storyColumns.has("intro")) db.exec("ALTER TABLE stories ADD COLUMN intro TEXT");
+      const chapterColumns = new Set(
+        (db.prepare("PRAGMA table_info(story_chapters)").all() as { name: string }[]).map((c) => c.name)
+      );
+      if (!chapterColumns.has("standfirst")) db.exec("ALTER TABLE story_chapters ADD COLUMN standfirst TEXT");
+      if (!chapterColumns.has("hero_item_id")) {
+        db.exec("ALTER TABLE story_chapters ADD COLUMN hero_item_id TEXT REFERENCES library_items(id) ON DELETE SET NULL");
+      }
+    }
   }
 ];
 

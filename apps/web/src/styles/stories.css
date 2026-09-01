@@ -750,241 +750,6 @@
   gap: 2px;
 }
 
-/* ── Player (presentation mode) ────────────────────────────────────────── */
-/* Full screen, dark, built for a television or a tablet passed around. The
-   controls retreat while the show runs and come back on any input. */
-
-.story-player {
-  position: fixed;
-  inset: 0;
-  z-index: 1200;
-  display: grid;
-  /* bar · stage · controls — the stage takes everything left over. */
-  grid-template-rows: auto 1fr auto;
-  background: #05070a;
-  color: #f4f1ea;
-}
-
-.story-player-stage {
-  position: relative;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  padding: 24px;
-  cursor: pointer;
-}
-
-/* Every slide fades in, which is what makes the show read as one piece
-   rather than a series of jumps. */
-.story-slide {
-  margin: 0;
-  max-width: min(1100px, 100%);
-  max-height: 100%;
-  animation: story-slide-in 520ms ease both;
-}
-
-@keyframes story-slide-in {
-  from { opacity: 0; transform: scale(1.012); }
-  to   { opacity: 1; transform: none; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .story-slide { animation: none; }
-}
-
-.story-slide-media {
-  display: grid;
-  place-items: center;
-  gap: 12px;
-  width: 100%;
-  height: 100%;
-}
-
-.story-slide-media img,
-.story-slide-media video {
-  max-width: 100%;
-  max-height: 78vh;
-  object-fit: contain;
-  border-radius: 10px;
-}
-
-.story-slide-media figcaption {
-  color: rgba(244, 241, 234, 0.72);
-  font-size: 1rem;
-  text-align: center;
-}
-
-.story-slide-chapter,
-.story-slide-person {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  text-align: center;
-}
-
-.story-slide-chapter h2,
-.story-slide-person h2 {
-  margin: 0;
-  font-size: clamp(2rem, 5vw, 3.4rem);
-  line-height: 1.1;
-}
-
-.story-slide-dateline {
-  margin: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--gold);
-  font-size: clamp(0.85rem, 1.6vw, 1.05rem);
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-}
-
-.story-slide-note {
-  margin: 0;
-  max-width: 58ch;
-  color: rgba(244, 241, 234, 0.75);
-  font-size: clamp(1rem, 2vw, 1.25rem);
-}
-
-.story-slide-portrait {
-  display: grid;
-  place-items: center;
-  width: 96px;
-  height: 96px;
-  border-radius: 50%;
-  background: rgba(244, 241, 234, 0.1);
-}
-
-/* Prose on a screen across the room wants to be much larger than prose in a
-   page, and narrower than the stage. */
-.story-slide-text { width: min(70ch, 100%); }
-
-.story-slide-prose {
-  font-size: clamp(1.15rem, 2.4vw, 1.8rem);
-  line-height: 1.55;
-}
-
-.story-slide-prose h1,
-.story-slide-prose h2,
-.story-slide-prose h3 { line-height: 1.15; }
-
-.story-slide-quote {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-  max-width: 60ch;
-  color: var(--gold);
-  text-align: center;
-}
-
-.story-slide-quote p {
-  margin: 0;
-  color: #f4f1ea;
-  font-size: clamp(1.3rem, 3vw, 2.2rem);
-  font-style: italic;
-  line-height: 1.35;
-}
-
-.story-slide-quote footer {
-  color: rgba(244, 241, 234, 0.7);
-  font-size: 1rem;
-}
-
-.story-slide-map { width: min(1000px, 100%); }
-.story-player-map { height: min(70vh, 620px); border-radius: 12px; }
-
-.story-player-bar,
-.story-player-controls {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 18px;
-  transition: opacity 260ms ease;
-}
-
-.story-player-bar { justify-content: space-between; }
-.story-player-controls { justify-content: center; }
-
-.story-player-title { font-weight: 600; }
-.story-player-count { color: rgba(244, 241, 234, 0.6); font-variant-numeric: tabular-nums; }
-
-.story-player .icon-button {
-  color: #f4f1ea;
-  background: rgba(244, 241, 234, 0.08);
-  border-color: transparent;
-}
-
-.story-player .icon-button:hover:not(:disabled) { background: rgba(244, 241, 234, 0.18); }
-.story-player .icon-button:disabled { opacity: 0.35; }
-
-/* Idle hides the chrome but never the slide — and never while paused, since a
-   paused show is one someone is looking at deliberately. */
-.story-player.is-idle .story-player-bar,
-.story-player.is-idle .story-player-controls {
-  opacity: 0;
-  pointer-events: none;
-}
-
-.story-player-progress {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 3px;
-  background: rgba(244, 241, 234, 0.14);
-}
-
-.story-player-progress span {
-  display: block;
-  height: 100%;
-  background: var(--gold);
-  transition: width 300ms ease;
-}
-
-.story-player-end {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 22px;
-  /* Nearly opaque: the last slide should recede, not compete with the words. */
-  background: rgba(5, 7, 10, 0.96);
-}
-
-.story-player-end p {
-  margin: 0;
-  color: var(--gold);
-  font-size: clamp(1.4rem, 3vw, 2.2rem);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.story-player-end-actions { display: flex; gap: 12px; }
-
-/* The page's button tokens are tuned for a light surface; on the player's dark
-   ground they need their own treatment. */
-.story-player-end .secondary-button {
-  border: 1px solid rgba(244, 241, 234, 0.35);
-  background: transparent;
-  color: #f4f1ea;
-}
-
-.story-player-end .secondary-button:hover {
-  border-color: rgba(244, 241, 234, 0.7);
-  background: rgba(244, 241, 234, 0.08);
-}
-
-@media (max-width: 740px) {
-  .story-player-stage { padding: 12px; }
-  .story-slide-media img,
-  .story-slide-media video { max-height: 66vh; }
-}
-
 /* ── Narration ─────────────────────────────────────────────────────────── */
 
 .story-block-audio {
@@ -1064,19 +829,390 @@
 .story-audio-upload input { display: none; }
 .story-audio-upload .secondary-button { display: inline-flex; gap: 8px; cursor: pointer; }
 
-/* Narration on the player's stage: nothing to look at, because the point is to
-   listen. */
-.story-slide-audio {
+/* ── Site view ─────────────────────────────────────────────────────────── */
+/* Reading a story is chrome-free: no app nav, just the story's own bar,
+   its chapter strip, and the page. Replaces the presentation-mode player —
+   the website IS the presentation. */
+
+.story-site {
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
+  background: var(--canvas);
+}
+
+.story-site-bar {
+  display: flex;
   align-items: center;
-  gap: 18px;
-  text-align: center;
+  gap: 14px;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  position: sticky;
+  top: 0;
+  z-index: 30;
 }
 
-.story-slide-audio h2 {
+.story-site-exit {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.story-site-exit:hover { background: var(--hover); color: var(--ink); }
+
+.story-site-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.story-site-actions { display: flex; gap: 8px; }
+
+/* The chapter strip: Overview + one entry per chapter, horizontally
+   scrollable — a long trip has many days. */
+.story-site-strip {
+  display: flex;
+  gap: 4px;
+  padding: 8px 18px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  overflow-x: auto;
+}
+
+.story-site-strip a {
+  padding: 5px 12px;
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.86rem;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.story-site-strip a:hover { background: var(--hover); color: var(--ink); }
+.story-site-strip a.is-current { background: var(--active); color: var(--ink); font-weight: 600; }
+
+.story-site-page {
+  flex: 1;
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 26px 20px 60px;
+}
+
+/* ── Story Home ────────────────────────────────────────────────────────── */
+
+.story-home { display: flex; flex-direction: column; gap: 28px; }
+
+.story-home-hero {
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--surface-raised);
+}
+
+.story-home-hero img {
+  width: 100%;
+  max-height: 46vh;
+  object-fit: cover;
+  display: block;
+}
+
+.story-home-hero-text {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 20px 24px;
+}
+
+/* Text over the cover once there is one — the reference's overlaid dateline. */
+.story-home-hero.has-image .story-home-hero-text {
+  position: absolute;
+  inset: auto 0 0 0;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.72));
+  color: #fff;
+}
+
+.story-home-hero.has-image .story-read-subtitle,
+.story-home-hero.has-image .story-home-meta { color: rgba(255, 255, 255, 0.85); }
+
+.story-home-hero h1 {
   margin: 0;
-  font-size: clamp(1.4rem, 3vw, 2.2rem);
+  font-size: clamp(1.6rem, 4vw, 2.4rem);
+  line-height: 1.12;
+  text-wrap: balance;
 }
 
-.story-slide-audio audio { width: min(520px, 80vw); }
+.story-home-meta {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 0.9rem;
+  letter-spacing: 0.03em;
+}
+
+.story-home-hero:not(.has-image) .story-home-meta { color: var(--gold); }
+
+.story-home-intro { max-width: 68ch; }
+
+.story-home-chapters { display: flex; flex-direction: column; gap: 10px; }
+
+.story-home-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-raised);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.story-home-card:hover { background: var(--hover); }
+
+.story-home-card img,
+.story-home-card-blank {
+  flex: 0 0 auto;
+  width: 96px;
+  height: 68px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: var(--field);
+}
+
+.story-home-card-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.story-home-card-eyebrow {
+  color: var(--gold);
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.story-home-card-title { font-weight: 600; }
+
+.story-home-card-meta { color: var(--muted); font-size: 0.82rem; }
+
+.story-home-card-standfirst {
+  color: var(--muted);
+  font-size: 0.88rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.story-home-card-go { flex: 0 0 auto; color: var(--muted); }
+
+.story-home-map-section { display: flex; flex-direction: column; gap: 10px; }
+.story-home-map-section h2 { margin: 0; font-size: 1.15rem; }
+
+.story-home-map {
+  height: 320px;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+}
+
+/* Numbered pins, one per placed chapter. */
+.story-map-marker { background: none; border: 0; }
+.story-map-pin {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--mint);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 700;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+}
+
+/* ── Chapter page ──────────────────────────────────────────────────────── */
+
+.story-chapter-page { gap: 26px; }
+
+.story-chapter-hero {
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--surface-raised);
+}
+
+.story-chapter-hero img {
+  width: 100%;
+  max-height: 52vh;
+  object-fit: cover;
+  display: block;
+}
+
+.story-chapter-hero-text {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 18px 22px;
+}
+
+.story-chapter-hero.has-image .story-chapter-hero-text {
+  position: absolute;
+  inset: auto 0 0 0;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.72));
+  color: #fff;
+}
+
+.story-chapter-hero.has-image .story-chapter-meta { color: rgba(255, 255, 255, 0.85); }
+
+.story-chapter-hero h1 {
+  margin: 0;
+  font-size: clamp(1.4rem, 3.4vw, 2rem);
+  line-height: 1.15;
+  text-wrap: balance;
+}
+
+.story-chapter-standfirst {
+  margin: 0;
+  max-width: 62ch;
+  font-size: 1.02rem;
+}
+
+.story-chapter-hero.has-image .story-chapter-standfirst { color: rgba(255, 255, 255, 0.92); }
+
+/* A chapter with coordinates shows its spot compactly under the hero. */
+.story-chapter-page .story-home-map { height: 180px; }
+
+/* "Photos from Day 1 · 12 shots" — everything the chapter's blocks show. */
+.story-chapter-photos { display: flex; flex-direction: column; gap: 10px; }
+
+.story-chapter-photos h2 { margin: 0; font-size: 1.05rem; }
+
+.story-chapter-photos-count { color: var(--muted); font-weight: 400; font-size: 0.9rem; }
+
+.story-chapter-photos-strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.story-chapter-photos-strip button {
+  flex: 0 0 auto;
+  width: 108px;
+  height: 78px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--field);
+  cursor: pointer;
+}
+
+.story-chapter-photos-strip img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.story-chapter-nav {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.story-chapter-nav button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-raised);
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.story-chapter-nav button:hover { background: var(--hover); }
+
+/* ── Editor: Story Home & chapter-page fields ──────────────────────────── */
+
+.story-home-fields {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.story-home-fields .story-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1 1 320px;
+}
+
+.story-home-fields .story-field > span:first-child {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.story-home-fields .story-field-noun { flex: 0 1 240px; }
+.story-home-fields .story-field-noun .muted { font-size: 0.78rem; }
+
+.story-chapter-place-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.story-chapter-place-row .field { flex: 1 1 240px; }
+
+.story-chapter-hero-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.story-chapter-hero-thumb {
+  width: 64px;
+  height: 44px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+@media (max-width: 740px) {
+  .story-site-page { padding: 18px 12px 48px; }
+  .story-home-card img,
+  .story-home-card-blank { width: 72px; height: 54px; }
+}

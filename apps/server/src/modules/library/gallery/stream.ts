@@ -1,7 +1,7 @@
-// Serve the original photo/video for an asset, with HTTP range support so the
-// browser's <video> element can seek. Mirrors the audiobook file streamer
-// (reply.hijack() + parseRangeHeader + pipe(reply.raw)). Photos are usually served
-// whole; videos arrive as 206 partial responses.
+// Serve the original photo/video/audio for an asset, with HTTP range support so
+// the browser's <video>/<audio> elements can seek. Mirrors the audiobook file
+// streamer (reply.hijack() + parseRangeHeader + pipe(reply.raw)). Photos are
+// usually served whole; videos and recordings arrive as 206 partial responses.
 import fs from "node:fs";
 import path from "node:path";
 import type { FastifyInstance } from "fastify";
@@ -90,14 +90,15 @@ export async function galleryStreamPlugin(app: FastifyInstance) {
     // so a ranged video download logs once, not per chunk.
     const wantsDownload = typeof (request.query as { download?: string }).download === "string";
     if (wantsDownload && (!range || range.start === 0)) {
-      const isVideo = (row.mime_type ?? "").startsWith("video");
+      const mime = row.mime_type ?? "";
+      const noun = mime.startsWith("video") ? "video" : mime.startsWith("audio") ? "recording" : "photo";
       const title = row.title ?? path.basename(row.relative_path);
       logActivity({
         event: "library.gallery.downloaded",
         actorUserId: user.id,
         targetType: "gallery",
         targetId: id,
-        detail: `Downloaded ${isVideo ? "video" : "photo"} "${title}".`,
+        detail: `Downloaded ${noun} "${title}".`,
         ipAddress: request.ip
       });
     }

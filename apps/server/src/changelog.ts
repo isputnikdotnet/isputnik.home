@@ -19,6 +19,19 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.44.0",
+    label: "A place of its own",
+    changes: [
+      "A story now reads like a small website of its own. Opening one leaves the app behind — no menus, no library chrome, just the story's name, its chapters, and a way back. A story told in chapters gets a front page: the cover, a few opening lines you write for it, the span of dates and the place it mostly happened, and a card for each chapter. Each chapter is now its own page, with the date and place over its chosen photo, a line that sets the scene, and at the bottom everything that chapter showed, gathered into one strip — plus a link to the day before and the day after. A story that is just one plain page stays one plain page.",
+      "You can tell a story what to call its chapters. Write “Day” and they become Day 1, Day 2; write “Stop”, and a road trip counts its stops. It is your word, in your language, on your story.",
+      "Chapters can be pinned to the map. Give each one a place and the front page draws the journey: numbered pins, one per chapter, and clicking a pin opens that day. A chapter's own page shows its spot too.",
+      "The Play button on stories is gone. Watching a story run itself full-screen sounded better than it was — the pages themselves are now the presentation, made to be read and handed round. Slideshows inside a story still play exactly as before, music and all.",
+      "Recordings made for a story — someone telling their part of it — now live in your photo library like everything else, instead of in a drawer of the app's own. An admin picks which gallery library they go to, once, under Settings → Stories; until then the record button simply isn't offered. Recordings made before this change keep playing from where they are, and the same settings page has a button that moves them into the library — after that they are backed up with your photos, appear in the gallery, and outlive their story.",
+      "The gallery itself learned to hold sound. A voice memo or any audio file in a gallery folder is now catalogued like a photo: it gets a tile, plays right in the viewer, and Audio joined Photos and Videos in the filter. No library picks this up on its own — audio file types are added per library, and choosing a recordings library adds them for you. Slideshows, memories and the year's film keep politely ignoring audio, since none of them can show it.",
+      "Under the floorboards, the database learned to rebuild a table in place — the first release to need it. If an upgrade takes a breath longer than usual on a big gallery, that is what it is doing."
+    ]
+  },
+  {
     version: "3.43.1",
     label: "The engine room",
     changes: [

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { CheckCircle2, Download, Heart, Image as ImageIcon, Play, UserRound, X } from "lucide-react";
+import { CheckCircle2, Download, Heart, Image as ImageIcon, Mic, Play, UserRound, X } from "lucide-react";
 import type { GalleryAsset } from "./types";
 import { faceFocusStyle } from "./types";
 
@@ -61,7 +61,11 @@ export function AssetTile({
       {asset.coverUrl ? (
         <img src={asset.coverUrl} alt="" loading="lazy" style={faceFocusStyle(asset)} />
       ) : (
-        <span className="gallery-tile-fallback"><ImageIcon size={26} aria-hidden="true" /></span>
+        // A recording usually has no artwork at all (only embedded cover art
+        // yields one), so its fallback is the mic, not the broken-photo icon.
+        <span className="gallery-tile-fallback">
+          {asset.kind === "audio" ? <Mic size={26} aria-hidden="true" /> : <ImageIcon size={26} aria-hidden="true" />}
+        </span>
       )}
       {/* The read-only marker, for grids that don't offer the heart button below —
           which renders its own filled heart in the same corner. */}
@@ -74,6 +78,9 @@ export function AssetTile({
         ) : (
           <span className="gallery-video-badge"><Play size={11} aria-hidden="true" />{t("gallery:common.video")}</span>
         )
+      )}
+      {asset.kind === "audio" && (
+        <span className="gallery-video-badge"><Mic size={11} aria-hidden="true" />{t("gallery:common.audio")}</span>
       )}
       {/* Only a selected tile gets the check overlay — unselected tiles stay
           clean rather than all sprouting empty circles in selection mode. */}

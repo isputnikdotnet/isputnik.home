@@ -58,6 +58,11 @@ export const LIBRARY_TYPE_DEFAULTS: Partial<Record<LibraryType, { extensions: st
   ebook: { extensions: ["epub", "pdf", "fb2", "mobi", "azw3", "txt", "rtf"], companions: ["png", "jpg", "jpeg", "webp", "xml", "json"] },
   // Gallery: photos + videos. One file = one asset; no companion files (sidecars
   // aren't catalogued — EXIF is read straight from the image/video).
+  // Audio (mp3/m4a/wav/weba/… — see AUDIO_EXTENSIONS in gallery/media.ts) is
+  // deliberately NOT in the defaults: defaults apply live to libraries that never
+  // stored an explicit list, so adding audio here would make every existing photo
+  // library index stray music files on its next scan. A library that should hold
+  // recordings opts in through its scan-extensions setting.
   gallery: {
     extensions: ["jpg", "jpeg", "png", "webp", "gif", "heic", "heif", "tiff", "bmp", "avif", "mp4", "mov", "m4v", "webm", "avi", "mkv"],
     companions: []

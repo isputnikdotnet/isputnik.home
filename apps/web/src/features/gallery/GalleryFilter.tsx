@@ -9,7 +9,7 @@ import type { GalleryFacets } from "./types";
 // with/without-location toggle. The header dropdown holds the timeline sort.
 export interface GalleryFilters {
   libraries: string[]; // gallery library ids — which libraries the view draws from
-  kinds: string[];    // codes: photo | video (sent as the API's top-level `kinds`)
+  kinds: string[];    // codes: photo | video | audio (sent as the API's top-level `kinds`)
   people: string[];
   years: string[];
   months: string[];   // codes: "01".."12" (any year)
@@ -31,7 +31,8 @@ export const EMPTY_GALLERY_FILTERS: GalleryFilters = {
 function getKindOptions() {
   return [
     { value: "photo", label: i18n.t("gallery:filter.kindPhotos") },
-    { value: "video", label: i18n.t("gallery:filter.kindVideos") }
+    { value: "video", label: i18n.t("gallery:filter.kindVideos") },
+    { value: "audio", label: i18n.t("gallery:filter.kindAudio") }
   ];
 }
 
