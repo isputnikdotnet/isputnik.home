@@ -154,7 +154,11 @@ async function readPhotoMetadata(absolutePath: string): Promise<AssetMetadata> {
   }
   try {
     // Default parse reads TIFF/EXIF/GPS and adds computed latitude/longitude.
-    const exif = await exifr.parse(absolutePath);
+    // exifr gets a buffer, never the path: its chunked file mode opens a
+    // FileHandle it leaks when parsing throws on a malformed file, and on
+    // Node 24+ a GC'd unclosed FileHandle is a fatal process error
+    // (ERR_INVALID_STATE), taking the whole server down mid-scan.
+    const exif = await exifr.parse(await fs.promises.readFile(absolutePath));
     if (exif) {
       meta.takenAt = isoOrNull(exif.DateTimeOriginal ?? exif.CreateDate ?? exif.ModifyDate);
       meta.gpsLat = finiteOrNull(exif.latitude);
