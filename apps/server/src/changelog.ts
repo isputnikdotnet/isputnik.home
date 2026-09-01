@@ -19,6 +19,14 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.46.1",
+    label: "The manual, at last",
+    changes: [
+      "Stories grew fast over the last three releases and never had a page in Help explaining themselves. Now they do: a guide covering the whole of it — starting a story and what the four kinds mean, chapters and their pages, every block you can place, recording narration and where those recordings live, collections and exactly what restricting one does, reviews and the Write-a-review button, and guest links. It's on the Help page under Your libraries, and like every guide it lives inside the app, so it describes the version you're running and needs no internet.",
+      "Nothing else changed."
+    ]
+  },
+  {
     version: "3.46.0",
     label: "The family shelf",
     changes: [
