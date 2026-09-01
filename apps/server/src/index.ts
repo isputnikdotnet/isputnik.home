@@ -279,3 +279,22 @@ app.setErrorHandler((error, _request, reply) => {
 });
 
 await app.listen({ host: config.host, port: config.port });
+
+// Last-resort guards, installed only once the server is listening — a failure
+// to boot must still crash the process (so the container restarts and the log
+// ends at the real error) rather than leave a half-initialized zombie; note a
+// top-level await failure above surfaces as an unhandledRejection, which is why
+// these cannot be registered earlier. After startup the calculus flips: the one
+// real crash so far was a GC-time landmine — exifr leaked a FileHandle on a
+// malformed photo, and Node 24+ makes collecting an unclosed handle a fatal
+// error, detonating minutes after the swallowed parse error with no request in
+// sight. Synchronous state stays consistent (better-sqlite3 commits or throws
+// in place) and request errors have Fastify's handler above, so log the stack
+// loudly and keep serving instead of taking the library down over one bad file.
+process.on("uncaughtException", (error, origin) => {
+  app.log.error({ err: error, origin }, "Uncaught exception — server continuing");
+});
+process.on("unhandledRejection", (reason) => {
+  const err = reason instanceof Error ? reason : new Error(String(reason));
+  app.log.error({ err }, "Unhandled promise rejection — server continuing");
+});
