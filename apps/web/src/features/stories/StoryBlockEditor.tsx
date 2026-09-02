@@ -6,16 +6,16 @@ import {
   CornerDownRight,
   Eye,
   GripVertical,
-  MapPin,
   MoveHorizontal,
   Pencil,
+  Replace,
   Trash2
 } from "lucide-react";
 import { ActionMenu, type ActionMenuItem } from "../../shared/ActionMenu";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { InlineEdit } from "../../shared/InlineEdit";
+import { StoryBlockPicker, isPickable } from "./StoryBlockPicker";
 import { StoryBlockView } from "./StoryBlockView";
-import { StoryMapModal } from "./StoryMapModal";
 import { StoryMarkdown } from "./StoryMarkdown";
 import type { StoryBlock, StoryChapter } from "./types";
 
@@ -25,6 +25,8 @@ import type { StoryBlock, StoryChapter } from "./types";
 // StoryBlockView — the card is chrome around it, never a second rendering.
 export function StoryBlockEditor({
   block,
+  storyId,
+  storyTags,
   first,
   last,
   busy,
@@ -39,6 +41,9 @@ export function StoryBlockEditor({
   dragging
 }: {
   block: StoryBlock;
+  storyId: string;
+  /** Passed to the pickers, so they can offer the story's own subjects first. */
+  storyTags: string[];
   first: boolean;
   last: boolean;
   busy: boolean;
@@ -55,7 +60,9 @@ export function StoryBlockEditor({
 }) {
   const { t } = useTranslation(["common", "stories"]);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [editingMap, setEditingMap] = useState(false);
+  // Open = the block's own content is being changed, in the same dialog that
+  // chose it in the first place.
+  const [changing, setChanging] = useState(false);
   // A text block opens ready to type when it is still empty — a block added
   // from the menu exists only to be written in.
   const [writing, setWriting] = useState(block.kind === "text" && !block.body);
@@ -79,12 +86,15 @@ export function StoryBlockEditor({
       onSelect: () => { if (writing) saveText(); setWriting(!writing); }
     });
   }
-  if (block.kind === "map") {
+  // Everything else points at something, and what it points at has to be
+  // changeable — a heading and a caption are not the block, and re-picking used
+  // to mean deleting it and adding another in its place.
+  if (isPickable(block.kind)) {
     items.push({
-      key: "map",
-      label: t("stories:map.editTitle"),
-      icon: <MapPin size={15} aria-hidden="true" />,
-      onSelect: () => setEditingMap(true)
+      key: "change",
+      label: t(`stories:edit.change.${block.kind}`),
+      icon: <Replace size={15} aria-hidden="true" />,
+      onSelect: () => setChanging(true)
     });
   }
   if (block.kind === "media" && block.asset?.kind === "photo") {
@@ -202,13 +212,14 @@ export function StoryBlockEditor({
         )}
       </div>
 
-      {editingMap && (
-        <StoryMapModal
-          initial={block.lat != null && block.lng != null
-            ? { lat: block.lat, lng: block.lng, zoom: block.zoom, label: block.label }
-            : null}
-          onSave={(value) => { setEditingMap(false); onPatch(value); }}
-          onClose={() => setEditingMap(false)}
+      {changing && isPickable(block.kind) && (
+        <StoryBlockPicker
+          kind={block.kind}
+          storyId={storyId}
+          storyTags={storyTags}
+          block={block}
+          onPick={onPatch}
+          onClose={() => setChanging(false)}
         />
       )}
 

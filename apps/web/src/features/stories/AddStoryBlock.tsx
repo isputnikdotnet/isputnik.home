@@ -1,18 +1,44 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { BookOpen, Images, MapPin, Mic, Play, Plus, Quote, Type, UserRound } from "lucide-react";
-import { ActionMenu, type ActionMenuItem } from "../../shared/ActionMenu";
-import { PhotoPicker } from "../gallery/PhotoPicker";
-import { StoryAudioModal } from "./StoryAudioModal";
-import { StoryMapModal } from "./StoryMapModal";
-import { StoryRefPicker, type RefKind } from "./StoryRefPicker";
+import {
+  BookOpen,
+  Images,
+  LayoutGrid,
+  MapPin,
+  Mic,
+  Play,
+  Plus,
+  Quote,
+  Type,
+  UserRound,
+  type LucideIcon
+} from "lucide-react";
+import { Button } from "../../shared/Button";
+import { Modal } from "../../shared/Modal";
+import { StoryBlockPicker, type PickableKind } from "./StoryBlockPicker";
 import { useRecordingsTarget } from "./useRecordingsTarget";
 import type { StoryBlockKind } from "./types";
 
-// The insert point that sits between blocks. It used to be a row of nine
-// buttons under every chapter, which read as a toolbar the chapter was wearing;
-// as one menu it is a single decision — "something goes here" — and the kinds
-// stay a list rather than a wall.
+const BLOCK_ICONS: Record<StoryBlockKind, LucideIcon> = {
+  text: Type,
+  media: Images,
+  album: Images,
+  slideshow: Play,
+  map: MapPin,
+  person: UserRound,
+  quote: Quote,
+  book: BookOpen,
+  audio: Mic
+};
+
+/** The order they are offered in: prose first, then what the library can lend. */
+const BLOCK_KINDS: StoryBlockKind[] = [
+  "text", "media", "album", "slideshow", "map", "person", "quote", "book", "audio"
+];
+
+// The insert point between blocks. It opens a dialog rather than a menu: the
+// kinds are a choice worth seeing laid out — each with a line saying what it
+// actually puts on the page — and a nine-item popover said only their names.
 export function AddStoryBlock({
   storyId,
   storyTags,
@@ -20,125 +46,87 @@ export function AddStoryBlock({
   onAdd
 }: {
   storyId: string;
-  /** Lets the pickers offer content that shares the story's tags first. */
   storyTags: string[];
   busy: boolean;
   onAdd: (kind: StoryBlockKind, fields?: Record<string, unknown>) => void;
 }) {
   const { t } = useTranslation(["common", "stories"]);
   const recordings = useRecordingsTarget();
-  const [picker, setPicker] = useState<"photo" | "map" | "audio" | RefKind | null>(null);
+  const [choosing, setChoosing] = useState(false);
+  const [picking, setPicking] = useState<PickableKind | null>(null);
 
-  const items: ActionMenuItem[] = [
-    {
-      key: "text",
-      label: t("stories:kind.text"),
-      icon: <Type size={15} aria-hidden="true" />,
-      onSelect: () => onAdd("text", { body: "" })
-    },
-    {
-      key: "media",
-      label: t("stories:kind.media"),
-      icon: <Images size={15} aria-hidden="true" />,
-      onSelect: () => setPicker("photo")
-    },
-    {
-      key: "album",
-      label: t("stories:kind.album"),
-      icon: <Images size={15} aria-hidden="true" />,
-      onSelect: () => setPicker("album")
-    },
-    {
-      key: "slideshow",
-      label: t("stories:kind.slideshow"),
-      icon: <Play size={15} aria-hidden="true" />,
-      onSelect: () => setPicker("slideshow")
-    },
-    {
-      key: "map",
-      label: t("stories:kind.map"),
-      icon: <MapPin size={15} aria-hidden="true" />,
-      onSelect: () => setPicker("map")
-    },
-    {
-      key: "person",
-      label: t("stories:kind.person"),
-      icon: <UserRound size={15} aria-hidden="true" />,
-      onSelect: () => setPicker("person")
-    },
-    {
-      key: "quote",
-      label: t("stories:kind.quote"),
-      icon: <Quote size={15} aria-hidden="true" />,
-      onSelect: () => setPicker("quote")
-    },
-    {
-      key: "book",
-      label: t("stories:kind.book"),
-      icon: <BookOpen size={15} aria-hidden="true" />,
-      onSelect: () => setPicker("book")
-    }
-  ];
-
-  // Recording needs a destination: the affordance exists only once an admin has
-  // nominated the recordings library. Members see nothing until then; an admin
-  // sees it disabled, pointing at the setting.
-  if (recordings.enabled || recordings.isAdmin) {
-    items.push({
-      key: "audio",
-      label: t("stories:kind.audio"),
-      icon: <Mic size={15} aria-hidden="true" />,
-      disabledReason: recordings.enabled ? undefined : t("stories:audio.needsLibraryHint"),
-      onSelect: () => setPicker("audio")
-    });
-  }
+  const choose = (kind: StoryBlockKind) => {
+    setChoosing(false);
+    // Prose has nothing to pick: the block is the writing surface.
+    if (kind === "text") onAdd("text", { body: "" });
+    else setPicking(kind);
+  };
 
   return (
     <div className="story-add-block">
-      <ActionMenu
-        label={t("stories:edit.addBlock")}
-        icon={<Plus size={15} aria-hidden="true" />}
-        items={items}
+      <Button
+        variant="secondary"
         compact
-        className="story-add-block-menu"
-      />
+        className="story-add-block-button"
+        onClick={() => setChoosing(true)}
+        disabled={busy}
+      >
+        <Plus size={15} aria-hidden="true" />
+        <span>{t("stories:edit.addBlock")}</span>
+      </Button>
 
-      {picker === "photo" && (
-        <PhotoPicker
-          title={t("stories:picker.photoTitle")}
-          pick="any"
-          onPick={(asset) => { setPicker(null); onAdd("media", { entityId: asset.id }); }}
-          onClose={() => setPicker(null)}
-        />
+      {choosing && (
+        <Modal
+          variant="panel"
+          title={t("stories:edit.addBlock")}
+          subtitle={t("stories:edit.addBlockIntro")}
+          icon={<LayoutGrid size={22} />}
+          className="story-add-block-modal"
+          onClose={() => setChoosing(false)}
+        >
+          <div className="modal-tab-content story-add-block-content">
+            <div className="story-block-kind-grid">
+              {BLOCK_KINDS.map((kind) => {
+                const Icon = BLOCK_ICONS[kind];
+                // Recording needs a destination: the affordance exists only once
+                // an admin has nominated the recordings library. Members see
+                // nothing until then; an admin sees it disabled, pointing at the
+                // setting.
+                if (kind === "audio" && !recordings.enabled && !recordings.isAdmin) return null;
+                const blocked = kind === "audio" && !recordings.enabled;
+                return (
+                  <Button
+                    key={kind}
+                    variant="secondary"
+                    className="story-block-kind"
+                    disabled={blocked}
+                    title={blocked ? t("stories:audio.needsLibraryHint") : undefined}
+                    onClick={() => choose(kind)}
+                  >
+                    <Icon size={20} aria-hidden="true" />
+                    <strong>{t(`stories:kind.${kind}`)}</strong>
+                    <small>{t(`stories:kindHint.${kind}`)}</small>
+                  </Button>
+                );
+              })}
+            </div>
+
+            <div className="modal-actions">
+              <Button variant="secondary" onClick={() => setChoosing(false)}>
+                {t("common:common.cancel")}
+              </Button>
+            </div>
+          </div>
+        </Modal>
       )}
 
-      {(picker === "album" || picker === "slideshow" || picker === "person" || picker === "quote" || picker === "book") && (
-        <StoryRefPicker
-          kind={picker}
-          storyTags={storyTags}
-          onPick={(id, entityType) => {
-            const kind = picker;
-            setPicker(null);
-            // A book pick carries which shelf it came from; the block keeps it.
-            onAdd(kind, kind === "book" ? { entityId: id, entityType } : { entityId: id });
-          }}
-          onClose={() => setPicker(null)}
-        />
-      )}
-
-      {picker === "map" && (
-        <StoryMapModal
-          initial={null}
-          onSave={(value) => { setPicker(null); onAdd("map", value); }}
-          onClose={() => setPicker(null)}
-        />
-      )}
-
-      {picker === "audio" && (
-        <StoryAudioModal
+      {picking && (
+        <StoryBlockPicker
+          kind={picking}
           storyId={storyId}
-          onAdded={(audioId) => { setPicker(null); onAdd("audio", { entityId: audioId }); }}
-          onClose={() => setPicker(null)}
+          storyTags={storyTags}
+          onPick={(fields) => onAdd(picking, fields)}
+          onClose={() => setPicking(null)}
         />
       )}
     </div>

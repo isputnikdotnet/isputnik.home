@@ -1134,25 +1134,83 @@
   resize: vertical;
 }
 
-/* The insert point straddles the card's bottom edge, over the gap. */
+/* The insert point straddles the card's bottom edge, over the gap. It centres
+   itself by being a full-width flex row rather than by translateX(-50%): a
+   transform makes the element the containing block for any position:fixed
+   descendant, and the dialogs this button opens are fixed — laid out inside the
+   button they came out the size of the button, in the wrong corner. The strip
+   lets clicks through so it can span the card without swallowing them. */
 .story-add-block {
   position: absolute;
-  left: 50%;
+  left: 0;
+  right: 0;
   bottom: 0;
-  transform: translateX(-50%);
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
   z-index: 1;
 }
 
-.story-add-block .secondary-button {
+.story-add-block > * { pointer-events: auto; }
+
+.story-add-block-button {
   border-style: dashed;
   background: var(--surface);
   color: var(--muted);
   font-size: 0.82rem;
 }
 
-.story-add-block .secondary-button:hover {
+.story-add-block-button:hover {
   border-style: solid;
   color: var(--ink);
+}
+
+/* ── Choosing a block ──────────────────────────────────────────────────── */
+
+/* The kinds laid out as cards, each saying what it actually puts on the page —
+   the same shape the New story dialog uses to explain its templates. */
+.metadata-modal.story-add-block-modal {
+  width: min(calc(100vw - 48px), 760px);
+  height: auto;
+  min-height: 0;
+  max-height: calc(100vh - 48px);
+}
+
+.story-add-block-content {
+  display: grid;
+  gap: 18px;
+  padding: 10px 24px 22px;
+  overflow-y: auto;
+}
+
+.story-block-kind-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+}
+
+.story-add-block-modal .story-block-kind.secondary-button {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  justify-content: stretch;
+  align-items: start;
+  gap: 6px;
+  min-height: 104px;
+  padding: 13px;
+  border-radius: 8px;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+}
+
+.story-add-block-modal .story-block-kind svg { color: var(--muted); }
+.story-add-block-modal .story-block-kind:hover { background: var(--hover); }
+.story-add-block-modal .story-block-kind strong { font-size: 0.95rem; }
+
+.story-add-block-modal .story-block-kind small {
+  color: var(--muted);
+  font-size: 0.79rem;
+  line-height: 1.35;
 }
 
 .story-edit-blocks-empty {
@@ -1292,13 +1350,34 @@
 
 .story-picker-text small { color: var(--muted); }
 
+/* Placing a pin is the whole job of this dialog, so the map gets the room: the
+   panel opens as wide as the screen sensibly allows and the map takes every
+   pixel the search box, the name field and the buttons do not. */
+.metadata-modal.story-map-picker-modal {
+  width: min(calc(100vw - 48px), 1080px);
+  height: min(calc(100vh - 48px), 760px);
+  /* Header, then everything else — the shell's third row is for a tab strip
+     this dialog does not have, and without saying so the map lands in an
+     auto-sized row and keeps its minimum height. */
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
 .story-map-modal {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  min-height: 0;
+  height: 100%;
 }
 
-.story-map-modal .gallery-location-picker { height: 300px; }
+.story-map-modal .gallery-location-picker {
+  flex: 1 1 auto;
+  min-height: 320px;
+}
+
+@media (max-width: 740px) {
+  .story-map-modal .gallery-location-picker { min-height: 260px; }
+}
 
 /* Phones: the grid of side-by-side photos becomes a single column, and the
    editor's control rows wrap instead of squeezing. */

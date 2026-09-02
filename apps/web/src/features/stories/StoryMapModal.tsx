@@ -36,6 +36,8 @@ export function StoryMapModal({
       variant="panel"
       title={initial ? t("stories:map.editTitle") : t("stories:map.addTitle")}
       icon={<MapPin size={20} />}
+      className="story-map-picker-modal"
+      subtitle={t("stories:map.intro")}
       onClose={onClose}
       onSubmit={(event) => { event.preventDefault(); submit(); }}
     >

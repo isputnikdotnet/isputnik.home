@@ -287,6 +287,8 @@ export function StoryChapterEditor({
           <div className="story-edit-block-slot" key={block.id}>
             <StoryBlockEditor
               block={block}
+              storyId={story.id}
+              storyTags={story.tags}
               first={blockIndex === 0}
               last={blockIndex === blocks.length - 1}
               busy={busy}

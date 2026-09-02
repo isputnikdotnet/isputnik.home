@@ -231,7 +231,18 @@
     "coverRemove": "Remove cover",
     "coverNeedsPin": "Pin this chapter on the map first",
     "coverUseBook": "Use the book's cover",
-    "coverFromStory": "The story's cover"
+    "coverFromStory": "The story's cover",
+    "addBlockIntro": "What goes here?",
+    "change": {
+      "media": "Change the photo",
+      "album": "Change the album",
+      "slideshow": "Change the slideshow",
+      "map": "Move the pin",
+      "person": "Change the person",
+      "quote": "Change the quote",
+      "book": "Change the book",
+      "audio": "Record it again"
+    }
   },
   "chapter": {
     "number": "Chapter {{number}}",
@@ -324,7 +335,8 @@
     "editTitle": "Edit this map",
     "labelField": "Place name",
     "labelPlaceholder": "Lake Superior, Minnesota",
-    "addBlock": "Add map"
+    "addBlock": "Add map",
+    "intro": "Search for a place, or drop the pin where you mean."
   },
   "confirm": {
     "removeBlockTitle": "Remove this {{kind}}?",
@@ -403,5 +415,16 @@
   "card": {
     "save": "Add to favorites",
     "unsave": "Remove from favorites"
+  },
+  "kindHint": {
+    "text": "Your own writing, in Markdown.",
+    "media": "One photo or video from the gallery.",
+    "album": "A whole album, shown as a strip.",
+    "slideshow": "A slideshow that plays on the page.",
+    "map": "A place, drawn on a map.",
+    "person": "Someone from the family tree.",
+    "quote": "A line worth keeping, with its source.",
+    "book": "A book from the shelves.",
+    "audio": "Something said out loud."
   }
 }

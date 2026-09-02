@@ -86,9 +86,15 @@ in your language.
 
 **Blocks.** Each block is a card with a handle to drag it into place, a
 **heading** of its own if it wants one ("Photos from Day 1"), and a **⋮**
-menu holding everything else — move it up, down, or into another chapter,
-and delete. Under each card is **Add block**, which puts the new one exactly
-there. The kinds:
+menu holding everything else — change what it shows, move it up, down, or
+into another chapter, and delete. The first item in that menu always changes
+the block's own content: *Change the photo*, *Change the album*, *Move the
+pin*, and so on, in the same dialog that chose it in the first place, so
+swapping one photo for another is never a matter of deleting the block and
+starting again.
+
+Under each card is **Add block**, which puts the new one exactly there and
+opens a dialog of the kinds with a line each on what they put on the page:
 
 - **Text** — written in Markdown: `# heading`, `**bold**`, `> quote`,
   `- list`, links. A preview button shows exactly what a reader gets.
