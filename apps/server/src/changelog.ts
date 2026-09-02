@@ -19,6 +19,13 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.51.0",
+    label: "All together now",
+    changes: [
+      "The Gallery's People filter could only ever ask for any one of the people you picked — pick three and you'd get everyone who appears in at least one photo, not the photo where they're all standing together. Pick two or more people now and a switch appears under the filter: flip it on and the gallery narrows to only the photos carrying every one of them at once."
+    ]
+  },
+  {
     version: "3.50.2",
     label: "Right where you left it",
     changes: [
