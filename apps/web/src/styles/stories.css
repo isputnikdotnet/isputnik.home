@@ -276,7 +276,12 @@
 }
 
 .story-kind-chip {
+  /* The card body is a grid, where align-self only governs the block axis — a
+     chip left to its own devices stretched the full width of the card and read
+     as a banner. justify-self is the one that makes it a tag. */
   align-self: flex-start;
+  justify-self: start;
+  width: fit-content;
   padding: 2px 8px;
   border-radius: 999px;
   background: var(--field);
@@ -346,9 +351,10 @@
 }
 
 .story-index .story-grid .story-kind-chip {
+  padding: 1px 8px;
   background: color-mix(in srgb, var(--mint) 14%, var(--field));
   color: var(--mint);
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0;
   text-transform: none;
