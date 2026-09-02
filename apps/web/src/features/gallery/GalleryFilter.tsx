@@ -162,16 +162,27 @@ function chipLabel(value: string): string | undefined {
 }
 
 export function GalleryFilterChips({
-  value, onChange, libraries
+  value, onChange, libraries, fields
 }: {
   value: GalleryFilters;
   onChange: (filters: GalleryFilters) => void;
   // Library chips carry ids; without this they'd read as nanoids.
   libraries?: { id: string; name: string }[];
+  // Restrict the row to the facets that actually narrow the view showing it —
+  // Folders, Memories and People are scoped by library alone, so a year still
+  // sitting in the filters from a visit to the timeline must not draw a chip
+  // there claiming to be in force. The facets left out ride through untouched:
+  // removing a chip (and "Clear all") only ever clears what is on show.
+  // Defaults to every facet, which is what the timeline wants.
+  fields?: (keyof GalleryFilters)[];
 }) {
   useTranslation(["common", "gallery"]); // keeps this component reactive to a language switch
   const labels = libraries?.length
     ? { ...getCodeLabels(), ...Object.fromEntries(libraries.map((library) => [library.id, library.name])) }
     : getCodeLabels();
-  return <FacetFilterChips value={value} onChange={onChange} empty={EMPTY_GALLERY_FILTERS} labels={labels} formatLabel={chipLabel} />;
+  const pick = (from: GalleryFilters) =>
+    Object.fromEntries((fields ?? []).map((key) => [key, from[key]])) as Partial<GalleryFilters>;
+  const shown = fields ? { ...EMPTY_GALLERY_FILTERS, ...pick(value) } : value;
+  const handleChange = (next: GalleryFilters) => onChange(fields ? { ...value, ...pick(next) } : next);
+  return <FacetFilterChips value={shown} onChange={handleChange} empty={EMPTY_GALLERY_FILTERS} labels={labels} formatLabel={chipLabel} />;
 }

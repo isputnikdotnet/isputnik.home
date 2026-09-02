@@ -191,7 +191,8 @@ export function GalleryPage({
   // the audiobook catalog's filter panel. Facets supply the option lists. Which
   // libraries a view draws from lives here too, as the first facet, rather than
   // a picker of its own — a deep link into one library's folder tree (Folders'
-  // "?library=") seeds it with that one library chosen.
+  // "?library=") seeds it with that one library chosen — for as long as the
+  // Folders view is open (see seededLibrary below).
   const [filters, setFilters] = useState<GalleryFilters>(() => ({
     ...EMPTY_GALLERY_FILTERS,
     libraries: initialLibraryId ? [initialLibraryId] : []
@@ -202,6 +203,32 @@ export function GalleryPage({
   // are generic over that shape — so this rides along as its own bit of state and
   // is merged into the request's `filters.peopleMatch` at fetch time.
   const [peopleMatchAll, setPeopleMatchAll] = useState(false);
+  // That "?library=" seed is the page's own doing, not a choice the visitor made:
+  // it exists so the folder tree a deep link points at can be shown at all (folder
+  // paths repeat across libraries, and Folders' rescan needs a single one). It must
+  // therefore not follow them OUT of the Folders view and quietly narrow the
+  // timeline — which is what it did when arriving from the home page's memory
+  // viewer or the duplicate-cleanup report. Held until the visitor touches the
+  // filter panel (from then on the choice is theirs — see changeFilters) or leaves
+  // Folders, whichever comes first.
+  const [seededLibrary, setSeededLibrary] = useState<string | null>(initialLibraryId ?? null);
+  if (seededLibrary && view !== "folder") {
+    // Adjusted during render rather than from an effect on purpose: the view loader
+    // keys on `filters`, so clearing afterwards would fire a second timeline fetch
+    // racing the first — and the filtered page could be the one that lands last.
+    setSeededLibrary(null);
+    setFilters((current) => (
+      current.libraries.length === 1 && current.libraries[0] === seededLibrary
+        ? { ...current, libraries: [] }
+        : current
+    ));
+  }
+  // Every filter control goes through this rather than setFilters: the moment the
+  // visitor picks anything, the seeded library stops being ours to take away.
+  const changeFilters = useCallback((next: GalleryFilters) => {
+    setSeededLibrary(null);
+    setFilters(next);
+  }, []);
   const [facets, setFacets] = useState<GalleryFacets | null>(null);
   // A few actions — rescanning a folder, Folders' own scope — only make sense
   // against exactly one library, the same way Audiobooks only offers "Add to
@@ -302,11 +329,24 @@ export function GalleryPage({
   // the only place the bulk-action bar renders, and Albums' own Select uses it.
   const openDetailView = (view === "albums" && selectedAlbum) || (view === "slideshows" && selectedSlideshow) || (view === "people" && selectedPerson);
   const showBrowseChrome = !openDetailView;
-  // People's own toolbar only ever held Filter (libraries-only) and Upload —
-  // neither pulls its weight on a page about who's in your photos, so it goes
-  // without one entirely (list and open-person alike), unlike Albums/
-  // Slideshows which only step aside while something specific is open.
-  const showToolbar = showBrowseChrome && view !== "people";
+  // People's own toolbar held Filter (libraries-only) and Upload. Upload still
+  // doesn't pull its weight on a page about who's in your photos, but the filter
+  // does: which libraries the faces are gathered from is the one thing that
+  // narrows this page, and with no control for it the scope could only ever be
+  // undone (through the chips row) and never set. So the row comes back holding
+  // that alone — and only where it means something: one library is no choice at
+  // all, and People goes back to having no toolbar rather than a row carrying
+  // nothing but Back. An open person keeps its compact icon topbar either way
+  // (showBrowseChrome already covers that).
+  const showToolbar = showBrowseChrome && (view !== "people" || libraries.length > 1);
+  // Which facets are narrowing what is on screen right now, and whether the chip
+  // row is offered at all (Albums and Slideshows are lists of named things — no
+  // filter reaches them). `fields` undefined means every facet: the timeline is
+  // the one view that applies the lot.
+  const chipFields: { shown: boolean; fields?: (keyof GalleryFilters)[] } =
+    view === "timeline" ? { shown: true }
+      : view === "map" ? { shown: true, fields: ["libraries", "kinds"] }
+        : { shown: view === "folder" || view === "memories" || (view === "people" && !selectedPerson), fields: ["libraries"] };
   const searchPlaceholder = view === "timeline"
     ? t("gallery:page.search.photos")
     : view === "folder" ? t("gallery:page.search.folders")
@@ -1282,7 +1322,7 @@ export function GalleryPage({
                 <>
                   {browsingPhotos && (
                     <>
-                      <GalleryFilterButton facets={facets} value={filters} onChange={setFilters} libraries={libraries} />
+                      <GalleryFilterButton facets={facets} value={filters} onChange={changeFilters} libraries={libraries} />
                       <SortMenu
                         value={sort}
                         onChange={setSort}
@@ -1318,14 +1358,14 @@ export function GalleryPage({
                       />
                     </>
                   )}
-                  {/* Memories and Map have nothing to narrow but which libraries
-                      they draw from — Filter renders just that one section,
-                      and only once there's more than one library to choose
-                      between (GalleryFilterButton hides it otherwise, which
-                      would leave the button with nothing behind it). People
-                      has no toolbar at all (see showToolbar). */}
-                  {(view === "memories" || view === "map") && libraries.length > 1 && (
-                    <GalleryFilterButton facets={null} value={filters} onChange={setFilters} fields={["libraries"]} libraries={libraries} />
+                  {/* Memories, Map and People have nothing to narrow but which
+                      libraries they draw from — Filter renders just that one
+                      section, and only once there's more than one library to
+                      choose between (GalleryFilterButton hides it otherwise,
+                      which would leave the button with nothing behind it; on
+                      People the whole row goes with it, see showToolbar). */}
+                  {(view === "memories" || view === "map" || view === "people") && libraries.length > 1 && (
+                    <GalleryFilterButton facets={null} value={filters} onChange={changeFilters} fields={["libraries"]} libraries={libraries} />
                   )}
                   {/* Where a rendered movie is saved is otherwise invisible, so
                       the label carries it — same reasoning as Sort showing the
@@ -1348,7 +1388,10 @@ export function GalleryPage({
                       <span className="toolbar-label">{t("gallery:common.select")}</span>
                     </button>
                   )}
-                  {uploadLibraries.length > 0 && (
+                  {/* Everywhere but People, which is a page about faces: the
+                      photos they were found in are uploaded from the views that
+                      show photos. */}
+                  {uploadLibraries.length > 0 && view !== "people" && (
                     <button
                       type="button"
                       // The view's own Create outranks it when there is one, so
@@ -1488,7 +1531,18 @@ export function GalleryPage({
             />
             )}
 
-            {view === "timeline" && <GalleryFilterChips value={filters} onChange={setFilters} libraries={libraries} />}
+            {/* An active filter has to be legible wherever it is in force, not only
+                on the timeline: a library carried over from there (or seeded by a
+                "?library=" deep link) narrowed Folders and People with nothing on
+                screen to say so, and People has no toolbar to show a count either.
+                Each view lists the facets it actually applies — Folders, Memories
+                and People are scoped by library alone, the Map by library and media
+                type — so the row never claims a filter the view is ignoring. An
+                open person is left out: their photo grid is the whole person, not
+                the current scope. */}
+            {chipFields.shown && (
+              <GalleryFilterChips value={filters} onChange={changeFilters} fields={chipFields.fields} libraries={libraries} />
+            )}
 
             {view === "timeline" && filters.people.length >= 2 && (
               <div className="gallery-people-match">
