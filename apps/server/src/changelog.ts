@@ -19,6 +19,13 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.53.2",
+    label: "A patched part",
+    changes: [
+      "A small piece of the web server — the part that reads the addresses inside the rules describing what a valid request looks like — has been updated to a repaired version. Four flaws had been reported in it: given a carefully malformed address it could be talked into reading one address as another, or into treating an address out on the internet as one inside the house. Nothing here ever hands it an address that came from a visitor, so there was nothing to exploit, but the fix costs nothing and the warnings are now clear."
+    ]
+  },
+  {
     version: "3.53.1",
     label: "The guides have pictures again",
     changes: [
