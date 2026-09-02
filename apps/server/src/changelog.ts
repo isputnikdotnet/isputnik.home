@@ -19,6 +19,14 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.50.2",
+    label: "Right where you left it",
+    changes: [
+      "Load more in the Gallery could quietly snap back to the first page while a library was still scanning — click through a few pages, look away, and you'd find yourself back at the top, as if nothing had loaded. Browsing during a scan now keeps every page you've already opened instead of throwing them away every few seconds.",
+      "Nothing else changed."
+    ]
+  },
+  {
     version: "3.50.1",
     label: "The fine print",
     changes: [
