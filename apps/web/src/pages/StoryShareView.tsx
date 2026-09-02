@@ -29,7 +29,11 @@ export interface StoryShareAsset {
   downloadUrl: string;
 }
 
-export type StoryShareBlock =
+// Every kind may carry its own heading, so it rides alongside the union rather
+// than being repeated in nine places.
+export type StoryShareBlock = StoryShareBlockBody & { heading?: string | null };
+
+type StoryShareBlockBody =
   | { kind: "text"; body: string }
   | { kind: "media"; caption: string | null; layout: string | null; asset: StoryShareAsset }
   | { kind: "album" | "slideshow"; title: string | null; caption: string | null; itemCount: number; items: StoryShareAsset[] }
@@ -52,6 +56,8 @@ export interface StoryShareChapter {
   standfirst: string | null;
   description: string | null;
   hero: StoryShareAsset | null;
+  /** The chapter's pin is its cover — drawn instead of the hero photo. */
+  heroMap?: boolean;
   blocks: StoryShareBlock[];
 }
 
@@ -338,6 +344,8 @@ function ShareChapterPage({
   const { t } = useTranslation(["common", "stories"]);
   const label = shareChapterLabel(story, chapter, index);
   const heading = chapter.title ?? label;
+  // "Use map as cover": the chapter's pin is drawn as the hero band.
+  const mapCover = Boolean(chapter.heroMap && chapter.placeLat != null && chapter.placeLng != null);
   const eyebrow = label !== heading ? label : null;
   const dateText = chapter.date
     ? (chapter.endDate ? formatPartialDateRange(chapter.date, chapter.endDate) : formatPartialDate(chapter.date))
@@ -349,8 +357,10 @@ function ShareChapterPage({
 
   return (
     <article className="story-read story-chapter-page">
-      <header className={`story-chapter-hero${chapter.hero ? " has-image" : ""}`}>
-        {chapter.hero && <img src={chapter.hero.previewUrl} alt="" />}
+      <header className={`story-chapter-hero${chapter.hero && !mapCover ? " has-image" : ""}${mapCover ? " has-map" : ""}`}>
+        {mapCover
+          ? <GalleryMiniMap lat={chapter.placeLat!} lng={chapter.placeLng!} zoom={12} title={chapter.place ?? label} />
+          : chapter.hero && <img src={chapter.hero.previewUrl} alt="" />}
         <div className="story-chapter-hero-text">
           <p className="story-chapter-meta">
             {[eyebrow, dateLabel].filter(Boolean).join(" · ")}
@@ -368,7 +378,10 @@ function ShareChapterPage({
 
       <div className="story-blocks">
         {chapter.blocks.map((block, blockIndex) => (
-          <ShareBlock key={blockIndex} block={block} onOpen={onOpen} />
+          <div className="story-block-slot" key={blockIndex}>
+            {block.heading && <h2 className="story-block-heading">{block.heading}</h2>}
+            <ShareBlock block={block} onOpen={onOpen} />
+          </div>
         ))}
       </div>
 

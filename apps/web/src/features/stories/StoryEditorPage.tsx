@@ -1,30 +1,36 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, BookOpen, Link2, Plus, Star, Trash2 } from "lucide-react";
-import { api, type PublicUser } from "../../api";
+import { ArrowLeft, BookOpen, Link2, Trash2 } from "lucide-react";
+import type { PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
-import { navigate } from "../../router";
+import { followRoute, navigate, replaceNavigate, storyEditorDetailsHref, storyEditorHref } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
+import { useIsMobile } from "../../shared/useIsMobile";
 import { Button } from "../../shared/Button";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
-import { TagInput } from "../../shared/TagInput";
-import { PhotoPicker } from "../gallery/PhotoPicker";
 import { ShareStoryModal } from "./ShareStoryModal";
-import { StoriesSectionNav } from "./StoriesSectionNav";
 import { StoryChapterEditor } from "./StoryChapterEditor";
+import { StoryDetailsPane } from "./StoryDetailsPane";
+import { StoryEditorNav } from "./StoryEditorNav";
+import { StoryHomePane } from "./StoryHomePane";
 import { useStoryEditor } from "./useStoryEditor";
-import { hasChapterStructure, type StoryCollectionSummary } from "./types";
+import { chapterLabel } from "./types";
 
-// The editor. One scrolling surface that mirrors the reading view, with an
-// insert row under each chapter. Every field saves on blur and every structural
-// change saves immediately — there is no Save button, so nothing is lost by
-// navigating away mid-thought.
+// The editor. One pane at a time — the story's front page, its details, or a
+// single chapter — with the sidebar holding the story's shape and the top bar
+// holding what you do to the story as a whole. Every field saves on blur and
+// every structural change saves immediately: there is no Save button anywhere
+// here, so nothing is lost by navigating away mid-thought.
 export function StoryEditorPage({
   id,
+  pane,
+  chapterId,
   user,
   logout
 }: {
   id: string;
+  pane: "home" | "details" | "chapter";
+  chapterId?: string;
   user: PublicUser;
   logout: () => Promise<void>;
 }) {
@@ -33,38 +39,18 @@ export function StoryEditorPage({
   const { story, error, busy } = editor;
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [sharing, setSharing] = useState(false);
-  const [pickingCover, setPickingCover] = useState(false);
-  const [title, setTitle] = useState("");
-  const [subtitle, setSubtitle] = useState("");
-  const [chapterNoun, setChapterNoun] = useState("");
-  const [intro, setIntro] = useState("");
-  // Revealed on demand for a one-chapter story: a journal page shouldn't open
-  // with a form, but a chaptered one needs its dates in reach.
-  const [showChapterFields, setShowChapterFields] = useState(false);
-  // Every tag already in use, so an author reaches for the family's existing
-  // vocabulary ("Minnesota") instead of inventing a near-duplicate.
-  const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
-  // Shelves this author may put the story on (plus wherever it already is).
-  const [collections, setCollections] = useState<StoryCollectionSummary[]>([]);
+  // The panes live in the sidebar, and a phone has no sidebar — the same strip
+  // the reading view uses carries them there instead.
+  const isMobile = useIsMobile();
+
+  const chapterIndex = story && chapterId
+    ? story.chapters.findIndex((chapter) => chapter.id === chapterId)
+    : -1;
+  const chapter = chapterIndex >= 0 ? story!.chapters[chapterIndex] : null;
 
   useEffect(() => {
-    api<{ tags: { name: string }[] }>("/api/library/tags")
-      .then((payload) => setTagSuggestions(payload.tags.map((tag) => tag.name)))
-      .catch(() => setTagSuggestions([]));
-    api<{ collections: StoryCollectionSummary[] }>("/api/stories/collections")
-      .then((payload) => setCollections(payload.collections))
-      .catch(() => setCollections([]));
-  }, []);
-
-  useEffect(() => {
-    if (!story) return;
-    setTitle(story.title);
-    setSubtitle(story.subtitle ?? "");
-    setChapterNoun(story.chapterNoun ?? "");
-    setIntro(story.intro ?? "");
-    document.title = `${story.title} — isputnik.home`;
-    if (hasChapterStructure(story)) setShowChapterFields(true);
-  }, [story?.id, story?.title, story?.subtitle, story?.chapterNoun, story?.intro]);
+    if (story) document.title = `${story.title} — isputnik.home`;
+  }, [story?.title]);
 
   // Someone else's story (or a reader who guessed the URL) never gets the
   // editor — the server refuses the writes anyway, but the page shouldn't lie.
@@ -72,251 +58,151 @@ export function StoryEditorPage({
     if (story && !story.canEdit) navigate(`/stories/${story.id}`);
   }, [story?.canEdit, story?.id]);
 
-  const structured = story ? hasChapterStructure(story) : false;
+  // A chapter that has been deleted (here or in another tab) leaves its address
+  // behind; fall back to the front page rather than showing an empty pane.
+  useEffect(() => {
+    if (story && pane === "chapter" && !chapter) replaceNavigate(storyEditorHref(story.id));
+  }, [story?.id, pane, chapter?.id]);
+
+  const activeKey = pane === "chapter" ? chapterId ?? "home" : pane;
+  // The chapter's name for the page head — "Day 1", or its title when the
+  // story doesn't number its chapters.
+  const chapterHeading = story && chapter ? chapterLabel(story, chapter, chapterIndex) : "";
 
   return (
     <DashboardShell
       active="stories"
       user={user}
       logout={logout}
-      sideNav={<StoriesSectionNav activeKey={story?.collectionId ?? "all"} />}
+      sideNav={story
+        ? (
+          <StoryEditorNav
+            story={story}
+            activeKey={activeKey}
+            busy={busy}
+            onAddChapter={() => void editor.addChapter().then((created) => {
+              if (created) navigate(storyEditorHref(story.id, created));
+            })}
+            onReorderChapters={(orderedIds) => void editor.reorderChapters(orderedIds)}
+          />
+        )
+        : undefined}
     >
       <section className="work-area story-edit-area">
-        <div className="book-detail-topbar">
+        <div className="story-edit-topbar">
           <button className="audiobook-back-button" type="button" onClick={() => navigate(`/stories/${id}`)}>
             <ArrowLeft size={18} aria-hidden="true" />
             <span>{t("stories:edit.backToStory")}</span>
           </button>
+
+          {story && (
+            <div className="story-edit-topbar-actions">
+              <Button variant="secondary" compact onClick={() => navigate(`/stories/${story.id}`)}>
+                <BookOpen size={15} aria-hidden="true" />
+                <span>{t("stories:actions.read")}</span>
+              </Button>
+              <Button
+                variant={story.status === "published" ? "secondary" : "primary"}
+                compact
+                disabled={busy}
+                onClick={() => void editor.patchStory({
+                  status: story.status === "published" ? "draft" : "published"
+                })}
+              >
+                {story.status === "published" ? t("stories:actions.unpublish") : t("stories:actions.publish")}
+              </Button>
+              <Button variant="secondary" compact onClick={() => setSharing(true)}>
+                <Link2 size={15} aria-hidden="true" />
+                <span>{t("stories:actions.shareLink")}</span>
+              </Button>
+              <Button variant="secondary" compact danger onClick={() => setConfirmDelete(true)}>
+                <Trash2 size={15} aria-hidden="true" />
+                <span>{t("stories:actions.delete")}</span>
+              </Button>
+            </div>
+          )}
         </div>
+
+        {story && isMobile && (
+          <nav className="story-site-strip story-edit-strip" aria-label={t("stories:edit.nav.aria")}>
+            <a
+              href={storyEditorHref(story.id)}
+              className={pane === "home" ? "is-current" : ""}
+              onClick={(event) => followRoute(event, storyEditorHref(story.id))}
+            >
+              {t("stories:edit.nav.home")}
+            </a>
+            <a
+              href={storyEditorDetailsHref(story.id)}
+              className={pane === "details" ? "is-current" : ""}
+              onClick={(event) => followRoute(event, storyEditorDetailsHref(story.id))}
+            >
+              {t("stories:edit.nav.details")}
+            </a>
+            {story.chapters.map((item, itemIndex) => (
+              <a
+                key={item.id}
+                href={storyEditorHref(story.id, item.id)}
+                className={item.id === chapterId ? "is-current" : ""}
+                onClick={(event) => followRoute(event, storyEditorHref(story.id, item.id))}
+              >
+                {chapterLabel(story, item, itemIndex)}
+              </a>
+            ))}
+          </nav>
+        )}
 
         {error && <MessageBox tone="error" title={t("stories:errors.saveTitle")}>{error}</MessageBox>}
         {!story && !error && <p className="management-empty">{t("stories:common.loading")}</p>}
 
-        {story && (
-          <>
-            <div className="section-head audiobook-head story-edit-head">
-              <div className="story-edit-title-fields">
-                <p className="eyebrow">{t("stories:edit.eyebrow")}</p>
-                <input
-                  className="story-title-input"
-                  value={title}
-                  onChange={(event) => setTitle(event.target.value)}
-                  onBlur={() => {
-                    const next = title.trim();
-                    if (!next) { setTitle(story.title); return; }
-                    if (next !== story.title) void editor.patchStory({ title: next });
-                  }}
-                  placeholder={t("stories:fields.titlePlaceholder")}
-                  maxLength={160}
-                  aria-label={t("stories:fields.title")}
-                />
-                <input
-                  className="story-subtitle-input"
-                  value={subtitle}
-                  onChange={(event) => setSubtitle(event.target.value)}
-                  onBlur={() => {
-                    const next = subtitle.trim();
-                    if (next !== (story.subtitle ?? "")) void editor.patchStory({ subtitle: next || null });
-                  }}
-                  placeholder={t("stories:fields.subtitlePlaceholder")}
-                  maxLength={300}
-                  aria-label={t("stories:fields.subtitle")}
-                />
-              </div>
+        {story && pane !== "home" && (
+          <header className="story-edit-pane-head">
+            <p className="eyebrow">{story.title}</p>
+            <h1>{pane === "details" ? t("stories:edit.nav.details") : chapterHeading}</h1>
+          </header>
+        )}
 
-              <div className="story-edit-head-actions">
-                <Button variant="secondary" compact onClick={() => navigate(`/stories/${story.id}`)}>
-                  <BookOpen size={15} aria-hidden="true" />
-                  <span>{t("stories:actions.read")}</span>
-                </Button>
-                <Button
-                  variant={story.status === "published" ? "secondary" : "primary"}
-                  compact
-                  disabled={busy}
-                  onClick={() => void editor.patchStory({
-                    status: story.status === "published" ? "draft" : "published"
-                  })}
-                >
-                  {story.status === "published" ? t("stories:actions.unpublish") : t("stories:actions.publish")}
-                </Button>
-                <Button variant="secondary" compact onClick={() => setSharing(true)}>
-                  <Link2 size={15} aria-hidden="true" />
-                  <span>{t("stories:actions.shareLink")}</span>
-                </Button>
-                <Button variant="secondary" compact danger onClick={() => setConfirmDelete(true)}>
-                  <Trash2 size={15} aria-hidden="true" />
-                  <span>{t("stories:actions.delete")}</span>
-                </Button>
-              </div>
-            </div>
+        {story && pane === "home" && (
+          <StoryHomePane story={story} onPatch={(fields) => void editor.patchStory(fields)} />
+        )}
 
-            <MessageBox tone={story.status === "published" ? "success" : "info"} title={
-              story.status === "published" ? t("stories:status.publishedTitle") : t("stories:status.draftTitle")
-            }>
-              {story.status === "published" ? t("stories:status.publishedBody") : t("stories:status.draftBody")}
-            </MessageBox>
+        {story && pane === "details" && (
+          <StoryDetailsPane
+            story={story}
+            busy={busy}
+            onPatch={(fields) => void editor.patchStory(fields)}
+            onTags={(tags) => void editor.setTags(tags)}
+          />
+        )}
 
-            <div className="story-tags-field">
-              <p className="story-tags-label">{t("stories:tags.label")}</p>
-              <TagInput
-                value={story.tags}
-                onChange={(tags) => void editor.setTags(tags)}
-                suggestions={tagSuggestions}
-                disabled={busy}
-                listId="story-tag-suggestions"
-                placeholder={t("stories:tags.placeholder")}
-                hint={t("stories:tags.hint")}
-              />
-            </div>
-
-            {/* Story Home fields: the intro opens the front page, and the
-                chapter noun is authored text ("Day", "Stop") rendered "Day 1"
-                — deliberately NOT translated, it belongs to this story. */}
-            <div className="story-home-fields">
-              <label className="story-field">
-                <span>{t("stories:fields.intro")}</span>
-                <textarea
-                  value={intro}
-                  rows={3}
-                  maxLength={5000}
-                  onChange={(event) => setIntro(event.target.value)}
-                  onBlur={() => {
-                    const next = intro.trim();
-                    if (next !== (story.intro ?? "")) void editor.patchStory({ intro: next || null });
-                  }}
-                  placeholder={t("stories:fields.introPlaceholder")}
-                />
-              </label>
-              <label className="story-field story-field-noun">
-                <span>{t("stories:fields.chapterNoun")}</span>
-                <input
-                  value={chapterNoun}
-                  maxLength={30}
-                  onChange={(event) => setChapterNoun(event.target.value)}
-                  onBlur={() => {
-                    const next = chapterNoun.trim();
-                    if (next !== (story.chapterNoun ?? "")) void editor.patchStory({ chapterNoun: next || null });
-                  }}
-                  placeholder={t("stories:fields.chapterNounPlaceholder")}
-                />
-                <span className="muted">{t("stories:fields.chapterNounHint")}</span>
-              </label>
-              {/* The story cover — the Story Home hero and the index card.
-                  Without one, both fall back to the first photo the story
-                  shows, so this is a choice, never a chore. */}
-              <div className="story-field story-field-noun">
-                <span>{t("stories:fields.cover")}</span>
-                <div className="story-chapter-hero-row">
-                  {story.cover?.coverUrl && <img className="story-chapter-hero-thumb" src={story.cover.coverUrl} alt="" />}
-                  <Button variant="secondary" compact onClick={() => setPickingCover(true)} disabled={busy}>
-                    {story.coverItemId ? t("stories:fields.changeCover") : t("stories:fields.setCover")}
-                  </Button>
-                  {story.coverItemId && (
-                    <Button variant="text" compact onClick={() => void editor.patchStory({ coverItemId: null })} disabled={busy}>
-                      {t("stories:fields.clearCover")}
-                    </Button>
-                  )}
-                </div>
-                <span className="muted">{t("stories:fields.coverHint")}</span>
-              </div>
-              <div className="story-field story-field-noun">
-                <span>{t("stories:collections.pickerLabel")}</span>
-                <select
-                  value={story.collectionId ?? ""}
-                  onChange={(event) => void editor.patchStory({ collectionId: event.target.value || null })}
-                  disabled={busy}
-                >
-                  <option value="">{t("stories:collections.none")}</option>
-                  {collections
-                    .filter((collection) => collection.canContribute || collection.id === story.collectionId)
-                    .map((collection) => (
-                      <option key={collection.id} value={collection.id}>{collection.title}</option>
-                    ))}
-                </select>
-                <span className="muted">{t("stories:collections.pickerHint")}</span>
-              </div>
-              <div className="story-field story-field-rating">
-                <span>{t("stories:rating.label")}</span>
-                <div className="story-rating-row">
-                  {[1, 2, 3, 4, 5].map((value) => (
-                    <button
-                      key={value}
-                      type="button"
-                      className="story-rating-star"
-                      onClick={() => void editor.patchStory({ rating: value })}
-                      disabled={busy}
-                      aria-pressed={story.rating != null && story.rating >= value}
-                      aria-label={t("stories:rating.setAria", { count: value })}
-                      title={t("stories:rating.setAria", { count: value })}
-                    >
-                      <Star
-                        size={20}
-                        aria-hidden="true"
-                        fill={story.rating != null && story.rating >= value ? "currentColor" : "none"}
-                      />
-                    </button>
-                  ))}
-                  {story.rating != null && (
-                    <Button variant="text" compact onClick={() => void editor.patchStory({ rating: null })} disabled={busy}>
-                      {t("stories:rating.clear")}
-                    </Button>
-                  )}
-                </div>
-                <span className="muted">{t("stories:rating.hint")}</span>
-              </div>
-            </div>
-
-            {!structured && !showChapterFields && (
-              <div className="story-chapter-reveal">
-                <Button variant="text" compact onClick={() => setShowChapterFields(true)}>
-                  {t("stories:edit.addChapterDetails")}
-                </Button>
-              </div>
-            )}
-
-            {story.chapters.map((chapter, index) => (
-              <StoryChapterEditor
-                key={chapter.id}
-                chapter={chapter}
-                storyId={story.id}
-                index={index}
-                total={story.chapters.length}
-                busy={busy}
-                showChapterFields={structured || showChapterFields}
-                storyTags={story.tags}
-                onPatch={(fields) => void editor.patchChapter(chapter.id, fields)}
-                onRemove={() => void editor.removeChapter(chapter.id)}
-                onMove={(direction) => void editor.moveChapter(chapter.id, direction)}
-                onAddBlock={(kind, fields) => void editor.addBlock(chapter.id, kind, fields)}
-                blockActions={{
-                  move: (blockId, direction) => void editor.moveBlock(chapter, blockId, direction),
-                  patch: (blockId, fields) => void editor.patchBlock(blockId, fields),
-                  remove: (blockId) => void editor.removeBlock(blockId)
-                }}
-              />
-            ))}
-
-            <div className="story-add-chapter">
-              <Button variant="secondary" onClick={() => { setShowChapterFields(true); void editor.addChapter(); }} disabled={busy}>
-                <Plus size={16} aria-hidden="true" />
-                <span>{t("stories:edit.addChapter")}</span>
-              </Button>
-            </div>
-          </>
+        {story && pane === "chapter" && chapter && (
+          <StoryChapterEditor
+            key={chapter.id}
+            story={story}
+            chapter={chapter}
+            index={chapterIndex}
+            busy={busy}
+            onPatch={(fields) => void editor.patchChapter(chapter.id, fields)}
+            onRemove={() => void editor.removeChapter(chapter.id).then(() => {
+              replaceNavigate(storyEditorHref(story.id));
+            })}
+            onAddBlock={(kind, fields, afterId) => void editor.addBlock(chapter.id, kind, fields, afterId)}
+            blockActions={{
+              move: (blockId, direction) => void editor.moveBlock(chapter, blockId, direction),
+              moveToChapter: (blockId, targetId) => {
+                const target = story.chapters.find((entry) => entry.id === targetId);
+                if (target) void editor.moveBlockToChapter(blockId, target);
+              },
+              reorder: (orderedIds) => void editor.reorderBlocks(chapter.id, orderedIds),
+              patch: (blockId, fields) => void editor.patchBlock(blockId, fields),
+              remove: (blockId) => void editor.removeBlock(blockId)
+            }}
+          />
         )}
       </section>
 
       {sharing && story && (
         <ShareStoryModal storyId={story.id} storyTitle={story.title} onClose={() => setSharing(false)} />
-      )}
-
-      {pickingCover && story && (
-        <PhotoPicker
-          title={t("stories:fields.coverPickerTitle")}
-          pick="any"
-          onPick={(asset) => { setPickingCover(false); void editor.patchStory({ coverItemId: asset.id }); }}
-          onClose={() => setPickingCover(false)}
-        />
       )}
 
       {confirmDelete && story && (

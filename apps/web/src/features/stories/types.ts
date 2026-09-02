@@ -1,3 +1,4 @@
+import { formatPartialDate } from "../../shared/utils";
 import type { GalleryAsset } from "../gallery/types";
 
 // Story shapes as the API returns them. See docs/stories-proposal.md — a story
@@ -74,6 +75,9 @@ export interface StoryBlock {
   entityId: string | null;
   /** Markdown source (text blocks). */
   body: string | null;
+  /** The block's own heading, shown above it; null = untitled. Distinct from
+   *  caption, which sits under a photo and describes it. */
+  heading: string | null;
   lat: number | null;
   lng: number | null;
   zoom: number | null;
@@ -112,6 +116,9 @@ export interface StoryChapter {
   heroItemId: string | null;
   /** The hero photo resolved for this viewer; null = unset or out of reach. */
   hero: GalleryAsset | null;
+  /** True = the chapter's pin is drawn as its cover instead of a photo. Falls
+   *  back to the photo hero when the pin is cleared. */
+  heroMap: boolean;
   blocks: StoryBlock[];
 }
 
@@ -146,10 +153,13 @@ export interface StoryDetail {
 }
 
 /** "Day 1" / the chapter's title / its date / a bare number — the strip label,
- *  card eyebrow and chapter-page fallback title all resolve the same way. */
+ *  card eyebrow and chapter-page fallback title all resolve the same way. A
+ *  chapter known only by its date is named in the reader's own language
+ *  ("Jan 6, 1998"), never by the stored `1998-01-06`. */
 export function chapterLabel(story: Pick<StoryDetail, "chapterNoun">, chapter: StoryChapter, index: number): string {
   if (story.chapterNoun) return `${story.chapterNoun} ${index + 1}`;
-  return chapter.title ?? chapter.date ?? String(index + 1);
+  if (chapter.title) return chapter.title;
+  return chapter.date ? formatPartialDate(chapter.date) : String(index + 1);
 }
 
 /** A story with one untitled, undated chapter is a flat journal page — the

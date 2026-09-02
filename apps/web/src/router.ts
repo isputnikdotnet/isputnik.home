@@ -62,6 +62,17 @@ export function controlHref(section: ControlSection): string {
   return CONTROL_PATHS[section];
 }
 
+/** The story editor's panes as addresses — its nav links to real URLs the same
+ *  way the control panel's does, so Back, new-tab and a pasted link all work. */
+export function storyEditorHref(storyId: string, chapterId?: string): string {
+  if (chapterId) return `/stories/${storyId}/edit/chapters/${chapterId}`;
+  return `/stories/${storyId}/edit`;
+}
+
+export function storyEditorDetailsHref(storyId: string): string {
+  return `/stories/${storyId}/edit/details`;
+}
+
 // Addresses the control panel used to live at. They keep resolving so existing
 // bookmarks, docs links and the odd typed URL still land somewhere sensible —
 // the panel has been reorganised more than once and old links outlive it.
@@ -266,7 +277,7 @@ export type Route =
   | { name: "storyDetail"; id: string }
   | { name: "storyChapter"; id: string; chapterId: string }
   | { name: "storyCollection"; id: string }
-  | { name: "storyEditor"; id: string }
+  | { name: "storyEditor"; id: string; pane: "home" | "details" | "chapter"; chapterId?: string }
   | { name: "authors" }
   | { name: "personDetail"; personName: string }
   | { name: "audiobookAuthorDetail"; personName: string }
@@ -425,10 +436,27 @@ export function getRoute(): Route {
     return { name: "stories" };
   }
 
-  // The editor is its own address, so an author can link straight back into it.
+  // The editor is its own address, so an author can link straight back into it
+  // — and so is each pane inside it: the story's front page, its details, and
+  // one address per chapter, since the editor shows a single chapter at a time.
+  const storyEditorChapterMatch = path.match(/^\/stories\/([^/]+)\/edit\/chapters\/([^/]+)$/);
+  if (storyEditorChapterMatch) {
+    return {
+      name: "storyEditor",
+      id: storyEditorChapterMatch[1],
+      pane: "chapter",
+      chapterId: storyEditorChapterMatch[2]
+    };
+  }
+
+  const storyEditorDetailsMatch = path.match(/^\/stories\/([^/]+)\/edit\/details$/);
+  if (storyEditorDetailsMatch) {
+    return { name: "storyEditor", id: storyEditorDetailsMatch[1], pane: "details" };
+  }
+
   const storyEditorMatch = path.match(/^\/stories\/([^/]+)\/edit$/);
   if (storyEditorMatch) {
-    return { name: "storyEditor", id: storyEditorMatch[1] };
+    return { name: "storyEditor", id: storyEditorMatch[1], pane: "home" };
   }
 
   // A chapter is its own page — /stories/:id is the story's front page.

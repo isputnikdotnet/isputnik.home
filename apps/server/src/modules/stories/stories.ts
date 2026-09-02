@@ -117,6 +117,8 @@ export interface ChapterRow {
   description: string | null;
   standfirst: string | null;
   hero_item_id: string | null;
+  /** 1 = the chapter's pin is its cover, drawn instead of a photo hero. */
+  hero_map: number;
 }
 
 export interface BlockRow {
@@ -127,6 +129,8 @@ export interface BlockRow {
   entity_type: string | null;
   entity_id: string | null;
   body: string | null;
+  /** The block's own heading, above it in the reader; null = untitled. */
+  heading: string | null;
   lat: number | null;
   lng: number | null;
   zoom: number | null;
@@ -586,6 +590,7 @@ export interface ChapterFields {
   description?: string | null;
   standfirst?: string | null;
   heroItemId?: string | null;
+  heroMap?: boolean;
 }
 
 function nextPosition(table: "story_chapters" | "story_blocks", column: "story_id" | "chapter_id", parentId: string): number {
@@ -599,8 +604,8 @@ export function createChapter(storyId: string, fields: ChapterFields): ChapterRo
   db.transaction(() => {
     db.prepare(`
       INSERT INTO story_chapters
-        (id, story_id, position, title, date, end_date, date_approx, place, place_lat, place_lng, description, standfirst, hero_item_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (id, story_id, position, title, date, end_date, date_approx, place, place_lat, place_lng, description, standfirst, hero_item_id, hero_map)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       id,
       storyId,
@@ -614,7 +619,8 @@ export function createChapter(storyId: string, fields: ChapterFields): ChapterRo
       fields.placeLng ?? null,
       fields.description ?? null,
       fields.standfirst ?? null,
-      fields.heroItemId ?? null
+      fields.heroItemId ?? null,
+      fields.heroMap ? 1 : 0
     );
     touchStory(storyId);
   })();
@@ -635,7 +641,8 @@ export function updateChapter(chapterId: string, storyId: string, fields: Chapte
         place_lng   = CASE WHEN ? THEN ? ELSE place_lng END,
         description = CASE WHEN ? THEN ? ELSE description END,
         standfirst  = CASE WHEN ? THEN ? ELSE standfirst END,
-        hero_item_id = CASE WHEN ? THEN ? ELSE hero_item_id END
+        hero_item_id = CASE WHEN ? THEN ? ELSE hero_item_id END,
+        hero_map    = COALESCE(?, hero_map)
       WHERE id = ?
     `).run(
       set("title"), fields.title ?? null,
@@ -648,6 +655,7 @@ export function updateChapter(chapterId: string, storyId: string, fields: Chapte
       set("description"), fields.description ?? null,
       set("standfirst"), fields.standfirst ?? null,
       set("heroItemId"), fields.heroItemId ?? null,
+      fields.heroMap === undefined ? null : fields.heroMap ? 1 : 0,
       chapterId
     );
     touchStory(storyId);
@@ -698,6 +706,7 @@ export interface BlockFields {
   /** Book blocks only: which of BOOK_ENTITY_TYPES the reference is. */
   entityType?: string | null;
   body?: string | null;
+  heading?: string | null;
   lat?: number | null;
   lng?: number | null;
   zoom?: number | null;
@@ -714,8 +723,8 @@ export function createBlock(chapterId: string, storyId: string, kind: StoryBlock
   db.transaction(() => {
     db.prepare(`
       INSERT INTO story_blocks
-        (id, chapter_id, position, kind, entity_type, entity_id, body, lat, lng, zoom, label, caption, layout)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (id, chapter_id, position, kind, entity_type, entity_id, body, heading, lat, lng, zoom, label, caption, layout)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       id,
       chapterId,
@@ -724,6 +733,7 @@ export function createBlock(chapterId: string, storyId: string, kind: StoryBlock
       entityType,
       entityType ? fields.entityId ?? null : null,
       fields.body ?? null,
+      fields.heading ?? null,
       fields.lat ?? null,
       fields.lng ?? null,
       fields.zoom ?? null,
@@ -743,6 +753,7 @@ export function updateBlock(blockId: string, storyId: string, fields: BlockField
       UPDATE story_blocks SET
         entity_id = CASE WHEN ? THEN ? ELSE entity_id END,
         body      = CASE WHEN ? THEN ? ELSE body END,
+        heading   = CASE WHEN ? THEN ? ELSE heading END,
         lat       = CASE WHEN ? THEN ? ELSE lat END,
         lng       = CASE WHEN ? THEN ? ELSE lng END,
         zoom      = CASE WHEN ? THEN ? ELSE zoom END,
@@ -753,6 +764,7 @@ export function updateBlock(blockId: string, storyId: string, fields: BlockField
     `).run(
       set("entityId"), fields.entityId ?? null,
       set("body"), fields.body ?? null,
+      set("heading"), fields.heading ?? null,
       set("lat"), fields.lat ?? null,
       set("lng"), fields.lng ?? null,
       set("zoom"), fields.zoom ?? null,

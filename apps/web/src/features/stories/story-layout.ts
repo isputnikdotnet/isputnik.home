@@ -17,11 +17,14 @@ export function groupIntoRows(blocks: StoryBlock[]): StoryBlock[][] {
       block.available &&
       block.layout !== "wide" &&
       block.asset?.kind === "photo" &&
-      // A captioned photo is making a point of its own; don't crowd it.
-      !block.caption;
+      // A captioned photo — or one under its own heading — is making a point of
+      // its own; don't crowd it into a row.
+      !block.caption &&
+      !block.heading;
     const last = rows[rows.length - 1];
     const lastGroupable = last?.length && last.every((item) =>
-      item.kind === "media" && item.layout !== "wide" && item.asset?.kind === "photo" && !item.caption
+      item.kind === "media" && item.layout !== "wide" && item.asset?.kind === "photo" &&
+      !item.caption && !item.heading
     );
     if (groupable && lastGroupable && last.length < MAX_ROW) {
       last.push(block);

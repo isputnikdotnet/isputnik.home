@@ -446,13 +446,23 @@ function ChapterPage({
     ? t("stories:chapter.approx", { date: dateText })
     : dateText;
   const gallery = chapterGallery(chapter);
+  // "Use map as cover": the pin is drawn as the hero, and the standalone map
+  // below is dropped — one chapter, one map.
+  const mapCover = chapter.heroMap && chapter.placeLat != null && chapter.placeLng != null;
   const prev = index > 0 ? story.chapters[index - 1] : null;
   const next = index < story.chapters.length - 1 ? story.chapters[index + 1] : null;
 
   return (
     <article className="story-read story-chapter-page">
-      <header className={`story-chapter-hero${chapter.hero?.previewUrl ? " has-image" : ""}`}>
-        {chapter.hero?.previewUrl && <img src={chapter.hero.previewUrl} alt="" />}
+      <header className={`story-chapter-hero${chapter.hero?.previewUrl && !mapCover ? " has-image" : ""}${mapCover ? " has-map" : ""}`}>
+        {mapCover
+          ? (
+            <StoryMap
+              pins={[{ id: chapter.id, lat: chapter.placeLat!, lng: chapter.placeLng!, label: "", title: label }]}
+              onOpen={() => {}}
+            />
+          )
+          : chapter.hero?.previewUrl && <img src={chapter.hero.previewUrl} alt="" />}
         <div className="story-chapter-hero-text">
           <p className="story-chapter-meta">
             {/* Without a chapter noun the label is the heading below — no echo. */}
@@ -467,7 +477,7 @@ function ChapterPage({
         </div>
       </header>
 
-      {chapter.placeLat != null && chapter.placeLng != null && (
+      {chapter.placeLat != null && chapter.placeLng != null && !mapCover && (
         <StoryMap
           pins={[{ id: chapter.id, lat: chapter.placeLat, lng: chapter.placeLng, label: String(index + 1), title: label }]}
           onOpen={() => {}}
@@ -527,12 +537,16 @@ function ChapterBlocks({
     <div className="story-blocks">
       {groupIntoRows(chapter.blocks).map((row) =>
         row.length === 1 ? (
-          <StoryBlockView
-            key={row[0].id}
-            block={row[0]}
-            onOpenMedia={onOpenMedia}
-            onPlaySlideshow={onPlaySlideshow}
-          />
+          // A block may carry its own heading ("Photos from Day 1"); grouped
+          // rows never do, since a headed block is never grouped.
+          <div className="story-block-slot" key={row[0].id}>
+            {row[0].heading && <h2 className="story-block-heading">{row[0].heading}</h2>}
+            <StoryBlockView
+              block={row[0]}
+              onOpenMedia={onOpenMedia}
+              onPlaySlideshow={onPlaySlideshow}
+            />
+          </div>
         ) : (
           // Consecutive photos read as one plate rather than a stack of
           // full-width images — the photo-essay convention.

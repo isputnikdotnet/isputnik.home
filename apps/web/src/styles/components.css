@@ -53,3 +53,71 @@
 .tag-input-hint {
   font-size: 0.82rem;
 }
+
+/* ── InlineEdit ────────────────────────────────────────────────────────── */
+
+/* Text that becomes its own field where it sits (shared/InlineEdit). The words
+   carry the page's own type — a heading stays a heading — so everything here is
+   about the pencil beside them and the field that replaces them. */
+.inline-edit {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  max-width: 100%;
+}
+
+.inline-edit.is-editing { display: block; }
+
+.inline-edit-value {
+  min-width: 0;
+}
+
+.inline-edit-value.is-empty {
+  color: var(--muted);
+  font-weight: 400;
+  font-style: italic;
+}
+
+.inline-edit-pencil {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease, color 0.12s ease;
+}
+
+/* The pencil stays out of the way until the words are approached — and is
+   always there for a keyboard, which never hovers. */
+.inline-edit:hover .inline-edit-pencil,
+.inline-edit-pencil:focus-visible,
+.inline-edit-value.is-empty + .inline-edit-pencil {
+  opacity: 1;
+}
+
+.inline-edit-pencil:hover {
+  color: var(--ink);
+  border-color: var(--gold);
+}
+
+.inline-edit-field {
+  width: 100%;
+  padding: 4px 8px;
+  border: 1px solid var(--gold);
+  border-radius: 8px;
+  background: var(--field);
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  resize: vertical;
+}
+
+.inline-edit-field:focus { outline: none; }

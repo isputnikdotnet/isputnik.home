@@ -38,18 +38,33 @@ ordinary field you can edit.
 A new story is a **draft**: only you (and admins) can see it. **Publish**
 when it's ready for the family; **Back to draft** any time.
 
+The **New story** dialog is the story's front page before it exists: pick the
+shape, set a cover on the cover band, and write the name and subtitle where
+they will be read. What the kind needs to know — a date, a place, a book —
+sits in one **Story settings** card underneath.
+
 ## Writing
 
-The editor is one scrolling page that mirrors what readers will see. There is
-no Save button — every field saves when you leave it, every added or moved
-block saves immediately.
+The editor shows one page at a time, laid out the way readers will see it.
+The left sidebar holds the story's shape — **Home** (its front page),
+**Story details**, then every chapter — and the top bar holds Read, Publish,
+Share link and Delete. There is no Save button: every field saves when you
+leave it (Enter also does), and every added or moved block saves immediately.
+
+Words are edited where they sit. Point at a title, a standfirst or a
+paragraph and a small pencil appears; click it, type, and click away. The
+cover works the same way — the **Edit cover** button lives on the cover
+itself.
 
 **Chapters.** Every story has at least one. A simple story never has to think
 about them: leave the single chapter untitled and the page shows no chapter
 machinery at all. Give chapters titles, dates and places and the story
-becomes a documentary. Dates are the family tree's forgiving kind — `2004`,
-`2004-07` and `2004-07-12` are all valid, a second date makes a range, and
-"the date is approximate" renders as *around 2004*.
+becomes a documentary. Drag a chapter by its handle in the sidebar to
+reorder the story; **Add chapter** sits under the list. Dates are the family
+tree's forgiving kind — `2004`, `2004-07` and `2004-07-12` are all valid, a
+second date makes a range, and "the date is approximate" renders as
+*around 2004*. Dates, place, pin and note live together in the chapter's
+**Chapter settings** card, folded away under the words it belongs to.
 
 Each chapter can also carry:
 
@@ -57,14 +72,20 @@ Each chapter can also carry:
 - a **cover photo** — the chapter's page opens on it, your words over the
   image;
 - a **pin on the map** — give chapters places and the story's front page
-  draws the whole journey as numbered pins (see Reading below);
+  draws the whole journey as numbered pins (see Reading below). A pinned
+  chapter can wear **the map itself as its cover**, for a day whose photo
+  never quite existed;
 - a **note** — a quieter line of context.
 
 **What to call a chapter** (on the story itself): write "Day" and chapters
 read Day 1, Day 2; write "Stop" and a road trip counts its stops. Your word,
 in your language.
 
-**Blocks.** Between any two blocks, add:
+**Blocks.** Each block is a card with a handle to drag it into place, a
+**heading** of its own if it wants one ("Photos from Day 1"), and a **⋮**
+menu holding everything else — move it up, down, or into another chapter,
+and delete. Under each card is **Add block**, which puts the new one exactly
+there. The kinds:
 
 - **Text** — written in Markdown: `# heading`, `**bold**`, `> quote`,
   `- list`, links. A preview button shows exactly what a reader gets.

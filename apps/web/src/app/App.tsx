@@ -520,7 +520,15 @@ export function App() {
     }
 
     if (route.name === "storyEditor") {
-      return <StoryEditorPage id={route.id} user={session.user} logout={logout} />;
+      return (
+        <StoryEditorPage
+          id={route.id}
+          pane={route.pane}
+          chapterId={route.chapterId}
+          user={session.user}
+          logout={logout}
+        />
+      );
     }
 
     if (route.name === "ebookBook") {

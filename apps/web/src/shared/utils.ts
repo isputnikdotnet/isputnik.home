@@ -143,6 +143,18 @@ export function formatPartialDate(date: string | null | undefined): string {
   return day ? `${monthLabel} ${Number(day)}, ${year}` : `${monthLabel} ${year}`;
 }
 
+/** A full date with its weekday — "Saturday, Jul 12, 2004". A year or a
+ *  year-month has no weekday to name, so it formats exactly as above. Used
+ *  where a single day is the headline: the story chapter's dateline. */
+export function formatPartialDateLong(date: string | null | undefined): string {
+  if (!date) return "";
+  const [year, month, day] = date.split("-");
+  if (!month || !day) return formatPartialDate(date);
+  const weekday = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)))
+    .toLocaleString(i18n.language, { weekday: "long", timeZone: "UTC" });
+  return weekday + ", " + formatPartialDate(date);
+}
+
 /** A span of partial dates: "2004", "Jul 2004–Aug 2004". One date alone
  *  formats as itself, so a range field left empty reads naturally. */
 export function formatPartialDateRange(

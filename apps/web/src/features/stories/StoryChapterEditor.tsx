@@ -1,365 +1,338 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { BookOpen, ChevronDown, ChevronUp, Images, MapPin, Mic, Play, Plus, Quote, Trash2, Type, UserRound } from "lucide-react";
+import { ChevronDown, MapPin, Settings, Trash2 } from "lucide-react";
 import { Button } from "../../shared/Button";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
+import { InlineEdit } from "../../shared/InlineEdit";
 import { PartialDateField } from "../../shared/PartialDateField";
-import { PhotoPicker } from "../gallery/PhotoPicker";
-import { StoryBlockEditor } from "./StoryBlockEditor";
-import { StoryRefPicker, type RefKind } from "./StoryRefPicker";
+import { formatPartialDateLong, formatPartialDateRange } from "../../shared/utils";
+import { AddStoryBlock } from "./AddStoryBlock";
+import { StoryBlockEditor, blockMoveTargets } from "./StoryBlockEditor";
+import { StoryCoverBanner } from "./StoryCoverBanner";
 import { StoryMapModal } from "./StoryMapModal";
-import { StoryAudioModal } from "./StoryAudioModal";
-import { useRecordingsTarget } from "./useRecordingsTarget";
-import type { StoryBlockKind, StoryChapter } from "./types";
+import { chapterLabel, type StoryBlockKind, type StoryChapter, type StoryDetail } from "./types";
 
-// One chapter in the editor: its heading fields, its blocks, and the row that
-// adds the next block. Chapter fields save on blur — there is no Save button in
-// this editor, so nothing can be lost by navigating away.
+// One chapter, laid out the way it reads: cover, dateline, title, standfirst,
+// then its blocks. Everything on the page is edited where it sits — the only
+// form is the settings card, and it holds exactly the things that have no place
+// in the prose (the dates behind the dateline, the pin, the chapter note).
 export function StoryChapterEditor({
+  story,
   chapter,
-  storyId,
   index,
-  total,
   busy,
-  showChapterFields,
-  storyTags,
   onPatch,
   onRemove,
-  onMove,
   onAddBlock,
   blockActions
 }: {
+  story: StoryDetail;
   chapter: StoryChapter;
-  storyId: string;
   index: number;
-  total: number;
   busy: boolean;
-  /** A single untitled chapter hides its heading fields behind "Add chapter
-   *  details" — a simple journal page shouldn't open with a form. */
-  showChapterFields: boolean;
-  /** The story's tags, so the pickers can offer matching content first. */
-  storyTags: string[];
   onPatch: (fields: Record<string, unknown>) => void;
   onRemove: () => void;
-  onMove: (direction: -1 | 1) => void;
-  onAddBlock: (kind: StoryBlockKind, fields?: Record<string, unknown>) => void;
+  /** afterId puts the new block straight after that one, where it was asked
+   *  for, rather than at the end of the chapter. */
+  onAddBlock: (kind: StoryBlockKind, fields?: Record<string, unknown>, afterId?: string) => void;
   blockActions: {
     move: (blockId: string, direction: -1 | 1) => void;
+    moveToChapter: (blockId: string, chapterId: string) => void;
+    reorder: (orderedIds: string[]) => void;
     patch: (blockId: string, fields: Record<string, unknown>) => void;
     remove: (blockId: string) => void;
   };
 }) {
   const { t } = useTranslation(["common", "stories"]);
-  const recordings = useRecordingsTarget();
-  const [picker, setPicker] = useState<"photo" | "map" | "audio" | "hero" | "chapterPlace" | RefKind | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [fields, setFields] = useState({
-    title: chapter.title ?? "",
-    date: chapter.date ?? "",
-    endDate: chapter.endDate ?? "",
-    place: chapter.place ?? "",
-    description: chapter.description ?? "",
-    standfirst: chapter.standfirst ?? ""
-  });
+  const [pinning, setPinning] = useState(false);
+  // Settings open themselves for a chapter that has nothing set yet — there is
+  // otherwise no hint that a date and a place belong to it.
+  const [settingsOpen, setSettingsOpen] = useState(!chapter.date && !chapter.place);
+  const [dates, setDates] = useState({ date: chapter.date ?? "", endDate: chapter.endDate ?? "" });
+  const [place, setPlace] = useState(chapter.place ?? "");
+  const [note, setNote] = useState(chapter.description ?? "");
 
-  // Adopt server values after a reload without discarding an in-progress edit.
   useEffect(() => {
-    setFields({
-      title: chapter.title ?? "",
-      date: chapter.date ?? "",
-      endDate: chapter.endDate ?? "",
-      place: chapter.place ?? "",
-      description: chapter.description ?? "",
-      standfirst: chapter.standfirst ?? ""
-    });
-  }, [chapter.title, chapter.date, chapter.endDate, chapter.place, chapter.description]);
+    setDates({ date: chapter.date ?? "", endDate: chapter.endDate ?? "" });
+    setPlace(chapter.place ?? "");
+    setNote(chapter.description ?? "");
+  }, [chapter.id, chapter.date, chapter.endDate, chapter.place, chapter.description]);
 
-  const commit = (key: keyof typeof fields, current: string | null) => {
-    const next = fields[key].trim();
-    if (next === (current ?? "")) return;
-    onPatch({ [key]: next || null });
+  // Block drag-and-drop: the order under the pointer is local until the drop,
+  // and the server's order is what re-renders afterwards.
+  const [order, setOrder] = useState(chapter.blocks.map((block) => block.id));
+  const signature = chapter.blocks.map((block) => block.id).join(",");
+  const dragging = useRef<string | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  // Readable during an event: the drop handler reports the order from here, not
+  // from inside a state updater — an updater runs during render, and calling
+  // back from there is a setState in another component's render pass.
+  const orderRef = useRef(order);
+  useEffect(() => {
+    orderRef.current = signature ? signature.split(",") : [];
+    setOrder(orderRef.current);
+  }, [signature]);
+
+  const dragOver = (id: string) => {
+    const from = dragging.current;
+    if (!from || from === id) return;
+    const next = [...orderRef.current];
+    const fromIndex = next.indexOf(from);
+    const toIndex = next.indexOf(id);
+    if (fromIndex < 0 || toIndex < 0) return;
+    next.splice(toIndex, 0, ...next.splice(fromIndex, 1));
+    orderRef.current = next;
+    setOrder(next);
+  };
+
+  const drop = () => {
+    if (!dragging.current) return;
+    dragging.current = null;
+    setDraggingId(null);
+    if (orderRef.current.join(",") !== signature) blockActions.reorder(orderRef.current);
+  };
+
+  const label = chapterLabel(story, chapter, index);
+  const dateline = [
+    label,
+    chapter.endDate
+      ? formatPartialDateRange(chapter.date, chapter.endDate)
+      : formatPartialDateLong(chapter.date)
+  ].filter(Boolean);
+  const byId = new Map(chapter.blocks.map((block) => [block.id, block]));
+  const blocks = order.map((id) => byId.get(id)).filter((block): block is NonNullable<typeof block> => Boolean(block));
+  const siblings = blockMoveTargets(story.chapters, chapter.id, (other, otherIndex) =>
+    chapterLabel(story, other, otherIndex));
+
+  const commitDates = () => {
+    const nextDate = dates.date.trim();
+    const nextEnd = dates.endDate.trim();
+    const fields: Record<string, unknown> = {};
+    if (nextDate !== (chapter.date ?? "")) fields.date = nextDate || null;
+    if (nextEnd !== (chapter.endDate ?? "")) fields.endDate = nextEnd || null;
+    if (Object.keys(fields).length > 0) onPatch(fields);
   };
 
   return (
-    <section className="story-edit-chapter">
-      <header className="story-edit-chapter-head">
-        <span className="story-edit-chapter-number">
-          {t("stories:chapter.number", { number: index + 1 })}
-        </span>
-        <div className="story-edit-chapter-actions">
-          <Button variant="icon" onClick={() => onMove(-1)} disabled={index === 0 || busy} aria-label={t("stories:actions.moveChapterUp")}>
-            <ChevronUp size={15} />
-          </Button>
-          <Button variant="icon" onClick={() => onMove(1)} disabled={index === total - 1 || busy} aria-label={t("stories:actions.moveChapterDown")}>
-            <ChevronDown size={15} />
-          </Button>
-          <Button
-            variant="icon"
-            danger
-            onClick={() => setConfirmDelete(true)}
-            disabled={total <= 1}
-            aria-label={t("stories:actions.removeChapter")}
-            title={total <= 1 ? t("stories:chapter.lastOne") : t("stories:actions.removeChapter")}
-          >
-            <Trash2 size={15} />
-          </Button>
-        </div>
-      </header>
+    <div className="story-edit-chapter">
+      <StoryCoverBanner
+        cover={chapter.hero}
+        pickerTitle={t("stories:chapter.heroPickerTitle")}
+        pin={chapter.placeLat != null && chapter.placeLng != null
+          ? { lat: chapter.placeLat, lng: chapter.placeLng, label: chapter.place ?? label }
+          : null}
+        useMap={chapter.heroMap}
+        onPick={(asset) => onPatch({ heroItemId: asset.id, heroMap: false })}
+        onClear={() => onPatch({ heroItemId: null, heroMap: false })}
+        onUseMap={(next) => onPatch({ heroMap: next })}
+      />
 
-      {showChapterFields && (
-        <div className="story-chapter-fields">
-          <label className="field story-chapter-title-field">
-            <span>{t("stories:chapter.titleField")}</span>
-            <input
-              value={fields.title}
-              onChange={(event) => setFields((state) => ({ ...state, title: event.target.value }))}
-              onBlur={() => commit("title", chapter.title)}
-              placeholder={t("stories:chapter.titlePlaceholder")}
-              maxLength={160}
-            />
-          </label>
+      <p className="story-edit-dateline">
+        {dateline.map((part, partIndex) => (
+          <span key={part}>
+            {partIndex > 0 && <span className="story-edit-dot" aria-hidden="true">·</span>}
+            {chapter.dateApprox && partIndex > 0 ? t("stories:chapter.approx", { date: part }) : part}
+          </span>
+        ))}
+      </p>
 
-          <div className="story-chapter-date-row">
+      <h2 className="story-edit-chapter-title">
+        <InlineEdit
+          value={chapter.title ?? ""}
+          ariaLabel={t("stories:chapter.titleField")}
+          placeholder={t("stories:chapter.titlePlaceholder")}
+          maxLength={160}
+          onSave={(next) => onPatch({ title: next || null })}
+        />
+      </h2>
+
+      <div className="story-edit-standfirst">
+        <InlineEdit
+          value={chapter.standfirst ?? ""}
+          ariaLabel={t("stories:chapter.standfirstField")}
+          placeholder={t("stories:chapter.standfirstPlaceholder")}
+          maxLength={300}
+          multiline
+          rows={3}
+          onSave={(next) => onPatch({ standfirst: next || null })}
+        />
+      </div>
+
+      <section className={`story-edit-settings${settingsOpen ? "" : " is-collapsed"}`}>
+        <button
+          type="button"
+          className="story-edit-settings-head"
+          onClick={() => setSettingsOpen(!settingsOpen)}
+          aria-expanded={settingsOpen}
+        >
+          <Settings size={16} aria-hidden="true" />
+          <span>{t("stories:edit.chapterSettings")}</span>
+          <ChevronDown size={16} aria-hidden="true" className="story-edit-settings-chevron" />
+        </button>
+
+        {settingsOpen && (
+          <div className="story-edit-settings-body">
             <PartialDateField
-              label={t("stories:chapter.dateField")}
-              value={fields.date}
-              onChange={(value) => setFields((state) => ({ ...state, date: value }))}
+              className="story-edit-setting"
+              label={t("stories:chapter.startDateField")}
+              value={dates.date}
+              onChange={(value) => setDates((state) => ({ ...state, date: value }))}
+              onBlur={commitDates}
               placeholder={t("stories:chapter.datePlaceholder")}
             />
             <PartialDateField
-              label={t("stories:chapter.endDateField")}
-              value={fields.endDate}
-              onChange={(value) => setFields((state) => ({ ...state, endDate: value }))}
+              className="story-edit-setting"
+              label={`${t("stories:chapter.endDateField")} (${t("stories:fields.optional")})`}
+              value={dates.endDate}
+              onChange={(value) => setDates((state) => ({ ...state, endDate: value }))}
+              onBlur={commitDates}
               placeholder={t("stories:chapter.endDatePlaceholder")}
             />
-            <Button
-              variant="secondary"
-              compact
-              onClick={() => {
-                commit("date", chapter.date);
-                commit("endDate", chapter.endDate);
-              }}
-              disabled={busy}
-            >
-              {t("stories:actions.applyDates")}
-            </Button>
-          </div>
 
-          <label className="field story-chapter-approx">
-            <input
-              type="checkbox"
-              checked={chapter.dateApprox}
-              onChange={(event) => onPatch({ dateApprox: event.target.checked })}
-              disabled={!chapter.date}
-            />
-            <span>{t("stories:chapter.approxLabel")}</span>
-          </label>
+            <div className="story-edit-setting story-edit-approx">
+              <label className="field">
+                <input
+                  type="checkbox"
+                  checked={chapter.dateApprox}
+                  onChange={(event) => onPatch({ dateApprox: event.target.checked })}
+                  disabled={!chapter.date}
+                />
+                <span>{t("stories:chapter.approxLabel")}</span>
+              </label>
+              <p className="muted">{t("stories:edit.approxHint")}</p>
+            </div>
 
-          <label className="field">
-            <span>{t("stories:chapter.standfirstField")} <small className="muted">{t("stories:fields.optional")}</small></span>
-            <input
-              value={fields.standfirst}
-              onChange={(event) => setFields((state) => ({ ...state, standfirst: event.target.value }))}
-              onBlur={() => commit("standfirst", chapter.standfirst)}
-              placeholder={t("stories:chapter.standfirstPlaceholder")}
-              maxLength={300}
-            />
-          </label>
-
-          <div className="story-chapter-place-row">
-            <label className="field">
-              <span>{t("stories:chapter.placeField")} <small className="muted">{t("stories:fields.optional")}</small></span>
+            <label className="field story-edit-setting story-edit-place">
+              <span>{t("stories:chapter.placeField")}</span>
               <input
-                value={fields.place}
-                onChange={(event) => setFields((state) => ({ ...state, place: event.target.value }))}
-                onBlur={() => commit("place", chapter.place)}
+                value={place}
+                onChange={(event) => setPlace(event.target.value)}
+                onBlur={() => {
+                  const next = place.trim();
+                  if (next !== (chapter.place ?? "")) onPatch({ place: next || null });
+                }}
                 placeholder={t("stories:chapter.placePlaceholder")}
                 maxLength={200}
               />
             </label>
-            {/* Coordinates put the chapter on the Story Home map. */}
-            <Button variant="secondary" compact onClick={() => setPicker("chapterPlace")} disabled={busy}>
-              <MapPin size={15} aria-hidden="true" />
-              <span>{chapter.placeLat != null ? t("stories:chapter.movePin") : t("stories:chapter.setPin")}</span>
-            </Button>
-            {chapter.placeLat != null && (
-              <Button variant="text" compact onClick={() => onPatch({ placeLat: null, placeLng: null })} disabled={busy}>
-                {t("stories:chapter.clearPin")}
-              </Button>
-            )}
-          </div>
 
-          <div className="story-chapter-hero-row">
-            <span className="story-tags-label">{t("stories:chapter.heroField")}</span>
-            {chapter.hero?.coverUrl && <img className="story-chapter-hero-thumb" src={chapter.hero.coverUrl} alt="" />}
-            <Button variant="secondary" compact onClick={() => setPicker("hero")} disabled={busy}>
-              {chapter.heroItemId ? t("stories:chapter.changeHero") : t("stories:chapter.setHero")}
-            </Button>
-            {chapter.heroItemId && (
-              <Button variant="text" compact onClick={() => onPatch({ heroItemId: null })} disabled={busy}>
-                {t("stories:chapter.clearHero")}
+            <div className="story-edit-setting story-edit-pin-actions">
+              <Button variant="secondary" compact onClick={() => setPinning(true)} disabled={busy}>
+                <MapPin size={15} aria-hidden="true" />
+                <span>{chapter.placeLat != null ? t("stories:chapter.movePin") : t("stories:chapter.setPin")}</span>
               </Button>
-            )}
-          </div>
+              {chapter.placeLat != null && (
+                <>
+                  <Button
+                    variant="secondary"
+                    compact
+                    className={chapter.heroMap ? "is-current" : undefined}
+                    aria-pressed={chapter.heroMap}
+                    onClick={() => onPatch({ heroMap: !chapter.heroMap })}
+                    disabled={busy}
+                  >
+                    <Settings size={15} aria-hidden="true" />
+                    <span>{chapter.heroMap ? t("stories:edit.coverUsePhoto") : t("stories:edit.coverUseMap")}</span>
+                  </Button>
+                  <Button
+                    variant="text"
+                    compact
+                    onClick={() => onPatch({ placeLat: null, placeLng: null, heroMap: false })}
+                    disabled={busy}
+                  >
+                    {t("stories:chapter.clearPin")}
+                  </Button>
+                </>
+              )}
+            </div>
 
-          <label className="field">
-            <span>{t("stories:chapter.descriptionField")} <small className="muted">{t("stories:fields.optional")}</small></span>
-            <textarea
-              value={fields.description}
-              onChange={(event) => setFields((state) => ({ ...state, description: event.target.value }))}
-              onBlur={() => commit("description", chapter.description)}
-              placeholder={t("stories:chapter.descriptionPlaceholder")}
-              rows={2}
-              maxLength={2000}
-            />
-          </label>
-        </div>
-      )}
+            <label className="field story-edit-setting story-edit-note">
+              <span>{t("stories:chapter.descriptionField")} <small className="muted">{t("stories:fields.optional")}</small></span>
+              <textarea
+                value={note}
+                onChange={(event) => setNote(event.target.value)}
+                onBlur={() => {
+                  const next = note.trim();
+                  if (next !== (chapter.description ?? "")) onPatch({ description: next || null });
+                }}
+                placeholder={t("stories:chapter.descriptionPlaceholder")}
+                rows={2}
+                maxLength={2000}
+              />
+            </label>
+
+            <div className="story-edit-setting story-edit-chapter-delete">
+              <Button
+                variant="text"
+                compact
+                danger
+                onClick={() => setConfirmDelete(true)}
+                disabled={story.chapters.length <= 1}
+                title={story.chapters.length <= 1 ? t("stories:chapter.lastOne") : undefined}
+              >
+                <Trash2 size={15} aria-hidden="true" />
+                <span>{t("stories:actions.removeChapter")}</span>
+              </Button>
+            </div>
+          </div>
+        )}
+      </section>
 
       <div className="story-edit-blocks">
-        {chapter.blocks.map((block, blockIndex) => (
-          <StoryBlockEditor
-            key={block.id}
-            block={block}
-            first={blockIndex === 0}
-            last={blockIndex === chapter.blocks.length - 1}
-            busy={busy}
-            onMove={(direction) => blockActions.move(block.id, direction)}
-            onPatch={(patch) => blockActions.patch(block.id, patch)}
-            onRemove={() => blockActions.remove(block.id)}
-          />
+        {blocks.map((block, blockIndex) => (
+          <div className="story-edit-block-slot" key={block.id}>
+            <StoryBlockEditor
+              block={block}
+              first={blockIndex === 0}
+              last={blockIndex === blocks.length - 1}
+              busy={busy}
+              siblings={siblings}
+              dragging={draggingId === block.id}
+              onDragStart={() => { dragging.current = block.id; setDraggingId(block.id); }}
+              onDragOver={() => dragOver(block.id)}
+              onDrop={drop}
+              onMove={(direction) => blockActions.move(block.id, direction)}
+              onMoveToChapter={(chapterId) => blockActions.moveToChapter(block.id, chapterId)}
+              onPatch={(patch) => blockActions.patch(block.id, patch)}
+              onRemove={() => blockActions.remove(block.id)}
+            />
+            <AddStoryBlock
+              storyId={story.id}
+              storyTags={story.tags}
+              busy={busy}
+              onAdd={(kind, fields) => onAddBlock(kind, fields, block.id)}
+            />
+          </div>
         ))}
-        {chapter.blocks.length === 0 && (
-          <p className="muted story-chapter-empty">{t("stories:edit.chapterEmpty")}</p>
+
+        {blocks.length === 0 && (
+          <div className="story-edit-blocks-empty">
+            <p className="muted">{t("stories:edit.chapterEmpty")}</p>
+            <AddStoryBlock storyId={story.id} storyTags={story.tags} busy={busy} onAdd={onAddBlock} />
+          </div>
         )}
       </div>
 
-      <div className="story-add-block">
-        <span className="story-add-block-label">
-          <Plus size={14} aria-hidden="true" /> {t("stories:edit.addBlock")}
-        </span>
-        <Button variant="secondary" compact onClick={() => onAddBlock("text", { body: "" })} disabled={busy}>
-          <Type size={15} aria-hidden="true" />
-          <span>{t("stories:kind.text")}</span>
-        </Button>
-        <Button variant="secondary" compact onClick={() => setPicker("photo")} disabled={busy}>
-          <Images size={15} aria-hidden="true" />
-          <span>{t("stories:kind.media")}</span>
-        </Button>
-        <Button variant="secondary" compact onClick={() => setPicker("album")} disabled={busy}>
-          <Images size={15} aria-hidden="true" />
-          <span>{t("stories:kind.album")}</span>
-        </Button>
-        <Button variant="secondary" compact onClick={() => setPicker("slideshow")} disabled={busy}>
-          <Play size={15} aria-hidden="true" />
-          <span>{t("stories:kind.slideshow")}</span>
-        </Button>
-        <Button variant="secondary" compact onClick={() => setPicker("map")} disabled={busy}>
-          <MapPin size={15} aria-hidden="true" />
-          <span>{t("stories:kind.map")}</span>
-        </Button>
-        <Button variant="secondary" compact onClick={() => setPicker("person")} disabled={busy}>
-          <UserRound size={15} aria-hidden="true" />
-          <span>{t("stories:kind.person")}</span>
-        </Button>
-        <Button variant="secondary" compact onClick={() => setPicker("quote")} disabled={busy}>
-          <Quote size={15} aria-hidden="true" />
-          <span>{t("stories:kind.quote")}</span>
-        </Button>
-        <Button variant="secondary" compact onClick={() => setPicker("book")} disabled={busy}>
-          <BookOpen size={15} aria-hidden="true" />
-          <span>{t("stories:kind.book")}</span>
-        </Button>
-        {/* Recording needs a destination: the affordance exists only once an
-            admin has nominated the recordings library. Members see nothing
-            until then; an admin sees it disabled, pointing at the setting. */}
-        {recordings.enabled ? (
-          <Button variant="secondary" compact onClick={() => setPicker("audio")} disabled={busy}>
-            <Mic size={15} aria-hidden="true" />
-            <span>{t("stories:kind.audio")}</span>
-          </Button>
-        ) : recordings.isAdmin ? (
-          <Button variant="secondary" compact disabled title={t("stories:audio.needsLibraryHint")}>
-            <Mic size={15} aria-hidden="true" />
-            <span>{t("stories:kind.audio")}</span>
-          </Button>
-        ) : null}
-      </div>
-
-      {picker === "photo" && (
-        <PhotoPicker
-          title={t("stories:picker.photoTitle")}
-          pick="any"
-          onPick={(asset) => { setPicker(null); onAddBlock("media", { entityId: asset.id }); }}
-          onClose={() => setPicker(null)}
-        />
-      )}
-
-      {picker === "hero" && (
-        <PhotoPicker
-          title={t("stories:chapter.heroPickerTitle")}
-          pick="any"
-          onPick={(asset) => { setPicker(null); onPatch({ heroItemId: asset.id }); }}
-          onClose={() => setPicker(null)}
-        />
-      )}
-
-      {picker === "chapterPlace" && (
+      {pinning && (
         <StoryMapModal
           initial={chapter.placeLat != null && chapter.placeLng != null
             ? { lat: chapter.placeLat, lng: chapter.placeLng, zoom: null, label: chapter.place }
             : null}
           onSave={(value) => {
-            setPicker(null);
+            setPinning(false);
             // The pin names the place too, unless the author already typed one.
-            onPatch({
-              placeLat: value.lat,
-              placeLng: value.lng,
-              ...(value.label && !fields.place.trim() ? { place: value.label } : {})
-            });
-            if (value.label && !fields.place.trim()) {
-              setFields((state) => ({ ...state, place: value.label ?? "" }));
-            }
+            const names = Boolean(value.label && !place.trim());
+            onPatch({ placeLat: value.lat, placeLng: value.lng, ...(names ? { place: value.label } : {}) });
+            if (names) setPlace(value.label ?? "");
           }}
-          onClose={() => setPicker(null)}
-        />
-      )}
-
-      {(picker === "album" || picker === "slideshow" || picker === "person" || picker === "quote" || picker === "book") && (
-        <StoryRefPicker
-          kind={picker}
-          storyTags={storyTags}
-          onPick={(id, entityType) => {
-            const kind = picker;
-            setPicker(null);
-            // A book pick carries which shelf it came from; the block keeps it.
-            onAddBlock(kind, kind === "book" ? { entityId: id, entityType } : { entityId: id });
-          }}
-          onClose={() => setPicker(null)}
-        />
-      )}
-
-      {picker === "audio" && (
-        <StoryAudioModal
-          storyId={storyId}
-          onAdded={(audioId) => { setPicker(null); onAddBlock("audio", { entityId: audioId }); }}
-          onClose={() => setPicker(null)}
-        />
-      )}
-
-      {picker === "map" && (
-        <StoryMapModal
-          initial={null}
-          onSave={(value) => { setPicker(null); onAddBlock("map", value); }}
-          onClose={() => setPicker(null)}
+          onClose={() => setPinning(false)}
         />
       )}
 
       {confirmDelete && (
         <ConfirmDialog
-          title={t("stories:confirm.removeChapterTitle", {
-            name: chapter.title || t("stories:chapter.number", { number: index + 1 })
-          })}
+          title={t("stories:confirm.removeChapterTitle", { name: chapter.title || label })}
           confirmLabel={t("stories:actions.removeChapter")}
           danger
           busy={busy}
@@ -369,6 +342,6 @@ export function StoryChapterEditor({
           {t("stories:confirm.removeChapterBody", { count: chapter.blocks.length })}
         </ConfirmDialog>
       )}
-    </section>
+    </div>
   );
 }

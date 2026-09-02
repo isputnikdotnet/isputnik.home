@@ -62,9 +62,19 @@ export function useStoryEditor(id: string) {
     run(() => api(`/api/stories/${id}/tags`, { method: "PUT", body: JSON.stringify({ tags }) }), t("stories:errors.save")),
   [id, run, t]);
 
-  const addChapter = useCallback(() =>
-    run(() => api(`/api/stories/${id}/chapters`, { method: "POST", body: JSON.stringify({}) }), t("stories:errors.save")),
-  [id, run, t]);
+  // Returns the new chapter's id: the editor shows one chapter at a time, so
+  // adding one has to be able to walk straight into it.
+  const addChapter = useCallback(async () => {
+    const created: { id: string | null } = { id: null };
+    await run(async () => {
+      const payload = await api<{ chapterId: string }>(`/api/stories/${id}/chapters`, {
+        method: "POST",
+        body: JSON.stringify({})
+      });
+      created.id = payload.chapterId;
+    }, t("stories:errors.save"));
+    return created.id;
+  }, [id, run, t]);
 
   const patchChapter = useCallback((chapterId: string, fields: Record<string, unknown>) =>
     run(
@@ -77,22 +87,42 @@ export function useStoryEditor(id: string) {
     run(() => api(`/api/stories/${id}/chapters/${chapterId}`, { method: "DELETE" }), t("stories:errors.delete")),
   [id, run, t]);
 
-  const moveChapter = useCallback((chapterId: string, direction: -1 | 1) => {
-    if (!story) return Promise.resolve(false);
-    const ordered = reorder(story.chapters.map((chapter) => chapter.id), chapterId, direction);
-    if (!ordered) return Promise.resolve(false);
-    return run(
-      () => api(`/api/stories/${id}/chapters/reorder`, { method: "PATCH", body: JSON.stringify({ orderedIds: ordered }) }),
-      t("stories:errors.save")
-    );
-  }, [id, run, story, t]);
-
-  const addBlock = useCallback((chapterId: string, kind: StoryBlockKind, fields: Record<string, unknown> = {}) =>
+  // Chapters are dragged into order in the editor's sidebar, so the whole list
+  // arrives at once — there is no one-step-at-a-time move to reconcile.
+  const reorderChapters = useCallback((orderedIds: string[]) =>
     run(
-      () => api(`/api/stories/${id}/blocks`, { method: "POST", body: JSON.stringify({ chapterId, kind, ...fields }) }),
+      () => api(`/api/stories/${id}/chapters/reorder`, { method: "PATCH", body: JSON.stringify({ orderedIds }) }),
       t("stories:errors.save")
     ),
   [id, run, t]);
+
+  // A block is added where it was asked for: the editor's insert points sit
+  // between blocks, so afterId places the new one there instead of at the end.
+  // Creation and placement are one action from the author's side, so they are
+  // one run() here — the story is re-read once, at the end of both.
+  const addBlock = useCallback((
+    chapterId: string,
+    kind: StoryBlockKind,
+    fields: Record<string, unknown> = {},
+    afterId?: string
+  ) =>
+    run(async () => {
+      const created = await api<{ blockId: string }>(`/api/stories/${id}/blocks`, {
+        method: "POST",
+        body: JSON.stringify({ chapterId, kind, ...fields })
+      });
+      const chapter = story?.chapters.find((entry) => entry.id === chapterId);
+      if (!afterId || !chapter) return;
+      const ordered = chapter.blocks.map((block) => block.id).filter((blockId) => blockId !== created.blockId);
+      const at = ordered.indexOf(afterId);
+      if (at < 0) return;
+      ordered.splice(at + 1, 0, created.blockId);
+      await api(`/api/stories/${id}/blocks/reorder`, {
+        method: "PATCH",
+        body: JSON.stringify({ chapterId, orderedIds: ordered })
+      });
+    }, t("stories:errors.save")),
+  [id, run, story, t]);
 
   const patchBlock = useCallback((blockId: string, fields: Record<string, unknown>) =>
     run(
@@ -103,6 +133,17 @@ export function useStoryEditor(id: string) {
 
   const removeBlock = useCallback((blockId: string) =>
     run(() => api(`/api/stories/${id}/blocks/${blockId}`, { method: "DELETE" }), t("stories:errors.delete")),
+  [id, run, t]);
+
+  // The whole order at once, as a drag inside a chapter produces it.
+  const reorderBlocks = useCallback((chapterId: string, orderedIds: string[]) =>
+    run(
+      () => api(`/api/stories/${id}/blocks/reorder`, {
+        method: "PATCH",
+        body: JSON.stringify({ chapterId, orderedIds })
+      }),
+      t("stories:errors.save")
+    ),
   [id, run, t]);
 
   const moveBlock = useCallback((chapter: StoryChapter, blockId: string, direction: -1 | 1) => {
@@ -144,10 +185,11 @@ export function useStoryEditor(id: string) {
     addChapter,
     patchChapter,
     removeChapter,
-    moveChapter,
+    reorderChapters,
     addBlock,
     patchBlock,
     removeBlock,
+    reorderBlocks,
     moveBlock,
     moveBlockToChapter
   };

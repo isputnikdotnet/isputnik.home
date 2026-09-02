@@ -129,11 +129,11 @@
   },
   "create": {
     "intro": "Start a new story, memory, travel journal, or review.",
-    "coverImage": "Cover image",
     "journalRangeHint": "Give both dates and the days are laid out for you — Day 1 to the last — each already dated. Up to a month; longer trips start with the range on Day 1.",
     "pickBook": "Choose the book",
     "changeBook": "Change book",
-    "introInCollection": "It joins “{{name}}” and takes its place on that shelf's timeline by its own dates."
+    "introInCollection": "It joins “{{name}}” and takes its place on that shelf's timeline by its own dates.",
+    "settings": "Story settings"
   },
   "related": {
     "bookHeading": "Reviews & stories",
@@ -203,10 +203,33 @@
   "edit": {
     "eyebrow": "Editing story",
     "backToStory": "Back to the story",
-    "addBlock": "Add",
+    "addBlock": "Add block",
     "addChapter": "Add chapter",
     "addChapterDetails": "Add a date, place or chapter title",
-    "chapterEmpty": "Nothing in this chapter yet — add something below."
+    "chapterEmpty": "Nothing in this chapter yet — add something below.",
+    "nav": {
+      "aria": "Story editor",
+      "home": "Home",
+      "details": "Story details",
+      "chapters": "Chapters"
+    },
+    "chapterSettings": "Chapter settings",
+    "approxHint": "Use this if dates are not exact.",
+    "blockHeading": "Block heading",
+    "blockHeadingPlaceholder": "Add a heading",
+    "blockMenu": "Block actions",
+    "alreadyFirst": "Already first",
+    "alreadyLast": "Already last",
+    "moveToChapter": "Move to {{name}}",
+    "editCover": "Edit cover",
+    "addCover": "Add cover",
+    "coverEmpty": "No cover yet",
+    "coverChoosePhoto": "Choose photo",
+    "coverChangePhoto": "Change photo",
+    "coverUseMap": "Use map as cover",
+    "coverUsePhoto": "Show the photo instead",
+    "coverRemove": "Remove cover",
+    "coverNeedsPin": "Pin this chapter on the map first"
   },
   "chapter": {
     "number": "Chapter {{number}}",
@@ -232,7 +255,8 @@
     "heroPickerTitle": "Chapter cover photo",
     "descriptionField": "Chapter note",
     "descriptionPlaceholder": "A line of context under the chapter heading",
-    "lastOne": "A story keeps at least one chapter."
+    "lastOne": "A story keeps at least one chapter.",
+    "startDateField": "Start date"
   },
   "kind": {
     "text": "Text",

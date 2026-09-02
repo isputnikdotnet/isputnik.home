@@ -121,7 +121,9 @@ const chapterSchema = z.object({
   placeLng: z.number().min(-180).max(180).nullable().optional(),
   description: z.string().trim().max(2000).nullable().optional(),
   standfirst: z.string().trim().max(300).nullable().optional(),
-  heroItemId: entityId.nullable().optional()
+  heroItemId: entityId.nullable().optional(),
+  // "Use map as cover": draw the chapter's pin instead of a photo.
+  heroMap: z.boolean().optional()
 });
 
 // Markdown source. The cap is generous — a chapter of prose is the point —
@@ -135,6 +137,7 @@ const blockCreateSchema = z.object({
   // Book blocks only: which book type the reference is (audiobook | ebook).
   entityType: z.enum(BOOK_ENTITY_TYPES).optional(),
   body: z.string().max(MARKDOWN_MAX).nullable().optional(),
+  heading: z.string().trim().max(200).nullable().optional(),
   lat: z.number().min(-90).max(90).nullable().optional(),
   lng: z.number().min(-180).max(180).nullable().optional(),
   zoom: z.number().int().min(1).max(20).nullable().optional(),
@@ -454,6 +457,7 @@ export async function storiesPlugin(app: FastifyInstance) {
         entityType: block.entity_type,
         entityId: block.entity_id,
         body: block.body,
+        heading: block.heading,
         lat: block.lat,
         lng: block.lng,
         zoom: block.zoom,
@@ -516,6 +520,7 @@ export async function storiesPlugin(app: FastifyInstance) {
           description: chapter.description,
           standfirst: chapter.standfirst,
           heroItemId: chapter.hero_item_id,
+          heroMap: Boolean(chapter.hero_map),
           // The hero resolved for THIS viewer; null when unset or out of reach
           // (the page then falls back to text-on-ground).
           hero: chapter.hero_item_id ? assets.get(chapter.hero_item_id) ?? null : null,

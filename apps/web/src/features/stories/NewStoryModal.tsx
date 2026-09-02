@@ -1,6 +1,6 @@
 import { useState } from "react";
+import { BookText, BriefcaseBusiness, CheckCircle2, Heart, MapPin, Star, type LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { BookText, BriefcaseBusiness, CalendarDays, CheckCircle2, Eye, Heart, Image as ImageIcon, Library, MapPin, Star, type LucideIcon } from "lucide-react";
 import { api } from "../../api";
 import { navigate } from "../../router";
 import { formatPartialDateRange } from "../../shared/utils";
@@ -8,8 +8,8 @@ import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
 import { Button } from "../../shared/Button";
 import { PartialDateField } from "../../shared/PartialDateField";
-import { PhotoPicker } from "../gallery/PhotoPicker";
 import type { GalleryAsset } from "../gallery/types";
+import { StoryCoverBanner } from "./StoryCoverBanner";
 import { StoryRefPicker } from "./StoryRefPicker";
 import { STORY_KINDS, type StoryKind } from "./types";
 
@@ -22,10 +22,16 @@ const STORY_KIND_ICONS: Record<StoryKind, LucideIcon> = {
 
 // A new story opens straight into its editor — there is nothing to look at
 // until something is written. The kind is a TEMPLATE choice made here and
-// only here, and the modal's fields follow it: a memory asks when and where,
-// a travel blog asks from–to (a full range lays out one chapter per day), a
-// review asks which book. Everything is skippable, everything it seeds is an
-// ordinary field afterwards, and the kind gates nothing.
+// only here, and the card below the page follows it: a memory asks when and
+// where, a travel blog asks from–to (a full range lays out one chapter per
+// day), a review asks which book. Everything is skippable, everything it seeds
+// is an ordinary field afterwards, and the kind gates nothing.
+//
+// The modal is shaped like the editor it hands you over to: the story's front
+// page, with its cover band, its name and its subtitle set where they will be
+// read, over one settings card holding what the words can't say. There is no
+// separate preview pane — a preview beside the fields was a second, smaller
+// rendering of the same thing, and the page itself is the honest one.
 //
 // Opened from a collection page it is the same form with the shelf already
 // chosen — a story born on a shelf deserves the same start as one born on the
@@ -51,17 +57,17 @@ export function NewStoryModal({
   const [book, setBook] = useState<{ id: string; entityType: "audiobook" | "ebook"; title: string } | null>(null);
   const [pickingBook, setPickingBook] = useState(false);
   const [cover, setCover] = useState<GalleryAsset | null>(null);
-  const [pickingCover, setPickingCover] = useState(false);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
-  const previewTitle = title.trim() || (kind === "review" ? book?.title.trim() : "") || t("stories:fields.titlePlaceholder");
-  const previewSubtitle = subtitle.trim() || t("stories:fields.subtitlePlaceholder");
+
+  // The dateline the story's front page will carry, as it is being decided.
   const previewDate = kind === "journal"
     ? formatPartialDateRange(date.trim(), endDate.trim() || null)
     : kind !== "review"
       ? formatPartialDateRange(date.trim(), null)
       : "";
   const previewPlace = kind === "memory" ? place.trim() : "";
+  const KindIcon = STORY_KIND_ICONS[kind];
 
   const submit = async () => {
     // A review with a chosen book can go out untitled — the book names it.
@@ -115,99 +121,118 @@ export function NewStoryModal({
       <div className="modal-tab-content story-new-story-content">
         {error && <MessageBox tone="error" title={t("stories:errors.createTitle")}>{error}</MessageBox>}
 
-        <div className="story-new-story-layout">
-          <div className="story-new-story-fields">
-            <div className="story-kind-row" role="radiogroup" aria-label={t("stories:kinds.label")}>
-              {STORY_KINDS.map((option) => {
-                const KindIcon = STORY_KIND_ICONS[option];
-                return (
-                  <Button
-                    key={option}
-                    variant="secondary"
-                    className={`story-kind-option${kind === option ? " is-current" : ""}`}
-                    role="radio"
-                    aria-checked={kind === option}
-                    onClick={() => setKind(option)}
-                  >
-                    <span className="story-kind-option-icon">
-                      <KindIcon size={19} aria-hidden="true" />
-                      {kind === option && <CheckCircle2 size={17} className="story-kind-check" aria-hidden="true" />}
-                    </span>
-                    <strong>{t(`stories:kinds.${option}.name`)}</strong>
-                    <small>{t(`stories:kinds.${option}.hint`)}</small>
-                  </Button>
-                );
-              })}
-            </div>
+        <div className="story-kind-row" role="radiogroup" aria-label={t("stories:kinds.label")}>
+          {STORY_KINDS.map((option) => {
+            const OptionIcon = STORY_KIND_ICONS[option];
+            return (
+              <Button
+                key={option}
+                variant="secondary"
+                className={`story-kind-option${kind === option ? " is-current" : ""}`}
+                role="radio"
+                aria-checked={kind === option}
+                onClick={() => setKind(option)}
+              >
+                <span className="story-kind-option-icon">
+                  <OptionIcon size={19} aria-hidden="true" />
+                  {kind === option && <CheckCircle2 size={17} className="story-kind-check" aria-hidden="true" />}
+                </span>
+                <strong>{t(`stories:kinds.${option}.name`)}</strong>
+                <small>{t(`stories:kinds.${option}.hint`)}</small>
+              </Button>
+            );
+          })}
+        </div>
 
-            <label className="field story-new-story-field">
-              <span>{t("stories:fields.title")}</span>
-              <input
-                autoFocus
-                value={title}
-                onChange={(event) => setTitle(event.target.value)}
-                placeholder={t("stories:fields.titlePlaceholder")}
-                maxLength={160}
+        {/* The front page, as it will open. The cover carries its own menu, and
+            the name and subtitle are set where they will be read. */}
+        <div className="story-new-story-page">
+          <StoryCoverBanner
+            cover={cover}
+            pickerTitle={t("stories:fields.coverPickerTitle")}
+            onPick={setCover}
+            onClear={() => setCover(null)}
+          />
+
+          {(previewDate || previewPlace) && (
+            <p className="story-edit-dateline">
+              {previewDate}
+              {previewDate && previewPlace && <span className="story-edit-dot" aria-hidden="true">·</span>}
+              {previewPlace && (
+                <span className="story-new-story-place">
+                  <MapPin size={13} aria-hidden="true" /> {previewPlace}
+                </span>
+              )}
+            </p>
+          )}
+
+          <input
+            autoFocus
+            className="story-new-story-title"
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            placeholder={t("stories:fields.titlePlaceholder")}
+            maxLength={160}
+            aria-label={t("stories:fields.title")}
+          />
+          <input
+            className="story-new-story-subtitle"
+            value={subtitle}
+            onChange={(event) => setSubtitle(event.target.value)}
+            placeholder={t("stories:fields.subtitlePlaceholder")}
+            maxLength={300}
+            aria-label={t("stories:fields.subtitle")}
+          />
+        </div>
+
+        {/* What the words can't say, in the same card the chapter page wears. */}
+        <section className="story-edit-settings story-new-story-settings">
+          <p className="story-edit-settings-head is-static">
+            <KindIcon size={16} aria-hidden="true" />
+            <span>{t("stories:create.settings")}</span>
+          </p>
+
+          <div className="story-edit-settings-body">
+            {kind !== "review" && (
+              <PartialDateField
+                className="story-edit-setting"
+                label={kind === "journal"
+                  ? t("stories:chapter.startDateField")
+                  : `${t("stories:chapter.dateField")} (${t("stories:fields.optional")})`}
+                value={date}
+                onChange={setDate}
+                placeholder={t("stories:chapter.datePlaceholder")}
               />
-            </label>
-
-            <label className="field story-new-story-field">
-              <span>{t("stories:fields.subtitle")} <small className="muted">{t("stories:fields.optional")}</small></span>
-              <input
-                value={subtitle}
-                onChange={(event) => setSubtitle(event.target.value)}
-                placeholder={t("stories:fields.subtitlePlaceholder")}
-                maxLength={300}
-              />
-            </label>
-
-            {(kind === "memory" || kind === "free") && (
-              <div className="story-create-row story-new-story-date-row">
-                <PartialDateField
-                  className="story-new-story-field"
-                  label={`${t("stories:chapter.dateField")} (${t("stories:fields.optional")})`}
-                  value={date}
-                  onChange={setDate}
-                  placeholder={t("stories:chapter.datePlaceholder")}
-                />
-                {kind === "memory" && (
-                  <label className="field story-new-story-field">
-                    <span>{t("stories:chapter.placeField")} <small className="muted">{t("stories:fields.optional")}</small></span>
-                    <input
-                      value={place}
-                      onChange={(event) => setPlace(event.target.value)}
-                      placeholder={t("stories:chapter.placePlaceholder")}
-                      maxLength={200}
-                    />
-                  </label>
-                )}
-              </div>
             )}
 
             {kind === "journal" && (
-              <>
-                <div className="story-create-row story-new-story-date-row">
-                  <PartialDateField
-                    className="story-new-story-field"
-                    label={`${t("stories:chapter.dateField")} (${t("stories:fields.optional")})`}
-                    value={date}
-                    onChange={setDate}
-                    placeholder={t("stories:chapter.datePlaceholder")}
-                  />
-                  <PartialDateField
-                    className="story-new-story-field"
-                    label={t("stories:chapter.endDateField")}
-                    value={endDate}
-                    onChange={setEndDate}
-                    placeholder={t("stories:chapter.endDatePlaceholder")}
-                  />
-                </div>
-                <p className="muted story-create-hint">{t("stories:create.journalRangeHint")}</p>
-              </>
+              <PartialDateField
+                className="story-edit-setting"
+                label={`${t("stories:chapter.endDateField")} (${t("stories:fields.optional")})`}
+                value={endDate}
+                onChange={setEndDate}
+                placeholder={t("stories:chapter.endDatePlaceholder")}
+              />
+            )}
+
+            {kind === "memory" && (
+              <label className="field story-edit-setting">
+                <span>{t("stories:chapter.placeField")} <small className="muted">{t("stories:fields.optional")}</small></span>
+                <input
+                  value={place}
+                  onChange={(event) => setPlace(event.target.value)}
+                  placeholder={t("stories:chapter.placePlaceholder")}
+                  maxLength={200}
+                />
+              </label>
+            )}
+
+            {kind === "journal" && (
+              <p className="muted story-create-hint story-edit-setting-wide">{t("stories:create.journalRangeHint")}</p>
             )}
 
             {kind === "review" && (
-              <div className="story-create-row story-create-book">
+              <div className="story-edit-setting story-create-book story-edit-setting-wide">
                 <Button variant="secondary" compact onClick={() => setPickingBook(true)} disabled={saving}>
                   <BookText size={15} aria-hidden="true" />
                   <span>{book ? t("stories:create.changeBook") : t("stories:create.pickBook")}</span>
@@ -216,90 +241,7 @@ export function NewStoryModal({
               </div>
             )}
           </div>
-
-          <aside className="story-new-story-preview-panel" aria-label={t("stories:actions.preview")}>
-            <h3>
-              <Eye size={20} aria-hidden="true" />
-              <span>{t("stories:actions.preview")}</span>
-            </h3>
-
-            <div className="story-new-story-preview-card">
-              {/* The same fanned photos New collection shows — one placeholder
-                  for "a cover goes here", not two different ones. */}
-              <div className="story-preview-covers" aria-hidden="true">
-                {cover?.coverUrl ? (
-                  <img src={cover.coverUrl} alt="" />
-                ) : (
-                  <>
-                    <span className="story-preview-photo is-back-left" />
-                    <span className="story-preview-photo is-back-right" />
-                    <span className="story-preview-photo is-main" />
-                    <span className="story-preview-photo is-side" />
-                  </>
-                )}
-              </div>
-              <div className="story-new-story-preview-body">
-                <strong>{previewTitle}</strong>
-                <p>{previewSubtitle}</p>
-                {(previewDate || previewPlace) && (
-                  <div className="story-new-story-preview-meta">
-                    {previewDate && (
-                      <span>
-                        <CalendarDays size={15} aria-hidden="true" />
-                        {previewDate}
-                      </span>
-                    )}
-                    {previewPlace && (
-                      <span>
-                        <MapPin size={15} aria-hidden="true" />
-                        {previewPlace}
-                      </span>
-                    )}
-                  </div>
-                )}
-                <div className="story-new-story-preview-chips">
-                  <span>
-                    <Library size={15} aria-hidden="true" />
-                    {t(`stories:kinds.${kind}.name`)}
-                  </span>
-                  {kind === "review" && book && (
-                    <span>
-                      <BookText size={15} aria-hidden="true" />
-                      {book.title}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="story-cover-field">
-              <span>
-                {t("stories:create.coverImage")} <small className="muted">{t("stories:fields.optional")}</small>
-              </span>
-              {cover ? (
-                <div className="story-chapter-hero-row">
-                  <img className="story-chapter-hero-thumb" src={cover.coverUrl ?? undefined} alt="" />
-                  <Button variant="secondary" compact onClick={() => setPickingCover(true)} disabled={saving}>
-                    {t("stories:fields.changeCover")}
-                  </Button>
-                  <Button variant="text" compact onClick={() => setCover(null)} disabled={saving}>
-                    {t("stories:fields.clearCover")}
-                  </Button>
-                </div>
-              ) : (
-                <Button
-                  variant="secondary"
-                  className="story-cover-picker-button"
-                  onClick={() => setPickingCover(true)}
-                  disabled={saving}
-                >
-                  <ImageIcon size={20} aria-hidden="true" />
-                  <span>{t("stories:fields.setCover")}</span>
-                </Button>
-              )}
-            </div>
-          </aside>
-        </div>
+        </section>
 
         <div className="modal-actions story-new-story-actions">
           <Button variant="secondary" onClick={onClose} disabled={saving}>{t("common:common.cancel")}</Button>
@@ -322,15 +264,6 @@ export function NewStoryModal({
             setBook({ id, entityType, title: bookTitle ?? "" });
           }}
           onClose={() => setPickingBook(false)}
-        />
-      )}
-
-      {pickingCover && (
-        <PhotoPicker
-          title={t("stories:fields.coverPickerTitle")}
-          pick="any"
-          onPick={(asset) => { setPickingCover(false); setCover(asset); }}
-          onClose={() => setPickingCover(false)}
         />
       )}
     </Modal>

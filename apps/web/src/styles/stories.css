@@ -794,149 +794,316 @@
 
 /* ── Editor ────────────────────────────────────────────────────────────── */
 
-.story-edit-area .story-edit-head {
-  align-items: flex-start;
-  gap: 16px;
-}
+/* The editor shows one pane at a time — the story's front page, its details, or
+   a single chapter — and every pane is laid out as the page it is editing, not
+   as a form. Fields appear where the words are (see .inline-edit in
+   components.css); the only boxed form left is the chapter's settings card. */
 
-.story-edit-title-fields {
+.story-edit-topbar {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  flex: 1;
-  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
 }
 
-.story-title-input,
-.story-subtitle-input {
-  width: 100%;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--ink);
-}
-
-/* Editable-in-place titles: they look like the heading until you reach for them. */
-.story-title-input {
-  padding: 2px 8px;
-  font-size: 1.9rem;
-  font-weight: 600;
-}
-
-.story-subtitle-input {
-  padding: 4px 8px;
-  color: var(--muted);
-  font-size: 1rem;
-}
-
-.story-title-input:hover,
-.story-subtitle-input:hover {
-  border-color: var(--line);
-}
-
-.story-title-input:focus,
-.story-subtitle-input:focus {
-  border-color: var(--gold);
-  background: var(--field);
-  outline: none;
-}
-
-.story-edit-head-actions {
+.story-edit-topbar-actions {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
 }
 
-.story-chapter-reveal { margin-top: -8px; }
+.story-edit-pane-head {
+  margin-bottom: 16px;
+}
 
+.story-edit-pane-head .eyebrow { margin: 0 0 2px; }
+
+.story-edit-pane-head h1 {
+  margin: 0;
+  font-size: 2.1rem;
+  line-height: 1.15;
+}
+
+.story-edit-pane,
 .story-edit-chapter {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  margin-top: 22px;
-  padding: 18px;
-  border: 1px solid var(--line);
+  max-width: 900px;
+}
+
+/* The sidebar's chapter list: a grip in the icon's slot, and the row that adds
+   the next chapter sitting inside the same frame. */
+.section-nav-grip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 21px;
+  color: var(--muted);
+  cursor: grab;
+  opacity: 0.55;
+}
+
+.section-nav-grip:active { cursor: grabbing; }
+.home-nav-link:hover .section-nav-grip { opacity: 1; }
+.home-nav-link.has-grip { gap: 8px; }
+
+.story-edit-nav-add {
+  width: 100%;
+  justify-content: flex-start;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+/* ── Cover band ────────────────────────────────────────────────────────── */
+
+/* The picture is the control: the menu that changes a cover sits on the cover,
+   so dressing the page never becomes a field to fill in. */
+.story-edit-cover {
+  position: relative;
+  aspect-ratio: 16 / 5;
+  max-height: 280px;
   border-radius: 14px;
+  overflow: hidden;
+  background: var(--surface-raised);
+}
+
+.story-edit-cover.is-empty {
+  border: 1px dashed var(--line);
+  aspect-ratio: 16 / 3;
+}
+
+.story-edit-cover > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.story-edit-cover-map,
+.story-edit-cover-map .story-home-map {
+  height: 100%;
+  margin: 0;
+  border-radius: 0;
+}
+
+.story-edit-cover-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 100%;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.story-edit-cover-actions {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+}
+
+/* Legible over any photograph, in either theme. */
+.story-edit-cover-actions .secondary-button {
+  background: var(--surface);
+  box-shadow: 0 2px 10px rgb(0 0 0 / 25%);
+}
+
+/* ── Chapter page ──────────────────────────────────────────────────────── */
+
+.story-edit-dateline {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.story-edit-dot { margin: 0 6px; }
+
+.story-edit-chapter-title,
+.story-edit-story-title {
+  margin: 0;
+  font-size: 2.1rem;
+  line-height: 1.15;
+}
+
+.story-edit-standfirst,
+.story-edit-story-subtitle,
+.story-edit-intro {
+  max-width: 62ch;
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.story-edit-intro { color: var(--ink); }
+
+.story-edit-home-map h2 {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+}
+
+/* ── Chapter settings ──────────────────────────────────────────────────── */
+
+.story-edit-settings {
+  border: 1px solid var(--line);
+  border-radius: 12px;
   background: var(--surface);
 }
 
-.story-edit-chapter-head {
+.story-edit-settings-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.92rem;
+  cursor: pointer;
 }
 
-.story-edit-chapter-number {
-  color: var(--gold);
-  font-size: 0.78rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+.story-edit-settings-head > svg:first-child { color: var(--muted); }
+
+.story-edit-settings-chevron {
+  margin-left: auto;
+  color: var(--muted);
+  transition: transform 0.15s ease;
 }
 
-.story-edit-chapter-actions,
-.story-edit-block-actions {
+.story-edit-settings.is-collapsed .story-edit-settings-chevron {
+  transform: rotate(-90deg);
+}
+
+/* The new-story card can't collapse — there is nothing yet to collapse it for. */
+.story-edit-settings-head.is-static {
+  margin: 0;
+  cursor: default;
+}
+
+.story-edit-settings-body {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 14px;
+  padding: 0 14px 16px;
+  align-items: end;
+}
+
+.story-edit-approx {
   display: flex;
+  flex-direction: column;
   gap: 4px;
 }
 
-.story-chapter-fields {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.story-chapter-date-row {
-  display: flex;
-  gap: 12px;
-  align-items: flex-end;
-  flex-wrap: wrap;
-}
-
-.story-chapter-date-row .field { flex: 1 1 160px; }
-
-/* Checkbox beside its words, not stacked under a label — same grid/flex
-   override as the picker search. */
-.story-chapter-approx {
+.story-edit-approx .field {
   display: flex;
   flex-direction: row;
   align-items: center;
   gap: 8px;
 }
 
-.story-chapter-approx input { width: auto; }
+.story-edit-approx input { width: auto; }
+.story-edit-approx .muted { margin: 0; font-size: 0.78rem; line-height: 1.35; }
+
+.story-edit-pin-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.story-edit-note,
+.story-edit-setting-wide,
+.story-edit-chapter-delete { grid-column: 1 / -1; }
+
+.story-edit-chapter-delete {
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+/* ── Blocks ────────────────────────────────────────────────────────────── */
 
 .story-edit-blocks {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 6px;
+}
+
+/* Each block owns the insert point under it, so "add a block" means "here",
+   not "at the end of the chapter". */
+.story-edit-block-slot {
+  position: relative;
+  padding-bottom: 26px;
 }
 
 .story-edit-block {
-  padding: 12px;
+  position: relative;
+  padding: 14px 16px;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: var(--surface-raised);
+  background: var(--surface);
 }
 
-.story-edit-block-bar {
+.story-edit-block.is-dragging { opacity: 0.45; }
+
+/* The grip lives in the page's left gutter — the card keeps its own edge. */
+.story-edit-grip {
+  position: absolute;
+  top: 16px;
+  left: -24px;
+  display: flex;
+  color: var(--muted);
+  cursor: grab;
+  opacity: 0.45;
+}
+
+.story-edit-grip:active { cursor: grabbing; }
+.story-edit-block:hover .story-edit-grip { opacity: 1; }
+
+.story-edit-block-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.story-edit-block-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 10px;
 }
 
-.story-edit-kind {
-  color: var(--muted);
-  font-size: 0.74rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.story-wide-glyph {
+.story-edit-block-heading {
+  font-weight: 600;
   font-size: 1rem;
-  line-height: 1;
+}
+
+/* Prose reads as prose until it is clicked, like the chapter's own title. */
+.story-edit-block-prose {
+  cursor: text;
+  border-radius: 8px;
+  padding: 2px 4px;
+  margin: -2px -4px;
+}
+
+.story-edit-block-prose:hover { background: var(--surface-raised); }
+.story-edit-block-prose p:first-child { margin-top: 0; }
+.story-edit-block-prose p:last-child { margin-bottom: 0; }
+
+.story-edit-block-caption {
+  color: var(--muted);
+  font-size: 0.88rem;
 }
 
 .story-text-input {
@@ -953,32 +1120,65 @@
   resize: vertical;
 }
 
-.story-caption-field { margin-top: 10px; }
-
+/* The insert point straddles the card's bottom edge, over the gap. */
 .story-add-block {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  padding-top: 12px;
-  border-top: 1px dashed var(--line);
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  z-index: 1;
 }
 
-.story-add-block-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  margin-right: 4px;
+.story-add-block .secondary-button {
+  border-style: dashed;
+  background: var(--surface);
   color: var(--muted);
-  font-size: 0.8rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-size: 0.82rem;
 }
 
-.story-add-chapter {
+.story-add-block .secondary-button:hover {
+  border-style: solid;
+  color: var(--ink);
+}
+
+.story-edit-blocks-empty {
   display: flex;
-  justify-content: center;
-  margin-top: 22px;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  position: relative;
+  padding: 20px 0 26px;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+}
+
+.story-edit-blocks-empty .muted { margin: 0; }
+
+/* ── Story details ─────────────────────────────────────────────────────── */
+
+.story-edit-details-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 18px;
+  align-items: start;
+}
+
+.story-edit-detail > .muted { font-size: 0.78rem; line-height: 1.4; }
+.story-edit-detail-wide { grid-column: 1 / -1; }
+
+/* The phone's stand-in for the sidebar: the same strip the reading view wears. */
+.story-edit-strip {
+  margin-bottom: 14px;
+}
+
+/* Below the wide layout the gutter is gone, so the grips come inside. */
+@media (max-width: 900px) {
+  .story-edit-grip { position: static; margin-bottom: 6px; }
+  .story-edit-cover { aspect-ratio: 16 / 7; }
+
+  /* The cover's menu sits over its own row rather than across the placeholder. */
+  .story-edit-cover.is-empty { aspect-ratio: auto; min-height: 132px; }
+  .story-edit-cover.is-empty .story-edit-cover-empty { padding-top: 44px; }
 }
 
 /* ── Pickers ───────────────────────────────────────────────────────────── */
@@ -1115,22 +1315,6 @@
 .story-read-tags a:hover {
   border-color: var(--gold);
   color: var(--ink);
-}
-
-.story-tags-field {
-  margin-top: 18px;
-  padding: 14px 16px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--surface);
-}
-
-.story-tags-label {
-  margin: 0 0 8px;
-  color: var(--gold);
-  font-size: 0.78rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 /* A family-tree person, as a card in the flow of the story. */
@@ -1653,39 +1837,7 @@
 
 .story-chapter-nav button:hover { background: var(--hover); }
 
-/* ── Editor: Story Home & chapter-page fields ──────────────────────────── */
-
-.story-home-fields {
-  display: flex;
-  gap: 16px;
-  align-items: flex-start;
-  flex-wrap: wrap;
-}
-
-.story-home-fields .story-field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  flex: 1 1 320px;
-}
-
-.story-home-fields .story-field > span:first-child {
-  color: var(--muted);
-  font-size: 0.82rem;
-  font-weight: 600;
-}
-
-.story-home-fields .story-field-noun { flex: 0 1 240px; }
-.story-home-fields .story-field-noun .muted { font-size: 0.78rem; }
-
-.story-chapter-place-row {
-  display: flex;
-  align-items: flex-end;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.story-chapter-place-row .field { flex: 1 1 240px; }
+/* ── The new-story modal's cover row ───────────────────────────────────── */
 
 .story-chapter-hero-row {
   display: flex;
@@ -2455,18 +2607,54 @@
   overflow-y: auto;
 }
 
-.story-new-story-layout {
+/* The story's front page, made where it will be read — the same band, dateline
+   and type the editor opens with, so creating one and editing one are the same
+   surface rather than a form and a thumbnail of its result. */
+.story-new-story-page {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
-  gap: 28px;
-  align-items: start;
+  gap: 8px;
+  min-width: 0;
 }
 
-.story-new-story-fields {
-  display: grid;
-  gap: 14px;
-  min-width: 0;
-  padding-top: 14px;
+.story-new-story-title,
+.story-new-story-subtitle {
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+}
+
+.story-new-story-title {
+  padding: 4px 8px;
+  font-size: 1.9rem;
+  font-weight: 600;
+  line-height: 1.15;
+}
+
+.story-new-story-subtitle {
+  padding: 4px 8px;
+  color: var(--muted);
+  font-size: 1rem;
+}
+
+/* They look like the page until you reach for them. */
+.metadata-modal.story-new-story-modal .story-new-story-title:hover,
+.metadata-modal.story-new-story-modal .story-new-story-subtitle:hover {
+  border-color: var(--line);
+}
+
+.metadata-modal.story-new-story-modal .story-new-story-title:focus,
+.metadata-modal.story-new-story-modal .story-new-story-subtitle:focus {
+  border-color: var(--gold);
+  background: var(--field);
+  outline: none;
+}
+
+.story-new-story-place {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .story-new-story-modal .story-kind-row {
@@ -2526,35 +2714,21 @@
   line-height: 1.35;
 }
 
-.metadata-modal.story-new-story-modal .story-new-story-field {
-  gap: 7px;
+.story-new-story-settings {
+  background: color-mix(in srgb, var(--field) 58%, var(--surface-raised));
 }
 
-.metadata-modal.story-new-story-modal .story-new-story-field > span:first-child,
-.story-new-story-preview-panel h3 {
-  color: var(--ink);
-  font-size: 0.9rem;
-  font-weight: 780;
+/* A kind that asks one question shouldn't stretch its field across the card. */
+.story-new-story-settings .story-edit-settings-body {
+  grid-template-columns: repeat(auto-fill, minmax(190px, 260px));
 }
 
-.metadata-modal.story-new-story-modal .story-new-story-field input,
-.metadata-modal.story-new-story-modal .story-new-story-field textarea {
-  min-height: 48px;
-  padding: 10px 13px;
+.metadata-modal.story-new-story-modal .story-edit-setting input {
+  min-height: 44px;
   border-radius: 8px;
   background: color-mix(in srgb, var(--field) 94%, transparent);
   color: var(--ink);
-  font-size: 0.96rem;
-  line-height: 1.4;
-}
-
-.story-new-story-date-row.story-create-row {
-  gap: 12px;
-  align-items: flex-start;
-}
-
-.story-new-story-date-row .story-new-story-field {
-  flex: 1 1 180px;
+  font-size: 0.94rem;
 }
 
 .story-new-story-modal .story-create-hint {
@@ -2566,110 +2740,6 @@
 .story-new-story-modal .story-create-book {
   align-items: center;
   min-height: 48px;
-}
-
-.story-new-story-preview-panel {
-  display: grid;
-  gap: 16px;
-  min-width: 0;
-  padding: 18px;
-  border: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--field) 58%, var(--surface-raised));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.62);
-}
-
-.story-new-story-preview-panel h3 {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  margin: 0;
-  font-size: 0.98rem;
-}
-
-.story-new-story-preview-card {
-  overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--line) 64%, transparent);
-  border-radius: 8px;
-  background: var(--surface-raised);
-  box-shadow: 0 12px 28px color-mix(in srgb, var(--shadow) 36%, transparent);
-}
-
-/* New collection insets the fan by the card's own padding; this card pads its
-   body instead, so the covers carry the inset themselves. */
-.story-new-story-preview-card .story-preview-covers {
-  margin: 18px 18px 0;
-}
-
-.story-new-story-preview-body {
-  display: grid;
-  gap: 8px;
-  min-width: 0;
-  padding: 10px 18px 18px;
-}
-
-.story-new-story-preview-body strong {
-  min-width: 0;
-  overflow-wrap: anywhere;
-  color: var(--ink);
-  font-size: 1.14rem;
-  line-height: 1.18;
-}
-
-.story-new-story-preview-body p {
-  margin: 0;
-  min-width: 0;
-  color: color-mix(in srgb, var(--muted) 86%, var(--ink));
-  font-size: 0.88rem;
-  line-height: 1.4;
-  overflow-wrap: anywhere;
-}
-
-.story-new-story-preview-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--line);
-  color: color-mix(in srgb, var(--muted) 78%, var(--ink));
-  font-size: 0.82rem;
-  font-weight: 650;
-}
-
-.story-new-story-preview-meta > span,
-.story-new-story-preview-chips > span {
-  display: inline-flex;
-  align-items: center;
-  min-width: 0;
-  gap: 7px;
-}
-
-.story-new-story-preview-meta svg,
-.story-new-story-preview-chips svg {
-  flex: 0 0 auto;
-}
-
-.story-new-story-preview-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding-top: 4px;
-}
-
-.story-new-story-preview-chips > span {
-  max-width: 100%;
-  padding: 6px 10px;
-  border-radius: 7px;
-  background: color-mix(in srgb, var(--mint) 12%, var(--field));
-  color: var(--ink);
-  font-size: 0.82rem;
-  font-weight: 700;
-}
-
-.story-new-story-preview-chips > span:last-child {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .story-new-story-actions.modal-actions {
@@ -2694,18 +2764,7 @@
     width: min(calc(100vw - 20px), 640px);
   }
 
-  .story-new-story-layout {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 22px;
-  }
-
-  .story-new-story-fields {
-    padding-top: 12px;
-  }
-
-  .story-new-story-preview-panel {
-    max-width: 420px;
-  }
+  .story-new-story-title { font-size: 1.7rem; }
 }
 
 @media (max-width: 640px) {
@@ -2754,9 +2813,9 @@
     padding: 12px 18px 22px;
   }
 
-  .story-new-story-preview-panel {
-    padding: 18px;
-  }
+  /* A phone's width is the headline's limit, not the type scale's. */
+  .story-new-story-title { font-size: 1.45rem; }
+  .story-new-story-subtitle { font-size: 0.94rem; }
 
   .story-new-story-actions.modal-actions {
     flex-wrap: wrap-reverse;

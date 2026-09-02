@@ -336,6 +336,7 @@ export function buildStorySharePayload(link: ResolvedShareLink, token: string) {
     placeLng: chapter.place_lng,
     standfirst: chapter.standfirst,
     description: chapter.description,
+    heroMap: chapter.hero_map === 1,
     hero: (() => {
       const asset = heroByChapter.get(chapter.id);
       return asset ? shareAssetView(asset, token) : null;
@@ -344,7 +345,10 @@ export function buildStorySharePayload(link: ResolvedShareLink, token: string) {
       .map((block) => {
         const assets = byBlock.get(block.id) ?? [];
         photoCount += assets.length;
-        return storyShareBlock(block, assets, token, ctx);
+        const view = storyShareBlock(block, assets, token, ctx);
+        // The heading rides on every kind, so it is attached here once rather
+        // than repeated in each branch below.
+        return view && { ...view, heading: block.heading };
       })
       .filter((block): block is NonNullable<typeof block> => block !== null)
   }));

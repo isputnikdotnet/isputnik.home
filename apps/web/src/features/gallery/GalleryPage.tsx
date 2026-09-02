@@ -1209,7 +1209,10 @@ export function GalleryPage({
           {/* The phone's version of the left nav, off the same list, so a view
               added there appears here too. */}
           {galleryNavItems.map((item) => {
+            // Every gallery view names an icon; the type allows one without
+            // (a reorderable nav group draws a grip there instead).
             const Icon = item.icon;
+            if (!Icon) return null;
             return (
               <button
                 key={item.key}

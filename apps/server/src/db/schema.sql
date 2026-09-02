@@ -1911,7 +1911,11 @@ CREATE TABLE IF NOT EXISTS story_chapters (
   -- Chapter-page hero: a one-line teaser under the dateline, and the cover
   -- photo the dateline/title render over (per-viewer filtered like any asset).
   standfirst   TEXT,
-  hero_item_id TEXT REFERENCES library_items(id) ON DELETE SET NULL
+  hero_item_id TEXT REFERENCES library_items(id) ON DELETE SET NULL,
+  -- 1 = draw the chapter's pin as its cover instead of a photo ("Use map as
+  -- cover" in the editor). Ignored when the chapter has no pin, so clearing
+  -- the pin degrades to the photo hero rather than to an empty banner.
+  hero_map     INTEGER NOT NULL DEFAULT 0
 );
 
 -- One unit of narrative. Reference kinds (media/album/slideshow) carry the
@@ -1928,6 +1932,9 @@ CREATE TABLE IF NOT EXISTS story_blocks (
   entity_type TEXT,
   entity_id   TEXT,
   body        TEXT,            -- 'text' kind: markdown source
+  -- The block's own heading, shown above it in the reader ("Photos from Day
+  -- 1"). Distinct from caption, which sits UNDER a photo and describes it.
+  heading     TEXT,
   lat         REAL,            -- 'map' kind
   lng         REAL,
   zoom        INTEGER,
