@@ -19,6 +19,17 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.54.2",
+    label: "Room to change your mind",
+    changes: [
+      "Every block can have its content changed, not just its heading. A photo, an album, a person, a book — the thing the block actually shows — could only be set when the block was made, so fixing a mis-picked photo meant deleting the block and adding another in its place, losing its heading, its caption and its position. The block's menu now opens with \"Change the photo\", \"Change the album\", \"Move the pin\" and the like, in the same chooser that picked it, already showing what is there.",
+      "The dialogs opened from Add block came out the size of the button that opened them. The button centres itself with a technique that quietly makes it the frame every dialog inside it is measured against, so the map — the one that needs the most room — arrived as a small box in the wrong corner and was close to unusable. They open over the page again.",
+      "The map dialog is much bigger, and the map fills it. Placing a pin is the whole job of that dialog and it used to be a 300-pixel strip under a search box.",
+      "Add block is a dialog of the nine kinds, each with a line saying what it puts on the page, instead of a list of nine bare names.",
+      "The tag on a story's card was as wide as the card, which made it read as a banner across the bottom. It is the size of its own words now."
+    ]
+  },
+  {
     version: "3.54.1",
     label: "Covers that fill themselves in",
     changes: [
