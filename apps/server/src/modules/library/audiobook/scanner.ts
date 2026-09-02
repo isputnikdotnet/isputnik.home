@@ -10,6 +10,7 @@ import { deleteSharesForResource } from "../shared/share-access.js";
 import { deleteCollectionItemsForResource } from "../../collections/cleanup.js";
 import { validateLibrarySource, LibrarySourceError } from "../shared/library-source.js";
 import { libraryJobRunning } from "../shared/scan-lock.js";
+import { requeueInterruptedJobs, releaseAbandonedScanLibraries } from "../shared/job-recovery.js";
 import {
   normalizeLibrarySettings,
   normalizeScanSources,
@@ -1476,7 +1477,7 @@ async function scanAudiobookLibrary(libraryId: string, jobId: string | null = nu
     if (now - lastProgressUpdate < 3000 && booksProcessed % 5 !== 0) return;
     lastProgressUpdate = now;
     db.prepare("UPDATE jobs SET payload = ? WHERE id = ?").run(
-      JSON.stringify({ libraryId, progress: { booksProcessed, booksTotal } }),
+      JSON.stringify({ libraryId, progress: { booksProcessed, booksTotal, updatedAt: new Date(now).toISOString() } }),
       jobId
     );
   };
@@ -1562,7 +1563,7 @@ async function scanAudiobookLibrary(libraryId: string, jobId: string | null = nu
         onProgress: jobId
           ? (processed, total) => {
             db.prepare("UPDATE jobs SET payload = ? WHERE id = ?").run(
-              JSON.stringify({ libraryId, progress: { booksProcessed, booksTotal, authorsProcessed: processed, authorsTotal: total } }),
+              JSON.stringify({ libraryId, progress: { booksProcessed, booksTotal, authorsProcessed: processed, authorsTotal: total, updatedAt: new Date().toISOString() } }),
               jobId
             );
           }
@@ -1635,15 +1636,19 @@ export async function processAudiobookScanQueue() {
 
   queueRunning = true;
   try {
-    db.prepare(`
-      UPDATE jobs
-      SET status = 'pending', locked_at = NULL, locked_by = NULL, error = NULL
-      WHERE type = ?
-        AND status = 'running'
-        AND locked_at IS NOT NULL
-        AND datetime(locked_at) < datetime('now', '-30 minutes')
-        AND attempts < max_attempts
-    `).run(scanJobType);
+    // The same restart recovery the other scan workers run, and for the same reason:
+    // a job left 'running' by a process that died goes back in the queue, and one
+    // that has used every attempt is failed — and its library released — rather than
+    // resurrected. Only reachable when no scan is in flight here (queueRunning guards
+    // re-entry), so it can never take a job away from the pass that is running it.
+    //
+    // This was a 30-minute stale-lock sweep that requeued only jobs with attempts
+    // left. Two problems it had: an interrupted scan sat 'running' for half an hour
+    // before resuming, and one that had exhausted its attempts sat there forever —
+    // which is worse than it sounds, because libraryJobRunning() then reports a scan
+    // in progress for good and blocks every library and face job of every type, while
+    // the library itself stays stuck on "Scanning…".
+    releaseAbandonedScanLibraries(requeueInterruptedJobs(scanJobType).abandoned);
 
     while (true) {
       // One library job at a time server-wide: while another scan or face job is

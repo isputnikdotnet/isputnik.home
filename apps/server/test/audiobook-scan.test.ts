@@ -105,3 +105,48 @@ describe("scan queue handles a missing source folder", () => {
     expect(library.scan_status).toBe("error");
   });
 });
+
+// The audiobook worker used to recover interrupted scans with a 30-minute stale-lock
+// sweep of its own, which requeued only jobs that still had attempts left. A job that
+// had used them all stayed 'running' forever — and libraryJobRunning() reads exactly
+// that, so one such job silently blocked EVERY library and face scan of every type,
+// with its own library stuck on "Scanning…". It now runs the shared recovery pass.
+describe("scan queue recovers what a restart interrupted", () => {
+  function interruptedJob(id: string, attempts: number, lockedAt: string) {
+    db.prepare(`
+      INSERT INTO jobs (id, type, payload, status, attempts, max_attempts, locked_at, locked_by)
+      VALUES (?, 'SCAN_AUDIOBOOK_LIBRARY', ?, 'running', ?, 3, ?, 'dead-pid')
+    `).run(id, JSON.stringify({ libraryId: "L", options: {} }), attempts, lockedAt);
+    db.prepare("UPDATE libraries SET scan_status = 'scanning' WHERE id = 'L'").run();
+  }
+
+  const jobRow = (id: string) =>
+    db.prepare("SELECT status, locked_by FROM jobs WHERE id = ?").get(id) as { status: string; locked_by: string | null };
+  const scanStatus = () =>
+    (db.prepare("SELECT scan_status FROM libraries WHERE id = 'L'").get() as { scan_status: string }).scan_status;
+
+  it("re-queues a fresh lock at once instead of waiting out a 30-minute timeout", async () => {
+    interruptedJob("resume", 1, new Date().toISOString());
+    await processAudiobookScanQueue();
+
+    // The requeued job is claimed and run in the same pass; the source folder is
+    // missing, so it lands on the permanent-failure path — the point is that it ran
+    // at all rather than sitting 'running' for half an hour.
+    expect(jobRow("resume").status).toBe("failed");
+    expect(scanStatus()).toBe("error");
+  });
+
+  it("fails a job that used every attempt, and stops it blocking the whole queue", async () => {
+    interruptedJob("spent", 3, "2026-01-01T00:00:00.000Z");
+    await processAudiobookScanQueue();
+
+    const job = jobRow("spent");
+    expect(job.status).toBe("failed");   // not left 'running' for libraryJobRunning() to trip over
+    expect(job.locked_by).toBeNull();
+    expect(scanStatus()).toBe("error");  // and the library is no longer claiming to scan
+
+    const log = db.prepare("SELECT target_id, detail FROM activity_logs WHERE event = 'library.scan_abandoned'")
+      .get() as { target_id: string; detail: string };
+    expect(log.target_id).toBe("L");
+  });
+});

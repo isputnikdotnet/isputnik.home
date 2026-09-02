@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../src/db.js";
-import { requeueInterruptedJobs } from "../src/modules/library/shared/job-recovery.js";
-import { resetDb } from "./helpers/seed.js";
+import {
+  requeueInterruptedJobs, releaseAbandonedScanLibraries, reconcileOrphanedScans
+} from "../src/modules/library/shared/job-recovery.js";
+import { resetDb, makeUser, makeLibrary } from "./helpers/seed.js";
 
 // The crash loop this exists to stop:
 //
@@ -77,5 +79,107 @@ describe("recovering jobs a restart interrupted", () => {
 
   it("does nothing at all when no job was interrupted", () => {
     expect(requeueInterruptedJobs(TYPE)).toEqual({ requeued: 0, abandoned: [] });
+  });
+});
+
+// A library's scan_status is the browse page's "Scanning…" notice AND the gate the
+// nightly scheduler checks (enqueueLibraryScans skips anything already 'scanning').
+// Left stuck there by a scan that will never finish, a library shows the notice
+// forever and is never scanned again — with no task and no log line to say why.
+describe("releasing libraries a dead scan left marked as scanning", () => {
+  const SCAN_TYPE = "SCAN_GALLERY_LIBRARY";
+
+  beforeEach(() => {
+    resetDb();
+    db.prepare("DELETE FROM jobs").run();
+    makeUser("admin", "admin");
+  });
+
+  function scanningLibrary(id: string, type = "gallery"): string {
+    makeLibrary(id, { createdBy: "admin", type });
+    db.prepare("UPDATE libraries SET scan_status = 'scanning' WHERE id = ?").run(id);
+    return id;
+  }
+
+  function scanJob(id: string, libraryId: string, status: string, type = SCAN_TYPE) {
+    db.prepare(
+      "INSERT INTO jobs (id, type, payload, status, attempts, max_attempts) VALUES (?, ?, ?, ?, 1, 3)"
+    ).run(id, type, JSON.stringify({ libraryId, options: {} }), status);
+  }
+
+  const scanStatusOf = (id: string) =>
+    (db.prepare("SELECT scan_status FROM libraries WHERE id = ?").get(id) as { scan_status: string }).scan_status;
+
+  it("marks the library as errored and logs why when its scan is given up on", () => {
+    scanningLibrary("gal");
+    db.prepare(
+      "INSERT INTO jobs (id, type, payload, status, attempts, max_attempts) VALUES ('spent', ?, ?, 'running', 3, 3)"
+    ).run(SCAN_TYPE, JSON.stringify({ libraryId: "gal", options: {} }));
+
+    releaseAbandonedScanLibraries(requeueInterruptedJobs(SCAN_TYPE).abandoned);
+
+    expect(scanStatusOf("gal")).toBe("error");
+    const log = db.prepare("SELECT event, target_id, detail FROM activity_logs WHERE event = 'library.scan_abandoned'").get() as
+      { event: string; target_id: string; detail: string };
+    expect(log.target_id).toBe("gal");
+    expect(log.detail).toMatch(/interrupted every time/i);
+  });
+
+  it("leaves the library scanning when the interrupted scan is only re-queued", () => {
+    scanningLibrary("gal");
+    scanJob("retry", "gal", "running");
+
+    const recovery = requeueInterruptedJobs(SCAN_TYPE);
+    releaseAbandonedScanLibraries(recovery.abandoned);
+
+    expect(recovery.requeued).toBe(1);
+    expect(scanStatusOf("gal")).toBe("scanning");
+  });
+
+  it("releases a library whose scan job no longer exists", () => {
+    scanningLibrary("pruned");           // its failed job was pruned by "Clean task history"
+    scanningLibrary("queued");
+    scanJob("live", "queued", "pending");
+
+    const unstuck = reconcileOrphanedScans();
+
+    expect(unstuck.map((library) => library.id)).toEqual(["pruned"]);
+    expect(scanStatusOf("pruned")).toBe("error");
+    expect(scanStatusOf("queued")).toBe("scanning");
+  });
+
+  it("spares a library whose job a dead process left 'running', so the requeue can have it", () => {
+    scanningLibrary("crashed");
+    scanJob("stale-lock", "crashed", "running");
+
+    expect(reconcileOrphanedScans()).toEqual([]);
+    expect(scanStatusOf("crashed")).toBe("scanning");
+  });
+
+  it("does not count a face job as a catalog scan", () => {
+    // Face scans carry a libraryId too, but never set scan_status — a library left
+    // 'scanning' with only a face job queued is still stranded.
+    scanningLibrary("faces-only");
+    scanJob("face", "faces-only", "pending", "SCAN_GALLERY_FACES");
+
+    expect(reconcileOrphanedScans().map((library) => library.id)).toEqual(["faces-only"]);
+    expect(scanStatusOf("faces-only")).toBe("error");
+  });
+
+  it("covers audiobook and ebook libraries too", () => {
+    scanningLibrary("audio", "audiobook");
+    scanningLibrary("books", "ebook");
+    scanJob("audio-job", "audio", "pending", "SCAN_AUDIOBOOK_LIBRARY");
+
+    expect(reconcileOrphanedScans().map((library) => library.id)).toEqual(["books"]);
+    expect(scanStatusOf("audio")).toBe("scanning");
+    expect(scanStatusOf("books")).toBe("error");
+  });
+
+  it("leaves idle libraries alone and is a no-op on a healthy install", () => {
+    makeLibrary("idle", { createdBy: "admin", type: "gallery" });
+    expect(reconcileOrphanedScans()).toEqual([]);
+    expect(scanStatusOf("idle")).toBe("idle");
+    expect(db.prepare("SELECT COUNT(*) AS n FROM activity_logs").get()).toEqual({ n: 0 });
   });
 });

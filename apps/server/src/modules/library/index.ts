@@ -10,6 +10,7 @@ import { scanRulesPlugin } from "./shared/scan-rules-routes.js";
 import { folderLocksPlugin } from "./shared/folder-locks-routes.js";
 import { registerTrashRoutes } from "./shared/trash-routes.js";
 import { startTrashPurgeWorker } from "./shared/trash.js";
+import { reconcileOrphanedScans } from "./shared/job-recovery.js";
 import { sweepOrphanLibraryThumbnails } from "./shared/thumbnail.js";
 import { backfillAlphaKeys } from "./shared/alphabet-index.js";
 import { registerFeedRoutes } from "./feed.js";
@@ -77,6 +78,26 @@ export async function libraryPlugin(app: FastifyInstance) {
   registerTrashRoutes(app);
   const stopPurgeWorker = startTrashPurgeWorker();
 
+  // One-shot mop-up for libraries left claiming to scan by a task that no longer
+  // exists — a scan given up on before the workers released the library, or one whose
+  // job row "Clean task history" has since pruned. Left alone, such a library shows
+  // the browse page's "Scanning…" notice forever AND is skipped by every nightly
+  // scan (enqueueLibraryScans only queues libraries that aren't 'scanning'), so it
+  // silently stops being cataloged. Deferred so the scan workers get their own
+  // recovery pass first: a job left 'running' by a dead process still counts as
+  // active here, and their 2s poll requeues it well inside the delay.
+  const scanReconcile = setTimeout(() => {
+    try {
+      const unstuck = reconcileOrphanedScans();
+      for (const library of unstuck) {
+        app.log.warn(`Library "${library.name}" was marked as scanning with no task behind it; released so it can be scanned again.`);
+      }
+    } catch (err) {
+      app.log.warn({ err }, "Stuck-scan reconciliation failed.");
+    }
+  }, 15_000);
+  scanReconcile.unref?.();
+
   // One-shot mop-up for thumbnail buckets orphaned by library deletes from before
   // the delete routes removed them; deferred so it never slows boot.
   const orphanSweep = setTimeout(() => {
@@ -89,6 +110,7 @@ export async function libraryPlugin(app: FastifyInstance) {
 
   app.addHook("onClose", async () => {
     stopPurgeWorker();
+    clearTimeout(scanReconcile);
     clearTimeout(orphanSweep);
   });
 }

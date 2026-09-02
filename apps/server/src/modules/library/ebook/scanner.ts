@@ -17,7 +17,7 @@ import {
 import { matchPattern, type PatternResult } from "../shared/scan-rule-pattern.js";
 import { listScanRules, resolveOwner } from "../shared/scan-rules.js";
 import { libraryJobRunning } from "../shared/scan-lock.js";
-import { requeueInterruptedJobs } from "../shared/job-recovery.js";
+import { requeueInterruptedJobs, releaseAbandonedScanLibraries } from "../shared/job-recovery.js";
 import { jobProgressWriter } from "../shared/job-progress.js";
 import { applyScannedSeries } from "../shared/series.js";
 import { applyItemAlphaIndex } from "../shared/alphabet-index.js";
@@ -612,7 +612,10 @@ export async function processEbookScanQueue() {
   if (queueRunning) return;
   queueRunning = true;
   try {
-    requeueInterruptedJobs(scanJobType);
+    // A scan the recovery pass gives up on (interrupted on its last attempt) has to
+    // release its library too, or the library keeps claiming to scan with no task
+    // behind it — and the nightly scheduler skips libraries marked 'scanning'.
+    releaseAbandonedScanLibraries(requeueInterruptedJobs(scanJobType).abandoned);
 
     for (;;) {
       // One library job at a time server-wide: while another scan or face job is

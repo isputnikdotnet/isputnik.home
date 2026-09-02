@@ -116,7 +116,7 @@ Personal and collaborative note-taking. Rich text, collections, visibility level
 
 ### Background Jobs
 
-A SQLite-backed job queue handles all slow work — scans, metadata extraction, thumbnail generation. No external infrastructure required. Workers claim jobs transactionally; stale locks are released after a timeout so jobs can be retried. All job handlers are designed to be idempotent.
+A SQLite-backed job queue handles all slow work — scans, metadata extraction, thumbnail generation. No external infrastructure required. Workers claim jobs transactionally. Each starts its queue loop by recovering what a restart interrupted — a job left `running` by a dead process goes back to `pending`, unless it has used every attempt, in which case it is failed rather than resurrected (an out-of-memory job would otherwise restart the crash on every boot). Whatever is given up on releases the entity it belongs to, so nothing is left claiming to be mid-scan or mid-render. All job handlers are designed to be idempotent.
 
 ---
 

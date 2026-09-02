@@ -11,7 +11,7 @@ import { db, logActivity } from "../../../db.js";
 import { normaliseRelativePath, relativePathWithinRoot } from "../shared/storage-roots.js";
 import { validateLibrarySource, LibrarySourceError } from "../shared/library-source.js";
 import { libraryJobRunning } from "../shared/scan-lock.js";
-import { requeueInterruptedJobs } from "../shared/job-recovery.js";
+import { requeueInterruptedJobs, releaseAbandonedScanLibraries } from "../shared/job-recovery.js";
 import { jobProgressWriter } from "../shared/job-progress.js";
 import { dateFromFileName } from "./filename-date.js";
 import {
@@ -403,7 +403,10 @@ export async function processGalleryScanQueue() {
   if (queueRunning) return;
   queueRunning = true;
   try {
-    requeueInterruptedJobs(scanJobType);
+    // A scan the recovery pass gives up on (interrupted on its last attempt) has to
+    // release its library too, or the library keeps claiming to scan with no task
+    // behind it — and the nightly scheduler skips libraries marked 'scanning'.
+    releaseAbandonedScanLibraries(requeueInterruptedJobs(scanJobType).abandoned);
 
     for (;;) {
       // One library job at a time server-wide: while another scan or face job is
