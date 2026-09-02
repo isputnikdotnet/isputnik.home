@@ -346,6 +346,9 @@ function ShareChapterPage({
   const heading = chapter.title ?? label;
   // "Use map as cover": the chapter's pin is drawn as the hero band.
   const mapCover = Boolean(chapter.heroMap && chapter.placeLat != null && chapter.placeLng != null);
+  // Failing a cover of its own, a chapter wears the story's — the same
+  // token-scoped picture the front page opens on.
+  const heroUrl = chapter.hero?.previewUrl ?? story.cover?.previewUrl ?? null;
   const eyebrow = label !== heading ? label : null;
   const dateText = chapter.date
     ? (chapter.endDate ? formatPartialDateRange(chapter.date, chapter.endDate) : formatPartialDate(chapter.date))
@@ -357,10 +360,10 @@ function ShareChapterPage({
 
   return (
     <article className="story-read story-chapter-page">
-      <header className={`story-chapter-hero${chapter.hero && !mapCover ? " has-image" : ""}${mapCover ? " has-map" : ""}`}>
+      <header className={`story-chapter-hero${heroUrl && !mapCover ? " has-image" : ""}${mapCover ? " has-map" : ""}`}>
         {mapCover
           ? <GalleryMiniMap lat={chapter.placeLat!} lng={chapter.placeLng!} zoom={12} title={chapter.place ?? label} />
-          : chapter.hero && <img src={chapter.hero.previewUrl} alt="" />}
+          : heroUrl && <img src={heroUrl} alt="" />}
         <div className="story-chapter-hero-text">
           <p className="story-chapter-meta">
             {[eyebrow, dateLabel].filter(Boolean).join(" · ")}

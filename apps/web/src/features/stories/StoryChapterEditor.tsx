@@ -117,7 +117,10 @@ export function StoryChapterEditor({
   return (
     <div className="story-edit-chapter">
       <StoryCoverBanner
-        coverUrl={chapter.hero?.coverUrl ?? null}
+        // No cover of its own? Wear the story's, so a chapter page opens on a
+        // picture from the day it was written about rather than on nothing.
+        coverUrl={chapter.hero?.coverUrl ?? story.coverUrl}
+        inherited={!chapter.hero}
         pickerTitle={t("stories:chapter.heroPickerTitle")}
         pin={chapter.placeLat != null && chapter.placeLng != null
           ? { lat: chapter.placeLat, lng: chapter.placeLng, label: chapter.place ?? label }

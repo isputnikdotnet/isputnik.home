@@ -452,12 +452,15 @@ function ChapterPage({
   // "Use map as cover": the pin is drawn as the hero, and the standalone map
   // below is dropped — one chapter, one map.
   const mapCover = chapter.heroMap && chapter.placeLat != null && chapter.placeLng != null;
+  // A chapter with no cover of its own wears the story's, so every chapter page
+  // opens on a picture rather than on text over nothing.
+  const heroUrl = chapter.hero?.previewUrl ?? story.cover?.previewUrl ?? story.coverUrl ?? null;
   const prev = index > 0 ? story.chapters[index - 1] : null;
   const next = index < story.chapters.length - 1 ? story.chapters[index + 1] : null;
 
   return (
     <article className="story-read story-chapter-page">
-      <header className={`story-chapter-hero${chapter.hero?.previewUrl && !mapCover ? " has-image" : ""}${mapCover ? " has-map" : ""}`}>
+      <header className={`story-chapter-hero${heroUrl && !mapCover ? " has-image" : ""}${mapCover ? " has-map" : ""}`}>
         {mapCover
           ? (
             <StoryMap
@@ -465,7 +468,7 @@ function ChapterPage({
               onOpen={() => {}}
             />
           )
-          : chapter.hero?.previewUrl && <img src={chapter.hero.previewUrl} alt="" />}
+          : heroUrl && <img src={heroUrl} alt="" />}
         <div className="story-chapter-hero-text">
           <p className="story-chapter-meta">
             {/* Without a chapter noun the label is the heading below — no echo. */}

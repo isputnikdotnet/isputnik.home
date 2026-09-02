@@ -238,7 +238,8 @@
     "coverUsePhoto": "Показать фото",
     "coverRemove": "Убрать обложку",
     "coverNeedsPin": "Сначала отметьте главу на карте",
-    "coverUseBook": "Взять обложку книги"
+    "coverUseBook": "Взять обложку книги",
+    "coverFromStory": "Обложка истории"
   },
   "chapter": {
     "number": "Глава {{number}}",

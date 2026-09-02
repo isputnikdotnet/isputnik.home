@@ -906,6 +906,20 @@
   right: 12px;
 }
 
+/* Says whose picture this is: a chapter with no cover of its own is wearing
+   the story's, and nothing here belongs to the chapter to remove. */
+.story-edit-cover-note {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  margin: 0;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
 /* Legible over any photograph, in either theme. */
 .story-edit-cover-actions .secondary-button {
   background: var(--surface);
@@ -1153,6 +1167,13 @@
 }
 
 .story-edit-blocks-empty .muted { margin: 0; }
+
+/* With no card to straddle, the insert point is just a button in the flow —
+   left absolute it lands on top of the sentence above it. */
+.story-edit-blocks-empty .story-add-block {
+  position: static;
+  transform: none;
+}
 
 /* ── Story details ─────────────────────────────────────────────────────── */
 

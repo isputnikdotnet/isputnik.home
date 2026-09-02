@@ -72,7 +72,8 @@ Each chapter can also carry:
 
 - a **standfirst** — one line that sets the scene, shown under the dateline;
 - a **cover photo** — the chapter's page opens on it, your words over the
-  image;
+  image. A chapter without one wears the story's cover, so no chapter page
+  ever opens on a blank band;
 - a **pin on the map** — give chapters places and the story's front page
   draws the whole journey as numbered pins (see Reading below). A pinned
   chapter can wear **the map itself as its cover**, for a day whose photo

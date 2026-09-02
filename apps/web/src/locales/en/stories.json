@@ -230,7 +230,8 @@
     "coverUsePhoto": "Show the photo instead",
     "coverRemove": "Remove cover",
     "coverNeedsPin": "Pin this chapter on the map first",
-    "coverUseBook": "Use the book's cover"
+    "coverUseBook": "Use the book's cover",
+    "coverFromStory": "The story's cover"
   },
   "chapter": {
     "number": "Chapter {{number}}",

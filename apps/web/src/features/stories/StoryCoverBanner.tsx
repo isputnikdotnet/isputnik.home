@@ -15,6 +15,7 @@ import type { GalleryAsset } from "../gallery/types";
 // menu, so the two covers are one decision and not two competing fields.
 export function StoryCoverBanner({
   coverUrl,
+  inherited = false,
   pickerTitle,
   pin,
   useMap = false,
@@ -26,6 +27,11 @@ export function StoryCoverBanner({
   /** What to draw, resolved for this viewer; null = nothing set. A cover is
    *  usually a photo, but a review may wear the book's own artwork. */
   coverUrl: string | null;
+  /** True = what is drawn belongs to the story, not to this chapter — a
+   *  chapter with no cover of its own borrows the story's rather than opening
+   *  on a grey box. It is a picture, not a choice: there is nothing here to
+   *  remove, and choosing one replaces it for this chapter only. */
+  inherited?: boolean;
   pickerTitle: string;
   /** The chapter's place, when it has one — what "Use map as cover" draws. */
   pin?: { lat: number; lng: number; label: string } | null;
@@ -44,11 +50,14 @@ export function StoryCoverBanner({
 
   const showingMap = Boolean(useMap && pin);
   const empty = !showingMap && !coverUrl;
+  // A borrowed picture is not this object's cover: there is nothing to change
+  // and nothing to remove, only a cover to choose.
+  const owned = Boolean(showingMap || (coverUrl && !inherited));
 
   const items: ActionMenuItem[] = [
     {
       key: "photo",
-      label: coverUrl ? t("stories:edit.coverChangePhoto") : t("stories:edit.coverChoosePhoto"),
+      label: owned ? t("stories:edit.coverChangePhoto") : t("stories:edit.coverChoosePhoto"),
       icon: <ImageIcon size={15} aria-hidden="true" />,
       onSelect: () => setPicking(true)
     },
@@ -63,7 +72,7 @@ export function StoryCoverBanner({
       onSelect: () => onUseMap(!showingMap)
     });
   }
-  if (coverUrl || showingMap) {
+  if (owned) {
     items.push({
       key: "clear",
       label: t("stories:edit.coverRemove"),
@@ -91,9 +100,13 @@ export function StoryCoverBanner({
         </p>
       )}
 
+      {inherited && !showingMap && coverUrl && (
+        <p className="story-edit-cover-note">{t("stories:edit.coverFromStory")}</p>
+      )}
+
       <div className="story-edit-cover-actions">
         <ActionMenu
-          label={empty ? t("stories:edit.addCover") : t("stories:edit.editCover")}
+          label={owned ? t("stories:edit.editCover") : t("stories:edit.addCover")}
           icon={<Pencil size={15} aria-hidden="true" />}
           items={items}
           compact
