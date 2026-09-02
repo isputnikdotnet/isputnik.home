@@ -19,6 +19,15 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.52.1",
+    label: "A filter you can see",
+    changes: [
+      "Opening a photo's folder from the home page no longer leaves the rest of the Gallery filtered. That link has to say which library the folder belongs to — folder names repeat between libraries — but the library it named then stayed behind as a filter you never chose, so coming back to the timeline showed a slice of your photos with nothing on screen to explain it. The library now holds only for as long as you are in Folders; a library you pick yourself still stays picked.",
+      "A filter that is in force is now visible on every page it narrows. Folders, Memories, People and the Map show the same chips the timeline does — each listing only the filters that page actually applies, so a year chosen on the timeline never turns up on a page that ignores it, and a page that looks empty always says why.",
+      "People has a Filter button again. Which libraries the faces are gathered from is the one thing that narrows that page, and there was no way to set it there — a People page emptied by a filter looked exactly like having no people at all."
+    ]
+  },
+  {
     version: "3.52.0",
     label: "Nothing waits forever",
     changes: [
