@@ -19,6 +19,16 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.52.0",
+    label: "Nothing waits forever",
+    changes: [
+      "A library could get stuck saying it was scanning and never stop. If the server was restarted or killed at the wrong moment often enough, the scan was abandoned — correctly — but the library was never told, so it wore the scanning notice for good, with nothing on the Tasks page to explain it. Worse than the notice: the nightly scan skips any library that says it is already scanning, so that library quietly stopped being cataloged, and new photos or books in it never appeared. An abandoned scan now releases its library and writes a line in the log saying so, and every restart sweeps up any library still claiming to scan with no task behind it.",
+      "Audiobook scans recover the way the others always have. An interrupted one used to sit still for half an hour before picking itself back up, and one that had used up its retries could sit as a running task forever — which mattered more than it sounds, because library and photo scans run strictly one at a time, so that single stuck task quietly blocked every scan of every kind, indefinitely. Both are gone: interrupted scans resume at once, and one that is truly finished with gets out of the way.",
+      "The Tasks page now tells you when work has stopped moving. A running task that has gone quiet for too long is marked as possibly stuck — in amber, with how long it has been silent — instead of looking exactly like a task that is merely slow. How long is too long depends on the job: a catalog scan reports every couple of seconds, while a video conversion can legitimately spend an hour on one long clip.",
+      "And a queue that is not moving now says why. Library and photo scans run one at a time, so several queued scans and nothing starting used to read like a broken server; the page now names the task holding the queue and counts what is waiting behind it — and if that task has gone quiet, it says to cancel it to let the rest through."
+    ]
+  },
+  {
     version: "3.51.0",
     label: "All together now",
     changes: [
