@@ -36,6 +36,8 @@ read the EPUB.
 
 ## Finding things
 
+![The Ebooks page: cover grid, toolbar and the A-Z strip](images/31-ebooks.png)
+
 - **Search** covers titles, authors and series.
 - **Filter** (the sliders icon) narrows by author, category, tag, language and
   whether you've finished it.

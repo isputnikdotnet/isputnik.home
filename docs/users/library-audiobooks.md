@@ -64,6 +64,8 @@ you can stop on a phone and continue on a laptop. It also offers:
 
 ## Finding things
 
+![The Audiobooks page: cover grid, toolbar and the A-Z strip](images/30-audiobooks.png)
+
 **Authors**, **Narrators**, **Series** and **Categories** browse the library
 different ways; search covers titles, authors and series. The filter button
 narrows by library, category, tag, narrator, length and whether you've finished

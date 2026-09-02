@@ -13,6 +13,11 @@ you so — with a button straight back here.
 
 ## Thumbnail storage
 
+On a new install both halves of this page are empty, and the badge beside
+thumbnail storage says it is required before you can add a library:
+
+![Storage before anything is configured: thumbnails not set, no containers](images/10-storage-empty.png)
+
 Choose **Edit path** and give it a writable folder. Anything works as long as
 the server user can write to it and it isn't inside a library you'd rather keep
 pristine. A hidden folder alongside your media is a tidy choice:
@@ -33,6 +38,8 @@ container or any folder inside it.
 
 Choose **Add container** and give it a name and a path:
 
+![The Add storage container dialog](images/12-storage-add-container.png)
+
 | Field | Example |
 |---|---|
 | **Container name** | `Family media` — a label for you, shown when picking folders |
@@ -40,6 +47,11 @@ Choose **Add container** and give it a name and a path:
 
 The folder has to exist already; the app won't create it. If the path is wrong
 or unreadable, you're told immediately rather than at scan time.
+
+With both done, thumbnail storage reads **Ready** and the container is listed
+underneath, with a count of the libraries using it:
+
+![Storage once configured: thumbnails ready and one container listed](images/11-storage-configured.png)
 
 Both green? You're ready for **[Setting up libraries](libraries.md)**.
 

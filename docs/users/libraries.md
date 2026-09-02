@@ -13,6 +13,8 @@ out, [storage](storage.md) isn't set up yet.
 
 ### 1. What kind of media?
 
+![Step one of the Add library wizard, choosing the media type](images/20-library-wizard-type.png)
+
 | Type | Use it for | How files become items |
 |---|---|---|
 | **Audiobooks** | Spoken-word audio | A *folder* of audio files becomes one book, its files becoming tracks/chapters |
@@ -27,6 +29,8 @@ again; your files are untouched either way.
 
 Give it a name, then choose the folder with **Browse**. You can only pick
 inside an approved container, and you can go into subfolders:
+
+![The folder picker, listing the folders inside an approved container](images/22-library-wizard-folder.png)
 
 <a id="who-can-see-it"></a>
 
@@ -49,6 +53,8 @@ library's Edit dialog.
 The last step lists everything back to you — type, folder, visibility, formats,
 where metadata comes from — before anything happens. **Add and scan** creates
 the library and immediately starts reading the folder.
+
+![The review step, listing every setting before the library is created](images/23-library-wizard-review.png)
 
 ## The first scan
 
@@ -79,6 +85,8 @@ Two ways:
   on the library page. Uploads land in the library folder like any other file.
 
 ## Editing and removing
+
+![The libraries list, one row per library with its file count and size](images/21-libraries-list.png)
 
 Each library row has:
 

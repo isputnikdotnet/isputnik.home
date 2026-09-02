@@ -84,8 +84,8 @@ const SHOTS = [
       button(topModal(), "Next").click(); await sleep(700);
       setInput(topModal().querySelector("input"), "Audiobooks"); await sleep(200);
       button(topModal(), "Browse").click(); await sleep(1200);
-      const folder = [...topModal().querySelectorAll("button")].find((b) => b.textContent.trim() === "Audio");
-      if (!folder) return "no Audio folder";
+      const folder = [...topModal().querySelectorAll("button")].find((b) => b.textContent.trim() === "Audiobooks");
+      if (!folder) return "no Audiobooks folder in the container";
       folder.click(); await sleep(900);
       button(topModal(), "Use this folder").click(); await sleep(700);
       button(topModal(), "Next").click(); await sleep(900);
@@ -98,13 +98,14 @@ const SHOTS = [
   { name: "32-gallery", url: "gallery" },
   { name: "40-family-tree", url: "family" },
 
-  // Config opens on Appearance; the email form is behind its own tab. Captured on
-  // an install where SMTP is filled in — an empty form documents nothing.
+  // Every control-panel tab is a real route (features/control/nav.ts), so this is a
+  // plain navigation — it used to click an "Email" tab inside /control/config, which
+  // stopped existing when those tabs became routes. Captured on an install where
+  // SMTP is filled in: an empty form documents nothing.
   {
     name: "50-email",
-    url: "control/config",
-    state: "email settings filled in",
-    setup: `button(document, "Email").click(); await sleep(400); "opened";`
+    url: "control/settings/email",
+    state: "email settings filled in"
   }
 ];
 
@@ -240,6 +241,21 @@ async function main() {
     await send(ws, "Network.enable");
     await send(ws, "Emulation.setDeviceMetricsOverride", {
       width: WIDTH, height: HEIGHT, deviceScaleFactor: 1, mobile: false
+    });
+
+    // The guides in docs/users/ are English, so the screenshots have to be too —
+    // on any machine. Two things decide the language and both are pinned here:
+    //
+    //   * the app boots in localStorage's `isputnik-language`, falling back to the
+    //     browser's own on a first visit, so a Russian-locale machine would
+    //     otherwise capture a Russian UI. Seed the preference in a script that runs
+    //     before any page script, on every document.
+    //   * dates and numbers come from Intl, which reads the browser locale rather
+    //     than the app's setting — so override that too, or a screenshot shows an
+    //     English UI with dates formatted for somewhere else.
+    await send(ws, "Emulation.setLocaleOverride", { locale: "en-US" }).catch(() => {});
+    await send(ws, "Page.addScriptToEvaluateOnNewDocument", {
+      source: 'try { localStorage.setItem("isputnik-language", "en"); } catch { /* private mode */ }'
     });
 
     fs.mkdirSync(OUT, { recursive: true });

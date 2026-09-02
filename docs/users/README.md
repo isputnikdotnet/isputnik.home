@@ -2,6 +2,8 @@
 
 Friendly, task-focused guides for people using and running isputnik.home.
 
+![The Home page of a library in use, with recent photos and newly added books](images/02-home.png)
+
 > These files are **shipped inside the app**. The web build copies this folder to
 > `apps/web/public/guides/` and renders it at `/help/<name>`, so a server with no
 > internet still has its documentation and always shows the version it's running.

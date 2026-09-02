@@ -9,6 +9,8 @@ and can configure everything else.
 Open the app in a browser. Instead of a sign-in form you get **First run —
 Create the setup admin**:
 
+![The first-run screen, with the Create the setup admin form](images/00-first-run.png)
+
 Fill in three things:
 
 | Field | Notes |
@@ -59,6 +61,8 @@ somewhere new.
 From then on the app opens at the sign-in screen. The QR code beside the form
 opens the same page on another device on your network — handy for getting the
 app onto a phone or tablet without typing the address.
+
+![The sign-in screen](images/01-login.png)
 
 If you later turn on [two-factor authentication](two-factor-authentication.md),
 a code prompt follows the password.

@@ -32,6 +32,8 @@ their family is in view.
 
 ## The chart
 
+![The family tree chart, four generations with the relationship legend](images/40-family-tree.png)
+
 The tree view centres on one person: parents and grandparents above,
 children below, partners alongside, and siblings and cousins on their own
 generation's row. Click any card to re-centre on that person — the browser's

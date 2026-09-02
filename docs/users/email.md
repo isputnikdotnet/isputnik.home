@@ -38,6 +38,8 @@ through a provider rather than direct.
 
 ## Filling in the form
 
+![The email settings form, filled in with an example SMTP server](images/50-email.png)
+
 | Field | What to put | Notes |
 |---|---|---|
 | **SMTP host** | `smtp.example.com` | Your provider's outgoing server, from their help pages |

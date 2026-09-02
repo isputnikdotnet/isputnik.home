@@ -26,6 +26,8 @@ Along the top:
 | **Folders** | A file-explorer over the actual folder structure on disk. |
 | **People** | Faces grouped into people, once face recognition has run. |
 
+![The Gallery in Timeline view, with the other views listed down the side](images/32-gallery.png)
+
 They're all views of the same photos — nothing is copied or moved between them.
 
 ## How the grid looks
