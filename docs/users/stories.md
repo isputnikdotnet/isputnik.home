@@ -153,7 +153,11 @@ deliberate: **you always see your own stories**, wherever they're shelved.
 Nobody's access decision can take your writing away from you.
 
 Deleting a collection never deletes a story — its stories simply become
-standalone again.
+standalone again. One thing to know before deleting a *restricted*
+collection: the restriction goes with it. Published stories that were
+visible only to the shelf's members become ordinary published stories,
+visible to the whole family. The delete dialog warns about exactly this
+before you press the button.
 
 ## Reviews
 
@@ -169,6 +173,25 @@ This works in every direction, automatically. A person's profile in the
 family tree lists the stories they appear in; an album or slideshow shows
 which stories it appears in. The connections come from what your stories
 already reference — there's nothing to maintain.
+
+## Deleting — and the way back
+
+Deleting a story doesn't destroy it. It goes to the **Recycle Bin** — the
+same one deleted photos wait in (Control panel → Maintenance → Recycle
+bin) — and an administrator can restore it from there, whole: chapters,
+text, tags, stars, favorites, guest links, everything. In the bin it sits
+as a tile among the deleted files, and the bin's **Stories** filter finds
+it in one pick.
+
+While a story is in the bin it is properly gone from the house: off every
+page, out of search, and its guest links stop answering. Restore it and
+all of that wakes up again, exactly as it was.
+
+The bin's clock applies: a deleted story keeps the retention window it was
+given on the day it was deleted (30 days unless your admin changed it) and
+then leaves for good. **Delete forever** in the bin skips the wait. Either
+way, nothing the story pointed at is ever touched — photos, albums, books
+and recordings were never inside it.
 
 ## Sharing a story
 
