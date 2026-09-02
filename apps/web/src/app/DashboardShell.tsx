@@ -389,7 +389,7 @@ export function DashboardShell({
           <Star className="home-sidebar-brand-star" size={29} fill="currentColor" aria-hidden="true" />
           <span className="home-sidebar-brand-copy">
             <strong>iSputnik</strong>
-            <small>ВАШИ ИСТОРИИ — НА ОРБИТЕ</small>
+            <small>{t("nav.brandTagline")}</small>
           </span>
         </a>
 
