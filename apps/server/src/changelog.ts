@@ -19,6 +19,15 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.54.1",
+    label: "Covers that fill themselves in",
+    changes: [
+      "A review wears the cover of the book it is about. A review is about a book and a book already has a face, but a story's cover could only ever be a photograph — so writing one meant going off to find a picture of a book. Choosing the book in New story now sets its artwork as the cover, and Edit cover offers it, there and in the editor afterwards, for any story that shows a book at all. Choose a photo instead at any point and the photo wins.",
+      "A chapter with no cover of its own wears the story's. Chapter pages used to open on a blank band until somebody found each one a photograph, on a story that already had a perfectly good cover. Nothing is stored: setting the story's cover fills in every chapter that hasn't chosen one, giving a chapter its own still affects only that chapter, and the editor says whose picture you are looking at — a borrowed cover is labelled, and has nothing to remove.",
+      "The Add block button on an empty chapter sat on top of the line telling you the chapter was empty. It sits under it now."
+    ]
+  },
+  {
     version: "3.54.0",
     label: "One chapter at a time",
     changes: [
