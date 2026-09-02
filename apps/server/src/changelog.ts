@@ -19,6 +19,21 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.54.0",
+    label: "One chapter at a time",
+    changes: [
+      "Writing a story happens one page at a time now. The editor used to be a single scroll holding everything at once — the story's settings, then every chapter stacked underneath, each wearing its own row of nine buttons. The sidebar now lists the story's front page, its details and every chapter, and you move between them; each is a real address, so the Back button, a new tab and a link you paste to yourself all work the way they should.",
+      "Chapters are put in order by dragging them in that list, instead of nudging one up or down a place at a time from whichever chapter you happened to be looking at.",
+      "Words are edited where they sit. Point at a chapter's title, its opening line or a paragraph and a small pencil appears: click it, type, click away. There is still no Save button anywhere — Enter finishes an edit and Escape abandons it. Everything that can't be written into the page itself, the dates and the pin and the note, folds into one Chapter settings card underneath.",
+      "Every block is a card of its own, with a handle to drag it into place, a heading if it wants one — \"Photos from Day 1\" — and a menu holding the rest: move it up, move it down, move it into another chapter, delete it. Those headings show up for readers too, and on a guest link. Add block sits under each card and puts the new block exactly there, rather than at the end of the chapter.",
+      "A chapter pinned on the map can wear the map as its cover, for a day whose photograph never quite existed.",
+      "A cover is changed on the cover. The button sits on the picture itself, in the editor and in the New story dialog alike, instead of in a form somewhere below it.",
+      "New story is the story's front page before it exists: the cover band, then the name and the subtitle in the type they will be read in, over one card asking whatever the kind of story needs to know. The small preview card that used to sit beside the form is gone — the page you are filling in is the preview.",
+      "A chapter known only by its date says so in your own language — \"Jan 6, 1998\" rather than \"1998-01-06\" — in the editor, on the story's pages and on its card.",
+      "On a phone, where there is no sidebar, the same destinations run along the top of the editor as a strip, so a story with chapters can still be written from the sofa."
+    ]
+  },
+  {
     version: "3.53.2",
     label: "A patched part",
     changes: [
