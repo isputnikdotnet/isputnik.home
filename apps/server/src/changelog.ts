@@ -19,6 +19,14 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.50.1",
+    label: "The fine print",
+    changes: [
+      "The Stories guide caught up with the last release. It now explains the way back from deleting a story — the Recycle Bin, who can restore it and until when, what happens to its guest links in the meantime — and spells out the one thing worth knowing before deleting a restricted collection: the restriction leaves with it, and its published stories become visible to the whole family. Help → Stories, as always, inside the app and off the network.",
+      "Nothing else changed."
+    ]
+  },
+  {
     version: "3.50.0",
     label: "Nothing is lost",
     changes: [
