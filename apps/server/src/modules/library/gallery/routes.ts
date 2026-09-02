@@ -346,6 +346,9 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
       // outside the AND-of-facets loop below and reads that way in catalog.ts.
       libraries: filterList,
       people: filterList,
+      // 'any' (default) = OR, matching every other facet; 'all' = every selected
+      // person must be tagged on the same item.
+      peopleMatch: z.enum(["any", "all"]).default("any"),
       tags: filterList,
       years: filterList,
       months: z.array(z.string().regex(/^(0[1-9]|1[0-2])$/)).max(12).default([]),

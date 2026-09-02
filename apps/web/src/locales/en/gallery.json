@@ -95,6 +95,7 @@
     "facetMediaType": "Media type",
     "facetLikes": "Likes",
     "facetPeople": "People",
+    "peopleMatchAllToggle": "Require all selected people in the same photo",
     "facetYears": "Years",
     "facetMonths": "Months",
     "facetDateTaken": "Date taken",

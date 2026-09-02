@@ -498,6 +498,28 @@ describe("gallery advanced filters", () => {
     expect(galleryFacets(["GAL"]).people).toEqual(["Mum"]); // unnamed cluster stays out
   });
 
+  it("peopleMatch 'all' requires every selected person on the same photo, unlike the default OR", async () => {
+    const mumOnly = await ingestGalleryAsset("GAL", asset("mum-only.jpg", Date.now()), false);
+    const mumAndDad = await ingestGalleryAsset("GAL", asset("mum-and-dad.jpg", Date.now()), false);
+    const allThree = await ingestGalleryAsset("GAL", asset("all-three.jpg", Date.now()), false);
+    addPersonFace(mumOnly, "p-mum", "Mum");
+    addPersonFace(mumAndDad, "p-mum", "Mum");
+    addPersonFace(mumAndDad, "p-dad", "Dad");
+    addPersonFace(allThree, "p-mum", "Mum");
+    addPersonFace(allThree, "p-dad", "Dad");
+    addPersonFace(allThree, "p-kid", "Kid");
+
+    // Default (and explicit 'any'): OR, same as every other facet.
+    expect(timeline({ people: ["Mum", "Dad"] }).assets.map((x) => x.id).sort())
+      .toEqual([allThree, mumAndDad, mumOnly].sort());
+    expect(timeline({ people: ["Mum", "Dad"], peopleMatch: "any" }).total).toBe(3);
+
+    // 'all': only photos carrying every selected person.
+    expect(timeline({ people: ["Mum", "Dad"], peopleMatch: "all" }).assets.map((x) => x.id).sort())
+      .toEqual([allThree, mumAndDad].sort());
+    expect(timeline({ people: ["Mum", "Dad", "Kid"], peopleMatch: "all" }).assets.map((x) => x.id)).toEqual([allThree]);
+  });
+
   it("filters by camera using the shared display string", async () => {
     const a = await ingestGalleryAsset("GAL", asset("a.jpg", Date.now()), false);
     const b = await ingestGalleryAsset("GAL", asset("b.jpg", Date.now()), false);

@@ -111,6 +111,7 @@
     "facetMediaType": "Тип медиа",
     "facetLikes": "Нравится",
     "facetPeople": "Люди",
+    "peopleMatchAllToggle": "Только фото, где есть все выбранные люди",
     "facetYears": "Годы",
     "facetMonths": "Месяцы",
     "facetDateTaken": "Дата съёмки",

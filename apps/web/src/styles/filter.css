@@ -224,6 +224,10 @@
 }
 .filter-chips-clear:hover { color: var(--ink); }
 
+/* The People facet's any/all toggle — sits right under the chip row, only shown
+   once 2+ people are selected (see GalleryPage.tsx). */
+.gallery-people-match { margin: -10px 0 16px; }
+
 /* ── Merge people modal ─────────────────────────────────────────── */
 .merge-modal { width: min(100%, 460px); }
 .merge-search { margin: 4px 0 10px; }

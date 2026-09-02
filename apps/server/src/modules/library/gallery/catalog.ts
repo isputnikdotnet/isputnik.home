@@ -202,9 +202,12 @@ const SIZE_BUCKETS: Record<string, { min: number; max: number | null }> = {
 
 // Advanced filters (mirrors the audiobook catalog's filter arrays): every list is
 // OR within itself and AND against the others. `location` takes the codes
-// 'with_gps' / 'no_gps' — selecting both is the same as selecting neither.
+// 'with_gps' / 'no_gps' — selecting both is the same as selecting neither. The one
+// exception is `people`: `peopleMatch` switches it from OR ("any of these people")
+// to AND ("all of these people, together in the same photo").
 export interface GalleryTimelineFilters {
   people: string[];   // gallery_people names (named face groups / manual tags)
+  peopleMatch?: "any" | "all";
   tags: string[];     // tag display names
   years: string[];    // 'YYYY' from taken_at
   months: string[];   // 'MM' (01–12) from taken_at, any year
@@ -216,7 +219,7 @@ export interface GalleryTimelineFilters {
 }
 
 export const EMPTY_GALLERY_FILTERS: GalleryTimelineFilters = {
-  people: [], tags: [], years: [], months: [], taken: [], cameras: [], sizes: [], location: [], likes: []
+  people: [], peopleMatch: "any", tags: [], years: [], months: [], taken: [], cameras: [], sizes: [], location: [], likes: []
 };
 
 // The Likes facet. `item_saves` is already LEFT JOINed for the `saved` column,
@@ -235,10 +238,21 @@ function galleryFilterClauses(filters: GalleryTimelineFilters, userId: string): 
   const clauses: string[] = [];
   const args: unknown[] = [];
   if (filters.people.length > 0) {
-    clauses.push(`EXISTS (
-      SELECT 1 FROM gallery_faces gf JOIN gallery_people gp ON gp.id = gf.person_id
-      WHERE gf.item_id = library_items.id AND gf.assignment != 'rejected' AND gp.name IN (${inClause(filters.people.length)}))`);
-    args.push(...filters.people);
+    if (filters.peopleMatch === "all") {
+      // AND, not OR: one EXISTS per person, so a match needs every one of them
+      // tagged on the SAME item — a single IN(...) can't express co-occurrence.
+      for (const name of filters.people) {
+        clauses.push(`EXISTS (
+          SELECT 1 FROM gallery_faces gf JOIN gallery_people gp ON gp.id = gf.person_id
+          WHERE gf.item_id = library_items.id AND gf.assignment != 'rejected' AND gp.name = ?)`);
+        args.push(name);
+      }
+    } else {
+      clauses.push(`EXISTS (
+        SELECT 1 FROM gallery_faces gf JOIN gallery_people gp ON gp.id = gf.person_id
+        WHERE gf.item_id = library_items.id AND gf.assignment != 'rejected' AND gp.name IN (${inClause(filters.people.length)}))`);
+      args.push(...filters.people);
+    }
   }
   if (filters.tags.length > 0) {
     clauses.push(`EXISTS (

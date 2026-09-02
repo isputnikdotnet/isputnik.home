@@ -11,6 +11,7 @@ import { MessageBox } from "../../shared/MessageBox";
 import { LibraryPageHeader } from "../../shared/LibraryPageHeader";
 import { LibraryPageToolbar } from "../../shared/LibraryPageToolbar";
 import { SortMenu } from "../../shared/SortMenu";
+import { ToggleSwitch } from "../../shared/ToggleSwitch";
 import { useIsMobile } from "../../shared/useIsMobile";
 import { SectionNav, type SectionNavItem } from "../../shared/SectionNav";
 import { AssetTile, PersonAvatar, type LightboxSource } from "./AssetTile";
@@ -195,6 +196,12 @@ export function GalleryPage({
     ...EMPTY_GALLERY_FILTERS,
     libraries: initialLibraryId ? [initialLibraryId] : []
   }));
+  // Whether the People facet means "any of them" (default, OR — like every other
+  // facet) or "all of them together" (AND). Kept outside GalleryFilters/EMPTY_GALLERY_FILTERS
+  // since every other facet's value is a plain string[] — FacetFilterButton/Chips
+  // are generic over that shape — so this rides along as its own bit of state and
+  // is merged into the request's `filters.peopleMatch` at fetch time.
+  const [peopleMatchAll, setPeopleMatchAll] = useState(false);
   const [facets, setFacets] = useState<GalleryFacets | null>(null);
   // A few actions — rescanning a folder, Folders' own scope — only make sense
   // against exactly one library, the same way Audiobooks only offers "Add to
@@ -434,8 +441,12 @@ export function GalleryPage({
   const fetchTimelinePage = useCallback((offset: number, limit: number) =>
     api<{ assets: GalleryAsset[]; total: number }>("/api/library/gallery/timeline", {
       method: "POST",
-      body: JSON.stringify({ q: query, kinds: filters.kinds, filters, sort, limit, offset })
-    }), [sort, query, filters]);
+      body: JSON.stringify({
+        q: query, kinds: filters.kinds,
+        filters: { ...filters, peopleMatch: peopleMatchAll ? "all" : "any" },
+        sort, limit, offset
+      })
+    }), [sort, query, filters, peopleMatchAll]);
 
   const loadTimeline = useCallback(async (offset: number) => {
     setLoading(true);
@@ -691,7 +702,7 @@ export function GalleryPage({
     else if (view === "slideshows") { setSelectedSlideshow(null); setSlideshowRename(null); void loadSlideshows(); void loadSlideshowSettings(); }
     else if (view === "map") void loadMap();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, sort, query, filters]);
+  }, [view, sort, query, filters, peopleMatchAll]);
 
   // Deep link: open the named album / slideshow instead of its list. Runs once
   // per id — after that the URL follows the selection (below), not the reverse,
@@ -1478,6 +1489,12 @@ export function GalleryPage({
             )}
 
             {view === "timeline" && <GalleryFilterChips value={filters} onChange={setFilters} libraries={libraries} />}
+
+            {view === "timeline" && filters.people.length >= 2 && (
+              <div className="gallery-people-match">
+                <ToggleSwitch checked={peopleMatchAll} onChange={setPeopleMatchAll} label={t("gallery:filter.peopleMatchAllToggle")} />
+              </div>
+            )}
 
             {libraries.some((library) => library.scanStatus === "scanning") && (
               <MessageBox tone="info" title={t("gallery:page.notices.scanningTitle")}>{t("gallery:page.notices.scanningBody")}</MessageBox>
