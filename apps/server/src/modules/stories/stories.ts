@@ -340,16 +340,31 @@ export function purgeStory(storyId: string): boolean {
   return removed;
 }
 
-/** The bin's story rows, newest deletion first — the Recycle Bin page. */
+/** The bin's story rows, newest deletion first — the Recycle Bin page. The
+ *  cover lookup is UNBOUNDED by library access on purpose: this feeds an
+ *  admin-only route, and it's the same thumbnail the story's card showed. */
 export function listDeletedStories() {
   const rows = db.prepare(`
     SELECT stories.*, users.display_name AS author_name,
-      (SELECT COUNT(*) FROM story_chapters WHERE story_chapters.story_id = stories.id) AS chapter_count
+      (SELECT COUNT(*) FROM story_chapters WHERE story_chapters.story_id = stories.id) AS chapter_count,
+      COALESCE(
+        (SELECT item_metadata.cover_storage_key FROM library_items
+          JOIN item_metadata ON item_metadata.item_id = library_items.id
+          WHERE library_items.id = stories.cover_item_id AND library_items.deleted_at IS NULL),
+        (SELECT item_metadata.cover_storage_key FROM story_blocks
+          JOIN story_chapters ON story_chapters.id = story_blocks.chapter_id
+          JOIN library_items ON library_items.id = story_blocks.entity_id AND library_items.deleted_at IS NULL
+          JOIN item_metadata ON item_metadata.item_id = library_items.id
+          WHERE story_chapters.story_id = stories.id
+            AND story_blocks.entity_type = 'gallery' AND story_blocks.kind = 'media'
+            AND item_metadata.cover_storage_key IS NOT NULL
+          ORDER BY story_chapters.position, story_blocks.position LIMIT 1)
+      ) AS cover_key
     FROM stories
     LEFT JOIN users ON users.id = stories.created_by
     WHERE stories.deleted_at IS NOT NULL
     ORDER BY datetime(stories.deleted_at) DESC
-  `).all() as (StoryRow & { author_name: string | null; chapter_count: number })[];
+  `).all() as (StoryRow & { author_name: string | null; chapter_count: number; cover_key: string | null })[];
   return rows.map((row) => ({
     id: row.id,
     title: row.title,
@@ -357,6 +372,7 @@ export function listDeletedStories() {
     kind: row.kind,
     chapterCount: row.chapter_count,
     authorName: row.author_name,
+    coverUrl: row.cover_key ? `/api/library/covers/${row.cover_key}` : null,
     deletedAt: row.deleted_at,
     purgesAt: row.purge_after
   }));

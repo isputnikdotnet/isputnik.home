@@ -259,20 +259,6 @@
     "emptyScopeOnly": "Only <bold>{{name}}</bold> is emptied. Deleted items in other libraries are left alone.",
     "emptyReachesAll": "This reaches every library, including any the page is not currently showing. To empty just one, choose it in the library filter first.",
     "stories": {
-      "heading": "Deleted stories",
-      "blurb": "Stories deleted by their authors. They can be restored exactly as they were until their retention window runs out; the photos and books they reference were never part of them.",
-      "errorTitle": "Unable to load deleted stories",
-      "loadFailed": "Could not load the deleted stories.",
-      "restoreFailed": "Could not restore the story.",
-      "purgeFailed": "Could not delete the story.",
-      "deletedOn": "deleted {{date}}",
-      "purgesOn": "purges {{date}}",
-      "keptForever": "kept until deleted by hand",
-      "restore": "Restore",
-      "deleteForever": "Delete forever",
-      "purgeTitle": "Delete “{{name}}” forever?",
-      "purgeConfirm": "Delete forever",
-      "purging": "Deleting…",
       "purgeBody": "The story, its chapters and its text are permanently deleted and cannot be restored. The photos, albums and books it referenced are not affected."
     }
   },

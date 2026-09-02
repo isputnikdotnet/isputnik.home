@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import {
-  ArrowUpDown, BookOpen, FileQuestion, Folder, Headphones, Hourglass, Image as ImageIcon,
+  ArrowUpDown, BookOpen, BookText, FileQuestion, Folder, Headphones, Hourglass, Image as ImageIcon,
   LibraryBig, RotateCcw, Search, Settings2, SlidersHorizontal, Trash2
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -17,11 +17,14 @@ import { RefreshButton } from "../../../shared/RefreshButton";
 import { SelectMenu } from "../../../shared/SelectMenu";
 import { formatBytes, formatManagedDate } from "../../../shared/utils";
 import { ControlSectionHead } from "../ControlSectionHead";
-import { DeletedStoriesPanel } from "./DeletedStoriesPanel";
 import { TrashRootEditor, type TrashRootSettings } from "./TrashRootEditor";
 
 interface TrashedItem {
   id: string;
+  /** Files come from /api/library/trash; stories from /api/stories/trash,
+   *  mapped into the same tile shape so the bin is ONE grid. The kind routes
+   *  each row's restore/purge to the right endpoint. */
+  kind: "file" | "story";
   libraryId: string;
   libraryType: string;
   libraryName: string;
@@ -38,6 +41,40 @@ interface TrashedItem {
   purgesAt: string | null;
 }
 
+/** The pseudo-library the filter menu offers for story rows — stories belong
+ *  to no real library, but "show me just the stories" is a real question. */
+const STORIES_SCOPE = "__stories";
+
+interface DeletedStoryRow {
+  id: string;
+  title: string;
+  chapterCount: number;
+  authorName: string | null;
+  coverUrl: string | null;
+  deletedAt: string;
+  purgesAt: string | null;
+}
+
+function storyAsTrashItem(story: DeletedStoryRow): TrashedItem {
+  return {
+    id: story.id,
+    kind: "story",
+    libraryId: STORIES_SCOPE,
+    libraryType: "story",
+    libraryName: i18n.t("nav.stories"),
+    title: story.title,
+    path: "",
+    // The tile's count line reads this as CHAPTERS for a story row.
+    fileCount: story.chapterCount,
+    sizeBytes: 0,
+    coverUrl: story.coverUrl,
+    trashedAt: story.deletedAt,
+    trashedByName: story.authorName,
+    source: "manual",
+    purgesAt: story.purgesAt
+  };
+}
+
 /** One library's Recycle Bin folder on disk. The server sends one per library that
  *  currently has something in the bin. */
 interface TrashBin {
@@ -49,7 +86,8 @@ interface TrashBin {
 const TYPE_ICON: Record<string, LucideIcon> = {
   audiobook: Headphones,
   ebook: BookOpen,
-  gallery: ImageIcon
+  gallery: ImageIcon,
+  story: BookText
 };
 
 // The cover the bin kept when the item was deleted, in the same 4:3 frame the
@@ -135,7 +173,7 @@ function sourceLabel(source: string): string {
 }
 
 export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) {
-  const { t } = useTranslation(["common", "controlAdmin"]);
+  const { t } = useTranslation(["common", "controlAdmin", "stories"]);
   const [items, setItems] = useState<TrashedItem[]>([]);
   const [bins, setBins] = useState<TrashBin[]>([]);
   const [retentionDays, setRetentionDays] = useState(30);
@@ -153,8 +191,6 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
   const [editLocationOpen, setEditLocationOpen] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
-  // Bumped by load() so the Deleted-stories block refetches with the page.
-  const [storiesReload, setStoriesReload] = useState(0);
   const [restoringId, setRestoringId] = useState("");
   const [purgeTarget, setPurgeTarget] = useState<TrashedItem | null>(null);
   const [purging, setPurging] = useState(false);
@@ -275,17 +311,27 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
   useEffect(() => { setPage(1); }, [scopeId, sourceFilter, retentionFilter, search, sort, perPage]);
 
   const load = async () => {
-    // The Deleted-stories block fetches its own rows; nudging this counter
-    // makes it reload whenever the page does — the Refresh button included —
-    // so a story deleted while the bin was open shows up on the same press.
-    setStoriesReload((tick) => tick + 1);
     const payload = await api<{
       items: TrashedItem[];
       retentionDays: number;
       cleanupRetentionDays: number | null;
       bins?: TrashBin[];
     }>("/api/library/trash");
-    setItems(payload.items);
+    // Deleted stories ride in the same grid as tiles. Admin-only on the
+    // server; for everyone else the bin simply holds no story rows.
+    let storyRows: TrashedItem[] = [];
+    if (currentUser.role === "admin") {
+      try {
+        const trash = await api<{ stories: DeletedStoryRow[] }>("/api/stories/trash");
+        storyRows = (trash.stories ?? []).map(storyAsTrashItem);
+      } catch {
+        // The files are the page; a story fetch hiccup shouldn't dress it in red.
+      }
+    }
+    setItems(
+      [...payload.items.map((item) => ({ ...item, kind: "file" as const })), ...storyRows]
+        .sort((a, b) => Date.parse(b.trashedAt) - Date.parse(a.trashedAt))
+    );
     setBins(payload.bins ?? []);
     setRetentionDays(payload.retentionDays);
     setCleanupRetentionDays(payload.cleanupRetentionDays);
@@ -355,7 +401,10 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
     setRestoringId(item.id);
     setActionError("");
     try {
-      await api(`/api/library/trash/${item.id}/restore`, { method: "POST" });
+      await api(
+        item.kind === "story" ? `/api/stories/trash/${item.id}/restore` : `/api/library/trash/${item.id}/restore`,
+        { method: "POST" }
+      );
       await load();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : t("controlAdmin:recycleBin.restoreFailed"));
@@ -369,7 +418,10 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
     setPurging(true);
     setActionError("");
     try {
-      await api(`/api/library/trash/${purgeTarget.id}`, { method: "DELETE" });
+      await api(
+        purgeTarget.kind === "story" ? `/api/stories/trash/${purgeTarget.id}` : `/api/library/trash/${purgeTarget.id}`,
+        { method: "DELETE" }
+      );
       setPurgeTarget(null);
       await load();
     } catch (err) {
@@ -387,13 +439,28 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
     setActionError("");
     setNotice("");
     try {
-      const result = await api<{
-        restored: number; forbidden: number; failed: number;
-        failures: { title: string; error: string }[];
-      }>("/api/library/trash/restore-all", {
-        method: "POST",
-        body: JSON.stringify(scopeId ? { libraryId: scopeId } : {})
-      });
+      // Scoped to the Stories pseudo-library there are no files to ask the
+      // server about; otherwise the files go back in one call, as before.
+      const result = scopeId === STORIES_SCOPE
+        ? { restored: 0, forbidden: 0, failed: 0, failures: [] as { title: string; error: string }[] }
+        : await api<{
+            restored: number; forbidden: number; failed: number;
+            failures: { title: string; error: string }[];
+          }>("/api/library/trash/restore-all", {
+            method: "POST",
+            body: JSON.stringify(scopeId ? { libraryId: scopeId } : {})
+          });
+      // Story rows restore one by one — there are rarely more than a handful,
+      // and a failure on one is a line in the notice, not a dead stop.
+      for (const story of inScope.filter((item) => item.kind === "story")) {
+        try {
+          await api(`/api/stories/trash/${story.id}/restore`, { method: "POST" });
+          result.restored += 1;
+        } catch (err) {
+          result.failed += 1;
+          result.failures.push({ title: story.title, error: err instanceof Error ? err.message : "" });
+        }
+      }
       setRestoreAllOpen(false);
       await load();
 
@@ -418,10 +485,17 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
       // Scoped to the chosen library, exactly like Restore all beside it. Sending {}
       // here emptied the WHOLE bin however the page was filtered — press Empty while
       // looking at one library and every other library's deleted files went too.
-      await api("/api/library/trash/empty", {
-        method: "POST",
-        body: JSON.stringify(scopeId ? { libraryId: scopeId } : {})
-      });
+      if (scopeId !== STORIES_SCOPE) {
+        await api("/api/library/trash/empty", {
+          method: "POST",
+          body: JSON.stringify(scopeId ? { libraryId: scopeId } : {})
+        });
+      }
+      // Emptying reaches the scope's story rows too — the dialog counted
+      // them, so leaving them behind would make its promise a lie.
+      for (const story of inScope.filter((item) => item.kind === "story")) {
+        await api(`/api/stories/trash/${story.id}`, { method: "DELETE" });
+      }
       setEmptyOpen(false);
       await load();
     } catch (err) {
@@ -432,9 +506,10 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
   };
 
   // Totals for the two questions the bin answers: how much is in it, and how much
-  // space getting rid of it would free.
+  // space getting rid of it would free. Story rows hold no files, and their
+  // fileCount is a CHAPTER count — they stay out of both sums.
   const visibleBytes = visible.reduce((sum, item) => sum + item.sizeBytes, 0);
-  const visibleFiles = visible.reduce((sum, item) => sum + item.fileCount, 0);
+  const visibleFiles = visible.reduce((sum, item) => sum + (item.kind === "file" ? item.fileCount : 0), 0);
   const totalBytes = items.reduce((sum, item) => sum + item.sizeBytes, 0);
 
   // What Empty and Restore all actually reach. NOT `visible`: the server works on the
@@ -446,7 +521,7 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
     [items, scopeId]
   );
   const scopeBytes = inScope.reduce((sum, item) => sum + item.sizeBytes, 0);
-  const scopeFiles = inScope.reduce((sum, item) => sum + item.fileCount, 0);
+  const scopeFiles = inScope.reduce((sum, item) => sum + (item.kind === "file" ? item.fileCount : 0), 0);
   // Items still owed time. These are the ones an accidental Empty really costs you:
   // the rest were going anyway, on a date the tile already shows.
   const scopeUnexpired = inScope.filter(
@@ -569,13 +644,6 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
       {actionError && <MessageBox tone="error" title={t("errors.actionFailed")}>{actionError}</MessageBox>}
       {notice && <MessageBox tone="warning" title={t("controlAdmin:recycleBin.noticeTitle")}>{notice}</MessageBox>}
 
-      {/* Deleted stories go ABOVE the file grid: a handful of compact rows
-          that a bin full of photo tiles would otherwise scroll out of sight —
-          they sat at the bottom once, and looked exactly like something the
-          library filter had hidden (it can't: stories belong to no library).
-          Admin-only, like the /api/stories/trash routes behind it. */}
-      {isAdmin && <DeletedStoriesPanel reloadSignal={storiesReload} />}
-
       {items.length > 0 && (
         /* Filter on the left, view controls and the actions on the right — the Logs
            toolbar. What NARROWS the list stays on the page, because you change it
@@ -690,7 +758,10 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
                     <span className="count-badge">{item.libraryType}</span>
                   </span>
                   <span className="trash-tile-line">
-                    {formatBytes(item.sizeBytes)} · {t("controlAdmin:recycleBin.filesCount", { count: item.fileCount })}
+                    {item.kind === "story"
+                      // A story is rows, not files: no size, and its count is chapters.
+                      ? t("stories:count.chapters", { count: item.fileCount })
+                      : <>{formatBytes(item.sizeBytes)} · {t("controlAdmin:recycleBin.filesCount", { count: item.fileCount })}</>}
                   </span>
                   <span className="trash-tile-line">
                     {t("controlAdmin:recycleBin.deletedWhen", { date: formatManagedDate(item.trashedAt) })}{item.trashedByName ? ` · ${item.trashedByName}` : ""}
@@ -900,7 +971,9 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
           onConfirm={confirmPurge}
           onCancel={() => setPurgeTarget(null)}
         >
-          {t("controlAdmin:recycleBin.purgeBody", { count: purgeTarget.fileCount })}
+          {purgeTarget.kind === "story"
+            ? t("controlAdmin:recycleBin.stories.purgeBody")
+            : t("controlAdmin:recycleBin.purgeBody", { count: purgeTarget.fileCount })}
         </ConfirmDialog>
       )}
 
