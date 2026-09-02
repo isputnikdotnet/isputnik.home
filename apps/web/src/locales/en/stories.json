@@ -66,10 +66,8 @@
     "setCover": "Set cover",
     "coverPickerTitle": "Collection cover photo",
     "access": "Access",
-    "accessTitle": "Access to “{{name}}”",
-    "accessIntro": "People listed here see this collection and its stories — everywhere, including search and tags. Contributors can also add stories to it; managers can edit every story and this list. Admins always have full access.",
     "everyone": "Everyone",
-    "everyoneHint": "All members — the baseline. “No access” restricts the collection to the people listed below.",
+    "everyoneHint": "Every member of the household",
     "roles": {
       "none": "No access",
       "viewer": "View",
@@ -94,7 +92,21 @@
     "pickerLabel": "Collection",
     "none": "None — standalone",
     "pickerHint": "The shelf this story sits on. Its access then decides who sees the story.",
-    "deleteRestrictedWarning": "This collection is restricted: once it is gone, its published stories become visible to everyone with an account."
+    "deleteRestrictedWarning": "This collection is restricted: once it is gone, its published stories become visible to everyone with an account.",
+    "editTitle": "Edit collection",
+    "editIntro": "Change its name, description or cover. Its stories stay exactly as they are.",
+    "save": "Save changes",
+    "saving": "Saving…",
+    "deleteAction": "Delete collection",
+    "addStoryHint": "Save a new memory into this collection",
+    "roleTaglines": {
+      "none": "Not included in the list",
+      "viewer": "Can view the collection and its stories",
+      "contributor": "Can add and edit stories, but not access or settings",
+      "manager": "Can edit settings, manage access, and edit every story",
+      "deny": "Blocked, whatever else would let them in"
+    },
+    "everyoneLocked": "The baseline is always listed — set it to “No access” to close the collection."
   },
   "kinds": {
     "label": "What kind of story",
@@ -120,7 +132,8 @@
     "coverImage": "Cover image",
     "journalRangeHint": "Give both dates and the days are laid out for you — Day 1 to the last — each already dated. Up to a month; longer trips start with the range on Day 1.",
     "pickBook": "Choose the book",
-    "changeBook": "Change book"
+    "changeBook": "Change book",
+    "introInCollection": "It joins “{{name}}” and takes its place on that shelf's timeline by its own dates."
   },
   "related": {
     "bookHeading": "Reviews & stories",
@@ -275,7 +288,10 @@
     "bookTitle": "Add a book",
     "bookEmpty": "There are no books to add yet.",
     "suggested": "Suggested — shares a tag with this story",
-    "everything": "Everything else"
+    "everything": "Everything else",
+    "bookAll": "All",
+    "bookAudiobooks": "Audiobooks",
+    "bookEbooks": "Ebooks"
   },
   "map": {
     "addTitle": "Add a map",

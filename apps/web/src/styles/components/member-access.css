@@ -128,10 +128,6 @@
   border-bottom: 0;
 }
 
-.member-row-everyone {
-  background: var(--hover);
-}
-
 .member-avatar {
   display: inline-flex;
   align-items: center;
@@ -268,3 +264,62 @@
   color: inherit;
 }
 
+
+/* ── Shared access box (shared/AccessControl) ───────────────────────────
+   The grant row, the grouped who-has-access list and the role glossary that
+   libraries, story collections and family-tree branches all wear. */
+
+.access-control {
+  display: grid;
+  gap: 18px;
+}
+
+/* The baseline's explanation is a sentence, not a name — it wraps rather than
+   ending in an ellipsis the way a member's email does. */
+.member-row-everyone .member-sub {
+  white-space: normal;
+}
+
+.member-row-noaction {
+  width: 34px;
+}
+
+/* The glossary is a footnote under the list, not a notice competing with it,
+   so it runs at the smallest readable size the app uses. */
+.message-box.access-role-legend-box {
+  grid-template-columns: 15px minmax(0, 1fr);
+  gap: 8px;
+  padding: 8px 10px;
+  font-size: 0.74rem;
+}
+
+.message-box.access-role-legend-box svg {
+  width: 14px;
+  height: 14px;
+  margin-top: 1px;
+}
+
+.message-box.access-role-legend-box strong {
+  margin-bottom: 4px;
+  font-size: 0.74rem;
+}
+
+.member-role-legend {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+}
+
+.member-role-legend > div {
+  display: grid;
+  grid-template-columns: minmax(0, 96px) minmax(0, 1fr);
+  gap: 10px;
+  align-items: baseline;
+}
+
+.member-role-legend dt { font-weight: 700; }
+.member-role-legend dd { margin: 0; color: var(--muted); }
+
+@media (max-width: 600px) {
+  .member-role-legend > div { grid-template-columns: minmax(0, 1fr); gap: 0; }
+}

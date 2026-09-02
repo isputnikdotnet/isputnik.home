@@ -54,6 +54,10 @@ export function StoryRefPicker({
   const [rows, setRows] = useState<Row[] | null>(null);
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
+  // Books come from two shelves. The list holds both, and this narrows it —
+  // the type is part of the choice (a review of the audiobook is not a review
+  // of the ebook), so it can't just be inferred from the title.
+  const [bookType, setBookType] = useState<"all" | "audiobook" | "ebook">("all");
   const Icon = ICONS[kind];
 
   useEffect(() => {
@@ -67,8 +71,9 @@ export function StoryRefPicker({
   }, [kind]);
 
   const term = search.trim().toLowerCase();
-  const visible = (rows ?? []).filter((row) =>
-    !term || row.title.toLowerCase().includes(term) || row.detail.toLowerCase().includes(term));
+  const visible = (rows ?? [])
+    .filter((row) => bookType === "all" || row.entityType === bookType)
+    .filter((row) => !term || row.title.toLowerCase().includes(term) || row.detail.toLowerCase().includes(term));
 
   // Anything sharing a tag with the story is almost certainly what the author
   // is reaching for, so it goes first under its own heading. Searching drops
@@ -91,6 +96,10 @@ export function StoryRefPicker({
           <small>{row.count != null ? t("stories:count.photos", { count: row.count }) : row.detail}</small>
         )}
       </span>
+      {/* Which shelf this row came from — the same title can sit on both. */}
+      {row.entityType && (
+        <span className="story-picker-type">{t(`common:mediaKind.${row.entityType}`)}</span>
+      )}
     </button>
   );
 
@@ -114,6 +123,25 @@ export function StoryRefPicker({
             placeholder={t("stories:picker.search")}
           />
         </label>
+
+        {kind === "book" && (
+          <div className="modal-tabs">
+            {([
+              ["all", t("stories:picker.bookAll")],
+              ["audiobook", t("stories:picker.bookAudiobooks")],
+              ["ebook", t("stories:picker.bookEbooks")]
+            ] as ["all" | "audiobook" | "ebook", string][]).map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                className={`modal-tab${bookType === key ? " active" : ""}`}
+                onClick={() => setBookType(key)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
 
         {rows === null && !error && <p className="management-empty">{t("stories:common.loading")}</p>}
 

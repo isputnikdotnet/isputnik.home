@@ -19,6 +19,19 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.53.0",
+    label: "One way to share",
+    changes: [
+      "Every place that decides who can see something now uses the same panel. Libraries, story collections and family-tree branches each had their own — three lists that granted the same kinds of access to the same people and groups, and looked and behaved differently doing it. There is one now: the same rows, the same avatars, the same coloured roles, and a short glossary underneath saying what each role actually allows. Everyone sits in that list as a group like any other, at the top where the widest grant belongs, instead of being a banner off to one side — so you can see that the whole household already has access before you go granting it to somebody individually.",
+      "A collection is edited in the same dialog that created it. Renaming a shelf used to mean typing over its title in the header, and its description was a box sitting under it — nothing said those were edits, or that they saved. Edit now opens the New collection form with everything filled in, cover included, and Delete lives there too, since deleting a shelf is a change to the shelf rather than an action on the page you are reading.",
+      "The collection page tells you what is on the shelf: its description, the span of dates its stories cover, and how many there are. An empty frame closes the timeline where the next story will land, so adding one no longer means going back up to the header.",
+      "Adding a story to a collection offers the whole New story form — the kind, dates, place, the book being reviewed, a cover — instead of asking only for a title. A story born on a shelf deserves the same start as one born anywhere else; the only difference is that the shelf is already chosen.",
+      "Reviews can tell an audiobook from an ebook. The book picker always searched both shelves, but nothing on screen said which was which, so a title held in both formats appeared twice, identically. Each row now carries its format, and the list can be narrowed to one.",
+      "Collection cards on the Stories page are the size they should be. A cover shot in portrait — a phone photo, most of them — stretched its card to nearly three times its height and dragged the whole row with it.",
+      "Those cards also show the collection's description now, and the date span of what is on the shelf."
+    ]
+  },
+  {
     version: "3.52.1",
     label: "A filter you can see",
     changes: [

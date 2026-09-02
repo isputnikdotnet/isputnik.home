@@ -1055,6 +1055,20 @@
   min-width: 0;
 }
 
+/* Which shelf a book row came from, held at the far end of the row. */
+.story-picker-type {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--field);
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
 .story-picker-text small { color: var(--muted); }
 
 .story-map-modal {
@@ -1716,6 +1730,7 @@
 }
 
 .story-collection-cover {
+  position: relative;
   display: grid;
   place-items: center;
   width: 100%;
@@ -1727,7 +1742,16 @@
   color: var(--muted);
 }
 
-.story-collection-cover img { width: 100%; height: 100%; object-fit: cover; }
+/* The cover image is taken out of flow. The card's grid row has no definite
+   height, so an in-flow img ignores height:100% and falls back to its intrinsic
+   size — a portrait phone cover then stretched the whole shelf to ~290px. */
+.story-collection-cover img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 
 .story-collection-body {
   min-width: 0;
@@ -1744,6 +1768,18 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* The blurb, clamped to two lines so a long one can't set the shelf's height. */
+.story-collection-note {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  margin-top: -2px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.35;
 }
 
 .story-collection-fact {
@@ -1794,35 +1830,74 @@
 
 .story-collection-hero h1 { margin: 0; font-size: clamp(1.5rem, 3.6vw, 2.1rem); }
 
+/* Span and count, each behind its own icon — the two facts the shelf derives
+   from its stories. */
 .story-collection-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
   margin: 0;
   color: var(--gold);
-  font-size: 0.82rem;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  font-size: 0.86rem;
   font-variant-numeric: tabular-nums;
+}
+
+.story-collection-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+/* The rule between the facts, drawn rather than typed. */
+.story-collection-meta-item + .story-collection-meta-item {
+  border-left: 1px solid currentColor;
+  padding-left: 14px;
 }
 
 .story-collection-hero.has-image .story-collection-meta { color: rgba(255, 255, 255, 0.85); }
 
-/* The manager's inline title input sits ON the cover — without this it wears
-   the page's ink color and vanishes into the photo. */
-.story-collection-hero.has-image .story-title-input {
-  color: #fff;
-  background: rgba(0, 0, 0, 0.35);
-  border-radius: 8px;
-}
-
-.story-collection-hero.has-image .story-title-input::placeholder { color: rgba(255, 255, 255, 0.6); }
-
 .story-collection-description { margin: 0; max-width: 68ch; color: var(--muted); }
 
-.story-collection-description-input {
-  max-width: 68ch;
-  resize: vertical;
-}
+.story-collection-hero.has-image .story-collection-description { color: rgba(255, 255, 255, 0.88); }
 
 .story-collection-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+
+/* The empty frame that closes the timeline. It sits in the story grid, so it
+   takes a card's shape without a card's weight — dashed, no photo, no chrome. */
+.story-add-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 240px;
+  padding: 20px;
+  border: 1px dashed color-mix(in srgb, var(--line) 80%, var(--muted));
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+  text-align: center;
+  cursor: pointer;
+}
+
+.story-add-tile:hover {
+  border-color: var(--mint);
+  background: color-mix(in srgb, var(--mint) 6%, transparent);
+}
+
+.story-add-tile-mark {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: var(--field);
+  color: var(--muted);
+}
+
+.story-add-tile strong { font-size: 1rem; }
+.story-add-tile small { max-width: 24ch; color: var(--muted); line-height: 1.4; }
 
 /* Year groups on the collection page — the derived timeline. */
 .story-collection-year { margin-bottom: 22px; }
@@ -1831,53 +1906,6 @@
   color: var(--gold);
   font-variant-numeric: tabular-nums;
 }
-
-/* Access modal rows. */
-.story-access { display: flex; flex-direction: column; gap: 10px; }
-
-.story-access-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface-raised);
-}
-
-.story-access-icon {
-  flex: 0 0 auto;
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  background: var(--hover);
-  color: var(--gold);
-}
-
-.story-access-who {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.story-access-who strong,
-.story-access-who small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.story-access-add {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.story-access-add select:first-child { flex: 1 1 220px; min-width: 0; }
 
 /* ── Back-links ("Reviews & stories" / "Appears in stories") ──────────── */
 
@@ -2086,12 +2114,12 @@
   box-shadow: 0 12px 28px color-mix(in srgb, var(--shadow) 36%, transparent);
 }
 
-.story-collection-preview-covers {
+.story-preview-covers {
   position: relative;
   height: 145px;
 }
 
-.story-collection-preview-covers > img {
+.story-preview-covers > img {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -2247,6 +2275,15 @@
   min-width: 178px;
 }
 
+/* Delete sits alone at the far end of the footer, away from Save — the two
+   are not a pair, and a stray click must not be cheap. */
+.story-collection-delete-action.danger-button {
+  margin-right: auto;
+  min-height: 48px;
+  padding: 0 20px;
+  font-size: 0.94rem;
+}
+
 @media (max-width: 900px) {
   .metadata-modal.story-new-collection-modal {
     width: min(calc(100vw - 20px), 640px);
@@ -2328,7 +2365,7 @@
     padding: 16px 14px 15px;
   }
 
-  .story-collection-preview-covers {
+  .story-preview-covers {
     height: 132px;
   }
 
@@ -2558,21 +2595,17 @@
   box-shadow: 0 12px 28px color-mix(in srgb, var(--shadow) 36%, transparent);
 }
 
-.story-new-story-preview-cover {
-  display: block;
-  width: 100%;
-  aspect-ratio: 16 / 10;
-  object-fit: cover;
-  background:
-    linear-gradient(180deg, rgba(255, 235, 198, 0.88), rgba(222, 147, 75, 0.58) 42%, rgba(42, 67, 58, 0.92)),
-    linear-gradient(110deg, #19344a, #f5c879 55%, #244c42);
+/* New collection insets the fan by the card's own padding; this card pads its
+   body instead, so the covers carry the inset themselves. */
+.story-new-story-preview-card .story-preview-covers {
+  margin: 18px 18px 0;
 }
 
 .story-new-story-preview-body {
   display: grid;
   gap: 8px;
   min-width: 0;
-  padding: 18px;
+  padding: 10px 18px 18px;
 }
 
 .story-new-story-preview-body strong {
@@ -2807,3 +2840,8 @@
   .story-home-card img,
   .story-home-card-blank { width: 72px; height: 54px; }
 }
+
+/* The collection's access dialog — the shared access box in a panel modal. */
+.story-access { display: flex; flex-direction: column; gap: 18px; }
+
+.metadata-modal.story-access-modal { width: min(calc(100vw - 48px), 860px); }

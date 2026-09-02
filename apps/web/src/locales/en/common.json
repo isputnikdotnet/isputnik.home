@@ -512,5 +512,25 @@
     "label": "Add a tag",
     "placeholder": "Add a tag",
     "remove": "Remove {{tag}}"
+  },
+  "access": {
+    "grantTitle": "Give access",
+    "pickSubject": "Add a person or group…",
+    "usersGroup": "Members",
+    "groupsGroup": "Groups",
+    "add": "Add",
+    "roleToGrant": "Role to give",
+    "roleFor": "Role for {{name}}",
+    "remove": "Remove {{name}}",
+    "deleted": "(deleted)",
+    "userLabel": "Person",
+    "groupLabel": "Group",
+    "everyone": "Everyone",
+    "public": "Public",
+    "noAccess": "No access",
+    "everyoneLocked": "The baseline is always listed — set it to “No access” to close this.",
+    "nobodyYet": "Nobody has been added yet — only the baseline above applies.",
+    "legendTitle": "What the roles mean",
+    "title": "Access"
   }
 }
