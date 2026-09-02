@@ -19,6 +19,16 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.50.0",
+    label: "Nothing is lost",
+    changes: [
+      "Deleting a story is no longer forever. It goes to the Recycle Bin — the same one your deleted photos wait in — and until its time runs out an administrator can bring it back exactly as it was: chapters, text, tags, stars, guest links, all of it. While it sits there it truly sits there: it leaves every page, its guest links stop answering, and nobody stumbles over it. Restore it and everything wakes up again. Like everything in the bin, it keeps the retention window it was given on the day it was deleted, and leaves on schedule with the rest.",
+      "In the bin itself, a deleted story looks like everything else: a tile with its cover, when it was deleted and by whom, and when it goes for good — with the same restore and delete-forever buttons as any photo. The library filter gained a Stories entry, so digging one story out from under a big photo cleanup is one pick. Restore all and Empty bin now mean the stories too, and the size figures still count only real files — a story weighs nothing.",
+      "And deleting a restricted collection now says the quiet part out loud. Removing a members-only shelf never deleted its stories — they became standalone — but standalone published stories are visible to the whole family, which the old dialog never mentioned. It does now, in bold, before you press the button.",
+      "The story delete dialog tells the truth about all this too: to the Recycle Bin, not into the void."
+    ]
+  },
+  {
     version: "3.49.0",
     label: "Pick your own cover",
     changes: [
