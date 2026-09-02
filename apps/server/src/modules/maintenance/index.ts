@@ -4,7 +4,7 @@ import { db, logActivity } from "../../db.js";
 import { parseBody } from "../../core/shared.js";
 import { purgeExpiredTrash } from "../library/shared/trash.js";
 import { purgeExpiredStories } from "../stories/stories.js";
-import { libraryJobRunning } from "../library/shared/scan-lock.js";
+import { libraryJobRunning, libraryQueueState } from "../library/shared/scan-lock.js";
 import { enqueueFaceScanBatches } from "../library/gallery/faces/queue.js";
 import { enabledFaceLibraryIds } from "../library/gallery/faces/settings.js";
 import { enqueueAudiobookScan } from "../library/audiobook/scanner.js";
@@ -620,6 +620,40 @@ const TASK_COLUMNS = `
   libraries.name AS library_name
 `;
 
+// How long a running task may go without a sign of life before the page says it may
+// be stuck. Every worker writes a progress heartbeat as it goes (jobProgressWriter),
+// so silence for this long means the work is not moving — a hung read on a network
+// share, a wedged ffmpeg — not that it is merely slow. Per type, because "no news"
+// means different things: catalog scans tick every 1.5–3 seconds, while ffmpeg work
+// reports once per video or clip and one long item can legitimately hold the process.
+const STALE_AFTER_SECONDS: Record<string, number> = {
+  SCAN_AUDIOBOOK_LIBRARY: 15 * 60,
+  SCAN_EBOOK_LIBRARY: 15 * 60,
+  SCAN_GALLERY_LIBRARY: 15 * 60,
+  SCAN_GALLERY_FACES: 15 * 60,
+  SCAN_GALLERY_DUPLICATES: 15 * 60,
+  TRANSCODE_GALLERY_VIDEO: 60 * 60,
+  "gallery-slideshow-render": 60 * 60
+};
+const DEFAULT_STALE_AFTER_SECONDS = 30 * 60;
+
+// A running task's last sign of life: its most recent progress write, else the moment
+// the worker claimed it. A job that has not yet written progress is judged from its
+// claim time, so one that hangs before its first tick is still caught.
+function taskHeartbeat(row: TaskRow, progress: Record<string, any> | null): string | null {
+  if (progress && typeof progress.updatedAt === "string") return progress.updatedAt;
+  return row.started_at ?? row.locked_at ?? null;
+}
+
+function taskStalledSeconds(row: TaskRow, progress: Record<string, any> | null): number | null {
+  if (row.status !== "running") return null;
+  const heartbeat = taskHeartbeat(row, progress);
+  if (!heartbeat) return null;
+  const since = Math.floor((Date.now() - new Date(heartbeat).getTime()) / 1000);
+  if (!Number.isFinite(since)) return null;
+  return since > (STALE_AFTER_SECONDS[row.type] ?? DEFAULT_STALE_AFTER_SECONDS) ? since : null;
+}
+
 function taskView(row: TaskRow) {
   let payload: Record<string, any> = {};
   try { payload = JSON.parse(row.payload); } catch { /* ignore */ }
@@ -639,6 +673,9 @@ function taskView(row: TaskRow) {
     error: row.error,
     summary: summarizeTaskResult(row.type, payload.result ?? null),
     progress: active ? normalizeTaskProgress(row.type, payload.progress ?? null, row.started_at ?? row.locked_at ?? row.created_at) : null,
+    // Seconds since this running task last showed a sign of life, but only once that
+    // silence is long enough to be worth saying out loud; null means it looks healthy.
+    stalledSeconds: taskStalledSeconds(row, payload.progress ?? null),
     // Position within a pre-queued batch group ("batch 2 of 5"); null for single jobs.
     batch: typeof payload.batch === "number" && typeof payload.batches === "number" && payload.batches > 1
       ? { index: payload.batch as number, total: payload.batches as number }
@@ -729,12 +766,23 @@ export function listTasks(page = 1, pageSize = 25, filters: TaskFilters = {}) {
     LIMIT 1
   `).get() as TaskRow | undefined;
 
+  // Library scans and face scans run strictly one at a time server-wide, so a queue
+  // that isn't moving is usually correct rather than broken — but only if the page
+  // says so. Name the job holding the lock and how many are behind it; without that
+  // line, six queued scans and nothing starting reads as a dead worker.
+  const lock = libraryQueueState();
+  const lockHolder = lock.runningJobId ? activeRows.find((row) => row.id === lock.runningJobId) : undefined;
+
   return {
     jobs: [...activeRows, ...finishedRows].map(taskView),
     page: current,
     pageSize,
     total,
     totalPages,
+    queue: {
+      holder: lockHolder ? taskView(lockHolder) : null,
+      waiting: lock.waiting
+    },
     facets: { types: typeRows.map((row) => row.value), libraries: libraryRows },
     summary: {
       running: activeRows.filter((row) => row.status === "running").length,

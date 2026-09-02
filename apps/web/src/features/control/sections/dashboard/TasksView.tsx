@@ -55,6 +55,15 @@ function runningMinutes(start: string) {
   return Math.floor((Date.now() - new Date(start).getTime()) / 60000);
 }
 
+// "no progress for 42 minutes — this task may be stuck". The server decides WHEN a
+// silence counts (per job type); this only says how long it has been.
+function stalledText(seconds: number, t: T): string {
+  const minutes = Math.floor(seconds / 60);
+  return minutes >= 60
+    ? t("controlDash:tasks.stalledHours", { hours: Math.floor(minutes / 60), minutes: minutes % 60 })
+    : t("controlDash:tasks.stalledNote", { count: minutes });
+}
+
 // "3 of 12 books · 25% · about 2 min left" — mirrors the wording the
 // face-recognition window used before this moved here.
 function progressText(progress: NonNullable<Job["progress"]>, t: T): string {
@@ -69,6 +78,9 @@ interface TasksPayload {
   page: number;
   total: number;
   totalPages: number;
+  // Library and face scans run one at a time server-wide. `holder` is the job with
+  // the lock, `waiting` how many are queued behind it.
+  queue: { holder: Job | null; waiting: number };
   facets: { types: string[]; libraries: { id: string; name: string }[] };
   summary: { running: number; queued: number; failedWeek: number; lastFinished: Job | null };
 }
@@ -245,6 +257,24 @@ export function TasksView() {
           </div>
         )}
 
+        {/* Library and face scans are serialised server-wide, so a queue that isn't
+            moving is usually correct — but it reads as a dead worker unless the page
+            says what everything is waiting on, and says so louder when the holder
+            has stopped reporting progress. */}
+        {data && data.queue.holder && data.queue.waiting > 0 && (
+          <MessageBox
+            tone={data.queue.holder.stalledSeconds != null ? "warning" : "info"}
+            title={t("controlDash:tasks.queueHeldTitle", { count: data.queue.waiting })}
+          >
+            {t(
+              data.queue.holder.stalledSeconds != null ? "controlDash:tasks.queueHeldStuckBody" : "controlDash:tasks.queueHeldBody",
+              {
+                label: `${taskLabel(data.queue.holder, t)}${data.queue.holder.libraryName ? ` · ${data.queue.holder.libraryName}` : ""}`
+              }
+            )}
+          </MessageBox>
+        )}
+
         {running.length > 0 && (
           <div className="status-subsection">
             <div className="status-table-title">
@@ -266,18 +296,27 @@ export function TasksView() {
                   {running.map((task) => {
                     const percent = task.progress && task.progress.total > 0 ? task.progress.processed / task.progress.total : null;
                     const mins = runningMinutes(task.createdAt);
+                    const stalled = task.stalledSeconds;
                     return (
-                      <tr key={task.id}>
+                      <tr key={task.id} className={stalled != null ? "task-stalled" : undefined}>
                         <td>
                           <span className="task-name">
-                            <ProgressRing progress={percent ?? 0} indeterminate={percent === null} size={22} strokeWidth={3} />
+                            {stalled != null
+                              ? <AlertTriangle size={18} aria-hidden="true" className="task-stalled-icon" />
+                              : <ProgressRing progress={percent ?? 0} indeterminate={percent === null} size={22} strokeWidth={3} />}
                             {taskLabel(task, t)}
                           </span>
                         </td>
                         <td className="datagrid-muted">{task.libraryName ?? <span className="muted">—</span>}</td>
                         <td className="datagrid-muted">
                           {task.progress ? progressText(task.progress, t) : t("controlDash:tasks.working")}
-                          {mins >= 10 && <span className="task-long-running"> · {t("controlDash:tasks.runningFor", { minutes: mins })}</span>}
+                          {/* The stall note replaces "running 40m": both say the task is
+                              old, only one says the work has stopped moving. It sits on
+                              its own line — appended inline it is long enough to widen
+                              the table past its container and squeeze the first column. */}
+                          {stalled != null
+                            ? <span className="task-stalled-note">{stalledText(stalled, t)}</span>
+                            : mins >= 10 && <span className="task-long-running"> · {t("controlDash:tasks.runningFor", { minutes: mins })}</span>}
                         </td>
                         <td className="col-scan datagrid-muted">{formatManagedDate(task.createdAt)}</td>
                         <td className="col-actions">

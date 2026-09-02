@@ -31,7 +31,14 @@ export function jobProgressWriter(jobId: string, basePayload: object): (processe
       etaSeconds = Math.round((total - processed) / (doneInWindow / (windowMs / 1000)));
     }
 
+    // `updatedAt` is the job's heartbeat, not decoration: it is the only record of
+    // when work last actually moved. The Tasks page reads it to tell a slow task from
+    // a wedged one — without it, a scan that hung an hour ago and one mid-stride look
+    // identical, which is exactly how a stuck scan went unnoticed for two weeks.
     db.prepare("UPDATE jobs SET payload = ? WHERE id = ?")
-      .run(JSON.stringify({ ...basePayload, progress: { processed, total, startedAt, etaSeconds } }), jobId);
+      .run(JSON.stringify({
+        ...basePayload,
+        progress: { processed, total, startedAt, etaSeconds, updatedAt: new Date(now).toISOString() }
+      }), jobId);
   };
 }

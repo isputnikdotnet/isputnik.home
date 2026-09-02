@@ -523,3 +523,82 @@ describe("due-job worker", () => {
     expect(job.lastRunAt).toBeNull();
   });
 });
+
+// A running task and a wedged one used to render identically — the only difference
+// was a start time nobody squints at. The server now decides, per job type, when a
+// silence is long enough to say out loud, and names what is holding the one-at-a-time
+// library lock so a queue that isn't moving doesn't read as a dead worker.
+describe("tasks view flags stuck work and explains a held queue", () => {
+  function insertTask(id: string, type: string, status: string, payload: object, secondsAgo: number) {
+    db.prepare(
+      "INSERT INTO jobs (id, type, payload, status, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now', ?))"
+    ).run(id, type, JSON.stringify(payload), status, `-${secondsAgo} seconds`);
+  }
+
+  function runningTask(id: string, type: string, opts: { startedSecondsAgo: number; progressSecondsAgo?: number }) {
+    const progress = opts.progressSecondsAgo === undefined
+      ? {}
+      : { progress: { processed: 5, total: 100, updatedAt: new Date(Date.now() - opts.progressSecondsAgo * 1000).toISOString() } };
+    db.prepare(`
+      INSERT INTO jobs (id, type, payload, status, created_at, started_at, locked_at)
+      VALUES (?, ?, ?, 'running',
+        strftime('%Y-%m-%dT%H:%M:%fZ','now', ?), strftime('%Y-%m-%dT%H:%M:%fZ','now', ?), strftime('%Y-%m-%dT%H:%M:%fZ','now', ?))
+    `).run(id, type, JSON.stringify({ libraryId: "lib-a", ...progress }),
+      `-${opts.startedSecondsAgo} seconds`, `-${opts.startedSecondsAgo} seconds`, `-${opts.startedSecondsAgo} seconds`);
+  }
+
+  const taskById = (id: string) => listTasks().jobs.find((task) => task.id === id)!;
+
+  it("leaves a task that is reporting progress alone, however long it has run", () => {
+    runningTask("busy", "SCAN_GALLERY_LIBRARY", { startedSecondsAgo: 4 * 3600, progressSecondsAgo: 3 });
+    expect(taskById("busy").stalledSeconds).toBeNull();
+  });
+
+  it("flags a running task whose progress stopped moving", () => {
+    runningTask("wedged", "SCAN_GALLERY_LIBRARY", { startedSecondsAgo: 3 * 3600, progressSecondsAgo: 40 * 60 });
+    expect(taskById("wedged").stalledSeconds).toBeGreaterThan(39 * 60);
+  });
+
+  it("judges a task that never reported progress by when it was claimed", () => {
+    runningTask("silent", "SCAN_GALLERY_LIBRARY", { startedSecondsAgo: 40 * 60 });
+    expect(taskById("silent").stalledSeconds).toBeGreaterThan(39 * 60);
+    // Freshly claimed and still quiet is normal, not stuck.
+    runningTask("young", "SCAN_GALLERY_LIBRARY", { startedSecondsAgo: 20 });
+    expect(taskById("young").stalledSeconds).toBeNull();
+  });
+
+  it("gives ffmpeg work a wider window than a catalog scan", () => {
+    // One long video can hold the encoder well past the scan threshold without
+    // anything being wrong, so the same silence means different things per type.
+    runningTask("scan", "SCAN_GALLERY_LIBRARY", { startedSecondsAgo: 3600, progressSecondsAgo: 20 * 60 });
+    runningTask("encode", "TRANSCODE_GALLERY_VIDEO", { startedSecondsAgo: 3600, progressSecondsAgo: 20 * 60 });
+    expect(taskById("scan").stalledSeconds).toBeGreaterThan(0);
+    expect(taskById("encode").stalledSeconds).toBeNull();
+  });
+
+  it("never flags a task that is not running", () => {
+    insertTask("queued", "SCAN_GALLERY_LIBRARY", "pending", {}, 10 * 3600);
+    insertTask("old-news", "SCAN_GALLERY_LIBRARY", "completed", {}, 10 * 3600);
+    expect(taskById("queued").stalledSeconds).toBeNull();
+    expect(taskById("old-news").stalledSeconds).toBeNull();
+  });
+
+  it("names the job holding the library queue and counts what waits behind it", () => {
+    runningTask("holder", "SCAN_GALLERY_LIBRARY", { startedSecondsAgo: 60, progressSecondsAgo: 2 });
+    insertTask("wait-1", "SCAN_AUDIOBOOK_LIBRARY", "pending", {}, 30);
+    insertTask("wait-2", "SCAN_GALLERY_FACES", "pending", {}, 20);
+    // Not a library job: it runs on its own worker and doesn't queue behind the lock.
+    insertTask("render", "gallery-slideshow-render", "pending", {}, 10);
+
+    const { queue } = listTasks();
+    expect(queue.holder?.id).toBe("holder");
+    expect(queue.waiting).toBe(2);
+  });
+
+  it("reports no holder when the queue is free", () => {
+    insertTask("wait-1", "SCAN_GALLERY_LIBRARY", "pending", {}, 30);
+    const { queue } = listTasks();
+    expect(queue.holder).toBeNull();
+    expect(queue.waiting).toBe(1);
+  });
+});

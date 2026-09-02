@@ -243,6 +243,10 @@ export interface Job {
   } | null;
   // Position within a pre-queued batch group ("batch 2 of 5"); null for single jobs.
   batch: { index: number; total: number } | null;
+  // Seconds since a running task last wrote progress, once that silence is long
+  // enough to mean "wedged" rather than "slow" (the server decides, per job type).
+  // null on anything healthy or not running.
+  stalledSeconds: number | null;
   bookErrors: string[];
 }
 

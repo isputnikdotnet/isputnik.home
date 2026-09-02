@@ -1847,6 +1847,26 @@
   color: var(--warning, #e8590c);
 }
 
+/* A running task that has stopped reporting progress. It stays in the running table
+   — it IS still claimed — but reads as a warning rather than as work in flight, so a
+   wedged scan is not mistaken for a slow one. */
+.task-stalled > td {
+  background: color-mix(in srgb, var(--warning, #e8590c) 8%, transparent);
+}
+
+.task-stalled-icon {
+  color: var(--warning, #e8590c);
+  flex: none;
+}
+
+/* Its own line under the progress figures: the sentence is long, and appended inline
+   it widens the table past its wrapper and squeezes the task-name column to nothing. */
+.task-stalled-note {
+  display: block;
+  color: var(--warning, #e8590c);
+  font-weight: 600;
+}
+
 /* ── Scheduled jobs ─────────────────────────────────────────────── */
 
 .scheduled-jobs-intro {
