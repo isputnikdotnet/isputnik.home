@@ -730,18 +730,21 @@ export function GalleryPage({
     return () => { alive = false; };
   }, [initialAssetId]);
 
-  // While a library is scanning, refresh so new assets/thumbnails appear.
+  // While a library is scanning, refresh so new assets/thumbnails appear. Uses
+  // the "keep loaded pages" reloaders (same ones refreshView uses) rather than
+  // resetting to page 1 — otherwise a visitor paging through "Load more" during
+  // a long scan gets truncated back to the first page every 3.5s.
   useEffect(() => {
     if (!libraries.some((library) => library.scanStatus === "scanning")) return;
     const timer = window.setInterval(() => {
       void loadLibraries();
-      if (view === "timeline") void loadTimeline(0);
-      else if (view === "folder") void loadFolder(parent);
+      if (view === "timeline") void reloadTimeline(assets.length);
+      else if (view === "folder") void loadFolder(parent, 0, folderAssets.length);
       else if (view === "memories") void loadMemories();
       else if (view === "map") void loadMap();
     }, 3500);
     return () => window.clearInterval(timer);
-  }, [libraries, view, parent, loadLibraries, loadTimeline, loadFolder, loadMemories, loadMap]);
+  }, [libraries, view, parent, assets.length, folderAssets.length, loadLibraries, reloadTimeline, loadFolder, loadMemories, loadMap]);
 
   // Mobile "Browse" (views) dropdown open/close + outside-click dismissal.
   const toggleViewMenu = () => {
