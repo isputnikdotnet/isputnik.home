@@ -19,6 +19,14 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.53.1",
+    label: "The guides have pictures again",
+    changes: [
+      "The help guides show the screens they describe. Fifteen screenshots are back: the first-run form, storage before and after it is set up, all three steps of the Add-library wizard, the libraries list, each of the three kinds of library, the family tree and the email settings. They were taken out last month because they had been captured on a real library and showed a real person's name in them. These were captured on a library built for the purpose — public-domain books from Standard Ebooks and Project Gutenberg, LibriVox recordings, openly licensed photographs — so there is nobody's private material in them. The pictures are fetched over the network rather than bundled for offline use: a guide read with no connection still reads, it just reads without them.",
+      "The line under the app's name in the sidebar is translated. It had been written straight into the page instead of being looked up like every other piece of text, so it stayed in Russian no matter which language you had chosen — the one Russian sentence on an otherwise English screen."
+    ]
+  },
+  {
     version: "3.53.0",
     label: "One way to share",
     changes: [
