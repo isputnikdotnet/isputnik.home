@@ -14,20 +14,26 @@ import type { GalleryAsset } from "../gallery/types";
 // A chapter with a pin can wear the map instead of a photo — same banner, same
 // menu, so the two covers are one decision and not two competing fields.
 export function StoryCoverBanner({
-  cover,
+  coverUrl,
   pickerTitle,
   pin,
   useMap = false,
+  extraActions,
   onPick,
   onClear,
   onUseMap
 }: {
-  /** The chosen photo, resolved for this viewer; null = nothing set. */
-  cover: GalleryAsset | null;
+  /** What to draw, resolved for this viewer; null = nothing set. A cover is
+   *  usually a photo, but a review may wear the book's own artwork. */
+  coverUrl: string | null;
   pickerTitle: string;
   /** The chapter's place, when it has one — what "Use map as cover" draws. */
   pin?: { lat: number; lng: number; label: string } | null;
   useMap?: boolean;
+  /** Other places this cover could come from — a review's book, say. Offered
+   *  in the same menu, because "where does this picture come from" is one
+   *  question with several answers, not several buttons. */
+  extraActions?: ActionMenuItem[];
   onPick: (asset: GalleryAsset) => void;
   onClear: () => void;
   /** Omitted where a map cover makes no sense (the story's own front page). */
@@ -37,15 +43,16 @@ export function StoryCoverBanner({
   const [picking, setPicking] = useState(false);
 
   const showingMap = Boolean(useMap && pin);
-  const empty = !showingMap && !cover?.coverUrl;
+  const empty = !showingMap && !coverUrl;
 
   const items: ActionMenuItem[] = [
     {
       key: "photo",
-      label: cover ? t("stories:edit.coverChangePhoto") : t("stories:edit.coverChoosePhoto"),
+      label: coverUrl ? t("stories:edit.coverChangePhoto") : t("stories:edit.coverChoosePhoto"),
       icon: <ImageIcon size={15} aria-hidden="true" />,
       onSelect: () => setPicking(true)
-    }
+    },
+    ...(extraActions ?? [])
   ];
   if (onUseMap) {
     items.push({
@@ -56,7 +63,7 @@ export function StoryCoverBanner({
       onSelect: () => onUseMap(!showingMap)
     });
   }
-  if (cover || showingMap) {
+  if (coverUrl || showingMap) {
     items.push({
       key: "clear",
       label: t("stories:edit.coverRemove"),
@@ -75,8 +82,8 @@ export function StoryCoverBanner({
             onOpen={() => {}}
           />
         </div>
-      ) : cover?.coverUrl ? (
-        <img src={cover.coverUrl} alt="" />
+      ) : coverUrl ? (
+        <img src={coverUrl} alt="" />
       ) : (
         <p className="story-edit-cover-empty">
           <ImagePlus size={20} aria-hidden="true" />

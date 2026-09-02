@@ -25,6 +25,7 @@ import { getAlbum, getAlbumItems } from "../library/gallery/albums.js";
 import { getSlideshow, getSlideshowItems } from "../library/gallery/slideshows.js";
 import { deleteEntityTags, entityTagsByIds, getEntityTags } from "../library/audiobook/categorize.js";
 import { deleteSharesForResource } from "../library/shared/share-access.js";
+import { accessibleLibraryIds } from "../library/shared/library-access.js";
 import { getTrashRetentionDays } from "../library/shared/trash.js";
 import { STORY_AUDIO_ENTITY_TYPE, deleteStoryAudio, deleteStoryAudioFiles } from "./audio.js";
 import { canManageCollection, canViewCollection, visibleCollectionIds } from "./collection-access.js";
@@ -442,6 +443,16 @@ export function listStories(
 ) {
   const libArgs = libIds.length > 0 ? libIds : [""];
   const libIn = inClause(libArgs.length);
+  // The CHOSEN cover may be a photo or a book's own artwork — a review wearing
+  // the book it is about — so that one lookup reaches past the gallery into
+  // whichever book libraries this viewer can open. The fallback below stays
+  // gallery-only: it is looking for a photograph the story shows.
+  const coverLibArgs = [...new Set([
+    ...libArgs,
+    ...accessibleLibraryIds(user.id, user.role, "audiobook"),
+    ...accessibleLibraryIds(user.id, user.role, "ebook")
+  ])];
+  const coverLibIn = inClause(coverLibArgs.length);
   // Collection access overrides member visibility: a story on a restricted
   // shelf lists only for that shelf's members — its author aside. null =
   // admin, no clause at all.
@@ -479,7 +490,7 @@ export function listStories(
         (SELECT item_metadata.cover_storage_key FROM library_items
           JOIN item_metadata ON item_metadata.item_id = library_items.id
           WHERE library_items.id = stories.cover_item_id AND library_items.deleted_at IS NULL
-            AND library_items.library_id IN (${libIn})),
+            AND library_items.library_id IN (${coverLibIn})),
         (SELECT item_metadata.cover_storage_key FROM story_blocks
           JOIN story_chapters ON story_chapters.id = story_blocks.chapter_id
           JOIN library_items ON library_items.id = story_blocks.entity_id AND library_items.deleted_at IS NULL
@@ -503,7 +514,7 @@ export function listStories(
       ${refClause}
     ORDER BY datetime(stories.updated_at) DESC
   `).all(
-    user.id, ...libArgs, ...libArgs, user.id, user.role,
+    user.id, ...coverLibArgs, ...libArgs, user.id, user.role,
     ...(collectionClause ? [user.id, ...(visibleCollections ?? [])] : []),
     ...(collectionId ? [collectionId] : []),
     ...(tagId ? [tagId] : []),
@@ -567,6 +578,21 @@ export function getStoryTags(storyId: string): string[] {
 
 export function storyTagsByStory(storyIds: string[]): Map<string, string[]> {
   return entityTagsByIds(STORY_ENTITY_TYPE, storyIds);
+}
+
+/** Which kind of library the story's cover item lives in. A cover is usually a
+ *  photo, but a review can wear the book's own artwork, and the two are checked
+ *  — and resolved — differently. Null = gone, or a type that has no cover to
+ *  lend. The story CARD has always read the cover straight off the item, so
+ *  this only teaches the rest of the app what those rows already allowed. */
+export function coverItemKind(itemId: string): "gallery" | "audiobook" | "ebook" | null {
+  const row = db.prepare(`
+    SELECT libraries.type AS type FROM library_items
+    JOIN libraries ON libraries.id = library_items.library_id
+    WHERE library_items.id = ? AND library_items.deleted_at IS NULL
+  `).get(itemId) as { type: string } | undefined;
+  if (row?.type === "gallery" || row?.type === "audiobook" || row?.type === "ebook") return row.type;
+  return null;
 }
 
 export function getChapters(storyId: string): ChapterRow[] {

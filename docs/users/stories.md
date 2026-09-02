@@ -41,7 +41,9 @@ when it's ready for the family; **Back to draft** any time.
 The **New story** dialog is the story's front page before it exists: pick the
 shape, set a cover on the cover band, and write the name and subtitle where
 they will be read. What the kind needs to know — a date, a place, a book —
-sits in one **Story settings** card underneath.
+sits in one **Story settings** card underneath. A review takes the cover of
+the book it is about, unless you choose a photo instead — and any story that
+shows a book can borrow that book's cover from **Edit cover** later.
 
 ## Writing
 

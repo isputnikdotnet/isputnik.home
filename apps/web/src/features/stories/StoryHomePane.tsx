@@ -1,4 +1,6 @@
 import { useTranslation } from "react-i18next";
+import { BookOpen } from "lucide-react";
+import type { ActionMenuItem } from "../../shared/ActionMenu";
 import { InlineEdit } from "../../shared/InlineEdit";
 import { StoryCoverBanner } from "./StoryCoverBanner";
 import { StoryMap } from "./StoryMap";
@@ -19,6 +21,20 @@ export function StoryHomePane({
 }) {
   const { t } = useTranslation(["common", "stories"]);
 
+  // A story that shows a book can wear that book's artwork — the first one it
+  // shows, which on a review is the book it is about.
+  const book = story.chapters
+    .flatMap((chapter) => chapter.blocks)
+    .find((block) => block.kind === "book" && block.available && block.coverUrl && block.entityId);
+  const bookCover: ActionMenuItem[] = book
+    ? [{
+      key: "book",
+      label: t("stories:edit.coverUseBook"),
+      icon: <BookOpen size={15} aria-hidden="true" />,
+      onSelect: () => onPatch({ coverItemId: book.entityId })
+    }]
+    : [];
+
   const pins = story.chapters
     .map((chapter, index) => ({ chapter, index }))
     .filter(({ chapter }) => chapter.placeLat != null && chapter.placeLng != null)
@@ -33,8 +49,9 @@ export function StoryHomePane({
   return (
     <div className="story-edit-pane story-edit-home">
       <StoryCoverBanner
-        cover={story.cover}
+        coverUrl={story.coverUrl}
         pickerTitle={t("stories:fields.coverPickerTitle")}
+        extraActions={bookCover}
         onPick={(asset) => onPatch({ coverItemId: asset.id })}
         onClear={() => onPatch({ coverItemId: null })}
       />

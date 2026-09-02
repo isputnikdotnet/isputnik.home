@@ -117,7 +117,7 @@ export function StoryChapterEditor({
   return (
     <div className="story-edit-chapter">
       <StoryCoverBanner
-        cover={chapter.hero}
+        coverUrl={chapter.hero?.coverUrl ?? null}
         pickerTitle={t("stories:chapter.heroPickerTitle")}
         pin={chapter.placeLat != null && chapter.placeLng != null
           ? { lat: chapter.placeLat, lng: chapter.placeLng, label: chapter.place ?? label }

@@ -264,7 +264,10 @@ function StoryHome({ story, onOpenChapter }: { story: StoryDetail; onOpenChapter
     return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
   }, [story]);
 
+  // A photo cover has a larger rendition for the hero; a book's artwork is one
+  // image, and it still beats falling through to a chapter's photo.
   const heroUrl = story.cover?.previewUrl
+    ?? story.coverUrl
     ?? story.chapters.find((item) => item.hero?.previewUrl)?.hero?.previewUrl
     ?? null;
 

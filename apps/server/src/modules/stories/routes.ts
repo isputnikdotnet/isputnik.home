@@ -50,6 +50,7 @@ import {
   softDeleteStory,
   restoreStory,
   purgeStory,
+  coverItemKind,
   listDeletedStories,
   listStories,
   setStorySaved,
@@ -481,6 +482,15 @@ export async function storiesPlugin(app: FastifyInstance) {
       };
     });
 
+    // The cover is usually a photo; on a review it may be the book's own
+    // artwork, which lives outside the gallery hydration above.
+    const coverAsset = story.cover_item_id ? assets.get(story.cover_item_id) ?? null : null;
+    const coverBookType = !coverAsset && story.cover_item_id ? coverItemKind(story.cover_item_id) : null;
+    const coverBook = coverBookType === "audiobook" || coverBookType === "ebook"
+      ? hydrateEntities([{ entityType: coverBookType, entityId: story.cover_item_id! }], user)
+        .get(`${coverBookType}:${story.cover_item_id}`)
+      : undefined;
+
     return reply.send({
       story: {
         id: story.id,
@@ -506,7 +516,10 @@ export async function storiesPlugin(app: FastifyInstance) {
           return shelf ? { id: shelf.id, title: shelf.title } : null;
         })(),
         // The chosen cover resolved for this viewer — the Story Home hero.
-        cover: story.cover_item_id ? assets.get(story.cover_item_id) ?? null : null,
+        cover: coverAsset,
+        // What to actually draw: the photo's own URL, or the book's artwork.
+        // Null covers both "nothing chosen" and "chosen, but out of reach".
+        coverUrl: coverAsset?.coverUrl ?? (coverBook?.available ? coverBook.coverUrl : null) ?? null,
         chapters: chapters.map((chapter) => ({
           id: chapter.id,
           position: chapter.position,
@@ -538,9 +551,18 @@ export async function storiesPlugin(app: FastifyInstance) {
     if (parsed.error) {
       return reply.code(400).send({ error: "Invalid story details", details: parsed.error });
     }
-    // A cover must be a photo the author can reach, like any other reference.
-    if (parsed.data.coverItemId && !referenceIsReachable("media", parsed.data.coverItemId, user)) {
-      return reply.code(400).send({ error: "That photo isn't available to use as a cover." });
+    // A cover must be something the author can reach, like any other
+    // reference: a photo, or — on a review — the book's own artwork.
+    if (parsed.data.coverItemId) {
+      const kind = coverItemKind(parsed.data.coverItemId);
+      const reachable = kind === "gallery"
+        ? referenceIsReachable("media", parsed.data.coverItemId, user)
+        : kind
+          ? referenceIsReachable("book", parsed.data.coverItemId, user, kind)
+          : false;
+      if (!reachable) {
+        return reply.code(400).send({ error: "That cover isn't available to use." });
+      }
     }
     // Moving ONTO a shelf needs contributor rights there; moving off one only
     // needs edit rights on the story, which this route already has.

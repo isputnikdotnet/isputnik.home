@@ -130,6 +130,9 @@ export interface StoryDetail {
   coverItemId: string | null;
   /** The chosen cover resolved for this viewer — the Story Home hero. */
   cover: GalleryAsset | null;
+  /** What to draw for that cover: the photo's URL, or — on a review wearing the
+   *  book's own artwork — the book's. Null = nothing chosen, or out of reach. */
+  coverUrl: string | null;
   canEdit: boolean;
   createdAt: string;
   updatedAt: string;

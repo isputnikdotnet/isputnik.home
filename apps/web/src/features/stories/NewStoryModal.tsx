@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BookText, BriefcaseBusiness, CheckCircle2, Heart, MapPin, Star, type LucideIcon } from "lucide-react";
+import { BookOpen, BookText, BriefcaseBusiness, CheckCircle2, Heart, MapPin, Star, type LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api";
 import { navigate } from "../../router";
@@ -8,7 +8,7 @@ import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
 import { Button } from "../../shared/Button";
 import { PartialDateField } from "../../shared/PartialDateField";
-import type { GalleryAsset } from "../gallery/types";
+import type { ActionMenuItem } from "../../shared/ActionMenu";
 import { StoryCoverBanner } from "./StoryCoverBanner";
 import { StoryRefPicker } from "./StoryRefPicker";
 import { STORY_KINDS, type StoryKind } from "./types";
@@ -54,9 +54,13 @@ export function NewStoryModal({
   const [date, setDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [place, setPlace] = useState("");
-  const [book, setBook] = useState<{ id: string; entityType: "audiobook" | "ebook"; title: string } | null>(null);
+  const [book, setBook] = useState<
+    { id: string; entityType: "audiobook" | "ebook"; title: string; coverUrl: string | null } | null
+  >(null);
   const [pickingBook, setPickingBook] = useState(false);
-  const [cover, setCover] = useState<GalleryAsset | null>(null);
+  // The chosen cover as the band needs it: what to draw, and which library item
+  // to point the story at. A review can point at its own book.
+  const [cover, setCover] = useState<{ id: string; url: string | null } | null>(null);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -68,6 +72,17 @@ export function NewStoryModal({
       : "";
   const previewPlace = kind === "memory" ? place.trim() : "";
   const KindIcon = STORY_KIND_ICONS[kind];
+
+  // A review is about a book, and a book already has a face — offer it rather
+  // than making someone go looking for a photograph of one.
+  const bookCover: ActionMenuItem[] = kind === "review" && book?.coverUrl
+    ? [{
+      key: "book",
+      label: t("stories:edit.coverUseBook"),
+      icon: <BookOpen size={15} aria-hidden="true" />,
+      onSelect: () => setCover({ id: book.id, url: book.coverUrl })
+    }]
+    : [];
 
   const submit = async () => {
     // A review with a chosen book can go out untitled — the book names it.
@@ -148,9 +163,10 @@ export function NewStoryModal({
             the name and subtitle are set where they will be read. */}
         <div className="story-new-story-page">
           <StoryCoverBanner
-            cover={cover}
+            coverUrl={cover?.url ?? null}
             pickerTitle={t("stories:fields.coverPickerTitle")}
-            onPick={setCover}
+            extraActions={bookCover}
+            onPick={(asset) => setCover({ id: asset.id, url: asset.coverUrl })}
             onClear={() => setCover(null)}
           />
 
@@ -258,10 +274,13 @@ export function NewStoryModal({
       {pickingBook && (
         <StoryRefPicker
           kind="book"
-          onPick={(id, entityType, bookTitle) => {
+          onPick={(id, entityType, bookTitle, bookCoverUrl) => {
             setPickingBook(false);
             if (!entityType) return;
-            setBook({ id, entityType, title: bookTitle ?? "" });
+            setBook({ id, entityType, title: bookTitle ?? "", coverUrl: bookCoverUrl ?? null });
+            // Nothing chosen yet? The book's own artwork is the obvious cover
+            // for a review, so it is offered by being there, not by asking.
+            setCover((current) => current ?? (bookCoverUrl ? { id, url: bookCoverUrl } : null));
           }}
           onClose={() => setPickingBook(false)}
         />

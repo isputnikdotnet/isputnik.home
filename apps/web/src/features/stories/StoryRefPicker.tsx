@@ -47,7 +47,13 @@ export function StoryRefPicker({
   storyTags?: string[];
   /** Book picks also say which book type was chosen, and every pick carries
    *  its row's title for callers that display or reuse it. */
-  onPick: (id: string, entityType?: "audiobook" | "ebook", title?: string) => void;
+  onPick: (
+    id: string,
+    entityType?: "audiobook" | "ebook",
+    title?: string,
+    /** The artwork the row was showing — a review can wear its book's cover. */
+    coverUrl?: string | null
+  ) => void;
   onClose: () => void;
 }) {
   const { t } = useTranslation(["common", "stories"]);
@@ -86,7 +92,7 @@ export function StoryRefPicker({
   const rest = visible.filter((row) => !suggestedIds.has(row.id));
 
   const renderRow = (row: Row) => (
-    <button type="button" className="story-picker-row" key={`${row.entityType ?? kind}:${row.id}`} onClick={() => onPick(row.id, row.entityType, row.title)}>
+    <button type="button" className="story-picker-row" key={`${row.entityType ?? kind}:${row.id}`} onClick={() => onPick(row.id, row.entityType, row.title, row.coverUrl)}>
       <span className="story-picker-cover" aria-hidden="true">
         {row.coverUrl ? <img src={row.coverUrl} alt="" /> : <Icon size={18} />}
       </span>

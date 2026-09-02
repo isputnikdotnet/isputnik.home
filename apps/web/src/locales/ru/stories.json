@@ -237,7 +237,8 @@
     "coverUseMap": "Сделать обложкой карту",
     "coverUsePhoto": "Показать фото",
     "coverRemove": "Убрать обложку",
-    "coverNeedsPin": "Сначала отметьте главу на карте"
+    "coverNeedsPin": "Сначала отметьте главу на карте",
+    "coverUseBook": "Взять обложку книги"
   },
   "chapter": {
     "number": "Глава {{number}}",
