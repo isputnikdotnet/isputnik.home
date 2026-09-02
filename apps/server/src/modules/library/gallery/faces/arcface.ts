@@ -13,11 +13,25 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import sharp from "sharp";
-import * as ort from "onnxruntime-node";
+import type * as ort from "onnxruntime-node";
 import { decodePhotoToJpeg } from "../media.js";
 import { FACE_EMBEDDING_MODEL } from "./model-id.js";
 
 export { FACE_EMBEDDING_MODEL };
+
+// onnxruntime is a NATIVE binding, and the type import above is erased at
+// compile time, so nothing loads it until this is called — the models were
+// always lazy, but until now the engine behind them was pulled in by anyone who
+// so much as imported this file. A server that never scans faces now really
+// does pay nothing, and neither does a test that only touches the queue:
+// loading the binding in many parallel test workers occasionally killed one
+// outright, taking its whole file's results with it.
+type OnnxRuntime = typeof import("onnxruntime-node");
+let runtime: Promise<OnnxRuntime> | null = null;
+function onnx(): Promise<OnnxRuntime> {
+  runtime ??= import("onnxruntime-node");
+  return runtime;
+}
 
 export interface DetectedFace {
   /** [x, y, width, height], normalised 0..1 of the image. */
@@ -99,12 +113,13 @@ async function createSession(file: string): Promise<{ session: ort.InferenceSess
     interOpNumThreads: 1,
     executionProviders: providers as ort.InferenceSession.SessionOptions["executionProviders"]
   };
+  const { InferenceSession } = await onnx();
   try {
-    return { session: await ort.InferenceSession.create(file, opts), gpu: providers.some((p) => p !== "cpu") };
+    return { session: await InferenceSession.create(file, opts), gpu: providers.some((p) => p !== "cpu") };
   } catch (err) {
     if (providers.length === 1) throw err; // already CPU-only — nothing to fall back to
     console.warn(`face engine: providers [${providers.join(", ")}] failed (${err instanceof Error ? err.message : err}); falling back to CPU.`);
-    return { session: await ort.InferenceSession.create(file, { ...opts, executionProviders: ["cpu"] }), gpu: false };
+    return { session: await InferenceSession.create(file, { ...opts, executionProviders: ["cpu"] }), gpu: false };
   }
 }
 
@@ -324,7 +339,8 @@ async function runInference(engine: FaceEngine, image: DecodedImage): Promise<De
     inp[dplane + i] = (pad[i * 3 + 1] - 127.5) / 128;
     inp[2 * dplane + i] = (pad[i * 3 + 2] - 127.5) / 128;
   }
-  const detOut = await det.run({ [det.inputNames[0]]: new ort.Tensor("float32", inp, [1, 3, DET_SIZE, DET_SIZE]) });
+  const { Tensor } = await onnx();
+  const detOut = await det.run({ [det.inputNames[0]]: new Tensor("float32", inp, [1, 3, DET_SIZE, DET_SIZE]) });
   const dets = decodeScrfd(detOut, scale, 0.5);
   if (dets.length === 0) return [];
 
@@ -341,13 +357,13 @@ async function runInference(engine: FaceEngine, image: DecodedImage): Promise<De
   if (engine.recGpu) {
     for (const d of dets) {
       const input = warpToArcInput(rgb, W, H, similarityTransform(d.kps));
-      const recOut = await rec.run({ [rec.inputNames[0]]: new ort.Tensor("float32", input, [1, 3, 112, 112]) });
+      const recOut = await rec.run({ [rec.inputNames[0]]: new Tensor("float32", input, [1, 3, 112, 112]) });
       embeddings.push(l2(recOut[rec.outputNames[0]].data as Float32Array));
     }
   } else {
     const batch = new Float32Array(N * FACE);
     for (let i = 0; i < N; i += 1) batch.set(warpToArcInput(rgb, W, H, similarityTransform(dets[i].kps)), i * FACE);
-    const recOut = await rec.run({ [rec.inputNames[0]]: new ort.Tensor("float32", batch, [N, 3, 112, 112]) });
+    const recOut = await rec.run({ [rec.inputNames[0]]: new Tensor("float32", batch, [N, 3, 112, 112]) });
     const out = recOut[rec.outputNames[0]].data as Float32Array;
     const dim = out.length / N; // 512 for both ArcFace recognisers
     for (let i = 0; i < N; i += 1) embeddings.push(l2(out.slice(i * dim, (i + 1) * dim)));

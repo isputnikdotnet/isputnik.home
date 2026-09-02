@@ -2,10 +2,14 @@
 // so it must run once when the queue drains — and only when something changed — never
 // after every batch. These tests drive processFaceScanQueue over empty backlogs (no
 // photo files are ever decoded, so the native ONNX engine is imported but never runs).
-// Kept in its own file so gallery-faces.test.ts stays off the onnxruntime import chain.
+// Kept in its own file so gallery-faces.test.ts stays off the onnxruntime import chain —
+// and the engine is not loaded even here: the native binding is imported on first use,
+// which the last test in this file guards. Loading it in every parallel worker used to
+// kill one outright now and then, and a dead worker loses its whole file's results.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { createRequire } from "node:module";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { db } from "../src/db.js";
 import { ingestGalleryAsset } from "../src/modules/library/gallery/scanner.js";
@@ -156,6 +160,16 @@ describe("face scan worker (cluster once at queue drain)", () => {
     await recoverOrphanFaceClusters();
     expect((db.prepare("SELECT person_id FROM gallery_faces WHERE id = 'f1'").get() as { person_id: string | null }).person_id).toBeTruthy();
     expect(db.prepare("SELECT 1 FROM gallery_people WHERE id = 'sentinel'").get()).toBeFalsy();
+  });
+
+  it("drives the queue without loading the native face engine", () => {
+    // Everything this file imports is already in memory by now: the queue, the
+    // scanner, the arcface module itself. None of that may drag in
+    // onnxruntime-node, whose binding is a 100 MB+ native library — it belongs
+    // to detectFaces(), not to importing the code around it.
+    const loaded = Object.keys(createRequire(import.meta.url).cache)
+      .filter((file) => file.includes("onnxruntime"));
+    expect(loaded).toEqual([]);
   });
 
   it("recoverOrphanFaceClusters defers while a scan is still queued/running", async () => {
