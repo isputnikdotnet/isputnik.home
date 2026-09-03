@@ -413,6 +413,20 @@
   gap: 7px;
 }
 
+/* What you do to the thing the nav belongs to (the story editor's Publish, Send
+   and Delete), under everything you can move between and ruled off from it —
+   destinations above the line, actions below. Stacked and left-aligned, so
+   three of them read as a list rather than a squeezed row. */
+.section-nav-footer {
+  display: grid;
+  gap: 6px;
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.section-nav-footer > button { justify-content: flex-start; }
+
 .control-nav-branch {
   display: grid;
   gap: 4px;

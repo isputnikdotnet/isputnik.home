@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, BookOpen, ChevronLeft, ChevronRight, MapPin, Pencil, Send, Star } from "lucide-react";
-import type { ReactNode } from "react";
 import { api } from "../../api";
 import { followReplace, followRoute, goBack, navigate, replaceNavigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
@@ -17,6 +16,7 @@ import { ShareStoryModal } from "./ShareStoryModal";
 import { StoryBlockView } from "./StoryBlockView";
 import { StoryMarkdown } from "./StoryMarkdown";
 import { StoryMap } from "./StoryMap";
+import { StoryStep } from "./StoryStep";
 import { chapterDateText, groupIntoRows } from "./story-layout";
 import { chapterLabel, hasChapterStructure, type StoryBlock, type StoryChapter, type StoryDetail } from "./types";
 
@@ -299,39 +299,6 @@ function StoryStars({ value }: { value: number }) {
 
 /** The best image a chapter can offer its card: the hero, else the first
  *  visible photo any of its blocks shows. */
-// One stop on the rail: the picture it opens on (or its number), what it's
-// called, and when it was. A link, so a chapter can be opened in its own tab
-// like any other page — and a replacing one, so the whole story stays a single
-// step in the trail.
-function StoryStep({
-  href,
-  current,
-  label,
-  sub,
-  mark
-}: {
-  href: string;
-  current: boolean;
-  label: string;
-  sub: string;
-  mark: ReactNode;
-}) {
-  return (
-    <a
-      className={`story-step${current ? " is-current" : ""}`}
-      href={href}
-      aria-current={current ? "page" : undefined}
-      onClick={(event) => followReplace(event, href)}
-    >
-      <span className="story-step-mark" aria-hidden="true">{mark}</span>
-      <span className="story-step-text">
-        <span className="story-step-label">{label}</span>
-        {sub && <span className="story-step-sub">{sub}</span>}
-      </span>
-    </a>
-  );
-}
-
 function chapterThumb(chapter: StoryChapter): string | null {
   if (chapter.hero?.coverUrl) return chapter.hero.coverUrl;
   for (const block of chapter.blocks) {

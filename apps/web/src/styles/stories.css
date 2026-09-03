@@ -1905,16 +1905,24 @@
   background: var(--line);
 }
 
+/* An anchor on the signed-in site, a button on a guest page whose navigation is
+   a query on one URL — one look for both, as the chapter strip already does. */
 .story-step {
   position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
+  width: 100%;
   min-width: 0;
   padding: 7px 10px;
+  border: 0;
   border-radius: 10px;
+  background: transparent;
   color: var(--muted);
+  font: inherit;
+  text-align: left;
   text-decoration: none;
+  cursor: pointer;
 }
 
 .story-step:hover { background: var(--hover); }
@@ -2023,6 +2031,11 @@
    a floating band. */
 .story-site.has-rail .story-home-hero,
 .story-site.has-rail .story-chapter-hero { border-radius: 0; }
+
+/* A guest page has no bar above it, so the shell is the top of the page. */
+.story-site--guest.has-rail .story-site-shell { padding-top: 32px; }
+
+.story-site--guest .story-site-page { padding-bottom: 40px; }
 
 @media (max-width: 1100px) {
   .story-site.has-rail .story-site-shell {
