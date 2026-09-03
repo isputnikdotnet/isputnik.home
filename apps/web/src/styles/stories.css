@@ -1261,6 +1261,53 @@
   resize: vertical;
 }
 
+/* ── Writing text (shared/MarkdownEditor) ──────────────────────────────── */
+/* A row of marks over the field, joined to it — the field is still text, and
+   the buttons only type what you could have typed yourself. */
+.markdown-editor {
+  display: flex;
+  flex-direction: column;
+}
+
+.markdown-tools {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-bottom: 0;
+  border-radius: 10px 10px 0 0;
+  background: var(--surface-raised);
+}
+
+.markdown-tools-gap {
+  width: 1px;
+  height: 18px;
+  margin: 0 6px;
+  background: var(--line);
+}
+
+.markdown-tool {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.markdown-tool:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+.markdown-editor .story-text-input {
+  border-radius: 0 0 10px 10px;
+}
+
 /* The insert point straddles the card's bottom edge, over the gap. It centres
    itself by being a full-width flex row rather than by translateX(-50%): a
    transform makes the element the containing block for any position:fixed
@@ -2159,6 +2206,28 @@
 }
 
 .story-home-card-go { flex: 0 0 auto; color: var(--muted); }
+
+/* The byline on the cover, under the subtitle: quiet, because the story's own
+   name is the loud thing up there. */
+.story-byline {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+  font-style: italic;
+}
+
+.story-home-hero.has-image .story-byline { color: rgba(255, 255, 255, 0.82); }
+
+/* And again where the reading stops — a signature under a rule, with room
+   above it, so it reads as the end of the story rather than one more line. */
+.story-colophon {
+  margin: 8px 0 0;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.95rem;
+  font-style: italic;
+}
 
 .story-home-map-section { display: flex; flex-direction: column; gap: 10px; }
 

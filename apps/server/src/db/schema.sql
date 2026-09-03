@@ -1867,6 +1867,12 @@ CREATE TABLE IF NOT EXISTS stories (
   intro         TEXT,
   -- Optional star rating (reviews mostly, but any story may carry one).
   rating        INTEGER CHECK (rating IS NULL OR rating BETWEEN 1 AND 5),
+  -- How the story is signed: the author name shown on its cover and at its
+  -- end. Free text, not a reference to users — a story may be signed with a
+  -- pen name, by a couple ("Anna and Pyotr"), or by somebody no longer here,
+  -- and it must keep its byline when the account that typed it is gone.
+  -- NULL = unsigned, and nothing is shown.
+  author_name   TEXT,
   -- What shape the story was created as: 'free' | 'memory' | 'journal' |
   -- 'review'. A kind only picked the creation template (seeded chapters and
   -- blocks, a default chapter noun) and extra surfacing — it never affects

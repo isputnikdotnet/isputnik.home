@@ -38,6 +38,10 @@ export interface StorySummary {
   saved: boolean;
   /** Stars (1–5), mostly on review-shaped stories; null = unrated. */
   rating: number | null;
+  /** How the story is signed — a name on the cover and at the end. Free text,
+   *  not the account that wrote it: a pen name, two names, or somebody no
+   *  longer here. Null = unsigned, and no byline is shown. */
+  authorName: string | null;
   /** The shelf this story sits on; null = standalone. */
   collectionId: string | null;
   kind: StoryKind;
@@ -146,6 +150,10 @@ export interface StoryDetail {
   intro: string | null;
   /** Stars (1–5), mostly on review-shaped stories; null = unrated. */
   rating: number | null;
+  /** How the story is signed — a name on the cover and at the end. Free text,
+   *  not the account that wrote it: a pen name, two names, or somebody no
+   *  longer here. Null = unsigned, and no byline is shown. */
+  authorName: string | null;
   /** This viewer marked it a favorite. */
   saved: boolean;
   /** The shelf this story sits on; null = standalone. */

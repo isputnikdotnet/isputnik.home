@@ -93,6 +93,8 @@ export interface StoryRow {
   chapter_noun: string | null;
   intro: string | null;
   rating: number | null;
+  /** Free-text byline; NULL = the story is unsigned. */
+  author_name: string | null;
   collection_id: string | null;
   kind: StoryKind;
   created_by: string;
@@ -270,6 +272,7 @@ export interface StoryUpdate {
   chapterNoun?: string | null;
   intro?: string | null;
   rating?: number | null;
+  authorName?: string | null;
   collectionId?: string | null;
 }
 
@@ -283,6 +286,7 @@ export function updateStory(storyId: string, fields: StoryUpdate): void {
       chapter_noun  = CASE WHEN ? THEN ? ELSE chapter_noun END,
       intro         = CASE WHEN ? THEN ? ELSE intro END,
       rating        = CASE WHEN ? THEN ? ELSE rating END,
+      author_name   = CASE WHEN ? THEN ? ELSE author_name END,
       collection_id = CASE WHEN ? THEN ? ELSE collection_id END,
       updated_at    = strftime('%Y-%m-%dT%H:%M:%fZ','now')
     WHERE id = ?
@@ -299,6 +303,8 @@ export function updateStory(storyId: string, fields: StoryUpdate): void {
     fields.intro ?? null,
     fields.rating !== undefined ? 1 : 0,
     fields.rating ?? null,
+    fields.authorName !== undefined ? 1 : 0,
+    fields.authorName ?? null,
     fields.collectionId !== undefined ? 1 : 0,
     fields.collectionId ?? null,
     storyId
@@ -535,6 +541,7 @@ export function listStories(
     firstPlace: row.first_place,
     saved: Boolean(row.saved),
     rating: row.rating,
+    authorName: row.author_name,
     collectionId: row.collection_id,
     kind: row.kind,
     coverUrl: row.cover_key ? `/api/library/covers/${row.cover_key}` : null,

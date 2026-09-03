@@ -362,6 +362,12 @@ function StoryHead({ story }: { story: StoryDetail }) {
         )}
         <h1>{story.title}</h1>
         {story.subtitle && <p className="story-read-subtitle">{story.subtitle}</p>}
+        {/* Signed on the cover, the way a book is. The end of the story says it
+            again (StoryColophon) — that is where you look when you have just
+            finished reading and want to know whose it was. */}
+        {story.authorName && (
+          <p className="story-byline">{t("stories:read.byline", { name: story.authorName })}</p>
+        )}
         {(span || primaryPlace || story.rating != null) && (
           <p className="story-home-meta">
             {span}
@@ -375,6 +381,15 @@ function StoryHead({ story }: { story: StoryDetail }) {
       </div>
     </header>
   );
+}
+
+/** How a story ends: who wrote it, once there is nothing left to read. Shown
+ *  at the foot of a one-page story and at the foot of the LAST chapter — a
+ *  signature belongs where the reader finishes, not under every day of a trip. */
+function StoryColophon({ name }: { name: string | null }) {
+  const { t } = useTranslation(["common", "stories"]);
+  if (!name) return null;
+  return <p className="story-colophon">{t("stories:read.byline", { name })}</p>;
 }
 
 /** The tag chips under a story's opening, on every shape of story. */
@@ -506,6 +521,8 @@ function FlatStory({
         </section>
       ))}
 
+      <StoryColophon name={story.authorName} />
+
       <NotesSection entityType="story" entityId={story.id} />
     </article>
   );
@@ -597,6 +614,9 @@ function ChapterPage({
           </div>
         </section>
       )}
+
+      {/* Only the last chapter is signed: that is where the story ends. */}
+      {!next && <StoryColophon name={story.authorName} />}
 
       <nav className="story-chapter-nav">
         {prev ? (

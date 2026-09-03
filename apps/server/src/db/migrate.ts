@@ -598,6 +598,21 @@ const migrations: { version: number; up: (db: Database.Database) => void }[] = [
         db.exec("ALTER TABLE story_chapters ADD COLUMN hero_map INTEGER NOT NULL DEFAULT 0");
       }
     }
+  },
+  {
+    // A story can be signed. Free text rather than a reference to the account
+    // that wrote it: a pen name, two names, or somebody no longer here — and
+    // the byline has to survive the account being deleted. Existing stories
+    // stay unsigned (NULL), which shows nothing, exactly as today.
+    version: 62,
+    up: (db) => {
+      const columns = new Set(
+        (db.prepare("PRAGMA table_info(stories)").all() as { name: string }[]).map((c) => c.name)
+      );
+      if (!columns.has("author_name")) {
+        db.exec("ALTER TABLE stories ADD COLUMN author_name TEXT");
+      }
+    }
   }
 ];
 

@@ -509,6 +509,16 @@
       "divorced": "2015 or 2015-03-01"
     }
   },
+  "markdown": {
+    "toolbar": "Formatting",
+    "bold": "Bold",
+    "italic": "Italic",
+    "heading": "Heading",
+    "bulletList": "Bulleted list",
+    "numberList": "Numbered list",
+    "quote": "Quote",
+    "link": "Link"
+  },
   "tagInput": {
     "placeholder": "Add a tag"
   },

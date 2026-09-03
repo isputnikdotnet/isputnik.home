@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { ActionMenu, type ActionMenuItem } from "../../shared/ActionMenu";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
+import { MarkdownEditor } from "../../shared/MarkdownEditor";
 import { InlineEdit } from "../../shared/InlineEdit";
 import { StoryBlockPicker, isPickable } from "./StoryBlockPicker";
 import { StoryBlockView } from "./StoryBlockView";
@@ -170,15 +171,14 @@ export function StoryBlockEditor({
         </div>
 
         {block.kind === "text" && writing ? (
-          <textarea
-            className="story-text-input"
+          <MarkdownEditor
             value={draft}
-            onChange={(event) => setDraft(event.target.value)}
+            onChange={setDraft}
             onBlur={saveText}
             placeholder={t("stories:block.textPlaceholder")}
             rows={8}
             maxLength={20000}
-            aria-label={t("stories:kind.text")}
+            ariaLabel={t("stories:kind.text")}
           />
         ) : block.kind === "text" ? (
           // Prose reads as prose and turns into a field where it sits, the way

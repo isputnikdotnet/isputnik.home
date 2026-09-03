@@ -55,8 +55,8 @@ still just reads it, and the pencil only appears on stories you can edit.)
 The editor shows one page at a time, laid out the way readers will see it. Under
 **Exit edit**, which takes you back to the story as readers see it, the left
 sidebar holds the story's shape — **Overview** (its front page, with the story's
-own settings under it), then every chapter. The top bar holds Publish,
-Send and Delete. There is no Save button: every field saves when you
+own settings under it), then every chapter, and under those Publish, Send and
+Delete. There is no Save button: every field saves when you
 leave it (Enter also does), and every added or moved block saves immediately.
 
 **Overview** is where the editor opens. The cover, the name, the subtitle and
@@ -68,6 +68,19 @@ Words are edited where they sit. Point at a title, a standfirst or a
 paragraph and a small pencil appears; click it, type, and click away. The
 cover works the same way — the **Edit cover** button lives on the cover
 itself.
+
+**Writing text.** A text block has a small row of marks over it — bold,
+italic, a heading, bulleted and numbered lists, a quote, a link. They act on
+whatever you have selected, and pressing the same one again takes the mark off.
+Ctrl+B, Ctrl+I and Ctrl+K (Cmd on a Mac) do the three you already know. The
+field is still plain text underneath: anyone who writes markdown by hand can
+carry on and ignore the row.
+
+**Signing it.** **Story details → Written by** puts a name on the story: it
+appears under the title on the cover and again at the very end, after the last
+chapter. It offers your own account name first, then any name you have signed
+with before — so a pen name, or both your names together, is one click the
+second time. Leave it empty and the story stays unsigned.
 
 **Chapters.** Every story has at least one. A simple story never has to think
 about them: leave the single chapter untitled and the page shows no chapter
@@ -107,8 +120,9 @@ starting again.
 Under each card is **Add block**, which puts the new one exactly there and
 opens a dialog of the kinds with a line each on what they put on the page:
 
-- **Text** — written in Markdown: `# heading`, `**bold**`, `> quote`,
-  `- list`, links. A preview button shows exactly what a reader gets.
+- **Text** — your words, with a row of marks over the field for bold, italic,
+  headings, lists, quotes and links (see Writing text above). A preview button
+  shows exactly what a reader gets.
 - **Photo / video** — picked from your gallery. Consecutive photos are laid
   out side by side like a photo essay; any photo can go **full width**.
 - **Album** or **Slideshow** — shown as a strip of its first photos with a

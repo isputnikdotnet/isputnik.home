@@ -35,6 +35,9 @@
     "subtitlePlaceholder": "Three weeks, two tents, one very tired dog",
     "intro": "Introduction",
     "introPlaceholder": "A few opening lines for the story's front page",
+    "authorName": "Written by",
+    "authorNamePlaceholder": "A name, or leave it unsigned",
+    "authorNameHint": "Shown on the cover and at the end of the story. Your own name, a pen name, two names — whatever fits.",
     "chapterNoun": "What to call a chapter",
     "chapterNounPlaceholder": "Day",
     "chapterNounHint": "Chapters then read “Day 1”, “Day 2”. Leave empty to use their titles.",
@@ -194,6 +197,7 @@
     "playSlideshow": "Unable to play this slideshow."
   },
   "read": {
+    "byline": "by {{name}}",
     "emptyTitle": "Nothing here yet",
     "emptyAuthor": "Open the editor to add your first words, photos or albums.",
     "emptyReader": "The author hasn't added anything to this story yet.",
