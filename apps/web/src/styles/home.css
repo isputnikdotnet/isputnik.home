@@ -403,9 +403,13 @@
   scrollbar-width: thin;
 }
 
+/* Starts where the main nav starts (.home-primary-nav's margin-top): a section's
+   sidebar swaps this in for that one, and the first row jumping up against the
+   brand as you move between them is a seam the two navs should not have. */
 .home-control-nav {
   display: grid;
   gap: 22px;
+  margin-top: 22px;
 }
 
 .home-control-group {

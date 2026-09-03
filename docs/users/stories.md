@@ -52,14 +52,14 @@ corner — one opens the story to read, the other opens it in the editor — so
 your own stories are one click from being worked on. (Clicking the tile itself
 still just reads it, and the pencil only appears on stories you can edit.)
 
-The editor shows one page at a time, laid out the way readers will see it. Under
-**Exit edit**, which takes you back to the story as readers see it, the left
-sidebar holds the story's shape — **Overview** (its front page, with the story's
-own settings under it), then every chapter. Everything you do *to* the story
-sits in one strip of icons above the page — leave the editor, publish it (or
-put it back to a draft), send it, delete it — each naming itself when you point
-at it. There is no Save button: every field saves when you leave it (Enter also
-does), and every added or moved block saves immediately.
+The editor shows one page at a time, laid out the way readers will see it. The
+left sidebar holds the story's shape and nothing else — **Overview** (its front
+page, with the story's own settings under it), then every chapter. Everything
+you do *to* the story is one strip of icons at the top of the page: leave the
+editor (which takes you back where you opened it from), publish it or put it
+back to a draft, send it, delete it — each naming itself when you point at it.
+There is no Save button: every field saves when you leave it (Enter also does),
+and every added or moved block saves immediately.
 
 **Overview** is where the editor opens. The cover, the name, the subtitle and
 the opening lines are edited on the page itself; underneath, **Story details**
