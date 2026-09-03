@@ -19,6 +19,16 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.57.0",
+    label: "The better copy of the same photograph",
+    changes: [
+      "A photo's file can be replaced without losing the photo. Open it in the viewer and choose Replace file: the high-resolution scan goes in over the low-resolution one catalogued years ago, and everything stays with it — the stories and albums that show it, its tags, the people tagged in it, its date and place, who has liked it. Deleting it and uploading the better copy could never do that: it makes a new photo, and everything pointing at the old one is left pointing at nothing.",
+      "The date deliberately does not move. A replacement is the same picture with better pixels, so it keeps the place in the timeline the family already knows it by — a fresh scan of a print usually carries no capture date at all, and taking the new file's own date would file a 1974 photograph under today.",
+      "The file that was there is kept rather than overwritten. It moves into a \"replaced\" folder beside the Recycle Bin, so a wrong file can be put back by hand — this is the one thing the app does that would otherwise destroy the only copy of something.",
+      "It has to be the same kind of thing: a photo for a photo, a video for a video. The new file may be a different format — a jpeg replaced by a tif — and the photo follows it."
+    ]
+  },
+  {
     version: "3.56.0",
     label: "Whose story it is",
     changes: [
