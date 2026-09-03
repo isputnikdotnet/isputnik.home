@@ -844,22 +844,25 @@
    as a form. Fields appear where the words are (see .inline-edit in
    components.css); the only boxed form left is the chapter's settings card. */
 
+/* One strip of icons above the page, the shape a book's own page uses
+   (.book-detail-topbar): the way out, a rule, then what you do to the story.
+   Grouped, and over the page rather than in it — the words being written start
+   underneath. */
 .story-edit-topbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-bottom: 18px;
-}
-
-/* Stays right whether or not the bar carries a way out on its left — the
-   sidebar holds that, so on a desktop the actions are the whole bar. */
-.story-edit-topbar-actions {
-  display: flex;
   gap: 8px;
   flex-wrap: wrap;
-  margin-left: auto;
+  min-height: 52px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.story-edit-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
 .story-edit-pane-head {

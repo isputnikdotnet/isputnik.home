@@ -206,6 +206,7 @@
   "edit": {
     "eyebrow": "Editing story",
     "exitEdit": "Exit edit",
+    "storyActions": "Story actions",
     "addBlock": "Add block",
     "addChapter": "Add chapter",
     "addChapterDetails": "Add a date, place or chapter title",

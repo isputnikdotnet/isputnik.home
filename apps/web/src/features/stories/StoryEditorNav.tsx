@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { LogOut, Plus, BookOpen } from "lucide-react";
 import { Button } from "../../shared/Button";
@@ -26,7 +25,6 @@ export function StoryEditorNav({
   story,
   activeKey,
   busy,
-  actions,
   onAddChapter,
   onReorderChapters
 }: {
@@ -34,10 +32,6 @@ export function StoryEditorNav({
   /** "overview" | a chapter id. */
   activeKey: string;
   busy: boolean;
-  /** What you do to the story as a whole — publishing it, handing it on,
-   *  deleting it. They sit under the chapters, where the reading view keeps the
-   *  same kind of thing; a phone has no sidebar and keeps them in the top bar. */
-  actions?: ReactNode;
   onAddChapter: () => void;
   onReorderChapters: (orderedIds: string[]) => void;
 }) {
@@ -77,7 +71,6 @@ export function StoryEditorNav({
       ariaLabel={t("stories:edit.nav.aria")}
       groups={groups}
       activeKey={activeKey}
-      footer={actions}
       replace
       exit={{
         label: t("stories:edit.exitEdit"),
