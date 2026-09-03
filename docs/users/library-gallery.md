@@ -55,6 +55,20 @@ is offered as a download, and the server can transcode a web-playable copy.
 Rotation works for videos too — a clip filmed sideways turns upright in the
 viewer and in its thumbnails, and keeps playing while you turn it.
 
+**Replace file** puts a different file behind a photo you already have — the
+high-resolution scan over the low-resolution one you catalogued years ago, or a
+straightened version. The photo itself stays exactly what it was: the stories
+and albums that show it, its tags, the people tagged in it, its date and place,
+its likes, all follow the new file. (Deleting it and uploading the better copy
+cannot do that — it makes a new photo, and everything pointing at the old one is
+left pointing at nothing.)
+
+It has to be the same kind — a photo for a photo, a video for a video — and the
+date the photo shows stays as it is, even when the new file carries a different
+one or none at all, so a fresh scan of a 1974 print doesn't file itself under
+today. The file that was there isn't overwritten: it moves into a `replaced`
+folder beside the Recycle Bin, so a wrong file can be put back by hand.
+
 ## Working with several at once
 
 The **Select** button in the header turns the grid into a picker — click photos

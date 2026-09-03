@@ -649,6 +649,14 @@
       "addedPhotosNotice_other": "Added {{count}} photos to \"{{name}}\"."
     }
   },
+  "replace": {
+    "action": "Replace file…",
+    "title": "Replace this file",
+    "body": "Put a different file behind this photo — a high-resolution scan over a low-resolution one, or a straightened version. Everything stays with it: the stories and albums that show it, its tags, the people tagged in it, its date and place, and who has favourited it.",
+    "keptTitle": "The current file is kept",
+    "keptBody": "It moves into a \"replaced\" folder beside the Recycle Bin rather than being overwritten, so a wrong file can be put back by hand.",
+    "hint": "It has to be the same kind — a photo for a photo, a video for a video. The date this item shows stays as it is, even if the new file has a different one."
+  },
   "setTags": {
     "add": "Add tags",
     "edit": "Edit tags",

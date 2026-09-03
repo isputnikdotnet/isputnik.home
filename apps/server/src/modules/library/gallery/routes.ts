@@ -17,7 +17,7 @@ import { validateLibrarySource, LibrarySourceError } from "../shared/library-sou
 import { normaliseRelativePath, relativePathWithinRoot } from "../shared/storage-roots.js";
 import { removeThumbnailsForLibrary } from "../shared/thumbnail.js";
 import { normalizeLibrarySettings, uploadAcceptExtensions } from "../shared/library-settings.js";
-import { receiveUploadBatch, UploadError } from "../../uploads/index.js";
+import { receiveUpload, receiveUploadBatch, UploadError } from "../../uploads/index.js";
 import { enqueueGalleryScan, processGalleryScanQueue, scanSingleGalleryFile } from "./scanner.js";
 import { kindForExtension, readAssetMetadata } from "./media.js";
 import { listMissingGalleryPhotos, setMissingRetentionDays, purgeMissingGalleryPhoto, purgeMissingGalleryPhotos } from "./cleanup.js";
@@ -36,6 +36,7 @@ import {
   EMPTY_GALLERY_FILTERS
 } from "./catalog.js";
 import { changeGalleryTags, setGalleryPlaceAndTime, updateGalleryAsset } from "./edit.js";
+import { replaceGalleryAssetFile } from "./replace.js";
 import { searchPlaces } from "./geocode.js";
 import { suggestGalleryMemories } from "./memories.js";
 import { suggestYearReviews, buildYearReview } from "./year-review.js";
@@ -782,5 +783,70 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
     });
 
     return reply.send({ updated: true, asset: getGalleryAsset(user.id, [lib.id], id) });
+  });
+
+  // Replace the file behind one photo or video, keeping the item — the
+  // high-resolution scan over the low-resolution one. Everything pointing at the
+  // item (stories, albums, tags, faces, favourites) comes along, which is the
+  // whole reason this exists rather than "delete and upload again".
+  app.post("/api/library/gallery/assets/:id/replace", { preHandler: app.authenticate }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const user = request.user!;
+    const lib = getLibraryForBook(id);
+    if (!lib || lib.type !== "gallery" || !canUserWriteLibrary(lib, user.id, user.role)) {
+      return reply.code(403).send({ error: "Write access required to edit this item." });
+    }
+
+    // Writing a file into the library is the upload permission, not merely write
+    // access to the catalogue — a library that refuses uploads refuses this too.
+    const library = db.prepare("SELECT id, source_path, settings_json, policy_json FROM libraries WHERE id = ?")
+      .get(lib.id) as { id: string; source_path: string; settings_json: string; policy_json: string } | undefined;
+    if (!library) return reply.code(404).send({ error: "Gallery library not found" });
+    const policy = parsePolicy(library.policy_json);
+    if (!can(user, { objectType: "library", objectId: library.id, policy }, "upload")) {
+      return reply.code(403).send({ error: "Uploading is not allowed in this library." });
+    }
+
+    let root: string;
+    try {
+      root = validateLibrarySource(library.source_path);
+    } catch (err) {
+      return reply.code(400).send({ error: err instanceof Error ? err.message : "Library source folder is unavailable." });
+    }
+
+    const settings = normalizeLibrarySettings("gallery", library.settings_json);
+    const stagingDir = path.join(root, `.upload-${nanoid(10)}`);
+    let received;
+    try {
+      received = await receiveUpload(
+        request,
+        { accept: uploadAcceptExtensions(settings), maxBytes: resolveUploadMaxBytes(policy.maxUploadMB) },
+        stagingDir
+      );
+    } catch (err) {
+      fs.rmSync(stagingDir, { recursive: true, force: true });
+      const status = err instanceof UploadError ? err.statusCode : 400;
+      return reply.code(status).send({ error: friendlyStorageError(err, "Upload failed") });
+    }
+
+    try {
+      const result = await replaceGalleryAssetFile(id, { tmpPath: received.tmpPath, filename: received.filename });
+      if (!result.ok) {
+        return reply.code(result.status).send({ error: result.error });
+      }
+
+      logActivity({
+        event: "library.gallery.replaced",
+        actorUserId: user.id,
+        targetType: "library_item",
+        targetId: id,
+        detail: `Replaced the file for a gallery item with "${received.filename}" (${received.sizeBytes} bytes). The previous file was kept.`,
+        ipAddress: request.ip
+      });
+
+      return reply.send({ replaced: true, asset: getGalleryAsset(user.id, [lib.id], id) });
+    } finally {
+      fs.rmSync(stagingDir, { recursive: true, force: true });
+    }
   });
 }

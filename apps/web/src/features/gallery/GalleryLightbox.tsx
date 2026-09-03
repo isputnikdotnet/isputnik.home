@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, ChevronLeft, ChevronRight, Download, Heart, ImagePlus, Info, ListMusic, Mic, MoreVertical, Pause, Pencil, Play, Plus, RotateCcw, RotateCw, Send, Trash2, Volume2, VolumeX, X } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Download, Heart, ImagePlus, Info, ListMusic, Mic, MoreVertical, Pause, Pencil, Play, Plus, Replace, RotateCcw, RotateCw, Send, Trash2, Volume2, VolumeX, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api } from "../../api";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
@@ -11,6 +11,7 @@ import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { AddToAlbumModal } from "./AddToAlbumModal";
 import { GalleryPlaceSearch } from "./GalleryPlaceSearch";
 import { SendToSheet } from "../social/SendToSheet";
+import { GalleryReplaceModal } from "./GalleryReplaceModal";
 import { NotesSection } from "../social/NotesSection";
 import { useIsMobile } from "../../shared/useIsMobile";
 import type { GalleryAsset, GalleryPerson, GalleryPersonTag, SlideshowTransition } from "./types";
@@ -171,6 +172,7 @@ export function GalleryLightbox({
   const [liked, setLiked] = useState(asset?.saved ?? false);
   const [likeBusy, setLikeBusy] = useState(false);
   const [rotateBusy, setRotateBusy] = useState(false);
+  const [replaceOpen, setReplaceOpen] = useState(false);
   // Set when the browser's <video> can't decode this asset (unsupported container/
   // codec — legacy AVI/Motion-JPEG, WMV, etc.). We serve originals untranscoded, so
   // a plain <video> silently stalls; this drives an explanatory fallback instead.
@@ -266,7 +268,7 @@ export function GalleryLightbox({
 
   // Any open sub-dialog freezes the slideshow (a slide must not advance under a
   // confirm/share/collection modal). Also gates the keyboard handler below.
-  const dialogOpen = collectionOpen || albumOpen || deleteOpen || moreMenuOpen;
+  const dialogOpen = collectionOpen || albumOpen || deleteOpen || replaceOpen || moreMenuOpen;
 
   // Close the overflow menu on an outside click (Escape is handled in the
   // shared keydown handler below, alongside the lightbox's own Escape-to-close).
@@ -676,6 +678,18 @@ export function GalleryLightbox({
           { key: "rotate-left", icon: RotateCcw as LucideIcon, label: t("gallery:lightbox.rotateLeft"), onClick: () => void rotate("ccw"), disabled: rotateBusy },
           { key: "rotate-right", icon: RotateCw as LucideIcon, label: t("gallery:lightbox.rotateRight"), onClick: () => void rotate("cw"), disabled: rotateBusy }
         ]
+      : []),
+    // Swap the file, keep the item: the high-resolution scan over the one that
+    // has been in the gallery for years, with every story, album, tag and face
+    // that points at it carried across. Uploading is what it does, so it needs
+    // the same permission as an upload.
+    ...(canEdit && asset.kind !== "audio"
+      ? [{
+          key: "replace",
+          icon: Replace as LucideIcon,
+          label: t("gallery:replace.action"),
+          onClick: () => setReplaceOpen(true)
+        }]
       : []),
     ...(canDelete
       ? [{
@@ -1164,6 +1178,19 @@ export function GalleryLightbox({
         <SendToSheet
           subject={{ entityType: "gallery", entityId: asset.id }}
           onClose={() => setSendToOpen(false)}
+        />
+      )}
+
+      {replaceOpen && (
+        <GalleryReplaceModal
+          asset={asset}
+          onClose={() => setReplaceOpen(false)}
+          onReplaced={() => {
+            setReplaceOpen(false);
+            // Same refresh the rotate does: the thumbnails are regenerated under
+            // their own keys, and the asset's new updated_at busts the ?v= cache.
+            onChanged({ kind: "asset", id: asset.id });
+          }}
         />
       )}
 
