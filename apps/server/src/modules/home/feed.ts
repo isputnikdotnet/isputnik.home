@@ -79,7 +79,7 @@ export interface AddedBatchCard {
 }
 
 export interface ActivityCard {
-  type: "note" | "album" | "slideshow" | "person";
+  type: "note" | "album" | "slideshow" | "person" | "story";
   id: string;
   actorName: string;
   createdAt: string;

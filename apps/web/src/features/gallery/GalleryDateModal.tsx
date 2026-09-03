@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CalendarClock } from "lucide-react";
 import { api } from "../../api";
+import { PartialBulkError, sendInBatches } from "../../shared/bulk";
 import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
@@ -44,17 +45,22 @@ export function GalleryDateModal({
     setBusy(true);
     setError("");
     try {
-      const body: { ids: string[]; takenAt?: string; shiftMinutes?: number } = { ids: itemIds };
-      if (mode === "set") body.takenAt = new Date(date).toISOString();
-      else body.shiftMinutes = shiftMinutes;
-      const result = await api<{ updated: number; forbidden: number; noDate: number }>(
-        "/api/library/gallery/assets/bulk-place-time",
-        { method: "POST", body: JSON.stringify(body) }
-      );
+      const when = mode === "set"
+        ? { takenAt: new Date(date).toISOString() }
+        : { shiftMinutes };
+      const result = await sendInBatches<{ updated: number; forbidden: number; noDate: number }>(itemIds, (ids) =>
+        api("/api/library/gallery/assets/bulk-place-time", {
+          method: "POST",
+          body: JSON.stringify({ ids, ...when })
+        }));
       onApplied(result.updated, result.forbidden, result.noDate);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("galleryModals:date.unableToUpdate"));
+      // Batched: a failure part-way through has already changed everything the
+      // earlier batches carried, and saying only "unable to update" would hide it.
+      setError(err instanceof PartialBulkError
+        ? t("galleryModals:common.partiallyApplied", { count: err.applied, error: err.message })
+        : err instanceof Error ? err.message : t("galleryModals:date.unableToUpdate"));
     } finally {
       setBusy(false);
     }

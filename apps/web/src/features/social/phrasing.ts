@@ -37,7 +37,7 @@ export function recommendationLine(fromName: string, entityType: string): string
 // title with a badge beside it makes you work it out. The subject's own title
 // is rendered separately by the row, so these are the words around it.
 
-export type ActivityKind = "note" | "album" | "slideshow" | "person";
+export type ActivityKind = "note" | "album" | "slideshow" | "person" | "story";
 
 // The title does not always come last. "Anna left a note on Dune" works with the
 // name at the end; "Dad added to the family tree Grandma" does not — it has to be
@@ -55,6 +55,8 @@ function activityPhraseParts(kind: ActivityKind): { before: string; after: strin
         before: i18n.t("user:phrase.activity.slideshowBefore"),
         after: i18n.t("user:phrase.activity.slideshowAfter")
       };
+    case "story":
+      return { before: i18n.t("user:phrase.activity.storyBefore"), after: i18n.t("user:phrase.activity.storyAfter") };
     case "person":
       return { before: i18n.t("user:phrase.activity.personBefore"), after: i18n.t("user:phrase.activity.personAfter") };
     default:

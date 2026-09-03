@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { Trans, useTranslation } from "react-i18next";
 import { Album, ArrowLeft, CalendarClock, CalendarDays, CheckCheck, CheckCircle2, ChevronDown, ChevronRight, Circle, Combine, Compass, Download, Film, FolderOpen, FolderPlus, Image as ImageIcon, ImagePlus, LayoutGrid, LibraryBig, ListMusic, Lock, LockOpen, MapPin, MapPinned, Pencil, Play, Plus, Heart, Folder, RefreshCw, Send, Share2, Sparkles, SquareCheck, Tags, Trash2, UploadCloud, Users, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
+import { sendInBatches } from "../../shared/bulk";
 import { DashboardShell } from "../../app/DashboardShell";
 import { followRoute, galleryHref, navigate, type GalleryView } from "../../router";
 import { Button } from "../../shared/Button";
@@ -1041,9 +1042,12 @@ export function GalleryPage({
     setBulkBusy(true);
     setBulkError("");
     try {
-      const result = await api<{ deleted: number; forbidden: number; locked: number; failed: number }>(
-        "/api/library/books/bulk-delete",
-        { method: "POST", body: JSON.stringify({ bookIds: [...selectedIds] }) }
+      const result = await sendInBatches<{ deleted: number; forbidden: number; locked: number; failed: number }>(
+        [...selectedIds],
+        (bookIds) => api("/api/library/books/bulk-delete", {
+          method: "POST",
+          body: JSON.stringify({ bookIds })
+        })
       );
       setBulkDeleteOpen(false);
       exitSelection();

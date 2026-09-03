@@ -38,6 +38,11 @@ ordinary field you can edit.
 A new story is a **draft**: only you (and admins) can see it. **Publish**
 when it's ready for the family; **Back to draft** any time.
 
+Publishing is how the rest of the house hears about it: a card saying you wrote
+it appears on everyone else's home page, alongside the notes, albums and family
+tree entries there. Not on your own — the home page never reports your own
+doings back to you — and never for a draft.
+
 The **New story** dialog is the story's front page before it exists: pick the
 shape, set a cover on the cover band, and write the name and subtitle where
 they will be read. What the kind needs to know — a date, a place, a book —

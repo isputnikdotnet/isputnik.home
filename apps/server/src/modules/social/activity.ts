@@ -15,6 +15,8 @@
 //   • notes            — the conversation, and it lives nowhere else
 //   • albums created   — somebody curated something
 //   • slideshows made  — likewise
+//   • stories written  — the one thing here somebody sat down and WROTE, and
+//                        published deliberately for the rest of the house
 //   • people added     — the family tree growing is news
 //
 // What is deliberately NOT in it:
@@ -27,7 +29,7 @@
 import { db } from "../../db.js";
 import { hydrateEntities, type HydratedEntity } from "./subjects.js";
 
-export type ActivityKind = "note" | "album" | "slideshow" | "person";
+export type ActivityKind = "note" | "album" | "slideshow" | "person" | "story";
 
 interface ActivityRow {
   kind: ActivityKind;
@@ -89,6 +91,25 @@ function loadRows(viewerId: string, limit: number): ActivityRow[] {
 
       UNION ALL
 
+      -- A story somebody wrote. Published only: a draft belongs to its author
+      -- until they say otherwise, and while the hydrator drops it for everyone
+      -- else, an admin can see every draft — the front page is not where
+      -- somebody's unfinished writing should turn up.
+      SELECT
+        'story', stories.id,
+        stories.created_by,
+        users.display_name,
+        stories.created_at,
+        'story', stories.id,
+        NULL
+      FROM stories
+      LEFT JOIN users ON users.id = stories.created_by
+      WHERE stories.created_by != ?
+        AND stories.status = 'published'
+        AND stories.deleted_at IS NULL
+
+      UNION ALL
+
       SELECT
         'person', family_tree_persons.id,
         family_tree_persons.created_by,
@@ -102,7 +123,7 @@ function loadRows(viewerId: string, limit: number): ActivityRow[] {
     )
     ORDER BY datetime(created_at) DESC
     LIMIT ?
-  `).all(viewerId, viewerId, viewerId, viewerId, limit * OVERFETCH) as ActivityRow[];
+  `).all(viewerId, viewerId, viewerId, viewerId, viewerId, limit * OVERFETCH) as ActivityRow[];
 }
 
 function view(row: ActivityRow, subject: HydratedEntity) {
