@@ -1,15 +1,26 @@
 import { useTranslation } from "react-i18next";
-import { Plus, SlidersHorizontal } from "lucide-react";
+import { LogOut, Plus, BookOpen } from "lucide-react";
 import { Button } from "../../shared/Button";
 import { SectionNav, type SectionNavGroup } from "../../shared/SectionNav";
-import { storyEditorDetailsHref, storyEditorHref } from "../../router";
+import { storyEditorHref } from "../../router";
 import { chapterLabel, type StoryDetail } from "./types";
 
 // The editor's own sidebar. While a story is being written the section's
 // filters and shelves are the wrong nav — what an author moves between is the
-// story's front page, its details, and its chapters, one at a time. Chapters
-// are dragged into order here, which is also the only place that order is set:
-// a list you can see beats two arrows on a chapter you happen to be looking at.
+// story's overview and its chapters, one at a time. Chapters are dragged into
+// order here, which is also the only place that order is set: a list you can
+// see beats two arrows on a chapter you happen to be looking at.
+//
+// The top row is the way OUT of the editor: back to wherever the author opened
+// it from — the story's own page, the collection whose Add story made it, the
+// index — with the story's page as the fallback for an editor reached by a
+// pasted link. It used to be the story's front page under a Home icon, which
+// read as the app's Home everywhere else in the sidebar and so was the one row
+// nobody trusted.
+//
+// `replace` is what makes that exit honest: moving between panes replaces the
+// history entry, so the whole editing session is one step in the trail and
+// leaving means leaving, not walking back through the chapters you edited.
 export function StoryEditorNav({
   story,
   activeKey,
@@ -18,7 +29,7 @@ export function StoryEditorNav({
   onReorderChapters
 }: {
   story: StoryDetail;
-  /** "home" | "details" | a chapter id. */
+  /** "overview" | a chapter id. */
   activeKey: string;
   busy: boolean;
   onAddChapter: () => void;
@@ -31,10 +42,10 @@ export function StoryEditorNav({
       label: "",
       items: [
         {
-          key: "details",
-          label: t("stories:edit.nav.details"),
-          href: storyEditorDetailsHref(story.id),
-          icon: SlidersHorizontal
+          key: "overview",
+          label: t("stories:edit.nav.overview"),
+          href: storyEditorHref(story.id),
+          icon: BookOpen
         }
       ]
     },
@@ -60,10 +71,12 @@ export function StoryEditorNav({
       ariaLabel={t("stories:edit.nav.aria")}
       groups={groups}
       activeKey={activeKey}
-      home={{
-        key: "home",
-        label: t("stories:edit.nav.home"),
-        href: storyEditorHref(story.id)
+      replace
+      exit={{
+        label: t("stories:edit.exitEdit"),
+        href: `/stories/${story.id}`,
+        icon: LogOut,
+        back: true
       }}
     />
   );

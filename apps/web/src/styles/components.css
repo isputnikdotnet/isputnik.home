@@ -14,46 +14,6 @@
 @import "./components/upload.css";
 @import "./components/data-display.css";
 
-/* ── Tag input (shared/TagInput) ───────────────────────────────────────── */
-/* Chips for what's chosen, one box to add more. Used by the story editor and
-   the gallery's bulk tag dialog, so the two can't drift apart. */
-
-.tag-input {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.tag-input-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.tag-input-chips li {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  padding: 3px 4px 3px 10px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--surface-raised);
-  font-size: 0.85rem;
-}
-
-.tag-input-chips .icon-button {
-  width: 20px;
-  height: 20px;
-  padding: 0;
-}
-
-.tag-input-hint {
-  font-size: 0.82rem;
-}
-
 /* ── InlineEdit ────────────────────────────────────────────────────────── */
 
 /* Text that becomes its own field where it sits (shared/InlineEdit). The words

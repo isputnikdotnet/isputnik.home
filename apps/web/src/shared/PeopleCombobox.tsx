@@ -2,19 +2,29 @@ import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-// Multi-select chip input with type-ahead suggestions. Used for authors,
-// narrators, and tags in both the book-detail edit form and the bulk-edit form,
-// so each field can pick existing values or add a new one.
+// Multi-select chip input with type-ahead suggestions: chips and the box that
+// adds them share one field, and the matches drop under it as you type, with
+// "Add …" for a value nobody has used yet. Every place a set of names or tags
+// is edited wears this — book authors, narrators and tags, a person's tags,
+// a quote's, a story's — so they all behave the same way.
 export function PeopleCombobox({
   value,
   onChange,
   suggestions,
-  placeholder
+  placeholder,
+  disabled = false,
+  autoFocus = false
 }: {
   value: string[];
   onChange: (value: string[]) => void;
   suggestions: string[];
   placeholder?: string;
+  /** Set while a save is in flight, where the field edits the thing directly
+   *  rather than a form that is submitted later. */
+  disabled?: boolean;
+  /** For a field that appears on demand (a Tags button that swaps this in),
+   *  so the person can type at once. The list stays shut until they do. */
+  autoFocus?: boolean;
 }) {
   const { t } = useTranslation(["common", "book"]);
   const [inputValue, setInputValue] = useState("");
@@ -64,15 +74,32 @@ export function PeopleCombobox({
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  // Focusing fires onFocus, which opens the list; shut it again, because on an
+  // empty box that list is every suggestion there is, hanging over whatever the
+  // field appeared in front of. Typing or clicking the field brings it back.
+  useEffect(() => {
+    if (!autoFocus) return;
+    inputRef.current?.focus();
+    setOpen(false);
+  }, [autoFocus]);
+
   const showNew = inputValue.trim() && !value.includes(inputValue.trim()) && !filtered.some((s) => s.toLowerCase() === inputValue.trim().toLowerCase());
 
   return (
     <div className="people-combobox" ref={containerRef}>
-      <div className="people-combobox-input-area" onClick={() => { inputRef.current?.focus(); setOpen(true); }}>
+      <div
+        className="people-combobox-input-area"
+        onClick={() => { if (!disabled) { inputRef.current?.focus(); setOpen(true); } }}
+      >
         {value.map((name) => (
           <span key={name} className="people-chip">
             {name}
-            <button type="button" onClick={(e) => { e.stopPropagation(); remove(name); }} aria-label={t("book:catalog.combobox.removeAria", { name })}>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); remove(name); }}
+              disabled={disabled}
+              aria-label={t("book:catalog.combobox.removeAria", { name })}
+            >
               <X size={12} />
             </button>
           </span>
@@ -84,9 +111,10 @@ export function PeopleCombobox({
           onFocus={() => setOpen(true)}
           onKeyDown={handleKeyDown}
           placeholder={value.length === 0 ? placeholder : ""}
+          disabled={disabled}
         />
       </div>
-      {open && (filtered.length > 0 || showNew) && (
+      {open && !disabled && (filtered.length > 0 || showNew) && (
         <div className="people-combobox-dropdown">
           {filtered.map((s) => (
             <button key={s} type="button" className="people-combobox-option" onMouseDown={(e) => { e.preventDefault(); add(s); }}>

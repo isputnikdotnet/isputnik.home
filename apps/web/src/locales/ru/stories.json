@@ -189,8 +189,7 @@
     "moveChapterDown": "Переместить главу вниз",
     "removeChapter": "Удалить главу",
     "applyDates": "Применить даты",
-    "send": "Отправить",
-    "shareLink": "Ссылка"
+    "send": "Отправить"
   },
   "errors": {
     "load": "Не удалось загрузить историю.",
@@ -210,17 +209,17 @@
   },
   "edit": {
     "eyebrow": "Редактирование истории",
-    "backToStory": "Назад к истории",
+    "exitEdit": "Выйти из редактора",
     "addBlock": "Добавить блок",
     "addChapter": "Добавить главу",
     "addChapterDetails": "Добавить дату, место или название главы",
     "chapterEmpty": "В этой главе пока ничего нет — добавьте что-нибудь ниже.",
     "nav": {
       "aria": "Редактор истории",
-      "home": "Главная",
-      "details": "Об истории",
+      "overview": "Обзор",
       "chapters": "Главы"
     },
+    "detailsHeading": "Об истории",
     "chapterSettings": "Настройки главы",
     "approxHint": "Отметьте, если даты неточные.",
     "blockHeading": "Заголовок блока",
@@ -263,6 +262,9 @@
     "endDatePlaceholder": "2004-07-19",
     "approxLabel": "Дата приблизительная",
     "placeField": "Место",
+    "locationHeading": "Место",
+    "editOnMap": "Открыть на карте",
+    "removeLocation": "Убрать место",
     "placePlaceholder": "Озеро Верхнее, Миннесота",
     "standfirstField": "Подводка",
     "standfirstPlaceholder": "Одна строка, задающая тон этой главе",
@@ -422,6 +424,8 @@
     "favorites": "Избранное"
   },
   "card": {
+    "view": "Читать историю",
+    "edit": "Редактировать историю",
     "save": "В избранное",
     "unsave": "Убрать из избранного"
   },

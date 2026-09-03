@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronDown, MapPin, Settings, Trash2 } from "lucide-react";
+import { ChevronUp, MapPin, Settings, Trash2 } from "lucide-react";
 import { Button } from "../../shared/Button";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { InlineEdit } from "../../shared/InlineEdit";
@@ -162,7 +162,14 @@ export function StoryChapterEditor({
         />
       </div>
 
-      <section className={`story-edit-settings${settingsOpen ? "" : " is-collapsed"}`}>
+      {/* Three things in their own bands, in the order they're asked about: when
+          this chapter happened, where, and anything to say under its heading.
+          Dates pair on one row, and everything about the place — the name, the
+          pin, the map as its cover — lives under one Location heading rather
+          than as a field and a loose row of buttons. */}
+      <section
+        className={`story-edit-settings story-edit-chapter-settings${settingsOpen ? "" : " is-collapsed"}`}
+      >
         <button
           type="button"
           className="story-edit-settings-head"
@@ -171,86 +178,108 @@ export function StoryChapterEditor({
         >
           <Settings size={16} aria-hidden="true" />
           <span>{t("stories:edit.chapterSettings")}</span>
-          <ChevronDown size={16} aria-hidden="true" className="story-edit-settings-chevron" />
+          <span className="story-edit-settings-chevron" aria-hidden="true">
+            <ChevronUp size={16} />
+          </span>
         </button>
 
         {settingsOpen && (
           <div className="story-edit-settings-body">
-            <PartialDateField
-              className="story-edit-setting"
-              label={t("stories:chapter.startDateField")}
-              value={dates.date}
-              onChange={(value) => setDates((state) => ({ ...state, date: value }))}
-              onBlur={commitDates}
-              placeholder={t("stories:chapter.datePlaceholder")}
-            />
-            <PartialDateField
-              className="story-edit-setting"
-              label={`${t("stories:chapter.endDateField")} (${t("stories:fields.optional")})`}
-              value={dates.endDate}
-              onChange={(value) => setDates((state) => ({ ...state, endDate: value }))}
-              onBlur={commitDates}
-              placeholder={t("stories:chapter.endDatePlaceholder")}
-            />
+            <div className="story-edit-settings-dates">
+              <PartialDateField
+                className="story-edit-setting"
+                label={t("stories:chapter.startDateField")}
+                value={dates.date}
+                onChange={(value) => setDates((state) => ({ ...state, date: value }))}
+                onBlur={commitDates}
+                placeholder={t("stories:chapter.datePlaceholder")}
+              />
+              <PartialDateField
+                className="story-edit-setting"
+                label={`${t("stories:chapter.endDateField")} (${t("stories:fields.optional")})`}
+                value={dates.endDate}
+                onChange={(value) => setDates((state) => ({ ...state, endDate: value }))}
+                onBlur={commitDates}
+                placeholder={t("stories:chapter.endDatePlaceholder")}
+              />
 
-            <div className="story-edit-setting story-edit-approx">
-              <label className="field">
-                <input
-                  type="checkbox"
-                  checked={chapter.dateApprox}
-                  onChange={(event) => onPatch({ dateApprox: event.target.checked })}
-                  disabled={!chapter.date}
-                />
-                <span>{t("stories:chapter.approxLabel")}</span>
-              </label>
-              <p className="muted">{t("stories:edit.approxHint")}</p>
+              <div className="story-edit-setting story-edit-approx">
+                <label className="field">
+                  <input
+                    type="checkbox"
+                    checked={chapter.dateApprox}
+                    onChange={(event) => onPatch({ dateApprox: event.target.checked })}
+                    disabled={!chapter.date}
+                  />
+                  <span>{t("stories:chapter.approxLabel")}</span>
+                </label>
+                <p className="muted">{t("stories:edit.approxHint")}</p>
+              </div>
             </div>
 
-            <label className="field story-edit-setting story-edit-place">
-              <span>{t("stories:chapter.placeField")}</span>
-              <input
-                value={place}
-                onChange={(event) => setPlace(event.target.value)}
-                onBlur={() => {
-                  const next = place.trim();
-                  if (next !== (chapter.place ?? "")) onPatch({ place: next || null });
-                }}
-                placeholder={t("stories:chapter.placePlaceholder")}
-                maxLength={200}
-              />
-            </label>
-
-            <div className="story-edit-setting story-edit-pin-actions">
-              <Button variant="secondary" compact onClick={() => setPinning(true)} disabled={busy}>
+            <div className="story-edit-settings-part story-edit-location">
+              <h3 className="story-edit-part-head">
                 <MapPin size={15} aria-hidden="true" />
-                <span>{chapter.placeLat != null ? t("stories:chapter.movePin") : t("stories:chapter.setPin")}</span>
-              </Button>
-              {chapter.placeLat != null && (
-                <>
-                  <Button
-                    variant="secondary"
-                    compact
-                    className={chapter.heroMap ? "is-current" : undefined}
-                    aria-pressed={chapter.heroMap}
-                    onClick={() => onPatch({ heroMap: !chapter.heroMap })}
-                    disabled={busy}
-                  >
-                    <Settings size={15} aria-hidden="true" />
-                    <span>{chapter.heroMap ? t("stories:edit.coverUsePhoto") : t("stories:edit.coverUseMap")}</span>
-                  </Button>
+                <span>{t("stories:chapter.locationHeading")}</span>
+              </h3>
+
+              <div className="story-edit-location-row">
+                <label className="field story-edit-setting">
+                  <span className="sr-only">{t("stories:chapter.placeField")}</span>
+                  <input
+                    value={place}
+                    onChange={(event) => setPlace(event.target.value)}
+                    onBlur={() => {
+                      const next = place.trim();
+                      if (next !== (chapter.place ?? "")) onPatch({ place: next || null });
+                    }}
+                    placeholder={t("stories:chapter.placePlaceholder")}
+                    maxLength={200}
+                  />
+                </label>
+                <Button variant="secondary" compact onClick={() => setPinning(true)} disabled={busy}>
+                  <MapPin size={15} aria-hidden="true" />
+                  <span>
+                    {chapter.placeLat != null
+                      ? t("stories:chapter.editOnMap")
+                      : t("stories:chapter.setPin")}
+                  </span>
+                </Button>
+              </div>
+
+              {/* The place is one thing here, so removing it takes the name and
+                  the pin together — and with them the map it was standing in
+                  for as this chapter's cover. */}
+              {(chapter.placeLat != null || chapter.place) && (
+                <div className="story-edit-location-actions">
                   <Button
                     variant="text"
                     compact
-                    onClick={() => onPatch({ placeLat: null, placeLng: null, heroMap: false })}
+                    onClick={() => {
+                      setPlace("");
+                      onPatch({ place: null, placeLat: null, placeLng: null, heroMap: false });
+                    }}
                     disabled={busy}
                   >
-                    {t("stories:chapter.clearPin")}
+                    {t("stories:chapter.removeLocation")}
                   </Button>
-                </>
+                  {chapter.placeLat != null && (
+                    <Button
+                      variant="text"
+                      compact
+                      className={chapter.heroMap ? "is-current" : undefined}
+                      aria-pressed={chapter.heroMap}
+                      onClick={() => onPatch({ heroMap: !chapter.heroMap })}
+                      disabled={busy}
+                    >
+                      {chapter.heroMap ? t("stories:edit.coverUsePhoto") : t("stories:edit.coverUseMap")}
+                    </Button>
+                  )}
+                </div>
               )}
             </div>
 
-            <label className="field story-edit-setting story-edit-note">
+            <label className="field story-edit-setting story-edit-note story-edit-settings-part">
               <span>{t("stories:chapter.descriptionField")} <small className="muted">{t("stories:fields.optional")}</small></span>
               <textarea
                 value={note}
@@ -260,7 +289,7 @@ export function StoryChapterEditor({
                   if (next !== (chapter.description ?? "")) onPatch({ description: next || null });
                 }}
                 placeholder={t("stories:chapter.descriptionPlaceholder")}
-                rows={2}
+                rows={4}
                 maxLength={2000}
               />
             </label>

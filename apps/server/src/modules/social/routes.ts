@@ -26,6 +26,7 @@ import {
   grantAlbumAccess,
   grantItemAccess
 } from "../library/shared/shares.js";
+import { canEditStory, getStory } from "../stories/stories.js";
 import { hydrateEntities, hydrateOne, isSubjectEntityType, type HydratedEntity } from "./subjects.js";
 import { notifyRecommendationSent } from "./notify.js";
 
@@ -50,6 +51,14 @@ const GRANTABLE: Record<string, Grantable> = {
   gallery: "item",
   gallery_album: "album"
 };
+
+/** Whether this person could mint a guest link for this story. The story's own
+ *  links live on the story API rather than /api/shares, so the sheet only
+ *  offers the tab and hands the work back to the page (see `onGuestLink`). */
+function storyLinkable(storyId: string, user: { id: string; role: string }): boolean {
+  const story = getStory(storyId);
+  return story != null && canEditStory(story, user);
+}
 
 function mayGrant(entityType: string, entityId: string, user: { id: string; role: string }): boolean {
   const kind = GRANTABLE[entityType];
@@ -248,9 +257,15 @@ export async function socialPlugin(app: FastifyInstance) {
       ereader: query.entityType === "ebook"
         ? { applicable: true, configured: Boolean(self?.ereader_email) }
         : { applicable: false, configured: false },
-      // Guest links exist for books, gallery items and albums. A slideshow and a
-      // family-tree person have no public page to point at.
-      guestLink: LIBRARY_ITEM_TYPES.has(query.entityType) || query.entityType === "gallery_album",
+      // Guest links exist for books, gallery items and albums, and for a story,
+      // whose guest page is the story itself. A slideshow and a family-tree
+      // person have no public page to point at. Only the story's author (or an
+      // admin, or its shelf's manager) can mint one, which is the same test
+      // POST /api/shares/story applies — so the tab is offered to exactly the
+      // people it will work for.
+      guestLink: LIBRARY_ITEM_TYPES.has(query.entityType)
+        || query.entityType === "gallery_album"
+        || (query.entityType === "story" && storyLinkable(query.entityId, user)),
       // Whether the sheet may also manage guest links and existing per-person
       // shares for this subject — the work the separate Share dialog used to do.
       // Both hang off /api/shares, which only knows library items, so an album

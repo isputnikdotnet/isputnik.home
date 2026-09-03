@@ -534,9 +534,7 @@
     }
   },
   "tagInput": {
-    "label": "Добавить тег",
-    "placeholder": "Добавить тег",
-    "remove": "Убрать «{{tag}}»"
+    "placeholder": "Добавить тег"
   },
   "access": {
     "grantTitle": "Выдать доступ",

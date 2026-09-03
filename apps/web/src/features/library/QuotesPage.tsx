@@ -12,7 +12,7 @@ import { MessageBox } from "../../shared/MessageBox";
 import { relativeTime } from "../../shared/utils";
 import i18n from "../../i18n";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
-import { PeopleCombobox } from "../audiobooks/PeopleCombobox";
+import { PeopleCombobox } from "../../shared/PeopleCombobox";
 import type { Quote } from "../audiobooks/types";
 
 // In-reader quotes can be opened back at their spot; the deep link mirrors the

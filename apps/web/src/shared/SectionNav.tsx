@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { GripVertical, Home } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { followRoute } from "../router";
+import { followBack, followReplace, followRoute } from "../router";
 
 // Every item is a link to a real address, with no escape hatch for one that
 // isn't. Gallery's views were local state and were listed here behind an
@@ -46,32 +46,49 @@ export function SectionNav({
   items,
   groups,
   activeKey,
-  home
+  exit,
+  replace = false
 }: {
   ariaLabel: string;
   groupLabel?: string;
   items?: SectionNavItem[];
   groups?: SectionNavGroup[];
   activeKey: string;
-  /** Replaces the way out to the app's Home with a first destination the
-   *  section owns — the story editor's nav opens on the story's own front page,
-   *  not the app's. Omitted everywhere else, which keeps the exit link. */
-  home?: { key: string; label: string; href: string; icon?: LucideIcon };
+  /** Where this slot's way out leads instead, for a section you are inside
+   *  rather than browsing — the story editor leaves to the story it is editing,
+   *  not to the app's Home. It is never a destination of the nav itself: this
+   *  row means "leave", so it never reads as the active page, and every page
+   *  the section owns is listed below it. Omitted everywhere else, which keeps
+   *  the link to Home. */
+  exit?: {
+    label: string;
+    href: string;
+    icon?: LucideIcon;
+    /** Leave the way they came in (Back), with `href` as the fallback for a
+     *  visitor who arrived from outside the app — the story editor, opened from
+     *  a story page, a collection's Add story, or the index, exits to the one
+     *  they used. Without it the exit simply goes to `href`. */
+    back?: boolean;
+  };
+  /** The nav's own destinations are one page's internal views, so choosing one
+   *  replaces the history entry rather than stacking another — the visit is a
+   *  single step in the trail, which is what lets `exit.back` leave the page
+   *  instead of stepping backwards through it. */
+  replace?: boolean;
 }) {
   const { t } = useTranslation();
   const rendered: SectionNavGroup[] = groups ?? [{ label: groupLabel ?? "", items: items ?? [] }];
-  const HomeIcon = home?.icon ?? Home;
-  const homeActive = Boolean(home && home.key === activeKey);
+  const ExitIcon = exit?.icon ?? Home;
+  const exitHref = exit?.href ?? "/";
   return (
     <nav className="home-control-nav" aria-label={ariaLabel}>
       <a
-        className={`home-nav-link control-nav-exit${homeActive ? " is-active" : ""}`}
-        href={home?.href ?? "/"}
-        aria-current={homeActive ? "page" : undefined}
-        onClick={(event) => followRoute(event, home?.href ?? "/")}
+        className="home-nav-link control-nav-exit"
+        href={exitHref}
+        onClick={(event) => (exit?.back ? followBack(event, exitHref) : followRoute(event, exitHref))}
       >
-        <HomeIcon size={21} aria-hidden="true" />
-        <span>{home?.label ?? t("nav.home")}</span>
+        <ExitIcon size={21} aria-hidden="true" />
+        <span>{exit?.label ?? t("nav.home")}</span>
       </a>
 
       {rendered.map((group) => (
@@ -79,9 +96,14 @@ export function SectionNav({
           <div className="home-control-group" key={group.label}>
             {group.label && <p>{group.label}</p>}
             {group.onReorder
-              ? <ReorderableItems group={group} activeKey={activeKey} />
+              ? <ReorderableItems group={group} activeKey={activeKey} replace={replace} />
               : group.items.map((item) => (
-                <SectionNavLink key={item.key} item={item} active={item.key === activeKey} />
+                <SectionNavLink
+                  key={item.key}
+                  item={item}
+                  active={item.key === activeKey}
+                  replace={replace}
+                />
               ))}
             {group.footer}
           </div>
@@ -93,7 +115,15 @@ export function SectionNav({
 
 // A group whose rows can be dragged into a new order. The drag is live — rows
 // shuffle under the pointer — and the new order is reported once, on drop.
-function ReorderableItems({ group, activeKey }: { group: SectionNavGroup; activeKey: string }) {
+function ReorderableItems({
+  group,
+  activeKey,
+  replace
+}: {
+  group: SectionNavGroup;
+  activeKey: string;
+  replace: boolean;
+}) {
   const keys = group.items.map((item) => item.key);
   const signature = keys.join(",");
   const [order, setOrder] = useState<string[]>(keys);
@@ -141,6 +171,7 @@ function ReorderableItems({ group, activeKey }: { group: SectionNavGroup; active
             key={key}
             item={item}
             active={key === activeKey}
+            replace={replace}
             grip={{
               onDragStart: () => { dragging.current = key; },
               onDragOver: () => dragOver(key),
@@ -157,10 +188,12 @@ function ReorderableItems({ group, activeKey }: { group: SectionNavGroup; active
 function SectionNavLink({
   item,
   active,
+  replace,
   grip
 }: {
   item: SectionNavItem;
   active: boolean;
+  replace: boolean;
   grip?: { onDragStart: () => void; onDragOver: () => void; onDrop: () => void; dragging: boolean };
 }) {
   const Icon = item.icon;
@@ -169,7 +202,7 @@ function SectionNavLink({
       className={`home-nav-link${active ? " is-active" : ""}${grip ? " has-grip" : ""}`}
       href={item.href}
       aria-current={active ? "page" : undefined}
-      onClick={(event) => followRoute(event, item.href)}
+      onClick={(event) => (replace ? followReplace(event, item.href) : followRoute(event, item.href))}
       onDragOver={grip ? (event) => { event.preventDefault(); grip.onDragOver(); } : undefined}
       onDrop={grip ? (event) => { event.preventDefault(); grip.onDrop(); } : undefined}
     >

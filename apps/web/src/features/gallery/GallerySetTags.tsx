@@ -3,13 +3,13 @@ import { useTranslation } from "react-i18next";
 import { Tags } from "lucide-react";
 import { api } from "../../api";
 import { Button } from "../../shared/Button";
-import { TagInput } from "../../shared/TagInput";
+import { PeopleCombobox } from "../../shared/PeopleCombobox";
 import { followRoute } from "../../router";
 
 // Tags on an album or a slideshow. Read-only they are chips that lead into the
-// cross-type tag browse; for an editor a Tags button swaps in the shared
-// TagInput. One component for both, because tagging a set is the same act
-// whichever kind of set it is.
+// cross-type tag browse; for an editor a Tags button swaps in the same
+// combobox every other tag field in the app uses. One component for both,
+// because tagging a set is the same act whichever kind of set it is.
 export function GallerySetTags({
   endpoint,
   tags,
@@ -30,10 +30,15 @@ export function GallerySetTags({
 
   useEffect(() => { setDraft(tags); }, [tags]);
 
+  // Tags are cross-type, so offer the ones the gallery already uses — albums
+  // and slideshows count as gallery, so a set's own vocabulary is in here.
+  // Every book's subject heading as well would be a list nobody can read.
   useEffect(() => {
     if (!editing || suggestions.length > 0) return;
-    api<{ tags: { name: string }[] }>("/api/library/tags")
-      .then((payload) => setSuggestions(payload.tags.map((tag) => tag.name)))
+    api<{ tags: { name: string; galleryCount: number }[] }>("/api/library/tags")
+      .then((payload) => setSuggestions(
+        payload.tags.filter((tag) => tag.galleryCount > 0).map((tag) => tag.name)
+      ))
       .catch(() => setSuggestions([]));
   }, [editing]);
 
@@ -77,13 +82,13 @@ export function GallerySetTags({
 
   return (
     <div className="gallery-set-tags is-editing">
-      <TagInput
+      <PeopleCombobox
         value={draft}
         onChange={setDraft}
         suggestions={suggestions}
+        placeholder={t("tagInput.placeholder")}
         disabled={busy}
         autoFocus
-        listId="gallery-set-tag-suggestions"
       />
       <div className="gallery-set-tag-actions">
         <Button variant="secondary" compact disabled={busy} onClick={() => { setDraft(tags); setEditing(false); }}>

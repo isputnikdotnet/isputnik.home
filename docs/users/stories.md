@@ -47,11 +47,22 @@ shows a book can borrow that book's cover from **Edit cover** later.
 
 ## Writing
 
-The editor shows one page at a time, laid out the way readers will see it.
-The left sidebar holds the story's shape — **Home** (its front page),
-**Story details**, then every chapter — and the top bar holds Read, Publish,
-Share link and Delete. There is no Save button: every field saves when you
+Every tile on the **Stories** page carries two small buttons in its cover's
+corner — one opens the story to read, the other opens it in the editor — so
+your own stories are one click from being worked on. (Clicking the tile itself
+still just reads it, and the pencil only appears on stories you can edit.)
+
+The editor shows one page at a time, laid out the way readers will see it. Under
+**Exit edit**, which takes you back to the story as readers see it, the left
+sidebar holds the story's shape — **Overview** (its front page, with the story's
+own settings under it), then every chapter. The top bar holds Publish,
+Send and Delete. There is no Save button: every field saves when you
 leave it (Enter also does), and every added or moved block saves immediately.
+
+**Overview** is where the editor opens. The cover, the name, the subtitle and
+the opening lines are edited on the page itself; underneath, **Story details**
+holds what a reader never sees — what this story calls a chapter, the shelf it
+sits on, its rating and its tags.
 
 Words are edited where they sit. Point at a title, a standfirst or a
 paragraph and a small pencil appears; click it, type, and click away. The
@@ -125,10 +136,21 @@ Opening a story leaves the app behind — no menus, no library chrome, just the
 story's name, its chapters, and a way back. That's deliberate: a story is
 made to be read and handed round, like a small website of its own.
 
-A story with chapters gets a **front page**: the cover, your introduction,
-the span of dates and the place it mostly happened, a card for each chapter —
-and, when chapters have pins, **the map of the journey**, one numbered pin
-per chapter, each a click from that day.
+A story with chapters reads as a page with **its own navigation beside it**:
+every stop on the journey, with the photo it opens on and the day it happened,
+staying in view while you read — so you can always see the shape of the whole
+thing. Underneath it sit the things you can do with the story: **Send**, which
+holds both sending it to someone here and making a guest link, and **Edit** if
+the story is yours to change.
+On a phone, and for a story that's one plain page, that column becomes the
+row of chapter names across the top.
+
+A story with chapters gets a **front page**: the cover, your introduction, the
+span of dates and the place it mostly happened, then — when chapters have pins —
+**the map of the journey**, one numbered pin per chapter, and under it a card
+for each chapter. The map comes first because it's how a reader gets their
+bearings before choosing where to start; either the map's pins or the cards
+open a chapter.
 
 **Each chapter is its own page**: the date and place over its cover photo,
 the standfirst, your blocks, and at the bottom everything the chapter showed
@@ -225,11 +247,12 @@ and recordings were never inside it.
 
 ## Sharing a story
 
-Two ways, both from the story:
+One door — **Send**, on the story and in its editor, the same as everything
+else in the house. It holds both ways to hand a story on:
 
-- **Send** delivers it to another member's inbox, like anything else in the
-  house — see [Sharing with family](family-sharing.md).
-- **Share link** (in the editor) makes a **guest link**: the story in any
+- **People** delivers it to another member's inbox — see
+  [Sharing with family](family-sharing.md).
+- **Share link** makes a **guest link**: the story in any
   browser, no account needed. The link is live — a guest sees the story as it
   is now, not as it was when you sent it. Because a story can carry a whole
   album, the link asks one extra question: may a guest open embedded albums

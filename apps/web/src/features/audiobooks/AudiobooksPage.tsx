@@ -8,7 +8,7 @@ import { DashboardShell } from "../../app/DashboardShell";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { EditMetadataModal } from "./EditMetadataModal";
 import { DEFAULT_COVERS } from "./covers";
-import { PeopleCombobox } from "./PeopleCombobox";
+import { PeopleCombobox } from "../../shared/PeopleCombobox";
 import { followRoute, navigate } from "../../router";
 import { SectionNav } from "../../shared/SectionNav";
 import { audiobookNavItems } from "./sectionNavItems";

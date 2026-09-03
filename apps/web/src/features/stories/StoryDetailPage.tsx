@@ -1,16 +1,19 @@
-import { useEffect, useMemo, useState, type MouseEvent } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, ChevronLeft, ChevronRight, MapPin, Pencil, Send, Star } from "lucide-react";
+import { ArrowLeft, BookOpen, ChevronLeft, ChevronRight, MapPin, Pencil, Send, Star } from "lucide-react";
+import type { ReactNode } from "react";
 import { api } from "../../api";
-import { followRoute, goBack, navigate, replaceNavigate } from "../../router";
+import { followReplace, followRoute, goBack, navigate, replaceNavigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { Button } from "../../shared/Button";
+import { useIsMobile } from "../../shared/useIsMobile";
 import { formatPartialDate, formatPartialDateRange } from "../../shared/utils";
 import { GalleryLightbox } from "../gallery/GalleryLightbox";
 import type { GalleryAsset } from "../gallery/types";
 import type { SlideshowTransition } from "../gallery/types";
 import { NotesSection } from "../social/NotesSection";
 import { SendToSheet } from "../social/SendToSheet";
+import { ShareStoryModal } from "./ShareStoryModal";
 import { StoryBlockView } from "./StoryBlockView";
 import { StoryMarkdown } from "./StoryMarkdown";
 import { StoryMap } from "./StoryMap";
@@ -28,6 +31,8 @@ export function StoryDetailPage({ id, chapterId }: { id: string; chapterId?: str
   const [story, setStory] = useState<StoryDetail | null>(null);
   const [error, setError] = useState("");
   const [sending, setSending] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const isMobile = useIsMobile();
   const [lightbox, setLightbox] = useState<
     { assets: GalleryAsset[]; index: number; autoPlay?: boolean; transition?: SlideshowTransition; interval?: number; transitionSeconds?: number; musicUrl?: string } | null
   >(null);
@@ -85,56 +90,69 @@ export function StoryDetailPage({ id, chapterId }: { id: string; chapterId?: str
   // the collection, the feed) instead of replaying every day. The strip and
   // prev/next are the story's own way of stepping through days.
   const openChapter = (targetId: string) => replaceNavigate(`/stories/${id}/chapters/${targetId}`);
-  const followInSite = (event: MouseEvent<HTMLAnchorElement>, path: string) => {
-    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-    event.preventDefault();
-    replaceNavigate(path);
-  };
+
+  // What the story's own navigation looks like: a rail beside the page, which
+  // shows the shape of the journey — every chapter, dated, with the photo it
+  // opens on — and stays there while a chapter is read. A story that is one
+  // plain page has nothing to list, and a phone has no room for a column
+  // beside the page, so both keep the bar and the horizontal strip.
+  const railLayout = Boolean(story && structured && !isMobile);
+  const actions = story && (story.canEdit || story.status === "published")
+    ? (
+      <>
+        {story.canEdit && (
+          <Button variant="secondary" compact onClick={() => navigate(`/stories/${story.id}/edit`)}>
+            <Pencil size={15} aria-hidden="true" />
+            <span>{t("stories:actions.edit")}</span>
+          </Button>
+        )}
+        {/* One door for handing a story on, the same as everywhere else in the
+            app: Send holds both the people and the guest link, the link tab
+            handing back to the story's own dialog (SendToSheet's onGuestLink,
+            as gallery albums do). Shown to whoever has something to do in it —
+            a reader of a published story can send it, an author can always mint
+            a link, even for a draft. */}
+        <Button variant="secondary" compact onClick={() => setSending(true)}>
+          <Send size={15} aria-hidden="true" />
+          <span>{t("stories:actions.send")}</span>
+        </Button>
+      </>
+    )
+    : null;
+
+  // Honest label on both: with chapter moves collapsed into one history entry,
+  // this returns to wherever the reader came from rather than to a fixed page.
+  const backButton = (
+    <button className="story-site-exit" type="button" onClick={() => goBack("/stories")}>
+      <ArrowLeft size={18} aria-hidden="true" />
+      <span>{t("stories:site.exit")}</span>
+    </button>
+  );
 
   return (
-    <div className="story-site">
-      <header className="story-site-bar">
-        {/* Honest label: with chapter moves collapsed into one history entry,
-            this returns to wherever the reader came from. */}
-        <button className="story-site-exit" type="button" onClick={() => goBack("/stories")}>
-          <ArrowLeft size={18} aria-hidden="true" />
-          <span>{t("stories:site.exit")}</span>
-        </button>
-        {story && (
-          <a
-            className="story-site-name"
-            href={`/stories/${story.id}`}
-            onClick={(event) => followInSite(event, `/stories/${story.id}`)}
-          >
-            {story.title}
-          </a>
-        )}
-        {story && (
-          <div className="story-site-actions">
-            {story.canEdit && (
-              <Button variant="secondary" compact onClick={() => navigate(`/stories/${story.id}/edit`)}>
-                <Pencil size={15} aria-hidden="true" />
-                <span>{t("stories:actions.edit")}</span>
-              </Button>
-            )}
-            {/* Sending is how a story reaches one person before real story
-                shares land; a draft has nobody to send to yet. */}
-            {story.status === "published" && (
-              <Button variant="secondary" compact onClick={() => setSending(true)}>
-                <Send size={15} aria-hidden="true" />
-                <span>{t("stories:actions.send")}</span>
-              </Button>
-            )}
-          </div>
-        )}
-      </header>
+    <div className={`story-site${railLayout ? " has-rail" : ""}`}>
+      {!railLayout && (
+        <header className="story-site-bar">
+          {backButton}
+          {story && (
+            <a
+              className="story-site-name"
+              href={`/stories/${story.id}`}
+              onClick={(event) => followReplace(event, `/stories/${story.id}`)}
+            >
+              {story.title}
+            </a>
+          )}
+          {actions && <div className="story-site-actions">{actions}</div>}
+        </header>
+      )}
 
-      {story && structured && (
+      {!railLayout && story && structured && (
         <nav className="story-site-strip" aria-label={t("stories:site.stripAria")}>
           <a
             href={`/stories/${story.id}`}
             className={chapter ? "" : "is-current"}
-            onClick={(event) => followInSite(event, `/stories/${story.id}`)}
+            onClick={(event) => followReplace(event, `/stories/${story.id}`)}
           >
             {t("stories:site.overview")}
           </a>
@@ -143,7 +161,7 @@ export function StoryDetailPage({ id, chapterId }: { id: string; chapterId?: str
               key={item.id}
               href={`/stories/${story.id}/chapters/${item.id}`}
               className={item.id === chapterId ? "is-current" : ""}
-              onClick={(event) => followInSite(event, `/stories/${story.id}/chapters/${item.id}`)}
+              onClick={(event) => followReplace(event, `/stories/${story.id}/chapters/${item.id}`)}
             >
               {chapterLabel(story, item, index)}
             </a>
@@ -151,37 +169,95 @@ export function StoryDetailPage({ id, chapterId }: { id: string; chapterId?: str
         </nav>
       )}
 
-      <main className="story-site-page">
-        {error && <MessageBox tone="error" title={t("stories:errors.loadTitle")}>{error}</MessageBox>}
-        {!story && !error && <p className="management-empty">{t("stories:common.loading")}</p>}
+      <div className="story-site-shell">
+        {railLayout && story && (
+          <aside className="story-site-rail">
+            {backButton}
 
-        {story && chapterId && !chapter && (
-          <MessageBox tone="error" title={t("stories:errors.loadTitle")}>
-            {t("stories:site.chapterMissing")}
-          </MessageBox>
+            <div className="story-site-rail-card">
+              <nav className="story-site-steps" aria-label={t("stories:site.stripAria")}>
+                {/* The story's name rides on the Overview step: the rail is the
+                    only thing on a chapter's page that says which story it
+                    belongs to. */}
+                <StoryStep
+                  href={`/stories/${story.id}`}
+                  current={!chapter}
+                  label={t("stories:site.overview")}
+                  sub={story.title}
+                  mark={<BookOpen size={14} aria-hidden="true" />}
+                />
+                {story.chapters.map((item, index) => {
+                  const thumb = chapterThumb(item);
+                  const label = chapterLabel(story, item, index);
+                  const dateText = chapterDateText(item, formatPartialDate, formatPartialDateRange);
+                  // A chapter with no name of its own is labelled by its date,
+                  // and a step that says "Jun 22, 2025" twice says nothing the
+                  // second time — fall through to the place instead.
+                  const sub = [dateText, item.place].find((value) => value && value !== label) ?? "";
+                  return (
+                    <StoryStep
+                      key={item.id}
+                      href={`/stories/${story.id}/chapters/${item.id}`}
+                      current={item.id === chapterId}
+                      label={label}
+                      sub={sub}
+                      mark={thumb
+                        ? <img src={thumb} alt="" loading="lazy" />
+                        : <span>{index + 1}</span>}
+                    />
+                  );
+                })}
+              </nav>
+
+              {actions && <div className="story-site-rail-actions">{actions}</div>}
+            </div>
+          </aside>
         )}
 
-        {story && chapter && (
-          <ChapterPage
-            story={story}
-            chapter={chapter}
-            index={chapterIndex}
-            onOpenMedia={openMedia}
-            onPlaySlideshow={playSlideshow}
-            onOpenChapter={openChapter}
-          />
-        )}
+        <main className="story-site-page">
+          {error && <MessageBox tone="error" title={t("stories:errors.loadTitle")}>{error}</MessageBox>}
+          {!story && !error && <p className="management-empty">{t("stories:common.loading")}</p>}
 
-        {story && !chapterId && (structured
-          ? <StoryHome story={story} onOpenChapter={openChapter} />
-          : <FlatStory story={story} onOpenMedia={openMedia} onPlaySlideshow={playSlideshow} />
-        )}
-      </main>
+          {story && chapterId && !chapter && (
+            <MessageBox tone="error" title={t("stories:errors.loadTitle")}>
+              {t("stories:site.chapterMissing")}
+            </MessageBox>
+          )}
+
+          {story && chapter && (
+            <ChapterPage
+              story={story}
+              chapter={chapter}
+              index={chapterIndex}
+              onOpenMedia={openMedia}
+              onPlaySlideshow={playSlideshow}
+              onOpenChapter={openChapter}
+            />
+          )}
+
+          {story && !chapterId && (structured
+            ? <StoryHome story={story} onOpenChapter={openChapter} />
+            : <FlatStory story={story} onOpenMedia={openMedia} onPlaySlideshow={playSlideshow} />
+          )}
+        </main>
+      </div>
 
       {story && sending && (
         <SendToSheet
           subject={{ entityType: "story", entityId: story.id }}
           onClose={() => setSending(false)}
+          // A story's guest links hang off the story API rather than
+          // /api/shares, so the sheet offers the tab and the story's own dialog
+          // does the work — the same handoff a gallery album makes.
+          onGuestLink={story.canEdit ? () => { setSending(false); setSharing(true); } : undefined}
+        />
+      )}
+
+      {story && sharing && (
+        <ShareStoryModal
+          storyId={story.id}
+          storyTitle={story.title}
+          onClose={() => setSharing(false)}
         />
       )}
 
@@ -221,6 +297,39 @@ function StoryStars({ value }: { value: number }) {
 
 /** The best image a chapter can offer its card: the hero, else the first
  *  visible photo any of its blocks shows. */
+// One stop on the rail: the picture it opens on (or its number), what it's
+// called, and when it was. A link, so a chapter can be opened in its own tab
+// like any other page — and a replacing one, so the whole story stays a single
+// step in the trail.
+function StoryStep({
+  href,
+  current,
+  label,
+  sub,
+  mark
+}: {
+  href: string;
+  current: boolean;
+  label: string;
+  sub: string;
+  mark: ReactNode;
+}) {
+  return (
+    <a
+      className={`story-step${current ? " is-current" : ""}`}
+      href={href}
+      aria-current={current ? "page" : undefined}
+      onClick={(event) => followReplace(event, href)}
+    >
+      <span className="story-step-mark" aria-hidden="true">{mark}</span>
+      <span className="story-step-text">
+        <span className="story-step-label">{label}</span>
+        {sub && <span className="story-step-sub">{sub}</span>}
+      </span>
+    </a>
+  );
+}
+
 function chapterThumb(chapter: StoryChapter): string | null {
   if (chapter.hero?.coverUrl) return chapter.hero.coverUrl;
   for (const block of chapter.blocks) {
@@ -321,6 +430,16 @@ function StoryHome({ story, onOpenChapter }: { story: StoryDetail; onOpenChapter
         </ul>
       )}
 
+      {/* Above the chapters, not below them: the map is how a reader gets their
+          bearings before choosing where to start, and a list of days is a long
+          thing to scroll past to reach it. */}
+      {pins.length > 0 && (
+        <section className="story-home-map-section">
+          <h2>{t("stories:site.mapHeading")}</h2>
+          <StoryMap pins={pins} onOpen={onOpenChapter} />
+        </section>
+      )}
+
       <div className="story-home-chapters">
         {story.chapters.map((item, index) => {
           const thumb = chapterThumb(item);
@@ -353,13 +472,6 @@ function StoryHome({ story, onOpenChapter }: { story: StoryDetail; onOpenChapter
           );
         })}
       </div>
-
-      {pins.length > 0 && (
-        <section className="story-home-map-section">
-          <h2>{t("stories:site.mapHeading")}</h2>
-          <StoryMap pins={pins} onOpen={onOpenChapter} />
-        </section>
-      )}
 
       {/* The family's reaction to the story belongs with the story, the way
           notes hang off a photo or a book. */}

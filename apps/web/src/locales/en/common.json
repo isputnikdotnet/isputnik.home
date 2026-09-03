@@ -510,9 +510,7 @@
     }
   },
   "tagInput": {
-    "label": "Add a tag",
-    "placeholder": "Add a tag",
-    "remove": "Remove {{tag}}"
+    "placeholder": "Add a tag"
   },
   "access": {
     "grantTitle": "Give access",

@@ -217,11 +217,11 @@
   white-space: nowrap;
 }
 
-/* The favorite star, over the cover's far corner. */
-.story-card-save {
-  position: absolute;
-  top: 8px;
-  right: 8px;
+/* The favorite star, over the cover's far corner — and the read/edit pair in
+   the corner below it, which wear the same disc so the cover carries one kind
+   of control rather than two. */
+.story-card-save,
+.story-card-action {
   display: grid;
   place-items: center;
   width: 30px;
@@ -236,7 +236,34 @@
   cursor: pointer;
 }
 
-.story-card-save:hover { background: rgba(0, 0, 0, 0.65); }
+.story-card-save {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+}
+
+/* A box the height of the cover, so the pair sits in the cover's bottom corner
+   and not the card's — the overlay lives outside the card's link, which is what
+   makes the cover's own height something it has to be told. Click-through, or
+   it would swallow that link. */
+.story-card-actions {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--story-card-cover-h, auto);
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 8px;
+  pointer-events: none;
+}
+
+.story-card-actions > * { pointer-events: auto; }
+
+.story-card-save:hover,
+.story-card-action:hover { background: rgba(0, 0, 0, 0.65); }
 
 .story-card-save.is-saved { color: var(--gold); }
 
@@ -294,6 +321,9 @@
 }
 
 .story-index .story-grid {
+  /* The cover's own height, shared with the read/edit overlay that has to line
+     up with its bottom corner from outside the card's link. */
+  --story-card-cover-h: 88px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 18px 22px;
 }
@@ -318,7 +348,7 @@
 }
 
 .story-index .story-grid .story-card-cover {
-  height: 88px;
+  height: var(--story-card-cover-h);
   aspect-ratio: auto;
   border-radius: 0;
 }
@@ -407,6 +437,13 @@
     gap: 12px;
   }
 
+  /* A taller cover on the one-column layout. Set through the shared height, not
+     the cover's own, so the read/edit overlay — which lives outside the card's
+     link and can't measure it — follows along. */
+  .story-index .story-grid {
+    --story-card-cover-h: 96px;
+  }
+
   .story-index .story-collection-card {
     grid-template-columns: 112px minmax(0, 1fr);
     min-height: 104px;
@@ -416,9 +453,6 @@
     min-height: 104px;
   }
 
-  .story-index .story-grid .story-card-cover {
-    height: 96px;
-  }
 }
 
 /* The list view: one row per story, the card's facts in a line. */
@@ -713,7 +747,11 @@
   object-fit: cover;
 }
 
+/* A map block inside a story, with the same containment as the story map above:
+   Leaflet's panes and controls stay inside this box, under any open dialog. */
 .story-map {
+  position: relative;
+  z-index: 0;
   height: 320px;
   border-radius: 12px;
 }
@@ -814,10 +852,13 @@
   margin-bottom: 18px;
 }
 
+/* Stays right whether or not the bar carries a way out on its left — the
+   sidebar holds that, so on a desktop the actions are the whole bar. */
 .story-edit-topbar-actions {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+  margin-left: auto;
 }
 
 .story-edit-pane-head {
@@ -993,14 +1034,32 @@
 
 .story-edit-settings-head > svg:first-child { color: var(--muted); }
 
+/* The fold control reads as a control: a disc in the card's far corner, its
+   arrow up while the card is open and down when there is something to open. */
 .story-edit-settings-chevron {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
   margin-left: auto;
+  border-radius: 50%;
+  background: var(--field);
   color: var(--muted);
   transition: transform 0.15s ease;
 }
 
+.story-edit-settings-head:hover .story-edit-settings-chevron { color: var(--ink); }
+
 .story-edit-settings.is-collapsed .story-edit-settings-chevron {
-  transform: rotate(-90deg);
+  transform: rotate(180deg);
+}
+
+/* Open, the head is the card's first band rather than its whole face. Only the
+   editor's own two cards — a chapter's settings and the story's details, which
+   are deliberately the same card — the new-story dialog's is one plain face. */
+.story-edit-chapter-settings:not(.is-collapsed) .story-edit-settings-head,
+.story-edit-story-details:not(.is-collapsed) .story-edit-settings-head {
+  border-bottom: 1px solid var(--line);
 }
 
 /* The new-story card can't collapse — there is nothing yet to collapse it for. */
@@ -1015,6 +1074,67 @@
   gap: 14px;
   padding: 0 14px 16px;
   align-items: end;
+}
+
+/* A chapter's settings are bands, not a field grid: when it happened, where,
+   and the note. The auto-fit grid above still serves the new-story dialog. */
+.story-edit-chapter-settings .story-edit-settings-body {
+  display: flex;
+  flex-direction: column;
+  /* The grid above ends its fields on the inputs' baseline; as a column that
+     same rule would pin every band to the card's right edge. */
+  align-items: stretch;
+  gap: 16px;
+  padding: 16px 14px;
+}
+
+/* The pair of dates, with "the date is approximate" under them — it qualifies
+   the dates, so it belongs in their band and not in a column beside them. */
+/* Two columns, not auto-fit: the pair is a from/until, and on a card this wide
+   auto-fit finds room for a third track that leaves "Until" stranded mid-card.
+   A date is short enough to stay legible in half a phone's width. */
+.story-edit-settings-dates {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+
+.story-edit-settings-dates .story-edit-approx { grid-column: 1 / -1; }
+
+/* Each band after the first says where it starts. */
+.story-edit-settings-part {
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.story-edit-part-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 10px;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.story-edit-part-head > svg { color: var(--gold); }
+
+/* The place and the way to pin it, on one line — the field takes the room. */
+.story-edit-location-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.story-edit-location-row > .field { flex: 1 1 240px; min-width: 0; }
+
+.story-edit-location-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 8px;
 }
 
 .story-edit-approx {
@@ -1239,17 +1359,17 @@
   transform: none;
 }
 
-/* ── Story details ─────────────────────────────────────────────────────── */
+/* ── Story details, on the overview ────────────────────────────────────── */
 
-.story-edit-details-fields {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-  gap: 18px;
-  align-items: start;
+/* The same card as a chapter's settings (see above), holding the story's own.
+   The one difference: every field here explains itself underneath, so the rows
+   line up at the top instead of on the inputs' baseline. */
+.story-edit-story-details .story-edit-settings-body { align-items: start; }
+
+.story-edit-story-details .story-edit-setting > .muted {
+  font-size: 0.78rem;
+  line-height: 1.4;
 }
-
-.story-edit-detail > .muted { font-size: 0.78rem; line-height: 1.4; }
-.story-edit-detail-wide { grid-column: 1 / -1; }
 
 /* The phone's stand-in for the sidebar: the same strip the reading view wears. */
 .story-edit-strip {
@@ -1396,8 +1516,9 @@
   .story-set-head { align-items: flex-start; }
 }
 
-/* Tags: a chip row under the story head, and the editor's field above the
-   chapters — both lean on the shared .tag-input styles. */
+/* Tags as a reader meets them: a chip row under the story head. The editor's
+   own field is the shared combobox (.people-combobox), styled with every other
+   one in the app. */
 .story-read-tags {
   display: flex;
   flex-wrap: wrap;
@@ -1653,6 +1774,28 @@
 
 .story-site-actions { display: flex; gap: 8px; }
 
+/* Three actions don't fit a phone's bar with their words on. The icons carry
+   them and the labels are CLIPPED, not removed, so each button keeps its
+   accessible name — the same trade every back button in the app makes. */
+@media (max-width: 740px) {
+  .story-site-actions .secondary-button {
+    position: relative;
+    gap: 0;
+    padding: 0 12px;
+  }
+
+  .story-site-actions .secondary-button > span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
 /* The chapter strip: Overview + one entry per chapter, horizontally
    scrollable — a long trip has many days. */
 .story-site-strip {
@@ -1691,6 +1834,192 @@
   max-width: 960px;
   margin: 0 auto;
   padding: 26px 20px 60px;
+}
+
+/* ── The rail ──────────────────────────────────────────────────────────── */
+/* A chaptered story on a desktop reads as a page with its own navigation
+   beside it: the way out, then a card listing every stop on the journey with
+   the picture it opens on and the day it happened, then what the author can do
+   with the story. It stays put while a chapter is read, so the shape of the
+   whole thing is always in view — which the horizontal strip, scrolling out of
+   sight on a long trip, never managed. A phone and a one-page story keep the
+   bar and the strip above. */
+
+/* Without the rail there is nothing to lay out beside the page, so the wrapper
+   steps out of the way and the page stays the column's own child. */
+.story-site-shell { display: contents; }
+
+.story-site.has-rail .story-site-shell {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 268px minmax(0, 1fr);
+  gap: 26px;
+  width: 100%;
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: 22px 24px 60px;
+  align-items: start;
+}
+
+.story-site-rail {
+  position: sticky;
+  top: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+/* The way out sits above the card, not inside it: it leaves the story, and
+   everything in the card belongs to the story. */
+.story-site-rail > .story-site-exit { align-self: flex-start; }
+
+.story-site-rail-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--shadow) 35%, transparent);
+}
+
+.story-site-steps {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* One line threading the marks, drawn behind them: 10px of card padding plus
+   8px of row padding plus half a 30px mark. */
+.story-site-steps::before {
+  content: "";
+  position: absolute;
+  left: 33px;
+  top: 26px;
+  bottom: 26px;
+  width: 1px;
+  background: var(--line);
+}
+
+.story-step {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 7px 10px;
+  border-radius: 10px;
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.story-step:hover { background: var(--hover); }
+
+.story-step.is-current {
+  background: var(--active);
+  color: var(--ink);
+}
+
+.story-step-mark {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--field);
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.story-step-mark img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.story-step.is-current .story-step-mark {
+  border-color: color-mix(in srgb, var(--mint) 55%, var(--line));
+  color: var(--ink);
+}
+
+.story-step-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.story-step-label {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.story-step.is-current .story-step-label { color: var(--ink); }
+
+.story-step-sub {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.76rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Stacked, so three actions read as a list rather than a squeezed row. */
+.story-site-rail-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.story-site-rail-actions > .secondary-button { justify-content: flex-start; }
+
+/* Beside the rail the page becomes the sheet the story is printed on, and its
+   hero fills the sheet's top edge — so the card carries no padding of its own
+   and each band inside takes its own. */
+.story-site.has-rail .story-site-page {
+  max-width: none;
+  margin: 0;
+  overflow: hidden;
+  padding: 0 0 40px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--shadow) 35%, transparent);
+}
+
+.story-site.has-rail .story-home > *,
+.story-site.has-rail .story-read > * { margin-inline: 30px; }
+
+.story-site.has-rail .story-home > .story-home-hero,
+.story-site.has-rail .story-read > .story-chapter-hero { margin-inline: 0; }
+
+.story-site.has-rail .story-home,
+.story-site.has-rail .story-read { padding-top: 0; }
+
+/* The hero is the sheet's own top edge now, so it drops the corners it wore as
+   a floating band. */
+.story-site.has-rail .story-home-hero,
+.story-site.has-rail .story-chapter-hero { border-radius: 0; }
+
+@media (max-width: 1100px) {
+  .story-site.has-rail .story-site-shell {
+    grid-template-columns: 232px minmax(0, 1fr);
+    gap: 18px;
+    padding: 18px 16px 48px;
+  }
 }
 
 /* ── Story Home ────────────────────────────────────────────────────────── */
@@ -1809,9 +2138,26 @@
 .story-home-card-go { flex: 0 0 auto; color: var(--muted); }
 
 .story-home-map-section { display: flex; flex-direction: column; gap: 10px; }
-.story-home-map-section h2 { margin: 0; font-size: 1.15rem; }
 
+/* An eyebrow, not a headline: it names the map under it, and the story's own
+   words are the only thing on this page that should read as a heading. */
+.story-home-map-section h2 {
+  margin: 0;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+/* z-index:0 confines Leaflet's own stacking — its tiles sit at 400 and its
+   zoom controls at 1000 — inside this box, so a map can't climb over a dialog
+   opened on top of it (.modal-backdrop is z-index 20). The gallery's map view
+   does the same. */
 .story-home-map {
+  position: relative;
+  z-index: 0;
   height: 320px;
   border-radius: 14px;
   overflow: hidden;

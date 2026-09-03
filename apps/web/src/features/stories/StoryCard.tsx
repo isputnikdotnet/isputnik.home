@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
-import { BookText, CalendarDays, MapPin, Star } from "lucide-react";
-import { followRoute } from "../../router";
+import { BookOpen, BookText, CalendarDays, MapPin, Pencil, Star } from "lucide-react";
+import { followRoute, storyEditorHref } from "../../router";
 import { formatPartialDateRange } from "../../shared/utils";
 import { Button } from "../../shared/Button";
 import type { StorySummary } from "./types";
@@ -92,6 +92,37 @@ export function StoryCard({
             : story.kind !== "free" && <span className="story-kind-chip">{t(`stories:kinds.${story.kind}.name`)}</span>}
         </div>
       </a>
+      {/* Read it, or open it in the editor — the two things an author does with
+          a story of their own, without opening it first to find the button.
+          Links, not buttons, so middle-click and "open in new tab" work; the
+          overlay itself is click-through so the rest of the cover still opens
+          the story. Only the index wears them: elsewhere a story tile is
+          something found mid-browse, not a list of your own work. */}
+      {indexLayout && (
+        <div className="story-card-actions">
+          <a
+            className="story-card-action"
+            href={href}
+            title={t("stories:card.view")}
+            aria-label={t("stories:card.view")}
+            onClick={(event) => followRoute(event, href)}
+          >
+            <BookOpen size={15} aria-hidden="true" />
+          </a>
+          {story.canEdit && (
+            <a
+              className="story-card-action"
+              href={storyEditorHref(story.id)}
+              title={t("stories:card.edit")}
+              aria-label={t("stories:card.edit")}
+              onClick={(event) => followRoute(event, storyEditorHref(story.id))}
+            >
+              <Pencil size={15} aria-hidden="true" />
+            </a>
+          )}
+        </div>
+      )}
+
       {onToggleSave ? (
         <Button
           variant="icon"

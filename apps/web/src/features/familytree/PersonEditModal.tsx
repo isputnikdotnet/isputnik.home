@@ -5,7 +5,7 @@ import { api } from "../../api";
 import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
-import { PeopleCombobox } from "../audiobooks/PeopleCombobox";
+import { PeopleCombobox } from "../../shared/PeopleCombobox";
 import { PartialDateField } from "../../shared/PartialDateField";
 import { GENDER_OPTIONS, genderOptionLabel, type FamilyPerson, type FamilyTag } from "./types";
 

@@ -1,26 +1,31 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, BookOpen, Link2, Trash2 } from "lucide-react";
+import { LogOut, Send as SendIcon, Trash2 } from "lucide-react";
 import type { PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
-import { followRoute, navigate, replaceNavigate, storyEditorDetailsHref, storyEditorHref } from "../../router";
+import { followReplace, goBack, navigate, replaceNavigate, storyEditorHref } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { useIsMobile } from "../../shared/useIsMobile";
 import { Button } from "../../shared/Button";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
+import { SendToSheet } from "../social/SendToSheet";
 import { ShareStoryModal } from "./ShareStoryModal";
 import { StoryChapterEditor } from "./StoryChapterEditor";
-import { StoryDetailsPane } from "./StoryDetailsPane";
 import { StoryEditorNav } from "./StoryEditorNav";
-import { StoryHomePane } from "./StoryHomePane";
+import { StoryOverviewPane } from "./StoryOverviewPane";
 import { useStoryEditor } from "./useStoryEditor";
 import { chapterLabel } from "./types";
 
-// The editor. One pane at a time — the story's front page, its details, or a
-// single chapter — with the sidebar holding the story's shape and the top bar
+// The editor. One pane at a time — the story's overview or a single
+// chapter — with the sidebar holding the story's shape and the top bar
 // holding what you do to the story as a whole. Every field saves on blur and
 // every structural change saves immediately: there is no Save button anywhere
 // here, so nothing is lost by navigating away mid-thought.
+//
+// Every move between panes REPLACES the history entry (the reading view does
+// the same with chapters): the whole session is one step in the trail, so
+// leaving the editor returns to whatever opened it — a story page, a
+// collection's Add story, the index — instead of the last pane visited.
 export function StoryEditorPage({
   id,
   pane,
@@ -29,7 +34,7 @@ export function StoryEditorPage({
   logout
 }: {
   id: string;
-  pane: "home" | "details" | "chapter";
+  pane: "overview" | "chapter";
   chapterId?: string;
   user: PublicUser;
   logout: () => Promise<void>;
@@ -39,6 +44,7 @@ export function StoryEditorPage({
   const { story, error, busy } = editor;
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const [sending, setSending] = useState(false);
   // The panes live in the sidebar, and a phone has no sidebar — the same strip
   // the reading view uses carries them there instead.
   const isMobile = useIsMobile();
@@ -59,12 +65,12 @@ export function StoryEditorPage({
   }, [story?.canEdit, story?.id]);
 
   // A chapter that has been deleted (here or in another tab) leaves its address
-  // behind; fall back to the front page rather than showing an empty pane.
+  // behind; fall back to the overview rather than showing an empty pane.
   useEffect(() => {
     if (story && pane === "chapter" && !chapter) replaceNavigate(storyEditorHref(story.id));
   }, [story?.id, pane, chapter?.id]);
 
-  const activeKey = pane === "chapter" ? chapterId ?? "home" : pane;
+  const activeKey = pane === "chapter" ? chapterId ?? "overview" : pane;
   // The chapter's name for the page head — "Day 1", or its title when the
   // story doesn't number its chapters.
   const chapterHeading = story && chapter ? chapterLabel(story, chapter, chapterIndex) : "";
@@ -81,7 +87,7 @@ export function StoryEditorPage({
             activeKey={activeKey}
             busy={busy}
             onAddChapter={() => void editor.addChapter().then((created) => {
-              if (created) navigate(storyEditorHref(story.id, created));
+              if (created) replaceNavigate(storyEditorHref(story.id, created));
             })}
             onReorderChapters={(orderedIds) => void editor.reorderChapters(orderedIds)}
           />
@@ -90,17 +96,23 @@ export function StoryEditorPage({
     >
       <section className="work-area story-edit-area">
         <div className="story-edit-topbar">
-          <button className="audiobook-back-button" type="button" onClick={() => navigate(`/stories/${id}`)}>
-            <ArrowLeft size={18} aria-hidden="true" />
-            <span>{t("stories:edit.backToStory")}</span>
-          </button>
+          {/* The way out lives in the sidebar, where every other section keeps
+              it — except on a phone, which has no sidebar to keep it in. Same
+              exit either way: back the way they came in, story page if they
+              came from outside the app. */}
+          {isMobile && (
+            <button
+              className="audiobook-back-button"
+              type="button"
+              onClick={() => goBack(`/stories/${id}`)}
+            >
+              <LogOut size={18} aria-hidden="true" />
+              <span>{t("stories:edit.exitEdit")}</span>
+            </button>
+          )}
 
           {story && (
             <div className="story-edit-topbar-actions">
-              <Button variant="secondary" compact onClick={() => navigate(`/stories/${story.id}`)}>
-                <BookOpen size={15} aria-hidden="true" />
-                <span>{t("stories:actions.read")}</span>
-              </Button>
               <Button
                 variant={story.status === "published" ? "secondary" : "primary"}
                 compact
@@ -111,9 +123,12 @@ export function StoryEditorPage({
               >
                 {story.status === "published" ? t("stories:actions.unpublish") : t("stories:actions.publish")}
               </Button>
-              <Button variant="secondary" compact onClick={() => setSharing(true)}>
-                <Link2 size={15} aria-hidden="true" />
-                <span>{t("stories:actions.shareLink")}</span>
+              {/* Handing the story on is one door everywhere in the app: Send
+                  holds both the people and the guest link, and its link tab
+                  hands back to the story's own dialog. */}
+              <Button variant="secondary" compact onClick={() => setSending(true)}>
+                <SendIcon size={15} aria-hidden="true" />
+                <span>{t("stories:actions.send")}</span>
               </Button>
               <Button variant="secondary" compact danger onClick={() => setConfirmDelete(true)}>
                 <Trash2 size={15} aria-hidden="true" />
@@ -127,24 +142,17 @@ export function StoryEditorPage({
           <nav className="story-site-strip story-edit-strip" aria-label={t("stories:edit.nav.aria")}>
             <a
               href={storyEditorHref(story.id)}
-              className={pane === "home" ? "is-current" : ""}
-              onClick={(event) => followRoute(event, storyEditorHref(story.id))}
+              className={pane === "overview" ? "is-current" : ""}
+              onClick={(event) => followReplace(event, storyEditorHref(story.id))}
             >
-              {t("stories:edit.nav.home")}
-            </a>
-            <a
-              href={storyEditorDetailsHref(story.id)}
-              className={pane === "details" ? "is-current" : ""}
-              onClick={(event) => followRoute(event, storyEditorDetailsHref(story.id))}
-            >
-              {t("stories:edit.nav.details")}
+              {t("stories:edit.nav.overview")}
             </a>
             {story.chapters.map((item, itemIndex) => (
               <a
                 key={item.id}
                 href={storyEditorHref(story.id, item.id)}
                 className={item.id === chapterId ? "is-current" : ""}
-                onClick={(event) => followRoute(event, storyEditorHref(story.id, item.id))}
+                onClick={(event) => followReplace(event, storyEditorHref(story.id, item.id))}
               >
                 {chapterLabel(story, item, itemIndex)}
               </a>
@@ -155,19 +163,15 @@ export function StoryEditorPage({
         {error && <MessageBox tone="error" title={t("stories:errors.saveTitle")}>{error}</MessageBox>}
         {!story && !error && <p className="management-empty">{t("stories:common.loading")}</p>}
 
-        {story && pane !== "home" && (
+        {story && pane === "chapter" && (
           <header className="story-edit-pane-head">
             <p className="eyebrow">{story.title}</p>
-            <h1>{pane === "details" ? t("stories:edit.nav.details") : chapterHeading}</h1>
+            <h1>{chapterHeading}</h1>
           </header>
         )}
 
-        {story && pane === "home" && (
-          <StoryHomePane story={story} onPatch={(fields) => void editor.patchStory(fields)} />
-        )}
-
-        {story && pane === "details" && (
-          <StoryDetailsPane
+        {story && pane === "overview" && (
+          <StoryOverviewPane
             story={story}
             busy={busy}
             onPatch={(fields) => void editor.patchStory(fields)}
@@ -200,6 +204,17 @@ export function StoryEditorPage({
           />
         )}
       </section>
+
+      {sending && story && (
+        <SendToSheet
+          subject={{ entityType: "story", entityId: story.id }}
+          onClose={() => setSending(false)}
+          // A story's guest links hang off the story API rather than
+          // /api/shares, so the sheet offers the tab and the story's own dialog
+          // does the work — the same handoff a gallery album makes.
+          onGuestLink={() => { setSending(false); setSharing(true); }}
+        />
+      )}
 
       {sharing && story && (
         <ShareStoryModal storyId={story.id} storyTitle={story.title} onClose={() => setSharing(false)} />

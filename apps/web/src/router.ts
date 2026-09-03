@@ -69,10 +69,6 @@ export function storyEditorHref(storyId: string, chapterId?: string): string {
   return `/stories/${storyId}/edit`;
 }
 
-export function storyEditorDetailsHref(storyId: string): string {
-  return `/stories/${storyId}/edit/details`;
-}
-
 // Addresses the control panel used to live at. They keep resolving so existing
 // bookmarks, docs links and the odd typed URL still land somewhere sensible —
 // the panel has been reorganised more than once and old links outlive it.
@@ -277,7 +273,7 @@ export type Route =
   | { name: "storyDetail"; id: string }
   | { name: "storyChapter"; id: string; chapterId: string }
   | { name: "storyCollection"; id: string }
-  | { name: "storyEditor"; id: string; pane: "home" | "details" | "chapter"; chapterId?: string }
+  | { name: "storyEditor"; id: string; pane: "overview" | "chapter"; chapterId?: string }
   | { name: "authors" }
   | { name: "personDetail"; personName: string }
   | { name: "audiobookAuthorDetail"; personName: string }
@@ -437,8 +433,8 @@ export function getRoute(): Route {
   }
 
   // The editor is its own address, so an author can link straight back into it
-  // — and so is each pane inside it: the story's front page, its details, and
-  // one address per chapter, since the editor shows a single chapter at a time.
+  // — and so is each pane inside it: the story's overview, and one address per
+  // chapter, since the editor shows a single chapter at a time.
   const storyEditorChapterMatch = path.match(/^\/stories\/([^/]+)\/edit\/chapters\/([^/]+)$/);
   if (storyEditorChapterMatch) {
     return {
@@ -449,14 +445,11 @@ export function getRoute(): Route {
     };
   }
 
-  const storyEditorDetailsMatch = path.match(/^\/stories\/([^/]+)\/edit\/details$/);
-  if (storyEditorDetailsMatch) {
-    return { name: "storyEditor", id: storyEditorDetailsMatch[1], pane: "details" };
-  }
-
-  const storyEditorMatch = path.match(/^\/stories\/([^/]+)\/edit$/);
+  // Story details used to be a pane of its own; its fields now sit on the
+  // overview, so the address it had still lands there.
+  const storyEditorMatch = path.match(/^\/stories\/([^/]+)\/edit(?:\/details)?$/);
   if (storyEditorMatch) {
-    return { name: "storyEditor", id: storyEditorMatch[1], pane: "home" };
+    return { name: "storyEditor", id: storyEditorMatch[1], pane: "overview" };
   }
 
   // A chapter is its own page — /stories/:id is the story's front page.
@@ -774,6 +767,20 @@ export function followRoute(event: React.MouseEvent<HTMLAnchorElement>, path: st
 
   event.preventDefault();
   navigate(path);
+}
+
+// followRoute for a link between one page's INTERNAL views — a story's chapters
+// as a reader steps through them, the editor's panes as an author does. The
+// click replaces the history entry instead of stacking one, so the whole visit
+// is a single step in the trail and Back (or the page's own way out) leaves to
+// wherever the visitor came from rather than replaying the views inside it.
+export function followReplace(event: React.MouseEvent<HTMLAnchorElement>, path: string) {
+  if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+    return;
+  }
+
+  event.preventDefault();
+  replaceNavigate(path);
 }
 
 // Route changes go through startTransition so React keeps the page you are on

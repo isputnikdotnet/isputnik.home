@@ -181,8 +181,7 @@
     "moveChapterDown": "Move chapter down",
     "removeChapter": "Delete chapter",
     "applyDates": "Apply dates",
-    "send": "Send",
-    "shareLink": "Share link"
+    "send": "Send"
   },
   "errors": {
     "load": "Unable to load this story.",
@@ -202,17 +201,17 @@
   },
   "edit": {
     "eyebrow": "Editing story",
-    "backToStory": "Back to the story",
+    "exitEdit": "Exit edit",
     "addBlock": "Add block",
     "addChapter": "Add chapter",
     "addChapterDetails": "Add a date, place or chapter title",
     "chapterEmpty": "Nothing in this chapter yet — add something below.",
     "nav": {
       "aria": "Story editor",
-      "home": "Home",
-      "details": "Story details",
+      "overview": "Overview",
       "chapters": "Chapters"
     },
+    "detailsHeading": "Story details",
     "chapterSettings": "Chapter settings",
     "approxHint": "Use this if dates are not exact.",
     "blockHeading": "Block heading",
@@ -255,6 +254,9 @@
     "endDatePlaceholder": "2004-07-19",
     "approxLabel": "The date is approximate",
     "placeField": "Place",
+    "locationHeading": "Location",
+    "editOnMap": "Edit on map",
+    "removeLocation": "Remove location",
     "placePlaceholder": "Lake Superior, Minnesota",
     "standfirstField": "Standfirst",
     "standfirstPlaceholder": "One line that sets up this chapter",
@@ -413,6 +415,8 @@
     "favorites": "Favorites"
   },
   "card": {
+    "view": "Read this story",
+    "edit": "Edit this story",
     "save": "Add to favorites",
     "unsave": "Remove from favorites"
   },
