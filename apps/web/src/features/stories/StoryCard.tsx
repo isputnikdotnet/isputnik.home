@@ -94,10 +94,10 @@ export function StoryCard({
       </a>
       {/* Read it, or open it in the editor — the two things an author does with
           a story of their own, without opening it first to find the button.
-          Links, not buttons, so middle-click and "open in new tab" work; the
-          overlay itself is click-through so the rest of the cover still opens
-          the story. Only the index wears them: elsewhere a story tile is
-          something found mid-browse, not a list of your own work. */}
+          They sit at the foot of the card, across from the kind chip, and are
+          links rather than buttons so middle-click and "open in new tab" work.
+          Only the index wears them: elsewhere a story tile is something found
+          mid-browse, not a list of your own work. */}
       {indexLayout && (
         <div className="story-card-actions">
           <a

@@ -75,6 +75,35 @@ export function StoryEditorPage({
   // story doesn't number its chapters.
   const chapterHeading = story && chapter ? chapterLabel(story, chapter, chapterIndex) : "";
 
+  // What you do to the story as a whole. They live under the chapters in the
+  // sidebar, where the reading view keeps the same kind of thing — a phone has
+  // no sidebar, so there they stay in the top bar with the way out.
+  const actions = story && (
+    <>
+      <Button
+        variant={story.status === "published" ? "secondary" : "primary"}
+        compact
+        disabled={busy}
+        onClick={() => void editor.patchStory({
+          status: story.status === "published" ? "draft" : "published"
+        })}
+      >
+        {story.status === "published" ? t("stories:actions.unpublish") : t("stories:actions.publish")}
+      </Button>
+      {/* Handing the story on is one door everywhere in the app: Send holds
+          both the people and the guest link, and its link tab hands back to
+          the story's own dialog. */}
+      <Button variant="secondary" compact onClick={() => setSending(true)}>
+        <SendIcon size={15} aria-hidden="true" />
+        <span>{t("stories:actions.send")}</span>
+      </Button>
+      <Button variant="secondary" compact danger onClick={() => setConfirmDelete(true)}>
+        <Trash2 size={15} aria-hidden="true" />
+        <span>{t("stories:actions.delete")}</span>
+      </Button>
+    </>
+  );
+
   return (
     <DashboardShell
       active="stories"
@@ -86,6 +115,7 @@ export function StoryEditorPage({
             story={story}
             activeKey={activeKey}
             busy={busy}
+            actions={isMobile ? undefined : actions}
             onAddChapter={() => void editor.addChapter().then((created) => {
               if (created) replaceNavigate(storyEditorHref(story.id, created));
             })}
@@ -95,12 +125,11 @@ export function StoryEditorPage({
         : undefined}
     >
       <section className="work-area story-edit-area">
-        <div className="story-edit-topbar">
-          {/* The way out lives in the sidebar, where every other section keeps
-              it — except on a phone, which has no sidebar to keep it in. Same
-              exit either way: back the way they came in, story page if they
-              came from outside the app. */}
-          {isMobile && (
+        {/* Only a phone gets a bar: the way out and the story's actions both
+            live in the sidebar, which a phone hasn't got. Same exit either way —
+            back the way they came in, story page if they came from outside. */}
+        {isMobile && (
+          <div className="story-edit-topbar">
             <button
               className="audiobook-back-button"
               type="button"
@@ -109,34 +138,10 @@ export function StoryEditorPage({
               <LogOut size={18} aria-hidden="true" />
               <span>{t("stories:edit.exitEdit")}</span>
             </button>
-          )}
 
-          {story && (
-            <div className="story-edit-topbar-actions">
-              <Button
-                variant={story.status === "published" ? "secondary" : "primary"}
-                compact
-                disabled={busy}
-                onClick={() => void editor.patchStory({
-                  status: story.status === "published" ? "draft" : "published"
-                })}
-              >
-                {story.status === "published" ? t("stories:actions.unpublish") : t("stories:actions.publish")}
-              </Button>
-              {/* Handing the story on is one door everywhere in the app: Send
-                  holds both the people and the guest link, and its link tab
-                  hands back to the story's own dialog. */}
-              <Button variant="secondary" compact onClick={() => setSending(true)}>
-                <SendIcon size={15} aria-hidden="true" />
-                <span>{t("stories:actions.send")}</span>
-              </Button>
-              <Button variant="secondary" compact danger onClick={() => setConfirmDelete(true)}>
-                <Trash2 size={15} aria-hidden="true" />
-                <span>{t("stories:actions.delete")}</span>
-              </Button>
-            </div>
-          )}
-        </div>
+            {actions && <div className="story-edit-topbar-actions">{actions}</div>}
+          </div>
+        )}
 
         {story && isMobile && (
           <nav className="story-site-strip story-edit-strip" aria-label={t("stories:edit.nav.aria")}>

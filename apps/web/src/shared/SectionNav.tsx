@@ -47,7 +47,8 @@ export function SectionNav({
   groups,
   activeKey,
   exit,
-  replace = false
+  replace = false,
+  footer
 }: {
   ariaLabel: string;
   groupLabel?: string;
@@ -75,6 +76,10 @@ export function SectionNav({
    *  single step in the trail, which is what lets `exit.back` leave the page
    *  instead of stepping backwards through it. */
   replace?: boolean;
+  /** What you do to the thing this nav belongs to, under everything you can
+   *  move between — the story editor's Publish, Send and Delete. Not a group:
+   *  these are actions, and they sit apart from the destinations. */
+  footer?: ReactNode;
 }) {
   const { t } = useTranslation();
   const rendered: SectionNavGroup[] = groups ?? [{ label: groupLabel ?? "", items: items ?? [] }];
@@ -109,6 +114,8 @@ export function SectionNav({
           </div>
         )
       ))}
+
+      {footer && <div className="section-nav-footer">{footer}</div>}
     </nav>
   );
 }

@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { BookOpen, ChevronLeft, ChevronRight, Download, Headphones, Images, MapPin, Mic, Play, Quote, Star, UserRound } from "lucide-react";
 import { StoryMarkdown } from "../features/stories/StoryMarkdown";
+import { StoryStep } from "../features/stories/StoryStep";
+import { useIsMobile } from "../shared/useIsMobile";
 import { GalleryMiniMap } from "../features/gallery/GalleryMiniMap";
 import { formatPartialDate, formatPartialDateRange } from "../shared/utils";
 
@@ -102,6 +104,7 @@ function chapterAssets(chapter: StoryShareChapter): StoryShareAsset[] {
 export function StoryShareView({ token, payload }: { token: string; payload: StorySharePayload }) {
   const { t } = useTranslation(["common", "user", "stories"]);
   const { story, share } = payload;
+  const isMobile = useIsMobile();
 
   // One flat list of every photo the page shows, so the viewer can step through
   // the whole story rather than being trapped inside one block.
@@ -147,27 +150,70 @@ export function StoryShareView({ token, payload }: { token: string; payload: Sto
   const chapterIndex = chapterId ? story.chapters.findIndex((chapter) => chapter.id === chapterId) : -1;
   const chapter = chapterIndex >= 0 ? story.chapters[chapterIndex] : null;
 
+  // The same frame the family reads a story in — the sheet, and the rail
+  // listing every chapter beside it — minus everything a guest has no business
+  // with: no way back into the app, no Edit, no Send. A phone keeps the strip,
+  // as it does when signed in.
+  const railLayout = !isMobile;
+
   return (
-    <div className="share-page">
-      <div className="share-card share-card--story">
-        {hasStructure && (
-          <nav className="story-site-strip" aria-label={t("stories:site.stripAria")}>
-            <button type="button" className={chapter ? "" : "is-current"} onClick={() => goTo(null)}>
-              {t("stories:site.overview")}
+    <div className={`story-site story-site--guest${railLayout ? " has-rail" : ""}`}>
+      {!railLayout && hasStructure && (
+        <nav className="story-site-strip" aria-label={t("stories:site.stripAria")}>
+          <button type="button" className={chapter ? "" : "is-current"} onClick={() => goTo(null)}>
+            {t("stories:site.overview")}
+          </button>
+          {story.chapters.map((item, index) => (
+            <button
+              key={item.id}
+              type="button"
+              className={item.id === chapterId ? "is-current" : ""}
+              onClick={() => goTo(item.id)}
+            >
+              {shareChapterLabel(story, item, index)}
             </button>
-            {story.chapters.map((item, index) => (
-              <button
-                key={item.id}
-                type="button"
-                className={item.id === chapterId ? "is-current" : ""}
-                onClick={() => goTo(item.id)}
-              >
-                {shareChapterLabel(story, item, index)}
-              </button>
-            ))}
-          </nav>
+          ))}
+        </nav>
+      )}
+
+      <div className="story-site-shell">
+        {railLayout && (
+          <aside className="story-site-rail">
+            <div className="story-site-rail-card">
+              <nav className="story-site-steps" aria-label={t("stories:site.stripAria")}>
+                <StoryStep
+                  onSelect={() => goTo(null)}
+                  current={!chapter}
+                  label={hasStructure ? t("stories:site.overview") : story.title}
+                  sub={hasStructure ? story.title : ""}
+                  mark={<BookOpen size={14} aria-hidden="true" />}
+                />
+                {hasStructure && story.chapters.map((item, index) => {
+                  const label = shareChapterLabel(story, item, index);
+                  const dateText = item.date
+                    ? (item.endDate ? formatPartialDateRange(item.date, item.endDate) : formatPartialDate(item.date))
+                    : "";
+                  const thumb = item.hero?.coverUrl ?? chapterAssets(item)[0]?.coverUrl ?? null;
+                  const sub = [dateText, item.place].find((value) => value && value !== label) ?? "";
+                  return (
+                    <StoryStep
+                      key={item.id}
+                      onSelect={() => goTo(item.id)}
+                      current={item.id === chapterId}
+                      label={label}
+                      sub={sub}
+                      mark={thumb
+                        ? <img src={thumb} alt="" loading="lazy" />
+                        : <span>{index + 1}</span>}
+                    />
+                  );
+                })}
+              </nav>
+            </div>
+          </aside>
         )}
 
+        <main className="story-site-page">
         {hasStructure && chapter ? (
           <ShareChapterPage
             story={story}
@@ -185,24 +231,25 @@ export function StoryShareView({ token, payload }: { token: string; payload: Sto
             onGoTo={goTo}
           />
         ) : (
-          <article className="story-read">
-            <header className="story-read-head">
-              <h1>{story.title}</h1>
-              {story.subtitle && <p className="story-read-subtitle">{story.subtitle}</p>}
-              {story.rating != null && <ShareStars value={story.rating} />}
-              {story.intro && <StoryMarkdown source={story.intro} />}
-              {share.sharedBy && (
-                <p className="share-shared-by">{t("user:sharePage.sharedBy", { name: share.sharedBy })}</p>
-              )}
+          /* A story that is one plain page opens the way every other story
+             does — on its cover, not on bare text. */
+          <article className="story-home story-read">
+            <ShareHead story={story} />
+
+            {story.intro && <div className="story-home-intro"><StoryMarkdown source={story.intro} /></div>}
+
+            {share.sharedBy && (
+              <p className="share-shared-by">{t("user:sharePage.sharedBy", { name: share.sharedBy })}</p>
+            )}
+
+            {gallery.length > 0 && (
               <div className="story-read-actions">
-                {gallery.length > 0 && (
-                  <a className="secondary-button compact-button" href={`/api/share/${token}/download-all`} download>
-                    <Download size={15} aria-hidden="true" />
-                    <span>{t("user:sharePage.downloadAll")}</span>
-                  </a>
-                )}
+                <a className="secondary-button compact-button" href={`/api/share/${token}/download-all`} download>
+                  <Download size={15} aria-hidden="true" />
+                  <span>{t("user:sharePage.downloadAll")}</span>
+                </a>
               </div>
-            </header>
+            )}
 
             {story.chapters.every((item) => item.blocks.length === 0) && (
               <p className="muted">{t("stories:read.emptyReader")}</p>
@@ -213,6 +260,7 @@ export function StoryShareView({ token, payload }: { token: string; payload: Sto
             ))}
           </article>
         )}
+        </main>
       </div>
 
       {open && (
@@ -234,6 +282,25 @@ export function StoryShareView({ token, payload }: { token: string; payload: Sto
         </div>
       )}
     </div>
+  );
+}
+
+/** How every shared story opens, whatever its shape — the guest's copy of the
+ *  reading view's StoryHead, on the payload a guest link carries. */
+function ShareHead({ story }: { story: StorySharePayload["story"] }) {
+  const heroUrl = story.cover?.previewUrl
+    ?? story.chapters.find((chapter) => chapter.hero)?.hero?.previewUrl
+    ?? null;
+
+  return (
+    <header className={`story-home-hero${heroUrl ? " has-image" : ""}`}>
+      {heroUrl && <img src={heroUrl} alt="" />}
+      <div className="story-home-hero-text">
+        <h1>{story.title}</h1>
+        {story.subtitle && <p className="story-read-subtitle">{story.subtitle}</p>}
+        {story.rating != null && <p className="story-home-meta"><ShareStars value={story.rating} /></p>}
+      </div>
+    </header>
   );
 }
 
@@ -264,20 +331,10 @@ function ShareStoryHome({
   onGoTo: (id: string) => void;
 }) {
   const { t } = useTranslation(["common", "user", "stories"]);
-  const heroUrl = story.cover?.previewUrl
-    ?? story.chapters.find((chapter) => chapter.hero)?.hero?.previewUrl
-    ?? null;
 
   return (
     <article className="story-home">
-      <header className={`story-home-hero${heroUrl ? " has-image" : ""}`}>
-        {heroUrl && <img src={heroUrl} alt="" />}
-        <div className="story-home-hero-text">
-          <h1>{story.title}</h1>
-          {story.subtitle && <p className="story-read-subtitle">{story.subtitle}</p>}
-          {story.rating != null && <p className="story-home-meta"><ShareStars value={story.rating} /></p>}
-        </div>
-      </header>
+      <ShareHead story={story} />
 
       {story.intro && <div className="story-home-intro"><StoryMarkdown source={story.intro} /></div>}
 
