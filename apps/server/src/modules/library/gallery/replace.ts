@@ -16,7 +16,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { db } from "../../../db.js";
-import { normaliseRelativePath } from "../shared/storage-roots.js";
+import { normaliseRelativePath, pathIsInside } from "../shared/storage-roots.js";
 import { validateLibrarySource } from "../shared/library-source.js";
 import { getTrashRootSetting } from "../shared/trash.js";
 import { kindForExtension, type AssetKind } from "./media.js";
@@ -73,7 +73,14 @@ export async function replaceGalleryAssetFile(
     return { ok: false, status: 400, error: err instanceof Error ? err.message : "Library folder unavailable." };
   }
 
-  const currentAbs = path.join(root, ...row.relative_path.split("/"));
+  const currentAbs = path.resolve(root, ...row.relative_path.split("/"));
+  // Every path below is built from a DB-verified item id, a catalogued relative
+  // path and an extension that had to survive kindForExtension's allowlist — but
+  // this function writes and MOVES files, so each one is checked against the root
+  // it must stay under rather than argued about. Same guard rotate.ts uses.
+  if (!pathIsInside(currentAbs, root)) {
+    return { ok: false, status: 400, error: "That item's file is outside its library folder." };
+  }
   if (!fs.existsSync(currentAbs)) {
     return { ok: false, status: 404, error: "The file for this item is missing, so there is nothing to replace." };
   }
@@ -83,14 +90,21 @@ export async function replaceGalleryAssetFile(
   const dir = path.dirname(row.relative_path);
   const stem = path.basename(row.relative_path, path.extname(row.relative_path));
   const nextRelative = normaliseRelativePath(dir === "." ? `${stem}${extension}` : `${dir}/${stem}${extension}`);
-  const nextAbs = path.join(root, ...nextRelative.split("/"));
+  const nextAbs = path.resolve(root, ...nextRelative.split("/"));
+  if (!pathIsInside(nextAbs, root)) {
+    return { ok: false, status: 400, error: "That filename can't be stored in this library." };
+  }
 
   // Where the old file goes. Under the bin's own root when one is configured,
   // else the library's hidden .trash — the walk skips dot-entries either way.
   const trashRoot = getTrashRootSetting();
-  const keptDir = path.join(trashRoot ?? path.join(root, ".trash"), "replaced", row.library_id, itemId);
+  const keptRoot = path.resolve(trashRoot ?? path.join(root, ".trash"), "replaced");
+  const keptDir = path.resolve(keptRoot, row.library_id, itemId);
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const keptAbs = path.join(keptDir, `${stamp}-${path.basename(row.relative_path)}`);
+  const keptAbs = path.resolve(keptDir, `${stamp}-${path.basename(row.relative_path)}`);
+  if (!pathIsInside(keptDir, keptRoot) || !pathIsInside(keptAbs, keptDir)) {
+    return { ok: false, status: 400, error: "The current file can't be set aside safely." };
+  }
 
   try {
     fs.mkdirSync(keptDir, { recursive: true });
