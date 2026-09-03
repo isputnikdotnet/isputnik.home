@@ -7,6 +7,7 @@ import { Button } from "../../shared/Button";
 import { InlineEdit } from "../../shared/InlineEdit";
 import { MessageBox } from "../../shared/MessageBox";
 import { PeopleCombobox } from "../../shared/PeopleCombobox";
+import { SuggestInput } from "../../shared/SuggestInput";
 import { StoryCoverBanner } from "./StoryCoverBanner";
 import { StoryMap } from "./StoryMap";
 import { StoryMarkdown } from "./StoryMarkdown";
@@ -39,6 +40,9 @@ export function StoryOverviewPane({
     !story.chapterNoun && !story.collectionId && story.rating == null && story.tags.length === 0
   );
   const [chapterNoun, setChapterNoun] = useState(story.chapterNoun ?? "");
+  const [authorName, setAuthorName] = useState(story.authorName ?? "");
+  // The names this author has signed with before, their account name first.
+  const [bylines, setBylines] = useState<string[]>([]);
   // The vocabulary other stories already use ("Minnesota"), so an author picks
   // an existing tag instead of inventing a near-duplicate. Tags are
   // cross-type, so this asks for the ones stories carry — offering every
@@ -48,8 +52,12 @@ export function StoryOverviewPane({
   const [collections, setCollections] = useState<StoryCollectionSummary[]>([]);
 
   useEffect(() => { setChapterNoun(story.chapterNoun ?? ""); }, [story.chapterNoun]);
+  useEffect(() => { setAuthorName(story.authorName ?? ""); }, [story.authorName]);
 
   useEffect(() => {
+    api<{ bylines: string[] }>("/api/stories/bylines")
+      .then((payload) => setBylines(payload.bylines))
+      .catch(() => setBylines([]));
     api<{ tags: { name: string; storyCount: number }[] }>("/api/library/tags")
       .then((payload) => setTagSuggestions(
         payload.tags.filter((tag) => tag.storyCount > 0).map((tag) => tag.name)
@@ -161,6 +169,27 @@ export function StoryOverviewPane({
               >
                 {story.status === "published" ? t("stories:status.publishedBody") : t("stories:status.draftBody")}
               </MessageBox>
+            </div>
+
+            {/* Who the story is signed by, shown on its cover and at its end.
+                Free text, offered as the names this author has used before with
+                their account's name first — a pen name is a choice, not a
+                mistake, and a story may be signed by two people or by nobody. */}
+            <div className="field story-edit-setting">
+              <span>{t("stories:fields.authorName")}</span>
+              <SuggestInput
+                value={authorName}
+                suggestions={bylines}
+                placeholder={t("stories:fields.authorNamePlaceholder")}
+                maxLength={120}
+                ariaLabel={t("stories:fields.authorName")}
+                onChange={setAuthorName}
+                onCommit={(next) => {
+                  const trimmed = next.trim();
+                  if (trimmed !== (story.authorName ?? "")) onPatch({ authorName: trimmed || null });
+                }}
+              />
+              <span className="muted">{t("stories:fields.authorNameHint")}</span>
             </div>
 
             {/* Authored text ("Day", "Stop") rendered "Day 1" — deliberately NOT

@@ -108,6 +108,8 @@ const updateSchema = z.object({
   intro: z.string().trim().max(5000).nullable().optional(),
   // Stars, mostly for review-shaped stories. Null clears.
   rating: z.number().int().min(1).max(5).nullable().optional(),
+  // How the story is signed. Free text: a pen name, two names, nobody.
+  authorName: z.string().trim().max(120).nullable().optional(),
   // Move onto / off a shelf. Null = standalone.
   collectionId: entityId.nullable().optional()
 });
@@ -271,6 +273,28 @@ export async function storiesPlugin(app: FastifyInstance) {
   app.get("/api/stories", { preHandler: app.authenticate }, async (request) => {
     const user = request.user!;
     return { stories: listStories(user, resolveGalleryScopeLibraryIds(user)) };
+  });
+
+  // The names this author has already signed stories with, offered when they
+  // sign the next one — their account's name first, so the common case is one
+  // click, then whatever pen names they have used, most-used first. Only their
+  // own bylines: how somebody else signs their stories is their business.
+  app.get("/api/stories/bylines", { preHandler: app.authenticate }, async (request) => {
+    const user = request.user!;
+    const rows = db.prepare(`
+      SELECT author_name AS name, COUNT(*) AS uses
+      FROM stories
+      WHERE created_by = ? AND deleted_at IS NULL AND author_name IS NOT NULL AND TRIM(author_name) <> ''
+      GROUP BY author_name
+      ORDER BY uses DESC, author_name COLLATE NOCASE
+      LIMIT 20
+    `).all(user.id) as { name: string; uses: number }[];
+    const used = rows.map((row) => row.name);
+    return {
+      bylines: used.some((name) => name.toLowerCase() === user.display_name.toLowerCase())
+        ? used
+        : [user.display_name, ...used]
+    };
   });
 
   // Back-links: the stories whose blocks reference an entity — "Reviews &
@@ -506,6 +530,7 @@ export async function storiesPlugin(app: FastifyInstance) {
         chapterNoun: story.chapter_noun,
         intro: story.intro,
         rating: story.rating,
+        authorName: story.author_name,
         kind: story.kind,
         saved: isStorySaved(story.id, user.id),
         collectionId: story.collection_id,

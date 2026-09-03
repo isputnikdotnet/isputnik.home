@@ -47,8 +47,7 @@ export function SectionNav({
   groups,
   activeKey,
   exit,
-  replace = false,
-  footer
+  replace = false
 }: {
   ariaLabel: string;
   groupLabel?: string;
@@ -56,30 +55,28 @@ export function SectionNav({
   groups?: SectionNavGroup[];
   activeKey: string;
   /** Where this slot's way out leads instead, for a section you are inside
-   *  rather than browsing — the story editor leaves to the story it is editing,
-   *  not to the app's Home. It is never a destination of the nav itself: this
-   *  row means "leave", so it never reads as the active page, and every page
-   *  the section owns is listed below it. Omitted everywhere else, which keeps
-   *  the link to Home. */
+   *  rather than browsing. It is never a destination of the nav itself: the row
+   *  means "leave", so it never reads as the active page, and every page the
+   *  section owns is listed below it. Omitted keeps the link to Home.
+   *
+   *  `null` = no row at all, for a page that carries its own way out somewhere
+   *  more visible — the story editor's strip of icons above the page. A nav
+   *  whose first row went to the app's Home there would say the wrong thing,
+   *  which is how this slot came to exist in the first place. */
   exit?: {
     label: string;
     href: string;
     icon?: LucideIcon;
     /** Leave the way they came in (Back), with `href` as the fallback for a
-     *  visitor who arrived from outside the app — the story editor, opened from
-     *  a story page, a collection's Add story, or the index, exits to the one
-     *  they used. Without it the exit simply goes to `href`. */
+     *  visitor who arrived from outside the app. Without it the exit simply
+     *  goes to `href`. */
     back?: boolean;
-  };
+  } | null;
   /** The nav's own destinations are one page's internal views, so choosing one
    *  replaces the history entry rather than stacking another — the visit is a
    *  single step in the trail, which is what lets `exit.back` leave the page
    *  instead of stepping backwards through it. */
   replace?: boolean;
-  /** What you do to the thing this nav belongs to, under everything you can
-   *  move between — the story editor's Publish, Send and Delete. Not a group:
-   *  these are actions, and they sit apart from the destinations. */
-  footer?: ReactNode;
 }) {
   const { t } = useTranslation();
   const rendered: SectionNavGroup[] = groups ?? [{ label: groupLabel ?? "", items: items ?? [] }];
@@ -87,14 +84,16 @@ export function SectionNav({
   const exitHref = exit?.href ?? "/";
   return (
     <nav className="home-control-nav" aria-label={ariaLabel}>
-      <a
-        className="home-nav-link control-nav-exit"
-        href={exitHref}
-        onClick={(event) => (exit?.back ? followBack(event, exitHref) : followRoute(event, exitHref))}
-      >
-        <ExitIcon size={21} aria-hidden="true" />
-        <span>{exit?.label ?? t("nav.home")}</span>
-      </a>
+      {exit !== null && (
+        <a
+          className="home-nav-link control-nav-exit"
+          href={exitHref}
+          onClick={(event) => (exit?.back ? followBack(event, exitHref) : followRoute(event, exitHref))}
+        >
+          <ExitIcon size={21} aria-hidden="true" />
+          <span>{exit?.label ?? t("nav.home")}</span>
+        </a>
+      )}
 
       {rendered.map((group) => (
         (group.items.length > 0 || group.footer) && (
@@ -114,8 +113,6 @@ export function SectionNav({
           </div>
         )
       ))}
-
-      {footer && <div className="section-nav-footer">{footer}</div>}
     </nav>
   );
 }

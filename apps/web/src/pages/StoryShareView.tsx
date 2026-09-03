@@ -72,6 +72,8 @@ export interface StorySharePayload {
     chapterNoun: string | null;
     intro: string | null;
     rating: number | null;
+    /** How the story is signed; null = unsigned. */
+    authorName: string | null;
     cover: StoryShareAsset | null;
     expandAlbums: boolean;
     chapters: StoryShareChapter[];
@@ -258,6 +260,8 @@ export function StoryShareView({ token, payload }: { token: string; payload: Sto
             {story.chapters.map((item, index) => (
               <ChapterSection key={index} chapter={item} showHeader={false} onOpen={setOpenId} />
             ))}
+
+            {story.authorName && <ShareByline name={story.authorName} className="story-colophon" />}
           </article>
         )}
         </main>
@@ -298,10 +302,17 @@ function ShareHead({ story }: { story: StorySharePayload["story"] }) {
       <div className="story-home-hero-text">
         <h1>{story.title}</h1>
         {story.subtitle && <p className="story-read-subtitle">{story.subtitle}</p>}
+        {story.authorName && <ShareByline name={story.authorName} className="story-byline" />}
         {story.rating != null && <p className="story-home-meta"><ShareStars value={story.rating} /></p>}
       </div>
     </header>
   );
+}
+
+/** The story signed, on its cover and again where it ends. */
+function ShareByline({ name, className }: { name: string; className: string }) {
+  const { t } = useTranslation(["stories"]);
+  return <p className={className}>{t("stories:read.byline", { name })}</p>;
 }
 
 function ShareStars({ value }: { value: number }) {
@@ -460,6 +471,9 @@ function ShareChapterPage({
           </div>
         </section>
       )}
+
+      {/* Only the last chapter is signed: that is where the story ends. */}
+      {!next && story.authorName && <ShareByline name={story.authorName} className="story-colophon" />}
 
       <nav className="story-chapter-nav">
         {prev ? (

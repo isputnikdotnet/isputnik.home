@@ -1,6 +1,5 @@
-import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { LogOut, Plus, BookOpen } from "lucide-react";
+import { Plus, BookOpen } from "lucide-react";
 import { Button } from "../../shared/Button";
 import { SectionNav, type SectionNavGroup } from "../../shared/SectionNav";
 import { storyEditorHref } from "../../router";
@@ -12,21 +11,21 @@ import { chapterLabel, type StoryDetail } from "./types";
 // order here, which is also the only place that order is set: a list you can
 // see beats two arrows on a chapter you happen to be looking at.
 //
-// The top row is the way OUT of the editor: back to wherever the author opened
-// it from — the story's own page, the collection whose Add story made it, the
-// index — with the story's page as the fallback for an editor reached by a
-// pasted link. It used to be the story's front page under a Home icon, which
-// read as the app's Home everywhere else in the sidebar and so was the one row
-// nobody trusted.
+// It carries no way out (`exit={null}`): leaving is one of the story's actions
+// and lives with them, in the strip of icons above the page. The slot held the
+// story's front page under a Home icon once, which read as the app's Home
+// everywhere else in the sidebar and was the one row nobody trusted; a link to
+// the app's Home would be worse still, in an editor you cannot leave that way
+// without losing your place.
 //
-// `replace` is what makes that exit honest: moving between panes replaces the
-// history entry, so the whole editing session is one step in the trail and
-// leaving means leaving, not walking back through the chapters you edited.
+// `replace` is what keeps that exit honest wherever it lives: moving between
+// panes replaces the history entry, so the whole editing session is one step in
+// the trail and leaving means leaving, not walking back through the chapters
+// you edited.
 export function StoryEditorNav({
   story,
   activeKey,
   busy,
-  actions,
   onAddChapter,
   onReorderChapters
 }: {
@@ -34,10 +33,6 @@ export function StoryEditorNav({
   /** "overview" | a chapter id. */
   activeKey: string;
   busy: boolean;
-  /** What you do to the story as a whole — publishing it, handing it on,
-   *  deleting it. They sit under the chapters, where the reading view keeps the
-   *  same kind of thing; a phone has no sidebar and keeps them in the top bar. */
-  actions?: ReactNode;
   onAddChapter: () => void;
   onReorderChapters: (orderedIds: string[]) => void;
 }) {
@@ -77,14 +72,8 @@ export function StoryEditorNav({
       ariaLabel={t("stories:edit.nav.aria")}
       groups={groups}
       activeKey={activeKey}
-      footer={actions}
       replace
-      exit={{
-        label: t("stories:edit.exitEdit"),
-        href: `/stories/${story.id}`,
-        icon: LogOut,
-        back: true
-      }}
+      exit={null}
     />
   );
 }

@@ -844,22 +844,30 @@
    as a form. Fields appear where the words are (see .inline-edit in
    components.css); the only boxed form left is the chapter's settings card. */
 
+/* The strip is the editor's own chrome, so it starts where the work area does:
+   .work-area's 38px of breathing room belongs over a page's title, not over a
+   row of buttons. Only the app frame's own padding is left above it. */
+.story-edit-area { padding-top: 0; }
+
+/* One strip of icons above the page, the shape a book's own page uses
+   (.book-detail-topbar): the way out, a rule, then what you do to the story.
+   Grouped, and over the page rather than in it — the words being written start
+   underneath. */
 .story-edit-topbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-bottom: 18px;
-}
-
-/* Stays right whether or not the bar carries a way out on its left — the
-   sidebar holds that, so on a desktop the actions are the whole bar. */
-.story-edit-topbar-actions {
-  display: flex;
   gap: 8px;
   flex-wrap: wrap;
-  margin-left: auto;
+  min-height: 52px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.story-edit-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
 .story-edit-pane-head {
@@ -1259,6 +1267,53 @@
   font-size: 0.92rem;
   line-height: 1.6;
   resize: vertical;
+}
+
+/* ── Writing text (shared/MarkdownEditor) ──────────────────────────────── */
+/* A row of marks over the field, joined to it — the field is still text, and
+   the buttons only type what you could have typed yourself. */
+.markdown-editor {
+  display: flex;
+  flex-direction: column;
+}
+
+.markdown-tools {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-bottom: 0;
+  border-radius: 10px 10px 0 0;
+  background: var(--surface-raised);
+}
+
+.markdown-tools-gap {
+  width: 1px;
+  height: 18px;
+  margin: 0 6px;
+  background: var(--line);
+}
+
+.markdown-tool {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.markdown-tool:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+.markdown-editor .story-text-input {
+  border-radius: 0 0 10px 10px;
 }
 
 /* The insert point straddles the card's bottom edge, over the gap. It centres
@@ -2159,6 +2214,28 @@
 }
 
 .story-home-card-go { flex: 0 0 auto; color: var(--muted); }
+
+/* The byline on the cover, under the subtitle: quiet, because the story's own
+   name is the loud thing up there. */
+.story-byline {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+  font-style: italic;
+}
+
+.story-home-hero.has-image .story-byline { color: rgba(255, 255, 255, 0.82); }
+
+/* And again where the reading stops — a signature under a rule, with room
+   above it, so it reads as the end of the story rather than one more line. */
+.story-colophon {
+  margin: 8px 0 0;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.95rem;
+  font-style: italic;
+}
 
 .story-home-map-section { display: flex; flex-direction: column; gap: 10px; }
 

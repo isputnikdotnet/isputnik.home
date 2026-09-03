@@ -1009,10 +1009,10 @@ describe('schema baseline (3.0.0)', () => {
     // gallery_details rebuild for the audio kind, the story chapter-page
     // columns, the story rating column, the story collection column, and the
     // story kind column, the story soft-delete columns, and the story block
-    // heading / chapter map-cover columns — none of which a fresh file
-    // needs, since schema.sql builds it complete and seeds no such job; those
-    // migrations are only for databases that predate them.
-    expect(scratch.pragma('user_version', { simple: true })).toBe(61);
+    // heading / chapter map-cover columns, and the story byline — none of
+    // which a fresh file needs, since schema.sql builds it complete and seeds
+    // no such job; those migrations are only for databases that predate them.
+    expect(scratch.pragma('user_version', { simple: true })).toBe(62);
 
     const userColumns = (scratch.pragma('table_info(users)') as { name: string }[]).map((c) => c.name);
     expect(userColumns).toEqual(
@@ -1088,7 +1088,7 @@ describe('schema baseline (3.0.0)', () => {
     migrate(current);
     current.pragma('user_version = 31'); // every 2.x migration applied
     expect(() => migrate(current)).not.toThrow();
-    expect(current.pragma('user_version', { simple: true })).toBe(61);
+    expect(current.pragma('user_version', { simple: true })).toBe(62);
     current.close();
   });
 

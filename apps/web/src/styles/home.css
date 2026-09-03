@@ -403,29 +403,19 @@
   scrollbar-width: thin;
 }
 
+/* Starts where the main nav starts (.home-primary-nav's margin-top): a section's
+   sidebar swaps this in for that one, and the first row jumping up against the
+   brand as you move between them is a seam the two navs should not have. */
 .home-control-nav {
   display: grid;
   gap: 22px;
+  margin-top: 22px;
 }
 
 .home-control-group {
   display: grid;
   gap: 7px;
 }
-
-/* What you do to the thing the nav belongs to (the story editor's Publish, Send
-   and Delete), under everything you can move between and ruled off from it —
-   destinations above the line, actions below. Stacked and left-aligned, so
-   three of them read as a list rather than a squeezed row. */
-.section-nav-footer {
-  display: grid;
-  gap: 6px;
-  margin-top: 4px;
-  padding-top: 12px;
-  border-top: 1px solid var(--line);
-}
-
-.section-nav-footer > button { justify-content: flex-start; }
 
 .control-nav-branch {
   display: grid;

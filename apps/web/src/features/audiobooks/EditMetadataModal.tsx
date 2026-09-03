@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { BookOpen, CheckCircle2, ChevronDown, ChevronUp, Link2, Pencil, RotateCcw, Save, Search, Upload, X } from "lucide-react";
 import { api } from "../../api";
 import { PeopleCombobox } from "../../shared/PeopleCombobox";
+import { SuggestInput } from "../../shared/SuggestInput";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
 import { formatBytes } from "../../shared/utils";
@@ -872,52 +873,6 @@ function ResultCompare({ book, candidate, applyFields }: {
           )}
         </span>
       </div>
-    </div>
-  );
-}
-
-function SuggestInput({
-  value,
-  onChange,
-  suggestions,
-  placeholder
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  suggestions: string[];
-  placeholder?: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  const filtered = suggestions.filter((s) => s.toLowerCase().includes(value.toLowerCase()));
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (!containerRef.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  return (
-    <div className="suggest-input" ref={containerRef}>
-      <input
-        value={value}
-        onChange={(e) => { onChange(e.target.value); setOpen(true); }}
-        onFocus={() => setOpen(true)}
-        onKeyDown={(e) => { if (e.key === "Escape" || e.key === "Enter") setOpen(false); }}
-        placeholder={placeholder}
-      />
-      {open && filtered.length > 0 && (
-        <div className="people-combobox-dropdown">
-          {filtered.map((s) => (
-            <button key={s} type="button" className="people-combobox-option" onMouseDown={(e) => { e.preventDefault(); onChange(s); setOpen(false); }}>
-              {s}
-            </button>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

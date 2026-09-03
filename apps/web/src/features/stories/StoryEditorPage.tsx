@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { LogOut, Send as SendIcon, Trash2 } from "lucide-react";
+import { Eye, EyeOff, LogOut, Send as SendIcon, Trash2 } from "lucide-react";
 import type { PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { followReplace, goBack, navigate, replaceNavigate, storyEditorHref } from "../../router";
@@ -17,8 +17,8 @@ import { useStoryEditor } from "./useStoryEditor";
 import { chapterLabel } from "./types";
 
 // The editor. One pane at a time — the story's overview or a single
-// chapter — with the sidebar holding the story's shape and the top bar
-// holding what you do to the story as a whole. Every field saves on blur and
+// chapter — with the sidebar holding the story's shape and one strip of icons
+// above the page holding what you do to the story as a whole. Every field saves on blur and
 // every structural change saves immediately: there is no Save button anywhere
 // here, so nothing is lost by navigating away mid-thought.
 //
@@ -75,33 +75,63 @@ export function StoryEditorPage({
   // story doesn't number its chapters.
   const chapterHeading = story && chapter ? chapterLabel(story, chapter, chapterIndex) : "";
 
-  // What you do to the story as a whole. They live under the chapters in the
-  // sidebar, where the reading view keeps the same kind of thing — a phone has
-  // no sidebar, so there they stay in the top bar with the way out.
-  const actions = story && (
-    <>
+  const published = story?.status === "published";
+  // Everything you do TO the story, in one group above the page it is done to —
+  // the way out first, then a rule, then the rest, exactly as a book's page
+  // carries its own actions. Icons with their names on hover, so four controls
+  // take a strip rather than a row of chrome over the words being written.
+  const publishLabel = published ? t("stories:actions.unpublish") : t("stories:actions.publish");
+  const topbar = (
+    <div className="story-edit-topbar">
       <Button
-        variant={story.status === "published" ? "secondary" : "primary"}
-        compact
-        disabled={busy}
-        onClick={() => void editor.patchStory({
-          status: story.status === "published" ? "draft" : "published"
-        })}
+        variant="icon"
+        aria-label={t("stories:edit.exitEdit")}
+        title={t("stories:edit.exitEdit")}
+        onClick={() => goBack(`/stories/${id}`)}
       >
-        {story.status === "published" ? t("stories:actions.unpublish") : t("stories:actions.publish")}
+        <LogOut size={18} aria-hidden="true" />
       </Button>
-      {/* Handing the story on is one door everywhere in the app: Send holds
-          both the people and the guest link, and its link tab hands back to
-          the story's own dialog. */}
-      <Button variant="secondary" compact onClick={() => setSending(true)}>
-        <SendIcon size={15} aria-hidden="true" />
-        <span>{t("stories:actions.send")}</span>
-      </Button>
-      <Button variant="secondary" compact danger onClick={() => setConfirmDelete(true)}>
-        <Trash2 size={15} aria-hidden="true" />
-        <span>{t("stories:actions.delete")}</span>
-      </Button>
-    </>
+
+      {story && <span className="library-toolbar-divider" aria-hidden="true" />}
+
+      {story && (
+        <div className="story-edit-topbar-actions" aria-label={t("stories:edit.storyActions")}>
+          {/* Gold while it would publish — the one action here a story is
+              waiting for. Published, it is the quieter way back to a draft. */}
+          <Button
+            variant="icon"
+            className={published ? undefined : "accent-gold"}
+            aria-label={publishLabel}
+            aria-pressed={published}
+            title={publishLabel}
+            disabled={busy}
+            onClick={() => void editor.patchStory({ status: published ? "draft" : "published" })}
+          >
+            {published ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
+          </Button>
+          {/* Handing the story on is one door everywhere in the app: Send holds
+              both the people and the guest link, and its link tab hands back to
+              the story's own dialog. */}
+          <Button
+            variant="icon"
+            aria-label={t("stories:actions.send")}
+            title={t("stories:actions.send")}
+            onClick={() => setSending(true)}
+          >
+            <SendIcon size={18} aria-hidden="true" />
+          </Button>
+          <Button
+            variant="icon"
+            danger
+            aria-label={t("stories:actions.delete")}
+            title={t("stories:actions.delete")}
+            onClick={() => setConfirmDelete(true)}
+          >
+            <Trash2 size={18} aria-hidden="true" />
+          </Button>
+        </div>
+      )}
+    </div>
   );
 
   return (
@@ -115,7 +145,6 @@ export function StoryEditorPage({
             story={story}
             activeKey={activeKey}
             busy={busy}
-            actions={isMobile ? undefined : actions}
             onAddChapter={() => void editor.addChapter().then((created) => {
               if (created) replaceNavigate(storyEditorHref(story.id, created));
             })}
@@ -125,23 +154,7 @@ export function StoryEditorPage({
         : undefined}
     >
       <section className="work-area story-edit-area">
-        {/* Only a phone gets a bar: the way out and the story's actions both
-            live in the sidebar, which a phone hasn't got. Same exit either way —
-            back the way they came in, story page if they came from outside. */}
-        {isMobile && (
-          <div className="story-edit-topbar">
-            <button
-              className="audiobook-back-button"
-              type="button"
-              onClick={() => goBack(`/stories/${id}`)}
-            >
-              <LogOut size={18} aria-hidden="true" />
-              <span>{t("stories:edit.exitEdit")}</span>
-            </button>
-
-            {actions && <div className="story-edit-topbar-actions">{actions}</div>}
-          </div>
-        )}
+        {topbar}
 
         {story && isMobile && (
           <nav className="story-site-strip story-edit-strip" aria-label={t("stories:edit.nav.aria")}>
