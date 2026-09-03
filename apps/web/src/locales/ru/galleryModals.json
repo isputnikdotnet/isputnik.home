@@ -1,5 +1,6 @@
 {
   "common": {
+    "partiallyApplied": "Изменено элементов до ошибки: {{count}}. Ошибка: {{error}}",
     "loading": "Загрузка…",
     "createAndAdd": "Создать и добавить",
     "apply": "Применить",

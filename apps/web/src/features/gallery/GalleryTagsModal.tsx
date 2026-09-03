@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Tags, X } from "lucide-react";
 import { api } from "../../api";
+import { PartialBulkError, sendInBatches } from "../../shared/bulk";
 import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
@@ -73,15 +74,20 @@ export function GalleryTagsModal({
     setBusy(true);
     setError("");
     try {
-      const body = mode === "add" ? { ids: itemIds, add: pending } : { ids: itemIds, remove: pending };
-      const result = await api<{ updated: number; forbidden: number }>(
-        "/api/library/gallery/assets/bulk-tags",
-        { method: "POST", body: JSON.stringify(body) }
-      );
+      const change = mode === "add" ? { add: pending } : { remove: pending };
+      const result = await sendInBatches<{ updated: number; forbidden: number }>(itemIds, (ids) =>
+        api("/api/library/gallery/assets/bulk-tags", {
+          method: "POST",
+          body: JSON.stringify({ ids, ...change })
+        }));
       onApplied(result.updated, result.forbidden, mode, pending);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("galleryModals:tags.unableToUpdate"));
+      // Batched: a failure part-way through has already changed everything the
+      // earlier batches carried, and saying only "unable to update" would hide it.
+      setError(err instanceof PartialBulkError
+        ? t("galleryModals:common.partiallyApplied", { count: err.applied, error: err.message })
+        : err instanceof Error ? err.message : t("galleryModals:tags.unableToUpdate"));
     } finally {
       setBusy(false);
     }

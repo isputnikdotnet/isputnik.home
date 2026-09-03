@@ -1,5 +1,6 @@
 {
   "common": {
+    "partiallyApplied": "{{count}} of the selected items were changed before this failed: {{error}}",
     "loading": "Loading…",
     "createAndAdd": "Create & add",
     "apply": "Apply",
