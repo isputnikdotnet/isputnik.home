@@ -19,6 +19,16 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.56.0",
+    label: "Whose story it is",
+    changes: [
+      "A story can be signed. Story details → Written by puts a name under the title on the cover and again at the very end, after the last chapter — where you look when you have just finished reading and want to know whose it was. It is free text on purpose: your own name, a pen name, both your names together, or the name of somebody who is no longer here to type it. It offers the names you have signed with before, your account's name first, so the second story is one click. Leave it empty and the story stays unsigned, exactly as every story is today. Guests reading a shared link see the signature too.",
+      "Writing text is easier. A text block now has a small row of marks over it — bold, italic, a heading, bulleted and numbered lists, a quote, a link — acting on whatever you have selected, and pressing the same one again takes the mark off. Ctrl+B, Ctrl+I and Ctrl+K (Cmd on a Mac) do the three you already know from everywhere else. What it writes is still the same plain text underneath, so anybody who was happily typing the marks by hand can carry on and ignore the row entirely.",
+      "Everything you do to a story is one group of buttons at the top of the editor: leave, publish (or put it back to a draft), send, delete. They were in three places at once — the way out in the sidebar, the rest under the chapters, and a different arrangement again on a phone. They are icons now, each naming itself when you point at it, and the page you are writing starts directly underneath instead of below a row of chrome. The sidebar holds the story's shape and nothing else.",
+      "Every section's sidebar now begins where the main one does. Moving from Home into Gallery, Stories, the control panel or your profile, the first row of the menu jumped up and sat against the app's name; it stays put now."
+    ]
+  },
+  {
     version: "3.55.1",
     label: "The same story, however it is read",
     changes: [
