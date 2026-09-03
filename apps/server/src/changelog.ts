@@ -19,6 +19,17 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.55.1",
+    label: "The same story, however it is read",
+    changes: [
+      "Every story is read the same way now. The last release's reading view — the page as a sheet, with the story's chapters in a column beside it — only reached stories that had chapters, so a review or a single note kept the old bar across the top and opened with bare text on white, its cover unshown even when that cover was the book's own artwork. A story of one page is no less a story: it opens on its cover like the rest, and sits in the same sheet with the same buttons beside it. It lists no days, because it has none.",
+      "A guest link opens the story the way the family sees it. A shared story arrived in the narrow card every share page uses — right for one photograph or one book, a phone-shaped column for a story with four days of pictures in it. Guests now get the same sheet and the same list of chapters, with everything a guest has no business with left out: no way into the app, no Edit, no Send.",
+      "In the editor, Publish, Send and Delete have moved from the bar across the top into the sidebar under the chapters — where the reading view keeps the same kind of thing, and where they are no longer a row of buttons sitting over the page you are writing. On a phone, which has no sidebar, they stay along the top.",
+      "The read and edit buttons on a story's card have moved off the cover photograph to the foot of the card, across from its tag, where they wear the card rather than a shadow over somebody's photograph.",
+      "A chapter's cover reached neither edge of the page while the front page's reached both. Both fill the page now."
+    ]
+  },
+  {
     version: "3.55.0",
     label: "Knowing where you are",
     changes: [
