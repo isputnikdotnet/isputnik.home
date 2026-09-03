@@ -217,11 +217,12 @@
   white-space: nowrap;
 }
 
-/* The favorite star, over the cover's far corner — and the read/edit pair in
-   the corner below it, which wear the same disc so the cover carries one kind
-   of control rather than two. */
-.story-card-save,
-.story-card-action {
+/* The favorite star, over the cover's far corner. A dark disc, because it sits
+   on a photograph and has to read over whatever the photograph is doing. */
+.story-card-save {
+  position: absolute;
+  top: 8px;
+  right: 8px;
   display: grid;
   place-items: center;
   width: 30px;
@@ -236,34 +237,37 @@
   cursor: pointer;
 }
 
-.story-card-save {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-}
+.story-card-save:hover { background: rgba(0, 0, 0, 0.65); }
 
-/* A box the height of the cover, so the pair sits in the cover's bottom corner
-   and not the card's — the overlay lives outside the card's link, which is what
-   makes the cover's own height something it has to be told. Click-through, or
-   it would swallow that link. */
+/* Read and edit, at the foot of the card across from the kind chip. They live
+   outside the card's own link (an anchor can't hold anchors), so they are
+   placed over that last line rather than laid out in it. */
 .story-card-actions {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: var(--story-card-cover-h, auto);
+  right: 10px;
+  bottom: 9px;
   display: flex;
-  align-items: flex-end;
-  justify-content: flex-end;
-  gap: 6px;
-  padding: 8px;
-  pointer-events: none;
+  align-items: center;
+  gap: 2px;
 }
 
-.story-card-actions > * { pointer-events: auto; }
+/* On the card's own surface, not over a picture: no scrim, just the muted
+   weight the rest of the card's small print carries. */
+.story-card-action {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+}
 
-.story-card-save:hover,
-.story-card-action:hover { background: rgba(0, 0, 0, 0.65); }
+.story-card-action:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
 
 .story-card-save.is-saved { color: var(--gold); }
 
@@ -321,9 +325,6 @@
 }
 
 .story-index .story-grid {
-  /* The cover's own height, shared with the read/edit overlay that has to line
-     up with its bottom corner from outside the card's link. */
-  --story-card-cover-h: 88px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 18px 22px;
 }
@@ -348,7 +349,7 @@
 }
 
 .story-index .story-grid .story-card-cover {
-  height: var(--story-card-cover-h);
+  height: 88px;
   aspect-ratio: auto;
   border-radius: 0;
 }
@@ -380,7 +381,9 @@
   line-height: 1.35;
 }
 
+/* Leaves room for the read/edit pair sitting at the other end of its line. */
 .story-index .story-grid .story-kind-chip {
+  max-width: calc(100% - 66px);
   padding: 1px 8px;
   background: color-mix(in srgb, var(--mint) 14%, var(--field));
   color: var(--mint);
@@ -437,11 +440,9 @@
     gap: 12px;
   }
 
-  /* A taller cover on the one-column layout. Set through the shared height, not
-     the cover's own, so the read/edit overlay — which lives outside the card's
-     link and can't measure it — follows along. */
-  .story-index .story-grid {
-    --story-card-cover-h: 96px;
+  /* A taller cover on the one-column layout. */
+  .story-index .story-grid .story-card-cover {
+    height: 96px;
   }
 
   .story-index .story-collection-card {
@@ -2008,6 +2009,15 @@
 
 .story-site.has-rail .story-home,
 .story-site.has-rail .story-read { padding-top: 0; }
+
+/* The sheet sets the width now. A chapter page carries a 900px cap of its own
+   from the days it floated on the canvas, which left its cover short of both
+   edges while the front page's — capped by nothing — reached them. The reading
+   measure inside (--story-measure) is what keeps the words narrow. */
+.story-site.has-rail .story-read {
+  max-width: none;
+  margin: 0;
+}
 
 /* The hero is the sheet's own top edge now, so it drops the corners it wore as
    a floating band. */
