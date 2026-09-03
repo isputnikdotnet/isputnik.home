@@ -93,10 +93,11 @@ export function StoryDetailPage({ id, chapterId }: { id: string; chapterId?: str
 
   // What the story's own navigation looks like: a rail beside the page, which
   // shows the shape of the journey — every chapter, dated, with the photo it
-  // opens on — and stays there while a chapter is read. A story that is one
-  // plain page has nothing to list, and a phone has no room for a column
-  // beside the page, so both keep the bar and the horizontal strip.
-  const railLayout = Boolean(story && structured && !isMobile);
+  // opens on — and stays there while a chapter is read. Every story wears it,
+  // whatever its shape: a one-page review lists no days, but it is read the
+  // same way and handed on with the same buttons. Only a phone, with no room
+  // for a column beside the page, keeps the bar and the horizontal strip.
+  const railLayout = Boolean(story && !isMobile);
   const actions = story && (story.canEdit || story.status === "published")
     ? (
       <>
@@ -176,17 +177,18 @@ export function StoryDetailPage({ id, chapterId }: { id: string; chapterId?: str
 
             <div className="story-site-rail-card">
               <nav className="story-site-steps" aria-label={t("stories:site.stripAria")}>
-                {/* The story's name rides on the Overview step: the rail is the
+                {/* The story's name rides on the first step: the rail is the
                     only thing on a chapter's page that says which story it
-                    belongs to. */}
+                    belongs to. A story with no chapters to list has no
+                    "overview" to be distinct from, so the step is the story. */}
                 <StoryStep
                   href={`/stories/${story.id}`}
                   current={!chapter}
-                  label={t("stories:site.overview")}
-                  sub={story.title}
+                  label={structured ? t("stories:site.overview") : story.title}
+                  sub={structured ? story.title : ""}
                   mark={<BookOpen size={14} aria-hidden="true" />}
                 />
-                {story.chapters.map((item, index) => {
+                {structured && story.chapters.map((item, index) => {
                   const thumb = chapterThumb(item);
                   const label = chapterLabel(story, item, index);
                   const dateText = chapterDateText(item, formatPartialDate, formatPartialDateRange);
@@ -356,7 +358,11 @@ function chapterGallery(chapter: StoryChapter): GalleryAsset[] {
 
 // ── Story Home ─────────────────────────────────────────────────────────────
 
-function StoryHome({ story, onOpenChapter }: { story: StoryDetail; onOpenChapter: (id: string) => void }) {
+// How every story opens, whatever shape it is: the cover it was given, its
+// name, its subtitle and the facts underneath — when, where, what it was worth.
+// A travel blog and a one-page review are the same kind of thing to a reader,
+// so they get the same front door; only what follows it differs.
+function StoryHead({ story }: { story: StoryDetail }) {
   const { t } = useTranslation(["common", "stories"]);
 
   const span = formatPartialDateRange(
@@ -380,6 +386,52 @@ function StoryHome({ story, onOpenChapter }: { story: StoryDetail; onOpenChapter
     ?? story.chapters.find((item) => item.hero?.previewUrl)?.hero?.previewUrl
     ?? null;
 
+  return (
+    <header className={`story-home-hero${heroUrl ? " has-image" : ""}`}>
+      {heroUrl && <img src={heroUrl} alt="" />}
+      <div className="story-home-hero-text">
+        {story.status === "draft" && (
+          <span className="story-draft-badge">{t("stories:status.draft")}</span>
+        )}
+        <h1>{story.title}</h1>
+        {story.subtitle && <p className="story-read-subtitle">{story.subtitle}</p>}
+        {(span || primaryPlace || story.rating != null) && (
+          <p className="story-home-meta">
+            {span}
+            {span && primaryPlace && <span aria-hidden="true"> · </span>}
+            {primaryPlace && (
+              <span className="story-chapter-place"><MapPin size={13} aria-hidden="true" /> {primaryPlace}</span>
+            )}
+            {story.rating != null && <StoryStars value={story.rating} />}
+          </p>
+        )}
+      </div>
+    </header>
+  );
+}
+
+/** The tag chips under a story's opening, on every shape of story. */
+function StoryTags({ tags }: { tags: string[] }) {
+  if (tags.length === 0) return null;
+  return (
+    <ul className="story-read-tags">
+      {tags.map((tag) => (
+        <li key={tag}>
+          <a
+            href={`/tags/${encodeURIComponent(tag)}`}
+            onClick={(event) => followRoute(event, `/tags/${encodeURIComponent(tag)}`)}
+          >
+            {tag}
+          </a>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function StoryHome({ story, onOpenChapter }: { story: StoryDetail; onOpenChapter: (id: string) => void }) {
+  const { t } = useTranslation(["common", "stories"]);
+
   const pins = story.chapters
     .map((item, index) => (item.placeLat != null && item.placeLng != null
       ? { id: item.id, lat: item.placeLat, lng: item.placeLng, label: String(index + 1), title: chapterLabel(story, item, index) }
@@ -388,26 +440,7 @@ function StoryHome({ story, onOpenChapter }: { story: StoryDetail; onOpenChapter
 
   return (
     <article className="story-home">
-      <header className={`story-home-hero${heroUrl ? " has-image" : ""}`}>
-        {heroUrl && <img src={heroUrl} alt="" />}
-        <div className="story-home-hero-text">
-          {story.status === "draft" && (
-            <span className="story-draft-badge">{t("stories:status.draft")}</span>
-          )}
-          <h1>{story.title}</h1>
-          {story.subtitle && <p className="story-read-subtitle">{story.subtitle}</p>}
-          {(span || primaryPlace || story.rating != null) && (
-            <p className="story-home-meta">
-              {span}
-              {span && primaryPlace && <span aria-hidden="true"> · </span>}
-              {primaryPlace && (
-                <span className="story-chapter-place"><MapPin size={13} aria-hidden="true" /> {primaryPlace}</span>
-              )}
-              {story.rating != null && <StoryStars value={story.rating} />}
-            </p>
-          )}
-        </div>
-      </header>
+      <StoryHead story={story} />
 
       {story.intro && (
         <div className="story-home-intro">
@@ -415,20 +448,7 @@ function StoryHome({ story, onOpenChapter }: { story: StoryDetail; onOpenChapter
         </div>
       )}
 
-      {story.tags.length > 0 && (
-        <ul className="story-read-tags">
-          {story.tags.map((tag) => (
-            <li key={tag}>
-              <a
-                href={`/tags/${encodeURIComponent(tag)}`}
-                onClick={(event) => followRoute(event, `/tags/${encodeURIComponent(tag)}`)}
-              >
-                {tag}
-              </a>
-            </li>
-          ))}
-        </ul>
-      )}
+      <StoryTags tags={story.tags} />
 
       {/* Above the chapters, not below them: the map is how a reader gets their
           bearings before choosing where to start, and a list of days is a long
@@ -493,30 +513,19 @@ function FlatStory({
 }) {
   const { t } = useTranslation(["common", "stories"]);
   return (
-    <article className="story-read">
-      <header className="story-read-head">
-        {story.status === "draft" && (
-          <span className="story-draft-badge">{t("stories:status.draft")}</span>
-        )}
-        <h1>{story.title}</h1>
-        {story.subtitle && <p className="story-read-subtitle">{story.subtitle}</p>}
-        {story.rating != null && <p className="story-home-meta"><StoryStars value={story.rating} /></p>}
-        {story.intro && <StoryMarkdown source={story.intro} />}
-        {story.tags.length > 0 && (
-          <ul className="story-read-tags">
-            {story.tags.map((tag) => (
-              <li key={tag}>
-                <a
-                  href={`/tags/${encodeURIComponent(tag)}`}
-                  onClick={(event) => followRoute(event, `/tags/${encodeURIComponent(tag)}`)}
-                >
-                  {tag}
-                </a>
-              </li>
-            ))}
-          </ul>
-        )}
-      </header>
+    <article className="story-home story-read">
+      {/* The same opening a chaptered story gets: a review or a single note is
+          no less a story, and it used to start with bare text on white while
+          its cover — the book's own artwork, often — went unshown. */}
+      <StoryHead story={story} />
+
+      {story.intro && (
+        <div className="story-home-intro">
+          <StoryMarkdown source={story.intro} />
+        </div>
+      )}
+
+      <StoryTags tags={story.tags} />
 
       {story.chapters.every((item) => item.blocks.length === 0) && (
         <MessageBox tone="info" title={t("stories:read.emptyTitle")}>
