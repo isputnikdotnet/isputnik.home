@@ -19,6 +19,22 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.55.0",
+    label: "Knowing where you are",
+    changes: [
+      "The story editor opens on Overview, which is now one page rather than two. The cover, the name, the subtitle and the opening lines are still edited where they sit, and everything a reader never sees — what this story calls a chapter, the shelf it sits on, its rating, its tags — folds away underneath in a Story details card. They used to be separate panes, and the sidebar's first row, the one that opened the front page, was labelled Home under a house icon: the row that everywhere else in the app leaves for the app's own home page. A story this small has one page about itself, not two.",
+      "That row is Exit edit now, and it leaves the way you came in. Open the editor from a story's page and it returns you there; open it from a collection's Add story and it returns you to the shelf you were building. Moving between the editor's pages no longer stacks up entries in the browser's history either, so Back leaves the editor rather than walking you back through the chapters you just edited.",
+      "Story details wears the same folding card as a chapter's settings, in the same place — directly under the words that open the page. Two cards that hold the same kind of thing now look like the same card.",
+      "Chapter settings is laid out in the order the questions come. The two dates sit side by side with \"the date is approximate\" underneath them, where it belongs, and everything about the place — its name, its pin, and using the map as the chapter's cover — is gathered under one Location heading instead of a field and a loose row of buttons. Removing a location removes it, name and pin together.",
+      "Every story on the Stories page carries two small buttons in the corner of its cover: one opens it to read, the other opens it in the editor. The pencil only appears on stories you can change.",
+      "A story with chapters now reads as a page with its own navigation beside it: every stop on the journey, with the photograph it opens on and the day it happened, staying in view while you read. The row of chapter names across the top could only ever show names, and on a long trip it scrolled out of sight. Underneath the list sit the things you can do with the story. On a phone, and for a story that is one plain page, the row across the top is still what you get.",
+      "The map of the journey comes before the list of days rather than after it. It is how a reader gets their bearings before choosing where to start, and a list of days was a long thing to scroll past to reach it.",
+      "Handing a story on is one door: Send, on the story and in its editor, holding both the people here and the guest link. Share link was a second button doing half the job, which everything else in the house stopped having a year ago.",
+      "Tags are edited with the same field everywhere — on a story, on an album, on a book, on a person — chips and the box that adds them in one frame, with matches dropping down as you type. Stories and albums had a different one. The suggestions are also the right ones now: tagging a story offers the tags other stories use, rather than every tag in the house including a few hundred subject headings that came in with public-domain books.",
+      "A map no longer floats over a dialog opened on top of it. Maps insist on being drawn above almost everything, so a dialog opened on a page showing one came up underneath it."
+    ]
+  },
+  {
     version: "3.54.2",
     label: "Room to change your mind",
     changes: [
