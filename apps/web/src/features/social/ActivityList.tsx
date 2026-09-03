@@ -1,4 +1,4 @@
-import { Film, Images, MessageSquare, Network } from "lucide-react";
+import { BookText, Film, Images, MessageSquare, Network } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { followRoute } from "../../router";
 import { activityPhrase, timeAgo, type ActivityKind } from "./phrasing";
@@ -28,6 +28,7 @@ const ICONS: Record<ActivityKind, LucideIcon> = {
   note: MessageSquare,
   album: Images,
   slideshow: Film,
+  story: BookText,
   person: Network
 };
 

@@ -39,7 +39,7 @@ export interface AddedBatchCard {
 }
 
 export type ActivityCard = Omit<ActivityItem, "kind"> & {
-  type: "note" | "album" | "slideshow" | "person";
+  type: "note" | "album" | "slideshow" | "person" | "story";
 };
 
 export interface SeriesNextCard {
