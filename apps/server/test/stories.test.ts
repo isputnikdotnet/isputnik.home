@@ -34,6 +34,7 @@ import {
   updateBlock,
   deleteBlock,
   reorderBlocks,
+  blockPointsByIds,
   galleryAssetsByIds,
   blockPreviewAssets
 } from "../src/modules/stories/stories.js";
@@ -226,6 +227,63 @@ describe("blocks", () => {
     createBlock(chapter.id, story.id, "text", { body: "b" });
     expect(deleteBlock(a.id, story.id)).toBe(true);
     expect(getBlocks(story.id).map((row) => row.body)).toEqual(["b"]);
+  });
+});
+
+// A map block's stops: what turns one pin into a route.
+describe("map block routes", () => {
+  const minsk = { lat: 53.9, lng: 27.56, label: "Minsk" };
+  const vilnius = { lat: 54.69, lng: 25.28, label: "Vilnius" };
+  const riga = { lat: 56.95, lng: 24.11, label: "Riga" };
+
+  function routeBlock(points = [minsk, vilnius, riga]) {
+    const story = createStory(author, "North", null);
+    const chapter = getChapters(story.id)[0];
+    const block = createBlock(chapter.id, story.id, "map", {
+      lat: points[0].lat,
+      lng: points[0].lng,
+      label: points[0].label,
+      points
+    });
+    return { story, chapter, block };
+  }
+
+  it("keeps the stops in the order they were given", () => {
+    const { block } = routeBlock();
+    expect(blockPointsByIds([block.id]).get(block.id)).toEqual([minsk, vilnius, riga]);
+  });
+
+  it("replaces the whole list on update, so reordering sticks", () => {
+    const { story, block } = routeBlock();
+    updateBlock(block.id, story.id, { points: [riga, minsk] });
+    expect(blockPointsByIds([block.id]).get(block.id)).toEqual([riga, minsk]);
+  });
+
+  it("leaves the stops alone when an update doesn't mention them", () => {
+    const { story, block } = routeBlock();
+    updateBlock(block.id, story.id, { caption: "the long way round" });
+    expect(blockPointsByIds([block.id]).get(block.id)).toHaveLength(3);
+  });
+
+  it("clears the route back to a single pin on an empty list", () => {
+    const { story, block } = routeBlock();
+    updateBlock(block.id, story.id, { points: [] });
+    // Absent, not empty — and the block's own lat/lng still frame the map.
+    expect(blockPointsByIds([block.id]).has(block.id)).toBe(false);
+    expect(getBlocks(story.id)[0].lat).toBe(minsk.lat);
+  });
+
+  it("drops stops sent for a kind that has no map", () => {
+    const story = createStory(author, "North", null);
+    const chapter = getChapters(story.id)[0];
+    const block = createBlock(chapter.id, story.id, "text", { body: "hello", points: [minsk] });
+    expect(blockPointsByIds([block.id]).has(block.id)).toBe(false);
+  });
+
+  it("takes the stops with the block", () => {
+    const { story, block } = routeBlock();
+    deleteBlock(block.id, story.id);
+    expect(db.prepare("SELECT COUNT(*) AS n FROM story_block_points").get()).toEqual({ n: 0 });
   });
 });
 

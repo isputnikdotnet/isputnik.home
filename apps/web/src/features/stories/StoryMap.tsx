@@ -15,7 +15,19 @@ export interface StoryMapPin {
 // all. Plain Leaflet via a ref (the GalleryMiniMap pattern — no clustering; a
 // story has a handful of chapters, not a photo archive). Clicking a pin opens
 // that chapter's page.
-export function StoryMap({ pins, onOpen }: { pins: StoryMapPin[]; onOpen: (id: string) => void }) {
+//
+// `route` joins the pins in order with a line: the same component then serves a
+// map block's route, where the pins ARE the itinerary. The segments are straight
+// — a story map says which places, in which order, not which roads.
+export function StoryMap({
+  pins,
+  onOpen,
+  route = false
+}: {
+  pins: StoryMapPin[];
+  onOpen: (id: string) => void;
+  route?: boolean;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const layerRef = useRef<L.LayerGroup | null>(null);
@@ -52,6 +64,15 @@ export function StoryMap({ pins, onOpen }: { pins: StoryMapPin[]; onOpen: (id: s
     if (!map || !layer) return;
     layer.clearLayers();
     if (pins.length === 0) return;
+    // Under the pins, so a marker is never half-hidden by its own line.
+    if (route && pins.length > 1) {
+      L.polyline(pins.map((pin) => [pin.lat, pin.lng] as [number, number]), {
+        className: "story-map-route",
+        weight: 3,
+        dashArray: "6 6",
+        interactive: false
+      }).addTo(layer);
+    }
     for (const pin of pins) {
       const icon = L.divIcon({
         className: "story-map-marker",
@@ -65,7 +86,7 @@ export function StoryMap({ pins, onOpen }: { pins: StoryMapPin[]; onOpen: (id: s
     }
     const bounds = L.latLngBounds(pins.map((pin) => [pin.lat, pin.lng] as [number, number]));
     map.fitBounds(bounds.pad(0.25), { maxZoom: 12 });
-  }, [pins]);
+  }, [pins, route]);
 
   return <div className="story-home-map" ref={containerRef} />;
 }

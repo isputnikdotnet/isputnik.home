@@ -350,8 +350,9 @@ export function StoryChapterEditor({
 
       {pinning && (
         <StoryMapModal
+          single
           initial={chapter.placeLat != null && chapter.placeLng != null
-            ? { lat: chapter.placeLat, lng: chapter.placeLng, zoom: null, label: chapter.place }
+            ? { lat: chapter.placeLat, lng: chapter.placeLng, zoom: null, label: chapter.place, points: [] }
             : null}
           onSave={(value) => {
             setPinning(false);

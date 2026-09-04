@@ -65,6 +65,7 @@ import {
   reorderChapters,
   getBlocks,
   getBlock,
+  blockPointsByIds,
   createBlock,
   updateBlock,
   deleteBlock,
@@ -145,6 +146,14 @@ const blockCreateSchema = z.object({
   lng: z.number().min(-180).max(180).nullable().optional(),
   zoom: z.number().int().min(1).max(20).nullable().optional(),
   label: z.string().trim().max(200).nullable().optional(),
+  // Map blocks: the stops of a route, in travel order. One or none is the
+  // original single-pin map; the cap keeps one block from becoming a track log
+  // (a recorded trace belongs in a file, not in fifty thousand rows).
+  points: z.array(z.object({
+    lat: z.number().min(-90).max(90),
+    lng: z.number().min(-180).max(180),
+    label: z.string().trim().max(200).nullable().default(null)
+  })).max(50).optional(),
   caption: z.string().trim().max(500).nullable().optional(),
   layout: z.enum(["default", "wide", "grid"]).nullable().optional()
 });
@@ -468,6 +477,9 @@ export async function storiesPlugin(app: FastifyInstance) {
         .map((block) => block.entity_id!)
     );
 
+    // A map block's stops, fetched for the whole story in one go.
+    const blockPoints = blockPointsByIds(blocks.filter((block) => block.kind === "map").map((block) => block.id));
+
     const blockViews = blocks.map((block) => {
       const view = block.entity_type && block.entity_id
         ? hydrated.get(`${block.entity_type}:${block.entity_id}`)
@@ -487,6 +499,7 @@ export async function storiesPlugin(app: FastifyInstance) {
         lng: block.lng,
         zoom: block.zoom,
         label: block.label,
+        points: blockPoints.get(block.id) ?? [],
         caption: block.caption,
         layout: block.layout,
         // Text and map blocks are always "available" — they carry their own

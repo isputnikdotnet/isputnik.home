@@ -1949,6 +1949,22 @@ CREATE TABLE IF NOT EXISTS story_blocks (
   layout      TEXT             -- 'default' | 'wide' | 'grid'
 );
 
+-- The stops of a 'map' block, in travel order — what turns one pin into a
+-- route ("Minsk → Vilnius → Riga"). A block with NO rows here is the original
+-- single-pin map and still renders from story_blocks.lat/lng: that is why this
+-- is a child table and not four more columns, and why no migration is needed.
+-- The block's own lat/lng/zoom stay the map's frame (first stop + fit), so a
+-- reader that knows nothing about routes still shows something sensible.
+CREATE TABLE IF NOT EXISTS story_block_points (
+  id       TEXT PRIMARY KEY,
+  block_id TEXT NOT NULL REFERENCES story_blocks(id) ON DELETE CASCADE,
+  position REAL NOT NULL,
+  lat      REAL NOT NULL,
+  lng      REAL NOT NULL,
+  label    TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_story_block_points_block ON story_block_points(block_id, position);
+
 -- idx_stories_collection deliberately lives in migration 58, NOT here: this
 -- file executes on every boot BEFORE migrations, and on an upgraded database
 -- the collection_id column doesn't exist until 58 runs — an index on it here

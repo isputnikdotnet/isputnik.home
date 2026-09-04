@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { BookOpen, ChevronLeft, ChevronRight, Download, Headphones, Images, MapPin, Mic, Play, Quote, Star, UserRound } from "lucide-react";
+import { BookOpen, ChevronLeft, ChevronRight, Download, Headphones, Images, MapPin, Mic, Play, Quote, Route, Star, UserRound } from "lucide-react";
+import { StoryMap } from "../features/stories/StoryMap";
 import { StoryMarkdown } from "../features/stories/StoryMarkdown";
 import { StoryStep } from "../features/stories/StoryStep";
+import { routeNames, routePins, routeStops } from "../features/stories/story-route";
+import type { StoryMapPoint } from "../features/stories/types";
 import { useIsMobile } from "../shared/useIsMobile";
 import { GalleryMiniMap } from "../features/gallery/GalleryMiniMap";
 import { formatPartialDate, formatPartialDateRange } from "../shared/utils";
@@ -39,7 +42,16 @@ type StoryShareBlockBody =
   | { kind: "text"; body: string }
   | { kind: "media"; caption: string | null; layout: string | null; asset: StoryShareAsset }
   | { kind: "album" | "slideshow"; title: string | null; caption: string | null; itemCount: number; items: StoryShareAsset[] }
-  | { kind: "map"; lat: number; lng: number; zoom: number | null; label: string | null; caption: string | null }
+  | {
+      kind: "map";
+      lat: number;
+      lng: number;
+      zoom: number | null;
+      label: string | null;
+      /** The stops of a route, in travel order; empty on a single-pin map. */
+      points: StoryMapPoint[];
+      caption: string | null;
+    }
   | { kind: "person"; name: string; birthDate: string | null; deathDate: string | null; caption: string | null }
   | { kind: "quote"; text: string; attribution: string | null; caption: string | null }
   | { kind: "audio"; title: string | null; durationSeconds: number | null; url: string; caption: string | null }
@@ -560,6 +572,21 @@ function ShareBlock({ block, onOpen }: { block: StoryShareBlock; onOpen: (id: st
   }
 
   if (block.kind === "map") {
+    const stops = routeStops(block);
+    // A guest sees the journey the same way a member does.
+    if (stops.length > 1) {
+      return (
+        <figure className="story-block story-block-map story-block-route">
+          <StoryMap route pins={routePins(stops)} onOpen={() => {}} />
+          <figcaption>
+            <Route size={14} aria-hidden="true" />
+            <span>
+              {block.caption ?? routeNames(stops) ?? t("stories:block.routeStops", { count: stops.length })}
+            </span>
+          </figcaption>
+        </figure>
+      );
+    }
     return (
       <figure className="story-block story-block-map">
         <GalleryMiniMap

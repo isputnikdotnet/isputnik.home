@@ -34,7 +34,9 @@ import {
   canEditStory,
   getChapters,
   getBlocks,
+  blockPointsByIds,
   type BlockRow,
+  type RoutePoint,
   type StoryRow
 } from "./stories.js";
 
@@ -315,6 +317,9 @@ export function buildStorySharePayload(link: ResolvedShareLink, token: string) {
 
   const { byBlock, heroByChapter, cover } = storyShareReach(ctx);
   const blocks = getBlocks(ctx.story.id);
+  // A guest sees the same route the members do — the stops are the block, not
+  // a detail the reading view adds on top.
+  const blockPoints = blockPointsByIds(blocks.filter((block) => block.kind === "map").map((block) => block.id));
   const byChapter = new Map<string, typeof blocks>();
   for (const block of blocks) {
     const list = byChapter.get(block.chapter_id) ?? [];
@@ -345,7 +350,7 @@ export function buildStorySharePayload(link: ResolvedShareLink, token: string) {
       .map((block) => {
         const assets = byBlock.get(block.id) ?? [];
         photoCount += assets.length;
-        const view = storyShareBlock(block, assets, token, ctx);
+        const view = storyShareBlock(block, assets, token, ctx, blockPoints.get(block.id) ?? []);
         // The heading rides on every kind, so it is attached here once rather
         // than repeated in each branch below.
         return view && { ...view, heading: block.heading };
@@ -374,7 +379,13 @@ export function buildStorySharePayload(link: ResolvedShareLink, token: string) {
   };
 }
 
-function storyShareBlock(block: BlockRow, assets: ShareAsset[], token: string, ctx: StoryLinkContext) {
+function storyShareBlock(
+  block: BlockRow,
+  assets: ShareAsset[],
+  token: string,
+  ctx: StoryLinkContext,
+  points: RoutePoint[]
+) {
   if (block.kind === "text") {
     return { kind: "text" as const, body: block.body ?? "" };
   }
@@ -387,6 +398,7 @@ function storyShareBlock(block: BlockRow, assets: ShareAsset[], token: string, c
       lng: block.lng,
       zoom: block.zoom,
       label: block.label,
+      points,
       caption: block.caption
     };
   }

@@ -1,10 +1,12 @@
 import { useTranslation } from "react-i18next";
-import { AlertTriangle, BookOpen, Headphones, Images, MapPin, Mic, Play, Quote, UserRound } from "lucide-react";
+import { AlertTriangle, BookOpen, Headphones, Images, MapPin, Mic, Play, Quote, Route, UserRound } from "lucide-react";
 import { GalleryMiniMap } from "../gallery/GalleryMiniMap";
 import { MessageBox } from "../../shared/MessageBox";
 import { followRoute } from "../../router";
 import type { GalleryAsset } from "../gallery/types";
+import { StoryMap } from "./StoryMap";
 import { StoryMarkdown } from "./StoryMarkdown";
+import { routeNames, routePins, routeStops } from "./story-route";
 import type { StoryBlock } from "./types";
 
 // One block, rendered read-only. The reading view uses it directly; the editor
@@ -66,6 +68,22 @@ export function StoryBlockView({
   }
 
   if (block.kind === "map" && block.lat != null && block.lng != null) {
+    const stops = routeStops({ lat: block.lat, lng: block.lng, label: block.label, points: block.points });
+    // Two stops or more is a journey: numbered pins joined in order, framed to
+    // fit. One stop is still the plain mini map it always was.
+    if (stops.length > 1) {
+      return (
+        <figure className="story-block story-block-map story-block-route">
+          <StoryMap route pins={routePins(stops)} onOpen={() => {}} />
+          <figcaption>
+            <Route size={14} aria-hidden="true" />
+            <span>
+              {block.caption ?? routeNames(stops) ?? t("stories:block.routeStops", { count: stops.length })}
+            </span>
+          </figcaption>
+        </figure>
+      );
+    }
     return (
       <figure className="story-block story-block-map">
         <GalleryMiniMap
