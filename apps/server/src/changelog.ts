@@ -19,6 +19,13 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.57.2",
+    label: "A review shows the book it is about",
+    changes: [
+      "A review turned up without a picture wherever the app talks about it — on the home page, in the Send dialog, in your inbox, beside a note. A review wears the artwork of the book it is about, and the part of the app that answers \"what is this thing?\" was only looking for pictures among your photographs, where a book's cover has never been. It looks in your books now, and only in the ones you can open."
+    ]
+  },
+  {
     version: "3.57.1",
     label: "More than two hundred at once",
     changes: [
