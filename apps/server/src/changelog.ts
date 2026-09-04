@@ -19,6 +19,17 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.62.0",
+    label: "Tell the scanner how your shelves are arranged",
+    changes: [
+      "A book library now has a Layout — the wand on the Libraries page — where you tell the scanner how your folders and file names are organised, and it reads authors, series, numbers and titles from them. Most people never typed a pattern for this and never will: you pick a real file from your own folders and label each part of its path — this folder is the author, that one the series, the number at the front of the file name is its place in the series, the rest is the title — and the count of books that fit updates as you go. Presets such as Author / Series / 01 - Title fill the labels in one click; changing any of them is one more.",
+      "One layout rarely fits a whole library, so a rule can hold several, tried in order: Author / Series / 01 - Title first, then Author / Title for the standalone novels beside the series folders. Books that fit no layout are not lost — they are added with the details their files carry, and the panel counts them so you can add a layout for them when you like. A folder arranged differently from the rest gets a rule of its own, and the most specific rule wins inside its folders.",
+      "Audiobooks get all of this too. Until now they had two switches with a fixed way of reading a folder name; now you show the scanner which folder is the book, and every audio file beneath it — Part 1, Part 2, Disc 3 — becomes a track of that one audiobook, in order. Two recordings of the same title by different narrators stay two books when the narrator folder is part of the layout, and a shelf organised by series rather than by author no longer takes the series name for an author.",
+      "Nothing is written until you have seen what a scan will do. The preview lists every book the rule produces, which layout matched it, what it read, and what changes for the books already in your library — including the case that matters most: two entries today becoming one book, which loses the listening progress on the one that disappears. The rule is saved by itself, or saved and scanned at once, and that scan touches only the rule's own folders.",
+      "Adding a book library now asks how your books are arranged, so the very first scan already reads your folder names the right way. Existing libraries keep working exactly as before until you open their Layout; the old audiobook switches stay where they were for libraries that use them. Rescanning an ebook library now offers the same options dialog audiobooks have had."
+    ]
+  },
+  {
     version: "3.61.0",
     label: "The way you actually went",
     changes: [
