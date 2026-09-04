@@ -166,6 +166,39 @@
   min-height: 44px;
 }
 
+/* A story link's one option: a checkbox with a two-line label, on a row of
+   its own under the fields. It once wore .send-to-check — the People tab's
+   20px tick box — and was squeezed into the grid's third column, one letter
+   per line. */
+.send-to-link-option {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 2px 0 0;
+  cursor: pointer;
+}
+
+.send-to-link-option input {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+  accent-color: var(--gold);
+}
+
+.send-to-link-option span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  font-size: 0.92rem;
+}
+
+.send-to-link-option small {
+  font-size: 0.82rem;
+}
+
 .send-to-new-url {
   display: grid;
   gap: 8px;

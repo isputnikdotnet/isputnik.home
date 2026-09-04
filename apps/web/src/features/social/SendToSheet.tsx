@@ -552,8 +552,14 @@ export function SendToSheet({
                       onChange={(event) => setLabel(event.target.value)}
                     />
                   </label>
+                  <Button variant="primary" onClick={() => void createLink()} disabled={creating}>
+                    <Link2 size={16} aria-hidden="true" />
+                    <span>{creating ? t("user:actions.creating") : t("user:share.createLink")}</span>
+                  </Button>
+                  {/* A story's one option sits on its own line under the fields,
+                      not in the grid's third column beside them. */}
                   {isStory && (
-                    <label className="send-to-check">
+                    <label className="send-to-link-option">
                       <input
                         type="checkbox"
                         checked={expandAlbums}
@@ -565,10 +571,6 @@ export function SendToSheet({
                       </span>
                     </label>
                   )}
-                  <Button variant="primary" onClick={() => void createLink()} disabled={creating}>
-                    <Link2 size={16} aria-hidden="true" />
-                    <span>{creating ? t("user:actions.creating") : t("user:share.createLink")}</span>
-                  </Button>
                 </div>
 
                 {/* The one moment the address exists in readable form: only its
