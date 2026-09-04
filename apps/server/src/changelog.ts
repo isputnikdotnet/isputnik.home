@@ -19,6 +19,14 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.59.0",
+    label: "Housekeeping you don't have to think about",
+    changes: [
+      "A new monthly task tidies the folder your cover art lives in. Deleting things leaves empty folders behind — a photo here, a book there — and they add up quietly: one real library had 531 of them. The task sweeps them away once a month, and while it is in there it counts the cover files nothing in your catalogue points at any more and tells you the number. It sits with the others under Maintenance → Scheduled jobs, where you can change when it runs, run it now, or turn it off.",
+      "It counts those leftover files rather than deleting them, and that is deliberate. Some cover art is made rather than recorded — the large version of a book cover, the web-friendly copy of a video — so a task that removed everything the catalogue did not mention by name would take those too, quietly, every month. The number is there so you can see it if it ever grows. Nothing is thrown away on your behalf."
+    ]
+  },
+  {
     version: "3.58.0",
     label: "A map that shows the way you went",
     changes: [
