@@ -2557,39 +2557,6 @@
    wherever it is read — including on a chapter page. */
 .story-block-route .story-home-map { height: 320px; }
 
-/* "Photos from Day 1 · 12 shots" — everything the chapter's blocks show. */
-.story-chapter-photos { display: flex; flex-direction: column; gap: 10px; }
-
-.story-chapter-photos h2 { margin: 0; font-size: 1.05rem; }
-
-.story-chapter-photos-count { color: var(--muted); font-weight: 400; font-size: 0.9rem; }
-
-.story-chapter-photos-strip {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  padding-bottom: 4px;
-}
-
-.story-chapter-photos-strip button {
-  flex: 0 0 auto;
-  width: 108px;
-  height: 78px;
-  padding: 0;
-  border: 0;
-  border-radius: 10px;
-  overflow: hidden;
-  background: var(--field);
-  cursor: pointer;
-}
-
-.story-chapter-photos-strip img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
 .story-chapter-nav {
   display: flex;
   justify-content: space-between;

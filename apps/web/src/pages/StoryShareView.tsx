@@ -100,7 +100,8 @@ function shareChapterLabel(story: StorySharePayload["story"], chapter: StoryShar
   return chapter.title ?? chapter.date ?? String(index + 1);
 }
 
-/** Every photo a chapter's blocks show — the "Photos from Day N" strip. */
+/** Every photo a chapter's blocks show: the lightbox's set, and a chapter's
+ *  thumbnail when it has no hero of its own. */
 function chapterAssets(chapter: StoryShareChapter): StoryShareAsset[] {
   const seen = new Set<string>();
   const out: StoryShareAsset[] = [];
@@ -435,7 +436,6 @@ function ShareChapterPage({
     ? (chapter.endDate ? formatPartialDateRange(chapter.date, chapter.endDate) : formatPartialDate(chapter.date))
     : "";
   const dateLabel = dateText && chapter.dateApprox ? t("stories:chapter.approx", { date: dateText }) : dateText;
-  const photos = chapterAssets(chapter);
   const prev = index > 0 ? story.chapters[index - 1] : null;
   const next = index < story.chapters.length - 1 ? story.chapters[index + 1] : null;
 
@@ -469,21 +469,10 @@ function ShareChapterPage({
         ))}
       </div>
 
-      {photos.length > 0 && (
-        <section className="story-chapter-photos">
-          <h2>
-            {t("stories:site.photosFrom", { label })}
-            <span className="story-chapter-photos-count"> · {t("stories:site.shotCount", { count: photos.length })}</span>
-          </h2>
-          <div className="story-chapter-photos-strip">
-            {photos.map((asset) => (
-              <button key={asset.id} type="button" onClick={() => onOpen(asset.id)}>
-                <img src={asset.coverUrl} alt={asset.title} loading="lazy" />
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
+      {/* No "Photos from Day N" strip after the blocks: it repeated every
+          photo the chapter had just shown, so the page read as if it had
+          finished and then started again. The chapter's photos are its
+          blocks; the lightbox still walks the whole set. */}
 
       {/* Only the last chapter is signed: that is where the story ends. */}
       {!next && story.authorName && <ShareByline name={story.authorName} className="story-colophon" />}

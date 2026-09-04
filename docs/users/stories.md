@@ -193,9 +193,8 @@ bearings before choosing where to start; either the map's pins or the cards
 open a chapter.
 
 **Each chapter is its own page**: the date and place over its cover photo,
-the standfirst, your blocks, and at the bottom everything the chapter showed
-gathered into one strip — *Photos from Day 3 · 12 shots* — plus a link to the
-day before and the day after.
+the standfirst, your blocks, and at the bottom a link to the day before and
+the day after.
 
 A story that's just one plain page stays one plain page.
 

@@ -166,12 +166,7 @@
     "exit": "Назад",
     "stripAria": "Главы истории",
     "chapterMissing": "Такой главы нет — возможно, её удалили.",
-    "mapHeading": "Где это было",
-    "photosFrom": "Фото: {{label}}",
-    "shotCount_one": "{{count}} кадр",
-    "shotCount_few": "{{count}} кадра",
-    "shotCount_many": "{{count}} кадров",
-    "shotCount_other": "{{count}} кадра"
+    "mapHeading": "Где это было"
   },
   "actions": {
     "create": "Создать историю",

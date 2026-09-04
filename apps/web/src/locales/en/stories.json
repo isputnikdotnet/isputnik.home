@@ -160,10 +160,7 @@
     "exit": "Back",
     "stripAria": "Story chapters",
     "chapterMissing": "This chapter doesn't exist — it may have been removed.",
-    "mapHeading": "Where it happened",
-    "photosFrom": "Photos from {{label}}",
-    "shotCount_one": "{{count}} shot",
-    "shotCount_other": "{{count}} shots"
+    "mapHeading": "Where it happened"
   },
   "actions": {
     "create": "Create story",

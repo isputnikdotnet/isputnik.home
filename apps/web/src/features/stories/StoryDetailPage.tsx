@@ -294,20 +294,6 @@ function chapterThumb(chapter: StoryChapter): string | null {
   return null;
 }
 
-/** Every photo/video a chapter's blocks show — the "Photos from Day N" footer. */
-function chapterGallery(chapter: StoryChapter): GalleryAsset[] {
-  const seen = new Set<string>();
-  const out: GalleryAsset[] = [];
-  for (const block of chapter.blocks) {
-    for (const asset of [block.asset, ...block.preview]) {
-      if (!asset || asset.kind === "audio" || seen.has(asset.id)) continue;
-      seen.add(asset.id);
-      out.push(asset);
-    }
-  }
-  return out;
-}
-
 // ── Story Home ─────────────────────────────────────────────────────────────
 
 // How every story opens, whatever shape it is: the cover it was given, its
@@ -538,7 +524,6 @@ function ChapterPage({
   const dateLabel = dateText && chapter.dateApprox
     ? t("stories:chapter.approx", { date: dateText })
     : dateText;
-  const gallery = chapterGallery(chapter);
   // "Use map as cover": the pin is drawn as the hero, and the standalone map
   // below is dropped — one chapter, one map.
   const mapCover = chapter.heroMap && chapter.placeLat != null && chapter.placeLng != null;
@@ -584,21 +569,10 @@ function ChapterPage({
 
       <ChapterBlocks chapter={chapter} onOpenMedia={onOpenMedia} onPlaySlideshow={onPlaySlideshow} />
 
-      {gallery.length > 0 && (
-        <section className="story-chapter-photos">
-          <h2>
-            {t("stories:site.photosFrom", { label })}
-            <span className="story-chapter-photos-count"> · {t("stories:site.shotCount", { count: gallery.length })}</span>
-          </h2>
-          <div className="story-chapter-photos-strip">
-            {gallery.map((asset, assetIndex) => (
-              <button key={asset.id} type="button" onClick={() => onOpenMedia(gallery, assetIndex)}>
-                {asset.coverUrl && <img src={asset.coverUrl} alt={asset.title} loading="lazy" />}
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
+      {/* No "Photos from Day N" strip after the blocks: it repeated every
+          photo the chapter had just shown, so the page read as if it had
+          finished and then started again. The chapter's photos are its
+          blocks; the lightbox still walks the whole set. */}
 
       {/* Only the last chapter is signed: that is where the story ends. */}
       {!next && <StoryColophon name={story.authorName} />}
