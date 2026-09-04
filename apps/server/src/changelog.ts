@@ -19,6 +19,16 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.63.0",
+    label: "Room to plan the trip",
+    changes: [
+      "The map dialog in a story has been laid out again. The search box and the list of stops sit in a column on the left and the map fills the right, so a long itinerary no longer pushes the map off the bottom of the dialog, and the results of a search appear right under the box instead of sliding out of sight beneath the map. Each stop is now a card of its own — its number, its name, and how you got there — with a Clear map button in the corner for starting the route over.",
+      "Under the map, a route summary says how many stops there are and roughly how far the journey is as the crow flies. It is a planning figure — the real roads are drawn when you save — and it is worded as one.",
+      "A video can be put in a story as easily as a photo. Add block now offers Video beside Photo, and its picker lists only your videos, so there is no hunting for a clip among a few thousand photographs. A video chosen through Photo works just the same, and a block holding a video now says Change the video rather than Change the photo. The slideshow's opening and closing clip pickers list only videos too.",
+      "Guests who open a share link are now on the Dashboard's Sign-ins page. They were always in the logs, but the page that answers who got in only counted people signing in, so someone let in by a link was invisible there. They have a row of their own in the People table — Guest visitors, apart from the failed attempts — a line of their own on the chart, a count on the People tile, and each opened link shows in the sign-in list as Guest · Share link · Opened link. A member opening a link they were sent is still listed as themselves, and a guest visit is never counted as a sign-in attempt."
+    ]
+  },
+  {
     version: "3.62.0",
     label: "Tell the scanner how your shelves are arranged",
     changes: [
