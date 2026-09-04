@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import Database from "better-sqlite3";
 import { nanoid } from "nanoid";
-import { config } from "./config.js";
+import { config, mfaKeyFilePath } from "./config.js";
 import { migrate } from "./db/migrate.js";
 import { seed } from "./db/seed.js";
 
@@ -75,10 +75,32 @@ if (config.thumbnailPath) {
       fs.rmSync(`${config.dbPath}${ext}`, { force: true });
     }
     fs.renameSync(restoreFile, config.dbPath);
+
+    // The MFA key travels with the database it decrypts, so it lands in the same
+    // breath — after the swap succeeded, never before. The outgoing key is kept as
+    // mfa.key.previous: the safety snapshot taken above is the OLD database, and
+    // restoring that later needs the OLD key to read its TOTP secrets.
+    const stagedKey = `${mfaKeyFilePath()}.restore`;
+    if (fs.existsSync(stagedKey)) {
+      const keyPath = mfaKeyFilePath();
+      try {
+        if (fs.existsSync(keyPath)) {
+          fs.copyFileSync(keyPath, `${keyPath}.previous`);
+        }
+        fs.renameSync(stagedKey, keyPath);
+        fs.chmodSync(keyPath, 0o600);
+      } catch (err) {
+        // A key that won't move leaves TOTP users needing to re-enrol, which is
+        // recoverable; a database that won't open is not. Keep the restored DB.
+        try { fs.rmSync(stagedKey, { force: true }); } catch { /* ignore */ }
+        console.error("Restored database, but could not apply its MFA key.", err);
+      }
+    }
   } catch (err) {
     // If the restore can't be applied, leave the current DB untouched and drop
-    // the staging file so we don't loop on every boot.
+    // the staging files so we don't loop on every boot.
     try { fs.rmSync(restoreFile, { force: true }); } catch { /* ignore */ }
+    try { fs.rmSync(`${mfaKeyFilePath()}.restore`, { force: true }); } catch { /* ignore */ }
     console.error("Pending restore failed; kept current database.", err);
   }
 })();

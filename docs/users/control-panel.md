@@ -333,6 +333,18 @@ database out from under a running server is how databases get corrupted.
 > regenerates. The exception is family-tree portraits uploaded before 2.3.0, which
 > exist nowhere else. If you have any, take full backups.
 
+**Two-factor keeps working.** Two-factor secrets are stored encrypted, and the key
+that unlocks them is a small file next to the database rather than something inside
+it. Backups carry that key and a restore puts it back with the database, so anyone
+using an authenticator app can still sign in afterwards. The key you were using
+before is kept alongside it as `mfa.key.previous`, in case you restore something
+older later and need to go back.
+
+> Backups taken before 3.57.3 don't contain the key. Restoring one of those onto the
+> same server is fine — the key never left. Restoring it onto a *fresh* server means
+> everyone using two-factor has to set it up again, so either copy `mfa.key` across
+> by hand or take a new backup first.
+
 ### Scheduled jobs
 
 The recurring work, one row each: scanning each library type for new files, scanning

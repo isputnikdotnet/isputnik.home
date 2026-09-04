@@ -101,3 +101,9 @@ export async function extractFromZip(
 export function isBackupDatabaseEntry(entryName: string): boolean {
   return entryName === "database.sqlite" || entryName.endsWith("/database.sqlite");
 }
+
+// The MFA encryption key inside a backup, matched the same way. Absent from backups
+// written before this shipped, and from any install that sets MFA_ENCRYPTION_KEY.
+export function isBackupMfaKeyEntry(entryName: string): boolean {
+  return entryName === "mfa.key" || entryName.endsWith("/mfa.key");
+}
