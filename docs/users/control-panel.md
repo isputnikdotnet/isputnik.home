@@ -349,7 +349,8 @@ older later and need to go back.
 
 The recurring work, one row each: scanning each library type for new files, scanning
 new photos for faces, looking for duplicate photos, purging missing photos, cleaning
-task history, purging expired recycle bin items, and converting unplayable videos.
+task history, purging expired recycle bin items, converting unplayable videos, and
+tidying the thumbnail store.
 Sensible defaults ship enabled; the face scan runs after the nightly library scans so
 the day's new photos are already cataloged.
 

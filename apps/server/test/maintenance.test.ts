@@ -38,7 +38,8 @@ describe("scheduled jobs registry", () => {
       "scan_audiobook_libraries",
       "scan_ebook_libraries",
       "scan_gallery_libraries",
-      "scan_new_faces"
+      "scan_new_faces",
+      "tidy_thumbnail_store"
     ]);
 
     const byKey = Object.fromEntries(jobs.map((j) => [j.key, j]));
@@ -68,7 +69,7 @@ describe("scheduled jobs registry", () => {
   it("lists jobs grouped by category, then by name", () => {
     const jobs = listScheduledJobs();
     expect(jobs.map((j) => j.category)).toEqual([
-      "audiobooks", "ebooks", "gallery", "gallery", "gallery", "gallery", "system", "system"
+      "audiobooks", "ebooks", "gallery", "gallery", "gallery", "gallery", "system", "system", "system"
     ]);
     expect(jobs.filter((j) => j.category === "gallery").map((j) => j.label)).toEqual([
       "Convert unplayable videos",
@@ -89,7 +90,8 @@ describe("scheduled jobs registry", () => {
       scan_audiobook_libraries: "audiobooks",
       scan_ebook_libraries: "ebooks",
       scan_gallery_libraries: "gallery",
-      scan_new_faces: "gallery"
+      scan_new_faces: "gallery",
+      tidy_thumbnail_store: "system"
     });
   });
 
@@ -107,7 +109,8 @@ describe("scheduled jobs registry", () => {
       "scan_audiobook_libraries",
       "scan_ebook_libraries",
       "scan_gallery_libraries",
-      "scan_new_faces"
+      "scan_new_faces",
+      "tidy_thumbnail_store"
     ]);
     // Never-configured jobs seed enabled; the admin-disabled one is left off.
     expect(rows.find((r) => r.key === "scan_new_faces")!.enabled).toBe(1);

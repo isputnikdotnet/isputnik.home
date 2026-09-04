@@ -12,6 +12,7 @@ import { enqueueEbookScan } from "../library/ebook/scanner.js";
 import { enqueueGalleryScan } from "../library/gallery/scanner.js";
 import { purgeMissingGalleryPhotos, getMissingRetentionDays } from "../library/gallery/cleanup.js";
 import { enqueueTranscodeBatch, unplayableBacklogCount } from "../library/gallery/transcode.js";
+import { auditThumbnailStore, removeEmptyThumbnailDirs } from "../library/shared/thumbnail-audit.js";
 
 // Recurring maintenance tasks. The set of jobs is fixed and defined here; the
 // scheduled_jobs table only stores per-key state (enabled, schedule, last/next run).
@@ -133,6 +134,34 @@ const DEFINITIONS: ScheduledJobDef[] = [
           )
       `).run(KEEP_JOB_LOGS);
       return `Removed ${result.changes} old job record${result.changes === 1 ? "" : "s"} (kept the newest ${KEEP_JOB_LOGS}).`;
+    }
+  },
+  {
+    // Removes empty folders and REPORTS unreferenced files rather than deleting them.
+    // The asymmetry is the point: an empty folder references nothing, but "no row
+    // points at this file" does not mean the file is junk — derived siblings like a
+    // book's -cover-large.webp and a video's -web.mp4 are stored in no column by
+    // design, and a store audited by hand held 322 of those against 16 real orphans.
+    // Deleting on that signal, unattended and weekly, is how live thumbnails go
+    // missing. The count is here so the number is visible if it ever climbs.
+    key: "tidy_thumbnail_store",
+    label: "Tidy the thumbnail store",
+    description: "Remove empty folders left behind in the thumbnail store by deletions, and report how many cover files nothing in the catalog points at any more. Only empty folders are removed — unreferenced files are counted, never deleted, because some cover art is generated rather than recorded.",
+    category: "system",
+    defaultEnabled: true,
+    defaultFrequency: "monthly",
+    defaultTime: "01:45",
+    run: () => {
+      const removed = removeEmptyThumbnailDirs();
+      const { files, orphans } = auditThumbnailStore();
+      const folders = removed === 0
+        ? "No empty folders to remove"
+        : `Removed ${removed} empty folder${removed === 1 ? "" : "s"}`;
+      if (files === 0) return `${folders}. The thumbnail store is empty or not configured.`;
+      const unreferenced = orphans === 0
+        ? "every file is still pointed at by the catalog"
+        : `${orphans} of ${files} file${files === 1 ? "" : "s"} unreferenced (left in place)`;
+      return `${folders}; ${unreferenced}.`;
     }
   },
   {
