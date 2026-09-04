@@ -53,7 +53,7 @@ export function StoryBlockPicker({
     return (
       <StoryMapModal
         initial={block && block.lat != null && block.lng != null
-          ? { lat: block.lat, lng: block.lng, zoom: block.zoom, label: block.label }
+          ? { lat: block.lat, lng: block.lng, zoom: block.zoom, label: block.label, points: block.points }
           : null}
         onSave={(value) => { onClose(); onPick(value); }}
         onClose={onClose}

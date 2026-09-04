@@ -70,6 +70,13 @@ export interface StoryCollectionSummary {
   updatedAt: string;
 }
 
+/** One stop of a map block's route, in travel order. */
+export interface StoryMapPoint {
+  lat: number;
+  lng: number;
+  label: string | null;
+}
+
 export interface StoryBlock {
   id: string;
   chapterId: string;
@@ -86,6 +93,9 @@ export interface StoryBlock {
   lng: number | null;
   zoom: number | null;
   label: string | null;
+  /** Map blocks: the stops of a route. Empty or one stop is a single pin —
+   *  `lat`/`lng` stay the block's frame either way. */
+  points: StoryMapPoint[];
   caption: string | null;
   layout: StoryBlockLayout | null;
   /** False when the referenced album/photo/slideshow is gone or out of reach. */

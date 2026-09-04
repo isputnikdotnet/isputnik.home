@@ -1552,13 +1552,66 @@
   height: 100%;
 }
 
-.story-map-modal .gallery-location-picker {
+.story-map-modal .story-route-picker {
   flex: 1 1 auto;
   min-height: 320px;
 }
 
 @media (max-width: 740px) {
-  .story-map-modal .gallery-location-picker { min-height: 260px; }
+  .story-map-modal .story-route-picker { min-height: 260px; }
+}
+
+/* The stops under the map: the route in words, in the order it is drawn. The
+   list scrolls rather than pushing the map off the dialog — the map is the
+   thing being edited, and a long itinerary must not shrink it. */
+.story-route-stops-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.story-route-stops-section h3 {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.story-route-empty { margin: 0; font-size: 0.88rem; }
+
+.story-route-stops {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.story-route-stops li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* min-width: 0 so a long place name scrolls inside the field instead of
+   stretching the dialog. */
+.story-route-stops input { flex: 1 1 auto; min-width: 0; }
+
+.story-route-index {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--mint);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
 }
 
 /* Phones: the grid of side-by-side photos becomes a single column, and the
@@ -2281,6 +2334,14 @@
   cursor: pointer;
 }
 
+/* The line joining a route's stops. Leaflet draws it as an SVG path, so the
+   colour belongs here rather than in the options object. */
+.story-map-route {
+  stroke: var(--mint);
+  stroke-opacity: 0.9;
+  fill: none;
+}
+
 /* ── Chapter page ──────────────────────────────────────────────────────── */
 
 .story-chapter-page { gap: 26px; }
@@ -2332,6 +2393,10 @@
 
 /* A chapter with coordinates shows its spot compactly under the hero. */
 .story-chapter-page .story-home-map { height: 180px; }
+
+/* A route block is the content, not a locator strip, so it keeps its height
+   wherever it is read — including on a chapter page. */
+.story-block-route .story-home-map { height: 320px; }
 
 /* "Photos from Day 1 · 12 shots" — everything the chapter's blocks show. */
 .story-chapter-photos { display: flex; flex-direction: column; gap: 10px; }

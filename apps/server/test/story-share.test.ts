@@ -222,6 +222,26 @@ describe("the guest payload", () => {
     expect(block.items).toHaveLength(BLOCK_PREVIEW_LIMIT);
   });
 
+  it("gives a guest the map block's whole route, in order", () => {
+    createBlock(chapterId, storyId, "map", {
+      lat: 53.9,
+      lng: 27.56,
+      label: "Minsk",
+      points: [
+        { lat: 53.9, lng: 27.56, label: "Minsk" },
+        { lat: 54.69, lng: 25.28, label: "Vilnius" },
+        { lat: 56.95, lng: 24.11, label: "Riga" }
+      ]
+    });
+    const { token, link } = mintLink();
+
+    const block = buildStorySharePayload(link, token)!.payload.story.chapters[0].blocks[0] as {
+      kind: string; points: { label: string | null }[];
+    };
+    expect(block.kind).toBe("map");
+    expect(block.points.map((point) => point.label)).toEqual(["Minsk", "Vilnius", "Riga"]);
+  });
+
   it("is live — a block added after the link was minted shows up", () => {
     const { token, link } = mintLink();
     expect(buildStorySharePayload(link, token)!.payload.story.chapters[0].blocks).toHaveLength(0);

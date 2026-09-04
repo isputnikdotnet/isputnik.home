@@ -135,7 +135,12 @@ opens a dialog of the kinds with a line each on what they put on the page:
 - **Album** or **Slideshow** — shown as a strip of its first photos with a
   way into the whole thing. A slideshow plays right there, with its own
   transitions and music.
-- **Map** — a place, searched or pinned by hand.
+- **Map** — a place, searched or pinned by hand. Keep adding stops and the
+  block becomes a **route**: numbered pins joined in the order you list them,
+  which you can rename, reorder or drag to a better spot. The caption writes
+  itself from the names ("Bolzano → Ortisei → Cortina d'Ampezzo"). The line is
+  drawn straight between stops — it says which places, in which order, not
+  which roads.
 - **Person** — someone from the [family tree](family-tree.md), as a card with
   their portrait and dates.
 - **Quote** — a pull quote from your [quotes](quotes.md).

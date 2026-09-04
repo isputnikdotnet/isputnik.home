@@ -142,6 +142,20 @@ export interface BlockRow {
   layout: string | null;
 }
 
+/** One stop of a map block's route, in travel order. */
+export interface RoutePoint {
+  lat: number;
+  lng: number;
+  label: string | null;
+}
+
+interface BlockPointRow {
+  block_id: string;
+  lat: number;
+  lng: number;
+  label: string | null;
+}
+
 export function getStory(storyId: string): StoryRow | undefined {
   return db.prepare("SELECT * FROM stories WHERE id = ?").get(storyId) as StoryRow | undefined;
 }
@@ -730,6 +744,41 @@ export function getBlocks(storyId: string): BlockRow[] {
   `).all(storyId) as BlockRow[];
 }
 
+/** The stops of every given block, keyed by block id and already in travel
+ *  order. A block with no stops is simply absent — that is a single-pin map. */
+export function blockPointsByIds(blockIds: string[]): Map<string, RoutePoint[]> {
+  const out = new Map<string, RoutePoint[]>();
+  if (blockIds.length === 0) return out;
+  const rows = db.prepare(`
+    SELECT block_id, lat, lng, label FROM story_block_points
+    WHERE block_id IN (${inClause(blockIds.length)})
+    ORDER BY block_id, position ASC
+  `).all(...blockIds) as BlockPointRow[];
+  for (const row of rows) {
+    const list = out.get(row.block_id) ?? [];
+    list.push({ lat: row.lat, lng: row.lng, label: row.label });
+    out.set(row.block_id, list);
+  }
+  return out;
+}
+
+/** Replace a block's stops wholesale. The editor always sends the whole list —
+ *  reordering a route is the common edit, and diffing would buy nothing on a
+ *  handful of rows. */
+function writeBlockPoints(blockId: string, points: RoutePoint[]): void {
+  // Stops are a map block's business; a list sent for any other kind is dropped
+  // rather than left as rows nothing will ever read.
+  const row = db.prepare("SELECT kind FROM story_blocks WHERE id = ?").get(blockId) as { kind: string } | undefined;
+  if (row?.kind !== "map") return;
+  db.prepare("DELETE FROM story_block_points WHERE block_id = ?").run(blockId);
+  const insert = db.prepare(
+    "INSERT INTO story_block_points (id, block_id, position, lat, lng, label) VALUES (?, ?, ?, ?, ?, ?)"
+  );
+  points.forEach((point, index) => {
+    insert.run(nanoid(16), blockId, index + 1, point.lat, point.lng, point.label ?? null);
+  });
+}
+
 export function getBlock(blockId: string): BlockRow | undefined {
   return db.prepare("SELECT * FROM story_blocks WHERE id = ?").get(blockId) as BlockRow | undefined;
 }
@@ -746,6 +795,9 @@ export interface BlockFields {
   label?: string | null;
   caption?: string | null;
   layout?: string | null;
+  /** Map blocks: the route's stops, in travel order. Omitted leaves them as
+   *  they are; an empty array clears them back to a single-pin map. */
+  points?: RoutePoint[];
 }
 
 export function createBlock(chapterId: string, storyId: string, kind: StoryBlockKind, fields: BlockFields): BlockRow {
@@ -774,6 +826,7 @@ export function createBlock(chapterId: string, storyId: string, kind: StoryBlock
       fields.caption ?? null,
       fields.layout ?? null
     );
+    if (fields.points) writeBlockPoints(id, fields.points);
     touchStory(storyId);
   })();
   return getBlock(id)!;
@@ -806,6 +859,7 @@ export function updateBlock(blockId: string, storyId: string, fields: BlockField
       set("layout"), fields.layout ?? null,
       blockId
     );
+    if (fields.points !== undefined) writeBlockPoints(blockId, fields.points);
     touchStory(storyId);
   })();
 }
