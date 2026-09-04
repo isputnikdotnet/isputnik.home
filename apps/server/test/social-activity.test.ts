@@ -136,6 +136,58 @@ describe("what the feed leaves out", () => {
   });
 });
 
+describe("stories", () => {
+  function story(id: string, author: string, status: string, coverItemId: string | null): void {
+    db.prepare(
+      "INSERT INTO stories (id, title, subtitle, status, created_by, cover_item_id) VALUES (?, ?, ?, ?, ?, ?)"
+    ).run(id, "Dracula", "Better than I remembered", status, author, coverItemId);
+    db.prepare("INSERT INTO story_chapters (id, story_id, position) VALUES (?, ?, 0)").run(`${id}-ch`, id);
+  }
+
+  it("reports a story somebody else published", () => {
+    story("s1", "mom", "published", null);
+    const items = loadActivity(dad, 10);
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({ kind: "story", actorName: "mom", title: "Dracula", href: "/stories/s1" });
+  });
+
+  it("says nothing about a draft, even to an admin who could open it", () => {
+    story("s1", "mom", "draft", null);
+    expect(loadActivity(dad, 10)).toEqual([]);
+    expect(loadActivity({ id: "boss", role: "admin" }, 10)).toEqual([]);
+  });
+
+  it("says nothing about your own story", () => {
+    story("s1", "dad", "published", null);
+    expect(loadActivity(dad, 10)).toEqual([]);
+  });
+
+  // The bug this fixes: a review wears the artwork of the book it is about, and
+  // that book is a library item in nobody's GALLERY — so the card, which only
+  // looked there, arrived with no picture at all.
+  it("shows the book cover a review wears", () => {
+    makeBook("book-1", "lib-1", ["dad", "mom"]);
+    db.prepare("UPDATE item_metadata SET cover_storage_key = ? WHERE item_id = ?")
+      .run("lib-1/bo/ok/book-1-cover.webp", "book-1");
+    story("s1", "mom", "published", "book-1");
+
+    const items = loadActivity(dad, 10);
+    expect(items).toHaveLength(1);
+    expect(items[0].coverUrl).toBe("/api/library/covers/lib-1/bo/ok/book-1-cover.webp");
+  });
+
+  it("hands over no cover from a book library the reader cannot open", () => {
+    makeBook("secret", "lib-private", ["mom"]);
+    db.prepare("UPDATE item_metadata SET cover_storage_key = ? WHERE item_id = ?")
+      .run("lib-private/se/cr/secret-cover.webp", "secret");
+    story("s1", "mom", "published", "secret");
+
+    const items = loadActivity(dad, 10);
+    expect(items).toHaveLength(1);
+    expect(items[0].coverUrl).toBeNull();
+  });
+});
+
 describe("the limit", () => {
   it("returns a full page of visible rows even when many are filtered away", () => {
     makeBook("book-1", "lib-1", ["dad", "mom"]);

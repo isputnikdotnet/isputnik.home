@@ -499,6 +499,17 @@ const hydrateStories: Hydrator = (entityIds, user) => {
   const libIds = [...accessibleLibraryIds(user.id, user.role, "gallery")];
   const libArgs = libIds.length > 0 ? libIds : [""];
   const libIn = libArgs.map(() => "?").join(", ");
+  // The CHOSEN cover may be a photo or a book's own artwork — a review wearing
+  // the book it is about — so that lookup reaches past the gallery into whichever
+  // book libraries this viewer can open, exactly as the story index does. Kept to
+  // the gallery, a review's card came back with no picture at all: its cover is a
+  // book item, which is in nobody's gallery.
+  const coverLibArgs = [...new Set([
+    ...libArgs,
+    ...accessibleLibraryIds(user.id, user.role, "audiobook"),
+    ...accessibleLibraryIds(user.id, user.role, "ebook")
+  ])];
+  const coverLibIn = coverLibArgs.map(() => "?").join(", ");
   const idIn = entityIds.map(() => "?").join(", ");
   // Collection access overrides member visibility (stories v2): a story on a
   // restricted shelf hydrates only for that shelf's members — author aside.
@@ -522,13 +533,15 @@ const hydrateStories: Hydrator = (entityIds, user) => {
         (SELECT item_metadata.cover_storage_key FROM library_items
           JOIN item_metadata ON item_metadata.item_id = library_items.id
           WHERE library_items.id = stories.cover_item_id AND library_items.deleted_at IS NULL
-            AND library_items.library_id IN (${libIn})),
+            AND library_items.library_id IN (${coverLibIn})),
+        -- The fallback stays gallery-only: it is looking for a photograph the
+        -- story SHOWS, and only a media block is one.
         (SELECT item_metadata.cover_storage_key FROM story_blocks
           JOIN story_chapters ON story_chapters.id = story_blocks.chapter_id
           JOIN library_items ON library_items.id = story_blocks.entity_id AND library_items.deleted_at IS NULL
           JOIN item_metadata ON item_metadata.item_id = library_items.id
           WHERE story_chapters.story_id = stories.id
-            AND story_blocks.entity_type = 'gallery'
+            AND story_blocks.entity_type = 'gallery' AND story_blocks.kind = 'media'
             AND library_items.library_id IN (${libIn})
             AND item_metadata.cover_storage_key IS NOT NULL
           ORDER BY story_chapters.position, story_blocks.position LIMIT 1)
@@ -539,7 +552,7 @@ const hydrateStories: Hydrator = (entityIds, user) => {
       AND (stories.status = 'published' OR stories.created_by = ? OR ? = 'admin')
       ${collectionClause}
   `).all(
-    ...libArgs, ...libArgs, ...entityIds, user.id, user.role,
+    ...coverLibArgs, ...libArgs, ...entityIds, user.id, user.role,
     ...(collectionClause ? [user.id, ...(visibleCollections ?? [])] : [])
   ) as {
     id: string; title: string; subtitle: string | null; status: string;
