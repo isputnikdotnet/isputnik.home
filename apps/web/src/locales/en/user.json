@@ -365,7 +365,7 @@
     "createLink": "Create link",
     "copyNow": "Copy this link now — it won’t be shown again.",
     "copied": "Copied",
-    "noActiveLinks": "No active links for this book.",
+    "noActiveLinks": "No active links yet.",
     "expired": "Expired",
     "expiresOn": "Expires {{date}}",
     "revokeLink": "Revoke link",
