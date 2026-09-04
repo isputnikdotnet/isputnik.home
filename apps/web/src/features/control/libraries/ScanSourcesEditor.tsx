@@ -19,11 +19,16 @@ const SOURCE_ICONS: Record<string, LucideIcon> = {
 export function ScanSourcesEditor({
   sources,
   onChange,
-  sourceInfo
+  sourceInfo,
+  hideGrouping = false
 }: {
   sources: ScanSource[];
   onChange: (sources: ScanSource[]) => void;
   sourceInfo: MetadataSourceInfo[];
+  // Leave out the sources that change how files are grouped into books
+  // ("Treat folder as book", "Each file is a book"): a new library says that with
+  // its layout instead. They stay in the list, off, so nothing is lost.
+  hideGrouping?: boolean;
 }) {
   const { t } = useTranslation(["common", "control"]);
   const infoById = new Map(sourceInfo.map((info) => [info.id, info]));
@@ -60,6 +65,7 @@ export function ScanSourcesEditor({
       <div className="scan-source-table">
         {sources.map((source, index) => {
           const info = infoById.get(source.id);
+          if (hideGrouping && info?.affectsGrouping) return null;
           const Icon = SOURCE_ICONS[source.id] ?? File;
           const isDragging = dragIndex === index;
           const isOver = dragOverIndex === index && dragIndex !== index;

@@ -49,7 +49,12 @@ export const coreLibraryCreateSchema = z.object({
   // Default legacy charset for tag mojibake repair (audiobook); null clears it.
   tagEncoding: z.enum(TAG_ENCODINGS).nullable().optional(),
   // Progress model (audiobook): linear book cursor vs. per-episode tracking.
-  progressMode: z.enum(["linear", "episodic"]).optional()
+  progressMode: z.enum(["linear", "episodic"]).optional(),
+  // The library's default layout (docs/scan-layout-plan.md): ordered patterns
+  // saved as the root-anchored scan rule BEFORE the first scan is queued, so that
+  // scan already reads folder names the way the admin said. Omitted = scanner
+  // defaults. Only the create route uses it; edits go through the Layout panel.
+  defaultLayouts: z.array(z.string().trim().min(1).max(500)).min(1).max(10).optional()
 });
 
 export const coreLibraryUpdateSchema = coreLibraryCreateSchema.omit({ sourcePath: true });

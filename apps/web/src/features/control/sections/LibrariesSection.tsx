@@ -38,7 +38,7 @@ import { UploadSettingsFields } from "../libraries/UploadSettingsFields";
 import { TagEncodingField } from "../libraries/TagEncodingField";
 import { LibraryWizard } from "../libraries/LibraryWizard";
 import { LibraryMembersModal } from "./LibraryMembersModal";
-import { ScanRulesModal } from "./ScanRulesModal";
+import { LayoutPanel } from "../layout/LayoutPanel";
 import { GalleryFaceSettingsModal } from "../../gallery/GalleryFaceSettingsModal";
 import { ControlSectionHead } from "../ControlSectionHead";
 // Plain lookup functions rather than module-level consts, so a language switch
@@ -289,12 +289,13 @@ export function LibrariesSection() {
     }
   };
 
-  // Audiobook rescans open the options dialog; other types run straight away.
+  // Book libraries open the options dialog (sources; tag encoding for audiobooks);
+  // galleries rescan straight away.
   const startRescan = (library: ManagedLibrary) => {
-    if (library.type === "audiobook") {
+    if (library.type === "audiobook" || library.type === "ebook") {
       setRescanTarget(library);
-      setRescanSources(library.settings?.scanSources ?? typeDefaults.audiobook?.sources ?? []);
-      setRescanEncoding(library.settings?.tagEncoding ?? "");
+      setRescanSources(library.settings?.scanSources ?? typeDefaults[library.type]?.sources ?? []);
+      setRescanEncoding(library.type === "audiobook" ? library.settings?.tagEncoding ?? "" : "");
       setError("");
       return;
     }
@@ -315,7 +316,7 @@ export function LibrariesSection() {
         method: "POST",
         body: JSON.stringify({
           sources: rescanSources,
-          tagEncoding: rescanEncoding || undefined
+          tagEncoding: rescanTarget.type === "audiobook" && rescanEncoding ? rescanEncoding : undefined
         })
       });
       setRescanTarget(null);
@@ -546,8 +547,8 @@ export function LibrariesSection() {
                           <>
                             {/* Leading type-specific slot — always reserved so the shared
                                 icons below line up in the same columns across every library
-                                type (audiobooks have no scan-rules / face action). */}
-                            {library.type === "ebook" ? (
+                                type (book libraries get scan rules, galleries the face action). */}
+                            {library.type === "ebook" || library.type === "audiobook" ? (
                               <Button
                                 variant="icon"
                                 title={t("control:libraries.scanRulesTitle")}
@@ -660,9 +661,19 @@ export function LibrariesSection() {
       )}
 
       {scanRulesLibrary && scanRulesLibrary.type !== "gallery" && (
-        <ScanRulesModal
+        <LayoutPanel
           library={{ id: scanRulesLibrary.id, name: scanRulesLibrary.name, type: scanRulesLibrary.type }}
+          sources={(scanRulesLibrary.settings?.scanSources ?? typeDefaults[scanRulesLibrary.type]?.sources ?? [])
+            .filter((source) => !metadataSources.find((info) => info.id === source.id)?.affectsGrouping)
+            .map((source) => ({ label: metadataSources.find((info) => info.id === source.id)?.label ?? source.id, enabled: source.enabled }))}
+          legacyGrouping={
+            scanRulesLibrary.settings?.scanSources?.some((source) => source.id === "single_file" && source.enabled) ? "single_file"
+              : scanRulesLibrary.settings?.scanSources?.some((source) => source.id === "folder_structure" && source.enabled) ? "folder_structure"
+              : null
+          }
           onClose={() => setScanRulesLibrary(null)}
+          onOpenSettings={() => { const target = scanRulesLibrary; setScanRulesLibrary(null); openEdit(target); }}
+          onRescanLibrary={() => { const target = scanRulesLibrary; setScanRulesLibrary(null); startRescan(target); }}
         />
       )}
 
@@ -699,11 +710,13 @@ export function LibrariesSection() {
             <p className="muted" style={{ fontSize: "0.8rem", lineHeight: 1.4 }}>
               {t("control:libraries.rescanScopeNote")}
             </p>
-            <TagEncodingField
-              value={rescanEncoding}
-              onChange={setRescanEncoding}
-              noneLabel={t("control:libraries.tagEncodingNoneLabel")}
-            />
+            {rescanTarget.type === "audiobook" && (
+              <TagEncodingField
+                value={rescanEncoding}
+                onChange={setRescanEncoding}
+                noneLabel={t("control:libraries.tagEncodingNoneLabel")}
+              />
+            )}
             {error && <MessageBox tone="error" title={t("control:libraries.rescanErrorTitle")}>{error}</MessageBox>}
             <div className="modal-actions">
               <Button variant="secondary" onClick={() => setRescanTarget(null)} disabled={rescanRunning} autoFocus>

@@ -12,6 +12,8 @@ import { publicLibrary, type LibraryListRow } from "../shared/library-serializer
 import { deleteSharesForLibrary } from "../shared/share-access.js";
 import { deleteCollectionItemsForLibrary } from "../../collections/cleanup.js";
 import { coreLibraryCreateSchema, coreLibraryUpdateSchema, createLibraryRecord, updateLibraryRecord, resolveUploadMaxBytes } from "../shared/library-crud.js";
+import { setDefaultLayout, isScanRuleError } from "../shared/scan-rules.js";
+import { validateLayouts } from "../shared/scan-rule-pattern.js";
 import { METADATA_SOURCE_IDS } from "../shared/metadata-sources.js";
 import { validateLibrarySource, LibrarySourceError } from "../shared/library-source.js";
 import { normaliseRelativePath } from "../shared/storage-roots.js";
@@ -69,6 +71,12 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
       return reply.code(400).send({ error: "Invalid ebook library details", details: parsed.error });
     }
 
+    // A bad default layout must not leave a library behind without one.
+    const layoutError = parsed.data.defaultLayouts ? validateLayouts(parsed.data.defaultLayouts, "ebook")[0] : undefined;
+    if (layoutError) {
+      return reply.code(400).send({ error: layoutError });
+    }
+
     const result = createLibraryRecord({
       type: "ebook",
       data: parsed.data,
@@ -77,6 +85,13 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
     });
     if ("error" in result) {
       return reply.code(result.status).send({ error: result.error });
+    }
+
+    if (parsed.data.defaultLayouts) {
+      const layout = setDefaultLayout(result.libraryId, { layouts: parsed.data.defaultLayouts });
+      if (isScanRuleError(layout)) {
+        return reply.code(400).send({ error: layout.error });
+      }
     }
 
     const jobId = enqueueEbookScan(result.libraryId);

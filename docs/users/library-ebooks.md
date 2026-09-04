@@ -20,6 +20,29 @@ Drop `Frankenstein.epub` and `Frankenstein.pdf` in the same folder and you get
 filename, so keeping matching names together is all that's needed. EPUB is
 preferred as the primary format because it drives the in-app reader.
 
+## Telling the scanner how folders are arranged
+
+When your folder and file names carry the author, series or title, the scanner
+can read them. Open the library's **Layout** (the wand icon on the Libraries
+page in the control panel).
+
+- **Default layout** applies to the whole library. Choose a starting point such
+  as *Author / Series / 01 - Title*, then label a real file from your folders:
+  each part of the path gets a role (Author, Series, Position, Title, Year,
+  Publisher, or Skip). The count of books that fit updates as you go.
+- **Rules for specific folders** cover the shelves arranged differently from the
+  rest. Tick the folders, label an example, and the rule takes over there.
+- A rule can hold several **layouts**: the first that fits a book wins, so a
+  folder that mixes `Series/01 - Title` books with loose `Title` files needs
+  one layout for each.
+- **Preview** before saving shows every book the rule would produce, which
+  layout matched it, and what changes for books already in the library. Books
+  that fit no layout are still added, with details from the file's own metadata.
+
+What a layout reads from the path wins over the file's metadata; anything the
+layout does not mention still comes from the file. Your manual edits stay
+protected either way.
+
 ## Reading
 
 Open a book and choose **Read**. EPUB (and FB2) open in the built-in reader:

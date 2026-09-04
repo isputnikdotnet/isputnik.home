@@ -25,13 +25,15 @@ import type { PublicRole, LibraryMode, ScanSource, MetadataSourceInfo, LibraryTy
 import type { ManagedUser, ManagedGroup, StorageRoot, StorageBrowse } from "../types";
 import { ExtensionsEditor } from "./ExtensionsEditor";
 import { ScanSourcesEditor } from "./ScanSourcesEditor";
+import { PRESETS, humanize } from "../layout/layout-model";
+import { useRoleLabels } from "../layout/useRoleLabels";
 import { SourceFolderPicker } from "./SourceFolderPicker";
 import { TagEncodingField } from "./TagEncodingField";
 import { UploadSettingsFields } from "./UploadSettingsFields";
 import { ModeSelect, OwnerSelect, PublicRoleSelect, publicRoleLabel } from "./access-selects";
 
 type WizardLibraryType = "audiobook" | "ebook" | "gallery";
-type StepKey = "type" | "basics" | "review";
+type StepKey = "type" | "basics" | "layout" | "review";
 type AdvancedTab = "access" | "upload" | "scanning";
 
 // Roving-tabindex keyboard support for a radiogroup of cards (Arrow keys move and
@@ -90,7 +92,7 @@ export function LibraryWizard({
   onClose: () => void;
   onCreated: (type: WizardLibraryType) => void;
 }) {
-  const { t } = useTranslation(["common", "control"]);
+  const { t } = useTranslation(["common", "control", "controlAdmin"]);
 
   const TYPE_OPTIONS: {
     type: WizardLibraryType;
@@ -118,10 +120,12 @@ export function LibraryWizard({
     }
   ];
 
+  const roleLabels = useRoleLabels();
   const stepTitle = (key: StepKey): string => {
     switch (key) {
       case "type": return t("control:libraries.wizard.stepType");
       case "basics": return t("control:libraries.wizard.stepDetails");
+      case "layout": return t("control:libraries.wizard.stepLayout");
       case "review": return t("control:libraries.wizard.stepReview");
     }
   };
@@ -143,6 +147,9 @@ export function LibraryWizard({
   const [scanSources, setScanSources] = useState<ScanSource[]>(typeDefaults[initialType]?.sources ?? []);
   const [maxUploadMB, setMaxUploadMB] = useState("");
   const [tagEncoding, setTagEncoding] = useState("");
+  // The default layout (docs/scan-layout-plan.md): a preset pattern saved as the
+  // library's root scan rule before the first scan, or null for scanner defaults.
+  const [layoutChoice, setLayoutChoice] = useState<string | null>(null);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [advancedTab, setAdvancedTab] = useState<AdvancedTab>("access");
   const [advancedError, setAdvancedError] = useState("");
@@ -162,7 +169,8 @@ export function LibraryWizard({
     [metadataSources, libraryType]
   );
 
-  const steps: StepKey[] = ["type", "basics", "review"];
+  // Galleries have no folder layout to read; book libraries get the Layout step.
+  const steps: StepKey[] = libraryType === "gallery" ? ["type", "basics", "review"] : ["type", "basics", "layout", "review"];
   const lastStep = steps.length - 1;
   const current = Math.min(stepIndex, lastStep);
   const stepKey = steps[current];
@@ -247,7 +255,11 @@ export function LibraryWizard({
         .join(" › ") || t("control:libraries.scanNone")
     },
     { label: t("control:libraries.fieldUploadLimit"), value: maxUploadMB ? t("control:libraries.uploadLimitValue", { mb: maxUploadMB }) : t("control:libraries.uploadLimitDefault") },
-    ...(libraryType === "audiobook" ? [{ label: t("control:libraries.fieldTagEncoding"), value: tagEncoding || t("control:libraries.wizard.tagEncodingAutoDetect") }] : [])
+    ...(libraryType === "audiobook" ? [{ label: t("control:libraries.fieldTagEncoding"), value: tagEncoding || t("control:libraries.wizard.tagEncodingAutoDetect") }] : []),
+    ...(libraryType !== "gallery" ? [{
+      label: t("control:libraries.wizard.fieldLayout"),
+      value: layoutChoice ? humanize(layoutChoice, roleLabels) : t("control:libraries.wizard.layoutScannerDefaults")
+    }] : [])
   ];
 
   const goNext = () => {
@@ -290,7 +302,8 @@ export function LibraryWizard({
           companionExtensions: companions,
           scanSources,
           maxUploadMB: Number.isFinite(maxUpload) && maxUpload > 0 ? maxUpload : null,
-          tagEncoding: libraryType === "audiobook" && tagEncoding ? tagEncoding : null
+          tagEncoding: libraryType === "audiobook" && tagEncoding ? tagEncoding : null,
+          ...(libraryType !== "gallery" && layoutChoice ? { defaultLayouts: [layoutChoice] } : {})
         })
       });
       onCreated(libraryType);
@@ -560,6 +573,7 @@ export function LibraryWizard({
                       sources={draftScanSources}
                       onChange={setDraftScanSources}
                       sourceInfo={typeSourceInfo}
+                      hideGrouping
                     />
                     {libraryType === "audiobook" && (
                       <TagEncodingField
@@ -585,6 +599,52 @@ export function LibraryWizard({
               </div>
             </section>
           )}
+        </section>
+      )}
+
+      {stepKey === "layout" && libraryType !== "gallery" && (
+        <section className="library-layout-step">
+          <div className="library-details-copy">
+            <h3>{t("control:libraries.wizard.layoutHeading")}</h3>
+            <p>{t("control:libraries.wizard.layoutSubheading")}</p>
+          </div>
+          <div className="library-layout-grid" role="radiogroup" aria-label={t("control:libraries.wizard.layoutGroupAria")}>
+            <Button
+              variant="text"
+              type="button"
+              role="radio"
+              aria-checked={layoutChoice === null}
+              className={`library-layout-option${layoutChoice === null ? " selected" : ""}`}
+              onClick={() => setLayoutChoice(null)}
+            >
+              <span className="library-layout-option-copy">
+                <strong>{t("control:libraries.wizard.layoutScannerDefaults")}</strong>
+                <small>{libraryType === "audiobook" ? t("controlAdmin:layout.scannerDefaultsAudiobook") : t("controlAdmin:layout.scannerDefaultsEbook")}</small>
+              </span>
+              <span className="library-type-status">{layoutChoice === null && <span className="library-type-selected" aria-hidden="true"><Check size={18} /></span>}</span>
+            </Button>
+            {PRESETS[libraryType].map((preset) => {
+              const selected = layoutChoice === preset.pattern;
+              return (
+                <Button
+                  variant="text"
+                  type="button"
+                  key={preset.id}
+                  role="radio"
+                  aria-checked={selected}
+                  className={`library-layout-option${selected ? " selected" : ""}`}
+                  onClick={() => setLayoutChoice(preset.pattern)}
+                >
+                  <span className="library-layout-option-copy">
+                    <strong>{humanize(preset.pattern, roleLabels)}</strong>
+                    <small><code>{preset.pattern}</code></small>
+                  </span>
+                  <span className="library-type-status">{selected && <span className="library-type-selected" aria-hidden="true"><Check size={18} /></span>}</span>
+                </Button>
+              );
+            })}
+          </div>
+          <p className="muted library-layout-note">{t("control:libraries.wizard.layoutNote")}</p>
         </section>
       )}
 

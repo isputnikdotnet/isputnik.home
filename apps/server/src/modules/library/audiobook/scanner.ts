@@ -25,6 +25,11 @@ import { applyItemAlphaIndex } from "../shared/alphabet-index.js";
 import { enrichLibraryAuthors, lookupOnlineBookMetadata } from "./enrich.js";
 import { matchCategoryId, setEntityTags } from "./categorize.js";
 import { isMp4ChapterContainer, readMp4Chapters } from "./mp4-chapters.js";
+import { matchPattern, matchLayouts, expandOptionalSections, type LayoutMatch } from "../shared/scan-rule-pattern.js";
+import {
+  loadOwnerIndex, resolveOwnerIndexed, resolveOwner, getScanRule, keyRelativeToAnchor, markScanRulesScanned, normalizeRulePath,
+  classifyPreviewChange, annotatePreviewRows, type OwnerIndex, type ScanRule, type RulePreviewRow
+} from "../shared/scan-rules.js";
 
 export { validateLibrarySource };
 
@@ -51,6 +56,8 @@ export interface ScanOptions {
   // One-shot override of the library's persisted scan_sources (rescan dialog).
   sources?: ScanSourceConfig[];
   tagEncoding?: TagEncoding;
+  // Confine the scan to one scan rule's folders; only that rule's items are reconciled.
+  ruleId?: string;
 }
 
 // How files are grouped into books. folder_hierarchy: the folder containing the audio
@@ -155,6 +162,8 @@ export interface PreparedBookScan {
   bookId: string;
   folderAbsolutePath: string;
   folderPath: string;
+  // The scan rule that produced this book, or null for the default scanner.
+  scanRuleId: string | null;
   manualMetadata: boolean;
   title: string;
   sortTitle: string;
@@ -734,9 +743,60 @@ async function generateCover(libraryId: string, bookId: string, folderPath: stri
   return null;
 }
 
-export async function walkAudiobookFiles(rootPath: string, settings: AudiobookSettings, groupingMode: GroupingMode = "folder_hierarchy") {
+// Who a scan-rule-owned book belongs to and what its layouts read from the path.
+export interface BookOwner {
+  ruleId: string;
+  anchor: string;
+  fields: LayoutMatch;
+}
+
+// Scan-rule ownership for the walk: the preloaded index, an output map (book folder
+// → owner) the walk fills in, and optionally ONE rule to confine the walk to (a
+// rule-scoped scan starts at that rule's folders and ignores everything else).
+export interface WalkOwnership {
+  index: OwnerIndex;
+  owners: Map<string, BookOwner>;
+  onlyRuleId?: string | null;
+}
+
+// Distinct segment depths a layout can match (optional sections make these vary),
+// deepest first.
+function layoutDepths(layout: string): number[] {
+  const variants = expandOptionalSections(layout);
+  const list = Array.isArray(variants) ? variants : [];
+  const depths = new Set(list.map((v) => v.split("/").map((s) => s.trim()).filter(Boolean).length));
+  return [...depths].sort((a, b) => b - a);
+}
+
+// Inside a rule, the book is the directory at the depth of the first layout that
+// fits (tried in order, each at its own depth). A path no layout fits still forms a
+// book — at the deepest layout depth it can reach — so it is catalogued without
+// path-derived fields rather than dropped. A loose file directly in the anchor has
+// no directory to be a book, so the file itself is the book (as file_per_book does).
+export function ruleBookFolder(rule: ScanRule, anchor: string, relativeDirs: string[]): { key: string | null; fields: LayoutMatch } {
+  for (let i = 0; i < rule.layouts.length; i++) {
+    for (const depth of layoutDepths(rule.layouts[i])) {
+      if (depth === 0 || relativeDirs.length < depth) continue;
+      const key = relativeDirs.slice(0, depth).join("/");
+      const m = matchPattern(rule.layouts[i], key);
+      if (m.matched) return { key: anchor ? `${anchor}/${key}` : key, fields: { ...m, layoutIndex: i } };
+    }
+  }
+  const maxDepth = Math.min(Math.max(0, ...rule.layouts.map((l) => layoutDepths(l)[0] ?? 0)), relativeDirs.length);
+  if (maxDepth === 0) return { key: null, fields: { matched: false, layoutIndex: null } };
+  const key = relativeDirs.slice(0, maxDepth).join("/");
+  return { key: anchor ? `${anchor}/${key}` : key, fields: { matched: false, layoutIndex: null } };
+}
+
+export async function walkAudiobookFiles(
+  rootPath: string,
+  settings: AudiobookSettings,
+  groupingMode: GroupingMode = "folder_hierarchy",
+  ownership: WalkOwnership | null = null
+) {
   const extensions = scanExtensionSet(settings);
   const filesByBookFolder = new Map<string, AudioFileEntry[]>();
+  const onlyRule = ownership?.onlyRuleId ? ownership.index.rules.get(ownership.onlyRuleId) ?? null : null;
 
   const walk = async (currentPath: string): Promise<void> => {
     let entries: fs.Dirent[];
@@ -775,7 +835,22 @@ export async function walkAudiobookFiles(rootPath: string, settings: AudiobookSe
       const discHint = discNumberFromFolderName(path.basename(folderPath));
       const relativePath = normaliseRelativePath(path.relative(rootPath, absolutePath));
       let bookFolderPath: string;
-      if (groupingMode === "file_per_book" && !relativePath.includes("/")) {
+      let owner: BookOwner | null = null;
+      const dirs = relativePath.split("/").slice(0, -1);
+      const resolved = ownership ? resolveOwnerIndexed(ownership.index, dirs.join("/")) : null;
+      if (ownership && ownership.onlyRuleId && resolved?.rule.id !== ownership.onlyRuleId) {
+        // A rule-scoped walk: files another owner (or the default scanner) holds
+        // are somebody else's business.
+        return;
+      }
+      if (resolved) {
+        // Inside a scan rule the layouts draw the book boundary, and every file
+        // beneath it — disc folders, "Part 2", anything — is a track of that book.
+        const anchorDepth = resolved.anchor ? resolved.anchor.split("/").length : 0;
+        const { key, fields } = ruleBookFolder(resolved.rule, resolved.anchor, dirs.slice(anchorDepth));
+        bookFolderPath = key === null ? absolutePath : path.join(rootPath, ...key.split("/"));
+        owner = { ruleId: resolved.rule.id, anchor: resolved.anchor, fields };
+      } else if (groupingMode === "file_per_book" && !relativePath.includes("/")) {
         // A loose file at the library root is its own book; the "book folder" IS the
         // file (folder_path becomes the file's relative name — unique per book).
         bookFolderPath = absolutePath;
@@ -799,14 +874,24 @@ export async function walkAudiobookFiles(rootPath: string, settings: AudiobookSe
       const existing = filesByBookFolder.get(bookFolderPath) ?? [];
       existing.push({ absolutePath, fileName: entry.name, relativePath, stat, discHint });
       filesByBookFolder.set(bookFolderPath, existing);
+      if (owner && ownership) ownership.owners.set(bookFolderPath, owner);
     }));
   };
 
-  await walk(rootPath);
+  if (onlyRule) {
+    // Confined to one rule: start at its folders instead of the whole library.
+    for (const rulePath of onlyRule.paths) {
+      await walk(rulePath ? path.join(rootPath, ...rulePath.split("/")) : rootPath);
+    }
+  } else {
+    await walk(rootPath);
+  }
   return filesByBookFolder;
 }
 
-function readBookFolderFiles(rootPath: string, folderAbsolutePath: string, settings: AudiobookSettings, groupingMode: GroupingMode = "folder_hierarchy"): AudioFileEntry[] {
+// `gatherAll`: every audio file beneath the folder is a track, whatever its subfolder
+// is called — the rule-owned book boundary (and top_level_folder grouping).
+function readBookFolderFiles(rootPath: string, folderAbsolutePath: string, settings: AudiobookSettings, groupingMode: GroupingMode = "folder_hierarchy", gatherAll = false): AudioFileEntry[] {
   const extensions = scanExtensionSet(settings);
 
   // Single-file book (file_per_book): the "folder" is actually the audio file itself,
@@ -830,7 +915,7 @@ function readBookFolderFiles(rootPath: string, folderAbsolutePath: string, setti
         const hint = discNumberFromFolderName(entry.name);
         // top_level_folder: every nested folder belongs to this book, not just
         // disc-named ones (disc names still provide track-ordering hints).
-        if (hint !== null || groupingMode === "top_level_folder") {
+        if (hint !== null || gatherAll || groupingMode === "top_level_folder") {
           scanDir(absolutePath, hint);
         }
         continue;
@@ -953,13 +1038,22 @@ async function prepareBookScan(
   rootPath: string,
   config: EffectiveScanConfig,
   folderAbsolutePath: string,
-  files: AudioFileEntry[]
+  files: AudioFileEntry[],
+  owner: BookOwner | null = null
 ): Promise<PreparedBookScan> {
-  const { settings, sources, tagEncoding: enc, forceReread } = config;
+  const { settings, sources, tagEncoding: enc } = config;
   const folderPath = normaliseRelativePath(path.relative(rootPath, folderAbsolutePath)) || ".";
-  const existingBook = db.prepare("SELECT id FROM library_items WHERE library_id = ? AND folder_path = ?")
-    .get(libraryId, folderPath) as { id: string } | undefined;
+  const existingBook = db.prepare("SELECT id, scan_rule_id, updated_at FROM library_items WHERE library_id = ? AND folder_path = ?")
+    .get(libraryId, folderPath) as { id: string; scan_rule_id: string | null; updated_at: string } | undefined;
   const bookId = existingBook?.id ?? nanoid(16);
+  const scanRuleId = owner?.ruleId ?? null;
+  // A book that changed owner, or whose rule was edited since it was last written,
+  // must be re-derived even when its files are untouched.
+  const ownerChanged = Boolean(existingBook) && (
+    existingBook!.scan_rule_id !== scanRuleId
+    || (owner !== null && (getScanRule(owner.ruleId)?.updatedAt ?? "") > existingBook!.updated_at)
+  );
+  const forceReread = config.forceReread || ownerChanged;
   const metadataRow = db.prepare("SELECT source, cover_storage_key, description FROM item_metadata WHERE item_id = ?")
     .get(bookId) as { source: "scan" | "manual"; cover_storage_key: string | null; description: string | null } | undefined;
   const manualMetadata = metadataRow?.source === "manual";
@@ -973,7 +1067,8 @@ async function prepareBookScan(
     : path.basename(folderAbsolutePath);
   // In top-level grouping the parent of every book folder is the library root, which
   // is not an author name; same when the book is the root itself or a single loose file.
-  const authorHint = config.groupingMode === "top_level_folder" || folderPath === "." || isFileBook
+  // Inside a scan rule the layout says what each folder means, so no guessing either.
+  const authorHint = owner !== null || config.groupingMode === "top_level_folder" || folderPath === "." || isFileBook
     ? null
     : path.basename(path.dirname(folderAbsolutePath));
   const fileMetaEnabled = sourceEnabled(sources, "file_metadata");
@@ -1020,6 +1115,7 @@ async function prepareBookScan(
         bookId,
         folderAbsolutePath,
         folderPath,
+        scanRuleId,
         manualMetadata,
         title: titleHint,
         sortTitle: sortTitle(titleHint),
@@ -1114,6 +1210,21 @@ async function prepareBookScan(
   }
 
   const merged: SourceCandidate = {};
+  // What a scan rule's layout read from the path wins over every source: the rule
+  // exists because those folder names are the truth. Fields it does not capture
+  // fall through to the sources below, per field.
+  if (owner?.fields.matched) {
+    const f = owner.fields;
+    mergeCandidate(merged, {
+      title: f.title ?? null,
+      authors: f.author ? [f.author] : undefined,
+      narrators: f.narrator ? [f.narrator] : undefined,
+      year: f.year ?? null,
+      publisher: f.publisher ?? null,
+      seriesName: f.series ?? null,
+      seriesPosition: f.position ?? null
+    });
+  }
   for (const source of sources) {
     if (!source.enabled) continue;
     const candidate = candidates.get(source.id);
@@ -1181,9 +1292,14 @@ async function prepareBookScan(
     return fileNameTitle;
   };
 
+  // Disc, then the folder the file sits in, then track: a book gathered from
+  // "Part 1" / "Part 2" subfolders that each restart at 001 plays part by part
+  // instead of interleaving. Files in one folder are unaffected by the middle key.
+  const dirOf = (relativePath: string) => path.posix.dirname(relativePath);
   const preparedFiles = fileSortData
     .sort((left, right) => (
       left.sortDisc - right.sortDisc
+      || dirOf(left.file.relativePath).localeCompare(dirOf(right.file.relativePath), undefined, { numeric: true })
       || left.sortTrack - right.sortTrack
       || left.file.relativePath.localeCompare(right.file.relativePath, undefined, { numeric: true })
     ))
@@ -1214,6 +1330,7 @@ async function prepareBookScan(
     bookId,
     folderAbsolutePath,
     folderPath,
+    scanRuleId,
     manualMetadata,
     title,
     sortTitle: sortTitle(title),
@@ -1272,14 +1389,14 @@ export function writeBookScan(libraryId: string, book: PreparedBookScan) {
   if (existingBook) {
     db.prepare(`
       UPDATE library_items
-      SET status = 'ready', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), deleted_at = NULL
+      SET status = 'ready', scan_rule_id = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), deleted_at = NULL
       WHERE id = ?
-    `).run(book.bookId);
+    `).run(book.scanRuleId, book.bookId);
   } else {
     db.prepare(`
-      INSERT INTO library_items (id, library_id, type, folder_path, status)
-      VALUES (?, ?, 'audiobook', ?, 'ready')
-    `).run(book.bookId, libraryId, book.folderPath);
+      INSERT INTO library_items (id, library_id, type, folder_path, status, scan_rule_id)
+      VALUES (?, ?, 'audiobook', ?, 'ready', ?)
+    `).run(book.bookId, libraryId, book.folderPath, book.scanRuleId);
   }
 
   // Manual ownership is read from the live row, not the caller's flag, so a book
@@ -1460,7 +1577,16 @@ async function scanAudiobookLibrary(libraryId: string, jobId: string | null = nu
   const config = resolveScanConfig(library.settings_json, options);
   db.prepare("UPDATE libraries SET scan_status = 'scanning', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(libraryId);
 
-  const filesByFolder = await walkAudiobookFiles(rootPath, config.settings, config.groupingMode);
+  // Scan rules partition the library: each enabled rule owns its folders (most
+  // specific wins), the default scanner the rest. A rule-scoped run walks only that
+  // rule's folders and later reconciles only its items.
+  const scopeRule = options.ruleId ? getScanRule(options.ruleId) : null;
+  if (options.ruleId && (!scopeRule || scopeRule.libraryId !== libraryId)) {
+    db.prepare("UPDATE libraries SET scan_status = 'idle', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(libraryId);
+    throw new Error("Scan rule not found.");
+  }
+  const ownership: WalkOwnership = { index: loadOwnerIndex(libraryId), owners: new Map(), onlyRuleId: scopeRule?.id ?? null };
+  const filesByFolder = await walkAudiobookFiles(rootPath, config.settings, config.groupingMode, ownership);
   const entries = [...filesByFolder.entries()];
   const booksTotal = entries.length;
   const foundFolders = new Set<string>();
@@ -1500,7 +1626,7 @@ async function scanAudiobookLibrary(libraryId: string, jobId: string | null = nu
 
       const [folderAbsolutePath, files] = entries[i];
       try {
-        const book = await prepareBookScan(libraryId, rootPath, config, folderAbsolutePath, files);
+        const book = await prepareBookScan(libraryId, rootPath, config, folderAbsolutePath, files, ownership.owners.get(folderAbsolutePath) ?? null);
         db.transaction(() => writeBookScan(libraryId, book))();
         foundFolders.add(book.folderPath);
         discoveredBooks += 1;
@@ -1532,8 +1658,13 @@ async function scanAudiobookLibrary(libraryId: string, jobId: string | null = nu
   }
 
   db.transaction(() => {
-    const knownBooks = db.prepare("SELECT id, folder_path FROM library_items WHERE library_id = ? AND deleted_at IS NULL")
-      .all(libraryId) as { id: string; folder_path: string }[];
+    // Reconcile only what this run could see: everything for a full scan, one
+    // rule's items for a rule-scoped scan. A rule-scoped scan must never soft-delete
+    // the rest of the library it did not walk.
+    const knownBooks = (scopeRule
+      ? db.prepare("SELECT id, folder_path FROM library_items WHERE library_id = ? AND deleted_at IS NULL AND scan_rule_id = ?").all(libraryId, scopeRule.id)
+      : db.prepare("SELECT id, folder_path FROM library_items WHERE library_id = ? AND deleted_at IS NULL").all(libraryId)
+    ) as { id: string; folder_path: string }[];
     for (const book of knownBooks) {
       if (!foundFolders.has(book.folder_path)) {
         db.prepare("UPDATE library_items SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(book.id);
@@ -1549,6 +1680,9 @@ async function scanAudiobookLibrary(libraryId: string, jobId: string | null = nu
       SET scan_status = 'idle', last_scanned_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
       WHERE id = ?
     `).run(libraryId);
+    markScanRulesScanned(libraryId, scopeRule
+      ? [scopeRule.id]
+      : [...ownership.index.rules.values()].filter((rule) => rule.enabled).map((rule) => rule.id));
   })();
 
   // Author photos & bios, after books are committed and visible. Best-effort —
@@ -1598,12 +1732,19 @@ export async function rescanSingleBook(bookId: string, options: ScanOptions = {}
     return null;
   }
 
-  const files = readBookFolderFiles(rootPath, folderAbsolutePath, config.settings, config.groupingMode);
+  // A book inside a scan rule keeps that rule's boundary and layouts on a rescan
+  // (restore from the bin, metadata reset), so it never slides back to the default
+  // scanner's guesses.
+  const resolved = resolveOwner(row.library_id, row.folder_path);
+  const owner: BookOwner | null = resolved
+    ? { ruleId: resolved.rule.id, anchor: resolved.anchor, fields: matchLayouts(resolved.rule.layouts, keyRelativeToAnchor(row.folder_path, resolved.anchor)) }
+    : null;
+  const files = readBookFolderFiles(rootPath, folderAbsolutePath, config.settings, config.groupingMode, owner !== null);
   if (files.length === 0) {
     return null;
   }
 
-  const book = await prepareBookScan(row.library_id, rootPath, config, folderAbsolutePath, files);
+  const book = await prepareBookScan(row.library_id, rootPath, config, folderAbsolutePath, files, owner);
   db.transaction(() => writeBookScan(row.library_id, book))();
 
   if (sourceEnabled(config.sources, "online_metadata")) {
@@ -1615,6 +1756,62 @@ export async function rescanSingleBook(bookId: string, options: ScanOptions = {}
   }
 
   return book.bookId;
+}
+
+// Dry-run a scan rule's layouts over its selected folders for an audiobook library,
+// writing nothing. Reuses the real walk (with a throwaway rule standing in for the
+// one being edited) so the book boundaries the preview shows are the ones a scan
+// would draw. `change` compares against today's catalog: a boundary that swallows
+// several books today is reported as a merge, which is the case that loses progress.
+export async function previewAudiobookRulePattern(
+  libraryId: string,
+  folders: string[],
+  layouts: string[],
+  ruleId: string | null = null,
+  limit = 200
+): Promise<RulePreviewRow[]> {
+  const library = db.prepare("SELECT source_path, settings_json FROM libraries WHERE id = ? AND type = 'audiobook'")
+    .get(libraryId) as { source_path: string; settings_json: string } | undefined;
+  if (!library) return [];
+  const rootPath = validateLibrarySource(library.source_path);
+  const config = resolveScanConfig(library.settings_json, {});
+  const now = new Date().toISOString();
+  const previewRule: ScanRule = {
+    id: "__preview__", libraryId, name: "Preview", enabled: true, preset: null, layouts,
+    paths: folders.map((f) => normalizeRulePath(f)), isDefault: false, lastScannedAt: null, createdAt: now, updatedAt: now
+  };
+  const index: OwnerIndex = {
+    rows: previewRule.paths.map((p) => ({ path: p, ruleId: previewRule.id, enabled: 1 })),
+    rules: new Map([[previewRule.id, previewRule]])
+  };
+  const ownership: WalkOwnership = { index, owners: new Map(), onlyRuleId: previewRule.id };
+  const filesByFolder = await walkAudiobookFiles(rootPath, config.settings, config.groupingMode, ownership);
+
+  const rows: RulePreviewRow[] = [];
+  const existingUnder = db.prepare(
+    "SELECT folder_path FROM library_items WHERE library_id = ? AND deleted_at IS NULL AND (folder_path = ? OR folder_path LIKE ? ESCAPE '!')"
+  );
+  // '!' escapes LIKE's own wildcards; paths never contain it as a wildcard.
+  const escapeLike = (v: string) => v.replace(/[!%_]/g, (c) => `!${c}`);
+  for (const [folderAbsolutePath, files] of [...filesByFolder.entries()].sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))) {
+    const owner = ownership.owners.get(folderAbsolutePath);
+    if (!owner) continue;
+    const folderPath = normaliseRelativePath(path.relative(rootPath, folderAbsolutePath)) || ".";
+    const f = owner.fields;
+    // Books catalogued today at or beneath this boundary: more than one, or one
+    // that is not this exact folder, means the boundary is being redrawn.
+    const today = existingUnder.all(libraryId, folderPath, `${escapeLike(folderPath)}/%`) as { folder_path: string }[];
+    const change = today.length === 0 || (today.length === 1 && today[0].folder_path === folderPath)
+      ? classifyPreviewChange(libraryId, folderPath, ruleId, f.matched)
+      : `merges:${today.length}` as const;
+    rows.push({
+      path: folderPath, matched: f.matched, layoutIndex: f.layoutIndex,
+      author: f.author, series: f.series, position: f.position, title: f.title, narrator: f.narrator, year: f.year, publisher: f.publisher,
+      tracks: files.length, warnings: f.warnings ? [...f.warnings] : [], change
+    });
+    if (rows.length >= limit) break;
+  }
+  return annotatePreviewRows(rows);
 }
 
 export function enqueueAudiobookScan(libraryId: string, options: ScanOptions = {}) {

@@ -630,6 +630,48 @@ const migrations: { version: number; up: (db: Database.Database) => void }[] = [
         db.exec("ALTER TABLE story_block_points ADD COLUMN geometry TEXT");
       }
     }
+  },
+  {
+    // Scan layouts (docs/scan-layout-plan.md): a rule holds an ORDERED LIST of
+    // patterns tried in turn, not one. layouts_json carries the list; the old
+    // `pattern` column stays as a mirror of layouts[0] until no reader is left.
+    // last_scanned_at lets the Layout panel say when a rule was last applied.
+    // Backfilled in JS rather than json_array() so quoting is never a question.
+    version: 64,
+    up: (db) => {
+      const columns = new Set(
+        (db.prepare("PRAGMA table_info(library_scan_rules)").all() as { name: string }[]).map((c) => c.name)
+      );
+      if (!columns.has("layouts_json")) {
+        db.exec("ALTER TABLE library_scan_rules ADD COLUMN layouts_json TEXT NOT NULL DEFAULT '[]'");
+      }
+      if (!columns.has("last_scanned_at")) {
+        db.exec("ALTER TABLE library_scan_rules ADD COLUMN last_scanned_at TEXT");
+      }
+      // A file built from a schema.sql that postdates migration 65 never had the
+      // old column, so there is nothing to carry over.
+      if (columns.has("pattern")) {
+        const rows = db.prepare("SELECT id, pattern FROM library_scan_rules WHERE layouts_json = '[]'")
+          .all() as { id: string; pattern: string }[];
+        const set = db.prepare("UPDATE library_scan_rules SET layouts_json = ? WHERE id = ?");
+        for (const row of rows) set.run(JSON.stringify([row.pattern]), row.id);
+      }
+    }
+  },
+  {
+    // The old single `pattern` column has no reader left (layouts_json holds the
+    // list since 64), so it goes. A fresh schema.sql no longer creates it; a
+    // database that already has it drops it here. Guarded so a file built from
+    // the new schema.sql before its user_version caught up is left alone.
+    version: 65,
+    up: (db) => {
+      const columns = new Set(
+        (db.prepare("PRAGMA table_info(library_scan_rules)").all() as { name: string }[]).map((c) => c.name)
+      );
+      if (columns.has("pattern")) {
+        db.exec("ALTER TABLE library_scan_rules DROP COLUMN pattern");
+      }
+    }
   }
 ];
 
@@ -657,6 +699,21 @@ export function migrate(db: Database.Database): void {
 
   for (const m of [...migrations].sort((a, b) => a.version - b.version)) {
     if (userVersion(db) < m.version) {
+      db.transaction(() => {
+        m.up(db);
+        db.pragma(`user_version = ${m.version}`);
+      })();
+    }
+  }
+}
+
+// Test hook: apply every migration above `fromVersion` to a database that was NOT
+// built from schema.sql — a hand-made copy of an older shape — so a migration can
+// be exercised against the columns it is meant to find.
+export function runMigrationsFrom(db: Database.Database, fromVersion: number): void {
+  db.pragma(`user_version = ${fromVersion}`);
+  for (const m of [...migrations].sort((a, b) => a.version - b.version)) {
+    if (m.version > fromVersion) {
       db.transaction(() => {
         m.up(db);
         db.pragma(`user_version = ${m.version}`);

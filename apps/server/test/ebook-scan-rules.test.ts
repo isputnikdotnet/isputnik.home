@@ -2,7 +2,9 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../src/db.js";
 import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
 import { ingestEbookGroup, reconcileOwnedItems } from "../src/modules/library/ebook/scanner.js";
-import { createScanRule, isScanRuleError } from "../src/modules/library/shared/scan-rules.js";
+import {
+  createScanRule, isScanRuleError, annotatePreviewRows, classifyPreviewChange, type RulePreviewRow
+} from "../src/modules/library/shared/scan-rules.js";
 import { normalizeLibrarySettings } from "../src/modules/library/shared/library-settings.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
 
@@ -88,5 +90,55 @@ describe("reconcileOwnedItems", () => {
     reconcileOwnedItems("EB", rule.id, new Set(["rule/keep"]));
     expect(deletedAt("r1")).toBeNull();
     expect(deletedAt("r2")).not.toBeNull();
+  });
+});
+
+describe("layout-derived year and publisher", () => {
+  it("persists {year} and {publisher} captured by the layout", async () => {
+    const rule = createScanRule("EB", { name: "Pub", layouts: ["{author} - {title} ({publisher}, {year})"], paths: ["Shelf"] });
+    if (isScanRuleError(rule)) throw new Error(rule.error);
+
+    const id = await ingestEbookGroup("EB", [fileEntry("Shelf/Doyle - A Study in Scarlet (Penguin, 2003).fb2")], SETTINGS, false, {
+      scanRuleId: rule.id,
+      fields: { matched: true, author: "Doyle", title: "A Study in Scarlet", publisher: "Penguin", year: 2003 }
+    });
+    expect(db.prepare("SELECT year_published, publisher FROM item_metadata WHERE item_id = ?").get(id))
+      .toEqual({ year_published: 2003, publisher: "Penguin" });
+  });
+});
+
+describe("annotatePreviewRows", () => {
+  const row = (path: string, series: string | undefined, position: number | undefined): RulePreviewRow =>
+    ({ path, matched: true, layoutIndex: 0, series, position, warnings: [], change: "new" });
+
+  it("flags duplicate positions within a series and a position without a series", () => {
+    const rows = annotatePreviewRows([
+      row("Earthsea/02 - A", "Earthsea", 2),
+      row("Earthsea/02 - B", "Earthsea", 2),
+      row("Earthsea/03 - C", "Earthsea", 3),
+      row("Loose/04 - D", undefined, 4)
+    ]);
+    expect(rows[0].warnings).toEqual(['2 books share position 2 in "Earthsea".']);
+    expect(rows[1].warnings).toEqual(['2 books share position 2 in "Earthsea".']);
+    expect(rows[2].warnings).toEqual([]);
+    expect(rows[3].warnings).toEqual(["A position with no series: the number is dropped. Label a series, or skip the number."]);
+  });
+});
+
+describe("classifyPreviewChange", () => {
+  it("tells new, default-owned, own-rule and other-rule books apart", () => {
+    const mine = createScanRule("EB", { name: "Mine", pattern: "{title}", paths: ["Mine"] });
+    const other = createScanRule("EB", { name: "Other", pattern: "{title}", paths: ["Other"] });
+    if (isScanRuleError(mine) || isScanRuleError(other)) throw new Error("setup failed");
+    const ins = db.prepare("INSERT INTO library_items (id, library_id, type, folder_path, scan_rule_id) VALUES (?, 'EB', 'ebook', ?, ?)");
+    ins.run("d", "Default/Book", null);
+    ins.run("m", "Mine/Book", mine.id);
+    ins.run("o", "Other/Book", other.id);
+
+    expect(classifyPreviewChange("EB", "Nowhere/Book", mine.id, true)).toBe("new");
+    expect(classifyPreviewChange("EB", "Default/Book", mine.id, true)).toBe("moves-from-default");
+    expect(classifyPreviewChange("EB", "Mine/Book", mine.id, true)).toBe("unchanged");
+    expect(classifyPreviewChange("EB", "Other/Book", mine.id, true)).toBe(`moves-from-rule:${other.id}`);
+    expect(classifyPreviewChange("EB", "Default/Book", mine.id, false)).toBe("added-without-fields");
   });
 });

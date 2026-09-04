@@ -9,7 +9,7 @@ out, [storage](storage.md) isn't set up yet.
 
 ## The wizard
 
-**Add library** walks through three steps.
+**Add library** walks through three steps, four for a book library.
 
 ### 1. What kind of media?
 
@@ -48,7 +48,16 @@ shared household library; naming an owner makes it theirs to manage.
 The defaults suit most people — you can change all of it later from the
 library's Edit dialog.
 
-### 3. Review
+### 3. Layout (audiobooks and ebooks)
+
+**How are your books arranged?** Pick the shape that matches your folders, such
+as *Author / Series / 01 - Title*, and the first scan reads authors, series and
+titles from folder and file names accordingly. Not sure, or your library mixes
+several shapes? Keep **Scanner defaults**; after the first scan, open the
+library's **Layout** to label a real file and add rules for folders arranged
+differently. The audiobook and ebook guides explain both.
+
+### 4. Review
 
 The last step lists everything back to you — type, folder, visibility, formats,
 where metadata comes from — before anything happens. **Add and scan** creates
@@ -92,6 +101,8 @@ Each library row has:
 
 - **⟳ Scan** — re-read the folder.
 - **✎ Edit** — name, visibility, formats, upload rules, scan behaviour.
+- **Layout** (wand) — for book libraries: how folder and file names are read,
+  and rules for folders arranged differently. See the audiobook and ebook guides.
 - **Members** — for a private library, who else may see it and what they may do.
 - **🗑 Delete** — removes the library *from the app*. **Your files stay on
   disk.** Only the catalogue entry, and the covers generated from it, go away.
