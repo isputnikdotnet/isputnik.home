@@ -93,7 +93,11 @@ export function StoryBlockEditor({
   if (isPickable(block.kind)) {
     items.push({
       key: "change",
-      label: t(`stories:edit.change.${block.kind}`),
+      // A video block is a media block, but "Change the photo" over a clip reads
+      // wrong; the label follows what is actually there.
+      label: block.kind === "media" && block.asset?.kind === "video"
+        ? t("stories:edit.change.video")
+        : t(`stories:edit.change.${block.kind}`),
       icon: <Replace size={15} aria-hidden="true" />,
       onSelect: () => setChanging(true)
     });
@@ -215,6 +219,7 @@ export function StoryBlockEditor({
       {changing && isPickable(block.kind) && (
         <StoryBlockPicker
           kind={block.kind}
+          only={block.kind === "media" && block.asset?.kind === "video" ? "video" : undefined}
           storyId={storyId}
           storyTags={storyTags}
           block={block}

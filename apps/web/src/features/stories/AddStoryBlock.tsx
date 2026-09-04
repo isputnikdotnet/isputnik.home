@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   BookOpen,
+  Clapperboard,
   Images,
   LayoutGrid,
   MapPin,
@@ -15,25 +16,33 @@ import {
 } from "lucide-react";
 import { Button } from "../../shared/Button";
 import { Modal } from "../../shared/Modal";
-import { StoryBlockPicker, type PickableKind } from "./StoryBlockPicker";
+import { StoryBlockPicker, type MediaOnly, type PickableKind } from "./StoryBlockPicker";
 import { useRecordingsTarget } from "./useRecordingsTarget";
 import type { StoryBlockKind } from "./types";
 
-const BLOCK_ICONS: Record<StoryBlockKind, LucideIcon> = {
-  text: Type,
-  media: Images,
-  album: Images,
-  slideshow: Play,
-  map: MapPin,
-  person: UserRound,
-  quote: Quote,
-  book: BookOpen,
-  audio: Mic
-};
+/** What the dialog offers. A choice is a block kind plus, for the gallery, which
+ *  of its kinds to browse: "Photo" and "Video" both make a media block, but a
+ *  video is a hunt through a gallery of photos unless the picker lists videos
+ *  alone — so the choice, not the block, carries the difference. */
+interface BlockChoice {
+  key: "text" | "media" | "video" | "album" | "slideshow" | "map" | "person" | "quote" | "book" | "audio";
+  kind: StoryBlockKind;
+  icon: LucideIcon;
+  only?: MediaOnly;
+}
 
 /** The order they are offered in: prose first, then what the library can lend. */
-const BLOCK_KINDS: StoryBlockKind[] = [
-  "text", "media", "album", "slideshow", "map", "person", "quote", "book", "audio"
+const BLOCK_CHOICES: BlockChoice[] = [
+  { key: "text", kind: "text", icon: Type },
+  { key: "media", kind: "media", icon: Images },
+  { key: "video", kind: "media", icon: Clapperboard, only: "video" },
+  { key: "album", kind: "album", icon: Images },
+  { key: "slideshow", kind: "slideshow", icon: Play },
+  { key: "map", kind: "map", icon: MapPin },
+  { key: "person", kind: "person", icon: UserRound },
+  { key: "quote", kind: "quote", icon: Quote },
+  { key: "book", kind: "book", icon: BookOpen },
+  { key: "audio", kind: "audio", icon: Mic }
 ];
 
 // The insert point between blocks. It opens a dialog rather than a menu: the
@@ -53,13 +62,13 @@ export function AddStoryBlock({
   const { t } = useTranslation(["common", "stories"]);
   const recordings = useRecordingsTarget();
   const [choosing, setChoosing] = useState(false);
-  const [picking, setPicking] = useState<PickableKind | null>(null);
+  const [picking, setPicking] = useState<{ kind: PickableKind; only?: MediaOnly } | null>(null);
 
-  const choose = (kind: StoryBlockKind) => {
+  const choose = (choice: BlockChoice) => {
     setChoosing(false);
     // Prose has nothing to pick: the block is the writing surface.
-    if (kind === "text") onAdd("text", { body: "" });
-    else setPicking(kind);
+    if (choice.kind === "text") onAdd("text", { body: "" });
+    else setPicking({ kind: choice.kind, only: choice.only });
   };
 
   return (
@@ -86,8 +95,8 @@ export function AddStoryBlock({
         >
           <div className="modal-tab-content story-add-block-content">
             <div className="story-block-kind-grid">
-              {BLOCK_KINDS.map((kind) => {
-                const Icon = BLOCK_ICONS[kind];
+              {BLOCK_CHOICES.map((choice) => {
+                const { key, kind, icon: Icon } = choice;
                 // Recording needs a destination: the affordance exists only once
                 // an admin has nominated the recordings library. Members see
                 // nothing until then; an admin sees it disabled, pointing at the
@@ -96,16 +105,16 @@ export function AddStoryBlock({
                 const blocked = kind === "audio" && !recordings.enabled;
                 return (
                   <Button
-                    key={kind}
+                    key={key}
                     variant="secondary"
                     className="story-block-kind"
                     disabled={blocked}
                     title={blocked ? t("stories:audio.needsLibraryHint") : undefined}
-                    onClick={() => choose(kind)}
+                    onClick={() => choose(choice)}
                   >
                     <Icon size={20} aria-hidden="true" />
-                    <strong>{t(`stories:kind.${kind}`)}</strong>
-                    <small>{t(`stories:kindHint.${kind}`)}</small>
+                    <strong>{t(`stories:kind.${key}`)}</strong>
+                    <small>{t(`stories:kindHint.${key}`)}</small>
                   </Button>
                 );
               })}
@@ -122,10 +131,11 @@ export function AddStoryBlock({
 
       {picking && (
         <StoryBlockPicker
-          kind={picking}
+          kind={picking.kind}
+          only={picking.only}
           storyId={storyId}
           storyTags={storyTags}
-          onPick={(fields) => onAdd(picking, fields)}
+          onPick={(fields) => onAdd(picking.kind, fields)}
           onClose={() => setPicking(null)}
         />
       )}

@@ -9,6 +9,7 @@ import {
   House,
   KeyRound,
   Link2,
+  Share2,
   Shield,
   ShieldCheck,
   SmartphoneNfc,
@@ -19,7 +20,7 @@ import { SortHeader, type SortDirection } from "../../../../shared/SortHeader";
 import { Tooltip } from "../../../../shared/Tooltip";
 import { countryName, formatManagedDate } from "../../../../shared/utils";
 import type { IpReputationEntry, LogEvent } from "../../types";
-import { isFailedLoginEvent, loginMethodLabel, loginResultLabel } from "./activityEvents";
+import { GUEST_VISIT_EVENT, isFailedLoginEvent, isGuestVisitEvent, loginMethodLabel, loginResultLabel } from "./activityEvents";
 import type { ActivitySort } from "./useRecentActivity";
 
 // The sign-ins table proper. A row is the glanceable version — address, a
@@ -33,8 +34,17 @@ const METHOD_ICONS: Record<string, LucideIcon> = {
   "auth.passkey_login": Fingerprint,
   "auth.mfa_verified": ShieldCheck,
   "auth.mfa_failed": SmartphoneNfc,
-  "auth.device_link_approved": Link2
+  "auth.device_link_approved": Link2,
+  [GUEST_VISIT_EVENT]: Share2
 };
+
+// A share-link visit has no account behind it by design, which is a different
+// thing from a name the address gave that matched nobody.
+function actorLabel(entry: LogEvent, t: TFunction<readonly ["common", "controlDash"], undefined>, long: boolean): string {
+  if (entry.actorName) return entry.actorName;
+  if (isGuestVisitEvent(entry.event)) return t("controlDash:loginsTable.guest");
+  return long ? t("controlDash:loginsTable.unknownActor") : t("controlDash:loginsTable.unknown");
+}
 
 // Local addresses are the normal case in a house: never offer to send one to
 // AbuseIPDB, which would learn nothing and tell us nothing.
@@ -123,6 +133,7 @@ export function LoginsTable({
           {logs.map((entry) => {
             const open = expanded === entry.id;
             const failed = isFailedLoginEvent(entry.event);
+            const guest = isGuestVisitEvent(entry.event);
             const MethodIcon = METHOD_ICONS[entry.event] ?? HelpCircle;
             // A failed attempt doesn't record which method was tried, so the
             // glyph needs a name of its own rather than the table's "—".
@@ -148,7 +159,7 @@ export function LoginsTable({
                 <td>
                   <span className="datagrid-primary">
                     <strong>{entry.ipAddress ?? t("controlDash:loginsTable.noAddress")}</strong>
-                    <small>{entry.actorName ?? t("controlDash:loginsTable.unknown")}</small>
+                    <small>{actorLabel(entry, t, false)}</small>
                   </span>
                 </td>
                 {/* The hover target is the whole cell, not the 18px glyph: an
@@ -161,7 +172,7 @@ export function LoginsTable({
                   </Tooltip>
                 </td>
                 <td>
-                  <span className={`status-badge ${failed ? "failed" : "completed"}`}>
+                  <span className={`status-badge ${failed ? "failed" : guest ? "idle" : "completed"}`}>
                     {loginResultLabel(entry.event)}
                   </span>
                 </td>
@@ -218,7 +229,7 @@ function LoginDetails({
     <dl className="login-detail-grid">
       <div>
         <dt>{t("controlDash:table.user")}</dt>
-        <dd>{entry.actorName ?? t("controlDash:loginsTable.unknownActor")}</dd>
+        <dd>{actorLabel(entry, t, true)}</dd>
       </div>
       <div>
         <dt>{t("controlDash:table.ipAddress")}</dt>

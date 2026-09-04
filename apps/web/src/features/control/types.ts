@@ -375,6 +375,8 @@ export interface SignInsIpRow {
   ip: string;
   connections: number;
   failed: number;
+  /** Guest share links opened from this address — visits without a sign-in. */
+  guests: number;
   people: number;
   lastSeen: string;
   local: boolean;
@@ -387,10 +389,14 @@ export interface SignInsIpRow {
 
 export interface SignInsUserRow {
   userId: string | null;
+  /** The one row that is nobody: visitors who came in through a guest share
+   *  link. Distinct from the null-user row, which is failed attempts. */
+  guest: boolean;
   name: string | null;
   email: string | null;
   connections: number;
   failed: number;
+  guests: number;
   addresses: number;
   lastSeen: string;
   methods: SignInsMethodCounts;
@@ -419,6 +425,9 @@ export interface DashboardSignIns {
     attempts: number;
     success: number;
     failed: number;
+    /** Guest share links opened by someone not signed in. Not an attempt: the
+     *  link let them in, so it is counted beside sign-ins rather than among them. */
+    guests: number;
     people: number;
     addresses: number;
     /** Addresses shut out during the window — every block when nothing is scoped. */
@@ -427,7 +436,7 @@ export interface DashboardSignIns {
     lastSeen: string | null;
   };
   methods: SignInsMethodCounts;
-  series: { bucket: "hour" | "day"; buckets: string[]; success: number[]; failed: number[] };
+  series: { bucket: "hour" | "day"; buckets: string[]; success: number[]; failed: number[]; guests: number[] };
   ips: SignInsIpRow[];
   users: SignInsUserRow[];
   devices: SignInsDeviceRow[];

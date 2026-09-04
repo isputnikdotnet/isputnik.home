@@ -150,3 +150,22 @@ export function greatCircle(from: LatLng, to: LatLng): LatLng[] {
   }
   return points;
 }
+
+const EARTH_RADIUS_KM = 6371;
+
+/** How far the journey is as the crow flies, stop to stop. The editor shows it
+ *  before any real roads exist: the routed distance is only known once the
+ *  server has drawn the legs, and a rough figure beats none while planning. */
+export function routeDistanceKm(stops: { lat: number; lng: number }[]): number {
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  let total = 0;
+  for (let index = 1; index < stops.length; index += 1) {
+    const from = stops[index - 1];
+    const to = stops[index];
+    const dLat = toRad(to.lat - from.lat);
+    const dLng = toRad(to.lng - from.lng);
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(from.lat)) * Math.cos(toRad(to.lat)) * Math.sin(dLng / 2) ** 2;
+    total += 2 * EARTH_RADIUS_KM * Math.asin(Math.min(1, Math.sqrt(a)));
+  }
+  return total;
+}

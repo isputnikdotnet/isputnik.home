@@ -261,6 +261,7 @@
     "showDetails": "Show details",
     "noAddress": "No address",
     "unknown": "Unknown",
+    "guest": "Guest",
     "methodNotRecorded": "Method not recorded",
     "unknownActor": "Unknown — the address gave a name that has no account",
     "notRecorded": "Not recorded",
@@ -279,8 +280,10 @@
     "methodPasswordTwoFactor": "Password + two-factor",
     "methodTwoFactorCode": "Two-factor code",
     "methodDeviceLink": "Device link",
+    "methodShareLink": "Share link",
     "resultSuccess": "Success",
-    "resultFailed": "Failed"
+    "resultFailed": "Failed",
+    "resultGuest": "Opened link"
   },
   "signInsFilter": {
     "title": "Filter sign-ins",
@@ -319,6 +322,13 @@
     "shareOfAttempts": "{{share}}% of attempts",
     "blockedAddresses_one": "{{count}} address blocked",
     "blockedAddresses_other": "{{count}} addresses blocked",
+    "guestVisits": "Guest visits",
+    "guestVisitsN_one": "{{count}} guest visit",
+    "guestVisitsN_other": "{{count}} guest visits",
+    "guestVisitors": "Guest visitors",
+    "guestVisitorsNote": "Came in through a share link — no account",
+    "methodShareLinkN_one": "{{count}} share link",
+    "methodShareLinkN_other": "{{count}} share links",
     "newestOnly_one": "newest {{count}} shown · the rest are in Logs",
     "newestOnly_other": "newest {{count}} shown · the rest are in Logs",
     "deviceDisplay_one": "display",

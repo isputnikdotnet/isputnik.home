@@ -1532,12 +1532,13 @@
 
 .story-picker-text small { color: var(--muted); }
 
-/* Placing a pin is the whole job of this dialog, so the map gets the room: the
-   panel opens as wide as the screen sensibly allows and the map takes every
-   pixel the search box, the name field and the buttons do not. */
+/* The map dialog: words on the left, the map on the right. The panel opens as
+   wide as the screen sensibly allows; the map takes the whole right column, and
+   only the left column scrolls, so a long itinerary neither shrinks the map nor
+   hides the search results under it. */
 .metadata-modal.story-map-picker-modal {
-  width: min(calc(100vw - 48px), 1080px);
-  height: min(calc(100vh - 48px), 760px);
+  width: min(calc(100vw - 48px), 1180px);
+  height: min(calc(100vh - 48px), 780px);
   /* Header, then everything else — the shell's third row is for a tab strip
      this dialog does not have, and without saying so the map lands in an
      auto-sized row and keeps its minimum height. */
@@ -1545,37 +1546,66 @@
 }
 
 .story-map-modal {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
+  display: grid;
+  grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 16px 18px;
   min-height: 0;
   height: 100%;
+  overflow: hidden;
+  padding: 16px 22px 18px;
 }
 
-.story-map-modal .story-route-picker {
-  flex: 1 1 auto;
-  min-height: 320px;
+/* Search on top, the stops beneath it. This is the column that scrolls. */
+.story-map-side {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 0;
+  overflow-y: auto;
+  /* Room for the scrollbar so the cards do not hug it. */
+  padding-right: 4px;
 }
 
-@media (max-width: 740px) {
-  .story-map-modal .story-route-picker { min-height: 260px; }
-}
-
-/* The stops under the map: the route in words, in the order it is drawn. The
-   list scrolls rather than pushing the map off the dialog — the map is the
-   thing being edited, and a long itinerary must not shrink it. */
-.story-route-stops-section {
+.story-map-search {
   display: flex;
   flex-direction: column;
   gap: 8px;
   flex: 0 0 auto;
 }
 
+.story-map-search .gallery-place-results {
+  max-height: 220px;
+}
+
+.story-map-main {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  min-width: 0;
+}
+
+.story-map-modal .story-route-picker {
+  flex: 1 1 auto;
+  min-height: 320px;
+  margin-bottom: 0;
+}
+
+/* The stops: the route in words, in the order it is drawn. One card per stop —
+   number, name and the row's tools on the first line, how it was reached on
+   the second. */
+.story-route-stops-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
 .story-route-stops-section h3 {
   margin: 0;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   font-weight: 600;
-  color: var(--muted);
 }
 
 .story-route-empty { margin: 0; font-size: 0.88rem; }
@@ -1586,26 +1616,118 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  max-height: 180px;
-  overflow-y: auto;
-}
-
-.story-route-stops li {
-  display: flex;
-  align-items: center;
   gap: 8px;
 }
 
-/* min-width: 0 so a long place name scrolls inside the field instead of
-   stretching the dialog. */
-.story-route-stops input { flex: 1 1 auto; min-width: 0; }
+.story-route-stop {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "index name tools"
+    ". mode mode";
+  align-items: center;
+  gap: 8px 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
 
-/* How this stop was reached. Narrow on purpose: the place name is the row's
-   subject, and the mode is a note beside it. */
-.story-route-mode { flex: 0 0 auto; width: 130px; }
+.story-route-stop .story-route-index { grid-area: index; width: 28px; height: 28px; }
 
-.story-route-note { margin: 0; font-size: 0.82rem; }
+/* The card's fields wear the app's field chrome at a size that fits a card:
+   a bare input would fall back to the browser's, and the full 46px control
+   would make every stop two tall rows. */
+.story-route-stop-name,
+.story-route-mode {
+  min-height: 36px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--ink);
+  background: var(--field);
+  font-size: 0.92rem;
+}
+
+.story-route-stop-name:focus,
+.story-route-mode:focus {
+  border-color: var(--mint);
+  outline: 3px solid color-mix(in srgb, var(--mint) 28%, transparent);
+}
+
+.story-route-stop-name { grid-area: name; min-width: 0; width: 100%; }
+
+.story-route-stop-tools { grid-area: tools; display: flex; gap: 2px; }
+
+.story-route-stop-tools .icon-button {
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+}
+
+/* How this stop was reached. Sits under the name, and only as wide as its
+   longest option: the place is the card's subject, and the mode a note. */
+.story-route-mode {
+  grid-area: mode;
+  justify-self: start;
+  width: auto;
+  min-width: 150px;
+  padding-right: 28px;
+}
+
+/* Under the map: how far, in words. A planning figure — the real roads are the
+   server's to draw, and the note under it says so. */
+.story-route-summary {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex: 0 0 auto;
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.story-route-summary > svg { flex: 0 0 auto; margin-top: 2px; color: var(--mint); }
+.story-route-summary strong { display: block; font-size: 0.95rem; }
+.story-route-summary p { margin: 2px 0 0; font-size: 0.9rem; }
+.story-route-summary small { display: block; margin-top: 2px; font-size: 0.8rem; }
+
+/* The action row spans both columns; Clear map sits alone on the left, away
+   from Save, as it empties the whole route. */
+.story-map-actions {
+  grid-column: 1 / -1;
+  margin-top: 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.story-map-clear {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: auto;
+}
+
+/* Phones: one column again, the map a fixed band under the search, and the
+   whole body scrolls. */
+@media (max-width: 740px) {
+  /* A column of blocks that scrolls as one: a grid here would share the
+     height out between its rows and squash the list. */
+  .story-map-modal {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    padding: 14px 16px 16px;
+  }
+  .story-map-side,
+  .story-map-main,
+  .story-map-actions { flex: 0 0 auto; }
+  .story-map-side { overflow: visible; padding-right: 0; }
+  .story-map-modal .story-route-picker { height: 260px; min-height: 260px; }
+  .story-map-actions { flex-wrap: wrap; }
+}
 
 /* Names with the way you travelled drawn between them. */
 .story-route-caption {

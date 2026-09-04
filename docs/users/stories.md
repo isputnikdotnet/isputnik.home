@@ -130,8 +130,11 @@ opens a dialog of the kinds with a line each on what they put on the page:
 - **Text** — your words, with a row of marks over the field for bold, italic,
   headings, lists, quotes and links (see Writing text above). A preview button
   shows exactly what a reader gets.
-- **Photo / video** — picked from your gallery. Consecutive photos are laid
-  out side by side like a photo essay; any photo can go **full width**.
+- **Photo** — picked from your gallery. Consecutive photos are laid out side
+  by side like a photo essay; any photo can go **full width**.
+- **Video** — one clip from your gallery, played right on the page. Its
+  picker lists only your videos, so there is no hunting for them among the
+  photos. (A video chosen through **Photo** works just the same.)
 - **Album** or **Slideshow** — shown as a strip of its first photos with a
   way into the whole thing. A slideshow plays right there, with its own
   transitions and music.

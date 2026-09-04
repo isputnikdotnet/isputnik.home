@@ -27,6 +27,13 @@ import { parseBody } from "./shared.js";
 const LOGIN_SUCCESS_EVENTS = "'auth.login', 'auth.passkey_login', 'auth.mfa_verified', 'auth.device_link_approved'";
 // A wrong code is a failed sign-in as much as a wrong password is.
 const LOGIN_FAILED_EVENTS = "'auth.login_failed', 'auth.mfa_failed'";
+// Someone opening a guest share link is in the house without signing in, and
+// the Sign-ins page is where an admin looks for who got in — so those visits
+// are listed here too, as their own kind. Only visits by strangers count: a
+// member opening a link they were sent is already on the page as themselves.
+// The column is qualified because the WHERE it joins is used against a join.
+const GUEST_VISIT_SQL = "(activity_logs.event = 'share.accessed' AND activity_logs.actor_user_id IS NULL)";
+const GUEST_VISIT_CASE = "CASE WHEN event = 'share.accessed' THEN 1 ELSE 0 END";
 const UPLOAD_EVENTS = "'library.gallery.uploaded', 'library.ebook.book_uploaded', 'library.audiobook.book_uploaded', 'gallery.music.uploaded'";
 
 const SERIES_CASE_SQL = `
@@ -347,7 +354,7 @@ export async function dashboardPlugin(app: FastifyInstance) {
       const code = query.country.toUpperCase();
       const distinct = db.prepare(`
         SELECT DISTINCT ip_address AS ip FROM activity_logs
-        WHERE event IN (${LOGIN_SUCCESS_EVENTS}, ${LOGIN_FAILED_EVENTS})
+        WHERE (event IN (${LOGIN_SUCCESS_EVENTS}, ${LOGIN_FAILED_EVENTS}) OR ${GUEST_VISIT_SQL})
           AND datetime(created_at) >= datetime(@from)
           AND datetime(created_at) <= datetime(@to)
           AND ip_address IS NOT NULL
@@ -399,7 +406,7 @@ export async function dashboardPlugin(app: FastifyInstance) {
     // chart, the tables and the totals are all describing the same rows. Columns
     // are qualified because half the queries join users, which has created_at too.
     const conditions = [
-      `activity_logs.event IN (${LOGIN_SUCCESS_EVENTS}, ${LOGIN_FAILED_EVENTS})`,
+      `(activity_logs.event IN (${LOGIN_SUCCESS_EVENTS}, ${LOGIN_FAILED_EVENTS}) OR ${GUEST_VISIT_SQL})`,
       "datetime(activity_logs.created_at) >= datetime(@from)",
       "datetime(activity_logs.created_at) <= datetime(@to)"
     ];
@@ -412,9 +419,10 @@ export async function dashboardPlugin(app: FastifyInstance) {
 
     const totalsRow = db.prepare(`
       SELECT
-        COUNT(*) AS attempts,
+        SUM(CASE WHEN event IN (${LOGIN_SUCCESS_EVENTS}, ${LOGIN_FAILED_EVENTS}) THEN 1 ELSE 0 END) AS attempts,
         SUM(CASE WHEN event IN (${LOGIN_SUCCESS_EVENTS}) THEN 1 ELSE 0 END) AS success,
         SUM(CASE WHEN event IN (${LOGIN_FAILED_EVENTS}) THEN 1 ELSE 0 END) AS failed,
+        SUM(${GUEST_VISIT_CASE}) AS guests,
         COUNT(DISTINCT actor_user_id) AS people,
         COUNT(DISTINCT ip_address) AS addresses,
         MIN(created_at) AS first_seen,
@@ -425,9 +433,10 @@ export async function dashboardPlugin(app: FastifyInstance) {
         SUM(CASE WHEN event = 'auth.device_link_approved' THEN 1 ELSE 0 END) AS m_device_link
       FROM activity_logs WHERE ${where}
     `).get(params) as {
-      attempts: number;
+      attempts: number | null;
       success: number | null;
       failed: number | null;
+      guests: number | null;
       people: number;
       addresses: number;
       first_seen: string | null;
@@ -466,20 +475,23 @@ export async function dashboardPlugin(app: FastifyInstance) {
     const seriesRows = db.prepare(`
       SELECT strftime('${bucketFormat}', created_at) AS bucket,
         SUM(CASE WHEN event IN (${LOGIN_SUCCESS_EVENTS}) THEN 1 ELSE 0 END) AS success,
-        SUM(CASE WHEN event IN (${LOGIN_FAILED_EVENTS}) THEN 1 ELSE 0 END) AS failed
+        SUM(CASE WHEN event IN (${LOGIN_FAILED_EVENTS}) THEN 1 ELSE 0 END) AS failed,
+        SUM(${GUEST_VISIT_CASE}) AS guests
       FROM activity_logs WHERE ${where}
       GROUP BY bucket
-    `).all(params) as { bucket: string; success: number; failed: number }[];
+    `).all(params) as { bucket: string; success: number; failed: number; guests: number }[];
     const byBucket = new Map(seriesRows.map((row) => [row.bucket, row]));
     const buckets: string[] = [];
     const seriesSuccess: number[] = [];
     const seriesFailed: number[] = [];
+    const seriesGuests: number[] = [];
     const step = bucket === "hour" ? HOUR_MS : DAY_MS;
     for (let cursor = floorToBucket(from, bucket).getTime(); cursor <= to.getTime(); cursor += step) {
       const key = new Date(cursor).toISOString();
       buckets.push(key);
       seriesSuccess.push(byBucket.get(key)?.success ?? 0);
       seriesFailed.push(byBucket.get(key)?.failed ?? 0);
+      seriesGuests.push(byBucket.get(key)?.guests ?? 0);
     }
 
     // Per-address: what each IP did, where it is, whether it is shut out, and
@@ -488,11 +500,12 @@ export async function dashboardPlugin(app: FastifyInstance) {
     const ipRows = db.prepare(`
       SELECT ip_address AS ip, COUNT(*) AS connections,
         SUM(CASE WHEN event IN (${LOGIN_FAILED_EVENTS}) THEN 1 ELSE 0 END) AS failed,
+        SUM(${GUEST_VISIT_CASE}) AS guests,
         COUNT(DISTINCT actor_user_id) AS people,
         MAX(created_at) AS last_seen
       FROM activity_logs WHERE ${where} AND ip_address IS NOT NULL
       GROUP BY ip_address ORDER BY connections DESC LIMIT 100
-    `).all(params) as { ip: string; connections: number; failed: number | null; people: number; last_seen: string }[];
+    `).all(params) as { ip: string; connections: number; failed: number | null; guests: number | null; people: number; last_seen: string }[];
 
     const blockedStatement = db.prepare(
       "SELECT auto, expires_at FROM blocked_ips WHERE ip_address = ?"
@@ -516,6 +529,7 @@ export async function dashboardPlugin(app: FastifyInstance) {
         ip: row.ip,
         connections: row.connections,
         failed: row.failed ?? 0,
+        guests: row.guests ?? 0,
         people: row.people,
         lastSeen: row.last_seen,
         local: isLocal,
@@ -539,11 +553,15 @@ export async function dashboardPlugin(app: FastifyInstance) {
 
     // Per-person. Failures carry no actor — a wrong password does not prove who
     // typed it — so they gather under the null row, which the page labels rather
-    // than hiding: "someone at the door" is a fact worth a row.
+    // than hiding: "someone at the door" is a fact worth a row. Guest visits have
+    // no actor either, but they are a different fact (someone let in by a link,
+    // not someone guessing), so they get a row of their own under a fixed key.
     const userRows = db.prepare(`
-      SELECT actor_user_id AS user_id, users.display_name AS name, users.email AS email,
+      SELECT CASE WHEN event = 'share.accessed' THEN 'guest' ELSE actor_user_id END AS user_id,
+        users.display_name AS name, users.email AS email,
         COUNT(*) AS connections,
         SUM(CASE WHEN event IN (${LOGIN_FAILED_EVENTS}) THEN 1 ELSE 0 END) AS failed,
+        SUM(${GUEST_VISIT_CASE}) AS guests,
         COUNT(DISTINCT ip_address) AS addresses,
         MAX(activity_logs.created_at) AS last_seen,
         SUM(CASE WHEN event = 'auth.login' THEN 1 ELSE 0 END) AS m_password,
@@ -552,13 +570,14 @@ export async function dashboardPlugin(app: FastifyInstance) {
         SUM(CASE WHEN event = 'auth.device_link_approved' THEN 1 ELSE 0 END) AS m_device_link
       FROM activity_logs LEFT JOIN users ON users.id = activity_logs.actor_user_id
       WHERE ${where}
-      GROUP BY actor_user_id ORDER BY connections DESC LIMIT 100
+      GROUP BY 1 ORDER BY connections DESC LIMIT 100
     `).all(params) as {
       user_id: string | null;
       name: string | null;
       email: string | null;
       connections: number;
       failed: number | null;
+      guests: number | null;
       addresses: number;
       last_seen: string;
       m_password: number | null;
@@ -567,11 +586,13 @@ export async function dashboardPlugin(app: FastifyInstance) {
       m_device_link: number | null;
     }[];
     const users = userRows.map((row) => ({
-      userId: row.user_id,
+      userId: row.user_id === "guest" ? null : row.user_id,
+      guest: row.user_id === "guest",
       name: row.name,
       email: row.email,
       connections: row.connections,
       failed: row.failed ?? 0,
+      guests: row.guests ?? 0,
       addresses: row.addresses,
       lastSeen: row.last_seen,
       methods: {
@@ -687,9 +708,10 @@ export async function dashboardPlugin(app: FastifyInstance) {
       scope,
       truncated,
       totals: {
-        attempts: totalsRow.attempts,
+        attempts: totalsRow.attempts ?? 0,
         success: totalsRow.success ?? 0,
         failed: totalsRow.failed ?? 0,
+        guests: totalsRow.guests ?? 0,
         people: totalsRow.people,
         addresses: totalsRow.addresses,
         blockedIps,
@@ -702,7 +724,7 @@ export async function dashboardPlugin(app: FastifyInstance) {
         twoFactor: totalsRow.m_two_factor ?? 0,
         deviceLink: totalsRow.m_device_link ?? 0
       },
-      series: { bucket, buckets, success: seriesSuccess, failed: seriesFailed },
+      series: { bucket, buckets, success: seriesSuccess, failed: seriesFailed, guests: seriesGuests },
       ips,
       users,
       devices,

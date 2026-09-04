@@ -239,6 +239,7 @@
     "addBlockIntro": "What goes here?",
     "change": {
       "media": "Change the photo",
+      "video": "Change the video",
       "album": "Change the album",
       "slideshow": "Change the slideshow",
       "map": "Edit the map",
@@ -281,6 +282,7 @@
   "kind": {
     "text": "Text",
     "media": "Photo",
+    "video": "Video",
     "album": "Album",
     "slideshow": "Slideshow",
     "map": "Map",
@@ -323,6 +325,7 @@
     "albumTitle": "Add an album",
     "slideshowTitle": "Add a slideshow",
     "photoTitle": "Add a photo or video",
+    "videoTitle": "Add a video",
     "search": "Search by name",
     "noMatches": "Nothing matches that.",
     "personTitle": "Add someone from the family tree",
@@ -358,6 +361,10 @@
     "stopMode": "How you reached stop {{number}}",
     "modeNone": "—",
     "roadsNote": "Walking, cycling, driving and bus legs follow real roads once you save, if map routing is set up.",
+    "clearMap": "Clear map",
+    "summaryHeading": "Route summary",
+    "summaryDistance_one": "{{count}} stop · about {{distance}} km as the crow flies",
+    "summaryDistance_other": "{{count}} stops · about {{distance}} km as the crow flies",
     "modes": {
       "walk": "On foot",
       "cycle": "By bike",
@@ -451,6 +458,7 @@
   "kindHint": {
     "text": "Your own writing, in Markdown.",
     "media": "One photo or video from the gallery.",
+    "video": "One clip from the gallery, played on the page.",
     "album": "A whole album, shown as a strip.",
     "slideshow": "A slideshow that plays on the page.",
     "map": "A place, drawn on a map.",

@@ -13,12 +13,17 @@ export function isPickable(kind: StoryBlockKind): kind is PickableKind {
   return kind !== "text";
 }
 
+/** Narrow a media pick to one gallery kind. "video" lists videos alone — the
+ *  block is the same media block either way. */
+export type MediaOnly = "video";
+
 // The one place that knows which chooser a block kind needs. Adding a block and
 // changing what an existing one points at are the same question — "which photo,
 // which album, which place?" — so they ask it with the same dialog, and a kind
 // added here becomes editable and insertable in one go.
 export function StoryBlockPicker({
   kind,
+  only,
   storyId,
   storyTags,
   block,
@@ -26,6 +31,8 @@ export function StoryBlockPicker({
   onClose
 }: {
   kind: PickableKind;
+  /** For a media block: browse only this gallery kind (the "Video" choice). */
+  only?: MediaOnly;
   storyId: string;
   /** Lets the pickers offer content sharing the story's tags first. */
   storyTags?: string[];
@@ -41,8 +48,8 @@ export function StoryBlockPicker({
   if (kind === "media") {
     return (
       <PhotoPicker
-        title={t("stories:picker.photoTitle")}
-        pick="any"
+        title={only === "video" ? t("stories:picker.videoTitle") : t("stories:picker.photoTitle")}
+        pick={only ?? "any"}
         onPick={(asset) => { onClose(); onPick({ entityId: asset.id }); }}
         onClose={onClose}
       />

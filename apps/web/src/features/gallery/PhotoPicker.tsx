@@ -22,8 +22,9 @@ import { faceFocusStyle } from "./types";
 // /people + /people/:id for the clusters, /facets for the tag list, and the
 // timeline query (POST /timeline) for tags, all-photos and text search.
 //
-// Single-choice modes: `pick: "video"` (the slideshow's opening/closing clips —
-// photos dim, tapping a video hands it to `onPick`) and `pick: "any"` (a
+// Single-choice modes: `pick: "video"` (the slideshow's opening/closing clips,
+// a story's video block — the Tags and All grids list only videos, a folder's
+// photos dim, and tapping a video hands it to `onPick`) and `pick: "any"` (a
 // portrait choice — tapping anything hands it over). No POST, no tray.
 
 type PickerTab = "folders" | "people" | "tags" | "all" | "upload";
@@ -69,7 +70,7 @@ export function PhotoPicker({
     folders: t("gallery:photoPicker.searchFolders"),
     people: t("gallery:photoPicker.searchPeople"),
     tags: t("gallery:photoPicker.searchTags"),
-    all: t("gallery:photoPicker.searchPhotos")
+    all: pick === "video" ? t("gallery:photoPicker.searchVideos") : t("gallery:photoPicker.searchPhotos")
   };
   const [libraries, setLibraries] = useState<GalleryLibrary[]>([]);
   const [scope, setScope] = useState<string>("all"); // "all" or a gallery library id
@@ -230,12 +231,14 @@ export function PhotoPicker({
       .catch((err) => setError(err instanceof Error ? err.message : t("gallery:photoPicker.errors.loadTags")));
   }, [tab, scope, scopeParam]);
 
+  // Looking for a video among thousands of photos is a hunt; in video mode the
+  // server lists only videos, so a dimmed photo is never what fills the grid.
   const queryTimeline = useCallback(async (body: object) => {
     return api<{ assets: GalleryAsset[]; total: number }>("/api/library/gallery/timeline", {
       method: "POST",
-      body: JSON.stringify({ q: "", kinds: [], sort: "taken", limit: PAGE, offset: 0, ...body })
+      body: JSON.stringify({ q: "", kinds: pick === "video" ? ["video"] : [], sort: "taken", limit: PAGE, offset: 0, ...body })
     });
-  }, []);
+  }, [pick]);
 
   const loadTag = useCallback(async (name: string, offset = 0) => {
     setLoading(true);
@@ -455,7 +458,7 @@ export function PhotoPicker({
           ["folders", t("gallery:photoPicker.tabFolders")],
           ["people", t("gallery:photoPicker.tabPeople")],
           ["tags", t("gallery:photoPicker.tabTags")],
-          ["all", t("gallery:photoPicker.tabAll")],
+          ["all", pick === "video" ? t("gallery:photoPicker.tabAllVideos") : t("gallery:photoPicker.tabAll")],
           ...(canUploadHere ? [["upload", t("gallery:photoPicker.tabUpload")] as [PickerTab, string]] : [])
         ] as [PickerTab, string][]).map(([key, label]) => (
           <button
@@ -644,7 +647,11 @@ export function PhotoPicker({
             {grid(allAssets)}
             {loadMore(allAssets.length, allTotal, () => void loadAll(allAssets.length))}
             {!loading && allAssets.length === 0 && (
-              <p className="management-empty">{query ? t("gallery:photoPicker.noPhotosMatch") : t("gallery:photoPicker.noPhotosInScope")}</p>
+              <p className="management-empty">
+                {pick === "video"
+                  ? (query ? t("gallery:photoPicker.noVideosMatch") : t("gallery:photoPicker.noVideosInScope"))
+                  : (query ? t("gallery:photoPicker.noPhotosMatch") : t("gallery:photoPicker.noPhotosInScope"))}
+              </p>
             )}
           </>
         )}

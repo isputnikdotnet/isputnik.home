@@ -22,8 +22,17 @@ export const ENGAGEMENT_EVENTS = ["library.audiobook.played", "library.ebook.rea
 
 export const CONTENT_EVENTS = [...UPLOAD_EVENTS, ...DOWNLOAD_EVENTS, ...DELETE_EVENTS, ...ENGAGEMENT_EVENTS];
 
+// A guest share link being opened: nobody signed in, but somebody came in, and
+// the Sign-ins page lists it beside the sign-ins as its own kind.
+export const GUEST_VISIT_EVENT = "share.accessed";
+
+export function isGuestVisitEvent(event: string): boolean {
+  return event === GUEST_VISIT_EVENT;
+}
+
 export function loginMethodLabel(event: string): string {
   switch (event) {
+    case GUEST_VISIT_EVENT: return i18n.t("controlDash:events.methodShareLink");
     case "auth.login": return i18n.t("controlDash:events.methodPassword");
     case "auth.passkey_login": return i18n.t("controlDash:events.methodPasskey");
     case "auth.mfa_verified": return i18n.t("controlDash:events.methodPasswordTwoFactor");
@@ -40,5 +49,6 @@ export function isFailedLoginEvent(event: string): boolean {
 }
 
 export function loginResultLabel(event: string): string {
+  if (isGuestVisitEvent(event)) return i18n.t("controlDash:events.resultGuest");
   return isFailedLoginEvent(event) ? i18n.t("controlDash:events.resultFailed") : i18n.t("controlDash:events.resultSuccess");
 }

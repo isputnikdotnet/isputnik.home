@@ -297,6 +297,37 @@ describe("GET /api/dashboard/signins over a window", () => {
     expect(body.events[0].actorName).toBeTruthy();
   });
 
+  it("lists guest share-link visits beside the sign-ins, as their own kind", async () => {
+    logLogin("auth.login", "9.9.9.9", admin, 2);
+    logLogin("auth.login_failed", "8.8.8.8", null, 2);
+    // Two strangers through a link, and a member who opened one while signed
+    // in — the member is already on the page as themselves, so only the
+    // strangers count as guests.
+    logLogin("share.accessed", "6.6.6.6", null, 1);
+    logLogin("share.accessed", "6.6.6.6", null, 1);
+    logLogin("share.accessed", "9.9.9.9", member, 1);
+
+    const session = await signIn(admin);
+    const { body } = await signins(session, window(hoursAgo(24)));
+
+    // Guests are not attempts: nobody typed a password.
+    expect(body.totals.attempts).toBe(2);
+    expect(body.totals.guests).toBe(2);
+    expect(body.series.guests.reduce((a: number, b: number) => a + b, 0)).toBe(2);
+    // Their own row, apart from the failed-attempts row.
+    const guests = body.users.find((u: { guest: boolean }) => u.guest);
+    expect(guests).toMatchObject({ userId: null, guests: 2, failed: 0, connections: 2 });
+    const unknown = body.users.find((u: { userId: string | null; guest: boolean }) => u.userId === null && !u.guest);
+    expect(unknown).toMatchObject({ failed: 1, guests: 0 });
+    // The address they came from carries the count.
+    const guestIp = body.ips.find((r: { ip: string }) => r.ip === "6.6.6.6");
+    expect(guestIp).toMatchObject({ guests: 2, failed: 0 });
+    // A person's own dive never lists them: nobody is signed in on a guest link.
+    const mine = await signins(session, { ...window(hoursAgo(24)), user: member });
+    expect(mine.body.totals.guests).toBe(0);
+    expect(mine.body.users.some((u: { guest: boolean }) => u.guest)).toBe(false);
+  });
+
   it("rejects a backwards range and a garbage date", async () => {
     const session = await signIn(admin);
 

@@ -346,7 +346,10 @@ export function SignInsView() {
   const chartSeries: DashboardChartSeries[] = useMemo(
     () => [
       { label: t("controlDash:signIns.successful"), data: data?.series.success ?? [], colorVar: "--mint" },
-      { label: t("controlDash:signIns.failed"), data: data?.series.failed ?? [], colorVar: "--rose" }
+      { label: t("controlDash:signIns.failed"), data: data?.series.failed ?? [], colorVar: "--rose" },
+      // Nobody signed in for these, but someone did come in — a line of its own
+      // so a burst of link visits is neither hidden nor mistaken for sign-ins.
+      { label: t("controlDash:signIns.guestVisits"), data: data?.series.guests ?? [], colorVar: "--gold" }
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [data]
@@ -432,7 +435,12 @@ export function SignInsView() {
                 tone="info"
                 label={t("controlDash:signIns.people")}
                 value={data.totals.people.toLocaleString()}
-                context={t("controlDash:signIns.addresses", { count: data.totals.addresses })}
+                context={[
+                  t("controlDash:signIns.addresses", { count: data.totals.addresses }),
+                  data.totals.guests > 0 ? t("controlDash:signIns.guestVisitsN", { count: data.totals.guests }) : null
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
               />
             </div>
 
@@ -736,11 +744,15 @@ export function SignInsView() {
                       </thead>
                       <tbody>
                         {users.rows.map((row) => (
-                          <tr key={row.userId ?? "anonymous"}>
+                          <tr key={row.userId ?? (row.guest ? "guest" : "anonymous")}>
                             <td>
                               <span className="datagrid-primary">
-                                <strong>{row.name ?? t("controlDash:signIns.notSignedIn")}</strong>
-                                <small>{row.email ?? t("controlDash:signIns.failedNoPerson")}</small>
+                                <strong>
+                                  {row.name ?? (row.guest ? t("controlDash:signIns.guestVisitors") : t("controlDash:signIns.notSignedIn"))}
+                                </strong>
+                                <small>
+                                  {row.email ?? (row.guest ? t("controlDash:signIns.guestVisitorsNote") : t("controlDash:signIns.failedNoPerson"))}
+                                </small>
                               </span>
                             </td>
                             <td className="col-num">{row.connections.toLocaleString()}</td>
@@ -748,7 +760,7 @@ export function SignInsView() {
                               {row.failed.toLocaleString()}
                             </td>
                             <td className="col-num datagrid-muted">{row.addresses.toLocaleString()}</td>
-                            <td className="datagrid-muted">{methodsSummary(row.methods, t)}</td>
+                            <td className="datagrid-muted">{row.guest ? t("controlDash:signIns.methodShareLinkN", { count: row.guests }) : methodsSummary(row.methods, t)}</td>
                             <td className="datagrid-muted">{relativeTime(row.lastSeen)}</td>
                             <td className="locations-row-action">
                               {row.userId && scope.user !== row.userId && (
