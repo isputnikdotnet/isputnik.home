@@ -45,7 +45,9 @@ export const DEFAULT_LAYOUT_NAME = "Default layout";
 
 // Folder paths arrive with either separator; store them POSIX, slash-trimmed.
 export function normalizeRulePath(value: string): string {
-  return value.replace(/\\/g, "/").replace(/\/+/g, "/").replace(/^\/+|\/+$/g, "").trim();
+  // Split-and-join rather than anchored regexes: a run of slashes in a
+  // user-supplied path must not make the strip quadratic.
+  return value.replace(/\\/g, "/").split("/").filter((segment) => segment.length > 0).join("/").trim();
 }
 
 function normalizePaths(raw: unknown): string[] | ScanRuleError {
@@ -354,7 +356,7 @@ export function annotatePreviewRows(rows: RulePreviewRow[]): RulePreviewRow[] {
       row.warnings.push("A position with no series: the number is dropped. Label a series, or skip the number.");
     }
     if (row.series && row.position != null) {
-      const key = `${row.series.toLowerCase()} ${row.position}`;
+      const key = `${row.series.toLowerCase()}#${row.position}`;
       const list = byPosition.get(key) ?? [];
       list.push(row);
       byPosition.set(key, list);

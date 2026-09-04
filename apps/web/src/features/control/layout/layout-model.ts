@@ -202,7 +202,19 @@ function presetRoles(pattern: string): Role[][] {
   );
 }
 
-export const patternDepth = (pattern: string) => pattern.replace(/<[^>]*>/g, "").split("/").filter((s) => s.trim()).length;
+// A pattern with its `<...>` optional sections removed (the shallowest variant).
+export function withoutOptionalSections(pattern: string): string {
+  let out = "";
+  let depth = 0;
+  for (const ch of pattern) {
+    if (ch === "<") depth += 1;
+    else if (ch === ">") depth = Math.max(0, depth - 1);
+    else if (depth === 0) out += ch;
+  }
+  return out;
+}
+
+export const patternDepth = (pattern: string) => withoutOptionalSections(pattern).split("/").filter((s) => s.trim()).length;
 
 // Lay a preset's roles over the draft's segments: one role per segment joins
 // all its pieces; k roles take the first k pieces in order and the rest join
@@ -256,7 +268,7 @@ export function problemsOf(draft: LayoutDraft, kind: LibraryKind): DraftProblem[
   const pattern = patternOf(draft);
   if (!pattern) { out.push({ kind: "error", code: "empty" }); return out; }
   const counts = new Map<Role, number>();
-  for (const m of pattern.replace(/<[^>]*>/g, "").matchAll(/\{(\w+)\}/g)) {
+  for (const m of withoutOptionalSections(pattern).matchAll(/\{(\w+)\}/g)) {
     const role = (m[1] === "ignore" ? "skip" : m[1]) as Role;
     if (role === "skip" || !ROLES.includes(role)) continue;
     counts.set(role, (counts.get(role) ?? 0) + 1);
