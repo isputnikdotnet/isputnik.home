@@ -41,6 +41,8 @@ library.
   and where your place is kept.
 - [Ebooks](library-ebooks.md) — EPUB and PDF, the in-app reader, and books that
   come in more than one format.
+- [Scan rules](scan-rules.md) — teaching the scanner an ebook folder that is
+  organised its own way: patterns, preview, and which rule wins.
 - [Gallery](library-gallery.md) — photos and videos, the timeline, albums, and
   face recognition.
 - [Family tree](family-tree.md) — adding relatives, life events and photos, and

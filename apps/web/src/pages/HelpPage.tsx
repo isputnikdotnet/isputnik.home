@@ -1,7 +1,4 @@
-import {
-  BookOpen, BookText, Bug, ExternalLink, FolderTree, HardDrive, Headphones, Images, Info, KeyRound, LibraryBig,
-  Mail, MonitorSmartphone, Quote, Rocket, Send, Settings, ShieldCheck, Trash2, UserRound, Wifi, type LucideIcon
-} from "lucide-react";
+import { BookOpen, BookText, Bug, ExternalLink, FileCog, FolderTree, HardDrive, Headphones, Images, Info, KeyRound, LibraryBig, Mail, MonitorSmartphone, Quote, Rocket, Send, Settings, ShieldCheck, Trash2, UserRound, Wifi, type LucideIcon } from "lucide-react";
 import type { PublicUser } from "../api";
 import { DashboardShell } from "../app/DashboardShell";
 import { followRoute } from "../router";
@@ -80,6 +77,14 @@ const HELP_SECTIONS: HelpSection[] = [
         description: "EPUB and PDF, the in-app reader, and books that come in more than one format.",
         href: guide("library-ebooks.md"),
         external: false
+      },
+      {
+        icon: FileCog,
+        title: "Scan rules",
+        description: "Teaching the scanner a folder that is organised its own way — patterns, preview, and which rule wins.",
+        href: guide("scan-rules.md"),
+        external: false,
+        adminOnly: true
       },
       {
         icon: Images,
