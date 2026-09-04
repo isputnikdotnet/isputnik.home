@@ -132,6 +132,10 @@ opens a dialog of the kinds with a line each on what they put on the page:
   shows exactly what a reader gets.
 - **Photo** — picked from your gallery. Consecutive photos are laid out side
   by side like a photo essay; any photo can go **full width**.
+- **Photos** — several at once, without making an album of them. Tick the
+  ones you want and they land as a run of photo blocks, in the order you chose
+  them, side by side on the page; each is still its own block afterwards, with
+  its own caption, and can be moved or removed alone.
 - **Video** — one clip from your gallery, played right on the page. Its
   picker lists only your videos, so there is no hunting for them among the
   photos. (A video chosen through **Photo** works just the same.)

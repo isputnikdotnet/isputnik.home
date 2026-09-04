@@ -96,33 +96,46 @@ export function useStoryEditor(id: string) {
     ),
   [id, run, t]);
 
-  // A block is added where it was asked for: the editor's insert points sit
-  // between blocks, so afterId places the new one there instead of at the end.
-  // Creation and placement are one action from the author's side, so they are
-  // one run() here — the story is re-read once, at the end of both.
-  const addBlock = useCallback((
+  // Blocks are added where they were asked for: the editor's insert points sit
+  // between blocks, so afterId places the new ones there instead of at the end.
+  // Several at once — a handful of photos picked together — are created in the
+  // order they were chosen and placed as one run, so the story is re-read once
+  // and the author never sees them land one by one. Creation and placement are
+  // one action from the author's side, so they are one run() here.
+  const addBlocks = useCallback((
     chapterId: string,
     kind: StoryBlockKind,
-    fields: Record<string, unknown> = {},
+    fieldsList: Record<string, unknown>[],
     afterId?: string
   ) =>
     run(async () => {
-      const created = await api<{ blockId: string }>(`/api/stories/${id}/blocks`, {
-        method: "POST",
-        body: JSON.stringify({ chapterId, kind, ...fields })
-      });
+      const createdIds: string[] = [];
+      for (const fields of fieldsList) {
+        const created = await api<{ blockId: string }>(`/api/stories/${id}/blocks`, {
+          method: "POST",
+          body: JSON.stringify({ chapterId, kind, ...fields })
+        });
+        createdIds.push(created.blockId);
+      }
       const chapter = story?.chapters.find((entry) => entry.id === chapterId);
-      if (!afterId || !chapter) return;
-      const ordered = chapter.blocks.map((block) => block.id).filter((blockId) => blockId !== created.blockId);
+      if (!afterId || !chapter || createdIds.length === 0) return;
+      const ordered = chapter.blocks.map((block) => block.id).filter((blockId) => !createdIds.includes(blockId));
       const at = ordered.indexOf(afterId);
       if (at < 0) return;
-      ordered.splice(at + 1, 0, created.blockId);
+      ordered.splice(at + 1, 0, ...createdIds);
       await api(`/api/stories/${id}/blocks/reorder`, {
         method: "PATCH",
         body: JSON.stringify({ chapterId, orderedIds: ordered })
       });
     }, t("stories:errors.save")),
   [id, run, story, t]);
+
+  const addBlock = useCallback((
+    chapterId: string,
+    kind: StoryBlockKind,
+    fields: Record<string, unknown> = {},
+    afterId?: string
+  ) => addBlocks(chapterId, kind, [fields], afterId), [addBlocks]);
 
   const patchBlock = useCallback((blockId: string, fields: Record<string, unknown>) =>
     run(
@@ -187,6 +200,7 @@ export function useStoryEditor(id: string) {
     removeChapter,
     reorderChapters,
     addBlock,
+    addBlocks,
     patchBlock,
     removeBlock,
     reorderBlocks,

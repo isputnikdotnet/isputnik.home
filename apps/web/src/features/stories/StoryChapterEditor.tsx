@@ -23,7 +23,7 @@ export function StoryChapterEditor({
   busy,
   onPatch,
   onRemove,
-  onAddBlock,
+  onAddBlocks,
   blockActions
 }: {
   story: StoryDetail;
@@ -32,9 +32,10 @@ export function StoryChapterEditor({
   busy: boolean;
   onPatch: (fields: Record<string, unknown>) => void;
   onRemove: () => void;
-  /** afterId puts the new block straight after that one, where it was asked
-   *  for, rather than at the end of the chapter. */
-  onAddBlock: (kind: StoryBlockKind, fields?: Record<string, unknown>, afterId?: string) => void;
+  /** One entry per block to make — several photos picked together arrive as
+   *  several entries. afterId puts them straight after that block, where they
+   *  were asked for, rather than at the end of the chapter. */
+  onAddBlocks: (kind: StoryBlockKind, fieldsList: Record<string, unknown>[], afterId?: string) => void;
   blockActions: {
     move: (blockId: string, direction: -1 | 1) => void;
     moveToChapter: (blockId: string, chapterId: string) => void;
@@ -335,7 +336,7 @@ export function StoryChapterEditor({
               storyId={story.id}
               storyTags={story.tags}
               busy={busy}
-              onAdd={(kind, fields) => onAddBlock(kind, fields, block.id)}
+              onAdd={(kind, fieldsList) => onAddBlocks(kind, fieldsList, block.id)}
             />
           </div>
         ))}
@@ -343,7 +344,7 @@ export function StoryChapterEditor({
         {blocks.length === 0 && (
           <div className="story-edit-blocks-empty">
             <p className="muted">{t("stories:edit.chapterEmpty")}</p>
-            <AddStoryBlock storyId={story.id} storyTags={story.tags} busy={busy} onAdd={onAddBlock} />
+            <AddStoryBlock storyId={story.id} storyTags={story.tags} busy={busy} onAdd={onAddBlocks} />
           </div>
         )}
       </div>

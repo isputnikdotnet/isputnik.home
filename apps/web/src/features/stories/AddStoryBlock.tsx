@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import {
   BookOpen,
   Clapperboard,
+  Image,
   Images,
   LayoutGrid,
   MapPin,
@@ -16,25 +17,30 @@ import {
 } from "lucide-react";
 import { Button } from "../../shared/Button";
 import { Modal } from "../../shared/Modal";
+import { PhotoPicker } from "../gallery/PhotoPicker";
 import { StoryBlockPicker, type MediaOnly, type PickableKind } from "./StoryBlockPicker";
 import { useRecordingsTarget } from "./useRecordingsTarget";
 import type { StoryBlockKind } from "./types";
 
-/** What the dialog offers. A choice is a block kind plus, for the gallery, which
- *  of its kinds to browse: "Photo" and "Video" both make a media block, but a
+/** What the dialog offers. A choice is a block kind plus, for the gallery, how
+ *  to browse it: "Photo", "Photos" and "Video" all make media blocks, but a
  *  video is a hunt through a gallery of photos unless the picker lists videos
- *  alone — so the choice, not the block, carries the difference. */
+ *  alone, and a handful of photos is one trip through the picker rather than
+ *  five — so the choice, not the block, carries the difference. */
 interface BlockChoice {
-  key: "text" | "media" | "video" | "album" | "slideshow" | "map" | "person" | "quote" | "book" | "audio";
+  key: "text" | "media" | "photos" | "video" | "album" | "slideshow" | "map" | "person" | "quote" | "book" | "audio";
   kind: StoryBlockKind;
   icon: LucideIcon;
   only?: MediaOnly;
+  /** Pick several; each becomes a block of its own, in the order chosen. */
+  many?: boolean;
 }
 
 /** The order they are offered in: prose first, then what the library can lend. */
 const BLOCK_CHOICES: BlockChoice[] = [
   { key: "text", kind: "text", icon: Type },
-  { key: "media", kind: "media", icon: Images },
+  { key: "media", kind: "media", icon: Image },
+  { key: "photos", kind: "media", icon: Images, many: true },
   { key: "video", kind: "media", icon: Clapperboard, only: "video" },
   { key: "album", kind: "album", icon: Images },
   { key: "slideshow", kind: "slideshow", icon: Play },
@@ -57,18 +63,20 @@ export function AddStoryBlock({
   storyId: string;
   storyTags: string[];
   busy: boolean;
-  onAdd: (kind: StoryBlockKind, fields?: Record<string, unknown>) => void;
+  /** One entry per block to make: a single pick is a list of one, a handful of
+   *  photos a list of several, in the order they were chosen. */
+  onAdd: (kind: StoryBlockKind, fieldsList: Record<string, unknown>[]) => void;
 }) {
   const { t } = useTranslation(["common", "stories"]);
   const recordings = useRecordingsTarget();
   const [choosing, setChoosing] = useState(false);
-  const [picking, setPicking] = useState<{ kind: PickableKind; only?: MediaOnly } | null>(null);
+  const [picking, setPicking] = useState<{ kind: PickableKind; only?: MediaOnly; many?: boolean } | null>(null);
 
   const choose = (choice: BlockChoice) => {
     setChoosing(false);
     // Prose has nothing to pick: the block is the writing surface.
-    if (choice.kind === "text") onAdd("text", { body: "" });
-    else setPicking({ kind: choice.kind, only: choice.only });
+    if (choice.kind === "text") onAdd("text", [{ body: "" }]);
+    else setPicking({ kind: choice.kind, only: choice.only, many: choice.many });
   };
 
   return (
@@ -129,13 +137,28 @@ export function AddStoryBlock({
         </Modal>
       )}
 
-      {picking && (
+      {picking && picking.many && (
+        // Several photos in one go: the picker's multi-select mode, with its
+        // tray and Add button. The batch lands as consecutive blocks — which
+        // the page lays out side by side — and the dialog closes on it, since
+        // the author asked for these photos here, not for a session of adding.
+        <PhotoPicker
+          title={t("stories:picker.photosTitle")}
+          onAttach={async (itemIds) => {
+            setPicking(null);
+            onAdd("media", itemIds.map((entityId) => ({ entityId })));
+          }}
+          onClose={() => setPicking(null)}
+        />
+      )}
+
+      {picking && !picking.many && (
         <StoryBlockPicker
           kind={picking.kind}
           only={picking.only}
           storyId={storyId}
           storyTags={storyTags}
-          onPick={(fields) => onAdd(picking.kind, fields)}
+          onPick={(fields) => onAdd(picking.kind, [fields])}
           onClose={() => setPicking(null)}
         />
       )}

@@ -205,7 +205,7 @@ export function StoryEditorPage({
             onRemove={() => void editor.removeChapter(chapter.id).then(() => {
               replaceNavigate(storyEditorHref(story.id));
             })}
-            onAddBlock={(kind, fields, afterId) => void editor.addBlock(chapter.id, kind, fields, afterId)}
+            onAddBlocks={(kind, fieldsList, afterId) => void editor.addBlocks(chapter.id, kind, fieldsList, afterId)}
             blockActions={{
               move: (blockId, direction) => void editor.moveBlock(chapter, blockId, direction),
               moveToChapter: (blockId, targetId) => {
