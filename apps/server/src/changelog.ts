@@ -19,6 +19,13 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.64.1",
+    label: "A checkbox back where it belongs",
+    changes: [
+      "In a story's Send dialog, the Share link form's option to let guests open whole albums had been squeezed into a sliver beside the fields, its label running down the edge of the dialog one letter per line and pushing the Create link button onto a row of its own. It now sits on a line of its own under the fields, with its explanation beneath it, and the button is back beside the fields where it was."
+    ]
+  },
+  {
     version: "3.64.0",
     label: "A handful of photos at once",
     changes: [
