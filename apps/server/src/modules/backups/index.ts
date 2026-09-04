@@ -5,17 +5,23 @@ import { ZipArchive } from "archiver";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { db, logActivity } from "../../db.js";
-import { config } from "../../config.js";
+import { config, mfaKeyFilePath } from "../../config.js";
 import { parseBody } from "../../core/shared.js";
 import { receiveUpload, UploadError } from "../uploads/index.js";
 import { configuredThumbnailPathValue } from "../library/shared/thumbnail.js";
-import { extractFromZip, isBackupDatabaseEntry, zipHasEntry } from "./zip-read.js";
+import { extractFromZip, isBackupDatabaseEntry, isBackupMfaKeyEntry, zipHasEntry } from "./zip-read.js";
 
 // Database backups. A backup is a zip containing database.sqlite (a consistent
-// online snapshot) and, optionally, the thumbnail cache under thumbnails/ — those
-// cover images can't all be regenerated from source (uploaded and provider-fetched
-// covers live only in the cache). The metadata cache is not included (the DB is the
-// source of truth) and source media is never touched.
+// online snapshot), mfa.key when the install has one, and, optionally, the thumbnail
+// cache under thumbnails/ — those cover images can't all be regenerated from source
+// (uploaded and provider-fetched covers live only in the cache). The metadata cache
+// is not included (the DB is the source of truth) and source media is never touched.
+//
+// mfa.key is 64 bytes and always travels, because it is the only thing that can
+// decrypt the TOTP secrets inside database.sqlite: a backup without it restores an
+// install whose two-factor users are all locked out and must re-enrol. It does not
+// widen what a leaked backup exposes — that zip already carries the password hashes
+// and session tokens the second factor sits behind.
 //
 // Restore is split: cover images are written back into the cache live (static
 // files), and the database is staged as "<dbPath>.restore" for db.ts to swap in on
@@ -199,6 +205,13 @@ async function runBackup(actorUserId: string | null, trigger: "manual" | "schedu
       archive.on("error", reject);
       archive.pipe(output);
       archive.file(tmpDb, { name: "database.sqlite" });
+      // Only when the install actually keeps one: with MFA_ENCRYPTION_KEY set there
+      // is no file, and the env key is expected to be configured on the host that
+      // restores. Absent is therefore normal, not a fault.
+      const keyFile = mfaKeyFilePath();
+      if (fs.existsSync(keyFile)) {
+        archive.file(keyFile, { name: "mfa.key" });
+      }
       // Where the covers actually are, which is not necessarily THUMBNAIL_PATH: the
       // store is an admin setting that overrides the environment (see
       // library/shared/thumbnail.ts), and everything else in the app reads it that
@@ -428,6 +441,7 @@ export async function backupsPlugin(app: FastifyInstance) {
 
     const stagedDb = `${config.dbPath}.restore`;
     let coversRestored = 0;
+    let mfaKeyStaged = false;
 
     try {
       if (name.endsWith(".sqlite")) {
@@ -448,6 +462,22 @@ export async function backupsPlugin(app: FastifyInstance) {
           return reply.code(400).send({ error: "Backup database is not a valid SQLite file." });
         }
         fs.renameSync(tmp, stagedDb);
+        // assertValidSqlite opened the temp file, and opening a WAL database writes
+        // -shm/-wal beside it. The rename above moves only the main file, so without
+        // this the pair is stranded in the data folder for good — a real install had
+        // a .restore.tmp-shm sitting next to its database months after the restore.
+        for (const ext of ["-wal", "-shm"]) {
+          fs.rmSync(`${tmp}${ext}`, { force: true });
+        }
+
+        // The key is STAGED beside the database, never written live: until the next
+        // restart this process still serves the current database, whose secrets the
+        // current key decrypts. Swapping the key out from under it would break TOTP
+        // for everyone in the meantime, then fix itself on restart — a confusing
+        // window with no upside. db.ts moves the pair into place together.
+        mfaKeyStaged = await extractFromZip(filePath, (entry) =>
+          isBackupMfaKeyEntry(entry) ? `${mfaKeyFilePath()}.restore` : null
+        ) > 0;
 
         // Restore covers live into the thumbnail cache — the configured one, so they
         // land where the app will look for them rather than where the environment
@@ -474,10 +504,12 @@ export async function backupsPlugin(app: FastifyInstance) {
         wantCovers
           ? coversRestored > 0 ? `, restored ${coversRestored} cover file(s)` : ""
           : ", database only (cover art left as it is)"
+      }${
+        mfaKeyStaged ? ", with its two-factor key" : ""
       }; database applies on next restart.`,
       ipAddress: request.ip
     });
-    return reply.send({ staged: true, coversRestored, coversSkipped: !wantCovers });
+    return reply.send({ staged: true, coversRestored, coversSkipped: !wantCovers, mfaKeyStaged });
   });
 
   // Upload a backup file (.zip full backup, or .sqlite database-only) from the admin's

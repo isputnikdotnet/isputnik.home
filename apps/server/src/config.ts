@@ -66,3 +66,12 @@ export const config = {
   version: packageInfo.version,
   description: packageInfo.description
 };
+
+// Where the MFA encryption key file lives when MFA_ENCRYPTION_KEY isn't set: beside
+// the database, so it travels with the data folder. It is named here rather than in
+// core/mfa.ts because three unrelated places need it — the key loader, the backup
+// writer and the restore applier in db.ts — and db.ts must not pull otplib into the
+// startup path just to ask where a file is.
+export function mfaKeyFilePath(): string {
+  return path.join(path.dirname(config.dbPath), "mfa.key");
+}

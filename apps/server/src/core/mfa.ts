@@ -1,9 +1,8 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
-import path from "node:path";
 import { generateSecret, generateURI, verifySync } from "otplib";
 import QRCode from "qrcode";
-import { config } from "../config.js";
+import { mfaKeyFilePath } from "../config.js";
 import { sha256 } from "../crypto.js";
 
 // Two-factor (TOTP) secret handling. Unlike passwords and session/invite tokens —
@@ -13,10 +12,14 @@ import { sha256 } from "../crypto.js";
 // Key source, in order:
 //   1. MFA_ENCRYPTION_KEY env (any string; sha256-derived to 32 bytes). Set this in
 //      production and keep it stable: changing it makes every stored secret
-//      undecryptable and forces re-enrolment — the same caveat applies when a DB
-//      backup is restored onto a host that doesn't carry the same key.
+//      undecryptable and forces re-enrolment.
 //   2. A random key persisted beside the database (mfa.key, 0600) so a single-host
 //      install works out of the box and survives restarts without any configuration.
+//
+// A full backup carries the file key and a restore puts it back with the database
+// (see modules/backups), because the two only mean anything together: a database
+// restored beside the wrong key holds TOTP secrets nobody can decrypt. An install
+// on source 1 is unaffected — the env key wins, and the restored file is ignored.
 let cachedKey: Buffer | null = null;
 
 function loadKey(): Buffer {
@@ -25,7 +28,7 @@ function loadKey(): Buffer {
     return crypto.createHash("sha256").update(fromEnv).digest();
   }
 
-  const keyPath = path.join(path.dirname(config.dbPath), "mfa.key");
+  const keyPath = mfaKeyFilePath();
   try {
     const existing = fs.readFileSync(keyPath, "utf8").trim();
     if (existing.length === 64) return Buffer.from(existing, "hex");
