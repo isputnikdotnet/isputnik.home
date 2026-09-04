@@ -19,6 +19,15 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.60.0",
+    label: "One way to hand anything on",
+    changes: [
+      "Sharing a story or a photo album no longer sends you somewhere else. Send holds both halves of handing something on — the people you can tell, and the link for people without an account — and for most things it always has. Stories and albums were the exception: choosing Share link closed the dialog and opened a different one, so \"who can already see this\" lived in two places and changing your mind meant starting over. They are made and listed in the Send dialog now, exactly as a book or a single photo has been, and the second dialog is gone.",
+      "A guest link now records who opened it. If the person following the link is signed in to your server, the log names them; if they are not — which is the whole point of a guest link — it records the visit and the address it came from, as before. You will find it under Overview → Logs. Sign-ins are left alone on purpose: opening a link is not signing in, and mixing the two would spoil the numbers you check when something looks wrong.",
+      "Opening a shared link while signed in also never signs you out any more, whatever state your session is in, and does not count as your account being active — so a link you follow can no longer keep an old device looking like it is still in use."
+    ]
+  },
+  {
     version: "3.59.0",
     label: "Housekeeping you don't have to think about",
     changes: [
