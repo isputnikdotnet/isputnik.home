@@ -34,7 +34,6 @@ import { SlideshowMovieLibraryModal } from "./SlideshowMovieLibraryModal";
 import { PhotoPicker } from "./PhotoPicker";
 import { GallerySlideshowEditor } from "./GallerySlideshowEditor";
 import { ShareSetModal } from "../share/ShareSetModal";
-import { ShareAlbumModal } from "./ShareAlbumModal";
 import { SendToSheet, type SendToSubject } from "../social/SendToSheet";
 import { NotesSection } from "../social/NotesSection";
 import { RelatedStories } from "../stories/RelatedStories";
@@ -275,7 +274,7 @@ export function GalleryPage({
     albumTotal, setAlbumTotal, albumCreateOpen, setAlbumCreateOpen,
     albumNewName, setAlbumNewName, albumNewDesc, setAlbumNewDesc,
     albumRename, setAlbumRename, albumDeleteOpen, setAlbumDeleteOpen,
-    albumBusy, setAlbumBusy, shareAlbumOpen, setShareAlbumOpen,
+    albumBusy, setAlbumBusy,
     bulkAlbumOpen, setBulkAlbumOpen, coverPickerOpen, setCoverPickerOpen,
     albumBrowseOpen, setAlbumBrowseOpen,
     loadAlbums, openAlbum, patchAlbum, setAlbumCover,
@@ -837,7 +836,6 @@ export function GalleryPage({
   // browser, and any selection carried over from the previous album.
   useEffect(() => {
     setCoverPickerOpen(false);
-    setShareAlbumOpen(false);
     setAlbumBrowseOpen(false);
     setSelectionMode(false);
     setSelectedIds(new Set());
@@ -2518,19 +2516,6 @@ export function GalleryPage({
         <SendToSheet
           subject={sendToSubject}
           onClose={() => setSendToSubject(null)}
-          onGuestLink={
-            sendToSubject.entityType === "gallery_album" && selectedAlbum?.canEdit
-              ? () => { setSendToSubject(null); setShareAlbumOpen(true); }
-              : undefined
-          }
-        />
-      )}
-
-      {shareAlbumOpen && selectedAlbum && (
-        <ShareAlbumModal
-          albumId={selectedAlbum.id}
-          albumName={selectedAlbum.name}
-          onClose={() => setShareAlbumOpen(false)}
         />
       )}
 

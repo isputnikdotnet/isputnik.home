@@ -314,7 +314,6 @@
     "routeEreaderSetup": "Add your device address first",
     "activeLinks": "Active links",
     "hasAccess": "Has access",
-    "openLinkFlow": "Set up a link",
     "linkTipTitle": "Links are shown once",
     "linkTip": "Copy a new link straight away — only its fingerprint is kept, so it can never be shown again. Make a separate link per person if you want to revoke them one at a time.",
     "ereaderIntro": "Sends the file itself to the address saved on your account.",

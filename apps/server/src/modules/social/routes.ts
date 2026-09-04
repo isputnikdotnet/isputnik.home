@@ -266,12 +266,18 @@ export async function socialPlugin(app: FastifyInstance) {
       guestLink: LIBRARY_ITEM_TYPES.has(query.entityType)
         || query.entityType === "gallery_album"
         || (query.entityType === "story" && storyLinkable(query.entityId, user)),
-      // Whether the sheet may also manage guest links and existing per-person
-      // shares for this subject — the work the separate Share dialog used to do.
-      // Both hang off /api/shares, which only knows library items, so an album
-      // (its own share flow) and a family-tree person are excluded here even
-      // though the first of them can be guest-linked.
-      manageLinks: LIBRARY_ITEM_TYPES.has(query.entityType) && canGrant
+      // Whether the sheet manages this subject's guest links itself. It once meant
+      // "is this a library item", because the manager only spoke /api/shares; it
+      // now knows each kind's list and create paths, so a story and an album are
+      // managed in the tab like everything else instead of handing off to dialogs
+      // of their own. A family-tree person still has no link to manage.
+      manageLinks: (LIBRARY_ITEM_TYPES.has(query.entityType) || query.entityType === "gallery_album") && canGrant
+        || (query.entityType === "story" && storyLinkable(query.entityId, user)),
+      // Whether the foot of the People tab lists who already has an explicit
+      // share. Separate from the links above because the two do not coincide: a
+      // story has no per-person sharing at all (a published story is already on
+      // its readers' shelves), while an album has recipients on paths of its own.
+      manageUserShares: (LIBRARY_ITEM_TYPES.has(query.entityType) || query.entityType === "gallery_album") && canGrant
     });
   });
 

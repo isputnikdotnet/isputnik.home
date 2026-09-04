@@ -9,7 +9,6 @@ import { useIsMobile } from "../../shared/useIsMobile";
 import { Button } from "../../shared/Button";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { SendToSheet } from "../social/SendToSheet";
-import { ShareStoryModal } from "./ShareStoryModal";
 import { StoryChapterEditor } from "./StoryChapterEditor";
 import { StoryEditorNav } from "./StoryEditorNav";
 import { StoryOverviewPane } from "./StoryOverviewPane";
@@ -43,7 +42,6 @@ export function StoryEditorPage({
   const editor = useStoryEditor(id);
   const { story, error, busy } = editor;
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [sharing, setSharing] = useState(false);
   const [sending, setSending] = useState(false);
   // The panes live in the sidebar, and a phone has no sidebar — the same strip
   // the reading view uses carries them there instead.
@@ -110,8 +108,7 @@ export function StoryEditorPage({
             {published ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
           </Button>
           {/* Handing the story on is one door everywhere in the app: Send holds
-              both the people and the guest link, and its link tab hands back to
-              the story's own dialog. */}
+              both the people and the guest link, and manages both itself. */}
           <Button
             variant="icon"
             aria-label={t("stories:actions.send")}
@@ -227,15 +224,7 @@ export function StoryEditorPage({
         <SendToSheet
           subject={{ entityType: "story", entityId: story.id }}
           onClose={() => setSending(false)}
-          // A story's guest links hang off the story API rather than
-          // /api/shares, so the sheet offers the tab and the story's own dialog
-          // does the work — the same handoff a gallery album makes.
-          onGuestLink={() => { setSending(false); setSharing(true); }}
         />
-      )}
-
-      {sharing && story && (
-        <ShareStoryModal storyId={story.id} storyTitle={story.title} onClose={() => setSharing(false)} />
       )}
 
       {confirmDelete && story && (

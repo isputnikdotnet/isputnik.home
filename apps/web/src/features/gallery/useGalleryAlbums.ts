@@ -41,7 +41,6 @@ export function useGalleryAlbums({ setLoading, setError, setNotice }: GallerySta
   const [albumDeleteOpen, setAlbumDeleteOpen] = useState(false);
   const [albumBusy, setAlbumBusy] = useState(false);
   // Live "Share album" dialog (guest link + per-user access), for the open album.
-  const [shareAlbumOpen, setShareAlbumOpen] = useState(false);
   const [bulkAlbumOpen, setBulkAlbumOpen] = useState(false);
   // "Pick a cover" mode, where clicking a tile sets it as the album cover
   // instead of opening the lightbox.
@@ -161,7 +160,7 @@ export function useGalleryAlbums({ setLoading, setError, setNotice }: GallerySta
     albumRename, setAlbumRename,
     albumDeleteOpen, setAlbumDeleteOpen,
     albumBusy, setAlbumBusy,
-    shareAlbumOpen, setShareAlbumOpen,
+
     bulkAlbumOpen, setBulkAlbumOpen,
     coverPickerOpen, setCoverPickerOpen,
     albumBrowseOpen, setAlbumBrowseOpen,

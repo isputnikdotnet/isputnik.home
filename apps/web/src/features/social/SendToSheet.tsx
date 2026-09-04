@@ -19,6 +19,12 @@ import { profileHref } from "../../router";
 // changed your mind. That dialog is gone; its link manager and its list of
 // people with access are the Share link tab and the foot of the People tab.
 //
+// Stories and gallery albums kept dialogs of their own for a while longer, on
+// the grounds that their links were somehow special. They were not — both are
+// LIVE links like every other, and the exception only put the same dead end back
+// for two kinds of thing. They are managed here now (see LINK_API); the sheet
+// closing to open something else is not a shape this dialog has any more.
+//
 // Two steps, never more: pick who (or what), then write a line.
 
 export interface SendToSubject {
@@ -42,16 +48,21 @@ interface Destinations {
   canGrant: boolean;
   ereader: { applicable: boolean; configured: boolean };
   guestLink: boolean;
-  /** Whether this sheet may manage guest links and existing shares itself. */
+  /** Whether the sheet manages this subject's guest links in the tab. */
   manageLinks: boolean;
+  /** Whether the People tab lists who already has an explicit share. */
+  manageUserShares: boolean;
 }
 
 interface LinkShare {
   id: string;
-  bookId: string;
   label: string | null;
   expiresAt: string;
   status: "active" | "expired";
+  /** Whether a story link resolves albums to their photos. Stories only. */
+  expandAlbums?: boolean;
+  /** The subject this link points at, under a per-kind key — see LINK_API. */
+  [subjectKey: string]: unknown;
 }
 
 interface UserShare {
@@ -67,21 +78,34 @@ type Tab = "people" | "link" | "ereader";
 const SEARCH_THRESHOLD = 5;
 const EXPIRY_OPTIONS = [1, 7, 30];
 
+// Where a subject's guest links are listed and minted. Every kind revokes on the
+// same path, so only these two ever differ, and the key names the field a listed
+// link carries its subject in. Anything not named here uses the library-item
+// endpoints — books, ebooks and single photos, which is most things.
+//
+// This table is what lets the Share link tab serve every kind itself. Stories and
+// albums used to hand off to dialogs of their own, justified by albums "keeping a
+// snapshot of their membership" — which ShareAlbumModal flatly denied: album and
+// story links are both LIVE and reflect current contents. The one share that IS a
+// snapshot is an ad-hoc photo selection, and it never came through here anyway —
+// a selection has no single subject to send.
+const LINK_API: Record<string, { list: string; create: string; key: string }> = {
+  story: { list: "/api/shares/stories", create: "/api/shares/story", key: "storyId" },
+  gallery_album: { list: "/api/shares/albums", create: "/api/shares/album", key: "albumId" }
+};
+const ITEM_LINK_API = { list: "/api/shares", create: "/api/shares", key: "bookId" };
+
 export function SendToSheet({
   subject,
   onClose,
-  onGuestLink,
   onSendToEreader
 }: {
   subject: SendToSubject;
   onClose: () => void;
-  /** A host page whose guest links are its own (gallery albums). When given, the
-   *  Share link tab hands off to it instead of managing links here. */
-  onGuestLink?: () => void;
   /** Mails the file to the caller's own e-reader. Omit to hide the tab. */
   onSendToEreader?: () => Promise<void>;
 }) {
-  const { t } = useTranslation(["common", "user"]);
+  const { t } = useTranslation(["common", "user", "stories"]);
   const [destinations, setDestinations] = useState<Destinations | null>(null);
   const [loadError, setLoadError] = useState("");
   const [tab, setTab] = useState<Tab>("people");
@@ -107,6 +131,8 @@ export function SendToSheet({
   // address goes on showing a dead one.
   const [newLink, setNewLink] = useState<{ id: string; url: string } | null>(null);
   const [copied, setCopied] = useState(false);
+  // Stories only: whether the link resolves an album block to its photos.
+  const [expandAlbums, setExpandAlbums] = useState(false);
 
   // People tab, lower half: who already has an explicit share.
   const [userShares, setUserShares] = useState<UserShare[]>([]);
@@ -122,27 +148,41 @@ export function SendToSheet({
     if (searchOpen) searchRef.current?.focus();
   }, [searchOpen]);
 
-  const manageLinks = Boolean(destinations?.manageLinks) && !onGuestLink;
+  const linkApi = LINK_API[subject.entityType] ?? ITEM_LINK_API;
+  const isStory = subject.entityType === "story";
+  const manageLinks = Boolean(destinations?.manageLinks);
+  const manageUserShares = Boolean(destinations?.manageUserShares);
 
   const loadLinks = () =>
-    api<{ shares: LinkShare[] }>("/api/shares")
-      // Matched on id, not title: /api/shares returns every link the user owns,
-      // and two items can share a title (the same book in two libraries, a box
-      // set and its parts), which used to cross-list them — and let you revoke
-      // the wrong one.
-      .then((r) => setLinks(r.shares.filter((share) => share.bookId === subject.entityId)))
+    api<{ shares: LinkShare[] }>(linkApi.list)
+      // Matched on id, not title: these endpoints return every link the user
+      // owns, and two subjects can share a title (the same book in two
+      // libraries, a box set and its parts), which used to cross-list them —
+      // and let you revoke the wrong one.
+      .then((r) => setLinks(r.shares.filter((share) => share[linkApi.key] === subject.entityId)))
       .catch(() => {});
 
-  const loadUserShares = () =>
-    api<{ shares: UserShare[] }>(`/api/shares/user?bookId=${encodeURIComponent(subject.entityId)}`)
-      .then((r) => setUserShares(r.shares))
-      .catch(() => {});
+  // "Who already has this" reads and revokes on its own paths per kind, and an
+  // album's recipients come back keyed on userId rather than a share id — so they
+  // are normalised to UserShare here and revoked by whichever call that kind
+  // takes. Same list, same row, same button, wherever you opened it from.
+  const loadUserShares = () => {
+    const request = subject.entityType === "gallery_album"
+      ? api<{ recipients: (UserShare & { userId: string })[] }>("/api/shares/album/recipients", {
+          method: "POST",
+          body: JSON.stringify({ albumId: subject.entityId })
+        }).then((r) => r.recipients.map((person) => ({ ...person, id: person.userId })))
+      : api<{ shares: UserShare[] }>(`/api/shares/user?bookId=${encodeURIComponent(subject.entityId)}`)
+          .then((r) => r.shares);
+    return request.then(setUserShares).catch(() => {});
+  };
 
+  // Fetched separately: a story has links but nobody to list, so asking for its
+  // recipients would be a request that can only ever come back empty.
   useEffect(() => {
-    if (!manageLinks) return;
-    void loadLinks();
-    void loadUserShares();
-  }, [manageLinks, subject.entityId]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (manageLinks) void loadLinks();
+    if (manageUserShares) void loadUserShares();
+  }, [manageLinks, manageUserShares, subject.entityId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const people = destinations?.people ?? [];
   const pickedPeople = useMemo(
@@ -202,12 +242,14 @@ export function SendToSheet({
     setError("");
     setNewLink(null);
     try {
-      const { share } = await api<{ share: { id: string; url: string } }>("/api/shares", {
+      const { share } = await api<{ share: { id: string; url: string } }>(linkApi.create, {
         method: "POST",
         body: JSON.stringify({
-          bookId: subject.entityId,
+          [linkApi.key]: subject.entityId,
           expiresInDays,
-          label: label.trim() || undefined
+          label: label.trim() || undefined,
+          // Only a story has anything to say here; the others ignore it.
+          ...(isStory ? { expandAlbums } : {})
         })
       });
       setNewLink({ id: share.id, url: share.url });
@@ -243,7 +285,14 @@ export function SendToSheet({
 
   const revokeUser = async (id: string) => {
     try {
-      await api(`/api/shares/user/${id}`, { method: "DELETE" });
+      if (subject.entityType === "gallery_album") {
+        await api("/api/shares/album/user/revoke", {
+          method: "POST",
+          body: JSON.stringify({ albumId: subject.entityId, userId: id })
+        });
+      } else {
+        await api(`/api/shares/user/${id}`, { method: "DELETE" });
+      }
       setUserShares((prev) => prev.filter((share) => share.id !== id));
     } catch (err) {
       setError(err instanceof Error ? err.message : t("user:share.revokeFailed"));
@@ -322,7 +371,7 @@ export function SendToSheet({
   const canOpen = people.filter((person) => person.canOpen);
   const needsAccess = people.filter((person) => !person.canOpen);
   const showEreader = Boolean(destinations?.ereader.applicable && onSendToEreader);
-  const showLink = manageLinks || Boolean(destinations?.guestLink && onGuestLink);
+  const showLink = manageLinks;
   // With nothing to choose between, a row of one tile is decoration.
   const showRoutes = showEreader || showLink;
   const searchable = people.length > SEARCH_THRESHOLD;
@@ -450,7 +499,7 @@ export function SendToSheet({
               {/* Taking access away — the other half of the dialog this replaced.
                   It belongs beside the list that gives access, not in a second
                   dialog reached from a different menu. */}
-              {manageLinks && userShares.length > 0 && (
+              {manageUserShares && userShares.length > 0 && (
                 <>
                   <p className="send-to-group-label">{t("user:sendTo.hasAccess")}</p>
                   <ul className="send-to-rows">
@@ -482,7 +531,6 @@ export function SendToSheet({
           )}
 
           {tab === "link" && (
-            manageLinks ? (
               <div className="send-to-panel">
                 <p className="send-to-panel-intro">{linkIntro}</p>
 
@@ -504,6 +552,19 @@ export function SendToSheet({
                       onChange={(event) => setLabel(event.target.value)}
                     />
                   </label>
+                  {isStory && (
+                    <label className="send-to-check">
+                      <input
+                        type="checkbox"
+                        checked={expandAlbums}
+                        onChange={(event) => setExpandAlbums(event.target.checked)}
+                      />
+                      <span>
+                        {t("stories:share.expandAlbums")}
+                        <small className="muted">{t("stories:share.expandAlbumsHint")}</small>
+                      </span>
+                    </label>
+                  )}
                   <Button variant="primary" onClick={() => void createLink()} disabled={creating}>
                     <Link2 size={16} aria-hidden="true" />
                     <span>{creating ? t("user:actions.creating") : t("user:share.createLink")}</span>
@@ -553,18 +614,6 @@ export function SendToSheet({
 
                 <MessageBox tone="info" title={t("user:sendTo.linkTipTitle")}>{t("user:sendTo.linkTip")}</MessageBox>
               </div>
-            ) : (
-              // A host page whose guest links are its own (gallery albums keep a
-              // snapshot of their membership, which this generic manager cannot
-              // speak for).
-              <div className="send-to-panel">
-                <p className="send-to-panel-intro">{linkIntro}</p>
-                <Button variant="primary" onClick={onGuestLink}>
-                  <Link2 size={16} aria-hidden="true" />
-                  <span>{t("user:sendTo.openLinkFlow")}</span>
-                </Button>
-              </div>
-            )
           )}
 
           {tab === "ereader" && destinations.ereader.applicable && (
@@ -670,7 +719,7 @@ function PersonCard({
   picked: boolean;
   onToggle?: (person: Person) => void;
 }) {
-  const { t } = useTranslation(["common", "user"]);
+  const { t } = useTranslation(["common", "user", "stories"]);
   return (
     <li>
       <button

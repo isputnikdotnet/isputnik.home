@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -241,14 +241,46 @@ describe("the guest link", () => {
     expect(await screen.findByDisplayValue("https://home/lnk/abc")).toBeInTheDocument();
   });
 
-  it("hands off to a host page that owns its own links", async () => {
+  // Stories and albums used to leave this dialog for one of their own here. They
+  // mint on their own paths, which is the only thing that ever differed — so the
+  // tab speaks those paths instead, and there is nowhere left to be sent.
+  it.each([
+    ["story", "s1", "/api/shares/story", "storyId"],
+    ["gallery_album", "a1", "/api/shares/album", "albumId"]
+  ])("mints a %s link in place, on its own endpoint", async (entityType, entityId, path, key) => {
     const user = userEvent.setup();
-    const onGuestLink = vi.fn();
-    mount({ guestLink: true, manageLinks: false }, { onGuestLink });
+    const calls: Array<{ path: string; body: Record<string, unknown> }> = [];
+    mockApi.mockImplementation(async (called: string, init?: RequestInit) => {
+      if (init?.method === "POST" && called.startsWith("/api/shares")) {
+        calls.push({ path: called, body: JSON.parse(String(init.body ?? "{}")) });
+        return { share: { id: "l1", url: "https://home/lnk/xyz" } };
+      }
+      if (called.startsWith("/api/social/destinations")) {
+        return destinations({ guestLink: true, manageLinks: true });
+      }
+      return { shares: [], recipients: [] };
+    });
+    render(<SendToSheet subject={{ entityType, entityId }} onClose={vi.fn()} />);
 
     await user.click(await screen.findByRole("tab", { name: /Share link/ }));
-    await user.click(screen.getByRole("button", { name: /Set up a link/ }));
-    expect(onGuestLink).toHaveBeenCalledOnce();
+    await user.click(screen.getByRole("button", { name: /Create link/ }));
+
+    await waitFor(() => expect(calls).toHaveLength(1));
+    expect(calls[0].path).toBe(path);
+    expect(calls[0].body[key]).toBe(entityId);
+    expect(await screen.findByDisplayValue("https://home/lnk/xyz")).toBeInTheDocument();
+  });
+
+  it("offers a story's expand-albums choice, and nothing else's", async () => {
+    const user = userEvent.setup();
+    mount({ guestLink: true, manageLinks: true }, { subject: { entityType: "story", entityId: "s1" } });
+    await user.click(await screen.findByRole("tab", { name: /Share link/ }));
+    expect(screen.getByRole("checkbox")).toBeInTheDocument();
+
+    cleanup();
+    mount({ guestLink: true, manageLinks: true });
+    await user.click(await screen.findByRole("tab", { name: /Share link/ }));
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
   });
 
   it("is absent when there is no link flow at all", async () => {

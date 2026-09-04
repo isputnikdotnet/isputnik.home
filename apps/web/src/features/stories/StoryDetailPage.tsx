@@ -12,7 +12,6 @@ import type { GalleryAsset } from "../gallery/types";
 import type { SlideshowTransition } from "../gallery/types";
 import { NotesSection } from "../social/NotesSection";
 import { SendToSheet } from "../social/SendToSheet";
-import { ShareStoryModal } from "./ShareStoryModal";
 import { StoryBlockView } from "./StoryBlockView";
 import { StoryMarkdown } from "./StoryMarkdown";
 import { StoryMap } from "./StoryMap";
@@ -31,7 +30,6 @@ export function StoryDetailPage({ id, chapterId }: { id: string; chapterId?: str
   const [story, setStory] = useState<StoryDetail | null>(null);
   const [error, setError] = useState("");
   const [sending, setSending] = useState(false);
-  const [sharing, setSharing] = useState(false);
   const isMobile = useIsMobile();
   const [lightbox, setLightbox] = useState<
     { assets: GalleryAsset[]; index: number; autoPlay?: boolean; transition?: SlideshowTransition; interval?: number; transitionSeconds?: number; musicUrl?: string } | null
@@ -108,11 +106,10 @@ export function StoryDetailPage({ id, chapterId }: { id: string; chapterId?: str
           </Button>
         )}
         {/* One door for handing a story on, the same as everywhere else in the
-            app: Send holds both the people and the guest link, the link tab
-            handing back to the story's own dialog (SendToSheet's onGuestLink,
-            as gallery albums do). Shown to whoever has something to do in it —
-            a reader of a published story can send it, an author can always mint
-            a link, even for a draft. */}
+            app: Send holds the people and the guest link together, and manages
+            both itself. Shown to whoever has something to do in it — a reader of
+            a published story can send it, an author can always mint a link, even
+            for a draft. */}
         <Button variant="secondary" compact onClick={() => setSending(true)}>
           <Send size={15} aria-hidden="true" />
           <span>{t("stories:actions.send")}</span>
@@ -248,18 +245,6 @@ export function StoryDetailPage({ id, chapterId }: { id: string; chapterId?: str
         <SendToSheet
           subject={{ entityType: "story", entityId: story.id }}
           onClose={() => setSending(false)}
-          // A story's guest links hang off the story API rather than
-          // /api/shares, so the sheet offers the tab and the story's own dialog
-          // does the work — the same handoff a gallery album makes.
-          onGuestLink={story.canEdit ? () => { setSending(false); setSharing(true); } : undefined}
-        />
-      )}
-
-      {story && sharing && (
-        <ShareStoryModal
-          storyId={story.id}
-          storyTitle={story.title}
-          onClose={() => setSharing(false)}
         />
       )}
 
