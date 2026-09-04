@@ -19,6 +19,13 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.64.0",
+    label: "A handful of photos at once",
+    changes: [
+      "A story can take several photos in one go without making an album of them. Add block now offers Photos beside Photo: tick the ones you want in the gallery picker and they land together, in the order you chose them, right where you asked — laid out side by side on the page the way consecutive photos always have been. Each is still a block of its own afterwards, with its own caption, and can be moved or removed alone. Until now the only ways to put five photos on a page were five trips through the picker or an album, which is a different thing: an album is a set that lives in the gallery, and a run of photos in a story is just the story."
+    ]
+  },
+  {
     version: "3.63.0",
     label: "Room to plan the trip",
     changes: [
