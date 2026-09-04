@@ -93,6 +93,23 @@ describe("counting what nothing points at", () => {
     expect(audit.auditThumbnailStore()).toEqual({ files: 1, orphans: 0 });
   });
 
+  it("spares a recycle-bin cover, whose key lives on after its item row is gone", () => {
+    // The mirror of the case above, and the reason BOTH clauses are needed. Trashing
+    // an item deletes its library_items row but keeps the cover so the bin can show a
+    // thumbnail, recording the key in trashed_items. Live key, dead owner. A rule that
+    // trusted the owner check alone would have flagged all 286 of these in one real
+    // store — every thumbnail in the recycle bin.
+    const key = `lib0000000000000/zz/zz/${GONE_ITEM}-cover.webp`;
+    put(key);
+    db.prepare(`
+      INSERT INTO trashed_items
+        (id, library_id, library_type, library_name, source_path, title, origin_path, trash_path, file_count, size_bytes, cover_key)
+      VALUES ('t1', 'lib0000000000000', 'gallery', 'L', '/m/a', 'T', '/m/a', '/t/a', 1, 1, ?)
+    `).run(key);
+
+    expect(audit.auditThumbnailStore()).toEqual({ files: 1, orphans: 0 });
+  });
+
   it("counts a file whose owner is gone", () => {
     put(`lib0000000000000/zz/zz/${GONE_ITEM}-cover.webp`);
     put(`lib0000000000000/zz/zz/${GONE_ITEM}-cover-large.webp`);
