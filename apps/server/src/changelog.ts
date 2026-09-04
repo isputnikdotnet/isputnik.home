@@ -19,6 +19,16 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.65.0",
+    label: "A story is news when it is published",
+    changes: [
+      "A story's card on the home page is now dated from the day it was published, not from the day its draft was started. A story written over three weeks and published today used to arrive on the page three weeks old, already ranked far down or off it altogether; now it is today's news. Stories published before this release keep the date they had, so nothing old turns up as new.",
+      "Adding a chapter to a story the house has already read is news as well. The home page now says so — \"Dad added Day 4 to Alps in summer\", in the story's own word for a chapter, opening on that chapter — while an ordinary edit, a fixed typo or a swapped photo, never surfaces anything. A chapter added while the story was still a draft says nothing either; the publish does.",
+      "Both story cards are shown to the person who made them too, the one exception to the home page's rule of not reporting your own doings: publishing is a small occasion, and the author's story sits on their own front page the way it sits on everyone else's.",
+      "A chapter page no longer repeats its photos once the story ends. The strip of every photo the chapter had just shown — Photos from Day 3 · 12 shots — sat under the blocks in the app and on a guest link, so the page read as if it had finished and then started again. It is gone from both; the photos are the chapter's blocks, and tapping one still walks the whole set."
+    ]
+  },
+  {
     version: "3.64.1",
     label: "A checkbox back where it belongs",
     changes: [
