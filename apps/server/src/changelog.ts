@@ -19,6 +19,15 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.57.3",
+    label: "A backup brings your two-factor with it",
+    changes: [
+      "A backup now carries the key to your two-factor codes. Those codes work against a secret the server keeps scrambled, and the thing that unscrambles it is a small file beside the database rather than anything inside it — so a backup was taking the locked secrets and leaving the key behind. Restoring onto the same server was fine, because the key had never gone anywhere; restoring onto a new one quietly meant everybody using an authenticator app had to set it up from scratch, and nothing told you until somebody tried to sign in. The key travels in the backup now, and a restore puts it back with the database. The one you were using before is kept next to it, in case you go back to an older backup later.",
+      "Backups taken before this release don't have the key inside them. Restoring one of those onto the same server is still fine — nothing was ever lost there. Onto a fresh server it still means setting two-factor up again, so if that is a situation you might one day be in, take a new backup when it suits you.",
+      "Restoring a backup no longer leaves two stray working files behind in your data folder. They were harmless, but they sat there for good once a restore had finished."
+    ]
+  },
+  {
     version: "3.57.2",
     label: "A review shows the book it is about",
     changes: [
