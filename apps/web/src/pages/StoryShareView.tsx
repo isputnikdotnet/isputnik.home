@@ -4,7 +4,8 @@ import { BookOpen, ChevronLeft, ChevronRight, Download, Headphones, Images, MapP
 import { StoryMap } from "../features/stories/StoryMap";
 import { StoryMarkdown } from "../features/stories/StoryMarkdown";
 import { StoryStep } from "../features/stories/StoryStep";
-import { routeNames, routePins, routeStops } from "../features/stories/story-route";
+import { RouteCaption } from "../features/stories/RouteCaption";
+import { routePins, routeStops } from "../features/stories/story-route";
 import type { StoryMapPoint } from "../features/stories/types";
 import { useIsMobile } from "../shared/useIsMobile";
 import { GalleryMiniMap } from "../features/gallery/GalleryMiniMap";
@@ -577,12 +578,10 @@ function ShareBlock({ block, onOpen }: { block: StoryShareBlock; onOpen: (id: st
     if (stops.length > 1) {
       return (
         <figure className="story-block story-block-map story-block-route">
-          <StoryMap route pins={routePins(stops)} onOpen={() => {}} />
+          <StoryMap route stops={stops} pins={routePins(stops)} onOpen={() => {}} />
           <figcaption>
             <Route size={14} aria-hidden="true" />
-            <span>
-              {block.caption ?? routeNames(stops) ?? t("stories:block.routeStops", { count: stops.length })}
-            </span>
+            <RouteCaption stops={stops} caption={block.caption} />
           </figcaption>
         </figure>
       );

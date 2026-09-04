@@ -142,11 +142,17 @@ export interface BlockRow {
   layout: string | null;
 }
 
-/** One stop of a map block's route, in travel order. */
+/** One stop of a map block's route, in travel order. `mode` and `geometry`
+ *  belong to the leg that ARRIVES here — how the traveller got from the stop
+ *  before, and the line it followed — so the first stop has neither. */
 export interface RoutePoint {
   lat: number;
   lng: number;
   label: string | null;
+  mode: string | null;
+  /** An encoded polyline (precision 5), fetched once when the route was saved.
+   *  Null = draw the leg rather than follow it. */
+  geometry: string | null;
 }
 
 interface BlockPointRow {
@@ -154,6 +160,8 @@ interface BlockPointRow {
   lat: number;
   lng: number;
   label: string | null;
+  mode: string | null;
+  geometry: string | null;
 }
 
 export function getStory(storyId: string): StoryRow | undefined {
@@ -750,13 +758,13 @@ export function blockPointsByIds(blockIds: string[]): Map<string, RoutePoint[]> 
   const out = new Map<string, RoutePoint[]>();
   if (blockIds.length === 0) return out;
   const rows = db.prepare(`
-    SELECT block_id, lat, lng, label FROM story_block_points
+    SELECT block_id, lat, lng, label, mode, geometry FROM story_block_points
     WHERE block_id IN (${inClause(blockIds.length)})
     ORDER BY block_id, position ASC
   `).all(...blockIds) as BlockPointRow[];
   for (const row of rows) {
     const list = out.get(row.block_id) ?? [];
-    list.push({ lat: row.lat, lng: row.lng, label: row.label });
+    list.push({ lat: row.lat, lng: row.lng, label: row.label, mode: row.mode, geometry: row.geometry });
     out.set(row.block_id, list);
   }
   return out;
@@ -772,10 +780,15 @@ function writeBlockPoints(blockId: string, points: RoutePoint[]): void {
   if (row?.kind !== "map") return;
   db.prepare("DELETE FROM story_block_points WHERE block_id = ?").run(blockId);
   const insert = db.prepare(
-    "INSERT INTO story_block_points (id, block_id, position, lat, lng, label) VALUES (?, ?, ?, ?, ?, ?)"
+    "INSERT INTO story_block_points (id, block_id, position, lat, lng, label, mode, geometry) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
   );
   points.forEach((point, index) => {
-    insert.run(nanoid(16), blockId, index + 1, point.lat, point.lng, point.label ?? null);
+    // The first stop is arrived at from nowhere, so it never carries a leg.
+    insert.run(
+      nanoid(16), blockId, index + 1, point.lat, point.lng, point.label ?? null,
+      index === 0 ? null : point.mode ?? null,
+      index === 0 ? null : point.geometry ?? null
+    );
   });
 }
 

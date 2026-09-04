@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { ROUTING_ATTRIBUTION, drawRouteLegs } from "./story-route-layer";
 import type { StoryMapPoint } from "./types";
 
 // The editing half of a map block: click the map to add a stop, drag a stop to
@@ -78,13 +79,8 @@ export function StoryRoutePicker({
     if (!map || !layer) return;
     layer.clearLayers();
     if (points.length === 0) return;
-    if (points.length > 1) {
-      L.polyline(points.map((point) => [point.lat, point.lng] as [number, number]), {
-        className: "story-map-route",
-        weight: 3,
-        dashArray: "6 6",
-        interactive: false
-      }).addTo(layer);
+    if (points.length > 1 && drawRouteLegs(layer, points)) {
+      map.attributionControl.addAttribution(ROUTING_ATTRIBUTION);
     }
     points.forEach((point, index) => {
       const icon = L.divIcon({

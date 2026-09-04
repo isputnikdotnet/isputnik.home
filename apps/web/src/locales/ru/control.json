@@ -47,6 +47,7 @@
       "email": "Почта",
       "notifications": "Уведомления",
       "storySettings": "Истории",
+      "maps": "Карты",
       "readerAccess": "Доступ для читалок",
       "about": "О программе",
       "quotes": "Цитаты"
@@ -93,7 +94,8 @@
       "opdsReaderTokens": "Токены доступа для читалок (OPDS)",
       "twoFactorAlertsDelivery": "Доставка кодов и оповещений безопасности",
       "shareNotifications": "Уведомления о доступе",
-      "recordingsLibrary": "Библиотека записей историй"
+      "recordingsLibrary": "Библиотека записей историй",
+      "mapRouting": "Прокладка маршрутов"
     }
   },
   "about": {

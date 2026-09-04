@@ -494,6 +494,19 @@ entry, thumbnail and all — and **Purge eligible now** does it immediately.
   their own profile.
 - **Email** — outgoing mail, needed for two-factor codes, security alerts and Send
   to e-reader. It has [its own guide](email.md).
+- **Maps** — whether a route in a [story](stories.md) follows real roads. Paste a
+  free **OpenRouteService** key — the routing service at
+  [openrouteservice.org](https://openrouteservice.org), run by a research
+  institute at Heidelberg University, not the similarly named delivery-planning
+  company a search may turn up — and legs travelled on
+  foot, by bike, by car or by bus are drawn along the roads they actually took;
+  without one they stay straight lines between the stops. The service is asked
+  only when a route is **saved**, and only the two coordinates of each leg go to
+  it — never the story, the place names, or who is asking. What comes back is
+  stored with the story, so reading one never calls out, a shared link works for
+  a guest, and the map still draws if the key later lapses. You can point it at
+  your own OpenRouteService container instead if you would rather nothing left
+  the house.
 - **Reader access** — OPDS tokens that let a reading app (KOReader, Moon+ Reader,
   Thorium) browse your ebooks. One token per device, read-only, removable at any
   time.

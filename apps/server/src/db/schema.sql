@@ -1955,13 +1955,21 @@ CREATE TABLE IF NOT EXISTS story_blocks (
 -- is a child table and not four more columns, and why no migration is needed.
 -- The block's own lat/lng/zoom stay the map's frame (first stop + fit), so a
 -- reader that knows nothing about routes still shows something sensible.
+-- mode and geometry describe the LEG THAT ARRIVES here — how the traveller got
+-- from the stop before, and the line it followed. The first stop has neither,
+-- because nothing precedes it. Geometry is an encoded polyline fetched once
+-- when the route is saved (core/routing.ts) and stored, so reading a story
+-- never calls a routing service; a leg with none is drawn straight, which is
+-- what every leg was before 3.61.0.
 CREATE TABLE IF NOT EXISTS story_block_points (
   id       TEXT PRIMARY KEY,
   block_id TEXT NOT NULL REFERENCES story_blocks(id) ON DELETE CASCADE,
   position REAL NOT NULL,
   lat      REAL NOT NULL,
   lng      REAL NOT NULL,
-  label    TEXT
+  label    TEXT,
+  mode     TEXT,
+  geometry TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_story_block_points_block ON story_block_points(block_id, position);
 

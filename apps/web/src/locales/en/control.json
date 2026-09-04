@@ -47,6 +47,7 @@
       "email": "Email",
       "notifications": "Notifications",
       "storySettings": "Stories",
+      "maps": "Maps",
       "readerAccess": "Reader access",
       "about": "About",
       "quotes": "Quotes"
@@ -93,7 +94,8 @@
       "opdsReaderTokens": "OPDS reader tokens",
       "twoFactorAlertsDelivery": "Two-factor & security alerts delivery",
       "shareNotifications": "Share notifications",
-      "recordingsLibrary": "Story recordings library"
+      "recordingsLibrary": "Story recordings library",
+      "mapRouting": "Map routing"
     }
   },
   "about": {
