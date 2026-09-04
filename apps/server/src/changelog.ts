@@ -19,6 +19,17 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.58.0",
+    label: "A map that shows the way you went",
+    changes: [
+      "A map in a story can be a journey now, not just a spot. Add a Map block and there is a list of stops under the map: search for a place or click the map to add the next one, drag a pin to correct where it sits, name them as you like, and move them up and down until they are in the order you travelled. The map draws them as numbered pins and joins them with a line, so a week of moving about reads as one picture instead of a paragraph of place names. A map with a single stop is exactly the pin it always was, and every map already in your stories is untouched.",
+      "The caption underneath writes itself from the names — \"Bolzano → Ortisei → Cortina d'Ampezzo\" — so you rarely have to type one. Leave a stop unnamed and it says how many stops there are instead, rather than offering a caption with a hole in it.",
+      "The line runs straight from stop to stop. A story map is there to say which places, and in which order — not which roads, which would mean asking a mapping service on the internet about where your family has been. This app asks the internet for nothing but the map squares themselves, and that has not changed.",
+      "Somebody reading a story you shared with a link sees the route exactly as you do.",
+      "The block's own menu used to offer \"Move the pin\", which stopped being the whole truth; it says \"Edit the map\" now."
+    ]
+  },
+  {
     version: "3.57.3",
     label: "A backup brings your two-factor with it",
     changes: [
