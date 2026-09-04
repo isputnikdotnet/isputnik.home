@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { BookOpen, ChevronLeft, ChevronRight, Download, Headphones, Images, MapPin, Mic, Play, Quote, Route, Star, UserRound } from "lucide-react";
+import { BookOpen, ChevronLeft, ChevronRight, Download, Headphones, Images, MapPin, Mic, Play, Quote, Route, Star, UserRound, X } from "lucide-react";
 import { StoryMap } from "../features/stories/StoryMap";
 import { StoryMarkdown } from "../features/stories/StoryMarkdown";
 import { StoryStep } from "../features/stories/StoryStep";
@@ -281,23 +282,41 @@ export function StoryShareView({ token, payload }: { token: string; payload: Sto
         </main>
       </div>
 
-      {open && (
-        <div className="share-viewer" role="dialog" aria-modal="true" onClick={() => setOpenId(null)}>
-          <div className="share-viewer-inner" onClick={(event) => event.stopPropagation()}>
-            {open.kind === "video" ? (
-              <video src={open.fileUrl} poster={open.previewUrl} controls autoPlay />
-            ) : (
-              <img src={open.previewUrl} alt={open.title} />
-            )}
-            <div className="share-viewer-bar">
-              <span>{open.title}</span>
+      {/* The same full-screen viewer the gallery-set link uses, over the whole
+          page. The first version was a bare div of its own with no styles
+          behind it, so a tapped photo simply appeared at the foot of the page. */}
+      {open && createPortal(
+        <div className="share-set-viewer" role="dialog" aria-modal="true" aria-label={open.title}>
+          <div className="share-set-viewer-head">
+            <span className="share-set-viewer-title">{open.title}</span>
+            <div className="share-set-viewer-actions">
               <a className="secondary-button compact-button" href={open.downloadUrl} download>
-                <Download size={15} aria-hidden="true" />
-                <span>{t("user:sharePage.download")}</span>
+                <Download size={15} aria-hidden="true" /><span>{t("user:actions.download")}</span>
               </a>
+              <button type="button" className="icon-button" onClick={() => setOpenId(null)} aria-label={t("common:common.close")}>
+                <X size={18} aria-hidden="true" />
+              </button>
             </div>
           </div>
-        </div>
+          <div className="share-set-viewer-body">
+            {openIndex > 0 && (
+              <button type="button" className="share-set-nav prev" onClick={() => setOpenId(gallery[openIndex - 1].id)} aria-label={t("user:viewer.previous")}>
+                <ChevronLeft size={26} aria-hidden="true" />
+              </button>
+            )}
+            {open.kind === "video" ? (
+              <video key={open.id} src={open.fileUrl} controls playsInline poster={open.previewUrl} />
+            ) : (
+              <img key={open.id} src={open.previewUrl} alt={open.title} />
+            )}
+            {openIndex < gallery.length - 1 && (
+              <button type="button" className="share-set-nav next" onClick={() => setOpenId(gallery[openIndex + 1].id)} aria-label={t("user:viewer.next")}>
+                <ChevronRight size={26} aria-hidden="true" />
+              </button>
+            )}
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );
