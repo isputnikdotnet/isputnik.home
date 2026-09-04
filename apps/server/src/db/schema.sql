@@ -949,7 +949,11 @@ CREATE TABLE IF NOT EXISTS library_scan_rules (
   name        TEXT NOT NULL,
   enabled     INTEGER NOT NULL DEFAULT 1,   -- 0 = disabled; the default scanner owns its scope
   preset      TEXT,                          -- optional preset id the pattern came from (UI label)
-  pattern     TEXT NOT NULL,                 -- declarative layout pattern (see scan-rule-pattern.ts)
+  -- The ordered layouts (patterns, see scan-rule-pattern.ts) tried in turn; the first
+  -- that fits a book key wins. Added by migration 64, which also carried the old
+  -- single `pattern` column into it; migration 65 dropped that column.
+  layouts_json    TEXT NOT NULL DEFAULT '[]',
+  last_scanned_at TEXT,                      -- set when a scan covered this rule
   created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   updated_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );

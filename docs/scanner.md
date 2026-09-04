@@ -130,6 +130,7 @@ changing the saved config.
 | --- | --- |
 | Ebook | Group by **folder + basename** (`ebookGroupKey` = dir + filename without extension). `Title.epub` + `Title.pdf` + `Title.fb2` in one folder = **one book in three formats**. Loose files at the root are each their own book. |
 | Audiobook | Default `folder_hierarchy` grouping (see `walkAudiobookFiles`). Enabling the `folder_structure` source switches to **top-level folder = one book**, gathering all audio inside it. |
+| Either, inside a scan rule | The rule's **layouts** draw the boundary: ebooks group by the file stem as usual; an audiobook is the directory at the depth of the first layout that fits, and every audio file beneath it is a track. See §10. |
 
 ## 6. Ingest pipeline
 
@@ -193,18 +194,36 @@ Upload, restore, and metadata-reset reuse the same ingest without a full walk:
 | Embedded metadata | Audio tags, mp4 chapters | EPUB OPF, FB2 XML |
 | Folder-name parsing | Yes (`Author - Title [Narrator]`) | No (filename only) |
 | Online lookup | Optional | No |
-| **Series on scan** | **Yes** (`upsertSeries` + `series_items`) | **No** |
+| **Series on scan** | **Yes** (`upsertSeries` + `series_items`) | From a scan-rule layout only |
 | Online cover | Optional | Embedded only |
 
-## 10. Extension points (not yet built)
+## 10. Scan rules and layouts
 
-For context when evaluating new scan behaviour — the natural hook is the
-**ingest step (§6)**, after `meta` is built and gated by the same
-`source = 'manual'` check:
+Both scanners consult `shared/scan-rules.ts` (`docs/scan-layout-plan.md`). A rule
+owns folders (`library_scan_rule_paths`; the most specific enabled folder wins)
+and holds an ordered list of **layouts** (`layouts_json`), patterns tried in
+turn by `matchLayouts` in `shared/scan-rule-pattern.ts`. A rule anchored at the
+root (`""`) is the library's **default layout**.
 
-- **Ebook series** are not derived at all today; an inference step would slot in
-  here, persisting through the shared `upsertSeries` + `series_items` path the
-  audiobook scanner already uses (`series_items.source` distinguishes `scan`
-  from `manual`, which is what protects hand-curated series across rescans).
-- Any folder-structure / layout interpretation would also live in ingest, *under*
-  embedded metadata in priority, and apply on the next rescan.
+- **Ownership** is resolved once per scan from an index (`loadOwnerIndex`), and
+  written to `library_items.scan_rule_id`. Reconcile is per owner, so a
+  rule-scoped scan (`options.ruleId`, from `POST …/scan-rules/:id/scan`) walks
+  only that rule's folders and soft-deletes only its own vanished items.
+- **Captured fields win** over tags/OPF inside a rule; fields the layout omits
+  fall through to the sources. The audiobook "parent folder is the author"
+  guess is suppressed inside a rule. Layouts are read relative to the rule's
+  folder.
+- **Audiobook boundary**: `ruleBookFolder` picks the directory at the first
+  fitting layout's depth; `readBookFolderFiles(…, gatherAll)` collects every
+  file beneath it. Tracks sort by disc hint, then their own folder, then track
+  number, so `Part 1`/`Part 2` that both restart at 001 play in order.
+- **Preview** (`previewEbookRulePattern`, `previewAudiobookRulePattern`) reuses
+  the real walk and classifies each book against today's catalog
+  (`classifyPreviewChange`: new, unchanged, moves-from-default,
+  moves-from-rule, merges:n, added-without-fields).
+- **Unmatched** paths inside a rule are still catalogued, without path-derived
+  fields; the Layout panel counts them (`scanRuleStats`).
+
+The admin UI is the Layout panel (`features/control/layout/`): the default
+layout row, folder rules, and a three-step wizard (Folders → Layout → Preview)
+whose builder labels a real example path and generates the pattern.

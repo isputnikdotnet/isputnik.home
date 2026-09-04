@@ -46,6 +46,29 @@ The search returns only results that carry every word you typed, so shorten the
 query if a title comes back empty. Before applying a result, tick off the fields
 you want from it — leave *Cover* or *Year* unticked and yours stays put.
 
+## Telling the scanner how folders are arranged
+
+The one-folder-one-book rule is the default. When your folders are nested
+deeper, say `Author / Series / 01 - Title`, or a book is split into `Part 1`
+and `Part 2` folders, open the library's **Layout** (the wand icon on the
+Libraries page in the control panel).
+
+- **Default layout** applies to the whole library. Choose a starting point, then
+  label a real path from your folders: each folder gets a role (Author, Series,
+  Position, Title, Narrator, or Skip) and you mark which folder is the **book**.
+  Every audio file beneath that folder, in any subfolder, becomes a track of that
+  one audiobook, so parts and discs stay together.
+- **Rules for specific folders** cover shelves arranged differently, such as a
+  *Various* folder organised by series rather than by author.
+- Two recordings of one title by different narrators stay two books when the
+  narrator folder is part of the layout.
+- **Preview** before saving shows what the rule produces and flags books whose
+  boundary changes, because merging entries loses the listening progress on the
+  ones that disappear.
+
+What a layout reads from the path wins over the audio tags; anything it does not
+mention still comes from the tags. Your manual edits stay protected either way.
+
 ## Chapters
 
 `.m4b` files carry real chapter marks, which the app reads and lists. For books

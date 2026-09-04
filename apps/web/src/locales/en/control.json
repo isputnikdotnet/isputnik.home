@@ -26,7 +26,7 @@
     },
     "tabs": {
       "dashboard": "Dashboard",
-        "logs": "Logs",
+      "logs": "Logs",
       "libraries": "Libraries",
       "storage": "Storage",
       "categories": "Categories",
@@ -393,8 +393,8 @@
     "viewDetailsTitle": "View {{name}} details",
     "public": "Public",
     "private": "Private",
-    "scanRulesTitle": "Scan rules",
-    "scanRulesAria": "Scan rules for {{name}}",
+    "scanRulesTitle": "Layout",
+    "scanRulesAria": "Layout of {{name}}",
     "faceRecognitionTitle": "Face recognition",
     "faceRecognitionAria": "Face recognition for {{name}}",
     "manageMembersTitle": "Manage members & roles",
@@ -568,7 +568,14 @@
       "back": "Back",
       "next": "Next",
       "creating": "Creating…",
-      "addAndScan": "Add and scan"
+      "addAndScan": "Add and scan",
+      "stepLayout": "Layout",
+      "fieldLayout": "Layout",
+      "layoutHeading": "How are your books arranged?",
+      "layoutSubheading": "Pick the shape that matches your folders. The first scan reads authors, series and titles from folder and file names accordingly.",
+      "layoutGroupAria": "Folder layout",
+      "layoutScannerDefaults": "Scanner defaults",
+      "layoutNote": "Not sure, or your library mixes several shapes? Start with the scanner defaults; after the first scan, open the library’s Layout to label a real file and add rules for folders arranged differently."
     }
   },
   "libraryMembers": {

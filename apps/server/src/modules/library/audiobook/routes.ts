@@ -6,6 +6,8 @@ import { z } from "zod";
 import { canUserAccessLibrary, libraryCapabilities, deleteLibraryAccess } from "../shared/library-access.js";
 import { publicLibrary } from "../shared/library-serializer.js";
 import { coreLibraryCreateSchema, coreLibraryUpdateSchema, createLibraryRecord, updateLibraryRecord } from "../shared/library-crud.js";
+import { setDefaultLayout, isScanRuleError } from "../shared/scan-rules.js";
+import { validateLayouts } from "../shared/scan-rule-pattern.js";
 import { METADATA_SOURCE_IDS } from "../shared/metadata-sources.js";
 import { validateLibrarySource, LibrarySourceError } from "../shared/library-source.js";
 import { deleteSharesForLibrary } from "../shared/share-access.js";
@@ -34,6 +36,12 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
       return reply.code(400).send({ error: "Invalid audiobook library details", details: parsed.error });
     }
 
+    // A bad default layout must not leave a library behind without one.
+    const layoutError = parsed.data.defaultLayouts ? validateLayouts(parsed.data.defaultLayouts, "audiobook")[0] : undefined;
+    if (layoutError) {
+      return reply.code(400).send({ error: layoutError });
+    }
+
     const result = createLibraryRecord({
       type: "audiobook",
       data: parsed.data,
@@ -46,6 +54,13 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
     });
     if ("error" in result) {
       return reply.code(result.status).send({ error: result.error });
+    }
+
+    if (parsed.data.defaultLayouts) {
+      const layout = setDefaultLayout(result.libraryId, { layouts: parsed.data.defaultLayouts });
+      if (isScanRuleError(layout)) {
+        return reply.code(400).send({ error: layout.error });
+      }
     }
 
     const jobId = enqueueAudiobookScan(result.libraryId);

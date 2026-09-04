@@ -14,8 +14,11 @@ import {
   sourceEnabled,
   type ScanSourceConfig
 } from "../shared/library-settings.js";
-import { matchPattern, type PatternResult } from "../shared/scan-rule-pattern.js";
-import { listScanRules, resolveOwner } from "../shared/scan-rules.js";
+import { matchLayouts, type PatternResult } from "../shared/scan-rule-pattern.js";
+import {
+  listScanRules, getScanRule, resolveOwner, loadOwnerIndex, resolveOwnerIndexed, keyRelativeToAnchor, markScanRulesScanned,
+  annotatePreviewRows, classifyPreviewChange, type RulePreviewRow
+} from "../shared/scan-rules.js";
 import { libraryJobRunning } from "../shared/scan-lock.js";
 import { requeueInterruptedJobs, releaseAbandonedScanLibraries } from "../shared/job-recovery.js";
 import { jobProgressWriter } from "../shared/job-progress.js";
@@ -39,6 +42,8 @@ const ebookMimeTypes: Record<string, string> = {
 export interface EbookScanOptions {
   // One-shot override of the library's persisted scan_sources (rescan).
   sources?: ScanSourceConfig[];
+  // Confine the scan to one scan rule's folders; only that rule's items are reconciled.
+  ruleId?: string;
 }
 
 interface EbookFileEntry {
@@ -361,21 +366,24 @@ export async function ingestEbookGroup(
     }
 
     if (!manual) {
+      // A rule pattern's year and publisher, like its title, win over the file's own.
       db.prepare(`
-        INSERT INTO item_metadata (item_id, source, title, sort_title, description, year_published, language, isbn, cover_storage_key)
-        VALUES (?, 'scan', ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO item_metadata (item_id, source, title, sort_title, description, year_published, publisher, language, isbn, cover_storage_key)
+        VALUES (?, 'scan', ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(item_id) DO UPDATE SET
           title = excluded.title,
           sort_title = excluded.sort_title,
           description = excluded.description,
           year_published = excluded.year_published,
+          publisher = excluded.publisher,
           language = excluded.language,
           isbn = excluded.isbn,
           cover_storage_key = COALESCE(excluded.cover_storage_key, item_metadata.cover_storage_key),
           updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
       `).run(
         bookId, title, sortName(title), meta.description,
-        meta.year, meta.language || settings.default_language || null, meta.isbn, coverKey
+        opts.fields?.year ?? meta.year, opts.fields?.publisher ?? null,
+        meta.language || settings.default_language || null, meta.isbn, coverKey
       );
       applyItemAlphaIndex(bookId);
 
@@ -467,26 +475,24 @@ export async function scanSingleEbookFile(libraryId: string, relativePath: strin
   const groupKey = ebookGroupKey(files[0].relativePath);
   const owner = resolveOwner(libraryId, groupKey);
   if (owner) {
-    const relativeKey = groupKey.startsWith(`${owner.anchor}/`) ? groupKey.slice(owner.anchor.length + 1) : groupKey;
-    return ingestEbookGroup(libraryId, files, settings, fileMetaEnabled, { scanRuleId: owner.rule.id, fields: matchPattern(owner.rule.pattern, relativeKey) });
+    const fields = matchLayouts(owner.rule.layouts, keyRelativeToAnchor(groupKey, owner.anchor));
+    return ingestEbookGroup(libraryId, files, settings, fileMetaEnabled, { scanRuleId: owner.rule.id, fields });
   }
   return ingestEbookGroup(libraryId, files, settings, fileMetaEnabled, { scanRuleId: null });
 }
 
-export interface RulePreviewRow {
-  path: string;
-  matched: boolean;
-  author?: string;
-  series?: string;
-  position?: number;
-  title?: string;
-}
-
-// Dry-run a scan rule's pattern over its selected folders, writing nothing. Each
-// folder is the pattern anchor (so the pattern matches the book key relative to
-// that folder), reusing the same walk + grouping as a real ebook scan so the
-// preview can't drift from what an actual scan would produce.
-export function previewEbookRulePattern(libraryId: string, folders: string[], pattern: string, limit = 50): RulePreviewRow[] {
+// Dry-run a scan rule's layouts over its selected folders, writing nothing. Each
+// folder is the anchor (so the layouts match the book key relative to that folder),
+// reusing the same walk + grouping as a real ebook scan so the preview can't drift
+// from what an actual scan would produce. `ruleId` is the rule being edited (null
+// for a new one) so the change column can tell "already this rule's" from "moves".
+export function previewEbookRulePattern(
+  libraryId: string,
+  folders: string[],
+  layouts: string[],
+  ruleId: string | null = null,
+  limit = 200
+): RulePreviewRow[] {
   const library = db.prepare("SELECT source_path, settings_json FROM libraries WHERE id = ? AND type = 'ebook'")
     .get(libraryId) as { source_path: string; settings_json: string } | undefined;
   if (!library) return [];
@@ -496,18 +502,30 @@ export function previewEbookRulePattern(libraryId: string, folders: string[], pa
   const extensions = new Set(settings.scan_extensions.map((extension) => `.${extension}`));
 
   const rows: RulePreviewRow[] = [];
-  for (const folder of folders) {
+  outer: for (const folder of folders) {
     const anchor = folder.replace(/\\/g, "/").replace(/^\/+|\/+$/g, "");
     const anchorAbs = anchor ? path.join(rootPath, anchor) : rootPath;
-    const keys = new Set<string>();
-    for (const file of walkEbookFiles(anchorAbs, extensions)) keys.add(ebookGroupKey(file.relativePath));
-    for (const key of [...keys].sort()) {
-      const m = matchPattern(pattern, key);
-      rows.push({ path: anchor ? `${anchor}/${key}` : key, matched: m.matched, author: m.author, series: m.series, position: m.position, title: m.title });
-      if (rows.length >= limit) return rows;
+    const formatsByKey = new Map<string, string[]>();
+    for (const file of walkEbookFiles(anchorAbs, extensions)) {
+      const key = ebookGroupKey(file.relativePath);
+      const list = formatsByKey.get(key) ?? [];
+      list.push(file.extension.replace(/^\./, ""));
+      formatsByKey.set(key, list);
+    }
+    for (const key of [...formatsByKey.keys()].sort()) {
+      const m = matchLayouts(layouts, key);
+      const fullPath = anchor ? `${anchor}/${key}` : key;
+      rows.push({
+        path: fullPath, matched: m.matched, layoutIndex: m.layoutIndex,
+        author: m.author, series: m.series, position: m.position, title: m.title, year: m.year, publisher: m.publisher,
+        formats: formatsByKey.get(key)!.sort(),
+        warnings: m.warnings ?? [],
+        change: classifyPreviewChange(libraryId, fullPath, ruleId, m.matched)
+      });
+      if (rows.length >= limit) break outer;
     }
   }
-  return rows;
+  return annotatePreviewRows(rows);
 }
 
 // Soft-delete items belonging to one owner (the default scanner = scanRuleId null,
@@ -540,17 +558,34 @@ async function scanEbookLibrary(
   // file_metadata gates in-file extraction (EPUB OPF, FB2 XML); off = filename-derived only.
   const fileMetaEnabled = sourceEnabled(sources, "file_metadata");
   const rootPath = validateLibrarySource(library.source_path);
-  const files = walkEbookFiles(rootPath, new Set(settings.scan_extensions.map((extension) => `.${extension}`)));
+  const extensions = new Set(settings.scan_extensions.map((extension) => `.${extension}`));
+
+  // A rule-scoped run walks only that rule's folders and reconciles only its items;
+  // the rest of the library is not looked at.
+  const scopeRule = options.ruleId ? getScanRule(options.ruleId) : null;
+  if (options.ruleId && (!scopeRule || scopeRule.libraryId !== libraryId)) {
+    db.prepare("UPDATE libraries SET scan_status = 'idle', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(libraryId);
+    throw new Error("Scan rule not found.");
+  }
+  const files: EbookFileEntry[] = scopeRule
+    ? scopeRule.paths.flatMap((anchor) => {
+      const anchorAbs = anchor ? path.join(rootPath, ...anchor.split("/")) : rootPath;
+      return walkEbookFiles(anchorAbs, extensions).map((file) => ({ ...file, relativePath: anchor ? `${anchor}/${file.relativePath}` : file.relativePath }));
+    })
+    : walkEbookFiles(rootPath, extensions);
 
   // Partition each book group by its owner: a most-specific enabled rule, or the
   // default scanner. Files under an enabled rule's folders are excluded from the
-  // default walk and scanned by that rule with its pattern.
-  const rules = listScanRules(libraryId);
+  // default walk and scanned by that rule with its layouts.
+  const rules = scopeRule ? [scopeRule] : listScanRules(libraryId);
+  const ownerIndex = loadOwnerIndex(libraryId);
   const defaultGroups = new Map<string, EbookFileEntry[]>();
   const ruleGroups = new Map<string, Map<string, EbookFileEntry[]>>();
   for (const file of files) {
     const key = ebookGroupKey(file.relativePath);
-    const owner = resolveOwner(libraryId, key);
+    const owner = resolveOwnerIndexed(ownerIndex, key);
+    // Scoped: a nested, more specific rule's files are that rule's business.
+    if (scopeRule && owner?.rule.id !== scopeRule.id) continue;
     let bucket: Map<string, EbookFileEntry[]>;
     if (owner) {
       bucket = ruleGroups.get(owner.rule.id) ?? new Map<string, EbookFileEntry[]>();
@@ -575,20 +610,21 @@ async function scanEbookLibrary(
     for (const groupFiles of groups.values()) {
       onProgress?.(processedGroups, totalGroups);
       const key = ebookGroupKey(groupFiles[0].relativePath);
-      const owner = resolveOwner(libraryId, key);
-      const relativeKey = owner && key.startsWith(`${owner.anchor}/`) ? key.slice(owner.anchor.length + 1) : key;
-      const fields = matchPattern(rule.pattern, relativeKey);
+      const owner = resolveOwnerIndexed(ownerIndex, key);
+      const fields = matchLayouts(rule.layouts, owner ? keyRelativeToAnchor(key, owner.anchor) : key);
       await ingestEbookGroup(libraryId, groupFiles, settings, fileMetaEnabled, { scanRuleId: ruleId, fields });
       processedGroups += 1;
     }
   }
   onProgress?.(totalGroups, totalGroups);
 
-  // Reconcile each owner independently — including rules whose folders are now empty.
-  reconcileOwnedItems(libraryId, null, new Set(defaultGroups.keys()));
+  // Reconcile each owner independently — including rules whose folders are now
+  // empty. A scoped run touches only its rule.
+  if (!scopeRule) reconcileOwnedItems(libraryId, null, new Set(defaultGroups.keys()));
   for (const rule of rules) {
     reconcileOwnedItems(libraryId, rule.id, new Set((ruleGroups.get(rule.id) ?? new Map<string, EbookFileEntry[]>()).keys()));
   }
+  markScanRulesScanned(libraryId, rules.filter((rule) => rule.enabled).map((rule) => rule.id));
 
   db.prepare("UPDATE libraries SET scan_status = 'idle', last_scanned_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?")
     .run(libraryId);

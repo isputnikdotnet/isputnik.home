@@ -1012,7 +1012,7 @@ describe('schema baseline (3.0.0)', () => {
     // heading / chapter map-cover columns, and the story byline — none of
     // which a fresh file needs, since schema.sql builds it complete and seeds
     // no such job; those migrations are only for databases that predate them.
-    expect(scratch.pragma('user_version', { simple: true })).toBe(63);
+    expect(scratch.pragma('user_version', { simple: true })).toBe(65);
 
     const userColumns = (scratch.pragma('table_info(users)') as { name: string }[]).map((c) => c.name);
     expect(userColumns).toEqual(
@@ -1088,7 +1088,7 @@ describe('schema baseline (3.0.0)', () => {
     migrate(current);
     current.pragma('user_version = 31'); // every 2.x migration applied
     expect(() => migrate(current)).not.toThrow();
-    expect(current.pragma('user_version', { simple: true })).toBe(63);
+    expect(current.pragma('user_version', { simple: true })).toBe(65);
     current.close();
   });
 
