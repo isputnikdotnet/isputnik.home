@@ -150,6 +150,37 @@ export function revokeCurrentSession(request: FastifyRequest) {
   }
 }
 
+// Who is making this request, when the route does not require anyone to be.
+//
+// For public routes — a share link is the case this exists for — where the visitor
+// may or may not have a session. It answers null instead of 401, never touches the
+// reply, and never clears a cookie, so an expired or bogus session is simply "not
+// signed in" rather than a sign-out for whoever holds it. It also leaves
+// last_seen_at alone: opening a share link is not the account being used, and
+// letting it refresh the session's clock would keep a device looking alive on the
+// strength of a link anyone could follow.
+//
+// Same-origin is what makes it work at all: the share page is served from this
+// app, so a signed-in visitor's cookie rides along on the request even though the
+// route never asks for it.
+export function optionalUser(request: FastifyRequest): User | null {
+  const token = readSessionToken(request);
+  if (!token) return null;
+
+  const row = db.prepare(`
+    SELECT users.*
+    FROM sessions
+    JOIN users ON users.id = sessions.user_id
+    WHERE sessions.token_hash = ?
+      AND sessions.revoked_at IS NULL
+      AND datetime(sessions.expires_at) > CURRENT_TIMESTAMP
+      AND users.deleted_at IS NULL
+      AND users.is_active = 1
+  `).get(sha256(token)) as User | undefined;
+
+  return row ?? null;
+}
+
 export function currentSessionHash(request: FastifyRequest) {
   const token = readSessionToken(request);
   return token ? sha256(token) : null;

@@ -8,7 +8,7 @@ import sharp from "sharp";
 import { nanoid } from "nanoid";
 import { db, logActivity } from "../../../db.js";
 import { sha256 } from "../../../crypto.js";
-import { addDays } from "../../../auth.js";
+import { addDays, optionalUser } from "../../../auth.js";
 import { parseBody, requestOrigin } from "../../../core/shared.js";
 import { pathIsInside } from "./storage-roots.js";
 import { thumbnailAbsolutePath } from "./thumbnail.js";
@@ -1698,6 +1698,21 @@ export async function librarySharesPlugin(app: FastifyInstance) {
   const SHARE_MEDIA_LIMIT = { config: { rateLimit: { max: 600, timeWindow: "1 minute" } } };
   const SHARE_ZIP_LIMIT = { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } };
 
+  // Who opened a share link, when we can tell. A share link authenticates nobody
+  // by design, so this is never a condition of being served — it only decides
+  // whether the log entry carries a name. A signed-in visitor's cookie reaches
+  // these routes because the share page is same-origin, so most opens from inside
+  // the household resolve; a stranger with the link, or someone signed out, stays
+  // anonymous and is recorded by IP exactly as before.
+  //
+  // Deliberately NOT wired into the sign-in dashboard: that view counts
+  // authentications, and a share link is the case where none happened. Naming the
+  // visitor here answers "who looked at the thing I shared", which belongs in the
+  // activity log, not in the count of who got past the front door.
+  function shareVisitor(request: FastifyRequest): string | null {
+    return optionalUser(request)?.id ?? null;
+  }
+
   // Resolve a token to its (link, item), or send 404. Used by every public route.
   // Only digital-library modules are servable here.
   function resolveOr404(request: FastifyRequest, reply: FastifyReply) {
@@ -1730,7 +1745,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
       }
       logActivity({
         event: "share.accessed",
-        actorUserId: null,
+        actorUserId: shareVisitor(request),
         targetType: "share_link",
         targetId: setLink.id,
         detail: `Opened a shared story "${built.title}" (${built.photoCount} photo${built.photoCount === 1 ? "" : "s"}).`,
@@ -1754,7 +1769,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
       const kindWord = isAlbum ? "album" : "photo set";
       logActivity({
         event: "share.accessed",
-        actorUserId: null,
+        actorUserId: shareVisitor(request),
         targetType: "share_link",
         targetId: setLink.id,
         detail: `Opened a shared ${kindWord}${resourceName ? ` "${resourceName}"` : ""} (${setItems.length} item${setItems.length === 1 ? "" : "s"}).`,
@@ -1793,7 +1808,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
 
     logActivity({
       event: "share.accessed",
-      actorUserId: null,
+      actorUserId: shareVisitor(request),
       targetType: "share_link",
       targetId: link.id,
       detail: `Opened a shared ${module} "${item.title ?? path.basename(item.folder_path)}".`,
@@ -1991,7 +2006,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
     }
     logActivity({
       event: "share.downloaded",
-      actorUserId: null,
+      actorUserId: shareVisitor(request),
       targetType: "share_link",
       targetId: link.id,
       detail: `Downloaded a ${item.kind === "video" ? "video" : "photo"} "${item.relative_path.split("/").pop() ?? "file"}" from a shared set.`,
@@ -2038,7 +2053,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
 
     logActivity({
       event: "share.downloaded",
-      actorUserId: null,
+      actorUserId: shareVisitor(request),
       targetType: "share_link",
       targetId: link.id,
       detail: `Downloaded all ${available.length} item${available.length === 1 ? "" : "s"} from a shared ${kindWord}${resourceName ? ` "${resourceName}"` : ""}.`,
@@ -2201,7 +2216,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
       }
       logActivity({
         event: "share.downloaded",
-        actorUserId: null,
+        actorUserId: shareVisitor(request),
         targetType: "share_link",
         targetId: link.id,
         detail: `Downloaded a shared ${gal.kind === "video" ? "video" : "photo"} "${displayTitle}".`,
@@ -2230,7 +2245,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
       }
       logActivity({
         event: "share.downloaded",
-        actorUserId: null,
+        actorUserId: shareVisitor(request),
         targetType: "share_link",
         targetId: link.id,
         detail: `Downloaded a shared ebook "${displayTitle}".`,
@@ -2261,7 +2276,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
 
     logActivity({
       event: "share.downloaded",
-      actorUserId: null,
+      actorUserId: shareVisitor(request),
       targetType: "share_link",
       targetId: link.id,
       detail: `Downloaded a shared audiobook "${displayTitle}".`,
