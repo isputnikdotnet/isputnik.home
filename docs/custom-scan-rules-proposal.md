@@ -1,6 +1,13 @@
 # Custom Scan Rules Proposal
 
-Status: design proposal; not implemented.
+Status: **SHIPPED** in 1.2.14, for ebook libraries. This is the design it was
+built from and still describes the model — rule ownership, folder resolution,
+most-specific matching, enable/disable, preview — so it is worth reading before
+changing any of that. The code is `modules/library/shared/scan-rules.ts` and
+`scan-rule-pattern.ts`; what a user is told is `docs/users/scan-rules.md`.
+
+Where the two disagree, the code wins: the shipped feature is ebooks-only (the
+proposal covers audiobooks too), and `{narrator}` is rejected on an ebook rule.
 
 This document proposes path-scoped scanning rules for library folders whose
 layout differs from the rest of the library. For the scanner's current behavior,
