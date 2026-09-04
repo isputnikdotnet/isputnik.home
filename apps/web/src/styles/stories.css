@@ -1601,6 +1601,20 @@
    stretching the dialog. */
 .story-route-stops input { flex: 1 1 auto; min-width: 0; }
 
+/* How this stop was reached. Narrow on purpose: the place name is the row's
+   subject, and the mode is a note beside it. */
+.story-route-mode { flex: 0 0 auto; width: 130px; }
+
+.story-route-note { margin: 0; font-size: 0.82rem; }
+
+/* Names with the way you travelled drawn between them. */
+.story-route-caption {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
 .story-route-index {
   flex: 0 0 auto;
   display: grid;
@@ -2335,11 +2349,34 @@
 }
 
 /* The line joining a route's stops. Leaflet draws it as an SVG path, so the
-   colour belongs here rather than in the options object. */
+   colour belongs here rather than in the options object. Dashed is a line this
+   app drew between two points; solid is a road the world actually has, fetched
+   once when the route was saved — the difference is worth seeing at a glance. */
 .story-map-route {
   stroke: var(--mint);
   stroke-opacity: 0.9;
   fill: none;
+}
+
+.story-map-route.is-routed {
+  stroke-opacity: 1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* How you travelled that leg, sitting on the middle of its own line. */
+.story-map-mode { background: none; border: 0; }
+
+.story-map-mode-badge {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--card, #fff);
+  color: var(--mint);
+  border: 1px solid var(--line);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
 }
 
 /* ── Chapter page ──────────────────────────────────────────────────────── */

@@ -112,7 +112,7 @@ type SettingKey =
   | "newSignInAlerts" | "twoFactorSignIn" | "linkingDevices" | "ipReputation"
   | "deletionProtection" | "addTrustedNetwork" | "scheduledBackups" | "defaultTheme"
   | "smtpServer" | "sendTestEmail" | "opdsReaderTokens" | "twoFactorAlertsDelivery"
-  | "shareNotifications" | "recordingsLibrary";
+  | "shareNotifications" | "recordingsLibrary" | "mapRouting";
 
 // Settings that live inside a page. `section` is where they are; search takes
 // you to that tab and the setting is on it.
@@ -164,6 +164,11 @@ const SETTING_ENTRIES: { titleKey: SettingKey; section: ControlSection; keywords
     titleKey: "shareNotifications",
     section: "notifications",
     keywords: "notify members when a photo book album is shared with them turn on enable share notification recipient уведомления поделились фото книга альбом включить получатель"
+  },
+  {
+    titleKey: "mapRouting",
+    section: "maps",
+    keywords: "route roads driving walking cycling openrouteservice api key directions story map itinerary travel маршрут дороги машина пешком велосипед ключ прокладка карта путешествие"
   },
   {
     titleKey: "recordingsLibrary",

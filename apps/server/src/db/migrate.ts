@@ -613,6 +613,23 @@ const migrations: { version: number; up: (db: Database.Database) => void }[] = [
         db.exec("ALTER TABLE stories ADD COLUMN author_name TEXT");
       }
     }
+  },
+  {
+    // A route's legs: how each stop was reached from the one before, and the
+    // line that leg follows. story_block_points shipped in 3.58.0 with neither,
+    // so the table already exists on installs that need these two columns.
+    version: 63,
+    up: (db) => {
+      const columns = new Set(
+        (db.prepare("PRAGMA table_info(story_block_points)").all() as { name: string }[]).map((c) => c.name)
+      );
+      if (!columns.has("mode")) {
+        db.exec("ALTER TABLE story_block_points ADD COLUMN mode TEXT");
+      }
+      if (!columns.has("geometry")) {
+        db.exec("ALTER TABLE story_block_points ADD COLUMN geometry TEXT");
+      }
+    }
   }
 ];
 

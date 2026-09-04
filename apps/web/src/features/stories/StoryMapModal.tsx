@@ -5,7 +5,7 @@ import { Modal } from "../../shared/Modal";
 import { Button } from "../../shared/Button";
 import { GalleryPlaceSearch } from "../gallery/GalleryPlaceSearch";
 import { StoryRoutePicker } from "./StoryRoutePicker";
-import type { StoryMapPoint } from "./types";
+import { TRAVEL_MODES, type StoryMapPoint, type TravelMode } from "./types";
 
 // Place a map block: search for a place (or drop a pin), name it, done — and if
 // the block is about a journey rather than a spot, keep adding stops and the
@@ -38,16 +38,27 @@ export function StoryMapModal({
   const [stops, setStops] = useState<StoryMapPoint[]>(() => {
     if (!initial) return [];
     if (initial.points.length > 0) return initial.points;
-    return [{ lat: initial.lat, lng: initial.lng, label: initial.label }];
+    return [{ lat: initial.lat, lng: initial.lng, label: initial.label, mode: null, geometry: null }];
   });
-  const addStop = (stop: StoryMapPoint) => {
-    setStops((current) => (single ? [stop] : [...current, stop]));
+  const addStop = (stop: Omit<StoryMapPoint, "mode" | "geometry">) => {
+    setStops((current) => {
+      if (single) return [{ ...stop, mode: null, geometry: null }];
+      // Driving is the common case between two towns, so the first leg starts
+      // there rather than with nothing said; every later leg inherits.
+      const mode = current.length === 0 ? null : current[current.length - 1].mode ?? "drive";
+      return [...current, { ...stop, mode, geometry: null }];
+    });
   };
   const [zoom, setZoom] = useState(initial?.zoom ?? 12);
   const [focus, setFocus] = useState<{ lat: number; lng: number; zoom?: number; nonce: number } | null>(null);
 
   const editStop = (index: number, patch: Partial<StoryMapPoint>) => {
     setStops((current) => current.map((stop, at) => (at === index ? { ...stop, ...patch } : stop)));
+  };
+
+  const setMode = (index: number, mode: TravelMode | null) => {
+    // The stored line belongs to the old mode: a drive's roads are not a walk's.
+    editStop(index, { mode, geometry: null });
   };
 
   const swapStops = (index: number, target: number) => {
@@ -64,7 +75,15 @@ export function StoryMapModal({
     // The first stop stays the block's own lat/lng: it frames the map, and it
     // is what anything that predates routes reads.
     const [first] = stops;
-    onSave({ lat: first.lat, lng: first.lng, zoom, label: first.label, points: stops });
+    // Geometry is never sent: the server derives each leg's line from the stops
+    // and the modes, so the browser cannot draw a journey somewhere it wasn't.
+    onSave({
+      lat: first.lat,
+      lng: first.lng,
+      zoom,
+      label: first.label,
+      points: stops.map((stop) => ({ ...stop, geometry: null }))
+    });
   };
 
   return (
@@ -117,6 +136,20 @@ export function StoryMapModal({
                 {stops.map((stop, index) => (
                   <li key={`${stop.lat},${stop.lng},${index}`}>
                     <span className="story-route-index" aria-hidden="true">{index + 1}</span>
+                    {index > 0 && (
+                      <select
+                        className="story-route-mode"
+                        value={stop.mode ?? ""}
+                        onChange={(event) => setMode(index, (event.target.value || null) as TravelMode | null)}
+                        aria-label={t("stories:map.stopMode", { number: index + 1 })}
+                        title={t("stories:map.stopMode", { number: index + 1 })}
+                      >
+                        <option value="">{t("stories:map.modeNone")}</option>
+                        {TRAVEL_MODES.map((mode) => (
+                          <option key={mode} value={mode}>{t(`stories:map.modes.${mode}` as "stories:map.modes.walk")}</option>
+                        ))}
+                      </select>
+                    )}
                     <input
                       value={stop.label ?? ""}
                       onChange={(event) => editStop(index, { label: event.target.value })}
@@ -158,6 +191,7 @@ export function StoryMapModal({
                 ))}
               </ol>
             )}
+            {stops.length > 1 && <p className="story-route-note muted">{t("stories:map.roadsNote")}</p>}
           </section>
         )}
 

@@ -128,6 +128,7 @@ export const CONTROL_GROUPS: ControlGroupDef[] = [
       { section: "email" },
       { section: "notifications" },
       { section: "storySettings" },
+      { section: "maps" },
       { section: "readerAccess" },
       { section: "about" }
     ]

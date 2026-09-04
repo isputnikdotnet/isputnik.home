@@ -354,7 +354,19 @@
     "stopName": "Name of stop {{number}}",
     "stopUp": "Move stop {{number}} earlier",
     "stopDown": "Move stop {{number}} later",
-    "stopRemove": "Remove stop {{number}}"
+    "stopRemove": "Remove stop {{number}}",
+    "stopMode": "How you reached stop {{number}}",
+    "modeNone": "—",
+    "roadsNote": "Walking, cycling, driving and bus legs follow real roads once you save, if map routing is set up.",
+    "modes": {
+      "walk": "On foot",
+      "cycle": "By bike",
+      "drive": "By car",
+      "bus": "By bus",
+      "train": "By train",
+      "plane": "By plane",
+      "boat": "By boat"
+    }
   },
   "confirm": {
     "removeBlockTitle": "Remove this {{kind}}?",

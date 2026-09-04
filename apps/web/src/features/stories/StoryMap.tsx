@@ -1,6 +1,9 @@
 import { useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { routeLegs } from "./story-route";
+import { ROUTING_ATTRIBUTION, drawRouteLegs } from "./story-route-layer";
+import type { StoryMapPoint } from "./types";
 
 export interface StoryMapPin {
   id: string;
@@ -22,11 +25,16 @@ export interface StoryMapPin {
 export function StoryMap({
   pins,
   onOpen,
-  route = false
+  route = false,
+  stops
 }: {
   pins: StoryMapPin[];
   onOpen: (id: string) => void;
   route?: boolean;
+  /** The stops behind the pins, when there are lines to draw between them:
+   *  roads where the route was followed, a great-circle arc for a flight, a
+   *  drawn line otherwise. Without them `route` still joins the pins straight. */
+  stops?: StoryMapPoint[];
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -66,12 +74,10 @@ export function StoryMap({
     if (pins.length === 0) return;
     // Under the pins, so a marker is never half-hidden by its own line.
     if (route && pins.length > 1) {
-      L.polyline(pins.map((pin) => [pin.lat, pin.lng] as [number, number]), {
-        className: "story-map-route",
-        weight: 3,
-        dashArray: "6 6",
-        interactive: false
-      }).addTo(layer);
+      const routed = drawRouteLegs(layer, stops ?? pins.map((pin) => ({
+        lat: pin.lat, lng: pin.lng, label: pin.title, mode: null, geometry: null
+      })));
+      if (routed) map.attributionControl.addAttribution(ROUTING_ATTRIBUTION);
     }
     for (const pin of pins) {
       const icon = L.divIcon({
@@ -84,9 +90,12 @@ export function StoryMap({
         .on("click", () => onOpenRef.current(pin.id))
         .addTo(layer);
     }
+    // Frame the LINES, not just the pins: a road that loops north of both ends
+    // — or a flight's arc — belongs inside the picture it is drawn in.
     const bounds = L.latLngBounds(pins.map((pin) => [pin.lat, pin.lng] as [number, number]));
+    if (route && stops) for (const leg of routeLegs(stops)) for (const point of leg.coords) bounds.extend(point);
     map.fitBounds(bounds.pad(0.25), { maxZoom: 12 });
-  }, [pins, route]);
+  }, [pins, route, stops]);
 
   return <div className="story-home-map" ref={containerRef} />;
 }

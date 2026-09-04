@@ -137,10 +137,17 @@ opens a dialog of the kinds with a line each on what they put on the page:
   transitions and music.
 - **Map** — a place, searched or pinned by hand. Keep adding stops and the
   block becomes a **route**: numbered pins joined in the order you list them,
-  which you can rename, reorder or drag to a better spot. The caption writes
-  itself from the names ("Bolzano → Ortisei → Cortina d'Ampezzo"). The line is
-  drawn straight between stops — it says which places, in which order, not
-  which roads.
+  which you can rename, reorder or drag to a better spot. Each stop after the
+  first says **how you got there** — on foot, by bike, by car, by bus, by train,
+  by plane, by boat — and that shows as a small icon on the leg and between the
+  names in the caption ("Bolzano → Ortisei → Cortina d'Ampezzo").
+  Walking, cycling, driving and bus legs **follow real roads** if an admin has
+  set up map routing (Control panel → Settings → Maps); they are drawn solid,
+  and everything else stays a dashed line. A flight is drawn as the curve a
+  plane actually flies, which is why a long one bends north. The roads are
+  fetched once, when you save, and kept with the story — so the map opens
+  instantly ever after, works for guests on a shared link, and still looks the
+  same years later.
 - **Person** — someone from the [family tree](family-tree.md), as a card with
   their portrait and dates.
 - **Quote** — a pull quote from your [quotes](quotes.md).

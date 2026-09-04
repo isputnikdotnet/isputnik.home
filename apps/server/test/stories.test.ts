@@ -232,9 +232,9 @@ describe("blocks", () => {
 
 // A map block's stops: what turns one pin into a route.
 describe("map block routes", () => {
-  const minsk = { lat: 53.9, lng: 27.56, label: "Minsk" };
-  const vilnius = { lat: 54.69, lng: 25.28, label: "Vilnius" };
-  const riga = { lat: 56.95, lng: 24.11, label: "Riga" };
+  const minsk = { lat: 53.9, lng: 27.56, label: "Minsk", mode: null, geometry: null };
+  const vilnius = { lat: 54.69, lng: 25.28, label: "Vilnius", mode: "drive", geometry: null };
+  const riga = { lat: 56.95, lng: 24.11, label: "Riga", mode: "train", geometry: null };
 
   function routeBlock(points = [minsk, vilnius, riga]) {
     const story = createStory(author, "North", null);
@@ -256,7 +256,22 @@ describe("map block routes", () => {
   it("replaces the whole list on update, so reordering sticks", () => {
     const { story, block } = routeBlock();
     updateBlock(block.id, story.id, { points: [riga, minsk] });
-    expect(blockPointsByIds([block.id]).get(block.id)).toEqual([riga, minsk]);
+    expect(blockPointsByIds([block.id]).get(block.id)?.map((point) => point.label)).toEqual(["Riga", "Minsk"]);
+  });
+
+  it("gives the first stop no leg, however the route is reordered", () => {
+    const { story, block } = routeBlock();
+    // Riga was reached by train while it was third; first, it is where the
+    // journey starts, and nothing precedes a beginning.
+    updateBlock(block.id, story.id, { points: [riga, minsk] });
+    const [first, second] = blockPointsByIds([block.id]).get(block.id)!;
+    expect(first.mode).toBeNull();
+    expect(second.mode).toBeNull();
+  });
+
+  it("keeps each stop's own travel mode", () => {
+    const { block } = routeBlock();
+    expect(blockPointsByIds([block.id]).get(block.id)?.map((point) => point.mode)).toEqual([null, "drive", "train"]);
   });
 
   it("leaves the stops alone when an update doesn't mention them", () => {

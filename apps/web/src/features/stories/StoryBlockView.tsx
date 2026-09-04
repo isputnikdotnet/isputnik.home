@@ -6,7 +6,8 @@ import { followRoute } from "../../router";
 import type { GalleryAsset } from "../gallery/types";
 import { StoryMap } from "./StoryMap";
 import { StoryMarkdown } from "./StoryMarkdown";
-import { routeNames, routePins, routeStops } from "./story-route";
+import { RouteCaption } from "./RouteCaption";
+import { routePins, routeStops } from "./story-route";
 import type { StoryBlock } from "./types";
 
 // One block, rendered read-only. The reading view uses it directly; the editor
@@ -74,12 +75,10 @@ export function StoryBlockView({
     if (stops.length > 1) {
       return (
         <figure className="story-block story-block-map story-block-route">
-          <StoryMap route pins={routePins(stops)} onOpen={() => {}} />
+          <StoryMap route stops={stops} pins={routePins(stops)} onOpen={() => {}} />
           <figcaption>
             <Route size={14} aria-hidden="true" />
-            <span>
-              {block.caption ?? routeNames(stops) ?? t("stories:block.routeStops", { count: stops.length })}
-            </span>
+            <RouteCaption stops={stops} caption={block.caption} />
           </figcaption>
         </figure>
       );

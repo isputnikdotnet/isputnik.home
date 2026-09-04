@@ -70,11 +70,22 @@ export interface StoryCollectionSummary {
   updatedAt: string;
 }
 
-/** One stop of a map block's route, in travel order. */
+/** How somebody got from one stop to the next. Walking, cycling, driving and
+ *  the bus follow roads; a train, a flight and a boat are drawn, because no
+ *  road router knows a railway, a flight path or open water. */
+export const TRAVEL_MODES = ["walk", "cycle", "drive", "bus", "train", "plane", "boat"] as const;
+export type TravelMode = (typeof TRAVEL_MODES)[number];
+
+/** One stop of a map block's route, in travel order. `mode` and `geometry`
+ *  describe the leg that ARRIVES here, so the first stop carries neither. */
 export interface StoryMapPoint {
   lat: number;
   lng: number;
   label: string | null;
+  mode: TravelMode | null;
+  /** The line that leg follows, as an encoded polyline the server fetched once
+   *  when the route was saved. Null = draw it instead of following it. */
+  geometry: string | null;
 }
 
 export interface StoryBlock {

@@ -14,6 +14,8 @@ import { partialDateSchema } from "../familytree/persons.js";
 import { setEntityTags } from "../library/audiobook/categorize.js";
 import { receiveUpload, UploadError } from "../uploads/index.js";
 import { parseRangeHeader, pipeFileToReply } from "../library/shared/document-stream.js";
+import { TRAVEL_MODES } from "../../core/routing.js";
+import { resolveRouteGeometry } from "./route-geometry.js";
 import {
   STORY_AUDIO_ENTITY_TYPE,
   NARRATION_EXTENSIONS,
@@ -149,10 +151,15 @@ const blockCreateSchema = z.object({
   // Map blocks: the stops of a route, in travel order. One or none is the
   // original single-pin map; the cap keeps one block from becoming a track log
   // (a recorded trace belongs in a file, not in fifty thousand rows).
+  // `mode` is how this stop was reached from the one before it. The LINE that
+  // leg follows is deliberately not in this schema: it is fetched by the server
+  // when the route is saved, so a request cannot paint a journey through
+  // somewhere the stops never went.
   points: z.array(z.object({
     lat: z.number().min(-90).max(90),
     lng: z.number().min(-180).max(180),
-    label: z.string().trim().max(200).nullable().default(null)
+    label: z.string().trim().max(200).nullable().default(null),
+    mode: z.enum(TRAVEL_MODES).nullable().default(null)
   })).max(50).optional(),
   caption: z.string().trim().max(500).nullable().optional(),
   layout: z.enum(["default", "wide", "grid"]).nullable().optional()
@@ -851,7 +858,11 @@ export async function storiesPlugin(app: FastifyInstance) {
     if (!referenceIsReachable(parsed.data.kind, parsed.data.entityId, user, parsed.data.kind === "book" ? parsed.data.entityType : undefined)) {
       return reply.code(400).send({ error: "That content isn't available to add." });
     }
-    const block = createBlock(chapter.id, story.id, parsed.data.kind, parsed.data);
+    const { points: stops, ...fields } = parsed.data;
+    const points = parsed.data.kind === "map" && stops
+      ? await resolveRouteGeometry(stops, [])
+      : undefined;
+    const block = createBlock(chapter.id, story.id, parsed.data.kind, { ...fields, points });
     return reply.code(201).send({ blockId: block.id });
   });
 
@@ -888,7 +899,11 @@ export async function storiesPlugin(app: FastifyInstance) {
       && !referenceIsReachable(block.kind, parsed.data.entityId, user, block.kind === "book" ? block.entity_type : undefined)) {
       return reply.code(400).send({ error: "That content isn't available to add." });
     }
-    updateBlock(block.id, story.id, parsed.data);
+    const { points: stops, ...fields } = parsed.data;
+    const points = block.kind === "map" && stops
+      ? await resolveRouteGeometry(stops, blockPointsByIds([block.id]).get(block.id) ?? [])
+      : undefined;
+    updateBlock(block.id, story.id, { ...fields, points });
     return reply.send({ updated: true });
   });
 
