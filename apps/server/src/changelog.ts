@@ -19,6 +19,14 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.57.1",
+    label: "More than two hundred at once",
+    changes: [
+      "Selecting more than 200 photos and then setting a place, setting or shifting a date, tagging them, or deleting them failed with a line of programmer's English — \"ids: Too big: expected array to have <=200 items\" — and changed nothing. Each of those is sent to the server in batches now, so a selection of any size goes through, and the notice afterwards still counts everything that changed and everything that was skipped. If something goes wrong part of the way, it says how many had already been changed rather than pretending none of them were.",
+      "When somebody publishes a story, a card about it appears on everyone else's home page, alongside the notes, albums and family-tree entries already there — the one thing somebody actually sat down and wrote was the one thing the front page never mentioned. Drafts are never announced, and the home page still doesn't report your own doings back to you."
+    ]
+  },
+  {
     version: "3.57.0",
     label: "The better copy of the same photograph",
     changes: [
