@@ -19,6 +19,18 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.61.0",
+    label: "The way you actually went",
+    changes: [
+      "A route in a story now says how you travelled each part of it. Every stop after the first carries a way of getting there — on foot, by bike, by car, by bus, by train, by plane, by boat — shown as a small mark on that stretch of the map and again between the names underneath. Pick one for the first leg and the rest follow it as you add them, so a road trip is one choice rather than seven.",
+      "Those stretches can follow real roads instead of cutting straight across the map. Walking, cycling, driving and bus legs are drawn along the roads they actually took; a train, a boat or a plane keeps a drawn line, because no road map knows a railway or open water. A flight is drawn as the curve a plane really flies, which is why a long one bends north rather than running straight across.",
+      "Real roads need somewhere to ask, and that is set up once in Control panel → Settings → Maps with a free key from openrouteservice.org — the routing service run by a research institute at Heidelberg University, not the similarly named delivery company a search turns up. Without a key nothing changes: routes stay the straight lines they have always been, and everything else on this list still works.",
+      "The roads are fetched once, when you save, and kept with the story. Opening that story again — by you, by the family, by a guest on a shared link, on a phone with no signal — never asks the service anything, so a route read a thousand times costs one request, made once. It also means the map still draws if the key later lapses, and a trip written up today still shows the roads as they were when you wrote it.",
+      "What is sent, and only at the moment you save, is the two ends of each leg and how you travelled it — never the story, the names you gave the places, or who is asking. If you would rather nothing left the house at all, the same settings page takes the address of your own routing service instead. A key can be removed again at any time, and routes already drawn keep their roads.",
+      "A map block's menu offered \"Move the pin\", which stopped being the whole truth when a map could hold a journey; it says \"Edit the map\" now."
+    ]
+  },
+  {
     version: "3.60.0",
     label: "One way to hand anything on",
     changes: [
