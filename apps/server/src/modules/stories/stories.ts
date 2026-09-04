@@ -304,6 +304,13 @@ export function updateStory(storyId: string, fields: StoryUpdate): void {
       title         = COALESCE(?, title),
       subtitle      = CASE WHEN ? THEN ? ELSE subtitle END,
       status        = COALESCE(?, status),
+      -- Stamped on the way from draft to published (the row's old status is
+      -- what the CASE sees), cleared on the way back, untouched otherwise: a
+      -- second PATCH saying 'published' does not make the story news again.
+      published_at  = CASE
+        WHEN ? = 'published' AND status != 'published' THEN strftime('%Y-%m-%dT%H:%M:%fZ','now')
+        WHEN ? = 'draft' THEN NULL
+        ELSE published_at END,
       cover_item_id = CASE WHEN ? THEN ? ELSE cover_item_id END,
       chapter_noun  = CASE WHEN ? THEN ? ELSE chapter_noun END,
       intro         = CASE WHEN ? THEN ? ELSE intro END,
@@ -316,6 +323,8 @@ export function updateStory(storyId: string, fields: StoryUpdate): void {
     fields.title ?? null,
     fields.subtitle !== undefined ? 1 : 0,
     fields.subtitle ?? null,
+    fields.status ?? null,
+    fields.status ?? null,
     fields.status ?? null,
     fields.coverItemId !== undefined ? 1 : 0,
     fields.coverItemId ?? null,
@@ -654,7 +663,7 @@ function nextPosition(table: "story_chapters" | "story_blocks", column: "story_i
   ).get(parentId) as { pos: number }).pos;
 }
 
-export function createChapter(storyId: string, fields: ChapterFields): ChapterRow {
+export function createChapter(storyId: string, fields: ChapterFields, actorId?: string): ChapterRow {
   const id = nanoid(16);
   db.transaction(() => {
     db.prepare(`
@@ -677,6 +686,14 @@ export function createChapter(storyId: string, fields: ChapterFields): ChapterRo
       fields.heroItemId ?? null,
       fields.heroMap ? 1 : 0
     );
+    // A chapter added to a story the house has already been shown is news to
+    // the house; one added while drafting is not — the publish is. Recorded
+    // here so every way of adding a chapter counts, whoever adds it.
+    const status = db.prepare("SELECT status FROM stories WHERE id = ?").get(storyId) as { status: string } | undefined;
+    if (status?.status === "published") {
+      db.prepare("INSERT INTO story_updates (id, story_id, chapter_id, actor_id) VALUES (?, ?, ?, ?)")
+        .run(nanoid(16), storyId, id, actorId ?? null);
+    }
     touchStory(storyId);
   })();
   return getChapter(id)!;

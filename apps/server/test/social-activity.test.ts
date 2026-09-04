@@ -7,6 +7,7 @@ vi.mock("../src/core/mail.js", async (importOriginal) => {
 
 import { db } from "../src/db.js";
 import { loadActivity } from "../src/modules/social/activity.js";
+import { createChapter, updateStory } from "../src/modules/stories/stories.js";
 import { grant, makeLibrary, resetDb } from "./helpers/seed.js";
 
 // The feed is derived, so the things worth testing are what it leaves OUT: your
@@ -157,9 +158,59 @@ describe("stories", () => {
     expect(loadActivity({ id: "boss", role: "admin" }, 10)).toEqual([]);
   });
 
-  it("says nothing about your own story", () => {
+  // The one exception to "not your own doings": publishing is a small
+  // occasion, and the author's story sits on their front page like anyone's.
+  it("shows the author their own published story", () => {
     story("s1", "dad", "published", null);
-    expect(loadActivity(dad, 10)).toEqual([]);
+    expect(loadActivity(dad, 10)).toMatchObject([{ kind: "story", actorName: "dad", title: "Dracula" }]);
+  });
+
+  it("dates a story from its publish, not from the draft it started as", () => {
+    story("s1", "mom", "published", null);
+    db.prepare("UPDATE stories SET created_at = '2026-01-01T00:00:00.000Z', published_at = '2026-08-01T00:00:00.000Z' WHERE id = 's1'").run();
+    expect(loadActivity(dad, 10)[0].createdAt).toBe("2026-08-01T00:00:00.000Z");
+  });
+
+  it("stamps the publish when a story goes live, and clears it on the way back", () => {
+    story("s1", "mom", "draft", null);
+    updateStory("s1", { status: "published" });
+    const stamped = db.prepare("SELECT published_at FROM stories WHERE id = 's1'").get() as { published_at: string | null };
+    expect(stamped.published_at).toBeTruthy();
+    // Saying 'published' again is not a second publish.
+    updateStory("s1", { status: "published", title: "Dracula, revisited" });
+    expect((db.prepare("SELECT published_at FROM stories WHERE id = 's1'").get() as { published_at: string }).published_at).toBe(stamped.published_at);
+    updateStory("s1", { status: "draft" });
+    expect((db.prepare("SELECT published_at FROM stories WHERE id = 's1'").get() as { published_at: string | null }).published_at).toBeNull();
+  });
+
+  it("reports a chapter added to a published story, to the house and to its author", () => {
+    story("s1", "mom", "published", null);
+    db.prepare("UPDATE stories SET chapter_noun = 'Day' WHERE id = 's1'").run();
+    const chapter = createChapter("s1", { title: "The last climb" }, "mom");
+    for (const viewer of [dad, mom]) {
+      const items = loadActivity(viewer, 10);
+      const update = items.find((item) => item.kind === "story_update");
+      expect(update).toMatchObject({
+        actorName: "mom",
+        title: "Dracula",
+        href: `/stories/s1/chapters/${chapter.id}`,
+        chapter: { id: chapter.id, title: "The last climb", noun: "Day", number: 2 }
+      });
+    }
+  });
+
+  it("says nothing about a chapter added while the story was still a draft", () => {
+    story("s1", "mom", "draft", null);
+    createChapter("s1", { title: "Early days" }, "mom");
+    updateStory("s1", { status: "published" });
+    expect(loadActivity(dad, 10).map((item) => item.kind)).toEqual(["story"]);
+  });
+
+  it("forgets an added chapter that was deleted again", () => {
+    story("s1", "mom", "published", null);
+    const chapter = createChapter("s1", { title: "Oops" }, "mom");
+    db.prepare("DELETE FROM story_chapters WHERE id = ?").run(chapter.id);
+    expect(loadActivity(dad, 10).map((item) => item.kind)).toEqual(["story"]);
   });
 
   // The bug this fixes: a review wears the artwork of the book it is about, and

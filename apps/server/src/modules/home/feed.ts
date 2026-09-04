@@ -29,7 +29,7 @@
 // deliberately leaves out — so the rule holds by construction; keep it that way
 // when adding card types.
 import { db } from "../../db.js";
-import { loadActivity } from "../social/activity.js";
+import { loadActivity, type ActivityChapter } from "../social/activity.js";
 import { loadInboxCards, type InboxCardView } from "../social/routes.js";
 import { bookLibraryIds } from "../library/feed.js";
 import { resolveGalleryScopeLibraryIds } from "../library/gallery/catalog.js";
@@ -79,7 +79,7 @@ export interface AddedBatchCard {
 }
 
 export interface ActivityCard {
-  type: "note" | "album" | "slideshow" | "person" | "story";
+  type: "note" | "album" | "slideshow" | "person" | "story" | "story_update";
   id: string;
   actorName: string;
   createdAt: string;
@@ -88,6 +88,8 @@ export interface ActivityCard {
   subtitle: string | null;
   coverUrl: string | null;
   href: string;
+  /** The chapter a story_update added; null for every other type. */
+  chapter: ActivityChapter | null;
 }
 
 export interface SeriesNextCard {
@@ -409,7 +411,8 @@ export function loadHomeFeed(
         title: item.title,
         subtitle: item.subtitle,
         coverUrl: item.coverUrl,
-        href: item.href
+        href: item.href,
+        chapter: item.chapter
       }
     });
   }

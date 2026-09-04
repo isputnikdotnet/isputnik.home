@@ -788,7 +788,7 @@ export async function storiesPlugin(app: FastifyInstance) {
     if (parsed.data.heroItemId && !referenceIsReachable("media", parsed.data.heroItemId, user)) {
       return reply.code(400).send({ error: "That photo isn't available to use as a hero." });
     }
-    const chapter = createChapter(story.id, parsed.data);
+    const chapter = createChapter(story.id, parsed.data, user.id);
     return reply.code(201).send({ chapterId: chapter.id });
   });
 

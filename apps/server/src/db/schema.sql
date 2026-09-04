@@ -1895,6 +1895,13 @@ CREATE TABLE IF NOT EXISTS stories (
   -- which no-ops here on a fresh database.
   deleted_at    TEXT,
   purge_after   TEXT,
+  -- When the story last went from draft to published; NULL while a draft.
+  -- The home feed dates "X wrote a story" from this, not created_at: a story
+  -- drafted over three weeks and published today is news today. Cleared when
+  -- it goes back to draft, so republishing is news again. Migration 66 stamps
+  -- existing published stories with their created_at — what the feed used
+  -- before — so an upgrade announces nothing that was not news already.
+  published_at  TEXT,
   created_by    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   updated_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
@@ -1986,6 +1993,21 @@ CREATE INDEX IF NOT EXISTS idx_story_chapters_story ON story_chapters(story_id, 
 CREATE INDEX IF NOT EXISTS idx_story_blocks_chapter ON story_blocks(chapter_id, position);
 CREATE INDEX IF NOT EXISTS idx_story_blocks_entity  ON story_blocks(entity_type, entity_id);
 CREATE INDEX IF NOT EXISTS idx_stories_created_by   ON stories(created_by);
+
+-- A chapter added to a story that was ALREADY published: the one edit that is
+-- news to the rest of the house ("Dad added Day 4 to Alps in summer"), kept
+-- apart from updated_at, which moves on every typo. Recorded at the moment
+-- the chapter is created, by whoever created it — a contributor on a shared
+-- shelf as much as the author. Rows go with their chapter, so a chapter
+-- deleted again is not announced.
+CREATE TABLE IF NOT EXISTS story_updates (
+  id          TEXT PRIMARY KEY,
+  story_id    TEXT NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
+  chapter_id  TEXT NOT NULL REFERENCES story_chapters(id) ON DELETE CASCADE,
+  actor_id    TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+CREATE INDEX IF NOT EXISTS idx_story_updates_story ON story_updates(story_id, created_at);
 
 -- A story collection: the shelf above stories ("Family Story", "Trips") —
 -- title, cover, description, access, member stories. Deliberately LIGHT: the

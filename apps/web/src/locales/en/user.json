@@ -272,6 +272,8 @@
       "slideshowAfter": "",
       "storyBefore": "wrote",
       "storyAfter": "",
+      "storyUpdateBefore": "added {{chapter}} to",
+      "storyUpdateAfter": "",
       "personBefore": "added",
       "personAfter": "to the family tree",
       "fallbackBefore": "did something with",

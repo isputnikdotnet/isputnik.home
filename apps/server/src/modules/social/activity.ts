@@ -16,7 +16,11 @@
 //   • albums created   — somebody curated something
 //   • slideshows made  — likewise
 //   • stories written  — the one thing here somebody sat down and WROTE, and
-//                        published deliberately for the rest of the house
+//                        published deliberately for the rest of the house;
+//                        dated from the publish, not from the first draft
+//   • chapters added   — to a story already published: the one edit that is
+//                        news ("Dad added Day 4 to Alps in summer"), recorded
+//                        as story_updates so a typo fix is not
 //   • people added     — the family tree growing is news
 //
 // What is deliberately NOT in it:
@@ -25,11 +29,13 @@
 //   • recommendations — "Dad sent Mum a book" is correspondence between two
 //     people. The half that concerns you is already the "Sent to you" row
 //   • your own actions — you know what you did, and at five people your own
-//     activity would crowd out everybody else's
+//     activity would crowd out everybody else's. The two story events are the
+//     exception: publishing is a small occasion, and the author gets to see
+//     their story on the front page like everyone else does
 import { db } from "../../db.js";
 import { hydrateEntities, type HydratedEntity } from "./subjects.js";
 
-export type ActivityKind = "note" | "album" | "slideshow" | "person" | "story";
+export type ActivityKind = "note" | "album" | "slideshow" | "person" | "story" | "story_update";
 
 interface ActivityRow {
   kind: ActivityKind;
@@ -42,6 +48,19 @@ interface ActivityRow {
   entity_id: string;
   /** A note's text; null for everything else. */
   body: string | null;
+  /** A story update's chapter, as the fields that name it; null otherwise. */
+  chapter_id: string | null;
+  chapter_title: string | null;
+  chapter_noun: string | null;
+  chapter_number: number | null;
+}
+
+export interface ActivityChapter {
+  id: string;
+  title: string | null;
+  /** The story's own word for a chapter ("Day"); null = plain "Chapter". */
+  noun: string | null;
+  number: number;
 }
 
 // Over-fetch, because access filtering happens after the query: a viewer who can
@@ -58,7 +77,8 @@ function loadRows(viewerId: string, limit: number): ActivityRow[] {
         COALESCE(notes.author_name, users.display_name) AS actor_name,
         notes.created_at AS created_at,
         notes.entity_type AS entity_type, notes.entity_id AS entity_id,
-        notes.body AS body
+        notes.body AS body,
+        NULL AS chapter_id, NULL AS chapter_title, NULL AS chapter_noun, NULL AS chapter_number
       FROM notes
       LEFT JOIN users ON users.id = notes.user_id
       WHERE notes.deleted_at IS NULL AND (notes.user_id IS NULL OR notes.user_id != ?)
@@ -71,7 +91,8 @@ function loadRows(viewerId: string, limit: number): ActivityRow[] {
         users.display_name,
         gallery_albums.created_at,
         'gallery_album', gallery_albums.id,
-        NULL
+        NULL,
+        NULL, NULL, NULL, NULL
       FROM gallery_albums
       LEFT JOIN users ON users.id = gallery_albums.created_by
       WHERE gallery_albums.created_by != ?
@@ -84,7 +105,8 @@ function loadRows(viewerId: string, limit: number): ActivityRow[] {
         users.display_name,
         gallery_slideshows.created_at,
         'gallery_slideshow', gallery_slideshows.id,
-        NULL
+        NULL,
+        NULL, NULL, NULL, NULL
       FROM gallery_slideshows
       LEFT JOIN users ON users.id = gallery_slideshows.created_by
       WHERE gallery_slideshows.created_by != ?
@@ -94,18 +116,45 @@ function loadRows(viewerId: string, limit: number): ActivityRow[] {
       -- A story somebody wrote. Published only: a draft belongs to its author
       -- until they say otherwise, and while the hydrator drops it for everyone
       -- else, an admin can see every draft — the front page is not where
-      -- somebody's unfinished writing should turn up.
+      -- somebody's unfinished writing should turn up. Dated from the publish:
+      -- a story drafted over three weeks and published today is news today.
+      -- The author sees it too (no actor exclusion here): publishing is a
+      -- small occasion, and their story is on the front page like anyone's.
       SELECT
         'story', stories.id,
         stories.created_by,
         users.display_name,
-        stories.created_at,
+        COALESCE(stories.published_at, stories.created_at),
         'story', stories.id,
-        NULL
+        NULL,
+        NULL, NULL, NULL, NULL
       FROM stories
       LEFT JOIN users ON users.id = stories.created_by
-      WHERE stories.created_by != ?
-        AND stories.status = 'published'
+      WHERE stories.status = 'published'
+        AND stories.deleted_at IS NULL
+
+      UNION ALL
+
+      -- A chapter added to a story that was already published — by its
+      -- author or by a contributor on a shared shelf, who both see it. The
+      -- story's chapter noun rides along so the card can say "Day 4" in the
+      -- story's own words; the number is the chapter's place today, as the
+      -- reader will find it.
+      SELECT
+        'story_update', story_updates.id,
+        story_updates.actor_id,
+        users.display_name,
+        story_updates.created_at,
+        'story', story_updates.story_id,
+        NULL,
+        story_chapters.id, story_chapters.title, stories.chapter_noun,
+        (SELECT COUNT(*) FROM story_chapters AS earlier
+          WHERE earlier.story_id = story_chapters.story_id AND earlier.position <= story_chapters.position)
+      FROM story_updates
+      JOIN stories ON stories.id = story_updates.story_id
+      JOIN story_chapters ON story_chapters.id = story_updates.chapter_id
+      LEFT JOIN users ON users.id = story_updates.actor_id
+      WHERE stories.status = 'published'
         AND stories.deleted_at IS NULL
 
       UNION ALL
@@ -116,17 +165,21 @@ function loadRows(viewerId: string, limit: number): ActivityRow[] {
         users.display_name,
         family_tree_persons.created_at,
         'family_tree_person', family_tree_persons.id,
-        NULL
+        NULL,
+        NULL, NULL, NULL, NULL
       FROM family_tree_persons
       LEFT JOIN users ON users.id = family_tree_persons.created_by
       WHERE family_tree_persons.created_by IS NULL OR family_tree_persons.created_by != ?
     )
     ORDER BY datetime(created_at) DESC
     LIMIT ?
-  `).all(viewerId, viewerId, viewerId, viewerId, viewerId, limit * OVERFETCH) as ActivityRow[];
+  `).all(viewerId, viewerId, viewerId, viewerId, limit * OVERFETCH) as ActivityRow[];
 }
 
 function view(row: ActivityRow, subject: HydratedEntity) {
+  const chapter: ActivityChapter | null = row.chapter_id
+    ? { id: row.chapter_id, title: row.chapter_title, noun: row.chapter_noun, number: row.chapter_number ?? 1 }
+    : null;
   return {
     id: `${row.kind}:${row.id}`,
     kind: row.kind,
@@ -138,7 +191,9 @@ function view(row: ActivityRow, subject: HydratedEntity) {
     title: subject.title,
     subtitle: subject.subtitle,
     coverUrl: subject.coverUrl,
-    href: subject.href
+    // An added chapter opens on that chapter, not on the story's front page.
+    href: chapter ? `${subject.href}/chapters/${chapter.id}` : subject.href,
+    chapter
   };
 }
 

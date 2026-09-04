@@ -37,15 +37,39 @@ export function recommendationLine(fromName: string, entityType: string): string
 // title with a badge beside it makes you work it out. The subject's own title
 // is rendered separately by the row, so these are the words around it.
 
-export type ActivityKind = "note" | "album" | "slideshow" | "person" | "story";
+export type ActivityKind = "note" | "album" | "slideshow" | "person" | "story" | "story_update";
+
+/** The chapter a story update added, as the fields that name it. */
+export interface ActivityChapter {
+  id: string;
+  title: string | null;
+  /** The story's own word for a chapter ("Day"); null = plain "Chapter". */
+  noun: string | null;
+  number: number;
+}
+
+/** "Day 4" in the story's own words, else the chapter's title, else
+ *  "Chapter 4" — the same precedence the story's reader uses. */
+export function chapterName(chapter: ActivityChapter): string {
+  if (chapter.noun) return `${chapter.noun} ${chapter.number}`;
+  if (chapter.title) return chapter.title;
+  return i18n.t("stories:chapter.number", { number: chapter.number });
+}
 
 // The title does not always come last. "Anna left a note on Dune" works with the
 // name at the end; "Dad added to the family tree Grandma" does not — it has to be
 // "Dad added Grandma to the family tree". So a phrase is two halves with the
 // title between them, which the first version got wrong and real data caught the
 // moment the feed was looked at.
-function activityPhraseParts(kind: ActivityKind): { before: string; after: string } {
+function activityPhraseParts(kind: ActivityKind, detail?: string): { before: string; after: string } {
   switch (kind) {
+    case "story_update":
+      // "added Day 4 to" — the chapter is part of the verb phrase, the story
+      // title is what the row renders after it.
+      return {
+        before: i18n.t("user:phrase.activity.storyUpdateBefore", { chapter: detail ?? "" }),
+        after: i18n.t("user:phrase.activity.storyUpdateAfter")
+      };
     case "note":
       return { before: i18n.t("user:phrase.activity.noteBefore"), after: i18n.t("user:phrase.activity.noteAfter") };
     case "album":
@@ -74,8 +98,8 @@ export interface ActivityPhrase {
   after: string;
 }
 
-export function activityPhrase(actorName: string, kind: ActivityKind): ActivityPhrase {
-  const phrase = activityPhraseParts(kind);
+export function activityPhrase(actorName: string, kind: ActivityKind, detail?: string): ActivityPhrase {
+  const phrase = activityPhraseParts(kind, detail);
   return { before: `${actorName} ${phrase.before}`, after: phrase.after };
 }
 

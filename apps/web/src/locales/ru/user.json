@@ -306,6 +306,8 @@
       "slideshowAfter": "",
       "storyBefore": "написал(а) историю",
       "storyAfter": "",
+      "storyUpdateBefore": "добавил(а) {{chapter}} в историю",
+      "storyUpdateAfter": "",
       "personBefore": "добавил(а)",
       "personAfter": "в семейное древо",
       "fallbackBefore": "что-то сделал(а) с",

@@ -83,6 +83,7 @@ const activity = (over: Partial<ActivityItem> = {}): ActivityItem => ({
   subtitle: null,
   coverUrl: null,
   href: "/ebooks/books/b1",
+  chapter: null,
   ...over
 });
 
@@ -108,5 +109,27 @@ describe("activity cards", () => {
   it("links each line to the thing it is about", () => {
     render(<ActivityList items={[activity()]} />);
     expect(screen.getByRole("link")).toHaveAttribute("href", "/ebooks/books/b1");
+  });
+
+  it("names an added chapter in the story's own words, then the story", () => {
+    const { container } = render(<ActivityList items={[activity({
+      kind: "story_update", actorName: "Dad", title: "Alps in summer",
+      chapter: { id: "c4", title: "The last climb", noun: "Day", number: 4 }
+    })]} />);
+    expect(container.querySelector(".activity-sentence")?.textContent).toBe("Dad added Day 4 to Alps in summer");
+  });
+
+  it("falls back to the chapter's title, then a plain chapter number", () => {
+    const titled = render(<ActivityList items={[activity({
+      kind: "story_update", actorName: "Dad", title: "Alps in summer",
+      chapter: { id: "c4", title: "The last climb", noun: null, number: 4 }
+    })]} />);
+    expect(titled.container.querySelector(".activity-sentence")?.textContent).toBe("Dad added The last climb to Alps in summer");
+    titled.unmount();
+    const bare = render(<ActivityList items={[activity({
+      kind: "story_update", actorName: "Dad", title: "Alps in summer",
+      chapter: { id: "c4", title: null, noun: null, number: 4 }
+    })]} />);
+    expect(bare.container.querySelector(".activity-sentence")?.textContent).toBe("Dad added Chapter 4 to Alps in summer");
   });
 });

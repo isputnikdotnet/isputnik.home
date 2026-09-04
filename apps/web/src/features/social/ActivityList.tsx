@@ -1,7 +1,7 @@
-import { BookText, Film, Images, MessageSquare, Network } from "lucide-react";
+import { BookOpenText, BookText, Film, Images, MessageSquare, Network } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { followRoute } from "../../router";
-import { activityPhrase, timeAgo, type ActivityKind } from "./phrasing";
+import { activityPhrase, chapterName, timeAgo, type ActivityChapter, type ActivityKind } from "./phrasing";
 
 // What the household has been up to, as sentences.
 //
@@ -22,6 +22,8 @@ export interface ActivityItem {
   subtitle: string | null;
   coverUrl: string | null;
   href: string;
+  /** The chapter a story update added; null for every other kind. */
+  chapter: ActivityChapter | null;
 }
 
 const ICONS: Record<ActivityKind, LucideIcon> = {
@@ -29,6 +31,7 @@ const ICONS: Record<ActivityKind, LucideIcon> = {
   album: Images,
   slideshow: Film,
   story: BookText,
+  story_update: BookOpenText,
   person: Network
 };
 
@@ -37,7 +40,9 @@ export function ActivityList({ items }: { items: ActivityItem[] }) {
     <ul className="activity-list">
       {items.map((item) => {
         const Icon = ICONS[item.kind] ?? MessageSquare;
-        const phrase = activityPhrase(item.actorName, item.kind);
+        // "Dad added Day 4 to Alps in summer": the chapter goes in the
+        // sentence's first half, and the story's title takes the bold slot.
+        const phrase = activityPhrase(item.actorName, item.kind, item.chapter ? chapterName(item.chapter) : undefined);
         return (
           <li key={item.id}>
             <a
