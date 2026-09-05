@@ -19,6 +19,14 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.65.3",
+    label: "A picture on almost every page",
+    changes: [
+      "A book's description reads as prose again. Every book that came from a well-made EPUB was showing its description as markup — literally “<p>Everyone's familiar with <a href=…>Lewis Carroll</a>'s famous children's classic” — because the file is allowed to keep HTML in that field and nothing was taking it back out. Twenty-four of the twenty-five books on the demo shelf were affected, so if your library came from Standard Ebooks or a similar source, most of it was. Rescan an ebook library and its descriptions come back as sentences.",
+      "The help guides went from fifteen screenshots to forty-one, and from nine illustrated guides to eighteen of the nineteen. New ones cover the parts hardest to describe in words: a duplicate-cleanup card with the copy it proposes to keep and why, a person's profile in the family tree, a book's editions, the Add-block dialog and the map picker in the story editor, the People and Map views of the gallery, albums and slideshows, the Quotes page and the members, groups and invite pages. Sharing with family is the one guide still without pictures; its main screen is a list of the people in your house, which a screenshot of a one-person server cannot show honestly."
+    ]
+  },
+  {
     version: "3.65.2",
     label: "A book in two parts is one book",
     changes: [
