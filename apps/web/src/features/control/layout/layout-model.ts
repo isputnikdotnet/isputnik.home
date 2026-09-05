@@ -68,7 +68,8 @@ export const PRESETS: Record<LibraryKind, Preset[]> = {
   ]
 };
 
-const DISC_LIKE = /^(cd|disc|disk|part|часть|диск)\s*\d+$/i;
+// Mirrors the scanner's PART_FOLDER_RE: a folder that is one part of a book.
+const DISC_LIKE = /(?:^|[\s_\-([])(?:cd|disc|disk|part|pt|часть|ч|диск)[\s_.\-]*\d+[)\]]?$/i;
 // Separators file names are split on. The ordinal dot ("01. Title") only counts
 // right after leading digits, so "J.R.R. Tolkien" stays whole.
 const SEP_RE = /( - |(?<=^\d+)\. |_| \(| \[|\)|\])/;

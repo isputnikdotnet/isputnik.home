@@ -13,7 +13,7 @@ import { validateLibrarySource } from "./library-source.js";
 import { normalizeLibrarySettings } from "./library-settings.js";
 import { relativePathWithinRoot, pathIsInside, normaliseRelativePath } from "./storage-roots.js";
 import { previewEbookRulePattern, enqueueEbookScan } from "../ebook/scanner.js";
-import { previewAudiobookRulePattern, enqueueAudiobookScan } from "../audiobook/scanner.js";
+import { previewAudiobookRulePattern, enqueueAudiobookScan, discNumberFromFolderName } from "../audiobook/scanner.js";
 
 // Custom scan rules are a library-config action, gated to admins like rescan and
 // library settings. Routes are cross-type (the rule inherits the library's type).
@@ -234,7 +234,8 @@ export async function scanRulesPlugin(app: FastifyInstance) {
 
 export interface LayoutExample { anchor: string; path: string }
 
-const DISC_LIKE = /^(cd|disc|disk|part|часть|диск)\s*\d+$/i;
+// Whether a folder is one part of a book, by the scanner's own rule.
+const DISC_LIKE = { test: (name: string) => discNumberFromFolderName(name) !== null };
 
 // Walk each anchor for content files (bounded), then keep one path per shape.
 export function sampleLayoutExamples(
