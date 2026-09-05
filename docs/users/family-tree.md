@@ -51,6 +51,8 @@ person — from search, All people, or a bookmark — still opens on them.
 
 ## A person's profile
 
+![A person's profile on its Relationships tab: parents, partner and children](images/41-family-person.png)
+
 Six tabs:
 
 - **Relationships** — parents, siblings, grandparents, partners and children as

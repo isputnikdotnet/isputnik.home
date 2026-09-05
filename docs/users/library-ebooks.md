@@ -20,6 +20,15 @@ Drop `Frankenstein.epub` and `Frankenstein.pdf` in the same folder and you get
 filename, so keeping matching names together is all that's needed. EPUB is
 preferred as the primary format because it drives the in-app reader.
 
+### The same book in several editions
+
+Different formats group themselves. **Editions** — a second translation, another
+publisher's text, or the audiobook of a book you also own — are grouped by hand,
+and the book's page then lists them all. One is the primary for each media type,
+which is the one the shelves show; the rest sit underneath, each a click away.
+
+![A book's Editions list: the audiobook and two EPUB editions of one work](images/37-book-editions.png)
+
 ## Telling the scanner how folders are arranged
 
 When your folder and file names carry the author, series or title, the scanner

@@ -170,6 +170,8 @@ to another, because videos carry no visual fingerprint.
 
 ## Which copy is kept
 
+![A result card: what matched, which copy is kept and why, and the three buttons](images/68-duplicate-result.png)
+
 Decided in this order, and the card tells you which rule won:
 
 1. A copy in a library nothing can be deleted from. Not a preference — the only outcome

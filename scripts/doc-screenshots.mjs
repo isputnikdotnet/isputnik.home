@@ -102,7 +102,52 @@ const SHOTS = [
   { name: "34-gallery-map", url: "gallery/map", wait: 5000, state: "photos with GPS" },
   { name: "35-gallery-albums", url: "gallery/albums", state: "at least one album" },
   { name: "36-gallery-slideshows", url: "gallery/slideshows", state: "at least one slideshow" },
+  {
+    // A book's address carries its id, so walk in from the shelf. Needs the
+    // editions to have been grouped by hand first — the switcher only appears on
+    // a book that belongs to a work.
+    name: "37-book-editions",
+    url: "ebooks",
+    state: "a book grouped into an edition set",
+    setup: `
+      const card = [...document.querySelectorAll("article.audiobook-catalog-card")]
+        .find((el) => el.textContent.includes("Alice"));
+      if (!card) return "no Alice card on the shelf";
+      card.querySelector(".audiobook-catalog-cover")?.click();
+      await sleep(2200);
+      const heading = [...document.querySelectorAll("h2, h3")]
+        .find((el) => el.textContent.trim().startsWith("Editions"));
+      if (!heading) return "this book is not part of an edition set";
+      let node = heading.parentElement;
+      let scroller = null;
+      while (node) {
+        const style = getComputedStyle(node);
+        if (/(auto|scroll)/.test(style.overflowY) && node.scrollHeight > node.clientHeight) { scroller = node; break; }
+        node = node.parentElement;
+      }
+      const target = scroller ?? document.scrollingElement;
+      target.scrollTop += heading.getBoundingClientRect().top
+        - (scroller ? scroller.getBoundingClientRect().top : 0) - 220;
+      await sleep(900);
+      "editions in view";`
+  },
   { name: "40-family-tree", url: "family" },
+  {
+    // A profile's address carries the person's id, so pick them off the People
+    // list by name. Margaret has parents, a husband and three children, so the
+    // Relationships tab the guide describes is not a row of empty headings.
+    name: "41-family-person",
+    url: "family/people",
+    state: "a family tree with relationships",
+    setup: `
+      const link = [...document.querySelectorAll("a")].find((el) =>
+        /\\/family\\/people\\/[^/]+$/.test(el.getAttribute("href") ?? "")
+        && el.textContent.includes("Margaret Ellis"));
+      if (!link) return "no profile link for Margaret Ellis";
+      link.click();
+      await sleep(2200);
+      "profile open";`
+  },
 
   // Every control-panel tab is a real route (features/control/nav.ts), so this is a
   // plain navigation — it used to click an "Email" tab inside /control/config, which
@@ -118,6 +163,31 @@ const SHOTS = [
   // history behind it — an install with nothing in it photographs as empty boxes.
   { name: "60-dashboard", url: "control", state: "libraries scanned" },
   { name: "61-duplicate-cleanup", url: "control/utilities/duplicate-cleanup", state: "a cleanup job in review" },
+  {
+    // The header shot above says what the scan found; this one shows a result
+    // card, which is the thing the guide spends most of its length explaining —
+    // what was matched, which copy is kept and why, and the three buttons.
+    name: "68-duplicate-result",
+    url: "control/utilities/duplicate-cleanup",
+    state: "a cleanup job in review",
+    wait: 4000,
+    setup: `
+      const heading = [...document.querySelectorAll("h2, h3")]
+        .find((el) => /identical|near|same/i.test(el.textContent));
+      if (!heading) return "no results section";
+      let node = heading.parentElement;
+      let scroller = null;
+      while (node) {
+        const style = getComputedStyle(node);
+        if (/(auto|scroll)/.test(style.overflowY) && node.scrollHeight > node.clientHeight) { scroller = node; break; }
+        node = node.parentElement;
+      }
+      const target = scroller ?? document.scrollingElement;
+      target.scrollTop += heading.getBoundingClientRect().top
+        - (scroller ? scroller.getBoundingClientRect().top : 0) - 60;
+      await sleep(1400);
+      \`at \${heading.textContent.trim()}\`;`
+  },
   // The bin shows whatever was last deleted, which is not necessarily something
   // fit to publish — the first attempt caught a copyrighted audiobook somebody had
   // been testing with. Empty it, delete one demo item, then capture.
