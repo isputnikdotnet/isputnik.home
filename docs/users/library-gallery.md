@@ -30,6 +30,17 @@ Along the top:
 
 They're all views of the same photos — nothing is copied or moved between them.
 
+**Albums** are the ones you build yourself, each with a name, a description and
+a cover:
+
+![The Albums view, one card per album](images/35-gallery-albums.png)
+
+**Slideshows** keeps the ones you have saved, and offers a row of suggestions
+built from the library itself — a day that has a lot of photos, or everything
+featuring one person:
+
+![The Slideshows view: suggestions above, your own saved slideshows below](images/36-gallery-slideshows.png)
+
 ## How the grid looks
 
 **View**, next to Filter and Sort, sets two things and remembers them for next

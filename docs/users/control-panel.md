@@ -208,6 +208,11 @@ them across the whole install.
 
 ## Members
 
+Three tabs: the people, the groups you gather them into, and the invite links
+that bring new ones in.
+
+![The Users tab, with the first administrator carrying its Protected badge](images/65-members.png)
+
 - **Users** — create accounts, set roles (**Member** or **Admin**), change
   passwords, and reset someone's two-factor when they've lost both their phone and
   their backup codes.
@@ -224,6 +229,10 @@ them across the whole install.
   the moment you're granting the same three libraries to the same four people.
 - **Invite links** — sign-up links, so you don't have to hand out passwords. Create
   one, send it, retire it when it's been used or you've changed your mind.
+
+![The Groups tab, each group listing how many people and libraries it covers](images/66-groups.png)
+
+![The Invite links tab: one active link, unused, with its expiry](images/67-invites.png)
 
 Signed-in devices moved to the Dashboard's Sign-ins view, which lists every
 session with the ability to revoke any of them — where you go when a laptop is

@@ -79,7 +79,10 @@ where files live. That's next: **[Storage](storage.md)**.
 ## Adding other people
 
 You don't have to hand out your own account. In **Control panel → Members** you
-can invite family members, each with their own sign-in:
+can invite family members, each with their own sign-in — an invite link lets
+them set their own password, so you never handle it:
+
+![The Invite links tab, with one active link waiting to be used](images/67-invites.png)
 
 - **Member** — can browse and read/listen/watch everything shared with them.
 - **Admin** — can also configure libraries, storage, and the rest of the control

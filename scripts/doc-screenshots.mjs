@@ -100,6 +100,8 @@ const SHOTS = [
   // a face scan and has photos carrying GPS.
   { name: "33-gallery-people", url: "gallery/people", state: "faces scanned and named" },
   { name: "34-gallery-map", url: "gallery/map", wait: 5000, state: "photos with GPS" },
+  { name: "35-gallery-albums", url: "gallery/albums", state: "at least one album" },
+  { name: "36-gallery-slideshows", url: "gallery/slideshows", state: "at least one slideshow" },
   { name: "40-family-tree", url: "family" },
 
   // Every control-panel tab is a real route (features/control/nav.ts), so this is a
@@ -122,6 +124,9 @@ const SHOTS = [
   { name: "62-recycle-bin", url: "control/maintenance/recycle-bin", state: "only demo content in the bin" },
   { name: "63-backup", url: "control/maintenance/backup" },
   { name: "64-security-overview", url: "control/security" },
+  { name: "65-members", url: "control/members" },
+  { name: "66-groups", url: "control/members/groups", state: "at least one group" },
+  { name: "67-invites", url: "control/members/invites", state: "an unused invite" },
 
   // Quotes. Both need a pack imported — an empty Quotes page is an empty box, and
   // the manage page has nothing to list until an import has actually been run.
