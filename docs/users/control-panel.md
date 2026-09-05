@@ -399,6 +399,12 @@ Deleting from the app moves things here rather than erasing them. They keep thei
 files for a while, then go for good — and you can restore or empty by hand before
 then.
 
+![The Recycle Bin: each item with where it came from, who deleted it, and when it goes](images/62-recycle-bin.png)
+
+Each card names the folder the item came from, its library, its size, who deleted
+it and the date it will be removed — so a deletion is legible weeks later, when
+you have forgotten making it.
+
 **How long** is set at the top of the page, and there are two answers. The first is
 for anything you delete yourself: 30 days to start with, and `0` means nothing is
 ever removed automatically. The second is for items a **duplicate cleanup** removed;

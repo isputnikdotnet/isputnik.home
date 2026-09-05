@@ -235,7 +235,9 @@ const SHOTS = [
   },
   // The bin shows whatever was last deleted, which is not necessarily something
   // fit to publish — the first attempt caught a copyrighted audiobook somebody had
-  // been testing with. Empty it, delete one demo item, then capture.
+  // been testing with. Empty it, delete one demo item, then capture. Delete a copy
+  // out of Photos/Re-saved: those exist only to be duplicates, so the library
+  // loses nothing, and removing one is the flow duplicate-cleanup.md describes.
   { name: "62-recycle-bin", url: "control/maintenance/recycle-bin", state: "only demo content in the bin" },
   { name: "63-backup", url: "control/maintenance/backup" },
   { name: "64-security-overview", url: "control/security" },
