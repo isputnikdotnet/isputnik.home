@@ -95,8 +95,8 @@ export default defineConfig({
       },
       workbox: {
         // Precache the app shell so the UI boots with no network. The guides are
-        // included — all twelve are ~55 KB of text, and help is exactly what you
-        // want when something isn't working. Their screenshots are ~1.8 MB and
+        // included — all nineteen are ~160 KB of text, and help is exactly what
+        // you want when something isn't working. Their screenshots are ~3 MB and
         // are NOT precached; they load over the network and stick in the runtime
         // image cache below, so an offline guide reads fine minus the pictures.
         globPatterns: ["**/*.{js,css,html,svg,woff2}", "guides/*.md"],

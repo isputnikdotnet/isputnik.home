@@ -14,6 +14,8 @@ show anyone something they couldn't already see: every photo, album and book
 in it is checked against the reader's own library access, and anything out of
 reach appears as a polite placeholder rather than a leak.
 
+![The Stories index: collections above, then every story as a card](images/90-stories.png)
+
 ## Starting a story
 
 **Stories → New story.** It asks for a title and what kind of story this is,
@@ -176,6 +178,8 @@ Opening a story leaves the app behind — no menus, no library chrome, just the
 story's name, its chapters, and a way back. That's deliberate: a story is
 made to be read and handed round, like a small website of its own.
 
+![A chaptered story open for reading, its chapters listed beside it](images/91-story.png)
+
 A story with chapters reads as a page with **its own navigation beside it**:
 every stop on the journey, with the photo it opens on and the day it happened,
 staying in view while you read — so you can always see the shape of the whole
@@ -216,6 +220,8 @@ Pick a recordings library the whole family can view, or the narration will be
 missing for people without access to it.
 
 ## Collections
+
+![A collection's page: its description, how many stories, and the stories themselves](images/92-story-collection.png)
 
 Collections are shelves for stories: **"Family Story"**, **"Trips"** — a
 name, a cover, and the stories that belong together. A collection's page lays

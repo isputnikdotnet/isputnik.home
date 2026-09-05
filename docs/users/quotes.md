@@ -8,6 +8,8 @@ They all live in one place — **Quotes**, in your library menu — and turn up
 wherever they're relevant: on the home page as the quote of the day, and on a
 relative's page in the family tree.
 
+![The Quotes page, grouped by author, with the filters above](images/80-quotes.png)
+
 ## Where quotes come from
 
 **While reading.** Select a passage in the ebook reader and save it. The
@@ -176,6 +178,8 @@ A single file can hold up to 5,000 quotes. A bigger one is refused rather than
 half-imported — split it and run it twice.
 
 ### Undoing an import
+
+![The Quotes utility page, listing one import with its own Delete](images/81-quotes-import.png)
 
 Every import is kept as the event it was — the file name, when it came in, and
 how many of its quotes are still here. Each one has its own **Delete**, which

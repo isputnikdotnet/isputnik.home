@@ -122,6 +122,45 @@ const SHOTS = [
   { name: "62-recycle-bin", url: "control/maintenance/recycle-bin", state: "only demo content in the bin" },
   { name: "63-backup", url: "control/maintenance/backup" },
   { name: "64-security-overview", url: "control/security" },
+
+  // Quotes. Both need a pack imported — an empty Quotes page is an empty box, and
+  // the manage page has nothing to list until an import has actually been run.
+  { name: "80-quotes", url: "quotes", state: "a quote pack imported" },
+  { name: "81-quotes-import", url: "control/utilities/quotes", state: "a quote pack imported" },
+
+  // Stories. A story's address contains its id, which differs on every install,
+  // so these open the index and click through by title rather than deep-linking
+  // — otherwise the shots would only reproduce on the machine they were taken on.
+  { name: "90-stories", url: "stories", state: "some published stories" },
+  {
+    name: "91-story",
+    url: "stories",
+    state: "a story called \"Alps in summer\"",
+    // A story card is an <a href="/stories/:id">, but its text begins with the
+    // status badge — so match the href shape and look for the title anywhere
+    // inside, rather than at the start.
+    setup: `
+      const link = [...document.querySelectorAll("a")].find((el) =>
+        /^\\/stories\\/[^/]+$/.test(el.getAttribute("href") ?? "")
+        && el.textContent.includes("Alps in summer"));
+      if (!link) return "no story card for Alps in summer";
+      link.click();
+      await sleep(2000);
+      "opened";`
+  },
+  {
+    name: "92-story-collection",
+    url: "stories",
+    state: "a story collection called \"Reviews\"",
+    setup: `
+      const link = [...document.querySelectorAll("a")]
+        .find((el) => el.textContent.trim().startsWith("Reviews"));
+      if (!link) return "no collection called Reviews";
+      link.click();
+      await sleep(1800);
+      "opened";`
+  },
+
   { name: "70-profile", url: "profile" },
   { name: "71-profile-security", url: "profile/security" },
   { name: "72-profile-appearance", url: "profile/appearance" },
