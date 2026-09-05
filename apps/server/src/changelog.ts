@@ -19,6 +19,13 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.65.4",
+    label: "And the last guide too",
+    changes: [
+      "Sharing with family and the Recycle Bin have pictures now, which were the last two guides without them — so every one of the nineteen is illustrated. Sharing shows both halves of the Send-to dialog: the list of people in the house to pick from, and the guest-link side with its expiry, its label and the warning that a link is shown once and never again. The Recycle Bin shows what a deleted item keeps — where it came from, who removed it, and the date it goes for good."
+    ]
+  },
+  {
     version: "3.65.3",
     label: "A picture on almost every page",
     changes: [
