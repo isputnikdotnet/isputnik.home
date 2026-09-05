@@ -19,6 +19,14 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.65.2",
+    label: "A book in two parts is one book",
+    changes: [
+      "An audiobook whose files sit in subfolders named for its parts — Part 1 and Part 2, Часть 1 and Часть 2, Disc 3, CD1, also as a suffix such as “Три товарища (Часть_1)” — is now one book, with the tracks of each part in order. Until now only folders called cd, disc or disk were folded into the book above them, so the other spellings produced two entries for one title. A part folder that sits directly in the library folder is left as its own book, so a flat library of “… Part 1”, “… Part 2” folders is not swept into one.",
+      "A narrator tagged as “Читает: …”, “Narrated by …” or “Read by …” is filed as the narrator whichever tag it was put in. Some rips carry the reader in the album-artist tag with that prefix and the writer in the composer tag; the scanner used to take the first for an author and the second for a narrator, which put them exactly the wrong way round."
+    ]
+  },
+  {
     version: "3.65.1",
     label: "A tapped photo opens",
     changes: [

@@ -22,6 +22,11 @@ Audio\                                        ← the library
 A single-file book (one long `.m4b`, say) works too — it just sits in its own
 folder like any other.
 
+A book split across subfolders named for its parts — `CD 1`, `Disc 2`,
+`Part 1`, `Часть 2`, also as a suffix like `Три товарища (Часть_1)` — is
+still one book: those folders fold into the one above them, and their tracks
+play part by part.
+
 > **Loose files at the top level?** If your library is a flat pile of
 > single-file audiobooks rather than folders, turn on **Each file is a book** in
 > the library's advanced options. Files directly in the library folder then each
