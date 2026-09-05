@@ -242,8 +242,14 @@ function scanExtensionSet(settings: AudiobookSettings) {
   return new Set(settings.scan_extensions.map((extension) => `.${extension}`));
 }
 
-function discNumberFromFolderName(folderName: string) {
-  const match = folderName.match(/^(?:cd|disc|disk)\s*(\d+)$/i);
+// A folder that is one part of a book rather than a book: "CD 1", "Disc 2",
+// "Part 1", "Часть 1", "Диск 2", also as a suffix — "Три товарища (Часть_1)",
+// "Book - Part 2" — with spaces, underscores, dashes or brackets around the marker.
+// Returns the part number so tracks can be ordered part by part.
+const PART_FOLDER_RE = /(?:^|[\s_\-([])(?:cd|disc|disk|part|pt|часть|ч|диск)[\s_.\-]*(\d+)[)\]]?$/i;
+
+export function discNumberFromFolderName(folderName: string) {
+  const match = folderName.match(PART_FOLDER_RE);
   return match ? Number(match[1]) : null;
 }
 
@@ -351,6 +357,36 @@ function splitNames(values: Array<string | null | undefined>) {
     .map((value) => value.trim())
     .filter(Boolean);
   return Array.from(new Set(names));
+}
+
+// A name tagged as "Читает: Максим Пинскер", "Narrated by Jane Doe" or "Read by …"
+// is the narrator whatever field it sits in. Rippers put it in album artist more
+// often than not, where it would otherwise be catalogued as an author.
+const NARRATOR_PREFIX_RE = /^\s*(?:читает|читают|чтец|чтецы|исполняет|исполнитель|narrated\s+by|narrator|narrators|read\s+by|reader)\s*[:\-–—]?\s*/i;
+
+export interface TaggedPeople { authors: string[]; narrators: string[] }
+
+// Authors and narrators from the artist-family tags. Album artist, artist and
+// their list forms feed the authors unless a value carries a narrator prefix;
+// composer is the conventional narrator field, except when it just repeats an
+// author (some rippers put the writer there and the reader in album artist).
+export function peopleFromTags(tags: {
+  albumartists?: string[]; albumartist?: string; artists?: string[]; artist?: string; composer?: string[];
+}): TaggedPeople {
+  const authorValues: string[] = [];
+  const narratorValues: string[] = [];
+  for (const value of [...(tags.albumartists ?? []), tags.albumartist, ...(tags.artists ?? []), tags.artist]) {
+    if (!value) continue;
+    if (NARRATOR_PREFIX_RE.test(value)) narratorValues.push(value.replace(NARRATOR_PREFIX_RE, ""));
+    else authorValues.push(value);
+  }
+  const authors = splitNames(authorValues);
+  const authorKeys = new Set(authors.map((name) => name.toLowerCase()));
+  const narrators = splitNames([
+    ...narratorValues,
+    ...(tags.composer ?? []).map((value) => value.replace(NARRATOR_PREFIX_RE, ""))
+  ]).filter((name) => !authorKeys.has(name.toLowerCase()));
+  return { authors, narrators };
 }
 
 function splitTagValues(values: Array<string | string[] | null | undefined>) {
@@ -860,8 +896,13 @@ export async function walkAudiobookFiles(
         const topSegment = relativePath.split("/")[0];
         bookFolderPath = relativePath.includes("/") ? path.join(rootPath, topSegment) : rootPath;
       } else {
-        // folder_hierarchy (and file_per_book's subfolder files): the containing folder.
-        bookFolderPath = discHint ? path.dirname(folderPath) : folderPath;
+        // folder_hierarchy (and file_per_book's subfolder files): the containing
+        // folder — or its parent when this is a part/disc folder of a book. A part
+        // folder directly under the library root stays a book of its own: a flat
+        // library of "Author - Title Part 1", "… Part 2" folders must not collapse
+        // into one phantom root book.
+        const parent = path.dirname(folderPath);
+        bookFolderPath = discHint !== null && parent !== rootPath ? parent : folderPath;
       }
 
       let stat: fs.Stats;
@@ -1175,6 +1216,10 @@ async function prepareBookScan(
     const tagTitle = stringValue(common?.album)
       || stringValue(common?.title)
       || firstNativeString(firstMetadata, ["album", "title"]);
+    const taggedPeople = peopleFromTags({
+      albumartists: common?.albumartists, albumartist: common?.albumartist,
+      artists: common?.artists, artist: common?.artist, composer: common?.composer
+    });
     candidates.set("file_metadata", {
       title: repairEncoding(tagTitle, enc),
       description: repairEncoding(firstComment(firstMetadata), enc),
@@ -1183,13 +1228,8 @@ async function prepareBookScan(
       isbn: firstNativeString(firstMetadata, ["isbn", "ISBN"]),
       asin: common?.asin ?? firstNativeString(firstMetadata, ["asin", "audible_asin", "AUDIBLE_ASIN"]),
       publisher: repairEncoding(primaryPublisher(firstMetadata), enc),
-      authors: repairList(splitNames([
-        ...(common?.albumartists ?? []),
-        common?.albumartist,
-        ...(common?.artists ?? []),
-        common?.artist
-      ]), enc),
-      narrators: repairList(splitNames(common?.composer ?? []), enc),
+      authors: repairList(taggedPeople.authors, enc),
+      narrators: repairList(taggedPeople.narrators, enc),
       genres: repairList(splitTagValues(common?.genre ?? []), enc),
       seriesName: repairEncoding(stringValue(common?.grouping) || firstNativeString(firstMetadata, ["series", "SERIES"]), enc),
       seriesPosition: numberFromTag(firstNativeString(firstMetadata, ["series-part", "series_part", "PART"]))

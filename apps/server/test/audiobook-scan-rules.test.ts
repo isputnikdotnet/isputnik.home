@@ -247,22 +247,32 @@ describe("rescanSingleBook inside a rule", () => {
 
 describe("previewAudiobookRulePattern", () => {
   it("reports boundaries, tracks, layout index and what changes against today's catalog", async () => {
-    // Today: the default scanner has catalogued the library, so "Part 1" and
-    // "Part 2" are two separate books and the Hobbit folders are books of their own.
+    // Today: the default scanner has catalogued the library. Part folders fold
+    // into their book (3.62.1), so The Way of Kings is one book already; a book
+    // split into "Side A" / "Side B" — not part markers — is two, and the rule
+    // will merge them.
+    for (const t of tracks(2)) touch("Shelves", "Iain M. Banks", "Culture", "03 - Use of Weapons", "Side A", t);
+    for (const t of tracks(2)) touch("Shelves", "Iain M. Banks", "Culture", "03 - Use of Weapons", "Side B", t);
     await scan();
-    expect(byPath("Shelves/Brandon Sanderson/Stormlight Archive/01 - The Way of Kings/Part 1")).toBeDefined();
+    expect(byPath("Shelves/Brandon Sanderson/Stormlight Archive/01 - The Way of Kings")).toBeDefined();
+    expect(byPath("Shelves/Iain M. Banks/Culture/03 - Use of Weapons/Side A")).toBeDefined();
 
     const rows = await previewAudiobookRulePattern("L", ["Shelves"], ["{author}/{series}/{position} - {title}", "{author}/{title}/{narrator}"]);
     expect(rows).toEqual([
       {
         path: "Shelves/Brandon Sanderson/Stormlight Archive/01 - The Way of Kings", matched: true, layoutIndex: 0,
         author: "Brandon Sanderson", series: "Stormlight Archive", position: 1, title: "The Way of Kings",
-        narrator: undefined, year: undefined, publisher: undefined, tracks: 6, warnings: [], change: "merges:2"
+        narrator: undefined, year: undefined, publisher: undefined, tracks: 6, warnings: [], change: "moves-from-default"
       },
       {
         path: "Shelves/Iain M. Banks/Culture/02 - The Player of Games", matched: true, layoutIndex: 0,
         author: "Iain M. Banks", series: "Culture", position: 2, title: "The Player of Games",
         narrator: undefined, year: undefined, publisher: undefined, tracks: 20, warnings: [], change: "moves-from-default"
+      },
+      {
+        path: "Shelves/Iain M. Banks/Culture/03 - Use of Weapons", matched: true, layoutIndex: 0,
+        author: "Iain M. Banks", series: "Culture", position: 3, title: "Use of Weapons",
+        narrator: undefined, year: undefined, publisher: undefined, tracks: 4, warnings: [], change: "merges:2"
       },
       {
         path: "Shelves/J.R.R. Tolkien/The Hobbit/Andy Serkis", matched: true, layoutIndex: 1,
@@ -276,6 +286,6 @@ describe("previewAudiobookRulePattern", () => {
       }
     ]);
     // Nothing was written.
-    expect(byPath("Shelves/Brandon Sanderson/Stormlight Archive/01 - The Way of Kings")).toBeUndefined();
+    expect(byPath("Shelves/Iain M. Banks/Culture/03 - Use of Weapons")).toBeUndefined();
   });
 });
