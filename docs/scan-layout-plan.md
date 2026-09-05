@@ -1,6 +1,6 @@
 # Scan layout plan
 
-Status: implemented. All four phases are done in code, 2026-09-04 (uncommitted). What remains is the deferred list under Decisions. Supersedes the open questions in
+Status: shipped as 3.62.0 (2026-09-04); the part-folder follow-up below shipped as 3.65.2. What remains is the deferred list under Decisions. Supersedes the open questions in
 [`custom-scan-rules-proposal.md`](custom-scan-rules-proposal.md); the current
 scanner behaviour is documented in [`scanner.md`](scanner.md).
 
@@ -54,6 +54,29 @@ interface around the three questions above.
   `top_level_folder` gathering, applied at the matched directory). Track order is
   disc hint, then the file's own folder, then track number, so "Part 1" and
   "Part 2" that each restart at 001 play part by part.
+- **Part folders belong to the book above them, rules or no rules** (3.65.2).
+  The default scanner used to fold a subfolder into its parent only when it was
+  named `cd`, `disc` or `disk` plus a number, so a book split into
+  `(Часть_1)` / `(Часть_2)` or `Part 1` / `Part 2` came out as two books
+  unless a layout said otherwise. `discNumberFromFolderName` now recognises the
+  markers people actually use — `cd`, `disc`, `disk`, `part`, `pt`,
+  `часть`, `ч`, `диск` — as a whole folder name or as a suffix, with
+  spaces, underscores, dashes or brackets around them
+  (`Три товарища (Часть_1)`, `Book - Part 2`, `Book_pt.3`). The number it
+  returns orders the parts. One guard: a part folder *directly under the library
+  root* stays its own book, because a flat library of "Author - Title Part 1",
+  "… Part 2" folders must not collapse into one phantom root book (a top-level
+  `CD 1` used to do exactly that). The layout builder's book-folder guess and
+  the example sampler use the same detector, so the builder proposes the same
+  boundary the scanner would draw. Volumes (`Том`, `Volume`) are deliberately
+  not markers: a volume is often catalogued as a book of its own.
+- **A prefixed name is a narrator wherever it sits** (3.65.2). `Читает: …`,
+  `Narrated by …`, `Read by …` in album artist, artist or composer files the
+  name as the narrator with the prefix stripped, and a composer that merely
+  repeats an author is not a narrator. This is `peopleFromTags`, a pure helper,
+  and it exists because one rip carried the reader in album artist with that
+  prefix and the writer in composer — precisely the wrong way round for the old
+  "album artist is the author, composer is the narrator" reading.
 - **Layouts are read relative to the rule's folder.** A rule on `Shelves` with
   `{author}/{title}` expects the author level *below* Shelves; a rule placed on
   an author folder must start its layout at the series or title level. The
