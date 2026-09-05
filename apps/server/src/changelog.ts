@@ -19,6 +19,13 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.65.1",
+    label: "A tapped photo opens",
+    changes: [
+      "On a story opened through a guest link, tapping a photo now opens it in the same full-screen viewer the shared photo sets have — title and Download at the top, a close button, arrows to walk every photo in the story, and the keyboard's Escape and arrow keys. Until now the story page had a viewer of its own with no styling behind it, so a tapped photo simply appeared at the foot of the page beside a download link, and the story's own photos under it looked like a strip of thumbnails that did nothing."
+    ]
+  },
+  {
     version: "3.65.0",
     label: "A story is news when it is published",
     changes: [
