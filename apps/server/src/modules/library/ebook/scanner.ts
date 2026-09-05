@@ -85,6 +85,39 @@ function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+/** Drop markup from a value that has already been entity-decoded.
+ *
+ *  `dc:description` is allowed to hold markup, and a well-made EPUB uses it:
+ *  Standard Ebooks escapes a whole paragraph of HTML into the element, so the
+ *  file carries `&lt;p&gt;Everyone's familiar with &lt;a href="…"&gt;…`. decodeXml
+ *  turns those entities back into real tags, which is why the tags have to come
+ *  out AFTER it rather than before — stripping first would leave the escaped
+ *  ones untouched, and they would reach the page as visible angle brackets.
+ *
+ *  Plain text is what the description is for. Nothing downstream renders it as
+ *  HTML — the book page prints it and the OPDS feed re-escapes it — so keeping
+ *  the markup only ever meant showing it. FB2 annotations have been stripped
+ *  this way all along; this is the same treatment for EPUB. */
+function stripMarkup(value: string | null): string | null {
+  if (value == null) return null;
+  // Whether a tag leaves a space behind depends on what it was. A block tag has
+  // to become one — "<p>One</p><p>Two</p>" is two sentences, not "OneTwo" — but
+  // an inline tag must not, or "<a>Lewis Carroll</a>'s" comes out as
+  // "Lewis Carroll 's".
+  const text = value
+    .replace(/<\/?([a-zA-Z][\w-]*)[^>]*>/g, (_, tag: string) =>
+      INLINE_TAGS.has(tag.toLowerCase()) ? "" : " ")
+    .replace(/<[^>]*>/g, " ")            // comments, doctypes, anything malformed
+    .replace(/\s+/g, " ")
+    .trim();
+  return text || null;
+}
+
+const INLINE_TAGS = new Set([
+  "a", "abbr", "b", "cite", "code", "em", "i", "q", "s", "small",
+  "span", "strong", "sub", "sup", "u", "var"
+]);
+
 function firstMatch(source: string, re: RegExp): string | null {
   return decodeXml(source.match(re)?.[1] ?? null);
 }
@@ -93,7 +126,7 @@ function allMatches(source: string, re: RegExp): string[] {
   return [...source.matchAll(re)].map((m) => decodeXml(m[1])).filter((v): v is string => Boolean(v));
 }
 
-function extractEpubMetadata(filePath: string): EbookMetadata | null {
+export function extractEpubMetadata(filePath: string): EbookMetadata | null {
   let zip: AdmZip;
   try {
     zip = new AdmZip(filePath);
@@ -111,7 +144,7 @@ function extractEpubMetadata(filePath: string): EbookMetadata | null {
   const title = firstMatch(opf, /<dc:title[^>]*>([\s\S]*?)<\/dc:title>/i);
   const authors = allMatches(opf, /<dc:creator[^>]*>([\s\S]*?)<\/dc:creator>/gi);
   const language = firstMatch(opf, /<dc:language[^>]*>([\s\S]*?)<\/dc:language>/i);
-  const description = firstMatch(opf, /<dc:description[^>]*>([\s\S]*?)<\/dc:description>/i);
+  const description = stripMarkup(firstMatch(opf, /<dc:description[^>]*>([\s\S]*?)<\/dc:description>/i));
   const subjects = allMatches(opf, /<dc:subject[^>]*>([\s\S]*?)<\/dc:subject>/gi);
   const dateRaw = firstMatch(opf, /<dc:date[^>]*>([\s\S]*?)<\/dc:date>/i);
   const yearNum = dateRaw ? parseInt(dateRaw.slice(0, 4), 10) : NaN;
