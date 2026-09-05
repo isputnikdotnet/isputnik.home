@@ -129,6 +129,8 @@ starting again.
 Under each card is **Add block**, which puts the new one exactly there and
 opens a dialog of the kinds with a line each on what they put on the page:
 
+![The Add block dialog, every block kind with a line on what it does](images/93-story-add-block.png)
+
 - **Text** — your words, with a row of marks over the field for bold, italic,
   headings, lists, quotes and links (see Writing text above). A preview button
   shows exactly what a reader gets.
@@ -157,6 +159,8 @@ opens a dialog of the kinds with a line each on what they put on the page:
   fetched once, when you save, and kept with the story — so the map opens
   instantly ever after, works for guests on a shared link, and still looks the
   same years later.
+
+  ![Adding a map: two stops, how you travelled between them, and the route drawn](images/94-story-map-block.png)
 - **Person** — someone from the [family tree](family-tree.md), as a card with
   their portrait and dates.
 - **Quote** — a pull quote from your [quotes](quotes.md).

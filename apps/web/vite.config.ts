@@ -1,14 +1,35 @@
-import { cpSync, rmSync } from "node:fs";
+import { createReadStream, cpSync, existsSync, rmSync, statSync } from "node:fs";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
-// The user guides are authored in docs/users/ and reviewed with the code. Copy
-// them into public/ so the app can serve and render them itself: a self-hosted
+// Content types for what a guide is allowed to be made of. Anything else in
+// docs/users/ is not served rather than guessed at.
+const GUIDE_TYPES: Record<string, string> = {
+  ".md": "text/markdown; charset=utf-8",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".webp": "image/webp",
+  ".gif": "image/gif",
+  ".svg": "image/svg+xml"
+};
+
+// The user guides are authored in docs/users/ and reviewed with the code. For a
+// BUILD they are copied into public/ so they end up in dist: a self-hosted
 // library on a LAN with no internet still has its documentation, and what it
 // shows always matches the version installed. The copy is generated output —
-// gitignored, rebuilt on every dev start and every build.
+// gitignored, rebuilt on every build.
+//
+// DEV serves them straight out of docs/users/ instead, for two reasons. Editing a
+// guide used to need a server restart, because the copy only ran at startup. And
+// the copied images did not serve at all: the copy happens inside configureServer,
+// which is too late for Vite's public-directory handling to know about the files,
+// so every request for one fell through to the SPA fallback and returned
+// index.html — a Help page full of blank images, while the same files were fine
+// in a production build. Serving the source directory sidesteps both.
 function userGuides(): Plugin {
   const from = fileURLToPath(new URL("../../docs/users", import.meta.url));
   const to = fileURLToPath(new URL("./public/guides", import.meta.url));
@@ -16,7 +37,33 @@ function userGuides(): Plugin {
     rmSync(to, { recursive: true, force: true });
     cpSync(from, to, { recursive: true });
   };
-  return { name: "isputnik-user-guides", buildStart: sync, configureServer: sync };
+  return {
+    name: "isputnik-user-guides",
+    buildStart: sync,
+    configureServer(server) {
+      server.middlewares.use((request, response, next) => {
+        const url = (request.url ?? "").split("?")[0];
+        if (!url.startsWith("/guides/")) return next();
+
+        let file: string;
+        try {
+          file = path.join(from, decodeURIComponent(url.slice("/guides/".length)));
+        } catch {
+          return next();                       // malformed percent-encoding
+        }
+        // Refuse anything that resolves outside docs/users — "/guides/../../.env"
+        // is a request a browser can make.
+        if (file !== from && !file.startsWith(from + path.sep)) return next();
+
+        const type = GUIDE_TYPES[path.extname(file).toLowerCase()];
+        if (!type || !existsSync(file) || !statSync(file).isFile()) return next();
+
+        response.setHeader("Content-Type", type);
+        response.setHeader("Cache-Control", "no-cache");
+        createReadStream(file).pipe(response);
+      });
+    }
+  };
 }
 
 // Which port to serve on. Normally the familiar ones — 5173 for `npm run dev`,

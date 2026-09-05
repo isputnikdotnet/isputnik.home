@@ -153,6 +153,77 @@ const SHOTS = [
       await sleep(2000);
       "opened";`
   },
+  // The editor's two dialogs. Both walk in from the index for the same reason the
+  // shots above do — every address inside a story carries its id. The story's id
+  // is read off its card at run time and used to find the matching Edit link,
+  // rather than being written into the URL here.
+  {
+    name: "93-story-add-block",
+    url: "stories",
+    state: "a story with chapters",
+    setup: `
+      const card = [...document.querySelectorAll("a")].find((el) =>
+        /^\\/stories\\/[^/]+$/.test(el.getAttribute("href") ?? "")
+        && el.textContent.includes("Alps in summer"));
+      if (!card) return "no story card for Alps in summer";
+      const id = card.getAttribute("href").split("/").pop();
+      document.querySelector(\`a[href="/stories/\${id}/edit"]\`)?.click();
+      await sleep(2200);
+      const chapter = [...document.querySelectorAll("a")]
+        .find((el) => /\\/edit\\/chapters\\//.test(el.getAttribute("href") ?? ""));
+      if (!chapter) return "no chapter link";
+      chapter.click();
+      await sleep(2000);
+      const add = button(document, "Add block");
+      if (!add) return "no Add block button";
+      add.click();
+      await sleep(1200);
+      "add block open";`
+  },
+  {
+    name: "94-story-map-block",
+    url: "stories",
+    state: "a story with chapters",
+    setup: `
+      const card = [...document.querySelectorAll("a")].find((el) =>
+        /^\\/stories\\/[^/]+$/.test(el.getAttribute("href") ?? "")
+        && el.textContent.includes("Alps in summer"));
+      if (!card) return "no story card for Alps in summer";
+      const id = card.getAttribute("href").split("/").pop();
+      document.querySelector(\`a[href="/stories/\${id}/edit"]\`)?.click();
+      await sleep(2200);
+      [...document.querySelectorAll("a")]
+        .find((el) => /\\/edit\\/chapters\\//.test(el.getAttribute("href") ?? ""))?.click();
+      await sleep(2000);
+      button(document, "Add block")?.click();
+      await sleep(1200);
+      const map = button(topModal(), "Map");
+      if (!map) return "no Map choice in the Add block dialog";
+      map.click();
+      // The picker mounts a Leaflet map and fetches its tiles; give them time to
+      // paint or the shot is a grey square where the map should be.
+      await sleep(3500);
+
+      // Drop two stops so the picker shows what it is for — with none, it is an
+      // empty world map and the route it draws between stops never appears.
+      // Clicking the map adds a stop, which needs no network; searching for a
+      // place would call OpenStreetMap and make the shot depend on the internet.
+      const canvas = document.querySelector(".leaflet-container");
+      if (!canvas) return "no map canvas";
+      const box = canvas.getBoundingClientRect();
+      const tap = (fx, fy) => {
+        const clientX = box.left + box.width * fx;
+        const clientY = box.top + box.height * fy;
+        for (const type of ["mousedown", "mouseup", "click"]) {
+          canvas.dispatchEvent(new MouseEvent(type, { bubbles: true, clientX, clientY, view: window }));
+        }
+      };
+      tap(0.52, 0.34);
+      await sleep(1200);
+      tap(0.58, 0.42);
+      await sleep(1600);
+      \`\${topModal().textContent.match(/\\d+ stops?/)?.[0] ?? "no stop count"}\`;`
+  },
   {
     name: "92-story-collection",
     url: "stories",
