@@ -131,6 +131,51 @@ const SHOTS = [
       await sleep(900);
       "editions in view";`
   },
+  {
+    // The link half of sharing, which works on a server with one account — the
+    // People half needs somebody to send to. Deliberately captured BEFORE a link
+    // is created: the panel says a link is shown once and never again, and a
+    // screenshot is a poor place to put a working token, even a revocable one
+    // for a book everybody can read anyway.
+    // The people half of the same dialog. Needs somebody else on the server: with
+    // one account it says "There is nobody else on this server yet", which
+    // documents the empty case rather than the feature.
+    name: "43-share-people",
+    url: "ebooks",
+    state: "a second account",
+    setup: `
+      const card = [...document.querySelectorAll("article.audiobook-catalog-card")]
+        .find((el) => el.textContent.includes("Dracula"));
+      if (!card) return "no Dracula on the shelf";
+      card.querySelector(".audiobook-catalog-cover")?.click();
+      await sleep(2200);
+      button(document, "Send to")?.click();
+      await sleep(1500);
+      const people = button(topModal(), "People");
+      if (!people) return "no People choice";
+      people.click();
+      await sleep(1600);
+      "people picker";`
+  },
+  {
+    name: "42-share-link",
+    url: "ebooks",
+    setup: `
+      const card = [...document.querySelectorAll("article.audiobook-catalog-card")]
+        .find((el) => el.textContent.includes("Dracula"));
+      if (!card) return "no Dracula on the shelf";
+      card.querySelector(".audiobook-catalog-cover")?.click();
+      await sleep(2200);
+      const send = button(document, "Send to");
+      if (!send) return "no Send to button";
+      send.click();
+      await sleep(1500);
+      const link = button(topModal(), "Share link");
+      if (!link) return "no Share link choice";
+      link.click();
+      await sleep(1800);
+      "share link panel";`
+  },
   { name: "40-family-tree", url: "family" },
   {
     // A profile's address carries the person's id, so pick them off the People

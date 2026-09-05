@@ -6,12 +6,17 @@ somewhere: a member of the household, your own e-reader, or anyone at all
 through a link.
 
 There is nothing to set up, and nothing new to learn per page. The button sits
-in the same place on everything.
+in the same place on everything — and it always offers the same three
+destinations, whatever you pressed it on:
+
+![The Send to dialog on a book, with People, Share link and E-reader](images/42-share-link.png)
 
 ## Sending something to someone
 
 Open the thing, press **Send to**, pick a name, and add a line if you want to.
 That's it.
+
+![The People side of Send to, listing the household to pick from](images/43-share-people.png)
 
 What they get is a **pointer, not a copy**. Nothing is emailed, nothing is
 duplicated, and no file leaves the server. They open it in their own account,
@@ -79,6 +84,12 @@ want it.
 The last destination makes a guest link: no account needed, expires on a date
 you choose, revocable at any time. This is the one to use for people outside the
 household. See [Sharing](../sharing.md) for the details.
+
+It is shown in the picture above, chosen: pick how long it should last, give it
+a label so you can tell your links apart later, and **Create link**. The link
+itself appears once and is never shown again — only its fingerprint is kept — so
+copy it straight away, and make a separate link per person if you want to be able
+to revoke them one at a time.
 
 ## When somebody sends you something
 
