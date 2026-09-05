@@ -108,6 +108,11 @@ have internet access — the same place the map's tiles come from. Plus Codes ar
 worked out on the server itself, though a short one still needs that lookup for
 the place beside it. Without any internet, dropping the pin by hand still works.
 
+Anything with a location joins the **Map** view, where nearby photos gather into
+one numbered cluster until you zoom in far enough to separate them:
+
+![The Map view, photos gathered into numbered clusters over a world map](images/34-gallery-map.png)
+
 ## Uploading
 
 If the library allows uploads, the upload button takes files straight in. They
@@ -118,6 +123,8 @@ uploads blend into a folder structure rather than piling up at the top.
 
 **Off by default, and entirely local** — the models ship with the app, nothing is
 sent anywhere. An admin turns it on per library in the library's settings.
+
+![The People page: named groups first, then unnamed ones, with the single-photo groups collapsed](images/33-gallery-people.png)
 
 Once enabled, a background job finds faces and groups them into people. You then
 name the ones you care about; naming is what makes a group stick. The **People**

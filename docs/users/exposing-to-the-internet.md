@@ -71,6 +71,13 @@ when you know the proxy's address; if both are set, `TRUST_PROXY` wins.
 
 ## 3. Strongly recommended
 
+**Control panel → Security → Overview** scores how the server is currently
+protected, and the toggle switches the scoring between a home network and one
+reachable from the internet — the same settings are judged far more harshly on
+the second:
+
+![The Security overview, scoring each protection for a server reachable from the internet](images/64-security-overview.png)
+
 - **Turn on two-factor authentication** for admin accounts, and encourage everyone
   to use it — see [Two-factor authentication](two-factor-authentication.md).
 - **Require a second factor from outside** (Control panel → **Security** →

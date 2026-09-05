@@ -89,6 +89,8 @@ with two deliberate exceptions:
 **Profile → Devices** lists every linked screen, when it was last used, and what
 network it was on.
 
+![The Devices tab, with linked devices above the ordinary sign-ins](images/73-profile-devices.png)
+
 - **Rename** gives it a name you'll recognise — "Living Room TV" beats
   "Chrome on Linux".
 - **Revoke device** signs it out immediately. It'll need authorizing again to come

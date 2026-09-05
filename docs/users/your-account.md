@@ -14,6 +14,8 @@ which is your account settings, and the list of things you've saved.
 bookmark the one you use and the back button returns you to it rather than
 leaving the page.
 
+![The Profile page on its Account tab](images/70-profile.png)
+
 ### Account
 
 | | |
@@ -26,6 +28,8 @@ it afterwards — the old one included, because if the change wasn't you, the ol
 inbox is the only place that news can still reach you.
 
 ### Security
+
+![The Security tab: password, two-factor authentication and passkeys](images/71-profile-security.png)
 
 - **Change password** — needs the current one.
 - **Two-factor authentication** — a one-time code after your password, from an
@@ -59,6 +63,8 @@ administrator cannot list yours from here either.
 
 Six choices, saved to your account, applied the moment you pick one — so the same
 theme follows you to your phone.
+
+![The Appearance tab, with the six themes as previews](images/72-profile-appearance.png)
 
 | | |
 |---|---|

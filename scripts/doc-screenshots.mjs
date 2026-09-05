@@ -96,6 +96,10 @@ const SHOTS = [
   { name: "30-audiobooks", url: "audiobooks" },
   { name: "31-ebooks", url: "ebooks" },
   { name: "32-gallery", url: "gallery" },
+  // The gallery views that only mean anything once the library has been through
+  // a face scan and has photos carrying GPS.
+  { name: "33-gallery-people", url: "gallery/people", state: "faces scanned and named" },
+  { name: "34-gallery-map", url: "gallery/map", wait: 5000, state: "photos with GPS" },
   { name: "40-family-tree", url: "family" },
 
   // Every control-panel tab is a real route (features/control/nav.ts), so this is a
@@ -106,6 +110,51 @@ const SHOTS = [
     name: "50-email",
     url: "control/settings/email",
     state: "email settings filled in"
+  },
+
+  // The control panel and the user's own pages. These need a library with some
+  // history behind it — an install with nothing in it photographs as empty boxes.
+  { name: "60-dashboard", url: "control", state: "libraries scanned" },
+  { name: "61-duplicate-cleanup", url: "control/utilities/duplicate-cleanup", state: "a cleanup job in review" },
+  // The bin shows whatever was last deleted, which is not necessarily something
+  // fit to publish — the first attempt caught a copyrighted audiobook somebody had
+  // been testing with. Empty it, delete one demo item, then capture.
+  { name: "62-recycle-bin", url: "control/maintenance/recycle-bin", state: "only demo content in the bin" },
+  { name: "63-backup", url: "control/maintenance/backup" },
+  { name: "64-security-overview", url: "control/security" },
+  { name: "70-profile", url: "profile" },
+  { name: "71-profile-security", url: "profile/security" },
+  { name: "72-profile-appearance", url: "profile/appearance" },
+  { name: "73-profile-devices", url: "profile/devices" },
+  {
+    // The two-factor card sits below the fold on Security. Scroll to it rather
+    // than photographing the enrolment step — that screen shows a live TOTP
+    // secret and its QR code, which is not something to publish in a guide even
+    // from a throwaway install.
+    name: "74-two-factor",
+    url: "profile/security",
+    setup: `
+      const heading = [...document.querySelectorAll("h2, h3")]
+        .find((el) => el.textContent.trim().startsWith("Two-factor"));
+      if (!heading) return "no two-factor heading";
+      // The app scrolls an inner element, not the window, so window.scrollBy does
+      // almost nothing here — walk up to whichever ancestor actually scrolls.
+      let node = heading.parentElement;
+      let scroller = null;
+      while (node) {
+        const style = getComputedStyle(node);
+        if (/(auto|scroll)/.test(style.overflowY) && node.scrollHeight > node.clientHeight) {
+          scroller = node;
+          break;
+        }
+        node = node.parentElement;
+      }
+      const target = scroller ?? document.scrollingElement;
+      const offset = heading.getBoundingClientRect().top
+        - (scroller ? scroller.getBoundingClientRect().top : 0);
+      target.scrollTop += offset - 70;
+      await sleep(800);
+      \`scrolled \${Math.round(target.scrollTop)}px in \${scroller ? "a panel" : "the window"}\`;`
   }
 ];
 

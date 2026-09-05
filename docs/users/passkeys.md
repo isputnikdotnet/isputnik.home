@@ -66,6 +66,8 @@ or two-factor setup.
 If the Passkeys panel says they aren't available, it's the server's address, not
 your device.
 
+![The Passkeys panel explaining that the server's address does not allow them](images/71-profile-security.png)
+
 Browsers only allow passkeys on sites reached over **HTTPS at a domain name** — like
 `https://library.example.com`. A library reached by IP address on the home network,
 like `http://192.168.1.50:4000`, can't use them at all, and no browser setting

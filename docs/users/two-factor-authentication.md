@@ -43,6 +43,8 @@ your backup codes are the way in.
 
 ## Turning it on
 
+![The Two-factor authentication panel on the Security tab, before it is set up](images/74-two-factor.png)
+
 1. Open **Profile** (your name → Profile) and pick the **Security** tab — see
    [Your account](your-account.md) for what else lives there.
 2. Find **Two-factor authentication** and select **Set up two-factor**.

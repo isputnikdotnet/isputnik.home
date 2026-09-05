@@ -40,6 +40,8 @@ where a setting lives.
 Server health and activity trends in one page, switched with the row of pill-shaped
 tabs under the heading — real tabs, not a dropdown:
 
+![The Dashboard on its Sign-ins view, with the tab row above it](images/60-dashboard.png)
+
 - **System** — is the server well? Four cards: uptime with the version and Node
   release under it, memory in use, free space on the data disk (green until a
   fifth is left, amber below that, red below a tenth), and the database on disk
@@ -297,6 +299,8 @@ The alerts these produce only reach you if email is set up.
 ### Backup
 
 Worth setting up on the day you install, not the day you need it.
+
+![The Backup page, with the schedule above the list of existing backups](images/63-backup.png)
 
 - **Create backup now** makes one immediately.
 - **Scheduled backups** run daily at a time you pick, keeping the last N (default

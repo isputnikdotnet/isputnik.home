@@ -17,6 +17,8 @@ made.
 > through the whole list at once. Everything removed goes to the Recycle Bin and can be
 > restored until you empty it.
 
+![A cleanup ready to review: what it found, how much it would reclaim, and the list below](images/61-duplicate-cleanup.png)
+
 ## One cleanup at a time
 
 Only one cleanup can be in progress. It belongs to whoever started it: they choose what to
