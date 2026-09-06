@@ -369,5 +369,9 @@ cleanup could answer everything they could. Full detail:
   (Memories, multi-select actions, share quick links, albums, and slideshows have
   all shipped — slideshows are documented in
   [gallery-slideshows.md](gallery-slideshows.md).)
+- **Photo Inbox** — a flagged library for photos under review (re-scanned prints,
+  drops from relatives without an account), emptied by Keep / Replace / Discard, with
+  an asymmetric duplicate check against the rest of the collection. Proposal:
+  [photo-inbox-proposal.md](photo-inbox-proposal.md).
 - **Upload into a chosen subfolder** (today everything lands in the library root).
 - **Configurable map tile source** (today OSM is hard-wired).
