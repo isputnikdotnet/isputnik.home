@@ -42,8 +42,10 @@ export const ACTIVE_STATUSES: JobStatus[] = ["draft", "scanning", "review", "pro
 const isActive = (status: JobStatus): boolean => ACTIVE_STATUSES.includes(status);
 
 /** A cleanup works on folders OR on single files, never both at once — see the
- *  column's own note in schema.sql. */
-export type DuplicateTypeScope = "folders" | "files";
+ *  column's own note in schema.sql. "inbox" is the Photo Inbox check: single
+ *  files, but only one library's photos are candidates and the copy already in
+ *  the collection is kept. Stored as 'files' + `inbox_library_id`. */
+export type DuplicateTypeScope = "folders" | "files" | "inbox";
 export type MediaTypeScope = "photo" | "video" | "both";
 
 export interface JobLibrary {
@@ -74,6 +76,8 @@ export interface DuplicateJob {
   ownerName: string;
   status: JobStatus;
   duplicateType: DuplicateTypeScope;
+  /** The Photo Inbox a `duplicateType: "inbox"` job checks; null otherwise. */
+  inboxLibraryId: string | null;
   mediaType: MediaTypeScope;
   currentStep: number;
   scanProgress: number;
@@ -105,7 +109,8 @@ interface JobRow {
   id: string;
   owner_user_id: string;
   status: JobStatus;
-  duplicate_type: DuplicateTypeScope;
+  duplicate_type: "folders" | "files";
+  inbox_library_id: string | null;
   media_type: MediaTypeScope;
   current_step: number;
   scan_progress: number;
@@ -136,6 +141,8 @@ export interface GalleryLibraryOption {
   sourcePath: string;
   mode: "managed" | "external";
   isProtected: boolean;
+  /** A Photo Inbox: photos under review, the candidates of an Inbox check. */
+  inbox: boolean;
   /** Photos sharing a byte size with another photo — everything worth checking here. */
   candidateCount: number;
   /** Of those, how many the scan would have to open and read right now. Zero means the
@@ -156,6 +163,7 @@ export function galleryLibraryOptions(): GalleryLibraryOption[] {
     name: row.name,
     sourcePath: row.source_path,
     ...libraryProtection(row.policy_json),
+    inbox: parsePolicy(row.policy_json).inbox === true,
     candidateCount: duplicateCandidateCount(row.id),
     pendingCount: duplicatePendingCount(row.id)
   }));
@@ -302,7 +310,9 @@ function hydrate(row: JobRow): DuplicateJob {
     ownerUserId: row.owner_user_id,
     ownerName: owner?.display_name ?? "(removed user)",
     status: row.status,
-    duplicateType: row.duplicate_type,
+    // An Inbox check is a 'files' row with the Inbox named; the API says "inbox".
+    duplicateType: row.inbox_library_id ? "inbox" : row.duplicate_type,
+    inboxLibraryId: row.inbox_library_id,
     mediaType: row.media_type,
     currentStep: row.current_step,
     scanProgress: row.scan_progress,
@@ -366,6 +376,7 @@ export const mayRetire = (job: DuplicateJob, userId: string, isAdmin: boolean): 
 
 export type JobRefusal =
   | "already_active"
+  | "no_inbox"
   | "not_found"
   | "not_owner"
   | "locked"
@@ -413,7 +424,28 @@ export interface CreateJobInput {
   ownerUserId: string;
   libraryIds: string[];
   duplicateType?: DuplicateTypeScope;
+  /** Required when duplicateType is "inbox": the Photo Inbox whose photos are checked. */
+  inboxLibraryId?: string | null;
   mediaType?: MediaTypeScope;
+}
+
+/** How a scope is stored: "inbox" is a 'files' row that names its Inbox. Also
+ *  makes sure the Inbox is among the job's libraries — its photos are the
+ *  candidates, so the scan has to read them whatever the wizard ticked. */
+function storedScope(
+  duplicateType: DuplicateTypeScope,
+  inboxLibraryId: string | null | undefined,
+  available: Map<string, GalleryLibraryOption>,
+  chosen: string[]
+): { duplicateType: "folders" | "files"; inboxLibraryId: string | null; chosen: string[] } | { refused: JobRefusal } {
+  if (duplicateType !== "inbox") return { duplicateType, inboxLibraryId: null, chosen };
+  const inbox = inboxLibraryId ? available.get(inboxLibraryId) : undefined;
+  if (!inbox || !inbox.inbox) return { refused: "no_inbox" };
+  return {
+    duplicateType: "files",
+    inboxLibraryId: inbox.id,
+    chosen: chosen.includes(inbox.id) ? chosen : [...chosen, inbox.id]
+  };
 }
 
 /** Start a draft. Its folder instructions start empty and are set in the wizard's
@@ -423,16 +455,19 @@ export function createJob(input: CreateJobInput): JobOutcome<DuplicateJob> {
   if (existing) return { ok: false, refused: "already_active", detail: existing.id };
 
   const available = new Map(galleryLibraryOptions().map((library) => [library.id, library]));
-  const chosen = input.libraryIds.filter((id) => available.has(id));
-  if (chosen.length === 0) return { ok: false, refused: "no_libraries" };
+  const picked = input.libraryIds.filter((id) => available.has(id));
+  if (picked.length === 0) return { ok: false, refused: "no_libraries" };
+  const scope = storedScope(input.duplicateType ?? "folders", input.inboxLibraryId, available, picked);
+  if ("refused" in scope) return { ok: false, refused: scope.refused };
+  const chosen = scope.chosen;
 
   const id = nanoid(16);
 
   db.transaction(() => {
     db.prepare(`
-      INSERT INTO duplicate_jobs (id, owner_user_id, status, duplicate_type, media_type, current_step)
-      VALUES (?, ?, 'draft', ?, ?, 1)
-    `).run(id, input.ownerUserId, input.duplicateType ?? "folders", input.mediaType ?? "both");
+      INSERT INTO duplicate_jobs (id, owner_user_id, status, duplicate_type, inbox_library_id, media_type, current_step)
+      VALUES (?, ?, 'draft', ?, ?, ?, 1)
+    `).run(id, input.ownerUserId, scope.duplicateType, scope.inboxLibraryId, input.mediaType ?? "both");
 
     const addLibrary = db.prepare(`
       INSERT INTO duplicate_job_libraries (job_id, library_id, included, library_type_snapshot, protected_snapshot)
@@ -454,6 +489,7 @@ export function createJob(input: CreateJobInput): JobOutcome<DuplicateJob> {
 export interface UpdateScopeInput {
   libraryIds?: string[];
   duplicateType?: DuplicateTypeScope;
+  inboxLibraryId?: string | null;
   mediaType?: MediaTypeScope;
   currentStep?: number;
 }
@@ -470,6 +506,17 @@ export function updateJobScope(id: string, userId: string, input: UpdateScopeInp
     chosen = input.libraryIds.filter((libraryId) => available.has(libraryId));
     if (chosen.length === 0) return { ok: false, refused: "no_libraries" };
   }
+  // The scope kind and its Inbox travel together: naming a type re-answers both.
+  const nextType = input.duplicateType ?? job.duplicateType;
+  const nextInbox = input.duplicateType || input.inboxLibraryId !== undefined
+    ? (input.inboxLibraryId === undefined ? job.inboxLibraryId : input.inboxLibraryId)
+    : job.inboxLibraryId;
+  const baseChosen = chosen ?? job.libraries.filter((library) => library.included).map((library) => library.libraryId);
+  const scope = storedScope(nextType, nextInbox, available, baseChosen);
+  if ("refused" in scope) return { ok: false, refused: scope.refused };
+  // An Inbox check always reads its Inbox, so the library list is rewritten
+  // whenever the stored one would leave it out.
+  if (chosen || scope.chosen.length !== baseChosen.length) chosen = scope.chosen;
 
   db.transaction(() => {
     if (chosen) {
@@ -490,7 +537,10 @@ export function updateJobScope(id: string, userId: string, input: UpdateScopeInp
       `).run(id, id);
     }
     const patch: Record<string, unknown> = {};
-    if (input.duplicateType) patch.duplicate_type = input.duplicateType;
+    if (input.duplicateType || input.inboxLibraryId !== undefined) {
+      patch.duplicate_type = scope.duplicateType;
+      patch.inbox_library_id = scope.inboxLibraryId;
+    }
     if (input.mediaType) patch.media_type = input.mediaType;
     if (input.currentStep !== undefined) patch.current_step = Math.min(Math.max(input.currentStep, 1), 4);
     touch(id, patch);

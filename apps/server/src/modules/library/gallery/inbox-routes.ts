@@ -7,6 +7,7 @@ import { parseBody } from "../../../core/shared.js";
 import {
   discardPhotoInboxItems, keepPhotoInboxItems, listPhotoInboxItems, listPhotoInboxes
 } from "./inbox.js";
+import { inboxCheckView, queueInboxCheck } from "./duplicates/inbox-check.js";
 
 // Same ceiling as bulk delete: a selection is sent in batches of this size.
 const MAX_REVIEW_ITEMS = 200;
@@ -43,6 +44,27 @@ export async function galleryInboxRoutesPlugin(app: FastifyInstance) {
     });
     if (!result) return reply.code(404).send({ error: "Photo Inbox not found" });
     return result;
+  });
+
+  // The Inbox's duplicate check (docs/photo-inbox-proposal.md, phase 2): what the
+  // review page says about copies. Reading it takes the same access as the Inbox;
+  // starting one is the cleanup page's business, so admin-only, like every route
+  // there.
+  app.get("/api/library/gallery/inbox/:id/check", { preHandler: app.authenticate }, async (request, reply) => {
+    const libraryId = (request.params as { id: string }).id;
+    const user = request.user!;
+    if (!listPhotoInboxes(user).some((inbox) => inbox.id === libraryId)) {
+      return reply.code(404).send({ error: "Photo Inbox not found" });
+    }
+    return inboxCheckView(libraryId, user.id);
+  });
+
+  app.post("/api/library/gallery/inbox/:id/check", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const libraryId = (request.params as { id: string }).id;
+    const user = request.user!;
+    const start = queueInboxCheck(libraryId, user.id);
+    if (!start.queued && start.reason === "not_inbox") return reply.code(404).send({ error: "Photo Inbox not found" });
+    return { start, ...inboxCheckView(libraryId, user.id) };
   });
 
   // Keep: move the selected photos into a real library. The destination is one

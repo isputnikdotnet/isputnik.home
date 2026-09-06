@@ -2878,3 +2878,12 @@
 .library-inbox-toggle small {
   display: block;
 }
+
+/* The Inbox check's "start" offer, under the toolbar. */
+.gallery-inbox-check-offer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 4px 0 12px;
+}

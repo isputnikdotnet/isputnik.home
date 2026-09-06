@@ -239,9 +239,16 @@ export async function decodePhotoToJpeg(absolutePath: string): Promise<Buffer | 
 // photos (burst frames, re-takes of the same scene) land within a few bits of each
 // other; genuinely different shots don't. Computed from the cached preview thumbnail,
 // so it never re-reads originals. Null when the image can't be decoded.
-export async function computeDhash(input: string | Buffer): Promise<string | null> {
+export async function computeDhash(
+  input: string | Buffer,
+  /** Clockwise degrees to turn the picture before hashing (0/90/180/270). The
+   *  Photo Inbox check hashes an incoming scan all four ways so a print fed in
+   *  sideways still finds its upright twin; the catalogue keeps one hash. */
+  rotation = 0
+): Promise<string | null> {
   try {
     const { data } = await sharp(input, { failOn: "none" })
+      .rotate(rotation)
       .grayscale()
       .resize(9, 8, { fit: "fill" })
       .raw()

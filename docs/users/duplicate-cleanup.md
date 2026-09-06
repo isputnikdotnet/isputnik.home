@@ -51,7 +51,13 @@ ever offered for deletion, and no folder instruction can change that.
 
 **2 — Content type.** What counts as a duplicate.
 
-Whole folders **or** single files — one or the other, not both. They are different jobs of
+Whole folders **or** single files — one or the other, not both. A third choice,
+**Photo Inbox check**, appears once a [Photo Inbox](library-gallery.md#photo-inbox)
+exists: only the Inbox's photos are candidates, twins are looked for in the
+libraries ticked in step 1, and the library's copy is always the one kept. Its
+cards carry **Replace** and **Discard incoming** instead of a delete, and the
+toolbar gains **Replace larger**. This is the check the Inbox page runs by itself
+after a scan or an upload. They are different jobs of
 work: clearing folders is a few decisions about a great many photos, and going through
 single copies is a great many decisions about a few. Mixed into one list, neither gets
 done, and every folder you clear reshuffles the single-file half underneath it. Run a

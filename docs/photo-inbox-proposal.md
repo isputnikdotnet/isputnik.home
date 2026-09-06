@@ -1,6 +1,6 @@
 # Photo Inbox — proposal
 
-Status: **Phase 1 built in-code (2026-09-06), phases 2 and 3 remain proposals.**
+Status: **Phases 1 and 2 built in-code (2026-09-06); phase 3 remains a proposal.**
 Written 2026-09-06 from a brainstorm about re-scanning old prints. Companion to [gallery-library.md](gallery-library.md),
 [duplicate-detection.md](duplicate-detection.md), [uploads.md](uploads.md) and
 [sharing.md](sharing.md), which describe the pieces this stands on. Like the other
@@ -187,7 +187,41 @@ duplicate check exists. As built (2026-09-06):
 
 Schema: none beyond the policy flag. No migration.
 
-## Phase 2 — the Inbox check
+## Phase 2 — the Inbox check — BUILT
+
+As built (2026-09-06), where it departs from the plan below:
+
+- **One column, not two.** `duplicate_jobs.inbox_library_id` (migration 68) on a
+  job stored as `duplicate_type = 'files'`; the API reads it back as
+  `duplicateType: "inbox"`. Widening the type's CHECK would have meant rebuilding
+  the table. The job model adds the Inbox to the job's libraries itself.
+- **The wizard's second step**, not its first, carries the choice — that is the
+  step that asks what a cleanup compares — with an Inbox picker under the cards;
+  step 1 lists Inbox libraries with an "Inbox" badge and never ticks them by
+  default. The card only appears when an Inbox exists.
+- **Rotation is matched silently.** The four hashes are computed for incoming
+  photos in the worker (`inbox-variants.ts`) and passed into the near grouping as
+  variants (`groupNearIdentical`'s `candidates` + `variants` options); a match
+  found that way is not labelled "rotated" on the card — recording it would need
+  a column, and the distance shown is the best one either way.
+- **Replace** is `POST …/results/:resultId/replace { memberId }` (`job-replace.ts`):
+  hand-filed work moves to the library item, `replaceGalleryAssetFile` takes the
+  Inbox file, the Inbox row is purged. Offered on near sets only — on an identical
+  set there is nothing to gain. **Keep both** is the existing **Not the same**:
+  the dismissal is recorded and the photo stays in the Inbox for the normal Keep.
+- **The sweeps** are the existing exact-tier sweep (relabelled "Discard N identical
+  copies") and `POST …/results/replace-larger`, which replaces every set on screen
+  whose incoming copy has more pixels in both directions.
+- **Auto-run** (`inbox-check.ts`): a finished Inbox scan or an upload into an Inbox
+  queues a check — re-running the Inbox's own job when one waits in review, never
+  touching another cleanup (the page says "another cleanup is in progress" and
+  offers a button). The owner is the admin who uploaded, else the library's creator.
+- **The Inbox page** shows the check's state — running with progress, "N look like
+  copies" with a link to the cleanup page, "no copies found", or a **Check for
+  copies** button — and does not embed the sets: they are worked on the cleanup
+  page, which is where Replace, Discard and Compare already live.
+
+The plan as written:
 
 - **Scope kind on a job.** `duplicate_jobs.scope_kind` = `libraries` (today's
   behaviour) or `inbox`, with `inbox_library_id`. The wizard's first step gains

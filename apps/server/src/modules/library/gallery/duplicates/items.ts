@@ -37,6 +37,7 @@ import { recomputeFaceCount } from "../people.js";
 // body, never while a module is being evaluated.
 import { getJob, setJobStatus, setJobScanProgress } from "./jobs.js";
 import { runJobScan } from "./job-scan.js";
+import { inboxNearVariants } from "./inbox-variants.js";
 
 export const DUPLICATE_SCAN_JOB_TYPE = "SCAN_GALLERY_DUPLICATES";
 
@@ -745,6 +746,18 @@ export interface NearGrouping {
  *
  *  Rows with no fingerprint — every video, and photos the scan has not backfilled — are
  *  simply absent from the result rather than grouped on a guess. */
+export interface NearGroupingOptions {
+  /** Asymmetric mode (the Photo Inbox check): a pair is only linked when at least
+   *  one side is a candidate, so the collection is never compared with itself.
+   *  Absent = every pair may link. */
+  candidates?: Set<string>;
+  /** Extra fingerprints an item may ALSO be matched on — the Inbox check hashes an
+   *  incoming scan turned 90/180/270°, so a print fed in sideways still finds its
+   *  upright twin. The distance reported is the best over all of them. Variants
+   *  take part in bucketing, so the band invariant holds for them too. */
+  variants?: Map<string, string[]>;
+}
+
 export function groupNearIdentical(
   rows: { itemId: string; phash: string | null }[],
   ignored: Set<string> = new Set(),
@@ -752,22 +765,43 @@ export function groupNearIdentical(
    *  says two pictures LOOK alike; a caller with more context — dimensions, when each
    *  was taken — can use this to refuse a pair it can tell apart. Defaults to
    *  accepting everything, which is what the cache tier wants. */
-  linkable: (a: string, b: string) => boolean = () => true
+  linkable: (a: string, b: string) => boolean = () => true,
+  options: NearGroupingOptions = {}
 ): NearGrouping {
-  const prints = new Map<string, Fingerprint>();
+  // Every fingerprint an item answers to: its own first, then any variants.
+  const prints = new Map<string, Fingerprint[]>();
   for (const row of rows) {
-    const print = parseFingerprint(row.phash);
-    if (print) prints.set(row.itemId, print);
+    const own = parseFingerprint(row.phash);
+    const extra = (options.variants?.get(row.itemId) ?? [])
+      .map(parseFingerprint)
+      .filter((print): print is Fingerprint => print != null);
+    const all = own ? [own, ...extra] : extra;
+    if (all.length > 0) prints.set(row.itemId, all);
   }
+  const bestDistance = (a: string, b: string): number => {
+    const fa = prints.get(a);
+    const fb = prints.get(b);
+    if (!fa || !fb) return 0;
+    let best = Number.POSITIVE_INFINITY;
+    for (const pa of fa) for (const pb of fb) best = Math.min(best, fingerprintDistance(pa, pb));
+    return best;
+  };
+  const mayLink = (a: string, b: string): boolean =>
+    !options.candidates || options.candidates.has(a) || options.candidates.has(b);
 
   // Bucket by (band index, band value); only items sharing a bucket are ever compared.
   const buckets = new Map<string, string[]>();
-  for (const [id, print] of prints) {
-    bandsOf(print).forEach((band, index) => {
-      const key = `${index}:${band}`;
-      const bucket = buckets.get(key);
-      if (bucket) bucket.push(id); else buckets.set(key, [id]);
-    });
+  for (const [id, all] of prints) {
+    const seen = new Set<string>();
+    for (const print of all) {
+      bandsOf(print).forEach((band, index) => {
+        const key = `${index}:${band}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        const bucket = buckets.get(key);
+        if (bucket) bucket.push(id); else buckets.set(key, [id]);
+      });
+    }
   }
 
   const edges: [string, string][] = [];
@@ -780,7 +814,8 @@ export function groupNearIdentical(
         if (compared.has(key)) continue;
         compared.add(key);
         if (ignored.has(key)) continue;
-        if (fingerprintDistance(prints.get(bucket[i])!, prints.get(bucket[j])!) > NEAR_IDENTICAL_DISTANCE) continue;
+        if (!mayLink(bucket[i], bucket[j])) continue;
+        if (bestDistance(bucket[i], bucket[j]) > NEAR_IDENTICAL_DISTANCE) continue;
         if (!linkable(bucket[i], bucket[j])) continue;
         edges.push([bucket[i], bucket[j]]);
       }
@@ -789,11 +824,7 @@ export function groupNearIdentical(
 
   return {
     components: componentsFromEdges(edges),
-    distance: (a, b) => {
-      const fa = prints.get(a);
-      const fb = prints.get(b);
-      return fa && fb ? fingerprintDistance(fa, fb) : 0;
-    }
+    distance: bestDistance
   };
 }
 
@@ -1095,13 +1126,16 @@ function failCleanupJob(cleanupJobId: string | null, message: string): void {
 /** Take the cleanup's snapshot now the digests are in place. Never throws: the hashing
  *  pass succeeded and that work is worth recording whatever happens here, so a refusal
  *  is reported on the CLEANUP rather than by failing the queue entry. */
-function runCleanupSnapshot(cleanupJobId: string | null): Record<string, unknown> {
+function runCleanupSnapshot(
+  cleanupJobId: string | null,
+  nearVariants?: Map<string, string[]>
+): Record<string, unknown> {
   const cleanup = cleanupJobId ? getJob(cleanupJobId) : null;
   // Deleted or cancelled while its scan sat in the queue. The digests are still worth
   // having, so this is not an error — there is simply nothing left to snapshot.
   if (!cleanup || !cleanupJobId) return { cleanupJobId, skipped: "the cleanup was gone by the time its scan finished" };
 
-  const outcome = runJobScan(cleanupJobId, cleanup.ownerUserId);
+  const outcome = runJobScan(cleanupJobId, cleanup.ownerUserId, { nearVariants });
   if (outcome.ok) return { cleanupJobId, ...outcome.summary };
   failCleanupJob(cleanupJobId, outcome.detail ?? outcome.refused);
   return { cleanupJobId, refused: outcome.refused };
@@ -1164,9 +1198,14 @@ export async function processDuplicateScanQueue(): Promise<void> {
 
       try {
         const pass = await hashDuplicateCandidates(onProgress, scope);
+        // A Photo Inbox check also hashes its incoming photos turned three ways, so a
+        // print fed in sideways still finds its upright twin (inbox-variants.ts). Done
+        // here because it reads files, and the snapshot below must not.
+        const inboxLibraryId = cleanupJobId ? getJob(cleanupJobId)?.inboxLibraryId ?? null : null;
+        const nearVariants = inboxLibraryId ? await inboxNearVariants(inboxLibraryId) : undefined;
         // Every pass belongs to a cleanup. There used to be a second branch here that
         // rebuilt the install-wide cache the older pages read; both are gone.
-        writeResult(job.id, { ...pass, ...runCleanupSnapshot(cleanupJobId) });
+        writeResult(job.id, { ...pass, ...runCleanupSnapshot(cleanupJobId, nearVariants) });
         db.prepare("UPDATE jobs SET status = 'completed', completed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), locked_at = NULL, locked_by = NULL WHERE id = ?")
           .run(job.id);
       } catch (err) {

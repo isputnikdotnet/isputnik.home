@@ -11,12 +11,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Album, CalendarDays, CheckCheck, Film, FolderInput, FolderOpen, Inbox, LibraryBig,
-  SquareCheck, Trash2, UploadCloud, Users, X
+  ScanSearch, SquareCheck, Trash2, UploadCloud, Users, X
 } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { PartialBulkError, sendInBatches } from "../../shared/bulk";
 import { DashboardShell } from "../../app/DashboardShell";
-import { followRoute, galleryHref, galleryInboxHref, navigate } from "../../router";
+import { controlHref, followRoute, galleryHref, galleryInboxHref, navigate } from "../../router";
 import { Button } from "../../shared/Button";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { MessageBox } from "../../shared/MessageBox";
@@ -53,7 +53,25 @@ interface ReviewCounts extends Record<string, number> {
   failed: number;
 }
 
+/** What the server says about this Inbox's duplicate check — the cleanup job
+ *  that compares the Inbox with the rest of the collection (phase 2). */
+interface InboxCheckView {
+  jobId: string;
+  status: "draft" | "scanning" | "review" | "processing" | "paused" | "completed" | "failed" | "cancelled";
+  scanProgress: number;
+  statusDetail: string | null;
+  results: number;
+  remaining: number;
+  isOwner: boolean;
+}
+
+interface InboxCheckState {
+  check: InboxCheckView | null;
+  blockedBy: "other_job" | null;
+}
+
 const PAGE_SIZE = 80;
+const CHECK_POLL_MS = 2000;
 
 export function PhotoInboxPage({
   user,
@@ -142,10 +160,52 @@ export function PhotoInboxPage({
     void loadAssets(inbox.id, folder, 0);
   }, [inbox?.id, folder, loadAssets]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // The Inbox's duplicate check. Read with the Inbox, polled while it scans, and
+  // re-read after every Keep or Discard — a resolved set is a set fewer to show.
+  const [check, setCheck] = useState<InboxCheckState | null>(null);
+  const loadCheck = useCallback(async (inboxId: string) => {
+    try {
+      setCheck(await api<InboxCheckState>(`/api/library/gallery/inbox/${inboxId}/check`));
+    } catch {
+      setCheck(null);
+    }
+  }, []);
+  useEffect(() => {
+    if (!inbox) { setCheck(null); return; }
+    void loadCheck(inbox.id);
+  }, [inbox?.id, loadCheck]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const status = check?.check?.status;
+    if (!inbox || (status !== "scanning" && status !== "processing")) return;
+    const handle = window.setInterval(() => { void loadCheck(inbox.id); }, CHECK_POLL_MS);
+    return () => window.clearInterval(handle);
+  }, [inbox?.id, check?.check?.status, loadCheck]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const startCheck = async () => {
+    if (!inbox) return;
+    setBusy(true);
+    setActionError("");
+    try {
+      const started = await api<InboxCheckState & { start: { queued: boolean; reason?: string } }>(
+        `/api/library/gallery/inbox/${inbox.id}/check`,
+        { method: "POST", body: "{}" }
+      );
+      setCheck({ check: started.check, blockedBy: started.blockedBy });
+      if (!started.start.queued && started.start.reason === "busy") setNotice(t("gallery:inbox.check.blockedBody"));
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : t("gallery:inbox.check.startFailed"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const refresh = useCallback(async () => {
     await loadInboxes();
-    if (inbox) await loadAssets(inbox.id, folder, 0);
-  }, [loadInboxes, loadAssets, inbox, folder]);
+    if (inbox) {
+      await loadAssets(inbox.id, folder, 0);
+      await loadCheck(inbox.id);
+    }
+  }, [loadInboxes, loadAssets, loadCheck, inbox, folder]);
 
   const exitSelection = () => { setSelectionMode(false); setSelectedIds(new Set()); };
   const toggleSelect = (id: string) => {
@@ -378,6 +438,57 @@ export function PhotoInboxPage({
 
             {!canReview && inbox.count > 0 && (
               <MessageBox tone="info" title={t("gallery:inbox.readOnlyTitle")}>{t("gallery:inbox.readOnlyBody")}</MessageBox>
+            )}
+
+            {/* The duplicate check — "12 new, 3 look like copies". Its sets are worked
+                through on the cleanup page, which is the admin's; here the Inbox says
+                what the check found and where to go. */}
+            {check?.blockedBy === "other_job" && isAdmin && inbox.count > 0 && (
+              <MessageBox tone="info" title={t("gallery:inbox.check.blockedTitle")}>
+                {t("gallery:inbox.check.blockedBody")}
+              </MessageBox>
+            )}
+            {check?.check && (check.check.status === "scanning" || check.check.status === "processing" || check.check.status === "draft") && (
+              <MessageBox tone="info" title={t("gallery:inbox.check.runningTitle")}>
+                {t("gallery:inbox.check.runningBody", { percent: check.check.scanProgress })}
+              </MessageBox>
+            )}
+            {check?.check && check.check.status === "failed" && (
+              <MessageBox tone="error" title={t("gallery:inbox.check.failedTitle")}>
+                {check.check.statusDetail ?? t("gallery:inbox.check.failedBody")}
+              </MessageBox>
+            )}
+            {check?.check && (check.check.status === "review" || check.check.status === "paused") && (
+              check.check.remaining > 0 ? (
+                <MessageBox
+                  tone="warning"
+                  title={t("gallery:inbox.check.foundTitle", { count: check.check.remaining })}
+                  action={isAdmin ? (
+                    <a
+                      className="secondary-button compact-button"
+                      href={controlHref("duplicateCleanup")}
+                      onClick={(event) => followRoute(event, controlHref("duplicateCleanup"))}
+                    >
+                      {t("gallery:inbox.check.review")}
+                    </a>
+                  ) : undefined}
+                >
+                  {t("gallery:inbox.check.foundBody")}
+                </MessageBox>
+              ) : (
+                <MessageBox tone="success" title={t("gallery:inbox.check.noneTitle")}>
+                  {t("gallery:inbox.check.noneBody", { count: check.check.results })}
+                </MessageBox>
+              )
+            )}
+            {check && !check.check && !check.blockedBy && isAdmin && inbox.count > 0 && (
+              <div className="gallery-inbox-check-offer">
+                <Button variant="secondary" onClick={() => void startCheck()} disabled={busy}>
+                  <ScanSearch size={16} aria-hidden="true" />
+                  {t("gallery:inbox.check.start")}
+                </Button>
+                <span className="muted">{t("gallery:inbox.check.startHint")}</span>
+              </div>
             )}
 
             {!loading && assets.length === 0 ? (

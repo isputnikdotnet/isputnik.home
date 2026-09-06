@@ -748,6 +748,12 @@ CREATE TABLE IF NOT EXISTS duplicate_jobs (
   -- half underneath it.
   duplicate_type     TEXT NOT NULL DEFAULT 'folders' CHECK (duplicate_type IN ('folders', 'files')),
   media_type         TEXT NOT NULL DEFAULT 'both' CHECK (media_type IN ('photo', 'video', 'both')),
+  -- Set for a Photo Inbox check (docs/photo-inbox-proposal.md, phase 2): a 'files'
+  -- job whose only candidates are this library's photos, with twins looked for in
+  -- the job's other libraries and the outside copy kept by default. The API reads
+  -- it back as duplicateType 'inbox'; the CHECK above is left alone on purpose,
+  -- since widening it means rebuilding the table.
+  inbox_library_id   TEXT REFERENCES libraries(id) ON DELETE SET NULL,
   -- Which wizard step to reopen on, for a draft put down mid-way.
   current_step       INTEGER NOT NULL DEFAULT 1,
   scan_progress      INTEGER NOT NULL DEFAULT 0,

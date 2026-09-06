@@ -17,7 +17,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ArrowLeft, ArrowRight, Briefcase, Check, Cloud, File, FolderOpen, HardDrive,
-  Image as ImageIcon, Lock, LockOpen, RefreshCw, ShieldCheck, Smartphone, UserRound, Video
+  Image as ImageIcon, Inbox, Lock, LockOpen, RefreshCw, ShieldCheck, Smartphone, UserRound, Video
 } from "lucide-react";
 import { api } from "../../../../api";
 import { MessageBox } from "../../../../shared/MessageBox";
@@ -32,10 +32,14 @@ import type { DuplicateJob, DuplicateKind, LibraryOption, MediaKind } from "./cl
 // Module-level helpers (not components) call i18n.t() directly rather than the
 // useTranslation() hook — see cleanup-types.ts's note on the same pattern.
 const cleanupTypeLabel = (type: DuplicateKind): string =>
-  i18n.t(type === "folders" ? "controlDash:dupes.wizard.typeFolders" : "controlDash:dupes.wizard.typeFiles");
+  i18n.t(type === "folders"
+    ? "controlDash:dupes.wizard.typeFolders"
+    : type === "inbox" ? "controlDash:dupes.wizard.typeInbox" : "controlDash:dupes.wizard.typeFiles");
 
 const cleanupTypeDescription = (type: DuplicateKind): string =>
-  i18n.t(type === "folders" ? "controlDash:dupes.wizard.typeFoldersNote" : "controlDash:dupes.wizard.typeFilesNote");
+  i18n.t(type === "folders"
+    ? "controlDash:dupes.wizard.typeFoldersNote"
+    : type === "inbox" ? "controlDash:dupes.wizard.typeInboxNote" : "controlDash:dupes.wizard.typeFilesNote");
 
 const mediaTypeLabel = (type: MediaKind): string =>
   i18n.t(type === "photo"
@@ -134,11 +138,18 @@ export function CleanupWizard({
   const steps = getSteps();
   const modes = getModes();
   const [step, setStep] = useState(Math.min(job?.currentStep ?? 1, steps.length));
+  // A Photo Inbox is never ticked by default: its photos are under review, not part
+  // of the collection a cleanup compares. It is the candidates of an Inbox check,
+  // and the job model adds it to that job's libraries itself.
   const [chosen, setChosen] = useState<string[]>(
     job ? job.libraries.filter((library) => library.included).map((library) => library.libraryId)
-      : libraries.filter((library) => !library.isProtected).map((library) => library.id)
+      : libraries.filter((library) => !library.isProtected && !library.inbox).map((library) => library.id)
   );
   const [duplicateType, setDuplicateType] = useState<DuplicateKind>(job?.duplicateType ?? "folders");
+  const inboxOptions = libraries.filter((library) => library.inbox);
+  const [inboxLibraryId, setInboxLibraryId] = useState<string>(
+    job?.inboxLibraryId ?? inboxOptions[0]?.id ?? ""
+  );
   const [mediaType, setMediaType] = useState<MediaKind>(job?.mediaType ?? "photo");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -209,7 +220,15 @@ export function CleanupWizard({
       label: t("controlDash:dupes.wizard.typeFiles"),
       description: t("controlDash:dupes.wizard.typeFilesNote"),
       icon: <File size={22} />
-    }
+    },
+    // Only when there is an Inbox to check: a card for a job that cannot be
+    // created is a promise the wizard cannot keep.
+    ...(inboxOptions.length > 0 ? [{
+      value: "inbox" as const,
+      label: t("controlDash:dupes.wizard.typeInbox"),
+      description: t("controlDash:dupes.wizard.typeInboxNote"),
+      icon: <Inbox size={22} />
+    }] : [])
   ];
 
   const mediaTypeChoices: Choice<MediaKind>[] = [
@@ -258,7 +277,13 @@ export function CleanupWizard({
     setSaving(true);
     setError("");
     try {
-      const body = { libraryIds: chosen, duplicateType, mediaType, currentStep: step };
+      const body = {
+        libraryIds: chosen,
+        duplicateType,
+        inboxLibraryId: duplicateType === "inbox" ? inboxLibraryId : null,
+        mediaType,
+        currentStep: step
+      };
       const id = job
         ? (await api<{ activeJob: DuplicateJob }>(`/api/library/gallery/duplicate-jobs/${job.id}`, {
             method: "PATCH", body: JSON.stringify(body)
@@ -340,7 +365,7 @@ export function CleanupWizard({
                             <span>{library.sourcePath}</span>
                           </span>
                           <span className={`cleanup-library-badge ${library.mode}`}>
-                            {libraryModeLabel(library)}
+                            {library.inbox ? t("controlDash:dupes.wizard.inboxBadge") : libraryModeLabel(library)}
                           </span>
                           {/* The lock trails the toggle rather than preceding it. It only
                               renders for a protected library, and a grid child that comes
@@ -398,6 +423,19 @@ export function CleanupWizard({
                   disabled={saving}
                   options={cleanupTypeChoices}
                 />
+                {duplicateType === "inbox" && (
+                  <div className="cleanup-inbox-pick">
+                    <label className="field">
+                      <span>{t("controlDash:dupes.wizard.inboxPick")}</span>
+                      <select value={inboxLibraryId} onChange={(event) => setInboxLibraryId(event.target.value)} disabled={saving}>
+                        {inboxOptions.map((library) => (
+                          <option key={library.id} value={library.id}>{library.name}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <p className="datagrid-muted">{t("controlDash:dupes.wizard.inboxPickNote")}</p>
+                  </div>
+                )}
               </section>
 
               <section className="cleanup-wizard-section">
@@ -565,7 +603,9 @@ export function CleanupWizard({
                     <span className="cleanup-summary-icon">
                       {duplicateType === "files"
                         ? <File size={22} aria-hidden="true" />
-                        : <FolderOpen size={22} aria-hidden="true" />}
+                        : duplicateType === "inbox"
+                          ? <Inbox size={22} aria-hidden="true" />
+                          : <FolderOpen size={22} aria-hidden="true" />}
                     </span>
                     <span>
                       <strong>{cleanupTypeLabel(duplicateType)}</strong>

@@ -321,6 +321,15 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
       ipAddress: request.ip
     });
 
+    // A delivery into a Photo Inbox queues its duplicate check (proposal, decision
+    // 9); an admin's upload owns the check, anyone else's falls to the library's
+    // creator. Lazy import, as in the scanner: the duplicates module imports back.
+    if (policy.inbox === true) {
+      void import("./duplicates/inbox-check.js")
+        .then((mod) => mod.queueInboxCheck(library.id, user.role === "admin" ? user.id : undefined))
+        .catch(() => { /* started by hand from the Inbox page */ });
+    }
+
     // `itemIds` lets a caller act on what it just uploaded — the family tree
     // attaches them to a person or event straight after the upload.
     return reply.code(201).send({ uploaded: createdIds.length, itemIds: createdIds });

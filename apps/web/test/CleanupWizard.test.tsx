@@ -19,6 +19,7 @@ const library = (id: string, over: Partial<LibraryOption> = {}): LibraryOption =
   sourcePath: `/srv/${id}`,
   mode: "managed",
   isProtected: false,
+  inbox: false,
   candidateCount: 10,
   pendingCount: 0,
   ...over
@@ -105,7 +106,7 @@ describe("cleanup wizard steps", () => {
   it("reopens a draft on the step it was left on", () => {
     mount(LIBRARIES, {
       id: "job-1", ownerUserId: "u1", ownerName: "Ada", status: "draft",
-      duplicateType: "files", mediaType: "video", currentStep: 2, scanProgress: 0,
+      duplicateType: "files", inboxLibraryId: null, mediaType: "video", currentStep: 2, scanProgress: 0,
       statusDetail: null, createdAt: "", lastActivityAt: "", scanCompletedAt: null,
       libraries: [{
         libraryId: "Family", name: "Family", included: true, mode: "managed",

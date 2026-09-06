@@ -14,6 +14,7 @@ import { libraryJobRunning } from "../shared/scan-lock.js";
 import { requeueInterruptedJobs, releaseAbandonedScanLibraries } from "../shared/job-recovery.js";
 import { jobProgressWriter } from "../shared/job-progress.js";
 import { dateFromFileName } from "./filename-date.js";
+import { isPhotoInboxLibrary } from "./inbox-flag.js";
 import {
   normalizeLibrarySettings,
   normalizeScanSources,
@@ -435,6 +436,16 @@ export async function processGalleryScanQueue() {
           UPDATE jobs SET status = 'completed', payload = ?, completed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), locked_at = NULL, locked_by = NULL
           WHERE id = ?
         `).run(JSON.stringify({ ...payload, result }), job.id);
+        // A finished Photo Inbox scan queues its duplicate check, so the review page
+        // can open with "12 new, 3 look like copies" (docs/photo-inbox-proposal.md,
+        // decision 9). Imported lazily: the duplicates module reaches back into this
+        // one. A check that cannot start — another cleanup holds the slot — is not
+        // an error; the Inbox page offers it by hand.
+        if (isPhotoInboxLibrary(payload.libraryId)) {
+          void import("./duplicates/inbox-check.js")
+            .then((mod) => mod.queueInboxCheck(payload.libraryId))
+            .catch(() => { /* started by hand from the Inbox page */ });
+        }
       } catch (err) {
         const permanent = err instanceof LibrarySourceError;
         const message = err instanceof Error ? err.message : "Gallery scan failed";

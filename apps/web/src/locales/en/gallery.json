@@ -710,6 +710,25 @@
       "allReviewedBody": "{{name}} is empty. Drop in the next batch and it will be waiting here.",
       "deliveryReviewedTitle": "This delivery is done",
       "deliveryReviewedBody": "Every photo in it has been kept or discarded."
+    },
+    "check": {
+      "start": "Check for copies",
+      "startHint": "Compares what is here with the rest of the library. Runs by itself after a scan or an upload.",
+      "startFailed": "Could not start the check.",
+      "runningTitle": "Checking for copies…",
+      "runningBody": "{{percent}}% of the fingerprints done. This page updates by itself.",
+      "failedTitle": "The check could not finish",
+      "failedBody": "Run it again from the cleanup page.",
+      "foundTitle_one": "{{count}} photo looks like a copy of one the library already has",
+      "foundTitle_other": "{{count}} photos look like copies of ones the library already has",
+      "foundBody": "Each is paired with the library's copy on the Duplicate cleanup page, where you can replace the library's file with the new one, discard the new one, or keep both.",
+      "review": "Review copies",
+      "noneTitle": "No copies found",
+      "noneBody_zero": "Nothing here matches what the library already has.",
+      "noneBody_one": "The {{count}} match the check found has been dealt with.",
+      "noneBody_other": "All {{count}} matches the check found have been dealt with.",
+      "blockedTitle": "Another cleanup is in progress",
+      "blockedBody": "The copy check waits until it is finished, cancelled or deleted on the Duplicate cleanup page."
     }
   }
 }

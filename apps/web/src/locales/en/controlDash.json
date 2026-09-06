@@ -817,7 +817,29 @@
       "saving": "Saving…",
       "saveChanges": "Save changes",
       "scanning": "Scanning…",
-      "runScan": "Run scan"
-    }
+      "runScan": "Run scan",
+      "typeInbox": "Photo Inbox check",
+      "typeInboxNote": "Compare what arrived in an Inbox with what the library already has",
+      "inboxPick": "Which Inbox",
+      "inboxPickNote": "Only the Inbox's photos are candidates. Twins are looked for in the libraries ticked in step 1, and the library's copy is the one kept.",
+      "inboxBadge": "Inbox"
+    },
+    "kindInboxCheck": "a Photo Inbox against the library",
+    "badgeInLibrary": "In the library",
+    "discardIncoming": "Discard incoming",
+    "replaceButton": "Replace",
+    "replaceTitle": "Put the incoming copy in the library's place",
+    "replaceConfirmTitle": "Replace the library's copy?",
+    "replaceConfirm": "Replace",
+    "replacing": "Replacing…",
+    "replaceBody1": "The incoming file takes the library item's place: every album, story, tag and person pointing at it stays pointing at it, and the Inbox copy leaves the Inbox.",
+    "replaceBody2": "The library's previous file is set aside beside the Recycle Bin, not deleted.",
+    "replaceFailed": "Unable to replace the library's copy",
+    "replaceLargerButton": "Replace larger",
+    "replaceLargerTitle": "Replace every library copy whose incoming twin has more pixels in both directions",
+    "replaceLargerConfirm": "Replace larger copies",
+    "replaceLargerBody1": "Every set on screen whose incoming copy is larger than the library's in both width and height is replaced. Sets where it is smaller, or the same file, are left for you.",
+    "sweepButtonInbox_one": "Discard {{count}} identical copy",
+    "sweepButtonInbox_other": "Discard {{count}} identical copies"
   }
 }

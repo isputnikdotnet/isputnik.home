@@ -38,6 +38,17 @@ import {
 import { applyPreferences, dismissResult, markResult, setMemberRole, type RoleRefusal } from "./job-review.js";
 import { checkResult, resolveJobResult, sweepJobResults } from "./job-resolve.js";
 import { processDuplicateScanQueue } from "./items.js";
+import { replaceLargerSweep, replaceWithInboxCopy, type ReplaceRefusal } from "./job-replace.js";
+
+// The Photo Inbox check's Replace has its own refusals, spoken here.
+const REPLACE_REFUSALS: Record<ReplaceRefusal, string> = {
+  stale: "Some of these photos have changed since the scan, so nothing was replaced. Re-scan and look again.",
+  not_inbox_job: "Replace is only offered by a Photo Inbox check.",
+  no_such_member: "No such copy in this set.",
+  member_not_incoming: "Only the Inbox's copy can replace the library's.",
+  no_keeper: "No library copy is recorded for this photo to replace.",
+  replace_failed: "The file could not be replaced."
+};
 
 // One refusal vocabulary, so a caller never has to read prose to tell "someone else
 // owns this" from "this job is past the point of changing".
@@ -53,6 +64,7 @@ const REFUSALS: Record<JobRefusal, { code: number; error: string }> = {
     error: "The scan has already run, so the libraries and scan type can't be changed. Start a new cleanup to change them."
   },
   no_libraries: { code: 400, error: "Choose at least one photo library to compare." },
+  no_inbox: { code: 400, error: "Choose the Photo Inbox to check." },
   not_reviewable: { code: 409, error: "This cleanup is already finished." },
   scan_failed: { code: 500, error: "The scan couldn't finish." }
 };
@@ -96,7 +108,9 @@ const send = (
 
 const scopeSchema = z.object({
   libraryIds: z.array(z.string().min(1).max(64)).max(200).optional(),
-  duplicateType: z.enum(["folders", "files"]).optional(),
+  duplicateType: z.enum(["folders", "files", "inbox"]).optional(),
+  // The Photo Inbox an "inbox" check reads; null clears it with the type.
+  inboxLibraryId: z.string().min(1).max(64).nullable().optional(),
   mediaType: z.enum(["photo", "video", "both"]).optional(),
   // Where a half-finished draft reopens. The wizard has four steps: libraries,
   // what to compare, folder instructions, summary.
@@ -370,6 +384,59 @@ export async function galleryDuplicateJobRoutesPlugin(app: FastifyInstance) {
     const outcome = checkResult(id, resultId);
     if (!outcome) { return refuse(reply, "not_found"); }
     return reply.send(outcome);
+  });
+
+  // The Photo Inbox check's Replace: the incoming copy takes the library item's
+  // place, the old file is set aside beside the Recycle Bin, the Inbox row goes.
+  // destructive: it changes a file the library serves — same policy as a delete.
+  const replaceSchema = z.object({ memberId: z.string().min(1).max(64) });
+  app.post("/api/library/gallery/duplicate-jobs/:id/results/:resultId/replace", { preHandler: app.requireAdmin, config: { destructive: true } }, async (request, reply) => {
+    const { id, resultId } = request.params as { id: string; resultId: string };
+    const parsed = parseBody(replaceSchema, request.body ?? {});
+    if (parsed.error) { return reply.code(400).send({ error: "Invalid request", details: parsed.error }); }
+    const outcome = await replaceWithInboxCopy(id, request.user!.id, resultId, parsed.data.memberId);
+    if (!outcome.ok) {
+      if (outcome.refused in REPLACE_REFUSALS) {
+        const refused = outcome.refused as ReplaceRefusal;
+        const detail = "detail" in outcome ? outcome.detail : undefined;
+        const message = refused === "replace_failed" && detail ? `${REPLACE_REFUSALS[refused]} ${detail}` : REPLACE_REFUSALS[refused];
+        return reply.code(refused === "stale" ? 409 : 400).send({
+          error: message,
+          ...("check" in outcome && outcome.check ? { check: outcome.check } : {})
+        });
+      }
+      return refuse(reply, outcome.refused as JobRefusal, "detail" in outcome ? outcome.detail : undefined);
+    }
+    return reply.send({ ...outcome.job, job: getJob(id) });
+  });
+
+  // "Replace all where the new copy is larger": every set the filters leave on
+  // screen whose incoming copy has more pixels in both directions.
+  app.post("/api/library/gallery/duplicate-jobs/:id/results/replace-larger", { preHandler: app.requireAdmin, config: { destructive: true } }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const parsed = parseBody(resultsSchema, request.query ?? {});
+    if (parsed.error) { return reply.code(400).send({ error: "Invalid request", details: parsed.error }); }
+    const outcome = await replaceLargerSweep(id, request.user!.id, {
+      search: parsed.data.q,
+      tier: parsed.data.tier,
+      review: parsed.data.review,
+      libraryId: parsed.data.library || undefined
+    });
+    if (!outcome.ok) {
+      if (outcome.refused in REPLACE_REFUSALS) {
+        return reply.code(400).send({ error: REPLACE_REFUSALS[outcome.refused as ReplaceRefusal] });
+      }
+      return refuse(reply, outcome.refused as JobRefusal);
+    }
+    logActivity({
+      event: "library.gallery.inbox_replaced_larger",
+      actorUserId: request.user!.id,
+      targetType: "library",
+      targetId: null,
+      detail: `Photo Inbox check: ${outcome.job.replaced} library cop${outcome.job.replaced === 1 ? "y" : "ies"} replaced by larger incoming ones.`,
+      ipAddress: request.ip
+    });
+    return reply.send({ ...outcome.job, ...jobsPayload(request.user!.id) });
   });
 
   // Delete one result's doomed copies. All-or-nothing on the re-check: if anything

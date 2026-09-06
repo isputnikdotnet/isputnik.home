@@ -7,7 +7,7 @@ import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ArrowRight, CircleCheck, Columns2, ExternalLink, Folder, FolderOpen, FolderTree, HardDrive,
-  ImageOff, Images, Trash2, TriangleAlert
+  ImageOff, Images, Replace, Trash2, TriangleAlert
 } from "lucide-react";
 import { formatBytes } from "../../../../shared/utils";
 import { Button } from "../../../../shared/Button";
@@ -94,6 +94,9 @@ export interface CleanupResultActions {
   /** Move one copy of a photo set between keep and delete — the scan's guess, overruled.
    *  Photo sets only; a folder card's offer is about the folder, not its files. */
   onSetRole: (memberId: string, role: "keep" | "delete") => void;
+  /** Photo Inbox check only: put this incoming copy in the library item's place.
+   *  Absent on every other kind of cleanup, and the button with it. */
+  onReplace?: (memberId: string) => void;
 }
 
 function ReviewButtons({
@@ -397,11 +400,14 @@ function FolderSetCard({
  *  The picture is the control: clicking it moves this copy between keep and delete,
  *  which is the decision the scan only guessed at. "Compare" opens the copies full size
  *  for anyone who wants a closer look before choosing. */
-function CopyTile({ member, largestPixels, busy, onToggle }: {
+function CopyTile({ member, largestPixels, busy, onToggle, keepLabel }: {
   member: SnapshotMember;
   /** The set's biggest copy in pixels, for the "N× smaller" tag. 0 disables it. */
   largestPixels: number;
   busy: boolean;
+  /** What a kept copy's badge says when "Keep" is not the point — an Inbox check
+   *  marks the library's copy as what the library already has. */
+  keepLabel?: string;
   /** Absent when this copy's fate is not open to change — a cleanup someone else owns,
    *  a protected library, or a copy already in the Recycle Bin. Then the tile is a
    *  plain frame rather than a disabled button, which would promise an action that
@@ -415,7 +421,7 @@ function CopyTile({ member, largestPixels, busy, onToggle }: {
   // the preview is sized for the viewer's full-screen panes.
   const src = member.coverUrl ?? member.previewUrl;
   const folder = folderOfPath(member.path);
-  const badge = member.role === "keep" ? t("controlDash:dupes.badgeKeep") : member.role === "protected" ? t("controlDash:dupes.badgeProtected") : t("controlDash:dupes.badgeDelete");
+  const badge = member.role === "keep" ? keepLabel ?? t("controlDash:dupes.badgeKeep") : member.role === "protected" ? t("controlDash:dupes.badgeProtected") : t("controlDash:dupes.badgeDelete");
   // alt="" — the filename is written underneath, and the picture itself is not
   // describable here. A copy whose photo has gone shows the empty frame rather than a
   // broken image: the snapshot outlives what it describes.
@@ -480,11 +486,16 @@ function CopyTile({ member, largestPixels, busy, onToggle }: {
 }
 
 function PhotoSetCard({
-  result, canWork, actions
+  result, canWork, actions, inboxLibraryId = null
 }: {
   result: SnapshotResult;
   canWork: boolean;
   actions: CleanupResultActions;
+  /** Set on a Photo Inbox check: the library whose copies are the incoming ones.
+   *  The card then reads the other way round — the kept copy is "in the library",
+   *  Delete becomes Discard, and Replace appears when the incoming copy is a
+   *  different file from the library's. */
+  inboxLibraryId?: string | null;
 }) {
   // Ordered by PATH, and deliberately not by role.
   //
@@ -521,6 +532,14 @@ function PhotoSetCard({
   // scan no longer proposes keeping a preview, but a click can.
   const largestPixels = near ? largestPixelsOf(result.members) : 0;
   const keepingSmall = near && keeperMuchSmaller(result.members);
+  // The incoming copy Replace would use: the largest one still waiting, on a set
+  // where the files differ. Null everywhere Replace is not on offer.
+  const replaceable = inboxLibraryId && near
+    ? result.members
+      .filter((member) =>
+        member.libraryId === inboxLibraryId && member.role === "delete" && member.status !== "deleted" && member.keeperMemberId)
+      .sort((a, b) => (b.width ?? 0) * (b.height ?? 0) - (a.width ?? 0) * (a.height ?? 0))[0] ?? null
+    : null;
 
   return (
     <div className="dup-set">
@@ -566,11 +585,30 @@ function PhotoSetCard({
           <ReviewButtons
             result={result}
             actions={actions}
-            deleteLabel={t("controlDash:dupes.deleteCopies")}
+            deleteLabel={inboxLibraryId ? t("controlDash:dupes.discardIncoming") : t("controlDash:dupes.deleteCopies")}
             className="dup-group-actions"
             deleteClassName="dup-delete-action"
             deleteIcon
-            leading={viewable.length > 1 ? <LookButton count={viewable.length} onOpen={() => setViewing(true)} /> : null}
+            leading={
+              <>
+                {viewable.length > 1 && <LookButton count={viewable.length} onOpen={() => setViewing(true)} />}
+                {/* Replace: only on a near set — on an identical one the bytes are the
+                    same and there is nothing to gain — and only for the incoming copy,
+                    the largest when several came in at once. */}
+                {actions.onReplace && replaceable && (
+                  <Button
+                    variant="secondary"
+                    compact
+                    disabled={actions.busy}
+                    title={t("controlDash:dupes.replaceTitle")}
+                    onClick={() => actions.onReplace!(replaceable.id)}
+                  >
+                    <Replace size={14} aria-hidden="true" />
+                    <span>{t("controlDash:dupes.replaceButton")}</span>
+                  </Button>
+                )}
+              </>
+            }
           />
         ) : viewable.length > 1 && (
           <div className="dup-group-actions">
@@ -592,6 +630,7 @@ function PhotoSetCard({
             member={member}
             largestPixels={largestPixels}
             busy={actions.busy}
+            keepLabel={inboxLibraryId && member.libraryId !== inboxLibraryId ? t("controlDash:dupes.badgeInLibrary") : undefined}
             onToggle={togglable(member)
               ? () => actions.onSetRole(member.id, member.role === "delete" ? "keep" : "delete")
               : undefined}
@@ -625,15 +664,17 @@ function PhotoSetCard({
 /** An overlap reads as a folder set — two folders, one keeping its copies — so it
  *  shares that card rather than getting a fourth one nobody has seen yet. */
 export function CleanupResultCard({
-  result, canWork, actions
+  result, canWork, actions, inboxLibraryId = null
 }: {
   result: SnapshotResult;
   canWork: boolean;
   actions: CleanupResultActions;
+  /** The Photo Inbox of an Inbox check; see PhotoSetCard. */
+  inboxLibraryId?: string | null;
 }) {
   if (result.type === "contained") return <ContainedCard result={result} canWork={canWork} actions={actions} />;
   if (result.type === "folder_set" || result.type === "overlap") {
     return <FolderSetCard result={result} canWork={canWork} actions={actions} />;
   }
-  return <PhotoSetCard result={result} canWork={canWork} actions={actions} />;
+  return <PhotoSetCard result={result} canWork={canWork} actions={actions} inboxLibraryId={inboxLibraryId} />;
 }

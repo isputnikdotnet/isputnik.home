@@ -22,7 +22,7 @@
 // CleanupJobCard, and the scope wizard in CleanupWizard.
 import { useEffect, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import { Briefcase, Search, SlidersHorizontal, Trash2, TriangleAlert } from "lucide-react";
+import { Briefcase, Replace, Search, SlidersHorizontal, Trash2, TriangleAlert } from "lucide-react";
 import { api, ApiError, type PublicUser } from "../../../../api";
 import { formatBytes } from "../../../../shared/utils";
 import { MessageBox } from "../../../../shared/MessageBox";
@@ -59,6 +59,10 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
   const [checking, setChecking] = useState(false);
   const [dismissing, setDismissing] = useState<SnapshotResult | null>(null);
   const [sweeping, setSweeping] = useState(false);
+  // The Photo Inbox check's own verbs: one incoming copy into the library item's
+  // place, or every larger one at once.
+  const [replacing, setReplacing] = useState<{ result: SnapshotResult; memberId: string } | null>(null);
+  const [replacingLarger, setReplacingLarger] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [takingOver, setTakingOver] = useState(false);
@@ -345,6 +349,20 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
               {/* Only ever the certain ones, so it is offered only when there are some.
                   A page of near-identical sets shows no sweep at all rather than a
                   disabled button, which would read as "this could clear these too". */}
+              {/* An Inbox check's other sweep: every incoming copy that beats the
+                  library's on pixels, in both directions, takes its place. */}
+              {canWork && job?.duplicateType === "inbox" && results.total > 0 && (
+                <Button
+                  variant="secondary"
+                  compact
+                  disabled={busy}
+                  title={t("controlDash:dupes.replaceLargerTitle")}
+                  onClick={() => { setActionError(""); setReplacingLarger(true); }}
+                >
+                  <Replace size={15} aria-hidden="true" />
+                  <span>{t("controlDash:dupes.replaceLargerButton")}</span>
+                </Button>
+              )}
               {canWork && results.sweep.results > 0 && (
                 <Button
                   variant="secondary"
@@ -354,7 +372,9 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
                   onClick={() => { setActionError(""); setSweeping(true); }}
                 >
                   <Trash2 size={15} aria-hidden="true" />
-                  <span>{t("controlDash:dupes.sweepButton", { count: results.sweep.copies })}</span>
+                  <span>{job?.duplicateType === "inbox"
+                    ? t("controlDash:dupes.sweepButtonInbox", { count: results.sweep.copies })
+                    : t("controlDash:dupes.sweepButton", { count: results.sweep.copies })}</span>
                 </Button>
               )}
             </div>
@@ -399,9 +419,13 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
                 key={result.id}
                 result={result}
                 canWork={canWork}
+                inboxLibraryId={job?.duplicateType === "inbox" ? job.inboxLibraryId : null}
                 actions={{
                   busy,
                   running: busyId === result.id,
+                  onReplace: job?.duplicateType === "inbox"
+                    ? (memberId) => { setActionError(""); setReplacing({ result, memberId }); }
+                    : undefined,
                   onSkip: () => void post(
                     `/api/library/gallery/duplicate-jobs/${job!.id}/results/${result.id}/mark`,
                     result.id,
@@ -546,6 +570,56 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
           <p>
             <Trans i18nKey="dupes.dismissBody2" ns="controlDash" components={{ bold: <strong /> }} />
           </p>
+        </ConfirmDialog>
+      )}
+
+      {replacing && job && (
+        <ConfirmDialog
+          title={t("controlDash:dupes.replaceConfirmTitle")}
+          confirmLabel={t("controlDash:dupes.replaceConfirm")}
+          busyLabel={t("controlDash:dupes.replacing")}
+          busy={busyId === replacing.result.id}
+          error={actionError}
+          onConfirm={async () => {
+            const ok = await post(
+              `/api/library/gallery/duplicate-jobs/${job.id}/results/${replacing.result.id}/replace`,
+              replacing.result.id,
+              t("controlDash:dupes.replaceFailed"),
+              { memberId: replacing.memberId }
+            );
+            if (ok) setReplacing(null);
+          }}
+          onCancel={() => { setReplacing(null); setActionError(""); }}
+          rich
+        >
+          <p>{t("controlDash:dupes.replaceBody1")}</p>
+          <p>{t("controlDash:dupes.replaceBody2")}</p>
+        </ConfirmDialog>
+      )}
+
+      {replacingLarger && job && (
+        <ConfirmDialog
+          title={t("controlDash:dupes.replaceLargerTitle")}
+          confirmLabel={t("controlDash:dupes.replaceLargerConfirm")}
+          busyLabel={t("controlDash:dupes.replacing")}
+          busy={busyId === job.id}
+          error={actionError}
+          onConfirm={async () => {
+            const ok = await post(
+              `/api/library/gallery/duplicate-jobs/${job.id}/results/replace-larger?${resultQuery()}`,
+              job.id,
+              t("controlDash:dupes.replaceFailed")
+            );
+            if (ok) setReplacingLarger(false);
+          }}
+          onCancel={() => { setReplacingLarger(false); setActionError(""); }}
+          rich
+        >
+          <p>{t("controlDash:dupes.replaceLargerBody1")}</p>
+          {narrowed && (
+            <p>{t("controlDash:dupes.sweepBody3", { shown: results.total, all: results.allResults })}</p>
+          )}
+          <p>{t("controlDash:dupes.replaceBody2")}</p>
         </ConfirmDialog>
       )}
 

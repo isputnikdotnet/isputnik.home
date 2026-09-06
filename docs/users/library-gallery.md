@@ -157,6 +157,20 @@ page groups photos by **delivery** — the top-level folder each batch arrived i
 An empty Inbox is a finished review. Keeping or discarding takes the delete
 right on the Inbox and, for Keep, the upload right on the destination.
 
+**Copies of what you already have.** After a scan or an upload the Inbox is
+checked against the rest of the library on its own: byte-identical files, and
+near-identical ones the way [Duplicate cleanup](duplicate-cleanup.md) finds
+them, with an incoming scan also matched turned on its side. Only the Inbox's
+photos are candidates, so the library is never compared with itself, and the
+library's copy is always the one kept. The Inbox page says how many photos look
+like copies; an admin works through them on the Duplicate cleanup page, where
+each set offers **Replace** (the new file takes the library item's place, and
+its albums, tags and people stay put), **Discard incoming**, or **Not the same**
+(keep both — the photo stays in the Inbox for a normal Keep). **Replace larger**
+does every set whose new copy has more pixels in both directions at once. The
+check waits while another cleanup is in progress, and **Check for copies** on
+the Inbox page starts it by hand.
+
 ## Face recognition
 
 **Off by default, and entirely local** — the models ship with the app, nothing is

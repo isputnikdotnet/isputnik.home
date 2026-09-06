@@ -69,8 +69,12 @@ export interface DuplicateJob {
   ownerUserId: string;
   ownerName: string;
   status: JobStatus;
-  /** Folders OR files — a cleanup is one kind of work or the other, never both. */
-  duplicateType: "folders" | "files";
+  /** Folders OR files — a cleanup is one kind of work or the other, never both.
+   *  "inbox" is the Photo Inbox check: single files, but only one library's photos
+   *  are candidates and the library's copy is kept. */
+  duplicateType: "folders" | "files" | "inbox";
+  /** The Photo Inbox an "inbox" check reads; null otherwise. */
+  inboxLibraryId: string | null;
   mediaType: "photo" | "video" | "both";
   currentStep: number;
   /** How far through the fingerprint pass, 0–100. Only moves while `scanning`. */
@@ -93,6 +97,8 @@ export interface LibraryOption {
   sourcePath: string;
   mode: "managed" | "external";
   isProtected: boolean;
+  /** A Photo Inbox — the candidates of an Inbox check, never a default library. */
+  inbox: boolean;
   /** Photos sharing a byte size with another photo — everything worth checking here. */
   candidateCount: number;
   /** Of those, how many the scan would open and read right now. Zero means the
@@ -326,7 +332,9 @@ export const reviewFilters = (): { value: string; label: string }[] => [
 ];
 
 export const cleanupKindSummary = (kind: DuplicateKind): string =>
-  kind === "folders" ? i18n.t("controlDash:dupes.kindWholeFolders") : i18n.t("controlDash:dupes.kindSingleFiles");
+  kind === "folders"
+    ? i18n.t("controlDash:dupes.kindWholeFolders")
+    : kind === "inbox" ? i18n.t("controlDash:dupes.kindInboxCheck") : i18n.t("controlDash:dupes.kindSingleFiles");
 
 /** The folders a result's copies survive in — the union the snapshot records, which
  *  is the sentence the older card could not say. */

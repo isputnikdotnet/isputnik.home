@@ -718,6 +718,21 @@ const migrations: { version: number; up: (db: Database.Database) => void }[] = [
       if (!columns.has("servings")) db.exec("ALTER TABLE stories ADD COLUMN servings TEXT");
       if (!columns.has("cook_minutes")) db.exec("ALTER TABLE stories ADD COLUMN cook_minutes INTEGER");
     }
+  },
+  {
+    // Photo Inbox check (docs/photo-inbox-proposal.md, phase 2): a duplicate
+    // cleanup whose candidates are one Inbox library's photos. Stored as a
+    // 'files' job plus this column, so the duplicate_type CHECK stays as it is.
+    version: 68,
+    up: (db) => {
+      const columns = new Set(
+        (db.prepare("PRAGMA table_info(duplicate_jobs)").all() as { name: string }[]).map((c) => c.name)
+      );
+      if (columns.size === 0) return;
+      if (!columns.has("inbox_library_id")) {
+        db.exec("ALTER TABLE duplicate_jobs ADD COLUMN inbox_library_id TEXT REFERENCES libraries(id) ON DELETE SET NULL");
+      }
+    }
   }
 ];
 

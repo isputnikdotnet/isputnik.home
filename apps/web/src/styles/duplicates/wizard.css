@@ -710,3 +710,13 @@
 .dup-mode.is-blocked { opacity: 0.35; cursor: not-allowed; }
 .dup-mode.is-blocked:hover { color: var(--muted); }
 
+
+/* The Photo Inbox check's picker, under the three choice cards. */
+.cleanup-inbox-pick {
+  margin-top: 16px;
+  max-width: 460px;
+}
+
+.cleanup-inbox-pick p {
+  margin: 6px 0 0;
+}
