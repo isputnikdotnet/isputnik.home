@@ -1,11 +1,11 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Trans, useTranslation } from "react-i18next";
-import { Album, ArrowLeft, CalendarClock, CalendarDays, CheckCheck, CheckCircle2, ChevronDown, ChevronRight, Circle, Combine, Compass, Download, Film, FolderOpen, FolderPlus, Image as ImageIcon, ImagePlus, LayoutGrid, LibraryBig, ListMusic, Lock, LockOpen, MapPin, MapPinned, Pencil, Play, Plus, Heart, Folder, RefreshCw, Send, Share2, Sparkles, SquareCheck, Tags, Trash2, UploadCloud, Users, X } from "lucide-react";
+import { Album, ArrowLeft, CalendarClock, CalendarDays, CheckCheck, CheckCircle2, ChevronDown, ChevronRight, Circle, Combine, Compass, Download, Film, FolderOpen, FolderPlus, Image as ImageIcon, ImagePlus, Inbox, LayoutGrid, LibraryBig, ListMusic, Lock, LockOpen, MapPin, MapPinned, Pencil, Play, Plus, Heart, Folder, RefreshCw, Send, Share2, Sparkles, SquareCheck, Tags, Trash2, UploadCloud, Users, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { sendInBatches } from "../../shared/bulk";
 import { DashboardShell } from "../../app/DashboardShell";
-import { followRoute, galleryHref, navigate, type GalleryView } from "../../router";
+import { followRoute, galleryHref, galleryInboxHref, navigate, type GalleryView } from "../../router";
 import { Button } from "../../shared/Button";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { MessageBox } from "../../shared/MessageBox";
@@ -154,6 +154,12 @@ export function GalleryPage({
   const SORT_OPTIONS = getSortOptions();
   const MEMORIES_TITLES = getMemoriesTitles();
   const [libraries, setLibraries] = useState<GalleryLibrary[]>([]);
+  // The libraries facet names a Photo Inbox as one, so choosing it is a deliberate
+  // act: an Inbox is left out of every scope that isn't explicit (the server's
+  // scope resolver), and this is the one place it can be asked for.
+  const filterLibraries = useMemo(() => libraries.map((library) => (
+    library.inbox ? { ...library, name: t("gallery:inbox.libraryLabel", { name: library.name }) } : library
+  )), [libraries, t]);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
   const isAdmin = user.role === "admin";
@@ -1177,6 +1183,11 @@ export function GalleryPage({
     { key: "people", label: VIEW_TITLES.people, href: galleryHref("people"), icon: Users },
     ...(mapCount > 0
       ? [{ key: "map", label: VIEW_TITLES.map, href: galleryHref("map"), icon: MapPin }]
+      : []),
+    // The Photo Inbox review page, only when there is an Inbox to review — its
+    // library is flagged, and the page is the one place its photos are shown.
+    ...(libraries.some((library) => library.inbox)
+      ? [{ key: "inbox", label: t("gallery:inbox.title"), href: galleryInboxHref(null), icon: Inbox }]
       : [])
   ];
 
@@ -1327,7 +1338,7 @@ export function GalleryPage({
                 <>
                   {browsingPhotos && (
                     <>
-                      <GalleryFilterButton facets={facets} value={filters} onChange={changeFilters} libraries={libraries} />
+                      <GalleryFilterButton facets={facets} value={filters} onChange={changeFilters} libraries={filterLibraries} />
                       <SortMenu
                         value={sort}
                         onChange={setSort}
@@ -1370,7 +1381,7 @@ export function GalleryPage({
                       which would leave the button with nothing behind it; on
                       People the whole row goes with it, see showToolbar). */}
                   {(view === "memories" || view === "map" || view === "people") && libraries.length > 1 && (
-                    <GalleryFilterButton facets={null} value={filters} onChange={changeFilters} fields={["libraries"]} libraries={libraries} />
+                    <GalleryFilterButton facets={null} value={filters} onChange={changeFilters} fields={["libraries"]} libraries={filterLibraries} />
                   )}
                   {/* Where a rendered movie is saved is otherwise invisible, so
                       the label carries it — same reasoning as Sort showing the
@@ -1546,7 +1557,7 @@ export function GalleryPage({
                 open person is left out: their photo grid is the whole person, not
                 the current scope. */}
             {chipFields.shown && (
-              <GalleryFilterChips value={filters} onChange={changeFilters} fields={chipFields.fields} libraries={libraries} />
+              <GalleryFilterChips value={filters} onChange={changeFilters} fields={chipFields.fields} libraries={filterLibraries} />
             )}
 
             {view === "timeline" && filters.people.length >= 2 && (

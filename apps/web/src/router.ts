@@ -196,6 +196,13 @@ export function galleryHref(view: GalleryView): string {
   return GALLERY_VIEW_PATHS[view];
 }
 
+// The Photo Inbox review page: /gallery/inbox opens the first Inbox this user can
+// see, /gallery/inbox/<libraryId> a particular one. Not a browse view — an Inbox
+// is a library flagged for review, and the page is how it is emptied.
+export function galleryInboxHref(libraryId: string | null): string {
+  return libraryId ? `/gallery/inbox/${encodeURIComponent(libraryId)}` : "/gallery/inbox";
+}
+
 // Profile's panels, same rule as the control panel: each is a real address, so a
 // device, a two-factor setup, or a share audit can be linked to and returned to.
 export type ProfileTab = "account" | "security" | "shares" | "appearance" | "devices";
@@ -258,6 +265,7 @@ export type Route =
   | { name: "gallery"; view: GalleryView }
   | { name: "galleryAsset"; id: string }
   | { name: "galleryFolder"; folder: string; libraryId: string | null }
+  | { name: "galleryInbox"; libraryId: string | null }
   | { name: "galleryAlbum"; id: string }
   | { name: "gallerySlideshow"; id: string }
   | { name: "familyTree"; focusId?: string }
@@ -363,6 +371,12 @@ export function getRoute(): Route {
   const galleryAssetMatch = path.match(/^\/gallery\/assets\/([^/]+)$/);
   if (galleryAssetMatch) {
     return { name: "galleryAsset", id: galleryAssetMatch[1] };
+  }
+
+  // The Photo Inbox review page, with or without a particular Inbox named.
+  const galleryInboxMatch = path.match(/^\/gallery\/inbox(?:\/([^/]+))?\/?$/);
+  if (galleryInboxMatch) {
+    return { name: "galleryInbox", libraryId: galleryInboxMatch[1] ? decodeURIComponent(galleryInboxMatch[1]) : null };
   }
 
   // A folder deep link, so one can be opened in its own tab. The folder is a path

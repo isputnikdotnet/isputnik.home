@@ -54,7 +54,10 @@ export const coreLibraryCreateSchema = z.object({
   // saved as the root-anchored scan rule BEFORE the first scan is queued, so that
   // scan already reads folder names the way the admin said. Omitted = scanner
   // defaults. Only the create route uses it; edits go through the Layout panel.
-  defaultLayouts: z.array(z.string().trim().min(1).max(500)).min(1).max(10).optional()
+  defaultLayouts: z.array(z.string().trim().min(1).max(500)).min(1).max(10).optional(),
+  // Photo Inbox (gallery only): a holding library for photos under review. Ignored
+  // for other types. On update, omitted = keep whatever the library already is.
+  inbox: z.boolean().optional()
 });
 
 export const coreLibraryUpdateSchema = coreLibraryCreateSchema.omit({ sourcePath: true });
@@ -69,10 +72,15 @@ export interface LibraryCrudError {
   error: string;
 }
 
-function buildPolicyJson(mode: "managed" | "external", maxUploadMB: number | null | undefined): string {
+function buildPolicyJson(
+  mode: "managed" | "external",
+  maxUploadMB: number | null | undefined,
+  inbox: boolean | undefined
+): string {
   return JSON.stringify({
     mode,
-    ...(maxUploadMB != null ? { maxUploadMB } : {})
+    ...(maxUploadMB != null ? { maxUploadMB } : {}),
+    ...(inbox ? { inbox: true } : {})
   });
 }
 
@@ -163,7 +171,7 @@ export function createLibraryRecord(opts: {
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     libraryId, data.name, type, sourcePath, JSON.stringify(settings), opts.userId,
-    ownerId, ownerType, buildPolicyJson(data.mode ?? "managed", data.maxUploadMB)
+    ownerId, ownerType, buildPolicyJson(data.mode ?? "managed", data.maxUploadMB, type === "gallery" && data.inbox === true)
   );
 
   // Unified access model: Everyone grant (if public) + owner as manager.
@@ -241,7 +249,14 @@ export function updateLibraryRecord(opts: {
     WHERE id = ?
   `).run(
     data.name, ownerId, ownerType,
-    buildPolicyJson(data.mode ?? "managed", data.maxUploadMB), JSON.stringify(settings), id
+    buildPolicyJson(
+      data.mode ?? "managed",
+      data.maxUploadMB,
+      // A PATCH that doesn't mention the Inbox flag leaves it as it was — the
+      // policy is rebuilt whole here, and this is the one bit nothing else sends.
+      type === "gallery" && (data.inbox ?? parsePolicy(existing.policy_json).inbox === true)
+    ),
+    JSON.stringify(settings), id
   );
 
   // Re-sync the Everyone + owner assignments with the new visibility/owner.

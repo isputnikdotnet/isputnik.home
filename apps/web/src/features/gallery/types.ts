@@ -397,6 +397,9 @@ export interface GalleryLibrary {
   id: string;
   name: string;
   bookCount: number;
+  /** A Photo Inbox: photos under review, kept out of every browse surface until
+   *  someone keeps them — reviewed on its own page (PhotoInboxPage). */
+  inbox: boolean;
   scanStatus: "idle" | "scanning" | "error";
   canWrite: boolean;
   canDelete: boolean;

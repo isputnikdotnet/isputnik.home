@@ -286,7 +286,8 @@
     "emptyReachesAll": "This reaches every library, including any the page is not currently showing. To empty just one, choose it in the library filter first.",
     "stories": {
       "purgeBody": "The story, its chapters and its text are permanently deleted and cannot be restored. The photos, albums and books it referenced are not affected."
-    }
+    },
+    "sourceInbox": "Photo Inbox"
   },
   "scanRules": {
     "browseFolders": "Browse folders"

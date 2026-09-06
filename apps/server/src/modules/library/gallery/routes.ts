@@ -41,6 +41,7 @@ import { searchPlaces } from "./geocode.js";
 import { suggestGalleryMemories } from "./memories.js";
 import { suggestYearReviews, buildYearReview } from "./year-review.js";
 import { rotateGalleryAsset } from "./rotate.js";
+import { dateFolderForCapture } from "./date-folder.js";
 
 // Each uploaded file becomes its own asset (one photo/video = one item), so this
 // also bounds assets-per-upload — galleries are dropped in large batches.
@@ -74,18 +75,9 @@ export function uniqueGalleryFileName(dir: string, filename: string): string | n
   return candidate;
 }
 
-// The library-relative subfolder an upload is filed under: `YYYY/YYYY-MM-DD` from the
-// file's capture date, so uploads land in dated folders alongside the rest of the
-// library instead of piling up at the root. Y/M/D come straight from the ISO prefix
-// (no timezone shift); `fallback` (the upload time) is used when the file carries no
-// embedded date. Pure + injectable for tests.
-export function dateFolderForCapture(takenAt: string | null, fallback: Date): string {
-  const parts = takenAt ? /^(\d{4})-(\d{2})-(\d{2})/.exec(takenAt) : null;
-  const y = parts ? Number(parts[1]) : fallback.getFullYear();
-  const m = parts ? Number(parts[2]) : fallback.getMonth() + 1;
-  const d = parts ? Number(parts[3]) : fallback.getDate();
-  return `${y}/${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-}
+// The dated-subfolder rule lives in date-folder.ts (the Inbox's Keep shares it);
+// re-exported so its existing callers and tests keep importing from here.
+export { dateFolderForCapture };
 
 // Probe a staged upload for its capture date (EXIF for photos, container metadata for
 // videos) and turn it into its dated subfolder. Falls back to the upload time when the

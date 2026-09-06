@@ -58,6 +58,9 @@ export function publicLibrary(row: LibraryListRow, includeSourcePath: boolean, c
     visibility: everyoneRole ? "public" : "private",
     publicRole: everyoneRole ?? "member",
     mode: policy.mode ?? "managed",
+    // Photo Inbox (gallery): exposed to everyone, not only admins — the gallery
+    // labels the library and routes its review page on it.
+    inbox: policy.inbox === true,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     bookCount: row.book_count,

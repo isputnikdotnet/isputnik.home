@@ -1,17 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { createPortal } from "react-dom";
-import { BookOpen, ChevronRight, DownloadCloud, HardDrive, Image as ImageIcon, Library, Loader2, Play, SlidersHorizontal, Sparkles } from "lucide-react";
+import { BookOpen, ChevronRight, DownloadCloud, HardDrive, Image as ImageIcon, Inbox, Library, Loader2, Play, SlidersHorizontal, Sparkles } from "lucide-react";
 import { ActivityList } from "../features/social/ActivityList";
 import { InboxRow, type InboxCard } from "../features/social/InboxRow";
 import { api, type PublicUser } from "../api";
 import { DashboardShell } from "../app/DashboardShell";
-import { followRoute, navigate } from "../router";
+import { followRoute, galleryInboxHref, navigate } from "../router";
 import { MessageBox } from "../shared/MessageBox";
 import { Modal } from "../shared/Modal";
 import { Button } from "../shared/Button";
 import { authorLine, audioRecordToFeedItem, ebookRecordToFeedItem, fetchFeed, saveFeedItemOffline, type FeedItem } from "../features/library/feed";
-import { batchDayLabel, fetchDailyQuote, fetchHomeFeed, fetchRecentlyAddedPhotos, localDate, storeQuoteCategory, storeQuotePrefs, storedQuotePrefs, tightMemoryGroups, toActivityItem, type ActivityCard, type AddedBatchCard, type HomeCard, type MemoryCard, type PhotosAddedCard, type QuoteCard, type QuotePrefs, type SentCard, type SeriesNextCard } from "../features/home/feed";
+import { batchDayLabel, fetchDailyQuote, fetchHomeFeed, fetchRecentlyAddedPhotos, localDate, storeQuoteCategory, storeQuotePrefs, storedQuotePrefs, tightMemoryGroups, toActivityItem, type ActivityCard, type AddedBatchCard, type HomeCard, type MemoryCard, type PhotoInboxCard, type PhotosAddedCard, type QuoteCard, type QuotePrefs, type SentCard, type SeriesNextCard } from "../features/home/feed";
 import { FeedListItem, FeedListItemSkeleton } from "../features/library/FeedListItem";
 import { DEFAULT_COVERS } from "../features/audiobooks/covers";
 import { useIsMobile } from "../shared/useIsMobile";
@@ -227,6 +227,42 @@ function PhotosAddedFeedCard({ card, onOpen }: { card: PhotosAddedCard; onOpen: 
         ))}
       </div>
       <p className="home-card-sub">{t("home.photosAddedSub", { count: card.count })}</p>
+    </section>
+  );
+}
+
+// A Photo Inbox with photos waiting. Pinned by the server while non-empty: a
+// review is something to do, and it opens the review page rather than a photo.
+function PhotoInboxFeedCard({ card }: { card: PhotoInboxCard }) {
+  const { t } = useTranslation();
+  const href = galleryInboxHref(card.libraryId);
+  return (
+    <section className="home-card home-card-photos home-card-inbox" aria-label={t("home.photoInbox")}>
+      <header className="home-card-head">
+        <span className="home-card-who">
+          <Inbox size={16} aria-hidden="true" /> <strong>{t("home.photoInbox")}</strong> · {card.name}
+        </span>
+        <a className="home-card-link" href={href} onClick={(event) => followRoute(event, href)}>
+          <span>{t("home.reviewPhotos")}</span>
+          <ChevronRight size={16} aria-hidden="true" />
+        </a>
+      </header>
+      <div className="home-memory-strip">
+        {card.strip.map((item) => (
+          <a
+            key={item.id}
+            className="home-memory-photo"
+            href={href}
+            onClick={(event) => followRoute(event, href)}
+            aria-label={t("home.openPhoto", { title: item.title })}
+          >
+            {item.coverUrl
+              ? <img src={item.coverUrl} alt="" loading="lazy" />
+              : <span className="home-memory-fallback"><ImageIcon size={24} aria-hidden="true" /></span>}
+          </a>
+        ))}
+      </div>
+      <p className="home-card-sub">{t("home.photoInboxSub", { count: card.count })}</p>
     </section>
   );
 }
@@ -764,6 +800,8 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
         return <SeriesNextFeedCard key={`series-${card.item.id}`} card={card} />;
       case "quote":
         return <QuoteFeedCard key="quote" card={card} />;
+      case "photo_inbox":
+        return <PhotoInboxFeedCard key={`inbox-${card.libraryId}`} card={card} />;
       default:
         return (
           <div key={card.id} className="home-card home-card-activity">

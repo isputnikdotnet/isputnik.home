@@ -130,6 +130,33 @@ If the library allows uploads, the upload button takes files straight in. They
 land in dated subfolders (`2024/2024-06-15`) based on when each was taken, so
 uploads blend into a folder structure rather than piling up at the top.
 
+## Photo Inbox
+
+A **Photo Inbox** is a gallery library for photos that are not part of the
+collection yet: a box of prints you are re-scanning, or a batch a relative
+handed over. An admin turns any gallery library into one with the **Photo
+Inbox** switch in the library's settings (the Access tab). Everything that lands
+in it stays out of the Timeline, Memories, the Home feed, People and the pickers
+until someone decides it stays — face recognition waits too.
+
+Fill it the way you fill any library: drop files into its folder and re-scan,
+or upload. Then open **Inbox** in the gallery's left nav (it appears once an
+Inbox exists; the Home page shows a card while photos are waiting). The review
+page groups photos by **delivery** — the top-level folder each batch arrived in
+— and selection offers two verbs:
+
+- **Keep** moves the photos into a real library. You choose the library and
+  either a folder (with suggestions from the folders it already has) or the
+  dated `YYYY/YYYY-MM-DD` layout uploads use. Keep asks rather than guessing:
+  a scanned print carries the scan date, not the day the picture was taken, so
+  the dated layout is usually wrong for scans. Your last choice is remembered
+  for the session. Tags, likes and edits travel with the photo.
+- **Discard** moves them to the Recycle Bin on the shorter clock Duplicate
+  cleanup uses.
+
+An empty Inbox is a finished review. Keeping or discarding takes the delete
+right on the Inbox and, for Keep, the upload right on the destination.
+
 ## Face recognition
 
 **Off by default, and entirely local** — the models ship with the app, nothing is

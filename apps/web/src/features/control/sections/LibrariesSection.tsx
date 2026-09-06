@@ -160,6 +160,7 @@ export function LibrariesSection() {
   const [editMaxUploadMB, setEditMaxUploadMB] = useState("");
   const [editTagEncoding, setEditTagEncoding] = useState("");
   const [editProgressMode, setEditProgressMode] = useState<"linear" | "episodic">("linear");
+  const [editInbox, setEditInbox] = useState(false);
   const [editTab, setEditTab] = useState<"access" | "upload" | "scanning">("access");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -239,6 +240,7 @@ export function LibrariesSection() {
     setEditMaxUploadMB(library.settings?.maxUploadMB != null ? String(library.settings.maxUploadMB) : "");
     setEditTagEncoding(library.settings?.tagEncoding ?? "");
     setEditProgressMode(library.settings?.progressMode ?? "linear");
+    setEditInbox(library.inbox === true);
     setEditTab("access");
     setError("");
   };
@@ -277,7 +279,8 @@ export function LibrariesSection() {
           companionExtensions: editCompanions,
           scanSources: editSources,
           maxUploadMB: maxUploadValue(editMaxUploadMB),
-          ...(editingLibrary.type === "audiobook" ? { tagEncoding: editTagEncoding || null, progressMode: editProgressMode } : {})
+          ...(editingLibrary.type === "audiobook" ? { tagEncoding: editTagEncoding || null, progressMode: editProgressMode } : {}),
+          ...(editingLibrary.type === "gallery" ? { inbox: editInbox } : {})
         })
       });
       setEditingLibrary(null);
@@ -530,6 +533,9 @@ export function LibrariesSection() {
                     <td>
                       <span className="library-type-cell">
                         <TypeIcon size={14} aria-hidden="true" /> {typeLabel(library.type)}
+                        {library.inbox && (
+                          <span className="count-badge" title={t("control:libraries.inboxBadgeTitle")}>{t("control:libraries.inboxBadge")}</span>
+                        )}
                       </span>
                     </td>
                     <td>
@@ -800,6 +806,7 @@ export function LibrariesSection() {
                   onPublicRoleChange={setEditPublicRole}
                   mode={editMode}
                   onModeChange={setEditMode}
+                  inbox={editingLibrary.type === "gallery" ? { value: editInbox, onChange: setEditInbox } : undefined}
                   users={users}
                   groups={groups}
                 />
@@ -919,6 +926,11 @@ function LibraryDetailsModal({
           <dl className="library-info-list">
             <LibraryInfoRow label={t("control:libraries.fieldAccess")}>{accessSummary(library)}</LibraryInfoRow>
             <LibraryInfoRow label={t("control:libraries.fieldMode")}>{modeLabel(library.mode ?? "managed")}</LibraryInfoRow>
+            {library.type === "gallery" && (
+              <LibraryInfoRow label={t("control:libraries.fieldInbox")}>
+                {library.inbox ? t("control:libraries.inboxYes") : t("control:libraries.inboxNo")}
+              </LibraryInfoRow>
+            )}
             <LibraryInfoRow label={t("control:libraries.fieldYourRole")}>{roleLabel(library.myRole)}</LibraryInfoRow>
             <LibraryInfoRow label={t("control:libraries.fieldCapabilities")}>
               {capabilities.length > 0 ? (

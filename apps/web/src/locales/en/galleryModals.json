@@ -298,5 +298,24 @@
     "savedNotice": "Saved the movie to your gallery as {{name}}.",
     "unableToSave": "Unable to change where this movie is saved",
     "takenHint": "That name is taken, so this would be saved as {{name}} instead."
+  },
+  "keep": {
+    "title_one": "Keep {{count}} photo",
+    "title_other": "Keep {{count}} photos",
+    "intro": "Choose where the photos go. They leave the Inbox and become part of that library, with their tags and edits.",
+    "noDestinationTitle": "Nowhere to keep them",
+    "noDestinationBody": "You can't upload to any gallery library, so there is no library to keep photos into.",
+    "libraryLabel": "Library",
+    "placementLegend": "Folder",
+    "intoFolder": "Into a folder",
+    "intoFolderHint": "Type a folder under the library root; leave it empty for the root itself.",
+    "folderLabel": "Folder",
+    "folderPlaceholder": "e.g. Scans/Grandma's box",
+    "byDate": "By date taken",
+    "byDateHint": "YYYY/YYYY-MM-DD folders, the way uploads are filed. Scans carry the scan date, so check their dates first.",
+    "errorTitle": "Unable to keep",
+    "keeping": "Keeping…",
+    "confirm_one": "Keep photo",
+    "confirm_other": "Keep {{count}} photos"
   }
 }

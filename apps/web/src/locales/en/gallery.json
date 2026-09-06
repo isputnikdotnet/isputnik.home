@@ -665,5 +665,51 @@
     "add": "Add tags",
     "edit": "Edit tags",
     "saving": "Saving…"
+  },
+  "inbox": {
+    "title": "Photo Inbox",
+    "libraryLabel": "{{name}} (Photo Inbox)",
+    "subtitle_one": "{{count}} photo waiting in {{name}}",
+    "subtitle_other": "{{count}} photos waiting in {{name}}",
+    "pickerLabel": "Which Inbox",
+    "deliveriesLabel": "Deliveries",
+    "allDeliveries": "All",
+    "rootDelivery": "Loose files",
+    "rootDeliveryTitle": "Files at the top of the Inbox folder",
+    "upload": "Upload",
+    "uploadTitle": "Upload photos into this Inbox",
+    "keep": "Keep",
+    "keepTitle": "Move the selected photos into a library",
+    "discard": "Discard",
+    "discardTitle": "Move the selected photos to the Recycle Bin",
+    "discarding": "Discarding…",
+    "discardConfirmTitle_one": "Discard {{count}} photo?",
+    "discardConfirmTitle_other": "Discard {{count}} photos?",
+    "discardConfirmLabel_one": "Discard photo",
+    "discardConfirmLabel_other": "Discard {{count}} photos",
+    "discardConfirmBody": "They move to the Recycle Bin on the Duplicate cleanup clock and can be restored from there until it empties. Nothing outside this Inbox is affected.",
+    "keptNotice_one": "Kept {{count}} photo",
+    "keptNotice_other": "Kept {{count}} photos",
+    "discardedNotice_one": "Discarded {{count}} photo",
+    "discardedNotice_other": "Discarded {{count}} photos",
+    "uploadedNotice_one": "Added {{count}} photo to {{name}}",
+    "uploadedNotice_other": "Added {{count}} photos to {{name}}",
+    "readOnlyTitle": "Viewing only",
+    "readOnlyBody": "Keeping or discarding takes the delete right on this Inbox. You can look, but not review.",
+    "errors": {
+      "title": "Unable to load the Photo Inbox",
+      "load": "Could not load the Photo Inbox.",
+      "keep": "Could not keep the selected photos.",
+      "discard": "Could not discard the selected photos."
+    },
+    "empty": {
+      "noInboxTitle": "No Photo Inbox yet",
+      "noInboxBodyAdmin": "Turn a gallery library into a Photo Inbox from its settings (Access tab), and photos dropped there wait here for review.",
+      "noInboxBodyUser": "An administrator can turn a gallery library into a Photo Inbox from the control panel.",
+      "allReviewedTitle": "All reviewed",
+      "allReviewedBody": "{{name}} is empty. Drop in the next batch and it will be waiting here.",
+      "deliveryReviewedTitle": "This delivery is done",
+      "deliveryReviewedBody": "Every photo in it has been kept or discarded."
+    }
   }
 }

@@ -142,6 +142,8 @@ export function LibraryWizard({
   const [ownerType, setOwnerType] = useState<"user" | "group" | "">("");
   const [publicRole, setPublicRole] = useState<PublicRole>("member");
   const [mode, setMode] = useState<LibraryMode>("managed");
+  // Gallery only: a Photo Inbox, a holding library for photos under review.
+  const [inbox, setInbox] = useState(false);
   const [extensions, setExtensions] = useState<string[]>(typeDefaults[initialType]?.extensions ?? []);
   const [companions, setCompanions] = useState<string[]>(typeDefaults[initialType]?.companions ?? []);
   const [scanSources, setScanSources] = useState<ScanSource[]>(typeDefaults[initialType]?.sources ?? []);
@@ -155,6 +157,7 @@ export function LibraryWizard({
   const [advancedError, setAdvancedError] = useState("");
   const [draftPublicRole, setDraftPublicRole] = useState<PublicRole>("member");
   const [draftMode, setDraftMode] = useState<LibraryMode>("managed");
+  const [draftInbox, setDraftInbox] = useState(false);
   const [draftExtensions, setDraftExtensions] = useState<string[]>(typeDefaults[initialType]?.extensions ?? []);
   const [draftCompanions, setDraftCompanions] = useState<string[]>(typeDefaults[initialType]?.companions ?? []);
   const [draftScanSources, setDraftScanSources] = useState<ScanSource[]>(typeDefaults[initialType]?.sources ?? []);
@@ -200,6 +203,7 @@ export function LibraryWizard({
   const openAdvanced = () => {
     setDraftPublicRole(publicRole);
     setDraftMode(mode);
+    setDraftInbox(inbox);
     setDraftExtensions([...extensions]);
     setDraftCompanions([...companions]);
     setDraftScanSources(scanSources.map((source) => ({ ...source })));
@@ -218,6 +222,7 @@ export function LibraryWizard({
     }
     setPublicRole(draftPublicRole);
     setMode(draftMode);
+    setInbox(draftInbox);
     setExtensions([...draftExtensions]);
     setCompanions([...draftCompanions]);
     setScanSources(draftScanSources.map((source) => ({ ...source })));
@@ -296,6 +301,7 @@ export function LibraryWizard({
           visibility,
           publicRole,
           mode,
+          ...(libraryType === "gallery" ? { inbox } : {}),
           ownerId: ownerId || null,
           ownerType: ownerType || null,
           scanExtensions: extensions,
@@ -541,6 +547,18 @@ export function LibraryWizard({
                       <span>{t("control:libraries.fieldMode")}</span>
                       <ModeSelect value={draftMode} onChange={setDraftMode} />
                     </label>
+                    {libraryType === "gallery" && (
+                      <label className="field library-inbox-field">
+                        <span>{t("control:libraries.fieldInbox")}</span>
+                        <span className="library-inbox-toggle">
+                          <input type="checkbox" checked={draftInbox} onChange={(event) => setDraftInbox(event.target.checked)} />
+                          <span>
+                            <strong>{t("control:libraries.inboxToggle")}</strong>
+                            <small className="muted">{t("control:libraries.inboxRowDescription")}</small>
+                          </span>
+                        </span>
+                      </label>
+                    )}
                   </section>
                 )}
 

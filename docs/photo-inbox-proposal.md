@@ -1,7 +1,7 @@
 # Photo Inbox — proposal
 
-Status: **proposal, nothing built.** Written 2026-09-06 from a brainstorm about
-re-scanning old prints. Companion to [gallery-library.md](gallery-library.md),
+Status: **Phase 1 built in-code (2026-09-06), phases 2 and 3 remain proposals.**
+Written 2026-09-06 from a brainstorm about re-scanning old prints. Companion to [gallery-library.md](gallery-library.md),
 [duplicate-detection.md](duplicate-detection.md), [uploads.md](uploads.md) and
 [sharing.md](sharing.md), which describe the pieces this stands on. Like the other
 proposals, decisions are recorded so they need not be re-argued; open questions are
@@ -137,10 +137,31 @@ The audit, so no phase re-invents a primitive:
     way to see what else is in the Inbox. The drop page is the first anonymous
     write path in the app and it should have the smallest possible surface.
 
-## Phase 1 — the Inbox and the review
+## Phase 1 — the Inbox and the review — BUILT
 
 The part that is useful for the re-scanning project on its own, before any
-duplicate check exists.
+duplicate check exists. As built (2026-09-06):
+
+- The flag is `policy_json.inbox`, set from the library wizard's advanced Access
+  tab and the edit dialog's Access tab (gallery only); `inbox-flag.ts` answers
+  "is this an Inbox" for the surfaces that must skip one, `inbox.ts` holds the
+  review. Exclusion lives in `resolveGalleryScopeLibraryIds`: an empty request
+  drops every Inbox, an explicit library list keeps one — so every surface that
+  asks for "everything I can see" skips it, and naming it is how it is browsed.
+  The face scanner is gated three times (enabled list, queue, scan).
+- The move primitive is `gallery/move.ts` (`moveGalleryAsset`): file, row,
+  `scan_rule_id` cleared, `discovered_at` bumped on a cross-library move, and
+  the thumbnails re-homed into the destination's bucket — thumbnail keys begin
+  with the library id and deleting a library removes its whole bucket, which
+  the proposal had not foreseen.
+- Discard is a third `TrashSource`, `photo_inbox`, on the cleanup clock.
+- Routes: `GET /api/library/gallery/inbox`, `GET …/inbox/:id/items?folder=`,
+  `POST …/inbox/keep`, `POST …/inbox/discard`. The page is `/gallery/inbox`
+  (`/gallery/inbox/:libraryId` for one), `PhotoInboxPage` with `GalleryKeepModal`;
+  a nav entry appears in the gallery once an Inbox exists, and the Home feed pins
+  a `photo_inbox` card while one has photos and the viewer may review it.
+- Not built from the list below: the Home tile's exact wording, and the
+  "Loose files" root delivery is shown as its own chip rather than hidden.
 
 - **Flag and creation.** `policy_json.inbox: true`, set on the library create and
   edit dialogs as "This is an Inbox for photos under review". One install may have

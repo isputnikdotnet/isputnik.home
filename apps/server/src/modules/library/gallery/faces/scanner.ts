@@ -20,6 +20,7 @@ import { embeddingToBlob } from "./embedding.js";
 import { clusterGalleryFaces } from "./cluster.js";
 import { cropFaceFromRaw, backfillFaceThumbnails } from "./thumbnails.js";
 import { faceRecognitionEnabledForLibrary } from "./settings.js";
+import { isPhotoInboxLibrary } from "../inbox-flag.js";
 import { removeFaceCropFiles, sweepOrphanFaceCrops } from "./crop-files.js";
 import {
   faceJobType, enqueueFaceScanBatches, recordFaceScanFailure,
@@ -64,6 +65,9 @@ async function scanLibraryFaces(
   deadline: number = Number.POSITIVE_INFINITY
 ): Promise<{ items: number; faces: number; changed?: boolean; skipped?: boolean; failed?: number; remaining?: number; timeLimited?: boolean }> {
   if (!faceRecognitionEnabledForLibrary(libraryId)) return { items: 0, faces: 0, skipped: true };
+  // Faces wait until a photo is kept out of a Photo Inbox (inbox-flag.ts). The
+  // queue never enqueues one, but a job written before the flag was set would.
+  if (isPhotoInboxLibrary(libraryId)) return { items: 0, faces: 0, skipped: true };
 
   const library = db.prepare("SELECT id, source_path FROM libraries WHERE id = ? AND type = 'gallery'")
     .get(libraryId) as { id: string; source_path: string } | undefined;

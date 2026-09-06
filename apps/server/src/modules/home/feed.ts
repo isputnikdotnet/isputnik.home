@@ -35,6 +35,7 @@ import { bookLibraryIds } from "../library/feed.js";
 import { resolveGalleryScopeLibraryIds } from "../library/gallery/catalog.js";
 import { queryGalleryMemories, queryGalleryRecentlyAdded, type GalleryMemoriesPrecision, type GalleryMemoryGroup } from "../library/gallery/catalog.js";
 import { dailyQuote, type DailyQuote } from "../library/quotes-daily.js";
+import { listPhotoInboxes, listPhotoInboxItems } from "../library/gallery/inbox.js";
 
 interface RequestUser {
   id: string;
@@ -109,7 +110,33 @@ export interface QuoteCard extends DailyQuote {
   type: "quote";
 }
 
-export type HomeCard = SentCard | MemoryCard | PhotosAddedCard | AddedBatchCard | ActivityCard | SeriesNextCard | QuoteCard;
+/** A Photo Inbox with photos waiting for review. Pinned while it is non-empty,
+ *  gone the moment it is emptied — it is a thing to do, not news. One card per
+ *  Inbox this user can review. */
+export interface PhotoInboxCard {
+  type: "photo_inbox";
+  libraryId: string;
+  name: string;
+  count: number;
+  /** A taste of what is waiting, newest arrival first. */
+  strip: GalleryMemoryGroup["items"];
+}
+
+export type HomeCard = SentCard | MemoryCard | PhotosAddedCard | AddedBatchCard | ActivityCard | SeriesNextCard | QuoteCard | PhotoInboxCard;
+
+const INBOX_STRIP_SIZE = 4;
+
+function photoInboxCards(user: RequestUser): PhotoInboxCard[] {
+  return listPhotoInboxes(user)
+    .filter((inbox) => inbox.count > 0 && inbox.canReview)
+    .map((inbox) => ({
+      type: "photo_inbox" as const,
+      libraryId: inbox.id,
+      name: inbox.name,
+      count: inbox.count,
+      strip: listPhotoInboxItems(user, inbox.id, { folder: null, limit: INBOX_STRIP_SIZE, offset: 0 })?.items ?? []
+    }));
+}
 
 // Class weights and half-lives (days). The memory card is always age zero, so
 // its weight IS its score — above a fresh activity line (1.2) and a same-day
@@ -427,6 +454,9 @@ export function loadHomeFeed(
     categories: opts.quoteCategories
   });
   const pinned: HomeCard[] = quote ? [{ type: "quote", ...quote }] : [];
+  // A Photo Inbox with photos waiting is pinned too, under the quote: a review is
+  // something to do, and a to-do that sinks under the day's activity gets forgotten.
+  pinned.push(...photoInboxCards(user));
 
   const next = seriesNextCard(user, now);
   if (next) ranked.push({ score: FILLER_SCORE, card: next });

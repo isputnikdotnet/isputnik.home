@@ -306,7 +306,13 @@
     "quotePrefsLanguageAuto": "Как в приложении",
     "quotePrefsCategories": "Категории",
     "quotePrefsCategoriesHint": "Выберите те, что хотите видеть на карточке. Если не выбрать ни одной — цитаты берутся из всей библиотеки.",
-    "quotePrefsSave": "Сохранить настройки"
+    "quotePrefsSave": "Сохранить настройки",
+    "photoInbox": "Входящие фото",
+    "reviewPhotos": "Разобрать",
+    "photoInboxSub_one": "{{count}} фото ждёт разбора",
+    "photoInboxSub_few": "{{count}} фото ждут разбора",
+    "photoInboxSub_many": "{{count}} фото ждут разбора",
+    "photoInboxSub_other": "{{count}} фото ждут разбора"
   },
   "profile": {
     "eyebrow": "Профиль",

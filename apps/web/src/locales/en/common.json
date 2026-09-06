@@ -286,7 +286,11 @@
     "quotePrefsLanguageAuto": "Follow the app",
     "quotePrefsCategories": "Categories",
     "quotePrefsCategoriesHint": "Pick the ones you want on your card. Choose none to draw from everything.",
-    "quotePrefsSave": "Save preferences"
+    "quotePrefsSave": "Save preferences",
+    "photoInbox": "Photo Inbox",
+    "reviewPhotos": "Review",
+    "photoInboxSub_one": "{{count}} photo waiting for review",
+    "photoInboxSub_other": "{{count}} photos waiting for review"
   },
   "profile": {
     "eyebrow": "Profile",

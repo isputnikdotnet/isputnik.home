@@ -109,6 +109,10 @@ export interface LibraryPolicy {
   allowDelete?: boolean;
   allowedExtensions?: string[];
   maxUploadMB?: number;
+  /** A Photo Inbox (gallery only): a holding library for photos under review.
+   *  Its items stay out of every surface that resurfaces photos until someone
+   *  keeps them — see docs/photo-inbox-proposal.md. */
+  inbox?: boolean;
 }
 
 export function parsePolicy(policyJson: string | null | undefined): LibraryPolicy {

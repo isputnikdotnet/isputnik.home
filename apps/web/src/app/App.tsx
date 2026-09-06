@@ -55,6 +55,7 @@ const StoryDetailPage = lazy(() => import("../features/stories/StoryDetailPage")
 const StoryCollectionPage = lazy(() => import("../features/stories/StoryCollectionPage").then((m) => ({ default: m.StoryCollectionPage })));
 const StoryEditorPage = lazy(() => import("../features/stories/StoryEditorPage").then((m) => ({ default: m.StoryEditorPage })));
 const GalleryPage = lazy(() => import("../features/gallery/GalleryPage").then((m) => ({ default: m.GalleryPage })));
+const PhotoInboxPage = lazy(() => import("../features/gallery/PhotoInboxPage").then((m) => ({ default: m.PhotoInboxPage })));
 const FamilyTreePage = lazy(() => import("../features/familytree/FamilyTreePage").then((m) => ({ default: m.FamilyTreePage })));
 const FamilyPeoplePage = lazy(() => import("../features/familytree/FamilyPeoplePage").then((m) => ({ default: m.FamilyPeoplePage })));
 const FamilyFamiliesPage = lazy(() => import("../features/familytree/FamilyFamiliesPage").then((m) => ({ default: m.FamilyFamiliesPage })));
@@ -454,6 +455,10 @@ export function App() {
 
     if (route.name === "gallerySlideshow") {
       return <GalleryPage user={session.user} logout={logout} view="slideshows" initialSlideshowId={route.id} />;
+    }
+
+    if (route.name === "galleryInbox") {
+      return <PhotoInboxPage user={session.user} logout={logout} libraryId={route.libraryId} />;
     }
 
     if (route.name === "galleryFolder") {

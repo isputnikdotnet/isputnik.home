@@ -2783,3 +2783,98 @@
   gap: 8px;
   justify-content: flex-end;
 }
+
+/* ── Photo Inbox review (PhotoInboxPage) ─────────────────────────────────── */
+/* Deliveries — the top-level folder each batch arrived in — sit in the
+   toolbar's strip row, where the A–Z index goes on the book pages. */
+.gallery-inbox-deliveries {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 0;
+}
+
+.gallery-inbox-delivery {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.gallery-inbox-delivery:hover {
+  border-color: var(--mint);
+}
+
+.gallery-inbox-delivery.is-active {
+  background: var(--mint);
+  border-color: var(--mint);
+  color: #fff;
+}
+
+.gallery-inbox-delivery .count-badge {
+  font-size: 0.75rem;
+}
+
+.gallery-inbox-picker select {
+  max-width: 260px;
+}
+
+.gallery-inbox-done svg {
+  color: var(--success);
+}
+
+.gallery-load-more {
+  display: flex;
+  justify-content: center;
+  padding: 16px 0;
+}
+
+/* Keep dialog: the two placement choices read as one control. */
+.gallery-keep-placement {
+  display: grid;
+  gap: 8px;
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.gallery-keep-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.gallery-keep-option input {
+  margin-top: 4px;
+}
+
+.gallery-keep-option span > small {
+  display: block;
+}
+
+.gallery-keep-folder {
+  margin-left: 26px;
+}
+
+/* Library wizard: the Photo Inbox switch. */
+.library-inbox-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.library-inbox-toggle input {
+  margin-top: 4px;
+}
+
+.library-inbox-toggle small {
+  display: block;
+}

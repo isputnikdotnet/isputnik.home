@@ -71,7 +71,16 @@ export interface QuoteCard {
   yearsAgo: number | null;
 }
 
-export type HomeCard = SentCard | MemoryCard | PhotosAddedCard | AddedBatchCard | ActivityCard | SeriesNextCard | QuoteCard;
+/** A Photo Inbox with photos waiting for review — pinned while non-empty. */
+export interface PhotoInboxCard {
+  type: "photo_inbox";
+  libraryId: string;
+  name: string;
+  count: number;
+  strip: GalleryAsset[];
+}
+
+export type HomeCard = SentCard | MemoryCard | PhotosAddedCard | AddedBatchCard | ActivityCard | SeriesNextCard | QuoteCard | PhotoInboxCard;
 
 // Which category this viewer last chose on the quote card. A per-viewer
 // convenience, so it lives in the browser rather than the database — losing it

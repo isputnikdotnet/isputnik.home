@@ -629,7 +629,10 @@ export function purgeCataloguedItem(itemId: string): boolean {
 /** Why an item was removed. Two levels only, deliberately: the bin's own setting is the
  *  default, and duplicate cleanup gets one override. Room for more, but a general
  *  per-source policy system is more machinery than two answers need. */
-export type TrashSource = "manual" | "duplicate_cleanup";
+/** manual = a hand delete; duplicate_cleanup = a cleanup's removal; photo_inbox =
+ *  a photo discarded from a Photo Inbox review, which shares the cleanup's clock:
+ *  a rejected scan is the same kind of removal a cleanup makes. */
+export type TrashSource = "manual" | "duplicate_cleanup" | "photo_inbox";
 
 const CLEANUP_RETENTION_KEY = "trash_retention_days_duplicate_cleanup";
 
@@ -656,7 +659,7 @@ export function setCleanupRetentionDays(days: number | null): void {
 /** The moment this item will be purged, decided ONCE, now. Null = keep until the bin is
  *  emptied by hand. */
 export function expiryFor(source: TrashSource, at = new Date()): string | null {
-  const days = source === "duplicate_cleanup"
+  const days = source === "duplicate_cleanup" || source === "photo_inbox"
     ? getCleanupRetentionDays() ?? getTrashRetentionDays()
     : getTrashRetentionDays();
   if (days <= 0) return null;

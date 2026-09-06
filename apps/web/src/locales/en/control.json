@@ -577,7 +577,14 @@
       "layoutGroupAria": "Folder layout",
       "layoutScannerDefaults": "Scanner defaults",
       "layoutNote": "Not sure, or your library mixes several shapes? Start with the scanner defaults; after the first scan, open the library’s Layout to label a real file and add rules for folders arranged differently."
-    }
+    },
+    "fieldInbox": "Photo Inbox",
+    "inboxToggle": "This library is a Photo Inbox",
+    "inboxRowDescription": "Photos under review: kept out of the Timeline, Memories, Home, People and the pickers until someone keeps them.",
+    "inboxYes": "Yes",
+    "inboxNo": "No",
+    "inboxBadge": "Inbox",
+    "inboxBadgeTitle": "Photo Inbox: photos under review"
   },
   "libraryMembers": {
     "viewerTagline": "View only",

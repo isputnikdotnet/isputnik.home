@@ -169,6 +169,7 @@ const FOREVER = "forever";
 function sourceLabel(source: string): string {
   if (source === "manual") return i18n.t("controlAdmin:recycleBin.sourceManual");
   if (source === "duplicate_cleanup") return i18n.t("controlAdmin:recycleBin.sourceCleanup");
+  if (source === "photo_inbox") return i18n.t("controlAdmin:recycleBin.sourceInbox");
   return source;
 }
 

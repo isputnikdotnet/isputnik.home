@@ -122,7 +122,8 @@ export function PhotoPicker({
 
   useEffect(() => {
     api<{ libraries: GalleryLibrary[] }>("/api/library/gallery-libraries")
-      .then((payload) => setLibraries(payload.libraries))
+      // A Photo Inbox holds photos nobody has kept yet; a picker must not offer them.
+      .then((payload) => setLibraries(payload.libraries.filter((library) => !library.inbox)))
       .catch(() => undefined);
   }, []);
 

@@ -1,4 +1,5 @@
 import { db } from "../../../../db.js";
+import { photoInboxLibraryIds } from "../inbox-flag.js";
 
 // Face recognition is enabled per gallery library (key per library id), so a household
 // can run it on, say, "Family" but not on a shared/landscape library. The clustering
@@ -40,10 +41,14 @@ export function setFaceRecognitionEnabledForLibrary(libraryId: string, enabled: 
   writeSetting(LIB_PREFIX + libraryId, enabled ? "true" : "false", userId);
 }
 
-// Library ids with face recognition switched on.
+// Library ids with face recognition switched on. A Photo Inbox is never among
+// them, whatever its setting says: faces wait until a photo is kept, so a box of
+// someone else's prints cannot seed People before anyone decided it stays.
 export function enabledFaceLibraryIds(): string[] {
+  const inboxes = photoInboxLibraryIds();
   return (db.prepare("SELECT key FROM app_settings WHERE key LIKE ? AND value = 'true'").all(`${LIB_PREFIX}%`) as { key: string }[])
-    .map((r) => r.key.slice(LIB_PREFIX.length));
+    .map((r) => r.key.slice(LIB_PREFIX.length))
+    .filter((id) => !inboxes.has(id));
 }
 
 export function anyFaceLibraryEnabled(): boolean {

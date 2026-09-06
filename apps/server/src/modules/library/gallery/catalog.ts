@@ -6,6 +6,7 @@
 import { db } from "../../../db.js";
 import { canUserAccessLibrary } from "../shared/library-access.js";
 import { locksByLibrary, lockCoveredIn } from "../shared/folder-locks.js";
+import { parsePolicy } from "../../../core/permissions.js";
 
 const inClause = (n: number) => Array(n).fill("?").join(", ");
 
@@ -21,11 +22,17 @@ export function parseLibraryIds(raw: string | undefined): string[] {
 // never widens: an id the caller can't reach (or that isn't a gallery library at
 // all) simply drops out rather than granting access to it.
 export function resolveGalleryScopeLibraryIds(user: { id: string; role: string }, libraryIds?: string[]): string[] {
-  const rows = db.prepare("SELECT id FROM libraries WHERE type = 'gallery'").all() as { id: string }[];
-  const accessible = rows.filter((row) => canUserAccessLibrary(row, user.id, user.role)).map((row) => row.id);
-  if (!libraryIds || libraryIds.length === 0) return accessible;
+  const rows = db.prepare("SELECT id, policy_json FROM libraries WHERE type = 'gallery'").all() as { id: string; policy_json: string }[];
+  const accessible = rows.filter((row) => canUserAccessLibrary(row, user.id, user.role));
+  // A Photo Inbox holds photos nobody has kept yet, so it is left out of every
+  // "everything I can see" scope — the timeline, memories, the Home feed, the
+  // People list, the pickers. Naming it explicitly is how it is browsed, and how
+  // its review page reads it. See docs/photo-inbox-proposal.md.
+  if (!libraryIds || libraryIds.length === 0) {
+    return accessible.filter((row) => parsePolicy(row.policy_json).inbox !== true).map((row) => row.id);
+  }
   const requested = new Set(libraryIds);
-  return accessible.filter((id) => requested.has(id));
+  return accessible.filter((row) => requested.has(row.id)).map((row) => row.id);
 }
 
 interface AssetRow {

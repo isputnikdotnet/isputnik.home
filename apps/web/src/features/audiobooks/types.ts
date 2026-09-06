@@ -76,6 +76,8 @@ export interface AudiobookLibrary {
   visibility: "private" | "public";
   publicRole: PublicRole;
   mode: LibraryMode;
+  /** Gallery only: a Photo Inbox, a holding library for photos under review. */
+  inbox?: boolean;
   createdAt: string;
   updatedAt: string;
   bookCount: number;
