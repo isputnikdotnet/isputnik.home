@@ -19,6 +19,16 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.66.0",
+    label: "Recipes",
+    changes: [
+      "A recipe is a kind of story now. Choose Recipe when starting one and it opens on three chapters already named — Ingredients, Method, Notes — each with an empty paragraph waiting, and asks when and where like a memory does. Everything a story can hold works in it: a photo of the dish for the cover, a Person block for the cook so the recipe shows on their family tree page, a recording of them explaining it. A collection is a cookbook, and a guest link hands one recipe to a relative without an account. Recipes have their own entry under Kinds on the Stories page.",
+      "Two facts sit on a recipe’s front page beside its date and place: how many it serves and how long it takes, shown as “Serves 4–6 · 1 h 10 min”. Serves is words rather than a number — “one big pot”, “Makes 12” — because it is there to be read, never recalculated. Both are asked for when the recipe starts and can be changed in the editor’s Story details card; any story may carry them.",
+      "Most recipes start life on a website, so a recipe can start from a link. Paste the page’s address into From a link and press Read the page: the title, summary, serves, time, ingredients and steps are filled in, with the source linked at the end of Notes, and the story is created with its chapters already written. The app reads only that page’s text — never its pictures — and keeps nothing except what lands in the story; a page with no recipe data simply says so. Most recipe sites work. An admin can switch this off under Settings → Stories if they would rather the app never visited other sites on a member’s behalf.",
+      "Deliberately not included: an ingredient database, scaling to eight servings, a shopping list. That is what a kitchen app is for; this is where the family’s recipe is kept safe, in its own words."
+    ]
+  },
+  {
     version: "3.65.4",
     label: "And the last guide too",
     changes: [
