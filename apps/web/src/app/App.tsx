@@ -27,6 +27,7 @@ const AboutPage = lazy(() => import("../pages/AboutPage").then((m) => ({ default
 const HelpPage = lazy(() => import("../pages/HelpPage").then((m) => ({ default: m.HelpPage })));
 const GuidePage = lazy(() => import("../pages/GuidePage").then((m) => ({ default: m.GuidePage })));
 const SharePage = lazy(() => import("../pages/SharePage").then((m) => ({ default: m.SharePage })));
+const DropPage = lazy(() => import("../pages/DropPage").then((m) => ({ default: m.DropPage })));
 const DeviceLinkPage = lazy(() => import("../pages/DeviceLinkPage").then((m) => ({ default: m.DeviceLinkPage })));
 const DeviceLinkConfirmPage = lazy(() => import("../pages/DeviceLinkConfirmPage").then((m) => ({ default: m.DeviceLinkConfirmPage })));
 const AudiobooksPage = lazy(() => import("../features/audiobooks/AudiobooksPage").then((m) => ({ default: m.AudiobooksPage })));
@@ -261,7 +262,7 @@ export function App() {
     // deviceLink is here for the same reason login is: the display asking to be
     // linked has nobody to be signed in as yet, and sending it to /login is
     // sending it back to the keyboard it hasn't got.
-    if (!session.requiresSetup && !session.user && !["login", "invite", "share", "deviceLink"].includes(route.name)) {
+    if (!session.requiresSetup && !session.user && !["login", "invite", "share", "drop", "deviceLink"].includes(route.name)) {
       // Scanning the QR on a phone that isn't signed in lands here. Remember the
       // errand before sending them to sign in, or approving a device turns into
       // "sign in, arrive at the home page, wonder what happened to the code".
@@ -342,6 +343,11 @@ export function App() {
     // Guest share — viewable without an account.
     if (route.name === "share") {
       return <SharePage token={route.token} />;
+    }
+
+    // Photo Inbox drop link — an upload without an account.
+    if (route.name === "drop") {
+      return <DropPage token={route.token} />;
     }
 
     if (route.name === "login") {

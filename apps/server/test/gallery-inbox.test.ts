@@ -140,8 +140,8 @@ describe("listing", () => {
     expect(inboxes[0].count).toBe(3);
     expect(inboxes[0].canReview).toBe(true);
     expect(inboxes[0].deliveries).toEqual([
-      { folder: "", count: 1, newestAt: "2021-06-01T00:00:00.000Z" },
-      { folder: "boxA", count: 2, newestAt: "2020-01-01T00:00:00.000Z" }
+      { folder: "", count: 1, newestAt: "2021-06-01T00:00:00.000Z", viaLink: false },
+      { folder: "boxA", count: 2, newestAt: "2020-01-01T00:00:00.000Z", viaLink: false }
     ]);
 
     const all = listPhotoInboxItems(ADMIN, "INBOX", { folder: null, limit: 10, offset: 0 })!;

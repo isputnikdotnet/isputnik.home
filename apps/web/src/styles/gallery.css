@@ -2887,3 +2887,91 @@
   flex-wrap: wrap;
   margin: 4px 0 12px;
 }
+
+/* ── Drop links (DropLinksModal) ─────────────────────────────────────────── */
+.gallery-drop-link-url {
+  display: block;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--field);
+  word-break: break-all;
+  user-select: all;
+}
+
+.gallery-drop-link-form {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.gallery-drop-link-form h3,
+.gallery-drop-link-list h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.gallery-drop-link-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.gallery-drop-link-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.gallery-drop-link-toggle small {
+  display: block;
+}
+
+.gallery-drop-link-list {
+  margin-top: 24px;
+}
+
+.gallery-drop-link-list ul {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.gallery-drop-link-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.gallery-drop-link-row.is-expired,
+.gallery-drop-link-row.is-revoked,
+.gallery-drop-link-row.is-closed {
+  opacity: 0.7;
+}
+
+.gallery-drop-link-copy {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+}
+
+.gallery-drop-link-copy strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gallery-inbox-delivery svg {
+  margin-right: 2px;
+}
+
+@media (max-width: 740px) {
+  .gallery-drop-link-grid {
+    grid-template-columns: 1fr;
+  }
+}

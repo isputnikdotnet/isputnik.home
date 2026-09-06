@@ -478,5 +478,26 @@
     "blocked": "Blocked by this network",
     "serverDown": "Server not responding",
     "updating": "Updating iSputnik…"
+  },
+  "dropPage": {
+    "docTitle": "Send photos",
+    "docTitleLabelled": "Send photos — {{label}}",
+    "title": "Send photos",
+    "sharedBy": "A drop link from {{name}}",
+    "gone": "This link isn't valid any more.",
+    "unavailableTitle": "This link can't be used",
+    "intro": "Pick the photos or videos to send. They go straight into {{inbox}} for review — nobody else sees them until they've been looked at.",
+    "filesLeft_one": "{{count}} file left to send",
+    "filesLeft_other": "{{count}} files left to send",
+    "bytesLeft": "{{size}} left",
+    "hint": "Accepted: {{types}}. Up to {{size}} per file.",
+    "sending": "Sending…",
+    "receivedTitle_one": "Received {{count}} photo. Thank you!",
+    "receivedTitle_other": "Received {{count}} photos. Thank you!",
+    "receivedBody": "They're waiting for review.",
+    "closedBody": "This link has done its job and is now closed.",
+    "sendMore": "Send more",
+    "fullBody": "This link has received everything it may. Ask for a new one if there's more to send.",
+    "footer": "iSputnik — a private family library"
   }
 }

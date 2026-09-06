@@ -1,6 +1,7 @@
 # Photo Inbox — proposal
 
-Status: **Phases 1 and 2 built in-code (2026-09-06); phase 3 remains a proposal.**
+Status: **All three phases built in-code (2026-09-06).** Kept as the record of what
+was decided and why, with each phase's as-built notes under its heading.
 Written 2026-09-06 from a brainstorm about re-scanning old prints. Companion to [gallery-library.md](gallery-library.md),
 [duplicate-detection.md](duplicate-detection.md), [uploads.md](uploads.md) and
 [sharing.md](sharing.md), which describe the pieces this stands on. Like the other
@@ -248,7 +249,36 @@ The plan as written:
   or equal new copy are never swept, matching the existing rule that only the
   byte-identical tier is bulk-safe.
 
-## Phase 3 — drop links
+## Phase 3 — drop links — BUILT
+
+As built (2026-09-06), where it departs from the plan below:
+
+- **Permission is `edit`, not `upload`.** The `share_links.permission` CHECK only
+  admits read/edit/manage and widening it means rebuilding the table; the module
+  (`gallery-inbox`) is what distinguishes a drop link. The quota is two nullable
+  columns plus a `one_time` flag on `share_links` (migration 69, the story-column
+  precedent), and what a link received is its own table, `share_link_drops` —
+  needed anyway, since the quota counts what landed, not what remains.
+- **Where it lives.** A **Drop link** button on the Inbox page (the reviewer's
+  right, the same as Keep and Discard) opens a dialog that mints links and lists
+  the ones out with status, usage and a take-back; the profile's Shared links
+  page lists them too, and the general `DELETE /api/shares/:id` revokes them.
+  Expiry runs 1–90 days (a box of prints takes a while), default 14.
+- **The public pair** is `GET /api/drop/:token` (60/min) and
+  `POST /api/drop/:token/upload` (20/min), with no preHandler like every guest
+  route. CSRF still applies: the page's own GET issues the cookie the POST
+  carries, as `SharePage` does. Files land in `<label>/<YYYY-MM-DD>/` and are
+  catalogued one by one like an upload; the batch is refused whole when it would
+  exceed what the link may still receive.
+- **The review** marks a delivery that came through a link with a link icon on
+  its chip, from the drops table; there is no per-photo chip.
+- **A one-time link** closes in the same transaction that records its delivery.
+  Two batches racing on one token can both stream before either commits; the
+  second still lands (it is bounded by the quota) and the link is closed once.
+- **The check** queued by a delivery is owned by the link's creator when they are
+  an admin, else by the library's creator.
+
+The plan as written:
 
 - **Creating a link.** From the Inbox library's Share menu: label, expiry,
   file cap, size cap, one-time or standing. Stored on `share_links` with module

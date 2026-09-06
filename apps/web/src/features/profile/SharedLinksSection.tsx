@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { BookOpen, BookText, Headphones, Image, Images, Link2 } from "lucide-react";
+import { BookOpen, BookText, Headphones, Image, Images, Inbox, Link2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api";
 import { Button } from "../../shared/Button";
@@ -9,7 +9,7 @@ import i18n from "../../i18n";
 
 interface SharedLink {
   id: string;
-  kind: "item" | "set" | "album" | "story";
+  kind: "item" | "set" | "album" | "story" | "drop";
   module: string;
   resourceId: string | null;
   title: string;
@@ -26,7 +26,8 @@ const KIND_ICON = {
   gallery: Image,
   gallery_set: Images,
   gallery_album: Images,
-  story: BookText
+  story: BookText,
+  "gallery-inbox": Inbox
 } as const;
 
 function iconFor(module: string) {
@@ -50,6 +51,7 @@ function expiryText(link: SharedLink): string {
 }
 
 function describe(link: SharedLink): string {
+  if (link.kind === "drop") return i18n.t("misc:sharedLinks.describeDrop", { count: link.itemCount });
   if (link.kind === "set") return i18n.t("misc:sharedLinks.describeSet", { count: link.itemCount });
   if (link.kind === "album") return i18n.t("misc:sharedLinks.describeAlbum", { count: link.itemCount });
   if (link.kind === "story") return i18n.t("misc:sharedLinks.describeStory");

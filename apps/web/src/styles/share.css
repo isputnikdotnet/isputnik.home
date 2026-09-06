@@ -520,3 +520,55 @@
   flex-direction: column;
   gap: 16px;
 }
+
+/* ── Drop page (DropPage) — a guest sending photos into a Photo Inbox ──── */
+.share-card--drop {
+  display: grid;
+  gap: 16px;
+  max-width: 560px;
+}
+
+.drop-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.drop-head h1 {
+  margin: 0 0 2px;
+  font-size: 1.4rem;
+}
+
+.drop-head p {
+  margin: 0;
+}
+
+.drop-intro {
+  margin: 0;
+}
+
+.drop-allowance {
+  margin: -8px 0 0;
+  font-size: 0.9rem;
+}
+
+.drop-thanks {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  text-align: center;
+  padding: 12px 0;
+}
+
+.drop-thanks h2 {
+  margin: 0;
+}
+
+.drop-thanks svg {
+  color: var(--success);
+}
+
+.share-footer {
+  font-size: 0.85rem;
+  text-align: center;
+}

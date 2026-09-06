@@ -171,6 +171,17 @@ does every set whose new copy has more pixels in both directions at once. The
 check waits while another cleanup is in progress, and **Check for copies** on
 the Inbox page starts it by hand.
 
+**Letting someone drop photos.** A relative without an account can still fill an
+Inbox: **Drop link** on the Inbox page mints a link for them. Give it a label
+(it names the folder their photos land in), how long it lasts, and a cap on how
+many files and how much in total it may receive; **One delivery only** closes
+the link after the first batch. The address is shown once, so copy it then. They
+open it, see your label and what they may send, pick their photos, and get a
+"Received 37 photos" back — nothing more. What arrives waits in the Inbox like
+any other delivery, marked with a link icon, and the copy check runs on it as
+usual. Links you have handed out are listed in the same dialog and under
+**Shared links** on your profile, and any of them can be taken back at once.
+
 ## Face recognition
 
 **Off by default, and entirely local** — the models ship with the app, nothing is

@@ -1471,6 +1471,14 @@ CREATE TABLE IF NOT EXISTS share_links (
   created_by  TEXT NOT NULL REFERENCES users(id),
   created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   revoked_at  TEXT,
+  -- Drop links only (module 'gallery-inbox', docs/photo-inbox-proposal.md
+  -- phase 3): a guest may UPLOAD into a Photo Inbox through one of these, so
+  -- the link carries the quota that bounds it — at most this many files and
+  -- this many bytes over its life (NULL = the library's own caps only) — and
+  -- whether it closes itself after the first delivery. Ignored elsewhere.
+  max_files   INTEGER,
+  max_bytes   INTEGER,
+  one_time    INTEGER NOT NULL DEFAULT 0,
   -- Story links only (module 'story'): may a guest open a whole album or
   -- slideshow the story embeds, or only the photos shown inline? Off by
   -- default — sharing a story is not the same as sharing everything it
@@ -1492,6 +1500,23 @@ CREATE TABLE IF NOT EXISTS share_link_items (
 );
 
 CREATE INDEX IF NOT EXISTS idx_share_link_items_link ON share_link_items (share_link_id, position);
+
+-- What a drop link received (docs/photo-inbox-proposal.md, phase 3): one row per
+-- file that landed through it. Counted against the link's quota on every batch,
+-- and what lets the Inbox's review say a delivery came in through a link. The
+-- item link goes NULL when the photo is kept elsewhere or discarded; the size
+-- stays, because the quota is about what was received, not what remains.
+CREATE TABLE IF NOT EXISTS share_link_drops (
+  id            TEXT PRIMARY KEY,
+  share_link_id TEXT NOT NULL REFERENCES share_links(id) ON DELETE CASCADE,
+  item_id       TEXT REFERENCES library_items(id) ON DELETE SET NULL,
+  file_name     TEXT NOT NULL,
+  size_bytes    INTEGER NOT NULL DEFAULT 0,
+  created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_share_link_drops_link ON share_link_drops (share_link_id);
+CREATE INDEX IF NOT EXISTS idx_share_link_drops_item ON share_link_drops (item_id);
 
 -- Personal access tokens. A user mints one per device to authenticate
 -- non-cookie clients (today: OPDS readers). Only the sha256(token) is stored;

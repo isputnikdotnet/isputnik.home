@@ -302,6 +302,8 @@ export type Route =
   | { name: "profile"; tab: ProfileTab }
   | { name: "invite"; token: string }
   | { name: "share"; token: string }
+  /** A Photo Inbox drop link: upload without an account. */
+  | { name: "drop"; token: string }
   | { name: "sharedWithMe" };
 
 export function getRoute(): Route {
@@ -315,6 +317,11 @@ export function getRoute(): Route {
   const shareMatch = path.match(/^\/share\/([^/]+)$/);
   if (shareMatch) {
     return { name: "share", token: shareMatch[1] };
+  }
+
+  const dropMatch = path.match(/^\/drop\/([^/]+)$/);
+  if (dropMatch) {
+    return { name: "drop", token: dropMatch[1] };
   }
 
   if (path === "/install") {

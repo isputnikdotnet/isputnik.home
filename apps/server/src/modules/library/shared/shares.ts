@@ -1406,6 +1406,9 @@ export async function librarySharesPlugin(app: FastifyInstance) {
         library_items.folder_path AS item_folder,
         gallery_albums.name      AS album_name,
         stories.title            AS story_title,
+        inbox.name               AS inbox_name,
+        (SELECT COUNT(*) FROM share_link_drops
+          WHERE share_link_drops.share_link_id = share_links.id) AS drop_count,
         (SELECT COUNT(*) FROM share_link_items
           WHERE share_link_items.share_link_id = share_links.id) AS set_count,
         (SELECT COUNT(*) FROM gallery_album_items
@@ -1425,13 +1428,19 @@ export async function librarySharesPlugin(app: FastifyInstance) {
       LEFT JOIN stories
         ON stories.id = share_links.resource_id
        AND share_links.module = 'story'
+      -- A drop link (docs/photo-inbox-proposal.md, phase 3) points at a Photo
+      -- Inbox library; what it received is counted from its own drops table.
+      LEFT JOIN libraries AS inbox
+        ON inbox.id = share_links.resource_id
+       AND share_links.module = 'gallery-inbox'
       WHERE share_links.created_by = ? AND share_links.revoked_at IS NULL
       ORDER BY datetime(share_links.created_at) DESC
     `).all(user.id) as {
       id: string; module: string; resource_id: string; label: string | null;
       created_at: string; expires_at: string;
       item_title: string | null; item_folder: string | null;
-      album_name: string | null; story_title: string | null; set_count: number; album_count: number;
+      album_name: string | null; story_title: string | null; inbox_name: string | null;
+      drop_count: number; set_count: number; album_count: number;
     }[];
     const now = Date.now();
 
@@ -1440,7 +1449,8 @@ export async function librarySharesPlugin(app: FastifyInstance) {
         const isAlbum = row.module === "gallery_album";
         const isSet = row.module === "gallery_set";
         const isStory = row.module === "story";
-        const kind = isAlbum ? "album" : isSet ? "set" : isStory ? "story" : "item";
+        const isDrop = row.module === "gallery-inbox";
+        const kind = isAlbum ? "album" : isSet ? "set" : isStory ? "story" : isDrop ? "drop" : "item";
         // A set is a bag of photos with no resource of its own to name; an item
         // whose row has since been deleted leaves the joins null.
         const title = isAlbum
@@ -1449,7 +1459,9 @@ export async function librarySharesPlugin(app: FastifyInstance) {
             ? "Selected photos"
             : isStory
               ? row.story_title ?? "Deleted story"
-              : row.item_title ?? (row.item_folder ? path.basename(row.item_folder) : "Deleted item");
+              : isDrop
+                ? row.inbox_name ?? "Deleted Photo Inbox"
+                : row.item_title ?? (row.item_folder ? path.basename(row.item_folder) : "Deleted item");
         return {
           id: row.id,
           kind,
@@ -1457,7 +1469,8 @@ export async function librarySharesPlugin(app: FastifyInstance) {
           resourceId: isSet ? null : row.resource_id,
           title,
           label: row.label,
-          itemCount: isAlbum ? row.album_count : isSet ? row.set_count : 1,
+          // A drop link counts what came in through it rather than what it shows.
+          itemCount: isAlbum ? row.album_count : isSet ? row.set_count : isDrop ? row.drop_count : 1,
           // A story is one thing, however many photos it happens to show.
           createdAt: row.created_at,
           expiresAt: row.expires_at,

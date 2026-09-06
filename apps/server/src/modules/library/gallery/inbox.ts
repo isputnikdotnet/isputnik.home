@@ -23,6 +23,9 @@ export interface PhotoInboxDelivery {
   folder: string;
   count: number;
   newestAt: string;
+  /** Some of it arrived through a drop link (phase 3) rather than a scan or an
+   *  upload by a member — the review can say whose box this is. */
+  viaLink: boolean;
 }
 
 export interface PhotoInboxSummary {
@@ -55,7 +58,8 @@ const DELIVERY_SQL = `
   SELECT
     CASE WHEN instr(folder_path, '/') > 0 THEN substr(folder_path, 1, instr(folder_path, '/') - 1) ELSE '' END AS folder,
     COUNT(*) AS count,
-    MAX(discovered_at) AS newest_at
+    MAX(discovered_at) AS newest_at,
+    MAX(EXISTS (SELECT 1 FROM share_link_drops d WHERE d.item_id = library_items.id)) AS via_link
   FROM library_items
   WHERE library_id = ? AND deleted_at IS NULL
   GROUP BY folder
@@ -68,8 +72,10 @@ export function listPhotoInboxes(user: AuthUser): PhotoInboxSummary[] {
   return rows
     .filter((row) => parsePolicy(row.policy_json).inbox === true && canUserAccessLibrary(row, user.id, user.role))
     .map((row) => {
-      const deliveries = (db.prepare(DELIVERY_SQL).all(row.id) as { folder: string; count: number; newest_at: string }[])
-        .map((delivery) => ({ folder: delivery.folder, count: delivery.count, newestAt: delivery.newest_at }));
+      const deliveries = (db.prepare(DELIVERY_SQL).all(row.id) as { folder: string; count: number; newest_at: string; via_link: number }[])
+        .map((delivery) => ({
+          folder: delivery.folder, count: delivery.count, newestAt: delivery.newest_at, viaLink: delivery.via_link === 1
+        }));
       return {
         id: row.id,
         name: row.name,

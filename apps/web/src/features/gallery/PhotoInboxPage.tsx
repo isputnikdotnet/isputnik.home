@@ -10,9 +10,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  Album, CalendarDays, CheckCheck, Film, FolderInput, FolderOpen, Inbox, LibraryBig,
+  Album, CalendarDays, CheckCheck, Film, FolderInput, FolderOpen, Inbox, LibraryBig, Link2,
   ScanSearch, SquareCheck, Trash2, UploadCloud, Users, X
 } from "lucide-react";
+import { DropLinksModal } from "./DropLinksModal";
 import { api, type PublicUser } from "../../api";
 import { PartialBulkError, sendInBatches } from "../../shared/bulk";
 import { DashboardShell } from "../../app/DashboardShell";
@@ -35,6 +36,8 @@ export interface PhotoInboxDelivery {
   folder: string;
   count: number;
   newestAt: string;
+  /** Some of it came in through a drop link. */
+  viaLink: boolean;
 }
 
 export interface PhotoInboxSummary {
@@ -104,6 +107,7 @@ export function PhotoInboxPage({
   const [keepOpen, setKeepOpen] = useState(false);
   const [discardOpen, setDiscardOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [dropLinksOpen, setDropLinksOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState("");
 
@@ -354,6 +358,17 @@ export function PhotoInboxPage({
                       <span className="toolbar-label">{t("gallery:common.select")}</span>
                     </button>
                   )}
+                  {canReview && (
+                    <button
+                      type="button"
+                      className="library-toolbar-button"
+                      onClick={() => { setNotice(""); setDropLinksOpen(true); }}
+                      title={t("gallery:inbox.dropLinks.buttonTitle")}
+                    >
+                      <Link2 size={18} aria-hidden="true" />
+                      <span className="toolbar-label">{t("gallery:inbox.dropLinks.button")}</span>
+                    </button>
+                  )}
                   {inboxLibrary?.canUpload && (
                     <button
                       type="button"
@@ -429,6 +444,7 @@ export function PhotoInboxPage({
                       onClick={() => setFolder(delivery.folder)}
                       title={delivery.folder || t("gallery:inbox.rootDeliveryTitle")}
                     >
+                      {delivery.viaLink && <Link2 size={12} aria-hidden="true" />}
                       {deliveryLabel(delivery)} <span className="count-badge">{delivery.count}</span>
                     </button>
                   ))}
@@ -565,6 +581,13 @@ export function PhotoInboxPage({
         >
           {t("gallery:inbox.discardConfirmBody")}
         </ConfirmDialog>
+      )}
+
+      {dropLinksOpen && inbox && (
+        <DropLinksModal
+          inbox={{ id: inbox.id, name: inbox.name }}
+          onClose={() => { setDropLinksOpen(false); void refresh(); }}
+        />
       )}
 
       {uploadOpen && inboxLibrary && (

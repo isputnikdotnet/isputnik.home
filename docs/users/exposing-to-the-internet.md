@@ -107,6 +107,18 @@ different user: set `PUID`/`PGID` to match its owner (`ls -n` on the host shows
 the numbers), or `chown -R` the folder to `1000:1000`. Keep media mounts
 read-only (`:ro`) unless you upload through the app.
 
+## Drop links, if you hand them out
+
+A [Photo Inbox drop link](library-gallery.md#photo-inbox) is the one address that
+lets someone *write* to your server without signing in. It is bounded on purpose:
+the link is unguessable and expires, each carries a cap on files and total size
+that the server enforces whatever the page says, what arrives goes into an Inbox
+nothing resurfaces until a member keeps it, and the sender sees a count and
+nothing else. Even so, hand one out the way you would a house key: to a person,
+with a label naming them, capped at what they actually need, one delivery only
+where that fits, and taken back when it has done its job. Both public addresses
+are rate-limited, and a guessed token counts against the caller like any probe.
+
 ## Checklist
 
 ```
