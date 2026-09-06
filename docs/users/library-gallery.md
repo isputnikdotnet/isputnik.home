@@ -132,6 +132,9 @@ uploads blend into a folder structure rather than piling up at the top.
 
 ## Photo Inbox
 
+The whole process, from the scanner box to a tidy library, has
+[its own guide](photo-inbox.md). In short:
+
 A **Photo Inbox** is a gallery library for photos that are not part of the
 collection yet: a box of prints you are re-scanning, or a batch a relative
 handed over. An admin turns any gallery library into one with the **Photo

@@ -1,5 +1,5 @@
 import {
-  BookOpen, BookText, Bug, ExternalLink, FolderTree, HardDrive, Headphones, Images, Info, KeyRound, LibraryBig,
+  BookOpen, BookText, Bug, ExternalLink, FolderTree, HardDrive, Headphones, Images, Inbox, Info, KeyRound, LibraryBig,
   Mail, MonitorSmartphone, Quote, Rocket, Send, Settings, ShieldCheck, Trash2, UserRound, Wifi, type LucideIcon
 } from "lucide-react";
 import type { PublicUser } from "../api";
@@ -86,6 +86,13 @@ const HELP_SECTIONS: HelpSection[] = [
         title: "Gallery",
         description: "Photos and videos, the timeline, albums, slideshows, and face recognition.",
         href: guide("library-gallery.md"),
+        external: false
+      },
+      {
+        icon: Inbox,
+        title: "Photo Inbox",
+        description: "Re-scanning prints and taking photos from relatives: the holding library, the copy check, Keep and Replace, and drop links.",
+        href: guide("photo-inbox.md"),
         external: false
       },
       {

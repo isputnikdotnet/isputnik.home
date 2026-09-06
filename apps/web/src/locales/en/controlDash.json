@@ -840,6 +840,7 @@
     "replaceLargerConfirm": "Replace larger copies",
     "replaceLargerBody1": "Every set on screen whose incoming copy is larger than the library's in both width and height is replaced. Sets where it is smaller, or the same file, are left for you.",
     "sweepButtonInbox_one": "Discard {{count}} identical copy",
-    "sweepButtonInbox_other": "Discard {{count}} identical copies"
+    "sweepButtonInbox_other": "Discard {{count}} identical copies",
+    "badgeIncoming": "Incoming"
   }
 }

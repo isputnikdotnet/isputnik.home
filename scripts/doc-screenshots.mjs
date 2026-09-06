@@ -251,6 +251,71 @@ const SHOTS = [
   { name: "80-quotes", url: "quotes", state: "a quote pack imported" },
   { name: "81-quotes-import", url: "control/utilities/quotes", state: "a quote pack imported" },
 
+  // The Photo Inbox (docs/users/photo-inbox.md). Needs an Inbox library with a
+  // delivery or two, its copy check run, and a drop link out — the demo data the
+  // guide describes.
+  { name: "82-photo-inbox", url: "gallery/inbox", state: "an Inbox with deliveries and a finished check" },
+  {
+    name: "83-photo-inbox-keep",
+    url: "gallery/inbox",
+    state: "an Inbox with photos",
+    setup: `
+      button(document, "Select").click(); await sleep(400);
+      const tiles = [...document.querySelectorAll(".gallery-tile.selectable")];
+      tiles[0]?.click(); tiles[1]?.click(); await sleep(300);
+      button(document, "Keep").click(); await sleep(800);
+      "keep dialog";`
+  },
+  {
+    name: "84-inbox-check-results",
+    url: "control/utilities/duplicate-cleanup",
+    state: "an Inbox check in review",
+    height: 1000
+  },
+  {
+    // Scrolled to the near-identical section: a set where the incoming scan is a
+    // different file from the library's, with Replace on offer.
+    name: "88-inbox-check-near",
+    url: "control/utilities/duplicate-cleanup",
+    state: "an Inbox check in review with a near-identical set",
+    setup: `
+      const heading = [...document.querySelectorAll("h2, h3")]
+        .find((el) => el.textContent.trim().startsWith("Near-identical"));
+      if (!heading) return "no near-identical section";
+      heading.scrollIntoView({ block: "start" }); await sleep(600);
+      "near section";`
+  },
+  {
+    name: "85-inbox-drop-links",
+    url: "gallery/inbox",
+    state: "an Inbox with a drop link out",
+    setup: `button(document, "Drop link").click(); await sleep(900); "drop links";`
+  },
+  {
+    name: "86-drop-page",
+    url: process.env.DROP_TOKEN ? `drop/${process.env.DROP_TOKEN}` : "drop/none",
+    auth: false,
+    state: "a live drop link (DROP_TOKEN)",
+    height: 560
+  },
+  {
+    // The edit dialog opens on its Access tab, where the Photo Inbox switch lives.
+    name: "87-library-inbox-switch",
+    url: "control/libraries",
+    state: "a gallery library named Photo Inbox",
+    setup: `
+      const edit = [...document.querySelectorAll("button[aria-label]")]
+        .find((b) => b.getAttribute("aria-label") === "Edit Photo Inbox");
+      if (!edit) return "no Photo Inbox row";
+      edit.click(); await sleep(900);
+      // The switch is the last row of the Access tab; scroll the dialog to it.
+      const pane = [...topModal().querySelectorAll("*")]
+        .find((el) => el.scrollHeight > el.clientHeight + 20 && getComputedStyle(el).overflowY !== "visible");
+      if (pane) { pane.scrollTop = pane.scrollHeight; await sleep(400); }
+      "edit dialog";`,
+    height: 1000
+  },
+
   // Stories. A story's address contains its id, which differs on every install,
   // so these open the index and click through by title rather than deep-linking
   // — otherwise the shots would only reproduce on the machine they were taken on.

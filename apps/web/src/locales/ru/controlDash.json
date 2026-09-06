@@ -955,6 +955,7 @@
     "sweepButtonInbox_one": "Отклонить {{count}} идентичную копию",
     "sweepButtonInbox_few": "Отклонить {{count}} идентичные копии",
     "sweepButtonInbox_many": "Отклонить {{count}} идентичных копий",
-    "sweepButtonInbox_other": "Отклонить {{count}} идентичных копий"
+    "sweepButtonInbox_other": "Отклонить {{count}} идентичных копий",
+    "badgeIncoming": "Входящее"
   }
 }

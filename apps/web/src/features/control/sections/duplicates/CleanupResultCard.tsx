@@ -400,7 +400,7 @@ function FolderSetCard({
  *  The picture is the control: clicking it moves this copy between keep and delete,
  *  which is the decision the scan only guessed at. "Compare" opens the copies full size
  *  for anyone who wants a closer look before choosing. */
-function CopyTile({ member, largestPixels, busy, onToggle, keepLabel }: {
+function CopyTile({ member, largestPixels, busy, onToggle, keepLabel, deleteLabel }: {
   member: SnapshotMember;
   /** The set's biggest copy in pixels, for the "N× smaller" tag. 0 disables it. */
   largestPixels: number;
@@ -408,6 +408,8 @@ function CopyTile({ member, largestPixels, busy, onToggle, keepLabel }: {
   /** What a kept copy's badge says when "Keep" is not the point — an Inbox check
    *  marks the library's copy as what the library already has. */
   keepLabel?: string;
+  /** Likewise for a doomed copy: on an Inbox check it is the incoming one. */
+  deleteLabel?: string;
   /** Absent when this copy's fate is not open to change — a cleanup someone else owns,
    *  a protected library, or a copy already in the Recycle Bin. Then the tile is a
    *  plain frame rather than a disabled button, which would promise an action that
@@ -421,7 +423,9 @@ function CopyTile({ member, largestPixels, busy, onToggle, keepLabel }: {
   // the preview is sized for the viewer's full-screen panes.
   const src = member.coverUrl ?? member.previewUrl;
   const folder = folderOfPath(member.path);
-  const badge = member.role === "keep" ? keepLabel ?? t("controlDash:dupes.badgeKeep") : member.role === "protected" ? t("controlDash:dupes.badgeProtected") : t("controlDash:dupes.badgeDelete");
+  const badge = member.role === "keep"
+    ? keepLabel ?? t("controlDash:dupes.badgeKeep")
+    : member.role === "protected" ? t("controlDash:dupes.badgeProtected") : deleteLabel ?? t("controlDash:dupes.badgeDelete");
   // alt="" — the filename is written underneath, and the picture itself is not
   // describable here. A copy whose photo has gone shows the empty frame rather than a
   // broken image: the snapshot outlives what it describes.
@@ -631,6 +635,7 @@ function PhotoSetCard({
             largestPixels={largestPixels}
             busy={actions.busy}
             keepLabel={inboxLibraryId && member.libraryId !== inboxLibraryId ? t("controlDash:dupes.badgeInLibrary") : undefined}
+            deleteLabel={inboxLibraryId && member.libraryId === inboxLibraryId ? t("controlDash:dupes.badgeIncoming") : undefined}
             onToggle={togglable(member)
               ? () => actions.onSetRole(member.id, member.role === "delete" ? "keep" : "delete")
               : undefined}

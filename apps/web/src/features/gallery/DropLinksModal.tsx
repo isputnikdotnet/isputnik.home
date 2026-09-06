@@ -135,6 +135,7 @@ export function DropLinksModal({
       className="gallery-drop-links-modal"
       onClose={onClose}
     >
+      <div className="gallery-drop-links-body">
       <p className="muted">{t("gallery:inbox.dropLinks.intro")}</p>
 
       {error && <MessageBox tone="error" title={t("gallery:inbox.dropLinks.errorTitle")}>{error}</MessageBox>}
@@ -255,6 +256,7 @@ export function DropLinksModal({
           {t("gallery:inbox.dropLinks.revokeConfirmBody")}
         </ConfirmDialog>
       )}
+      </div>
     </Modal>
   );
 }

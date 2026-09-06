@@ -2975,3 +2975,22 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* The Keep dialog's placement radios sit inside a .field fieldset, whose input
+   rule stretches them to the row; a radio is a radio. */
+.gallery-keep-placement input[type="radio"] {
+  width: auto;
+  height: auto;
+  flex: none;
+  margin: 4px 0 0;
+  padding: 0;
+}
+
+.gallery-keep-placement legend {
+  margin-bottom: 8px;
+}
+
+/* The panel modal's own chrome carries no body padding; the drop-links body does. */
+.gallery-drop-links-body {
+  padding: 0 24px 24px;
+}
