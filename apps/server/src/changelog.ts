@@ -19,6 +19,13 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.66.1",
+    label: "The New story dialog, pictured",
+    changes: [
+      "The Stories guide now shows the New story dialog itself — the five kinds across the top, the front page being named, and the card underneath asking what a recipe needs: when and where, how many it serves, how long it takes, and the link it can start from."
+    ]
+  },
+  {
     version: "3.66.0",
     label: "Recipes",
     changes: [

@@ -13,7 +13,8 @@
 // A shot may carry `setup`: JavaScript evaluated in the page before the capture,
 // for screens you can only reach by opening a dialog or switching a tab. Shots
 // marked `state` need the app in a particular condition (an empty install, say)
-// and are skipped unless named explicitly.
+// and are skipped unless named explicitly. A shot may ask for its own viewport
+// `height` when the default would cut a tall dialog short.
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import net from "node:net";
@@ -254,6 +255,35 @@ const SHOTS = [
   // so these open the index and click through by title rather than deep-linking
   // — otherwise the shots would only reproduce on the machine they were taken on.
   { name: "90-stories", url: "stories", state: "some published stories" },
+  // The New story dialog with a recipe chosen: the five kinds, the front page
+  // being named, and the recipe card underneath (serves, time, From a link).
+  // Filled in by hand rather than read from a link, so the shot needs no
+  // internet and shows the fields rather than a fetched result.
+  {
+    name: "95-story-new",
+    url: "stories",
+    height: 960,
+    setup: `
+      const open = button(document, "New story");
+      if (!open) return "no New story button";
+      open.click();
+      await sleep(900);
+      const modal = topModal();
+      const recipe = [...modal.querySelectorAll("button")].find((b) => b.textContent.trim().startsWith("Recipe"));
+      if (!recipe) return "no Recipe kind";
+      recipe.click();
+      await sleep(400);
+      setInput(modal.querySelector(".story-new-story-title"), "Draniki");
+      setInput(modal.querySelector(".story-new-story-subtitle"), "Grandma Zina’s potato pancakes, the Sunday ones");
+      const fields = [...modal.querySelectorAll("label.field")];
+      const byLabel = (text) => fields.find((l) => l.textContent.trim().startsWith(text))?.querySelector("input");
+      setInput(byLabel("Date"), "1978");
+      setInput(byLabel("Place"), "Vitebsk");
+      setInput(byLabel("Serves"), "4–6");
+      setInput(byLabel("Total time"), "45");
+      await sleep(400);
+      "new story open";`
+  },
   {
     name: "91-story",
     url: "stories",
@@ -549,6 +579,9 @@ async function main() {
         });
       }
 
+      await send(ws, "Emulation.setDeviceMetricsOverride", {
+        width: WIDTH, height: shot.height ?? HEIGHT, deviceScaleFactor: 1, mobile: false
+      });
       await send(ws, "Page.navigate", { url: `${BASE}/${shot.url}` });
       await sleep(shot.wait ?? 3000);
 

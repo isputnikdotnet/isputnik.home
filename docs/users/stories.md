@@ -37,6 +37,8 @@ and the form follows your choice:
   many it serves and how long it takes. Paste a link to a recipe page and the
   chapters open already written. (More in [Recipes](#recipes) below.)
 
+![The New story dialog with Recipe chosen: the five kinds, the name and subtitle, and the card asking for date, place, serves, time and a link](images/95-story-new.png)
+
 Everything is skippable, and the kind shapes how the story *starts* and
 nothing more — a memory can still grow into a ten-chapter epic. It can't be
 changed later because it never needs to be: everything it set up is an
