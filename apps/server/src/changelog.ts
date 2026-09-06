@@ -19,6 +19,15 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.67.0",
+    label: "The Photo Inbox",
+    changes: [
+      "A gallery library can be a Photo Inbox: a holding place for photos that are not part of the collection yet — a box of prints being re-scanned, a batch a relative handed over. Turn the switch on in the library’s settings (Access tab) and nothing that lands there appears in the Timeline, Memories, the Home page, People or the pickers until someone decides it stays; face recognition waits too. The Inbox page groups what arrived by delivery and offers two verbs. Keep moves photos into a real library — into a folder you name, with suggestions from the folders it already has, or the dated layout uploads use — and tags, likes and edits travel with them. Discard sends them to the Recycle Bin on the cleanup’s shorter clock. A card on the Home page shows while an Inbox has photos waiting, and an empty Inbox is a finished review.",
+      "After a scan or an upload the Inbox is checked against the rest of the library on its own: identical files and near-identical ones, the way Duplicate cleanup finds them, with an incoming scan also matched turned on its side so a print fed in sideways still finds its upright twin. Only the Inbox’s photos are candidates — the library is never compared with itself — and the library’s copy is always the one kept. The Inbox page says how many photos look like copies; the Duplicate cleanup page pairs each with the library’s copy and offers Replace, where the new scan takes the library item’s place and every album, story, tag and person pointing at it stays put, or Discard incoming. Replace larger does every set whose new copy has more pixels in both directions at once, and the cleanup wizard’s second step carries the Photo Inbox check as a third choice.",
+      "A relative without an account can fill an Inbox through a drop link. Drop link on the Inbox page mints one with a label, an expiry, a cap on how many files and how much in total it may receive, and one delivery only where that fits; the address is shown once. They open it, see your label and what they may send, pick their photos, and get “Received 37 photos” back — nothing more. What arrives waits in the Inbox marked with a link icon, and the copy check runs on it as usual. Links out are listed in the same dialog and under Shared links on your profile, and any of them can be taken back at once. The guide on exposing your library to the internet says how to hand one out."
+    ]
+  },
+  {
     version: "3.66.1",
     label: "The New story dialog, pictured",
     changes: [
