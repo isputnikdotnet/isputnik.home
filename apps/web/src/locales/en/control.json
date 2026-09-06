@@ -95,6 +95,7 @@
       "twoFactorAlertsDelivery": "Two-factor & security alerts delivery",
       "shareNotifications": "Share notifications",
       "recordingsLibrary": "Story recordings library",
+      "recipeImport": "Recipe import from a link",
       "mapRouting": "Map routing"
     }
   },

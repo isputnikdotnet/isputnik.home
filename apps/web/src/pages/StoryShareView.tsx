@@ -6,6 +6,7 @@ import { StoryMap } from "../features/stories/StoryMap";
 import { StoryMarkdown } from "../features/stories/StoryMarkdown";
 import { StoryStep } from "../features/stories/StoryStep";
 import { RouteCaption } from "../features/stories/RouteCaption";
+import { RecipeFacts, hasRecipeFacts } from "../features/stories/RecipeFacts";
 import { routePins, routeStops } from "../features/stories/story-route";
 import type { StoryMapPoint } from "../features/stories/types";
 import { useIsMobile } from "../shared/useIsMobile";
@@ -86,6 +87,8 @@ export interface StorySharePayload {
     chapterNoun: string | null;
     intro: string | null;
     rating: number | null;
+    servings: string | null;
+    cookMinutes: number | null;
     /** How the story is signed; null = unsigned. */
     authorName: string | null;
     cover: StoryShareAsset | null;
@@ -336,7 +339,12 @@ function ShareHead({ story }: { story: StorySharePayload["story"] }) {
         <h1>{story.title}</h1>
         {story.subtitle && <p className="story-read-subtitle">{story.subtitle}</p>}
         {story.authorName && <ShareByline name={story.authorName} className="story-byline" />}
-        {story.rating != null && <p className="story-home-meta"><ShareStars value={story.rating} /></p>}
+        {(story.rating != null || hasRecipeFacts(story)) && (
+          <p className="story-home-meta">
+            <RecipeFacts servings={story.servings} cookMinutes={story.cookMinutes} />
+            {story.rating != null && <ShareStars value={story.rating} />}
+          </p>
+        )}
       </div>
     </header>
   );

@@ -7,7 +7,21 @@ import { api } from "../../api";
 // who see the affordance disabled with a pointer at the setting.
 export interface StoriesSettingsPayload {
   recordingsLibrary: { id: string; name: string } | null;
+  /** Whether "From a link" is offered when starting a recipe. */
+  recipeImportEnabled: boolean;
   isAdmin: boolean;
+}
+
+/** Whether a recipe may be started from a link. Unknown (not loaded yet, or
+ *  the request failed) reads as no, so the field never flashes in and out. */
+export function useRecipeImportEnabled(): boolean {
+  const [enabled, setEnabled] = useState(false);
+  useEffect(() => {
+    api<StoriesSettingsPayload>("/api/stories/settings")
+      .then((settings) => setEnabled(Boolean(settings.recipeImportEnabled)))
+      .catch(() => {});
+  }, []);
+  return enabled;
 }
 
 export function useRecordingsTarget(): { enabled: boolean; isAdmin: boolean } {

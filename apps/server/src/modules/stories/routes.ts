@@ -27,7 +27,8 @@ import {
   narrationTempDir,
   type StoryAudioRow
 } from "./audio.js";
-import { ensureAudioScanExtensions, getRecordingsLibrary, setStoriesSettings } from "./settings.js";
+import { ensureAudioScanExtensions, getRecordingsLibrary, getStoriesSettings, setStoriesSettings } from "./settings.js";
+import { importRecipeFromUrl, RecipeImportError } from "./recipe-import.js";
 import { canContributeToCollection } from "./collection-access.js";
 import { getCollection } from "./collections.js";
 import {
@@ -81,6 +82,12 @@ import {
 const optionalDate = partialDateSchema.nullable().optional();
 const entityId = z.string().trim().min(1).max(64);
 
+// Serves is free text on purpose ("4–6", "one big pot"): a number would invite
+// scaling, and scaling invites the quantity model the plan rules out. Time is
+// whole minutes, up to a week — a cured ham is still a recipe.
+const recipeServings = z.string().trim().max(60).nullable().optional();
+const recipeMinutes = z.number().int().min(1).max(7 * 24 * 60).nullable().optional();
+
 const createSchema = z.object({
   title: z.string().trim().min(1).max(160),
   subtitle: z.string().trim().max(300).nullable().optional(),
@@ -98,7 +105,16 @@ const createSchema = z.object({
   // chapter per day). All ordinary chapter fields afterwards.
   date: optionalDate,
   endDate: optionalDate,
-  place: z.string().trim().max(200).nullable().optional()
+  place: z.string().trim().max(200).nullable().optional(),
+  // Recipe kind only (ignored otherwise): the head facts, and what a link
+  // import found — plain text lines the seeded chapters open with.
+  servings: recipeServings,
+  cookMinutes: recipeMinutes,
+  recipe: z.object({
+    ingredients: z.array(z.string().trim().min(1).max(500)).max(200),
+    steps: z.array(z.string().trim().min(1).max(5000)).max(100),
+    sourceUrl: z.string().trim().url().max(2000).nullable()
+  }).nullable().optional()
 });
 
 const updateSchema = z.object({
@@ -111,6 +127,9 @@ const updateSchema = z.object({
   intro: z.string().trim().max(5000).nullable().optional(),
   // Stars, mostly for review-shaped stories. Null clears.
   rating: z.number().int().min(1).max(5).nullable().optional(),
+  // Recipe facts, mostly for recipe-shaped stories. Null clears.
+  servings: recipeServings,
+  cookMinutes: recipeMinutes,
   // How the story is signed. Free text: a pen name, two names, nobody.
   authorName: z.string().trim().max(120).nullable().optional(),
   // Move onto / off a shelf. Null = standalone.
@@ -361,13 +380,16 @@ export async function storiesPlugin(app: FastifyInstance) {
     const library = getRecordingsLibrary();
     return {
       recordingsLibrary: library ? { id: library.id, name: library.name } : null,
+      recipeImportEnabled: getStoriesSettings().recipeImportEnabled,
       isAdmin: user.role === "admin",
       ...(user.role === "admin" ? { pendingNarrations: pendingLegacyNarrations() } : {})
     };
   });
 
+  // Each field optional so a caller changing one setting can't blank the other.
   const settingsSchema = z.object({
-    recordingsLibraryId: z.string().trim().min(1).max(64).nullable()
+    recordingsLibraryId: z.string().trim().min(1).max(64).nullable().optional(),
+    recipeImportEnabled: z.boolean().optional()
   });
 
   app.put("/api/stories/settings", { preHandler: app.requireAdmin }, async (request, reply) => {
@@ -375,27 +397,75 @@ export async function storiesPlugin(app: FastifyInstance) {
     if (parsed.error) {
       return reply.code(400).send({ error: "Invalid settings", details: parsed.error });
     }
-    const id = parsed.data.recordingsLibraryId;
-    // Choosing a library also opts it into audio — its scan extensions gate
-    // both uploads and what a rescan keeps.
-    if (id != null && !ensureAudioScanExtensions(id)) {
-      return reply.code(404).send({ error: "That gallery library doesn't exist." });
+    const changes: string[] = [];
+    if (parsed.data.recordingsLibraryId !== undefined) {
+      const id = parsed.data.recordingsLibraryId;
+      // Choosing a library also opts it into audio — its scan extensions gate
+      // both uploads and what a rescan keeps.
+      if (id != null && !ensureAudioScanExtensions(id)) {
+        return reply.code(404).send({ error: "That gallery library doesn't exist." });
+      }
+      setStoriesSettings({ recordingsLibraryId: id }, request.user!.id);
+      const library = getRecordingsLibrary();
+      changes.push(library ? `Set the story recordings library to "${library.name}".` : "Cleared the story recordings library.");
     }
-    setStoriesSettings({ recordingsLibraryId: id }, request.user!.id);
+    if (parsed.data.recipeImportEnabled !== undefined) {
+      setStoriesSettings({ recipeImportEnabled: parsed.data.recipeImportEnabled }, request.user!.id);
+      changes.push(parsed.data.recipeImportEnabled ? "Allowed recipe import from a link." : "Turned off recipe import from a link.");
+    }
+    if (changes.length > 0) {
+      logActivity({
+        event: "config.updated",
+        actorUserId: request.user!.id,
+        targetType: "setting",
+        targetId: "stories_settings",
+        detail: changes.join(" "),
+        ipAddress: request.ip
+      });
+    }
     const library = getRecordingsLibrary();
-    logActivity({
-      event: "config.updated",
-      actorUserId: request.user!.id,
-      targetType: "setting",
-      targetId: "stories_settings",
-      detail: library ? `Set the story recordings library to "${library.name}".` : "Cleared the story recordings library.",
-      ipAddress: request.ip
-    });
     return reply.send({
       recordingsLibrary: library ? { id: library.id, name: library.name } : null,
+      recipeImportEnabled: getStoriesSettings().recipeImportEnabled,
       isAdmin: true,
       pendingNarrations: pendingLegacyNarrations()
     });
+  });
+
+  // ── Recipe from a link ──
+  // Reads one page the member names and returns its schema.org Recipe as
+  // plain lines; the New story dialog then creates the story with them.
+  // Nothing is stored here, and nothing but the page text is fetched. Rate
+  // limited like the other outbound fetchers: this is a member-triggered
+  // request to an arbitrary host.
+  const importRecipeSchema = z.object({ url: z.string().trim().min(1).max(2000) });
+
+  app.post("/api/stories/import-recipe", {
+    preHandler: app.authenticate,
+    config: { rateLimit: { max: 10, timeWindow: "1 minute" } }
+  }, async (request, reply) => {
+    if (!getStoriesSettings().recipeImportEnabled) {
+      return reply.code(403).send({ error: "Importing recipes from a link is turned off." });
+    }
+    const parsed = parseBody(importRecipeSchema, request.body);
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid link", details: parsed.error });
+    }
+    try {
+      const recipe = await importRecipeFromUrl(parsed.data.url);
+      logActivity({
+        event: "story.recipe_imported",
+        actorUserId: request.user!.id,
+        targetType: "story",
+        targetId: null,
+        detail: `Read a recipe from ${new URL(recipe.sourceUrl).hostname}.`,
+        ipAddress: request.ip
+      });
+      return reply.send({ recipe });
+    } catch (err) {
+      if (err instanceof RecipeImportError) return reply.code(err.statusCode).send({ error: err.message });
+      throw err;
+    }
   });
 
   // One-time import of the legacy story-owned clips into the recordings
@@ -424,12 +494,16 @@ export async function storiesPlugin(app: FastifyInstance) {
     if (reviewOf && !referenceIsReachable("book", reviewOf.entityId, request.user!, reviewOf.entityType)) {
       return reply.code(400).send({ error: "That book isn't available to review." });
     }
+    const isRecipe = parsed.data.kind === "recipe";
     const story = createStory(request.user!, parsed.data.title, parsed.data.subtitle ?? null, collectionId, {
       kind: parsed.data.kind,
       reviewOf,
       date: parsed.data.date ?? null,
       endDate: parsed.data.endDate ?? null,
-      place: parsed.data.place ?? null
+      place: parsed.data.place ?? null,
+      servings: isRecipe ? parsed.data.servings || null : null,
+      cookMinutes: isRecipe ? parsed.data.cookMinutes ?? null : null,
+      recipe: isRecipe ? parsed.data.recipe ?? null : null
     });
     logActivity({
       event: "story.created",
@@ -550,6 +624,8 @@ export async function storiesPlugin(app: FastifyInstance) {
         chapterNoun: story.chapter_noun,
         intro: story.intro,
         rating: story.rating,
+        servings: story.servings,
+        cookMinutes: story.cook_minutes,
         authorName: story.author_name,
         kind: story.kind,
         saved: isStorySaved(story.id, user.id),

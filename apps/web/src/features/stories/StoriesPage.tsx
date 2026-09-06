@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowRight, BookOpen, BookText, BriefcaseBusiness, CalendarDays, CheckCircle2, ChevronDown, Eye, FolderOpen, Heart, Image as ImageIcon, LayoutGrid, Library, MapPin, Plus, Star, type LucideIcon } from "lucide-react";
+import { ArrowRight, BookOpen, BookText, BriefcaseBusiness, CalendarDays, CheckCircle2, ChefHat, ChevronDown, Eye, FolderOpen, Heart, Image as ImageIcon, LayoutGrid, Library, MapPin, Plus, Star, type LucideIcon } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { followRoute, navigate, queryParam } from "../../router";
@@ -32,7 +32,8 @@ const STORY_KIND_ICONS: Record<StoryKind, LucideIcon> = {
   free: BookText,
   memory: Heart,
   journal: BriefcaseBusiness,
-  review: Star
+  review: Star,
+  recipe: ChefHat
 };
 
 // The story index: a Collections shelf ("Family Story", "Trips") over the
@@ -90,7 +91,8 @@ export function StoriesPage({
       favorites: by((story) => story.saved),
       journal: by((story) => story.kind === "journal"),
       memory: by((story) => story.kind === "memory"),
-      review: by((story) => story.kind === "review")
+      review: by((story) => story.kind === "review"),
+      recipe: by((story) => story.kind === "recipe")
     };
   }, [stories]);
 

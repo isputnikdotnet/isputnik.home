@@ -1871,6 +1871,11 @@ CREATE TABLE IF NOT EXISTS stories (
   intro         TEXT,
   -- Optional star rating (reviews mostly, but any story may carry one).
   rating        INTEGER CHECK (rating IS NULL OR rating BETWEEN 1 AND 5),
+  -- Recipe facts for the head (recipes mostly, but any story may carry them):
+  -- how many it serves as free text ("6", "4–6", "one big pot" — never a
+  -- number to scale by), and the total time in minutes. Migration 67.
+  servings      TEXT,
+  cook_minutes  INTEGER,
   -- How the story is signed: the author name shown on its cover and at its
   -- end. Free text, not a reference to users — a story may be signed with a
   -- pen name, by a couple ("Anna and Pyotr"), or by somebody no longer here,

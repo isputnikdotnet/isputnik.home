@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BookOpen, BookText, BriefcaseBusiness, CheckCircle2, Heart, MapPin, Star, type LucideIcon } from "lucide-react";
+import { BookOpen, BookText, BriefcaseBusiness, CheckCircle2, ChefHat, Heart, Link2, MapPin, Star, type LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api";
 import { navigate } from "../../router";
@@ -11,14 +11,31 @@ import { PartialDateField } from "../../shared/PartialDateField";
 import type { ActionMenuItem } from "../../shared/ActionMenu";
 import { StoryCoverBanner } from "./StoryCoverBanner";
 import { StoryRefPicker } from "./StoryRefPicker";
+import { useRecipeImportEnabled } from "./useRecordingsTarget";
 import { STORY_KINDS, type StoryKind } from "./types";
+
+/** What the server read off a recipe page (POST /api/stories/import-recipe). */
+interface ImportedRecipe {
+  title: string | null;
+  description: string | null;
+  ingredients: string[];
+  steps: string[];
+  servings: string | null;
+  cookMinutes: number | null;
+  sourceUrl: string;
+}
 
 const STORY_KIND_ICONS: Record<StoryKind, LucideIcon> = {
   free: BookText,
   memory: Heart,
   journal: BriefcaseBusiness,
-  review: Star
+  review: Star,
+  recipe: ChefHat
 };
+
+function hostOf(url: string): string {
+  try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return url; }
+}
 
 // A new story opens straight into its editor — there is nothing to look at
 // until something is written. The kind is a TEMPLATE choice made here and
@@ -58,6 +75,16 @@ export function NewStoryModal({
     { id: string; entityType: "audiobook" | "ebook"; title: string; coverUrl: string | null } | null
   >(null);
   const [pickingBook, setPickingBook] = useState(false);
+  // Recipe facts for the head, and the link import: the page is read once
+  // (Read the page) and what it found rides along on Create — the story is
+  // still created by the ordinary POST, with the chapters seeded server-side.
+  const [servings, setServings] = useState("");
+  const [cookMinutes, setCookMinutes] = useState("");
+  const recipeImportEnabled = useRecipeImportEnabled();
+  const [importUrl, setImportUrl] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [imported, setImported] = useState<ImportedRecipe | null>(null);
+  const [importError, setImportError] = useState("");
   // The chosen cover as the band needs it: what to draw, and which library item
   // to point the story at. A review can point at its own book.
   const [cover, setCover] = useState<{ id: string; url: string | null } | null>(null);
@@ -70,7 +97,7 @@ export function NewStoryModal({
     : kind !== "review"
       ? formatPartialDateRange(date.trim(), null)
       : "";
-  const previewPlace = kind === "memory" ? place.trim() : "";
+  const previewPlace = kind === "memory" || kind === "recipe" ? place.trim() : "";
   const KindIcon = STORY_KIND_ICONS[kind];
 
   // A review is about a book, and a book already has a face — offer it rather
@@ -83,6 +110,35 @@ export function NewStoryModal({
       onSelect: () => setCover({ id: book.id, url: book.coverUrl })
     }]
     : [];
+
+  const readRecipePage = async () => {
+    const url = importUrl.trim();
+    if (!url || importing) return;
+    setImporting(true);
+    setImportError("");
+    try {
+      const { recipe } = await api<{ recipe: ImportedRecipe }>("/api/stories/import-recipe", {
+        method: "POST",
+        body: JSON.stringify({ url })
+      });
+      setImported(recipe);
+      // Fill what is still blank; never overwrite what the author typed.
+      if (!title.trim() && recipe.title) setTitle(recipe.title);
+      if (!subtitle.trim() && recipe.description) setSubtitle(recipe.description);
+      if (!servings.trim() && recipe.servings) setServings(recipe.servings);
+      if (!cookMinutes.trim() && recipe.cookMinutes) setCookMinutes(String(recipe.cookMinutes));
+    } catch (err) {
+      setImported(null);
+      setImportError(err instanceof Error ? err.message : t("stories:recipe.importFailed"));
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const cookMinutesValue = (() => {
+    const n = Number.parseInt(cookMinutes, 10);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  })();
 
   const submit = async () => {
     // A review with a chosen book can go out untitled — the book names it.
@@ -99,8 +155,13 @@ export function NewStoryModal({
           kind,
           date: kind !== "review" && date.trim() ? date.trim() : null,
           endDate: kind === "journal" && endDate.trim() ? endDate.trim() : null,
-          place: kind === "memory" && place.trim() ? place.trim() : null,
+          place: (kind === "memory" || kind === "recipe") && place.trim() ? place.trim() : null,
           reviewOf: kind === "review" && book ? { entityType: book.entityType, entityId: book.id } : null,
+          servings: kind === "recipe" && servings.trim() ? servings.trim() : null,
+          cookMinutes: kind === "recipe" ? cookMinutesValue : null,
+          recipe: kind === "recipe" && imported
+            ? { ingredients: imported.ingredients, steps: imported.steps, sourceUrl: imported.sourceUrl }
+            : null,
           collectionId: collectionId ?? null
         })
       });
@@ -231,7 +292,7 @@ export function NewStoryModal({
               />
             )}
 
-            {kind === "memory" && (
+            {(kind === "memory" || kind === "recipe") && (
               <label className="field story-edit-setting">
                 <span>{t("stories:chapter.placeField")} <small className="muted">{t("stories:fields.optional")}</small></span>
                 <input
@@ -245,6 +306,66 @@ export function NewStoryModal({
 
             {kind === "journal" && (
               <p className="muted story-create-hint story-edit-setting-wide">{t("stories:create.journalRangeHint")}</p>
+            )}
+
+            {kind === "recipe" && (
+              <>
+                <label className="field story-edit-setting">
+                  <span>{t("stories:recipe.servingsField")} <small className="muted">{t("stories:fields.optional")}</small></span>
+                  <input
+                    value={servings}
+                    onChange={(event) => setServings(event.target.value)}
+                    placeholder={t("stories:recipe.servingsPlaceholder")}
+                    maxLength={60}
+                  />
+                </label>
+                <label className="field story-edit-setting">
+                  <span>{t("stories:recipe.timeField")} <small className="muted">{t("stories:fields.optional")}</small></span>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={10080}
+                    value={cookMinutes}
+                    onChange={(event) => setCookMinutes(event.target.value)}
+                    placeholder={t("stories:recipe.timePlaceholder")}
+                  />
+                </label>
+
+                {recipeImportEnabled && (
+                  <div className="field story-edit-setting story-edit-setting-wide story-recipe-import">
+                    <span>{t("stories:recipe.linkField")} <small className="muted">{t("stories:fields.optional")}</small></span>
+                    <div className="story-recipe-import-row">
+                      <input
+                        type="url"
+                        value={importUrl}
+                        onChange={(event) => { setImportUrl(event.target.value); if (imported) { setImported(null); } }}
+                        onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void readRecipePage(); } }}
+                        placeholder={t("stories:recipe.linkPlaceholder")}
+                        maxLength={2000}
+                        disabled={importing || saving}
+                      />
+                      <Button variant="secondary" compact onClick={() => void readRecipePage()} disabled={!importUrl.trim() || importing || saving}>
+                        <Link2 size={15} aria-hidden="true" />
+                        <span>{importing ? t("stories:recipe.reading") : t("stories:recipe.read")}</span>
+                      </Button>
+                    </div>
+                    {importError
+                      ? <MessageBox tone="error" title={t("stories:recipe.importFailedTitle")}>{importError}</MessageBox>
+                      : imported
+                        ? (
+                          <MessageBox tone="success" title={t("stories:recipe.importedTitle")}>
+                            {t("stories:recipe.importedBody", {
+                              ingredients: imported.ingredients.length,
+                              steps: imported.steps.length,
+                              host: hostOf(imported.sourceUrl)
+                            })}
+                          </MessageBox>
+                        )
+                        : <span className="muted">{t("stories:recipe.linkHint")}</span>}
+                  </div>
+                )}
+              </>
             )}
 
             {kind === "review" && (

@@ -3400,9 +3400,17 @@
   gap: 4px;
 }
 
+/* One column per kind on the wide dialog; below 900px the cards wrap to
+   whatever fits (three, then two on a phone) instead of squeezing five. */
 .story-new-story-modal .story-kind-row {
-  grid-template-columns: repeat(4, minmax(104px, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 10px;
+}
+
+@media (max-width: 900px) {
+  .story-new-story-modal .story-kind-row {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
 }
 
 .story-new-story-modal .story-kind-option.secondary-button {
@@ -3605,6 +3613,15 @@
   color: var(--gold);
   vertical-align: middle;
 }
+
+/* Recipe facts on the head ("Serves 4–6 · 45 min"), set like the place. */
+.story-recipe-fact-wrap { display: inline-flex; align-items: center; gap: 6px; }
+.story-recipe-fact { display: inline-flex; align-items: center; gap: 4px; }
+
+/* The New story dialog's "From a link" field: the address and its button. */
+.story-recipe-import-row { display: flex; gap: 8px; align-items: center; }
+.story-recipe-import-row input { flex: 1; min-width: 0; }
+.story-recipe-import .message-box { margin-top: 8px; }
 
 /* The editor's star picker. */
 .story-rating-row { display: flex; align-items: center; gap: 2px; }

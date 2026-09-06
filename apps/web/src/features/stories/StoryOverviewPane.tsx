@@ -40,6 +40,10 @@ export function StoryOverviewPane({
     !story.chapterNoun && !story.collectionId && story.rating == null && story.tags.length === 0
   );
   const [chapterNoun, setChapterNoun] = useState(story.chapterNoun ?? "");
+  // Recipe facts: offered to every recipe, and kept on any story that has them.
+  const showRecipeFacts = story.kind === "recipe" || story.servings != null || story.cookMinutes != null;
+  const [servings, setServings] = useState(story.servings ?? "");
+  const [cookMinutes, setCookMinutes] = useState(story.cookMinutes != null ? String(story.cookMinutes) : "");
   const [authorName, setAuthorName] = useState(story.authorName ?? "");
   // The names this author has signed with before, their account name first.
   const [bylines, setBylines] = useState<string[]>([]);
@@ -255,6 +259,45 @@ export function StoryOverviewPane({
               </div>
               <span className="muted">{t("stories:rating.hint")}</span>
             </div>
+
+            {showRecipeFacts && (
+              <>
+                <label className="field story-edit-setting">
+                  <span>{t("stories:recipe.servingsField")}</span>
+                  <input
+                    value={servings}
+                    maxLength={60}
+                    onChange={(event) => setServings(event.target.value)}
+                    onBlur={() => {
+                      const next = servings.trim();
+                      if (next !== (story.servings ?? "")) onPatch({ servings: next || null });
+                    }}
+                    placeholder={t("stories:recipe.servingsPlaceholder")}
+                    disabled={busy}
+                  />
+                  <span className="muted">{t("stories:recipe.servingsHint")}</span>
+                </label>
+                <label className="field story-edit-setting">
+                  <span>{t("stories:recipe.timeField")}</span>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={10080}
+                    value={cookMinutes}
+                    onChange={(event) => setCookMinutes(event.target.value)}
+                    onBlur={() => {
+                      const n = Number.parseInt(cookMinutes, 10);
+                      const next = Number.isFinite(n) && n > 0 ? n : null;
+                      if (next !== story.cookMinutes) onPatch({ cookMinutes: next });
+                    }}
+                    placeholder={t("stories:recipe.timePlaceholder")}
+                    disabled={busy}
+                  />
+                  <span className="muted">{t("stories:recipe.timeHint")}</span>
+                </label>
+              </>
+            )}
 
             <div className="field story-edit-setting story-edit-setting-wide">
               <span>{t("stories:tags.label")}</span>

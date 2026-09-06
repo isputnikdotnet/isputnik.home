@@ -9,8 +9,8 @@ import type { GalleryAsset } from "../gallery/types";
 export type StoryStatus = "draft" | "published";
 
 /** What shape a story was created as — a template choice, nothing more. */
-export type StoryKind = "free" | "memory" | "journal" | "review";
-export const STORY_KINDS: StoryKind[] = ["free", "memory", "journal", "review"];
+export type StoryKind = "free" | "memory" | "journal" | "review" | "recipe";
+export const STORY_KINDS: StoryKind[] = ["free", "memory", "journal", "review", "recipe"];
 
 /** text = markdown prose · media = one photo/video · album/slideshow = a set ·
  *  map = a place · person = someone in the family tree · quote = a pull quote.
@@ -171,6 +171,10 @@ export interface StoryDetail {
   intro: string | null;
   /** Stars (1–5), mostly on review-shaped stories; null = unrated. */
   rating: number | null;
+  /** Recipe facts, mostly on recipe-shaped stories: serves as free text
+   *  ("4–6", "one big pot"), and the total time in whole minutes. */
+  servings: string | null;
+  cookMinutes: number | null;
   /** How the story is signed — a name on the cover and at the end. Free text,
    *  not the account that wrote it: a pen name, two names, or somebody no
    *  longer here. Null = unsigned, and no byline is shown. */

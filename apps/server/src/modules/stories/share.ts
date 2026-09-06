@@ -368,6 +368,8 @@ export function buildStorySharePayload(link: ResolvedShareLink, token: string) {
         chapterNoun: ctx.story.chapter_noun,
         intro: ctx.story.intro,
         rating: ctx.story.rating,
+        servings: ctx.story.servings,
+        cookMinutes: ctx.story.cook_minutes,
         authorName: ctx.story.author_name,
         cover: cover ? shareAssetView(cover, token) : null,
         expandAlbums: ctx.expandAlbums,

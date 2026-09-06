@@ -88,6 +88,56 @@ describe("story creation", () => {
   it("starts as a draft", () => {
     expect(createStory(author, "Minnesota", null).status).toBe("draft");
   });
+
+  it("seeds a recipe as Ingredients / Method / Notes, one empty paragraph each", () => {
+    const story = createStory(author, "Draniki", null, null, { kind: "recipe", place: "Vitebsk", date: "1978" });
+    expect(story.kind).toBe("recipe");
+    expect(story.chapter_noun).toBeNull();
+    const chapters = getChapters(story.id);
+    expect(chapters.map((chapter) => chapter.title)).toEqual(["Ingredients", "Method", "Notes"]);
+    expect(chapters.map((chapter) => chapter.position)).toEqual([1, 2, 3]);
+    // The date and place asked for at creation land on chapter one, as for a memory.
+    expect(chapters[0].date).toBe("1978");
+    expect(chapters[0].place).toBe("Vitebsk");
+    const blocks = getBlocks(story.id);
+    expect(blocks).toHaveLength(3);
+    expect(blocks.map((block) => block.chapter_id)).toEqual(chapters.map((chapter) => chapter.id));
+    expect(blocks.every((block) => block.kind === "text" && block.body === "")).toBe(true);
+
+    // Seeded titles are ordinary chapter titles: renaming is nothing special.
+    updateChapter(chapters[0].id, story.id, { title: "What you need" });
+    expect(getChapters(story.id)[0].title).toBe("What you need");
+  });
+
+  it("carries the recipe facts, which any story may clear or change later", () => {
+    const story = createStory(author, "Draniki", null, null, { kind: "recipe", servings: "4–6", cookMinutes: 45 });
+    expect(story.servings).toBe("4–6");
+    expect(story.cook_minutes).toBe(45);
+    updateStory(story.id, { cookMinutes: null });
+    expect(getStory(story.id)!.cook_minutes).toBeNull();
+    expect(getStory(story.id)!.servings).toBe("4–6");
+    updateStory(story.id, { servings: "one big pot", cookMinutes: 130 });
+    expect(getStory(story.id)).toMatchObject({ servings: "one big pot", cook_minutes: 130 });
+  });
+
+  it("seeds an imported recipe: ingredients as one list, a block per step, the source in Notes", () => {
+    const story = createStory(author, "Draniki", null, null, {
+      kind: "recipe",
+      recipe: {
+        ingredients: ["6 potatoes", "1 onion"],
+        steps: ["Grate.", "Fry."],
+        sourceUrl: "https://www.example.com/recipes/draniki"
+      }
+    });
+    const chapters = getChapters(story.id);
+    const blocks = getBlocks(story.id);
+    const bodiesOf = (chapterId: string) => blocks.filter((block) => block.chapter_id === chapterId).map((block) => block.body);
+    expect(bodiesOf(chapters[0].id)).toEqual(["- 6 potatoes\n- 1 onion"]);
+    expect(bodiesOf(chapters[1].id)).toEqual(["Grate.", "Fry."]);
+    expect(bodiesOf(chapters[2].id)).toEqual(["Source: [example.com](https://www.example.com/recipes/draniki)"]);
+    // Steps sit in reading order inside their chapter.
+    expect(blocks.filter((block) => block.chapter_id === chapters[1].id).map((block) => block.position)).toEqual([1, 2]);
+  });
 });
 
 describe("visibility", () => {

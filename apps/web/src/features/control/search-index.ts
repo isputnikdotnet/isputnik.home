@@ -112,7 +112,7 @@ type SettingKey =
   | "newSignInAlerts" | "twoFactorSignIn" | "linkingDevices" | "ipReputation"
   | "deletionProtection" | "addTrustedNetwork" | "scheduledBackups" | "defaultTheme"
   | "smtpServer" | "sendTestEmail" | "opdsReaderTokens" | "twoFactorAlertsDelivery"
-  | "shareNotifications" | "recordingsLibrary" | "mapRouting";
+  | "shareNotifications" | "recordingsLibrary" | "recipeImport" | "mapRouting";
 
 // Settings that live inside a page. `section` is where they are; search takes
 // you to that tab and the setting is on it.
@@ -174,6 +174,11 @@ const SETTING_ENTRIES: { titleKey: SettingKey; section: ControlSection; keywords
     titleKey: "recordingsLibrary",
     section: "storySettings",
     keywords: "story narration audio recording voice record microphone library destination where recordings saved озвучка история запись аудио голос микрофон библиотека записей куда сохраняются"
+  },
+  {
+    titleKey: "recipeImport",
+    section: "storySettings",
+    keywords: "recipe import link url fetch page ingredients steps cook cooking food dish allow turn off рецепт импорт ссылка страница ингредиенты шаги готовка блюдо разрешить отключить"
   }
 ];
 

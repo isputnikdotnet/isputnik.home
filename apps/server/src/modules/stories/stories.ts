@@ -52,9 +52,16 @@ export type StoryStatus = (typeof STORY_STATUSES)[number];
  *  picks the creation template, sets defaults (journal → chapter noun "Day"),
  *  and adds surfacing (a review joins its book's page via back-links). It
  *  NEVER affects permissions, validation, or what the editor allows: any
- *  story can still become anything. */
-export const STORY_KINDS = ["free", "memory", "journal", "review"] as const;
+ *  story can still become anything. A recipe is a memory with a method: it
+ *  opens on three titled chapters (RECIPE_CHAPTERS) and is otherwise an
+ *  ordinary story — no ingredient model, no scaling (docs/recipes-plan.md). */
+export const STORY_KINDS = ["free", "memory", "journal", "review", "recipe"] as const;
 export type StoryKind = (typeof STORY_KINDS)[number];
+
+/** The chapters a recipe is born with, each holding one empty text block.
+ *  Seeded as plain titles the author can rename — ordinary chapter titles
+ *  from the moment they exist, not a template the story keeps. */
+export const RECIPE_CHAPTERS = ["Ingredients", "Method", "Notes"] as const;
 
 /** How many photos an album/slideshow block shows inline before "View all". */
 export const BLOCK_PREVIEW_LIMIT = 6;
@@ -93,6 +100,9 @@ export interface StoryRow {
   chapter_noun: string | null;
   intro: string | null;
   rating: number | null;
+  /** Recipe facts, both optional: serves as free text; total time in minutes. */
+  servings: string | null;
+  cook_minutes: number | null;
   /** Free-text byline; NULL = the story is unsigned. */
   author_name: string | null;
   collection_id: string | null;
@@ -239,6 +249,11 @@ export function createStory(
     date?: string | null;
     endDate?: string | null;
     place?: string | null;
+    /** Recipe kind: the head facts, and (from a link) the text to seed the
+     *  Ingredients / Method / Notes chapters with instead of empty blocks. */
+    servings?: string | null;
+    cookMinutes?: number | null;
+    recipe?: RecipeSeed | null;
   } = {}
 ): StoryRow {
   const id = nanoid(16);
@@ -248,8 +263,10 @@ export function createStory(
   // on the story is just a story — everything seeded is an ordinary field.
   const chapterNoun = kind === "journal" ? "Day" : null;
   db.transaction(() => {
-    db.prepare("INSERT INTO stories (id, title, subtitle, created_by, collection_id, kind, chapter_noun) VALUES (?, ?, ?, ?, ?, ?, ?)")
-      .run(id, title, subtitle, user.id, collectionId, kind, chapterNoun);
+    db.prepare(`
+      INSERT INTO stories (id, title, subtitle, created_by, collection_id, kind, chapter_noun, servings, cook_minutes)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(id, title, subtitle, user.id, collectionId, kind, chapterNoun, opts.servings ?? null, opts.cookMinutes ?? null);
     const chapterId = nanoid(16);
     db.prepare("INSERT INTO story_chapters (id, story_id, position) VALUES (?, ?, 1)")
       .run(chapterId, id);
@@ -282,8 +299,53 @@ export function createStory(
         VALUES (?, ?, 1, 'book', ?, ?)
       `).run(nanoid(16), chapterId, opts.reviewOf.entityType, opts.reviewOf.entityId);
     }
+
+    // A recipe opens as Ingredients / Method / Notes, each with an empty
+    // paragraph waiting, so the editor lands on a shape instead of a blank.
+    // Chapter one (already made, carrying the date/place) becomes the first
+    // of them; the rest are appended after it. Imported from a link, the
+    // same three chapters open already written: the ingredients as one list,
+    // one paragraph per step, and the source linked from Notes.
+    if (kind === "recipe") {
+      const setTitle = db.prepare("UPDATE story_chapters SET title = ? WHERE id = ?");
+      const insertChapter = db.prepare("INSERT INTO story_chapters (id, story_id, position, title) VALUES (?, ?, ?, ?)");
+      const insertText = db.prepare("INSERT INTO story_blocks (id, chapter_id, position, kind, body) VALUES (?, ?, ?, 'text', ?)");
+      const bodies = recipeChapterBodies(opts.recipe ?? null);
+      RECIPE_CHAPTERS.forEach((title, index) => {
+        let target = chapterId;
+        if (index === 0) {
+          setTitle.run(title, chapterId);
+        } else {
+          target = nanoid(16);
+          insertChapter.run(target, id, index + 1, title);
+        }
+        bodies[index].forEach((body, position) => insertText.run(nanoid(16), target, position + 1, body));
+      });
+    }
   })();
   return getStory(id)!;
+}
+
+/** What a link import hands createStory: already-clean text, nothing else. */
+export interface RecipeSeed {
+  ingredients: string[];
+  steps: string[];
+  sourceUrl: string | null;
+}
+
+/** The text blocks each seeded recipe chapter opens with, in chapter order
+ *  (Ingredients / Method / Notes). No seed = one empty paragraph each. */
+function recipeChapterBodies(seed: RecipeSeed | null): string[][] {
+  if (!seed) return RECIPE_CHAPTERS.map(() => [""]);
+  const ingredients = seed.ingredients.map((line) => `- ${line}`).join("\n");
+  const steps = seed.steps.length > 0 ? seed.steps : [""];
+  let notes = "";
+  if (seed.sourceUrl) {
+    let host = seed.sourceUrl;
+    try { host = new URL(seed.sourceUrl).hostname.replace(/^www\./, ""); } catch { /* keep the raw text */ }
+    notes = `Source: [${host}](${seed.sourceUrl})`;
+  }
+  return [[ingredients], steps, [notes]];
 }
 
 export interface StoryUpdate {
@@ -294,6 +356,8 @@ export interface StoryUpdate {
   chapterNoun?: string | null;
   intro?: string | null;
   rating?: number | null;
+  servings?: string | null;
+  cookMinutes?: number | null;
   authorName?: string | null;
   collectionId?: string | null;
 }
@@ -315,6 +379,8 @@ export function updateStory(storyId: string, fields: StoryUpdate): void {
       chapter_noun  = CASE WHEN ? THEN ? ELSE chapter_noun END,
       intro         = CASE WHEN ? THEN ? ELSE intro END,
       rating        = CASE WHEN ? THEN ? ELSE rating END,
+      servings      = CASE WHEN ? THEN ? ELSE servings END,
+      cook_minutes  = CASE WHEN ? THEN ? ELSE cook_minutes END,
       author_name   = CASE WHEN ? THEN ? ELSE author_name END,
       collection_id = CASE WHEN ? THEN ? ELSE collection_id END,
       updated_at    = strftime('%Y-%m-%dT%H:%M:%fZ','now')
@@ -334,6 +400,10 @@ export function updateStory(storyId: string, fields: StoryUpdate): void {
     fields.intro ?? null,
     fields.rating !== undefined ? 1 : 0,
     fields.rating ?? null,
+    fields.servings !== undefined ? 1 : 0,
+    fields.servings ?? null,
+    fields.cookMinutes !== undefined ? 1 : 0,
+    fields.cookMinutes ?? null,
     fields.authorName !== undefined ? 1 : 0,
     fields.authorName ?? null,
     fields.collectionId !== undefined ? 1 : 0,

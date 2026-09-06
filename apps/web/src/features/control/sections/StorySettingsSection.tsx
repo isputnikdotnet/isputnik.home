@@ -9,6 +9,7 @@ import { ControlSectionHead } from "../ControlSectionHead";
 
 interface StorySettingsDto {
   recordingsLibrary: { id: string; name: string } | null;
+  recipeImportEnabled: boolean;
   pendingNarrations?: number;
 }
 
@@ -27,6 +28,7 @@ export function StorySettingsSection() {
   const [loadError, setLoadError] = useState("");
   const [libraries, setLibraries] = useState<{ id: string; name: string }[]>([]);
   const [libraryId, setLibraryId] = useState("");
+  const [recipeImport, setRecipeImport] = useState(true);
   const [pending, setPending] = useState(0);
 
   const [saving, setSaving] = useState(false);
@@ -46,6 +48,7 @@ export function StorySettingsSection() {
       .then(([libs, settings]) => {
         setLibraries(libs.libraries.map((library) => ({ id: library.id, name: library.name })));
         setLibraryId(settings.recordingsLibrary?.id ?? "");
+        setRecipeImport(settings.recipeImportEnabled);
         setPending(settings.pendingNarrations ?? 0);
       })
       .catch((err) => setLoadError(err instanceof Error ? err.message : t("controlAdmin:storySettings.loadFailed")))
@@ -60,9 +63,10 @@ export function StorySettingsSection() {
     try {
       const payload = await api<StorySettingsDto>("/api/stories/settings", {
         method: "PUT",
-        body: JSON.stringify({ recordingsLibraryId: libraryId || null })
+        body: JSON.stringify({ recordingsLibraryId: libraryId || null, recipeImportEnabled: recipeImport })
       });
       setLibraryId(payload.recordingsLibrary?.id ?? "");
+      setRecipeImport(payload.recipeImportEnabled);
       setPending(payload.pendingNarrations ?? 0);
       setSaved(true);
     } catch (err) {
@@ -120,6 +124,17 @@ export function StorySettingsSection() {
               </select>
             </label>
             <p className="muted">{t("controlAdmin:storySettings.libraryNote")}</p>
+
+            <label className="mail-check">
+              <input
+                type="checkbox"
+                checked={recipeImport}
+                onChange={(event) => setRecipeImport(event.target.checked)}
+                disabled={saving}
+              />
+              <span>{t("controlAdmin:storySettings.recipeImportLabel")}</span>
+            </label>
+            <p className="muted">{t("controlAdmin:storySettings.recipeImportNote")}</p>
 
             {saveError && <MessageBox tone="error" title={t("common:errors.unableToSave")}>{saveError}</MessageBox>}
             {saved && <MessageBox tone="success" title={t("controlAdmin:ui.saved")}>{t("controlAdmin:storySettings.savedBody")}</MessageBox>}

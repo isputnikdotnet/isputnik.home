@@ -88,7 +88,7 @@
     "loadFailed": "Unable to load routing settings"
   },
   "storySettings": {
-    "headDescription": "Where story narration recordings are kept.",
+    "headDescription": "Where narration recordings are kept, and whether recipes may be read from a link.",
     "intro": "Recordings made in the story editor are saved into one gallery library you choose here, under “Story recordings”. They become ordinary audio in that library — visible in the gallery, included in backups, and kept even if their story is deleted. Until a library is chosen, the story editor offers no recording at all.",
     "settingsTitle": "Unable to load story settings",
     "loadFailed": "Unable to load story settings",
@@ -96,6 +96,8 @@
     "libraryNone": "Not set — recording is off",
     "libraryNote": "Pick a library every member can view, or narration will be missing for people without access to it. Choosing a library also adds audio file types to its scan settings.",
     "savedBody": "Story settings saved.",
+    "recipeImportLabel": "Allow starting a recipe from a link",
+    "recipeImportNote": "When on, the New story dialog can read a recipe page a member pastes and fill in the ingredients and steps. The app fetches only that page's text — never its pictures — and keeps nothing but what lands in the story. Turn it off to stop members making the app visit other sites.",
     "pendingTitle": "Recordings from before this setting",
     "pendingBody_one": "{{count}} narration recording is stored inside the app, invisible to the gallery. Move it into the recordings library so it is backed up and browsable like everything else.",
     "pendingBody_other": "{{count}} narration recordings are stored inside the app, invisible to the gallery. Move them into the recordings library so they are backed up and browsable like everything else.",

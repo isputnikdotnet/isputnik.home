@@ -12,6 +12,7 @@ import type { GalleryAsset } from "../gallery/types";
 import type { SlideshowTransition } from "../gallery/types";
 import { NotesSection } from "../social/NotesSection";
 import { SendToSheet } from "../social/SendToSheet";
+import { RecipeFacts, hasRecipeFacts } from "./RecipeFacts";
 import { StoryBlockView } from "./StoryBlockView";
 import { StoryMarkdown } from "./StoryMarkdown";
 import { StoryMap } from "./StoryMap";
@@ -339,13 +340,14 @@ function StoryHead({ story }: { story: StoryDetail }) {
         {story.authorName && (
           <p className="story-byline">{t("stories:read.byline", { name: story.authorName })}</p>
         )}
-        {(span || primaryPlace || story.rating != null) && (
+        {(span || primaryPlace || story.rating != null || hasRecipeFacts(story)) && (
           <p className="story-home-meta">
             {span}
             {span && primaryPlace && <span aria-hidden="true"> · </span>}
             {primaryPlace && (
               <span className="story-chapter-place"><MapPin size={13} aria-hidden="true" /> {primaryPlace}</span>
             )}
+            <RecipeFacts servings={story.servings} cookMinutes={story.cookMinutes} leadingDot={Boolean(span || primaryPlace)} />
             {story.rating != null && <StoryStars value={story.rating} />}
           </p>
         )}

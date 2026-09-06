@@ -703,6 +703,21 @@ const migrations: { version: number; up: (db: Database.Database) => void }[] = [
         CREATE INDEX IF NOT EXISTS idx_story_updates_story ON story_updates(story_id, created_at);
       `);
     }
+  },
+  {
+    // Recipe facts on the story head: how many it serves (free text — "4–6",
+    // "one big pot") and the total time in minutes. Any story may carry
+    // them, recipes mostly; both NULL means nothing is shown. See
+    // docs/recipes-plan.md, phase 2.
+    version: 67,
+    up: (db) => {
+      const columns = new Set(
+        (db.prepare("PRAGMA table_info(stories)").all() as { name: string }[]).map((c) => c.name)
+      );
+      if (columns.size === 0) return;
+      if (!columns.has("servings")) db.exec("ALTER TABLE stories ADD COLUMN servings TEXT");
+      if (!columns.has("cook_minutes")) db.exec("ALTER TABLE stories ADD COLUMN cook_minutes INTEGER");
+    }
   }
 ];
 

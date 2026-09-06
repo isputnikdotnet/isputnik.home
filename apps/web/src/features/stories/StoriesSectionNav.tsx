@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { BookMarked, BookOpenCheck, BookText, Library, PenLine, Route, Sparkles, Star } from "lucide-react";
+import { BookMarked, BookOpenCheck, BookText, ChefHat, Library, PenLine, Route, Sparkles, Star } from "lucide-react";
 import { api } from "../../api";
 import { SectionNav, type SectionNavGroup } from "../../shared/SectionNav";
 import type { StoryCollectionSummary } from "./types";
@@ -15,6 +15,7 @@ export interface StoryIndexCounts {
   journal: number;
   memory: number;
   review: number;
+  recipe: number;
 }
 
 // The Stories module's contextual sidebar, the way Gallery and Ebooks have
@@ -55,7 +56,8 @@ export function StoriesSectionNav({
       items: [
         { key: "kind-journal", label: t("stories:kinds.journal.name"), href: "/stories?kind=journal", icon: Route, count: counts?.journal },
         { key: "kind-memory", label: t("stories:kinds.memory.name"), href: "/stories?kind=memory", icon: Sparkles, count: counts?.memory },
-        { key: "kind-review", label: t("stories:kinds.review.name"), href: "/stories?kind=review", icon: BookMarked, count: counts?.review }
+        { key: "kind-review", label: t("stories:kinds.review.name"), href: "/stories?kind=review", icon: BookMarked, count: counts?.review },
+        { key: "kind-recipe", label: t("stories:kinds.recipe.name"), href: "/stories?kind=recipe", icon: ChefHat, count: counts?.recipe }
       ]
     },
     {

@@ -95,6 +95,7 @@
       "twoFactorAlertsDelivery": "Доставка кодов и оповещений безопасности",
       "shareNotifications": "Уведомления о доступе",
       "recordingsLibrary": "Библиотека записей историй",
+      "recipeImport": "Импорт рецептов по ссылке",
       "mapRouting": "Прокладка маршрутов"
     }
   },

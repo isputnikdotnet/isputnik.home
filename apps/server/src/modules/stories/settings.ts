@@ -13,9 +13,12 @@ const SETTINGS_KEY = "stories_settings";
 
 export interface StoriesSettings {
   recordingsLibraryId: string | null;
+  /** Whether members may start a recipe from a link (an outbound fetch of a
+   *  page the member names). On by default; an admin can close the door. */
+  recipeImportEnabled: boolean;
 }
 
-const DEFAULTS: StoriesSettings = { recordingsLibraryId: null };
+const DEFAULTS: StoriesSettings = { recordingsLibraryId: null, recipeImportEnabled: true };
 
 export function getStoriesSettings(): StoriesSettings {
   const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(SETTINGS_KEY) as { value: string } | undefined;

@@ -31,6 +31,11 @@ and the form follows your choice:
 - **Review** — your verdict on a book, with stars. Choose the book right in
   the form and the review opens on its card, titled after it. (There's an
   even shorter way: see [Reviews](#reviews) below.)
+- **Recipe** — a family dish and the story behind it. It opens with three
+  chapters already named — **Ingredients**, **Method**, **Notes** — each with
+  an empty paragraph waiting; it asks when and where, like a memory, plus how
+  many it serves and how long it takes. Paste a link to a recipe page and the
+  chapters open already written. (More in [Recipes](#recipes) below.)
 
 Everything is skippable, and the kind shapes how the story *starts* and
 nothing more — a memory can still grow into a ten-chapter epic. It can't be
@@ -259,6 +264,42 @@ collection: the restriction goes with it. Published stories that were
 visible only to the shelf's members become ordinary published stories,
 visible to the whole family. The delete dialog warns about exactly this
 before you press the button.
+
+## Recipes
+
+A recipe is a story like any other — it just starts with a shape. Write the
+ingredients one per line in the first chapter, the steps in the second, and
+keep the third for what makes it *yours*: whose recipe it was, the trick
+nobody wrote down, what to change next time. The chapter names are only
+suggestions; rename them, add a chapter, drop one.
+
+Everything a story can hold works here: a photo of the dish (which also makes
+a fine cover), a **Person** block for the cook so the recipe shows up on their
+family tree page, a voice recording of them explaining it. A **collection** is
+a cookbook — *"Grandma's kitchen"* — with the same access rules as any other
+shelf, and a guest link shares a single recipe with a relative who has no
+account.
+
+Two small facts sit on the recipe's front page beside its date and place:
+**Serves** and **Total time**. Both are asked for when the recipe is started
+and can be changed in the editor's *Story details* card. Serves is words,
+not a number — *"4–6"*, *"one big pot"*, *"Makes 12"* — because it's there to
+be read, never recalculated.
+
+**From a link.** Most recipes start life on a website. Paste the page's
+address into **From a link** when starting a recipe and press **Read the
+page**: the title, summary, serves, time, ingredients and steps are filled in
+for you, with the source linked at the end of *Notes*. Then make it yours —
+the family version of a recipe is rarely the printed one. The app reads only
+that page's text (never its pictures; choose a photo of your own dish for the
+cover) and keeps nothing except what lands in the story. Most recipe sites
+work; a page with no recipe data simply says so, and you carry on by hand.
+An admin can switch this off (Control panel → Settings → Stories) if they'd
+rather the app never visited other sites on a member's behalf.
+
+The app deliberately keeps recipes as writing: there's no ingredient
+database, no scaling to eight servings, no shopping list. That's what a
+kitchen app is for; this is where the recipe is kept safe.
 
 ## Reviews
 
