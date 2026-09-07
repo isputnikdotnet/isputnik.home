@@ -1,10 +1,11 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { Mic } from "lucide-react";
+import { Images, Mic } from "lucide-react";
 import { api } from "../../../api";
 import { Button } from "../../../shared/Button";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { MessageBox } from "../../../shared/MessageBox";
+import { SelectField } from "../../../shared/SelectField";
 import { ControlSectionHead } from "../ControlSectionHead";
 
 interface StorySettingsDto {
@@ -114,15 +115,17 @@ export function StorySettingsSection() {
           <p className="muted">{t("controlAdmin:ui.loading")}</p>
         ) : (
           <form className="mail-form" onSubmit={save}>
-            <label className="mail-field">
-              <span>{t("controlAdmin:storySettings.libraryLabel")}</span>
-              <select value={libraryId} onChange={(event) => setLibraryId(event.target.value)} disabled={saving}>
-                <option value="">{t("controlAdmin:storySettings.libraryNone")}</option>
-                {libraries.map((library) => (
-                  <option key={library.id} value={library.id}>{library.name}</option>
-                ))}
-              </select>
-            </label>
+            <SelectField
+              label={t("controlAdmin:storySettings.libraryLabel")}
+              icon={<Images size={17} />}
+              value={libraryId}
+              onChange={setLibraryId}
+              disabled={saving}
+              options={[
+                { value: "", label: t("controlAdmin:storySettings.libraryNone") },
+                ...libraries.map((library) => ({ value: library.id, label: library.name }))
+              ]}
+            />
             <p className="muted">{t("controlAdmin:storySettings.libraryNote")}</p>
 
             <label className="mail-check">

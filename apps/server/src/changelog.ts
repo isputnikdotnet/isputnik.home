@@ -19,6 +19,14 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.69.2",
+    label: "Every dropdown, then",
+    changes: [
+      "The last of the dropdowns — the ones on pages rather than in dialogs — are the same control as all the others: a book’s category and the series it joins, the library a new narrator or series belongs to, a category’s icon, how an audiobook library tracks progress, where stories keep their pictures, the collection a story sits in, what language the quote of the day speaks, and the quote editor’s visibility, speaker and language. Where the question names a kind of thing it now wears the glyph for it, and the quote editor’s dropdowns sit on the same paper as the boxes around them instead of being three pixels taller.",
+      "What stays a plain dropdown is what was never one of these: the coloured chips in the scan-layout editor, the access rows that already carry their own icon and explanation, and the role picker with the colour dot beside it."
+    ]
+  },
+  {
     version: "3.69.1",
     label: "The small dropdowns too",
     changes: [

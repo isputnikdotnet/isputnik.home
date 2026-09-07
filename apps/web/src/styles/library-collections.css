@@ -1285,14 +1285,28 @@
   min-width: 0;
 }
 
-.quote-field > span {
+.quote-field > span,
+.quote-field > label {
   color: var(--muted);
   font-size: 0.82rem;
 }
 
-.quote-field > span em {
+.quote-field > span em,
+.quote-field > label em {
   font-style: normal;
   opacity: 0.7;
+}
+
+.quote-field .select-field-control {
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+/* This form sizes its controls by their padding, not by a min-height, so the
+   dropdown drops the one it carries everywhere else and matches its neighbours. */
+.quote-field .select-field-control select {
+  min-height: 0;
 }
 
 .quote-field textarea,

@@ -7,6 +7,7 @@ import { UserAreaNav } from "./UserAreaNav";
 import { navigate } from "../../router";
 import { Button } from "../../shared/Button";
 import { Modal } from "../../shared/Modal";
+import { SelectField } from "../../shared/SelectField";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { MessageBox } from "../../shared/MessageBox";
 import { relativeTime } from "../../shared/utils";
@@ -278,16 +279,16 @@ function QuoteEditor({
         </label>
 
         <div className="quote-field-row">
-          <label className="quote-field">
-            <span>{t("user:quotes.visibilityField")}</span>
-            <select
-              value={draft.visibility}
-              onChange={(e) => setDraft((d) => ({ ...d, visibility: e.target.value as QuoteDraft["visibility"] }))}
-            >
-              <option value="private">{t("user:quotes.visibilityPrivate")}</option>
-              <option value="family">{t("user:quotes.visibilityFamily")}</option>
-            </select>
-          </label>
+          <SelectField
+            className="quote-field"
+            label={t("user:quotes.visibilityField")}
+            value={draft.visibility}
+            onChange={(value) => setDraft((d) => ({ ...d, visibility: value as QuoteDraft["visibility"] }))}
+            options={[
+              { value: "private", label: t("user:quotes.visibilityPrivate") },
+              { value: "family", label: t("user:quotes.visibilityFamily") }
+            ]}
+          />
           <label className="field-checkbox quote-field-toggle">
             <input
               type="checkbox"
@@ -301,18 +302,16 @@ function QuoteEditor({
 
         <div className="quote-tab-panel" hidden={tab !== "details"}>
         {familyMembers.length > 0 && (
-          <label className="quote-field">
-            <span>{t("user:quotes.speakerField")} <em>{t("user:form.optional")}</em></span>
-            <select
-              value={draft.familyTreePersonId}
-              onChange={(e) => setDraft((d) => ({ ...d, familyTreePersonId: e.target.value }))}
-            >
-              <option value="">{t("user:quotes.speakerNobody")}</option>
-              {familyMembers.map((person) => (
-                <option key={person.id} value={person.id}>{person.name}</option>
-              ))}
-            </select>
-          </label>
+          <SelectField
+            className="quote-field"
+            label={<>{t("user:quotes.speakerField")} <em>{t("user:form.optional")}</em></>}
+            value={draft.familyTreePersonId}
+            onChange={(value) => setDraft((d) => ({ ...d, familyTreePersonId: value }))}
+            options={[
+              { value: "", label: t("user:quotes.speakerNobody") },
+              ...familyMembers.map((person) => ({ value: person.id, label: person.name }))
+            ]}
+          />
         )}
 
         <div className="quote-field">
@@ -327,18 +326,16 @@ function QuoteEditor({
 
 
         <div className="quote-field-row">
-          <label className="quote-field">
-            <span>{t("user:quotes.languageField")} <em>{t("user:form.optional")}</em></span>
-            <select
-              value={draft.language}
-              onChange={(e) => setDraft((d) => ({ ...d, language: e.target.value }))}
-            >
-              <option value="">{t("user:quotes.languageUnset")}</option>
-              {languageOptions.map((option) => (
-                <option key={option.code} value={option.code}>{option.label}</option>
-              ))}
-            </select>
-          </label>
+          <SelectField
+            className="quote-field"
+            label={<>{t("user:quotes.languageField")} <em>{t("user:form.optional")}</em></>}
+            value={draft.language}
+            onChange={(value) => setDraft((d) => ({ ...d, language: value }))}
+            options={[
+              { value: "", label: t("user:quotes.languageUnset") },
+              ...languageOptions.map((option) => ({ value: option.code, label: option.label }))
+            ]}
+          />
           <label className="quote-field">
             <span>{t("user:quotes.dateField")} <em>{t("user:form.optional")}</em></span>
             <input

@@ -9,6 +9,7 @@ import { DashboardShell } from "../app/DashboardShell";
 import { followRoute, galleryInboxHref, navigate } from "../router";
 import { MessageBox } from "../shared/MessageBox";
 import { Modal } from "../shared/Modal";
+import { SelectField } from "../shared/SelectField";
 import { Button } from "../shared/Button";
 import { authorLine, audioRecordToFeedItem, ebookRecordToFeedItem, fetchFeed, saveFeedItemOffline, type FeedItem } from "../features/library/feed";
 import { batchDayLabel, fetchDailyQuote, fetchHomeFeed, fetchRecentlyAddedPhotos, localDate, storeQuoteCategory, storeQuotePrefs, storedQuotePrefs, tightMemoryGroups, toActivityItem, type ActivityCard, type AddedBatchCard, type HomeCard, type MemoryCard, type PhotoInboxCard, type PhotosAddedCard, type QuoteCard, type QuotePrefs, type SentCard, type SeriesNextCard } from "../features/home/feed";
@@ -440,19 +441,18 @@ function QuotePrefsModal({
       onSubmit={(event) => { event.preventDefault(); onSave(prefs); }}
     >
       <div className="quote-prefs">
-        <label className="field">
-          <span>{t("home.quotePrefsLanguage")}</span>
-          <select
-            value={prefs.language}
-            onChange={(event) => setPrefs((current) => ({ ...current, language: event.target.value }))}
-          >
-            {/* "" follows the app's own language, which is what most people want
-                and what the card did before this dialog existed. */}
-            <option value="">{t("home.quotePrefsLanguageAuto")}</option>
-            <option value="en">English</option>
-            <option value="ru">Русский</option>
-          </select>
-        </label>
+        <SelectField
+          label={t("home.quotePrefsLanguage")}
+          value={prefs.language}
+          onChange={(value) => setPrefs((current) => ({ ...current, language: value }))}
+          options={[
+            // "" follows the app's own language, which is what most people want
+            // and what the card did before this dialog existed.
+            { value: "", label: t("home.quotePrefsLanguageAuto") },
+            { value: "en", label: "English" },
+            { value: "ru", label: "Русский" }
+          ]}
+        />
 
         {/* Not a .field: that class styles its inputs as full-width 46px text
             boxes, which turns a checkbox into a giant square and squeezes its

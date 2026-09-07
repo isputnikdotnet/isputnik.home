@@ -6,6 +6,7 @@ import type { ActionMenuItem } from "../../shared/ActionMenu";
 import { Button } from "../../shared/Button";
 import { InlineEdit } from "../../shared/InlineEdit";
 import { MessageBox } from "../../shared/MessageBox";
+import { SelectField } from "../../shared/SelectField";
 import { PeopleCombobox } from "../../shared/PeopleCombobox";
 import { SuggestInput } from "../../shared/SuggestInput";
 import { StoryCoverBanner } from "./StoryCoverBanner";
@@ -213,22 +214,20 @@ export function StoryOverviewPane({
               <span className="muted">{t("stories:fields.chapterNounHint")}</span>
             </label>
 
-            <label className="field story-edit-setting">
-              <span>{t("stories:collections.pickerLabel")}</span>
-              <select
-                value={story.collectionId ?? ""}
-                onChange={(event) => onPatch({ collectionId: event.target.value || null })}
-                disabled={busy}
-              >
-                <option value="">{t("stories:collections.none")}</option>
-                {collections
+            <SelectField
+              className="story-edit-setting"
+              label={t("stories:collections.pickerLabel")}
+              value={story.collectionId ?? ""}
+              onChange={(value) => onPatch({ collectionId: value || null })}
+              disabled={busy}
+              hint={t("stories:collections.pickerHint")}
+              options={[
+                { value: "", label: t("stories:collections.none") },
+                ...collections
                   .filter((collection) => collection.canContribute || collection.id === story.collectionId)
-                  .map((collection) => (
-                    <option key={collection.id} value={collection.id}>{collection.title}</option>
-                  ))}
-              </select>
-              <span className="muted">{t("stories:collections.pickerHint")}</span>
-            </label>
+                  .map((collection) => ({ value: collection.id, label: collection.title }))
+              ]}
+            />
 
             <div className="field story-edit-setting">
               <span>{t("stories:rating.label")}</span>

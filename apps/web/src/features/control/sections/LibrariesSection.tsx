@@ -24,6 +24,7 @@ import { controlHref, followRoute } from "../../../router";
 import { MessageBox } from "../../../shared/MessageBox";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { Modal } from "../../../shared/Modal";
+import { SelectField } from "../../../shared/SelectField";
 import { Button } from "../../../shared/Button";
 import { RefreshButton } from "../../../shared/RefreshButton";
 import { SelectMenu } from "../../../shared/SelectMenu";
@@ -847,16 +848,16 @@ export function LibrariesSection() {
                   <TagEncodingField value={editTagEncoding} onChange={setEditTagEncoding} />
                 )}
                 {editingLibrary.type === "audiobook" && (
-                  <label className="field">
-                    <span>{t("control:libraries.progressTracking")}</span>
-                    <select value={editProgressMode} onChange={(event) => setEditProgressMode(event.target.value as "linear" | "episodic")}>
-                      <option value="linear">{t("control:libraries.progressLinear")}</option>
-                      <option value="episodic">{t("control:libraries.progressEpisodic")}</option>
-                    </select>
-                    <small className="muted">
-                      {t("control:libraries.progressEpisodicHint")}
-                    </small>
-                  </label>
+                  <SelectField
+                    label={t("control:libraries.progressTracking")}
+                    value={editProgressMode}
+                    onChange={(value) => setEditProgressMode(value as "linear" | "episodic")}
+                    hint={t("control:libraries.progressEpisodicHint")}
+                    options={[
+                      { value: "linear", label: t("control:libraries.progressLinear") },
+                      { value: "episodic", label: t("control:libraries.progressEpisodic") }
+                    ]}
+                  />
                 )}
               </>
             )}

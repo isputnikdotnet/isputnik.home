@@ -494,15 +494,15 @@ export function BulkEditModal({
                   <PeopleCombobox value={narrators} onChange={setNarrators} suggestions={peopleSuggestions} placeholder={t("book:metadata.addNarrator")} />
                 </div>
               )}
-              <label className="field">
-                <span>{t("book:metadata.fieldCategory")}</span>
-                <select value={categoryKey} onChange={(event) => setCategoryKey(event.target.value)}>
-                  <option value="">{t("book:catalog.keepCurrent")}</option>
-                  {categories.map((category) => (
-                    <option key={category.key} value={category.key}>{category.name}</option>
-                  ))}
-                </select>
-              </label>
+              <SelectField
+                label={t("book:metadata.fieldCategory")}
+                value={categoryKey}
+                onChange={setCategoryKey}
+                options={[
+                  { value: "", label: t("book:catalog.keepCurrent") },
+                  ...categories.map((category) => ({ value: category.key, label: category.name }))
+                ]}
+              />
               <Field label={t("book:catalog.fieldLanguageExample")} value={language} onChange={setLanguage} required={false} />
               <label className="field override-desc">
                 <span>{t("book:metadata.fieldDescription")}</span>
@@ -603,26 +603,25 @@ export function AddToSeriesModal({
         ) : (
           <>
             {series.length > 0 && (
-              <div className="field" style={{ marginBottom: 12 }}>
-                <span>{t("book:detail.rows.series")}</span>
-                <select
-                  value={mode === "existing" ? seriesId : "__new__"}
-                  onChange={(event) => {
-                    if (event.target.value === "__new__") {
-                      setMode("new");
-                    } else {
-                      setMode("existing");
-                      setSeriesId(event.target.value);
-                    }
-                  }}
-                >
-                  <option value="">{t("book:catalog.chooseSeriesPlaceholder")}</option>
-                  {series.map((item) => (
-                    <option key={item.id} value={item.id}>{item.name} ({item.bookCount})</option>
-                  ))}
-                  <option value="__new__">{t("book:catalog.createNewSeriesOption")}</option>
-                </select>
-              </div>
+              <SelectField
+                className="book-upload-library"
+                label={t("book:detail.rows.series")}
+                icon={<ListMusic size={17} />}
+                value={mode === "existing" ? seriesId : "__new__"}
+                onChange={(value: string) => {
+                  if (value === "__new__") {
+                    setMode("new");
+                  } else {
+                    setMode("existing");
+                    setSeriesId(value);
+                  }
+                }}
+                options={[
+                  { value: "", label: t("book:catalog.chooseSeriesPlaceholder") },
+                  ...series.map((item) => ({ value: item.id, label: `${item.name} (${item.bookCount})` })),
+                  { value: "__new__", label: t("book:catalog.createNewSeriesOption") }
+                ]}
+              />
             )}
 
             {mode === "new" && (

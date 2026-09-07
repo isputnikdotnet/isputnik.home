@@ -40,7 +40,9 @@ export function SelectField<T extends string>({
   hideLabel = false,
   className
 }: {
-  label: string;
+  /** Usually a plain string; a node for the handful of labels that carry an
+   *  "(optional)" of their own. */
+  label: ReactNode;
   value: T;
   options: SelectFieldOption<T>[];
   /** Options under their own headings, after the loose ones. */

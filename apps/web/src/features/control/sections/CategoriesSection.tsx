@@ -4,6 +4,7 @@ import { ArrowLeft, Check, List, Pencil, Plus, RefreshCw, Search, Tags as TagsIc
 import { api } from "../../../api";
 import { controlHref, navigate } from "../../../router";
 import { MessageBox } from "../../../shared/MessageBox";
+import { SelectField } from "../../../shared/SelectField";
 import { ControlSectionHead } from "../ControlSectionHead";
 import { CategoryIcon, CATEGORY_ICON_KEYS } from "../../audiobooks/categoryIcons";
 import type { TagSummary } from "../../audiobooks/types";
@@ -571,12 +572,12 @@ export function CategoryEditorPage({ categoryId }: { categoryId: string | null }
             <input value={name} onChange={(event) => setName(event.target.value)} maxLength={80} />
           </label>
 
-          <label className="field">
-            <span>{t("control:categories.icon")}</span>
-            <select value={icon} onChange={(event) => setIcon(event.target.value)}>
-              {CATEGORY_ICON_KEYS.map((key) => <option key={key} value={key}>{key}</option>)}
-            </select>
-          </label>
+          <SelectField
+            label={t("control:categories.icon")}
+            value={icon}
+            onChange={setIcon}
+            options={CATEGORY_ICON_KEYS.map((key) => ({ value: key, label: key }))}
+          />
 
           <label className="field">
             <span>{t("control:categories.order")}</span>

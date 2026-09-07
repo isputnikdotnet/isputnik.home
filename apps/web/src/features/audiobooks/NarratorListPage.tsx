@@ -10,6 +10,7 @@ import { LibraryPageHeader } from "../../shared/LibraryPageHeader";
 import { LibraryMenu } from "../../shared/LibraryMenu";
 import { LibraryPageToolbar } from "../../shared/LibraryPageToolbar";
 import { MessageBox } from "../../shared/MessageBox";
+import { SelectField } from "../../shared/SelectField";
 import { Modal } from "../../shared/Modal";
 import { SectionNav } from "../../shared/SectionNav";
 import { SortMenu } from "../../shared/SortMenu";
@@ -242,15 +243,16 @@ export function NarratorListPage({
             <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder={t("book:narrators.namePlaceholder")} autoFocus />
           </label>
           {writableLibraries.length > 1 && (
-            <label className="field">
-              <span>{t("book:detail.rows.library")}</span>
-              <select value={newLibraryId} onChange={(e) => setNewLibraryId(e.target.value)}>
-                <option value="">{t("book:narrators.chooseLibraryPlaceholder")}</option>
-                {writableLibraries.map((lib) => (
-                  <option key={lib.id} value={lib.id}>{lib.name}</option>
-                ))}
-              </select>
-            </label>
+            <SelectField
+              label={t("book:detail.rows.library")}
+              icon={<LibraryBig size={17} />}
+              value={newLibraryId}
+              onChange={setNewLibraryId}
+              options={[
+                { value: "", label: t("book:narrators.chooseLibraryPlaceholder") },
+                ...writableLibraries.map((lib) => ({ value: lib.id, label: lib.name }))
+              ]}
+            />
           )}
           <label className="field">
             <span>{t("book:person.fieldBiography")} <span className="muted">{t("book:narrators.optional")}</span></span>

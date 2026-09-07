@@ -10,6 +10,7 @@ import { LibraryPageHeader } from "../../shared/LibraryPageHeader";
 import { LibraryPageToolbar } from "../../shared/LibraryPageToolbar";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
+import { SelectField } from "../../shared/SelectField";
 import { Button } from "../../shared/Button";
 import { SectionNav } from "../../shared/SectionNav";
 import { SortMenu } from "../../shared/SortMenu";
@@ -233,14 +234,14 @@ export function SeriesListPage({
             </div>
 
             {libraries.length > 1 && (
-              <div className="field" style={{ marginBottom: 12 }}>
-                <span>{t("book:detail.rows.library")}</span>
-                <select value={newLibraryId} onChange={(e) => setNewLibraryId(e.target.value)}>
-                  {libraries.map((lib) => (
-                    <option key={lib.id} value={lib.id}>{lib.name}</option>
-                  ))}
-                </select>
-              </div>
+              <SelectField
+                className="book-upload-library"
+                label={t("book:detail.rows.library")}
+                icon={<LibraryBig size={17} />}
+                value={newLibraryId}
+                onChange={setNewLibraryId}
+                options={libraries.map((lib) => ({ value: lib.id, label: lib.name }))}
+              />
             )}
 
             {createError && <MessageBox tone="error" title={t("book:detail.errorTitle")}>{createError}</MessageBox>}
