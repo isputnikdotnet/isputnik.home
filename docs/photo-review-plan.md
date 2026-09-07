@@ -4,7 +4,11 @@ Status: **Phases 1 and 2 built in-code (2026-09-07)** — migration 70, the
 review fields on `gallery_details`, Review mode at `/gallery/review/:libraryId`,
 the Home card and Inbox page hooks, and the guide section in
 [users/photo-inbox.md](users/photo-inbox.md#6-ask-someone-what-they-know).
-Phase 0 (fewer spaces), 3 and 4 are still proposals. Written 2026-09-07 from a conversation about
+**Phase 0 built in-code the same day**: migration 71 and one `house_library`
+setting (`modules/library/gallery/house-library.ts`) that stories, the family
+tree and the slideshow movie dialog read through to; Control → Settings →
+Gallery holds it and sets up a Photo Inbox in one step. Phases 3 and 4 are
+still proposals. Written 2026-09-07 from a conversation about
 scanning a box of childhood prints and asking a relative who was there to say
 where and when each was taken. Companion to [photo-inbox-proposal.md](photo-inbox-proposal.md)
 (the holding place this stands on), [gallery-library.md](gallery-library.md),

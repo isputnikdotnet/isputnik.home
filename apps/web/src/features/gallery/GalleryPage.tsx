@@ -2729,6 +2729,7 @@ export function GalleryPage({
         <SlideshowMovieLibraryModal
           slideshow={selectedSlideshow}
           libraries={slideshowSettings.libraries}
+          defaultLibraryId={slideshowSettings.defaultLibraryId}
           onClose={() => setMovieLibraryOpen(false)}
           onPatch={async (fields) => { await patchSlideshow(selectedSlideshow.id, fields); }}
           onSaved={(message) => setNotice(message)}

@@ -2,12 +2,10 @@ import { useEffect, useState } from "react";
 import { Download, FileUp, Images, Settings, UserRound, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api";
-import { followRoute } from "../../router";
+import { controlHref, followRoute } from "../../router";
 import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
-import { SelectField } from "../../shared/SelectField";
-import type { GalleryLibrary } from "../gallery/types";
 import { FamilyTagAccessPanel } from "./FamilyTagAccessModal";
 import { GedcomImportModal } from "./GedcomImportModal";
 import { PersonAvatar } from "./PersonAvatar";
@@ -19,6 +17,7 @@ type SettingsTab = "photos" | "start" | "gedcom" | "security";
 interface SettingsPayload {
   galleryLibrary: { id: string; name: string } | null;
   defaultPerson: { id: string; name: string } | null;
+  isAdmin?: boolean;
 }
 
 // Everything an admin configures about the family tree, in one place: where
@@ -35,8 +34,10 @@ export function FamilyTreeSettingsModal({
 }) {
   const { t } = useTranslation(["common", "family"]);
   const [tab, setTab] = useState<SettingsTab>("photos");
-  const [libraries, setLibraries] = useState<GalleryLibrary[]>([]);
-  const [libraryId, setLibraryId] = useState("");
+  // Where uploads go: the house's "Made in the app" library, chosen in the
+  // control panel (docs/photo-review-plan.md, phase 0). Read-only here.
+  const [uploadLibrary, setUploadLibrary] = useState<{ id: string; name: string } | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   // Carries portraitUrl when it came from the picker; the settings GET only
   // knows the name, which PersonAvatar renders as an initial.
   const [startPerson, setStartPerson] = useState<{ id: string; name: string; portraitUrl?: string | null } | null>(null);
@@ -47,21 +48,17 @@ export function FamilyTreeSettingsModal({
   const [importOpen, setImportOpen] = useState(false);
 
   useEffect(() => {
-    Promise.all([
-      api<{ libraries: GalleryLibrary[] }>("/api/library/gallery-libraries"),
-      api<SettingsPayload>("/api/family-tree/settings")
-    ])
-      .then(([libs, settings]) => {
-        setLibraries(libs.libraries);
-        setLibraryId(settings.galleryLibrary?.id ?? "");
+    api<SettingsPayload>("/api/family-tree/settings")
+      .then((settings) => {
+        setUploadLibrary(settings.galleryLibrary);
+        setIsAdmin(settings.isAdmin === true);
         setStartPerson(settings.defaultPerson);
       })
       .catch((err) => setError(err instanceof Error ? err.message : t("family:treeSettings.errors.loadSettings")));
   }, [t]);
 
-  // One saver for both settings: the PUT takes either field on its own and
-  // merges, so sending one never disturbs the other.
-  const save = async (patch: { galleryLibraryId?: string | null; defaultPersonId?: string | null }, whatFailed: string) => {
+  // The PUT merges over the stored settings, so a partial never disturbs the rest.
+  const save = async (patch: { defaultPersonId?: string | null }, whatFailed: string) => {
     setSaving(true);
     setError("");
     setSaved(false);
@@ -75,11 +72,6 @@ export function FamilyTreeSettingsModal({
     } finally {
       setSaving(false);
     }
-  };
-
-  const saveLibrary = async (nextId: string) => {
-    setLibraryId(nextId);
-    await save({ galleryLibraryId: nextId || null }, t("family:treeSettings.errors.saveLibrary"));
   };
 
   const saveStartPerson = async (person: FamilyPerson | null) => {
@@ -130,37 +122,16 @@ export function FamilyTreeSettingsModal({
                 {t("family:treeSettings.photosHint")}
               </p>
 
-              {libraries.length === 0 ? (
-                <MessageBox
-                  tone="info"
-                  title={t("family:treeSettings.noLibraryTitle")}
-                  action={
-                    <a
-                      className="primary-button compact-button"
-                      href="/control/libraries"
-                      onClick={(event) => followRoute(event, "/control/libraries")}
-                    >
-                      {t("family:treeSettings.createLibraryLink")}
-                    </a>
-                  }
-                >
-                  {t("family:treeSettings.noLibraryBody")}
-                </MessageBox>
-              ) : (
-                <>
-                <SelectField
-                  label={t("family:treeSettings.uploadPhotosToLabel")}
-                  icon={<Images size={17} />}
-                  value={libraryId}
-                  onChange={(value) => void saveLibrary(value)}
-                  disabled={saving}
-                  options={[
-                    { value: "", label: t("family:treeSettings.noLibraryOption") },
-                    ...libraries.map((library) => ({ value: library.id, label: library.name }))
-                  ]}
-                />
-                {saved && <small className="ft-modal-hint">{t("family:treeSettings.saved")}</small>}
-                </>
+              <p>
+                <Images size={17} aria-hidden="true" />{" "}
+                {uploadLibrary
+                  ? t("family:treeSettings.photosHouseIs", { name: uploadLibrary.name })
+                  : t("family:treeSettings.photosHouseUnset")}
+              </p>
+              {isAdmin && (
+                <a href={controlHref("gallerySettings")} onClick={(event) => followRoute(event, controlHref("gallerySettings"))}>
+                  {t("family:treeSettings.photosHouseLink")}
+                </a>
               )}
             </>
           )}

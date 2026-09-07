@@ -1,11 +1,11 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { Images, Mic } from "lucide-react";
+import { Mic } from "lucide-react";
 import { api } from "../../../api";
+import { controlHref, followRoute } from "../../../router";
 import { Button } from "../../../shared/Button";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { MessageBox } from "../../../shared/MessageBox";
-import { SelectField } from "../../../shared/SelectField";
 import { ControlSectionHead } from "../ControlSectionHead";
 
 interface StorySettingsDto {
@@ -14,21 +14,18 @@ interface StorySettingsDto {
   pendingNarrations?: number;
 }
 
-// Where story narration recordings live. An admin nominates one gallery
-// library; recordings from the story editor land there (under "Story
-// recordings/<year>") as ordinary audio assets, so they show in the gallery,
-// get backed up, and survive their story. Until a library is chosen the story
-// editor offers no Record/Upload at all.
+// Story settings: whether recipes may be read from a link, and the one-time
+// import of narration recorded before recordings lived in the gallery.
 //
-// The one-time import below moves narration recorded before this setting
-// existed (stored inside the app, invisible to the gallery) into the chosen
-// library.
+// Recordings land in the house's "Made in the app" library (Settings →
+// Gallery), under "Story recordings/<year>", as ordinary audio assets — so
+// they show in the gallery, get backed up, and survive their story. The
+// library used to be nominated here; this page now only says which it is.
 export function StorySettingsSection() {
   const { t } = useTranslation(["common", "controlAdmin"]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
-  const [libraries, setLibraries] = useState<{ id: string; name: string }[]>([]);
-  const [libraryId, setLibraryId] = useState("");
+  const [library, setLibrary] = useState<{ id: string; name: string } | null>(null);
   const [recipeImport, setRecipeImport] = useState(true);
   const [pending, setPending] = useState(0);
 
@@ -42,13 +39,9 @@ export function StorySettingsSection() {
   const [moveError, setMoveError] = useState("");
 
   useEffect(() => {
-    Promise.all([
-      api<{ libraries: { id: string; name: string }[] }>("/api/library/gallery-libraries?manage=1"),
-      api<StorySettingsDto>("/api/stories/settings")
-    ])
-      .then(([libs, settings]) => {
-        setLibraries(libs.libraries.map((library) => ({ id: library.id, name: library.name })));
-        setLibraryId(settings.recordingsLibrary?.id ?? "");
+    api<StorySettingsDto>("/api/stories/settings")
+      .then((settings) => {
+        setLibrary(settings.recordingsLibrary);
         setRecipeImport(settings.recipeImportEnabled);
         setPending(settings.pendingNarrations ?? 0);
       })
@@ -64,9 +57,9 @@ export function StorySettingsSection() {
     try {
       const payload = await api<StorySettingsDto>("/api/stories/settings", {
         method: "PUT",
-        body: JSON.stringify({ recordingsLibraryId: libraryId || null, recipeImportEnabled: recipeImport })
+        body: JSON.stringify({ recipeImportEnabled: recipeImport })
       });
-      setLibraryId(payload.recordingsLibrary?.id ?? "");
+      setLibrary(payload.recordingsLibrary);
       setRecipeImport(payload.recipeImportEnabled);
       setPending(payload.pendingNarrations ?? 0);
       setSaved(true);
@@ -97,6 +90,8 @@ export function StorySettingsSection() {
     }
   };
 
+  const galleryPath = controlHref("gallerySettings");
+
   return (
     <>
       <ControlSectionHead
@@ -115,18 +110,15 @@ export function StorySettingsSection() {
           <p className="muted">{t("controlAdmin:ui.loading")}</p>
         ) : (
           <form className="mail-form" onSubmit={save}>
-            <SelectField
-              label={t("controlAdmin:storySettings.libraryLabel")}
-              icon={<Images size={17} />}
-              value={libraryId}
-              onChange={setLibraryId}
-              disabled={saving}
-              options={[
-                { value: "", label: t("controlAdmin:storySettings.libraryNone") },
-                ...libraries.map((library) => ({ value: library.id, label: library.name }))
-              ]}
-            />
-            <p className="muted">{t("controlAdmin:storySettings.libraryNote")}</p>
+            <p>
+              {library
+                ? t("controlAdmin:storySettings.houseLibraryIs", { name: library.name })
+                : t("controlAdmin:storySettings.houseLibraryUnset")}
+              {" "}
+              <a href={galleryPath} onClick={(event) => followRoute(event, galleryPath)}>
+                {t("controlAdmin:storySettings.houseLibraryLink")}
+              </a>
+            </p>
 
             <label className="mail-check">
               <input
@@ -156,7 +148,7 @@ export function StorySettingsSection() {
               {t("controlAdmin:storySettings.pendingBody", { count: pending })}
             </MessageBox>
             <div className="mail-actions">
-              <Button variant="primary" disabled={!libraryId || moving} onClick={() => setConfirmMove(true)}>
+              <Button variant="primary" disabled={!library || moving} onClick={() => setConfirmMove(true)}>
                 {moving ? t("controlAdmin:storySettings.moving") : t("controlAdmin:storySettings.moveAction")}
               </Button>
             </div>

@@ -2326,3 +2326,22 @@
 .quote-import-copy .muted {
   font-size: 0.83rem;
 }
+
+/* Control → Settings → Gallery: the Inboxes already set up, one line each. */
+.gallery-settings-inboxes {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.gallery-settings-inboxes li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.gallery-settings-inboxes li a {
+  margin-left: auto;
+}

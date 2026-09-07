@@ -42,6 +42,7 @@ import {
   getFamilyDefaultPerson,
   getFamilyUploadLibrary
 } from "../src/modules/familytree/settings.js";
+import { setHouseLibrary } from "../src/modules/library/gallery/house-library.js";
 import { resetDb, makeUser, makeLibrary } from "./helpers/seed.js";
 
 beforeEach(() => {
@@ -315,7 +316,8 @@ describe("whole tree payload", () => {
 
 describe("family tree settings", () => {
   it("reads as unset before anything is stored", () => {
-    expect(getFamilyTreeSettings()).toEqual({ galleryLibraryId: null, defaultPersonId: null });
+    expect(getFamilyTreeSettings()).toEqual({ defaultPersonId: null });
+    expect(getFamilyUploadLibrary()).toBeNull();
     expect(getFamilyDefaultPerson()).toBeNull();
   });
 
@@ -338,16 +340,16 @@ describe("family tree settings", () => {
     expect(getFamilyDefaultPerson()).toBeNull();
   });
 
-  it("saving one setting leaves the other alone", () => {
+  it("uploads land in the house library's Family tree folder, whatever the tree's own settings do", () => {
     const anna = person("Anna");
     makeLibrary("gal", { createdBy: "admin", type: "gallery" });
 
-    setFamilyTreeSettings({ galleryLibraryId: "gal" }, "admin");
+    setHouseLibrary("gal", "admin");
     setFamilyTreeSettings({ defaultPersonId: anna.id }, "admin");
-    expect(getFamilyUploadLibrary()?.id).toBe("gal");
+    expect(getFamilyUploadLibrary()).toEqual({ id: "gal", name: "gal", folder: "Family tree" });
     expect(getFamilyDefaultPerson()?.id).toBe(anna.id);
 
-    // …and clearing one still leaves the other.
+    // …and clearing the starting person leaves the upload library alone.
     setFamilyTreeSettings({ defaultPersonId: null }, "admin");
     expect(getFamilyDefaultPerson()).toBeNull();
     expect(getFamilyUploadLibrary()?.id).toBe("gal");

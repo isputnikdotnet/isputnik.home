@@ -46,6 +46,7 @@
       "appearance": "Appearance",
       "email": "Email",
       "notifications": "Notifications",
+      "gallerySettings": "Gallery",
       "storySettings": "Stories",
       "maps": "Maps",
       "readerAccess": "Reader access",
@@ -94,6 +95,8 @@
       "opdsReaderTokens": "OPDS reader tokens",
       "twoFactorAlertsDelivery": "Two-factor & security alerts delivery",
       "shareNotifications": "Share notifications",
+      "houseLibrary": "Made in the app library",
+      "photoInboxSetup": "Set up a Photo Inbox",
       "recordingsLibrary": "Story recordings library",
       "recipeImport": "Recipe import from a link",
       "mapRouting": "Map routing"

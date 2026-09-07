@@ -30,6 +30,14 @@ import { faceFocusStyle } from "./types";
 
 type PickerTab = "folders" | "people" | "tags" | "all" | "upload";
 
+/** Where the Upload tab puts files: a gallery library, and optionally a folder
+ *  inside it the dated layout files under. */
+export interface PhotoUploadTarget {
+  id: string;
+  name: string;
+  folder?: string;
+}
+
 /** Page size for the photo grids — matches the gallery's own views. */
 const PAGE = 80;
 
@@ -58,7 +66,10 @@ export function PhotoPicker({
   /** Offer an Upload tab landing new files in this gallery library, then
       picking/attaching them in the same step. The tab only appears when the
       caller may actually upload there (the library's own canUpload). */
-  uploadTo?: { id: string; name: string } | null;
+  uploadTo?: PhotoUploadTarget | null;
+  // (PhotoUploadTarget: the library, and optionally a folder inside it the
+  // dated layout files under — the family tree's "Family tree" folder in the
+  // house library, docs/photo-review-plan.md phase 0.)
   onPick?: (asset: GalleryAsset) => void;
   /** Multi mode without a server endpoint: the caller attaches the selection
       (ids + their asset objects, so it can stage thumbnails without refetching). */
@@ -546,7 +557,7 @@ export function PhotoPicker({
                 : t("gallery:photoPicker.uploadHintMulti", { name: uploadTo.name })}
             </p>
             <FileUpload
-              endpoint={`/api/library/gallery-libraries/${uploadLibrary.id}/assets/upload`}
+              endpoint={`/api/library/gallery-libraries/${uploadLibrary.id}/assets/upload${uploadTo.folder ? `?folder=${encodeURIComponent(uploadTo.folder)}` : ""}`}
               accept={uploadLibrary.uploadExtensions}
               maxBytes={uploadLibrary.maxUploadMB != null ? uploadLibrary.maxUploadMB * 1024 * 1024 : null}
               multiple={!pick}

@@ -47,6 +47,7 @@ import { sourceIsWritable } from "../shared/library-source.js";
 import { canUserWriteLibrary } from "../shared/library-access.js";
 import type { LibraryListRow } from "../shared/library-serializer.js";
 import { thumbnailAbsolutePath } from "../shared/thumbnail.js";
+import { getHouseLibrary } from "./house-library.js";
 import fs from "node:fs";
 
 // How wide the title-card preview is drawn. The card itself is 1920 wide; this is a
@@ -275,7 +276,13 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
         reason: !canWrite ? "permission" : writable.ok ? null : "readonly"
       };
     });
-    return { libraries };
+    // The house "Made in the app" library is what the picker pre-selects for a
+    // slideshow that has no target of its own (docs/photo-review-plan.md, phase
+    // 0); the per-slideshow target stays an override. Offered only when this
+    // caller could actually file a movie there.
+    const house = getHouseLibrary();
+    const houseOption = house ? libraries.find((library) => library.id === house.id) : undefined;
+    return { libraries, defaultLibraryId: houseOption?.writable ? houseOption.id : null };
   });
 
   app.post("/api/library/gallery/slideshows", { preHandler: app.authenticate }, async (request, reply) => {

@@ -37,6 +37,7 @@ import { AppearanceSection } from "./sections/AppearanceSection";
 import { MailSection } from "./sections/MailSection";
 import { NotificationsSection } from "./sections/NotificationsSection";
 import { StorySettingsSection } from "./sections/StorySettingsSection";
+import { GallerySettingsSection } from "./sections/GallerySettingsSection";
 import { MapsSection } from "./sections/MapsSection";
 import { OpdsAccessSection } from "./sections/OpdsAccessSection";
 import { SecuritySection } from "./sections/SecuritySection";
@@ -127,6 +128,7 @@ function ControlSectionBody({
     case "appearance":      return <AppearanceSection />;
     case "email":           return <MailSection />;
     case "notifications":   return <NotificationsSection />;
+    case "gallerySettings": return <GallerySettingsSection />;
     case "storySettings":   return <StorySettingsSection />;
     case "maps":            return <MapsSection />;
     case "readerAccess":    return <OpdsAccessSection />;
