@@ -56,6 +56,8 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
     "жанры жанр ключевые слова сопоставление значки изображения таксономия",
   tags: "labels rename merge taxonomy " +
     "метки переименовать объединить таксономия",
+  gallerySettings: "made in the app house library recordings narration family tree uploads slideshow movies photo inbox set up create scans " +
+    "сделано в приложении домашняя библиотека записи озвучка семейное древо загрузки фильмы слайд-шоу входящие фото настроить создать сканы",
 
   users: "accounts people roles admin member password reset disable remove remote device link window allow outside away travel " +
     "аккаунты люди роли администратор участник пароль сброс отключить удалить удалённо привязка устройства окно разрешить снаружи вдали путешествие",
@@ -112,7 +114,8 @@ type SettingKey =
   | "newSignInAlerts" | "twoFactorSignIn" | "linkingDevices" | "ipReputation"
   | "deletionProtection" | "addTrustedNetwork" | "scheduledBackups" | "defaultTheme"
   | "smtpServer" | "sendTestEmail" | "opdsReaderTokens" | "twoFactorAlertsDelivery"
-  | "shareNotifications" | "recordingsLibrary" | "recipeImport" | "mapRouting";
+  | "shareNotifications" | "recordingsLibrary" | "recipeImport" | "mapRouting"
+  | "houseLibrary" | "photoInboxSetup";
 
 // Settings that live inside a page. `section` is where they are; search takes
 // you to that tab and the setting is on it.
@@ -171,8 +174,18 @@ const SETTING_ENTRIES: { titleKey: SettingKey; section: ControlSection; keywords
     keywords: "route roads driving walking cycling openrouteservice api key directions story map itinerary travel маршрут дороги машина пешком велосипед ключ прокладка карта путешествие"
   },
   {
+    titleKey: "houseLibrary",
+    section: "gallerySettings",
+    keywords: "made in the app house library where files go destination recordings narration family tree uploads slideshow movies rendered saved folder сделано в приложении домашняя библиотека куда попадают файлы записи озвучка семейное древо загрузки фильмы слайд-шоу папка"
+  },
+  {
+    titleKey: "photoInboxSetup",
+    section: "gallerySettings",
+    keywords: "photo inbox set up create new inbox scans holding review drop link storage container folder входящие фото создать настроить сканы разбор ссылка контейнер папка"
+  },
+  {
     titleKey: "recordingsLibrary",
-    section: "storySettings",
+    section: "gallerySettings",
     keywords: "story narration audio recording voice record microphone library destination where recordings saved озвучка история запись аудио голос микрофон библиотека записей куда сохраняются"
   },
   {

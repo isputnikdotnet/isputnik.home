@@ -12,9 +12,9 @@ import { thumbnailAbsolutePath, thumbnailPathSettingKey } from "../src/modules/l
 import { normalizeLibrarySettings } from "../src/modules/library/shared/library-settings.js";
 import {
   ensureAudioScanExtensions,
-  getRecordingsLibrary,
-  setStoriesSettings
+  getRecordingsLibrary
 } from "../src/modules/stories/settings.js";
+import { setHouseLibrary } from "../src/modules/library/gallery/house-library.js";
 import {
   RecordingError,
   migrateLegacyNarrations,
@@ -61,7 +61,7 @@ function stagedUpload(): string {
 
 describe("the recordings-library setting", () => {
   it("resolves the nominated library, and a deleted one reads as not set", () => {
-    setStoriesSettings({ recordingsLibraryId: "REC" }, "author");
+    setHouseLibrary("REC", "author");
     expect(getRecordingsLibrary()?.id).toBe("REC");
     db.prepare("DELETE FROM libraries WHERE id = 'REC'").run();
     expect(getRecordingsLibrary()).toBeNull();
@@ -90,7 +90,7 @@ describe("storing a recording", () => {
   });
 
   it("lands the file under Story recordings/<year> as a cataloged audio asset", async () => {
-    setStoriesSettings({ recordingsLibraryId: "REC" }, "author");
+    setHouseLibrary("REC", "author");
     const stored = await storeRecording(stagedUpload(), "recording.webm", "webm");
 
     const year = String(new Date().getFullYear());
@@ -114,7 +114,7 @@ describe("storing a recording", () => {
 
 describe("the legacy import", () => {
   it("moves clips into the library, rewrites their blocks, and empties story_audio", async () => {
-    setStoriesSettings({ recordingsLibraryId: "REC" }, "author");
+    setHouseLibrary("REC", "author");
     const story = createStory(author, "Minnesota", null);
     const chapterId = getChapters(story.id)[0].id;
 
@@ -140,7 +140,7 @@ describe("the legacy import", () => {
   });
 
   it("leaves a clip with a missing file in place and counts it", async () => {
-    setStoriesSettings({ recordingsLibraryId: "REC" }, "author");
+    setHouseLibrary("REC", "author");
     const story = createStory(author, "Minnesota", null);
     const clip = await createStoryAudio(story.id, author, stagedUpload(), "lost.m4a", "m4a");
     fs.rmSync(thumbnailAbsolutePath(clip.storage_key), { force: true });

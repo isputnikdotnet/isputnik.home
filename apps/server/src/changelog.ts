@@ -19,6 +19,15 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.72.0",
+    label: "One library for what the app makes",
+    changes: [
+      "Three settings became one. Story narration, photos uploaded from the family tree and rendered slideshow movies each used to ask an admin, in a different place, which gallery library they should land in — the same question three times. There is now a single **Made in the app** library, chosen once under Control panel → Settings → Gallery, and each of the three writes into its own folder inside it: `Story recordings`, `Family tree`, `Slideshow movies`. Whichever of the old settings you had is carried over, recordings first; the Stories page and the family tree's settings now simply say where their files go and point you to the one place to change it. A slideshow can still be aimed at a different library on its own — the shared library is what its dialog starts on.",
+      "A Photo Inbox is set up in one step from the same page: a name and a storage container, and the folder, the library with the Inbox switch on and its first scan are made together. The switch on a library's Access tab still works for a second Inbox or for turning an existing library into one. The page also lists the Inboxes you already have.",
+      "The Photo Inbox cannot be chosen as the Made in the app library, on purpose: it holds what is not part of the collection yet, and everything the app makes counts the moment it exists."
+    ]
+  },
+  {
     version: "3.71.0",
     label: "Ask someone what they know",
     changes: [

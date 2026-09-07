@@ -219,16 +219,17 @@ Some parts of a story should be heard. **Add → Narration** records right in
 the browser, or takes a recording you already have — the voicemail nobody
 could bring themselves to delete.
 
-Recordings are not stored inside the story: they land in a **gallery library
-an admin chooses once** (Control panel → Settings → Stories), under a
-`Story recordings` folder, as ordinary audio. That's why they show up in the
-gallery, ride along in backups, and outlive their story. Until a recordings
-library is chosen, the Narration button simply isn't offered — if you're an
-admin, the same settings page is where to turn it on, and where a one-time
-button moves any recordings made before this existed into the library.
+Recordings are not stored inside the story: they land in the house's **"Made
+in the app" gallery library** — the one library an admin chooses once, under
+Control panel → Settings → Gallery, for everything the app makes itself — in
+its `Story recordings` folder, as ordinary audio. That's why they show up in
+the gallery, ride along in backups, and outlive their story. Until that library
+is chosen, the Narration button simply isn't offered — if you're an admin, the
+Gallery settings page is where to turn it on, and Settings → Stories holds the
+one-time button that moves any recordings made before this existed into it.
 
-Pick a recordings library the whole family can view, or the narration will be
-missing for people without access to it.
+Pick a library the whole family can view, or the narration will be missing for
+people without access to it.
 
 ## Collections
 

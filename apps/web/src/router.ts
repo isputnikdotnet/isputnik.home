@@ -15,7 +15,7 @@ export type ControlSection =
   | "backup" | "scheduledJobs" | "recycleBin" | "missingPhotos"
   | "duplicateCleanup" | "quotes"
   // Settings
-  | "appearance" | "email" | "notifications" | "storySettings" | "maps" | "readerAccess" | "about";
+  | "appearance" | "email" | "notifications" | "gallerySettings" | "storySettings" | "maps" | "readerAccess" | "about";
 
 // The canonical address of every control-panel destination. The nav, the tab
 // rows and the search palette all link through controlHref(), so this table is
@@ -53,6 +53,7 @@ export const CONTROL_PATHS: Record<ControlSection, string> = {
   appearance: "/control/settings",
   email: "/control/settings/email",
   notifications: "/control/settings/notifications",
+  gallerySettings: "/control/settings/gallery",
   storySettings: "/control/settings/stories",
   maps: "/control/settings/maps",
   readerAccess: "/control/settings/reader-access",

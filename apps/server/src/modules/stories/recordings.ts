@@ -19,10 +19,11 @@ import { scanSingleGalleryFile } from "../library/gallery/scanner.js";
 import { uniqueGalleryFileName } from "../library/gallery/routes.js";
 import { getRecordingsLibrary, type RecordingsLibrary } from "./settings.js";
 import { narrationAbsolutePath, titleFromFilename, type StoryAudioRow } from "./audio.js";
+import { HOUSE_FOLDERS } from "../library/gallery/house-library.js";
 
-/** Where recordings live inside the library, grouped by year so the folder
- *  view stays navigable. The space is fine — it's a display name on disk. */
-const RECORDINGS_FOLDER = "Story recordings";
+/** Where recordings live inside the house library, grouped by year so the
+ *  folder view stays navigable. The space is fine — it's a display name on disk. */
+const RECORDINGS_FOLDER = HOUSE_FOLDERS.recordings;
 
 /** MediaRecorder captures arrive as .webm/.ogg; the gallery classifies .webm
  *  as VIDEO (a camera clip is the likelier owner), so audio-in-webm is stored
@@ -56,7 +57,7 @@ export class RecordingError extends Error {
 export async function storeRecording(tmpPath: string, filename: string, extension: string): Promise<StoredRecording> {
   const library = getRecordingsLibrary();
   if (!library) {
-    throw new RecordingError("No recordings library is set. An admin chooses one under Control → Settings → Stories.", 409);
+    throw new RecordingError("No \"Made in the app\" library is set. An admin chooses one under Control → Settings → Gallery.", 409);
   }
   const root = validateLibrarySource(library.source_path);
   const ext = recordingExtension(extension);

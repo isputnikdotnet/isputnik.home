@@ -268,6 +268,15 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
       return reply.code(400).send({ error: err instanceof Error ? err.message : "Library source folder is unavailable." });
     }
 
+    // An optional folder the dated layout files under — the family tree sends
+    // its house-library folder ("Family tree/2024/2024-05-01"). A plain relative
+    // path: no absolute, no `..`, no hidden segment.
+    const folderParam = ((request.query as { folder?: string }).folder ?? "").trim();
+    const uploadFolder = folderParam ? normaliseRelativePath(folderParam) : "";
+    if (folderParam && (!uploadFolder || uploadFolder.length > 300 || uploadFolder.split("/").some((seg) => seg === ".." || seg.startsWith(".")))) {
+      return reply.code(400).send({ error: "Invalid upload folder." });
+    }
+
     const settings = normalizeLibrarySettings("gallery", library.settings_json);
     const maxBytes = resolveUploadMaxBytes(policy.maxUploadMB);
     const stagingDir = path.join(root, `.upload-${nanoid(10)}`);
@@ -293,7 +302,8 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
     let totalBytes = 0;
     try {
       for (const file of received) {
-        const targetDir = path.join(root, ...(await uploadDateFolder(file.tmpPath, file.extension)).split("/"));
+        const dated = await uploadDateFolder(file.tmpPath, file.extension);
+        const targetDir = path.join(root, ...(uploadFolder ? `${uploadFolder}/${dated}` : dated).split("/"));
         fs.mkdirSync(targetDir, { recursive: true });
         const finalName = uniqueGalleryFileName(targetDir, file.filename);
         if (!finalName) { fs.rmSync(file.tmpPath, { force: true }); continue; }

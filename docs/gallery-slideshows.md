@@ -236,9 +236,11 @@ the slideshow to its previous state).
   impractical); it remains a live-player effect.
 - **Videos are included** (capped at 20s per clip, audio dropped — the soundtrack
   is the music bed or silence).
-- **Save to a gallery library**: an admin setting on the Slideshows tab ("Save
-  rendered movies to") picks a default movie library. Each successful render is
-  also filed there as a real gallery video under `Slideshow movies/`. Re-renders
+- **Save to a gallery library**: each slideshow chooses where its movie is filed
+  (the editor's library dialog); the house's "Made in the app" library (Control
+  → Settings → Gallery) is what that dialog pre-selects, and a slideshow may
+  point elsewhere. A successful render is filed there as a real gallery video
+  under `Slideshow movies/`. Re-renders
   overwrite the same file/item (no duplicates); renaming the slideshow moves the
   movie to the new name on the next render, retiring the old item. Deleting a
   slideshow keeps the saved movie — it's an exported asset.
@@ -249,8 +251,8 @@ the slideshow to its previous state).
 
 - Core files: `apps/server/src/modules/library/gallery/slideshows.ts` (model),
   `slideshow-routes.ts` (API), `slideshow-render.ts` (ffmpeg pipeline + worker +
-  library auto-save), `slideshow-settings.ts` (default movie library, in
-  `app_settings`), `similarity.ts` + `media.ts#computeDhash` (near-duplicate
+  library auto-save), `house-library.ts` (the house "Made in the app" library the
+  movie dialog defaults to, in `app_settings`), `similarity.ts` + `media.ts#computeDhash` (near-duplicate
   detection), and on the web `GallerySlideshowEditor.tsx`, `GalleryLightbox.tsx`
   (player), `SlideshowPhotoBrowser.tsx` (folder picker).
 - The `transition` CHECK constraint has been widened twice (migrations v14 → random,

@@ -27,7 +27,7 @@ import {
   narrationTempDir,
   type StoryAudioRow
 } from "./audio.js";
-import { ensureAudioScanExtensions, getRecordingsLibrary, getStoriesSettings, setStoriesSettings } from "./settings.js";
+import { getRecordingsLibrary, getStoriesSettings, setStoriesSettings } from "./settings.js";
 import { importRecipeFromUrl, RecipeImportError } from "./recipe-import.js";
 import { canContributeToCollection } from "./collection-access.js";
 import { getCollection } from "./collections.js";
@@ -386,9 +386,9 @@ export async function storiesPlugin(app: FastifyInstance) {
     };
   });
 
-  // Each field optional so a caller changing one setting can't blank the other.
+  // The recordings library is no longer set here: it is the house's "Made in
+  // the app" library (Control → Settings → Gallery), read through.
   const settingsSchema = z.object({
-    recordingsLibraryId: z.string().trim().min(1).max(64).nullable().optional(),
     recipeImportEnabled: z.boolean().optional()
   });
 
@@ -398,17 +398,6 @@ export async function storiesPlugin(app: FastifyInstance) {
       return reply.code(400).send({ error: "Invalid settings", details: parsed.error });
     }
     const changes: string[] = [];
-    if (parsed.data.recordingsLibraryId !== undefined) {
-      const id = parsed.data.recordingsLibraryId;
-      // Choosing a library also opts it into audio — its scan extensions gate
-      // both uploads and what a rescan keeps.
-      if (id != null && !ensureAudioScanExtensions(id)) {
-        return reply.code(404).send({ error: "That gallery library doesn't exist." });
-      }
-      setStoriesSettings({ recordingsLibraryId: id }, request.user!.id);
-      const library = getRecordingsLibrary();
-      changes.push(library ? `Set the story recordings library to "${library.name}".` : "Cleared the story recordings library.");
-    }
     if (parsed.data.recipeImportEnabled !== undefined) {
       setStoriesSettings({ recipeImportEnabled: parsed.data.recipeImportEnabled }, request.user!.id);
       changes.push(parsed.data.recipeImportEnabled ? "Allowed recipe import from a link." : "Turned off recipe import from a link.");

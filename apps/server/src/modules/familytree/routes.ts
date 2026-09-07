@@ -225,18 +225,19 @@ export async function familyTreeRoutesPlugin(app: FastifyInstance) {
       }
     }
     return {
-      galleryLibrary: library,
+      // The house "Made in the app" library and the folder uploads file under —
+      // the picker sends the folder back with the upload.
+      galleryLibrary: library ? { id: library.id, name: library.name } : null,
+      uploadFolder: library?.folder ?? null,
       canUpload,
       defaultPerson: getFamilyDefaultPerson(),
       isAdmin: user.role === "admin"
     };
   });
 
-  // Both fields are optional: the modal PUTs only the one the admin just changed,
-  // and setFamilyTreeSettings merges over the stored blob. `null` clears a setting;
-  // omitting it leaves it alone — so the two can't clobber each other.
+  // The upload library is no longer set here (it is the house library, Control →
+  // Settings → Gallery); `null` clears the starting person, omitting leaves it.
   const settingsSchema = z.object({
-    galleryLibraryId: z.string().trim().min(1).nullable().optional(),
     defaultPersonId: z.string().trim().min(1).nullable().optional()
   });
 
@@ -245,13 +246,7 @@ export async function familyTreeRoutesPlugin(app: FastifyInstance) {
     if (parsed.error) {
       return reply.code(400).send({ error: "Invalid settings", details: parsed.error });
     }
-    const { galleryLibraryId, defaultPersonId } = parsed.data;
-    if (galleryLibraryId) {
-      const exists = db.prepare("SELECT 1 FROM libraries WHERE id = ? AND type = 'gallery'").get(galleryLibraryId);
-      if (!exists) {
-        return reply.code(404).send({ error: "Gallery library not found" });
-      }
-    }
+    const { defaultPersonId } = parsed.data;
     if (defaultPersonId) {
       const exists = db.prepare("SELECT 1 FROM family_tree_persons WHERE id = ?").get(defaultPersonId);
       if (!exists) {
@@ -262,13 +257,6 @@ export async function familyTreeRoutesPlugin(app: FastifyInstance) {
     setFamilyTreeSettings(parsed.data, request.user!.id);
 
     const details: string[] = [];
-    if (galleryLibraryId !== undefined) {
-      details.push(
-        galleryLibraryId
-          ? "Set the gallery library family-tree uploads are added to."
-          : "Cleared the gallery library for family-tree uploads."
-      );
-    }
     if (defaultPersonId !== undefined) {
       details.push(
         defaultPersonId

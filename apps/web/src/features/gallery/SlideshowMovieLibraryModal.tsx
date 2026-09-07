@@ -18,18 +18,22 @@ import type { GallerySlideshowDetail, MovieLibraryOption, MovieTargetPreview, Sl
 export function SlideshowMovieLibraryModal({
   slideshow,
   libraries,
+  defaultLibraryId = null,
   onClose,
   onPatch,
   onSaved
 }: {
   slideshow: GallerySlideshowDetail;
   libraries: MovieLibraryOption[];
+  /** The house "Made in the app" library: what a slideshow with no target of its
+   *  own starts on, so the usual answer is one press (docs/photo-review-plan.md, phase 0). */
+  defaultLibraryId?: string | null;
   onClose: () => void;
   onPatch: (fields: SlideshowPatch) => Promise<void>;
   onSaved: (message: string) => void;
 }) {
   const { t } = useTranslation(["common", "galleryModals"]);
-  const [libraryId, setLibraryId] = useState<string>(slideshow.movieTargetLibraryId ?? "");
+  const [libraryId, setLibraryId] = useState<string>(slideshow.movieTargetLibraryId ?? defaultLibraryId ?? "");
   const [stem, setStem] = useState<string>(slideshow.movieFileStem ?? "");
   const [renaming, setRenaming] = useState(false);
   const [preview, setPreview] = useState<MovieTargetPreview | null>(null);
