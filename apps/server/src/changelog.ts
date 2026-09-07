@@ -19,6 +19,14 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.70.2",
+    label: "Passkeys, new parts underneath",
+    changes: [
+      "The passkey machinery moved up a major version — both halves of it, the part running in your browser and the part on the server, which have to travel together. Nothing about signing in changes and every passkey already registered keeps working: before this went out, a real sign-in signature was put through both the old version and the new one to be sure they agree, and that they still turn away a signature that has been tampered with.",
+      "One thing the new version wanted to do has been turned off on purpose. It offers your devices a brand-new kind of signature first — a post-quantum one, built to stay out of reach of computers that don't exist yet — but the code that checks such a signature is still marked experimental in the runtime this app is built on. A passkey is a way back into your account, and it shouldn't rest on something that could change or be withdrawn underneath it: a key that can no longer be checked is a key that has stopped working, leaving your password and authenticator code as the only way back in. No device you can buy today offers that signature anyway, so waiting costs nothing. Passkeys keep the three long-established signatures they have always used, and there is now a test that says so out loud, so a future update can't quietly change what your devices are offered."
+    ]
+  },
+  {
     version: "3.70.1",
     label: "A thumbnail that would not update",
     changes: [
