@@ -302,7 +302,7 @@
   "keep": {
     "title_one": "Keep {{count}} photo",
     "title_other": "Keep {{count}} photos",
-    "intro": "Choose where the photos go. They leave the Inbox and become part of that library, with their tags and edits.",
+    "intro": "Choose where the photos go.",
     "noDestinationTitle": "Nowhere to keep them",
     "noDestinationBody": "You can't upload to any gallery library, so there is no library to keep photos into.",
     "libraryLabel": "Library",
@@ -316,6 +316,16 @@
     "errorTitle": "Unable to keep",
     "keeping": "Keeping…",
     "confirm_one": "Keep photo",
-    "confirm_other": "Keep {{count}} photos"
+    "confirm_other": "Keep {{count}} photos",
+    "tabNew": "Create new folder",
+    "tabExisting": "Use existing folder",
+    "searchLabel": "Search this library's folders",
+    "searchPlaceholder": "Search folders…",
+    "libraryRoot": "The library root",
+    "noFoldersYet": "This library has no folders yet — name one on the other tab.",
+    "noFolderMatch": "No folder here goes by that name.",
+    "moveNoteTitle_one": "The photo moves out of the Inbox",
+    "moveNoteTitle_other": "The photos move out of the Inbox",
+    "moveNoteBody": "They become part of the library you picked, and their tags, edits and dates travel with them."
   }
 }

@@ -5,7 +5,7 @@ import sharp from "sharp";
 import { nanoid } from "nanoid";
 import { db } from "../../../db.js";
 import { normaliseRelativePath } from "../shared/storage-roots.js";
-import { thumbnailAbsolutePath, thumbnailStorageKey } from "../shared/thumbnail.js";
+import { renderInTurn, thumbnailAbsolutePath, thumbnailStorageKey } from "../shared/thumbnail.js";
 import { matchCategoryId, setEntityTags } from "../audiobook/categorize.js";
 import { validateLibrarySource, LibrarySourceError } from "../shared/library-source.js";
 import {
@@ -293,9 +293,11 @@ async function generateEbookCover(libraryId: string, bookId: string, source: Buf
     const coverPath = thumbnailAbsolutePath(coverKey);
     const largePath = thumbnailAbsolutePath(largeKey);
     fs.mkdirSync(path.dirname(coverPath), { recursive: true });
-    await Promise.all([
-      sharp(source).resize(400, 600, { fit: "inside" }).webp({ quality: 82 }).toFile(coverPath),
-      sharp(source).resize(800, 1200, { fit: "inside" }).webp({ quality: 86 }).toFile(largePath)
+    // One at a time — see renderInTurn. The pair is what kills the process when
+    // the cover extracted from the book turns out not to be an image.
+    await renderInTurn([
+      () => sharp(source).resize(400, 600, { fit: "inside" }).webp({ quality: 82 }).toFile(coverPath),
+      () => sharp(source).resize(800, 1200, { fit: "inside" }).webp({ quality: 86 }).toFile(largePath)
     ]);
     return coverKey;
   } catch {

@@ -36,10 +36,21 @@ import { thumbnailAbsolutePath } from "../../shared/thumbnail.js";
 /** How far apart two fingerprints may be and still be worth looking at. Well beyond
  *  the near tier's 3, and still far inside the ~32 bits two unrelated photos average. */
 export const RESCAN_GATE_BITS = 16;
-/** How much of the picture must agree, once actually compared. Chosen with room to
- *  spare on both sides: re-scans of one print measure 0.93-0.99 here, and the closest
- *  unrelated pair inside the gate measured 0.88. */
-export const RESCAN_MATCH_SCORE = 0.9;
+/** How much of the picture must agree, once actually compared.
+ *
+ *  0.85 is where two scans of one print land in practice — measured pairs so far:
+ *  0.94 and 0.87. The second is the reason this is not higher: the same photograph,
+ *  scanned on two machines, differs in sharpening, grain and a few percent of
+ *  framing, and no amount of resolution recovers that (at 64px the pair scores
+ *  LOWER, not higher — the detail is genuinely different).
+ *
+ *  It does mean two frames of one scene can reach this bar as well. That is what the
+ *  camera check in the snapshot is for: a pair that looks like two exposures is
+ *  refused before it becomes a card. What survives both is shown as "Looks the same"
+ *  and answered with Replace, Discard or Not the same — a Photo Inbox is a review
+ *  queue, and a pair worth a second look costs one click, while a duplicate that is
+ *  never proposed enters the library unnoticed. */
+export const RESCAN_MATCH_SCORE = 0.85;
 /** Library photos looked at per incoming photo, nearest fingerprint first. A twin
  *  13 bits away is never crowded out — a photo with 20 closer neighbours than its
  *  own twin has 20 near-copies, which the near tier has already spoken for. */

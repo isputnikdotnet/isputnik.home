@@ -473,7 +473,9 @@ export function queryGalleryFolders(userId: string, libIds: string[], parent: st
 // hundreds of thousands, and SQL has no clean way to split a path into rows.
 export function searchGalleryFolders(libIds: string[], q: string, limit: number) {
   const term = q.trim().toLowerCase();
-  if (libIds.length === 0 || !term) return { folders: [], total: 0 };
+  // No term lists the scope's folders instead of nothing: the Keep dialog's
+  // "use an existing folder" tab opens on the whole list and narrows as you type.
+  if (libIds.length === 0) return { folders: [], total: 0 };
 
   const rows = db.prepare(`
     SELECT library_items.folder_path AS p, COUNT(*) AS n
@@ -499,6 +501,7 @@ export function searchGalleryFolders(libIds: string[], q: string, limit: number)
 
   const matched = [...counts.entries()]
     .filter(([folderPath]) => {
+      if (!term) return true;
       const name = folderPath.slice(folderPath.lastIndexOf("/") + 1);
       return name.toLowerCase().includes(term);
     })

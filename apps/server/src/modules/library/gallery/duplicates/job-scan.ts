@@ -605,6 +605,12 @@ function snapshotInboxSets(
     if (suppressed.has(incoming.itemId) || suppressed.has(twin.itemId)) continue;
     if (ignored.has(duplicatePairKey(incoming.itemId, twin.itemId))) continue;
     const pair = loadDetails([incoming.itemId, twin.itemId]);
+    const left = pair.get(incoming.itemId);
+    const right = pair.get(twin.itemId);
+    // The second look is deliberately generous — a print scanned twice can measure
+    // as low as two frames of one scene do. This is where the two are told apart:
+    // one camera, two moments is two photographs, whatever they look like.
+    if (left && right && looksLikeSeparateShots(left, right)) { separateShots += 1; continue; }
     if (writeSet([twin, incoming], pair, () => match.distance)) near += 1;
   }
   return { exact, near, separateShots };

@@ -6,6 +6,48 @@ import { pathIsInside, normaliseRelativePath } from "./storage-roots.js";
 
 export const thumbnailPathSettingKey = "library.thumbnail_path";
 
+/** Run image renders ONE AT A TIME, never as a Promise.all.
+ *
+ *  Two sharp pipelines reading the same source at the same time is not a
+ *  performance question — it is a process-level hazard. When the source cannot be
+ *  decoded (a truncated file, a text file with a .jpg name, an embedded cover that
+ *  is not an image) libvips' error path is not safe against itself: the two
+ *  failures race and Windows takes the process down on the spot with
+ *  0xC0000409 / STATUS_STACK_BUFFER_OVERRUN. No exception, no stderr, nothing in
+ *  the event log — the process is simply gone.
+ *
+ *  That is what killed one vitest worker every ~15 full-suite runs for months,
+ *  losing a whole test file's results each time (test/helpers/crash-probe.ts is
+ *  what finally caught it in the act). In production the same pair would take a
+ *  library scan down with it, and a scan of a few thousand photos only needs one
+ *  bad file to try it. A single failing pipeline is fine; it is the pair that
+ *  kills. Reproduced outside vitest at 1-2 deaths per 8 processes x 300 rounds,
+ *  and never once in 7,200 rounds over a readable image.
+ *
+ *  Serialising costs nothing: libvips already threads a single pipeline, so a
+ *  12MP photo measures the same either way (101ms in parallel, 105ms in turn).
+ *
+ *  The queue is process-wide, not per call. Two renders racing is the hazard
+ *  whether they come from one call or two — and they do come from two: the
+ *  audiobook scanner works through four books at once, any of which may hold a
+ *  cover that will not decode. A render is short, so the queue costs waiting that
+ *  libvips would have made them do anyway.
+ *
+ *  Scope: the renders that meet a file for the FIRST time. Face crops and slideshow
+ *  frames work from pictures the library has already decoded once, so they are not
+ *  queued here — if that ever changes, they belong in it. */
+let renderQueue: Promise<unknown> = Promise.resolve();
+
+export function renderInTurn(renders: Array<() => Promise<unknown>>): Promise<void> {
+  const run = renderQueue.then(async () => {
+    for (const render of renders) await render();
+  });
+  // The chain must survive a failed render, or one unreadable file would stop
+  // every later one from ever starting.
+  renderQueue = run.catch(() => { /* the caller gets the rejection below */ });
+  return run;
+}
+
 export function configuredThumbnailPathValue() {
   const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(thumbnailPathSettingKey) as { value: string } | undefined;
   return row?.value || config.thumbnailPath || "";

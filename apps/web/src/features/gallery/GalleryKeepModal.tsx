@@ -3,16 +3,22 @@
 // capture date, which is right for phone photos and wrong for scans, whose EXIF
 // date is the scan date. The last choice is remembered for the session, so a box
 // of two hundred prints is not two hundred dialogs' worth of typing.
+//
+// Two tabs, because there are two ways to answer and they need different controls:
+// NAME a folder (or file by date), or PICK one the library already has. The picker
+// is the reason for the split — an autocomplete only helps someone who already
+// knows what the folders are called, and after a year of scanning nobody does.
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { CalendarDays, FolderInput, FolderPlus, Images } from "lucide-react";
+import { CalendarDays, FolderInput, FolderOpen, FolderPlus, Images, Search } from "lucide-react";
 import { api } from "../../api";
 import { Button } from "../../shared/Button";
 import type { Choice } from "../../shared/ChoiceGroup";
 import { ChoiceGroup } from "../../shared/ChoiceGroup";
 import { MessageBox } from "../../shared/MessageBox";
-import { SelectField } from "../../shared/SelectField";
 import { Modal } from "../../shared/Modal";
+import { SelectField } from "../../shared/SelectField";
+import { TabStrip } from "../../shared/TabStrip";
 import type { GalleryFolder, GalleryLibrary } from "./types";
 
 export interface KeepDestination {
@@ -24,6 +30,7 @@ export interface KeepDestination {
 }
 
 type Placement = "folder" | "dated";
+type Tab = "new" | "existing";
 
 const REMEMBER_KEY = "gallery.inbox.keep";
 
@@ -56,28 +63,45 @@ export function GalleryKeepModal({
   onClose: () => void;
   onKeep: (dest: KeepDestination) => void;
 }) {
-  const { t } = useTranslation(["common", "galleryModals"]);
+  const { t } = useTranslation(["common", "gallery", "galleryModals"]);
   const initial = useMemo(remembered, []);
   const [libraryId, setLibraryId] = useState(() => (
     libraries.some((library) => library.id === initial.libraryId) ? initial.libraryId! : libraries[0]?.id ?? ""
   ));
+  const [tab, setTab] = useState<Tab>("new");
   const [dated, setDated] = useState(initial.dated === true);
   const [folder, setFolder] = useState(initial.folder ?? "");
-  const [suggestions, setSuggestions] = useState<GalleryFolder[]>([]);
+  const [search, setSearch] = useState("");
+  const [folders, setFolders] = useState<GalleryFolder[] | null>(null);
 
-  // Folder names the destination already has, as you type — the same search the
-  // Folders view uses, so a kept photo lands beside its neighbours by name.
+  // What each tab narrows the list by: the picker’s own search box, or the folder
+  // name being typed on the other tab (which the box suggests from). Choosing a
+  // folder must not count as typing, or the list would reload under the click.
+  const term = tab === "existing" ? search : folder;
+
+  // The destination’s folders, for both tabs. Debounced, and an empty term lists
+  // the whole library. The rows already on screen stay until the new ones land:
+  // blanking them on every keystroke made the list flicker.
   useEffect(() => {
-    if (!libraryId || dated || folder.trim().length < 1) { setSuggestions([]); return; }
+    if (!libraryId) { setFolders([]); return; }
     let cancelled = false;
     const handle = window.setTimeout(() => {
-      const params = new URLSearchParams({ q: folder.trim(), libraryIds: libraryId, limit: "12" });
+      const params = new URLSearchParams({ q: term.trim(), libraryIds: libraryId, limit: "200" });
       api<{ folders: GalleryFolder[] }>(`/api/library/gallery/folders/search?${params}`)
-        .then((payload) => { if (!cancelled) setSuggestions(payload.folders); })
-        .catch(() => { if (!cancelled) setSuggestions([]); });
+        .then((payload) => { if (!cancelled) setFolders(payload.folders); })
+        .catch(() => { if (!cancelled) setFolders([]); });
     }, 200);
     return () => { cancelled = true; window.clearTimeout(handle); };
-  }, [libraryId, dated, folder]);
+  }, [libraryId, term]);
+
+  const chooseExisting = (path: string) => { setFolder(path); setDated(false); };
+
+  const submit = () => {
+    if (!libraryId || busy) return;
+    const dest: KeepDestination = { libraryId, folder: dated ? "" : folder.trim(), dated };
+    remember(dest);
+    onKeep(dest);
+  };
 
   const placement: Placement = dated ? "dated" : "folder";
   const placementOptions: Choice<Placement>[] = [
@@ -100,7 +124,7 @@ export function GalleryKeepModal({
             autoComplete="off"
           />
           <datalist id="gallery-keep-folders">
-            {suggestions.map((hit) => <option key={hit.path} value={hit.path} />)}
+            {(folders ?? []).map((hit) => <option key={hit.path} value={hit.path} />)}
           </datalist>
         </label>
       )
@@ -112,13 +136,6 @@ export function GalleryKeepModal({
       icon: <CalendarDays size={18} />
     }
   ];
-
-  const submit = () => {
-    if (!libraryId || busy) return;
-    const dest: KeepDestination = { libraryId, folder: dated ? "" : folder.trim(), dated };
-    remember(dest);
-    onKeep(dest);
-  };
 
   return (
     <Modal
@@ -146,14 +163,81 @@ export function GalleryKeepModal({
             options={libraries.map((library) => ({ value: library.id, label: library.name }))}
           />
 
-          <ChoiceGroup
-            legend={t("galleryModals:keep.placementLegend")}
-            className="gallery-keep-placement"
-            value={placement}
-            onChange={(next) => setDated(next === "dated")}
-            disabled={busy}
-            options={placementOptions}
+          <TabStrip
+            items={[
+              { key: "new", label: t("galleryModals:keep.tabNew"), icon: FolderPlus },
+              { key: "existing", label: t("galleryModals:keep.tabExisting"), icon: FolderOpen }
+            ]}
+            active={tab}
+            onChange={setTab}
+            ariaLabel={t("galleryModals:keep.placementLegend")}
           />
+
+          {tab === "new" ? (
+            <ChoiceGroup
+              legend={t("galleryModals:keep.placementLegend")}
+              className="gallery-keep-placement"
+              value={placement}
+              onChange={(next) => setDated(next === "dated")}
+              disabled={busy}
+              options={placementOptions}
+            />
+          ) : (
+            <div className="gallery-keep-existing">
+              <label className="gallery-keep-search">
+                <Search size={16} aria-hidden="true" />
+                <span className="sr-only">{t("galleryModals:keep.searchLabel")}</span>
+                <input
+                  type="search"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder={t("galleryModals:keep.searchPlaceholder")}
+                  disabled={busy}
+                  autoComplete="off"
+                />
+              </label>
+
+              <ul className="gallery-keep-folder-list">
+                {/* The root is a real answer — "just put them in the library" — so it
+                    is offered rather than left to be guessed at with an empty box. */}
+                <li>
+                  <button
+                    type="button"
+                    className={`gallery-keep-folder${!dated && folder === "" ? " is-chosen" : ""}`}
+                    onClick={() => chooseExisting("")}
+                    disabled={busy}
+                  >
+                    <FolderOpen size={16} aria-hidden="true" />
+                    <span className="gallery-keep-folder-path">{t("galleryModals:keep.libraryRoot")}</span>
+                  </button>
+                </li>
+                {folders === null ? (
+                  <li className="muted gallery-keep-folder-note">{t("galleryModals:common.loading")}</li>
+                ) : folders.length === 0 ? (
+                  <li className="muted gallery-keep-folder-note">
+                    {search.trim() ? t("galleryModals:keep.noFolderMatch") : t("galleryModals:keep.noFoldersYet")}
+                  </li>
+                ) : folders.map((hit) => (
+                  <li key={hit.path}>
+                    <button
+                      type="button"
+                      className={`gallery-keep-folder${!dated && folder === hit.path ? " is-chosen" : ""}`}
+                      onClick={() => chooseExisting(hit.path)}
+                      disabled={busy}
+                    >
+                      <FolderOpen size={16} aria-hidden="true" />
+                      <span className="gallery-keep-folder-path">{hit.path}</span>
+                      <span className="muted">{t("gallery:common.counts.photo", { count: hit.assetCount })}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <MessageBox tone="info" title={t("galleryModals:keep.moveNoteTitle", { count })}>
+            {t("galleryModals:keep.moveNoteBody")}
+          </MessageBox>
         </>
       )}
 

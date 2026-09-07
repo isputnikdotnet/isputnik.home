@@ -10,7 +10,7 @@ import sharp from "sharp";
 import exifr from "exifr";
 import ffmpegStatic from "ffmpeg-static";
 import ffprobeStatic from "ffprobe-static";
-import { thumbnailAbsolutePath, thumbnailStorageKey } from "../shared/thumbnail.js";
+import { renderInTurn, thumbnailAbsolutePath, thumbnailStorageKey } from "../shared/thumbnail.js";
 
 // Prefer the bundled static binaries — they ship in node_modules, so video probing
 // works on a dev box and in the Docker image without a system ffmpeg install. Fall
@@ -285,6 +285,12 @@ export async function generateGalleryThumbnails(
   absolutePath: string,
   rotation = 0
 ): Promise<ThumbnailKeys | null> {
+  // Nothing there to make a thumbnail of: say so before starting anything. A
+  // missing photo would otherwise open a libvips pipeline that can only fail, and
+  // a missing video would spawn ffmpeg twice to seek in a file that isn't there,
+  // for a null either way. The scanner meets this whenever a file goes between
+  // being listed and being read, and the test suite does it in volume.
+  if (!fs.existsSync(absolutePath)) return null;
   const source: Buffer | string | null = kind === "photo" ? absolutePath : await videoPosterBuffer(absolutePath);
   if (!source) return null;
   const render = async (input: Buffer | string): Promise<ThumbnailKeys> => {
@@ -299,9 +305,11 @@ export async function generateGalleryThumbnails(
       const img = sharp(input, { failOn: "none" }).rotate();
       return rotation ? img.rotate(rotation) : img;
     };
-    await Promise.all([
-      oriented().resize(400, 400, { fit: "inside", withoutEnlargement: true }).webp({ quality: 80 }).toFile(coverPath),
-      oriented().resize(1600, 1600, { fit: "inside", withoutEnlargement: true }).webp({ quality: 82 }).toFile(previewPath)
+    // One at a time — see renderInTurn. Two of these at once is what kills the
+    // process when the photo turns out not to be readable.
+    await renderInTurn([
+      () => oriented().resize(400, 400, { fit: "inside", withoutEnlargement: true }).webp({ quality: 80 }).toFile(coverPath),
+      () => oriented().resize(1600, 1600, { fit: "inside", withoutEnlargement: true }).webp({ quality: 82 }).toFile(previewPath)
     ]);
     return { coverKey, previewKey };
   };
@@ -309,8 +317,8 @@ export async function generateGalleryThumbnails(
     return await render(source);
   } catch {
     // A photo sharp can't read (BMP et al): re-decode via ffmpeg and retry. The
-    // existence guard keeps a missing file failing fast without a pointless spawn.
-    if (kind === "photo" && fs.existsSync(absolutePath)) {
+    // file is known to be there by now, so this is about format, not absence.
+    if (kind === "photo") {
       const converted = await decodePhotoToJpeg(absolutePath);
       if (converted) {
         try { return await render(converted); } catch { return null; }

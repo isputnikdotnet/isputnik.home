@@ -95,7 +95,7 @@ function apart(hex: string, bits: number): string {
 }
 
 function makePhoto(libraryId: string, id: string, relativePath: string, opts: {
-  phash?: string; previewKey?: string; width?: number; height?: number
+  phash?: string; previewKey?: string; width?: number; height?: number; size?: number; takenAt?: string
 } = {}): void {
   const absolute = path.join(root(libraryId), relativePath);
   fs.mkdirSync(path.dirname(absolute), { recursive: true });
@@ -106,10 +106,10 @@ function makePhoto(libraryId: string, id: string, relativePath: string, opts: {
   ).run(id, libraryId, relativePath);
   db.prepare("INSERT INTO item_metadata (item_id, source, title) VALUES (?, 'scan', ?)").run(id, id);
   db.prepare(`
-    INSERT INTO gallery_details (item_id, kind, relative_path, size, modified_at, phash, preview_storage_key, width, height)
-    VALUES (?, 'photo', ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO gallery_details (item_id, kind, relative_path, size, modified_at, taken_at, phash, preview_storage_key, width, height)
+    VALUES (?, 'photo', ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
-    id, relativePath, stat.size, stat.mtime.toISOString(),
+    id, relativePath, opts.size ?? stat.size, stat.mtime.toISOString(), opts.takenAt ?? null,
     opts.phash ?? null, opts.previewKey ?? null, opts.width ?? null, opts.height ?? null
   );
 }
@@ -233,6 +233,29 @@ describe("the check's snapshot", () => {
     expect(result.matchConfidence).toBe("likely");
     const roles = Object.fromEntries(result.members.map((member) => [member.itemId, member.role]));
     expect(roles).toEqual({ twin: "keep", in: "delete" });
+  });
+
+  // The second look is generous on purpose (RESCAN_MATCH_SCORE), so this is the
+  // check that keeps two exposures out: one camera, one size, moments apart.
+  it("refuses a pair that looks like two exposures, however alike the pictures are", async () => {
+    const taken = "2024-05-11T15:29:00.000Z";
+    makePhoto("INBOX", "in", "2026/1.jpg", {
+      phash: "ffff0000ffff0000", previewKey: "in.png", width: 4000, height: 3000, size: 5_000_000, takenAt: taken
+    });
+    makePhoto("GAL", "twin", "kept/1.jpg", {
+      phash: apart("ffff0000ffff0000", 13), previewKey: "twin.png", width: 4000, height: 3000, size: 5_010_000,
+      takenAt: "2024-05-11T15:29:30.000Z"
+    });
+    const created = createJob({
+      ownerUserId: "u1", libraryIds: ["GAL", "INBOX"], duplicateType: "inbox", inboxLibraryId: "INBOX", mediaType: "photo"
+    });
+    if (!created.ok) throw new Error(created.refused);
+
+    const outcome = runJobScan(created.job.id, "u1", {
+      rescans: [{ incomingId: "in", libraryItemId: "twin", distance: 13, score: 0.94 }]
+    });
+
+    expect(outcome.summary).toMatchObject({ nearSets: 0, results: 0, separateShots: 1 });
   });
 
   it("respects a pair the reviewer has already told it to forget", async () => {

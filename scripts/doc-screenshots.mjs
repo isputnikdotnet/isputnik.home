@@ -260,11 +260,37 @@ const SHOTS = [
     url: "gallery/inbox",
     state: "an Inbox with photos",
     setup: `
-      button(document, "Select").click(); await sleep(400);
-      const tiles = [...document.querySelectorAll(".gallery-tile.selectable")];
-      tiles[0]?.click(); tiles[1]?.click(); await sleep(300);
-      button(document, "Keep").click(); await sleep(800);
+      const start = button(document, "Select");
+      if (!start) return "no Select button — page not ready, or too narrow for the toolbar";
+      start.click(); await sleep(500);
+      // Each tile is its own button in selection mode; the class it used to be
+      // found by is long gone, and a stale selector selects nothing silently.
+      const tiles = [...document.querySelectorAll('button[aria-label^="Select "]')];
+      tiles[0]?.click(); tiles[1]?.click(); await sleep(400);
+      const keep = button(document, "Keep");
+      if (!keep) return "nothing selected — no Keep button";
+      keep.click(); await sleep(900);
       "keep dialog";`
+  },
+  {
+    // The other half of the same dialog: the folders the destination already has.
+    name: "89-inbox-keep-existing",
+    url: "gallery/inbox",
+    state: "an Inbox with photos, and a library with folders",
+    setup: `
+      const start = button(document, "Select");
+      if (!start) return "no Select button — page not ready, or too narrow for the toolbar";
+      start.click(); await sleep(500);
+      const tiles = [...document.querySelectorAll('button[aria-label^="Select "]')];
+      tiles[0]?.click(); await sleep(400);
+      const keep = button(document, "Keep");
+      if (!keep) return "nothing selected — no Keep button";
+      keep.click(); await sleep(900);
+      const tab = [...topModal().querySelectorAll("button")]
+        .find((b) => b.textContent.trim().startsWith("Use existing"));
+      if (!tab) return "no existing-folder tab";
+      tab.click(); await sleep(1200);
+      "existing folders";`
   },
   {
     name: "84-inbox-check-results",
