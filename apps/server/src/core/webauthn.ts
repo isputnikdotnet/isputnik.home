@@ -8,7 +8,7 @@ import {
 import { isoBase64URL } from "@simplewebauthn/server/helpers";
 import type {
   AuthenticationResponseJSON,
-  AuthenticatorTransportFuture,
+  AuthenticatorTransport,
   PublicKeyCredentialCreationOptionsJSON,
   PublicKeyCredentialRequestOptionsJSON,
   RegistrationResponseJSON
@@ -189,11 +189,11 @@ export function clearPasskeys(userId: string): number {
   return db.prepare("DELETE FROM webauthn_credentials WHERE user_id = ?").run(userId).changes;
 }
 
-export function parseTransports(stored: string | null): AuthenticatorTransportFuture[] | undefined {
+export function parseTransports(stored: string | null): AuthenticatorTransport[] | undefined {
   if (!stored) return undefined;
   try {
     const parsed = JSON.parse(stored) as unknown;
-    return Array.isArray(parsed) ? (parsed as AuthenticatorTransportFuture[]) : undefined;
+    return Array.isArray(parsed) ? (parsed as AuthenticatorTransport[]) : undefined;
   } catch {
     return undefined;
   }
@@ -245,6 +245,17 @@ export async function buildRegistrationOptions(user: User): Promise<PublicKeyCre
       id: row.credential_id,
       transports: parseTransports(row.transports)
     })),
+    // The three signature algorithms every real authenticator speaks, in the
+    // order the library has always offered them. Naming them keeps a promise the
+    // default no longer makes: @simplewebauthn/server 14 put ML-DSA-44 — a
+    // post-quantum algorithm — at the head of its default list, and verifying a
+    // credential made with it depends on Node's ML-DSA WebCrypto, which is still
+    // marked experimental. A passkey is a way back into the account; it must not
+    // rest on a primitive that a Node release could change or withdraw, which
+    // would leave the key unverifiable and the user shut out of that method. No
+    // shipping authenticator offers ML-DSA-44 today, so nothing is lost by
+    // waiting. Revisit when it is no longer experimental.
+    supportedAlgorithmIDs: [-8, -7, -257],
     authenticatorSelection: {
       // Discoverable, so signing in is one button with no email typed first.
       residentKey: "required",

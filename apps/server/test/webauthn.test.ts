@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { db } from "../src/db.js";
+import { db, type User } from "../src/db.js";
 import { config } from "../src/config.js";
 import {
   passkeysAvailable,
@@ -18,6 +18,7 @@ import {
   touchPasskey,
   counterLooksCloned,
   parseTransports,
+  buildRegistrationOptions,
   type VerifiedRegistration
 } from "../src/core/webauthn.js";
 import { resetDb, makeUser } from "./helpers/seed.js";
@@ -231,5 +232,19 @@ describe("transports", () => {
     expect(parseTransports(null)).toBeUndefined();
     expect(parseTransports("not json")).toBeUndefined();
     expect(parseTransports('{"not":"an array"}')).toBeUndefined();
+  });
+});
+
+describe("offered algorithms", () => {
+  // Nothing here mocks @simplewebauthn, so this asks the library itself what it
+  // would offer. The list is pinned in webauthn.ts rather than inherited: version
+  // 14 put ML-DSA-44 at the head of its default, and a passkey verified with an
+  // algorithm Node still calls experimental is a way back into the account resting
+  // on a primitive that could change under it. If a future bump moves the default
+  // again, this test is what notices.
+  it("offers EdDSA, ES256 and RS256, in that order, and nothing else", async () => {
+    const user = db.prepare("SELECT * FROM users WHERE id = ?").get("u1") as User;
+    const options = await buildRegistrationOptions(user);
+    expect(options.pubKeyCredParams.map((param) => param.alg)).toEqual([-8, -7, -257]);
   });
 });
