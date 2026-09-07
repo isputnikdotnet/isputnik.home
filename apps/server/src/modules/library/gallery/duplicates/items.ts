@@ -38,6 +38,7 @@ import { recomputeFaceCount } from "../people.js";
 import { getJob, setJobStatus, setJobScanProgress } from "./jobs.js";
 import { runJobScan } from "./job-scan.js";
 import { inboxNearVariants } from "./inbox-variants.js";
+import { findInboxRescans, rescanCandidates, type RescanMatch } from "./inbox-rescans.js";
 
 export const DUPLICATE_SCAN_JOB_TYPE = "SCAN_GALLERY_DUPLICATES";
 
@@ -831,6 +832,8 @@ export function groupNearIdentical(
 /** "These two are not duplicates", as pairs. Exported so the cleanup job's snapshot
  *  honours the same standing decisions this module's tiers do. */
 export const duplicateIgnorePairs = (): Set<string> => ignoredPairs();
+/** How a pair is spelled in that set — so a caller checking one pair spells it the same. */
+export const duplicatePairKey = pairKey;
 
 // ────────────────────────────────────────────────────────────────────────────
 //  Reading groups
@@ -1128,14 +1131,15 @@ function failCleanupJob(cleanupJobId: string | null, message: string): void {
  *  is reported on the CLEANUP rather than by failing the queue entry. */
 function runCleanupSnapshot(
   cleanupJobId: string | null,
-  nearVariants?: Map<string, string[]>
+  nearVariants?: Map<string, string[]>,
+  rescans?: RescanMatch[]
 ): Record<string, unknown> {
   const cleanup = cleanupJobId ? getJob(cleanupJobId) : null;
   // Deleted or cancelled while its scan sat in the queue. The digests are still worth
   // having, so this is not an error — there is simply nothing left to snapshot.
   if (!cleanup || !cleanupJobId) return { cleanupJobId, skipped: "the cleanup was gone by the time its scan finished" };
 
-  const outcome = runJobScan(cleanupJobId, cleanup.ownerUserId, { nearVariants });
+  const outcome = runJobScan(cleanupJobId, cleanup.ownerUserId, { nearVariants, rescans });
   if (outcome.ok) return { cleanupJobId, ...outcome.summary };
   failCleanupJob(cleanupJobId, outcome.detail ?? outcome.refused);
   return { cleanupJobId, refused: outcome.refused };
@@ -1201,11 +1205,21 @@ export async function processDuplicateScanQueue(): Promise<void> {
         // A Photo Inbox check also hashes its incoming photos turned three ways, so a
         // print fed in sideways still finds its upright twin (inbox-variants.ts). Done
         // here because it reads files, and the snapshot below must not.
-        const inboxLibraryId = cleanupJobId ? getJob(cleanupJobId)?.inboxLibraryId ?? null : null;
+        const cleanup = cleanupJobId ? getJob(cleanupJobId) : null;
+        const inboxLibraryId = cleanup?.inboxLibraryId ?? null;
         const nearVariants = inboxLibraryId ? await inboxNearVariants(inboxLibraryId) : undefined;
+        // And the second look at what the fingerprint alone can't place — the same
+        // print scanned twice (inbox-rescans.ts). Reads previews, so it belongs here
+        // beside the variants rather than in the snapshot.
+        const rescans = inboxLibraryId && cleanup ? await findInboxRescans(
+          rescanCandidates([inboxLibraryId]).map((photo) => ({ ...photo, variants: nearVariants?.get(photo.itemId) })),
+          rescanCandidates(cleanup.libraries
+            .filter((library) => library.included && !library.missing && library.libraryId !== inboxLibraryId)
+            .map((library) => library.libraryId))
+        ) : undefined;
         // Every pass belongs to a cleanup. There used to be a second branch here that
         // rebuilt the install-wide cache the older pages read; both are gone.
-        writeResult(job.id, { ...pass, ...runCleanupSnapshot(cleanupJobId, nearVariants) });
+        writeResult(job.id, { ...pass, ...runCleanupSnapshot(cleanupJobId, nearVariants, rescans) });
         db.prepare("UPDATE jobs SET status = 'completed', completed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), locked_at = NULL, locked_by = NULL WHERE id = ?")
           .run(job.id);
       } catch (err) {

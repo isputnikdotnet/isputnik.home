@@ -10,7 +10,7 @@
 // the admin who created the Inbox library.
 import { db } from "../../../../db.js";
 import { isPhotoInboxLibrary } from "../inbox-flag.js";
-import { activeJob, createJob, galleryLibraryOptions, type DuplicateJob } from "./jobs.js";
+import { activeJob, createJob, galleryLibraryOptions, refreshInboxScope, type DuplicateJob } from "./jobs.js";
 import { startJobScan } from "./job-scan.js";
 import { processDuplicateScanQueue } from "./items.js";
 
@@ -36,7 +36,10 @@ export function queueInboxCheck(inboxLibraryId: string, userId?: string): InboxC
       return { queued: false, reason: "running", jobId: current.id };
     }
     // The Inbox's own check, put down in review or never run: scan again so the
-    // new delivery joins it. Its dismissals survive; its review marks do not.
+    // new delivery joins it. Its dismissals survive; its review marks do not — and
+    // it is re-pointed at today's libraries, not the ones that existed when it was
+    // first started.
+    refreshInboxScope(current.id);
     const restarted = startJobScan(current.id, current.ownerUserId);
     if (!restarted.ok) return { queued: false, reason: "refused", jobId: current.id, detail: restarted.refused };
     void processDuplicateScanQueue().catch(() => { /* logged per-job */ });

@@ -484,6 +484,38 @@ export function createJob(input: CreateJobInput): JobOutcome<DuplicateJob> {
   return { ok: true, job: getJob(id)! };
 }
 
+/** Point an Inbox check at the collection AS IT STANDS: every gallery library that is
+ *  not itself an Inbox, plus its own. Its scope is not a choice anyone made — "every
+ *  other library is where a twin may be" — but it is frozen at creation like any job's,
+ *  and a check outlives the delivery that started it, since a new delivery re-runs the
+ *  one job rather than piling up cleanups. Without this, a library added after the first
+ *  delivery stays invisible to the check for ever, and a photo whose twin lives there is
+ *  reported as new. Answers nothing for any other kind of job. */
+export function refreshInboxScope(id: string): void {
+  const job = getJob(id);
+  if (!job || job.duplicateType !== "inbox" || !job.inboxLibraryId) return;
+  const available = galleryLibraryOptions();
+  const wanted = [
+    ...available.filter((library) => !library.inbox && library.id !== job.inboxLibraryId).map((library) => library.id),
+    job.inboxLibraryId
+  ];
+  const held = job.libraries.map((library) => library.libraryId).sort();
+  if (held.join("|") === [...wanted].sort().join("|")) return;
+
+  const byId = new Map(available.map((library) => [library.id, library]));
+  db.transaction(() => {
+    db.prepare("DELETE FROM duplicate_job_libraries WHERE job_id = ?").run(id);
+    const addLibrary = db.prepare(`
+      INSERT INTO duplicate_job_libraries (job_id, library_id, included, library_type_snapshot, protected_snapshot)
+      VALUES (?, ?, 1, ?, ?)
+    `);
+    for (const libraryId of wanted) {
+      const library = byId.get(libraryId);
+      if (library) addLibrary.run(id, libraryId, library.mode, library.isProtected ? 1 : 0);
+    }
+  })();
+}
+
 /** The wizard's scope, changeable only while the job is a draft — everything after
  *  a scan was snapshotted under these answers. */
 export interface UpdateScopeInput {

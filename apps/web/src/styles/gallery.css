@@ -2836,32 +2836,10 @@
   padding: 16px 0;
 }
 
-/* Keep dialog: the two placement choices read as one control. */
+/* Keep dialog: the placement choices follow the library select in a plain
+   block body, so they carry their own air. */
 .gallery-keep-placement {
-  display: grid;
-  gap: 8px;
-  border: 0;
-  padding: 0;
-  margin: 0;
-}
-
-.gallery-keep-option {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  cursor: pointer;
-}
-
-.gallery-keep-option input {
-  margin-top: 4px;
-}
-
-.gallery-keep-option span > small {
-  display: block;
-}
-
-.gallery-keep-folder {
-  margin-left: 26px;
+  margin-top: 18px;
 }
 
 /* Library wizard: the Photo Inbox switch. */
@@ -2974,20 +2952,6 @@
   .gallery-drop-link-grid {
     grid-template-columns: 1fr;
   }
-}
-
-/* The Keep dialog's placement radios sit inside a .field fieldset, whose input
-   rule stretches them to the row; a radio is a radio. */
-.gallery-keep-placement input[type="radio"] {
-  width: auto;
-  height: auto;
-  flex: none;
-  margin: 4px 0 0;
-  padding: 0;
-}
-
-.gallery-keep-placement legend {
-  margin-bottom: 8px;
 }
 
 /* The panel modal's own chrome carries no body padding; the drop-links body does. */

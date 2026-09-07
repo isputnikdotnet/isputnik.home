@@ -19,6 +19,15 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.68.0",
+    label: "The Inbox knows a print scanned twice",
+    changes: [
+      "The Photo Inbox check now finds the same print scanned twice. It used to match on a fingerprint alone, which reads a photo as a tiny grid of light and dark — right for a file re-saved or re-encoded, and useless for a print laid on the glass by hand: framed a few percent differently each time and graded to each scanner’s own taste, two scans of one photograph look unrelated to it. So where the fingerprints are close without being equal, the two pictures themselves are now compared, brightness and contrast set aside, over a few crops and the four rotations. A match arrives on the Duplicate cleanup page as “Looks the same”, paired with the library’s copy and offering Replace — which is the one you want when the new scan is the better one. A photograph re-cropped hard, or edited past recognition, is still beyond it.",
+      "A check re-run for a new delivery reads the libraries there are now, rather than the ones there were when it first ran. A Photo Inbox keeps ONE check and re-runs it as photos arrive, and its list of libraries was fixed the day it was created — so a library added later was invisible to it for ever, and a photo whose twin lived there was reported as new.",
+      "The Keep dialog’s two placement choices — into a folder, or by date taken — are option cards like every other choice in the app, instead of an oversized radio button floating in its own column, and the folder name now sits under the choice it belongs to. The same fault made the radios on a library’s Upload settings four times their proper size; they are right again too."
+    ]
+  },
+  {
     version: "3.67.0",
     label: "The Photo Inbox",
     changes: [

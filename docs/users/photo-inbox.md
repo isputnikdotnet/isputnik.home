@@ -92,8 +92,16 @@ never compared with itself — a delivery of two hundred scans does not turn
 into a cleanup of the whole house — and the library's copy is always the one
 kept. It finds byte-identical files, the copies that were re-scanned and are
 now a different file of the same picture, and it hashes an incoming scan turned
-on its side as well, so a print fed in sideways still finds its upright twin. A
-different crop of the same print is beyond it; those you will meet in the grid.
+on its side as well, so a print fed in sideways still finds its upright twin.
+
+It also finds the same print scanned twice — laid on the glass a little
+differently each time, and graded to each scanner's own taste, which is enough
+to make the two files look unrelated to a fingerprint. Where the fingerprints
+are close without being equal, the two pictures themselves are compared, and a
+match is shown as **Looks the same** for you to confirm. What is still beyond
+it is a photograph re-cropped hard — much past a tenth of the frame — or one
+so changed by an edit that it is a different picture; those you will meet in
+the grid.
 
 The banner reads "N photos look like copies of ones the library already has",
 "Checking for copies…" with a percentage while it runs, or "No copies found".

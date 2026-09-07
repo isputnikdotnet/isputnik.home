@@ -1,4 +1,4 @@
-import { useId, type ReactNode } from "react";
+import { Fragment, useId, type ReactNode } from "react";
 
 // A radio group where each option carries its own explanation — for the handful
 // of places that ask the user to pick between approaches (which second factor to
@@ -13,6 +13,12 @@ export interface Choice<T extends string> {
   /** Renders the option but blocks selecting it; explain why in `note`. */
   disabled?: boolean;
   note?: string;
+  /**
+   * A control the option needs once it is picked (a folder name, an amount) —
+   * shown under the card while it is selected. It sits outside the card's
+   * <label> so a click in it doesn't read as a click on the radio.
+   */
+  detail?: ReactNode;
 }
 
 export function ChoiceGroup<T extends string>({
@@ -36,25 +42,29 @@ export function ChoiceGroup<T extends string>({
     <fieldset className={["choice-group", className].filter(Boolean).join(" ")}>
       <legend>{legend}</legend>
       {options.map((option) => (
-        <label
-          key={option.value}
-          className={`choice${value === option.value ? " is-selected" : ""}${option.disabled ? " is-disabled" : ""}`}
-        >
-          <input
-            type="radio"
-            name={name}
-            value={option.value}
-            checked={value === option.value}
-            disabled={disabled || option.disabled}
-            onChange={() => onChange(option.value)}
-          />
-          {option.icon && <span className="choice-icon" aria-hidden="true">{option.icon}</span>}
-          <span className="choice-body">
-            <span className="choice-label">{option.label}</span>
-            {option.description && <span className="choice-description">{option.description}</span>}
-            {option.note && <span className="choice-note">{option.note}</span>}
-          </span>
-        </label>
+        <Fragment key={option.value}>
+          <label
+            className={`choice${value === option.value ? " is-selected" : ""}${option.disabled ? " is-disabled" : ""}`}
+          >
+            <input
+              type="radio"
+              name={name}
+              value={option.value}
+              checked={value === option.value}
+              disabled={disabled || option.disabled}
+              onChange={() => onChange(option.value)}
+            />
+            {option.icon && <span className="choice-icon" aria-hidden="true">{option.icon}</span>}
+            <span className="choice-body">
+              <span className="choice-label">{option.label}</span>
+              {option.description && <span className="choice-description">{option.description}</span>}
+              {option.note && <span className="choice-note">{option.note}</span>}
+            </span>
+          </label>
+          {option.detail && value === option.value && (
+            <div className="choice-detail">{option.detail}</div>
+          )}
+        </Fragment>
       ))}
     </fieldset>
   );

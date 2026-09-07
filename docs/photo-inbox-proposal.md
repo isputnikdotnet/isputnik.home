@@ -112,6 +112,18 @@ The audit, so no phase re-invents a primitive:
    nothing; four hashes per collection photo would be a schema change for a case
    only scans produce.
 
+   *Widened after the fact (`duplicates/inbox-rescans.ts`).* The near tier links at
+   three bits of a 9x8 grayscale grid, which is right for a re-save and hopeless for
+   the case this feature exists to serve: one print scanned twice sits a dozen bits
+   away, because a hand-placed print is framed a few percent differently and every
+   scanner grades tones its own way. Widening the tier to a dozen bits would link
+   half the seascapes in a library, so instead the fingerprint only PROPOSES — the
+   nearest few within a wide gate — and each proposal is settled by correlating the
+   two cached previews, normalised for brightness and contrast, over a few centre
+   crops and the four rotations. One photograph twice scores ~0.94; two pictures
+   that merely share a layout, ~0.1. Inbox-only, because the candidates are one
+   delivery: the collection is never compared with itself.
+
 9. **The check runs itself.** When an Inbox scan or a drop finishes, a check job
    is queued for that Inbox, so the review bar can open with "12 new, 3 look like
    copies". It obeys the one-active-job rule; if a cleanup is already running the

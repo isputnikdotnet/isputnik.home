@@ -4,7 +4,7 @@ import path from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../src/db.js";
 import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
-import { activeJob, createJob, getJob } from "../src/modules/library/gallery/duplicates/jobs.js";
+import { activeJob, createJob, getJob, setJobStatus } from "../src/modules/library/gallery/duplicates/jobs.js";
 import { runJobScan, listJobResults, INBOX_KEEPER_REASON } from "../src/modules/library/gallery/duplicates/job-scan.js";
 import { replaceWithInboxCopy, replaceLargerSweep } from "../src/modules/library/gallery/duplicates/job-replace.js";
 import { inboxCheckView, queueInboxCheck } from "../src/modules/library/gallery/duplicates/inbox-check.js";
@@ -216,6 +216,35 @@ describe("queueing a check", () => {
     expect(queueInboxCheck("GAL")).toMatchObject({ queued: false, reason: "not_inbox" });
   });
 
+  it("re-runs its own check against the libraries there are now, not the ones there were", () => {
+    makePhoto("INBOX", "a1", "box/1.jpg", { hash: "H1" });
+    expect(queueInboxCheck("INBOX").queued).toBe(true);
+    const first = activeJob()!;
+    expect(first.libraries.map((library) => library.libraryId).sort()).toEqual(["GAL", "INBOX"]);
+    setJobStatus(first.id, "u1", "review");
+
+    // A library added after the check was first started, holding the twin of what
+    // the next delivery brings.
+    makeGalleryLibrary("LATER");
+    makePhoto("INBOX", "a2", "box/2.jpg", { hash: "H2" });
+    makePhoto("LATER", "l1", "kept/2.jpg", { hash: "H2" });
+
+    expect(queueInboxCheck("INBOX")).toMatchObject({ queued: true, jobId: first.id });
+    expect(activeJob()!.libraries.map((library) => library.libraryId).sort()).toEqual(["GAL", "INBOX", "LATER"]);
+    expect(runJobScan(first.id, "u1").summary).toMatchObject({ photoSets: 1 });
+  });
+
+  it("leaves another Inbox out of the collection a check reads", () => {
+    makeGalleryLibrary("INBOX2", INBOX_POLICY);
+    makePhoto("INBOX", "a1", "box/1.jpg", { hash: "H1" });
+    expect(queueInboxCheck("INBOX").queued).toBe(true);
+    const job = activeJob()!;
+    setJobStatus(job.id, "u1", "review");
+    makePhoto("INBOX", "a2", "box/2.jpg", { hash: "H2" });
+
+    expect(queueInboxCheck("INBOX")).toMatchObject({ queued: true, jobId: job.id });
+    expect(activeJob()!.libraries.map((library) => library.libraryId).sort()).toEqual(["GAL", "INBOX"]);
+  });
   it("does not start when someone else's cleanup holds the slot", () => {
     makePhoto("INBOX", "a1", "box/1.jpg", { hash: "H1" });
     const other = createJob({ ownerUserId: "u1", libraryIds: ["GAL"], duplicateType: "files" });

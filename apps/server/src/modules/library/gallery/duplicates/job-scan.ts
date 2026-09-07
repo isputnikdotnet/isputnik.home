@@ -38,6 +38,7 @@ import {
 import {
   connectedComponents,
   duplicateIgnorePairs,
+  duplicatePairKey,
   enqueueJobScan,
   groupNearIdentical,
   keeperRankIsDecision,
@@ -46,6 +47,7 @@ import {
   type DetailRow,
   type FolderPreference
 } from "./items.js";
+import { type RescanMatch } from "./inbox-rescans.js";
 import {
   getJob,
   recordAction,
@@ -487,7 +489,8 @@ function snapshotInboxSets(
   files: ScanFile[],
   inboxLibraryId: string,
   blocks: DeletionBlocks,
-  nearVariants?: Map<string, string[]>
+  nearVariants?: Map<string, string[]>,
+  rescans?: RescanMatch[]
 ): { exact: number; near: number; separateShots: number } {
   const incomingFile = (file: ScanFile): boolean => file.libraryId === inboxLibraryId;
   const suppressed = new Set<string>();
@@ -589,6 +592,20 @@ function snapshotInboxSets(
   for (const ids of components) {
     const group = ids.map((id) => candidateById.get(id)).filter((file): file is ScanFile => Boolean(file));
     if (writeSet(group, details, distance)) near += 1;
+  }
+
+  // The same print scanned twice. Proposed by a wide fingerprint gate and settled by
+  // comparing the pictures themselves (inbox-rescans.ts, run before this pass); each
+  // surviving pair is a set of exactly two, since what it establishes is "this photo
+  // is that photo" and nothing about the rest of the bucket.
+  for (const match of rescans ?? []) {
+    const incoming = candidateById.get(match.incomingId);
+    const twin = candidateById.get(match.libraryItemId);
+    if (!incoming || !twin) continue;                                   // spoken for above
+    if (suppressed.has(incoming.itemId) || suppressed.has(twin.itemId)) continue;
+    if (ignored.has(duplicatePairKey(incoming.itemId, twin.itemId))) continue;
+    const pair = loadDetails([incoming.itemId, twin.itemId]);
+    if (writeSet([twin, incoming], pair, () => match.distance)) near += 1;
   }
   return { exact, near, separateShots };
 }
@@ -1148,7 +1165,7 @@ export function runJobScan(
   /** What only the worker can supply: the Inbox check's rotated fingerprints
    *  (inbox-variants.ts), computed before this synchronous pass. A re-run from the
    *  preferences page passes nothing and matches upright only. */
-  extras: { nearVariants?: Map<string, string[]> } = {}
+  extras: { nearVariants?: Map<string, string[]>; rescans?: RescanMatch[] } = {}
 ): JobOutcome<DuplicateJob> & { summary?: ScanSummary } {
   const job = getJob(jobId);
   if (!job) return { ok: false, refused: "not_found" };
@@ -1213,7 +1230,9 @@ export function runJobScan(
       // of work to sit down to.
       if (job.duplicateType === "inbox" && job.inboxLibraryId) {
         // One library's photos against the rest, never the rest against itself.
-        const inbox = snapshotInboxSets(write, files, job.inboxLibraryId, blocks, extras.nearVariants);
+        const inbox = snapshotInboxSets(
+          write, files, job.inboxLibraryId, blocks, extras.nearVariants, extras.rescans
+        );
         summary.photoSets = inbox.exact;
         summary.nearSets = inbox.near;
         summary.separateShots = inbox.separateShots;

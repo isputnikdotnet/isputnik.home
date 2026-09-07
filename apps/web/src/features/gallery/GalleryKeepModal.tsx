@@ -8,6 +8,8 @@ import { useTranslation } from "react-i18next";
 import { FolderInput } from "lucide-react";
 import { api } from "../../api";
 import { Button } from "../../shared/Button";
+import type { Choice } from "../../shared/ChoiceGroup";
+import { ChoiceGroup } from "../../shared/ChoiceGroup";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
 import type { GalleryFolder, GalleryLibrary } from "./types";
@@ -19,6 +21,8 @@ export interface KeepDestination {
   /** File by capture date (YYYY/YYYY-MM-DD), the upload rule. */
   dated: boolean;
 }
+
+type Placement = "folder" | "dated";
 
 const REMEMBER_KEY = "gallery.inbox.keep";
 
@@ -74,6 +78,38 @@ export function GalleryKeepModal({
     return () => { cancelled = true; window.clearTimeout(handle); };
   }, [libraryId, dated, folder]);
 
+  const placement: Placement = dated ? "dated" : "folder";
+  const placementOptions: Choice<Placement>[] = [
+    {
+      value: "folder",
+      label: t("galleryModals:keep.intoFolder"),
+      description: t("galleryModals:keep.intoFolderHint"),
+      // The folder name belongs to this choice, so it rides under its card.
+      detail: (
+        <label className="field">
+          <span className="sr-only">{t("galleryModals:keep.folderLabel")}</span>
+          <input
+            type="text"
+            list="gallery-keep-folders"
+            value={folder}
+            onChange={(event) => setFolder(event.target.value)}
+            placeholder={t("galleryModals:keep.folderPlaceholder")}
+            disabled={busy}
+            autoComplete="off"
+          />
+          <datalist id="gallery-keep-folders">
+            {suggestions.map((hit) => <option key={hit.path} value={hit.path} />)}
+          </datalist>
+        </label>
+      )
+    },
+    {
+      value: "dated",
+      label: t("galleryModals:keep.byDate"),
+      description: t("galleryModals:keep.byDateHint")
+    }
+  ];
+
   const submit = () => {
     if (!libraryId || busy) return;
     const dest: KeepDestination = { libraryId, folder: dated ? "" : folder.trim(), dated };
@@ -107,40 +143,14 @@ export function GalleryKeepModal({
             </select>
           </label>
 
-          <fieldset className="field gallery-keep-placement">
-            <legend>{t("galleryModals:keep.placementLegend")}</legend>
-            <label className="gallery-keep-option">
-              <input type="radio" name="keep-placement" checked={!dated} onChange={() => setDated(false)} disabled={busy} />
-              <span>
-                <strong>{t("galleryModals:keep.intoFolder")}</strong>
-                <small className="muted">{t("galleryModals:keep.intoFolderHint")}</small>
-              </span>
-            </label>
-            {!dated && (
-              <label className="field gallery-keep-folder">
-                <span className="sr-only">{t("galleryModals:keep.folderLabel")}</span>
-                <input
-                  type="text"
-                  list="gallery-keep-folders"
-                  value={folder}
-                  onChange={(event) => setFolder(event.target.value)}
-                  placeholder={t("galleryModals:keep.folderPlaceholder")}
-                  disabled={busy}
-                  autoComplete="off"
-                />
-                <datalist id="gallery-keep-folders">
-                  {suggestions.map((hit) => <option key={hit.path} value={hit.path} />)}
-                </datalist>
-              </label>
-            )}
-            <label className="gallery-keep-option">
-              <input type="radio" name="keep-placement" checked={dated} onChange={() => setDated(true)} disabled={busy} />
-              <span>
-                <strong>{t("galleryModals:keep.byDate")}</strong>
-                <small className="muted">{t("galleryModals:keep.byDateHint")}</small>
-              </span>
-            </label>
-          </fieldset>
+          <ChoiceGroup
+            legend={t("galleryModals:keep.placementLegend")}
+            className="gallery-keep-placement"
+            value={placement}
+            onChange={(next) => setDated(next === "dated")}
+            disabled={busy}
+            options={placementOptions}
+          />
         </>
       )}
 

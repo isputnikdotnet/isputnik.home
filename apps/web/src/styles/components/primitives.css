@@ -123,6 +123,18 @@
   background: var(--field);
 }
 
+/* …but a checkbox or a radio is a widget, not a text box: the rule above would
+   blow it up into a 46px bordered circle. */
+.field input[type="checkbox"],
+.field input[type="radio"] {
+  width: auto;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+
 /* Selects already carry this chrome from base.css; a field only stretches them. */
 .field select {
   width: 100%;
@@ -573,6 +585,12 @@ a.icon-button svg {
   margin: 2px 0 0;
   accent-color: var(--control-primary-button, var(--mint));
   cursor: inherit;
+}
+
+/* A control the selected option needs, tucked under its card. */
+.choice-detail {
+  /* Left edge under the option's own text: card border + padding + radio + gap. */
+  margin: -4px 0 2px 47px;
 }
 
 .choice-icon {
