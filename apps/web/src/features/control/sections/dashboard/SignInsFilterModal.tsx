@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { Filter } from "lucide-react";
+import { Filter, Globe2, UserRound } from "lucide-react";
 import { api } from "../../../../api";
 import { Button } from "../../../../shared/Button";
 import { ChoiceGroup, type Choice } from "../../../../shared/ChoiceGroup";
 import { MessageBox } from "../../../../shared/MessageBox";
 import { Modal } from "../../../../shared/Modal";
+import { SelectField } from "../../../../shared/SelectField";
 import { countryName } from "../../../../shared/utils";
 import type { ManagedUser } from "../../types";
 import { COUNTRY_CENTROIDS } from "./countryCentroids";
@@ -109,15 +110,16 @@ export function SignInsFilterModal({
       <ChoiceGroup legend={t("controlDash:signInsFilter.legend")} options={KIND_OPTIONS} value={kind} onChange={setKind} />
 
       {(kind === "country" || kind === "place") && (
-        <label className="field">
-          <span>{t("controlDash:signInsFilter.country")}</span>
-          <select value={country} onChange={(event) => setCountry(event.target.value)}>
-            <option value="">{t("controlDash:signInsFilter.chooseCountry")}</option>
-            {COUNTRY_OPTIONS.map((option) => (
-              <option key={option.code} value={option.code}>{option.name}</option>
-            ))}
-          </select>
-        </label>
+        <SelectField
+          label={t("controlDash:signInsFilter.country")}
+          icon={<Globe2 size={17} />}
+          value={country}
+          onChange={setCountry}
+          options={[
+            { value: "", label: t("controlDash:signInsFilter.chooseCountry") },
+            ...COUNTRY_OPTIONS.map((option) => ({ value: option.code, label: option.name }))
+          ]}
+        />
       )}
 
       {kind === "place" && (
@@ -162,17 +164,17 @@ export function SignInsFilterModal({
       )}
 
       {kind === "user" && (
-        <label className="field">
-          <span>{t("controlDash:signInsFilter.person")}</span>
-          <select value={userId} disabled={users === null} onChange={(event) => setUserId(event.target.value)}>
-            <option value="">{users === null ? t("controlDash:signInsFilter.loadingMembers") : t("controlDash:signInsFilter.choosePerson")}</option>
-            {(users ?? []).map((user) => (
-              <option key={user.id} value={user.id}>
-                {user.displayName} — {user.email}
-              </option>
-            ))}
-          </select>
-        </label>
+        <SelectField
+          label={t("controlDash:signInsFilter.person")}
+          icon={<UserRound size={17} />}
+          value={userId}
+          disabled={users === null}
+          onChange={setUserId}
+          options={[
+            { value: "", label: users === null ? t("controlDash:signInsFilter.loadingMembers") : t("controlDash:signInsFilter.choosePerson") },
+            ...(users ?? []).map((user) => ({ value: user.id, label: `${user.displayName} — ${user.email}` }))
+          ]}
+        />
       )}
 
       <div className="modal-actions">

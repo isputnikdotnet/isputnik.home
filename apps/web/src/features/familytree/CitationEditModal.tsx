@@ -6,6 +6,7 @@ import { api } from "../../api";
 import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
+import { SelectField } from "../../shared/SelectField";
 import { eventTypeLabel, type FamilyCitation, type FamilyPersonProfile, type FamilySource } from "./types";
 
 const NEW_SOURCE = "__new__";
@@ -185,18 +186,16 @@ export function CitationEditModal({
               )}
           </label>
         ) : (
-          <label className="field">
-            <span>{t("family:citation.sourceLabel")}</span>
-            <select
-              value={sourceId}
-              onChange={(event) => { setSourceId(event.target.value); setEditSource(false); }}
-            >
-              {sources.map((source) => (
-                <option key={source.id} value={source.id}>{source.title}</option>
-              ))}
-              {canEditSources && <option value={NEW_SOURCE}>{t("family:citation.newSourceOption")}</option>}
-            </select>
-          </label>
+          <SelectField
+            label={t("family:citation.sourceLabel")}
+            icon={<BookMarked size={17} />}
+            value={sourceId}
+            onChange={(value) => { setSourceId(value); setEditSource(false); }}
+            options={[
+              ...sources.map((source) => ({ value: source.id, label: source.title })),
+              ...(canEditSources ? [{ value: NEW_SOURCE, label: t("family:citation.newSourceOption") }] : [])
+            ]}
+          />
         )}
         {noSourceAvailable && (
           <MessageBox tone="info" title={t("family:citation.noSourcesTitle")}>
@@ -231,14 +230,12 @@ export function CitationEditModal({
           </div>
         )}
         {!existing && (
-          <label className="field">
-            <span>{t("family:citation.supportsLabel")}</span>
-            <select value={target} onChange={(event) => setTarget(event.target.value)}>
-              {targets.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-          </label>
+          <SelectField
+            label={t("family:citation.supportsLabel")}
+            value={target}
+            onChange={setTarget}
+            options={targets.map((option) => ({ value: option.value, label: option.label }))}
+          />
         )}
         <label className="field">
           <span>{t("family:citation.detailFieldLabel")}</span>

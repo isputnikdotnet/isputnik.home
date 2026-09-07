@@ -5,6 +5,7 @@ import { api } from "../../api";
 import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
+import { SelectField } from "../../shared/SelectField";
 import { PartialDateField } from "../../shared/PartialDateField";
 import { UNION_STATUS_OPTIONS, unionStatusLabel, type FamilyUnionDetail } from "./types";
 
@@ -70,14 +71,14 @@ export function UnionEditModal({
     >
       {error && <MessageBox tone="error" title={t("errors.unableToSave")}>{error}</MessageBox>}
       <div className="ft-field-stack">
-        <label className="field">
-          <span>{t("family:common.status")}</span>
-          <select value={status} onChange={(event) => setStatus(event.target.value as FamilyUnionDetail["status"])}>
-            {UNION_STATUS_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>{unionStatusLabel(option.value)}</option>
-            ))}
-          </select>
-        </label>
+        <SelectField
+          label={t("family:common.status")}
+          value={status}
+          onChange={(value) => setStatus(value as FamilyUnionDetail["status"])}
+          options={UNION_STATUS_OPTIONS.map((option) => ({
+            value: option.value, label: unionStatusLabel(option.value)
+          }))}
+        />
         <PartialDateField
           label={status === "partners" ? t("family:unionEdit.togetherSince") : t("family:unionEdit.married")}
           value={marriedDate}

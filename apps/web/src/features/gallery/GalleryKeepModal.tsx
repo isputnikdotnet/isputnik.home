@@ -5,12 +5,13 @@
 // of two hundred prints is not two hundred dialogs' worth of typing.
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { FolderInput } from "lucide-react";
+import { CalendarDays, FolderInput, FolderPlus, Images } from "lucide-react";
 import { api } from "../../api";
 import { Button } from "../../shared/Button";
 import type { Choice } from "../../shared/ChoiceGroup";
 import { ChoiceGroup } from "../../shared/ChoiceGroup";
 import { MessageBox } from "../../shared/MessageBox";
+import { SelectField } from "../../shared/SelectField";
 import { Modal } from "../../shared/Modal";
 import type { GalleryFolder, GalleryLibrary } from "./types";
 
@@ -84,6 +85,7 @@ export function GalleryKeepModal({
       value: "folder",
       label: t("galleryModals:keep.intoFolder"),
       description: t("galleryModals:keep.intoFolderHint"),
+      icon: <FolderPlus size={18} />,
       // The folder name belongs to this choice, so it rides under its card.
       detail: (
         <label className="field">
@@ -106,7 +108,8 @@ export function GalleryKeepModal({
     {
       value: "dated",
       label: t("galleryModals:keep.byDate"),
-      description: t("galleryModals:keep.byDateHint")
+      description: t("galleryModals:keep.byDateHint"),
+      icon: <CalendarDays size={18} />
     }
   ];
 
@@ -134,14 +137,14 @@ export function GalleryKeepModal({
         </MessageBox>
       ) : (
         <>
-          <label className="field">
-            <span>{t("galleryModals:keep.libraryLabel")}</span>
-            <select value={libraryId} onChange={(event) => setLibraryId(event.target.value)} disabled={busy}>
-              {libraries.map((library) => (
-                <option key={library.id} value={library.id}>{library.name}</option>
-              ))}
-            </select>
-          </label>
+          <SelectField
+            label={t("galleryModals:keep.libraryLabel")}
+            icon={<Images size={17} />}
+            value={libraryId}
+            onChange={setLibraryId}
+            disabled={busy}
+            options={libraries.map((library) => ({ value: library.id, label: library.name }))}
+          />
 
           <ChoiceGroup
             legend={t("galleryModals:keep.placementLegend")}

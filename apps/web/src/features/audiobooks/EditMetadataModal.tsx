@@ -6,6 +6,7 @@ import { PeopleCombobox } from "../../shared/PeopleCombobox";
 import { SuggestInput } from "../../shared/SuggestInput";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
+import { SelectField } from "../../shared/SelectField";
 import { formatBytes } from "../../shared/utils";
 import type { AudiobookBookDetail, CategorySummary, CoverCandidate, MetadataCandidate } from "./types";
 
@@ -459,15 +460,16 @@ export function EditMetadataModal({
                     />
                   </div>
                 )}
-                <label className="field metadata-field-half">
-                  <span>{t("book:metadata.fieldCategory")}</span>
-                  <select value={editForm.categoryKey} onChange={(event) => setEditForm((form) => ({ ...form, categoryKey: event.target.value }))}>
-                    <option value="">{t("book:metadata.categoryAuto")}</option>
-                    {categories.map((category) => (
-                      <option key={category.key} value={category.key}>{category.name}</option>
-                    ))}
-                  </select>
-                </label>
+                <SelectField
+                  className="metadata-field-half"
+                  label={t("book:metadata.fieldCategory")}
+                  value={editForm.categoryKey}
+                  onChange={(value) => setEditForm((form) => ({ ...form, categoryKey: value }))}
+                  options={[
+                    { value: "", label: t("book:metadata.categoryAuto") },
+                    ...categories.map((category) => ({ value: category.key, label: category.name }))
+                  ]}
+                />
                 <label className="field metadata-field-wide">
                   <span>{t("book:metadata.fieldDescription")}</span>
                   <textarea value={editForm.description} onChange={(event) => setEditForm((form) => ({ ...form, description: event.target.value }))} rows={4} />

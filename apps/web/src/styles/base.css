@@ -41,6 +41,23 @@ select:focus {
   outline: 3px solid color-mix(in srgb, var(--mint) 28%, transparent);
 }
 
+/* A dropdown is something you press: it says so on hover, and says when it can't
+   be pressed. The list itself is the platform's, which comes up in the right
+   light or dark because every theme declares its own color-scheme. */
+select:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--ink) 24%, var(--line));
+}
+
+select:not(:disabled) {
+  cursor: pointer;
+}
+
+select:disabled {
+  color: var(--muted);
+  cursor: not-allowed;
+  opacity: 0.75;
+}
+
 p,
 h1,
 h2,

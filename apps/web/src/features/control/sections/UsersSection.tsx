@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback, useMemo, type FormEvent } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import { Fingerprint, KeyRound, LockOpen, MonitorSmartphone, MonitorX, Pencil, Plus, Search, ShieldCheck, ShieldOff, Trash2, User, Users } from "lucide-react";
+import { Fingerprint, KeyRound, LockOpen, MonitorSmartphone, MonitorX, Pencil, Plus, Search, Shield, ShieldCheck, ShieldOff, Trash2, User, Users } from "lucide-react";
 import i18n from "../../../i18n";
 import { api, type PublicUser } from "../../../api";
 import { Field } from "../../../shared/Field";
 import { MessageBox } from "../../../shared/MessageBox";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { Modal } from "../../../shared/Modal";
+import { SelectField } from "../../../shared/SelectField";
 import { Button } from "../../../shared/Button";
 import { ActionMenu } from "../../../shared/ActionMenu";
 import { RefreshButton } from "../../../shared/RefreshButton";
@@ -519,13 +520,16 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
             onChange={setNewPassword}
             autoComplete="new-password"
           />
-          <label className="field">
-            <span>{t("controlAdmin:users.role")}</span>
-            <select value={newRole} onChange={(event) => setNewRole(event.target.value as UserRole)}>
-              <option value="member">{t("controlAdmin:users.roleMember")}</option>
-              <option value="admin">{t("controlAdmin:users.roleAdmin")}</option>
-            </select>
-          </label>
+          <SelectField
+            label={t("controlAdmin:users.role")}
+            icon={<Shield size={17} />}
+            value={newRole}
+            onChange={(value) => setNewRole(value as UserRole)}
+            options={[
+              { value: "member", label: t("controlAdmin:users.roleMember") },
+              { value: "admin", label: t("controlAdmin:users.roleAdmin") }
+            ]}
+          />
           {modalError && <MessageBox tone="error" title={t("controlAdmin:users.createFailed")}>{modalError}</MessageBox>}
           <div className="modal-actions">
             <Button variant="secondary" onClick={() => setCreateOpen(false)} disabled={creating} autoFocus>
@@ -552,17 +556,17 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
         >
           <Field label={t("controlAdmin:users.displayName")} value={editDisplayName} onChange={setEditDisplayName} autoComplete="name" />
           <Field label={t("common.email")} type="email" value={editEmail} onChange={setEditEmail} autoComplete="email" />
-          <label className="field">
-            <span>{t("controlAdmin:users.role")}</span>
-            <select
-              value={editRole}
-              disabled={roleLocked}
-              onChange={(event) => setEditRole(event.target.value as UserRole)}
-            >
-              <option value="member">{t("controlAdmin:users.roleMember")}</option>
-              <option value="admin">{t("controlAdmin:users.roleAdmin")}</option>
-            </select>
-          </label>
+          <SelectField
+            label={t("controlAdmin:users.role")}
+            icon={<Shield size={17} />}
+            value={editRole}
+            disabled={roleLocked}
+            onChange={(value) => setEditRole(value as UserRole)}
+            options={[
+              { value: "member", label: t("controlAdmin:users.roleMember") },
+              { value: "admin", label: t("controlAdmin:users.roleAdmin") }
+            ]}
+          />
           {roleLocked && (
             <MessageBox tone="info" title={t("controlAdmin:users.roleLockedTitle")}>
               {t("controlAdmin:users.roleLockedBody")}

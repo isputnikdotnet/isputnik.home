@@ -151,13 +151,12 @@
   margin-bottom: 0;
 }
 
+/* Only what the sheet asks of a dropdown; the border, background and radius
+   belong to the field itself (shared/SelectField), not to this row. */
 .send-to-link-create select {
   width: 100%;
   min-width: 0;
   padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--field);
   color: var(--ink);
   font: inherit;
 }
@@ -561,7 +560,8 @@
   margin-bottom: 10px;
 }
 
-.send-to-field > span {
+.send-to-field > span,
+.send-to-field > label {
   font-size: 0.85rem;
   color: var(--muted);
 }

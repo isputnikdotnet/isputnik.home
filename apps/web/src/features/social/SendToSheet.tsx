@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import { Check, Copy, Link2, Search, Send, Settings, Tablet, Trash2, Users, X } from "lucide-react";
+import { CalendarClock, Check, Copy, Link2, Search, Send, Settings, Tablet, Trash2, Users, X } from "lucide-react";
 import { api } from "../../api";
 import { Modal } from "../../shared/Modal";
+import { SelectField } from "../../shared/SelectField";
 import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 import { profileHref } from "../../router";
@@ -535,14 +536,14 @@ export function SendToSheet({
                 <p className="send-to-panel-intro">{linkIntro}</p>
 
                 <div className="send-to-link-create">
-                  <label className="send-to-field">
-                    <span>{t("user:share.expiresIn")}</span>
-                    <select value={expiresInDays} onChange={(event) => setExpiresInDays(Number(event.target.value))}>
-                      {EXPIRY_OPTIONS.map((days) => (
-                        <option key={days} value={days}>{t("user:share.days", { count: days })}</option>
-                      ))}
-                    </select>
-                  </label>
+                  <SelectField
+                    className="send-to-field"
+                    label={t("user:share.expiresIn")}
+                    icon={<CalendarClock size={17} />}
+                    value={String(expiresInDays)}
+                    onChange={(value) => setExpiresInDays(Number(value))}
+                    options={EXPIRY_OPTIONS.map((days) => ({ value: String(days), label: t("user:share.days", { count: days }) }))}
+                  />
                   <label className="send-to-field">
                     <span>{t("user:share.labelField")}</span>
                     <input

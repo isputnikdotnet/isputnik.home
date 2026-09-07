@@ -5,6 +5,7 @@ import type { TFunction } from "i18next";
 import { api } from "../../api";
 import { MessageBox } from "../../shared/MessageBox";
 import { AccessControl } from "../../shared/AccessControl";
+import { SelectField } from "../../shared/SelectField";
 import type { ManagedGroup, ManagedUser } from "../control/types";
 import type { FamilyTag } from "./types";
 
@@ -124,16 +125,18 @@ export function FamilyTagAccessPanel() {
         </MessageBox>
       ) : (
         <>
-          <div className="member-field member-field-grow">
-            <Tags size={17} className="member-field-icon" aria-hidden="true" />
-            <select value={tagId} onChange={(event) => setTagId(event.target.value)} aria-label={t("family:tagAccess.tagAria")}>
-              {tags.map((tag) => (
-                <option key={tag.id} value={tag.id}>
-                  {tag.name} — {t("family:common.counts.person", { count: tag.count })}
-                </option>
-              ))}
-            </select>
-          </div>
+          <SelectField
+            className="member-field-grow"
+            label={t("family:tagAccess.tagAria")}
+            hideLabel
+            icon={<Tags size={17} />}
+            value={tagId}
+            onChange={setTagId}
+            options={tags.map((tag) => ({
+              value: tag.id,
+              label: `${tag.name} — ${t("family:common.counts.person", { count: tag.count })}`
+            }))}
+          />
 
           <AccessControl
             roles={roleOptions(t)}

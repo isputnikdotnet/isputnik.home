@@ -5,6 +5,7 @@ import { api } from "../../api";
 import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
+import { SelectField } from "../../shared/SelectField";
 import type { GalleryAsset } from "../gallery/types";
 import { PhotoPicker } from "../gallery/PhotoPicker";
 import { useFamilyUploadTarget } from "./useFamilyUploadTarget";
@@ -111,14 +112,14 @@ export function EventEditModal({
     >
       {error && <MessageBox tone="error" title={t("errors.unableToSave")}>{error}</MessageBox>}
       <div className="ft-form-grid">
-        <label className="field">
-          <span>{t("family:event.typeLabel")}</span>
-          <select value={type} onChange={(event) => setType(event.target.value as FamilyEvent["type"])}>
-            {EVENT_TYPE_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>{eventTypeLabel(option.value)}</option>
-            ))}
-          </select>
-        </label>
+        <SelectField
+          label={t("family:event.typeLabel")}
+          value={type}
+          onChange={(value) => setType(value as FamilyEvent["type"])}
+          options={EVENT_TYPE_OPTIONS.map((option) => ({
+            value: option.value, label: eventTypeLabel(option.value)
+          }))}
+        />
         <label className="field">
           <span>{type === "custom" ? t("family:event.labelFieldRequired") : t("family:event.labelFieldOptional")}</span>
           <input

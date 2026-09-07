@@ -4,12 +4,13 @@
 // take one back. The address is shown once: only its fingerprint is kept.
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Copy, Link2, Trash2 } from "lucide-react";
+import { CalendarClock, Copy, Link2, Trash2 } from "lucide-react";
 import { api } from "../../api";
 import { Button } from "../../shared/Button";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
+import { SelectField } from "../../shared/SelectField";
 import { ToggleSwitch } from "../../shared/ToggleSwitch";
 import { formatBytes } from "../../shared/utils";
 
@@ -174,14 +175,16 @@ export function DropLinksModal({
           <small className="muted">{t("gallery:inbox.dropLinks.labelHint")}</small>
         </label>
         <div className="gallery-drop-link-grid">
-          <label className="field">
-            <span>{t("gallery:inbox.dropLinks.expiresField")}</span>
-            <select value={expiresInDays} onChange={(event) => setExpiresInDays(Number(event.target.value))} disabled={busy}>
-              {EXPIRY_CHOICES.map((days) => (
-                <option key={days} value={days}>{t("gallery:inbox.dropLinks.expiresIn", { count: days })}</option>
-              ))}
-            </select>
-          </label>
+          <SelectField
+            label={t("gallery:inbox.dropLinks.expiresField")}
+            icon={<CalendarClock size={17} />}
+            value={String(expiresInDays)}
+            onChange={(value) => setExpiresInDays(Number(value))}
+            disabled={busy}
+            options={EXPIRY_CHOICES.map((days) => ({
+              value: String(days), label: t("gallery:inbox.dropLinks.expiresIn", { count: days })
+            }))}
+          />
           <label className="field">
             <span>{t("gallery:inbox.dropLinks.maxFilesField")}</span>
             <input type="number" min={1} max={10000} value={maxFiles} onChange={(event) => setMaxFiles(event.target.value)} disabled={busy} />

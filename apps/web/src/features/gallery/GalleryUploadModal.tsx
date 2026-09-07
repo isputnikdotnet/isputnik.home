@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { X } from "lucide-react";
+import { Images, X } from "lucide-react";
 import { Modal } from "../../shared/Modal";
 import { FileUpload } from "../../shared/FileUpload";
+import { SelectField } from "../../shared/SelectField";
 import type { GalleryLibrary } from "./types";
 
 // Upload photos/videos into a managed gallery. Each file becomes its own asset
@@ -37,14 +38,15 @@ export function GalleryUploadModal({
       }
     >
       {libraries.length > 1 && (
-        <label className="field" style={{ marginBottom: 12 }}>
-          <span>{t("galleryModals:upload.libraryLabel")}</span>
-          <select value={libraryId} onChange={(event) => setLibraryId(event.target.value)} disabled={busy}>
-            {libraries.map((item) => (
-              <option key={item.id} value={item.id}>{item.name}</option>
-            ))}
-          </select>
-        </label>
+        <SelectField
+          className="gallery-upload-library"
+          label={t("galleryModals:upload.libraryLabel")}
+          icon={<Images size={17} />}
+          value={libraryId}
+          onChange={setLibraryId}
+          disabled={busy}
+          options={libraries.map((item) => ({ value: item.id, label: item.name }))}
+        />
       )}
 
       {library && (

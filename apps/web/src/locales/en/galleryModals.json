@@ -308,7 +308,7 @@
     "libraryLabel": "Library",
     "placementLegend": "Folder",
     "intoFolder": "Into a folder",
-    "intoFolderHint": "Type a folder under the library root; leave it empty for the root itself.",
+    "intoFolderHint": "Type a folder under the library root — the ones it already has are suggested as you type. Leave it empty for the root itself.",
     "folderLabel": "Folder",
     "folderPlaceholder": "e.g. Scans/Grandma's box",
     "byDate": "By date taken",

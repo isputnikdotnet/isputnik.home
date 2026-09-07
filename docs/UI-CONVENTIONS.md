@@ -81,6 +81,39 @@ audiobook library selector.
 For **sorting**, use `shared/SortMenu` instead — see below. SelectMenu's popover
 is anchored inside the page, which a browse toolbar clips.
 
+### SelectField — `shared/SelectField.tsx`
+
+The dropdown a **form** asks a question with: in a dialog or a settings page, in
+the same column as the text fields around it. SelectMenu is the TOOLBAR control;
+this is the field. Every dropdown inside a dialog goes through it, so they all
+carry the same label, chrome, focus ring and disabled state.
+
+It stays a native `<select>` on purpose — the platform's list is the one that
+knows about touch, typeahead, a hundred options and the phone's picker wheel, and
+every theme declares its own `color-scheme`, so that list already comes up in the
+right one. What it adds is the part a bare select cannot have: a leading `icon`
+saying what the field is FOR, since the text can only say what is chosen.
+
+```tsx
+<SelectField
+  label="Library"
+  icon={<Images size={17} />}
+  value={libraryId}
+  onChange={setLibraryId}
+  options={libraries.map((library) => ({ value: library.id, label: library.name }))}
+/>
+```
+
+Give it an icon when the field names a **kind of thing** the reader recognises by
+its glyph — a library, a span of time, a person. Skip it for a plain list of
+values; a decorative icon on every field is noise, and the icon never changes
+with the selection.
+
+The wrapper draws the border, background and focus ring; the select inside goes
+bare. Do not "simplify" that back into padding on the select — panel dialogs set
+their own denser padding on `.field select` at the same specificity, and where
+they won, the icon landed on top of the first letter.
+
 ### SortMenu — `shared/SortMenu.tsx`
 
 The one sort control across browse pages (Audiobooks, Ebooks, Authors, Narrators,
@@ -118,6 +151,13 @@ saying why, which is how an unavailable choice stays visible instead of vanishin
   ]}
 />
 ```
+
+An option may also carry `icon` (drawn in the card's own icon column) and
+`detail` — a control the option needs once it is picked, shown under its card
+while it is selected and hidden when it is not. The Keep dialog's folder name is
+one: it belongs to "Into a folder" and has no meaning under "By date taken". The
+detail sits outside the card's `<label>`, so typing in it is not a click on the
+radio.
 
 **Verb vocabulary** (keep it consistent):
 

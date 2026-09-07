@@ -5,6 +5,7 @@ import { api } from "../../api";
 import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
+import { SelectField } from "../../shared/SelectField";
 import { PersonAvatar } from "./PersonAvatar";
 import { PersonPickerModal } from "./PersonPickerModal";
 import { CHILD_RELATION_OPTIONS, childRelationLabel, type FamilyChildLink, type FamilyPersonProfile } from "./types";
@@ -111,23 +112,21 @@ export function AddChildModal({
       </div>
       <div className="ft-field-stack">
         {unionOptions.length > 1 && (
-          <label className="field">
-            <span>{t("family:addChild.familyFieldLabel")}</span>
-            <select value={unionId} onChange={(event) => setUnionId(event.target.value)}>
-              {unionOptions.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-          </label>
+          <SelectField
+            label={t("family:addChild.familyFieldLabel")}
+            value={unionId}
+            onChange={setUnionId}
+            options={unionOptions}
+          />
         )}
-        <label className="field">
-          <span>{t("family:common.relation")}</span>
-          <select value={relation} onChange={(event) => setRelation(event.target.value as FamilyChildLink["relation"])}>
-            {CHILD_RELATION_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>{childRelationLabel(option.value)}</option>
-            ))}
-          </select>
-        </label>
+        <SelectField
+          label={t("family:common.relation")}
+          value={relation}
+          onChange={(value) => setRelation(value as FamilyChildLink["relation"])}
+          options={CHILD_RELATION_OPTIONS.map((option) => ({
+            value: option.value, label: childRelationLabel(option.value)
+          }))}
+        />
       </div>
       <div className="modal-actions">
         <Button variant="secondary" onClick={onClose} disabled={saving}>{t("common.cancel")}</Button>

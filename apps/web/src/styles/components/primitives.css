@@ -107,7 +107,10 @@
   user-select: none;
 }
 
-.field > span:first-child {
+/* The field's own label, whether it is a <span> inside a wrapping <label> or a
+   real <label> pointing at the control (shared/SelectField). */
+.field > span:first-child,
+.field > label:first-child {
   color: var(--muted);
 }
 
@@ -138,6 +141,73 @@
 /* Selects already carry this chrome from base.css; a field only stretches them. */
 .field select {
   width: 100%;
+}
+
+/* ── Form dropdown (shared/SelectField) ─────────────────────────────────────
+   The icon sits in a column of its own and the WRAPPER carries the field chrome
+   — border, background, focus ring — while the select inside goes bare. The
+   obvious way round (leave the chrome on the select and inset the icon over it
+   with padding) cannot survive the cascade: every panel dialog sets its own
+   denser padding on `.field select` at the same specificity, and where it won
+   the icon landed on top of the first letter. Here a dialog's padding only
+   nudges the text, and the height it asks for is the height the wrapper takes. */
+.select-field-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  border-radius: 7px;
+  background: var(--field);
+  /* The edge is an INSET RING rather than a border: a border on the wrapper adds
+     its height to the select inside, and the field ends up taller than the plain
+     dropdown beside it. This way the select alone decides the height — including
+     in a dense dialog, which shortens `.field select` and so shortens this too. */
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.select-field-control:has(.select-field-icon) {
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 9px;
+  padding-left: 12px;
+}
+
+.select-field-icon {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+}
+
+/* Bare inside the wrapper: one edge, one focus ring, drawn once. The border is
+   kept and made INVISIBLE rather than removed — a plain select's border is part
+   of its box, and dropping it left this field two pixels shorter than the plain
+   one beside it wherever the height comes from the content rather than the
+   min-height. */
+.select-field-control select,
+.select-field-control select:focus {
+  border-color: transparent;
+  background: none;
+  outline: none;
+}
+
+.select-field-control:hover:not(:has(select:disabled)) {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 24%, var(--line));
+}
+
+.select-field-control:focus-within {
+  box-shadow: inset 0 0 0 1px var(--mint);
+  outline: 3px solid color-mix(in srgb, var(--mint) 28%, transparent);
+}
+
+.select-field-control:has(select:disabled) {
+  opacity: 0.75;
+}
+
+.select-field-control:has(select:disabled) .select-field-icon {
+  color: var(--muted);
+}
+
+.select-field > small {
+  color: var(--muted);
+  font-size: 0.82rem;
 }
 
 .field input:focus,

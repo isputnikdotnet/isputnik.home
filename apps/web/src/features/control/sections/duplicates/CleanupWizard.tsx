@@ -25,6 +25,7 @@ import { Button } from "../../../../shared/Button";
 import { ChoiceGroup, type Choice } from "../../../../shared/ChoiceGroup";
 import { InfoHint } from "../../../../shared/InfoHint";
 import { Modal } from "../../../../shared/Modal";
+import { SelectField } from "../../../../shared/SelectField";
 import { ToggleSwitch } from "../../../../shared/ToggleSwitch";
 import i18n from "../../../../i18n";
 import type { DuplicateJob, DuplicateKind, LibraryOption, MediaKind } from "./cleanup-types";
@@ -425,14 +426,14 @@ export function CleanupWizard({
                 />
                 {duplicateType === "inbox" && (
                   <div className="cleanup-inbox-pick">
-                    <label className="field">
-                      <span>{t("controlDash:dupes.wizard.inboxPick")}</span>
-                      <select value={inboxLibraryId} onChange={(event) => setInboxLibraryId(event.target.value)} disabled={saving}>
-                        {inboxOptions.map((library) => (
-                          <option key={library.id} value={library.id}>{library.name}</option>
-                        ))}
-                      </select>
-                    </label>
+                    <SelectField
+                      label={t("controlDash:dupes.wizard.inboxPick")}
+                      icon={<Inbox size={17} />}
+                      value={inboxLibraryId}
+                      onChange={setInboxLibraryId}
+                      disabled={saving}
+                      options={inboxOptions.map((library) => ({ value: library.id, label: library.name }))}
+                    />
                     <p className="datagrid-muted">{t("controlDash:dupes.wizard.inboxPickNote")}</p>
                   </div>
                 )}

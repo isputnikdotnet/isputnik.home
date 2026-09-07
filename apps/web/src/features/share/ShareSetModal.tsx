@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Check, Copy, Link2, Trash2, UserPlus } from "lucide-react";
+import { CalendarClock, Check, Copy, Link2, Trash2, UserPlus, UserRound } from "lucide-react";
 import { api } from "../../api";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
+import { SelectField } from "../../shared/SelectField";
 
 // Share a multi-photo selection (gallery "share these") two ways:
 // - Guest link: an anonymous, no-account snapshot of the selection.
@@ -188,12 +189,13 @@ export function ShareSetModal({ itemIds, onClose }: { itemIds: string[]; onClose
             <p className="muted">{t("user:share.setLinkIntro")}</p>
 
             <div className="share-create-row">
-              <label className="field">
-                <span>{t("user:share.expiresIn")}</span>
-                <select value={expiresInDays} onChange={(e) => setExpiresInDays(Number(e.target.value))}>
-                  {EXPIRY_OPTIONS.map((days) => <option key={days} value={days}>{t("user:share.days", { count: days })}</option>)}
-                </select>
-              </label>
+              <SelectField
+                label={t("user:share.expiresIn")}
+                icon={<CalendarClock size={17} />}
+                value={String(expiresInDays)}
+                onChange={(value) => setExpiresInDays(Number(value))}
+                options={EXPIRY_OPTIONS.map((days) => ({ value: String(days), label: t("user:share.days", { count: days }) }))}
+              />
               <label className="field">
                 <span>{t("user:share.labelField")}</span>
                 <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder={t("user:share.setLabelPlaceholder")} maxLength={100} />
@@ -246,19 +248,23 @@ export function ShareSetModal({ itemIds, onClose }: { itemIds: string[]; onClose
             <p className="muted">{t("user:share.setPeopleIntro")}</p>
 
             <div className="share-create-row">
-              <label className="field">
-                <span>{t("user:share.userField")}</span>
-                <select value={selectedUser} onChange={(e) => setSelectedUser(e.target.value)}>
-                  <option value="">{t("user:share.choosePerson")}</option>
-                  {availableUsers.map((u) => <option key={u.id} value={u.id}>{u.displayName}</option>)}
-                </select>
-              </label>
-              <label className="field">
-                <span>{t("user:share.accessFor")}</span>
-                <select value={userExpiryDays} onChange={(e) => setUserExpiryDays(Number(e.target.value))}>
-                  {USER_EXPIRY_OPTIONS.map((days) => <option key={days} value={days}>{userExpiryLabel(days)}</option>)}
-                </select>
-              </label>
+              <SelectField
+                label={t("user:share.userField")}
+                icon={<UserRound size={17} />}
+                value={selectedUser}
+                onChange={setSelectedUser}
+                options={[
+                  { value: "", label: t("user:share.choosePerson") },
+                  ...availableUsers.map((u) => ({ value: u.id, label: u.displayName }))
+                ]}
+              />
+              <SelectField
+                label={t("user:share.accessFor")}
+                icon={<CalendarClock size={17} />}
+                value={String(userExpiryDays)}
+                onChange={(value) => setUserExpiryDays(Number(value))}
+                options={USER_EXPIRY_OPTIONS.map((days) => ({ value: String(days), label: userExpiryLabel(days) }))}
+              />
               <button className="primary-button" onClick={grantUser} disabled={granting || !selectedUser}>
                 <UserPlus size={16} /><span>{granting ? t("user:share.sharing") : t("user:share.share")}</span>
               </button>

@@ -2836,6 +2836,11 @@
   padding: 16px 0;
 }
 
+/* Upload dialog: the library field over the dropzone. */
+.gallery-upload-library {
+  margin-bottom: 12px;
+}
+
 /* Keep dialog: the placement choices follow the library select in a plain
    block body, so they carry their own air. */
 .gallery-keep-placement {

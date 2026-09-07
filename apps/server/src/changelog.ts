@@ -19,6 +19,14 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.69.0",
+    label: "One dropdown, everywhere",
+    changes: [
+      "Every dropdown in a dialog is now the same control. They had drifted: some carried a little icon drawn on top of the box by hand, some stood a couple of pixels taller than the field beside them, and the Keep dialog’s had grown into a giant circle. There is one of them now — the same label, the same edge, the same focus ring, the same height as the text field next to it — and where the question names a kind of thing, it wears the glyph for it: a library, a stretch of time, a person, a branch of the family tree, a drive. Twenty-odd dialogs changed, among them Keep, Upload, Drop links, Share, Send to, Create user, Add member, the family tree’s dialogs, the duplicate-cleanup wizard and the sign-ins filter.",
+      "The Keep dialog reads as a choice again. Its two placements — into a folder you name, or into dated folders — are cards with their own icons, the folder box belongs to the choice above it rather than floating between the two, and the box says it suggests the folders the library already has as you type."
+    ]
+  },
+  {
     version: "3.68.0",
     label: "The Inbox knows a print scanned twice",
     changes: [

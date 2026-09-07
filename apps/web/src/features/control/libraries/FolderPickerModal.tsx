@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { ChevronLeft, FolderOpen } from "lucide-react";
+import { ChevronLeft, FolderOpen, HardDrive } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../../api";
 import { Button } from "../../../shared/Button";
 import { Modal } from "../../../shared/Modal";
+import { SelectField } from "../../../shared/SelectField";
 import type { StorageRoot, StorageBrowse } from "../types";
 
 // Pick a folder by walking a storage container, rather than typing a server path.
@@ -63,14 +64,13 @@ export function FolderPickerModal({
     <Modal title={title} className="folder-picker-modal" onClose={onClose}>
       <p>{intro}</p>
 
-      <label className="field">
-        <span>{t("control:libraries.containerLabel")}</span>
-        <select value={rootId} onChange={(event) => void load(event.target.value)} required>
-          {storageRoots.map((root) => (
-            <option value={root.id} key={root.id}>{root.name}</option>
-          ))}
-        </select>
-      </label>
+      <SelectField
+        label={t("control:libraries.containerLabel")}
+        icon={<HardDrive size={17} />}
+        value={rootId}
+        onChange={(value) => void load(value)}
+        options={storageRoots.map((root) => ({ value: root.id, label: root.name }))}
+      />
 
       {storageRoots.length === 0 && (
         <p className="management-empty">

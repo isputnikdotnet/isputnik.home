@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { Download, FileUp, Settings, UserRound, X } from "lucide-react";
+import { Download, FileUp, Images, Settings, UserRound, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api";
 import { followRoute } from "../../router";
 import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
+import { SelectField } from "../../shared/SelectField";
 import type { GalleryLibrary } from "../gallery/types";
 import { FamilyTagAccessPanel } from "./FamilyTagAccessModal";
 import { GedcomImportModal } from "./GedcomImportModal";
@@ -146,16 +147,20 @@ export function FamilyTreeSettingsModal({
                   {t("family:treeSettings.noLibraryBody")}
                 </MessageBox>
               ) : (
-                <label className="field">
-                  <span>{t("family:treeSettings.uploadPhotosToLabel")}</span>
-                  <select value={libraryId} onChange={(event) => void saveLibrary(event.target.value)} disabled={saving}>
-                    <option value="">{t("family:treeSettings.noLibraryOption")}</option>
-                    {libraries.map((library) => (
-                      <option key={library.id} value={library.id}>{library.name}</option>
-                    ))}
-                  </select>
-                  {saved && <small className="ft-modal-hint">{t("family:treeSettings.saved")}</small>}
-                </label>
+                <>
+                <SelectField
+                  label={t("family:treeSettings.uploadPhotosToLabel")}
+                  icon={<Images size={17} />}
+                  value={libraryId}
+                  onChange={(value) => void saveLibrary(value)}
+                  disabled={saving}
+                  options={[
+                    { value: "", label: t("family:treeSettings.noLibraryOption") },
+                    ...libraries.map((library) => ({ value: library.id, label: library.name }))
+                  ]}
+                />
+                {saved && <small className="ft-modal-hint">{t("family:treeSettings.saved")}</small>}
+                </>
               )}
             </>
           )}

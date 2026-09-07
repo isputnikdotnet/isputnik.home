@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useMemo, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { Plus, Search, Trash2, UserMinus, Users } from "lucide-react";
+import { Plus, Search, Trash2, UserMinus, UserRound, Users } from "lucide-react";
 import { api } from "../../../api";
 import { Field } from "../../../shared/Field";
 import { MessageBox } from "../../../shared/MessageBox";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { Modal } from "../../../shared/Modal";
+import { SelectField } from "../../../shared/SelectField";
 import { Button } from "../../../shared/Button";
 import { RefreshButton } from "../../../shared/RefreshButton";
 import type { ManagedGroup, GroupMember, ManagedUser } from "../types";
@@ -311,15 +312,16 @@ export function GroupsSection() {
 
           {nonMembers.length > 0 && (
             <form className="add-member-form" onSubmit={addMember}>
-              <label className="field">
-                <span>{t("control:groups.addMember")}</span>
-                <select value={addUserId} onChange={(event) => setAddUserId(event.target.value)} required>
-                  <option value="">{t("control:groups.selectUser")}</option>
-                  {nonMembers.map((user) => (
-                    <option value={user.id} key={user.id}>{user.displayName} ({user.email})</option>
-                  ))}
-                </select>
-              </label>
+              <SelectField
+                label={t("control:groups.addMember")}
+                icon={<UserRound size={17} />}
+                value={addUserId}
+                onChange={setAddUserId}
+                options={[
+                  { value: "", label: t("control:groups.selectUser") },
+                  ...nonMembers.map((user) => ({ value: user.id, label: `${user.displayName} (${user.email})` }))
+                ]}
+              />
               <Button variant="primary" type="submit" disabled={memberWorking || !addUserId}>
                 {t("control:groups.addMember")}
               </Button>

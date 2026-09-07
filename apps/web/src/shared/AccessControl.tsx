@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Globe2, Trash2, UserPlus, Users } from "lucide-react";
 import { Button } from "./Button";
 import { MessageBox } from "./MessageBox";
+import { SelectField } from "./SelectField";
 import { avatarHue, avatarInitials } from "./utils";
 
 /** One word in a surface's access vocabulary. */
@@ -206,33 +207,20 @@ export function AccessControl({
         <section className="member-section">
           <h3 className="member-section-title">{t("common:access.grantTitle")}</h3>
           <div className="member-grant">
-            <div className="member-field member-field-grow">
-              <Users size={17} className="member-field-icon" aria-hidden="true" />
-              <select
-                value={subject}
-                onChange={(event) => setSubject(event.target.value)}
-                disabled={busy}
-                aria-label={t("common:access.pickSubject")}
-              >
-                <option value="">{t("common:access.pickSubject")}</option>
-                {/* An empty optgroup still draws its label in some browsers,
-                    so a group with nobody left to add is dropped entirely. */}
-                {freeUsers.length > 0 && (
-                  <optgroup label={t("common:access.usersGroup")}>
-                    {freeUsers.map((candidate) => (
-                      <option key={candidate.id} value={`user:${candidate.id}`}>{candidate.name}</option>
-                    ))}
-                  </optgroup>
-                )}
-                {freeGroups.length > 0 && (
-                  <optgroup label={t("common:access.groupsGroup")}>
-                    {freeGroups.map((candidate) => (
-                      <option key={candidate.id} value={`group:${candidate.id}`}>{candidate.name}</option>
-                    ))}
-                  </optgroup>
-                )}
-              </select>
-            </div>
+            <SelectField
+              className="member-field-grow"
+              label={t("common:access.pickSubject")}
+              hideLabel
+              icon={<Users size={17} />}
+              value={subject}
+              onChange={setSubject}
+              disabled={busy}
+              options={[{ value: "", label: t("common:access.pickSubject") }]}
+              groups={[
+                { label: t("common:access.usersGroup"), options: freeUsers.map((candidate) => ({ value: `user:${candidate.id}`, label: candidate.name })) },
+                { label: t("common:access.groupsGroup"), options: freeGroups.map((candidate) => ({ value: `group:${candidate.id}`, label: candidate.name })) }
+              ]}
+            />
             {/* No member-field wrapper: the role control carries its own dot,
                 and a second leading icon would collide with it. */}
             <RoleSelect

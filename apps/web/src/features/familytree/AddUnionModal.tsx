@@ -5,6 +5,7 @@ import { api } from "../../api";
 import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
+import { SelectField } from "../../shared/SelectField";
 import { PartialDateField } from "../../shared/PartialDateField";
 import { PersonAvatar } from "./PersonAvatar";
 import { PersonPickerModal } from "./PersonPickerModal";
@@ -93,14 +94,14 @@ export function AddUnionModal({
         )}
       </div>
       <div className="ft-field-stack">
-        <label className="field">
-          <span>{t("family:common.status")}</span>
-          <select value={status} onChange={(event) => setStatus(event.target.value as FamilyUnion["status"])}>
-            {UNION_STATUS_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>{unionStatusLabel(option.value)}</option>
-            ))}
-          </select>
-        </label>
+        <SelectField
+          label={t("family:common.status")}
+          value={status}
+          onChange={(value) => setStatus(value as FamilyUnion["status"])}
+          options={UNION_STATUS_OPTIONS.map((option) => ({
+            value: option.value, label: unionStatusLabel(option.value)
+          }))}
+        />
         <PartialDateField
           label={t("family:addUnion.marriedSinceLabel")}
           value={marriedDate}
