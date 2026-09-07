@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import sharp from "sharp";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { db } from "../src/db.js";
 import { renderInTurn, thumbnailPathSettingKey, thumbnailAbsolutePath } from "../src/modules/library/shared/thumbnail.js";
@@ -145,5 +146,29 @@ describe("renderInTurn", () => {
 
     await expect(renderInTurn([boom, after])).rejects.toThrow("unreadable");
     expect(started).toEqual(["boom"]);
+  });
+});
+
+// libvips keeps what it reads, and on Windows a cached file stays open: a preview
+// the app had read by path could not be written again, so a scan would quietly
+// keep a stale thumbnail (generateGalleryThumbnails swallows the EBUSY). The
+// shared image layer turns that cache off; this is the invariant it buys.
+describe("a file sharp has read stays writable", () => {
+  it("lets a preview be regenerated after it has been decoded", async () => {
+    const photo = path.join(root, "sample.jpg");
+    await sharp({ create: { width: 120, height: 90, channels: 3, background: "#4488cc" } })
+      .jpeg().toFile(photo);
+
+    // What computeDhash and the Inbox copy check do: read it by PATH.
+    await sharp(photo).grayscale().resize(16, 16, { fit: "fill" }).raw().toBuffer();
+
+    // What the next scan does: write over it. This is the step that used to fail.
+    await expect(
+      sharp({ create: { width: 60, height: 45, channels: 3, background: "#cc4444" } }).jpeg().toFile(photo)
+    ).resolves.toBeDefined();
+    expect((await sharp(photo).metadata()).width).toBe(60);
+
+    // And it can be removed, which is what the thumbnail sweeps need.
+    expect(() => fs.unlinkSync(photo)).not.toThrow();
   });
 });

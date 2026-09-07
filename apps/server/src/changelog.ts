@@ -19,6 +19,13 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.70.1",
+    label: "A thumbnail that would not update",
+    changes: [
+      "On Windows, a photo could get stuck with an out-of-date thumbnail. The image library holds on to files it has read, and on that system a held file cannot be written to — so once anything had looked at a picture (the Photo Inbox's copy check reads them to compare), the next scan could not replace its thumbnail and quietly kept the old one. Nothing said so. The same lock left files behind that a library delete or a thumbnail sweep meant to remove. The app no longer asks the image library to hold anything: it decodes each file once and lets go."
+    ]
+  },
+  {
     version: "3.70.0",
     label: "Keep knows your folders, and a scan survives a bad file",
     changes: [
