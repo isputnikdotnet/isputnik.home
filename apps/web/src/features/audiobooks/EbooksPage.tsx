@@ -14,6 +14,7 @@ import { listEbookDownloads } from "../../offline/downloads";
 import { MessageBox } from "../../shared/MessageBox";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { Modal } from "../../shared/Modal";
+import { SelectField } from "../../shared/SelectField";
 import { Button } from "../../shared/Button";
 import { FileUpload } from "../../shared/FileUpload";
 import { formatBytes, isFoliateFormat } from "../../shared/utils";
@@ -99,14 +100,15 @@ function EbookUploadModal({
       }
     >
       {libraries.length > 1 && (
-        <label className="field" style={{ marginBottom: 12 }}>
-          <span>{t("book:detail.rows.library")}</span>
-          <select value={libraryId} onChange={(event) => setLibraryId(event.target.value)} disabled={busy}>
-            {libraries.map((item) => (
-              <option key={item.id} value={item.id}>{item.name}</option>
-            ))}
-          </select>
-        </label>
+        <SelectField
+          className="book-upload-library"
+          label={t("book:detail.rows.library")}
+          icon={<LibraryBig size={17} />}
+          value={libraryId}
+          onChange={setLibraryId}
+          disabled={busy}
+          options={libraries.map((item) => ({ value: item.id, label: item.name }))}
+        />
       )}
 
       {library && (

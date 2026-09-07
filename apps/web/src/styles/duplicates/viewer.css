@@ -177,7 +177,7 @@
   flex-wrap: wrap;
   margin-top: 12px;
 }
-.dup-view-pickers label {
+.dup-view-picker {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -185,7 +185,7 @@
   color: var(--muted);
   font-size: 0.84rem;
 }
-.dup-view-pickers select { max-width: 260px; min-height: 38px; }
+.dup-view-pickers select { max-width: 260px; }
 
 .dup-view-status { margin: 12px 0 0; font-size: 0.82rem; }
 

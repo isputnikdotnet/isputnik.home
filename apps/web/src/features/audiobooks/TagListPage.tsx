@@ -7,6 +7,7 @@ import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
 import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
+import { SelectField } from "../../shared/SelectField";
 import { LibraryPageHeader } from "../../shared/LibraryPageHeader";
 
 // Per-type breakdown so the page can filter the cloud by where a tag is used.
@@ -123,15 +124,18 @@ export function TagListPage({ user, logout }: { user: PublicUser; logout: () => 
               </button>
             ))}
           </div>
-          <select
+          <SelectField
+            compact
+            hideLabel
             className="library-filter"
+            label={t("book:tags.sortAria")}
             value={sort}
-            onChange={(event) => setSort(event.target.value as TagSort)}
-            aria-label={t("book:tags.sortAria")}
-          >
-            <option value="count">{t("book:tags.sortMostUsed")}</option>
-            <option value="name">{t("book:tags.sortAZ")}</option>
-          </select>
+            onChange={(value: string) => setSort(value as TagSort)}
+            options={[
+              { value: "count", label: t("book:tags.sortMostUsed") },
+              { value: "name", label: t("book:tags.sortAZ") }
+            ]}
+          />
         </div>
 
         {shown.length === 0 ? (

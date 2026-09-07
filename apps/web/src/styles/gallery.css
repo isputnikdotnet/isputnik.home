@@ -1102,12 +1102,16 @@
   gap: 8px;
 }
 
+/* The amount, beside the two compact dropdowns that read it — an unstyled input
+   next to them sat nine pixels shorter. */
 .gallery-bulk-edit-shift input[type="number"] {
   width: 90px;
-}
-
-.gallery-bulk-edit-shift select {
-  width: auto;
+  min-height: 38px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--ink);
+  background: var(--field);
 }
 
 /* The post-credit clip is a second, separate ending — not a setting of the closing
@@ -1630,8 +1634,6 @@
 
 .slideshow-browse-scope select {
   max-width: 200px;
-  min-height: 40px;
-  padding: 8px 12px;
 }
 .slideshow-browse-crumbs { margin: 0; flex-wrap: wrap; }
 .slideshow-browse-crumb { display: inline-flex; align-items: center; gap: 4px; }
@@ -2691,12 +2693,6 @@
 }
 
 /* Sits inline in a dense panel, so it overrides only the size — chrome is base.css. */
-.gallery-merge-panel select {
-  min-height: 0;
-  padding: 5px 8px;
-  font-size: 0.88rem;
-}
-
 /* Where a slideshow's movie is filed. The unusable libraries are listed rather than
    hidden, each with its reason, so a missing choice is explained instead of mysterious. */
 .slideshow-movie-filed {

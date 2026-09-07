@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { ChevronLeft, ChevronRight, Columns2, ExternalLink, Folder, ImageOff, Images, Square } from "lucide-react";
 import { Modal } from "../../../../shared/Modal";
 import { Button } from "../../../../shared/Button";
+import { SelectField } from "../../../../shared/SelectField";
 import { formatBytes } from "../../../../shared/utils";
 import i18n from "../../../../i18n";
 import { topLevelHint, topLevelLabel } from "./shared";
@@ -191,22 +192,28 @@ export function DuplicateViewer({
           </div>
           {members.length > 2 && (
             <div className="dup-view-pickers">
-              <label>
+              <div className="dup-view-picker">
                 <span>{t("controlDash:dupes.left")}</span>
-                <select value={index} onChange={(event) => setIndex(Number(event.target.value))}>
-                  {members.map((member, position) => (
-                    <option key={member.itemId} value={position}>{fileName(member)}</option>
-                  ))}
-                </select>
-              </label>
-              <label>
+                <SelectField
+                  compact
+                  hideLabel
+                  label={t("controlDash:dupes.left")}
+                  value={String(index)}
+                  onChange={(value: string) => setIndex(Number(value))}
+                  options={members.map((member, position) => ({ value: String(position), label: fileName(member) }))}
+                />
+              </div>
+              <div className="dup-view-picker">
                 <span>{t("controlDash:dupes.right")}</span>
-                <select value={rightIndex} onChange={(event) => setRightIndex(Number(event.target.value))}>
-                  {members.map((member, position) => (
-                    <option key={member.itemId} value={position}>{fileName(member)}</option>
-                  ))}
-                </select>
-              </label>
+                <SelectField
+                  compact
+                  hideLabel
+                  label={t("controlDash:dupes.right")}
+                  value={String(rightIndex)}
+                  onChange={(value: string) => setRightIndex(Number(value))}
+                  options={members.map((member, position) => ({ value: String(position), label: fileName(member) }))}
+                />
+              </div>
             </div>
           )}
         </>

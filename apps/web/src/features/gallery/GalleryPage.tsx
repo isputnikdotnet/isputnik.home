@@ -38,6 +38,7 @@ import { SendToSheet, type SendToSubject } from "../social/SendToSheet";
 import { NotesSection } from "../social/NotesSection";
 import { RelatedStories } from "../stories/RelatedStories";
 import { Modal } from "../../shared/Modal";
+import { SelectField } from "../../shared/SelectField";
 import { ChoiceGroup } from "../../shared/ChoiceGroup";
 import type { GalleryAlbum, GalleryAlbumDetail, GalleryAsset, GalleryFaceSettings, GalleryFacets, GalleryFolder, GalleryLibrary, GalleryMapPoint, GalleryMemories, GalleryMemoryGroup, GalleryMemorySuggestion, GalleryPerson, GallerySlideshow, GallerySlideshowDetail, GallerySlideshowSettings, SlideshowTransition } from "./types";
 import { faceFocusStyle } from "./types";
@@ -1658,12 +1659,19 @@ export function GalleryPage({
                   {mergeOpen && (
                     <div className="gallery-merge-panel">
                       <Trans i18nKey="people.mergeInto" ns="gallery" values={{ name: selectedPerson.name || t("gallery:common.unnamed") }} components={{ bold: <strong /> }} />
-                      <select defaultValue="" onChange={(event) => { if (event.target.value) void confirmMerge(event.target.value); }}>
-                        <option value="" disabled>{t("gallery:people.choosePersonOption")}</option>
-                        {people.filter((p) => p.id !== selectedPerson.id).map((p) => (
-                          <option key={p.id} value={p.id}>{(p.name || t("gallery:common.unnamed"))} ({p.faceCount})</option>
-                        ))}
-                      </select>
+                      <SelectField
+                        compact
+                        hideLabel
+                        label={t("gallery:people.choosePersonOption")}
+                        value=""
+                        onChange={(value: string) => { if (value) void confirmMerge(value); }}
+                        options={[
+                          { value: "", label: t("gallery:people.choosePersonOption"), disabled: true },
+                          ...people.filter((p) => p.id !== selectedPerson.id).map((p) => ({
+                            value: p.id, label: `${p.name || t("gallery:common.unnamed")} (${p.faceCount})`
+                          }))
+                        ]}
+                      />
                       <button type="button" className="icon-button" onClick={() => setMergeOpen(false)} aria-label={t("common:common.cancel")}><X size={14} aria-hidden="true" /></button>
                     </div>
                   )}
@@ -1682,24 +1690,25 @@ export function GalleryPage({
                         {t("gallery:people.selectAllLoaded")}
                       </button>
                       {moveNewName == null ? (
-                        <label className="gallery-move-target">
-                          <span className="sr-only">{t("gallery:people.moveToPlaceholder")}</span>
-                          <select
-                            value=""
-                            disabled={personPick.size === 0 || movingPhotos}
-                            onChange={(event) => {
-                              const value = event.target.value;
-                              if (value === "__new") setMoveNewName("");
-                              else if (value) void movePickedPhotos({ intoId: value });
-                            }}
-                          >
-                            <option value="" disabled>{movingPhotos ? t("gallery:common.moving") : t("gallery:people.moveToPlaceholder")}</option>
-                            {people.filter((p) => p.id !== selectedPerson.id).map((p) => (
-                              <option key={p.id} value={p.id}>{(p.name || t("gallery:common.unnamed"))} ({p.faceCount})</option>
-                            ))}
-                            <option value="__new">{t("gallery:people.newPersonOption")}</option>
-                          </select>
-                        </label>
+                        <SelectField
+                          compact
+                          hideLabel
+                          className="gallery-move-target"
+                          label={t("gallery:people.moveToPlaceholder")}
+                          value=""
+                          disabled={personPick.size === 0 || movingPhotos}
+                          onChange={(value: string) => {
+                            if (value === "__new") setMoveNewName("");
+                            else if (value) void movePickedPhotos({ intoId: value });
+                          }}
+                          options={[
+                            { value: "", label: movingPhotos ? t("gallery:common.moving") : t("gallery:people.moveToPlaceholder"), disabled: true },
+                            ...people.filter((p) => p.id !== selectedPerson.id).map((p) => ({
+                              value: p.id, label: `${p.name || t("gallery:common.unnamed")} (${p.faceCount})`
+                            })),
+                            { value: "__new", label: t("gallery:people.newPersonOption") }
+                          ]}
+                        />
                       ) : (
                         <form
                           className="gallery-person-rename"

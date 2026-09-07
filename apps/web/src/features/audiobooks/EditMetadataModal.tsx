@@ -669,19 +669,22 @@ export function EditMetadataModal({
           ) : (
             <>
               <div className="metadata-search-row">
-                <select
+                <SelectField
+                  compact
+                  hideLabel
                   className="library-filter"
+                  label={t("book:metadata.providerAria")}
                   value={metadataProvider}
-                  onChange={(event) => setMetadataProvider(event.target.value as typeof metadataProvider)}
-                  aria-label={t("book:metadata.providerAria")}
-                >
-                  <option value="all">{t("book:metadata.allProviders")}</option>
-                  <option value="audible">Audible</option>
-                  <option value="itunes">iTunes</option>
-                  <option value="openlibrary">Open Library</option>
-                  <option value="fantlab">FantLab</option>
-                  <option value="librivox">LibriVox</option>
-                </select>
+                  onChange={(value) => setMetadataProvider(value as typeof metadataProvider)}
+                  options={[
+                    { value: "all", label: t("book:metadata.allProviders") },
+                    { value: "audible", label: "Audible" },
+                    { value: "itunes", label: "iTunes" },
+                    { value: "openlibrary", label: "Open Library" },
+                    { value: "fantlab", label: "FantLab" },
+                    { value: "librivox", label: "LibriVox" }
+                  ]}
+                />
                 <label className="search-field">
                   <Search size={17} aria-hidden="true" />
                   <input

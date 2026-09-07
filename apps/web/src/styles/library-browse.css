@@ -4,9 +4,14 @@
   align-items: end;
 }
 
+/* Width for a compact control in a browse toolbar — a dropdown (shared/SelectField,
+   which brings its own chrome) or a bare input, which still needs the chrome. */
 .library-filter {
-  min-height: 40px;
   min-width: 150px;
+}
+
+input.library-filter {
+  min-height: 40px;
   padding: 8px 10px;
   border: 1px solid var(--line);
   border-radius: 7px;
@@ -1737,4 +1742,9 @@
     justify-content: center;
     padding: 0 10px;
   }
+}
+
+/* The upload dialog's library field, over the dropzone. */
+.book-upload-library {
+  margin-bottom: 12px;
 }

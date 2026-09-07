@@ -19,6 +19,13 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.69.1",
+    label: "The small dropdowns too",
+    changes: [
+      "The little dropdowns that sit in a row of controls — the unit and direction on Set date taken, the size unit on a library’s upload settings, a scheduled job’s frequency and the day it lands on, which two copies the duplicate viewer is comparing, the photo picker’s library, the Inbox switcher, merge and move on the People page, a story stop’s travel mode, the provider on a metadata lookup, a tag list’s sort — are now the same control as the dropdown in a dialog, at toolbar size. Each of those rows used to name its own height and padding and no two agreed, so a row of three controls could show three different sizes; on Set date taken the amount box was nine pixels shorter than the two dropdowns beside it."
+    ]
+  },
+  {
     version: "3.69.0",
     label: "One dropdown, everywhere",
     changes: [

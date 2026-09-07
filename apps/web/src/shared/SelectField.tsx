@@ -35,6 +35,7 @@ export function SelectField<T extends string>({
   onChange,
   icon,
   hint,
+  compact = false,
   disabled = false,
   hideLabel = false,
   className
@@ -50,6 +51,9 @@ export function SelectField<T extends string>({
   icon?: ReactNode;
   /** A line under the control, for what the label has no room to say. */
   hint?: ReactNode;
+  /** Toolbar size: sized to its own content, in a ROW of controls rather than a
+   *  column of fields. Usually with hideLabel — a row has no room for one. */
+  compact?: boolean;
   disabled?: boolean;
   /** The label is still read out; it just isn't drawn (a toolbar-tight row). */
   hideLabel?: boolean;
@@ -58,7 +62,7 @@ export function SelectField<T extends string>({
   const id = useId();
 
   return (
-    <div className={["field", "select-field", className].filter(Boolean).join(" ")}>
+    <div className={["field", "select-field", compact ? "is-compact" : null, className].filter(Boolean).join(" ")}>
       <label className={hideLabel ? "sr-only" : undefined} htmlFor={id}>{label}</label>
       <div className="select-field-control">
         {icon && <span className="select-field-icon" aria-hidden="true">{icon}</span>}

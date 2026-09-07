@@ -6,6 +6,7 @@ import { Button } from "../../shared/Button";
 import { FileUpload } from "../../shared/FileUpload";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
+import { SelectField } from "../../shared/SelectField";
 import { EMPTY_GALLERY_FILTERS } from "./GalleryFilter";
 import type { GalleryAsset, GalleryFolder, GalleryLibrary, GalleryPerson } from "./types";
 import { faceFocusStyle } from "./types";
@@ -418,15 +419,20 @@ export function PhotoPicker({
     );
 
   const librarySelect = (
-    <label className="slideshow-browse-scope">
-      <span className="sr-only">{t("gallery:photoPicker.libraryAria")}</span>
-      <select value={scope} onChange={(e) => setScope(e.target.value)} disabled={adding}>
-        <option value="all">{t("gallery:photoPicker.allLibraries")}</option>
-        {libraries.map((library) => (
-          <option key={library.id} value={library.id}>{library.name}</option>
-        ))}
-      </select>
-    </label>
+    <SelectField
+      compact
+      hideLabel
+      className="slideshow-browse-scope"
+      icon={<ImageIcon size={16} />}
+      label={t("gallery:photoPicker.libraryAria")}
+      value={scope}
+      onChange={setScope}
+      disabled={adding}
+      options={[
+        { value: "all", label: t("gallery:photoPicker.allLibraries") },
+        ...libraries.map((library) => ({ value: library.id, label: library.name }))
+      ]}
+    />
   );
 
   const trayEntries = [...selected.values()];

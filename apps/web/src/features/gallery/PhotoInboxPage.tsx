@@ -24,6 +24,7 @@ import { MessageBox } from "../../shared/MessageBox";
 import { LibraryPageHeader } from "../../shared/LibraryPageHeader";
 import { LibraryPageToolbar } from "../../shared/LibraryPageToolbar";
 import { SectionNav, type SectionNavItem } from "../../shared/SectionNav";
+import { SelectField } from "../../shared/SelectField";
 import { useIsMobile } from "../../shared/useIsMobile";
 import { AssetTile } from "./AssetTile";
 import { GalleryLightbox, type GalleryAssetChange } from "./GalleryLightbox";
@@ -335,16 +336,18 @@ export function PhotoInboxPage({
           <>
             <LibraryPageToolbar
               scope={inboxes && inboxes.length > 1 ? (
-                <label className="gallery-inbox-picker">
-                  <span className="sr-only">{t("gallery:inbox.pickerLabel")}</span>
-                  <select value={inbox.id} onChange={(event) => navigate(galleryInboxHref(event.target.value))}>
-                    {inboxes.map((candidate) => (
-                      <option key={candidate.id} value={candidate.id}>
-                        {candidate.name} ({candidate.count})
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <SelectField
+                  compact
+                  hideLabel
+                  className="gallery-inbox-picker"
+                  icon={<Inbox size={16} />}
+                  label={t("gallery:inbox.pickerLabel")}
+                  value={inbox.id}
+                  onChange={(value: string) => navigate(galleryInboxHref(value))}
+                  options={inboxes.map((candidate) => ({
+                    value: candidate.id, label: `${candidate.name} (${candidate.count})`
+                  }))}
+                />
               ) : undefined}
               tools={
                 <>

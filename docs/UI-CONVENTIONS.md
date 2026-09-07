@@ -109,10 +109,19 @@ its glyph — a library, a span of time, a person. Skip it for a plain list of
 values; a decorative icon on every field is noise, and the icon never changes
 with the selection.
 
+Pass `compact` for a dropdown in a ROW of controls rather than a column of
+fields — a unit beside a number, a sort next to a search box, a scope over a
+grid — usually with `hideLabel`, since a row has no room for one. It sizes to its
+own content at 38px tall. Every such row used to write its own height and
+padding, and no two agreed.
+
 The wrapper draws the border, background and focus ring; the select inside goes
-bare. Do not "simplify" that back into padding on the select — panel dialogs set
-their own denser padding on `.field select` at the same specificity, and where
-they won, the icon landed on top of the first letter.
+bare, keeping a TRANSPARENT border. Neither is decoration. Padding on the select
+cannot survive the cascade — panel dialogs set their own denser padding on
+`.field select` at the same specificity, and where they won the icon landed on
+top of the first letter. And a select with no border at all measures two pixels
+short of the plain dropdown beside it wherever the height comes from content
+rather than the min-height.
 
 ### SortMenu — `shared/SortMenu.tsx`
 

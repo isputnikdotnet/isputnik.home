@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { FacetFilterButton, FacetFilterChips, countActiveFilters, type FacetDef } from "../../shared/FacetFilter";
+import { SelectField } from "../../shared/SelectField";
 import i18n from "../../i18n";
 import type { AudiobookBook } from "./types";
 
@@ -226,14 +227,15 @@ export function SortSelect({ value, onChange }: { value: SortKey; onChange: (sor
   const { t } = useTranslation(["common", "book"]);
   const sortOptions = getSortOptions();
   return (
-    <select
+    <SelectField
+      compact
+      hideLabel
       className="library-filter"
+      label={t("common:sort.sortBy")}
       value={value}
-      onChange={(e) => onChange(e.target.value as SortKey)}
-      aria-label={t("common:sort.sortBy")}
-    >
-      {sortOptions.map((o) => <option key={o.value} value={o.value}>{t("common:sort.label")}: {o.label}</option>)}
-    </select>
+      onChange={(sort: string) => onChange(sort as SortKey)}
+      options={sortOptions.map((o) => ({ value: o.value, label: `${t("common:sort.label")}: ${o.label}` }))}
+    />
   );
 }
 

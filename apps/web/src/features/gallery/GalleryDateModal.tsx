@@ -6,6 +6,7 @@ import { PartialBulkError, sendInBatches } from "../../shared/bulk";
 import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
+import { SelectField } from "../../shared/SelectField";
 
 const UNIT_MINUTES = { minutes: 1, hours: 60, days: 1440 } as const;
 type ShiftUnit = keyof typeof UNIT_MINUTES;
@@ -124,21 +125,31 @@ export function GalleryDateModal({
                   autoFocus
                 />
               </label>
-              <label>
-                <span className="sr-only">{t("galleryModals:date.unitSr")}</span>
-                <select value={shiftUnit} onChange={(event) => setShiftUnit(event.target.value as ShiftUnit)} disabled={busy}>
-                  <option value="minutes">{t("galleryModals:date.unitMinutes")}</option>
-                  <option value="hours">{t("galleryModals:date.unitHours")}</option>
-                  <option value="days">{t("galleryModals:date.unitDays")}</option>
-                </select>
-              </label>
-              <label>
-                <span className="sr-only">{t("galleryModals:date.directionSr")}</span>
-                <select value={shiftBack ? "back" : "forward"} onChange={(event) => setShiftBack(event.target.value === "back")} disabled={busy}>
-                  <option value="forward">{t("galleryModals:date.later")}</option>
-                  <option value="back">{t("galleryModals:date.earlier")}</option>
-                </select>
-              </label>
+              <SelectField
+                compact
+                hideLabel
+                label={t("galleryModals:date.unitSr")}
+                value={shiftUnit}
+                onChange={(value) => setShiftUnit(value as ShiftUnit)}
+                disabled={busy}
+                options={[
+                  { value: "minutes", label: t("galleryModals:date.unitMinutes") },
+                  { value: "hours", label: t("galleryModals:date.unitHours") },
+                  { value: "days", label: t("galleryModals:date.unitDays") }
+                ]}
+              />
+              <SelectField
+                compact
+                hideLabel
+                label={t("galleryModals:date.directionSr")}
+                value={shiftBack ? "back" : "forward"}
+                onChange={(value) => setShiftBack(value === "back")}
+                disabled={busy}
+                options={[
+                  { value: "forward", label: t("galleryModals:date.later") },
+                  { value: "back", label: t("galleryModals:date.earlier") }
+                ]}
+              />
             </div>
             <span className="muted gallery-bulk-edit-hint">
               {t("galleryModals:date.shiftHint")}

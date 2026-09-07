@@ -1639,15 +1639,8 @@
    a bare input would fall back to the browser's, and the full 46px control
    would make every stop two tall rows. */
 .story-route-stop-name,
-.story-route-mode {
-  min-height: 36px;
-  padding: 6px 10px;
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  color: var(--ink);
-  background: var(--field);
-  font-size: 0.92rem;
-}
+/* Only where it sits in the stop's grid; the dropdown itself is a compact
+   shared/SelectField, like every other one in a row of controls. */
 
 .story-route-stop-name:focus,
 .story-route-mode:focus {

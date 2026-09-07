@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { HardDrive } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { SelectField } from "../../../shared/SelectField";
 import type { LibraryMode } from "../../audiobooks/types";
 
 // Upload policy settings. Uploads accept the same extensions as scanning; only the
@@ -101,9 +102,15 @@ export function UploadSettingsFields({
               onChange={(event) => changeCustom(event.target.value)}
               onBlur={blurCustom}
             />
-            <select disabled aria-label={t("control:libraries.unitAria")}>
-              <option value="MB">MB</option>
-            </select>
+            <SelectField
+              compact
+              hideLabel
+              disabled
+              label={t("control:libraries.unitAria")}
+              value="MB"
+              onChange={() => { /* the only unit there is */ }}
+              options={[{ value: "MB", label: "MB" }]}
+            />
           </div>
         </div>
       </div>

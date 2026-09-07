@@ -1934,7 +1934,6 @@
 }
 
 .scheduled-job-schedule select {
-  min-height: 0;
   padding: 6px 8px;
   font-size: 0.86rem;
 }

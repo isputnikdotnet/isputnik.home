@@ -22,6 +22,7 @@ import { Button } from "../../shared/Button";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
+import { SelectField } from "../../shared/SelectField";
 import { PartialDateField } from "../../shared/PartialDateField";
 import { PersonPhotoModal } from "./PersonPhotoModal";
 import { formatLifespan } from "./types";
@@ -608,17 +609,20 @@ export function PersonProfileModal({
           {tab === "find" && (
             <>
               <div className="metadata-search-row">
-                <select
+                <SelectField
+                  compact
+                  hideLabel
                   className="library-filter"
+                  label={t("book:person.sourceAria")}
                   value={source}
-                  onChange={(e) => setSource(e.target.value as PersonLookupSource)}
-                  aria-label={t("book:person.sourceAria")}
-                >
-                  <option value="all">{t("book:metadata.allProviders")}</option>
-                  <option value="wikipedia">Wikipedia</option>
-                  <option value="openlibrary">Open Library</option>
-                  <option value="fantlab">FantLab</option>
-                </select>
+                  onChange={(value) => setSource(value as PersonLookupSource)}
+                  options={[
+                    { value: "all", label: t("book:metadata.allProviders") },
+                    { value: "wikipedia", label: "Wikipedia" },
+                    { value: "openlibrary", label: "Open Library" },
+                    { value: "fantlab", label: "FantLab" }
+                  ]}
+                />
                 <label className="search-field">
                   <Search size={17} aria-hidden="true" />
                   <input

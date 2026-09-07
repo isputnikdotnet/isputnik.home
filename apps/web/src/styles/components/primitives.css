@@ -210,6 +210,26 @@
   font-size: 0.82rem;
 }
 
+/* Toolbar size: the same dropdown, sized to its own content, for a ROW of
+   controls rather than a column of fields — a unit beside a number, a sort next
+   to a search box, a scope over a grid. Before this each such row wrote its own
+   height and padding, and no two agreed: 5px here, 8px there, 36px, 38px, 40px. */
+.select-field.is-compact {
+  display: inline-grid;
+  gap: 5px;
+}
+
+.select-field.is-compact select {
+  min-height: 38px;
+  padding: 7px 10px;
+  font-size: 0.92rem;
+}
+
+.select-field.is-compact .select-field-control:has(.select-field-icon) {
+  gap: 7px;
+  padding-left: 10px;
+}
+
 .field input:focus,
 .field textarea:focus,
 .invite-box input:focus {

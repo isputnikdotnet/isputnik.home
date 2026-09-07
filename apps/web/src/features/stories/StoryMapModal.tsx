@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronDown, ChevronUp, MapPin, Route, Trash2, X } from "lucide-react";
 import { Modal } from "../../shared/Modal";
+import { SelectField } from "../../shared/SelectField";
 import { Button } from "../../shared/Button";
 import { GalleryPlaceSearch } from "../gallery/GalleryPlaceSearch";
 import { StoryRoutePicker } from "./StoryRoutePicker";
@@ -184,18 +185,21 @@ export function StoryMapModal({
                         </Button>
                       </div>
                       {index > 0 && (
-                        <select
+                        <SelectField
+                          compact
+                          hideLabel
                           className="story-route-mode"
                           value={stop.mode ?? ""}
-                          onChange={(event) => setMode(index, (event.target.value || null) as TravelMode | null)}
-                          aria-label={t("stories:map.stopMode", { number: index + 1 })}
-                          title={t("stories:map.stopMode", { number: index + 1 })}
-                        >
-                          <option value="">{t("stories:map.modeNone")}</option>
-                          {TRAVEL_MODES.map((mode) => (
-                            <option key={mode} value={mode}>{t(`stories:map.modes.${mode}` as "stories:map.modes.walk")}</option>
-                          ))}
-                        </select>
+                          onChange={(value) => setMode(index, (value || null) as TravelMode | null)}
+                          label={t("stories:map.stopMode", { number: index + 1 })}
+                          options={[
+                            { value: "", label: t("stories:map.modeNone") },
+                            ...TRAVEL_MODES.map((mode) => ({
+                              value: mode,
+                              label: t(`stories:map.modes.${mode}` as "stories:map.modes.walk")
+                            }))
+                          ]}
+                        />
                       )}
                     </li>
                   ))}
