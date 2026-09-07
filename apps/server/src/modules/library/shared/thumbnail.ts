@@ -1,8 +1,24 @@
 import fs from "node:fs";
 import path from "node:path";
+import sharp from "sharp";
 import { db } from "../../../db.js";
 import { config } from "../../../config.js";
 import { pathIsInside, normaliseRelativePath } from "./storage-roots.js";
+
+// libvips keeps recently-read files in its own cache, and on Windows a cached
+// file stays OPEN: anything sharp has read by path cannot be overwritten or
+// deleted until the cache lets go of it. That turns ordinary work into silent
+// failures — a preview that the copy check has looked at cannot be regenerated
+// by the next scan (generateGalleryThumbnails catches the EBUSY and returns
+// null, so the item quietly keeps a stale thumbnail), a library's thumbnails
+// cannot be swept, a photo cannot be moved out of the way of its replacement.
+//
+// The cache buys nothing here: every file is decoded once, for one set of
+// thumbnails, and never asked for again. Off it goes, process-wide, before any
+// of this module's callers reach sharp. (faces/arcface.ts already turned it off
+// for its own reasons; this makes it the rule rather than a side effect of
+// having scanned a face.)
+sharp.cache(false);
 
 export const thumbnailPathSettingKey = "library.thumbnail_path";
 

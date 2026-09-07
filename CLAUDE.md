@@ -27,6 +27,11 @@ and `apps/web` (React + Vite PWA).
   `modules/library/shared/thumbnail.ts`; a `Promise.all` of two `.toFile()` calls is
   the shape to avoid. `CRASH_LOG=<file> npm test` arms the probe that finds this
   class of death (`test/helpers/crash-probe.ts`).
+- **libvips holds what it reads.** On Windows a file sharp has opened BY PATH cannot
+  then be overwritten or deleted (EBUSY) until its cache lets go — which turned a
+  thumbnail regeneration into a silent no-op and left sweeps unable to delete.
+  `shared/thumbnail.ts` calls `sharp.cache(false)` process-wide for this; keep it, and
+  prefer handing sharp a Buffer for anything the app may rewrite.
 
 ## Repo-root files — do not delete
 
