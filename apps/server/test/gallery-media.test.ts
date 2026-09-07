@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { db } from "../src/db.js";
-import { thumbnailPathSettingKey, thumbnailAbsolutePath } from "../src/modules/library/shared/thumbnail.js";
+import { renderInTurn, thumbnailPathSettingKey, thumbnailAbsolutePath } from "../src/modules/library/shared/thumbnail.js";
 import { decodePhotoToJpeg, generateGalleryThumbnails, readAssetMetadata } from "../src/modules/library/gallery/media.js";
 import { resetDb } from "./helpers/seed.js";
 
@@ -78,10 +78,72 @@ describe("undecodable photos", () => {
     expect(await generateGalleryThumbnails("LIB", "ITEM", "photo", empty)).toBeNull();
   });
 
-  it("returns null for a missing file without invoking ffmpeg", async () => {
+  it("returns null for a missing file without decoding or spawning anything", async () => {
     const missing = path.join(root, "nope.jpg");
     const started = Date.now();
     expect(await generateGalleryThumbnails("LIB", "ITEM", "photo", missing)).toBeNull();
-    expect(Date.now() - started).toBeLessThan(1000); // fails fast, no spawn
+    expect(Date.now() - started).toBeLessThan(1000); // fails fast: no libvips, no spawn
+  });
+
+  // Same answer for a video, which used to reach ffmpeg twice before giving it.
+  // The spawns are cheap; what they are not is free of libvips and ffmpeg error
+  // paths, which is what the guard in generateGalleryThumbnails is about.
+  it("returns null for a missing video", async () => {
+    expect(await generateGalleryThumbnails("LIB", "ITEM", "video", path.join(root, "nope.mp4"))).toBeNull();
+  });
+});
+
+// The rule that keeps a scan alive: two sharp pipelines over the same unreadable
+// source, at the same time, kill the process outright on Windows (0xC0000409, no
+// exception, no stderr). One at a time is safe, and costs nothing — see
+// renderInTurn. This pins the property, since the shape it replaced (Promise.all)
+// is the one anybody would reach for.
+describe("renderInTurn", () => {
+  it("never lets two renders overlap, and keeps their order", async () => {
+    const order: number[] = [];
+    let running = 0;
+    let peak = 0;
+    const render = (n: number) => () => new Promise<void>((resolve) => {
+      running += 1;
+      peak = Math.max(peak, running);
+      setTimeout(() => { order.push(n); running -= 1; resolve(); }, 5);
+    });
+
+    await renderInTurn([render(1), render(2), render(3)]);
+
+    expect(peak).toBe(1);
+    expect(order).toEqual([1, 2, 3]);
+  });
+
+  it("holds the line between callers too, not just within one call", async () => {
+    let running = 0;
+    let peak = 0;
+    const render = () => new Promise<void>((resolve) => {
+      running += 1;
+      peak = Math.max(peak, running);
+      setTimeout(() => { running -= 1; resolve(); }, 5);
+    });
+
+    // Two callers at once — the audiobook scanner works through four books in
+    // parallel, and each of them renders a cover.
+    await Promise.all([renderInTurn([render, render]), renderInTurn([render, render])]);
+
+    expect(peak).toBe(1);
+  });
+
+  it("keeps going for the next caller after a render fails", async () => {
+    await expect(renderInTurn([() => Promise.reject(new Error("unreadable"))])).rejects.toThrow("unreadable");
+    let ran = false;
+    await renderInTurn([() => { ran = true; return Promise.resolve(); }]);
+    expect(ran).toBe(true);
+  });
+
+  it("stops at the first failure rather than starting the next", async () => {
+    const started: string[] = [];
+    const boom = () => { started.push("boom"); return Promise.reject(new Error("unreadable")); };
+    const after = () => { started.push("after"); return Promise.resolve(); };
+
+    await expect(renderInTurn([boom, after])).rejects.toThrow("unreadable");
+    expect(started).toEqual(["boom"]);
   });
 });

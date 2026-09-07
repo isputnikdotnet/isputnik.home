@@ -2837,10 +2837,106 @@
   margin-bottom: 12px;
 }
 
-/* Keep dialog: the placement choices follow the library select in a plain
-   block body, so they carry their own air. */
-.gallery-keep-placement {
+/* Keep dialog. The tab row separates the two ways of answering "where?", and
+   whichever panel is showing sits under it in the same column as the library
+   field above. */
+.gallery-keep-placement,
+.gallery-keep-existing {
+  margin-top: 16px;
+}
+
+.gallery-bulk-edit-modal .tab-strip {
   margin-top: 18px;
+  padding-bottom: 2px;
+  border-bottom: 1px solid var(--line);
+}
+
+.gallery-keep-existing {
+  display: grid;
+  gap: 10px;
+}
+
+/* The search box wears the field chrome itself, so the glyph can sit inside it. */
+.gallery-keep-search {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  padding-left: 12px;
+  border-radius: 7px;
+  background: var(--field);
+  box-shadow: inset 0 0 0 1px var(--line);
+  color: var(--muted);
+}
+
+.gallery-keep-search:focus-within {
+  box-shadow: inset 0 0 0 1px var(--mint);
+  outline: 3px solid color-mix(in srgb, var(--mint) 28%, transparent);
+}
+
+.gallery-keep-search input {
+  min-height: 44px;
+  padding: 10px 12px 10px 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+}
+
+.gallery-keep-search input:focus {
+  outline: none;
+}
+
+/* A list rather than a tree: a scanned box lands in one folder, and the whole
+   path is what tells two "2019" folders apart. Bounded height because a library
+   of a hundred folders must not push the dialog's buttons off the screen. */
+.gallery-keep-folder-list {
+  display: grid;
+  gap: 4px;
+  max-height: 240px;
+  margin: 0;
+  padding: 4px;
+  overflow-y: auto;
+  border-radius: 10px;
+  background: var(--surface-raised);
+  list-style: none;
+}
+
+.gallery-keep-folder {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 7px;
+  color: var(--ink);
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.gallery-keep-folder:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+}
+
+.gallery-keep-folder.is-chosen {
+  color: var(--control-primary-button, var(--mint));
+  background: color-mix(in srgb, var(--control-primary-button, var(--mint)) 12%, transparent);
+  font-weight: 650;
+}
+
+.gallery-keep-folder-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gallery-keep-folder-note {
+  padding: 12px;
+  font-size: 0.88rem;
 }
 
 /* Library wizard: the Photo Inbox switch. */

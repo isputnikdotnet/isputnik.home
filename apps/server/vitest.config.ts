@@ -20,6 +20,10 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["test/**/*.test.ts"],
+    // Only when hunting a worker that dies mid-run: CRASH_LOG=path npm test
+    // (test/helpers/crash-probe.ts). Off by default so an ordinary run loads
+    // nothing extra into all 160-odd of its workers.
+    setupFiles: process.env.CRASH_LOG ? ["./test/helpers/crash-probe.ts"] : [],
     // In-memory SQLite: importing src/db.ts builds the full, freshly-migrated
     // schema in a throwaway database, never touching the real data/ files.
     env: { DB_PATH: ":memory:", MFA_ENCRYPTION_KEY: "test-mfa-key" }

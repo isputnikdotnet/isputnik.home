@@ -5,7 +5,7 @@ import { nanoid } from "nanoid";
 import sharp from "sharp";
 import { db } from "../../../db.js";
 import { normaliseRelativePath } from "../shared/storage-roots.js";
-import { thumbnailAbsolutePath, thumbnailStorageKey } from "../shared/thumbnail.js";
+import { renderInTurn, thumbnailAbsolutePath, thumbnailStorageKey } from "../shared/thumbnail.js";
 import { deleteSharesForResource } from "../shared/share-access.js";
 import { deleteCollectionItemsForResource } from "../../collections/cleanup.js";
 import { validateLibrarySource, LibrarySourceError } from "../shared/library-source.js";
@@ -753,9 +753,11 @@ export async function writeCoverImages(libraryId: string, bookId: string, source
   fs.mkdirSync(path.dirname(coverPath), { recursive: true });
   fs.mkdirSync(path.dirname(largePath), { recursive: true });
 
-  await Promise.all([
-    sharp(source).resize(300, 300, { fit: "cover" }).webp({ quality: 82 }).toFile(coverPath),
-    sharp(source).resize(600, 600, { fit: "cover" }).webp({ quality: 86 }).toFile(largePath)
+  // One at a time — see renderInTurn. An embedded cover that isn't a picture
+  // (it happens) would otherwise fail in two pipelines at once and kill the scan.
+  await renderInTurn([
+    () => sharp(source).resize(300, 300, { fit: "cover" }).webp({ quality: 82 }).toFile(coverPath),
+    () => sharp(source).resize(600, 600, { fit: "cover" }).webp({ quality: 86 }).toFile(largePath)
   ]);
 
   return coverStorageKey;

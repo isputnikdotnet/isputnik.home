@@ -152,17 +152,22 @@ Back on the Inbox page, what the check did not claim is yours to sort. Pick a
 delivery chip to work through one box at a time, or **All**. **Select**, tick
 the photos — **All** ticks everything loaded — and choose:
 
-- **Keep** moves them into a real library. The dialog asks where: which library,
-  and either a folder you name, with suggestions from the folders it already
-  has, or the dated `YYYY/YYYY-MM-DD` layout uploads use. The dated layout is
-  right for phone photos and usually wrong for scans, whose date is the day
-  they were scanned; that is why Keep asks rather than guesses. Set the dates
+- **Keep** moves them into a real library. The dialog asks which library, and
+  then offers two ways to say where in it. **Create new folder** takes a folder
+  name you type — or the dated `YYYY/YYYY-MM-DD` layout uploads use. **Use
+  existing folder** lists the folders that library already has, with a search box
+  and a photo count each, so a box of prints can join the ones scanned last
+  month without anybody having to remember what the folder was called. The dated
+  layout is right for phone photos and usually wrong for scans, whose date is the
+  day they were scanned; that is why Keep asks rather than guesses. Set the dates
   first (select, then **Date** in the gallery) if you want them right. Tags,
   likes and edits travel with a kept photo, and it is scanned for faces on
   arrival. Your last choice is remembered for the session.
 - **Discard** sends them to the Recycle Bin on the cleanup's clock.
 
-![Keeping two photos: choose the library, then a folder or the dated layout](images/83-photo-inbox-keep.png)
+![Keeping two photos: choose the library, then name a folder or take the dated layout](images/83-photo-inbox-keep.png)
+
+![The other tab: the folders that library already has, searchable, with the library root at the top](images/89-inbox-keep-existing.png)
 
 A delivery whose every photo has been kept or discarded disappears from the
 chips; an Inbox with nothing left shows "All reviewed". Keeping or discarding
@@ -178,7 +183,9 @@ destination — anyone else can look but not review.
 - **Only the Inbox is a candidate.** If your library already holds the same photo
   twice, the check pairs the incoming copy with one of them and leaves the other
   alone; a normal Duplicate cleanup is the tool for that.
-- **Crops are not matched.** A tighter crop of the same print reads as a
-  different picture and lands in the grid as new. Look before keeping.
+- **A hard crop is still not matched.** The check allows for a print laid on the
+  glass a little differently each time, but a deliberately tighter crop of the
+  same photograph reads as a different picture and lands in the grid as new.
+  Look before keeping.
 - **A drop link writes to your server.** Cap it at what the person needs, label
   it with their name, and take it back when it has done its job.

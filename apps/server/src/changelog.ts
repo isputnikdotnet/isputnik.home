@@ -19,6 +19,16 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.70.0",
+    label: "Keep knows your folders, and a scan survives a bad file",
+    changes: [
+      "Keep now asks where in two ways. **Create new folder** takes a name you type, or the dated folders uploads use. **Use existing folder** lists the folders that library already has — searchable, with a photo count each and the library root at the top — so a box of prints can join the ones you scanned last month without anyone having to remember what that folder was called.",
+      "A library scan no longer dies on a file it cannot read. A photo's two thumbnails — the small one for the grid, the large one for the lightbox — were made at the same moment, and when the file turned out not to be readable (a copy that was interrupted, a download that stopped short, a cover inside a book that isn't really a picture) the two failures collided inside the image library and took the whole scan process down with them: no error, no line in the log, gone mid-scan. They are made one after the other now, which takes the same time to the millisecond. Audiobook and ebook covers were made the same way and are fixed with it.",
+      "The Photo Inbox's copy check finds more of the prints you scanned twice. It was asking for 90% of the picture to agree, which two passes of the same photograph on two machines don't always reach — one measured pair sits at 87%, the difference being sharpening, grain and a few percent of framing. It now asks for 85%, and leans on a second question to keep two ordinary photographs apart: same camera, same size, taken moments apart is two exposures, whatever they look like.",
+      "The Photo Inbox guide shows the Keep dialog again, both tabs of it. The script that regenerates those pictures had been quietly capturing the page behind the dialog."
+    ]
+  },
+  {
     version: "3.69.2",
     label: "Every dropdown, then",
     changes: [

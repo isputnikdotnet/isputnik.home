@@ -20,6 +20,13 @@ and `apps/web` (React + Vite PWA).
   cleans up its temp dir afterwards deletes them for good (this has happened). Mock
   `process.cwd()` to the test's temp folder before registering it, as
   `backup-restore-covers.test.ts` and `backup-path-rescue.test.ts` do.
+- **Never render two images at once.** Two `sharp` pipelines over the same source
+  that cannot be decoded race inside libvips and kill the PROCESS outright — exit
+  0xC0000409, no exception, no stderr (it cost one vitest worker per ~15 full-suite
+  runs until 3.69.3). Queue renders through `renderInTurn()` in
+  `modules/library/shared/thumbnail.ts`; a `Promise.all` of two `.toFile()` calls is
+  the shape to avoid. `CRASH_LOG=<file> npm test` arms the probe that finds this
+  class of death (`test/helpers/crash-probe.ts`).
 
 ## Repo-root files — do not delete
 
