@@ -1,4 +1,8 @@
 // Client shapes for the gallery API (see modules/library/gallery/catalog.ts).
+import type { TakenPrecision } from "./taken-date";
+
+export type { TakenPrecision };
+
 export interface GalleryAsset {
   id: string;
   libraryId: string;
@@ -10,6 +14,16 @@ export interface GalleryAsset {
   title: string;
   description: string | null;
   takenAt: string | null;
+  // How much of takenAt is known (docs/photo-review-plan.md): a reviewed print
+  // may be dated to the year only, and "about" reads as "around 1962". Format
+  // through features/gallery/taken-date.ts, never straight off takenAt.
+  takenPrecision: TakenPrecision;
+  takenApprox: boolean;
+  // The place as a person wrote it ("the dacha in Ratomka"); the pin is `gps`.
+  placeText: string | null;
+  // Who went through this photo in Review mode, and when. Null until someone has.
+  reviewedAt: string | null;
+  reviewedBy: string | null;
   addedAt: string; // when the scanner/upload discovered the item
 
   width: number | null;

@@ -74,6 +74,9 @@ export interface QuoteCard {
 /** A Photo Inbox with photos waiting for review — pinned while non-empty. */
 export interface PhotoInboxCard {
   type: "photo_inbox";
+  /** Gone through in Review mode; and whether this viewer may Keep at all. */
+  reviewed: number;
+  canReview: boolean;
   libraryId: string;
   name: string;
   count: number;

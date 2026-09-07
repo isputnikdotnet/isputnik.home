@@ -203,6 +203,14 @@ export function galleryInboxHref(libraryId: string | null): string {
   return libraryId ? `/gallery/inbox/${encodeURIComponent(libraryId)}` : "/gallery/inbox";
 }
 
+// Review mode over an Inbox: one photo at a time, four questions, Previous and
+// Next (docs/photo-review-plan.md). `folder` narrows it to one delivery; null is
+// the whole Inbox, "" the files at its root.
+export function galleryReviewHref(libraryId: string, folder: string | null): string {
+  const base = `/gallery/review/${encodeURIComponent(libraryId)}`;
+  return folder == null ? base : `${base}?folder=${encodeURIComponent(folder)}`;
+}
+
 // Profile's panels, same rule as the control panel: each is a real address, so a
 // device, a two-factor setup, or a share audit can be linked to and returned to.
 export type ProfileTab = "account" | "security" | "shares" | "appearance" | "devices";
@@ -266,6 +274,8 @@ export type Route =
   | { name: "galleryAsset"; id: string }
   | { name: "galleryFolder"; folder: string; libraryId: string | null }
   | { name: "galleryInbox"; libraryId: string | null }
+  /** Review mode over one Inbox, optionally one delivery (`folder`; "" = the root). */
+  | { name: "galleryReview"; libraryId: string; folder: string | null }
   | { name: "galleryAlbum"; id: string }
   | { name: "gallerySlideshow"; id: string }
   | { name: "familyTree"; focusId?: string }
@@ -378,6 +388,17 @@ export function getRoute(): Route {
   const galleryAssetMatch = path.match(/^\/gallery\/assets\/([^/]+)$/);
   if (galleryAssetMatch) {
     return { name: "galleryAsset", id: galleryAssetMatch[1] };
+  }
+
+  // Review mode (docs/photo-review-plan.md): one Inbox's photos one at a time,
+  // `?folder=` narrowing to a delivery. A full-screen page without the shell.
+  const galleryReviewMatch = path.match(/^\/gallery\/review\/([^/]+)\/?$/);
+  if (galleryReviewMatch) {
+    return {
+      name: "galleryReview",
+      libraryId: decodeURIComponent(galleryReviewMatch[1]),
+      folder: new URLSearchParams(window.location.search).get("folder")
+    };
   }
 
   // The Photo Inbox review page, with or without a particular Inbox named.

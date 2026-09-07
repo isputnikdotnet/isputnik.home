@@ -14,6 +14,7 @@ import { trashBook, TrashError } from "../shared/trash.js";
 import { ASSET_COLUMNS, ASSET_JOINS, mapAsset, type GalleryAssetRow } from "./catalog.js";
 import { moveGalleryAsset } from "./move.js";
 import { dateFolderForCapture } from "./date-folder.js";
+import type { TakenPrecision } from "./taken-precision.js";
 
 export { photoInboxLibraryIds, isPhotoInboxLibrary } from "./inbox-flag.js";
 
@@ -22,6 +23,9 @@ export { photoInboxLibraryIds, isPhotoInboxLibrary } from "./inbox-flag.js";
 export interface PhotoInboxDelivery {
   folder: string;
   count: number;
+  /** How many of them someone has gone through in Review mode
+   *  (docs/photo-review-plan.md) — "12 of 38 noted" on the chip. */
+  reviewed: number;
   newestAt: string;
   /** Some of it arrived through a drop link (phase 3) rather than a scan or an
    *  upload by a member — the review can say whose box this is. */
@@ -32,9 +36,15 @@ export interface PhotoInboxSummary {
   id: string;
   name: string;
   count: number;
+  /** Photos in it that have been gone through in Review mode. */
+  reviewed: number;
   /** Whether this user may keep or discard here: reviewing removes photos from
    *  the Inbox, so it takes the delete right on it. */
   canReview: boolean;
+  /** Whether this user may write on the photos (dates, places, notes, people):
+   *  the edit right. A contributor has this and not canReview — the relative who
+   *  is asked what she remembers, and must not be able to Keep or Discard. */
+  canEdit: boolean;
   deliveries: PhotoInboxDelivery[];
 }
 
@@ -54,13 +64,19 @@ function canReview(user: AuthUser, library: InboxLibraryRow): boolean {
   return can(user, { objectType: "library", objectId: library.id, policy: parsePolicy(library.policy_json) }, "delete");
 }
 
+function canEdit(user: AuthUser, library: InboxLibraryRow): boolean {
+  return can(user, { objectType: "library", objectId: library.id, policy: parsePolicy(library.policy_json) }, "edit");
+}
+
 const DELIVERY_SQL = `
   SELECT
     CASE WHEN instr(folder_path, '/') > 0 THEN substr(folder_path, 1, instr(folder_path, '/') - 1) ELSE '' END AS folder,
     COUNT(*) AS count,
+    SUM(CASE WHEN gd.reviewed_at IS NOT NULL THEN 1 ELSE 0 END) AS reviewed,
     MAX(discovered_at) AS newest_at,
     MAX(EXISTS (SELECT 1 FROM share_link_drops d WHERE d.item_id = library_items.id)) AS via_link
   FROM library_items
+  LEFT JOIN gallery_details gd ON gd.item_id = library_items.id
   WHERE library_id = ? AND deleted_at IS NULL
   GROUP BY folder
   ORDER BY newest_at DESC, folder`;
@@ -72,15 +88,18 @@ export function listPhotoInboxes(user: AuthUser): PhotoInboxSummary[] {
   return rows
     .filter((row) => parsePolicy(row.policy_json).inbox === true && canUserAccessLibrary(row, user.id, user.role))
     .map((row) => {
-      const deliveries = (db.prepare(DELIVERY_SQL).all(row.id) as { folder: string; count: number; newest_at: string; via_link: number }[])
+      const deliveries = (db.prepare(DELIVERY_SQL).all(row.id) as { folder: string; count: number; reviewed: number | null; newest_at: string; via_link: number }[])
         .map((delivery) => ({
-          folder: delivery.folder, count: delivery.count, newestAt: delivery.newest_at, viaLink: delivery.via_link === 1
+          folder: delivery.folder, count: delivery.count, reviewed: delivery.reviewed ?? 0,
+          newestAt: delivery.newest_at, viaLink: delivery.via_link === 1
         }));
       return {
         id: row.id,
         name: row.name,
         count: deliveries.reduce((sum, delivery) => sum + delivery.count, 0),
+        reviewed: deliveries.reduce((sum, delivery) => sum + delivery.reviewed, 0),
         canReview: canReview(user, row),
+        canEdit: canEdit(user, row),
         deliveries
       };
     });
@@ -91,6 +110,11 @@ export interface PhotoInboxItemsQuery {
   folder: string | null;
   limit: number;
   offset: number;
+  /** "arrival" (default): newest arrival first, the review page's grid. "review":
+   *  the order Review mode walks — file order, the way the prints went through
+   *  the scanner (usually the order they were in the box), with the ones nobody
+   *  has gone through yet first, so reopening continues where she stopped. */
+  order?: "arrival" | "review";
 }
 
 /** The photos waiting in one Inbox, newest arrival first. Null when the library is
@@ -114,10 +138,13 @@ export function listPhotoInboxItems(
   const whereSql = where.join(" AND ");
 
   const total = (db.prepare(`SELECT COUNT(*) AS n FROM library_items WHERE ${whereSql}`).get(...args) as { n: number }).n;
+  const orderSql = query.order === "review"
+    ? "(gallery_details.reviewed_at IS NOT NULL), library_items.folder_path COLLATE NOCASE, library_items.id"
+    : "library_items.discovered_at DESC, library_items.id";
   const rows = db.prepare(`
     SELECT ${ASSET_COLUMNS} ${ASSET_JOINS}
     WHERE ${whereSql}
-    ORDER BY library_items.discovered_at DESC, library_items.id
+    ORDER BY ${orderSql}
     LIMIT ? OFFSET ?
   `).all(user.id, ...args, query.limit, query.offset) as GalleryAssetRow[];
   return { items: rows.map(mapAsset), total };
@@ -149,11 +176,12 @@ interface ReviewItemRow {
   library_id: string;
   policy_json: string;
   taken_at: string | null;
+  taken_precision: TakenPrecision | null;
 }
 
 function reviewItem(itemId: string): ReviewItemRow | undefined {
   return db.prepare(`
-    SELECT li.id, li.library_id, lib.policy_json, gd.taken_at
+    SELECT li.id, li.library_id, lib.policy_json, gd.taken_at, gd.taken_precision
     FROM library_items li
     JOIN libraries lib ON lib.id = li.library_id
     LEFT JOIN gallery_details gd ON gd.item_id = li.id
@@ -196,7 +224,8 @@ export function keepPhotoInboxItems(user: AuthUser, itemIds: string[], dest: Kee
     const row = reviewItem(itemId);
     if (!row) { counts.missing += 1; continue; }
     if (reviewable(user, row) !== "ok") { counts.forbidden += 1; continue; }
-    const folder = dest.dated ? dateFolderForCapture(row.taken_at, now) : (dest.folder ?? "");
+    // A date known only to the year files under the year alone (date-folder.ts).
+    const folder = dest.dated ? dateFolderForCapture(row.taken_at, now, row.taken_precision ?? "time") : (dest.folder ?? "");
     const result = moveGalleryAsset(itemId, { libraryId: target.id, folder });
     if (result.ok) { counts.done += 1; continue; }
     if (result.status === 423) { counts.locked += 1; continue; }

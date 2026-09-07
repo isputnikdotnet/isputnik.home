@@ -34,13 +34,15 @@ export async function galleryInboxRoutesPlugin(app: FastifyInstance) {
   // delivery ("" = the root); absent = everything.
   app.get("/api/library/gallery/inbox/:id/items", { preHandler: app.authenticate }, async (request, reply) => {
     const libraryId = (request.params as { id: string }).id;
-    const qp = request.query as { folder?: string; limit?: string; offset?: string };
+    const qp = request.query as { folder?: string; limit?: string; offset?: string; order?: string };
     const limit = Math.min(Math.max(Number.parseInt(qp.limit ?? "80", 10) || 80, 1), 200);
     const offset = Math.max(Number.parseInt(qp.offset ?? "0", 10) || 0, 0);
     const result = listPhotoInboxItems(request.user!, libraryId, {
       folder: qp.folder == null ? null : qp.folder.slice(0, 1024),
       limit,
-      offset
+      offset,
+      // `order=review` is Review mode's walk (unreviewed first, file order).
+      order: qp.order === "review" ? "review" : "arrival"
     });
     if (!result) return reply.code(404).send({ error: "Photo Inbox not found" });
     return result;

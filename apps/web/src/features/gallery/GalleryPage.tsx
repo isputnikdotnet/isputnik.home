@@ -41,7 +41,8 @@ import { Modal } from "../../shared/Modal";
 import { SelectField } from "../../shared/SelectField";
 import { ChoiceGroup } from "../../shared/ChoiceGroup";
 import type { GalleryAlbum, GalleryAlbumDetail, GalleryAsset, GalleryFaceSettings, GalleryFacets, GalleryFolder, GalleryLibrary, GalleryMapPoint, GalleryMemories, GalleryMemoryGroup, GalleryMemorySuggestion, GalleryPerson, GallerySlideshow, GallerySlideshowDetail, GallerySlideshowSettings, SlideshowTransition } from "./types";
-import { faceFocusStyle } from "./types";
+import { faceFocusStyle, type TakenPrecision } from "./types";
+import { formatTakenDate } from "./taken-date";
 import i18n from "../../i18n";
 
 const PAGE_SIZE = 80;
@@ -117,12 +118,12 @@ function memoryDateLabel(precision: GalleryMemoryGroup["precision"], year: numbe
   return precision === "near" ? i18n.t("gallery:memories.aroundDate", { date: day }) : day;
 }
 
-// Calendar-day label for the timeline header from an asset's takenAt.
-function dayLabel(takenAt: string | null): string {
-  if (!takenAt) return i18n.t("gallery:timeline.undated");
-  const d = new Date(takenAt);
-  if (Number.isNaN(d.getTime())) return i18n.t("gallery:timeline.undated");
-  return d.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+// Calendar-day label for the timeline header from an asset's takenAt — or, for a
+// photo dated only to the month or the year, that month or year, so a box of
+// "1962" prints heads one group rather than pretending to share New Year's Day.
+function dayLabel(asset: { takenAt: string | null; takenPrecision?: TakenPrecision; takenApprox?: boolean }): string {
+  const label = formatTakenDate(asset, { long: true });
+  return label || i18n.t("gallery:timeline.undated");
 }
 
 export function GalleryPage({
@@ -1098,7 +1099,7 @@ export function GalleryPage({
     const out: { label: string; items: { asset: GalleryAsset; index: number }[] }[] = [];
     if (viewPrefs.grouping === "none") return out;
     assets.forEach((asset, index) => {
-      const label = dayLabel(sort === "added" ? asset.addedAt : asset.takenAt);
+      const label = sort === "added" ? dayLabel({ takenAt: asset.addedAt }) : dayLabel(asset);
       const last = out[out.length - 1];
       if (last && last.label === label) last.items.push({ asset, index });
       else out.push({ label, items: [{ asset, index }] });

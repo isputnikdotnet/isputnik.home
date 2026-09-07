@@ -4,7 +4,7 @@ import { db, logActivity } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
 import { canUserWriteLibrary, getLibraryForBook } from "../shared/library-access.js";
 import type { LibraryListRow } from "../shared/library-serializer.js";
-import { resolveGalleryScopeLibraryIds, parseLibraryIds, getGalleryAsset } from "./catalog.js";
+import { resolveGalleryScopeLibraryIds, parseLibraryIds, getGalleryAsset, getGalleryAssetUnscoped } from "./catalog.js";
 import {
   listGalleryPeople,
   getGalleryPersonPhotos,
@@ -190,8 +190,12 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
       ipAddress: request.ip
     });
 
+    // The default scope leaves a Photo Inbox out, and the write above was already
+    // authorised against the photo's own library, so fall back to the unscoped
+    // read rather than answering a successful tag with a null asset (Review mode
+    // tags Inbox photos before they are kept).
     const libIds = resolveGalleryScopeLibraryIds(request.user!);
-    return reply.send({ asset: getGalleryAsset(request.user!.id, libIds, assetId) });
+    return reply.send({ asset: getGalleryAsset(request.user!.id, libIds, assetId) ?? getGalleryAssetUnscoped(request.user!.id, assetId) });
   });
 
   app.delete("/api/library/gallery/assets/:id/people/:personId", { preHandler: app.authenticate }, async (request, reply) => {
@@ -201,8 +205,12 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
       return reply.code(403).send({ error: "Write access required to tag people in this item." });
     }
     untagAssetPerson(assetId, personId);
+    // The default scope leaves a Photo Inbox out, and the write above was already
+    // authorised against the photo's own library, so fall back to the unscoped
+    // read rather than answering a successful tag with a null asset (Review mode
+    // tags Inbox photos before they are kept).
     const libIds = resolveGalleryScopeLibraryIds(request.user!);
-    return reply.send({ asset: getGalleryAsset(request.user!.id, libIds, assetId) });
+    return reply.send({ asset: getGalleryAsset(request.user!.id, libIds, assetId) ?? getGalleryAssetUnscoped(request.user!.id, assetId) });
   });
 
   // Merge person :id into :intoId (move faces, delete the source). Used to fold two

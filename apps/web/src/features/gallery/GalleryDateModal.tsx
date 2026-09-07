@@ -7,6 +7,7 @@ import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
 import { SelectField } from "../../shared/SelectField";
+import { TAKEN_PRECISIONS, precisionLabel, takenInputToIso, takenInputType, takenInputValue, type TakenPrecision } from "./taken-date";
 
 const UNIT_MINUTES = { minutes: 1, hours: 60, days: 1440 } as const;
 type ShiftUnit = keyof typeof UNIT_MINUTES;
@@ -28,6 +29,10 @@ export function GalleryDateModal({
   const { t } = useTranslation(["common", "galleryModals"]);
   const [mode, setMode] = useState<"set" | "shift">("set");
   const [date, setDate] = useState("");
+  // How exact the one date is (a box of prints is "1962", not a timestamp) and
+  // whether it is a guess. See taken-date.ts.
+  const [precision, setPrecision] = useState<TakenPrecision>("time");
+  const [approx, setApprox] = useState(false);
   const [shiftAmount, setShiftAmount] = useState("1");
   const [shiftUnit, setShiftUnit] = useState<ShiftUnit>("hours");
   const [shiftBack, setShiftBack] = useState(false);
@@ -39,7 +44,15 @@ export function GalleryDateModal({
   const shiftMinutes = Number.isFinite(amount) && amount > 0
     ? Math.round(amount * UNIT_MINUTES[shiftUnit]) * (shiftBack ? -1 : 1)
     : 0;
-  const ready = mode === "set" ? date !== "" : shiftMinutes !== 0;
+  const setIso = mode === "set" ? takenInputToIso(date, precision) : null;
+  const ready = mode === "set" ? setIso !== null : shiftMinutes !== 0;
+
+  // Re-read the typed date at the new grain rather than blanking it.
+  const changePrecision = (next: TakenPrecision) => {
+    const iso = takenInputToIso(date, precision);
+    setPrecision(next);
+    setDate(iso ? takenInputValue(iso, next) : "");
+  };
 
   const apply = async () => {
     if (!ready) return;
@@ -47,7 +60,7 @@ export function GalleryDateModal({
     setError("");
     try {
       const when = mode === "set"
-        ? { takenAt: new Date(date).toISOString() }
+        ? { takenAt: setIso, takenPrecision: precision, takenApprox: approx }
         : { shiftMinutes };
       const result = await sendInBatches<{ updated: number; forbidden: number; noDate: number }>(itemIds, (ids) =>
         api("/api/library/gallery/assets/bulk-place-time", {
@@ -96,18 +109,36 @@ export function GalleryDateModal({
       <div className="gallery-bulk-edit-field">
         {mode === "set" ? (
           <>
-            <label>
-              <span className="sr-only">{t("galleryModals:date.dateTimeSr")}</span>
-              <input
-                type="datetime-local"
-                value={date}
-                onChange={(event) => setDate(event.target.value)}
+            <div className="gallery-bulk-edit-shift">
+              <SelectField
+                compact
+                hideLabel
+                label={t("galleryModals:date.precisionLabel")}
+                value={precision}
+                onChange={(value) => changePrecision(value as TakenPrecision)}
                 disabled={busy}
-                autoFocus
+                options={TAKEN_PRECISIONS.map((option) => ({ value: option, label: precisionLabel(option) }))}
               />
+              <label>
+                <span className="sr-only">{t("galleryModals:date.dateTimeSr")}</span>
+                <input
+                  type={takenInputType(precision)}
+                  value={date}
+                  onChange={(event) => setDate(event.target.value)}
+                  min={precision === "year" || precision === "decade" ? 1800 : undefined}
+                  max={precision === "year" || precision === "decade" ? new Date().getFullYear() : undefined}
+                  step={precision === "decade" ? 10 : undefined}
+                  disabled={busy}
+                  autoFocus
+                />
+              </label>
+            </div>
+            <label className="gallery-bulk-edit-about">
+              <input type="checkbox" checked={approx} onChange={(event) => setApprox(event.target.checked)} disabled={busy} />
+              <span>{t("galleryModals:date.aboutLabel")}</span>
             </label>
             <span className="muted gallery-bulk-edit-hint">
-              {t("galleryModals:date.setHint")}
+              {precision === "time" ? t("galleryModals:date.setHint") : t("galleryModals:date.setHintCoarse")}
             </span>
           </>
         ) : (

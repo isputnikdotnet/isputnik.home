@@ -14,7 +14,8 @@ import { SendToSheet } from "../social/SendToSheet";
 import { GalleryReplaceModal } from "./GalleryReplaceModal";
 import { NotesSection } from "../social/NotesSection";
 import { useIsMobile } from "../../shared/useIsMobile";
-import type { GalleryAsset, GalleryPerson, GalleryPersonTag, SlideshowTransition } from "./types";
+import type { GalleryAsset, GalleryPerson, GalleryPersonTag, SlideshowTransition, TakenPrecision } from "./types";
+import { TAKEN_PRECISIONS, formatTakenDate, precisionLabel, takenInputToIso, takenInputType, takenInputValue } from "./taken-date";
 
 // Leaflet rides in only when the Info panel shows a geotagged photo — keeps it off
 // the initial bundle (and reuses the same chunk as the gallery Map view).
@@ -35,25 +36,10 @@ function formatLabel(title: string): string {
   return dot > 0 && dot < title.length - 1 ? title.slice(dot + 1).toUpperCase() : "";
 }
 
-function formatTaken(takenAt: string | null): string {
-  if (!takenAt) return "";
-  const d = new Date(takenAt);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
-}
-
-// ISO → value for <input type="datetime-local"> (local wall-clock, minute precision).
-function toLocalInput(iso: string | null): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
 // Fields editable inline in the Info panel ("gps" opens the map picker). The name
-// and technical fields (dimensions, size, camera) stay read-only.
-type EditableField = "description" | "takenAt" | "tags" | "gps";
+// and technical fields (dimensions, size, camera) stay read-only. "placeText" is
+// the place as a person wrote it, beside the pin (docs/photo-review-plan.md).
+type EditableField = "description" | "takenAt" | "placeText" | "tags" | "gps";
 
 // Slideshow dwell options (seconds a photo shows before advancing). A video ignores
 // these and advances when it finishes playing.
@@ -150,6 +136,10 @@ export function GalleryLightbox({
   // Inline field editing in the Info panel (one field at a time).
   const [editingField, setEditingField] = useState<EditableField | null>(null);
   const [editValue, setEditValue] = useState("");
+  // The date editor's "how exact" and "about" — a print from a box is "1962",
+  // not a timestamp (taken-date.ts).
+  const [editPrecision, setEditPrecision] = useState<TakenPrecision>("time");
+  const [editApprox, setEditApprox] = useState(false);
   // The point picked on the location editor's map (separate from the text fields).
   const [editGps, setEditGps] = useState<{ lat: number; lng: number } | null>(null);
   // A place-search result: its name (shown beside the coordinates until the pin is
@@ -457,11 +447,26 @@ export function GalleryLightbox({
     // Reopening the editor starts from the asset's own point, with no leftover
     // search result naming or recentring it.
     if (field === "gps") { setEditGps(asset.gps); setEditGpsLabel(""); setEditGpsFocus(null); return; }
+    if (field === "takenAt") {
+      const precision = asset.takenPrecision ?? "time";
+      setEditPrecision(precision);
+      setEditApprox(asset.takenApprox === true);
+      setEditValue(takenInputValue(asset.takenAt, precision));
+      return;
+    }
     setEditValue(
       field === "description" ? (asset.description ?? "")
-        : field === "takenAt" ? toLocalInput(asset.takenAt)
+        : field === "placeText" ? (asset.placeText ?? "")
           : asset.tags.join(", ")
     );
+  };
+
+  // Switching the date editor's precision re-reads the same date at the new
+  // grain ("14 Jul 1962" → "1962") rather than blanking the field.
+  const changeEditPrecision = (next: TakenPrecision) => {
+    const iso = takenInputToIso(editValue, editPrecision) ?? asset.takenAt;
+    setEditPrecision(next);
+    setEditValue(takenInputValue(iso, next));
   };
 
   const cancelEdit = () => { setEditingField(null); setEditError(""); };
@@ -495,7 +500,10 @@ export function GalleryLightbox({
 
   const saveEdit = async () => {
     if (editBusy || !editingField) return;
-    const body: { title: string; description: string | null; takenAt: string | null; tags: string[] } = {
+    const body: {
+      title: string; description: string | null; takenAt: string | null; tags: string[];
+      takenPrecision?: TakenPrecision; takenApprox?: boolean; placeText?: string | null;
+    } = {
       title: asset.title,
       description: asset.description,
       takenAt: asset.takenAt,
@@ -504,7 +512,13 @@ export function GalleryLightbox({
     if (editingField === "description") {
       body.description = editValue.trim() || null;
     } else if (editingField === "takenAt") {
-      body.takenAt = editValue ? new Date(editValue).toISOString() : null;
+      // The server floors the instant to the precision; an empty field leaves
+      // the date as it is (the PATCH has no "clear the date" — see edit.ts).
+      body.takenAt = takenInputToIso(editValue, editPrecision);
+      body.takenPrecision = editPrecision;
+      body.takenApprox = editApprox;
+    } else if (editingField === "placeText") {
+      body.placeText = editValue.trim() || null;
     } else {
       body.tags = Array.from(new Set(editValue.split(",").map((tag) => tag.trim()).filter(Boolean)));
     }
@@ -579,7 +593,7 @@ export function GalleryLightbox({
   }
 
   const meta = [
-    formatTaken(asset.takenAt),
+    formatTakenDate(asset, { withTime: true }),
     asset.width && asset.height ? `${asset.width}×${asset.height}` : "",
     asset.kind === "video" || asset.kind === "audio" ? formatDuration(asset.durationSeconds) : ""
   ].filter(Boolean).join(" · ");
@@ -608,7 +622,40 @@ export function GalleryLightbox({
       {field === "description" ? (
         <textarea value={editValue} onChange={(event) => setEditValue(event.target.value)} rows={3} maxLength={5000} autoFocus />
       ) : field === "takenAt" ? (
-        <input type="datetime-local" value={editValue} onChange={(event) => setEditValue(event.target.value)} autoFocus />
+        <>
+          <div className="gallery-info-date-grain">
+            <select
+              value={editPrecision}
+              onChange={(event) => changeEditPrecision(event.target.value as TakenPrecision)}
+              aria-label={t("gallery:date.precisionLabel")}
+            >
+              {TAKEN_PRECISIONS.map((precision) => (
+                <option key={precision} value={precision}>{precisionLabel(precision)}</option>
+              ))}
+            </select>
+            <label className="gallery-info-date-about">
+              <input type="checkbox" checked={editApprox} onChange={(event) => setEditApprox(event.target.checked)} />
+              <span>{t("gallery:date.aboutLabel")}</span>
+            </label>
+          </div>
+          <input
+            type={takenInputType(editPrecision)}
+            value={editValue}
+            onChange={(event) => setEditValue(event.target.value)}
+            min={editPrecision === "year" || editPrecision === "decade" ? 1800 : undefined}
+            max={editPrecision === "year" || editPrecision === "decade" ? new Date().getFullYear() : undefined}
+            step={editPrecision === "decade" ? 10 : undefined}
+            autoFocus
+          />
+        </>
+      ) : field === "placeText" ? (
+        <input
+          value={editValue}
+          onChange={(event) => setEditValue(event.target.value)}
+          placeholder={t("gallery:lightbox.placePlaceholder")}
+          maxLength={300}
+          autoFocus
+        />
       ) : (
         <input
           value={editValue}
@@ -987,13 +1034,26 @@ export function GalleryLightbox({
             {(asset.description || canEdit) && (
               <div>
                 <dt>{t("gallery:lightbox.labelDescription")}{editPencil("description", t("gallery:lightbox.fieldDescription"))}</dt>
-                <dd>{editingField === "description" ? editForm("description") : (asset.description || <span className="muted">—</span>)}</dd>
+                <dd>
+                  {editingField === "description" ? editForm("description") : (asset.description || <span className="muted">—</span>)}
+                  {asset.reviewedAt && asset.reviewedBy && editingField !== "description" && (
+                    <span className="gallery-info-noted muted">
+                      {t("gallery:lightbox.notedBy", { name: asset.reviewedBy, date: new Date(asset.reviewedAt).toLocaleDateString() })}
+                    </span>
+                  )}
+                </dd>
               </div>
             )}
             {(asset.takenAt || canEdit) && (
               <div>
                 <dt>{t("gallery:lightbox.labelDate")}{editPencil("takenAt", t("gallery:lightbox.fieldDate"))}</dt>
-                <dd>{editingField === "takenAt" ? editForm("takenAt") : (formatTaken(asset.takenAt) || <span className="muted">—</span>)}</dd>
+                <dd>{editingField === "takenAt" ? editForm("takenAt") : (formatTakenDate(asset, { withTime: true }) || <span className="muted">—</span>)}</dd>
+              </div>
+            )}
+            {(asset.placeText || canEdit) && (
+              <div>
+                <dt>{t("gallery:lightbox.labelPlace")}{editPencil("placeText", t("gallery:lightbox.fieldPlace"))}</dt>
+                <dd>{editingField === "placeText" ? editForm("placeText") : (asset.placeText || <span className="muted">—</span>)}</dd>
               </div>
             )}
             <div><dt>{t("gallery:lightbox.labelType")}</dt><dd>{asset.kind === "video" ? t("gallery:common.video") : asset.kind === "audio" ? t("gallery:common.audio") : t("gallery:common.photo")}</dd></div>

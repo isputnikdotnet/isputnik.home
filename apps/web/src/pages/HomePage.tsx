@@ -6,7 +6,7 @@ import { ActivityList } from "../features/social/ActivityList";
 import { InboxRow, type InboxCard } from "../features/social/InboxRow";
 import { api, type PublicUser } from "../api";
 import { DashboardShell } from "../app/DashboardShell";
-import { followRoute, galleryInboxHref, navigate } from "../router";
+import { followRoute, galleryInboxHref, galleryReviewHref, navigate } from "../router";
 import { MessageBox } from "../shared/MessageBox";
 import { Modal } from "../shared/Modal";
 import { SelectField } from "../shared/SelectField";
@@ -236,7 +236,9 @@ function PhotosAddedFeedCard({ card, onOpen }: { card: PhotosAddedCard; onOpen: 
 // review is something to do, and it opens the review page rather than a photo.
 function PhotoInboxFeedCard({ card }: { card: PhotoInboxCard }) {
   const { t } = useTranslation();
-  const href = galleryInboxHref(card.libraryId);
+  // Whoever can Keep gets the review page; whoever can only write on the photos
+  // (the relative asked what she remembers) goes straight into Review mode.
+  const href = card.canReview ? galleryInboxHref(card.libraryId) : galleryReviewHref(card.libraryId, null);
   return (
     <section className="home-card home-card-photos home-card-inbox" aria-label={t("home.photoInbox")}>
       <header className="home-card-head">
@@ -244,7 +246,7 @@ function PhotoInboxFeedCard({ card }: { card: PhotoInboxCard }) {
           <Inbox size={16} aria-hidden="true" /> <strong>{t("home.photoInbox")}</strong> · {card.name}
         </span>
         <a className="home-card-link" href={href} onClick={(event) => followRoute(event, href)}>
-          <span>{t("home.reviewPhotos")}</span>
+          <span>{card.canReview ? t("home.reviewPhotos") : t("home.addWhatYouKnow")}</span>
           <ChevronRight size={16} aria-hidden="true" />
         </a>
       </header>
@@ -263,7 +265,10 @@ function PhotoInboxFeedCard({ card }: { card: PhotoInboxCard }) {
           </a>
         ))}
       </div>
-      <p className="home-card-sub">{t("home.photoInboxSub", { count: card.count })}</p>
+      <p className="home-card-sub">
+        {card.canReview ? t("home.photoInboxSub", { count: card.count }) : t("home.photoInboxAsk", { count: card.count - card.reviewed })}
+        {card.reviewed > 0 && ` · ${t("home.photoInboxNoted", { reviewed: card.reviewed, count: card.count })}`}
+      </p>
     </section>
   );
 }

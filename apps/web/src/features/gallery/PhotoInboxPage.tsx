@@ -10,14 +10,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  Album, CalendarDays, CheckCheck, Film, FolderInput, FolderOpen, Inbox, LibraryBig, Link2,
+  Album, CalendarDays, CheckCheck, Film, FolderInput, FolderOpen, Inbox, LibraryBig, Link2, ListChecks,
   ScanSearch, SquareCheck, Trash2, UploadCloud, Users, X
 } from "lucide-react";
 import { DropLinksModal } from "./DropLinksModal";
 import { api, type PublicUser } from "../../api";
 import { PartialBulkError, sendInBatches } from "../../shared/bulk";
 import { DashboardShell } from "../../app/DashboardShell";
-import { controlHref, followRoute, galleryHref, galleryInboxHref, navigate } from "../../router";
+import { controlHref, followRoute, galleryHref, galleryInboxHref, galleryReviewHref, navigate } from "../../router";
 import { Button } from "../../shared/Button";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { MessageBox } from "../../shared/MessageBox";
@@ -36,6 +36,8 @@ import type { GalleryAsset, GalleryLibrary } from "./types";
 export interface PhotoInboxDelivery {
   folder: string;
   count: number;
+  /** Gone through in Review mode (docs/photo-review-plan.md). */
+  reviewed: number;
   newestAt: string;
   /** Some of it came in through a drop link. */
   viaLink: boolean;
@@ -45,7 +47,11 @@ export interface PhotoInboxSummary {
   id: string;
   name: string;
   count: number;
+  reviewed: number;
+  /** May Keep or Discard (delete on the Inbox). */
   canReview: boolean;
+  /** May write on the photos (edit on the Inbox) — Review mode's right. */
+  canEdit: boolean;
   deliveries: PhotoInboxDelivery[];
 }
 
@@ -351,6 +357,17 @@ export function PhotoInboxPage({
               ) : undefined}
               tools={
                 <>
+                  {inbox.canEdit && assets.length > 0 && (
+                    <button
+                      type="button"
+                      className="library-toolbar-button"
+                      onClick={() => navigate(galleryReviewHref(inbox.id, folder))}
+                      title={t("gallery:inbox.goThroughTitle")}
+                    >
+                      <ListChecks size={18} aria-hidden="true" />
+                      <span className="toolbar-label">{t("gallery:inbox.goThrough")}</span>
+                    </button>
+                  )}
                   {!isMobile && canReview && assets.length > 0 && (
                     <button
                       type="button"
@@ -448,7 +465,13 @@ export function PhotoInboxPage({
                       title={delivery.folder || t("gallery:inbox.rootDeliveryTitle")}
                     >
                       {delivery.viaLink && <Link2 size={12} aria-hidden="true" />}
-                      {deliveryLabel(delivery)} <span className="count-badge">{delivery.count}</span>
+                      {deliveryLabel(delivery)}{" "}
+                      <span
+                        className="count-badge"
+                        title={delivery.reviewed > 0 ? t("gallery:inbox.notedOf", { reviewed: delivery.reviewed, count: delivery.count }) : undefined}
+                      >
+                        {delivery.reviewed > 0 ? `${delivery.reviewed}/${delivery.count}` : delivery.count}
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -456,7 +479,11 @@ export function PhotoInboxPage({
             />
 
             {!canReview && inbox.count > 0 && (
-              <MessageBox tone="info" title={t("gallery:inbox.readOnlyTitle")}>{t("gallery:inbox.readOnlyBody")}</MessageBox>
+              inbox.canEdit ? (
+                <MessageBox tone="info" title={t("gallery:inbox.helperTitle")}>{t("gallery:inbox.helperBody")}</MessageBox>
+              ) : (
+                <MessageBox tone="info" title={t("gallery:inbox.readOnlyTitle")}>{t("gallery:inbox.readOnlyBody")}</MessageBox>
+              )
             )}
 
             {/* The duplicate check — "12 new, 3 look like copies". Its sets are worked
@@ -552,7 +579,7 @@ export function PhotoInboxPage({
           assets={assets}
           index={lightboxIndex}
           canDelete={false}
-          canEdit={canReview}
+          canEdit={inbox?.canEdit === true}
           canShare={false}
           onClose={() => setLightboxIndex(null)}
           onIndexChange={setLightboxIndex}

@@ -126,6 +126,10 @@
     "labelLibrary": "Library",
     "labelTags": "Tags",
     "tagsPlaceholder": "e.g. vacation, family",
+    "labelPlace": "Place",
+    "fieldPlace": "place",
+    "placePlaceholder": "e.g. the dacha in Ratomka",
+    "notedBy": "Noted by {{name}}, {{date}}",
     "locationHint": "Search above, or click the map to mark where this was taken.",
     "personFallback": "this person",
     "removePersonAria": "Remove {{name}}",
@@ -513,6 +517,19 @@
       "toggleLock": "Unable to change the folder lock"
     }
   },
+  "date": {
+    "around": "around {{date}}",
+    "decade": "{{year}}s",
+    "precisionLabel": "How exact",
+    "aboutLabel": "About",
+    "precision": {
+      "time": "Exact time",
+      "day": "Day",
+      "month": "Month",
+      "year": "Year",
+      "decade": "Decade"
+    }
+  },
   "timeline": {
     "undated": "Undated",
     "memoryCardAria": "{{title}} in {{year}} — {{count}}",
@@ -696,6 +713,11 @@
     "uploadedNotice_other": "Added {{count}} photos to {{name}}",
     "readOnlyTitle": "Viewing only",
     "readOnlyBody": "Keeping or discarding takes the delete right on this Inbox. You can look, but not review.",
+    "helperTitle": "You can add what you know",
+    "helperBody": "Go through these photos one at a time and say when and where they were taken, who is in them, and what you remember. Keeping or discarding is someone else's job here.",
+    "goThrough": "One at a time",
+    "goThroughTitle": "Go through these photos one at a time: when, where, who, and notes",
+    "notedOf": "{{reviewed}} of {{count}} noted",
     "errors": {
       "title": "Unable to load the Photo Inbox",
       "load": "Could not load the Photo Inbox.",

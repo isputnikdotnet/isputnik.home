@@ -420,6 +420,21 @@ CREATE TABLE IF NOT EXISTS gallery_details (
   -- 'manual' = the location was set by a user (Info panel) and a rescan must not
   -- overwrite it; 'scan' = derived from EXIF.
   gps_source          TEXT NOT NULL DEFAULT 'scan' CHECK (gps_source IN ('scan', 'manual')),
+  -- How much of taken_at was actually known (docs/photo-review-plan.md, phase 1).
+  -- 'time' is what EXIF gives; everything coarser is a person's answer about an
+  -- old print, stored as the first instant of the period (1962 -> 1962-01-01T00:00Z)
+  -- so sorting and bucketing still work. taken_approx = 1 reads "around 1962".
+  -- Manual-only: the scan UPSERT never writes either (migration 70).
+  taken_precision     TEXT NOT NULL DEFAULT 'time' CHECK (taken_precision IN ('time', 'day', 'month', 'year', 'decade')),
+  taken_approx        INTEGER NOT NULL DEFAULT 0,
+  -- What a person called the place ("the dacha in Ratomka"). Shown in preference
+  -- to the geocoded label; the pin, if any, is still gps_lat/gps_lng. Manual-only.
+  place_text          TEXT,
+  -- Set when someone finished this photo in Review mode (Next or "I don't know"),
+  -- so a batch can count its progress. Survives Keep. No FK on reviewed_by, like
+  -- activity_logs: a deleted account leaves its mark behind.
+  reviewed_at         TEXT,
+  reviewed_by         TEXT,
   camera_make         TEXT,
   camera_model        TEXT,
   preview_storage_key TEXT,
