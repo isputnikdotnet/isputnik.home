@@ -174,6 +174,57 @@ chips; an Inbox with nothing left shows "All reviewed". Keeping or discarding
 takes the delete right on the Inbox, and Keep the upload right on the
 destination — anyone else can look but not review.
 
+## 6. Ask someone what they know
+
+A box of childhood prints has a date of the day it was scanned and no place at
+all, and the person who knows when and where they were taken is not the one at
+the scanner. The Inbox has a second screen for exactly that person: **Review
+mode**, one photo at a time, four questions, and nothing else to learn.
+
+**Setting it up** is one grant. Give her an account as an ordinary member
+([Your account](your-account.md)), open the Inbox library's members dialog
+under **Control panel → Libraries**, and add her as **Contributor**. A
+contributor can write on the photos but cannot Keep or Discard, so she can
+answer without being able to move anything, and she sees nothing outside the
+Inbox unless you have shared other libraries with her. If she reads Russian,
+set her language on her profile; the screen is in both.
+
+**What she sees.** Her Home page shows one card — "Photo Inbox · Scans · 38
+photos want your notes" — with **Add what you know** on it. That opens the
+photo large, with the questions beside it (below it on a tablet held upright):
+
+- **When was this taken?** A year from a list, then a month if she knows it,
+  then a day once a month is chosen, and **Exactly** or **About**. Nothing is
+  typed. The scan date is never offered as an answer; the list starts empty.
+- **Where?** One line, in her own words — "the dacha", "Komarovka". Places she
+  has already written in this box appear above it as buttons, so the second
+  photo from the same place is one tap.
+- **Who is in it?** The people the library already knows, as buttons; **Add a
+  name** for someone new, who then joins the People page like any hand-tag.
+- **Anything you remember?** A box for a line or a page.
+
+**Same as the last one** under When and under Where copies the previous
+photo's answer. On a box from one summer it is the button she presses most.
+**Next** saves everything and moves on; **Previous** goes back; **I don't know**
+marks the photo as looked at and moves on without changing it. There is no Save
+button, and leaving the page saves the photo she was on. At the end she gets
+"You went through all of them", and the card leaves her Home page.
+
+**What you see afterwards.** Each delivery chip on the Inbox page reads
+"12/38", the photo's Info panel says *Noted by Mama, Tuesday* under the
+description, and the date reads "around 1962" rather than a day, because a
+year is what she knew. Keep files a year-only photo under `1962/` in the dated
+layout and a month-only one under `1962/1962-07`, never under a day nobody
+named. You can open the same screen yourself with **One at a time** on the
+Inbox page, which is a faster way to date a box than the grid when the answers
+are mostly "same as the last one".
+
+**Dates that are only roughly known** are not an Inbox-only idea. The **Date**
+dialog on any selection, and the pencil on a photo's date in the Info panel,
+now ask *how exact* — exact time, day, month, year or decade — and whether it
+is *about*. A photo dated to the year heads its own group on the Timeline
+rather than pretending to be from New Year's Day.
+
 ## What to expect, and what not to
 
 - **Nothing is lost by an Inbox.** Discard is the Recycle Bin. Replace sets the

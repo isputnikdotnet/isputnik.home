@@ -35,7 +35,8 @@ import {
   queryGalleryMemories,
   EMPTY_GALLERY_FILTERS
 } from "./catalog.js";
-import { changeGalleryTags, setGalleryPlaceAndTime, updateGalleryAsset } from "./edit.js";
+import { changeGalleryTags, markGalleryAssetReviewed, setGalleryPlaceAndTime, updateGalleryAsset } from "./edit.js";
+import { TAKEN_PRECISIONS } from "./taken-precision.js";
 import { replaceGalleryAssetFile } from "./replace.js";
 import { searchPlaces } from "./geocode.js";
 import { suggestGalleryMemories } from "./memories.js";
@@ -572,12 +573,19 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
   // Manual metadata edit: title/caption, description, date taken, tags, location.
   // Requires write access to the asset's library; protects the fields from future
   // rescans. `gps` omitted = leave the location untouched, null = remove it.
+  // `takenPrecision`/`takenApprox` say how much of `takenAt` is known (a reviewed
+  // print: "about 1962"); `placeText` is the place as a person wrote it; `reviewed`
+  // stamps the photo as gone through in Review mode. docs/photo-review-plan.md.
   const editSchema = z.object({
     title: z.string().trim().min(1).max(300),
     description: z.string().trim().max(5000).nullable().optional(),
     takenAt: z.iso.datetime().nullable().optional(),
+    takenPrecision: z.enum(TAKEN_PRECISIONS).optional(),
+    takenApprox: z.boolean().optional(),
+    placeText: z.string().trim().max(300).nullable().optional(),
     tags: z.array(z.string().trim().min(1).max(80)).max(50).default([]),
-    gps: z.object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) }).nullable().optional()
+    gps: z.object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) }).nullable().optional(),
+    reviewed: z.boolean().optional()
   });
 
   app.patch("/api/library/gallery/assets/:id", { preHandler: app.authenticate }, async (request, reply) => {
@@ -597,23 +605,53 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
       title: parsed.data.title,
       description: parsed.data.description ?? null,
       takenAt: parsed.data.takenAt ?? null,
+      takenPrecision: parsed.data.takenPrecision,
+      takenApprox: parsed.data.takenApprox,
+      placeText: parsed.data.placeText,
       tags: parsed.data.tags ?? [],
-      gps: parsed.data.gps
+      gps: parsed.data.gps,
+      reviewedBy: parsed.data.reviewed ? user.id : undefined
     });
     if (!ok) {
       return reply.code(404).send({ error: "Asset not found" });
     }
 
     logActivity({
-      event: "library.gallery.edited",
+      event: parsed.data.reviewed ? "library.gallery.reviewed" : "library.gallery.edited",
       actorUserId: user.id,
       targetType: "library_item",
       targetId: id,
-      detail: `Edited gallery item "${parsed.data.title}".`,
+      detail: parsed.data.reviewed ? `Went through "${parsed.data.title}" in Review mode.` : `Edited gallery item "${parsed.data.title}".`,
       ipAddress: request.ip
     });
 
     return reply.send({ updated: true, asset: getGalleryAsset(user.id, [lib.id], id) });
+  });
+
+  // "I don't know": the photo was looked at in Review mode and nothing on it
+  // changed. Same write right as an edit — a reviewed mark is a fact about the
+  // photo, not about the Inbox — so a contributor can leave one without being
+  // able to Keep. docs/photo-review-plan.md, phase 2.
+  app.post("/api/library/gallery/assets/:id/reviewed", { preHandler: app.authenticate }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const user = request.user!;
+    const lib = getLibraryForBook(id);
+    if (!lib || lib.type !== "gallery" || !canUserWriteLibrary(lib, user.id, user.role)) {
+      return reply.code(403).send({ error: "Write access required to review this item." });
+    }
+    if (!markGalleryAssetReviewed(id, user.id)) {
+      return reply.code(404).send({ error: "Asset not found" });
+    }
+    const asset = getGalleryAsset(user.id, [lib.id], id);
+    logActivity({
+      event: "library.gallery.reviewed",
+      actorUserId: user.id,
+      targetType: "library_item",
+      targetId: id,
+      detail: `Went through "${asset?.title ?? id}" in Review mode.`,
+      ipAddress: request.ip
+    });
+    return reply.send({ reviewed: true, asset });
   });
 
   // Place lookup behind the location picker's search box. Rate-limited well below
@@ -646,14 +684,17 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
     .object({
       ids: z.array(z.string().trim().min(1).max(64)).min(1).max(200),
       takenAt: z.iso.datetime().optional(),
+      takenPrecision: z.enum(TAKEN_PRECISIONS).optional(),
+      takenApprox: z.boolean().optional(),
       shiftMinutes: z.number().int().min(-5_256_000).max(5_256_000).refine((v) => v !== 0).optional(),
-      gps: z.object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) }).optional()
+      gps: z.object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) }).optional(),
+      placeText: z.string().trim().max(300).nullable().optional()
     })
     .refine((body) => body.takenAt === undefined || body.shiftMinutes === undefined, {
       message: "Set a date or shift by an offset, not both."
     })
-    .refine((body) => body.takenAt !== undefined || body.shiftMinutes !== undefined || body.gps !== undefined, {
-      message: "Send a date, an offset, a location, or a combination."
+    .refine((body) => body.takenAt !== undefined || body.shiftMinutes !== undefined || body.gps !== undefined || body.placeText !== undefined, {
+      message: "Send a date, an offset, a location, a place, or a combination."
     });
 
   app.post("/api/library/gallery/assets/bulk-place-time", { preHandler: app.authenticate }, async (request, reply) => {
@@ -676,15 +717,19 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
 
     const { updated, noDate } = setGalleryPlaceAndTime(allowed, {
       takenAt: parsed.data.takenAt,
+      takenPrecision: parsed.data.takenPrecision,
+      takenApprox: parsed.data.takenApprox,
       shiftMinutes: parsed.data.shiftMinutes,
-      gps: parsed.data.gps
+      gps: parsed.data.gps,
+      placeText: parsed.data.placeText
     });
 
     if (updated > 0) {
       const fields = [
         parsed.data.takenAt ? "date taken" : null,
         parsed.data.shiftMinutes ? `date taken (shifted ${parsed.data.shiftMinutes} min)` : null,
-        parsed.data.gps ? "location" : null
+        parsed.data.gps ? "location" : null,
+        parsed.data.placeText !== undefined ? "place" : null
       ].filter(Boolean).join(" and ");
       logActivity({
         event: "library.gallery.edited",

@@ -118,6 +118,12 @@ export interface PhotoInboxCard {
   libraryId: string;
   name: string;
   count: number;
+  /** How many of them have been gone through in Review mode
+   *  (docs/photo-review-plan.md). */
+  reviewed: number;
+  /** Whether this viewer may Keep or Discard (delete on the Inbox). Without it
+   *  the card is an invitation to add what they know, not a review to run. */
+  canReview: boolean;
   /** A taste of what is waiting, newest arrival first. */
   strip: GalleryMemoryGroup["items"];
 }
@@ -127,13 +133,18 @@ export type HomeCard = SentCard | MemoryCard | PhotosAddedCard | AddedBatchCard 
 const INBOX_STRIP_SIZE = 4;
 
 function photoInboxCards(user: RequestUser): PhotoInboxCard[] {
+  // Shown to anyone who can write on the photos, not only to whoever can Keep:
+  // a contributor asked what she remembers gets the card too, and for her it is
+  // the way in to Review mode. Gone once she has been through all of it.
   return listPhotoInboxes(user)
-    .filter((inbox) => inbox.count > 0 && inbox.canReview)
+    .filter((inbox) => inbox.count > 0 && (inbox.canReview || (inbox.canEdit && inbox.reviewed < inbox.count)))
     .map((inbox) => ({
       type: "photo_inbox" as const,
       libraryId: inbox.id,
       name: inbox.name,
       count: inbox.count,
+      reviewed: inbox.reviewed,
+      canReview: inbox.canReview,
       strip: listPhotoInboxItems(user, inbox.id, { folder: null, limit: INBOX_STRIP_SIZE, offset: 0 })?.items ?? []
     }));
 }

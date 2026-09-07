@@ -289,8 +289,12 @@
     "quotePrefsSave": "Save preferences",
     "photoInbox": "Photo Inbox",
     "reviewPhotos": "Review",
+    "addWhatYouKnow": "Add what you know",
     "photoInboxSub_one": "{{count}} photo waiting for review",
-    "photoInboxSub_other": "{{count}} photos waiting for review"
+    "photoInboxSub_other": "{{count}} photos waiting for review",
+    "photoInboxNoted": "{{reviewed}} of {{count}} noted",
+    "photoInboxAsk_one": "{{count}} photo wants your notes",
+    "photoInboxAsk_other": "{{count}} photos want your notes"
   },
   "profile": {
     "eyebrow": "Profile",

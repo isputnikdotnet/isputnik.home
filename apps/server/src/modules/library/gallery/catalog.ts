@@ -7,6 +7,7 @@ import { db } from "../../../db.js";
 import { canUserAccessLibrary } from "../shared/library-access.js";
 import { locksByLibrary, lockCoveredIn } from "../shared/folder-locks.js";
 import { parsePolicy } from "../../../core/permissions.js";
+import type { TakenPrecision } from "./taken-precision.js";
 
 const inClause = (n: number) => Array(n).fill("?").join(", ");
 
@@ -45,6 +46,11 @@ interface AssetRow {
   title: string | null;
   description: string | null;
   taken_at: string | null;
+  taken_precision: TakenPrecision | null;
+  taken_approx: number | null;
+  place_text: string | null;
+  reviewed_at: string | null;
+  reviewed_by_name: string | null;
   width: number | null;
   height: number | null;
   orientation: number | null;
@@ -88,6 +94,11 @@ export const ASSET_COLUMNS = `
   item_metadata.title,
   item_metadata.description,
   gallery_details.taken_at,
+  gallery_details.taken_precision,
+  gallery_details.taken_approx,
+  gallery_details.place_text,
+  gallery_details.reviewed_at,
+  (SELECT users.display_name FROM users WHERE users.id = gallery_details.reviewed_by) AS reviewed_by_name,
   gallery_details.width,
   gallery_details.height,
   gallery_details.orientation,
@@ -151,6 +162,13 @@ export function mapAsset(row: AssetRow) {
     title: row.title ?? row.folder_path.split("/").pop() ?? row.folder_path,
     description: row.description,
     takenAt: row.taken_at,
+    // How much of takenAt to believe (docs/photo-review-plan.md): a reviewed print
+    // may be known only to the year, and "about" reads as "around 1962".
+    takenPrecision: (row.taken_precision ?? "time") as TakenPrecision,
+    takenApprox: row.taken_approx === 1,
+    placeText: row.place_text,
+    reviewedAt: row.reviewed_at,
+    reviewedBy: row.reviewed_at ? row.reviewed_by_name : null,
     addedAt: row.discovered_at,
     width: swap ? row.height : row.width,
     height: swap ? row.width : row.height,

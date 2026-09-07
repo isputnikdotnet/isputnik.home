@@ -1334,8 +1334,70 @@
 }
 
 /* Dark form controls so the native date picker's icons stay visible. */
-.gallery-info-form input[type="datetime-local"] {
+.gallery-info-form input[type="datetime-local"],
+.gallery-info-form input[type="date"],
+.gallery-info-form input[type="month"],
+.gallery-info-form select {
   color-scheme: dark;
+}
+
+/* The date editor's "how exact" row: the precision picker and the About box
+   (docs/photo-review-plan.md), in the panel's own dark palette. */
+.gallery-info-date-grain {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.gallery-info-date-grain select {
+  padding: 5px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+.gallery-info-date-about {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.gallery-info-form .gallery-info-date-about input[type="checkbox"] {
+  width: auto;
+}
+
+/* "Noted by Mama, Tuesday" under the description: who went through the photo
+   in Review mode. */
+.gallery-info-noted {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.78rem;
+}
+
+/* The bulk date dialog's About checkbox, under the precision + date row. */
+.gallery-bulk-edit-about {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.gallery-bulk-edit-shift input[type="date"],
+.gallery-bulk-edit-shift input[type="month"],
+.gallery-bulk-edit-shift input[type="datetime-local"] {
+  min-height: 38px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--ink);
+  background: var(--field);
+  font: inherit;
 }
 
 .gallery-info-form-actions {

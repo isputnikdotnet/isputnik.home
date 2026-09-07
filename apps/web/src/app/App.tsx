@@ -57,6 +57,7 @@ const StoryCollectionPage = lazy(() => import("../features/stories/StoryCollecti
 const StoryEditorPage = lazy(() => import("../features/stories/StoryEditorPage").then((m) => ({ default: m.StoryEditorPage })));
 const GalleryPage = lazy(() => import("../features/gallery/GalleryPage").then((m) => ({ default: m.GalleryPage })));
 const PhotoInboxPage = lazy(() => import("../features/gallery/PhotoInboxPage").then((m) => ({ default: m.PhotoInboxPage })));
+const ReviewPage = lazy(() => import("../features/gallery/review/ReviewPage").then((m) => ({ default: m.ReviewPage })));
 const FamilyTreePage = lazy(() => import("../features/familytree/FamilyTreePage").then((m) => ({ default: m.FamilyTreePage })));
 const FamilyPeoplePage = lazy(() => import("../features/familytree/FamilyPeoplePage").then((m) => ({ default: m.FamilyPeoplePage })));
 const FamilyFamiliesPage = lazy(() => import("../features/familytree/FamilyFamiliesPage").then((m) => ({ default: m.FamilyFamiliesPage })));
@@ -465,6 +466,11 @@ export function App() {
 
     if (route.name === "galleryInbox") {
       return <PhotoInboxPage user={session.user} logout={logout} libraryId={route.libraryId} />;
+    }
+
+    if (route.name === "galleryReview") {
+      // Chrome-free, like the story reading view: one photo, four questions.
+      return <ReviewPage libraryId={route.libraryId} folder={route.folder} />;
     }
 
     if (route.name === "galleryFolder") {

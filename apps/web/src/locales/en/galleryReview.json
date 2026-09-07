@@ -1,0 +1,65 @@
+{
+  "docTitle": "{{name}} · Review",
+  "back": "Back",
+  "backToHome": "Back to Home",
+  "progress": "{{done}} of {{total}}",
+  "progressAria": "Photos gone through",
+  "loading": "Getting the photos ready…",
+  "photoAlt": "The photo being looked at",
+  "photoTapHint": "Tap the photo to see it larger",
+  "closeLarge": "Back to the questions",
+  "when": {
+    "heading": "When was this taken?",
+    "year": "Year",
+    "yearUnknown": "Year",
+    "month": "Month",
+    "monthUnknown": "Month, if you know it",
+    "day": "Day",
+    "dayUnknown": "Day, if you know it",
+    "exactly": "Exactly",
+    "about": "About",
+    "exactnessAria": "How sure the date is"
+  },
+  "where": {
+    "heading": "Where?",
+    "placeholder": "For example, the dacha, or a town",
+    "recentAria": "Places you already wrote in this box"
+  },
+  "who": {
+    "heading": "Who is in it?",
+    "addName": "Add a name",
+    "addNamePlaceholder": "Their name",
+    "addNameConfirm": "Add",
+    "addNameCancel": "Cancel",
+    "nobodyYet": "Tap a name, or add one."
+  },
+  "notes": {
+    "heading": "Anything you remember?",
+    "placeholder": "A line or a page, whatever comes to mind."
+  },
+  "sameAsLast": "Same as the last one",
+  "previous": "Previous",
+  "next": "Next",
+  "dontKnow": "I don't know",
+  "saving": "Saving…",
+  "errors": {
+    "loadTitle": "Unable to open these photos",
+    "load": "Could not load the photos to go through.",
+    "saveTitle": "Couldn't save that one",
+    "save": "Try again.",
+    "people": "Could not change who is in the photo."
+  },
+  "readOnly": {
+    "title": "Viewing only",
+    "body": "You can look through these photos, but writing on them needs edit access to this Inbox."
+  },
+  "done": {
+    "title": "You went through all of them",
+    "body_one": "All {{count}} photos in {{name}}. Thank you.",
+    "body_other": "All {{count}} photos in {{name}}. Thank you."
+  },
+  "empty": {
+    "title": "Nothing to go through",
+    "body": "There are no photos waiting here."
+  }
+}

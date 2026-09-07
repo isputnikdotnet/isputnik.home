@@ -19,6 +19,17 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.71.0",
+    label: "Ask someone what they know",
+    changes: [
+      "The Photo Inbox has a second screen, for the person who knows when the prints were taken and is not the one at the scanner. **Review mode** shows one photo large with four questions beside it — when, where, who is in it, and anything you remember — and Previous, Next and *I don't know* under them. There is no Save button: Next saves. A year is picked from a list with the decades as headings, a month and a day only if she knows them, and *Exactly* or *About*. Places she has already written in that box come back as buttons, the people the library knows are buttons too, and **Same as the last one** copies the previous photo's answer, which on a box from one summer is the button she presses most. At the end: \"You went through all of them.\" It is in English and Russian, and built for a tablet.",
+      "Giving someone that screen is one grant: an ordinary member account, then **Contributor** on the Inbox library. A contributor can write on the photos but cannot Keep or Discard, so she answers without being able to move anything. Her Home page shows one card — how many photos want her notes — with **Add what you know** on it, and the card goes away when she has been through the box. Whoever can Keep sees the same screen as **One at a time** on the Inbox page, and each delivery chip there reads \"12/38\" as she goes; a photo's Info panel says who noted it.",
+      "A photo's date can now be as rough as it really is. The Date dialog on a selection, and the pencil on a date in the Info panel, ask *how exact* — exact time, day, month, year or decade — and whether it is *about*. Such a date reads \"around 1962\" wherever dates are shown, heads its own group on the Timeline instead of pretending to be New Year's Day, and Keep files it under the year alone in the dated layout, or the month, never under a day nobody named. A shift by an offset makes a date exact again, since that is a clock correction.",
+      "A photo also has a **Place** now, in words — \"the dacha in Ratomka\" — beside the pin on the map. It is shown in preference to the map's own label when both exist, and a photo with a place and no pin simply is not on the map, as before.",
+      "Tagging a person in a photo that was still in the Inbox answered with nothing, because the reply was looked up through the browsing scope an Inbox is deliberately left out of. The tag itself always landed; the screen just could not show it. Fixed, found while walking a photo through Review mode."
+    ]
+  },
+  {
     version: "3.70.2",
     label: "Passkeys, new parts underneath",
     changes: [
