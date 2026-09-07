@@ -101,7 +101,7 @@ beforeEach(() => {
 describe("ReviewPage", () => {
   it("saves a year-only answer, a place and a note on Next, and moves on", async () => {
     const user = userEvent.setup();
-    render(<ReviewPage libraryId="inbox" folder="box3" />);
+    render(<ReviewPage source={{ kind: "inbox", libraryId: "inbox", folder: "box3" }} />);
     expect(await screen.findByText("1 of 2")).toBeInTheDocument();
 
     await user.selectOptions(await screen.findByLabelText("Year"), "1962");
@@ -127,7 +127,7 @@ describe("ReviewPage", () => {
 
   it("does not offer the scan date as an answer, and leaves the date alone when nothing was chosen", async () => {
     const user = userEvent.setup();
-    render(<ReviewPage libraryId="inbox" folder="box3" />);
+    render(<ReviewPage source={{ kind: "inbox", libraryId: "inbox", folder: "box3" }} />);
     await screen.findByText("1 of 2");
     expect((await screen.findByLabelText("Year") as HTMLSelectElement).value).toBe("");
     await user.click(screen.getByRole("button", { name: "Next" }));
@@ -139,7 +139,7 @@ describe("ReviewPage", () => {
 
   it("copies the previous photo's answers with 'Same as the last one'", async () => {
     const user = userEvent.setup();
-    render(<ReviewPage libraryId="inbox" folder="box3" />);
+    render(<ReviewPage source={{ kind: "inbox", libraryId: "inbox", folder: "box3" }} />);
     await screen.findByText("1 of 2");
     await user.selectOptions(await screen.findByLabelText("Year"), "1962");
     await user.selectOptions(screen.getByLabelText("Month"), "7");
@@ -161,7 +161,7 @@ describe("ReviewPage", () => {
 
   it("'I don't know' marks the photo without saving anything, and the end shows a thank-you", async () => {
     const user = userEvent.setup();
-    render(<ReviewPage libraryId="inbox" folder="box3" />);
+    render(<ReviewPage source={{ kind: "inbox", libraryId: "inbox", folder: "box3" }} />);
     await screen.findByText("1 of 2");
     await user.click(await screen.findByRole("button", { name: "I don't know" }));
     await screen.findByText("2 of 2");
@@ -169,6 +169,24 @@ describe("ReviewPage", () => {
     expect(await screen.findByText("You went through all of them")).toBeInTheDocument();
     expect(patches).toHaveLength(0);
     expect(posts).toEqual(["/api/library/gallery/assets/p1/reviewed", "/api/library/gallery/assets/p2/reviewed"]);
+  });
+
+  it("walks an album someone asked about, and clears the card at the end", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api).mockImplementation(async (path: string, init?: RequestInit) => {
+      if (path === "/api/library/gallery/review/album/alb1") return { album: { id: "alb1", name: "Summer 1971" }, items, canEdit: true } as never;
+      if (path.startsWith("/api/library/gallery/people")) return { people: [] } as never;
+      if (init?.method === "POST") { posts.push(path); return { reviewed: true, asset: items.find((item) => item.id === path.split("/")[5]) ?? null } as never; }
+      if (/\/api\/library\/gallery\/assets\/[^/]+$/.test(path)) return { asset: items.find((item) => item.id === path.split("/").pop()) } as never;
+      return {} as never;
+    });
+    render(<ReviewPage source={{ kind: "album", albumId: "alb1", recommendationId: "rec9" }} />);
+    expect(await screen.findByText("Summer 1971")).toBeInTheDocument();
+    await user.click(await screen.findByRole("button", { name: "I don't know" }));
+    await screen.findByText("2 of 2");
+    await user.click(screen.getByRole("button", { name: "I don't know" }));
+    expect(await screen.findByText("You went through all of them")).toBeInTheDocument();
+    await waitFor(() => expect(posts).toContain("/api/social/recommendations/rec9/dismiss"));
   });
 
   it("is read-only without the edit right", async () => {
@@ -179,7 +197,7 @@ describe("ReviewPage", () => {
       if (/\/api\/library\/gallery\/assets\/[^/]+$/.test(path)) return { asset: items[0] } as never;
       return {} as never;
     });
-    render(<ReviewPage libraryId="inbox" folder={null} />);
+    render(<ReviewPage source={{ kind: "inbox", libraryId: "inbox", folder: null }} />);
     expect(await screen.findByText("Viewing only")).toBeInTheDocument();
     expect(screen.getByLabelText("Where?")).toBeDisabled();
   });

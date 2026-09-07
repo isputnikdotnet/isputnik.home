@@ -19,6 +19,15 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.73.0",
+    label: "Ask what they remember",
+    changes: [
+      "An album can now be sent as a question. On the compose step of **Send to**, tick **Ask what they remember** and the card the other person gets — \"Sergey asks what you remember about these photos\" — carries an **Add what you know** button that opens the album's photos one at a time, the same screen the Photo Inbox uses: when, where, who is in it, and anything they remember. Reaching the end clears the card by itself.",
+      "Answering means writing on the photos, so sending with the question hands over that right for the album's photos and nothing else: not the rest of the library, and never more than the sender could do themselves. Only the album's creator or an administrator can ask. A later plain send of the same album leaves the right in place.",
+      "Review mode over an album walks the photos nobody has gone through first, then in the album's own order, and says \"Viewing only\" over an album that was merely sent rather than asked about."
+    ]
+  },
+  {
     version: "3.72.0",
     label: "One library for what the app makes",
     changes: [

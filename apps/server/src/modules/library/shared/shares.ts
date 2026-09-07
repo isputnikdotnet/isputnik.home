@@ -244,6 +244,10 @@ export function grantAlbumAccess(opts: {
   toUserId: string;
   by: { id: string; role: string };
   expiresInDays?: number;
+  /** 'edit' lets the recipient write dates, places, people and notes on the
+   *  album's photos — "Ask for notes" (docs/photo-review-plan.md, phase 3).
+   *  A later plain share never takes an edit right back down to read. */
+  permission?: "read" | "edit";
   origin: string;
   ipAddress?: string;
 }): "ok" | "self" | "not_found" | "forbidden" | "no_such_user" {
@@ -260,13 +264,14 @@ export function grantAlbumAccess(opts: {
   const isNew = newlySharedResources("gallery_album", [opts.albumId], opts.toUserId).length > 0;
   db.prepare(`
     INSERT INTO shares (id, module, resource_id, user_id, permission, created_by, expires_at)
-    VALUES (?, 'gallery_album', ?, ?, 'read', ?, ?)
+    VALUES (?, 'gallery_album', ?, ?, ?, ?, ?)
     ON CONFLICT (module, resource_id, user_id) DO UPDATE SET
       revoked_at = NULL,
       expires_at = excluded.expires_at,
       created_by = excluded.created_by,
+      permission = CASE WHEN excluded.permission = 'edit' THEN 'edit' ELSE shares.permission END,
       created_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
-  `).run(nanoid(16), opts.albumId, opts.toUserId, opts.by.id, expiresAt);
+  `).run(nanoid(16), opts.albumId, opts.toUserId, opts.permission ?? "read", opts.by.id, expiresAt);
 
   logActivity({
     event: "share.granted",

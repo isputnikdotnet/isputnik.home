@@ -222,6 +222,15 @@ named. You can open the same screen yourself with **One at a time** on the
 Inbox page, which is a faster way to date a box than the grid when the answers
 are mostly "same as the last one".
 
+**Photos already in the house** can be asked about too. Open an album, press
+**Send to**, pick her, and tick **Ask what they remember** before sending. She
+gets the same card on her Home page — "Sergey asks what you remember about
+these photos" — and **Add what you know** opens the same screen over the
+album's photos. Sending with the question also gives her the right to write on
+those photos, and only those; the rest of the library is untouched, and
+whoever made the album (or an administrator) is the only one who can ask.
+When she reaches the end, the card leaves her Home page by itself.
+
 **Dates that are only roughly known** are not an Inbox-only idea. The **Date**
 dialog on any selection, and the pencil on a photo's date in the Info panel,
 now ask *how exact* — exact time, day, month, year or decade — and whether it

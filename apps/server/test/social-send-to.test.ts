@@ -15,6 +15,8 @@ import { hashPassword } from "../src/crypto.js";
 import { registerAuthDecorators } from "../src/auth.js";
 import { socialPlugin } from "../src/modules/social/routes.js";
 import { grant, makeLibrary, pastIso, resetDb } from "./helpers/seed.js";
+import { addAlbumItems, createAlbum } from "../src/modules/library/gallery/albums.js";
+import { canUserWriteAsset, getLibraryForBook } from "../src/modules/library/shared/library-access.js";
 
 // "Send to" is a POINTER, not a copy, and the recipient opens it with their own
 // access. Everything below is a way of asking whether that promise holds: the
@@ -73,9 +75,78 @@ function makeEbook(
   db.prepare("INSERT INTO item_metadata (item_id, title) VALUES (?, ?)").run(itemId, "The Hobbit");
 }
 
+// A private gallery library the creator manages, with one photo in an album
+// they made. Nobody else can see either until it is sent.
+function makeAlbum(creatorId: string): { albumId: string; itemId: string } {
+  makeLibrary("gal-1", { createdBy: creatorId, type: "gallery", ownerId: creatorId, ownerType: "user" });
+  grant("user", creatorId, "gal-1", "manager");
+  db.prepare("INSERT INTO library_items (id, library_id, type, folder_path, status) VALUES ('photo-1', 'gal-1', 'gallery', 'summer/001.jpg', 'ready')").run();
+  db.prepare("INSERT INTO item_metadata (item_id, title) VALUES ('photo-1', '001.jpg')").run();
+  db.prepare("INSERT INTO gallery_details (item_id, kind, relative_path, size) VALUES ('photo-1', 'photo', 'summer/001.jpg', 9)").run();
+  const album = createAlbum({ id: creatorId }, "Summer 1971", null);
+  addAlbumItems(album.id, new Set(["gal-1"]), ["photo-1"]);
+  return { albumId: album.id, itemId: "photo-1" };
+}
+
 beforeEach(async () => {
   resetDb();
   app = await buildApp();
+});
+
+describe("asking what they remember", () => {
+  // docs/photo-review-plan.md, phase 3: an album sent with a question carries
+  // the edit right on its photos and a card that opens Review mode.
+  it("hands out the edit share and marks the card, for whoever may share the album", async () => {
+    await makeMember("dad");
+    await makeMember("mom");
+    const { albumId, itemId } = makeAlbum("dad");
+
+    const session = await signIn("dad");
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/social/recommendations",
+      headers: { cookie: session },
+      payload: { entityType: "gallery_album", entityId: albumId, toUserIds: ["mom"], askNotes: true, message: "When was this?" }
+    });
+    expect(response.statusCode).toBe(201);
+    expect(response.json().sent).toEqual(["mom"]);
+
+    const share = db.prepare("SELECT permission FROM shares WHERE module = 'gallery_album' AND resource_id = ? AND user_id = 'mom'")
+      .get(albumId) as { permission: string };
+    expect(share.permission).toBe("edit");
+    expect(canUserWriteAsset(itemId, getLibraryForBook(itemId)!, "mom", "member")).toBe(true);
+
+    const inbox = await app.inject({ method: "GET", url: "/api/social/inbox", headers: { cookie: await signIn("mom") } });
+    const cards = inbox.json().items as { entityId: string; askNotes: boolean; message: string | null }[];
+    expect(cards).toHaveLength(1);
+    expect(cards[0]).toMatchObject({ entityId: albumId, askNotes: true, message: "When was this?" });
+  });
+
+  it("is refused to someone who may not share the album, and for anything but an album", async () => {
+    await makeMember("dad");
+    await makeMember("mom");
+    await makeMember("uncle");
+    const { albumId } = makeAlbum("dad");
+    grant("user", "uncle", "gal-1", "viewer");
+
+    const asUncle = await app.inject({
+      method: "POST",
+      url: "/api/social/recommendations",
+      headers: { cookie: await signIn("uncle") },
+      payload: { entityType: "gallery_album", entityId: albumId, toUserIds: ["mom"], askNotes: true }
+    });
+    expect(asUncle.statusCode).toBe(403);
+    expect(db.prepare("SELECT COUNT(*) AS n FROM shares").get()).toEqual({ n: 0 });
+
+    makeEbook("book-1", "lib-1", { createdBy: "dad", viewers: ["dad", "mom"] });
+    const onBook = await app.inject({
+      method: "POST",
+      url: "/api/social/recommendations",
+      headers: { cookie: await signIn("dad") },
+      payload: { entityType: "ebook", entityId: "book-1", toUserIds: ["mom"], askNotes: true }
+    });
+    expect(onBook.statusCode).toBe(403);
+  });
 });
 
 describe("destinations", () => {

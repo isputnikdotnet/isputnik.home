@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
-import { Check, Heart, X } from "lucide-react";
-import { followRoute } from "../../router";
+import { Check, Heart, MessageSquareText, X } from "lucide-react";
+import { followRoute, galleryReviewAlbumHref } from "../../router";
 import { Button } from "../../shared/Button";
 import { recommendationLine } from "./phrasing";
 
@@ -26,6 +26,9 @@ export interface InboxCard {
   /** Only library items can be liked. An album, a slideshow or
    *  a person is not one, and none of them needs a shortlist. */
   savable: boolean;
+  /** An album sent with a question — when, where, who, what you remember.
+   *  The card opens Review mode over it (docs/photo-review-plan.md, phase 3). */
+  askNotes?: boolean;
 }
 
 export function InboxRow({
@@ -38,7 +41,10 @@ export function InboxRow({
   onAct: (card: InboxCard, action: "save" | "dismiss") => Promise<void>;
 }) {
   const { t } = useTranslation(["common", "user"]);
-  const canLike = card.savable && card.available;
+  const asks = card.askNotes === true && card.available;
+  const canLike = card.savable && card.available && !asks;
+  // A question opens the screen for answering it, not the album.
+  const href = asks ? galleryReviewAlbumHref(card.entityId, card.id) : card.href;
 
   const cover = card.coverUrl
     ? <img className="inbox-cover" src={card.coverUrl} alt="" />
@@ -46,15 +52,15 @@ export function InboxRow({
 
   return (
     <li className={`inbox-card${card.available ? "" : " is-unavailable"}`}>
-      {card.available && card.href
-        ? <a href={card.href} onClick={(event) => followRoute(event, card.href)}>{cover}</a>
+      {card.available && href
+        ? <a href={href} onClick={(event) => followRoute(event, href)}>{cover}</a>
         : cover}
 
       <div className="inbox-card-body">
         {/* What they are actually asking, not just that an event happened. */}
-        <p className="inbox-from">{recommendationLine(card.fromName, card.entityType)}</p>
-        {card.available && card.href ? (
-          <a className="inbox-title" href={card.href} onClick={(event) => followRoute(event, card.href)}>
+        <p className="inbox-from">{recommendationLine(card.fromName, card.entityType, asks)}</p>
+        {card.available && href ? (
+          <a className="inbox-title" href={href} onClick={(event) => followRoute(event, href)}>
             {card.title}
           </a>
         ) : (
@@ -67,11 +73,22 @@ export function InboxRow({
 
       {/* The action names what actually happens. A savable thing goes to
           Likes, so the button says so rather than a vague "Save" that
-          leaves you wondering where it went. Everything else has nowhere to be
-          saved to, and "Not now" reads wrong once you have looked at it — so it
-          gets a single Done. */}
+          leaves you wondering where it went. A question gets the screen that
+          answers it. Everything else has nowhere to be saved to, and "Not now"
+          reads wrong once you have looked at it — so it gets a single Done. */}
       <div className="inbox-actions">
-        {canLike ? (
+        {asks ? (
+          <>
+            <a className="primary-button compact-button" href={href} onClick={(event) => followRoute(event, href)}>
+              <MessageSquareText size={16} aria-hidden />
+              <span>{t("user:social.addWhatYouKnow")}</span>
+            </a>
+            <Button variant="secondary" compact disabled={busy} onClick={() => void onAct(card, "dismiss")}>
+              <X size={16} aria-hidden />
+              <span>{t("user:social.notNow")}</span>
+            </Button>
+          </>
+        ) : canLike ? (
           <>
             <Button variant="primary" compact disabled={busy} onClick={() => void onAct(card, "save")}>
               <Heart size={16} aria-hidden />

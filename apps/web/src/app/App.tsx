@@ -470,7 +470,11 @@ export function App() {
 
     if (route.name === "galleryReview") {
       // Chrome-free, like the story reading view: one photo, four questions.
-      return <ReviewPage libraryId={route.libraryId} folder={route.folder} />;
+      return <ReviewPage source={{ kind: "inbox", libraryId: route.libraryId, folder: route.folder }} />;
+    }
+
+    if (route.name === "galleryReviewAlbum") {
+      return <ReviewPage source={{ kind: "album", albumId: route.albumId, recommendationId: route.recommendationId }} />;
     }
 
     if (route.name === "galleryFolder") {

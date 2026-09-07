@@ -26,8 +26,11 @@ function recommendVerb(entityType: string): string {
   }
 }
 
-/** "Dad wants you to read this" — the whole line, ready to render. */
-export function recommendationLine(fromName: string, entityType: string): string {
+/** "Dad wants you to read this" — the whole line, ready to render. An album
+ *  sent with a question reads as the question: "Dad asks what you remember
+ *  about these photos". */
+export function recommendationLine(fromName: string, entityType: string, askNotes = false): string {
+  if (askNotes) return `${fromName} ${i18n.t("user:phrase.recommend.askNotes")}`;
   return `${fromName} ${recommendVerb(entityType)}`;
 }
 

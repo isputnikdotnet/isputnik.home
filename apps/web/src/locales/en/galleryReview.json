@@ -61,5 +61,9 @@
   "empty": {
     "title": "Nothing to go through",
     "body": "There are no photos waiting here."
+  },
+  "album": {
+    "asked": "{{name}} asked about these photos",
+    "readOnlyBody": "You can look through this album, but writing on its photos needs it to be sent to you with a question, or edit access to its library."
   }
 }

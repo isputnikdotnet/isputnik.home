@@ -97,7 +97,11 @@ const sendSchema = z.object({
   // Plural on the wire even though the UI sends one today: the row shape is
   // per-recipient either way, so multi-select stays a client decision.
   toUserIds: z.array(z.string().trim().min(1).max(64)).min(1).max(20),
-  message: z.string().trim().max(280).nullable().optional()
+  message: z.string().trim().max(280).nullable().optional(),
+  /** Albums only: ask the recipients when, where and who — they get the edit
+   *  right on the album's photos and a card that opens Review mode
+   *  (docs/photo-review-plan.md, phase 3). Takes the same right as a grant. */
+  askNotes: z.boolean().optional()
 });
 
 interface CandidateRow {
@@ -125,6 +129,7 @@ interface RecommendationRow {
   from_name: string | null;
   created_at: string;
   seen_at: string | null;
+  ask_notes: number;
 }
 
 function displayName(userId: string): string {
@@ -156,7 +161,9 @@ function cardView(row: RecommendationRow, hydrated: Map<string, HydratedEntity>)
     coverUrl: view?.coverUrl ?? null,
     href: view?.href ?? "",
     // Only library items have somewhere to be saved to.
-    savable: LIBRARY_ITEM_TYPES.has(row.entity_type)
+    savable: LIBRARY_ITEM_TYPES.has(row.entity_type),
+    // An album sent with a question: the card opens Review mode, not the album.
+    askNotes: row.ask_notes === 1
   };
 }
 
@@ -290,10 +297,16 @@ export async function socialPlugin(app: FastifyInstance) {
       return reply.code(400).send({ error: "Unable to send", details: parsed.error });
     }
     const { entityType, entityId, toUserIds, message, grantAccess } = parsed.data;
+    const askNotes = parsed.data.askNotes === true;
 
     const subject = hydrateOne(entityType, entityId, user);
     if (!subject) {
       return reply.code(404).send({ error: "Not found" });
+    }
+    // Asking for notes hands out an edit right, so only someone who may share
+    // the album at all (its creator, or an admin) may ask.
+    if (askNotes && (entityType !== "gallery_album" || !mayGrant(entityType, entityId, user))) {
+      return reply.code(403).send({ error: "Only the album's creator or an administrator can ask for notes on it." });
     }
 
     const recipients = db.prepare(`
@@ -310,6 +323,13 @@ export async function socialPlugin(app: FastifyInstance) {
     const granted: string[] = [];
 
     for (const recipient of recipients) {
+      // A question comes with the right to answer it: the album share is made
+      // (or lifted) to 'edit' for everyone asked, whether or not they could
+      // already open the album.
+      if (askNotes) {
+        const outcome = grantAlbumAccess({ albumId: entityId, toUserId: recipient.id, by: user, permission: "edit", origin, ipAddress: request.ip });
+        if (outcome !== "ok") { skipped.push(recipient.display_name); continue; }
+      }
       // Checked as the RECIPIENT: a recommendation they cannot open is a dead
       // end, and silently sending one is worse than saying it can't be sent.
       if (!hydrateOne(entityType, entityId, recipient)) {
@@ -327,15 +347,16 @@ export async function socialPlugin(app: FastifyInstance) {
       }
       db.prepare(`
         INSERT INTO recommendations
-          (id, from_user_id, to_user_id, entity_type, entity_id, message, subject_title, from_name)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          (id, from_user_id, to_user_id, entity_type, entity_id, message, subject_title, from_name, ask_notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT (from_user_id, to_user_id, entity_type, entity_id) DO UPDATE SET
           message = excluded.message,
           subject_title = excluded.subject_title,
+          ask_notes = excluded.ask_notes,
           status = 'new',
           seen_at = NULL,
           created_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
-      `).run(nanoid(16), user.id, recipient.id, entityType, entityId, message ?? null, subject.title, senderName);
+      `).run(nanoid(16), user.id, recipient.id, entityType, entityId, message ?? null, subject.title, senderName, askNotes ? 1 : 0);
 
       sent.push(recipient.display_name);
       notifyRecommendationSent({
