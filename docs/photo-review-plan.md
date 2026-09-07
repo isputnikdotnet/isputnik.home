@@ -7,8 +7,13 @@ the Home card and Inbox page hooks, and the guide section in
 **Phase 0 built in-code the same day**: migration 71 and one `house_library`
 setting (`modules/library/gallery/house-library.ts`) that stories, the family
 tree and the slideshow movie dialog read through to; Control → Settings →
-Gallery holds it and sets up a Photo Inbox in one step. Phases 3 and 4 are
-still proposals. Written 2026-09-07 from a conversation about
+Gallery holds it and sets up a Photo Inbox in one step. **Phase 3 built the
+same day**: "Ask what they remember" on Send to for an album — the album share
+carries `permission = 'edit'` (open question 1 answered: the grant is per
+album, bounded by the sender's own curate right, not per item), migration 72
+adds `recommendations.ask_notes`, the card opens Review mode at
+`/gallery/review/album/:id`. Only Phase 4 (voice) is still a proposal.
+Written 2026-09-07 from a conversation about
 scanning a box of childhood prints and asking a relative who was there to say
 where and when each was taken. Companion to [photo-inbox-proposal.md](photo-inbox-proposal.md)
 (the holding place this stands on), [gallery-library.md](gallery-library.md),

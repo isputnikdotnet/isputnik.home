@@ -58,6 +58,14 @@ Two things about albums specifically:
 The album's own **Share** button still holds the guest link and the list of who
 has access, with a bin to take it back.
 
+**Ask what they remember.** An album can be sent as a question. Tick **Ask what
+they remember** on the compose step and the card they get opens the album's
+photos one at a time — when, where, who is in it, and anything they remember —
+instead of the album itself. Answering needs the right to write on those
+photos, so sending with the question hands it over for the album's photos and
+nothing else; only the album's creator or an administrator can ask. The whole
+screen is described in [The Photo Inbox](photo-inbox.md#6-ask-someone-what-they-know).
+
 **Slideshows** work the same way as albums for who can see them: whoever can see
 the photos in one can see the slideshow. What they don't have is a way to hand one
 over — there's no such thing as giving somebody a slideshow — so Send to on a

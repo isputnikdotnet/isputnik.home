@@ -44,6 +44,18 @@ describe("a card in Waiting for you", () => {
     expect(screen.getByRole("button", { name: /Done/ })).toBeInTheDocument();
   });
 
+  it("turns an album sent with a question into the screen that answers it", () => {
+    // "Ask what they remember" (docs/photo-review-plan.md, phase 3): the line is
+    // the question, the primary action opens Review mode over the album with
+    // the card's id so finishing can clear it, and Not now stays available.
+    render(<InboxRow card={card({ entityType: "gallery_album", entityId: "alb1", savable: false, askNotes: true, href: "/gallery/albums/alb1" })} busy={false} onAct={vi.fn()} />);
+    expect(screen.getByText("Dad asks what you remember about these photos")).toBeInTheDocument();
+    const open = screen.getByRole("link", { name: /Add what you know/ });
+    expect(open).toHaveAttribute("href", "/gallery/review/album/alb1?from=r1");
+    expect(screen.getByRole("button", { name: /Not now/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Done/ })).not.toBeInTheDocument();
+  });
+
   it("offers no Like for something that is no longer available", () => {
     render(<InboxRow card={card({ available: false })} busy={false} onAct={vi.fn()} />);
     expect(screen.queryByRole("button", { name: /Like/ })).not.toBeInTheDocument();

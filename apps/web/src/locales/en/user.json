@@ -259,6 +259,7 @@
       "ebook": "wants you to read this",
       "gallery": "wants you to see this",
       "galleryAlbum": "wants you to see these photos",
+      "askNotes": "asks what you remember about these photos",
       "gallerySlideshow": "wants you to watch this",
       "familyTreePerson": "wants you to see this",
       "fallback": "sent you this"
@@ -300,7 +301,8 @@
     "addEmoji": "Add an emoji",
     "emoji": "Emoji",
     "unavailable": "This isn’t available to you any more.",
-    "notNow": "Not now"
+    "notNow": "Not now",
+    "addWhatYouKnow": "Add what you know"
   },
   "sendTo": {
     "title": "Send to",
@@ -330,6 +332,9 @@
     "linkNoteMany_other": "They get a link to this on your family server — no file is sent.",
     "grantNoteMany_one": "{{count}} of them can't open this yet. Sending will also give them access.",
     "grantNoteMany_other": "{{count}} of them can't open this yet. Sending will also give them access.",
+    "askNotesLabel": "Ask what they remember",
+    "askNotesNote": "They get a card that opens the photos one at a time — when, where, who is in it, and anything they remember — and may write those on the photos. Nothing else about the album changes.",
+    "askNotesSend": "Ask and send",
     "someSkippedTitle": "Not everyone could be sent to",
     "someSkipped": "{{names}} couldn't be sent to — this is in a library they don't have access to.",
     "sharingSettings": "Sharing settings",

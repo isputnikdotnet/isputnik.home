@@ -1012,3 +1012,13 @@ a.inbox-title:hover {
     grid-template-columns: repeat(6, 1fr);
   }
 }
+
+/* Send to, compose step: "Ask what they remember" on an album (phase 3 of
+   docs/photo-review-plan.md) — one checkbox above the note that explains it.
+   (.send-to-check is the person row's tick box; this is a different thing.) */
+.send-to-ask {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 4px;
+}

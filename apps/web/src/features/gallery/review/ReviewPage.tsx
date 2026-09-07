@@ -74,9 +74,16 @@ function draftOf(asset: GalleryAsset): Draft {
   };
 }
 
-export function ReviewPage({ libraryId, folder }: { libraryId: string; folder: string | null }) {
+/** What Review mode walks: one Inbox (a delivery of it), or an album someone
+ *  sent with "Ask what they remember" (phase 3), with the card it came from. */
+export type ReviewSource =
+  | { kind: "inbox"; libraryId: string; folder: string | null }
+  | { kind: "album"; albumId: string; recommendationId: string | null };
+
+export function ReviewPage({ source }: { source: ReviewSource }) {
   const { t } = useTranslation(["galleryReview", "common"]);
-  const [inbox, setInbox] = useState<PhotoInboxSummary | null>(null);
+  // The name over the photos and whether she may write on them, whichever the source.
+  const [context, setContext] = useState<{ name: string; canEdit: boolean } | null>(null);
   const [assets, setAssets] = useState<GalleryAsset[] | null>(null);
   const [people, setPeople] = useState<GalleryPerson[]>([]);
   const [index, setIndex] = useState(0);
@@ -90,49 +97,73 @@ export function ReviewPage({ libraryId, folder }: { libraryId: string; folder: s
   const detailFor = useRef<string | null>(null);
 
   const asset = assets?.[index] ?? null;
-  const canEdit = inbox?.canEdit === true;
+  const canEdit = context?.canEdit === true;
   const total = assets?.length ?? 0;
   const reviewedCount = useMemo(() => (assets ?? []).filter((a) => a.reviewedAt).length, [assets]);
 
   // The Inbox (for its name and this viewer's rights), every photo of the
   // delivery in review order, and the names to offer as chips.
+  const sourceKey = source.kind === "inbox" ? `inbox:${source.libraryId}:${source.folder ?? ""}` : `album:${source.albumId}`;
   useEffect(() => {
     let alive = true;
     (async () => {
       try {
-        const { inboxes } = await api<{ inboxes: PhotoInboxSummary[] }>("/api/library/gallery/inbox");
-        const found = inboxes.find((candidate) => candidate.id === libraryId);
-        if (!found) throw new Error(t("galleryReview:errors.load"));
+        let name: string;
+        let editable: boolean;
         const all: GalleryAsset[] = [];
-        for (let offset = 0; ; offset += PAGE) {
-          const params = new URLSearchParams({ order: "review", limit: String(PAGE), offset: String(offset) });
-          if (folder != null) params.set("folder", folder);
-          const page = await api<{ items: GalleryAsset[]; total: number }>(`/api/library/gallery/inbox/${encodeURIComponent(libraryId)}/items?${params}`);
-          all.push(...page.items);
-          if (all.length >= page.total || page.items.length === 0) break;
+        // Names offered as chips: the libraries she can browse, plus (for an
+        // Inbox) anyone tagged in it, since the default scope leaves an Inbox out.
+        const peopleUrls = ["/api/library/gallery/people"];
+
+        if (source.kind === "inbox") {
+          const { inboxes } = await api<{ inboxes: PhotoInboxSummary[] }>("/api/library/gallery/inbox");
+          const found = inboxes.find((candidate) => candidate.id === source.libraryId);
+          if (!found) throw new Error(t("galleryReview:errors.load"));
+          for (let offset = 0; ; offset += PAGE) {
+            const params = new URLSearchParams({ order: "review", limit: String(PAGE), offset: String(offset) });
+            if (source.folder != null) params.set("folder", source.folder);
+            const page = await api<{ items: GalleryAsset[]; total: number }>(`/api/library/gallery/inbox/${encodeURIComponent(source.libraryId)}/items?${params}`);
+            all.push(...page.items);
+            if (all.length >= page.total || page.items.length === 0) break;
+          }
+          name = source.folder || found.name;
+          editable = found.canEdit;
+          peopleUrls.push(`/api/library/gallery/people?libraryIds=${encodeURIComponent(source.libraryId)}`);
+        } else {
+          // An album sent with a question: its photos, unreviewed first, and
+          // whether she may write on them (the share that came with the question).
+          const review = await api<{ album: { id: string; name: string }; items: GalleryAsset[]; canEdit: boolean }>(
+            `/api/library/gallery/review/album/${encodeURIComponent(source.albumId)}`
+          );
+          all.push(...review.items);
+          name = review.album.name;
+          editable = review.canEdit;
         }
-        // Names from the libraries she can browse, plus anyone tagged in this
-        // Inbox (the default scope leaves an Inbox out).
-        const [house, here] = await Promise.all([
-          api<{ people: GalleryPerson[] }>("/api/library/gallery/people").catch(() => ({ people: [] as GalleryPerson[] })),
-          api<{ people: GalleryPerson[] }>(`/api/library/gallery/people?libraryIds=${encodeURIComponent(libraryId)}`).catch(() => ({ people: [] as GalleryPerson[] }))
-        ]);
+
+        const lists = await Promise.all(peopleUrls.map((url) => api<{ people: GalleryPerson[] }>(url).catch(() => ({ people: [] as GalleryPerson[] }))));
         const byId = new Map<string, GalleryPerson>();
-        for (const person of [...house.people, ...here.people]) {
+        for (const person of lists.flatMap((list) => list.people)) {
           const existing = byId.get(person.id);
           byId.set(person.id, existing ? { ...existing, faceCount: existing.faceCount + person.faceCount } : person);
         }
         if (!alive) return;
-        setInbox(found);
+        setContext({ name, canEdit: editable });
         setAssets(all);
         setPeople(Array.from(byId.values()).filter((p) => p.name).sort((a, b) => b.faceCount - a.faceCount));
-        document.title = t("galleryReview:docTitle", { name: found.name });
+        document.title = t("galleryReview:docTitle", { name });
       } catch (err) {
         if (alive) setLoadError(err instanceof Error ? err.message : t("galleryReview:errors.load"));
       }
     })();
     return () => { alive = false; };
-  }, [libraryId, folder, t]);
+  }, [sourceKey, t]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reaching the end of an album someone asked about clears the card it came
+  // from — the question has been answered, so it should stop waiting on Home.
+  useEffect(() => {
+    if (!done || source.kind !== "album" || !source.recommendationId) return;
+    api(`/api/social/recommendations/${encodeURIComponent(source.recommendationId)}/dismiss`, { method: "POST" }).catch(() => { /* the card can be dismissed by hand */ });
+  }, [done]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // A fresh draft for each photo, with its people fetched from the detail.
   useEffect(() => {
@@ -281,7 +312,7 @@ export function ReviewPage({ libraryId, folder }: { libraryId: string; folder: s
       <header className="review-top">
         <button type="button" className="review-back" onClick={() => void leave()}>
           <ChevronLeft size={24} aria-hidden="true" />
-          <span>{inbox ? (folder || inbox.name) : t("galleryReview:back")}</span>
+          <span>{context ? context.name : t("galleryReview:back")}</span>
         </button>
         {total > 0 && progress}
       </header>
@@ -292,7 +323,7 @@ export function ReviewPage({ libraryId, folder }: { libraryId: string; folder: s
             <MessageBox tone="error" title={t("galleryReview:errors.loadTitle")}>{loadError}</MessageBox>
             <Button variant="secondary" className="review-btn" onClick={() => goBack("/")}>{t("galleryReview:backToHome")}</Button>
           </div>
-        ) : !assets || !inbox ? (
+        ) : !assets || !context ? (
           <div className="review-loading"><p className="muted">{t("galleryReview:loading")}</p></div>
         ) : assets.length === 0 ? (
           <div className="review-empty">
@@ -303,7 +334,7 @@ export function ReviewPage({ libraryId, folder }: { libraryId: string; folder: s
         ) : done ? (
           <div className="review-done">
             <h2>{t("galleryReview:done.title")}</h2>
-            <p>{t("galleryReview:done.body", { count: total, name: folder || inbox.name })}</p>
+            <p>{t("galleryReview:done.body", { count: total, name: context.name })}</p>
             <Button variant="primary" className="review-btn" onClick={() => goBack("/")}>{t("galleryReview:backToHome")}</Button>
           </div>
         ) : asset && draft ? (
@@ -323,7 +354,9 @@ export function ReviewPage({ libraryId, folder }: { libraryId: string; folder: s
 
             <div className="review-form">
               {!canEdit && (
-                <MessageBox tone="info" title={t("galleryReview:readOnly.title")}>{t("galleryReview:readOnly.body")}</MessageBox>
+                <MessageBox tone="info" title={t("galleryReview:readOnly.title")}>
+                  {source.kind === "album" ? t("galleryReview:album.readOnlyBody") : t("galleryReview:readOnly.body")}
+                </MessageBox>
               )}
 
               <section className="review-q">

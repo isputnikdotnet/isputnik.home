@@ -6,7 +6,7 @@ import { nanoid } from "nanoid";
 import { db, logActivity, logActivityOnce } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
 import { can, parsePolicy } from "../../../core/permissions.js";
-import { canUserAccessLibrary, canUserAccessBook, libraryCapabilities, deleteLibraryAccess, canUserWriteLibrary, getLibraryForBook } from "../shared/library-access.js";
+import { canUserAccessLibrary, canUserAccessBook, canUserWriteAsset, libraryCapabilities, deleteLibraryAccess, canUserWriteLibrary, getLibraryForBook } from "../shared/library-access.js";
 import { publicLibrary, type LibraryListRow } from "../shared/library-serializer.js";
 import { deleteSharesForLibrary } from "../shared/share-access.js";
 import { deleteCollectionItemsForLibrary } from "../../collections/cleanup.js";
@@ -602,7 +602,9 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
     const id = (request.params as { id: string }).id;
     const user = request.user!;
     const lib = getLibraryForBook(id);
-    if (!lib || lib.type !== "gallery" || !canUserWriteLibrary(lib, user.id, user.role)) {
+    // The library's edit right, or an album sent to this person with "Ask for
+    // notes" (docs/photo-review-plan.md, phase 3).
+    if (!lib || lib.type !== "gallery" || !canUserWriteAsset(id, lib, user.id, user.role)) {
       return reply.code(403).send({ error: "Write access required to edit this item." });
     }
 
@@ -646,7 +648,7 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
     const id = (request.params as { id: string }).id;
     const user = request.user!;
     const lib = getLibraryForBook(id);
-    if (!lib || lib.type !== "gallery" || !canUserWriteLibrary(lib, user.id, user.role)) {
+    if (!lib || lib.type !== "gallery" || !canUserWriteAsset(id, lib, user.id, user.role)) {
       return reply.code(403).send({ error: "Write access required to review this item." });
     }
     if (!markGalleryAssetReviewed(id, user.id)) {

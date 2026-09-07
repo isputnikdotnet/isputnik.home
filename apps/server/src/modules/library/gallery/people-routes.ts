@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { db, logActivity } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
-import { canUserWriteLibrary, getLibraryForBook } from "../shared/library-access.js";
+import { canUserWriteAsset, canUserWriteLibrary, getLibraryForBook } from "../shared/library-access.js";
 import type { LibraryListRow } from "../shared/library-serializer.js";
 import { resolveGalleryScopeLibraryIds, parseLibraryIds, getGalleryAsset, getGalleryAssetUnscoped } from "./catalog.js";
 import {
@@ -145,10 +145,12 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
     name: z.string().trim().min(1).max(120).optional()
   }).refine((v) => v.personId || v.name, { message: "Provide a personId or a name." });
 
+  // The library's edit right, or an album sent to this person with "Ask for
+  // notes" (canUserWriteAsset) — naming who is in a photo is part of answering.
   function requireAssetWrite(request: { user?: { id: string; role: string } }, assetId: string) {
     const lib = getLibraryForBook(assetId);
     if (!lib || lib.type !== "gallery") return null;
-    if (!canUserWriteLibrary(lib, request.user!.id, request.user!.role)) return null;
+    if (!canUserWriteAsset(assetId, lib, request.user!.id, request.user!.role)) return null;
     return lib;
   }
 

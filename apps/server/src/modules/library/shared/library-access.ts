@@ -203,6 +203,36 @@ export function userHasGalleryAlbumShareForItem(itemId: string, userId: string):
   return rows.some((row) => canUserCurateLibrary({ id: row.library_id }, row.creator_id, row.creator_role));
 }
 
+// The same reach for WRITING: an album sent with "Ask for notes" carries an
+// 'edit' share (docs/photo-review-plan.md, phase 3), which lets the recipient
+// write dates, places, people and notes on the album's photos — again bounded
+// by what the share's creator may curate, so nobody can hand out an edit right
+// they do not hold.
+export function userHasGalleryAlbumEditShareForItem(itemId: string, userId: string): boolean {
+  const rows = db.prepare(`
+    SELECT users.id AS creator_id, users.role AS creator_role, library_items.library_id AS library_id
+    FROM shares
+    JOIN gallery_album_items ON gallery_album_items.album_id = shares.resource_id
+    JOIN library_items ON library_items.id = gallery_album_items.item_id AND library_items.deleted_at IS NULL
+    JOIN users ON users.id = shares.created_by
+    WHERE shares.module = 'gallery_album'
+      AND shares.permission = 'edit'
+      AND shares.user_id = ?
+      AND gallery_album_items.item_id = ?
+      AND shares.revoked_at IS NULL
+      AND (shares.expires_at IS NULL OR datetime(shares.expires_at) > datetime('now'))
+  `).all(userId, itemId) as { creator_id: string; creator_role: string; library_id: string }[];
+  return rows.some((row) => canUserCurateLibrary({ id: row.library_id }, row.creator_id, row.creator_role));
+}
+
+/** Write access to ONE gallery asset's own metadata: the library's edit right,
+ *  or an album sent to this person with "Ask for notes". Bulk edits and moves
+ *  keep asking for the library right. */
+export function canUserWriteAsset(itemId: string, library: LibraryRoleInput & { type?: string }, userId: string, userRole: string): boolean {
+  if (canUserWriteLibrary(library, userId, userRole)) return true;
+  return library.type === "gallery" && userHasGalleryAlbumEditShareForItem(itemId, userId);
+}
+
 // Book-level read access: library access (any role), OR an explicit user-to-user
 // share of this single book even when its library is private. `module` is the
 // item's share namespace ("audiobook" | "ebook" | "gallery") — pass the right one

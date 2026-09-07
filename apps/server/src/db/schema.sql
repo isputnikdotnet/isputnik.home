@@ -1395,6 +1395,10 @@ CREATE TABLE IF NOT EXISTS recommendations (
   -- When the recipient last opened their inbox with this card in it. Drives the
   -- bell dot, NOT a badge count — see docs/family-sharing-proposal.md.
   seen_at       TEXT,
+  -- 1 = an album sent with "Ask for notes" (docs/photo-review-plan.md, phase 3):
+  -- the card opens Review mode over the album rather than the album itself, and
+  -- the share that came with it carries the edit right (migration 72).
+  ask_notes     INTEGER NOT NULL DEFAULT 0,
   UNIQUE (from_user_id, to_user_id, entity_type, entity_id)
 );
 

@@ -117,6 +117,10 @@ export function SendToSheet({
   const [searchOpen, setSearchOpen] = useState(false);
   const [term, setTerm] = useState("");
   const [message, setMessage] = useState("");
+  // Albums only: send with a question attached — the recipient gets Review
+  // mode over the photos and the right to answer on them (phase 3 of
+  // docs/photo-review-plan.md). Offered to whoever may share the album.
+  const [askNotes, setAskNotes] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [sent, setSent] = useState<{ sent: string[]; skipped: string[] } | null>(null);
@@ -213,7 +217,8 @@ export function SendToSheet({
           toUserIds: picked,
           message: message.trim() || null,
           // Only ever true after the compose step has said so in words.
-          grantAccess: needsGrant
+          grantAccess: needsGrant,
+          ...(askNotes ? { askNotes: true } : {})
         })
       });
       setSent(result);
@@ -352,16 +357,24 @@ export function SendToSheet({
             onChange={(event) => setMessage(event.target.value)}
           />
         </label>
+        {subject.entityType === "gallery_album" && destinations?.canGrant && (
+          <label className="send-to-ask">
+            <input type="checkbox" checked={askNotes} onChange={(event) => setAskNotes(event.target.checked)} disabled={busy} />
+            <span>{t("user:sendTo.askNotesLabel")}</span>
+          </label>
+        )}
         <p className="send-to-note">
-          {needsGrant
-            ? t("user:sendTo.grantNoteMany", { count: pickedPeople.filter((p) => !p.canOpen).length })
-            : t("user:sendTo.linkNoteMany", { count: pickedPeople.length })}
+          {askNotes
+            ? t("user:sendTo.askNotesNote")
+            : needsGrant
+              ? t("user:sendTo.grantNoteMany", { count: pickedPeople.filter((p) => !p.canOpen).length })
+              : t("user:sendTo.linkNoteMany", { count: pickedPeople.length })}
         </p>
         {error && <MessageBox tone="error" title={t("user:sendTo.sendFailed")}>{error}</MessageBox>}
         <div className="modal-actions">
           <Button variant="secondary" onClick={() => setComposing(false)} disabled={busy}>{t("user:sendTo.back")}</Button>
           <Button variant="primary" type="submit" disabled={busy}>
-            {busy ? t("user:actions.sending") : needsGrant ? t("user:sendTo.giveAccessSend") : t("user:actions.send")}
+            {busy ? t("user:actions.sending") : askNotes ? t("user:sendTo.askNotesSend") : needsGrant ? t("user:sendTo.giveAccessSend") : t("user:actions.send")}
           </Button>
         </div>
       </Modal>

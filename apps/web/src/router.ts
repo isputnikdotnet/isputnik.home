@@ -212,6 +212,13 @@ export function galleryReviewHref(libraryId: string, folder: string | null): str
   return folder == null ? base : `${base}?folder=${encodeURIComponent(folder)}`;
 }
 
+// Review mode over an album sent with "Ask for notes" (phase 3). `from` names
+// the Home card, so finishing the album can clear it.
+export function galleryReviewAlbumHref(albumId: string, recommendationId: string | null = null): string {
+  const base = `/gallery/review/album/${encodeURIComponent(albumId)}`;
+  return recommendationId ? `${base}?from=${encodeURIComponent(recommendationId)}` : base;
+}
+
 // Profile's panels, same rule as the control panel: each is a real address, so a
 // device, a two-factor setup, or a share audit can be linked to and returned to.
 export type ProfileTab = "account" | "security" | "shares" | "appearance" | "devices";
@@ -277,6 +284,9 @@ export type Route =
   | { name: "galleryInbox"; libraryId: string | null }
   /** Review mode over one Inbox, optionally one delivery (`folder`; "" = the root). */
   | { name: "galleryReview"; libraryId: string; folder: string | null }
+  /** Review mode over an album someone sent with "Ask for notes"; `from` is the
+   *  card it came from, dismissed once she has been through the album. */
+  | { name: "galleryReviewAlbum"; albumId: string; recommendationId: string | null }
   | { name: "galleryAlbum"; id: string }
   | { name: "gallerySlideshow"; id: string }
   | { name: "familyTree"; focusId?: string }
@@ -393,6 +403,15 @@ export function getRoute(): Route {
 
   // Review mode (docs/photo-review-plan.md): one Inbox's photos one at a time,
   // `?folder=` narrowing to a delivery. A full-screen page without the shell.
+  const galleryReviewAlbumMatch = path.match(/^\/gallery\/review\/album\/([^/]+)\/?$/);
+  if (galleryReviewAlbumMatch) {
+    return {
+      name: "galleryReviewAlbum",
+      albumId: decodeURIComponent(galleryReviewAlbumMatch[1]),
+      recommendationId: new URLSearchParams(window.location.search).get("from")
+    };
+  }
+
   const galleryReviewMatch = path.match(/^\/gallery\/review\/([^/]+)\/?$/);
   if (galleryReviewMatch) {
     return {
