@@ -521,6 +521,8 @@ entry, thumbnail and all — and **Purge eligible now** does it immediately.
   it, **Photo Inbox** sets one up in a single step — a name and a storage
   container, and the folder, the library and its first scan are made for you —
   and lists the Inboxes you already have. See [The Photo Inbox](photo-inbox.md).
+
+  ![Settings → Gallery: the Made in the app library, and the Photo Inbox set up in one step](images/98-gallery-settings.png)
 - **Stories** — whether members may start a recipe from a link, and the one-time
   button that moves narration recorded before recordings lived in the gallery
   into the Made in the app library.
