@@ -19,6 +19,13 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.76.2",
+    label: "A cleaner clean",
+    changes: [
+      "Starting a recipe from a link cleans the page's text before it lands in the story. That cleaning removed tags first and decoded HTML entities second, so a tag a site had written in encoded form came out as a tag rather than as nothing. It now removes tags until none are left, both before and after decoding. A stray \"<\" that is not a tag, like \"cook at <200°C\", is kept. Story text is shown as text, not as HTML, so nothing ran; the cleaner simply was not doing what it said."
+    ]
+  },
+  {
     version: "3.76.1",
     label: "Pictures in the guides",
     changes: [
