@@ -200,6 +200,9 @@ export function galleryHref(view: GalleryView): string {
 // The Photo Inbox review page: /gallery/inbox opens the first Inbox this user can
 // see, /gallery/inbox/<libraryId> a particular one. Not a browse view — an Inbox
 // is a library flagged for review, and the page is how it is emptied.
+/** The For you page (docs/for-you-plan.md). */
+export const FOR_YOU_PATH = "/for-you";
+
 export function galleryInboxHref(libraryId: string | null): string {
   return libraryId ? `/gallery/inbox/${encodeURIComponent(libraryId)}` : "/gallery/inbox";
 }
@@ -325,7 +328,8 @@ export type Route =
   | { name: "share"; token: string }
   /** A Photo Inbox drop link: upload without an account. */
   | { name: "drop"; token: string }
-  | { name: "sharedWithMe" };
+  /** For you: everything waiting on this person, and what they can open. */
+  | { name: "forYou" };
 
 export function getRoute(): Route {
   const path = window.location.pathname;
@@ -590,9 +594,10 @@ export function getRoute(): Route {
     return { name: "downloads" };
   }
 
-  // /inbox is the old "Sent to me" address, kept alive for links already sent.
-  if (path === "/shared" || path === "/audiobooks/shared" || path === "/inbox") {
-    return { name: "sharedWithMe" };
+  // For you (docs/for-you-plan.md). /shared was "Shared with me", /inbox the
+  // older "Sent to me"; both keep resolving for links already sent.
+  if (path === "/for-you" || path === "/shared" || path === "/audiobooks/shared" || path === "/inbox") {
+    return { name: "forYou" };
   }
 
   const audiobookBookMatch = path.match(/^\/audiobooks\/books\/([^/]+)$/);

@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { InboxRow, type InboxCard } from "../src/features/social/InboxRow";
+import { DeliveryRow, type DeliveryCard } from "../src/features/social/DeliveryRow";
 import { ActivityList, type ActivityItem } from "../src/features/social/ActivityList";
 
 // Two small renderers whose whole job is saying the right words. Both had bugs
@@ -54,6 +55,24 @@ describe("a card in Waiting for you", () => {
     expect(open).toHaveAttribute("href", "/gallery/review/album/alb1?from=r1");
     expect(screen.getByRole("button", { name: /Not now/ })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Done/ })).not.toBeInTheDocument();
+  });
+
+  it("turns a delivery into a row that names who sent it and offers the right way in", () => {
+    // For you (docs/for-you-plan.md): a batch that arrived through a drop link.
+    const delivery: DeliveryCard = {
+      kind: "delivery", id: "delivery:inbox:Cousin Anna", libraryId: "inbox", libraryName: "Photo Inbox",
+      folder: "Cousin Anna", count: 12, reviewed: 0, viaLink: true, who: "Cousin Anna",
+      newestAt: "2026-09-08T10:00:00Z", seen: false, coverUrl: null, canReview: true
+    };
+    const { rerender } = render(<ul><DeliveryRow card={delivery} /></ul>);
+    expect(screen.getByText("Cousin Anna sent 12 photos through your link")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Review/ })).toHaveAttribute("href", "/gallery/inbox/inbox");
+    expect(screen.getByRole("link", { name: /One at a time/ })).toHaveAttribute("href", "/gallery/inbox/inbox".replace("/inbox/inbox", "/review/inbox?folder=Cousin%20Anna"));
+
+    // Someone who may only write on the photos gets Review mode, not the Inbox page.
+    rerender(<ul><DeliveryRow card={{ ...delivery, canReview: false, viaLink: false, who: null }} /></ul>);
+    expect(screen.getByText("12 photos arrived in Photo Inbox")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Add what you know/ })).toHaveAttribute("href", "/gallery/review/inbox?folder=Cousin%20Anna");
   });
 
   it("offers no Like for something that is no longer available", () => {

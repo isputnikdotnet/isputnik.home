@@ -1022,3 +1022,31 @@ a.inbox-title:hover {
   gap: 8px;
   margin: 10px 0 4px;
 }
+
+/* For you (docs/for-you-plan.md): a row not yet looked at wears an amber edge —
+   that is all the bell counts — and Home ends its first few rows with a link
+   to the rest. */
+.inbox-card.is-unseen {
+  border-color: color-mix(in srgb, var(--amber) 45%, var(--line));
+}
+
+.inbox-card .inbox-title svg {
+  vertical-align: -2px;
+  margin-right: 2px;
+}
+
+.home-feed-seeall {
+  display: flex;
+  justify-content: flex-end;
+  padding: 2px 6px 0;
+}
+
+.home-feed-seeall a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--mint);
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-decoration: none;
+}

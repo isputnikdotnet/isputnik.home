@@ -49,6 +49,9 @@ Two things change the moment the switch is on:
 
 Three ways in, all of which land as a **delivery** — a top-level folder in the
 Inbox, so the review can tell Grandma's box from this morning's scanner run.
+Every delivery also appears as a row on your **For you** page and at the top of
+your Home page, naming who sent it when it came through a link, until the
+Inbox is emptied ([Sharing with family](family-sharing.md#for-you)).
 
 **From a folder.** Point your scanner software, or a copy from a card, at a
 subfolder of the Inbox's folder — one per box, named for it — and re-scan the

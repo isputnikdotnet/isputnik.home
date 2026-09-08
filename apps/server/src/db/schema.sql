@@ -1402,6 +1402,18 @@ CREATE TABLE IF NOT EXISTS recommendations (
   UNIQUE (from_user_id, to_user_id, entity_type, entity_id)
 );
 
+-- When a person last looked at a Photo Inbox delivery on their For you page
+-- (docs/for-you-plan.md). A delivery is a folder, not a row, so it cannot carry
+-- seen_at itself; the stamp is compared with the delivery's newest arrival, so
+-- a batch that grows lights the dot again.
+CREATE TABLE IF NOT EXISTS inbox_delivery_seen (
+  user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  library_id TEXT NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
+  folder     TEXT NOT NULL,
+  seen_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  PRIMARY KEY (user_id, library_id, folder)
+);
+
 CREATE INDEX IF NOT EXISTS idx_recommendations_inbox ON recommendations (to_user_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_recommendations_sent ON recommendations (from_user_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_recommendations_subject ON recommendations (entity_type, entity_id);

@@ -380,30 +380,11 @@ export async function socialPlugin(app: FastifyInstance) {
     return reply.code(201).send({ sent, skipped, granted });
   });
 
-  // The bell. A count of what has not been LOOKED AT, not of what has not been
-  // acted on — so it clears when you open the inbox and never climbs to 47.
-  app.get("/api/social/inbox/summary", { preHandler: app.authenticate }, async (request) => {
-    const user = request.user!;
-    const row = db.prepare(
-      "SELECT COUNT(*) AS unseen FROM recommendations WHERE to_user_id = ? AND seen_at IS NULL"
-    ).get(user.id) as { unseen: number };
-    return { unseen: row.unseen };
-  });
-
+  // The bell (/api/social/inbox/summary) and "seen" (/api/social/inbox/seen)
+  // live in for-you-routes.ts now: they count and stamp deliveries as well as
+  // cards (docs/for-you-plan.md).
   app.get("/api/social/inbox", { preHandler: app.authenticate }, async (request, reply) => {
     return reply.send({ items: loadInboxCards(request.user!) });
-  });
-
-  // Opening the inbox stamps everything in it as seen. Deliberately not per
-  // card: the dot means "there is something new here", and once you have looked,
-  // there isn't.
-  app.post("/api/social/inbox/seen", { preHandler: app.authenticate }, async (request, reply) => {
-    const user = request.user!;
-    db.prepare(`
-      UPDATE recommendations SET seen_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
-      WHERE to_user_id = ? AND seen_at IS NULL
-    `).run(user.id);
-    return reply.send({ ok: true });
   });
 
   // Save — the whole tie-in with "Save for Later". It writes to the existing
