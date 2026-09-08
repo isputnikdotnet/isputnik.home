@@ -31,7 +31,7 @@ import packageInfo from "../../../../package.json";
 import { isAdminSession, type PublicUser } from "../api";
 import { isStandalone } from "../pwa/platform";
 import { useInboxSummary } from "../features/social/useInboxSummary";
-import { controlHref, followRoute } from "../router";
+import { FOR_YOU_PATH, controlHref, followRoute } from "../router";
 import { REPO_ISSUES_URL } from "../shared/links";
 
 const APP_VERSION = packageInfo.version;
@@ -104,7 +104,7 @@ function mainNavItems(active: DashboardActive, t: TFunction): MainNavItem[] {
 
 function userMenuLinks(t: TFunction): UserMenuLink[] {
   return [
-    { label: t("nav.sharedWithMe"), href: "/shared", icon: UsersRound },
+    { label: t("nav.forYou"), href: FOR_YOU_PATH, icon: UsersRound },
     { label: t("nav.likes"), href: "/likes", icon: Heart },
     { label: t("nav.bookmarks"), href: "/bookmarks", icon: Bookmark },
     { label: t("nav.quotes"), href: "/quotes", icon: Quote },
@@ -117,7 +117,7 @@ function userMenuLinks(t: TFunction): UserMenuLink[] {
 
 // The user-area routes reachable from the Profile drop-up sheet. The Profile
 // tab highlights for any of them (not just /profile itself).
-const PROFILE_ROUTES = ["/profile", "/likes", "/bookmarks", "/quotes", "/collections", "/shared", "/inbox"];
+const PROFILE_ROUTES = ["/profile", "/likes", "/bookmarks", "/quotes", "/collections", FOR_YOU_PATH, "/shared", "/inbox"];
 
 // Four-tab bottom nav for the installed app / phones: Home, Media, Offline,
 // Profile. "Media" and "Profile" aren't pages — each opens a drop-up sheet:
@@ -215,9 +215,9 @@ function MobileNav({
               <ListMusic size={26} aria-hidden="true" />
               <span>{t("nav.collections")}</span>
             </a>
-            <a className="mobile-media-option" href="/shared" onClick={(event) => { followRoute(event, "/shared"); close(); }}>
+            <a className="mobile-media-option" href={FOR_YOU_PATH} onClick={(event) => { followRoute(event, FOR_YOU_PATH); close(); }}>
               <UsersRound size={26} aria-hidden="true" />
-              <span>{t("nav.shared")}</span>
+              <span>{t("nav.forYou")}</span>
             </a>
             {isAdminSession(user) && (
               <a className="mobile-media-option" href={CONTROL_HOME} onClick={(event) => { followRoute(event, CONTROL_HOME); close(); }}>

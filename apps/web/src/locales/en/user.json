@@ -195,8 +195,8 @@
     "updateFailed": "Unable to update this",
     "waitingForYou": "Waiting for you",
     "everythingElse": "Everything else",
-    "emptyHeading": "Nothing shared with you yet",
-    "empty": "When someone in the family sends you a book, a photo or a person from the family tree, it appears here.",
+    "emptyHeading": "Nothing for you yet",
+    "empty": "When someone in the family sends you a book, a photo or a question about an album, or photos arrive in an Inbox you look after, it appears here.",
     "album": "Album",
     "sharedBy": "Shared by {{name}}",
     "sharedWithYou": "Shared with you",
@@ -296,6 +296,19 @@
     "removeTitle": "Remove this note?",
     "removeBodyItem": "It stops showing under this. Nothing else about the item changes.",
     "removeBodyPerson": "It stops showing under this. Nothing else about the person changes."
+  },
+  "forYou": {
+    "intro_zero": "Nothing is waiting on you.",
+    "intro_one": "One thing is waiting. It leaves the list when you decide.",
+    "intro_other": "{{count}} things are waiting. They leave the list when you decide.",
+    "thingsYouCanOpen": "Things you can open",
+    "deliveryVia_one": "{{who}} sent {{count}} photo through your link",
+    "deliveryVia_other": "{{who}} sent {{count}} photos through your link",
+    "deliveryArrived_one": "{{count}} photo arrived in {{name}}",
+    "deliveryArrived_other": "{{count}} photos arrived in {{name}}",
+    "deliveryNoted": "{{reviewed}} of {{count}} noted",
+    "review": "Review",
+    "oneAtATime": "One at a time"
   },
   "social": {
     "addEmoji": "Add an emoji",

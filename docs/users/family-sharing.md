@@ -83,8 +83,8 @@ outgoing mail server ([guide](email.md)); until then the row reads *Set up my
 e-reader* and takes you there.
 
 You can't send a file to somebody else's Kindle, on purpose. Mailing a file to
-another person's device without asking isn't yours to decide — so it lands in
-their **Shared with me** instead, and they send it to their own device if they
+another person's device without asking isn't yours to decide — so it lands on
+their **For you** page instead, and they send it to their own device if they
 want it.
 
 ## Anyone with a link
@@ -99,41 +99,39 @@ itself appears once and is never shown again — only its fingerprint is kept �
 copy it straight away, and make a separate link per person if you want to be able
 to revoke them one at a time.
 
-## When somebody sends you something
+## For you
 
-You'll see it on the **Home page**, at the very top of the feed — the cover,
-who sent it, and what they said. Tap it and it opens, or decide right there:
-**Like** puts it in your Likes, **Not now** clears it away.
+Everything that is waiting on you lives on one page, **For you**, in the menu
+with your name on it. Each row is one thing somebody put in front of you, with
+the one button it wants:
 
-The card stays put until you decide — it doesn't drift down the page as other
-things happen. Once you've dealt with everything, it goes away.
+- **Something sent to you** — a book, a photo, an album — with **Like**, which
+  puts it in your Likes, and **Not now**, which clears it away. An album, a
+  slideshow or a person cannot be liked, so those carry a single **Done**.
+- **A question about an album** — "Anna asks what you remember about these
+  photos" — with **Add what you know**, which opens the photos one at a time.
+  See [The Photo Inbox](photo-inbox.md#6-ask-someone-what-they-know).
+- **A delivery into a Photo Inbox you look after** — "Cousin Anna sent 12
+  photos through your link", or simply that photos arrived — with **Review**
+  if you can keep and discard there, or **Add what you know** if you were
+  asked to say when and where.
 
-## Shared with me
+A row leaves the list when you act on it. Nothing is deleted and nobody is
+told. Below the list, **Things you can open** is everything people have given
+you access to, including shared photo albums.
 
-The longer list lives on one page: **Shared with me**, in the menu with your
-name on it.
-
-Anything still waiting on a decision sits at the top under **Waiting for you**,
-showing who sent it and what they said, with two buttons:
-
-- **Like** puts it in your Likes, to get to when you get to it.
-- **Not now** clears it away. Nothing is deleted and nobody is told.
-
-An album, a slideshow or a person cannot be liked — there are only ever
-a handful of each and they're all on one page already — so those cards carry a
-single **Done** instead.
-
-Everything below that is simply what you can open — things people have given you
-access to, including shared photo albums.
+The first three rows also sit at the top of your **Home page**, above the
+feed, with a link to the rest, so a normal day's worth is decided right there.
 
 ### The dot
 
 When something new arrives, a small dot appears on your **Profile** button. It
-means *there's something here you haven't looked at* — nothing more. Opening the
-page clears it, whether or not you've decided about anything on it.
+means *there's something on For you that you haven't looked at* — nothing
+more. Opening the page clears it, whether or not you've decided about anything
+on it. A delivery that grows after you looked lights it again.
 
-There is no unread count, and nothing nags. A recommendation you never get to
-just sits there quietly.
+There is no unread count, and nothing nags. A row you never get to just sits
+there quietly.
 
 ## Around the house
 

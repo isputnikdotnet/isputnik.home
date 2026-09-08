@@ -14,6 +14,7 @@ import { db } from "../src/db.js";
 import { hashPassword } from "../src/crypto.js";
 import { registerAuthDecorators } from "../src/auth.js";
 import { socialPlugin } from "../src/modules/social/routes.js";
+import { forYouPlugin } from "../src/modules/social/for-you-routes.js";
 import { grant, makeLibrary, pastIso, resetDb } from "./helpers/seed.js";
 import { addAlbumItems, createAlbum } from "../src/modules/library/gallery/albums.js";
 import { canUserWriteAsset, getLibraryForBook } from "../src/modules/library/shared/library-access.js";
@@ -32,6 +33,8 @@ async function buildApp(): Promise<FastifyInstance> {
   await instance.register(cookie);
   await registerAuthDecorators(instance);
   await instance.register(socialPlugin);
+  // The bell and "seen" moved to the For you plugin (docs/for-you-plan.md).
+  await instance.register(forYouPlugin);
 
   instance.post("/test/sign-in/:userId", async (request, reply) => {
     const { userId } = request.params as { userId: string };

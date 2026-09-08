@@ -19,6 +19,16 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.74.0",
+    label: "For you",
+    changes: [
+      "Everything waiting on you is now one list, **For you**, in the menu with your name on it. It took the place of Shared with me, whose old addresses still land there. Each row is one thing somebody put in front of you with the one button it wants: a book or photo someone sent (Like, Not now), a question about an album (Add what you know), or a delivery into a Photo Inbox you look after (Review, or Add what you know if that is all you were asked). A row leaves the list when you act on it. Below the list, what you can open is exactly what Shared with me showed.",
+      "A delivery says who it came from. Photos that arrived through a drop link read \"Cousin Anna sent 12 photos through your link\"; a scan or an upload says how many arrived and where. Once someone has started going through them the row says \"5 of 38 noted\". For a person who can only write on the photos the row is done when every one is noted; for whoever can Keep it waits until the Inbox is empty.",
+      "The dot on your Profile button now means \"there is something on For you you have not looked at\", deliveries included, and it still never turns into a number. Opening the page clears it; a delivery that grows after you looked lights it again.",
+      "The Home page stopped being a second inbox. The pinned cards and the Photo Inbox strip are gone from the feed; the first three rows of For you sit above it with a link to the rest, so a normal day's worth is decided right there and the feed underneath is news again."
+    ]
+  },
+  {
     version: "3.73.0",
     label: "Ask what they remember",
     changes: [

@@ -3,6 +3,10 @@
 // them rather than inside any one of them.
 import type { FastifyInstance } from "fastify";
 import { loadHomeFeed } from "./feed.js";
+import { loadForYouRows } from "../social/for-you.js";
+
+/** How many waiting rows the front page shows before "See all". */
+const HOME_WAITING_ROWS = 3;
 
 export async function homePlugin(app: FastifyInstance) {
   // `date` is the VIEWER'S local calendar date (the server may sit in another
@@ -17,7 +21,12 @@ export async function homePlugin(app: FastifyInstance) {
     }
     // lang + quoteCategory steer the quote of the day only: which language it
     // prefers, and which category the viewer last chose on the card itself.
+    // What is waiting on this person rides with the feed: the first three rows
+    // and the total, so Home shows them and links to the rest (docs/for-you-plan.md).
+    const waiting = loadForYouRows(request.user!);
     return {
+      waiting: waiting.slice(0, HOME_WAITING_ROWS),
+      waitingTotal: waiting.length,
       cards: loadHomeFeed(request.user!, date, {
         language: qp.lang,
         quoteCategory: qp.quoteCategory,

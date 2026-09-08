@@ -4,11 +4,12 @@ import { useTranslation } from "react-i18next";
 import { BookOpen, ChevronLeft, ChevronRight, Download, Image as ImageIcon, Images, Play, Share2, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
-import { UserAreaNav } from "./UserAreaNav";
+import { UserAreaNav } from "../library/UserAreaNav";
 import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
-import { InboxRow, type InboxCard } from "../social/InboxRow";
-import { refreshInboxSummary } from "../social/useInboxSummary";
+import { InboxRow, type InboxCard } from "./InboxRow";
+import { DeliveryRow, type DeliveryCard } from "./DeliveryRow";
+import { refreshInboxSummary } from "./useInboxSummary";
 
 interface SharedBook {
   id: string;
@@ -36,6 +37,9 @@ interface SharedAlbumItem {
   previewUrl: string | null;
   fileUrl: string;
 }
+
+/** A row on For you: something sent, or a delivery into an Inbox. */
+export type ForYouRow = (InboxCard & { kind: "sent" }) | DeliveryCard;
 
 // Where opening a shared item takes you: a single photo deep-links into the gallery
 // lightbox; books go to their reader/detail page. Albums open in-page (below).
@@ -132,21 +136,18 @@ function SharedAlbumViewer({ album, onClose }: { album: SharedBook; onClose: () 
   );
 }
 
-// One page for everything other people have put in front of you.
+// For you — docs/for-you-plan.md.
 //
-// It used to be two — "Shared with me" (someone granted you access) and "Sent to
-// me" (someone pointed you at something). Since granting moved inside "Send to",
-// a single act writes BOTH a share row and a recommendation, so the same event
-// was being reported twice in two different places. The split was ours anyway:
-// in ordinary speech "Dad shared this with me" covers both, and a family should
-// not have to learn the difference between a grant and a pointer.
+// Everything waiting on this person, in one list, each with the one action it
+// wants: something a family member sent (Like / Not now), a question about an
+// album (Add what you know), a delivery into a Photo Inbox they look after
+// (Review, or Add what you know). A row leaves when acted on. Below the list,
+// what they can open — the old "Shared with me", unchanged.
 //
-// Two sections, and a thing is only ever in one of them:
-//   Waiting for you — recommendations still undecided, with Save / Not now
-//   Everything else — what you can open, including live album shares
-// Acting on a card moves it down into the second section. Nothing is lost:
-// Save likes it, which is the keeping place.
-export function SharedWithMePage({
+// It used to be "Shared with me" and, before that, "Sent to me"; both addresses
+// still land here. Opening the page IS reading it: the dot goes now, deciding
+// about each row is a separate, unhurried thing.
+export function ForYouPage({
   user,
   logout
 }: {
@@ -155,7 +156,7 @@ export function SharedWithMePage({
 }) {
   const { t } = useTranslation(["common", "user"]);
   const [books, setBooks] = useState<SharedBook[] | null>(null);
-  const [waiting, setWaiting] = useState<InboxCard[]>([]);
+  const [waiting, setWaiting] = useState<ForYouRow[] | null>(null);
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState("");
   const [openAlbum, setOpenAlbum] = useState<SharedBook | null>(null);
@@ -166,16 +167,14 @@ export function SharedWithMePage({
       .catch((err) => setError(err instanceof Error ? err.message : t("user:shared.loadFailed")));
 
   const loadWaiting = () =>
-    api<{ items: InboxCard[] }>("/api/social/inbox")
-      .then((payload) => setWaiting(payload.items.filter((card) => card.status === "new")))
+    api<{ waiting: ForYouRow[] }>("/api/for-you")
+      .then((payload) => setWaiting(payload.waiting))
       // A failing half must not take the page with it — the grid still renders.
-      .catch(() => undefined);
+      .catch(() => setWaiting([]));
 
   useEffect(() => {
     void loadShares();
     void loadWaiting();
-    // Looking at the page IS reading it: the dot goes now, deciding about each
-    // card is a separate, unhurried thing.
     api("/api/social/inbox/seen", { method: "POST" }).then(refreshInboxSummary).catch(() => undefined);
   }, []);
 
@@ -199,9 +198,10 @@ export function SharedWithMePage({
 
   // A grant made through "Send to" writes a share row AND a recommendation. While
   // the recommendation is undecided it owns the item, so it appears once, up top.
-  const pending = new Set(waiting.map((card) => `${card.entityType}:${card.entityId}`));
+  const rows = waiting ?? [];
+  const pending = new Set(rows.filter((row) => row.kind === "sent").map((row) => `${row.entityType}:${row.entityId}`));
   const shelf = (books ?? []).filter((book) => !pending.has(`${book.type}:${book.id}`));
-  const nothingAtAll = books !== null && shelf.length === 0 && waiting.length === 0;
+  const nothingAtAll = books !== null && waiting !== null && shelf.length === 0 && rows.length === 0;
 
   return (
     <DashboardShell active="user" user={user} logout={logout} sideNav={<UserAreaNav active="shared" />}>
@@ -209,7 +209,8 @@ export function SharedWithMePage({
         <div className="section-head audiobook-head">
           <div>
             <p className="eyebrow">{t("user:shared.eyebrow")}</p>
-            <h1>{t("common:nav.sharedWithMe")}</h1>
+            <h1>{t("common:nav.forYou")}</h1>
+            {waiting !== null && <p className="muted">{t("user:forYou.intro", { count: rows.length })}</p>}
           </div>
           {shelf.length > 0 && (
             <span>{t("user:count.items", { count: shelf.length })}</span>
@@ -218,13 +219,13 @@ export function SharedWithMePage({
 
         {error && <MessageBox tone="error" title={t("user:common.errorTitle")}>{error}</MessageBox>}
 
-        {waiting.length > 0 && (
+        {rows.length > 0 && (
           <>
             <h2 className="inbox-subhead">{t("user:shared.waitingForYou")}</h2>
             <ul className="inbox-list">
-              {waiting.map((card) => (
-                <InboxRow key={card.id} card={card} busy={busyId === card.id} onAct={act} />
-              ))}
+              {rows.map((row) => row.kind === "delivery"
+                ? <DeliveryRow key={row.id} card={row} />
+                : <InboxRow key={row.id} card={row} busy={busyId === row.id} onAct={act} />)}
             </ul>
           </>
         )}
@@ -239,7 +240,7 @@ export function SharedWithMePage({
           </div>
         ) : (
           <>
-            {waiting.length > 0 && shelf.length > 0 && <h2 className="inbox-subhead">{t("user:shared.everythingElse")}</h2>}
+            {shelf.length > 0 && <h2 className="inbox-subhead">{t("user:forYou.thingsYouCanOpen")}</h2>}
             <div className="audiobook-grid">
               {shelf.map((book) => (
                 <article className="saved-audiobook-card" key={`${book.type}-${book.id}`}>

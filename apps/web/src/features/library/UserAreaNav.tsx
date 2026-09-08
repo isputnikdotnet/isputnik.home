@@ -10,7 +10,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { isStandalone } from "../../pwa/platform";
-import { followRoute } from "../../router";
+import { FOR_YOU_PATH, followRoute } from "../../router";
 
 export type UserAreaSection =
   | "profile"
@@ -35,7 +35,7 @@ export function UserAreaNav({ active }: { active: UserAreaSection }) {
     { section: "bookmarks", label: t("nav.bookmarks"), href: "/bookmarks", icon: Bookmark },
     { section: "quotes", label: t("nav.quotes"), href: "/quotes", icon: Quote },
     { section: "collections", label: t("nav.collections"), href: "/collections", icon: ListMusic },
-    { section: "shared", label: t("nav.sharedWithMe"), href: "/shared", icon: UsersRound },
+    { section: "shared", label: t("nav.forYou"), href: FOR_YOU_PATH, icon: UsersRound },
     ...(isStandalone() || active === "downloads"
       ? [{ section: "downloads" as const, label: t("nav.downloads"), href: "/downloads", icon: DownloadCloud }]
       : [])

@@ -30,20 +30,14 @@
 // when adding card types.
 import { db } from "../../db.js";
 import { loadActivity, type ActivityChapter } from "../social/activity.js";
-import { loadInboxCards, type InboxCardView } from "../social/routes.js";
 import { bookLibraryIds } from "../library/feed.js";
 import { resolveGalleryScopeLibraryIds } from "../library/gallery/catalog.js";
 import { queryGalleryMemories, queryGalleryRecentlyAdded, type GalleryMemoriesPrecision, type GalleryMemoryGroup } from "../library/gallery/catalog.js";
 import { dailyQuote, type DailyQuote } from "../library/quotes-daily.js";
-import { listPhotoInboxes, listPhotoInboxItems } from "../library/gallery/inbox.js";
 
 interface RequestUser {
   id: string;
   role: string;
-}
-
-export interface SentCard extends InboxCardView {
-  type: "sent";
 }
 
 export interface MemoryCard {
@@ -110,44 +104,10 @@ export interface QuoteCard extends DailyQuote {
   type: "quote";
 }
 
-/** A Photo Inbox with photos waiting for review. Pinned while it is non-empty,
- *  gone the moment it is emptied — it is a thing to do, not news. One card per
- *  Inbox this user can review. */
-export interface PhotoInboxCard {
-  type: "photo_inbox";
-  libraryId: string;
-  name: string;
-  count: number;
-  /** How many of them have been gone through in Review mode
-   *  (docs/photo-review-plan.md). */
-  reviewed: number;
-  /** Whether this viewer may Keep or Discard (delete on the Inbox). Without it
-   *  the card is an invitation to add what they know, not a review to run. */
-  canReview: boolean;
-  /** A taste of what is waiting, newest arrival first. */
-  strip: GalleryMemoryGroup["items"];
-}
-
-export type HomeCard = SentCard | MemoryCard | PhotosAddedCard | AddedBatchCard | ActivityCard | SeriesNextCard | QuoteCard | PhotoInboxCard;
-
-const INBOX_STRIP_SIZE = 4;
-
-function photoInboxCards(user: RequestUser): PhotoInboxCard[] {
-  // Shown to anyone who can write on the photos, not only to whoever can Keep:
-  // a contributor asked what she remembers gets the card too, and for her it is
-  // the way in to Review mode. Gone once she has been through all of it.
-  return listPhotoInboxes(user)
-    .filter((inbox) => inbox.count > 0 && (inbox.canReview || (inbox.canEdit && inbox.reviewed < inbox.count)))
-    .map((inbox) => ({
-      type: "photo_inbox" as const,
-      libraryId: inbox.id,
-      name: inbox.name,
-      count: inbox.count,
-      reviewed: inbox.reviewed,
-      canReview: inbox.canReview,
-      strip: listPhotoInboxItems(user, inbox.id, { folder: null, limit: INBOX_STRIP_SIZE, offset: 0 })?.items ?? []
-    }));
-}
+// What is WAITING on a person — something sent to them, a delivery into an
+// Inbox they look after — is not a card here any more. It rides beside the feed
+// as the first rows of For you (modules/social/for-you.ts, docs/for-you-plan.md).
+export type HomeCard = MemoryCard | PhotosAddedCard | AddedBatchCard | ActivityCard | SeriesNextCard | QuoteCard;
 
 // Class weights and half-lives (days). The memory card is always age zero, so
 // its weight IS its score — above a fresh activity line (1.2) and a same-day
@@ -403,16 +363,13 @@ function seriesNextCard(user: RequestUser, now: number): SeriesNextCard | null {
   };
 }
 
-/** The feed: sticky cards first, then everything else by class weight × decay. */
+/** The feed: the quote pinned first, then everything else by class weight × decay. */
 export function loadHomeFeed(
   user: RequestUser,
   date: string,
   opts: { language?: string; quoteCategory?: string; quoteCategories?: string[] } = {}
 ): HomeCard[] {
   const now = Date.now();
-
-  const sticky: HomeCard[] = loadInboxCards(user, { onlyNew: true })
-    .map((card) => ({ type: "sent" as const, ...card }));
 
   const ranked: { score: number; card: HomeCard }[] = [];
 
@@ -465,13 +422,10 @@ export function loadHomeFeed(
     categories: opts.quoteCategories
   });
   const pinned: HomeCard[] = quote ? [{ type: "quote", ...quote }] : [];
-  // A Photo Inbox with photos waiting is pinned too, under the quote: a review is
-  // something to do, and a to-do that sinks under the day's activity gets forgotten.
-  pinned.push(...photoInboxCards(user));
 
   const next = seriesNextCard(user, now);
   if (next) ranked.push({ score: FILLER_SCORE, card: next });
 
   ranked.sort((a, b) => b.score - a.score);
-  return [...pinned, ...sticky, ...ranked.map((entry) => entry.card)];
+  return [...pinned, ...ranked.map((entry) => entry.card)];
 }

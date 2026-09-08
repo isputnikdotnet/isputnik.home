@@ -7,6 +7,7 @@ vi.mock("../src/core/mail.js", async (importOriginal) => {
 
 import { db } from "../src/db.js";
 import { loadHomeFeed, type AddedBatchCard, type MemoryCard, type PhotosAddedCard, type SeriesNextCard } from "../src/modules/home/feed.js";
+import { loadForYouRows } from "../src/modules/social/for-you.js";
 import { grant, makeLibrary, makeUser, resetDb } from "./helpers/seed.js";
 
 // The feed is derived and ranked by lifetime class, so what's worth pinning:
@@ -86,9 +87,12 @@ describe("sticky cards", () => {
     // Make the sticky old — it must still sit first, because it has no decay.
     db.prepare("UPDATE recommendations SET created_at = '2020-01-01T00:00:00.000Z' WHERE id = 'r1'").run();
 
-    const cards = loadHomeFeed(dad, TODAY);
-    expect(cards[0]).toMatchObject({ type: "sent", title: "The Hobbit", fromName: "mom" });
-    expect(cards.filter((card) => card.type === "sent")).toHaveLength(1);
+    // What is waiting rides beside the feed as For you rows (docs/for-you-plan.md),
+    // not inside it: the feed carries no 'sent' card at all any more.
+    const rows = loadForYouRows(dad);
+    expect(rows[0]).toMatchObject({ kind: "sent", title: "The Hobbit", fromName: "mom" });
+    expect(rows.filter((row) => row.kind === "sent")).toHaveLength(1);
+    expect(loadHomeFeed(dad, TODAY).some((card) => (card as { type: string }).type === "sent")).toBe(false);
   });
 });
 

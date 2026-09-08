@@ -6,13 +6,14 @@ import { ActivityList } from "../features/social/ActivityList";
 import { InboxRow, type InboxCard } from "../features/social/InboxRow";
 import { api, type PublicUser } from "../api";
 import { DashboardShell } from "../app/DashboardShell";
-import { followRoute, galleryInboxHref, galleryReviewHref, navigate } from "../router";
+import { FOR_YOU_PATH, followRoute, navigate } from "../router";
 import { MessageBox } from "../shared/MessageBox";
 import { Modal } from "../shared/Modal";
 import { SelectField } from "../shared/SelectField";
 import { Button } from "../shared/Button";
 import { authorLine, audioRecordToFeedItem, ebookRecordToFeedItem, fetchFeed, saveFeedItemOffline, type FeedItem } from "../features/library/feed";
-import { batchDayLabel, fetchDailyQuote, fetchHomeFeed, fetchRecentlyAddedPhotos, localDate, storeQuoteCategory, storeQuotePrefs, storedQuotePrefs, tightMemoryGroups, toActivityItem, type ActivityCard, type AddedBatchCard, type HomeCard, type MemoryCard, type PhotoInboxCard, type PhotosAddedCard, type QuoteCard, type QuotePrefs, type SentCard, type SeriesNextCard } from "../features/home/feed";
+import { batchDayLabel, fetchDailyQuote, fetchHomeFeed, fetchRecentlyAddedPhotos, localDate, storeQuoteCategory, storeQuotePrefs, storedQuotePrefs, tightMemoryGroups, toActivityItem, type ActivityCard, type AddedBatchCard, type ForYouRow, type HomeCard, type MemoryCard, type PhotosAddedCard, type QuoteCard, type QuotePrefs, type SeriesNextCard } from "../features/home/feed";
+import { DeliveryRow } from "../features/social/DeliveryRow";
 import { FeedListItem, FeedListItemSkeleton } from "../features/library/FeedListItem";
 import { DEFAULT_COVERS } from "../features/audiobooks/covers";
 import { useIsMobile } from "../shared/useIsMobile";
@@ -228,47 +229,6 @@ function PhotosAddedFeedCard({ card, onOpen }: { card: PhotosAddedCard; onOpen: 
         ))}
       </div>
       <p className="home-card-sub">{t("home.photosAddedSub", { count: card.count })}</p>
-    </section>
-  );
-}
-
-// A Photo Inbox with photos waiting. Pinned by the server while non-empty: a
-// review is something to do, and it opens the review page rather than a photo.
-function PhotoInboxFeedCard({ card }: { card: PhotoInboxCard }) {
-  const { t } = useTranslation();
-  // Whoever can Keep gets the review page; whoever can only write on the photos
-  // (the relative asked what she remembers) goes straight into Review mode.
-  const href = card.canReview ? galleryInboxHref(card.libraryId) : galleryReviewHref(card.libraryId, null);
-  return (
-    <section className="home-card home-card-photos home-card-inbox" aria-label={t("home.photoInbox")}>
-      <header className="home-card-head">
-        <span className="home-card-who">
-          <Inbox size={16} aria-hidden="true" /> <strong>{t("home.photoInbox")}</strong> · {card.name}
-        </span>
-        <a className="home-card-link" href={href} onClick={(event) => followRoute(event, href)}>
-          <span>{card.canReview ? t("home.reviewPhotos") : t("home.addWhatYouKnow")}</span>
-          <ChevronRight size={16} aria-hidden="true" />
-        </a>
-      </header>
-      <div className="home-memory-strip">
-        {card.strip.map((item) => (
-          <a
-            key={item.id}
-            className="home-memory-photo"
-            href={href}
-            onClick={(event) => followRoute(event, href)}
-            aria-label={t("home.openPhoto", { title: item.title })}
-          >
-            {item.coverUrl
-              ? <img src={item.coverUrl} alt="" loading="lazy" />
-              : <span className="home-memory-fallback"><ImageIcon size={24} aria-hidden="true" /></span>}
-          </a>
-        ))}
-      </div>
-      <p className="home-card-sub">
-        {card.canReview ? t("home.photoInboxSub", { count: card.count }) : t("home.photoInboxAsk", { count: card.count - card.reviewed })}
-        {card.reviewed > 0 && ` · ${t("home.photoInboxNoted", { reviewed: card.reviewed, count: card.count })}`}
-      </p>
     </section>
   );
 }
@@ -565,6 +525,9 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
   // Fetched once, the first time the viewer opens.
   const [galleryLibraries, setGalleryLibraries] = useState<GalleryLibrary[] | null>(null);
   const [busySent, setBusySent] = useState<string | null>(null);
+  // The first few things waiting on this person, and how many there are in all.
+  const [waiting, setWaiting] = useState<ForYouRow[]>([]);
+  const [waitingTotal, setWaitingTotal] = useState(0);
   const [error, setError] = useState("");
   const isMobile = useIsMobile();
   const online = useOnlineStatus();
@@ -745,7 +708,12 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
     let alive = true;
 
     fetchHomeFeed()
-      .then((payload) => { if (alive) setCards(payload.cards); })
+      .then((payload) => {
+        if (!alive) return;
+        setCards(payload.cards);
+        setWaiting(payload.waiting);
+        setWaitingTotal(payload.waitingTotal);
+      })
       .catch((reason) => {
         if (!alive) return;
         setCards([]);
@@ -772,7 +740,8 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
     setBusySent(card.id);
     try {
       await api(`/api/social/recommendations/${card.id}/${action}`, { method: "POST" });
-      setCards((prev) => (prev ? prev.filter((c) => !(c.type === "sent" && c.id === card.id)) : prev));
+      setWaiting((prev) => prev.filter((row) => row.id !== card.id));
+      setWaitingTotal((prev) => Math.max(0, prev - 1));
       if (action === "save") showToast(t("home.addedToLikes"));
     } catch {
       showToast(action === "save" ? t("home.likeFailed") : t("home.dismissFailed"));
@@ -785,15 +754,14 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
   // (the server feed is unreachable).
   const offlineMode = isMobile && !online;
 
-  const sentCards = (cards ?? []).filter((card): card is SentCard => card.type === "sent");
-  const rankedCards = (cards ?? []).filter((card) => card.type !== "sent");
+  const rankedCards = cards ?? [];
 
   const offlineLoaded = downloads !== null && ebookDownloads !== null;
   const offlineAudioItems = downloads ? downloads.map(audioRecordToFeedItem) : null;
   const offlineEbookItems = ebookDownloads ? ebookDownloads.map(ebookRecordToFeedItem) : null;
   const offlineEmpty = offlineLoaded && (offlineAudioItems?.length ?? 0) === 0 && (offlineEbookItems?.length ?? 0) === 0;
 
-  const renderCard = (card: Exclude<HomeCard, SentCard>) => {
+  const renderCard = (card: HomeCard) => {
     switch (card.type) {
       case "memory":
         return <MemoryFeedCard key="memory" card={card} onOpen={(year, itemId) => void openMemory(year, itemId)} />;
@@ -805,8 +773,6 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
         return <SeriesNextFeedCard key={`series-${card.item.id}`} card={card} />;
       case "quote":
         return <QuoteFeedCard key="quote" card={card} />;
-      case "photo_inbox":
-        return <PhotoInboxFeedCard key={`inbox-${card.libraryId}`} card={card} />;
       default:
         return (
           <div key={card.id} className="home-card home-card-activity">
@@ -901,13 +867,21 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
             )}
 
             <div className="home-feed">
-              {/* Something a family member picked out for you outranks everything
-                  time-ranked — sticky until decided, decided right here. */}
-              {sentCards.length > 0 && (
+              {/* What is waiting on you outranks everything time-ranked: the first
+                  few rows of For you, decided right here, and a link to the rest
+                  (docs/for-you-plan.md). */}
+              {waiting.length > 0 && (
                 <ul className="inbox-list home-feed-sent">
-                  {sentCards.map((card) => (
-                    <InboxRow key={card.id} card={card} busy={busySent === card.id} onAct={actOnSent} />
-                  ))}
+                  {waiting.map((row) => row.kind === "delivery"
+                    ? <DeliveryRow key={row.id} card={row} />
+                    : <InboxRow key={row.id} card={row} busy={busySent === row.id} onAct={actOnSent} />)}
+                  {waitingTotal > waiting.length && (
+                    <li className="home-feed-seeall">
+                      <a href={FOR_YOU_PATH} onClick={(event) => followRoute(event, FOR_YOU_PATH)}>
+                        {t("home.seeAllWaiting", { count: waitingTotal })} <ChevronRight size={15} aria-hidden="true" />
+                      </a>
+                    </li>
+                  )}
                 </ul>
               )}
 
@@ -920,7 +894,7 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
               ) : (
                 <>
                   {rankedCards.map(renderCard)}
-                  {rankedCards.length === 0 && sentCards.length === 0 ? (
+                  {rankedCards.length === 0 && waiting.length === 0 ? (
                     <p className="home-row-empty">
                       {t("home.quietDay")}
                     </p>

@@ -4,10 +4,14 @@
 import { api } from "../../api";
 import i18n from "../../i18n";
 import type { InboxCard } from "../social/InboxRow";
+import type { DeliveryCard } from "../social/DeliveryRow";
 import type { ActivityItem } from "../social/ActivityList";
 import type { GalleryAsset, GalleryMemoryGroup } from "../gallery/types";
 
-export type SentCard = InboxCard & { type: "sent" };
+/** A row on For you (docs/for-you-plan.md): something sent, or a delivery into
+ *  an Inbox this person looks after. Home shows the first few of them. */
+export type SentRow = InboxCard & { kind: "sent" };
+export type ForYouRow = SentRow | DeliveryCard;
 
 export interface MemoryCard {
   type: "memory";
@@ -71,19 +75,14 @@ export interface QuoteCard {
   yearsAgo: number | null;
 }
 
-/** A Photo Inbox with photos waiting for review — pinned while non-empty. */
-export interface PhotoInboxCard {
-  type: "photo_inbox";
-  /** Gone through in Review mode; and whether this viewer may Keep at all. */
-  reviewed: number;
-  canReview: boolean;
-  libraryId: string;
-  name: string;
-  count: number;
-  strip: GalleryAsset[];
-}
+export type HomeCard = MemoryCard | PhotosAddedCard | AddedBatchCard | ActivityCard | SeriesNextCard | QuoteCard;
 
-export type HomeCard = SentCard | MemoryCard | PhotosAddedCard | AddedBatchCard | ActivityCard | SeriesNextCard | QuoteCard | PhotoInboxCard;
+export interface HomeFeed {
+  cards: HomeCard[];
+  /** The first few things waiting on this person, and how many there are in all. */
+  waiting: ForYouRow[];
+  waitingTotal: number;
+}
 
 // Which category this viewer last chose on the quote card. A per-viewer
 // convenience, so it lives in the browser rather than the database — losing it
@@ -163,7 +162,7 @@ export function localDate(): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 }
 
-export function fetchHomeFeed(): Promise<{ cards: HomeCard[] }> {
+export function fetchHomeFeed(): Promise<HomeFeed> {
   // The quote-of-the-day parameters, and only those: the viewer's preferred
   // language and categories, plus whichever chip they were last standing on.
   // They travel with the FEED request as well as the card's own, or the first
@@ -173,7 +172,7 @@ export function fetchHomeFeed(): Promise<{ cards: HomeCard[] }> {
   const category = storedQuoteCategory();
   if (category) params.set("quoteCategory", category);
   if (prefs.categories.length > 0) params.set("quoteCategories", prefs.categories.join(","));
-  return api<{ cards: HomeCard[] }>(`/api/home/feed?${params}`);
+  return api<HomeFeed>(`/api/home/feed?${params}`);
 }
 
 // The "Just added" card's viewer: every photo the card counts, newest arrival

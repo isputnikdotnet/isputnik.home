@@ -47,7 +47,7 @@ const LikesPage = lazy(() => import("../features/library/LikesPage").then((m) =>
 const BookmarksPage = lazy(() => import("../features/library/BookmarksPage").then((m) => ({ default: m.BookmarksPage })));
 const QuotesPage = lazy(() => import("../features/library/QuotesPage").then((m) => ({ default: m.QuotesPage })));
 const DownloadsPage = lazy(() => import("../features/library/DownloadsPage").then((m) => ({ default: m.DownloadsPage })));
-const SharedWithMePage = lazy(() => import("../features/library/SharedWithMePage").then((m) => ({ default: m.SharedWithMePage })));
+const ForYouPage = lazy(() => import("../features/social/ForYouPage").then((m) => ({ default: m.ForYouPage })));
 const LibraryFeedPage = lazy(() => import("../features/library/LibraryFeedPage").then((m) => ({ default: m.LibraryFeedPage })));
 const CollectionsPage = lazy(() => import("../features/collections/CollectionsPage").then((m) => ({ default: m.CollectionsPage })));
 const CollectionDetailPage = lazy(() => import("../features/collections/CollectionDetailPage").then((m) => ({ default: m.CollectionDetailPage })));
@@ -432,8 +432,8 @@ export function App() {
       return <DownloadsPage user={session.user} logout={logout} />;
     }
 
-    if (route.name === "sharedWithMe") {
-      return <SharedWithMePage user={session.user} logout={logout} />;
+    if (route.name === "forYou") {
+      return <ForYouPage user={session.user} logout={logout} />;
     }
 
     if (route.name === "audiobookBook") {
