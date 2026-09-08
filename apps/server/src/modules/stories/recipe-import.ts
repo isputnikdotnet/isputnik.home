@@ -85,20 +85,37 @@ const ENTITIES: Record<string, string> = {
   amp: "&", lt: "<", gt: ">", quot: "\"", apos: "'", nbsp: " ", "#39": "'", "#x27": "'", "#160": " "
 };
 
+/** Remove every innermost tag, and keep removing until nothing changes: a
+ *  single pass leaves "<scr<b>ipt>" as "<script>". Whatever is left has no
+ *  "<...>" in it; a lone "<" (a temperature, a comparison) survives. */
+function stripTags(text: string): string {
+  let current = text;
+  for (;;) {
+    const next = current.replace(/<[^<>]*>/g, "");
+    if (next === current) return current;
+    current = next;
+  }
+}
+
+function decodeEntities(text: string): string {
+  return text.replace(/&(#?\w+);/g, (whole, name: string) => {
+    if (ENTITIES[name] !== undefined) return ENTITIES[name];
+    if (/^#\d+$/.test(name)) return String.fromCodePoint(Number(name.slice(1)));
+    if (/^#x[0-9a-f]+$/i.test(name)) return String.fromCodePoint(parseInt(name.slice(2), 16));
+    return whole;
+  });
+}
+
 /** Sites put HTML in text fields more often than the spec allows. Strip tags,
- *  decode the common entities, collapse whitespace. */
+ *  decode the common entities, collapse whitespace. Tags are stripped again
+ *  after decoding, so an encoded "&lt;script&gt;" cannot come out as a tag \u2014
+ *  the text ends up in a story, and a story is not a place for markup. */
 export function cleanText(value: unknown): string {
   if (typeof value !== "string") return "";
-  return value
+  const withBreaks = value
     .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/(p|li|div)>/gi, "\n")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&(#?\w+);/g, (whole, name: string) => {
-      if (ENTITIES[name] !== undefined) return ENTITIES[name];
-      if (/^#\d+$/.test(name)) return String.fromCodePoint(Number(name.slice(1)));
-      if (/^#x[0-9a-f]+$/i.test(name)) return String.fromCodePoint(parseInt(name.slice(2), 16));
-      return whole;
-    })
+    .replace(/<\/(p|li|div)>/gi, "\n");
+  return stripTags(decodeEntities(stripTags(withBreaks)))
     .replace(/[ \t\u00a0]+/g, " ")
     .replace(/\s*\n\s*/g, "\n")
     .trim();

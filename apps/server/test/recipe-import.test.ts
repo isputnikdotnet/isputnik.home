@@ -112,6 +112,15 @@ describe("helpers", () => {
     expect(cleanText(42)).toBe("");
   });
 
+  it("cleanText leaves no tag behind, however it was hidden", () => {
+    // An encoded tag decodes into a tag — so tags are stripped again afterwards.
+    expect(cleanText("Heat &lt;script&gt;alert(1)&lt;/script&gt; gently")).toBe("Heat alert(1) gently");
+    // A tag split by another tag reassembles after one pass; stripping repeats until it is gone.
+    expect(cleanText("<scr<b>ipt>alert(1)</scr</b>ipt>")).toBe("alert(1)");
+    // A lone "<" that is not a tag (a temperature) survives.
+    expect(cleanText("cook at &lt;200°C")).toBe("cook at <200°C");
+  });
+
   it("flattenInstructions accepts a bare string and a list of strings", () => {
     expect(flattenInstructions("One.\nTwo.")).toEqual(["One.", "Two."]);
     expect(flattenInstructions(["One.", "", "Two."])).toEqual(["One.", "Two."]);
