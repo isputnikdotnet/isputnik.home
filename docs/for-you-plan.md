@@ -139,10 +139,11 @@ uploaded, from the activity log. A scan says "Scanner". This is the row's
 
 ## Open questions
 
-1. **Does Not now exist for a delivery?** A delivery is real work, not a
-   recommendation. The plan says no: it leaves the list when it is reviewed,
-   and "seen" is what stops it lighting the bell. Revisit if a delivery sits
-   there for weeks and someone wants it out of sight.
+1. **Does Not now exist for a delivery?** Answered the day it shipped: yes.
+   Four deliveries sat on the owner's Home page with no way to wave them off,
+   and "wait until the Inbox is empty" was weeks away. Not now hides the row
+   until more photos arrive in that delivery (`inbox_delivery_seen.dismissed_at`,
+   migration 73); the Inbox page is untouched.
 2. **Should the Home page show three rows or one?** Three, so a household's
    normal day fits without the link. Try it.
 3. **Mobile: its own tab, or under Profile?** Under Profile for now; the

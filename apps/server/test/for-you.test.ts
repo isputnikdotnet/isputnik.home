@@ -4,7 +4,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { db } from "../src/db.js";
 import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
-import { countUnseenForYou, loadForYouRows, markForYouSeen } from "../src/modules/social/for-you.js";
+import { countUnseenForYou, dismissDelivery, loadForYouRows, markForYouSeen } from "../src/modules/social/for-you.js";
 import { markGalleryAssetReviewed } from "../src/modules/library/gallery/edit.js";
 import { thumbnailPathSettingKey } from "../src/modules/library/shared/thumbnail.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
@@ -93,6 +93,24 @@ describe("what is waiting", () => {
   it("is hidden from someone who can only look", () => {
     makePhoto("inbox", "a1", "Box A/001.jpg");
     expect(loadForYouRows(HELPER)).toHaveLength(0);
+  });
+});
+
+describe("Not now on a delivery", () => {
+  it("hides the row until more photos arrive in it, and leaves the Inbox alone", () => {
+    makePhoto("inbox", "a1", "Box A/001.jpg", "2026-09-01T10:00:00.000Z");
+    expect(loadForYouRows(ADMIN)).toHaveLength(1);
+    expect(dismissDelivery(ADMIN, "inbox", "Box A")).toBe(true);
+    expect(loadForYouRows(ADMIN)).toHaveLength(0);
+    expect(countUnseenForYou(ADMIN)).toBe(0);
+    // A delivery that is not waiting cannot be dismissed.
+    expect(dismissDelivery(ADMIN, "inbox", "Box Z")).toBe(false);
+
+    // Something new lands in the same delivery: back, and unseen again.
+    db.prepare("UPDATE inbox_delivery_seen SET dismissed_at = '2026-09-01T12:00:00.000Z', seen_at = '2026-09-01T12:00:00.000Z'").run();
+    makePhoto("inbox", "a2", "Box A/002.jpg", "2026-09-05T10:00:00.000Z");
+    expect(loadForYouRows(ADMIN)).toHaveLength(1);
+    expect(countUnseenForYou(ADMIN)).toBe(1);
   });
 });
 

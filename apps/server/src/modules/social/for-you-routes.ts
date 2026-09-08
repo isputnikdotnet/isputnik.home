@@ -1,8 +1,25 @@
 // The For you page's reads and the bell — docs/for-you-plan.md.
 import type { FastifyInstance } from "fastify";
-import { countUnseenForYou, loadForYouRows, markForYouSeen } from "./for-you.js";
+import { z } from "zod";
+import { parseBody } from "../../core/shared.js";
+import { countUnseenForYou, dismissDelivery, loadForYouRows, markForYouSeen } from "./for-you.js";
+
+const dismissSchema = z.object({
+  libraryId: z.string().trim().min(1).max(64),
+  folder: z.string().max(1024)
+});
 
 export async function forYouPlugin(app: FastifyInstance) {
+  // "Not now" on a delivery row: hidden until more photos arrive in it.
+  app.post("/api/for-you/deliveries/dismiss", { preHandler: app.authenticate }, async (request, reply) => {
+    const parsed = parseBody(dismissSchema, request.body);
+    if (parsed.error) return reply.code(400).send({ error: "Invalid delivery", details: parsed.error });
+    if (!dismissDelivery(request.user!, parsed.data.libraryId, parsed.data.folder)) {
+      return reply.code(404).send({ error: "That delivery is not waiting on you." });
+    }
+    return reply.send({ ok: true });
+  });
+
   // Everything waiting on this person, newest first. Standing access ("things
   // you can open") is /api/shared-with-me, as before.
   app.get("/api/for-you", { preHandler: app.authenticate }, async (request) => ({

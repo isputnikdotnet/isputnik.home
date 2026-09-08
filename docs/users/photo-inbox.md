@@ -225,8 +225,14 @@ named. You can open the same screen yourself with **One at a time** on the
 Inbox page, which is a faster way to date a box than the grid when the answers
 are mostly "same as the last one".
 
-**Photos already in the house** can be asked about too. Open an album, press
-**Send to**, pick her, and tick **Ask what they remember** before sending. She
+**Photos already in the house** can be asked about too. The quickest way is
+**Ask someone**: select photos on the Timeline, or open a folder under Folders,
+and press it. Give the album a name she will recognise — the photos become an
+album, listed under Albums like any other — and the Send to dialog opens on it
+with the question already ticked. The same dialog offers **Go through them
+myself**, which opens the screen over that album for you without sending
+anything. Or open an existing album, press **Send to**, pick her, and tick
+**Ask what they remember** before sending. Either way she
 gets the same card on her Home page — "Sergey asks what you remember about
 these photos" — and **Add what you know** opens the same screen over the
 album's photos. Sending with the question also gives her the right to write on

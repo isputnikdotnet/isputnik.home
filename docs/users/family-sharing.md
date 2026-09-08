@@ -65,6 +65,9 @@ instead of the album itself. Answering needs the right to write on those
 photos, so sending with the question hands it over for the album's photos and
 nothing else; only the album's creator or an administrator can ask. The whole
 screen is described in [The Photo Inbox](photo-inbox.md#6-ask-someone-what-they-know).
+You do not need an album to start from: **Ask someone** on a selection of
+photos, or on a folder, makes one for you and opens this dialog on it with the
+question ticked.
 
 **Slideshows** work the same way as albums for who can see them: whoever can see
 the photos in one can see the slideshow. What they don't have is a way to hand one
@@ -114,7 +117,8 @@ the one button it wants:
 - **A delivery into a Photo Inbox you look after** — "Cousin Anna sent 12
   photos through your link", or simply that photos arrived — with **Review**
   if you can keep and discard there, or **Add what you know** if you were
-  asked to say when and where.
+  asked to say when and where. Its **Not now** hides the row until more photos
+  arrive in that delivery; the Inbox page still shows it.
 
 A row leaves the list when you act on it. Nothing is deleted and nobody is
 told. Below the list, **Things you can open** is everything people have given

@@ -1,11 +1,13 @@
 import { useTranslation } from "react-i18next";
-import { Image as ImageIcon, Inbox, MessageSquareText } from "lucide-react";
+import { Image as ImageIcon, Inbox, MessageSquareText, X } from "lucide-react";
 import { followRoute, galleryInboxHref, galleryReviewHref } from "../../router";
+import { Button } from "../../shared/Button";
 
 // One batch that arrived in a Photo Inbox this person looks after, as a row on
 // For you (docs/for-you-plan.md). Who sent it when it came through a drop link,
 // what is in it, and the one action: Review for someone who may Keep, Add what
-// you know for someone who may only write on the photos.
+// you know for someone who may only write on the photos. Not now hides the
+// row until more photos arrive in that delivery; the Inbox itself is untouched.
 
 export interface DeliveryCard {
   kind: "delivery";
@@ -23,7 +25,16 @@ export interface DeliveryCard {
   canReview: boolean;
 }
 
-export function DeliveryRow({ card }: { card: DeliveryCard }) {
+export function DeliveryRow({
+  card,
+  busy = false,
+  onDismiss
+}: {
+  card: DeliveryCard;
+  busy?: boolean;
+  /** "Not now": off the list until the delivery grows. Absent = no such button. */
+  onDismiss?: (card: DeliveryCard) => Promise<void>;
+}) {
   const { t } = useTranslation(["common", "user"]);
   const href = card.canReview ? galleryInboxHref(card.libraryId) : galleryReviewHref(card.libraryId, card.folder);
   const reviewHref = galleryReviewHref(card.libraryId, card.folder);
@@ -65,6 +76,12 @@ export function DeliveryRow({ card }: { card: DeliveryCard }) {
             <MessageSquareText size={16} aria-hidden />
             <span>{t("user:social.addWhatYouKnow")}</span>
           </a>
+        )}
+        {onDismiss && (
+          <Button variant="secondary" compact disabled={busy} onClick={() => void onDismiss(card)} title={t("user:forYou.notNowTitle")}>
+            <X size={16} aria-hidden />
+            <span>{t("user:social.notNow")}</span>
+          </Button>
         )}
       </div>
     </li>

@@ -31,6 +31,9 @@ import { profileHref } from "../../router";
 export interface SendToSubject {
   entityType: string;
   entityId: string;
+  /** Albums only: open with "Ask what they remember" already ticked — the
+   *  "Ask someone" path, where the album was made a moment ago for the question. */
+  askNotes?: boolean;
 }
 
 interface Person {
@@ -120,7 +123,7 @@ export function SendToSheet({
   // Albums only: send with a question attached — the recipient gets Review
   // mode over the photos and the right to answer on them (phase 3 of
   // docs/photo-review-plan.md). Offered to whoever may share the album.
-  const [askNotes, setAskNotes] = useState(false);
+  const [askNotes, setAskNotes] = useState(subject.askNotes === true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [sent, setSent] = useState<{ sent: string[]; skipped: string[] } | null>(null);

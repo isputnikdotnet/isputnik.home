@@ -191,6 +191,19 @@ export function ForYouPage({
     }
   };
 
+  const dismissDelivery = async (card: DeliveryCard) => {
+    setBusyId(card.id);
+    setError("");
+    try {
+      await api("/api/for-you/deliveries/dismiss", { method: "POST", body: JSON.stringify({ libraryId: card.libraryId, folder: card.folder }) });
+      await loadWaiting();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("user:forYou.dismissFailed"));
+    } finally {
+      setBusyId("");
+    }
+  };
+
   const openShared = (book: SharedBook) => {
     if (book.type === "gallery_album") setOpenAlbum(book);
     else navigate(sharedItemHref(book));
@@ -224,7 +237,7 @@ export function ForYouPage({
             <h2 className="inbox-subhead">{t("user:shared.waitingForYou")}</h2>
             <ul className="inbox-list">
               {rows.map((row) => row.kind === "delivery"
-                ? <DeliveryRow key={row.id} card={row} />
+                ? <DeliveryRow key={row.id} card={row} busy={busyId === row.id} onDismiss={dismissDelivery} />
                 : <InboxRow key={row.id} card={row} busy={busyId === row.id} onAct={act} />)}
             </ul>
           </>
