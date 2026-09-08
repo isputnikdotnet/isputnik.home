@@ -348,7 +348,9 @@
     "deliveryArrived_other": "{{count}} фото пришли в «{{name}}»",
     "deliveryNoted": "Отмечено {{reviewed}} из {{count}}",
     "review": "Разобрать",
-    "oneAtATime": "По одной"
+    "oneAtATime": "По одной",
+    "notNowTitle": "Скрыть, пока сюда не придут новые фото. На странице входящих это останется.",
+    "dismissFailed": "Не удалось отложить"
   },
   "social": {
     "addEmoji": "Добавить эмодзи",

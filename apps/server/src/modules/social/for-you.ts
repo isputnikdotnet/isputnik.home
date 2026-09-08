@@ -36,7 +36,7 @@ export interface DeliveryRow {
 
 export type ForYouRow = SentRow | DeliveryRow;
 
-interface DeliverySeenRow { library_id: string; folder: string; seen_at: string }
+interface DeliverySeenRow { library_id: string; folder: string; seen_at: string; dismissed_at: string | null }
 
 const whoStmt = db.prepare(`
   SELECT share_links.label AS label
@@ -55,9 +55,9 @@ function deliveryWho(libraryId: string, folder: string): string | null {
 }
 
 function deliveryRows(user: { id: string; role: string }): DeliveryRow[] {
-  const seen = new Map<string, string>();
-  for (const row of db.prepare("SELECT library_id, folder, seen_at FROM inbox_delivery_seen WHERE user_id = ?").all(user.id) as DeliverySeenRow[]) {
-    seen.set(`${row.library_id}\u0000${row.folder}`, row.seen_at);
+  const marks = new Map<string, DeliverySeenRow>();
+  for (const row of db.prepare("SELECT library_id, folder, seen_at, dismissed_at FROM inbox_delivery_seen WHERE user_id = ?").all(user.id) as DeliverySeenRow[]) {
+    marks.set(`${row.library_id}\u0000${row.folder}`, row);
   }
   const rows: DeliveryRow[] = [];
   for (const inbox of listPhotoInboxes(user)) {
@@ -67,7 +67,10 @@ function deliveryRows(user: { id: string; role: string }): DeliveryRow[] {
       // For someone who can only write, a fully noted delivery is done. For
       // someone who can Keep, it waits until the Inbox is emptied.
       if (!inbox.canReview && delivery.reviewed >= delivery.count) continue;
-      const seenAt = seen.get(`${inbox.id}\u0000${delivery.folder}`);
+      const mark = marks.get(`${inbox.id}\u0000${delivery.folder}`);
+      // "Not now" hides it until the delivery grows past the dismissal.
+      if (mark?.dismissed_at && mark.dismissed_at >= delivery.newestAt) continue;
+      const seenAt = mark?.seen_at;
       const first = listPhotoInboxItems(user, inbox.id, { folder: delivery.folder, limit: 1, offset: 0 })?.items[0];
       rows.push({
         kind: "delivery",
@@ -107,6 +110,22 @@ export function countUnseenForYou(user: { id: string; role: string }): number {
     "SELECT COUNT(*) AS unseen FROM recommendations WHERE to_user_id = ? AND seen_at IS NULL"
   ).get(user.id) as { unseen: number }).unseen;
   return recs + deliveryRows(user).filter((row) => !row.seen).length;
+}
+
+/** "Not now" on a delivery: off the list until more photos arrive in it. The
+ *  delivery itself is untouched and still on the Inbox page. Returns false when
+ *  there is no such delivery waiting for this person. */
+export function dismissDelivery(user: { id: string; role: string }, libraryId: string, folder: string): boolean {
+  const row = deliveryRows(user).find((candidate) => candidate.libraryId === libraryId && candidate.folder === folder);
+  if (!row) return false;
+  db.prepare(`
+    INSERT INTO inbox_delivery_seen (user_id, library_id, folder, seen_at, dismissed_at)
+    VALUES (?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'), strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    ON CONFLICT (user_id, library_id, folder) DO UPDATE SET
+      seen_at = excluded.seen_at,
+      dismissed_at = excluded.dismissed_at
+  `).run(user.id, libraryId, folder);
+  return true;
 }
 
 /** Opening the page stamps everything on it as seen — not per row: the dot

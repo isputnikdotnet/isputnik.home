@@ -1411,6 +1411,9 @@ CREATE TABLE IF NOT EXISTS inbox_delivery_seen (
   library_id TEXT NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
   folder     TEXT NOT NULL,
   seen_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  -- "Not now" on the row: hidden from For you until the delivery grows past
+  -- this stamp (a later arrival brings it back as new). Migration 73.
+  dismissed_at TEXT,
   PRIMARY KEY (user_id, library_id, folder)
 );
 

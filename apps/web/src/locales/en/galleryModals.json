@@ -8,6 +8,19 @@
     "photoCount_one": "{{count}} photo",
     "photoCount_other": "{{count}} photos"
   },
+  "askSomeone": {
+    "title": "Ask someone what they remember",
+    "bodyItems_one": "The selected photo becomes an album, and the album is sent with the question. Give it a name the other person will recognise.",
+    "bodyItems_other": "The {{count}} selected photos become an album, and the album is sent with the question. Give it a name the other person will recognise.",
+    "bodyFolder": "The photos in “{{folder}}” become an album, and the album is sent with the question. Give it a name the other person will recognise.",
+    "nameLabel": "Album name",
+    "nameHint": "It is listed under Albums like any other. Delete it afterwards if it was only for the question; the photos are not affected.",
+    "ask": "Ask someone",
+    "creating": "Creating…",
+    "myself": "Go through them myself",
+    "opening": "Opening…",
+    "unableToCreate": "Unable to create the album"
+  },
   "addToAlbum": {
     "title": "Add to album",
     "errorTitle": "Albums error",

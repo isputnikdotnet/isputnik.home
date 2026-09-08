@@ -1,11 +1,11 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Trans, useTranslation } from "react-i18next";
-import { Album, ArrowLeft, CalendarClock, CalendarDays, CheckCheck, CheckCircle2, ChevronDown, ChevronRight, Circle, Combine, Compass, Download, Film, FolderOpen, FolderPlus, Image as ImageIcon, ImagePlus, Inbox, LayoutGrid, LibraryBig, ListMusic, Lock, LockOpen, MapPin, MapPinned, Pencil, Play, Plus, Heart, Folder, RefreshCw, Send, Share2, Sparkles, SquareCheck, Tags, Trash2, UploadCloud, Users, X } from "lucide-react";
+import { Album, ArrowLeft, MessageSquareText, CalendarClock, CalendarDays, CheckCheck, CheckCircle2, ChevronDown, ChevronRight, Circle, Combine, Compass, Download, Film, FolderOpen, FolderPlus, Image as ImageIcon, ImagePlus, Inbox, LayoutGrid, LibraryBig, ListMusic, Lock, LockOpen, MapPin, MapPinned, Pencil, Play, Plus, Heart, Folder, RefreshCw, Send, Share2, Sparkles, SquareCheck, Tags, Trash2, UploadCloud, Users, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { sendInBatches } from "../../shared/bulk";
 import { DashboardShell } from "../../app/DashboardShell";
-import { followRoute, galleryHref, galleryInboxHref, navigate, type GalleryView } from "../../router";
+import { followRoute, galleryHref, galleryInboxHref, galleryReviewAlbumHref, navigate, type GalleryView } from "../../router";
 import { Button } from "../../shared/Button";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { MessageBox } from "../../shared/MessageBox";
@@ -26,6 +26,7 @@ import { GalleryFilterButton, GalleryFilterChips, EMPTY_GALLERY_FILTERS, activeG
 import { getGroupingOptions, getTileSizeOptions, galleryGridClass, readGalleryView, writeGalleryView, type GalleryGrouping, type GalleryTileSize, type GalleryViewPrefs } from "./gallery-view";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { AddToAlbumModal } from "./AddToAlbumModal";
+import { AskSomeoneModal, type AskSomeoneSource } from "./AskSomeoneModal";
 import { AddToSlideshowModal } from "./AddToSlideshowModal";
 import { GalleryDateModal } from "./GalleryDateModal";
 import { GalleryLocationModal } from "./GalleryLocationModal";
@@ -176,6 +177,9 @@ export function GalleryPage({
   // Only one detail view is ever open, so one bit of state serves the album and
   // the slideshow topbars.
   const [sendToSubject, setSendToSubject] = useState<SendToSubject | null>(null);
+  // "Ask someone": a selection or a folder becomes an album, then Send to opens
+  // on it with the question ticked (docs/for-you-plan.md).
+  const [askSomeone, setAskSomeone] = useState<AskSomeoneSource | null>(null);
 
   // Seeded from the address so a deep link can ask for a particular order — the
   // home's "New photos" card links to /gallery?sort=added, and the page it opens
@@ -1526,6 +1530,16 @@ export function GalleryPage({
                         <span className="toolbar-label">{t("gallery:bulk.placeLabel")}</span>
                       </button>
                     )}
+                    <button
+                      type="button"
+                      className="library-toolbar-button"
+                      onClick={() => { setBulkError(""); setAskSomeone({ kind: "items", itemIds: [...selectedIds] }); }}
+                      disabled={selectedIds.size === 0 || bulkBusy}
+                      title={t("gallery:bulk.askSomeoneTitle")}
+                    >
+                      <MessageSquareText size={18} aria-hidden="true" />
+                      <span className="toolbar-label">{t("gallery:bulk.askSomeoneLabel")}</span>
+                    </button>
                     {canDeleteAny && (
                       <button
                         type="button"
@@ -2410,6 +2424,21 @@ export function GalleryPage({
                       );
                     })}
                   </div>
+                  {/* "Ask someone" over a whole folder: the folder's photos become an
+                      album sent with the question (docs/for-you-plan.md). Needs one
+                      library in scope, since a folder path is only unique within it. */}
+                  {soleLibraryId && parent !== "" && folderSubtreeTotal > 0 && (
+                    <Button
+                      variant="secondary"
+                      compact
+                      title={t("gallery:folders.askSomeoneTitle")}
+                      onClick={() => setAskSomeone({ kind: "folder", libraryId: soleLibraryId, path: parent })}
+                    >
+                      <MessageSquareText size={14} aria-hidden="true" />
+                      {" "}
+                      {t("gallery:folders.askSomeone")}
+                    </Button>
+                  )}
                   {isAdmin && soleLibraryId && parent !== "" && (
                     <>
                       <Button
@@ -2537,6 +2566,27 @@ export function GalleryPage({
         <SendToSheet
           subject={sendToSubject}
           onClose={() => setSendToSubject(null)}
+        />
+      )}
+
+      {askSomeone && (
+        <AskSomeoneModal
+          source={askSomeone}
+          defaultName={askSomeone.kind === "folder"
+            ? (askSomeone.path.split("/").pop() || askSomeone.path || t("gallery:albums.askDefaultName", { count: folderTotal }))
+            : t("gallery:albums.askDefaultName", { count: askSomeone.itemIds.length })}
+          onClose={() => setAskSomeone(null)}
+          onAsk={(album) => {
+            setAskSomeone(null);
+            exitSelection();
+            void loadAlbums();
+            setSendToSubject({ entityType: "gallery_album", entityId: album.id, askNotes: true });
+          }}
+          onMyself={(album) => {
+            setAskSomeone(null);
+            exitSelection();
+            navigate(galleryReviewAlbumHref(album.id));
+          }}
         />
       )}
 

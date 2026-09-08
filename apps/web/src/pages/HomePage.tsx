@@ -13,7 +13,7 @@ import { SelectField } from "../shared/SelectField";
 import { Button } from "../shared/Button";
 import { authorLine, audioRecordToFeedItem, ebookRecordToFeedItem, fetchFeed, saveFeedItemOffline, type FeedItem } from "../features/library/feed";
 import { batchDayLabel, fetchDailyQuote, fetchHomeFeed, fetchRecentlyAddedPhotos, localDate, storeQuoteCategory, storeQuotePrefs, storedQuotePrefs, tightMemoryGroups, toActivityItem, type ActivityCard, type AddedBatchCard, type ForYouRow, type HomeCard, type MemoryCard, type PhotosAddedCard, type QuoteCard, type QuotePrefs, type SeriesNextCard } from "../features/home/feed";
-import { DeliveryRow } from "../features/social/DeliveryRow";
+import { DeliveryRow, type DeliveryCard } from "../features/social/DeliveryRow";
 import { FeedListItem, FeedListItemSkeleton } from "../features/library/FeedListItem";
 import { DEFAULT_COVERS } from "../features/audiobooks/covers";
 import { useIsMobile } from "../shared/useIsMobile";
@@ -750,6 +750,20 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
     }
   }, [showToast, t]);
 
+  // "Not now" on a delivery row: off the list until more photos arrive in it.
+  const dismissDelivery = useCallback(async (card: DeliveryCard) => {
+    setBusySent(card.id);
+    try {
+      await api("/api/for-you/deliveries/dismiss", { method: "POST", body: JSON.stringify({ libraryId: card.libraryId, folder: card.folder }) });
+      setWaiting((prev) => prev.filter((row) => row.id !== card.id));
+      setWaitingTotal((prev) => Math.max(0, prev - 1));
+    } catch {
+      showToast(t("home.dismissFailed"));
+    } finally {
+      setBusySent(null);
+    }
+  }, [showToast, t]);
+
   // When offline on a phone, the home becomes a browser for downloaded books
   // (the server feed is unreachable).
   const offlineMode = isMobile && !online;
@@ -873,7 +887,7 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
               {waiting.length > 0 && (
                 <ul className="inbox-list home-feed-sent">
                   {waiting.map((row) => row.kind === "delivery"
-                    ? <DeliveryRow key={row.id} card={row} />
+                    ? <DeliveryRow key={row.id} card={row} busy={busySent === row.id} onDismiss={dismissDelivery} />
                     : <InboxRow key={row.id} card={row} busy={busySent === row.id} onAct={actOnSent} />)}
                   {waitingTotal > waiting.length && (
                     <li className="home-feed-seeall">

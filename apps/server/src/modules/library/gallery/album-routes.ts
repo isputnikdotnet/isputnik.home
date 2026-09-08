@@ -292,6 +292,71 @@ export async function galleryAlbumRoutesPlugin(app: FastifyInstance) {
     return reply.send({ deleted: true });
   });
 
+  // An album made in one step from a selection or a whole folder — the carrier
+  // for "Ask someone" (docs/for-you-plan.md, docs/photo-review-plan.md phase 3):
+  // the question rides on an album share, so a folder or a handful of photos
+  // becomes an album first, named by the sender, and is then sent with the
+  // question or opened in Review mode. Capped like the items route; a folder
+  // takes its first 500 photos in the viewer's scope.
+  const fromSchema = z.object({
+    name: z.string().trim().min(1).max(120),
+    itemIds: z.array(z.string().trim().min(1).max(64)).max(500).optional(),
+    folder: z.object({
+      libraryId: z.string().trim().min(1).max(64),
+      path: z.string().trim().max(1024)
+    }).optional()
+  }).refine((body) => (body.itemIds?.length ?? 0) > 0 || body.folder !== undefined, { message: "Pick some photos or a folder." });
+
+  app.post("/api/library/gallery/albums/from", { preHandler: app.authenticate }, async (request, reply) => {
+    const user = request.user!;
+    const parsed = parseBody(fromSchema, request.body);
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid album details", details: parsed.error });
+    }
+    const libIds = new Set(resolveGalleryScopeLibraryIds(user));
+    let itemIds = parsed.data.itemIds ?? [];
+    if (parsed.data.folder) {
+      if (!libIds.has(parsed.data.folder.libraryId)) {
+        return reply.code(404).send({ error: "Folder not found" });
+      }
+      const folderPath = parsed.data.folder.path.replace(/^\/+|\/+$/g, "");
+      const rows = db.prepare(`
+        SELECT library_items.id FROM library_items
+        JOIN gallery_details ON gallery_details.item_id = library_items.id
+        WHERE library_items.library_id = ? AND library_items.deleted_at IS NULL
+          AND (? = '' OR library_items.folder_path LIKE ? ESCAPE '\\')
+        ORDER BY datetime(gallery_details.taken_at) ASC, library_items.folder_path COLLATE NOCASE
+        LIMIT 500
+      `).all(parsed.data.folder.libraryId, folderPath, `${folderPath.replace(/[\\%_]/g, "\\$&")}/%`) as { id: string }[];
+      itemIds = rows.map((row) => row.id);
+    }
+    if (itemIds.length === 0) {
+      return reply.code(400).send({ error: "There are no photos to put in the album." });
+    }
+    const album = createAlbum(user, parsed.data.name, null);
+    const { added } = addAlbumItems(album.id, libIds, itemIds);
+    logActivity({
+      event: "gallery.album.created",
+      actorUserId: user.id,
+      targetType: "gallery_album",
+      targetId: album.id,
+      detail: `Created gallery album "${album.name}" from ${added} photo${added === 1 ? "" : "s"}${parsed.data.folder ? " in a folder" : ""}.`,
+      ipAddress: request.ip
+    });
+    return reply.code(201).send({
+      album: {
+        id: album.id,
+        name: album.name,
+        description: album.description,
+        itemCount: added,
+        coverUrl: null,
+        sortMode: album.sort_mode,
+        canEdit: true,
+        updatedAt: album.updated_at
+      }
+    });
+  });
+
   app.post("/api/library/gallery/albums/:id/items", { preHandler: app.authenticate }, async (request, reply) => {
     const user = request.user!;
     const album = editableAlbum((request.params as { id: string }).id, user, reply);

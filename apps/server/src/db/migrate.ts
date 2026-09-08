@@ -812,6 +812,18 @@ const migrations: { version: number; up: (db: Database.Database) => void }[] = [
       if (columns.size === 0) return;
       if (!columns.has("ask_notes")) db.exec("ALTER TABLE recommendations ADD COLUMN ask_notes INTEGER NOT NULL DEFAULT 0");
     }
+  },
+  {
+    // "Not now" on a Photo Inbox delivery row (docs/for-you-plan.md): hides it
+    // from For you until more photos arrive in that delivery.
+    version: 73,
+    up: (db) => {
+      const columns = new Set(
+        (db.prepare("PRAGMA table_info(inbox_delivery_seen)").all() as { name: string }[]).map((c) => c.name)
+      );
+      if (columns.size === 0) return;
+      if (!columns.has("dismissed_at")) db.exec("ALTER TABLE inbox_delivery_seen ADD COLUMN dismissed_at TEXT");
+    }
   }
 ];
 

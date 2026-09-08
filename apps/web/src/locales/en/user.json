@@ -308,7 +308,9 @@
     "deliveryArrived_other": "{{count}} photos arrived in {{name}}",
     "deliveryNoted": "{{reviewed}} of {{count}} noted",
     "review": "Review",
-    "oneAtATime": "One at a time"
+    "oneAtATime": "One at a time",
+    "notNowTitle": "Hide this until more photos arrive in it. The Inbox page still shows it.",
+    "dismissFailed": "Unable to set this aside"
   },
   "social": {
     "addEmoji": "Add an emoji",

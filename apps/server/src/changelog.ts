@@ -19,6 +19,15 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.75.0",
+    label: "Ask someone, from anywhere",
+    changes: [
+      "**Ask someone** now starts from a selection or a folder, not only from an album. Tick photos on the Timeline, or open a folder under Folders, and press it: the photos become an album — named by you, listed under Albums like any other — and Send to opens on it with **Ask what they remember** already ticked. The same dialog offers **Go through them myself**, which opens the one-at-a-time screen over that album for you without sending anything. A folder takes its subfolders with it, in date order, up to five hundred photos.",
+      "A delivery row on For you and on the Home page has a **Not now**. It hides that delivery until more photos arrive in it, at which point it comes back as new; the Inbox page still shows it throughout. Four boxes waiting on the owner's Home page with nowhere to go was the reason.",
+      "Not now on a delivery is remembered per person, so one member setting a box aside does not hide it from the other."
+    ]
+  },
+  {
     version: "3.74.0",
     label: "For you",
     changes: [
