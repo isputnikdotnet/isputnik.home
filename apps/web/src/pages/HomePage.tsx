@@ -528,6 +528,20 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
   // The first few things waiting on this person, and how many there are in all.
   const [waiting, setWaiting] = useState<ForYouRow[]>([]);
   const [waitingTotal, setWaitingTotal] = useState(0);
+
+  // After a row is decided, ask the server for the strip again rather than
+  // dropping the row locally: the next thing waiting moves up into its place,
+  // and the "See all" count stays honest. The ranked feed underneath is left
+  // as it is — reshuffling it under the reader is what the sticky rows avoid.
+  const refreshWaiting = useCallback(async () => {
+    try {
+      const payload = await fetchHomeFeed();
+      setWaiting(payload.waiting);
+      setWaitingTotal(payload.waitingTotal);
+    } catch {
+      // The row already left the server's list; the next visit shows the rest.
+    }
+  }, []);
   const [error, setError] = useState("");
   const isMobile = useIsMobile();
   const online = useOnlineStatus();
@@ -742,13 +756,14 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
       await api(`/api/social/recommendations/${card.id}/${action}`, { method: "POST" });
       setWaiting((prev) => prev.filter((row) => row.id !== card.id));
       setWaitingTotal((prev) => Math.max(0, prev - 1));
+      await refreshWaiting();
       if (action === "save") showToast(t("home.addedToLikes"));
     } catch {
       showToast(action === "save" ? t("home.likeFailed") : t("home.dismissFailed"));
     } finally {
       setBusySent(null);
     }
-  }, [showToast, t]);
+  }, [showToast, t, refreshWaiting]);
 
   // "Not now" on a delivery row: off the list until more photos arrive in it.
   const dismissDelivery = useCallback(async (card: DeliveryCard) => {
@@ -757,12 +772,13 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
       await api("/api/for-you/deliveries/dismiss", { method: "POST", body: JSON.stringify({ libraryId: card.libraryId, folder: card.folder }) });
       setWaiting((prev) => prev.filter((row) => row.id !== card.id));
       setWaitingTotal((prev) => Math.max(0, prev - 1));
+      await refreshWaiting();
     } catch {
       showToast(t("home.dismissFailed"));
     } finally {
       setBusySent(null);
     }
-  }, [showToast, t]);
+  }, [showToast, t, refreshWaiting]);
 
   // When offline on a phone, the home becomes a browser for downloaded books
   // (the server feed is unreachable).
