@@ -508,6 +508,62 @@ const SHOTS = [
       target.scrollTop += offset - 70;
       await sleep(800);
       \`scrolled \${Math.round(target.scrollTop)}px in \${scroller ? "a panel" : "the window"}\`;`
+  },
+  // Photo review (docs/photo-review-plan.md) and For you (docs/for-you-plan.md).
+  // Review mode is reached from the Inbox page's "One at a time"; the shot
+  // wants an Inbox with a delivery, the same demo data as 82-89.
+  {
+    name: "96-review-mode",
+    url: "gallery/inbox",
+    state: "an Inbox with photos",
+    setup: `
+      const go = button(document, "One at a time");
+      if (!go) return "no One at a time button — no Inbox, or no edit right";
+      go.click(); await sleep(1800);
+      "review mode";`
+  },
+  { name: "97-for-you", url: "for-you", state: "something waiting: a delivery or a sent card" },
+  { name: "98-gallery-settings", url: "control/settings/gallery", height: 1100 },
+  {
+    // "Ask someone" over a selection on the Timeline: the dialog that names the album.
+    name: "99-ask-someone",
+    url: "gallery",
+    state: "a gallery with photos",
+    setup: `
+      const start = button(document, "Select");
+      if (!start) return "no Select button — page not ready, or too narrow for the toolbar";
+      start.click(); await sleep(500);
+      const tiles = [...document.querySelectorAll('button[aria-label^="Select "]')];
+      tiles[0]?.click(); tiles[1]?.click(); tiles[2]?.click(); await sleep(400);
+      const ask = button(document, "Ask someone");
+      if (!ask) return "nothing selected — no Ask someone button";
+      ask.click(); await sleep(900);
+      "ask someone dialog";`
+  },
+  {
+    // Send to on an album, at the compose step, with the question ticked.
+    name: "100-send-ask-notes",
+    url: "gallery/albums",
+    state: "an album you made, and another member to send to",
+    setup: `
+      const tile = document.querySelector(".gallery-folder-tile");
+      if (!tile) return "no album tile";
+      tile.click(); await sleep(1200);
+      // The album header's Send to is icon-only: found by its title, not its text.
+      const send = [...document.querySelectorAll("button")]
+        .find((b) => (b.title || b.getAttribute("aria-label") || "").startsWith("Send to"));
+      if (!send) return "no Send to button";
+      send.click(); await sleep(1000);
+      const person = topModal().querySelector(".send-to-person");
+      if (!person) return "nobody to send to";
+      person.click(); await sleep(300);
+      const next = [...topModal().querySelectorAll("button")].find((b) => b.textContent.trim().startsWith("Send to 1"));
+      if (!next) return "no Send to 1 person button";
+      next.click(); await sleep(700);
+      const ask = topModal().querySelector(".send-to-ask input");
+      if (!ask) return "no Ask what they remember box — not the album's creator?";
+      ask.click(); await sleep(300);
+      "compose with the question";`
   }
 ];
 

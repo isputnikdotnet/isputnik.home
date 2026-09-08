@@ -195,9 +195,11 @@ answer without being able to move anything, and she sees nothing outside the
 Inbox unless you have shared other libraries with her. If she reads Russian,
 set her language on her profile; the screen is in both.
 
-**What she sees.** Her Home page shows one card — "Photo Inbox · Scans · 38
-photos want your notes" — with **Add what you know** on it. That opens the
-photo large, with the questions beside it (below it on a tablet held upright):
+**What she sees.** Her Home page shows one row — "38 photos arrived in Photo
+Inbox" — with **Add what you know** on it. That opens the photo large, with
+the questions beside it (below it on a tablet held upright):
+
+![Review mode: one photo, four questions, Previous, I don't know and Next](images/96-review-mode.png)
 
 - **When was this taken?** A year from a list, then a month if she knows it,
   then a day once a month is chosen, and **Exactly** or **About**. Nothing is
@@ -232,7 +234,11 @@ album, listed under Albums like any other — and the Send to dialog opens on it
 with the question already ticked. The same dialog offers **Go through them
 myself**, which opens the screen over that album for you without sending
 anything. Or open an existing album, press **Send to**, pick her, and tick
-**Ask what they remember** before sending. Either way she
+**Ask what they remember** before sending.
+
+![Ask someone: the selected photos become an album with a name, then Send to opens with the question ticked](images/99-ask-someone.png)
+
+Either way she
 gets the same card on her Home page — "Sergey asks what you remember about
 these photos" — and **Add what you know** opens the same screen over the
 album's photos. Sending with the question also gives her the right to write on

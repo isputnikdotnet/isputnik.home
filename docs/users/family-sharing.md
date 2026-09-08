@@ -69,6 +69,8 @@ You do not need an album to start from: **Ask someone** on a selection of
 photos, or on a folder, makes one for you and opens this dialog on it with the
 question ticked.
 
+![Send to on an album at the compose step, with Ask what they remember ticked and the button reading Ask and send](images/100-send-ask-notes.png)
+
 **Slideshows** work the same way as albums for who can see them: whoever can see
 the photos in one can see the slideshow. What they don't have is a way to hand one
 over — there's no such thing as giving somebody a slideshow — so Send to on a
@@ -107,6 +109,8 @@ to revoke them one at a time.
 Everything that is waiting on you lives on one page, **For you**, in the menu
 with your name on it. Each row is one thing somebody put in front of you, with
 the one button it wants:
+
+![For you: deliveries into the Photo Inbox and things sent to you, each with its one action, and what you can open below](images/97-for-you.png)
 
 - **Something sent to you** — a book, a photo, an album — with **Like**, which
   puts it in your Likes, and **Not now**, which clears it away. An album, a
