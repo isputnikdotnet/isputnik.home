@@ -19,6 +19,13 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.75.1",
+    label: "The next row moves up",
+    changes: [
+      "Deciding a row at the top of the Home page — Not now on a delivery, Like or Not now on something sent to you — now brings the next thing waiting up into its place and keeps the \"See all\" count right, instead of leaving a gap until the page was reloaded. The feed underneath stays where it was."
+    ]
+  },
+  {
     version: "3.75.0",
     label: "Ask someone, from anywhere",
     changes: [
