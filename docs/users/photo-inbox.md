@@ -240,6 +240,19 @@ those photos, and only those; the rest of the library is untouched, and
 whoever made the album (or an administrator) is the only one who can ask.
 When she reaches the end, the card leaves her Home page by itself.
 
+**Saying it instead of typing it.** Under the notes box, **Speak instead**
+turns on the tablet's own dictation where the browser has it (Chrome on
+Android, Safari on an iPad): what she says lands in the box as text, sentence
+by sentence, and nothing else is kept. For the story that does not fit in a
+box, **Record a voice note** keeps her voice on the photo itself: press once
+to start, once to stop, and the recording sits under the notes with a play
+button, up to five minutes each. Anyone who can see the photo can play it; the
+lightbox shows the same notes under **Voice notes**. Recordings are ordinary
+audio files in the "Made in the app" library, under `Voice notes`, so they
+are backed up like everything else, and removing one sends it to the Recycle
+Bin. Recording needs the app to be opened over https, or on the server
+itself, since browsers allow the microphone only there.
+
 **Dates that are only roughly known** are not an Inbox-only idea. The **Date**
 dialog on any selection, and the pencil on a photo's date in the Info panel,
 now ask *how exact* — exact time, day, month, year or decade — and whether it

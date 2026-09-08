@@ -23,7 +23,9 @@ export const HOUSE_LIBRARY_SETTINGS_KEY = "house_library";
 export const HOUSE_FOLDERS = {
   recordings: "Story recordings",
   familyTree: "Family tree",
-  movies: "Slideshow movies"
+  movies: "Slideshow movies",
+  /** Voice notes recorded on a photo (docs/photo-review-plan.md, phase 4). */
+  voiceNotes: "Voice notes"
 } as const;
 
 export interface HouseLibrarySetting {

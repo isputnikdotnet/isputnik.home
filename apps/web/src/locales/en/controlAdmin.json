@@ -94,7 +94,7 @@
     "houseIntro": "One gallery library for everything the app makes itself: story narration, photos uploaded from the family tree, and rendered slideshow movies. Each lands in its own folder inside it, so one choice covers all three.",
     "houseLabel": "Library",
     "houseNone": "Not set — recording, family-tree uploads and saved movies are off",
-    "houseFolders": "Inside it: “{{recordings}}” for narration, “{{familyTree}}” for the tree's uploads, “{{movies}}” for movies. A slideshow can still be pointed at a different library on its own.",
+    "houseFolders": "Inside it: “{{recordings}}” for narration, “{{familyTree}}” for the tree's uploads, “{{movies}}” for movies, “{{voiceNotes}}” for voice notes recorded on photos. A slideshow can still be pointed at a different library on its own.",
     "houseNote": "Pick a library every member can view, or narration and family photos will be missing for people without access to it. Choosing a library also adds audio file types to its scan settings. A Photo Inbox cannot be chosen: it holds what is not part of the collection yet.",
     "houseSaved": "Gallery settings saved.",
     "inboxTitle": "Photo Inbox",

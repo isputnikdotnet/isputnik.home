@@ -12,7 +12,11 @@ same day**: "Ask what they remember" on Send to for an album — the album share
 carries `permission = 'edit'` (open question 1 answered: the grant is per
 album, bounded by the sender's own curate right, not per item), migration 72
 adds `recommendations.ask_notes`, the card opens Review mode at
-`/gallery/review/album/:id`. Only Phase 4 (voice) is still a proposal.
+`/gallery/review/album/:id`. **Phase 4 built 2026-09-08**: dictation into
+the notes box (Web Speech API, `review/useDictation.ts`) and voice notes kept
+on the photo (`gallery_voice_notes` tying the photo to an audio asset in the
+house library under `Voice notes/<year>`, streamed through the photo's own
+route so reach follows the photo). Nothing of this plan remains a proposal.
 Written 2026-09-07 from a conversation about
 scanning a box of childhood prints and asking a relative who was there to say
 where and when each was taken. Companion to [photo-inbox-proposal.md](photo-inbox-proposal.md)

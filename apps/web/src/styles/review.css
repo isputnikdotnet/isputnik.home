@@ -347,3 +347,10 @@
 @media (prefers-reduced-motion: reduce) {
   .review-bar i { transition: none; }
 }
+
+/* Recording in progress: the chip turns the danger colour so Stop is obvious. */
+.review-chip-record {
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 16%, var(--field));
+  color: var(--ink);
+}
