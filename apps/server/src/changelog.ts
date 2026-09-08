@@ -19,6 +19,13 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.76.1",
+    label: "Pictures in the guides",
+    changes: [
+      "The guides under Help now show the screens added this week: Review mode with its four questions, the For you page, Settings → Gallery, the Ask someone dialog, and Send to with Ask what they remember ticked. The Home page picture is refreshed to show the waiting rows in place of the old pinned cards."
+    ]
+  },
+  {
     version: "3.76.0",
     label: "Say it instead",
     changes: [
