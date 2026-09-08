@@ -521,6 +521,25 @@
       "toggleLock": "Unable to change the folder lock"
     }
   },
+  "voiceNotes": {
+    "heading": "Voice notes",
+    "record": "Record a voice note",
+    "recordAnother": "Record another",
+    "stop": "Stop ({{time}})",
+    "saving": "Saving…",
+    "by": "{{name}}",
+    "remove": "Remove this voice note",
+    "removeConfirmTitle": "Remove this voice note?",
+    "removeConfirmBody": "The recording goes to the Recycle Bin and can be restored from there. The photo and its other notes are not affected.",
+    "removeConfirm": "Remove voice note",
+    "removing": "Removing…",
+    "errors": {
+      "title": "Voice note",
+      "save": "Unable to save the recording",
+      "remove": "Unable to remove the voice note",
+      "microphone": "The microphone could not be used. Allow it in the browser and try again."
+    }
+  },
   "date": {
     "around": "around {{date}}",
     "decade": "{{year}}s",

@@ -1417,6 +1417,20 @@ CREATE TABLE IF NOT EXISTS inbox_delivery_seen (
   PRIMARY KEY (user_id, library_id, folder)
 );
 
+-- A voice note recorded on a photo (docs/photo-review-plan.md, phase 4): the
+-- recording is an ordinary audio asset in the "Made in the app" library, under
+-- Voice notes/<year>, and this row ties it to the photo it is about. Either side
+-- going away takes the tie with it; the audio file follows the Recycle Bin's
+-- rules like any other asset.
+CREATE TABLE IF NOT EXISTS gallery_voice_notes (
+  id            TEXT PRIMARY KEY,
+  item_id       TEXT NOT NULL REFERENCES library_items(id) ON DELETE CASCADE,
+  audio_item_id TEXT NOT NULL REFERENCES library_items(id) ON DELETE CASCADE,
+  recorded_by   TEXT,
+  created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+CREATE INDEX IF NOT EXISTS idx_gallery_voice_notes_item ON gallery_voice_notes (item_id, created_at);
+
 CREATE INDEX IF NOT EXISTS idx_recommendations_inbox ON recommendations (to_user_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_recommendations_sent ON recommendations (from_user_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_recommendations_subject ON recommendations (entity_type, entity_id);

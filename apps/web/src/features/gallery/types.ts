@@ -52,6 +52,18 @@ export interface GalleryAsset {
   faceFocus: { x: number; y: number } | null;
   // Present only on the single-asset detail (lightbox), not on list/timeline rows.
   people?: GalleryPersonTag[];
+  // Voice notes recorded on the photo (docs/photo-review-plan.md, phase 4).
+  // Detail only, like people.
+  voiceNotes?: VoiceNote[];
+}
+
+/** A recording kept on a photo. `url` streams through the photo's own route. */
+export interface VoiceNote {
+  id: string;
+  url: string;
+  durationSeconds: number | null;
+  recordedBy: string | null;
+  createdAt: string;
 }
 
 /**

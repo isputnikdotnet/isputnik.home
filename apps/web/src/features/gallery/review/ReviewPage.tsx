@@ -12,7 +12,7 @@
 // chrome-free page like the story reading view: it leaves the shell behind.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, ArrowRight, ChevronLeft, Image as ImageIcon } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChevronLeft, Image as ImageIcon, Mic } from "lucide-react";
 import { api } from "../../../api";
 import { goBack } from "../../../router";
 import { Button } from "../../../shared/Button";
@@ -21,6 +21,8 @@ import type { PhotoInboxSummary } from "../PhotoInboxPage";
 import type { GalleryAsset, GalleryPerson, GalleryPersonTag, TakenPrecision } from "../types";
 import { NEW_PERSON_PREFIX, PeopleChips } from "./PeopleChips";
 import { WhenPicker, type WhenValue } from "./WhenPicker";
+import { VoiceNotes } from "../VoiceNotes";
+import { useDictation } from "./useDictation";
 
 const PAGE = 200;
 const RECENT_PLACES = 10;
@@ -171,17 +173,24 @@ export function ReviewPage({ source }: { source: ReviewSource }) {
     setDraft(draftOf(asset));
     setSaveError("");
     setLarge(false);
-    if (asset.people) return;
+    if (asset.people && asset.voiceNotes) return;
     detailFor.current = asset.id;
     api<{ asset: GalleryAsset }>(`/api/library/gallery/assets/${encodeURIComponent(asset.id)}`)
       .then((payload) => {
         if (detailFor.current !== asset.id) return;
         const people = payload.asset.people ?? [];
-        setAssets((current) => current?.map((a) => (a.id === asset.id ? { ...a, people } : a)) ?? current);
+        const voiceNotes = payload.asset.voiceNotes ?? [];
+        setAssets((current) => current?.map((a) => (a.id === asset.id ? { ...a, people, voiceNotes } : a)) ?? current);
         setDraft((current) => (current ? { ...current, people } : current));
       })
       .catch(() => { /* the chips start empty; tagging still works */ });
   }, [asset?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Dictation appends each finished sentence to the notes as it is spoken.
+  const dictation = useDictation(useCallback((text: string) => {
+    if (!text) return;
+    setDraft((current) => current ? { ...current, notes: current.notes ? `${current.notes.replace(/\s+$/, "")} ${text}` : text } : current);
+  }, []));
 
   const patchAsset = useCallback((next: GalleryAsset) => {
     setAssets((current) => current?.map((a) => (a.id === next.id ? { ...a, ...next, people: next.people ?? a.people } : a)) ?? current);
@@ -433,6 +442,28 @@ export function ReviewPage({ source }: { source: ReviewSource }) {
                   maxLength={5000}
                   disabled={!canEdit || busy}
                   aria-label={t("galleryReview:notes.heading")}
+                />
+                {canEdit && dictation.supported && (
+                  <div className="review-row">
+                    <button
+                      type="button"
+                      className="review-chip"
+                      aria-pressed={dictation.listening}
+                      onClick={dictation.toggle}
+                      disabled={busy}
+                    >
+                      <Mic size={18} aria-hidden="true" /> {dictation.listening ? t("galleryReview:notes.dictating") : t("galleryReview:notes.dictate")}
+                    </button>
+                  </div>
+                )}
+                {/* A voice note is kept on the photo itself, next to the words. */}
+                <p className="review-hint">{t("galleryReview:notes.orSay")}</p>
+                <VoiceNotes
+                  assetId={asset.id}
+                  notes={asset.voiceNotes ?? []}
+                  canEdit={canEdit && !busy}
+                  large
+                  onChanged={(voiceNotes) => patchAsset({ ...asset, voiceNotes })}
                 />
               </section>
             </div>

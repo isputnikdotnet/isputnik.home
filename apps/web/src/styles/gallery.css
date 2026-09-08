@@ -3117,3 +3117,45 @@
 .gallery-drop-links-body {
   padding: 0 24px 24px;
 }
+
+/* Voice notes on a photo (docs/photo-review-plan.md, phase 4): a small player
+   per note with who and how long, and the record button under them. In the
+   lightbox's Info panel they take the panel's dark palette. */
+.voice-notes {
+  display: grid;
+  gap: 8px;
+}
+
+.voice-note {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.voice-note-player {
+  width: 100%;
+  min-width: 0;
+  height: 32px;
+}
+
+.voice-note-meta {
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.gallery-lightbox-info .voice-note-player {
+  color-scheme: dark;
+}
+
+.gallery-lightbox-info .voice-note-meta {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.voice-notes.is-large .voice-note-player {
+  height: 44px;
+}
+
+.voice-notes.is-large .voice-note-meta {
+  font-size: 15px;
+}

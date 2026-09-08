@@ -35,7 +35,10 @@
   },
   "notes": {
     "heading": "Anything you remember?",
-    "placeholder": "A line or a page, whatever comes to mind."
+    "placeholder": "A line or a page, whatever comes to mind.",
+    "dictate": "Speak instead",
+    "dictating": "Listening… tap to stop",
+    "orSay": "Or just say it:"
   },
   "sameAsLast": "Same as the last one",
   "previous": "Previous",

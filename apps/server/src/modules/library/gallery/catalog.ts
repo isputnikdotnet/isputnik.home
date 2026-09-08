@@ -8,6 +8,7 @@ import { canUserAccessLibrary } from "../shared/library-access.js";
 import { locksByLibrary, lockCoveredIn } from "../shared/folder-locks.js";
 import { parsePolicy } from "../../../core/permissions.js";
 import type { TakenPrecision } from "./taken-precision.js";
+import { listVoiceNotes } from "./voice-notes.js";
 
 const inClause = (n: number) => Array(n).fill("?").join(", ");
 
@@ -586,7 +587,7 @@ export function getGalleryAsset(userId: string, libIds: string[], id: string) {
   `).get(userId, id, ...libIds) as AssetRow | undefined;
   if (!row) return null;
   const people = peopleForAssetStmt.all(id) as { id: string; name: string }[];
-  return { ...mapAsset(row), people };
+  return { ...mapAsset(row), people, voiceNotes: listVoiceNotes(id) };
 }
 
 // Load one asset by id WITHOUT the library-scope filter — for callers that have
@@ -599,7 +600,7 @@ export function getGalleryAssetUnscoped(userId: string, id: string) {
   `).get(userId, id) as AssetRow | undefined;
   if (!row) return null;
   const people = peopleForAssetStmt.all(id) as { id: string; name: string }[];
-  return { ...mapAsset(row), people };
+  return { ...mapAsset(row), people, voiceNotes: listVoiceNotes(id) };
 }
 
 // Facets: which kinds exist, the year range, how many assets carry GPS (drives

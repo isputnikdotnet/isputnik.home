@@ -19,6 +19,15 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.76.0",
+    label: "Say it instead",
+    changes: [
+      "Going through photos one at a time, the notes box now has **Speak instead**: the tablet's own dictation, where the browser has it (Chrome on Android, Safari on an iPad). What she says lands in the box as text, sentence by sentence, in the language the app is set to. Nothing but the words is kept, and nothing passes through the server.",
+      "Under it, **Record a voice note** keeps her voice on the photo itself. Press once to start, once to stop, up to five minutes, and the recording sits under the notes with a play button, who recorded it and how long it is. The lightbox shows the same recordings under **Voice notes**, and anyone who can write on the photo can add one there too. Whoever can see the photo can hear them, and removing one sends it to the Recycle Bin.",
+      "A voice note is an ordinary audio file in the **Made in the app** library, under a new `Voice notes` folder by year and named after the photo, so it is backed up like everything else and shows in the gallery. The person answering never needs access to that library: the recording plays through the photo. Recording needs the microphone, which browsers allow only over https or on the server itself."
+    ]
+  },
+  {
     version: "3.75.1",
     label: "The next row moves up",
     changes: [

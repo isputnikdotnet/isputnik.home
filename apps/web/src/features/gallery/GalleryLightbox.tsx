@@ -14,7 +14,8 @@ import { SendToSheet } from "../social/SendToSheet";
 import { GalleryReplaceModal } from "./GalleryReplaceModal";
 import { NotesSection } from "../social/NotesSection";
 import { useIsMobile } from "../../shared/useIsMobile";
-import type { GalleryAsset, GalleryPerson, GalleryPersonTag, SlideshowTransition, TakenPrecision } from "./types";
+import type { GalleryAsset, GalleryPerson, GalleryPersonTag, SlideshowTransition, TakenPrecision, VoiceNote } from "./types";
+import { VoiceNotes } from "./VoiceNotes";
 import { TAKEN_PRECISIONS, formatTakenDate, precisionLabel, takenInputToIso, takenInputType, takenInputValue } from "./taken-date";
 
 // Leaflet rides in only when the Info panel shows a geotagged photo — keeps it off
@@ -173,6 +174,8 @@ export function GalleryLightbox({
   // People tagged in this asset. The list/timeline rows don't carry `people`, so when
   // it's absent we fetch the asset detail. `allPeople` feeds the add-box suggestions.
   const [people, setPeople] = useState<GalleryPersonTag[]>(asset?.people ?? []);
+  // Voice notes ride the same detail fetch as people (list rows carry neither).
+  const [voiceNotes, setVoiceNotes] = useState<VoiceNote[] | null>(asset?.voiceNotes ?? null);
   const [allPeople, setAllPeople] = useState<GalleryPerson[]>([]);
   const [addingPerson, setAddingPerson] = useState(false);
   const [personName, setPersonName] = useState("");
@@ -234,10 +237,15 @@ export function GalleryLightbox({
     setAddingPerson(false);
     setPersonName("");
     setPersonError("");
-    if (asset.people) { setPeople(asset.people); return; }
+    setVoiceNotes(asset.voiceNotes ?? null);
+    if (asset.people && asset.voiceNotes) { setPeople(asset.people); return; }
     let alive = true;
     api<{ asset: GalleryAsset }>(`/api/library/gallery/assets/${asset.id}`)
-      .then((p) => { if (alive) setPeople(p.asset.people ?? []); })
+      .then((p) => {
+        if (!alive) return;
+        setPeople(p.asset.people ?? []);
+        setVoiceNotes(p.asset.voiceNotes ?? []);
+      })
       .catch(() => { /* keep whatever we have */ });
     return () => { alive = false; };
   }, [asset?.id, asset?.people, asset]);
@@ -1041,6 +1049,19 @@ export function GalleryLightbox({
                       {t("gallery:lightbox.notedBy", { name: asset.reviewedBy, date: new Date(asset.reviewedAt).toLocaleDateString() })}
                     </span>
                   )}
+                </dd>
+              </div>
+            )}
+            {((voiceNotes?.length ?? 0) > 0 || canEdit) && (
+              <div>
+                <dt>{t("gallery:voiceNotes.heading")}</dt>
+                <dd>
+                  <VoiceNotes
+                    assetId={asset.id}
+                    notes={voiceNotes ?? []}
+                    canEdit={canEdit}
+                    onChanged={setVoiceNotes}
+                  />
                 </dd>
               </div>
             )}
