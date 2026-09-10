@@ -19,6 +19,13 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.81.1",
+    label: "Pictures of the viewer",
+    changes: [
+      "The Gallery guide under Help now describes the viewer's three tabs and shows the viewer with its Details tab open, and has a section on recordings with a picture of the New recording dialog. The Review mode picture in the Photo Inbox guide is refreshed."
+    ]
+  },
+  {
     version: "3.81.0",
     label: "A photo's details, in three tabs",
     changes: [

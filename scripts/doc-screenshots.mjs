@@ -104,6 +104,33 @@ const SHOTS = [
   { name: "35-gallery-albums", url: "gallery/albums", state: "at least one album" },
   { name: "36-gallery-slideshows", url: "gallery/slideshows", state: "at least one slideshow" },
   {
+    // The viewer with its Details panel open: the photo's date and place, people,
+    // tags, description, recordings and notes down the right.
+    name: "37-gallery-lightbox",
+    url: "gallery",
+    setup: `
+      const tile = [...document.querySelectorAll('button[aria-label^="Open "]')]
+        .find((b) => /\.(jpe?g|png|webp|heic)$/i.test(b.getAttribute("aria-label")));
+      if (!tile) return "no photo tile on the Gallery page";
+      tile.click(); await sleep(1800);
+      "viewer open";`
+  },
+  {
+    // Recording a voice memory: the dialog before the first press.
+    name: "38-gallery-recording",
+    url: "gallery",
+    state: "a photo you can edit",
+    setup: `
+      const tile = [...document.querySelectorAll('button[aria-label^="Open "]')]
+        .find((b) => /\.(jpe?g|png|webp|heic)$/i.test(b.getAttribute("aria-label")));
+      if (!tile) return "no photo tile on the Gallery page";
+      tile.click(); await sleep(1800);
+      const record = document.querySelector(".voice-notes-head button");
+      if (!record) return "no Record button — no edit right, or not a secure context";
+      record.click(); await sleep(700);
+      "recording dialog";`
+  },
+  {
     // A book's address carries its id, so walk in from the shelf. Needs the
     // editions to have been grouped by hand first — the switcher only appears on
     // a book that belongs to a work.
