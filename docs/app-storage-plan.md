@@ -172,7 +172,7 @@ that fills the others in.
    | Room | When nothing was ever set for it |
    | --- | --- |
    | Thumbnails | Uses App storage (there is nothing else to use). |
-   | Renders and music | Follows the thumbnails: inside App storage when they are, inside the thumbnail folder when they are not. So an upgraded install with its own thumbnail folder sees no move until the row is changed. |
+   | Renders | *Amended 2026-09-10 (3.88.0):* App storage as soon as there is one, unless the row was switched to "inside the thumbnail folder" (stored as `own`). Before, it followed the thumbnails, which on most installs meant the small config volume. On the first start after the update an untouched row carries its buckets from the thumbnail folder into `Renders/` as a storage move task (`migrateRendersIntoAppStorage()`). |
    | Recycle Bin | Per-library `.trash` on an existing install; App storage on a fresh one (decision 9). |
    | Photo Inbox | Off. The row's Change offers "Make one in App storage" and "Use a library I have". |
    | Made in the app | Off. Same two offers. |

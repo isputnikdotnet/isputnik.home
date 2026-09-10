@@ -142,8 +142,9 @@ export function isInsideAppStorage(candidate: string | null | undefined): boolea
  *               else null (the caller keeps raising "configure thumbnail storage")
  *   trash       <App storage>/Recycle Bin when the room is switched to App
  *               storage, else the bin folder setting, else null (per-library .trash)
- *   renders     <App storage>/Renders when switched on, else whatever the
- *               thumbnail location is — renders and music follow the thumbnails
+ *   renders     <App storage>/Renders whenever App storage is set, unless the
+ *               room was switched to "own" (inside the thumbnail folder); with
+ *               no App storage, null — renders and music follow the thumbnails
  *   backups     <App storage>/Backups when switched on, else BACKUP_PATH
  *
  * `own` is the room's own setting value, passed in by the caller because this
@@ -162,7 +163,11 @@ export function resolveAppLocation(kind: "thumbnails" | "trash" | "renders" | "b
     case "trash":
       return setting.rooms.trash === "app" ? under("trash") ?? own : own;
     case "renders":
-      return setting.rooms.renders === "app" ? under("renders") : null;
+      // Untouched, the room takes App storage as soon as there is one (3.88.0;
+      // it used to stay inside the thumbnail folder, usually the small config
+      // volume). "own" is the explicit choice to stay inside the thumbnails.
+      if (setting.rooms.renders === "own") return null;
+      return under("renders");
     case "backups":
       return setting.rooms.backups === "app" ? under("backups") ?? own : own;
   }

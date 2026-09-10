@@ -193,7 +193,9 @@ function thumbnailsRoom(): RoomView {
 
 function rendersRoom(): RoomView {
   const appPath = appRoomPath("renders");
-  const usesApp = appRoomMode("renders") === "app" && appPath !== null;
+  // Untouched, the room takes App storage once there is one (the resolver's
+  // rule); "own" is the explicit choice to stay inside the thumbnail folder.
+  const usesApp = appPath !== null && resolveAppLocation("renders", null) !== null;
   let resolved: string | null = null;
   try {
     resolved = usesApp ? appPath : (configuredThumbnailPathValue() || null);
@@ -431,8 +433,12 @@ export function setAppStoragePath(candidate: string | null, userId: string, carr
         modes.thumbnails = "own";
         break;
       case "renders":
+        // Left behind means "inside the thumbnail folder", which must be said:
+        // blank would read as App storage once there is one — the new folder.
+        modes.renders = "own";
+        break;
       case "backups":
-        delete modes[s.room];
+        delete modes.backups;
         break;
       case "inbox":
       case "house":
@@ -557,7 +563,9 @@ function switchRenders(mode: AppRoomMode, userId: string): void {
     const thumbnails = configuredThumbnailPathValue();
     if (!thumbnails) throw new AppStorageError("There is no thumbnail folder for renders and music to go back to.");
     after = validateThumbnailPath(thumbnails);
-    setAppRoomMode("renders", undefined, userId);
+    // Recorded as a choice, not left blank: blank means "App storage once there
+    // is one", and this admin has asked for the thumbnail folder.
+    setAppRoomMode("renders", "own", userId);
   }
   // The setting has flipped; the buckets follow as a task, and a track not yet
   // across is missing for the seconds it takes.
@@ -712,6 +720,30 @@ export function switchRoom(room: AppRoom, mode: AppRoomMode, own: string | null,
     ipAddress: ip || undefined
   });
   return roomView(room);
+}
+
+/** Once at startup (3.88.0): an install with App storage whose Renders row was
+ *  never touched used to keep renders inside the thumbnail folder; the room now
+ *  defaults to App storage, so whatever the thumbnail folder still holds in the
+ *  render buckets is carried into `<App storage>/Renders` as a storage move
+ *  task. A row switched to "own" is left alone. Returns the status when a move
+ *  was queued, null when there was nothing to do. */
+export function migrateRendersIntoAppStorage(): StorageMoveStatus | null {
+  const appPath = appRoomPath("renders");
+  if (!appPath || appRoomMode("renders") !== undefined) return null;
+  const thumbnails = ownThumbnailPathValue() || null;
+  if (!thumbnails || samePath(thumbnails, appPath)) return null;
+  if (!RENDER_BUCKETS.some((bucket) => dirHasEntries(path.join(thumbnails, bucket)))) return null;
+  fs.mkdirSync(appPath, { recursive: true });
+  const status = enqueueStorageMove({ kind: "renders", room: "renders", label: "Renders", from: thumbnails, to: appPath, actorUserId: null });
+  logActivity({
+    event: "config.updated",
+    actorUserId: null,
+    targetType: "setting",
+    targetId: "app_storage.renders",
+    detail: `Renders: uses App storage from now on (the room's new default); carrying the render buckets from ${thumbnails} to ${appPath}.`
+  });
+  return status;
 }
 
 export function statusOf(err: unknown): number {

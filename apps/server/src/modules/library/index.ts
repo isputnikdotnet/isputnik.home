@@ -4,6 +4,7 @@ import { coversPlugin } from "./covers.js";
 import { storagePlugin } from "./storage.js";
 import { appStorageRoutesPlugin } from "./app-storage-routes.js";
 import { startStorageMoveWorker } from "./shared/storage-move.js";
+import { migrateRendersIntoAppStorage } from "./app-storage.js";
 import { audiobookPlugin } from "./audiobook/index.js";
 import { ebookPlugin } from "./ebook/index.js";
 import { galleryPlugin } from "./gallery/index.js";
@@ -84,6 +85,14 @@ export async function libraryPlugin(app: FastifyInstance) {
   // on the jobs table; one a restart interrupted is re-queued by the worker's
   // recovery pass, and carries on from the units it had not reached.
   const stopStorageMoveWorker = startStorageMoveWorker();
+  // Renders default to App storage once there is one (3.88.0): an install that
+  // never touched the row still has its render buckets in the thumbnail folder,
+  // and carries them over as a task on the first start after the update.
+  try {
+    if (migrateRendersIntoAppStorage()) app.log.info("Renders now use App storage; carrying the render buckets over from the thumbnail folder.");
+  } catch (err) {
+    app.log.warn({ err }, "Could not queue the render buckets' move into App storage; the Renders row on the Storage page can start it.");
+  }
 
   // One-shot mop-up for libraries left claiming to scan by a task that no longer
   // exists — a scan given up on before the workers released the library, or one whose

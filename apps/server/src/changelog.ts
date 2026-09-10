@@ -19,6 +19,14 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.88.0",
+    label: "Renders take App storage",
+    changes: [
+      "With App storage set, the Renders room — slideshow movies while they render, and music waiting to move into the App files library — now lives in `Renders` under it from the start. It used to stay inside the thumbnail folder until someone found the row, which on most installs meant the small config volume. \"Inside the thumbnail folder\" is still offered on the row, and choosing it is recorded as a choice, so it sticks; without App storage the thumbnail folder remains where renders go, and Renders is never off.",
+      "An install that already has App storage and never touched the Renders row carries its render buckets over on the first start after this update, as a storage move task with progress on the row and a line in the log. An install that switched the row already is left as it is."
+    ]
+  },
+  {
     version: "3.87.1",
     label: "The Library link is back",
     changes: [

@@ -7,6 +7,7 @@ import { parsePolicy } from "../src/core/permissions.js";
 import { appRoomMode, appRoomPath, getAppStorageSetting, resolveAppLocation, setAppRoomMode } from "../src/core/app-storage.js";
 import {
   appStorageView,
+  migrateRendersIntoAppStorage,
   setAppStoragePath,
   switchRoom,
   validateAppStoragePath,
@@ -109,11 +110,13 @@ describe("the setting and the resolver", () => {
     expect(view.path).toBe(appDir);
     expect(view.ready).toBe(true);
     const rooms = Object.fromEntries(view.rooms.map((room) => [room.room, room]));
-    // Thumbnails keep their own folder; renders follow them; the bin stays per-library
-    // because a library already exists (decision 9 flips the default on fresh installs only).
+    // Thumbnails keep their own folder; renders, never given a place, take App
+    // storage the moment there is one (3.88.0); the bin stays per-library because
+    // a library already exists (decision 9 flips the default on fresh installs only).
     expect(rooms.thumbnails.mode).toBe("own");
     expect(rooms.thumbnails.resolvedPath).toBe(thumbs);
-    expect(rooms.renders.mode).toBe("own");
+    expect(rooms.renders.mode).toBe("app");
+    expect(rooms.renders.resolvedPath).toBe(path.join(appDir, "Renders"));
     expect(rooms.trash.mode).toBe("off");
     expect(rooms.trash.appPath).toBe(path.join(appDir, "Recycle Bin"));
     expect(view.lockedBy).toEqual([]);
@@ -123,9 +126,9 @@ describe("the setting and the resolver", () => {
     setAppStoragePath(appDir, "u1");
     expect(configuredThumbnailPathValue()).toBe(path.join(appDir, "Thumbnails"));
     expect(appStorageView().rooms.find((room) => room.room === "thumbnails")!.mode).toBe("app");
-    // A key resolves under it, and the render buckets follow the thumbnails.
+    // A key resolves under it, and the render buckets take their own room.
     expect(thumbnailAbsolutePath("LIB/ab/cd/x.webp")).toBe(path.join(appDir, "Thumbnails", "LIB", "ab", "cd", "x.webp"));
-    expect(getRendersRoot()).toBe(path.join(appDir, "Thumbnails"));
+    expect(getRendersRoot()).toBe(path.join(appDir, "Renders"));
   });
 
   it("the App files room keeps its former folder name on an install that made it as 'Made in the app'", () => {
@@ -144,6 +147,32 @@ describe("the setting and the resolver", () => {
     expect(appRoomPath("house")).toBe(path.join(appDir, "App files"));
   });
 
+  it("on the first start after the update, an untouched Renders row carries its buckets from the thumbnail folder into App storage", async () => {
+    setThumbs(thumbs);
+    fs.mkdirSync(path.join(thumbs, "music", "ab"), { recursive: true });
+    fs.writeFileSync(path.join(thumbs, "music", "ab", "song.mp3"), "MP3");
+    fs.mkdirSync(path.join(thumbs, "LIB"), { recursive: true });
+    fs.writeFileSync(path.join(thumbs, "LIB", "cover.webp"), "WEBP");
+    // Without App storage there is nothing to move to.
+    expect(migrateRendersIntoAppStorage()).toBeNull();
+    setAppStoragePath(appDir, "u1");
+    const status = migrateRendersIntoAppStorage();
+    expect(status?.running).toBe(true);
+    await waitForStorageMoves();
+    expect(fs.existsSync(path.join(appDir, "Renders", "music", "ab", "song.mp3"))).toBe(true);
+    expect(fs.existsSync(path.join(thumbs, "music"))).toBe(false);
+    expect(fs.existsSync(path.join(thumbs, "LIB", "cover.webp"))).toBe(true);
+    expect(getRendersRoot()).toBe(path.join(appDir, "Renders"));
+    // Done once: nothing left to carry, and a row switched to "own" is left alone.
+    expect(migrateRendersIntoAppStorage()).toBeNull();
+    switchRoom("renders", "own", null, "u1");
+    await waitForStorageMoves();
+    expect(appRoomMode("renders")).toBe("own");
+    expect(getRendersRoot()).toBe(thumbs);
+    fs.writeFileSync(path.join(thumbs, "music", "ab", "song.mp3"), "MP3");
+    expect(migrateRendersIntoAppStorage()).toBeNull();
+  });
+
   it("a fresh install with no library gets the Recycle Bin room switched on", () => {
     db.prepare("DELETE FROM libraries").run();
     setAppStoragePath(appDir, "u1");
@@ -159,6 +188,10 @@ describe("switching rooms", () => {
   });
 
   it("moves the render buckets as a task when the Renders room is switched on, and back when it is switched off", async () => {
+    // Renders default to App storage once it exists; start from the thumbnail
+    // folder, where an older install's buckets sit.
+    switchRoom("renders", "own", null, "u1");
+    await waitForStorageMoves();
     const musicFile = path.join(thumbs, "music", "ab", "cd", "abcd.mp3");
     fs.mkdirSync(path.dirname(musicFile), { recursive: true });
     fs.writeFileSync(musicFile, "MP3");
@@ -184,8 +217,10 @@ describe("switching rooms", () => {
     expect(fs.existsSync(path.join(renders, "music"))).toBe(false);
     expect(appStorageView().lockedBy).toEqual([]);
     // Every move is a task on the Tasks page, timed and logged.
+    // The jobs table outlives resetDb, so look at this test's two moves: the newest.
     const jobs = db.prepare("SELECT status FROM jobs WHERE type = ? AND payload LIKE '%\"room\":\"renders\"%' ORDER BY created_at").all(STORAGE_MOVE_JOB_TYPE) as { status: string }[];
-    expect(jobs.map((job) => job.status)).toEqual(["completed", "completed"]);
+    expect(jobs.length).toBeGreaterThanOrEqual(2);
+    expect(jobs.slice(-2).map((job) => job.status)).toEqual(["completed", "completed"]);
     expect(db.prepare("SELECT COUNT(*) AS n FROM activity_logs WHERE event = 'storage.move.completed' AND target_id = 'renders'").get()).toEqual({ n: 2 });
   });
 
