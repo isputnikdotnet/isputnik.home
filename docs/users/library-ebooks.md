@@ -52,6 +52,20 @@ What a layout reads from the path wins over the file's metadata; anything the
 layout does not mention still comes from the file. Your manual edits stay
 protected either way.
 
+A few things worth knowing once you have more than one rule:
+
+- **The most specific rule wins.** Rules may overlap: when a book sits inside
+  the folders of two rules, the one on the deeper folder reads it, so a rule on
+  `Sanderson/Cosmere` beats a rule on `Sanderson` for everything inside it. Two
+  rules cannot claim the very same folder; the panel says so if you try.
+- **A rule turned off hands its folders to the default layout,** not to a
+  broader rule that also covers them. It keeps its folders and its layouts, and
+  takes over again when it is turned back on.
+- **Nothing is re-read until a scan.** Saving a rule records it; the wizard's
+  **Save and scan these folders** runs one right away for just that rule's
+  folders, and each rule in the panel has **Scan these folders** for later.
+  **Rescan the library** re-reads everything under the current layouts.
+
 ## Reading
 
 Open a book and choose **Read**. EPUB (and FB2) open in the built-in reader:

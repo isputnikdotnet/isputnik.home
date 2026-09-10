@@ -1,6 +1,10 @@
 # Custom Scan Rules Proposal
 
-Status: design proposal; not implemented.
+Status: superseded. The idea shipped as scan **layouts** in 3.62.0 (2026-09-04),
+built in `modules/library/shared/scan-rules.ts` and the Layout panel under
+`features/control/layout/`; the design that was actually built is
+[`scan-layout-plan.md`](scan-layout-plan.md), and where the two disagree the
+plan is right. Kept for the reasoning behind the feature.
 
 This document proposes path-scoped scanning rules for library folders whose
 layout differs from the rest of the library. For the scanner's current behavior,
