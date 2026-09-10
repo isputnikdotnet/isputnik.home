@@ -1,35 +1,98 @@
 # Storage
 
-Before you can add a library, the server needs to know two things. Both live in
-**Control panel → Library → Storage**.
+Before you can add a library, the server needs to know where things live. It all
+sits in **Control panel → Library → Storage**, in three parts:
 
 | | What it is | Why it's needed |
 |---|---|---|
-| **Thumbnail storage** | One writable folder where the app keeps the covers and previews it generates | These are *generated* files. They're kept away from your originals so your media folders stay exactly as you arranged them. |
+| **App storage** | One folder the app may keep its own things in: the Recycle Bin, the Photo Inbox, the library for what the family makes in the app, thumbnails, renders and music, backups | So those six answers can be given once, in one place, instead of on six different pages. Every one of them is optional. |
+| **Its rooms** | One row per thing the app keeps, saying where it is right now | Each row can use App storage, keep a place of its own, or stay off. Nothing moves until you change a row, and every change is confirmed first. |
 | **Digital Library containers** | The folders your libraries are allowed to read | A safety boundary: a library can only ever point somewhere inside an approved container, so a mistyped path can't wander off into the rest of the disk. |
 
-Until both are set, **Add library** stays disabled and the Libraries page tells
-you so — with a button straight back here.
+Until thumbnails have somewhere to go and at least one container exists, **Add
+library** stays disabled and the Libraries page tells you so, with a button
+straight back here.
 
-## Thumbnail storage
+## App storage
 
-On a new install both halves of this page are empty, and the badge beside
-thumbnail storage says it is required before you can add a library:
+On a new install the top block says **Not set** and every room below it reads
+**Not set** or **Off**:
 
-![Storage before anything is configured: thumbnails not set, no containers](images/10-storage-empty.png)
+![Storage before anything is configured](images/10-storage-empty.png)
 
-Choose **Edit path** and give it a writable folder. Anything works as long as
-the server user can write to it and it isn't inside a library you'd rather keep
-pristine. A hidden folder alongside your media is a tidy choice:
+Choose **Choose folder** and pick a folder inside one of your containers. It has
+to exist already, it can't be the container itself (the app makes its own
+folders in it), and it can't be inside a library. A folder beside your media is
+the tidy choice:
 
 ```
-D:\ProjectTesting\AppDocTest\.thumbnails
+D:\ProjectTesting\AppDocTest\iSputnik
 ```
 
-It flips from **Not configured** to **Ready** once saved.
+A box shows the exact path and asks you to confirm. Choosing the folder records
+it and nothing else: no room changes until you change its row. Two rooms do
+follow it straight away when they were never given a place of their own, because
+they have to live somewhere: **Thumbnails** go to `Thumbnails\` under it, and
+**Renders and music** go wherever the thumbnails are. On a fresh install the
+**Recycle Bin** is switched on too, so deleted files have one folder from the
+start.
 
 > **Running in Docker?** Use the path *inside the container* — the one you mapped
 > your volume to — not the path on the host.
+
+### The rooms
+
+| Room | Use App storage | Its own place | Off |
+|---|---|---|---|
+| **Recycle Bin** | `Recycle Bin\` | one folder you name | a hidden `.trash` inside each library |
+| **Photo Inbox** | `Photo Inbox\`, made as a library | any gallery library with the Inbox switch on | no Inbox |
+| **Made in the app** | `Made in the app\`, made as a library | any gallery library you nominate under Settings → Gallery | nothing can be recorded or uploaded from the app |
+| **Thumbnails** | `Thumbnails\` | a folder you name | — |
+| **Renders and music** | `Renders\` | — | inside the thumbnail folder |
+| **Backups** | `Backups\` | the backup folder (`BACKUP_PATH` in Docker) | — |
+
+Each row says which column it is in, in words, and **Change** opens a small
+chooser with the options for that room. Picking one doesn't apply it: a box
+names the room, shows the exact folder it will use from now on, says what moves
+and what doesn't, and offers Cancel or a verb. Nothing happens until you press
+the verb.
+
+Three rooms are worth a word each:
+
+- **Recycle Bin.** Changing its location moves whatever is in the bin to the new
+  place, one item at a time, in the background. The row shows the progress
+  ("Moving the bin: 14 of 230") and offers to cancel; the Recycle Bin page shows
+  the same line. Restoring and emptying keep working meanwhile, because every
+  item remembers where its own files are. Keep the bin on the same disk as your
+  libraries if you can: deleting into a bin on the same disk is an instant
+  rename, onto another disk it copies every byte.
+- **Thumbnails.** Changing their folder doesn't copy them: the new folder is
+  filled by the next scan of each library, and until then covers may be missing.
+  Uploaded slideshow music and finished renders come along with the thumbnails,
+  since that is where they live unless Renders has its own room.
+- **Photo Inbox** and **Made in the app.** Switching either to App storage makes
+  a new gallery library in the room's folder. Switching one off leaves the
+  library as an ordinary library with its files where they are; the Inbox refuses
+  to turn off while photos are still waiting in it, so nothing lands on the
+  Timeline unreviewed.
+
+### The folder locks once a room uses it
+
+Once any room keeps files in App storage, **Change** and **Clear** on the top
+block are refused, and the block says which rooms those are. Move each of them
+out, or turn it off, from its own row first; then the folder is free to change
+again. That is deliberate: the folder is the base of every file those rooms
+hold, and changing it underneath them would be a "move everything" in disguise.
+
+### An install that already had these set
+
+Nothing changes when you update. App storage shows **Not set**, and every room
+reads whatever it read before: your thumbnail folder, your bin location, your
+Made in the app library. Choosing an App storage folder later changes no room
+that already has a place. Each one gains "Use App storage" in its chooser, and
+moves in only when you say so.
+
+![Storage once configured](images/11-storage-configured.png)
 
 ## Digital Library containers
 
@@ -48,51 +111,14 @@ Choose **Add container** and give it a name and a path:
 The folder has to exist already; the app won't create it. If the path is wrong
 or unreadable, you're told immediately rather than at scan time.
 
-With both done, thumbnail storage reads **Ready** and the container is listed
-underneath, with a count of the libraries using it:
-
-![Storage once configured: thumbnails ready and one container listed](images/11-storage-configured.png)
-
-Both green? You're ready for **[Setting up libraries](libraries.md)**.
-
-## Recycle Bin location
-
-Deleting from the app doesn't erase anything straight away — it moves the files to the
-Recycle Bin, where you can put them back. This is where you say **where that is**.
-
-Left alone, each library keeps its own hidden `.trash` folder inside itself. That is the
-fastest possible arrangement: the file never leaves the disk it was already on, so even a
-4 GB video is deleted instantly.
-
-The catch is that a `.trash` inside a library is still inside a folder other software
-reads. Immich, a backup job, a sync client — anything walking the same share will index it
-and go on showing everything you deleted as though it were still there. Most of them have
-no reliable way to exclude it, so the fix is to keep the bin somewhere else entirely:
-**Edit location**, and give it one folder outside all your libraries.
-
-```
-D:\ProjectTesting\AppDocTest\.recyclebin
-```
-
-Three things worth knowing before you set it:
-
-- **Set it before you create libraries.** Afterwards it can only be changed while the bin
-  is completely empty — moving it would leave whatever is in it behind. Emptying the bin
-  destroys those files for good, so that is never offered as part of the change; you do it
-  deliberately, on the Recycle Bin page, or wait for the items to expire.
-- **Keep it on the same disk as your libraries.** Same disk, deleting is an instant rename.
-  A different disk means a real copy of every byte, so a large video takes as long as
-  copying it would — and a duplicate cleanup removing thousands of photos, much longer.
-- **It can't be inside a library**, and it can't have a library inside it. Anything inside
-  a library gets scanned, which would catalogue your deleted files straight back in.
-
-Changing the location never moves what is already in the bin, and never has to: every item
-remembers where its own files went, so restoring keeps working either way.
+With thumbnails placed and a container listed, you're ready for
+**[Setting up libraries](libraries.md)**.
 
 ## How to organise the folder underneath
 
-One container with a folder per library is the arrangement most people end up
-with, and it's what the rest of these guides assume:
+One container with a folder per library and App storage beside them is the
+arrangement most people end up with, and it's what the rest of these guides
+assume:
 
 ```
 D:\ProjectTesting\AppDocTest\      ← the container
@@ -100,7 +126,12 @@ D:\ProjectTesting\AppDocTest\      ← the container
 ├── Ebooks\                        ← an ebook library
 ├── Gallery\                       ← a gallery library
 ├── FamilyTree\
-└── .thumbnails\                   ← generated covers and previews
+└── iSputnik\                      ← App storage
+    ├── Recycle Bin\
+    ├── Photo Inbox\               ← a library the app made
+    ├── Made in the app\           ← a library the app made
+    ├── Thumbnails\
+    └── Renders\
 ```
 
 You can add several containers if your media lives on different drives. The
@@ -112,9 +143,10 @@ and a container can't be deleted while a library still depends on it.
 Worth stating plainly, because it governs the whole design: **scanning reads,
 it never writes.** The app catalogues what it finds, and everything it derives —
 covers, previews, metadata, your reading position — is kept in its own database
-and thumbnail folder. Renaming a library, editing a book's title, or deleting a
-library never touches the files on disk.
+and in App storage or the thumbnail folder. Renaming a library, editing a book's
+title, or deleting a library never touches the files on disk.
 
 The exceptions are the things you'd expect to touch files, and only those:
-uploading adds a file, and deleting an *item* (when the library allows it) moves
-it to the Recycle Bin.
+uploading adds a file, deleting an *item* (when the library allows it) moves it
+to the Recycle Bin, and changing a room on this page moves what that room holds,
+after telling you so.

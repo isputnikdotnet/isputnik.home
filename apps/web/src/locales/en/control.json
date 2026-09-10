@@ -99,7 +99,8 @@
       "photoInboxSetup": "Set up a Photo Inbox",
       "recordingsLibrary": "Story recordings library",
       "recipeImport": "Recipe import from a link",
-      "mapRouting": "Map routing"
+      "mapRouting": "Map routing",
+      "appStorage": "App storage"
     }
   },
   "about": {

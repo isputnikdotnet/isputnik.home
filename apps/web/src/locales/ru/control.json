@@ -99,7 +99,8 @@
       "photoInboxSetup": "Настроить Входящие фото",
       "recordingsLibrary": "Библиотека записей историй",
       "recipeImport": "Импорт рецептов по ссылке",
-      "mapRouting": "Прокладка маршрутов"
+      "mapRouting": "Прокладка маршрутов",
+      "appStorage": "Хранилище приложения"
     }
   },
   "about": {

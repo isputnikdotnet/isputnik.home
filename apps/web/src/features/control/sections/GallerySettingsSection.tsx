@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { HardDrive, Image, Images, Inbox } from "lucide-react";
 import { api } from "../../../api";
-import { followRoute, galleryInboxHref } from "../../../router";
+import { controlHref, followRoute, galleryInboxHref } from "../../../router";
 import { Button } from "../../../shared/Button";
 import { MessageBox } from "../../../shared/MessageBox";
 import { SelectField } from "../../../shared/SelectField";
@@ -25,6 +25,8 @@ interface HouseDto {
 
 interface InboxSummary { id: string; name: string; count: number }
 interface StorageRoot { id: string; name: string; path: string }
+/** Which library rooms App storage made, so the page can say so beside them. */
+interface AppStorageRooms { rooms: { room: string; mode: string; library: { id: string; name: string } | null }[] }
 
 export function GallerySettingsSection() {
   const { t } = useTranslation(["common", "controlAdmin"]);
@@ -45,6 +47,7 @@ export function GallerySettingsSection() {
   const [creating, setCreating] = useState(false);
   const [created, setCreated] = useState<{ name: string; root: string } | null>(null);
   const [createError, setCreateError] = useState("");
+  const [appRooms, setAppRooms] = useState<AppStorageRooms | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -63,7 +66,12 @@ export function GallerySettingsSection() {
       })
       .catch((err) => setLoadError(err instanceof Error ? err.message : t("controlAdmin:gallerySettings.loadFailed")))
       .finally(() => setLoading(false));
+    api<AppStorageRooms>("/api/storage/app-storage").then(setAppRooms).catch(() => setAppRooms(null));
   }, [t]);
+
+  const madeInAppStorage = (room: "inbox" | "house", libraryId: string | null | undefined): boolean =>
+    Boolean(libraryId) && appRooms?.rooms.some((entry) => entry.room === room && entry.mode === "app" && entry.library?.id === libraryId) === true;
+  const storageHref = controlHref("storage");
 
   const saveHouse = async (event: FormEvent) => {
     event.preventDefault();
@@ -141,6 +149,12 @@ export function GallerySettingsSection() {
             />
             <p className="muted">{t("controlAdmin:gallerySettings.houseFolders", folders)}</p>
             <p className="muted">{t("controlAdmin:gallerySettings.houseNote")}</p>
+            {madeInAppStorage("house", house?.library?.id) && (
+              <p className="muted">
+                {t("controlAdmin:gallerySettings.madeInAppStorage", { name: house?.library?.name ?? "" })}{" "}
+                <a href={storageHref} onClick={(event) => followRoute(event, storageHref)}>{t("controlAdmin:gallerySettings.appStorageLink")}</a>
+              </p>
+            )}
 
             {saveError && <MessageBox tone="error" title={t("common:errors.unableToSave")}>{saveError}</MessageBox>}
             {saved && <MessageBox tone="success" title={t("controlAdmin:ui.saved")}>{t("controlAdmin:gallerySettings.houseSaved")}</MessageBox>}
@@ -166,6 +180,7 @@ export function GallerySettingsSection() {
                 <li key={inbox.id}>
                   <Inbox size={16} aria-hidden="true" />
                   <span>{inbox.name}</span>
+                  {madeInAppStorage("inbox", inbox.id) && <span className="muted">{t("controlAdmin:gallerySettings.inAppStorage")}</span>}
                   <a href={galleryInboxHref(inbox.id)} onClick={(event) => followRoute(event, galleryInboxHref(inbox.id))}>
                     {t("controlAdmin:gallerySettings.inboxOpen")}
                   </a>

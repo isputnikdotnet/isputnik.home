@@ -19,6 +19,18 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.77.0",
+    label: "One folder for the app's own things",
+    changes: [
+      "Library → Storage begins with **App storage**: one optional folder, inside a container, that the app may keep its own things in. Under it, one row per room says where that room is right now: the Recycle Bin, the Photo Inbox, the Made in the app library, thumbnails, renders and music, and backups. Each room is its own choice, made from its own row: use App storage, keep a place of its own, or stay off. Choosing the folder records it and changes nothing else; an install that already had these set reads exactly as it did.",
+      "Every change on that page is confirmed first. Picking an option opens a box that names the room, shows the exact folder it will use from now on, says what moves and what does not, and offers Cancel or a verb. Nothing happens until the verb is pressed. Once a room keeps files in App storage the folder itself is locked, and the page says which rooms to move out or turn off first.",
+      "The Recycle Bin's location can be changed while the bin holds items. The change moves what is in the bin to the new place in the background, one item at a time, and the row shows the progress with a way to cancel. Every item remembers where its own files are, so restoring and emptying keep working while that runs, and a restart picks the move up where it left off. Before, the location could only change while the bin was empty.",
+      "Uploaded slideshow music, finished slideshow movies and older story recordings can have a folder of their own under App storage instead of living inside the thumbnail folder. Switching that room carries the files across; so does changing the thumbnail folder, since they follow it otherwise.",
+      "A Photo Inbox, or the Made in the app library, can be made inside App storage in one confirmed click from its row. Turning either off leaves the library in place with its files; the Inbox refuses while photos are still waiting in it, so nothing lands on the Timeline unreviewed.",
+      "The Storage guide is rewritten around the rooms, and the control panel, first run and Photo Inbox guides gained a line each."
+    ]
+  },
+  {
     version: "3.76.2",
     label: "A cleaner clean",
     changes: [

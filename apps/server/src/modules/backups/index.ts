@@ -6,6 +6,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { db, logActivity } from "../../db.js";
 import { config, mfaKeyFilePath } from "../../config.js";
+import { resolveAppLocation } from "../../core/app-storage.js";
 import { parseBody } from "../../core/shared.js";
 import { receiveUpload, UploadError } from "../uploads/index.js";
 import { configuredThumbnailPathValue } from "../library/shared/thumbnail.js";
@@ -79,8 +80,15 @@ function saveSettings(settings: BackupSettings, userId: string | null) {
   `).run(SETTINGS_KEY, JSON.stringify(settings), userId);
 }
 
+/** Where backups go: App storage's Backups room when that room is switched on
+ *  (docs/app-storage-plan.md), else BACKUP_PATH / data/backups. Read at call time,
+ *  never cached — the room can change while the server runs. */
+export function backupDir(): string {
+  return resolveAppLocation("backups", config.backupPath) ?? config.backupPath;
+}
+
 function ensureBackupDir() {
-  fs.mkdirSync(config.backupPath, { recursive: true });
+  fs.mkdirSync(backupDir(), { recursive: true });
 }
 
 // Backups written before 2.15.1 landed in the app's own folder rather than the
@@ -95,7 +103,7 @@ function ensureBackupDir() {
 // destination is the newer file and wins.
 export function rescueStrandedBackups(): number {
   const legacy = path.resolve(process.cwd(), "data", "backups");
-  const target = path.resolve(config.backupPath);
+  const target = path.resolve(backupDir());
   if (legacy === target || !fs.existsSync(legacy)) return 0;
 
   let moved = 0;
@@ -136,7 +144,7 @@ function timestampName(ext: "zip" | "sqlite", date = new Date()): string {
 function uniqueBackupName(ext: "zip" | "sqlite"): string {
   let date = new Date();
   let name = timestampName(ext, date);
-  while (fs.existsSync(path.join(config.backupPath, name))) {
+  while (fs.existsSync(path.join(backupDir(), name))) {
     date = new Date(date.getTime() + 1000);
     name = timestampName(ext, date);
   }
@@ -144,13 +152,13 @@ function uniqueBackupName(ext: "zip" | "sqlite"): string {
 }
 
 function listBackupFiles(): BackupFile[] {
-  if (!fs.existsSync(config.backupPath)) {
+  if (!fs.existsSync(backupDir())) {
     return [];
   }
-  return fs.readdirSync(config.backupPath)
+  return fs.readdirSync(backupDir())
     .filter((name) => NAME_PATTERN.test(name))
     .map((name) => {
-      const stat = fs.statSync(path.join(config.backupPath, name));
+      const stat = fs.statSync(path.join(backupDir(), name));
       return { name, sizeBytes: stat.size, createdAt: stat.mtime.toISOString(), kind: name.endsWith(".zip") ? "full" as const : "database" as const };
     })
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -159,7 +167,7 @@ function listBackupFiles(): BackupFile[] {
 function pruneBackups(keep: number): number {
   const stale = listBackupFiles().slice(Math.max(1, keep));
   for (const file of stale) {
-    try { fs.unlinkSync(path.join(config.backupPath, file.name)); } catch { /* best-effort */ }
+    try { fs.unlinkSync(path.join(backupDir(), file.name)); } catch { /* best-effort */ }
   }
   return stale.length;
 }
@@ -168,8 +176,8 @@ function resolveBackupPath(name: string): string | null {
   if (!NAME_PATTERN.test(name)) {
     return null;
   }
-  const resolved = path.join(config.backupPath, name);
-  return path.dirname(resolved) === path.resolve(config.backupPath) ? resolved : null;
+  const resolved = path.join(backupDir(), name);
+  return path.dirname(resolved) === path.resolve(backupDir()) ? resolved : null;
 }
 
 // Guard against zip-slip / traversal when writing extracted files.
@@ -192,8 +200,8 @@ async function runBackup(actorUserId: string | null, trigger: "manual" | "schedu
   ensureBackupDir();
   const settings = getSettings();
   const name = timestampName("zip");
-  const destination = path.join(config.backupPath, name);
-  const tmpDb = path.join(config.backupPath, `.tmp-${Date.now()}.sqlite`);
+  const destination = path.join(backupDir(), name);
+  const tmpDb = path.join(backupDir(), `.tmp-${Date.now()}.sqlite`);
 
   await db.backup(tmpDb);
   try {
@@ -339,7 +347,7 @@ export async function backupsPlugin(app: FastifyInstance) {
     const backups = listBackupFiles();
     return {
       backups,
-      backupPath: config.backupPath,
+      backupPath: backupDir(),
       settings: getSettings(),
       coversAvailable: Boolean(configuredThumbnailPathValue()),
       totalSizeBytes: backups.reduce((sum, b) => sum + b.sizeBytes, 0),
@@ -522,7 +530,7 @@ export async function backupsPlugin(app: FastifyInstance) {
 
     let received;
     try {
-      received = await receiveUpload(request, { accept: ["zip", "sqlite"], maxBytes: null }, config.backupPath);
+      received = await receiveUpload(request, { accept: ["zip", "sqlite"], maxBytes: null }, backupDir());
     } catch (err) {
       const status = err instanceof UploadError ? err.statusCode : 400;
       return reply.code(status).send({ error: err instanceof Error ? err.message : "Upload failed" });
@@ -543,7 +551,7 @@ export async function backupsPlugin(app: FastifyInstance) {
     }
 
     const name = uniqueBackupName(received.extension as "zip" | "sqlite");
-    const destination = path.join(config.backupPath, name);
+    const destination = path.join(backupDir(), name);
     try {
       fs.renameSync(received.tmpPath, destination);
     } catch (err) {

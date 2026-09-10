@@ -3,6 +3,7 @@ import path from "node:path";
 import sharp from "sharp";
 import { db } from "../../../db.js";
 import { config } from "../../../config.js";
+import { resolveAppLocation } from "../../../core/app-storage.js";
 import { pathIsInside, normaliseRelativePath } from "./storage-roots.js";
 
 // libvips keeps recently-read files in its own cache, and on Windows a cached
@@ -64,9 +65,39 @@ export function renderInTurn(renders: Array<() => Promise<unknown>>): Promise<vo
   return run;
 }
 
-export function configuredThumbnailPathValue() {
+/** The thumbnail folder's OWN setting (the app_settings row, else THUMBNAIL_PATH),
+ *  ignoring App storage. What the Storage page shows as "its own folder". */
+export function ownThumbnailPathValue(): string {
   const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(thumbnailPathSettingKey) as { value: string } | undefined;
   return row?.value || config.thumbnailPath || "";
+}
+
+/** The thumbnail folder in effect: the own setting, else App storage's
+ *  Thumbnails room, else "" (docs/app-storage-plan.md, decision 6). */
+export function configuredThumbnailPathValue() {
+  return resolveAppLocation("thumbnails", ownThumbnailPathValue() || null) ?? "";
+}
+
+/** The buckets that hold the app's own MEDIA rather than generated thumbnails:
+ *  uploaded slideshow music, finished slideshow renders, and legacy story
+ *  narration. They live inside the thumbnail folder by default and move to
+ *  App storage's Renders room when that room is switched on. Their storage
+ *  keys are relative to whichever of the two is current, which is why
+ *  switching the room moves the files (app-storage.ts, moveRenderBuckets). */
+export const RENDER_BUCKETS = ["music", "slideshows", "narration"] as const;
+
+/** Where the render buckets live right now: the Renders room, else the
+ *  thumbnail folder (created on demand, like the thumbnail folder is). */
+export function getRendersRoot(): string {
+  const renders = resolveAppLocation("renders", null);
+  if (!renders) return getConfiguredThumbnailPath();
+  fs.mkdirSync(renders, { recursive: true });
+  return fs.realpathSync(renders);
+}
+
+function isRenderBucketKey(storageKey: string): boolean {
+  const first = storageKey.split(/[\\/]/, 1)[0] ?? "";
+  return (RENDER_BUCKETS as readonly string[]).includes(first);
 }
 
 export function validateThumbnailPath(thumbnailPath: string) {
@@ -101,7 +132,7 @@ export function thumbnailStorageKey(bucket: string, resourceId: string, fileName
 }
 
 export function thumbnailAbsolutePath(storageKey: string) {
-  const root = getConfiguredThumbnailPath();
+  const root = isRenderBucketKey(storageKey) ? getRendersRoot() : getConfiguredThumbnailPath();
   const absolutePath = path.resolve(root, storageKey);
   if (!pathIsInside(absolutePath, root)) {
     throw new Error("Invalid thumbnail storage key.");

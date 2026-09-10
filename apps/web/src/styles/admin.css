@@ -2345,3 +2345,53 @@
 .gallery-settings-inboxes li a {
   margin-left: auto;
 }
+
+/* App storage (docs/app-storage-plan.md): the folder on top, its rooms as rows. */
+.app-storage-panel { grid-template-columns: 1fr; }
+.app-storage-panel .library-settings-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.app-storage-buttons { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.app-storage-locked { margin: 0; font-size: 0.85rem; }
+.app-storage-rooms { margin-top: 4px; }
+.app-storage-hint { font-size: 0.8rem; max-width: 34ch; }
+.app-storage-path {
+  display: block;
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
+}
+.app-storage-from { font-size: 0.8rem; }
+.app-storage-move {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: 0.82rem;
+}
+.app-storage-move.needs-attention { color: var(--warning, #b88746); }
+.app-storage-actions { white-space: nowrap; }
+.app-storage-actions .text-button { margin-right: 8px; }
+.app-storage-options { display: grid; gap: 8px; margin: 12px 0 4px; }
+.app-storage-option {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.app-storage-option.is-disabled { opacity: 0.55; cursor: default; }
+.app-storage-option input { margin-top: 3px; }
+.app-storage-option span { display: grid; gap: 2px; min-width: 0; }
+.app-storage-option small { font-size: 0.8rem; overflow-wrap: anywhere; }
+.app-storage-rooms td { white-space: normal; vertical-align: top; }
+.app-storage-rooms td:first-child { width: 36%; }
+/* .datagrid-muted is nowrap by design (short cell notes); the room rows carry sentences. */
+.app-storage-rooms .datagrid-muted { white-space: normal; }

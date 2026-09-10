@@ -926,6 +926,9 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
             <div className="trash-location-row">
               <span>{t("controlAdmin:recycleBin.locationGoesTo")}</span>
               <code>{trashRoot.path || t("controlAdmin:recycleBin.defaultTrash")}</code>
+              {trashRoot.move?.running && (
+                <span className="datagrid-muted">{t("controlAdmin:recycleBin.moving", { moved: trashRoot.move.moved, total: trashRoot.move.moved + trashRoot.move.pending })}</span>
+              )}
               <Button
                 variant="secondary"
                 compact
