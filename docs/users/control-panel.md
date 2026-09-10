@@ -524,9 +524,10 @@ entry, thumbnail and all — and **Purge eligible now** does it immediately.
   and lists the Inboxes you already have. See [The Photo Inbox](photo-inbox.md).
 
   ![Settings → Gallery: the Made in the app library, and the Photo Inbox set up in one step](images/98-gallery-settings.png)
-- **Stories** — whether members may start a recipe from a link, and the one-time
-  button that moves narration recorded before recordings lived in the gallery
-  into the Made in the app library.
+- **Stories** — whether members may start a recipe from a link, and which library
+  narration goes to. Narration recorded before recordings lived in the gallery
+  moves into the Made in the app library by itself once one is set; the page says
+  how many recordings are still waiting.
 - **Maps** — whether a route in a [story](stories.md) follows real roads. Paste a
   free **OpenRouteService** key — the routing service at
   [openrouteservice.org](https://openrouteservice.org), run by a research

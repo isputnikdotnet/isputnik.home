@@ -33,20 +33,30 @@ Once you submit, you're signed in and land on the Home page.
 ## The setup guide
 
 The first time an administrator signs in, the app opens a short guide at **/welcome** —
-five steps, in the order they depend on each other:
+seven steps, in the order they depend on each other:
 
-1. **Storage** — somewhere for the thumbnails the app generates, and at least one folder
-   your libraries are allowed to read. Nothing else works until these exist. The
-   Storage page can also take one **App storage** folder for everything the app keeps
-   for itself, including the thumbnails; see [Storage](storage.md).
+1. **Storage** — at least one folder your libraries are allowed to read, then one
+   **App storage** folder inside it for everything the app keeps for itself: the
+   thumbnails it generates, the Recycle Bin, and the two libraries the next steps can
+   make. Choosing it is confirmed with the exact path first. Under it, *Or choose the
+   thumbnail folder on your own* is for thumbnails on a different disk from the rest.
+   Nothing else works until a container and somewhere for thumbnails exist. See
+   [Storage](storage.md).
 2. **Recycle Bin** — one folder for deleted files, instead of a hidden `.trash` inside
-   every library. Locked until storage is done: the bin has to live inside a container
+   every library. On a fresh install with App storage chosen it is already inside it;
+   otherwise **Use App storage** puts it there in one click, or **Browse** picks a folder
+   of your own. Locked until storage is done: the bin has to live inside a container
    you have approved.
-3. **Email** — the SMTP details, and a test message to your own address.
-4. **Security alerts** — write to me when an account signs in from a network I haven't
+3. **Made in the app** — the library for what the family makes in the app (narration,
+   family-tree uploads, movies, voice notes) and the Photo Inbox that scans wait in. Each
+   is made inside App storage in one confirmed click, and neither is required. Locked
+   until App storage is chosen.
+4. **Backups** — a nightly archive of the catalogue and settings, and how many to keep.
+5. **Email** — the SMTP details, and a test message to your own address.
+6. **Security alerts** — write to me when an account signs in from a network I haven't
    seen before. Locked until email is set up, because an alert nobody receives reads
    exactly like nothing having happened.
-5. **Appearance** — the theme the sign-in screen uses and new members start with.
+7. **Appearance** — the theme the sign-in screen uses and new members start with.
 
 Every step saves through the same place its Control panel page does, so none of it is
 your only chance to answer. **Skip for now** is a real answer — it closes the guide for
