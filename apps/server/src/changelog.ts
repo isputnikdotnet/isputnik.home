@@ -19,6 +19,13 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.80.1",
+    label: "A picture of the library picker",
+    changes: [
+      "The Storage guide under Help shows the chooser with **A library of my own** picked and the list of gallery libraries under it. The Email settings picture is refreshed so its tab row no longer shows the retired Gallery tab."
+    ]
+  },
+  {
     version: "3.80.0",
     label: "One place for the app's storage",
     changes: [

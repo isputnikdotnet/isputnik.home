@@ -597,6 +597,21 @@ const SHOTS = [
       button(modal, "Continue").click(); await sleep(500);
       "confirmation open";`
   },
+  {
+    // A library room's "A library of my own": the chooser with the library list.
+    name: "105-storage-own-library",
+    url: "control/libraries/storage",
+    state: "at least two gallery libraries",
+    setup: `
+      const row = [...document.querySelectorAll(".app-storage-rooms tr")].find((tr) => tr.textContent.includes("Made in the app"));
+      const change = row && button(row, "Change");
+      if (!change) return "no Made in the app row";
+      change.click(); await sleep(500);
+      const own = [...topModal().querySelectorAll('input[type="radio"]')].find((r) => r.value === "own");
+      if (!own) return "no own option";
+      own.click(); await sleep(400);
+      "library picker";`
+  },
   // The setup guide's storage and Made in the app steps (docs/users/first-run.md).
   { name: "103-welcome-storage", url: "welcome", height: 1000 },
   {

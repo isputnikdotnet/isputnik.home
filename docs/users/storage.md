@@ -87,6 +87,11 @@ the verb.
 
 ![The confirmation for the Recycle Bin: the exact folder, what moves, and Move bin](images/102-storage-room-confirm.png)
 
+For the two library rooms, **A library of my own** lists your gallery libraries:
+pick one to hold what the family makes in the app, or to become the Photo Inbox.
+
+![The Made in the app chooser with A library of my own picked and the library list under it](images/105-storage-own-library.png)
+
 Three rooms are worth a word each:
 
 - **Recycle Bin.** Changing its location moves whatever is in the bin to the new
