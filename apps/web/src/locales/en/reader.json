@@ -33,7 +33,6 @@
     "seek": "Seek",
     "prevChapter": "Previous chapter",
     "nextChapter": "Next chapter",
-    "goToChapter": "Go to {{title}}",
     "skipBack30": "Skip back 30 seconds",
     "skipForward30": "Skip forward 30 seconds",
     "play": "Play",

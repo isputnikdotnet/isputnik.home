@@ -329,69 +329,6 @@
   padding: 4px 2px 0;
 }
 
-/* Chapter marks: the book's shape on the bar. A thin tick at each chapter
-   start, on both the file bar and the whole-book bar; each is a button that
-   jumps there, and the current chapter's tick is the strong one. The layer
-   itself lets pointer events through, so dragging the slider still works. */
-.player-seek-track {
-  position: relative;
-  display: flex;
-  align-items: center;
-  min-width: 0;
-}
-
-.player-chapter-marks {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-.player-chapter-mark {
-  position: absolute;
-  top: 50%;
-  width: 10px;
-  height: 20px;
-  padding: 0;
-  border: 0;
-  background: none;
-  transform: translate(-50%, -50%);
-  pointer-events: auto;
-  cursor: pointer;
-}
-
-.player-chapter-mark::before {
-  content: "";
-  display: block;
-  width: 2px;
-  height: 12px;
-  margin: 0 auto;
-  border-radius: 1px;
-  background: color-mix(in srgb, var(--ink) 55%, transparent);
-}
-
-.player-chapter-mark:hover::before,
-.player-chapter-mark:focus-visible::before {
-  height: 16px;
-  background: var(--ink);
-}
-
-.player-chapter-mark:focus-visible { outline: none; }
-
-.player-chapter-mark.is-current::before {
-  background: var(--gold);
-}
-
-.player-book-bar .player-chapter-mark::before { height: 20px; background: color-mix(in srgb, var(--ink) 45%, var(--surface)); }
-.player-book-bar .player-chapter-mark:hover::before,
-.player-book-bar .player-chapter-mark:focus-visible::before { height: 20px; background: var(--ink); }
-.player-book-bar .player-chapter-mark.is-current::before { background: var(--gold); }
-
-/* In the popup player the book bar sits under the file's own bar. */
-.player-book-bar.player-book-bar--popup {
-  margin-top: 8px;
-  height: 6px;
-}
-
 .player-book-progress > span {
   color: var(--muted);
   font-size: 0.75rem;
