@@ -126,7 +126,7 @@ export function anyStorageMoveActive(): boolean {
 function pendingUnits(data: StorageMovePayload): number {
   switch (data.kind) {
     case "trash":
-      return pendingTrashMoveRows().length;
+      return pendingTrashMoveRows().length + replacedUnits(data.from, getTrashRootSetting()).length;
     case "thumbnails":
     case "renders":
     case "library":
@@ -285,6 +285,59 @@ export function carryEntry(from: string, to: string, name: string): void {
   fs.rmSync(source, { recursive: true, force: true });
 }
 
+/** The originals Replace file set aside, `replaced/<library>/<item>/…`, live
+ *  beside the bin — under the install-wide root, or under each library's own
+ *  .trash — and have no rows. One unit is one `<library>/<item>` folder, listed
+ *  from where the bin was (`from`, null for per-library) and bound for where it
+ *  is now (`to`, null likewise). A library that no longer exists keeps its folder
+ *  where it is when the destination would be its own .trash. */
+interface ReplacedUnit { name: string; sourceParent: string; targetParent: string }
+
+const LIBRARY_TRASH_DIR = ".trash";
+
+function replacedUnits(from: string | null, to: string | null): ReplacedUnit[] {
+  const libraries = db.prepare("SELECT id, source_path FROM libraries").all() as { id: string; source_path: string }[];
+  const sourceOf = new Map(libraries.map((row) => [row.id, row.source_path]));
+  const roots: string[] = from
+    ? [path.join(from, "replaced")]
+    : libraries.map((row) => path.join(row.source_path, LIBRARY_TRASH_DIR, "replaced"));
+  const units: ReplacedUnit[] = [];
+  for (const root of roots) {
+    let libraryIds: string[];
+    try { libraryIds = fs.readdirSync(root); } catch { continue; }
+    for (const libraryId of libraryIds) {
+      const sourceParent = path.join(root, libraryId);
+      let items: string[];
+      try { items = fs.readdirSync(sourceParent); } catch { continue; }
+      const targetBase = to ? path.join(to, "replaced") : (sourceOf.has(libraryId) ? path.join(sourceOf.get(libraryId)!, LIBRARY_TRASH_DIR, "replaced") : null);
+      if (!targetBase) continue;
+      const targetParent = path.join(targetBase, libraryId);
+      if (samePath(sourceParent, targetParent)) continue;
+      for (const item of items) units.push({ name: `${libraryId}/${item}`, sourceParent, targetParent });
+    }
+  }
+  return units;
+}
+
+/** Remove `dir` and its parents up to (and including) `stopAt` while they are
+ *  empty — the `replaced/<library>` chain, then the old bin root itself. */
+function pruneEmptyUpTo(dir: string, stopAt: string): void {
+  let current = path.resolve(dir);
+  const stop = path.resolve(stopAt);
+  for (;;) {
+    try {
+      if (fs.readdirSync(current).length > 0) return;
+      fs.rmdirSync(current);
+    } catch {
+      return;
+    }
+    if (current === stop) return;
+    const parent = path.dirname(current);
+    if (parent === current) return;
+    current = parent;
+  }
+}
+
 // ── Running one job ─────────────────────────────────────────────────────────
 
 function jobStillRunning(jobId: string): boolean {
@@ -329,6 +382,31 @@ async function runMove(jobId: string, data: StorageMovePayload): Promise<Storage
       }
       progress(moved + failed.length, moved + failed.length + pendingTrashMoveRows().filter((row) => !failedIds.has(row.id)).length);
       await yieldTurn();
+    }
+    // Then the originals Replace file set aside, which have no rows: each
+    // `<library>/<item>` folder is carried whole, and the emptied chain up to
+    // the old root goes with it. A folder that fails stays, listed by name.
+    if (!cancelled) {
+      const target = getTrashRootSetting();
+      const failedNames = new Set<string>();
+      for (;;) {
+        if (!jobStillRunning(jobId)) { cancelled = true; break; }
+        const next = replacedUnits(data.from, target).find((unit) => !failedNames.has(unit.name));
+        if (!next) break;
+        try {
+          carryEntry(next.sourceParent, next.targetParent, path.basename(next.name));
+          // The emptied `replaced/<library>` and `replaced` go. The old root
+          // itself is left standing; a library's own emptied .trash goes, as it
+          // does when the last row leaves it.
+          pruneEmptyUpTo(next.sourceParent, data.from ? path.join(data.from, "replaced") : path.dirname(path.dirname(next.sourceParent)));
+          moved += 1;
+        } catch (err) {
+          failedNames.add(next.name);
+          failed.push({ name: `replaced/${next.name}`, error: err instanceof Error ? err.message : String(err) });
+        }
+        progress(moved + failed.length, moved + failed.length + replacedUnits(data.from, target).filter((unit) => !failedNames.has(unit.name)).length);
+        await yieldTurn();
+      }
     }
     return { moved, failed, cancelled, durationMs: Date.now() - started };
   }

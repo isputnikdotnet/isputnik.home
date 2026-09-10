@@ -106,7 +106,9 @@ Three rooms are worth a word each:
   place, one item at a time, in the background. The row shows the progress
   ("Moving the bin: 14 of 230") and offers to cancel; the Recycle Bin page shows
   the same line. Restoring and emptying keep working meanwhile, because every
-  item remembers where its own files are. Keep the bin on the same disk as your
+  item remembers where its own files are. The originals that **Replace file**
+  set aside, in the `replaced` folder beside the bin, come along too, so the
+  old folder is left empty. Keep the bin on the same disk as your
   libraries if you can: deleting into a bin on the same disk is an instant
   rename, onto another disk it copies every byte.
 - **Thumbnails.** Changing their folder carries everything already there across

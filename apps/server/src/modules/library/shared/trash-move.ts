@@ -102,10 +102,13 @@ export function moveTrashedItemTo(item: TrashedItem, target: string | null): voi
 }
 
 /** Queue carrying the bin's contents to the current location. A no-op while a
- *  move is already queued or running, or when nothing needs moving. Returns the
+ *  move is already queued or running, or when nothing needs moving. `from` is
+ *  the location the bin had until now (null for each library's own .trash): the
+ *  rows say where their own files are, but the originals Replace file set aside
+ *  under `replaced/` have no rows, and are carried from there. Returns the
  *  status as it stands when the call returns (the move runs as a task). */
-export function startTrashMove(userId: string | null = null): TrashMoveStatus {
-  enqueueStorageMove({ kind: "trash", room: "trash", label: "Recycle Bin", from: null, to: getTrashRootSetting(), actorUserId: userId });
+export function startTrashMove(userId: string | null = null, from: string | null = null): TrashMoveStatus {
+  enqueueStorageMove({ kind: "trash", room: "trash", label: "Recycle Bin", from, to: getTrashRootSetting(), actorUserId: userId });
   return trashMoveStatus();
 }
 

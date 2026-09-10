@@ -217,6 +217,11 @@ that fills the others in.
     /api/storage/app-storage/rooms/:room/move`). Backups do not move on a
     room switch (the owner's call); on a folder change they are still the one
     thing carried in the request, a few files.
+    The bin's task also carries the originals Replace file set aside under
+    `<bin>/replaced/<library>/<item>` (found on an Unraid install left behind
+    after a move, 2026-09-10): they have no rows, so the task takes the bin's
+    previous root as `from` and carries each item folder after the rows,
+    pruning the emptied chain.
 10. **The Recycle Bin moves with its location.** Today the bin location can
     only change while the bin is empty. That rule goes: changing it (to App
     storage, to a folder of its own, or back to per-library `.trash`) starts
