@@ -728,6 +728,7 @@
   "inbox": {
     "title": "Photo Inbox",
     "libraryLabel": "{{name}} (Photo Inbox)",
+    "appStorageLabel": "{{name}} (App storage)",
     "subtitle_one": "{{count}} photo waiting in {{name}}",
     "subtitle_other": "{{count}} photos waiting in {{name}}",
     "pickerLabel": "Which Inbox",

@@ -14,6 +14,7 @@ import {
 } from "../src/modules/library/app-storage.js";
 import { copyTreeVerified, storageMoveStatus, waitForStorageMoves, STORAGE_MOVE_JOB_TYPE } from "../src/modules/library/shared/storage-move.js";
 import { getHouseLibrary, setHouseLibrary } from "../src/modules/library/gallery/house-library.js";
+import { resolveGalleryScopeLibraryIds } from "../src/modules/library/gallery/catalog.js";
 import {
   configuredThumbnailPathValue,
   getRendersRoot,
@@ -24,7 +25,8 @@ import { getTrashRootSetting, trashBook } from "../src/modules/library/shared/tr
 import { pendingTrashMoveRows, startTrashMove, waitForTrashMove } from "../src/modules/library/shared/trash-move.js";
 import { folderMoveStatus, waitForFolderMove } from "../src/modules/library/shared/folder-move.js";
 import { backupDir } from "../src/modules/backups/index.js";
-import { resetDb, makeUser, makeLibrary } from "./helpers/seed.js";
+import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
+import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
 
 // App storage (docs/app-storage-plan.md, phase 1): one folder with fixed rooms,
 // every room optional, each switched from its own row, nothing moved without
@@ -337,6 +339,31 @@ describe("switching rooms", () => {
     } finally {
       rename.mockRestore();
     }
+  });
+
+  it("a library inside App storage is left out of the gallery's implicit scope, like an Inbox, and honoured when named", async () => {
+    const admin = { id: "u1", role: "admin" };
+    // An ordinary gallery library of the admin's own, outside App storage.
+    const ownDir = path.join(base, "Family");
+    fs.mkdirSync(ownDir);
+    makeLibrary("FAM", { createdBy: "u1", type: "gallery" });
+    db.prepare("UPDATE libraries SET source_path = ? WHERE id = 'FAM'").run(ownDir);
+    grant("group", EVERYONE_GROUP_ID, "FAM", "member");
+    expect(setHouseLibrary("FAM", "u1").ok).toBe(true);
+    expect(resolveGalleryScopeLibraryIds(admin)).toEqual(["FAM"]);
+    // An Inbox made in its room: flagged AND inside App storage, left out either way.
+    switchRoom("inbox", "app", null, "u1");
+    await settleScans();
+    const inbox = appStorageView().rooms.find((room) => room.room === "inbox")!.library!.id;
+    expect(resolveGalleryScopeLibraryIds(admin)).toEqual(["FAM"]);
+    expect(resolveGalleryScopeLibraryIds(admin, [inbox])).toEqual([inbox]);
+    // The own library moved into App storage leaves the implicit scope too, and
+    // is still there when named.
+    switchRoom("house", "app", null, "u1");
+    await waitForStorageMoves();
+    expect(getHouseLibrary()!.source_path).toBe(path.join(appDir, "Made in the app"));
+    expect(resolveGalleryScopeLibraryIds(admin)).toEqual([]);
+    expect(resolveGalleryScopeLibraryIds(admin, ["FAM"])).toEqual(["FAM"]);
   });
 
   it("makes and nominates the Made in the app library, and off only clears the nomination", () => {

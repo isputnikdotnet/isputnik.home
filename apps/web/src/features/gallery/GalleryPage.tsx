@@ -157,11 +157,16 @@ export function GalleryPage({
   const SORT_OPTIONS = getSortOptions();
   const MEMORIES_TITLES = getMemoriesTitles();
   const [libraries, setLibraries] = useState<GalleryLibrary[]>([]);
-  // The libraries facet names a Photo Inbox as one, so choosing it is a deliberate
-  // act: an Inbox is left out of every scope that isn't explicit (the server's
-  // scope resolver), and this is the one place it can be asked for.
+  // The libraries facet names a Photo Inbox as one, and a library inside App
+  // storage as that, so choosing either is a deliberate act: both are left out of
+  // every scope that isn't explicit (the server's scope resolver), and this is
+  // the one place they can be asked for.
   const filterLibraries = useMemo(() => libraries.map((library) => (
-    library.inbox ? { ...library, name: t("gallery:inbox.libraryLabel", { name: library.name }) } : library
+    library.inbox
+      ? { ...library, name: t("gallery:inbox.libraryLabel", { name: library.name }) }
+      : library.appStorage
+        ? { ...library, name: t("gallery:inbox.appStorageLabel", { name: library.name }) }
+        : library
   )), [libraries, t]);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");

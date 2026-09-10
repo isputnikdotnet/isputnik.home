@@ -804,6 +804,7 @@
   "inbox": {
     "title": "Входящие фото",
     "libraryLabel": "{{name}} (Входящие фото)",
+    "appStorageLabel": "{{name}} (хранилище приложения)",
     "subtitle_one": "{{count}} фото ждёт в {{name}}",
     "subtitle_few": "{{count}} фото ждут в {{name}}",
     "subtitle_many": "{{count}} фото ждут в {{name}}",

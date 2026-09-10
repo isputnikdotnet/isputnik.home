@@ -62,6 +62,14 @@ start.
 
 ### The rooms
 
+Nothing inside App storage shows up in the gallery on its own. The two rooms
+that are gallery libraries, the Photo Inbox and Made in the app, are left out
+of the Timeline, Memories, the Home page, People, the map and every picker,
+the way an Inbox always was; what they hold is reached from the stories,
+photos and family tree that made it, or by choosing the library by name in
+the gallery's library filter, where it is labelled. The other rooms are not
+libraries and are never scanned.
+
 | Room | Use App storage | Its own place | Off |
 |---|---|---|---|
 | **Recycle Bin** | `Recycle Bin\` | one folder you name | a hidden `.trash` inside each library |

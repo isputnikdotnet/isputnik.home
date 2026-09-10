@@ -148,6 +148,18 @@ If the library allows uploads, the upload button takes files straight in. They
 land in dated subfolders (`2024/2024-06-15`) based on when each was taken, so
 uploads blend into a folder structure rather than piling up at the top.
 
+## What the app keeps for itself
+
+Story recordings, voice notes, family-tree uploads, rendered slideshow movies
+and uploaded music all land in the **Made in the app** library ([Storage](storage.md)).
+When that library sits inside App storage it stays out of the Timeline,
+Memories, the Home page, People, the map and every picker, the same way a
+Photo Inbox does: those files belong to the story, the photo or the tree that
+made them, and that is where you meet them. To browse the library itself,
+choose it by name in the library filter, where it is labelled *(App storage)*.
+A library of your own that you nominate instead, outside App storage, shows in
+the gallery as it always did.
+
 ## Photo Inbox
 
 The whole process, from the scanner box to a tidy library, has

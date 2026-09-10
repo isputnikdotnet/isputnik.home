@@ -3,6 +3,7 @@
 import type { LibraryType } from "./library-types.js";
 import type { LibraryCapabilities } from "./library-access.js";
 import { getEveryoneRole, parsePolicy } from "../../../core/permissions.js";
+import { isInsideAppStorage } from "../../../core/app-storage.js";
 import { serializeLibrarySettingsForAdmin } from "./library-crud.js";
 import { normalizeLibrarySettings, uploadAcceptExtensions } from "./library-settings.js";
 
@@ -61,6 +62,9 @@ export function publicLibrary(row: LibraryListRow, includeSourcePath: boolean, c
     // Photo Inbox (gallery): exposed to everyone, not only admins — the gallery
     // labels the library and routes its review page on it.
     inbox: policy.inbox === true,
+    // Inside App storage (gallery): left out of the gallery's implicit scope like
+    // an Inbox, and labelled in the library filter.
+    appStorage: row.type === "gallery" && isInsideAppStorage(row.source_path),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     bookCount: row.book_count,

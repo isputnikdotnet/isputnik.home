@@ -19,6 +19,8 @@ export function parseLibraryIds(raw: string | undefined): string[] {
   return (raw ?? "").split(",").map((id) => id.trim()).filter(Boolean).slice(0, 200);
 }
 
+import { galleryLibrariesLeftOutOfScope } from "./inbox-flag.js";
+
 // Which gallery libraries a query runs over: every one the user can reach, or —
 // when `libraryIds` narrows it — the intersection with that set. Narrows only,
 // never widens: an id the caller can't reach (or that isn't a gallery library at
@@ -26,12 +28,14 @@ export function parseLibraryIds(raw: string | undefined): string[] {
 export function resolveGalleryScopeLibraryIds(user: { id: string; role: string }, libraryIds?: string[]): string[] {
   const rows = db.prepare("SELECT id, policy_json FROM libraries WHERE type = 'gallery'").all() as { id: string; policy_json: string }[];
   const accessible = rows.filter((row) => canUserAccessLibrary(row, user.id, user.role));
-  // A Photo Inbox holds photos nobody has kept yet, so it is left out of every
+  // A Photo Inbox holds photos nobody has kept yet, and a library inside App
+  // storage holds what the app keeps for itself, so both are left out of every
   // "everything I can see" scope — the timeline, memories, the Home feed, the
-  // People list, the pickers. Naming it explicitly is how it is browsed, and how
-  // its review page reads it. See docs/photo-inbox-proposal.md.
+  // People list, the pickers. Naming one explicitly is how it is browsed, and
+  // how the Inbox's review page reads it. See docs/photo-inbox-proposal.md.
   if (!libraryIds || libraryIds.length === 0) {
-    return accessible.filter((row) => parsePolicy(row.policy_json).inbox !== true).map((row) => row.id);
+    const leftOut = galleryLibrariesLeftOutOfScope();
+    return accessible.filter((row) => !leftOut.has(row.id)).map((row) => row.id);
   }
   const requested = new Set(libraryIds);
   return accessible.filter((row) => requested.has(row.id)).map((row) => row.id);
