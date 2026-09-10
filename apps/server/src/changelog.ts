@@ -19,6 +19,13 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.83.2",
+    label: "The book remembers where you left",
+    changes: [
+      "An audiobook left while it was playing forgot where you stopped: the position saved on leaving the page went out without the header the server checks on every change, so it was refused, and the book resumed from the last save made ten seconds earlier or at the last pause. That save now goes the same way as every other one and is sent before the page is torn down, so closing the tab, opening another book or going anywhere else in the app keeps the exact spot."
+    ]
+  },
+  {
     version: "3.83.1",
     label: "Pictures of the Storage page",
     changes: [
