@@ -8,8 +8,7 @@ import {
   ShieldCheck,
   UsersRound,
   Wrench,
-  type LucideIcon
-} from "lucide-react";
+  type LucideIcon, HardDrive } from "lucide-react";
 import { controlHref, type ControlSection } from "../../router";
 // Plain module-level data + lookup functions, not components — they call i18n.t()
 // directly rather than the useTranslation() hook (see docs/i18n-plan.md's
@@ -39,7 +38,7 @@ export type GroupKey = "overview" | "library" | "members" | "security" | "mainte
 
 /** The branch a group's tabs can hang off in the left nav — a stable id, not the
  *  displayed word, so a language switch never breaks the active-branch match. */
-export type ContextKey = "gallery" | "widgets";
+export type ContextKey = "gallery" | "widgets" | "storage";
 
 export interface ControlTabDef {
   section: ControlSection;
@@ -73,7 +72,10 @@ export const CONTROL_GROUPS: ControlGroupDef[] = [
     icon: LibraryBig,
     tabs: [
       { section: "libraries" },
-      { section: "storage" },
+      // Storage and what it holds are one branch: where each room is, and what
+      // is in it (the Contents page), as peers under Library → Storage.
+      { section: "storage", context: "storage" },
+      { section: "storageContents", context: "storage" },
       { section: "categories" },
       { section: "tags" }
     ]
@@ -219,7 +221,7 @@ export interface ControlNavChild {
 }
 
 /** Icons for the branches. A context without one falls back to its group's. */
-const CONTEXT_ICONS: Record<ContextKey, LucideIcon> = { gallery: Image, widgets: LayoutDashboard };
+const CONTEXT_ICONS: Record<ContextKey, LucideIcon> = { gallery: Image, widgets: LayoutDashboard, storage: HardDrive };
 
 export function navChildrenFor(group: ControlGroupDef): ControlNavChild[] {
   const seen = new Map<ContextKey, ControlSection>();

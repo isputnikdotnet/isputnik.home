@@ -23,6 +23,7 @@ import { InvitesSection } from "./sections/InvitesSection";
 import { LogsSection } from "./sections/LogsSection";
 import { AboutSection } from "./sections/AboutSection";
 import { StorageSection } from "./sections/StorageSection";
+import { StorageContentsSection } from "./sections/StorageContentsSection";
 import { LibrariesSection } from "./sections/LibrariesSection";
 import { DashboardSection } from "./sections/DashboardSection";
 import { BackupSection } from "./sections/BackupSection";
@@ -105,6 +106,7 @@ function ControlSectionBody({
 
     case "libraries":       return <LibrariesSection />;
     case "storage":         return <StorageSection />;
+    case "storageContents": return <StorageContentsSection />;
     case "categories":      return categoryId !== undefined ? <CategoryEditorPage categoryId={categoryId} /> : <CategoriesSection />;
     case "tags":            return <TagsSection />;
 
