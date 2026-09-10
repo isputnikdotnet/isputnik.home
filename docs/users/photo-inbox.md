@@ -221,7 +221,7 @@ button, and leaving the page saves the photo she was on. At the end she gets
 "You went through all of them", and the card leaves her Home page.
 
 **What you see afterwards.** Each delivery chip on the Inbox page reads
-"12/38", the photo's Info panel says *Noted by Mama, Tuesday* under the
+"12/38", the photo's Details tab says *Noted by Mama, Tuesday* under the
 description, and the date reads "around 1962" rather than a day, because a
 year is what she knew. Keep files a year-only photo under `1962/` in the dated
 layout and a month-only one under `1962/1962-07`, never under a day nobody
@@ -255,14 +255,14 @@ by sentence, and nothing else is kept. For the story that does not fit in a
 box, **Record a voice note** keeps her voice on the photo itself: press once
 to start, once to stop, and the recording sits under the notes with a play
 button, up to five minutes each. Anyone who can see the photo can play it; the
-lightbox shows the same notes under **Voice notes**. Recordings are ordinary
+lightbox shows the same recordings under **Recordings** on its Details tab. Recordings are ordinary
 audio files in the "Made in the app" library, under `Voice notes`, so they
 are backed up like everything else, and removing one sends it to the Recycle
 Bin. Recording needs the app to be opened over https, or on the server
 itself, since browsers allow the microphone only there.
 
 **Dates that are only roughly known** are not an Inbox-only idea. The **Date**
-dialog on any selection, and the pencil on a photo's date in the Info panel,
+dialog on any selection, and **Edit** beside a photo's date in the lightbox,
 now ask *how exact* — exact time, day, month, year or decade — and whether it
 is *about*. A photo dated to the year heads its own group on the Timeline
 rather than pretending to be from New Year's Day.

@@ -79,7 +79,8 @@ describe("GalleryLightbox change signal", () => {
     const onChanged = vi.fn();
     render(<GalleryLightbox {...props({ onChanged })} />);
 
-    await userEvent.click(screen.getByRole("button", { name: "Delete" }));
+    await userEvent.click(screen.getByRole("button", { name: "More actions" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
     await userEvent.click(screen.getByRole("button", { name: "Move to Recycle Bin" }));
 
     await waitFor(() => expect(onChanged).toHaveBeenCalledWith({ kind: "deleted", id: "p1" }));
@@ -89,7 +90,8 @@ describe("GalleryLightbox change signal", () => {
     const onChanged = vi.fn();
     render(<GalleryLightbox {...props({ onChanged })} />);
 
-    await userEvent.click(screen.getByRole("button", { name: "Rotate right" }));
+    await userEvent.click(screen.getByRole("button", { name: "More actions" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Rotate right" }));
 
     await waitFor(() => expect(onChanged).toHaveBeenCalledWith({ kind: "asset", id: "p1" }));
   });

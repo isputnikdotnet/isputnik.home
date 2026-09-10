@@ -47,11 +47,15 @@ export function NotesSection({
   entityType,
   entityId,
   /** Tighter spacing for the gallery lightbox's info panel. */
-  compact = false
+  compact = false,
+  /** What the empty box says. The default is generic; a photo's panel says
+      "about this photo" so the box reads as conversation, not a second description. */
+  placeholder
 }: {
   entityType: string;
   entityId: string;
   compact?: boolean;
+  placeholder?: string;
 }) {
   const { t } = useTranslation(["common", "user"]);
   const [notes, setNotes] = useState<Note[] | null>(null);
@@ -173,7 +177,7 @@ export function NotesSection({
           value={draft}
           maxLength={MAX}
           rows={compact ? 2 : 3}
-          placeholder={t("user:notes.placeholder")}
+          placeholder={placeholder ?? t("user:notes.placeholder")}
           disabled={busy}
           onChange={(event) => setDraft(event.target.value)}
         />

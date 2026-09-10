@@ -198,12 +198,13 @@ item-keyed systems:
 | PATCH | `/api/library/gallery/assets/:id` | Edit title/caption, description, date taken, tags (write access) |
 | GET | `/api/library/gallery/assets/:id/file` | Original photo/video (range) |
 
-**Editing.** The lightbox offers a metadata edit (write access required) for
-title/caption, description, **date taken** (drives the Timeline), and tags. Edits
+**Editing.** The lightbox's side panel (`GalleryLightboxPanel.tsx`, three tabs —
+see `lightbox-panel.md`) edits description, **date taken** (drives the Timeline),
+place, tags, people and the pin (write access required). Edits
 set `item_metadata.source = 'manual'` and `gallery_details.taken_at_source =
 'manual'`, so a later rescan refreshes the thumbnail/technical fields but never
-clobbers the hand-edited values. Technical fields (dimensions, size, camera) and
-GPS stay read-only.
+clobbers the hand-edited values. The name and the technical fields (dimensions,
+size, camera) stay read-only, on the File tab.
 
 ## Uploads
 
@@ -223,7 +224,7 @@ the library root; on-disk subfolder organization is a future nicety.
 ~140 KB of Leaflet only ships when a user opens the Map tab — it stays off the
 initial bundle that Timeline/Folder browsing uses. Base tiles come from
 OpenStreetMap; markers are divIcon thumbnail pins, and clicking one fetches the full
-asset (`getGalleryAsset`) to open the lightbox. The lightbox **Info panel** also
+asset (`getGalleryAsset`) to open the lightbox. The lightbox panel's **Map** tab
 embeds a small one-marker location map (`GalleryMiniMap.tsx`, likewise lazy-loaded
 and sharing the Leaflet chunk) for any geotagged asset, above the plain-coordinate
 OpenStreetMap link.
