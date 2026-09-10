@@ -19,6 +19,16 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.82.0",
+    label: "One recorder, one player",
+    changes: [
+      "Adding narration to a story now opens the same recording dialog a photo's recordings use: one big button starts and stops, the waveform shows the microphone is hearing you, and the take plays back before it is saved, with Record again and Discard beside Save. Upload a recording is still there for one you already have, and it plays back the same way before it is saved. Before, stopping a story recording saved it at once with no way to hear it first. Narration may run to fifteen minutes; a photo's recording to five.",
+      "Narration in a story plays in the same card as a photo's recordings: the recording's waveform, read from the file itself, with the position moving across it, play or pause, and the time. A story with several narrations fetches nothing until one is pressed. The waveform strip paints its own dark ground, so it reads on a light page as well as in the viewer.",
+      "The audiobook player marks the chapters on its bars. A small tick at each chapter start sits on the file bar, and on the whole-book bar underneath it, so the book's shape is visible without opening the chapter list; the current chapter's tick is gold, hovering names the chapter, and pressing a tick goes there. Books with more than eighty chapters keep the list as the way in.",
+      "Where recordings are kept has not changed: story narration and photo recordings both land in the Made in the app library, each in its own folder."
+    ]
+  },
+  {
     version: "3.81.1",
     label: "Pictures of the viewer",
     changes: [

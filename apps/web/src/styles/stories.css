@@ -1912,52 +1912,12 @@
   min-width: 0;
 }
 
-.story-audio-body audio { width: 100%; }
 
 .story-audio-body figcaption {
   color: var(--muted);
   font-size: 0.88rem;
 }
 
-.story-audio-modal {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.story-audio-record {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.story-audio-timer {
-  font-variant-numeric: tabular-nums;
-  font-size: 1.1rem;
-}
-
-/* A recording light, so it is never in doubt that the microphone is live. */
-.story-audio-pulse {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: var(--danger);
-  animation: story-audio-pulse 1.4s ease-in-out infinite;
-}
-
-@keyframes story-audio-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.25; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .story-audio-pulse { animation: none; }
-}
-
-/* The file input itself is hidden behind its own label, which carries the
-   button look — the standard trick, since a file input can't be styled. */
-.story-audio-upload input { display: none; }
-.story-audio-upload .secondary-button { display: inline-flex; gap: 8px; cursor: pointer; }
 
 /* ── Site view ─────────────────────────────────────────────────────────── */
 /* Reading a story is chrome-free: no app nav, just the story's own bar,

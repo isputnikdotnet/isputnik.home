@@ -1,0 +1,196 @@
+/* The shared audio pieces (docs/lightbox-panel.md, phase 3): the player card
+   and the recording dialog. Both are used inside the gallery lightbox, whose
+   panel is dark whatever the theme is, and on themed pages (a story's
+   narration, Review mode). The --lb-* tokens exist only inside the lightbox
+   panel; everywhere else the fallbacks are the theme's own tokens. */
+
+.audio-play {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--lb-accent, var(--mint)) 18%, transparent);
+  color: var(--lb-accent, var(--mint));
+  cursor: pointer;
+}
+
+.audio-play:hover { background: color-mix(in srgb, var(--lb-accent, var(--mint)) 30%, transparent); }
+.audio-play:disabled { opacity: 0.45; cursor: default; }
+
+/* The player: the wave strip of what is playing, the seek control under it,
+   then play/pause, who or what it is, and the time. */
+.audio-player {
+  display: grid;
+  gap: 8px;
+  padding: 12px 12px 10px;
+  border: 1px solid var(--lb-line, var(--line));
+  border-radius: 10px;
+  background: var(--lb-raised, var(--surface-raised));
+}
+
+/* The strip always paints its own dark ground, whatever the page theme is:
+   its bars are light, and a wash over a white card left them unreadable. */
+.audio-wave {
+  width: 100%;
+  height: 56px;
+  border-radius: 10px;
+  background: #141618;
+  overflow: hidden;
+}
+
+.audio-player .audio-wave { cursor: pointer; }
+
+.audio-wave canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.audio-seek {
+  width: 100%;
+  height: 4px;
+  margin: 0;
+  accent-color: var(--lb-accent, var(--mint));
+}
+
+.audio-player-row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  column-gap: 12px;
+  align-items: center;
+}
+
+.audio-player-name {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+  font-size: 0.9rem;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.audio-player-name small {
+  color: var(--lb-dim, var(--muted));
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+
+.audio-player-times {
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.audio-player-times .muted { color: var(--lb-dim, var(--muted)); }
+
+.audio-player.is-large .audio-play { width: 48px; height: 48px; }
+.audio-player.is-large .audio-player-row { grid-template-columns: 48px minmax(0, 1fr) auto; }
+.audio-player.is-large .audio-player-name { font-size: 17px; }
+.audio-player.is-large .audio-player-times { font-size: 15px; }
+
+/* The recording dialog. */
+.confirm-modal.audio-record-modal { width: min(100%, 440px); }
+.confirm-modal.audio-record-modal.is-large { width: min(100%, 520px); }
+
+.audio-record-thumb {
+  width: 58px;
+  height: 58px;
+  border-radius: 14px;
+  object-fit: cover;
+  display: block;
+}
+
+.audio-record-body {
+  display: grid;
+  gap: 14px;
+  justify-items: center;
+  margin-top: 18px;
+}
+
+.audio-record-body > .audio-wave { height: 72px; }
+.audio-record-body > .audio-player { width: 100%; }
+
+.audio-record-time {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 1.5rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.audio-record-time small {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 400;
+}
+
+.audio-record-big {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  font-weight: 500;
+}
+
+.audio-record-button {
+  display: grid;
+  place-items: center;
+  width: 84px;
+  height: 84px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--danger);
+  color: #fff;
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--danger) 35%, transparent);
+  cursor: pointer;
+  transition: transform 0.12s;
+}
+
+.audio-record-button:hover { transform: scale(1.04); }
+
+.audio-record-button.is-recording {
+  background: color-mix(in srgb, var(--ink) 12%, var(--surface));
+  box-shadow: none;
+  animation: audio-record-pulse 1.4s ease-in-out infinite;
+}
+
+.audio-record-square {
+  width: 26px;
+  height: 26px;
+  border-radius: 5px;
+  background: var(--danger);
+}
+
+@keyframes audio-record-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--danger) 45%, transparent); }
+  50% { box-shadow: 0 0 0 14px transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .audio-record-button.is-recording { animation: none; }
+}
+
+.audio-record-hint {
+  margin: 0;
+  min-height: 1.4em;
+  color: var(--muted);
+  font-size: 0.88rem;
+  text-align: center;
+}
+
+/* The file input itself is hidden behind its own label, which carries the
+   button look — the standard trick, since a file input can't be styled. */
+.audio-record-upload input { display: none; }
+.audio-record-upload .secondary-button { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+
+.audio-record-actions { align-items: center; flex-wrap: wrap; }
+.audio-record-actions-gap { flex: 1; }
+
+.audio-record-modal.is-large .audio-record-button { width: 104px; height: 104px; }
+.audio-record-modal.is-large .audio-record-time { font-size: 1.85rem; }
+.audio-record-modal.is-large .audio-record-hint { font-size: 1rem; }

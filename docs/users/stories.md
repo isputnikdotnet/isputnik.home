@@ -215,9 +215,14 @@ A story that's just one plain page stays one plain page.
 
 ## Narration
 
-Some parts of a story should be heard. **Add → Narration** records right in
-the browser, or takes a recording you already have — the voicemail nobody
-could bring themselves to delete.
+Some parts of a story should be heard. **Add → Narration** opens the same
+recording dialog a photo's recordings use: one big button starts and stops,
+the waveform shows the microphone is hearing you, and the take plays back
+before you save it, with **Record again** and **Discard** beside **Save**.
+**Upload a recording** takes one you already have — the voicemail nobody could
+bring themselves to delete — and it plays back the same way before it is
+saved. Up to fifteen minutes each. In the story, narration plays in a card
+that draws the recording's wave and lets you jump around in it.
 
 Recordings are not stored inside the story: they land in the house's **"Made
 in the app" gallery library** — the one library an admin chooses once, on the

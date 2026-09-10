@@ -21,6 +21,8 @@ beforeEach(() => {
   Object.defineProperty(HTMLMediaElement.prototype, "load", { configurable: true, value: vi.fn() });
   Object.defineProperty(HTMLMediaElement.prototype, "play", { configurable: true, value: vi.fn().mockResolvedValue(undefined) });
   Object.defineProperty(HTMLMediaElement.prototype, "pause", { configurable: true, value: vi.fn() });
+  // The player's wave strip draws on a canvas; jsdom has none, and says so loudly without this.
+  Object.defineProperty(HTMLCanvasElement.prototype, "getContext", { configurable: true, value: () => null });
 });
 
 // Rows are the list; the player is one thing under them. Pressing a row loads

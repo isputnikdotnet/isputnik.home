@@ -56,6 +56,31 @@
       }
     }
   },
+  "audio": {
+    "record": "Record",
+    "stop": "Stop",
+    "save": "Save",
+    "saving": "Saving…",
+    "readyHint": "Press to start. The microphone is asked for then.",
+    "readyHintUpload": "Press to start, or upload a recording you already have.",
+    "recordingHint": "Recording…",
+    "doneHint": "Listen back, then save it.",
+    "noRecorder": "Recording needs a secure connection (https). You can still upload a file.",
+    "upTo": "up to {{time}}",
+    "upload": "Upload a recording",
+    "recordAgain": "Record again",
+    "discard": "Discard",
+    "againTitle": "Record again?",
+    "againBody": "The take you just made is thrown away and a new one starts.",
+    "discardTitle": "Discard this recording?",
+    "discardBody": "It has not been saved. Nothing else changes.",
+    "play": "Play",
+    "pause": "Pause",
+    "seekAria": "Seek",
+    "errorTitle": "Recording",
+    "microphone": "The microphone could not be used. Allow it in the browser and try again.",
+    "saveFailed": "Unable to save the recording"
+  },
   "nav": {
     "brandTagline": "Your stories — in orbit",
     "home": "Home",

@@ -78,7 +78,7 @@ mention still comes from the tags. Your manual edits stay protected either way.
 
 `.m4b` files carry real chapter marks, which the app reads and lists. For books
 made of many MP3s, each file becomes a chapter entry named after the track. The
-player's chapter list jumps between them.
+player's chapter list jumps between them, and each chapter is a small tick on the player's bars: hovering one names it, pressing it goes there.
 
 ## Playing
 

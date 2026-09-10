@@ -440,15 +440,8 @@
     "needsLibraryHint": "Choose a recordings library first — Control panel → Settings → Stories",
     "title": "Add narration",
     "intro": "Record someone telling this part of the story, or upload a recording you already have.",
-    "record": "Record",
-    "stop": "Stop",
-    "saving": "Saving…",
-    "upload": "Upload a recording",
     "defaultTitle": "Narration",
-    "errorTitle": "Unable to add the recording",
-    "uploadFailed": "Unable to save the recording.",
-    "micRefused": "The microphone is not available. Check the browser permission, or upload a file instead.",
-    "noRecorder": "Recording needs a secure connection (https). You can still upload a file."
+    "uploadFailed": "Unable to save the recording."
   },
   "index": {
     "tagline": "Capture moments, preserve memories, and share your world.",
