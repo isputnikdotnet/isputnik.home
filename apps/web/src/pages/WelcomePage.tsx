@@ -557,7 +557,7 @@ export function WelcomePage({ user, onDone }: {
                         <h3>{name === "house" ? t("welcome.galleryHouseLabel") : t("welcome.galleryInboxLabel")}</h3>
                         <p className="welcome-note">{name === "house" ? t("welcome.galleryHouseNote") : t("welcome.galleryInboxNote")}</p>
                         <div className="field source-folder-field">
-                          <span>{name === "house" ? t("welcome.galleryHouseLabel") : t("welcome.galleryInboxLabel")}</span>
+                          <span>{t("welcome.galleryLibraryLabel")}</span>
                           <div className="source-folder-control">
                             <Images size={19} aria-hidden="true" />
                             <span>{view?.library?.name ?? t("welcome.galleryNotSet")}</span>

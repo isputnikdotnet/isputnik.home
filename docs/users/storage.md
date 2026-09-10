@@ -63,6 +63,10 @@ names the room, shows the exact folder it will use from now on, says what moves
 and what doesn't, and offers Cancel or a verb. Nothing happens until you press
 the verb.
 
+![The Renders and music chooser: use App storage, or stay inside the thumbnail folder](images/101-storage-room-chooser.png)
+
+![The confirmation for the Recycle Bin: the exact folder, what moves, and Move bin](images/102-storage-room-confirm.png)
+
 Three rooms are worth a word each:
 
 - **Recycle Bin.** Changing its location moves whatever is in the bin to the new
