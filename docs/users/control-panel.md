@@ -187,15 +187,16 @@ Adding libraries and pointing them at folders has [its own guide](libraries.md).
 
 ### Storage
 
-The two folders every install needs — somewhere for generated thumbnails, and the
-approved folders your libraries may read. Has [its own guide](storage.md).
+Where the app keeps its own things, and the approved folders your libraries may
+read. Has [its own guide](storage.md).
 
-It is also where the **Recycle Bin location** is set: one folder for every library's
-deleted files, instead of a hidden `.trash` inside each library — which other software
-reading the same folders will index and go on showing as though nothing had been
-deleted. Best set before you create libraries; afterwards it can only change while the
-bin is empty, and it wants to be on the same disk as your libraries (deleting onto
-another disk copies every byte instead of being an instant rename).
+**App storage** is one optional folder with a row per room: the Recycle Bin, the
+Photo Inbox, the Made in the app library, thumbnails, renders and music, and
+backups. Each row can use App storage, keep a place of its own, or stay off, and
+every change is confirmed with the exact folder before it happens. Changing the
+**Recycle Bin location** moves what is in the bin in the background; keep it on the
+same disk as your libraries (deleting onto another disk copies every byte instead
+of being an instant rename).
 
 ### Categories and Tags
 

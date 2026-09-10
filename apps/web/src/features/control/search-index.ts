@@ -109,7 +109,7 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
 // type-checks (docs/i18n-plan.md's namespace-key typing pitfall #4).
 type SettingKey =
   | "systemHealth" | "libraryStatistics" | "tasks" | "activity" | "locationsMap"
-  | "logRetention" | "thumbnailStorage" | "libraryContainers" | "scanSources"
+  | "logRetention" | "appStorage" | "thumbnailStorage" | "libraryContainers" | "scanSources"
   | "libraryAccessMembers" | "accountLockout" | "ipAutoBlock" | "passwordPolicy"
   | "newSignInAlerts" | "twoFactorSignIn" | "linkingDevices" | "ipReputation"
   | "deletionProtection" | "addTrustedNetwork" | "scheduledBackups" | "defaultTheme"
@@ -128,6 +128,7 @@ const SETTING_ENTRIES: { titleKey: SettingKey; section: ControlSection; keywords
   { titleKey: "activity", section: "dashboard", query: "view=activity", keywords: "uploads downloads deletes played read viewed in progress content activity playback reading charts активность загрузки скачивания удаления прослушано прочитано просмотрено" },
   { titleKey: "locationsMap", section: "dashboard", query: "view=locations", keywords: "map countries towns cities where sign-ins came from geoip home location карта страны города откуда входили домашнее расположение" },
   { titleKey: "logRetention", section: "logs", keywords: "keep days delete old activity prune хранение дней удалить старые записи журнала" },
+  { titleKey: "appStorage", section: "storage", keywords: "app storage one folder rooms recycle bin location photo inbox made in the app thumbnails renders music backups move bin хранилище приложения одна папка комнаты корзина расположение входящие миниатюры рендеры музыка резервные копии перенос" },
   { titleKey: "thumbnailStorage", section: "storage", keywords: "thumbnails cache folder path move миниатюры кэш папка путь" },
   { titleKey: "libraryContainers", section: "storage", keywords: "approved allowed root folders mount разрешённые корневые папки" },
   { titleKey: "scanSources", section: "libraries", keywords: "folder path watch include exclude extensions папка путь включить исключить расширения" },

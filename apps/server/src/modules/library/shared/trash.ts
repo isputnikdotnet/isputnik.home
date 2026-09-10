@@ -19,6 +19,7 @@ import path from "node:path";
 import { nanoid } from "nanoid";
 import { db } from "../../../db.js";
 import { parsePolicy } from "../../../core/permissions.js";
+import { resolveAppLocation } from "../../../core/app-storage.js";
 import { validateLibrarySource } from "./library-source.js";
 import { pathIsInside, normaliseRelativePath, findStorageRootForPath } from "./storage-roots.js";
 import { thumbnailStorageKey, thumbnailAbsolutePath } from "./thumbnail.js";
@@ -50,6 +51,12 @@ const TRASH_ROOT_KEY = "trash_root_path";
  *  reads that folder. Moving the bin out of the library tree is the only fix that doesn't
  *  depend on another tool's ignore rules. */
 export function getTrashRootSetting(): string | null {
+  return resolveAppLocation("trash", getOwnTrashRootSetting());
+}
+
+/** The bin folder's OWN setting, ignoring App storage — what the Storage page
+ *  shows as "its own folder" (docs/app-storage-plan.md, decision 4). */
+export function getOwnTrashRootSetting(): string | null {
   const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(TRASH_ROOT_KEY) as
     | { value: string }
     | undefined;
@@ -57,11 +64,31 @@ export function getTrashRootSetting(): string | null {
   return value ? value : null;
 }
 
-/** Is there anything in the bin at all? The location can only change while there is not:
- *  a bin split across two places is a bin nobody can reason about, and the page that names
- *  where the files are would be naming only half of them. */
+/** Is there anything in the bin at all? Changing the location used to be allowed only
+ *  while there was not; since App storage (plan decision 10) a change moves what is in
+ *  the bin instead (trash-move.ts), and this only decides whether there is anything to move. */
 export function binIsEmpty(): boolean {
   return (db.prepare("SELECT COUNT(*) AS n FROM trashed_items").get() as { n: number }).n === 0;
+}
+
+/** The one row the bin move is carrying right now. Restore and purge step around it for
+ *  the seconds the move takes rather than racing it for the same folder. Kept here, not
+ *  in trash-move.ts, so the check needs no import in the other direction. */
+let movingItemId: string | null = null;
+export function setMovingTrashedItem(id: string | null): void {
+  movingItemId = id;
+}
+function refuseWhileMoving(id: string): void {
+  if (movingItemId === id) {
+    throw new TrashError("This item is being moved to the bin's new location right now. Try again in a moment.", 409);
+  }
+}
+
+/** The bin's two layouts, in one place: `<source>/.trash/<token>` for the per-library
+ *  default and `<bin>/<library>/<token>` for a shared folder. The move job rewrites rows
+ *  from one to the other. */
+export function trashPathFor(libraryId: string, token: string, trashRoot: string | null): string {
+  return normaliseRelativePath(trashRoot ? path.join(libraryId, token) : path.join(TRASH_DIR, token));
 }
 
 /** Vet a candidate bin folder. Same containment rule as a library source — it must sit in
@@ -133,7 +160,7 @@ export function binFolderFor(item: { source_path: string; trash_root?: string | 
  *  likely on a different disk from some library. The fallback reads and rewrites every
  *  byte, which is why the Storage page says a bin on other storage makes deleting slower
  *  instead of instant. */
-function moveEntry(from: string, to: string): void {
+export function moveEntry(from: string, to: string): void {
   try {
     fs.renameSync(from, to);
   } catch (err) {
@@ -459,9 +486,7 @@ export function trashBook(
   // library without two libraries' tokens sharing a directory. Both layouts end in
   // <container>/<token>, which is what prune and restore rely on.
   const trashRoot = getTrashRootSetting();
-  const trashPath = normaliseRelativePath(
-    trashRoot ? path.join(row.library_id, token) : path.join(TRASH_DIR, token)
-  );
+  const trashPath = trashPathFor(row.library_id, token, trashRoot);
   const trashAbs = path.resolve(trashRoot ?? root, trashPath);
 
   // Face-crop thumbnails cascade away as DB rows with the item but live on as files —
@@ -524,6 +549,7 @@ export function scanForRestored(libraryType: string, libraryId: string): void {
 export async function restoreTrashedItem(id: string, deferScan = false): Promise<TrashResult> {
   const item = getTrashedItem(id);
   if (!item) throw new TrashError("Item not found.", 404);
+  refuseWhileMoving(id);
 
   const library = db.prepare("SELECT id, type FROM libraries WHERE id = ?").get(item.library_id) as
     | { id: string; type: string }
@@ -596,6 +622,7 @@ function removeTrashFiles(item: TrashedItem): void {
 export function purgeTrashedItem(id: string): TrashedItem | null {
   const item = getTrashedItem(id);
   if (!item) return null;
+  refuseWhileMoving(id);
   removeTrashFiles(item);
   db.prepare("DELETE FROM trashed_items WHERE id = ?").run(id);
   return item;

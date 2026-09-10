@@ -2,6 +2,8 @@ import type { FastifyInstance } from "fastify";
 import { librarySettingsPlugin } from "./settings.js";
 import { coversPlugin } from "./covers.js";
 import { storagePlugin } from "./storage.js";
+import { appStorageRoutesPlugin } from "./app-storage-routes.js";
+import { resumeTrashMoveOnStartup } from "./shared/trash-move.js";
 import { audiobookPlugin } from "./audiobook/index.js";
 import { ebookPlugin } from "./ebook/index.js";
 import { galleryPlugin } from "./gallery/index.js";
@@ -38,6 +40,7 @@ export async function libraryPlugin(app: FastifyInstance) {
   await app.register(librarySettingsPlugin);
   await app.register(coversPlugin);
   await app.register(storagePlugin);
+  await app.register(appStorageRoutesPlugin);
   await app.register(libraryMembersPlugin);
   await app.register(audiobookPlugin);
   await app.register(ebookPlugin);
@@ -77,6 +80,13 @@ export async function libraryPlugin(app: FastifyInstance) {
   // …and the Recycle Bin, whose sweeper auto-purges items past the retention window.
   registerTrashRoutes(app);
   const stopPurgeWorker = startTrashPurgeWorker();
+  // A bin move a restart interrupted carries on: the rows it had not reached still
+  // say their files are elsewhere (docs/app-storage-plan.md, decision 10).
+  try {
+    if (resumeTrashMoveOnStartup()) app.log.info("Resuming the Recycle Bin move that was under way when the server last stopped.");
+  } catch (err) {
+    app.log.warn({ err }, "Could not resume the Recycle Bin move; start it again from the Storage page.");
+  }
 
   // One-shot mop-up for libraries left claiming to scan by a task that no longer
   // exists — a scan given up on before the workers released the library, or one whose

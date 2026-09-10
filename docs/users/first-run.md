@@ -36,7 +36,9 @@ The first time an administrator signs in, the app opens a short guide at **/welc
 five steps, in the order they depend on each other:
 
 1. **Storage** — somewhere for the thumbnails the app generates, and at least one folder
-   your libraries are allowed to read. Nothing else works until these exist.
+   your libraries are allowed to read. Nothing else works until these exist. The
+   Storage page can also take one **App storage** folder for everything the app keeps
+   for itself, including the thumbnails; see [Storage](storage.md).
 2. **Recycle Bin** — one folder for deleted files, instead of a hidden `.trash` inside
    every library. Locked until storage is done: the bin has to live inside a container
    you have approved.

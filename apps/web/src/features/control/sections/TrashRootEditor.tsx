@@ -1,7 +1,7 @@
 // The "edit Recycle Bin location" dialog, shared by the Storage page and the Recycle
 // Bin's own settings. One component rather than two copies of the same modal, because
-// the rules it explains — inside a container, outside every library, only changeable
-// while the bin is empty — must read identically wherever the door into them is.
+// the rules it explains — inside a container, outside every library, and what a
+// change moves — must read identically wherever the door into them is.
 import { useEffect, useState, type FormEvent } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { Folder } from "lucide-react";
@@ -13,12 +13,15 @@ import { FolderPickerModal } from "../libraries/FolderPickerModal";
 import type { StorageRoot } from "../types";
 
 /** The install-wide Recycle Bin folder. `path` null = each library keeps its own
- *  `.trash`, the default. `editable` is false as soon as the bin holds anything. */
+ *  `.trash`, the default. `editable` is false only while a bin move is running:
+ *  changing the location moves what is in the bin (docs/app-storage-plan.md). */
 export interface TrashRootSettings {
   path: string | null;
+  usesAppStorage?: boolean;
   libraryCount: number;
   itemsInBin: number;
   editable: boolean;
+  move?: { running: boolean; pending: number; moved: number };
 }
 
 export function TrashRootEditor({
