@@ -134,7 +134,7 @@ Three rooms are worth a word each:
 
 ### What it holds: the Contents page
 
-**Library → Storage → Contents** answers the other question about App storage:
+**Library → Storage contents**, the tab beside Storage, answers the other question about App storage:
 what is in it, and why. The top table gives every room a count and a size,
 counted from the app's own records where it keeps them (the bin, the two
 libraries) and from the disk where it does not (thumbnails, renders, backups),

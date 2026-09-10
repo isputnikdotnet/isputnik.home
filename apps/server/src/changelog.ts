@@ -19,6 +19,13 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.87.1",
+    label: "The Library link is back",
+    changes: [
+      "3.87.0 hung Storage and the new Contents page off Library as a branch, which cost the control panel its Library link: a group with a branch turns into a fold-out of its branches, and Libraries, Categories and Tags had no way in. Storage contents is a plain tab beside Storage now, the Library link is back, and the whole row reads Libraries · Storage · Storage contents · Categories · Tags."
+    ]
+  },
+  {
     version: "3.87.0",
     label: "What App storage holds",
     changes: [
