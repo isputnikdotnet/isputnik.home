@@ -129,7 +129,7 @@ export function FamilyTreeSettingsModal({
                   : t("family:treeSettings.photosHouseUnset")}
               </p>
               {isAdmin && (
-                <a href={controlHref("gallerySettings")} onClick={(event) => followRoute(event, controlHref("gallerySettings"))}>
+                <a href={controlHref("storage")} onClick={(event) => followRoute(event, controlHref("storage"))}>
                   {t("family:treeSettings.photosHouseLink")}
                 </a>
               )}

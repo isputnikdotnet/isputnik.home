@@ -2,13 +2,13 @@ import { useState, useEffect, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { HardDrive, Plus } from "lucide-react";
 import { api } from "../../../api";
-import { controlHref, followRoute, galleryInboxHref, navigate } from "../../../router";
 import { Field } from "../../../shared/Field";
 import { MessageBox } from "../../../shared/MessageBox";
 import { Modal } from "../../../shared/Modal";
 import { Button } from "../../../shared/Button";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { RefreshButton } from "../../../shared/RefreshButton";
+import { SelectField } from "../../../shared/SelectField";
 import type { StorageRoot } from "../types";
 import { ControlSectionHead } from "../ControlSectionHead";
 import { FolderPickerModal } from "../libraries/FolderPickerModal";
@@ -57,6 +57,8 @@ interface AppStorageView {
   error: string;
   lockedBy: AppRoom[];
   rooms: RoomView[];
+  /** The gallery libraries the library rooms' own option can pick from. */
+  libraries: { id: string; name: string; inbox: boolean }[];
 }
 
 /** What the admin picked in a room's chooser, before it is confirmed. `path` is
@@ -65,6 +67,8 @@ interface PendingSwitch {
   room: AppRoom;
   mode: RoomMode;
   path: string | null;
+  /** The gallery library for "own" on the Inbox and Made in the app rooms. */
+  libraryId: string | null;
 }
 
 const ROOM_ORDER: AppRoom[] = ["trash", "inbox", "house", "thumbnails", "renders", "backups"];
@@ -89,6 +93,7 @@ export function StorageSection() {
   // A room: chooser → (folder) → confirm → save.
   const [chooserRoom, setChooserRoom] = useState<AppRoom | null>(null);
   const [chooserMode, setChooserMode] = useState<RoomMode>("app");
+  const [chooserLibrary, setChooserLibrary] = useState("");
   const [ownPickerRoom, setOwnPickerRoom] = useState<AppRoom | null>(null);
   const [thumbsInput, setThumbsInput] = useState("");
   const [pending, setPending] = useState<PendingSwitch | null>(null);
@@ -165,6 +170,7 @@ export function StorageSection() {
   const openChooser = (room: RoomView) => {
     setSwitchError("");
     setChooserMode(room.mode);
+    setChooserLibrary(room.mode === "own" ? room.library?.id ?? "" : "");
     setChooserRoom(room.room);
   };
 
@@ -176,7 +182,8 @@ export function StorageSection() {
     const mode = chooserMode;
     setChooserRoom(null);
     if (mode === "own" && (room === "inbox" || room === "house")) {
-      navigate(controlHref("gallerySettings"));
+      if (!chooserLibrary) return;
+      setPending({ room, mode, path: null, libraryId: chooserLibrary });
       return;
     }
     if (mode === "own" && room === "trash") {
@@ -188,7 +195,7 @@ export function StorageSection() {
       setOwnPickerRoom("thumbnails");
       return;
     }
-    setPending({ room, mode, path: null });
+    setPending({ room, mode, path: null, libraryId: null });
   };
 
   const applySwitch = async () => {
@@ -198,7 +205,7 @@ export function StorageSection() {
     try {
       const payload = await api<{ storage: AppStorageView }>(`/api/storage/app-storage/rooms/${pending.room}`, {
         method: "PUT",
-        body: JSON.stringify({ mode: pending.mode, path: pending.path })
+        body: JSON.stringify({ mode: pending.mode, path: pending.path, libraryId: pending.libraryId })
       });
       setStorage(payload.storage);
       setPending(null);
@@ -298,10 +305,6 @@ export function StorageSection() {
     return "";
   };
 
-  const libraryHref = (room: RoomView): string | null => {
-    // The Inbox has a page of its own; the house library is browsed like any gallery.
-    return room.room === "inbox" && room.library ? galleryInboxHref(room.library.id) : null;
-  };
 
   // ── The confirmation for a pending switch ─────────────────────────────────
 
@@ -309,6 +312,7 @@ export function StorageSection() {
     const view = rooms.find((room) => room.room === switchTo.room);
     const target = switchTo.mode === "app" ? view?.appPath ?? "" : switchTo.path ?? "";
     const name = view?.library?.name ?? "";
+    const picked = storage?.libraries.find((library) => library.id === switchTo.libraryId)?.name ?? "";
     switch (switchTo.room) {
       case "trash": {
         const count = view?.counts.itemsInBin ?? 0;
@@ -337,10 +341,16 @@ export function StorageSection() {
           label: t("controlAdmin:storage.confirmThumbsLabel")
         };
       case "inbox":
+        if (switchTo.mode === "own") {
+          return { title: t("controlAdmin:storage.confirmInboxOwnTitle", { name: picked }), body: t("controlAdmin:storage.confirmInboxOwnBody"), label: t("controlAdmin:storage.confirmInboxOwnLabel") };
+        }
         return switchTo.mode === "app"
           ? { title: t("controlAdmin:storage.confirmInboxAppTitle", { path: target }), body: t("controlAdmin:storage.confirmInboxAppBody"), label: t("controlAdmin:storage.confirmInboxAppLabel") }
           : { title: t("controlAdmin:storage.confirmInboxOffTitle"), body: t("controlAdmin:storage.confirmInboxOffBody", { name }), label: t("controlAdmin:storage.confirmInboxOffLabel") };
       case "house":
+        if (switchTo.mode === "own") {
+          return { title: t("controlAdmin:storage.confirmHouseOwnTitle", { name: picked }), body: t("controlAdmin:storage.confirmHouseOwnBody"), label: t("controlAdmin:storage.confirmHouseOwnLabel") };
+        }
         return switchTo.mode === "app"
           ? { title: t("controlAdmin:storage.confirmHouseAppTitle", { path: target }), body: t("controlAdmin:storage.confirmHouseAppBody"), label: t("controlAdmin:storage.confirmHouseAppLabel") }
           : { title: t("controlAdmin:storage.confirmHouseOffTitle", { name }), body: t("controlAdmin:storage.confirmHouseOffBody"), label: t("controlAdmin:storage.confirmHouseOffLabel") };
@@ -403,137 +413,6 @@ export function StorageSection() {
       </ControlSectionHead>
 
       {error && <MessageBox tone="error" title={t("controlAdmin:storage.errorTitle")}>{error}</MessageBox>}
-
-      <section className="library-settings-panel storage-settings-panel app-storage-panel">
-        <div>
-          <h2>{t("controlAdmin:storage.appTitle")}</h2>
-          <p>{t("controlAdmin:storage.appDesc")}</p>
-        </div>
-        <div className="storage-path-summary">
-          <strong>{storage?.path || t("controlAdmin:storage.appNotSet")}</strong>
-        </div>
-        <div className="library-settings-actions">
-          {storage?.path && (
-            storage.ready
-              ? <span className="setting-status ready">{t("controlAdmin:storage.ready")}</span>
-              : <span className="setting-status needs-attention">{storage.error || t("controlAdmin:storage.appNotReady")}</span>
-          )}
-          <div className="app-storage-buttons">
-            {storage?.path && (
-              <Button
-                variant="text"
-                disabled={locked}
-                title={locked ? lockedNames : undefined}
-                onClick={() => { setAppError(""); setAppPathPending(null); }}
-              >
-                {t("controlAdmin:storage.appClear")}
-              </Button>
-            )}
-            <Button
-              variant="secondary"
-              compact
-              disabled={locked}
-              title={locked ? lockedNames : undefined}
-              onClick={() => { setAppError(""); setAppPickerOpen(true); }}
-            >
-              {storage?.path ? t("controlAdmin:storage.appChange") : t("controlAdmin:storage.appChoose")}
-            </Button>
-          </div>
-        </div>
-        {locked && (
-          <p className="app-storage-locked datagrid-muted">
-            {storage!.lockedBy.length === 1
-              ? t("controlAdmin:storage.appLockedOne", { rooms: lockedNames })
-              : t("controlAdmin:storage.appLocked", { rooms: lockedNames })}
-          </p>
-        )}
-
-        {storage && (
-          <div className="datagrid-wrap app-storage-rooms">
-            <table className="datagrid">
-              <thead>
-                <tr>
-                  <th>{t("controlAdmin:storage.thRoom")}</th>
-                  <th>{t("controlAdmin:storage.thWhere")}</th>
-                  <th className="col-actions"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {rooms.map((room) => {
-                  const where = whereText(room);
-                  const count = countText(room);
-                  const href = libraryHref(room);
-                  const move = room.room === "trash" ? room.move : undefined;
-                  const moveTotal = move ? move.moved + move.pending : 0;
-                  return (
-                    <tr key={room.room}>
-                      <td>
-                        <strong>{roomName[room.room]}</strong>
-                        <div className="datagrid-muted app-storage-hint">{roomHint[room.room]}</div>
-                      </td>
-                      <td className="storage-path-cell">
-                        <code className="app-storage-path">{where.path}</code>
-                        <div className="datagrid-muted app-storage-from">
-                          {[where.from, count].filter(Boolean).join(" · ")}
-                        </div>
-                        {move?.running && (
-                          <div className="app-storage-move">
-                            <span>{t("controlAdmin:storage.moving", { moved: move.moved, total: moveTotal })}</span>
-                            <Button variant="text" compact disabled={moveBusy} onClick={() => void moveAction("DELETE")}>
-                              {t("controlAdmin:storage.moveCancel")}
-                            </Button>
-                          </div>
-                        )}
-                        {room.room === "thumbnails" && room.folderMove?.running && (
-                          <div className="app-storage-move">
-                            <span>{t("controlAdmin:storage.movingThumbs", { done: room.folderMove.done, total: room.folderMove.done + room.folderMove.pending })}</span>
-                            <Button variant="text" compact disabled={moveBusy} onClick={() => void moveAction("DELETE", "/api/storage/app-storage/thumbnail-move")}>
-                              {t("controlAdmin:storage.moveCancel")}
-                            </Button>
-                          </div>
-                        )}
-                        {room.room === "thumbnails" && room.folderMove && !room.folderMove.running && room.folderMove.failed.length > 0 && (
-                          <div className="app-storage-move needs-attention">
-                            <span title={room.folderMove.failed.map((f) => `${f.name}: ${f.error}`).join("\n")}>
-                              {t("controlAdmin:storage.thumbsMoveFailed", { count: room.folderMove.failed.length })}
-                            </span>
-                          </div>
-                        )}
-                        {move && !move.running && move.failed.length > 0 && (
-                          <div className="app-storage-move needs-attention">
-                            <span title={move.failed.map((f) => `${f.title}: ${f.error}`).join("\n")}>
-                              {t("controlAdmin:storage.moveFailed", { count: move.failed.length })}
-                            </span>
-                            <Button variant="text" compact disabled={moveBusy} onClick={() => void moveAction("POST")}>
-                              {t("controlAdmin:storage.moveRetry")}
-                            </Button>
-                          </div>
-                        )}
-                      </td>
-                      <td className="col-actions app-storage-actions">
-                        {href && (
-                          <a href={href} onClick={(event) => followRoute(event, href)} className="text-button">
-                            {t("controlAdmin:storage.openLibrary")}
-                          </a>
-                        )}
-                        <Button
-                          variant="secondary"
-                          compact
-                          disabled={Boolean(move?.running) || Boolean(room.room === "thumbnails" && room.folderMove?.running)}
-                          title={move?.running ? t("controlAdmin:recycleBin.locationLockedTitle") : undefined}
-                          onClick={() => openChooser(room)}
-                        >
-                          {t("controlAdmin:storage.changeRoom")}
-                        </Button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
 
       <section className="storage-section">
         <div className="storage-section-head">
@@ -599,6 +478,131 @@ export function StorageSection() {
         )}
       </section>
 
+      <section className="library-settings-panel storage-settings-panel app-storage-panel">
+        <div>
+          <h2>{t("controlAdmin:storage.appTitle")}</h2>
+          <p>{t("controlAdmin:storage.appDesc")}</p>
+        </div>
+        <div className="storage-path-summary">
+          <strong>{storage?.path || t("controlAdmin:storage.appNotSet")}</strong>
+        </div>
+        <div className="library-settings-actions">
+          {storage?.path && (
+            storage.ready
+              ? <span className="setting-status ready">{t("controlAdmin:storage.ready")}</span>
+              : <span className="setting-status needs-attention">{storage.error || t("controlAdmin:storage.appNotReady")}</span>
+          )}
+          <div className="app-storage-buttons">
+            {storage?.path && (
+              <Button
+                variant="text"
+                disabled={locked}
+                title={locked ? lockedNames : undefined}
+                onClick={() => { setAppError(""); setAppPathPending(null); }}
+              >
+                {t("controlAdmin:storage.appClear")}
+              </Button>
+            )}
+            <Button
+              variant="secondary"
+              compact
+              disabled={locked}
+              title={locked ? lockedNames : undefined}
+              onClick={() => { setAppError(""); setAppPickerOpen(true); }}
+            >
+              {storage?.path ? t("controlAdmin:storage.appChange") : t("controlAdmin:storage.appChoose")}
+            </Button>
+          </div>
+        </div>
+        {locked && (
+          <p className="app-storage-locked datagrid-muted">
+            {storage!.lockedBy.length === 1
+              ? t("controlAdmin:storage.appLockedOne", { rooms: lockedNames })
+              : t("controlAdmin:storage.appLocked", { rooms: lockedNames })}
+          </p>
+        )}
+
+        {storage && (
+          <div className="datagrid-wrap app-storage-rooms">
+            <table className="datagrid">
+              <thead>
+                <tr>
+                  <th>{t("controlAdmin:storage.thRoom")}</th>
+                  <th>{t("controlAdmin:storage.thWhere")}</th>
+                  <th className="col-actions"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {rooms.map((room) => {
+                  const where = whereText(room);
+                  const count = countText(room);
+                  const move = room.room === "trash" ? room.move : undefined;
+                  const moveTotal = move ? move.moved + move.pending : 0;
+                  return (
+                    <tr key={room.room}>
+                      <td>
+                        <strong>{roomName[room.room]}</strong>
+                        <div className="datagrid-muted app-storage-hint">{roomHint[room.room]}</div>
+                      </td>
+                      <td className="storage-path-cell">
+                        <code className="app-storage-path">{where.path}</code>
+                        <div className="datagrid-muted app-storage-from">
+                          {[where.from, count].filter(Boolean).join(" · ")}
+                        </div>
+                        {move?.running && (
+                          <div className="app-storage-move">
+                            <span>{t("controlAdmin:storage.moving", { moved: move.moved, total: moveTotal })}</span>
+                            <Button variant="text" compact disabled={moveBusy} onClick={() => void moveAction("DELETE")}>
+                              {t("controlAdmin:storage.moveCancel")}
+                            </Button>
+                          </div>
+                        )}
+                        {room.room === "thumbnails" && room.folderMove?.running && (
+                          <div className="app-storage-move">
+                            <span>{t("controlAdmin:storage.movingThumbs", { done: room.folderMove.done, total: room.folderMove.done + room.folderMove.pending })}</span>
+                            <Button variant="text" compact disabled={moveBusy} onClick={() => void moveAction("DELETE", "/api/storage/app-storage/thumbnail-move")}>
+                              {t("controlAdmin:storage.moveCancel")}
+                            </Button>
+                          </div>
+                        )}
+                        {room.room === "thumbnails" && room.folderMove && !room.folderMove.running && room.folderMove.failed.length > 0 && (
+                          <div className="app-storage-move needs-attention">
+                            <span title={room.folderMove.failed.map((f) => `${f.name}: ${f.error}`).join("\n")}>
+                              {t("controlAdmin:storage.thumbsMoveFailed", { count: room.folderMove.failed.length })}
+                            </span>
+                          </div>
+                        )}
+                        {move && !move.running && move.failed.length > 0 && (
+                          <div className="app-storage-move needs-attention">
+                            <span title={move.failed.map((f) => `${f.title}: ${f.error}`).join("\n")}>
+                              {t("controlAdmin:storage.moveFailed", { count: move.failed.length })}
+                            </span>
+                            <Button variant="text" compact disabled={moveBusy} onClick={() => void moveAction("POST")}>
+                              {t("controlAdmin:storage.moveRetry")}
+                            </Button>
+                          </div>
+                        )}
+                      </td>
+                      <td className="col-actions app-storage-actions">
+                        <Button
+                          variant="secondary"
+                          compact
+                          disabled={Boolean(move?.running) || Boolean(room.room === "thumbnails" && room.folderMove?.running)}
+                          title={move?.running ? t("controlAdmin:recycleBin.locationLockedTitle") : undefined}
+                          onClick={() => openChooser(room)}
+                        >
+                          {t("controlAdmin:storage.changeRoom")}
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
       {appPickerOpen && (
         <FolderPickerModal
           title={t("controlAdmin:storage.pickAppTitle")}
@@ -656,11 +660,31 @@ export function StorageSection() {
               </label>
             ))}
           </div>
+          {chooserMode === "own" && (chooserView.room === "inbox" || chooserView.room === "house") && (
+            <SelectField
+              label={t("controlAdmin:storage.libraryPickLabel")}
+              value={chooserLibrary}
+              onChange={setChooserLibrary}
+              options={[
+                { value: "", label: t("controlAdmin:storage.libraryPickNone") },
+                ...(storage?.libraries ?? [])
+                  .filter((library) => chooserView.room === "house" ? !library.inbox : true)
+                  .map((library) => ({ value: library.id, label: library.inbox ? `${library.name} · ${t("controlAdmin:storage.roomInbox")}` : library.name }))
+              ]}
+            />
+          )}
           <div className="modal-actions">
             <Button variant="secondary" onClick={() => setChooserRoom(null)} autoFocus>
               {t("common.cancel")}
             </Button>
-            <Button variant="primary" type="submit" disabled={chooserMode === chooserView.mode && chooserMode !== "own"}>
+            <Button
+              variant="primary"
+              type="submit"
+              disabled={
+                (chooserMode === chooserView.mode && chooserMode !== "own")
+                || (chooserMode === "own" && (chooserView.room === "inbox" || chooserView.room === "house") && (!chooserLibrary || chooserLibrary === chooserView.library?.id))
+              }
+            >
               {t("controlAdmin:storage.continue")}
             </Button>
           </div>
@@ -675,7 +699,7 @@ export function StorageSection() {
           confirmLabel={t("controlAdmin:storage.useThisFolder")}
           onPick={({ absolutePath }) => {
             setOwnPickerRoom(null);
-            setPending({ room: "trash", mode: "own", path: absolutePath });
+            setPending({ room: "trash", mode: "own", path: absolutePath, libraryId: null });
           }}
           onClose={() => setOwnPickerRoom(null)}
           onError={setError}
@@ -691,7 +715,7 @@ export function StorageSection() {
             event.preventDefault();
             if (!thumbsInput.trim()) return;
             setOwnPickerRoom(null);
-            setPending({ room: "thumbnails", mode: "own", path: thumbsInput.trim() });
+            setPending({ room: "thumbnails", mode: "own", path: thumbsInput.trim(), libraryId: null });
           }}
         >
           <p>{t("controlAdmin:storage.pickThumbsIntro")}</p>

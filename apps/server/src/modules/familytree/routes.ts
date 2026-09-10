@@ -236,7 +236,7 @@ export async function familyTreeRoutesPlugin(app: FastifyInstance) {
   });
 
   // The upload library is no longer set here (it is the house library, Control →
-  // Settings → Gallery); `null` clears the starting person, omitting leaves it.
+  // Library → Storage); `null` clears the starting person, omitting leaves it.
   const settingsSchema = z.object({
     defaultPersonId: z.string().trim().min(1).nullable().optional()
   });

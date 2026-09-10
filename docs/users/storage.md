@@ -5,18 +5,38 @@ sits in **Control panel → Library → Storage**, in three parts:
 
 | | What it is | Why it's needed |
 |---|---|---|
+| **Digital Library containers** | The folders your libraries are allowed to read | A safety boundary: a library can only ever point somewhere inside an approved container, so a mistyped path can't wander off into the rest of the disk. Everything else on the page lives inside one. |
 | **App storage** | One folder the app may keep its own things in: the Recycle Bin, the Photo Inbox, the library for what the family makes in the app, thumbnails, renders and music, backups | So those six answers can be given once, in one place, instead of on six different pages. Every one of them is optional. |
 | **Its rooms** | One row per thing the app keeps, saying where it is right now | Each row can use App storage, keep a place of its own, or stay off. Nothing moves until you change a row, and every change is confirmed first. |
-| **Digital Library containers** | The folders your libraries are allowed to read | A safety boundary: a library can only ever point somewhere inside an approved container, so a mistyped path can't wander off into the rest of the disk. |
 
 Until thumbnails have somewhere to go and at least one container exists, **Add
 library** stays disabled and the Libraries page tells you so, with a button
 straight back here.
 
+## Digital Library containers
+
+A container is a root folder you're approving. Libraries can then use the whole
+container or any folder inside it.
+
+Choose **Add container** and give it a name and a path:
+
+![The Add storage container dialog](images/12-storage-add-container.png)
+
+| Field | Example |
+|---|---|
+| **Container name** | `Family media` — a label for you, shown when picking folders |
+| **Container path** | `D:\ProjectTesting\AppDocTest` — must already exist on the server |
+
+The folder has to exist already; the app won't create it. If the path is wrong
+or unreadable, you're told immediately rather than at scan time.
+
+Containers come first on the page because everything below them lives inside
+one: App storage, and the libraries the app makes for itself.
+
 ## App storage
 
-On a new install the top block says **Not set** and every room below it reads
-**Not set** or **Off**:
+On a new install the App storage block says **Not set** and every room below it
+reads **Not set** or **Off**:
 
 ![Storage before anything is configured](images/10-storage-empty.png)
 
@@ -46,7 +66,7 @@ start.
 |---|---|---|---|
 | **Recycle Bin** | `Recycle Bin\` | one folder you name | a hidden `.trash` inside each library |
 | **Photo Inbox** | `Photo Inbox\`, made as a library | any gallery library with the Inbox switch on | no Inbox |
-| **Made in the app** | `Made in the app\`, made as a library | any gallery library you nominate under Settings → Gallery | nothing can be recorded or uploaded from the app |
+| **Made in the app** | `Made in the app\`, made as a library | any gallery library of your own | nothing can be recorded or uploaded from the app |
 | **Thumbnails** | `Thumbnails\` | a folder you name | — |
 | **Renders and music** | `Renders\` | — | inside the thumbnail folder |
 | **Backups** | `Backups\` | the backup folder (`BACKUP_PATH` in Docker) | — |
@@ -96,6 +116,9 @@ out, or turn it off, from its own row first; then the folder is free to change
 again. That is deliberate: the folder is the base of every file those rooms
 hold, and changing it underneath them would be a "move everything" in disguise.
 
+Once thumbnails have a place and a container is listed, you're ready for
+**[Setting up libraries](libraries.md)**.
+
 ### An install that already had these set
 
 Nothing changes when you update. App storage shows **Not set**, and every room
@@ -105,26 +128,6 @@ that already has a place. Each one gains "Use App storage" in its chooser, and
 moves in only when you say so.
 
 ![Storage once configured](images/11-storage-configured.png)
-
-## Digital Library containers
-
-A container is a root folder you're approving. Libraries can then use the whole
-container or any folder inside it.
-
-Choose **Add container** and give it a name and a path:
-
-![The Add storage container dialog](images/12-storage-add-container.png)
-
-| Field | Example |
-|---|---|
-| **Container name** | `Family media` — a label for you, shown when picking folders |
-| **Container path** | `D:\ProjectTesting\AppDocTest` — must already exist on the server |
-
-The folder has to exist already; the app won't create it. If the path is wrong
-or unreadable, you're told immediately rather than at scan time.
-
-With thumbnails placed and a container listed, you're ready for
-**[Setting up libraries](libraries.md)**.
 
 ## How to organise the folder underneath
 

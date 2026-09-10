@@ -19,6 +19,15 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.80.0",
+    label: "One place for the app's storage",
+    changes: [
+      "Settings → Gallery is gone. The two things it did are now the **A library of my own** option on the Storage page's Made in the app and Photo Inbox rows: pick one of your gallery libraries for what the family makes in the app, or turn one of them into the Photo Inbox, each behind the same confirmation as every other change there. The library's own Access tab still has the Inbox switch. Every message that used to send you to Settings → Gallery, in the family tree, the stories settings and the app's own errors, now points at Library → Storage.",
+      "On the Storage page, Digital Library containers come first, above App storage, since everything below them lives inside a container. The Photo Inbox row no longer carries an Open link; the Inbox is opened from the gallery as before.",
+      "The Storage guide follows the page's new order, and the control panel, Photo Inbox, stories and family tree guides no longer describe the retired page."
+    ]
+  },
+  {
     version: "3.79.1",
     label: "Pictures of the rooms",
     changes: [

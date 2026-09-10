@@ -329,7 +329,7 @@
     "photosHint": "Photos and videos uploaded from the family tree are added to the house's “Made in the app” gallery library, in its “Family tree” folder, filed by the date they were taken. Attaching photos the gallery already holds works from any library and doesn't need this.",
     "photosHouseIs": "Uploads go to: {{name}}",
     "photosHouseUnset": "No “Made in the app” library is set, so uploading from the tree is off.",
-    "photosHouseLink": "Choose it under Control panel → Settings → Gallery",
+    "photosHouseLink": "Choose it under Control panel → Library → Storage",
     "noLibraryTitle": "No gallery library yet",
     "noLibraryBody": "Create a gallery library first — point it at the folder where family photos should be stored. It will appear here once it exists.",
     "createLibraryLink": "Create a library",
