@@ -4,13 +4,16 @@ import { z } from "zod";
 import type { FastifyInstance } from "fastify";
 import { parseBody } from "../../core/shared.js";
 import { APP_ROOMS } from "../../core/app-storage.js";
-import { appStorageView, setAppStoragePath, statusOf, switchRoom } from "./app-storage.js";
+import { appStorageView, setAppStoragePath, statusOf, switchRoom, type CarryRooms } from "./app-storage.js";
 import { cancelTrashMove, resetTrashMoveFailures, startTrashMove, trashMoveStatus } from "./shared/trash-move.js";
 import { cancelFolderMove, folderMoveStatus } from "./shared/folder-move.js";
 
 const pathSchema = z.object({
   // null (or "") clears App storage.
-  path: z.string().trim().max(1000).nullable()
+  path: z.string().trim().max(1000).nullable(),
+  /** Per room that uses the current folder: true carries it to the new folder
+   *  (the default), false leaves it where it is. Ignored when clearing. */
+  carry: z.object(Object.fromEntries(APP_ROOMS.map((room) => [room, z.boolean().optional()]))).optional()
 });
 
 const roomSchema = z.object({
@@ -28,7 +31,7 @@ export async function appStorageRoutesPlugin(app: FastifyInstance) {
     const parsed = parseBody(pathSchema, request.body);
     if (parsed.error) return reply.code(400).send({ error: "Invalid App storage folder", details: parsed.error });
     try {
-      return reply.send(setAppStoragePath(parsed.data.path, request.user!.id));
+      return reply.send(setAppStoragePath(parsed.data.path, request.user!.id, (parsed.data.carry ?? {}) as CarryRooms));
     } catch (err) {
       return reply.code(statusOf(err)).send({ error: err instanceof Error ? err.message : "Unable to set App storage" });
     }

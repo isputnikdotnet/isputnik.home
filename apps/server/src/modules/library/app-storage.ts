@@ -3,7 +3,8 @@
 // switches that move a room between "use App storage", "its own place" and "off".
 //
 // Every switch is one room. Choosing the App storage folder records a path and
-// nothing else; the folder is locked while any room keeps files in it.
+// nothing else; changing it later carries each room that uses it along, or
+// leaves the room where it is, as the admin chose for that room.
 import fs from "node:fs";
 import path from "node:path";
 import { db, logActivity } from "../../db.js";
@@ -40,7 +41,7 @@ import {
   validateTrashRootPath
 } from "./shared/trash.js";
 import { startTrashMove, trashMoveStatus, type TrashMoveStatus } from "./shared/trash-move.js";
-import { folderMoveStatus, startFolderMove, type FolderMoveStatus } from "./shared/folder-move.js";
+import { folderMoveStatus, moveEntryAcross, startFolderMove, type FolderMoveStatus } from "./shared/folder-move.js";
 import { createLibraryRecord } from "./shared/library-crud.js";
 import { getHouseLibrary, setHouseLibrary } from "./gallery/house-library.js";
 import { enqueueGalleryScan, processGalleryScanQueue } from "./gallery/scanner.js";
@@ -58,13 +59,14 @@ interface GalleryLibraryRow {
   name: string;
   source_path: string;
   policy_json: string;
+  scan_status: string;
 }
 
 const samePath = (a: string | null | undefined, b: string | null | undefined): boolean =>
   Boolean(a && b) && path.resolve(a!) === path.resolve(b!);
 
 function galleryLibraries(): GalleryLibraryRow[] {
-  return db.prepare("SELECT id, name, source_path, policy_json FROM libraries WHERE type = 'gallery' ORDER BY name COLLATE NOCASE")
+  return db.prepare("SELECT id, name, source_path, policy_json, scan_status FROM libraries WHERE type = 'gallery' ORDER BY name COLLATE NOCASE")
     .all() as GalleryLibraryRow[];
 }
 
@@ -301,27 +303,182 @@ export function validateAppStoragePath(candidate: string, opts: { allowRoomLibra
   return real;
 }
 
-/** Record (or clear) the App storage folder. Refused while a room keeps files in
- *  the current one — those rooms are moved out or turned off first, each from its
- *  own row (plan decision 4). A fresh install, one with no library yet, also gets
+/** What the admin chose for each room that uses App storage when the folder
+ *  changes: true carries the room to the new folder, false leaves it where it is
+ *  (the room becomes "its own place", or goes back to its default for the rooms
+ *  that have no place of their own). A room not mentioned is carried. */
+export type CarryRooms = Partial<Record<AppRoom, boolean>>;
+
+/** The steps a folder change takes for the rooms that use the current folder. */
+interface CarryStep {
+  room: AppRoom;
+  carry: boolean;
+}
+
+/** Move a whole folder — rename, or copy then delete across volumes — refusing a
+ *  target that exists so nothing is merged into by accident. Returns the undo. */
+function moveWholeFolder(from: string, to: string, what: string): () => void {
+  if (fs.existsSync(to)) throw new AppStorageError(`A folder already exists at ${to}. Move it aside first.`, 409);
+  if (!fs.existsSync(from)) {
+    fs.mkdirSync(to, { recursive: true });
+    return () => { try { fs.rmdirSync(to); } catch { /* not empty any more */ } };
+  }
+  try {
+    moveEntryAcross(path.dirname(from), path.dirname(to), path.basename(from));
+  } catch (err) {
+    throw new AppStorageError(`Could not move ${what}: ${err instanceof Error ? err.message : String(err)}`, 500);
+  }
+  // Both folders have the same name, so a plain rename back is the exact reverse.
+  return () => moveEntryAcross(path.dirname(to), path.dirname(from), path.basename(to));
+}
+
+/** Carry every entry of one folder into another, merging (backups have no
+ *  structure the app relies on). Returns the undo, which moves them back. */
+function moveFolderEntries(from: string, to: string, what: string): () => void {
+  if (samePath(from, to) || !fs.existsSync(from)) return () => undefined;
+  const names = fs.readdirSync(from);
+  const carried: string[] = [];
+  try {
+    for (const name of names) {
+      moveEntryAcross(from, to, name);
+      carried.push(name);
+    }
+  } catch (err) {
+    for (const name of carried) { try { moveEntryAcross(to, from, name); } catch { /* left at the target */ } }
+    throw new AppStorageError(`Could not move ${what}: ${err instanceof Error ? err.message : String(err)}`, 500);
+  }
+  try { fs.rmdirSync(from); } catch { /* not empty, or someone else's */ }
+  return () => { for (const name of carried) moveEntryAcross(to, from, name); };
+}
+
+/** Carry a library room's library (the Photo Inbox, Made in the app) to the new
+ *  folder: its folder moves, and the library's source path follows. Item paths
+ *  are relative to it, so they stay right; the bin rows that name the library's
+ *  own folder are updated too. */
+function moveRoomLibrary(room: "inbox" | "house", from: string, to: string): () => void {
+  const library = libraryAt(from);
+  if (!library) return moveWholeFolder(from, to, APP_ROOM_FOLDERS[room]);
+  if (library.scan_status === "scanning") {
+    throw new AppStorageError(`"${library.name}" is being scanned right now. Wait for the scan to finish before moving App storage.`, 409);
+  }
+  const undoFiles = moveWholeFolder(from, to, `"${library.name}"`);
+  const point = (source: string) => {
+    db.prepare("UPDATE libraries SET source_path = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(source, library.id);
+    db.prepare("UPDATE trashed_items SET source_path = ? WHERE library_id = ?").run(source, library.id);
+  };
+  point(to);
+  return () => { point(from); undoFiles(); };
+}
+
+/** Record, change or clear the App storage folder. A room that uses the current
+ *  folder is carried to the new one when asked (`carry[room]` true, the default),
+ *  or leaves App storage: the Recycle Bin and thumbnails keep their old folder as
+ *  their own place, a library room's library stays where it is, and renders and
+ *  backups go back to their default place (the thumbnail folder, the backup
+ *  folder), since they have no place of their own. The Recycle Bin and the
+ *  thumbnails are carried by their background moves; everything else moves before
+ *  the setting changes, and a failure puts back what had moved. Clearing the
+ *  folder leaves every room. A fresh install, one with no library yet, also gets
  *  the Recycle Bin room switched on (decision 9). */
-export function setAppStoragePath(candidate: string | null, userId: string): AppStorageView {
+export function setAppStoragePath(candidate: string | null, userId: string, carry: CarryRooms = {}): AppStorageView {
   const current = getAppStorageSetting();
   // Libraries its own rooms made (a turned-off Inbox, say) may stay inside it.
   const wanted = candidate?.trim() ? validateAppStoragePath(candidate.trim(), { allowRoomLibraries: true }) : null;
   if (samePath(current.path, wanted) || (!current.path && !wanted)) return appStorageView();
 
-  const lockedBy = appStorageView().lockedBy;
-  if (lockedBy.length > 0) {
-    const names = lockedBy.map((room) => APP_ROOM_FOLDERS[room]).join(", ");
-    throw new AppStorageError(
-      `App storage is in use by ${names}. Move each of those out, or turn it off, from its own row first.`,
-      409
-    );
+  const before = current.path;
+  const rooms = APP_ROOMS.map(roomView);
+  const steps: CarryStep[] = before
+    ? rooms.filter((room) => room.mode === "app").map((room) => ({ room: room.room, carry: wanted !== null && carry[room.room] !== false }))
+    : [];
+  const step = (room: AppRoom) => steps.find((s) => s.room === room);
+  if (steps.length > 0) {
+    if (trashMoveStatus().running) {
+      throw new AppStorageError("The bin is being moved right now. Wait for it to finish, or cancel it, before changing App storage.", 409);
+    }
+    if (folderMoveStatus().running) {
+      throw new AppStorageError("The thumbnails are being moved right now. Wait for that to finish, or cancel it, before changing App storage.", 409);
+    }
+  }
+  const oldRoom = (room: AppRoom) => path.join(before!, APP_ROOM_FOLDERS[room]);
+  const newRoom = (room: AppRoom) => path.join(wanted!, APP_ROOM_FOLDERS[room]);
+
+  // Where the thumbnails will be once this is done — renders that leave go there.
+  const thumbs = step("thumbnails");
+  const thumbnailsAfter = thumbs ? (thumbs.carry ? newRoom("thumbnails") : oldRoom("thumbnails")) : (configuredThumbnailPathValue() || null);
+  const renders = step("renders");
+  if (renders && !renders.carry && !thumbnailsAfter) {
+    throw new AppStorageError("There is no thumbnail folder for renders and music to go back to.", 409);
   }
 
-  saveAppStorageSetting({ path: wanted, rooms: wanted ? current.rooms : {} }, userId);
+  // The moves that happen now, before the setting changes, each with its undo.
+  const undo: (() => void)[] = [];
+  try {
+    for (const room of ["inbox", "house"] as const) {
+      const s = step(room);
+      if (s?.carry) undo.push(moveRoomLibrary(room, oldRoom(room), newRoom(room)));
+    }
+    if (renders) {
+      const from = oldRoom("renders");
+      const to = renders.carry ? newRoom("renders") : validateThumbnailPath(thumbnailsAfter!);
+      const moved = moveRenderBuckets(from, to);
+      if (moved > 0) undo.push(() => { moveRenderBuckets(to, from); });
+    }
+    const backups = step("backups");
+    if (backups) {
+      const to = backups.carry ? newRoom("backups") : path.resolve(config.backupPath);
+      fs.mkdirSync(to, { recursive: true });
+      undo.push(moveFolderEntries(oldRoom("backups"), to, "the backups"));
+    }
+  } catch (err) {
+    for (const back of undo.reverse()) { try { back(); } catch { /* reported below as what it was */ } }
+    throw err;
+  }
+
+  // The rooms that leave record their own place; the rest keep their mode and
+  // resolve into the new folder as soon as it is saved.
+  const modes = { ...current.rooms };
+  for (const s of steps) {
+    if (s.carry) continue;
+    switch (s.room) {
+      case "trash":
+        setTrashRootSetting(oldRoom("trash"), userId);
+        modes.trash = "own";
+        break;
+      case "thumbnails":
+        db.prepare(
+          `INSERT INTO app_settings (key, value, updated_by, updated_at)
+           VALUES (?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+           ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_by = excluded.updated_by, updated_at = excluded.updated_at`
+        ).run(thumbnailPathSettingKey, oldRoom("thumbnails"), userId);
+        modes.thumbnails = "own";
+        break;
+      case "renders":
+      case "backups":
+        delete modes[s.room];
+        break;
+      case "inbox":
+      case "house":
+        // The library stays; the row reads it as the room's own library.
+        break;
+    }
+  }
+  saveAppStorageSetting({ path: wanted, rooms: wanted ? modes : {} }, userId);
+
+  // The two big rooms are carried in the background, now that the setting says
+  // where they are going.
   if (wanted) {
+    if (step("trash")?.carry) {
+      fs.mkdirSync(newRoom("trash"), { recursive: true });
+      startTrashMove();
+    }
+    if (thumbs?.carry) {
+      fs.mkdirSync(newRoom("thumbnails"), { recursive: true });
+      startFolderMove(oldRoom("thumbnails"), newRoom("thumbnails"));
+    }
+  }
+
+  if (wanted && !before) {
     const libraryCount = (db.prepare("SELECT COUNT(*) AS n FROM libraries").get() as { n: number }).n;
     if (libraryCount === 0 && !getOwnTrashRootSetting() && appRoomMode("trash") === undefined) {
       try {
@@ -336,7 +493,10 @@ export function setAppStoragePath(candidate: string | null, userId: string): App
     actorUserId: userId,
     targetType: "setting",
     targetId: "app_storage",
-    detail: wanted ? `App storage set to ${wanted}.` : "App storage cleared."
+    detail: [
+      wanted ? `App storage set to ${wanted}.` : "App storage cleared.",
+      ...steps.map((s) => `${APP_ROOM_FOLDERS[s.room]}: ${s.carry ? "carried along" : "left where it was"}.`)
+    ].join(" ")
   });
   return appStorageView();
 }

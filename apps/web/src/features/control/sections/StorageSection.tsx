@@ -87,6 +87,9 @@ export function StorageSection() {
   // The App storage folder: pick → confirm → save; or clear → confirm → save.
   const [appPickerOpen, setAppPickerOpen] = useState(false);
   const [appPathPending, setAppPathPending] = useState<string | null | undefined>(undefined);
+  /** For each room that uses the folder now: carry it to the new folder (the
+   *  default, absent) or leave it where it is (false). */
+  const [carry, setCarry] = useState<Partial<Record<AppRoom, boolean>>>({});
   const [savingApp, setSavingApp] = useState(false);
   const [appError, setAppError] = useState("");
 
@@ -142,8 +145,9 @@ export function StorageSection() {
   }, [anyMoving]);
 
   const rooms = ROOM_ORDER.map((room) => storage?.rooms.find((view) => view.room === room)).filter((room): room is RoomView => Boolean(room));
-  const locked = storage ? storage.lockedBy.length > 0 : false;
-  const lockedNames = (storage?.lockedBy ?? []).map((room) => roomName[room]).join(", ");
+  /** The rooms that use the App storage folder now — what a change of folder
+   *  carries along, or leaves behind, room by room. */
+  const roomsInUse = rooms.filter((room) => room.mode === "app");
 
   // ── The App storage folder ────────────────────────────────────────────────
 
@@ -154,7 +158,7 @@ export function StorageSection() {
     try {
       const payload = await api<AppStorageView>("/api/storage/app-storage", {
         method: "PUT",
-        body: JSON.stringify({ path: appPathPending })
+        body: JSON.stringify({ path: appPathPending, carry })
       });
       setStorage(payload);
       setAppPathPending(undefined);
@@ -305,6 +309,29 @@ export function StorageSection() {
     return "";
   };
 
+
+  // ── What a room does when the folder changes ──────────────────────────────
+
+  /** One line under a room in the folder-change confirmation: what carrying it
+   *  along does, or what leaving it where it is means for that room. */
+  const carryCopy = (room: RoomView, carried: boolean): string => {
+    const here = room.resolvedPath ?? "";
+    switch (room.room) {
+      case "trash":
+        return carried
+          ? t("controlAdmin:storage.carryTrash", { count: room.counts.itemsInBin ?? 0 })
+          : t("controlAdmin:storage.stayFolder", { path: here });
+      case "inbox":
+      case "house":
+        return carried ? t("controlAdmin:storage.carryLibrary") : t("controlAdmin:storage.stayLibrary", { path: here });
+      case "thumbnails":
+        return carried ? t("controlAdmin:storage.carryThumbnails") : t("controlAdmin:storage.stayFolder", { path: here });
+      case "renders":
+        return carried ? t("controlAdmin:storage.carryNow") : t("controlAdmin:storage.stayRenders");
+      case "backups":
+        return carried ? t("controlAdmin:storage.carryNow") : t("controlAdmin:storage.stayBackups");
+    }
+  };
 
   // ── The confirmation for a pending switch ─────────────────────────────────
 
@@ -496,9 +523,9 @@ export function StorageSection() {
             {storage?.path && (
               <Button
                 variant="text"
-                disabled={locked}
-                title={locked ? lockedNames : undefined}
-                onClick={() => { setAppError(""); setAppPathPending(null); }}
+                disabled={anyMoving}
+                title={anyMoving ? t("controlAdmin:storage.appMovingTitle") : undefined}
+                onClick={() => { setAppError(""); setCarry({}); setAppPathPending(null); }}
               >
                 {t("controlAdmin:storage.appClear")}
               </Button>
@@ -506,21 +533,14 @@ export function StorageSection() {
             <Button
               variant="secondary"
               compact
-              disabled={locked}
-              title={locked ? lockedNames : undefined}
+              disabled={anyMoving}
+              title={anyMoving ? t("controlAdmin:storage.appMovingTitle") : undefined}
               onClick={() => { setAppError(""); setAppPickerOpen(true); }}
             >
               {storage?.path ? t("controlAdmin:storage.appChange") : t("controlAdmin:storage.appChoose")}
             </Button>
           </div>
         </div>
-        {locked && (
-          <p className="app-storage-locked datagrid-muted">
-            {storage!.lockedBy.length === 1
-              ? t("controlAdmin:storage.appLockedOne", { rooms: lockedNames })
-              : t("controlAdmin:storage.appLocked", { rooms: lockedNames })}
-          </p>
-        )}
 
         {storage && (
           <div className="datagrid-wrap app-storage-rooms">
@@ -611,6 +631,7 @@ export function StorageSection() {
           confirmLabel={t("controlAdmin:storage.useThisFolder")}
           onPick={({ absolutePath }) => {
             setAppPickerOpen(false);
+            setCarry({});
             setAppPathPending(absolutePath);
           }}
           onClose={() => setAppPickerOpen(false)}
@@ -626,11 +647,49 @@ export function StorageSection() {
           confirmLabel={appPathPending ? t("controlAdmin:storage.confirmAppLabel") : t("controlAdmin:storage.confirmClearLabel")}
           busyLabel={t("controlAdmin:ui.saving")}
           busy={savingApp}
+          rich={roomsInUse.length > 0}
           error={appError || undefined}
           onConfirm={() => void saveAppPath()}
           onCancel={() => { setAppPathPending(undefined); setAppError(""); }}
         >
-          {appPathPending ? t("controlAdmin:storage.confirmAppBody") : t("controlAdmin:storage.confirmClearBody")}
+          {roomsInUse.length === 0 ? (
+            appPathPending ? t("controlAdmin:storage.confirmAppBody") : t("controlAdmin:storage.confirmClearBody")
+          ) : appPathPending ? (
+            <>
+              <p>{t("controlAdmin:storage.confirmAppRoomsIntro")}</p>
+              <div className="app-storage-options">
+                {roomsInUse.map((room) => {
+                  const carried = carry[room.room] !== false;
+                  return (
+                    <label key={room.room} className="app-storage-option">
+                      <input
+                        type="checkbox"
+                        checked={carried}
+                        disabled={savingApp}
+                        onChange={(event) => setCarry((prev) => ({ ...prev, [room.room]: event.target.checked }))}
+                      />
+                      <span>
+                        <strong>{roomName[room.room]}</strong>
+                        <small className="datagrid-muted">{carryCopy(room, carried)}</small>
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            </>
+          ) : (
+            <>
+              <p>{t("controlAdmin:storage.confirmClearRoomsIntro")}</p>
+              <ul className="app-storage-stays">
+                {roomsInUse.map((room) => (
+                  <li key={room.room}>
+                    <strong>{roomName[room.room]}</strong>
+                    <span className="datagrid-muted">{carryCopy(room, false)}</span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </ConfirmDialog>
       )}
 

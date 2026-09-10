@@ -139,15 +139,19 @@ that fills the others in.
    The same box guards the App storage folder itself (Choose and Change),
    showing the path and stating that no room changes until its row does.
 
-   **Once a room uses App storage, the folder is locked.** Change and Clear
-   on the App storage row are refused while any room resolves into it; the
-   refusal (`shared/MessageBox`, tone error, "Unable to change App storage")
-   names the rooms that use it and says to move each one first from its own
-   row. The path is the base of every file those rooms hold, so changing it
-   underneath them would be a "move everything" in disguise. The folder can
-   be changed again only when no room uses it, which on a fresh install
-   means before the first library is scanned, and on any install means after
-   each room has been pointed elsewhere or turned off.
+   **Changing the folder carries its rooms along — or not, room by room.**
+   (Amended 2026-09-10; until then the folder was simply locked while any
+   room used it.) Change on the App storage row confirms with a list of the
+   rooms that use the folder, each with a tick: ticked is carried to the new
+   folder, unticked stays where it is and leaves App storage. The bin and the
+   thumbnails are carried by their existing background moves; a library room's
+   library moves as a folder and its `source_path` follows (item paths are
+   relative, so nothing is rescanned); renders and backups are moved at once
+   and, left behind, go back to their default place since they have none of
+   their own. The synchronous moves happen before the setting flips and are
+   undone if one fails; Clear takes the leave-behind path for every room;
+   both are refused while a bin or thumbnail move is running, or while a
+   library room is being scanned.
 5. **Choosing App storage on an install that has answers already changes
    nothing.** The resolver reads the specific setting first and App storage
    second. A thumbnail folder that was set in 2025 stays where it is.
