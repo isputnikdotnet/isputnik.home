@@ -3,8 +3,7 @@ import { librarySettingsPlugin } from "./settings.js";
 import { coversPlugin } from "./covers.js";
 import { storagePlugin } from "./storage.js";
 import { appStorageRoutesPlugin } from "./app-storage-routes.js";
-import { resumeTrashMoveOnStartup } from "./shared/trash-move.js";
-import { resumeFolderMoveOnStartup } from "./shared/folder-move.js";
+import { startStorageMoveWorker } from "./shared/storage-move.js";
 import { audiobookPlugin } from "./audiobook/index.js";
 import { ebookPlugin } from "./ebook/index.js";
 import { galleryPlugin } from "./gallery/index.js";
@@ -81,18 +80,10 @@ export async function libraryPlugin(app: FastifyInstance) {
   // …and the Recycle Bin, whose sweeper auto-purges items past the retention window.
   registerTrashRoutes(app);
   const stopPurgeWorker = startTrashPurgeWorker();
-  // A bin move a restart interrupted carries on: the rows it had not reached still
-  // say their files are elsewhere (docs/app-storage-plan.md, decision 10).
-  try {
-    if (resumeTrashMoveOnStartup()) app.log.info("Resuming the Recycle Bin move that was under way when the server last stopped.");
-  } catch (err) {
-    app.log.warn({ err }, "Could not resume the Recycle Bin move; start it again from the Storage page.");
-  }
-  try {
-    if (resumeFolderMoveOnStartup()) app.log.info("Resuming the thumbnail move that was under way when the server last stopped.");
-  } catch (err) {
-    app.log.warn({ err }, "Could not resume the thumbnail move; change the thumbnail folder again to restart it.");
-  }
+  // Storage moves (the bin, thumbnails, renders, the library rooms) run as tasks
+  // on the jobs table; one a restart interrupted is re-queued by the worker's
+  // recovery pass, and carries on from the units it had not reached.
+  const stopStorageMoveWorker = startStorageMoveWorker();
 
   // One-shot mop-up for libraries left claiming to scan by a task that no longer
   // exists — a scan given up on before the workers released the library, or one whose
@@ -126,6 +117,7 @@ export async function libraryPlugin(app: FastifyInstance) {
 
   app.addHook("onClose", async () => {
     stopPurgeWorker();
+    stopStorageMoveWorker();
     clearTimeout(scanReconcile);
     clearTimeout(orphanSweep);
   });

@@ -132,7 +132,8 @@ that fills the others in.
    | --- | --- |
    | Recycle Bin → App storage | "Move the Recycle Bin to `D:\Media\iSputnik\Recycle Bin`?" — the 230 items in it are moved there in the background; deleted files go there from now on; libraries are not touched. **Move bin** |
    | Renders → App storage | "Keep renders and music in `D:\Media\iSputnik\Renders`?" — the 16 uploaded tracks are moved there now; nothing else moves. **Use App storage** |
-   | Photo Inbox → App storage | "Make a Photo Inbox in `D:\Media\iSputnik\Photo Inbox`?" — a new gallery library, everyone can view, nothing moves. **Create Inbox** |
+   | Photo Inbox → App storage, none yet | "Make a Photo Inbox in `D:\Media\iSputnik\Photo Inbox`?" — a new gallery library, everyone can view, nothing moves. **Create Inbox** |
+   | Photo Inbox → App storage, one of your own exists | "Move the Photo Inbox to `D:\Media\iSputnik\Photo Inbox`?" — the library's folder moves there whole with the 9 photos waiting in it, it stays the Inbox, nothing is rescanned. **Move Inbox** (added 2026-09-10: creating a second Inbox beside the first left two Inbox libraries and the row pointing at the empty one) |
    | Made in the app → off | "Stop using `Photos` for things made in the app?" — narration, uploads and voice notes already in it stay; nothing new can be recorded until another library is chosen. **Turn off** |
    | Thumbnails → own folder | "Keep thumbnails in `E:\thumbs`?" — new thumbnails go there; the old folder is left as it is and refilled by the next scan. **Use this folder** |
 
@@ -198,6 +199,24 @@ that fills the others in.
    The "same disk as your libraries" advice in the guide stays and gains one
    line: App storage on the same disk as the libraries makes deleting an
    instant rename.
+10a. **Every room moves the same way (amended 2026-09-10).** The bin move
+    below set the shape; it is now one task, `MOVE_STORAGE` on the jobs table
+    (`modules/library/shared/storage-move.ts`), with five kinds: the bin, the
+    thumbnails, renders and music, and the two library rooms (Photo Inbox,
+    Made in the app — the owner chose to move the nominated library rather
+    than make a second one). The rules: same volume is a rename, instant at
+    any size; different volumes are never copied in the request — the task
+    copies file by file, checks each against its source by size before the
+    source goes, and lists what it could not carry; a library keeps its old
+    path until the last file is verified, then flips in one step; one move at
+    a time, never beside a scan (the type is in `LIBRARY_JOB_TYPES`); a
+    restart re-queues it; the Tasks page shows, times and cancels it; the
+    activity log gets `storage.move.started`, then `.completed`, `.failed`
+    or `.cancelled` with counts. The Storage page row shows "Moving… n of m"
+    with Cancel, and failures with Retry (`POST/DELETE
+    /api/storage/app-storage/rooms/:room/move`). Backups do not move on a
+    room switch (the owner's call); on a folder change they are still the one
+    thing carried in the request, a few files.
 10. **The Recycle Bin moves with its location.** Today the bin location can
     only change while the bin is empty. That rule goes: changing it (to App
     storage, to a folder of its own, or back to per-library `.trash`) starts

@@ -11,7 +11,10 @@ export const LIBRARY_JOB_TYPES = [
   "SCAN_AUDIOBOOK_LIBRARY",
   "SCAN_EBOOK_LIBRARY",
   "SCAN_GALLERY_LIBRARY",
-  "SCAN_GALLERY_FACES"
+  "SCAN_GALLERY_FACES",
+  // A storage move (storage-move.ts) carries library folders: no scan may read
+  // a library while its files are on their way.
+  "MOVE_STORAGE"
 ];
 
 const inLibraryJobTypes = LIBRARY_JOB_TYPES.map(() => "?").join(", ");

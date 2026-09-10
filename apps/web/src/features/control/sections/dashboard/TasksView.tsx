@@ -33,6 +33,7 @@ function taskTypeLabel(type: string, t: T) {
     case "gallery-slideshow-render": return t("controlDash:tasks.typeSlideshow");
     case "TRANSCODE_GALLERY_VIDEO": return t("controlDash:tasks.typeTranscode");
     case "SCAN_GALLERY_DUPLICATES": return t("controlDash:tasks.typeDuplicateScan");
+    case "MOVE_STORAGE": return t("controlDash:tasks.typeStorageMove");
     default: return type;
   }
 }

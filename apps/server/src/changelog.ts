@@ -19,6 +19,16 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.84.0",
+    label: "Every room moves the same way",
+    changes: [
+      "Moving a room of App storage — the Recycle Bin, thumbnails, renders and music, the Photo Inbox or the Made in the app library — is now one kind of task, the one the Recycle Bin move already was. It appears on the Tasks page as a Storage move with its progress and an estimate, it can be stopped there or from the room's row, it is timed, and a server restart picks it up where it was. The row on the Storage page shows \"Moving… 14 of 230\" while it runs and, afterwards, anything it could not carry with a Retry. The activity log records when a move starts and how it ended: how much it carried, how long it took, what failed.",
+      "What keeps a move safe. On the same disk it is a rename: instant whatever the size. Across disks nothing is copied while you wait: the task copies one file at a time and checks each arrived whole, by size, before the original is removed; a file that does not check out stays where it was and is listed. A library keeps its old folder until the last file is across and verified, then switches in one step; stopping the move or a failure leaves it exactly where it was. One move runs at a time, never while a library is being scanned, and a scan waits for a move the same way.",
+      "Switching the Photo Inbox to App storage when you already have an Inbox of your own moves that library there whole, photos waiting and all, and it stays the Inbox. Until now it made a second, empty Inbox beside the first, which left two Inbox libraries and the row pointing at the empty one. Made in the app does the same with the library you had nominated: it moves whole and stays nominated. The confirmation says how many photos come along, and nothing is rescanned.",
+      "Changing the App storage folder itself carries each room the same way, one task per room, in order, with every check made before anything changes; the backups, a few files, are the one thing still moved at once. Backups do not move when their room is switched. The Storage guide has a new section on how a move runs."
+    ]
+  },
+  {
     version: "3.83.2",
     label: "The book remembers where you left",
     changes: [

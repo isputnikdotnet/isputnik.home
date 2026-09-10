@@ -7,6 +7,7 @@ import { APP_ROOMS } from "../../core/app-storage.js";
 import { appStorageView, setAppStoragePath, statusOf, switchRoom, type CarryRooms } from "./app-storage.js";
 import { cancelTrashMove, resetTrashMoveFailures, startTrashMove, trashMoveStatus } from "./shared/trash-move.js";
 import { cancelFolderMove, folderMoveStatus } from "./shared/folder-move.js";
+import { cancelStorageMove, retryStorageMove } from "./shared/storage-move.js";
 
 const pathSchema = z.object({
   // null (or "") clears App storage.
@@ -51,11 +52,26 @@ export async function appStorageRoutesPlugin(app: FastifyInstance) {
     }
   });
 
-  // The bin move (plan decision 10): what it is doing, retry what failed, stop.
+  // A room's storage move (storage-move.ts): queue the last one again to retry
+  // what failed, or stop the one running after the unit in hand.
+  app.post("/api/storage/app-storage/rooms/:room/move", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const room = (request.params as { room: string }).room;
+    if (!(APP_ROOMS as readonly string[]).includes(room)) return reply.code(404).send({ error: "No such room." });
+    retryStorageMove(room as (typeof APP_ROOMS)[number], request.user!.id);
+    return reply.send({ storage: appStorageView() });
+  });
+  app.delete("/api/storage/app-storage/rooms/:room/move", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const room = (request.params as { room: string }).room;
+    if (!(APP_ROOMS as readonly string[]).includes(room)) return reply.code(404).send({ error: "No such room." });
+    cancelStorageMove(room as (typeof APP_ROOMS)[number]);
+    return reply.send({ storage: appStorageView() });
+  });
+
+  // The bin move (plan decision 10), in the shape the Recycle Bin page reads.
   app.get("/api/storage/trash-root/move", { preHandler: app.requireAdmin }, async () => trashMoveStatus());
-  app.post("/api/storage/trash-root/move", { preHandler: app.requireAdmin }, async () => {
+  app.post("/api/storage/trash-root/move", { preHandler: app.requireAdmin }, async (request) => {
     resetTrashMoveFailures();
-    return startTrashMove();
+    return startTrashMove(request.user!.id);
   });
   app.delete("/api/storage/trash-root/move", { preHandler: app.requireAdmin }, async () => cancelTrashMove());
 

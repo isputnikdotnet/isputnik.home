@@ -570,6 +570,13 @@ function summarizeTaskResult(type: string, result: Record<string, any> | null): 
   if (type === "TRANSCODE_GALLERY_VIDEO") {
     return result.bytes != null ? `Web copy ${(result.bytes / (1024 * 1024)).toFixed(1)} MB` : null;
   }
+  if (type === "MOVE_STORAGE") {
+    if (result.moved == null) return null;
+    const failed = Array.isArray(result.failed) ? result.failed.length : 0;
+    const base = `${result.moved} carried and verified`;
+    if (result.cancelled) return `Stopped: ${base}, the rest left where it was`;
+    return failed > 0 ? `${base} · ${failed} could not be moved` : base;
+  }
   if (type === "SCAN_GALLERY_DUPLICATES") {
     // Every pass belongs to a cleanup now, and what it FOUND is the cleanup's own
     // business — this line is about the pass itself: what it had to read off the disk.
@@ -591,7 +598,8 @@ const PROGRESS_UNIT: Record<string, string> = {
   SCAN_EBOOK_LIBRARY: "books",
   "gallery-slideshow-render": "seconds",
   TRANSCODE_GALLERY_VIDEO: "seconds",
-  SCAN_GALLERY_DUPLICATES: "files"
+  SCAN_GALLERY_DUPLICATES: "files",
+  MOVE_STORAGE: "items"
 };
 
 function normalizeTaskProgress(type: string, progress: Record<string, any> | null, startedAt: string | null): TaskProgress | null {
@@ -662,7 +670,10 @@ const STALE_AFTER_SECONDS: Record<string, number> = {
   SCAN_GALLERY_FACES: 15 * 60,
   SCAN_GALLERY_DUPLICATES: 15 * 60,
   TRANSCODE_GALLERY_VIDEO: 60 * 60,
-  "gallery-slideshow-render": 60 * 60
+  "gallery-slideshow-render": 60 * 60,
+  // One unit of a move can be a whole library bucket or a bin item of many files
+  // copied across volumes; progress ticks per unit, not per file.
+  MOVE_STORAGE: 60 * 60
 };
 const DEFAULT_STALE_AFTER_SECONDS = 30 * 60;
 

@@ -2,23 +2,23 @@
 //
 // Changing the Recycle Bin's location used to be allowed only while the bin
 // was empty. Now it moves what is in the bin instead: the setting flips first
-// (so anything deleted from this moment lands in the new place), then this job
-// carries every row whose files are still elsewhere over to the new location,
-// one item at a time. It can do that because each trashed_items row records
-// where its own files are (trash_root, null for the library's own .trash), so
-// a half-finished move is not a broken bin — every row still points at real
-// files, and restore and purge read the row, not the setting.
+// (so anything deleted from this moment lands in the new place), then the
+// storage move task (storage-move.ts) carries every row whose files are still
+// elsewhere over to the new location, one item at a time. It can do that
+// because each trashed_items row records where its own files are (trash_root,
+// null for the library's own .trash), so a half-finished move is not a broken
+// bin — every row still points at real files, and restore and purge read the
+// row, not the setting.
 //
 // Progress is not stored: it IS the count of rows whose trash_root differs
-// from the current location. A marker in app_settings says a move was under
-// way, so a restart resumes it rather than leaving the rows where they were.
+// from the current location. This file keeps the row-level move and the
+// status shape the Recycle Bin page reads; the task itself is the shared one.
 import fs from "node:fs";
 import path from "node:path";
 import { db } from "../../../db.js";
 import { pathIsInside } from "./storage-roots.js";
-import { getTrashRootSetting, moveEntry, setMovingTrashedItem, trashPathFor, type TrashedItem } from "./trash.js";
-
-const MOVE_MARKER_KEY = "trash_move_in_progress";
+import { getTrashRootSetting, moveEntry, trashPathFor, type TrashedItem } from "./trash.js";
+import { cancelStorageMove, enqueueStorageMove, storageMoveStatus, waitForStorageMoves } from "./storage-move.js";
 
 export interface TrashMoveFailure {
   id: string;
@@ -31,19 +31,13 @@ export interface TrashMoveStatus {
   running: boolean;
   /** Rows still to move (recomputed from the table every time). */
   pending: number;
-  /** Rows moved since this move started. */
+  /** Rows moved by the running move, or by the last one. */
   moved: number;
   /** The location being moved to: a folder, or null for each library's own .trash. */
   target: string | null;
   failed: TrashMoveFailure[];
   startedAt: string | null;
 }
-
-let running = false;
-let cancelRequested = false;
-let moved = 0;
-let startedAt: string | null = null;
-let failed: TrashMoveFailure[] = [];
 
 /** Rows whose files are not at the current location. Written before or during a
  *  move, or by an older version that changed the setting while the bin was empty
@@ -55,29 +49,15 @@ export function pendingTrashMoveRows(): TrashedItem[] {
 }
 
 export function trashMoveStatus(): TrashMoveStatus {
+  const status = storageMoveStatus("trash");
   return {
-    running,
+    running: status.running,
     pending: pendingTrashMoveRows().length,
-    moved,
+    moved: status.done,
     target: getTrashRootSetting(),
-    failed,
-    startedAt
+    failed: status.failed.map((f) => ({ id: f.name, title: f.title ?? f.name, libraryName: f.libraryName ?? "", error: f.error })),
+    startedAt: status.startedAt
   };
-}
-
-function setMarker(on: boolean): void {
-  if (on) {
-    db.prepare(
-      `INSERT INTO app_settings (key, value, updated_at) VALUES (?, '1', strftime('%Y-%m-%dT%H:%M:%fZ','now'))
-       ON CONFLICT(key) DO UPDATE SET value = '1', updated_at = excluded.updated_at`
-    ).run(MOVE_MARKER_KEY);
-  } else {
-    db.prepare("DELETE FROM app_settings WHERE key = ?").run(MOVE_MARKER_KEY);
-  }
-}
-
-function markerSet(): boolean {
-  return Boolean(db.prepare("SELECT 1 FROM app_settings WHERE key = ?").get(MOVE_MARKER_KEY));
 }
 
 /** Move one row's files from where they are to where the bin now is, and rewrite
@@ -121,84 +101,29 @@ export function moveTrashedItemTo(item: TrashedItem, target: string | null): voi
   }
 }
 
-async function run(): Promise<void> {
-  try {
-    for (;;) {
-      if (cancelRequested) break;
-      const target = getTrashRootSetting();
-      const failedIds = new Set(failed.map((f) => f.id));
-      const next = pendingTrashMoveRows().find((row) => !failedIds.has(row.id));
-      if (!next) break;
-      setMovingTrashedItem(next.id);
-      try {
-        moveTrashedItemTo(next, target);
-        moved += 1;
-      } catch (err) {
-        failed.push({
-          id: next.id,
-          title: next.title,
-          libraryName: next.library_name,
-          error: err instanceof Error ? err.message : String(err)
-        });
-      } finally {
-        setMovingTrashedItem(null);
-      }
-      // Give the event loop a turn between items: a bin of thousands must not hold
-      // every request until it is done.
-      await new Promise<void>((resolve) => setImmediate(resolve));
-    }
-  } finally {
-    running = false;
-    cancelRequested = false;
-    setMarker(false);
-  }
-}
-
-/** Start carrying the bin's contents to the current location. A no-op while a
- *  move is already running, or when nothing needs moving. Returns the status
- *  as it stands when the call returns (the move itself runs in the background). */
-export function startTrashMove(): TrashMoveStatus {
-  if (!running && pendingTrashMoveRows().length > 0) {
-    running = true;
-    cancelRequested = false;
-    moved = 0;
-    failed = [];
-    startedAt = new Date().toISOString();
-    setMarker(true);
-    void run();
-  }
+/** Queue carrying the bin's contents to the current location. A no-op while a
+ *  move is already queued or running, or when nothing needs moving. Returns the
+ *  status as it stands when the call returns (the move runs as a task). */
+export function startTrashMove(userId: string | null = null): TrashMoveStatus {
+  enqueueStorageMove({ kind: "trash", room: "trash", label: "Recycle Bin", from: null, to: getTrashRootSetting(), actorUserId: userId });
   return trashMoveStatus();
 }
 
 /** Stop after the item in hand. Every row is left correct: the ones moved are at
  *  the new location, the rest where they were, and each says which. */
 export function cancelTrashMove(): TrashMoveStatus {
-  if (running) cancelRequested = true;
+  cancelStorageMove("trash");
   return trashMoveStatus();
 }
 
-/** Failed rows are retried by starting again; forgetting them is what lets the
- *  next start try them. */
+/** Failed rows are retried by starting again: a new task recomputes what is
+ *  pending, failures included. */
 export function resetTrashMoveFailures(): void {
-  failed = [];
+  /* nothing to forget — the next start is a new task */
 }
 
-/** Called once at startup: a move that a restart interrupted picks up where it
- *  left off, since the rows it had not reached still say they are elsewhere. */
-export function resumeTrashMoveOnStartup(): boolean {
-  if (!markerSet()) return false;
-  if (pendingTrashMoveRows().length === 0) {
-    setMarker(false);
-    return false;
-  }
-  startTrashMove();
-  return true;
-}
-
-/** Test hook: wait for the running move to finish. */
+/** Test hook: run the move to the end. */
 export async function waitForTrashMove(): Promise<TrashMoveStatus> {
-  while (running) {
-    await new Promise<void>((resolve) => setTimeout(resolve, 5));
-  }
+  await waitForStorageMoves();
   return trashMoveStatus();
 }

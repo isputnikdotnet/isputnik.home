@@ -40,8 +40,9 @@ import {
   TrashError,
   validateTrashRootPath
 } from "./shared/trash.js";
-import { startTrashMove, trashMoveStatus, type TrashMoveStatus } from "./shared/trash-move.js";
-import { folderMoveStatus, moveEntryAcross, startFolderMove, type FolderMoveStatus } from "./shared/folder-move.js";
+import { startTrashMove } from "./shared/trash-move.js";
+import { moveEntryAcross, startFolderMove } from "./shared/folder-move.js";
+import { anyStorageMoveActive, assertMoveTargetFree, enqueueStorageMove, storageMoveStatus, type StorageMoveStatus } from "./shared/storage-move.js";
 import { createLibraryRecord } from "./shared/library-crud.js";
 import { getHouseLibrary, setHouseLibrary } from "./gallery/house-library.js";
 import { enqueueGalleryScan, processGalleryScanQueue } from "./gallery/scanner.js";
@@ -107,10 +108,8 @@ export interface RoomView {
   library: { id: string; name: string } | null;
   /** What a switch would carry: bin items, uploaded tracks, waiting photos. */
   counts: { itemsInBin?: number; tracks?: number; clips?: number; waiting?: number; backups?: number };
-  /** The bin move, for the Recycle Bin row. */
-  move?: TrashMoveStatus;
-  /** The thumbnail move, for the Thumbnails row (docs/app-storage-plan.md, phase 3). */
-  folderMove?: FolderMoveStatus;
+  /** The room's storage move: running, or the last one's failures (storage-move.ts). */
+  move: StorageMoveStatus;
 }
 
 export interface AppStorageView {
@@ -137,7 +136,7 @@ function trashRoom(): RoomView {
     holdsFiles: usesApp && (itemsInBin > 0 || dirHasEntries(resolved)),
     library: null,
     counts: { itemsInBin },
-    move: trashMoveStatus()
+    move: storageMoveStatus("trash")
   };
 }
 
@@ -153,7 +152,8 @@ function inboxRoom(): RoomView {
     appPath,
     holdsFiles: appInbox !== null,
     library: shown ? { id: shown.id, name: shown.name } : null,
-    counts: { waiting: shown ? itemCount(shown.id) : 0 }
+    counts: { waiting: shown ? itemCount(shown.id) : 0 },
+    move: storageMoveStatus("inbox")
   };
 }
 
@@ -168,7 +168,8 @@ function houseRoom(): RoomView {
     appPath,
     holdsFiles: usesApp,
     library: house ? { id: house.id, name: house.name } : null,
-    counts: {}
+    counts: {},
+    move: storageMoveStatus("house")
   };
 }
 
@@ -184,7 +185,7 @@ function thumbnailsRoom(): RoomView {
     holdsFiles: usesApp && dirHasEntries(resolved),
     library: null,
     counts: {},
-    folderMove: folderMoveStatus()
+    move: storageMoveStatus("thumbnails")
   };
 }
 
@@ -207,7 +208,8 @@ function rendersRoom(): RoomView {
     appPath,
     holdsFiles: usesApp && RENDER_BUCKETS.some((bucket) => dirHasEntries(path.join(appPath, bucket))),
     library: null,
-    counts: { tracks, clips }
+    counts: { tracks, clips },
+    move: storageMoveStatus("renders")
   };
 }
 
@@ -228,7 +230,8 @@ function backupsRoom(): RoomView {
     appPath,
     holdsFiles: usesApp && backups > 0,
     library: null,
-    counts: { backups }
+    counts: { backups },
+    move: storageMoveStatus("backups")
   };
 }
 
@@ -315,27 +318,11 @@ interface CarryStep {
   carry: boolean;
 }
 
-/** Move a whole folder — rename, or copy then delete across volumes — refusing a
- *  target that exists so nothing is merged into by accident. Returns the undo. */
-function moveWholeFolder(from: string, to: string, what: string): () => void {
-  if (fs.existsSync(to)) throw new AppStorageError(`A folder already exists at ${to}. Move it aside first.`, 409);
-  if (!fs.existsSync(from)) {
-    fs.mkdirSync(to, { recursive: true });
-    return () => { try { fs.rmdirSync(to); } catch { /* not empty any more */ } };
-  }
-  try {
-    moveEntryAcross(path.dirname(from), path.dirname(to), path.basename(from));
-  } catch (err) {
-    throw new AppStorageError(`Could not move ${what}: ${err instanceof Error ? err.message : String(err)}`, 500);
-  }
-  // Both folders have the same name, so a plain rename back is the exact reverse.
-  return () => moveEntryAcross(path.dirname(to), path.dirname(from), path.basename(to));
-}
-
 /** Carry every entry of one folder into another, merging (backups have no
- *  structure the app relies on). Returns the undo, which moves them back. */
-function moveFolderEntries(from: string, to: string, what: string): () => void {
-  if (samePath(from, to) || !fs.existsSync(from)) return () => undefined;
+ *  structure the app relies on). Used for the backups on a folder change: a
+ *  handful of files, moved in the request. */
+function moveFolderEntries(from: string, to: string, what: string): void {
+  if (samePath(from, to) || !fs.existsSync(from)) return;
   const names = fs.readdirSync(from);
   const carried: string[] = [];
   try {
@@ -348,26 +335,18 @@ function moveFolderEntries(from: string, to: string, what: string): () => void {
     throw new AppStorageError(`Could not move ${what}: ${err instanceof Error ? err.message : String(err)}`, 500);
   }
   try { fs.rmdirSync(from); } catch { /* not empty, or someone else's */ }
-  return () => { for (const name of carried) moveEntryAcross(to, from, name); };
 }
 
-/** Carry a library room's library (the Photo Inbox, Made in the app) to the new
- *  folder: its folder moves, and the library's source path follows. Item paths
- *  are relative to it, so they stay right; the bin rows that name the library's
- *  own folder are updated too. */
-function moveRoomLibrary(room: "inbox" | "house", from: string, to: string): () => void {
-  const library = libraryAt(from);
-  if (!library) return moveWholeFolder(from, to, APP_ROOM_FOLDERS[room]);
+/** Queue moving a gallery library's folder to `to` as a storage move task
+ *  (storage-move.ts): the library keeps pointing at its old folder until every
+ *  file is across and verified, then the path flips. Refused up front while the
+ *  library is being scanned or something already sits at the target. */
+function queueLibraryMove(library: GalleryLibraryRow, room: "inbox" | "house", to: string, userId: string): void {
   if (library.scan_status === "scanning") {
-    throw new AppStorageError(`"${library.name}" is being scanned right now. Wait for the scan to finish before moving App storage.`, 409);
+    throw new AppStorageError(`"${library.name}" is being scanned right now. Wait for the scan to finish before moving it.`, 409);
   }
-  const undoFiles = moveWholeFolder(from, to, `"${library.name}"`);
-  const point = (source: string) => {
-    db.prepare("UPDATE libraries SET source_path = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(source, library.id);
-    db.prepare("UPDATE trashed_items SET source_path = ? WHERE library_id = ?").run(source, library.id);
-  };
-  point(to);
-  return () => { point(from); undoFiles(); };
+  assertMoveTargetFree(to, `"${library.name}"`);
+  enqueueStorageMove({ kind: "library", room, label: library.name, from: library.source_path, to, libraryId: library.id, actorUserId: userId });
 }
 
 /** Record, change or clear the App storage folder. A room that uses the current
@@ -375,11 +354,13 @@ function moveRoomLibrary(room: "inbox" | "house", from: string, to: string): () 
  *  or leaves App storage: the Recycle Bin and thumbnails keep their old folder as
  *  their own place, a library room's library stays where it is, and renders and
  *  backups go back to their default place (the thumbnail folder, the backup
- *  folder), since they have no place of their own. The Recycle Bin and the
- *  thumbnails are carried by their background moves; everything else moves before
- *  the setting changes, and a failure puts back what had moved. Clearing the
- *  folder leaves every room. A fresh install, one with no library yet, also gets
- *  the Recycle Bin room switched on (decision 9). */
+ *  folder), since they have no place of their own. Every carry is a storage
+ *  move task (storage-move.ts) queued after the setting changes — a library
+ *  flips its path only once its files are across and verified — except the
+ *  backups, a few files moved in the request. Every check happens before
+ *  anything changes. Clearing the folder leaves every room. A fresh install,
+ *  one with no library yet, also gets the Recycle Bin room switched on
+ *  (decision 9). */
 export function setAppStoragePath(candidate: string | null, userId: string, carry: CarryRooms = {}): AppStorageView {
   const current = getAppStorageSetting();
   // Libraries its own rooms made (a turned-off Inbox, say) may stay inside it.
@@ -392,13 +373,8 @@ export function setAppStoragePath(candidate: string | null, userId: string, carr
     ? rooms.filter((room) => room.mode === "app").map((room) => ({ room: room.room, carry: wanted !== null && carry[room.room] !== false }))
     : [];
   const step = (room: AppRoom) => steps.find((s) => s.room === room);
-  if (steps.length > 0) {
-    if (trashMoveStatus().running) {
-      throw new AppStorageError("The bin is being moved right now. Wait for it to finish, or cancel it, before changing App storage.", 409);
-    }
-    if (folderMoveStatus().running) {
-      throw new AppStorageError("The thumbnails are being moved right now. Wait for that to finish, or cancel it, before changing App storage.", 409);
-    }
+  if (steps.length > 0 && anyStorageMoveActive()) {
+    throw new AppStorageError("A storage move is running right now. Wait for it to finish, or cancel it on the Tasks page, before changing App storage.", 409);
   }
   const oldRoom = (room: AppRoom) => path.join(before!, APP_ROOM_FOLDERS[room]);
   const newRoom = (room: AppRoom) => path.join(wanted!, APP_ROOM_FOLDERS[room]);
@@ -411,28 +387,26 @@ export function setAppStoragePath(candidate: string | null, userId: string, carr
     throw new AppStorageError("There is no thumbnail folder for renders and music to go back to.", 409);
   }
 
-  // The moves that happen now, before the setting changes, each with its undo.
-  const undo: (() => void)[] = [];
-  try {
-    for (const room of ["inbox", "house"] as const) {
-      const s = step(room);
-      if (s?.carry) undo.push(moveRoomLibrary(room, oldRoom(room), newRoom(room)));
+  // Every check before any change: a library room's library must be movable.
+  const libraryMoves: { library: GalleryLibraryRow; room: "inbox" | "house" }[] = [];
+  for (const room of ["inbox", "house"] as const) {
+    const s = step(room);
+    if (!s?.carry) continue;
+    const library = libraryAt(oldRoom(room));
+    if (!library) continue;
+    if (library.scan_status === "scanning") {
+      throw new AppStorageError(`"${library.name}" is being scanned right now. Wait for the scan to finish before moving App storage.`, 409);
     }
-    if (renders) {
-      const from = oldRoom("renders");
-      const to = renders.carry ? newRoom("renders") : validateThumbnailPath(thumbnailsAfter!);
-      const moved = moveRenderBuckets(from, to);
-      if (moved > 0) undo.push(() => { moveRenderBuckets(to, from); });
-    }
-    const backups = step("backups");
-    if (backups) {
-      const to = backups.carry ? newRoom("backups") : path.resolve(config.backupPath);
-      fs.mkdirSync(to, { recursive: true });
-      undo.push(moveFolderEntries(oldRoom("backups"), to, "the backups"));
-    }
-  } catch (err) {
-    for (const back of undo.reverse()) { try { back(); } catch { /* reported below as what it was */ } }
-    throw err;
+    assertMoveTargetFree(newRoom(room), `"${library.name}"`);
+    libraryMoves.push({ library, room });
+  }
+
+  // The backups are the one thing carried in the request: a handful of files.
+  const backups = step("backups");
+  if (backups) {
+    const to = backups.carry ? newRoom("backups") : path.resolve(config.backupPath);
+    fs.mkdirSync(to, { recursive: true });
+    moveFolderEntries(oldRoom("backups"), to, "the backups");
   }
 
   // The rooms that leave record their own place; the rest keep their mode and
@@ -465,17 +439,24 @@ export function setAppStoragePath(candidate: string | null, userId: string, carr
   }
   saveAppStorageSetting({ path: wanted, rooms: wanted ? modes : {} }, userId);
 
-  // The two big rooms are carried in the background, now that the setting says
-  // where they are going.
+  // Now the tasks, in the order they should run: the libraries (which flip their
+  // path only when across), the render buckets, the thumbnails, then the bin.
   if (wanted) {
-    if (step("trash")?.carry) {
-      fs.mkdirSync(newRoom("trash"), { recursive: true });
-      startTrashMove();
+    for (const { library, room } of libraryMoves) {
+      enqueueStorageMove({ kind: "library", room, label: library.name, from: library.source_path, to: newRoom(room), libraryId: library.id, actorUserId: userId });
     }
     if (thumbs?.carry) {
       fs.mkdirSync(newRoom("thumbnails"), { recursive: true });
-      startFolderMove(oldRoom("thumbnails"), newRoom("thumbnails"));
+      startFolderMove(oldRoom("thumbnails"), newRoom("thumbnails"), userId);
     }
+    if (step("trash")?.carry) {
+      fs.mkdirSync(newRoom("trash"), { recursive: true });
+      startTrashMove(userId);
+    }
+  }
+  if (renders) {
+    const to = renders.carry ? newRoom("renders") : validateThumbnailPath(thumbnailsAfter!);
+    enqueueStorageMove({ kind: "renders", room: "renders", label: "Renders and music", from: oldRoom("renders"), to, actorUserId: userId });
   }
 
   if (wanted && !before) {
@@ -510,44 +491,8 @@ function requireAppPath(room: AppRoom): string {
   return appPath;
 }
 
-/** Carry the render buckets (uploaded music, finished slideshows, legacy
- *  narration) from one root to another. Rename first; across volumes copy
- *  everything, then delete, and if any copy fails put nothing back to guess at —
- *  the copied part is removed and the move is refused whole. */
-export function moveRenderBuckets(from: string, to: string): number {
-  if (samePath(from, to)) return 0;
-  const present = RENDER_BUCKETS.filter((bucket) => fs.existsSync(path.join(from, bucket)));
-  if (present.length === 0) return 0;
-  fs.mkdirSync(to, { recursive: true });
-  for (const bucket of present) {
-    if (fs.existsSync(path.join(to, bucket))) {
-      throw new AppStorageError(`A "${bucket}" folder already exists in ${to}. Move it aside first.`, 409);
-    }
-  }
-  const copied: string[] = [];
-  try {
-    for (const bucket of present) {
-      const source = path.join(from, bucket);
-      const target = path.join(to, bucket);
-      try {
-        fs.renameSync(source, target);
-        continue;
-      } catch (err) {
-        if ((err as NodeJS.ErrnoException).code !== "EXDEV") throw err;
-      }
-      fs.cpSync(source, target, { recursive: true });
-      copied.push(bucket);
-    }
-  } catch (err) {
-    for (const bucket of copied) fs.rmSync(path.join(to, bucket), { recursive: true, force: true });
-    throw new AppStorageError(`Could not move the files: ${err instanceof Error ? err.message : String(err)}`, 500);
-  }
-  for (const bucket of copied) fs.rmSync(path.join(from, bucket), { recursive: true, force: true });
-  return present.length;
-}
-
 function switchTrash(mode: AppRoomMode, ownPath: string | null, userId: string): void {
-  if (trashMoveStatus().running) {
+  if (storageMoveStatus("trash").running) {
     throw new AppStorageError("The bin is being moved right now. Wait for it to finish, or cancel it, before changing the location again.", 409);
   }
   if (mode === "app") {
@@ -563,12 +508,12 @@ function switchTrash(mode: AppRoomMode, ownPath: string | null, userId: string):
     setTrashRootSetting(null, userId);
     setAppRoomMode("trash", "off", userId);
   }
-  startTrashMove();
+  startTrashMove(userId);
 }
 
 function switchThumbnails(mode: AppRoomMode, ownPath: string | null, userId: string): void {
   if (mode === "off") throw new AppStorageError("Thumbnails need a folder; choose App storage or one of your own.");
-  if (folderMoveStatus().running) {
+  if (storageMoveStatus("thumbnails").running) {
     throw new AppStorageError("The thumbnails are being moved right now. Wait for that to finish, or cancel it, before changing the folder again.", 409);
   }
   const before = configuredThumbnailPathValue() || null;
@@ -589,21 +534,29 @@ function switchThumbnails(mode: AppRoomMode, ownPath: string | null, userId: str
   // Everything in the old folder (each library's bucket, the people bucket, and
   // the render buckets when they follow the thumbnails) is carried across in the
   // background (phase 3); until an entry arrives, its covers are missing.
-  if (before && !samePath(before, after)) startFolderMove(before, after);
+  if (before && !samePath(before, after)) startFolderMove(before, after, userId);
 }
 
 function switchRenders(mode: AppRoomMode, userId: string): void {
   if (mode === "off") throw new AppStorageError("Renders and music always live somewhere: App storage, or inside the thumbnail folder.");
+  if (storageMoveStatus("renders").running) {
+    throw new AppStorageError("Renders and music are being moved right now. Wait for that to finish, or cancel it, before changing the room again.", 409);
+  }
   const before = getRendersRoot();
+  let after: string;
   if (mode === "app") {
-    const appPath = requireAppPath("renders");
-    moveRenderBuckets(before, appPath);
+    after = requireAppPath("renders");
     setAppRoomMode("renders", "app", userId);
   } else {
     const thumbnails = configuredThumbnailPathValue();
     if (!thumbnails) throw new AppStorageError("There is no thumbnail folder for renders and music to go back to.");
-    moveRenderBuckets(before, validateThumbnailPath(thumbnails));
+    after = validateThumbnailPath(thumbnails);
     setAppRoomMode("renders", undefined, userId);
+  }
+  // The setting has flipped; the buckets follow as a task, and a track not yet
+  // across is missing for the seconds it takes.
+  if (!samePath(before, after)) {
+    enqueueStorageMove({ kind: "renders", room: "renders", label: "Renders and music", from: before, to: after, actorUserId: userId });
   }
 }
 
@@ -637,6 +590,14 @@ function switchInbox(mode: AppRoomMode, libraryId: string | null, userId: string
     const existing = libraryAt(appPath);
     if (existing) {
       if (parsePolicy(existing.policy_json).inbox !== true) setInboxFlag(existing.id, true);
+      return;
+    }
+    // An Inbox of the admin's own moves into App storage, photos and all, rather
+    // than a second Inbox being made beside it: the row shows one Inbox, and the
+    // photos waiting for review keep waiting where the row now points.
+    const own = inboxLibraries()[0] ?? null;
+    if (own) {
+      queueLibraryMove(own, "inbox", appPath, userId);
       return;
     }
     fs.mkdirSync(appPath, { recursive: true });
@@ -690,6 +651,15 @@ function switchHouse(mode: AppRoomMode, ownLibraryId: string | null, userId: str
   const appPath = appRoomPath("house");
   if (!appPath) throw new AppStorageError("Choose the App storage folder first.");
   const existing = libraryAt(appPath);
+  // The nominated library of the admin's own moves into App storage whole and
+  // stays nominated (the owner's call, 2026-09-10): what the family made is in
+  // it, and a second library beside it would split that in two.
+  const currentHouse = getHouseLibrary();
+  const own = currentHouse ? galleryLibraries().find((row) => row.id === currentHouse.id) ?? null : null;
+  if (!existing && own && parsePolicy(own.policy_json).inbox !== true) {
+    queueLibraryMove(own, "house", appPath, userId);
+    return;
+  }
   let libraryId: string;
   if (existing) {
     if (parsePolicy(existing.policy_json).inbox === true) {
