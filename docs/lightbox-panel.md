@@ -85,6 +85,35 @@ with the Record button itself (`heading` prop); Review mode passes
 `heading={false}` and `large`, keeps its "Or just say it" hint, and gets the
 Record chip under the rows.
 
+## Phase three — one recorder, one player, for photos and stories
+
+Built 2026-09-10. A photo's recording and a story's narration were the same
+act done two ways: stories had a Record/Stop button that uploaded on Stop with
+no listen-back, and played narration through the browser's native control.
+Both now share `shared/audio/`:
+
+- `RecordAudioModal.tsx` — the dialog from phase two, told by its host what it
+  is called, how long it may run (photos 5:00, narration 15:00), whether a file
+  may be uploaded instead, and what to do with the take (`onSave`). An uploaded
+  file becomes a take and goes through the same listen-back as a fresh one.
+  `RecordVoiceNoteModal` and `StoryAudioModal` are thin wrappers that only
+  name the thing and post the take.
+- `AudioPlayer.tsx` — the wave card. `wave` is the bars the microphone just
+  produced, "decode" to read them from the file, or "none". A story's narration
+  block uses it with `preload="none"`, so a story with several narrations
+  fetches nothing until one is pressed; the photo panel uses it with
+  `autoPlay` and an imperative handle so the rows can toggle it.
+- `wave.ts` — the strip, `formatSeconds`, `recordingSupported`, peak decoding.
+- Strings live under `common:audio.*`; the hosts keep only their own titles.
+  Styles are `styles/audio.css`, with the `--lb-*` tokens as first choice and
+  the theme's as fallback, so the same card is dark in the lightbox and themed
+  on a story page.
+
+Storage was already one place: both land in the house library ("Made in the
+app"), narration under `Story recordings/<year>` and photo recordings under
+`Voice notes/<year>`. The folder names are kept so existing installs' files
+stay where they are.
+
 **The wave is decoded, not stored.** `voice-wave.ts` fetches the recording once
 it goes into the player and reads its peaks with `decodeAudioData`; a format
 the browser cannot decode (it could not play it either) draws a flat strip and

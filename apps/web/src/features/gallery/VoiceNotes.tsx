@@ -5,16 +5,17 @@ import { api } from "../../api";
 import { Button } from "../../shared/Button";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { MessageBox } from "../../shared/MessageBox";
-import { RecordVoiceNoteModal, formatSeconds, recordingSupported } from "./RecordVoiceNoteModal";
+import { AudioPlayer, type AudioPlayerHandle } from "../../shared/audio/AudioPlayer";
+import { formatSeconds, recordingSupported } from "../../shared/audio/wave";
+import { RecordVoiceNoteModal } from "./RecordVoiceNoteModal";
 import type { VoiceNote } from "./types";
-import { drawBars, peaksFromUrl } from "./voice-wave";
 
 // Recordings on a photo (docs/photo-review-plan.md phase 4; docs/lightbox-panel.md
-// phase 2). A row per recording — who, how long, when — and ONE player for all
-// of them: pressing a row's play button loads it into the player above the
-// list, and starting another pauses the first. The Record button opens
-// RecordVoiceNoteModal; the list is the photo's own, so the caller passes what it
-// has and gets told when it changes.
+// phases 2 and 3). A plain line per recording — who, how long, when — and ONE
+// player for all of them: pressing a row's play button loads it into the
+// player above the list, and starting another pauses the first. The Record
+// button opens the shared recording dialog; the list is the photo's own, so
+// the caller passes what it has and gets told when it changes.
 //
 // Recording needs a secure context (https, or localhost) and a microphone;
 // where either is missing the Record button simply is not offered, and the
@@ -43,51 +44,20 @@ export function VoiceNotes({
   const { t } = useTranslation(["common", "gallery"]);
   const [current, setCurrent] = useState<VoiceNote | null>(null);
   const [playing, setPlaying] = useState(false);
-  const [time, setTime] = useState(0);
-  const [length, setLength] = useState(0);
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [recordOpen, setRecordOpen] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState<VoiceNote | null>(null);
   const [removing, setRemoving] = useState(false);
   const [error, setError] = useState("");
-  const audioRef = useRef<HTMLAudioElement>(null);
+  const playerRef = useRef<AudioPlayerHandle>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  // The player's wave strip: the current recording's peaks, decoded once it is
-  // chosen (null while decoding or when the browser cannot decode it — a flat
-  // strip then, and the seek bar still works).
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [peaks, setPeaks] = useState<number[] | null>(null);
 
   const supported = recordingSupported();
-
-  useEffect(() => {
-    setPeaks(null);
-    if (!current) return;
-    let alive = true;
-    void peaksFromUrl(current.url).then((result) => { if (alive) setPeaks(result); });
-    return () => { alive = false; };
-  }, [current]);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (canvas) drawBars(canvas, peaks ?? [], length > 0 ? time / length : null);
-  }, [peaks, time, length, current]);
 
   // A recording that has gone (removed, or the photo changed under us) leaves the player.
   useEffect(() => {
     if (current && !notes.some((note) => note.id === current.id)) { setCurrent(null); setPlaying(false); }
   }, [notes, current]);
-
-  // Loading a row into the player starts it; the audio element is the one source
-  // of truth for playing/paused, mirrored here for the buttons.
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio || !current) return;
-    setTime(0);
-    setLength(current.durationSeconds ?? 0);
-    audio.load();
-    void audio.play()?.catch?.(() => { /* autoplay refused: the play button still works */ });
-  }, [current]);
 
   // The row menu closes on an outside click (Escape is the menu's own key below).
   useEffect(() => {
@@ -99,13 +69,10 @@ export function VoiceNotes({
     return () => document.removeEventListener("mousedown", onPointerDown);
   }, [menuFor]);
 
+  // Pressing the current row toggles the player; any other row becomes current
+  // and starts (AudioPlayer autoPlay).
   const play = (note: VoiceNote) => {
-    const audio = audioRef.current;
-    if (current?.id === note.id && audio) {
-      if (audio.paused) void audio.play()?.catch?.(() => { /* interrupted */ });
-      else audio.pause();
-      return;
-    }
+    if (current?.id === note.id) { playerRef.current?.toggle(); return; }
     setCurrent(note);
   };
 
@@ -152,61 +119,17 @@ export function VoiceNotes({
       )}
 
       {current && (
-        <div className="voice-player is-shared" aria-label={t("gallery:voiceNotes.playerAria", { name: nameOf(current) })}>
-          <audio
-            ref={audioRef}
-            src={current.url}
-            preload="metadata"
-            onPlay={() => setPlaying(true)}
-            onPause={() => setPlaying(false)}
-            onEnded={() => setPlaying(false)}
-            onTimeUpdate={(event) => setTime(event.currentTarget.currentTime)}
-            onLoadedMetadata={(event) => { if (Number.isFinite(event.currentTarget.duration)) setLength(event.currentTarget.duration); }}
-          />
-          {/* The strip is the picture; the range under it is the control (keyboard
-              and screen reader). A click on the strip seeks too. */}
-          <div
-            className="voice-record-wave voice-player-wave"
-            aria-hidden="true"
-            onClick={(event) => {
-              const audio = audioRef.current;
-              if (!audio || length <= 0) return;
-              const box = event.currentTarget.getBoundingClientRect();
-              audio.currentTime = Math.max(0, Math.min(1, (event.clientX - box.left) / box.width)) * length;
-              setTime(audio.currentTime);
-            }}
-          >
-            <canvas ref={canvasRef} width={760} height={144} />
-          </div>
-          <input
-            type="range"
-            className="voice-player-seek"
-            min={0}
-            max={Math.max(length, 1)}
-            step={0.1}
-            value={Math.min(time, Math.max(length, 1))}
-            onChange={(event) => { const audio = audioRef.current; if (audio) { audio.currentTime = Number(event.target.value); setTime(audio.currentTime); } }}
-            aria-label={t("gallery:voiceNotes.seekAria")}
-          />
-          <div className="voice-player-row">
-            <button
-              type="button"
-              className="voice-player-play"
-              onClick={() => play(current)}
-              aria-label={playing ? t("gallery:voiceNotes.pause") : t("gallery:voiceNotes.play")}
-            >
-              {playing ? <Pause size={iconSize} aria-hidden="true" /> : <Play size={iconSize} aria-hidden="true" />}
-            </button>
-            <div className="voice-player-name">
-              {nameOf(current)}
-              <small>{whenOf(current)}</small>
-            </div>
-            <div className="voice-player-times">
-              <span>{formatSeconds(time)}</span>
-              <span className="muted"> / {formatSeconds(length)}</span>
-            </div>
-          </div>
-        </div>
+        <AudioPlayer
+          ref={playerRef}
+          src={current.url}
+          title={nameOf(current)}
+          subtitle={whenOf(current)}
+          durationSeconds={current.durationSeconds}
+          autoPlay
+          large={large}
+          ariaLabel={t("gallery:voiceNotes.playerAria", { name: nameOf(current) })}
+          onPlayingChange={setPlaying}
+        />
       )}
 
       {notes.length > 0 && (
@@ -218,7 +141,7 @@ export function VoiceNotes({
               <div key={note.id} className={`voice-note${isCurrent ? " is-current" : ""}`}>
                 <button
                   type="button"
-                  className="voice-player-play"
+                  className="audio-play"
                   onClick={() => play(note)}
                   aria-label={isPlaying ? t("gallery:voiceNotes.pauseAria", { name: nameOf(note) }) : t("gallery:voiceNotes.playAria", { name: nameOf(note) })}
                   aria-pressed={isCurrent}

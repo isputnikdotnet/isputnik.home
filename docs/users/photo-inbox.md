@@ -252,10 +252,13 @@ When she reaches the end, the card leaves her Home page by itself.
 turns on the tablet's own dictation where the browser has it (Chrome on
 Android, Safari on an iPad): what she says lands in the box as text, sentence
 by sentence, and nothing else is kept. For the story that does not fit in a
-box, **Record a voice note** keeps her voice on the photo itself: press once
-to start, once to stop, and the recording sits under the notes with a play
-button, up to five minutes each. Anyone who can see the photo can play it; the
-lightbox shows the same recordings under **Recordings** on its Details tab. Recordings are ordinary
+box, **Record** keeps her voice on the photo itself. It opens a dialog with
+one big button: press once to start, once to stop, listen back, then
+**Save** — or **Record again** if the dog got in. Up to five minutes each.
+Saved recordings are a list under the box, each with a play button; pressing
+one plays it in the card above the list. Anyone who can see the photo can play
+it; the lightbox shows the same recordings under **Recordings** on its Details
+tab, and a story's narration uses the same recorder and player. Recordings are ordinary
 audio files in the "Made in the app" library, under `Voice notes`, so they
 are backed up like everything else, and removing one sends it to the Recycle
 Bin. Recording needs the app to be opened over https, or on the server

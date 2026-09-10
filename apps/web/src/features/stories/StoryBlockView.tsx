@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import { AlertTriangle, BookOpen, Headphones, Images, MapPin, Mic, Play, Quote, Route, UserRound } from "lucide-react";
 import { GalleryMiniMap } from "../gallery/GalleryMiniMap";
 import { MessageBox } from "../../shared/MessageBox";
+import { AudioPlayer } from "../../shared/audio/AudioPlayer";
 import { followRoute } from "../../router";
 import type { GalleryAsset } from "../gallery/types";
 import { StoryMap } from "./StoryMap";
@@ -174,15 +175,20 @@ export function StoryBlockView({
     );
   }
 
-  // Narration: someone telling this part. Native controls, because a voice
-  // clip wants scrubbing and speed from the browser it is played in.
+  // Narration: someone telling this part, through the same player a photo's
+  // recordings use. Nothing is fetched until it is pressed — a story may carry
+  // several — and the wave is read from the file once it is.
   if (block.kind === "audio" && block.audio) {
     return (
       <figure className="story-block story-block-audio">
         <span className="story-audio-icon" aria-hidden="true"><Mic size={16} /></span>
         <div className="story-audio-body">
-          <strong>{block.audio.title ?? t("stories:audio.defaultTitle")}</strong>
-          <audio src={block.audio.url} controls preload="none" />
+          <AudioPlayer
+            src={block.audio.url}
+            title={block.audio.title ?? t("stories:audio.defaultTitle")}
+            durationSeconds={block.audio.durationSeconds}
+            preload="none"
+          />
           {block.caption && <figcaption>{block.caption}</figcaption>}
         </div>
       </figure>

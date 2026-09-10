@@ -1,10 +1,27 @@
-// The waveform strip shared by the recording dialog and the panel's player.
-//
+// Shared by the recording dialog and the audio player (docs/lightbox-panel.md,
+// phases 2 and 3): the waveform strip, seconds formatting, and the one check
+// for whether this browser can record at all.
+
+/** "1:05" from seconds; "" when unknown. */
+export function formatSeconds(total: number | null | undefined): string {
+  if (total == null || !Number.isFinite(total)) return "";
+  const s = Math.round(total);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
+/** True where MediaRecorder can run: a secure context with a microphone API. */
+export function recordingSupported(): boolean {
+  return typeof window !== "undefined"
+    && window.isSecureContext
+    && typeof window.MediaRecorder !== "undefined"
+    && Boolean(navigator.mediaDevices?.getUserMedia);
+}
+
 // Bars are amplitudes in 0..1, drawn right-aligned so a strip that is still
 // filling (the microphone) grows leftwards from the right edge, and a finished
 // one (a decoded file) spans the width. `cursor` (0..1) dims the bars past it,
-// which is the playback position.
-
+// which is the playback position. Colours are the strip's own: it always sits
+// on a dark ground (the strip paints one), whatever the page theme is.
 export function drawBars(canvas: HTMLCanvasElement, amps: number[], cursor: number | null) {
   const x = canvas.getContext("2d");
   if (!x) return;
@@ -27,13 +44,15 @@ export function drawBars(canvas: HTMLCanvasElement, amps: number[], cursor: numb
   });
 }
 
-/** How many bars a full-width strip holds, for the canvas sizes used here. */
-export const STRIP_BARS = Math.floor(760 / 7);
+/** The canvas the strips draw on, and how many bars a full one holds. */
+export const STRIP_WIDTH = 760;
+export const STRIP_HEIGHT = 144;
+export const STRIP_BARS = Math.floor(STRIP_WIDTH / 7);
 
-// Peaks of a saved recording: fetched and decoded once when it goes into the
-// player. Same-origin, so the session cookie rides along. A format the browser
-// cannot decode (it could not play it either) resolves to nothing, and the
-// player falls back to a flat strip.
+// Peaks of a saved recording (or a blob: URL of a fresh take): fetched and
+// decoded once when it goes into the player. Same-origin, so the session
+// cookie rides along. A format the browser cannot decode (it could not play it
+// either) resolves to nothing, and the player falls back to a flat strip.
 export async function peaksFromUrl(url: string, bars = STRIP_BARS): Promise<number[] | null> {
   try {
     const response = await fetch(url, { credentials: "same-origin" });

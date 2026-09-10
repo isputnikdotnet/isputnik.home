@@ -282,6 +282,35 @@ export function AudioPlayer({
     setChaptersOpen(false);
   }, [goToChapter]);
 
+  // Chapter boundaries drawn on a bar, each a jump to that chapter — the shape
+  // of the book, which a waveform of twelve hours of narration could never show.
+  // `at` maps a chapter to its place on the bar in 0..1, or null to leave it off
+  // (a chapter in another file on the file bar). The first chapter starts at 0
+  // and needs no mark.
+  const chapterMarks = (at: (chapter: FlatChapter) => number | null) => {
+    const marks = chapters
+      .map((chapter, index) => ({ chapter, index, position: at(chapter) }))
+      .filter((mark): mark is { chapter: FlatChapter; index: number; position: number } =>
+        mark.position != null && mark.position > 0 && mark.position < 1);
+    // A 200-track book would be a picket fence; past this the list is the way in.
+    if (marks.length === 0 || marks.length > 80) return null;
+    return (
+      <div className="player-chapter-marks">
+        {marks.map(({ chapter, index, position }) => (
+          <button
+            key={`${chapter.fileId}-${index}`}
+            type="button"
+            className={`player-chapter-mark${index === currentChapterIndex ? " is-current" : ""}`}
+            style={{ left: `${position * 100}%` }}
+            title={chapter.title}
+            aria-label={t("reader:player.goToChapter", { title: chapter.title })}
+            onClick={() => goToChapter(index)}
+          />
+        ))}
+      </div>
+    );
+  };
+
   const jumpToBookmark = useCallback((bookmark: BookmarkEntry) => {
     const index = availableFiles.findIndex((f) => f.id === bookmark.fileId);
     if (index < 0) return;
@@ -841,23 +870,35 @@ export function AudioPlayer({
           </div>
 
           <div className="player-seek-popup">
-            <input
-              type="range"
-              className="player-seekbar"
-              min={0}
-              max={fileDuration || 0}
-              step={1}
-              value={currentTime}
-              onChange={handleSeek}
-              aria-label={t("reader:player.seek")}
-              style={{ ["--seek-fill" as string]: `${fileDuration > 0 ? (currentTime / fileDuration) * 100 : 0}%` }}
-            />
+            <div className="player-seek-track">
+              <input
+                type="range"
+                className="player-seekbar"
+                min={0}
+                max={fileDuration || 0}
+                step={1}
+                value={currentTime}
+                onChange={handleSeek}
+                aria-label={t("reader:player.seek")}
+                style={{ ["--seek-fill" as string]: `${fileDuration > 0 ? (currentTime / fileDuration) * 100 : 0}%` }}
+              />
+              {chapterMarks((chapter) => chapter.fileIndex === fileIndex && fileDuration > 0 ? chapter.startOffset / fileDuration : null)}
+            </div>
             <div className="player-seek-times">
               <span className="player-time">{formatTime(currentTime)}</span>
               <span className="player-time">
                 {fileDuration > currentTime ? `-${formatTime(fileDuration - currentTime)}` : formatTime(fileDuration)}
               </span>
             </div>
+            {/* The whole book under the file: where this file sits among the
+                chapters, with a tick at each one. A one-chapter book has no shape
+                to show. */}
+            {totalDuration > 0 && chapters.length > 1 && (
+              <div className="player-book-bar player-book-bar--popup" role="progressbar" aria-valuenow={bookPosition} aria-valuemax={totalDuration} aria-label={t("reader:player.bookProgress")}>
+                <div className="player-book-bar-fill" style={{ width: `${Math.min(100, (bookPosition / totalDuration) * 100)}%` }} />
+                {chapterMarks((chapter) => chapter.bookStart / totalDuration)}
+              </div>
+            )}
           </div>
 
           <div className="player-controls player-controls--popup">
@@ -1061,16 +1102,19 @@ export function AudioPlayer({
 
       <div className="player-seek">
         <span className="player-time">{formatTime(currentTime)}</span>
-        <input
-          type="range"
-          className="player-seekbar"
-          min={0}
-          max={fileDuration || 0}
-          step={1}
-          value={currentTime}
-          onChange={handleSeek}
-          aria-label={t("reader:player.seek")}
-        />
+        <div className="player-seek-track">
+          <input
+            type="range"
+            className="player-seekbar"
+            min={0}
+            max={fileDuration || 0}
+            step={1}
+            value={currentTime}
+            onChange={handleSeek}
+            aria-label={t("reader:player.seek")}
+          />
+          {chapterMarks((chapter) => chapter.fileIndex === fileIndex && fileDuration > 0 ? chapter.startOffset / fileDuration : null)}
+        </div>
         <span className="player-time">{formatTime(fileDuration)}</span>
       </div>
 
@@ -1079,6 +1123,7 @@ export function AudioPlayer({
           <span className="player-time">{formatTime(bookPosition)}</span>
           <div className="player-book-bar" role="progressbar" aria-valuenow={bookPosition} aria-valuemax={totalDuration} aria-label={t("reader:player.bookProgress")}>
             <div className="player-book-bar-fill" style={{ width: `${Math.min(100, (bookPosition / totalDuration) * 100)}%` }} />
+            {chapterMarks((chapter) => chapter.bookStart / totalDuration)}
           </div>
           <span className="player-time">{formatTime(totalDuration)}</span>
         </div>
