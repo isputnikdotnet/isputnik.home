@@ -535,10 +535,14 @@ CREATE TABLE IF NOT EXISTS gallery_music_tracks (
   title            TEXT NOT NULL,
   artist           TEXT,
   builtin          INTEGER NOT NULL DEFAULT 0,   -- 1 = shipped starter track (undeletable)
-  storage_key      TEXT NOT NULL,
+  storage_key      TEXT NOT NULL,                -- '' once the track is a library item
   duration_seconds REAL,
   uploaded_by      TEXT REFERENCES users(id) ON DELETE SET NULL,  -- NULL for builtin
-  created_at       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+  created_at       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  -- The audio asset in the Made in the app library that IS this track, once a
+  -- house library exists (docs/app-storage-plan.md, phase 3). Deleting the asset
+  -- deletes the track; slideshows pointing at it go silent via their own FK.
+  item_id          TEXT REFERENCES library_items(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS gallery_slideshows (

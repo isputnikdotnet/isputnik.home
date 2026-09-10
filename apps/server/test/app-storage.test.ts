@@ -22,6 +22,7 @@ import {
 } from "../src/modules/library/shared/thumbnail.js";
 import { getTrashRootSetting, trashBook } from "../src/modules/library/shared/trash.js";
 import { pendingTrashMoveRows, startTrashMove, waitForTrashMove } from "../src/modules/library/shared/trash-move.js";
+import { folderMoveStatus, waitForFolderMove } from "../src/modules/library/shared/folder-move.js";
 import { backupDir } from "../src/modules/backups/index.js";
 import { resetDb, makeUser, makeLibrary } from "./helpers/seed.js";
 
@@ -158,17 +159,43 @@ describe("switching rooms", () => {
     expect(() => moveRenderBuckets(thumbs, path.join(appDir, "Renders"))).toThrowError(/already exists/);
   });
 
-  it("switching thumbnails to App storage carries the render buckets with them", () => {
+  it("switching thumbnails to App storage carries the whole store across in the background, merging what a scan wrote meanwhile", async () => {
     fs.mkdirSync(path.join(thumbs, "narration"), { recursive: true });
     fs.writeFileSync(path.join(thumbs, "narration", "clip.m4a"), "AAC");
+    fs.mkdirSync(path.join(thumbs, "LIB", "ab"), { recursive: true });
+    fs.writeFileSync(path.join(thumbs, "LIB", "ab", "old.webp"), "OLD");
+    // Something a scan wrote into the new folder before the mover reached this bucket.
+    fs.mkdirSync(path.join(appDir, "Thumbnails", "LIB", "ab"), { recursive: true });
+    fs.writeFileSync(path.join(appDir, "Thumbnails", "LIB", "ab", "new.webp"), "NEW");
+
     switchRoom("thumbnails", "app", null, "u1");
     expect(configuredThumbnailPathValue()).toBe(path.join(appDir, "Thumbnails"));
+    const status = await waitForFolderMove();
+    expect(status.failed).toEqual([]);
+    expect(status.pending).toBe(0);
     expect(fs.existsSync(path.join(appDir, "Thumbnails", "narration", "clip.m4a"))).toBe(true);
+    expect(fs.existsSync(path.join(appDir, "Thumbnails", "LIB", "ab", "old.webp"))).toBe(true);
+    expect(fs.existsSync(path.join(appDir, "Thumbnails", "LIB", "ab", "new.webp"))).toBe(true);
     expect(fs.existsSync(path.join(thumbs, "narration"))).toBe(false);
-    // Back to its own folder: the own setting is rewritten, the buckets return.
+    expect(fs.existsSync(path.join(thumbs, "LIB"))).toBe(false);
+
+    // Back to its own folder: the own setting is rewritten, everything returns.
+    fs.mkdirSync(thumbs, { recursive: true });
     switchRoom("thumbnails", "own", thumbs, "u1");
     expect(configuredThumbnailPathValue()).toBe(thumbs);
+    await waitForFolderMove();
     expect(fs.existsSync(path.join(thumbs, "narration", "clip.m4a"))).toBe(true);
+    expect(fs.existsSync(path.join(thumbs, "LIB", "ab", "new.webp"))).toBe(true);
+  });
+
+  it("refuses a second thumbnail change while the move runs", async () => {
+    fs.mkdirSync(path.join(thumbs, "LIB"), { recursive: true });
+    fs.writeFileSync(path.join(thumbs, "LIB", "a.webp"), "A");
+    switchRoom("thumbnails", "app", null, "u1");
+    if (folderMoveStatus().running) {
+      expect(() => switchRoom("thumbnails", "own", thumbs, "u1")).toThrowError(/being moved/);
+    }
+    await waitForFolderMove();
   });
 
   it("backups switch without moving anything", () => {

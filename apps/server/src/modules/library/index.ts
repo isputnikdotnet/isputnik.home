@@ -4,6 +4,7 @@ import { coversPlugin } from "./covers.js";
 import { storagePlugin } from "./storage.js";
 import { appStorageRoutesPlugin } from "./app-storage-routes.js";
 import { resumeTrashMoveOnStartup } from "./shared/trash-move.js";
+import { resumeFolderMoveOnStartup } from "./shared/folder-move.js";
 import { audiobookPlugin } from "./audiobook/index.js";
 import { ebookPlugin } from "./ebook/index.js";
 import { galleryPlugin } from "./gallery/index.js";
@@ -86,6 +87,11 @@ export async function libraryPlugin(app: FastifyInstance) {
     if (resumeTrashMoveOnStartup()) app.log.info("Resuming the Recycle Bin move that was under way when the server last stopped.");
   } catch (err) {
     app.log.warn({ err }, "Could not resume the Recycle Bin move; start it again from the Storage page.");
+  }
+  try {
+    if (resumeFolderMoveOnStartup()) app.log.info("Resuming the thumbnail move that was under way when the server last stopped.");
+  } catch (err) {
+    app.log.warn({ err }, "Could not resume the thumbnail move; change the thumbnail folder again to restart it.");
   }
 
   // One-shot mop-up for libraries left claiming to scan by a task that no longer

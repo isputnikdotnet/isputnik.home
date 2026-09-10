@@ -1,8 +1,7 @@
 // Voice notes on a photo — docs/photo-review-plan.md, phase 4. See voice-notes.ts.
 import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import type { FastifyInstance } from "fastify";
+import { uploadStagingDir } from "../../../core/app-storage.js";
 import { logActivity } from "../../../db.js";
 import { receiveUpload, UploadError } from "../../uploads/index.js";
 import { canUserAccessBook, canUserWriteAsset, getLibraryForBook } from "../shared/library-access.js";
@@ -13,9 +12,7 @@ import {
 } from "./voice-notes.js";
 
 function tempDir(): string {
-  const dir = path.join(os.tmpdir(), "isputnik-voice-notes");
-  fs.mkdirSync(dir, { recursive: true });
-  return dir;
+  return uploadStagingDir();
 }
 
 export async function galleryVoiceNoteRoutesPlugin(app: FastifyInstance) {

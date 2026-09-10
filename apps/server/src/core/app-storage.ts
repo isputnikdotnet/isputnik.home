@@ -13,6 +13,8 @@
 // slideshow renders, music, backups. It knows nothing about libraries or
 // containers — validating the folder (inside a container, outside every
 // library) is the storage route's job in modules/library/app-storage-routes.ts.
+import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { db } from "../db.js";
 
@@ -94,6 +96,17 @@ export function setAppRoomMode(room: AppRoom, mode: AppRoomMode | undefined, use
   if (mode === undefined) delete setting.rooms[room];
   else setting.rooms[room] = mode;
   saveAppStorageSetting(setting, userId);
+}
+
+/** Where an upload waits between arriving and landing: a hidden folder inside
+ *  App storage when there is one (so a large recording does not fill a small
+ *  root partition), else the system temp folder. Landing renames when it can
+ *  and copies across volumes when it cannot, so either is safe. */
+export function uploadStagingDir(): string {
+  const root = getAppStoragePath();
+  const dir = root ? path.join(root, ".staging") : path.join(os.tmpdir(), "isputnik-staging");
+  fs.mkdirSync(dir, { recursive: true });
+  return dir;
 }
 
 /** True when `candidate` is App storage itself or somewhere inside it. */

@@ -11,8 +11,8 @@
 // gallery_music_tracks already uses for slideshow beds.
 import fs from "node:fs";
 import path from "node:path";
-import os from "node:os";
 import { nanoid } from "nanoid";
+import { uploadStagingDir } from "../../core/app-storage.js";
 import { db } from "../../db.js";
 import { thumbnailAbsolutePath, thumbnailStorageKey } from "../library/shared/thumbnail.js";
 import { probeDurationSeconds } from "../library/gallery/slideshow-render.js";
@@ -68,7 +68,7 @@ export function narrationAbsolutePath(row: StoryAudioRow): string {
 }
 
 export function narrationTempDir(): string {
-  return path.join(os.tmpdir(), "isputnik-narration");
+  return uploadStagingDir();
 }
 
 /** Move a received upload into the narration bucket and record it. */

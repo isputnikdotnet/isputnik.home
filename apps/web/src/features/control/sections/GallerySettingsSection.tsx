@@ -20,7 +20,7 @@ import { ControlSectionHead } from "../ControlSectionHead";
 
 interface HouseDto {
   library: { id: string; name: string } | null;
-  folders: { recordings: string; familyTree: string; movies: string };
+  folders: { recordings: string; familyTree: string; movies: string; voiceNotes: string; music: string };
 }
 
 interface InboxSummary { id: string; name: string; count: number }
@@ -115,7 +115,7 @@ export function GallerySettingsSection() {
     }
   };
 
-  const folders = house?.folders ?? { recordings: "Story recordings", familyTree: "Family tree", movies: "Slideshow movies" };
+  const folders = house?.folders ?? { recordings: "Story recordings", familyTree: "Family tree", movies: "Slideshow movies", voiceNotes: "Voice notes", music: "Slideshow music" };
   const createForm = showCreate || inboxes.length === 0;
 
   return (

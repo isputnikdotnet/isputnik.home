@@ -8,14 +8,17 @@ import {
   createUserTrack,
   deleteMusicTrack,
   getMusicTrack,
+  importBucketMusicIfDue,
   listMusicTracks,
+  musicFileAbsolutePath,
   musicTempDir,
   musicTitleExists,
   removeBuiltinMusic,
   titleFromFilename
 } from "../src/modules/library/gallery/music.js";
 import { createSlideshow, getSlideshow, updateSlideshow } from "../src/modules/library/gallery/slideshows.js";
-import { resetDb, makeUser } from "./helpers/seed.js";
+import { setHouseLibrary } from "../src/modules/library/gallery/house-library.js";
+import { resetDb, makeUser, makeLibrary } from "./helpers/seed.js";
 
 const uploader = { id: "uploader", role: "member" };
 const other = { id: "other", role: "member" };
@@ -180,5 +183,70 @@ describe("slideshow ↔ music link", () => {
     updateSlideshow(slideshow.id, { musicTrackId: track.id });
     expect(deleteMusicTrack(track.id, uploader)).toBe("ok");
     expect(getSlideshow(slideshow.id)!.music_track_id).toBeNull();
+  });
+});
+
+// docs/app-storage-plan.md, phase 3: once a Made in the app library exists a
+// track is an audio asset of it, and tracks from before move themselves across.
+describe("music in the Made in the app library", () => {
+  let base = "";
+  let houseSource = "";
+
+  beforeEach(() => {
+    base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "music-house-")));
+    houseSource = path.join(base, "House");
+    fs.mkdirSync(houseSource, { recursive: true });
+    db.prepare("DELETE FROM storage_roots").run();
+    db.prepare("INSERT INTO storage_roots (id, name, path, created_by) VALUES ('root1', 'Root', ?, 'boss')").run(base);
+    makeLibrary("house", { createdBy: "boss", type: "gallery" });
+    db.prepare("UPDATE libraries SET source_path = ? WHERE id = 'house'").run(houseSource);
+  });
+
+  afterEach(() => {
+    try { fs.rmSync(base, { recursive: true, force: true }); } catch { /* best-effort */ }
+  });
+
+  it("stores an upload under Slideshow music/ as an asset the track points at", async () => {
+    setHouseLibrary("house", "boss");
+    const track = await uploadFake(uploader, "Beach Day.mp3", "mp3");
+    expect(track.inLibrary).toBe(true);
+    expect(fs.readdirSync(path.join(houseSource, "Slideshow music"))).toEqual(["Beach Day.mp3"]);
+    const row = getMusicTrack(track.id)!;
+    expect(row.item_id).toBeTruthy();
+    expect(row.storage_key).toBe("");
+    expect(musicFileAbsolutePath(row)).toBe(path.join(houseSource, "Slideshow music", "Beach Day.mp3"));
+    const asset = db.prepare("SELECT library_id FROM library_items WHERE id = ?").get(row.item_id) as { library_id: string };
+    expect(asset.library_id).toBe("house");
+    // Nothing landed in the bucket.
+    expect(fs.existsSync(path.join(store, "music"))).toBe(false);
+  });
+
+  it("deleting a library track sends the asset to the Recycle Bin and drops the row", async () => {
+    setHouseLibrary("house", "boss");
+    const track = await uploadFake(uploader, "Beach Day.mp3", "mp3");
+    const itemId = getMusicTrack(track.id)!.item_id!;
+    expect(deleteMusicTrack(track.id, uploader)).toBe("ok");
+    expect(getMusicTrack(track.id)).toBeUndefined();
+    expect(db.prepare("SELECT 1 FROM library_items WHERE id = ?").get(itemId)).toBeUndefined();
+    expect((db.prepare("SELECT COUNT(*) AS n FROM trashed_items").get() as { n: number }).n).toBe(1);
+    expect(fs.existsSync(path.join(houseSource, "Slideshow music", "Beach Day.mp3"))).toBe(false);
+  });
+
+  it("carries bucket tracks into the library once one exists, and does nothing before", async () => {
+    const before = await uploadFake(uploader, "Old Bed.mp3", "mp3");
+    expect(before.inLibrary).toBe(false);
+    const bucketFile = path.join(store, getMusicTrack(before.id)!.storage_key);
+    expect(fs.existsSync(bucketFile)).toBe(true);
+    expect(await importBucketMusicIfDue()).toBeNull();
+
+    setHouseLibrary("house", "boss");
+    expect(await importBucketMusicIfDue()).toEqual({ moved: 1, failed: 0 });
+    const row = getMusicTrack(before.id)!;
+    expect(row.item_id).toBeTruthy();
+    expect(fs.existsSync(bucketFile)).toBe(false);
+    expect(fs.existsSync(path.join(houseSource, "Slideshow music", "Old Bed.mp3"))).toBe(true);
+    // The same id: a slideshow that used it still does.
+    expect(listMusicTracks().map((t) => t.id)).toEqual([before.id]);
+    expect(await importBucketMusicIfDue()).toBeNull();
   });
 });

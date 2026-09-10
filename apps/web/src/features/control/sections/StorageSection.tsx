@@ -32,6 +32,13 @@ interface TrashMove {
   failed: { id: string; title: string; libraryName: string; error: string }[];
 }
 
+interface FolderMove {
+  running: boolean;
+  done: number;
+  pending: number;
+  failed: { name: string; error: string }[];
+}
+
 interface RoomView {
   room: AppRoom;
   mode: RoomMode;
@@ -41,6 +48,7 @@ interface RoomView {
   library: { id: string; name: string } | null;
   counts: { itemsInBin?: number; tracks?: number; clips?: number; waiting?: number; backups?: number };
   move?: TrashMove;
+  folderMove?: FolderMove;
 }
 
 interface AppStorageView {
@@ -118,13 +126,15 @@ export function StorageSection() {
     loadStorage().catch((err) => setError(err instanceof Error ? err.message : t("controlAdmin:storage.loadFailed")));
   }, []);
 
-  // While the bin is being moved, keep the row's count fresh.
+  // While the bin or the thumbnails are being moved, keep the rows' counts fresh.
   const trashMove = storage?.rooms.find((room) => room.room === "trash")?.move;
+  const thumbsMove = storage?.rooms.find((room) => room.room === "thumbnails")?.folderMove;
+  const anyMoving = Boolean(trashMove?.running || thumbsMove?.running);
   useEffect(() => {
-    if (!trashMove?.running) return;
+    if (!anyMoving) return;
     const timer = setInterval(() => { loadStorage().catch(() => { /* next tick */ }); }, 2000);
     return () => clearInterval(timer);
-  }, [trashMove?.running]);
+  }, [anyMoving]);
 
   const rooms = ROOM_ORDER.map((room) => storage?.rooms.find((view) => view.room === room)).filter((room): room is RoomView => Boolean(room));
   const locked = storage ? storage.lockedBy.length > 0 : false;
@@ -199,10 +209,10 @@ export function StorageSection() {
     }
   };
 
-  const moveAction = async (method: "POST" | "DELETE") => {
+  const moveAction = async (method: "POST" | "DELETE", url = "/api/storage/trash-root/move") => {
     setMoveBusy(true);
     try {
-      await api("/api/storage/trash-root/move", { method });
+      await api(url, { method });
       await loadStorage();
     } catch (err) {
       setError(err instanceof Error ? err.message : t("controlAdmin:storage.loadFailed"));
@@ -474,6 +484,21 @@ export function StorageSection() {
                             </Button>
                           </div>
                         )}
+                        {room.room === "thumbnails" && room.folderMove?.running && (
+                          <div className="app-storage-move">
+                            <span>{t("controlAdmin:storage.movingThumbs", { done: room.folderMove.done, total: room.folderMove.done + room.folderMove.pending })}</span>
+                            <Button variant="text" compact disabled={moveBusy} onClick={() => void moveAction("DELETE", "/api/storage/app-storage/thumbnail-move")}>
+                              {t("controlAdmin:storage.moveCancel")}
+                            </Button>
+                          </div>
+                        )}
+                        {room.room === "thumbnails" && room.folderMove && !room.folderMove.running && room.folderMove.failed.length > 0 && (
+                          <div className="app-storage-move needs-attention">
+                            <span title={room.folderMove.failed.map((f) => `${f.name}: ${f.error}`).join("\n")}>
+                              {t("controlAdmin:storage.thumbsMoveFailed", { count: room.folderMove.failed.length })}
+                            </span>
+                          </div>
+                        )}
                         {move && !move.running && move.failed.length > 0 && (
                           <div className="app-storage-move needs-attention">
                             <span title={move.failed.map((f) => `${f.title}: ${f.error}`).join("\n")}>
@@ -494,7 +519,7 @@ export function StorageSection() {
                         <Button
                           variant="secondary"
                           compact
-                          disabled={Boolean(move?.running)}
+                          disabled={Boolean(move?.running) || Boolean(room.room === "thumbnails" && room.folderMove?.running)}
                           title={move?.running ? t("controlAdmin:recycleBin.locationLockedTitle") : undefined}
                           onClick={() => openChooser(room)}
                         >
