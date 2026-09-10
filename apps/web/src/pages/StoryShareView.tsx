@@ -10,6 +10,7 @@ import { RecipeFacts, hasRecipeFacts } from "../features/stories/RecipeFacts";
 import { routePins, routeStops } from "../features/stories/story-route";
 import type { StoryMapPoint } from "../features/stories/types";
 import { useIsMobile } from "../shared/useIsMobile";
+import { AudioPlayer } from "../shared/audio/AudioPlayer";
 import { GalleryMiniMap } from "../features/gallery/GalleryMiniMap";
 import { formatPartialDate, formatPartialDateRange } from "../shared/utils";
 
@@ -650,13 +651,20 @@ function ShareBlock({ block, onOpen }: { block: StoryShareBlock; onOpen: (id: st
     );
   }
 
+  // Narration plays for a guest exactly as it does for the family: the same
+  // card, the same wave read from the file once it is pressed. The file still
+  // streams through this link's own token-scoped route.
   if (block.kind === "audio") {
     return (
       <figure className="story-block story-block-audio">
         <span className="story-audio-icon" aria-hidden="true"><Mic size={16} /></span>
         <div className="story-audio-body">
-          <strong>{block.title ?? t("stories:audio.defaultTitle")}</strong>
-          <audio src={block.url} controls preload="none" />
+          <AudioPlayer
+            src={block.url}
+            title={block.title ?? t("stories:audio.defaultTitle")}
+            durationSeconds={block.durationSeconds}
+            preload="none"
+          />
           {block.caption && <figcaption>{block.caption}</figcaption>}
         </div>
       </figure>

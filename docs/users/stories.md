@@ -222,7 +222,8 @@ before you save it, with **Record again** and **Discard** beside **Save**.
 **Upload a recording** takes one you already have — the voicemail nobody could
 bring themselves to delete — and it plays back the same way before it is
 saved. Up to fifteen minutes each. In the story, narration plays in a card
-that draws the recording's wave and lets you jump around in it.
+that draws the recording's wave and lets you jump around in it, and someone
+opening the story at a share link gets the same card.
 
 Recordings are not stored inside the story: they land in the house's **"Made
 in the app" gallery library** — the one library an admin chooses once, on the
