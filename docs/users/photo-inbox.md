@@ -23,14 +23,13 @@ This guide walks the whole process from the scanner box to a tidy library.
 An Inbox is an ordinary gallery library with one switch on. The quickest way is
 the **Photo Inbox** row on **Control panel → Library → Storage**: with an App
 storage folder chosen, **Change → Use App storage** makes a `Photo Inbox`
-library inside it in one confirmed click ([Storage](storage.md)). The other quick
-way is **Control panel → Settings → Gallery → Photo Inbox**: give it a name, pick
-the storage container it should live in, and the folder, the library and its first
-scan are made in one step. The long way still works — create a gallery library
-the usual way ([Libraries](libraries.md)), pointing it at an empty folder inside
-a storage container, then open its settings and, on the **Access** tab, turn on
-**This library is a Photo Inbox**. An existing library can become one the same
-way, and go back to normal by turning it off.
+library inside it in one confirmed click ([Storage](storage.md)). The same row's
+**A library of my own** turns one of your existing gallery libraries into the
+Inbox instead. The long way still works — create a gallery library the usual way
+([Libraries](libraries.md)), pointing it at an empty folder inside a storage
+container, then open its settings and, on the **Access** tab, turn on **This
+library is a Photo Inbox**. An existing library can become one the same way, and
+go back to normal by turning it off.
 
 ![The library's Access tab, with the Photo Inbox switch as its last row](images/87-library-inbox-switch.png)
 

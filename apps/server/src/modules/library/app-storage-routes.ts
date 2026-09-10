@@ -16,7 +16,9 @@ const pathSchema = z.object({
 const roomSchema = z.object({
   mode: z.enum(["app", "own", "off"]),
   /** The folder for "own", on the rooms that take one. */
-  path: z.string().trim().max(1000).nullable().optional()
+  path: z.string().trim().max(1000).nullable().optional(),
+  /** The gallery library for "own", on the Inbox and Made in the app rooms. */
+  libraryId: z.string().trim().min(1).max(64).nullable().optional()
 });
 
 export async function appStorageRoutesPlugin(app: FastifyInstance) {
@@ -38,7 +40,8 @@ export async function appStorageRoutesPlugin(app: FastifyInstance) {
     const parsed = parseBody(roomSchema, request.body);
     if (parsed.error) return reply.code(400).send({ error: "Invalid room setting", details: parsed.error });
     try {
-      const view = switchRoom(room as (typeof APP_ROOMS)[number], parsed.data.mode, parsed.data.path ?? null, request.user!.id, request.ip);
+      const own = parsed.data.libraryId ?? parsed.data.path ?? null;
+      const view = switchRoom(room as (typeof APP_ROOMS)[number], parsed.data.mode, own, request.user!.id, request.ip);
       return reply.send({ room: view, storage: appStorageView() });
     } catch (err) {
       return reply.code(statusOf(err)).send({ error: err instanceof Error ? err.message : "Unable to change the room" });

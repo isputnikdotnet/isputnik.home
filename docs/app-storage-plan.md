@@ -6,8 +6,10 @@ render-bucket move, the Storage page — 3.77.0; phase 2: the setup guide asks f
 App storage first and offers the two library rooms, and legacy narration moves
 itself — 3.78.0; phase 3: uploaded music as assets of the Made in the app
 library with a self-running import, upload staging under App storage, and a
-background move for the thumbnail folder). Only the `story_audio` drop of
-decision 7 waits for a later release. Written 2026-09-09 after the photo review
+background move for the thumbnail folder). Settings → Gallery was retired the same day: the Made in the app picker and
+the Inbox creator became the "own" option of the two library rooms, so the
+app's storage is chosen in one place. Only the `story_audio` drop of decision
+7 waits for a later release. Written 2026-09-09 after the photo review
 work ([photo-review-plan.md](photo-review-plan.md)) added a fourth kind of
 file the app makes for itself, and its phase 0 had already folded three
 per-feature library settings into one. This plan finishes that thought for

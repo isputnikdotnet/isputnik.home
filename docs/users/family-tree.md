@@ -85,7 +85,7 @@ than dropping you in the gallery.
 
 **Uploading new photos** works from the same picker's *Upload* tab, once an
 admin has chosen the house's "Made in the app" gallery library (Control panel →
-Settings → Gallery). Files are added to that library, in its `Family tree`
+Library → Storage). Files are added to that library, in its `Family tree`
 folder, and attached in one step.
 
 ## Settings

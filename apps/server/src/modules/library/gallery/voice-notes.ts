@@ -91,7 +91,7 @@ export async function storeVoiceNote(itemId: string, userId: string, tmpPath: st
 
   const library = getHouseLibrary();
   if (!library) {
-    throw new VoiceNoteError("No \"Made in the app\" library is set. An admin chooses one under Control → Settings → Gallery.", 409);
+    throw new VoiceNoteError("No \"Made in the app\" library is set. An admin chooses one under Control → Library → Storage.", 409);
   }
   const root = validateLibrarySource(library.source_path);
   const ext = storedExtension(extension);

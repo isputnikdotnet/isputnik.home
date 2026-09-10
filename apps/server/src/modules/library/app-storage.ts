@@ -118,6 +118,8 @@ export interface AppStorageView {
   lockedBy: AppRoom[];
   folders: typeof APP_ROOM_FOLDERS;
   rooms: RoomView[];
+  /** The gallery libraries the library rooms' "own" option can pick from. */
+  libraries: { id: string; name: string; inbox: boolean }[];
 }
 
 function trashRoom(): RoomView {
@@ -258,7 +260,8 @@ export function appStorageView(): AppStorageView {
     error,
     lockedBy: rooms.filter((room) => room.holdsFiles).map((room) => room.room),
     folders: APP_ROOM_FOLDERS,
-    rooms
+    rooms,
+    libraries: galleryLibraries().map((row) => ({ id: row.id, name: row.name, inbox: parsePolicy(row.policy_json).inbox === true }))
   };
 }
 
@@ -455,10 +458,19 @@ function switchBackups(mode: AppRoomMode, userId: string): void {
   }
 }
 
-function switchInbox(mode: AppRoomMode, userId: string, ip: string): void {
+function switchInbox(mode: AppRoomMode, libraryId: string | null, userId: string, ip: string): void {
   const appPath = appRoomPath("inbox");
   if (mode === "own") {
-    throw new AppStorageError("Choose or make an Inbox of your own under Settings → Gallery.");
+    // One of the admin's own gallery libraries becomes the Inbox: the same switch
+    // the library's Access tab offers, reachable from the room's row.
+    if (!libraryId) throw new AppStorageError("Choose which gallery library should be the Photo Inbox.");
+    const library = galleryLibraries().find((row) => row.id === libraryId);
+    if (!library) throw new AppStorageError("That gallery library doesn't exist.", 404);
+    if (getHouseLibrary()?.id === library.id) {
+      throw new AppStorageError(`"${library.name}" is the Made in the app library; it holds what the family makes, not what is waiting for review.`, 409);
+    }
+    setInboxFlag(library.id, true);
+    return;
   }
   if (mode === "app") {
     if (!appPath) throw new AppStorageError("Choose the App storage folder first.");
@@ -504,9 +516,12 @@ function setInboxFlag(libraryId: string, inbox: boolean): void {
     .run(JSON.stringify(policy), libraryId);
 }
 
-function switchHouse(mode: AppRoomMode, userId: string, ip: string): void {
+function switchHouse(mode: AppRoomMode, ownLibraryId: string | null, userId: string, ip: string): void {
   if (mode === "own") {
-    throw new AppStorageError("Choose a library of your own under Settings → Gallery.");
+    if (!ownLibraryId) throw new AppStorageError("Choose which gallery library should hold what is made in the app.");
+    const nominated = setHouseLibrary(ownLibraryId, userId);
+    if (!nominated.ok) throw new AppStorageError(nominated.error, nominated.status);
+    return;
   }
   if (mode === "off") {
     setHouseLibrary(null, userId);
@@ -538,17 +553,19 @@ function switchHouse(mode: AppRoomMode, userId: string, ip: string): void {
   if (!nominated.ok) throw new AppStorageError(nominated.error, nominated.status);
 }
 
-/** Move one room between its three states. `ownPath` is the folder for "own" on
- *  the rooms that take one (Recycle Bin, thumbnails). Throws AppStorageError or
- *  TrashError with the status the route should answer with. */
-export function switchRoom(room: AppRoom, mode: AppRoomMode, ownPath: string | null, userId: string, ip = ""): RoomView {
+/** Move one room between its three states. `own` is what "own" needs on the
+ *  rooms that take something: a folder for the Recycle Bin and thumbnails, a
+ *  gallery library's id for the Inbox and Made in the app. Throws
+ *  AppStorageError or TrashError with the status the route should answer with. */
+export function switchRoom(room: AppRoom, mode: AppRoomMode, own: string | null, userId: string, ip = ""): RoomView {
+  const ownPath = own;
   switch (room) {
     case "trash": switchTrash(mode, ownPath, userId); break;
     case "thumbnails": switchThumbnails(mode, ownPath, userId); break;
     case "renders": switchRenders(mode, userId); break;
     case "backups": switchBackups(mode, userId); break;
-    case "inbox": switchInbox(mode, userId, ip); break;
-    case "house": switchHouse(mode, userId, ip); break;
+    case "inbox": switchInbox(mode, own, userId, ip); break;
+    case "house": switchHouse(mode, own, userId, ip); break;
   }
   logActivity({
     event: "config.updated",

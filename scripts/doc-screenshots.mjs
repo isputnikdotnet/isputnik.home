@@ -523,7 +523,6 @@ const SHOTS = [
       "review mode";`
   },
   { name: "97-for-you", url: "for-you", state: "something waiting: a delivery or a sent card" },
-  { name: "98-gallery-settings", url: "control/settings/gallery", height: 1100 },
   {
     // "Ask someone" over a selection on the Timeline: the dialog that names the album.
     name: "99-ask-someone",

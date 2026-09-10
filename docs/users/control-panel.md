@@ -15,7 +15,7 @@ it points there rather than repeating it.
 | **Security** | Overview, Policies, Trusted networks, Blocked IPs |
 | **Maintenance** | Backup, Scheduled jobs, Recycle Bin |
 | **Utilities** | Gallery → Duplicate cleanup, Missing photos |
-| **Settings** | Appearance, Email, Notifications, Gallery, Stories, Maps, Reader access, About |
+| **Settings** | Appearance, Email, Notifications, Stories, Maps, Reader access, About |
 
 Every tab has its own address, so any page here can be bookmarked or linked to.
 **Utilities** expands in the left nav to a **Gallery** branch, since everything under
@@ -514,16 +514,6 @@ entry, thumbnail and all — and **Purge eligible now** does it immediately.
   their own profile.
 - **Email** — outgoing mail, needed for two-factor codes, security alerts and Send
   to e-reader. It has [its own guide](email.md).
-- **Gallery** — two things. The **Made in the app** library is the one gallery
-  library everything the app makes itself lands in: story narration under
-  `Story recordings`, photos uploaded from the family tree under `Family tree`,
-  rendered slideshow movies under `Slideshow movies`. One choice covers all
-  three; pick a library every member can view, and never a Photo Inbox. Below
-  it, **Photo Inbox** sets one up in a single step — a name and a storage
-  container, and the folder, the library and its first scan are made for you —
-  and lists the Inboxes you already have. See [The Photo Inbox](photo-inbox.md).
-
-  ![Settings → Gallery: the Made in the app library, and the Photo Inbox set up in one step](images/98-gallery-settings.png)
 - **Stories** — whether members may start a recipe from a link, and which library
   narration goes to. Narration recorded before recordings lived in the gallery
   moves into the Made in the app library by itself once one is set; the page says

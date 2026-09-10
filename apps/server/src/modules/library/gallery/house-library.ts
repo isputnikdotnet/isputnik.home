@@ -3,8 +3,9 @@
 // Three features used to ask an admin, separately, which gallery library the
 // files THEY make should land in: story narration, family-tree uploads, and
 // rendered slideshow movies. It was one question asked three times, so it is
-// one setting now: a single gallery library nominated once under Control →
-// Settings → Gallery, and each source writes into a fixed subfolder of it.
+// one setting now: a single gallery library nominated once from the Made in the
+// app row on Control → Library → Storage, and each source writes into a fixed
+// subfolder of it.
 // The Photo Inbox stays a different thing on purpose — it holds what is NOT
 // yet part of the collection, while everything here counts the moment it
 // exists — and is refused here.
@@ -90,6 +91,23 @@ export function setHouseLibrary(libraryId: string | null, userId: string | null)
        updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')`
   ).run(HOUSE_LIBRARY_SETTINGS_KEY, JSON.stringify({ libraryId } satisfies HouseLibrarySetting), userId);
   return { ok: true, library: getHouseLibrary() };
+}
+
+/** The characters no filesystem takes in a name (Windows is the strict one),
+ *  the backslash by char code so no escaping is involved. */
+const FORBIDDEN_IN_NAMES = new Set(["<", ">", ":", '"', "/", String.fromCharCode(92), "|", "?", "*"]);
+
+/** A folder name from what someone typed: the characters no filesystem takes
+ *  are dropped, and what is left must still say something. */
+export function safeFolderName(name: string): string | null {
+  const cleaned = Array.from(name)
+    .filter((ch) => !FORBIDDEN_IN_NAMES.has(ch) && ch.charCodeAt(0) >= 32)
+    .join("")
+    .replace(/[ \t]+/g, " ")
+    .trim()
+    .replace(/[.]+$/, "");
+  if (!cleaned || cleaned === "." || cleaned === "..") return null;
+  return cleaned.slice(0, 80);
 }
 
 /** Opt a gallery library into audio by merging the audio extensions into its

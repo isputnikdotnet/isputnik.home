@@ -239,9 +239,20 @@ describe("switching rooms", () => {
     expect((db.prepare("SELECT COUNT(*) AS n FROM libraries WHERE name = 'Made in the app'").get() as { n: number }).n).toBe(1);
   });
 
-  it("library rooms send 'own' to Settings → Gallery rather than doing it here", () => {
+  it("library rooms take one of the admin's own gallery libraries as 'own'", () => {
+    makeLibrary("mine", { createdBy: "u1", type: "gallery" });
+    makeLibrary("scans", { createdBy: "u1", type: "gallery" });
     expect(() => switchRoom("inbox", "own", null, "u1")).toThrowError(AppStorageError);
-    expect(() => switchRoom("house", "own", null, "u1")).toThrowError(/Settings/);
+    expect(() => switchRoom("house", "own", "nope", "u1")).toThrowError(/doesn't exist/);
+
+    expect(switchRoom("house", "own", "mine", "u1")).toMatchObject({ mode: "own", library: { id: "mine" } });
+    expect(getHouseLibrary()?.id).toBe("mine");
+    // The house library cannot double as the Inbox.
+    expect(() => switchRoom("inbox", "own", "mine", "u1")).toThrowError(/Made in the app library/);
+    expect(switchRoom("inbox", "own", "scans", "u1")).toMatchObject({ mode: "own", library: { id: "scans" } });
+    const policy = db.prepare("SELECT policy_json FROM libraries WHERE id = 'scans'").get() as { policy_json: string };
+    expect(parsePolicy(policy.policy_json).inbox).toBe(true);
+    expect(appStorageView().libraries.map((library) => `${library.id}:${library.inbox}`).sort()).toEqual(["mine:false", "scans:true"]);
   });
 
   it("locks the folder while a room keeps files in it, and frees it again", () => {

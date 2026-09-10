@@ -127,9 +127,6 @@ export const CONTROL_GROUPS: ControlGroupDef[] = [
       { section: "appearance" },
       { section: "email" },
       { section: "notifications" },
-      // The house's gallery settings: the one "Made in the app" library every
-      // app-made file lands in, and setting up a Photo Inbox in one step.
-      { section: "gallerySettings" },
       { section: "storySettings" },
       { section: "maps" },
       { section: "readerAccess" },

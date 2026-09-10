@@ -387,7 +387,7 @@ export async function storiesPlugin(app: FastifyInstance) {
   });
 
   // The recordings library is no longer set here: it is the house's "Made in
-  // the app" library (Control → Settings → Gallery), read through.
+  // the app" library (Control → Library → Storage), read through.
   const settingsSchema = z.object({
     recipeImportEnabled: z.boolean().optional()
   });

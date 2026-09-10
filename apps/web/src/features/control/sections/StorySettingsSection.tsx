@@ -16,8 +16,8 @@ interface StorySettingsDto {
 // Story settings: whether recipes may be read from a link, and where narration
 // goes.
 //
-// Recordings land in the house's "Made in the app" library (Settings →
-// Gallery), under "Story recordings/<year>", as ordinary audio assets — so
+// Recordings land in the house's "Made in the app" library (chosen on Library
+// → Storage), under "Story recordings/<year>", as ordinary audio assets — so
 // they show in the gallery, get backed up, and survive their story. The
 // library used to be nominated here; this page now only says which it is.
 // Narration recorded before that (kept inside the app, invisible to the
@@ -67,7 +67,7 @@ export function StorySettingsSection() {
     }
   };
 
-  const galleryPath = controlHref("gallerySettings");
+  const galleryPath = controlHref("storage");
 
   return (
     <>
