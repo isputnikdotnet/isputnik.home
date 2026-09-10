@@ -31,7 +31,7 @@
 import { db } from "../../db.js";
 import { loadActivity, type ActivityChapter } from "../social/activity.js";
 import { bookLibraryIds } from "../library/feed.js";
-import { resolveGalleryScopeLibraryIds } from "../library/gallery/catalog.js";
+import { resolveGalleryBrowseLibraryIds } from "../library/gallery/catalog.js";
 import { queryGalleryMemories, queryGalleryRecentlyAdded, type GalleryMemoriesPrecision, type GalleryMemoryGroup } from "../library/gallery/catalog.js";
 import { dailyQuote, type DailyQuote } from "../library/quotes-daily.js";
 
@@ -155,7 +155,7 @@ function itemsWithPeople(itemIds: string[]): Set<string> {
 }
 
 function memoryCard(user: RequestUser, date: string): MemoryCard | null {
-  const libIds = resolveGalleryScopeLibraryIds(user);
+  const libIds = resolveGalleryBrowseLibraryIds(user);
   if (libIds.length === 0) return null;
   // Over-fetch per year so the strip has face-photo candidates to prefer.
   const memories = queryGalleryMemories(user.id, libIds, date, 12);
@@ -213,7 +213,7 @@ function memoryCard(user: RequestUser, date: string): MemoryCard | null {
 // person, not three. Absent entirely when nothing arrived, which is the point:
 // the card says "look what came in", so it must have something to say.
 function photosAddedCard(user: RequestUser): PhotosAddedCard | null {
-  const libIds = resolveGalleryScopeLibraryIds(user);
+  const libIds = resolveGalleryBrowseLibraryIds(user);
   if (libIds.length === 0) return null;
   const recent = queryGalleryRecentlyAdded(user.id, libIds, PHOTOS_WINDOW_DAYS, PHOTOS_STRIP_SIZE);
   if (recent.total === 0 || !recent.newestAt) return null;

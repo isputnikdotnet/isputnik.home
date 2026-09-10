@@ -424,6 +424,15 @@ how many files that is. It follows the library picker, so it counts what you're
 looking at — with a library chosen it also says what the whole bin holds, since
 "what would emptying this free?" is usually the reason you came.
 
+**Replaced originals** sit under the tiles, for administrators. When a photo's file
+is replaced from the viewer, the version that was there is set aside in a
+`replaced` folder beside the bin rather than overwritten, so a wrong file can be
+put back by hand. Those files are not bin items: they have no retention date and
+nothing removes them for you, so the list is where you see what has piled up —
+which photo each one belonged to, its library, when it was set aside and its size
+— and where you delete one, or all of them, once you are sure the replacement was
+right. Moving the bin carries them along.
+
 Under that is **where those files actually are** — a `.trash` folder inside each
 library's own folder, so there is one per library rather than one for the install.
 That's deliberate: deleting is then a rename within one filesystem, instant even for

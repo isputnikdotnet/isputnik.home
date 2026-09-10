@@ -19,6 +19,14 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.85.0",
+    label: "Placed photos stay placed, and the replaced originals are seen",
+    changes: [
+      "A photo from a library inside App storage placed in a story, an album or a slideshow shows again. 3.84.1 kept such libraries out of the gallery's browsing, which was right, but stories, albums, slideshows and the viewer resolve the photos they name through the same scope, so every photo from a Made in the app library read \"removed, or not in a library you can see\" wherever it had been placed. The scope is two things now: what you can reach, unchanged from before, for anything that names a photo by id; and what the gallery browses on its own — the Timeline, folders, Memories, the year review, the map, People and the Home page's photo cards — which still leaves App storage libraries out unless you choose one in the library filter.",
+      "The Recycle Bin page lists the replaced originals: the files Replace file set aside, the version a photo had before a better one went in over it. They are not bin items — no row, no retention date, nothing removed them — so until now they were invisible and only ever grew. For administrators the page shows each one with the photo it belonged to, its library, when it was set aside and its size, with Delete on each and Delete all, both confirmed, and notes one whose photo has since gone or that sits in a library's own .trash rather than the bin."
+    ]
+  },
+  {
     version: "3.84.2",
     label: "The replaced originals move with the bin",
     changes: [

@@ -67,8 +67,10 @@ that are gallery libraries, the Photo Inbox and Made in the app, are left out
 of the Timeline, Memories, the Home page, People, the map and every picker,
 the way an Inbox always was; what they hold is reached from the stories,
 photos and family tree that made it, or by choosing the library by name in
-the gallery's library filter, where it is labelled. The other rooms are not
-libraries and are never scanned.
+the gallery's library filter, where it is labelled. A photo from such a
+library that a story, an album or a slideshow already holds keeps showing
+there, and opens in the viewer as before. The other rooms are not libraries
+and are never scanned.
 
 | Room | Use App storage | Its own place | Off |
 |---|---|---|---|

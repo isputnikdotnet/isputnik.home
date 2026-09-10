@@ -14,7 +14,7 @@ import {
 } from "../src/modules/library/app-storage.js";
 import { copyTreeVerified, storageMoveStatus, waitForStorageMoves, STORAGE_MOVE_JOB_TYPE } from "../src/modules/library/shared/storage-move.js";
 import { getHouseLibrary, setHouseLibrary } from "../src/modules/library/gallery/house-library.js";
-import { resolveGalleryScopeLibraryIds } from "../src/modules/library/gallery/catalog.js";
+import { resolveGalleryBrowseLibraryIds, resolveGalleryScopeLibraryIds } from "../src/modules/library/gallery/catalog.js";
 import {
   configuredThumbnailPathValue,
   getRendersRoot,
@@ -341,7 +341,7 @@ describe("switching rooms", () => {
     }
   });
 
-  it("a library inside App storage is left out of the gallery's implicit scope, like an Inbox, and honoured when named", async () => {
+  it("a library inside App storage is left out of BROWSING like an Inbox, but stays reachable for what names its photos by id", async () => {
     const admin = { id: "u1", role: "admin" };
     // An ordinary gallery library of the admin's own, outside App storage.
     const ownDir = path.join(base, "Family");
@@ -356,14 +356,17 @@ describe("switching rooms", () => {
     await settleScans();
     const inbox = appStorageView().rooms.find((room) => room.room === "inbox")!.library!.id;
     expect(resolveGalleryScopeLibraryIds(admin)).toEqual(["FAM"]);
+    expect(resolveGalleryBrowseLibraryIds(admin)).toEqual(["FAM"]);
     expect(resolveGalleryScopeLibraryIds(admin, [inbox])).toEqual([inbox]);
-    // The own library moved into App storage leaves the implicit scope too, and
-    // is still there when named.
+    // The own library moved into App storage leaves BROWSING, and is still
+    // there when named — but stays REACHABLE, so a story block, an album or the
+    // viewer that names one of its photos by id keeps showing it.
     switchRoom("house", "app", null, "u1");
     await waitForStorageMoves();
     expect(getHouseLibrary()!.source_path).toBe(path.join(appDir, "Made in the app"));
-    expect(resolveGalleryScopeLibraryIds(admin)).toEqual([]);
-    expect(resolveGalleryScopeLibraryIds(admin, ["FAM"])).toEqual(["FAM"]);
+    expect(resolveGalleryBrowseLibraryIds(admin)).toEqual([]);
+    expect(resolveGalleryBrowseLibraryIds(admin, ["FAM"])).toEqual(["FAM"]);
+    expect(resolveGalleryScopeLibraryIds(admin)).toEqual(["FAM"]);
   });
 
   it("makes and nominates the Made in the app library, and off only clears the nomination", () => {

@@ -45,6 +45,22 @@ interface TrashedItem {
  *  to no real library, but "show me just the stories" is a real question. */
 const STORIES_SCOPE = "__stories";
 
+/** A file Replace file set aside beside the bin (server: gallery/replaced.ts).
+ *  Not a bin item: no row, no retention, listed from disk for admins. */
+interface ReplacedOriginal {
+  key: string;
+  libraryId: string;
+  libraryName: string | null;
+  itemId: string;
+  itemTitle: string | null;
+  itemExists: boolean;
+  fileName: string;
+  originalName: string;
+  keptAt: string | null;
+  size: number;
+  root: string;
+}
+
 interface DeletedStoryRow {
   id: string;
   title: string;
@@ -204,6 +220,13 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
   // taken. That is not a failed action and must not be dressed as one, so the outcome
   // gets its own line rather than the error box.
   const [notice, setNotice] = useState("");
+  // Replaced originals: admin-only, listed from disk, deleted one or all at a time.
+  const [replaced, setReplaced] = useState<ReplacedOriginal[]>([]);
+  const [replacedBytes, setReplacedBytes] = useState(0);
+  const [replacedError, setReplacedError] = useState("");
+  const [replacedTarget, setReplacedTarget] = useState<ReplacedOriginal | null>(null);
+  const [replacedEmptyOpen, setReplacedEmptyOpen] = useState(false);
+  const [replacedBusy, setReplacedBusy] = useState(false);
   // Newest deletion first — the order the server hands them back, and the one you
   // want when you've just deleted something by mistake.
   const [sort, setSort] = useState<TrashSort>("recent");
@@ -311,6 +334,17 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
   // Any change to what's listed or how it's ordered goes back to the top.
   useEffect(() => { setPage(1); }, [scopeId, sourceFilter, retentionFilter, search, sort, perPage]);
 
+  const loadReplaced = async () => {
+    try {
+      const payload = await api<{ originals?: ReplacedOriginal[]; bytes?: number }>("/api/library/trash/replaced");
+      setReplaced(Array.isArray(payload.originals) ? payload.originals : []);
+      setReplacedBytes(Number(payload.bytes) || 0);
+      setReplacedError("");
+    } catch (err) {
+      setReplacedError(err instanceof Error ? err.message : t("controlAdmin:recycleBin.replacedLoadFailed"));
+    }
+  };
+
   const load = async () => {
     const payload = await api<{
       items: TrashedItem[];
@@ -334,6 +368,7 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
         .sort((a, b) => Date.parse(b.trashedAt) - Date.parse(a.trashedAt))
     );
     setBins(payload.bins ?? []);
+    if (currentUser.role === "admin") void loadReplaced();
     setRetentionDays(payload.retentionDays);
     setCleanupRetentionDays(payload.cleanupRetentionDays);
     setBinInput(String(payload.retentionDays));
@@ -411,6 +446,35 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
       setActionError(err instanceof Error ? err.message : t("controlAdmin:recycleBin.restoreFailed"));
     } finally {
       setRestoringId("");
+    }
+  };
+
+  const deleteReplaced = async () => {
+    if (!replacedTarget) return;
+    setReplacedBusy(true);
+    setReplacedError("");
+    try {
+      await api("/api/library/trash/replaced/delete", { method: "POST", body: JSON.stringify({ key: replacedTarget.key }) });
+      setReplacedTarget(null);
+      await loadReplaced();
+    } catch (err) {
+      setReplacedError(err instanceof Error ? err.message : t("controlAdmin:recycleBin.replacedDeleteFailed"));
+    } finally {
+      setReplacedBusy(false);
+    }
+  };
+
+  const emptyReplaced = async () => {
+    setReplacedBusy(true);
+    setReplacedError("");
+    try {
+      await api("/api/library/trash/replaced/empty", { method: "POST", body: "{}" });
+      setReplacedEmptyOpen(false);
+      await loadReplaced();
+    } catch (err) {
+      setReplacedError(err instanceof Error ? err.message : t("controlAdmin:recycleBin.replacedDeleteFailed"));
+    } finally {
+      setReplacedBusy(false);
     }
   };
 
@@ -822,6 +886,66 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
       )}
 
 
+      {/* The originals Replace file set aside beside the bin. Not bin items — no
+          row, no retention date, nothing removes them — so this is the one place
+          they are seen, counted and let go. Admin-only, like the location. */}
+      {isAdmin && loaded && (replaced.length > 0 || replacedError) && (
+        <section className="trash-replaced">
+          <div className="trash-replaced-head">
+            <div>
+              <h2>{t("controlAdmin:recycleBin.replacedTitle")}</h2>
+              <p className="datagrid-muted">{t("controlAdmin:recycleBin.replacedIntro")}</p>
+            </div>
+            <div className="trash-replaced-actions">
+              <span className="datagrid-muted">{t("controlAdmin:recycleBin.replacedSummary", { count: replaced.length, size: formatBytes(replacedBytes) })}</span>
+              <Button variant="danger" compact disabled={replacedBusy || replaced.length === 0} onClick={() => { setReplacedError(""); setReplacedEmptyOpen(true); }}>
+                {t("controlAdmin:recycleBin.replacedEmpty")}
+              </Button>
+            </div>
+          </div>
+          {replacedError && <MessageBox tone="error" title={t("controlAdmin:recycleBin.replacedLoadFailed")}>{replacedError}</MessageBox>}
+          {replaced.length > 0 && (
+            <div className="datagrid-wrap">
+              <table className="datagrid">
+                <thead>
+                  <tr>
+                    <th>{t("controlAdmin:recycleBin.replacedThPhoto")}</th>
+                    <th>{t("controlAdmin:recycleBin.replacedThLibrary")}</th>
+                    <th>{t("controlAdmin:recycleBin.replacedThKept")}</th>
+                    <th className="col-num">{t("controlAdmin:recycleBin.replacedThSize")}</th>
+                    <th className="col-actions"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {replaced.map((original) => (
+                    <tr key={original.key}>
+                      <td>
+                        <strong>{original.itemTitle ?? original.originalName}</strong>
+                        <div className="datagrid-muted trash-replaced-file" title={original.fileName}>
+                          {original.originalName}
+                          {!original.itemExists && <> · {t("controlAdmin:recycleBin.replacedPhotoGone")}</>}
+                        </div>
+                      </td>
+                      <td>
+                        {original.libraryName ?? original.libraryId}
+                        {original.root !== "bin" && <div className="datagrid-muted">{t("controlAdmin:recycleBin.replacedInLibraryTrash")}</div>}
+                      </td>
+                      <td>{original.keptAt ? formatManagedDate(original.keptAt) : "—"}</td>
+                      <td className="col-num">{formatBytes(original.size)}</td>
+                      <td className="col-actions">
+                        <Button variant="text" danger compact disabled={replacedBusy} onClick={() => { setReplacedError(""); setReplacedTarget(original); }}>
+                          {t("controlAdmin:recycleBin.replacedDelete")}
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      )}
+
       {/* How the list is laid out, in one place. These three used to sit in the
           toolbar and, spelled out, took more width than the row had — and they are
           not read-while-you-work controls: you set them once and then get on with
@@ -962,6 +1086,36 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
           onSaved={load}
           onClose={() => setEditLocationOpen(false)}
         />
+      )}
+
+      {replacedTarget && (
+        <ConfirmDialog
+          title={t("controlAdmin:recycleBin.replacedConfirmOneTitle", { name: replacedTarget.originalName })}
+          confirmLabel={t("controlAdmin:recycleBin.replacedDelete")}
+          busyLabel={t("controlAdmin:recycleBin.replacedDeleting")}
+          danger
+          busy={replacedBusy}
+          error={replacedError || undefined}
+          onConfirm={() => void deleteReplaced()}
+          onCancel={() => { setReplacedTarget(null); setReplacedError(""); }}
+        >
+          {t("controlAdmin:recycleBin.replacedConfirmOneBody")}
+        </ConfirmDialog>
+      )}
+
+      {replacedEmptyOpen && (
+        <ConfirmDialog
+          title={t("controlAdmin:recycleBin.replacedConfirmAllTitle")}
+          confirmLabel={t("controlAdmin:recycleBin.replacedEmpty")}
+          busyLabel={t("controlAdmin:recycleBin.replacedDeleting")}
+          danger
+          busy={replacedBusy}
+          error={replacedError || undefined}
+          onConfirm={() => void emptyReplaced()}
+          onCancel={() => { setReplacedEmptyOpen(false); setReplacedError(""); }}
+        >
+          {t("controlAdmin:recycleBin.replacedConfirmAllBody", { count: replaced.length, size: formatBytes(replacedBytes) })}
+        </ConfirmDialog>
       )}
 
       {purgeTarget && (

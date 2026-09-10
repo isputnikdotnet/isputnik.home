@@ -4,7 +4,7 @@ import { db, logActivity } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
 import { canUserWriteAsset, canUserWriteLibrary, getLibraryForBook } from "../shared/library-access.js";
 import type { LibraryListRow } from "../shared/library-serializer.js";
-import { resolveGalleryScopeLibraryIds, parseLibraryIds, getGalleryAsset, getGalleryAssetUnscoped } from "./catalog.js";
+import { resolveGalleryScopeLibraryIds, parseLibraryIds, getGalleryAsset, getGalleryAssetUnscoped, resolveGalleryBrowseLibraryIds } from "./catalog.js";
 import {
   listGalleryPeople,
   getGalleryPersonPhotos,
@@ -45,7 +45,7 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
 
   app.get("/api/library/gallery/people", { preHandler: app.authenticate }, async (request) => {
     const qp = request.query as { libraryIds?: string; includeHidden?: string };
-    const libIds = resolveGalleryScopeLibraryIds(request.user!, parseLibraryIds(qp.libraryIds));
+    const libIds = resolveGalleryBrowseLibraryIds(request.user!, parseLibraryIds(qp.libraryIds));
     const includeHidden = qp.includeHidden === "1" && request.user!.role === "admin";
     return { people: listGalleryPeople(libIds, includeHidden) };
   });
@@ -55,7 +55,7 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
     const qp = request.query as { limit?: string; offset?: string };
     const limit = Math.min(Math.max(Number.parseInt(qp.limit ?? "80", 10) || 80, 1), 200);
     const offset = Math.max(Number.parseInt(qp.offset ?? "0", 10) || 0, 0);
-    const libIds = resolveGalleryScopeLibraryIds(request.user!);
+    const libIds = resolveGalleryBrowseLibraryIds(request.user!);
     // Hidden people 404 for non-admins, mirroring the list's includeHidden gate.
     const result = getGalleryPersonPhotos(request.user!.id, libIds, personId, limit, offset, request.user!.role === "admin");
     if (!result) {
