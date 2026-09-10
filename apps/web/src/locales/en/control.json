@@ -29,7 +29,7 @@
       "logs": "Logs",
       "libraries": "Libraries",
       "storage": "Storage",
-      "storageContents": "Contents",
+      "storageContents": "Storage contents",
       "categories": "Categories",
       "tags": "Tags",
       "users": "Users",
@@ -55,8 +55,7 @@
     },
     "contexts": {
       "gallery": "Gallery",
-      "widgets": "Widgets",
-      "storage": "Storage"
+      "widgets": "Widgets"
     },
     "exit": "Home",
     "aria": "Control panel",
