@@ -51,6 +51,12 @@ start.
 | **Renders and music** | `Renders\` | — | inside the thumbnail folder |
 | **Backups** | `Backups\` | the backup folder (`BACKUP_PATH` in Docker) | — |
 
+Uploaded slideshow music is not really a room any more: once a Made in the app
+library exists, every track lives in its `Slideshow music\` folder as an
+ordinary audio asset, visible in the gallery and backed up with the rest, and
+music uploaded before that moves itself there shortly after the server starts.
+The Renders room then holds only finished slideshow movies.
+
 Each row says which column it is in, in words, and **Change** opens a small
 chooser with the options for that room. Picking one doesn't apply it: a box
 names the room, shows the exact folder it will use from now on, says what moves
@@ -66,10 +72,12 @@ Three rooms are worth a word each:
   item remembers where its own files are. Keep the bin on the same disk as your
   libraries if you can: deleting into a bin on the same disk is an instant
   rename, onto another disk it copies every byte.
-- **Thumbnails.** Changing their folder doesn't copy them: the new folder is
-  filled by the next scan of each library, and until then covers may be missing.
-  Uploaded slideshow music and finished renders come along with the thumbnails,
-  since that is where they live unless Renders has its own room.
+- **Thumbnails.** Changing their folder carries everything already there across
+  in the background, one library's folder at a time, and the row shows the
+  progress with a way to cancel. New thumbnails go to the new folder at once;
+  until an entry has been carried over, its covers are missing. Finished renders
+  come along with the thumbnails, since that is where they live unless Renders
+  has its own room.
 - **Photo Inbox** and **Made in the app.** Switching either to App storage makes
   a new gallery library in the room's folder. Switching one off leaves the
   library as an ordinary library with its files where they are; the Inbox refuses
@@ -150,3 +158,7 @@ The exceptions are the things you'd expect to touch files, and only those:
 uploading adds a file, deleting an *item* (when the library allows it) moves it
 to the Recycle Bin, and changing a room on this page moves what that room holds,
 after telling you so.
+
+Uploads wait in a hidden `.staging\` folder inside App storage while they
+arrive, rather than in the system's temp folder, so a long recording cannot
+fill a small root partition.

@@ -40,6 +40,7 @@ import {
   validateTrashRootPath
 } from "./shared/trash.js";
 import { startTrashMove, trashMoveStatus, type TrashMoveStatus } from "./shared/trash-move.js";
+import { folderMoveStatus, startFolderMove, type FolderMoveStatus } from "./shared/folder-move.js";
 import { createLibraryRecord } from "./shared/library-crud.js";
 import { getHouseLibrary, setHouseLibrary } from "./gallery/house-library.js";
 import { enqueueGalleryScan, processGalleryScanQueue } from "./gallery/scanner.js";
@@ -106,6 +107,8 @@ export interface RoomView {
   counts: { itemsInBin?: number; tracks?: number; clips?: number; waiting?: number; backups?: number };
   /** The bin move, for the Recycle Bin row. */
   move?: TrashMoveStatus;
+  /** The thumbnail move, for the Thumbnails row (docs/app-storage-plan.md, phase 3). */
+  folderMove?: FolderMoveStatus;
 }
 
 export interface AppStorageView {
@@ -176,7 +179,8 @@ function thumbnailsRoom(): RoomView {
     appPath,
     holdsFiles: usesApp && dirHasEntries(resolved),
     library: null,
-    counts: {}
+    counts: {},
+    folderMove: folderMoveStatus()
   };
 }
 
@@ -189,7 +193,8 @@ function rendersRoom(): RoomView {
   } catch {
     resolved = null;
   }
-  const tracks = (db.prepare("SELECT COUNT(*) AS n FROM gallery_music_tracks").get() as { n: number }).n;
+  // Only the tracks still kept as bucket files: the rest are library assets now.
+  const tracks = (db.prepare("SELECT COUNT(*) AS n FROM gallery_music_tracks WHERE item_id IS NULL").get() as { n: number }).n;
   const clips = (db.prepare("SELECT COUNT(*) AS n FROM story_audio").get() as { n: number }).n;
   return {
     room: "renders",
@@ -400,7 +405,9 @@ function switchTrash(mode: AppRoomMode, ownPath: string | null, userId: string):
 
 function switchThumbnails(mode: AppRoomMode, ownPath: string | null, userId: string): void {
   if (mode === "off") throw new AppStorageError("Thumbnails need a folder; choose App storage or one of your own.");
-  const rendersFollow = appRoomMode("renders") !== "app";
+  if (folderMoveStatus().running) {
+    throw new AppStorageError("The thumbnails are being moved right now. Wait for that to finish, or cancel it, before changing the folder again.", 409);
+  }
   const before = configuredThumbnailPathValue() || null;
   let after: string;
   if (mode === "app") {
@@ -416,9 +423,10 @@ function switchThumbnails(mode: AppRoomMode, ownPath: string | null, userId: str
     ).run(thumbnailPathSettingKey, after, userId);
     setAppRoomMode("thumbnails", "own", userId);
   }
-  // Renders and music follow the thumbnails unless they have their own room, so
-  // they come along; their keys are relative to whichever folder is current.
-  if (rendersFollow && before && !samePath(before, after)) moveRenderBuckets(before, after);
+  // Everything in the old folder (each library's bucket, the people bucket, and
+  // the render buckets when they follow the thumbnails) is carried across in the
+  // background (phase 3); until an entry arrives, its covers are missing.
+  if (before && !samePath(before, after)) startFolderMove(before, after);
 }
 
 function switchRenders(mode: AppRoomMode, userId: string): void {

@@ -1,11 +1,13 @@
 # App storage — plan
 
-Status: **Phases 1 and 2 built 2026-09-09** (phase 1: the setting, the resolver,
-the rooms with their switches and confirmations, the bin move, the render-bucket
-move, the Storage page — released as 3.77.0; phase 2: the setup guide asks for
+Status: **All three phases built 2026-09-09** (phase 1: the setting, the
+resolver, the rooms with their switches and confirmations, the bin move, the
+render-bucket move, the Storage page — 3.77.0; phase 2: the setup guide asks for
 App storage first and offers the two library rooms, and legacy narration moves
-itself). Phase 3 remains a proposal; the `story_audio` drop of decision 7 waits
-for a later release. Written 2026-09-09 after the photo review
+itself — 3.78.0; phase 3: uploaded music as assets of the Made in the app
+library with a self-running import, upload staging under App storage, and a
+background move for the thumbnail folder). Only the `story_audio` drop of
+decision 7 waits for a later release. Written 2026-09-09 after the photo review
 work ([photo-review-plan.md](photo-review-plan.md)) added a fourth kind of
 file the app makes for itself, and its phase 0 had already folded three
 per-feature library settings into one. This plan finishes that thought for
@@ -269,16 +271,24 @@ exists (decision 7), and Settings → Stories loses its banner and button.
 
 ## Phase 3 — later, if wanted
 
-- **Renders and music as library content.** Uploaded slideshow music could
-  be a `Music/` room of the Made in the app library instead of a bucket file,
-  which would make it visible, shareable and backed up with the rest. Waits
-  for someone to miss it.
-- **Upload staging under App storage** instead of the system temp folder,
-  so a large upload does not fill a small root partition. Cheap, but Docker
-  images are usually on the same disk as `/tmp` anyway.
-- **A "move" for thumbnails**, the one location that is safe to move because
-  it is rebuildable: change the folder, and the next scan refills it. Only
-  worth building if someone changes disks.
+Built as follows:
+
+- **Music as library content.** A track is an audio asset of the Made in the
+  app library under `Slideshow music/` whenever such a library exists
+  (`gallery_music_tracks.item_id`, migration 74); the row keeps its id so
+  slideshows keep pointing at it, and deleting the track sends the asset to the
+  Recycle Bin. Tracks uploaded before a house library existed stay bucket files
+  until the gallery plugin's timer (a minute after boot, then every six hours)
+  copies, catalogs and re-points them. Deleting the asset from the gallery
+  deletes the track, and slideshows on it go silent through their own FK.
+- **Upload staging under App storage.** Voice notes, narration and music
+  uploads wait in `<App storage>/.staging` (else the system temp folder);
+  library uploads already staged inside the library.
+- **A move for thumbnails.** Changing the thumbnail room starts a background
+  folder move (`shared/folder-move.ts`): top-level entries one at a time,
+  rename or copy-then-delete, merging into an entry a scan has meanwhile
+  recreated, resumable after a restart, with progress and cancel on the row.
+  It replaced phase 1's "the next scan refills it".
 
 ## Open questions
 

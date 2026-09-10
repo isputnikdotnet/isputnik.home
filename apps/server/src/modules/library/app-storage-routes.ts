@@ -6,6 +6,7 @@ import { parseBody } from "../../core/shared.js";
 import { APP_ROOMS } from "../../core/app-storage.js";
 import { appStorageView, setAppStoragePath, statusOf, switchRoom } from "./app-storage.js";
 import { cancelTrashMove, resetTrashMoveFailures, startTrashMove, trashMoveStatus } from "./shared/trash-move.js";
+import { cancelFolderMove, folderMoveStatus } from "./shared/folder-move.js";
 
 const pathSchema = z.object({
   // null (or "") clears App storage.
@@ -51,4 +52,8 @@ export async function appStorageRoutesPlugin(app: FastifyInstance) {
     return startTrashMove();
   });
   app.delete("/api/storage/trash-root/move", { preHandler: app.requireAdmin }, async () => cancelTrashMove());
+
+  // The thumbnail move (phase 3): what it is doing, and stop.
+  app.get("/api/storage/app-storage/thumbnail-move", { preHandler: app.requireAdmin }, async () => folderMoveStatus());
+  app.delete("/api/storage/app-storage/thumbnail-move", { preHandler: app.requireAdmin }, async () => cancelFolderMove());
 }

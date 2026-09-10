@@ -36,7 +36,7 @@ const REFERENCED_KEY_QUERIES = [
   "SELECT cover_storage_key AS k FROM series",
   "SELECT image_storage_key AS k FROM categories",
   "SELECT portrait_storage_key AS k FROM family_tree_persons",
-  "SELECT storage_key AS k FROM gallery_music_tracks",
+  "SELECT storage_key AS k FROM gallery_music_tracks WHERE storage_key != ''",
   "SELECT output_storage_key AS k FROM gallery_slideshows",
   "SELECT storage_key AS k FROM story_audio",
   "SELECT cover_key AS k FROM trashed_items"

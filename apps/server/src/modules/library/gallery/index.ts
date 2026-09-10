@@ -13,7 +13,7 @@ import {
   galleryDuplicateJobRoutesPlugin,
   startDuplicateScanWorker
 } from "./duplicates/index.js";
-import { removeBuiltinMusic } from "./music.js";
+import { importBucketMusicIfDue, removeBuiltinMusic } from "./music.js";
 import { startSlideshowRenderWorker } from "./slideshow-render.js";
 import { startTranscodeWorker } from "./transcode.js";
 import { galleryStreamPlugin } from "./stream.js";
@@ -46,11 +46,32 @@ export async function galleryPlugin(app: FastifyInstance) {
   const stopRenderWorker = startSlideshowRenderWorker();
   const stopTranscodeWorker = startTranscodeWorker();
   const stopDuplicateWorker = startDuplicateScanWorker();
+
+  // Slideshow music uploaded before a Made in the app library existed moves
+  // itself into that library once there is one (docs/app-storage-plan.md, phase
+  // 3): shortly after boot and every six hours after that.
+  const importMusic = async () => {
+    try {
+      const result = await importBucketMusicIfDue();
+      if (result && (result.moved > 0 || result.failed > 0)) {
+        app.log.info(`Moved ${result.moved} slideshow music track${result.moved === 1 ? "" : "s"} into the Made in the app library${result.failed > 0 ? `; ${result.failed} could not be moved` : ""}.`);
+      }
+    } catch (err) {
+      app.log.warn({ err }, "Could not move slideshow music into the library; will try again later.");
+    }
+  };
+  const musicKickoff = setTimeout(() => { void importMusic(); }, 60 * 1000);
+  musicKickoff.unref?.();
+  const musicTimer = setInterval(() => { void importMusic(); }, 6 * 60 * 60 * 1000);
+  musicTimer.unref?.();
+
   app.addHook("onClose", async () => {
     stopWorker();
     stopFaceWorker();
     stopRenderWorker();
     stopTranscodeWorker();
     stopDuplicateWorker();
+    clearTimeout(musicKickoff);
+    clearInterval(musicTimer);
   });
 }

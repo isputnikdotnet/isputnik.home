@@ -8,6 +8,7 @@ import { db, logActivity } from "../../../db.js";
 import { canUserWriteLibrary } from "../shared/library-access.js";
 import { receiveUploadBatch, UploadError } from "../../uploads/index.js";
 import { parseRangeHeader, pipeFileToReply } from "../shared/document-stream.js";
+import { TrashError } from "../shared/trash.js";
 import {
   listMusicTracks,
   createUserTrack,
@@ -101,7 +102,15 @@ export async function galleryMusicRoutesPlugin(app: FastifyInstance) {
   });
 
   app.delete("/api/library/gallery/music/:id", { preHandler: app.authenticate }, async (request, reply) => {
-    const result = deleteMusicTrack((request.params as { id: string }).id, request.user!);
+    let result;
+    try {
+      result = deleteMusicTrack((request.params as { id: string }).id, request.user!);
+    } catch (err) {
+      // A library track goes through the Recycle Bin, which can refuse (a locked
+      // folder, an external library); say why rather than 500.
+      if (err instanceof TrashError) { return reply.code(err.statusCode).send({ error: err.message }); }
+      throw err;
+    }
     if (result === "notfound") { return reply.code(404).send({ error: "Track not found" }); }
     if (result === "builtin") { return reply.code(403).send({ error: "Built-in tracks can't be deleted." }); }
     if (result === "forbidden") { return reply.code(403).send({ error: "Only the uploader or an admin can delete this track." }); }
@@ -118,7 +127,8 @@ export async function galleryMusicRoutesPlugin(app: FastifyInstance) {
     if (!fs.existsSync(filePath)) { reply.code(404).send({ error: "Track not found" }); return; }
 
     const totalSize = fs.statSync(filePath).size;
-    const mimeType = musicMimeForKey(track.storage_key);
+    // By the file that is actually served: a library track has no storage key.
+    const mimeType = musicMimeForKey(filePath);
     const rangeHeader = request.headers["range"];
     const range = rangeHeader ? parseRangeHeader(rangeHeader, totalSize) : null;
     if (rangeHeader && !range) {

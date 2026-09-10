@@ -19,6 +19,15 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.79.0",
+    label: "Music in the library",
+    changes: [
+      "Slideshow music is library content now. With a Made in the app library set, an uploaded track lands in its **Slideshow music** folder as an ordinary audio asset: visible in the gallery, shareable, and backed up with everything else. Slideshows keep playing the tracks they had. Deleting a track sends the audio to the Recycle Bin; deleting the audio from the gallery removes the track, and a slideshow that used it goes silent. Music uploaded before that library existed moves itself across shortly after the server starts, and the Storage page's Renders row counts only what is still waiting.",
+      "Changing the thumbnail folder on Library → Storage now carries everything already there across in the background, one library's folder at a time, and the row shows the progress with a way to cancel. New thumbnails go to the new folder at once; until a folder has been carried over, its covers are missing. A restart picks the move up where it left off. Before, the new folder was left to the next scan to refill.",
+      "Recordings and music wait inside App storage while they upload, in a hidden staging folder, rather than in the system's temp folder, so a long recording cannot fill a small root partition."
+    ]
+  },
+  {
     version: "3.78.0",
     label: "Asked once, at the start",
     changes: [

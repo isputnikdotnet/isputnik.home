@@ -25,7 +25,9 @@ export const HOUSE_FOLDERS = {
   familyTree: "Family tree",
   movies: "Slideshow movies",
   /** Voice notes recorded on a photo (docs/photo-review-plan.md, phase 4). */
-  voiceNotes: "Voice notes"
+  voiceNotes: "Voice notes",
+  /** Uploaded slideshow music (docs/app-storage-plan.md, phase 3). */
+  music: "Slideshow music"
 } as const;
 
 export interface HouseLibrarySetting {
