@@ -102,6 +102,14 @@ that fills the others in.
 
    `Backups/` is offered, not made: the row shows the current path and
    offers App storage in its chooser like any other room.
+   *Renamed 2026-09-10 (3.86.0):* the "Made in the app" room is **App files**
+   in the UI and the guides, and new installs make the folder `App files/`;
+   the folder holds uploaded music and family uploads as well as what the
+   app renders, so the old name undersold it. Installs that already have a
+   `Made in the app/` folder keep it — `appRoomFolderIn()` in
+   `core/app-storage.ts` prefers an existing former name — so nothing moves.
+   "Renders and music" is plain **Renders** for the same reason: once an App
+   files library exists it holds no music.
 4. **Every room is optional, and each is a three-way choice.** A room can
    *use App storage*, *use its own folder*, or be *off* where the room is a
    feature rather than a necessity. Concretely:

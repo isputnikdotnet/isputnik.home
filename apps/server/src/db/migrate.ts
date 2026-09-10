@@ -769,7 +769,7 @@ const migrations: { version: number; up: (db: Database.Database) => void }[] = [
     }
   },
   {
-    // One "Made in the app" library (docs/photo-review-plan.md, phase 0) in
+    // One "App files" library (docs/photo-review-plan.md, phase 0) in
     // place of the three libraries stories, the family tree and slideshow
     // movies each asked for. Carries over whichever was set — recordings
     // first, since narration is the one that cannot work without it — and

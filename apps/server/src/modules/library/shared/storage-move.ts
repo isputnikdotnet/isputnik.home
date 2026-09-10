@@ -8,7 +8,7 @@
 // progress and an ETA, it can be cancelled there, it is timed, and a restart
 // re-queues it through the same recovery as every other job. The bin and the
 // thumbnails are two kinds of it; renders and music, the Photo Inbox and the
-// Made in the app library are the other three.
+// App files library are the other three.
 //
 // What makes it safe:
 //   - Same volume: a rename. Instant at any size, and atomic, so there is no
@@ -36,7 +36,11 @@ import { RENDER_BUCKETS } from "./thumbnail.js";
 
 export const STORAGE_MOVE_JOB_TYPE = "MOVE_STORAGE";
 
-export type StorageMoveKind = "trash" | "thumbnails" | "renders" | "library";
+export type StorageMoveKind = "trash" | "thumbnails" | "renders" | "library" | "folder";
+
+/** A folder move (gallery/folder-move.ts) belongs to no room: it carries one
+ *  folder of a gallery library into another library. */
+export type StorageMoveRoom = AppRoom | "folder";
 
 export interface StorageMoveFailure {
   /** The unit that failed: an entry name, or a bin item's id. */
@@ -56,8 +60,13 @@ export interface StorageMoveResult {
 
 export interface StorageMovePayload {
   kind: StorageMoveKind;
-  /** The Storage page row this move belongs to. */
-  room: AppRoom;
+  /** The Storage page row this move belongs to, or "folder" for a folder move. */
+  room: StorageMoveRoom;
+  /** Folder moves: the library the folder leaves, the one it joins, and the
+   *  folder's path inside each (relative, "/"-separated). */
+  targetLibraryId?: string;
+  folder?: string;
+  targetFolder?: string;
   /** What the log and the Tasks page call it: "Recycle Bin", a library's name. */
   label: string;
   /** The bin's `from` is null (rows say where they are) and its `to` is null for
@@ -112,8 +121,33 @@ function recentJobs(): (JobRow & { data: StorageMovePayload })[] {
   return out;
 }
 
-function activeJob(room: AppRoom): (JobRow & { data: StorageMovePayload }) | null {
+function activeJob(room: StorageMoveRoom): (JobRow & { data: StorageMovePayload }) | null {
   return recentJobs().find((job) => job.data.room === room && (job.status === "pending" || job.status === "running")) ?? null;
+}
+
+/** Folder moves, newest first — the gallery's Folder view reads these to say
+ *  "moving" on a library and to refresh when one finishes. */
+export function folderMoveStatuses(): (StorageMoveStatus & { status: string; libraryId: string | null; targetLibraryId: string | null; folder: string | null; targetFolder: string | null })[] {
+  return recentJobs()
+    .filter((job) => job.data.kind === "folder")
+    .slice(0, 10)
+    .map((job) => ({
+      running: job.status === "pending" || job.status === "running",
+      status: job.status,
+      jobId: job.id,
+      kind: "folder" as const,
+      label: job.data.label,
+      from: job.data.from,
+      to: job.data.to,
+      done: job.status === "pending" || job.status === "running" ? (job.data.progress?.processed ?? 0) : (job.data.result?.moved ?? 0),
+      pending: job.status === "pending" || job.status === "running" ? pendingUnits(job.data) : 0,
+      failed: job.data.result?.failed ?? [],
+      startedAt: job.started_at,
+      libraryId: job.data.libraryId ?? null,
+      targetLibraryId: job.data.targetLibraryId ?? null,
+      folder: job.data.folder ?? null,
+      targetFolder: job.data.targetFolder ?? null
+    }));
 }
 
 /** True while any storage move is queued or running — App storage itself must
@@ -130,11 +164,12 @@ function pendingUnits(data: StorageMovePayload): number {
     case "thumbnails":
     case "renders":
     case "library":
+    case "folder":
       return data.from ? listUnits(data).length : 0;
   }
 }
 
-export function storageMoveStatus(room: AppRoom): StorageMoveStatus {
+export function storageMoveStatus(room: StorageMoveRoom): StorageMoveStatus {
   const jobs = recentJobs().filter((job) => job.data.room === room);
   const active = jobs.find((job) => job.status === "pending" || job.status === "running") ?? null;
   if (active) {
@@ -182,10 +217,13 @@ export function assertMoveTargetFree(to: string, what: string): void {
 /** Queue a move. A move already queued or running for the same room is returned
  *  instead of a second one. Nothing to carry means no job at all. */
 export function enqueueStorageMove(input: Omit<StorageMovePayload, "progress" | "result">): StorageMoveStatus {
-  const existing = activeJob(input.room);
+  // One move per room; folder moves are many, told apart by their folders.
+  const existing = input.kind === "folder"
+    ? recentJobs().find((job) => job.data.kind === "folder" && (job.status === "pending" || job.status === "running") && samePath(job.data.from, input.from))
+    : activeJob(input.room);
   if (existing) return storageMoveStatus(input.room);
-  if (input.kind !== "library" && pendingUnits(input) === 0) return storageMoveStatus(input.room);
-  if (input.kind === "library" && (!input.from || !input.to || samePath(input.from, input.to))) return storageMoveStatus(input.room);
+  if (input.kind !== "library" && input.kind !== "folder" && pendingUnits(input) === 0) return storageMoveStatus(input.room);
+  if ((input.kind === "library" || input.kind === "folder") && (!input.from || !input.to || samePath(input.from, input.to))) return storageMoveStatus(input.room);
   const payload: StorageMovePayload = { ...input };
   db.prepare("INSERT INTO jobs (id, type, payload, status, max_attempts) VALUES (?, ?, ?, 'pending', 3)")
     .run(nanoid(16), STORAGE_MOVE_JOB_TYPE, JSON.stringify(payload), );
@@ -194,7 +232,7 @@ export function enqueueStorageMove(input: Omit<StorageMovePayload, "progress" | 
 
 /** Stop the move for a room after the unit in hand. Every unit already carried
  *  stays carried; a library that has not flipped yet stays where it was. */
-export function cancelStorageMove(room: AppRoom): StorageMoveStatus {
+export function cancelStorageMove(room: StorageMoveRoom): StorageMoveStatus {
   const job = activeJob(room);
   if (job) {
     db.prepare(`
@@ -206,7 +244,7 @@ export function cancelStorageMove(room: AppRoom): StorageMoveStatus {
 }
 
 /** Queue the last move for a room again — the way its failures are retried. */
-export function retryStorageMove(room: AppRoom, userId: string | null): StorageMoveStatus {
+export function retryStorageMove(room: StorageMoveRoom, userId: string | null): StorageMoveStatus {
   const last = recentJobs().find((job) => job.data.room === room);
   if (!last) return storageMoveStatus(room);
   const { progress: _p, result: _r, ...rest } = last.data;
@@ -226,6 +264,7 @@ function listUnits(data: StorageMovePayload): string[] {
     case "renders":
       return names.filter((name) => (RENDER_BUCKETS as readonly string[]).includes(name));
     case "library":
+    case "folder":
       return names;
     default:
       return [];
@@ -459,6 +498,53 @@ async function runMove(jobId: string, data: StorageMovePayload): Promise<Storage
     }
     if (!cancelled && failed.length === 0) {
       pointLibraryAt(libraryId, to);
+      fs.rmSync(from, { recursive: true, force: true });
+    } else if (cancelled) {
+      fs.rmSync(to, { recursive: true, force: true });
+    }
+    return { moved, failed, cancelled, durationMs: Date.now() - started };
+  }
+
+  if (data.kind === "folder") {
+    // One folder of a gallery library into another library (gallery/folder-move.ts).
+    // Files first, the same way a library moves: one rename on the same volume,
+    // else every entry copied and verified while the items still point at the
+    // old library; then, only when everything is across, the items, their
+    // thumbnails and the folder locks are re-pointed in one transaction and the
+    // old folder goes. A cancel or a failure leaves the folder exactly where it was.
+    if (!data.libraryId || !data.targetLibraryId || data.folder == null || data.targetFolder == null) throw new Error("The folder move is missing its libraries.");
+    if (!fs.existsSync(from)) throw new Error(`The folder is missing: ${from}`);
+    const { repointMovedFolder } = await import("../gallery/folder-move.js");
+    if (fs.existsSync(to)) {
+      const entries = fs.readdirSync(to);
+      if (entries.length === 0) fs.rmdirSync(to);
+    }
+    if (!fs.existsSync(to)) {
+      try {
+        fs.mkdirSync(path.dirname(to), { recursive: true });
+        fs.renameSync(from, to);
+        const items = repointMovedFolder(data.libraryId, data.folder, data.targetLibraryId, data.targetFolder);
+        progress(1, 1);
+        return { moved: items, failed, cancelled, durationMs: Date.now() - started };
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code !== "EXDEV") throw err;
+      }
+    }
+    const units = listUnits(data);
+    let index = 0;
+    for (const name of units) {
+      if (!jobStillRunning(jobId)) { cancelled = true; break; }
+      try {
+        copyTreeVerified(path.join(from, name), path.join(to, name));
+      } catch (err) {
+        failed.push({ name, error: err instanceof Error ? err.message : String(err) });
+      }
+      index += 1;
+      progress(index, units.length);
+      await yieldTurn();
+    }
+    if (!cancelled && failed.length === 0) {
+      moved = repointMovedFolder(data.libraryId, data.folder, data.targetLibraryId, data.targetFolder);
       fs.rmSync(from, { recursive: true, force: true });
     } else if (cancelled) {
       fs.rmSync(to, { recursive: true, force: true });

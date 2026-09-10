@@ -34,7 +34,7 @@ export function resolveGalleryScopeLibraryIds(user: { id: string; role: string }
   //
   // This is the REACHABLE scope: what a story, an album, a slideshow or the
   // viewer may show when it names a photo by id. A library inside App storage
-  // (Made in the app) is reachable — the photos placed in a story from it must
+  // (App files) is reachable — the photos placed in a story from it must
   // keep showing — but is left out of BROWSING (resolveGalleryBrowseLibraryIds).
   // 3.84.1 excluded it here too and every story block from that library read
   // "not in a library you can see".

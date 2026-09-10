@@ -94,7 +94,7 @@
       "opdsReaderTokens": "Токены доступа для читалок (OPDS)",
       "twoFactorAlertsDelivery": "Доставка кодов и оповещений безопасности",
       "shareNotifications": "Уведомления о доступе",
-      "houseLibrary": "Библиотека «Сделано в приложении»",
+      "houseLibrary": "Библиотека «Файлы приложения»",
       "photoInboxSetup": "Настроить Входящие фото",
       "recordingsLibrary": "Библиотека записей историй",
       "recipeImport": "Импорт рецептов по ссылке",

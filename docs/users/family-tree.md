@@ -84,7 +84,7 @@ viewer over the family page, so closing one brings you back to the tree rather
 than dropping you in the gallery.
 
 **Uploading new photos** works from the same picker's *Upload* tab, once an
-admin has chosen the house's "Made in the app" gallery library (Control panel →
+admin has chosen the house's "App files" gallery library (Control panel →
 Library → Storage). Files are added to that library, in its `Family tree`
 folder, and attached in one step.
 
@@ -94,7 +94,7 @@ The gear on the tree page — admins only — holds four things:
 
 | Tab | What it's for |
 |---|---|
-| **Photo library** | Where uploaded family photos go — the "Made in the app" library, chosen in the control panel; this tab only says which |
+| **Photo library** | Where uploaded family photos go — the "App files" library, chosen in the control panel; this tab only says which |
 | **Starting person** | Who the chart opens on, for everyone |
 | **Import / export** | GEDCOM in and out |
 | **Security** | Who may edit which branch — see below |

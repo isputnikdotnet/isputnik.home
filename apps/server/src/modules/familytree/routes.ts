@@ -225,7 +225,7 @@ export async function familyTreeRoutesPlugin(app: FastifyInstance) {
       }
     }
     return {
-      // The house "Made in the app" library and the folder uploads file under —
+      // The house "App files" library and the folder uploads file under —
       // the picker sends the folder back with the upload.
       galleryLibrary: library ? { id: library.id, name: library.name } : null,
       uploadFolder: library?.folder ?? null,

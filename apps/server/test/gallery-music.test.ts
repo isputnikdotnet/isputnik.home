@@ -186,9 +186,9 @@ describe("slideshow ↔ music link", () => {
   });
 });
 
-// docs/app-storage-plan.md, phase 3: once a Made in the app library exists a
+// docs/app-storage-plan.md, phase 3: once a App files library exists a
 // track is an audio asset of it, and tracks from before move themselves across.
-describe("music in the Made in the app library", () => {
+describe("music in the App files library", () => {
   let base = "";
   let houseSource = "";
 

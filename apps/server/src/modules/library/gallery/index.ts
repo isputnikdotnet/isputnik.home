@@ -45,14 +45,14 @@ export async function galleryPlugin(app: FastifyInstance) {
   const stopTranscodeWorker = startTranscodeWorker();
   const stopDuplicateWorker = startDuplicateScanWorker();
 
-  // Slideshow music uploaded before a Made in the app library existed moves
+  // Slideshow music uploaded before an App files library existed moves
   // itself into that library once there is one (docs/app-storage-plan.md, phase
   // 3): shortly after boot and every six hours after that.
   const importMusic = async () => {
     try {
       const result = await importBucketMusicIfDue();
       if (result && (result.moved > 0 || result.failed > 0)) {
-        app.log.info(`Moved ${result.moved} slideshow music track${result.moved === 1 ? "" : "s"} into the Made in the app library${result.failed > 0 ? `; ${result.failed} could not be moved` : ""}.`);
+        app.log.info(`Moved ${result.moved} slideshow music track${result.moved === 1 ? "" : "s"} into the App files library${result.failed > 0 ? `; ${result.failed} could not be moved` : ""}.`);
       }
     } catch (err) {
       app.log.warn({ err }, "Could not move slideshow music into the library; will try again later.");

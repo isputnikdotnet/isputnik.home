@@ -1,4 +1,4 @@
-// The "Made in the app" library — docs/photo-review-plan.md, phase 0.
+// The "App files" library — docs/photo-review-plan.md, phase 0.
 //
 // Three features used to ask an admin, separately, which gallery library the
 // files THEY make should land in: story narration, family-tree uploads, and

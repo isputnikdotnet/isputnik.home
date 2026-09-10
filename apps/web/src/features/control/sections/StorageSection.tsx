@@ -63,7 +63,7 @@ interface PendingSwitch {
   room: AppRoom;
   mode: RoomMode;
   path: string | null;
-  /** The gallery library for "own" on the Inbox and Made in the app rooms. */
+  /** The gallery library for "own" on the Inbox and App files rooms. */
   libraryId: string | null;
 }
 

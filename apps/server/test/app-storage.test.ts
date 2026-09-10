@@ -4,7 +4,7 @@ import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "../src/db.js";
 import { parsePolicy } from "../src/core/permissions.js";
-import { appRoomMode, getAppStorageSetting, resolveAppLocation, setAppRoomMode } from "../src/core/app-storage.js";
+import { appRoomMode, appRoomPath, getAppStorageSetting, resolveAppLocation, setAppRoomMode } from "../src/core/app-storage.js";
 import {
   appStorageView,
   setAppStoragePath,
@@ -126,6 +126,22 @@ describe("the setting and the resolver", () => {
     // A key resolves under it, and the render buckets follow the thumbnails.
     expect(thumbnailAbsolutePath("LIB/ab/cd/x.webp")).toBe(path.join(appDir, "Thumbnails", "LIB", "ab", "cd", "x.webp"));
     expect(getRendersRoot()).toBe(path.join(appDir, "Thumbnails"));
+  });
+
+  it("the App files room keeps its former folder name on an install that made it as 'Made in the app'", () => {
+    setAppStoragePath(appDir, "u1");
+    expect(appRoomPath("house")).toBe(path.join(appDir, "App files"));
+    // An install from before the rename has the old folder: the room is that
+    // folder, its library is still read as using App storage, nothing moves.
+    fs.mkdirSync(path.join(appDir, "Made in the app"));
+    expect(appRoomPath("house")).toBe(path.join(appDir, "Made in the app"));
+    makeLibrary("OLDHOUSE", { createdBy: "u1", type: "gallery" });
+    db.prepare("UPDATE libraries SET name = 'Made in the app', source_path = ? WHERE id = 'OLDHOUSE'").run(path.join(appDir, "Made in the app"));
+    expect(setHouseLibrary("OLDHOUSE", "u1").ok).toBe(true);
+    expect(appStorageView().rooms.find((room) => room.room === "house")!.mode).toBe("app");
+    // Once the new-name folder exists as well, the current name wins.
+    fs.mkdirSync(path.join(appDir, "App files"));
+    expect(appRoomPath("house")).toBe(path.join(appDir, "App files"));
   });
 
   it("a fresh install with no library gets the Recycle Bin room switched on", () => {
@@ -323,7 +339,7 @@ describe("switching rooms", () => {
       expect(queued.mode).toBe("own");
       expect(queued.move.running).toBe(true);
       await waitForStorageMoves();
-      const appHouse = path.join(appDir, "Made in the app");
+      const appHouse = path.join(appDir, "App files");
       expect(getHouseLibrary()!.source_path).toBe(appHouse);
       expect(fs.readFileSync(path.join(appHouse, "2025", "a.jpg"), "utf8")).toBe("AAAA");
       expect(fs.readFileSync(path.join(appHouse, "note.m4a"), "utf8")).toBe("NOTE");
@@ -363,22 +379,22 @@ describe("switching rooms", () => {
     // viewer that names one of its photos by id keeps showing it.
     switchRoom("house", "app", null, "u1");
     await waitForStorageMoves();
-    expect(getHouseLibrary()!.source_path).toBe(path.join(appDir, "Made in the app"));
+    expect(getHouseLibrary()!.source_path).toBe(path.join(appDir, "App files"));
     expect(resolveGalleryBrowseLibraryIds(admin)).toEqual([]);
     expect(resolveGalleryBrowseLibraryIds(admin, ["FAM"])).toEqual(["FAM"]);
     expect(resolveGalleryScopeLibraryIds(admin)).toEqual(["FAM"]);
   });
 
-  it("makes and nominates the Made in the app library, and off only clears the nomination", () => {
+  it("makes and nominates the App files library, and off only clears the nomination", () => {
     const room = switchRoom("house", "app", null, "u1");
     expect(room.mode).toBe("app");
-    expect(getHouseLibrary()?.source_path).toBe(path.join(appDir, "Made in the app"));
+    expect(getHouseLibrary()?.source_path).toBe(path.join(appDir, "App files"));
     switchRoom("house", "off", null, "u1");
     expect(getHouseLibrary()).toBeNull();
-    expect((db.prepare("SELECT COUNT(*) AS n FROM libraries WHERE name = 'Made in the app'").get() as { n: number }).n).toBe(1);
+    expect((db.prepare("SELECT COUNT(*) AS n FROM libraries WHERE name = 'App files'").get() as { n: number }).n).toBe(1);
     switchRoom("house", "app", null, "u1");
     expect(getHouseLibrary()).not.toBeNull();
-    expect((db.prepare("SELECT COUNT(*) AS n FROM libraries WHERE name = 'Made in the app'").get() as { n: number }).n).toBe(1);
+    expect((db.prepare("SELECT COUNT(*) AS n FROM libraries WHERE name = 'App files'").get() as { n: number }).n).toBe(1);
   });
 
   it("library rooms take one of the admin's own gallery libraries as 'own'", () => {
@@ -390,7 +406,7 @@ describe("switching rooms", () => {
     expect(switchRoom("house", "own", "mine", "u1")).toMatchObject({ mode: "own", library: { id: "mine" } });
     expect(getHouseLibrary()?.id).toBe("mine");
     // The house library cannot double as the Inbox.
-    expect(() => switchRoom("inbox", "own", "mine", "u1")).toThrowError(/Made in the app library/);
+    expect(() => switchRoom("inbox", "own", "mine", "u1")).toThrowError(/App files library/);
     expect(switchRoom("inbox", "own", "scans", "u1")).toMatchObject({ mode: "own", library: { id: "scans" } });
     const policy = db.prepare("SELECT policy_json FROM libraries WHERE id = 'scans'").get() as { policy_json: string };
     expect(parsePolicy(policy.policy_json).inbox).toBe(true);
@@ -415,7 +431,7 @@ describe("changing the folder while rooms use it", () => {
     switchRoom("house", "app", null, "u1");
     switchRoom("inbox", "app", null, "u1");
     await settleScans();
-    fs.writeFileSync(path.join(appDir, "Made in the app", "note.m4a"), "AAC");
+    fs.writeFileSync(path.join(appDir, "App files", "note.m4a"), "AAC");
     fs.writeFileSync(path.join(appDir, "Photo Inbox", "new.jpg"), "JPG");
     switchRoom("renders", "app", null, "u1");
     fs.mkdirSync(path.join(appDir, "Renders", "music", "ab"), { recursive: true });
@@ -438,9 +454,9 @@ describe("changing the folder while rooms use it", () => {
     await waitForTrashMove();
 
     // The libraries: folder moved, source path follows, still nominated / still the Inbox.
-    expect(getHouseLibrary()!.source_path).toBe(path.join(other, "Made in the app"));
-    expect(fs.existsSync(path.join(other, "Made in the app", "note.m4a"))).toBe(true);
-    expect(fs.existsSync(path.join(appDir, "Made in the app"))).toBe(false);
+    expect(getHouseLibrary()!.source_path).toBe(path.join(other, "App files"));
+    expect(fs.existsSync(path.join(other, "App files", "note.m4a"))).toBe(true);
+    expect(fs.existsSync(path.join(appDir, "App files"))).toBe(false);
     expect(modeOf("house").mode).toBe("app");
     expect(modeOf("house").library!.id).toBe(houseId);
     expect(modeOf("inbox").mode).toBe("app");
@@ -482,7 +498,7 @@ describe("changing the folder while rooms use it", () => {
     expect(folderMoveStatus().running).toBe(false);
     expect(pendingTrashMoveRows()).toEqual([]);
 
-    expect(getHouseLibrary()!.source_path).toBe(path.join(appDir, "Made in the app"));
+    expect(getHouseLibrary()!.source_path).toBe(path.join(appDir, "App files"));
     expect(modeOf("house").mode).toBe("own");
     expect(modeOf("thumbnails").mode).toBe("own");
     expect(configuredThumbnailPathValue()).toBe(path.join(appDir, "Thumbnails"));
@@ -505,7 +521,7 @@ describe("changing the folder while rooms use it", () => {
     switchRoom("thumbnails", "app", null, "u1");
     const view = setAppStoragePath(null, "u1");
     expect(view.path).toBeNull();
-    expect(getHouseLibrary()!.source_path).toBe(path.join(appDir, "Made in the app"));
+    expect(getHouseLibrary()!.source_path).toBe(path.join(appDir, "App files"));
     expect(configuredThumbnailPathValue()).toBe(path.join(appDir, "Thumbnails"));
     expect(getAppStorageSetting().rooms).toEqual({});
     // Choosing the old folder again is allowed: the libraries in it are its own rooms'.
@@ -517,16 +533,16 @@ describe("changing the folder while rooms use it", () => {
     switchRoom("inbox", "app", null, "u1");
     await settleScans();
     await settleScans();
-    fs.writeFileSync(path.join(appDir, "Made in the app", "note.m4a"), "AAC");
+    fs.writeFileSync(path.join(appDir, "App files", "note.m4a"), "AAC");
     // Something already lives at the room's folder in the new place (an empty
     // folder would simply be taken over).
     fs.mkdirSync(path.join(other, "Photo Inbox"));
     fs.writeFileSync(path.join(other, "Photo Inbox", "theirs.jpg"), "JPG");
     expect(() => setAppStoragePath(other, "u1")).toThrowError(/already exists/);
     expect(getAppStorageSetting().path).toBe(appDir);
-    expect(getHouseLibrary()!.source_path).toBe(path.join(appDir, "Made in the app"));
-    expect(fs.existsSync(path.join(appDir, "Made in the app", "note.m4a"))).toBe(true);
-    expect(fs.existsSync(path.join(other, "Made in the app"))).toBe(false);
+    expect(getHouseLibrary()!.source_path).toBe(path.join(appDir, "App files"));
+    expect(fs.existsSync(path.join(appDir, "App files", "note.m4a"))).toBe(true);
+    expect(fs.existsSync(path.join(other, "App files"))).toBe(false);
   });
 
   it("refuses while a library room is being scanned", async () => {

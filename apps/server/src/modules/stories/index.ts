@@ -5,7 +5,7 @@ import { migrateLegacyNarrations, pendingLegacyNarrations } from "./recordings.j
 import { getRecordingsLibrary } from "./settings.js";
 
 /** Narration recorded before recordings lived in the gallery (pre-3.x clips in
- *  the app's own bucket) moves itself into the Made in the app library once
+ *  the app's own bucket) moves itself into the App files library once
  *  one is set — docs/app-storage-plan.md, decision 7. It used to wait for a
  *  button on Settings → Stories. Runs shortly after boot and every six hours
  *  after that, so a library nominated while the server is up is caught by the
@@ -23,7 +23,7 @@ export function startLegacyNarrationImporter(app: FastifyInstance): () => void {
     try {
       const result = await importLegacyNarrationsIfDue();
       if (result && (result.moved > 0 || result.failed > 0)) {
-        app.log.info(`Moved ${result.moved} older narration recording${result.moved === 1 ? "" : "s"} into the Made in the app library${result.failed > 0 ? `; ${result.failed} could not be moved` : ""}.`);
+        app.log.info(`Moved ${result.moved} older narration recording${result.moved === 1 ? "" : "s"} into the App files library${result.failed > 0 ? `; ${result.failed} could not be moved` : ""}.`);
       }
     } catch (err) {
       app.log.warn({ err }, "Could not move older narration recordings; will try again later.");

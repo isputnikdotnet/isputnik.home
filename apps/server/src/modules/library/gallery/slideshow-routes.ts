@@ -276,7 +276,7 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
         reason: !canWrite ? "permission" : writable.ok ? null : "readonly"
       };
     });
-    // The house "Made in the app" library is what the picker pre-selects for a
+    // The house "App files" library is what the picker pre-selects for a
     // slideshow that has no target of its own (docs/photo-review-plan.md, phase
     // 0); the per-slideshow target stays an override. Offered only when this
     // caller could actually file a movie there.

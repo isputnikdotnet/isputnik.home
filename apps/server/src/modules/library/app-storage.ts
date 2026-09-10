@@ -14,8 +14,10 @@ import {
   APP_ROOMS,
   APP_ROOM_FOLDERS,
   appRoomMode,
+  appRoomFolderIn,
   appRoomPath,
   getAppStorageSetting,
+  LEGACY_ROOM_FOLDERS,
   isInsideAppStorage,
   resolveAppLocation,
   saveAppStorageSetting,
@@ -104,7 +106,7 @@ export interface RoomView {
   appPath: string | null;
   /** True while this room keeps files inside App storage — what locks the folder. */
   holdsFiles: boolean;
-  /** The library behind a library room (Inbox, Made in the app). */
+  /** The library behind a library room (Inbox, App files). */
   library: { id: string; name: string } | null;
   /** What a switch would carry: bin items, uploaded tracks, waiting photos. */
   counts: { itemsInBin?: number; tracks?: number; clips?: number; waiting?: number; backups?: number };
@@ -292,7 +294,7 @@ export function validateAppStoragePath(candidate: string, opts: { allowRoomLibra
   if (path.resolve(root.path) === real) {
     throw new AppStorageError("Choose a folder inside the container, not the container itself: the app makes its own folders in it.");
   }
-  const roomPaths = new Set(Object.values(APP_ROOM_FOLDERS).map((folder) => path.join(real, folder)));
+  const roomPaths = new Set([...Object.values(APP_ROOM_FOLDERS), ...Object.values(LEGACY_ROOM_FOLDERS)].map((folder) => path.join(real, folder)));
   const libraries = db.prepare("SELECT name, source_path FROM libraries").all() as { name: string; source_path: string }[];
   for (const library of libraries) {
     const source = path.resolve(library.source_path);
@@ -376,7 +378,8 @@ export function setAppStoragePath(candidate: string | null, userId: string, carr
   if (steps.length > 0 && anyStorageMoveActive()) {
     throw new AppStorageError("A storage move is running right now. Wait for it to finish, or cancel it on the Tasks page, before changing App storage.", 409);
   }
-  const oldRoom = (room: AppRoom) => path.join(before!, APP_ROOM_FOLDERS[room]);
+  // The old folder may go by a room's former name on an install that made it then.
+  const oldRoom = (room: AppRoom) => appRoomFolderIn(before!, room);
   const newRoom = (room: AppRoom) => path.join(wanted!, APP_ROOM_FOLDERS[room]);
 
   // Where the thumbnails will be once this is done — renders that leave go there.
@@ -456,7 +459,7 @@ export function setAppStoragePath(candidate: string | null, userId: string, carr
   }
   if (renders) {
     const to = renders.carry ? newRoom("renders") : validateThumbnailPath(thumbnailsAfter!);
-    enqueueStorageMove({ kind: "renders", room: "renders", label: "Renders and music", from: oldRoom("renders"), to, actorUserId: userId });
+    enqueueStorageMove({ kind: "renders", room: "renders", label: "Renders", from: oldRoom("renders"), to, actorUserId: userId });
   }
 
   if (wanted && !before) {
@@ -559,7 +562,7 @@ function switchRenders(mode: AppRoomMode, userId: string): void {
   // The setting has flipped; the buckets follow as a task, and a track not yet
   // across is missing for the seconds it takes.
   if (!samePath(before, after)) {
-    enqueueStorageMove({ kind: "renders", room: "renders", label: "Renders and music", from: before, to: after, actorUserId: userId });
+    enqueueStorageMove({ kind: "renders", room: "renders", label: "Renders", from: before, to: after, actorUserId: userId });
   }
 }
 
@@ -583,7 +586,7 @@ function switchInbox(mode: AppRoomMode, libraryId: string | null, userId: string
     const library = galleryLibraries().find((row) => row.id === libraryId);
     if (!library) throw new AppStorageError("That gallery library doesn't exist.", 404);
     if (getHouseLibrary()?.id === library.id) {
-      throw new AppStorageError(`"${library.name}" is the Made in the app library; it holds what the family makes, not what is waiting for review.`, 409);
+      throw new AppStorageError(`"${library.name}" is the App files library; it holds what the family makes, not what is waiting for review.`, 409);
     }
     setInboxFlag(library.id, true);
     return;
@@ -666,7 +669,7 @@ function switchHouse(mode: AppRoomMode, ownLibraryId: string | null, userId: str
   let libraryId: string;
   if (existing) {
     if (parsePolicy(existing.policy_json).inbox === true) {
-      throw new AppStorageError(`"${existing.name}" at that folder is a Photo Inbox, so it cannot also be the Made in the app library.`, 409);
+      throw new AppStorageError(`"${existing.name}" at that folder is a Photo Inbox, so it cannot also be the App files library.`, 409);
     }
     libraryId = existing.id;
   } else {
@@ -688,7 +691,7 @@ function switchHouse(mode: AppRoomMode, ownLibraryId: string | null, userId: str
 
 /** Move one room between its three states. `own` is what "own" needs on the
  *  rooms that take something: a folder for the Recycle Bin and thumbnails, a
- *  gallery library's id for the Inbox and Made in the app. Throws
+ *  gallery library's id for the Inbox and App files. Throws
  *  AppStorageError or TrashError with the status the route should answer with. */
 export function switchRoom(room: AppRoom, mode: AppRoomMode, own: string | null, userId: string, ip = ""): RoomView {
   const ownPath = own;

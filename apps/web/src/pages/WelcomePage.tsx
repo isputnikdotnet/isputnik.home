@@ -72,7 +72,7 @@ interface AppStorageView {
 // nothing — the archive is written inside the app's own data folder, not into a
 // container you have to approve first.
 //
-// The Made in the app step sits after the bin: the two libraries it offers are
+// The App files step sits after the bin: the two libraries it offers are
 // made inside App storage, which the storage step chose.
 const STEP_ORDER: StepKey[] = ["storage", "bin", "gallery", "backup", "email", "alerts", "theme"];
 
@@ -129,7 +129,7 @@ export function WelcomePage({ user, onDone }: {
   const [binSaved, setBinSaved] = useState(false);
   const [binAppPending, setBinAppPending] = useState(false);
 
-  // Made in the app / Photo Inbox: one confirmed click each.
+  // App files / Photo Inbox: one confirmed click each.
   const [galleryPending, setGalleryPending] = useState<"house" | "inbox" | null>(null);
   const [gallerySaved, setGallerySaved] = useState("");
 
