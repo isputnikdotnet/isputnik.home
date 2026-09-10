@@ -659,6 +659,13 @@ const SHOTS = [
       button(picker, "Use this folder").click(); await sleep(600);
       "confirmation open";`
   },
+  {
+    // The Contents page beside Storage: rooms with sizes, App files by folder.
+    name: "107-storage-contents",
+    url: "control/libraries/storage/contents",
+    state: "App storage chosen, an App files library with something in it",
+    height: 1100
+  },
   // The setup guide's storage and App files steps (docs/users/first-run.md).
   { name: "103-welcome-storage", url: "welcome", height: 1000 },
   {

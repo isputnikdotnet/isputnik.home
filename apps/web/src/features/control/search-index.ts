@@ -52,6 +52,8 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
     "добавить библиотеку сканирование источники папки пути расширения загрузки доступ участники мастер пересканировать",
   storage: "thumbnails cache path containers approved folders disk location recycle bin trash folder " +
     "миниатюры кэш путь контейнеры разрешённые папки диск расположение корзина папка",
+  storageContents: "app storage contents what is in it size on disk rooms app files recordings voice notes music movies family tree orphans orphaned files delete other files move folder " +
+    "содержимое хранилища приложения размер на диске комнаты файлы приложения записи голосовые заметки музыка фильмы семейное древо сироты осиротевшие файлы удалить другие файлы перенести папку",
   categories: "genres genre keywords mapping icons images taxonomy " +
     "жанры жанр ключевые слова сопоставление значки изображения таксономия",
   tags: "labels rename merge taxonomy " +

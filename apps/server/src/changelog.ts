@@ -19,6 +19,15 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.87.0",
+    label: "What App storage holds",
+    changes: [
+      "Library → Storage has a **Contents** page beside it, and the two are one branch now. Storage says where each room is; Contents says what is in it. Every room gets a count and a size — from the app's own records for the bin and the two libraries, from the disk for thumbnails, renders and backups — plus the hidden folder where uploads wait, and a total.",
+      "Under the rooms, the **App files** library is listed folder by folder and file by file, each with the thing it belongs to: the story a recording narrates, the photo a voice note sits on, the track a music file plays as, the slideshow a movie was rendered from, the person a family-tree photo is of, each a link where there is a page. A file nothing owns any more is marked an orphan, and Delete on it is the one thing the page removes: it goes to the Recycle Bin like any deleted file, and anything still owned is refused. Photos and videos that were uploaded into the library by hand are listed as Other files, with the way out: open their folder in the gallery and move it to another library.",
+      "The Storage guide describes the page and shows it."
+    ]
+  },
+  {
     version: "3.86.0",
     label: "App files, and a folder that can change library",
     changes: [

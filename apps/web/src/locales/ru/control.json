@@ -29,6 +29,7 @@
       "logs": "Журналы",
       "libraries": "Библиотеки",
       "storage": "Хранилище",
+      "storageContents": "Содержимое",
       "categories": "Категории",
       "tags": "Теги",
       "users": "Пользователи",
@@ -53,6 +54,7 @@
       "quotes": "Цитаты"
     },
     "contexts": {
+      "storage": "Хранилище",
       "gallery": "Галерея",
       "widgets": "Виджеты"
     },

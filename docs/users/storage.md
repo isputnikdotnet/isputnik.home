@@ -132,6 +132,28 @@ Three rooms are worth a word each:
   nominated, a new gallery library is made in the room's folder and nominated.
   Switching off only clears the nomination.
 
+### What it holds: the Contents page
+
+**Library → Storage → Contents** answers the other question about App storage:
+what is in it, and why. The top table gives every room a count and a size,
+counted from the app's own records where it keeps them (the bin, the two
+libraries) and from the disk where it does not (thumbnails, renders, backups),
+plus the hidden `.staging` folder where uploads wait between arriving and
+landing. Under it, the **App files** library is listed folder by folder and
+file by file, each with the thing it belongs to: the story a recording
+narrates, the photo a voice note sits on, the track a music file plays as,
+the slideshow a movie was rendered from, the person a family-tree photo is
+of, each a link where there is a page to go to.
+
+![The Contents page: every room with its size, and the App files library folder by folder with what owns each file](images/107-storage-contents.png)
+
+A file nothing owns any more, because the story, photo or slideshow it served
+has since gone, is marked an **orphan**, and that is the one thing the page
+deletes: it goes to the Recycle Bin like any deleted file. Files the app's
+folders do not account for, such as photos uploaded into the library by hand,
+are listed as **Other files**, with the way out: open their folder in the
+gallery and move it to another library.
+
 ### How a move runs
 
 Every move is a **task**: it appears on the Tasks page as a *Storage move*

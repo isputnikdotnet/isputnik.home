@@ -8,6 +8,8 @@ import { appStorageView, setAppStoragePath, statusOf, switchRoom, type CarryRoom
 import { cancelTrashMove, resetTrashMoveFailures, startTrashMove, trashMoveStatus } from "./shared/trash-move.js";
 import { cancelFolderMove, folderMoveStatus } from "./shared/folder-move.js";
 import { cancelStorageMove, retryStorageMove } from "./shared/storage-move.js";
+import { appStorageContents, AppStorageContentsError, deleteOrphanAppFile } from "./app-storage-contents.js";
+import { logActivity } from "../../db.js";
 
 const pathSchema = z.object({
   // null (or "") clears App storage.
@@ -27,6 +29,29 @@ const roomSchema = z.object({
 
 export async function appStorageRoutesPlugin(app: FastifyInstance) {
   app.get("/api/storage/app-storage", { preHandler: app.requireAdmin }, async () => appStorageView());
+
+  // The Contents page (app-storage-contents.ts): what each room holds, and the
+  // App files library file by file with what owns each file; orphans can go.
+  app.get("/api/storage/app-storage/contents", { preHandler: app.requireAdmin }, async () => appStorageContents());
+  app.post("/api/storage/app-storage/contents/delete", { preHandler: app.requireAdmin, config: { destructive: true } }, async (request, reply) => {
+    const parsed = parseBody(z.object({ itemId: z.string().trim().min(1).max(64) }), request.body ?? {});
+    if (parsed.error) return reply.code(400).send({ error: "Invalid request", details: parsed.error });
+    try {
+      const removed = deleteOrphanAppFile(parsed.data.itemId, request.user!.id);
+      logActivity({
+        event: "library.item_trashed",
+        actorUserId: request.user!.id,
+        targetType: "library_item",
+        targetId: parsed.data.itemId,
+        detail: `Moved the orphaned App files entry "${removed.relativePath}" to the Recycle Bin from the App storage contents page.`,
+        ipAddress: request.ip
+      });
+      return reply.send({ deleted: true, contents: appStorageContents() });
+    } catch (err) {
+      if (err instanceof AppStorageContentsError) return reply.code(err.statusCode).send({ error: err.message });
+      throw err;
+    }
+  });
 
   app.put("/api/storage/app-storage", { preHandler: app.requireAdmin }, async (request, reply) => {
     const parsed = parseBody(pathSchema, request.body);

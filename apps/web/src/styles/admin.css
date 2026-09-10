@@ -2419,6 +2419,12 @@
 .app-storage-option input { margin-top: 3px; }
 .app-storage-option span { display: grid; gap: 2px; min-width: 0; }
 .app-storage-option small { font-size: 0.8rem; overflow-wrap: anywhere; }
+/* The Contents page: one block per App files folder inside the App files panel. */
+.storage-contents-folder { display: grid; gap: 10px; margin-top: 8px; }
+.storage-contents-folder h3 { margin: 0; font-size: 1rem; }
+.storage-contents-folder .storage-section-head p { white-space: normal; }
+.storage-contents-folder td { white-space: normal; vertical-align: top; }
+.storage-contents-folder .datagrid-muted { white-space: normal; }
 .app-storage-rooms td { white-space: normal; vertical-align: top; }
 .app-storage-rooms td:first-child { width: 36%; }
 /* .datagrid-muted is nowrap by design (short cell notes); the room rows carry sentences. */
