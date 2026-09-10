@@ -960,7 +960,7 @@
     "confirmInboxMoveBody_other": "The folder of \"{{name}}\" moves there whole as a task you can watch here and on the Tasks page, and stays the Inbox. The {{count}} photos waiting in it come along, checked file by file; nothing is rescanned.",
     "confirmInboxMoveLabel": "Move Inbox",
     "confirmHouseMoveTitle": "Move the Made in the app library to {{path}}?",
-    "confirmHouseMoveBody": "The folder of \"{{name}}\" moves there whole, with everything in it, as a task you can watch here and on the Tasks page, and stays the library for what is made in the app. Files are checked one by one as they arrive; the library keeps its old place until the last one is across, and nothing is rescanned.",
+    "confirmHouseMoveBody": "The folder of \"{{name}}\" moves there whole, with everything in it, as a task you can watch here and on the Tasks page, and stays the library for what is made in the app. Files are checked one by one as they arrive; the library keeps its old place until the last one is across, and nothing is rescanned. Inside App storage it leaves the gallery's Timeline, Memories, Home, People and pickers, like the Inbox; what is in it stays reachable from the stories, photos and family tree that made it, or by choosing it in the gallery's library filter.",
     "confirmHouseMoveLabel": "Move library",
     "confirmInboxOffTitle": "Turn the Photo Inbox off?",
     "confirmInboxOffBody": "\"{{name}}\" becomes an ordinary gallery library; its files stay where they are. This is refused while photos are still waiting in it.",

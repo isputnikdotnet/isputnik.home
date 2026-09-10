@@ -429,6 +429,8 @@ export interface GalleryLibrary {
   /** A Photo Inbox: photos under review, kept out of every browse surface until
    *  someone keeps them — reviewed on its own page (PhotoInboxPage). */
   inbox: boolean;
+  /** Inside App storage: left out of the gallery's implicit scope like an Inbox, labelled in the filter. */
+  appStorage: boolean;
   scanStatus: "idle" | "scanning" | "error";
   canWrite: boolean;
   canDelete: boolean;

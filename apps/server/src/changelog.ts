@@ -19,6 +19,14 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.84.1",
+    label: "What the app keeps for itself stays out of the gallery",
+    changes: [
+      "Nothing inside App storage shows up in the gallery on its own any more. A gallery library that sits inside it — the Photo Inbox, or the Made in the app library with its story recordings, voice notes, family-tree uploads, rendered movies and music — is left out of the Timeline, Memories, the Home page, People, the map and every picker, the way an Inbox always was. What is in it stays reachable from the story, photo or tree that made it, and the library can still be chosen by name in the gallery's library filter, where it is labelled \"(App storage)\". Moving your nominated library into App storage now says so before you confirm.",
+      "The Add library wizard no longer offers to make a gallery library a Photo Inbox. The Storage page's Photo Inbox row is where that choice is made — Use App storage makes one, A library of my own turns one of yours into it — and a library's Access tab still carries the switch for turning one back into an ordinary library."
+    ]
+  },
+  {
     version: "3.84.0",
     label: "Every room moves the same way",
     changes: [
