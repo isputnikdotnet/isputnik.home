@@ -1,19 +1,19 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "../src/db.js";
 import { parsePolicy } from "../src/core/permissions.js";
 import { appRoomMode, getAppStorageSetting, resolveAppLocation, setAppRoomMode } from "../src/core/app-storage.js";
 import {
   appStorageView,
-  moveRenderBuckets,
   setAppStoragePath,
   switchRoom,
   validateAppStoragePath,
   AppStorageError
 } from "../src/modules/library/app-storage.js";
-import { getHouseLibrary } from "../src/modules/library/gallery/house-library.js";
+import { copyTreeVerified, storageMoveStatus, waitForStorageMoves, STORAGE_MOVE_JOB_TYPE } from "../src/modules/library/shared/storage-move.js";
+import { getHouseLibrary, setHouseLibrary } from "../src/modules/library/gallery/house-library.js";
 import {
   configuredThumbnailPathValue,
   getRendersRoot,
@@ -140,7 +140,7 @@ describe("switching rooms", () => {
     setAppStoragePath(appDir, "u1");
   });
 
-  it("moves the render buckets when the Renders room is switched on, and back when it is switched off", () => {
+  it("moves the render buckets as a task when the Renders room is switched on, and back when it is switched off", async () => {
     const musicFile = path.join(thumbs, "music", "ab", "cd", "abcd.mp3");
     fs.mkdirSync(path.dirname(musicFile), { recursive: true });
     fs.writeFileSync(musicFile, "MP3");
@@ -149,6 +149,8 @@ describe("switching rooms", () => {
 
     const room = switchRoom("renders", "app", null, "u1");
     expect(room.mode).toBe("app");
+    expect(room.move.running).toBe(true);
+    await waitForStorageMoves();
     const renders = path.join(appDir, "Renders");
     expect(fs.existsSync(path.join(renders, "music", "ab", "cd", "abcd.mp3"))).toBe(true);
     expect(fs.existsSync(musicFile)).toBe(false);
@@ -159,15 +161,34 @@ describe("switching rooms", () => {
     expect(appStorageView().lockedBy).toEqual(["renders"]);
 
     switchRoom("renders", "own", null, "u1");
+    await waitForStorageMoves();
     expect(fs.existsSync(musicFile)).toBe(true);
     expect(fs.existsSync(path.join(renders, "music"))).toBe(false);
     expect(appStorageView().lockedBy).toEqual([]);
+    // Every move is a task on the Tasks page, timed and logged.
+    const jobs = db.prepare("SELECT status FROM jobs WHERE type = ? AND payload LIKE '%\"room\":\"renders\"%' ORDER BY created_at").all(STORAGE_MOVE_JOB_TYPE) as { status: string }[];
+    expect(jobs.map((job) => job.status)).toEqual(["completed", "completed"]);
+    expect(db.prepare("SELECT COUNT(*) AS n FROM activity_logs WHERE event = 'storage.move.completed' AND target_id = 'renders'").get()).toEqual({ n: 2 });
   });
 
-  it("refuses to move render buckets onto a folder that already has one", () => {
-    fs.mkdirSync(path.join(thumbs, "music"), { recursive: true });
-    fs.mkdirSync(path.join(appDir, "Renders", "music"), { recursive: true });
-    expect(() => moveRenderBuckets(thumbs, path.join(appDir, "Renders"))).toThrowError(/already exists/);
+  it("a moved file that arrives short is refused, kept at the source, and listed as failed", () => {
+    const source = path.join(base, "src-tree");
+    const target = path.join(base, "dst-tree");
+    fs.mkdirSync(path.join(source, "a"), { recursive: true });
+    fs.writeFileSync(path.join(source, "a", "one.bin"), "ONE");
+    fs.writeFileSync(path.join(source, "two.bin"), "TWO");
+    expect(copyTreeVerified(source, target)).toBe(2);
+    expect(fs.readFileSync(path.join(target, "a", "one.bin"), "utf8")).toBe("ONE");
+    // A copy that lands short is not accepted: the size check catches it.
+    const spy = vi.spyOn(fs, "copyFileSync").mockImplementation((from, to) => { fs.writeFileSync(to, "X"); });
+    try {
+      fs.writeFileSync(path.join(source, "three.bin"), "THREE");
+      expect(() => copyTreeVerified(path.join(source, "three.bin"), path.join(target, "three.bin"))).toThrowError(/arrived as 1 bytes, not 5/);
+      expect(fs.existsSync(path.join(target, "three.bin"))).toBe(false);
+      expect(fs.existsSync(path.join(source, "three.bin"))).toBe(true);
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it("switching thumbnails to App storage carries the whole store across in the background, merging what a scan wrote meanwhile", async () => {
@@ -236,6 +257,86 @@ describe("switching rooms", () => {
     // Switching on again reuses the library rather than making a second one.
     switchRoom("inbox", "app", null, "u1");
     expect((db.prepare("SELECT COUNT(*) AS n FROM libraries WHERE type = 'gallery'").get() as { n: number }).n).toBe(1);
+  });
+
+  it("moves an Inbox of the admin's own into App storage, photos and all, instead of making a second one", async () => {
+    // A gallery library of the admin's own, flagged as the Inbox, with photos waiting.
+    const ownDir = path.join(base, "Scans");
+    fs.mkdirSync(path.join(ownDir, "2026"), { recursive: true });
+    fs.writeFileSync(path.join(ownDir, "2026", "a.jpg"), "JPG");
+    makeLibrary("SCANS", { createdBy: "u1", type: "gallery", name: "Scans" });
+    db.prepare("UPDATE libraries SET name = 'Scans', source_path = ?, policy_json = ? WHERE id = 'SCANS'").run(ownDir, JSON.stringify({ inbox: true }));
+    db.prepare("INSERT INTO library_items (id, library_id, type, folder_path, status) VALUES ('p1', 'SCANS', 'gallery', '2026/a.jpg', 'ready')").run();
+    expect(appStorageView().rooms.find((room) => room.room === "inbox")!.mode).toBe("own");
+
+    const queued = switchRoom("inbox", "app", null, "u1");
+    // Queued as a task: the row still reads the library at its old place until the
+    // files are across and verified, then it flips.
+    expect(queued.mode).toBe("own");
+    expect(queued.move.running).toBe(true);
+    await waitForStorageMoves();
+    const room = appStorageView().rooms.find((view) => view.room === "inbox")!;
+    expect(room.mode).toBe("app");
+    expect(room.move.running).toBe(false);
+    expect(room.move.failed).toEqual([]);
+    expect(room.library).toEqual({ id: "SCANS", name: "Scans" });
+    expect(room.counts.waiting).toBe(1);
+    const appInbox = path.join(appDir, "Photo Inbox");
+    expect((db.prepare("SELECT source_path FROM libraries WHERE id = 'SCANS'").get() as { source_path: string }).source_path).toBe(appInbox);
+    expect(fs.existsSync(path.join(appInbox, "2026", "a.jpg"))).toBe(true);
+    expect(fs.existsSync(ownDir)).toBe(false);
+    // Still the one and only Inbox: no library was created.
+    expect(db.prepare("SELECT COUNT(*) AS n FROM libraries WHERE type = 'gallery'").get()).toEqual({ n: 1 });
+    // Logged as a task: started, then completed with what it carried.
+    const events = db.prepare("SELECT event, detail FROM activity_logs WHERE event LIKE 'storage.move.%' AND target_id = 'inbox' ORDER BY created_at").all() as { event: string; detail: string }[];
+    expect(events.map((e) => e.event)).toEqual(["storage.move.started", "storage.move.completed"]);
+    expect(events[1].detail).toMatch(/Moved Scans from .* to .*: 1 carried and verified/);
+    expect(db.prepare("SELECT status FROM jobs WHERE type = ? AND payload LIKE '%\"room\":\"inbox\"%' ORDER BY created_at DESC LIMIT 1").get(STORAGE_MOVE_JOB_TYPE)).toEqual({ status: "completed" });
+  });
+
+  it("across volumes a library is copied file by file, verified, and flips its path only at the end; a cancel leaves it where it was", async () => {
+    const ownDir = path.join(base, "Family");
+    fs.mkdirSync(path.join(ownDir, "2025"), { recursive: true });
+    fs.writeFileSync(path.join(ownDir, "2025", "a.jpg"), "AAAA");
+    fs.writeFileSync(path.join(ownDir, "note.m4a"), "NOTE");
+    makeLibrary("FAM", { createdBy: "u1", type: "gallery" });
+    db.prepare("UPDATE libraries SET name = 'Family', source_path = ? WHERE id = 'FAM'").run(ownDir);
+    expect(setHouseLibrary("FAM", "u1").ok).toBe(true);
+    expect(getHouseLibrary()?.id).toBe("FAM");
+
+    // Pretend the volumes differ: every rename fails with EXDEV, so the task copies.
+    const exdev = Object.assign(new Error("cross-device"), { code: "EXDEV" });
+    const rename = vi.spyOn(fs, "renameSync").mockImplementation(() => { throw exdev; });
+    try {
+      // First, a cancel before the worker runs: the library stays put, the target is gone.
+      switchRoom("house", "app", null, "u1");
+      expect(storageMoveStatus("house").running).toBe(true);
+      db.prepare("UPDATE jobs SET status = 'failed', error = 'Cancelled by user' WHERE type = ? AND status = 'pending'").run(STORAGE_MOVE_JOB_TYPE);
+      await waitForStorageMoves();
+      expect(getHouseLibrary()!.source_path).toBe(ownDir);
+      expect(fs.existsSync(path.join(ownDir, "2025", "a.jpg"))).toBe(true);
+
+      // Then the move itself.
+      const queued = switchRoom("house", "app", null, "u1");
+      expect(queued.mode).toBe("own");
+      expect(queued.move.running).toBe(true);
+      await waitForStorageMoves();
+      const appHouse = path.join(appDir, "Made in the app");
+      expect(getHouseLibrary()!.source_path).toBe(appHouse);
+      expect(fs.readFileSync(path.join(appHouse, "2025", "a.jpg"), "utf8")).toBe("AAAA");
+      expect(fs.readFileSync(path.join(appHouse, "note.m4a"), "utf8")).toBe("NOTE");
+      expect(fs.existsSync(ownDir)).toBe(false);
+      const room = appStorageView().rooms.find((view) => view.room === "house")!;
+      expect(room.mode).toBe("app");
+      expect(room.library).toEqual({ id: "FAM", name: "Family" });
+      expect(room.move.failed).toEqual([]);
+      // The jobs table outlives resetDb, so look at this room's newest job only.
+      const done = db.prepare("SELECT status, payload FROM jobs WHERE type = ? AND payload LIKE '%\"room\":\"house\"%' ORDER BY created_at DESC LIMIT 1").get(STORAGE_MOVE_JOB_TYPE) as { status: string; payload: string };
+      expect(done.status).toBe("completed");
+      expect(JSON.parse(done.payload).result.moved).toBe(2);
+    } finally {
+      rename.mockRestore();
+    }
   });
 
   it("makes and nominates the Made in the app library, and off only clears the nomination", () => {
@@ -344,6 +445,10 @@ describe("changing the folder while rooms use it", () => {
     await waitForTrashMove();
 
     setAppStoragePath(other, "u1", { house: false, renders: false, backups: false, thumbnails: false, trash: false });
+    // Only the renders leave as a task (into the thumbnail folder); nothing else moves.
+    expect(storageMoveStatus("thumbnails").running).toBe(false);
+    expect(storageMoveStatus("trash").running).toBe(false);
+    await waitForStorageMoves();
     expect(folderMoveStatus().running).toBe(false);
     expect(pendingTrashMoveRows()).toEqual([]);
 
@@ -383,7 +488,10 @@ describe("changing the folder while rooms use it", () => {
     await settleScans();
     await settleScans();
     fs.writeFileSync(path.join(appDir, "Made in the app", "note.m4a"), "AAC");
+    // Something already lives at the room's folder in the new place (an empty
+    // folder would simply be taken over).
     fs.mkdirSync(path.join(other, "Photo Inbox"));
+    fs.writeFileSync(path.join(other, "Photo Inbox", "theirs.jpg"), "JPG");
     expect(() => setAppStoragePath(other, "u1")).toThrowError(/already exists/);
     expect(getAppStorageSetting().path).toBe(appDir);
     expect(getHouseLibrary()!.source_path).toBe(path.join(appDir, "Made in the app"));

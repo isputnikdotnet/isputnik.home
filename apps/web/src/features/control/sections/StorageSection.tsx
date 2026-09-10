@@ -24,19 +24,16 @@ import { FolderPickerModal } from "../libraries/FolderPickerModal";
 type AppRoom = "trash" | "inbox" | "house" | "thumbnails" | "renders" | "backups";
 type RoomMode = "app" | "own" | "off";
 
-interface TrashMove {
+/** A room's storage move task: running, or what the last one could not carry. */
+interface StorageMove {
   running: boolean;
-  pending: number;
-  moved: number;
-  target: string | null;
-  failed: { id: string; title: string; libraryName: string; error: string }[];
-}
-
-interface FolderMove {
-  running: boolean;
+  jobId: string | null;
+  label: string | null;
+  from: string | null;
+  to: string | null;
   done: number;
   pending: number;
-  failed: { name: string; error: string }[];
+  failed: { name: string; title?: string; error: string }[];
 }
 
 interface RoomView {
@@ -47,8 +44,7 @@ interface RoomView {
   holdsFiles: boolean;
   library: { id: string; name: string } | null;
   counts: { itemsInBin?: number; tracks?: number; clips?: number; waiting?: number; backups?: number };
-  move?: TrashMove;
-  folderMove?: FolderMove;
+  move: StorageMove;
 }
 
 interface AppStorageView {
@@ -134,10 +130,8 @@ export function StorageSection() {
     loadStorage().catch((err) => setError(err instanceof Error ? err.message : t("controlAdmin:storage.loadFailed")));
   }, []);
 
-  // While the bin or the thumbnails are being moved, keep the rows' counts fresh.
-  const trashMove = storage?.rooms.find((room) => room.room === "trash")?.move;
-  const thumbsMove = storage?.rooms.find((room) => room.room === "thumbnails")?.folderMove;
-  const anyMoving = Boolean(trashMove?.running || thumbsMove?.running);
+  // While any room is being moved, keep the rows' counts fresh.
+  const anyMoving = Boolean(storage?.rooms.some((room) => room.move.running));
   useEffect(() => {
     if (!anyMoving) return;
     const timer = setInterval(() => { loadStorage().catch(() => { /* next tick */ }); }, 2000);
@@ -220,10 +214,11 @@ export function StorageSection() {
     }
   };
 
-  const moveAction = async (method: "POST" | "DELETE", url = "/api/storage/trash-root/move") => {
+  /** Retry (POST) or stop (DELETE) a room's storage move. */
+  const moveAction = async (method: "POST" | "DELETE", room: AppRoom) => {
     setMoveBusy(true);
     try {
-      await api(url, { method });
+      await api(`/api/storage/app-storage/rooms/${room}/move`, { method });
       await loadStorage();
     } catch (err) {
       setError(err instanceof Error ? err.message : t("controlAdmin:storage.loadFailed"));
@@ -371,12 +366,30 @@ export function StorageSection() {
         if (switchTo.mode === "own") {
           return { title: t("controlAdmin:storage.confirmInboxOwnTitle", { name: picked }), body: t("controlAdmin:storage.confirmInboxOwnBody"), label: t("controlAdmin:storage.confirmInboxOwnLabel") };
         }
+        // An Inbox of your own moves into App storage, photos and all; a new one
+        // is made only when there is none.
+        if (switchTo.mode === "app" && view?.mode === "own" && view.library) {
+          return {
+            title: t("controlAdmin:storage.confirmInboxMoveTitle", { path: target }),
+            body: t("controlAdmin:storage.confirmInboxMoveBody", { name, count: view.counts.waiting ?? 0 }),
+            label: t("controlAdmin:storage.confirmInboxMoveLabel")
+          };
+        }
         return switchTo.mode === "app"
           ? { title: t("controlAdmin:storage.confirmInboxAppTitle", { path: target }), body: t("controlAdmin:storage.confirmInboxAppBody"), label: t("controlAdmin:storage.confirmInboxAppLabel") }
           : { title: t("controlAdmin:storage.confirmInboxOffTitle"), body: t("controlAdmin:storage.confirmInboxOffBody", { name }), label: t("controlAdmin:storage.confirmInboxOffLabel") };
       case "house":
         if (switchTo.mode === "own") {
           return { title: t("controlAdmin:storage.confirmHouseOwnTitle", { name: picked }), body: t("controlAdmin:storage.confirmHouseOwnBody"), label: t("controlAdmin:storage.confirmHouseOwnLabel") };
+        }
+        // The nominated library of your own moves into App storage whole and stays
+        // nominated; a new one is made only when none is nominated.
+        if (switchTo.mode === "app" && view?.mode === "own" && view.library) {
+          return {
+            title: t("controlAdmin:storage.confirmHouseMoveTitle", { path: target }),
+            body: t("controlAdmin:storage.confirmHouseMoveBody", { name }),
+            label: t("controlAdmin:storage.confirmHouseMoveLabel")
+          };
         }
         return switchTo.mode === "app"
           ? { title: t("controlAdmin:storage.confirmHouseAppTitle", { path: target }), body: t("controlAdmin:storage.confirmHouseAppBody"), label: t("controlAdmin:storage.confirmHouseAppLabel") }
@@ -556,8 +569,8 @@ export function StorageSection() {
                 {rooms.map((room) => {
                   const where = whereText(room);
                   const count = countText(room);
-                  const move = room.room === "trash" ? room.move : undefined;
-                  const moveTotal = move ? move.moved + move.pending : 0;
+                  const move = room.move;
+                  const moveTotal = move.done + move.pending;
                   return (
                     <tr key={room.room}>
                       <td>
@@ -569,35 +582,20 @@ export function StorageSection() {
                         <div className="datagrid-muted app-storage-from">
                           {[where.from, count].filter(Boolean).join(" · ")}
                         </div>
-                        {move?.running && (
+                        {move.running && (
                           <div className="app-storage-move">
-                            <span>{t("controlAdmin:storage.moving", { moved: move.moved, total: moveTotal })}</span>
-                            <Button variant="text" compact disabled={moveBusy} onClick={() => void moveAction("DELETE")}>
+                            <span>{t("controlAdmin:storage.moving", { moved: move.done, total: moveTotal })}</span>
+                            <Button variant="text" compact disabled={moveBusy} onClick={() => void moveAction("DELETE", room.room)}>
                               {t("controlAdmin:storage.moveCancel")}
                             </Button>
                           </div>
                         )}
-                        {room.room === "thumbnails" && room.folderMove?.running && (
-                          <div className="app-storage-move">
-                            <span>{t("controlAdmin:storage.movingThumbs", { done: room.folderMove.done, total: room.folderMove.done + room.folderMove.pending })}</span>
-                            <Button variant="text" compact disabled={moveBusy} onClick={() => void moveAction("DELETE", "/api/storage/app-storage/thumbnail-move")}>
-                              {t("controlAdmin:storage.moveCancel")}
-                            </Button>
-                          </div>
-                        )}
-                        {room.room === "thumbnails" && room.folderMove && !room.folderMove.running && room.folderMove.failed.length > 0 && (
+                        {!move.running && move.failed.length > 0 && (
                           <div className="app-storage-move needs-attention">
-                            <span title={room.folderMove.failed.map((f) => `${f.name}: ${f.error}`).join("\n")}>
-                              {t("controlAdmin:storage.thumbsMoveFailed", { count: room.folderMove.failed.length })}
-                            </span>
-                          </div>
-                        )}
-                        {move && !move.running && move.failed.length > 0 && (
-                          <div className="app-storage-move needs-attention">
-                            <span title={move.failed.map((f) => `${f.title}: ${f.error}`).join("\n")}>
+                            <span title={move.failed.map((f) => `${f.title ?? f.name}: ${f.error}`).join("\n")}>
                               {t("controlAdmin:storage.moveFailed", { count: move.failed.length })}
                             </span>
-                            <Button variant="text" compact disabled={moveBusy} onClick={() => void moveAction("POST")}>
+                            <Button variant="text" compact disabled={moveBusy} onClick={() => void moveAction("POST", room.room)}>
                               {t("controlAdmin:storage.moveRetry")}
                             </Button>
                           </div>
@@ -607,8 +605,8 @@ export function StorageSection() {
                         <Button
                           variant="secondary"
                           compact
-                          disabled={Boolean(move?.running) || Boolean(room.room === "thumbnails" && room.folderMove?.running)}
-                          title={move?.running ? t("controlAdmin:recycleBin.locationLockedTitle") : undefined}
+                          disabled={move.running}
+                          title={move.running ? t("controlAdmin:recycleBin.locationLockedTitle") : undefined}
                           onClick={() => openChooser(room)}
                         >
                           {t("controlAdmin:storage.changeRoom")}

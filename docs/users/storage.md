@@ -107,11 +107,40 @@ Three rooms are worth a word each:
   until an entry has been carried over, its covers are missing. Finished renders
   come along with the thumbnails, since that is where they live unless Renders
   has its own room.
-- **Photo Inbox** and **Made in the app.** Switching either to App storage makes
-  a new gallery library in the room's folder. Switching one off leaves the
-  library as an ordinary library with its files where they are; the Inbox refuses
-  to turn off while photos are still waiting in it, so nothing lands on the
-  Timeline unreviewed.
+- **Photo Inbox.** Switching to App storage when you already have an Inbox of
+  your own moves that library's folder into App storage whole, photos waiting
+  and all, and it stays the Inbox; the confirmation says how many come along,
+  and nothing is rescanned. With no Inbox yet, a new gallery library is made in
+  the room's folder. Switching off leaves the library as an ordinary library
+  with its files where they are; it refuses to turn off while photos are still
+  waiting in it, so nothing lands on the Timeline unreviewed.
+- **Made in the app.** Switching to App storage when a library of your own is
+  nominated moves that library's folder into App storage whole, with everything
+  in it, and it stays the library for what is made in the app. With none
+  nominated, a new gallery library is made in the room's folder and nominated.
+  Switching off only clears the nomination.
+
+### How a move runs
+
+Every move is a **task**: it appears on the Tasks page as a *Storage move*
+with its progress and an estimate, it can be stopped there or from the row,
+it is timed, and a server restart picks it up again where it was. The row on
+this page shows "Moving… 14 of 230" while it runs, and afterwards anything it
+could not carry with a **Retry**. The activity log records when a move starts
+and how it ended: how much it carried, how long it took, and what failed.
+
+What keeps it safe:
+
+- On the same disk a move is a rename: instant whatever the size, and either
+  it happens or it does not.
+- Across disks nothing is copied while you wait. The task copies one file at a
+  time and checks each one arrived whole, by size, before the original is
+  removed. A file that does not check out stays where it was and is listed.
+- A library keeps its old folder until the last file is across and verified,
+  then switches to the new one in one step and the old folder goes. Stopping
+  the move, or a failure, leaves the library exactly where it was.
+- One move runs at a time, and never while a library is being scanned; a scan
+  waits for a move the same way.
 
 ### Changing the folder once rooms use it
 
@@ -124,19 +153,22 @@ unticked one stays where it is and leaves App storage.
 
 What "carried" means depends on the room:
 
-- **Recycle Bin** and **Thumbnails** are carried by the same background moves
-  their rows use, and the rows show the progress. Left behind, each keeps its
-  old folder as its own place.
-- **Photo Inbox** and **Made in the app** move as whole folders, and the
-  library follows its folder: nothing is rescanned, and what is waiting for
-  review stays waiting. Left behind, the library stays where it is as a
-  library of your own, still the Inbox or still nominated.
-- **Renders and music** and **Backups** are moved at once. They have no place
-  of their own, so left behind they go back to their default: inside the
-  thumbnail folder, and the backup folder.
+- **Recycle Bin**, **Thumbnails** and **Renders and music** are carried by
+  the same tasks their rows use, one task each, and the rows show the
+  progress. Left behind, the bin and the thumbnails keep their old folder as
+  their own place; renders and music, which have no place of their own, go
+  back inside the thumbnail folder.
+- **Photo Inbox** and **Made in the app** move as whole folders, each its own
+  task, and the library follows its folder once every file is across: nothing
+  is rescanned, and what is waiting for review stays waiting. Left behind, the
+  library stays where it is as a library of your own, still the Inbox or still
+  nominated.
+- **Backups** are the one thing moved at once, a few files. Left behind, they
+  go back to the backup folder.
 
-If a move cannot be made (the new folder already has a room's folder, a
-library room is being scanned), nothing changes and the box says why.
+Every check happens before anything changes: if the new folder already holds
+a room's folder, a library room is being scanned, or a move is still running,
+nothing changes and the box says why. The tasks then run one after another.
 **Clear** takes the leave-behind path for every room. Both wait for a move
 already running on the page to finish first.
 

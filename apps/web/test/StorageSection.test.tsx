@@ -21,6 +21,7 @@ const room = (name: string, mode: "app" | "own" | "off", extra: Record<string, u
   holdsFiles: mode === "app",
   library: null,
   counts: {},
+  move: { running: false, jobId: null, label: null, from: null, to: null, done: 0, pending: 0, failed: [] },
   ...extra
 });
 
@@ -30,10 +31,10 @@ const view = {
   error: "",
   lockedBy: ["trash", "renders"],
   rooms: [
-    room("trash", "app", { resolvedPath: `${APP}\\Recycle Bin`, counts: { itemsInBin: 10 }, move: { running: false, pending: 0, moved: 0, target: null, failed: [] } }),
+    room("trash", "app", { resolvedPath: `${APP}\\Recycle Bin`, counts: { itemsInBin: 10 } }),
     room("inbox", "off"),
     room("house", "off"),
-    room("thumbnails", "own", { resolvedPath: "D:\\Demo\\thumbs", folderMove: { running: false, done: 0, pending: 0, failed: [] } }),
+    room("thumbnails", "own", { resolvedPath: "D:\\Demo\\thumbs" }),
     room("renders", "app", { resolvedPath: `${APP}\\Renders`, counts: { tracks: 0, clips: 0 } }),
     room("backups", "own", { resolvedPath: "D:\\backups", counts: { backups: 0 } })
   ],
@@ -79,7 +80,7 @@ describe("changing the App storage folder while rooms use it", () => {
     expect(boxes).toHaveLength(2);
     expect(boxes.every((box) => (box as HTMLInputElement).checked)).toBe(true);
     expect(within(dialog).getByText("The 10 items in the bin are moved there in the background.")).toBeInTheDocument();
-    expect(within(dialog).getByText("Moved there now.")).toBeInTheDocument();
+    expect(within(dialog).getByText("Moved there as a task, checked file by file.")).toBeInTheDocument();
     // The list is real block markup inside the dialog, not text inside a paragraph.
     expect(document.querySelector("p .app-storage-options")).toBeNull();
 
