@@ -113,13 +113,29 @@ Three rooms are worth a word each:
   to turn off while photos are still waiting in it, so nothing lands on the
   Timeline unreviewed.
 
-### The folder locks once a room uses it
+### Changing the folder once rooms use it
 
-Once any room keeps files in App storage, **Change** and **Clear** on the top
-block are refused, and the block says which rooms those are. Move each of them
-out, or turn it off, from its own row first; then the folder is free to change
-again. That is deliberate: the folder is the base of every file those rooms
-hold, and changing it underneath them would be a "move everything" in disguise.
+The folder is the base of every file its rooms hold, so **Change** on the top
+block asks about each room that uses it. The confirmation lists those rooms
+with a tick beside each: a ticked room is carried to the new folder, an
+unticked one stays where it is and leaves App storage. What "carried" means
+depends on the room:
+
+- **Recycle Bin** and **Thumbnails** are carried by the same background moves
+  their rows use, and the rows show the progress. Left behind, each keeps its
+  old folder as its own place.
+- **Photo Inbox** and **Made in the app** move as whole folders, and the
+  library follows its folder: nothing is rescanned, and what is waiting for
+  review stays waiting. Left behind, the library stays where it is as a
+  library of your own, still the Inbox or still nominated.
+- **Renders and music** and **Backups** are moved at once. They have no place
+  of their own, so left behind they go back to their default: inside the
+  thumbnail folder, and the backup folder.
+
+If a move cannot be made (the new folder already has a room's folder, a
+library room is being scanned), nothing changes and the box says why.
+**Clear** takes the leave-behind path for every room. Both wait for a move
+already running on the page to finish first.
 
 Once thumbnails have a place and a container is listed, you're ready for
 **[Setting up libraries](libraries.md)**.

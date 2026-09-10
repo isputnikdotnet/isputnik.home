@@ -143,6 +143,7 @@
 .storage-section {
   display: grid;
   gap: 14px;
+  margin-bottom: 24px;
 }
 
 .storage-section-head h2,
@@ -2356,7 +2357,10 @@
   gap: 10px;
 }
 .app-storage-buttons { display: flex; align-items: center; gap: 8px; margin-left: auto; }
-.app-storage-locked { margin: 0; font-size: 0.85rem; }
+/* The folder-change confirmation: the rooms that leave App storage on Clear. */
+.app-storage-stays { display: grid; gap: 6px; margin: 12px 0 4px; padding: 0; list-style: none; }
+.app-storage-stays li { display: grid; gap: 2px; }
+.app-storage-stays .datagrid-muted { white-space: normal; font-size: 0.8rem; overflow-wrap: anywhere; }
 .app-storage-rooms { margin-top: 4px; }
 .app-storage-hint { font-size: 0.8rem; max-width: 34ch; }
 .app-storage-path {

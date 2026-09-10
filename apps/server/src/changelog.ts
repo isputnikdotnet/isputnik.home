@@ -19,6 +19,16 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.83.0",
+    label: "App storage moves house",
+    changes: [
+      "The App storage folder can be changed while its rooms are in use. Until now Change and Clear were refused as soon as any room kept files in the folder, and each room had to be moved out from its own row first. Now the confirmation lists the rooms that use the folder, each with a tick: a ticked room is carried to the new folder, an unticked one stays where it is and leaves App storage. The line under each room says what its choice means. Clear takes the stay-behind path for every room.",
+      "What carrying a room means depends on the room. The Photo Inbox and the Made in the app library move as whole folders and the library follows its folder, so nothing is rescanned and what is waiting for review keeps waiting; left behind, the library stays as a library of your own, still the Inbox or still nominated. Renders and music and the backups are moved at once, and since they have no place of their own, left behind they go back inside the thumbnail folder and to the backup folder. The Recycle Bin and the thumbnails are carried by the same background moves their rows use, with the progress on the row; left behind, each keeps its old folder as its own place.",
+      "A change that cannot be made is refused whole and says why: the new folder already holds a room's folder, a library room is being scanned, or a bin or thumbnail move is still running. Whatever had already moved is put back. The Storage guide describes the choice.",
+      "On the Storage page there is now a gap between the containers table and the App storage block."
+    ]
+  },
+  {
     version: "3.82.2",
     label: "The same player for a guest",
     changes: [
