@@ -53,7 +53,8 @@ A box shows the exact path and asks you to confirm. Choosing the folder records
 it and nothing else: no room changes until you change its row. Two rooms do
 follow it straight away when they were never given a place of their own, because
 they have to live somewhere: **Thumbnails** go to `Thumbnails\` under it, and
-**Renders** go wherever the thumbnails are. On a fresh install the
+**Renders** go to `Renders\` under it, unless you have told the row to stay
+inside the thumbnail folder. On a fresh install the
 **Recycle Bin** is switched on too, so deleted files have one folder from the
 start.
 
