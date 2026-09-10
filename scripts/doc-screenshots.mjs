@@ -639,6 +639,26 @@ const SHOTS = [
       own.click(); await sleep(400);
       "library picker";`
   },
+  {
+    // Changing the App storage folder while rooms use it: the confirmation with
+    // a tick per room (carry it along, or leave it where it is).
+    name: "106-storage-folder-change",
+    url: "control/libraries/storage",
+    state: "App storage chosen, at least one room using it, a second container with a plain folder",
+    setup: `
+      button(document.querySelector(".app-storage-buttons"), "Change").click(); await sleep(800);
+      const picker = topModal();
+      const select = picker.querySelector("select");
+      const other = [...select.options].find((o) => o.value !== select.value);
+      if (!other) return "no second container";
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value").set.call(select, other.value);
+      select.dispatchEvent(new Event("change", { bubbles: true })); await sleep(1000);
+      const folder = [...picker.querySelectorAll("button")].find((b) => b.textContent.trim() === "test");
+      if (!folder) return "no test folder in the other container";
+      folder.click(); await sleep(1000);
+      button(picker, "Use this folder").click(); await sleep(600);
+      "confirmation open";`
+  },
   // The setup guide's storage and Made in the app steps (docs/users/first-run.md).
   { name: "103-welcome-storage", url: "welcome", height: 1000 },
   {

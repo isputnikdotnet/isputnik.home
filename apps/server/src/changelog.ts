@@ -19,6 +19,13 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.83.1",
+    label: "Pictures of the Storage page",
+    changes: [
+      "The Storage guide under Help shows the page as it is now, with the gap above App storage, and has a new picture of the folder-change confirmation with its tick beside each room. The pictures of the Add container dialog, a room's chooser, a room's confirmation and the library picker are refreshed."
+    ]
+  },
+  {
     version: "3.83.0",
     label: "App storage moves house",
     changes: [
