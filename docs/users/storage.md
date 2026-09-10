@@ -118,8 +118,11 @@ Three rooms are worth a word each:
 The folder is the base of every file its rooms hold, so **Change** on the top
 block asks about each room that uses it. The confirmation lists those rooms
 with a tick beside each: a ticked room is carried to the new folder, an
-unticked one stays where it is and leaves App storage. What "carried" means
-depends on the room:
+unticked one stays where it is and leaves App storage.
+
+![The App storage folder-change confirmation: the new folder, and a tick beside each room that uses it](images/106-storage-folder-change.png)
+
+What "carried" means depends on the room:
 
 - **Recycle Bin** and **Thumbnails** are carried by the same background moves
   their rows use, and the rows show the progress. Left behind, each keeps its
