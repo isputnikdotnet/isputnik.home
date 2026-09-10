@@ -155,8 +155,10 @@ and uploaded music all land in the **Made in the app** library ([Storage](storag
 When that library sits inside App storage it stays out of the Timeline,
 Memories, the Home page, People, the map and every picker, the same way a
 Photo Inbox does: those files belong to the story, the photo or the tree that
-made them, and that is where you meet them. To browse the library itself,
-choose it by name in the library filter, where it is labelled *(App storage)*.
+made them, and that is where you meet them: a photo placed in a story, an
+album or a slideshow keeps showing there, and opens in the viewer as any
+other. To browse the library itself, choose it by name in the library filter,
+where it is labelled *(App storage)*.
 A library of your own that you nominate instead, outside App storage, shows in
 the gallery as it always did.
 

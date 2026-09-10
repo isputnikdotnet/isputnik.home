@@ -280,7 +280,28 @@
       "purgeBody": "The story, its chapters and its text are permanently deleted and cannot be restored. The photos, albums and books it referenced are not affected."
     },
     "sourceInbox": "Photo Inbox",
-    "moving": "Moving the bin to its new location: {{moved}} of {{total}} done."
+    "moving": "Moving the bin to its new location: {{moved}} of {{total}} done.",
+    "replacedTitle": "Replaced originals",
+    "replacedIntro": "The files Replace file set aside: the version a photo had before a better one went in over it. They are kept beside the bin, outside every library, so a wrong file can be put back by hand. Nothing removes them for you.",
+    "replacedSummary_one": "{{count}} file · {{size}}",
+    "replacedSummary_other": "{{count}} files · {{size}}",
+    "replacedEmptyList": "No replaced originals are kept.",
+    "replacedThPhoto": "Photo",
+    "replacedThLibrary": "Library",
+    "replacedThKept": "Set aside",
+    "replacedThSize": "Size",
+    "replacedPhotoGone": "photo no longer in the library",
+    "replacedInLibraryTrash": "in the library's own .trash",
+    "replacedDelete": "Delete",
+    "replacedEmpty": "Delete all",
+    "replacedConfirmOneTitle": "Delete the replaced original \"{{name}}\"?",
+    "replacedConfirmOneBody": "The file is removed from disk for good. The photo it was replaced under is not touched.",
+    "replacedConfirmAllTitle": "Delete every replaced original?",
+    "replacedConfirmAllBody_one": "The {{count}} file kept beside the bin ({{size}}) is removed from disk for good. The photos they were replaced under are not touched.",
+    "replacedConfirmAllBody_other": "All {{count}} files kept beside the bin ({{size}}) are removed from disk for good. The photos they were replaced under are not touched.",
+    "replacedDeleting": "Deleting…",
+    "replacedLoadFailed": "Unable to list the replaced originals",
+    "replacedDeleteFailed": "Unable to delete the replaced original"
   },
   "scanRules": {
     "browseFolders": "Browse folders"

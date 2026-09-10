@@ -21,23 +21,11 @@ import { receiveUpload, receiveUploadBatch, UploadError } from "../../uploads/in
 import { enqueueGalleryScan, processGalleryScanQueue, scanSingleGalleryFile } from "./scanner.js";
 import { kindForExtension, readAssetMetadata } from "./media.js";
 import { listMissingGalleryPhotos, setMissingRetentionDays, purgeMissingGalleryPhoto, purgeMissingGalleryPhotos } from "./cleanup.js";
-import {
-  resolveGalleryScopeLibraryIds,
-  parseLibraryIds,
-  queryGalleryTimeline,
-  queryGalleryFolders,
-  searchGalleryFolders,
-  getGalleryAsset,
-  getGalleryAssets,
-  getGalleryAssetUnscoped,
-  galleryFacets,
-  queryGalleryMapPoints,
-  queryGalleryMemories,
-  EMPTY_GALLERY_FILTERS
-} from "./catalog.js";
+import { resolveGalleryScopeLibraryIds, parseLibraryIds, queryGalleryTimeline, queryGalleryFolders, searchGalleryFolders, getGalleryAsset, getGalleryAssets, getGalleryAssetUnscoped, galleryFacets, queryGalleryMapPoints, queryGalleryMemories, EMPTY_GALLERY_FILTERS, resolveGalleryBrowseLibraryIds } from "./catalog.js";
 import { changeGalleryTags, markGalleryAssetReviewed, setGalleryPlaceAndTime, updateGalleryAsset } from "./edit.js";
 import { TAKEN_PRECISIONS } from "./taken-precision.js";
 import { replaceGalleryAssetFile } from "./replace.js";
+import { deleteAllReplacedOriginals, deleteReplacedOriginal, listReplacedOriginals } from "./replaced.js";
 import { searchPlaces } from "./geocode.js";
 import { suggestGalleryMemories } from "./memories.js";
 import { suggestYearReviews, buildYearReview } from "./year-review.js";
@@ -157,6 +145,45 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
 
     const updated = db.prepare(GALLERY_LIBRARY_LIST_SQL.replace("%WHERE%", "AND libraries.id = ?")).get(id) as LibraryListRow;
     return reply.send({ library: publicLibrary(updated, true, libraryCapabilities(updated, request.user!.id, request.user!.role)) });
+  });
+
+  // Replaced originals (replaced.ts): the files Replace file set aside, listed
+  // from disk for the Recycle Bin page, let go one at a time or all at once.
+  app.get("/api/library/trash/replaced", { preHandler: app.requireAdmin }, async () => {
+    const originals = listReplacedOriginals();
+    return { originals, bytes: originals.reduce((sum, original) => sum + original.size, 0) };
+  });
+
+  // The key names a file path, encoded, and is longer than a path parameter may
+  // be (Fastify caps those at 100 characters), so it travels in the body.
+  const replacedKeySchema = z.object({ key: z.string().min(1).max(2000) });
+  app.post("/api/library/trash/replaced/delete", { preHandler: app.requireAdmin, config: { destructive: true } }, async (request, reply) => {
+    const parsed = parseBody(replacedKeySchema, request.body ?? {});
+    if (parsed.error) return reply.code(400).send({ error: "Invalid request", details: parsed.error });
+    const removed = deleteReplacedOriginal(parsed.data.key);
+    if (!removed) return reply.code(404).send({ error: "That replaced original is no longer there." });
+    logActivity({
+      event: "library.replaced_original_purged",
+      actorUserId: request.user!.id,
+      targetType: "setting",
+      targetId: "trash",
+      detail: `Permanently deleted the replaced original "${removed.fileName}" (${removed.size} bytes).`,
+      ipAddress: request.ip
+    });
+    return reply.send({ deleted: true });
+  });
+
+  app.post("/api/library/trash/replaced/empty", { preHandler: app.requireAdmin, config: { destructive: true } }, async (request, reply) => {
+    const removed = deleteAllReplacedOriginals();
+    logActivity({
+      event: "library.replaced_original_purged",
+      actorUserId: request.user!.id,
+      targetType: "setting",
+      targetId: "trash",
+      detail: `Permanently deleted every replaced original — ${removed.files} file${removed.files === 1 ? "" : "s"}, ${removed.bytes} bytes.`,
+      ipAddress: request.ip
+    });
+    return reply.send(removed);
   });
 
   app.delete("/api/library/gallery-libraries/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
@@ -387,7 +414,7 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
       return reply.code(400).send({ error: "Invalid timeline query", details: parsed.error });
     }
     const p = parsed.data;
-    const libIds = resolveGalleryScopeLibraryIds(request.user!, p.filters?.libraries ?? []);
+    const libIds = resolveGalleryBrowseLibraryIds(request.user!, p.filters?.libraries ?? []);
     return reply.send(queryGalleryTimeline(request.user!.id, libIds, {
       q: p.q ?? "", kinds: p.kinds ?? [],
       filters: { ...EMPTY_GALLERY_FILTERS, ...p.filters },
@@ -436,7 +463,7 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
 
   app.get("/api/library/gallery/folders", { preHandler: app.authenticate }, async (request) => {
     const qp = request.query as { libraryIds?: string; parent?: string; limit?: string; offset?: string };
-    const libIds = resolveGalleryScopeLibraryIds(request.user!, parseLibraryIds(qp.libraryIds));
+    const libIds = resolveGalleryBrowseLibraryIds(request.user!, parseLibraryIds(qp.libraryIds));
     const limit = Math.min(Math.max(Number.parseInt(qp.limit ?? "80", 10) || 80, 1), 200);
     const offset = Math.max(Number.parseInt(qp.offset ?? "0", 10) || 0, 0);
     // Cap the folder path: real relative paths are short, so a bounded value keeps
@@ -449,7 +476,7 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
   // Separate from /folders above, which browses one level of the tree.
   app.get("/api/library/gallery/folders/search", { preHandler: app.authenticate }, async (request) => {
     const qp = request.query as { libraryIds?: string; q?: string; limit?: string };
-    const libIds = resolveGalleryScopeLibraryIds(request.user!, parseLibraryIds(qp.libraryIds));
+    const libIds = resolveGalleryBrowseLibraryIds(request.user!, parseLibraryIds(qp.libraryIds));
     const limit = Math.min(Math.max(Number.parseInt(qp.limit ?? "100", 10) || 100, 1), 200);
     return searchGalleryFolders(libIds, (qp.q ?? "").slice(0, 200), limit);
   });
@@ -460,7 +487,7 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
   // `perYear` caps items per year group (the Home tile only needs one for a cover).
   app.get("/api/library/gallery/memories", { preHandler: app.authenticate }, async (request) => {
     const qp = request.query as { libraryIds?: string; date?: string; perYear?: string };
-    const libIds = resolveGalleryScopeLibraryIds(request.user!, parseLibraryIds(qp.libraryIds));
+    const libIds = resolveGalleryBrowseLibraryIds(request.user!, parseLibraryIds(qp.libraryIds));
     // A malformed or impossible date (e.g. 2026-99-99 passes the shape check but
     // not Date parsing) falls back to the server's local calendar date.
     let date = qp.date ?? "";
@@ -477,7 +504,7 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
   // from /memories above, which is the date-only "On this day" anniversary feed.
   app.get("/api/library/gallery/memories/suggestions", { preHandler: app.authenticate }, async (request) => {
     const qp = request.query as { libraryIds?: string; limit?: string };
-    const libIds = resolveGalleryScopeLibraryIds(request.user!, parseLibraryIds(qp.libraryIds));
+    const libIds = resolveGalleryBrowseLibraryIds(request.user!, parseLibraryIds(qp.libraryIds));
     const limit = Math.min(Math.max(Number.parseInt(qp.limit ?? "12", 10) || 12, 1), 40);
     return { suggestions: suggestGalleryMemories(libIds, { limit }) };
   });
@@ -492,7 +519,7 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
   // small by default.
   app.get("/api/library/gallery/year-review", { preHandler: app.authenticate }, async (request) => {
     const qp = request.query as { libraryIds?: string; year?: string; limit?: string; maxItems?: string };
-    const libIds = resolveGalleryScopeLibraryIds(request.user!, parseLibraryIds(qp.libraryIds));
+    const libIds = resolveGalleryBrowseLibraryIds(request.user!, parseLibraryIds(qp.libraryIds));
     const maxItems = qp.maxItems ? Math.min(Math.max(Number.parseInt(qp.maxItems, 10) || 60, 12), 200) : undefined;
 
     const year = Number.parseInt(qp.year ?? "", 10);
@@ -520,7 +547,7 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
 
   app.get("/api/library/gallery/facets", { preHandler: app.authenticate }, async (request) => {
     const qp = request.query as { libraryIds?: string };
-    const libIds = resolveGalleryScopeLibraryIds(request.user!, parseLibraryIds(qp.libraryIds));
+    const libIds = resolveGalleryBrowseLibraryIds(request.user!, parseLibraryIds(qp.libraryIds));
     return galleryFacets(libIds);
   });
 
@@ -528,7 +555,7 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
   // capped so a huge library can't return an unbounded marker payload.
   app.get("/api/library/gallery/map", { preHandler: app.authenticate }, async (request) => {
     const qp = request.query as { libraryIds?: string; kinds?: string };
-    const libIds = resolveGalleryScopeLibraryIds(request.user!, parseLibraryIds(qp.libraryIds));
+    const libIds = resolveGalleryBrowseLibraryIds(request.user!, parseLibraryIds(qp.libraryIds));
     const kinds = (qp.kinds ?? "").split(",").map((k) => k.trim()).filter((k) => k === "photo" || k === "video" || k === "audio");
     return queryGalleryMapPoints(libIds, { kinds, limit: 5000 });
   });
