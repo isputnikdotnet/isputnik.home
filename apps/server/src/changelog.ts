@@ -19,6 +19,13 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.82.2",
+    label: "The same player for a guest",
+    changes: [
+      "Narration on a story opened at a share link now plays in the same card the family sees: the recording's waveform, the position moving across it, play or pause, the name and the time. Until now a guest got the browser's own audio control there, which looked like nothing else on the page and showed no picture of the recording. Nothing else about the link changes: the recording still streams through the link's own route, nothing is fetched until it is pressed, and guests still cannot add narration."
+    ]
+  },
+  {
     version: "3.82.1",
     label: "The bars are plain again",
     changes: [
