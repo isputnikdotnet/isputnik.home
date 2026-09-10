@@ -573,7 +573,7 @@
   background: rgba(0, 0, 0, 0.92);
   display: flex;
   flex-direction: column;
-  --lb-info-w: min(340px, 86vw);
+  --lb-info-w: min(400px, 86vw);
 }
 
 .gallery-lightbox-bar {
@@ -596,6 +596,25 @@
   display: block;
   color: rgba(255, 255, 255, 0.65);
   font-size: 0.78rem;
+}
+
+.gallery-lightbox-title {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.gallery-lightbox-count {
+  flex: none;
+  color: rgba(255, 255, 255, 0.6);
+  font-variant-numeric: tabular-nums;
+}
+
+.gallery-lightbox-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .gallery-lightbox-actions {
@@ -976,58 +995,356 @@
    photo nor the forward arrow hides behind it. Desktop only — on small screens
    the pane is a near-full overlay with its own layout. */
 @media (min-width: 700px) {
+  .gallery-lightbox.has-info .gallery-lightbox-bar { padding-right: calc(var(--lb-info-w) + 14px); }
   .gallery-lightbox.has-info .gallery-lightbox-stage { padding-right: var(--lb-info-w); }
   .gallery-lightbox.has-info .gallery-lightbox-nav.next { right: calc(var(--lb-info-w) + 14px); }
 }
 
 /* Details pane — slides in over the right of the stage (Google Photos style). */
+/* Details pane — three tabs down the right of the stage (docs/lightbox-panel.md).
+   The lightbox is dark whatever the app theme is, so the panel paints its own
+   palette rather than the theme tokens. */
 .gallery-lightbox-info {
   position: absolute;
-  top: 58px;
+  top: 0;
   right: 0;
   bottom: 0;
   width: var(--lb-info-w);
-  overflow-y: auto;
-  padding: 16px 20px 24px;
-  background: rgba(18, 18, 20, 0.94);
-  color: #fff;
-  border-left: 1px solid rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(6px);
-}
-
-.gallery-lightbox-info h3 {
-  margin: 0 0 14px;
-  font-size: 1.05rem;
-}
-
-.gallery-lightbox-info dl {
-  margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  min-height: 0;
+  background: rgba(22, 23, 25, 0.97);
+  color: #f3f1ec;
+  border-left: 1px solid rgba(255, 255, 255, 0.11);
+  --lb-dim: rgba(255, 255, 255, 0.58);
+  --lb-faint: rgba(255, 255, 255, 0.34);
+  --lb-line: rgba(255, 255, 255, 0.11);
+  --lb-line-2: rgba(255, 255, 255, 0.2);
+  --lb-raised: #1e2023;
+  --lb-accent: #8eb4bf;
 }
 
-.gallery-lightbox-info dl > div {
+.gallery-lightbox-info .muted {
+  color: var(--lb-dim);
+}
+
+.lb-tabs {
+  display: flex;
+  align-items: center;
+  flex: none;
+  height: 58px;
+  padding: 0 8px 0 10px;
+  border-bottom: 1px solid var(--lb-line);
+}
+
+.lb-tab {
+  position: relative;
+  height: 100%;
+  padding: 0 12px;
+  border: none;
+  background: none;
+  color: var(--lb-dim);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.lb-tab:hover { color: #fff; }
+.lb-tab[aria-selected="true"] { color: #fff; }
+
+.lb-tab[aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: -1px;
+  height: 2px;
+  background: var(--lb-accent);
+}
+
+.lb-tabs .lb-close { margin-left: auto; }
+
+.lb-pane {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 18px 20px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  font-size: 0.9rem;
+}
+
+/* The file's name heads Details: a line, not a field, since it is not editable. */
+.lb-file-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  overflow-wrap: anywhere;
+}
+
+.lb-file-name svg { flex: none; color: var(--lb-dim); }
+
+/* Date and place: an icon column and the fact beside it. */
+.lb-facts {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  column-gap: 10px;
+  row-gap: 10px;
+  align-items: start;
+}
+
+.lb-facts > svg { color: var(--lb-dim); margin-top: 2px; }
+
+.lb-fact {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
 }
 
-.gallery-lightbox-info dt {
+.lb-fact > span {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 6px;
+}
+
+.lb-pill {
+  display: inline-block;
+  padding: 0 7px;
+  border: 1px solid var(--lb-line-2);
+  border-radius: 999px;
+  color: var(--lb-dim);
   font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: rgba(255, 255, 255, 0.55);
+  line-height: 1.6;
 }
 
-.gallery-lightbox-info dd {
+/* Link-styled "Edit" / "Map" beside a fact or a section heading. */
+.lb-linkbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 6px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--lb-accent);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.lb-linkbtn:hover { background: rgba(142, 180, 191, 0.12); }
+
+.lb-sec {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.lb-sec-h {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+}
+
+.lb-sec-h svg { color: var(--lb-dim); }
+
+.lb-sec-h h3 {
   margin: 0;
-  font-size: 0.9rem;
-  word-break: break-word;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.lb-grow { flex: 1; }
+
+/* People and tags as chips; the round + at the end is the only edit affordance. */
+.lb-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.lb-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 6px 0 4px;
+  border: 1px solid var(--lb-line);
+  border-radius: 999px;
+  background: var(--lb-raised);
+  font-size: 0.85rem;
+}
+
+.lb-chip.is-tag { padding-left: 12px; }
+.lb-chip.is-unnamed { font-style: italic; opacity: 0.85; }
+.lb-chip:not(:has(.lb-chip-remove)) { padding-right: 12px; }
+
+.lb-chip-face {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  flex: none;
+  background: rgba(142, 180, 191, 0.35);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.lb-chip-face img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.lb-chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+}
+
+.lb-chip-remove:hover { background: rgba(255, 255, 255, 0.2); color: #fff; }
+
+.lb-chip-add {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(142, 180, 191, 0.14);
+  color: var(--lb-accent);
+  cursor: pointer;
+}
+
+.lb-chip-add:hover { background: rgba(142, 180, 191, 0.26); }
+
+/* The description as the photo's own words, boxed apart from the conversation
+   under it. */
+.lb-desc {
+  padding: 12px 14px;
+  border: 1px solid var(--lb-line);
+  border-radius: 10px;
+  background: var(--lb-raised);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Map tab without a pin. */
+.lb-map-empty {
+  display: grid;
+  place-items: center;
+  height: 160px;
+  border: 1px dashed var(--lb-line-2);
+  border-radius: 10px;
+  color: var(--lb-dim);
+  text-align: center;
+  padding: 0 24px;
+}
+
+/* File tab: label/value rows. */
+.lb-file {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  row-gap: 10px;
+  column-gap: 12px;
+}
+
+.lb-file dt {
+  color: var(--lb-dim);
+  font-size: 0.8rem;
+  padding-top: 2px;
+}
+
+.lb-file dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+.lb-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.lb-actions .secondary-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-color: var(--lb-line-2);
+  color: #fff;
+}
+
+/* The notes thread inside the panel takes the section headings' shape. */
+.gallery-lightbox-info .notes-section.is-compact {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.gallery-lightbox-info .notes-heading {
+  margin-bottom: 10px;
+  font-size: 0.85rem;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  color: #f3f1ec;
+}
+
+.gallery-lightbox-info .notes-heading svg { color: var(--lb-dim); }
+
+.gallery-lightbox-info .note {
+  background: var(--lb-raised);
+  border-color: var(--lb-line);
+}
+
+.gallery-lightbox-info .note-when,
+.gallery-lightbox-info .notes-empty { color: var(--lb-dim); }
+
+.gallery-lightbox-info .note-input {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--lb-line);
+  color: #fff;
+}
+
+.gallery-lightbox-info .note-input::placeholder { color: var(--lb-faint); }
+
+/* Phone: the same panel as a sheet up from the bottom, the photo behind it. */
+@media (max-width: 740px) {
+  .gallery-lightbox-info {
+    top: auto;
+    left: 0;
+    width: 100%;
+    height: 78%;
+    border-left: none;
+    border-top: 1px solid var(--lb-line-2);
+    border-radius: 18px 18px 0 0;
+    box-shadow: 0 -20px 40px rgba(0, 0, 0, 0.5);
+  }
+  .lb-tabs { height: 50px; }
+  .lb-pane { padding: 14px 16px 24px; gap: 18px; }
 }
 
 .gallery-lightbox-info a {
-  color: #8eb4bf;
+  color: var(--lb-accent);
 }
 
 /* Embedded location map in the Info panel. Fixed height; the panel scrolls.
@@ -3118,44 +3435,333 @@
   padding: 0 24px 24px;
 }
 
-/* Voice notes on a photo (docs/photo-review-plan.md, phase 4): a small player
-   per note with who and how long, and the record button under them. In the
-   lightbox's Info panel they take the panel's dark palette. */
+/* Recordings on a photo (docs/lightbox-panel.md, phase 2): a row per
+   recording and ONE player under the rows. In the lightbox's panel they take
+   the panel's dark palette (the --lb-* tokens); in Review mode the app's. */
 .voice-notes {
   display: grid;
+  gap: 10px;
+  --vn-raised: var(--lb-raised, var(--surface-raised));
+  --vn-line: var(--lb-line, var(--line));
+  --vn-dim: var(--lb-dim, var(--muted));
+  --vn-accent: var(--lb-accent, var(--mint));
+}
+
+.voice-notes-head .primary-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.voice-notes-list {
+  display: grid;
   gap: 8px;
 }
 
+/* A row is a line, not a card: the play button, who and when, the menu. The
+   card is the player under the rows. */
 .voice-note {
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  column-gap: 10px;
+  row-gap: 0;
   align-items: center;
-  gap: 8px;
+  padding: 4px 0;
 }
 
-.voice-note-player {
-  width: 100%;
-  min-width: 0;
-  height: 32px;
+.voice-note .voice-player-play {
+  width: 36px;
+  height: 36px;
+}
+
+.voice-note.is-current .voice-note-who {
+  color: var(--vn-accent);
+}
+
+.voice-note .voice-player-play {
+  grid-row: 1 / span 2;
+}
+
+/* Placed by hand: auto-placement would seat the menu where the meta line goes. */
+.voice-note-who {
+  grid-column: 2;
+  grid-row: 1;
+  font-weight: 500;
+  overflow-wrap: anywhere;
 }
 
 .voice-note-meta {
+  grid-column: 2;
+  grid-row: 2;
+  color: var(--vn-dim);
   font-size: 0.78rem;
-  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
-.gallery-lightbox-info .voice-note-player {
+.voice-note-menu-wrap {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+}
+
+.voice-note-more {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--vn-dim);
+  cursor: pointer;
+}
+
+.voice-note-more:hover { background: rgba(127, 127, 127, 0.16); color: inherit; }
+
+.voice-player-play {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--vn-accent, var(--mint)) 18%, transparent);
+  color: var(--vn-accent, var(--mint));
+  cursor: pointer;
+}
+
+.voice-player-play:hover { background: color-mix(in srgb, var(--vn-accent, var(--mint)) 30%, transparent); }
+.voice-player-play:disabled { opacity: 0.45; cursor: default; }
+
+/* The player. In the recording dialog: play/pause beside a seek bar and times.
+   Above the rows (.is-shared): the same card the dialog has — the wave strip
+   of what is playing, the seek control under it, then play/pause, who and when,
+   and the time. */
+.voice-player {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  column-gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--vn-line, var(--line));
+  border-radius: 10px;
+  background: var(--vn-raised, var(--surface-raised));
+}
+
+.voice-player-track {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.voice-player-name {
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+.voice-player-seek {
+  width: 100%;
+  margin: 0;
+  accent-color: var(--vn-accent, var(--mint));
+}
+
+.voice-player-times {
+  display: flex;
+  justify-content: space-between;
+  color: var(--vn-dim, var(--muted));
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.voice-player.is-shared {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  margin-bottom: 4px;
+  padding: 12px 12px 10px;
+}
+
+.voice-player.is-shared .voice-player-wave {
+  height: 56px;
+  cursor: pointer;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.voice-player.is-shared .voice-player-seek {
+  height: 4px;
+}
+
+.voice-player-row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  column-gap: 12px;
+  align-items: center;
+}
+
+.voice-player.is-shared .voice-player-name {
+  display: grid;
+  gap: 1px;
+  font-size: 0.9rem;
+}
+
+.voice-player.is-shared .voice-player-name small {
+  color: var(--vn-dim, var(--muted));
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+
+.voice-player.is-shared .voice-player-times {
+  display: block;
+  font-size: 0.85rem;
+  color: inherit;
+}
+
+.voice-player.is-shared .voice-player-times .muted {
+  color: var(--vn-dim, var(--muted));
+}
+
+/* Review mode: the same rows at the tablet's size, and the Record chip under them. */
+.voice-notes.is-large .voice-note { padding: 6px 0; font-size: 17px; }
+.voice-notes.is-large .voice-note-meta,
+.voice-notes.is-large .voice-player-times { font-size: 15px; }
+.voice-notes.is-large .voice-player-play { width: 48px; height: 48px; }
+.voice-notes.is-large .voice-player-row { grid-template-columns: 48px minmax(0, 1fr) auto; }
+.voice-notes.is-large .voice-note { grid-template-columns: 48px minmax(0, 1fr) auto; }
+.voice-notes.is-large .voice-note-record { margin-top: 4px; }
+
+/* Dialogs opened from inside the lightbox — the recording dialog, its confirms,
+   Add to album, Send to… — sit over a stage that is dark whatever the theme is.
+   A light card there is a lamp in a dark room, and the panel's white text runs
+   into it. So inside the lightbox the theme tokens a modal paints with are
+   restated to the lightbox's own dark palette; accents stay the theme's. */
+.gallery-lightbox .modal-backdrop {
   color-scheme: dark;
+  --surface: #161719;
+  --surface-raised: #1e2023;
+  --field: #0f1012;
+  --ink: #f3f1ec;
+  --muted: rgba(255, 255, 255, 0.6);
+  --line: rgba(255, 255, 255, 0.14);
+  --hover: rgba(255, 255, 255, 0.08);
+  --active: rgba(255, 255, 255, 0.12);
+  --shadow: rgba(0, 0, 0, 0.65);
+  color: var(--ink);
 }
 
-.gallery-lightbox-info .voice-note-meta {
-  color: rgba(255, 255, 255, 0.55);
+/* The recording dialog. */
+.confirm-modal.voice-record-modal { width: min(100%, 440px); }
+.confirm-modal.voice-record-modal.is-large { width: min(100%, 520px); }
+
+.voice-record-thumb {
+  width: 58px;
+  height: 58px;
+  border-radius: 14px;
+  object-fit: cover;
+  display: block;
 }
 
-.voice-notes.is-large .voice-note-player {
-  height: 44px;
+.voice-record-body {
+  display: grid;
+  gap: 14px;
+  justify-items: center;
+  margin-top: 18px;
 }
 
-.voice-notes.is-large .voice-note-meta {
-  font-size: 15px;
+.voice-record-wave {
+  width: 100%;
+  height: 72px;
+  border-radius: 10px;
+  background: var(--field);
 }
+
+.voice-record-wave canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.voice-record-time {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 1.5rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.voice-record-time small {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 400;
+}
+
+.voice-record-big {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  font-weight: 500;
+}
+
+.voice-record-button {
+  display: grid;
+  place-items: center;
+  width: 84px;
+  height: 84px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--danger);
+  color: #fff;
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--danger) 35%, transparent);
+  cursor: pointer;
+  transition: transform 0.12s;
+}
+
+.voice-record-button:hover { transform: scale(1.04); }
+
+.voice-record-button.is-recording {
+  background: color-mix(in srgb, var(--ink) 12%, var(--surface));
+  box-shadow: none;
+  animation: voice-record-pulse 1.4s ease-in-out infinite;
+}
+
+.voice-record-square {
+  width: 26px;
+  height: 26px;
+  border-radius: 5px;
+  background: var(--danger);
+}
+
+@keyframes voice-record-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--danger) 45%, transparent); }
+  50% { box-shadow: 0 0 0 14px transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .voice-record-button.is-recording { animation: none; }
+}
+
+.voice-record-hint {
+  margin: 0;
+  min-height: 1.4em;
+  color: var(--muted);
+  font-size: 0.88rem;
+  text-align: center;
+}
+
+.voice-record-modal .voice-player {
+  width: 100%;
+}
+
+.voice-record-actions {
+  align-items: center;
+}
+
+.voice-record-actions-gap { flex: 1; }
+
+.voice-record-modal.is-large .voice-record-button { width: 104px; height: 104px; }
+.voice-record-modal.is-large .voice-record-time { font-size: 1.85rem; }
+.voice-record-modal.is-large .voice-record-hint { font-size: 1rem; }

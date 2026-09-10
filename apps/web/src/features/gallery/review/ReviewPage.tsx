@@ -463,6 +463,8 @@ export function ReviewPage({ source }: { source: ReviewSource }) {
                   notes={asset.voiceNotes ?? []}
                   canEdit={canEdit && !busy}
                   large
+                  heading={false}
+                  thumbnailUrl={asset.coverUrl}
                   onChanged={(voiceNotes) => patchAsset({ ...asset, voiceNotes })}
                 />
               </section>

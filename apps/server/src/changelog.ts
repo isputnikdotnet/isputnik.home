@@ -19,6 +19,17 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.81.0",
+    label: "A photo's details, in three tabs",
+    changes: [
+      "The panel beside a photo in the lightbox is rebuilt as three tabs. **Details** is what the family knows: the date with how exact it is, the place, the people and tags as chips with a round plus, the description with who noted it, the recordings, and the notes people leave under the photo. **Map** is where it was taken, with the pin and a search box for marking or moving it. **File** is what the camera and the disk know: type, dimensions, size, camera, when it was added, the folder and library, with Rotate and Replace file underneath. The old panel put the file facts between the human ones and used the word \"notes\" for three different things.",
+      "The panel is wider, runs the full height of the screen, and on a phone opens as a sheet from the bottom over the photo. The bar above the photo reads \"3 / 12\", then the name, and carries Favorite, Add to album, Download, Send to and Details; Add to collection, rotate, replace and delete sit under the ⋮ menu, so delete is no longer one slip from Download. Tags can be removed one at a time from their chips.",
+      "Voice notes are called **Recordings** now, so the word notes means one thing on the panel: the conversation at the bottom, whose box says \"Say something about this photo\" rather than reading as a second description.",
+      "Recording a voice memory happens in its own dialog, with the photo in its corner. One big button starts and stops; the waveform behind it is drawn from the microphone, so silence looks like silence, and the five-minute limit is printed beside the clock. Stopping no longer saves at once: the dialog plays the take back first, with Record again and Discard beside Save, and asks before a take is thrown away. The microphone is asked for when Record is pressed, and a refusal is explained in the dialog.",
+      "Under the Recordings heading, each recording is a line with a play button, who made it, how long it is and when, and a menu with Download and Remove. One player serves them all: pressing a recording loads it into the player above the list, which shows the recording's waveform, read from the file itself, with the position moving across it, and starting another pauses the first. Dialogs opened from inside the lightbox now take its dark colours whatever the app theme is, instead of appearing as a light card over the dark stage."
+    ]
+  },
+  {
     version: "3.80.1",
     label: "A picture of the library picker",
     changes: [
