@@ -59,9 +59,27 @@ time:
 ## Viewing
 
 Click a photo to open the viewer. From there: pan and zoom, step through with
-the arrow keys, see details in the info panel, rotate, like, share, or add
-to an album or slideshow. Videos play inline; a format the browser can't decode
-is offered as a download, and the server can transcode a web-playable copy.
+the arrow keys, rotate, like, send, or add to an album or slideshow. The panel
+down the right has three tabs. **Details** is what the family knows about the
+photo: when and where it was taken, who is in it, tags, the description,
+recordings, and the notes people leave under it. **Map** is the pin, with a
+search box for marking or moving it. **File** is what the camera and the disk
+know, with Rotate and Replace file underneath. Videos play inline; a format the
+browser can't decode is offered as a download, and the server can transcode a
+web-playable copy.
+
+![The viewer, with the Details tab open beside the photo](images/37-gallery-lightbox.png)
+
+**Recordings** are voice memories kept on the photo. Press **Record** on the
+Details tab: one big button starts and stops, the waveform shows the microphone
+is hearing you, and the take plays back before you save it, with Record again
+and Discard beside Save. Each saved recording is a line with a play button;
+pressing one loads it into the player above the list, which draws the
+recording's wave and lets you jump around in it. Recording needs the app opened
+over https, or on the server itself, since browsers allow the microphone only
+there.
+
+![Recording a voice memory: press once to start, once to stop, then listen back before saving](images/38-gallery-recording.png)
 
 Rotation works for videos too — a clip filmed sideways turns upright in the
 viewer and in its thumbnails, and keeps playing while you turn it.
