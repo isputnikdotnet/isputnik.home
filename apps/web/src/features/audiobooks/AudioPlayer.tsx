@@ -290,15 +290,14 @@ export function AudioPlayer({
     setBookmarksOpen(false);
   }, [availableFiles, currentFile, saveProgress, seekTo]);
 
+  // The position on leaving: the page going away (beforeunload) or the player
+  // unmounting. Same store as every other save — local row plus the server
+  // through api(), which carries the CSRF header a bare fetch would lack — with
+  // keepalive so the request outlives the page.
   useEffect(() => {
     const saveCurrentProgress = () => {
       if (!currentFile || !audioRef.current) return;
-      return fetch(`/api/library/books/${book.id}/progress`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileId: currentFile.id, positionSeconds: Math.floor(audioRef.current.currentTime) }),
-        keepalive: true
-      });
+      void persistProgress(book.id, currentFile.id, audioRef.current.currentTime, { keepalive: true });
     };
     const handleBeforeUnload = () => { saveCurrentProgress(); };
     window.addEventListener("beforeunload", handleBeforeUnload);
