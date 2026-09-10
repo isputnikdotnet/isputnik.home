@@ -4,7 +4,6 @@ import { Mic } from "lucide-react";
 import { api } from "../../../api";
 import { controlHref, followRoute } from "../../../router";
 import { Button } from "../../../shared/Button";
-import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { MessageBox } from "../../../shared/MessageBox";
 import { ControlSectionHead } from "../ControlSectionHead";
 
@@ -14,13 +13,16 @@ interface StorySettingsDto {
   pendingNarrations?: number;
 }
 
-// Story settings: whether recipes may be read from a link, and the one-time
-// import of narration recorded before recordings lived in the gallery.
+// Story settings: whether recipes may be read from a link, and where narration
+// goes.
 //
 // Recordings land in the house's "Made in the app" library (Settings →
 // Gallery), under "Story recordings/<year>", as ordinary audio assets — so
 // they show in the gallery, get backed up, and survive their story. The
 // library used to be nominated here; this page now only says which it is.
+// Narration recorded before that (kept inside the app, invisible to the
+// gallery) moves itself into the library once one is set — the button that
+// used to do it is gone (docs/app-storage-plan.md, decision 7).
 export function StorySettingsSection() {
   const { t } = useTranslation(["common", "controlAdmin"]);
   const [loading, setLoading] = useState(true);
@@ -32,11 +34,6 @@ export function StorySettingsSection() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState("");
-
-  const [confirmMove, setConfirmMove] = useState(false);
-  const [moving, setMoving] = useState(false);
-  const [moveResult, setMoveResult] = useState<{ moved: number; failed: number } | null>(null);
-  const [moveError, setMoveError] = useState("");
 
   useEffect(() => {
     api<StorySettingsDto>("/api/stories/settings")
@@ -70,26 +67,6 @@ export function StorySettingsSection() {
     }
   };
 
-  const runMove = async () => {
-    setMoving(true);
-    setMoveError("");
-    setMoveResult(null);
-    try {
-      const result = await api<{ moved: number; failed: number; remaining: number }>(
-        "/api/stories/settings/migrate-narrations",
-        { method: "POST" }
-      );
-      setMoveResult({ moved: result.moved, failed: result.failed });
-      setPending(result.remaining);
-      setConfirmMove(false);
-    } catch (err) {
-      setMoveError(err instanceof Error ? err.message : t("controlAdmin:storySettings.moveFailed"));
-      setConfirmMove(false);
-    } finally {
-      setMoving(false);
-    }
-  };
-
   const galleryPath = controlHref("gallerySettings");
 
   return (
@@ -119,6 +96,13 @@ export function StorySettingsSection() {
                 {t("controlAdmin:storySettings.houseLibraryLink")}
               </a>
             </p>
+            {pending > 0 && (
+              <p className="muted">
+                {library
+                  ? t("controlAdmin:storySettings.pendingAuto", { count: pending })
+                  : t("controlAdmin:storySettings.pendingWaiting", { count: pending })}
+              </p>
+            )}
 
             <label className="mail-check">
               <input
@@ -141,43 +125,7 @@ export function StorySettingsSection() {
             </div>
           </form>
         )}
-
-        {!loading && pending > 0 && (
-          <div className="config-block">
-            <MessageBox tone="info" title={t("controlAdmin:storySettings.pendingTitle")}>
-              {t("controlAdmin:storySettings.pendingBody", { count: pending })}
-            </MessageBox>
-            <div className="mail-actions">
-              <Button variant="primary" disabled={!library || moving} onClick={() => setConfirmMove(true)}>
-                {moving ? t("controlAdmin:storySettings.moving") : t("controlAdmin:storySettings.moveAction")}
-              </Button>
-            </div>
-          </div>
-        )}
-        {moveError && <MessageBox tone="error" title={t("controlAdmin:storySettings.moveFailed")}>{moveError}</MessageBox>}
-        {moveResult && (
-          <MessageBox
-            tone={moveResult.failed > 0 ? "warning" : "success"}
-            title={t("controlAdmin:storySettings.moveDoneTitle")}
-          >
-            {t("controlAdmin:storySettings.moveDoneBody", { count: moveResult.moved })}
-            {moveResult.failed > 0 ? ` ${t("controlAdmin:storySettings.moveFailedBody", { count: moveResult.failed })}` : ""}
-          </MessageBox>
-        )}
       </section>
-
-      {confirmMove && (
-        <ConfirmDialog
-          title={t("controlAdmin:storySettings.moveConfirmTitle")}
-          confirmLabel={t("controlAdmin:storySettings.moveConfirm")}
-          busyLabel={t("controlAdmin:storySettings.moving")}
-          busy={moving}
-          onConfirm={() => void runMove()}
-          onCancel={() => setConfirmMove(false)}
-        >
-          {t("controlAdmin:storySettings.moveConfirmBody", { count: pending })}
-        </ConfirmDialog>
-      )}
     </>
   );
 }

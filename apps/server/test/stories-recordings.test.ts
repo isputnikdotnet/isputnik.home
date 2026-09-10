@@ -23,6 +23,7 @@ import {
   storeRecording
 } from "../src/modules/stories/recordings.js";
 import { createStoryAudio } from "../src/modules/stories/audio.js";
+import { importLegacyNarrationsIfDue } from "../src/modules/stories/index.js";
 import { createStory, getBlocks, getChapters } from "../src/modules/stories/stories.js";
 import { resetDb, makeUser } from "./helpers/seed.js";
 
@@ -113,6 +114,19 @@ describe("storing a recording", () => {
 });
 
 describe("the legacy import", () => {
+  it("runs by itself once a library is set, and does nothing before", async () => {
+    const story = createStory(author, "Minnesota", null);
+    await createStoryAudio(story.id, author, stagedUpload(), "grandma-1998.m4a", "m4a");
+    expect(pendingLegacyNarrations()).toBe(1);
+    // No house library yet: the importer has nowhere to put it and says so by doing nothing.
+    expect(await importLegacyNarrationsIfDue()).toBeNull();
+    expect(pendingLegacyNarrations()).toBe(1);
+    setHouseLibrary("REC", "author");
+    expect(await importLegacyNarrationsIfDue()).toEqual({ moved: 1, failed: 0 });
+    expect(pendingLegacyNarrations()).toBe(0);
+    expect(await importLegacyNarrationsIfDue()).toBeNull();
+  });
+
   it("moves clips into the library, rewrites their blocks, and empties story_audio", async () => {
     setHouseLibrary("REC", "author");
     const story = createStory(author, "Minnesota", null);

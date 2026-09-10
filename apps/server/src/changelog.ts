@@ -19,6 +19,16 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.78.0",
+    label: "Asked once, at the start",
+    changes: [
+      "The setup guide the first administrator sees now asks for App storage right after the first container: one folder, chosen from the picker and confirmed with the exact path, and the guide says which rooms are kept there. Thumbnails, renders and the Recycle Bin follow it on a fresh install. Under it, **Or choose the thumbnail folder on your own** keeps the old answer for thumbnails on a separate disk.",
+      "The guide's Recycle Bin step shows when the bin is already inside App storage, and offers **Use App storage** behind a confirmation when it is not. Browse and Clear work as before.",
+      "A new guide step, **Made in the app**, makes the library for what the family makes in the app and the Photo Inbox inside App storage, one confirmed click each. Neither is required, and both can be made later from Library → Storage or chosen from libraries of your own under Settings → Gallery.",
+      "Narration recorded before recordings lived in the gallery now moves into the Made in the app library by itself, shortly after the server starts and every six hours after that, once such a library is set. Settings → Stories no longer has the button for it; it says how many older recordings are still waiting."
+    ]
+  },
+  {
     version: "3.77.0",
     label: "One folder for the app's own things",
     changes: [

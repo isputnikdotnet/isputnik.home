@@ -1,8 +1,11 @@
 # App storage — plan
 
-Status: **Phase 1 built 2026-09-09** (the setting, the resolver, the rooms with
-their switches and confirmations, the bin move, the render-bucket move, the
-Storage page); phases 2 and 3 remain proposals. Written 2026-09-09 after the photo review
+Status: **Phases 1 and 2 built 2026-09-09** (phase 1: the setting, the resolver,
+the rooms with their switches and confirmations, the bin move, the render-bucket
+move, the Storage page — released as 3.77.0; phase 2: the setup guide asks for
+App storage first and offers the two library rooms, and legacy narration moves
+itself). Phase 3 remains a proposal; the `story_audio` drop of decision 7 waits
+for a later release. Written 2026-09-09 after the photo review
 work ([photo-review-plan.md](photo-review-plan.md)) added a fourth kind of
 file the app makes for itself, and its phase 0 had already folded three
 per-feature library settings into one. This plan finishes that thought for
