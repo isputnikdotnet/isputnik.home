@@ -19,6 +19,14 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.84.2",
+    label: "The replaced originals move with the bin",
+    changes: [
+      "Moving the Recycle Bin now carries the originals that Replace file set aside, the \"replaced\" folder beside the bin, so the old location is left empty. Those files have no rows in the bin — the move went item by item and never looked at them, which is how an Unraid install found two dozen of them left behind after its move. The task now remembers where the bin was, carries each replaced photo's folder after the bin's items, checked like everything else, and removes the emptied folders; going back to each library's own .trash carries them there the same way. One that cannot be carried is listed by name with a Retry.",
+      "An install that already moved its bin can move the old \"replaced\" folder by hand into the new bin, keeping its layout; nothing in the app points at those files."
+    ]
+  },
+  {
     version: "3.84.1",
     label: "What the app keeps for itself stays out of the gallery",
     changes: [

@@ -451,7 +451,7 @@ export function setAppStoragePath(candidate: string | null, userId: string, carr
     }
     if (step("trash")?.carry) {
       fs.mkdirSync(newRoom("trash"), { recursive: true });
-      startTrashMove(userId);
+      startTrashMove(userId, oldRoom("trash"));
     }
   }
   if (renders) {
@@ -495,6 +495,9 @@ function switchTrash(mode: AppRoomMode, ownPath: string | null, userId: string):
   if (storageMoveStatus("trash").running) {
     throw new AppStorageError("The bin is being moved right now. Wait for it to finish, or cancel it, before changing the location again.", 409);
   }
+  // Where the bin was until now: the task carries the replaced originals from
+  // there, since they have no rows to say where they are.
+  const before = getTrashRootSetting();
   if (mode === "app") {
     const appPath = requireAppPath("trash");
     validateTrashRootPath(appPath);
@@ -508,7 +511,7 @@ function switchTrash(mode: AppRoomMode, ownPath: string | null, userId: string):
     setTrashRootSetting(null, userId);
     setAppRoomMode("trash", "off", userId);
   }
-  startTrashMove(userId);
+  startTrashMove(userId, before);
 }
 
 function switchThumbnails(mode: AppRoomMode, ownPath: string | null, userId: string): void {

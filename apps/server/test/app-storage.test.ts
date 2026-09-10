@@ -547,13 +547,20 @@ describe("the bin move", () => {
     expect(before.every((row) => row.trash_root === null && row.trash_path.startsWith(".trash/"))).toBe(true);
     expect(fs.existsSync(path.join(libSource, ".trash"))).toBe(true);
 
+    // An original Replace file set aside beside the bin: no row, but it must travel too.
+    const keptOld = path.join(libSource, ".trash", "replaced", "LIB", "bk9");
+    fs.mkdirSync(keptOld, { recursive: true });
+    fs.writeFileSync(path.join(keptOld, "2026-09-03T21-32-59-482Z-old.jpg"), "OLDJPG");
+
     switchRoom("trash", "app", null, "u1");
     const bin = path.join(appDir, "Recycle Bin");
     expect(getTrashRootSetting()).toBe(bin);
     const status = await waitForTrashMove();
     expect(status.failed).toEqual([]);
     expect(status.pending).toBe(0);
-    expect(status.moved).toBe(2);
+    expect(status.moved).toBe(3);
+    expect(fs.readFileSync(path.join(bin, "replaced", "LIB", "bk9", "2026-09-03T21-32-59-482Z-old.jpg"), "utf8")).toBe("OLDJPG");
+    expect(fs.existsSync(path.join(libSource, ".trash", "replaced"))).toBe(false);
     for (const row of binRows()) {
       expect(row.trash_root).toBe(bin);
       expect(row.trash_path.startsWith("LIB/")).toBe(true);
@@ -570,6 +577,10 @@ describe("the bin move", () => {
     expect(binRows().every((row) => row.trash_root === null && row.trash_path.startsWith(".trash/"))).toBe(true);
     expect(fs.existsSync(path.join(libSource, ".trash"))).toBe(true);
     expect(fs.existsSync(path.join(bin, "LIB"))).toBe(false);
+    // The replaced original came back to the library's own .trash, and the old
+    // bin holds nothing of it any more.
+    expect(fs.readFileSync(path.join(keptOld, "2026-09-03T21-32-59-482Z-old.jpg"), "utf8")).toBe("OLDJPG");
+    expect(fs.existsSync(path.join(bin, "replaced"))).toBe(false);
     expect(appStorageView().lockedBy).toEqual([]);
   });
 
