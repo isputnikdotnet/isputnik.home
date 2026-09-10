@@ -19,6 +19,14 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.79.1",
+    label: "Pictures of the rooms",
+    changes: [
+      "The Storage guide under Help now shows a room's chooser and the confirmation box that names the folder before anything moves, and the first-run guide shows the setup guide's Storage step and its Made in the app step. The pictures of the configured Storage page and of Settings → Gallery are refreshed to match the current wording.",
+      "In the setup guide's Made in the app step, the field under each heading is labelled \"Library\" rather than repeating the heading."
+    ]
+  },
+  {
     version: "3.79.0",
     label: "Music in the library",
     changes: [

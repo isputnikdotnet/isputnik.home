@@ -536,7 +536,8 @@
     "binUseApp": "Use App storage",
     "binUsingApp": "Inside App storage",
     "appStorageSaved": "App storage set.",
-    "gallerySaved": "Library made."
+    "gallerySaved": "Library made.",
+    "galleryLibraryLabel": "Library"
   },
   "partialDate": {
     "formatHint": "Year, year-month, or full date (1971, 1971-09, 1971-09-01)",

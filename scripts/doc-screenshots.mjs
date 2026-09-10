@@ -564,6 +564,50 @@ const SHOTS = [
       if (!ask) return "no Ask what they remember box — not the album's creator?";
       ask.click(); await sleep(300);
       "compose with the question";`
+  },
+
+  // App storage (docs/app-storage-plan.md): a room's chooser, and the box that
+  // confirms a change with the exact folder before anything happens.
+  {
+    name: "101-storage-room-chooser",
+    url: "control/libraries/storage",
+    state: "App storage chosen",
+    setup: `
+      const row = [...document.querySelectorAll(".app-storage-rooms tr")].find((tr) => tr.textContent.includes("Renders"));
+      const change = row && button(row, "Change");
+      if (!change) return "no Renders row";
+      change.click(); await sleep(500);
+      "chooser open";`
+  },
+  {
+    name: "102-storage-room-confirm",
+    url: "control/libraries/storage",
+    state: "App storage chosen, the Recycle Bin not yet in it",
+    setup: `
+      const row = [...document.querySelectorAll(".app-storage-rooms tr")].find((tr) => tr.textContent.includes("Recycle Bin"));
+      const change = row && button(row, "Change");
+      if (!change) return "no Recycle Bin row";
+      change.click(); await sleep(500);
+      // Whatever the bin uses now, pick the other of App storage / own .trash so
+      // Continue has something to confirm.
+      const modal = topModal();
+      const radios = [...modal.querySelectorAll('input[type="radio"]')];
+      const target = radios.find((r) => r.value === "app" && !r.checked && !r.disabled) ?? radios.find((r) => r.value === "off" && !r.checked);
+      if (!target) return "no other option to pick";
+      target.click(); await sleep(200);
+      button(modal, "Continue").click(); await sleep(500);
+      "confirmation open";`
+  },
+  // The setup guide's storage and Made in the app steps (docs/users/first-run.md).
+  { name: "103-welcome-storage", url: "welcome", height: 1000 },
+  {
+    name: "104-welcome-gallery",
+    url: "welcome",
+    setup: `
+      const step = [...document.querySelectorAll(".welcome-step")].find((b) => b.textContent.includes("Made in the app"));
+      if (!step) return "no Made in the app step";
+      step.click(); await sleep(400);
+      "gallery step";`
   }
 ];
 

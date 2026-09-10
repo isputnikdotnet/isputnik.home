@@ -58,6 +58,10 @@ seven steps, in the order they depend on each other:
    exactly like nothing having happened.
 7. **Appearance** — the theme the sign-in screen uses and new members start with.
 
+![The guide's Storage step: the containers, App storage chosen, and which rooms it keeps](images/103-welcome-storage.png)
+
+![The guide's Made in the app step: the two libraries, each one click away](images/104-welcome-gallery.png)
+
 Every step saves through the same place its Control panel page does, so none of it is
 your only chance to answer. **Skip for now** is a real answer — it closes the guide for
 good rather than asking again at every sign-in — and **Settings → About** has a *Run the
