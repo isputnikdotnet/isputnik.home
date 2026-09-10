@@ -342,7 +342,7 @@ export interface MovieLibraryOption {
 
 export interface GallerySlideshowSettings {
   libraries: MovieLibraryOption[];
-  /** The house "Made in the app" library, pre-selected for a slideshow with no
+  /** The house "App files" library, pre-selected for a slideshow with no
    *  target of its own; null when none is set or this viewer cannot write it. */
   defaultLibraryId: string | null;
 }

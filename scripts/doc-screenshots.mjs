@@ -630,9 +630,9 @@ const SHOTS = [
     url: "control/libraries/storage",
     state: "at least two gallery libraries",
     setup: `
-      const row = [...document.querySelectorAll(".app-storage-rooms tr")].find((tr) => tr.textContent.includes("Made in the app"));
+      const row = [...document.querySelectorAll(".app-storage-rooms tr")].find((tr) => tr.textContent.includes("App files"));
       const change = row && button(row, "Change");
-      if (!change) return "no Made in the app row";
+      if (!change) return "no App files row";
       change.click(); await sleep(500);
       const own = [...topModal().querySelectorAll('input[type="radio"]')].find((r) => r.value === "own");
       if (!own) return "no own option";
@@ -659,14 +659,14 @@ const SHOTS = [
       button(picker, "Use this folder").click(); await sleep(600);
       "confirmation open";`
   },
-  // The setup guide's storage and Made in the app steps (docs/users/first-run.md).
+  // The setup guide's storage and App files steps (docs/users/first-run.md).
   { name: "103-welcome-storage", url: "welcome", height: 1000 },
   {
     name: "104-welcome-gallery",
     url: "welcome",
     setup: `
-      const step = [...document.querySelectorAll(".welcome-step")].find((b) => b.textContent.includes("Made in the app"));
-      if (!step) return "no Made in the app step";
+      const step = [...document.querySelectorAll(".welcome-step")].find((b) => b.textContent.includes("App files"));
+      if (!step) return "no App files step";
       step.click(); await sleep(400);
       "gallery step";`
   }

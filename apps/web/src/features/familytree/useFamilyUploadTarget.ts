@@ -3,7 +3,7 @@ import { api } from "../../api";
 import type { PhotoUploadTarget } from "../gallery/PhotoPicker";
 
 // Where family-tree uploads land, and whether this viewer may put files there.
-// The destination is the house's "Made in the app" library (Control → Settings
+// The destination is the house's "App files" library (Control → Settings
 // → Gallery) and its "Family tree" folder; no destination (or no permission)
 // means the photo picker simply shows no Upload tab.
 export interface FamilyUploadSettings {

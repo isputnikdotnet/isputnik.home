@@ -21,7 +21,7 @@ const roomSchema = z.object({
   mode: z.enum(["app", "own", "off"]),
   /** The folder for "own", on the rooms that take one. */
   path: z.string().trim().max(1000).nullable().optional(),
-  /** The gallery library for "own", on the Inbox and Made in the app rooms. */
+  /** The gallery library for "own", on the Inbox and App files rooms. */
   libraryId: z.string().trim().min(1).max(64).nullable().optional()
 });
 

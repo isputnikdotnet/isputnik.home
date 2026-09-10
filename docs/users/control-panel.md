@@ -191,7 +191,7 @@ Where the app keeps its own things, and the approved folders your libraries may
 read. Has [its own guide](storage.md).
 
 **App storage** is one optional folder with a row per room: the Recycle Bin, the
-Photo Inbox, the Made in the app library, thumbnails, renders and music, and
+Photo Inbox, the App files library, thumbnails, renders and music, and
 backups. Each row can use App storage, keep a place of its own, or stay off, and
 every change is confirmed with the exact folder before it happens. Changing the
 **Recycle Bin location** moves what is in the bin in the background; keep it on the
@@ -525,7 +525,7 @@ entry, thumbnail and all — and **Purge eligible now** does it immediately.
   to e-reader. It has [its own guide](email.md).
 - **Stories** — whether members may start a recipe from a link, and which library
   narration goes to. Narration recorded before recordings lived in the gallery
-  moves into the Made in the app library by itself once one is set; the page says
+  moves into the App files library by itself once one is set; the page says
   how many recordings are still waiting.
 - **Maps** — whether a route in a [story](stories.md) follows real roads. Paste a
   free **OpenRouteService** key — the routing service at

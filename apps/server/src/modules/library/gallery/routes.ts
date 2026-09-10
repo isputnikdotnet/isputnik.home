@@ -26,6 +26,8 @@ import { changeGalleryTags, markGalleryAssetReviewed, setGalleryPlaceAndTime, up
 import { TAKEN_PRECISIONS } from "./taken-precision.js";
 import { replaceGalleryAssetFile } from "./replace.js";
 import { deleteAllReplacedOriginals, deleteReplacedOriginal, listReplacedOriginals } from "./replaced.js";
+import { FolderMoveError, planFolderMove, queueFolderMove } from "./folder-move.js";
+import { folderMoveStatuses } from "../shared/storage-move.js";
 import { searchPlaces } from "./geocode.js";
 import { suggestGalleryMemories } from "./memories.js";
 import { suggestYearReviews, buildYearReview } from "./year-review.js";
@@ -146,6 +148,30 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
     const updated = db.prepare(GALLERY_LIBRARY_LIST_SQL.replace("%WHERE%", "AND libraries.id = ?")).get(id) as LibraryListRow;
     return reply.send({ library: publicLibrary(updated, true, libraryCapabilities(updated, request.user!.id, request.user!.role)) });
   });
+
+  // Moving a folder into another gallery library (folder-move.ts): plan it,
+  // queue it as a storage move task, and read what is moving.
+  const folderMoveSchema = z.object({
+    folderPath: z.string().trim().min(1).max(1000),
+    targetLibraryId: z.string().trim().min(1).max(64),
+    /** true = only say what would happen (the confirmation's numbers). */
+    dryRun: z.boolean().optional()
+  });
+  app.post("/api/library/gallery-libraries/:id/folders/move", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const parsed = parseBody(folderMoveSchema, request.body);
+    if (parsed.error) return reply.code(400).send({ error: "Invalid folder move", details: parsed.error });
+    try {
+      if (parsed.data.dryRun) return reply.send({ plan: planFolderMove(id, parsed.data.folderPath, parsed.data.targetLibraryId) });
+      const result = queueFolderMove(id, parsed.data.folderPath, parsed.data.targetLibraryId, request.user!.id);
+      return reply.send({ plan: result.plan, move: result.status });
+    } catch (err) {
+      if (err instanceof FolderMoveError) return reply.code(err.statusCode).send({ error: err.message });
+      throw err;
+    }
+  });
+
+  app.get("/api/library/gallery/folder-moves", { preHandler: app.authenticate }, async () => ({ moves: folderMoveStatuses() }));
 
   // Replaced originals (replaced.ts): the files Replace file set aside, listed
   // from disk for the Recycle Bin page, let go one at a time or all at once.

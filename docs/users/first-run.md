@@ -47,7 +47,7 @@ seven steps, in the order they depend on each other:
    otherwise **Use App storage** puts it there in one click, or **Browse** picks a folder
    of your own. Locked until storage is done: the bin has to live inside a container
    you have approved.
-3. **Made in the app** — the library for what the family makes in the app (narration,
+3. **App files** — the library for what the family makes in the app (narration,
    family-tree uploads, movies, voice notes) and the Photo Inbox that scans wait in. Each
    is made inside App storage in one confirmed click, and neither is required. Locked
    until App storage is chosen.
@@ -60,7 +60,7 @@ seven steps, in the order they depend on each other:
 
 ![The guide's Storage step: the containers, App storage chosen, and which rooms it keeps](images/103-welcome-storage.png)
 
-![The guide's Made in the app step: the two libraries, each one click away](images/104-welcome-gallery.png)
+![The guide's App files step: the two libraries, each one click away](images/104-welcome-gallery.png)
 
 Every step saves through the same place its Control panel page does, so none of it is
 your only chance to answer. **Skip for now** is a real answer — it closes the guide for

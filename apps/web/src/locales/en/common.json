@@ -456,7 +456,7 @@
         "note": "How it looks"
       },
       "gallery": {
-        "title": "Made in the app",
+        "title": "App files",
         "note": "Where the family's own things go"
       }
     },
@@ -551,7 +551,7 @@
     "appStorageFirstTitle": "App storage first",
     "galleryHeading": "Where the family's own things go",
     "galleryIntro": "Two gallery libraries the app can make for you, each in one click. Neither is required, and both can be made later from Library → Storage, where a library of your own can be chosen instead.",
-    "galleryHouseLabel": "Made in the app",
+    "galleryHouseLabel": "App files",
     "galleryHouseNote": "Story narration, photos uploaded from the family tree, saved slideshow movies and voice notes on photos all land here. Without it, none of those can be made.",
     "galleryInboxLabel": "Photo Inbox",
     "galleryInboxNote": "Where scanned photos wait to be reviewed before they join the collection. Without it, there is nowhere to send scans.",

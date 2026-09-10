@@ -15,7 +15,7 @@ export function photoInboxLibraryIds(): Set<string> {
 
 /** Every gallery library the gallery leaves out of an implicit scope: an Inbox
  *  (photos nobody has kept yet) and any library inside App storage (the Photo
- *  Inbox and Made in the app rooms — what the app keeps for itself: story
+ *  Inbox and App files rooms — what the app keeps for itself: story
  *  recordings, voice notes, family-tree uploads, rendered movies, music). Each
  *  is reached through what made it, or by naming it in the library filter. */
 export function galleryLibrariesLeftOutOfScope(): Set<string> {

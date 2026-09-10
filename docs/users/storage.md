@@ -53,7 +53,7 @@ A box shows the exact path and asks you to confirm. Choosing the folder records
 it and nothing else: no room changes until you change its row. Two rooms do
 follow it straight away when they were never given a place of their own, because
 they have to live somewhere: **Thumbnails** go to `Thumbnails\` under it, and
-**Renders and music** go wherever the thumbnails are. On a fresh install the
+**Renders** go wherever the thumbnails are. On a fresh install the
 **Recycle Bin** is switched on too, so deleted files have one folder from the
 start.
 
@@ -63,7 +63,7 @@ start.
 ### The rooms
 
 Nothing inside App storage shows up in the gallery on its own. The two rooms
-that are gallery libraries, the Photo Inbox and Made in the app, are left out
+that are gallery libraries, the Photo Inbox and App files, are left out
 of the Timeline, Memories, the Home page, People, the map and every picker,
 the way an Inbox always was; what they hold is reached from the stories,
 photos and family tree that made it, or by choosing the library by name in
@@ -76,12 +76,12 @@ and are never scanned.
 |---|---|---|---|
 | **Recycle Bin** | `Recycle Bin\` | one folder you name | a hidden `.trash` inside each library |
 | **Photo Inbox** | `Photo Inbox\`, made as a library | any gallery library with the Inbox switch on | no Inbox |
-| **Made in the app** | `Made in the app\`, made as a library | any gallery library of your own | nothing can be recorded or uploaded from the app |
+| **App files** | `App files\`, made as a library | any gallery library of your own | nothing can be recorded or uploaded from the app |
 | **Thumbnails** | `Thumbnails\` | a folder you name | — |
-| **Renders and music** | `Renders\` | — | inside the thumbnail folder |
+| **Renders** | `Renders\` | — | inside the thumbnail folder |
 | **Backups** | `Backups\` | the backup folder (`BACKUP_PATH` in Docker) | — |
 
-Uploaded slideshow music is not really a room any more: once a Made in the app
+Uploaded slideshow music is not really a room any more: once an App files
 library exists, every track lives in its `Slideshow music\` folder as an
 ordinary audio asset, visible in the gallery and backed up with the rest, and
 music uploaded before that moves itself there shortly after the server starts.
@@ -93,14 +93,14 @@ names the room, shows the exact folder it will use from now on, says what moves
 and what doesn't, and offers Cancel or a verb. Nothing happens until you press
 the verb.
 
-![The Renders and music chooser: use App storage, or stay inside the thumbnail folder](images/101-storage-room-chooser.png)
+![The Renders chooser: use App storage, or stay inside the thumbnail folder](images/101-storage-room-chooser.png)
 
 ![The confirmation for the Recycle Bin: the exact folder, what moves, and Move bin](images/102-storage-room-confirm.png)
 
 For the two library rooms, **A library of my own** lists your gallery libraries:
 pick one to hold what the family makes in the app, or to become the Photo Inbox.
 
-![The Made in the app chooser with A library of my own picked and the library list under it](images/105-storage-own-library.png)
+![The App files chooser with A library of my own picked and the library list under it](images/105-storage-own-library.png)
 
 Three rooms are worth a word each:
 
@@ -126,7 +126,7 @@ Three rooms are worth a word each:
   the room's folder. Switching off leaves the library as an ordinary library
   with its files where they are; it refuses to turn off while photos are still
   waiting in it, so nothing lands on the Timeline unreviewed.
-- **Made in the app.** Switching to App storage when a library of your own is
+- **App files.** Switching to App storage when a library of your own is
   nominated moves that library's folder into App storage whole, with everything
   in it, and it stays the library for what is made in the app. With none
   nominated, a new gallery library is made in the room's folder and nominated.
@@ -165,12 +165,12 @@ unticked one stays where it is and leaves App storage.
 
 What "carried" means depends on the room:
 
-- **Recycle Bin**, **Thumbnails** and **Renders and music** are carried by
+- **Recycle Bin**, **Thumbnails** and **Renders** are carried by
   the same tasks their rows use, one task each, and the rows show the
   progress. Left behind, the bin and the thumbnails keep their old folder as
   their own place; renders and music, which have no place of their own, go
   back inside the thumbnail folder.
-- **Photo Inbox** and **Made in the app** move as whole folders, each its own
+- **Photo Inbox** and **App files** move as whole folders, each its own
   task, and the library follows its folder once every file is across: nothing
   is rescanned, and what is waiting for review stays waiting. Left behind, the
   library stays where it is as a library of your own, still the Inbox or still
@@ -191,7 +191,7 @@ Once thumbnails have a place and a container is listed, you're ready for
 
 Nothing changes when you update. App storage shows **Not set**, and every room
 reads whatever it read before: your thumbnail folder, your bin location, your
-Made in the app library. Choosing an App storage folder later changes no room
+App files library. Choosing an App storage folder later changes no room
 that already has a place. Each one gains "Use App storage" in its chooser, and
 moves in only when you say so.
 
@@ -212,7 +212,7 @@ D:\ProjectTesting\AppDocTest\      ← the container
 └── iSputnik\                      ← App storage
     ├── Recycle Bin\
     ├── Photo Inbox\               ← a library the app made
-    ├── Made in the app\           ← a library the app made
+    ├── App files\           ← a library the app made
     ├── Thumbnails\
     └── Renders\
 ```

@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Trans, useTranslation } from "react-i18next";
-import { Album, ArrowLeft, MessageSquareText, CalendarClock, CalendarDays, CheckCheck, CheckCircle2, ChevronDown, ChevronRight, Circle, Combine, Compass, Download, Film, FolderOpen, FolderPlus, Image as ImageIcon, ImagePlus, Inbox, LayoutGrid, LibraryBig, ListMusic, Lock, LockOpen, MapPin, MapPinned, Pencil, Play, Plus, Heart, Folder, RefreshCw, Send, Share2, Sparkles, SquareCheck, Tags, Trash2, UploadCloud, Users, X } from "lucide-react";
+import { Album, ArrowLeft, MessageSquareText, CalendarClock, CalendarDays, CheckCheck, CheckCircle2, ChevronDown, ChevronRight, Circle, Combine, Compass, Download, Film, FolderOpen, FolderOutput, FolderPlus, Image as ImageIcon, ImagePlus, Inbox, LayoutGrid, LibraryBig, ListMusic, Lock, LockOpen, MapPin, MapPinned, Pencil, Play, Plus, Heart, Folder, RefreshCw, Send, Share2, Sparkles, SquareCheck, Tags, Trash2, UploadCloud, Users, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { sendInBatches } from "../../shared/bulk";
 import { DashboardShell } from "../../app/DashboardShell";
@@ -628,6 +628,78 @@ export function GalleryPage({
       setFolderLockBusy(false);
     }
   }, [soleLibraryId, parent, parentLocked]);
+
+  // Admin: move the folder currently open into another gallery library. The
+  // files travel as a storage move task; the items keep their ids, so nothing
+  // that names them breaks. Same single-library gate as the lock. Picking a
+  // target asks the server what would happen (a dry run) before the verb.
+  const [moveFolderOpen, setMoveFolderOpen] = useState(false);
+  const [moveTarget, setMoveTarget] = useState("");
+  const [movePlan, setMovePlan] = useState<{ items: number; to: string; targetName: string } | null>(null);
+  const [moveBusy, setMoveBusy] = useState(false);
+  const [moveError, setMoveError] = useState("");
+  const moveTargets = useMemo(
+    () => libraries.filter((library) => library.id !== soleLibraryId && !library.inbox && library.canWrite),
+    [libraries, soleLibraryId]
+  );
+  const openMoveFolder = () => {
+    setMoveTarget("");
+    setMovePlan(null);
+    setMoveError("");
+    setMoveFolderOpen(true);
+  };
+  const planMoveFolder = useCallback(async (targetLibraryId: string) => {
+    setMoveTarget(targetLibraryId);
+    setMovePlan(null);
+    setMoveError("");
+    if (!soleLibraryId || !parent || !targetLibraryId) return;
+    try {
+      const { plan } = await api<{ plan: { items: number; to: string; target: { name: string } } }>(
+        `/api/library/gallery-libraries/${soleLibraryId}/folders/move`,
+        { method: "POST", body: JSON.stringify({ folderPath: parent, targetLibraryId, dryRun: true }) }
+      );
+      setMovePlan({ items: plan.items, to: plan.to, targetName: plan.target.name });
+    } catch (err) {
+      setMoveError(err instanceof Error ? err.message : t("gallery:folders.errors.move"));
+    }
+  }, [soleLibraryId, parent]);
+  const confirmMoveFolder = useCallback(async () => {
+    if (!soleLibraryId || !parent || !moveTarget) return;
+    setMoveBusy(true);
+    setMoveError("");
+    const folder = parent;
+    const sourceLibraryId = soleLibraryId;
+    try {
+      await api(`/api/library/gallery-libraries/${sourceLibraryId}/folders/move`, {
+        method: "POST",
+        body: JSON.stringify({ folderPath: folder, targetLibraryId: moveTarget })
+      });
+      setMoveFolderOpen(false);
+      setNotice(t("gallery:folders.moveQueuedNotice", { folder, library: movePlan?.targetName ?? "" }));
+      // Watch the task; when it is done, open the folder above, since this one
+      // is gone from here, and say so.
+      const above = folder.includes("/") ? folder.slice(0, folder.lastIndexOf("/")) : "";
+      const watch = window.setInterval(() => {
+        void api<{ moves: { running: boolean; libraryId: string | null; folder: string | null; status: string; failed: { name: string; error: string }[] }[] }>("/api/library/gallery/folder-moves")
+          .then((payload) => {
+            const mine = payload.moves.find((move) => move.libraryId === sourceLibraryId && move.folder === folder);
+            if (!mine || mine.running) return;
+            window.clearInterval(watch);
+            if (mine.status === "completed") {
+              setNotice(t("gallery:folders.moveDoneNotice", { folder, library: movePlan?.targetName ?? "" }));
+            } else {
+              setError(t("gallery:folders.errors.moveFailed", { folder, count: mine.failed.length }));
+            }
+            void loadFolder(above);
+          })
+          .catch(() => { /* next tick */ });
+      }, 2000);
+    } catch (err) {
+      setMoveError(err instanceof Error ? err.message : t("gallery:folders.errors.move"));
+    } finally {
+      setMoveBusy(false);
+    }
+  }, [soleLibraryId, parent, moveTarget, movePlan, loadFolder]);
 
   const loadMap = useCallback(async () => {
     setLoading(true);
@@ -2470,9 +2542,51 @@ export function GalleryPage({
                       >
                         <RefreshCw size={14} aria-hidden="true" /> {folderRescanBusy ? t("gallery:folders.rescanStarting") : t("gallery:folders.rescanButton")}
                       </Button>
+                      <Button
+                        variant="secondary"
+                        compact
+                        disabled={moveTargets.length === 0}
+                        title={moveTargets.length === 0 ? t("gallery:folders.moveNoTargets") : t("gallery:folders.moveTitle")}
+                        onClick={openMoveFolder}
+                      >
+                        <FolderOutput size={14} aria-hidden="true" /> {t("gallery:folders.moveFolder")}
+                      </Button>
                     </>
                   )}
                 </div>
+
+                {moveFolderOpen && soleLibraryId && (
+                  <Modal
+                    variant="card"
+                    title={t("gallery:folders.moveDialogTitle", { folder: parent })}
+                    busy={moveBusy}
+                    onClose={() => setMoveFolderOpen(false)}
+                    onSubmit={(event) => { event.preventDefault(); void confirmMoveFolder(); }}
+                  >
+                    <p>{t("gallery:folders.moveIntro")}</p>
+                    <SelectField
+                      label={t("gallery:folders.moveTargetLabel")}
+                      value={moveTarget}
+                      onChange={(value) => void planMoveFolder(value)}
+                      options={[
+                        { value: "", label: t("gallery:folders.moveTargetNone") },
+                        ...moveTargets.map((library) => ({ value: library.id, label: library.appStorage ? t("gallery:inbox.appStorageLabel", { name: library.name }) : library.name }))
+                      ]}
+                    />
+                    {movePlan && (
+                      <p className="datagrid-muted gallery-move-plan">
+                        {t("gallery:folders.movePlan", { count: movePlan.items, path: movePlan.to })}
+                      </p>
+                    )}
+                    {moveError && <MessageBox tone="error" title={t("gallery:folders.errors.move")}>{moveError}</MessageBox>}
+                    <div className="modal-actions">
+                      <Button variant="secondary" onClick={() => setMoveFolderOpen(false)} disabled={moveBusy}>{t("common.cancel")}</Button>
+                      <Button variant="primary" type="submit" disabled={moveBusy || !movePlan}>
+                        {moveBusy ? t("gallery:folders.moving") : t("gallery:folders.moveConfirm")}
+                      </Button>
+                    </div>
+                  </Modal>
+                )}
 
                 {folders.length > 0 && (
                   <>

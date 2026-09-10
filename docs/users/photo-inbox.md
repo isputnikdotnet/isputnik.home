@@ -259,7 +259,7 @@ Saved recordings are a list under the box, each with a play button; pressing
 one plays it in the card above the list. Anyone who can see the photo can play
 it; the lightbox shows the same recordings under **Recordings** on its Details
 tab, and a story's narration uses the same recorder and player. Recordings are ordinary
-audio files in the "Made in the app" library, under `Voice notes`, so they
+audio files in the "App files" library, under `Voice notes`, so they
 are backed up like everything else, and removing one sends it to the Recycle
 Bin. Recording needs the app to be opened over https, or on the server
 itself, since browsers allow the microphone only there.

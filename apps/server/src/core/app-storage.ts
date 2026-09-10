@@ -1,7 +1,7 @@
 // App storage — docs/app-storage-plan.md, phase 1.
 //
 // One folder the app may keep its own things in, laid out as fixed "rooms":
-// the Recycle Bin, the Photo Inbox, the Made in the app library, thumbnails,
+// the Recycle Bin, the Photo Inbox, the App files library, thumbnails,
 // renders and music, and backups. Every room is optional and each is its own
 // choice — use App storage, keep its own place, or (where the room is a
 // feature) stay off. The specific settings that existed before this
@@ -29,7 +29,7 @@ export type AppRoom = (typeof APP_ROOMS)[number];
 export const APP_ROOM_FOLDERS: Record<AppRoom, string> = {
   trash: "Recycle Bin",
   inbox: "Photo Inbox",
-  house: "Made in the app",
+  house: "App files",
   thumbnails: "Thumbnails",
   renders: "Renders",
   backups: "Backups"
@@ -79,11 +79,28 @@ export function getAppStoragePath(): string | null {
   return getAppStorageSetting().path;
 }
 
+/** Folder names a room went by before, still recognised on the installs that
+ *  made them: the App files room was "Made in the app" until 3.86.0. */
+export const LEGACY_ROOM_FOLDERS: Partial<Record<AppRoom, string>> = {
+  house: "Made in the app"
+};
+
+/** The room's folder under `root`: the current name, unless the folder exists
+ *  under a former name and the current one does not — then the former, so a
+ *  rename of the room never moves anybody's files. */
+export function appRoomFolderIn(root: string, room: AppRoom): string {
+  const current = path.join(root, APP_ROOM_FOLDERS[room]);
+  const legacy = LEGACY_ROOM_FOLDERS[room];
+  if (!legacy || fs.existsSync(current)) return current;
+  const former = path.join(root, legacy);
+  return fs.existsSync(former) ? former : current;
+}
+
 /** Where a room would live under App storage, or null when App storage is
  *  not set. Does not say whether the room USES it — see the resolvers. */
 export function appRoomPath(room: AppRoom): string | null {
   const root = getAppStoragePath();
-  return root ? path.join(root, APP_ROOM_FOLDERS[room]) : null;
+  return root ? appRoomFolderIn(root, room) : null;
 }
 
 /** The stored mode for a room, or undefined when it follows its default. */

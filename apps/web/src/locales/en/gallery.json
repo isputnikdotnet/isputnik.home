@@ -504,6 +504,20 @@
     "previewEmpty": "None of these photos are available right now."
   },
   "folders": {
+    "moveFolder": "Move to another library",
+    "moveTitle": "Move this folder, with everything in it, into another gallery library",
+    "moveNoTargets": "There is no other gallery library to move it into",
+    "moveDialogTitle": "Move \"{{folder}}\" to another library?",
+    "moveIntro": "The folder moves whole, as a task you can watch on the Tasks page. Its photos keep their ids, so every story, album, slideshow, tag, person and like that names them keeps working; the folder locks inside it come along. On the same disk it is a rename; across disks each file is copied and checked.",
+    "moveTargetLabel": "Move into",
+    "moveTargetNone": "Choose a library…",
+    "movePlan_zero": "No photos are catalogued in it; the files go to {{path}}.",
+    "movePlan_one": "{{count}} photo goes to {{path}}.",
+    "movePlan_other": "{{count}} photos go to {{path}}.",
+    "moveConfirm": "Move folder",
+    "moving": "Moving…",
+    "moveQueuedNotice": "Moving \"{{folder}}\" to {{library}}. Progress is on the Tasks page; this view refreshes when it is done.",
+    "moveDoneNotice": "Moved \"{{folder}}\" to {{library}}.",
     "browsing": "Browsing by folder",
     "itemsInFoldersTemplate": "{{items}} in {{folders}}",
     "hereWithSubTemplate": "{{here}} here · {{subtree}} with subfolders",
@@ -532,7 +546,10 @@
     "emptyFolder": "This folder is empty.",
     "errors": {
       "rescan": "Unable to start the folder rescan",
-      "toggleLock": "Unable to change the folder lock"
+      "toggleLock": "Unable to change the folder lock",
+      "move": "Unable to move the folder",
+      "moveFailed_one": "Moving \"{{folder}}\" stopped: {{count}} entry could not be carried. The folder is where it was; the Tasks page has the details.",
+      "moveFailed_other": "Moving \"{{folder}}\" stopped: {{count}} entries could not be carried. The folder is where it was; the Tasks page has the details."
     }
   },
   "voiceNotes": {

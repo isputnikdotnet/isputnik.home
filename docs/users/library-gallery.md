@@ -151,7 +151,7 @@ uploads blend into a folder structure rather than piling up at the top.
 ## What the app keeps for itself
 
 Story recordings, voice notes, family-tree uploads, rendered slideshow movies
-and uploaded music all land in the **Made in the app** library ([Storage](storage.md)).
+and uploaded music all land in the **App files** library ([Storage](storage.md)).
 When that library sits inside App storage it stays out of the Timeline,
 Memories, the Home page, People, the map and every picker, the same way a
 Photo Inbox does: those files belong to the story, the photo or the tree that
@@ -232,6 +232,28 @@ This is also what connects to the [family tree](family-tree.md): link a family
 member to a face group and their profile fills with photos automatically.
 
 ## Housekeeping
+
+### Moving a folder to another library
+
+Open the folder in the **Folders** view with a single library chosen in the
+library filter, and an administrator sees **Move to another library** beside
+Lock folder and Rescan. Pick the library to move into; the box says how many
+photos go and the exact folder they land in, which keeps the same path inside
+the new library. **Move folder** queues it.
+
+The move runs as a task on the Tasks page. On the same disk it is one rename;
+across disks every file is copied and checked by size before the original
+goes. The photos keep their ids, so every story, album, slideshow, tag,
+person and like that names them keeps working, and the folder locks inside the
+folder come along. Until the last file is across, the folder is still where it
+was; then it switches in one step, this view refreshes to the folder above,
+and a scan of the folder's new home re-reads it. A folder cannot be moved into
+a Photo Inbox or a read-only library, onto a folder that already exists there,
+or while either library is being scanned.
+
+This is the way to unmix a library: the family videos that landed in the App
+files library go to Current Phone; a `Slideshow music` folder left in a family
+library goes to App files.
 
 Re-scan after copying files in. Deleting a photo moves it to the **Recycle Bin**
 first, so it can be restored until the bin is emptied.

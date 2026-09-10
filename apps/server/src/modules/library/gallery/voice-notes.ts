@@ -2,7 +2,7 @@
 //
 // Someone going through a box of prints often has more to say than she wants
 // to type. A voice note is a recording kept ON the photo: the audio is an
-// ordinary asset in the house's "Made in the app" library, under
+// ordinary asset in the house's "App files" library, under
 // Voice notes/<year>, exactly as story narration is kept — so it shows in the
 // gallery, rides along in backups and streams like any other file — and a
 // gallery_voice_notes row ties it to the photo it is about.
@@ -91,7 +91,7 @@ export async function storeVoiceNote(itemId: string, userId: string, tmpPath: st
 
   const library = getHouseLibrary();
   if (!library) {
-    throw new VoiceNoteError("No \"Made in the app\" library is set. An admin chooses one under Control → Library → Storage.", 409);
+    throw new VoiceNoteError("No \"App files\" library is set. An admin chooses one under Control → Library → Storage.", 409);
   }
   const root = validateLibrarySource(library.source_path);
   const ext = storedExtension(extension);

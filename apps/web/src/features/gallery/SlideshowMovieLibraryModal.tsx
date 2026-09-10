@@ -25,7 +25,7 @@ export function SlideshowMovieLibraryModal({
 }: {
   slideshow: GallerySlideshowDetail;
   libraries: MovieLibraryOption[];
-  /** The house "Made in the app" library: what a slideshow with no target of its
+  /** The house "App files" library: what a slideshow with no target of its
    *  own starts on, so the usual answer is one press (docs/photo-review-plan.md, phase 0). */
   defaultLibraryId?: string | null;
   onClose: () => void;

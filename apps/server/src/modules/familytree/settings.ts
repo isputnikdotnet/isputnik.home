@@ -1,7 +1,7 @@
 // Family-tree settings, stored as one JSON blob in app_settings like the mail
 // and password-policy settings. House-wide, not per-viewer.
 //
-// Uploads from the tree land in the "Made in the app" library — the one house
+// Uploads from the tree land in the "App files" library — the one house
 // setting every app-made file shares (modules/library/gallery/house-library.ts,
 // docs/photo-review-plan.md phase 0) — under its "Family tree" folder. The
 // upload library used to be nominated here on its own; migration 71 carried

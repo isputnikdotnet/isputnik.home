@@ -19,6 +19,15 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.86.0",
+    label: "App files, and a folder that can change library",
+    changes: [
+      "The \"Made in the app\" room is called **App files** now, on the Storage page, in the setup guide and in the guides. It holds story narration, voice notes, uploaded slideshow music, rendered movies and family-tree portraits — what the app keeps for itself, whoever made them — so the old name undersold it. New installs make an `App files` folder inside App storage; an install that already has a `Made in the app` folder keeps it, and its library is still read as using App storage, so nothing moves. \"Renders and music\" is plain **Renders**: once an App files library exists it holds no music.",
+      "A folder can be moved to another gallery library. Open it in the Folders view with one library chosen and, as an administrator, choose **Move to another library**; the box says how many photos go and the exact folder they land in, keeping the same path inside the new library. The move runs as a task: one rename on the same disk, every file copied and checked across disks. The photos keep their ids, so every story, album, slideshow, tag, person and like that names them keeps working; their thumbnails and the folder locks inside come along, and a scan of the folder's new home re-reads it. Refused into a Photo Inbox or a read-only library, onto a folder that already exists there, or while either library is being scanned. This is the way to unmix a library: the family videos that landed in App files go to the family's gallery, a music folder left in a family library goes to App files.",
+      "The Storage guide's pictures show the new names."
+    ]
+  },
+  {
     version: "3.85.0",
     label: "Placed photos stay placed, and the replaced originals are seen",
     changes: [

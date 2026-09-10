@@ -19,7 +19,7 @@ import { scanSingleGalleryFile } from "./scanner.js";
 import { uniqueGalleryFileName } from "./routes.js";
 
 // Since docs/app-storage-plan.md phase 3 a track is, wherever possible, an audio
-// asset of the Made in the app library under "Slideshow music/": visible in the
+// asset of the App files library under "Slideshow music/": visible in the
 // gallery, shareable, backed up with the rest. `item_id` names that asset and
 // `storage_key` is then "". Tracks uploaded before a house library existed keep
 // their bucket file until the importer below carries them across.
@@ -82,7 +82,7 @@ export function summarizeTrack(row: MusicTrackRow) {
     durationSeconds: row.duration_seconds,
     url: `/api/library/gallery/music/${row.id}/stream`,
     uploadedBy: row.uploaded_by,
-    /** True when the track is an asset of the Made in the app library. */
+    /** True when the track is an asset of the App files library. */
     inLibrary: row.item_id !== null,
     itemId: row.item_id
   };
@@ -155,7 +155,7 @@ async function landInHouseLibrary(sourcePath: string, title: string, extension: 
   return itemId;
 }
 
-// Record a received upload: into the Made in the app library when there is one
+// Record a received upload: into the App files library when there is one
 // (the file becomes an audio asset there), else into the music bucket as before.
 export async function createUserTrack(
   user: { id: string },
@@ -202,7 +202,7 @@ export function pendingBucketMusic(): number {
   return (db.prepare("SELECT COUNT(*) AS n FROM gallery_music_tracks WHERE builtin = 0 AND item_id IS NULL").get() as { n: number }).n;
 }
 
-/** Carry bucket tracks into the Made in the app library once one exists: copy,
+/** Carry bucket tracks into the App files library once one exists: copy,
  *  catalog, point the row at the asset, then drop the bucket file. A track whose
  *  file is missing or will not catalog stays as it is and is counted. Runs from
  *  the gallery plugin's timer; null when there is nothing to do or nowhere to go. */

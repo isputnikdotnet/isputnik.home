@@ -13,7 +13,7 @@ import { normalizeLibrarySettings } from "../src/modules/library/shared/library-
 import { thumbnailPathSettingKey } from "../src/modules/library/shared/thumbnail.js";
 import { resetDb, makeUser, makeLibrary } from "./helpers/seed.js";
 
-// The "Made in the app" library (docs/photo-review-plan.md, phase 0): one house
+// The "App files" library (docs/photo-review-plan.md, phase 0): one house
 // setting that stories, the family tree and slideshow movies all read through
 // to, and the migration that carries the old per-feature choices over.
 

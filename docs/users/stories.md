@@ -227,7 +227,7 @@ opening the story at a share link gets the same card.
 
 Recordings are not stored inside the story: they land in the house's **"Made
 in the app" gallery library** — the one library an admin chooses once, on the
-Made in the app row of Control panel → Library → Storage, for everything the app
+App files row of Control panel → Library → Storage, for everything the app
 makes itself — in
 its `Story recordings` folder, as ordinary audio. That's why they show up in
 the gallery, ride along in backups, and outlive their story. Until that library
