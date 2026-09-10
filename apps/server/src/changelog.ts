@@ -19,6 +19,13 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.82.1",
+    label: "The bars are plain again",
+    changes: [
+      "The chapter ticks added to the audiobook player's bars in 3.82.0 are gone again. They marked every chapter start on the file bar and the whole-book bar, which on a book of many tracks is a fence of marks that says nothing the chapter list does not. The bars are as they were, and the chapter list remains the way between chapters."
+    ]
+  },
+  {
     version: "3.82.0",
     label: "One recorder, one player",
     changes: [

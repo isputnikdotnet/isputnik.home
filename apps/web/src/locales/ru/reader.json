@@ -33,7 +33,6 @@
     "seek": "Перемотка",
     "prevChapter": "Предыдущая глава",
     "nextChapter": "Следующая глава",
-    "goToChapter": "Перейти к {{title}}",
     "skipBack30": "Назад на 30 секунд",
     "skipForward30": "Вперёд на 30 секунд",
     "play": "Слушать",
