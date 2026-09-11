@@ -15,9 +15,9 @@
 import { db, logActivity } from "../../../../db.js";
 import { trashBook, libraryAllowsDelete } from "../../shared/trash.js";
 import { lockCovering } from "../../shared/folder-locks.js";
-import { absorbDuplicateMetadata } from "./items.js";
+import { absorbDuplicateMetadata } from "./absorb.js";
 import { getJob, recordAction, type JobOutcome } from "./jobs.js";
-import { sweepableResultIds, type ResultFilter } from "./job-scan.js";
+import { sweepableResultIds, type ResultFilter } from "./job-results.js";
 
 /** Why a member can no longer be acted on. Each one is a different sentence on the
  *  page, because each has a different remedy. */

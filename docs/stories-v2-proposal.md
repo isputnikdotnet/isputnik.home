@@ -1,6 +1,11 @@
 # Stories v2 — collections, chapter pages, kinds
 
-Status: **Draft — design agreed 2026-09-01, nothing built.** Supersedes the
+Status: shipped in v3.44.0–v3.50.1 (2026-09-01); kept for history. All seven steps of
+the build order are built, with as-built notes under each; still open are only the
+items marked *Deferred* there (an audiobook playing inline in an audio block;
+back-links for guests) and ideas left to wait for usage.
+
+Design agreed 2026-09-01. Supersedes the
 *design direction* of [stories-proposal.md](stories-proposal.md), which remains
 the as-built record of what shipped in 3.43.0 (phases 1–5). Companion to
 [gallery-library.md](gallery-library.md), [sharing.md](sharing.md), and

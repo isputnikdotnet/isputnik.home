@@ -197,7 +197,7 @@ describe("the schedule moved to the Scheduled jobs page", () => {
       db.prepare("INSERT INTO app_settings (key, value) VALUES ('backup_schedule', ?)")
         .run(JSON.stringify({ enabled: true, time: "04:15", retention: 2, includeCovers: true }));
     });
-    const { listScheduledJobs } = await import("../src/modules/maintenance/index.js");
+    const { listScheduledJobs } = await import("../src/modules/maintenance/scheduler.js");
     const byKey = Object.fromEntries(listScheduledJobs().map((j) => [j.key, j]));
     expect(byKey.backup_full).toMatchObject({ enabled: true, frequency: "daily", time: "04:15" });
     expect(byKey.backup_minimal).toMatchObject({ enabled: false });
@@ -213,7 +213,7 @@ describe("the schedule moved to the Scheduled jobs page", () => {
       db.prepare("INSERT INTO app_settings (key, value) VALUES ('backup_schedule', ?)")
         .run(JSON.stringify({ enabled: true, time: "02:00", retention: 5, includeCovers: false }));
     });
-    const { listScheduledJobs } = await import("../src/modules/maintenance/index.js");
+    const { listScheduledJobs } = await import("../src/modules/maintenance/scheduler.js");
     const byKey = Object.fromEntries(listScheduledJobs().map((j) => [j.key, j]));
     expect(byKey.backup_minimal).toMatchObject({ enabled: true, frequency: "daily", time: "02:00" });
     expect(byKey.backup_full).toMatchObject({ enabled: false });
@@ -224,7 +224,7 @@ describe("the schedule moved to the Scheduled jobs page", () => {
       db.prepare("INSERT INTO app_settings (key, value) VALUES ('backup_schedule', ?)")
         .run(JSON.stringify({ enabled: false, time: "02:00", retention: 5, includeCovers: false }));
     });
-    const { listScheduledJobs } = await import("../src/modules/maintenance/index.js");
+    const { listScheduledJobs } = await import("../src/modules/maintenance/scheduler.js");
     const byKey = Object.fromEntries(listScheduledJobs().map((j) => [j.key, j]));
     expect(byKey.backup_minimal).toMatchObject({ enabled: false });
     expect(byKey.backup_full).toMatchObject({ enabled: false });
@@ -233,7 +233,7 @@ describe("the schedule moved to the Scheduled jobs page", () => {
 
   it("running the job takes a backup of its kind in the background", async () => {
     await bootWithPlugin();
-    const { runScheduledJob } = await import("../src/modules/maintenance/index.js");
+    const { runScheduledJob } = await import("../src/modules/maintenance/scheduler.js");
     const { backupRunSettled } = await import("../src/modules/backups/index.js");
 
     const view = runScheduledJob("backup_minimal", null);

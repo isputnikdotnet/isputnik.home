@@ -3,7 +3,8 @@ import { db } from "../src/db.js";
 import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
 import { ingestGalleryAsset } from "../src/modules/library/gallery/scanner.js";
 import { kindForExtension } from "../src/modules/library/gallery/media.js";
-import { getGalleryAsset, resolveGalleryScopeLibraryIds } from "../src/modules/library/gallery/catalog.js";
+import { getGalleryAsset } from "../src/modules/library/gallery/catalog-asset.js";
+import { resolveGalleryScopeLibraryIds } from "../src/modules/library/gallery/catalog-scope.js";
 import {
   createGalleryPerson,
   findGalleryPersonByName,

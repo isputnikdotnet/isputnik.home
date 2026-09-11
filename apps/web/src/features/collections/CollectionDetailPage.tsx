@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, BookOpen, ChevronDown, ChevronUp, ListMusic, Pencil, Play, Trash2, X } from "lucide-react";
-import { api, type PublicUser } from "../../api";
+import { api } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { goBack, navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
@@ -13,13 +13,9 @@ import type { CollectionDetail, CollectionItem } from "./types";
 const PLAYER_FEATURES = "width=500,height=700,resizable=yes,scrollbars=yes";
 
 export function CollectionDetailPage({
-  id,
-  user,
-  logout
+  id
 }: {
   id: string;
-  user: PublicUser;
-  logout: () => Promise<void>;
 }) {
   const { t } = useTranslation(["common", "user"]);
   const [collection, setCollection] = useState<CollectionDetail | null>(null);
@@ -102,7 +98,7 @@ export function CollectionDetailPage({
   };
 
   return (
-    <DashboardShell active="user" user={user} logout={logout} sideNav={<UserAreaNav active="collections" />}>
+    <DashboardShell active="user" sideNav={<UserAreaNav active="collections" />}>
       <section className="work-area audiobook-area">
         <div className="book-detail-topbar">
           <button className="audiobook-back-button" type="button" onClick={() => goBack("/collections")}>

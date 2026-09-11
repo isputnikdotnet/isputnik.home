@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ArrowLeft, ImagePlus, Play } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { api, type PublicUser } from "../../api";
+import { api } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { followBack } from "../../router";
 import { Button } from "../../shared/Button";
@@ -22,13 +22,9 @@ const PHOTO_PAGE = 60;
 // this page, so closing one returns here instead of stranding the reader in the
 // gallery.
 export function FamilyPersonPhotosPage({
-  id,
-  user,
-  logout
+  id
 }: {
   id: string;
-  user: PublicUser;
-  logout: () => Promise<void>;
 }) {
   const { t } = useTranslation(["common", "family"]);
   const [person, setPerson] = useState<FamilyPersonProfile | null>(null);
@@ -60,7 +56,7 @@ export function FamilyPersonPhotosPage({
   const back = `/family/people/${id}`;
 
   return (
-    <DashboardShell active="family" user={user} logout={logout} sideNav={<SectionNav {...familyNavProps("people")} />}>
+    <DashboardShell active="family" sideNav={<SectionNav {...familyNavProps("people")} />}>
       <section className="audiobook-main-page">
         <div className="book-detail-topbar">
           <a className="audiobook-back-button" href={back} onClick={(event) => followBack(event, back)}>
@@ -122,7 +118,6 @@ export function FamilyPersonPhotosPage({
           index={lightboxIndex}
           canDelete={false}
           canEdit={false}
-          canShare={false}
           onClose={() => setLightboxIndex(null)}
           onIndexChange={setLightboxIndex}
           onChanged={(change) => { if (change.kind !== "like") void loadPhotos(0); }}

@@ -125,13 +125,7 @@
       "familyName_one": "{{count}} family name",
       "familyName_other": "{{count}} family names",
       "photo_one": "{{count}} photo",
-      "photo_other": "{{count}} photos",
-      "source_one": "{{count}} source",
-      "source_other": "{{count}} sources",
-      "citation_one": "{{count}} citation",
-      "citation_other": "{{count}} citations",
-      "family_one": "{{count}} family",
-      "family_other": "{{count}} families"
+      "photo_other": "{{count}} photos"
     }
   },
   "personPicker": {
@@ -291,26 +285,13 @@
     "roleEditorTagline": "Edit tagged people + add relatives",
     "roleBlocked": "Blocked",
     "roleBlockedTagline": "No edit access, overrides grants",
-    "roleAria": "Role",
     "intro": "Family tags group people into branches. Granting the Editor role on a tag lets a user or group edit every person carrying that tag and add relatives to them. Assign tags to people via Edit person (admins only).",
     "unableToUpdate": "Unable to update branch access",
     "loading": "Loading…",
     "noTagsTitle": "No family tags yet",
     "noTagsBody": "Tag people first (Edit person → Family tags), then grant edit rights on those tags here.",
     "tagAria": "Family tag",
-    "grantTitle": "Grant edit rights",
-    "grantTitleWithTag": "Grant edit rights — {{tag}}",
-    "userOrGroupAria": "User or group",
-    "selectUserOrGroupOption": "Select a user or group…",
-    "usersGroupLabel": "Users",
-    "groupsGroupLabel": "Groups",
-    "roleToGrantAria": "Role to grant",
-    "addButton": "Add",
-    "editorsSectionTitle": "Editors",
     "deletedLabel": "(deleted)",
-    "groupLabel": "Group",
-    "userLabel": "User",
-    "removeAria": "Remove {{name}}",
     "noEditorsYet": "No editors yet — only admins can edit this branch.",
     "errors": {
       "loadTags": "Unable to load family tags",
@@ -330,11 +311,6 @@
     "photosHouseIs": "Uploads go to: {{name}}",
     "photosHouseUnset": "No “App files” library is set, so uploading from the tree is off.",
     "photosHouseLink": "Choose it under Control panel → Library → Storage",
-    "noLibraryTitle": "No gallery library yet",
-    "noLibraryBody": "Create a gallery library first — point it at the folder where family photos should be stored. It will appear here once it exists.",
-    "createLibraryLink": "Create a library",
-    "uploadPhotosToLabel": "Upload photos to",
-    "noLibraryOption": "No library — uploading is off",
     "saved": "Saved.",
     "startHint": "Opening the family tree centres the chart on this person, for everyone. Without one it starts on whoever happens to come first, which is rarely the person you'd choose. Following a link to a particular person still opens on them.",
     "noOneYetTitle": "No one in the tree yet",
@@ -351,7 +327,6 @@
     "importWarningBody": "The import offers two modes: add to the {{peopleCount}} already here, or replace them entirely. Export first if you want a copy of what you have.",
     "errors": {
       "loadSettings": "Unable to load settings",
-      "saveLibrary": "Unable to save the library",
       "saveStartPerson": "Unable to save the starting person"
     }
   },

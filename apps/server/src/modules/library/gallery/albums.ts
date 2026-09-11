@@ -6,8 +6,8 @@
 //   creator and admins (a member without access would just see an empty shell)
 import { nanoid } from "nanoid";
 import { db } from "../../../db.js";
-import { ASSET_COLUMNS, ASSET_JOINS, mapAsset, type GalleryAssetRow } from "./catalog.js";
-import { entityTagsByIds } from "../audiobook/categorize.js";
+import { ASSET_COLUMNS, ASSET_JOINS, mapAsset, type GalleryAssetRow } from "./catalog-asset.js";
+import { entityTagsByIds } from "../shared/tagging.js";
 
 const inClause = (n: number) => Array(n).fill("?").join(", ");
 
@@ -159,7 +159,7 @@ export function listAlbums(user: { id: string; role: string }, libIds: string[])
           ORDER BY gallery_album_items.position LIMIT 1)
       ) AS cover_key
     FROM gallery_albums
-    ORDER BY datetime(gallery_albums.updated_at) DESC
+    ORDER BY gallery_albums.updated_at DESC
   `).all(...libArgs, ...libArgs, ...libArgs) as AlbumListRow[];
 
   const visible = rows.filter((row) => row.visible_count > 0 || canEditAlbum(row, user));
@@ -195,7 +195,7 @@ export function getAlbumItems(userId: string, libIds: string[], album: AlbumRow,
 
   const order = album.sort_mode === "manual"
     ? "gallery_album_items.position ASC"
-    : "datetime(gallery_details.taken_at) ASC, library_items.id ASC";
+    : "gallery_details.taken_at ASC, library_items.id ASC";
   const rows = db.prepare(`
     SELECT ${ASSET_COLUMNS} ${ASSET_JOINS}
     JOIN gallery_album_items ON gallery_album_items.item_id = library_items.id
@@ -215,7 +215,7 @@ export function getAlbumItemIds(libIds: string[], album: AlbumRow): string[] {
   const libIn = inClause(libIds.length);
   const order = album.sort_mode === "manual"
     ? "gallery_album_items.position ASC"
-    : "datetime(gallery_details.taken_at) ASC, library_items.id ASC";
+    : "gallery_details.taken_at ASC, library_items.id ASC";
   return (db.prepare(`
     SELECT library_items.id AS id
     FROM gallery_album_items
@@ -242,7 +242,7 @@ export function getAlbumFilePaths(libIds: string[], album: AlbumRow): AlbumFileR
   const libIn = inClause(libIds.length);
   const order = album.sort_mode === "manual"
     ? "gallery_album_items.position ASC"
-    : "datetime(gallery_details.taken_at) ASC, library_items.id ASC";
+    : "gallery_details.taken_at ASC, library_items.id ASC";
   return db.prepare(`
     SELECT
       library_items.id,

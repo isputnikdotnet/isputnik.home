@@ -58,6 +58,7 @@ function formatLimit(bytes: number): string {
 // audiobook track names become chapter titles, so mangling them matters.
 function sanitizeFilename(name: string): string {
   const base = path.basename(name || "")
+    // eslint-disable-next-line no-control-regex -- stripping control characters from the name is the point
     .replace(/[\\/:*?"<>|\u0000-\u001f]+/g, "_")
     .replace(/^[\s.]+|[\s.]+$/g, "");
   return base || "upload";

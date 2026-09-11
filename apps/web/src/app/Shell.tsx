@@ -1,10 +1,6 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
-import packageInfo from "../../../../package.json";
-
-// Same source as the Dashboard footer and the setup guide: the root package.json,
-// which is the version the running server reports too.
-const APP_VERSION = packageInfo.version;
+import { versionLabel } from "../shared/appVersion";
 
 // A holding screen for someone who is already signed in. Shell below is the
 // sign-in scene — hero, orbits, brand panel — so using it to say "loading" tells
@@ -50,7 +46,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             when a device misbehaves is whether it is running what you think it is.
             Here rather than on the sign-in form so install, invite and the 2FA step
             answer it too. */}
-        <p className="auth-version">isputnik.home v{APP_VERSION}</p>
+        <p className="auth-version">isputnik.home {versionLabel(t)}</p>
       </section>
     </main>
   );

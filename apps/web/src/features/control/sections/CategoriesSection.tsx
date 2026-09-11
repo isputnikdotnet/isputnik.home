@@ -3,6 +3,8 @@ import { Trans, useTranslation } from "react-i18next";
 import { ArrowLeft, Check, List, Pencil, Plus, RefreshCw, Search, Tags as TagsIcon, Trash2, Upload, X } from "lucide-react";
 import { api } from "../../../api";
 import { controlHref, navigate } from "../../../router";
+import { Button } from "../../../shared/Button";
+import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { MessageBox } from "../../../shared/MessageBox";
 import { SelectField } from "../../../shared/SelectField";
 import { ControlSectionHead } from "../ControlSectionHead";
@@ -311,6 +313,7 @@ export function CategoryEditorPage({ categoryId }: { categoryId: string | null }
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   const load = useCallback(async () => {
     setError("");
@@ -348,10 +351,17 @@ export function CategoryEditorPage({ categoryId }: { categoryId: string | null }
     }
   }, [categoryId, isNew, t]);
 
+  // Refreshes the mapping list after an edit. It handles its own failure: the edit
+  // itself already succeeded, so a failed re-read must neither surface as an
+  // unhandled rejection nor be reported (or reverted) as a failed edit.
   const loadAliases = useCallback(async () => {
-    const payload = await api<{ aliases: ManageAlias[] }>("/api/library/manage/aliases");
-    setAliases(payload.aliases);
-  }, []);
+    try {
+      const payload = await api<{ aliases: ManageAlias[] }>("/api/library/manage/aliases");
+      setAliases(payload.aliases);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("control:categories.unableToLoadMappings"));
+    }
+  }, [t]);
 
   useEffect(() => {
     load();
@@ -427,17 +437,13 @@ export function CategoryEditorPage({ categoryId }: { categoryId: string | null }
 
   const deleteCategory = async () => {
     if (!category || category.key === "general_other") return;
-    if (!deleteConfirm) {
-      setDeleteConfirm(true);
-      return;
-    }
     setDeleting(true);
-    setError("");
+    setDeleteError("");
     try {
       await api<{ movedBooks: number }>(`/api/library/manage/categories/${category.id}`, { method: "DELETE" });
       navigate(controlHref("categories"));
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("control:categories.unableToDeleteCategory"));
+      setDeleteError(err instanceof Error ? err.message : t("control:categories.unableToDeleteCategory"));
     } finally {
       setDeleting(false);
     }
@@ -586,21 +592,34 @@ export function CategoryEditorPage({ categoryId }: { categoryId: string | null }
 
           {canDelete && (
             <div className="category-danger-zone">
-              {deleteConfirm && (
-                <span>
-                  {t("control:categories.deleteMoveConfirm", { count: category.bookCount })}
-                </span>
-              )}
-              <button className="text-button danger" type="button" onClick={deleteCategory} disabled={saving || deleting}>
+              <Button
+                variant="text"
+                danger
+                onClick={() => { setDeleteError(""); setDeleteConfirm(true); }}
+                disabled={saving || deleting}
+              >
                 <Trash2 size={15} />
-                {deleteConfirm ? (deleting ? t("control:ui.deleting") : t("control:categories.confirmDelete")) : t("control:categories.deleteCategory")}
-              </button>
-              {deleteConfirm && (
-                <button className="secondary-button compact-button" type="button" onClick={() => setDeleteConfirm(false)} disabled={deleting}>
-                  {t("control:categories.cancelDelete")}
-                </button>
-              )}
+                {t("control:categories.deleteCategory")}
+              </Button>
             </div>
+          )}
+          {canDelete && deleteConfirm && (
+            <ConfirmDialog
+              title={t("control:categories.deleteTitle", { name: category.name })}
+              confirmLabel={t("control:categories.deleteCategory")}
+              busyLabel={t("control:ui.deleting")}
+              confirmIcon={<Trash2 size={15} aria-hidden="true" />}
+              danger
+              busy={deleting}
+              error={deleteError}
+              onConfirm={() => void deleteCategory()}
+              onCancel={() => setDeleteConfirm(false)}
+            >
+              {category.bookCount > 0
+                ? t("control:categories.deleteMovesBooks", { count: category.bookCount })
+                : t("control:categories.deleteNoBooks")}{" "}
+              {t("control:categories.deleteWhatSurvives")}
+            </ConfirmDialog>
           )}
         </aside>
 

@@ -137,6 +137,7 @@ export function StoryShareView({ token, payload }: { token: string; payload: Sto
   useEffect(() => {
     if (!open) return;
     const onKey = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return; // a dialog on top already answered it
       if (event.key === "Escape") setOpenId(null);
       else if (event.key === "ArrowRight" && openIndex < gallery.length - 1) setOpenId(gallery[openIndex + 1].id);
       else if (event.key === "ArrowLeft" && openIndex > 0) setOpenId(gallery[openIndex - 1].id);

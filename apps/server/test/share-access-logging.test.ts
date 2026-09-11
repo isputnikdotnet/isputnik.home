@@ -10,7 +10,7 @@ import cookie from "@fastify/cookie";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { db } from "../src/db.js";
 import { sha256 } from "../src/crypto.js";
-import { librarySharesPlugin } from "../src/modules/library/shared/shares.js";
+import { librarySharesPlugin } from "../src/modules/library/shared/shares/index.js";
 import { registerAuthDecorators } from "../src/auth.js";
 import { resetDb, makeUser, makeLibrary, futureIso } from "./helpers/seed.js";
 

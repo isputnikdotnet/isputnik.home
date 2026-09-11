@@ -1,8 +1,13 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { FastifyInstance } from "fastify";
+import { z } from "zod";
+import { parseQuery } from "../../core/shared.js";
 import { resolveCoverKey, LIBRARY_BUCKET_RE } from "./shared/thumbnail.js";
 import { getAccessibleLibrary } from "./shared/library-access.js";
+
+// `v` is the cache-busting version token (see below); its value is opaque.
+const coverQuerySchema = z.object({ v: z.string().optional() });
 
 function mimeTypeForCover(storageKey: string) {
   return {
@@ -40,6 +45,10 @@ export async function coversPlugin(app: FastifyInstance) {
     if (LIBRARY_BUCKET_RE.test(resolved.bucket) && !getAccessibleLibrary(resolved.bucket, user.id, user.role)) {
       return reply.code(404).send({ error: "Cover not found" });
     }
+    const parsed = parseQuery(coverQuerySchema, request.query);
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid query", details: parsed.error });
+    }
     try {
       const absolutePath = resolved.absolutePath;
       const stat = await fs.stat(absolutePath);
@@ -49,7 +58,7 @@ export async function coversPlugin(app: FastifyInstance) {
       // therefore safe to cache immutably: the browser never re-requests it, and a
       // real change arrives under a new URL. This is what stops a person/timeline
       // grid of hundreds of thumbnails from re-hitting the server on every view.
-      const versioned = typeof (request.query as { v?: string }).v === "string" && (request.query as { v?: string }).v !== "";
+      const versioned = typeof parsed.data.v === "string" && parsed.data.v !== "";
       if (versioned) {
         reply.header("Cache-Control", "private, max-age=31536000, immutable");
       } else {

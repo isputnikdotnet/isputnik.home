@@ -17,15 +17,17 @@ import { db } from "../src/db.js";
 import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
 import { thumbnailPathSettingKey } from "../src/modules/library/shared/thumbnail.js";
 import { createJob, completeJob, activeJob } from "../src/modules/library/gallery/duplicates/jobs.js";
-import { startJobScan, listJobResults, type SnapshotResult } from "../src/modules/library/gallery/duplicates/job-scan.js";
+import { startJobScan } from "../src/modules/library/gallery/duplicates/job-scan.js";
+import { listJobResults, type SnapshotResult } from "../src/modules/library/gallery/duplicates/job-results.js";
 import { resolveJobResult, sweepJobResults } from "../src/modules/library/gallery/duplicates/job-resolve.js";
 import {
   DUPLICATE_SCAN_JOB_TYPE,
-  processDuplicateScanQueue,
   duplicateCandidateCount,
   duplicatePendingCount
 } from "../src/modules/library/gallery/duplicates/items.js";
+import { processDuplicateScanQueue } from "../src/modules/library/gallery/duplicates/scan-queue.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
+import "./helpers/media-types.js";
 
 let sourceRoot = "";
 let secondRoot = "";

@@ -198,7 +198,7 @@ export function userHasGalleryAlbumShareForItem(itemId: string, userId: string):
       AND shares.user_id = ?
       AND gallery_album_items.item_id = ?
       AND shares.revoked_at IS NULL
-      AND (shares.expires_at IS NULL OR datetime(shares.expires_at) > datetime('now'))
+      AND (shares.expires_at IS NULL OR shares.expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
   `).all(userId, itemId) as { creator_id: string; creator_role: string; library_id: string }[];
   return rows.some((row) => canUserCurateLibrary({ id: row.library_id }, row.creator_id, row.creator_role));
 }
@@ -220,7 +220,7 @@ export function userHasGalleryAlbumEditShareForItem(itemId: string, userId: stri
       AND shares.user_id = ?
       AND gallery_album_items.item_id = ?
       AND shares.revoked_at IS NULL
-      AND (shares.expires_at IS NULL OR datetime(shares.expires_at) > datetime('now'))
+      AND (shares.expires_at IS NULL OR shares.expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
   `).all(userId, itemId) as { creator_id: string; creator_role: string; library_id: string }[];
   return rows.some((row) => canUserCurateLibrary({ id: row.library_id }, row.creator_id, row.creator_role));
 }

@@ -49,8 +49,7 @@
     "loadTitle": "Unable to open these photos",
     "load": "Could not load the photos to go through.",
     "saveTitle": "Couldn't save that one",
-    "save": "Try again.",
-    "people": "Could not change who is in the photo."
+    "save": "Try again."
   },
   "readOnly": {
     "title": "Viewing only",
@@ -66,7 +65,6 @@
     "body": "There are no photos waiting here."
   },
   "album": {
-    "asked": "{{name}} asked about these photos",
     "readOnlyBody": "You can look through this album, but writing on its photos needs it to be sent to you with a question, or edit access to its library."
   }
 }

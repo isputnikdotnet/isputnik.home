@@ -39,13 +39,6 @@
   min-width: 0;
 }
 
-.category-name-cell strong,
-.category-name-cell span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .category-name-cell span {
   color: var(--muted);
   font-size: 0.78rem;
@@ -423,13 +416,6 @@
   display: grid;
   gap: 3px;
   min-width: 0;
-}
-
-.category-tag-copy strong,
-.category-tag-status {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .category-tag-copy strong {

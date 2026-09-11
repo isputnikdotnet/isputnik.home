@@ -148,10 +148,6 @@ const GROUP_BY_SECTION = new Map<ControlSection, ControlGroupDef>(
   CONTROL_GROUPS.flatMap((group) => group.tabs.map((tab) => [tab.section, group] as const))
 );
 
-const TAB_BY_SECTION = new Map<ControlSection, ControlTabDef>(
-  ALL_TABS.map((tab) => [tab.section, tab] as const)
-);
-
 export function groupForSection(section: ControlSection): ControlGroupDef {
   // Every section is on exactly one tab, so the lookup can't miss; Overview is
   // the safe landing spot if a future section is ever added without a tab.

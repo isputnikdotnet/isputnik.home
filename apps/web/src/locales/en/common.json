@@ -4,6 +4,16 @@
     "ebook": "Ebook",
     "gallery": "Gallery"
   },
+  "releaseStage": {
+    "beta": "Beta"
+  },
+  "whatsNew": {
+    "title": "Updated to {{version}}",
+    "readMore": "What changed",
+    "dismiss": "Dismiss",
+    "earlier_one": "…and {{count}} earlier release.",
+    "earlier_other": "…and {{count}} earlier releases."
+  },
   "common": {
     "cancel": "Cancel",
     "close": "Close",
@@ -27,6 +37,13 @@
   "errors": {
     "unableToSave": "Unable to save",
     "actionFailed": "Action failed",
+    "pageLoad": {
+      "title": "Unable to open this page",
+      "offline": "You're offline, and this page isn't saved on this device yet. Home and your downloads still work.",
+      "online": "Its files couldn't be downloaded — the app may have just been updated. Reload to get the latest version.",
+      "reload": "Reload",
+      "home": "Go home"
+    },
     "codes": {
       "auth": {
         "invalid_details": "Invalid login details",
@@ -54,7 +71,8 @@
         "invalid_email": "Invalid email",
         "email_taken": "That email address is already in use."
       }
-    }
+    },
+    "requestFailed": "Request failed"
   },
   "audio": {
     "record": "Record",
@@ -100,9 +118,7 @@
     "bookmarks": "Bookmarks",
     "quotes": "Quotes",
     "collections": "Collections",
-    "sharedWithMe": "Shared with me",
     "forYou": "For you",
-    "shared": "Shared",
     "downloads": "Downloads",
     "myLibrary": "My Library",
     "media": "Media",
@@ -314,15 +330,7 @@
     "quotePrefsLanguageAuto": "Follow the app",
     "quotePrefsCategories": "Categories",
     "quotePrefsCategoriesHint": "Pick the ones you want on your card. Choose none to draw from everything.",
-    "quotePrefsSave": "Save preferences",
-    "photoInbox": "Photo Inbox",
-    "reviewPhotos": "Review",
-    "addWhatYouKnow": "Add what you know",
-    "photoInboxSub_one": "{{count}} photo waiting for review",
-    "photoInboxSub_other": "{{count}} photos waiting for review",
-    "photoInboxNoted": "{{reviewed}} of {{count}} noted",
-    "photoInboxAsk_one": "{{count}} photo wants your notes",
-    "photoInboxAsk_other": "{{count}} photos want your notes"
+    "quotePrefsSave": "Save preferences"
   },
   "profile": {
     "eyebrow": "Profile",
@@ -341,16 +349,32 @@
       "saved": "Profile updated",
       "savedBody": "Your settings have been saved.",
       "save": "Save changes",
-      "saving": "Saving…"
+      "saving": "Saving…",
+      "unableToSave": "Unable to save profile"
     },
     "appearance": {
       "heading": "Appearance",
-      "intro": "Choose how iSputnik looks. Your choice is saved to your account and applies right away."
+      "intro": "Choose how iSputnik looks. Your choice is saved to your account and applies right away.",
+      "unableToSave": "Unable to save theme"
     },
     "language": {
       "heading": "Language",
       "intro": "The language of the app's menus, buttons, and messages. Your books and photos keep their own language.",
       "legend": "App language"
+    },
+    "ereader": {
+      "heading": "Send to e-reader",
+      "intro": "The address your Kindle or Kobo receives documents at (e.g. <code>you@kindle.com</code>). From any ebook's page you can then send its EPUB or PDF straight to your device. Add the server's sender address to your device's approved-senders list first — and an admin must set up email delivery.",
+      "emailLabel": "E-reader email",
+      "unableToSave": "Unable to save e-reader email",
+      "saved": "Saved",
+      "savedBody": "Your e-reader email has been updated.",
+      "save": "Save",
+      "saving": "Saving…"
+    },
+    "install": {
+      "title": "Install the mobile app",
+      "subtitle": "Add iSputnik to your phone's home screen to listen offline and download books for the road."
     }
   },
   "languageNames": {
@@ -602,9 +626,52 @@
     "everyone": "Everyone",
     "public": "Public",
     "noAccess": "No access",
-    "everyoneLocked": "The baseline is always listed — set it to “No access” to close this.",
     "nobodyYet": "Nobody has been added yet — only the baseline above applies.",
     "legendTitle": "What the roles mean",
     "title": "Access"
+  },
+  "app": {
+    "loading": "Loading isputnik.home..."
+  },
+  "time": {
+    "justNow": "just now",
+    "yesterday": "yesterday",
+    "ago": "{{span}} ago",
+    "fromNow": "in {{span}}",
+    "lessThanMinuteLeft": "less than a minute left",
+    "aboutLeft": "about {{span}} left",
+    "minutes_one": "{{count}} min",
+    "minutes_other": "{{count}} min",
+    "hours_one": "{{count}} hr",
+    "hours_other": "{{count}} hr",
+    "days_one": "{{count}} day",
+    "days_other": "{{count}} days",
+    "months_one": "{{count}} month",
+    "months_other": "{{count}} months",
+    "years_one": "{{count}} year",
+    "years_other": "{{count}} years",
+    "weeksShort_one": "{{count}} wk",
+    "weeksShort_other": "{{count}} wk",
+    "monthsShort_one": "{{count}} mo",
+    "monthsShort_other": "{{count}} mo",
+    "yearsShort_one": "{{count}} yr",
+    "yearsShort_other": "{{count}} yr",
+    "minutesCompact_one": "{{count}}m",
+    "minutesCompact_other": "{{count}}m",
+    "hoursCompact_one": "{{count}}h",
+    "hoursCompact_other": "{{count}}h"
+  },
+  "help": {
+    "eyebrow": "Support",
+    "heading": "Help & guides",
+    "intro": "Friendly, task-focused guides for using and running iSputnik. They're part of this install, so they work without an internet connection and describe the version you're running."
+  },
+  "guide": {
+    "notFound": "That guide doesn't exist.",
+    "unableToOpen": "Unable to open this guide.",
+    "unableTitle": "Unable to open this guide",
+    "readOnGithub": "<link>Read it on GitHub</link> instead.",
+    "loading": "Loading…",
+    "viewOnGithub": "View this guide on GitHub"
   }
 }

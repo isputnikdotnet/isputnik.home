@@ -3,43 +3,17 @@ import path from "node:path";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import { db } from "../../../db.js";
-import { builtinCategoryImageUrl, isBuiltinCategoryImageKey } from "../../../categories-seed.js";
 import { type MetadataCandidate } from "./providers/index.js";
-import { sortTitle, writeCoverImages } from "./scanner.js";
+import { sortTitle } from "./scan/folder-parse.js";
+import { writeCoverImages } from "./scan/covers.js";
 import { writeMetadataExport } from "../shared/metadata.js";
 import { applyItemAlphaIndex } from "../shared/alphabet-index.js";
 import { pathIsInside } from "../shared/storage-roots.js";
-import { setEntityTags, addEntityTags } from "./categorize.js";
+import { setEntityTags, addEntityTags } from "../shared/tagging.js";
 import { type AudiobookBookRow, type BookFileRow } from "./types.js";
 import { normalizeLibrarySettings } from "../shared/library-settings.js";
 import { downloadImage } from "../shared/remote-image.js";
-
-// A book's cover file is overwritten in place under a key derived from its id,
-// so the URL alone can't tell a new cover from the old one: a browser that
-// already has the image on screen keeps showing it after an edit, which is why
-// applying a metadata match looked like it left the cover alone even though the
-// file on disk had changed. Stamp the metadata row's updated_at on the URL —
-// every write that can touch the cover bumps it, so a changed cover always
-// arrives under a new URL (and the covers route can then cache it immutably).
-function coverVersionSuffix(metadataUpdatedAt: string | null | undefined) {
-  return metadataUpdatedAt ? `?v=${encodeURIComponent(metadataUpdatedAt)}` : "";
-}
-
-export function coverUrl(storageKey: string | null, metadataUpdatedAt?: string | null) {
-  if (!storageKey) {
-    return null;
-  }
-
-  return `/api/library/covers/${storageKey}${coverVersionSuffix(metadataUpdatedAt)}`;
-}
-
-export function largeCoverUrl(storageKey: string | null, metadataUpdatedAt?: string | null) {
-  if (!storageKey) {
-    return null;
-  }
-
-  return `/api/library/covers/${storageKey.replace(/-cover\.webp$/i, "-cover-large.webp")}${coverVersionSuffix(metadataUpdatedAt)}`;
-}
+import { bookTags, categoryPayload, coverUrl, largeCoverUrl, splitGroupConcat } from "../shared/book-helpers.js";
 
 export const progressUpdateSchema = z.object({
   fileId: z.string().min(1),
@@ -117,10 +91,6 @@ export const manualMetadataSchema = z.object({
   seriesPosition: z.number().min(0).nullable().optional()
 });
 
-export function splitGroupConcat(value: string | null) {
-  return value ? value.split(",").map((item) => item.trim()).filter(Boolean) : [];
-}
-
 function uniqueValues(values: string[]) {
   return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
 }
@@ -147,40 +117,6 @@ export function upsertSeries(libraryId: string, name: string) {
   db.prepare("INSERT OR IGNORE INTO series (id, library_id, name, sort_name) VALUES (?, ?, ?, ?)")
     .run(nanoid(16), libraryId, name, sortTitle(name));
   return db.prepare("SELECT id FROM series WHERE library_id = ? AND name = ?").get(libraryId, name) as { id: string };
-}
-
-export interface CategoryRow {
-  id: string;
-  key: string;
-  name: string;
-  icon: string | null;
-  image_storage_key: string | null;
-}
-
-export function categoryImageUrl(imageStorageKey: string | null) {
-  if (isBuiltinCategoryImageKey(imageStorageKey)) {
-    return builtinCategoryImageUrl(imageStorageKey);
-  }
-  return imageStorageKey ? `/api/library/covers/${imageStorageKey}` : null;
-}
-
-export function categoryPayload(categoryId: string | null) {
-  if (!categoryId) {
-    return null;
-  }
-  const row = db.prepare("SELECT id, key, name, icon, image_storage_key FROM categories WHERE id = ?").get(categoryId) as CategoryRow | undefined;
-  return row ? { key: row.key, name: row.name, icon: row.icon, imageUrl: categoryImageUrl(row.image_storage_key) } : null;
-}
-
-export function bookTags(bookId: string): string[] {
-  const rows = db.prepare(`
-    SELECT tags.display_name AS name
-    FROM taggables
-    JOIN tags ON tags.id = taggables.tag_id
-    WHERE taggables.entity_type = 'library_item' AND taggables.entity_id = ?
-    ORDER BY tags.display_name COLLATE NOCASE
-  `).all(bookId) as { name: string }[];
-  return rows.map((r) => r.name);
 }
 
 export const coverImageExtensions = new Set([".jpg", ".jpeg", ".png", ".webp"]);

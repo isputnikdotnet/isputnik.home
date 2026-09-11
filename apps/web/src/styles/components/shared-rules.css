@@ -1,0 +1,175 @@
+/* Shared rule bodies — one declaration block worn by many components.
+
+   Each rule below was written out identically in several feature stylesheets;
+   it lives here once, with every selector that wore it. This file is imported
+   early (the end of components.css), so a feature's own rule for the same
+   element still comes later and wins on a tie. Add a selector here only when its
+   whole block is exactly this block — and remember that moving a rule here moves
+   it earlier in the cascade: check nothing between its old spot and this one
+   targets the same element with the same specificity. */
+
+/* An image that fills its box edge to edge, cropped to fit: a tile, a
+   thumbnail, an avatar. */
+.missing-thumb img,
+.trash-thumb img,
+.dup-copy-thumb img,
+.dup-compare-thumb img,
+.ft-timeline-photo img,
+.ft-event-photo-thumb img,
+.gallery-tile img,
+.lb-chip-face img,
+.gallery-map-pin img,
+.gallery-person-avatar img,
+.slideshow-clip-thumb img,
+.slideshow-title-photo img,
+.gallery-health-avatar img,
+.share-set-tile img,
+.story-edit-cover > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* One line, cut with an ellipsis. */
+.passkey-meta strong,
+.trash-tile-line > span:first-child,
+.blocked-table td,
+.trusted-table td,
+.book-file-row strong,
+.book-file-row small,
+.category-name-cell strong,
+.category-name-cell span,
+.category-tag-copy strong,
+.category-tag-status,
+.user-name-line > strong,
+.dup-copy-where > span,
+.dup-compare-head-name strong,
+.dup-compare-facts strong,
+.ft-tree-row-cards .ft-relation-card-copy strong,
+.ft-tree-row-cards .ft-relation-card-copy small,
+.slideshow-music-button span,
+.gallery-health-pair-info > span,
+.gallery-keep-folder-path,
+.gallery-drop-link-copy strong,
+.audiobook-sort-trigger > span,
+.audiobook-catalog-hover-text strong,
+.audiobook-catalog-hover-text small,
+.audiobook-catalog-hover-text span,
+.audiobook-catalog-copy strong,
+.audiobook-catalog-copy small,
+.audiobook-catalog-meta,
+.audiobook-card-body strong,
+.audiobook-card-body span,
+.audiobook-card-body small,
+.metadata-result-title-row strong,
+.metadata-result-title-row b,
+.metadata-result-body span,
+.metadata-result-body small,
+.metadata-result-body em,
+.layout-tree-text,
+.layout-unmatched li,
+.send-to-subject-text strong,
+.activity-sentence,
+.activity-body,
+.story-row-body strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The same, for a flex or grid child: min-width 0 lets it shrink below its
+   text. */
+.source-folder-control > span,
+.folder-picker-row span,
+.ft-relation-card-copy strong,
+.ft-relation-card-copy small,
+.gallery-lightbox-name,
+.home-user-menu-link span,
+.home-nav-link span,
+.quote-prefs-category span,
+.audiobook-library-menu button > span,
+.story-card-place span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A row of controls that wraps rather than overflows. */
+.signins-scope-row,
+.gallery-info-date-grain,
+.series-name-edit,
+.collection-head-actions,
+.metadata-actions,
+.metadata-apply-controls,
+.layout-row-title,
+.layout-toolbar,
+.layout-card-head,
+.layout-example-row,
+.layout-text-row,
+.story-edit-location-row,
+.story-chapter-hero-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* The same, tighter. */
+.trash-retention-row,
+.ft-event-photo-strip,
+.lb-chips,
+.gallery-bulk-edit-shift,
+.gallery-place-search,
+.gallery-movie-filename,
+.review-row,
+.review-chips,
+.layout-filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Paged list chrome shared by Logs, the Recycle bin and Duplicate photos:
+   filters on the left, view controls pushed right at one 40px height, and a
+   pager row under the list — the count on the left, page controls on the right. */
+.log-toolbar,
+.trash-toolbar,
+.dup-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.log-toolbar-controls,
+.trash-toolbar-controls,
+.dup-toolbar-controls {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.log-toolbar-controls .icon-button,
+.trash-toolbar-controls .icon-button,
+.dup-toolbar-controls .icon-button {
+  min-width: 40px;
+  min-height: 40px;
+}
+
+.log-pager-row,
+.trash-pager-row,
+.dup-pager-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+  font-size: 0.84rem;
+}

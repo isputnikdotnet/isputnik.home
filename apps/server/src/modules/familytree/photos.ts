@@ -8,7 +8,7 @@
 // column/join/mapper trio so profile photos carry the same URLs and metadata as
 // every other gallery surface (precedent: collections hydrators).
 import { db } from "../../db.js";
-import { ASSET_COLUMNS, ASSET_JOINS, mapAsset, type GalleryAssetRow } from "../library/gallery/catalog.js";
+import { ASSET_COLUMNS, ASSET_JOINS, mapAsset, type GalleryAssetRow } from "../library/gallery/catalog-asset.js";
 import { accessibleLibraryIds } from "../library/shared/library-access.js";
 
 const inClause = (n: number) => Array(n).fill("?").join(", ");
@@ -183,7 +183,7 @@ export function getFamilyPersonPhotos(
     ${ASSET_JOINS}
     JOIN (${sourcesSql}) src ON src.item_id = library_items.id
     WHERE ${filterSql}
-    ORDER BY src.rank, src.pos, datetime(gallery_details.taken_at) DESC, library_items.id DESC
+    ORDER BY src.rank, src.pos, gallery_details.taken_at DESC, library_items.id DESC
     LIMIT ? OFFSET ?
   `).all(
     user.id, personId, person.gallery_person_id, personId, ...libIds, limit, offset

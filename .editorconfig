@@ -1,0 +1,15 @@
+# The house style, as the code already writes it: 2 spaces, LF, a final newline.
+# Editors that read this (most do, some via a plugin) then match without asking.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 2
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# Markdown uses two trailing spaces as a hard line break.
+[*.md]
+trim_trailing_whitespace = false

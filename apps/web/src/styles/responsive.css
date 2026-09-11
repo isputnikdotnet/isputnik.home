@@ -118,22 +118,6 @@
     padding: 22px 18px;
   }
 
-  .backup-settings-row {
-    grid-template-columns: 1fr;
-    gap: 16px;
-    margin-top: 20px;
-  }
-
-  .backup-settings-row > * + * {
-    min-height: 0;
-    padding-top: 16px;
-    padding-left: 0;
-    border-top: 1px solid var(--line);
-    border-left: 0;
-  }
-
-  .backup-auto-toggle,
-  .backup-field-time,
   .backup-field-keep {
     max-width: none;
   }

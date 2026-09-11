@@ -73,7 +73,7 @@ function purgesAt(detectedAt: string, days: number): string | null {
 // thumbnail and the date it's due to be auto-purged.
 export function listMissingGalleryPhotos(): { items: MissingPhoto[]; retentionDays: number } {
   const days = getMissingRetentionDays();
-  const rows = db.prepare(`${MISSING_SELECT} ORDER BY datetime(li.deleted_at) DESC, li.id`).all() as MissingRow[];
+  const rows = db.prepare(`${MISSING_SELECT} ORDER BY li.deleted_at DESC, li.id`).all() as MissingRow[];
   const items = rows.map((row) => ({
     id: row.id,
     libraryId: row.library_id,
@@ -116,7 +116,7 @@ export function purgeMissingGalleryPhoto(itemId: string, actorUserId: string | n
 export function purgeMissingGalleryPhotos(retentionDays?: number, actorUserId: string | null = null): { purged: number; eligible: number } {
   const days = retentionDays ?? getMissingRetentionDays();
   if (days <= 0) return { purged: 0, eligible: 0 };
-  const rows = db.prepare(`${MISSING_SELECT} AND datetime(li.deleted_at) <= datetime('now', ?)`)
+  const rows = db.prepare(`${MISSING_SELECT} AND li.deleted_at <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', ?)`)
     .all(`-${days} days`) as MissingRow[];
 
   const purgedPaths: string[] = [];

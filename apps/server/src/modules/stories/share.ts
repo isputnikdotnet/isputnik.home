@@ -22,23 +22,16 @@ import { db } from "../../db.js";
 import { nanoid } from "nanoid";
 import { sha256 } from "../../crypto.js";
 import { addDays } from "../../auth.js";
-import { curatableGalleryLibraryIds } from "../library/shared/shares.js";
+import { curatableGalleryLibraryIds } from "../library/shared/shares/album-shares.js";
 import { hydrateEntities } from "../social/subjects.js";
 import { getAlbum, getAlbumItems } from "../library/gallery/albums.js";
 import { getSlideshow, getSlideshowItems } from "../library/gallery/slideshows.js";
 import type { ResolvedShareLink } from "../library/shared/share-access.js";
 import { getStoryAudio } from "./audio.js";
-import {
-  BLOCK_PREVIEW_LIMIT,
-  getStory,
-  canEditStory,
-  getChapters,
-  getBlocks,
-  blockPointsByIds,
-  type BlockRow,
-  type RoutePoint,
-  type StoryRow
-} from "./stories.js";
+import { BLOCK_PREVIEW_LIMIT, type BlockRow, type RoutePoint, type StoryRow } from "./stories.js";
+import { getStory, canEditStory } from "./access.js";
+import { getChapters } from "./chapters.js";
+import { getBlocks, blockPointsByIds } from "./blocks.js";
 
 export const STORY_SHARE_MODULE = "story";
 

@@ -4,7 +4,7 @@ import cookie from "@fastify/cookie";
 
 import { db } from "../src/db.js";
 import { issueSession, registerAuthDecorators } from "../src/auth.js";
-import { dashboardPlugin } from "../src/core/dashboard.js";
+import { dashboardPlugin } from "../src/modules/dashboard/index.js";
 import { makeUser, resetDb } from "./helpers/seed.js";
 
 // The Activity tab's date toolbar drives /api/dashboard/activity the way the

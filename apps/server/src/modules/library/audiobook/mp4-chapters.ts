@@ -213,6 +213,7 @@ class Mp4Reader {
     const runs: { firstChunk: number; samplesPerChunk: number }[] = [];
     if (stsc) {
       const entryCount = this.read(stsc.start + 4, 4).readUInt32BE(0);
+      if (entryCount > MAX_CHAPTER_SAMPLES) return [];
       const table = this.read(stsc.start + 8, entryCount * 12);
       for (let i = 0; i < entryCount; i += 1) {
         runs.push({

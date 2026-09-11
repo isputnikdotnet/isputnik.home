@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { Clock, Headphones, Loader2, type LucideIcon } from "lucide-react";
-import type { PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { MessageBox } from "../../shared/MessageBox";
 import { useIsMobile } from "../../shared/useIsMobile";
@@ -23,7 +22,7 @@ const MODE_ICONS: Record<FeedMode, LucideIcon> = {
 // lists newest additions across audiobooks + ebooks; `continue` lists in-progress.
 // Capped at the latest LIMIT items. Renders the same way the home rows do:
 // list rows on phones, the catalog tile grid on desktop.
-export function LibraryFeedPage({ mode, user, logout }: { mode: FeedMode; user: PublicUser; logout: () => Promise<void> }) {
+export function LibraryFeedPage({ mode }: { mode: FeedMode }) {
   const isMobile = useIsMobile();
   const [items, setItems] = useState<FeedItem[] | null>(null);
   const [error, setError] = useState("");
@@ -89,7 +88,7 @@ export function LibraryFeedPage({ mode, user, logout }: { mode: FeedMode; user: 
 
   return (
     <>
-    <DashboardShell active="home" user={user} logout={logout}>
+    <DashboardShell active="home">
       {/* Same full-width wrapper the Audiobooks page uses, so the catalog grid
           fits the same number of columns (work-area caps width at 1040px). */}
       <section className="audiobook-main-page">

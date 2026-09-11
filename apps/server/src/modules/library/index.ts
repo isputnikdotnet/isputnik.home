@@ -4,7 +4,7 @@ import { coversPlugin } from "./covers.js";
 import { storagePlugin } from "./storage.js";
 import { appStorageRoutesPlugin } from "./app-storage-routes.js";
 import { startStorageMoveWorker } from "./shared/storage-move.js";
-import { migrateRendersIntoAppStorage } from "./app-storage.js";
+import { migrateRendersIntoAppStorage } from "./app-storage-switch.js";
 import { audiobookPlugin } from "./audiobook/index.js";
 import { ebookPlugin } from "./ebook/index.js";
 import { galleryPlugin } from "./gallery/index.js";
@@ -12,7 +12,7 @@ import { libraryMembersPlugin } from "./shared/members.js";
 import { scanRulesPlugin } from "./shared/scan-rules-routes.js";
 import { folderLocksPlugin } from "./shared/folder-locks-routes.js";
 import { registerTrashRoutes } from "./shared/trash-routes.js";
-import { startTrashPurgeWorker } from "./shared/trash.js";
+import { startTrashPurgeWorker } from "./shared/trash-retention.js";
 import { reconcileOrphanedScans } from "./shared/job-recovery.js";
 import { sweepOrphanLibraryThumbnails } from "./shared/thumbnail.js";
 import { backfillAlphaKeys } from "./shared/alphabet-index.js";
@@ -24,7 +24,7 @@ import { registerBookmarkRoutes } from "./bookmarks.js";
 import { registerQuoteRoutes } from "./quotes.js";
 import { registerQuoteImportRoutes } from "./quotes-import.js";
 import { registerDailyQuoteRoutes } from "./quotes-daily.js";
-import { librarySharesPlugin } from "./shared/shares.js";
+import { librarySharesPlugin } from "./shared/shares/index.js";
 
 export async function libraryPlugin(app: FastifyInstance) {
   // The A–Z strip reads item_metadata.alpha_key, which migration 34 adds empty

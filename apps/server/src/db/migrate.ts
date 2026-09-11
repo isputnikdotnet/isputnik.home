@@ -8,12 +8,13 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 // The whole schema lives in schema.sql and is idempotent (CREATE TABLE IF NOT
 // EXISTS), so a database is built in one pass with no migration history to replay.
 //
-// `migrations` is empty, and has been reset twice now. 2.0.0 folded 2-22 back into
-// schema.sql; 3.0.0 folds 24-31 the same way, because 3.0.0 does not upgrade an
-// earlier database at all — it is a fresh install, so a chain of ALTER TABLEs against
-// a 2.x file is code that can never run. It grows again only when a RELEASED 3.x
-// schema has to change in a way schema.sql alone cannot apply to existing data: a new
-// column on an existing table, or a widened CHECK.
+// `migrations` has been reset twice. 2.0.0 folded 2-22 back into schema.sql; 3.0.0
+// folded 24-31 the same way, because 3.0.0 does not upgrade an earlier database at
+// all — it is a fresh install, so a chain of ALTER TABLEs against a 2.x file is code
+// that can never run. Since then it has grown again, one entry per RELEASED 3.x
+// schema change that schema.sql alone cannot apply to existing data: a new column on
+// an existing table, a widened CHECK, a table rebuild. (New tables and new indexes
+// need no entry — schema.sql is re-run on every boot and creates them.)
 const baseline = 32;
 
 // 3.0.0 starts from an empty database. 31 is the last 2.x schema and is structurally

@@ -58,7 +58,7 @@
 
 .offline-status-banner {
   position: fixed;
-  z-index: 200;
+  z-index: var(--z-toast);
   top: 14px;
   left: 50%;
   transform: translateX(-50%);
@@ -82,7 +82,7 @@
 
 .sw-update-banner {
   position: fixed;
-  z-index: 200;
+  z-index: var(--z-toast);
   bottom: 20px;
   left: 50%;
   transform: translateX(-50%);

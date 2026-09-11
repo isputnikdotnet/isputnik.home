@@ -3,7 +3,7 @@
 // The Locations map needs one coordinate per country to stand a bubble on, and
 // the connection data behind it is country-granular. Rather than hand-carry a
 // table of 250 coordinates, this derives them from the path data of
-// @svg-maps/world (CC BY 4.0, a devDependency of apps/web) — the same path set
+// @svg-maps/world (CC BY 4.0) — the same path set
 // the old SVG choropleth drew — by taking the area centroid of each country's
 // largest closed subpath and inverse-projecting it.
 //
@@ -15,7 +15,11 @@
 // Zealand comes out on the South Island; the map treats these as anchors, not as
 // claims about where a country's middle is.
 //
-// Run from the repo root:  node scripts/gen-country-centroids.mjs
+// The output is committed and this runs about once a decade, so the map data is not
+// a dependency of anything. Fetch it for the run, without touching package.json:
+//
+//   npm i --no-save @svg-maps/world
+//   node scripts/gen-country-centroids.mjs      (from the repo root)
 
 import { writeFileSync } from "node:fs";
 import World from "@svg-maps/world";

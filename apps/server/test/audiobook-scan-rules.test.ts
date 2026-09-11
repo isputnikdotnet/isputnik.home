@@ -8,8 +8,9 @@ import os from "node:os";
 import path from "node:path";
 import { db } from "../src/db.js";
 import {
-  enqueueAudiobookScan, processAudiobookScanQueue, rescanSingleBook, previewAudiobookRulePattern, walkAudiobookFiles
+  enqueueAudiobookScan, processAudiobookScanQueue, rescanSingleBook, previewAudiobookRulePattern
 } from "../src/modules/library/audiobook/scanner.js";
+import { walkAudiobookFiles } from "../src/modules/library/audiobook/scan/walk.js";
 import { createScanRule, updateScanRule, isScanRuleError, loadOwnerIndex, getScanRule } from "../src/modules/library/shared/scan-rules.js";
 import { normalizeLibrarySettings } from "../src/modules/library/shared/library-settings.js";
 import { resetDb, makeUser } from "./helpers/seed.js";

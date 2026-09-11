@@ -7,7 +7,8 @@ import cookie from "@fastify/cookie";
 import { db } from "../src/db.js";
 import { hashPassword } from "../src/crypto.js";
 import { registerAuthDecorators } from "../src/auth.js";
-import { trashBook, TrashError } from "../src/modules/library/shared/trash.js";
+import { trashBook } from "../src/modules/library/shared/trash.js";
+import { TrashError } from "../src/modules/library/shared/trash-settings.js";
 import { registerTrashRoutes } from "../src/modules/library/shared/trash-routes.js";
 import { folderLocksPlugin } from "../src/modules/library/shared/folder-locks-routes.js";
 import {
@@ -15,6 +16,7 @@ import {
 } from "../src/modules/library/shared/folder-locks.js";
 import { thumbnailPathSettingKey } from "../src/modules/library/shared/thumbnail.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
+import "./helpers/media-types.js";
 
 // A folder lock is an admin's "nothing under here may be deleted from the app".
 // Like the external-library rule it is enforced inside trashBook — the one funnel

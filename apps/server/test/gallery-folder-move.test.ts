@@ -9,6 +9,7 @@ import { folderMoveStatuses, waitForStorageMoves, STORAGE_MOVE_JOB_TYPE } from "
 import { thumbnailAbsolutePath, thumbnailPathSettingKey, thumbnailStorageKey } from "../src/modules/library/shared/thumbnail.js";
 import { setFolderLock, listFolderLocks } from "../src/modules/library/shared/folder-locks.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
+import "./helpers/media-types.js";
 
 // Moving a folder of one gallery library into another (gallery/folder-move.ts):
 // the files travel as a storage move task; the items keep their ids and are

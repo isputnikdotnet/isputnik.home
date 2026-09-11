@@ -7,7 +7,7 @@ import {
   type CatalogConfig,
   type CatalogQuery
 } from "../shared/catalog-core.js";
-import { splitGroupConcat, categoryPayload, bookTags, coverUrl as buildCoverUrl, largeCoverUrl } from "../audiobook/book-helpers.js";
+import { splitGroupConcat, categoryPayload, bookTags, coverUrl as buildCoverUrl, largeCoverUrl } from "../shared/book-helpers.js";
 
 // Columns/joins for the ebook catalog. Unlike audiobooks, content is documents
 // (document_files) and progress is per-document reading_progress — folded to the
@@ -17,7 +17,7 @@ import { splitGroupConcat, categoryPayload, bookTags, coverUrl as buildCoverUrl,
 const EBOOK_PROGRESS_JOIN = `
       LEFT JOIN (
         SELECT item_id, percent_complete, completed_at,
-          ROW_NUMBER() OVER (PARTITION BY item_id ORDER BY datetime(updated_at) DESC) AS rn
+          ROW_NUMBER() OVER (PARTITION BY item_id ORDER BY updated_at DESC) AS rn
         FROM reading_progress
         WHERE user_id = ?
       ) AS progress ON progress.item_id = library_items.id AND progress.rn = 1`;

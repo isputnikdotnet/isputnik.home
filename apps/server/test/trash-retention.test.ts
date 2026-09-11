@@ -3,15 +3,16 @@ import os from "node:os";
 import path from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../src/db.js";
+import { trashBook } from "../src/modules/library/shared/trash.js";
+import { purgeExpiredTrash } from "../src/modules/library/shared/trash-retention.js";
 import {
-  trashBook,
-  purgeExpiredTrash,
   setTrashRetentionDays,
   setCleanupRetentionDays,
   getCleanupRetentionDays
-} from "../src/modules/library/shared/trash.js";
+} from "../src/modules/library/shared/trash-settings.js";
 import { thumbnailPathSettingKey } from "../src/modules/library/shared/thumbnail.js";
 import { resetDb, makeUser, makeLibrary } from "./helpers/seed.js";
+import "./helpers/media-types.js";
 
 // Two clocks — the bin's own, and a shorter one for duplicate cleanup, which can put
 // thousands of files in the bin at once. What matters is WHEN each is read: the date is
@@ -101,7 +102,7 @@ describe("recycle bin retention", () => {
 
     // One is now past its date; the other is not. Shortening the window afterwards
     // must not condemn the second — it was deleted under a promise of 30 days.
-    db.prepare("UPDATE trashed_items SET expires_at = datetime('now', '-1 day') WHERE title = 'Title bk1'").run();
+    db.prepare("UPDATE trashed_items SET expires_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 day') WHERE title = 'Title bk1'").run();
     setTrashRetentionDays(1);
 
     expect(purgeExpiredTrash()).toEqual({ purged: 1, eligible: 1 });

@@ -4,7 +4,7 @@ import path from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../src/db.js";
 import { EVERYONE_GROUP_ID, parsePolicy } from "../src/core/permissions.js";
-import { resolveGalleryScopeLibraryIds } from "../src/modules/library/gallery/catalog.js";
+import { resolveGalleryScopeLibraryIds } from "../src/modules/library/gallery/catalog-scope.js";
 import {
   discardPhotoInboxItems, keepPhotoInboxItems, listPhotoInboxItems, listPhotoInboxes, photoInboxLibraryIds
 } from "../src/modules/library/gallery/inbox.js";
@@ -12,9 +12,10 @@ import { moveGalleryAsset, normaliseTargetFolder } from "../src/modules/library/
 import { enqueueFaceScanBatches } from "../src/modules/library/gallery/faces/queue.js";
 import { enabledFaceLibraryIds, setFaceRecognitionEnabledForLibrary } from "../src/modules/library/gallery/faces/settings.js";
 import { createLibraryRecord, updateLibraryRecord } from "../src/modules/library/shared/library-crud.js";
-import { setCleanupRetentionDays, setTrashRetentionDays } from "../src/modules/library/shared/trash.js";
+import { setCleanupRetentionDays, setTrashRetentionDays } from "../src/modules/library/shared/trash-settings.js";
 import { thumbnailAbsolutePath, thumbnailPathSettingKey, thumbnailStorageKey } from "../src/modules/library/shared/thumbnail.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
+import "./helpers/media-types.js";
 
 // The Photo Inbox (docs/photo-inbox-proposal.md): a gallery library flagged
 // `policy_json.inbox`. Three promises, one block each — it is left out of every

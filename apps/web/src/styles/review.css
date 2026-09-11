@@ -108,7 +108,7 @@
 .review-photo.is-large {
   position: fixed;
   inset: 0;
-  z-index: 30;
+  z-index: var(--z-popover);
   padding: 0;
   background: #000;
   cursor: zoom-out;
@@ -139,13 +139,6 @@
   font-size: 20px;
   font-weight: 600;
   letter-spacing: -0.005em;
-}
-
-.review-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
 }
 
 .review-when { display: grid; gap: 10px; }
@@ -205,13 +198,6 @@
 }
 
 .review-toggle button:disabled { opacity: 0.5; cursor: default; }
-
-.review-chips {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
 
 .review-chip {
   display: inline-flex;
@@ -317,10 +303,6 @@
   font-size: 19px;
 }
 
-.review-readonly {
-  padding: 16px 20px 0;
-}
-
 /* Portrait tablet and phone: the photo above the questions. */
 @media (max-width: 900px) {
   .review-body {
@@ -346,11 +328,4 @@
 
 @media (prefers-reduced-motion: reduce) {
   .review-bar i { transition: none; }
-}
-
-/* Recording in progress: the chip turns the danger colour so Stop is obvious. */
-.review-chip-record {
-  border-color: var(--danger);
-  background: color-mix(in srgb, var(--danger) 16%, var(--field));
-  color: var(--ink);
 }

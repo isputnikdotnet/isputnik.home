@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, BookOpen, Headphones } from "lucide-react";
-import { api, type PublicUser } from "../../api";
+import { api } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
-import { getReferrer, goBack, navigate } from "../../router";
+import { getReferrer, goBack } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { SectionNav } from "../../shared/SectionNav";
 import { FeedTile } from "../library/FeedTile";
@@ -14,13 +14,9 @@ import type { CategoryDetail } from "./types";
 type KindFilter = "all" | "audiobook" | "ebook";
 
 export function CategoryDetailPage({
-  categoryKey,
-  user,
-  logout
+  categoryKey
 }: {
   categoryKey: string;
-  user: PublicUser;
-  logout: () => Promise<void>;
 }) {
   const { t } = useTranslation(["common", "book"]);
   const [category, setCategory] = useState<CategoryDetail | null>(null);
@@ -50,8 +46,6 @@ export function CategoryDetailPage({
   return (
     <DashboardShell
       active={section?.active ?? "categories"}
-      user={user}
-      logout={logout}
       sideNav={section && <SectionNav {...sectionNavProps(section)} activeKey="categories" />}
     >
       <section className="audiobook-main-page">

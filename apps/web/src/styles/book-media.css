@@ -61,7 +61,7 @@
 .doc-viewer-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 1000;
+  z-index: var(--z-viewer);
   display: flex;
   flex-direction: column;
   background: var(--surface-raised);
@@ -189,13 +189,6 @@
   display: grid;
   gap: 2px;
   min-width: 0;
-}
-
-.book-file-row strong,
-.book-file-row small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .book-file-row small {

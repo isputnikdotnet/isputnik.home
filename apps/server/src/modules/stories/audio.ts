@@ -12,10 +12,12 @@
 import fs from "node:fs";
 import path from "node:path";
 import { nanoid } from "nanoid";
+import type { FastifyReply, FastifyRequest } from "fastify";
 import { uploadStagingDir } from "../../core/app-storage.js";
 import { db } from "../../db.js";
 import { thumbnailAbsolutePath, thumbnailStorageKey } from "../library/shared/thumbnail.js";
-import { probeDurationSeconds } from "../library/gallery/slideshow-render.js";
+import { parseRangeHeader, pipeFileToReply } from "../library/shared/document-stream.js";
+import { probeDurationSeconds } from "../library/gallery/slideshow-probe.js";
 
 /** How a narration block points at its clip. Not a subjects-registry type:
  *  the clip belongs to the story, not to the library. */
@@ -65,6 +67,44 @@ export function narrationMime(storageKey: string): string {
 
 export function narrationAbsolutePath(row: StoryAudioRow): string {
   return thumbnailAbsolutePath(row.storage_key);
+}
+
+// Send a narration clip, honouring a Range request so a long recording can be
+// scrubbed. reply.hijack() + pipe is the house pattern for binary streaming.
+export function sendNarration(request: FastifyRequest, reply: FastifyReply, audio: StoryAudioRow) {
+  const filePath = narrationAbsolutePath(audio);
+  if (!fs.existsSync(filePath)) {
+    reply.code(404).send({ error: "Recording not found" });
+    return;
+  }
+  const total = fs.statSync(filePath).size;
+  const mime = narrationMime(audio.storage_key);
+  const range = request.headers.range ? parseRangeHeader(request.headers.range, total) : null;
+
+  if (request.headers.range && !range) {
+    reply.code(416).header("Content-Range", `bytes */${total}`).send();
+    return;
+  }
+
+  reply.hijack();
+  if (range) {
+    reply.raw.writeHead(206, {
+      "Content-Type": mime,
+      "Content-Length": range.end - range.start + 1,
+      "Content-Range": `bytes ${range.start}-${range.end}/${total}`,
+      "Accept-Ranges": "bytes",
+      "Cache-Control": "private, max-age=3600"
+    });
+    pipeFileToReply(reply, filePath, range);
+    return;
+  }
+  reply.raw.writeHead(200, {
+    "Content-Type": mime,
+    "Content-Length": total,
+    "Accept-Ranges": "bytes",
+    "Cache-Control": "private, max-age=3600"
+  });
+  pipeFileToReply(reply, filePath);
 }
 
 export function narrationTempDir(): string {

@@ -4,7 +4,9 @@
 // playback_progress, ebook reading_progress). Lives at the library level rather
 // than in one media plugin, like the Recycle Bin.
 import type { FastifyInstance } from "fastify";
+import { z } from "zod";
 import { db } from "../../db.js";
+import { parseQuery } from "../../core/shared.js";
 import { accessibleLibraryIds } from "./shared/library-access.js";
 import { BOOK_LIBRARY_TYPES } from "./shared/library-types.js";
 
@@ -176,20 +178,31 @@ export function inProgress(user: { id: string; role: string }, limit: number, of
 }
 
 export function registerFeedRoutes(app: FastifyInstance) {
+  // Strings, not numbers: junk falls back to the defaults, as it always has.
+  const pagingQuerySchema = z.object({ limit: z.string().optional(), offset: z.string().optional() });
+
   const paging = (query: unknown) => {
-    const q = (query ?? {}) as { limit?: string; offset?: string };
+    const parsed = parseQuery(pagingQuerySchema, query);
+    if (parsed.error) return { error: parsed.error };
+    const q = parsed.data;
     const limit = Math.min(Math.max(parseInt(q.limit ?? "24", 10) || 24, 1), 100);
     const offset = Math.max(parseInt(q.offset ?? "0", 10) || 0, 0);
     return { limit, offset };
   };
 
-  app.get("/api/library/feed/recent", { preHandler: app.authenticate }, async (request) => {
-    const { limit, offset } = paging(request.query);
-    return recentlyAdded(request.user!, limit, offset);
+  app.get("/api/library/feed/recent", { preHandler: app.authenticate }, async (request, reply) => {
+    const page = paging(request.query);
+    if ("error" in page) {
+      return reply.code(400).send({ error: "Invalid query", details: page.error });
+    }
+    return recentlyAdded(request.user!, page.limit, page.offset);
   });
 
-  app.get("/api/library/feed/continue", { preHandler: app.authenticate }, async (request) => {
-    const { limit, offset } = paging(request.query);
-    return inProgress(request.user!, limit, offset);
+  app.get("/api/library/feed/continue", { preHandler: app.authenticate }, async (request, reply) => {
+    const page = paging(request.query);
+    if ("error" in page) {
+      return reply.code(400).send({ error: "Invalid query", details: page.error });
+    }
+    return inProgress(request.user!, page.limit, page.offset);
   });
 }

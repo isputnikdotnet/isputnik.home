@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
 import { ingestGalleryAsset } from "../src/modules/library/gallery/scanner.js";
-import { queryGalleryMemories } from "../src/modules/library/gallery/catalog.js";
+import { queryGalleryMemories } from "../src/modules/library/gallery/catalog-memories.js";
 import { kindForExtension } from "../src/modules/library/gallery/media.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
 

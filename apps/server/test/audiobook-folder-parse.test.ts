@@ -2,7 +2,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { parseFolderName, findFolderCover } from "../src/modules/library/audiobook/scanner.js";
+import { parseFolderName } from "../src/modules/library/audiobook/scan/folder-parse.js";
+import { findFolderCover } from "../src/modules/library/audiobook/scan/covers.js";
 
 describe("parseFolderName", () => {
   it("returns the whole name as title when there is no author separator", () => {

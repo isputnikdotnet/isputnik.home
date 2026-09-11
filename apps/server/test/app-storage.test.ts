@@ -5,30 +5,34 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "../src/db.js";
 import { parsePolicy } from "../src/core/permissions.js";
 import { appRoomMode, appRoomPath, getAppStorageSetting, resolveAppLocation, setAppRoomMode } from "../src/core/app-storage.js";
+import { appStorageView } from "../src/modules/library/app-storage-rooms.js";
 import {
-  appStorageView,
   migrateRendersIntoAppStorage,
   renameRoomFolder,
-  setAppStoragePath,
-  switchRoom,
-  validateAppStoragePath,
-  AppStorageError
-} from "../src/modules/library/app-storage.js";
-import { copyTreeVerified, storageMoveStatus, waitForStorageMoves, STORAGE_MOVE_JOB_TYPE } from "../src/modules/library/shared/storage-move.js";
+  switchRoom
+} from "../src/modules/library/app-storage-switch.js";
+import { setAppStoragePath } from "../src/modules/library/app-storage-path.js";
+import { validateAppStoragePath, AppStorageError } from "../src/modules/library/app-storage.js";
+import { copyTreeVerified, pendingTrashMoveRows, storageMoveStatus, waitForStorageMoves, STORAGE_MOVE_JOB_TYPE } from "../src/modules/library/shared/storage-move.js";
 import { getHouseLibrary, setHouseLibrary } from "../src/modules/library/gallery/house-library.js";
-import { resolveGalleryBrowseLibraryIds, resolveGalleryScopeLibraryIds } from "../src/modules/library/gallery/catalog.js";
+import {
+  resolveGalleryBrowseLibraryIds,
+  resolveGalleryScopeLibraryIds
+} from "../src/modules/library/gallery/catalog-scope.js";
 import {
   configuredThumbnailPathValue,
   getRendersRoot,
   thumbnailAbsolutePath,
   thumbnailPathSettingKey
 } from "../src/modules/library/shared/thumbnail.js";
-import { getTrashRootSetting, trashBook } from "../src/modules/library/shared/trash.js";
-import { pendingTrashMoveRows, startTrashMove, waitForTrashMove } from "../src/modules/library/shared/trash-move.js";
+import { getTrashRootSetting } from "../src/modules/library/shared/trash-settings.js";
+import { trashBook } from "../src/modules/library/shared/trash.js";
+import { startTrashMove, waitForTrashMove } from "../src/modules/library/shared/trash-move.js";
 import { folderMoveStatus, waitForFolderMove } from "../src/modules/library/shared/folder-move.js";
 import { backupDir } from "../src/modules/backups/index.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
 import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
+import "./helpers/media-types.js";
 
 // App storage (docs/app-storage-plan.md, phase 1): one folder with fixed rooms,
 // every room optional, each switched from its own row, nothing moved without

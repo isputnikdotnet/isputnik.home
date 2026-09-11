@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { ArrowLeft, BookOpen, ExternalLink, Flag, Globe, Headphones, MapPin, Merge, Pencil, Search, UserRound, type LucideIcon } from "lucide-react";
-import { api, type PublicUser } from "../../api";
+import { api } from "../../api";
 import i18n from "../../i18n";
 import { DashboardShell } from "../../app/DashboardShell";
 import { getReferrer, goBack, navigate, queryParam, replaceQuery } from "../../router";
@@ -13,6 +13,7 @@ import { formatDuration } from "../../shared/utils";
 import { sectionFromHref, sectionNavProps } from "./sectionNavItems";
 import { formatLifespan } from "./types";
 import { PersonProfileModal } from "./PersonProfileModal";
+import { useSession } from "../../app/SessionContext";
 
 // One item this person is credited on, in any media type / any accessible
 // library. `role` is how they're credited on this specific item. narrators is
@@ -87,14 +88,11 @@ function personTabs(): { id: PersonTab; label: string; icon: LucideIcon }[] {
 // own detail page uses. Reached via /people/:name and the legacy per-type
 // author/narrator paths, which all render this component.
 export function PersonPage({
-  personName,
-  user,
-  logout
+  personName
 }: {
   personName: string;
-  user: PublicUser;
-  logout: () => Promise<void>;
 }) {
+  const { user } = useSession();
   const { t } = useTranslation(["common", "book"]);
   const [items, setItems] = useState<PersonItem[]>([]);
   const [profile, setProfile] = useState<PersonProfileInfo | null>(null);
@@ -224,8 +222,6 @@ export function PersonPage({
   return (
     <DashboardShell
       active={dashActive}
-      user={user}
-      logout={logout}
       sideNav={section && <SectionNav {...sectionNavProps(section)} activeKey={sectionKey} />}
     >
       <section className="book-detail-view person-detail-view">

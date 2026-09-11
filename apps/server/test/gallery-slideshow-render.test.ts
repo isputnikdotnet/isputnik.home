@@ -23,30 +23,32 @@ import {
 } from "../src/modules/library/gallery/slideshows.js";
 import Database from "better-sqlite3";
 import { migrate } from "../src/db/migrate.js";
+import { buildFfmpegArgs, musicWindows, RANDOM_XFADES } from "../src/modules/library/gallery/slideshow-ffmpeg-args.js";
 import {
-  buildFfmpegArgs,
   segmentsFor,
-  enqueueSlideshowRender,
-  renderProgressPercent,
-  saveMovieToLibrary,
-  movieRelativePathFor,
-  reconcileOrphanedRenders,
-  deleteSlideshowRender,
-  describeFfmpegFailure,
-  parseFilterList,
-  capabilitiesFrom,
-  chunkSegments,
   titleCardSegment,
   titleBackgroundFor,
-  musicWindows,
-  swapRenderIntoPlace,
-  foreignItemAt,
-  movieStemFor,
   TITLE_CARD_SECONDS,
-  RANDOM_XFADES,
-  RENDER_JOB_TYPE,
   type Segment
+} from "../src/modules/library/gallery/slideshow-segments.js";
+import {
+  enqueueSlideshowRender,
+  renderProgressPercent,
+  reconcileOrphanedRenders,
+  RENDER_JOB_TYPE
+} from "../src/modules/library/gallery/slideshow-render-queue.js";
+import {
+  saveMovieToLibrary,
+  movieRelativePathFor,
+  deleteSlideshowRender,
+  foreignItemAt
+} from "../src/modules/library/gallery/slideshow-movie-files.js";
+import {
+  describeFfmpegFailure,
+  chunkSegments,
+  swapRenderIntoPlace
 } from "../src/modules/library/gallery/slideshow-render.js";
+import { parseFilterList, capabilitiesFrom } from "../src/modules/library/gallery/slideshow-probe.js";
 import { thumbnailPathSettingKey, thumbnailStorageKey, thumbnailAbsolutePath } from "../src/modules/library/shared/thumbnail.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
 

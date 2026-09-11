@@ -3,42 +3,53 @@
 All styles are imported by [`apps/web/src/styles.css`](../apps/web/src/styles.css), in this order:
 
 ```
-tokens → base → auth → layout → components → home → player →
-library-browse → gallery → family-tree → library-collections →
-book-detail → category-images → book-media → ebook-reader →
-metadata-modal → admin → duplicates → about → share → filter →
-install → offline → theme-picker → responsive
+tokens → base → auth → layout → components → home → player → audio →
+library-browse → gallery → review → family-tree → library-collections →
+stories → book-detail → category-images → book-media → ebook-reader →
+metadata-modal → person-edit → admin → scan-layout → welcome → duplicates →
+about → share → social → filter → install → offline → theme-picker → responsive
 ```
+
+The one exception is Leaflet: `leaflet.css` and the marker-cluster stylesheets are
+imported by the map components that use them (`GalleryMap`, `StoryMap`, the
+dashboard's `LocationsMap`, …), not here.
 
 ### Stylesheet inventory
 
 | Stylesheet | Purpose |
 |---|---|
-| `tokens.css` | Design tokens — colors and theming (`dark`/`light` via `data-theme`) |
+| `tokens.css` | Design tokens — colours for the five themes (`dark`, `light`, `plain-dark`, `plain-light`, `minimalist`) via `data-theme` |
 | `base.css` | Global resets and typography |
-| `auth.css` | Login / register split-screen (pre-auth) |
-| `layout.css` | App shell — header, sidebar rail, page grid, Control Center panel |
+| `auth.css` | Sign-in / invite split-screen (pre-auth), device-link screens, and the `--auth-*` token set per theme |
+| `layout.css` | Main column, avatar, work area, scene backgrounds, control-panel grid and tab row |
 | `components.css` | Shared UI — fields, buttons, message boxes, modals, datagrid, badges. A barrel over `components/` (see below) |
-| `home.css` | Home — resume hero + the ranked card feed |
-| `player.css` | Audio player widget |
+| `home.css` | Home — resume hero + the ranked card feed — and the app shell every signed-in page wears: left sidebar, menus, mobile tab bar (`home-*`) |
+| `player.css` | Audio player widget and its popup/chapter sheet |
+| `audio.css` | The shared recorder and wave player (photo voice notes, story narration — [`lightbox-panel.md`](lightbox-panel.md)) |
 | `library-browse.css` | Main audiobook catalog / landing + shared browse toolbar (split from `library.css`) |
 | `gallery.css` | Photo/video timeline + folder grid and the full-screen lightbox |
+| `review.css` | Review mode — one photo, its questions, full screen ([`photo-review-plan.md`](photo-review-plan.md)) |
 | `family-tree.css` | People grid, person profile, pickers, and the SVG chart |
 | `library-collections.css` | Category, series & people pages (split from `library.css`) |
+| `stories.css` | Stories — index, reading view, editor, and the block surfaces they share (the largest stylesheet) |
 | `book-detail.css` | Audiobook book detail + tags (split from `library.css`) |
 | `category-images.css` | Category icon/image for admin + browse cards (split from `library.css`) |
 | `book-media.css` | Book files, companion documents, in-app reader (split from `library.css`) |
 | `ebook-reader.css` | Immersive EPUB reader (foliate-js) — full-screen, own light/sepia/dark theme |
 | `metadata-modal.css` | Metadata lookup modal + cover-picker tab (split from `library.css`) |
-| `admin.css` | Control Center — the shell and every page except the duplicate ones |
-| `duplicates.css` | Duplicate cleanup (split from `admin.css`; also carried the two duplicate pages it replaced). A barrel over `duplicates/` (see below) |
-| `about.css` | About page and version timeline |
-| `share.css` | Public guest share page (no app shell) |
-| `filter.css` | Filter button + popup + active-filter chips for the audiobook grid |
+| `person-edit.css` | Person edit dialog and its photo box (`PersonProfileModal`) |
+| `admin.css` | Control panel pages — Dashboard, Logs, Security, Storage, Backup, Scheduled jobs, Recycle Bin, … — except the duplicate ones |
+| `scan-layout.css` | Scan layouts — the Layout panel and the scan-rule wizard ([`scan-layout-plan.md`](scan-layout-plan.md)) |
+| `welcome.css` | The first-run setup guide (`/welcome`) |
+| `duplicates.css` | Duplicate cleanup (split from `admin.css`). A barrel over `duplicates/` (see below) |
+| `about.css` | About page and version timeline; Profile's tabs (password, email, appearance, shared links, passkeys, two-factor); Help & guides |
+| `share.css` | Public guest share page (no app shell), the in-app share modal, and the Photo Inbox drop page |
+| `social.css` | Family sharing — the Send to sheet, the For you rows, the unseen dot |
+| `filter.css` | Filter button + popup + active-filter chips for the browse pages |
 | `install.css` | PWA install page / prompt |
 | `offline.css` | Offline / downloaded-books UI |
-| `theme-picker.css` | Theme picker page (theme selection grid) |
-| `responsive.css` | Media-query overrides (no new classes) |
+| `theme-picker.css` | Theme picker page (theme selection grid), plus the Email and Notifications settings forms |
+| `responsive.css` | Breakpoint overrides for the older shared pages (see the last section) |
 
 ### The two barrels
 
@@ -46,9 +57,8 @@ install → offline → theme-picker → responsive
 lines). Each is now a list of `@import`s over a folder of topic files. The
 filename and its position in the order above are unchanged, nothing moved between
 parts, and the parts are imported in their original order — so the concatenated
-cascade is exactly what it was. That matters more than it looks: 109 selectors in
-this set are declared in more than one file, and `responsive.css` has to stay
-last, so order decides the winner between two rules of equal specificity.
+cascade is exactly what it was. That matters because order decides the winner
+between two rules of equal specificity, and `responsive.css` has to stay last.
 
 **Add a rule to the part it belongs to. A new part goes at the END of its barrel**
 unless it genuinely has to out-rank something above it.
@@ -57,11 +67,12 @@ unless it genuinely has to out-rank something above it.
 |---|---|
 | `primitives.css` | Form field, progress ring, buttons, toggle, select menu, choice group, message box, modals |
 | `layout.css` | Section/layout helpers, row-action groups, search field, invite box |
-| `admin-pages.css` | Unified Libraries page, profile page header, shared admin-page chrome |
+| `admin-pages.css` | Unified Libraries page, the Members tables (`.user-table`, `.invite-table`, `.group-table`), profile page header, shared admin-page chrome |
 | `library-wizard.css` | Create-library wizard — step rail, per-step panels, footer |
 | `member-access.css` | Public/private banner, grant-access row, members-with-access list |
 | `upload.css` | Upload size cards, `shared/FileUpload` dropzone, library scan/upload editors |
 | `data-display.css` | Datagrid, status & count badges, people combobox, suggest input, media-kind badge, control-panel search palette |
+| `shared-rules.css` | Declaration blocks many features wrote out identically, now written once with every selector that wore them: a cover-fill `img`, one-line truncation, a wrapping control row, and the Logs / Recycle bin / Duplicate photos toolbar and pager. Add a selector only when its whole block matches — and moving a rule here moves it earlier in the cascade |
 
 `duplicates/` mirrors `features/control/sections/duplicates/`, where the markup
 already lives in nine files:
@@ -77,19 +88,40 @@ already lives in nine files:
 | `wizard.css` | `CleanupWizard` |
 | `viewer.css` | Filters box + `DuplicateViewer` |
 
+### Selectors declared in more than one file
+
+Ten top-level selectors are declared in two files, so which one wins depends on the
+import order above:
+
+| Selector | Files (the later one wins a tie) |
+|---|---|
+| `.audio-player` | `player.css`, then `audio.css` — the book player's card look depends on the shared-audio file |
+| `.icon-button` | `components/primitives.css`, then `components/layout.css` |
+| `.home-user-icon` | `home.css`, then `social.css` (adds `position: relative` for the unseen dot) |
+| `:root` and `:root[data-theme="…"]` ×5 | `tokens.css`, then `auth.css` (its own `--auth-*` variables, per theme) |
+| `:root:is([data-theme="dark"], [data-theme="light"])` | `home.css`, `player.css` — the Sputnik-look overrides for those two themes |
+
 > **Coverage:** the detailed per-class sections below were written for the original
 > foundational stylesheets (`tokens`, `base`, `auth`, `layout`, `components`,
-> `player`, `admin`, `about`, `responsive`). The feature stylesheets added since —
-> `home`, the files split out of the old `library.css`, `gallery`, `family-tree`,
-> `duplicates`, `ebook-reader`, `share`, `filter`, `install`, `offline`,
-> `theme-picker` — are inventoried above but not yet enumerated class-by-class.
+> `player`, `admin`, `about`, `responsive`) and pruned to the classes that still
+> exist. The feature stylesheets added since — `home`, `audio`, the files split out
+> of the old `library.css`, `gallery`, `review`, `family-tree`, `stories`,
+> `person-edit`, `scan-layout`, `welcome`, `duplicates`, `ebook-reader`, `share`,
+> `social`, `filter`, `install`, `offline`, `theme-picker` — are inventoried above
+> but not enumerated class-by-class.
 
 ---
 
 ## tokens.css
-**Design tokens — colors and theming**
+**Design tokens — colours and theming**
 
-CSS custom properties used everywhere else. Two themes: `dark` (default) and `light`, toggled via `data-theme` on `:root`.
+CSS custom properties used everywhere else. Five themes — `dark`, `light`,
+`plain-dark`, `plain-light` and `minimalist` — each a `:root[data-theme="…"]`
+block; `:root` with no attribute gets the dark palette. The app stamps the chosen
+theme on `<html>` (a new install defaults to `minimalist`), and a user's **System**
+choice is resolved to light or dark in JavaScript — there is no
+`prefers-color-scheme` in the CSS. The `plain-*` and `minimalist` themes also hide
+the scene background images (`layout.css`).
 
 | Token | Role |
 |---|---|
@@ -97,11 +129,43 @@ CSS custom properties used everywhere else. Two themes: `dark` (default) and `li
 | `--ink` / `--muted` | Text colors (full → subdued) |
 | `--line` | Borders and dividers |
 | `--hover` / `--active` | Interactive state fills |
-| `--mint` | Primary accent — active states, badges, player controls |
+| `--mint` | Primary accent — active states, badges, player controls (the name is historical: it is red-orange in `dark`, near-black in `minimalist`) |
 | `--gold` | Primary button, avatar background, highlights |
 | `--amber` / `--rose` / `--blue` | Semantic accents (warning, danger/error, info) |
-| `--success` | Success variant of `--mint` |
+| `--success` / `--warning` / `--danger` | Status colours |
+| `--icon-control-border` / `-border-hover` / `-focus-ring` / `-bg` / `-bg-hover` | Icon-button chrome |
 | `--shadow` | Box shadows |
+
+Derived once on `:root` for all five themes, from the palette above (so a scope
+that restates `--ink`, like the lightbox's dialogs, restates `--surface-2` too):
+
+| Token | Role |
+|---|---|
+| `--surface-2` | A quiet fill a shade off its surface — placeholder thumbnails, tracks, inset panels, a row's hover (`--ink` at 6%) |
+| `--accent` | `--mint` — focus outlines, the selected item |
+| `--error` | `--danger` |
+
+### Stacking (`--z-*`)
+
+`#root` is `isolation: isolate` (`components/primitives.css`), so the whole page is
+one layer and anything portalled into `<body>` — dialogs, menus, toasts, viewers —
+paints over all page chrome whatever its z-index. The scale orders page chrome
+against itself inside `#root`, and the `<body>` layers against each other:
+
+| Token | Value | For |
+|---|---|---|
+| `--z-dropdown` | 12 | A menu or popover opening inside a component |
+| `--z-sticky` | 20 | Sticky / pinned page chrome (selection toolbar, story site bar) |
+| `--z-popover` | 30 | Floating panels over page content (combobox lists, hint panels, emoji picker) |
+| `--z-nav` | 60 | The mobile tab bar; its sheets sit just under it (`calc(var(--z-nav) - 1)`) |
+| `--z-modal` | 100 | `shared/Modal`'s backdrop |
+| `--z-viewer` | 1000 | Lightbox, ebook reader, document and share viewers |
+| `--z-menu` | 1050 | Menus portalled to `<body>` (ActionMenu, LibraryMenu, SortMenu) — over the dialog or viewer they open from |
+| `--z-toast` | 1100 | Toasts and banners — over an open photo or book too |
+| `--z-tooltip` | 1200 | Tooltips |
+
+A dialog opened from inside a viewer renders inside it, so it needs no rank above
+it. Values below 10 order siblings inside one component and stay literal.
 
 ---
 
@@ -116,12 +180,11 @@ Applies to every page.
 - `h1` / `h2` — fluid sizing and spacing
 - `.sr-only` — visually hidden (screen-reader only)
 - `.muted` — muted text color utility
-- `.truncate` — single-line ellipsis utility
 
 ---
 
 ## auth.css
-**Login / register page**
+**Sign-in / invite page**
 
 The full-screen split layout shown before the user is authenticated.
 
@@ -133,7 +196,7 @@ The full-screen split layout shown before the user is authenticated.
 | `.auth-orbit` / `.auth-orbit-b/c` | Decorative elliptical orbit rings (CSS borders, rotated) |
 | `.auth-node-a/b/c` | Glowing dots drifting along the orbits (animated) |
 | `@keyframes auth-drift` | Subtle float animation on the orbit nodes |
-| `.auth-panel` | Right column — frosted-glass login/register card |
+| `.auth-panel` | Right column — frosted-glass sign-in card |
 | `.brand-row` | Logo + app name inside the panel |
 | `.stack` | Vertical form field stack inside the panel |
 | `.eyebrow` | Small mint uppercase label above headings |
@@ -145,53 +208,29 @@ Responsive collapses to single-column (hero hidden) at ≤740 px — see `respon
 ---
 
 ## layout.css
-**Main app shell — header, sidebar, page structure**
+**The main column and page structure**
 
-Applies once the user is logged in.
-
-### Top-level grid
-| Class | What it styles |
-|---|---|
-| `.dashboard` | Two-row grid: 68 px header + remaining content |
-| `.dashboard-body` | Two-column grid: 72 px sidebar rail + main area |
-| `.dashboard-body.control-body` | Overrides to single column (Control Center has its own left nav) |
-
-### Header
-| Class | What it styles |
-|---|---|
-| `.app-header` | Sticky top bar (68 px), frosted glass, z-index 5 |
-| `.app-brand` | Logo + app name link on the left |
-| `.header-actions` | Right side of the header (buttons, user button) |
-| `.header-button` | Square icon button in header (44×44 px) |
-| `.user-button` | User name + avatar pill button |
-| `.avatar` / `.avatar.large` | Circular avatar with gold background |
-
-### Sidebar rail
-| Class | What it styles |
-|---|---|
-| `.sidebar` | Sticky left nav rail (72 px wide, full height below header) |
-| `.side-nav` | Stacked icon buttons for main navigation |
-| `.side-nav button` / `.logout-button` | 48×48 px icon buttons; active state uses `--mint` |
-| `.rail-foot` | Bottom of the rail — theme switcher + version number |
-| `.version` | Tiny version label at the very bottom of the rail |
+Applies once the user is signed in. The shell around it — the left sidebar, the
+user and About menus, the mobile tab bar — is drawn by `home.css` (`.home-sidebar`,
+`.home-primary-nav`, `.home-user-menu`, `.home-mobile-nav`, …), since it grew out of
+the Home redesign.
 
 ### Content areas
 | Class | What it styles |
 |---|---|
-| `.dashboard-main` | Scroll area to the right of the sidebar |
+| `.dashboard-main` | The scroll area beside the sidebar |
 | `.work-area` | Padded content wrapper, max-width 1040 px |
+| `.avatar` / `.avatar.large` | Circular avatar with gold background |
 | `.scene-page` | Page wrapper that supports a background scene image |
 | `.scene-page::before` | Full-bleed background image (space illustrations) |
 | `.scene-page::after` | Gradient overlay that fades the image into the canvas color |
-| `.rocket-scene` / `.sputnik-scene` / `.cosmonaut-scene` / `.control-center-scene` / `.audiobook-scene` / `.audiobook-book-scene` | Each sets a different background image for its page |
+| `.sputnik-scene` / `.control-scene` | Each sets a different background image for its page |
 
-### Control Center panel (admin sub-navigation)
+### Control panel
 | Class | What it styles |
 |---|---|
 | `.control-panel` | Two-column grid: 208 px left nav + content |
-| `.control-nav` | Left nav container |
-| `.control-links` | Stacked link list |
-| `.control-group` | Named group of links with an uppercase label |
+| `.control-tabs` | The page's one row of tabs (links or buttons; active tab underlined in `--mint`) |
 | `.control-work` | Content area to the right, max-width 1040 px |
 
 ---
@@ -209,8 +248,8 @@ Applies once the user is logged in.
 | `.secondary-button` | Transparent with border — secondary actions |
 | `.danger-button` | Red fill — destructive actions |
 | `.text-button` | No background — inline/link-style, rose color for danger variant |
-| `.icon-button` | Square icon button with label support (`.with-label`) |
-| `.compact-button` / `.pager-button` | Height variants: 42 px / 38 px |
+| `.icon-button` | Square icon button |
+| `.compact-button` | Shorter height variant (42 px) |
 
 All buttons share `border: 0; cursor: pointer` via a shared rule. Disabled states use `cursor: wait` or `cursor: not-allowed`.
 
@@ -220,12 +259,15 @@ All buttons share `border: 0; cursor: pointer` via a shared rule. Disabled state
 ### Modals
 | Class | What it styles |
 |---|---|
-| `.modal-backdrop` | Fixed full-screen dimmed overlay (z-index 20) |
+| `.modal-backdrop` | Fixed full-screen dimmed overlay (`--z-modal`) |
 | `.confirm-modal` | Small centered confirmation dialog (max 420 px) |
 | `.create-invite-modal` / `.create-library-modal` / `.create-storage-modal` / `.edit-thumbnail-modal` | Wider task-specific modals |
 | `.modal-header` / `.modal-close` | Modal title bar and ✕ button |
 | `.modal-tabs` / `.modal-tab` / `.modal-tab-content` | Tabbed content inside modals (e.g. metadata editor) |
 | `.modal-actions` | Right-aligned button row at the bottom of a modal |
+
+These style `shared/Modal` and `shared/ConfirmDialog`; never write the markup by hand
+([`UI-CONVENTIONS.md`](UI-CONVENTIONS.md)).
 
 ### Layout helpers
 - `.section-head` — flex row: heading left, action button right
@@ -238,14 +280,13 @@ All buttons share `border: 0; cursor: pointer` via a shared rule. Disabled state
 `.invite-box` — input + copy-button row. `.created-invite` — bordered card showing a newly created invite link.
 
 ### Datagrid (table)
-`.datagrid-wrap` / `.datagrid` — styled `<table>` with rounded border, uppercase small headers, hover rows. `.datagrid-primary` / `.datagrid-secondary` / `.datagrid-muted` — cell content helpers.
+`.datagrid-wrap` / `.datagrid` — styled `<table>` with rounded border, uppercase small headers, hover rows. `.datagrid-primary` / `.datagrid-muted` — cell content helpers.
 
 ### Status & count badges
 | Class | What it styles |
 |---|---|
 | `.status-badge` | Pill badge with a colored dot; variants: `.idle` (mint), `.scanning` (gold), `.error` (rose) |
-| `.count-badge` / `.book-files-count` | Small round number badge (mint on active bg) |
-| `.invite-status` | Invite state pill; variants: `.active`, `.expired`, `.used` |
+| `.count-badge` | Small round number badge (mint on active bg) |
 
 ---
 
@@ -256,7 +297,7 @@ Used on the Audiobook detail / playback page.
 
 | Class | What it styles |
 |---|---|
-| `.audio-player` | Card container — grid, surface bg, rounded corners |
+| `.audio-player` | Card container — grid, surface bg, rounded corners (`audio.css` also declares it; see above) |
 | `.player-chapter` | Current chapter row — chapter badge + truncated title |
 | `.player-chapter-index` | Mint pill with chapter number |
 | `.player-controls` | Centered row of transport buttons |
@@ -266,11 +307,10 @@ Used on the Audiobook detail / playback page.
 | `.player-seekbar` | Range input styled with `--mint` accent and custom thumb |
 | `.player-aux` | Bottom row — volume control + speed selector |
 | `.player-vol` / `.player-vol-icon` / `.player-vol-slider` | Volume knob area |
-| `.player-speed` / `.player-speed-btn` / `.player-speed-menu` / `.player-speed-option` | Playback speed dropdown (popover above button, z-index 10) |
+| `.player-speed` / `.player-speed-btn` / `.player-speed-menu` / `.player-speed-option` | Playback speed dropdown (popover above button, `--z-dropdown`) |
 | `.player-book-progress` / `.player-book-bar` / `.player-book-bar-fill` | Thin overall-book progress bar |
 | `.player-chapter-list` / `.player-chapter-item` | Scrollable chapter list (max 260 px); active/complete states |
 | `.player-chapter-item-num` / `.player-chapter-item-title` / `.player-chapter-item-dur` | Chapter row sub-elements |
-| `.player-chapter-progress` | Per-chapter mini progress bar |
 
 ---
 
@@ -295,11 +335,9 @@ Used on the Audiobook detail / playback page.
 | `.book-detail-head` | Two-column (200 px cover + info) header area |
 | `.book-detail-cover` | 2:3 portrait cover image placeholder |
 | `.book-detail-info` | Title, author, metadata table, action buttons |
-| `.book-detail-meta` | Key-value metadata table (language, narrator, duration …) |
 | `.book-description` | Longer description paragraph |
 | `.book-detail-actions` | Flex row of action buttons (Play, Download …) |
-| `.book-files-section` | Collapsible file list accordion |
-| `.book-files-toggle` | Accordion toggle button |
+| `.book-files-section` | File list section |
 | `.book-file-list` / `.book-file-row` | Individual chapter/file rows |
 
 ### Metadata modal
@@ -308,7 +346,6 @@ Large tabbed modal for editing book metadata and searching external sources.
 | Class | What it styles |
 |---|---|
 | `.metadata-modal` | Fixed-size modal (max 840×680 px) with header/tabs/content rows |
-| `.metadata-lookup-panel` | Search-source selector + query input area |
 | `.metadata-search-row` | Three-column row: source selector + search input + button |
 | `.metadata-edit-grid` | 4-column field grid for editing metadata fields |
 | `.metadata-field-half` / `.metadata-field-wide` | Span helpers for the edit grid |
@@ -328,46 +365,35 @@ Large tabbed modal for editing book metadata and searching external sources.
 ---
 
 ## admin.css
-**Control Center — all admin/management pages**
+**Control panel pages**
 
-### User management (`/control/members`)
-`.user-list` / `.user-row` — card-based user list with name, email, role selector, and action button. `.role-select` — inline role dropdown. `.protected-badge` / `.current-badge` — small mint chips.
+Most of this file is page-prefixed and reads for itself — `.kpi-card`,
+`.range-picker`, `.signins-scope-*` and `.locations-map` (Dashboard), `.blocked-table`,
+`.trusted-table` and `.protection-*` (Security), `.app-storage-*` and
+`.storage-contents-*` (Storage), `.backup-*` (Backup), `.scheduled-job-*`, `.quote-import-*`.
+The groups below are the older ones.
 
-### Invite management (`/control/members/invites`)
-`.invite-list` / `.invite-row` — four-column row: invite summary, status badge, dates, delete button. `.invite-link` — read-only token field + copy button visible when invite is active.
-
-### Library management (`/control/libraries`)
+### Library settings
 | Class | What it styles |
 |---|---|
-| `.library-layout` | Two-column: library list left + detail panel right |
-| `.library-list` / `.library-row` | Clickable library cards (name, path, book count) |
-| `.library-detail` / `.library-detail-head` | Selected library detail card |
-| `.book-list` / `.book-row` | Books inside the selected library |
-| `.book-cover-placeholder` | Small 52×52 cover thumbnail |
-| `.book-status` | Status pill on each book row |
-| `.folder-browser` / `.folder-list` / `.folder-row` | Path picker widget used when assigning a storage path |
-| `.library-settings-panel` | Three-column settings row: name, path summary, save actions |
+| `.library-settings-panel` | Settings row: name, path summary, save actions |
 | `.setting-status` | Inline "ready" / "needs attention" indicator |
 
 ### Storage management (`/control/libraries/storage`)
 `.storage-section` / `.storage-section-head` / `.storage-path-cell` / `.storage-path-summary` — scan-root / storage path management UI.
 
-### Session management (`/control/members/sessions`)
-`.session-list` / `.session-row` — three-column rows: user info, session metadata (IP, UA, last seen), revoke button.
-
 ### Logs (`/control/overview/logs`)
 | Class | What it styles |
 |---|---|
-| `.log-controls` | Filter bar above the table |
+| `.log-toolbar` / `.log-toolbar-controls` | Filter bar above the table |
 | `.log-search` | Search input + clear button |
-| `.log-page-size` | Page size selector |
-| `.log-retention` | Retention-days input |
+| `.log-retention-field` | The "delete entries older than" days input |
 | `.log-table` / `.log-table-wrap` | Horizontally scrollable log table |
 | `.log-event-cell` / `.event-category` | Event category chip; colors per category (`.cat-auth`, `.cat-invite`, `.cat-library` …) |
 | `.event-action` | Action name text in log rows |
-| `.log-pager` | Prev / page info / next pagination row |
+| `.log-pager-row` | Pagination row under the table |
 
-### Recycle Bin (`/control/libraries/recycle-bin`)
+### Recycle Bin (`/control/maintenance/recycle-bin`)
 | Class | What it styles |
 |---|---|
 | `.trash-status` | What the bin holds — items, space, files |
@@ -381,15 +407,11 @@ Large tabbed modal for editing book metadata and searching external sources.
 ### Missing photos (`/control/utilities/missing-photos`)
 `.missing-retention-row` — auto-purge window input. `.missing-thumb` — last-known thumbnail. `.missing-path` — wrapping relative path.
 
-### Status / health (`/control/overview`)
-`.health-line` / `.health-dot` — live service health indicator. `.status-grid` — 3-column metrics grid. `.status-metric` — individual metric card (label + large value).
-
-### Profile & theme (shared with about page)
+### Profile (shared with the about page)
 | Class | What it styles |
 |---|---|
 | `.profile-area` / `.profile-form` | Profile editing card (name, email, password) |
 | `.profile-heading` | Avatar + name/email row at the top of the form |
-| `.theme-switcher` | 3-button toggle: Dark / Light / System |
 
 ---
 
@@ -412,16 +434,25 @@ Large tabbed modal for editing book metadata and searching external sources.
 | `.version-update-head` | Version number + release label row |
 | `.version-update-list` | Bullet list of changes for a release |
 
+The rest of the file is Profile's tabs (`.profile-tab`, `.device-row`, `.security-*`,
+`.shared-link*`, `.opds-*`) and Help & guides (`.help-*`, `.guide-body`).
+
 ---
 
 ## responsive.css
-**Media query overrides**
+**Breakpoint overrides for the older shared pages**
 
-No new classes — only overrides for existing ones.
+Most mobile rules no longer live here. The desktop browser is the baseline, and each
+feature file carries its own `@media (max-width: 740px)` block for its own classes —
+43 such blocks across 18 files, only one of them in this file. 740 px is the one
+mobile breakpoint — its complement is `min-width: 741px`, never a smaller
+`min-width` that would switch desktop rules on inside the mobile band. What `responsive.css`
+still holds is the older shared pages' overrides, and it stays last so they win:
 
 | Breakpoint | What changes |
 |---|---|
-| `≤ 740 px` (mobile) | Auth page collapses to single column (hero hidden). Standard app sidebar moves to a fixed bottom tab bar for Home, Media, Downloads, Collections, and Profile. Personal/library secondary navigation becomes an icon-only horizontal strip. Control Center nav stacks vertically. Audiobook grid switches to 3 fluid columns. Multi-column admin rows (users, invites, sessions) reflow to 1–2 columns. Status grid drops to 2 columns. Library layout stacks. |
-| `741–1040 px` (tablet) | Auth page adjusts column proportions and reduces hero font size. |
-| `741 px+ and viewport height ≤ 780 px` (short landscape) | Auth page scrolls vertically instead of fitting viewport. |
-| `≤ 430 px` (small mobile) | Auth panel padding tightens. Theme switcher buttons stack vertically. Single-column for user rows, invite rows, session rows, and status grid. Log controls stack vertically. About stack collapses to 1 column. |
+| `≤ 1240 px` | The Members users table drops its Created column |
+| `741–1040 px` (tablet) | The users table drops Sessions too and hides the row avatar; the auth page adjusts column proportions and hero size |
+| `≤ 740 px` (mobile) | Auth page collapses to a single column (hero hidden); the Members, Libraries and Logs tables and toolbars reflow; book detail, collection and category pages stack |
+| `741 px+ and viewport height ≤ 780 px` (short landscape) | Auth page scrolls vertically instead of fitting the viewport |
+| `≤ 430 px` (small mobile) | Auth panel padding tightens; the libraries, users, invites and groups tables each drop another column; the log search and pager take full lines; About stack collapses to 1 column |

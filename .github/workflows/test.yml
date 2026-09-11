@@ -20,6 +20,8 @@ on:
     branches:
       - main
   workflow_dispatch:
+  # docker.yml calls this for a release tag and publishes only when it passes.
+  workflow_call:
 
 jobs:
   test:
@@ -51,6 +53,10 @@ jobs:
 
       - name: Typecheck
         run: npm run typecheck
+
+      # Errors fail the run; warnings (hook dependency lists, `any`) are reported only.
+      - name: Lint
+        run: npm run lint
 
       # ffmpeg/ffprobe come from ffmpeg-static/ffprobe-static, so npm ci is the
       # whole setup — no apt packages. The face-detection tests skip themselves

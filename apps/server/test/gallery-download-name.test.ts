@@ -10,7 +10,7 @@ import fastify, { type FastifyInstance } from "fastify";
 import { db } from "../src/db.js";
 import { galleryStreamPlugin, assetDisposition } from "../src/modules/library/gallery/stream.js";
 import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
-import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
+import { resetDb, makeUser, grant } from "./helpers/seed.js";
 
 let app: FastifyInstance;
 let root: string;

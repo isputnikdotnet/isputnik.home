@@ -14,7 +14,7 @@ vi.mock("../src/core/mail.js", async (importOriginal) => {
 
 import { db } from "../src/db.js";
 import { sendMail } from "../src/core/mail.js";
-import { librarySharesPlugin } from "../src/modules/library/shared/shares.js";
+import { librarySharesPlugin } from "../src/modules/library/shared/shares/index.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
 
 let app: FastifyInstance;

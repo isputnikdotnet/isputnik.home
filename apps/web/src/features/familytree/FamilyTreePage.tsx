@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FileUp, Search, Settings, UserRoundPlus } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { api, type PublicUser } from "../../api";
+import { api } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
 import { Button } from "../../shared/Button";
@@ -17,19 +17,17 @@ import { GedcomImportModal } from "./GedcomImportModal";
 import { FamilyPersonMark, PersonAvatar } from "./PersonAvatar";
 import { PersonEditModal } from "./PersonEditModal";
 import { lifeYears, type FamilyPerson, type FamilyTree } from "./types";
+import { useSession } from "../../app/SessionContext";
 
 // The main family-tree view: a person-centered pan/zoom chart. Clicking a card
 // re-centers on that person via a real navigation (/family/tree/:id) so the
 // browser's back button walks the focus history.
 export function FamilyTreePage({
-  user,
-  logout,
   focusId
 }: {
-  user: PublicUser;
-  logout: () => Promise<void>;
   focusId: string | null;
 }) {
+  const { user } = useSession();
   const { t } = useTranslation(["common", "family"]);
   const isAdmin = user.role === "admin";
   const [tree, setTree] = useState<FamilyTree | null>(null);
@@ -86,7 +84,7 @@ export function FamilyTreePage({
   const canAdd = tree?.access.canAdd ?? false;
 
   return (
-    <DashboardShell active="family" user={user} logout={logout} sideNav={<SectionNav {...familyNavProps("chart")} />}>
+    <DashboardShell active="family" sideNav={<SectionNav {...familyNavProps("chart")} />}>
       <section className="ft-tree-page">
         {/* The standard page header, with the section's own search passed through
             the actions slot rather than the search one: on the chart, finding

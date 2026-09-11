@@ -21,14 +21,9 @@ import {
   getCollection,
   listCollections
 } from "../src/modules/stories/collections.js";
-import {
-  canEditStory,
-  canViewStory,
-  createStory,
-  getStory,
-  listStories,
-  updateStory
-} from "../src/modules/stories/stories.js";
+import { canEditStory, canViewStory, getStory } from "../src/modules/stories/access.js";
+import { createStory, updateStory } from "../src/modules/stories/crud.js";
+import { listStories } from "../src/modules/stories/list.js";
 import { resetDb, makeUser, makeGroup, addToGroup, grant } from "./helpers/seed.js";
 
 const owner = { id: "owner", role: "member" };

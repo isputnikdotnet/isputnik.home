@@ -110,12 +110,12 @@ export function activityPhrase(actorName: string, kind: ActivityKind, detail?: s
 export function timeAgo(iso: string): string {
   const then = new Date(iso).getTime();
   const minutes = Math.floor((Date.now() - then) / 60_000);
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes}m`;
+  if (minutes < 1) return i18n.t("common:time.justNow");
+  if (minutes < 60) return i18n.t("common:time.minutesCompact", { count: minutes });
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h`;
+  if (hours < 24) return i18n.t("common:time.hoursCompact", { count: hours });
   const days = Math.floor(hours / 24);
-  if (days === 1) return "yesterday";
-  if (days < 7) return `${days} days`;
+  if (days === 1) return i18n.t("common:time.yesterday");
+  if (days < 7) return i18n.t("common:time.days", { count: days });
   return new Date(iso).toLocaleDateString();
 }

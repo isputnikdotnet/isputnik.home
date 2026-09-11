@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { ArrowLeft, ExternalLink } from "lucide-react";
-import type { PublicUser } from "../api";
 import { DashboardShell } from "../app/DashboardShell";
-import { followBack, followRoute, navigate } from "../router";
+import { followBack, navigate } from "../router";
 import { MessageBox } from "../shared/MessageBox";
 import { repoFileUrl } from "../shared/links";
 
@@ -72,14 +72,11 @@ export async function renderGuideHtml(markdown: string): Promise<string> {
 }
 
 export function GuidePage({
-  slug,
-  user,
-  logout
+  slug
 }: {
   slug: string;
-  user: PublicUser;
-  logout: () => Promise<void>;
 }) {
+  const { t } = useTranslation();
   const [html, setHtml] = useState<string | null>(null);
   const [error, setError] = useState("");
   const githubUrl = repoFileUrl(`docs/users/${slug}.md`);
@@ -97,32 +94,36 @@ export function GuidePage({
       // it were prose.
       const response = await fetch(`/guides/${slug}.md`, { headers: { Accept: "text/markdown" } });
       const markdown = response.ok ? await response.text() : "";
-      if (!markdown || markdown.trimStart().startsWith("<")) throw new Error("That guide doesn't exist.");
+      if (!markdown || markdown.trimStart().startsWith("<")) throw new Error(t("guide.notFound"));
 
       const rendered = await renderGuideHtml(markdown);
       if (alive) setHtml(rendered);
     })().catch((err) => {
-      if (alive) setError(err instanceof Error ? err.message : "Unable to open this guide.");
+      if (alive) setError(err instanceof Error ? err.message : t("guide.unableToOpen"));
     });
 
     return () => { alive = false; };
-  }, [slug]);
+  }, [slug, t]);
 
   return (
-    <DashboardShell active="help" user={user} logout={logout}>
+    <DashboardShell active="help">
       <section className="work-area guide-area">
         <a className="audiobook-back-button" href="/help" onClick={(event) => followBack(event, "/help")}>
           <ArrowLeft size={18} aria-hidden="true" />
-          <span>Help &amp; guides</span>
+          <span>{t("help.heading")}</span>
         </a>
 
         {error && (
-          <MessageBox tone="error" title="Unable to open this guide">
-            {error} <a href={githubUrl} target="_blank" rel="noreferrer">Read it on GitHub</a> instead.
+          <MessageBox tone="error" title={t("guide.unableTitle")}>
+            {error}{" "}
+            <Trans
+              i18nKey="guide.readOnGithub"
+              components={{ link: <a href={githubUrl} target="_blank" rel="noreferrer" /> }}
+            />
           </MessageBox>
         )}
 
-        {!html && !error && <p className="management-empty">Loading…</p>}
+        {!html && !error && <p className="management-empty">{t("guide.loading")}</p>}
 
         {html && (
           <>
@@ -130,7 +131,7 @@ export function GuidePage({
             <article className="guide-body" onClick={followGuideLink} dangerouslySetInnerHTML={{ __html: html }} />
             <p className="guide-source">
               <a href={githubUrl} target="_blank" rel="noreferrer">
-                View this guide on GitHub <ExternalLink size={14} aria-hidden="true" />
+                {t("guide.viewOnGithub")} <ExternalLink size={14} aria-hidden="true" />
               </a>
             </p>
           </>

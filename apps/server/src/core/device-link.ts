@@ -150,7 +150,7 @@ export function findPendingByUserCode(code: string): LinkRequestRow | null {
     SELECT * FROM device_link_requests
     WHERE user_code = ?
       AND status = 'pending'
-      AND datetime(expires_at) > datetime('now')
+      AND expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
       AND attempts < ?
   `).get(normalized, MAX_ATTEMPTS) as LinkRequestRow | undefined;
   return row ?? null;
@@ -179,7 +179,7 @@ export function approveLinkRequest(id: string, userId: string): boolean {
            approved_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
      WHERE id = ?
        AND status = 'pending'
-       AND datetime(expires_at) > datetime('now')
+       AND expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
   `).run(userId, id).changes > 0;
 }
 
@@ -244,7 +244,7 @@ export function attachSession(id: string, sessionId: string): void {
 // attempt, including every abandoned one. Called at startup; an hour of slack past
 // expiry keeps a just-finished request around long enough to be looked at.
 export function sweepLinkRequests(): number {
-  return db.prepare("DELETE FROM device_link_requests WHERE datetime(expires_at) < datetime('now', '-1 hour')")
+  return db.prepare("DELETE FROM device_link_requests WHERE expires_at < strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 hour')")
     .run().changes;
 }
 
@@ -293,7 +293,7 @@ export interface LinkWindowRow {
 const LIVE_WINDOW = `
   used_at IS NULL
   AND revoked_at IS NULL
-  AND datetime(expires_at) > datetime('now')
+  AND expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
 `;
 
 /**
@@ -358,7 +358,7 @@ export function listLiveWindows(): LinkWindowRow[] {
 /** Spent and expired windows, swept beside the requests at startup. */
 export function sweepLinkWindows(): number {
   return db.prepare(
-    "DELETE FROM device_link_windows WHERE datetime(expires_at) < datetime('now', '-1 day')"
+    "DELETE FROM device_link_windows WHERE expires_at < strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 day')"
   ).run().changes;
 }
 

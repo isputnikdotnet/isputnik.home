@@ -51,7 +51,7 @@ UI can label the row honestly. The current year is excluded, and undated assets
 never match. `date` is the **client's** local calendar date (the server may sit
 in another timezone); `perYear` caps items per year group.
 
-Three surfaces consume it (`queryGalleryMemories` in `catalog.ts`):
+Three surfaces consume it (`queryGalleryMemories` in `catalog-memories.ts`):
 
 - a **Memories view** (`/gallery/memories`, also a gallery tab that appears
   whenever memories exist) — one section per year with a date heading
@@ -158,7 +158,7 @@ item-keyed systems:
 - **Shares** — the `libraries.type → module` map (`mediaKind`) resolves `'gallery'`,
   so both user-to-user item shares and anonymous **guest links** are namespaced
   correctly. A guest link opens a self-contained viewer (photo inline / `<video>`
-  with range seeking) plus a single-file download — see `shares.ts` (the
+  with range seeking) plus a single-file download — see `shares/guest-routes.ts` (the
   `module === "gallery"` branches) and `SharePage`'s `GalleryShareView`.
 - **Quick links (multi-photo guest shares)** — the bulk bar's Share creates one
   guest link over a snapshot of the selection (`share_link_items`, module

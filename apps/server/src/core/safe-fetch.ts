@@ -24,12 +24,13 @@ export const REMOTE_FETCH_USER_AGENT = "isputnik-home/1.0 (self-hosted family me
 export const FETCH_TIMEOUT_MS = 15_000;
 const MAX_REDIRECTS = 3;
 
-export function isBlockedAddress(address: string) {
+export function isBlockedAddress(address: string): boolean {
   // Block loopback, link-local, and private ranges to prevent SSRF into the
   // local network or cloud metadata endpoints (e.g. 169.254.169.254).
-  const v4 = address.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
-  if (v4) {
-    const [a, b] = [Number(v4[1]), Number(v4[2])];
+  const bare = address.replace(/^\[|\]$/g, "").replace(/%.*$/, ""); // URL brackets, zone id
+  const kind = net.isIP(bare);
+  if (kind === 4) {
+    const [a, b] = bare.split(".").map(Number);
     if (a === 127 || a === 10 || a === 0) return true;
     if (a === 169 && b === 254) return true;
     if (a === 172 && b >= 16 && b <= 31) return true;
@@ -37,11 +38,29 @@ export function isBlockedAddress(address: string) {
     if (a === 100 && b >= 64 && b <= 127) return true; // CGNAT
     return false;
   }
+  // Not an address at all: nothing here can vouch for it, so it doesn't pass.
+  if (kind !== 6) return true;
 
-  const normalized = address.toLowerCase().replace(/^\[|\]$/g, "");
-  if (normalized === "::1" || normalized === "::") return true;
-  if (normalized.startsWith("fe80") || normalized.startsWith("fc") || normalized.startsWith("fd")) return true;
-  if (normalized.startsWith("::ffff:")) return isBlockedAddress(normalized.slice(7));
+  // Judge IPv6 in ONE spelling. The URL parser gives the canonical form — lower
+  // case, zeros compressed, an IPv4-mapped tail in hex (::ffff:7f00:1) however it
+  // was written — so "0:0:0:0:0:0:0:1" and "::ffff:127.0.0.1" can't slip past a
+  // prefix check written for "::1" and the dotted form.
+  let v6: string;
+  try {
+    v6 = new URL(`http://[${bare}]/`).hostname.slice(1, -1);
+  } catch {
+    return true;
+  }
+  if (v6 === "::1" || v6 === "::") return true;
+  const mapped = v6.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
+  if (mapped) {
+    const high = parseInt(mapped[1], 16);
+    const low = parseInt(mapped[2], 16);
+    return isBlockedAddress(`${high >> 8}.${high & 255}.${low >> 8}.${low & 255}`);
+  }
+  const first = v6.startsWith("::") ? 0 : parseInt(v6.split(":")[0], 16);
+  if ((first & 0xffc0) === 0xfe80) return true; // fe80::/10 link-local (fe80–febf)
+  if ((first & 0xfe00) === 0xfc00) return true; // fc00::/7 unique local (fc, fd)
   return false;
 }
 
@@ -115,7 +134,10 @@ export async function fetchSafely<T>(
       throw new Error("Only http(s) URLs are supported.");
     }
 
-    const pin = await resolveSafeAddress(current.hostname);
+    // An IPv6 literal's hostname keeps its URL brackets ("[::1]"); unwrapped, the
+    // lookup answers with the address itself on every platform, so a literal is
+    // judged by isBlockedAddress rather than by whether getaddrinfo takes brackets.
+    const pin = await resolveSafeAddress(current.hostname.replace(/^\[|\]$/g, ""));
     const dispatcher = pinnedDispatcher(pin.address, pin.family);
 
     try {

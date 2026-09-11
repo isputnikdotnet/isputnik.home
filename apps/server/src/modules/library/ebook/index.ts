@@ -4,9 +4,11 @@ import { ebookBookmarksPlugin } from "./bookmarks.js";
 import { opdsPlugin } from "./opds.js";
 import { startEbookScanWorker } from "./scanner.js";
 import { registerEbookStats } from "./stats.js";
+import { registerEbookMediaType } from "./media-type.js";
 
 export async function ebookPlugin(app: FastifyInstance) {
   registerEbookStats();
+  registerEbookMediaType();
 
   await app.register(ebookRoutesPlugin);
   await app.register(ebookBookmarksPlugin);

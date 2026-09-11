@@ -73,7 +73,7 @@ describe("GET /api/logs/export", () => {
     expect(res.headers["content-type"]).toContain("text/csv");
     expect(res.headers["content-disposition"]).toMatch(/attachment; filename="isputnik-logs-.*\.csv"/);
 
-    const lines = res.body.replace(/^﻿/, "").split("\r\n").filter(Boolean);
+    const lines = res.body.replace(/^\uFEFF/, "").split("\r\n").filter(Boolean);
     expect(lines[0]).toBe("time,event,user,ip_address,detail");
     // Only the two filtered events, newest first; the login is out.
     expect(lines).toHaveLength(3);

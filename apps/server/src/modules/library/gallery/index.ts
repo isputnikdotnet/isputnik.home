@@ -13,15 +13,17 @@ import {
   startDuplicateScanWorker
 } from "./duplicates/index.js";
 import { importBucketMusicIfDue, removeBuiltinMusic } from "./music.js";
-import { startSlideshowRenderWorker } from "./slideshow-render.js";
+import { startSlideshowRenderWorker } from "./slideshow-render-queue.js";
 import { startTranscodeWorker } from "./transcode.js";
 import { galleryStreamPlugin } from "./stream.js";
 import { startGalleryScanWorker } from "./scanner.js";
 import { startFaceScanWorker } from "./faces/scanner.js";
 import { registerGalleryStats } from "./stats.js";
+import { registerGalleryMediaType } from "./media-type.js";
 
 export async function galleryPlugin(app: FastifyInstance) {
   registerGalleryStats();
+  registerGalleryMediaType();
 
   await app.register(galleryRoutesPlugin);
   await app.register(galleryPeopleRoutesPlugin);

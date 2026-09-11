@@ -66,6 +66,96 @@ function userGuides(): Plugin {
   };
 }
 
+// What the service worker precaches: the app shell and the screens that work
+// with no network, and nothing else.
+//
+// Globbing every built file used to put all of it in the precache — 168 files,
+// 4.4 MB, the Russian strings, the whole control panel, the map library, every
+// guide — downloaded on a first visit and again after every release, by every
+// device, whether or not anyone there ever opened those pages. Now the list is
+// the shell (the entry chunk and everything it imports) plus these roots and
+// everything THEY import, worked out from the bundle's own import graph, so a
+// shared chunk they need can't be left behind by a naming accident.
+//
+// Everything else still loads over the network when it is opened, and then stays
+// in the "isputnik-code" runtime cache below, so a page used once online opens
+// offline too. A page never opened on this device has nothing to load offline;
+// app/App.tsx catches that (shared/LoadErrorBoundary) instead of going blank.
+const OFFLINE_ROOTS: { what: string; module: RegExp }[] = [
+  // The offline shelf itself, and where it leads: the book page, the player, the
+  // Recent/Continue lists built from downloads, and the two catalogs, whose API
+  // answers the "isputnik-catalog" cache keeps for offline browsing.
+  { what: "Downloads page", module: /\/features\/library\/DownloadsPage\.tsx$/ },
+  { what: "book page", module: /\/features\/audiobooks\/BookDetailPage\.tsx$/ },
+  { what: "player", module: /\/features\/audiobooks\/PlayerPage\.tsx$/ },
+  { what: "Recent/Continue lists", module: /\/features\/library\/LibraryFeedPage\.tsx$/ },
+  { what: "audiobooks/ebooks catalog", module: /\/features\/audiobooks\/catalog\/CatalogPage\.tsx$/ },
+  // The reader opens each book format with an import() of its own, so a
+  // downloaded EPUB or FB2 needs these to open offline.
+  { what: "ebook reader formats", module: /\/vendor\/foliate-js\// },
+  // The service-worker registration helper, imported lazily by the entry.
+  { what: "workbox-window", module: /\/workbox-window\// }
+];
+
+function precacheScope() {
+  const keep = new Set<string>();
+  const drop = new Set<string>();
+  let computed = false;
+
+  const plugin: Plugin = {
+    name: "isputnik-precache-scope",
+    apply: "build",
+    generateBundle(_options, bundle) {
+      type Chunk = Extract<(typeof bundle)[string], { type: "chunk" }>;
+      const chunks = Object.values(bundle).filter((file): file is Chunk => file.type === "chunk");
+      const byFile = new Map(chunks.map((chunk) => [chunk.fileName, chunk]));
+      const moduleOf = (chunk: Chunk) => (chunk.facadeModuleId ?? "").replace(/\\/g, "/");
+
+      const roots = chunks.filter((chunk) => chunk.isEntry);
+      for (const root of OFFLINE_ROOTS) {
+        const found = chunks.filter((chunk) => root.module.test(moduleOf(chunk)));
+        // A renamed or moved page must not silently stop working offline.
+        if (found.length === 0) this.error(`precache: no chunk found for the ${root.what} (${root.module})`);
+        roots.push(...found);
+      }
+
+      // Static imports only: a dynamic import is a page or feature of its own.
+      const reached = new Set<Chunk>();
+      const visit = (chunk: Chunk | undefined) => {
+        if (!chunk || reached.has(chunk)) return;
+        reached.add(chunk);
+        for (const file of chunk.imports) visit(byFile.get(file));
+      };
+      roots.forEach(visit);
+
+      // A chunk's CSS and its ?url assets (the flag font, say) go with the chunk.
+      const filesOf = (chunk: Chunk) => {
+        const meta = (chunk as Chunk & { viteMetadata?: { importedCss: Set<string>; importedAssets: Set<string> } }).viteMetadata;
+        return [chunk.fileName, ...(meta?.importedCss ?? []), ...(meta?.importedAssets ?? [])];
+      };
+      keep.clear();
+      drop.clear();
+      for (const chunk of chunks) {
+        for (const file of filesOf(chunk)) (reached.has(chunk) ? keep : drop).add(file);
+      }
+      computed = true;
+    }
+  };
+
+  // Given workbox's glob results. Files the bundle knows about are kept only when
+  // the shell or an offline root reaches them; anything it doesn't track (index.html,
+  // the icons, the web manifest) passes through as before.
+  const manifestTransform = async <T extends { url: string }>(entries: T[]) => {
+    if (!computed) throw new Error("precache: the bundle's import graph was not recorded");
+    const manifest = entries.filter((entry) => keep.has(entry.url) || !drop.has(entry.url));
+    return { manifest, warnings: [] as string[] };
+  };
+
+  return { plugin, manifestTransform };
+}
+
+const precache = precacheScope();
+
 // Which port to serve on. Normally the familiar ones — 5173 for `npm run dev`,
 // 4173 for `npm run preview` — but honour PORT when something sets it, so a
 // runner that has to pick its own port (.claude/launch.json "autoPort") lands
@@ -112,6 +202,7 @@ export default defineConfig({
   plugins: [
     react(),
     userGuides(),
+    precache.plugin,
     VitePWA({
       // The service worker self-updates in the background; the app reloads onto
       // the new version on the next navigation.
@@ -141,17 +232,46 @@ export default defineConfig({
         ]
       },
       workbox: {
-        // Precache the app shell so the UI boots with no network. The guides are
-        // included — all nineteen are ~160 KB of text, and help is exactly what
-        // you want when something isn't working. Their screenshots are ~3 MB and
-        // are NOT precached; they load over the network and stick in the runtime
-        // image cache below, so an offline guide reads fine minus the pictures.
-        globPatterns: ["**/*.{js,css,html,svg,woff2}", "guides/*.md"],
+        // Precache the app shell so the UI boots with no network — the glob finds
+        // the candidates, and precacheScope() (above) narrows the built code to
+        // the shell and the offline screens. The guides are no longer precached:
+        // a guide once read stays readable offline through the runtime cache
+        // below, text and screenshots alike.
+        globPatterns: ["**/*.{js,css,html,svg,woff2}"],
+        manifestTransforms: [precache.manifestTransform],
         // SPA fallback mirrors the server's index.html catch-all — but never for
         // API calls, which must hit the network (or their own runtime cache).
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [/^\/api\//],
         runtimeCaching: [
+          {
+            // The code the precache leaves out — the control panel, the gallery,
+            // the Russian strings, the map library. Built files are content-hashed,
+            // so a cached one can never be stale: cache-first, and a page opened
+            // once online opens offline afterwards. A release's new files replace
+            // old ones in here as they are used; the cap sweeps up what's left.
+            urlPattern: ({ request, url }) =>
+              (request.destination === "script" || request.destination === "style") &&
+              url.origin === self.location.origin &&
+              url.pathname.startsWith("/static/"),
+            handler: "CacheFirst",
+            options: {
+              cacheName: "isputnik-code",
+              expiration: { maxEntries: 250, maxAgeSeconds: 60 * 60 * 24 * 90 },
+              cacheableResponse: { statuses: [200] }
+            }
+          },
+          {
+            // A guide once read stays readable offline. Stale-while-revalidate:
+            // it opens at once and the next visit picks up an edited guide.
+            urlPattern: ({ url }) => url.origin === self.location.origin && /^\/guides\/[^/]+\.md$/.test(url.pathname),
+            handler: "StaleWhileRevalidate",
+            options: {
+              cacheName: "isputnik-guides",
+              expiration: { maxEntries: 60, maxAgeSeconds: 60 * 60 * 24 * 90 },
+              cacheableResponse: { statuses: [200] }
+            }
+          },
           {
             // Public app artwork/backgrounds are too large to precache, but once
             // seen they should remain available for installed offline launches.

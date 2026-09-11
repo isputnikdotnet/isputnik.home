@@ -1,6 +1,5 @@
 import { Fragment, useState, useEffect, useCallback, type FormEvent } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import i18n from "../../../i18n";
 import {
   Ban,
   ChevronDown,

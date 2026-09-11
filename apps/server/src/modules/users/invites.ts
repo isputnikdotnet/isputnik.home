@@ -26,7 +26,7 @@ export function resolveLiveInvite(
     WHERE token_hash = ?
       AND used_at IS NULL
       AND revoked_at IS NULL
-      AND datetime(expires_at) > datetime('now')
+      AND expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
   `).get(hash) as { id: string; role: Role; expires_at: string } | undefined;
   if (invite) return invite;
 
@@ -100,7 +100,7 @@ export async function invitesPlugin(app: FastifyInstance) {
       JOIN users AS creator ON creator.id = invites.created_by
       LEFT JOIN users AS used ON used.id = invites.used_by
       WHERE invites.revoked_at IS NULL
-      ORDER BY datetime(invites.created_at) DESC
+      ORDER BY invites.created_at DESC
     `).all() as InviteListRow[];
     const now = Date.now();
 

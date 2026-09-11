@@ -104,7 +104,6 @@
 }
 
 .layout-row-main { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.layout-row-title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .layout-row-name { font-weight: 600; font-size: 1rem; }
 
 .layout-chip {
@@ -276,13 +275,6 @@ button.layout-pill:hover { filter: brightness(0.95); }
 /* Folders step */
 .layout-folders { display: flex; flex-direction: column; gap: 14px; }
 
-.layout-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
 .layout-search {
   min-width: 240px;
   padding: 7px 14px;
@@ -348,7 +340,6 @@ button.layout-pill:hover { filter: brightness(0.95); }
 .layout-tree-name { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .layout-tree-name svg { flex: 0 0 auto; color: var(--gold); }
 .layout-tree-row.is-root .layout-tree-name svg { color: var(--mint); }
-.layout-tree-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .layout-tree-text.is-root { font-weight: 600; }
 .layout-tree-meta { font-size: 0.78rem; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .layout-tree-badge { min-width: 0; }
@@ -469,11 +460,9 @@ button.layout-pill:hover { filter: brightness(0.95); }
 }
 
 .layout-card.is-selected { border-color: var(--mint); box-shadow: 0 0 0 3px color-mix(in srgb, var(--mint) 18%, transparent); }
-.layout-card-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .layout-card-head h4 { margin: 0; font-size: 0.92rem; font-weight: 600; }
 .layout-card-head .muted { font-size: 0.78rem; }
 
-.layout-example-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .layout-example-row .muted { font-size: 0.8rem; }
 .layout-nav { display: inline-flex; gap: 2px; }
 
@@ -596,8 +585,6 @@ button.layout-pill:hover { filter: brightness(0.95); }
   color: var(--ink);
 }
 
-.layout-text-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-
 .layout-text-input {
   flex: 1 1 320px;
   min-width: 0;
@@ -653,7 +640,6 @@ button.layout-pill:hover { filter: brightness(0.95); }
   color: var(--muted);
 }
 
-.layout-unmatched li { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .layout-summary { font-size: 0.85rem; font-variant-numeric: tabular-nums; }
 
 /* Preview step */
@@ -685,8 +671,6 @@ button.layout-pill:hover { filter: brightness(0.95); }
 .layout-tile.is-none .layout-tile-n { color: var(--muted); }
 
 .layout-note-list { margin: 6px 0 0; padding-left: 18px; }
-
-.layout-filters { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
 .layout-filter {
   display: inline-flex;

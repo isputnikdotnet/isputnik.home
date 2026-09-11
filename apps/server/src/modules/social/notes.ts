@@ -77,7 +77,7 @@ export async function notesPlugin(app: FastifyInstance) {
       SELECT id, user_id, author_name, body, created_at, updated_at
       FROM notes
       WHERE entity_type = ? AND entity_id = ? AND deleted_at IS NULL
-      ORDER BY datetime(created_at) ASC
+      ORDER BY created_at ASC
     `).all(entityType, entityId) as NoteRow[];
 
     return reply.send({ notes: rows.map((row) => noteView(row, user)) });

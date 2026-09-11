@@ -17,9 +17,10 @@ import { nanoid } from "nanoid";
 import { db, logActivity } from "../../../db.js";
 import { validateLibrarySource } from "../shared/library-source.js";
 import { normaliseRelativePath } from "../shared/storage-roots.js";
-import { trashBook, TrashError } from "../shared/trash.js";
+import { trashBook } from "../shared/trash.js";
+import { TrashError } from "../shared/trash-settings.js";
 import { scanSingleGalleryFile } from "./scanner.js";
-import { uniqueGalleryFileName } from "./routes.js";
+import { uniqueGalleryFileName } from "./files.js";
 import { getHouseLibrary, HOUSE_FOLDERS } from "./house-library.js";
 
 /** Five minutes at a browser's ~64 kbit/s is a couple of megabytes; this is
@@ -56,7 +57,7 @@ const listStmt = db.prepare(`
   LEFT JOIN gallery_details gd ON gd.item_id = n.audio_item_id
   LEFT JOIN users ON users.id = n.recorded_by
   WHERE n.item_id = ?
-  ORDER BY datetime(n.created_at) ASC
+  ORDER BY n.created_at ASC
 `);
 
 export function listVoiceNotes(itemId: string): VoiceNoteView[] {

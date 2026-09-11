@@ -26,6 +26,7 @@ import {
   faceJobType, enqueueFaceScanBatches, recordFaceScanFailure,
   SCAN_BATCH_SIZE, MAX_FACE_SCAN_ATTEMPTS, UNSCANNED_PHOTOS_SQL, type FaceScanPayload
 } from "./queue.js";
+import { log } from "../../../../core/logger.js";
 
 // Re-export the queue helpers so existing importers keep a single entry point.
 export { enqueueFaceScan, enqueueFaceScanBatches, enqueueFaceRecompute, resetLibraryFaceScanMarkers } from "./queue.js";
@@ -135,7 +136,7 @@ async function scanLibraryFaces(
       // can't clog the backlog forever. A force rescan always retries it.
       recordFaceScanFailure(photo.id);
       failed += 1;
-      if (failed <= 5) console.warn(`face scan: skipping ${photo.relative_path}:`, err instanceof Error ? err.message : err);
+      if (failed <= 5) log.warn(`face scan: skipping ${photo.relative_path}: ${err instanceof Error ? err.message : String(err)}`);
       continue;
     }
     const usable = faces.filter((face) => Math.min(face.box[2], face.box[3]) >= MIN_FACE_SIDE);
@@ -170,9 +171,9 @@ async function scanLibraryFaces(
   }
   onProgress?.(stoppedAt, batchTarget);
 
-  if (failed > 0) console.warn(`face scan: ${failed} of ${stoppedAt} photos failed to process (retried up to ${MAX_FACE_SCAN_ATTEMPTS} times, then skipped until a full rescan).`);
+  if (failed > 0) log.warn(`face scan: ${failed} of ${stoppedAt} photos failed to process (retried up to ${MAX_FACE_SCAN_ATTEMPTS} times, then skipped until a full rescan).`);
   const remaining = photos.length - stoppedAt;
-  if (timeLimited) console.warn(`face scan: paused at the ${SCAN_TIME_LIMIT_MS / 3_600_000}-hour limit — ${remaining} photos continue next run.`);
+  if (timeLimited) log.warn(`face scan: paused at the ${SCAN_TIME_LIMIT_MS / 3_600_000}-hour limit — ${remaining} photos continue next run.`);
   return {
     items: stoppedAt,
     faces: totalFaces,
@@ -190,7 +191,7 @@ export function activeFaceScan(): FaceScanStatus | null {
   const job = db.prepare(`
     SELECT payload, status FROM jobs
     WHERE type = ? AND status IN ('pending', 'running')
-    ORDER BY datetime(created_at) ASC LIMIT 1
+    ORDER BY created_at ASC LIMIT 1
   `).get(faceJobType) as { payload: string; status: "pending" | "running" } | undefined;
   if (!job) return null;
 
@@ -259,8 +260,8 @@ export async function processFaceScanQueue(): Promise<void> {
 
       const job = db.prepare(`
         SELECT id, payload FROM jobs
-        WHERE type = ? AND status = 'pending' AND datetime(run_at) <= datetime('now')
-        ORDER BY datetime(run_at) ASC LIMIT 1
+        WHERE type = ? AND status = 'pending' AND run_at <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+        ORDER BY run_at ASC LIMIT 1
       `).get(faceJobType) as { id: string; payload: string } | undefined;
       if (!job) break;
 
@@ -347,7 +348,7 @@ export function startFaceScanWorker(): () => void {
   // to recover. Runs after the first poll would have re-queued any interrupted
   // batches, so it only fires when the queue is genuinely drained-but-unclustered.
   const recovery = setTimeout(() => {
-    void recoverOrphanFaceClusters().catch((err) => console.warn("face scan: orphan-cluster recovery failed:", err instanceof Error ? err.message : err));
+    void recoverOrphanFaceClusters().catch((err) => log.warn(`face scan: orphan-cluster recovery failed: ${err instanceof Error ? err.message : String(err)}`));
   }, 5000);
   recovery.unref?.();
   const timer = setInterval(() => { void processFaceScanQueue(); }, 2000);

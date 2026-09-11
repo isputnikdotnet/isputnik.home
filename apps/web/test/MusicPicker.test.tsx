@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -105,6 +105,28 @@ describe("slideshow music picker", () => {
     // The skipped file is named, so it is clear what was left out and why.
     expect(screen.getByText(/left alone: Sunset\.mp3/)).toBeInTheDocument();
     expect(screen.queryByText("Music error")).not.toBeInTheDocument();
+  });
+
+  it("asks before deleting a track, and deletes only on confirm", async () => {
+    const user = userEvent.setup();
+    mount([track()]);
+    const deleteCalls = () => mockApi.mock.calls.filter(([, init]) => (init as RequestInit | undefined)?.method === "DELETE");
+
+    await user.click(await screen.findByRole("button", { name: "Delete Sunset" }));
+    const dialog = screen.getByRole("alertdialog");
+    expect(within(dialog).getByText('Delete "Sunset"?')).toBeInTheDocument();
+    expect(deleteCalls()).toHaveLength(0);
+
+    // Cancel leaves the track alone.
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(deleteCalls()).toHaveLength(0);
+
+    await user.click(screen.getByRole("button", { name: "Delete Sunset" }));
+    await user.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Delete track" }));
+    await waitFor(() => expect(deleteCalls()).toHaveLength(1));
+    expect(deleteCalls()[0][0]).toBe("/api/library/gallery/music/t1");
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
   });
 
   it("still explains a genuine upload failure", async () => {

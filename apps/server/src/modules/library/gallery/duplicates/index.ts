@@ -3,12 +3,15 @@
 // What lives here, in the order the work happens:
 //
 //   items.ts       the size gate, the sha256 pass, the exact + near item tiers, keeper
-//                  scoring, the folder instructions, and the background scan job
+//                  scoring, the folder instructions, and queueing a scan
+//   scan-queue.ts  the background scan job: the hashing pass, then the job's snapshot
 //   folders.ts     folder fingerprints and the three folder-shaped answers —
 //                  identical, stored elsewhere, and overlapping
 //
 //   jobs.ts        a cleanup job: scope, status, ownership, totals
-//   job-scan.ts    the job's own SNAPSHOT of what the digests say
+//   job-scan.ts    the job's own SNAPSHOT of what the digests say, one snapshot-*.ts
+//                  per tier over what they share in snapshot.ts
+//   job-results.ts reading the snapshot back, and what a sweep would take
 //   job-review.ts  mark, dismiss, re-apply the job's folder instructions
 //   job-resolve.ts revalidate against the library, then move copies to the Recycle Bin
 //   job-routes.ts  the Duplicate cleanup page's API
@@ -19,4 +22,4 @@
 // keeper scoring, and nothing else — a job holds no foreign key into the cache,
 // because a rebuild would empty it. See docs for the full picture.
 export { galleryDuplicateJobRoutesPlugin } from "./job-routes.js";
-export { startDuplicateScanWorker } from "./items.js";
+export { startDuplicateScanWorker } from "./scan-queue.js";

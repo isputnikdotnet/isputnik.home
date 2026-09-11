@@ -6,7 +6,7 @@ import { SlideshowTitleCardModal } from "./SlideshowTitleCardModal";
 import { MessageBox } from "../../shared/MessageBox";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { formatBytes } from "../../shared/utils";
-import type { GalleryAsset, GalleryLibrary, GallerySlideshowDetail, SlideshowPatch, SlideshowTransition } from "./types";
+import type { GalleryAsset, GallerySlideshowDetail, SlideshowPatch, SlideshowTransition } from "./types";
 import { faceFocusStyle } from "./types";
 
 // The presentation transitions offered in the editor, in display order. The live
@@ -23,7 +23,6 @@ export function GallerySlideshowEditor({
   loading,
   canEdit,
   onOpenAt,
-  onPlay,
   onLoadMore,
   onReorder,
   onRemove,
@@ -38,7 +37,6 @@ export function GallerySlideshowEditor({
   loading: boolean;
   canEdit: boolean;
   onOpenAt: (index: number) => void;
-  onPlay: () => void;
   onLoadMore: () => void;
   onReorder: (orderedIds: string[]) => void;
   onRemove: (id: string) => void;

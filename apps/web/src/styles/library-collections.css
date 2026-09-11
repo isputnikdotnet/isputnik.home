@@ -96,49 +96,6 @@
   opacity: 0.7;
 }
 
-/* ── A–Z strip (Authors browse) ─────────────────────────────────────
-   Twenty-eight targets in one line, so it borrows the kind-toggle's pill
-   language but drops the enclosing capsule: a pill around a whole alphabet
-   reads as a container, not a control. Letters with nobody behind them stay
-   in place and go quiet — a row that reflowed as you filtered would move the
-   letter out from under the pointer. */
-.alpha-filter {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 3px;
-  margin: 0 0 18px;
-}
-
-.alpha-filter button {
-  min-width: 30px;
-  padding: 5px 8px;
-  border: 1px solid transparent;
-  border-radius: 7px;
-  background: transparent;
-  color: var(--muted);
-  font-size: 0.84rem;
-  font-weight: 600;
-  line-height: 1.2;
-  cursor: pointer;
-  transition: background 0.13s ease, color 0.13s ease, border-color 0.13s ease;
-}
-
-.alpha-filter button:hover:not(:disabled) {
-  color: var(--ink);
-  background: var(--hover);
-}
-
-.alpha-filter button:disabled {
-  opacity: 0.32;
-  cursor: default;
-}
-
-.alpha-filter button.is-active {
-  border-color: transparent;
-  background: var(--mint);
-  color: var(--canvas);
-}
-
 /* ── Tag browse (global Tags page) ──────────────────────────────────
    A searchable cloud of tag chips with usage counts. */
 .tag-cloud {
@@ -343,13 +300,6 @@
 .series-detail-head .muted {
   margin: 4px 0 0;
   font-size: 0.9rem;
-}
-
-.series-name-edit {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
 }
 
 .series-name-edit h1 {
@@ -1445,7 +1395,7 @@
   left: 50%;
   bottom: 28px;
   transform: translateX(-50%);
-  z-index: 60;
+  z-index: var(--z-toast);
   padding: 9px 18px;
   border-radius: 8px;
   font-size: 0.85rem;
@@ -1502,14 +1452,6 @@
   display: grid;
   gap: 2px;
   min-width: 0;
-}
-
-.audiobook-card-body strong,
-.audiobook-card-body span,
-.audiobook-card-body small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .audiobook-card-body span,
@@ -1625,13 +1567,6 @@
 .collection-rename {
   min-width: 30px;
   min-height: 30px;
-}
-
-.collection-head-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
 }
 
 .collection-item-list {
@@ -1951,15 +1886,10 @@
 
 /* The quote editor outgrew the 420px card: ten fields in a column that narrow is
    a very long scroll. Wider, with the secondary fields two abreast — the quote
-   itself and the note stay full width, since those are what you actually type. */
+   itself and the note stay full width, since those are what you actually type.
+   Two abreast is .quote-field-row's own layout (one column at 560px and under). */
 .confirm-modal.quote-editor-modal {
   width: min(94vw, 680px);
-}
-
-@media (min-width: 620px) {
-  .quote-editor-modal .quote-field-row {
-    grid-template-columns: 1fr 1fr;
-  }
 }
 
 /* Search over the whole library, not just the page on screen. */

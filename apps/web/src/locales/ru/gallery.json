@@ -56,10 +56,6 @@
       "person_few": "{{count}} человека",
       "person_many": "{{count}} человек",
       "person_other": "{{count}} человека",
-      "smallGroup_one": "{{count}} малая группа",
-      "smallGroup_few": "{{count}} малые группы",
-      "smallGroup_many": "{{count}} малых групп",
-      "smallGroup_other": "{{count}} малой группы",
       "selected_one": "{{count}} выбран",
       "selected_few": "{{count}} выбрано",
       "selected_many": "{{count}} выбрано",
@@ -125,8 +121,6 @@
   "lightbox": {
     "fieldDescription": "описание",
     "fieldDate": "дату",
-    "fieldTags": "теги",
-    "fieldLocation": "местоположение",
     "editAria": "Изменить {{label}}",
     "labelName": "Название",
     "labelDescription": "Описание",
@@ -136,7 +130,6 @@
     "labelDuration": "Длительность",
     "labelSize": "Вес файла",
     "labelCamera": "Камера",
-    "labelLocation": "Местоположение",
     "labelPeople": "Люди",
     "labelFolder": "Папка",
     "labelLibrary": "Библиотека",
@@ -293,6 +286,8 @@
     "preview": "Прослушать",
     "deleteTrackAria": "Удалить «{{title}}»",
     "deleteTrackTitle": "Удалить трек",
+    "deleteTrackConfirmTitle": "Удалить «{{title}}»?",
+    "deleteTrackConfirmBody": "Слайд-шоу, в которых звучит этот трек, будут показываться без музыки. Сами слайд-шоу и их фотографии не затрагиваются.",
     "skippedNotice": "Уже были здесь, поэтому не тронуты: {{list}}.",
     "addedSuffix_one": " Добавлен {{count}}.",
     "addedSuffix_few": " Добавлено {{count}}.",
@@ -404,10 +399,6 @@
     "askDefaultName_few": "{{count}} фото — спросить",
     "askDefaultName_many": "{{count}} фото — спросить",
     "askDefaultName_other": "{{count}} фото — спросить",
-    "addedPhotosNotice_one": "В «{{name}}» добавлено {{count}} фото.",
-    "addedPhotosNotice_few": "В «{{name}}» добавлено {{count}} фото.",
-    "addedPhotosNotice_many": "В «{{name}}» добавлено {{count}} фото.",
-    "addedPhotosNotice_other": "В «{{name}}» добавлено {{count}} фото.",
     "errors": {
       "load": "Не удалось загрузить альбомы",
       "open": "Не удалось загрузить альбом",
@@ -464,7 +455,6 @@
     "mergeAllTitle": "Объединить всех",
     "cancelSelection": "Отменить выбор",
     "pickPhotos": "Выбрать фото",
-    "renameTitle": "Переименовать",
     "namePersonTitle": "Назвать человека",
     "mergeInto": "Объединить «<bold>{{name}}</bold>» с:",
     "choosePersonOption": "Выберите человека…",
@@ -532,11 +522,6 @@
     "errors": {
       "createSlideshow": "Не удалось создать слайд-шоу"
     }
-  },
-  "yearReview": {
-    "heading": "Ваш год",
-    "hint": "Собрано из фото и видео, которые понравились вашей семье, за весь год.",
-    "previewTitle": "Просмотр «{{title}}»"
   },
   "suggestions": {
     "heading": "Предложенные слайд-шоу",
@@ -616,7 +601,6 @@
     "removing": "Удаляем…",
     "errors": {
       "title": "Запись",
-      "save": "Не удалось сохранить запись",
       "remove": "Не удалось удалить запись"
     }
   },

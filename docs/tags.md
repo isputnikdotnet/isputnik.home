@@ -21,7 +21,7 @@ for future ones (Gallery, Documents) with no schema change.
 ## Auto-tagging at scan
 
 Both scanners store their source genres/subjects as tags via
-[`setEntityTags("book", id, names)`](../apps/server/src/modules/library/audiobook/categorize.ts)
+[`setEntityTags("book", id, names)`](../apps/server/src/modules/library/shared/tagging.ts)
 (audiobook genres; ebook `meta.subjects`). Tags also seed category matching — see
 [categories.md](categories.md).
 

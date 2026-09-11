@@ -19,6 +19,7 @@ import {
 import { createSlideshow, getSlideshow, updateSlideshow } from "../src/modules/library/gallery/slideshows.js";
 import { setHouseLibrary } from "../src/modules/library/gallery/house-library.js";
 import { resetDb, makeUser, makeLibrary } from "./helpers/seed.js";
+import "./helpers/media-types.js";
 
 const uploader = { id: "uploader", role: "member" };
 const other = { id: "other", role: "member" };

@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { db, logActivity } from "../../../db.js";
-import { parseBody } from "../../../core/shared.js";
+import { parseBody, parseQuery } from "../../../core/shared.js";
 import { enqueueAudiobookScan, processAudiobookScanQueue } from "./scanner.js";
 import { z } from "zod";
 import { canUserAccessLibrary, libraryCapabilities, deleteLibraryAccess } from "../shared/library-access.js";
@@ -26,7 +26,7 @@ const AUDIOBOOK_LIBRARY_LIST_SQL = `
   LEFT JOIN audio_files ON audio_files.item_id = library_items.id AND audio_files.status = 'available' AND audio_files.deleted_at IS NULL
   WHERE libraries.type = 'audiobook' %WHERE%
   GROUP BY libraries.id
-  ORDER BY datetime(libraries.created_at) DESC
+  ORDER BY libraries.created_at DESC
 `;
 
 export async function audiobookRoutesPlugin(app: FastifyInstance) {
@@ -69,14 +69,21 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
     return reply.code(201).send({ library: { id: result.libraryId }, job: { id: jobId, type: "SCAN_AUDIOBOOK_LIBRARY" } });
   });
 
-  app.get("/api/library/audiobook-libraries", { preHandler: app.authenticate }, async (request) => {
+  // `manage` is a presence flag: any value, even empty, asks for every library.
+  const libraryListQuerySchema = z.object({ manage: z.string().optional() });
+
+  app.get("/api/library/audiobook-libraries", { preHandler: app.authenticate }, async (request, reply) => {
     const user = request.user!;
+    const parsed = parseQuery(libraryListQuerySchema, request.query);
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid query", details: parsed.error });
+    }
     const rows = db.prepare(AUDIOBOOK_LIBRARY_LIST_SQL.replace("%WHERE%", "")).all() as AudiobookLibraryRow[];
 
     // Control Panel passes ?manage=1: admins then see ALL libraries (to administer the
     // system), even private ones they can't access — those show with no caps + a
     // take-ownership action. The default (consumer) view shows only accessible libraries.
-    const manageAll = (request.query as { manage?: string }).manage != null && user.role === "admin";
+    const manageAll = parsed.data.manage != null && user.role === "admin";
     const visible = manageAll ? rows : rows.filter((row) => canUserAccessLibrary(row, user.id, user.role));
 
     return {

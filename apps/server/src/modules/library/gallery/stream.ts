@@ -5,11 +5,21 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { FastifyInstance } from "fastify";
+import { z } from "zod";
 import { db, logActivity } from "../../../db.js";
+import { parseQuery } from "../../../core/shared.js";
 import { pathIsInside } from "../shared/storage-roots.js";
 import { canUserAccessBook } from "../shared/library-access.js";
 import { parseRangeHeader, pipeFileToReply } from "../shared/document-stream.js";
 import { thumbnailAbsolutePath } from "../shared/thumbnail.js";
+
+// Both are presence flags — any value, even empty, turns them on. `v` is the
+// cache-busting token asset URLs carry.
+const fileQuerySchema = z.object({
+  web: z.string().optional(),
+  download: z.string().optional(),
+  v: z.string().optional()
+});
 
 /**
  * Content-Disposition naming the asset's own file. Without it the browser names
@@ -57,9 +67,15 @@ export async function galleryStreamPlugin(app: FastifyInstance) {
       return;
     }
 
+    const query = parseQuery(fileQuerySchema, request.query);
+    if (query.error) {
+      reply.code(400).send({ error: "Invalid query", details: query.error });
+      return;
+    }
+
     // ?web=1 serves the browser-playable H.264 copy (transcode.ts) for inline playback of
     // a video the browser can't decode; downloads and everything else keep the original.
-    const wantWeb = typeof (request.query as { web?: string }).web === "string" && row.web_video_key;
+    const wantWeb = typeof query.data.web === "string" && row.web_video_key;
     let filePath: string;
     let mimeType: string;
     if (wantWeb) {
@@ -88,7 +104,7 @@ export async function galleryStreamPlugin(app: FastifyInstance) {
     // This endpoint also serves inline views/playback, so only audit an explicit
     // download (client appends ?download=1) — and only at the start of the transfer
     // so a ranged video download logs once, not per chunk.
-    const wantsDownload = typeof (request.query as { download?: string }).download === "string";
+    const wantsDownload = typeof query.data.download === "string";
     if (wantsDownload && (!range || range.start === 0)) {
       const mime = row.mime_type ?? "";
       const noun = mime.startsWith("video") ? "video" : mime.startsWith("audio") ? "recording" : "photo";

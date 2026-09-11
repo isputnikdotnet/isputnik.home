@@ -4,11 +4,12 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { db } from "../src/db.js";
 import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
-import { getGalleryAssetUnscoped } from "../src/modules/library/gallery/catalog.js";
+import { getGalleryAssetUnscoped } from "../src/modules/library/gallery/catalog-asset.js";
 import { setHouseLibrary } from "../src/modules/library/gallery/house-library.js";
 import { deleteVoiceNote, listVoiceNotes, storeVoiceNote, voiceNoteFile, VoiceNoteError } from "../src/modules/library/gallery/voice-notes.js";
 import { thumbnailPathSettingKey } from "../src/modules/library/shared/thumbnail.js";
 import { grant, makeLibrary, makeUser, resetDb } from "./helpers/seed.js";
+import "./helpers/media-types.js";
 
 // Voice notes (docs/photo-review-plan.md, phase 4): a recording kept on a
 // photo, stored as an audio asset in the house library and tied by one row.

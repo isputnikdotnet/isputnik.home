@@ -112,11 +112,12 @@ export function isBlockedByNetwork(response: Response): boolean {
   return !type.includes("json");
 }
 
-/** What to tell the user when {@link isBlockedByNetwork} says yes. */
-export const NETWORK_BLOCK_MESSAGE =
-  `Something on this network — a corporate proxy, a content filter, or a guest Wi-Fi portal — ` +
-  `answered instead of iSputnik. The server itself is fine. Ask whoever runs the network to allow ` +
-  `${window.location.host}, or try a different connection.`;
+/** What to tell the user when {@link isBlockedByNetwork} says yes. A function, not a
+ *  constant, so it is read in the language the app is in when the block happens (the
+ *  same string the sign-in screen shows). */
+export function networkBlockMessage(): string {
+  return i18n.t("common:network.blocked", { host: window.location.host });
+}
 
 export function isAccessOrMissingApiError(error: unknown): boolean {
   // A gateway's 403 is not the server saying no — it never reached the server. Callers
@@ -161,7 +162,7 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
 
   if (!response.ok) {
     if (isBlockedByNetwork(response)) {
-      throw new ApiError(NETWORK_BLOCK_MESSAGE, response.status, undefined, true);
+      throw new ApiError(networkBlockMessage(), response.status, undefined, true);
     }
     const payload = (await response.json().catch(() => ({}))) as ApiErrorPayload;
     const fieldMessage = payload.details?.fieldErrors
@@ -171,7 +172,7 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
       : "";
     const formMessage = payload.details?.formErrors?.join("; ") ?? "";
     throw new ApiError(
-      fieldMessage || formMessage || localizedErrorMessage(payload) || "Request failed",
+      fieldMessage || formMessage || localizedErrorMessage(payload) || i18n.t("common:errors.requestFailed"),
       response.status,
       payload
     );

@@ -18,8 +18,9 @@ import path from "node:path";
 import { db } from "../../db.js";
 import { APP_ROOMS, getAppStoragePath, type AppRoom } from "../../core/app-storage.js";
 import { HOUSE_FOLDERS, getHouseLibrary } from "./gallery/house-library.js";
-import { roomView } from "./app-storage.js";
-import { trashBook, TrashError } from "./shared/trash.js";
+import { roomView } from "./app-storage-rooms.js";
+import { trashBook } from "./shared/trash.js";
+import { TrashError } from "./shared/trash-settings.js";
 
 const WALK_LIMIT = 250_000;
 

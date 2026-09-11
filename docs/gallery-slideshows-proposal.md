@@ -1,6 +1,6 @@
 # Gallery: Custom Slideshows & rich Memories — proposal
 
-Status: **ALL PHASES BUILT** — 1 (editor + live preview), 2 (music), 3 (rich
+Status: shipped by v1.11.0 (2026-07-23); kept for history. All four phases were built — 1 (editor + live preview), 2 (music), 3 (rich
 Memories), 4 (MP4 render). The system has since grown well past this proposal
 (title cards, dip-to-black/random transitions, transition-length control,
 save-to-library, suggestion previews, near-duplicate filtering, folder-browser

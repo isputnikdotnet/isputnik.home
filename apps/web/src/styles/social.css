@@ -535,13 +535,6 @@
   min-width: 0;
 }
 
-.send-to-subject-text strong {
-  /* A long audiobook title must not widen the dialog. */
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .send-to-subject-text span {
   font-size: 0.85rem;
   color: var(--muted);
@@ -608,10 +601,6 @@
   text-transform: uppercase;
   color: var(--muted);
   margin: 8px 0 12px;
-}
-
-.inbox-list-settled {
-  opacity: 0.75;
 }
 
 .inbox-card {
@@ -693,45 +682,15 @@ a.inbox-title:hover {
   flex: 0 0 auto;
 }
 
-.inbox-status {
-  flex: 0 0 auto;
-  font-size: 0.82rem;
-  color: var(--muted);
-}
-
-.inbox-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  padding: 48px 16px;
-  color: var(--muted);
-  text-align: center;
-}
-
-.inbox-empty p {
-  margin: 0;
-}
-
-.inbox-empty-hint {
-  max-width: 42ch;
-  font-size: 0.9rem;
-}
-
 /* Phones: the action buttons drop under the text rather than squeezing it. */
 @media (max-width: 740px) {
   .inbox-card {
     flex-wrap: wrap;
   }
 
-  .inbox-actions,
-  .inbox-status {
+  .inbox-actions {
     width: 100%;
     justify-content: flex-end;
-  }
-
-  .inbox-status {
-    text-align: right;
   }
 }
 
@@ -936,13 +895,6 @@ a.inbox-title:hover {
   gap: 1px;
 }
 
-.activity-sentence,
-.activity-body {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .activity-body {
   font-size: 0.85rem;
   font-style: italic;
@@ -975,7 +927,7 @@ a.inbox-title:hover {
   position: absolute;
   bottom: calc(100% + 6px);
   left: 0;
-  z-index: 30;
+  z-index: var(--z-popover);
   display: grid;
   grid-template-columns: repeat(8, 1fr);
   gap: 2px;

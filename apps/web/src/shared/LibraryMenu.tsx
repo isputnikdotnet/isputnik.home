@@ -1,6 +1,8 @@
-import React, { useEffect, useRef, useState } from "react";
+import React from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown } from "lucide-react";
+import { cx } from "./cx";
+import { useAnchoredMenu } from "./useAnchoredMenu";
 
 // The library picker used across the browse pages: a labelled tab that opens a menu
 // of libraries. Styling lives on .audiobook-library-tab / .audiobook-library-menu in
@@ -31,57 +33,16 @@ export function LibraryMenu({
   disabled?: boolean;
   className?: string;
 }) {
-  const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState<{ top: number; left: number | null; right: number | null; width: number } | null>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
+  // Right-aligns when a left-aligned menu (library names run wide) would run off-screen.
+  const { open, pos, toggle, close, triggerRef, menuRef } = useAnchoredMenu({ menuWidth: 240 });
   const current = options.find((option) => option.value === value);
-
-  const toggle = () => {
-    setOpen((isOpen) => {
-      if (!isOpen && triggerRef.current) {
-        const rect = triggerRef.current.getBoundingClientRect();
-        // Right-align when a left-aligned menu would run off-screen.
-        const alignRight = rect.left + 240 > window.innerWidth;
-        setPos({
-          top: rect.bottom + 8,
-          left: alignRight ? null : rect.left,
-          right: alignRight ? window.innerWidth - rect.right : null,
-          width: rect.width
-        });
-      }
-      return !isOpen;
-    });
-  };
-
-  useEffect(() => {
-    if (!open) return;
-    const close = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (triggerRef.current?.contains(target)) return;
-      if (menuRef.current?.contains(target)) return;
-      setOpen(false);
-    };
-    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") setOpen(false); };
-    const dismiss = () => setOpen(false);
-    window.addEventListener("mousedown", close);
-    window.addEventListener("keydown", onKey);
-    window.addEventListener("resize", dismiss);
-    window.addEventListener("scroll", dismiss, true);
-    return () => {
-      window.removeEventListener("mousedown", close);
-      window.removeEventListener("keydown", onKey);
-      window.removeEventListener("resize", dismiss);
-      window.removeEventListener("scroll", dismiss, true);
-    };
-  }, [open]);
 
   return (
     <>
       <button
         ref={triggerRef}
         type="button"
-        className={["audiobook-library-tab", className].filter(Boolean).join(" ")}
+        className={cx("audiobook-library-tab", className)}
         onClick={toggle}
         disabled={disabled}
         aria-haspopup="menu"
@@ -112,7 +73,7 @@ export function LibraryMenu({
               type="button"
               role="menuitem"
               className={option.value === value ? "active" : ""}
-              onClick={() => { onChange(option.value); setOpen(false); }}
+              onClick={() => { onChange(option.value); close(); }}
             >
               <span>{option.label}</span>
             </button>

@@ -8,7 +8,7 @@ import { db, logActivity } from "../../../db.js";
 import { canUserWriteLibrary } from "../shared/library-access.js";
 import { receiveUploadBatch, UploadError } from "../../uploads/index.js";
 import { parseRangeHeader, pipeFileToReply } from "../shared/document-stream.js";
-import { TrashError } from "../shared/trash.js";
+import { TrashError } from "../shared/trash-settings.js";
 import {
   listMusicTracks,
   createUserTrack,

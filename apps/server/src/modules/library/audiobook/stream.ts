@@ -2,10 +2,15 @@ import fs from "node:fs";
 import path from "node:path";
 import type { FastifyInstance } from "fastify";
 import { ZipArchive } from "archiver";
+import { z } from "zod";
 import { db, logActivity } from "../../../db.js";
+import { parseQuery } from "../../../core/shared.js";
 import { pathIsInside } from "../shared/storage-roots.js";
 import { canUserAccessBook, canUserDownloadBook } from "../shared/library-access.js";
 import { parseRangeHeader, pipeFileToReply, streamDocumentFile } from "../shared/document-stream.js";
+
+// `download` is a presence flag: any value, even empty, asks for an attachment.
+const documentQuerySchema = z.object({ download: z.string().optional() });
 
 export async function audiobookStreamPlugin(app: FastifyInstance) {
   app.get("/api/library/books/:id/stream/:fileId", { preHandler: app.authenticate }, (request, reply) => {
@@ -166,7 +171,12 @@ export async function audiobookStreamPlugin(app: FastifyInstance) {
   // access logic is shared with the OPDS acquisition route (document-stream.ts).
   app.get("/api/library/books/:id/documents/:docId", { preHandler: app.authenticate }, (request, reply) => {
     const { id, docId } = request.params as { id: string; docId: string };
-    const wantsDownload = (request.query as { download?: string }).download != null;
+    const parsed = parseQuery(documentQuerySchema, request.query);
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid query", details: parsed.error });
+      return;
+    }
+    const wantsDownload = parsed.data.download != null;
     streamDocumentFile(request, reply, { itemId: id, docId, user: request.user!, download: wantsDownload });
   });
 }

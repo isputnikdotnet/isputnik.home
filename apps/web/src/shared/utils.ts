@@ -61,16 +61,23 @@ export function formatBytes(bytes: number) {
   return `${value.toFixed(value >= 10 ? 1 : 2)} ${unit}`;
 }
 
+// The time helpers below are plain functions, not components, so they read the
+// strings through i18n directly (no hook) and are re-evaluated on every call —
+// a language switch shows up on the next render. Every number goes through a
+// count-based key, so Russian gets its three forms.
+
 export function formatUptime(seconds: number) {
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
-  return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+  const mins = i18n.t("common:time.minutesCompact", { count: minutes });
+  return hours > 0 ? `${i18n.t("common:time.hoursCompact", { count: hours })} ${mins}` : mins;
 }
 
 export function formatDuration(seconds: number) {
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
-  return hours > 0 ? `${hours} hr ${minutes} min` : `${minutes} min`;
+  const mins = i18n.t("common:time.minutes", { count: minutes });
+  return hours > 0 ? `${i18n.t("common:time.hours", { count: hours })} ${mins}` : mins;
 }
 
 export function formatLogName(event: string) {
@@ -79,12 +86,14 @@ export function formatLogName(event: string) {
 
 // Coarse "time remaining" phrasing for live task/scan progress lines.
 export function formatEta(seconds: number): string {
-  if (seconds < 60) return "less than a minute left";
+  if (seconds < 60) return i18n.t("common:time.lessThanMinuteLeft");
   const mins = Math.round(seconds / 60);
-  if (mins < 60) return `about ${mins} min left`;
+  if (mins < 60) return i18n.t("common:time.aboutLeft", { span: i18n.t("common:time.minutes", { count: mins }) });
   const hrs = Math.floor(mins / 60);
   const rem = mins % 60;
-  return rem === 0 ? `about ${hrs} hr left` : `about ${hrs} hr ${rem} min left`;
+  const hours = i18n.t("common:time.hours", { count: hrs });
+  const span = rem === 0 ? hours : `${hours} ${i18n.t("common:time.minutes", { count: rem })}`;
+  return i18n.t("common:time.aboutLeft", { span });
 }
 
 // Document formats the in-app foliate reader can render (its EPUB engine plus the
@@ -109,25 +118,24 @@ export function foliateFileInfo(format: string): { name: string; mime: string } 
 export function relativeTime(value: string): string {
   const date = new Date(value.includes("T") ? value : `${value.replace(" ", "T")}Z`);
   const seconds = Math.round((Date.now() - date.getTime()) / 1000);
-  if (!Number.isFinite(seconds)) return "just now";
+  if (!Number.isFinite(seconds)) return i18n.t("common:time.justNow");
   // A moment still to come ("next scheduled run") reads "in 6 hr", not "just now".
-  if (seconds < -45) return `in ${relativeSpan(-seconds)}`;
-  if (seconds < 45) return "just now";
-  return `${relativeSpan(seconds)} ago`;
+  if (seconds < -45) return i18n.t("common:time.fromNow", { span: relativeSpan(-seconds) });
+  if (seconds < 45) return i18n.t("common:time.justNow");
+  return i18n.t("common:time.ago", { span: relativeSpan(seconds) });
 }
 
 /** A duration in the coarsest unit that still says something: "3 min", "6 hr", "2 days". */
 function relativeSpan(seconds: number): string {
   const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return `${minutes} min`;
+  if (minutes < 60) return i18n.t("common:time.minutes", { count: minutes });
   const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours} hr`;
+  if (hours < 24) return i18n.t("common:time.hours", { count: hours });
   const days = Math.round(hours / 24);
-  if (days < 30) return `${days} ${days === 1 ? "day" : "days"}`;
+  if (days < 30) return i18n.t("common:time.days", { count: days });
   const months = Math.round(days / 30);
-  if (months < 12) return `${months} ${months === 1 ? "month" : "months"}`;
-  const years = Math.round(months / 12);
-  return `${years} ${years === 1 ? "year" : "years"}`;
+  if (months < 12) return i18n.t("common:time.months", { count: months });
+  return i18n.t("common:time.years", { count: Math.round(months / 12) });
 }
 
 // Partial ISO dates — "1971", "1971-09", "1971-09-01" — as prose in the

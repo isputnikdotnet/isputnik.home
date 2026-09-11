@@ -6,7 +6,7 @@ import { nanoid } from "nanoid";
 import { db } from "../../../db.js";
 import { normaliseRelativePath } from "../shared/storage-roots.js";
 import { renderInTurn, thumbnailAbsolutePath, thumbnailStorageKey } from "../shared/thumbnail.js";
-import { matchCategoryId, setEntityTags } from "../audiobook/categorize.js";
+import { matchCategoryId, setEntityTags } from "../shared/tagging.js";
 import { validateLibrarySource, LibrarySourceError } from "../shared/library-source.js";
 import {
   normalizeLibrarySettings,
@@ -695,8 +695,8 @@ export async function processEbookScanQueue() {
 
       const job = db.prepare(`
         SELECT id, payload FROM jobs
-        WHERE type = ? AND status = 'pending' AND datetime(run_at) <= datetime('now')
-        ORDER BY datetime(run_at) ASC LIMIT 1
+        WHERE type = ? AND status = 'pending' AND run_at <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+        ORDER BY run_at ASC LIMIT 1
       `).get(scanJobType) as { id: string; payload: string } | undefined;
       if (!job) break;
 

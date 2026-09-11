@@ -30,9 +30,12 @@ import type { AppRoom } from "../../../core/app-storage.js";
 import { jobProgressWriter } from "./job-progress.js";
 import { requeueInterruptedJobs } from "./job-recovery.js";
 import { libraryJobRunning } from "./scan-lock.js";
-import { getTrashRootSetting, setMovingTrashedItem } from "./trash.js";
-import { moveTrashedItemTo, pendingTrashMoveRows } from "./trash-move.js";
+import { getTrashRootSetting, trashPathFor } from "./trash-settings.js";
+import { moveEntry } from "./trash-fs.js";
+import { setMovingTrashedItem, type TrashedItem } from "./trash.js";
+import { pathIsInside } from "./storage-roots.js";
 import { RENDER_BUCKETS } from "./thumbnail.js";
+import { getMediaType } from "./media-types.js";
 
 export const STORAGE_MOVE_JOB_TYPE = "MOVE_STORAGE";
 
@@ -252,6 +255,57 @@ export function retryStorageMove(room: StorageMoveRoom, userId: string | null): 
 }
 
 // ── The units ───────────────────────────────────────────────────────────────
+
+/** The bin's units: rows whose files are not at the current location. Written
+ *  before or during a move, or by an older version that changed the setting while
+ *  the bin was empty (in which case there are none). Progress is not stored: it IS
+ *  the count of these (see trash-move.ts, which reads it for the bin's status). */
+export function pendingTrashMoveRows(): TrashedItem[] {
+  const current = getTrashRootSetting();
+  return db.prepare("SELECT * FROM trashed_items WHERE COALESCE(trash_root, '') != ? ORDER BY trashed_at")
+    .all(current ?? "") as TrashedItem[];
+}
+
+/** Move one row's files from where they are to where the bin now is, and rewrite
+ *  the row for the new layout. Throws on a filesystem problem; the row is only
+ *  rewritten once the files are safely across. */
+export function moveTrashedItemTo(item: TrashedItem, target: string | null): void {
+  const fromBase = path.resolve(item.trash_root || item.source_path);
+  const fromAbs = path.resolve(fromBase, item.trash_path);
+  if (!pathIsInside(fromAbs, fromBase) || fromAbs === fromBase) {
+    throw new Error("Refusing to move an item outside its bin folder.");
+  }
+  if (!fs.existsSync(fromAbs)) {
+    throw new Error(`Its files are not where the bin says they are (${fromAbs}).`);
+  }
+
+  const token = path.posix.basename(item.trash_path);
+  const toPath = trashPathFor(item.library_id, token, target);
+  const toBase = path.resolve(target ?? item.source_path);
+  const toAbs = path.resolve(toBase, toPath);
+  if (toAbs === fromAbs) {
+    db.prepare("UPDATE trashed_items SET trash_root = ?, trash_path = ? WHERE id = ?").run(target, toPath, item.id);
+    return;
+  }
+  if (fs.existsSync(toAbs)) {
+    throw new Error(`Something is already at ${toAbs}.`);
+  }
+
+  fs.mkdirSync(path.dirname(toAbs), { recursive: true });
+  moveEntry(fromAbs, toAbs);
+  db.prepare("UPDATE trashed_items SET trash_root = ?, trash_path = ? WHERE id = ?").run(target, toPath, item.id);
+
+  // The folder that held the token dir (`.trash`, or `<bin>/<library>`) goes when
+  // it is empty, as pruning does after a restore. Never the bin root itself.
+  try {
+    const container = path.dirname(fromAbs);
+    if (container !== fromBase && fs.existsSync(container) && fs.readdirSync(container).length === 0) {
+      fs.rmdirSync(container);
+    }
+  } catch {
+    /* best-effort housekeeping */
+  }
+}
 
 /** Top-level entries still in `from` for the folder kinds. */
 function listUnits(data: StorageMovePayload): string[] {
@@ -514,7 +568,11 @@ async function runMove(jobId: string, data: StorageMovePayload): Promise<Storage
     // old folder goes. A cancel or a failure leaves the folder exactly where it was.
     if (!data.libraryId || !data.targetLibraryId || data.folder == null || data.targetFolder == null) throw new Error("The folder move is missing its libraries.");
     if (!fs.existsSync(from)) throw new Error(`The folder is missing: ${from}`);
-    const { repointMovedFolder } = await import("../gallery/folder-move.js");
+    // The re-pointing is the media type's own (gallery/folder-move.ts), asked for
+    // through the registry so this file imports no media type.
+    const source = db.prepare("SELECT type FROM libraries WHERE id = ?").get(data.libraryId) as { type: string } | undefined;
+    const repointMovedFolder = source ? getMediaType(source.type)?.repointMovedFolder : undefined;
+    if (!repointMovedFolder) throw new Error("The folder move is missing its libraries.");
     if (fs.existsSync(to)) {
       const entries = fs.readdirSync(to);
       if (entries.length === 0) fs.rmdirSync(to);
@@ -596,8 +654,8 @@ export async function processStorageMoveQueue(): Promise<void> {
       if (libraryJobRunning()) break;
       const job = db.prepare(`
         SELECT id, payload FROM jobs
-        WHERE type = ? AND status = 'pending' AND datetime(run_at) <= datetime('now')
-        ORDER BY datetime(created_at) ASC LIMIT 1
+        WHERE type = ? AND status = 'pending' AND run_at <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+        ORDER BY created_at ASC LIMIT 1
       `).get(STORAGE_MOVE_JOB_TYPE) as { id: string; payload: string } | undefined;
       if (!job) break;
       const claim = db.prepare(`

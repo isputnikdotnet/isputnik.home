@@ -6,6 +6,7 @@ import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
 import { ChoiceGroup } from "../../shared/ChoiceGroup";
+import { useDebouncedValue } from "../../shared/useDebouncedValue";
 import type { GallerySlideshowDetail, MovieLibraryOption, MovieTargetPreview, SlideshowPatch } from "./types";
 
 // Where a slideshow's finished movie is filed. Off by default — a movie lives in the
@@ -61,10 +62,10 @@ export function SlideshowMovieLibraryModal({
   }, [slideshow.id]);
 
   // Debounced so typing a new name doesn't fire a request per keystroke.
+  const settledStem = useDebouncedValue(stem, 250);
   useEffect(() => {
-    const timer = setTimeout(() => { void check(libraryId, stem); }, 250);
-    return () => clearTimeout(timer);
-  }, [libraryId, stem, check]);
+    void check(libraryId, settledStem);
+  }, [libraryId, settledStem, check]);
 
   const conflict = preview?.conflict ?? "none";
   const blocked = conflict === "item";

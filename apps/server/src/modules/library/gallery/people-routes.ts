@@ -1,10 +1,11 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { db, logActivity } from "../../../db.js";
-import { parseBody } from "../../../core/shared.js";
+import { parseBody, parseQuery } from "../../../core/shared.js";
 import { canUserWriteAsset, canUserWriteLibrary, getLibraryForBook } from "../shared/library-access.js";
 import type { LibraryListRow } from "../shared/library-serializer.js";
-import { resolveGalleryScopeLibraryIds, parseLibraryIds, getGalleryAsset, getGalleryAssetUnscoped, resolveGalleryBrowseLibraryIds } from "./catalog.js";
+import { resolveGalleryScopeLibraryIds, parseLibraryIds, resolveGalleryBrowseLibraryIds } from "./catalog-scope.js";
+import { getGalleryAsset, getGalleryAssetUnscoped } from "./catalog-asset.js";
 import {
   listGalleryPeople,
   getGalleryPersonPhotos,
@@ -43,16 +44,31 @@ function canWriteAnyGallery(user: { id: string; role: string }): boolean {
 export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
   // ── Browse people ──
 
-  app.get("/api/library/gallery/people", { preHandler: app.authenticate }, async (request) => {
-    const qp = request.query as { libraryIds?: string; includeHidden?: string };
+  // libraryIds is comma-separated (see parseLibraryIds), so one key, not a repeat.
+  // Only includeHidden=1 counts, as it always has.
+  const peopleQuerySchema = z.object({ libraryIds: z.string().optional(), includeHidden: z.string().optional() });
+
+  app.get("/api/library/gallery/people", { preHandler: app.authenticate }, async (request, reply) => {
+    const parsed = parseQuery(peopleQuerySchema, request.query);
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid query", details: parsed.error });
+    }
+    const qp = parsed.data;
     const libIds = resolveGalleryBrowseLibraryIds(request.user!, parseLibraryIds(qp.libraryIds));
     const includeHidden = qp.includeHidden === "1" && request.user!.role === "admin";
     return { people: listGalleryPeople(libIds, includeHidden) };
   });
 
+  // Strings, not numbers: junk falls back to the defaults below.
+  const pageQuerySchema = z.object({ limit: z.string().optional(), offset: z.string().optional() });
+
   app.get("/api/library/gallery/people/:id", { preHandler: app.authenticate }, async (request, reply) => {
     const personId = (request.params as { id: string }).id;
-    const qp = request.query as { limit?: string; offset?: string };
+    const parsed = parseQuery(pageQuerySchema, request.query);
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid query", details: parsed.error });
+    }
+    const qp = parsed.data;
     const limit = Math.min(Math.max(Number.parseInt(qp.limit ?? "80", 10) || 80, 1), 200);
     const offset = Math.max(Number.parseInt(qp.offset ?? "0", 10) || 0, 0);
     const libIds = resolveGalleryBrowseLibraryIds(request.user!);

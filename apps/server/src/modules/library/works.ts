@@ -8,7 +8,7 @@ import { z } from "zod";
 import { db, logActivity } from "../../db.js";
 import { parseBody } from "../../core/shared.js";
 import { getLibraryForBook, canUserWriteLibrary, accessibleLibraryIds } from "./shared/library-access.js";
-import { splitGroupConcat } from "./audiobook/book-helpers.js";
+import { splitGroupConcat } from "./shared/book-helpers.js";
 
 interface EditionRow {
   id: string;
@@ -46,11 +46,11 @@ export function getWorkEditions(workId: string, user: { id: string; role: string
       ad.duration_seconds,
       COALESCE(
         (SELECT pp.percent_complete FROM playback_progress pp WHERE pp.item_id = li.id AND pp.user_id = ?),
-        (SELECT rp.percent_complete FROM reading_progress rp WHERE rp.item_id = li.id AND rp.user_id = ? ORDER BY datetime(rp.updated_at) DESC LIMIT 1)
+        (SELECT rp.percent_complete FROM reading_progress rp WHERE rp.item_id = li.id AND rp.user_id = ? ORDER BY rp.updated_at DESC LIMIT 1)
       ) AS percent_complete,
       COALESCE(
         (SELECT pp.completed_at FROM playback_progress pp WHERE pp.item_id = li.id AND pp.user_id = ?),
-        (SELECT rp.completed_at FROM reading_progress rp WHERE rp.item_id = li.id AND rp.user_id = ? ORDER BY datetime(rp.updated_at) DESC LIMIT 1)
+        (SELECT rp.completed_at FROM reading_progress rp WHERE rp.item_id = li.id AND rp.user_id = ? ORDER BY rp.updated_at DESC LIMIT 1)
       ) AS completed_at
     FROM work_items wi
     JOIN library_items li ON li.id = wi.item_id AND li.deleted_at IS NULL

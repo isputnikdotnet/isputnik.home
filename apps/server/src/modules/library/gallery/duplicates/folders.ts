@@ -23,13 +23,16 @@
 // removed photo's tags/albums/people onto its counterpart in the kept folder, and the
 // files go to the Recycle Bin.
 import crypto from "node:crypto";
-import { nanoid } from "nanoid";
-import { db, logActivity } from "../../../../db.js";
-import { trashBook, libraryAllowsDelete } from "../../shared/trash.js";
+import { db } from "../../../../db.js";
+import { libraryAllowsDelete } from "../../shared/trash.js";
 import { lockIntersecting } from "../../shared/folder-locks.js";
 import {
-  absorbDuplicateMetadata, COPY_MARKERS, DERIVED_FOLDERS, preferenceFor, type FolderPreference, type FolderPreferenceMode
-} from "./items.js";
+  COPY_MARKERS,
+  DERIVED_FOLDERS,
+  preferenceFor,
+  type FolderPreference,
+  type FolderPreferenceMode
+} from "./keeper.js";
 
 // A folder holding a single photo is a duplicate photo, not a duplicate folder — the
 // item tier says that better, and one-file folders would flood this list.
@@ -71,13 +74,6 @@ export const parentOf = (folderPath: string): string | null => {
   const cut = folderPath.lastIndexOf("/");
   return cut === -1 ? "" : folderPath.slice(0, cut);
 };
-
-// A folder's own name. The library's top folder has none — it is the root of the
-// relative paths, not a folder someone named — so it gets the shell's name for
-// exactly that, ".". Calling it "Library root" made it look like a folder you could
-// go and open, and on a card next to a real folder name it read as one.
-const folderName = (folderPath: string): string =>
-  folderPath === "" ? "." : folderPath.slice(folderPath.lastIndexOf("/") + 1);
 
 // The path of `filePath` relative to the folder `base`. base "" gives the path back.
 const below = (base: string, filePath: string): string =>

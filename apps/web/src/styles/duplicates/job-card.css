@@ -50,7 +50,7 @@
   height: 60px;
   border: 1px solid color-mix(in srgb, var(--line) 64%, transparent);
   border-radius: 8px;
-  color: var(--accent, #6336f5);
+  color: var(--accent);
   background: color-mix(in srgb, #eee7ff 80%, var(--surface-raised));
 }
 
@@ -89,7 +89,7 @@
 
 .dup-job-actions .primary-button.dup-job-scan-action {
   color: #fff;
-  border-color: color-mix(in srgb, var(--accent, #6336f5) 82%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 82%, transparent);
   background: linear-gradient(135deg, #7c3aed, #5f2eea);
   box-shadow: 0 12px 24px color-mix(in srgb, #6336f5 28%, transparent);
 }
@@ -97,7 +97,7 @@
 .dup-job-actions .primary-button.dup-job-scan-action:hover:not(:disabled),
 .dup-job-actions .primary-button.dup-job-scan-action:focus-visible {
   color: #fff;
-  border-color: color-mix(in srgb, var(--accent, #6336f5) 92%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 92%, transparent);
   background: linear-gradient(135deg, #8652ff, #6336f5);
 }
 

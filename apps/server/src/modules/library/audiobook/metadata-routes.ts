@@ -1,10 +1,12 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import fs from "node:fs";
 import path from "node:path";
+import { z } from "zod";
 import { db } from "../../../db.js";
-import { parseBody } from "../../../core/shared.js";
+import { parseBody, parseQuery } from "../../../core/shared.js";
 import { fetchMetadataFromUrl, MetadataLinkError, searchAllMetadataProviders, searchMetadataProvider, type MetadataProvider } from "./providers/index.js";
-import { rescanSingleBook, writeCoverImages } from "./scanner.js";
+import { rescanSingleBook } from "./scanner.js";
+import { writeCoverImages } from "./scan/covers.js";
 import { normaliseRelativePath } from "../shared/storage-roots.js";
 import { canUserWriteLibrary, getLibraryForBook } from "../shared/library-access.js";
 import { downloadImage } from "../shared/remote-image.js";
@@ -30,6 +32,15 @@ function refuseUnlessWritableBook(request: FastifyRequest, reply: FastifyReply, 
   return false;
 }
 
+// Blank values mean "use the default" below (the book's title, all providers).
+const metadataSearchQuerySchema = z.object({
+  q: z.string().optional(),
+  author: z.string().optional(),
+  provider: z.string().optional()
+});
+const metadataFromUrlQuerySchema = z.object({ url: z.string().optional() });
+const coverCandidateQuerySchema = z.object({ path: z.string().optional() });
+
 export function registerMetadataRoutes(app: FastifyInstance) {
 
   app.get("/api/library/books/:id/metadata-search", { preHandler: app.authenticate }, async (request, reply) => {
@@ -40,7 +51,11 @@ export function registerMetadataRoutes(app: FastifyInstance) {
       return reply.code(404).send({ error: "Audiobook not found" });
     }
 
-    const query = request.query as { q?: string; author?: string; provider?: string };
+    const parsed = parseQuery(metadataSearchQuerySchema, request.query);
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid query", details: parsed.error });
+    }
+    const query = parsed.data;
     const searchQuery = (query.q || book.title).trim();
     const author = query.author?.trim() ?? "";
     const provider = (query.provider || "all") as MetadataProvider | "all";
@@ -71,7 +86,11 @@ export function registerMetadataRoutes(app: FastifyInstance) {
       return reply.code(404).send({ error: "Audiobook not found" });
     }
 
-    const url = (request.query as { url?: string }).url?.trim();
+    const parsed = parseQuery(metadataFromUrlQuerySchema, request.query);
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid query", details: parsed.error });
+    }
+    const url = parsed.data.url?.trim();
     if (!url) {
       return reply.code(400).send({ error: "A book link is required" });
     }
@@ -175,7 +194,11 @@ export function registerMetadataRoutes(app: FastifyInstance) {
   app.get("/api/library/books/:id/cover-candidate", { preHandler: app.authenticate }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     if (refuseUnlessWritableBook(request, reply, id)) return;
-    const relativePath = String((request.query as { path?: string }).path ?? "");
+    const parsed = parseQuery(coverCandidateQuerySchema, request.query);
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid query", details: parsed.error });
+    }
+    const relativePath = parsed.data.path ?? "";
     const filePath = coverFilePathFromRelative(id, relativePath);
     if (!filePath) {
       return reply.code(404).send({ error: "Cover file not found" });

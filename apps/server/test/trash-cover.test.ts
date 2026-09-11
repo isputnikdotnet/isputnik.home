@@ -6,6 +6,7 @@ import { db } from "../src/db.js";
 import { trashBook, purgeTrashedItem } from "../src/modules/library/shared/trash.js";
 import { thumbnailPathSettingKey, thumbnailStorageKey, thumbnailAbsolutePath } from "../src/modules/library/shared/thumbnail.js";
 import { resetDb, makeUser, makeLibrary } from "./helpers/seed.js";
+import "./helpers/media-types.js";
 
 // The Recycle Bin shows what an item was, which means its cover has to survive the
 // trip to the bin — everything else about the item is torn down at that moment.

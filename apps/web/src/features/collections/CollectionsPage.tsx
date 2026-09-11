@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ListMusic, Plus } from "lucide-react";
-import { api, type PublicUser } from "../../api";
+import { api } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { UserAreaNav } from "../library/UserAreaNav";
 import { navigate } from "../../router";
@@ -9,13 +9,7 @@ import { MessageBox } from "../../shared/MessageBox";
 import { NewCollectionModal } from "./NewCollectionModal";
 import type { CollectionSummary } from "./types";
 
-export function CollectionsPage({
-  user,
-  logout
-}: {
-  user: PublicUser;
-  logout: () => Promise<void>;
-}) {
+export function CollectionsPage() {
   const { t } = useTranslation(["common", "user"]);
   const [collections, setCollections] = useState<CollectionSummary[] | null>(null);
   const [error, setError] = useState("");
@@ -30,7 +24,7 @@ export function CollectionsPage({
   useEffect(load, []);
 
   return (
-    <DashboardShell active="user" user={user} logout={logout} sideNav={<UserAreaNav active="collections" />}>
+    <DashboardShell active="user" sideNav={<UserAreaNav active="collections" />}>
       <section className="work-area audiobook-area">
         <div className="section-head audiobook-head">
           <div>

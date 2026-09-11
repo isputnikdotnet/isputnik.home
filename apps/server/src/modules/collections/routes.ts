@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { FastifyInstance } from "fastify";
 import { nanoid } from "nanoid";
 import { db } from "../../db.js";
-import { parseBody } from "../../core/shared.js";
+import { parseBody, parseQuery } from "../../core/shared.js";
 import { COLLECTABLE_ENTITY_TYPES, hydrateEntities, type HydratedEntity } from "../social/subjects.js";
 
 const createSchema = z.object({
@@ -27,6 +27,11 @@ const addItemsSchema = z.object({
 
 const reorderSchema = z.object({
   orderedItemIds: z.array(z.string().trim().min(1).max(64)).min(1)
+});
+
+const listQuerySchema = z.object({
+  entityType: z.string().optional(),
+  entityId: z.string().optional()
 });
 
 interface CollectionRow {
@@ -117,10 +122,14 @@ export async function collectionsPlugin(app: FastifyInstance) {
   // which collections already contain that item (drives the add-to dialog).
   app.get("/api/collections", { preHandler: app.authenticate }, async (request, reply) => {
     const user = request.user!;
-    const query = request.query as { entityType?: string; entityId?: string };
+    const parsed = parseQuery(listQuerySchema, request.query);
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid query", details: parsed.error });
+    }
+    const query = parsed.data;
 
     const collections = db.prepare(
-      "SELECT id, name, description, created_at, updated_at FROM collections WHERE user_id = ? ORDER BY datetime(updated_at) DESC"
+      "SELECT id, name, description, created_at, updated_at FROM collections WHERE user_id = ? ORDER BY updated_at DESC"
     ).all(user.id) as CollectionRow[];
 
     const items = collections.length === 0 ? [] : db.prepare(`

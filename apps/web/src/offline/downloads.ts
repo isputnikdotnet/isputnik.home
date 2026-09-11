@@ -10,10 +10,6 @@ import { foliateFileInfo } from "../shared/utils";
 const UID_KEY = "isputnik-uid";
 const USER_KEY = "isputnik-user";
 
-export function setOfflineUserId(id: string) {
-  try { localStorage.setItem(UID_KEY, id); } catch { /* private mode */ }
-}
-
 export function getOfflineUserId(): string | null {
   try { return localStorage.getItem(UID_KEY); } catch { return null; }
 }

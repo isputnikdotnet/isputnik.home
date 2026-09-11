@@ -2,10 +2,11 @@ import {
   BookOpen, BookText, Bug, ExternalLink, FolderTree, HardDrive, Headphones, Images, Inbox, Info, KeyRound, LibraryBig,
   Mail, MonitorSmartphone, Quote, Rocket, Send, Settings, ShieldCheck, Trash2, UserRound, Wifi, type LucideIcon
 } from "lucide-react";
-import type { PublicUser } from "../api";
+import { useTranslation } from "react-i18next";
 import { DashboardShell } from "../app/DashboardShell";
 import { followRoute } from "../router";
 import { REPO_ISSUES_URL } from "../shared/links";
+import { useSession } from "../app/SessionContext";
 
 interface HelpLink {
   icon: LucideIcon;
@@ -30,7 +31,9 @@ interface HelpSection {
 const guide = (file: string) => `/help/${file.replace(/\.md$/, "")}`;
 
 // User-facing guides live in docs/users/ (see docs/users/README.md), so this list
-// has to stay in step with that folder — check:ui fails when it doesn't.
+// has to stay in step with that folder — check:ui fails when it doesn't. The card
+// text stays English on purpose, like the guides it describes; only the page's own
+// chrome is translated.
 const HELP_SECTIONS: HelpSection[] = [
   {
     title: "Getting started",
@@ -218,7 +221,9 @@ const HELP_SECTIONS: HelpSection[] = [
   }
 ];
 
-export function HelpPage({ user, logout }: { user: PublicUser; logout: () => Promise<void> }) {
+export function HelpPage() {
+  const { user } = useSession();
+  const { t } = useTranslation();
   const isAdmin = user.role === "admin";
   // Setup guides describe the control panel, which members can't open — listing
   // them would only point at doors that aren't there.
@@ -227,14 +232,11 @@ export function HelpPage({ user, logout }: { user: PublicUser; logout: () => Pro
     .filter((section) => section.links.length > 0);
 
   return (
-    <DashboardShell active="help" user={user} logout={logout}>
+    <DashboardShell active="help">
       <section className="work-area help-area">
-        <p className="eyebrow">Support</p>
-        <h1>Help &amp; guides</h1>
-        <p className="section-description">
-          Friendly, task-focused guides for using and running iSputnik. They're part of this install,
-          so they work without an internet connection and describe the version you're running.
-        </p>
+        <p className="eyebrow">{t("help.eyebrow")}</p>
+        <h1>{t("help.heading")}</h1>
+        <p className="section-description">{t("help.intro")}</p>
 
         {sections.map((section) => (
           <section className="help-section" key={section.title}>

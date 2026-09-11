@@ -6,6 +6,10 @@ const rootDir = process.cwd().includes(path.join("apps", "server"))
   : process.cwd();
 const packageInfo = JSON.parse(fs.readFileSync(path.join(rootDir, "package.json"), "utf8")) as {
   version: string;
+  // The release stage ("beta"), shown beside the version. Kept out of the version
+  // string on purpose: a "-beta" suffix would stop docker.yml moving `latest`, and
+  // leaving the stage is then a one-line change rather than a version scheme change.
+  stage?: string;
   description: string;
 };
 
@@ -63,7 +67,11 @@ export const config = {
   // to its owner at creation, revocable in one click, and barred from admin routes.
   deviceSessionDays: Number(process.env.DEVICE_SESSION_DAYS ?? 365),
   inviteDays: Number(process.env.INVITE_DAYS ?? 7),
+  // How far back the "Prune the activity log" job (off by default) keeps the
+  // activity log and sign-in attempts — the two tables that hold visitor IPs.
+  activityLogRetentionDays: Math.max(1, Number(process.env.ACTIVITY_LOG_RETENTION_DAYS ?? 365) || 365),
   version: packageInfo.version,
+  stage: packageInfo.stage ?? null,
   description: packageInfo.description
 };
 

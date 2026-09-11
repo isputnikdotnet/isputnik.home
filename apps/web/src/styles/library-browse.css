@@ -242,12 +242,6 @@ input.library-filter {
   cursor: pointer;
 }
 
-.audiobook-sort-trigger > span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .audiobook-sort-menu {
   min-width: 180px;
 }
@@ -280,45 +274,11 @@ input.library-filter {
   color: var(--muted);
 }
 
-.audiobook-page-nav-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 18px;
-}
-
-/* The library picker on the left, the controls that narrow it on the right —
-   filter, sort and Select, which used to sit up in the page header two rows
-   away from the scope they act on. Wraps rather than squeezing, so the tools
-   drop under the picker before either has to shrink. */
-.audiobook-main-nav-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 10px;
-  padding: 8px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--surface-raised) 92%, transparent);
-  box-shadow: var(--audiobook-soft-shadow);
-}
-
-/* Reuses the header's actions styling for the controls themselves — same
-   compact 44px squares — and only overrides its full-width stretch, since this
-   copy shares its line with the picker. */
-.audiobook-main-nav-tools.audiobook-page-actions {
-  width: auto;
-  flex: 0 0 auto;
-  gap: 8px;
-}
-
 /* ── Browse toolbar (shared/LibraryPageToolbar) ──────────────────────────────
    The card above every browse grid: what scopes the page on the left, the
    controls that narrow it on the right, and the A–Z strip on a second row
-   inside the same surface. Generalises .audiobook-main-nav-row (which the
-   pages still using their own markup keep) and swallows the standalone
-   .audiobook-bulk-bar: edit mode replaces the tools in place rather than
+   inside the same surface. It replaced the old nav row and the standalone
+   bulk-selection bar: edit mode replaces the tools in place rather than
    pushing the page down with another bar. */
 .library-toolbar {
   display: grid;
@@ -595,7 +555,7 @@ input.library-filter {
 .library-toolbar.is-selecting {
   position: sticky;
   top: 8px;
-  z-index: 20;
+  z-index: var(--z-sticky);
   background: var(--surface);
   box-shadow: 0 8px 22px var(--shadow);
 }
@@ -740,34 +700,6 @@ input.library-filter {
   }
 }
 
-.audiobook-page-tabs {
-  display: flex;
-  align-items: center;
-  gap: clamp(14px, 3vw, 42px);
-  min-width: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.audiobook-page-tabs::-webkit-scrollbar {
-  display: none;
-}
-
-.audiobook-page-tabs-with-library {
-  display: flex;
-  align-items: center;
-  gap: clamp(18px, 3vw, 42px);
-  min-width: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.audiobook-page-tabs-with-library::-webkit-scrollbar {
-  display: none;
-}
-
 .audiobook-library-tab {
   position: relative;
   display: inline-flex;
@@ -786,13 +718,6 @@ input.library-filter {
   cursor: pointer;
 }
 
-.audiobook-main-nav-row .audiobook-library-tab {
-  min-height: 44px;
-  border-color: transparent;
-  background: var(--active);
-  color: var(--mint);
-}
-
 .audiobook-library-tab > span {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -805,7 +730,7 @@ input.library-filter {
    and fixed-positioned (inline styles) so the nav row's horizontal scroll can't
    clip it. Override the base menu's right anchor. */
 .audiobook-library-menu {
-  z-index: 40;
+  z-index: var(--z-menu);
   display: grid;
   gap: 2px;
   min-width: 210px;
@@ -843,13 +768,6 @@ input.library-filter {
   outline: 0;
 }
 
-.audiobook-library-menu button > span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .audiobook-library-menu button.active {
   color: var(--mint);
   background: var(--active);
@@ -864,72 +782,6 @@ input.library-filter {
   align-items: center;
   flex: 0 0 auto;
   gap: 8px;
-}
-
-.audiobook-page-tabs a {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  flex: 0 0 auto;
-  gap: 10px;
-  min-height: 52px;
-  color: var(--muted);
-  font-size: 0.94rem;
-  font-weight: 680;
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-.audiobook-main-nav-row .audiobook-page-tabs-with-library {
-  gap: 8px;
-}
-
-.audiobook-main-nav-row .audiobook-page-tabs {
-  gap: 8px;
-}
-
-.audiobook-main-nav-row .audiobook-page-tabs a {
-  min-height: 44px;
-  padding: 0 18px;
-  border-radius: 8px;
-}
-
-.audiobook-main-nav-row .audiobook-page-tabs a::after {
-  display: none;
-}
-
-.audiobook-main-nav-row .audiobook-page-tabs a:hover,
-.audiobook-main-nav-row .audiobook-page-tabs a.active {
-  color: var(--mint);
-  background: var(--active);
-}
-
-.audiobook-page-tabs a::after {
-  position: absolute;
-  right: 0;
-  bottom: -1px;
-  left: 0;
-  height: 3px;
-  border-radius: 999px 999px 0 0;
-  content: "";
-  background: transparent;
-}
-
-.audiobook-page-tabs a:hover,
-.audiobook-page-tabs a.active {
-  color: var(--mint);
-}
-
-.audiobook-page-tabs a.active::after {
-  background: var(--mint);
-}
-
-.audiobook-page-nav-row .filter-button {
-  min-height: 52px;
-  padding: 0 18px;
-  border-radius: 8px;
-  background: var(--field);
-  box-shadow: var(--audiobook-soft-shadow);
 }
 
 .audiobook-page-actions .filter-button {
@@ -987,7 +839,7 @@ input.library-filter {
 
 .audiobook-catalog-card:hover,
 .audiobook-catalog-card:focus-within {
-  z-index: 12;
+  z-index: var(--z-dropdown);
 }
 
 .audiobook-catalog-card.selected .audiobook-catalog-cover {
@@ -1009,86 +861,8 @@ input.library-filter {
   pointer-events: none;
 }
 
-/* Bulk-edit selection toolbar above the catalog grid — pinned to the top so its
-   actions stay reachable however far the selection scrolls (audiobooks, ebooks,
-   gallery). */
-.audiobook-bulk-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin: 6px 0 4px;
-  padding: 8px 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
-  position: sticky;
-  top: 8px;
-  z-index: 20;
-  box-shadow: 0 8px 22px var(--shadow);
-}
-
-/* position:sticky can't escape a scroll-container ancestor, and the shared
-   .scene-page wrapper uses overflow:hidden to clip its background layers — which
-   would trap the bar. `overflow:clip` clips identically but is NOT a scroll
-   container, so the bar can pin to the viewport. Keyed on the bar's presence via
-   :has() so overflow only changes while a selection is active. */
-.home-main.scene-page:has(.audiobook-bulk-bar) {
-  overflow: clip;
-}
-
 .audiobook-bulk-count {
   font-weight: 600;
-}
-
-/* Icon-only variant of that bar (audiobooks, ebooks, gallery). A catalog is
-   browsed at every window width, so the bulk verbs stay one short row of
-   labelled icons rather than a wrapping wall of text buttons — every action
-   carries a title + aria-label to keep the verb reachable. */
-.audiobook-bulk-bar.is-compact {
-  gap: 10px;
-  flex-wrap: nowrap;
-}
-
-.audiobook-bulk-actions {
-  gap: 4px;
-  flex-wrap: wrap;
-}
-
-.audiobook-bulk-actions .icon-button {
-  min-width: 36px;
-  min-height: 36px;
-  padding: 7px;
-}
-
-/* Sets the destructive/exit end of the row apart from the additive actions. */
-.audiobook-bulk-divider {
-  align-self: stretch;
-  width: 1px;
-  margin: 2px 3px;
-  background: var(--line);
-}
-
-@media (max-width: 740px) {
-  .audiobook-bulk-bar.is-compact {
-    gap: 8px;
-    padding: 6px 8px;
-  }
-
-  .audiobook-bulk-actions {
-    gap: 2px;
-  }
-
-  .audiobook-bulk-actions .icon-button {
-    min-width: 34px;
-    min-height: 34px;
-    padding: 6px;
-  }
-
-  .audiobook-bulk-divider {
-    margin: 2px 1px;
-  }
 }
 
 .audiobook-catalog-cover {
@@ -1424,14 +1198,6 @@ input.library-filter {
   min-width: 0;
 }
 
-.audiobook-catalog-hover-text strong,
-.audiobook-catalog-hover-text small,
-.audiobook-catalog-hover-text span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .audiobook-catalog-hover-text strong {
   font-size: 0.92rem;
   line-height: 1.15;
@@ -1498,14 +1264,6 @@ input.library-filter {
   cursor: pointer;
 }
 
-.audiobook-catalog-copy strong,
-.audiobook-catalog-copy small,
-.audiobook-catalog-meta {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .audiobook-catalog-copy strong {
   color: var(--ink);
   font-size: 0.88rem;
@@ -1549,8 +1307,7 @@ input.library-filter {
 
 /* Inside the grid-based main page the 28px row gap handles spacing, so drop the
    button's own bottom margin (same as the book-detail topbar). */
-.audiobook-main-page > .audiobook-back-button,
-.audiobook-page-nav-row .audiobook-back-button {
+.audiobook-main-page > .audiobook-back-button {
   margin-bottom: 0;
 }
 
@@ -1571,14 +1328,6 @@ input.library-filter {
     min-width: 0;
   }
 
-  .audiobook-page-tabs {
-    gap: 24px;
-  }
-
-  .audiobook-page-tabs-with-library {
-    gap: 24px;
-  }
-
   .audiobook-catalog.grid {
     grid-template-columns: repeat(auto-fill, minmax(207px, 1fr));
   }
@@ -1594,37 +1343,16 @@ input.library-filter {
     gap: 22px;
   }
 
-  .audiobook-page-actions,
-  .audiobook-page-nav-row {
+  .audiobook-page-actions {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     gap: 14px;
-  }
-
-  /* Still a flex row here — it is .audiobook-page-nav-row too, which stacks into
-     a grid at this width, and this one has its own two-sided layout to keep. */
-  .audiobook-main-nav-row {
-    display: flex;
   }
 
   .audiobook-page-actions .filter-button,
   .audiobook-sort-control {
     width: 100%;
     min-width: 0;
-  }
-
-  .audiobook-page-tabs {
-    width: 100%;
-    gap: 18px;
-  }
-
-  .audiobook-page-tabs-with-library {
-    width: 100%;
-    gap: 18px;
-  }
-
-  .audiobook-page-nav-row .filter-button {
-    justify-self: start;
   }
 
   .audiobook-catalog.grid {

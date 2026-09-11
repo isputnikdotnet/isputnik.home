@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { Trans, useTranslation } from "react-i18next";
 import { ArrowLeft, Bookmark, BookOpen, Calendar, CheckCircle2, ChevronDown, ChevronUp, Clock, Download, File as FileIcon, FileText, Globe, HardDrive, Headphones, Heart, Layers, Library, ListMusic, MoreHorizontal, MoreVertical, Pencil, Play, RotateCcw, Send, Trash2, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { api, isAccessOrMissingApiError, type PublicUser } from "../../api";
+import { api, isAccessOrMissingApiError } from "../../api";
 import { SendToSheet } from "../social/SendToSheet";
 import { NotesSection } from "../social/NotesSection";
 import { RelatedStories } from "../stories/RelatedStories";
@@ -25,6 +25,7 @@ import { useIsMobile } from "../../shared/useIsMobile";
 import { formatBytes, formatDuration, isFoliateFormat } from "../../shared/utils";
 import { ProgressRing } from "../../shared/ProgressRing";
 import type { AudiobookBookDetail, AudiobookFile, BookCapabilities, BookSave, PlaybackProgress, ReadingProgress, TrackProgress, WorkEdition, WorkEditions } from "./types";
+import { useSession } from "../../app/SessionContext";
 
 // Button gating is cosmetic — the server enforces every operation — so when we
 // can't determine capabilities we fail OPEN (show the full menu) rather than hide
@@ -46,17 +47,14 @@ const SENDABLE_DOC_FORMATS = new Set(["epub", "pdf"]);
 
 export function AudiobookBookPage({
   id,
-  user,
-  logout,
   active = "audiobooks",
   backTo = "/audiobooks"
 }: {
   id: string;
-  user: PublicUser;
-  logout: () => Promise<void>;
   active?: "audiobooks" | "ebooks";
   backTo?: string;
 }) {
+  const { user } = useSession();
   const { t } = useTranslation(["common", "book"]);
   const [book, setBook] = useState<AudiobookBookDetail | null>(null);
   const [capabilities, setCapabilities] = useState<BookCapabilities>(FULL_CAPABILITIES);
@@ -96,8 +94,6 @@ export function AudiobookBookPage({
   return (
     <DashboardShell
       active={active}
-      user={user}
-      logout={logout}
       sideNav={<SectionNav {...sectionNavProps(section)} activeKey="books" />}
     >
       <section className="work-area book-detail-area">
@@ -365,7 +361,7 @@ function BookDetailView({
   // Close the full-screen reader on Escape.
   useEffect(() => {
     if (!viewerDoc) return;
-    const onKey = (e: globalThis.KeyboardEvent) => { if (e.key === "Escape") setViewerDoc(null); };
+    const onKey = (e: globalThis.KeyboardEvent) => { if (!e.defaultPrevented && e.key === "Escape") setViewerDoc(null); };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [viewerDoc]);

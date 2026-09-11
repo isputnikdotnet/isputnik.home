@@ -11,6 +11,7 @@ import {
 } from "../src/modules/library/gallery/cleanup.js";
 import { kindForExtension } from "../src/modules/library/gallery/media.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
+import "./helpers/media-types.js";
 
 function asset(relativePath: string, modifiedMs: number) {
   const extension = `.${relativePath.split(".").pop()}`;

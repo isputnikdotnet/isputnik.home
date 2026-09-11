@@ -1,9 +1,13 @@
 {
   "name": "isputnik-home",
   "private": true,
-  "version": "3.90.0",
+  "version": "4.0.0",
+  "stage": "beta",
   "description": "Private self-hosted family media library.",
   "license": "AGPL-3.0-only",
+  "engines": {
+    "node": ">=24"
+  },
   "workspaces": [
     "apps/server",
     "apps/web"
@@ -12,6 +16,7 @@
     "dev": "concurrently \"cross-env PORT=4000 npm run dev --workspace apps/server\" \"npm run dev --workspace apps/web\"",
     "build": "npm run build --workspace apps/server && npm run build --workspace apps/web",
     "typecheck": "npm run typecheck --workspace apps/server && npm run typecheck --workspace apps/web",
+    "lint": "eslint .",
     "check:ui": "node scripts/check-ui-conventions.mjs",
     "fetch:face-model": "node scripts/fetch-face-model.mjs",
     "fetch:geoip": "node scripts/fetch-geoip.mjs",
@@ -19,11 +24,20 @@
     "test": "npm run test --workspace apps/server && npm run test --workspace apps/web",
     "docs:shots": "node scripts/doc-screenshots.mjs",
     "test:server": "npm run test --workspace apps/server",
-    "test:web": "npm run test --workspace apps/web"
+    "test:web": "npm run test --workspace apps/web",
+    "changelog": "node scripts/changelog-md.mjs",
+    "seed:logins": "node scripts/seed-fake-logins.mjs",
+    "demo:inbox": "node scripts/demo-photo-inbox.mjs",
+    "icons:pwa": "npm run icons:pwa --workspace apps/web"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "concurrently": "^10.0.5",
-    "cross-env": "^10.1.0"
+    "cross-env": "^10.1.0",
+    "eslint": "^10.10.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.12.0",
+    "typescript-eslint": "^8.70.0"
   },
   "overrides": {
     "vite": "^8.0.16",

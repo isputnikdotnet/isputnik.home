@@ -14,7 +14,7 @@ import {
   ArrowLeft, ArrowRight, Check, DatabaseBackup, Folder, HardDrive, Images, Lock, Mail, Palette,
   ShieldCheck, Trash2
 } from "lucide-react";
-import packageInfo from "../../../../package.json";
+import { versionLabel } from "../shared/appVersion";
 import { api, type PublicUser } from "../api";
 import { Button } from "../shared/Button";
 import { ConfirmDialog } from "../shared/ConfirmDialog";
@@ -104,8 +104,6 @@ const STEP_ICONS: Record<StepKey, typeof HardDrive> = {
   alerts: ShieldCheck,
   theme: Palette
 };
-
-const APP_VERSION = packageInfo.version;
 
 export function WelcomePage({ user, onDone }: {
   user: PublicUser;
@@ -390,7 +388,7 @@ export function WelcomePage({ user, onDone }: {
         <p className="eyebrow">{t("welcome.greeting", { name: user.displayName })}</p>
         <h1>
           <span>{t("welcome.heading")}</span>
-          <span className="welcome-version">isputnik.home v{APP_VERSION}</span>
+          <span className="welcome-version">isputnik.home {versionLabel(t)}</span>
         </h1>
         <p>
           {t("welcome.intro")}

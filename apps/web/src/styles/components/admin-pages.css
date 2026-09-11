@@ -204,12 +204,6 @@
   min-width: 0;
 }
 
-.user-name-line > strong {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .user-name-line > .status-badge {
   flex: none;
 }
@@ -359,15 +353,6 @@
   align-items: center;
   gap: 6px;
   min-width: 0;
-}
-
-.session-device-cell {
-  display: inline-block;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  vertical-align: middle;
-  white-space: nowrap;
 }
 
 .group-table th:nth-child(1) { width: 45%; }

@@ -1,7 +1,10 @@
 # Photo Inbox — proposal
 
-Status: **All three phases built in-code (2026-09-06).** Kept as the record of what
-was decided and why, with each phase's as-built notes under its heading.
+Status: shipped in v3.67.0 (2026-09-06) — all three phases, drop links included; kept as
+the record of what was decided and why, with each phase's as-built notes under its
+heading. Still open: the open questions at the end that the build did not settle (a
+drop link emails nobody, for one); question 4 was settled as two quota columns on
+`share_links`.
 Written 2026-09-06 from a brainstorm about re-scanning old prints. Companion to [gallery-library.md](gallery-library.md),
 [duplicate-detection.md](duplicate-detection.md), [uploads.md](uploads.md) and
 [sharing.md](sharing.md), which describe the pieces this stands on. Like the other

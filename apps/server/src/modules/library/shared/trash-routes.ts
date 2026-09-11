@@ -8,20 +8,16 @@ import { db, logActivity } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
 import { can, parsePolicy, type AuthUser } from "../../../core/permissions.js";
 import { getLibraryForBook } from "./library-access.js";
+import { trashBook, restoreTrashedItem, scanForRestored, purgeTrashedItem, type TrashedItem } from "./trash.js";
+import { emptyTrash } from "./trash-retention.js";
 import {
-  trashBook,
-  restoreTrashedItem,
-  scanForRestored,
-  purgeTrashedItem,
-  emptyTrash,
   binFolderFor,
   getTrashRetentionDays,
   setTrashRetentionDays,
   getCleanupRetentionDays,
   setCleanupRetentionDays,
-  TrashError,
-  type TrashedItem
-} from "./trash.js";
+  TrashError
+} from "./trash-settings.js";
 
 function isServerAdmin(user: AuthUser): boolean {
   return user.role === "admin";
@@ -164,7 +160,7 @@ export function registerTrashRoutes(app: FastifyInstance) {
       SELECT trashed_items.*, users.display_name AS trashed_by_name
       FROM trashed_items
       LEFT JOIN users ON users.id = trashed_items.trashed_by
-      ORDER BY datetime(trashed_items.trashed_at) DESC
+      ORDER BY trashed_items.trashed_at DESC
     `).all() as (TrashedItem & { trashed_by_name: string | null })[];
 
     const visible = rows.filter((row) => canManageTrashItem(user, row));
@@ -290,8 +286,8 @@ export function registerTrashRoutes(app: FastifyInstance) {
     const libraryId = parsed.data.libraryId;
 
     const rows = (libraryId
-      ? db.prepare("SELECT * FROM trashed_items WHERE library_id = ? ORDER BY datetime(trashed_at) DESC").all(libraryId)
-      : db.prepare("SELECT * FROM trashed_items ORDER BY datetime(trashed_at) DESC").all()) as TrashedItem[];
+      ? db.prepare("SELECT * FROM trashed_items WHERE library_id = ? ORDER BY trashed_at DESC").all(libraryId)
+      : db.prepare("SELECT * FROM trashed_items ORDER BY trashed_at DESC").all()) as TrashedItem[];
 
     let restored = 0;
     let forbidden = 0;

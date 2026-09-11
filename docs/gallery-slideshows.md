@@ -250,8 +250,8 @@ the slideshow to its previous state).
 ## Implementation notes
 
 - Core files: `apps/server/src/modules/library/gallery/slideshows.ts` (model),
-  `slideshow-routes.ts` (API), `slideshow-render.ts` (ffmpeg pipeline + worker +
-  library auto-save), `house-library.ts` (the house "Made in the app" library the
+  `slideshow-routes.ts` (API), `slideshow-render.ts` (ffmpeg pipeline; the worker is
+  `slideshow-render-queue.ts`, library auto-save `slideshow-movie-files.ts`), `house-library.ts` (the house "Made in the app" library the
   movie dialog defaults to, in `app_settings`), `similarity.ts` + `media.ts#computeDhash` (near-duplicate
   detection), and on the web `GallerySlideshowEditor.tsx`, `GalleryLightbox.tsx`
   (player), `SlideshowPhotoBrowser.tsx` (folder picker).

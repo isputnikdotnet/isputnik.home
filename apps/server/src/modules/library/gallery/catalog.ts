@@ -3,364 +3,21 @@
 // access (resolved via the shared catalog-core scope helper). Gallery is not a
 // "book-like" type, so it does not use the shared catalog engine — its queries are
 // asset-centric (one row per photo/video) rather than work/edition-centric.
+//
+// The rest of the read side sits beside this file: catalog-scope.ts (which
+// libraries), catalog-asset.ts (one asset's shape), catalog-filters.ts (the filter
+// panel's WHERE) and catalog-memories.ts (On this day, Just added).
 import { db } from "../../../db.js";
-import { canUserAccessLibrary } from "../shared/library-access.js";
 import { locksByLibrary, lockCoveredIn } from "../shared/folder-locks.js";
-import { parsePolicy } from "../../../core/permissions.js";
-import type { TakenPrecision } from "./taken-precision.js";
-import { listVoiceNotes } from "./voice-notes.js";
+import { ASSET_COLUMNS, ASSET_JOINS, mapAsset, type AssetRow } from "./catalog-asset.js";
+import {
+  CAMERA_SQL,
+  EMPTY_GALLERY_FILTERS,
+  galleryFilterClauses,
+  type GalleryTimelineFilters
+} from "./catalog-filters.js";
 
 const inClause = (n: number) => Array(n).fill("?").join(", ");
-
-// A `?libraryIds=id1,id2` query param, the GET-route counterpart of the timeline
-// POST's `filters.libraries` array. Bounded generously — the number of libraries
-// on an install, not a payload someone controls the size of.
-export function parseLibraryIds(raw: string | undefined): string[] {
-  return (raw ?? "").split(",").map((id) => id.trim()).filter(Boolean).slice(0, 200);
-}
-
-import { galleryLibrariesLeftOutOfScope, photoInboxLibraryIds } from "./inbox-flag.js";
-
-// Which gallery libraries a query runs over: every one the user can reach, or —
-// when `libraryIds` narrows it — the intersection with that set. Narrows only,
-// never widens: an id the caller can't reach (or that isn't a gallery library at
-// all) simply drops out rather than granting access to it.
-export function resolveGalleryScopeLibraryIds(user: { id: string; role: string }, libraryIds?: string[]): string[] {
-  const rows = db.prepare("SELECT id, policy_json FROM libraries WHERE type = 'gallery'").all() as { id: string; policy_json: string }[];
-  const accessible = rows.filter((row) => canUserAccessLibrary(row, user.id, user.role));
-  // A Photo Inbox holds photos nobody has kept yet, so it is left out of every
-  // "everything I can see" scope. Naming it explicitly is how it is browsed, and
-  // how its review page reads it. See docs/photo-inbox-proposal.md.
-  //
-  // This is the REACHABLE scope: what a story, an album, a slideshow or the
-  // viewer may show when it names a photo by id. A library inside App storage
-  // (App files) is reachable — the photos placed in a story from it must
-  // keep showing — but is left out of BROWSING (resolveGalleryBrowseLibraryIds).
-  // 3.84.1 excluded it here too and every story block from that library read
-  // "not in a library you can see".
-  if (!libraryIds || libraryIds.length === 0) {
-    const inboxes = photoInboxLibraryIds();
-    return accessible.filter((row) => !inboxes.has(row.id)).map((row) => row.id);
-  }
-  const requested = new Set(libraryIds);
-  return accessible.filter((row) => requested.has(row.id)).map((row) => row.id);
-}
-
-// The BROWSING scope: the timeline, folders, memories, the year review, the
-// map, the facets, the People list and the Home feed's photo cards — the
-// surfaces that resurface photos on their own. On top of the Inbox, a library
-// inside App storage (what the app keeps for itself) is left out unless it is
-// named in the library filter. Everything named by id elsewhere (a story's
-// block, an album, a slideshow, the viewer) uses the reachable scope above.
-export function resolveGalleryBrowseLibraryIds(user: { id: string; role: string }, libraryIds?: string[]): string[] {
-  if (libraryIds && libraryIds.length > 0) return resolveGalleryScopeLibraryIds(user, libraryIds);
-  const leftOut = galleryLibrariesLeftOutOfScope();
-  return resolveGalleryScopeLibraryIds(user).filter((id) => !leftOut.has(id));
-}
-
-interface AssetRow {
-  id: string;
-  library_id: string;
-  library_name: string | null;
-  folder_path: string;
-  discovered_at: string;
-  kind: string;
-  title: string | null;
-  description: string | null;
-  taken_at: string | null;
-  taken_precision: TakenPrecision | null;
-  taken_approx: number | null;
-  place_text: string | null;
-  reviewed_at: string | null;
-  reviewed_by_name: string | null;
-  width: number | null;
-  height: number | null;
-  orientation: number | null;
-  rotation: number | null;
-  duration_seconds: number | null;
-  mime_type: string | null;
-  size: number | null;
-  gps_lat: number | null;
-  gps_lng: number | null;
-  camera_make: string | null;
-  camera_model: string | null;
-  cover_storage_key: string | null;
-  preview_storage_key: string | null;
-  playable: number | null;
-  web_video_key: string | null;
-  updated_at: string | null;
-  saved: number | null;
-  face_focus_x: number | null;
-  face_focus_y: number | null;
-}
-
-// Faces are detected on the EXIF-oriented photo (arcface.ts rotates before
-// detecting), so a box already matches the thumbnail — except for a manual
-// rotation, which the thumbnail applies afterwards. Turn the point with it.
-// sharp rotates clockwise.
-function turnFocus(x: number, y: number, rotation: number): { x: number; y: number } {
-  const turn = ((rotation % 360) + 360) % 360;
-  if (turn === 90) return { x: 1 - y, y: x };
-  if (turn === 180) return { x: 1 - x, y: 1 - y };
-  if (turn === 270) return { x: y, y: 1 - x };
-  return { x, y };
-}
-
-export const ASSET_COLUMNS = `
-  library_items.id,
-  library_items.library_id,
-  libraries.name AS library_name,
-  library_items.folder_path,
-  library_items.discovered_at,
-  gallery_details.kind,
-  item_metadata.title,
-  item_metadata.description,
-  gallery_details.taken_at,
-  gallery_details.taken_precision,
-  gallery_details.taken_approx,
-  gallery_details.place_text,
-  gallery_details.reviewed_at,
-  (SELECT users.display_name FROM users WHERE users.id = gallery_details.reviewed_by) AS reviewed_by_name,
-  gallery_details.width,
-  gallery_details.height,
-  gallery_details.orientation,
-  gallery_details.rotation,
-  gallery_details.duration_seconds,
-  gallery_details.mime_type,
-  gallery_details.size,
-  gallery_details.gps_lat,
-  gallery_details.gps_lng,
-  gallery_details.camera_make,
-  gallery_details.camera_model,
-  item_metadata.cover_storage_key,
-  gallery_details.preview_storage_key,
-  gallery_details.playable,
-  gallery_details.web_video_key,
-  gallery_details.updated_at,
-  (item_saves.id IS NOT NULL) AS saved,
-  -- Where the faces are, as the centre of the box enclosing all of them, so a
-  -- square tile can aim its crop at heads instead of the middle of the photo.
-  -- Whole-photo tags carry no box; rejected faces aren't this photo's subject.
-  (SELECT (MIN(f.box_x) + MAX(f.box_x + f.box_w)) / 2 FROM gallery_faces f
-    WHERE f.item_id = library_items.id AND f.box_x IS NOT NULL
-      AND f.assignment <> 'rejected') AS face_focus_x,
-  (SELECT (MIN(f.box_y) + MAX(f.box_y + f.box_h)) / 2 FROM gallery_faces f
-    WHERE f.item_id = library_items.id AND f.box_y IS NOT NULL
-      AND f.assignment <> 'rejected') AS face_focus_y`;
-
-export const ASSET_JOINS = `
-  FROM library_items
-  JOIN gallery_details ON gallery_details.item_id = library_items.id
-  LEFT JOIN libraries ON libraries.id = library_items.library_id
-  LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
-  LEFT JOIN item_saves ON item_saves.item_id = library_items.id AND item_saves.user_id = ?`;
-
-const tagsFor = db.prepare(`
-  SELECT tags.display_name AS name FROM taggables
-  JOIN tags ON tags.id = taggables.tag_id
-  WHERE taggables.entity_type = 'library_item' AND taggables.entity_id = ?
-  ORDER BY tags.display_name COLLATE NOCASE
-`);
-
-export type GalleryAssetRow = AssetRow;
-
-export function mapAsset(row: AssetRow) {
-  const rotation = row.rotation ?? 0;
-  // Thumbnails are regenerated in place (same storage key) on rotate/edit, so bust
-  // the image cache with updated_at — otherwise the <img> keeps the stale bytes.
-  const v = row.updated_at ? `?v=${encodeURIComponent(row.updated_at)}` : "";
-  const coverUrl = row.cover_storage_key ? `/api/library/covers/${row.cover_storage_key}${v}` : null;
-  const previewUrl = row.preview_storage_key ? `/api/library/covers/${row.preview_storage_key}${v}` : coverUrl;
-  // A 90/270° manual rotation swaps the displayed dimensions; the raw width/height
-  // stay in the DB so a rescan can recompute them from the file.
-  const swap = rotation === 90 || rotation === 270;
-  return {
-    id: row.id,
-    libraryId: row.library_id,
-    libraryName: row.library_name,
-    folderPath: row.folder_path,
-    folder: row.folder_path.includes("/") ? row.folder_path.slice(0, row.folder_path.lastIndexOf("/")) : "",
-    kind: row.kind,
-    title: row.title ?? row.folder_path.split("/").pop() ?? row.folder_path,
-    description: row.description,
-    takenAt: row.taken_at,
-    // How much of takenAt to believe (docs/photo-review-plan.md): a reviewed print
-    // may be known only to the year, and "about" reads as "around 1962".
-    takenPrecision: (row.taken_precision ?? "time") as TakenPrecision,
-    takenApprox: row.taken_approx === 1,
-    placeText: row.place_text,
-    reviewedAt: row.reviewed_at,
-    reviewedBy: row.reviewed_at ? row.reviewed_by_name : null,
-    addedAt: row.discovered_at,
-    width: swap ? row.height : row.width,
-    height: swap ? row.width : row.height,
-    orientation: row.orientation,
-    rotation,
-    durationSeconds: row.duration_seconds,
-    // Video-only browser-playability flag; null for photos / un-probed videos. A video
-    // with a converted web copy plays inline, so report it playable.
-    playable: row.web_video_key ? true : row.playable == null ? null : Boolean(row.playable),
-    mimeType: row.mime_type,
-    size: row.size,
-    gps: row.gps_lat != null && row.gps_lng != null ? { lat: row.gps_lat, lng: row.gps_lng } : null,
-    camera: row.camera_make || row.camera_model ? { make: row.camera_make, model: row.camera_model } : null,
-    coverUrl,
-    previewUrl,
-    // fileUrl is always the ORIGINAL (downloads); playbackUrl is the web copy when one
-    // exists, else the original — that's what the <video> element plays.
-    fileUrl: `/api/library/gallery/assets/${row.id}/file`,
-    playbackUrl: `/api/library/gallery/assets/${row.id}/file${row.web_video_key ? "?web=1" : ""}`,
-    tags: (tagsFor.all(row.id) as { name: string }[]).map((t) => t.name),
-    saved: Boolean(row.saved),
-    // null when this photo has no detected face — the tile then crops from the
-    // centre as before. Percentages, ready for CSS object-position.
-    faceFocus: focusOf(row, rotation)
-  };
-}
-
-function focusOf(row: AssetRow, rotation: number): { x: number; y: number } | null {
-  if (row.face_focus_x == null || row.face_focus_y == null) return null;
-  const turned = turnFocus(row.face_focus_x, row.face_focus_y, rotation);
-  const clamp = (n: number) => Math.round(Math.min(1, Math.max(0, n)) * 1000) / 10;
-  return { x: clamp(turned.x), y: clamp(turned.y) };
-}
-
-// One display string per camera, shared by the facet list and the filter WHERE so
-// the two always agree. Models usually embed the make ("Canon EOS 400D"), so the
-// make is only prepended when the model doesn't already start with it.
-const CAMERA_SQL = `
-  CASE
-    WHEN gallery_details.camera_model IS NULL THEN gallery_details.camera_make
-    WHEN gallery_details.camera_make IS NULL THEN gallery_details.camera_model
-    WHEN instr(lower(gallery_details.camera_model), lower(gallery_details.camera_make)) = 1 THEN gallery_details.camera_model
-    ELSE gallery_details.camera_make || ' ' || gallery_details.camera_model
-  END`;
-
-// File-size buckets (the audiobook length buckets, for bytes). Boundaries are
-// binary megabytes; each code maps to a half-open [min, max) range on
-// gallery_details.size.
-const MIB = 1024 * 1024;
-const SIZE_BUCKETS: Record<string, { min: number; max: number | null }> = {
-  small: { min: 0, max: MIB },            // under 1 MB
-  medium: { min: MIB, max: 5 * MIB },     // 1–5 MB
-  large: { min: 5 * MIB, max: 25 * MIB }, // 5–25 MB
-  huge: { min: 25 * MIB, max: null }      // 25 MB+
-};
-
-// Advanced filters (mirrors the audiobook catalog's filter arrays): every list is
-// OR within itself and AND against the others. `location` takes the codes
-// 'with_gps' / 'no_gps' — selecting both is the same as selecting neither. The one
-// exception is `people`: `peopleMatch` switches it from OR ("any of these people")
-// to AND ("all of these people, together in the same photo").
-export interface GalleryTimelineFilters {
-  people: string[];   // gallery_people names (named face groups / manual tags)
-  peopleMatch?: "any" | "all";
-  tags: string[];     // tag display names
-  years: string[];    // 'YYYY' from taken_at
-  months: string[];   // 'MM' (01–12) from taken_at, any year
-  taken: string[];    // date-taken bounds: 'from:YYYY-MM-DD' / 'to:YYYY-MM-DD' (inclusive)
-  cameras: string[];  // CAMERA_SQL display strings
-  sizes: string[];    // SIZE_BUCKETS codes: small | medium | large | huge
-  location: string[]; // 'with_gps' | 'no_gps'
-  likes: string[]; // LIKE_SQL codes: mine | anyone | none
-}
-
-export const EMPTY_GALLERY_FILTERS: GalleryTimelineFilters = {
-  people: [], peopleMatch: "any", tags: [], years: [], months: [], taken: [], cameras: [], sizes: [], location: [], likes: []
-};
-
-// The Likes facet. `item_saves` is already LEFT JOINed for the `saved` column,
-// but the COUNT(*) half of a timeline query doesn't carry that join — so these are
-// EXISTS subqueries, which read the same on both. 'mine' takes the viewer's id; the
-// other two are viewer-independent ("someone in the house liked it"), which is
-// the signal the year-in-review scores on (see year-review.ts).
-const LIKE_SQL: Record<string, { sql: string; needsUser: boolean }> = {
-  mine:   { sql: "EXISTS (SELECT 1 FROM item_saves s WHERE s.item_id = library_items.id AND s.user_id = ?)", needsUser: true },
-  anyone: { sql: "EXISTS (SELECT 1 FROM item_saves s WHERE s.item_id = library_items.id)", needsUser: false },
-  none:   { sql: "NOT EXISTS (SELECT 1 FROM item_saves s WHERE s.item_id = library_items.id)", needsUser: false }
-};
-const LIKE_ORDER = ["mine", "anyone", "none"];
-
-function galleryFilterClauses(filters: GalleryTimelineFilters, userId: string): { clauses: string[]; args: unknown[] } {
-  const clauses: string[] = [];
-  const args: unknown[] = [];
-  if (filters.people.length > 0) {
-    if (filters.peopleMatch === "all") {
-      // AND, not OR: one EXISTS per person, so a match needs every one of them
-      // tagged on the SAME item — a single IN(...) can't express co-occurrence.
-      for (const name of filters.people) {
-        clauses.push(`EXISTS (
-          SELECT 1 FROM gallery_faces gf JOIN gallery_people gp ON gp.id = gf.person_id
-          WHERE gf.item_id = library_items.id AND gf.assignment != 'rejected' AND gp.name = ?)`);
-        args.push(name);
-      }
-    } else {
-      clauses.push(`EXISTS (
-        SELECT 1 FROM gallery_faces gf JOIN gallery_people gp ON gp.id = gf.person_id
-        WHERE gf.item_id = library_items.id AND gf.assignment != 'rejected' AND gp.name IN (${inClause(filters.people.length)}))`);
-      args.push(...filters.people);
-    }
-  }
-  if (filters.tags.length > 0) {
-    clauses.push(`EXISTS (
-      SELECT 1 FROM taggables JOIN tags ON tags.id = taggables.tag_id
-      WHERE taggables.entity_type = 'library_item' AND taggables.entity_id = library_items.id
-        AND tags.display_name IN (${inClause(filters.tags.length)}))`);
-    args.push(...filters.tags);
-  }
-  if (filters.years.length > 0) {
-    clauses.push(`substr(gallery_details.taken_at, 1, 4) IN (${inClause(filters.years.length)})`);
-    args.push(...filters.years);
-  }
-  if (filters.months.length > 0) {
-    clauses.push(`substr(gallery_details.taken_at, 6, 2) IN (${inClause(filters.months.length)})`);
-    args.push(...filters.months);
-  }
-  // Inclusive date bounds on the calendar day of taken_at. Comparing the date
-  // prefix keeps both ends inclusive whatever the stored time-of-day is; an asset
-  // with no taken_at compares NULL and drops out, which is what a date filter means.
-  for (const bound of filters.taken) {
-    if (bound.startsWith("from:")) {
-      clauses.push("substr(gallery_details.taken_at, 1, 10) >= ?");
-      args.push(bound.slice(5));
-    } else if (bound.startsWith("to:")) {
-      clauses.push("substr(gallery_details.taken_at, 1, 10) <= ?");
-      args.push(bound.slice(3));
-    }
-  }
-  if (filters.cameras.length > 0) {
-    clauses.push(`${CAMERA_SQL} IN (${inClause(filters.cameras.length)})`);
-    args.push(...filters.cameras);
-  }
-  const buckets = filters.sizes.map((code) => SIZE_BUCKETS[code]).filter(Boolean);
-  if (buckets.length > 0) {
-    clauses.push(`(${buckets.map((b) =>
-      b.max == null ? "gallery_details.size >= ?" : "(gallery_details.size >= ? AND gallery_details.size < ?)"
-    ).join(" OR ")})`);
-    for (const b of buckets) {
-      args.push(b.min);
-      if (b.max != null) args.push(b.max);
-    }
-  }
-  const withGps = filters.location.includes("with_gps");
-  const noGps = filters.location.includes("no_gps");
-  if (withGps !== noGps) {
-    clauses.push(withGps
-      ? "gallery_details.gps_lat IS NOT NULL AND gallery_details.gps_lng IS NOT NULL"
-      : "(gallery_details.gps_lat IS NULL OR gallery_details.gps_lng IS NULL)");
-  }
-  // OR within the facet, like every other list here. Walked in a fixed order so the
-  // placeholders and the args pushed for them can't drift apart. Selecting all three
-  // means "everything", which is the same as selecting none — so it drops out.
-  const likes = LIKE_ORDER.filter((code) => filters.likes.includes(code));
-  if (likes.length > 0 && likes.length < LIKE_ORDER.length) {
-    clauses.push(`(${likes.map((code) => LIKE_SQL[code].sql).join(" OR ")})`);
-    for (const code of likes) {
-      if (LIKE_SQL[code].needsUser) args.push(userId);
-    }
-  }
-  return { clauses, args };
-}
 
 export interface GalleryTimelineQuery {
   q: string;
@@ -400,8 +57,8 @@ export function queryGalleryTimeline(userId: string, libIds: string[], opts: Gal
     .get(...args) as { n: number }).n;
 
   const orderSql = opts.sort === "added"
-    ? "datetime(library_items.discovered_at) DESC, library_items.id DESC"
-    : "datetime(gallery_details.taken_at) DESC, library_items.id DESC";
+    ? "library_items.discovered_at DESC, library_items.id DESC"
+    : "gallery_details.taken_at DESC, library_items.id DESC";
   const rows = db.prepare(`
     SELECT ${ASSET_COLUMNS} ${ASSET_JOINS}
     WHERE ${whereSql}
@@ -451,7 +108,7 @@ export function queryGalleryFolders(userId: string, libIds: string[], parent: st
     ),
     sub AS (
       SELECT substr(r, 1, instr(r, '/') - 1) AS name, cover, taken_at,
-        ROW_NUMBER() OVER (PARTITION BY substr(r, 1, instr(r, '/') - 1) ORDER BY datetime(taken_at) DESC) AS rn,
+        ROW_NUMBER() OVER (PARTITION BY substr(r, 1, instr(r, '/') - 1) ORDER BY taken_at DESC) AS rn,
         COUNT(*) OVER (PARTITION BY substr(r, 1, instr(r, '/') - 1)) AS cnt
       FROM rel WHERE instr(r, '/') > 0
     )
@@ -486,7 +143,7 @@ export function queryGalleryFolders(userId: string, libIds: string[], parent: st
   const rows = db.prepare(`
     SELECT ${ASSET_COLUMNS} ${ASSET_JOINS}
     WHERE ${directWhere}
-    ORDER BY datetime(gallery_details.taken_at) DESC, library_items.id DESC
+    ORDER BY gallery_details.taken_at DESC, library_items.id DESC
     LIMIT ? OFFSET ?
   `).all(userId, ...directArgs, limit, offset) as AssetRow[];
 
@@ -555,7 +212,7 @@ export function searchGalleryFolders(libIds: string[], q: string, limit: number)
     LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
     WHERE library_items.library_id IN (${inClause(libIds.length)}) AND library_items.deleted_at IS NULL
       AND (library_items.folder_path = ? OR library_items.folder_path LIKE ?)
-    ORDER BY datetime(gallery_details.taken_at) DESC LIMIT 1
+    ORDER BY gallery_details.taken_at DESC LIMIT 1
   `);
 
   const locks = locksByLibrary(libIds);
@@ -571,57 +228,6 @@ export function searchGalleryFolders(libIds: string[], q: string, limit: number)
   });
 
   return { folders, total: matched.length };
-}
-
-// People tagged in one asset (distinct, name-sorted). Attached only to the
-// single-asset detail — the lightbox needs it, the list/timeline views do not.
-const peopleForAssetStmt = db.prepare(`
-  SELECT DISTINCT gallery_people.id, gallery_people.name
-  FROM gallery_faces
-  JOIN gallery_people ON gallery_people.id = gallery_faces.person_id
-  WHERE gallery_faces.item_id = ? AND gallery_faces.person_id IS NOT NULL
-    AND gallery_faces.assignment != 'rejected'
-  ORDER BY gallery_people.name COLLATE NOCASE
-`);
-
-// Bulk asset lookup by ids, access-filtered — the suggestion-preview grid needs
-// thumbnails for a montage's item ids in one round trip. Results come back in the
-// REQUESTED order (a suggestion's ids are chronological); inaccessible or unknown ids
-// are silently omitted (the standard bulk contract).
-export function getGalleryAssets(userId: string, libIds: string[], itemIds: string[]) {
-  if (libIds.length === 0 || itemIds.length === 0) return [];
-  const rows = db.prepare(`
-    SELECT ${ASSET_COLUMNS} ${ASSET_JOINS}
-    WHERE library_items.id IN (${inClause(itemIds.length)})
-      AND library_items.library_id IN (${inClause(libIds.length)})
-      AND library_items.deleted_at IS NULL
-  `).all(userId, ...itemIds, ...libIds) as AssetRow[];
-  const byId = new Map(rows.map((row) => [row.id, mapAsset(row)]));
-  return itemIds.map((id) => byId.get(id)).filter((asset): asset is NonNullable<typeof asset> => Boolean(asset));
-}
-
-export function getGalleryAsset(userId: string, libIds: string[], id: string) {
-  if (libIds.length === 0) return null;
-  const row = db.prepare(`
-    SELECT ${ASSET_COLUMNS} ${ASSET_JOINS}
-    WHERE library_items.id = ? AND library_items.library_id IN (${inClause(libIds.length)}) AND library_items.deleted_at IS NULL
-  `).get(userId, id, ...libIds) as AssetRow | undefined;
-  if (!row) return null;
-  const people = peopleForAssetStmt.all(id) as { id: string; name: string }[];
-  return { ...mapAsset(row), people, voiceNotes: listVoiceNotes(id) };
-}
-
-// Load one asset by id WITHOUT the library-scope filter — for callers that have
-// authorized access another way (an item-level user share of a photo whose
-// library the viewer can't otherwise see). The caller MUST check access first.
-export function getGalleryAssetUnscoped(userId: string, id: string) {
-  const row = db.prepare(`
-    SELECT ${ASSET_COLUMNS} ${ASSET_JOINS}
-    WHERE library_items.id = ? AND library_items.deleted_at IS NULL
-  `).get(userId, id) as AssetRow | undefined;
-  if (!row) return null;
-  const people = peopleForAssetStmt.all(id) as { id: string; name: string }[];
-  return { ...mapAsset(row), people, voiceNotes: listVoiceNotes(id) };
 }
 
 // Facets: which kinds exist, the year range, how many assets carry GPS (drives
@@ -677,178 +283,6 @@ export function galleryFacets(libIds: string[]) {
   return { kinds, years, withGps, people, tags, cameras };
 }
 
-// Memories ("On this day"): past-year assets whose taken_at matches today's
-// month/day, grouped by year (newest year first). Assets without taken_at never
-// match (substr on NULL yields NULL); the current year is excluded — today's
-// photos are not memories yet.
-//
-// Widening is decided PER YEAR, not once for the whole row. It used to be three
-// tiers tried in order — exact day, ±3 days, whole month — returning on the first
-// that produced any row at all, which quietly lost a year whose photos were dated
-// a day or two off whenever some other year matched exactly: tier one succeeded,
-// so the ±3-day tier that would have caught it never ran. A scanned photo dated
-// from its negative's sleeve rather than its EXIF is exactly that case, and those
-// are the oldest photos in a library — the ones most worth surfacing.
-//
-// So the day and ±3-day tiers are now one pass, and each year takes the narrowest
-// of the two it has anything in. Each group reports its own `precision` so a year
-// that had to widen can say so; the top-level one is the narrowest across the
-// groups, which is what titles the row. The whole-month tier stays a fallback for
-// the whole row, since a month-wide match is a different proposition from an
-// anniversary and is only worth offering when there is no anniversary at all.
-export interface GalleryMemoryGroup {
-  year: number;
-  count: number;
-  /** How far this year's match had to widen: exactly today, or within ±3 days. */
-  precision: GalleryMemoriesPrecision;
-  items: ReturnType<typeof mapAsset>[];
-}
-
-export type GalleryMemoriesPrecision = "day" | "near" | "month";
-
-// MM-DD strings for `today` ± span days. UTC date arithmetic so a DST boundary
-// can't skip or repeat a day; the year-end wrap (Dec 29 → Jan 03) falls out free.
-function monthDayWindow(today: string, span: number): string[] {
-  const base = new Date(`${today}T00:00:00Z`);
-  const out: string[] = [];
-  for (let offset = -span; offset <= span; offset += 1) {
-    out.push(new Date(base.getTime() + offset * 86_400_000).toISOString().slice(5, 10));
-  }
-  return out;
-}
-
-// Photos and videos that ARRIVED recently — newest-added first, within a window
-// of whole days counted back from now. Unlike the timeline's sort='added', this
-// is bounded by the window itself, so the caller gets an honest total for it:
-// the home feed's "Just added" card advertises that number and its viewer pages
-// exactly that set.
-export function queryGalleryRecentlyAdded(userId: string, libIds: string[], days: number, limit: number): {
-  total: number;
-  /** The newest arrival's discovered_at — the card's age. Null when none. */
-  newestAt: string | null;
-  assets: ReturnType<typeof mapAsset>[];
-} {
-  if (libIds.length === 0) return { total: 0, newestAt: null, assets: [] };
-  // Interpolated because SQLite's date modifier is a literal, not a bindable
-  // parameter; both numbers are clamped integers, never caller text.
-  const windowDays = Math.max(1, Math.min(365, Math.trunc(days)));
-  const take = Math.max(1, Math.min(200, Math.trunc(limit)));
-  const libIn = inClause(libIds.length);
-  const where = `library_items.library_id IN (${libIn})
-    AND library_items.deleted_at IS NULL
-    AND gallery_details.kind != 'audio'
-    AND datetime(library_items.discovered_at) >= datetime('now', '-${windowDays} days')`;
-
-  const summary = db.prepare(`
-    SELECT COUNT(*) AS n, MAX(library_items.discovered_at) AS newest
-    FROM library_items
-    JOIN gallery_details ON gallery_details.item_id = library_items.id
-    WHERE ${where}
-  `).get(...libIds) as { n: number; newest: string | null };
-  if (summary.n === 0) return { total: 0, newestAt: null, assets: [] };
-
-  const rows = db.prepare(`
-    SELECT ${ASSET_COLUMNS} ${ASSET_JOINS}
-    WHERE ${where}
-    ORDER BY datetime(library_items.discovered_at) DESC, library_items.id DESC
-    LIMIT ?
-  `).all(userId, ...libIds, take) as AssetRow[];
-
-  return { total: summary.n, newestAt: summary.newest, assets: rows.map(mapAsset) };
-}
-
-type MemoryRow = AssetRow & { mem_year: string; mem_count: number; mem_exact: number };
-
-export function queryGalleryMemories(userId: string, libIds: string[], today: string, perYear: number): {
-  precision: GalleryMemoriesPrecision;
-  groups: GalleryMemoryGroup[];
-} {
-  if (libIds.length === 0) return { precision: "day", groups: [] };
-  const libIn = inClause(libIds.length);
-  const exactDay = today.slice(5, 10);
-
-  // Day and ±3 days in one pass. Ranking and counting partition on (year, exact)
-  // so each year carries a usable count for whichever of the two it ends up
-  // shown at, and the ordering puts a year's exact rows ahead of its near ones
-  // so the grouping below can simply take the first kind it sees.
-  const nearRows = db.prepare(`
-    WITH matched AS (
-      SELECT ${ASSET_COLUMNS},
-        substr(gallery_details.taken_at, 1, 4) AS mem_year,
-        CASE WHEN substr(gallery_details.taken_at, 6, 5) = ? THEN 1 ELSE 0 END AS mem_exact
-      ${ASSET_JOINS}
-      WHERE library_items.library_id IN (${libIn}) AND library_items.deleted_at IS NULL
-        AND gallery_details.kind != 'audio'
-        AND substr(gallery_details.taken_at, 1, 4) < ?
-        AND substr(gallery_details.taken_at, 6, 5) IN (${inClause(7)})
-    ),
-    ranked AS (
-      SELECT *,
-        ROW_NUMBER() OVER (PARTITION BY mem_year, mem_exact ORDER BY datetime(taken_at), id) AS mem_rank,
-        COUNT(*) OVER (PARTITION BY mem_year, mem_exact) AS mem_count
-      FROM matched
-    )
-    SELECT * FROM ranked WHERE mem_rank <= ? ORDER BY mem_year DESC, mem_exact DESC, mem_rank
-  `).all(exactDay, userId, ...libIds, today.slice(0, 4), ...monthDayWindow(today, 3), perYear) as MemoryRow[];
-
-  if (nearRows.length > 0) {
-    const groups: GalleryMemoryGroup[] = [];
-    const byYear = new Map<number, GalleryMemoryGroup>();
-    for (const row of nearRows) {
-      const year = Number.parseInt(row.mem_year, 10);
-      const group = byYear.get(year);
-      if (!group) {
-        const fresh: GalleryMemoryGroup = {
-          year,
-          count: row.mem_count,
-          precision: row.mem_exact ? "day" : "near",
-          items: [mapAsset(row)]
-        };
-        byYear.set(year, fresh);
-        groups.push(fresh);
-        continue;
-      }
-      // Exact rows come first within a year, so a year that has any is already a
-      // "day" group and its looser neighbours are not part of the anniversary.
-      if (group.precision === "day" && !row.mem_exact) continue;
-      group.items.push(mapAsset(row));
-    }
-    // The row is titled by the best match in it: one year being a couple of days
-    // out does not stop the others from being on this day.
-    const precision = groups.some((group) => group.precision === "day") ? "day" : "near";
-    return { precision, groups };
-  }
-
-  // Nothing anywhere near today — offer the month instead, all years alike.
-  const monthRows = db.prepare(`
-    WITH matched AS (
-      SELECT ${ASSET_COLUMNS},
-        substr(gallery_details.taken_at, 1, 4) AS mem_year,
-        ROW_NUMBER() OVER (
-          PARTITION BY substr(gallery_details.taken_at, 1, 4)
-          ORDER BY datetime(gallery_details.taken_at), library_items.id
-        ) AS mem_rank,
-        COUNT(*) OVER (PARTITION BY substr(gallery_details.taken_at, 1, 4)) AS mem_count
-      ${ASSET_JOINS}
-      WHERE library_items.library_id IN (${libIn}) AND library_items.deleted_at IS NULL
-        AND gallery_details.kind != 'audio'
-        AND substr(gallery_details.taken_at, 1, 4) < ?
-        AND substr(gallery_details.taken_at, 6, 2) = ?
-    )
-    SELECT * FROM matched WHERE mem_rank <= ? ORDER BY mem_year DESC, mem_rank
-  `).all(userId, ...libIds, today.slice(0, 4), today.slice(5, 7), perYear) as (AssetRow & { mem_year: string; mem_count: number })[];
-  if (monthRows.length === 0) return { precision: "day", groups: [] };
-
-  const groups: GalleryMemoryGroup[] = [];
-  for (const row of monthRows) {
-    const year = Number.parseInt(row.mem_year, 10);
-    const last = groups[groups.length - 1];
-    if (last && last.year === year) last.items.push(mapAsset(row));
-    else groups.push({ year, count: row.mem_count, precision: "month", items: [mapAsset(row)] });
-  }
-  return { precision: "month", groups };
-}
-
 interface MapPointRow {
   id: string;
   kind: string;
@@ -891,7 +325,7 @@ export function queryGalleryMapPoints(libIds: string[], opts: GalleryMapQuery) {
     JOIN gallery_details ON gallery_details.item_id = library_items.id
     LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
     WHERE ${where.join(" AND ")}
-    ORDER BY datetime(gallery_details.taken_at) DESC, library_items.id DESC
+    ORDER BY gallery_details.taken_at DESC, library_items.id DESC
     LIMIT ?
   `).all(...args, opts.limit) as MapPointRow[];
 

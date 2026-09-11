@@ -7,6 +7,7 @@ import { FileUpload } from "../../shared/FileUpload";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
 import { SelectField } from "../../shared/SelectField";
+import { useDebouncedValue } from "../../shared/useDebouncedValue";
 import { EMPTY_GALLERY_FILTERS } from "./GalleryFilter";
 import type { GalleryAsset, GalleryFolder, GalleryLibrary, GalleryPerson } from "./types";
 import { faceFocusStyle } from "./types";
@@ -91,7 +92,7 @@ export function PhotoPicker({
   const [uploadNotice, setUploadNotice] = useState("");
   const [search, setSearch] = useState("");
   // The debounced form the server queries use; chip filtering uses `search` live.
-  const [query, setQuery] = useState("");
+  const query = useDebouncedValue(search.trim(), 300);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [adding, setAdding] = useState(false);
@@ -124,13 +125,6 @@ export function PhotoPicker({
   // add once. Already-attached ids show as "Added" and can't be re-selected.
   const [selected, setSelected] = useState<Map<string, GalleryAsset>>(new Map());
   const [added, setAdded] = useState<Set<string>>(() => new Set(existingIds ?? []));
-
-  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => {
-    if (searchTimer.current) clearTimeout(searchTimer.current);
-    searchTimer.current = setTimeout(() => setQuery(search.trim()), 300);
-    return () => { if (searchTimer.current) clearTimeout(searchTimer.current); };
-  }, [search]);
 
   useEffect(() => {
     api<{ libraries: GalleryLibrary[] }>("/api/library/gallery-libraries")

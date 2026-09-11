@@ -6,12 +6,13 @@
 // Lives at the library level like the home feeds and the category browse.
 import type { FastifyInstance } from "fastify";
 import { db } from "../../db.js";
-import { normalizeText } from "./audiobook/categorize.js";
+import { normalizeText } from "./shared/tagging.js";
 import { bookLibraryIds, crossTypeBooksByFilter } from "./feed.js";
 import { accessibleLibraryIds } from "./shared/library-access.js";
-import { ASSET_COLUMNS, ASSET_JOINS, mapAsset, type GalleryAssetRow } from "./gallery/catalog.js";
+import { ASSET_COLUMNS, ASSET_JOINS, mapAsset, type GalleryAssetRow } from "./gallery/catalog-asset.js";
 import { listFamilyPersonsByTag } from "../familytree/persons.js";
-import { listStories, STORY_ENTITY_TYPE } from "../stories/stories.js";
+import { listStories } from "../stories/list.js";
+import { STORY_ENTITY_TYPE } from "../stories/stories.js";
 import { listAlbums } from "./gallery/albums.js";
 import { listSlideshows } from "./gallery/slideshows.js";
 
@@ -156,7 +157,7 @@ export function registerTagRoutes(app: FastifyInstance) {
         AND taggables.entity_type = 'library_item' AND taggables.tag_id = ?
       WHERE library_items.deleted_at IS NULL
         AND library_items.library_id IN (${placeholders(galleryIds.length)})
-      ORDER BY datetime(gallery_details.taken_at) DESC, library_items.id DESC
+      ORDER BY gallery_details.taken_at DESC, library_items.id DESC
     `).all(user.id, tag.id, ...galleryIds) as GalleryAssetRow[]).map(mapAsset);
 
     const taggedIds = new Set((db.prepare(`

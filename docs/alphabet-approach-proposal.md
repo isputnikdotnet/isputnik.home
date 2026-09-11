@@ -1,5 +1,11 @@
 # Alphabet Approach Proposal
 
+Status: shipped in v3.4.0 (2026-08-13) — the A–Z strip with automatic script
+detection, bucketed on the server in `modules/library/shared/alphabet.ts` and stored in
+`item_metadata.alpha_key` (migration 34); kept for history. Not built: the alphabet
+configuration screen and the per-author manual override (the `alpha_override`
+column is read, but nothing sets it yet).
+
 ## Goal
 
 Provide a simple, scalable way to browse authors by alphabet while minimizing manual administration.

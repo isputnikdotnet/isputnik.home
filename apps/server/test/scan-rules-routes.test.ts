@@ -11,6 +11,7 @@ import { db } from "../src/db.js";
 import { scanRulesPlugin } from "../src/modules/library/shared/scan-rules-routes.js";
 import { thumbnailPathSettingKey } from "../src/modules/library/shared/thumbnail.js";
 import { resetDb, makeUser } from "./helpers/seed.js";
+import "./helpers/media-types.js";
 
 let app: FastifyInstance;
 let base: string;

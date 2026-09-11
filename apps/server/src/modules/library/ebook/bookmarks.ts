@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { FastifyInstance } from "fastify";
 import { nanoid } from "nanoid";
 import { db } from "../../../db.js";
-import { parseBody } from "../../../core/shared.js";
+import { parseBody, parseQuery } from "../../../core/shared.js";
 import { getReadableDocument } from "../shared/library-access.js";
 
 // Reader bookmarks for an epub document. The CFI is the jump target; percent_complete
@@ -46,12 +46,19 @@ const updateSchema = z.object({
   note: z.string().trim().max(2000).nullable().optional()
 });
 
+// Optional here so a blank id keeps its own "Document id is required" answer.
+const listQuerySchema = z.object({ documentId: z.string().optional() });
+
 export async function ebookBookmarksPlugin(app: FastifyInstance) {
   // Every bookmark this user saved in one document, in reading order. The reader
   // loads these to render its bookmarks panel and the jump-to targets.
   app.get("/api/library/books/:id/ebook-bookmarks", { preHandler: app.authenticate }, async (request, reply) => {
     const bookId = (request.params as { id: string }).id;
-    const documentId = ((request.query as { documentId?: string }).documentId ?? "").trim();
+    const query = parseQuery(listQuerySchema, request.query);
+    if (query.error) {
+      return reply.code(400).send({ error: "Invalid query", details: query.error });
+    }
+    const documentId = (query.data.documentId ?? "").trim();
     if (!documentId) {
       return reply.code(400).send({ error: "Document id is required" });
     }
@@ -64,7 +71,7 @@ export async function ebookBookmarksPlugin(app: FastifyInstance) {
       SELECT id, document_id, location AS cfi, percent_complete, label, note, created_at, updated_at
       FROM reading_bookmarks
       WHERE item_id = ? AND document_id = ? AND user_id = ?
-      ORDER BY percent_complete IS NULL, percent_complete, datetime(created_at)
+      ORDER BY percent_complete IS NULL, percent_complete, created_at
     `).all(bookId, documentId, user.id) as EbookBookmarkRow[];
 
     return reply.send({ bookmarks: rows.map(publicEbookBookmark) });

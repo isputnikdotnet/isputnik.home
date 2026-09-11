@@ -8,12 +8,14 @@ import { config, mfaKeyFilePath } from "../../config.js";
 import { parseBody } from "../../core/shared.js";
 import { receiveUpload, UploadError } from "../uploads/index.js";
 import { configuredThumbnailPathValue } from "../library/shared/thumbnail.js";
-import { configureScheduledJob } from "../maintenance/index.js";
+import { configureScheduledJob } from "../maintenance/scheduler.js";
 import { extractFromZip, isBackupDatabaseEntry, isBackupMfaKeyEntry, zipHasEntry } from "./zip-read.js";
 import {
   BACKUP_KINDS,
   NAME_PATTERN,
   SETTINGS_KEY,
+  adoptPreRestoreSnapshot,
+  adoptPreUpgradeCopy,
   backupDir,
   backupKindOf,
   backupRunState,
@@ -25,6 +27,7 @@ import {
   uniqueBackupName,
   type BackupKind
 } from "./run.js";
+import { log } from "../../core/logger.js";
 
 // Database backups. What a backup holds, and how one is taken, is in run.ts (three
 // kinds: full, minimal, a quick database copy). This file is the admin API over
@@ -102,7 +105,7 @@ export function rescueStrandedBackups(): number {
   }
 
   if (moved > 0) {
-    console.log(`Moved ${moved} backup${moved === 1 ? "" : "s"} into ${target} — earlier versions stored them where a container update would discard them.`);
+    log.info(`Moved ${moved} backup${moved === 1 ? "" : "s"} into ${target} — earlier versions stored them where a container update would discard them.`);
   }
   return moved;
 }
@@ -149,6 +152,10 @@ export async function backupsPlugin(app: FastifyInstance) {
   // Before anything can list them: an install upgrading from an earlier version may
   // have backups sitting where a container update would discard them.
   rescueStrandedBackups();
+  const preRestore = adoptPreRestoreSnapshot();
+  if (preRestore) app.log.info(`Kept the database the restore replaced: ${preRestore} (Backup page).`);
+  const preUpgrade = adoptPreUpgradeCopy();
+  if (preUpgrade) app.log.info(`Saved the database as it was before this upgrade: ${preUpgrade} (Backup page).`);
   try {
     const adopted = adoptLegacyBackupSchedule();
     if (adopted) app.log.info(`The daily backup schedule is now the "${adopted}" backup job on the Scheduled jobs page.`);

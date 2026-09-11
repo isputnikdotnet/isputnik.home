@@ -24,8 +24,8 @@ import { z } from "zod";
 import type { FastifyInstance } from "fastify";
 import { nanoid } from "nanoid";
 import { db, logActivity } from "../../db.js";
-import { parseBody } from "../../core/shared.js";
-import { addEntityTags } from "./audiobook/categorize.js";
+import { parseBody, parseQuery } from "../../core/shared.js";
+import { addEntityTags } from "./shared/tagging.js";
 import { languageSchema, QUOTE_ENTITY_TYPE } from "./quotes.js";
 import { partialDateSchema } from "../familytree/persons.js";
 
@@ -63,6 +63,9 @@ const rowSchema = z.object({
   // that UI exists would skip every row, so tags dropped here are lost for good.
   tags: z.array(z.string().trim().min(1).max(80)).max(20).optional()
 });
+
+// Only `?dryRun=1` is a dry run — any other value imports for real, as it always has.
+const importQuerySchema = z.object({ dryRun: z.string().optional() });
 
 // Rows arrive as `unknown` on purpose — each is parsed in the loop below so a
 // bad one yields its index and reason instead of failing the whole request.
@@ -165,7 +168,11 @@ export function registerQuoteImportRoutes(app: FastifyInstance) {
     { preHandler: app.requireAdmin, bodyLimit: 8 * 1024 * 1024 },
     async (request, reply) => {
       const user = request.user!;
-      const dryRun = String((request.query as { dryRun?: string }).dryRun ?? "") === "1";
+      const query = parseQuery(importQuerySchema, request.query);
+      if (query.error) {
+        return reply.code(400).send({ error: "Invalid query", details: query.error });
+      }
+      const dryRun = query.data.dryRun === "1";
 
       const parsed = parseBody(envelopeSchema, request.body);
       if (parsed.error) {

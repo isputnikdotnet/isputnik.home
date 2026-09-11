@@ -10,8 +10,9 @@
 import { db } from "../../../db.js";
 import { can, parsePolicy, type AuthUser } from "../../../core/permissions.js";
 import { canUserAccessLibrary } from "../shared/library-access.js";
-import { trashBook, TrashError } from "../shared/trash.js";
-import { ASSET_COLUMNS, ASSET_JOINS, mapAsset, type GalleryAssetRow } from "./catalog.js";
+import { trashBook } from "../shared/trash.js";
+import { TrashError } from "../shared/trash-settings.js";
+import { ASSET_COLUMNS, ASSET_JOINS, mapAsset, type GalleryAssetRow } from "./catalog-asset.js";
 import { moveGalleryAsset } from "./move.js";
 import { dateFolderForCapture } from "./date-folder.js";
 import type { TakenPrecision } from "./taken-precision.js";

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { BookOpen, BookText, Headphones, Images, Tag as TagIcon, TreeDeciduous } from "lucide-react";
 import i18n from "../../i18n";
-import { api, type PublicUser } from "../../api";
+import { api } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
 import { Button } from "../../shared/Button";
@@ -54,7 +54,7 @@ export function getTagScopes(): {
 
 // Global, cross-type tag browse: a searchable cloud of every tag in use, across
 // books, the gallery, and the family tree, each linking to its detail page.
-export function TagListPage({ user, logout }: { user: PublicUser; logout: () => Promise<void> }) {
+export function TagListPage() {
   const { t } = useTranslation(["common", "book"]);
   const [tags, setTags] = useState<TagSummary[]>([]);
   const [error, setError] = useState("");
@@ -96,7 +96,7 @@ export function TagListPage({ user, logout }: { user: PublicUser; logout: () => 
   const hidden = matching.length - shown.length;
 
   return (
-    <DashboardShell active="tags" user={user} logout={logout}>
+    <DashboardShell active="tags">
       <section className="audiobook-main-page">
         <LibraryPageHeader
           title={t("book:tags.title")}

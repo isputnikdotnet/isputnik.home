@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { BookOpen, LibraryBig, Plus } from "lucide-react";
-import { api, type PublicUser } from "../../api";
+import { api } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate, queryParam, replaceQuery } from "../../router";
 import { AlphabetBar } from "../../shared/AlphabetBar";
@@ -18,12 +18,8 @@ import { bookSectionNav, sectionNavProps } from "./sectionNavItems";
 import type { AudiobookLibrary, SeriesSummary } from "./types";
 
 export function SeriesListPage({
-  user,
-  logout,
   kind = "audiobook"
 }: {
-  user: PublicUser;
-  logout: () => Promise<void>;
   kind?: "audiobook" | "ebook";
 }) {
   const { t } = useTranslation(["common", "book"]);
@@ -116,8 +112,6 @@ export function SeriesListPage({
   return (
     <DashboardShell
       active={kind === "ebook" ? "ebooks" : "audiobooks"}
-      user={user}
-      logout={logout}
       sideNav={<SectionNav {...sectionNavProps(bookSectionNav(kind))} activeKey="series" />}
     >
       <section className="audiobook-main-page">

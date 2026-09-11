@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { createPortal } from "react-dom";
-import { BookOpen, ChevronRight, DownloadCloud, HardDrive, Image as ImageIcon, Inbox, Library, Loader2, Play, SlidersHorizontal, Sparkles } from "lucide-react";
+import { BookOpen, ChevronRight, DownloadCloud, HardDrive, Image as ImageIcon, Library, Loader2, Play, SlidersHorizontal, Sparkles } from "lucide-react";
 import { ActivityList } from "../features/social/ActivityList";
 import { InboxRow, type InboxCard } from "../features/social/InboxRow";
-import { api, type PublicUser } from "../api";
+import { api } from "../api";
 import { DashboardShell } from "../app/DashboardShell";
 import { FOR_YOU_PATH, followRoute, navigate } from "../router";
 import { MessageBox } from "../shared/MessageBox";
+import { WhatsNewNote } from "../features/home/WhatsNewNote";
 import { Modal } from "../shared/Modal";
 import { SelectField } from "../shared/SelectField";
 import { Button } from "../shared/Button";
@@ -24,6 +25,7 @@ import { EbookReader } from "../features/audiobooks/reader/EbookReader";
 import type { AudiobookBookDetail, ReadingProgress } from "../features/audiobooks/types";
 import type { GalleryAsset, GalleryLibrary, GalleryMemories } from "../features/gallery/types";
 import { GalleryLightbox } from "../features/gallery/GalleryLightbox";
+import { useSession } from "../app/SessionContext";
 
 // The resume hero — the single most-recent in-progress book, pinned above the
 // feed on every screen size (it grew up on mobile; desktop adopted it in the
@@ -506,7 +508,8 @@ interface ViewerState {
   initialProgress: ReadingProgress | null;
 }
 
-export function HomePage({ user, logout }: { user: PublicUser; logout: () => Promise<void> }) {
+export function HomePage() {
+  const { user } = useSession();
   const { t } = useTranslation();
   const [cards, setCards] = useState<HomeCard[] | null>(null);
   const [heroItem, setHeroItem] = useState<FeedItem | null>(null);
@@ -814,7 +817,7 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
 
   return (
     <>
-    <DashboardShell active="home" user={user} logout={logout}>
+    <DashboardShell active="home">
       <section className="home-page" aria-label="Home">
         {isMobile ? (
           <header className="home-header home-header-mobile">
@@ -846,6 +849,7 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
         )}
 
         {error && !offlineMode && <MessageBox tone="error" title={t("home.loadTitle")}>{error}</MessageBox>}
+        {!offlineMode && <WhatsNewNote />}
 
         {offlineMode ? (
           <div className="home-content">
@@ -972,7 +976,6 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
           index={photoLightbox.index}
           canDelete={library?.canDelete ?? false}
           canEdit={library?.canWrite ?? false}
-          canShare={library?.canCurate ?? false}
           onClose={() => setPhotoLightbox(null)}
           onIndexChange={(next) => setPhotoLightbox((current) => (current ? { ...current, index: next } : current))}
           onChanged={(change) => { if (change.kind !== "like") void refreshPhotoLightbox(photoLightbox.source); }}

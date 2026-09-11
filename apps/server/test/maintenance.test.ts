@@ -5,11 +5,11 @@ import {
   configureScheduledJob,
   runScheduledJob,
   processDueScheduledJobs,
-  seedScheduledJobDefaults,
-  listTasks,
-  withNewTaskIds
-} from "../src/modules/maintenance/index.js";
+  seedScheduledJobDefaults
+} from "../src/modules/maintenance/scheduler.js";
+import { listTasks, withNewTaskIds } from "../src/modules/maintenance/tasks-view.js";
 import { makeUser, makeLibrary } from "./helpers/seed.js";
+import "./helpers/media-types.js";
 
 beforeEach(() => {
   db.prepare("DELETE FROM jobs").run();
@@ -35,6 +35,7 @@ describe("scheduled jobs registry", () => {
       "backup_minimal",
       "cleanup_job_logs",
       "convert_unplayable_videos",
+      "prune_activity_log",
       "purge_expired_trash",
       "purge_missing_gallery",
       "scan_audiobook_libraries",
@@ -54,16 +55,33 @@ describe("scheduled jobs registry", () => {
     expect(byKey.scan_ebook_libraries).toMatchObject({ enabled: true, frequency: "daily" });
     expect(byKey.scan_gallery_libraries).toMatchObject({ enabled: true, frequency: "daily" });
 
-    // The backup jobs alone ship off: a backup folder fills a disk on its own.
+    // The backup jobs ship off (a backup folder fills a disk on its own), and so does
+    // pruning the activity log (it trades the Dashboard's all-time history for privacy).
+    expect(byKey.prune_activity_log).toMatchObject({ enabled: false, frequency: "monthly", time: "00:15", nextRunAt: null });
     expect(byKey.backup_full).toMatchObject({ enabled: false, frequency: "weekly", time: "03:30", nextRunAt: null });
     expect(byKey.backup_minimal).toMatchObject({ enabled: false, frequency: "daily", time: "03:00", nextRunAt: null });
 
     for (const job of jobs) {
-      if (job.key.startsWith("backup_")) continue;
+      if (job.key.startsWith("backup_") || job.key === "prune_activity_log") continue;
       expect(job.nextRunAt).not.toBeNull();
       expect(new Date(job.nextRunAt!).getTime()).toBeGreaterThan(Date.now());
       expect(job.lastRunAt).toBeNull();
     }
+  });
+
+  it("prunes activity and sign-in history older than the retention window, and nothing newer", () => {
+    db.prepare("DELETE FROM activity_logs").run();
+    db.prepare("DELETE FROM login_attempts").run();
+    const old = new Date(Date.now() - 400 * 86_400_000).toISOString();
+    const recent = new Date(Date.now() - 30 * 86_400_000).toISOString();
+    for (const [id, at] of [["old", old], ["recent", recent]]) {
+      db.prepare("INSERT INTO activity_logs (id, event, detail, ip_address, created_at) VALUES (?, 'auth.login', 'x', '203.0.113.9', ?)").run(id, at);
+      db.prepare("INSERT INTO login_attempts (id, email, ip_address, created_at) VALUES (?, 'a@b.c', '203.0.113.9', ?)").run(id, at);
+    }
+    const job = runScheduledJob("prune_activity_log", null);
+    expect(job).not.toBeNull();
+    expect((db.prepare("SELECT id FROM activity_logs WHERE id IN ('old','recent')").all() as { id: string }[]).map((r) => r.id)).toEqual(["recent"]);
+    expect((db.prepare("SELECT id FROM login_attempts").all() as { id: string }[]).map((r) => r.id)).toEqual(["recent"]);
   });
 
   it("returns null for an unknown key", () => {
@@ -76,7 +94,7 @@ describe("scheduled jobs registry", () => {
   it("lists jobs grouped by category, then by name", () => {
     const jobs = listScheduledJobs();
     expect(jobs.map((j) => j.category)).toEqual([
-      "audiobooks", "ebooks", "gallery", "gallery", "gallery", "gallery", "system", "system", "system", "system", "system"
+      "audiobooks", "ebooks", "gallery", "gallery", "gallery", "gallery", "system", "system", "system", "system", "system", "system"
     ]);
     expect(jobs.filter((j) => j.category === "gallery").map((j) => j.label)).toEqual([
       "Convert unplayable videos",
@@ -94,6 +112,7 @@ describe("scheduled jobs registry", () => {
       backup_minimal: "system",
       cleanup_job_logs: "system",
       convert_unplayable_videos: "gallery",
+      prune_activity_log: "system",
       purge_expired_trash: "system",
       purge_missing_gallery: "gallery",
       scan_audiobook_libraries: "audiobooks",
@@ -115,6 +134,7 @@ describe("scheduled jobs registry", () => {
       "backup_minimal",
       "cleanup_job_logs",
       "convert_unplayable_videos",
+      "prune_activity_log",
       "purge_expired_trash",
       "purge_missing_gallery",
       "scan_audiobook_libraries",
@@ -251,7 +271,7 @@ describe("clean task history", () => {
 describe("purge expired recycle bin items", () => {
   // `shift` is a SQLite date modifier ('-1 day'), or null for keep-for-ever.
   function trashRow(id: string, shift: string | null) {
-    const expiry = shift === null ? "NULL" : "datetime('now', ?)";
+    const expiry = shift === null ? "NULL" : "strftime('%Y-%m-%dT%H:%M:%fZ', 'now', ?)";
     const statement = db.prepare(
       `INSERT INTO trashed_items (id, library_id, library_type, library_name, source_path, title, origin_path, trash_path, expires_at)
        VALUES (?, 'lib', 'audiobook', 'Lib', ?, ?, ?, '.trash/tok', ${expiry})`

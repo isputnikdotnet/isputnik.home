@@ -1,6 +1,7 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { renderSignedIn } from "./helpers/session";
 
 vi.mock("../src/api", () => ({ api: vi.fn() }));
 vi.mock("../src/app/DashboardShell", () => ({
@@ -66,7 +67,7 @@ function mount(authors: Author[], libraries = LIBRARIES) {
     if (path === "/api/library/people/photos") return { photos: {} };
     throw new Error(`unexpected ${path}`);
   });
-  return render(<AuthorListPage user={{ id: "u1" } as never} logout={async () => {}} />);
+  return renderSignedIn(<AuthorListPage />);
 }
 
 const cardNames = () =>

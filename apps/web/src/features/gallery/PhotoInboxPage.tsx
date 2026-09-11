@@ -14,7 +14,7 @@ import {
   ScanSearch, SquareCheck, Trash2, UploadCloud, Users, X
 } from "lucide-react";
 import { DropLinksModal } from "./DropLinksModal";
-import { api, type PublicUser } from "../../api";
+import { api } from "../../api";
 import { PartialBulkError, sendInBatches } from "../../shared/bulk";
 import { DashboardShell } from "../../app/DashboardShell";
 import { controlHref, followRoute, galleryHref, galleryInboxHref, galleryReviewHref, navigate } from "../../router";
@@ -32,6 +32,7 @@ import { GalleryUploadModal } from "./GalleryUploadModal";
 import { GalleryKeepModal, type KeepDestination } from "./GalleryKeepModal";
 import { galleryGridClass, readGalleryView } from "./gallery-view";
 import type { GalleryAsset, GalleryLibrary } from "./types";
+import { useSession } from "../../app/SessionContext";
 
 export interface PhotoInboxDelivery {
   folder: string;
@@ -84,15 +85,12 @@ const PAGE_SIZE = 80;
 const CHECK_POLL_MS = 2000;
 
 export function PhotoInboxPage({
-  user,
-  logout,
   libraryId
 }: {
-  user: PublicUser;
-  logout: () => Promise<void>;
   /** /gallery/inbox/<id> names one Inbox; the bare address opens the first. */
   libraryId: string | null;
 }) {
+  const { user } = useSession();
   const { t } = useTranslation(["common", "gallery"]);
   const isMobile = useIsMobile();
   const isAdmin = user.role === "admin";
@@ -309,8 +307,6 @@ export function PhotoInboxPage({
   return (
     <DashboardShell
       active="gallery"
-      user={user}
-      logout={logout}
       sideNav={<SectionNav ariaLabel={t("common:nav.gallery")} groupLabel={t("common:nav.gallery")} items={navItems} activeKey="inbox" />}
     >
       <section className={`audiobook-main-page gallery-page gallery-inbox-page${selectionMode ? " is-selecting" : ""}`}>
@@ -458,7 +454,7 @@ export function PhotoInboxPage({
                   </button>
                   {inbox.deliveries.map((delivery) => (
                     <button
-                      key={delivery.folder || " root"}
+                      key={delivery.folder || "\u0000root"}
                       type="button"
                       className={`gallery-inbox-delivery${folder === delivery.folder ? " is-active" : ""}`}
                       onClick={() => setFolder(delivery.folder)}
@@ -580,7 +576,6 @@ export function PhotoInboxPage({
           index={lightboxIndex}
           canDelete={false}
           canEdit={inbox?.canEdit === true}
-          canShare={false}
           onClose={() => setLightboxIndex(null)}
           onIndexChange={setLightboxIndex}
           onChanged={handleAssetChange}

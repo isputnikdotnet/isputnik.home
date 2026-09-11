@@ -27,7 +27,7 @@ import {
   listGalleryPeople, getGalleryPersonPhotos, untagAssetPerson, renameGalleryPerson,
   mergeGalleryPeople, setGalleryPersonHidden
 } from "../src/modules/library/gallery/people.js";
-import { getGalleryAsset } from "../src/modules/library/gallery/catalog.js";
+import { getGalleryAsset } from "../src/modules/library/gallery/catalog-asset.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
 
 // A unit vector pointing mostly along axis `axis` (8-d), with a little noise so two

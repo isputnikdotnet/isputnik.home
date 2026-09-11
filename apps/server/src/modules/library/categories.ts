@@ -5,7 +5,7 @@
 // media plugin, like the home feeds and the Recycle Bin.
 import type { FastifyInstance } from "fastify";
 import { db } from "../../db.js";
-import { categoryImageUrl, type CategoryRow } from "./audiobook/book-helpers.js";
+import { categoryImageUrl, type CategoryRow } from "./shared/book-helpers.js";
 import { bookLibraryIds, crossTypeBooksByFilter } from "./feed.js";
 
 const placeholders = (n: number) => Array(n).fill("?").join(", ");

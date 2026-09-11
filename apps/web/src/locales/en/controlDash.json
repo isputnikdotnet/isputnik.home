@@ -69,8 +69,7 @@
     "photos": "Photos",
     "ofWhich": "Of which",
     "books": "Books",
-    "hours": "Hours",
-    "queued": "Queued"
+    "hours": "Hours"
   },
   "pagers": {
     "activity": "Activity pages",
@@ -495,9 +494,6 @@
     "statusCompleted": "completed",
     "statusFailed": "failed",
     "showSkipped": "Show skipped items"
-  },
-  "recent": {
-    "loadFailed": "Unable to load activity"
   },
   "dupes": {
     "status": {

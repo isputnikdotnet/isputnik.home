@@ -380,7 +380,10 @@
 
 /* ── Password ───────────────────────────────────────────────────── */
 
-.password-section {
+.password-section,
+.email-section,
+.appearance-section,
+.ereader-section {
   display: grid;
   gap: 12px;
   margin-top: 28px;
@@ -414,16 +417,6 @@
 
 /* ── Email ──────────────────────────────────────────────────────── */
 
-.email-section {
-  display: grid;
-  gap: 12px;
-  margin-top: 28px;
-  padding: clamp(18px, 4vw, 26px);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
-}
-
 .email-section h2 {
   margin: 0;
   font-size: 1.1rem;
@@ -450,16 +443,6 @@
 }
 
 /* ── Appearance (theme) ─────────────────────────────────────────── */
-
-.appearance-section {
-  display: grid;
-  gap: 12px;
-  margin-top: 28px;
-  padding: clamp(18px, 4vw, 26px);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
-}
 
 .appearance-section h2 {
   margin: 0;
@@ -584,16 +567,6 @@
 
 /* ── Send to e-reader ───────────────────────────────────────────── */
 
-.ereader-section {
-  display: grid;
-  gap: 12px;
-  margin-top: 28px;
-  padding: clamp(18px, 4vw, 26px);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
-}
-
 .ereader-section h2 {
   margin: 0;
   font-size: 1.1rem;
@@ -625,7 +598,8 @@
 
 /* Same card as the two-factor panel below — they sit next to each other on the
    Security tab and reading as one family is the point. */
-.passkeys-section {
+.passkeys-section,
+.mfa-section {
   display: grid;
   gap: 12px;
   margin-top: 28px;
@@ -677,22 +651,7 @@
   min-width: 0;
 }
 
-.passkey-meta strong {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 /* ── Two-factor authentication ──────────────────────────────────── */
-
-.mfa-section {
-  display: grid;
-  gap: 12px;
-  margin-top: 28px;
-  padding: clamp(18px, 4vw, 26px);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-}
 
 .mfa-section h2 {
   margin: 0;
@@ -747,7 +706,7 @@
   gap: 8px 16px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: var(--surface-2, rgba(127, 127, 127, 0.06));
+  background: var(--surface-2);
 }
 
 .mfa-backup-codes code {
@@ -1145,7 +1104,7 @@
   width: min(100%, 520px);
 }
 
-@media (max-width: 720px) {
+@media (max-width: 740px) {
   .profile-tabs.control-tabs {
     /* Back to rows here: one column per tab is fine on a desktop row, but on a
        phone it would squeeze five tabs into 375px. */
@@ -1600,7 +1559,7 @@
   flex: none;
   padding: 1px 7px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--accent, var(--line)) 22%, transparent);
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
   font-size: 0.68rem;
   font-weight: 600;
   letter-spacing: 0.02em;

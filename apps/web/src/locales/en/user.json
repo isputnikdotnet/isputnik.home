@@ -117,8 +117,6 @@
     "copyAria": "Copy quote",
     "editAria": "Edit quote",
     "deleteAria": "Delete quote",
-    "sources_one": "{{count}} source",
-    "sources_other": "{{count}} sources",
     "count_one": "{{count}} quote",
     "count_other": "{{count}} quotes",
     "deleteTitle": "Delete this quote?",
@@ -136,7 +134,6 @@
       "rotation": "In Quote of the day"
     },
     "import": {
-      "action": "Import",
       "title": "Import quotes from a file",
       "intro": "Choose a JSON quote pack. Nothing is saved until you confirm — picking a file only checks what it holds.",
       "fileField": "Quote pack (.json)",
@@ -167,12 +164,7 @@
     "speakerField": "Who said it",
     "speakerNobody": "Nobody in the family tree",
     "spokenBy": "said by {{name}}",
-    "quotesTab": "Quotes",
     "addToCollectionAria": "Add quote to a collection",
-    "clearImported_one": "Delete {{count}} imported quote",
-    "clearImported_other": "Delete all {{count}} imported",
-    "clearImportedTitle_one": "Delete {{count}} imported quote?",
-    "clearImportedTitle_other": "Delete all {{count}} imported quotes?",
     "clearImportedConfirm": "Delete imported quotes",
     "clearImportedBody": "This removes only the quotes you brought in from a file. Quotes you typed in, passages you highlighted while reading, and everyone else's quotes are not affected — and the pack can always be imported again.",
     "clearedImported_one": "Deleted {{count}} imported quote.",
@@ -194,7 +186,6 @@
     "loadFailed": "Unable to load what's been shared with you",
     "updateFailed": "Unable to update this",
     "waitingForYou": "Waiting for you",
-    "everythingElse": "Everything else",
     "emptyHeading": "Nothing for you yet",
     "empty": "When someone in the family sends you a book, a photo or a question about an album, or photos arrive in an Inbox you look after, it appears here.",
     "album": "Album",
@@ -321,8 +312,6 @@
   },
   "sendTo": {
     "title": "Send to",
-    "shareTitle": "Share “{{title}}”",
-    "shareSubtitle": "Choose how you want to share this item",
     "routePeople": "People",
     "routePeopleHint": "Send to someone on this server",
     "routeLink": "Share link",
@@ -459,9 +448,7 @@
     "endOfChapter": "End of chapter",
     "chapter": "Chapter",
     "chapters": "Chapters",
-    "sharedBy": "Shared by {{name}}",
-    "download": "Download",
-    "storyExpanded": "Albums in this story can be opened in full."
+    "sharedBy": "Shared by {{name}}"
   },
   "downloads": {
     "deviceStorage": "Device storage",

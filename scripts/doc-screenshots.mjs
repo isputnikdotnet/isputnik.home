@@ -746,7 +746,8 @@ function send(ws, method, params = {}) {
       const msg = JSON.parse(event.data);
       if (msg.id !== id) return;
       ws.removeEventListener("message", onMessage);
-      msg.error ? reject(new Error(`${method}: ${msg.error.message}`)) : resolve(msg.result);
+      if (msg.error) reject(new Error(`${method}: ${msg.error.message}`));
+      else resolve(msg.result);
     };
     ws.addEventListener("message", onMessage);
     setTimeout(() => reject(new Error(`${method} timed out`)), 30000);

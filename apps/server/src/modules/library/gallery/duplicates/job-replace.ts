@@ -13,10 +13,10 @@ import { validateLibrarySource } from "../../shared/library-source.js";
 import { pathIsInside } from "../../shared/storage-roots.js";
 import { purgeCataloguedItem } from "../../shared/trash.js";
 import { replaceGalleryAssetFile } from "../replace.js";
-import { absorbDuplicateMetadata } from "./items.js";
+import { absorbDuplicateMetadata } from "./absorb.js";
 import { getJob, recordAction, type JobOutcome } from "./jobs.js";
 import { checkResult, type ResultCheck } from "./job-resolve.js";
-import { listJobResults, type ResultFilter, type SnapshotResult } from "./job-scan.js";
+import { listJobResults, type ResultFilter, type SnapshotResult } from "./job-results.js";
 
 export type ReplaceRefusal =
   | "stale" | "not_inbox_job" | "no_such_member" | "member_not_incoming" | "no_keeper" | "replace_failed";

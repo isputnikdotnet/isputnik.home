@@ -51,7 +51,7 @@ const MIN_ITEMS = 12;
 // Slides in the finished film. 60 at the default 4s dwell is about four minutes —
 // long enough to feel like a year, short enough that people watch to the end.
 const MAX_ITEMS = 60;
-// Videos carry their own length (up to VIDEO_CAP = 20s each in slideshow-render.ts),
+// Videos carry their own length (up to VIDEO_CAP = 20s each in slideshow-segments.ts),
 // so a film that is one third video runs far longer than its slide count suggests.
 const MAX_VIDEO_SHARE = 0.2;
 // Per month, how deep the ranking is allowed to look before the balancing pass. A
@@ -104,7 +104,7 @@ function peopleByItem(libIds: string[], year: string): Map<string, string[]> {
 function allocate(monthSizes: Map<string, number>, monthLiked: Map<string, number>, total: number): Map<string, number> {
   const months = [...monthSizes.keys()];
   const slots = new Map(months.map((m) => [m, 1]));
-  let remaining = total - months.length;
+  const remaining = total - months.length;
   if (remaining <= 0) return slots;
 
   const weights = new Map(months.map((m) => [m, Math.sqrt((monthLiked.get(m) ?? 0) + 1)]));
@@ -216,7 +216,7 @@ export function buildYearReview(libIds: string[], userId: string, year: number, 
       AND substr(gallery_details.taken_at, 1, 4) = ?
       -- A year review is a slideshow: audio recordings can't be rendered as slides.
       AND gallery_details.kind != 'audio'
-    ORDER BY datetime(gallery_details.taken_at) ASC, library_items.id ASC
+    ORDER BY gallery_details.taken_at ASC, library_items.id ASC
   `).all(userId, ...libIds, yearKey) as YearItemRow[];
   if (rows.length < MIN_ITEMS) return null;
 

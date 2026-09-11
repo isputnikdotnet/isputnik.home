@@ -9,7 +9,7 @@
 // can't see.
 import { nanoid } from "nanoid";
 import { db } from "../../../db.js";
-import { ASSET_COLUMNS, ASSET_JOINS, mapAsset, type GalleryAssetRow } from "./catalog.js";
+import { ASSET_COLUMNS, ASSET_JOINS, mapAsset, type GalleryAssetRow } from "./catalog-asset.js";
 import { recomputeClusterCentroid } from "./faces/cluster.js";
 
 const inClause = (n: number) => Array(n).fill("?").join(", ");
@@ -46,7 +46,7 @@ export function listGalleryPeople(libIds: string[], includeHidden = false): Gall
     ranked AS (
       SELECT a.person_id, a.cover,
         ROW_NUMBER() OVER (PARTITION BY a.person_id
-          ORDER BY (gp1.cover_item_id IS NOT NULL AND a.item_id = gp1.cover_item_id) DESC, datetime(a.taken_at) DESC) AS rn,
+          ORDER BY (gp1.cover_item_id IS NOT NULL AND a.item_id = gp1.cover_item_id) DESC, a.taken_at DESC) AS rn,
         COUNT(*) OVER (PARTITION BY a.person_id) AS cnt
       FROM accessible a
       JOIN gallery_people gp1 ON gp1.id = a.person_id
@@ -133,7 +133,7 @@ export function getGalleryPersonPhotos(
   const rows = db.prepare(`
     SELECT ${ASSET_COLUMNS} ${ASSET_JOINS}
     WHERE ${itemFilter}
-    ORDER BY datetime(gallery_details.taken_at) DESC, library_items.id DESC
+    ORDER BY gallery_details.taken_at DESC, library_items.id DESC
     LIMIT ? OFFSET ?
   `).all(userId, personId, ...libIds, limit, offset) as GalleryAssetRow[];
   return { person: { id: person.id, name: person.name, coverItemId: person.cover_item_id }, assets: rows.map(mapAsset), total };

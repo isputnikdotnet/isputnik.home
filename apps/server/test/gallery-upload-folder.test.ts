@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { dateFolderForCapture, friendlyStorageError } from "../src/modules/library/gallery/routes.js";
+import { dateFolderForCapture } from "../src/modules/library/gallery/date-folder.js";
+import { friendlyStorageError } from "../src/modules/library/gallery/files.js";
 
 describe("upload date-folder placement", () => {
   const uploadTime = new Date("2026-07-20T12:00:00Z");

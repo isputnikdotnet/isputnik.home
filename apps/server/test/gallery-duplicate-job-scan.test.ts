@@ -12,14 +12,14 @@ import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
 import {
   activeJob, completeJob, createJob, getJob, setJobFolderPreferences
 } from "../src/modules/library/gallery/duplicates/jobs.js";
+import { runJobScan } from "../src/modules/library/gallery/duplicates/job-scan.js";
 import {
-  runJobScan,
   listJobResults,
   keeperFoldersOf,
   type SnapshotResult
-} from "../src/modules/library/gallery/duplicates/job-scan.js";
+} from "../src/modules/library/gallery/duplicates/job-results.js";
 import { dismissResult } from "../src/modules/library/gallery/duplicates/job-review.js";
-import { NEAR_IDENTICAL_DISTANCE } from "../src/modules/library/gallery/duplicates/items.js";
+import { NEAR_IDENTICAL_DISTANCE } from "../src/modules/library/gallery/duplicates/grouping.js";
 import { setFolderLock } from "../src/modules/library/shared/folder-locks.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
 

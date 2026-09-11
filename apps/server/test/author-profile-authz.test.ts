@@ -6,7 +6,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import fastify, { type FastifyInstance } from "fastify";
 import { db } from "../src/db.js";
-import { audiobookPeoplePlugin } from "../src/modules/library/audiobook/people.js";
+import { audiobookPeoplePlugin } from "../src/modules/library/audiobook/people-routes.js";
 import { resetDb, makeUser, grant } from "./helpers/seed.js";
 
 let app: FastifyInstance;

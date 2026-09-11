@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../src/db.js";
 import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
 import { markGalleryAssetReviewed, setGalleryPlaceAndTime, updateGalleryAsset } from "../src/modules/library/gallery/edit.js";
-import { getGalleryAsset } from "../src/modules/library/gallery/catalog.js";
+import { getGalleryAsset } from "../src/modules/library/gallery/catalog-asset.js";
 import { dateFolderForCapture } from "../src/modules/library/gallery/date-folder.js";
 import { listPhotoInboxItems, listPhotoInboxes } from "../src/modules/library/gallery/inbox.js";
 import { floorTakenAt } from "../src/modules/library/gallery/taken-precision.js";

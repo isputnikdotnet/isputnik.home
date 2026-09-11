@@ -177,6 +177,31 @@ the page — as a CSV, and the bin button clears records older than an age you
 choose at the moment of deleting; the Dashboard's System tab tells you when
 they've grown large enough to be worth it.
 
+**What the app records about visitors.** Most entries here carry the address the
+request came from, and that includes people without an account: a guest who opens
+or downloads from a share link, or sends photos through a drop link, is logged
+with their address like everyone else. Sign-in attempts (what Dashboard → Sign-ins
+reads) and signed-in devices keep their addresses too. Two things to know if you
+share links outside the house:
+
+- **Nothing here expires on its own unless you ask.** Log entries stay until you
+  clear them with the bin button above (it offers 365 days, and you can pick any
+  age); the bin clears this page only. For a standing limit, turn on **Prune the
+  activity log** under Scheduled jobs: once a month it deletes log entries *and*
+  sign-in attempts older than 365 days (the `ACTIVITY_LOG_RETENTION_DAYS` setting
+  changes the window). It ships off because the Dashboard's all-time figures read
+  the same history. The device list is never pruned — revoke devices under Profile.
+- **The server's own output logs every request** with the visitor's address, and
+  how long that is kept is up to Docker, not the app. The stock `docker-compose.yml`
+  keeps five files of 10 MB each; setting `LOG_LEVEL=warn` stops the per-request
+  lines altogether — see the
+  [configuration reference](https://github.com/isputnikdotnet/isputnik.home/blob/main/docs/configuration.md).
+
+Addresses are placed on the map from a database on your own server. With an
+AbuseIPDB key set under Security → Policies, an address is also sent to AbuseIPDB
+when it gets blocked automatically or when you ask for a check; without a key,
+none is.
+
 ---
 
 ## Library
@@ -341,6 +366,16 @@ Media files are never in a backup, and never touched.
   made.
 - You can **upload** a backup from your computer; it joins the list ready to
   restore, filed by what it holds.
+
+**A copy before every upgrade, made for you.** The first time a new version of the
+app starts, it saves the database as it was before that version changes anything,
+and files it here as `isputnik-<date>-<time>-pre-upgrade.sqlite` — a database copy
+like the quick kind above, which downloads and restores the same way. The newest two
+are kept, and they are counted apart from yours: an upgrade never pushes out one of
+your backups, and **Keep newest** never deletes one of these. The activity log notes
+each one. It is the database only, no covers and no key, which is all it needs to
+put this server back the way it was if an upgrade goes wrong — see
+[Upgrading and rolling back](https://github.com/isputnikdotnet/isputnik.home/blob/main/docs/rollback.md).
 
 **Where they land.** The page shows the folder the server writes to. In Docker that's
 a path *inside the container* — `/config/backups` — which on the host is the `backups`

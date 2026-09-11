@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Tags } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { api, type PublicUser } from "../../api";
+import { api } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
 import { Button } from "../../shared/Button";
@@ -12,6 +12,7 @@ import { familyNavProps } from "./sectionNavItems";
 import { BulkTagPeopleModal } from "./BulkTagPeopleModal";
 import { PersonAvatar } from "./PersonAvatar";
 import { lifeYears, type FamilyPerson } from "./types";
+import { useSession } from "../../app/SessionContext";
 
 interface FamilyGroup {
   surname: string;
@@ -37,7 +38,8 @@ function birthYear(person: FamilyPerson): number {
 // One card per family name, so the tree can be entered by branch instead of by
 // person. Choosing a family focuses the chart on that family's oldest member —
 // from there the usual pan/click navigation takes over.
-export function FamilyFamiliesPage({ user, logout }: { user: PublicUser; logout: () => Promise<void> }) {
+export function FamilyFamiliesPage() {
+  const { user } = useSession();
   const { t } = useTranslation(["common", "family"]);
   const [persons, setPersons] = useState<FamilyPerson[]>([]);
   const [search, setSearch] = useState("");
@@ -82,7 +84,7 @@ export function FamilyFamiliesPage({ user, logout }: { user: PublicUser; logout:
   const shown = term ? families.filter((family) => family.surname.toLowerCase().includes(term)) : families;
 
   return (
-    <DashboardShell active="family" user={user} logout={logout} sideNav={<SectionNav {...familyNavProps("families")} />}>
+    <DashboardShell active="family" sideNav={<SectionNav {...familyNavProps("families")} />}>
       <section className="audiobook-main-page">
         <LibraryPageHeader
           title={t("family:families.title")}

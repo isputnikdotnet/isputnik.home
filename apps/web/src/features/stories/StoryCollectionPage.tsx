@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, BookOpen, CalendarDays, Globe2, Library, Plus, ShieldCheck, SquarePen, Trash2, UserRound, UsersRound } from "lucide-react";
-import { api, type PublicUser } from "../../api";
+import { ArrowLeft, BookOpen, CalendarDays, Library, Plus, ShieldCheck, SquarePen } from "lucide-react";
+import { api } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
-import { goBack, navigate } from "../../router";
+import { goBack } from "../../router";
 import { formatPartialDateRange } from "../../shared/utils";
 import { MessageBox } from "../../shared/MessageBox";
-import { Modal } from "../../shared/Modal";
 import { Button } from "../../shared/Button";
 import { StoriesSectionNav } from "./StoriesSectionNav";
 import { StoryCard } from "./StoryCard";
@@ -35,13 +34,9 @@ interface CollectionDetail {
 // curated twice. "Add story" creates straight into the shelf; Access is the
 // manager's door to who sees it (and through it, who sees its stories).
 export function StoryCollectionPage({
-  id,
-  user,
-  logout
+  id
 }: {
   id: string;
-  user: PublicUser;
-  logout: () => Promise<void>;
 }) {
   const { t } = useTranslation(["common", "stories"]);
   const [collection, setCollection] = useState<CollectionDetail | null>(null);
@@ -97,7 +92,7 @@ export function StoryCollectionPage({
   ) : null;
 
   return (
-    <DashboardShell active="stories" user={user} logout={logout} sideNav={<StoriesSectionNav activeKey={id} />}>
+    <DashboardShell active="stories" sideNav={<StoriesSectionNav activeKey={id} />}>
       <section className="work-area audiobook-area">
         <div className="book-detail-topbar">
           <button className="audiobook-back-button" type="button" onClick={() => goBack("/stories")}>

@@ -17,6 +17,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import sharp, { type OverlayOptions } from "sharp";
 import opentype, { type Font, type Glyph } from "opentype.js";
+import { log } from "../../../core/logger.js";
 
 export const CARD_WIDTH = 1920;
 export const CARD_HEIGHT = 1080;
@@ -83,7 +84,7 @@ export function bundledFontPath(style: CardFont = "classic"): string | null {
   const fontPath = path.resolve(here, `../../../assets/fonts/${CARD_FONT_FILES[style]}`);
   if (fs.existsSync(fontPath)) return fontPath;
   if (style !== "classic") {
-    console.warn(`slideshow render: bundled font for style '${style}' missing — falling back to classic.`);
+    log.warn(`slideshow render: bundled font for style '${style}' missing — falling back to classic.`);
     return bundledFontPath("classic");
   }
   return null;
@@ -386,12 +387,12 @@ export async function titleCardPngBuffer(
 ): Promise<Buffer | null> {
   const fontPath = bundledFontPath(lettering.font ?? "classic");
   if (!fontPath) {
-    console.warn("slideshow render: bundled title-card font missing — rendering without a title card.");
+    log.warn("slideshow render: bundled title-card font missing — rendering without a title card.");
     return null;
   }
   const font = loadTitleFont(fontPath);
   if (!font) {
-    console.warn(`slideshow render: title-card font at ${fontPath} could not be read — rendering without a title card.`);
+    log.warn(`slideshow render: title-card font at ${fontPath} could not be read — rendering without a title card.`);
     return null;
   }
   try {
@@ -406,7 +407,7 @@ export async function titleCardPngBuffer(
     if (width >= CARD_WIDTH) return full;
     return await sharp(full).resize(Math.round(width)).png().toBuffer();
   } catch (err) {
-    console.warn(
+    log.warn(
       `slideshow render: title card could not be drawn (${err instanceof Error ? err.message : "unknown error"}) — rendering without one.`
     );
     return null;
@@ -428,7 +429,7 @@ export async function renderTitleCardPng(
     fs.writeFileSync(outPath, png);
     return true;
   } catch (err) {
-    console.warn(
+    log.warn(
       `slideshow render: title card could not be written (${err instanceof Error ? err.message : "unknown error"}) — rendering without one.`
     );
     return false;

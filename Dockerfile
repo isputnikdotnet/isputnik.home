@@ -139,8 +139,10 @@ ENV BACKUP_PATH=/config/backups
 # re-downloaded — or replaced by hand with a city-level database — without a new
 # release. Empty until an admin asks for it.
 ENV GEOIP_PATH=/config/geoip
-# Set to "true" only when served over HTTPS
-ENV COOKIE_SECURE=false
+# auto: secure cookies follow APP_URL — on for an https:// address, off for a plain
+# http LAN install. Set true/false only to override (see config.ts). Matches the
+# Unraid template's default.
+ENV COOKIE_SECURE=auto
 # Reverse-proxy trust: prefer TRUST_PROXY (the proxy's own IP/CIDR, comma-separated
 # for several; unset = trust nothing). TRUST_PROXY_HOPS is the older hop-count form
 # (usually 1; 0 = trust nothing / direct access); addresses win if both are set.
@@ -156,6 +158,13 @@ ENV PUID=1000
 ENV PGID=1000
 
 EXPOSE 4000
+
+# Liveness: GET /api/health answers 200 while the server is up and its database
+# answers (core/health.ts). The slim image has no curl/wget, so Node asks. The
+# start period covers a first boot's migrations and the entrypoint's one-time
+# ownership pass over /config. Docker (and Unraid, and compose) inherit this.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=120s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||4000)+'/api/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"
 
 # Root entrypoint fixes /config ownership, then execs the CMD as PUID:PGID via
 # gosu — the Node server itself never runs as root. No `USER` directive: the

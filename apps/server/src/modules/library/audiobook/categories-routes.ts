@@ -8,7 +8,7 @@ import { db, logActivity } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
 import { CATEGORY_SEED, isBuiltinCategoryImageKey } from "../../../categories-seed.js";
 import { thumbnailAbsolutePath, thumbnailStorageKey } from "../shared/thumbnail.js";
-import { normalizeText, rematchAllCategories } from "./categorize.js";
+import { normalizeText, rematchAllCategories } from "../shared/tagging.js";
 import { deleteAssignmentsForObject } from "../../../core/permissions.js";
 import { FAMILY_TAG_OBJECT_TYPE } from "../../familytree/access.js";
 

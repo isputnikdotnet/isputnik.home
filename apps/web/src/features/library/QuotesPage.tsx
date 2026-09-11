@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { BookOpen, Copy, ListPlus, Pencil, Plus, Quote as QuoteIcon, Search, Trash2 } from "lucide-react";
-import { api, type PublicUser } from "../../api";
+import { api } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { UserAreaNav } from "./UserAreaNav";
 import { navigate } from "../../router";
@@ -11,6 +11,7 @@ import { SelectField } from "../../shared/SelectField";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { MessageBox } from "../../shared/MessageBox";
 import { relativeTime } from "../../shared/utils";
+import { useDebouncedValue } from "../../shared/useDebouncedValue";
 import i18n from "../../i18n";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { PeopleCombobox } from "../../shared/PeopleCombobox";
@@ -373,13 +374,7 @@ function QuoteEditor({
   );
 }
 
-export function QuotesPage({
-  user,
-  logout
-}: {
-  user: PublicUser;
-  logout: () => Promise<void>;
-}) {
+export function QuotesPage() {
   const { t } = useTranslation(["common", "user"]);
   const [quotes, setQuotes] = useState<Quote[] | null>(null);
   const [error, setError] = useState("");
@@ -397,7 +392,8 @@ export function QuotesPage({
   const [clearingImports, setClearingImports] = useState(false);
   const [clearBusy, setClearBusy] = useState(false);
   const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  // Typing shouldn't fire a query per keystroke over thousands of rows.
+  const debouncedSearch = useDebouncedValue(search.trim(), 250);
   const [total, setTotal] = useState(0);
   const [categories, setCategories] = useState<{ name: string; count: number }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -467,12 +463,6 @@ export function QuotesPage({
     observer.observe(el);
     return () => observer.disconnect();
   }, [loadMore]);
-
-  // Typing shouldn't fire a query per keystroke over thousands of rows.
-  useEffect(() => {
-    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 250);
-    return () => window.clearTimeout(timer);
-  }, [search]);
 
   // The family tree, for the editor's "who said it" picker. Reading the tree is
   // open to every signed-in user; an install with no tree simply gets no field.
@@ -619,7 +609,7 @@ export function QuotesPage({
   };
 
   return (
-    <DashboardShell active="user" user={user} logout={logout} sideNav={<UserAreaNav active="quotes" />}>
+    <DashboardShell active="user" sideNav={<UserAreaNav active="quotes" />}>
       <section className="work-area audiobook-area">
         <div className="section-head audiobook-head">
           <div>

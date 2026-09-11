@@ -18,7 +18,7 @@ import path from "node:path";
 import { db } from "../../../db.js";
 import { normaliseRelativePath, pathIsInside } from "../shared/storage-roots.js";
 import { validateLibrarySource } from "../shared/library-source.js";
-import { getTrashRootSetting } from "../shared/trash.js";
+import { getTrashRootSetting } from "../shared/trash-settings.js";
 import { kindForExtension, type AssetKind } from "./media.js";
 import { scanSingleGalleryFile } from "./scanner.js";
 

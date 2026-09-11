@@ -3,7 +3,8 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import sharp from "sharp";
-import { prescaleSegments, type Segment } from "../src/modules/library/gallery/slideshow-render.js";
+import { prescaleSegments } from "../src/modules/library/gallery/slideshow-prescale.js";
+import type { Segment } from "../src/modules/library/gallery/slideshow-segments.js";
 
 // Why this pass exists: every photo in a slideshow is its own ffmpeg input, and each
 // input holds decoded frames at the SOURCE's resolution for the whole render. The

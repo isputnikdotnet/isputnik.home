@@ -3,7 +3,7 @@ import { db } from "../src/db.js";
 import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
 import { ingestGalleryAsset } from "../src/modules/library/gallery/scanner.js";
 import { suggestGalleryMemories } from "../src/modules/library/gallery/memories.js";
-import { getGalleryAssets } from "../src/modules/library/gallery/catalog.js";
+import { getGalleryAssets } from "../src/modules/library/gallery/catalog-asset.js";
 import { createSlideshow, getSlideshow, getSlideshowItems, addSlideshowItems } from "../src/modules/library/gallery/slideshows.js";
 import { kindForExtension } from "../src/modules/library/gallery/media.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";

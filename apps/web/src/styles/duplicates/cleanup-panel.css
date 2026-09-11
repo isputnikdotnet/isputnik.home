@@ -82,14 +82,14 @@
   gap: 10px;
   min-height: 32px;
   border-radius: 8px;
-  color: var(--accent, #6336f5);
+  color: var(--accent);
   font-size: 1rem;
   font-weight: 820;
   outline: none;
 }
 
 .dup-cleanup-experiment-label:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--accent, #6336f5) 58%, transparent);
+  outline: 2px solid color-mix(in srgb, var(--accent) 58%, transparent);
   outline-offset: 4px;
 }
 
@@ -138,7 +138,7 @@
 }
 
 .dup-cleanup-experiment-card > svg {
-  color: var(--accent, #6336f5);
+  color: var(--accent);
 }
 
 .dup-cleanup-experiment-card p {

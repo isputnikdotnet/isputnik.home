@@ -6,6 +6,7 @@ import { db } from "../src/db.js";
 import { trashBook, libraryAllowsDelete } from "../src/modules/library/shared/trash.js";
 import { thumbnailPathSettingKey } from "../src/modules/library/shared/thumbnail.js";
 import { resetDb, makeUser, makeLibrary } from "./helpers/seed.js";
+import "./helpers/media-types.js";
 
 // An external library is somewhere the app READS. Its files belong to something else
 // — another program, a share the household fills by hand — and nothing here may

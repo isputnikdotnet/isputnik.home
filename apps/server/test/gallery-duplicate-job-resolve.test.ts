@@ -12,9 +12,8 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../src/db.js";
 import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
 import { createJob, getJob } from "../src/modules/library/gallery/duplicates/jobs.js";
-import {
-  runJobScan, listJobResults, sweepPreview
-} from "../src/modules/library/gallery/duplicates/job-scan.js";
+import { runJobScan } from "../src/modules/library/gallery/duplicates/job-scan.js";
+import { listJobResults, sweepPreview } from "../src/modules/library/gallery/duplicates/job-results.js";
 import {
   checkResult, resolveJobResult, sweepJobResults
 } from "../src/modules/library/gallery/duplicates/job-resolve.js";

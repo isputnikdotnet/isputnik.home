@@ -69,7 +69,7 @@
   width: 62px;
   height: 62px;
   border-radius: 7px;
-  background: var(--surface-2, rgba(127, 127, 127, 0.1));
+  background: var(--surface-2);
   color: var(--muted);
   font-size: 0.72rem;
   text-align: center;
@@ -166,7 +166,7 @@
   min-width: 0;
   text-align: left;
 }
-.dup-set-name-row svg { flex: 0 0 auto; color: var(--accent, #c8a24a); }
+.dup-set-name-row svg { flex: 0 0 auto; color: var(--accent); }
 
 /* Search takes what the two menus leave, as on any list page. */
 .dup-folder-search { flex: 1 1 220px; min-width: 0; }
@@ -774,7 +774,7 @@
   }
 }
 
-@media (max-width: 720px) {
+@media (max-width: 740px) {
   .dup-folder-card {
     min-height: 0;
     padding: 20px;

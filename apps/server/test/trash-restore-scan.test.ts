@@ -7,6 +7,7 @@ import { trashBook, restoreTrashedItem } from "../src/modules/library/shared/tra
 import { enqueueGalleryScan } from "../src/modules/library/gallery/scanner.js";
 import { thumbnailPathSettingKey } from "../src/modules/library/shared/thumbnail.js";
 import { resetDb, makeUser, makeLibrary } from "./helpers/seed.js";
+import "./helpers/media-types.js";
 
 // Restoring a photo needs a library scan to re-discover it — and that scan walks the
 // WHOLE library. Queued per item, restoring a few hundred photos from the Recycle Bin

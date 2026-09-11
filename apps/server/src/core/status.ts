@@ -45,11 +45,11 @@ export async function statusPlugin(app: FastifyInstance) {
     const users = db.prepare("SELECT COUNT(*) AS count FROM users WHERE deleted_at IS NULL").get() as { count: number };
     const sessions = db.prepare(`
       SELECT COUNT(*) AS count FROM sessions
-      WHERE revoked_at IS NULL AND datetime(expires_at) > datetime('now')
+      WHERE revoked_at IS NULL AND expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
     `).get() as { count: number };
     const activeInvites = db.prepare(`
       SELECT COUNT(*) AS count FROM invites
-      WHERE revoked_at IS NULL AND used_at IS NULL AND datetime(expires_at) > datetime('now')
+      WHERE revoked_at IS NULL AND used_at IS NULL AND expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
     `).get() as { count: number };
     const events = db.prepare("SELECT COUNT(*) AS count FROM activity_logs").get() as { count: number };
 
@@ -110,6 +110,7 @@ export async function statusPlugin(app: FastifyInstance) {
     about: {
       name: "isputnik.home",
       version: config.version,
+      stage: config.stage,
       description: config.description,
       runtime: `Node.js ${process.version}`,
       database: "SQLite (WAL mode)",

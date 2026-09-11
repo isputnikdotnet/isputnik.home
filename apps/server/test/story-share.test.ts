@@ -13,15 +13,10 @@ import {
   storyShareFiles,
   buildStorySharePayload
 } from "../src/modules/stories/share.js";
-import {
-  BLOCK_PREVIEW_LIMIT,
-  createStory,
-  createBlock,
-  purgeStory,
-  getChapters,
-  updateStory,
-  updateChapter
-} from "../src/modules/stories/stories.js";
+import { BLOCK_PREVIEW_LIMIT } from "../src/modules/stories/stories.js";
+import { createStory, purgeStory, updateStory } from "../src/modules/stories/crud.js";
+import { createBlock } from "../src/modules/stories/blocks.js";
+import { getChapters, updateChapter } from "../src/modules/stories/chapters.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
 
 function asset(relativePath: string, takenAtIso: string) {

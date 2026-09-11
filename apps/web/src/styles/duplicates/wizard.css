@@ -663,7 +663,7 @@
 .dup-folder-row > input[type="checkbox"] { flex: 0 0 auto; margin-top: 0; }
 .dup-folder-row .dup-folder-choice-body { flex: 1 1 auto; cursor: pointer; }
 .dup-folder-row .dup-mode-group { flex: 0 0 auto; }
-.dup-folder-choice:hover { background: var(--surface-2, rgba(127, 127, 127, 0.08)); }
+.dup-folder-choice:hover { background: var(--surface-2); }
 .dup-folder-choice input { margin-top: 3px; flex: 0 0 auto; }
 .dup-folder-choice-body {
   display: flex;
@@ -703,7 +703,7 @@
 .dup-mode-group .dup-mode:first-child.is-on { background: var(--mint); }
 .dup-mode-group .dup-mode:last-child.is-on { background: var(--rose); color: #fff; }
 /* Keyboard focus has to be visible: the radio itself is off-screen. */
-.dup-mode:focus-within { outline: 2px solid var(--accent, #c8a24a); outline-offset: -2px; }
+.dup-mode:focus-within { outline: 2px solid var(--accent); outline-offset: -2px; }
 
 /* Offered but not available: an external library has nothing to clear out. Shown
    rather than removed, so the three choices stay in the same places on every row. */

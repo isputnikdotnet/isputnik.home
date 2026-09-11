@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, BookOpen, BookText, Headphones, Images, Play, TreeDeciduous } from "lucide-react";
-import { api, type PublicUser } from "../../api";
+import { api } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
-import { followRoute, getReferrer, goBack, navigate } from "../../router";
+import { followRoute, getReferrer, goBack } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { FeedTile } from "../library/FeedTile";
 import type { FeedItem } from "../library/feed";
@@ -29,13 +29,9 @@ interface TagDetail {
 type KindFilter = "all" | "audiobook" | "ebook" | "gallery" | "family" | "story";
 
 export function TagDetailPage({
-  tagName,
-  user,
-  logout
+  tagName
 }: {
   tagName: string;
-  user: PublicUser;
-  logout: () => Promise<void>;
 }) {
   const { t } = useTranslation(["common", "book", "family"]);
   const [tag, setTag] = useState<TagDetail | null>(null);
@@ -92,7 +88,7 @@ export function TagDetailPage({
     && shownAlbums.length === 0 && shownSlideshows.length === 0;
 
   return (
-    <DashboardShell active="tags" user={user} logout={logout}>
+    <DashboardShell active="tags">
       <section className="audiobook-main-page">
         <button className="audiobook-back-button" type="button" onClick={() => goBack(backTo ?? "/tags")}>
           <ArrowLeft size={17} aria-hidden="true" />
@@ -233,7 +229,6 @@ export function TagDetailPage({
           index={lightboxIndex}
           canDelete={false}
           canEdit={false}
-          canShare={false}
           onClose={() => setLightboxIndex(null)}
           onIndexChange={setLightboxIndex}
           onChanged={() => { /* read-only browse; counts refresh on next load */ }}

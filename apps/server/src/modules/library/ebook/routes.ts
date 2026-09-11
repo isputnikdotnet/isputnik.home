@@ -4,7 +4,7 @@ import type { FastifyInstance } from "fastify";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import { db, logActivity } from "../../../db.js";
-import { parseBody } from "../../../core/shared.js";
+import { parseBody, parseQuery } from "../../../core/shared.js";
 import { receiveUploadBatch, UploadError } from "../../uploads/index.js";
 import { can, parsePolicy } from "../../../core/permissions.js";
 import { canUserAccessLibrary, libraryCapabilities, deleteLibraryAccess } from "../shared/library-access.js";
@@ -61,7 +61,7 @@ const EBOOK_LIBRARY_LIST_SQL = `
   LEFT JOIN document_files ON document_files.item_id = library_items.id AND document_files.status = 'available' AND document_files.deleted_at IS NULL
   WHERE libraries.type = 'ebook' %WHERE%
   GROUP BY libraries.id
-  ORDER BY datetime(libraries.created_at) DESC
+  ORDER BY libraries.created_at DESC
 `;
 
 export async function ebookRoutesPlugin(app: FastifyInstance) {
@@ -100,11 +100,18 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
     return reply.code(201).send({ library: { id: result.libraryId }, job: { id: jobId, type: "SCAN_EBOOK_LIBRARY" } });
   });
 
-  app.get("/api/library/ebook-libraries", { preHandler: app.authenticate }, async (request) => {
+  // `manage` is a presence flag: any value, even empty, asks for every library.
+  const libraryListQuerySchema = z.object({ manage: z.string().optional() });
+
+  app.get("/api/library/ebook-libraries", { preHandler: app.authenticate }, async (request, reply) => {
     const user = request.user!;
+    const parsed = parseQuery(libraryListQuerySchema, request.query);
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid query", details: parsed.error });
+    }
     const rows = db.prepare(EBOOK_LIBRARY_LIST_SQL.replace("%WHERE%", "")).all() as LibraryListRow[];
 
-    const manageAll = (request.query as { manage?: string }).manage != null && user.role === "admin";
+    const manageAll = parsed.data.manage != null && user.role === "admin";
     const visible = manageAll ? rows : rows.filter((row) => canUserAccessLibrary(row, user.id, user.role));
     return { libraries: visible.map((row) => publicLibrary(row, user.role === "admin", libraryCapabilities(row, user.id, user.role))) };
   });
@@ -160,8 +167,8 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
         (SELECT id FROM document_files WHERE item_id = library_items.id AND status = 'available' LIMIT 1) AS document_id,
         (SELECT COUNT(*) FROM document_files WHERE item_id = library_items.id AND status = 'available') AS file_count,
         (SELECT COALESCE(SUM(size), 0) FROM document_files WHERE item_id = library_items.id AND status = 'available') AS total_size,
-        (SELECT reading_progress.percent_complete FROM reading_progress WHERE reading_progress.item_id = library_items.id AND reading_progress.user_id = ? ORDER BY datetime(reading_progress.updated_at) DESC LIMIT 1) AS progress_percent,
-        (SELECT reading_progress.completed_at FROM reading_progress WHERE reading_progress.item_id = library_items.id AND reading_progress.user_id = ? ORDER BY datetime(reading_progress.updated_at) DESC LIMIT 1) AS progress_completed_at,
+        (SELECT reading_progress.percent_complete FROM reading_progress WHERE reading_progress.item_id = library_items.id AND reading_progress.user_id = ? ORDER BY reading_progress.updated_at DESC LIMIT 1) AS progress_percent,
+        (SELECT reading_progress.completed_at FROM reading_progress WHERE reading_progress.item_id = library_items.id AND reading_progress.user_id = ? ORDER BY reading_progress.updated_at DESC LIMIT 1) AS progress_completed_at,
         (SELECT item_saves.id IS NOT NULL FROM item_saves WHERE item_saves.item_id = library_items.id AND item_saves.user_id = ? LIMIT 1) AS saved
       FROM library_items
       LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
@@ -356,8 +363,15 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
     }));
   });
 
-  app.get("/api/library/ebooks/facets", { preHandler: app.authenticate }, async (request) => {
-    const qp = request.query as { scope?: string; libraryId?: string };
+  // Any scope other than "library" reads as "all", as it always has.
+  const facetsQuerySchema = z.object({ scope: z.string().optional(), libraryId: z.string().optional() });
+
+  app.get("/api/library/ebooks/facets", { preHandler: app.authenticate }, async (request, reply) => {
+    const parsed = parseQuery(facetsQuerySchema, request.query);
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid query", details: parsed.error });
+    }
+    const qp = parsed.data;
     const scope = qp.scope === "library" ? qp.scope : "all";
     const libIds = resolveEbookScopeLibraryIds(request.user!, scope, qp.libraryId);
     return ebookCatalogFacets(libIds);
