@@ -8,6 +8,7 @@ import { parseQuery } from "../../../core/shared.js";
 import { pathIsInside } from "../shared/storage-roots.js";
 import { canUserAccessBook, canUserDownloadBook } from "../shared/library-access.js";
 import { parseRangeHeader, pipeFileToReply, streamDocumentFile } from "../shared/document-stream.js";
+import type { AudioFileRow, ItemMetadataRow, LibraryRow, Nullable } from "../../../db/rows.js";
 
 // `download` is a presence flag: any value, even empty, asks for an attachment.
 const documentQuerySchema = z.object({ download: z.string().optional() });
@@ -29,13 +30,7 @@ export async function audiobookStreamPlugin(app: FastifyInstance) {
       WHERE audio_files.id = ?
         AND library_items.id = ?
         AND library_items.deleted_at IS NULL
-    `).get(fileId, id) as {
-      relative_path: string;
-      mime_type: string | null;
-      status: string;
-      source_path: string;
-      id: string;
-    } | undefined;
+    `).get(fileId, id) as (Pick<AudioFileRow, "relative_path" | "mime_type" | "status"> & Pick<LibraryRow, "source_path" | "id">) | undefined;
 
     if (!row || row.status !== "available") {
       reply.code(404).send({ error: "Audio file not found" });
@@ -96,7 +91,9 @@ export async function audiobookStreamPlugin(app: FastifyInstance) {
       JOIN libraries ON libraries.id = library_items.library_id
       LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
       WHERE library_items.id = ? AND library_items.deleted_at IS NULL
-    `).get(id) as { library_id: string; source_path: string; title: string | null } | undefined;
+    `).get(id) as (Pick<LibraryRow, "source_path"> & Nullable<Pick<ItemMetadataRow, "title">> & {
+      library_id: LibraryRow["id"];
+    }) | undefined;
 
     if (!meta) {
       reply.code(404).send({ error: "Book not found" });
@@ -121,7 +118,7 @@ export async function audiobookStreamPlugin(app: FastifyInstance) {
       FROM audio_files
       WHERE item_id = ? AND status = 'available'
       ORDER BY track_number, relative_path COLLATE NOCASE
-    `).all(id) as { relative_path: string }[];
+    `).all(id) as Pick<AudioFileRow, "relative_path">[];
 
     if (files.length === 0) {
       reply.code(404).send({ error: "No audio files available" });

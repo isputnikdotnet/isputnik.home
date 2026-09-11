@@ -6,14 +6,13 @@
 // takes its members AND every grant made to it (assignments carry no FK, so this
 // route is the only thing that clears them), while a group that still owns a
 // library can't be deleted at all.
-import Fastify, { type FastifyInstance } from "fastify";
-import cookie from "@fastify/cookie";
+import type { FastifyInstance } from "fastify";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { db } from "../src/db.js";
 import { sha256 } from "../src/crypto.js";
-import { registerAuthDecorators } from "../src/auth.js";
 import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
 import { groupsPlugin } from "../src/modules/users/groups.js";
+import { bootApp } from "./helpers/boot.js";
 import { resetDb, makeUser, makeGroup, addToGroup, grant, makeLibrary, futureIso } from "./helpers/seed.js";
 
 let app: FastifyInstance;
@@ -36,11 +35,7 @@ beforeEach(async () => {
   makeUser("anna");
   makeUser("boris");
 
-  app = Fastify();
-  await app.register(cookie);
-  await registerAuthDecorators(app);
-  await app.register(groupsPlugin);
-  await app.ready();
+  ({ app } = await bootApp({ plugins: [groupsPlugin] }));
 });
 
 afterEach(async () => {

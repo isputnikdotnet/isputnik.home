@@ -105,16 +105,15 @@ export function GeoipDatabaseModal({
     >
       <div className="modal-tabs" role="tablist" aria-label={t("controlDash:geoip.title")}>
         {TAB_ORDER.map((value) => (
-          <button
+          <Button
+            variant="tab"
             key={value}
-            type="button"
-            role="tab"
-            aria-selected={tab === value}
-            className={`modal-tab${tab === value ? " active" : ""}`}
+            className="modal-tab"
+            selected={tab === value}
             onClick={() => setTab(value)}
           >
             {t(`controlDash:geoip.${TAB_LABEL_KEYS[value]}`)}
-          </button>
+          </Button>
         ))}
       </div>
 

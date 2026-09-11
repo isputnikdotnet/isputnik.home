@@ -17,7 +17,8 @@ import { api } from "../../../../api";
 import { controlHref, navigate } from "../../../../router";
 import { Button } from "../../../../shared/Button";
 import { KpiCard, type KpiTone } from "../../../../shared/KpiCard";
-import { formatBytes, formatManagedDate, formatUptime, relativeTime } from "../../../../shared/utils";
+import { formatBytes, formatManagedDate, formatUptime } from "../../../../shared/utils";
+import { relativeTime } from "../../../../shared/relativeTime";
 import { signInsHref } from "./SignInsView";
 import type { DbInfo, SystemStatus } from "../../types";
 

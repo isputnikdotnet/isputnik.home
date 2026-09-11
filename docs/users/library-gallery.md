@@ -20,7 +20,7 @@ Along the top:
 | View | What it gives you |
 |---|---|
 | **Timeline** | Everything newest-first, grouped by date. The default. |
-| **Memories** | "This month over the years" — the same date in previous years. |
+| **Memories** | Your past years as slideshows, then "On this day" — the same date in previous years. |
 | **Albums** | Sets you assemble by hand; a photo can be in several. |
 | **Slideshows** | Saved sequences with music and transitions, playable or rendered to a movie file. |
 | **Folders** | A file-explorer over the actual folder structure on disk. |
@@ -40,6 +40,21 @@ built from the library itself — a day that has a lot of photos, or everything
 featuring one person:
 
 ![The Slideshows view: suggestions above, your own saved slideshows below](images/36-gallery-slideshows.png)
+
+**Memories** opens with **Your years in photos**: a card for each of the last
+few finished years — "Your 2025 in photos" — once a year has enough photos to
+make one. Each is picked from what your family liked with the heart that year,
+a few from every month, so it reads as the whole year rather than the one trip
+everyone was tapping; a year with few likes is filled out with photos of the
+people you've named and the places you went. Click the card to play it in the
+viewer as a slideshow. **Create slideshow** under it keeps the year as a
+slideshow of your own, where you can add music and transitions or save it as a
+movie. The year still under way isn't offered until it's over. Below the years
+comes "On this day": photos taken on today's date in earlier years.
+
+<!-- Screenshot placeholder (docs:shots): the Memories view with the "Your years
+in photos" row — two or three year cards, each with its year badge and the
+Create slideshow button — above the "On this day" sections. -->
 
 ## How the grid looks
 

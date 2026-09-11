@@ -1,4 +1,5 @@
 import { db } from "../db.js";
+import type { AppSettingRow } from "../db/rows.js";
 
 // Admin-tunable password policy, stored as JSON in app_settings (like the
 // brute-force thresholds). Enforced on every password-SETTING flow — setup, invite
@@ -18,7 +19,7 @@ export const DEFAULT_PASSWORD_POLICY: PasswordPolicy = {
 const POLICY_KEY = "password_policy";
 
 export function getPasswordPolicy(): PasswordPolicy {
-  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(POLICY_KEY) as { value: string } | undefined;
+  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(POLICY_KEY) as Pick<AppSettingRow, "value"> | undefined;
   if (!row) return { ...DEFAULT_PASSWORD_POLICY };
   try {
     return { ...DEFAULT_PASSWORD_POLICY, ...(JSON.parse(row.value) as Partial<PasswordPolicy>) };

@@ -35,6 +35,18 @@ import { mediaKind } from "./shared/library-types.js";
 // ('YYYY' | 'YYYY-MM' | 'YYYY-MM-DD'), deliberately: the two sort and read alike,
 // and a family saying dated to a year sits next to the person who said it.
 import { partialDateSchema } from "../familytree/persons.js";
+import type {
+  FamilyTreePersonRow,
+  ItemMetadataRow,
+  LibraryItemRow,
+  LibraryRow,
+  Nullable,
+  PersonRow,
+  QuoteRow as DbQuoteRow,
+  TaggableRow,
+  TagRow,
+  UserRow
+} from "../../db/rows.js";
 
 /** A quote's name in the polymorphic tag (and later collection) tables. */
 export const QUOTE_ENTITY_TYPE = "quote";
@@ -45,38 +57,17 @@ const MAX_PAGE = 100;
 /** Category chips offered as filters — the most-used, not every tag ever. */
 const MAX_CATEGORY_FILTERS = 12;
 
-interface QuoteRow {
-  id: string;
-  user_id: string;
-  item_id: string | null;
-  document_id: string | null;
-  cfi: string | null;
-  text: string;
-  note: string | null;
-  color: string | null;
-  source_title: string | null;
-  source_author: string | null;
-  percent_complete: number | null;
-  origin: string;
-  visibility: string;
-  in_rotation: number;
-  language: string | null;
-  quote_date: string | null;
-  context: string | null;
-  family_tree_person_id: string | null;
-  person_name: string | null;
-  live_person_name: string | null;
-  created_at: string;
-  updated_at: string;
+// Every quotes column but import_id, plus the left-joined live item, speaker and owner.
+type QuoteRow = Omit<DbQuoteRow, "import_id"> &
   // Joined from the live item when item_id still resolves (NULL for external quotes).
-  library_id: string | null;
-  library_type: string | null;
-  folder_path: string | null;
-  item_title: string | null;
-  cover_storage_key: string | null;
-  author_names: string | null;
-  owner_name: string | null;
-}
+  Nullable<Pick<LibraryItemRow, "library_id" | "folder_path">> &
+  Nullable<Pick<ItemMetadataRow, "cover_storage_key">> & {
+    live_person_name: FamilyTreePersonRow["name"] | null;
+    library_type: LibraryRow["type"] | null;
+    item_title: ItemMetadataRow["title"] | null;
+    author_names: string | null;
+    owner_name: UserRow["display_name"] | null;
+  };
 
 function splitNames(value: string | null): string[] {
   return value ? value.split(",").map((name) => name.trim()).filter(Boolean) : [];
@@ -162,7 +153,7 @@ function tagsForQuotes(ids: string[]): Map<string, string[]> {
     JOIN tags ON tags.id = taggables.tag_id
     WHERE taggables.entity_type = ? AND taggables.entity_id IN (${ids.map(() => "?").join(", ")})
     ORDER BY tags.display_name
-  `).all(QUOTE_ENTITY_TYPE, ...ids) as { quote_id: string; name: string }[];
+  `).all(QUOTE_ENTITY_TYPE, ...ids) as { quote_id: TaggableRow["entity_id"]; name: TagRow["display_name"] }[];
   for (const row of rows) {
     const list = byQuote.get(row.quote_id);
     if (list) list.push(row.name);
@@ -225,7 +216,7 @@ const updateSchema = z.object({
 function resolveSpeaker(personId: string | null | undefined): { id: string | null; name: string | null } | null {
   if (personId === undefined || personId === null) return { id: null, name: null };
   const person = db.prepare("SELECT id, name FROM family_tree_persons WHERE id = ?")
-    .get(personId) as { id: string; name: string } | undefined;
+    .get(personId) as Pick<FamilyTreePersonRow, "id" | "name"> | undefined;
   return person ? { id: person.id, name: person.name } : null;
 }
 
@@ -367,7 +358,7 @@ export function registerQuoteRoutes(app: FastifyInstance) {
       WHERE taggables.entity_type = ?
         AND taggables.entity_id IN (SELECT q.id ${from} ${whereSql})
       GROUP BY tags.id ORDER BY count DESC, name ASC LIMIT ?
-    `).all(QUOTE_ENTITY_TYPE, ...categoryArgs, MAX_CATEGORY_FILTERS) as { name: string; count: number }[];
+    `).all(QUOTE_ENTITY_TYPE, ...categoryArgs, MAX_CATEGORY_FILTERS) as { name: TagRow["display_name"]; count: number }[];
 
     const tags = tagsForQuotes(rows.map((row) => row.id));
     return reply.send({
@@ -413,7 +404,9 @@ export function registerQuoteRoutes(app: FastifyInstance) {
         FROM library_items
         LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
         WHERE library_items.id = ? AND library_items.deleted_at IS NULL
-      `).get(data.itemId) as { title: string | null; folder_path: string | null; author: string | null } | undefined;
+      `).get(data.itemId) as
+        | (Nullable<Pick<ItemMetadataRow, "title">> & Pick<LibraryItemRow, "folder_path"> & { author: PersonRow["name"] | null })
+        | undefined;
       if (snap) {
         if (!sourceTitle) sourceTitle = snap.title ?? (snap.folder_path ? path.basename(snap.folder_path) : null);
         if (!sourceAuthor) sourceAuthor = snap.author ?? null;
@@ -537,7 +530,7 @@ export function registerQuoteRoutes(app: FastifyInstance) {
   app.delete("/api/library/quotes/imported", { preHandler: app.authenticate }, async (request, reply) => {
     const user = request.user!;
     const ids = (db.prepare("SELECT id FROM quotes WHERE user_id = ? AND origin = 'import'")
-      .all(user.id) as { id: string }[]).map((row) => row.id);
+      .all(user.id) as Pick<DbQuoteRow, "id">[]).map((row) => row.id);
     if (ids.length === 0) return reply.send({ deleted: 0 });
 
     db.transaction(() => {

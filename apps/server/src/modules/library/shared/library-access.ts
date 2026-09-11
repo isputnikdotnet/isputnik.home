@@ -16,6 +16,7 @@ import {
   type ObjectRole,
   type LibraryAction
 } from "../../../core/permissions.js";
+import type { DocumentFileRow, LibraryItemRow, LibraryRow, UserRow } from "../../../db/rows.js";
 
 // The unified role set (was: viewer/subscriber/contributor/curator/admin).
 export type LibraryRole = ObjectRole;
@@ -30,13 +31,14 @@ export interface LibraryRoleInput {
   policy_json?: string | null;
 }
 
-export interface LibraryAccessRow {
-  id: string;
-  owner_id: string | null;
-  owner_type: "user" | "group" | null;
-  policy_json: string;
-  type: string;
-}
+export type LibraryAccessRow = Pick<LibraryRow, "id" | "owner_id" | "owner_type" | "policy_json" | "type">;
+
+// Who created a live album share, and which library the shared photo sits in.
+type AlbumShareCreatorRow = {
+  creator_id: UserRow["id"];
+  creator_role: UserRow["role"];
+  library_id: LibraryItemRow["library_id"];
+};
 
 function allows(library: LibraryRoleInput, userId: string, userRole: string, action: LibraryAction): boolean {
   if (!library.id) return false;
@@ -53,7 +55,7 @@ export function canUserAccessLibrary(library: LibraryRoleInput, userId: string, 
 export function accessibleLibraryIds(userId: string, userRole: string, type?: string): Set<string> {
   const rows = (type
     ? db.prepare("SELECT id FROM libraries WHERE type = ?").all(type)
-    : db.prepare("SELECT id FROM libraries").all()) as { id: string }[];
+    : db.prepare("SELECT id FROM libraries").all()) as Pick<LibraryRow, "id">[];
   return new Set(rows.filter((row) => canUserAccessLibrary(row, userId, userRole)).map((row) => row.id));
 }
 export function canUserWriteLibrary(library: LibraryRoleInput, userId: string, userRole: string): boolean {
@@ -199,7 +201,7 @@ export function userHasGalleryAlbumShareForItem(itemId: string, userId: string):
       AND gallery_album_items.item_id = ?
       AND shares.revoked_at IS NULL
       AND (shares.expires_at IS NULL OR shares.expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-  `).all(userId, itemId) as { creator_id: string; creator_role: string; library_id: string }[];
+  `).all(userId, itemId) as AlbumShareCreatorRow[];
   return rows.some((row) => canUserCurateLibrary({ id: row.library_id }, row.creator_id, row.creator_role));
 }
 
@@ -221,7 +223,7 @@ export function userHasGalleryAlbumEditShareForItem(itemId: string, userId: stri
       AND gallery_album_items.item_id = ?
       AND shares.revoked_at IS NULL
       AND (shares.expires_at IS NULL OR shares.expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-  `).all(userId, itemId) as { creator_id: string; creator_role: string; library_id: string }[];
+  `).all(userId, itemId) as AlbumShareCreatorRow[];
   return rows.some((row) => canUserCurateLibrary({ id: row.library_id }, row.creator_id, row.creator_role));
 }
 
@@ -253,12 +255,12 @@ export function canUserDownloadBook(bookId: string, library: LibraryRoleInput, u
 }
 
 export function getLibraryForBook(bookId: string): LibraryAccessRow | null {
-  return db.prepare(`
+  return (db.prepare(`
     SELECT libraries.id, libraries.owner_id, libraries.owner_type, libraries.policy_json, libraries.type
     FROM library_items
     JOIN libraries ON libraries.id = library_items.library_id
     WHERE library_items.id = ? AND library_items.deleted_at IS NULL
-  `).get(bookId) as LibraryAccessRow | null;
+  `).get(bookId) as LibraryAccessRow | undefined) ?? null;
 }
 
 // A book_documents row the user may read: it exists, belongs to the book, is
@@ -277,12 +279,9 @@ export function getReadableDocument(bookId: string, documentId: string, user: { 
     WHERE document_files.id = ?
       AND document_files.item_id = ?
       AND library_items.deleted_at IS NULL
-  `).get(documentId, bookId) as {
-    id: string;
-    status: string;
-    library_id: string;
-    library_type: string;
-  } | undefined;
+  `).get(documentId, bookId) as
+    | (Pick<DocumentFileRow, "id" | "status"> & { library_id: LibraryRow["id"]; library_type: LibraryRow["type"] })
+    | undefined;
 
   if (!row || row.status !== "available") return null;
   // row.id is the DOCUMENT id — access resolves by the library id.

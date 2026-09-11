@@ -35,7 +35,8 @@ import { Pager } from "../../../../shared/Pager";
 import { PageSizeMenu, usePageSize, type PageSize } from "../../../../shared/PageSizeMenu";
 import { SortHeader, type SortDirection } from "../../../../shared/SortHeader";
 import { TabStrip } from "../../../../shared/TabStrip";
-import { countryFlag, formatManagedDate, relativeTime } from "../../../../shared/utils";
+import { countryFlag, formatManagedDate } from "../../../../shared/utils";
+import { relativeTime } from "../../../../shared/relativeTime";
 import type { DashboardSignIns, DeviceType, LogEvent, SignInsDeviceRow, SignInsIpRow, SignInsUserRow } from "../../types";
 import { DashboardChart, DashboardChartLegend, type DashboardChartSeries } from "./DashboardChart";
 import { LoginsTable } from "./LoginsTable";
@@ -504,9 +505,9 @@ export function SignInsView() {
                         const count = deviceCounts[entry.value];
                         const active = deviceKind === entry.value;
                         return (
-                          <button
+                          <Button
+                            variant="chip"
                             key={entry.value}
-                            type="button"
                             className={`device-type-chip${active ? " is-active" : ""}`}
                             aria-pressed={active}
                             onClick={() => {
@@ -516,7 +517,7 @@ export function SignInsView() {
                           >
                             <Icon size={15} aria-hidden="true" />
                             <strong>{count}</strong> {t(`controlDash:signIns.${entry.key}`, { count })}
-                          </button>
+                          </Button>
                         );
                       })}
                     </div>

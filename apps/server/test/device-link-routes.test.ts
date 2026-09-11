@@ -6,15 +6,14 @@ vi.mock("../src/core/mail.js", async (importOriginal) => {
   return { ...actual, sendMail: vi.fn(async () => {}), isMailConfigured: () => false };
 });
 
-import Fastify, { type FastifyInstance } from "fastify";
-import cookie from "@fastify/cookie";
+import type { FastifyInstance } from "fastify";
 
 import { db } from "../src/db.js";
 import { hashPassword } from "../src/crypto.js";
-import { registerAuthDecorators } from "../src/auth.js";
 import { deviceLinkRoutes } from "../src/core/device-link-routes.js";
 import { getSecurityPolicy, setSecurityPolicy } from "../src/core/security.js";
 import { liveWindowFor, openLinkWindow } from "../src/core/device-link.js";
+import { bootApp, sessionCookieFrom as cookieFrom } from "./helpers/boot.js";
 import { resetDb } from "./helpers/seed.js";
 
 // The flow end to end, and every way it is supposed to say no. "The device" and
@@ -27,44 +26,14 @@ const LAN = "192.168.1.42";
 const OUTSIDE = "203.0.113.10";
 
 let app: FastifyInstance;
-
-async function buildApp(): Promise<FastifyInstance> {
-  const instance = Fastify();
-  await instance.register(cookie);
-  await registerAuthDecorators(instance);
-  await instance.register(deviceLinkRoutes);
-
-  // Stands in for the real sign-in, which has its own tests. Issues an ordinary
-  // browser session for whoever is named.
-  instance.post("/test/sign-in/:userId", async (request, reply) => {
-    const { userId } = request.params as { userId: string };
-    const { issueSession } = await import("../src/auth.js");
-    issueSession(reply, userId, request);
-    return reply.send({ ok: true });
-  });
-
-  await instance.ready();
-  return instance;
-}
+/** Sign in as `userId` and return the cookie header a phone would then send. Stands
+ *  in for the real sign-in, which has its own tests: an ordinary browser session. */
+let phoneCookie: (userId: string) => Promise<string>;
 
 async function makeOwner(id = "owner"): Promise<string> {
   db.prepare("INSERT INTO users (id, email, password_hash, display_name, role) VALUES (?, ?, ?, ?, 'member')")
     .run(id, `${id}@test.local`, await hashPassword(PASSWORD), id);
   return id;
-}
-
-function cookieFrom(headers: Record<string, unknown>): string {
-  const raw = headers["set-cookie"];
-  const list = Array.isArray(raw) ? raw : [String(raw)];
-  const found = list.find((entry) => entry.startsWith("isputnik_sid="));
-  if (!found) throw new Error("no session cookie was set");
-  return found.split(";")[0];
-}
-
-/** Sign in as `userId` and return the cookie header a phone would then send. */
-async function phoneCookie(userId: string): Promise<string> {
-  const res = await app.inject({ method: "POST", url: `/test/sign-in/${userId}` });
-  return cookieFrom(res.headers as Record<string, unknown>);
 }
 
 /** The device's half: ask to be linked, from inside the house by default. */
@@ -87,7 +56,7 @@ beforeEach(async () => {
   resetDb();
   db.prepare("DELETE FROM app_settings WHERE key = 'security_policy'").run();
   delete process.env.TRUST_PROXY_HOPS;
-  app = await buildApp();
+  ({ app, signIn: phoneCookie } = await bootApp({ plugins: [deviceLinkRoutes] }));
 });
 
 describe("the happy path", () => {

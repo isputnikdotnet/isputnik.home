@@ -123,16 +123,15 @@ export function GalleryTagsModal({
             {tags.map((tag) => (
               <li key={tag}>
                 <span>{tag}</span>
-                <button
-                  type="button"
-                  className="icon-button"
+                <Button
+                  variant="icon"
                   onClick={() => dropTag(tag)}
                   disabled={busy}
                   title={t("galleryModals:tags.removeChipTitle", { tag })}
                   aria-label={t("galleryModals:tags.removeChipTitle", { tag })}
                 >
                   <X size={14} aria-hidden="true" />
-                </button>
+                </Button>
               </li>
             ))}
           </ul>
@@ -162,15 +161,14 @@ export function GalleryTagsModal({
           <div className="gallery-tag-suggestions">
             <span className="muted">{t("galleryModals:tags.suggestionsLabel")}</span>
             {unusedSuggestions.map((tag) => (
-              <button
+              <Button
+                variant="secondary" compact
                 key={tag}
-                type="button"
-                className="secondary-button compact-button"
                 onClick={() => addTag(tag)}
                 disabled={busy}
               >
                 {tag}
-              </button>
+              </Button>
             ))}
           </div>
         )}

@@ -7,12 +7,11 @@ vi.mock("../src/core/mail.js", async (importOriginal) => {
   return { ...actual, sendMail: vi.fn(async () => {}), isMailConfigured: () => false };
 });
 
-import Fastify, { type FastifyInstance } from "fastify";
-import cookie from "@fastify/cookie";
+import type { FastifyInstance } from "fastify";
 
 import { db } from "../src/db.js";
 import { hashPassword } from "../src/crypto.js";
-import { registerAuthDecorators } from "../src/auth.js";
+import { bootApp } from "./helpers/boot.js";
 import { socialPlugin } from "../src/modules/social/routes.js";
 import { forYouPlugin } from "../src/modules/social/for-you-routes.js";
 import { grant, makeLibrary, pastIso, resetDb } from "./helpers/seed.js";
@@ -27,39 +26,12 @@ import { canUserWriteAsset, getLibraryForBook } from "../src/modules/library/sha
 const PASSWORD = "correct-horse-battery";
 
 let app: FastifyInstance;
-
-async function buildApp(): Promise<FastifyInstance> {
-  const instance = Fastify();
-  await instance.register(cookie);
-  await registerAuthDecorators(instance);
-  await instance.register(socialPlugin);
-  // The bell and "seen" moved to the For you plugin (docs/for-you-plan.md).
-  await instance.register(forYouPlugin);
-
-  instance.post("/test/sign-in/:userId", async (request, reply) => {
-    const { userId } = request.params as { userId: string };
-    const { issueSession } = await import("../src/auth.js");
-    issueSession(reply, userId, request);
-    return reply.send({ ok: true });
-  });
-
-  await instance.ready();
-  return instance;
-}
+let signIn: (userId: string) => Promise<string>;
 
 async function makeMember(id: string, role: "admin" | "member" = "member"): Promise<string> {
   db.prepare("INSERT INTO users (id, email, password_hash, display_name, role) VALUES (?, ?, ?, ?, ?)")
     .run(id, `${id}@test.local`, await hashPassword(PASSWORD), id, role);
   return id;
-}
-
-async function signIn(userId: string): Promise<string> {
-  const response = await app.inject({ method: "POST", url: `/test/sign-in/${userId}` });
-  const raw = response.headers["set-cookie"];
-  const list = Array.isArray(raw) ? raw : [String(raw)];
-  const found = list.find((entry) => entry.startsWith("isputnik_sid="));
-  if (!found) throw new Error("no session cookie was set");
-  return found.split(";")[0];
 }
 
 // A library the given users can see, holding one ebook. The creator is a manager
@@ -93,7 +65,8 @@ function makeAlbum(creatorId: string): { albumId: string; itemId: string } {
 
 beforeEach(async () => {
   resetDb();
-  app = await buildApp();
+  // The bell and "seen" moved to the For you plugin (docs/for-you-plan.md).
+  ({ app, signIn } = await bootApp({ plugins: [socialPlugin, forYouPlugin] }));
 });
 
 describe("asking what they remember", () => {

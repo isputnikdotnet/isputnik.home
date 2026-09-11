@@ -26,6 +26,7 @@ import {
   type CollectionRow
 } from "./collections.js";
 import { listStories } from "./list.js";
+import type { AssignmentRow, UserGroupRow, UserRow } from "../../db/rows.js";
 
 const createSchema = z.object({
   title: z.string().trim().min(1).max(160),
@@ -113,7 +114,7 @@ export async function storyCollectionsPlugin(app: FastifyInstance) {
     // makes its published stories visible to everyone again.
     const everyone = db.prepare(
       "SELECT role FROM assignments WHERE subject_type = 'group' AND subject_id = ? AND object_type = ? AND object_id = ?"
-    ).get(EVERYONE_GROUP_ID, STORY_COLLECTION_OBJECT_TYPE, collection.id) as { role: string } | undefined;
+    ).get(EVERYONE_GROUP_ID, STORY_COLLECTION_OBJECT_TYPE, collection.id) as Pick<AssignmentRow, "role"> | undefined;
     return reply.send({
       collection: {
         id: collection.id,
@@ -185,22 +186,23 @@ export async function storyCollectionsPlugin(app: FastifyInstance) {
         AND NOT (assignments.subject_type = 'group' AND assignments.subject_id = ?)
       ORDER BY name COLLATE NOCASE
     `).all(STORY_COLLECTION_OBJECT_TYPE, collection.id, EVERYONE_GROUP_ID) as {
-      subjectType: string; subjectId: string; role: string; name: string | null; email: string | null;
+      subjectType: AssignmentRow["subject_type"]; subjectId: AssignmentRow["subject_id"]; role: AssignmentRow["role"];
+      name: string | null; email: UserRow["email"] | null;
     }[];
 
     const everyone = db.prepare(
       "SELECT role FROM assignments WHERE subject_type = 'group' AND subject_id = ? AND object_type = ? AND object_id = ? AND role != 'deny'"
-    ).get(EVERYONE_GROUP_ID, STORY_COLLECTION_OBJECT_TYPE, collection.id) as { role: string } | undefined;
+    ).get(EVERYONE_GROUP_ID, STORY_COLLECTION_OBJECT_TYPE, collection.id) as Pick<AssignmentRow, "role"> | undefined;
 
     // Candidate pickers, served HERE because /api/users is admin-only and a
     // collection manager may not be one. Names only — the same disclosure the
     // send-to sheet already makes to every member.
     const users = db.prepare(
       "SELECT id, display_name AS name FROM users WHERE deleted_at IS NULL AND is_active = 1 ORDER BY display_name COLLATE NOCASE"
-    ).all() as { id: string; name: string }[];
+    ).all() as (Pick<UserRow, "id"> & { name: UserRow["display_name"] })[];
     const groups = db.prepare(
       "SELECT id, name FROM user_groups ORDER BY name COLLATE NOCASE"
-    ).all() as { id: string; name: string }[];
+    ).all() as Pick<UserGroupRow, "id" | "name">[];
 
     return reply.send({ members, everyoneRole: everyone?.role ?? null, candidates: { users, groups } });
   });

@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import { CircleAlert, CircleCheck, CircleQuestionMark, Info, ShieldCheck, type LucideIcon } from "lucide-react";
 import i18n from "../../../i18n";
 import { Tooltip } from "../../../shared/Tooltip";
+import { Button } from "../../../shared/Button";
 
 // The protection score behind Security › Overview. Nine settings are each
 // graded strong / medium / weak, and each carries one weight. A home-only
@@ -317,24 +318,24 @@ export function ProtectionCard({
         </h3>
         {/* The one input the server can't measure. Saved on the spot. */}
         <div className="range-picker protection-exposure" role="group" aria-label={t("controlAdmin:protection.exposureGroupAria")}>
-          <button
-            type="button"
+          <Button
+            variant="bare"
             className={exposure === "internal" ? "active" : undefined}
             aria-pressed={exposure === "internal"}
             disabled={saving}
             onClick={() => onExposureChange("internal")}
           >
             {t("controlAdmin:protection.homeNetworkOnly")}
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="bare"
             className={exposure === "internet" ? "active" : undefined}
             aria-pressed={exposure === "internet"}
             disabled={saving}
             onClick={() => onExposureChange("internet")}
           >
             {t("controlAdmin:protection.reachableInternet")}
-          </button>
+          </Button>
         </div>
       </div>
 

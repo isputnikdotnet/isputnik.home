@@ -1,6 +1,7 @@
 import { nanoid } from "nanoid";
 import type Database from "better-sqlite3";
 import { CATEGORY_SEED, ALIAS_SEED } from "../categories-seed.js";
+import type { CategoryRow } from "./rows.js";
 
 // Idempotent navigation-category + alias seeding. Fill-gaps only: existing rows
 // keep their id and any admin edits (icon is backfilled only when unset).
@@ -17,7 +18,7 @@ export function seed(db: Database.Database): void {
   db.transaction(() => {
     const idByKey = new Map<string, string>();
     for (const category of CATEGORY_SEED) {
-      const existing = findCategory.get(category.key) as { id: string } | undefined;
+      const existing = findCategory.get(category.key) as Pick<CategoryRow, "id"> | undefined;
       const id = existing?.id ?? nanoid(16);
       insertCategory.run(id, category.key, category.name, category.key, category.sortOrder, category.icon, category.defaultImageStorageKey ?? null);
       backfillIcon.run(category.icon, category.key);

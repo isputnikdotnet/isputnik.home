@@ -1,5 +1,6 @@
 import { db } from "../../../../db.js";
 import { photoInboxLibraryIds } from "../inbox-flag.js";
+import type { AppSettingRow } from "../../../../db/rows.js";
 
 // Face recognition is enabled per gallery library (key per library id), so a household
 // can run it on, say, "Family" but not on a shared/landscape library. The clustering
@@ -21,7 +22,7 @@ export const DEFAULT_FACE_THRESHOLD = 0.3;
 export const DEFAULT_FACE_K = 8;
 
 function readSetting(key: string): string | null {
-  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(key) as { value: string } | undefined;
+  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(key) as Pick<AppSettingRow, "value"> | undefined;
   return row?.value ?? null;
 }
 
@@ -46,7 +47,7 @@ export function setFaceRecognitionEnabledForLibrary(libraryId: string, enabled: 
 // someone else's prints cannot seed People before anyone decided it stays.
 export function enabledFaceLibraryIds(): string[] {
   const inboxes = photoInboxLibraryIds();
-  return (db.prepare("SELECT key FROM app_settings WHERE key LIKE ? AND value = 'true'").all(`${LIB_PREFIX}%`) as { key: string }[])
+  return (db.prepare("SELECT key FROM app_settings WHERE key LIKE ? AND value = 'true'").all(`${LIB_PREFIX}%`) as Pick<AppSettingRow, "key">[])
     .map((r) => r.key.slice(LIB_PREFIX.length))
     .filter((id) => !inboxes.has(id));
 }

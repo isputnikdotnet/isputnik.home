@@ -8,7 +8,7 @@ import { parseBody, parseQuery } from "../../../core/shared.js";
 import { receiveUploadBatch, UploadError } from "../../uploads/index.js";
 import { can, parsePolicy } from "../../../core/permissions.js";
 import { canUserAccessLibrary, libraryCapabilities, deleteLibraryAccess } from "../shared/library-access.js";
-import { publicLibrary, type LibraryListRow } from "../shared/library-serializer.js";
+import { publicLibrary } from "../shared/library-serializer.js";
 import { deleteSharesForLibrary } from "../shared/share-access.js";
 import { deleteCollectionItemsForLibrary } from "../../collections/cleanup.js";
 import { coreLibraryCreateSchema, coreLibraryUpdateSchema, createLibraryRecord, updateLibraryRecord, resolveUploadMaxBytes } from "../shared/library-crud.js";
@@ -21,6 +21,25 @@ import { removeThumbnailsForLibrary } from "../shared/thumbnail.js";
 import { normalizeLibrarySettings, uploadAcceptExtensions } from "../shared/library-settings.js";
 import { enqueueEbookScan, processEbookScanQueue, scanSingleEbookFile } from "./scanner.js";
 import { resolveEbookScopeLibraryIds, queryEbookCatalog, ebookCatalogFacets } from "./catalog.js";
+import type { CategoryRow, ItemMetadataRow, LibraryItemRow, LibraryRow, Nullable, TagRow } from "../../../db/rows.js";
+
+// `libraries.*` plus EBOOK_LIBRARY_LIST_SQL's counts.
+type EbookLibraryRow = LibraryRow & { book_count: number; file_count: number; total_size_bytes: number };
+
+type EbookBookRow = Pick<LibraryItemRow, "id" | "library_id" | "folder_path" | "status" | "discovered_at" | "updated_at">
+  & Nullable<Pick<ItemMetadataRow, "title" | "year_published" | "language" | "cover_storage_key">>
+  & {
+    category_key: CategoryRow["key"] | null;
+    category_name: CategoryRow["name"] | null;
+    author_names: string | null;
+    format: string | null;
+    document_id: string | null;
+    file_count: number;
+    total_size: number;
+    progress_percent: number | null;
+    progress_completed_at: string | null;
+    saved: number | null;
+  };
 
 // Each uploaded file becomes its own ebook, so this also bounds books-per-upload.
 const MAX_EBOOK_UPLOAD_FILES = 100;
@@ -109,7 +128,7 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
     if (parsed.error) {
       return reply.code(400).send({ error: "Invalid query", details: parsed.error });
     }
-    const rows = db.prepare(EBOOK_LIBRARY_LIST_SQL.replace("%WHERE%", "")).all() as LibraryListRow[];
+    const rows = db.prepare(EBOOK_LIBRARY_LIST_SQL.replace("%WHERE%", "")).all() as EbookLibraryRow[];
 
     const manageAll = parsed.data.manage != null && user.role === "admin";
     const visible = manageAll ? rows : rows.filter((row) => canUserAccessLibrary(row, user.id, user.role));
@@ -135,7 +154,7 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
       return reply.code(result.status).send({ error: result.error });
     }
 
-    const updated = db.prepare(EBOOK_LIBRARY_LIST_SQL.replace("%WHERE%", "AND libraries.id = ?")).get(id) as LibraryListRow;
+    const updated = db.prepare(EBOOK_LIBRARY_LIST_SQL.replace("%WHERE%", "AND libraries.id = ?")).get(id) as EbookLibraryRow;
     return reply.send({ library: publicLibrary(updated, true, libraryCapabilities(updated, request.user!.id, request.user!.role)) });
   });
 
@@ -143,7 +162,7 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
     const id = (request.params as { id: string }).id;
     const user = request.user!;
     const library = db.prepare("SELECT id FROM libraries WHERE id = ? AND type = 'ebook'")
-      .get(id) as { id: string } | undefined;
+      .get(id) as Pick<LibraryRow, "id"> | undefined;
     if (!library || !canUserAccessLibrary(library, user.id, user.role)) {
       return reply.code(404).send({ error: "Ebook library not found" });
     }
@@ -179,13 +198,7 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
       WHERE library_items.library_id = ? AND library_items.deleted_at IS NULL
       GROUP BY library_items.id
       ORDER BY COALESCE(item_metadata.sort_title, item_metadata.title, library_items.folder_path) COLLATE NOCASE
-    `).all(user.id, user.id, user.id, id) as {
-      id: string; library_id: string; folder_path: string; status: string; discovered_at: string; updated_at: string;
-      title: string | null; year_published: number | null; language: string | null;
-      cover_storage_key: string | null; category_key: string | null; category_name: string | null;
-      author_names: string | null; format: string | null; document_id: string | null; file_count: number; total_size: number;
-      progress_percent: number | null; progress_completed_at: string | null; saved: number | null;
-    }[];
+    `).all(user.id, user.id, user.id, id) as EbookBookRow[];
 
     const tagsFor = db.prepare(`
       SELECT tags.display_name AS name FROM taggables
@@ -208,7 +221,7 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
           authors: row.author_names ? row.author_names.split(",").map((n) => n.trim()).filter(Boolean) : [],
           narrators: [],
           category: row.category_key && row.category_name ? { key: row.category_key, name: row.category_name } : null,
-          tags: (tagsFor.all(row.id) as { name: string }[]).map((t) => t.name),
+          tags: (tagsFor.all(row.id) as { name: TagRow["display_name"] }[]).map((t) => t.name),
           language: row.language,
           format: row.format,
           documentId: row.document_id,
@@ -242,7 +255,7 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
 
     const library = db.prepare(
       "SELECT id, name, source_path, settings_json, policy_json FROM libraries WHERE id = ? AND type = 'ebook'"
-    ).get(libraryId) as { id: string; name: string; source_path: string; settings_json: string; policy_json: string } | undefined;
+    ).get(libraryId) as Pick<LibraryRow, "id" | "name" | "source_path" | "settings_json" | "policy_json"> | undefined;
     if (!library || !canUserAccessLibrary(library, user.id, user.role)) {
       return reply.code(404).send({ error: "Ebook library not found" });
     }
@@ -388,7 +401,7 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
   app.post("/api/library/ebook-libraries/:id/rescan", { preHandler: app.requireAdmin }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     const exists = db.prepare("SELECT id, source_path FROM libraries WHERE id = ? AND type = 'ebook'")
-      .get(id) as { id: string; source_path: string } | undefined;
+      .get(id) as Pick<LibraryRow, "id" | "source_path"> | undefined;
     if (!exists) {
       return reply.code(404).send({ error: "Ebook library not found" });
     }
@@ -425,7 +438,7 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
   app.delete("/api/library/ebook-libraries/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     const exists = db.prepare("SELECT id, name FROM libraries WHERE id = ? AND type = 'ebook'")
-      .get(id) as { id: string; name: string } | undefined;
+      .get(id) as Pick<LibraryRow, "id" | "name"> | undefined;
     if (!exists) {
       return reply.code(404).send({ error: "Ebook library not found" });
     }

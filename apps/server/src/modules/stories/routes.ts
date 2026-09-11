@@ -55,6 +55,7 @@ import { editableStory, entityId, optionalDate, referenceIsReachable } from "./r
 import { registerStoryAudioRoutes } from "./audio-routes.js";
 import { registerChapterRoutes } from "./chapter-routes.js";
 import { registerBlockRoutes } from "./block-routes.js";
+import type { StoryRow, WorkItemRow } from "../../db/rows.js";
 
 // Serves is free text on purpose ("4–6", "one big pot"): a number would invite
 // scaling, and scaling invites the quantity model the plan rules out. Time is
@@ -167,7 +168,7 @@ export async function storiesPlugin(app: FastifyInstance) {
       GROUP BY author_name
       ORDER BY uses DESC, author_name COLLATE NOCASE
       LIMIT 20
-    `).all(user.id) as { name: string; uses: number }[];
+    `).all(user.id) as { name: NonNullable<StoryRow["author_name"]>; uses: number }[];
     const used = rows.map((row) => row.name);
     return {
       bylines: used.some((name) => name.toLowerCase() === user.display_name.toLowerCase())
@@ -203,9 +204,9 @@ export async function storiesPlugin(app: FastifyInstance) {
     let entityTypes = [type];
     let entityIds = [id];
     if (type === "audiobook" || type === "ebook") {
-      const work = db.prepare("SELECT work_id FROM work_items WHERE item_id = ?").get(id) as { work_id: string } | undefined;
+      const work = db.prepare("SELECT work_id FROM work_items WHERE item_id = ?").get(id) as Pick<WorkItemRow, "work_id"> | undefined;
       if (work) {
-        entityIds = (db.prepare("SELECT item_id FROM work_items WHERE work_id = ?").all(work.work_id) as { item_id: string }[])
+        entityIds = (db.prepare("SELECT item_id FROM work_items WHERE work_id = ?").all(work.work_id) as Pick<WorkItemRow, "item_id">[])
           .map((row) => row.item_id);
       }
       entityTypes = ["audiobook", "ebook"];

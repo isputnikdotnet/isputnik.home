@@ -101,10 +101,10 @@ export function GalleryPlaceSearch({
           <ul className="gallery-place-results">
             {hits.map((hit) => (
               <li key={`${hit.lat},${hit.lng},${hit.label}`}>
-                <button type="button" onClick={() => { onPick(hit, hit.label); setHits(null); }} disabled={disabled}>
+                <Button variant="bare" onClick={() => { onPick(hit, hit.label); setHits(null); }} disabled={disabled}>
                   <MapPin size={15} aria-hidden="true" />
                   <span>{hit.label}</span>
-                </button>
+                </Button>
               </li>
             ))}
           </ul>

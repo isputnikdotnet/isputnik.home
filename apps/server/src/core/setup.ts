@@ -8,6 +8,7 @@ import { getDefaultTheme } from "./app-config.js";
 import { noteSignInNetwork } from "./security.js";
 import { deviceLinkAccess } from "./device-link.js";
 import { passkeysAvailable } from "./webauthn.js";
+import type { AppSettingRow } from "../db/rows.js";
 
 // Whether the first admin has been offered the setup guide yet.
 //
@@ -18,9 +19,7 @@ import { passkeysAvailable } from "./webauthn.js";
 const ONBOARDING_KEY = "onboarding_completed_at";
 
 export function onboardingPending(): boolean {
-  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(ONBOARDING_KEY) as
-    | { value: string }
-    | undefined;
+  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(ONBOARDING_KEY) as Pick<AppSettingRow, "value"> | undefined;
   return !row?.value;
 }
 

@@ -7,9 +7,11 @@ import { UserAreaNav } from "./UserAreaNav";
 import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { MediaKindBadge } from "../../shared/MediaKindBadge";
-import { formatDuration, relativeTime } from "../../shared/utils";
+import { formatDuration } from "../../shared/utils";
+import { relativeTime } from "../../shared/relativeTime";
 import i18n from "../../i18n";
 import type { SavedBookmark } from "../audiobooks/types";
+import { Button } from "../../shared/Button";
 
 function percentLabel(value: number | null): number {
   if (value == null || !Number.isFinite(value)) return 0;
@@ -173,8 +175,8 @@ export function BookmarksPage() {
                 const count = group.items.length;
                 return (
                   <section className="bookmark-group" key={group.bookId}>
-                    <button
-                      type="button"
+                    <Button
+                      variant="bare"
                       className="bookmark-group-head"
                       onClick={() => toggleGroup(group.bookId)}
                       aria-expanded={open}
@@ -189,7 +191,7 @@ export function BookmarksPage() {
                       </span>
                       <span className="bookmark-count">{t("user:bookmarks.count", { count })}</span>
                       <ChevronDown className={`bookmark-chevron${open ? " is-open" : ""}`} size={20} aria-hidden="true" />
-                    </button>
+                    </Button>
 
                     {open && (
                       <div className="bookmark-list">
@@ -198,7 +200,7 @@ export function BookmarksPage() {
                           return (
                             <article className="bookmark-row" key={bookmark.id}>
                               <span className="bookmark-index" aria-hidden="true">{index + 1}</span>
-                              <button className="bookmark-row-open" onClick={() => navigate(detailHref(bookmark))}>
+                              <Button variant="bare" className="bookmark-row-open" onClick={() => navigate(detailHref(bookmark))}>
                                 <span className="bookmark-row-cover" aria-hidden="true">
                                   <Cover url={bookmark.coverUrl} title={bookmark.bookTitle} libraryType={bookmark.libraryType} />
                                 </span>
@@ -212,25 +214,27 @@ export function BookmarksPage() {
                                       : relativeTime(bookmark.createdAt)}
                                   </span>
                                 </span>
-                              </button>
+                              </Button>
                               <div className="bookmark-row-actions">
-                                <button
-                                  className="icon-button bookmark-open"
+                                <Button
+                                  variant="icon"
+                                  className="bookmark-open"
                                   onClick={() => openBookmark(bookmark)}
                                   aria-label={bookmark.kind === "read" ? t("common:home.readTitle", { title: bookmark.bookTitle }) : t("common:home.playTitle", { title: bookmark.bookTitle })}
                                   title={bookmark.kind === "read" ? t("common:home.read") : t("common:home.play")}
                                 >
                                   {bookmark.kind === "read" ? <BookOpen size={16} /> : <Play size={16} />}
-                                </button>
-                                <button
-                                  className="icon-button danger bookmark-remove"
+                                </Button>
+                                <Button
+                                  variant="icon" danger
+                                  className="bookmark-remove"
                                   onClick={() => removeBookmark(bookmark)}
                                   disabled={removing}
                                   aria-label={t("user:bookmarks.removeFromAria", { title: bookmark.bookTitle })}
                                   title={t("user:bookmarks.remove")}
                                 >
                                   <Trash2 size={16} />
-                                </button>
+                                </Button>
                               </div>
                             </article>
                           );

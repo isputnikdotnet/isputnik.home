@@ -202,7 +202,8 @@ export function NarratorListPage() {
         ) : (
           <div className="person-grid">
             {filtered.map((person) => (
-              <button
+              <Button
+                variant="tile"
                 key={person.name}
                 className="person-card"
                 onClick={() => navigate(personHref(person.name))}
@@ -218,7 +219,7 @@ export function NarratorListPage() {
                   <strong>{person.name}</strong>
                   <span>{t("book:catalog.counts.book", { count: person.audiobookCount })}</span>
                 </div>
-              </button>
+              </Button>
             ))}
           </div>
         )}

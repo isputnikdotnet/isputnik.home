@@ -4,6 +4,7 @@ import { db, logActivity } from "../db.js";
 import { currentSessionHash } from "../auth.js";
 import { describeUserAgent, deviceType } from "./device-link.js";
 import { parseBody } from "./shared.js";
+import type { SessionRow as DbSessionRow, UserRow } from "../db/rows.js";
 
 // Live sessions, from two directions: an admin's view of everyone's (the original
 // use — spotting a sign-in that shouldn't be there), and each user's view of their
@@ -11,20 +12,11 @@ import { parseBody } from "./shared.js";
 // a linked display is a session that outlives every browser session by a year, and
 // the person who approved it is the one who should be able to end it.
 
-interface SessionRow {
-  id: string;
-  token_hash: string;
-  created_at: string;
-  expires_at: string;
-  last_seen: string;
-  device_name: string | null;
-  ip_address: string | null;
-  kind: "browser" | "device";
-  label: string | null;
-  user_id: string;
-  display_name: string;
-  email: string;
-}
+// SESSION_COLUMNS: a session joined to its user.
+type SessionRow = Pick<
+  DbSessionRow,
+  "id" | "token_hash" | "created_at" | "expires_at" | "device_name" | "ip_address" | "kind" | "label" | "user_id"
+> & { last_seen: DbSessionRow["last_seen_at"] } & Pick<UserRow, "display_name" | "email">;
 
 const SESSION_COLUMNS = `
   sessions.id,
@@ -94,11 +86,7 @@ export async function sessionsPlugin(app: FastifyInstance) {
   // even under the deletions-only-from-trusted-networks policy.
   app.delete("/api/sessions/:id", { preHandler: app.requireAdmin, config: { untrustedAllow: true } }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
-    const session = db.prepare("SELECT id, token_hash, user_id FROM sessions WHERE id = ? AND revoked_at IS NULL").get(id) as {
-      id: string;
-      token_hash: string;
-      user_id: string;
-    } | undefined;
+    const session = db.prepare("SELECT id, token_hash, user_id FROM sessions WHERE id = ? AND revoked_at IS NULL").get(id) as Pick<DbSessionRow, "id" | "token_hash" | "user_id"> | undefined;
     if (!session) {
       return reply.code(404).send({ error: "Session not found" });
     }
@@ -163,9 +151,7 @@ export async function sessionsPlugin(app: FastifyInstance) {
     const id = (request.params as { id: string }).id;
     const session = db.prepare(
       "SELECT id, token_hash, kind, label, device_name FROM sessions WHERE id = ? AND user_id = ? AND revoked_at IS NULL"
-    ).get(id, request.user!.id) as
-      | { id: string; token_hash: string; kind: string; label: string | null; device_name: string | null }
-      | undefined;
+    ).get(id, request.user!.id) as Pick<DbSessionRow, "id" | "token_hash" | "kind" | "label" | "device_name"> | undefined;
     if (!session) {
       return reply.code(404).send({ error: "Device not found" });
     }

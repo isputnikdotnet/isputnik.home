@@ -11,6 +11,7 @@ import { db } from "../../db.js";
 import { sendMail } from "../../core/mail.js";
 import { renderEmail, type EmailBlock } from "../../core/email-template.js";
 import { recommendationNotificationsEnabled } from "../../core/notifications.js";
+import type { UserRow } from "../../db/rows.js";
 
 const FOOTER = "— Automated notification from your iSputnik server.";
 
@@ -34,10 +35,7 @@ const ASKS: Record<string, string> = {
   family_tree_person: "wants you to see this"
 };
 
-interface Recipient {
-  email: string | null;
-  display_name: string;
-}
+type Recipient = Pick<UserRow, "email" | "display_name">;
 
 function loadRecipient(userId: string): Recipient | null {
   return (db.prepare(`

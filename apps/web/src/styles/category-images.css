@@ -51,7 +51,7 @@
   padding: 18px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: var(--panel);
+  background: transparent;
 }
 
 .category-help-disclosure {
@@ -62,7 +62,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  color: var(--text);
+  color: inherit;
   cursor: pointer;
   font-size: 1.02rem;
   font-weight: 760;
@@ -97,7 +97,7 @@
 }
 
 .category-help-item strong {
-  color: var(--text);
+  color: inherit;
   font-size: 0.9rem;
 }
 
@@ -111,7 +111,7 @@
 }
 
 .category-help-example strong {
-  color: var(--text);
+  color: inherit;
   font-size: 0.9rem;
 }
 
@@ -388,7 +388,7 @@
   padding: 7px 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  color: var(--text);
+  color: inherit;
   background: var(--field);
 }
 
@@ -419,7 +419,7 @@
 }
 
 .category-tag-copy strong {
-  color: var(--text);
+  color: inherit;
   font-size: 0.9rem;
 }
 

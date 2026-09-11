@@ -1,53 +1,27 @@
-export interface AudiobookLibraryRow {
-  id: string;
-  name: string;
+import type { AudioFileRow, AudiobookDetailRow, ItemMetadataRow, LibraryItemRow, LibraryRow, Nullable } from "../../../db/rows.js";
+
+// `libraries.*` plus the list query's counts; the query filters to type = 'audiobook'.
+export type AudiobookLibraryRow = Omit<LibraryRow, "type"> & {
   type: "audiobook";
-  source_path: string;
-  settings_json: string;
-  scan_status: "idle" | "scanning" | "error";
-  last_scanned_at: string | null;
-  owner_id: string | null;
-  owner_type: "user" | "group" | null;
-  policy_json: string;
-  created_at: string;
-  updated_at: string;
   book_count: number;
   file_count: number;
   total_size_bytes: number;
-}
+};
 
-export interface AudiobookBookRow {
-  id: string;
-  library_id: string;
-  folder_path: string;
-  status: "pending" | "ready" | "error";
-  discovered_at: string;
-  updated_at: string;
-  deleted_at: string | null;
-  title: string | null;
-  sort_title: string | null;
-  language: string | null;
-  duration_seconds: number | null;
-  cover_storage_key: string | null;
-  // item_metadata.updated_at — the version stamp on the cover URL (see coverUrl).
-  metadata_updated_at: string | null;
-  publisher: string | null;
-  asin: string | null;
-  author_names: string | null;
-  narrator_names: string | null;
-  genre_names: string | null;
-  file_count: number;
-  total_size: number | null;
-}
+// The columns both audiobook row queries return: the detail query
+// (getAudiobookBookDetail) and BOOK_LIST_COLUMNS.
+export type AudiobookBookRow =
+  Pick<LibraryItemRow, "id" | "library_id" | "folder_path" | "status" | "discovered_at" | "updated_at" | "deleted_at">
+  & Nullable<Pick<ItemMetadataRow, "title" | "sort_title" | "language" | "cover_storage_key" | "publisher">>
+  & Nullable<Pick<AudiobookDetailRow, "duration_seconds" | "asin">>
+  & {
+    // item_metadata.updated_at — the version stamp on the cover URL (see coverUrl).
+    metadata_updated_at: ItemMetadataRow["updated_at"] | null;
+    author_names: string | null;
+    narrator_names: string | null;
+    total_size: number | null;
+  };
 
-export interface BookFileRow {
-  id: string;
-  relative_path: string;
-  mime_type: string | null;
-  track_number: number | null;
-  chapter_title: string | null;
-  duration_seconds: number | null;
-  size: number | null;
-  modified_at: string | null;
-  status: "available" | "missing";
-}
+export type BookFileRow = Pick<AudioFileRow, "id" | "relative_path" | "mime_type" | "track_number" | "duration_seconds" | "size" | "modified_at" | "status"> & {
+  chapter_title: AudioFileRow["title"];
+};

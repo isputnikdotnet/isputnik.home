@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { FastifyInstance } from "fastify";
 import { db, logActivity } from "../db.js";
 import { parseBody } from "./shared.js";
+import type { ActivityLogRow, Nullable, UserRow } from "../db/rows.js";
 
 // Repeated query params (?event=a&event=b) arrive as string | string[] | undefined
 // depending on how many were sent; normalise each to a trimmed string[].
@@ -53,15 +54,9 @@ const logCleanupSchema = z.object({
   olderThanDays: z.number().int().min(1).max(3650).default(365)
 });
 
-interface LogRow {
-  id: string;
-  event: string;
-  detail: string;
-  ip_address: string | null;
-  created_at: string;
-  actor_name: string | null;
-  actor_id: string | null;
-}
+// An activity_logs row with its actor LEFT JOINed (NULL for system events).
+type LogRow = Pick<ActivityLogRow, "id" | "event" | "detail" | "ip_address" | "created_at"> &
+  Nullable<{ actor_name: UserRow["display_name"]; actor_id: UserRow["id"] }>;
 
 // The WHERE and ORDER BY for one log query, built once and shared by the page
 // and the export — so a CSV is exactly the rows the screen was showing, never a
@@ -216,14 +211,14 @@ export async function logsPlugin(app: FastifyInstance) {
       SELECT DISTINCT event AS value
       FROM activity_logs
       ORDER BY value
-    `).all() as { value: string }[];
+    `).all() as { value: ActivityLogRow["event"] }[];
     const userRows = db.prepare(`
       SELECT DISTINCT users.display_name AS value
       FROM activity_logs
       JOIN users ON users.id = activity_logs.actor_user_id
       WHERE users.display_name IS NOT NULL
       ORDER BY value
-    `).all() as { value: string }[];
+    `).all() as { value: UserRow["display_name"] }[];
     const hasSystem = db.prepare(
       "SELECT 1 FROM activity_logs WHERE actor_user_id IS NULL LIMIT 1"
     ).get() != null;
@@ -232,7 +227,7 @@ export async function logsPlugin(app: FastifyInstance) {
       FROM activity_logs
       WHERE ip_address IS NOT NULL
       ORDER BY value
-    `).all() as { value: string }[];
+    `).all() as { value: NonNullable<ActivityLogRow["ip_address"]> }[];
 
     return {
       logs: rows.map((row) => ({

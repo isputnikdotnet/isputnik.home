@@ -685,13 +685,15 @@
   gap: 10px;
   margin-top: 14px;
   padding: 0 12px;
-  border: 1px solid var(--border);
+  /* No border: this read `1px solid var(--border)`, a property nothing defines,
+     so it never drew one — the focus tint below has nothing to tint either. */
+  border: 0;
   border-radius: 10px;
   color: var(--muted);
 }
 
 .control-search-box:focus-within {
-  border-color: color-mix(in srgb, var(--mint) 55%, var(--border));
+  border-color: color-mix(in srgb, var(--mint) 55%, var(--line));
 }
 
 .control-search-input {
@@ -700,7 +702,7 @@
   min-height: 44px;
   border: 0;
   background: transparent;
-  color: var(--text);
+  color: inherit;
   font: inherit;
   font-size: 0.98rem;
 }
@@ -736,7 +738,7 @@
   border: 0;
   border-radius: 9px;
   background: transparent;
-  color: var(--text);
+  color: inherit;
   font: inherit;
   text-align: left;
   cursor: pointer;

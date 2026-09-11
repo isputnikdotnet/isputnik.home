@@ -8,6 +8,7 @@ import type { AudiobookBook } from "../types";
 import type { EbookBook } from "./catalogKinds";
 import { CatalogAdminMenu } from "./CatalogAdminMenu";
 import { useBookLike } from "./useBookLike";
+import { Button } from "../../../shared/Button";
 
 // One ebook in the desktop catalog grid. The audiobook card's shape, with formats
 // and size where an audiobook shows its length, and Read where it has Play.
@@ -98,9 +99,9 @@ export function EbookCatalogCard({
             )}
             <div className="audiobook-catalog-actions" aria-label={t("book:catalog.actionsAria", { title: book.title })}>
               <div className="audiobook-catalog-action-row">
-                <button
+                <Button
+                  variant="bare"
                   className={cx("audiobook-catalog-action", liked && "on")}
-                  type="button"
                   onClick={(event) => { event.stopPropagation(); void toggleLike(); }}
                   aria-pressed={liked}
                   aria-label={liked ? t("book:detail.unlike") : t("book:detail.like")}
@@ -109,11 +110,11 @@ export function EbookCatalogCard({
                 >
                   <Heart size={16} fill={liked ? "currentColor" : "none"} aria-hidden="true" />
                   <span>{liked ? t("book:detail.liked") : t("book:detail.like")}</span>
-                </button>
+                </Button>
                 {book.documentId && (
-                  <button
+                  <Button
+                    variant="bare"
                     className="audiobook-catalog-action"
-                    type="button"
                     onClick={(event) => { event.stopPropagation(); void toggleFinished(); }}
                     disabled={statusBusy}
                     aria-label={finished ? t("book:catalog.markAsUnreadAria") : t("book:catalog.markAsReadAria")}
@@ -121,7 +122,7 @@ export function EbookCatalogCard({
                   >
                     {finished ? <RotateCcw size={16} aria-hidden="true" /> : <CheckCircle2 size={16} aria-hidden="true" />}
                     <span>{finished ? t("book:catalog.markUnreadLabel") : t("book:catalog.markAsReadLabel")}</span>
-                  </button>
+                  </Button>
                 )}
                 {canDownload && book.documentId && (
                   <a
@@ -136,16 +137,16 @@ export function EbookCatalogCard({
                     <span>{t("book:detail.download")}</span>
                   </a>
                 )}
-                <button
+                <Button
+                  variant="bare"
                   className="audiobook-catalog-action"
-                  type="button"
                   onClick={(event) => { event.stopPropagation(); onAddToCollection(book); }}
                   aria-label={t("book:detail.addToCollection")}
                   title={t("book:detail.addToCollection")}
                 >
                   <ListMusic size={16} aria-hidden="true" />
                   <span>{t("book:detail.addToCollection")}</span>
-                </button>
+                </Button>
                 <CatalogAdminMenu
                   book={book}
                   canEdit={canEdit}
@@ -160,15 +161,15 @@ export function EbookCatalogCard({
                   <small>{byline}</small>
                   {metaParts.length > 0 && <span>{metaParts.join(" · ")}</span>}
                 </div>
-                <button
+                <Button
+                  variant="bare"
                   className="audiobook-catalog-action primary"
-                  type="button"
                   onClick={(event) => { event.stopPropagation(); onRead(book); }}
                   aria-label={t("book:catalog.readAria", { title: book.title })}
                   title={t("book:detail.read")}
                 >
                   <BookOpen size={22} aria-hidden="true" />
-                </button>
+                </Button>
               </div>
             </div>
           </>

@@ -11,6 +11,14 @@ import { thumbnailAbsolutePath, thumbnailStorageKey } from "../shared/thumbnail.
 import { normalizeText, rematchAllCategories } from "../shared/tagging.js";
 import { deleteAssignmentsForObject } from "../../../core/permissions.js";
 import { FAMILY_TAG_OBJECT_TYPE } from "../../familytree/access.js";
+import type { AppSettingRow, CategoryAliasRow, CategoryRow, TagRow } from "../../../db/rows.js";
+
+type CategoryListRow = Pick<CategoryRow, "id" | "key" | "name" | "sort_order" | "icon" | "image_storage_key"> & {
+  book_count: number;
+  mapping_count: number;
+};
+
+type TagListRow = Pick<TagRow, "id"> & { name: TagRow["display_name"]; bookCount: number; otherCount: number };
 
 function imageUrl(imageStorageKey: string | null) {
   if (isBuiltinCategoryImageKey(imageStorageKey)) {
@@ -19,16 +27,7 @@ function imageUrl(imageStorageKey: string | null) {
   return imageStorageKey ? `/api/library/covers/${imageStorageKey}` : null;
 }
 
-function categoryResponse(row: {
-  id: string;
-  key: string;
-  name: string;
-  sort_order: number;
-  icon: string | null;
-  image_storage_key: string | null;
-  book_count: number;
-  mapping_count: number;
-}) {
+function categoryResponse(row: CategoryListRow) {
   return {
     id: row.id,
     key: row.key,
@@ -74,7 +73,7 @@ function rememberDeletedCategoryKey(key: string) {
     return;
   }
   const row = db.prepare("SELECT value FROM app_settings WHERE key = 'deleted_category_keys'")
-    .get() as { value: string } | undefined;
+    .get() as Pick<AppSettingRow, "value"> | undefined;
   let keys: string[] = [];
   if (row) {
     try {
@@ -124,7 +123,7 @@ export async function categoriesAdminPlugin(app: FastifyInstance) {
         ) AS mapping_count
       FROM categories
       ORDER BY categories.sort_order
-    `).all() as { id: string; key: string; name: string; sort_order: number; icon: string | null; image_storage_key: string | null; book_count: number; mapping_count: number }[];
+    `).all() as CategoryListRow[];
     return {
       categories: rows.map(categoryResponse)
     };
@@ -222,7 +221,7 @@ export async function categoriesAdminPlugin(app: FastifyInstance) {
 
   app.delete("/api/library/manage/categories/:id/image", { preHandler: app.requireAdmin }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
-    const row = db.prepare("SELECT image_storage_key FROM categories WHERE id = ?").get(id) as { image_storage_key: string | null } | undefined;
+    const row = db.prepare("SELECT image_storage_key FROM categories WHERE id = ?").get(id) as Pick<CategoryRow, "image_storage_key"> | undefined;
     if (!row) {
       return reply.code(404).send({ error: "Category not found" });
     }
@@ -236,14 +235,14 @@ export async function categoriesAdminPlugin(app: FastifyInstance) {
   app.delete("/api/library/manage/categories/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     const category = db.prepare("SELECT id, key, name, image_storage_key FROM categories WHERE id = ?")
-      .get(id) as { id: string; key: string; name: string; image_storage_key: string | null } | undefined;
+      .get(id) as Pick<CategoryRow, "id" | "key" | "name" | "image_storage_key"> | undefined;
     if (!category) {
       return reply.code(404).send({ error: "Category not found" });
     }
     if (category.key === "general_other") {
       return reply.code(400).send({ error: "General / Other cannot be deleted." });
     }
-    const fallback = db.prepare("SELECT id FROM categories WHERE key = 'general_other'").get() as { id: string } | undefined;
+    const fallback = db.prepare("SELECT id FROM categories WHERE key = 'general_other'").get() as Pick<CategoryRow, "id"> | undefined;
     if (!fallback) {
       return reply.code(500).send({ error: "Fallback category is missing." });
     }
@@ -276,7 +275,11 @@ export async function categoriesAdminPlugin(app: FastifyInstance) {
       FROM category_aliases
       JOIN categories ON categories.id = category_aliases.category_id
       ORDER BY categories.sort_order, category_aliases.keyword
-    `).all() as { id: string; keyword: string; priority: number; category_id: string; category_key: string; category_name: string }[];
+    `).all() as (Pick<CategoryAliasRow, "id" | "keyword" | "priority"> & {
+      category_id: CategoryRow["id"];
+      category_key: CategoryRow["key"];
+      category_name: CategoryRow["name"];
+    })[];
     return {
       aliases: rows.map((r) => ({
         id: r.id, keyword: r.keyword, priority: r.priority,
@@ -381,7 +384,7 @@ export async function categoriesAdminPlugin(app: FastifyInstance) {
   // Global tag list with usage counts. `bookCount` counts books not soft-deleted;
   // `otherCount` counts non-book uses (family-tree persons today) so prune and
   // the UI don't treat a family-only tag as unused.
-  function listTags(): { id: string; name: string; bookCount: number; otherCount: number }[] {
+  function listTags(): TagListRow[] {
     return db.prepare(`
       SELECT
         tags.id AS id,
@@ -402,7 +405,7 @@ export async function categoriesAdminPlugin(app: FastifyInstance) {
         ) AS otherCount
       FROM tags
       ORDER BY tags.display_name COLLATE NOCASE
-    `).all() as { id: string; name: string; bookCount: number; otherCount: number }[];
+    `).all() as TagListRow[];
   }
 
   app.get("/api/library/manage/tags", { preHandler: app.requireAdmin }, async () => {
@@ -445,7 +448,7 @@ export async function categoriesAdminPlugin(app: FastifyInstance) {
   app.patch("/api/library/manage/tags/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     const existing = db.prepare("SELECT id, display_name FROM tags WHERE id = ?")
-      .get(id) as { id: string; display_name: string } | undefined;
+      .get(id) as Pick<TagRow, "id" | "display_name"> | undefined;
     if (!existing) {
       return reply.code(404).send({ error: "Tag not found" });
     }
@@ -464,7 +467,7 @@ export async function categoriesAdminPlugin(app: FastifyInstance) {
     // If another tag already uses this key, merge into it: move this tag's book
     // links onto the survivor (deduping), then delete this tag.
     const collision = db.prepare("SELECT id FROM tags WHERE key = ? AND id != ?")
-      .get(newKey, id) as { id: string } | undefined;
+      .get(newKey, id) as Pick<TagRow, "id"> | undefined;
 
     db.transaction(() => {
       if (collision) {
@@ -505,7 +508,7 @@ export async function categoriesAdminPlugin(app: FastifyInstance) {
   app.delete("/api/library/manage/tags/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     const existing = db.prepare("SELECT id, display_name FROM tags WHERE id = ?")
-      .get(id) as { id: string; display_name: string } | undefined;
+      .get(id) as Pick<TagRow, "id" | "display_name"> | undefined;
     if (!existing) {
       return reply.code(404).send({ error: "Tag not found" });
     }

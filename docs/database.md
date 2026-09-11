@@ -392,13 +392,29 @@ kind). `module` on `shares`/`share_links` is unchanged.
 EXISTS`), so a fresh database is built in one pass and stamped with `baseline`
 (`PRAGMA user_version`). Schema changes are then **ordered, append-only
 migrations** run by a small runner that compares `user_version` to the highest
-migration and applies the gap inside a transaction. Seed data (navigation
-categories and alias keywords) is applied idempotently after migrations.
+migration and applies the gap, each migration in its own transaction that also
+stamps its version. Seed data (navigation categories and alias keywords) is
+applied idempotently after migrations.
+
+**Where they live.** One file per migration in
+[`apps/server/src/db/migrations/`](../apps/server/src/db/migrations/), named
+`NNN-short-name.ts` (`033-slideshow-title-card.ts` … `074-music-track-asset.ts`),
+each exporting its `version` and its `up(db)`. `migrations/index.ts` lists them in
+the order they run, and [`db/migrate.ts`](../apps/server/src/db/migrate.ts) is only
+the runner: the legacy-version refusal, `schema.sql`, the baseline stamp, then the
+list. Adding one means a new file **and** its line in `index.ts` —
+`test/migrations-index.test.ts` fails on a file the list leaves out, and the runner
+refuses to start on a list that is out of order or reuses a number. Each `up`
+checks `PRAGMA table_info` (or `sqlite_master`) itself and skips what is already
+there, because `schema.sql` has usually built the fresh shape before it runs.
+`test/migration-walk.test.ts` builds a database exactly as 3.0.0 left it, runs
+today's `migrate()` over it and compares the result with a fresh build.
 
 **The baseline has been reset twice.** 2.0.0 folded migrations 2–22 back into
 `schema.sql`; **3.0.0 did the same with 24–31 and set the baseline to 32**, as a
 fresh start rather than an upgrade. Migrations since then are numbered from 33 and
-run on every released database. Consequences:
+run on every released database — none of them is folded back, so every 3.x install
+keeps upgrading step by step. Consequences:
 
 - A database from the last 2.x schema (`user_version` 31) is structurally identical
   to a fresh 3.0.0 one and adopts the baseline unchanged.
@@ -415,14 +431,19 @@ run on every released database. Consequences:
   touches a table that is already there — as does a widened `CHECK` or a table
   rebuild. An index over a column a migration adds belongs in that migration, not
   in `schema.sql`: run before the column exists, it would fail on every upgrade.
-- **Both places must stay in step.** A new column on an existing
-  table needs the `ALTER` in `migrations[]` *and* the column in `schema.sql`,
+- **Both places must stay in step.** A new column on an existing table needs
+  the `ALTER` in a new file under `db/migrations/` *and* the column in `schema.sql`,
   or fresh installs and upgraded ones drift apart. (In-development tables that
   have never shipped can still be edited in `schema.sql` alone.)
 - A widened `CHECK` can't be altered in place: rebuild the table (back up
   children, drop child-first, recreate from `schema.sql`, restore) — never
   `RENAME`, which rewrites children's `REFERENCES` even under
   `legacy_alter_table`. Migration 22 in the 1.x history was the worked example.
+- **Then `npm run db:rows`.** `apps/server/src/db/rows.ts` is generated from a
+  database the migrate path builds — one interface per table (`LibraryItemRow`,
+  `UserRow`, …; CHECK `IN` lists become literal unions) — and queries type their
+  results with it (`.get(id) as Pick<LibraryItemRow, "id" | "folder_path"> | undefined`)
+  instead of restating the shape. `test/db-rows.test.ts` fails while it is stale.
 
 ---
 

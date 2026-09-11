@@ -12,6 +12,7 @@ import { ProgressRing } from "../../shared/ProgressRing";
 import { PlayerControls } from "./PlayerControls";
 import type { AudiobookBookDetail, AudiobookFile, Bookmark as BookmarkEntry, PlaybackProgress } from "./types";
 import { RATES, rateLabel, SLEEP_MINUTES, usePlayback, type SleepMode } from "./usePlayback";
+import { Button } from "../../shared/Button";
 
 function formatTimeRemaining(seconds: number) {
   if (seconds <= 0) return i18n.t("reader:player.leftM", { m: 0 });
@@ -606,7 +607,8 @@ export function AudioPlayer({
     const progress = chapterProgressFor(chapter, index);
     const span = Math.max(0, chapter.endOffset - chapter.startOffset);
     return (
-      <button
+      <Button
+        variant="bare"
         key={`${chapter.fileId}-${index}`}
         className={`player-chapter-item${index === currentChapterIndex ? " active" : ""}${progress.percent >= 0.98 ? " complete" : ""}`}
         onClick={() => jumpToChapter(index)}
@@ -624,21 +626,22 @@ export function AudioPlayer({
               : formatTime(span)}
           </span>
         )}
-      </button>
+      </Button>
     );
   });
 
   const speedMenu = speedOpen && (
     <div className="player-speed-menu" onClick={(e) => e.stopPropagation()}>
       {RATES.map((rate) => (
-        <button
+        <Button
+          variant="bare"
           key={rate}
           className={cx("player-speed-option", playbackRate === rate && "active")}
           onClick={() => changeRate(rate)}
           aria-pressed={playbackRate === rate}
         >
           {rateLabel(rate)}
-        </button>
+        </Button>
       ))}
     </div>
   );
@@ -648,39 +651,42 @@ export function AudioPlayer({
 
   const sleepMenu = sleepOpen && (
     <div className="player-speed-menu player-sleep-menu" onClick={(e) => e.stopPropagation()}>
-      <button
+      <Button
+        variant="bare"
         className={cx("player-speed-option", sleepMode === "off" && "active")}
         onClick={() => chooseSleep("off")}
         aria-pressed={sleepMode === "off"}
       >
         {t("reader:player.off")}
-      </button>
+      </Button>
       {SLEEP_MINUTES.map((min) => (
-        <button
+        <Button
+          variant="bare"
           key={min}
           className={cx("player-speed-option", sleepMode === min && "active")}
           onClick={() => chooseSleep(min)}
           aria-pressed={sleepMode === min}
         >
           {t("reader:player.min", { n: min })}
-        </button>
+        </Button>
       ))}
-      <button
+      <Button
+        variant="bare"
         className={cx("player-speed-option", sleepMode === "chapter" && "active")}
         onClick={() => chooseSleep("chapter")}
         aria-pressed={sleepMode === "chapter"}
       >
         {t("reader:player.endOfChapter")}
-      </button>
+      </Button>
     </div>
   );
 
   const bookmarkList = (
     <div className="player-bookmark-list">
-      <button className="player-bookmark-add" onClick={addBookmark}>
+      <Button variant="bare" className="player-bookmark-add" onClick={addBookmark}>
         <BookmarkPlus size={15} />
         <span>{bookmarkSaved ? t("reader:player.bookmarkAdded") : t("reader:player.bookmarkThisMoment")}</span>
-      </button>
+      </Button>
       {bookmarks.length === 0 ? (
         <p className="player-bookmark-empty">{t("reader:player.noBookmarks")}</p>
       ) : (
@@ -689,21 +695,22 @@ export function AudioPlayer({
           return (
             <div className={`player-bookmark-item${editing ? " editing" : ""}`} key={bm.id}>
               <div className="player-bookmark-row">
-                <button className="player-bookmark-jump" onClick={() => jumpToBookmark(bm)} disabled={!availableFiles.some((f) => f.id === bm.fileId)}>
+                <Button variant="bare" className="player-bookmark-jump" onClick={() => jumpToBookmark(bm)} disabled={!availableFiles.some((f) => f.id === bm.fileId)}>
                   <Bookmark size={13} />
                   <span className="player-bookmark-time">{formatTime(bm.bookPositionSeconds ?? bm.positionSeconds)}</span>
                   <span className="player-bookmark-label">{bm.label || t("reader:player.bookmark")}</span>
-                </button>
+                </Button>
                 <div className="player-bookmark-actions">
-                  <button
+                  <Button
+                    variant="bare"
                     onClick={() => { setEditingBookmarkId(bm.id); setNoteDraft(bm.note ?? ""); }}
                     aria-label={t("reader:player.editNote")}
                   >
                     <Pencil size={13} />
-                  </button>
-                  <button onClick={() => deleteBookmark(bm.id)} aria-label={t("reader:player.deleteBookmark")}>
+                  </Button>
+                  <Button variant="bare" onClick={() => deleteBookmark(bm.id)} aria-label={t("reader:player.deleteBookmark")}>
                     <Trash2 size={13} />
-                  </button>
+                  </Button>
                 </div>
               </div>
               {editing ? (
@@ -717,8 +724,8 @@ export function AudioPlayer({
                     autoFocus
                   />
                   <div className="player-bookmark-edit-actions">
-                    <button className="player-bookmark-save" onClick={() => saveBookmarkNote(bm.id, noteDraft)}>{t("reader:player.save")}</button>
-                    <button className="player-bookmark-cancel" onClick={() => setEditingBookmarkId(null)}>{t("common:common.cancel")}</button>
+                    <Button variant="bare" className="player-bookmark-save" onClick={() => saveBookmarkNote(bm.id, noteDraft)}>{t("reader:player.save")}</Button>
+                    <Button variant="bare" className="player-bookmark-cancel" onClick={() => setEditingBookmarkId(null)}>{t("common:common.cancel")}</Button>
                   </div>
                 </div>
               ) : (
@@ -811,9 +818,9 @@ export function AudioPlayer({
 
           <div className="player-volume-popup">
             <div className="player-volume-control">
-              <button className="player-vol-icon" onClick={toggleMute} aria-label={muted ? t("reader:player.unmute") : t("reader:player.mute")}>
+              <Button variant="bare" className="player-vol-icon" onClick={toggleMute} aria-label={muted ? t("reader:player.unmute") : t("reader:player.mute")}>
                 {muted || volume === 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}
-              </button>
+              </Button>
               <input
                 type="range"
                 className="player-vol-slider"
@@ -829,19 +836,21 @@ export function AudioPlayer({
             </div>
 
             <div className="player-volume-menu player-speed">
-              <button
+              <Button
+                variant="bare"
                 className={`player-volume-action-btn${speedOpen ? " open" : ""}`}
                 onClick={toggleSpeedMenu}
                 aria-expanded={speedOpen}
                 aria-label={t("reader:player.playbackSpeed")}
               >
                 <span>{playbackRate === 1 ? "1.0×" : `${playbackRate}×`}</span>
-              </button>
+              </Button>
               {speedMenu}
             </div>
 
             <div className="player-volume-menu player-speed">
-              <button
+              <Button
+                variant="bare"
                 className={`player-volume-action-btn${sleepOpen ? " open" : ""}${sleepMode !== "off" ? " active" : ""}`}
                 onClick={toggleSleepMenu}
                 aria-expanded={sleepOpen}
@@ -850,7 +859,7 @@ export function AudioPlayer({
               >
                 <Moon size={15} aria-hidden="true" />
                 <span>{sleepLabel ?? t("reader:player.sleep")}</span>
-              </button>
+              </Button>
               {sleepMenu}
             </div>
           </div>
@@ -859,7 +868,8 @@ export function AudioPlayer({
             <div className="player-popup-aux-row">
               {onToggleSave && (
                 <div className="player-popup-aux-item">
-                  <button
+                  <Button
+                    variant="bare"
                     className={`player-popup-aux-btn${saved ? " is-liked" : ""}`}
                     onClick={onToggleSave}
                     disabled={savingSave}
@@ -868,13 +878,14 @@ export function AudioPlayer({
                   >
                     <Heart size={18} fill={saved ? "currentColor" : "none"} />
                     <span className="player-popup-aux-label">{t("reader:player.like")}</span>
-                  </button>
+                  </Button>
                 </div>
               )}
 
               {showBookmark && (
                 <div className="player-popup-aux-item">
-                  <button
+                  <Button
+                    variant="bare"
                     className="player-popup-aux-btn"
                     onClick={() => setBookmarksOpen((o) => !o)}
                     aria-expanded={bookmarksOpen}
@@ -882,12 +893,13 @@ export function AudioPlayer({
                   >
                     <Bookmark size={18} />
                     <span className="player-popup-aux-label">Bookmarks{bookmarks.length > 0 ? ` (${bookmarks.length})` : ""}</span>
-                  </button>
+                  </Button>
                 </div>
               )}
 
               <div className="player-popup-aux-item">
-                <button
+                <Button
+                  variant="bare"
                   className={`player-popup-aux-btn${chaptersOpen ? " open" : ""}`}
                   onClick={() => setChaptersOpen((o) => !o)}
                   aria-expanded={chaptersOpen}
@@ -895,7 +907,7 @@ export function AudioPlayer({
                 >
                   <List size={18} />
                   <span className="player-popup-aux-label">{t("reader:player.chapters")}</span>
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -910,9 +922,9 @@ export function AudioPlayer({
               <div className="chapter-sheet-drag" />
               <div className="chapter-sheet-header">
                 <h3 className="chapter-sheet-title">{t("reader:player.chapters")}</h3>
-                <button className="chapter-sheet-close" onClick={() => setChaptersOpen(false)} aria-label={t("reader:player.closeChapters")}>
+                <Button variant="bare" className="chapter-sheet-close" onClick={() => setChaptersOpen(false)} aria-label={t("reader:player.closeChapters")}>
                   <X size={18} />
-                </button>
+                </Button>
               </div>
               <div className="chapter-sheet-list">
                 {chapterList}
@@ -928,9 +940,9 @@ export function AudioPlayer({
               <div className="chapter-sheet-drag" />
               <div className="chapter-sheet-header">
                 <h3 className="chapter-sheet-title">{t("reader:player.bookmarks")}</h3>
-                <button className="chapter-sheet-close" onClick={() => setBookmarksOpen(false)} aria-label={t("reader:player.closeBookmarks")}>
+                <Button variant="bare" className="chapter-sheet-close" onClick={() => setBookmarksOpen(false)} aria-label={t("reader:player.closeBookmarks")}>
                   <X size={18} />
-                </button>
+                </Button>
               </div>
               <div className="chapter-sheet-list">
                 {bookmarkList}
@@ -982,9 +994,9 @@ export function AudioPlayer({
 
       <div className="player-aux">
         <div className="player-vol">
-          <button className="player-vol-icon" onClick={toggleMute} aria-label={muted ? t("reader:player.unmute") : t("reader:player.mute")}>
+          <Button variant="bare" className="player-vol-icon" onClick={toggleMute} aria-label={muted ? t("reader:player.unmute") : t("reader:player.mute")}>
             {muted || volume === 0 ? <VolumeX size={17} /> : <Volume2 size={17} />}
-          </button>
+          </Button>
           <input
             type="range"
             className="player-vol-slider"
@@ -998,7 +1010,8 @@ export function AudioPlayer({
         </div>
 
         <div className="player-speed">
-          <button
+          <Button
+            variant="bare"
             className={`player-speed-btn${speedOpen ? " open" : ""}`}
             onClick={toggleSpeedMenu}
             aria-expanded={speedOpen}
@@ -1006,12 +1019,13 @@ export function AudioPlayer({
           >
             <span>{rateLabel(playbackRate)}</span>
             <ChevronDown size={13} />
-          </button>
+          </Button>
           {speedMenu}
         </div>
 
         <div className="player-speed player-sleep">
-          <button
+          <Button
+            variant="bare"
             className={`player-speed-btn${sleepOpen ? " open" : ""}${sleepMode !== "off" ? " active" : ""}`}
             onClick={toggleSleepMenu}
             aria-expanded={sleepOpen}
@@ -1020,11 +1034,12 @@ export function AudioPlayer({
           >
             <Moon size={15} />
             <span>{sleepLabel ?? t("reader:player.sleep")}</span>
-          </button>
+          </Button>
           {sleepMenu}
         </div>
 
-        <button
+        <Button
+          variant="bare"
           className={`player-speed-btn${chaptersOpen ? " open" : ""}`}
           onClick={() => setChaptersOpen((o) => !o)}
           aria-expanded={chaptersOpen}
@@ -1032,11 +1047,12 @@ export function AudioPlayer({
         >
           <List size={15} />
           <span>{t("reader:player.chapters")}</span>
-        </button>
+        </Button>
 
         {showBookmark && (
           <>
-            <button
+            <Button
+              variant="bare"
               className={`player-speed-btn${bookmarksOpen ? " open" : ""}`}
               onClick={() => setBookmarksOpen((o) => !o)}
               aria-expanded={bookmarksOpen}
@@ -1044,9 +1060,10 @@ export function AudioPlayer({
             >
               <Bookmark size={15} />
               <span>Bookmarks{bookmarks.length > 0 ? ` (${bookmarks.length})` : ""}</span>
-            </button>
+            </Button>
             {onToggleSave && (
-              <button
+              <Button
+                variant="bare"
                 className={`player-speed-btn${saved ? " is-liked" : ""}`}
                 onClick={onToggleSave}
                 disabled={savingSave}
@@ -1055,7 +1072,7 @@ export function AudioPlayer({
               >
                 <Heart size={15} fill={saved ? "currentColor" : "none"} />
                 <span>{saved ? t("reader:player.liked") : t("reader:player.like")}</span>
-              </button>
+              </Button>
             )}
           </>
         )}

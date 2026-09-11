@@ -37,6 +37,7 @@ import {
   EMAIL_CODE_MAX_SENDS,
   EMAIL_CODE_RESEND_SECONDS
 } from "./mfa.js";
+import type { MfaChallengeRow, UserRow } from "../db/rows.js";
 
 // Two-factor enrollment, management, and the login second-factor step, for both
 // methods: a rolling TOTP code from an authenticator app, or a one-time code
@@ -54,22 +55,18 @@ export const MFA_MAX_ATTEMPTS = 5;
 // A challenge either completes a sign-in or confirms an email enrollment. Both
 // want the same expiry / attempt cap / resend budget, so they share the table —
 // one row per user per purpose.
-export type ChallengePurpose = "login" | "enroll";
+export type ChallengePurpose = MfaChallengeRow["purpose"];
 
-export interface MfaChallenge {
-  id: string;
-  user_id: string;
-  purpose: ChallengePurpose;
-  attempts: number;
-  code_hash: string | null;
-  sends: number;
-  last_sent_at: string | null;
-}
+// CHALLENGE_COLUMNS of mfa_challenges.
+export type MfaChallenge = Pick<
+  MfaChallengeRow,
+  "id" | "user_id" | "purpose" | "attempts" | "code_hash" | "sends" | "last_sent_at"
+>;
 
 const CHALLENGE_COLUMNS = "id, user_id, purpose, attempts, code_hash, sends, last_sent_at";
 
 export function getMfaMethod(userId: string): MfaMethod {
-  const row = db.prepare("SELECT mfa_method FROM users WHERE id = ?").get(userId) as { mfa_method: MfaMethod } | undefined;
+  const row = db.prepare("SELECT mfa_method FROM users WHERE id = ?").get(userId) as Pick<UserRow, "mfa_method"> | undefined;
   return row?.mfa_method ?? "totp";
 }
 
@@ -89,7 +86,7 @@ export interface MfaStatus {
 
 export function getMfaStatus(userId: string): MfaStatus {
   const row = db.prepare("SELECT mfa_enabled, mfa_method, mfa_backup_codes FROM users WHERE id = ?").get(userId) as
-    | { mfa_enabled: number; mfa_method: MfaMethod; mfa_backup_codes: string | null }
+    | Pick<UserRow, "mfa_enabled" | "mfa_method" | "mfa_backup_codes">
     | undefined;
   if (!row) return { enabled: false, method: "totp", backupCodesRemaining: 0 };
   const codes = row.mfa_backup_codes ? (JSON.parse(row.mfa_backup_codes) as string[]) : [];
@@ -105,7 +102,7 @@ export type MfaSetup =
 // For TOTP that's an encrypted secret to scan; for email, a code mailed to the
 // address they sign in with (the caller sends it — see the setup route).
 export function beginMfaSetup(userId: string, method: MfaMethod = "totp"): MfaSetup {
-  const user = db.prepare("SELECT email FROM users WHERE id = ?").get(userId) as { email: string } | undefined;
+  const user = db.prepare("SELECT email FROM users WHERE id = ?").get(userId) as Pick<UserRow, "email"> | undefined;
   if (!user) throw new Error("User not found");
 
   if (method === "email") {
@@ -127,7 +124,7 @@ export function beginMfaSetup(userId: string, method: MfaMethod = "totp"): MfaSe
 // or the code doesn't match.
 export function activateMfa(userId: string, token: string): string[] | null {
   const row = db.prepare("SELECT mfa_method, mfa_secret FROM users WHERE id = ?").get(userId) as
-    | { mfa_method: MfaMethod; mfa_secret: string | null }
+    | Pick<UserRow, "mfa_method" | "mfa_secret">
     | undefined;
   if (!row) return null;
 
@@ -163,7 +160,7 @@ export function regenerateBackupCodes(userId: string): string[] {
 
 // Consume a backup code single-use: remove its hash from the stored set on a match.
 export function consumeBackupCode(userId: string, code: string): boolean {
-  const row = db.prepare("SELECT mfa_backup_codes FROM users WHERE id = ?").get(userId) as { mfa_backup_codes: string | null } | undefined;
+  const row = db.prepare("SELECT mfa_backup_codes FROM users WHERE id = ?").get(userId) as Pick<UserRow, "mfa_backup_codes"> | undefined;
   if (!row?.mfa_backup_codes) return false;
   const hashes = JSON.parse(row.mfa_backup_codes) as string[];
   const index = hashes.indexOf(hashBackupCode(code));
@@ -259,7 +256,7 @@ export function rotateEmailCode(challengeId: string): ResendOutcome {
 // must re-enter their password. Returns the new attempt count.
 export function failMfaChallenge(id: string): number {
   db.prepare("UPDATE mfa_challenges SET attempts = attempts + 1 WHERE id = ?").run(id);
-  const row = db.prepare("SELECT attempts FROM mfa_challenges WHERE id = ?").get(id) as { attempts: number } | undefined;
+  const row = db.prepare("SELECT attempts FROM mfa_challenges WHERE id = ?").get(id) as Pick<MfaChallengeRow, "attempts"> | undefined;
   const attempts = row?.attempts ?? MFA_MAX_ATTEMPTS;
   if (attempts >= MFA_MAX_ATTEMPTS) {
     db.prepare("DELETE FROM mfa_challenges WHERE id = ?").run(id);

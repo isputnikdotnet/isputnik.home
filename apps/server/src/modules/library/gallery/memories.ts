@@ -7,6 +7,7 @@
 // stays as-is; this is the richer, slideshow-oriented surface.
 import { db } from "../../../db.js";
 import { pickVisuallyDistinct } from "./similarity.js";
+import type { GalleryDetailRow, GalleryPersonRow, ItemMetadataRow, LibraryItemRow, NonNull } from "../../../db/rows.js";
 
 const inClause = (n: number) => Array(n).fill("?").join(", ");
 
@@ -20,14 +21,9 @@ export interface MemorySuggestion {
   itemIds: string[];
 }
 
-interface ItemRow {
-  id: string;
-  taken_at: string;
-  gps_lat: number | null;
-  gps_lng: number | null;
-  cover: string | null;
-  phash: string | null;
-}
+type ItemRow = Pick<LibraryItemRow, "id">
+  & NonNull<Pick<GalleryDetailRow, "taken_at" | "gps_lat" | "gps_lng" | "phash">, "taken_at">
+  & { cover: ItemMetadataRow["cover_storage_key"] | null };
 
 // A moment breaks when photos are more than GAP_MS apart, and never spans more than
 // MAX_SPAN_MS (so a year of daily photos in one place doesn't fuse into one blob).
@@ -88,7 +84,7 @@ function namedPeopleFor(itemIds: string[]): string[] {
     HAVING n >= 2
     ORDER BY n DESC, gallery_people.name ASC
     LIMIT 2
-  `).all(...itemIds) as { name: string; n: number }[]).map((row) => row.name);
+  `).all(...itemIds) as { name: GalleryPersonRow["name"]; n: number }[]).map((row) => row.name);
 }
 
 function joinPeople(names: string[]): string {

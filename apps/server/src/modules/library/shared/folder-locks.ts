@@ -1,4 +1,5 @@
 import { db } from "../../../db.js";
+import type { LibraryFolderLockRow, UserRow } from "../../../db/rows.js";
 
 // Folder locks: an admin's "nothing under here may be deleted from the app",
 // cross-type because every library item carries a folder_path relative to its
@@ -34,7 +35,9 @@ export function listFolderLocks(libraryId: string): FolderLock[] {
     LEFT JOIN users ON users.id = library_folder_locks.locked_by
     WHERE library_folder_locks.library_id = ?
     ORDER BY library_folder_locks.folder_path
-  `).all(libraryId) as { folder_path: string; locked_by: string | null; locked_at: string; locked_by_name: string | null }[];
+  `).all(libraryId) as (Pick<LibraryFolderLockRow, "folder_path" | "locked_by" | "locked_at"> & {
+    locked_by_name: UserRow["display_name"] | null;
+  })[];
   return rows.map((row) => ({
     folderPath: row.folder_path,
     lockedBy: row.locked_by,
@@ -65,7 +68,7 @@ function covers(lock: string, relPath: string): boolean {
 
 function lockPaths(libraryId: string): string[] {
   return (db.prepare("SELECT folder_path FROM library_folder_locks WHERE library_id = ?")
-    .all(libraryId) as { folder_path: string }[]).map((row) => row.folder_path);
+    .all(libraryId) as Pick<LibraryFolderLockRow, "folder_path">[]).map((row) => row.folder_path);
 }
 
 // Is this item path (or folder) under a lock? Returns the covering lock's path
@@ -97,7 +100,7 @@ export function locksByLibrary(libraryIds: string[]): Map<string, string[]> {
 // libraries they never enumerated.
 export function allFolderLocks(): Map<string, string[]> {
   const rows = db.prepare("SELECT library_id, folder_path FROM library_folder_locks")
-    .all() as { library_id: string; folder_path: string }[];
+    .all() as Pick<LibraryFolderLockRow, "library_id" | "folder_path">[];
   const map = new Map<string, string[]>();
   for (const row of rows) {
     const bucket = map.get(row.library_id);

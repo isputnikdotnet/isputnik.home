@@ -9,6 +9,9 @@ import { StoryShareView, type StorySharePayload } from "./StoryShareView";
 import { cx } from "../shared/cx";
 import { formatClock } from "../shared/formatClock";
 import { isFoliateFormat } from "../shared/utils";
+// The guest pages' stylesheet, shared with DropPage: it loads with them, not on every route (docs/css-map.md).
+import "../styles/share-page.css";
+import { Button } from "../shared/Button";
 
 interface ShareFile {
   id: string;
@@ -192,14 +195,14 @@ function GallerySetShareView({ token, payload }: { token: string; payload: Galle
         ) : (
           <div className="share-set-grid">
             {items.map((item, index) => (
-              <button key={item.id} type="button" className="share-set-tile" onClick={() => setOpenIndex(index)} aria-label={t("user:viewer.openItem", { title: item.title })}>
+              <Button variant="tile" key={item.id} className="share-set-tile" onClick={() => setOpenIndex(index)} aria-label={t("user:viewer.openItem", { title: item.title })}>
                 {item.coverUrl ? (
                   <img src={item.coverUrl} alt="" loading="lazy" />
                 ) : (
                   <span className="share-set-fallback"><ImageIcon size={24} aria-hidden="true" /></span>
                 )}
                 {item.kind === "video" && <span className="share-set-video-badge"><Play size={11} aria-hidden="true" />{t("user:viewer.video")}</span>}
-              </button>
+              </Button>
             ))}
           </div>
         )}
@@ -218,16 +221,16 @@ function GallerySetShareView({ token, payload }: { token: string; payload: Galle
               <a className="secondary-button compact-button" href={open.downloadUrl} download>
                 <Download size={15} /><span>{t("user:actions.download")}</span>
               </a>
-              <button className="icon-button" onClick={() => setOpenIndex(null)} aria-label={t("common:common.close")}>
+              <Button variant="icon" onClick={() => setOpenIndex(null)} aria-label={t("common:common.close")}>
                 <X size={18} />
-              </button>
+              </Button>
             </div>
           </div>
           <div className="share-set-viewer-body">
             {openIndex! > 0 && (
-              <button className="share-set-nav prev" onClick={() => setOpenIndex(openIndex! - 1)} aria-label={t("user:viewer.previous")}>
+              <Button variant="bare" className="share-set-nav prev" onClick={() => setOpenIndex(openIndex! - 1)} aria-label={t("user:viewer.previous")}>
                 <ChevronLeft size={26} />
-              </button>
+              </Button>
             )}
             {open.kind === "video" ? (
               <video key={open.id} src={open.fileUrl} controls playsInline poster={open.previewUrl ?? undefined} />
@@ -235,9 +238,9 @@ function GallerySetShareView({ token, payload }: { token: string; payload: Galle
               <img key={open.id} src={open.previewUrl ?? open.fileUrl} alt={open.title} />
             )}
             {openIndex! < items.length - 1 && (
-              <button className="share-set-nav next" onClick={() => setOpenIndex(openIndex! + 1)} aria-label={t("user:viewer.next")}>
+              <Button variant="bare" className="share-set-nav next" onClick={() => setOpenIndex(openIndex! + 1)} aria-label={t("user:viewer.next")}>
                 <ChevronRight size={26} />
-              </button>
+              </Button>
             )}
           </div>
         </div>,
@@ -320,9 +323,9 @@ function EbookShareView({ token, payload }: { token: string; payload: EbookShare
           </div>
 
           <div className="share-actions">
-            <button className="primary-button" onClick={() => setReading(true)}>
+            <Button variant="primary" onClick={() => setReading(true)}>
               <BookOpen size={16} /><span>{t("common:home.read")}</span>
-            </button>
+            </Button>
             <a className="secondary-button" href={downloadUrl} download>
               <Download size={16} /><span>{t("user:actions.download")}</span>
             </a>
@@ -360,9 +363,9 @@ function EbookShareView({ token, payload }: { token: string; payload: EbookShare
               <a className="secondary-button compact-button" href={downloadUrl} download>
                 <Download size={15} /><span>{t("user:actions.download")}</span>
               </a>
-              <button className="icon-button" onClick={() => setReading(false)} aria-label={t("common:common.close")}>
+              <Button variant="icon" onClick={() => setReading(false)} aria-label={t("common:common.close")}>
                 <X size={18} />
-              </button>
+              </Button>
             </div>
           </div>
           <iframe className="share-doc-viewer-frame" src={fileUrl} title={book.title} />
@@ -559,9 +562,9 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
 
         <div className="share-tools">
           <div className="share-vol">
-            <button className="player-vol-icon" onClick={toggleMute} aria-label={muted ? t("user:sharePage.unmute") : t("user:sharePage.mute")}>
+            <Button variant="bare" className="player-vol-icon" onClick={toggleMute} aria-label={muted ? t("user:sharePage.unmute") : t("user:sharePage.mute")}>
               {muted || volume === 0 ? <VolumeX size={17} /> : <Volume2 size={17} />}
-            </button>
+            </Button>
             <input
               type="range"
               className="player-vol-slider"
@@ -575,7 +578,8 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
           </div>
 
           <div className="share-menu-anchor">
-            <button
+            <Button
+              variant="bare"
               className={cx("share-tool-btn", speedOpen && "open")}
               onClick={toggleSpeedMenu}
               aria-expanded={speedOpen}
@@ -584,25 +588,27 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
             >
               <span>{rateLabel(playbackRate)}</span>
               <ChevronDown size={14} aria-hidden="true" />
-            </button>
+            </Button>
             {speedOpen && (
               <div className="share-menu" onClick={(e) => e.stopPropagation()}>
                 {RATES.map((rate) => (
-                  <button
+                  <Button
+                    variant="bare"
                     key={rate}
                     className={cx("share-menu-option", playbackRate === rate && "active")}
                     onClick={() => changeRate(rate)}
                     aria-pressed={playbackRate === rate}
                   >
                     {rateLabel(rate)}
-                  </button>
+                  </Button>
                 ))}
               </div>
             )}
           </div>
 
           <div className="share-menu-anchor">
-            <button
+            <Button
+              variant="bare"
               className={cx("share-tool-btn", sleepOpen && "open", sleepMode !== "off" && "active")}
               onClick={toggleSleepMenu}
               aria-expanded={sleepOpen}
@@ -611,33 +617,36 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
             >
               <Moon size={15} aria-hidden="true" />
               <span>{sleepLabel ?? t("user:sharePage.sleep")}</span>
-            </button>
+            </Button>
             {sleepOpen && (
               <div className="share-menu" onClick={(e) => e.stopPropagation()}>
-                <button
+                <Button
+                  variant="bare"
                   className={cx("share-menu-option", sleepMode === "off" && "active")}
                   onClick={() => chooseSleep("off")}
                   aria-pressed={sleepMode === "off"}
                 >
                   {t("user:sharePage.off")}
-                </button>
+                </Button>
                 {SLEEP_MINUTES.map((min) => (
-                  <button
+                  <Button
+                    variant="bare"
                     key={min}
                     className={cx("share-menu-option", sleepMode === min && "active")}
                     onClick={() => chooseSleep(min)}
                     aria-pressed={sleepMode === min}
                   >
                     {t("user:sharePage.min", { count: min })}
-                  </button>
+                  </Button>
                 ))}
-                <button
+                <Button
+                  variant="bare"
                   className={cx("share-menu-option", sleepMode === "chapter" && "active")}
                   onClick={() => chooseSleep("chapter")}
                   aria-pressed={sleepMode === "chapter"}
                 >
                   {t("user:sharePage.endOfChapter")}
-                </button>
+                </Button>
               </div>
             )}
           </div>
@@ -646,13 +655,14 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
         <div className="share-actions">
           {files.length > 1 && (
             <div className="share-menu-anchor">
-              <button className="secondary-button" onClick={toggleChapters} aria-expanded={chaptersOpen}>
+              <Button variant="secondary" onClick={toggleChapters} aria-expanded={chaptersOpen}>
                 <List size={16} /><span>{t("user:sharePage.chapters")}</span>
-              </button>
+              </Button>
               {chaptersOpen && (
                 <div className="share-chapter-menu" onClick={(e) => e.stopPropagation()}>
                   {files.map((file, index) => (
-                    <button
+                    <Button
+                      variant="bare"
                       key={file.id}
                       className={cx("share-chapter-item", index === fileIndex && "active")}
                       onClick={() => jumpToChapter(index)}
@@ -662,7 +672,7 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
                       {file.durationSeconds != null && (
                         <span className="share-chapter-dur">{formatClock(file.durationSeconds)}</span>
                       )}
-                    </button>
+                    </Button>
                   ))}
                 </div>
               )}

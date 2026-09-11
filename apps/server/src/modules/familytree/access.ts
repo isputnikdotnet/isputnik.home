@@ -6,29 +6,26 @@
 // (enforced at the route layer).
 import { db } from "../../db.js";
 import { EVERYONE_GROUP_ID, roleAllows, type AuthUser, type ObjectRole } from "../../core/permissions.js";
+import type { AssignmentRow, GroupMemberRow, TaggableRow, TagRow } from "../../db/rows.js";
 
 export const FAMILY_TAG_OBJECT_TYPE = "family_tree_tag";
 export const FAMILY_PERSON_ENTITY_TYPE = "family_tree_person";
 
-export interface FamilyTag {
-  id: string;
-  name: string;
-  key: string;
+export interface FamilyTag extends Pick<TagRow, "id" | "key"> {
+  name: TagRow["display_name"];
 }
 
-interface TagAssignmentRow {
-  object_id: string;
-  subject_type: "user" | "group";
-  subject_id: string;
-  role: ObjectRole | "deny";
-}
+// role is ObjectRole | "deny" — exactly the column's CHECK list.
+type TagAssignmentRow = Pick<AssignmentRow, "object_id" | "subject_type" | "subject_id" | "role">;
+
+type FamilyTagUsage = Pick<TagRow, "id"> & { name: TagRow["display_name"]; count: number; editorCount: number };
 
 // All family-tree tags the user may edit through, resolved with the same
 // semantics as resolveObjectRole (deny blocks outright, strongest explicit
 // grant beats the Everyone baseline) but across every tag in one query.
 // Admins are handled by the callers ("all tags") and never reach this.
 function editableTagsForSubjects(user: AuthUser): FamilyTag[] {
-  const groupIds = (db.prepare("SELECT group_id FROM group_members WHERE user_id = ?").all(user.id) as { group_id: string }[])
+  const groupIds = (db.prepare("SELECT group_id FROM group_members WHERE user_id = ?").all(user.id) as Pick<GroupMemberRow, "group_id">[])
     .map((g) => g.group_id);
   const subjectGroupIds = [...groupIds, EVERYONE_GROUP_ID];
   const placeholders = subjectGroupIds.map(() => "?").join(", ");
@@ -110,7 +107,7 @@ export function decoratePersons<T extends { id: string }>(
     JOIN tags ON tags.id = taggables.tag_id
     WHERE taggables.entity_type = '${FAMILY_PERSON_ENTITY_TYPE}'
     ORDER BY tags.display_name COLLATE NOCASE
-  `).all() as { person_id: string; tag_id: string; name: string }[];
+  `).all() as { person_id: TaggableRow["entity_id"]; tag_id: TagRow["id"]; name: TagRow["display_name"] }[];
   const tagsByPerson = new Map<string, { tagIds: string[]; names: string[] }>();
   for (const row of tagRows) {
     const entry = tagsByPerson.get(row.person_id) ?? { tagIds: [], names: [] };
@@ -131,7 +128,7 @@ export function decoratePersons<T extends { id: string }>(
 // Tags in use on family persons, with usage counts — feeds the person-edit
 // autocomplete and the people-page filter. The library tag browse only counts
 // library_item taggables, so family tags need their own listing.
-export function listFamilyTags(): { id: string; name: string; count: number; editorCount: number }[] {
+export function listFamilyTags(): FamilyTagUsage[] {
   return db.prepare(`
     SELECT tags.id, tags.display_name AS name, COUNT(*) AS count,
       (SELECT COUNT(*) FROM assignments a
@@ -141,5 +138,5 @@ export function listFamilyTags(): { id: string; name: string; count: number; edi
     WHERE taggables.entity_type = '${FAMILY_PERSON_ENTITY_TYPE}'
     GROUP BY tags.id
     ORDER BY name COLLATE NOCASE
-  `).all() as { id: string; name: string; count: number; editorCount: number }[];
+  `).all() as FamilyTagUsage[];
 }

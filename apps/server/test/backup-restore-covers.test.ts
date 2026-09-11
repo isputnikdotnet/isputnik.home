@@ -12,9 +12,9 @@ import os from "node:os";
 import path from "node:path";
 import { ZipArchive } from "archiver";
 import Database from "better-sqlite3";
-import Fastify, { type FastifyInstance } from "fastify";
-import cookie from "@fastify/cookie";
+import type { FastifyInstance } from "fastify";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { bootApp } from "./helpers/boot.js";
 
 const BACKUP = "isputnik-20260101-120000.zip";
 const ADMIN = "boss";
@@ -83,7 +83,6 @@ beforeEach(async () => {
   // Fresh graph so config.ts reads the folders above.
   vi.resetModules();
   const { db } = await import("../src/db.js");
-  const { registerAuthDecorators, issueSession } = await import("../src/auth.js");
   const { backupsPlugin } = await import("../src/modules/backups/index.js");
   closeDb = () => db.close();
 
@@ -98,24 +97,9 @@ beforeEach(async () => {
     "INSERT INTO users (id, email, password_hash, display_name, role) VALUES (?, ?, 'x', ?, 'admin')"
   ).run(ADMIN, "boss@test.local", "Boss");
 
-  app = Fastify();
-  await app.register(cookie);
-  await registerAuthDecorators(app);
-  await app.register(backupsPlugin);
-  app.post("/test/sign-in", async (request, reply) => {
-    issueSession(reply, ADMIN, request);
-    return reply.send({ ok: true });
-  });
-  await app.ready();
-
-  signIn = async () => {
-    const res = await app.inject({ method: "POST", url: "/test/sign-in" });
-    const raw = res.headers["set-cookie"];
-    const list = Array.isArray(raw) ? raw : [String(raw)];
-    const found = list.find((entry) => entry.startsWith("isputnik_sid="));
-    if (!found) throw new Error("no session cookie was set");
-    return found.split(";")[0];
-  };
+  const booted = await bootApp({ plugins: [backupsPlugin] });
+  app = booted.app;
+  signIn = () => booted.signIn(ADMIN);
 });
 
 afterEach(async () => {

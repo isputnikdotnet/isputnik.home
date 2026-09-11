@@ -18,6 +18,7 @@ import {
   MIN_WINDOW_MINUTES
 } from "../../core/device-link.js";
 import { alertNewAdmin, alertMfaDisabled, alertPasswordChanged } from "../../core/security-alerts.js";
+import type { UserRow } from "../../db/rows.js";
 
 const roleSchema = z.object({
   role: z.enum(["admin", "member"])
@@ -101,7 +102,7 @@ export async function usersPlugin(app: FastifyInstance) {
     // row instead, which also keeps every reference to it intact.
     const existing = db
       .prepare("SELECT id, deleted_at FROM users WHERE email = ?")
-      .get(parsed.data.email) as { id: string; deleted_at: string | null } | undefined;
+      .get(parsed.data.email) as Pick<UserRow, "id" | "deleted_at"> | undefined;
     if (existing && !existing.deleted_at) {
       return reply.code(409).send({ error: "An account with this email already exists" });
     }

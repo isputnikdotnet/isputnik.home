@@ -9,6 +9,7 @@ import { db } from "../../db.js";
 import { parseQuery } from "../../core/shared.js";
 import { accessibleLibraryIds } from "./shared/library-access.js";
 import { BOOK_LIBRARY_TYPES } from "./shared/library-types.js";
+import type { AudiobookDetailRow, ItemMetadataRow, LibraryItemRow, Nullable } from "../../db/rows.js";
 
 export interface FeedItem {
   id: string;
@@ -24,20 +25,17 @@ export interface FeedItem {
   totalSize: number | null;
 }
 
-export interface FeedRow {
-  id: string;
-  kind: "audiobook" | "ebook";
-  title: string | null;
-  folder_path: string;
-  discovered_at: string;
-  cover_storage_key: string | null;
-  author_names: string | null;
-  pct: number | null;
-  completed_at: string | null;
-  duration_seconds: number | null;
-  doc_format: string | null;
-  doc_total_size: number | null;
-}
+export type FeedRow = Pick<LibraryItemRow, "id" | "folder_path" | "discovered_at"> &
+  Nullable<Pick<ItemMetadataRow, "title" | "cover_storage_key">> &
+  Nullable<Pick<AudiobookDetailRow, "duration_seconds">> & {
+    // libraries.type AS kind — only book-like libraries are ever queried
+    kind: "audiobook" | "ebook";
+    author_names: string | null;
+    pct: number | null;
+    completed_at: string | null;
+    doc_format: string | null;
+    doc_total_size: number | null;
+  };
 
 const placeholders = (n: number) => Array(n).fill("?").join(", ");
 

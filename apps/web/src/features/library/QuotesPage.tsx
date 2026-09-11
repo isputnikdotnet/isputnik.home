@@ -10,7 +10,7 @@ import { Modal } from "../../shared/Modal";
 import { SelectField } from "../../shared/SelectField";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { MessageBox } from "../../shared/MessageBox";
-import { relativeTime } from "../../shared/utils";
+import { relativeTime } from "../../shared/relativeTime";
 import { useDebouncedValue } from "../../shared/useDebouncedValue";
 import i18n from "../../i18n";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
@@ -220,16 +220,15 @@ function QuoteEditor({
     >
       <div className="modal-tabs quote-editor-tabs" role="tablist">
         {QUOTE_EDITOR_TABS.map((id) => (
-          <button
+          <Button
+            variant="tab"
             key={id}
-            type="button"
-            role="tab"
-            aria-selected={tab === id}
-            className={`modal-tab${tab === id ? " active" : ""}`}
+            className="modal-tab"
+            selected={tab === id}
             onClick={() => setTab(id)}
           >
             {t(`user:quotes.editorTabs.${id}` as "user:quotes.editorTabs.quote")}
-          </button>
+          </Button>
         ))}
       </div>
 
@@ -643,9 +642,9 @@ export function QuotesPage() {
         {offered.length > 1 && (
           <div className="quote-filters" role="group" aria-label={t("user:quotes.filterLabel")}>
             {offered.map((key) => (
-              <button
+              <Button
+                variant="chip"
                 key={key}
-                type="button"
                 className={`quote-filter${filter === key ? " is-active" : ""}`}
                 aria-pressed={filter === key}
                 onClick={() => setFilter(key)}
@@ -656,7 +655,7 @@ export function QuotesPage() {
                 {countFor(key) !== undefined && (
                   <span className="quote-filter-count">{countFor(key)}</span>
                 )}
-              </button>
+              </Button>
             ))}
             {/* The undo for a bulk import, offered where its result is on screen.
                 Counts only your own — the route cannot touch anyone else's. */}
@@ -712,14 +711,14 @@ export function QuotesPage() {
                           {quote.tags.length > 0 && (
                             <div className="quote-tags">
                               {quote.tags.map((tag) => (
-                                <button
+                                <Button
+                                  variant="chip"
                                   key={tag}
-                                  type="button"
                                   className="quote-tag"
                                   onClick={() => setFilter(`tag:${tag}`)}
                                 >
                                   {tag}
-                                </button>
+                                </Button>
                               ))}
                             </div>
                           )}
@@ -735,54 +734,49 @@ export function QuotesPage() {
                             </span>
                             <div className="quote-card-actions">
                               {href && (
-                                <button
-                                  type="button"
-                                  className="icon-button"
+                                <Button
+                                  variant="icon"
                                   onClick={() => navigate(href)}
                                   aria-label={t("user:quotes.openInReader")}
                                   title={t("user:quotes.openInReader")}
                                 >
                                   <BookOpen size={16} />
-                                </button>
+                                </Button>
                               )}
-                              <button
-                                type="button"
-                                className="icon-button"
+                              <Button
+                                variant="icon"
                                 onClick={() => setCollecting(quote)}
                                 aria-label={t("user:quotes.addToCollectionAria")}
                                 title={t("user:collections.addTo")}
                               >
                                 <ListPlus size={16} />
-                              </button>
-                              <button
-                                type="button"
-                                className="icon-button"
+                              </Button>
+                              <Button
+                                variant="icon"
                                 onClick={() => copyQuote(quote)}
                                 aria-label={t("user:quotes.copyAria")}
                                 title={t("user:actions.copy")}
                               >
                                 <Copy size={16} />
-                              </button>
+                              </Button>
                               {quote.mine && (
                                 <>
-                                  <button
-                                    type="button"
-                                    className="icon-button"
+                                  <Button
+                                    variant="icon"
                                     onClick={() => openEdit(quote)}
                                     aria-label={t("user:quotes.editAria")}
                                     title={t("user:actions.edit")}
                                   >
                                     <Pencil size={16} />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="icon-button danger"
+                                  </Button>
+                                  <Button
+                                    variant="icon" danger
                                     onClick={() => setDeleting(quote)}
                                     aria-label={t("user:quotes.deleteAria")}
                                     title={t("user:actions.delete")}
                                   >
                                     <Trash2 size={16} />
-                                  </button>
+                                  </Button>
                                 </>
                               )}
                             </div>

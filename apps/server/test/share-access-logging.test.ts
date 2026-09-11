@@ -5,13 +5,12 @@
 // route with no preHandler at all, and that the resulting activity_logs row
 // carries their name. The share page is same-origin and the session cookie is
 // SameSite=lax, so it does; this holds the wiring to it.
-import Fastify, { type FastifyInstance } from "fastify";
-import cookie from "@fastify/cookie";
+import type { FastifyInstance } from "fastify";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { db } from "../src/db.js";
 import { sha256 } from "../src/crypto.js";
 import { librarySharesPlugin } from "../src/modules/library/shared/shares/index.js";
-import { registerAuthDecorators } from "../src/auth.js";
+import { bootApp } from "./helpers/boot.js";
 import { resetDb, makeUser, makeLibrary, futureIso } from "./helpers/seed.js";
 
 const TOKEN = "a-share-token";
@@ -44,11 +43,7 @@ beforeEach(async () => {
     "INSERT INTO share_links (id, module, resource_id, token_hash, expires_at, created_by) VALUES ('link-1', 'audiobook', ?, ?, ?, 'owner')"
   ).run(ITEM, sha256(TOKEN), futureIso());
 
-  app = Fastify();
-  await app.register(cookie);
-  await registerAuthDecorators(app);
-  await app.register(librarySharesPlugin);
-  await app.ready();
+  ({ app } = await bootApp({ plugins: [librarySharesPlugin] }));
 });
 
 afterEach(async () => {

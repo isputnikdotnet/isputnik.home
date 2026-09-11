@@ -8,6 +8,7 @@
 // so a gallery library_items row with deleted_at set is ONLY ever a reconcile tombstone.
 import { db, logActivity } from "../../../db.js";
 import { purgeCataloguedItem } from "../shared/trash.js";
+import type { AppSettingRow, ItemMetadataRow, LibraryItemRow, LibraryRow, NonNull } from "../../../db/rows.js";
 
 const RETENTION_KEY = "gallery_missing_retention_days";
 const DEFAULT_MISSING_RETENTION_DAYS = 30;
@@ -25,7 +26,7 @@ export interface MissingPhoto {
 
 // Days a missing photo lingers before auto-purge. 0 = never (keep tombstones forever).
 export function getMissingRetentionDays(): number {
-  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(RETENTION_KEY) as { value: string } | undefined;
+  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(RETENTION_KEY) as Pick<AppSettingRow, "value"> | undefined;
   if (!row) return DEFAULT_MISSING_RETENTION_DAYS;
   const parsed = Number.parseInt(row.value, 10);
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : DEFAULT_MISSING_RETENTION_DAYS;
@@ -41,15 +42,11 @@ export function setMissingRetentionDays(days: number, userId: string | null): nu
   return clamped;
 }
 
-interface MissingRow {
-  id: string;
-  folder_path: string;
-  deleted_at: string;
-  library_id: string;
-  library_name: string;
+type MissingRow = NonNull<Pick<LibraryItemRow, "id" | "folder_path" | "deleted_at" | "library_id">, "deleted_at"> & {
+  library_name: LibraryRow["name"];
   title: string;
-  cover: string | null;
-}
+  cover: ItemMetadataRow["cover_storage_key"] | null;
+};
 
 const MISSING_SELECT = `
   SELECT li.id, li.folder_path, li.deleted_at, li.library_id,

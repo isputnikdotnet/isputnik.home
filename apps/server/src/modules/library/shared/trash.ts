@@ -44,6 +44,7 @@ import {
   pruneEmptyTrashDir,
   type TrashBookRow
 } from "./trash-fs.js";
+import type { ItemMetadataRow, LibraryItemRow, LibraryRow, TrashedItemRow } from "../../../db/rows.js";
 
 /** The one row the bin move is carrying right now. Restore and purge step around it for
  *  the seconds the move takes rather than racing it for the same folder. Kept here, not
@@ -58,32 +59,16 @@ function refuseWhileMoving(id: string): void {
   }
 }
 
-export interface TrashedItem {
-  id: string;
-  library_id: string;
-  library_type: string;
-  library_name: string;
-  source_path: string;
-  title: string;
-  origin_path: string;
-  trash_path: string;
-  file_count: number;
-  size_bytes: number;
-  /** Thumbnail kept alive for the bin's preview; null for pre-2.11 rows. */
-  cover_key: string | null;
-  /** What removed it — a hand delete or a duplicate cleanup. Decides which retention
-   *  clock it was given, and lets the bin separate a cleanup's thousands of rows from
-   *  the handful someone deleted themselves. */
-  source: string;
-  /** When it will be purged, fixed at the moment it was trashed. NULL = kept until the
-   *  bin is emptied by hand. */
-  expires_at: string | null;
-  /** The install-wide bin folder this row's files went into; NULL = the library's own
-   *  `.trash`, which is the default and what every pre-2.23 row means. */
-  trash_root: string | null;
-  trashed_by: string | null;
-  trashed_at: string;
-}
+/** A whole `trashed_items` row. What some of its columns mean:
+ *  - cover_key: thumbnail kept alive for the bin's preview; null for pre-2.11 rows.
+ *  - source: what removed it — a hand delete or a duplicate cleanup. Decides which
+ *    retention clock it was given, and lets the bin separate a cleanup's thousands of
+ *    rows from the handful someone deleted themselves.
+ *  - expires_at: when it will be purged, fixed at the moment it was trashed. NULL = kept
+ *    until the bin is emptied by hand.
+ *  - trash_root: the install-wide bin folder this row's files went into; NULL = the
+ *    library's own `.trash`, which is the default and what every pre-2.23 row means. */
+export type TrashedItem = TrashedItemRow;
 
 // Load the live book with the extra fields the bin snapshot needs (type, size, counts
 // across both audio files and documents — ebooks have only documents).
@@ -182,9 +167,7 @@ export interface TrashResult {
  *  somewhere the app reads and does not own, and allowDelete=false says the same
  *  thing more narrowly. Nobody's role overrides either. */
 export function libraryAllowsDelete(libraryId: string): boolean {
-  const row = db.prepare("SELECT policy_json FROM libraries WHERE id = ?").get(libraryId) as
-    | { policy_json: string }
-    | undefined;
+  const row = db.prepare("SELECT policy_json FROM libraries WHERE id = ?").get(libraryId) as Pick<LibraryRow, "policy_json"> | undefined;
   if (!row) return false;
   const policy = parsePolicy(row.policy_json);
   if ((policy.mode ?? "managed") === "external") return false;
@@ -303,9 +286,7 @@ export async function restoreTrashedItem(id: string, deferScan = false): Promise
   if (!item) throw new TrashError("Item not found.", 404);
   refuseWhileMoving(id);
 
-  const library = db.prepare("SELECT id, type FROM libraries WHERE id = ?").get(item.library_id) as
-    | { id: string; type: string }
-    | undefined;
+  const library = db.prepare("SELECT id, type FROM libraries WHERE id = ?").get(item.library_id) as Pick<LibraryRow, "id" | "type"> | undefined;
   if (!library) {
     throw new TrashError("The library this item belonged to no longer exists. It can be permanently deleted, but not restored.", 409);
   }
@@ -325,7 +306,7 @@ export async function restoreTrashedItem(id: string, deferScan = false): Promise
     // rescanItem needs a row to scan — revive a stale one at this path or insert fresh,
     // mirroring the upload path's catalog step.
     const existing = db.prepare("SELECT id FROM library_items WHERE library_id = ? AND folder_path = ?")
-      .get(item.library_id, restoredPath) as { id: string } | undefined;
+      .get(item.library_id, restoredPath) as Pick<LibraryItemRow, "id"> | undefined;
     const bookId = existing?.id ?? nanoid(16);
     if (existing) {
       db.prepare("UPDATE library_items SET deleted_at = NULL, status = 'pending', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(bookId);
@@ -394,7 +375,12 @@ export function purgeCataloguedItem(itemId: string): boolean {
     JOIN libraries ON libraries.id = library_items.library_id
     LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
     WHERE library_items.id = ?
-  `).get(itemId) as { id: string; library_id: string; library_type: string; cover_storage_key: string | null } | undefined;
+  `).get(itemId) as
+    | (Pick<LibraryItemRow, "id" | "library_id"> & {
+        library_type: LibraryRow["type"];
+        cover_storage_key: ItemMetadataRow["cover_storage_key"] | null;
+      })
+    | undefined;
   if (!row) return false;
 
   const mediaType = getMediaType(row.library_type);

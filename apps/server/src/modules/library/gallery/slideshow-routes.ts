@@ -42,10 +42,10 @@ import { presentRenderItems, slideshowTitleCardPreview, slideshowClosingCardPrev
 import { parseRangeHeader, pipeFileToReply } from "../shared/document-stream.js";
 import { sourceIsWritable } from "../shared/library-source.js";
 import { canUserWriteLibrary } from "../shared/library-access.js";
-import type { LibraryListRow } from "../shared/library-serializer.js";
 import { thumbnailAbsolutePath } from "../shared/thumbnail.js";
 import { getHouseLibrary } from "./house-library.js";
 import fs from "node:fs";
+import type { GalleryDetailRow, ItemMetadataRow, LibraryItemRow, LibraryRow, Nullable } from "../../../db/rows.js";
 
 // How wide the title-card preview is drawn. The card itself is 1920 wide; this is a
 // dialog-sized look at it, not the frame the movie carries.
@@ -187,7 +187,7 @@ function movieTargetFields(slideshow: SlideshowRow) {
 // A library is a usable movie target only if the caller can write it AND its folder is
 // writable. Returns an error message, or null when it is fine.
 function movieTargetProblem(libraryId: string, user: { id: string; role: string }): string | null {
-  const row = db.prepare("SELECT * FROM libraries WHERE id = ? AND type = 'gallery'").get(libraryId) as LibraryListRow | undefined;
+  const row = db.prepare("SELECT * FROM libraries WHERE id = ? AND type = 'gallery'").get(libraryId) as LibraryRow | undefined;
   if (!row) return "That gallery library no longer exists.";
   if (!canUserWriteLibrary(row, user.id, user.role)) return "You don't have permission to add to that library.";
   const writable = sourceIsWritable(row.source_path);
@@ -210,7 +210,8 @@ function clipSummary(libIds: string[], itemId: string | null) {
     WHERE library_items.id = ? AND library_items.deleted_at IS NULL
       AND gallery_details.kind = 'video'
       AND library_items.library_id IN (${Array(libIds.length).fill("?").join(", ")})
-  `).get(itemId, ...libIds) as { id: string; title: string | null; cover_key: string | null; duration_seconds: number | null } | undefined;
+  `).get(itemId, ...libIds) as (Pick<LibraryItemRow, "id"> & Pick<GalleryDetailRow, "duration_seconds">
+    & Nullable<Pick<ItemMetadataRow, "title">> & { cover_key: ItemMetadataRow["cover_storage_key"] | null }) | undefined;
   if (!row) return null;
   return {
     id: row.id,
@@ -273,7 +274,7 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
   // and nobody can tell why. (Static path — Fastify routes this ahead of "/:id" below.)
   app.get("/api/library/gallery/slideshows/settings", { preHandler: app.authenticate }, async (request) => {
     const user = request.user!;
-    const rows = db.prepare("SELECT * FROM libraries WHERE type = 'gallery' ORDER BY name COLLATE NOCASE").all() as LibraryListRow[];
+    const rows = db.prepare("SELECT * FROM libraries WHERE type = 'gallery' ORDER BY name COLLATE NOCASE").all() as LibraryRow[];
     const libraries = rows.map((row) => {
       const canWrite = canUserWriteLibrary(row, user.id, user.role);
       const writable = canWrite ? sourceIsWritable(row.source_path) : { ok: true as const };
@@ -565,7 +566,7 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
     const problem = movieTargetProblem(libraryId, user);
     if (problem) return reply.send({ usable: false, reason: problem });
 
-    const library = db.prepare("SELECT source_path FROM libraries WHERE id = ?").get(libraryId) as { source_path: string };
+    const library = db.prepare("SELECT source_path FROM libraries WHERE id = ?").get(libraryId) as Pick<LibraryRow, "source_path">;
     const root = validateLibrarySource(library.source_path);
     const probe = { ...slideshow, movie_file_stem: query.stem?.trim() || slideshow.movie_file_stem };
     const policy: MovieConflictPolicy = query.onConflict === "overwrite" ? "overwrite" : "keep_both";
@@ -593,7 +594,7 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
           SELECT item_metadata.title AS title, gallery_details.taken_at AS takenAt
           FROM gallery_details LEFT JOIN item_metadata ON item_metadata.item_id = gallery_details.item_id
           WHERE gallery_details.item_id = ?
-        `).get(foreign) as { title: string | null; takenAt: string | null } | undefined
+        `).get(foreign) as (Nullable<Pick<ItemMetadataRow, "title">> & { takenAt: GalleryDetailRow["taken_at"] }) | undefined
       : undefined;
 
     return reply.send({

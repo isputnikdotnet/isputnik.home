@@ -28,6 +28,7 @@ import { parseBody, parseQuery } from "../../core/shared.js";
 import { addEntityTags } from "./shared/tagging.js";
 import { languageSchema, QUOTE_ENTITY_TYPE } from "./quotes.js";
 import { partialDateSchema } from "../familytree/persons.js";
+import type { QuoteImportRow, QuoteRow } from "../../db/rows.js";
 
 // One request's worth. Anything larger is REFUSED rather than truncated: a
 // silent cap would look like a complete import that quietly lost 15,000 lines.
@@ -108,10 +109,10 @@ export function registerQuoteImportRoutes(app: FastifyInstance) {
       FROM quote_imports i
       WHERE i.user_id = ?
       ORDER BY datetime(i.created_at) DESC
-    `).all(user.id) as {
-      id: string; file_name: string | null; created_at: string;
-      imported_count: number; remaining: number;
-    }[];
+    `).all(user.id) as (Pick<QuoteImportRow, "id" | "file_name" | "created_at"> & {
+      imported_count: QuoteImportRow["quote_count"];
+      remaining: number;
+    })[];
 
     return reply.send({
       imports: rows.map((row) => ({
@@ -132,11 +133,11 @@ export function registerQuoteImportRoutes(app: FastifyInstance) {
     const importId = (request.params as { id: string }).id;
 
     const record = db.prepare("SELECT id, file_name FROM quote_imports WHERE id = ? AND user_id = ?")
-      .get(importId, user.id) as { id: string; file_name: string | null } | undefined;
+      .get(importId, user.id) as Pick<QuoteImportRow, "id" | "file_name"> | undefined;
     if (!record) return reply.code(404).send({ error: "Import not found" });
 
     const ids = (db.prepare("SELECT id FROM quotes WHERE import_id = ? AND user_id = ?")
-      .all(importId, user.id) as { id: string }[]).map((row) => row.id);
+      .all(importId, user.id) as Pick<QuoteRow, "id">[]).map((row) => row.id);
 
     db.transaction(() => {
       const dropTags = db.prepare("DELETE FROM taggables WHERE entity_type = ? AND entity_id = ?");
@@ -199,10 +200,7 @@ export function registerQuoteImportRoutes(app: FastifyInstance) {
 
       // Everything this user already has, keyed the way the incoming rows are.
       const seen = new Set<string>(
-        (db.prepare("SELECT text, source_author FROM quotes WHERE user_id = ?").all(user.id) as {
-          text: string;
-          source_author: string | null;
-        }[]).map((row) => dedupKey(row.text, row.source_author))
+        (db.prepare("SELECT text, source_author FROM quotes WHERE user_id = ?").all(user.id) as Pick<QuoteRow, "text" | "source_author">[]).map((row) => dedupKey(row.text, row.source_author))
       );
 
       const invalid: { index: number; reason: string }[] = [];

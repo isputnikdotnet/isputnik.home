@@ -42,6 +42,7 @@ import {
   type GalleryLibraryRow
 } from "./app-storage.js";
 import { houseRoom, roomView, type RoomView } from "./app-storage-rooms.js";
+import type { LibraryRow } from "../../db/rows.js";
 
 /** Queue moving a gallery library's folder to `to` as a storage move task
  *  (storage-move.ts): the library keeps pointing at its old folder until every
@@ -204,7 +205,7 @@ function switchInbox(mode: AppRoomMode, libraryId: string | null, userId: string
 }
 
 function setInboxFlag(libraryId: string, inbox: boolean): void {
-  const row = db.prepare("SELECT policy_json FROM libraries WHERE id = ?").get(libraryId) as { policy_json: string } | undefined;
+  const row = db.prepare("SELECT policy_json FROM libraries WHERE id = ?").get(libraryId) as Pick<LibraryRow, "policy_json"> | undefined;
   if (!row) return;
   let policy: Record<string, unknown> = {};
   try { policy = JSON.parse(row.policy_json || "{}") as Record<string, unknown>; } catch { /* rebuilt */ }

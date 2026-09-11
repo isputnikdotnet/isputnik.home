@@ -3,6 +3,7 @@ import { db } from "../db.js";
 import { sha256 } from "../crypto.js";
 import { isPrivateIp } from "./cidr.js";
 import { deviceLinkAllowedFrom, isTrustedIp } from "./security.js";
+import type { DeviceLinkRequestRow, DeviceLinkWindowRow } from "../db/rows.js";
 
 // Link a device: signing a TV, wall display or kiosk in by scanning a QR code with
 // a phone that is already signed in, instead of typing a password with a remote
@@ -43,24 +44,11 @@ const USER_CODE_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
 const USER_CODE_LENGTH = 8;
 const userCodeBody = customAlphabet(USER_CODE_ALPHABET, USER_CODE_LENGTH);
 
-export type LinkRequestStatus = "pending" | "approved" | "denied" | "consumed";
+export type LinkRequestStatus = DeviceLinkRequestRow["status"];
 
-export interface LinkRequestRow {
-  id: string;
-  device_code_hash: string;
-  user_code: string;
-  status: LinkRequestStatus;
-  created_at: string;
-  expires_at: string;
-  attempts: number;
-  user_agent: string | null;
-  ip_address: string | null;
-  approved_by: string | null;
-  approved_at: string | null;
-  session_id: string | null;
-  /** 1 when the request came from outside the house — see device_link_windows. */
-  remote: 0 | 1;
-}
+// A whole device_link_requests row. `remote` is 1 when the request came from outside
+// the house — see device_link_windows.
+export type LinkRequestRow = DeviceLinkRequestRow;
 
 export interface NewLinkRequest {
   id: string;
@@ -162,9 +150,7 @@ export function findPendingByUserCode(code: string): LinkRequestRow | null {
  */
 export function noteFailedApproval(id: string): number {
   db.prepare("UPDATE device_link_requests SET attempts = attempts + 1 WHERE id = ?").run(id);
-  const row = db.prepare("SELECT attempts FROM device_link_requests WHERE id = ?").get(id) as
-    | { attempts: number }
-    | undefined;
+  const row = db.prepare("SELECT attempts FROM device_link_requests WHERE id = ?").get(id) as Pick<DeviceLinkRequestRow, "attempts"> | undefined;
   return Math.max(0, MAX_ATTEMPTS - (row?.attempts ?? MAX_ATTEMPTS));
 }
 
@@ -276,16 +262,7 @@ export function normalizeWindowMinutes(minutes: number | undefined | null): numb
   return Math.min(MAX_WINDOW_MINUTES, Math.max(MIN_WINDOW_MINUTES, Math.round(minutes as number)));
 }
 
-export interface LinkWindowRow {
-  id: string;
-  user_id: string;
-  created_by: string | null;
-  created_at: string;
-  expires_at: string;
-  used_at: string | null;
-  session_id: string | null;
-  revoked_at: string | null;
-}
+export type LinkWindowRow = DeviceLinkWindowRow;
 
 // Liveness is derived every time, never stored, for the same reason the request
 // table has no 'expired' status: a stored state has to be swept to become true.

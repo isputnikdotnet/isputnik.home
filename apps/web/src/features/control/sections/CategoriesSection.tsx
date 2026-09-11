@@ -122,12 +122,12 @@ export function CategoriesSection() {
     <>
       <ControlSectionHead section="categories" description={t("control:categories.description")}>
         <div className="category-head-actions">
-          <button className="primary-button" onClick={() => navigate(`${controlHref("categories")}/new`)}>
+          <Button variant="primary" onClick={() => navigate(`${controlHref("categories")}/new`)}>
             <Plus size={16} /> {t("control:categories.addCategory")}
-          </button>
-          <button className="secondary-button" onClick={rematch} disabled={rematching} title={t("control:categories.rematchTitle")}>
+          </Button>
+          <Button variant="secondary" onClick={rematch} disabled={rematching} title={t("control:categories.rematchTitle")}>
             <RefreshCw size={15} /> {rematching ? t("control:categories.rematching") : t("control:categories.rematchAll")}
-          </button>
+          </Button>
         </div>
       </ControlSectionHead>
 
@@ -206,16 +206,16 @@ export function CategoriesSection() {
                   <td className="col-num datagrid-muted">{category.mappingCount}</td>
                   <td className="col-actions">
                     <div className="category-actions-cell">
-                      <button
-                        className="secondary-button compact-button"
+                      <Button
+                        variant="secondary" compact
                         disabled={!orderDirty || orderSavingId === category.id}
                         onClick={() => saveCategoryOrder(category)}
                       >
                         <Check size={14} /> {t("control:categories.saveOrder")}
-                      </button>
-                      <button className="secondary-button compact-button" onClick={() => navigate(`${controlHref("categories")}/${category.id}`)}>
+                      </Button>
+                      <Button variant="secondary" compact onClick={() => navigate(`${controlHref("categories")}/${category.id}`)}>
                         <Pencil size={14} /> {t("control:categories.edit")}
-                      </button>
+                      </Button>
                     </div>
                   </td>
                 </tr>
@@ -282,9 +282,9 @@ function KeywordChip({ alias, onSaveKeyword, onSavePriority, onDelete }: {
           }
         }}
       />
-      <button type="button" onClick={() => onDelete(alias.id)} aria-label={t("control:categories.deleteAria", { keyword: alias.keyword })}>
+      <Button variant="bare" onClick={() => onDelete(alias.id)} aria-label={t("control:categories.deleteAria", { keyword: alias.keyword })}>
         <X size={16} />
-      </button>
+      </Button>
     </div>
   );
 }
@@ -521,19 +521,19 @@ export function CategoryEditorPage({ categoryId }: { categoryId: string | null }
   return (
     <div className="category-editor-page">
       <div className="category-editor-page-head">
-        <button className="text-button category-editor-back" onClick={() => navigate(controlHref("categories"))}>
+        <Button variant="text" className="category-editor-back" onClick={() => navigate(controlHref("categories"))}>
           <ArrowLeft size={15} />
           {t("control:categories.backToCategories")}
-        </button>
+        </Button>
         <div className="category-editor-title-row">
           <h1>{isNew ? t("control:categories.addCategoryTitle") : t("control:categories.editCategoryTitle")}</h1>
           <div className="category-head-actions">
-            <button className="secondary-button" type="button" onClick={() => navigate(controlHref("categories"))} disabled={saving || deleting}>
+            <Button variant="secondary" onClick={() => navigate(controlHref("categories"))} disabled={saving || deleting}>
               {t("control:ui.cancel")}
-            </button>
-            <button className="primary-button" type="button" onClick={saveCategory} disabled={saving || deleting || !name.trim()}>
+            </Button>
+            <Button variant="primary" onClick={saveCategory} disabled={saving || deleting || !name.trim()}>
               <Check size={16} /> {saving ? t("control:ui.saving") : t("control:ui.saveChanges")}
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -567,9 +567,9 @@ export function CategoryEditorPage({ categoryId }: { categoryId: string | null }
               />
             </label>
             {currentImageUrl && (
-              <button className="icon-button danger" type="button" onClick={clearImage} aria-label={t("control:categories.removeImageAria")}>
+              <Button variant="icon" danger onClick={clearImage} aria-label={t("control:categories.removeImageAria")}>
                 <X size={15} />
-              </button>
+              </Button>
             )}
           </div>
 
@@ -624,25 +624,27 @@ export function CategoryEditorPage({ categoryId }: { categoryId: string | null }
         </aside>
 
         <section className="category-editor-main">
-          <div className="category-editor-tabs">
-            <button
-              className={`category-editor-tab${editorTab === "mappings" ? " active" : ""}`}
-              type="button"
+          <div className="category-editor-tabs" role="tablist">
+            <Button
+              variant="tab"
+              className="category-editor-tab"
+              selected={editorTab === "mappings"}
               onClick={() => setEditorTab("mappings")}
             >
               <List size={18} />
               <span>{t("control:categories.mappingsTab")}</span>
               <strong>{editorAliases.length}</strong>
-            </button>
-            <button
-              className={`category-editor-tab${editorTab === "tags" ? " active" : ""}`}
-              type="button"
+            </Button>
+            <Button
+              variant="tab"
+              className="category-editor-tab"
+              selected={editorTab === "tags"}
               onClick={() => setEditorTab("tags")}
             >
               <TagsIcon size={18} />
               <span>{t("control:categories.tagsTab")}</span>
               <strong>{tags.length}</strong>
-            </button>
+            </Button>
           </div>
 
           {editorTab === "mappings" && (
@@ -687,14 +689,13 @@ export function CategoryEditorPage({ categoryId }: { categoryId: string | null }
                   <span>{t("control:categories.defaultPriority")}</span>
                   <input type="number" min={0} max={999} value={priority} onChange={(event) => setPriority(event.target.value)} />
                 </label>
-                <button
-                  className="primary-button"
-                  type="button"
+                <Button
+                  variant="primary"
                   onClick={addCategoryAliases}
                   disabled={!category || !keyword.trim()}
                 >
                   {t("control:ui.add")}
-                </button>
+                </Button>
               </div>
             </>
           )}
@@ -755,14 +756,13 @@ export function CategoryEditorPage({ categoryId }: { categoryId: string | null }
                             {existingAlias.categoryName}
                           </span>
                         ) : (
-                          <button
-                            className="secondary-button compact-button"
-                            type="button"
+                          <Button
+                            variant="secondary" compact
                             onClick={() => addTagAsKeyword(tag)}
                             disabled={!category}
                           >
                             <Plus size={14} /> {t("control:ui.add")}
-                          </button>
+                          </Button>
                         )}
                       </div>
                     );
@@ -770,13 +770,12 @@ export function CategoryEditorPage({ categoryId }: { categoryId: string | null }
                 </div>
                 {filteredTags.length > visibleTags.length && (
                   <div className="category-tag-more">
-                    <button
-                      className="secondary-button compact-button"
-                      type="button"
+                    <Button
+                      variant="secondary" compact
                       onClick={() => setTagLimit((limit) => limit + TAG_PAGE_SIZE)}
                     >
                       {t("control:categories.showMore", { count: filteredTags.length - visibleTags.length })}
-                    </button>
+                    </Button>
                   </div>
                 )}
                 </>

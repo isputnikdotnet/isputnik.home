@@ -8,7 +8,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { nanoid } from "nanoid";
 import { db } from "../../../db.js";
+import { stmt } from "../../../db/statement-cache.js";
 import { matchLayouts, validateLayouts, MAX_LAYOUTS } from "./scan-rule-pattern.js";
+import type { LibraryItemRow, LibraryRow, LibraryScanRulePathRow, LibraryScanRuleRow } from "../../../db/rows.js";
 
 export interface ScanRule {
   id: string;
@@ -78,7 +80,7 @@ function normalizeLayouts(input: ScanRuleInput): string[] {
 }
 
 function libraryMediaType(libraryId: string): "audiobook" | "ebook" | null {
-  const row = db.prepare("SELECT type FROM libraries WHERE id = ?").get(libraryId) as { type: string } | undefined;
+  const row = db.prepare("SELECT type FROM libraries WHERE id = ?").get(libraryId) as Pick<LibraryRow, "type"> | undefined;
   if (!row) return null;
   return row.type === "audiobook" ? "audiobook" : "ebook";
 }
@@ -87,7 +89,7 @@ function libraryMediaType(libraryId: string): "audiobook" | "ebook" | null {
 function conflictingPath(libraryId: string, paths: string[], excludeRuleId: string | null): string | null {
   for (const path of paths) {
     const row = db.prepare("SELECT rule_id FROM library_scan_rule_paths WHERE library_id = ? AND relative_path = ?")
-      .get(libraryId, path) as { rule_id: string } | undefined;
+      .get(libraryId, path) as Pick<LibraryScanRulePathRow, "rule_id"> | undefined;
     if (row && row.rule_id !== excludeRuleId) return path;
   }
   return null;
@@ -103,10 +105,7 @@ function parseLayouts(json: string): string[] {
   return [];
 }
 
-interface RuleRow {
-  id: string; library_id: string; name: string; enabled: number; preset: string | null;
-  layouts_json: string; last_scanned_at: string | null; created_at: string; updated_at: string;
-}
+type RuleRow = LibraryScanRuleRow;
 
 function rowToRule(r: RuleRow, paths: string[]): ScanRule {
   return {
@@ -120,23 +119,23 @@ function rowToRule(r: RuleRow, paths: string[]): ScanRule {
 const RULE_COLUMNS = "id, library_id, name, enabled, preset, layouts_json, last_scanned_at, created_at, updated_at";
 
 export function getScanRule(id: string): ScanRule | null {
-  const r = db.prepare(`SELECT ${RULE_COLUMNS} FROM library_scan_rules WHERE id = ?`).get(id) as RuleRow | undefined;
+  const r = stmt(`SELECT ${RULE_COLUMNS} FROM library_scan_rules WHERE id = ?`).get(id) as RuleRow | undefined;
   if (!r) return null;
   const paths = (db.prepare("SELECT relative_path FROM library_scan_rule_paths WHERE rule_id = ? ORDER BY relative_path")
-    .all(id) as { relative_path: string }[]).map((row) => row.relative_path);
+    .all(id) as Pick<LibraryScanRulePathRow, "relative_path">[]).map((row) => row.relative_path);
   return rowToRule(r, paths);
 }
 
 export function listScanRules(libraryId: string): ScanRule[] {
   const ids = db.prepare("SELECT id FROM library_scan_rules WHERE library_id = ? ORDER BY name COLLATE NOCASE")
-    .all(libraryId) as { id: string }[];
+    .all(libraryId) as Pick<LibraryScanRuleRow, "id">[];
   return ids.map((row) => getScanRule(row.id)).filter((r): r is ScanRule => r !== null);
 }
 
 // The library's default layout: the rule anchored at the root, if any.
 export function getDefaultLayoutRule(libraryId: string): ScanRule | null {
   const row = db.prepare("SELECT rule_id FROM library_scan_rule_paths WHERE library_id = ? AND relative_path = ''")
-    .get(libraryId) as { rule_id: string } | undefined;
+    .get(libraryId) as Pick<LibraryScanRulePathRow, "rule_id"> | undefined;
   return row ? getScanRule(row.rule_id) : null;
 }
 
@@ -226,7 +225,11 @@ export interface ResolvedOwner {
   anchor: string; // the rule folder (relative path) that owns the item
 }
 
-interface OwnerPathRow { path: string; ruleId: string; enabled: number }
+type OwnerPathRow = {
+  path: LibraryScanRulePathRow["relative_path"];
+  ruleId: LibraryScanRulePathRow["rule_id"];
+  enabled: LibraryScanRuleRow["enabled"];
+};
 
 function ownerPathRows(libraryId: string): OwnerPathRow[] {
   return db.prepare(`
@@ -338,7 +341,7 @@ export interface RulePreviewRow {
 
 export function classifyPreviewChange(libraryId: string, itemPath: string, ruleId: string | null, matched: boolean): PreviewChange {
   const row = db.prepare("SELECT scan_rule_id FROM library_items WHERE library_id = ? AND folder_path = ? AND deleted_at IS NULL")
-    .get(libraryId, itemPath) as { scan_rule_id: string | null } | undefined;
+    .get(libraryId, itemPath) as Pick<LibraryItemRow, "scan_rule_id"> | undefined;
   if (!matched) return "added-without-fields";
   if (!row) return "new";
   if (row.scan_rule_id === null) return "moves-from-default";
@@ -377,7 +380,7 @@ export interface ScanRuleStats { books: number; unmatched: number; missingFolder
 
 export function scanRuleStats(rule: ScanRule, sourceRoot: string | null): ScanRuleStats {
   const items = db.prepare("SELECT folder_path FROM library_items WHERE library_id = ? AND scan_rule_id = ? AND deleted_at IS NULL")
-    .all(rule.libraryId, rule.id) as { folder_path: string }[];
+    .all(rule.libraryId, rule.id) as Pick<LibraryItemRow, "folder_path">[];
   let unmatched = 0;
   for (const item of items) {
     // The anchor is the rule's own most specific folder containing the item.

@@ -36,6 +36,7 @@ import { EbookUploadModal } from "./EbookUploadModal";
 import { GroupAsEditionsModal } from "./GroupAsEditionsModal";
 import { UploadBookModal } from "./UploadBookModal";
 import { useCatalogSelection } from "./useCatalogSelection";
+import { Button } from "../../../shared/Button";
 
 // The Audiobooks page and the Ebooks page — one browse page over the server's
 // paged catalog, drawn for either kind of library. What differs between the two
@@ -52,7 +53,9 @@ export function CatalogPage({ kind }: { kind: CatalogKind }) {
   // filter behaves as a scope, anything else is "all". Keeps one source of truth
   // for what's in view.
   const [selectedLibraryId, setSelectedLibraryId] = useState("all");
-  const [sort, setSort] = useState<SortKey>(() => (config.rememberSort ? readCatalogView(config.persistKey).sort : "recent"));
+  // Remembered for the session like the rest of the view (search, filters, View),
+  // so stepping into a book and back keeps the order you chose.
+  const [sort, setSort] = useState<SortKey>(() => readCatalogView(config.persistKey).sort);
   const [density, setDensity] = useState<CatalogDensity>(() => readCatalogView(config.persistKey).density);
   const [librariesError, setLibrariesError] = useState("");
   const [loaded, setLoaded] = useState(false);
@@ -125,7 +128,9 @@ export function CatalogPage({ kind }: { kind: CatalogKind }) {
   const canEditScope = scopedLibraries.some((library) => library.canWrite);
   // Delete access in view drives bulk delete (works across several libraries too).
   const canDeleteScope = scopedLibraries.some((library) => library.canDelete);
-  const canSelect = canEditScope || (config.selectToDelete && canDeleteScope);
+  // Either is reason to select: someone who may only delete still needs a way to
+  // tick several books, and the row then offers Delete alone.
+  const canSelect = canEditScope || canDeleteScope;
   // Series live in a single library, so bulk "Add to series" is only offered when
   // the list is down to one — which means one library picked in Filter.
   const canAddToSeries = canEditScope && selectedLibraryId !== "all";
@@ -137,22 +142,25 @@ export function CatalogPage({ kind }: { kind: CatalogKind }) {
     ? Array.from(new Set([...cat.facets.authors, ...cat.facets.narrators]))
     : cat.facets.authors;
 
-  const loadLibraries = useCallback(async (quiet = false) => {
+  // Also what the scan poll below calls, so a failed poll says so — and the next
+  // good one takes the message down again rather than leaving a stale error up.
+  const loadLibraries = useCallback(async () => {
     try {
       const payload = await api<{ libraries: CatalogLibrary[] }>(`/api/library/${config.librariesPath}`);
       setLibraries(payload.libraries);
+      setLibrariesError("");
       setLoaded(true);
     } catch (err) {
-      if (!quiet) setLibrariesError(err instanceof Error ? err.message : t(K.unableLoadLibraries));
+      setLibrariesError(err instanceof Error ? err.message : t(K.unableLoadLibraries));
     }
   }, [config.librariesPath, K, t]);
 
   useEffect(() => { void loadLibraries(); }, [loadLibraries]);
 
-  // What an upload or a delete changed: the catalog, and for ebooks the library
-  // counts the empty-state message is worded from.
+  // What an upload or a delete changed: the catalog, and the library counts the
+  // empty-state message is worded from.
   const refreshAfterChange = () => {
-    if (config.refreshLibrariesAfterChange) void loadLibraries();
+    void loadLibraries();
     cat.refresh();
   };
 
@@ -184,7 +192,7 @@ export function CatalogPage({ kind }: { kind: CatalogKind }) {
   useEffect(() => {
     if (!libraries.some((library) => library.scanStatus === "scanning")) return;
     const timer = window.setInterval(() => {
-      void loadLibraries(config.quietPoll);
+      void loadLibraries();
       cat.refresh();
     }, 3000);
     return () => window.clearInterval(timer);
@@ -283,7 +291,10 @@ export function CatalogPage({ kind }: { kind: CatalogKind }) {
         {error && <MessageBox tone="error" title={t(K.errorTitle)}>{error}</MessageBox>}
         {notice && <MessageBox tone="success" title={t("book:catalog.libraryUpdatedTitle")}>{notice}</MessageBox>}
 
-        {(loaded || !config.emptyStateAfterLoad) && libraries.length === 0 ? (
+        {/* Only once the list has actually arrived: before that, an empty
+            array means "not loaded yet", and saying "no libraries" flashed the
+            wrong page at everyone who has some. */}
+        {loaded && libraries.length === 0 ? (
           <div className="empty-state library-empty">
             {isEbook ? <BookMarked size={58} aria-hidden="true" /> : <BookOpen size={58} aria-hidden="true" />}
             <h2>{t(K.noLibraries)}</h2>
@@ -344,16 +355,16 @@ export function CatalogPage({ kind }: { kind: CatalogKind }) {
                   )}
                   <span className="library-toolbar-divider" aria-hidden="true" />
                   {!isMobile && canSelect && (
-                    <button type="button" className="library-toolbar-button" onClick={() => { selection.enter(); setNotice(""); }}>
+                    <Button variant="toolbar" onClick={() => { selection.enter(); setNotice(""); }}>
                       <CheckSquare size={18} aria-hidden="true" />
                       <span className="toolbar-label">{t("book:catalog.select")}</span>
-                    </button>
+                    </Button>
                   )}
                   {uploadLibraries.length > 0 && (
-                    <button type="button" className="library-toolbar-button primary" onClick={() => { setUploadOpen(true); setNotice(""); }}>
+                    <Button variant="toolbar" className="primary" onClick={() => { setUploadOpen(true); setNotice(""); }}>
                       <UploadCloud size={18} aria-hidden="true" />
                       <span className="toolbar-label">{t("book:catalog.upload")}</span>
-                    </button>
+                    </Button>
                   )}
                 </>
               }
@@ -363,69 +374,64 @@ export function CatalogPage({ kind }: { kind: CatalogKind }) {
                 // exactly where hesitation costs the most.
                 actions: (
                   <>
-                    <button
-                      type="button"
-                      className="library-toolbar-button"
+                    <Button
+                      variant="toolbar"
                       onClick={() => selection.selectAll(cat.books.map((book) => book.id))}
                       disabled={cat.books.length === 0}
                       title={t(K.selectAllLoaded)}
                     >
                       <CheckCheck size={18} aria-hidden="true" />
                       <span className="toolbar-label">{t("book:catalog.all")}</span>
-                    </button>
+                    </Button>
                     {canEditScope && (
-                      <button
-                        type="button"
-                        className="library-toolbar-button"
+                      <Button
+                        variant="toolbar"
                         onClick={() => selection.setBulkOpen(true)}
                         disabled={selection.selectedIds.size === 0}
                         title={t("book:detail.editMetadata")}
                       >
                         <Pencil size={18} aria-hidden="true" />
                         <span className="toolbar-label">{t("book:catalog.edit")}</span>
-                      </button>
+                      </Button>
                     )}
                     {canEditScope && (
-                      <button
-                        type="button"
-                        className="library-toolbar-button"
+                      <Button
+                        variant="toolbar"
                         onClick={() => selection.setEditionsOpen(true)}
                         disabled={selection.selectedIds.size < 2}
                         title={t(K.groupSelected)}
                       >
                         <Layers size={18} aria-hidden="true" />
                         <span className="toolbar-label">{t("book:catalog.group")}</span>
-                      </button>
+                      </Button>
                     )}
                     {canAddToSeries && (
-                      <button
-                        type="button"
-                        className="library-toolbar-button"
+                      <Button
+                        variant="toolbar"
                         onClick={() => selection.setSeriesOpen(true)}
                         disabled={selection.selectedIds.size === 0}
                         title={t("book:catalog.addToSeriesTitle")}
                       >
                         <Library size={18} aria-hidden="true" />
                         <span className="toolbar-label">{t("book:catalog.seriesShort")}</span>
-                      </button>
+                      </Button>
                     )}
                     {canDeleteScope && (
-                      <button
-                        type="button"
-                        className="library-toolbar-button danger"
+                      <Button
+                        variant="toolbar" danger
                         onClick={selection.openDelete}
                         disabled={selection.selectedIds.size === 0}
                         title={t(K.deleteSelected)}
                       >
                         <Trash2 size={18} aria-hidden="true" />
                         <span className="toolbar-label">{t("book:catalog.delete")}</span>
-                      </button>
+                      </Button>
                     )}
                     <span className="library-toolbar-divider" aria-hidden="true" />
-                    <button type="button" className="library-toolbar-button" onClick={selection.exit} title={t("book:catalog.leaveSelection")}>
+                    <Button variant="toolbar" onClick={selection.exit} title={t("book:catalog.leaveSelection")}>
                       <X size={18} aria-hidden="true" />
                       <span className="toolbar-label">{t("common:common.done")}</span>
-                    </button>
+                    </Button>
                   </>
                 )
               } : null}

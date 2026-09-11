@@ -1,0 +1,36 @@
+/* The slideshow title card's font-style chips, each drawn in its own face. The
+   files are copies of the very TTFs the server renders the movie with
+   (public/fonts, see apps/server/src/assets/fonts/README.md) — a chip is a
+   truthful sample, and the preview image above it is the final word.
+
+   Imported by features/gallery/SlideshowTitleCardModal.tsx, the only place
+   these families are used, so the faces are declared with the dialog rather
+   than on every page; a browser fetches a file only once a chip draws with it,
+   and font-display: swap keeps the label readable in the fallback meanwhile.
+   The chips' own rules (.slideshow-card-font) stay in gallery.css. */
+
+@font-face {
+  font-family: "CardClassic";
+  src: url("/fonts/DejaVuSans.ttf") format("truetype");
+  font-display: swap;
+}
+@font-face {
+  font-family: "CardSerif";
+  src: url("/fonts/DejaVuSerif.ttf") format("truetype");
+  font-display: swap;
+}
+@font-face {
+  font-family: "CardBold";
+  src: url("/fonts/DejaVuSans-Bold.ttf") format("truetype");
+  font-display: swap;
+}
+@font-face {
+  font-family: "CardScript";
+  src: url("/fonts/MarckScript-Regular.ttf") format("truetype");
+  font-display: swap;
+}
+@font-face {
+  font-family: "CardTypewriter";
+  src: url("/fonts/PTMono-Regular.ttf") format("truetype");
+  font-display: swap;
+}

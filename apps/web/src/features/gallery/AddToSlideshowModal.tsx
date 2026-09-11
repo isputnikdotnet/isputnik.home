@@ -5,6 +5,7 @@ import { api } from "../../api";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
 import type { GallerySlideshow } from "./types";
+import { Button } from "../../shared/Button";
 
 // Date shown on each card — the last time the slideshow changed. "Oct 14, 2024".
 function slideshowDate(iso: string): string {
@@ -114,20 +115,21 @@ export function AddToSlideshowModal({
               placeholder={t("galleryModals:addToSlideshow.newNamePlaceholder")}
               maxLength={120}
             />
-            <button className="primary-button compact-button" onClick={createAndAdd} disabled={!newName.trim() || pendingId != null}>{t("galleryModals:common.createAndAdd")}</button>
-            <button className="secondary-button compact-button" onClick={() => setCreating(false)}><X size={15} /></button>
+            <Button variant="primary" compact onClick={createAndAdd} disabled={!newName.trim() || pendingId != null}>{t("galleryModals:common.createAndAdd")}</Button>
+            <Button variant="secondary" compact onClick={() => setCreating(false)}><X size={15} /></Button>
           </div>
         ) : (
-          <button className="secondary-button add-to-album-create" onClick={() => setCreating(true)}>
+          <Button variant="secondary" className="add-to-album-create" onClick={() => setCreating(true)}>
             <Plus size={18} />
             <span>{t("galleryModals:addToSlideshow.createNew")}</span>
-          </button>
+          </Button>
         )}
 
         {filtered.length > 0 && (
           <div className="gallery-folder-grid add-to-album-grid">
             {filtered.map((slideshow) => (
-              <button
+              <Button
+                variant="tile"
                 className="gallery-folder-tile add-to-album-tile"
                 key={slideshow.id}
                 onClick={() => void addTo(slideshow.id, slideshow.name)}
@@ -139,7 +141,7 @@ export function AddToSlideshowModal({
                 </span>
                 <strong>{slideshow.name}</strong>
                 <small>{slideshowDate(slideshow.updatedAt)}</small>
-              </button>
+              </Button>
             ))}
           </div>
         )}

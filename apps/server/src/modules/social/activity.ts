@@ -34,9 +34,13 @@
 //     their story on the front page like everyone else does
 import { db } from "../../db.js";
 import { hydrateEntities, type HydratedEntity } from "./subjects.js";
+import type { NoteRow, StoryChapterRow, StoryRow } from "../../db/rows.js";
 
 export type ActivityKind = "note" | "album" | "slideshow" | "person" | "story" | "story_update";
 
+// A UNION over six tables: the identity columns come from whichever arm the
+// row belongs to, so they stay plain; the note/chapter columns are NULL in
+// every arm but their own.
 interface ActivityRow {
   kind: ActivityKind;
   id: string;
@@ -47,11 +51,11 @@ interface ActivityRow {
   entity_type: string;
   entity_id: string;
   /** A note's text; null for everything else. */
-  body: string | null;
+  body: NoteRow["body"] | null;
   /** A story update's chapter, as the fields that name it; null otherwise. */
-  chapter_id: string | null;
-  chapter_title: string | null;
-  chapter_noun: string | null;
+  chapter_id: StoryChapterRow["id"] | null;
+  chapter_title: StoryChapterRow["title"] | null;
+  chapter_noun: StoryRow["chapter_noun"] | null;
   chapter_number: number | null;
 }
 

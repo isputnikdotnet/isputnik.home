@@ -18,6 +18,7 @@ import { db } from "../../db.js";
 import { parseQuery } from "../../core/shared.js";
 import { normalizeText } from "./shared/tagging.js";
 import { QUOTE_ENTITY_TYPE } from "./quotes.js";
+import type { QuoteRow, TaggableRow, TagRow } from "../../db/rows.js";
 
 /** How many category chips the card offers at once. */
 const OFFERED_CATEGORIES = 8;
@@ -44,15 +45,7 @@ export interface DailyQuote {
   yearsAgo: number | null;
 }
 
-interface PoolRow {
-  id: string;
-  text: string;
-  source_title: string | null;
-  source_author: string | null;
-  person_name: string | null;
-  language: string | null;
-  quote_date: string | null;
-}
+type PoolRow = Pick<QuoteRow, "id" | "text" | "source_title" | "source_author" | "person_name" | "language" | "quote_date">;
 
 // An anniversary needs the exact day, so only a FULL date qualifies: 'YYYY' and
 // 'YYYY-MM' say when something was said without saying which day, and a quote
@@ -100,7 +93,7 @@ export function dailyQuote(
     WHERE taggables.entity_type = ?
       AND taggables.entity_id IN (${pool.map(() => "?").join(", ")})
   `).all(QUOTE_ENTITY_TYPE, ...pool.map((row) => row.id)) as
-    { quote_id: string; name: string; key: string }[];
+    ({ quote_id: TaggableRow["entity_id"]; name: TagRow["display_name"] } & Pick<TagRow, "key">)[];
 
   const keysByQuote = new Map<string, Set<string>>();
   const nameByKey = new Map<string, string>();

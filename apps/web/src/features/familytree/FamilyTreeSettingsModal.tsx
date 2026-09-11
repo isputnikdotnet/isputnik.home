@@ -100,16 +100,17 @@ export function FamilyTreeSettingsModal({
         busy={saving}
         onClose={() => { if (!importOpen && !pickerOpen) onClose(); }}
       >
-        <div className="modal-tabs">
+        <div className="modal-tabs" role="tablist">
           {tabs.map(({ id, label }) => (
-            <button
+            <Button
+              variant="tab"
               key={id}
-              type="button"
-              className={`modal-tab${tab === id ? " active" : ""}`}
+              className="modal-tab"
+              selected={tab === id}
               onClick={() => { setTab(id); setSaved(false); setError(""); }}
             >
               {label}
-            </button>
+            </Button>
           ))}
         </div>
 

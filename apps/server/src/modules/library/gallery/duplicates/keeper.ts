@@ -2,6 +2,7 @@ import { db } from "../../../../db.js";
 import { libraryAllowsDelete } from "../../shared/trash.js";
 import { allFolderLocks, lockCoveredIn } from "../../shared/folder-locks.js";
 import type { DetailRow } from "./details.js";
+import type { LibraryRow } from "../../../../db/rows.js";
 
 // Filename shapes a file manager or download produces for a second copy. Deliberately
 // narrow: a trailing "-1"/"_1" is NOT included, because IMG_1234.jpg would match it.
@@ -126,7 +127,7 @@ interface Scored extends DetailRow {
 
 // Which libraries refuse deletion, answered once and reused for every copy scored.
 function protectedLibraries(): Set<string> {
-  const rows = db.prepare("SELECT id FROM libraries WHERE type = 'gallery'").all() as { id: string }[];
+  const rows = db.prepare("SELECT id FROM libraries WHERE type = 'gallery'").all() as Pick<LibraryRow, "id">[];
   return new Set(rows.filter((row) => !libraryAllowsDelete(row.id)).map((row) => row.id));
 }
 

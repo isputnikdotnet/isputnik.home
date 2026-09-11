@@ -21,15 +21,14 @@ const queueInboxCheck = vi.hoisted(() => vi.fn());
 // only recorded, so nothing keeps running after a test has reset the database.
 vi.mock("../src/modules/library/gallery/duplicates/inbox-check.js", () => ({ queueInboxCheck }));
 
-import Fastify, { type FastifyInstance } from "fastify";
-import cookie from "@fastify/cookie";
+import type { FastifyInstance } from "fastify";
 import multipart from "@fastify/multipart";
 import { db } from "../src/db.js";
 import { sha256 } from "../src/crypto.js";
-import { registerAuthDecorators } from "../src/auth.js";
 import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
 import { galleryDropRoutesPlugin } from "../src/modules/library/gallery/drop-routes.js";
 import { thumbnailPathSettingKey } from "../src/modules/library/shared/thumbnail.js";
+import { bootApp } from "./helpers/boot.js";
 import { resetDb, makeUser, makeLibrary, grant, futureIso, pastIso } from "./helpers/seed.js";
 import { multipart as body, type Part } from "./helpers/multipart.js";
 
@@ -121,12 +120,9 @@ beforeEach(async () => {
   makeGallery("INBOX", INBOX_POLICY);
   makeGallery("PHOTOS", { mode: "managed" });
 
-  app = Fastify();
-  await app.register(cookie);
-  await app.register(multipart, { limits: { files: 1, fields: 10, fieldSize: 100 * 1024 } });
-  await registerAuthDecorators(app);
-  await app.register(galleryDropRoutesPlugin);
-  await app.ready();
+  ({ app } = await bootApp({
+    plugins: [[multipart, { limits: { files: 1, fields: 10, fieldSize: 100 * 1024 } }], galleryDropRoutesPlugin]
+  }));
 });
 
 afterEach(async () => {

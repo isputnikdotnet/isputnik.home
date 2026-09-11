@@ -5,6 +5,7 @@ import { canUserAccessLibrary, canUserCurateLibrary, getLibraryForBook, type Lib
 import { newlySharedResources, notifyShareGranted } from "../share-notify.js";
 import { mediaKind } from "../library-types.js";
 import { loadAlbumShareMeta, type AlbumShareMeta } from "./album-shares.js";
+import type { UserRow } from "../../../../db/rows.js";
 
 // Whether the caller may share a book. Sharing hands external/other-user access to
 // the files, so it requires the Curator+ "curate" capability — not mere view. We
@@ -49,7 +50,7 @@ export function grantItemAccess(opts: {
 
   const target = db.prepare(
     "SELECT id FROM users WHERE id = ? AND deleted_at IS NULL AND is_active = 1"
-  ).get(opts.toUserId) as { id: string } | undefined;
+  ).get(opts.toUserId) as Pick<UserRow, "id"> | undefined;
   if (!target) return "no_such_user";
 
   const expiresAt = opts.expiresInDays ? addDays(opts.expiresInDays).toISOString() : null;
@@ -124,7 +125,7 @@ export function grantAlbumAccess(opts: {
 
   const target = db.prepare(
     "SELECT id FROM users WHERE id = ? AND deleted_at IS NULL AND is_active = 1"
-  ).get(opts.toUserId) as { id: string } | undefined;
+  ).get(opts.toUserId) as Pick<UserRow, "id"> | undefined;
   if (!target) return "no_such_user";
 
   const expiresAt = opts.expiresInDays ? addDays(opts.expiresInDays).toISOString() : null;

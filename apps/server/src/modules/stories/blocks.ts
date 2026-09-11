@@ -12,17 +12,11 @@ import {
   type RoutePoint,
   type StoryBlockKind
 } from "./stories.js";
+import type { StoryBlockPointRow, StoryBlockRow } from "../../db/rows.js";
 
 const inClause = (n: number) => Array(n).fill("?").join(", ");
 
-interface BlockPointRow {
-  block_id: string;
-  lat: number;
-  lng: number;
-  label: string | null;
-  mode: string | null;
-  geometry: string | null;
-}
+type BlockPointRow = Pick<StoryBlockPointRow, "block_id" | "lat" | "lng" | "label" | "mode" | "geometry">;
 
 export function getBlocks(storyId: string): BlockRow[] {
   return db.prepare(`
@@ -57,7 +51,7 @@ export function blockPointsByIds(blockIds: string[]): Map<string, RoutePoint[]> 
 function writeBlockPoints(blockId: string, points: RoutePoint[]): void {
   // Stops are a map block's business; a list sent for any other kind is dropped
   // rather than left as rows nothing will ever read.
-  const row = db.prepare("SELECT kind FROM story_blocks WHERE id = ?").get(blockId) as { kind: string } | undefined;
+  const row = db.prepare("SELECT kind FROM story_blocks WHERE id = ?").get(blockId) as Pick<StoryBlockRow, "kind"> | undefined;
   if (row?.kind !== "map") return;
   db.prepare("DELETE FROM story_block_points WHERE block_id = ?").run(blockId);
   const insert = db.prepare(

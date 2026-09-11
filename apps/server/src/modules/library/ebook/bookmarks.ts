@@ -4,21 +4,15 @@ import { nanoid } from "nanoid";
 import { db } from "../../../db.js";
 import { parseBody, parseQuery } from "../../../core/shared.js";
 import { getReadableDocument } from "../shared/library-access.js";
+import type { ReadingBookmarkRow } from "../../../db/rows.js";
 
 // Reader bookmarks for an epub document. The CFI is the jump target; percent_complete
 // is captured at save time for the "42%" display. Counterpart to the audiobook
 // position bookmarks in audiobook/bookmarks.ts — both feed the cross-type
 // /api/library/bookmarks listing (see modules/library/bookmarks.ts).
-interface EbookBookmarkRow {
-  id: string;
-  document_id: string;
-  cfi: string;
-  percent_complete: number | null;
-  label: string | null;
-  note: string | null;
-  created_at: string;
-  updated_at: string;
-}
+type EbookBookmarkRow = Pick<ReadingBookmarkRow, "id" | "document_id" | "percent_complete" | "label" | "note" | "created_at" | "updated_at"> & {
+  cfi: ReadingBookmarkRow["location"];
+};
 
 function publicEbookBookmark(row: EbookBookmarkRow) {
   return {

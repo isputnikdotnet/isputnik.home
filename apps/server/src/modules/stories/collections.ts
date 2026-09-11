@@ -13,18 +13,12 @@ import {
   seedCollectionAccess,
   visibleCollectionIds
 } from "./collection-access.js";
+import type { StoryCollectionRow } from "../../db/rows.js";
 
 const inClause = (n: number) => Array(n).fill("?").join(", ");
 
-export interface CollectionRow {
-  id: string;
-  title: string;
-  description: string | null;
-  cover_item_id: string | null;
-  created_by: string;
-  created_at: string;
-  updated_at: string;
-}
+/** A whole `story_collections` row. */
+export type CollectionRow = StoryCollectionRow;
 
 export function getCollection(collectionId: string): CollectionRow | undefined {
   return db.prepare("SELECT * FROM story_collections WHERE id = ?").get(collectionId) as CollectionRow | undefined;

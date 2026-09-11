@@ -1,7 +1,8 @@
 import fs from "node:fs";
 import { db } from "../../../db.js";
 import { binRootFor } from "./trash-settings.js";
-import { purgeTrashedItem, removeTrashFiles, type TrashedItem } from "./trash.js";
+import { purgeTrashedItem, removeTrashFiles } from "./trash.js";
+import type { TrashedItemRow } from "../../../db/rows.js";
 
 // Auto-purge everything past the retention window. Items whose source volume is currently
 // offline are skipped (so their files aren't orphaned) and retried on the next sweep —
@@ -12,7 +13,7 @@ export function purgeExpiredTrash(): { purged: number; eligible: number } {
   // shorten a promise already made.
   const expired = db.prepare(
     "SELECT * FROM trashed_items WHERE expires_at IS NOT NULL AND expires_at <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now')"
-  ).all() as TrashedItem[];
+  ).all() as TrashedItemRow[];
   let purged = 0;
   for (const item of expired) {
     if (!fs.existsSync(binRootFor(item))) continue;
@@ -31,7 +32,7 @@ export function purgeExpiredTrash(): { purged: number; eligible: number } {
 export function emptyTrash(libraryId?: string): number {
   const rows = (libraryId
     ? db.prepare("SELECT id FROM trashed_items WHERE library_id = ?").all(libraryId)
-    : db.prepare("SELECT id FROM trashed_items").all()) as { id: string }[];
+    : db.prepare("SELECT id FROM trashed_items").all()) as Pick<TrashedItemRow, "id">[];
   let purged = 0;
   for (const row of rows) {
     if (purgeTrashedItem(row.id)) purged += 1;

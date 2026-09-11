@@ -21,6 +21,7 @@ import {
 } from "../../core/app-storage.js";
 import { findStorageRootForPath, pathIsInside } from "./shared/storage-roots.js";
 import { TrashError } from "./shared/trash-settings.js";
+import type { LibraryRow } from "../../db/rows.js";
 
 export class AppStorageError extends Error {
   constructor(message: string, readonly statusCode = 400) {
@@ -29,13 +30,7 @@ export class AppStorageError extends Error {
   }
 }
 
-export interface GalleryLibraryRow {
-  id: string;
-  name: string;
-  source_path: string;
-  policy_json: string;
-  scan_status: string;
-}
+export type GalleryLibraryRow = Pick<LibraryRow, "id" | "name" | "source_path" | "policy_json" | "scan_status">;
 
 export const samePath = (a: string | null | undefined, b: string | null | undefined): boolean =>
   Boolean(a && b) && path.resolve(a!) === path.resolve(b!);
@@ -90,7 +85,7 @@ export function validateAppStoragePath(candidate: string, opts: { allowRoomLibra
     throw new AppStorageError("Choose a folder inside the container, not the container itself: the app makes its own folders in it.");
   }
   const roomPaths = new Set([...Object.values(APP_ROOM_FOLDERS), ...Object.values(LEGACY_ROOM_FOLDERS)].map((folder) => path.join(real, folder)));
-  const libraries = db.prepare("SELECT name, source_path FROM libraries").all() as { name: string; source_path: string }[];
+  const libraries = db.prepare("SELECT name, source_path FROM libraries").all() as Pick<LibraryRow, "name" | "source_path">[];
   for (const library of libraries) {
     const source = path.resolve(library.source_path);
     if (pathIsInside(real, source)) {

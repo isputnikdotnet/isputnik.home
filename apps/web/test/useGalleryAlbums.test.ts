@@ -9,7 +9,7 @@ const mockApi = vi.mocked(api);
 const status = () => ({ setLoading: vi.fn(), setError: vi.fn(), setNotice: vi.fn() });
 const asset = (id: string) => ({ id, title: id }) as never;
 
-beforeEach(() => mockApi.mockReset());
+beforeEach(() => { mockApi.mockReset(); });
 
 describe("useGalleryAlbums", () => {
   it("loads the album list and reports loading either side of it", async () => {

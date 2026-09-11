@@ -171,8 +171,8 @@ export function StoryChapterEditor({
       <section
         className={`story-edit-settings story-edit-chapter-settings${settingsOpen ? "" : " is-collapsed"}`}
       >
-        <button
-          type="button"
+        <Button
+          variant="bare"
           className="story-edit-settings-head"
           onClick={() => setSettingsOpen(!settingsOpen)}
           aria-expanded={settingsOpen}
@@ -182,7 +182,7 @@ export function StoryChapterEditor({
           <span className="story-edit-settings-chevron" aria-hidden="true">
             <ChevronUp size={16} />
           </span>
-        </button>
+        </Button>
 
         {settingsOpen && (
           <div className="story-edit-settings-body">

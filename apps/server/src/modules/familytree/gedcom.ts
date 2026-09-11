@@ -14,6 +14,7 @@ import { nanoid } from "nanoid";
 import { db } from "../../db.js";
 import { isAncestorOf } from "./persons.js";
 import { UNION_STATUSES, CHILD_RELATIONS } from "./relations.js";
+import type { FamilyTreeChildRow, FamilyTreeCitationRow, FamilyTreeEventRow, FamilyTreePersonRow, FamilyTreeSourceRow, FamilyTreeUnionRow } from "../../db/rows.js";
 
 export interface GedcomNode {
   tag: string;
@@ -256,7 +257,7 @@ export function importGedcom(text: string, mode: GedcomImportMode, createdBy: st
     if (mode === "replace") {
       const keys = db.prepare(
         "SELECT portrait_storage_key AS key FROM family_tree_persons WHERE portrait_storage_key IS NOT NULL"
-      ).all() as { key: string }[];
+      ).all() as { key: NonNullable<FamilyTreePersonRow["portrait_storage_key"]> }[];
       removedPortraitKeys.push(...keys.map((r) => r.key));
       // Persons cascade unions, which cascade child links; photo attachments,
       // events, and citations cascade too. Sources are tree data, so replacing
@@ -277,7 +278,7 @@ export function importGedcom(text: string, mode: GedcomImportMode, createdBy: st
       records.filter((r) => r.tag === "REPO" && r.xref).map((r) => [r.xref!, childValue(r, "NAME")])
     );
     const sourceIdByTitle = new Map<string, string>(
-      (db.prepare("SELECT id, title FROM family_tree_sources").all() as { id: string; title: string }[])
+      (db.prepare("SELECT id, title FROM family_tree_sources").all() as Pick<FamilyTreeSourceRow, "id" | "title">[])
         .map((r) => [r.title.toLowerCase(), r.id])
     );
     const sourceIdByXref = new Map<string, string>();
@@ -423,7 +424,7 @@ export function importGedcom(text: string, mode: GedcomImportMode, createdBy: st
 
     // In "add" mode existing children keep their one-parent-union invariant too.
     const linkedChildren = new Set<string>(
-      (db.prepare("SELECT child_id FROM family_tree_children").all() as { child_id: string }[]).map((r) => r.child_id)
+      (db.prepare("SELECT child_id FROM family_tree_children").all() as Pick<FamilyTreeChildRow, "child_id">[]).map((r) => r.child_id)
     );
 
     const resolve = (fam: GedcomNode, tag: string): string | null => {
@@ -511,42 +512,25 @@ export function exportGedcom(): string {
   const persons = db.prepare(`
     SELECT id, name, maiden_name, gender, birth_date, death_date, birthplace, death_place, bio
     FROM family_tree_persons ORDER BY name COLLATE NOCASE
-  `).all() as {
-    id: string; name: string; maiden_name: string | null; gender: string;
-    birth_date: string | null; death_date: string | null;
-    birthplace: string | null; death_place: string | null; bio: string | null;
-  }[];
+  `).all() as Pick<FamilyTreePersonRow, "id" | "name" | "maiden_name" | "gender" | "birth_date" | "death_date" | "birthplace" | "death_place" | "bio">[];
   const unions = db.prepare(`
     SELECT id, person1_id, person2_id, status, married_date, married_place, divorced_date, note
     FROM family_tree_unions ORDER BY married_date IS NULL, married_date, id
-  `).all() as {
-    id: string; person1_id: string; person2_id: string | null; status: string;
-    married_date: string | null; married_place: string | null;
-    divorced_date: string | null; note: string | null;
-  }[];
+  `).all() as Pick<FamilyTreeUnionRow, "id" | "person1_id" | "person2_id" | "status" | "married_date" | "married_place" | "divorced_date" | "note">[];
   const childLinks = db.prepare(
     "SELECT union_id, child_id, relation FROM family_tree_children"
-  ).all() as { union_id: string; child_id: string; relation: string }[];
+  ).all() as Pick<FamilyTreeChildRow, "union_id" | "child_id" | "relation">[];
   const eventRows = db.prepare(`
     SELECT id, person_id, type, label, date, end_date, place, note
     FROM family_tree_events ORDER BY date IS NULL, date, created_at
-  `).all() as {
-    id: string; person_id: string; type: string; label: string | null;
-    date: string | null; end_date: string | null; place: string | null; note: string | null;
-  }[];
+  `).all() as Pick<FamilyTreeEventRow, "id" | "person_id" | "type" | "label" | "date" | "end_date" | "place" | "note">[];
   const sources = db.prepare(
     "SELECT id, title, author, publisher, url, note FROM family_tree_sources ORDER BY title COLLATE NOCASE"
-  ).all() as {
-    id: string; title: string; author: string | null; publisher: string | null;
-    url: string | null; note: string | null;
-  }[];
+  ).all() as Pick<FamilyTreeSourceRow, "id" | "title" | "author" | "publisher" | "url" | "note">[];
   const citations = db.prepare(`
     SELECT source_id, person_id, event_id, union_id, fact, detail, url, note
     FROM family_tree_citations ORDER BY created_at
-  `).all() as {
-    source_id: string; person_id: string | null; event_id: string | null; union_id: string | null;
-    fact: string | null; detail: string | null; url: string | null; note: string | null;
-  }[];
+  `).all() as Pick<FamilyTreeCitationRow, "source_id" | "person_id" | "event_id" | "union_id" | "fact" | "detail" | "url" | "note">[];
   const sourceXref = new Map(sources.map((s, i) => [s.id, `@S${i + 1}@`]));
 
   const personXref = new Map(persons.map((p, i) => [p.id, `@I${i + 1}@`]));

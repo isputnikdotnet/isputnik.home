@@ -68,9 +68,9 @@ export function FoldersView({
         {folderMatches.folders.length > 0 ? (
           <div className="gallery-folder-grid">
             {folderMatches.folders.map((folder) => (
-              <button
+              <Button
+                variant="tile"
                 key={folder.path}
-                type="button"
                 className="gallery-folder-tile"
                 title={folder.path}
                 onClick={() => { setSearchText(""); void loadFolder(folder.path); }}
@@ -88,7 +88,7 @@ export function FoldersView({
                   {folder.locked && <Lock size={12} className="gallery-folder-lock" aria-label={t("gallery:folders.lockedAria")} />}
                   {t("gallery:common.counts.item", { count: folder.assetCount })}
                 </small>
-              </button>
+              </Button>
             ))}
           </div>
         ) : (
@@ -102,13 +102,13 @@ export function FoldersView({
     <>
       <div className="gallery-folder-bar">
         <div className="gallery-breadcrumb">
-          <button type="button" onClick={() => void loadFolder("")}>{t("gallery:folders.allFolders")}</button>
+          <Button variant="bare" onClick={() => void loadFolder("")}>{t("gallery:folders.allFolders")}</Button>
           {breadcrumbParts.map((part, i) => {
             const target = breadcrumbParts.slice(0, i + 1).join("/");
             return (
               <span key={target} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
                 <ChevronRight size={14} aria-hidden="true" />
-                <button type="button" onClick={() => void loadFolder(target)}>{part}</button>
+                <Button variant="bare" onClick={() => void loadFolder(target)}>{part}</Button>
               </span>
             );
           })}
@@ -186,7 +186,7 @@ export function FoldersView({
           <p className="gallery-section-label">{t("gallery:folders.foldersHeading", { count: folders.length })}</p>
           <div className="gallery-folder-grid">
             {folders.map((folder) => (
-              <button key={folder.path} type="button" className="gallery-folder-tile" onClick={() => void loadFolder(folder.path)}>
+              <Button variant="tile" key={folder.path} className="gallery-folder-tile" onClick={() => void loadFolder(folder.path)}>
                 <span className="gallery-folder-thumb">
                   {folder.coverUrl ? <img src={folder.coverUrl} alt="" loading="lazy" /> : <Folder size={28} aria-hidden="true" />}
                 </span>
@@ -195,7 +195,7 @@ export function FoldersView({
                   {folder.locked && <Lock size={12} className="gallery-folder-lock" aria-label={t("gallery:folders.lockedAria")} />}
                   {t("gallery:common.counts.item", { count: folder.assetCount })}
                 </small>
-              </button>
+              </Button>
             ))}
           </div>
         </>
@@ -219,9 +219,9 @@ export function FoldersView({
           </div>
           {folderAssets.length < folderTotal && (
             <div style={{ display: "flex", justifyContent: "center", padding: "16px 0" }}>
-              <button type="button" className="secondary-button" onClick={() => void loadFolder(parent, folderAssets.length)} disabled={loading}>
+              <Button variant="secondary" onClick={() => void loadFolder(parent, folderAssets.length)} disabled={loading}>
                 {loading ? t("gallery:common.loading") : t("gallery:common.loadMore")}
-              </button>
+              </Button>
             </div>
           )}
         </>

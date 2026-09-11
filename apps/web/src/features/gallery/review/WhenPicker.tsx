@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { Button } from "../../../shared/Button";
 
 // "When was this taken?" for someone answering about an old print: a year from a
 // list (decades as headings, this year at the top), then a month if she knows
@@ -90,12 +91,12 @@ export function WhenPicker({ value, onChange, disabled }: { value: WhenValue; on
         )}
       </div>
       <div className="review-toggle" role="group" aria-label={t("when.exactnessAria")}>
-        <button type="button" aria-pressed={!value.approx} onClick={() => onChange({ ...value, approx: false })} disabled={disabled || !value.year}>
+        <Button variant="bare" aria-pressed={!value.approx} onClick={() => onChange({ ...value, approx: false })} disabled={disabled || !value.year}>
           {t("when.exactly")}
-        </button>
-        <button type="button" aria-pressed={value.approx} onClick={() => onChange({ ...value, approx: true })} disabled={disabled || !value.year}>
+        </Button>
+        <Button variant="bare" aria-pressed={value.approx} onClick={() => onChange({ ...value, approx: true })} disabled={disabled || !value.year}>
           {t("when.about")}
-        </button>
+        </Button>
       </div>
     </div>
   );

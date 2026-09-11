@@ -17,6 +17,7 @@ import { trashBook } from "../shared/trash.js";
 import { getHouseLibrary, HOUSE_FOLDERS } from "./house-library.js";
 import { scanSingleGalleryFile } from "./scanner.js";
 import { uniqueGalleryFileName } from "./files.js";
+import type { GalleryDetailRow, GalleryMusicTrackRow, LibraryRow } from "../../../db/rows.js";
 
 // Since docs/app-storage-plan.md phase 3 a track is, wherever possible, an audio
 // asset of the App files library under "Slideshow music/": visible in the
@@ -24,17 +25,7 @@ import { uniqueGalleryFileName } from "./files.js";
 // `storage_key` is then "". Tracks uploaded before a house library existed keep
 // their bucket file until the importer below carries them across.
 
-export interface MusicTrackRow {
-  id: string;
-  title: string;
-  artist: string | null;
-  builtin: number;
-  storage_key: string;
-  duration_seconds: number | null;
-  uploaded_by: string | null;
-  created_at: string;
-  item_id: string | null;
-}
+export type MusicTrackRow = GalleryMusicTrackRow;
 
 const MIME_BY_EXT: Record<string, string> = {
   ".mp3": "audio/mpeg", ".m4a": "audio/mp4", ".mp4": "audio/mp4", ".aac": "audio/aac",
@@ -65,7 +56,7 @@ export function musicFileAbsolutePath(track: MusicTrackRow): string {
     JOIN libraries ON libraries.id = library_items.library_id
     JOIN gallery_details gd ON gd.item_id = library_items.id
     WHERE library_items.id = ? AND library_items.deleted_at IS NULL
-  `).get(track.item_id) as { source_path: string; relative_path: string } | undefined;
+  `).get(track.item_id) as (Pick<LibraryRow, "source_path"> & Pick<GalleryDetailRow, "relative_path">) | undefined;
   if (!row) throw new Error("The track's audio is no longer in its library.");
   const root = validateLibrarySource(row.source_path);
   return path.join(root, ...row.relative_path.split("/"));
@@ -167,7 +158,7 @@ export async function createUserTrack(
   const title = titleFromFilename(filename);
   const itemId = await landInHouseLibrary(tmpPath, title, extension, false);
   if (itemId) {
-    const detail = db.prepare("SELECT duration_seconds FROM gallery_details WHERE item_id = ?").get(itemId) as { duration_seconds: number | null } | undefined;
+    const detail = db.prepare("SELECT duration_seconds FROM gallery_details WHERE item_id = ?").get(itemId) as Pick<GalleryDetailRow, "duration_seconds"> | undefined;
     db.prepare(
       "INSERT INTO gallery_music_tracks (id, title, artist, builtin, storage_key, duration_seconds, uploaded_by, item_id) VALUES (?, ?, NULL, 0, '', ?, ?, ?)"
     ).run(id, title, detail?.duration_seconds ?? null, user.id, itemId);

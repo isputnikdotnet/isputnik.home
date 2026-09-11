@@ -8,11 +8,13 @@ import fs from "node:fs";
 import path from "node:path";
 import { nanoid } from "nanoid";
 import { db, logActivity } from "../../../db.js";
+import { stmt } from "../../../db/statement-cache.js";
 import { normaliseRelativePath, relativePathWithinRoot } from "../shared/storage-roots.js";
 import { validateLibrarySource, LibrarySourceError } from "../shared/library-source.js";
 import { libraryJobRunning } from "../shared/scan-lock.js";
 import { requeueInterruptedJobs, releaseAbandonedScanLibraries } from "../shared/job-recovery.js";
 import { jobProgressWriter } from "../shared/job-progress.js";
+import { registerJobHandler } from "../../../core/job-poller.js";
 import { dateFromFileName } from "./filename-date.js";
 import { isPhotoInboxLibrary } from "./inbox-flag.js";
 import {
@@ -32,6 +34,7 @@ import {
 } from "./media.js";
 import { thumbnailAbsolutePath } from "../shared/thumbnail.js";
 import { applyItemAlphaIndex } from "../shared/alphabet-index.js";
+import type { GalleryDetailRow, ItemMetadataRow, JobRow, LibraryItemRow, LibraryRow } from "../../../db/rows.js";
 
 const scanJobType = "SCAN_GALLERY_LIBRARY";
 
@@ -114,8 +117,8 @@ export async function ingestGalleryAsset(
   file: GalleryFileEntry,
   metaEnabled: boolean
 ): Promise<string> {
-  const existing = db.prepare("SELECT id FROM library_items WHERE library_id = ? AND folder_path = ?")
-    .get(libraryId, file.relativePath) as { id: string } | undefined;
+  const existing = stmt("SELECT id FROM library_items WHERE library_id = ? AND folder_path = ?")
+    .get(libraryId, file.relativePath) as Pick<LibraryItemRow, "id"> | undefined;
   const itemId = existing?.id ?? nanoid(16);
   const modifiedIso = new Date(file.modifiedAtMs).toISOString();
 
@@ -123,7 +126,7 @@ export async function ingestGalleryAsset(
   // (gallery_details.taken_at_source) are owned by the user — the scanner must not
   // overwrite them on a rescan.
   const metaManual = existing
-    ? (db.prepare("SELECT source FROM item_metadata WHERE item_id = ?").get(itemId) as { source: string } | undefined)?.source === "manual"
+    ? (stmt("SELECT source FROM item_metadata WHERE item_id = ?").get(itemId) as Pick<ItemMetadataRow, "source"> | undefined)?.source === "manual"
     : false;
 
   // A user-applied rotation is owned by the user; carry it onto regenerated
@@ -131,12 +134,8 @@ export async function ingestGalleryAsset(
   // by the gallery_details UPSERT, which never writes it).
   let existingRotation = 0;
   if (existing) {
-    const prior = db.prepare("SELECT size, modified_at, preview_storage_key, rotation, playable, phash, taken_at, taken_at_source FROM gallery_details WHERE item_id = ?")
-      .get(itemId) as {
-        size: number | null; modified_at: string | null; preview_storage_key: string | null;
-        rotation: number | null; playable: number | null; phash: string | null;
-        taken_at: string | null; taken_at_source: string | null;
-      } | undefined;
+    const prior = stmt("SELECT size, modified_at, preview_storage_key, rotation, playable, phash, taken_at, taken_at_source FROM gallery_details WHERE item_id = ?")
+      .get(itemId) as Pick<GalleryDetailRow, "size" | "modified_at" | "preview_storage_key" | "rotation" | "playable" | "phash" | "taken_at" | "taken_at_source"> | undefined;
     existingRotation = prior?.rotation ?? 0;
     // Re-probe an unchanged video whose playable flag was never computed (rows from
     // before this feature) so a single rescan backfills the grid hint.
@@ -149,7 +148,7 @@ export async function ingestGalleryAsset(
       if (file.kind === "photo" && prior!.phash == null && prior!.preview_storage_key) {
         try {
           const hash = await computeDhash(thumbnailAbsolutePath(prior!.preview_storage_key));
-          if (hash) db.prepare("UPDATE gallery_details SET phash = ? WHERE item_id = ?").run(hash, itemId);
+          if (hash) stmt("UPDATE gallery_details SET phash = ? WHERE item_id = ?").run(hash, itemId);
         } catch { /* thumb store unavailable — retried next scan */ }
       }
       // Backfill a filename date onto rows cataloged before that step existed.
@@ -164,12 +163,12 @@ export async function ingestGalleryAsset(
       ) {
         const fromName = dateFromFileName(file.fileName);
         if (fromName && fromName !== prior!.taken_at) {
-          db.prepare("UPDATE gallery_details SET taken_at = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id = ?")
+          stmt("UPDATE gallery_details SET taken_at = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id = ?")
             .run(fromName, itemId);
         }
       }
       // Revive a previously-missing row without re-reading the file.
-      db.prepare("UPDATE library_items SET status = 'ready', deleted_at = NULL, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(itemId);
+      stmt("UPDATE library_items SET status = 'ready', deleted_at = NULL, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(itemId);
       return itemId;
     }
   }
@@ -198,20 +197,20 @@ export async function ingestGalleryAsset(
 
   db.transaction(() => {
     if (existing) {
-      db.prepare("UPDATE library_items SET status = 'ready', deleted_at = NULL, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(itemId);
+      stmt("UPDATE library_items SET status = 'ready', deleted_at = NULL, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(itemId);
     } else {
-      db.prepare("INSERT INTO library_items (id, library_id, type, folder_path, status) VALUES (?, ?, 'gallery', ?, 'ready')")
+      stmt("INSERT INTO library_items (id, library_id, type, folder_path, status) VALUES (?, ?, 'gallery', ?, 'ready')")
         .run(itemId, libraryId, file.relativePath);
     }
 
     if (metaManual) {
       // Keep the hand-edited title/description; only refresh the derived thumbnail.
       if (thumbs?.coverKey) {
-        db.prepare("UPDATE item_metadata SET cover_storage_key = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id = ?")
+        stmt("UPDATE item_metadata SET cover_storage_key = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id = ?")
           .run(thumbs.coverKey, itemId);
       }
     } else {
-      db.prepare(`
+      stmt(`
         INSERT INTO item_metadata (item_id, source, title, sort_title, cover_storage_key)
         VALUES (?, 'scan', ?, ?, ?)
         ON CONFLICT(item_id) DO UPDATE SET
@@ -223,7 +222,7 @@ export async function ingestGalleryAsset(
     }
     applyItemAlphaIndex(itemId);
 
-    db.prepare(`
+    stmt(`
       INSERT INTO gallery_details
         (item_id, kind, relative_path, mime_type, size, width, height, orientation, duration_seconds, taken_at, modified_at, gps_lat, gps_lng, camera_make, camera_model, preview_storage_key, playable, phash)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -266,14 +265,14 @@ export function reconcileGalleryItems(libraryId: string, presentPaths: Set<strin
   // Escape LIKE wildcards (a real folder name can contain _ or %) so the delete
   // scope can't over-match a sibling folder and wrongly soft-delete it.
   const known = folderScope
-    ? db.prepare("SELECT id, folder_path FROM library_items WHERE library_id = ? AND deleted_at IS NULL AND folder_path LIKE ? ESCAPE '\\'")
-        .all(libraryId, `${folderScope.replace(/[\\%_]/g, "\\$&")}/%`) as { id: string; folder_path: string }[]
-    : db.prepare("SELECT id, folder_path FROM library_items WHERE library_id = ? AND deleted_at IS NULL")
-        .all(libraryId) as { id: string; folder_path: string }[];
+    ? stmt("SELECT id, folder_path FROM library_items WHERE library_id = ? AND deleted_at IS NULL AND folder_path LIKE ? ESCAPE '\\'")
+        .all(libraryId, `${folderScope.replace(/[\\%_]/g, "\\$&")}/%`) as Pick<LibraryItemRow, "id" | "folder_path">[]
+    : stmt("SELECT id, folder_path FROM library_items WHERE library_id = ? AND deleted_at IS NULL")
+        .all(libraryId) as Pick<LibraryItemRow, "id" | "folder_path">[];
   const nowMissing: string[] = [];
   for (const item of known) {
     if (!presentPaths.has(item.folder_path)) {
-      db.prepare("UPDATE library_items SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(item.id);
+      stmt("UPDATE library_items SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(item.id);
       nowMissing.push(item.folder_path);
     }
   }
@@ -285,8 +284,8 @@ async function scanGalleryLibrary(
   options: GalleryScanOptions = {},
   onProgress?: (processed: number, total: number) => void
 ) {
-  const library = db.prepare("SELECT id, source_path, settings_json FROM libraries WHERE id = ? AND type = 'gallery'")
-    .get(libraryId) as { id: string; source_path: string; settings_json: string } | undefined;
+  const library = stmt("SELECT id, source_path, settings_json FROM libraries WHERE id = ? AND type = 'gallery'")
+    .get(libraryId) as Pick<LibraryRow, "id" | "source_path" | "settings_json"> | undefined;
   if (!library) throw new Error("Gallery library not found.");
 
   const settings = normalizeLibrarySettings("gallery", library.settings_json);
@@ -333,10 +332,10 @@ async function scanGalleryLibrary(
   // A folder rescan is partial, so it clears the "scanning" flag but must NOT claim
   // a full-library last_scanned_at timestamp.
   if (folderScope) {
-    db.prepare("UPDATE libraries SET scan_status = 'idle', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?")
+    stmt("UPDATE libraries SET scan_status = 'idle', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?")
       .run(libraryId);
   } else {
-    db.prepare("UPDATE libraries SET scan_status = 'idle', last_scanned_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?")
+    stmt("UPDATE libraries SET scan_status = 'idle', last_scanned_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?")
       .run(libraryId);
   }
   return { assets: files.length, folder: folderScope };
@@ -344,8 +343,8 @@ async function scanGalleryLibrary(
 
 // Ingest one newly-added asset (upload / restore) without re-walking the library.
 export async function scanSingleGalleryFile(libraryId: string, relativePath: string): Promise<string | null> {
-  const library = db.prepare("SELECT id, source_path, settings_json FROM libraries WHERE id = ? AND type = 'gallery'")
-    .get(libraryId) as { id: string; source_path: string; settings_json: string } | undefined;
+  const library = stmt("SELECT id, source_path, settings_json FROM libraries WHERE id = ? AND type = 'gallery'")
+    .get(libraryId) as Pick<LibraryRow, "id" | "source_path" | "settings_json"> | undefined;
   if (!library) return null;
 
   const settings = normalizeLibrarySettings("gallery", library.settings_json);
@@ -385,15 +384,15 @@ export async function scanSingleGalleryFile(libraryId: string, relativePath: str
 // and a running job is never joined — it may already be past the file in question.
 export function enqueueGalleryScan(libraryId: string, options: GalleryScanOptions = {}): string {
   const payload = JSON.stringify({ libraryId, options });
-  db.prepare("UPDATE libraries SET scan_status = 'scanning', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(libraryId);
+  stmt("UPDATE libraries SET scan_status = 'scanning', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(libraryId);
 
-  const waiting = db.prepare(
+  const waiting = stmt(
     "SELECT id FROM jobs WHERE type = ? AND status = 'pending' AND payload = ? LIMIT 1"
-  ).get(scanJobType, payload) as { id: string } | undefined;
+  ).get(scanJobType, payload) as Pick<JobRow, "id"> | undefined;
   if (waiting) return waiting.id;
 
   const jobId = nanoid(16);
-  db.prepare("INSERT INTO jobs (id, type, payload, status) VALUES (?, ?, ?, 'pending')")
+  stmt("INSERT INTO jobs (id, type, payload, status) VALUES (?, ?, ?, 'pending')")
     .run(jobId, scanJobType, payload);
   return jobId;
 }
@@ -414,14 +413,14 @@ export async function processGalleryScanQueue() {
       // running (whatever its type), leave the queue alone until the next poll.
       if (libraryJobRunning()) break;
 
-      const job = db.prepare(`
+      const job = stmt(`
         SELECT id, payload FROM jobs
         WHERE type = ? AND status = 'pending' AND run_at <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
         ORDER BY run_at ASC LIMIT 1
-      `).get(scanJobType) as { id: string; payload: string } | undefined;
+      `).get(scanJobType) as Pick<JobRow, "id" | "payload"> | undefined;
       if (!job) break;
 
-      const claim = db.prepare(`
+      const claim = stmt(`
         UPDATE jobs SET status = 'running', attempts = attempts + 1, locked_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), started_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), locked_by = ?
         WHERE id = ? AND status = 'pending'
       `).run(process.pid.toString(), job.id);
@@ -432,7 +431,7 @@ export async function processGalleryScanQueue() {
         // Persist live progress into the job payload (throttled) so the Tasks page
         // shows items scanned + ETA while the scan runs.
         const result = await scanGalleryLibrary(payload.libraryId, payload.options ?? {}, jobProgressWriter(job.id, payload));
-        db.prepare(`
+        stmt(`
           UPDATE jobs SET status = 'completed', payload = ?, completed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), locked_at = NULL, locked_by = NULL
           WHERE id = ?
         `).run(JSON.stringify({ ...payload, result }), job.id);
@@ -449,15 +448,15 @@ export async function processGalleryScanQueue() {
       } catch (err) {
         const permanent = err instanceof LibrarySourceError;
         const message = err instanceof Error ? err.message : "Gallery scan failed";
-        const attempts = (db.prepare("SELECT attempts, max_attempts FROM jobs WHERE id = ?").get(job.id) as { attempts: number; max_attempts: number });
+        const attempts = (stmt("SELECT attempts, max_attempts FROM jobs WHERE id = ?").get(job.id) as Pick<JobRow, "attempts" | "max_attempts">);
         if (!permanent && attempts.attempts < attempts.max_attempts) {
           const runAt = new Date(Date.now() + 5000).toISOString();
-          db.prepare("UPDATE jobs SET status = 'pending', run_at = ?, locked_at = NULL, locked_by = NULL, error = ? WHERE id = ?")
+          stmt("UPDATE jobs SET status = 'pending', run_at = ?, locked_at = NULL, locked_by = NULL, error = ? WHERE id = ?")
             .run(runAt, message, job.id);
         } else {
-          db.prepare("UPDATE jobs SET status = 'failed', failed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), locked_at = NULL, locked_by = NULL, error = ? WHERE id = ?")
+          stmt("UPDATE jobs SET status = 'failed', failed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), locked_at = NULL, locked_by = NULL, error = ? WHERE id = ?")
             .run(message, job.id);
-          db.prepare("UPDATE libraries SET scan_status = 'error', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ? AND scan_status = 'scanning'")
+          stmt("UPDATE libraries SET scan_status = 'error', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ? AND scan_status = 'scanning'")
             .run(payload.libraryId);
         }
       }
@@ -467,7 +466,7 @@ export async function processGalleryScanQueue() {
   }
 }
 
+// On the shared job poller (core/job-poller.ts).
 export function startGalleryScanWorker() {
-  const timer = setInterval(() => { void processGalleryScanQueue(); }, 2000);
-  return () => clearInterval(timer);
+  return registerJobHandler({ name: "gallery scan", types: [scanJobType], run: processGalleryScanQueue });
 }

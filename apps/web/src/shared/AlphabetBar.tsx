@@ -3,8 +3,9 @@ import { useTranslation } from "react-i18next";
 import { ALPHABETS, OTHER_BUCKET, alphabetOf, type AlphabetId } from "./alphabets";
 
 // The A–Z index that sits in the second row of LibraryPageToolbar. One letter at
-// a time, "All" to clear it, "#" for everything that isn't a letter of the
-// shown alphabet (digits, symbols, other scripts).
+// a time, "All" to clear it, "#" for everything that isn't a letter of any
+// alphabet this build has a strip for (digits, symbols, other scripts) — the
+// server's bucket, the same whichever row is showing.
 //
 // `available` is the set of buckets the current scope actually holds, straight
 // from the server's facets. Letters outside it are disabled rather than hidden:
@@ -42,8 +43,9 @@ export function AlphabetBar({
 
   const pickScript = (id: AlphabetId) => {
     setPicked(id);
-    // The active letter belongs to the alphabet being left, so it can't stay.
-    if (value && !ALPHABETS.find((alphabet) => alphabet.id === id)?.letters.includes(value)) onChange(null);
+    // A letter of the alphabet being left can't stay. "#" can: both rows end in
+    // it, and it means the same titles under either.
+    if (value && value !== OTHER_BUCKET && !ALPHABETS.find((alphabet) => alphabet.id === id)?.letters.includes(value)) onChange(null);
   };
 
   const letterButton = (letter: string, label?: string) => (

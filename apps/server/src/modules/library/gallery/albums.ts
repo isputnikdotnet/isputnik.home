@@ -8,19 +8,11 @@ import { nanoid } from "nanoid";
 import { db } from "../../../db.js";
 import { ASSET_COLUMNS, ASSET_JOINS, mapAsset, type GalleryAssetRow } from "./catalog-asset.js";
 import { entityTagsByIds } from "../shared/tagging.js";
+import type { GalleryAlbumItemRow, GalleryAlbumRow, GalleryDetailRow, ItemMetadataRow, LibraryItemRow, LibraryRow, Nullable } from "../../../db/rows.js";
 
 const inClause = (n: number) => Array(n).fill("?").join(", ");
 
-export interface AlbumRow {
-  id: string;
-  name: string;
-  description: string | null;
-  cover_item_id: string | null;
-  sort_mode: "taken_at" | "manual";
-  created_by: string;
-  created_at: string;
-  updated_at: string;
-}
+export type AlbumRow = GalleryAlbumRow;
 
 export function getAlbum(albumId: string): AlbumRow | undefined {
   return db.prepare("SELECT * FROM gallery_albums WHERE id = ?").get(albumId) as AlbumRow | undefined;
@@ -87,7 +79,7 @@ export function addAlbumItems(albumId: string, accessibleLibIds: Set<string>, it
   `);
   const existing = new Set((db.prepare(
     "SELECT item_id FROM gallery_album_items WHERE album_id = ?"
-  ).all(albumId) as { item_id: string }[]).map((row) => row.item_id));
+  ).all(albumId) as Pick<GalleryAlbumItemRow, "item_id">[]).map((row) => row.item_id));
   let position = (db.prepare(
     "SELECT COALESCE(MAX(position), 0) + 1 AS pos FROM gallery_album_items WHERE album_id = ?"
   ).get(albumId) as { pos: number }).pos;
@@ -99,7 +91,7 @@ export function addAlbumItems(albumId: string, accessibleLibIds: Set<string>, it
   let skipped = 0;
   db.transaction(() => {
     for (const itemId of new Set(itemIds)) {
-      const row = lookup.get(itemId) as { library_id: string } | undefined;
+      const row = lookup.get(itemId) as Pick<LibraryItemRow, "library_id"> | undefined;
       if (!row || !accessibleLibIds.has(row.library_id) || existing.has(itemId)) {
         skipped += 1;
         continue;
@@ -223,19 +215,16 @@ export function getAlbumItemIds(libIds: string[], album: AlbumRow): string[] {
     JOIN gallery_details ON gallery_details.item_id = library_items.id
     WHERE gallery_album_items.album_id = ? AND library_items.library_id IN (${libIn})
     ORDER BY ${order}
-  `).all(album.id, ...libIds) as { id: string }[]).map((row) => row.id);
+  `).all(album.id, ...libIds) as Pick<LibraryItemRow, "id">[]).map((row) => row.id);
 }
 
 // On-disk paths for every album item the viewer can see, in the album's sort
 // order — for the "Download album" zip. Source path is per-library (an album can
 // span libraries). Filtered by library access like getAlbumItems.
-export interface AlbumFileRow {
-  id: string;
-  title: string | null;
-  folder_path: string;
-  relative_path: string;
-  source_path: string;
-}
+export type AlbumFileRow = Pick<LibraryItemRow, "id" | "folder_path">
+  & Pick<GalleryDetailRow, "relative_path">
+  & Pick<LibraryRow, "source_path">
+  & Nullable<Pick<ItemMetadataRow, "title">>;
 
 export function getAlbumFilePaths(libIds: string[], album: AlbumRow): AlbumFileRow[] {
   if (libIds.length === 0) return [];

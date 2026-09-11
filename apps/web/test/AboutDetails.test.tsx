@@ -26,7 +26,7 @@ const about = (over: Partial<AboutInfo> = {}): AboutInfo => ({
   ...over
 });
 
-beforeEach(() => mockApi.mockReset());
+beforeEach(() => { mockApi.mockReset(); });
 
 describe("AboutDetails changelog", () => {
   it("shows the releases it was given", () => {

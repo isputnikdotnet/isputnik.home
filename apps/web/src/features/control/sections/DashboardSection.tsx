@@ -13,6 +13,7 @@ import { SignInsView } from "./dashboard/SignInsView";
 import { LocationsView } from "./dashboard/LocationsView";
 import { LibrariesView } from "./dashboard/LibrariesView";
 import { TasksView } from "./dashboard/TasksView";
+import { Button } from "../../../shared/Button";
 
 // Overview › Dashboard. This used to be two pages — "System" (server health) and
 // "Dashboard" (activity trends) — folded into one, with a lighter secondary tab
@@ -162,17 +163,15 @@ export function DashboardSection() {
 
       <div className="dashboard-subtabs" role="tablist" aria-label={t("controlDash:dash.viewsAria")}>
         {DASHBOARD_VIEW_ORDER.map((entry) => (
-          <button
+          <Button
+            variant="tab"
             key={entry.value}
-            type="button"
-            role="tab"
-            aria-selected={view === entry.value}
-            className={view === entry.value ? "active" : undefined}
+            selected={view === entry.value}
             onClick={() => chooseView(entry.value)}
           >
             {entry.icon}
             {t(`controlDash:dash.${DASHBOARD_VIEW_LABEL_KEYS[entry.value]}`)}
-          </button>
+          </Button>
         ))}
       </div>
 

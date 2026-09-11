@@ -5,6 +5,7 @@ import { MessageBox } from "../../../shared/MessageBox";
 import { humanize } from "./layout-model";
 import { rulesBase, type LayoutLibrary, type PreviewRow, type ScanRule } from "./types";
 import { useRoleLabels } from "./useRoleLabels";
+import { Button } from "../../../shared/Button";
 
 // Step 3: what a scan of the chosen folders will produce, read from the same
 // matcher a scan uses. Four figures carry the decision; notices appear only for
@@ -99,10 +100,10 @@ export function PreviewStep({
     v === undefined || v === "" ? <span className="layout-from-file">{fallback === "file" ? t("controlAdmin:layout.fromFile") : "—"}</span> : <span className={`layout-val is-${cls}`}>{v}</span>;
 
   const tile = (id: Filter, n: number, label: string, tone: "ok" | "warn" | "none") => (
-    <button type="button" className={`layout-tile is-${tone}`} aria-pressed={filter === id} onClick={() => setFilter(filter === id ? "all" : id)}>
+    <Button variant="tile" className={`layout-tile is-${tone}`} aria-pressed={filter === id} onClick={() => setFilter(filter === id ? "all" : id)}>
       <span className="layout-tile-n">{n}</span>
       <span className="layout-tile-t">{label}</span>
-    </button>
+    </Button>
   );
 
   return (
@@ -132,14 +133,14 @@ export function PreviewStep({
           <MessageBox tone="info" title={t("controlAdmin:layout.noteSavingTitle")}>{t("controlAdmin:layout.noteSaving")}</MessageBox>
 
           <div className="layout-filters">
-            <button type="button" className="layout-filter" aria-pressed={filter === "all"} onClick={() => setFilter("all")}>{t("controlAdmin:layout.filterAll")} <span>{all.length}</span></button>
+            <Button variant="bare" className="layout-filter" aria-pressed={filter === "all"} onClick={() => setFilter("all")}>{t("controlAdmin:layout.filterAll")} <span>{all.length}</span></Button>
             {layouts.map((layout, i) => (
-              <button key={i} type="button" className="layout-filter" aria-pressed={filter === `l${i}`} onClick={() => setFilter(`l${i}`)}>
+              <Button variant="bare" key={i} className="layout-filter" aria-pressed={filter === `l${i}`} onClick={() => setFilter(`l${i}`)}>
                 {t("controlAdmin:layout.layoutN", { n: i + 1 })} · {humanize(layout, roleLabels)} <span>{matched.filter((r) => r.layoutIndex === i).length}</span>
-              </button>
+              </Button>
             ))}
-            <button type="button" className="layout-filter" aria-pressed={filter === "unmatched"} onClick={() => setFilter("unmatched")}>{t("controlAdmin:layout.filterNoLayout")} <span>{unmatched.length}</span></button>
-            <button type="button" className="layout-filter" aria-pressed={filter === "warnings"} onClick={() => setFilter("warnings")}>{t("controlAdmin:layout.filterWarnings")} <span>{warned.length}</span></button>
+            <Button variant="bare" className="layout-filter" aria-pressed={filter === "unmatched"} onClick={() => setFilter("unmatched")}>{t("controlAdmin:layout.filterNoLayout")} <span>{unmatched.length}</span></Button>
+            <Button variant="bare" className="layout-filter" aria-pressed={filter === "warnings"} onClick={() => setFilter("warnings")}>{t("controlAdmin:layout.filterWarnings")} <span>{warned.length}</span></Button>
             <span className="layout-spacer" />
             <input className="layout-search" type="search" value={query} placeholder={t("controlAdmin:layout.filterPlaceholder")} aria-label={t("controlAdmin:layout.filterPlaceholder")} onChange={(event) => setQuery(event.target.value)} />
           </div>

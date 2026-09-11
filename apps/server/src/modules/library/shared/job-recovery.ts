@@ -16,7 +16,9 @@
 // respects. A job that has already used its attempts is failed instead of retried,
 // and handed back to the caller so the feature it belongs to can say so.
 import { db, logActivity } from "../../../db.js";
+import { stmt } from "../../../db/statement-cache.js";
 import { log } from "../../../core/logger.js";
+import type { JobRow, LibraryRow } from "../../../db/rows.js";
 
 export interface AbandonedJob {
   id: string;
@@ -36,18 +38,18 @@ export interface RecoveryResult {
 
 // Call once at the top of a worker's queue loop, before claiming anything.
 export function requeueInterruptedJobs(jobType: string, message = INTERRUPTED_MESSAGE): RecoveryResult {
-  const running = db.prepare(
+  const running = stmt(
     "SELECT id, payload, attempts, max_attempts FROM jobs WHERE type = ? AND status = 'running'"
-  ).all(jobType) as { id: string; payload: string; attempts: number; max_attempts: number }[];
+  ).all(jobType) as Pick<JobRow, "id" | "payload" | "attempts" | "max_attempts">[];
   if (running.length === 0) return { requeued: 0, abandoned: [] };
 
   const abandoned: AbandonedJob[] = [];
   let requeued = 0;
 
-  const requeue = db.prepare(
+  const requeue = stmt(
     "UPDATE jobs SET status = 'pending', locked_at = NULL, locked_by = NULL, error = NULL WHERE id = ?"
   );
-  const giveUp = db.prepare(`
+  const giveUp = stmt(`
     UPDATE jobs SET status = 'failed', failed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'),
       locked_at = NULL, locked_by = NULL, error = ? WHERE id = ?
   `);
@@ -106,19 +108,15 @@ export const INTERRUPTED_SCAN_REASON =
 export const ORPHANED_SCAN_REASON =
   "was left marked as running with no task behind it";
 
-export interface UnstuckLibrary {
-  id: string;
-  name: string;
-  type: string;
-}
+export type UnstuckLibrary = Pick<LibraryRow, "id" | "name" | "type">;
 
 // Release one library from 'scanning' when its scan will never finish. 'error'
 // rather than 'idle' on purpose: it is visible on the Libraries page as a badge,
 // and — unlike 'scanning' — the nightly scheduler queues it again.
 export function markScanAbandoned(libraryId: string, reason: string): UnstuckLibrary | null {
-  const library = db.prepare("SELECT id, name, type FROM libraries WHERE id = ?").get(libraryId) as UnstuckLibrary | undefined;
+  const library = stmt("SELECT id, name, type FROM libraries WHERE id = ?").get(libraryId) as UnstuckLibrary | undefined;
   if (!library) return null;
-  const changed = db.prepare(
+  const changed = stmt(
     "UPDATE libraries SET scan_status = 'error', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ? AND scan_status = 'scanning'"
   ).run(libraryId);
   if (changed.changes === 0) return null;
@@ -146,7 +144,7 @@ export function reconcileOrphanedScans(): UnstuckLibrary[] {
           AND jobs.type IN (${placeholders})
           AND json_extract(jobs.payload, '$.libraryId') = libraries.id
       )
-  `).all(...LIBRARY_SCAN_JOB_TYPES) as { id: string }[];
+  `).all(...LIBRARY_SCAN_JOB_TYPES) as Pick<LibraryRow, "id">[];
 
   const unstuck: UnstuckLibrary[] = [];
   for (const orphan of orphans) {

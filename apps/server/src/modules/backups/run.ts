@@ -7,6 +7,7 @@ import { resolveAppLocation } from "../../core/app-storage.js";
 import { configuredThumbnailPathValue } from "../library/shared/thumbnail.js";
 import { clearPreUpgradeStaging, preUpgradeStagingPath, readPreUpgradeMeta } from "../../db/pre-upgrade.js";
 import { log } from "../../core/logger.js";
+import type { AppSettingRow } from "../../db/rows.js";
 
 // What a backup is, how it is named, and how one is taken. The routes live in
 // index.ts; this half is here on its own so the scheduled jobs (modules/maintenance)
@@ -84,7 +85,7 @@ export function defaultSettings(): BackupSettings {
 // into the scheduled jobs on startup and rewrites the row, so reading here only
 // ever needs the one field, and tolerates the old shape meanwhile.
 export function getSettings(): BackupSettings {
-  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(SETTINGS_KEY) as { value: string } | undefined;
+  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(SETTINGS_KEY) as Pick<AppSettingRow, "value"> | undefined;
   const base = defaultSettings();
   if (!row) return base;
   try {

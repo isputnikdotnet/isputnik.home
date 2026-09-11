@@ -2,11 +2,9 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
-import Fastify, { type FastifyInstance } from "fastify";
-import cookie from "@fastify/cookie";
+import type { FastifyInstance } from "fastify";
 import { db } from "../src/db.js";
 import { hashPassword } from "../src/crypto.js";
-import { registerAuthDecorators } from "../src/auth.js";
 import { trashBook } from "../src/modules/library/shared/trash.js";
 import { TrashError } from "../src/modules/library/shared/trash-settings.js";
 import { registerTrashRoutes } from "../src/modules/library/shared/trash-routes.js";
@@ -15,6 +13,7 @@ import {
   listFolderLocks, lockCovering, lockIntersecting, normaliseLockPath, setFolderLock
 } from "../src/modules/library/shared/folder-locks.js";
 import { thumbnailPathSettingKey } from "../src/modules/library/shared/thumbnail.js";
+import { bootApp } from "./helpers/boot.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
 import "./helpers/media-types.js";
 
@@ -132,23 +131,8 @@ describe("enforcement in trashBook", () => {
 
 describe("the routes", () => {
   let app: FastifyInstance;
+  let signIn: (userId: string) => Promise<string>;
   const PASSWORD = "correct-horse-battery";
-
-  async function buildApp(): Promise<FastifyInstance> {
-    const instance = Fastify();
-    await instance.register(cookie);
-    await registerAuthDecorators(instance);
-    await instance.register(folderLocksPlugin);
-    registerTrashRoutes(instance);
-    instance.post("/test/sign-in/:userId", async (request, reply) => {
-      const { userId } = request.params as { userId: string };
-      const { issueSession } = await import("../src/auth.js");
-      issueSession(reply, userId, request);
-      return reply.send({ ok: true });
-    });
-    await instance.ready();
-    return instance;
-  }
 
   async function makeMember(id: string, role: "admin" | "member"): Promise<string> {
     db.prepare("INSERT INTO users (id, email, password_hash, display_name, role) VALUES (?, ?, ?, ?, ?)")
@@ -156,17 +140,8 @@ describe("the routes", () => {
     return id;
   }
 
-  async function signIn(userId: string): Promise<string> {
-    const response = await app.inject({ method: "POST", url: `/test/sign-in/${userId}` });
-    const raw = response.headers["set-cookie"];
-    const list = Array.isArray(raw) ? raw : [String(raw)];
-    const found = list.find((entry) => entry.startsWith("isputnik_sid="));
-    if (!found) throw new Error("no session cookie was set");
-    return found.split(";")[0];
-  }
-
   beforeEach(async () => {
-    app = await buildApp();
+    ({ app, signIn } = await bootApp({ plugins: [folderLocksPlugin], afterRegister: registerTrashRoutes }));
   });
 
   it("locking and unlocking is admin-only", async () => {

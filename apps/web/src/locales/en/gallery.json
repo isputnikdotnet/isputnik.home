@@ -481,8 +481,23 @@
     "emptyTitle": "No memories yet",
     "emptyBody": "Memories resurfaces shots from past years on their anniversary. Add dates to more photos and they’ll start appearing here. Looking to turn a trip into a slideshow? Those suggestions now live under Slideshows.",
     "createdSlideshowNotice": "Created slideshow “{{name}}” from a memory.",
+    "noneOnThisDay": "Nothing was taken on this day in past years.",
     "errors": {
       "createSlideshow": "Unable to create the slideshow"
+    }
+  },
+  "yearReview": {
+    "heading": "Your years in photos",
+    "hint": "Each year is picked from the photos and videos your family liked, a few from every month, and plays as a slideshow.",
+    "title": "Your {{year}} in photos",
+    "count_one": "{{count}} photo or video",
+    "count_other": "{{count}} photos and videos",
+    "playTitle": "Play as a slideshow",
+    "createSlideshow": "Create slideshow",
+    "createSlideshowTitle": "Make it a slideshow of your own, to add music or save it as a movie",
+    "slideshowName": "{{year}} in photos",
+    "errors": {
+      "play": "Unable to open this year"
     }
   },
   "suggestions": {

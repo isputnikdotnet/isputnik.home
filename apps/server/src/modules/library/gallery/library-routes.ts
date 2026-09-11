@@ -18,6 +18,7 @@ import { enqueueGalleryScan, processGalleryScanQueue } from "./scanner.js";
 import { listMissingGalleryPhotos, setMissingRetentionDays, purgeMissingGalleryPhoto, purgeMissingGalleryPhotos } from "./cleanup.js";
 import { FolderMoveError, planFolderMove, queueFolderMove } from "./folder-move.js";
 import { folderMoveStatuses } from "../shared/storage-move.js";
+import type { LibraryRow } from "../../../db/rows.js";
 
 const libraryListQuerySchema = z.object({ manage: z.string().optional() }); // presence flag
 
@@ -107,7 +108,7 @@ export function registerGalleryLibraryRoutes(app: FastifyInstance) {
   app.delete("/api/library/gallery-libraries/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     const exists = db.prepare("SELECT id, name FROM libraries WHERE id = ? AND type = 'gallery'")
-      .get(id) as { id: string; name: string } | undefined;
+      .get(id) as Pick<LibraryRow, "id" | "name"> | undefined;
     if (!exists) {
       return reply.code(404).send({ error: "Gallery library not found" });
     }
@@ -142,7 +143,7 @@ export function registerGalleryLibraryRoutes(app: FastifyInstance) {
   app.post("/api/library/gallery-libraries/:id/rescan", { preHandler: app.requireAdmin }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     const exists = db.prepare("SELECT id, source_path FROM libraries WHERE id = ? AND type = 'gallery'")
-      .get(id) as { id: string; source_path: string } | undefined;
+      .get(id) as Pick<LibraryRow, "id" | "source_path"> | undefined;
     if (!exists) {
       return reply.code(404).send({ error: "Gallery library not found" });
     }

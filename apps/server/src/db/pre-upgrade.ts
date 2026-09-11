@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import type Database from "better-sqlite3";
 import { log } from "../core/logger.js";
+import type { AppSettingRow } from "./rows.js";
 
 // The automatic pre-upgrade copy (docs/rollback.md).
 //
@@ -38,7 +39,7 @@ function metaPath(dbPath: string): string {
 
 function lastBootedVersion(db: Database.Database): { known: boolean; version: string | null } {
   try {
-    const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(LAST_BOOTED_VERSION_KEY) as { value: string } | undefined;
+    const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(LAST_BOOTED_VERSION_KEY) as Pick<AppSettingRow, "value"> | undefined;
     if (row) return { known: true, version: row.value };
     // No record: either a brand-new database (nothing to protect) or an install
     // from before this existed — which is exactly the first upgrade that needs it.

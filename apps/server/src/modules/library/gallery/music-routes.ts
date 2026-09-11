@@ -23,15 +23,13 @@ import {
   MUSIC_MAX_BYTES,
   MUSIC_MAX_UPLOAD_FILES
 } from "./music.js";
+import type { LibraryRow } from "../../../db/rows.js";
 
 // A user may add music when they can write to any gallery library (music is a
 // gallery-wide asset that no single library owns). Admins always may.
 function canAddMusic(user: { id: string; role: string }): boolean {
   if (user.role === "admin") return true;
-  const libs = db.prepare("SELECT id, policy_json FROM libraries WHERE type = 'gallery'").all() as {
-    id: string;
-    policy_json: string;
-  }[];
+  const libs = db.prepare("SELECT id, policy_json FROM libraries WHERE type = 'gallery'").all() as Pick<LibraryRow, "id" | "policy_json">[];
   return libs.some((lib) => canUserWriteLibrary(lib, user.id, user.role));
 }
 

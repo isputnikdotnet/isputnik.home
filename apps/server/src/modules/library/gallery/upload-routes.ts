@@ -16,6 +16,7 @@ import { scanSingleGalleryFile } from "./scanner.js";
 import { kindForExtension, readAssetMetadata } from "./media.js";
 import { dateFolderForCapture } from "./date-folder.js";
 import { friendlyStorageError, uniqueGalleryFileName } from "./files.js";
+import type { LibraryRow } from "../../../db/rows.js";
 
 // Each uploaded file becomes its own asset (one photo/video = one item), so this
 // also bounds assets-per-upload — galleries are dropped in large batches.
@@ -46,7 +47,7 @@ export function registerGalleryUploadRoutes(app: FastifyInstance) {
 
     const library = db.prepare(
       "SELECT id, name, source_path, settings_json, policy_json FROM libraries WHERE id = ? AND type = 'gallery'"
-    ).get(libraryId) as { id: string; name: string; source_path: string; settings_json: string; policy_json: string } | undefined;
+    ).get(libraryId) as Pick<LibraryRow, "id" | "name" | "source_path" | "settings_json" | "policy_json"> | undefined;
     if (!library || !canUserAccessLibrary(library, user.id, user.role)) {
       return reply.code(404).send({ error: "Gallery library not found" });
     }

@@ -3,7 +3,6 @@ import { z } from "zod";
 import { db, logActivity } from "../../../db.js";
 import { parseBody, parseQuery } from "../../../core/shared.js";
 import { canUserWriteAsset, canUserWriteLibrary, getLibraryForBook } from "../shared/library-access.js";
-import type { LibraryListRow } from "../shared/library-serializer.js";
 import { resolveGalleryScopeLibraryIds, parseLibraryIds, resolveGalleryBrowseLibraryIds } from "./catalog-scope.js";
 import { getGalleryAsset, getGalleryAssetUnscoped } from "./catalog-asset.js";
 import {
@@ -30,6 +29,7 @@ import { clearLibraryFaceData } from "./faces/clear.js";
 import { computeClusterHealth } from "./faces/health.js";
 import { FACE_EMBEDDING_MODEL } from "./faces/model-id.js";
 import { MAX_FACE_SCAN_ATTEMPTS } from "./faces/queue.js";
+import type { LibraryRow } from "../../../db/rows.js";
 
 // People are global, so person management (create/rename/hide/delete) is gated on the
 // user being able to write SOME gallery library — anyone who curates photos can curate
@@ -37,7 +37,7 @@ import { MAX_FACE_SCAN_ATTEMPTS } from "./faces/queue.js";
 // to that photo's library (checked per-request).
 function canWriteAnyGallery(user: { id: string; role: string }): boolean {
   if (user.role === "admin") return true;
-  const rows = db.prepare("SELECT * FROM libraries WHERE type = 'gallery'").all() as LibraryListRow[];
+  const rows = db.prepare("SELECT * FROM libraries WHERE type = 'gallery'").all() as LibraryRow[];
   return rows.some((row) => canUserWriteLibrary(row, user.id, user.role));
 }
 
@@ -318,7 +318,7 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
   // correctly drops to "0 of Y" and climbs as the rescan re-embeds — real progress, not
   // a stale total. `unreadable` counts photos that failed every retry and are now
   // skipped (corrupt/unsupported files) — visible instead of silently retried forever.
-  interface FaceLibraryRow { id: string; name: string; photos: number; scanned: number; unreadable: number }
+  type FaceLibraryRow = Pick<LibraryRow, "id" | "name"> & { photos: number; scanned: number; unreadable: number };
 
   function faceLibraryStatus() {
     const rows = db.prepare(`
@@ -373,7 +373,7 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
 
     if (parsed.data.libraryId != null && parsed.data.enabled != null) {
       const lib = db.prepare("SELECT id, name FROM libraries WHERE id = ? AND type = 'gallery'")
-        .get(parsed.data.libraryId) as { id: string; name: string } | undefined;
+        .get(parsed.data.libraryId) as Pick<LibraryRow, "id" | "name"> | undefined;
       if (!lib) {
         return reply.code(404).send({ error: "Gallery library not found" });
       }
@@ -477,7 +477,7 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
       return reply.code(400).send({ error: "Invalid request", details: parsed.error });
     }
     const lib = db.prepare("SELECT id, name FROM libraries WHERE id = ? AND type = 'gallery'")
-      .get(parsed.data.libraryId) as { id: string; name: string } | undefined;
+      .get(parsed.data.libraryId) as Pick<LibraryRow, "id" | "name"> | undefined;
     if (!lib) {
       return reply.code(404).send({ error: "Gallery library not found" });
     }

@@ -27,6 +27,7 @@ import path from "node:path";
 import { nanoid } from "nanoid";
 import { db, logActivity } from "../../../db.js";
 import type { AppRoom } from "../../../core/app-storage.js";
+import { registerJobHandler } from "../../../core/job-poller.js";
 import { jobProgressWriter } from "./job-progress.js";
 import { requeueInterruptedJobs } from "./job-recovery.js";
 import { libraryJobRunning } from "./scan-lock.js";
@@ -36,6 +37,7 @@ import { setMovingTrashedItem, type TrashedItem } from "./trash.js";
 import { pathIsInside } from "./storage-roots.js";
 import { RENDER_BUCKETS } from "./thumbnail.js";
 import { getMediaType } from "./media-types.js";
+import type { JobRow as DbJobRow, LibraryRow, TrashedItemRow } from "../../../db/rows.js";
 
 export const STORAGE_MOVE_JOB_TYPE = "MOVE_STORAGE";
 
@@ -99,7 +101,7 @@ export interface StorageMoveStatus {
   startedAt: string | null;
 }
 
-interface JobRow { id: string; status: string; payload: string; started_at: string | null; created_at: string }
+type JobRow = Pick<DbJobRow, "id" | "status" | "payload" | "started_at" | "created_at">;
 
 class StorageMoveError extends Error {
   constructor(message: string, readonly statusCode = 409) {
@@ -263,7 +265,7 @@ export function retryStorageMove(room: StorageMoveRoom, userId: string | null): 
 export function pendingTrashMoveRows(): TrashedItem[] {
   const current = getTrashRootSetting();
   return db.prepare("SELECT * FROM trashed_items WHERE COALESCE(trash_root, '') != ? ORDER BY trashed_at")
-    .all(current ?? "") as TrashedItem[];
+    .all(current ?? "") as TrashedItemRow[];
 }
 
 /** Move one row's files from where they are to where the bin now is, and rewrite
@@ -389,7 +391,7 @@ interface ReplacedUnit { name: string; sourceParent: string; targetParent: strin
 const LIBRARY_TRASH_DIR = ".trash";
 
 function replacedUnits(from: string | null, to: string | null): ReplacedUnit[] {
-  const libraries = db.prepare("SELECT id, source_path FROM libraries").all() as { id: string; source_path: string }[];
+  const libraries = db.prepare("SELECT id, source_path FROM libraries").all() as Pick<LibraryRow, "id" | "source_path">[];
   const sourceOf = new Map(libraries.map((row) => [row.id, row.source_path]));
   const roots: string[] = from
     ? [path.join(from, "replaced")]
@@ -434,7 +436,7 @@ function pruneEmptyUpTo(dir: string, stopAt: string): void {
 // ── Running one job ─────────────────────────────────────────────────────────
 
 function jobStillRunning(jobId: string): boolean {
-  const row = db.prepare("SELECT status FROM jobs WHERE id = ?").get(jobId) as { status: string } | undefined;
+  const row = db.prepare("SELECT status FROM jobs WHERE id = ?").get(jobId) as Pick<DbJobRow, "status"> | undefined;
   return row?.status === "running";
 }
 
@@ -510,7 +512,7 @@ async function runMove(jobId: string, data: StorageMovePayload): Promise<Storage
 
   if (data.kind === "library") {
     const libraryId = data.libraryId!;
-    const library = db.prepare("SELECT id, source_path FROM libraries WHERE id = ?").get(libraryId) as { id: string; source_path: string } | undefined;
+    const library = db.prepare("SELECT id, source_path FROM libraries WHERE id = ?").get(libraryId) as Pick<LibraryRow, "id" | "source_path"> | undefined;
     if (!library) throw new Error("The library is gone.");
     if (samePath(library.source_path, to)) return { moved, failed, cancelled, durationMs: Date.now() - started };
     if (!fs.existsSync(from)) throw new Error(`The library's folder is missing: ${from}`);
@@ -570,7 +572,7 @@ async function runMove(jobId: string, data: StorageMovePayload): Promise<Storage
     if (!fs.existsSync(from)) throw new Error(`The folder is missing: ${from}`);
     // The re-pointing is the media type's own (gallery/folder-move.ts), asked for
     // through the registry so this file imports no media type.
-    const source = db.prepare("SELECT type FROM libraries WHERE id = ?").get(data.libraryId) as { type: string } | undefined;
+    const source = db.prepare("SELECT type FROM libraries WHERE id = ?").get(data.libraryId) as Pick<LibraryRow, "type"> | undefined;
     const repointMovedFolder = source ? getMediaType(source.type)?.repointMovedFolder : undefined;
     if (!repointMovedFolder) throw new Error("The folder move is missing its libraries.");
     if (fs.existsSync(to)) {
@@ -656,7 +658,7 @@ export async function processStorageMoveQueue(): Promise<void> {
         SELECT id, payload FROM jobs
         WHERE type = ? AND status = 'pending' AND run_at <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
         ORDER BY created_at ASC LIMIT 1
-      `).get(STORAGE_MOVE_JOB_TYPE) as { id: string; payload: string } | undefined;
+      `).get(STORAGE_MOVE_JOB_TYPE) as Pick<DbJobRow, "id" | "payload"> | undefined;
       if (!job) break;
       const claim = db.prepare(`
         UPDATE jobs SET status = 'running', attempts = attempts + 1, locked_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), started_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), locked_by = ?
@@ -733,9 +735,9 @@ export async function processStorageMoveQueue(): Promise<void> {
   }
 }
 
+// On the shared job poller (core/job-poller.ts).
 export function startStorageMoveWorker(): () => void {
-  const timer = setInterval(() => { void processStorageMoveQueue(); }, 2000);
-  return () => clearInterval(timer);
+  return registerJobHandler({ name: "storage move", types: [STORAGE_MOVE_JOB_TYPE], run: processStorageMoveQueue });
 }
 
 /** Test hook: run the queue until no move is queued or running. */

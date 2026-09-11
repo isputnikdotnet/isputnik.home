@@ -27,6 +27,7 @@ import {
   getAlbumFilePaths,
   type AlbumRow
 } from "./albums.js";
+import type { LibraryItemRow, ShareRow, UserRow } from "../../../db/rows.js";
 
 const createSchema = z.object({
   name: z.string().trim().min(1).max(120),
@@ -176,9 +177,9 @@ export async function galleryAlbumRoutesPlugin(app: FastifyInstance) {
         SELECT created_by FROM shares
         WHERE module = 'gallery_album' AND resource_id = ? AND user_id = ? AND revoked_at IS NULL
           AND (expires_at IS NULL OR expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-      `).get(albumId, user.id) as { created_by: string } | undefined;
+      `).get(albumId, user.id) as Pick<ShareRow, "created_by"> | undefined;
       if (share) {
-        creator = db.prepare("SELECT id, role FROM users WHERE id = ?").get(share.created_by) as { id: string; role: string } | undefined ?? null;
+        creator = db.prepare("SELECT id, role FROM users WHERE id = ?").get(share.created_by) as Pick<UserRow, "id" | "role"> | undefined ?? null;
       }
     }
     if (!creator) { return reply.code(404).send({ error: "Album not found" }); }
@@ -334,7 +335,7 @@ export async function galleryAlbumRoutesPlugin(app: FastifyInstance) {
           AND (? = '' OR library_items.folder_path LIKE ? ESCAPE '\\')
         ORDER BY gallery_details.taken_at ASC, library_items.folder_path COLLATE NOCASE
         LIMIT 500
-      `).all(parsed.data.folder.libraryId, folderPath, `${folderPath.replace(/[\\%_]/g, "\\$&")}/%`) as { id: string }[];
+      `).all(parsed.data.folder.libraryId, folderPath, `${folderPath.replace(/[\\%_]/g, "\\$&")}/%`) as Pick<LibraryItemRow, "id">[];
       itemIds = rows.map((row) => row.id);
     }
     if (itemIds.length === 0) {

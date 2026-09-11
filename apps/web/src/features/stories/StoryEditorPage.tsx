@@ -151,6 +151,7 @@ export function StoryEditorPage({
             <a
               href={storyEditorHref(story.id)}
               className={pane === "overview" ? "is-current" : ""}
+              aria-current={pane === "overview" ? "page" : undefined}
               onClick={(event) => followReplace(event, storyEditorHref(story.id))}
             >
               {t("stories:edit.nav.overview")}
@@ -160,6 +161,7 @@ export function StoryEditorPage({
                 key={item.id}
                 href={storyEditorHref(story.id, item.id)}
                 className={item.id === chapterId ? "is-current" : ""}
+                aria-current={item.id === chapterId ? "page" : undefined}
                 onClick={(event) => followReplace(event, storyEditorHref(story.id, item.id))}
               >
                 {chapterLabel(story, item, itemIndex)}

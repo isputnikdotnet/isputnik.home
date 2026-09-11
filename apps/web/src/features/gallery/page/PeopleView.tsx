@@ -108,8 +108,8 @@ export function PeopleView({
             ) : (
               <form className="gallery-person-rename" onSubmit={(event) => { event.preventDefault(); void submitRename(); }}>
                 <input value={renameValue} onChange={(event) => setRenameValue(event.target.value)} placeholder={t("gallery:common.name")} autoFocus maxLength={120} />
-                <button type="submit" className="primary-button compact-button" disabled={!renameValue.trim()}>{t("gallery:common.save")}</button>
-                <button type="button" className="icon-button" onClick={() => setRenameValue(null)} aria-label={t("common:common.cancel")}><X size={14} aria-hidden="true" /></button>
+                <Button variant="primary" compact type="submit" disabled={!renameValue.trim()}>{t("gallery:common.save")}</Button>
+                <Button variant="icon" onClick={() => setRenameValue(null)} aria-label={t("common:common.cancel")}><X size={14} aria-hidden="true" /></Button>
               </form>
             )}
             <p className="gallery-album-sub">
@@ -134,7 +134,7 @@ export function PeopleView({
                 }))
               ]}
             />
-            <button type="button" className="icon-button" onClick={() => setMergeOpen(false)} aria-label={t("common:common.cancel")}><X size={14} aria-hidden="true" /></button>
+            <Button variant="icon" onClick={() => setMergeOpen(false)} aria-label={t("common:common.cancel")}><X size={14} aria-hidden="true" /></Button>
           </div>
         )}
 
@@ -143,14 +143,13 @@ export function PeopleView({
             <span className="audiobook-bulk-count">
               {t("gallery:common.counts.selected", { count: personPick.size })}
             </span>
-            <button
-              type="button"
-              className="secondary-button compact-button"
+            <Button
+              variant="secondary" compact
               onClick={() => setPersonPick(new Set(personAssets.map((asset) => asset.id)))}
               disabled={personAssets.length === 0 || movingPhotos}
             >
               {t("gallery:people.selectAllLoaded")}
-            </button>
+            </Button>
             {moveNewName == null ? (
               <SelectField
                 compact
@@ -183,12 +182,12 @@ export function PeopleView({
                   autoFocus
                   maxLength={120}
                 />
-                <button type="submit" className="primary-button compact-button" disabled={!moveNewName.trim() || movingPhotos}>
+                <Button variant="primary" compact type="submit" disabled={!moveNewName.trim() || movingPhotos}>
                   {movingPhotos ? t("gallery:common.moving") : t("gallery:people.moveButton")}
-                </button>
-                <button type="button" className="icon-button" onClick={() => setMoveNewName(null)} aria-label={t("common:common.cancel")}>
+                </Button>
+                <Button variant="icon" onClick={() => setMoveNewName(null)} aria-label={t("common:common.cancel")}>
                   <X size={14} aria-hidden="true" />
-                </button>
+                </Button>
               </form>
             )}
             <span className="muted gallery-move-hint">
@@ -216,9 +215,9 @@ export function PeopleView({
         )}
         {personAssets.length < personTotal && (
           <div style={{ display: "flex", justifyContent: "center", padding: "16px 0" }}>
-            <button type="button" className="secondary-button" onClick={() => void openPerson(selectedPerson, personAssets.length)} disabled={loading}>
+            <Button variant="secondary" onClick={() => void openPerson(selectedPerson, personAssets.length)} disabled={loading}>
               {loading ? t("gallery:common.loading") : t("gallery:common.loadMore")}
-            </button>
+            </Button>
           </div>
         )}
       </>
@@ -232,17 +231,17 @@ export function PeopleView({
   const main = shownPeople.filter((p) => p.name || p.faceCount > 1);
   const small = shownPeople.filter((p) => !p.name && p.faceCount <= 1);
   const card = (person: GalleryPerson) => (
-    <button key={person.id} type="button" className="gallery-person-card" onClick={() => void openPerson(person)}>
+    <Button variant="tile" key={person.id} className="gallery-person-card" onClick={() => void openPerson(person)}>
       <span className="gallery-person-avatar">
         <PersonAvatar url={person.coverUrl} />
       </span>
       <strong className={person.name ? undefined : "gallery-person-unnamed"}>{person.name || t("gallery:common.unnamed")}</strong>
       <small>{t("gallery:common.counts.photo", { count: person.faceCount })}</small>
-    </button>
+    </Button>
   );
   const showMore = (onClick: () => void) => (
     <div style={{ display: "flex", justifyContent: "center", padding: "16px 0" }}>
-      <button type="button" className="secondary-button" onClick={onClick}>{t("gallery:people.showMore")}</button>
+      <Button variant="secondary" onClick={onClick}>{t("gallery:people.showMore")}</Button>
     </div>
   );
 
@@ -252,10 +251,10 @@ export function PeopleView({
       {main.length > visiblePeople && showMore(() => setVisiblePeople((n) => n + PEOPLE_PAGE))}
       {small.length > 0 && (
         <div className="gallery-small-groups">
-          <button type="button" className="gallery-small-toggle" onClick={() => setShowSmallGroups((v) => !v)}>
+          <Button variant="bare" className="gallery-small-toggle" onClick={() => setShowSmallGroups((v) => !v)}>
             <ChevronRight size={15} className={showSmallGroups ? "rotated" : ""} aria-hidden="true" />
             {t("gallery:people.smallGroupsToggle", { count: small.length })}
-          </button>
+          </Button>
           {showSmallGroups && (
             <>
               <div className="gallery-people-grid">{small.slice(0, visibleSmall).map(card)}</div>

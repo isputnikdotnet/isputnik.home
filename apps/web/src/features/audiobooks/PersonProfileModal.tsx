@@ -459,15 +459,17 @@ export function PersonProfileModal({
         busy={busy || photoBoxOpen || removeOpen}
         onClose={onClose}
       >
-        <div className="modal-tabs">
+        <div className="modal-tabs" role="tablist">
           {TABS.map((id) => (
-            <button
+            <Button
+              variant="tab"
               key={id}
-              className={`modal-tab${tab === id ? " active" : ""}`}
+              className="modal-tab"
+              selected={tab === id}
               onClick={() => setTab(id)}
             >
               {t(`book:person.${TAB_KEYS[id]}`)}
-            </button>
+            </Button>
           ))}
         </div>
 
@@ -549,8 +551,8 @@ export function PersonProfileModal({
                 {/* The tile is the way in to the photo box rather than a file
                     input of its own — choosing a picture has two sources, so it
                     gets a box instead of a hidden <input> behind a dashed frame. */}
-                <button
-                  type="button"
+                <Button
+                  variant="tile"
                   className={`person-edit-photo-tile${tileDragging ? " dragging" : ""}`}
                   onClick={() => setPhotoBoxOpen(true)}
                   title={t("book:person.choosePhotoTitle")}
@@ -573,7 +575,7 @@ export function PersonProfileModal({
                       <span className="person-edit-photo-hint">{t("book:person.photoFormats")}<br />{t("book:person.photoMaxSize")}</span>
                     </>
                   )}
-                </button>
+                </Button>
                 {photoUrl ? (
                   <Button variant="secondary" danger className="person-edit-photo-button" onClick={() => setRemoveOpen(true)}>
                     <Trash2 size={16} aria-hidden="true" />

@@ -4,6 +4,7 @@ import { db, logActivity } from "../../db.js";
 import { parseBody } from "../../core/shared.js";
 import { getFamilyDefaultPerson, getFamilyUploadLibrary, setFamilyTreeSettings } from "./settings.js";
 import { can, parsePolicy } from "../../core/permissions.js";
+import type { LibraryRow } from "../../db/rows.js";
 
 export function registerSettingsRoutes(app: FastifyInstance) {
   // ── Settings ──
@@ -15,7 +16,7 @@ export function registerSettingsRoutes(app: FastifyInstance) {
     let canUpload = false;
     if (library) {
       const row = db.prepare("SELECT id, policy_json FROM libraries WHERE id = ?")
-        .get(library.id) as { id: string; policy_json: string } | undefined;
+        .get(library.id) as Pick<LibraryRow, "id" | "policy_json"> | undefined;
       if (row) {
         canUpload = can(user, { objectType: "library", objectId: row.id, policy: parsePolicy(row.policy_json) }, "upload");
       }

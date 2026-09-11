@@ -34,7 +34,7 @@ isputnik.home is a private, self-hosted web app for friends and family. It provi
 snapshot from June 2026 (v0.31.0) and are out of date: much of *Planned* and
 *Future Updates* has shipped since — the gallery with face recognition and a map,
 shareable albums, the family tree, stories and more. The user guides in
-[`users/`](users/README.md) and the changelog in `apps/server/src/changelog.ts`
+[`users/`](users/README.md) and the changelog in `apps/server/src/changelog.json`
 describe the app as it is now.
 
 **Status snapshot: June 16, 2026 — v0.31.0**
@@ -287,9 +287,13 @@ apps/server/src/
       categories.ts, tags.ts, bookmarks.ts, covers.ts, feed.ts, settings.ts, storage.ts
   db.ts                       ← SQLite singleton: staged restore, pre-upgrade copy,
                                  schema + migrations, seed
-  db/                         ← schema.sql (the whole schema), migrate.ts,
+  db/                         ← schema.sql (the whole schema), migrate.ts (the runner),
                                  pre-upgrade.ts, seed.ts (see database.md)
-  changelog.ts                ← VERSION_UPDATES, the in-app changelog
+    migrations/               ← one file per migration since 3.0.0 (033-….ts …),
+                                 listed in order by index.ts
+  changelog.json              ← the in-app changelog: every release, newest first
+  changelog.ts                ← its loader: reads + checks the JSON at boot,
+                                 exports VERSION_UPDATES
   auth.ts, config.ts, crypto.ts, categories-seed.ts, types.ts
 ```
 
@@ -359,10 +363,15 @@ A release is five things, in this order:
    and in `package-lock.json`. The root one is what the running server reports, with
    its `stage` field (`"beta"`) shown beside it on the About page — the stage is kept
    out of the version string so `latest` keeps following every tag.
-2. Add the entry to `VERSION_UPDATES` at the top of `apps/server/src/changelog.ts` —
-   that array is the changelog the About page shows, and the one source of truth.
+2. Add the entry at the top of the array in `apps/server/src/changelog.json` —
+   `{ "version", "label", "changes": [...] }`, newest first. That file is the changelog
+   the About page shows, and the one source of truth (`changelog.ts` beside it only
+   loads it). Text may use `**bold**` and backticks for names; write Unicode as
+   itself, and escape only `"` and `\` as JSON requires. The server checks the file
+   as it loads, so a malformed entry fails `npm run test:server` (and the boot) with
+   the entry named.
 3. Run `npm run changelog`. It regenerates the repo-root `CHANGELOG.md` from
-   `changelog.ts` (`scripts/changelog-md.mjs`); never edit `CHANGELOG.md` by hand.
+   `changelog.json` (`scripts/changelog-md.mjs`); never edit `CHANGELOG.md` by hand.
 4. Commit all of it together, on its own, subject `release: <version> - <label>`.
 5. Push main, then push an annotated `v<version>` tag.
 
@@ -374,7 +383,7 @@ apart, the workflow skips the dry run for a commit whose subject starts with
 the full test workflow (`test.yml`, called from `docker.yml`) and publishes the
 image only when it passes. Once the image is out, a last job creates the tag's
 GitHub Release (or updates it, on a re-run), its notes that version's entry from
-`changelog.ts` (`node scripts/changelog-md.mjs --version <tag>`) — so a tag whose
+`changelog.json` (`node scripts/changelog-md.mjs --version <tag>`) — so a tag whose
 image failed to publish never gets a release page, and a tag with no changelog
 entry fails that job rather than publishing empty notes.
 

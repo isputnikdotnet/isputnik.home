@@ -22,17 +22,16 @@ vi.mock("../src/modules/library/gallery/duplicates/scan-queue.js", async (import
   return { ...actual, processDuplicateScanQueue: vi.fn(async () => {}) };
 });
 
-import Fastify, { type FastifyInstance } from "fastify";
-import cookie from "@fastify/cookie";
+import type { FastifyInstance } from "fastify";
 import { db } from "../src/db.js";
 import { sha256 } from "../src/crypto.js";
-import { registerAuthDecorators } from "../src/auth.js";
 import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
 import {
   addTrustedNetwork, deletionBlocked, DEFAULT_SECURITY_POLICY, setSecurityPolicy
 } from "../src/core/security.js";
 import { galleryDuplicateJobRoutesPlugin } from "../src/modules/library/gallery/duplicates/job-routes.js";
 import { runJobScan } from "../src/modules/library/gallery/duplicates/job-scan.js";
+import { bootApp } from "./helpers/boot.js";
 import { resetDb, makeUser, makeLibrary, grant, futureIso } from "./helpers/seed.js";
 
 const BASE = "/api/library/gallery/duplicate-jobs";
@@ -88,17 +87,15 @@ beforeEach(async () => {
   grant("group", EVERYONE_GROUP_ID, "GAL", "member");
   grant("group", EVERYONE_GROUP_ID, "GAL2", "member");
 
-  app = Fastify();
-  await app.register(cookie);
-  // index.ts's deletion-protection hook, as written there.
-  app.addHook("onRequest", async (request, reply) => {
-    if (deletionBlocked(request, request.routeOptions?.config)) {
-      await reply.code(403).send({ error: "Deleting is disabled outside trusted networks." });
-    }
-  });
-  await registerAuthDecorators(app);
-  await app.register(galleryDuplicateJobRoutesPlugin);
-  await app.ready();
+  ({ app } = await bootApp({
+    // index.ts's deletion-protection hook, as written there.
+    beforeRegister: (root) => root.addHook("onRequest", async (request, reply) => {
+      if (deletionBlocked(request, request.routeOptions?.config)) {
+        await reply.code(403).send({ error: "Deleting is disabled outside trusted networks." });
+      }
+    }),
+    plugins: [galleryDuplicateJobRoutesPlugin]
+  }));
 });
 
 afterEach(async () => {

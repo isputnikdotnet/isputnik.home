@@ -179,7 +179,8 @@ export function SeriesListPage({
         ) : (
           <div className="series-grid">
             {filteredSeries.map((s) => (
-              <button
+              <Button
+                variant="tile"
                 key={s.id}
                 className="series-card"
                 onClick={() => navigate(`${base}/series/${s.id}`)}
@@ -199,7 +200,7 @@ export function SeriesListPage({
                   <span>{t("book:catalog.counts.book", { count: s.bookCount })}</span>
                   {libraries.length > 1 && <small>{s.libraryName}</small>}
                 </div>
-              </button>
+              </Button>
             ))}
           </div>
         )}

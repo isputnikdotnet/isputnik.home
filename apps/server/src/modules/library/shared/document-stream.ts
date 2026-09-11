@@ -5,6 +5,7 @@ import { db, logActivity } from "../../../db.js";
 import { pathIsInside } from "./storage-roots.js";
 import { canUserAccessBook, canUserDownloadBook } from "./library-access.js";
 import { mediaKind } from "./library-types.js";
+import type { DocumentFileRow, ItemMetadataRow, LibraryRow } from "../../../db/rows.js";
 
 /**
  * Pipe a file to a hijacked reply, closing the read stream when the response ends.
@@ -49,15 +50,12 @@ export function parseRangeHeader(header: string, totalSize: number) {
   return { start, end, size: end - start + 1 };
 }
 
-interface DocumentRow {
-  relative_path: string;
-  mime_type: string | null;
-  status: string;
-  source_path: string;
-  id: string; // library id (aliased for canUserAccessBook)
-  library_type: string; // resolves the share module ("audiobook" | "ebook")
-  item_title: string | null; // for the download audit detail
-}
+type DocumentRow = Pick<DocumentFileRow, "relative_path" | "mime_type" | "status"> &
+  Pick<LibraryRow, "source_path"> & {
+    id: LibraryRow["id"]; // library id (aliased for canUserAccessBook)
+    library_type: LibraryRow["type"]; // resolves the share module ("audiobook" | "ebook")
+    item_title: ItemMetadataRow["title"] | null; // for the download audit detail
+  };
 
 interface StreamOptions {
   itemId: string;

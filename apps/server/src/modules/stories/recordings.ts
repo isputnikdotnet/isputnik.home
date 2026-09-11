@@ -20,6 +20,7 @@ import { uniqueGalleryFileName } from "../library/gallery/files.js";
 import { getRecordingsLibrary, type RecordingsLibrary } from "./settings.js";
 import { narrationAbsolutePath, titleFromFilename, type StoryAudioRow } from "./audio.js";
 import { HOUSE_FOLDERS } from "../library/gallery/house-library.js";
+import type { GalleryDetailRow, ItemMetadataRow, Nullable } from "../../db/rows.js";
 
 /** Where recordings live inside the house library, grouped by year so the
  *  folder view stays navigable. The space is fine — it's a display name on disk. */
@@ -89,7 +90,7 @@ export async function storeRecording(tmpPath: string, filename: string, extensio
     FROM gallery_details
     LEFT JOIN item_metadata ON item_metadata.item_id = gallery_details.item_id
     WHERE gallery_details.item_id = ?
-  `).get(itemId) as { title: string | null; duration_seconds: number | null } | undefined;
+  `).get(itemId) as (Nullable<Pick<ItemMetadataRow, "title">> & Pick<GalleryDetailRow, "duration_seconds">) | undefined;
   return {
     itemId,
     // The scanner titles an asset by its filename; a browser capture is named

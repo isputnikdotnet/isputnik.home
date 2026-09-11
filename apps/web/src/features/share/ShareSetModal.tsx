@@ -5,6 +5,7 @@ import { api } from "../../api";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
 import { SelectField } from "../../shared/SelectField";
+import { Button } from "../../shared/Button";
 
 // Share a multi-photo selection (gallery "share these") two ways:
 // - Guest link: an anonymous, no-account snapshot of the selection.
@@ -172,13 +173,13 @@ export function ShareSetModal({ itemIds, onClose }: { itemIds: string[]; onClose
       icon={<Link2 size={20} />}
       onClose={onClose}
     >
-      <div className="modal-tabs">
-        <button className={`modal-tab${tab === "link" ? " active" : ""}`} onClick={() => setTab("link")}>
+      <div className="modal-tabs" role="tablist">
+        <Button variant="tab" className="modal-tab" selected={tab === "link"} onClick={() => setTab("link")}>
           {t("user:share.guestLink")}
-        </button>
-        <button className={`modal-tab${tab === "people" ? " active" : ""}`} onClick={() => setTab("people")}>
+        </Button>
+        <Button variant="tab" className="modal-tab" selected={tab === "people"} onClick={() => setTab("people")}>
           {t("user:share.people")}
-        </button>
+        </Button>
       </div>
 
       <div className="modal-tab-content">
@@ -200,9 +201,9 @@ export function ShareSetModal({ itemIds, onClose }: { itemIds: string[]; onClose
                 <span>{t("user:share.labelField")}</span>
                 <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder={t("user:share.setLabelPlaceholder")} maxLength={100} />
               </label>
-              <button className="primary-button" onClick={createLink} disabled={creating}>
+              <Button variant="primary" onClick={createLink} disabled={creating}>
                 <Link2 size={16} /><span>{creating ? t("user:actions.creating") : t("user:share.createLink")}</span>
-              </button>
+              </Button>
             </div>
 
             {newUrl && (
@@ -210,10 +211,10 @@ export function ShareSetModal({ itemIds, onClose }: { itemIds: string[]; onClose
                 <p className="muted">{t("user:share.copyNow")}</p>
                 <div className="share-url-row">
                   <input readOnly value={newUrl} onFocus={(e) => e.target.select()} />
-                  <button className="secondary-button" onClick={copyUrl}>
+                  <Button variant="secondary" onClick={copyUrl}>
                     {copied ? <Check size={16} /> : <Copy size={16} />}
                     <span>{copied ? t("user:share.copied") : t("user:actions.copy")}</span>
-                  </button>
+                  </Button>
                 </div>
                 {skippedNote && <p className="muted">{skippedNote}</p>}
               </div>
@@ -233,9 +234,9 @@ export function ShareSetModal({ itemIds, onClose }: { itemIds: string[]; onClose
                         {link.status === "expired" ? t("user:share.expired") : t("user:share.expiresOn", { date: new Date(link.expiresAt).toLocaleDateString() })}
                       </span>
                     </div>
-                    <button className="icon-button" onClick={() => revokeLink(link.id)} aria-label={t("user:share.revokeLink")}>
+                    <Button variant="icon" onClick={() => revokeLink(link.id)} aria-label={t("user:share.revokeLink")}>
                       <Trash2 size={16} />
-                    </button>
+                    </Button>
                   </div>
                 ))
               )}
@@ -265,9 +266,9 @@ export function ShareSetModal({ itemIds, onClose }: { itemIds: string[]; onClose
                 onChange={(value) => setUserExpiryDays(Number(value))}
                 options={USER_EXPIRY_OPTIONS.map((days) => ({ value: String(days), label: userExpiryLabel(days) }))}
               />
-              <button className="primary-button" onClick={grantUser} disabled={granting || !selectedUser}>
+              <Button variant="primary" onClick={grantUser} disabled={granting || !selectedUser}>
                 <UserPlus size={16} /><span>{granting ? t("user:share.sharing") : t("user:share.share")}</span>
-              </button>
+              </Button>
             </div>
 
             {peopleNote && <MessageBox tone="success" title={t("user:share.sharedTitle")}>{peopleNote}</MessageBox>}
@@ -286,9 +287,9 @@ export function ShareSetModal({ itemIds, onClose }: { itemIds: string[]; onClose
                         {r.expiresAt ? t("user:share.until", { date: new Date(r.expiresAt).toLocaleDateString() }) : t("user:share.noExpiry")}
                       </span>
                     </div>
-                    <button className="icon-button" onClick={() => revokeUser(r.userId)} aria-label={t("user:share.revokeShare")}>
+                    <Button variant="icon" onClick={() => revokeUser(r.userId)} aria-label={t("user:share.revokeShare")}>
                       <Trash2 size={16} />
-                    </button>
+                    </Button>
                   </div>
                 ))
               )}

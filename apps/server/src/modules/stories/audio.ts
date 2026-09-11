@@ -18,6 +18,7 @@ import { db } from "../../db.js";
 import { thumbnailAbsolutePath, thumbnailStorageKey } from "../library/shared/thumbnail.js";
 import { parseRangeHeader, pipeFileToReply } from "../library/shared/document-stream.js";
 import { probeDurationSeconds } from "../library/gallery/slideshow-probe.js";
+import type { StoryAudioRow as DbStoryAudioRow } from "../../db/rows.js";
 
 /** How a narration block points at its clip. Not a subjects-registry type:
  *  the clip belongs to the story, not to the library. */
@@ -36,15 +37,8 @@ const MIME_BY_EXT: Record<string, string> = {
   wav: "audio/wav", flac: "audio/flac"
 };
 
-export interface StoryAudioRow {
-  id: string;
-  story_id: string;
-  storage_key: string;
-  title: string | null;
-  duration_seconds: number | null;
-  uploaded_by: string | null;
-  created_at: string;
-}
+/** A whole `story_audio` row. */
+export type StoryAudioRow = DbStoryAudioRow;
 
 export function getStoryAudio(audioId: string): StoryAudioRow | undefined {
   return db.prepare("SELECT * FROM story_audio WHERE id = ?").get(audioId) as StoryAudioRow | undefined;
@@ -163,7 +157,7 @@ export function deleteStoryAudio(audioId: string): void {
  *  what stops the files being left behind on disk. */
 export function deleteStoryAudioFiles(storyId: string): void {
   const rows = db.prepare("SELECT storage_key FROM story_audio WHERE story_id = ?")
-    .all(storyId) as { storage_key: string }[];
+    .all(storyId) as Pick<DbStoryAudioRow, "storage_key">[];
   for (const row of rows) {
     try {
       fs.rmSync(thumbnailAbsolutePath(row.storage_key), { force: true });
@@ -186,5 +180,5 @@ export function orphanedStoryAudio(storyId: string): string[] {
           AND story_blocks.entity_type = '${STORY_AUDIO_ENTITY_TYPE}'
           AND story_blocks.entity_id = story_audio.id
       )
-  `).all(storyId) as { id: string }[]).map((row) => row.id);
+  `).all(storyId) as Pick<DbStoryAudioRow, "id">[]).map((row) => row.id);
 }

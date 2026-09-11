@@ -6,6 +6,7 @@ import { getTrashRetentionDays } from "../library/shared/trash-settings.js";
 import { deleteStoryAudioFiles } from "./audio.js";
 import { getStory } from "./access.js";
 import { RECIPE_CHAPTERS, STORY_ENTITY_TYPE, type StoryKind, type StoryRow, type StoryStatus } from "./stories.js";
+import type { StoryRow as DbStoryRow, UserRow } from "../../db/rows.js";
 
 // Every story owns at least one chapter, so the reader, the editor and (later)
 // the player only ever handle one shape. A story that needs no structure just
@@ -235,12 +236,21 @@ export function purgeStory(storyId: string): boolean {
   return removed;
 }
 
+/** stories.* plus the owning account's name. The bin shows it as who deleted the
+ *  story: there is no deleted_by column, and only the owner (or an admin) can
+ *  delete one — so the account is the right name here, not the byline. */
+type DeletedStoryRow = StoryRow & {
+  owner_name: UserRow["display_name"] | null;
+  chapter_count: number;
+  cover_key: string | null;
+};
+
 /** The bin's story rows, newest deletion first — the Recycle Bin page. The
  *  cover lookup is UNBOUNDED by library access on purpose: this feeds an
  *  admin-only route, and it's the same thumbnail the story's card showed. */
 export function listDeletedStories() {
   const rows = db.prepare(`
-    SELECT stories.*, users.display_name AS author_name,
+    SELECT stories.*, users.display_name AS owner_name,
       (SELECT COUNT(*) FROM story_chapters WHERE story_chapters.story_id = stories.id) AS chapter_count,
       COALESCE(
         (SELECT item_metadata.cover_storage_key FROM library_items
@@ -259,14 +269,15 @@ export function listDeletedStories() {
     LEFT JOIN users ON users.id = stories.created_by
     WHERE stories.deleted_at IS NOT NULL
     ORDER BY stories.deleted_at DESC
-  `).all() as (StoryRow & { author_name: string | null; chapter_count: number; cover_key: string | null })[];
+  `).all() as DeletedStoryRow[];
   return rows.map((row) => ({
     id: row.id,
     title: row.title,
     status: row.status,
     kind: row.kind,
     chapterCount: row.chapter_count,
-    authorName: row.author_name,
+    // Named authorName on the wire for the bin page; it is the OWNER's name.
+    authorName: row.owner_name,
     coverUrl: row.cover_key ? `/api/library/covers/${row.cover_key}` : null,
     deletedAt: row.deleted_at,
     purgesAt: row.purge_after
@@ -278,7 +289,7 @@ export function listDeletedStories() {
 export function purgeExpiredStories(): { purged: number } {
   const rows = db.prepare(
     "SELECT id FROM stories WHERE deleted_at IS NOT NULL AND purge_after IS NOT NULL AND purge_after <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now')"
-  ).all() as { id: string }[];
+  ).all() as Pick<DbStoryRow, "id">[];
   for (const row of rows) purgeStory(row.id);
   return { purged: rows.length };
 }

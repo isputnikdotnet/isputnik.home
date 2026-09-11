@@ -138,13 +138,13 @@ export function PersonPhotoModal({
       busy={busy}
       onClose={onClose}
     >
-      <div className="modal-tabs">
-        <button className={`modal-tab${tab === "upload" ? " active" : ""}`} onClick={() => setTab("upload")}>
+      <div className="modal-tabs" role="tablist">
+        <Button variant="tab" className="modal-tab" selected={tab === "upload"} onClick={() => setTab("upload")}>
           {t("book:photo.tabUpload")}
-        </button>
-        <button className={`modal-tab${tab === "online" ? " active" : ""}`} onClick={() => setTab("online")}>
+        </Button>
+        <Button variant="tab" className="modal-tab" selected={tab === "online"} onClick={() => setTab("online")}>
           {t("book:photo.tabOnline")}
-        </button>
+        </Button>
       </div>
 
       <div className="modal-tab-content">
@@ -162,8 +162,8 @@ export function PersonPhotoModal({
                 event.target.value = ""; // let the same file be re-picked
               }}
             />
-            <button
-              type="button"
+            <Button
+              variant="bare"
               className={`person-photo-drop${dragging ? " dragging" : ""}`}
               onClick={() => fileInputRef.current?.click()}
               onDragOver={(event) => { event.preventDefault(); setDragging(true); }}
@@ -183,7 +183,7 @@ export function PersonPhotoModal({
                   <span className="person-photo-drop-hint">{t("book:photo.formats")}<br />{t("book:photo.maxSize")}</span>
                 </>
               )}
-            </button>
+            </Button>
 
             {pending && (
               <div className="person-photo-upload-actions">
@@ -220,7 +220,8 @@ export function PersonPhotoModal({
               shown.length > 0 ? (
                 <div className="cover-candidate-grid">
                   {shown.map((candidate) => (
-                    <button
+                    <Button
+                      variant="tile"
                       className="cover-candidate"
                       key={candidate.photoUrl}
                       onClick={() => void apply(candidate)}
@@ -235,7 +236,7 @@ export function PersonPhotoModal({
                       <span>{candidate.label}</span>
                       <small>{candidate.hint ?? " "}</small>
                       <strong>{applying === candidate.photoUrl ? t("book:photo.applying") : t("book:photo.useThisPhoto")}</strong>
-                    </button>
+                    </Button>
                   ))}
                 </div>
               ) : (

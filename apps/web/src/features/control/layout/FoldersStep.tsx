@@ -4,6 +4,7 @@ import { ChevronRight, Folder, Library, Lock, Info, X } from "lucide-react";
 import { api } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
 import { foldersBase, type BrowseFolder, type FolderOwnership, type FoldersResponse, type LayoutLibrary } from "./types";
+import { Button } from "../../../shared/Button";
 
 // Step 1: which folders the rule covers. A tree rooted at the library, loaded a
 // level at a time; a tick covers the folder and everything inside it. Folders an
@@ -145,9 +146,9 @@ export function FoldersStep({
     return (
       <li key={node.relativePath} role="treeitem" aria-expanded={open} aria-selected={isSel}>
         <div className={`layout-tree-row ${isSel ? "is-selected" : ""} ${inherited ? "is-inherited" : ""} ${lockedSame ? "is-owned" : ""}`} style={{ paddingLeft: 12 + depth * 22 }}>
-          <button type="button" className={`layout-twisty ${open ? "is-open" : ""}`} aria-label={t(open ? "controlAdmin:layout.collapse" : "controlAdmin:layout.expand", { name: node.name })} onClick={() => toggleExpand(node)}>
+          <Button variant="bare" className={`layout-twisty ${open ? "is-open" : ""}`} aria-label={t(open ? "controlAdmin:layout.collapse" : "controlAdmin:layout.expand", { name: node.name })} onClick={() => toggleExpand(node)}>
             <ChevronRight size={14} aria-hidden="true" />
-          </button>
+          </Button>
           <input
             type="checkbox"
             checked={isSel}
@@ -233,7 +234,7 @@ export function FoldersStep({
               <span key={p} className="layout-folder-chip">
                 {p === "" ? t("controlAdmin:layout.wholeLibrary") : p}
                 <span className="layout-folder-chip-n">{p === "" ? root?.books ?? 0 : counts.get(p) ?? 0}</span>
-                <button type="button" className="layout-folder-chip-x" aria-label={t("controlAdmin:layout.remove", { path: p || t("controlAdmin:layout.wholeLibrary") })} onClick={() => pick(p, false)}><X size={13} /></button>
+                <Button variant="bare" className="layout-folder-chip-x" aria-label={t("controlAdmin:layout.remove", { path: p || t("controlAdmin:layout.wholeLibrary") })} onClick={() => pick(p, false)}><X size={13} /></Button>
               </span>
             ))}
           </div>

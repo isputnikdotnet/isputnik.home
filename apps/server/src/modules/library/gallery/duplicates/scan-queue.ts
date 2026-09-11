@@ -8,6 +8,7 @@ import { db } from "../../../../db.js";
 import { libraryJobRunning } from "../../shared/scan-lock.js";
 import { requeueInterruptedJobs } from "../../shared/job-recovery.js";
 import { jobProgressWriter } from "../../shared/job-progress.js";
+import { registerJobHandler } from "../../../../core/job-poller.js";
 import {
   DUPLICATE_SCAN_JOB_TYPE,
   hashDuplicateCandidates,
@@ -18,6 +19,7 @@ import { getJob, setJobStatus, setJobScanProgress } from "./jobs.js";
 import { runJobScan } from "./job-scan.js";
 import { inboxNearVariants } from "./inbox-variants.js";
 import { findInboxRescans, rescanCandidates, type RescanMatch } from "./inbox-rescans.js";
+import type { JobRow } from "../../../../db/rows.js";
 
 // ── Phase 2, when the scan belongs to a cleanup job ─────────────────────────
 
@@ -51,7 +53,7 @@ function runCleanupSnapshot(
 }
 
 function writeResult(jobId: string, result: Record<string, unknown>): void {
-  const row = db.prepare("SELECT payload FROM jobs WHERE id = ?").get(jobId) as { payload: string } | undefined;
+  const row = db.prepare("SELECT payload FROM jobs WHERE id = ?").get(jobId) as Pick<JobRow, "payload"> | undefined;
   let payload: Record<string, unknown> = {};
   try { payload = row ? JSON.parse(row.payload) : {}; } catch { /* start fresh on a bad payload */ }
   db.prepare("UPDATE jobs SET payload = ? WHERE id = ?").run(JSON.stringify({ ...payload, result }), jobId);
@@ -75,7 +77,7 @@ export async function processDuplicateScanQueue(): Promise<void> {
         SELECT id, payload FROM jobs
         WHERE type = ? AND status = 'pending' AND run_at <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
         ORDER BY run_at ASC LIMIT 1
-      `).get(DUPLICATE_SCAN_JOB_TYPE) as { id: string; payload: string } | undefined;
+      `).get(DUPLICATE_SCAN_JOB_TYPE) as Pick<JobRow, "id" | "payload"> | undefined;
       if (!job) break;
 
       const claim = db.prepare(`
@@ -129,7 +131,7 @@ export async function processDuplicateScanQueue(): Promise<void> {
           .run(job.id);
       } catch (err) {
         const message = err instanceof Error ? err.message : "The duplicate scan failed.";
-        const attempts = db.prepare("SELECT attempts, max_attempts FROM jobs WHERE id = ?").get(job.id) as { attempts: number; max_attempts: number };
+        const attempts = db.prepare("SELECT attempts, max_attempts FROM jobs WHERE id = ?").get(job.id) as Pick<JobRow, "attempts" | "max_attempts">;
         if (attempts.attempts < attempts.max_attempts) {
           db.prepare("UPDATE jobs SET status = 'pending', run_at = ?, locked_at = NULL, locked_by = NULL, error = ? WHERE id = ?")
             .run(new Date(Date.now() + 5000).toISOString(), message, job.id);
@@ -147,7 +149,7 @@ export async function processDuplicateScanQueue(): Promise<void> {
   }
 }
 
+// On the shared job poller (core/job-poller.ts).
 export function startDuplicateScanWorker(): () => void {
-  const timer = setInterval(() => { void processDuplicateScanQueue().catch(() => { /* logged per-job */ }); }, 2000);
-  return () => clearInterval(timer);
+  return registerJobHandler({ name: "duplicate scan", types: [DUPLICATE_SCAN_JOB_TYPE], run: processDuplicateScanQueue });
 }

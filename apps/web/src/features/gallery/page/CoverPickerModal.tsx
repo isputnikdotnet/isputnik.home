@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import { CheckCircle2, Image as ImageIcon } from "lucide-react";
 import { Modal } from "../../../shared/Modal";
 import type { GalleryAsset } from "../types";
+import { Button } from "../../../shared/Button";
 
 // "Set cover photo" for an album, a slideshow or a person: their photos as a grid,
 // the current cover ticked, a click makes one the cover.
@@ -36,9 +37,9 @@ export function CoverPickerModal({
         ) : (
           <div className="gallery-grid gallery-cover-grid">
             {assets.map((asset) => (
-              <button
+              <Button
+                variant="tile"
                 key={asset.id}
-                type="button"
                 className={`gallery-tile${asset.id === coverItemId ? " selected" : ""}`}
                 onClick={() => onPick(asset.id)}
                 aria-label={t("gallery:page.dialogs.useAsCoverAria", { title: asset.title })}
@@ -52,7 +53,7 @@ export function CoverPickerModal({
                 {asset.id === coverItemId && (
                   <span className="gallery-tile-check" aria-hidden="true"><CheckCircle2 size={22} /></span>
                 )}
-              </button>
+              </Button>
             ))}
           </div>
         )}

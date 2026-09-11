@@ -8,6 +8,7 @@ import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { NewCollectionModal } from "./NewCollectionModal";
 import type { CollectionSummary } from "./types";
+import { Button } from "../../shared/Button";
 
 export function CollectionsPage() {
   const { t } = useTranslation(["common", "user"]);
@@ -31,10 +32,10 @@ export function CollectionsPage() {
             <p className="eyebrow">{t("user:area.eyebrow")}</p>
             <h1>{t("common:nav.collections")}</h1>
           </div>
-          <button className="primary-button compact-button" onClick={() => setCreating(true)}>
+          <Button variant="primary" compact onClick={() => setCreating(true)}>
             <Plus size={16} />
             <span>{t("user:collections.newCollection")}</span>
-          </button>
+          </Button>
         </div>
 
         {error && <MessageBox tone="error" title={t("user:collections.errorTitle")}>{error}</MessageBox>}
@@ -48,7 +49,8 @@ export function CollectionsPage() {
         ) : (
           <div className="audiobook-grid">
             {(collections ?? []).map((collection) => (
-              <button
+              <Button
+                variant="tile"
                 className="audiobook-card collection-card"
                 key={collection.id}
                 onClick={() => navigate(`/collections/${collection.id}`)}
@@ -65,7 +67,7 @@ export function CollectionsPage() {
                   <span>{t("user:count.items", { count: collection.itemCount })}</span>
                   {collection.description && <p className="audiobook-card-note">{collection.description}</p>}
                 </div>
-              </button>
+              </Button>
             ))}
             {collections === null && <p className="management-empty">{t("user:collections.loading")}</p>}
           </div>

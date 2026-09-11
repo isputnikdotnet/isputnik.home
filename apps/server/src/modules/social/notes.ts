@@ -21,6 +21,7 @@ import { nanoid } from "nanoid";
 import { db } from "../../db.js";
 import { parseBody } from "../../core/shared.js";
 import { hydrateOne, isSubjectEntityType } from "./subjects.js";
+import type { NoteRow as DbNoteRow, UserRow } from "../../db/rows.js";
 
 const MAX_BODY = 2000;
 
@@ -33,14 +34,7 @@ const createSchema = subjectQuery.extend({
   body: z.string().trim().min(1).max(MAX_BODY)
 });
 
-interface NoteRow {
-  id: string;
-  user_id: string | null;
-  author_name: string | null;
-  body: string;
-  created_at: string;
-  updated_at: string;
-}
+type NoteRow = Pick<DbNoteRow, "id" | "user_id" | "author_name" | "body" | "created_at" | "updated_at">;
 
 function noteView(row: NoteRow, viewer: { id: string; role: string }) {
   return {
@@ -95,9 +89,7 @@ export async function notesPlugin(app: FastifyInstance) {
       return reply.code(404).send({ error: "Not found" });
     }
 
-    const author = db.prepare("SELECT display_name FROM users WHERE id = ?").get(user.id) as
-      | { display_name: string }
-      | undefined;
+    const author = db.prepare("SELECT display_name FROM users WHERE id = ?").get(user.id) as Pick<UserRow, "display_name"> | undefined;
 
     const id = nanoid(16);
     db.prepare(`
@@ -120,7 +112,7 @@ export async function notesPlugin(app: FastifyInstance) {
     const id = (request.params as { id: string }).id;
 
     const row = db.prepare("SELECT user_id FROM notes WHERE id = ? AND deleted_at IS NULL")
-      .get(id) as { user_id: string | null } | undefined;
+      .get(id) as Pick<DbNoteRow, "user_id"> | undefined;
     if (!row) return reply.code(404).send({ error: "Not found" });
 
     if (row.user_id !== user.id && user.role !== "admin") {

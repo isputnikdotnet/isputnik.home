@@ -27,6 +27,8 @@ import {
   SCAN_BATCH_SIZE, MAX_FACE_SCAN_ATTEMPTS, UNSCANNED_PHOTOS_SQL, type FaceScanPayload
 } from "./queue.js";
 import { log } from "../../../../core/logger.js";
+import { registerJobHandler } from "../../../../core/job-poller.js";
+import type { GalleryFaceRow, JobRow, LibraryRow } from "../../../../db/rows.js";
 
 // Re-export the queue helpers so existing importers keep a single entry point.
 export { enqueueFaceScan, enqueueFaceScanBatches, enqueueFaceRecompute, resetLibraryFaceScanMarkers } from "./queue.js";
@@ -71,7 +73,7 @@ async function scanLibraryFaces(
   if (isPhotoInboxLibrary(libraryId)) return { items: 0, faces: 0, skipped: true };
 
   const library = db.prepare("SELECT id, source_path FROM libraries WHERE id = ? AND type = 'gallery'")
-    .get(libraryId) as { id: string; source_path: string } | undefined;
+    .get(libraryId) as Pick<LibraryRow, "id" | "source_path"> | undefined;
   if (!library) throw new Error("Gallery library not found.");
   const root = validateLibrarySource(library.source_path);
 
@@ -152,7 +154,7 @@ async function scanLibraryFaces(
     // delete the files only after the swap commits.
     const staleCropKeys = (db.prepare(
       "SELECT thumb_storage_key AS k FROM gallery_faces WHERE item_id = ? AND source = 'scan' AND thumb_storage_key IS NOT NULL"
-    ).all(photo.id) as { k: string }[]).map((r) => r.k);
+    ).all(photo.id) as { k: NonNullable<GalleryFaceRow["thumb_storage_key"]> }[]).map((r) => r.k);
     db.transaction(() => {
       // Replace this item's auto-detected faces (idempotent rescan); manual whole-photo
       // tags (source 'manual') are left untouched. Tiny faces are dropped above.
@@ -192,7 +194,7 @@ export function activeFaceScan(): FaceScanStatus | null {
     SELECT payload, status FROM jobs
     WHERE type = ? AND status IN ('pending', 'running')
     ORDER BY created_at ASC LIMIT 1
-  `).get(faceJobType) as { payload: string; status: "pending" | "running" } | undefined;
+  `).get(faceJobType) as (Pick<JobRow, "payload"> & { status: Extract<JobRow["status"], "pending" | "running"> }) | undefined;
   if (!job) return null;
 
   let payload: FaceScanPayload;
@@ -262,7 +264,7 @@ export async function processFaceScanQueue(): Promise<void> {
         SELECT id, payload FROM jobs
         WHERE type = ? AND status = 'pending' AND run_at <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
         ORDER BY run_at ASC LIMIT 1
-      `).get(faceJobType) as { id: string; payload: string } | undefined;
+      `).get(faceJobType) as Pick<JobRow, "id" | "payload"> | undefined;
       if (!job) break;
 
       const claim = db.prepare(`
@@ -323,7 +325,7 @@ export async function processFaceScanQueue(): Promise<void> {
       } catch (err) {
         const permanent = err instanceof LibrarySourceError;
         const message = err instanceof Error ? err.message : "Face scan failed";
-        const attempts = db.prepare("SELECT attempts, max_attempts FROM jobs WHERE id = ?").get(job.id) as { attempts: number; max_attempts: number };
+        const attempts = db.prepare("SELECT attempts, max_attempts FROM jobs WHERE id = ?").get(job.id) as Pick<JobRow, "attempts" | "max_attempts">;
         if (!permanent && attempts.attempts < attempts.max_attempts) {
           db.prepare("UPDATE jobs SET status = 'pending', run_at = ?, locked_at = NULL, locked_by = NULL, error = ? WHERE id = ?")
             .run(new Date(Date.now() + 5000).toISOString(), message, job.id);
@@ -351,6 +353,7 @@ export function startFaceScanWorker(): () => void {
     void recoverOrphanFaceClusters().catch((err) => log.warn(`face scan: orphan-cluster recovery failed: ${err instanceof Error ? err.message : String(err)}`));
   }, 5000);
   recovery.unref?.();
-  const timer = setInterval(() => { void processFaceScanQueue(); }, 2000);
-  return () => { clearTimeout(recovery); clearInterval(timer); };
+  // The queue itself is on the shared job poller (core/job-poller.ts).
+  const stopPolling = registerJobHandler({ name: "face scan", types: [faceJobType], run: processFaceScanQueue });
+  return () => { clearTimeout(recovery); stopPolling(); };
 }

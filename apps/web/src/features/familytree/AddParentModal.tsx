@@ -99,10 +99,10 @@ export function AddParentModal({
       )}
       <div className="ft-partner-pick">
         {parent ? (
-          <button type="button" className="ft-picker-row" onClick={() => setPickerOpen(true)} disabled={saving}>
+          <Button variant="bare" className="ft-picker-row" onClick={() => setPickerOpen(true)} disabled={saving}>
             <PersonAvatar person={parent} size={36} />
             <span className="ft-picker-row-name"><strong>{parent.name}</strong><small>{t("family:addParent.changeParent")}</small></span>
-          </button>
+          </Button>
         ) : (
           <Button variant="secondary" onClick={() => setPickerOpen(true)} disabled={saving}>
             {t("family:addParent.chooseParent")}

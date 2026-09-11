@@ -111,7 +111,7 @@
   border: 1px solid var(--line);
   border-radius: 6px;
   background: var(--surface-raised);
-  font-family: var(--font-mono, ui-monospace, Menlo, Consolas, monospace);
+  font-family: var(--font-mono);
   font-size: 0.8rem;
   white-space: nowrap;
 }
@@ -128,7 +128,7 @@
   border: 1px solid var(--line);
   border-radius: 6px;
   background: var(--surface-raised);
-  font-family: var(--font-mono, ui-monospace, Menlo, Consolas, monospace);
+  font-family: var(--font-mono);
   font-size: 0.78rem;
 }
 
@@ -386,7 +386,7 @@ button.layout-pill:hover { filter: brightness(0.95); }
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface-raised);
-  font-family: var(--font-mono, ui-monospace, Menlo, Consolas, monospace);
+  font-family: var(--font-mono);
   font-size: 0.8rem;
 }
 
@@ -445,7 +445,7 @@ button.layout-pill:hover { filter: brightness(0.95); }
 
 .layout-preset:hover { border-color: color-mix(in srgb, var(--mint) 50%, var(--line)); background: var(--hover); }
 .layout-preset b { font-size: 0.85rem; font-weight: 600; }
-.layout-preset span { font-family: var(--font-mono, ui-monospace, Menlo, Consolas, monospace); font-size: 0.74rem; color: var(--muted); }
+.layout-preset span { font-family: var(--font-mono); font-size: 0.74rem; color: var(--muted); }
 
 .layout-cards { display: flex; flex-direction: column; gap: 12px; }
 
@@ -472,7 +472,7 @@ button.layout-pill:hover { filter: brightness(0.95); }
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--field);
-  font-family: var(--font-mono, ui-monospace, Menlo, Consolas, monospace);
+  font-family: var(--font-mono);
   font-size: 0.78rem;
   color: var(--ink);
 }
@@ -513,7 +513,7 @@ button.layout-pill:hover { filter: brightness(0.95); }
   border-radius: 7px;
   background: var(--role-soft, transparent);
   color: var(--role-ink, var(--ink));
-  font-family: var(--font-mono, ui-monospace, Menlo, Consolas, monospace);
+  font-family: var(--font-mono);
   font-size: 0.82rem;
   white-space: nowrap;
   cursor: default;
@@ -536,7 +536,7 @@ button.layout-pill:hover { filter: brightness(0.95); }
 .layout-ext,
 .layout-ghost {
   padding: 6px 2px;
-  font-family: var(--font-mono, ui-monospace, Menlo, Consolas, monospace);
+  font-family: var(--font-mono);
   font-size: 0.82rem;
   color: var(--muted);
   white-space: pre;
@@ -551,7 +551,7 @@ button.layout-pill:hover { filter: brightness(0.95); }
   border-radius: 6px;
   background: var(--field);
   color: var(--muted);
-  font-family: var(--font-mono, ui-monospace, Menlo, Consolas, monospace);
+  font-family: var(--font-mono);
   font-size: 0.78rem;
   line-height: 1;
   white-space: pre;
@@ -580,7 +580,7 @@ button.layout-pill:hover { filter: brightness(0.95); }
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--field);
-  font-family: var(--font-mono, ui-monospace, Menlo, Consolas, monospace);
+  font-family: var(--font-mono);
   font-size: 0.78rem;
   color: var(--ink);
 }
@@ -592,7 +592,7 @@ button.layout-pill:hover { filter: brightness(0.95); }
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--field);
-  font-family: var(--font-mono, ui-monospace, Menlo, Consolas, monospace);
+  font-family: var(--font-mono);
   font-size: 0.85rem;
   color: var(--ink);
 }
@@ -604,7 +604,7 @@ button.layout-pill:hover { filter: brightness(0.95); }
   border: 1px solid var(--line);
   border-radius: 5px;
   background: var(--surface);
-  font-family: var(--font-mono, ui-monospace, Menlo, Consolas, monospace);
+  font-family: var(--font-mono);
   font-size: 0.78rem;
 }
 
@@ -635,7 +635,7 @@ button.layout-pill:hover { filter: brightness(0.95); }
   margin: 6px 0 0;
   padding: 0;
   list-style: none;
-  font-family: var(--font-mono, ui-monospace, Menlo, Consolas, monospace);
+  font-family: var(--font-mono);
   font-size: 0.78rem;
   color: var(--muted);
 }
@@ -721,10 +721,10 @@ button.layout-pill:hover { filter: brightness(0.95); }
 .layout-table tbody tr.is-warn td { background: color-mix(in srgb, var(--warning) 7%, transparent); }
 .layout-table tbody tr.is-none td { color: var(--muted); }
 .layout-table .is-num { text-align: right; font-variant-numeric: tabular-nums; }
-.layout-table code { font-family: var(--font-mono, ui-monospace, Menlo, Consolas, monospace); font-size: 0.76rem; margin-right: 4px; }
+.layout-table code { font-family: var(--font-mono); font-size: 0.76rem; margin-right: 4px; }
 .layout-table-empty { padding: 24px; color: var(--muted); text-align: center; }
 
-.layout-td-path { max-width: 360px; font-family: var(--font-mono, ui-monospace, Menlo, Consolas, monospace); font-size: 0.76rem; word-break: break-word; }
+.layout-td-path { max-width: 360px; font-family: var(--font-mono); font-size: 0.76rem; word-break: break-word; }
 .layout-td-dir { color: var(--muted); }
 .layout-td-note { display: block; margin-top: 4px; font-family: inherit; font-size: 0.76rem; color: var(--amber); }
 
@@ -799,5 +799,5 @@ button.layout-pill:hover { filter: brightness(0.95); }
 .library-layout-option-copy { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
 .library-layout-option-copy strong { font-size: 0.95rem; }
 .library-layout-option-copy small { font-size: 0.78rem; color: var(--muted); line-height: 1.35; }
-.library-layout-option-copy code { font-family: var(--font-mono, ui-monospace, Menlo, Consolas, monospace); }
+.library-layout-option-copy code { font-family: var(--font-mono); }
 .library-layout-note { margin: 0; max-width: 72ch; font-size: 0.85rem; }

@@ -1,4 +1,5 @@
 import { FastForward, Pause, Play, Rewind, SkipBack, SkipForward } from "lucide-react";
+import { Button } from "../../shared/Button";
 
 export interface PlayerControlLabels {
   prev: string;
@@ -42,23 +43,23 @@ export function PlayerControls({
   if (layout === "bar") {
     return (
       <div className="player-controls">
-        <button className="player-btn player-btn-skip" onClick={() => onSkip(-30)} aria-label={labels.back30}>
+        <Button variant="bare" className="player-btn player-btn-skip" onClick={() => onSkip(-30)} aria-label={labels.back30}>
           <Rewind size={17} />
           <span>30</span>
-        </button>
-        <button className="player-btn" onClick={onPrev} disabled={prevDisabled} aria-label={labels.prev}>
+        </Button>
+        <Button variant="bare" className="player-btn" onClick={onPrev} disabled={prevDisabled} aria-label={labels.prev}>
           <SkipBack size={20} />
-        </button>
-        <button className="player-btn player-btn-primary" onClick={onTogglePlay} aria-label={playLabel}>
+        </Button>
+        <Button variant="bare" className="player-btn player-btn-primary" onClick={onTogglePlay} aria-label={playLabel}>
           {playing ? <Pause size={22} /> : <Play size={22} />}
-        </button>
-        <button className="player-btn" onClick={onNext} disabled={nextDisabled} aria-label={labels.next}>
+        </Button>
+        <Button variant="bare" className="player-btn" onClick={onNext} disabled={nextDisabled} aria-label={labels.next}>
           <SkipForward size={20} />
-        </button>
-        <button className="player-btn player-btn-skip" onClick={() => onSkip(30)} aria-label={labels.forward30}>
+        </Button>
+        <Button variant="bare" className="player-btn player-btn-skip" onClick={() => onSkip(30)} aria-label={labels.forward30}>
           <FastForward size={17} />
           <span>30</span>
-        </button>
+        </Button>
       </div>
     );
   }
@@ -70,28 +71,29 @@ export function PlayerControls({
 
   return (
     <div className={popup ? "player-controls player-controls--popup" : "share-controls"}>
-      <button className={navClass} onClick={onPrev} disabled={prevDisabled} aria-label={labels.prev}>
+      <Button variant="bare" className={navClass} onClick={onPrev} disabled={prevDisabled} aria-label={labels.prev}>
         <SkipBack size={navSize} />
-      </button>
-      <button className="player-btn player-btn-circle" onClick={() => onSkip(-30)} aria-label={labels.back30}>
+      </Button>
+      <Button variant="bare" className="player-btn player-btn-circle" onClick={() => onSkip(-30)} aria-label={labels.back30}>
         <Rewind size={15} />
         <span>30</span>
-      </button>
-      <button
+      </Button>
+      <Button
+        variant="bare"
         className="player-btn player-btn-primary"
         onClick={onTogglePlay}
         aria-label={playLabel}
         data-label={popup ? playLabel : undefined}
       >
         {playing ? <Pause size={playSize} /> : <Play size={playSize} />}
-      </button>
-      <button className="player-btn player-btn-circle" onClick={() => onSkip(30)} aria-label={labels.forward30}>
+      </Button>
+      <Button variant="bare" className="player-btn player-btn-circle" onClick={() => onSkip(30)} aria-label={labels.forward30}>
         <FastForward size={15} />
         <span>30</span>
-      </button>
-      <button className={navClass} onClick={onNext} disabled={nextDisabled} aria-label={labels.next}>
+      </Button>
+      <Button variant="bare" className={navClass} onClick={onNext} disabled={nextDisabled} aria-label={labels.next}>
         <SkipForward size={navSize} />
-      </button>
+      </Button>
     </div>
   );
 }

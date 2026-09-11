@@ -484,8 +484,8 @@ export function StorageSection() {
             <h2>{t("controlAdmin:storage.containersTitle")}</h2>
             <p>{t("controlAdmin:storage.containersDesc")}</p>
           </div>
-          <button
-            className="primary-button"
+          <Button
+            variant="primary"
             onClick={() => {
               setError("");
               setRootNameInput("");
@@ -496,7 +496,7 @@ export function StorageSection() {
           >
             <Plus size={18} />
             <span>{t("controlAdmin:storage.addContainer")}</span>
-          </button>
+          </Button>
         </div>
 
         {storageRoots.length === 0 ? (
@@ -525,14 +525,14 @@ export function StorageSection() {
                       )}
                     </td>
                     <td className="col-actions">
-                      <button
-                        className="text-button danger"
+                      <Button
+                        variant="text" danger
                         disabled={root.libraryCount > 0 || deletingRootId === root.id}
                         onClick={() => deleteStorageRoot(root)}
                         title={root.libraryCount > 0 ? t("controlAdmin:storage.deleteBlockedTitle") : undefined}
                       >
                         {deletingRootId === root.id ? t("controlAdmin:storage.deleting") : t("controlAdmin:storage.delete")}
-                      </button>
+                      </Button>
                     </td>
                   </tr>
                 ))}

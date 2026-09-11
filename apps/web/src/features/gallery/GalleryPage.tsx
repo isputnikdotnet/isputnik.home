@@ -291,7 +291,8 @@ export function GalleryPage({
 
   const {
     memories, setMemories, memorySuggestions, previewSuggestion, setPreviewSuggestion, previewAssets,
-    loadMemories, openSuggestionPreview, createFromMemory, memoryItems, openMemoryYear
+    loadMemories, openSuggestionPreview, createFromMemory, memoryItems, openMemoryYear,
+    yearReviews, yearReviewAssets, setYearReviewAssets, playYearReview, createFromYearReview
   } = useMemories({
     scopeParams, setError, setNotice, goToView, openSlideshow, setLightbox,
     resetSlideshow: () => { setSlideshowAssets([]); setSlideshowTotal(0); }
@@ -377,6 +378,7 @@ export function GalleryPage({
     : lightbox?.source === "folder" ? folderAssets
       : lightbox?.source === "person" ? personAssets
         : lightbox?.source === "memory" ? memoryItems
+          : lightbox?.source === "yearReview" ? yearReviewAssets
           : lightbox?.source === "album" ? albumAssets
             : lightbox?.source === "slideshow" ? slideshowAssets : assets;
 
@@ -486,6 +488,7 @@ export function GalleryPage({
     setFolderAssets(patch);
     setPersonAssets(patch);
     setAlbumAssets(patch);
+    setYearReviewAssets(patch);
     setMemories((current) => (current ? { ...current, groups: current.groups.map((g) => ({ ...g, items: patch(g.items) })) } : current));
   }, [setPersonAssets, setAlbumAssets]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -506,6 +509,7 @@ export function GalleryPage({
     });
     setPersonAssets(drop);
     setAlbumAssets(drop);
+    setYearReviewAssets(drop);
     setMemories((current) => (current
       ? { ...current, groups: current.groups.map((g) => ({ ...g, items: drop(g.items) })) }
       : current));
@@ -659,7 +663,9 @@ export function GalleryPage({
       // the album/slideshow cases below.
       ? (selectedPerson ? undefined : t("gallery:common.counts.person", { count: shownPeople.length }))
       : view === "memories"
-        ? t("gallery:memories.subtitle", { count: memoriesTotal })
+        // "0 photos from past years" over a row of whole years would read as
+        // the page being empty; the row speaks for itself then.
+        ? (memoriesTotal === 0 && yearReviews.length > 0 ? undefined : t("gallery:memories.subtitle", { count: memoriesTotal }))
         : view === "albums"
           // An open album shows its own count under its cover title too — see
           // the slideshow case below.
@@ -673,11 +679,11 @@ export function GalleryPage({
             : folderSubtitle;
 
   // Ordinary links to ordinary addresses. Memories and Map only appear when there
-  // is something behind them — no memories on file, nothing geotagged in scope —
-  // which is why they are the two conditional entries.
+  // is something behind them — no anniversary today and no year to look back on,
+  // nothing geotagged in scope — which is why they are the two conditional entries.
   const galleryNavItems: SectionNavItem[] = [
     { key: "timeline", label: VIEW_TITLES.timeline, href: galleryHref("timeline"), icon: CalendarDays },
-    ...((memories?.groups.length ?? 0) > 0
+    ...((memories?.groups.length ?? 0) > 0 || yearReviews.length > 0
       ? [{ key: "memories", label: VIEW_TITLES.memories, href: galleryHref("memories"), icon: Sparkles }]
       : []),
     { key: "albums", label: VIEW_TITLES.albums, href: galleryHref("albums"), icon: Album },
@@ -701,9 +707,9 @@ export function GalleryPage({
   // reach the others. Every view that draws browse chrome now draws this too.
   const browseMenu = isMobile ? (
     <div className="audiobook-library-shortcuts gallery-browse-shortcut">
-      <button
+      <Button
+        variant="bare"
         ref={viewMenu.triggerRef}
-        type="button"
         className="audiobook-library-tab"
         onClick={viewMenu.toggle}
         aria-haspopup="menu"
@@ -713,7 +719,7 @@ export function GalleryPage({
         <Compass size={19} aria-hidden="true" />
         <span>{t("common:common.browse")}</span>
         <ChevronDown size={16} aria-hidden="true" />
-      </button>
+      </Button>
       {viewMenu.open && viewMenu.pos && createPortal(
         <div
           ref={viewMenu.menuRef}
@@ -730,16 +736,16 @@ export function GalleryPage({
             const Icon = item.icon;
             if (!Icon) return null;
             return (
-              <button
+              <Button
+                variant="bare"
                 key={item.key}
-                type="button"
                 role="menuitem"
                 className={view === item.key ? "active" : ""}
                 onClick={() => { viewMenu.close(); navigate(item.href); }}
               >
                 <Icon size={16} aria-hidden="true" />
                 <span>{item.label}</span>
-              </button>
+              </Button>
             );
           })}
         </div>,
@@ -829,10 +835,10 @@ export function GalleryPage({
               // picker to keep in step with it.
               scope={
                 backTarget && (
-                  <button type="button" className="library-toolbar-button" onClick={backTarget.onClick}>
+                  <Button variant="toolbar" onClick={backTarget.onClick}>
                     <ArrowLeft size={18} aria-hidden="true" />
                     <span className="toolbar-label">{backTarget.label}</span>
-                  </button>
+                  </Button>
                 )
               }
               // Filter and sort describe a set of photos — the people, camera,
@@ -897,29 +903,28 @@ export function GalleryPage({
                   {/* Desktop only, as on the book pages: bulk editing from a phone
                       is a row of eleven verbs on a 375px screen. */}
                   {!isMobile && view !== "map" && view !== "people" && view !== "albums" && view !== "slideshows" && (
-                    <button
-                      type="button"
-                      className="library-toolbar-button"
+                    <Button
+                      variant="toolbar"
                       onClick={() => { setNotice(""); setSelectionMode(true); }}
                     >
                       <SquareCheck size={18} aria-hidden="true" />
                       <span className="toolbar-label">{t("gallery:common.select")}</span>
-                    </button>
+                    </Button>
                   )}
                   {/* Everywhere but People, which is a page about faces: the
                       photos they were found in are uploaded from the views that
                       show photos. */}
                   {uploadLibraries.length > 0 && view !== "people" && (
-                    <button
-                      type="button"
+                    <Button
+                      variant="toolbar"
                       // The view's own Create outranks it when there is one, so
                       // only one control in the row is filled.
-                      className={`library-toolbar-button${primaryAction ? "" : " primary"}`}
+                      className={primaryAction ? undefined : "primary"}
                       onClick={() => { setNotice(""); setUploadOpen(true); }}
                     >
                       <UploadCloud size={18} aria-hidden="true" />
                       <span className="toolbar-label">{t("gallery:page.toolbar.upload")}</span>
-                    </button>
+                    </Button>
                   )}
                   {primaryAction}
                 </>
@@ -1025,6 +1030,9 @@ export function GalleryPage({
             ) : view === "memories" ? (
               <MemoriesView
                 memories={memories}
+                yearReviews={yearReviews}
+                onPlayYearReview={(review) => { setNotice(""); void playYearReview(review); }}
+                onCreateFromYearReview={(review) => void createFromYearReview(review)}
                 toggleDaySelect={toggleDaySelect}
                 canShareAny={canShareAny}
                 onShare={setShareIds}

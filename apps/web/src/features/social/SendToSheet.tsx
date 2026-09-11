@@ -455,19 +455,19 @@ export function SendToSheet({
                 <h3>{t("user:sendTo.quickSendTo")}</h3>
                 {searchable && (
                   searchOpen ? (
-                    <button
-                      type="button"
+                    <Button
+                      variant="bare"
                       className="send-to-search-toggle"
                       onClick={() => { setSearchOpen(false); setTerm(""); }}
                     >
                       <span>{t("common:common.close")}</span>
                       <X size={16} aria-hidden="true" />
-                    </button>
+                    </Button>
                   ) : (
-                    <button type="button" className="send-to-search-toggle" onClick={() => setSearchOpen(true)}>
+                    <Button variant="bare" className="send-to-search-toggle" onClick={() => setSearchOpen(true)}>
                       <span>{t("user:sendTo.search")}</span>
                       <Search size={16} aria-hidden="true" />
-                    </button>
+                    </Button>
                   )
                 )}
               </div>
@@ -696,9 +696,8 @@ function RouteTile({
   hint: string;
 }) {
   return (
-    <button
-      type="button"
-      role="tab"
+    <Button
+      variant="tab"
       aria-selected={active === id}
       className={`send-to-route${active === id ? " is-active" : ""}`}
       onClick={() => onPick(id)}
@@ -706,7 +705,7 @@ function RouteTile({
       <span className={`send-to-route-icon ${tone}`} aria-hidden="true">{icon}</span>
       <strong>{label}</strong>
       <span>{hint}</span>
-    </button>
+    </Button>
   );
 }
 
@@ -741,8 +740,8 @@ function PersonCard({
   const { t } = useTranslation(["common", "user", "stories"]);
   return (
     <li>
-      <button
-        type="button"
+      <Button
+        variant="bare"
         className={`send-to-person${picked ? " is-picked" : ""}`}
         aria-pressed={picked}
         disabled={!onToggle}
@@ -764,7 +763,7 @@ function PersonCard({
         {/* Drawn, not an <input>: the whole card is the control, and a real
             checkbox inside a button is neither valid nor reachable twice. */}
         <span className="send-to-check" aria-hidden="true" />
-      </button>
+      </Button>
     </li>
   );
 }

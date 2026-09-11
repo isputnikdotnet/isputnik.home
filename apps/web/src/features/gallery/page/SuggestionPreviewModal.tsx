@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import { Film, Image as ImageIcon, Play, Sparkles } from "lucide-react";
 import { Modal } from "../../../shared/Modal";
 import type { GalleryAsset, GalleryMemorySuggestion } from "../types";
+import { Button } from "../../../shared/Button";
 
 // Suggested-slideshow preview: look at the photos first, then create a slideshow
 // from them. Closing without creating = nothing happens.
@@ -29,13 +30,12 @@ export function SuggestionPreviewModal({
       <div className="add-to-album-head suggestion-preview-head">
         <p className="muted">{suggestion.subtitle}</p>
         <div className="suggestion-preview-actions">
-          <button
-            type="button"
-            className="primary-button compact-button"
+          <Button
+            variant="primary" compact
             onClick={onCreate}
           >
             <Film size={15} aria-hidden="true" /> {t("gallery:slideshows.createTitle")}
-          </button>
+          </Button>
         </div>
       </div>
       <div className="modal-tab-content add-to-album-body">

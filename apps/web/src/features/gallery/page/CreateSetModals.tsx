@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { Modal } from "../../../shared/Modal";
+import { Button } from "../../../shared/Button";
 
 // The two "New …" dialogs the Albums and Slideshows lists open from the header's
 // primary slot. Their state lives in useGalleryAlbums / useGallerySlideshows.
@@ -38,10 +39,10 @@ export function CreateAlbumModal({
           <input value={description} onChange={(event) => onDescriptionChange(event.target.value)} placeholder={t("gallery:albums.descriptionPlaceholder")} maxLength={2000} />
         </label>
         <div className="modal-actions">
-          <button type="button" className="secondary-button" onClick={onClose} disabled={busy}>{t("common:common.cancel")}</button>
-          <button type="submit" className="primary-button" disabled={!name.trim() || busy}>
+          <Button variant="secondary" onClick={onClose} disabled={busy}>{t("common:common.cancel")}</Button>
+          <Button variant="primary" type="submit" disabled={!name.trim() || busy}>
             {busy ? t("gallery:common.creating") : t("gallery:albums.createTitle")}
-          </button>
+          </Button>
         </div>
       </form>
     </Modal>
@@ -74,10 +75,10 @@ export function CreateSlideshowModal({
           <input value={name} onChange={(event) => onNameChange(event.target.value)} placeholder={t("gallery:slideshows.namePlaceholderExample")} autoFocus maxLength={120} />
         </label>
         <div className="modal-actions">
-          <button type="button" className="secondary-button" onClick={onClose} disabled={busy}>{t("common:common.cancel")}</button>
-          <button type="submit" className="primary-button" disabled={!name.trim() || busy}>
+          <Button variant="secondary" onClick={onClose} disabled={busy}>{t("common:common.cancel")}</Button>
+          <Button variant="primary" type="submit" disabled={!name.trim() || busy}>
             {busy ? t("gallery:common.creating") : t("gallery:slideshows.createTitle")}
-          </button>
+          </Button>
         </div>
       </form>
     </Modal>

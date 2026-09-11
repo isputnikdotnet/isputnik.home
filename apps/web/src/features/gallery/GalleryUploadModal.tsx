@@ -5,6 +5,7 @@ import { Modal } from "../../shared/Modal";
 import { FileUpload } from "../../shared/FileUpload";
 import { SelectField } from "../../shared/SelectField";
 import type { GalleryLibrary } from "./types";
+import { Button } from "../../shared/Button";
 
 // Upload photos/videos into a managed gallery. Each file becomes its own asset
 // (one file = one item), so this is a multi-file / whole-folder dropzone — drop a
@@ -32,9 +33,9 @@ export function GalleryUploadModal({
       busy={busy}
       onClose={onClose}
       headerAction={
-        <button type="button" className="modal-close" onClick={onClose} disabled={busy} aria-label={t("common:common.close")}>
+        <Button variant="bare" className="modal-close" onClick={onClose} disabled={busy} aria-label={t("common:common.close")}>
           <X size={18} aria-hidden="true" />
-        </button>
+        </Button>
       }
     >
       {libraries.length > 1 && (

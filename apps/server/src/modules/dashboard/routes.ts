@@ -14,6 +14,22 @@ import { isPrivateIp } from "../../core/cidr.js";
 import { describeUserAgent, deviceType } from "../../core/device-link.js";
 import { getHomeLocation, homeLocationSchema, setHomeLocation } from "./home-location.js";
 import { parseBody } from "../../core/shared.js";
+import type {
+  ActivityLogRow,
+  BlockedIpRow,
+  ItemMetadataRow,
+  LoginAttemptRow,
+  NonNull,
+  Nullable,
+  PlaybackProgressRow,
+  ReadingProgressRow,
+  SessionRow,
+  UserRow
+} from "../../db/rows.js";
+
+// An activity_logs row with its actor LEFT JOINed — the shape /api/logs returns too.
+type EventRow = Pick<ActivityLogRow, "id" | "event" | "detail" | "ip_address" | "created_at"> &
+  Nullable<{ actor_name: UserRow["display_name"]; actor_id: UserRow["id"] }>;
 
 // Event-category groupings used to bucket activity_logs rows for the charts.
 // Kept here (not derived generically) since the mapping is a product decision,
@@ -230,7 +246,7 @@ export async function dashboardRoutesPlugin(app: FastifyInstance) {
         AND created_at <= @to
       GROUP BY activity_logs.ip_address
     `).all({ from: from.toISOString(), to: to.toISOString() }) as {
-      ip: string | null;
+      ip: ActivityLogRow["ip_address"];
       connections: number;
       failed: number;
       people: number;
@@ -345,9 +361,7 @@ export async function dashboardRoutesPlugin(app: FastifyInstance) {
       ipSet = [query.ip];
       scope = { kind: "ip", label: query.ip, ip: query.ip };
     } else if (query.user) {
-      const person = db.prepare("SELECT id, display_name, email FROM users WHERE id = ?").get(query.user) as
-        | { id: string; display_name: string; email: string }
-        | undefined;
+      const person = db.prepare("SELECT id, display_name, email FROM users WHERE id = ?").get(query.user) as Pick<UserRow, "id" | "display_name" | "email"> | undefined;
       if (!person) {
         return reply.code(404).send({ error: "No such user" });
       }
@@ -361,7 +375,7 @@ export async function dashboardRoutesPlugin(app: FastifyInstance) {
           AND created_at >= @from
           AND created_at <= @to
           AND ip_address IS NOT NULL
-      `).all(params) as { ip: string }[];
+      `).all(params) as { ip: NonNullable<ActivityLogRow["ip_address"]> }[];
       const wanted: string[] = [];
       let placeName: string | null = null;
       for (const row of distinct) {
@@ -508,7 +522,14 @@ export async function dashboardRoutesPlugin(app: FastifyInstance) {
         MAX(created_at) AS last_seen
       FROM activity_logs WHERE ${where} AND ip_address IS NOT NULL
       GROUP BY ip_address ORDER BY connections DESC LIMIT 100
-    `).all(params) as { ip: string; connections: number; failed: number | null; guests: number | null; people: number; last_seen: string }[];
+    `).all(params) as {
+      ip: NonNullable<ActivityLogRow["ip_address"]>;
+      connections: number;
+      failed: number | null;
+      guests: number | null;
+      people: number;
+      last_seen: string;
+    }[];
 
     const blockedStatement = db.prepare(
       "SELECT auto, expires_at FROM blocked_ips WHERE ip_address = ?"
@@ -524,7 +545,7 @@ export async function dashboardRoutesPlugin(app: FastifyInstance) {
     const ips = ipRows.map((row) => {
       const isLocal = isPrivateIp(row.ip);
       const hit = isLocal ? null : lookupLocation(row.ip);
-      const block = blockedStatement.get(row.ip) as { auto: number; expires_at: string | null } | undefined;
+      const block = blockedStatement.get(row.ip) as Pick<BlockedIpRow, "auto" | "expires_at"> | undefined;
       const abuse = abuseStatement.get(row.ip, params.from, params.to) as
         | { probes: number | null; tokens: number | null }
         | undefined;
@@ -575,9 +596,9 @@ export async function dashboardRoutesPlugin(app: FastifyInstance) {
       WHERE ${where}
       GROUP BY 1 ORDER BY connections DESC LIMIT 100
     `).all(params) as {
-      user_id: string | null;
-      name: string | null;
-      email: string | null;
+      user_id: string | null; // actor_user_id, or 'guest'
+      name: UserRow["display_name"] | null;
+      email: UserRow["email"] | null;
       connections: number;
       failed: number | null;
       guests: number | null;
@@ -628,18 +649,14 @@ export async function dashboardRoutesPlugin(app: FastifyInstance) {
       FROM sessions JOIN users ON users.id = sessions.user_id
       WHERE ${sessionConditions.join(" AND ")}
       ORDER BY sessions.last_seen_at DESC LIMIT 500
-    `).all({ ...params, currentHash }) as {
-      id: string;
-      label: string | null;
-      device_name: string | null;
-      ip: string | null;
-      kind: "browser" | "device";
-      last_seen: string;
-      expires: string;
+    `).all({ ...params, currentHash }) as (Pick<SessionRow, "id" | "label" | "device_name" | "kind"> & {
+      ip: SessionRow["ip_address"];
+      last_seen: SessionRow["last_seen_at"];
+      expires: SessionRow["expires_at"];
       current: 0 | 1;
-      person: string;
-      person_id: string;
-    }[];
+      person: UserRow["display_name"];
+      person_id: UserRow["id"];
+    })[];
     const devices = sessionRows.map((row) => ({
       id: row.id,
       name: row.label ?? describeUserAgent(row.device_name),
@@ -670,7 +687,7 @@ export async function dashboardRoutesPlugin(app: FastifyInstance) {
         SELECT email, COUNT(*) AS attempts, MAX(created_at) AS last_seen
         FROM login_attempts WHERE ${attemptConditions.join(" AND ")}
         GROUP BY email ORDER BY attempts DESC LIMIT 20
-      `).all(params) as { email: string; attempts: number; last_seen: string }[]).map((row) => ({
+      `).all(params) as (NonNull<Pick<LoginAttemptRow, "email">, "email"> & { attempts: number; last_seen: string })[]).map((row) => ({
         email: row.email,
         attempts: row.attempts,
         lastSeen: row.last_seen
@@ -687,15 +704,7 @@ export async function dashboardRoutesPlugin(app: FastifyInstance) {
       FROM activity_logs LEFT JOIN users ON users.id = activity_logs.actor_user_id
       WHERE ${where}
       ORDER BY activity_logs.created_at DESC, activity_logs.rowid DESC LIMIT 200
-    `).all(params) as {
-      id: string;
-      event: string;
-      detail: string;
-      ip_address: string | null;
-      created_at: string;
-      actor_name: string | null;
-      actor_id: string | null;
-    }[]).map((row) => ({
+    `).all(params) as EventRow[]).map((row) => ({
       id: row.id,
       event: row.event,
       detail: row.detail,
@@ -896,13 +905,14 @@ export async function dashboardRoutesPlugin(app: FastifyInstance) {
       WHERE reading_progress.completed_at IS NULL
       ORDER BY updated_at DESC
       LIMIT ?
-    `).all(parsed.data.limit ?? 50) as {
-      kind: "audiobook" | "ebook";
-      updated_at: string;
-      percent_complete: number | null;
-      user_name: string;
-      title: string;
-    }[];
+    `).all(parsed.data.limit ?? 50) as (
+      // playback_progress UNION ALL reading_progress — the two columns agree in type.
+      Pick<PlaybackProgressRow | ReadingProgressRow, "updated_at" | "percent_complete"> & {
+        kind: "audiobook" | "ebook";
+        user_name: UserRow["display_name"];
+        title: NonNullable<ItemMetadataRow["title"]>; // COALESCE(title, folder_path)
+      }
+    )[];
 
     return reply.send({
       inProgress: rows.map((row) => ({

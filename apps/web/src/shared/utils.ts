@@ -113,30 +113,7 @@ export function foliateFileInfo(format: string): { name: string; mime: string } 
     : { name: "book.epub", mime: "application/epub+zip" };
 }
 
-// Compact "time ago" label (e.g. "8 min ago", "2 days ago"). Accepts the app's
-// ISO timestamps (with or without the trailing Z) the same way formatManagedDate does.
-export function relativeTime(value: string): string {
-  const date = new Date(value.includes("T") ? value : `${value.replace(" ", "T")}Z`);
-  const seconds = Math.round((Date.now() - date.getTime()) / 1000);
-  if (!Number.isFinite(seconds)) return i18n.t("common:time.justNow");
-  // A moment still to come ("next scheduled run") reads "in 6 hr", not "just now".
-  if (seconds < -45) return i18n.t("common:time.fromNow", { span: relativeSpan(-seconds) });
-  if (seconds < 45) return i18n.t("common:time.justNow");
-  return i18n.t("common:time.ago", { span: relativeSpan(seconds) });
-}
-
-/** A duration in the coarsest unit that still says something: "3 min", "6 hr", "2 days". */
-function relativeSpan(seconds: number): string {
-  const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return i18n.t("common:time.minutes", { count: minutes });
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return i18n.t("common:time.hours", { count: hours });
-  const days = Math.round(hours / 24);
-  if (days < 30) return i18n.t("common:time.days", { count: days });
-  const months = Math.round(days / 30);
-  if (months < 12) return i18n.t("common:time.months", { count: months });
-  return i18n.t("common:time.years", { count: Math.round(months / 12) });
-}
+// "How long ago" lives in shared/relativeTime.ts — one helper for every surface.
 
 // Partial ISO dates — "1971", "1971-09", "1971-09-01" — as prose in the
 // reader's own language. The convention is shared by the family tree, author

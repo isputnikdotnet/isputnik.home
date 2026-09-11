@@ -4,6 +4,13 @@
 import { db } from "../../../db.js";
 import { accessibleLibraryIds } from "../shared/library-access.js";
 import { alphaFieldsFor } from "../shared/alphabet.js";
+import type { AudiobookDetailRow, ItemMetadataRow, ItemPersonRow, LibraryItemRow, LibraryRow, Nullable, PersonRow } from "../../../db/rows.js";
+
+type PersonItemRow = Pick<LibraryItemRow, "id" | "type" | "folder_path">
+  & Nullable<Pick<ItemMetadataRow, "title" | "cover_storage_key" | "year_published">>
+  & Nullable<Pick<AudiobookDetailRow, "duration_seconds">>
+  & Pick<ItemPersonRow, "role">
+  & { author_names: string | null; narrator_names: string | null };
 
 export type PersonItem = {
   id: string;
@@ -60,11 +67,7 @@ export function listPersonItems(name: string, userId: string, userRole: string):
       CASE ip.role WHEN 'author' THEN 0 WHEN 'narrator' THEN 1 ELSE 2 END,
       ip.role,
       COALESCE(im.sort_title, im.title, li.folder_path) COLLATE NOCASE
-  `).all(name, ...libraryIds) as {
-    id: string; type: string; folder_path: string; title: string | null;
-    cover_storage_key: string | null; role: string; author_names: string | null;
-    narrator_names: string | null; year_published: number | null; duration_seconds: number | null;
-  }[];
+  `).all(name, ...libraryIds) as PersonItemRow[];
 
   return rows.map((row) => ({
     id: row.id,
@@ -97,7 +100,7 @@ export type AuthorSummary = {
   sortKeyLast: string;
 };
 
-export type AuthorLibrary = { id: string; name: string; type: string };
+export type AuthorLibrary = Pick<LibraryRow, "id" | "name" | "type">;
 
 export type PersonRole = "author" | "narrator";
 
@@ -142,13 +145,11 @@ export function listPeopleByRole(userId: string, userRole: string, role: PersonR
       AND li.library_id IN (${placeholders})
     GROUP BY p.id
     ORDER BY p.sort_name COLLATE NOCASE, p.name COLLATE NOCASE
-  `).all(role, ...libraryIds) as {
-    name: string;
-    sort_name: string | null;
+  `).all(role, ...libraryIds) as (Pick<PersonRow, "name" | "sort_name"> & {
     audiobook_count: number;
     ebook_count: number;
     library_ids: string | null;
-  }[];
+  })[];
 
   return rows.map((row) => {
     const byFirst = alphaFieldsFor(row.name);

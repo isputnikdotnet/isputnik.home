@@ -465,7 +465,7 @@
 }
 
 .compare-row.changed .compare-next {
-  color: var(--fg);
+  color: inherit;
   font-weight: 600;
 }
 
@@ -567,7 +567,7 @@
   border: 1px solid var(--line);
   border-radius: 8px;
   overflow: hidden;
-  color: var(--fg);
+  color: inherit;
   text-align: left;
   background: var(--surface);
   cursor: pointer;
@@ -627,7 +627,7 @@
   padding: 0 13px;
   border: 1px solid var(--line);
   border-radius: 7px;
-  color: var(--fg);
+  color: inherit;
   background: transparent;
   cursor: pointer;
   font-weight: 700;

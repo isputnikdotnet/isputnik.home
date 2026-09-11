@@ -13,6 +13,7 @@ import path from "node:path";
 import { db } from "../../../db.js";
 import { pathIsInside } from "../shared/storage-roots.js";
 import { getTrashRootSetting } from "../shared/trash-settings.js";
+import type { LibraryRow } from "../../../db/rows.js";
 
 const LIBRARY_TRASH_DIR = ".trash";
 
@@ -43,7 +44,7 @@ function replacedRoots(): Root[] {
   const roots: Root[] = [];
   const bin = getTrashRootSetting();
   if (bin) roots.push({ kind: "bin", dir: path.join(bin, "replaced") });
-  const libraries = db.prepare("SELECT id, source_path FROM libraries WHERE type = 'gallery'").all() as { id: string; source_path: string }[];
+  const libraries = db.prepare("SELECT id, source_path FROM libraries WHERE type = 'gallery'").all() as Pick<LibraryRow, "id" | "source_path">[];
   for (const library of libraries) roots.push({ kind: library.id, dir: path.join(library.source_path, LIBRARY_TRASH_DIR, "replaced") });
   return roots;
 }
@@ -76,7 +77,7 @@ function decodeKey(key: string): { kind: string; relative: string } | null {
 
 export function listReplacedOriginals(): ReplacedOriginal[] {
   const libraryNames = new Map(
-    (db.prepare("SELECT id, name FROM libraries").all() as { id: string; name: string }[]).map((row) => [row.id, row.name])
+    (db.prepare("SELECT id, name FROM libraries").all() as Pick<LibraryRow, "id" | "name">[]).map((row) => [row.id, row.name])
   );
   const titleOf = db.prepare(`
     SELECT COALESCE(m.title, i.folder_path) AS title

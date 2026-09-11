@@ -10,6 +10,7 @@ import { sortTitle } from "./scan/folder-parse.js";
 import { alphaFieldsFor } from "../shared/alphabet.js";
 import { thumbnailAbsolutePath, thumbnailStorageKey } from "../shared/thumbnail.js";
 import { getAccessibleLibrary, canUserCurateLibrary } from "../shared/library-access.js";
+import type { ItemMetadataRow, LibraryItemRow, LibraryRow, Nullable, PersonRow, SeriesItemRow, SeriesRow } from "../../../db/rows.js";
 
 async function writeSeriesCover(libraryId: string, seriesId: string, source: Buffer) {
   const storageKey = thumbnailStorageKey(libraryId, seriesId, `${seriesId}-series-cover.webp`);
@@ -45,7 +46,7 @@ function listSeriesForLibrary(libraryId: string) {
     WHERE series.library_id = ?
     GROUP BY series.id
     ORDER BY series.name COLLATE NOCASE
-  `).all(libraryId) as { id: string; name: string; book_count: number; cover_storage_key: string | null }[];
+  `).all(libraryId) as (Pick<SeriesRow, "id" | "name"> & { book_count: number; cover_storage_key: string | null })[];
 
   return rows.map((r) => {
     // The A–Z strip's bucket and ordering key, from the one place that decides
@@ -125,7 +126,7 @@ export function registerSeriesRoutes(app: FastifyInstance) {
       JOIN library_items ON library_items.id = item_people.item_id
       WHERE library_items.library_id = ?
       ORDER BY people.name COLLATE NOCASE
-    `).all(id) as { name: string }[];
+    `).all(id) as Pick<PersonRow, "name">[];
 
     return reply.send({ people: rows.map((r) => r.name) });
   });
@@ -146,7 +147,9 @@ export function registerSeriesRoutes(app: FastifyInstance) {
       FROM series
       JOIN libraries ON libraries.id = series.library_id
       WHERE series.id = ?
-    `).get(id) as { id: string; name: string; description: string | null; cover_storage_key: string | null; library_id: string; library_name: string } | undefined;
+    `).get(id) as (Pick<SeriesRow, "id" | "name" | "description" | "cover_storage_key" | "library_id"> & {
+      library_name: LibraryRow["name"];
+    }) | undefined;
 
     if (!row) {
       return reply.code(404).send({ error: "Series not found" });
@@ -176,7 +179,11 @@ export function registerSeriesRoutes(app: FastifyInstance) {
         AND library_items.deleted_at IS NULL
       GROUP BY library_items.id
       ORDER BY series_items.position ASC, title COLLATE NOCASE
-    `).all(id) as { id: string; series_position: number | null; title: string; cover_storage_key: string | null; author_names: string | null }[];
+    `).all(id) as (Pick<LibraryItemRow, "id"> & Nullable<Pick<ItemMetadataRow, "cover_storage_key">> & {
+      series_position: SeriesItemRow["position"];
+      title: string;
+      author_names: string | null;
+    })[];
 
     return reply.send({
       series: {
@@ -202,7 +209,7 @@ export function registerSeriesRoutes(app: FastifyInstance) {
     const id = (request.params as { id: string }).id;
     const user = request.user!;
 
-    const row = db.prepare("SELECT id, library_id FROM series WHERE id = ?").get(id) as { id: string; library_id: string } | undefined;
+    const row = db.prepare("SELECT id, library_id FROM series WHERE id = ?").get(id) as Pick<SeriesRow, "id" | "library_id"> | undefined;
     if (!row) {
       return reply.code(404).send({ error: "Series not found" });
     }
@@ -232,7 +239,7 @@ export function registerSeriesRoutes(app: FastifyInstance) {
     const id = (request.params as { id: string }).id;
     const user = request.user!;
 
-    const row = db.prepare("SELECT id, library_id FROM series WHERE id = ?").get(id) as { id: string; library_id: string } | undefined;
+    const row = db.prepare("SELECT id, library_id FROM series WHERE id = ?").get(id) as Pick<SeriesRow, "id" | "library_id"> | undefined;
     if (!row) {
       return reply.code(404).send({ error: "Series not found" });
     }
@@ -263,7 +270,7 @@ export function registerSeriesRoutes(app: FastifyInstance) {
       for (const bookId of parsed.data.bookIds) {
         // Only books in this library, not deleted, and not already in this series.
         const item = db.prepare("SELECT id FROM library_items WHERE id = ? AND library_id = ? AND deleted_at IS NULL")
-          .get(bookId, row.library_id) as { id: string } | undefined;
+          .get(bookId, row.library_id) as Pick<LibraryItemRow, "id"> | undefined;
         const alreadyHere = item
           ? db.prepare("SELECT 1 FROM series_items WHERE series_id = ? AND item_id = ?").get(id, bookId)
           : undefined;
@@ -290,7 +297,7 @@ export function registerSeriesRoutes(app: FastifyInstance) {
     const id = (request.params as { id: string }).id;
     const user = request.user!;
 
-    const row = db.prepare("SELECT id, library_id FROM series WHERE id = ?").get(id) as { id: string; library_id: string } | undefined;
+    const row = db.prepare("SELECT id, library_id FROM series WHERE id = ?").get(id) as Pick<SeriesRow, "id" | "library_id"> | undefined;
     if (!row) {
       return reply.code(404).send({ error: "Series not found" });
     }
@@ -327,7 +334,7 @@ export function registerSeriesRoutes(app: FastifyInstance) {
     const user = request.user!;
 
     const row = db.prepare("SELECT id, library_id, cover_storage_key FROM series WHERE id = ?")
-      .get(id) as { id: string; library_id: string; cover_storage_key: string | null } | undefined;
+      .get(id) as Pick<SeriesRow, "id" | "library_id" | "cover_storage_key"> | undefined;
     if (!row) {
       return reply.code(404).send({ error: "Series not found" });
     }
@@ -349,7 +356,7 @@ export function registerSeriesRoutes(app: FastifyInstance) {
     const id = (request.params as { id: string }).id;
     const user = request.user!;
 
-    const row = db.prepare("SELECT id, library_id FROM series WHERE id = ?").get(id) as { id: string; library_id: string } | undefined;
+    const row = db.prepare("SELECT id, library_id FROM series WHERE id = ?").get(id) as Pick<SeriesRow, "id" | "library_id"> | undefined;
     if (!row) {
       return reply.code(404).send({ error: "Series not found" });
     }
@@ -373,7 +380,7 @@ export function registerSeriesRoutes(app: FastifyInstance) {
     const id = (request.params as { id: string }).id;
     const user = request.user!;
 
-    const row = db.prepare("SELECT id, library_id FROM series WHERE id = ?").get(id) as { id: string; library_id: string } | undefined;
+    const row = db.prepare("SELECT id, library_id FROM series WHERE id = ?").get(id) as Pick<SeriesRow, "id" | "library_id"> | undefined;
     if (!row) {
       return reply.code(404).send({ error: "Series not found" });
     }
@@ -399,7 +406,7 @@ export function registerSeriesRoutes(app: FastifyInstance) {
       db.prepare("UPDATE library_items SET series_source = 'scan' WHERE id IN (SELECT item_id FROM series_items WHERE series_id = ?)").run(id);
       db.prepare("DELETE FROM series_items WHERE series_id = ?").run(id);
       for (const { bookId, position } of parsed.data.books) {
-        const item = db.prepare("SELECT id FROM library_items WHERE id = ? AND library_id = ?").get(bookId, row.library_id) as { id: string } | undefined;
+        const item = db.prepare("SELECT id FROM library_items WHERE id = ? AND library_id = ?").get(bookId, row.library_id) as Pick<LibraryItemRow, "id"> | undefined;
         if (!item) continue;
         db.prepare("DELETE FROM series_items WHERE item_id = ?").run(bookId);
         db.prepare("INSERT INTO series_items (series_id, item_id, position, source) VALUES (?, ?, ?, 'manual')")

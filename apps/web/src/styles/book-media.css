@@ -198,3 +198,15 @@
 .book-file-epnum {
   opacity: 0.7;
 }
+
+/* Phone widths — moved here from responsive.css when this file started loading
+   with the book page: it has to come after the .book-file-row rule above. */
+@media (max-width: 740px) {
+  .book-file-row {
+    grid-template-columns: 32px minmax(0, 1fr);
+  }
+
+  .book-file-row > small {
+    grid-column: 2;
+  }
+}

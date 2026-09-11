@@ -13,6 +13,8 @@ import { CheckCircle2, Inbox } from "lucide-react";
 import { FileUpload } from "../shared/FileUpload";
 import { Button } from "../shared/Button";
 import { formatBytes } from "../shared/utils";
+// The guest pages' stylesheet, shared with SharePage: it loads with them, not on every route (docs/css-map.md).
+import "../styles/share-page.css";
 
 interface DropView {
   label: string | null;

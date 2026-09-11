@@ -3,6 +3,7 @@ import { Trans, useTranslation } from "react-i18next";
 import { ChevronDown, Download, Share, Smartphone } from "lucide-react";
 import { useInstall } from "./useInstall";
 import { isIos } from "./platform";
+import { Button } from "../shared/Button";
 
 function isAndroid() {
   return /android/i.test(window.navigator.userAgent);
@@ -41,11 +42,11 @@ function PlatformPanel({
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div className={`install-platform${open ? " open" : ""}`}>
-      <button type="button" className="install-platform-row" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+      <Button variant="bare" className="install-platform-row" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
         <span className="install-platform-glyph">{glyph}</span>
         <span className="install-platform-name">{name}<span>{sub}</span></span>
         <ChevronDown className="install-platform-chev" size={18} aria-hidden="true" />
-      </button>
+      </Button>
       {open && <div className="install-platform-steps">{children}</div>}
     </div>
   );
@@ -107,10 +108,10 @@ export function InstallCard({
             <div className="install-platform-row static">
               <span className="install-platform-glyph">{android ? <AndroidGlyph /> : <Smartphone size={20} />}</span>
               <span className="install-platform-name">{android ? "Android" : t("user:install.thisDevice")}<span>Chrome &amp; Edge</span></span>
-              <button type="button" className="install-cta-btn" onClick={() => void promptInstall()}>
+              <Button variant="bare" className="install-cta-btn" onClick={() => void promptInstall()}>
                 <Download size={16} aria-hidden="true" />
                 <span>{t("user:install.install")}</span>
-              </button>
+              </Button>
             </div>
           </div>
         ) : ios ? (

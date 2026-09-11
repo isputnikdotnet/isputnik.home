@@ -1,4 +1,4 @@
-import { db } from "../../../db.js";
+import { stmt } from "../../../db/statement-cache.js";
 
 // Throttled writer that persists live progress ({processed, total, startedAt,
 // etaSeconds}) into a job's payload, so the Tasks page can show counts, a percentage,
@@ -35,7 +35,7 @@ export function jobProgressWriter(jobId: string, basePayload: object): (processe
     // when work last actually moved. The Tasks page reads it to tell a slow task from
     // a wedged one — without it, a scan that hung an hour ago and one mid-stride look
     // identical, which is exactly how a stuck scan went unnoticed for two weeks.
-    db.prepare("UPDATE jobs SET payload = ? WHERE id = ?")
+    stmt("UPDATE jobs SET payload = ? WHERE id = ?")
       .run(JSON.stringify({
         ...basePayload,
         progress: { processed, total, startedAt, etaSeconds, updatedAt: new Date(now).toISOString() }

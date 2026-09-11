@@ -4,6 +4,7 @@ import { accessibleLibraryIds } from "../library/shared/library-access.js";
 import { visibleCollectionIds } from "./collection-access.js";
 import { canEditStory } from "./access.js";
 import { STORY_ENTITY_TYPE, type StoryRow } from "./stories.js";
+import type { LibraryRow, NonNull, StoryBlockRow, StoryChapterRow } from "../../db/rows.js";
 
 const inClause = (n: number) => Array(n).fill("?").join(", ");
 
@@ -160,7 +161,8 @@ export function storyRefMatches(
       AND story_blocks.entity_type IN (${inClause(entityTypes.length)})
       AND story_blocks.entity_id IN (${inClause(entityIds.length)})
     ORDER BY story_chapters.position ASC, story_blocks.position ASC
-  `).all(...storyIds, ...entityTypes, ...entityIds) as { story_id: string; entity_type: string; entity_id: string }[];
+  `).all(...storyIds, ...entityTypes, ...entityIds) as (Pick<StoryChapterRow, "story_id">
+    & NonNull<Pick<StoryBlockRow, "entity_type" | "entity_id">, "entity_type" | "entity_id">)[];
   for (const row of rows) {
     if (!out.has(row.story_id)) out.set(row.story_id, { entityType: row.entity_type, entityId: row.entity_id });
   }
@@ -187,7 +189,7 @@ export function coverItemKind(itemId: string): "gallery" | "audiobook" | "ebook"
     SELECT libraries.type AS type FROM library_items
     JOIN libraries ON libraries.id = library_items.library_id
     WHERE library_items.id = ? AND library_items.deleted_at IS NULL
-  `).get(itemId) as { type: string } | undefined;
+  `).get(itemId) as Pick<LibraryRow, "type"> | undefined;
   if (row?.type === "gallery" || row?.type === "audiobook" || row?.type === "ebook") return row.type;
   return null;
 }

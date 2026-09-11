@@ -6,10 +6,9 @@
 import { db } from "../../../db.js";
 import { registerStatusContributor } from "../../../core/status-contributors.js";
 import { anyFaceLibraryEnabled } from "./faces/settings.js";
+import type { GalleryDetailRow, LibraryItemRow, LibraryRow } from "../../../db/rows.js";
 
-interface GalleryLibraryStatsRow {
-  id: string;
-  name: string;
+interface GalleryLibraryStatsRow extends Pick<LibraryRow, "id" | "name"> {
   item_count: number;
   photo_count: number;
   video_count: number;
@@ -18,18 +17,16 @@ interface GalleryLibraryStatsRow {
   total_duration_seconds: number;
 }
 
-interface LargestGalleryRow {
-  id: string;
+interface LargestGalleryRow extends Pick<LibraryItemRow, "id">, Pick<GalleryDetailRow, "kind"> {
   title: string;
-  library_name: string;
-  kind: string;
+  library_name: LibraryRow["name"];
   total_size_bytes: number;
   duration_seconds: number;
 }
 
 interface FullestFolderRow {
   folder: string;
-  library_name: string;
+  library_name: LibraryRow["name"];
   photo_count: number;
   video_count: number;
 }

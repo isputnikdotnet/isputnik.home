@@ -11,6 +11,7 @@ import { db } from "../../../db.js";
 import { ASSET_COLUMNS, ASSET_JOINS, mapAsset, type GalleryAssetRow } from "./catalog-asset.js";
 import type { CardFont, CardSize } from "./slideshow-title-card.js";
 import { entityTagsByIds } from "../shared/tagging.js";
+import type { GalleryDetailRow, GallerySlideshowItemRow, GallerySlideshowRow, LibraryItemRow, LibraryRow } from "../../../db/rows.js";
 
 const SLIDESHOW_TAG_TYPE = "gallery_slideshow";
 
@@ -36,55 +37,26 @@ export type SlideshowTitleBackground = "black" | "photo" | "blur" | "collage";
  */
 export type MovieConflictPolicy = "overwrite" | "keep_both";
 
-export interface SlideshowRow {
-  id: string;
-  name: string;
-  source_kind: "manual" | "memory" | "album";
-  source_ref: string | null;
-  music_track_id: string | null;
-  transition: SlideshowTransition;
-  slide_seconds: number;
-  transition_seconds: number;
-  title_enabled: number; // 1 = the movie opens on a title card
-  title_text: string | null; // NULL = the slideshow's name
-  title_subtitle_mode: SlideshowSubtitleMode;
-  title_subtitle: string | null;
-  title_seconds: number;
-  title_background: SlideshowTitleBackground;
-  title_photo_item_id: string | null;
-  card_font: CardFont; // which bundled face the cards' text is set in (both cards)
-  card_size: CardSize; // small | medium | large; medium = the pre-3.26 card
-  closing_enabled: number; // 1 = the movie ends on a closing card (default 0)
-  closing_text: string | null; // NULL = "The End"
-  closing_lines: string | null; // up to six newline-separated credit lines
-  closing_seconds: number;
-  closing_background: SlideshowTitleBackground;
-  closing_photo_item_id: string | null;
-  // The post-credit clip: a gallery video that plays last, after the closing card.
-  outro_item_id: string | null;
-  outro_sound: number; // 1 = the clip's own audio plays, music pausing under it
-  cover_item_id: string | null;
-  render_status: "draft" | "queued" | "rendering" | "ready" | "failed";
-  render_stale: number; // 1 = a 'ready' movie predates the current settings/content
-  render_job_id: string | null;
-  output_storage_key: string | null;
-  output_bytes: number | null;
-  rendered_at: string | null;
-  render_error: string | null;
-  // Saving the movie into a library, chosen per slideshow. Target NULL = don't save.
-  // See slideshow-movie-files.ts saveMovieToLibrary.
-  movie_target_library_id: string | null;
-  movie_on_conflict: MovieConflictPolicy;
-  movie_file_stem: string | null;
-  movie_save_error: string | null;
-  // Where the latest render actually landed (null until saved to a library).
-  movie_library_id: string | null;
-  movie_relative_path: string | null;
-  movie_item_id: string | null;
-  created_by: string;
-  created_at: string;
-  updated_at: string;
-}
+/**
+ * A `gallery_slideshows` row. Its unions are the app types above
+ * (SlideshowTransition, SlideshowSubtitleMode, SlideshowTitleBackground, CardFont,
+ * CardSize, MovieConflictPolicy). Notes on the columns that need them:
+ * - title_enabled: 1 = the movie opens on a title card; title_text NULL = the
+ *   slideshow name. card_font / card_size set the text of both cards (medium =
+ *   the pre-3.26 card).
+ * - closing_enabled: 1 = the movie ends on a closing card (default 0);
+ *   closing_text NULL = "The End"; closing_lines = up to six newline-separated
+ *   credit lines.
+ * - outro_item_id: the post-credit clip, a gallery video that plays last, after
+ *   the closing card; outro_sound 1 = its own audio plays, music pausing under it.
+ * - render_stale: 1 = a ready movie predates the current settings/content.
+ * - movie_target_library_id / movie_on_conflict / movie_file_stem: saving the
+ *   movie into a library, chosen per slideshow (target NULL = do not save; see
+ *   slideshow-movie-files.ts saveMovieToLibrary). movie_library_id /
+ *   movie_relative_path / movie_item_id: where the latest render actually landed
+ *   (null until saved to a library).
+ */
+export type SlideshowRow = GallerySlideshowRow;
 
 export function getSlideshow(slideshowId: string): SlideshowRow | undefined {
   return db.prepare("SELECT * FROM gallery_slideshows WHERE id = ?").get(slideshowId) as SlideshowRow | undefined;
@@ -282,7 +254,7 @@ export function addSlideshowItems(
   `);
   const existing = new Set((db.prepare(
     "SELECT item_id FROM gallery_slideshow_items WHERE slideshow_id = ?"
-  ).all(slideshowId) as { item_id: string }[]).map((row) => row.item_id));
+  ).all(slideshowId) as Pick<GallerySlideshowItemRow, "item_id">[]).map((row) => row.item_id));
   let position = (db.prepare(
     "SELECT COALESCE(MAX(position), 0) + 1 AS pos FROM gallery_slideshow_items WHERE slideshow_id = ?"
   ).get(slideshowId) as { pos: number }).pos;
@@ -294,7 +266,7 @@ export function addSlideshowItems(
   let skipped = 0;
   db.transaction(() => {
     for (const itemId of new Set(itemIds)) {
-      const row = lookup.get(itemId) as { library_id: string } | undefined;
+      const row = lookup.get(itemId) as Pick<LibraryItemRow, "library_id"> | undefined;
       if (!row || !accessibleLibIds.has(row.library_id) || existing.has(itemId)) {
         skipped += 1;
         continue;
@@ -323,7 +295,7 @@ export function removeSlideshowItems(slideshowId: string, itemIds: string[]): nu
 export function reorderSlideshowItems(slideshowId: string, orderedItemIds: string[]): boolean {
   const members = (db.prepare(
     "SELECT item_id FROM gallery_slideshow_items WHERE slideshow_id = ? ORDER BY position ASC"
-  ).all(slideshowId) as { item_id: string }[]).map((row) => row.item_id);
+  ).all(slideshowId) as Pick<GallerySlideshowItemRow, "item_id">[]).map((row) => row.item_id);
   const memberSet = new Set(members);
   const listed = orderedItemIds.filter((id) => memberSet.has(id));
   const listedSet = new Set(listed);
@@ -426,7 +398,7 @@ export function getSlideshowItems(userId: string, libIds: string[], slideshow: S
     WHERE ${where}
     ORDER BY gallery_slideshow_items.position ASC, library_items.id ASC
     LIMIT ? OFFSET ?
-  `).all(userId, slideshow.id, ...libIds, limit, offset) as (GalleryAssetRow & { ss_dwell: number | null })[];
+  `).all(userId, slideshow.id, ...libIds, limit, offset) as (GalleryAssetRow & { ss_dwell: GallerySlideshowItemRow["dwell_seconds"] })[];
 
   return {
     assets: rows.map((row) => ({ ...mapAsset(row), dwellSeconds: row.ss_dwell })),
@@ -438,15 +410,13 @@ export function getSlideshowItems(userId: string, libIds: string[], slideshow: S
 // contributes its own clip, capped, with its audio dropped). Filtered by the given
 // library access, like the album download. `dwell_seconds` is the per-slide override
 // (null → slide default, or the clip's own length for a video).
-export interface SlideshowRenderItem {
-  id: string;
-  kind: "photo" | "video";
-  relative_path: string;
-  source_path: string;
-  dwell_seconds: number | null;
-  duration_seconds: number | null;
+export interface SlideshowRenderItem
+  extends Pick<LibraryItemRow, "id">, Pick<GalleryDetailRow, "relative_path" | "duration_seconds">, Pick<LibraryRow, "source_path"> {
+  /** Both queries keep audio out (`kind != 'audio'`, `kind = 'video'`). */
+  kind: Extract<GalleryDetailRow["kind"], "photo" | "video">;
+  dwell_seconds: GallerySlideshowItemRow["dwell_seconds"];
   /** The user's own rotation, applied when the render scales the photo down. */
-  rotation: number | null;
+  rotation: GalleryDetailRow["rotation"] | null;
 }
 
 export function getSlideshowRenderItems(libIds: string[], slideshow: SlideshowRow): SlideshowRenderItem[] {

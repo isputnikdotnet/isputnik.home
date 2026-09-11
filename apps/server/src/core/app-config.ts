@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { FastifyInstance } from "fastify";
 import { db, logActivity, THEME_PREFERENCES, type ThemePreference } from "../db.js";
 import { parseBody } from "./shared.js";
+import type { AppSettingRow } from "../db/rows.js";
 
 export const DEFAULT_THEME_KEY = "default_theme";
 
@@ -10,9 +11,7 @@ const configSchema = z.object({ defaultTheme: z.enum(THEME_PREFERENCES) });
 /** App-wide default theme used for the sign-in screen and new accounts.
     Until an admin picks one, the site defaults to Minimalist. */
 export function getDefaultTheme(): ThemePreference {
-  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(DEFAULT_THEME_KEY) as
-    | { value: string }
-    | undefined;
+  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(DEFAULT_THEME_KEY) as Pick<AppSettingRow, "value"> | undefined;
   const value = row?.value ?? "";
   return (THEME_PREFERENCES as readonly string[]).includes(value) ? (value as ThemePreference) : "minimalist";
 }

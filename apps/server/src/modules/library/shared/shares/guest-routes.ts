@@ -26,6 +26,9 @@ import {
   loadAlbumShareMeta,
   type AlbumShareMeta
 } from "./album-shares.js";
+import type {
+  AudioFileRow, AudiobookDetailRow, DocumentFileRow, GalleryDetailRow, ItemMetadataRow, LibraryItemRow, LibraryRow, Nullable, ShareLinkRow, UserRow
+} from "../../../../db/rows.js";
 
 function splitNames(value: string | null): string[] {
   return value ? value.split(",").map((name) => name.trim()).filter(Boolean) : [];
@@ -34,13 +37,11 @@ function splitNames(value: string | null): string[] {
 // Common item fields needed by every public route, independent of media type. Authors
 // apply to both books; type-specific extras (narrators, files, documents) are loaded
 // per branch below.
-interface ShareItemRow {
-  source_path: string;
-  library_type: string;
-  folder_path: string;
-  cover_storage_key: string | null;
-  title: string | null;
-  description: string | null;
+interface ShareItemRow
+  extends Pick<LibraryRow, "source_path">,
+  Pick<LibraryItemRow, "folder_path">,
+  Nullable<Pick<ItemMetadataRow, "cover_storage_key" | "title" | "description">> {
+  library_type: LibraryRow["type"];
   author_names: string | null;
 }
 
@@ -66,12 +67,7 @@ function loadShareItem(resourceId: string): ShareItemRow | undefined {
 
 // The first available document of an ebook item. Ebooks are one-file-per-book, so a
 // share resolves to a single document for both reading (inline) and download.
-interface ShareDocumentRow {
-  id: string;
-  relative_path: string;
-  mime_type: string | null;
-  format: string;
-}
+type ShareDocumentRow = Pick<DocumentFileRow, "id" | "relative_path" | "mime_type" | "format">;
 
 function loadShareDocument(resourceId: string): ShareDocumentRow | undefined {
   return db.prepare(`
@@ -85,14 +81,10 @@ function loadShareDocument(resourceId: string): ShareDocumentRow | undefined {
 
 // A shared gallery item is a single asset (one photo or video), described directly
 // in gallery_details. Both the inline viewer and the download resolve to this file.
-interface ShareGalleryRow {
-  kind: string;
-  relative_path: string;
-  mime_type: string | null;
-  width: number | null;
-  height: number | null;
-  duration_seconds: number | null;
-}
+type ShareGalleryRow = Pick<GalleryDetailRow, "kind" | "relative_path" | "mime_type" | "width" | "height" | "duration_seconds">;
+
+// The link's own label and expiry, and who made it (LEFT JOINed, so possibly NULL).
+type ShareMetaRow = Pick<ShareLinkRow, "label" | "expires_at"> & { shared_by: UserRow["display_name"] | null };
 
 function loadShareGalleryAsset(resourceId: string): ShareGalleryRow | undefined {
   return db.prepare(`
@@ -111,7 +103,7 @@ const GALLERY_MULTI_MODULES = new Set(["gallery_set", "gallery_album"]);
 function albumLinkCtx(link: ResolvedShareLink): { meta: AlbumShareMeta; libIds: string[] } | null {
   const meta = loadAlbumShareMeta(link.resource_id);
   if (!meta) return null;
-  const creator = db.prepare("SELECT id, role FROM users WHERE id = ?").get(link.created_by) as { id: string; role: string } | undefined;
+  const creator = db.prepare("SELECT id, role FROM users WHERE id = ?").get(link.created_by) as Pick<UserRow, "id" | "role"> | undefined;
   return { meta, libIds: creator ? curatableGalleryLibraryIds(creator) : [] };
 }
 
@@ -211,7 +203,7 @@ export function registerShareGuestRoutes(app: FastifyInstance) {
         SELECT share_links.label, share_links.expires_at, users.display_name AS shared_by
         FROM share_links LEFT JOIN users ON users.id = share_links.created_by
         WHERE share_links.id = ?
-      `).get(setLink.id) as { label: string | null; expires_at: string; shared_by: string | null };
+      `).get(setLink.id) as ShareMetaRow;
       const setItems = galleryMultiShareItems(setLink);
       // A live album has its own name; a quick set only has the link's optional
       // label. Prefer the label (the sharer's own wording) and fall back to the
@@ -256,7 +248,7 @@ export function registerShareGuestRoutes(app: FastifyInstance) {
       SELECT share_links.label, share_links.expires_at, users.display_name AS shared_by
       FROM share_links LEFT JOIN users ON users.id = share_links.created_by
       WHERE share_links.id = ?
-    `).get(link.id) as { label: string | null; expires_at: string; shared_by: string | null };
+    `).get(link.id) as ShareMetaRow;
 
     logActivity({
       event: "share.accessed",
@@ -307,7 +299,7 @@ export function registerShareGuestRoutes(app: FastifyInstance) {
     // Audiobook: chapter/track list + narrators + total duration for the player.
     const detail = db.prepare(
       "SELECT duration_seconds FROM audiobook_details WHERE item_id = ?"
-    ).get(link.resource_id) as { duration_seconds: number | null } | undefined;
+    ).get(link.resource_id) as Pick<AudiobookDetailRow, "duration_seconds"> | undefined;
     const narratorRow = db.prepare(`
       SELECT GROUP_CONCAT(DISTINCT people.name) AS names
       FROM item_people
@@ -319,12 +311,7 @@ export function registerShareGuestRoutes(app: FastifyInstance) {
       FROM audio_files
       WHERE item_id = ? AND status = 'available'
       ORDER BY track_number, relative_path COLLATE NOCASE
-    `).all(link.resource_id) as {
-      id: string;
-      track_number: number | null;
-      chapter_title: string | null;
-      duration_seconds: number | null;
-    }[];
+    `).all(link.resource_id) as (Pick<AudioFileRow, "id" | "track_number" | "duration_seconds"> & { chapter_title: AudioFileRow["title"] })[];
 
     return reply.send({
       type: "audiobook",
@@ -480,7 +467,7 @@ export function registerShareGuestRoutes(app: FastifyInstance) {
       return reply.code(404).send({ error: "No files available" });
     }
 
-    const meta = db.prepare("SELECT label FROM share_links WHERE id = ?").get(link.id) as { label: string | null } | undefined;
+    const meta = db.prepare("SELECT label FROM share_links WHERE id = ?").get(link.id) as Pick<ShareLinkRow, "label"> | undefined;
     const isAlbum = link.module === "gallery_album";
     const resourceName = meta?.label
       ?? (isAlbum ? loadAlbumShareMeta(link.resource_id)?.name : null)
@@ -560,7 +547,7 @@ export function registerShareGuestRoutes(app: FastifyInstance) {
       SELECT relative_path, mime_type, status
       FROM audio_files
       WHERE id = ? AND item_id = ?
-    `).get(fileId, resolved.link.resource_id) as { relative_path: string; mime_type: string | null; status: string } | undefined;
+    `).get(fileId, resolved.link.resource_id) as Pick<AudioFileRow, "relative_path" | "mime_type" | "status"> | undefined;
 
     if (!file || file.status !== "available") {
       reply.code(404).send({ error: "Audio file not found" });
@@ -705,7 +692,7 @@ export function registerShareGuestRoutes(app: FastifyInstance) {
       FROM audio_files
       WHERE item_id = ? AND status = 'available'
       ORDER BY track_number, relative_path COLLATE NOCASE
-    `).all(link.resource_id) as { relative_path: string }[];
+    `).all(link.resource_id) as Pick<AudioFileRow, "relative_path">[];
 
     if (files.length === 0) {
       reply.code(404).send({ error: "No audio files available" });

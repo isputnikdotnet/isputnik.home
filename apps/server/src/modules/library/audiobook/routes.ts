@@ -14,6 +14,7 @@ import { deleteSharesForLibrary } from "../shared/share-access.js";
 import { deleteCollectionItemsForLibrary } from "../../collections/cleanup.js";
 import { removeThumbnailsForLibrary } from "../shared/thumbnail.js";
 import type { AudiobookLibraryRow } from "./types.js";
+import type { LibraryRow } from "../../../db/rows.js";
 
 const AUDIOBOOK_LIBRARY_LIST_SQL = `
   SELECT
@@ -119,7 +120,7 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
   app.delete("/api/library/audiobook-libraries/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     const exists = db.prepare("SELECT id, name FROM libraries WHERE id = ? AND type = 'audiobook'")
-      .get(id) as { id: string; name: string } | undefined;
+      .get(id) as Pick<LibraryRow, "id" | "name"> | undefined;
     if (!exists) {
       return reply.code(404).send({ error: "Audiobook library not found" });
     }
@@ -164,7 +165,7 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
   app.post("/api/library/audiobook-libraries/:id/rescan", { preHandler: app.requireAdmin }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     const exists = db.prepare("SELECT id, name, source_path FROM libraries WHERE id = ? AND type = 'audiobook'")
-      .get(id) as { id: string; name: string; source_path: string } | undefined;
+      .get(id) as Pick<LibraryRow, "id" | "name" | "source_path"> | undefined;
     if (!exists) {
       return reply.code(404).send({ error: "Audiobook library not found" });
     }

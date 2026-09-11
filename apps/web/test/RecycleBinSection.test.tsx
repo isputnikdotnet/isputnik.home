@@ -34,7 +34,7 @@ function mount(user: PublicUser, items: unknown[] = []) {
 
 const settingsButton = () => screen.queryByRole("button", { name: "Recycle Bin settings" });
 
-beforeEach(() => mockApi.mockReset());
+beforeEach(() => { mockApi.mockReset(); });
 
 describe("recycle bin settings button", () => {
   it("is reachable when the bin is empty", async () => {

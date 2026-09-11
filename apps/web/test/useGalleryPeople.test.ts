@@ -16,7 +16,7 @@ const deps = (over: Partial<{ isAdmin: boolean }> = {}) => ({
 });
 const asset = (id: string) => ({ id, title: id }) as never;
 
-beforeEach(() => mockApi.mockReset());
+beforeEach(() => { mockApi.mockReset(); });
 
 describe("useGalleryPeople", () => {
   it("scopes the people request with whatever scopeParams returns", async () => {

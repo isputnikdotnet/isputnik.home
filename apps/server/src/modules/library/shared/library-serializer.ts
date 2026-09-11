@@ -6,20 +6,14 @@ import { getEveryoneRole, parsePolicy } from "../../../core/permissions.js";
 import { isInsideAppStorage } from "../../../core/app-storage.js";
 import { serializeLibrarySettingsForAdmin } from "./library-crud.js";
 import { normalizeLibrarySettings, uploadAcceptExtensions } from "./library-settings.js";
+import type { LibraryRow } from "../../../db/rows.js";
 
-export interface LibraryListRow {
-  id: string;
-  name: string;
-  type: string;
-  source_path: string;
-  settings_json: string;
-  scan_status: string;
-  last_scanned_at: string | null;
-  owner_id: string | null;
-  owner_type: "user" | "group" | null;
-  policy_json: string;
-  created_at: string;
-  updated_at: string;
+// A libraries row (the list queries select libraries.*) plus its counts.
+export interface LibraryListRow extends Pick<
+  LibraryRow,
+  | "id" | "name" | "type" | "source_path" | "settings_json" | "scan_status" | "last_scanned_at"
+  | "owner_id" | "owner_type" | "policy_json" | "created_at" | "updated_at"
+> {
   book_count: number;
   // Audiobooks count audio files; ebooks count available documents.
   file_count?: number;

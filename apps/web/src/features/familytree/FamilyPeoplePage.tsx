@@ -117,65 +117,62 @@ export function FamilyPeoplePage() {
             one card and nothing below moves when a selection starts. */}
         <LibraryPageToolbar
           tools={isAdmin && persons.length > 0 && (
-            <button
-              type="button"
-              className="library-toolbar-button"
+            <Button
+              variant="toolbar"
               onClick={() => { setSelectionMode(true); setNotice(""); }}
             >
               <CheckSquare size={18} aria-hidden="true" />
               <span className="toolbar-label">{t("family:people.select")}</span>
-            </button>
+            </Button>
           )}
           selection={selectionMode ? {
             count: selectedIds.size,
             actions: (
               <>
-                <button
-                  type="button"
-                  className="library-toolbar-button"
+                <Button
+                  variant="toolbar"
                   onClick={() => setSelectedIds(new Set(shown.map((person) => person.id)))}
                   disabled={shown.length === 0}
                   title={t("family:people.selectAllShownTitle")}
                 >
                   <CheckCheck size={18} aria-hidden="true" />
                   <span className="toolbar-label">{t("family:people.selectAll")}</span>
-                </button>
-                <button
-                  type="button"
-                  className="library-toolbar-button primary"
+                </Button>
+                <Button
+                  variant="toolbar"
+                  className="primary"
                   onClick={() => { setNotice(""); setTagOpen(true); }}
                   disabled={selectedIds.size === 0}
                   title={t("family:people.tagSelectedTitle")}
                 >
                   <Tags size={18} aria-hidden="true" />
                   <span className="toolbar-label">{t("family:people.tagSelected")}</span>
-                </button>
+                </Button>
                 <span className="library-toolbar-divider" aria-hidden="true" />
-                <button
-                  type="button"
-                  className="library-toolbar-button"
+                <Button
+                  variant="toolbar"
                   onClick={exitSelection}
                   title={t("family:people.leaveSelection")}
                 >
                   <X size={18} aria-hidden="true" />
                   <span className="toolbar-label">{t("common.done")}</span>
-                </button>
+                </Button>
               </>
             )
           } : null}
           strip={tagCounts.length > 0 && (
             <div className="ft-tag-filter" role="group" aria-label={t("family:people.filterByTagAria")}>
               {tagCounts.map(([tag, count]) => (
-                <button
+                <Button
+                  variant="chip"
                   key={tag}
-                  type="button"
                   className={`book-tag-chip book-tag-chip-tag${activeTag === tag ? " ft-tag-chip-active" : ""}`}
                   aria-pressed={activeTag === tag}
                   title={`${tag} · ${count}`}
                   onClick={() => setActiveTag(activeTag === tag ? null : tag)}
                 >
                   {tag} · {count}
-                </button>
+                </Button>
               ))}
             </div>
           )}
@@ -202,9 +199,9 @@ export function FamilyPeoplePage() {
               // While selecting, the card picks instead of navigating — a link
               // that sometimes leaves the page mid-selection loses the set.
               return selectionMode ? (
-                <button
+                <Button
+                  variant="tile"
                   key={person.id}
-                  type="button"
                   className={`ft-person-card${selectedIds.has(person.id) ? " is-selected" : ""}`}
                   aria-pressed={selectedIds.has(person.id)}
                   onClick={() => toggleSelected(person.id)}
@@ -215,7 +212,7 @@ export function FamilyPeoplePage() {
                   <PersonAvatar person={person} size={64} />
                   <strong>{person.name}</strong>
                   <small>{person.tags.length > 0 ? person.tags.join(" · ") : meta}</small>
-                </button>
+                </Button>
               ) : (
                 <a
                   key={person.id}

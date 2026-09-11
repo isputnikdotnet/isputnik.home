@@ -32,6 +32,19 @@ import { BLOCK_PREVIEW_LIMIT, type BlockRow, type RoutePoint, type StoryRow } fr
 import { getStory, canEditStory } from "./access.js";
 import { getChapters } from "./chapters.js";
 import { getBlocks, blockPointsByIds } from "./blocks.js";
+import type {
+  FamilyTreePersonRow,
+  GalleryAlbumRow,
+  GalleryDetailRow,
+  GallerySlideshowRow,
+  ItemMetadataRow,
+  LibraryItemRow,
+  LibraryRow,
+  Nullable,
+  QuoteRow,
+  ShareLinkRow,
+  UserRow
+} from "../../db/rows.js";
 
 export const STORY_SHARE_MODULE = "story";
 
@@ -96,10 +109,10 @@ export function storyLinkContext(link: ResolvedShareLink): StoryLinkContext | nu
   if (!story || story.deleted_at) return null;
   const creator = db.prepare(
     "SELECT id, role FROM users WHERE id = ? AND is_active = 1 AND deleted_at IS NULL"
-  ).get(link.created_by) as ShareCreator | undefined;
+  ).get(link.created_by) as Pick<UserRow, "id" | "role"> | undefined;
   if (!creator) return null;
   const row = db.prepare("SELECT expand_albums FROM share_links WHERE id = ?")
-    .get(link.id) as { expand_albums: number } | undefined;
+    .get(link.id) as Pick<ShareLinkRow, "expand_albums"> | undefined;
   return {
     story,
     libIds: curatableGalleryLibraryIds(creator),
@@ -159,11 +172,9 @@ function mediaAssetById(ctx: StoryLinkContext, itemId: string): ShareAsset[] {
     LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
     WHERE library_items.id = ? AND library_items.deleted_at IS NULL
       AND library_items.library_id IN (${ctx.libIds.map(() => "?").join(", ")})
-  `).get(itemId, ...ctx.libIds) as {
-    id: string; title: string | null; folder_path: string; kind: string;
-    width: number | null; height: number | null; rotation: number | null;
-    duration_seconds: number | null; taken_at: string | null;
-  } | undefined;
+  `).get(itemId, ...ctx.libIds) as (Pick<LibraryItemRow, "id" | "folder_path">
+    & Nullable<Pick<ItemMetadataRow, "title">>
+    & Pick<GalleryDetailRow, "kind" | "width" | "height" | "rotation" | "duration_seconds" | "taken_at">) | undefined;
   if (!row) return [];
   const swap = row.rotation === 90 || row.rotation === 270;
   return [{
@@ -240,22 +251,19 @@ export function loadStoryShareMediaItem(link: ResolvedShareLink, itemId: string)
     LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
     WHERE library_items.id = ? AND library_items.deleted_at IS NULL
       AND library_items.library_id IN (${ctx.libIds.map(() => "?").join(", ")})
-  `).get(itemId, ...ctx.libIds) as {
-    folder_path: string;
-    kind: string;
-    relative_path: string;
-    mime_type: string | null;
-    title: string | null;
-    cover_storage_key: string | null;
-    preview_storage_key: string | null;
-    source_path: string;
-  } | undefined;
+  `).get(itemId, ...ctx.libIds) as (Pick<LibraryItemRow, "folder_path">
+    & Pick<GalleryDetailRow, "kind" | "relative_path" | "mime_type" | "preview_storage_key">
+    & Nullable<Pick<ItemMetadataRow, "title" | "cover_storage_key">>
+    & Pick<LibraryRow, "source_path">) | undefined;
 }
 
+type StoryShareFileRow = Pick<LibraryItemRow, "id" | "folder_path">
+  & Nullable<Pick<ItemMetadataRow, "title">>
+  & Pick<GalleryDetailRow, "relative_path" | "kind">
+  & Pick<LibraryRow, "source_path">;
+
 /** On-disk paths for every photo a story link exposes — the "download all" zip. */
-export function storyShareFiles(link: ResolvedShareLink): {
-  id: string; title: string | null; folder_path: string; relative_path: string; kind: string; source_path: string;
-}[] {
+export function storyShareFiles(link: ResolvedShareLink): StoryShareFileRow[] {
   const ctx = storyLinkContext(link);
   if (!ctx || ctx.libIds.length === 0) return [];
   const ids = [...storyShareReach(ctx).itemIds];
@@ -275,9 +283,7 @@ export function storyShareFiles(link: ResolvedShareLink): {
     WHERE library_items.id IN (${ids.map(() => "?").join(", ")})
       AND library_items.deleted_at IS NULL
       AND library_items.library_id IN (${ctx.libIds.map(() => "?").join(", ")})
-  `).all(...ids, ...ctx.libIds) as {
-    id: string; title: string | null; folder_path: string; relative_path: string; kind: string; source_path: string;
-  }[];
+  `).all(...ids, ...ctx.libIds) as StoryShareFileRow[];
 }
 
 // A guest sees no hrefs into the app — every link would 404 them at a sign-in
@@ -306,7 +312,7 @@ export function buildStorySharePayload(link: ResolvedShareLink, token: string) {
     SELECT share_links.label, share_links.expires_at, users.display_name AS shared_by
     FROM share_links LEFT JOIN users ON users.id = share_links.created_by
     WHERE share_links.id = ?
-  `).get(link.id) as { label: string | null; expires_at: string; shared_by: string | null };
+  `).get(link.id) as Pick<ShareLinkRow, "label" | "expires_at"> & { shared_by: UserRow["display_name"] | null };
 
   const { byBlock, heroByChapter, cover } = storyShareReach(ctx);
   const blocks = getBlocks(ctx.story.id);
@@ -429,7 +435,7 @@ function storyShareBlock(
   if (block.kind === "person") {
     const person = db.prepare(
       "SELECT name, birth_date, death_date FROM family_tree_persons WHERE id = ?"
-    ).get(block.entity_id ?? "") as { name: string; birth_date: string | null; death_date: string | null } | undefined;
+    ).get(block.entity_id ?? "") as Pick<FamilyTreePersonRow, "name" | "birth_date" | "death_date"> | undefined;
     if (!person) return null;
     return {
       kind: "person" as const,
@@ -492,9 +498,8 @@ function storyShareBlock(
       FROM quotes
       LEFT JOIN family_tree_persons AS speaker ON speaker.id = quotes.family_tree_person_id
       WHERE quotes.id = ?
-    `).get(block.entity_id ?? "") as {
-      text: string; source_title: string | null; person_name: string | null; live_person_name: string | null;
-    } | undefined;
+    `).get(block.entity_id ?? "") as (Pick<QuoteRow, "text" | "source_title" | "person_name">
+      & { live_person_name: FamilyTreePersonRow["name"] | null }) | undefined;
     if (!quote) return null;
     return {
       kind: "quote" as const,
@@ -509,7 +514,7 @@ function storyShareBlock(
 
 function setName(kind: "album" | "slideshow", id: string): string | null {
   const table = kind === "album" ? "gallery_albums" : "gallery_slideshows";
-  const row = db.prepare(`SELECT name FROM ${table} WHERE id = ?`).get(id) as { name: string } | undefined;
+  const row = db.prepare(`SELECT name FROM ${table} WHERE id = ?`).get(id) as { name: (GalleryAlbumRow | GallerySlideshowRow)["name"] } | undefined;
   return row?.name ?? null;
 }
 

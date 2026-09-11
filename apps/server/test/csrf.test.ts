@@ -18,13 +18,12 @@ vi.mock("../src/core/mail.js", async (importOriginal) => {
   return { ...actual, sendMail: vi.fn(async () => {}), isMailConfigured: () => false };
 });
 
-import Fastify, { type FastifyInstance, type LightMyRequestResponse } from "fastify";
-import cookie from "@fastify/cookie";
+import type { FastifyInstance, LightMyRequestResponse } from "fastify";
 import { registerCsrf } from "../src/core/csrf.js";
-import { registerAuthDecorators } from "../src/auth.js";
 import { authPlugin } from "../src/core/auth-routes.js";
 import { deviceLinkRoutes } from "../src/core/device-link-routes.js";
 import { galleryDropRoutesPlugin } from "../src/modules/library/gallery/drop-routes.js";
+import { bootApp } from "./helpers/boot.js";
 import { resetDb } from "./helpers/seed.js";
 
 const COOKIE = "isputnik_csrf"; // the plain-http name; the suite runs with COOKIE_SECURE unset
@@ -34,27 +33,25 @@ let app: FastifyInstance;
 let handled: string[];
 
 async function buildApp(csrf: (instance: FastifyInstance) => void = registerCsrf): Promise<FastifyInstance> {
-  const instance = Fastify();
-  await instance.register(cookie);
-  // Same order as index.ts: the hook goes on the root before any plugin, so it
+  // bootApp puts the hook on the root before any plugin, as index.ts does, so it
   // covers every route registered after it, however deeply nested.
-  csrf(instance);
-  await registerAuthDecorators(instance);
-  // HEAD comes free with GET (Fastify adds it), and runs the GET handler.
-  for (const method of ["GET", "OPTIONS", "POST", "PUT", "PATCH", "DELETE"] as const) {
-    instance.route({
-      method,
-      url: "/api/thing",
-      handler: async (request) => {
-        handled.push(request.method);
-        return { ok: true };
+  const { app: instance } = await bootApp({
+    csrf,
+    beforeRegister: (root) => {
+      // HEAD comes free with GET (Fastify adds it), and runs the GET handler.
+      for (const method of ["GET", "OPTIONS", "POST", "PUT", "PATCH", "DELETE"] as const) {
+        root.route({
+          method,
+          url: "/api/thing",
+          handler: async (request) => {
+            handled.push(request.method);
+            return { ok: true };
+          }
+        });
       }
-    });
-  }
-  await instance.register(authPlugin);
-  await instance.register(deviceLinkRoutes);
-  await instance.register(galleryDropRoutesPlugin);
-  await instance.ready();
+    },
+    plugins: [authPlugin, deviceLinkRoutes, galleryDropRoutesPlugin]
+  });
   return instance;
 }
 

@@ -1,12 +1,11 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import Fastify, { type FastifyInstance } from "fastify";
-import cookie from "@fastify/cookie";
+import type { FastifyInstance } from "fastify";
 import { db } from "../src/db.js";
 import { hashPassword } from "../src/crypto.js";
-import { registerAuthDecorators } from "../src/auth.js";
 import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
 import { galleryAlbumRoutesPlugin } from "../src/modules/library/gallery/album-routes.js";
 import { getAlbum, getAlbumItemIds } from "../src/modules/library/gallery/albums.js";
+import { bootApp } from "./helpers/boot.js";
 import { grant, makeLibrary, resetDb } from "./helpers/seed.js";
 
 // "Ask someone" from a folder or a selection (docs/for-you-plan.md): the
@@ -14,30 +13,7 @@ import { grant, makeLibrary, resetDb } from "./helpers/seed.js";
 // then rides on. The route is the only new server piece; the rest is Send to.
 
 let app: FastifyInstance;
-
-async function buildApp(): Promise<FastifyInstance> {
-  const instance = Fastify();
-  await instance.register(cookie);
-  await registerAuthDecorators(instance);
-  await instance.register(galleryAlbumRoutesPlugin);
-  instance.post("/test/sign-in/:userId", async (request, reply) => {
-    const { userId } = request.params as { userId: string };
-    const { issueSession } = await import("../src/auth.js");
-    issueSession(reply, userId, request);
-    return reply.send({ ok: true });
-  });
-  await instance.ready();
-  return instance;
-}
-
-async function signIn(userId: string): Promise<string> {
-  const response = await app.inject({ method: "POST", url: `/test/sign-in/${userId}` });
-  const raw = response.headers["set-cookie"];
-  const list = Array.isArray(raw) ? raw : [String(raw)];
-  const found = list.find((entry) => entry.startsWith("isputnik_sid="));
-  if (!found) throw new Error("no session cookie was set");
-  return found.split(";")[0];
-}
+let signIn: (userId: string) => Promise<string>;
 
 function makePhoto(libraryId: string, id: string, relativePath: string, takenAt: string): void {
   db.prepare(
@@ -60,7 +36,7 @@ beforeEach(async () => {
   makePhoto("gal", "s3", "Summer 1971/dacha/003.jpg", "1971-07-03T00:00:00.000Z");
   makePhoto("gal", "w1", "Winter 1971/001.jpg", "1971-12-01T00:00:00.000Z");
   makePhoto("private", "p1", "x/001.jpg", "1971-07-04T00:00:00.000Z");
-  app = await buildApp();
+  ({ app, signIn } = await bootApp({ plugins: [galleryAlbumRoutesPlugin] }));
 });
 
 describe("an album from a selection or a folder", () => {

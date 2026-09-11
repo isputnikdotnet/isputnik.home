@@ -4,6 +4,7 @@
 // audiobook/book-helpers.ts.
 import { db } from "../../../db.js";
 import { builtinCategoryImageUrl, isBuiltinCategoryImageKey } from "../../../categories-seed.js";
+import type { CategoryRow as DbCategoryRow, TagRow } from "../../../db/rows.js";
 
 // A book's cover file is overwritten in place under a key derived from its id,
 // so the URL alone can't tell a new cover from the old one: a browser that
@@ -36,13 +37,7 @@ export function splitGroupConcat(value: string | null) {
   return value ? value.split(",").map((item) => item.trim()).filter(Boolean) : [];
 }
 
-export interface CategoryRow {
-  id: string;
-  key: string;
-  name: string;
-  icon: string | null;
-  image_storage_key: string | null;
-}
+export type CategoryRow = Pick<DbCategoryRow, "id" | "key" | "name" | "icon" | "image_storage_key">;
 
 export function categoryImageUrl(imageStorageKey: string | null) {
   if (isBuiltinCategoryImageKey(imageStorageKey)) {
@@ -66,7 +61,7 @@ export function bookTags(bookId: string): string[] {
     JOIN tags ON tags.id = taggables.tag_id
     WHERE taggables.entity_type = 'library_item' AND taggables.entity_id = ?
     ORDER BY tags.display_name COLLATE NOCASE
-  `).all(bookId) as { name: string }[];
+  `).all(bookId) as { name: TagRow["display_name"] }[];
   return rows.map((r) => r.name);
 }
 

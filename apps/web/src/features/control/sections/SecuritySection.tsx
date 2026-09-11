@@ -1193,9 +1193,9 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                       ["permanent", "chipPermanent"],
                       ["lapsed", "chipLapsed"]
                     ] as const).map(([kind, wordKey]) => (
-                      <button
+                      <Button
+                        variant="chip"
                         key={kind}
-                        type="button"
                         className={`device-type-chip${blockFilter === kind ? " is-active" : ""}`}
                         aria-pressed={blockFilter === kind}
                         onClick={() => {
@@ -1204,7 +1204,7 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                         }}
                       >
                         <strong>{blockCounts[kind]}</strong> {t(`controlAdmin:security.${wordKey}`)}
-                      </button>
+                      </Button>
                     ))}
                   </div>
                   <span className="signins-scope-spacer" />

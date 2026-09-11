@@ -1,7 +1,16 @@
 # Changelog
 
-Every release, newest first. Generated from `apps/server/src/changelog.ts` (the same
+Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
+
+## 4.1.0 — Your years in photos, and one way for everything to work
+
+- **Year in review is in the app.** Gallery → Memories now opens with *Your years in photos*: a card for each past year that has enough photos, which plays that year as a slideshow in the photo viewer, built from what you liked. **Create slideshow** under a card keeps the year as a slideshow of its own. Memories also appears in the side menu on days with no anniversaries, when there is a year to show.
+- **Audiobooks and Ebooks now behave the same.** Both open sorted by *Recently added* and remember the sort you choose, both show the same empty state, refresh their counts after an upload or delete, and report a failed scan check. Someone who may delete but not edit can now select books to delete them. On a phone, **Download file** on an ebook downloaded nothing — it asked for an audio file — and now downloads the ebook.
+- **Lighter and quieter.** The styles every page loads at start-up are a fifth smaller (the sign-in page included); a page's own styles now arrive with that page. On the server, eight background workers that each checked for work every two seconds are one: an idle server asks its database about 0.5 times a second instead of 12. Library scans reuse their prepared queries — a full audiobook scan runs about 40% faster and an ebook scan about three times faster.
+- **Keyboard and screen readers.** The sort menu opens on the current choice, moves with the arrow keys and closes with Escape back on its button; tab rows on the book, person and family pages are real tabs; every button in the app now goes through the one shared button, so they behave alike.
+- **Fixed:** a family chart for someone with three or more partners drew the third partner's badge and line across the second partner's card — a later partner is now joined by a bracket under the row; a book page for an ebook whose file is missing treated it as an audiobook, so adding it to a collection was refused; a half-recorded face box could be cropped from the wrong part of a photo for a person's picture; the Filter button could submit a form around it; the relative times ("5 min ago") now read the same everywhere they appear.
+- Under the hood: each database migration is its own file (every existing install upgrades exactly as before), the release notes are data read at start-up, database rows are typed from the schema itself, and the image is amd64-only by stated decision (README).
 
 ## 4.0.0 — Beta
 

@@ -11,6 +11,7 @@ import type { FastifyInstance } from "fastify";
 import { db } from "../../db.js";
 import { config } from "../../config.js";
 import { VERSION_UPDATES, type VersionUpdate } from "../../changelog.js";
+import type { UserSeenVersionRow } from "../../db/rows.js";
 
 /** At most this many release headlines in the note; the About page has the rest. */
 const MAX_RELEASES = 5;
@@ -25,7 +26,7 @@ function markSeen(userId: string, version: string): void {
 
 /** The releases this person hasn't been told about, newest first (possibly none). */
 export function unseenReleases(userId: string, accountCreatedAt: string, current = config.version): { releases: VersionUpdate[]; total: number } {
-  const row = db.prepare("SELECT version FROM user_seen_versions WHERE user_id = ?").get(userId) as { version: string } | undefined;
+  const row = db.prepare("SELECT version FROM user_seen_versions WHERE user_id = ?").get(userId) as Pick<UserSeenVersionRow, "version"> | undefined;
   const currentIndex = VERSION_UPDATES.findIndex((update) => update.version === current);
   // A build whose own version has no changelog entry (a dev tree mid-release) has
   // nothing to say, and must not record a version the list can't place later.

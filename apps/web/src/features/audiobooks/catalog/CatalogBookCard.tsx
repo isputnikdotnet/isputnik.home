@@ -7,6 +7,7 @@ import { DEFAULT_COVERS } from "../covers";
 import type { AudiobookBook } from "../types";
 import { CatalogAdminMenu } from "./CatalogAdminMenu";
 import { useBookLike } from "./useBookLike";
+import { Button } from "../../../shared/Button";
 
 function openPlayer(bookId: string) {
   window.open(`/player/${bookId}`, "isputnik-player", "width=500,height=700,resizable=yes,scrollbars=yes");
@@ -92,9 +93,9 @@ export function CatalogBookCard({
             )}
             <div className="audiobook-catalog-actions" aria-label={t("book:catalog.actionsAria", { title: book.title })}>
               <div className="audiobook-catalog-action-row">
-                <button
+                <Button
+                  variant="bare"
                   className={cx("audiobook-catalog-action", liked && "on")}
-                  type="button"
                   onClick={(event) => { event.stopPropagation(); toggleLike(); }}
                   aria-pressed={liked}
                   aria-label={liked ? t("book:detail.unlike") : t("book:detail.like")}
@@ -103,10 +104,10 @@ export function CatalogBookCard({
                 >
                   <Heart size={16} fill={liked ? "currentColor" : "none"} aria-hidden="true" />
                   <span>{liked ? t("book:detail.liked") : t("book:detail.like")}</span>
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="bare"
                   className="audiobook-catalog-action"
-                  type="button"
                   onClick={(event) => { event.stopPropagation(); void toggleFinished(); }}
                   disabled={statusBusy}
                   aria-label={status === "finished" ? t("book:catalog.markUnfinishedAria") : t("book:catalog.markFinishedAria")}
@@ -114,7 +115,7 @@ export function CatalogBookCard({
                 >
                   {status === "finished" ? <RotateCcw size={16} aria-hidden="true" /> : <CheckCircle2 size={16} aria-hidden="true" />}
                   <span>{status === "finished" ? t("book:catalog.markUnplayedLabel") : t("book:catalog.markAsPlayedLabel")}</span>
-                </button>
+                </Button>
                 {canDownload && (
                   <a
                     className="audiobook-catalog-action"
@@ -128,16 +129,16 @@ export function CatalogBookCard({
                     <span>{t("book:detail.download")}</span>
                   </a>
                 )}
-                <button
+                <Button
+                  variant="bare"
                   className="audiobook-catalog-action"
-                  type="button"
                   onClick={(event) => { event.stopPropagation(); onAddToCollection(book); }}
                   aria-label={t("book:detail.addToCollection")}
                   title={t("book:detail.addToCollection")}
                 >
                   <ListMusic size={16} aria-hidden="true" />
                   <span>{t("book:detail.addToCollection")}</span>
-                </button>
+                </Button>
                 <CatalogAdminMenu
                   book={book}
                   canEdit={canEdit}
@@ -152,15 +153,15 @@ export function CatalogBookCard({
                   <small>{book.authors.length > 0 ? book.authors.join(", ") : t("book:metadata.unknownAuthor")}</small>
                   {metaParts.length > 0 && <span>{metaParts.join(" · ")}</span>}
                 </div>
-                <button
+                <Button
+                  variant="bare"
                   className="audiobook-catalog-action primary"
-                  type="button"
                   onClick={(event) => { event.stopPropagation(); openPlayer(book.id); }}
                   aria-label={t("book:catalog.playAria", { title: book.title })}
                   title={t("book:detail.play")}
                 >
                   <Play size={22} fill="currentColor" aria-hidden="true" />
-                </button>
+                </Button>
               </div>
             </div>
           </>

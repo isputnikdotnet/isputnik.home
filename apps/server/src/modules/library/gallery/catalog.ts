@@ -16,6 +16,7 @@ import {
   galleryFilterClauses,
   type GalleryTimelineFilters
 } from "./catalog-filters.js";
+import type { GalleryDetailRow, GalleryPersonRow, ItemMetadataRow, LibraryItemRow, NonNull, Nullable, TagRow } from "../../../db/rows.js";
 
 const inClause = (n: number) => Array(n).fill("?").join(", ");
 
@@ -113,7 +114,7 @@ export function queryGalleryFolders(userId: string, libIds: string[], parent: st
       FROM rel WHERE instr(r, '/') > 0
     )
     SELECT name, cover, cnt FROM sub WHERE rn = 1 ORDER BY name COLLATE NOCASE
-  `).all(...scopeArgs) as { name: string; cover: string | null; cnt: number }[];
+  `).all(...scopeArgs) as { name: string; cover: ItemMetadataRow["cover_storage_key"] | null; cnt: number }[];
 
   // Locked = a folder lock covers the tile's path in ANY in-scope library. A tile
   // can aggregate several libraries sharing a relative path; "locked in any" is
@@ -180,7 +181,7 @@ export function searchGalleryFolders(libIds: string[], q: string, limit: number)
     JOIN gallery_details ON gallery_details.item_id = library_items.id
     WHERE library_items.library_id IN (${inClause(libIds.length)}) AND library_items.deleted_at IS NULL
     GROUP BY library_items.folder_path
-  `).all(...libIds) as { p: string; n: number }[];
+  `).all(...libIds) as { p: LibraryItemRow["folder_path"]; n: number }[];
 
   // Cumulative count per folder — its own items plus everything below. A gallery
   // item's folder_path is the FILE's relative path, so its last segment is the file
@@ -217,7 +218,7 @@ export function searchGalleryFolders(libIds: string[], q: string, limit: number)
 
   const locks = locksByLibrary(libIds);
   const folders = matched.slice(0, limit).map(([folderPath, count]) => {
-    const row = coverStmt.get(...libIds, folderPath, `${folderPath}/%`) as { cover: string | null } | undefined;
+    const row = coverStmt.get(...libIds, folderPath, `${folderPath}/%`) as { cover: ItemMetadataRow["cover_storage_key"] | null } | undefined;
     return {
       name: folderPath.slice(folderPath.lastIndexOf("/") + 1),
       path: folderPath,
@@ -241,7 +242,7 @@ export function galleryFacets(libIds: string[]) {
     FROM library_items JOIN gallery_details ON gallery_details.item_id = library_items.id
     WHERE library_items.library_id IN (${libIn}) AND library_items.deleted_at IS NULL
     GROUP BY gallery_details.kind ORDER BY gallery_details.kind
-  `).all(...libIds) as { v: string; n: number }[]).map((r) => ({ kind: r.v, count: r.n }));
+  `).all(...libIds) as { v: GalleryDetailRow["kind"]; n: number }[]).map((r) => ({ kind: r.v, count: r.n }));
   const years = (db.prepare(`
     SELECT DISTINCT substr(gallery_details.taken_at, 1, 4) AS y
     FROM library_items JOIN gallery_details ON gallery_details.item_id = library_items.id
@@ -264,7 +265,7 @@ export function galleryFacets(libIds: string[]) {
       WHERE gf.person_id = gp.id AND gf.assignment != 'rejected'
         AND li.deleted_at IS NULL AND li.library_id IN (${libIn}))
     ORDER BY v COLLATE NOCASE
-  `).all(...libIds) as { v: string }[]).map((r) => r.v);
+  `).all(...libIds) as { v: GalleryPersonRow["name"] }[]).map((r) => r.v);
   const tags = (db.prepare(`
     SELECT DISTINCT tags.display_name AS v
     FROM tags
@@ -272,7 +273,7 @@ export function galleryFacets(libIds: string[]) {
     JOIN library_items ON library_items.id = taggables.entity_id
     WHERE library_items.library_id IN (${libIn}) AND library_items.deleted_at IS NULL
     ORDER BY v COLLATE NOCASE
-  `).all(...libIds) as { v: string }[]).map((r) => r.v);
+  `).all(...libIds) as { v: TagRow["display_name"] }[]).map((r) => r.v);
   const cameras = (db.prepare(`
     SELECT DISTINCT v FROM (
       SELECT ${CAMERA_SQL} AS v
@@ -283,15 +284,9 @@ export function galleryFacets(libIds: string[]) {
   return { kinds, years, withGps, people, tags, cameras };
 }
 
-interface MapPointRow {
-  id: string;
-  kind: string;
-  title: string | null;
-  folder_path: string;
-  cover_storage_key: string | null;
-  gps_lat: number;
-  gps_lng: number;
-}
+type MapPointRow = Pick<LibraryItemRow, "id" | "folder_path">
+  & NonNull<Pick<GalleryDetailRow, "kind" | "gps_lat" | "gps_lng">, "gps_lat" | "gps_lng">
+  & Nullable<Pick<ItemMetadataRow, "title" | "cover_storage_key">>;
 
 export interface GalleryMapQuery {
   kinds: string[];  // ['photo'|'video'|'audio'] subset; empty = all

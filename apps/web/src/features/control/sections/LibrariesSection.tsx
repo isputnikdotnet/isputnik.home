@@ -45,6 +45,8 @@ import { ControlSectionHead } from "../ControlSectionHead";
 // Plain lookup functions rather than module-level consts, so a language switch
 // is picked up (docs/i18n-plan.md's namespace-key typing pitfall #3).
 import i18n from "../../../i18n";
+// Scan layouts' stylesheet: it loads with this section, not on every route (docs/css-map.md).
+import "../../../styles/scan-layout.css";
 
 type ManagedLibraryType = "audiobook" | "ebook" | "gallery";
 
@@ -781,16 +783,16 @@ export function LibrariesSection() {
           busy={saving}
           onClose={() => setEditingLibrary(null)}
         >
-          <div className="modal-tabs">
-            <button type="button" className={`modal-tab${editTab === "access" ? " active" : ""}`} onClick={() => setEditTab("access")}>
+          <div className="modal-tabs" role="tablist">
+            <Button variant="tab" className="modal-tab" selected={editTab === "access"} onClick={() => setEditTab("access")}>
               {t("control:libraries.tabAccess")}
-            </button>
-            <button type="button" className={`modal-tab${editTab === "upload" ? " active" : ""}`} onClick={() => setEditTab("upload")}>
+            </Button>
+            <Button variant="tab" className="modal-tab" selected={editTab === "upload"} onClick={() => setEditTab("upload")}>
               {t("control:libraries.tabUpload")}
-            </button>
-            <button type="button" className={`modal-tab${editTab === "scanning" ? " active" : ""}`} onClick={() => setEditTab("scanning")}>
+            </Button>
+            <Button variant="tab" className="modal-tab" selected={editTab === "scanning"} onClick={() => setEditTab("scanning")}>
               {t("control:libraries.tabScanning")}
-            </button>
+            </Button>
           </div>
 
           <form id="edit-library-form" className="modal-tab-content edit-library-content" onSubmit={saveEdit}>

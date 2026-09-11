@@ -5,13 +5,12 @@ vi.mock("../src/core/mail.js", async (importOriginal) => {
   return { ...actual, sendMail: vi.fn(async () => {}), isMailConfigured: () => false };
 });
 
-import Fastify, { type FastifyInstance } from "fastify";
-import cookie from "@fastify/cookie";
+import type { FastifyInstance } from "fastify";
 
 import { db } from "../src/db.js";
-import { registerAuthDecorators } from "../src/auth.js";
 import { authPlugin } from "../src/core/auth-routes.js";
 import { hashPassword } from "../src/crypto.js";
+import { bootApp } from "./helpers/boot.js";
 import { resetDb } from "./helpers/seed.js";
 
 // A wrong password and a mistyped email give the browser the same answer, on purpose.
@@ -52,11 +51,7 @@ function lastFailureDetail(): string {
 
 beforeEach(async () => {
   resetDb();
-  app = Fastify();
-  await app.register(cookie);
-  await registerAuthDecorators(app);
-  await app.register(authPlugin);
-  await app.ready();
+  ({ app } = await bootApp({ plugins: [authPlugin] }));
 });
 
 describe("what the log says about a failed sign-in", () => {

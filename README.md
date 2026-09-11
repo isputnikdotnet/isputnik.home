@@ -79,7 +79,10 @@ To choose when you upgrade, use an exact version tag (`:4.0.0`) instead of
 
 ## Requirements
 
-* **Docker on a 64-bit x86 machine** (`linux/amd64`). No ARM image is published.
+* **Docker on a 64-bit x86 machine** (`linux/amd64`). No ARM image is published, by
+  decision rather than oversight: an arm64 image would be built under emulation, several
+  times slower per release, and never run by anything but "it built". Unraid servers
+  and ordinary home servers are x86.
 * **Disk:** the image carries its own ffmpeg and the 167 MB face-recognition model.
   Thumbnails and backups grow with your libraries; a full backup includes every
   cover image, so keep an eye on the size of the `backups` folder.

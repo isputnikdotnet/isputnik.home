@@ -1,4 +1,6 @@
 import { db } from "../../../db.js";
+import { stmt } from "../../../db/statement-cache.js";
+import type { JobRow, LibraryRow } from "../../../db/rows.js";
 
 // Heavy library work — catalog scans and face recognition — is limited to ONE
 // running job at a time server-wide, regardless of media type. Every scan worker
@@ -20,7 +22,7 @@ export const LIBRARY_JOB_TYPES = [
 const inLibraryJobTypes = LIBRARY_JOB_TYPES.map(() => "?").join(", ");
 
 export function libraryJobRunning(): boolean {
-  const row = db.prepare(
+  const row = stmt(
     `SELECT COUNT(*) AS n FROM jobs WHERE status = 'running' AND type IN (${inLibraryJobTypes})`
   ).get(...LIBRARY_JOB_TYPES) as { n: number };
   return row.n > 0;
@@ -32,10 +34,10 @@ export function libraryJobRunning(): boolean {
  * looks like a broken queue unless the page says what everything is waiting on.
  */
 export function libraryQueueState(): { runningJobId: string | null; waiting: number } {
-  const running = db.prepare(
+  const running = stmt(
     `SELECT id FROM jobs WHERE status = 'running' AND type IN (${inLibraryJobTypes}) ORDER BY started_at LIMIT 1`
-  ).get(...LIBRARY_JOB_TYPES) as { id: string } | undefined;
-  const waiting = db.prepare(
+  ).get(...LIBRARY_JOB_TYPES) as Pick<JobRow, "id"> | undefined;
+  const waiting = stmt(
     `SELECT COUNT(*) AS n FROM jobs WHERE status = 'pending' AND type IN (${inLibraryJobTypes})`
   ).get(...LIBRARY_JOB_TYPES) as { n: number };
   return { runningJobId: running?.id ?? null, waiting: waiting.n };
@@ -49,7 +51,7 @@ export function enqueueLibraryScans(type: string, noun: string, enqueue: (librar
   // strictly one at a time, and stacking another night's scans on top of an
   // unfinished one just backs up the queue. It runs again at the next scheduled time.
   if (libraryJobRunning()) return `Skipped — a library or face task is already running; will retry at the next scheduled time.`;
-  const libraries = db.prepare("SELECT id, scan_status FROM libraries WHERE type = ?").all(type) as { id: string; scan_status: string }[];
+  const libraries = db.prepare("SELECT id, scan_status FROM libraries WHERE type = ?").all(type) as Pick<LibraryRow, "id" | "scan_status">[];
   if (libraries.length === 0) return `No ${noun} libraries exist — nothing to scan.`;
   const idle = libraries.filter((library) => library.scan_status !== "scanning");
   for (const library of idle) enqueue(library.id);

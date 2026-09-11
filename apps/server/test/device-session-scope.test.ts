@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import Fastify, { type FastifyInstance } from "fastify";
-import cookie from "@fastify/cookie";
+import type { FastifyInstance } from "fastify";
 
 import { db } from "../src/db.js";
 import { config } from "../src/config.js";
-import { issueSession, registerAuthDecorators } from "../src/auth.js";
+import { issueSession } from "../src/auth.js";
+import { bootApp, sessionCookieFrom as sessionCookie } from "./helpers/boot.js";
 import { makeUser, resetDb } from "./helpers/seed.js";
 
 // A session minted by linking a display is not the same thing as a session minted
@@ -15,11 +15,9 @@ import { makeUser, resetDb } from "./helpers/seed.js";
 
 let app: FastifyInstance;
 
-async function buildApp(): Promise<FastifyInstance> {
-  const instance = Fastify();
-  await instance.register(cookie);
-  await registerAuthDecorators(instance);
-
+// issueSession is what's under test here, so these routes call it themselves
+// rather than going through bootApp's own sign-in.
+function registerTestRoutes(instance: FastifyInstance): void {
   instance.post("/test/sign-in/:userId", async (request, reply) => {
     const { userId } = request.params as { userId: string };
     const id = issueSession(reply, userId, request);
@@ -42,23 +40,11 @@ async function buildApp(): Promise<FastifyInstance> {
   }));
 
   instance.get("/test/admin", { preHandler: instance.requireAdmin }, async () => ({ ok: true }));
-
-  await instance.ready();
-  return instance;
-}
-
-/** The session cookie out of a Set-Cookie header, ready to send back. */
-function sessionCookie(headers: Record<string, unknown>): string {
-  const raw = headers["set-cookie"];
-  const list = Array.isArray(raw) ? raw : [String(raw)];
-  const found = list.find((entry) => entry.startsWith("isputnik_sid="));
-  if (!found) throw new Error("no session cookie was set");
-  return found.split(";")[0];
 }
 
 beforeEach(async () => {
   resetDb();
-  app = await buildApp();
+  ({ app } = await bootApp({ afterRegister: registerTestRoutes }));
 });
 
 describe("issueSession", () => {

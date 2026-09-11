@@ -29,6 +29,9 @@ import { parsePolicy } from "../../../../core/permissions.js";
 import { locksByLibrary, lockCoveredIn } from "../../shared/folder-locks.js";
 import { duplicateCandidateCount, duplicatePendingCount } from "./items.js";
 import type { FolderPreferenceMode } from "./keeper.js";
+import type {
+  DuplicateJobFolderPreferenceRow, DuplicateJobLibraryRow, DuplicateJobRow, GalleryDetailRow, LibraryItemRow, LibraryRow, Nullable, UserRow
+} from "../../../../db/rows.js";
 
 /** Where a job is in its life. The five ACTIVE ones block a second job; the rest
  *  are history and block nothing. */
@@ -104,23 +107,7 @@ export interface JobTotals {
   reclaimedBytes: number;
 }
 
-interface JobRow {
-  id: string;
-  owner_user_id: string;
-  status: JobStatus;
-  duplicate_type: "folders" | "files";
-  inbox_library_id: string | null;
-  media_type: MediaTypeScope;
-  current_step: number;
-  scan_progress: number;
-  status_detail: string | null;
-  created_at: string;
-  updated_at: string;
-  last_activity_at: string;
-  scan_started_at: string | null;
-  scan_completed_at: string | null;
-  completed_at: string | null;
-}
+type JobRow = DuplicateJobRow;
 
 const now = (): string => new Date().toISOString();
 
@@ -156,7 +143,7 @@ export function galleryLibraryOptions(): GalleryLibraryOption[] {
   const rows = db.prepare(`
     SELECT id, name, source_path, policy_json FROM libraries
     WHERE type = 'gallery' ORDER BY name COLLATE NOCASE
-  `).all() as { id: string; name: string; source_path: string; policy_json: string }[];
+  `).all() as Pick<LibraryRow, "id" | "name" | "source_path" | "policy_json">[];
   return rows.map((row) => ({
     id: row.id,
     name: row.name,
@@ -197,9 +184,8 @@ export function jobFolderOptions(libraryIds: string[]): JobFolderOption[] {
     JOIN library_items li ON li.id = gd.item_id
     JOIN libraries lib ON lib.id = li.library_id
     WHERE li.library_id IN (${placeholders}) AND li.deleted_at IS NULL
-  `).all(...libraryIds) as {
-    library_id: string; library_name: string; policy_json: string; relative_path: string;
-  }[];
+  `).all(...libraryIds) as (Pick<LibraryItemRow, "library_id"> & { library_name: LibraryRow["name"] }
+    & Pick<LibraryRow, "policy_json"> & Pick<GalleryDetailRow, "relative_path">)[];
 
   const locks = locksByLibrary(libraryIds);
   const options = new Map<string, JobFolderOption>();
@@ -234,10 +220,8 @@ function jobLibraries(jobId: string): JobLibrary[] {
     LEFT JOIN libraries lib ON lib.id = jl.library_id
     WHERE jl.job_id = ?
     ORDER BY lib.name COLLATE NOCASE, jl.library_id
-  `).all(jobId) as {
-    library_id: string; included: number; library_type_snapshot: string; protected_snapshot: number;
-    name: string | null; policy_json: string | null;
-  }[];
+  `).all(jobId) as (Pick<DuplicateJobLibraryRow, "library_id" | "included" | "library_type_snapshot" | "protected_snapshot">
+    & Nullable<Pick<LibraryRow, "name" | "policy_json">>)[];
 
   return rows.map((row) => {
     const current = libraryProtection(row.policy_json);
@@ -258,7 +242,7 @@ function jobPreferences(jobId: string): JobFolderPreference[] {
   const rows = db.prepare(`
     SELECT library_id, folder_path, preference FROM duplicate_job_folder_preferences
     WHERE job_id = ? ORDER BY library_id, folder_path
-  `).all(jobId) as { library_id: string; folder_path: string; preference: FolderPreferenceMode }[];
+  `).all(jobId) as Pick<DuplicateJobFolderPreferenceRow, "library_id" | "folder_path" | "preference">[];
   return rows.map((row) => ({
     libraryId: row.library_id,
     folderPath: row.folder_path,
@@ -301,9 +285,7 @@ export function jobTotals(jobId: string): JobTotals {
 }
 
 function hydrate(row: JobRow): DuplicateJob {
-  const owner = db.prepare("SELECT display_name FROM users WHERE id = ?").get(row.owner_user_id) as
-    | { display_name: string }
-    | undefined;
+  const owner = db.prepare("SELECT display_name FROM users WHERE id = ?").get(row.owner_user_id) as Pick<UserRow, "display_name"> | undefined;
   return {
     id: row.id,
     ownerUserId: row.owner_user_id,
@@ -643,7 +625,7 @@ export function reassignJob(id: string, toUserId: string, byUserId: string): Job
   const job = getJob(id);
   if (!job) return { ok: false, refused: "not_found" };
   const target = db.prepare("SELECT id FROM users WHERE id = ? AND deleted_at IS NULL AND is_active = 1")
-    .get(toUserId) as { id: string } | undefined;
+    .get(toUserId) as Pick<UserRow, "id"> | undefined;
   if (!target) return { ok: false, refused: "not_found", detail: "user" };
 
   touch(id, { owner_user_id: toUserId });

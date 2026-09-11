@@ -153,4 +153,49 @@
   --z-menu: 1050;     /* menus portalled to <body> (ActionMenu, LibraryMenu, SortMenu) */
   --z-toast: 1100;    /* toasts and banners — over an open photo or book too */
   --z-tooltip: 1200;
+
+  /* ── Type ──────────────────────────────────────────────────────────────
+     A small scale built from the sizes the app already uses most, so a token
+     can replace a literal without moving a pixel. Rem, like the literals it
+     names, so it follows the reader's own text size. The in-between sizes
+     (0.85rem, 0.88rem, 0.95rem…) stay literal where they are; new rules pick a
+     step. The notes say where each size is typical, not what it is limited to. */
+  --text-2xs: 0.72rem;   /* badges, counts, uppercase eyebrows */
+  --text-xs: 0.78rem;    /* meta lines, hints, tooltips */
+  --text-sm: 0.82rem;    /* secondary text, field notes */
+  --text-md: 0.9rem;     /* controls and dense UI text */
+  --text-base: 1rem;     /* body — the root size */
+  --text-lg: 1.1rem;     /* a dialog header, a small heading */
+  --text-xl: 1.25rem;    /* a card dialog's title */
+  --text-2xl: 1.5rem;    /* a page-level heading */
+
+  --leading-none: 1;       /* single-line controls, numerals */
+  --leading-tight: 1.2;    /* headings, labels */
+  --leading-snug: 1.35;    /* short multi-line text: notes, hints */
+  --leading-normal: 1.45;  /* body text (base.css) */
+  --leading-relaxed: 1.5;  /* long-form reading */
+
+  /* Inter is a variable font, and some rules use the steps in between
+     (650, 750, 760) on purpose — those stay literal. */
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+  --weight-heavy: 800;
+
+  /* Paths, patterns, codes — scan layouts, folder rules. */
+  --font-mono: ui-monospace, Menlo, Consolas, monospace;
+
+  /* ── Spacing ───────────────────────────────────────────────────────────
+     Padding, margins and gaps on a 4px grid: --space-N is N × 4px. Off-grid
+     values (6px, 10px, 14px, 18px…) stay literal where they are. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
 }

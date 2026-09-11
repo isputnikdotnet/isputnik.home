@@ -4,6 +4,7 @@ import { sendMail } from "../../../core/mail.js";
 import { renderEmail, type EmailBlock, type EmailContent } from "../../../core/email-template.js";
 import { shareNotificationsEnabled } from "../../../core/notifications.js";
 import type { MediaModule } from "./library-types.js";
+import type { GalleryDetailRow, ItemMetadataRow, LibraryItemRow, Nullable, ShareRow, UserRow } from "../../../db/rows.js";
 
 // Tells a recipient, by email, that something was just shared with them — the one
 // piece of outgoing mail aimed at ordinary members rather than admins. It follows
@@ -45,15 +46,12 @@ export function newlySharedResources(module: string, resourceIds: string[], user
       WHERE module = ? AND user_id = ? AND revoked_at IS NULL
         AND (expires_at IS NULL OR expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
         AND resource_id IN (${ids.map(() => "?").join(", ")})
-    `).all(module, userId, ...ids) as { resource_id: string }[]).map((row) => row.resource_id)
+    `).all(module, userId, ...ids) as Pick<ShareRow, "resource_id">[]).map((row) => row.resource_id)
   );
   return ids.filter((id) => !held.has(id));
 }
 
-interface RecipientRow {
-  email: string;
-  display_name: string;
-}
+type RecipientRow = Pick<UserRow, "email" | "display_name">;
 
 function loadRecipient(userId: string): RecipientRow | undefined {
   return db.prepare(
@@ -62,17 +60,13 @@ function loadRecipient(userId: string): RecipientRow | undefined {
 }
 
 function displayName(userId: string): string {
-  const row = db.prepare("SELECT display_name FROM users WHERE id = ?").get(userId) as
-    | { display_name: string }
-    | undefined;
+  const row = db.prepare("SELECT display_name FROM users WHERE id = ?").get(userId) as Pick<UserRow, "display_name"> | undefined;
   return row?.display_name || "Someone";
 }
 
-interface ItemFactsRow {
-  title: string | null;
-  folder_path: string;
-  kind: string | null;
-}
+type ItemFactsRow = Pick<LibraryItemRow, "folder_path"> &
+  Nullable<Pick<ItemMetadataRow, "title">> &
+  Nullable<Pick<GalleryDetailRow, "kind">>;
 
 // The item's name and what to call it. Falls back to the folder name the same way
 // the public share routes do, so an item the scanner never titled still reads as

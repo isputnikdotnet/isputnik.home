@@ -11,6 +11,7 @@ import { mediaKind } from "../shared/library-types.js";
 import { sendBookToEreader } from "../shared/send-to-ereader.js";
 import { getAudiobookBookDetail, progressUpdateSchema, bulkMetadataSchema, BULK_METADATA_FIELDS, applyBulkMetadata, BOOK_LIST_COLUMNS, BOOK_LIST_JOINS, mapBookListRow, type BookListRow } from "./book-helpers.js";
 import { resolveScopeLibraryIds, queryCatalog, catalogFacets } from "./catalog.js";
+import type { AudioFileRow, AudiobookDetailRow, LibraryRow, PlaybackProgressRow, ReadingProgressRow, TrackProgressRow } from "../../../db/rows.js";
 
 const readingProgressSchema = z.object({
   documentId: z.string().trim().min(1),
@@ -239,12 +240,7 @@ export function registerBookRoutes(app: FastifyInstance) {
       SELECT current_file_id, position_seconds, percent_complete, completed_at
       FROM playback_progress
       WHERE item_id = ? AND user_id = ?
-    `).get(bookId, userId) as {
-      current_file_id: string | null;
-      position_seconds: number;
-      percent_complete: number | null;
-      completed_at: string | null;
-    } | undefined;
+    `).get(bookId, userId) as Pick<PlaybackProgressRow, "current_file_id" | "position_seconds" | "percent_complete" | "completed_at"> | undefined;
 
     return reply.send({
       progress: row
@@ -277,14 +273,9 @@ export function registerBookRoutes(app: FastifyInstance) {
       SELECT document_id, location AS cfi, percent_complete, label, updated_at, completed_at
       FROM reading_progress
       WHERE item_id = ? AND document_id = ? AND user_id = ?
-    `).get(bookId, documentId, user.id) as {
-      document_id: string;
-      cfi: string;
-      percent_complete: number | null;
-      label: string | null;
-      updated_at: string;
-      completed_at: string | null;
-    } | undefined;
+    `).get(bookId, documentId, user.id) as (Pick<ReadingProgressRow, "document_id" | "percent_complete" | "label" | "updated_at" | "completed_at"> & {
+      cfi: ReadingProgressRow["location"];
+    }) | undefined;
 
     return reply.send({
       progress: row
@@ -412,12 +403,12 @@ export function registerBookRoutes(app: FastifyInstance) {
       WHERE id = ?
         AND item_id = ?
         AND status = 'available'
-    `).get(fileId, bookId) as { id: string; duration_seconds: number | null } | undefined;
+    `).get(fileId, bookId) as Pick<AudioFileRow, "id" | "duration_seconds"> | undefined;
     if (!currentFile) {
       return reply.code(404).send({ error: "Audio file not found" });
     }
 
-    const totalDuration = (db.prepare("SELECT duration_seconds FROM audiobook_details WHERE item_id = ?").get(bookId) as { duration_seconds: number | null } | undefined)?.duration_seconds ?? null;
+    const totalDuration = (db.prepare("SELECT duration_seconds FROM audiobook_details WHERE item_id = ?").get(bookId) as Pick<AudiobookDetailRow, "duration_seconds"> | undefined)?.duration_seconds ?? null;
 
     const absoluteSeconds = (cumulative?.before_seconds ?? 0) + positionSeconds;
     const percentComplete = totalDuration ? Math.min(absoluteSeconds / totalDuration, 1) : null;
@@ -431,7 +422,7 @@ export function registerBookRoutes(app: FastifyInstance) {
       WHERE item_id = ? AND status = 'available'
       ORDER BY track_number DESC, relative_path COLLATE NOCASE DESC
       LIMIT 1
-    `).get(bookId) as { id: string; duration_seconds: number | null } | undefined;
+    `).get(bookId) as Pick<AudioFileRow, "id" | "duration_seconds"> | undefined;
     const isComplete =
       lastTrack?.id === fileId &&
       lastTrack.duration_seconds != null &&
@@ -476,7 +467,7 @@ export function registerBookRoutes(app: FastifyInstance) {
       FROM library_items
       JOIN libraries ON libraries.id = library_items.library_id
       WHERE library_items.id = ?
-    `).get(bookId) as { settings_json: string } | undefined;
+    `).get(bookId) as Pick<LibraryRow, "settings_json"> | undefined;
     const isEpisodic = normalizeLibrarySettings("audiobook", settingsRow?.settings_json).progress_mode === "episodic";
     if (isEpisodic) {
       const trackDuration = currentFile.duration_seconds;
@@ -515,13 +506,13 @@ export function registerBookRoutes(app: FastifyInstance) {
         AND status = 'available'
       ORDER BY track_number DESC, relative_path COLLATE NOCASE DESC
       LIMIT 1
-    `).get(bookId) as { id: string; duration_seconds: number | null } | undefined;
+    `).get(bookId) as Pick<AudioFileRow, "id" | "duration_seconds"> | undefined;
 
     if (!file) {
       return reply.code(404).send({ error: "No audio files available" });
     }
 
-    const totalDuration = (db.prepare("SELECT duration_seconds FROM audiobook_details WHERE item_id = ?").get(bookId) as { duration_seconds: number | null } | undefined)?.duration_seconds ?? null;
+    const totalDuration = (db.prepare("SELECT duration_seconds FROM audiobook_details WHERE item_id = ?").get(bookId) as Pick<AudiobookDetailRow, "duration_seconds"> | undefined)?.duration_seconds ?? null;
     db.prepare(`
       INSERT INTO playback_progress (id, user_id, item_id, current_file_id, position_seconds, duration_seconds, percent_complete, updated_at, completed_at)
       VALUES (?, ?, ?, ?, ?, ?, 1, strftime('%Y-%m-%dT%H:%M:%fZ','now'), strftime('%Y-%m-%dT%H:%M:%fZ','now'))
@@ -541,7 +532,7 @@ export function registerBookRoutes(app: FastifyInstance) {
       FROM library_items
       JOIN libraries ON libraries.id = library_items.library_id
       WHERE library_items.id = ?
-    `).get(bookId) as { settings_json: string } | undefined;
+    `).get(bookId) as Pick<LibraryRow, "settings_json"> | undefined;
     if (normalizeLibrarySettings("audiobook", settingsRow?.settings_json).progress_mode === "episodic") {
       db.prepare(`
         INSERT INTO track_progress (id, user_id, item_id, file_id, position_seconds, duration_seconds, updated_at, completed_at)
@@ -580,7 +571,7 @@ export function registerBookRoutes(app: FastifyInstance) {
       SELECT file_id, position_seconds, completed_at
       FROM track_progress
       WHERE user_id = ? AND item_id = ?
-    `).all(userId, bookId) as { file_id: string; position_seconds: number; completed_at: string | null }[];
+    `).all(userId, bookId) as Pick<TrackProgressRow, "file_id" | "position_seconds" | "completed_at">[];
     return reply.send({
       tracks: rows.map((row) => ({
         fileId: row.file_id,
@@ -606,7 +597,7 @@ export function registerBookRoutes(app: FastifyInstance) {
       SELECT duration_seconds
       FROM audio_files
       WHERE id = ? AND item_id = ? AND status = 'available'
-    `).get(fileId, bookId) as { duration_seconds: number | null } | undefined;
+    `).get(fileId, bookId) as Pick<AudioFileRow, "duration_seconds"> | undefined;
     if (!file) {
       return reply.code(404).send({ error: "Audio file not found" });
     }

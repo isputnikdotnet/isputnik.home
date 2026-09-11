@@ -13,6 +13,7 @@ import { isPhotoInboxLibrary } from "../inbox-flag.js";
 import { activeJob, createJob, galleryLibraryOptions, refreshInboxScope, type DuplicateJob } from "./jobs.js";
 import { startJobScan } from "./job-scan.js";
 import { processDuplicateScanQueue } from "./scan-queue.js";
+import type { LibraryRow } from "../../../../db/rows.js";
 
 export type InboxCheckStart =
   | { queued: true; jobId: string }
@@ -46,9 +47,7 @@ export function queueInboxCheck(inboxLibraryId: string, userId?: string): InboxC
     return { queued: true, jobId: current.id };
   }
 
-  const owner = userId ?? (db.prepare("SELECT created_by FROM libraries WHERE id = ?").get(inboxLibraryId) as
-    | { created_by: string }
-    | undefined)?.created_by;
+  const owner = userId ?? (db.prepare("SELECT created_by FROM libraries WHERE id = ?").get(inboxLibraryId) as Pick<LibraryRow, "created_by"> | undefined)?.created_by;
   if (!owner) return { queued: false, reason: "refused", detail: "no owner" };
 
   // Every other library is where a twin may be; the Inbox itself is added by the

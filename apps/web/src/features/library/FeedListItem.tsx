@@ -7,6 +7,7 @@ import { navigate } from "../../router";
 import { formatBytes, formatDuration } from "../../shared/utils";
 import { DEFAULT_COVERS } from "../audiobooks/covers";
 import { authorLine, feedHref, saveFeedItemOffline, type FeedItem } from "./feed";
+import { Button } from "../../shared/Button";
 
 // A single ⋮-menu entry. When `menuItems` is supplied the row renders these
 // instead of the default likes/details menu — this lets the library pages
@@ -146,18 +147,18 @@ export function FeedListItem({ item, progress, downloaded, onDownloaded, onRead,
           {(!hideDownload || meta !== "") && (
             <span className="home-feed-row-meta-row">
               {!hideDownload && (downloaded ? (
-                <button
-                  type="button"
+                <Button
+                  variant="bare"
                   className="home-feed-row-dl is-saved"
                   onClick={(event) => { event.stopPropagation(); navigate(isEbook ? href : "/downloads"); }}
                   title={t("common:home.savedOffline")}
                   aria-label={t("common:home.availableOffline")}
                 >
                   <HardDrive size={11} aria-hidden="true" />
-                </button>
+                </Button>
               ) : (
-                <button
-                  type="button"
+                <Button
+                  variant="bare"
                   className="home-feed-row-dl"
                   onClick={(event) => { event.stopPropagation(); void startDownload(); }}
                   disabled={downloading}
@@ -167,7 +168,7 @@ export function FeedListItem({ item, progress, downloaded, onDownloaded, onRead,
                   {downloading
                     ? <Loader2 size={11} className="home-feed-spin" aria-hidden="true" />
                     : <DownloadCloud size={11} aria-hidden="true" />}
-                </button>
+                </Button>
               ))}
               {meta && <span className="home-feed-row-meta">{meta}</span>}
             </span>
@@ -175,8 +176,8 @@ export function FeedListItem({ item, progress, downloaded, onDownloaded, onRead,
         </span>
       </div>
 
-      <button
-        type="button"
+      <Button
+        variant="bare"
         className="home-feed-row-action"
         onClick={activatePrimary}
         disabled={opening}
@@ -190,11 +191,11 @@ export function FeedListItem({ item, progress, downloaded, onDownloaded, onRead,
         ) : (
           <Play size={16} fill="currentColor" aria-hidden="true" />
         )}
-      </button>
+      </Button>
 
       {onDelete ? (
-        <button
-          type="button"
+        <Button
+          variant="bare"
           className="home-feed-row-kebab home-feed-row-delete"
           onClick={onDelete}
           disabled={deleting}
@@ -204,11 +205,11 @@ export function FeedListItem({ item, progress, downloaded, onDownloaded, onRead,
           {deleting
             ? <Loader2 size={16} className="home-feed-spin" aria-hidden="true" />
             : <Trash2 size={17} aria-hidden="true" />}
-        </button>
+        </Button>
       ) : (
       <div className="home-feed-row-menu" ref={menuRef}>
-        <button
-          type="button"
+        <Button
+          variant="bare"
           className="home-feed-row-kebab"
           onClick={() => setMenuOpen((isOpen) => !isOpen)}
           aria-haspopup="menu"
@@ -217,7 +218,7 @@ export function FeedListItem({ item, progress, downloaded, onDownloaded, onRead,
           title={t("user:feed.moreOptions")}
         >
           <MoreVertical size={18} aria-hidden="true" />
-        </button>
+        </Button>
         {menuOpen && (
           <div className="home-feed-row-dropdown" role="menu" aria-label={t("user:feed.optionsFor", { title: item.title })}>
             {menuItems ? (
@@ -241,22 +242,22 @@ export function FeedListItem({ item, progress, downloaded, onDownloaded, onRead,
                     {inner}
                   </a>
                 ) : (
-                  <button
+                  <Button
+                    variant="bare"
                     key={index}
-                    type="button"
                     role="menuitem"
                     className={`${entry.danger ? "danger" : ""}${entry.active ? " is-liked" : ""}`.trim()}
                     onClick={() => { setMenuOpen(false); entry.onClick?.(); }}
                     disabled={entry.disabled}
                   >
                     {inner}
-                  </button>
+                  </Button>
                 );
               })
             ) : (
               <>
-                <button
-                  type="button"
+                <Button
+                  variant="bare"
                   role="menuitem"
                   className={liked ? "is-liked" : ""}
                   onClick={() => { setMenuOpen(false); void toggleLike(); }}
@@ -264,15 +265,15 @@ export function FeedListItem({ item, progress, downloaded, onDownloaded, onRead,
                 >
                   <Heart size={16} fill={liked ? "currentColor" : "none"} aria-hidden="true" />
                   <span>{liked ? t("user:likes.liked") : t("user:likes.like")}</span>
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
+                  variant="bare"
                   role="menuitem"
                   onClick={() => { setMenuOpen(false); navigate(href); }}
                 >
                   <Info size={16} aria-hidden="true" />
                   <span>{t("user:feed.viewDetails")}</span>
-                </button>
+                </Button>
               </>
             )}
           </div>

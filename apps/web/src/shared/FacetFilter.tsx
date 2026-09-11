@@ -162,7 +162,7 @@ export function FacetFilterButton<K extends string>({
 
   return (
     <>
-      <button className={`filter-button${count > 0 ? " active" : ""}${compact ? " compact" : ""}`} onClick={() => setOpen(true)} aria-label={t("filters.title")} title={compact ? t("filters.button") : undefined}>
+      <button type="button" className={`filter-button${count > 0 ? " active" : ""}${compact ? " compact" : ""}`} onClick={() => setOpen(true)} aria-label={t("filters.title")} title={compact ? t("filters.button") : undefined}>
         <SlidersHorizontal size={16} aria-hidden="true" />
         {!compact && <span>{t("filters.button")}</span>}
         {count > 0 && <span className="filter-badge">{count}</span>}

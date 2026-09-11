@@ -4,6 +4,7 @@ import { nanoid } from "nanoid";
 import { db, logActivity } from "../../db.js";
 import { parseBody } from "../../core/shared.js";
 import { deleteLibraryMembersForSubject } from "../library/shared/library-access.js";
+import type { GroupMemberRow, UserGroupRow, UserRow } from "../../db/rows.js";
 
 const groupSchema = z.object({
   name: z.string().trim().min(2).max(80)
@@ -13,20 +14,9 @@ const memberSchema = z.object({
   userId: z.string().trim().min(1)
 });
 
-interface GroupRow {
-  id: string;
-  name: string;
-  created_at: string;
-  member_count: number;
-  library_count: number;
-}
+type GroupRow = Pick<UserGroupRow, "id" | "name" | "created_at"> & { member_count: number; library_count: number };
 
-interface MemberRow {
-  user_id: string;
-  display_name: string;
-  email: string;
-  joined_at: string;
-}
+type MemberRow = Pick<GroupMemberRow, "user_id" | "joined_at"> & Pick<UserRow, "display_name" | "email">;
 
 export async function groupsPlugin(app: FastifyInstance) {
   app.get("/api/groups", { preHandler: app.requireAdmin }, async () => {
@@ -83,7 +73,7 @@ export async function groupsPlugin(app: FastifyInstance) {
 
   app.delete("/api/groups/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
-    const group = db.prepare("SELECT id, name FROM user_groups WHERE id = ?").get(id) as { id: string; name: string } | undefined;
+    const group = db.prepare("SELECT id, name FROM user_groups WHERE id = ?").get(id) as Pick<UserGroupRow, "id" | "name"> | undefined;
     if (!group) {
       return reply.code(404).send({ error: "Group not found" });
     }
@@ -112,7 +102,7 @@ export async function groupsPlugin(app: FastifyInstance) {
 
   app.get("/api/groups/:id/members", { preHandler: app.requireAdmin }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
-    const group = db.prepare("SELECT id, name FROM user_groups WHERE id = ?").get(id) as { id: string; name: string } | undefined;
+    const group = db.prepare("SELECT id, name FROM user_groups WHERE id = ?").get(id) as Pick<UserGroupRow, "id" | "name"> | undefined;
     if (!group) {
       return reply.code(404).send({ error: "Group not found" });
     }

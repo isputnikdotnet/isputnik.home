@@ -85,7 +85,8 @@ which test the worker was on when it went.
 
 Schema changes: a new table goes straight into
 `apps/server/src/db/schema.sql`; a new column on an existing table also needs a
-migration in `apps/server/src/db/migrate.ts`. See [`docs/database.md`](docs/database.md).
+migration: a new `NNN-short-name.ts` in `apps/server/src/db/migrations/`, listed in
+that folder's `index.ts`. See [`docs/database.md`](docs/database.md).
 
 User guides live in [`docs/users/`](docs/users/README.md) and ship inside the
 app. `npm run docs:shots` regenerates their screenshots in `docs/users/images`:

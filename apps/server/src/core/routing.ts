@@ -1,6 +1,7 @@
 import { db } from "../db.js";
 import { openSecret } from "./mfa.js";
 import { REMOTE_FETCH_USER_AGENT } from "./safe-fetch.js";
+import type { AppSettingRow } from "../db/rows.js";
 
 // Road routing: two coordinates and a way of travelling in, the line the
 // journey actually follows out. Platform infrastructure like mail — it carries
@@ -40,9 +41,7 @@ export interface RoutingSettings {
 const EMPTY: RoutingSettings = { apiKey: "", endpoint: "" };
 
 export function getRoutingSettings(): RoutingSettings {
-  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(ROUTING_SETTINGS_KEY) as
-    | { value: string }
-    | undefined;
+  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(ROUTING_SETTINGS_KEY) as Pick<AppSettingRow, "value"> | undefined;
   if (!row) return { ...EMPTY };
   try {
     const parsed = { ...EMPTY, ...(JSON.parse(row.value) as Partial<RoutingSettings>) };
@@ -56,9 +55,7 @@ export function getRoutingSettings(): RoutingSettings {
 /** The still-sealed key straight from storage. The "blank = keep" save path
  *  uses this so a transiently unreadable seal key doesn't wipe the stored one. */
 export function getStoredRoutingKeyRaw(): string {
-  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(ROUTING_SETTINGS_KEY) as
-    | { value: string }
-    | undefined;
+  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(ROUTING_SETTINGS_KEY) as Pick<AppSettingRow, "value"> | undefined;
   if (!row) return "";
   try {
     return (JSON.parse(row.value) as Partial<RoutingSettings>).apiKey ?? "";

@@ -18,6 +18,8 @@ import { FamilyPersonMark, PersonAvatar } from "./PersonAvatar";
 import { PersonEditModal } from "./PersonEditModal";
 import { lifeYears, type FamilyPerson, type FamilyTree } from "./types";
 import { useSession } from "../../app/SessionContext";
+// The tree chart's stylesheet: it loads with this page, not on every route (docs/css-map.md).
+import "../../styles/family-tree-chart.css";
 
 // The main family-tree view: a person-centered pan/zoom chart. Clicking a card
 // re-centers on that person via a real navigation (/family/tree/:id) so the
@@ -116,13 +118,13 @@ export function FamilyTreePage({
                 {searchOpen && matches.length > 0 && (
                   <div className="ft-tree-search-results">
                     {matches.map((person) => (
-                      <button key={person.id} type="button" className="ft-picker-row" onClick={() => jumpTo(person)}>
+                      <Button variant="bare" key={person.id} className="ft-picker-row" onClick={() => jumpTo(person)}>
                         <PersonAvatar person={person} size={30} />
                         <span className="ft-picker-row-name">
                           <strong>{person.name}</strong>
                           {lifeYears(person) && <small>{lifeYears(person)}</small>}
                         </span>
-                      </button>
+                      </Button>
                     ))}
                   </div>
                 )}

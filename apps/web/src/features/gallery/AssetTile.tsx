@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { CheckCircle2, Download, Heart, Image as ImageIcon, Mic, Play, UserRound, X } from "lucide-react";
 import type { GalleryAsset } from "./types";
 import { faceFocusStyle } from "./types";
+import { Button } from "../../shared/Button";
 
 // The leaf pieces of a gallery grid, lifted out of GalleryPage so that file is
 // about the page rather than about a tile. Both are presentational: no data
@@ -17,9 +18,10 @@ import { faceFocusStyle } from "./types";
 // ~70 ms, which is StrictMode double-invoking renders on unminified React, not
 // anything a user ever sees. Profile the preview build, not the dev server.)
 
-/** Which list the lightbox should page through when a tile is opened. */
+/** Which list the lightbox should page through when a tile is opened.
+ *  "yearReview" is a year in review being played (useMemories). */
 export type LightboxSource =
-  | "timeline" | "folder" | "single" | "person" | "memory" | "album" | "slideshow";
+  | "timeline" | "folder" | "single" | "person" | "memory" | "album" | "slideshow" | "yearReview";
 
 export function AssetTile({
   asset,
@@ -51,8 +53,8 @@ export function AssetTile({
   // on it is a mis-tap waiting to happen.
   const canLike = Boolean(onToggleLike) && !selectionMode;
   const tile = (
-    <button
-      type="button"
+    <Button
+      variant="tile"
       className={`gallery-tile${selectionMode ? " selectable" : ""}${selected ? " selected" : ""}`}
       onClick={selectionMode ? onToggleSelect : onOpen}
       aria-pressed={selectionMode ? selected : undefined}
@@ -89,7 +91,7 @@ export function AssetTile({
           <CheckCircle2 size={22} />
         </span>
       )}
-    </button>
+    </Button>
   );
   if (!onRemove && !canLike) return tile;
   // Both overlays are SIBLINGS of the tile, never children of it: the tile is
@@ -99,8 +101,8 @@ export function AssetTile({
     <div className="gallery-tile-wrap">
       {tile}
       {canLike && (
-        <button
-          type="button"
+        <Button
+          variant="bare"
           className={`gallery-tile-like${asset.saved ? " on" : ""}`}
           onClick={(event) => { event.stopPropagation(); onToggleLike!(!asset.saved); }}
           aria-pressed={asset.saved}
@@ -108,18 +110,18 @@ export function AssetTile({
           title={asset.saved ? t("gallery:common.unlike") : t("gallery:common.like")}
         >
           <Heart size={15} fill={asset.saved ? "currentColor" : "none"} aria-hidden="true" />
-        </button>
+        </Button>
       )}
       {onRemove && (
-        <button
-          type="button"
+        <Button
+          variant="bare"
           className="gallery-tile-remove"
           onClick={(event) => { event.stopPropagation(); onRemove(); }}
           aria-label={t("gallery:assetTile.removeAria", { title: asset.title })}
           title={resolvedRemoveTitle}
         >
           <X size={14} aria-hidden="true" />
-        </button>
+        </Button>
       )}
     </div>
   );

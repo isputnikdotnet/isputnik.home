@@ -1,5 +1,6 @@
 import { db } from "../../db.js";
 import { libraryQueueState } from "../library/shared/scan-lock.js";
+import type { JobRow, LibraryRow } from "../../db/rows.js";
 
 // ── Tasks (background job queue) ────────────────────────────────────
 // Read-only admin view over the shared `jobs` table (library scans, face scans),
@@ -107,20 +108,12 @@ function normalizeTaskProgress(type: string, progress: Record<string, any> | nul
   return { ...counts, etaSeconds };
 }
 
-interface TaskRow {
-  id: string;
-  type: string;
-  status: string;
-  attempts: number;
-  created_at: string;
-  started_at: string | null;
-  locked_at: string | null;
-  completed_at: string | null;
-  failed_at: string | null;
-  error: string | null;
-  payload: string;
-  library_name: string | null;
-}
+// TASK_COLUMNS: a jobs row with its library LEFT JOINed (NULL when the job names none).
+type TaskRow = Pick<
+  JobRow,
+  | "id" | "type" | "status" | "attempts" | "created_at" | "started_at" | "locked_at"
+  | "completed_at" | "failed_at" | "error" | "payload"
+> & { library_name: LibraryRow["name"] | null };
 
 const TASK_COLUMNS = `
   jobs.id, jobs.type, jobs.status, jobs.attempts, jobs.created_at, jobs.started_at, jobs.locked_at,
@@ -201,7 +194,7 @@ function taskView(row: TaskRow) {
 // lets the admin page follow a manual run to completion and link to those tasks.
 // Jobs that do their work inline (emptying the recycle bin) create none.
 export function withNewTaskIds<T>(action: () => T): { result: T; taskIds: string[] } {
-  const idsNow = () => new Set((db.prepare("SELECT id FROM jobs").all() as { id: string }[]).map((row) => row.id));
+  const idsNow = () => new Set((db.prepare("SELECT id FROM jobs").all() as Pick<JobRow, "id">[]).map((row) => row.id));
   const before = idsNow();
   const result = action();
   return { result, taskIds: [...idsNow()].filter((id) => !before.has(id)) };
@@ -258,12 +251,12 @@ export function listTasks(page = 1, pageSize = 25, filters: TaskFilters = {}) {
 
   // What the filter controls can offer, across the whole history rather than the
   // page — and the glance numbers for the cards above the tables.
-  const typeRows = db.prepare("SELECT DISTINCT type AS value FROM jobs ORDER BY value").all() as { value: string }[];
+  const typeRows = db.prepare("SELECT DISTINCT type AS value FROM jobs ORDER BY value").all() as { value: JobRow["type"] }[];
   const libraryRows = db.prepare(`
     SELECT DISTINCT libraries.id, libraries.name
     FROM jobs JOIN libraries ON libraries.id = json_extract(jobs.payload, '$.libraryId')
     ORDER BY libraries.name
-  `).all() as { id: string; name: string }[];
+  `).all() as Pick<LibraryRow, "id" | "name">[];
   const failedWeek = (db.prepare(`
     SELECT COUNT(*) AS n FROM jobs
     WHERE status = 'failed' AND COALESCE(failed_at, created_at) > strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-7 days')

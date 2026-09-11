@@ -21,6 +21,15 @@ import { HOUSE_FOLDERS, getHouseLibrary } from "./gallery/house-library.js";
 import { roomView } from "./app-storage-rooms.js";
 import { trashBook } from "./shared/trash.js";
 import { TrashError } from "./shared/trash-settings.js";
+import type {
+  FamilyTreePersonRow,
+  GalleryDetailRow,
+  GalleryMusicTrackRow,
+  GallerySlideshowRow,
+  LibraryItemRow,
+  Nullable,
+  StoryRow
+} from "../../db/rows.js";
 
 const WALK_LIMIT = 250_000;
 
@@ -102,7 +111,7 @@ export interface AppStorageContents {
 
 const ENTRY_LIMIT_PER_FOLDER = 500;
 
-interface ItemRow { id: string; folder_path: string; kind: string | null; size: number | null; discovered_at: string }
+type ItemRow = Pick<LibraryItemRow, "id" | "folder_path" | "discovered_at"> & Nullable<Pick<GalleryDetailRow, "kind" | "size">>;
 
 function libraryStats(libraryId: string): { files: number; bytes: number } {
   const row = db.prepare(`
@@ -145,7 +154,7 @@ function ownerOf(key: AppFileFolderKey, itemId: string): AppFileOwner | null {
         JOIN stories s ON s.id = c.story_id
         WHERE b.entity_type = 'gallery' AND b.entity_id = ? AND s.deleted_at IS NULL
         LIMIT 1
-      `).get(itemId) as { id: string; title: string } | undefined;
+      `).get(itemId) as Pick<StoryRow, "id" | "title"> | undefined;
       return row ? { type: "story", id: row.id, title: row.title } : null;
     }
     case "voiceNotes": {
@@ -156,17 +165,17 @@ function ownerOf(key: AppFileFolderKey, itemId: string): AppFileOwner | null {
         LEFT JOIN item_metadata m ON m.item_id = i.id
         WHERE v.audio_item_id = ?
         LIMIT 1
-      `).get(itemId) as { id: string; library_id: string; folder_path: string; title: string } | undefined;
+      `).get(itemId) as (Pick<LibraryItemRow, "id" | "library_id" | "folder_path"> & { title: string }) | undefined;
       if (!row) return null;
       const folder = row.folder_path.includes("/") ? row.folder_path.slice(0, row.folder_path.lastIndexOf("/")) : "";
       return { type: "photo", id: row.id, title: row.title, folder, libraryId: row.library_id };
     }
     case "music": {
-      const row = db.prepare("SELECT id, title FROM gallery_music_tracks WHERE item_id = ? LIMIT 1").get(itemId) as { id: string; title: string } | undefined;
+      const row = db.prepare("SELECT id, title FROM gallery_music_tracks WHERE item_id = ? LIMIT 1").get(itemId) as Pick<GalleryMusicTrackRow, "id" | "title"> | undefined;
       return row ? { type: "track", id: row.id, title: row.title } : null;
     }
     case "movies": {
-      const row = db.prepare("SELECT id, name FROM gallery_slideshows WHERE movie_item_id = ? LIMIT 1").get(itemId) as { id: string; name: string } | undefined;
+      const row = db.prepare("SELECT id, name FROM gallery_slideshows WHERE movie_item_id = ? LIMIT 1").get(itemId) as Pick<GallerySlideshowRow, "id" | "name"> | undefined;
       return row ? { type: "slideshow", id: row.id, title: row.name } : null;
     }
     case "familyTree": {
@@ -175,7 +184,7 @@ function ownerOf(key: AppFileFolderKey, itemId: string): AppFileOwner | null {
         JOIN family_tree_persons p ON p.id = fp.person_id
         WHERE fp.item_id = ?
         LIMIT 1
-      `).get(itemId) as { id: string; name: string } | undefined;
+      `).get(itemId) as Pick<FamilyTreePersonRow, "id" | "name"> | undefined;
       return row ? { type: "person", id: row.id, title: row.name } : null;
     }
     case "other":
@@ -255,7 +264,7 @@ export class AppStorageContentsError extends Error {
 export function deleteOrphanAppFile(itemId: string, userId: string): { relativePath: string } {
   const house = getHouseLibrary();
   if (!house) throw new AppStorageContentsError("There is no App files library.", 404);
-  const row = db.prepare("SELECT id, folder_path FROM library_items WHERE id = ? AND library_id = ? AND deleted_at IS NULL").get(itemId, house.id) as { id: string; folder_path: string } | undefined;
+  const row = db.prepare("SELECT id, folder_path FROM library_items WHERE id = ? AND library_id = ? AND deleted_at IS NULL").get(itemId, house.id) as Pick<LibraryItemRow, "id" | "folder_path"> | undefined;
   if (!row) throw new AppStorageContentsError("That file is not in the App files library.", 404);
   const known = FOLDER_KEYS.find((f) => row.folder_path === f.folder || row.folder_path.startsWith(`${f.folder}/`));
   if (!known) throw new AppStorageContentsError("That file is not in one of the app's folders. Move its folder to another library instead.", 409);

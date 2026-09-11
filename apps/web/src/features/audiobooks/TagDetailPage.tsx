@@ -15,6 +15,7 @@ import { lifeYears, type FamilyPerson } from "../familytree/types";
 import { StoryCard } from "../stories/StoryCard";
 import type { StorySummary } from "../stories/types";
 import type { GalleryAlbum, GallerySlideshow } from "../gallery/types";
+import { Button } from "../../shared/Button";
 
 interface TagDetail {
   name: string;
@@ -90,10 +91,10 @@ export function TagDetailPage({
   return (
     <DashboardShell active="tags">
       <section className="audiobook-main-page">
-        <button className="audiobook-back-button" type="button" onClick={() => goBack(backTo ?? "/tags")}>
+        <Button variant="bare" className="audiobook-back-button" onClick={() => goBack(backTo ?? "/tags")}>
           <ArrowLeft size={17} aria-hidden="true" />
           <span>{backTo ? t("book:catalog.back") : t("book:tags.backToTags")}</span>
-        </button>
+        </Button>
 
         {error && <MessageBox tone="error" title={t("book:tags.detailErrorTitle")}>{error}</MessageBox>}
 
@@ -110,16 +111,17 @@ export function TagDetailPage({
             {showToggle && (
               <div className="kind-toggle" role="group" aria-label={t("book:tags.filterByTypeAria")}>
                 {scopes.filter((s) => s.value === "all" || s.count > 0).map(({ value, label, icon: Icon, count }) => (
-                  <button
+                  <Button
+                    variant="bare"
                     key={value}
-                    type="button"
                     className={kindFilter === value ? "is-active" : ""}
+                    aria-pressed={kindFilter === value}
                     onClick={() => setKindFilter(value)}
                   >
                     {Icon && <Icon size={15} aria-hidden="true" />}
                     {label}
                     <span className="kind-toggle-count">{count}</span>
-                  </button>
+                  </Button>
                 ))}
               </div>
             )}
@@ -139,9 +141,9 @@ export function TagDetailPage({
                 {kindFilter === "all" && <p className="gallery-section-label">{t("book:tags.photosVideosLabel")}</p>}
                 <div className="gallery-grid tag-photo-grid">
                   {shownPhotos.map((photo, index) => (
-                    <button
+                    <Button
+                      variant="tile"
                       key={photo.id}
-                      type="button"
                       className="gallery-tile"
                       onClick={() => setLightboxIndex(index)}
                       title={photo.title}
@@ -150,7 +152,7 @@ export function TagDetailPage({
                       {photo.kind === "video" && (
                         <span className="gallery-video-badge"><Play size={11} aria-hidden="true" />{t("book:tags.videoBadge")}</span>
                       )}
-                    </button>
+                    </Button>
                   ))}
                 </div>
               </>

@@ -5,6 +5,7 @@ import { api } from "../../api";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
 import type { GalleryAlbum } from "./types";
+import { Button } from "../../shared/Button";
 
 // Album date shown on each card — the last time the album changed (a new photo
 // added, a rename). Short, locale-aware: "Oct 14, 2024".
@@ -117,20 +118,21 @@ export function AddToAlbumModal({
               placeholder={t("galleryModals:addToAlbum.newNamePlaceholder")}
               maxLength={120}
             />
-            <button className="primary-button compact-button" onClick={createAndAdd} disabled={!newName.trim() || pendingId != null}>{t("galleryModals:common.createAndAdd")}</button>
-            <button className="secondary-button compact-button" onClick={() => setCreating(false)}><X size={15} /></button>
+            <Button variant="primary" compact onClick={createAndAdd} disabled={!newName.trim() || pendingId != null}>{t("galleryModals:common.createAndAdd")}</Button>
+            <Button variant="secondary" compact onClick={() => setCreating(false)}><X size={15} /></Button>
           </div>
         ) : (
-          <button className="secondary-button add-to-album-create" onClick={() => setCreating(true)}>
+          <Button variant="secondary" className="add-to-album-create" onClick={() => setCreating(true)}>
             <Plus size={18} />
             <span>{t("galleryModals:addToAlbum.createNew")}</span>
-          </button>
+          </Button>
         )}
 
         {filtered.length > 0 && (
           <div className="gallery-folder-grid add-to-album-grid">
             {filtered.map((album) => (
-              <button
+              <Button
+                variant="tile"
                 className="gallery-folder-tile add-to-album-tile"
                 key={album.id}
                 onClick={() => void addTo(album.id, album.name)}
@@ -142,7 +144,7 @@ export function AddToAlbumModal({
                 </span>
                 <strong>{album.name}</strong>
                 <small>{albumDate(album.updatedAt)}</small>
-              </button>
+              </Button>
             ))}
           </div>
         )}

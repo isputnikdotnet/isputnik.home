@@ -5,8 +5,10 @@ import { requeueInterruptedJobs } from "../shared/job-recovery.js";
 import { getSlideshow, setSlideshowRenderState, setSlideshowSaveError, type SlideshowRow } from "./slideshows.js";
 import { resolveGalleryScopeLibraryIds } from "./catalog-scope.js";
 import { log } from "../../../core/logger.js";
+import { registerJobHandler } from "../../../core/job-poller.js";
 import { renderSlideshow } from "./slideshow-render.js";
 import { saveMovieToLibrary } from "./slideshow-movie-files.js";
+import type { JobRow, UserRow } from "../../../db/rows.js";
 
 export const RENDER_JOB_TYPE = "gallery-slideshow-render";
 
@@ -20,7 +22,7 @@ interface RenderPayload {
 // Live render progress for the editor/Tasks page, read from the job payload.
 export function renderProgressPercent(jobId: string | null): number | null {
   if (!jobId) return null;
-  const row = db.prepare("SELECT payload FROM jobs WHERE id = ?").get(jobId) as { payload: string } | undefined;
+  const row = db.prepare("SELECT payload FROM jobs WHERE id = ?").get(jobId) as Pick<JobRow, "payload"> | undefined;
   if (!row) return null;
   try {
     const progress = (JSON.parse(row.payload) as { progress?: { processed: number; total: number } }).progress;
@@ -34,7 +36,7 @@ export function renderProgressPercent(jobId: string | null): number | null {
 // Merge a final result into the job payload (preserving the last progress the writer
 // left), so the Tasks page history can summarize the outcome.
 function writeResult(jobId: string, result: Record<string, unknown>): void {
-  const row = db.prepare("SELECT payload FROM jobs WHERE id = ?").get(jobId) as { payload: string } | undefined;
+  const row = db.prepare("SELECT payload FROM jobs WHERE id = ?").get(jobId) as Pick<JobRow, "payload"> | undefined;
   let payload: Record<string, unknown> = {};
   try { payload = row ? JSON.parse(row.payload) : {}; } catch { /* start fresh on a bad payload */ }
   db.prepare("UPDATE jobs SET payload = ? WHERE id = ?").run(JSON.stringify({ ...payload, result }), jobId);
@@ -51,7 +53,7 @@ export function enqueueSlideshowRender(slideshow: SlideshowRow, userId: string):
 
 // A job counts as active (its render is still coming) while it's pending or running.
 function jobIsRunning(jobId: string): boolean {
-  return (db.prepare("SELECT status FROM jobs WHERE id = ?").get(jobId) as { status: string } | undefined)?.status === "running";
+  return (db.prepare("SELECT status FROM jobs WHERE id = ?").get(jobId) as Pick<JobRow, "status"> | undefined)?.status === "running";
 }
 
 // Release slideshows stuck in 'queued'/'rendering' whose job is no longer active —
@@ -100,7 +102,7 @@ export async function processSlideshowRenderQueue(): Promise<void> {
         SELECT id, payload FROM jobs
         WHERE type = ? AND status = 'pending' AND run_at <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
         ORDER BY run_at ASC LIMIT 1
-      `).get(RENDER_JOB_TYPE) as { id: string; payload: string } | undefined;
+      `).get(RENDER_JOB_TYPE) as Pick<JobRow, "id" | "payload"> | undefined;
       if (!job) break;
 
       const claim = db.prepare(`
@@ -158,7 +160,7 @@ export async function processSlideshowRenderQueue(): Promise<void> {
         // the cancel handler set.
         if (!jobIsRunning(job.id)) continue;
         const message = err instanceof Error ? err.message : "Render failed";
-        const attempts = db.prepare("SELECT attempts, max_attempts FROM jobs WHERE id = ?").get(job.id) as { attempts: number; max_attempts: number };
+        const attempts = db.prepare("SELECT attempts, max_attempts FROM jobs WHERE id = ?").get(job.id) as Pick<JobRow, "attempts" | "max_attempts">;
         if (attempts.attempts < attempts.max_attempts) {
           db.prepare("UPDATE jobs SET status = 'pending', run_at = ?, locked_at = NULL, locked_by = NULL, error = ? WHERE id = ?")
             .run(new Date(Date.now() + 5000).toISOString(), message, job.id);
@@ -178,12 +180,15 @@ export async function processSlideshowRenderQueue(): Promise<void> {
 // The creator's accessible gallery libraries (the worker has no request context, so
 // it rebuilds the user and reuses the normal scope resolver).
 function resolveRendererLibraries(userId: string): string[] {
-  const user = db.prepare("SELECT id, role FROM users WHERE id = ?").get(userId) as { id: string; role: string } | undefined;
+  const user = db.prepare("SELECT id, role FROM users WHERE id = ?").get(userId) as Pick<UserRow, "id" | "role"> | undefined;
   if (!user) return [];
   return resolveGalleryScopeLibraryIds(user);
 }
 
+// On the shared job poller (core/job-poller.ts), which calls this queue when a render
+// is due or marked running, and once at boot — so reconcileOrphanedRenders runs then,
+// rather than every two seconds whether or not anything was ever rendered. A cancel
+// releases its slideshow itself (the Tasks page's cancel route).
 export function startSlideshowRenderWorker(): () => void {
-  const timer = setInterval(() => { void processSlideshowRenderQueue().catch(() => { /* logged per-job */ }); }, 2000);
-  return () => clearInterval(timer);
+  return registerJobHandler({ name: "slideshow render", types: [RENDER_JOB_TYPE], run: processSlideshowRenderQueue });
 }

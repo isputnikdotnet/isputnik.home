@@ -25,6 +25,7 @@ import { normaliseRelativePath, pathIsInside } from "../shared/storage-roots.js"
 import { getConfiguredThumbnailPath } from "../shared/thumbnail.js";
 import { enqueueStorageMove, folderMoveStatuses, type StorageMoveStatus } from "../shared/storage-move.js";
 import { enqueueGalleryScan, processGalleryScanQueue } from "./scanner.js";
+import type { GalleryDetailRow, GalleryFaceRow, ItemMetadataRow, LibraryFolderLockRow, LibraryItemRow, LibraryRow, NonNull } from "../../../db/rows.js";
 
 export class FolderMoveError extends Error {
   constructor(message: string, readonly statusCode = 400) {
@@ -33,7 +34,7 @@ export class FolderMoveError extends Error {
   }
 }
 
-interface GalleryLibraryRow { id: string; name: string; source_path: string; policy_json: string; scan_status: string }
+type GalleryLibraryRow = Pick<LibraryRow, "id" | "name" | "source_path" | "policy_json" | "scan_status">;
 
 function galleryLibrary(id: string): GalleryLibraryRow | null {
   return (db.prepare("SELECT id, name, source_path, policy_json, scan_status FROM libraries WHERE id = ? AND type = 'gallery'").get(id) as GalleryLibraryRow | undefined) ?? null;
@@ -52,7 +53,7 @@ export function normaliseFolder(input: string): string | null {
 function itemsUnder(libraryId: string, folder: string): { id: string; folder_path: string }[] {
   return db.prepare(
     "SELECT id, folder_path FROM library_items WHERE library_id = ? AND (folder_path = ? OR folder_path LIKE ? ESCAPE '\\')"
-  ).all(libraryId, folder, `${folder.replace(/[\\%_]/g, "\\$&")}/%`) as { id: string; folder_path: string }[];
+  ).all(libraryId, folder, `${folder.replace(/[\\%_]/g, "\\$&")}/%`) as Pick<LibraryItemRow, "id" | "folder_path">[];
 }
 
 export interface FolderMovePlan {
@@ -172,26 +173,26 @@ export function repointMovedFolder(libraryId: string, folder: string, targetLibr
   const updateFace = db.prepare("UPDATE gallery_faces SET thumb_storage_key = ? WHERE id = ?");
   const locks = db.prepare(
     "SELECT folder_path, locked_by FROM library_folder_locks WHERE library_id = ? AND (folder_path = ? OR folder_path LIKE ? ESCAPE '\\')"
-  ).all(libraryId, folder, `${folder.replace(/[\\%_]/g, "\\$&")}/%`) as { folder_path: string; locked_by: string | null }[];
+  ).all(libraryId, folder, `${folder.replace(/[\\%_]/g, "\\$&")}/%`) as Pick<LibraryFolderLockRow, "folder_path" | "locked_by">[];
 
   const fileMoves: [string | null, string | null][] = [];
   db.transaction(() => {
     for (const item of items) {
       updateItem.run(targetLibraryId, newPath(item.folder_path), item.id);
-      const details = readDetails.get(item.id) as { preview_storage_key: string | null; web_video_key: string | null } | undefined;
+      const details = readDetails.get(item.id) as Pick<GalleryDetailRow, "preview_storage_key" | "web_video_key"> | undefined;
       if (details) {
         const preview = rekey(details.preview_storage_key, libraryId, targetLibraryId);
         const web = rekey(details.web_video_key, libraryId, targetLibraryId);
         updateDetails.run(newPath(item.folder_path), preview, web, item.id);
         fileMoves.push([details.preview_storage_key, preview], [details.web_video_key, web]);
       }
-      const cover = readCover.get(item.id) as { cover_storage_key: string | null } | undefined;
+      const cover = readCover.get(item.id) as Pick<ItemMetadataRow, "cover_storage_key"> | undefined;
       if (cover?.cover_storage_key) {
         const next = rekey(cover.cover_storage_key, libraryId, targetLibraryId);
         updateCover.run(next, item.id);
         fileMoves.push([cover.cover_storage_key, next]);
       }
-      for (const face of readFaces.all(item.id) as { id: string; thumb_storage_key: string }[]) {
+      for (const face of readFaces.all(item.id) as NonNull<Pick<GalleryFaceRow, "id" | "thumb_storage_key">, "thumb_storage_key">[]) {
         const next = rekey(face.thumb_storage_key, libraryId, targetLibraryId);
         updateFace.run(next, face.id);
         fileMoves.push([face.thumb_storage_key, next]);

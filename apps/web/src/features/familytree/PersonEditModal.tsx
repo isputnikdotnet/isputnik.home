@@ -99,29 +99,32 @@ export function PersonEditModal({
       onSubmit={submit}
     >
       {error && <MessageBox tone="error" title={t("errors.unableToSave")}>{error}</MessageBox>}
-      <div className="modal-tabs ft-person-form-tabs">
-        <button
-          type="button"
-          className={`modal-tab${activeTab === "details" ? " active" : ""}`}
+      <div className="modal-tabs ft-person-form-tabs" role="tablist">
+        <Button
+          variant="tab"
+          className="modal-tab"
+          selected={activeTab === "details"}
           onClick={() => setActiveTab("details")}
         >
           {t("family:personEdit.tabDetails")}
-        </button>
-        <button
-          type="button"
-          className={`modal-tab${activeTab === "notes" ? " active" : ""}`}
+        </Button>
+        <Button
+          variant="tab"
+          className="modal-tab"
+          selected={activeTab === "notes"}
           onClick={() => setActiveTab("notes")}
         >
           {t("family:personEdit.tabNotes")}
-        </button>
+        </Button>
         {showTags && (
-          <button
-            type="button"
-            className={`modal-tab${activeTab === "tags" ? " active" : ""}`}
+          <Button
+            variant="tab"
+            className="modal-tab"
+            selected={activeTab === "tags"}
             onClick={() => setActiveTab("tags")}
           >
             {t("family:personEdit.tabTags")}
-          </button>
+          </Button>
         )}
       </div>
 

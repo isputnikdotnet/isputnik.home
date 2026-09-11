@@ -4,6 +4,7 @@ import { CornerDownLeft, Search } from "lucide-react";
 import { Modal } from "../../shared/Modal";
 import { navigate } from "../../router";
 import { getControlSearchEntries, searchControlPanel, type ControlSearchEntry } from "./search-index";
+import { Button } from "../../shared/Button";
 
 // Everything in the control panel, one keystroke away. Opens on Ctrl/⌘+K or the
 // button at the top of the nav; picking a result navigates to the tab that owns
@@ -96,8 +97,8 @@ export function ControlSearch({ onClose }: { onClose: () => void }) {
           </p>
         ) : (
           results.map((entry, index) => (
-            <button
-              type="button"
+            <Button
+              variant="bare"
               key={entry.id}
               id={`control-search-${entry.id}`}
               role="option"
@@ -111,7 +112,7 @@ export function ControlSearch({ onClose }: { onClose: () => void }) {
                 <small>{entry.breadcrumb}</small>
               </span>
               {index === highlight && <CornerDownLeft size={16} aria-hidden="true" />}
-            </button>
+            </Button>
           ))
         )}
       </div>

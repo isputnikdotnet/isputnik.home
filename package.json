@@ -1,7 +1,7 @@
 {
   "name": "isputnik-home",
   "private": true,
-  "version": "4.0.0",
+  "version": "4.1.0",
   "stage": "beta",
   "description": "Private self-hosted family media library.",
   "license": "AGPL-3.0-only",
@@ -28,6 +28,7 @@
     "changelog": "node scripts/changelog-md.mjs",
     "seed:logins": "node scripts/seed-fake-logins.mjs",
     "demo:inbox": "node scripts/demo-photo-inbox.mjs",
+    "db:rows": "tsx scripts/gen-db-rows.mjs",
     "icons:pwa": "npm run icons:pwa --workspace apps/web"
   },
   "devDependencies": {

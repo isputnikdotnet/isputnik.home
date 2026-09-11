@@ -15,6 +15,7 @@ import { db } from "../../../db.js";
 import { parsePolicy } from "../../../core/permissions.js";
 import { normalizeLibrarySettings } from "../shared/library-settings.js";
 import { AUDIO_SCAN_EXTENSIONS } from "./media.js";
+import type { AppSettingRow, LibraryRow } from "../../../db/rows.js";
 
 export const HOUSE_LIBRARY_SETTINGS_KEY = "house_library";
 
@@ -35,16 +36,10 @@ export interface HouseLibrarySetting {
   libraryId: string | null;
 }
 
-export interface HouseLibrary {
-  id: string;
-  name: string;
-  source_path: string;
-  settings_json: string;
-  policy_json: string;
-}
+export type HouseLibrary = Pick<LibraryRow, "id" | "name" | "source_path" | "settings_json" | "policy_json">;
 
 export function getHouseLibrarySetting(): HouseLibrarySetting {
-  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(HOUSE_LIBRARY_SETTINGS_KEY) as { value: string } | undefined;
+  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(HOUSE_LIBRARY_SETTINGS_KEY) as Pick<AppSettingRow, "value"> | undefined;
   if (!row) return { libraryId: null };
   try {
     const parsed = JSON.parse(row.value) as Partial<HouseLibrarySetting>;
@@ -75,7 +70,7 @@ export type SetHouseLibraryResult = { ok: true; library: HouseLibrary | null } |
 export function setHouseLibrary(libraryId: string | null, userId: string | null): SetHouseLibraryResult {
   if (libraryId) {
     const row = db.prepare("SELECT id, policy_json FROM libraries WHERE id = ? AND type = 'gallery'")
-      .get(libraryId) as { id: string; policy_json: string } | undefined;
+      .get(libraryId) as Pick<LibraryRow, "id" | "policy_json"> | undefined;
     if (!row) return { ok: false, status: 404, error: "That gallery library doesn't exist." };
     if (parsePolicy(row.policy_json).inbox === true) {
       return { ok: false, status: 409, error: "A Photo Inbox holds photos that are not part of the collection yet; choose a regular gallery library." };
@@ -115,7 +110,7 @@ export function safeFolderName(name: string): string | null {
  *  library-settings.ts). Returns false when no such gallery library exists. */
 export function ensureAudioScanExtensions(libraryId: string): boolean {
   const library = db.prepare("SELECT id, settings_json FROM libraries WHERE id = ? AND type = 'gallery'")
-    .get(libraryId) as { id: string; settings_json: string } | undefined;
+    .get(libraryId) as Pick<LibraryRow, "id" | "settings_json"> | undefined;
   if (!library) return false;
   const current = normalizeLibrarySettings("gallery", library.settings_json).scan_extensions;
   const merged = Array.from(new Set([...current, ...AUDIO_SCAN_EXTENSIONS]));

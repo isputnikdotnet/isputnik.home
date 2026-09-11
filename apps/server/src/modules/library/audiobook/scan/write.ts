@@ -1,46 +1,47 @@
 import { nanoid } from "nanoid";
-import { db } from "../../../../db.js";
+import { stmt } from "../../../../db/statement-cache.js";
 import { applyItemAlphaIndex } from "../../shared/alphabet-index.js";
 import { matchCategoryId, setEntityTags } from "../../shared/tagging.js";
 import { sortTitle } from "./folder-parse.js";
 import type { PreparedBookScan } from "./types.js";
+import type { AudioFileRow, ItemMetadataRow, LibraryItemRow, PersonAliasRow, PersonRow, SeriesRow } from "../../../../db/rows.js";
 
 // Map a scanned name through the merge alias table so renamed/merged people stay
 // merged across rescans (e.g. "A.G. Riddle" -> "A. G. Riddle").
 function resolvePersonName(name: string): string {
-  const row = db.prepare("SELECT canonical_name FROM person_aliases WHERE alias = ?")
-    .get(name.trim()) as { canonical_name: string } | undefined;
+  const row = stmt("SELECT canonical_name FROM person_aliases WHERE alias = ?")
+    .get(name.trim()) as Pick<PersonAliasRow, "canonical_name"> | undefined;
   return row ? row.canonical_name : name;
 }
 
 function upsertAuthor(libraryId: string, name: string) {
   void libraryId; // people are global now
   const resolved = resolvePersonName(name);
-  db.prepare("INSERT OR IGNORE INTO people (id, name, sort_name) VALUES (?, ?, ?)")
+  stmt("INSERT OR IGNORE INTO people (id, name, sort_name) VALUES (?, ?, ?)")
     .run(nanoid(16), resolved, sortTitle(resolved));
-  return db.prepare("SELECT id FROM people WHERE name = ?")
-    .get(resolved) as { id: string };
+  return stmt("SELECT id FROM people WHERE name = ?")
+    .get(resolved) as Pick<PersonRow, "id">;
 }
 
 
 function upsertSeries(libraryId: string, name: string) {
-  db.prepare("INSERT OR IGNORE INTO series (id, library_id, name, sort_name) VALUES (?, ?, ?, ?)")
+  stmt("INSERT OR IGNORE INTO series (id, library_id, name, sort_name) VALUES (?, ?, ?, ?)")
     .run(nanoid(16), libraryId, name, sortTitle(name));
-  return db.prepare("SELECT id FROM series WHERE library_id = ? AND name = ?")
-    .get(libraryId, name) as { id: string };
+  return stmt("SELECT id FROM series WHERE library_id = ? AND name = ?")
+    .get(libraryId, name) as Pick<SeriesRow, "id">;
 }
 
 export function writeBookScan(libraryId: string, book: PreparedBookScan) {
-  const existingBook = db.prepare("SELECT id FROM library_items WHERE id = ?").get(book.bookId);
+  const existingBook = stmt("SELECT id FROM library_items WHERE id = ?").get(book.bookId);
 
   if (existingBook) {
-    db.prepare(`
+    stmt(`
       UPDATE library_items
       SET status = 'ready', scan_rule_id = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), deleted_at = NULL
       WHERE id = ?
     `).run(book.scanRuleId, book.bookId);
   } else {
-    db.prepare(`
+    stmt(`
       INSERT INTO library_items (id, library_id, type, folder_path, status, scan_rule_id)
       VALUES (?, ?, 'audiobook', ?, 'ready', ?)
     `).run(book.bookId, libraryId, book.folderPath, book.scanRuleId);
@@ -49,12 +50,12 @@ export function writeBookScan(libraryId: string, book: PreparedBookScan) {
   // Manual ownership is read from the live row, not the caller's flag, so a book
   // the user has edited is never clobbered by a rescan (and stays consistent with
   // the per-field manual preservation in the item_metadata upsert below).
-  const metaIsManual = (db.prepare("SELECT source FROM item_metadata WHERE item_id = ?")
-    .get(book.bookId) as { source?: string } | undefined)?.source === "manual";
+  const metaIsManual = (stmt("SELECT source FROM item_metadata WHERE item_id = ?")
+    .get(book.bookId) as Pick<ItemMetadataRow, "source"> | undefined)?.source === "manual";
 
   if (!book.skipMetadataUpdate) {
     // Shared descriptive metadata; manual edits are preserved field-by-field.
-    db.prepare(`
+    stmt(`
       INSERT INTO item_metadata (
         item_id, source, title, sort_title, description, year_published, language,
         cover_storage_key, isbn, publisher
@@ -91,7 +92,7 @@ export function writeBookScan(libraryId: string, book: PreparedBookScan) {
     applyItemAlphaIndex(book.bookId);
 
     // Audiobook-specific: duration always refreshes; asin is preserved on manual.
-    db.prepare(`
+    stmt(`
       INSERT INTO audiobook_details (item_id, asin, duration_seconds)
       VALUES (?, ?, ?)
       ON CONFLICT(item_id) DO UPDATE SET
@@ -102,8 +103,8 @@ export function writeBookScan(libraryId: string, book: PreparedBookScan) {
     // Primary category from the scanned genres — left alone when metadata is manual.
     if (!metaIsManual) {
       const categoryId = matchCategoryId(book.genres);
-      db.prepare("DELETE FROM item_categories WHERE item_id = ? AND is_primary = 1").run(book.bookId);
-      db.prepare(`
+      stmt("DELETE FROM item_categories WHERE item_id = ? AND is_primary = 1").run(book.bookId);
+      stmt(`
         INSERT INTO item_categories (item_id, category_id, is_primary, source) VALUES (?, ?, 1, 'scan')
         ON CONFLICT(item_id, category_id) DO UPDATE SET is_primary = 1, source = 'scan'
       `).run(book.bookId, categoryId);
@@ -114,28 +115,28 @@ export function writeBookScan(libraryId: string, book: PreparedBookScan) {
     // Series is auto-managed only when the user hasn't curated it by hand
     // (library_items.series_source = 'manual'). A manually pinned/cleared series
     // survives rescans even when the folder/tags carry one of their own.
-    const seriesRow = db.prepare("SELECT series_source FROM library_items WHERE id = ?")
-      .get(book.bookId) as { series_source: string } | undefined;
+    const seriesRow = stmt("SELECT series_source FROM library_items WHERE id = ?")
+      .get(book.bookId) as Pick<LibraryItemRow, "series_source"> | undefined;
     if (seriesRow?.series_source !== "manual") {
-      db.prepare("DELETE FROM series_items WHERE item_id = ?").run(book.bookId);
+      stmt("DELETE FROM series_items WHERE item_id = ?").run(book.bookId);
       if (book.seriesName) {
         const series = upsertSeries(libraryId, book.seriesName);
-        db.prepare("INSERT INTO series_items (series_id, item_id, position, source) VALUES (?, ?, ?, 'scan')")
+        stmt("INSERT INTO series_items (series_id, item_id, position, source) VALUES (?, ?, ?, 'scan')")
           .run(series.id, book.bookId, book.seriesPosition);
       }
     }
 
-    db.prepare("DELETE FROM item_people WHERE item_id = ? AND role IN ('author', 'narrator')").run(book.bookId);
+    stmt("DELETE FROM item_people WHERE item_id = ? AND role IN ('author', 'narrator')").run(book.bookId);
     book.authors.forEach((authorName, index) => {
       const author = upsertAuthor(libraryId, authorName);
-      db.prepare(`
+      stmt(`
         INSERT OR IGNORE INTO item_people (item_id, person_id, role, sort_order)
         VALUES (?, ?, 'author', ?)
       `).run(book.bookId, author.id, index);
     });
     book.narrators.forEach((narratorName, index) => {
       const narrator = upsertAuthor(libraryId, narratorName);
-      db.prepare(`
+      stmt(`
         INSERT OR IGNORE INTO item_people (item_id, person_id, role, sort_order)
         VALUES (?, ?, 'narrator', ?)
       `).run(book.bookId, narrator.id, index);
@@ -146,9 +147,9 @@ export function writeBookScan(libraryId: string, book: PreparedBookScan) {
     setEntityTags("library_item", book.bookId, book.genres);
   }
 
-  db.prepare("UPDATE audio_files SET status = 'missing', deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id = ?").run(book.bookId);
+  stmt("UPDATE audio_files SET status = 'missing', deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id = ?").run(book.bookId);
   for (const file of book.files) {
-    db.prepare(`
+    stmt(`
       INSERT INTO audio_files (
         id, item_id, relative_path, mime_type, track_number, title, duration_seconds,
         size, modified_at, content_hash, status, deleted_at
@@ -181,12 +182,12 @@ export function writeBookScan(libraryId: string, book: PreparedBookScan) {
     // Re-sync embedded chapters for this file. undefined = not re-parsed this scan
     // (fast path), so existing rows are left intact; otherwise replace them wholesale.
     if (file.chapters !== undefined) {
-      const fileRow = db.prepare("SELECT id FROM audio_files WHERE item_id = ? AND relative_path = ?")
-        .get(book.bookId, file.relativePath) as { id: string } | undefined;
+      const fileRow = stmt("SELECT id FROM audio_files WHERE item_id = ? AND relative_path = ?")
+        .get(book.bookId, file.relativePath) as Pick<AudioFileRow, "id"> | undefined;
       if (fileRow) {
-        db.prepare("DELETE FROM audio_chapters WHERE audio_file_id = ?").run(fileRow.id);
+        stmt("DELETE FROM audio_chapters WHERE audio_file_id = ?").run(fileRow.id);
         file.chapters.forEach((chapter, ordinal) => {
-          db.prepare(`
+          stmt(`
             INSERT INTO audio_chapters (id, audio_file_id, ordinal, title, start_seconds, end_seconds)
             VALUES (?, ?, ?, ?, ?, ?)
           `).run(nanoid(16), fileRow.id, ordinal, chapter.title, chapter.startSeconds, chapter.endSeconds);
@@ -196,9 +197,9 @@ export function writeBookScan(libraryId: string, book: PreparedBookScan) {
   }
 
   // Companion documents — re-synced from disk on every scan, like audio_files.
-  db.prepare("UPDATE document_files SET status = 'missing', deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id = ? AND role = 'companion'").run(book.bookId);
+  stmt("UPDATE document_files SET status = 'missing', deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id = ? AND role = 'companion'").run(book.bookId);
   for (const doc of book.documents) {
-    db.prepare(`
+    stmt(`
       INSERT INTO document_files (id, item_id, role, relative_path, format, mime_type, size, status, deleted_at)
       VALUES (?, ?, 'companion', ?, ?, ?, ?, 'available', NULL)
       ON CONFLICT(item_id, relative_path) DO UPDATE SET

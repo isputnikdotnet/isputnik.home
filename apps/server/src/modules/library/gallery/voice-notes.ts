@@ -22,6 +22,7 @@ import { TrashError } from "../shared/trash-settings.js";
 import { scanSingleGalleryFile } from "./scanner.js";
 import { uniqueGalleryFileName } from "./files.js";
 import { getHouseLibrary, HOUSE_FOLDERS } from "./house-library.js";
+import type { GalleryDetailRow, GalleryVoiceNoteRow, LibraryItemRow, LibraryRow, UserRow } from "../../../db/rows.js";
 
 /** Five minutes at a browser's ~64 kbit/s is a couple of megabytes; this is
  *  headroom, not a target. */
@@ -61,7 +62,10 @@ const listStmt = db.prepare(`
 `);
 
 export function listVoiceNotes(itemId: string): VoiceNoteView[] {
-  const rows = listStmt.all(itemId) as { id: string; created_at: string; duration_seconds: number | null; recorded_by: string | null }[];
+  const rows = listStmt.all(itemId) as (Pick<GalleryVoiceNoteRow, "id" | "created_at"> & {
+    duration_seconds: GalleryDetailRow["duration_seconds"] | null;
+    recorded_by: UserRow["display_name"] | null;
+  })[];
   return rows.map((row) => ({
     id: row.id,
     url: `/api/library/gallery/assets/${itemId}/voice-notes/${row.id}/audio`,
@@ -87,7 +91,7 @@ export async function storeVoiceNote(itemId: string, userId: string, tmpPath: st
     SELECT library_items.id, COALESCE(item_metadata.title, library_items.folder_path) AS title
     FROM library_items LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
     WHERE library_items.id = ? AND library_items.type = 'gallery' AND library_items.deleted_at IS NULL
-  `).get(itemId) as { id: string; title: string } | undefined;
+  `).get(itemId) as (Pick<LibraryItemRow, "id"> & { title: string }) | undefined;
   if (!photo) throw new VoiceNoteError("Photo not found.", 404);
 
   const library = getHouseLibrary();
@@ -140,7 +144,7 @@ export function voiceNoteFile(itemId: string, noteId: string): { path: string; m
     JOIN libraries ON libraries.id = audio.library_id
     JOIN gallery_details gd ON gd.item_id = audio.id
     WHERE n.id = ? AND n.item_id = ?
-  `).get(noteId, itemId) as { source_path: string; relative_path: string } | undefined;
+  `).get(noteId, itemId) as (Pick<LibraryRow, "source_path"> & Pick<GalleryDetailRow, "relative_path">) | undefined;
   if (!row) return null;
   let root: string;
   try { root = validateLibrarySource(row.source_path); } catch { return null; }
@@ -151,7 +155,7 @@ export function voiceNoteFile(itemId: string, noteId: string): { path: string; m
 /** Remove a note: the tie goes, and the recording goes to the Recycle Bin like
  *  any deleted asset. Returns false when the note is not on this photo. */
 export function deleteVoiceNote(itemId: string, noteId: string, userId: string): boolean {
-  const row = db.prepare("SELECT audio_item_id FROM gallery_voice_notes WHERE id = ? AND item_id = ?").get(noteId, itemId) as { audio_item_id: string } | undefined;
+  const row = db.prepare("SELECT audio_item_id FROM gallery_voice_notes WHERE id = ? AND item_id = ?").get(noteId, itemId) as Pick<GalleryVoiceNoteRow, "audio_item_id"> | undefined;
   if (!row) return false;
   db.prepare("DELETE FROM gallery_voice_notes WHERE id = ?").run(noteId);
   try {

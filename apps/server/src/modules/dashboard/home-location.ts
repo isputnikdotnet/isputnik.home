@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { db, logActivity } from "../../db.js";
+import type { AppSettingRow } from "../../db/rows.js";
 
 // Where "home" is on the map. A house's own connections have no country — they
 // never leave the LAN, so no database can place them — but the household knows
@@ -18,9 +19,7 @@ export const homeLocationSchema = z.object({
 export type HomeLocation = z.infer<typeof homeLocationSchema>;
 
 export function getHomeLocation(): HomeLocation | null {
-  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(HOME_LOCATION_KEY) as
-    | { value: string }
-    | undefined;
+  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(HOME_LOCATION_KEY) as Pick<AppSettingRow, "value"> | undefined;
   if (!row) return null;
   try {
     const parsed = homeLocationSchema.safeParse(JSON.parse(row.value));

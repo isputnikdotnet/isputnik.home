@@ -5,6 +5,7 @@
 // the source.
 import { nanoid } from "nanoid";
 import { db } from "../../db.js";
+import type { FamilyTreeCitationRow, FamilyTreeSourceRow } from "../../db/rows.js";
 
 export const CITATION_FACTS = ["name", "birth", "death", "marriage", "divorce"] as const;
 
@@ -18,15 +19,7 @@ export interface FamilySourceSummary {
   citationCount: number;
 }
 
-interface SourceRow {
-  id: string;
-  title: string;
-  author: string | null;
-  publisher: string | null;
-  url: string | null;
-  note: string | null;
-  citation_count: number;
-}
+type SourceRow = Pick<FamilyTreeSourceRow, "id" | "title" | "author" | "publisher" | "url" | "note"> & { citation_count: number };
 
 function mapSource(row: SourceRow): FamilySourceSummary {
   return {
@@ -108,19 +101,11 @@ export interface FamilyCitationSummary {
   note: string | null;
 }
 
-interface CitationRow {
-  id: string;
-  source_id: string;
-  source_title: string;
-  source_url: string | null;
-  person_id: string | null;
-  event_id: string | null;
-  union_id: string | null;
-  fact: string | null;
-  detail: string | null;
-  url: string | null;
-  note: string | null;
-}
+type CitationRow = Pick<FamilyTreeCitationRow,
+  "id" | "source_id" | "person_id" | "event_id" | "union_id" | "fact" | "detail" | "url" | "note"> & {
+  source_title: FamilyTreeSourceRow["title"];
+  source_url: FamilyTreeSourceRow["url"];
+};
 
 function mapCitation(row: CitationRow): FamilyCitationSummary {
   return {

@@ -1,10 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import Fastify, { type FastifyInstance } from "fastify";
-import cookie from "@fastify/cookie";
+import type { FastifyInstance } from "fastify";
 
 import { db } from "../src/db.js";
-import { issueSession, registerAuthDecorators } from "../src/auth.js";
 import { logsPlugin } from "../src/core/logs.js";
+import { bootApp } from "./helpers/boot.js";
 import { makeUser, resetDb } from "./helpers/seed.js";
 
 // The Logs page's CSV export goes through the same query builder as the page, so
@@ -14,28 +13,7 @@ import { makeUser, resetDb } from "./helpers/seed.js";
 
 let app: FastifyInstance;
 let admin: string;
-
-async function buildApp(): Promise<FastifyInstance> {
-  const instance = Fastify();
-  await instance.register(cookie);
-  await registerAuthDecorators(instance);
-  await instance.register(logsPlugin);
-  instance.post("/test/sign-in/:userId", async (request, reply) => {
-    issueSession(reply, (request.params as { userId: string }).userId, request);
-    return reply.send({ ok: true });
-  });
-  await instance.ready();
-  return instance;
-}
-
-async function signIn(userId: string): Promise<string> {
-  const res = await app.inject({ method: "POST", url: `/test/sign-in/${userId}` });
-  const raw = res.headers["set-cookie"];
-  const list = Array.isArray(raw) ? raw : [String(raw)];
-  const found = list.find((entry) => entry.startsWith("isputnik_sid="));
-  if (!found) throw new Error("no session cookie was set");
-  return found.split(";")[0];
-}
+let signIn: (userId: string) => Promise<string>;
 
 let seq = 0;
 function log(event: string, detail: string, actor: string | null = admin, ip = "9.9.9.9"): void {
@@ -49,7 +27,7 @@ beforeEach(async () => {
   resetDb();
   seq = 0;
   admin = makeUser("boss", "admin");
-  app = await buildApp();
+  ({ app, signIn } = await bootApp({ plugins: [logsPlugin] }));
 });
 
 describe("GET /api/logs/export", () => {

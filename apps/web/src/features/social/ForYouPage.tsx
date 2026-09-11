@@ -10,6 +10,7 @@ import { MessageBox } from "../../shared/MessageBox";
 import { InboxRow, type InboxCard } from "./InboxRow";
 import { DeliveryRow, type DeliveryCard } from "./DeliveryRow";
 import { refreshInboxSummary } from "./useInboxSummary";
+import { Button } from "../../shared/Button";
 
 interface SharedBook {
   id: string;
@@ -89,18 +90,18 @@ function SharedAlbumViewer({ album, onClose }: { album: SharedBook; onClose: () 
               <Download size={15} /><span>{t("user:actions.download")}</span>
             </a>
           )}
-          <button className="icon-button" onClick={() => (openIndex != null ? setOpenIndex(null) : onClose())} aria-label={t("common:common.close")}>
+          <Button variant="icon" onClick={() => (openIndex != null ? setOpenIndex(null) : onClose())} aria-label={t("common:common.close")}>
             <X size={18} />
-          </button>
+          </Button>
         </div>
       </div>
 
       {open ? (
         <div className="share-set-viewer-body">
           {openIndex! > 0 && (
-            <button className="share-set-nav prev" onClick={() => setOpenIndex(openIndex! - 1)} aria-label={t("user:viewer.previous")}>
+            <Button variant="bare" className="share-set-nav prev" onClick={() => setOpenIndex(openIndex! - 1)} aria-label={t("user:viewer.previous")}>
               <ChevronLeft size={26} />
-            </button>
+            </Button>
           )}
           {open.kind === "video" ? (
             <video key={open.id} src={open.fileUrl} controls playsInline poster={open.previewUrl ?? undefined} />
@@ -108,9 +109,9 @@ function SharedAlbumViewer({ album, onClose }: { album: SharedBook; onClose: () 
             <img key={open.id} src={open.previewUrl ?? open.fileUrl} alt={open.title} />
           )}
           {openIndex! < (items?.length ?? 0) - 1 && (
-            <button className="share-set-nav next" onClick={() => setOpenIndex(openIndex! + 1)} aria-label={t("user:viewer.next")}>
+            <Button variant="bare" className="share-set-nav next" onClick={() => setOpenIndex(openIndex! + 1)} aria-label={t("user:viewer.next")}>
               <ChevronRight size={26} />
-            </button>
+            </Button>
           )}
         </div>
       ) : (
@@ -122,14 +123,14 @@ function SharedAlbumViewer({ album, onClose }: { album: SharedBook; onClose: () 
           {items && items.length > 0 && (
             <div className="share-set-grid">
               {items.map((item, index) => (
-                <button key={item.id} type="button" className="share-set-tile" onClick={() => setOpenIndex(index)} aria-label={t("user:viewer.openItem", { title: item.title })}>
+                <Button variant="tile" key={item.id} className="share-set-tile" onClick={() => setOpenIndex(index)} aria-label={t("user:viewer.openItem", { title: item.title })}>
                   {item.coverUrl ? (
                     <img src={item.coverUrl} alt="" loading="lazy" />
                   ) : (
                     <span className="share-set-fallback"><ImageIcon size={24} aria-hidden="true" /></span>
                   )}
                   {item.kind === "video" && <span className="share-set-video-badge"><Play size={11} aria-hidden="true" />{t("user:viewer.video")}</span>}
-                </button>
+                </Button>
               ))}
             </div>
           )}
@@ -256,7 +257,7 @@ export function ForYouPage() {
             <div className="audiobook-grid">
               {shelf.map((book) => (
                 <article className="saved-audiobook-card" key={`${book.type}-${book.id}`}>
-                  <button className="audiobook-card" onClick={() => openShared(book)}>
+                  <Button variant="tile" className="audiobook-card" onClick={() => openShared(book)}>
                     <div className="audiobook-cover" aria-hidden="true">
                       {book.coverUrl ? (
                         <img src={book.coverUrl} alt="" />
@@ -280,7 +281,7 @@ export function ForYouPage() {
                       </span>
                       <small>{book.expiresAt ? t("user:share.until", { date: new Date(book.expiresAt).toLocaleDateString() }) : t("user:share.noExpiry")}</small>
                     </div>
-                  </button>
+                  </Button>
                 </article>
               ))}
               {books === null && <p className="management-empty">{t("user:common.loading")}</p>}

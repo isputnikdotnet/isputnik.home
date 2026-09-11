@@ -3,44 +3,24 @@
 import { db } from "../../../db.js";
 import type { TakenPrecision } from "./taken-precision.js";
 import { listVoiceNotes } from "./voice-notes.js";
+import type { GalleryDetailRow, GalleryPersonRow, ItemMetadataRow, LibraryItemRow, LibraryRow, Nullable, TagRow } from "../../../db/rows.js";
 
 const inClause = (n: number) => Array(n).fill("?").join(", ");
 
-export interface AssetRow {
-  id: string;
-  library_id: string;
-  library_name: string | null;
-  folder_path: string;
-  discovered_at: string;
-  kind: string;
-  title: string | null;
-  description: string | null;
-  taken_at: string | null;
-  taken_precision: TakenPrecision | null;
-  taken_approx: number | null;
-  place_text: string | null;
-  reviewed_at: string | null;
-  reviewed_by_name: string | null;
-  width: number | null;
-  height: number | null;
-  orientation: number | null;
-  rotation: number | null;
-  duration_seconds: number | null;
-  mime_type: string | null;
-  size: number | null;
-  gps_lat: number | null;
-  gps_lng: number | null;
-  camera_make: string | null;
-  camera_model: string | null;
-  cover_storage_key: string | null;
-  preview_storage_key: string | null;
-  playable: number | null;
-  web_video_key: string | null;
-  updated_at: string | null;
-  saved: number | null;
-  face_focus_x: number | null;
-  face_focus_y: number | null;
-}
+export type AssetRow = Pick<LibraryItemRow, "id" | "library_id" | "folder_path" | "discovered_at">
+  & Pick<GalleryDetailRow,
+    | "kind" | "taken_at" | "taken_precision" | "taken_approx" | "place_text" | "reviewed_at"
+    | "width" | "height" | "orientation" | "rotation" | "duration_seconds" | "mime_type" | "size"
+    | "gps_lat" | "gps_lng" | "camera_make" | "camera_model" | "preview_storage_key" | "playable"
+    | "web_video_key" | "updated_at">
+  & Nullable<Pick<ItemMetadataRow, "title" | "description" | "cover_storage_key">>
+  & {
+    library_name: LibraryRow["name"] | null;
+    reviewed_by_name: string | null;
+    saved: number | null;
+    face_focus_x: number | null;
+    face_focus_y: number | null;
+  };
 
 // Faces are detected on the EXIF-oriented photo (arcface.ts rotates before
 // detecting), so a box already matches the thumbnail — except for a manual
@@ -158,7 +138,7 @@ export function mapAsset(row: AssetRow) {
     // exists, else the original — that's what the <video> element plays.
     fileUrl: `/api/library/gallery/assets/${row.id}/file`,
     playbackUrl: `/api/library/gallery/assets/${row.id}/file${row.web_video_key ? "?web=1" : ""}`,
-    tags: (tagsFor.all(row.id) as { name: string }[]).map((t) => t.name),
+    tags: (tagsFor.all(row.id) as { name: TagRow["display_name"] }[]).map((t) => t.name),
     saved: Boolean(row.saved),
     // null when this photo has no detected face — the tile then crops from the
     // centre as before. Percentages, ready for CSS object-position.
@@ -207,7 +187,7 @@ export function getGalleryAsset(userId: string, libIds: string[], id: string) {
     WHERE library_items.id = ? AND library_items.library_id IN (${inClause(libIds.length)}) AND library_items.deleted_at IS NULL
   `).get(userId, id, ...libIds) as AssetRow | undefined;
   if (!row) return null;
-  const people = peopleForAssetStmt.all(id) as { id: string; name: string }[];
+  const people = peopleForAssetStmt.all(id) as Pick<GalleryPersonRow, "id" | "name">[];
   return { ...mapAsset(row), people, voiceNotes: listVoiceNotes(id) };
 }
 
@@ -220,6 +200,6 @@ export function getGalleryAssetUnscoped(userId: string, id: string) {
     WHERE library_items.id = ? AND library_items.deleted_at IS NULL
   `).get(userId, id) as AssetRow | undefined;
   if (!row) return null;
-  const people = peopleForAssetStmt.all(id) as { id: string; name: string }[];
+  const people = peopleForAssetStmt.all(id) as Pick<GalleryPersonRow, "id" | "name">[];
   return { ...mapAsset(row), people, voiceNotes: listVoiceNotes(id) };
 }

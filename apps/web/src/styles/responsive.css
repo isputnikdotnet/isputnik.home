@@ -104,46 +104,6 @@
     flex-shrink: 1;
   }
 
-  .backup-hero {
-    grid-template-columns: 1fr;
-    gap: 16px;
-    margin-top: 4px;
-  }
-
-  .backup-path-pill {
-    width: 100%;
-  }
-
-  .backup-settings {
-    padding: 22px 18px;
-  }
-
-  .backup-field-keep {
-    max-width: none;
-  }
-
-  .backup-settings-footer {
-    grid-template-columns: 1fr;
-    gap: 14px;
-  }
-
-  .backup-schedule-row {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-
-  .backup-retention-controls {
-    flex-wrap: wrap;
-  }
-
-  .backup-save-button {
-    justify-self: start;
-  }
-
-  .backup-list-head {
-    display: grid;
-  }
-
   .audiobook-toolbar .search-field {
     flex: 0 0 100%;
   }
@@ -266,24 +226,8 @@
     width: 140px;
   }
 
-  .book-file-row {
-    grid-template-columns: 32px minmax(0, 1fr);
-  }
-
-  .book-file-row > small {
-    grid-column: 2;
-  }
-
   .log-toolbar-controls {
     margin-left: 0;
-  }
-
-  .library-settings-panel {
-    grid-template-columns: 1fr;
-  }
-
-  .library-settings-actions {
-    justify-items: start;
   }
 
   .library-controls {
@@ -345,10 +289,6 @@
 
   .library-info-grid {
     grid-template-columns: 1fr;
-  }
-
-  .storage-section-head {
-    display: grid;
   }
 
   .setting-status {
@@ -481,10 +421,6 @@
 
   .log-toolbar-controls {
     justify-content: space-between;
-  }
-
-  .log-search {
-    flex-basis: 100%;
   }
 
   .log-pager-row {

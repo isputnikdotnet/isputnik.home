@@ -1,0 +1,4 @@
+{
+  "description": "Raw <button> elements still allowed per file under apps/web/src outside shared/ (check:ui, docs/UI-CONVENTIONS.md > Enforcement). Counts only go down: `npm run check:ui -- --update-button-baseline` lowers them; a file not listed may have none. Empty since every button was converted to shared/Button (2026-09-11).",
+  "files": {}
+}

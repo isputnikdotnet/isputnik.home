@@ -33,6 +33,7 @@ import {
   type FolderPreference,
   type FolderPreferenceMode
 } from "./keeper.js";
+import type { GalleryDetailRow, GalleryDuplicateContainedIgnoreRow, GalleryDuplicateFolderIgnoreRow, GalleryDuplicateFolderOverlapIgnoreRow, LibraryItemRow } from "../../../../db/rows.js";
 
 // A folder holding a single photo is a duplicate photo, not a duplicate folder — the
 // item tier says that better, and one-file folders would flood this list.
@@ -83,14 +84,9 @@ const below = (base: string, filePath: string): string =>
 //  Fingerprinting
 // ────────────────────────────────────────────────────────────────────────────
 
-interface FileRow {
-  item_id: string;
-  library_id: string;
-  folder_path: string;
-  content_hash: string | null;
-  size: number | null;
-  discovered_at: string;
-}
+type FileRow = { item_id: LibraryItemRow["id"] }
+  & Pick<LibraryItemRow, "library_id" | "folder_path" | "discovered_at">
+  & Pick<GalleryDetailRow, "content_hash" | "size">;
 
 // Every live gallery file, hashed or not. The unhashed ones matter as much as the
 // rest: one of them is what disqualifies a folder from being compared at all.
@@ -336,7 +332,7 @@ export const containedIgnoreKeys = (): Set<string> => containedIgnores();
 function ignoredFolderPairs(): Set<string> {
   const rows = db.prepare(
     "SELECT library_a, path_a, library_b, path_b FROM gallery_duplicate_folder_ignores"
-  ).all() as { library_a: string; path_a: string; library_b: string; path_b: string }[];
+  ).all() as Pick<GalleryDuplicateFolderIgnoreRow, "library_a" | "path_a" | "library_b" | "path_b">[];
   return new Set(rows.map((r) =>
     `${refKey({ libraryId: r.library_a, folderPath: r.path_a })}|${refKey({ libraryId: r.library_b, folderPath: r.path_b })}`));
 }
@@ -396,7 +392,7 @@ export function folderComponents(keys: string[], ignored: Set<string>): string[]
 function containedIgnores(): Set<string> {
   const rows = db.prepare(
     "SELECT library_id, folder_path FROM gallery_duplicate_contained_ignores"
-  ).all() as { library_id: string; folder_path: string }[];
+  ).all() as Pick<GalleryDuplicateContainedIgnoreRow, "library_id" | "folder_path">[];
   return new Set(rows.map((r) => refKey({ libraryId: r.library_id, folderPath: r.folder_path })));
 }
 
@@ -431,7 +427,7 @@ const sameOrInside = (libA: string, pathA: string, libB: string, pathB: string):
 function overlapIgnores(): Set<string> {
   const rows = db.prepare(
     "SELECT library_a, path_a, library_b, path_b FROM gallery_duplicate_folder_overlap_ignores"
-  ).all() as { library_a: string; path_a: string; library_b: string; path_b: string }[];
+  ).all() as Pick<GalleryDuplicateFolderOverlapIgnoreRow, "library_a" | "path_a" | "library_b" | "path_b">[];
   return new Set(rows.map((r) =>
     `${refKey({ libraryId: r.library_a, folderPath: r.path_a })}|${refKey({ libraryId: r.library_b, folderPath: r.path_b })}`));
 }

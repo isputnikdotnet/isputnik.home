@@ -18,6 +18,7 @@ import { normaliseRelativePath } from "../shared/storage-roots.js";
 import { normalizeLibrarySettings, uploadAcceptExtensions } from "../shared/library-settings.js";
 import { rescanSingleBook } from "./scanner.js";
 import { getAudiobookBookDetail } from "./book-helpers.js";
+import type { LibraryItemRow, LibraryRow } from "../../../db/rows.js";
 
 // One audiobook = one folder of tracks; 500 covers even big episodic shows.
 const MAX_BOOK_UPLOAD_FILES = 500;
@@ -42,13 +43,7 @@ function sanitizeFolderName(value: string | null | undefined): string | null {
   return cleaned || null;
 }
 
-interface UploadLibraryRow {
-  id: string;
-  name: string;
-  source_path: string;
-  settings_json: string;
-  policy_json: string;
-}
+type UploadLibraryRow = Pick<LibraryRow, "id" | "name" | "source_path" | "settings_json" | "policy_json">;
 
 export function registerSourceRoutes(app: FastifyInstance) {
 
@@ -155,7 +150,7 @@ export function registerSourceRoutes(app: FastifyInstance) {
     // Catalog the new folder: revive a previous row for this path if one exists
     // (the folder was deleted or went missing earlier), otherwise insert fresh.
     const existing = db.prepare("SELECT id FROM library_items WHERE library_id = ? AND folder_path = ?")
-      .get(library.id, folderPath) as { id: string } | undefined;
+      .get(library.id, folderPath) as Pick<LibraryItemRow, "id"> | undefined;
     const bookId = existing?.id ?? nanoid(16);
     if (existing) {
       db.prepare("UPDATE library_items SET deleted_at = NULL, status = 'pending', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?")

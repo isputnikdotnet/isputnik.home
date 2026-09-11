@@ -91,7 +91,7 @@ export function PersonPickerModal({
 
       <div className="ft-picker-list">
         {shown.map((person) => (
-          <button key={person.id} type="button" className="ft-picker-row" onClick={() => onPick(person)} disabled={creating}>
+          <Button variant="bare" key={person.id} className="ft-picker-row" onClick={() => onPick(person)} disabled={creating}>
             <PersonAvatar person={person} size={36} />
             <span className="ft-picker-row-name">
               <strong>{person.name}</strong>
@@ -99,7 +99,7 @@ export function PersonPickerModal({
                 <small>{[person.maidenName ? t("family:common.nee", { name: person.maidenName }) : "", lifeYears(person)].filter(Boolean).join(" · ")}</small>
               )}
             </span>
-          </button>
+          </Button>
         ))}
         {shown.length === 0 && (
           <p className="management-empty">{persons.length === 0 ? t("family:personPicker.noPeopleYet") : t("family:common.noOneMatches")}</p>

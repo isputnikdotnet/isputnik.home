@@ -6,6 +6,7 @@ import path from "node:path";
 import { db } from "../../../db.js";
 import { resolveAppLocation } from "../../../core/app-storage.js";
 import { pathIsInside, normaliseRelativePath, findStorageRootForPath } from "./storage-roots.js";
+import type { AppSettingRow, LibraryRow } from "../../../db/rows.js";
 
 const TRASH_DIR = ".trash";
 
@@ -32,9 +33,7 @@ export function getTrashRootSetting(): string | null {
 /** The bin folder's OWN setting, ignoring App storage — what the Storage page
  *  shows as "its own folder" (docs/app-storage-plan.md, decision 4). */
 export function getOwnTrashRootSetting(): string | null {
-  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(TRASH_ROOT_KEY) as
-    | { value: string }
-    | undefined;
+  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(TRASH_ROOT_KEY) as Pick<AppSettingRow, "value"> | undefined;
   const value = row?.value.trim();
   return value ? value : null;
 }
@@ -76,8 +75,7 @@ export function validateTrashRootPath(candidate: string): string {
     throw new TrashError("Choose a folder inside a configured Digital Library container.");
   }
 
-  const libraries = db.prepare("SELECT name, source_path FROM libraries").all() as
-    { name: string; source_path: string }[];
+  const libraries = db.prepare("SELECT name, source_path FROM libraries").all() as Pick<LibraryRow, "name" | "source_path">[];
   for (const library of libraries) {
     const source = path.resolve(library.source_path);
     if (pathIsInside(real, source)) {
@@ -139,9 +137,7 @@ const CLEANUP_RETENTION_KEY = "trash_retention_days_duplicate_cleanup";
  *  Stored as a string so "unset" and "0 = keep for ever" stay distinguishable — the
  *  difference between "I never chose" and "I chose never to purge". */
 export function getCleanupRetentionDays(): number | null {
-  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(CLEANUP_RETENTION_KEY) as
-    | { value: string }
-    | undefined;
+  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(CLEANUP_RETENTION_KEY) as Pick<AppSettingRow, "value"> | undefined;
   if (!row || row.value === "") return null;
   const parsed = Number.parseInt(row.value, 10);
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
@@ -166,9 +162,7 @@ export function expiryFor(source: TrashSource, at = new Date()): string | null {
 }
 
 export function getTrashRetentionDays(): number {
-  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(TRASH_RETENTION_KEY) as
-    | { value: string }
-    | undefined;
+  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(TRASH_RETENTION_KEY) as Pick<AppSettingRow, "value"> | undefined;
   if (!row) return DEFAULT_RETENTION_DAYS;
   const parsed = Number.parseInt(row.value, 10);
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : DEFAULT_RETENTION_DAYS; // 0 = never auto-purge

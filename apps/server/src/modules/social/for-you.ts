@@ -10,6 +10,7 @@
 import { db } from "../../db.js";
 import { listPhotoInboxItems, listPhotoInboxes } from "../library/gallery/inbox.js";
 import { loadInboxCards, type InboxCardView } from "./routes.js";
+import type { InboxDeliverySeenRow, ShareLinkRow } from "../../db/rows.js";
 
 export type SentRow = InboxCardView & { kind: "sent" };
 
@@ -36,7 +37,7 @@ export interface DeliveryRow {
 
 export type ForYouRow = SentRow | DeliveryRow;
 
-interface DeliverySeenRow { library_id: string; folder: string; seen_at: string; dismissed_at: string | null }
+type DeliverySeenRow = Pick<InboxDeliverySeenRow, "library_id" | "folder" | "seen_at" | "dismissed_at">;
 
 const whoStmt = db.prepare(`
   SELECT share_links.label AS label
@@ -50,7 +51,7 @@ const whoStmt = db.prepare(`
 `);
 
 function deliveryWho(libraryId: string, folder: string): string | null {
-  const row = whoStmt.get(libraryId, folder, `${folder.replace(/[\\%_]/g, "\\$&")}/%`) as { label: string | null } | undefined;
+  const row = whoStmt.get(libraryId, folder, `${folder.replace(/[\\%_]/g, "\\$&")}/%`) as Pick<ShareLinkRow, "label"> | undefined;
   return row?.label?.trim() || null;
 }
 

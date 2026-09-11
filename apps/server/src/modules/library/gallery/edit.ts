@@ -6,6 +6,7 @@ import { db } from "../../../db.js";
 import { addEntityTags, removeEntityTags, setEntityTags } from "../shared/tagging.js";
 import { applyItemAlphaIndex } from "../shared/alphabet-index.js";
 import { floorTakenAt, type TakenPrecision } from "./taken-precision.js";
+import type { GalleryDetailRow } from "../../../db/rows.js";
 
 export interface GalleryAssetEdit {
   title: string;
@@ -86,7 +87,7 @@ export function updateGalleryAsset(itemId: string, data: GalleryAssetEdit): bool
     } else if (data.takenPrecision !== undefined || data.takenApprox !== undefined) {
       // Only the reading of an existing date changed ("about", or "just the year").
       const row = db.prepare("SELECT taken_at, taken_precision, taken_approx FROM gallery_details WHERE item_id = ?")
-        .get(itemId) as { taken_at: string | null; taken_precision: TakenPrecision; taken_approx: number };
+        .get(itemId) as Pick<GalleryDetailRow, "taken_at" | "taken_precision" | "taken_approx">;
       if (row.taken_at) {
         const precision = data.takenPrecision ?? row.taken_precision;
         const floored = floorTakenAt(row.taken_at, precision) ?? row.taken_at;
@@ -141,7 +142,7 @@ export function setGalleryPlaceAndTime(
     let updated = 0;
     let noDate = 0;
     for (const itemId of itemIds) {
-      const row = read.get(itemId) as { taken_at: string | null } | undefined;
+      const row = read.get(itemId) as Pick<GalleryDetailRow, "taken_at"> | undefined;
       if (!row) continue;
 
       let touched = false;

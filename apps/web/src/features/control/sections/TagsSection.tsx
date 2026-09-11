@@ -133,14 +133,14 @@ export function TagsSection() {
     <>
       <ControlSectionHead section="tags" description={t("controlAdmin:tags.headDescription")}>
         <div className="row-actions">
-          <button className="primary-button" onClick={() => { setError(""); setNotice(""); setCreateOpen(true); }}>
+          <Button variant="primary" onClick={() => { setError(""); setNotice(""); setCreateOpen(true); }}>
             <Plus size={18} aria-hidden="true" />
             <span>{t("controlAdmin:tags.newTag")}</span>
-          </button>
-          <button className="secondary-button compact-button" onClick={pruneUnused} disabled={pruning || unusedCount === 0}>
+          </Button>
+          <Button variant="secondary" compact onClick={pruneUnused} disabled={pruning || unusedCount === 0}>
             <Eraser size={15} aria-hidden="true" />
             {pruning ? t("controlAdmin:tags.removing") : unusedCount > 0 ? t("controlAdmin:tags.removeUnusedCount", { count: unusedCount }) : t("controlAdmin:tags.removeUnused")}
-          </button>
+          </Button>
         </div>
       </ControlSectionHead>
 
@@ -202,21 +202,21 @@ export function TagsSection() {
                     <div className="row-actions">
                       {editingId === tag.id ? (
                         <>
-                          <button className="icon-button" title={t("controlAdmin:tags.saveTitle")} disabled={busyId === tag.id} onClick={() => saveEdit(tag)}>
+                          <Button variant="icon" title={t("controlAdmin:tags.saveTitle")} disabled={busyId === tag.id} onClick={() => saveEdit(tag)}>
                             <Check size={15} />
-                          </button>
-                          <button className="icon-button" title={t("common.cancel")} disabled={busyId === tag.id} onClick={() => setEditingId(null)}>
+                          </Button>
+                          <Button variant="icon" title={t("common.cancel")} disabled={busyId === tag.id} onClick={() => setEditingId(null)}>
                             <X size={15} />
-                          </button>
+                          </Button>
                         </>
                       ) : (
                         <>
-                          <button className="icon-button" title={t("controlAdmin:tags.renameTag")} onClick={() => startEdit(tag)}>
+                          <Button variant="icon" title={t("controlAdmin:tags.renameTag")} onClick={() => startEdit(tag)}>
                             <Pencil size={15} />
-                          </button>
-                          <button className="icon-button danger" title={t("controlAdmin:tags.deleteTag")} onClick={() => setPendingDelete(tag)}>
+                          </Button>
+                          <Button variant="icon" danger title={t("controlAdmin:tags.deleteTag")} onClick={() => setPendingDelete(tag)}>
                             <Trash2 size={15} />
-                          </button>
+                          </Button>
                         </>
                       )}
                     </div>
@@ -231,12 +231,12 @@ export function TagsSection() {
         </div>
         {visible.length > paged.length && (
           <div className="tag-list-more">
-            <button
-              className="secondary-button compact-button"
+            <Button
+              variant="secondary" compact
               onClick={() => setLimit((current) => current + TAG_PAGE_SIZE)}
             >
               {t("controlAdmin:tags.showMore", { count: visible.length - paged.length })}
-            </button>
+            </Button>
           </div>
         )}
         </>

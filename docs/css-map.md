@@ -1,18 +1,27 @@
 # CSS Map — iSputnik.home
 
-All styles are imported by [`apps/web/src/styles.css`](../apps/web/src/styles.css), in this order:
+There are two kinds of stylesheet.
+
+**Global** — imported by [`apps/web/src/styles.css`](../apps/web/src/styles.css) and
+shipped on every route, the sign-in page included, in this order (the order is the
+cascade):
 
 ```
-tokens → base → auth → layout → components → home → player → audio →
-library-browse → gallery → review → family-tree → library-collections →
-stories → book-detail → category-images → book-media → ebook-reader →
-metadata-modal → person-edit → admin → scan-layout → welcome → duplicates →
-about → share → social → filter → install → offline → theme-picker → responsive
+tokens → base → auth → layout → components → home → themes/sputnik-home →
+player → themes/sputnik-player → audio → library-browse → gallery → family-tree →
+library-collections → stories → book-detail → category-images → ebook-reader →
+metadata-modal → admin-shared → about → share → social → filter → offline →
+theme-picker → responsive
 ```
 
-The one exception is Leaflet: `leaflet.css` and the marker-cluster stylesheets are
+**Page stylesheets** — a stylesheet that belongs to one lazily loaded page is
+imported by that page's module instead, so Vite emits it as a CSS chunk that arrives
+with the page and loads after all of the above. They are listed, with the rules for
+moving one, under [Page stylesheets](#page-stylesheets).
+
+Leaflet works the same way: `leaflet.css` and the marker-cluster stylesheets are
 imported by the map components that use them (`GalleryMap`, `StoryMap`, the
-dashboard's `LocationsMap`, …), not here.
+dashboard's `LocationsMap`, …).
 
 ### Stylesheet inventory
 
@@ -23,42 +32,92 @@ dashboard's `LocationsMap`, …), not here.
 | `auth.css` | Sign-in / invite split-screen (pre-auth), device-link screens, and the `--auth-*` token set per theme |
 | `layout.css` | Main column, avatar, work area, scene backgrounds, control-panel grid and tab row |
 | `components.css` | Shared UI — fields, buttons, message boxes, modals, datagrid, badges. A barrel over `components/` (see below) |
-| `home.css` | Home — resume hero + the ranked card feed — and the app shell every signed-in page wears: left sidebar, menus, mobile tab bar (`home-*`) |
+| `home.css` | Home — resume hero + the ranked card feed — and the app shell every signed-in page wears: left sidebar, menus, mobile tab bar (`home-*`). One design, for every theme; the iSputnik re-skin is the next file |
+| `themes/sputnik-home.css` | The iSputnik Night / Light re-skin of the shell and Home, under `:root:is([data-theme="dark"], [data-theme="light"])`, then Light's own overrides. Moved out of `home.css` unchanged and imported straight after it, so each rule still follows the base rule it re-skins. One rule of the set stayed in `home.css` — the main column's padding, which must keep losing to the mobile tab-bar shell's padding there |
 | `player.css` | Audio player widget and its popup/chapter sheet |
+| `themes/sputnik-player.css` | The iSputnik Night / Light re-skin of the player (popup player page, transport, volume, chapter sheet). It was the tail of `player.css` and is imported straight after it, so the cascade is exactly what it was |
 | `audio.css` | The shared recorder and wave player (photo voice notes, story narration — [`lightbox-panel.md`](lightbox-panel.md)) |
 | `library-browse.css` | Main audiobook catalog / landing + shared browse toolbar (split from `library.css`) |
 | `gallery.css` | Photo/video timeline + folder grid and the full-screen lightbox |
-| `review.css` | Review mode — one photo, its questions, full screen ([`photo-review-plan.md`](photo-review-plan.md)) |
-| `family-tree.css` | People grid, person profile, pickers, and the SVG chart |
+| `review.css` | *Page* — Review mode: one photo, its questions, full screen ([`photo-review-plan.md`](photo-review-plan.md)) |
+| `family-tree.css` | People grid, person profile, pickers — what the family pages share, and the `ft-*` avatar, person card and person header the audiobook person and tag pages reuse |
+| `family-tree-chart.css` | *Page* — the tree page (`/family`): tree search, generation rows, the SVG chart with its rail, zoom and legend |
 | `library-collections.css` | Category, series & people pages (split from `library.css`) |
 | `stories.css` | Stories — index, reading view, editor, and the block surfaces they share (the largest stylesheet) |
 | `book-detail.css` | Audiobook book detail + tags (split from `library.css`) |
 | `category-images.css` | Category icon/image for admin + browse cards (split from `library.css`) |
-| `book-media.css` | Book files, companion documents, in-app reader (split from `library.css`) |
-| `ebook-reader.css` | Immersive EPUB reader (foliate-js) — full-screen, own light/sepia/dark theme |
+| `book-media.css` | *Page* — the book page's files, companion documents and document viewer (split from `library.css`) |
+| `ebook-reader.css` | Immersive EPUB reader (foliate-js) — full-screen, own light/sepia/dark theme. Global: Home opens the reader inline on a phone, so it is part of the entry chunk anyway |
 | `metadata-modal.css` | Metadata lookup modal + cover-picker tab (split from `library.css`) |
-| `person-edit.css` | Person edit dialog and its photo box (`PersonProfileModal`) |
-| `admin.css` | Control panel pages — Dashboard, Logs, Security, Storage, Backup, Scheduled jobs, Recycle Bin, … — except the duplicate ones |
-| `scan-layout.css` | Scan layouts — the Layout panel and the scan-rule wizard ([`scan-layout-plan.md`](scan-layout-plan.md)) |
-| `welcome.css` | The first-run setup guide (`/welcome`) |
-| `duplicates.css` | Duplicate cleanup (split from `admin.css`). A barrel over `duplicates/` (see below) |
-| `about.css` | About page and version timeline; Profile's tabs (password, email, appearance, shared links, passkeys, two-factor); Help & guides |
-| `share.css` | Public guest share page (no app shell), the in-app share modal, and the Photo Inbox drop page |
+| `person-edit.css` | *Page* — person edit dialog and its photo box (`PersonProfileModal`, `PersonPhotoModal`) |
+| `admin.css` | *Page* — control panel pages: Dashboard, Logs, Security, Storage, Backup, Scheduled jobs, Recycle Bin, … — except the duplicate ones; ends with their phone-width overrides |
+| `admin-shared.css` | The few rules that used to be in `admin.css` but style pages outside the control panel too: the browse pages' empty-state icon, the `setting-status` pill (Storage, the setup guide), `shared/TabStrip` (the panel, the Photo Inbox). Global, at `admin.css`'s old place in the order |
+| `scan-layout.css` | *Page* — scan layouts: the Layout panel and the scan-rule wizard ([`scan-layout-plan.md`](scan-layout-plan.md)) |
+| `welcome.css` | *Page* — the first-run setup guide (`/welcome`) |
+| `duplicates.css` | *Page* — duplicate cleanup (split from `admin.css`). A barrel over `duplicates/` (see below) |
+| `about.css` | About page and version timeline; Profile's tabs (password, email, appearance, shared links, passkeys, two-factor); Help & guides; the control panel's Security and OPDS pages. Global because five routes use it |
+| `share.css` | Sharing as signed-in pages meet it: the in-app share dialog, the photo set grid and viewer (For you and the guest page both open it), and the transport row the guest player shares with the player page |
+| `share-page.css` | *Page* — the public guest pages, no app shell: a share link (`/share/:token`) and a Photo Inbox drop link (`/drop/:token`) |
 | `social.css` | Family sharing — the Send to sheet, the For you rows, the unseen dot |
 | `filter.css` | Filter button + popup + active-filter chips for the browse pages |
-| `install.css` | PWA install page / prompt |
+| `install.css` | *Page* — the PWA install card on Profile |
 | `offline.css` | Offline / downloaded-books UI |
 | `theme-picker.css` | Theme picker page (theme selection grid), plus the Email and Notifications settings forms |
 | `responsive.css` | Breakpoint overrides for the older shared pages (see the last section) |
+| `slideshow-fonts.css` | *Page* — the five `@font-face` the slideshow title card's font chips draw with (TTF copies of the server's render fonts, `font-display: swap`) |
+
+*Page* marks a page stylesheet — imported by its page, not by `styles.css`.
+
+### Page stylesheets
+
+| Stylesheet | Imported by | Arrives with |
+|---|---|---|
+| `admin.css` | `features/control/ControlPanelPage.tsx` | the control panel, any tab |
+| `scan-layout.css` | `features/control/sections/LibrariesSection.tsx` | Control panel → Libraries |
+| `duplicates.css` | `features/control/sections/duplicates/DuplicateCleanupSection.tsx` | Control panel → Duplicate cleanup |
+| `welcome.css` | `pages/WelcomePage.tsx` | the setup guide |
+| `review.css` | `features/gallery/review/ReviewPage.tsx` | Review mode |
+| `person-edit.css` | `features/audiobooks/PersonPage.tsx` | a person's page |
+| `book-media.css` | `features/audiobooks/BookDetailPage.tsx` | the book page — and so it is precached with it |
+| `install.css` | `pages/ProfilePage.tsx` | Profile |
+| `share-page.css` | `pages/SharePage.tsx`, `pages/DropPage.tsx` | the two guest pages (Vite makes it one shared CSS chunk) |
+| `family-tree-chart.css` | `features/familytree/FamilyTreePage.tsx` | the tree page |
+| `slideshow-fonts.css` | `features/gallery/SlideshowTitleCardModal.tsx` | the Gallery page, which holds the title-card dialog |
+
+Each import sits under the page's other imports with a one-line comment saying so.
+The rules for adding one — or moving a rule out of a global file:
+
+- **Only what one page renders.** A stylesheet moves when every class it styles is
+  rendered only by modules that load with its importer. A class that the app shell,
+  a shared component or a second route also renders keeps its rule global — that is
+  why `admin-shared.css`, `share.css` and `family-tree.css` sit beside their page
+  files. Class names built at runtime (`is-${tone}`) count as used wherever their
+  component is.
+- **It loads last, so check the ties.** A page chunk's CSS arrives after all the
+  global CSS, in the order pages are opened. A rule that used to lose an
+  equal-specificity tie to a global file later in the order now wins it. Before
+  moving a rule, look through the global files after its old position for
+  same-specificity selectors on the same elements — `responsive.css` above all: the
+  control panel's and the book file list's phone overrides moved into `admin.css`
+  and `book-media.css` for exactly this reason, and `admin-shared.css` holds
+  `.library-empty > svg` at its old position because it must keep beating
+  `gallery.css`'s `.gallery-inbox-done svg`. A section's chunk always follows its
+  page's (Libraries' `scan-layout.css` after `admin.css`), because the page is what
+  loads the section.
+- **Offline.** The precache (`precacheScope()` in `apps/web/vite.config.ts`) takes a
+  chunk's CSS along with the chunk, so a stylesheet imported by an offline root —
+  the book page, the player, Downloads, the catalogs — is precached with it. Any
+  other page's CSS is cached on first use, like its code.
 
 ### The two barrels
 
 `components.css` and `duplicates.css` were the largest files here (3,708 and 2,791
-lines). Each is now a list of `@import`s over a folder of topic files. The
-filename and its position in the order above are unchanged, nothing moved between
-parts, and the parts are imported in their original order — so the concatenated
-cascade is exactly what it was. That matters because order decides the winner
-between two rules of equal specificity, and `responsive.css` has to stay last.
+lines). Each is now a list of `@import`s over a folder of topic files. Nothing moved
+between parts, and the parts are imported in their original order — so the
+concatenated cascade is exactly what it was. That matters because order decides the
+winner between two rules of equal specificity, and `responsive.css` has to stay last.
+(`duplicates.css` has since become a page stylesheet: the barrel is imported by
+`DuplicateCleanupSection`, and its parts keep their order inside that chunk.)
 
 **Add a rule to the part it belongs to. A new part goes at the END of its barrel**
 unless it genuinely has to out-rank something above it.
@@ -99,7 +158,7 @@ import order above:
 | `.icon-button` | `components/primitives.css`, then `components/layout.css` |
 | `.home-user-icon` | `home.css`, then `social.css` (adds `position: relative` for the unseen dot) |
 | `:root` and `:root[data-theme="…"]` ×5 | `tokens.css`, then `auth.css` (its own `--auth-*` variables, per theme) |
-| `:root:is([data-theme="dark"], [data-theme="light"])` | `home.css`, `player.css` — the Sputnik-look overrides for those two themes |
+| `:root:is([data-theme="dark"], [data-theme="light"])` … | Not one selector but the prefix of the iSputnik re-skin: `themes/sputnik-home.css` and `themes/sputnik-player.css`, plus the one rule left in `home.css` (`… .home-main`) |
 
 > **Coverage:** the detailed per-class sections below were written for the original
 > foundational stylesheets (`tokens`, `base`, `auth`, `layout`, `components`,
@@ -107,6 +166,7 @@ import order above:
 > exist. The feature stylesheets added since — `home`, `audio`, the files split out
 > of the old `library.css`, `gallery`, `review`, `family-tree`, `stories`,
 > `person-edit`, `scan-layout`, `welcome`, `duplicates`, `ebook-reader`, `share`,
+> `share-page`, `family-tree-chart`, `admin-shared`, `slideshow-fonts`, `themes/*`,
 > `social`, `filter`, `install`, `offline`, `theme-picker` — are inventoried above
 > but not enumerated class-by-class.
 
@@ -166,6 +226,44 @@ against itself inside `#root`, and the `<body>` layers against each other:
 
 A dialog opened from inside a viewer renders inside it, so it needs no rank above
 it. Values below 10 order siblings inside one component and stay literal.
+
+### Type (`--text-*`, `--leading-*`, `--weight-*`)
+
+A small scale made of the values the app already used most, so adopting a token
+never moves a pixel. The shared components in `components/primitives.css` (fields,
+buttons, toggle, select menu, choice group, message box, modals) and
+`components/shared-rules.css` (the toolbar pager) use it wherever a literal matched
+a step exactly; everything else keeps its literal. New rules pick a step.
+
+| Token | Value | Typical use |
+|---|---|---|
+| `--text-2xs` | 0.72rem | Badges, counts, uppercase eyebrows |
+| `--text-xs` | 0.78rem | Meta lines, hints, tooltips |
+| `--text-sm` | 0.82rem | Secondary text, field notes |
+| `--text-md` | 0.9rem | Controls and dense UI text |
+| `--text-base` | 1rem | Body — the root size |
+| `--text-lg` | 1.1rem | A dialog header, a small heading |
+| `--text-xl` | 1.25rem | A card dialog's title |
+| `--text-2xl` | 1.5rem | A page-level heading |
+| `--leading-none` / `-tight` / `-snug` / `-normal` / `-relaxed` | 1 / 1.2 / 1.35 / 1.45 / 1.5 | Single-line controls · headings and labels · short multi-line notes · body text (`base.css`) · long-form reading |
+| `--weight-regular` / `-medium` / `-semibold` / `-bold` / `-heavy` | 400 / 500 / 600 / 700 / 800 | Inter is a variable font; the in-between weights some rules use on purpose (650, 750, 760) stay literal |
+| `--font-mono` | ui-monospace, Menlo, Consolas, monospace | Paths, patterns and codes (scan layouts). The one folder path in `book-detail.css` keeps the bare generic `monospace` it has always rendered |
+
+Sizes are in rem, like the literals they replace, so they follow the reader's own
+text size. Sizes between the steps (0.85rem, 0.88rem, 0.95rem…) stay where they are.
+
+### Spacing (`--space-*`)
+
+Padding, margins and gaps on a 4px grid — `--space-N` is N × 4px:
+
+| Token | `--space-1` | `--space-2` | `--space-3` | `--space-4` | `--space-5` | `--space-6` | `--space-8` | `--space-10` | `--space-12` |
+|---|---|---|---|---|---|---|---|---|---|
+| Value | 4px | 8px | 12px | 16px | 20px | 24px | 32px | 40px | 48px |
+
+A shorthand is tokenized only when every part of it is on the grid (or `0`/`auto`),
+so `padding: 8px 16px` became `var(--space-2) var(--space-4)` while
+`padding: 9px 12px` stayed as written — a half-tokenized shorthand reads worse than
+either. Off-grid values (6px, 10px, 14px, 18px…) stay literal.
 
 ---
 
@@ -367,6 +465,11 @@ Large tabbed modal for editing book metadata and searching external sources.
 ## admin.css
 **Control panel pages**
 
+A page stylesheet: `ControlPanelPage` imports it, so it arrives with the control
+panel. The handful of its rules that other pages need moved to `admin-shared.css`
+(see the inventory), and the panel's phone-width overrides moved in from
+`responsive.css` — they sit at the end of the file, after the rules they narrow.
+
 Most of this file is page-prefixed and reads for itself — `.kpi-card`,
 `.range-picker`, `.signins-scope-*` and `.locations-map` (Dashboard), `.blocked-table`,
 `.trusted-table` and `.protection-*` (Security), `.app-storage-*` and
@@ -377,7 +480,7 @@ The groups below are the older ones.
 | Class | What it styles |
 |---|---|
 | `.library-settings-panel` | Settings row: name, path summary, save actions |
-| `.setting-status` | Inline "ready" / "needs attention" indicator |
+| `.setting-status` | Inline "ready" / "needs attention" indicator (in `admin-shared.css` — the setup guide uses it too) |
 
 ### Storage management (`/control/libraries/storage`)
 `.storage-section` / `.storage-section-head` / `.storage-path-cell` / `.storage-path-summary` — scan-root / storage path management UI.
@@ -444,7 +547,7 @@ The rest of the file is Profile's tabs (`.profile-tab`, `.device-row`, `.securit
 
 Most mobile rules no longer live here. The desktop browser is the baseline, and each
 feature file carries its own `@media (max-width: 740px)` block for its own classes —
-43 such blocks across 18 files, only one of them in this file. 740 px is the one
+46 such blocks across 20 files, only one of them in this file. 740 px is the one
 mobile breakpoint — its complement is `min-width: 741px`, never a smaller
 `min-width` that would switch desktop rules on inside the mobile band. What `responsive.css`
 still holds is the older shared pages' overrides, and it stays last so they win:
@@ -453,6 +556,6 @@ still holds is the older shared pages' overrides, and it stays last so they win:
 |---|---|
 | `≤ 1240 px` | The Members users table drops its Created column |
 | `741–1040 px` (tablet) | The users table drops Sessions too and hides the row avatar; the auth page adjusts column proportions and hero size |
-| `≤ 740 px` (mobile) | Auth page collapses to a single column (hero hidden); the Members, Libraries and Logs tables and toolbars reflow; book detail, collection and category pages stack |
+| `≤ 740 px` (mobile) | Auth page collapses to a single column (hero hidden); the Members, Libraries and Logs tables and toolbars reflow; book detail, collection and category pages stack. (The Backup, Storage and library-settings overrides and the book file list's now live at the end of `admin.css` and `book-media.css`, which load with their pages — a rule here would lose to them) |
 | `741 px+ and viewport height ≤ 780 px` (short landscape) | Auth page scrolls vertically instead of fitting the viewport |
-| `≤ 430 px` (small mobile) | Auth panel padding tightens; the libraries, users, invites and groups tables each drop another column; the log search and pager take full lines; About stack collapses to 1 column |
+| `≤ 430 px` (small mobile) | Auth panel padding tightens; the libraries, users, invites and groups tables each drop another column; the log pager takes a full line (the log search's full line is in `admin.css`); About stack collapses to 1 column |
