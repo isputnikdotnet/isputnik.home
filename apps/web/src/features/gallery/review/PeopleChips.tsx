@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Plus } from "lucide-react";
 import type { GalleryPerson, GalleryPersonTag } from "../types";
+import { Button } from "../../../shared/Button";
 
 // "Who is in it?" as chips: the people the library already knows, most-seen
 // first, the ones on this photo filled in; a dashed chip adds a name. A new name
@@ -50,16 +51,16 @@ export function PeopleChips({
   return (
     <div className="review-chips" role="group" aria-label={t("who.heading")}>
       {Array.from(known.values()).map((person) => (
-        <button
+        <Button
+          variant="chip"
           key={person.id}
-          type="button"
           className="review-chip"
           aria-pressed={selectedIds.has(person.id)}
           onClick={() => toggle(person)}
           disabled={disabled}
         >
           {person.name}
-        </button>
+        </Button>
       ))}
       {adding ? (
         <form
@@ -75,13 +76,13 @@ export function PeopleChips({
             autoFocus
             onKeyDown={(event) => { if (event.key === "Escape") { setAdding(false); setName(""); } }}
           />
-          <button type="submit" className="review-chip" aria-pressed={false}>{t("who.addNameConfirm")}</button>
-          <button type="button" className="review-chip review-chip-quiet" onClick={() => { setAdding(false); setName(""); }}>{t("who.addNameCancel")}</button>
+          <Button variant="chip" type="submit" className="review-chip" aria-pressed={false}>{t("who.addNameConfirm")}</Button>
+          <Button variant="chip" className="review-chip review-chip-quiet" onClick={() => { setAdding(false); setName(""); }}>{t("who.addNameCancel")}</Button>
         </form>
       ) : (
-        <button type="button" className="review-chip review-chip-plus" onClick={() => setAdding(true)} disabled={disabled}>
+        <Button variant="chip" className="review-chip review-chip-plus" onClick={() => setAdding(true)} disabled={disabled}>
           <Plus size={18} aria-hidden="true" /> {t("who.addName")}
-        </button>
+        </Button>
       )}
       {known.size === 0 && !adding && <p className="review-hint">{t("who.nobodyYet")}</p>}
     </div>

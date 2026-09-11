@@ -8,6 +8,7 @@ import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { MediaKindBadge } from "../../shared/MediaKindBadge";
 import type { SavedBook } from "../audiobooks/types";
+import { Button } from "../../shared/Button";
 
 export function LikesPage() {
   const { t } = useTranslation(["common", "user"]);
@@ -67,7 +68,7 @@ export function LikesPage() {
                 : `/audiobooks/books/${book.id}`;
               return (
                 <article className="saved-audiobook-card" key={book.id}>
-                  <button className="audiobook-card" onClick={() => navigate(href)}>
+                  <Button variant="tile" className="audiobook-card" onClick={() => navigate(href)}>
                     <div className="audiobook-cover" aria-hidden="true">
                       {book.coverUrl ? (
                         <img src={book.coverUrl} alt="" />
@@ -86,16 +87,17 @@ export function LikesPage() {
                       )}
                       {book.note && <p className="audiobook-card-note">{book.note}</p>}
                     </div>
-                  </button>
-                  <button
-                    className="icon-button danger saved-audiobook-remove"
+                  </Button>
+                  <Button
+                    variant="icon" danger
+                    className="saved-audiobook-remove"
                     onClick={() => removeBook(book.id)}
                     disabled={removing}
                     aria-label={t("user:likes.unlikeAria", { title: book.title })}
                     title={t("user:likes.unlike")}
                   >
                     <Trash2 size={16} />
-                  </button>
+                  </Button>
                 </article>
               );
             })}

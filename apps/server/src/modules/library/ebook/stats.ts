@@ -3,13 +3,12 @@
 
 import { db } from "../../../db.js";
 import { registerStatusContributor } from "../../../core/status-contributors.js";
+import type { LibraryItemRow, LibraryRow } from "../../../db/rows.js";
 
-interface EbookLibraryStatsRow {
-  id: string;
-  name: string;
+type EbookLibraryStatsRow = Pick<LibraryRow, "id" | "name"> & {
   book_count: number;
   total_size_bytes: number;
-}
+};
 
 interface EbookPersonStatsRow {
   name: string;
@@ -21,14 +20,13 @@ interface FormatStatsRow {
   count: number;
 }
 
-interface LargestEbookRow {
-  id: string;
+type LargestEbookRow = Pick<LibraryItemRow, "id"> & {
   title: string;
-  library_name: string;
+  library_name: LibraryRow["name"];
   author_names: string | null;
   total_size_bytes: number;
   formats: string | null;
-}
+};
 
 function ebookLibraryStats() {
   const libraries = db.prepare(`

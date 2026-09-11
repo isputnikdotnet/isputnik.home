@@ -32,8 +32,13 @@ import { snapshotInboxSets } from "./snapshot-inbox.js";
 import { snapshotFolderSets } from "./snapshot-folders.js";
 import { snapshotContained } from "./snapshot-contained.js";
 import { snapshotOverlaps } from "./snapshot-overlaps.js";
+import type { GalleryDetailRow, LibraryItemRow } from "../../../../db/rows.js";
 
 // ── Reading the library, once ───────────────────────────────────────────────
+
+type ScanFileRow = { item_id: LibraryItemRow["id"] }
+  & Pick<LibraryItemRow, "library_id" | "folder_path" | "discovered_at">
+  & Pick<GalleryDetailRow, "content_hash" | "phash" | "size" | "modified_at" | "kind">;
 
 function scanFiles(libraryIds: string[], mediaType: MediaTypeScope): ScanFile[] {
   if (libraryIds.length === 0) return [];
@@ -48,11 +53,7 @@ function scanFiles(libraryIds: string[], mediaType: MediaTypeScope): ScanFile[] 
       AND li.library_id IN (${libraryIds.map(() => "?").join(",")})
       AND gd.kind IN (${kinds.map(() => "?").join(",")})
     ORDER BY li.library_id, li.folder_path
-  `).all(...libraryIds, ...kinds) as {
-    item_id: string; library_id: string; folder_path: string; discovered_at: string;
-    content_hash: string | null; phash: string | null; size: number | null;
-    modified_at: string | null; kind: string;
-  }[];
+  `).all(...libraryIds, ...kinds) as ScanFileRow[];
 
   return rows.map((row) => ({
     itemId: row.item_id,

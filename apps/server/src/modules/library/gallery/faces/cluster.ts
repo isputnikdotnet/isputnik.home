@@ -11,6 +11,7 @@ import { db } from "../../../../db.js";
 import { blobToEmbedding, embeddingToBlob, centroidOf, cosineSimilarity } from "./embedding.js";
 import { faceThreshold, faceGroupingK } from "./settings.js";
 import { FACE_EMBEDDING_MODEL } from "./model-id.js";
+import type { GalleryFaceRow, GalleryPersonRow, NonNull } from "../../../../db/rows.js";
 
 // Min centroid cosine for a rebuilt group to reclaim an anchored person when there's
 // no face overlap (e.g. after a full rescan re-detected every face). High enough to
@@ -169,6 +170,14 @@ export async function mergeClustersByCentroid(groups: string[][], embById: Map<s
   return out;
 }
 
+type ClusterFaceRow = {
+  id: GalleryFaceRow["id"];
+  det: GalleryFaceRow["det_score"];
+  embedding: NonNullable<GalleryFaceRow["embedding"]>;
+  thumb: GalleryFaceRow["thumb_storage_key"];
+  live: number;
+};
+
 // Recompute a person's aggregates from its current member faces (see also the
 // post-merge/untag callers). face_count counts all non-rejected faces; centroid comes
 // from scan-face embeddings (NULL when none); cover is the best non-rejected scan face
@@ -189,7 +198,7 @@ export function recomputeClusterCentroid(clusterId: string): void {
     FROM gallery_faces gf
     LEFT JOIN library_items li ON li.id = gf.item_id AND li.deleted_at IS NULL
     WHERE gf.person_id = ? AND gf.source = 'scan' AND gf.assignment != 'rejected' AND gf.embedding IS NOT NULL
-  `).all(clusterId) as { id: string; det: number; embedding: Buffer; thumb: string | null; live: number }[];
+  `).all(clusterId) as ClusterFaceRow[];
   const embeddings = rows.map((r) => blobToEmbedding(r.embedding));
   const centroid = embeddings.length > 0 ? centroidOf(embeddings) : null;
   const centroidBlob = centroid ? embeddingToBlob(centroid) : null;
@@ -204,7 +213,8 @@ export function recomputeClusterCentroid(clusterId: string): void {
       .map((r, i) => ({ id: r.id, det: r.det, thumb: r.thumb, live: r.live, sim: cosineSimilarity(embeddings[i], centroid) }))
       .filter((r) => r.live && r.thumb);
     const representative = eligible.filter((r) => r.sim >= COVER_MIN_SIM);
-    if (representative.length > 0) coverFace = representative.reduce((a, b) => (b.det > a.det ? b : a)).id;
+    // det_score is nullable; a NULL compared as 0 before the type said so — keep that.
+    if (representative.length > 0) coverFace = representative.reduce((a, b) => ((b.det ?? 0) > (a.det ?? 0) ? b : a)).id;
     else if (eligible.length > 0) coverFace = eligible.reduce((a, b) => (b.sim > a.sim ? b : a)).id;
   }
   db.prepare(
@@ -220,7 +230,7 @@ function enforceExclusions(): Set<string> {
     FROM gallery_faces gf
     JOIN gallery_face_exclusions ex ON ex.item_id = gf.item_id AND ex.person_id = gf.person_id
     WHERE gf.source = 'scan' AND gf.assignment != 'rejected' AND gf.person_id IS NOT NULL
-  `).all() as { id: string; person_id: string }[];
+  `).all() as NonNull<Pick<GalleryFaceRow, "id" | "person_id">, "person_id">[];
   const affected = new Set<string>();
   if (violating.length > 0) {
     const reject = db.prepare("UPDATE gallery_faces SET assignment = 'rejected', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?");
@@ -247,7 +257,7 @@ export async function clusterGalleryFaces(): Promise<{ clusters: number; assigne
   // (e.g. a 512-d ArcFace vector with a stale 1024-d one) which would corrupt cosine.
   const rows = db.prepare(
     "SELECT id, person_id, embedding FROM gallery_faces WHERE source = 'scan' AND assignment != 'rejected' AND embedding IS NOT NULL AND embedding_model = ?"
-  ).all(FACE_EMBEDDING_MODEL) as { id: string; person_id: string | null; embedding: Buffer }[];
+  ).all(FACE_EMBEDDING_MODEL) as NonNull<Pick<GalleryFaceRow, "id" | "person_id" | "embedding">, "embedding">[];
   if (rows.length === 0) {
     pruneEmpty();
     return { clusters: 0, assigned: 0 };
@@ -261,7 +271,7 @@ export async function clusterGalleryFaces(): Promise<{ clusters: number; assigne
   // rescan-rematch fallback.
   const anchoredRows = db.prepare(
     "SELECT id, centroid FROM gallery_people WHERE name != '' OR linked_person_id IS NOT NULL OR curated = 1"
-  ).all() as { id: string; centroid: Buffer | null }[];
+  ).all() as Pick<GalleryPersonRow, "id" | "centroid">[];
   const anchored = new Set(anchoredRows.map((r) => r.id));
   const anchoredCentroids = anchoredRows.filter((r) => r.centroid).map((r) => ({ id: r.id, vec: blobToEmbedding(r.centroid!) }));
 

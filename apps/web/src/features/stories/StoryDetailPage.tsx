@@ -122,10 +122,10 @@ export function StoryDetailPage({ id, chapterId }: { id: string; chapterId?: str
   // Honest label on both: with chapter moves collapsed into one history entry,
   // this returns to wherever the reader came from rather than to a fixed page.
   const backButton = (
-    <button className="story-site-exit" type="button" onClick={() => goBack("/stories")}>
+    <Button variant="bare" className="story-site-exit" onClick={() => goBack("/stories")}>
       <ArrowLeft size={18} aria-hidden="true" />
       <span>{t("stories:site.exit")}</span>
-    </button>
+    </Button>
   );
 
   return (
@@ -151,6 +151,7 @@ export function StoryDetailPage({ id, chapterId }: { id: string; chapterId?: str
           <a
             href={`/stories/${story.id}`}
             className={chapter ? "" : "is-current"}
+            aria-current={chapter ? undefined : "page"}
             onClick={(event) => followReplace(event, `/stories/${story.id}`)}
           >
             {t("stories:site.overview")}
@@ -160,6 +161,7 @@ export function StoryDetailPage({ id, chapterId }: { id: string; chapterId?: str
               key={item.id}
               href={`/stories/${story.id}/chapters/${item.id}`}
               className={item.id === chapterId ? "is-current" : ""}
+              aria-current={item.id === chapterId ? "page" : undefined}
               onClick={(event) => followReplace(event, `/stories/${story.id}/chapters/${item.id}`)}
             >
               {chapterLabel(story, item, index)}
@@ -421,9 +423,9 @@ function StoryHome({ story, onOpenChapter }: { story: StoryDetail; onOpenChapter
           const dateText = chapterDateText(item, formatPartialDate, formatPartialDateRange);
           const dateLabel = dateText && item.dateApprox ? t("stories:chapter.approx", { date: dateText }) : dateText;
           return (
-            <button
+            <Button
+              variant="tile"
               key={item.id}
-              type="button"
               className="story-home-card"
               onClick={() => onOpenChapter(item.id)}
             >
@@ -442,7 +444,7 @@ function StoryHome({ story, onOpenChapter }: { story: StoryDetail; onOpenChapter
                 {item.standfirst && <span className="story-home-card-standfirst">{item.standfirst}</span>}
               </span>
               <ChevronRight size={18} aria-hidden="true" className="story-home-card-go" />
-            </button>
+            </Button>
           );
         })}
       </div>
@@ -580,16 +582,16 @@ function ChapterPage({
 
       <nav className="story-chapter-nav">
         {prev ? (
-          <button type="button" onClick={() => onOpenChapter(prev.id)}>
+          <Button variant="bare" onClick={() => onOpenChapter(prev.id)}>
             <ChevronLeft size={16} aria-hidden="true" />
             <span>{chapterLabel(story, prev, index - 1)}</span>
-          </button>
+          </Button>
         ) : <span />}
         {next ? (
-          <button type="button" onClick={() => onOpenChapter(next.id)}>
+          <Button variant="bare" onClick={() => onOpenChapter(next.id)}>
             <span>{chapterLabel(story, next, index + 1)}</span>
             <ChevronRight size={16} aria-hidden="true" />
-          </button>
+          </Button>
         ) : <span />}
       </nav>
     </article>

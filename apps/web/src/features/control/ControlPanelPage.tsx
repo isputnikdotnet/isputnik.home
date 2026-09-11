@@ -20,6 +20,9 @@ import {
 import { ControlSearch, useControlSearchShortcut } from "./ControlSearch";
 import { LoadErrorBoundary } from "../../shared/LoadErrorBoundary";
 import { useSession } from "../../app/SessionContext";
+// The control panel's own stylesheet: it loads with this page, not on every route (docs/css-map.md).
+import "../../styles/admin.css";
+import { Button } from "../../shared/Button";
 
 // Each section is its own chunk, loaded when its tab is first opened. Imported
 // statically they made this page one ~700 KB file — the dashboard's charts, the
@@ -190,8 +193,8 @@ function ControlPanelNav({ section, onSearch }: { section: ControlSection; onSea
           return (
             <div className="control-nav-branch" key={group.key}>
               {nestedLinks.length > 0 ? (
-                <button
-                  type="button"
+                <Button
+                  variant="bare"
                   className={`home-nav-link control-nav-toggle${active ? " is-active" : ""}`}
                   aria-expanded={expanded}
                   aria-controls={nestedId}
@@ -200,7 +203,7 @@ function ControlPanelNav({ section, onSearch }: { section: ControlSection; onSea
                   <Icon size={21} aria-hidden="true" />
                   <span>{label}</span>
                   <ChevronDown className="control-nav-toggle-icon" size={16} aria-hidden="true" />
-                </button>
+                </Button>
               ) : (
                 <a
                   className={`home-nav-link${active ? " is-active" : ""}`}
@@ -248,11 +251,11 @@ function ControlPanelNav({ section, onSearch }: { section: ControlSection; onSea
 
       {/* Under the groups: search is a way into them, so it sits after the list
           it searches rather than above it. */}
-      <button type="button" className="control-search-trigger" onClick={onSearch}>
+      <Button variant="bare" className="control-search-trigger" onClick={onSearch}>
         <Search size={18} aria-hidden="true" />
         <span>{t("control:nav.searchTrigger")}</span>
         <kbd aria-hidden="true">Ctrl K</kbd>
-      </button>
+      </Button>
     </nav>
   );
 }

@@ -1,13 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import { db } from "../../../db.js";
+import type { StorageRootRow as DbStorageRootRow } from "../../../db/rows.js";
 
-export interface StorageRootRow {
-  id: string;
-  name: string;
-  path: string;
-  created_at: string;
-  updated_at: string;
+export interface StorageRootRow extends Pick<DbStorageRootRow, "id" | "name" | "path" | "created_at" | "updated_at"> {
   library_count: number;
 }
 
@@ -35,7 +31,7 @@ export function validateStorageRootPath(rootPath: string) {
 }
 
 export function findStorageRootForPath(sourcePath: string) {
-  const roots = db.prepare("SELECT id, path FROM storage_roots").all() as { id: string; path: string }[];
+  const roots = db.prepare("SELECT id, path FROM storage_roots").all() as Pick<DbStorageRootRow, "id" | "path">[];
   return roots.find((root) => pathIsInside(sourcePath, root.path));
 }
 

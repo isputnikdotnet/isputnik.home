@@ -6,6 +6,7 @@ import { activeGalleryFilterCount, type GalleryFilters } from "../GalleryFilter"
 import type { GalleryGrouping } from "../gallery-view";
 import type { GalleryAsset, GalleryMemories } from "../types";
 import { dayLabel, getMemoriesTitles, yearsAgo, type TimelineSort } from "./gallery-page-model";
+import { Button } from "../../../shared/Button";
 
 // The gallery's front page: the "On this day" strip, then every photo in scope —
 // in dated sections, or as one uninterrupted grid — with "Load more" below.
@@ -76,9 +77,9 @@ export function TimelineView({
           <h2 className="gallery-memories-title">{MEMORIES_TITLES[memories.precision]}</h2>
           <div className="gallery-memories-row">
             {memories.groups.map((group) => (
-              <button
+              <Button
+                variant="tile"
                 key={group.year}
-                type="button"
                 className="gallery-memory-card"
                 onClick={() => openMemoryYear(group.year)}
                 aria-label={t("gallery:timeline.memoryCardAria", { title: MEMORIES_TITLES[memories.precision], year: group.year, count: t("gallery:common.counts.photo", { count: group.count }) })}
@@ -92,7 +93,7 @@ export function TimelineView({
                   <strong>{group.year}</strong>
                   <small>{yearsAgo(group.year)} · {t("gallery:common.counts.photo", { count: group.count })}</small>
                 </span>
-              </button>
+              </Button>
             ))}
           </div>
         </section>
@@ -120,8 +121,8 @@ export function TimelineView({
         return (
           <div key={day.items[0].asset.id}>
             <div className="gallery-day-head">
-              <button
-                type="button"
+              <Button
+                variant="bare"
                 className={`gallery-day-select${allSelected ? " selected" : ""}`}
                 onClick={() => toggleDaySelect(ids)}
                 role="checkbox"
@@ -130,17 +131,17 @@ export function TimelineView({
                 title={allSelected ? t("gallery:timeline.deselectDayTitle") : t("gallery:timeline.selectDayTitle")}
               >
                 {allSelected ? <CheckCircle2 size={18} /> : <Circle size={18} />}
-              </button>
+              </Button>
               {canShareAny && (
-                <button
-                  type="button"
+                <Button
+                  variant="bare"
                   className="gallery-day-share"
                   onClick={() => onShare(ids)}
                   aria-label={t("gallery:memories.shareAria", { label: day.label })}
                   title={t("gallery:common.shareTheseTitle")}
                 >
                   {t("gallery:common.share")}
-                </button>
+                </Button>
               )}
               <h2 className="gallery-day-label">{day.label}</h2>
             </div>
@@ -165,9 +166,9 @@ export function TimelineView({
       )}
       {assets.length < total && (
         <div style={{ display: "flex", justifyContent: "center", padding: "16px 0" }}>
-          <button type="button" className="secondary-button" onClick={onLoadMore} disabled={loading}>
+          <Button variant="secondary" onClick={onLoadMore} disabled={loading}>
             {loading ? t("gallery:common.loading") : t("gallery:common.loadMore")}
-          </button>
+          </Button>
         </div>
       )}
     </>

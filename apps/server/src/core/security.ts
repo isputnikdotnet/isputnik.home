@@ -2,6 +2,7 @@ import { nanoid } from "nanoid";
 import { db, logActivity } from "../db.js";
 import { ipInAnyCidr, ipNetworkKey, isPrivateIp, isValidCidr } from "./cidr.js";
 import { ensureSealed, openSecret } from "./mfa.js";
+import type { AppSettingRow, BlockedIpRow, LoginAttemptRow, NonNull, SessionRow, TrustedNetworkRow } from "../db/rows.js";
 
 // Brute-force defense and source-IP access control. Pure data/logic over the
 // login_attempts / blocked_ips / trusted_networks tables; the login route and a
@@ -59,7 +60,7 @@ const POLICY_KEY = "security_policy";
 // JSON blob in app_settings and merged over the defaults so a partial/old blob
 // still resolves every field.
 export function getSecurityPolicy(): SecurityPolicy {
-  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(POLICY_KEY) as { value: string } | undefined;
+  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(POLICY_KEY) as Pick<AppSettingRow, "value"> | undefined;
   if (!row) return { ...DEFAULT_SECURITY_POLICY };
   try {
     const merged = { ...DEFAULT_SECURITY_POLICY, ...(JSON.parse(row.value) as Partial<SecurityPolicy>) };
@@ -86,7 +87,7 @@ export function setSecurityPolicy(policy: SecurityPolicy, userId: string | null)
 // The "blank = keep" save path uses this so a transiently unreadable key isn't
 // wiped: it passes the ciphertext back through ensureSealed unchanged.
 export function getStoredAbuseIpdbKeyRaw(): string {
-  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(POLICY_KEY) as { value: string } | undefined;
+  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(POLICY_KEY) as Pick<AppSettingRow, "value"> | undefined;
   if (!row) return "";
   try {
     return (JSON.parse(row.value) as Partial<SecurityPolicy>).abuseIpdbKey ?? "";
@@ -184,15 +185,10 @@ export function wasForwardedHeaderSeen(): boolean {
 
 // ── Trusted zones ────────────────────────────────────────────────────────────
 
-export interface TrustedNetwork {
-  id: string;
-  cidr: string;
-  label: string | null;
-  created_at: string;
-}
+export type TrustedNetwork = Pick<TrustedNetworkRow, "id" | "cidr" | "label" | "created_at">;
 
 function trustedCidrs(): string[] {
-  return (db.prepare("SELECT cidr FROM trusted_networks").all() as { cidr: string }[]).map((row) => row.cidr);
+  return (db.prepare("SELECT cidr FROM trusted_networks").all() as Pick<TrustedNetworkRow, "cidr">[]).map((row) => row.cidr);
 }
 
 // A request from a trusted network is exempt from rate limits, lockout, and MFA.
@@ -321,7 +317,7 @@ export function seedKnownLoginNetworks(): number {
          JOIN users u ON LOWER(u.email) = a.email
         WHERE a.successful = 1 AND a.ip_address IS NOT NULL`
     )
-    .all() as { user_id: string; ip_address: string }[];
+    .all() as NonNull<Pick<SessionRow, "user_id" | "ip_address">, "ip_address">[];
   const insert = db.prepare(
     "INSERT OR IGNORE INTO known_login_networks (user_id, network_key, last_ip) VALUES (?, ?, ?)"
   );
@@ -338,7 +334,7 @@ export function seedKnownLoginNetworks(): number {
 // What a failed row actually was, so the auto-block can say what it counted:
 // a real sign-in attempt (password, code, or passkey), a scanner probe path,
 // or a share/API token or device code that matched nothing.
-export type LoginAttemptKind = "signin" | "probe" | "token";
+export type LoginAttemptKind = LoginAttemptRow["kind"];
 
 export function recordLoginAttempt(
   email: string | null,
@@ -429,16 +425,11 @@ export function recentMfaFailureCount(userId: string, windowMinutes = MFA_FAILUR
 
 // ── IP blocking ──────────────────────────────────────────────────────────────
 
-export interface BlockedIp {
-  ip_address: string;
-  reason: string | null;
-  auto: 0 | 1;
-  created_at: string;
-  expires_at: string | null;
+export type BlockedIp = Pick<BlockedIpRow, "ip_address" | "reason" | "auto" | "created_at" | "expires_at"> & {
   // Judged by the same clock isIpBlocked enforces with, so the list can never
   // label a row Expired while requests are still being refused (or vice versa).
   expired: 0 | 1;
-}
+};
 
 export function isIpBlocked(ip: string | null | undefined): boolean {
   if (!ip) return false;

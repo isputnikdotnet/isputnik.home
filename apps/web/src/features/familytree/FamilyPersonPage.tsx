@@ -771,16 +771,16 @@ export function FamilyPersonPage({ id }: { id: string }) {
               </div>
 
               <section className="book-detail-tabs-section ft-person-detail-tabs-section">
-                <nav className="book-detail-tabs" aria-label={t("family:person.detailSectionsAria")}>
+                <nav className="book-detail-tabs" role="tablist" aria-label={t("family:person.detailSectionsAria")}>
                   {PERSON_DETAIL_TAB_IDS.map((tabId) => (
-                    <button
+                    <Button
+                      variant="tab"
                       key={tabId}
-                      type="button"
-                      className={activeDetailTab === tabId ? "active" : ""}
+                      selected={activeDetailTab === tabId}
                       onClick={() => setActiveDetailTab(tabId)}
                     >
                       {personTabLabel(tabId, t)}
-                    </button>
+                    </Button>
                   ))}
                 </nav>
 
@@ -987,8 +987,8 @@ export function FamilyPersonPage({ id }: { id: string }) {
                                     <>
                                       <span className={`ft-timeline-note${long && !open ? " is-clamped" : ""}`}>{entry.note}</span>
                                       {long && (
-                                        <button
-                                          type="button"
+                                        <Button
+                                          variant="bare"
                                           className="ft-timeline-more"
                                           onClick={() => setExpandedNotes((prev) => {
                                             const next = new Set(prev);
@@ -997,7 +997,7 @@ export function FamilyPersonPage({ id }: { id: string }) {
                                           })}
                                         >
                                           {open ? t("family:person.timeline.less") : t("family:person.timeline.more")}
-                                        </button>
+                                        </Button>
                                       )}
                                     </>
                                   );
@@ -1015,26 +1015,26 @@ export function FamilyPersonPage({ id }: { id: string }) {
                                   return (
                                     <span className="ft-timeline-photos">
                                       {shown.map((photo, photoIndex) => (
-                                        <button
+                                        <Button
+                                          variant="tile"
                                           key={photo.id}
-                                          type="button"
                                           className="ft-timeline-photo"
                                           onClick={() => setLightbox({ assets: all, index: photoIndex })}
                                           title={photo.title}
                                         >
                                           {photo.coverUrl && <img src={photo.coverUrl} alt={photo.title} loading="lazy" style={faceFocusStyle(photo)} />}
                                           {photo.kind === "video" && <Play size={11} className="ft-timeline-photo-play" aria-hidden="true" />}
-                                        </button>
+                                        </Button>
                                       ))}
                                       {hidden > 0 && (
-                                        <button type="button" className="ft-timeline-photo ft-timeline-photo-more" onClick={toggle}>
+                                        <Button variant="tile" className="ft-timeline-photo ft-timeline-photo-more" onClick={toggle}>
                                           +{hidden}
-                                        </button>
+                                        </Button>
                                       )}
                                       {open && all.length > EVENT_PHOTO_PREVIEW && (
-                                        <button type="button" className="ft-timeline-photo ft-timeline-photo-more" onClick={toggle}>
+                                        <Button variant="tile" className="ft-timeline-photo ft-timeline-photo-more" onClick={toggle}>
                                           {t("family:person.timeline.less")}
-                                        </button>
+                                        </Button>
                                       )}
                                     </span>
                                   );
@@ -1096,8 +1096,8 @@ export function FamilyPersonPage({ id }: { id: string }) {
                         <div className="gallery-grid ft-photo-grid">
                           {photos.slice(0, PHOTO_PREVIEW).map((photo, index) => (
                             <div key={photo.id} className="ft-photo-tile">
-                              <button
-                                type="button"
+                              <Button
+                                variant="tile"
                                 className="gallery-tile"
                                 onClick={() => setLightbox({ assets: photos, index })}
                                 title={photo.title}
@@ -1106,7 +1106,7 @@ export function FamilyPersonPage({ id }: { id: string }) {
                                 {photo.kind === "video" && (
                                   <span className="gallery-video-badge"><Play size={11} aria-hidden="true" />{t("family:common.video")}</span>
                                 )}
-                              </button>
+                              </Button>
                               {canEdit && photo.attached && (
                                 <Button
                                   variant="icon"

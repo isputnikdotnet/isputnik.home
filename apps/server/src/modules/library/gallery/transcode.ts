@@ -17,6 +17,8 @@ import { requeueInterruptedJobs } from "../shared/job-recovery.js";
 import { jobProgressWriter } from "../shared/job-progress.js";
 import { thumbnailAbsolutePath, thumbnailStorageKey } from "../shared/thumbnail.js";
 import { log } from "../../../core/logger.js";
+import { registerJobHandler } from "../../../core/job-poller.js";
+import type { GalleryDetailRow, JobRow, LibraryItemRow, LibraryRow } from "../../../db/rows.js";
 
 const FFMPEG_BIN: string = (ffmpegStatic as unknown as string | null) || "ffmpeg";
 
@@ -36,13 +38,9 @@ const MAX_WIDTH = 1280;
 
 interface TranscodePayload { itemId: string; batch?: number; batches?: number }
 
-interface BacklogItem {
-  item_id: string;
-  library_id: string;
-  source_path: string;
-  relative_path: string;
-  duration_seconds: number | null;
-}
+type BacklogItem = Pick<GalleryDetailRow, "item_id" | "relative_path" | "duration_seconds">
+  & Pick<LibraryItemRow, "library_id">
+  & Pick<LibraryRow, "source_path">;
 
 // Videos that need (and can still get) a web copy: not browser-playable, none made yet,
 // and under the retry cap. Shared by the count, the enqueue, and the tests.
@@ -72,7 +70,7 @@ function queuedItemIds(): Set<string> {
 // backlog as "Video conversion · batch 2/20"). Returns how many were queued.
 export function enqueueTranscodeBatch(limit: number): number {
   const alreadyQueued = queuedItemIds();
-  const candidates = (db.prepare(`SELECT gd.item_id AS item_id ${BACKLOG_SQL} ORDER BY gd.size ASC`).all() as { item_id: string }[])
+  const candidates = (db.prepare(`SELECT gd.item_id AS item_id ${BACKLOG_SQL} ORDER BY gd.size ASC`).all() as Pick<GalleryDetailRow, "item_id">[])
     .map((r) => r.item_id)
     .filter((id) => !alreadyQueued.has(id))
     .slice(0, Math.max(0, limit));
@@ -183,7 +181,7 @@ export async function processTranscodeQueue(): Promise<void> {
         SELECT id, payload FROM jobs
         WHERE type = ? AND status = 'pending' AND run_at <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
         ORDER BY run_at ASC LIMIT 1
-      `).get(TRANSCODE_JOB_TYPE) as { id: string; payload: string } | undefined;
+      `).get(TRANSCODE_JOB_TYPE) as Pick<JobRow, "id" | "payload"> | undefined;
       if (!job) break;
 
       const claim = db.prepare(`
@@ -215,7 +213,7 @@ export async function processTranscodeQueue(): Promise<void> {
       if (!ok) {
         fs.rmSync(tmpPath, { force: true });
         recordTranscodeFailure(payload.itemId);
-        const attempts = db.prepare("SELECT attempts, max_attempts FROM jobs WHERE id = ?").get(job.id) as { attempts: number; max_attempts: number };
+        const attempts = db.prepare("SELECT attempts, max_attempts FROM jobs WHERE id = ?").get(job.id) as Pick<JobRow, "attempts" | "max_attempts">;
         if (attempts.attempts < attempts.max_attempts) {
           db.prepare("UPDATE jobs SET status = 'pending', run_at = ?, locked_at = NULL, locked_by = NULL, error = ? WHERE id = ?")
             .run(new Date(Date.now() + 5000).toISOString(), "Conversion failed", job.id);
@@ -239,13 +237,13 @@ export async function processTranscodeQueue(): Promise<void> {
 
 // Merge a final result into the job payload (preserving progress) for the Tasks history.
 function writeResult(jobId: string, result: Record<string, unknown>): void {
-  const row = db.prepare("SELECT payload FROM jobs WHERE id = ?").get(jobId) as { payload: string } | undefined;
+  const row = db.prepare("SELECT payload FROM jobs WHERE id = ?").get(jobId) as Pick<JobRow, "payload"> | undefined;
   let payload: Record<string, unknown> = {};
   try { payload = row ? JSON.parse(row.payload) : {}; } catch { /* start fresh on a bad payload */ }
   db.prepare("UPDATE jobs SET payload = ? WHERE id = ?").run(JSON.stringify({ ...payload, result }), jobId);
 }
 
+// On the shared job poller (core/job-poller.ts).
 export function startTranscodeWorker(): () => void {
-  const timer = setInterval(() => { void processTranscodeQueue().catch(() => { /* logged per-job */ }); }, 2000);
-  return () => clearInterval(timer);
+  return registerJobHandler({ name: "video conversion", types: [TRANSCODE_JOB_TYPE], run: processTranscodeQueue });
 }

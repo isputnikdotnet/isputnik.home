@@ -2,12 +2,14 @@ import fs from "node:fs";
 import path from "node:path";
 import { nanoid } from "nanoid";
 import { db } from "../../../db.js";
+import { stmt } from "../../../db/statement-cache.js";
 import { normaliseRelativePath } from "../shared/storage-roots.js";
 import { deleteSharesForResource } from "../shared/share-access.js";
 import { deleteCollectionItemsForResource } from "../../collections/cleanup.js";
 import { validateLibrarySource, LibrarySourceError } from "../shared/library-source.js";
 import { libraryJobRunning } from "../shared/scan-lock.js";
 import { requeueInterruptedJobs, releaseAbandonedScanLibraries } from "../shared/job-recovery.js";
+import { registerJobHandler } from "../../../core/job-poller.js";
 import {
   normalizeLibrarySettings,
   normalizeScanSources,
@@ -25,6 +27,7 @@ import { prepareBookScan } from "./scan/prepare.js";
 import { writeBookScan } from "./scan/write.js";
 import { readBookFolderFiles, walkAudiobookFiles, type BookOwner, type WalkOwnership } from "./scan/walk.js";
 import type { AudiobookSettings, EffectiveScanConfig } from "./scan/types.js";
+import type { JobRow, LibraryItemRow, LibraryRow } from "../../../db/rows.js";
 
 // The audiobook scan job: the queue, the worker, and the three ways in (a whole
 // library, one book, a scan-rule preview). The steps of scanning a book live in
@@ -63,22 +66,22 @@ function resolveScanConfig(settingsJson: string, options: ScanOptions): Effectiv
 }
 
 async function scanAudiobookLibrary(libraryId: string, jobId: string | null = null, options: ScanOptions = {}) {
-  const library = db.prepare("SELECT id, source_path, settings_json FROM libraries WHERE id = ? AND type = 'audiobook'")
-    .get(libraryId) as { id: string; source_path: string; settings_json: string } | undefined;
+  const library = stmt("SELECT id, source_path, settings_json FROM libraries WHERE id = ? AND type = 'audiobook'")
+    .get(libraryId) as Pick<LibraryRow, "id" | "source_path" | "settings_json"> | undefined;
   if (!library) {
     throw new Error("Audiobook library not found.");
   }
 
   const rootPath = validateLibrarySource(library.source_path);
   const config = resolveScanConfig(library.settings_json, options);
-  db.prepare("UPDATE libraries SET scan_status = 'scanning', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(libraryId);
+  stmt("UPDATE libraries SET scan_status = 'scanning', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(libraryId);
 
   // Scan rules partition the library: each enabled rule owns its folders (most
   // specific wins), the default scanner the rest. A rule-scoped run walks only that
   // rule's folders and later reconciles only its items.
   const scopeRule = options.ruleId ? getScanRule(options.ruleId) : null;
   if (options.ruleId && (!scopeRule || scopeRule.libraryId !== libraryId)) {
-    db.prepare("UPDATE libraries SET scan_status = 'idle', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(libraryId);
+    stmt("UPDATE libraries SET scan_status = 'idle', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(libraryId);
     throw new Error("Scan rule not found.");
   }
   const ownership: WalkOwnership = { index: loadOwnerIndex(libraryId), owners: new Map(), onlyRuleId: scopeRule?.id ?? null };
@@ -98,7 +101,7 @@ async function scanAudiobookLibrary(libraryId: string, jobId: string | null = nu
     const now = Date.now();
     if (now - lastProgressUpdate < 3000 && booksProcessed % 5 !== 0) return;
     lastProgressUpdate = now;
-    db.prepare("UPDATE jobs SET payload = ? WHERE id = ?").run(
+    stmt("UPDATE jobs SET payload = ? WHERE id = ?").run(
       JSON.stringify({ libraryId, progress: { booksProcessed, booksTotal, updatedAt: new Date(now).toISOString() } }),
       jobId
     );
@@ -113,7 +116,7 @@ async function scanAudiobookLibrary(libraryId: string, jobId: string | null = nu
       if (i >= entries.length) break;
 
       if (jobId) {
-        const job = db.prepare("SELECT status FROM jobs WHERE id = ?").get(jobId) as { status: string } | undefined;
+        const job = stmt("SELECT status FROM jobs WHERE id = ?").get(jobId) as Pick<JobRow, "status"> | undefined;
         if (job?.status === "failed") {
           cancelled = true;
           break;
@@ -144,12 +147,12 @@ async function scanAudiobookLibrary(libraryId: string, jobId: string | null = nu
   }
 
   if (cancelled) {
-    db.prepare("UPDATE libraries SET scan_status = 'error', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(libraryId);
+    stmt("UPDATE libraries SET scan_status = 'error', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(libraryId);
     throw new Error("Job cancelled");
   }
 
   if (bookErrors.length > 0 && discoveredBooks === 0) {
-    db.prepare("UPDATE libraries SET scan_status = 'error', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(libraryId);
+    stmt("UPDATE libraries SET scan_status = 'error', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(libraryId);
     throw new Error(`All books failed to scan:\n${bookErrors.join("\n")}`);
   }
 
@@ -158,20 +161,20 @@ async function scanAudiobookLibrary(libraryId: string, jobId: string | null = nu
     // rule's items for a rule-scoped scan. A rule-scoped scan must never soft-delete
     // the rest of the library it did not walk.
     const knownBooks = (scopeRule
-      ? db.prepare("SELECT id, folder_path FROM library_items WHERE library_id = ? AND deleted_at IS NULL AND scan_rule_id = ?").all(libraryId, scopeRule.id)
-      : db.prepare("SELECT id, folder_path FROM library_items WHERE library_id = ? AND deleted_at IS NULL").all(libraryId)
+      ? stmt("SELECT id, folder_path FROM library_items WHERE library_id = ? AND deleted_at IS NULL AND scan_rule_id = ?").all(libraryId, scopeRule.id)
+      : stmt("SELECT id, folder_path FROM library_items WHERE library_id = ? AND deleted_at IS NULL").all(libraryId)
     ) as { id: string; folder_path: string }[];
     for (const book of knownBooks) {
       if (!foundFolders.has(book.folder_path)) {
-        db.prepare("UPDATE library_items SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(book.id);
-        db.prepare("UPDATE audio_files SET status = 'missing', deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id = ?").run(book.id);
+        stmt("UPDATE library_items SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(book.id);
+        stmt("UPDATE audio_files SET status = 'missing', deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id = ?").run(book.id);
         // The book is gone for users — drop its shares so links stop working and
         // owners' share lists stay accurate.
         deleteSharesForResource("audiobook", book.id);
         deleteCollectionItemsForResource("audiobook", book.id);
       }
     }
-    db.prepare(`
+    stmt(`
       UPDATE libraries
       SET scan_status = 'idle', last_scanned_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
       WHERE id = ?
@@ -188,11 +191,11 @@ async function scanAudiobookLibrary(libraryId: string, jobId: string | null = nu
     try {
       const result = await enrichLibraryAuthors(libraryId, {
         shouldCancel: jobId
-          ? () => (db.prepare("SELECT status FROM jobs WHERE id = ?").get(jobId) as { status: string } | undefined)?.status === "failed"
+          ? () => (stmt("SELECT status FROM jobs WHERE id = ?").get(jobId) as Pick<JobRow, "status"> | undefined)?.status === "failed"
           : undefined,
         onProgress: jobId
           ? (processed, total) => {
-            db.prepare("UPDATE jobs SET payload = ? WHERE id = ?").run(
+            stmt("UPDATE jobs SET payload = ? WHERE id = ?").run(
               JSON.stringify({ libraryId, progress: { booksProcessed, booksTotal, authorsProcessed: processed, authorsTotal: total, updatedAt: new Date().toISOString() } }),
               jobId
             );
@@ -209,12 +212,14 @@ async function scanAudiobookLibrary(libraryId: string, jobId: string | null = nu
 }
 
 export async function rescanSingleBook(bookId: string, options: ScanOptions = {}) {
-  const row = db.prepare(`
+  const row = stmt(`
     SELECT library_items.id, library_items.folder_path, libraries.id AS library_id, libraries.source_path, libraries.settings_json
     FROM library_items
     JOIN libraries ON libraries.id = library_items.library_id
     WHERE library_items.id = ? AND library_items.deleted_at IS NULL
-  `).get(bookId) as { id: string; folder_path: string; library_id: string; source_path: string; settings_json: string } | undefined;
+  `).get(bookId) as (Pick<LibraryItemRow, "id" | "folder_path"> & Pick<LibraryRow, "source_path" | "settings_json"> & {
+    library_id: LibraryRow["id"];
+  }) | undefined;
 
   if (!row) {
     return null;
@@ -266,8 +271,8 @@ export async function previewAudiobookRulePattern(
   ruleId: string | null = null,
   limit = 200
 ): Promise<RulePreviewRow[]> {
-  const library = db.prepare("SELECT source_path, settings_json FROM libraries WHERE id = ? AND type = 'audiobook'")
-    .get(libraryId) as { source_path: string; settings_json: string } | undefined;
+  const library = stmt("SELECT source_path, settings_json FROM libraries WHERE id = ? AND type = 'audiobook'")
+    .get(libraryId) as Pick<LibraryRow, "source_path" | "settings_json"> | undefined;
   if (!library) return [];
   const rootPath = validateLibrarySource(library.source_path);
   const config = resolveScanConfig(library.settings_json, {});
@@ -284,7 +289,7 @@ export async function previewAudiobookRulePattern(
   const filesByFolder = await walkAudiobookFiles(rootPath, config.settings, config.groupingMode, ownership);
 
   const rows: RulePreviewRow[] = [];
-  const existingUnder = db.prepare(
+  const existingUnder = stmt(
     "SELECT folder_path FROM library_items WHERE library_id = ? AND deleted_at IS NULL AND (folder_path = ? OR folder_path LIKE ? ESCAPE '!')"
   );
   // '!' escapes LIKE's own wildcards; paths never contain it as a wildcard.
@@ -296,7 +301,7 @@ export async function previewAudiobookRulePattern(
     const f = owner.fields;
     // Books catalogued today at or beneath this boundary: more than one, or one
     // that is not this exact folder, means the boundary is being redrawn.
-    const today = existingUnder.all(libraryId, folderPath, `${escapeLike(folderPath)}/%`) as { folder_path: string }[];
+    const today = existingUnder.all(libraryId, folderPath, `${escapeLike(folderPath)}/%`) as Pick<LibraryItemRow, "folder_path">[];
     const change = today.length === 0 || (today.length === 1 && today[0].folder_path === folderPath)
       ? classifyPreviewChange(libraryId, folderPath, ruleId, f.matched)
       : `merges:${today.length}` as const;
@@ -312,8 +317,8 @@ export async function previewAudiobookRulePattern(
 
 export function enqueueAudiobookScan(libraryId: string, options: ScanOptions = {}) {
   const jobId = nanoid(16);
-  db.prepare("UPDATE libraries SET scan_status = 'scanning', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(libraryId);
-  db.prepare(`
+  stmt("UPDATE libraries SET scan_status = 'scanning', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(libraryId);
+  stmt(`
     INSERT INTO jobs (id, type, payload, status)
     VALUES (?, ?, ?, 'pending')
   `).run(jobId, scanJobType, JSON.stringify({ libraryId, options }));
@@ -350,7 +355,7 @@ export async function processAudiobookScanQueue() {
         break;
       }
 
-      const job = db.prepare(`
+      const job = stmt(`
         SELECT id, payload, attempts, max_attempts
         FROM jobs
         WHERE type = ?
@@ -358,12 +363,12 @@ export async function processAudiobookScanQueue() {
           AND run_at <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
         ORDER BY run_at, created_at
         LIMIT 1
-      `).get(scanJobType) as { id: string; payload: string; attempts: number; max_attempts: number } | undefined;
+      `).get(scanJobType) as Pick<JobRow, "id" | "payload" | "attempts" | "max_attempts"> | undefined;
       if (!job) {
         break;
       }
 
-      const claimed = db.prepare(`
+      const claimed = stmt(`
         UPDATE jobs
         SET status = 'running', attempts = attempts + 1, locked_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), started_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), locked_by = ?
         WHERE id = ? AND status = 'pending'
@@ -375,15 +380,15 @@ export async function processAudiobookScanQueue() {
       const payload = JSON.parse(job.payload) as { libraryId: string; options?: ScanOptions };
       try {
         const result = await scanAudiobookLibrary(payload.libraryId, job.id, payload.options ?? {});
-        db.prepare(`
+        stmt(`
           UPDATE jobs
           SET status = 'completed', payload = ?, completed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), locked_at = NULL, locked_by = NULL
           WHERE id = ?
         `).run(JSON.stringify({ ...payload, result }), job.id);
       } catch (err) {
-        const currentStatus = (db.prepare("SELECT status FROM jobs WHERE id = ?").get(job.id) as { status: string } | undefined)?.status;
+        const currentStatus = (stmt("SELECT status FROM jobs WHERE id = ?").get(job.id) as Pick<JobRow, "status"> | undefined)?.status;
         if (currentStatus === "failed") {
-          db.prepare("UPDATE libraries SET scan_status = 'error', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ? AND scan_status = 'scanning'")
+          stmt("UPDATE libraries SET scan_status = 'error', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ? AND scan_status = 'scanning'")
             .run(payload.libraryId);
           continue;
         }
@@ -396,14 +401,14 @@ export async function processAudiobookScanQueue() {
           : "Audiobook scan failed";
         if (!permanent && job.attempts + 1 < job.max_attempts) {
           const runAt = new Date(Date.now() + Math.min(job.attempts + 1, 5) * 60_000).toISOString();
-          db.prepare(`
+          stmt(`
             UPDATE jobs
             SET status = 'pending', run_at = ?, locked_at = NULL, locked_by = NULL, error = ?
             WHERE id = ?
           `).run(runAt, message, job.id);
         } else {
-          db.prepare("UPDATE libraries SET scan_status = 'error', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(payload.libraryId);
-          db.prepare(`
+          stmt("UPDATE libraries SET scan_status = 'error', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(payload.libraryId);
+          stmt(`
             UPDATE jobs
             SET status = 'failed', failed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), locked_at = NULL, locked_by = NULL, error = ?
             WHERE id = ?
@@ -416,10 +421,9 @@ export async function processAudiobookScanQueue() {
   }
 }
 
+// On the shared job poller (core/job-poller.ts), and one pass at once at boot.
 export function startAudiobookScanWorker() {
-  const timer = setInterval(() => {
-    void processAudiobookScanQueue();
-  }, 2000);
+  const stop = registerJobHandler({ name: "audiobook scan", types: [scanJobType], run: processAudiobookScanQueue });
   void processAudiobookScanQueue();
-  return () => clearInterval(timer);
+  return stop;
 }

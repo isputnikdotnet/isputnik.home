@@ -4,14 +4,13 @@
 
 import { db } from "../../../db.js";
 import { registerStatusContributor } from "../../../core/status-contributors.js";
+import type { LibraryItemRow, LibraryRow } from "../../../db/rows.js";
 
-interface LibraryStatsRow {
-  id: string;
-  name: string;
+type LibraryStatsRow = Pick<LibraryRow, "id" | "name"> & {
   book_count: number;
   total_size_bytes: number;
   total_duration_seconds: number;
-}
+};
 
 interface PersonStatsRow {
   name: string;
@@ -19,14 +18,14 @@ interface PersonStatsRow {
   total_duration_seconds: number;
 }
 
-interface LongestBookRow {
-  id: string;
+// `id` is library_items.id, carried through the book_totals CTE.
+type LongestBookRow = Pick<LibraryItemRow, "id"> & {
   title: string;
-  library_name: string;
+  library_name: LibraryRow["name"];
   author_names: string | null;
   total_size_bytes: number;
   total_duration_seconds: number;
-}
+};
 
 function audiobookLibraryStats() {
   const libraries = db.prepare(`

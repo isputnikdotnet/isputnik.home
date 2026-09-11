@@ -9,6 +9,7 @@ import { Modal } from "../../shared/Modal";
 import { SelectField } from "../../shared/SelectField";
 import { formatBytes } from "../../shared/utils";
 import type { AudiobookBookDetail, CategorySummary, CoverCandidate, MetadataCandidate } from "./types";
+import { Button } from "../../shared/Button";
 
 export type MetadataTab = "edit" | "tags" | "publishing" | "series" | "cover" | "lookup";
 
@@ -368,32 +369,32 @@ export function EditMetadataModal({
 
       <div className="metadata-actions book-metadata-footer">
         {book.metadataSource === "manual" && !resetConfirm && (
-          <button className="secondary-button" onClick={() => setResetConfirm(true)}>
+          <Button variant="secondary" onClick={() => setResetConfirm(true)}>
             <RotateCcw size={16} />
             <span>{t("book:metadata.resetToAuto")}</span>
-          </button>
+          </Button>
         )}
         <span className="book-metadata-footer-spacer" aria-hidden="true"></span>
-        <button className="secondary-button" onClick={closeMetadataModal} disabled={editSaving || resetting}>
+        <Button variant="secondary" onClick={closeMetadataModal} disabled={editSaving || resetting}>
           {t("common.cancel")}
-        </button>
-        <button className="primary-button" onClick={saveManualMetadata} disabled={editSaving || !editForm.title.trim()}>
+        </Button>
+        <Button variant="primary" onClick={saveManualMetadata} disabled={editSaving || !editForm.title.trim()}>
           <Save size={16} />
           <span>{editSaving ? t("book:metadata.saving") : t("book:metadata.save")}</span>
-        </button>
+        </Button>
       </div>
 
       {resetConfirm && (
         <div className="metadata-reset-confirm">
           <p>{t("book:metadata.resetConfirmBody")}</p>
           <div className="metadata-actions">
-            <button className="primary-button" onClick={resetMetadata} disabled={resetting}>
+            <Button variant="primary" onClick={resetMetadata} disabled={resetting}>
               <RotateCcw size={16} />
               <span>{resetting ? t("book:metadata.resetting") : t("book:metadata.confirmReset")}</span>
-            </button>
-            <button className="secondary-button" onClick={() => setResetConfirm(false)} disabled={resetting}>
+            </Button>
+            <Button variant="secondary" onClick={() => setResetConfirm(false)} disabled={resetting}>
               {t("common.cancel")}
-            </button>
+            </Button>
           </div>
           {resetError && <MessageBox tone="error" title={t("book:metadata.resetErrorTitle")}>{resetError}</MessageBox>}
         </div>
@@ -411,25 +412,25 @@ export function EditMetadataModal({
       busy={editSaving || resetting}
       onClose={closeMetadataModal}
     >
-        <div className="modal-tabs book-metadata-tabs">
-          <button className={`modal-tab${activeMetadataTab === "edit" ? " active" : ""}`} onClick={() => setActiveMetadataTab("edit")}>
+        <div className="modal-tabs book-metadata-tabs" role="tablist">
+          <Button variant="tab" className="modal-tab" selected={activeMetadataTab === "edit"} onClick={() => setActiveMetadataTab("edit")}>
             {t("book:metadata.tabMetadata")}
-          </button>
-          <button className={`modal-tab${activeMetadataTab === "tags" ? " active" : ""}`} onClick={() => setActiveMetadataTab("tags")}>
+          </Button>
+          <Button variant="tab" className="modal-tab" selected={activeMetadataTab === "tags"} onClick={() => setActiveMetadataTab("tags")}>
             {t("book:metadata.tabTags")}
-          </button>
-          <button className={`modal-tab${activeMetadataTab === "publishing" ? " active" : ""}`} onClick={() => setActiveMetadataTab("publishing")}>
+          </Button>
+          <Button variant="tab" className="modal-tab" selected={activeMetadataTab === "publishing"} onClick={() => setActiveMetadataTab("publishing")}>
             {t("book:metadata.tabPublishing")}
-          </button>
-          <button className={`modal-tab${activeMetadataTab === "series" ? " active" : ""}`} onClick={() => setActiveMetadataTab("series")}>
+          </Button>
+          <Button variant="tab" className="modal-tab" selected={activeMetadataTab === "series"} onClick={() => setActiveMetadataTab("series")}>
             {t("book:metadata.tabSeries")}
-          </button>
-          <button className={`modal-tab${activeMetadataTab === "cover" ? " active" : ""}`} onClick={() => setActiveMetadataTab("cover")}>
+          </Button>
+          <Button variant="tab" className="modal-tab" selected={activeMetadataTab === "cover"} onClick={() => setActiveMetadataTab("cover")}>
             {t("book:metadata.tabCover")}
-          </button>
-          <button className={`modal-tab${activeMetadataTab === "lookup" ? " active" : ""}`} onClick={() => setActiveMetadataTab("lookup")}>
+          </Button>
+          <Button variant="tab" className="modal-tab" selected={activeMetadataTab === "lookup"} onClick={() => setActiveMetadataTab("lookup")}>
             {t("book:metadata.tabLookup")}
-          </button>
+          </Button>
         </div>
 
         <div className="modal-tab-content book-metadata-content">
@@ -573,15 +574,16 @@ export function EditMetadataModal({
                       <strong>{t("book:metadata.folderCovers")}</strong>
                       <span>{coverLoading ? t("book:metadata.scanningFolder") : t("book:metadata.imageFiles", { count: coverCandidates.length })}</span>
                     </div>
-                    <button className="secondary-button compact-button" onClick={loadCoverCandidates} disabled={coverLoading || Boolean(coverSaving)}>
+                    <Button variant="secondary" compact onClick={loadCoverCandidates} disabled={coverLoading || Boolean(coverSaving)}>
                       <RotateCcw size={14} />
                       <span>{t("refresh.refresh")}</span>
-                    </button>
+                    </Button>
                   </div>
 
                   <div className="cover-candidate-grid">
                     {coverCandidates.map((cover) => (
-                      <button
+                      <Button
+                        variant="tile"
                         className="cover-candidate"
                         key={cover.relativePath}
                         onClick={() => applyFolderCover(cover)}
@@ -591,7 +593,7 @@ export function EditMetadataModal({
                         <span>{cover.name}</span>
                         <small>{formatBytes(cover.size)}</small>
                         <strong>{coverSaving === cover.relativePath ? t("book:metadata.applying") : t("book:metadata.apply")}</strong>
-                      </button>
+                      </Button>
                     ))}
                     {!coverLoading && coverCandidates.length === 0 && (
                       <p className="management-empty">{t("book:metadata.noFolderCovers")}</p>
@@ -620,10 +622,10 @@ export function EditMetadataModal({
                       aria-label={t("book:metadata.searchCoversAria")}
                     />
                   </label>
-                  <button className="primary-button metadata-search-button" onClick={searchOnlineCovers} disabled={onlineCoversLoading}>
+                  <Button variant="primary" className="metadata-search-button" onClick={searchOnlineCovers} disabled={onlineCoversLoading}>
                     <Search size={16} />
                     <span>{onlineCoversLoading ? t("book:metadata.searching") : t("book:metadata.search")}</span>
-                  </button>
+                  </Button>
                 </div>
 
                 {onlineCovers !== null && (
@@ -632,7 +634,8 @@ export function EditMetadataModal({
                       {onlineCovers
                         .filter((cover) => !hiddenCoverUrls.has(cover.url))
                         .map((cover) => (
-                          <button
+                          <Button
+                            variant="tile"
                             className="cover-candidate"
                             key={cover.url}
                             onClick={() => applyOnlineCover(cover.url)}
@@ -641,7 +644,7 @@ export function EditMetadataModal({
                             <img src={cover.url} alt="" onError={() => hideOnlineCover(cover.url)} />
                             <span>{cover.source}</span>
                             <strong>{coverSaving === cover.url ? t("book:metadata.applying") : t("book:metadata.useThisCover")}</strong>
-                          </button>
+                          </Button>
                         ))}
                     </div>
                   ) : (
@@ -695,22 +698,22 @@ export function EditMetadataModal({
                     aria-label={t("book:metadata.searchMetadataAria")}
                   />
                 </label>
-                <button className="primary-button metadata-search-button" onClick={searchMetadata} disabled={metadataLoading}>
+                <Button variant="primary" className="metadata-search-button" onClick={searchMetadata} disabled={metadataLoading}>
                   <Search size={16} />
                   <span>{metadataLoading ? t("book:metadata.searching") : t("book:metadata.search")}</span>
-                </button>
+                </Button>
               </div>
 
               <div className="metadata-apply-fields">
                 <div className="metadata-apply-fields-head">
                   <strong>{t("book:metadata.applyFieldsTitle")}</strong>
                   <span>{t("book:metadata.applyFieldsCount", { count: applyFields.size, total: METADATA_APPLY_FIELDS.length })}</span>
-                  <button type="button" className="metadata-field-link" onClick={() => setApplyFields(new Set(METADATA_APPLY_FIELDS))}>
+                  <Button variant="bare" className="metadata-field-link" onClick={() => setApplyFields(new Set(METADATA_APPLY_FIELDS))}>
                     {t("book:metadata.applyFieldsAll")}
-                  </button>
-                  <button type="button" className="metadata-field-link" onClick={() => setApplyFields(new Set())}>
+                  </Button>
+                  <Button variant="bare" className="metadata-field-link" onClick={() => setApplyFields(new Set())}>
                     {t("book:metadata.applyFieldsNone")}
-                  </button>
+                  </Button>
                 </div>
                 <div className="metadata-apply-controls">
                   {METADATA_APPLY_FIELDS.map((field) => (
@@ -738,10 +741,10 @@ export function EditMetadataModal({
                     aria-label={t("book:metadata.linkAria")}
                   />
                 </label>
-                <button className="secondary-button metadata-search-button" onClick={fetchFromLink} disabled={linkLoading || !linkUrl.trim()}>
+                <Button variant="secondary" className="metadata-search-button" onClick={fetchFromLink} disabled={linkLoading || !linkUrl.trim()}>
                   <Link2 size={16} />
                   <span>{linkLoading ? t("book:metadata.fetching") : t("book:metadata.fetch")}</span>
-                </button>
+                </Button>
                 <small className="metadata-link-hint">{t("book:metadata.linkHint")}</small>
               </div>
 
@@ -768,22 +771,24 @@ export function EditMetadataModal({
                       {candidate.description && <p>{candidate.description}</p>}
                     </div>
                     <div className="metadata-result-actions">
-                      <button
-                        className="primary-button compact-button metadata-apply-button"
+                      <Button
+                        variant="primary" compact
+                        className="metadata-apply-button"
                         onClick={() => applyMetadata(candidate, index)}
                         disabled={applyingIndex !== null}
                       >
                         <CheckCircle2 size={15} />
                         <span>{applyingIndex === index ? t("book:metadata.applying") : t("book:metadata.apply")}</span>
-                      </button>
-                      <button
-                        className="secondary-button compact-button metadata-details-button"
+                      </Button>
+                      <Button
+                        variant="secondary" compact
+                        className="metadata-details-button"
                         onClick={() => setExpandedIndex(expandedIndex === index ? null : index)}
                         aria-expanded={expandedIndex === index}
                       >
                         {expandedIndex === index ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
                         <span>{t("book:metadata.details")}</span>
-                      </button>
+                      </Button>
                     </div>
                     {expandedIndex === index && <ResultCompare book={book} candidate={candidate} applyFields={applyFields} />}
                   </article>

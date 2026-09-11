@@ -26,6 +26,10 @@ import { formatBytes, formatDuration, isFoliateFormat } from "../../shared/utils
 import { ProgressRing } from "../../shared/ProgressRing";
 import type { AudiobookBookDetail, AudiobookFile, BookCapabilities, BookSave, PlaybackProgress, ReadingProgress, TrackProgress, WorkEdition, WorkEditions } from "./types";
 import { useSession } from "../../app/SessionContext";
+// The file list and document viewer: this stylesheet loads with the book page, not on every route (docs/css-map.md).
+import "../../styles/book-media.css";
+import { Button } from "../../shared/Button";
+import { cx } from "../../shared/cx";
 
 // Button gating is cosmetic — the server enforces every operation — so when we
 // can't determine capabilities we fail OPEN (show the full menu) rather than hide
@@ -102,6 +106,7 @@ export function AudiobookBookPage({
           {book ? (
             <BookDetailView
               book={book}
+              kind={active === "ebooks" ? "ebook" : "audiobook"}
               capabilities={capabilities}
               userId={user.id}
               onBack={() => goBack(backTo)}
@@ -238,21 +243,20 @@ function EditionsSwitcher({
                 {edition.isPrimary && <span className="editions-switch-flag">{t("book:editions.primary")}</span>}
                 {current && <span className="editions-switch-here">{t("book:editions.viewing")}</span>}
                 {canCurate && !edition.isPrimary && (
-                  <button type="button" className="secondary-button compact-button" disabled={busyId !== ""} onClick={() => void makePrimary(edition)}>
+                  <Button variant="secondary" compact disabled={busyId !== ""} onClick={() => void makePrimary(edition)}>
                     {t("book:editions.makePrimary")}
-                  </button>
+                  </Button>
                 )}
                 {canCurate && (
-                  <button
-                    type="button"
-                    className="icon-button"
+                  <Button
+                    variant="icon"
                     disabled={busyId !== ""}
                     onClick={() => setConfirmRemove(edition)}
                     aria-label={t("book:editions.removeAria", { title: edition.title ?? t("book:editions.thisEdition") })}
                     title={t("book:editions.removeFromGroup")}
                   >
                     <X size={15} aria-hidden="true" />
-                  </button>
+                  </Button>
                 )}
               </div>
             </div>
@@ -279,6 +283,7 @@ function EditionsSwitcher({
 
 function BookDetailView({
   book,
+  kind,
   capabilities,
   userId,
   onBack,
@@ -287,6 +292,8 @@ function BookDetailView({
   onReload
 }: {
   book: AudiobookBookDetail;
+  /** Which catalog opened the page. */
+  kind: "audiobook" | "ebook";
   capabilities: BookCapabilities;
   userId: string;
   onBack: () => void;
@@ -407,7 +414,11 @@ function BookDetailView({
   }, [moreMenuOpen]);
 
   // An ebook (or any audio-less book): content is a document, not audio tracks.
-  const isEbook = book.files.length === 0 && book.documents.length > 0;
+  // The Ebooks route says so outright: the server lists only documents that are
+  // on disk, so an ebook whose file is missing arrives with neither files nor
+  // documents, and guessing from those alone treated it as an audiobook (Add to
+  // collection then sent the wrong type and was refused).
+  const isEbook = kind === "ebook" || (book.files.length === 0 && book.documents.length > 0);
   const episodic = book.progressMode === "episodic";
   const markTrack = async (fileId: string, played: boolean) => {
     try {
@@ -933,10 +944,11 @@ function BookDetailView({
         <a.icon size={18} />
       </a>
     ) : (
-      <button
+      <Button
+        variant="icon"
         key={a.key}
-        className={`icon-button${a.active ? " offline-saved" : ""}${a.danger ? " danger" : ""}${a.cta ? " accent-gold" : ""}${a.showLabel && !isMobile ? " has-label" : ""}`}
-        type="button"
+        danger={a.danger}
+        className={cx(a.active && "offline-saved", a.cta && "accent-gold", a.showLabel && !isMobile && "has-label")}
         onClick={a.onClick}
         disabled={a.disabled}
         aria-pressed={a.active}
@@ -945,7 +957,7 @@ function BookDetailView({
       >
         <a.icon size={18} />
         {a.showLabel && !isMobile && <span className="icon-button-label">{a.label}</span>}
-      </button>
+      </Button>
     );
 
   const renderMenuItem = (a: IconAction) =>
@@ -962,37 +974,36 @@ function BookDetailView({
         <span>{a.menuLabel ?? a.label}</span>
       </a>
     ) : (
-      <button
+      <Button
+        variant="bare"
         key={a.key}
-        type="button"
         role="menuitem"
         onClick={() => { setMoreMenuOpen(false); a.onClick?.(); }}
         disabled={a.disabled}
-        className={a.danger ? "danger" : undefined}
+        danger={a.danger}
       >
         <a.icon size={16} aria-hidden="true" />
         <span>{a.menuLabel ?? a.label}</span>
-      </button>
+      </Button>
     );
 
   return (
     <div className="book-detail-view">
       <div className="book-detail-topbar">
-        <button
-          className="icon-button"
-          type="button"
+        <Button
+          variant="icon"
           onClick={onBack}
           aria-label={backLabel}
           title={backLabel}
         >
           <ArrowLeft size={18} aria-hidden="true" />
-        </button>
+        </Button>
         <span className="library-toolbar-divider" aria-hidden="true" />
         <div className="book-detail-secondary-actions" aria-label={t("book:detail.bookActions")}>
           {isMobile && ctaActions.map(renderIconAction)}
-          <button
-            className={`icon-button${save?.saved ? " on" : ""}`}
-            type="button"
+          <Button
+            variant="icon"
+            className={cx(save?.saved && "on")}
             onClick={toggleSave}
             disabled={saveAction}
             aria-pressed={save?.saved ?? false}
@@ -1000,13 +1011,12 @@ function BookDetailView({
             title={saveAction ? t("book:detail.liking") : save?.saved ? t("book:detail.liked") : t("book:detail.like")}
           >
             <Heart size={18} fill={save?.saved ? "currentColor" : "none"} />
-          </button>
+          </Button>
           {visibleIconActions.map(renderIconAction)}
           {isMobile && (
             <div className="book-detail-menu-wrap" ref={moreMenuRef}>
-              <button
-                className="icon-button"
-                type="button"
+              <Button
+                variant="icon"
                 onClick={() => setMoreMenuOpen((open) => !open)}
                 aria-haspopup="menu"
                 aria-expanded={moreMenuOpen}
@@ -1014,7 +1024,7 @@ function BookDetailView({
                 title={t("book:detail.moreActions")}
               >
                 <MoreVertical size={18} />
-              </button>
+              </Button>
               {moreMenuOpen && (
                 <div className="book-detail-menu" role="menu" aria-label={t("book:detail.moreActions")}>
                   {mobileMenuItems.map((item, i) => item === "divider"
@@ -1035,25 +1045,25 @@ function BookDetailView({
           {(book.category || book.tags.length > 0) && (
             <section className="book-tags book-tags-under-cover" aria-label={t("book:detail.tags")}>
               {book.category && (
-                <button
+                <Button
+                  variant="chip"
                   className="book-tag-chip book-tag-chip-category"
-                  type="button"
                   title={book.category.name}
                   onClick={() => navigate(`/categories/${book.category?.key}${linkFrom}`)}
                 >
                   {book.category.name}
-                </button>
+                </Button>
               )}
               {book.tags.map((tag) => (
-                <button
+                <Button
+                  variant="chip"
                   className="book-tag-chip book-tag-chip-tag"
                   key={tag}
-                  type="button"
                   title={tag}
                   onClick={() => navigate(`/tags/${encodeURIComponent(tag)}${linkFrom}`)}
                 >
                   {tag}
-                </button>
+                </Button>
               ))}
             </section>
           )}
@@ -1086,15 +1096,15 @@ function BookDetailView({
           </dl>
           {moreDetailRows.length > 0 && (
             <div className="book-detail-more-details">
-              <button
+              <Button
+                variant="bare"
                 className="book-detail-more"
-                type="button"
                 onClick={() => setDetailsExpanded((expanded) => !expanded)}
                 aria-expanded={detailsExpanded}
               >
                 {detailsExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
                 <span>{detailsExpanded ? t("book:detail.hideDetails") : t("book:detail.moreDetails")}</span>
-              </button>
+              </Button>
               {detailsExpanded && (
                 <section className="book-detail-more-details-panel" aria-label={t("book:detail.moreDetails")}>
                   <dl className="book-detail-meta-grid full">
@@ -1116,40 +1126,40 @@ function BookDetailView({
             {!isMobile && (
               <div className="book-detail-primary-actions">
                 {isEbook ? (
-                  <button
-                    className="primary-button"
+                  <Button
+                    variant="primary"
                     onClick={openPrimaryReader}
                     disabled={!canReadPrimaryDoc}
                   >
                     <BookOpen size={16} />
                     <span>{progressActionLabel}</span>
-                  </button>
+                  </Button>
                 ) : (
                   <>
-                    <button
-                      className="primary-button"
+                    <Button
+                      variant="primary"
                       onClick={openPlayer}
                     >
                       <Play size={16} />
                       <span>{progressActionLabel}</span>
-                    </button>
+                    </Button>
                     {canReadPrimaryDoc && (
-                      <button
-                        className="secondary-button book-detail-read-button"
-                        type="button"
+                      <Button
+                        variant="secondary"
+                        className="book-detail-read-button"
                         onClick={openPrimaryReader}
                       >
                         <BookOpen size={16} />
                         <span>{t("book:detail.read")}</span>
-                      </button>
+                      </Button>
                     )}
                   </>
                 )}
                 {showProgressMenu && (
                   <div className="book-progress-menu-wrap" ref={progressMenuRef}>
-                    <button
+                    <Button
+                      variant="bare"
                       className="book-progress-menu-trigger"
-                      type="button"
                       onClick={() => setProgressMenuOpen((open) => !open)}
                       aria-haspopup="menu"
                       aria-expanded={progressMenuOpen}
@@ -1157,11 +1167,11 @@ function BookDetailView({
                       title={t("book:detail.progressActions")}
                     >
                       <MoreHorizontal size={20} aria-hidden="true" />
-                    </button>
+                    </Button>
                     {progressMenuOpen && (
                       <div className="book-detail-action-menu book-progress-menu" role="menu" aria-label={t("book:detail.progressActions")}>
-                        <button
-                          type="button"
+                        <Button
+                          variant="bare"
                           role="menuitem"
                           onClick={() => {
                             setProgressMenuOpen(false);
@@ -1171,9 +1181,9 @@ function BookDetailView({
                         >
                           <CheckCircle2 size={16} aria-hidden="true" />
                           <span>{progressAction === "complete" ? t("book:detail.saving") : bookFinished ? t("book:detail.markedFinished") : t("book:detail.markFinished")}</span>
-                        </button>
-                        <button
-                          type="button"
+                        </Button>
+                        <Button
+                          variant="bare"
                           role="menuitem"
                           onClick={() => {
                             setProgressMenuOpen(false);
@@ -1183,7 +1193,7 @@ function BookDetailView({
                         >
                           <RotateCcw size={16} aria-hidden="true" />
                           <span>{progressAction === "reset" ? t("book:detail.resetting") : t("book:detail.resetProgress")}</span>
-                        </button>
+                        </Button>
                       </div>
                     )}
                   </div>
@@ -1236,16 +1246,16 @@ function BookDetailView({
       )}
 
       <section className="book-detail-tabs-section">
-        <nav className="book-detail-tabs" aria-label={t("book:detail.sectionsAria")}>
+        <nav className="book-detail-tabs" role="tablist" aria-label={t("book:detail.sectionsAria")}>
           {detailTabs.map((tab) => (
-            <button
-              className={activeBookTab === tab.id ? "active" : ""}
+            <Button
+              variant="tab"
+              selected={activeBookTab === tab.id}
               key={tab.id}
-              type="button"
               onClick={() => setActiveBookTab(tab.id)}
             >
               {tab.label}
-            </button>
+            </Button>
           ))}
         </nav>
 
@@ -1256,15 +1266,15 @@ function BookDetailView({
                 <>
                   <p className="book-description">{visibleDescription}</p>
                   {canExpandDescription && (
-                    <button
+                    <Button
+                      variant="bare"
                       className="book-detail-more book-description-more"
-                      type="button"
                       onClick={() => setDescriptionExpanded((expanded) => !expanded)}
                       aria-expanded={descriptionExpanded}
                     >
                       {descriptionExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
                       <span>{descriptionExpanded ? t("book:detail.showLessDescription") : t("book:detail.showFullDescription")}</span>
-                    </button>
+                    </Button>
                   )}
                 </>
               ) : (
@@ -1282,15 +1292,15 @@ function BookDetailView({
                     return (
                       <article className="book-file-row" key={chapter.id}>
                         <span className="book-file-num">{index + 1}</span>
-                        <button
-                          type="button"
+                        <Button
+                          variant="bare"
                           className="book-file-play"
                           onClick={() => playFrom(chapter.fileId, chapter.startSeconds)}
                           aria-label={t("book:detail.playFromChapter")}
                           title={t("book:detail.playFromChapter")}
                         >
                           <Play size={15} />
-                        </button>
+                        </Button>
                         <div>
                           <strong>{chapter.title}</strong>
                         </div>
@@ -1318,13 +1328,13 @@ function BookDetailView({
                           <small>{doc.fileName} · {formatBytes(doc.size)}</small>
                         </div>
                         {VIEWABLE_DOC_FORMATS.has(doc.format) && (
-                          <button
-                            className="secondary-button compact-button"
+                          <Button
+                            variant="secondary" compact
                             onClick={() => setViewerDoc({ id: doc.id, fileName: doc.fileName, url: doc.url, format: doc.format })}
                           >
                             <BookOpen size={15} />
                             <span>{t("book:detail.read")}</span>
-                          </button>
+                          </Button>
                         )}
                         <a className="secondary-button compact-button" href={`${doc.url}?download`} download>
                           <Download size={15} />
@@ -1342,10 +1352,10 @@ function BookDetailView({
                     <div className="book-episode-head">
                       <span className="muted">{t("book:detail.playedCount", { played: playedCount, total: availableFiles.length })}</span>
                       {nextEpisode && (
-                        <button type="button" className="book-episode-play-next" onClick={playNextEpisode}>
+                        <Button variant="bare" className="book-episode-play-next" onClick={playNextEpisode}>
                           <Play size={14} aria-hidden="true" />
                           {allPlayed ? t("book:detail.playFromStart") : t("book:detail.playNextUnplayed")}
-                        </button>
+                        </Button>
                       )}
                     </div>
                   )}
@@ -1384,15 +1394,15 @@ function BookDetailView({
                       return (
                         <article className={`book-file-row${isCurrent ? " current" : ""}`} key={file.id}>
                           <span className="book-file-num">{file.trackNumber ?? index + 1}</span>
-                          <button
-                            type="button"
+                          <Button
+                            variant="bare"
                             className="book-file-play"
                             onClick={() => playEpisode(file)}
                             aria-label={t("book:detail.play")}
                             title={t("book:detail.play")}
                           >
                             <Play size={15} />
-                          </button>
+                          </Button>
                           <div>
                             <strong>{ep ? ep.title : rawTitle}</strong>
                             {subtitleEl}
@@ -1471,9 +1481,9 @@ function BookDetailView({
                   <Download size={15} />
                   <span>{t("book:detail.download")}</span>
                 </a>
-                <button className="modal-close" onClick={() => setViewerDoc(null)} aria-label={t("book:detail.closeReader")}>
+                <Button variant="bare" className="modal-close" onClick={() => setViewerDoc(null)} aria-label={t("book:detail.closeReader")}>
                   <X size={18} />
-                </button>
+                </Button>
               </div>
             </div>
             <iframe className="doc-viewer-frame" src={viewerDoc.url} title={viewerDoc.fileName} />

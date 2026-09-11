@@ -5,6 +5,7 @@ import { FileUpload } from "../../../shared/FileUpload";
 import { Modal } from "../../../shared/Modal";
 import { SelectField } from "../../../shared/SelectField";
 import type { CatalogLibrary } from "./catalogKinds";
+import { Button } from "../../../shared/Button";
 
 // Upload one or more ebooks: pick the target library (when more than one accepts
 // uploads), then drop the files. Each file becomes its own ebook; the server scans
@@ -34,9 +35,9 @@ export function EbookUploadModal({
       busy={busy}
       onClose={onClose}
       headerAction={
-        <button type="button" className="modal-close" onClick={onClose} disabled={busy} aria-label={t("common:common.close")}>
+        <Button variant="bare" className="modal-close" onClick={onClose} disabled={busy} aria-label={t("common:common.close")}>
           <X size={18} aria-hidden="true" />
-        </button>
+        </Button>
       }
     >
       {libraries.length > 1 && (

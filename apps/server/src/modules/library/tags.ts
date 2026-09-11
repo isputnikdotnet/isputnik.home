@@ -15,16 +15,15 @@ import { listStories } from "../stories/list.js";
 import { STORY_ENTITY_TYPE } from "../stories/stories.js";
 import { listAlbums } from "./gallery/albums.js";
 import { listSlideshows } from "./gallery/slideshows.js";
+import type { LibraryRow, TagRow, TaggableRow } from "../../db/rows.js";
 
 const placeholders = (n: number) => Array(n).fill("?").join(", ");
 
 // Item counts per tag and library type, scoped to what the viewer can see.
-interface TypeCountRow {
-  id: string;
-  name: string;
-  type: string;
-  count: number;
-}
+type TypeCountRow = TagCountRow & { type: LibraryRow["type"] };
+
+// A tag and how many things of one kind wear it.
+type TagCountRow = Pick<TagRow, "id"> & { name: TagRow["display_name"]; count: number };
 
 export function registerTagRoutes(app: FastifyInstance) {
   // Every tag in use across the viewer's accessible libraries and the family
@@ -52,7 +51,7 @@ export function registerTagRoutes(app: FastifyInstance) {
       JOIN family_tree_persons ON family_tree_persons.id = taggables.entity_id
       WHERE taggables.entity_type = 'family_tree_person'
       GROUP BY tags.id
-    `).all() as { id: string; name: string; count: number }[];
+    `).all() as TagCountRow[];
 
     // Published stories, plus the viewer's own drafts — the same visibility rule
     // listStories applies, so a tag never counts a story you can't open.
@@ -64,7 +63,7 @@ export function registerTagRoutes(app: FastifyInstance) {
       WHERE taggables.entity_type = '${STORY_ENTITY_TYPE}'
         AND (stories.status = 'published' OR stories.created_by = ? OR ? = 'admin')
       GROUP BY tags.id
-    `).all(user.id, user.role) as { id: string; name: string; count: number }[];
+    `).all(user.id, user.role) as TagCountRow[];
 
     // Albums and slideshows the viewer can actually reach. listAlbums /
     // listSlideshows own the "zero visible items hides it" rule, so ask them
@@ -79,7 +78,7 @@ export function registerTagRoutes(app: FastifyInstance) {
       FROM taggables
       JOIN tags ON tags.id = taggables.tag_id
       WHERE taggables.entity_type IN ('gallery_album', 'gallery_slideshow')
-    `).all() as { id: string; name: string; entity_id: string }[])
+    `).all() as (Pick<TagRow, "id"> & { name: TagRow["display_name"]; entity_id: TaggableRow["entity_id"] })[])
       .filter((row) => reachableSets.has(row.entity_id))
       .reduce((acc, row) => {
         const found = acc.get(row.id) ?? { id: row.id, name: row.name, count: 0 };
@@ -137,7 +136,7 @@ export function registerTagRoutes(app: FastifyInstance) {
     const name = decodeURIComponent((request.params as { name: string }).name);
     const user = request.user!;
     const tag = db.prepare("SELECT id, display_name FROM tags WHERE key = ?")
-      .get(normalizeText(name)) as { id: string; display_name: string } | undefined;
+      .get(normalizeText(name)) as Pick<TagRow, "id" | "display_name"> | undefined;
     if (!tag) {
       return reply.code(404).send({ error: "Tag not found" });
     }
@@ -163,7 +162,7 @@ export function registerTagRoutes(app: FastifyInstance) {
     const taggedIds = new Set((db.prepare(`
       SELECT entity_id FROM taggables
       WHERE tag_id = ? AND entity_type IN ('gallery_album', 'gallery_slideshow')
-    `).all(tag.id) as { entity_id: string }[]).map((row) => row.entity_id));
+    `).all(tag.id) as Pick<TaggableRow, "entity_id">[]).map((row) => row.entity_id));
 
     return reply.send({
       tag: {

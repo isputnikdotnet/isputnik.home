@@ -383,9 +383,9 @@ export function PhotoPicker({
         // bring its own picker mode when it lands.
         const unpickable = (pick === "video" && asset.kind !== "video") || asset.kind === "audio";
         return (
-          <button
+          <Button
+            variant="tile"
             key={asset.id}
-            type="button"
             className={`gallery-tile slideshow-browse-tile${isAdded ? " is-added" : isSelected ? " is-selected" : ""}${unpickable ? " is-unpickable" : ""}`}
             onClick={() => (pick ? onPick?.(asset) : toggle(asset))}
             disabled={isAdded || adding || unpickable}
@@ -408,7 +408,7 @@ export function PhotoPicker({
             ) : isSelected ? (
               <span className="slideshow-browse-badge selected"><Check size={16} aria-hidden="true" /></span>
             ) : null}
-          </button>
+          </Button>
         );
       })}
     </div>
@@ -465,7 +465,7 @@ export function PhotoPicker({
         </div>
       )}
 
-      <div className="modal-tabs">
+      <div className="modal-tabs" role="tablist">
         {([
           ["folders", t("gallery:photoPicker.tabFolders")],
           ["people", t("gallery:photoPicker.tabPeople")],
@@ -473,14 +473,15 @@ export function PhotoPicker({
           ["all", pick === "video" ? t("gallery:photoPicker.tabAllVideos") : t("gallery:photoPicker.tabAll")],
           ...(canUploadHere ? [["upload", t("gallery:photoPicker.tabUpload")] as [PickerTab, string]] : [])
         ] as [PickerTab, string][]).map(([key, label]) => (
-          <button
+          <Button
+            variant="tab"
             key={key}
-            type="button"
-            className={`modal-tab${activeTab === key ? " active" : ""}`}
+            className="modal-tab"
+            selected={activeTab === key}
             onClick={() => { setTab(key); if (key === "upload") setUploadNotice(""); }}
           >
             {label}
-          </button>
+          </Button>
         ))}
       </div>
 
@@ -491,10 +492,11 @@ export function PhotoPicker({
         visiblePeople.length > 0 ? (
           <div className="photo-picker-chips" role="tablist" aria-label={t("gallery:photoPicker.tabPeople")}>
             {visiblePeople.map((p) => (
-              <button
+              <Button
+                variant="tab"
                 key={p.id}
-                type="button"
                 className={`photo-picker-chip${person?.id === p.id ? " is-active" : ""}`}
+                aria-selected={person?.id === p.id}
                 onClick={() => { setPersonAssets([]); setPerson(p); }}
               >
                 <span className="photo-picker-chip-avatar">
@@ -504,7 +506,7 @@ export function PhotoPicker({
                   <strong>{p.name || t("gallery:common.unnamed")}</strong>
                   <small>{t("gallery:common.counts.photo", { count: p.faceCount })}</small>
                 </span>
-              </button>
+              </Button>
             ))}
           </div>
         ) : (
@@ -519,15 +521,16 @@ export function PhotoPicker({
         visibleTags.length > 0 ? (
           <div className="photo-picker-chips" role="tablist" aria-label={t("gallery:photoPicker.tabTags")}>
             {visibleTags.map((name) => (
-              <button
+              <Button
+                variant="tab"
                 key={name}
-                type="button"
                 className={`photo-picker-chip photo-picker-chip-tag${tag === name ? " is-active" : ""}`}
+                aria-selected={tag === name}
                 onClick={() => { setTagAssets([]); setTag(name); }}
               >
                 <Tag size={13} aria-hidden="true" />
                 <span>{name}</span>
-              </button>
+              </Button>
             ))}
           </div>
         ) : (
@@ -571,9 +574,9 @@ export function PhotoPicker({
             <p className="gallery-section-label">{folderResults.length === 0 ? t("gallery:photoPicker.noFoldersMatch") : t("gallery:photoPicker.matchingFolders")}</p>
             <div className="gallery-folder-grid">
               {folderResults.map((folder) => (
-                <button
+                <Button
+                  variant="tile"
                   key={folder.path}
-                  type="button"
                   className="gallery-folder-tile"
                   onClick={() => {
                     openedFromSearch.current = true;
@@ -588,20 +591,20 @@ export function PhotoPicker({
                   </span>
                   <strong>{folder.name}</strong>
                   <small>{t("gallery:common.counts.item", { count: folder.assetCount })}</small>
-                </button>
+                </Button>
               ))}
             </div>
           </>
         ) : (
           <>
             <div className="gallery-breadcrumb slideshow-browse-crumbs">
-              <button type="button" onClick={() => void loadFolder("")} disabled={adding}>{t("gallery:folders.allFolders")}</button>
+              <Button variant="bare" onClick={() => void loadFolder("")} disabled={adding}>{t("gallery:folders.allFolders")}</Button>
               {breadcrumbParts.map((part, i) => {
                 const target = breadcrumbParts.slice(0, i + 1).join("/");
                 return (
                   <span key={target} className="slideshow-browse-crumb">
                     <ChevronRight size={14} aria-hidden="true" />
-                    <button type="button" onClick={() => void loadFolder(target)} disabled={adding}>{part}</button>
+                    <Button variant="bare" onClick={() => void loadFolder(target)} disabled={adding}>{part}</Button>
                   </span>
                 );
               })}
@@ -611,13 +614,13 @@ export function PhotoPicker({
                 <p className="gallery-section-label">{t("gallery:photoPicker.tabFolders")}</p>
                 <div className="gallery-folder-grid">
                   {folders.map((folder) => (
-                    <button key={folder.path} type="button" className="gallery-folder-tile" onClick={() => void loadFolder(folder.path)} disabled={adding}>
+                    <Button variant="tile" key={folder.path} className="gallery-folder-tile" onClick={() => void loadFolder(folder.path)} disabled={adding}>
                       <span className="gallery-folder-thumb">
                         {folder.coverUrl ? <img src={folder.coverUrl} alt="" loading="lazy" /> : <Folder size={28} aria-hidden="true" />}
                       </span>
                       <strong>{folder.name}</strong>
                       <small>{t("gallery:common.counts.item", { count: folder.assetCount })}</small>
-                    </button>
+                    </Button>
                   ))}
                 </div>
               </>
@@ -692,14 +695,14 @@ export function PhotoPicker({
                   {asset.coverUrl
                     ? <img src={asset.coverUrl} alt="" loading="lazy" />
                     : <ImageIcon size={14} aria-hidden="true" />}
-                  <button
-                    type="button"
+                  <Button
+                    variant="bare"
                     className="photo-picker-tray-remove"
                     onClick={() => toggle(asset)}
                     aria-label={t("gallery:photoPicker.trayRemoveAria", { title: asset.title })}
                   >
                     <X size={11} aria-hidden="true" />
-                  </button>
+                  </Button>
                 </span>
               ))}
               {trayEntries.length > 8 && <span className="photo-picker-tray-overflow">+{trayEntries.length - 8}</span>}

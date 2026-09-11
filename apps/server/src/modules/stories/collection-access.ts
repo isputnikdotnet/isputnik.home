@@ -25,6 +25,7 @@ import {
   type AuthUser,
   type ObjectRole
 } from "../../core/permissions.js";
+import type { StoryCollectionRow } from "../../db/rows.js";
 
 export const STORY_COLLECTION_OBJECT_TYPE = "story_collection";
 
@@ -53,7 +54,7 @@ export function canManageCollection(user: RequestUser, collectionId: string): bo
  *  null = unrestricted (admin), so callers skip the SQL clause entirely. */
 export function visibleCollectionIds(user: RequestUser): string[] | null {
   if (user.role === "admin") return null;
-  const ids = (db.prepare("SELECT id FROM story_collections").all() as { id: string }[]).map((row) => row.id);
+  const ids = (db.prepare("SELECT id FROM story_collections").all() as Pick<StoryCollectionRow, "id">[]).map((row) => row.id);
   return ids.filter((id) => resolveObjectRole(STORY_COLLECTION_OBJECT_TYPE, id, user as AuthUser) != null);
 }
 

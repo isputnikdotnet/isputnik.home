@@ -874,7 +874,7 @@
     radial-gradient(circle at 15% 20%, var(--auth-glow-primary), transparent 55%),
     radial-gradient(circle at 85% 80%, var(--auth-glow-secondary), transparent 50%),
     linear-gradient(160deg, var(--auth-bg-start), var(--auth-bg-mid) 55%, var(--auth-bg-end));
-  color: var(--text);
+  color: inherit;
 }
 
 .device-link-panel {

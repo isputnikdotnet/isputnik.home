@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { nanoid } from "nanoid";
-import { db, logActivity, publicUser, type Role, type User } from "../../db.js";
+import { db, logActivity, publicUser, type User } from "../../db.js";
 import { sha256, hashPassword } from "../../crypto.js";
 import { addDays, issueSession } from "../../auth.js";
 import { config } from "../../config.js";
@@ -9,6 +9,9 @@ import { parseBody, setupSchema, getUserByEmail, requestOrigin } from "../../cor
 import { getDefaultTheme } from "../../core/app-config.js";
 import { alertNewAdmin, flagAbusiveRequest } from "../../core/security-alerts.js";
 import { noteSignInNetwork } from "../../core/security.js";
+import type { InviteRow, UserRow } from "../../db/rows.js";
+
+type LiveInvite = Pick<InviteRow, "id" | "role" | "expires_at">;
 
 // The live-invite lookup both public routes share. A miss splits two ways, and
 // only one of them counts: a token whose hash matches no row at all can only be
@@ -18,7 +21,7 @@ import { noteSignInNetwork } from "../../core/security.js";
 export function resolveLiveInvite(
   token: string,
   request: FastifyRequest
-): { id: string; role: Role; expires_at: string } | null {
+): LiveInvite | null {
   const hash = sha256(token);
   const invite = db.prepare(`
     SELECT id, role, expires_at
@@ -27,7 +30,7 @@ export function resolveLiveInvite(
       AND used_at IS NULL
       AND revoked_at IS NULL
       AND expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-  `).get(hash) as { id: string; role: Role; expires_at: string } | undefined;
+  `).get(hash) as LiveInvite | undefined;
   if (invite) return invite;
 
   if (!db.prepare("SELECT 1 FROM invites WHERE token_hash = ?").get(hash)) {
@@ -41,15 +44,10 @@ const inviteSchema = z.object({
   expiresInDays: z.number().int().min(1).max(30).default(config.inviteDays)
 });
 
-interface InviteListRow {
-  id: string;
-  role: Role;
-  created_at: string;
-  expires_at: string;
-  used_at: string | null;
-  created_by_name: string;
-  used_by_name: string | null;
-}
+type InviteListRow = Pick<InviteRow, "id" | "role" | "created_at" | "expires_at" | "used_at"> & {
+  created_by_name: UserRow["display_name"];
+  used_by_name: UserRow["display_name"] | null;
+};
 
 export async function invitesPlugin(app: FastifyInstance) {
   app.post("/api/invites", { preHandler: app.requireAdmin }, async (request, reply) => {

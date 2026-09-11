@@ -5,6 +5,7 @@ import { api } from "../../api";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
 import type { CollectionSummary } from "./types";
+import { Button } from "../../shared/Button";
 
 // Add or remove entities from the caller's collections. Reuses the generic
 // /api/collections endpoints — nothing here is type-specific beyond the
@@ -131,7 +132,8 @@ export function AddToCollectionModal({
 
           <div className="collection-pick-list">
             {(collections ?? []).map((collection) => (
-              <button
+              <Button
+                variant="bare"
                 className={`collection-pick-row${collection.containsItem ? " selected" : ""}`}
                 key={collection.id}
                 onClick={() => toggle(collection)}
@@ -144,7 +146,7 @@ export function AddToCollectionModal({
                   <strong>{collection.name}</strong>
                   <small>{t("user:count.items", { count: collection.itemCount })}</small>
                 </span>
-              </button>
+              </Button>
             ))}
             {collections && collections.length === 0 && (
               <p className="management-empty">{t("user:collections.noneYetCreate")}</p>
@@ -162,14 +164,14 @@ export function AddToCollectionModal({
                 placeholder={t("user:collections.newNamePlaceholder")}
                 maxLength={120}
               />
-              <button className="primary-button compact-button" onClick={createAndAdd} disabled={!newName.trim()}>{t("user:collections.createAndAdd")}</button>
-              <button className="secondary-button compact-button" onClick={() => setCreating(false)}><X size={15} /></button>
+              <Button variant="primary" compact onClick={createAndAdd} disabled={!newName.trim()}>{t("user:collections.createAndAdd")}</Button>
+              <Button variant="secondary" compact onClick={() => setCreating(false)}><X size={15} /></Button>
             </div>
           ) : (
-            <button className="secondary-button add-to-collection-new" onClick={() => setCreating(true)}>
+            <Button variant="secondary" className="add-to-collection-new" onClick={() => setCreating(true)}>
               <Plus size={16} />
               <span>{t("user:collections.newCollection")}</span>
-            </button>
+            </Button>
           )}
         </div>
     </Modal>

@@ -16,15 +16,11 @@
 import { db } from "../../../../db.js";
 import { getJob, recordAction, type JobOutcome } from "./jobs.js";
 import { runJobScan } from "./job-scan.js";
+import type { DuplicateJobResultFolderRow, DuplicateJobResultMemberRow, DuplicateJobResultRow, NonNull } from "../../../../db/rows.js";
 
 export type ReviewMark = "unreviewed" | "reviewed" | "skipped";
 
-interface ResultRow {
-  id: string;
-  job_id: string;
-  result_type: "photo_set" | "folder_set" | "contained" | "overlap";
-  status: string;
-}
+type ResultRow = Pick<DuplicateJobResultRow, "id" | "job_id" | "result_type" | "status">;
 
 const resultRow = (jobId: string, resultId: string): ResultRow | undefined =>
   db.prepare("SELECT id, job_id, result_type, status FROM duplicate_job_results WHERE id = ? AND job_id = ?")
@@ -62,13 +58,7 @@ export type RoleRefusal =
   | "member_protected"
   | "member_gone";
 
-interface RoleMemberRow {
-  id: string;
-  role: "keep" | "delete" | "protected";
-  status: string;
-  distance: number;
-  size_snapshot: number | null;
-}
+type RoleMemberRow = Pick<DuplicateJobResultMemberRow, "id" | "role" | "status" | "distance" | "size_snapshot">;
 
 /** Overrule the scan about which copies of one set survive.
  *
@@ -200,10 +190,10 @@ export function dismissResult(
 
   const folders = db.prepare(
     "SELECT library_id, folder_path, role FROM duplicate_job_result_folders WHERE result_id = ?"
-  ).all(resultId) as { library_id: string; folder_path: string; role: string }[];
+  ).all(resultId) as Pick<DuplicateJobResultFolderRow, "library_id" | "folder_path" | "role">[];
   const members = db.prepare(
     "SELECT item_id, role FROM duplicate_job_result_members WHERE result_id = ? AND item_id IS NOT NULL"
-  ).all(resultId) as { item_id: string; role: string }[];
+  ).all(resultId) as NonNull<Pick<DuplicateJobResultMemberRow, "item_id" | "role">, "item_id">[];
 
   db.transaction(() => {
     if (row.result_type === "photo_set") {

@@ -11,6 +11,8 @@ import type {
   SlideshowSubtitleMode, SlideshowTitleBackground
 } from "./types";
 import { faceFocusStyle } from "./types";
+// The font-style chips' faces: declared with this dialog, not on every route (docs/css-map.md).
+import "../../styles/slideshow-fonts.css";
 
 // A clip's length as the row shows it — "1:23" past a minute, "45s" under one.
 function clipLength(seconds: number | null): string | null {
@@ -142,24 +144,22 @@ export function SlideshowTitleCardModal({
           alone, centred. */}
       <div className={`modal-tab-content slideshow-title-body${enabled ? "" : " is-disabled"}`}>
         <div className="slideshow-title-tabs" role="tablist" aria-label={t("galleryModals:titleCard.tabsAria")}>
-          <button
-            type="button"
-            role="tab"
+          <Button
+            variant="tab"
             aria-selected={opening}
             className={opening ? "is-on" : ""}
             onClick={() => switchCard("opening")}
           >
             {t("galleryModals:titleCard.tabOpening")}
-          </button>
-          <button
-            type="button"
-            role="tab"
+          </Button>
+          <Button
+            variant="tab"
             aria-selected={!opening}
             className={opening ? "" : "is-on"}
             onClick={() => switchCard("closing")}
           >
             {t("galleryModals:titleCard.tabClosing")}
-          </button>
+          </Button>
         </div>
 
         {error && (
@@ -310,9 +310,9 @@ export function SlideshowTitleCardModal({
                 <span className="slideshow-setting-label">{t("galleryModals:titleCard.secondLineLabel")}</span>
                 <div className="slideshow-transitions">
                   {SUBTITLES.map((option) => (
-                    <button
+                    <Button
+                      variant="bare"
                       key={option.value}
-                      type="button"
                       className={slideshow.titleSubtitleMode === option.value ? "is-on" : ""}
                       aria-pressed={slideshow.titleSubtitleMode === option.value}
                       disabled={saving}
@@ -321,7 +321,7 @@ export function SlideshowTitleCardModal({
                       }}
                     >
                       {option.label}
-                    </button>
+                    </Button>
                   ))}
                 </div>
                 {slideshow.titleSubtitleMode === "custom" && (
@@ -365,9 +365,9 @@ export function SlideshowTitleCardModal({
               <span className="slideshow-setting-label">{t("galleryModals:titleCard.fontStyleLabel")}</span>
               <div className="slideshow-transitions">
                 {FONTS.map((option) => (
-                  <button
+                  <Button
+                    variant="bare"
                     key={option.value}
-                    type="button"
                     className={`slideshow-card-font is-${option.value}${slideshow.cardFont === option.value ? " is-on" : ""}`}
                     aria-pressed={slideshow.cardFont === option.value}
                     disabled={saving}
@@ -376,7 +376,7 @@ export function SlideshowTitleCardModal({
                     }}
                   >
                     {option.label}
-                  </button>
+                  </Button>
                 ))}
               </div>
               <small className="muted">
@@ -388,9 +388,9 @@ export function SlideshowTitleCardModal({
               <span className="slideshow-setting-label">{t("galleryModals:titleCard.textSizeLabel")}</span>
               <div className="slideshow-transitions">
                 {SIZES.map((option) => (
-                  <button
+                  <Button
+                    variant="bare"
                     key={option.value}
-                    type="button"
                     className={slideshow.cardSize === option.value ? "is-on" : ""}
                     aria-pressed={slideshow.cardSize === option.value}
                     disabled={saving}
@@ -399,7 +399,7 @@ export function SlideshowTitleCardModal({
                     }}
                   >
                     {option.label}
-                  </button>
+                  </Button>
                 ))}
               </div>
               <small className="muted">{t("galleryModals:titleCard.sizeHint")}</small>
@@ -435,9 +435,9 @@ export function SlideshowTitleCardModal({
               <span className="slideshow-setting-label">{t("galleryModals:titleCard.backgroundLabel")}</span>
               <div className="slideshow-transitions">
                 {BACKGROUNDS.map((option) => (
-                  <button
+                  <Button
+                    variant="bare"
                     key={option.value}
-                    type="button"
                     className={background === option.value ? "is-on" : ""}
                     aria-pressed={background === option.value}
                     disabled={saving}
@@ -448,7 +448,7 @@ export function SlideshowTitleCardModal({
                     }}
                   >
                     {option.label}
-                  </button>
+                  </Button>
                 ))}
               </div>
               <small className="muted">
@@ -466,9 +466,9 @@ export function SlideshowTitleCardModal({
                   <span className="slideshow-setting-label">{t("galleryModals:titleCard.whichPhotoLabel")}</span>
                   <div className="slideshow-title-photos">
                     {photos.map((photo) => (
-                      <button
+                      <Button
+                        variant="tile"
                         key={photo.id}
-                        type="button"
                         className={`slideshow-title-photo${photo.id === selectedPhotoId ? " is-selected" : ""}`}
                         aria-pressed={photo.id === selectedPhotoId}
                         disabled={saving}
@@ -483,7 +483,7 @@ export function SlideshowTitleCardModal({
                         {photo.coverUrl
                           ? <img src={photo.coverUrl} alt="" loading="lazy" style={faceFocusStyle(photo)} />
                           : <span className="gallery-tile-fallback"><ImageIcon size={20} aria-hidden="true" /></span>}
-                      </button>
+                      </Button>
                     ))}
                   </div>
                 </div>

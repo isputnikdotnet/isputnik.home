@@ -9,6 +9,7 @@ import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { formatDuration } from "../../shared/utils";
 import { UserAreaNav } from "../library/UserAreaNav";
 import type { CollectionDetail, CollectionItem } from "./types";
+import { Button } from "../../shared/Button";
 
 const PLAYER_FEATURES = "width=500,height=700,resizable=yes,scrollbars=yes";
 
@@ -101,10 +102,10 @@ export function CollectionDetailPage({
     <DashboardShell active="user" sideNav={<UserAreaNav active="collections" />}>
       <section className="work-area audiobook-area">
         <div className="book-detail-topbar">
-          <button className="audiobook-back-button" type="button" onClick={() => goBack("/collections")}>
+          <Button variant="bare" className="audiobook-back-button" onClick={() => goBack("/collections")}>
             <ArrowLeft size={18} aria-hidden="true" />
             <span>{t("user:collections.backTo")}</span>
-          </button>
+          </Button>
         </div>
 
         {error && <MessageBox tone="error" title={t("user:collections.detailErrorTitle")}>{error}</MessageBox>}
@@ -122,22 +123,23 @@ export function CollectionDetailPage({
                       onKeyDown={(e) => { if (e.key === "Enter") void saveName(); if (e.key === "Escape") setEditingName(false); }}
                       maxLength={120}
                     />
-                    <button className="primary-button compact-button" onClick={saveName}>{t("user:actions.save")}</button>
-                    <button className="secondary-button compact-button" onClick={() => setEditingName(false)}><X size={15} /></button>
+                    <Button variant="primary" compact onClick={saveName}>{t("user:actions.save")}</Button>
+                    <Button variant="secondary" compact onClick={() => setEditingName(false)}><X size={15} /></Button>
                   </div>
                 ) : (
                   <>
                     <p className="eyebrow">{t("user:collections.eyebrow")}</p>
                     <h1>
                       {collection.name}
-                      <button
-                        className="icon-button collection-rename"
+                      <Button
+                        variant="icon"
+                        className="collection-rename"
                         onClick={() => { setNameDraft(collection.name); setEditingName(true); }}
                         aria-label={t("user:collections.renameAria")}
                         title={t("user:collections.rename")}
                       >
                         <Pencil size={15} />
-                      </button>
+                      </Button>
                     </h1>
                     <span className="muted">{t("user:count.items", { count: items.length })}</span>
                   </>
@@ -145,15 +147,15 @@ export function CollectionDetailPage({
               </div>
               <div className="collection-head-actions">
                 {firstPlayable && (
-                  <button className="primary-button compact-button" onClick={() => playFrom(firstPlayable)}>
+                  <Button variant="primary" compact onClick={() => playFrom(firstPlayable)}>
                     <Play size={16} />
                     <span>{hasUnplayable ? t("user:collections.playAudio") : t("user:collections.playAll")}</span>
-                  </button>
+                  </Button>
                 )}
-                <button className="secondary-button compact-button danger" onClick={() => setConfirmDelete(true)}>
+                <Button variant="secondary" compact danger onClick={() => setConfirmDelete(true)}>
                   <Trash2 size={15} />
                   <span>{t("user:actions.delete")}</span>
-                </button>
+                </Button>
               </div>
             </div>
 
@@ -181,7 +183,8 @@ export function CollectionDetailPage({
                 {items.map((item, index) => (
                   <article className={`collection-item-row${item.available ? "" : " unavailable"}`} key={item.id}>
                     <span className="collection-item-pos">{index + 1}</span>
-                    <button
+                    <Button
+                      variant="bare"
                       className="collection-item-main"
                       disabled={!item.available}
                       onClick={() => item.available && navigate(item.href)}
@@ -198,27 +201,27 @@ export function CollectionDetailPage({
                           {item.durationSeconds != null ? ` · ${formatDuration(item.durationSeconds)}` : ""}
                         </small>
                       </span>
-                    </button>
+                    </Button>
                     <div className="collection-item-actions">
                       {item.available && item.playable && (
-                        <button className="icon-button" onClick={() => playFrom(item)} aria-label={t("common:home.playTitle", { title: item.title })} title={t("user:collections.playFromHere")}>
+                        <Button variant="icon" onClick={() => playFrom(item)} aria-label={t("common:home.playTitle", { title: item.title })} title={t("user:collections.playFromHere")}>
                           <Play size={15} />
-                        </button>
+                        </Button>
                       )}
                       {item.available && !item.playable && item.entityType === "ebook" && (
-                        <button className="icon-button" onClick={() => navigate(`${item.href}?read=1`)} aria-label={t("common:home.readTitle", { title: item.title })} title={t("common:home.read")}>
+                        <Button variant="icon" onClick={() => navigate(`${item.href}?read=1`)} aria-label={t("common:home.readTitle", { title: item.title })} title={t("common:home.read")}>
                           <BookOpen size={15} />
-                        </button>
+                        </Button>
                       )}
-                      <button className="icon-button" onClick={() => moveItem(index, -1)} disabled={index === 0 || busy} aria-label={t("user:collections.moveUp")}>
+                      <Button variant="icon" onClick={() => moveItem(index, -1)} disabled={index === 0 || busy} aria-label={t("user:collections.moveUp")}>
                         <ChevronUp size={15} />
-                      </button>
-                      <button className="icon-button" onClick={() => moveItem(index, 1)} disabled={index === items.length - 1 || busy} aria-label={t("user:collections.moveDown")}>
+                      </Button>
+                      <Button variant="icon" onClick={() => moveItem(index, 1)} disabled={index === items.length - 1 || busy} aria-label={t("user:collections.moveDown")}>
                         <ChevronDown size={15} />
-                      </button>
-                      <button className="icon-button danger" onClick={() => removeItem(item)} aria-label={t("user:collections.removeAria", { title: item.title })} title={t("user:collections.removeFromCollection")}>
+                      </Button>
+                      <Button variant="icon" danger onClick={() => removeItem(item)} aria-label={t("user:collections.removeAria", { title: item.title })} title={t("user:collections.removeFromCollection")}>
                         <Trash2 size={15} />
-                      </button>
+                      </Button>
                     </div>
                   </article>
                 ))}

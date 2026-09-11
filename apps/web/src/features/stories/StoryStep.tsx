@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { followReplace } from "../../router";
+import { Button } from "../../shared/Button";
 
 // One stop on a story's rail: the picture it opens on (or its number), what
 // it's called, and when it was.
@@ -39,14 +40,14 @@ export function StoryStep({
 
   if (href === undefined) {
     return (
-      <button
-        type="button"
+      <Button
+        variant="bare"
         className={className}
         aria-current={current ? "page" : undefined}
         onClick={onSelect}
       >
         {body}
-      </button>
+      </Button>
     );
   }
 

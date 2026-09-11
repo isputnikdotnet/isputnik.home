@@ -8,6 +8,7 @@
 import { db } from "../../../../db.js";
 import { thumbnailAbsolutePath } from "../../shared/thumbnail.js";
 import { computeDhash } from "../media.js";
+import type { GalleryDetailRow, LibraryItemRow } from "../../../../db/rows.js";
 
 export const INBOX_ROTATIONS = [90, 180, 270] as const;
 
@@ -21,7 +22,7 @@ export async function inboxNearVariants(inboxLibraryId: string): Promise<Map<str
     JOIN gallery_details gd ON gd.item_id = li.id
     WHERE li.library_id = ? AND li.deleted_at IS NULL AND li.status = 'ready'
       AND gd.kind = 'photo' AND gd.phash IS NOT NULL AND gd.preview_storage_key IS NOT NULL
-  `).all(inboxLibraryId) as { id: string; preview: string }[];
+  `).all(inboxLibraryId) as (Pick<LibraryItemRow, "id"> & { preview: NonNullable<GalleryDetailRow["preview_storage_key"]> })[];
 
   const variants = new Map<string, string[]>();
   for (const row of rows) {

@@ -6,6 +6,7 @@ import { Modal } from "../../../shared/Modal";
 import { SelectField } from "../../../shared/SelectField";
 import type { AudiobookBookDetail } from "../types";
 import type { CatalogLibrary } from "./catalogKinds";
+import { Button } from "../../../shared/Button";
 
 // Upload one audiobook: pick the target library (when more than one allows
 // uploads), optionally name the book, then drop the audio files — or a whole
@@ -37,9 +38,9 @@ export function UploadBookModal({
       busy={busy}
       onClose={onClose}
       headerAction={
-        <button type="button" className="modal-close" onClick={onClose} disabled={busy} aria-label={t("common:common.close")}>
+        <Button variant="bare" className="modal-close" onClick={onClose} disabled={busy} aria-label={t("common:common.close")}>
           <X size={18} aria-hidden="true" />
-        </button>
+        </Button>
       }
     >
       {libraries.length > 1 && (

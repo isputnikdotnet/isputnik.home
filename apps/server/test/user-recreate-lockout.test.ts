@@ -5,14 +5,13 @@ vi.mock("../src/core/mail.js", async (importOriginal) => {
   return { ...actual, sendMail: vi.fn(async () => {}), isMailConfigured: () => false };
 });
 
-import Fastify, { type FastifyInstance } from "fastify";
-import cookie from "@fastify/cookie";
+import type { FastifyInstance } from "fastify";
 
 import { db } from "../src/db.js";
-import { issueSession, registerAuthDecorators } from "../src/auth.js";
 import { usersPlugin } from "../src/modules/users/users.js";
 import { isAccountLocked, recordLoginAttempt } from "../src/core/security.js";
 import { verifyPassword } from "../src/crypto.js";
+import { bootApp } from "./helpers/boot.js";
 import { makeUser, resetDb } from "./helpers/seed.js";
 
 // Deleting an account is a soft delete, and failed sign-ins are counted per email
@@ -24,35 +23,7 @@ const PASSWORD = "correct-horse-battery";
 const RECRUIT = "recruit@test.local";
 
 let app: FastifyInstance;
-
-async function buildApp(): Promise<FastifyInstance> {
-  const instance = Fastify();
-  await instance.register(cookie);
-  await registerAuthDecorators(instance);
-  await instance.register(usersPlugin);
-
-  instance.post("/test/sign-in/:userId", async (request, reply) => {
-    const { userId } = request.params as { userId: string };
-    issueSession(reply, userId, request);
-    return reply.send({ ok: true });
-  });
-
-  await instance.ready();
-  return instance;
-}
-
-function cookieFrom(headers: Record<string, unknown>): string {
-  const raw = headers["set-cookie"];
-  const list = Array.isArray(raw) ? raw : [String(raw)];
-  const found = list.find((entry) => entry.startsWith("isputnik_sid="));
-  if (!found) throw new Error("no session cookie was set");
-  return found.split(";")[0];
-}
-
-async function signIn(userId: string): Promise<string> {
-  const res = await app.inject({ method: "POST", url: `/test/sign-in/${userId}` });
-  return cookieFrom(res.headers as Record<string, unknown>);
-}
+let signIn: (userId: string) => Promise<string>;
 
 function createRecruit(admin: string, displayName = "New Recruit") {
   return app.inject({
@@ -71,7 +42,7 @@ function failSignIns(email: string, count = 5): void {
 beforeEach(async () => {
   resetDb();
   makeUser("boss", "admin");
-  app = await buildApp();
+  ({ app, signIn } = await bootApp({ plugins: [usersPlugin] }));
 });
 
 describe("re-creating an account with a deleted account's email", () => {

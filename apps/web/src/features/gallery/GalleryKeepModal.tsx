@@ -200,15 +200,15 @@ export function GalleryKeepModal({
                 {/* The root is a real answer — "just put them in the library" — so it
                     is offered rather than left to be guessed at with an empty box. */}
                 <li>
-                  <button
-                    type="button"
+                  <Button
+                    variant="bare"
                     className={`gallery-keep-folder${!dated && folder === "" ? " is-chosen" : ""}`}
                     onClick={() => chooseExisting("")}
                     disabled={busy}
                   >
                     <FolderOpen size={16} aria-hidden="true" />
                     <span className="gallery-keep-folder-path">{t("galleryModals:keep.libraryRoot")}</span>
-                  </button>
+                  </Button>
                 </li>
                 {folders === null ? (
                   <li className="muted gallery-keep-folder-note">{t("galleryModals:common.loading")}</li>
@@ -218,8 +218,8 @@ export function GalleryKeepModal({
                   </li>
                 ) : folders.map((hit) => (
                   <li key={hit.path}>
-                    <button
-                      type="button"
+                    <Button
+                      variant="bare"
                       className={`gallery-keep-folder${!dated && folder === hit.path ? " is-chosen" : ""}`}
                       onClick={() => chooseExisting(hit.path)}
                       disabled={busy}
@@ -227,7 +227,7 @@ export function GalleryKeepModal({
                       <FolderOpen size={16} aria-hidden="true" />
                       <span className="gallery-keep-folder-path">{hit.path}</span>
                       <span className="muted">{t("gallery:common.counts.photo", { count: hit.assetCount })}</span>
-                    </button>
+                    </Button>
                   </li>
                 ))}
               </ul>

@@ -5,6 +5,7 @@ import { sendMail, isMailConfigured } from "../../../core/mail.js";
 import { pathIsInside } from "./storage-roots.js";
 import { getLibraryForBook, canUserAccessBook, canUserDownloadBook } from "./library-access.js";
 import { mediaKind } from "./library-types.js";
+import type { DocumentFileRow, LibraryRow } from "../../../db/rows.js";
 
 // EPUB and PDF are the formats Amazon's Send-to-Kindle (and Kobo's email-in) accept
 // directly. Other formats (mobi/azw3/cbz/fb2) would need a conversion we don't do
@@ -24,14 +25,11 @@ interface SendableDoc {
   title: string;
 }
 
-interface DocRow {
-  doc_id: string;
-  relative_path: string;
-  format: string;
-  mime_type: string | null;
-  source_path: string;
-  title: string;
-}
+type DocRow = Pick<DocumentFileRow, "relative_path" | "format" | "mime_type"> &
+  Pick<LibraryRow, "source_path"> & {
+    doc_id: DocumentFileRow["id"];
+    title: string; // COALESCE(title, folder_path) — never NULL
+  };
 
 // Pick the best e-reader-ready document for a book, preferring EPUB over PDF.
 // Returns null when the book has no available EPUB/PDF content file (or it resolves

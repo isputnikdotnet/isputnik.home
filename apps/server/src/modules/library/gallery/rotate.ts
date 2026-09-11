@@ -11,6 +11,7 @@ import path from "node:path";
 import { db } from "../../../db.js";
 import { pathIsInside } from "../shared/storage-roots.js";
 import { generateGalleryThumbnails, type AssetKind } from "./media.js";
+import type { GalleryDetailRow, LibraryItemRow, LibraryRow } from "../../../db/rows.js";
 
 export type RotateDirection = "cw" | "ccw";
 
@@ -18,13 +19,9 @@ export type RotateResult =
   | { ok: true; rotation: number; kind: AssetKind }
   | { ok: false; status: number; error: string };
 
-interface RotateRow {
-  relative_path: string;
-  kind: string;
-  rotation: number | null;
-  library_id: string;
-  source_path: string;
-}
+type RotateRow = Pick<GalleryDetailRow, "relative_path" | "kind" | "rotation">
+  & Pick<LibraryItemRow, "library_id">
+  & Pick<LibraryRow, "source_path">;
 
 export async function rotateGalleryAsset(itemId: string, direction: RotateDirection): Promise<RotateResult> {
   const row = db.prepare(`

@@ -3,6 +3,7 @@ import { folderOverlapIgnores, folderSameOrInside, pickFolderKeeper, type Folder
 import { loadDetails } from "./details.js";
 import type { FolderPreference } from "./keeper.js";
 import { dirOf, MIN_FOLDER_FILES, SEP, type DeletionBlocks, type ScanFile, type Writer } from "./snapshot.js";
+import type { DuplicateJobResultFolderRow } from "../../../../db/rows.js";
 
 // ── Folders sharing some photos ─────────────────────────────────────────────
 //
@@ -80,7 +81,7 @@ export function snapshotOverlaps(
   // there, and repeating it here as a weaker statement is two answers to one question.
   const spokenFor = db.prepare(
     "SELECT library_id, folder_path FROM duplicate_job_result_folders WHERE job_id = ?"
-  ).all(jobId) as { library_id: string; folder_path: string }[];
+  ).all(jobId) as Pick<DuplicateJobResultFolderRow, "library_id" | "folder_path">[];
   const answeredAlready = (ref: { libraryId: string; folderPath: string }): boolean =>
     spokenFor.some((row) => folderSameOrInside(ref, { libraryId: row.library_id, folderPath: row.folder_path }));
 

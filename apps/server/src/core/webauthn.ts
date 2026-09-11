@@ -15,6 +15,7 @@ import type {
 } from "@simplewebauthn/server";
 import { config } from "../config.js";
 import { db, nowIso, type User } from "../db.js";
+import type { WebauthnChallengeRow as DbWebauthnChallengeRow, WebauthnCredentialRow } from "../db/rows.js";
 
 // Passkeys (WebAuthn). A passkey is a keypair whose private half stays in the
 // user's device or synced keychain: signing in means the browser signs a
@@ -41,28 +42,13 @@ const RP_NAME = "iSputnik";
 // row gets more slack so a slow fingerprint retry doesn't fail on our side first.
 const CHALLENGE_MINUTES = 5;
 
-export type WebauthnPurpose = "login" | "register";
+export type WebauthnPurpose = DbWebauthnChallengeRow["purpose"];
 
-export interface PasskeyRow {
-  id: string;
-  user_id: string;
-  credential_id: string;
-  public_key: string;
-  counter: number;
-  transports: string | null;
-  backed_up: number;
-  label: string | null;
-  created_at: string;
-  last_used_at: string | null;
-  last_ip: string | null;
-}
+// A whole webauthn_credentials row.
+export type PasskeyRow = WebauthnCredentialRow;
 
-export interface WebauthnChallengeRow {
-  id: string;
-  user_id: string | null;
-  purpose: WebauthnPurpose;
-  challenge: string;
-}
+// The ceremony columns of a webauthn_challenges row.
+export type WebauthnChallengeRow = Pick<DbWebauthnChallengeRow, "id" | "user_id" | "purpose" | "challenge">;
 
 // ── Relying party ────────────────────────────────────────────────────────────
 // APP_URL is the operator's statement of how the app is reached, and it's the only

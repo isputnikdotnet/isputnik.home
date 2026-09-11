@@ -87,10 +87,10 @@ export function AddSiblingModal({
       </p>
       <div className="ft-partner-pick">
         {sibling ? (
-          <button type="button" className="ft-picker-row" onClick={() => setPickerOpen(true)} disabled={saving}>
+          <Button variant="bare" className="ft-picker-row" onClick={() => setPickerOpen(true)} disabled={saving}>
             <PersonAvatar person={sibling} size={36} />
             <span className="ft-picker-row-name"><strong>{sibling.name}</strong><small>{t("family:addSibling.changeSibling")}</small></span>
-          </button>
+          </Button>
         ) : (
           <Button variant="secondary" onClick={() => setPickerOpen(true)} disabled={saving}>
             {t("family:addSibling.chooseSibling")}

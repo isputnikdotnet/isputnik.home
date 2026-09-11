@@ -39,6 +39,7 @@ import {
   type GalleryMemoryGroup
 } from "../library/gallery/catalog-memories.js";
 import { dailyQuote, type DailyQuote } from "../library/quotes-daily.js";
+import type { GalleryFaceRow, ItemMetadataRow, LibraryItemRow, SeriesRow } from "../../db/rows.js";
 
 interface RequestUser {
   id: string;
@@ -155,7 +156,7 @@ function itemsWithPeople(itemIds: string[]): Set<string> {
   const rows = db.prepare(`
     SELECT DISTINCT item_id FROM gallery_faces
     WHERE assignment != 'rejected' AND item_id IN (${itemIds.map(() => "?").join(", ")})
-  `).all(...itemIds) as { item_id: string }[];
+  `).all(...itemIds) as Pick<GalleryFaceRow, "item_id">[];
   return new Set(rows.map((row) => row.item_id));
 }
 
@@ -231,14 +232,13 @@ function photosAddedCard(user: RequestUser): PhotosAddedCard | null {
   };
 }
 
-interface BatchRow {
+type BatchRow = Pick<LibraryItemRow, "discovered_at"> & {
   day: string;
-  discovered_at: string;
-  cover: string | null;
+  cover: ItemMetadataRow["cover_storage_key"] | null;
   rn: number;
   n: number;
-  newest: string;
-}
+  newest: LibraryItemRow["discovered_at"];
+};
 
 // One card per calendar day that brought books in — count plus a cover fan —
 // never the N loose tiles the old "Recently added" row was.
@@ -287,15 +287,13 @@ function addedBatchCards(user: RequestUser): AddedBatchCard[] {
   return cards;
 }
 
-interface SeriesNextRow {
-  series_name: string;
+type SeriesNextRow = Pick<LibraryItemRow, "id" | "folder_path"> & {
+  series_name: SeriesRow["name"];
   finished_title: string | null;
-  id: string;
-  kind: "audiobook" | "ebook";
-  title: string | null;
-  folder_path: string;
-  cover: string | null;
-}
+  kind: "audiobook" | "ebook"; // libraries.type, within bookLibraryIds()
+  title: ItemMetadataRow["title"] | null;
+  cover: ItemMetadataRow["cover_storage_key"] | null;
+};
 
 // The one v1 suggestion source: you finished book N of a series, book N+1 is in
 // the library and you haven't opened it. All candidates are computed and one is

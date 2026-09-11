@@ -67,9 +67,9 @@ export function EmojiPicker({ onPick, disabled }: { onPick: (emoji: string) => v
       {open && (
         <div className="emoji-popover" role="dialog" aria-label={t("user:social.emoji")}>
           {EMOJI.map((emoji) => (
-            <button
+            <Button
+              variant="bare"
               key={emoji}
-              type="button"
               className="emoji-option"
               // The emoji itself is the label — a screen reader announces its
               // Unicode name, which is better than anything to be invented here.
@@ -80,7 +80,7 @@ export function EmojiPicker({ onPick, disabled }: { onPick: (emoji: string) => v
               }}
             >
               {emoji}
-            </button>
+            </Button>
           ))}
         </div>
       )}

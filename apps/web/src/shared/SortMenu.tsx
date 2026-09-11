@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { ArrowDownUp, ChevronDown } from "lucide-react";
 import { cx } from "./cx";
 import { useAnchoredMenu } from "./useAnchoredMenu";
+import { useMenuKeyboard } from "./useMenuKeyboard";
 
 export interface SortOption<T extends string> {
   value: T;
@@ -35,6 +36,11 @@ export interface SortMenuGroup {
 // anchored inside it. Being out of that box, it also has to decide its own
 // alignment — it hangs from the trigger's right edge when a left-anchored menu
 // would run off-screen, which for a control at the end of a toolbar is always.
+//
+// Each choice is a menuitemradio with aria-checked, since a sort is one value out
+// of several, not a command. Focus moves into the menu on open (to the current
+// choice), arrows walk it, and Escape, Tab or a choice put focus back on the
+// trigger — see useMenuKeyboard.
 interface SortMenuChrome {
   ariaLabel?: string;
   /**
@@ -61,6 +67,7 @@ export function SortMenu<T extends string>(props: SortMenuChrome & (
   const { ariaLabel = t("sort.label"), presentation = "inline", icon, label } = props;
   const compact = presentation === "icon";
   const { open, pos, toggle, close, triggerRef, menuRef } = useAnchoredMenu();
+  const menuKeys = useMenuKeyboard({ open: open && pos !== null, close, menuRef, triggerRef });
   // One code path for both shapes: a single-setting menu is a menu of one
   // unheaded group.
   const groups: SortMenuGroup[] = props.groups
@@ -132,6 +139,7 @@ export function SortMenu<T extends string>(props: SortMenuChrome & (
           className="book-detail-action-menu audiobook-library-menu audiobook-sort-menu"
           role="menu"
           aria-label={ariaLabel}
+          onKeyDown={menuKeys.onKeyDown}
           style={{ position: "fixed", top: pos.top, left: pos.left ?? undefined, right: pos.right ?? undefined, minWidth: pos.width }}
         >
           {groups.map((group, index) => {
@@ -139,9 +147,10 @@ export function SortMenu<T extends string>(props: SortMenuChrome & (
               <button
                 key={option.value}
                 type="button"
-                role="menuitem"
+                role="menuitemradio"
+                aria-checked={group.value === option.value}
                 className={group.value === option.value ? "active" : ""}
-                onClick={() => { group.onChange(option.value); close(); }}
+                onClick={() => { group.onChange(option.value); menuKeys.closeAndRestore(); }}
               >
                 <span>{option.label}</span>
               </button>

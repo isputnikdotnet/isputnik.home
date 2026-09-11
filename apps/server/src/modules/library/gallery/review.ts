@@ -14,6 +14,9 @@ import { curatableGalleryLibraryIds } from "../shared/shares/album-shares.js";
 import { getAlbum } from "./albums.js";
 import { ASSET_COLUMNS, ASSET_JOINS, mapAsset, type GalleryAssetRow } from "./catalog-asset.js";
 import { resolveGalleryScopeLibraryIds } from "./catalog-scope.js";
+import type { LibraryRow, UserRow } from "../../../db/rows.js";
+
+type LibraryAccessRow = Pick<LibraryRow, "id" | "type" | "owner_id" | "owner_type" | "policy_json">;
 
 /** More than a box of prints; fewer than a lifetime. */
 const REVIEW_CAP = 500;
@@ -38,7 +41,7 @@ export function loadAlbumReview(user: { id: string; role: string }, albumId: str
     WHERE shares.module = 'gallery_album' AND shares.resource_id = ? AND shares.user_id = ?
       AND shares.revoked_at IS NULL
       AND (shares.expires_at IS NULL OR shares.expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-  `).get(albumId, user.id) as { creator_id: string; creator_role: string } | undefined;
+  `).get(albumId, user.id) as { creator_id: UserRow["id"]; creator_role: UserRow["role"] } | undefined;
   if (share) {
     for (const id of curatableGalleryLibraryIds({ id: share.creator_id, role: share.creator_role })) libIds.add(id);
   }
@@ -62,12 +65,12 @@ export function loadAlbumReview(user: { id: string; role: string }, albumId: str
   // Writable when every photo she can see is: one library she may edit, or an
   // edit share from someone who may. A mixed album reads as viewing only rather
   // than failing halfway through.
-  const libraryById = new Map<string, { id: string; type: string; owner_id: string | null; owner_type: string | null; policy_json: string }>();
+  const libraryById = new Map<string, LibraryAccessRow>();
   const canEdit = rows.length > 0 && rows.every((row) => {
     let library = libraryById.get(row.library_id);
     if (!library) {
       library = db.prepare("SELECT id, type, owner_id, owner_type, policy_json FROM libraries WHERE id = ?")
-        .get(row.library_id) as typeof library;
+        .get(row.library_id) as LibraryAccessRow | undefined;
       if (library) libraryById.set(row.library_id, library);
     }
     return library ? canUserWriteAsset(row.id, library, user.id, user.role) : false;

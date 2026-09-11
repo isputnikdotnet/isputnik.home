@@ -25,7 +25,7 @@ export function CatalogRowMobile({
   onToast,
   onOpenReader
 }: {
-  book: AudiobookBook & { format?: string | null };
+  book: AudiobookBook & { format?: string | null; documentId?: string | null };
   kind: "audiobook" | "ebook";
   canEdit: boolean;
   canDownload: boolean;
@@ -43,10 +43,16 @@ export function CatalogRowMobile({
   // An ebook is finished in its READING progress, like the desktop ebook tile. The
   // row used the listening routes for both kinds, so on a phone "mark finished" on
   // an ebook wrote audiobook progress the ebook never reads.
-  const { liked, likeBusy, toggleLike, status, statusBusy, toggleFinished } = useBookLike(
-    book as AudiobookBook & { documentId?: string | null },
-    kind === "ebook" ? "reading" : "listening"
-  );
+  const isEbook = kind === "ebook";
+  const { liked, likeBusy, toggleLike, status, statusBusy, toggleFinished } = useBookLike(book, isEbook ? "reading" : "listening");
+  // An ebook's reading progress and its file both belong to a DOCUMENT, so a row
+  // without one offers neither — as the desktop tile doesn't. (The row used to
+  // show both anyway: "mark as read" did nothing, and the download pointed at the
+  // audiobook route, which only knows audio files.)
+  const canMarkFinished = !isEbook || Boolean(book.documentId);
+  const downloadHref = isEbook
+    ? (book.documentId ? `/api/library/books/${book.id}/documents/${book.documentId}?download` : null)
+    : `/api/library/books/${book.id}/download`;
 
   const item: FeedItem = {
     id: book.id,
@@ -58,22 +64,22 @@ export function CatalogRowMobile({
     completedAt: book.progress?.completedAt ?? null,
     discoveredAt: book.discoveredAt,
     durationSeconds: book.durationSeconds,
-    format: kind === "ebook" ? (book.format ?? null) : null,
-    totalSize: kind === "ebook" ? book.totalSize : null
+    format: isEbook ? (book.format ?? null) : null,
+    totalSize: isEbook ? book.totalSize : null
   };
 
-  const detailHref = kind === "ebook" ? `/ebooks/books/${book.id}` : `/audiobooks/books/${book.id}`;
+  const detailHref = isEbook ? `/ebooks/books/${book.id}` : `/audiobooks/books/${book.id}`;
   const finished = status === "finished";
-  const markLabel = kind === "ebook"
+  const markLabel = isEbook
     ? (finished ? t("book:catalog.markUnreadLabel") : t("book:catalog.markAsReadLabel"))
     : (finished ? t("book:catalog.markUnplayedLabel") : t("book:catalog.markAsPlayedLabel"));
 
   const menuItems: FeedRowMenuItem[] = [
     { icon: Heart, label: liked ? t("book:detail.liked") : t("book:detail.like"), onClick: () => void toggleLike(), active: liked, disabled: likeBusy },
-    { icon: finished ? RotateCcw : CheckCircle2, label: markLabel, onClick: () => void toggleFinished(), disabled: statusBusy },
+    ...(canMarkFinished ? [{ icon: finished ? RotateCcw : CheckCircle2, label: markLabel, onClick: () => void toggleFinished(), disabled: statusBusy } as FeedRowMenuItem] : []),
     { icon: ListMusic, label: t("book:detail.addToCollection"), onClick: () => onAddToCollection(book) },
     { icon: Info, label: t("book:catalog.viewDetails"), onClick: () => navigate(detailHref) },
-    ...(canDownload ? [{ icon: Download, label: t("book:catalog.downloadFile"), href: `/api/library/books/${book.id}/download` } as FeedRowMenuItem] : []),
+    ...(canDownload && downloadHref ? [{ icon: Download, label: t("book:catalog.downloadFile"), href: downloadHref } as FeedRowMenuItem] : []),
     ...(canEdit ? [{ icon: Pencil, label: t("book:catalog.editDetails"), onClick: () => onEdit(book) } as FeedRowMenuItem] : []),
     ...(canDelete ? [{ icon: Trash2, label: t("book:catalog.delete"), onClick: () => onDelete(book), danger: true } as FeedRowMenuItem] : [])
   ];

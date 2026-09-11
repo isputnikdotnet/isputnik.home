@@ -1588,7 +1588,9 @@
   min-height: 420px;
   border-radius: 12px;
   overflow: hidden;
-  border: 1px solid var(--border);
+  /* No border: this read `1px solid var(--border)`, a property nothing defines,
+     so the declaration computed to nothing and never drew one. */
+  border: 0;
 }
 
 /* Thumbnail pins — strip Leaflet's default div-icon chrome and show the cover. */
@@ -2332,39 +2334,11 @@
 .slideshow-title-photo.is-selected { border-color: var(--mint); }
 .slideshow-title-photo:disabled { cursor: default; opacity: 0.6; }
 
-/* The title card's font-style chips, each drawn in its own face. The files are
-   copies of the very TTFs the server renders the movie with (public/fonts, see
-   apps/server/src/assets/fonts/README.md) — a chip is a truthful sample, and the
-   preview image above it is the final word. Loaded lazily: a browser only fetches
-   a face once a chip actually uses it, i.e. when this dialog opens. */
-@font-face {
-  font-family: "CardClassic";
-  src: url("/fonts/DejaVuSans.ttf") format("truetype");
-  font-display: swap;
-}
-@font-face {
-  font-family: "CardSerif";
-  src: url("/fonts/DejaVuSerif.ttf") format("truetype");
-  font-display: swap;
-}
-@font-face {
-  font-family: "CardBold";
-  src: url("/fonts/DejaVuSans-Bold.ttf") format("truetype");
-  font-display: swap;
-}
-@font-face {
-  font-family: "CardScript";
-  src: url("/fonts/MarckScript-Regular.ttf") format("truetype");
-  font-display: swap;
-}
-@font-face {
-  font-family: "CardTypewriter";
-  src: url("/fonts/PTMono-Regular.ttf") format("truetype");
-  font-display: swap;
-}
-
-/* A touch larger than the plain chips so the faces are recognizable at a glance;
-   Script gets the same optical nudge the render applies (small x-height). */
+/* The title card's font-style chips, each drawn in its own face — the faces
+   (@font-face) are declared in slideshow-fonts.css, which loads with
+   SlideshowTitleCardModal. A touch larger than the plain chips so the faces are
+   recognizable at a glance; Script gets the same optical nudge the render
+   applies (small x-height). */
 .slideshow-transitions button.slideshow-card-font { font-size: 14px; }
 .slideshow-card-font.is-classic { font-family: "CardClassic", Verdana, sans-serif; }
 .slideshow-card-font.is-serif { font-family: "CardSerif", Georgia, serif; }
@@ -2508,6 +2482,39 @@
 }
 
 /* ── Year in review ───────────────────────────────────────────────────────── */
+
+/* The Memories view's opening row (MemoriesView): a card that plays the year,
+   with the button that keeps it as a slideshow underneath. */
+.gallery-year-hint {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* A shade wider than a memory tile: these are the headline cards of the view. */
+.gallery-year-card {
+  flex: 0 0 auto;
+  width: 210px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+.gallery-suggestion-row .gallery-year-card .gallery-folder-tile { width: 100%; }
+
+/* The year on the cover, so a row of them is scannable without reading titles. */
+.gallery-year-badge {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(18, 18, 20, 0.62);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
 
 /* Suggestion preview modal: subtitle + action row above a read-only photo grid. */
 .suggestion-preview-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
@@ -2779,7 +2786,7 @@
   padding: 5px 8px;
   border-radius: 6px;
   border: 1px solid var(--line);
-  background: var(--input-bg, var(--surface));
+  background: var(--surface);
   color: var(--ink);
   font: inherit;
   font-size: 0.88rem;

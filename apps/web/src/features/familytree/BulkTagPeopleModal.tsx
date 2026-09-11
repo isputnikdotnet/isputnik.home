@@ -168,8 +168,8 @@ export function BulkTagPeopleModal({
                   {person.name}
                   {lifeYears(person) && <small>{lifeYears(person)}</small>}
                 </span>
-                <button
-                  type="button"
+                <Button
+                  variant="bare"
                   className="ft-bulk-tag-person-drop"
                   title={t("family:bulkTags.dropPerson", { name: person.name })}
                   aria-label={t("family:bulkTags.dropPerson", { name: person.name })}
@@ -177,7 +177,7 @@ export function BulkTagPeopleModal({
                   onClick={() => setSelected((current) => current.filter((p) => p.id !== person.id))}
                 >
                   <X size={14} aria-hidden="true" />
-                </button>
+                </Button>
               </span>
             ))}
           </div>
@@ -193,8 +193,8 @@ export function BulkTagPeopleModal({
             <ul className="ft-bulk-tag-list">
               {rows.map((row) => (
                 <li key={row.name}>
-                  <button
-                    type="button"
+                  <Button
+                    variant="bare"
                     className={`ft-bulk-tag-row is-${row.choice}`}
                     aria-pressed={row.choice === "add"}
                     disabled={saving}
@@ -216,7 +216,7 @@ export function BulkTagPeopleModal({
                           ? row.state === "none" ? t("family:bulkTags.stateNone") : t("family:bulkTags.choiceRemove")
                           : t("family:bulkTags.choiceKeep", { count: row.count })}
                     </small>
-                  </button>
+                  </Button>
                 </li>
               ))}
             </ul>

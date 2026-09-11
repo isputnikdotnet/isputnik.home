@@ -116,8 +116,8 @@ export function SlideshowsView({
             ) : (
               <form className="gallery-person-rename" onSubmit={(event) => { event.preventDefault(); if (slideshowRename.trim()) void patchSlideshow(selectedSlideshow.id, { name: slideshowRename.trim() }); }}>
                 <input value={slideshowRename} onChange={(event) => setSlideshowRename(event.target.value)} placeholder={t("gallery:slideshows.namePlaceholder")} autoFocus maxLength={120} />
-                <button type="submit" className="primary-button compact-button" disabled={!slideshowRename.trim()}>{t("gallery:common.save")}</button>
-                <button type="button" className="icon-button" onClick={() => setSlideshowRename(null)} aria-label={t("common:common.cancel")}><X size={14} aria-hidden="true" /></button>
+                <Button variant="primary" compact type="submit" disabled={!slideshowRename.trim()}>{t("gallery:common.save")}</Button>
+                <Button variant="icon" onClick={() => setSlideshowRename(null)} aria-label={t("common:common.cancel")}><X size={14} aria-hidden="true" /></Button>
               </form>
             )}
             <p className="gallery-album-sub">
@@ -166,19 +166,18 @@ export function SlideshowsView({
         <section className="gallery-memory-suggestions" aria-label={t("gallery:suggestions.heading")}>
           <div className="gallery-memory-suggestions-head">
             <h2>{t("gallery:suggestions.heading")}</h2>
-            <button
-              type="button"
-              className="secondary-button compact-button"
+            <Button
+              variant="secondary" compact
               onClick={() => { const pick = memorySuggestions[Math.floor(Math.random() * memorySuggestions.length)]; if (pick) void openSuggestionPreview(pick); }}
             >
               <Sparkles size={15} aria-hidden="true" /> {t("gallery:suggestions.surpriseMe")}
-            </button>
+            </Button>
           </div>
           <div className="gallery-suggestion-row">
             {memorySuggestions.map((memory) => (
-              <button
+              <Button
+                variant="tile"
                 key={memory.id}
-                type="button"
                 className="gallery-folder-tile gallery-memory-tile"
                 onClick={() => void openSuggestionPreview(memory)}
                 title={t("gallery:suggestions.previewTitle", { title: memory.title })}
@@ -189,7 +188,7 @@ export function SlideshowsView({
                 </span>
                 <strong>{memory.title}</strong>
                 <small>{memory.subtitle}</small>
-              </button>
+              </Button>
             ))}
           </div>
         </section>
@@ -200,7 +199,7 @@ export function SlideshowsView({
           {memorySuggestions.length > 0 && !nameTerm && <h2 className="gallery-memories-title">{t("gallery:slideshows.yourSlideshowsHeading")}</h2>}
           <div className="gallery-folder-grid">
             {shownSlideshows.map((slideshow) => (
-              <button key={slideshow.id} type="button" className="gallery-folder-tile" onClick={() => { setSlideshowAssets([]); setSlideshowTotal(0); void openSlideshow(slideshow.id); }}>
+              <Button variant="tile" key={slideshow.id} className="gallery-folder-tile" onClick={() => { setSlideshowAssets([]); setSlideshowTotal(0); void openSlideshow(slideshow.id); }}>
                 <span className="gallery-folder-thumb">
                   {slideshow.coverUrl ? <img src={slideshow.coverUrl} alt="" loading="lazy" /> : <Film size={28} aria-hidden="true" />}
                   {slideshow.renderStatus === "ready" && <span className="slideshow-card-badge ready" title={t("gallery:slideshows.movieBadgeTitle")}><Play size={11} aria-hidden="true" />{t("gallery:slideshows.movieBadge")}</span>}
@@ -208,7 +207,7 @@ export function SlideshowsView({
                 </span>
                 <strong>{slideshow.name}</strong>
                 <small>{t("gallery:common.counts.photo", { count: slideshow.itemCount })}</small>
-              </button>
+              </Button>
             ))}
           </div>
         </>

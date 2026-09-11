@@ -11,6 +11,7 @@ import {
   type SlideshowRow
 } from "./slideshows.js";
 import { scanSingleGalleryFile } from "./scanner.js";
+import type { LibraryItemRow, LibraryRow } from "../../../db/rows.js";
 
 // ── Auto-save the rendered movie into a gallery library ──────────────────────
 // A slideshow can name a library to file its finished movie into, so the movie becomes a
@@ -91,7 +92,7 @@ export function foreignItemAt(
     WHERE library_items.library_id = ?
       AND gallery_details.relative_path = ?
       AND library_items.deleted_at IS NULL
-  `).get(libraryId, relativePath) as { id: string } | undefined;
+  `).get(libraryId, relativePath) as Pick<LibraryItemRow, "id"> | undefined;
   if (!row) return null;
   return row.id === ownItemId ? null : row.id;
 }
@@ -115,7 +116,7 @@ export async function saveMovieToLibrary(
   if (!libId) return { saved: false, itemId: null, error: null };
 
   const library = db.prepare("SELECT id, source_path FROM libraries WHERE id = ? AND type = 'gallery'")
-    .get(libId) as { id: string; source_path: string } | undefined;
+    .get(libId) as Pick<LibraryRow, "id" | "source_path"> | undefined;
   if (!library) {
     return { saved: false, itemId: null, error: "The library this movie saves to no longer exists." };
   }
@@ -157,7 +158,7 @@ export async function saveMovieToLibrary(
   if (staleLibraryId && stalePath && (staleLibraryId !== libId || stalePath !== relativePath)) {
     try {
       const old = db.prepare("SELECT source_path FROM libraries WHERE id = ? AND type = 'gallery'")
-        .get(staleLibraryId) as { source_path: string } | undefined;
+        .get(staleLibraryId) as Pick<LibraryRow, "source_path"> | undefined;
       if (old) {
         const oldRoot = staleLibraryId === libId ? root : validateLibrarySource(old.source_path);
         fs.rmSync(path.join(oldRoot, ...stalePath.split("/")), { force: true });

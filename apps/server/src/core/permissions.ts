@@ -7,6 +7,7 @@
 // Roles (assignments) say what a *user* may do; policies (library mode) say what is
 // allowed on the *object* at all. Both must pass.
 import { db } from "../db.js";
+import type { AssignmentRow as DbAssignmentRow, GroupMemberRow } from "../db/rows.js";
 
 // Built-in groups. Everyone is virtual (no member rows — it matches every signed-in
 // user); System Admins membership is real (reserved for the upcoming auth swap).
@@ -15,7 +16,7 @@ export const SYSTEM_ADMINS_GROUP_ID = "grp-system-admins";
 
 // Ordered weakest → strongest. `deny` is stored in assignments but is NOT a tier — it
 // is an explicit block handled separately, so it is not part of this rank.
-export type ObjectRole = "viewer" | "member" | "contributor" | "manager";
+export type ObjectRole = Exclude<DbAssignmentRow["role"], "deny">;
 const ROLE_RANK: Record<ObjectRole, number> = { viewer: 0, member: 1, contributor: 2, manager: 3 };
 
 export type LibraryAction =
@@ -54,11 +55,7 @@ export function roleAllows(role: ObjectRole | null, action: LibraryAction): bool
 const strongest = (roles: ObjectRole[]): ObjectRole =>
   roles.reduce((best, r) => (ROLE_RANK[r] > ROLE_RANK[best] ? r : best));
 
-interface AssignmentRow {
-  subject_type: "user" | "group";
-  subject_id: string;
-  role: ObjectRole | "deny";
-}
+type AssignmentRow = Pick<DbAssignmentRow, "subject_type" | "subject_id" | "role">;
 
 // Resolve the effective role a user holds on one object, or null for no access.
 //
@@ -68,7 +65,7 @@ interface AssignmentRow {
 // - For everyone else: a `deny` (theirs or a group's) blocks outright; otherwise the
 //   strongest explicit grant wins and overrides the Everyone baseline.
 export function resolveObjectRole(objectType: string, objectId: string, user: AuthUser): ObjectRole | null {
-  const groupIds = (db.prepare("SELECT group_id FROM group_members WHERE user_id = ?").all(user.id) as { group_id: string }[])
+  const groupIds = (db.prepare("SELECT group_id FROM group_members WHERE user_id = ?").all(user.id) as Pick<GroupMemberRow, "group_id">[])
     .map((g) => g.group_id);
   const subjectGroupIds = [...groupIds, EVERYONE_GROUP_ID];
   const placeholders = subjectGroupIds.map(() => "?").join(", ");
@@ -190,6 +187,6 @@ export function deleteAssignmentsForObject(objectType: string, objectId: string)
 export function getEveryoneRole(objectType: string, objectId: string): ObjectRole | null {
   const row = db.prepare(
     "SELECT role FROM assignments WHERE subject_type = 'group' AND subject_id = ? AND object_type = ? AND object_id = ? AND role != 'deny'"
-  ).get(EVERYONE_GROUP_ID, objectType, objectId) as { role: ObjectRole } | undefined;
+  ).get(EVERYONE_GROUP_ID, objectType, objectId) as { role: ObjectRole } | undefined; // role != 'deny' in the WHERE
   return row?.role ?? null;
 }

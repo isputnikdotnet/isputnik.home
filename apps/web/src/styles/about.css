@@ -1235,7 +1235,7 @@
   padding: 6px 10px;
   border: 1px solid var(--line);
   border-radius: 6px;
-  background: var(--bg, var(--surface));
+  background: var(--surface);
   font-size: 0.85rem;
 }
 

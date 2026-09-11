@@ -8,6 +8,7 @@ import { AudioPlayer } from "./AudioPlayer";
 import { DEFAULT_COVERS } from "./covers";
 import type { AudiobookBookDetail, BookSave } from "./types";
 import type { CollectionDetail } from "../collections/types";
+import { Button } from "../../shared/Button";
 
 interface QueueEntry {
   entityId: string;
@@ -211,14 +212,15 @@ export function PlayerPage({ id }: { id: string }) {
   return (
     <div className="popup-player-page">
       <div className="popup-topbar">
-        <button
+        <Button
+          variant="bare"
           className="popup-menu-btn popup-back-btn"
           onClick={dismiss}
           aria-label={isPopupWindow ? t("reader:playerPage.closePlayer") : t("reader:playerPage.back")}
           title={isPopupWindow ? t("common:common.close") : t("reader:playerPage.back")}
         >
           {isPopupWindow ? <X size={22} /> : <ChevronDown size={24} />}
-        </button>
+        </Button>
         {collectionId && queue.length > 0 && (
           <div className="popup-queue-badge" title={collectionName}>
             <ListMusic size={15} />
@@ -226,7 +228,8 @@ export function PlayerPage({ id }: { id: string }) {
           </div>
         )}
         <div className="popup-more" ref={menuRef}>
-          <button
+          <Button
+            variant="bare"
             className="popup-menu-btn"
             onClick={() => setMenuOpen((o) => !o)}
             aria-haspopup="menu"
@@ -235,17 +238,17 @@ export function PlayerPage({ id }: { id: string }) {
             title={t("reader:playerPage.moreOptions")}
           >
             <MoreVertical size={22} />
-          </button>
+          </Button>
           {menuOpen && (
             <div className="popup-more-menu" role="menu" aria-label={t("reader:playerPage.playerOptions")}>
-              <button className="popup-more-item" role="menuitem" onClick={openNoteEditor}>
+              <Button variant="bare" className="popup-more-item" role="menuitem" onClick={openNoteEditor}>
                 <StickyNote size={15} />
                 <span>{t("reader:playerPage.addNote")}</span>
-              </button>
-              <button className="popup-more-item" role="menuitem" onClick={markFinished} disabled={marking}>
+              </Button>
+              <Button variant="bare" className="popup-more-item" role="menuitem" onClick={markFinished} disabled={marking}>
                 <CheckCircle2 size={15} />
                 <span>{marking ? t("reader:playerPage.marking") : t("reader:playerPage.markFinished")}</span>
-              </button>
+              </Button>
               <a
                 className="popup-more-item"
                 role="menuitem"
@@ -256,10 +259,10 @@ export function PlayerPage({ id }: { id: string }) {
                 <Download size={15} />
                 <span>{t("reader:playerPage.download")}</span>
               </a>
-              <button className="popup-more-item danger" role="menuitem" onClick={resetProgress} disabled={resetting}>
+              <Button variant="bare" className="popup-more-item danger" role="menuitem" onClick={resetProgress} disabled={resetting}>
                 <RotateCcw size={15} />
                 <span>{resetting ? t("reader:playerPage.resetting") : t("reader:playerPage.resetProgress")}</span>
-              </button>
+              </Button>
             </div>
           )}
         </div>
@@ -270,9 +273,9 @@ export function PlayerPage({ id }: { id: string }) {
           <div className="popup-note-editor">
             <div className="popup-note-editor-head">
               <span>{t("reader:playerPage.noteForBook")}</span>
-              <button onClick={() => setNoteEditorOpen(false)} aria-label={t("reader:playerPage.closeNoteEditor")}>
+              <Button variant="bare" onClick={() => setNoteEditorOpen(false)} aria-label={t("reader:playerPage.closeNoteEditor")}>
                 <X size={15} />
-              </button>
+              </Button>
             </div>
             <textarea
               value={noteDraft}
@@ -282,9 +285,9 @@ export function PlayerPage({ id }: { id: string }) {
               autoFocus
             />
             <div className="popup-note-editor-actions">
-              <button className="primary-button compact-button" onClick={submitNote} disabled={savingSave}>
+              <Button variant="primary" compact onClick={submitNote} disabled={savingSave}>
                 {savingSave ? t("reader:playerPage.saving") : t("reader:playerPage.saveNote")}
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -320,13 +323,13 @@ export function PlayerPage({ id }: { id: string }) {
         />
 
         {nextEntry && (
-          <button className="popup-next-up" onClick={() => goToBook(nextEntry.entityId)}>
+          <Button variant="bare" className="popup-next-up" onClick={() => goToBook(nextEntry.entityId)}>
             <SkipForward size={15} aria-hidden="true" />
             <span className="popup-next-up-text">
               <small>{t("reader:playerPage.upNext")}</small>
               <strong>{nextEntry.title}</strong>
             </span>
-          </button>
+          </Button>
         )}
       </div>
     </div>

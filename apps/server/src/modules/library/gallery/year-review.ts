@@ -14,6 +14,7 @@
 // A year should read as a year.
 import { db } from "../../../db.js";
 import { pickVisuallyDistinct } from "./similarity.js";
+import type { GalleryDetailRow, GalleryFaceRow, GalleryPersonRow, ItemMetadataRow, LibraryItemRow, NonNull } from "../../../db/rows.js";
 
 const inClause = (n: number) => Array(n).fill("?").join(", ");
 
@@ -29,17 +30,14 @@ export interface YearReviewSuggestion {
   year: number;
 }
 
-interface YearItemRow {
-  id: string;
-  taken_at: string;
-  kind: string;
-  gps_lat: number | null;
-  gps_lng: number | null;
-  cover: string | null;
-  phash: string | null;
-  likes: number;
-  mine: number;
-}
+// taken_at is non-NULL: the query matches substr(taken_at, 1, 4) = the year.
+type YearItemRow = Pick<LibraryItemRow, "id">
+  & NonNull<Pick<GalleryDetailRow, "taken_at" | "kind" | "gps_lat" | "gps_lng" | "phash">, "taken_at">
+  & {
+    cover: ItemMetadataRow["cover_storage_key"] | null;
+    likes: number;
+    mine: number;
+  };
 
 interface Candidate extends YearItemRow {
   score: number;
@@ -87,7 +85,7 @@ function peopleByItem(libIds: string[], year: string): Map<string, string[]> {
       AND gallery_people.hidden = 0
       AND gallery_people.name != ''
       AND gallery_faces.assignment IN ('confirmed', 'auto', 'suggested')
-  `).all(...libIds, year) as { item_id: string; name: string }[];
+  `).all(...libIds, year) as (Pick<GalleryFaceRow, "item_id"> & Pick<GalleryPersonRow, "name">)[];
 
   const map = new Map<string, string[]>();
   for (const row of rows) {

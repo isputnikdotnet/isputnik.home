@@ -12,8 +12,34 @@ import { mediaKind } from "../library-types.js";
 import { getShareableBook, grantAlbumAccess, grantItemAccess, type ShareableResult } from "./grants.js";
 import { createGallerySetShare, shareableGalleryItems } from "./gallery-set-shares.js";
 import { createGalleryAlbumShare, curatableGalleryLibraryIds, loadAlbumShareItems } from "./album-shares.js";
+import type {
+  GalleryAlbumRow, ItemMetadataRow, LibraryItemRow, LibraryRow, Nullable, ShareLinkRow, ShareRow, StoryRow, UserRow
+} from "../../../../db/rows.js";
 
 const inClause = (n: number) => Array(n).fill("?").join(", ");
+
+// One row of /api/shares/mine: a guest link of any kind, with the name of whatever it
+// points at from the (guarded, LEFT) join that matches its module.
+type MyShareLinkRow = Pick<ShareLinkRow, "id" | "module" | "resource_id" | "label" | "created_at" | "expires_at"> & {
+  item_title: ItemMetadataRow["title"] | null;
+  item_folder: LibraryItemRow["folder_path"] | null;
+  album_name: GalleryAlbumRow["name"] | null;
+  story_title: StoryRow["title"] | null;
+  inbox_name: LibraryRow["name"] | null;
+  drop_count: number;
+  set_count: number;
+  album_count: number;
+};
+
+// Items and albums shared TO the caller (/api/shared-with-me).
+type SharedItemRow = Pick<ShareRow, "resource_id" | "created_at" | "expires_at">
+  & Pick<LibraryItemRow, "folder_path">
+  & Nullable<Pick<ItemMetadataRow, "title" | "cover_storage_key">>
+  & { library_type: LibraryRow["type"]; shared_by: UserRow["display_name"] | null };
+
+type SharedAlbumRow = Pick<ShareRow, "created_by" | "created_at" | "expires_at">
+  & Pick<GalleryAlbumRow, "sort_mode">
+  & { album_id: ShareRow["resource_id"]; album_name: GalleryAlbumRow["name"]; shared_by: UserRow["display_name"] | null };
 
 const createLinkSchema = z.object({
   bookId: z.string().min(1),
@@ -190,7 +216,7 @@ export function registerShareManageRoutes(app: FastifyInstance) {
       WHERE share_links.created_by = ? AND share_links.module = 'gallery_set' AND share_links.revoked_at IS NULL
       GROUP BY share_links.id
       ORDER BY share_links.created_at DESC
-    `).all(user.id) as { id: string; label: string | null; created_at: string; expires_at: string; item_count: number }[];
+    `).all(user.id) as (Pick<ShareLinkRow, "id" | "label" | "created_at" | "expires_at"> & { item_count: number })[];
     const now = Date.now();
     return {
       shares: rows.map((row) => ({
@@ -265,10 +291,8 @@ export function registerShareManageRoutes(app: FastifyInstance) {
       JOIN gallery_albums ON gallery_albums.id = share_links.resource_id
       WHERE share_links.created_by = ? AND share_links.module = 'gallery_album' AND share_links.revoked_at IS NULL
       ORDER BY share_links.created_at DESC
-    `).all(user.id) as {
-      id: string; album_id: string; label: string | null; created_at: string;
-      expires_at: string; album_name: string; item_count: number;
-    }[];
+    `).all(user.id) as (Pick<ShareLinkRow, "id" | "label" | "created_at" | "expires_at">
+      & { album_id: ShareLinkRow["resource_id"]; album_name: GalleryAlbumRow["name"]; item_count: number })[];
     const now = Date.now();
     return {
       shares: rows.map((row) => ({
@@ -336,7 +360,7 @@ export function registerShareManageRoutes(app: FastifyInstance) {
       JOIN users ON users.id = shares.user_id
       WHERE shares.module = 'gallery_album' AND shares.resource_id = ? AND shares.revoked_at IS NULL ${scope}
       ORDER BY users.display_name COLLATE NOCASE
-    `).all(...params) as { user_id: string; display_name: string; email: string; expires_at: string | null }[];
+    `).all(...params) as (Pick<ShareRow, "user_id" | "expires_at"> & Pick<UserRow, "display_name" | "email">)[];
     return reply.send({
       recipients: rows.map((row) => ({
         userId: row.user_id,
@@ -389,7 +413,7 @@ export function registerShareManageRoutes(app: FastifyInstance) {
     }
     const target = db.prepare(
       "SELECT id FROM users WHERE id = ? AND deleted_at IS NULL AND is_active = 1"
-    ).get(parsed.data.userId) as { id: string } | undefined;
+    ).get(parsed.data.userId) as Pick<UserRow, "id"> | undefined;
     if (!target) {
       return reply.code(404).send({ error: "User not found" });
     }
@@ -465,14 +489,8 @@ export function registerShareManageRoutes(app: FastifyInstance) {
         AND shares.resource_id IN (${inClause(included.length)})
       GROUP BY shares.user_id
       ORDER BY users.display_name COLLATE NOCASE
-    `).all(user.id, ...included) as {
-      user_id: string;
-      display_name: string;
-      email: string;
-      item_count: number;
-      min_expires: string | null;
-      never_expiring: number;
-    }[];
+    `).all(user.id, ...included) as (Pick<ShareRow, "user_id"> & Pick<UserRow, "display_name" | "email">
+      & { item_count: number; min_expires: string | null; never_expiring: number })[];
     return reply.send({
       recipients: rows.map((row) => ({
         userId: row.user_id,
@@ -533,15 +551,8 @@ export function registerShareManageRoutes(app: FastifyInstance) {
       WHERE share_links.created_by = ?
         AND share_links.revoked_at IS NULL
       ORDER BY share_links.created_at DESC
-    `).all(user.id) as {
-      id: string;
-      resource_id: string;
-      label: string | null;
-      created_at: string;
-      expires_at: string;
-      title: string | null;
-      folder_path: string | null;
-    }[];
+    `).all(user.id) as (Pick<ShareLinkRow, "id" | "resource_id" | "label" | "created_at" | "expires_at">
+      & Pick<LibraryItemRow, "folder_path"> & Nullable<Pick<ItemMetadataRow, "title">>)[];
     const now = Date.now();
 
     return {
@@ -608,13 +619,7 @@ export function registerShareManageRoutes(app: FastifyInstance) {
        AND share_links.module = 'gallery-inbox'
       WHERE share_links.created_by = ? AND share_links.revoked_at IS NULL
       ORDER BY share_links.created_at DESC
-    `).all(user.id) as {
-      id: string; module: string; resource_id: string; label: string | null;
-      created_at: string; expires_at: string;
-      item_title: string | null; item_folder: string | null;
-      album_name: string | null; story_title: string | null; inbox_name: string | null;
-      drop_count: number; set_count: number; album_count: number;
-    }[];
+    `).all(user.id) as MyShareLinkRow[];
     const now = Date.now();
 
     return {
@@ -689,7 +694,7 @@ export function registerShareManageRoutes(app: FastifyInstance) {
       FROM users
       WHERE deleted_at IS NULL AND is_active = 1 AND id != ?
       ORDER BY display_name COLLATE NOCASE
-    `).all(user.id) as { id: string; display_name: string }[];
+    `).all(user.id) as Pick<UserRow, "id" | "display_name">[];
     return { users: users.map((u) => ({ id: u.id, displayName: u.display_name })) };
   });
 
@@ -750,14 +755,7 @@ export function registerShareManageRoutes(app: FastifyInstance) {
       JOIN users ON users.id = shares.user_id
       WHERE shares.module = ? AND shares.resource_id = ? AND shares.revoked_at IS NULL
       ORDER BY shares.created_at DESC
-    `).all(module, query.bookId) as {
-      id: string;
-      user_id: string;
-      expires_at: string | null;
-      created_at: string;
-      display_name: string;
-      email: string;
-    }[];
+    `).all(module, query.bookId) as (Pick<ShareRow, "id" | "user_id" | "expires_at" | "created_at"> & Pick<UserRow, "display_name" | "email">)[];
 
     return {
       shares: rows.map((row) => ({
@@ -814,16 +812,7 @@ export function registerShareManageRoutes(app: FastifyInstance) {
         AND shares.revoked_at IS NULL
         AND (shares.expires_at IS NULL OR shares.expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
       ORDER BY shares.created_at DESC
-    `).all(user.id) as {
-      resource_id: string;
-      created_at: string;
-      expires_at: string | null;
-      library_type: string;
-      title: string | null;
-      cover_storage_key: string | null;
-      folder_path: string;
-      shared_by: string | null;
-    }[];
+    `).all(user.id) as SharedItemRow[];
 
     const books = rows.map((row) => ({
       id: row.resource_id,
@@ -850,13 +839,10 @@ export function registerShareManageRoutes(app: FastifyInstance) {
         AND shares.revoked_at IS NULL
         AND (shares.expires_at IS NULL OR shares.expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
       ORDER BY shares.created_at DESC
-    `).all(user.id) as {
-      album_id: string; created_by: string; created_at: string; expires_at: string | null;
-      album_name: string; sort_mode: "taken_at" | "manual"; shared_by: string | null;
-    }[];
+    `).all(user.id) as SharedAlbumRow[];
 
     const albums = albumRows.map((row) => {
-      const creator = db.prepare("SELECT id, role FROM users WHERE id = ?").get(row.created_by) as { id: string; role: string } | undefined;
+      const creator = db.prepare("SELECT id, role FROM users WHERE id = ?").get(row.created_by) as Pick<UserRow, "id" | "role"> | undefined;
       const items = creator ? loadAlbumShareItems(row.album_id, row.sort_mode, curatableGalleryLibraryIds(creator)) : [];
       const cover = items.find((item) => item.cover_storage_key)?.cover_storage_key ?? null;
       return {

@@ -24,6 +24,8 @@ import { ThemePicker, type Theme } from "../shared/ThemePicker";
 import { ToggleSwitch } from "../shared/ToggleSwitch";
 import { FolderPickerModal } from "../features/control/libraries/FolderPickerModal";
 import type { LibrarySettings, StorageRoot } from "../features/control/types";
+// The setup guide's stylesheet: it loads with this page, not on every route (docs/css-map.md).
+import "../styles/welcome.css";
 
 /** As `/api/config/mail` returns it. The stored password is never echoed back — only
  *  whether there is one — so the field below starts empty and is sent only when it has
@@ -404,8 +406,8 @@ export function WelcomePage({ user, onDone }: {
             // A locked step is still reachable: it explains what it will be for, which is
             // more use than a step that refuses to open and says nothing.
             return (
-              <button
-                type="button"
+              <Button
+                variant="bare"
                 className={[
                   "welcome-step",
                   entry.key === step ? "is-active" : "",
@@ -423,7 +425,7 @@ export function WelcomePage({ user, onDone }: {
                   <strong>{entry.title}</strong>
                   <span>{locked ? t("welcome.lockedNote") : entry.note}</span>
                 </span>
-              </button>
+              </Button>
             );
           })}
         </aside>

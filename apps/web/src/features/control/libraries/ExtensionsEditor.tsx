@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { Button } from "../../../shared/Button";
 
 // Editable file-extension list — used for the scan/upload formats and for the
 // upload-only companion files.
@@ -38,13 +39,13 @@ export function ExtensionsEditor({
         {extensions.map((extension) => (
           <span className="extension-chip" key={extension}>
             .{extension}
-            <button
-              type="button"
+            <Button
+              variant="bare"
               aria-label={t("control:libraries.removeExtensionAria", { ext: extension })}
               onClick={() => onChange(extensions.filter((item) => item !== extension))}
             >
               <X size={12} />
-            </button>
+            </Button>
           </span>
         ))}
         {extensions.length === 0 && <span className="muted">{resolvedEmptyHint}</span>}
@@ -63,17 +64,16 @@ export function ExtensionsEditor({
             }
           }}
         />
-        <button className="secondary-button compact-button" type="button" onClick={addDraft} disabled={!draft.trim()}>
+        <Button variant="secondary" compact onClick={addDraft} disabled={!draft.trim()}>
           {t("control:ui.add")}
-        </button>
-        <button
-          className="secondary-button compact-button"
-          type="button"
+        </Button>
+        <Button
+          variant="secondary" compact
           onClick={() => onChange([...defaults])}
           title={t("control:libraries.resetDefaultsTitle")}
         >
           {t("control:libraries.resetToDefaults")}
-        </button>
+        </Button>
       </div>
     </div>
   );

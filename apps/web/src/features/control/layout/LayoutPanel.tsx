@@ -7,7 +7,7 @@ import { Button } from "../../../shared/Button";
 import { MessageBox } from "../../../shared/MessageBox";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { ToggleSwitch } from "../../../shared/ToggleSwitch";
-import { relativeTime } from "../../../shared/utils";
+import { relativeTime } from "../../../shared/relativeTime";
 import { humanize } from "./layout-model";
 import { rulesBase, type LayoutLibrary, type ScanRule } from "./types";
 import { ScanRuleWizard, type WizardTarget } from "./ScanRuleWizard";
@@ -178,9 +178,9 @@ export function LayoutPanel({
                   <div className="layout-row-stats">
                     {countPill(defaultRule)}
                     {defaultRule.enabled && defaultRule.unmatched > 0 && (
-                      <button type="button" className="layout-pill is-warn" onClick={() => setWizard({ kind: "preview", rule: defaultRule })}>
+                      <Button variant="chip" className="layout-pill is-warn" onClick={() => setWizard({ kind: "preview", rule: defaultRule })}>
                         {t("controlAdmin:layout.unmatched", { count: defaultRule.unmatched })}
-                      </button>
+                      </Button>
                     )}
                     <span>{scannedLine(defaultRule)}</span>
                   </div>
@@ -258,9 +258,9 @@ export function LayoutPanel({
                         <div className="layout-row-stats">
                           {countPill(rule)}
                           {rule.enabled && rule.unmatched > 0 && (
-                            <button type="button" className="layout-pill is-warn" onClick={() => setWizard({ kind: "preview", rule })}>
+                            <Button variant="chip" className="layout-pill is-warn" onClick={() => setWizard({ kind: "preview", rule })}>
                               {t("controlAdmin:layout.unmatched", { count: rule.unmatched })}
-                            </button>
+                            </Button>
                           )}
                           {missing.size > 0 && <span className="layout-pill is-err"><Lock size={11} aria-hidden="true" /> {t("controlAdmin:layout.folderNotFound")}</span>}
                           <span>{scannedLine(rule)}</span>

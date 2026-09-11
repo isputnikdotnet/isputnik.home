@@ -15,7 +15,7 @@ import { TrashError } from "../shared/trash-settings.js";
 import { ASSET_COLUMNS, ASSET_JOINS, mapAsset, type GalleryAssetRow } from "./catalog-asset.js";
 import { moveGalleryAsset } from "./move.js";
 import { dateFolderForCapture } from "./date-folder.js";
-import type { TakenPrecision } from "./taken-precision.js";
+import type { GalleryDetailRow, LibraryItemRow, LibraryRow, Nullable } from "../../../db/rows.js";
 
 export { photoInboxLibraryIds, isPhotoInboxLibrary } from "./inbox-flag.js";
 
@@ -49,11 +49,7 @@ export interface PhotoInboxSummary {
   deliveries: PhotoInboxDelivery[];
 }
 
-interface InboxLibraryRow {
-  id: string;
-  name: string;
-  policy_json: string;
-}
+type InboxLibraryRow = Pick<LibraryRow, "id" | "name" | "policy_json">;
 
 function inboxLibrary(libraryId: string): InboxLibraryRow | null {
   const row = db.prepare("SELECT id, name, policy_json FROM libraries WHERE id = ? AND type = 'gallery'")
@@ -172,13 +168,9 @@ export interface KeepDestination {
   dated: boolean;
 }
 
-interface ReviewItemRow {
-  id: string;
-  library_id: string;
-  policy_json: string;
-  taken_at: string | null;
-  taken_precision: TakenPrecision | null;
-}
+type ReviewItemRow = Pick<LibraryItemRow, "id" | "library_id">
+  & Pick<LibraryRow, "policy_json">
+  & Nullable<Pick<GalleryDetailRow, "taken_at" | "taken_precision">>;
 
 function reviewItem(itemId: string): ReviewItemRow | undefined {
   return db.prepare(`

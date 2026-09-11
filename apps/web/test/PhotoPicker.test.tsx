@@ -54,6 +54,10 @@ function renderPicker() {
   );
 }
 
+// The full web suite runs 50-odd files at once; under that load the debounce → fetch
+// → render chain here can outlast Testing Library's 1 s default and fail at random.
+const SLOW = { timeout: 5000 };
+
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
   mockApi.mockReset();
@@ -64,16 +68,16 @@ describe("PhotoPicker folder search", () => {
     const browsed = stubGallery();
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     renderPicker();
-    await screen.findByRole("button", { name: /2019/ });
+    await screen.findByRole("button", { name: /2019/ }, SLOW);
 
     await user.type(screen.getByPlaceholderText("Search folders"), "Summer");
-    const match = await screen.findByRole("button", { name: /Summer at the lake/ });
+    const match = await screen.findByRole("button", { name: /Summer at the lake/ }, SLOW);
     await user.click(match);
 
     // The debounce that follows the cleared search box must not undo the click.
     await vi.advanceTimersByTimeAsync(600);
 
-    await waitFor(() => expect(screen.getByRole("button", { name: /Day one/ })).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole("button", { name: /Day one/ })).toBeTruthy(), SLOW);
     expect(browsed.at(-1)).toBe("2019/Summer at the lake");
     expect(screen.queryByText("Matching folders")).toBeNull();
   });
@@ -82,16 +86,16 @@ describe("PhotoPicker folder search", () => {
     const browsed = stubGallery();
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     renderPicker();
-    await screen.findByRole("button", { name: /2019/ });
+    await screen.findByRole("button", { name: /2019/ }, SLOW);
 
     const box = screen.getByPlaceholderText("Search folders");
     await user.type(box, "Summer");
-    await screen.findByText("Matching folders");
+    await screen.findByText("Matching folders", {}, SLOW);
 
     await user.clear(box);
     await vi.advanceTimersByTimeAsync(600);
 
-    await waitFor(() => expect(browsed.at(-1)).toBe(""));
+    await waitFor(() => expect(browsed.at(-1)).toBe(""), SLOW);
     expect(screen.queryByText("Matching folders")).toBeNull();
   });
 });

@@ -84,9 +84,9 @@ export function GalleryPersonLinkModal({
         {shown.map((row) => {
           const isLinked = person.galleryPersonId === row.id;
           return (
-            <button
+            <Button
+              variant="bare"
               key={row.id}
-              type="button"
               className={`ft-picker-row${isLinked ? " is-linked" : ""}`}
               onClick={() => void setLink(row.id)}
               disabled={busyId != null || isLinked}
@@ -98,7 +98,7 @@ export function GalleryPersonLinkModal({
                 <strong>{row.name || t("family:galleryLink.unnamed")}</strong>
                 <small>{isLinked ? t("family:galleryLink.linked") : t("family:common.counts.photo", { count: row.faceCount })}</small>
               </span>
-            </button>
+            </Button>
           );
         })}
         {shown.length === 0 && (

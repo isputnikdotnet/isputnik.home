@@ -4,17 +4,11 @@ import { nanoid } from "nanoid";
 import { db } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
 import { getLibraryForBook, canUserAccessLibrary } from "../shared/library-access.js";
+import type { AudioBookmarkRow } from "../../../db/rows.js";
 
-interface BookmarkRow {
-  id: string;
-  file_id: string | null;
-  position_seconds: number;
-  book_position_seconds: number | null;
-  label: string | null;
-  note: string | null;
-  created_at: string;
-  updated_at: string;
-}
+type BookmarkRow = Pick<AudioBookmarkRow, "id" | "file_id" | "position_seconds" | "label" | "note" | "created_at" | "updated_at"> & {
+  book_position_seconds: AudioBookmarkRow["item_position_seconds"];
+};
 
 function publicBookmark(row: BookmarkRow) {
   return {

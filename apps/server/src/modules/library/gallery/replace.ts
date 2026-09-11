@@ -21,19 +21,15 @@ import { validateLibrarySource } from "../shared/library-source.js";
 import { getTrashRootSetting } from "../shared/trash-settings.js";
 import { kindForExtension, type AssetKind } from "./media.js";
 import { scanSingleGalleryFile } from "./scanner.js";
+import type { GalleryDetailRow, LibraryItemRow, LibraryRow } from "../../../db/rows.js";
 
 export type ReplaceResult =
   | { ok: true; itemId: string; relativePath: string; keptAt: string }
   | { ok: false; status: number; error: string };
 
-interface AssetRow {
-  relative_path: string;
-  kind: string;
-  taken_at: string | null;
-  taken_at_source: string | null;
-  library_id: string;
-  source_path: string;
-}
+type AssetRow = Pick<GalleryDetailRow, "relative_path" | "kind" | "taken_at" | "taken_at_source">
+  & Pick<LibraryItemRow, "library_id">
+  & Pick<LibraryRow, "source_path">;
 
 export async function replaceGalleryAssetFile(
   itemId: string,

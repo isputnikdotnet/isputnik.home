@@ -4,6 +4,7 @@ import path from "node:path";
 import { db } from "../../../db.js";
 import { pathIsInside, normaliseRelativePath } from "./storage-roots.js";
 import { TrashError } from "./trash-settings.js";
+import type { AudioFileRow, DocumentFileRow, ItemMetadataRow, LibraryItemRow, LibraryRow } from "../../../db/rows.js";
 
 /** Move a file or folder, falling back to copy-then-delete across volumes.
  *
@@ -21,18 +22,15 @@ export function moveEntry(from: string, to: string): void {
   }
 }
 
-export interface TrashBookRow {
-  id: string;
-  folder_path: string;
-  library_id: string;
-  library_name: string;
-  library_type: string;
-  source_path: string;
-  title: string;
-  cover_storage_key: string | null;
-  file_count: number;
-  size_bytes: number;
-}
+export type TrashBookRow = Pick<LibraryItemRow, "id" | "folder_path" | "library_id"> &
+  Pick<LibraryRow, "source_path"> & {
+    library_name: LibraryRow["name"];
+    library_type: LibraryRow["type"];
+    title: string; // COALESCE(item_metadata.title, folder_path) — never NULL
+    cover_storage_key: ItemMetadataRow["cover_storage_key"] | null;
+    file_count: number;
+    size_bytes: number;
+  };
 
 // The book's catalogued files (audio + documents), used for the root-grouped
 // (folder_path = ".") branch where the book owns individual files, not a folder.
@@ -41,7 +39,7 @@ function catalogedRelativePaths(bookId: string): string[] {
     SELECT relative_path FROM audio_files WHERE item_id = ?
     UNION
     SELECT relative_path FROM document_files WHERE item_id = ?
-  `).all(bookId, bookId) as { relative_path: string }[];
+  `).all(bookId, bookId) as (Pick<AudioFileRow, "relative_path"> | Pick<DocumentFileRow, "relative_path">)[];
   return rows.map((row) => row.relative_path);
 }
 

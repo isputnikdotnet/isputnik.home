@@ -3,6 +3,9 @@
 import { db } from "../../../../db.js";
 import { keeperRankIsDecision } from "./keeper.js";
 import type { MemberRole } from "./snapshot.js";
+import type {
+  DuplicateJobResultFolderRow, DuplicateJobResultMemberRow, DuplicateJobResultRow, GalleryDetailRow, ItemMetadataRow, LibraryRow, Nullable
+} from "../../../../db/rows.js";
 
 // ── Reading the snapshot back ───────────────────────────────────────────────
 
@@ -211,6 +214,21 @@ function filterSql(jobId: string, filter: ResultFilter): { where: string; args: 
   return { where: clauses.join(" AND "), args };
 }
 
+type ResultListRow = Pick<DuplicateJobResultRow,
+  "id" | "result_type" | "status" | "review_status" | "reclaimable_bytes" | "keeper_reason"
+  | "match_confidence" | "keeper_rank">;
+
+type ResultFolderListRow = Pick<DuplicateJobResultFolderRow,
+  "id" | "result_id" | "library_id" | "folder_path" | "role" | "item_count" | "bytes">
+  & { library_name: LibraryRow["name"] | null };
+
+type ResultMemberListRow = Pick<DuplicateJobResultMemberRow,
+  "id" | "result_id" | "item_id" | "folder_id" | "library_id" | "path" | "size_snapshot"
+  | "distance" | "role" | "status" | "keeper_member_id">
+  & { library_name: LibraryRow["name"] | null; keeper_path: DuplicateJobResultMemberRow["path"] | null }
+  & Nullable<Pick<ItemMetadataRow, "cover_storage_key">>
+  & Nullable<Pick<GalleryDetailRow, "preview_storage_key" | "width" | "height">>;
+
 export function listJobResults(
   jobId: string,
   limit = 50,
@@ -234,11 +252,7 @@ export function listJobResults(
       ${NEAR_EXISTS},
       ${orderKey}, r.id
     LIMIT ? OFFSET ?
-  `).all(...scope.args, limit, offset) as {
-    id: string; result_type: SnapshotResult["type"]; status: string; review_status: string;
-    reclaimable_bytes: number; keeper_reason: string | null;
-    match_confidence: MatchConfidence; keeper_rank: number;
-  }[];
+  `).all(...scope.args, limit, offset) as ResultListRow[];
   if (results.length === 0) return [];
 
   const ids = results.map((row) => row.id);
@@ -251,10 +265,7 @@ export function listJobResults(
     LEFT JOIN libraries lib ON lib.id = f.library_id
     WHERE f.result_id IN (${list})
     ORDER BY f.role DESC, f.folder_path
-  `).all(...ids) as {
-    id: string; result_id: string; library_id: string; library_name: string | null;
-    folder_path: string; role: MemberRole; item_count: number; bytes: number;
-  }[];
+  `).all(...ids) as ResultFolderListRow[];
 
   const members = db.prepare(`
     SELECT m.id, m.result_id, m.item_id, m.folder_id, m.library_id, lib.name AS library_name, m.path,
@@ -269,14 +280,7 @@ export function listJobResults(
     LEFT JOIN gallery_details gd ON gd.item_id = m.item_id
     WHERE m.result_id IN (${list})
     ORDER BY m.role DESC, m.path
-  `).all(...ids) as {
-    id: string; result_id: string; item_id: string | null; folder_id: string | null;
-    library_id: string; library_name: string | null; path: string; size_snapshot: number | null;
-    distance: number; role: MemberRole; status: string;
-    keeper_member_id: string | null; keeper_path: string | null;
-    cover_storage_key: string | null; preview_storage_key: string | null;
-    width: number | null; height: number | null;
-  }[];
+  `).all(...ids) as ResultMemberListRow[];
 
   const foldersBy = new Map<string, SnapshotFolder[]>();
   for (const row of folders) {
@@ -335,7 +339,10 @@ export function listJobResults(
     )
     WHERE rank <= ?
     ORDER BY result_id, rank
-  `).all(...ids, RESULT_COVER_LIMIT) as { result_id: string; cover: string }[];
+  `).all(...ids, RESULT_COVER_LIMIT) as {
+    result_id: DuplicateJobResultMemberRow["result_id"];
+    cover: NonNullable<ItemMetadataRow["cover_storage_key"]>;
+  }[];
 
   const coversBy = new Map<string, string[]>();
   for (const row of coverRows) {
@@ -435,7 +442,7 @@ export function sweepPreview(jobId: string, filter: ResultFilter = {}): SweepPre
 export function sweepableResultIds(jobId: string, filter: ResultFilter = {}): string[] {
   const scope = sweepScope(jobId, filter);
   return (db.prepare(`SELECT r.id FROM duplicate_job_results r WHERE ${scope.where} ORDER BY r.id`)
-    .all(...scope.args) as { id: string }[]).map((row) => row.id);
+    .all(...scope.args) as Pick<DuplicateJobResultRow, "id">[]).map((row) => row.id);
 }
 
 export function countJobResults(jobId: string, filter: ResultFilter = {}): number {

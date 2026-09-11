@@ -1,5 +1,6 @@
 import { db } from "../db.js";
 import { isMailConfigured } from "./mail.js";
+import type { AppSettingRow } from "../db/rows.js";
 
 // Which of the messages the app can send to ordinary members it is allowed to
 // send. Stored apart from the SMTP settings on purpose: those say whether mail
@@ -31,9 +32,7 @@ const EMPTY: NotificationSettings = {
 };
 
 export function getNotificationSettings(): NotificationSettings {
-  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(NOTIFICATION_SETTINGS_KEY) as
-    | { value: string }
-    | undefined;
+  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(NOTIFICATION_SETTINGS_KEY) as Pick<AppSettingRow, "value"> | undefined;
   if (!row) return { ...EMPTY };
   try {
     return { ...EMPTY, ...(JSON.parse(row.value) as Partial<NotificationSettings>) };

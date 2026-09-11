@@ -107,8 +107,8 @@ export function FamilyFamiliesPage() {
           <div className="ft-family-name-grid">
             {shown.map((family) => (
               <div className="ft-family-name-slot" key={family.surname}>
-                <button
-                  type="button"
+                <Button
+                  variant="tile"
                   className="ft-family-name-card"
                   onClick={() => navigate(`/family/tree/${family.anchor.id}`)}
                 >
@@ -126,7 +126,7 @@ export function FamilyFamiliesPage() {
                     {t("family:families.opensOn", { name: family.anchor.name })}
                     {lifeYears(family.anchor) && ` (${lifeYears(family.anchor)})`}
                   </small>
-                </button>
+                </Button>
                 {/* Tagging a whole family is the reason this page is a useful
                     starting point for branch access: the surname group is the
                     seed, and the modal grows it along the tree from there. */}

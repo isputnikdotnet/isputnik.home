@@ -236,22 +236,22 @@ export function BackupSection() {
             )}
           </div>
           <div className="backup-hero-actions">
-            <button className="primary-button" onClick={() => createBackup("full")} disabled={anyBusy} title={t("control:backup.createFullTitle")}>
+            <Button variant="primary" onClick={() => createBackup("full")} disabled={anyBusy} title={t("control:backup.createFullTitle")}>
               <DatabaseBackup size={18} />
               <span>{createLabel("full", t("control:backup.createFull"))}</span>
-            </button>
-            <button className="secondary-button" onClick={() => createBackup("minimal")} disabled={anyBusy} title={t("control:backup.createMinimalTitle")}>
+            </Button>
+            <Button variant="secondary" onClick={() => createBackup("minimal")} disabled={anyBusy} title={t("control:backup.createMinimalTitle")}>
               <FileArchive size={18} />
               <span>{createLabel("minimal", t("control:backup.createMinimal"))}</span>
-            </button>
-            <button className="secondary-button" onClick={() => createBackup("database")} disabled={anyBusy} title={t("control:backup.createDatabaseTitle")}>
+            </Button>
+            <Button variant="secondary" onClick={() => createBackup("database")} disabled={anyBusy} title={t("control:backup.createDatabaseTitle")}>
               <Database size={18} />
               <span>{createLabel("database", t("control:backup.createDatabase"))}</span>
-            </button>
-            <button className="secondary-button" onClick={() => { setError(""); setNotice(""); setShowUpload(true); }} title={t("control:backup.uploadBackupTitle")}>
+            </Button>
+            <Button variant="secondary" onClick={() => { setError(""); setNotice(""); setShowUpload(true); }} title={t("control:backup.uploadBackupTitle")}>
               <UploadCloud size={18} />
               <span>{t("control:backup.uploadBackup")}</span>
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -315,9 +315,9 @@ export function BackupSection() {
                 <span>{t("control:backup.keepNewest")}</span>
                 <input type="number" min={1} max={100} value={retention} onChange={(e) => setRetention(Number(e.target.value))} />
               </label>
-              <button className="primary-button compact-button backup-save-button" onClick={saveSettings} disabled={savingSettings}>
+              <Button variant="primary" compact className="backup-save-button" onClick={saveSettings} disabled={savingSettings}>
                 <Save size={15} /> {savingSettings ? t("control:ui.saving") : t("control:ui.save")}
-              </button>
+              </Button>
             </div>
             <p className="muted backup-retention-note">
               {t("control:backup.retentionNote")}
@@ -366,15 +366,15 @@ export function BackupSection() {
                         <td className="col-actions">
                           {!writing && (
                             <div className="row-actions">
-                              <button className="secondary-button compact-button" title={t("control:backup.restoreTitle")} onClick={() => { setRestoreCovers(true); setPendingRestore(backup); }}>
+                              <Button variant="secondary" compact title={t("control:backup.restoreTitle")} onClick={() => { setRestoreCovers(true); setPendingRestore(backup); }}>
                                 <RotateCcw size={14} /> {t("control:backup.restore")}
-                              </button>
+                              </Button>
                               <a className="icon-button" title={t("control:backup.downloadTitle")} href={`/api/backups/${encodeURIComponent(backup.name)}/download`} download>
                                 <Download size={15} />
                               </a>
-                              <button className="icon-button danger" title={t("control:backup.deleteTitle")} onClick={() => setPendingDelete(backup)}>
+                              <Button variant="icon" danger title={t("control:backup.deleteTitle")} onClick={() => setPendingDelete(backup)}>
                                 <Trash2 size={15} />
-                              </button>
+                              </Button>
                             </div>
                           )}
                         </td>

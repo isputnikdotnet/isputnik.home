@@ -28,6 +28,7 @@ import {
   type BackupKind
 } from "./run.js";
 import { log } from "../../core/logger.js";
+import type { AppSettingRow } from "../../db/rows.js";
 
 // Database backups. What a backup holds, and how one is taken, is in run.ts (three
 // kinds: full, minimal, a quick database copy). This file is the admin API over
@@ -49,7 +50,7 @@ export { backupDir, backupRunSettled } from "./run.js";
 // included, minimal otherwise — daily at the same clock time. The blob is then
 // rewritten to the new shape, so this runs once.
 export function adoptLegacyBackupSchedule(): "full" | "minimal" | null {
-  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(SETTINGS_KEY) as { value: string } | undefined;
+  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(SETTINGS_KEY) as Pick<AppSettingRow, "value"> | undefined;
   if (!row) return null;
   let legacy: { enabled?: unknown; time?: unknown; includeCovers?: unknown };
   try {

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db, logActivity } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
 import { listFolderLocks, normaliseLockPath, setFolderLock } from "./folder-locks.js";
+import type { LibraryRow } from "../../../db/rows.js";
 
 // Folder locks are a library-config action, gated to admins like scan rules and
 // rescan. Cross-type: the routes take any library id. The PUT is deliberately
@@ -15,7 +16,7 @@ const lockBodySchema = z.object({
 
 export async function folderLocksPlugin(app: FastifyInstance) {
   const findLibrary = (id: string) =>
-    db.prepare("SELECT id, name FROM libraries WHERE id = ?").get(id) as { id: string; name: string } | undefined;
+    db.prepare("SELECT id, name FROM libraries WHERE id = ?").get(id) as Pick<LibraryRow, "id" | "name"> | undefined;
 
   app.get("/api/library/libraries/:id/folder-locks", { preHandler: app.requireAdmin }, async (request, reply) => {
     const id = (request.params as { id: string }).id;

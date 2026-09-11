@@ -27,21 +27,14 @@ import {
   listPeopleLibraries,
   listPersonItems
 } from "./people.js";
+import type { LibraryRow, PersonRow } from "../../../db/rows.js";
 
-type AuthorRow = {
-  id: string;
-  name: string;
-  sort_name: string | null;
-  bio: string | null;
-  website: string | null;
-  location: string | null;
-  birth_date: string | null;
-  death_date: string | null;
-  country: string | null;
-  occupation: string | null;
-  wikipedia_url: string | null;
-  cover_storage_key: string | null;
+type AuthorRow = Pick<PersonRow, "id" | "name" | "sort_name" | "bio" | "website" | "location" | "birth_date" | "death_date" | "country" | "occupation" | "wikipedia_url"> & {
+  cover_storage_key: PersonRow["image_storage_key"];
 };
+
+// A person row's photo, for the routes that replace or clear it.
+type PersonPhotoRow = Pick<PersonRow, "id"> & { cover_storage_key: PersonRow["image_storage_key"] };
 
 // Every column a profile is made of, in one place: the read, the save and the
 // enrichment reply all hand back the same shape, and adding a field to a person
@@ -83,7 +76,7 @@ function canWriteAnyBookLibrary(user: { id: string; role: string }): boolean {
   const placeholders = BOOK_LIBRARY_TYPES.map(() => "?").join(", ");
   const rows = db
     .prepare(`SELECT * FROM libraries WHERE type IN (${placeholders})`)
-    .all(...BOOK_LIBRARY_TYPES) as Parameters<typeof canUserWriteLibrary>[0][];
+    .all(...BOOK_LIBRARY_TYPES) as LibraryRow[];
   return rows.some((row) => canUserWriteLibrary(row, user.id, user.role));
 }
 
@@ -145,7 +138,7 @@ function personLookupLanguages(name: string) {
     JOIN item_people ON item_people.item_id = library_items.id
     JOIN people ON people.id = item_people.person_id
     WHERE people.name = ?
-  `).all(name) as { settings_json: string }[];
+  `).all(name) as Pick<LibraryRow, "settings_json">[];
   return rows
     .map((row) => normalizeLibrarySettings("audiobook", row.settings_json).default_language)
     .filter((lang): lang is string => Boolean(lang));
@@ -206,7 +199,7 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
       FROM people
       WHERE image_storage_key IS NOT NULL
       ORDER BY rowid ASC
-    `).all() as { name: string; cover_storage_key: string }[];
+    `).all() as (Pick<PersonRow, "name"> & { cover_storage_key: NonNullable<PersonRow["image_storage_key"]> })[];
 
     // First row per name wins, matching the by-name endpoints.
     const photos: Record<string, string> = {};
@@ -227,7 +220,7 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
   // Flat list of every person name (global) — feeds the merge picker on the
   // person page, which no longer derives candidates from a bulk book load.
   app.get("/api/library/people/names", { preHandler: app.authenticate }, async (_request, reply) => {
-    const rows = db.prepare("SELECT name FROM people ORDER BY name COLLATE NOCASE").all() as { name: string }[];
+    const rows = db.prepare("SELECT name FROM people ORDER BY name COLLATE NOCASE").all() as Pick<PersonRow, "name">[];
     return reply.send({ names: rows.map((row) => row.name) });
   });
 
@@ -434,7 +427,7 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
 
     const rows = db.prepare(
       "SELECT id, image_storage_key AS cover_storage_key FROM people WHERE name = ?"
-    ).all(name) as { id: string; cover_storage_key: string | null }[];
+    ).all(name) as PersonPhotoRow[];
     if (rows.length === 0) {
       return reply.code(404).send({ error: "Person not found" });
     }
@@ -488,16 +481,10 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
         SELECT id, sort_name, bio, website, location, birth_date, death_date, country,
                occupation, wikipedia_url, image_storage_key
         FROM people WHERE name = ?
-      `).get(from) as {
-        id: string; sort_name: string | null; bio: string | null;
-        website: string | null; location: string | null;
-        birth_date: string | null; death_date: string | null;
-        country: string | null; occupation: string | null;
-        wikipedia_url: string | null; image_storage_key: string | null;
-      } | undefined;
+      `).get(from) as Pick<PersonRow, "id" | "sort_name" | "bio" | "website" | "location" | "birth_date" | "death_date" | "country" | "occupation" | "wikipedia_url" | "image_storage_key"> | undefined;
       if (!fromRow) return;
 
-      let intoRow = db.prepare("SELECT id FROM people WHERE name = ?").get(into) as { id: string } | undefined;
+      let intoRow = db.prepare("SELECT id FROM people WHERE name = ?").get(into) as Pick<PersonRow, "id"> | undefined;
       if (!intoRow) {
         const id = nanoid(16);
         db.prepare(`
@@ -555,7 +542,7 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
 
     const authorRows = db.prepare(
       "SELECT id, image_storage_key AS cover_storage_key FROM people WHERE name = ?"
-    ).all(name) as { id: string; cover_storage_key: string | null }[];
+    ).all(name) as PersonPhotoRow[];
 
     if (authorRows.length === 0) {
       return reply.code(404).send({ error: "Person not found" });
@@ -586,7 +573,7 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
 
     const rows = db.prepare(
       "SELECT id, image_storage_key AS cover_storage_key FROM people WHERE name = ?"
-    ).all(name) as { id: string; cover_storage_key: string | null }[];
+    ).all(name) as PersonPhotoRow[];
     if (rows.length === 0) {
       return reply.code(404).send({ error: "Person not found" });
     }

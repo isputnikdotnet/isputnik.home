@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activityPhrase, recommendationLine, timeAgo } from "../src/features/social/phrasing";
+import { activityPhrase, recommendationLine } from "../src/features/social/phrasing";
 
 // The wording IS the feature here. "Dad wants you to listen to this" lands as a
 // person talking; "Dad sent you this" lands as software reporting an event, and
@@ -43,18 +43,5 @@ describe("what an activity line says", () => {
   });
 });
 
-describe("how long ago", () => {
-  const at = (msAgo: number) => new Date(Date.now() - msAgo).toISOString();
-
-  it("says it in the fewest words that are still true", () => {
-    expect(timeAgo(at(10_000))).toBe("just now");
-    expect(timeAgo(at(5 * 60_000))).toBe("5m");
-    expect(timeAgo(at(3 * 3_600_000))).toBe("3h");
-    expect(timeAgo(at(26 * 3_600_000))).toBe("yesterday");
-    expect(timeAgo(at(3 * 86_400_000))).toBe("3 days");
-  });
-
-  it("gives a date once a day count stops meaning anything", () => {
-    expect(timeAgo("2020-01-01T00:00:00.000Z")).toBe(new Date("2020-01-01T00:00:00.000Z").toLocaleDateString());
-  });
-});
+// The activity row's timestamp is shared/relativeTime's "compact" style — pinned
+// in relativeTime.test.ts with the other two.

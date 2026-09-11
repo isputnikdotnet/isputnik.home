@@ -1,6 +1,7 @@
 import { nanoid } from "nanoid";
 import { db } from "../../db.js";
 import type { ChapterRow } from "./stories.js";
+import type { StoryRow } from "../../db/rows.js";
 
 export function touchStory(storyId: string): void {
   db.prepare("UPDATE stories SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(storyId);
@@ -62,7 +63,7 @@ export function createChapter(storyId: string, fields: ChapterFields, actorId?: 
     // A chapter added to a story the house has already been shown is news to
     // the house; one added while drafting is not — the publish is. Recorded
     // here so every way of adding a chapter counts, whoever adds it.
-    const status = db.prepare("SELECT status FROM stories WHERE id = ?").get(storyId) as { status: string } | undefined;
+    const status = db.prepare("SELECT status FROM stories WHERE id = ?").get(storyId) as Pick<StoryRow, "status"> | undefined;
     if (status?.status === "published") {
       db.prepare("INSERT INTO story_updates (id, story_id, chapter_id, actor_id) VALUES (?, ?, ?, ?)")
         .run(nanoid(16), storyId, id, actorId ?? null);

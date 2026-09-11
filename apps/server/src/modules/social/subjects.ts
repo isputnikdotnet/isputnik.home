@@ -12,6 +12,18 @@ import { db } from "../../db.js";
 import { accessibleLibraryIds, canUserAccessBook } from "../library/shared/library-access.js";
 import { visibleCollectionIds } from "../stories/collection-access.js";
 import type { BookLibraryType } from "../library/shared/library-types.js";
+import type {
+  FamilyTreePersonRow,
+  GalleryAlbumRow,
+  GalleryDetailRow,
+  GallerySlideshowRow,
+  ItemMetadataRow,
+  LibraryItemRow,
+  Nullable,
+  QuoteRow,
+  ShareRow,
+  StoryRow
+} from "../../db/rows.js";
 
 // Display data for one subject, independent of which entity type it is.
 // `available` is false when the resource no longer exists or the user can't
@@ -47,16 +59,15 @@ interface SubjectType {
   collectable: boolean;
 }
 
-interface BookRow {
-  id: string;
-  folder_path: string;
-  library_id: string;
-  title: string | null;
-  duration_seconds: number | null;
-  cover_storage_key: string | null;
-  author_names: string | null;
-  file_count: number;
-}
+// duration_seconds is the config's column expression (a LEFT JOINed detail
+// column, or a bare NULL), so it stays a plain computed type.
+type BookRow = Pick<LibraryItemRow, "id" | "folder_path" | "library_id">
+  & Nullable<Pick<ItemMetadataRow, "title" | "cover_storage_key">>
+  & { duration_seconds: number | null; author_names: string | null; file_count: number };
+
+type GalleryAssetSubjectRow = Pick<LibraryItemRow, "id" | "folder_path" | "library_id">
+  & Nullable<Pick<ItemMetadataRow, "title" | "cover_storage_key">>
+  & Nullable<Pick<GalleryDetailRow, "duration_seconds">>;
 
 function splitNames(value: string | null) {
   return value ? value.split(",").map((name) => name.trim()).filter(Boolean) : [];
@@ -167,7 +178,7 @@ const hydrateGallery: Hydrator = (entityIds, user) => {
     WHERE library_items.id IN (${placeholders})
       AND library_items.deleted_at IS NULL
       AND libraries.type = 'gallery'
-  `).all(...entityIds) as (Omit<BookRow, "author_names" | "file_count"> & { duration_seconds: number | null })[];
+  `).all(...entityIds) as GalleryAssetSubjectRow[];
 
   for (const row of rows) {
     if (!canUserAccessBook(row.id, { id: row.library_id }, user.id, user.role, "gallery")) continue;
@@ -185,16 +196,10 @@ const hydrateGallery: Hydrator = (entityIds, user) => {
   return result;
 };
 
-interface FamilyPersonRow {
-  id: string;
-  name: string;
-  maiden_name: string | null;
-  birth_date: string | null;
-  death_date: string | null;
-  updated_at: string;
-  portrait_storage_key: string | null;
-  portrait_item_cover: string | null;
-}
+type FamilyPersonRow = Pick<FamilyTreePersonRow,
+  "id" | "name" | "maiden_name" | "birth_date" | "death_date" | "updated_at" | "portrait_storage_key"> & {
+  portrait_item_cover: ItemMetadataRow["cover_storage_key"] | null;
+};
 
 // Family-tree persons. Reads are open to every signed-in user (the tag scoping
 // in familytree/access.ts governs EDITING only, and the schema says as much), so
@@ -240,13 +245,7 @@ const hydrateFamilyPersons: Hydrator = (entityIds) => {
   return result;
 };
 
-interface AlbumRow {
-  id: string;
-  name: string;
-  created_by: string;
-  visible_count: number;
-  cover_key: string | null;
-}
+type AlbumRow = Pick<GalleryAlbumRow, "id" | "name" | "created_by"> & { visible_count: number; cover_key: string | null };
 
 // A gallery album. Three ways it can be visible, and all three have to be here:
 //   • at least one photo in it is in a library you can browse (as listAlbums)
@@ -319,7 +318,7 @@ function makeAlbumHydrator(): Hydrator {
         AND shares.resource_id IN (${idIn})
         AND shares.revoked_at IS NULL
         AND (shares.expires_at IS NULL OR shares.expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-    `).all(user.id, ...entityIds) as { album_id: string; total_count: number; cover_key: string | null }[];
+    `).all(user.id, ...entityIds) as { album_id: ShareRow["resource_id"]; total_count: number; cover_key: string | null }[];
     const shared = new Map(sharedRows.map((row) => [row.album_id, row]));
 
     for (const row of rows) {
@@ -344,13 +343,7 @@ function makeAlbumHydrator(): Hydrator {
   };
 }
 
-interface SlideshowRow {
-  id: string;
-  name: string;
-  created_by: string;
-  visible_count: number;
-  cover_key: string | null;
-}
+type SlideshowRow = Pick<GallerySlideshowRow, "id" | "name" | "created_by"> & { visible_count: number; cover_key: string | null };
 
 // A slideshow is scoped exactly like an album, and an earlier version of this
 // hydrator got that wrong: it described EVERY slideshow to EVERY account, which
@@ -417,15 +410,10 @@ const hydrateSlideshows: Hydrator = (entityIds, user) => {
   return result;
 };
 
-interface QuoteSubjectRow {
-  id: string;
-  text: string;
-  source_title: string | null;
-  source_author: string | null;
-  person_name: string | null;
-  live_person_name: string | null;
-  item_title: string | null;
-}
+type QuoteSubjectRow = Pick<QuoteRow, "id" | "text" | "source_title" | "source_author" | "person_name"> & {
+  live_person_name: FamilyTreePersonRow["name"] | null;
+  item_title: ItemMetadataRow["title"] | null;
+};
 
 /** How much of a quote a collection row shows before it is cut short. */
 const QUOTE_TITLE_LENGTH = 120;
@@ -554,10 +542,7 @@ const hydrateStories: Hydrator = (entityIds, user) => {
   `).all(
     ...coverLibArgs, ...libArgs, ...entityIds, user.id, user.role,
     ...(collectionClause ? [user.id, ...(visibleCollections ?? [])] : [])
-  ) as {
-    id: string; title: string; subtitle: string | null; status: string;
-    created_by: string; block_count: number; cover_key: string | null;
-  }[];
+  ) as (Pick<StoryRow, "id" | "title" | "subtitle" | "status" | "created_by"> & { block_count: number; cover_key: string | null })[];
 
   for (const row of rows) {
     result.set(row.id, {

@@ -18,6 +18,7 @@
 // beside it: access.ts (who may see and edit), crud.ts (create, update, the
 // Recycle Bin, favorites), list.ts (the index and back-links), chapters.ts and
 // blocks.ts.
+import type { StoryBlockRow, StoryChapterRow, StoryRow as DbStoryRow } from "../../db/rows.js";
 
 /** How a story appears in `taggables` — the same polymorphic tag table that
  *  carries library items, family-tree people and quotes. */
@@ -78,65 +79,23 @@ export const BLOCK_ENTITY_TYPE: Record<StoryBlockKind, string | null> = {
   book: "audiobook"
 };
 
-export interface StoryRow {
-  id: string;
-  title: string;
-  subtitle: string | null;
-  cover_item_id: string | null;
+/** A `stories` row, with status and kind narrowed to the app's own lists.
+ *  servings (free text) and cook_minutes are the recipe facts; author_name is
+ *  the free-text byline (NULL = unsigned); deleted_at set = the story sits in
+ *  the Recycle Bin, purge_after NULL = kept there until deleted by hand. */
+export interface StoryRow extends Omit<DbStoryRow, "status" | "kind"> {
   status: StoryStatus;
-  chapter_noun: string | null;
-  intro: string | null;
-  rating: number | null;
-  /** Recipe facts, both optional: serves as free text; total time in minutes. */
-  servings: string | null;
-  cook_minutes: number | null;
-  /** Free-text byline; NULL = the story is unsigned. */
-  author_name: string | null;
-  collection_id: string | null;
   kind: StoryKind;
-  created_by: string;
-  created_at: string;
-  updated_at: string;
-  /** Set = the story sits in the Recycle Bin (soft-deleted). */
-  deleted_at: string | null;
-  /** When the auto-purge may take it; NULL = kept until deleted by hand. */
-  purge_after: string | null;
 }
 
-export interface ChapterRow {
-  id: string;
-  story_id: string;
-  position: number;
-  title: string | null;
-  date: string | null;
-  end_date: string | null;
-  date_approx: number;
-  place: string | null;
-  place_lat: number | null;
-  place_lng: number | null;
-  description: string | null;
-  standfirst: string | null;
-  hero_item_id: string | null;
-  /** 1 = the chapter's pin is its cover, drawn instead of a photo hero. */
-  hero_map: number;
-}
+/** A `story_chapters` row. hero_map 1 = the chapter's pin is its cover, drawn
+ *  instead of a photo hero. */
+export type ChapterRow = StoryChapterRow;
 
-export interface BlockRow {
-  id: string;
-  chapter_id: string;
-  position: number;
+/** A `story_blocks` row, kind narrowed. heading is the block's own heading,
+ *  above it in the reader; null = untitled. */
+export interface BlockRow extends Omit<StoryBlockRow, "kind"> {
   kind: StoryBlockKind;
-  entity_type: string | null;
-  entity_id: string | null;
-  body: string | null;
-  /** The block's own heading, above it in the reader; null = untitled. */
-  heading: string | null;
-  lat: number | null;
-  lng: number | null;
-  zoom: number | null;
-  label: string | null;
-  caption: string | null;
-  layout: string | null;
 }
 
 /** One stop of a map block's route, in travel order. `mode` and `geometry`

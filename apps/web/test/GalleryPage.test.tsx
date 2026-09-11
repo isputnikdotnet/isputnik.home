@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderSignedIn } from "./helpers/session";
@@ -40,9 +40,21 @@ const library = {
   uploadExtensions: [], maxUploadMB: null
 };
 
-function mockGallery() {
+// A finished year and the one still running: only a year that is over gets a card.
+const THIS_YEAR = new Date().getFullYear();
+const yearReview = (year: number) => ({
+  id: `year-${year}`, title: `${year} in review`, subtitle: "server words", coverUrl: null,
+  count: 2, itemIds: ["y1", "y2"], year
+});
+
+function mockGallery({ yearReviews = [yearReview(THIS_YEAR), yearReview(2025)] }: { yearReviews?: unknown[] } = {}) {
   vi.mocked(api).mockImplementation(async (path: string) => {
     if (path === "/api/library/gallery-libraries") return { libraries: [library] } as never;
+    if (path.startsWith("/api/library/gallery/year-review")) return { suggestions: yearReviews } as never;
+    if (path === "/api/library/gallery/assets/lookup") {
+      const file = (id: string) => ({ fileUrl: `/api/library/gallery/assets/${id}/file`, playbackUrl: `/api/library/gallery/assets/${id}/file` });
+      return { assets: [asset("y1", { title: "Snow.jpg", ...file("y1") }), asset("y2", file("y2"))] } as never;
+    }
     if (path.startsWith("/api/library/gallery/facets")) return { kinds: [], years: [], withGps: 0, people: [], tags: [], cameras: [] } as never;
     if (path.startsWith("/api/library/gallery/memories/suggestions")) return { suggestions: [{ id: "s1", title: "Summer trip", subtitle: "July 2019", coverUrl: null, count: 2, itemIds: ["a1", "a2"] }] } as never;
     if (path.startsWith("/api/library/gallery/memories")) return { precision: "day", groups: [{ year: 2019, count: 1, precision: "day", items: [asset("m1")] }] } as never;
@@ -100,6 +112,47 @@ describe("GalleryPage views", () => {
   it("draws the memories view by year", async () => {
     renderSignedIn(<GalleryPage view="memories" />);
     await waitFor(() => expect(document.querySelector("#gallery-memories-2019")).not.toBeNull());
+  });
+
+  it("opens Memories with a finished year in review, and plays it in the gallery's own viewer", async () => {
+    const user = userEvent.setup();
+    renderSignedIn(<GalleryPage view="memories" />);
+    expect(await screen.findByRole("heading", { name: "Your years in photos" })).toBeInTheDocument();
+    // The year still running is not offered: a look back belongs to a year that is over.
+    expect(screen.queryByText(`Your ${THIS_YEAR} in photos`)).not.toBeInTheDocument();
+    // Worded by the app, not the server (whose title is English-only).
+    expect(screen.queryByText("2025 in review")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Your 2025 in photos/ }));
+    expect(api).toHaveBeenCalledWith("/api/library/gallery/assets/lookup", expect.objectContaining({
+      method: "POST",
+      body: JSON.stringify({ itemIds: ["y1", "y2"] })
+    }));
+    // The lightbox, already playing, on the film's first photo.
+    const viewer = await screen.findByRole("dialog", { name: "Snow.jpg" });
+    expect(viewer).toHaveClass("is-playing");
+    expect(within(viewer).getByText("1 / 2")).toBeInTheDocument();
+  });
+
+  it("leaves the year row out when the server has no year to offer", async () => {
+    mockGallery({ yearReviews: [] });
+    renderSignedIn(<GalleryPage view="memories" />);
+    await waitFor(() => expect(document.querySelector("#gallery-memories-2019")).not.toBeNull());
+    expect(screen.queryByRole("heading", { name: "Your years in photos" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Create slideshow" })).not.toBeInTheDocument();
+  });
+
+  it("keeps Memories worth opening on a day with no anniversary when there is a year", async () => {
+    vi.mocked(api).mockReset();
+    mockGallery();
+    const base = vi.mocked(api).getMockImplementation()!;
+    vi.mocked(api).mockImplementation(async (path: string, init?: RequestInit) => (
+      path.startsWith("/api/library/gallery/memories?") ? { precision: "day", groups: [] } as never : base(path, init)
+    ));
+    renderSignedIn(<GalleryPage view="memories" />);
+    expect(await screen.findByRole("heading", { name: "Your years in photos" })).toBeInTheDocument();
+    expect(screen.getByText("Nothing was taken on this day in past years.")).toBeInTheDocument();
+    expect(screen.queryByText("No memories yet")).not.toBeInTheDocument();
   });
 
   it("enters selection from the toolbar and offers the bulk verbs", async () => {

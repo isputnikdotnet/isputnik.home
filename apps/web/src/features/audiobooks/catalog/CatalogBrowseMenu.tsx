@@ -4,6 +4,7 @@ import { ChevronDown, Compass, Library, Mic2, Shapes, UserRound } from "lucide-r
 import { navigate } from "../../../router";
 import { useAnchoredMenu } from "../../../shared/useAnchoredMenu";
 import { CATALOG_KINDS, type CatalogKind } from "./catalogKinds";
+import { Button } from "../../../shared/Button";
 
 // The phone's "Browse" dropdown on a catalog page, standing in for the section
 // nav: Authors, Narrators (audiobooks only), Series and Categories.
@@ -14,9 +15,9 @@ export function CatalogBrowseMenu({ kind }: { kind: CatalogKind }) {
 
   return (
     <div className="audiobook-library-shortcuts">
-      <button
+      <Button
+        variant="bare"
         ref={menu.triggerRef}
-        type="button"
         className="audiobook-library-tab"
         onClick={menu.toggle}
         aria-haspopup="menu"
@@ -26,7 +27,7 @@ export function CatalogBrowseMenu({ kind }: { kind: CatalogKind }) {
         <Compass size={19} aria-hidden="true" />
         <span>{t("book:catalog.browse")}</span>
         <ChevronDown size={16} aria-hidden="true" />
-      </button>
+      </Button>
       {menu.open && menu.pos && createPortal(
         <div
           ref={menu.menuRef}
@@ -35,24 +36,24 @@ export function CatalogBrowseMenu({ kind }: { kind: CatalogKind }) {
           aria-label={t("book:catalog.browse")}
           style={{ position: "fixed", top: menu.pos.top, left: menu.pos.left ?? undefined, right: menu.pos.right ?? undefined }}
         >
-          <button type="button" role="menuitem" onClick={() => go("/authors")}>
+          <Button variant="bare" role="menuitem" onClick={() => go("/authors")}>
             <UserRound size={16} aria-hidden="true" />
             <span>{t("book:catalog.browseAuthors")}</span>
-          </button>
+          </Button>
           {kind === "audiobook" && (
-            <button type="button" role="menuitem" onClick={() => go("/audiobooks/narrators")}>
+            <Button variant="bare" role="menuitem" onClick={() => go("/audiobooks/narrators")}>
               <Mic2 size={16} aria-hidden="true" />
               <span>{t("book:catalog.browseNarrators")}</span>
-            </button>
+            </Button>
           )}
-          <button type="button" role="menuitem" onClick={() => go(kind === "ebook" ? "/ebooks/series" : "/audiobooks/series")}>
+          <Button variant="bare" role="menuitem" onClick={() => go(kind === "ebook" ? "/ebooks/series" : "/audiobooks/series")}>
             <Library size={16} aria-hidden="true" />
             <span>{t("book:catalog.browseSeries")}</span>
-          </button>
-          <button type="button" role="menuitem" onClick={() => go("/categories")}>
+          </Button>
+          <Button variant="bare" role="menuitem" onClick={() => go("/categories")}>
             <Shapes size={16} aria-hidden="true" />
             <span>{t("book:catalog.browseCategories")}</span>
-          </button>
+          </Button>
         </div>,
         document.body
       )}

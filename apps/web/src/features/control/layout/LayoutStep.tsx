@@ -172,10 +172,10 @@ export function LayoutStep({
         </div>
         <div className="layout-presets">
           {presets.map((preset) => (
-            <button key={preset.id} type="button" className="layout-preset" title={preset.pattern} onClick={() => pickPreset(preset.pattern)}>
+            <Button variant="bare" key={preset.id} className="layout-preset" title={preset.pattern} onClick={() => pickPreset(preset.pattern)}>
               <b>{t(`controlAdmin:layout.preset_${preset.id}` as never)}</b>
               <span>{preset.pattern}</span>
-            </button>
+            </Button>
           ))}
         </div>
       </div>
@@ -253,7 +253,7 @@ export function LayoutStep({
                                     </span>
                                   </div>
                                   {g.sepAfter && (
-                                    <button type="button" className="layout-sep-join" title={t("controlAdmin:layout.joinTitle")} onClick={() => update(index, (d) => joinAt(d.segments[si], g.sepAfter!.index))}>{g.sepAfter.text}</button>
+                                    <Button variant="bare" className="layout-sep-join" title={t("controlAdmin:layout.joinTitle")} onClick={() => update(index, (d) => joinAt(d.segments[si], g.sepAfter!.index))}>{g.sepAfter.text}</Button>
                                   )}
                                 </span>
                               );

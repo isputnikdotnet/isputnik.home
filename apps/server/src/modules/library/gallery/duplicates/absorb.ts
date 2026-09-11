@@ -3,6 +3,7 @@ import { db } from "../../../../db.js";
 import { applyItemAlphaIndex } from "../../shared/alphabet-index.js";
 import { recomputeFaceCount } from "../people.js";
 import { ID_CHUNK } from "./items.js";
+import type { CollectionItemRow, GalleryDetailRow, GalleryFaceRow, ItemMetadataRow, ItemSaveRow, NonNull, ShareRow } from "../../../../db/rows.js";
 
 // ────────────────────────────────────────────────────────────────────────────
 //  Admin actions
@@ -22,12 +23,12 @@ const inList = (ids: string[]): string => ids.map(() => "?").join(",");
 function pickFaceRowsToMove(keeperId: string, loserIds: string[]): string[] {
   const rows = db.prepare(
     `SELECT id, item_id, person_id FROM gallery_faces WHERE item_id IN (${inList(loserIds)}) ORDER BY item_id, id`
-  ).all(...loserIds) as { id: string; item_id: string; person_id: string | null }[];
+  ).all(...loserIds) as Pick<GalleryFaceRow, "id" | "item_id" | "person_id">[];
   if (rows.length === 0) return [];
 
   const keeperFaces = db.prepare(
     "SELECT person_id FROM gallery_faces WHERE item_id = ?"
-  ).all(keeperId) as { person_id: string | null }[];
+  ).all(keeperId) as Pick<GalleryFaceRow, "person_id">[];
 
   if (keeperFaces.length === 0) {
     const byItem = new Map<string, string[]>();
@@ -73,7 +74,7 @@ export function absorbDuplicateMetadata(
   const affectedPeople = (db.prepare(
     `SELECT DISTINCT person_id FROM gallery_faces
      WHERE person_id IS NOT NULL AND item_id IN (${losers}, ?)`
-  ).all(...loserIds, keeperId) as { person_id: string }[]).map((r) => r.person_id);
+  ).all(...loserIds, keeperId) as NonNull<Pick<GalleryFaceRow, "person_id">, "person_id">[]).map((r) => r.person_id);
   const faceIdsToMove = moveFaces ? pickFaceRowsToMove(keeperId, loserIds) : [];
 
   db.transaction(() => {
@@ -107,7 +108,7 @@ export function absorbDuplicateMetadata(
     const collections = db.prepare(
       `SELECT collection_id, position FROM collection_items
        WHERE entity_type = 'library_item' AND entity_id IN (${losers})`
-    ).all(...loserIds) as { collection_id: string; position: number }[];
+    ).all(...loserIds) as Pick<CollectionItemRow, "collection_id" | "position">[];
     const insertCollection = db.prepare(
       "INSERT OR IGNORE INTO collection_items (id, collection_id, entity_type, entity_id, position) VALUES (?, ?, 'library_item', ?, ?)"
     );
@@ -115,14 +116,14 @@ export function absorbDuplicateMetadata(
 
     const saves = db.prepare(
       `SELECT user_id, note FROM item_saves WHERE item_id IN (${losers})`
-    ).all(...loserIds) as { user_id: string; note: string | null }[];
+    ).all(...loserIds) as Pick<ItemSaveRow, "user_id" | "note">[];
     const insertSave = db.prepare("INSERT OR IGNORE INTO item_saves (id, user_id, item_id, note) VALUES (?, ?, ?, ?)");
     for (const row of saves) insertSave.run(nanoid(16), row.user_id, keeperId, row.note);
 
     const shares = db.prepare(
       `SELECT user_id, permission, created_by, expires_at FROM shares
        WHERE module = 'gallery' AND revoked_at IS NULL AND resource_id IN (${losers})`
-    ).all(...loserIds) as { user_id: string; permission: string; created_by: string; expires_at: string | null }[];
+    ).all(...loserIds) as Pick<ShareRow, "user_id" | "permission" | "created_by" | "expires_at">[];
     const insertShare = db.prepare(
       "INSERT OR IGNORE INTO shares (id, module, resource_id, user_id, permission, created_by, expires_at) VALUES (?, 'gallery', ?, ?, ?, ?, ?)"
     );
@@ -141,12 +142,12 @@ export function absorbDuplicateMetadata(
     // where the keeper has none of its own.
     const keeperMeta = db.prepare(
       "SELECT source, title, sort_title, description FROM item_metadata WHERE item_id = ?"
-    ).get(keeperId) as { source: string; title: string | null; sort_title: string | null; description: string | null } | undefined;
+    ).get(keeperId) as Pick<ItemMetadataRow, "source" | "title" | "sort_title" | "description"> | undefined;
     if (keeperMeta?.source !== "manual") {
       const donor = db.prepare(
         `SELECT title, sort_title, description FROM item_metadata
          WHERE source = 'manual' AND item_id IN (${losers}) LIMIT 1`
-      ).get(...loserIds) as { title: string | null; sort_title: string | null; description: string | null } | undefined;
+      ).get(...loserIds) as Pick<ItemMetadataRow, "title" | "sort_title" | "description"> | undefined;
       if (donor) {
         db.prepare(`
           INSERT INTO item_metadata (item_id, source, title, sort_title, description)
@@ -162,12 +163,12 @@ export function absorbDuplicateMetadata(
 
     const keeperDetails = db.prepare(
       "SELECT taken_at_source, gps_source FROM gallery_details WHERE item_id = ?"
-    ).get(keeperId) as { taken_at_source: string; gps_source: string } | undefined;
+    ).get(keeperId) as Pick<GalleryDetailRow, "taken_at_source" | "gps_source"> | undefined;
 
     if (keeperDetails && keeperDetails.taken_at_source !== "manual") {
       const donor = db.prepare(
         `SELECT taken_at FROM gallery_details WHERE taken_at_source = 'manual' AND item_id IN (${losers}) LIMIT 1`
-      ).get(...loserIds) as { taken_at: string | null } | undefined;
+      ).get(...loserIds) as Pick<GalleryDetailRow, "taken_at"> | undefined;
       if (donor) {
         db.prepare("UPDATE gallery_details SET taken_at = ?, taken_at_source = 'manual' WHERE item_id = ?")
           .run(donor.taken_at, keeperId);
@@ -180,12 +181,12 @@ export function absorbDuplicateMetadata(
     // the preview would be a real, if small, loss for nothing.
     const keeperCamera = db.prepare(
       "SELECT camera_make, camera_model, taken_at FROM gallery_details WHERE item_id = ?"
-    ).get(keeperId) as { camera_make: string | null; camera_model: string | null; taken_at: string | null } | undefined;
+    ).get(keeperId) as Pick<GalleryDetailRow, "camera_make" | "camera_model" | "taken_at"> | undefined;
     if (keeperCamera && !keeperCamera.camera_make && !keeperCamera.camera_model) {
       const donor = db.prepare(
         `SELECT camera_make, camera_model FROM gallery_details
          WHERE item_id IN (${losers}) AND (camera_make IS NOT NULL OR camera_model IS NOT NULL) LIMIT 1`
-      ).get(...loserIds) as { camera_make: string | null; camera_model: string | null } | undefined;
+      ).get(...loserIds) as Pick<GalleryDetailRow, "camera_make" | "camera_model"> | undefined;
       if (donor) {
         db.prepare("UPDATE gallery_details SET camera_make = ?, camera_model = ? WHERE item_id = ?")
           .run(donor.camera_make, donor.camera_model, keeperId);
@@ -196,7 +197,7 @@ export function absorbDuplicateMetadata(
     if (keeperCamera && !keeperCamera.taken_at) {
       const donor = db.prepare(
         `SELECT taken_at FROM gallery_details WHERE item_id IN (${losers}) AND taken_at IS NOT NULL LIMIT 1`
-      ).get(...loserIds) as { taken_at: string | null } | undefined;
+      ).get(...loserIds) as Pick<GalleryDetailRow, "taken_at"> | undefined;
       if (donor) {
         db.prepare("UPDATE gallery_details SET taken_at = ? WHERE item_id = ?").run(donor.taken_at, keeperId);
       }
@@ -205,7 +206,7 @@ export function absorbDuplicateMetadata(
     if (keeperDetails && keeperDetails.gps_source !== "manual") {
       const donor = db.prepare(
         `SELECT gps_lat, gps_lng FROM gallery_details WHERE gps_source = 'manual' AND item_id IN (${losers}) LIMIT 1`
-      ).get(...loserIds) as { gps_lat: number | null; gps_lng: number | null } | undefined;
+      ).get(...loserIds) as Pick<GalleryDetailRow, "gps_lat" | "gps_lng"> | undefined;
       if (donor) {
         db.prepare("UPDATE gallery_details SET gps_lat = ?, gps_lng = ?, gps_source = 'manual' WHERE item_id = ?")
           .run(donor.gps_lat, donor.gps_lng, keeperId);

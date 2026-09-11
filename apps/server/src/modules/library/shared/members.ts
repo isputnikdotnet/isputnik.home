@@ -4,6 +4,7 @@ import { db, logActivity } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
 import { canUserManageLibraryMembers } from "./library-access.js";
 import { EVERYONE_GROUP_ID } from "../../../core/permissions.js";
+import type { AssignmentRow, LibraryRow as DbLibraryRow } from "../../../db/rows.js";
 
 // Roles grantable to a specific user/group on a library. `deny` is an explicit block;
 // `member` = view+download. The Everyone baseline (public access) is managed via the
@@ -11,10 +12,7 @@ import { EVERYONE_GROUP_ID } from "../../../core/permissions.js";
 const GRANTABLE_ROLES = ["viewer", "member", "contributor", "manager", "deny"] as const;
 type GrantRole = (typeof GRANTABLE_ROLES)[number];
 
-interface LibraryRow {
-  id: string;
-  name: string;
-}
+type LibraryRow = Pick<DbLibraryRow, "id" | "name">;
 
 const grantSchema = z.object({
   subjectType: z.enum(["user", "group"]),
@@ -61,15 +59,11 @@ export async function libraryMembersPlugin(app: FastifyInstance) {
       WHERE a.object_type = 'library' AND a.object_id = ?
         AND NOT (a.subject_type = 'group' AND a.subject_id = ?)
       ORDER BY a.subject_type, name COLLATE NOCASE
-    `).all(id, EVERYONE_GROUP_ID) as {
-      subject_type: "user" | "group";
-      subject_id: string;
-      role: GrantRole;
-      created_at: string;
+    `).all(id, EVERYONE_GROUP_ID) as (Pick<AssignmentRow, "subject_type" | "subject_id" | "role" | "created_at"> & {
       name: string | null;
       email: string | null;
       missing: number;
-    }[];
+    })[];
 
     return reply.send({
       members: rows.map((row) => ({

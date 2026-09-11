@@ -4,6 +4,7 @@ import { nanoid } from "nanoid";
 import { db } from "../../db.js";
 import { parseBody, parseQuery } from "../../core/shared.js";
 import { COLLECTABLE_ENTITY_TYPES, hydrateEntities, type HydratedEntity } from "../social/subjects.js";
+import type { CollectionItemRow, CollectionRow as DbCollectionRow } from "../../db/rows.js";
 
 const createSchema = z.object({
   name: z.string().trim().min(1).max(120),
@@ -34,21 +35,12 @@ const listQuerySchema = z.object({
   entityId: z.string().optional()
 });
 
-interface CollectionRow {
-  id: string;
-  name: string;
-  description: string | null;
-  created_at: string;
-  updated_at: string;
-}
+type CollectionRow = Pick<DbCollectionRow, "id" | "name" | "description" | "created_at" | "updated_at">;
 
-interface ItemRow {
-  id: string;
-  entity_type: string;
-  entity_id: string;
-  position: number;
-  added_at: string;
-}
+type ItemRow = Pick<CollectionItemRow, "id" | "entity_type" | "entity_id" | "position" | "added_at">;
+
+// The list route's members: every collection's items at once, without added_at.
+type MemberRow = Pick<CollectionItemRow, "id" | "collection_id" | "entity_type" | "entity_id" | "position">;
 
 function ownedCollection(id: string, userId: string): CollectionRow | undefined {
   return db.prepare(
@@ -70,7 +62,7 @@ export function appendCollectionItems(
   const hydrated = hydrateEntities(unique.map((entityId) => ({ entityType, entityId })), user);
   const existing = new Set((db.prepare(
     "SELECT entity_id FROM collection_items WHERE collection_id = ? AND entity_type = ?"
-  ).all(collectionId, entityType) as { entity_id: string }[]).map((row) => row.entity_id));
+  ).all(collectionId, entityType) as Pick<CollectionItemRow, "entity_id">[]).map((row) => row.entity_id));
 
   let position = (db.prepare(
     "SELECT COALESCE(MAX(position), 0) + 1 AS pos FROM collection_items WHERE collection_id = ?"
@@ -137,14 +129,14 @@ export async function collectionsPlugin(app: FastifyInstance) {
       FROM collection_items
       WHERE collection_id IN (${collections.map(() => "?").join(", ")})
       ORDER BY position ASC
-    `).all(...collections.map((c) => c.id)) as (ItemRow & { collection_id: string })[];
+    `).all(...collections.map((c) => c.id)) as MemberRow[];
 
     const hydrated = hydrateEntities(
       items.map((item) => ({ entityType: item.entity_type, entityId: item.entity_id })),
       user
     );
 
-    const byCollection = new Map<string, (ItemRow & { collection_id: string })[]>();
+    const byCollection = new Map<string, MemberRow[]>();
     for (const item of items) {
       const list = byCollection.get(item.collection_id) ?? [];
       list.push(item);
@@ -294,7 +286,7 @@ export async function collectionsPlugin(app: FastifyInstance) {
 
     const existing = db.prepare(
       "SELECT id FROM collection_items WHERE collection_id = ? AND entity_type = ? AND entity_id = ?"
-    ).get(id, entityType, entityId) as { id: string } | undefined;
+    ).get(id, entityType, entityId) as Pick<CollectionItemRow, "id"> | undefined;
 
     if (!existing) {
       const next = db.prepare(
@@ -355,7 +347,7 @@ export async function collectionsPlugin(app: FastifyInstance) {
       return reply.code(400).send({ error: "Invalid order", details: parsed.error });
     }
     const owned = new Set(
-      (db.prepare("SELECT id FROM collection_items WHERE collection_id = ?").all(id) as { id: string }[])
+      (db.prepare("SELECT id FROM collection_items WHERE collection_id = ?").all(id) as Pick<CollectionItemRow, "id">[])
         .map((row) => row.id)
     );
     const setPosition = db.prepare("UPDATE collection_items SET position = ? WHERE id = ? AND collection_id = ?");

@@ -5,6 +5,13 @@ import type { CatalogEndpoints } from "../useAudiobookCatalog";
 // The Audiobooks and Ebooks pages are one page (CatalogPage) over two kinds of
 // library. Everything that differs between them — endpoints, the words, which
 // facets and actions apply — is declared here, once per kind.
+//
+// Only what the KIND makes different belongs here. The page used to carry flags
+// for differences that were history rather than design (whether the sort was
+// remembered, when "no libraries" appeared, whether a delete-only member could
+// select, whether counts refreshed after a change, whether a failed scan poll
+// said so); those were settled on the better behaviour for both and removed, so
+// a new flag here needs a reason the other kind can't share it.
 export type CatalogKind = "audiobook" | "ebook";
 
 // What the page needs to know about a library, whichever kind it is.
@@ -39,16 +46,6 @@ const AUDIOBOOK = {
   filterFields: undefined as (keyof BookFilters)[] | undefined,
   /** Narrators are an audiobook credit: counted, suggested and bulk-edited here only. */
   narrators: true,
-  /** The sort starts at "Recently added" on every visit rather than the last one chosen. */
-  rememberSort: false,
-  /** Wait for the library list before deciding there are no libraries. */
-  emptyStateAfterLoad: false,
-  /** Selection is offered to someone who may delete but not edit. */
-  selectToDelete: false,
-  /** Re-read the library list (book counts) after an upload or a delete. */
-  refreshLibrariesAfterChange: false,
-  /** A failed scan-poll of the library list stays quiet instead of showing an error. */
-  quietPoll: true,
   keys: {
     title: "book:catalog.audiobooksTitle",
     searchPlaceholder: "book:catalog.searchAudiobooksPlaceholder",
@@ -84,11 +81,6 @@ const EBOOK = {
   librariesPath: "ebook-libraries",
   filterFields: EBOOK_FILTER_FIELDS as (keyof BookFilters)[] | undefined,
   narrators: false,
-  rememberSort: true,
-  emptyStateAfterLoad: true,
-  selectToDelete: true,
-  refreshLibrariesAfterChange: true,
-  quietPoll: false,
   keys: {
     title: "book:catalog.ebooksTitle",
     searchPlaceholder: "book:catalog.searchEbooksPlaceholder",

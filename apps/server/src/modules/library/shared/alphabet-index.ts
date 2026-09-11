@@ -1,5 +1,7 @@
 import { db } from "../../../db.js";
+import { stmt } from "../../../db/statement-cache.js";
 import { alphaFieldsFor } from "./alphabet.js";
+import type { ItemMetadataRow } from "../../../db/rows.js";
 
 // Keeps item_metadata's alphabet columns in step with the title. Every path that
 // writes sort_title/title calls applyItemAlphaIndex afterwards; backfillAlphaKeys
@@ -19,10 +21,10 @@ const WRITE_INDEX = "UPDATE item_metadata SET alpha_key = ?, alpha_script = ?, s
 // didn't actually save. alpha_override is an administrator's choice and is left
 // alone.
 export function applyItemAlphaIndex(itemId: string): void {
-  const row = db.prepare(READ_SOURCE).get(itemId) as { value: string | null } | undefined;
+  const row = stmt(READ_SOURCE).get(itemId) as { value: string | null } | undefined;
   if (!row) return;
   const fields = alphaFieldsFor(row.value);
-  db.prepare(WRITE_INDEX).run(fields.alphaKey, fields.alphaScript, fields.sortKey, itemId);
+  stmt(WRITE_INDEX).run(fields.alphaKey, fields.alphaScript, fields.sortKey, itemId);
 }
 
 // Fills every item that has no bucket yet; returns how many were indexed. Runs at
@@ -35,7 +37,7 @@ export function backfillAlphaKeys(): number {
     FROM item_metadata
     JOIN library_items ON library_items.id = item_metadata.item_id
     WHERE item_metadata.alpha_key IS NULL
-  `).all() as { id: string; value: string | null }[];
+  `).all() as { id: ItemMetadataRow["item_id"]; value: string | null }[];
   if (rows.length === 0) return 0;
 
   const write = db.prepare(WRITE_INDEX);

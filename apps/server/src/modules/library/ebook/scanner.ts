@@ -4,6 +4,7 @@ import AdmZip from "adm-zip";
 import sharp from "sharp";
 import { nanoid } from "nanoid";
 import { db } from "../../../db.js";
+import { stmt } from "../../../db/statement-cache.js";
 import { normaliseRelativePath } from "../shared/storage-roots.js";
 import { renderInTurn, thumbnailAbsolutePath, thumbnailStorageKey } from "../shared/thumbnail.js";
 import { matchCategoryId, setEntityTags } from "../shared/tagging.js";
@@ -22,8 +23,10 @@ import {
 import { libraryJobRunning } from "../shared/scan-lock.js";
 import { requeueInterruptedJobs, releaseAbandonedScanLibraries } from "../shared/job-recovery.js";
 import { jobProgressWriter } from "../shared/job-progress.js";
+import { registerJobHandler } from "../../../core/job-poller.js";
 import { applyScannedSeries } from "../shared/series.js";
 import { applyItemAlphaIndex } from "../shared/alphabet-index.js";
+import type { ItemMetadataRow, JobRow, LibraryItemRow, LibraryRow, PersonAliasRow, PersonRow } from "../../../db/rows.js";
 
 const scanJobType = "SCAN_EBOOK_LIBRARY";
 
@@ -269,8 +272,8 @@ function extractFb2Metadata(filePath: string): EbookMetadata | null {
 // ── Shared lookups (alias-aware author upsert, mirrors the audiobook scanner) ──
 
 function resolvePersonName(name: string): string {
-  const row = db.prepare("SELECT canonical_name FROM person_aliases WHERE alias = ?")
-    .get(name.trim()) as { canonical_name: string } | undefined;
+  const row = stmt("SELECT canonical_name FROM person_aliases WHERE alias = ?")
+    .get(name.trim()) as Pick<PersonAliasRow, "canonical_name"> | undefined;
   return row ? row.canonical_name : name;
 }
 
@@ -281,9 +284,9 @@ function sortName(value: string): string {
 function upsertAuthor(libraryId: string, name: string): string {
   void libraryId; // people are global
   const resolved = resolvePersonName(name);
-  db.prepare("INSERT OR IGNORE INTO people (id, name, sort_name) VALUES (?, ?, ?)")
+  stmt("INSERT OR IGNORE INTO people (id, name, sort_name) VALUES (?, ?, ?)")
     .run(nanoid(16), resolved, sortName(resolved));
-  return (db.prepare("SELECT id FROM people WHERE name = ?").get(resolved) as { id: string }).id;
+  return (stmt("SELECT id FROM people WHERE name = ?").get(resolved) as Pick<PersonRow, "id">).id;
 }
 
 async function generateEbookCover(libraryId: string, bookId: string, source: Buffer): Promise<string | null> {
@@ -369,10 +372,10 @@ export async function ingestEbookGroup(
 ): Promise<string> {
   const scanRuleId = opts.scanRuleId ?? null;
   const groupKey = ebookGroupKey(files[0].relativePath);
-  const existing = db.prepare("SELECT id, scan_rule_id FROM library_items WHERE library_id = ? AND folder_path = ?")
-    .get(libraryId, groupKey) as { id: string; scan_rule_id: string | null } | undefined;
+  const existing = stmt("SELECT id, scan_rule_id FROM library_items WHERE library_id = ? AND folder_path = ?")
+    .get(libraryId, groupKey) as Pick<LibraryItemRow, "id" | "scan_rule_id"> | undefined;
   const metaRow = existing
-    ? db.prepare("SELECT source FROM item_metadata WHERE item_id = ?").get(existing.id) as { source: string } | undefined
+    ? stmt("SELECT source FROM item_metadata WHERE item_id = ?").get(existing.id) as Pick<ItemMetadataRow, "source"> | undefined
     : undefined;
   const manual = metaRow?.source === "manual";
   const bookId = existing?.id ?? nanoid(16);
@@ -393,16 +396,16 @@ export async function ingestEbookGroup(
 
   db.transaction(() => {
     if (existing) {
-      db.prepare("UPDATE library_items SET status = 'ready', scan_rule_id = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), deleted_at = NULL WHERE id = ?")
+      stmt("UPDATE library_items SET status = 'ready', scan_rule_id = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), deleted_at = NULL WHERE id = ?")
         .run(scanRuleId, bookId);
     } else {
-      db.prepare("INSERT INTO library_items (id, library_id, type, folder_path, status, scan_rule_id) VALUES (?, ?, 'ebook', ?, 'ready', ?)")
+      stmt("INSERT INTO library_items (id, library_id, type, folder_path, status, scan_rule_id) VALUES (?, ?, 'ebook', ?, 'ready', ?)")
         .run(bookId, libraryId, groupKey, scanRuleId);
     }
 
     if (!manual) {
       // A rule pattern's year and publisher, like its title, win over the file's own.
-      db.prepare(`
+      stmt(`
         INSERT INTO item_metadata (item_id, source, title, sort_title, description, year_published, publisher, language, isbn, cover_storage_key)
         VALUES (?, 'scan', ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(item_id) DO UPDATE SET
@@ -424,8 +427,8 @@ export async function ingestEbookGroup(
 
       // Primary category from the ebook's subjects.
       const categoryId = matchCategoryId(meta.subjects);
-      db.prepare("DELETE FROM item_categories WHERE item_id = ? AND is_primary = 1").run(bookId);
-      db.prepare(`
+      stmt("DELETE FROM item_categories WHERE item_id = ? AND is_primary = 1").run(bookId);
+      stmt(`
         INSERT INTO item_categories (item_id, category_id, is_primary, source) VALUES (?, ?, 1, 'scan')
         ON CONFLICT(item_id, category_id) DO UPDATE SET is_primary = 1, source = 'scan'
       `).run(bookId, categoryId);
@@ -433,10 +436,10 @@ export async function ingestEbookGroup(
       // A rule pattern's author takes precedence (it reads clean folder names);
       // otherwise use the authors embedded in the file.
       const authors = opts.fields?.author ? [opts.fields.author] : meta.authors;
-      db.prepare("DELETE FROM item_people WHERE item_id = ? AND role = 'author'").run(bookId);
+      stmt("DELETE FROM item_people WHERE item_id = ? AND role = 'author'").run(bookId);
       authors.forEach((name, index) => {
         const authorId = upsertAuthor(libraryId, name);
-        db.prepare("INSERT OR IGNORE INTO item_people (item_id, person_id, role, sort_order) VALUES (?, ?, 'author', ?)")
+        stmt("INSERT OR IGNORE INTO item_people (item_id, person_id, role, sort_order) VALUES (?, ?, 'author', ?)")
           .run(bookId, authorId, index);
       });
 
@@ -454,9 +457,9 @@ export async function ingestEbookGroup(
     // Every file in the group is a content document. Mark all current content docs
     // missing, then re-add each present format — so a removed format drops out while
     // the rest stay available.
-    db.prepare("UPDATE document_files SET status = 'missing', deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id = ? AND role = 'content'").run(bookId);
+    stmt("UPDATE document_files SET status = 'missing', deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id = ? AND role = 'content'").run(bookId);
     for (const file of files) {
-      db.prepare(`
+      stmt(`
         INSERT INTO document_files (id, item_id, role, relative_path, format, mime_type, size, status, deleted_at)
         VALUES (?, ?, 'content', ?, ?, ?, ?, 'available', NULL)
         ON CONFLICT(item_id, relative_path) DO UPDATE SET
@@ -473,8 +476,8 @@ export async function ingestEbookGroup(
 // the library source, without re-walking the whole library. Returns the new/updated
 // book id, or null if the library or file can't be read.
 export async function scanSingleEbookFile(libraryId: string, relativePath: string): Promise<string | null> {
-  const library = db.prepare("SELECT id, source_path, settings_json FROM libraries WHERE id = ? AND type = 'ebook'")
-    .get(libraryId) as { id: string; source_path: string; settings_json: string } | undefined;
+  const library = stmt("SELECT id, source_path, settings_json FROM libraries WHERE id = ? AND type = 'ebook'")
+    .get(libraryId) as Pick<LibraryRow, "id" | "source_path" | "settings_json"> | undefined;
   if (!library) return null;
 
   const settings = normalizeLibrarySettings("ebook", library.settings_json);
@@ -528,8 +531,8 @@ export function previewEbookRulePattern(
   ruleId: string | null = null,
   limit = 200
 ): RulePreviewRow[] {
-  const library = db.prepare("SELECT source_path, settings_json FROM libraries WHERE id = ? AND type = 'ebook'")
-    .get(libraryId) as { source_path: string; settings_json: string } | undefined;
+  const library = stmt("SELECT source_path, settings_json FROM libraries WHERE id = ? AND type = 'ebook'")
+    .get(libraryId) as Pick<LibraryRow, "source_path" | "settings_json"> | undefined;
   if (!library) return [];
 
   const settings = normalizeLibrarySettings("ebook", library.settings_json);
@@ -568,13 +571,13 @@ export function previewEbookRulePattern(
 // default scan never removes rule-owned items and vice versa.
 export function reconcileOwnedItems(libraryId: string, scanRuleId: string | null, presentKeys: Set<string>): void {
   const known = (scanRuleId === null
-    ? db.prepare("SELECT id, folder_path FROM library_items WHERE library_id = ? AND deleted_at IS NULL AND scan_rule_id IS NULL").all(libraryId)
-    : db.prepare("SELECT id, folder_path FROM library_items WHERE library_id = ? AND deleted_at IS NULL AND scan_rule_id = ?").all(libraryId, scanRuleId)
+    ? stmt("SELECT id, folder_path FROM library_items WHERE library_id = ? AND deleted_at IS NULL AND scan_rule_id IS NULL").all(libraryId)
+    : stmt("SELECT id, folder_path FROM library_items WHERE library_id = ? AND deleted_at IS NULL AND scan_rule_id = ?").all(libraryId, scanRuleId)
   ) as { id: string; folder_path: string }[];
   for (const book of known) {
     if (!presentKeys.has(book.folder_path)) {
-      db.prepare("UPDATE library_items SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(book.id);
-      db.prepare("UPDATE document_files SET status = 'missing', deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id = ?").run(book.id);
+      stmt("UPDATE library_items SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(book.id);
+      stmt("UPDATE document_files SET status = 'missing', deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id = ?").run(book.id);
     }
   }
 }
@@ -584,8 +587,8 @@ async function scanEbookLibrary(
   options: EbookScanOptions = {},
   onProgress?: (processed: number, total: number) => void
 ) {
-  const library = db.prepare("SELECT id, source_path, settings_json FROM libraries WHERE id = ? AND type = 'ebook'")
-    .get(libraryId) as { id: string; source_path: string; settings_json: string } | undefined;
+  const library = stmt("SELECT id, source_path, settings_json FROM libraries WHERE id = ? AND type = 'ebook'")
+    .get(libraryId) as Pick<LibraryRow, "id" | "source_path" | "settings_json"> | undefined;
   if (!library) throw new Error("Ebook library not found.");
 
   const settings = normalizeLibrarySettings("ebook", library.settings_json);
@@ -599,7 +602,7 @@ async function scanEbookLibrary(
   // the rest of the library is not looked at.
   const scopeRule = options.ruleId ? getScanRule(options.ruleId) : null;
   if (options.ruleId && (!scopeRule || scopeRule.libraryId !== libraryId)) {
-    db.prepare("UPDATE libraries SET scan_status = 'idle', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(libraryId);
+    stmt("UPDATE libraries SET scan_status = 'idle', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(libraryId);
     throw new Error("Scan rule not found.");
   }
   const files: EbookFileEntry[] = scopeRule
@@ -661,7 +664,7 @@ async function scanEbookLibrary(
   }
   markScanRulesScanned(libraryId, rules.filter((rule) => rule.enabled).map((rule) => rule.id));
 
-  db.prepare("UPDATE libraries SET scan_status = 'idle', last_scanned_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?")
+  stmt("UPDATE libraries SET scan_status = 'idle', last_scanned_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?")
     .run(libraryId);
   const bookCount = defaultGroups.size + [...ruleGroups.values()].reduce((sum, group) => sum + group.size, 0);
   return { books: bookCount };
@@ -671,8 +674,8 @@ async function scanEbookLibrary(
 
 export function enqueueEbookScan(libraryId: string, options: EbookScanOptions = {}): string {
   const jobId = nanoid(16);
-  db.prepare("UPDATE libraries SET scan_status = 'scanning', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(libraryId);
-  db.prepare("INSERT INTO jobs (id, type, payload, status) VALUES (?, ?, ?, 'pending')")
+  stmt("UPDATE libraries SET scan_status = 'scanning', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(libraryId);
+  stmt("INSERT INTO jobs (id, type, payload, status) VALUES (?, ?, ?, 'pending')")
     .run(jobId, scanJobType, JSON.stringify({ libraryId, options }));
   return jobId;
 }
@@ -693,14 +696,14 @@ export async function processEbookScanQueue() {
       // running (whatever its type), leave the queue alone until the next poll.
       if (libraryJobRunning()) break;
 
-      const job = db.prepare(`
+      const job = stmt(`
         SELECT id, payload FROM jobs
         WHERE type = ? AND status = 'pending' AND run_at <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
         ORDER BY run_at ASC LIMIT 1
-      `).get(scanJobType) as { id: string; payload: string } | undefined;
+      `).get(scanJobType) as Pick<JobRow, "id" | "payload"> | undefined;
       if (!job) break;
 
-      const claim = db.prepare(`
+      const claim = stmt(`
         UPDATE jobs SET status = 'running', attempts = attempts + 1, locked_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), started_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), locked_by = ?
         WHERE id = ? AND status = 'pending'
       `).run(process.pid.toString(), job.id);
@@ -711,7 +714,7 @@ export async function processEbookScanQueue() {
         // Persist live progress into the job payload (throttled) so the Tasks page
         // shows books scanned + ETA while the scan runs.
         const result = await scanEbookLibrary(payload.libraryId, payload.options ?? {}, jobProgressWriter(job.id, payload));
-        db.prepare(`
+        stmt(`
           UPDATE jobs SET status = 'completed', payload = ?, completed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), locked_at = NULL, locked_by = NULL
           WHERE id = ?
         `).run(JSON.stringify({ ...payload, result }), job.id);
@@ -720,15 +723,15 @@ export async function processEbookScanQueue() {
         // job at once instead of retrying while the library is stuck on "scanning".
         const permanent = err instanceof LibrarySourceError;
         const message = err instanceof Error ? err.message : "Ebook scan failed";
-        const attempts = (db.prepare("SELECT attempts, max_attempts FROM jobs WHERE id = ?").get(job.id) as { attempts: number; max_attempts: number });
+        const attempts = (stmt("SELECT attempts, max_attempts FROM jobs WHERE id = ?").get(job.id) as Pick<JobRow, "attempts" | "max_attempts">);
         if (!permanent && attempts.attempts < attempts.max_attempts) {
           const runAt = new Date(Date.now() + 5000).toISOString();
-          db.prepare("UPDATE jobs SET status = 'pending', run_at = ?, locked_at = NULL, locked_by = NULL, error = ? WHERE id = ?")
+          stmt("UPDATE jobs SET status = 'pending', run_at = ?, locked_at = NULL, locked_by = NULL, error = ? WHERE id = ?")
             .run(runAt, message, job.id);
         } else {
-          db.prepare("UPDATE jobs SET status = 'failed', failed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), locked_at = NULL, locked_by = NULL, error = ? WHERE id = ?")
+          stmt("UPDATE jobs SET status = 'failed', failed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), locked_at = NULL, locked_by = NULL, error = ? WHERE id = ?")
             .run(message, job.id);
-          db.prepare("UPDATE libraries SET scan_status = 'error', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ? AND scan_status = 'scanning'")
+          stmt("UPDATE libraries SET scan_status = 'error', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ? AND scan_status = 'scanning'")
             .run(payload.libraryId);
         }
       }
@@ -738,7 +741,7 @@ export async function processEbookScanQueue() {
   }
 }
 
+// On the shared job poller (core/job-poller.ts).
 export function startEbookScanWorker() {
-  const timer = setInterval(() => { void processEbookScanQueue(); }, 2000);
-  return () => clearInterval(timer);
+  return registerJobHandler({ name: "ebook scan", types: [scanJobType], run: processEbookScanQueue });
 }

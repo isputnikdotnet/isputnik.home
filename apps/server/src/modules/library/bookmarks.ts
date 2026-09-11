@@ -9,43 +9,32 @@ import { db } from "../../db.js";
 import { accessibleLibraryIds } from "./shared/library-access.js";
 import { userHasItemShare } from "./shared/share-access.js";
 import { mediaKind } from "./shared/library-types.js";
+import type {
+  AudioBookmarkRow,
+  ItemMetadataRow,
+  LibraryItemRow,
+  LibraryRow,
+  Nullable,
+  ReadingBookmarkRow
+} from "../../db/rows.js";
 
 // Each row carries its parent library so we can filter by access and route the tile
 // to the right detail page; `kind` ("listen" | "read") tells the UI how to render
 // the position (a timestamp vs a reading %).
-interface ListenRow {
-  id: string;
-  book_id: string;
-  library_id: string;
-  library_type: string;
-  folder_path: string;
-  title: string | null;
-  cover_storage_key: string | null;
-  author_names: string | null;
-  file_id: string | null;
-  position_seconds: number;
-  book_position_seconds: number | null;
-  label: string | null;
-  note: string | null;
-  created_at: string;
-  updated_at: string;
-}
+type BookmarkBookFields = Pick<LibraryItemRow, "library_id" | "folder_path"> &
+  Nullable<Pick<ItemMetadataRow, "title" | "cover_storage_key">> & {
+    library_type: LibraryRow["type"];
+    author_names: string | null; // GROUP_CONCAT of the authors
+  };
 
-interface ReadRow {
-  id: string;
-  book_id: string;
-  library_id: string;
-  library_type: string;
-  folder_path: string;
-  title: string | null;
-  cover_storage_key: string | null;
-  author_names: string | null;
-  percent_complete: number | null;
-  label: string | null;
-  note: string | null;
-  created_at: string;
-  updated_at: string;
-}
+type ListenRow = Pick<AudioBookmarkRow, "id" | "file_id" | "position_seconds" | "label" | "note" | "created_at" | "updated_at"> &
+  BookmarkBookFields & {
+    book_id: AudioBookmarkRow["item_id"];
+    book_position_seconds: AudioBookmarkRow["item_position_seconds"];
+  };
+
+type ReadRow = Pick<ReadingBookmarkRow, "id" | "percent_complete" | "label" | "note" | "created_at" | "updated_at"> &
+  BookmarkBookFields & { book_id: ReadingBookmarkRow["item_id"] };
 
 function splitNames(value: string | null): string[] {
   return value ? value.split(",").map((name) => name.trim()).filter(Boolean) : [];

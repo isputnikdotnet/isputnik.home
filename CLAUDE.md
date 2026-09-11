@@ -16,10 +16,11 @@ and `apps/web` (React + Vite PWA).
   database; use the scripts, or `npx vitest --root apps/server`.
 - A test that registers `backupsPlugin` runs `rescueStrandedBackups()`, which **moves**
   every backup out of `<process.cwd()>/data/backups` into the configured `BACKUP_PATH`
-  — under Vitest that folder is the developer's own `data/backups`, and a test that
-  cleans up its temp dir afterwards deletes them for good (this has happened). Mock
-  `process.cwd()` to the test's temp folder before registering it, as
-  `backup-restore-covers.test.ts` and `backup-path-rescue.test.ts` do.
+  — once that was the developer's own `data/backups`, and a test that cleaned up its
+  temp dir afterwards deleted them for good. Since 4.0.x every server test file runs
+  with `process.cwd()` and `BACKUP_PATH` pinned to a throwaway sandbox
+  (`test/helpers/global-sandbox.ts` + `sandbox.ts`, wired in `apps/server/vitest.config.ts`)
+  — keep that wiring. Boot plugins in tests with `test/helpers/boot.ts` (`bootApp()`).
 - **Never render two images at once.** Two `sharp` pipelines over the same source
   that cannot be decoded race inside libvips and kill the PROCESS outright — exit
   0xC0000409, no exception, no stderr (it cost one vitest worker per ~15 full-suite
@@ -74,7 +75,11 @@ Full reference: `docs/UI-CONVENTIONS.md`. The short version:
   never "OK"/"Yes" alone.
 - **Buttons** render through `shared/Button` with an explicit variant:
   `primary` (Add/Save/Create), `secondary` (Cancel/Close), `danger` (Delete),
-  `text`, `icon` (needs `aria-label`/`title`). Verbs: **Add** = attach existing,
+  `text`, `icon` (needs `aria-label`/`title`), plus `toolbar` (browse toolbar),
+  `tab` (tab rows — `selected` sets role/aria-selected; put `role="tablist"` on the row),
+  `tile`, `chip` and `bare` (custom chrome; your `className` carries the look). A raw
+  `<button>` outside `shared/` fails `check:ui` (baseline in
+  `scripts/raw-buttons-baseline.json`, now empty — keep it that way). Verbs: **Add** = attach existing,
   **Create** = make new, **Remove** = detach (no data loss), **Delete** = destroy
   (always confirmed).
 - **Messages**: inline errors/notices use `shared/MessageBox` with a tone

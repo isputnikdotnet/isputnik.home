@@ -17,6 +17,7 @@ import { absorbDuplicateMetadata } from "./absorb.js";
 import { getJob, recordAction, type JobOutcome } from "./jobs.js";
 import { checkResult, type ResultCheck } from "./job-resolve.js";
 import { listJobResults, type ResultFilter, type SnapshotResult } from "./job-results.js";
+import type { DuplicateJobResultMemberRow, LibraryItemRow, LibraryRow } from "../../../../db/rows.js";
 
 export type ReplaceRefusal =
   | "stale" | "not_inbox_job" | "no_such_member" | "member_not_incoming" | "no_keeper" | "replace_failed";
@@ -36,16 +37,8 @@ export type ReplaceResult =
   | JobOutcome<ReplaceOutcome>
   | { ok: false; refused: ReplaceRefusal; detail?: string; check?: ResultCheck };
 
-interface MemberRow {
-  id: string;
-  item_id: string | null;
-  library_id: string;
-  path: string;
-  size_snapshot: number | null;
-  role: string;
-  status: string;
-  keeper_member_id: string | null;
-}
+type MemberRow = Pick<DuplicateJobResultMemberRow,
+  "id" | "item_id" | "library_id" | "path" | "size_snapshot" | "role" | "status" | "keeper_member_id">;
 
 const memberRow = (resultId: string, memberId: string): MemberRow | undefined =>
   db.prepare(`
@@ -85,7 +78,7 @@ export async function replaceWithInboxCopy(
     SELECT li.folder_path, lib.source_path
     FROM library_items li JOIN libraries lib ON lib.id = li.library_id
     WHERE li.id = ? AND li.deleted_at IS NULL
-  `).get(member.item_id) as { folder_path: string; source_path: string } | undefined;
+  `).get(member.item_id) as (Pick<LibraryItemRow, "folder_path"> & Pick<LibraryRow, "source_path">) | undefined;
   if (!incoming) return { ok: false, refused: "member_not_incoming" };
   let root: string;
   try { root = validateLibrarySource(incoming.source_path); } catch (err) {

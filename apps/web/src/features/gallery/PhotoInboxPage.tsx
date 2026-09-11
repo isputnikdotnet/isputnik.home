@@ -354,47 +354,44 @@ export function PhotoInboxPage({
               tools={
                 <>
                   {inbox.canEdit && assets.length > 0 && (
-                    <button
-                      type="button"
-                      className="library-toolbar-button"
+                    <Button
+                      variant="toolbar"
                       onClick={() => navigate(galleryReviewHref(inbox.id, folder))}
                       title={t("gallery:inbox.goThroughTitle")}
                     >
                       <ListChecks size={18} aria-hidden="true" />
                       <span className="toolbar-label">{t("gallery:inbox.goThrough")}</span>
-                    </button>
+                    </Button>
                   )}
                   {!isMobile && canReview && assets.length > 0 && (
-                    <button
-                      type="button"
-                      className="library-toolbar-button"
+                    <Button
+                      variant="toolbar"
                       onClick={() => { setNotice(""); setActionError(""); setSelectionMode(true); }}
                     >
                       <SquareCheck size={18} aria-hidden="true" />
                       <span className="toolbar-label">{t("gallery:common.select")}</span>
-                    </button>
+                    </Button>
                   )}
                   {canReview && (
-                    <button
-                      type="button"
-                      className="library-toolbar-button"
+                    <Button
+                      variant="toolbar"
                       onClick={() => { setNotice(""); setDropLinksOpen(true); }}
                       title={t("gallery:inbox.dropLinks.buttonTitle")}
                     >
                       <Link2 size={18} aria-hidden="true" />
                       <span className="toolbar-label">{t("gallery:inbox.dropLinks.button")}</span>
-                    </button>
+                    </Button>
                   )}
                   {inboxLibrary?.canUpload && (
-                    <button
-                      type="button"
-                      className="library-toolbar-button primary"
+                    <Button
+                      variant="toolbar"
+                      className="primary"
                       onClick={() => { setNotice(""); setUploadOpen(true); }}
                       title={t("gallery:inbox.uploadTitle")}
                     >
                       <UploadCloud size={18} aria-hidden="true" />
                       <span className="toolbar-label">{t("gallery:inbox.upload")}</span>
-                    </button>
+                    </Button>
                   )}
                 </>
               }
@@ -402,60 +399,57 @@ export function PhotoInboxPage({
                 count: selectedIds.size,
                 actions: (
                   <>
-                    <button
-                      type="button"
-                      className="library-toolbar-button"
+                    <Button
+                      variant="toolbar"
                       onClick={() => setSelectedIds(new Set(assets.map((asset) => asset.id)))}
                       disabled={assets.length === 0}
                       title={t("gallery:bulk.selectAllTitle")}
                     >
                       <CheckCheck size={18} aria-hidden="true" />
                       <span className="toolbar-label">{t("gallery:bulk.all")}</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="library-toolbar-button primary"
+                    </Button>
+                    <Button
+                      variant="toolbar"
+                      className="primary"
                       onClick={() => { setActionError(""); setKeepOpen(true); }}
                       disabled={selectedIds.size === 0 || busy}
                       title={t("gallery:inbox.keepTitle")}
                     >
                       <FolderInput size={18} aria-hidden="true" />
                       <span className="toolbar-label">{t("gallery:inbox.keep")}</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="library-toolbar-button danger"
+                    </Button>
+                    <Button
+                      variant="toolbar" danger
                       onClick={() => { setActionError(""); setDiscardOpen(true); }}
                       disabled={selectedIds.size === 0 || busy}
                       title={t("gallery:inbox.discardTitle")}
                     >
                       <Trash2 size={18} aria-hidden="true" />
                       <span className="toolbar-label">{t("gallery:inbox.discard")}</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="library-toolbar-button"
+                    </Button>
+                    <Button
+                      variant="toolbar"
                       onClick={exitSelection}
                       title={t("gallery:bulk.leaveSelectionTitle")}
                     >
                       <X size={18} aria-hidden="true" />
-                    </button>
+                    </Button>
                   </>
                 )
               } : null}
               strip={inbox.deliveries.length > 1 ? (
                 <div className="gallery-inbox-deliveries" role="group" aria-label={t("gallery:inbox.deliveriesLabel")}>
-                  <button
-                    type="button"
+                  <Button
+                    variant="bare"
                     className={`gallery-inbox-delivery${folder === null ? " is-active" : ""}`}
                     onClick={() => setFolder(null)}
                   >
                     {t("gallery:inbox.allDeliveries")} <span className="count-badge">{inbox.count}</span>
-                  </button>
+                  </Button>
                   {inbox.deliveries.map((delivery) => (
-                    <button
+                    <Button
+                      variant="bare"
                       key={delivery.folder || "\u0000root"}
-                      type="button"
                       className={`gallery-inbox-delivery${folder === delivery.folder ? " is-active" : ""}`}
                       onClick={() => setFolder(delivery.folder)}
                       title={delivery.folder || t("gallery:inbox.rootDeliveryTitle")}
@@ -468,7 +462,7 @@ export function PhotoInboxPage({
                       >
                         {delivery.reviewed > 0 ? `${delivery.reviewed}/${delivery.count}` : delivery.count}
                       </span>
-                    </button>
+                    </Button>
                   ))}
                 </div>
               ) : undefined}

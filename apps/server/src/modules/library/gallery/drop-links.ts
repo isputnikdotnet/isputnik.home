@@ -34,6 +34,7 @@ import { receiveUploadBatch, UploadError } from "../../uploads/index.js";
 import { uniqueGalleryFileName } from "./files.js";
 import { scanSingleGalleryFile } from "./scanner.js";
 import { normaliseTargetFolder } from "./move.js";
+import type { LibraryRow as DbLibraryRow, ShareLinkRow, UserRow } from "../../../db/rows.js";
 
 export const DROP_LINK_MODULE = "gallery-inbox";
 /** Same ceiling as an ordinary gallery upload; the link's own cap may lower it. */
@@ -41,19 +42,11 @@ const MAX_DROP_FILES_PER_BATCH = 200;
 /** Fallback delivery folder when the label sanitises to nothing. */
 const DEFAULT_DELIVERY_FOLDER = "Dropped";
 
-interface LinkRow {
-  id: string;
-  resource_id: string;
-  label: string | null;
-  expires_at: string;
-  created_at: string;
-  created_by: string;
-  revoked_at: string | null;
-  max_files: number | null;
-  max_bytes: number | null;
-  one_time: number;
-  creator_name: string | null;
-}
+type LinkRow = Pick<ShareLinkRow,
+  | "id" | "resource_id" | "label" | "expires_at" | "created_at" | "created_by" | "revoked_at"
+  | "max_files" | "max_bytes" | "one_time"> & {
+  creator_name: UserRow["display_name"] | null;
+};
 
 const linkRow = (id: string): LinkRow | undefined =>
   db.prepare(`
@@ -66,14 +59,7 @@ const linkRow = (id: string): LinkRow | undefined =>
     WHERE share_links.id = ? AND share_links.module = ?
   `).get(id, DROP_LINK_MODULE) as LinkRow | undefined;
 
-interface LibraryRow {
-  id: string;
-  name: string;
-  source_path: string;
-  settings_json: string;
-  policy_json: string;
-  created_by: string;
-}
+type LibraryRow = Pick<DbLibraryRow, "id" | "name" | "source_path" | "settings_json" | "policy_json" | "created_by">;
 
 const inboxRow = (libraryId: string): LibraryRow | undefined => {
   const row = db.prepare(
@@ -357,7 +343,7 @@ export async function receiveDrop(token: string, request: FastifyRequest): Promi
   // link's creator owns it when they are an admin — the cleanup page is theirs —
   // otherwise the library's creator does. Lazy, as in the scanner: the
   // duplicates module imports back into the gallery.
-  const creator = db.prepare("SELECT role FROM users WHERE id = ?").get(link.created_by) as { role: string } | undefined;
+  const creator = db.prepare("SELECT role FROM users WHERE id = ?").get(link.created_by) as Pick<UserRow, "role"> | undefined;
   void import("./duplicates/inbox-check.js")
     .then((mod) => mod.queueInboxCheck(library.id, creator?.role === "admin" ? link.created_by : undefined))
     .catch(() => { /* started by hand from the Inbox page */ });

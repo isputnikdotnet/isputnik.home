@@ -2,6 +2,7 @@
 // one and recording the outcome, and the worker that fires whatever has come due.
 import { db, logActivity } from "../../db.js";
 import { definitions, type Frequency, type ScheduledJobCategory, type ScheduledJobDef } from "./jobs-catalog.js";
+import type { ScheduledJobRow as DbScheduledJobRow } from "../../db/rows.js";
 
 // When a weekly/monthly job has no admin-chosen day yet: Sunday / the 1st.
 const DEFAULT_DAY_OF_WEEK = 0;
@@ -33,17 +34,11 @@ interface ScheduledJobState extends JobSchedule {
   lastMessage: string | null;
 }
 
-interface ScheduledJobRow {
-  enabled: number;
-  frequency: Frequency;
-  run_time: string | null;
-  day_of_week: number | null;
-  day_of_month: number | null;
-  next_run_at: string | null;
-  last_run_at: string | null;
-  last_status: "success" | "error" | null;
-  last_message: string | null;
-}
+type ScheduledJobRow = Pick<
+  DbScheduledJobRow,
+  | "enabled" | "frequency" | "run_time" | "day_of_week" | "day_of_month"
+  | "next_run_at" | "last_run_at" | "last_status" | "last_message"
+>;
 
 function defaultSchedule(def?: ScheduledJobDef): JobSchedule {
   return {
@@ -273,7 +268,7 @@ const TICK_MS = 5 * 60 * 1000;
 export function processDueScheduledJobs() {
   const due = db.prepare(
     "SELECT key FROM scheduled_jobs WHERE enabled = 1 AND next_run_at IS NOT NULL AND next_run_at <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now')"
-  ).all() as { key: string }[];
+  ).all() as Pick<DbScheduledJobRow, "key">[];
   for (const { key } of due) {
     try { runScheduledJob(key, null, "scheduled"); } catch { /* recorded as error; retried next due window */ }
   }

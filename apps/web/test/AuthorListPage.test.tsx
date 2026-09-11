@@ -109,7 +109,7 @@ describe("Authors browse filters", () => {
     // The sort control is shared/SortMenu — the same box the Audiobooks page uses,
     // so its options are menu items in a portalled menu.
     await user.click(screen.getByRole("button", { name: /^Sort and index by:/ }));
-    await user.click(await screen.findByRole("menuitem", { name: "Last name" }));
+    await user.click(await screen.findByRole("menuitemradio", { name: "Last name" }));
 
     // Same person now files under G (Guin), so the U selection empties…
     await waitFor(() => expect(screen.getByRole("heading", { name: /No authors match/ })).toBeInTheDocument());

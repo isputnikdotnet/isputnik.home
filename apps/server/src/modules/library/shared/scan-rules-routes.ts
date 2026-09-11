@@ -14,6 +14,7 @@ import { normalizeLibrarySettings } from "./library-settings.js";
 import type { LibraryType } from "./library-types.js";
 import { relativePathWithinRoot, pathIsInside, normaliseRelativePath } from "./storage-roots.js";
 import { getMediaType, type MediaType } from "./media-types.js";
+import type { LibraryItemRow, LibraryRow } from "../../../db/rows.js";
 
 // Custom scan rules are a library-config action, gated to admins like rescan and
 // library settings. Routes are cross-type (the rule inherits the library's type);
@@ -60,7 +61,7 @@ type RuleWithStats = ScanRule & ScanRuleStats;
 
 export async function scanRulesPlugin(app: FastifyInstance) {
   const findLibrary = (id: string) =>
-    db.prepare("SELECT id, type, source_path FROM libraries WHERE id = ?").get(id) as { id: string; type: LibraryType; source_path: string } | undefined;
+    db.prepare("SELECT id, type, source_path FROM libraries WHERE id = ?").get(id) as (Pick<LibraryRow, "id" | "source_path"> & { type: LibraryType }) | undefined;
 
   // The validated source root, or null when the folder is currently unreachable
   // (the rule list still renders; folder existence just isn't checked).
@@ -147,7 +148,7 @@ export async function scanRulesPlugin(app: FastifyInstance) {
       const root = validateLibrarySource(library.source_path);
       const currentPath = relativePathWithinRoot(root, requested);
       const itemPaths = (db.prepare("SELECT folder_path FROM library_items WHERE library_id = ? AND deleted_at IS NULL")
-        .all(id) as { folder_path: string }[]).map((row) => row.folder_path);
+        .all(id) as Pick<LibraryItemRow, "folder_path">[]).map((row) => row.folder_path);
       const booksUnder = (rel: string) => rel === ""
         ? itemPaths.length
         : itemPaths.reduce((n, p) => n + (p === rel || p.startsWith(`${rel}/`) ? 1 : 0), 0);
@@ -197,7 +198,7 @@ export async function scanRulesPlugin(app: FastifyInstance) {
     if (anchors.length === 0) anchors.push("");
     try {
       const root = validateLibrarySource(library.source_path);
-      const settingsRow = db.prepare("SELECT settings_json FROM libraries WHERE id = ?").get(id) as { settings_json: string };
+      const settingsRow = db.prepare("SELECT settings_json FROM libraries WHERE id = ?").get(id) as Pick<LibraryRow, "settings_json">;
       const extensions = new Set(normalizeLibrarySettings(library.type, settingsRow.settings_json).scan_extensions.map((e) => `.${e}`));
       return reply.send({ examples: sampleLayoutExamples(root, anchors, extensions, library.type) });
     } catch (err) {

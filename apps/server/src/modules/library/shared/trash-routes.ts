@@ -8,7 +8,7 @@ import { db, logActivity } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
 import { can, parsePolicy, type AuthUser } from "../../../core/permissions.js";
 import { getLibraryForBook } from "./library-access.js";
-import { trashBook, restoreTrashedItem, scanForRestored, purgeTrashedItem, type TrashedItem } from "./trash.js";
+import { trashBook, restoreTrashedItem, scanForRestored, purgeTrashedItem } from "./trash.js";
 import { emptyTrash } from "./trash-retention.js";
 import {
   binFolderFor,
@@ -18,6 +18,7 @@ import {
   setCleanupRetentionDays,
   TrashError
 } from "./trash-settings.js";
+import type { LibraryRow, TrashedItemRow, UserRow } from "../../../db/rows.js";
 
 function isServerAdmin(user: AuthUser): boolean {
   return user.role === "admin";
@@ -25,16 +26,17 @@ function isServerAdmin(user: AuthUser): boolean {
 
 // Manage rights over a trashed item resolve through its (still-existing) library; admins
 // manage everything so orphaned items (library since deleted) can still be cleaned up.
-function canManageTrashItem(user: AuthUser, item: Pick<TrashedItem, "library_id">): boolean {
+function canManageTrashItem(user: AuthUser, item: Pick<TrashedItemRow, "library_id">): boolean {
   if (isServerAdmin(user)) return true;
-  const lib = db.prepare("SELECT id, policy_json FROM libraries WHERE id = ?").get(item.library_id) as
-    | { id: string; policy_json: string }
-    | undefined;
+  const lib = db.prepare("SELECT id, policy_json FROM libraries WHERE id = ?").get(item.library_id) as Pick<LibraryRow, "id" | "policy_json"> | undefined;
   if (!lib) return false;
   return can(user, { objectType: "library", objectId: lib.id, policy: parsePolicy(lib.policy_json) }, "manage");
 }
 
-function serializeTrashedItem(row: TrashedItem & { trashed_by_name: string | null }) {
+// A bin row with the name of whoever trashed it (LEFT JOIN users — gone users read null).
+type TrashListRow = TrashedItemRow & { trashed_by_name: UserRow["display_name"] | null };
+
+function serializeTrashedItem(row: TrashListRow) {
   // The row's own date, not a fresh sum of trashed_at + today's setting. Two items
   // deleted the same afternoon can now leave on different days, and the one the page
   // shows has to be the one the purge will actually use.
@@ -161,7 +163,7 @@ export function registerTrashRoutes(app: FastifyInstance) {
       FROM trashed_items
       LEFT JOIN users ON users.id = trashed_items.trashed_by
       ORDER BY trashed_items.trashed_at DESC
-    `).all() as (TrashedItem & { trashed_by_name: string | null })[];
+    `).all() as TrashListRow[];
 
     const visible = rows.filter((row) => canManageTrashItem(user, row));
 
@@ -242,7 +244,7 @@ export function registerTrashRoutes(app: FastifyInstance) {
   app.post("/api/library/trash/:id/restore", { preHandler: app.authenticate }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     const user = request.user!;
-    const item = db.prepare("SELECT * FROM trashed_items WHERE id = ?").get(id) as TrashedItem | undefined;
+    const item = db.prepare("SELECT * FROM trashed_items WHERE id = ?").get(id) as TrashedItemRow | undefined;
     if (!item) {
       return reply.code(404).send({ error: "Item not found" });
     }
@@ -287,7 +289,7 @@ export function registerTrashRoutes(app: FastifyInstance) {
 
     const rows = (libraryId
       ? db.prepare("SELECT * FROM trashed_items WHERE library_id = ? ORDER BY trashed_at DESC").all(libraryId)
-      : db.prepare("SELECT * FROM trashed_items ORDER BY trashed_at DESC").all()) as TrashedItem[];
+      : db.prepare("SELECT * FROM trashed_items ORDER BY trashed_at DESC").all()) as TrashedItemRow[];
 
     let restored = 0;
     let forbidden = 0;
@@ -337,7 +339,7 @@ export function registerTrashRoutes(app: FastifyInstance) {
   app.delete("/api/library/trash/:id", { preHandler: app.authenticate }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     const user = request.user!;
-    const item = db.prepare("SELECT * FROM trashed_items WHERE id = ?").get(id) as TrashedItem | undefined;
+    const item = db.prepare("SELECT * FROM trashed_items WHERE id = ?").get(id) as TrashedItemRow | undefined;
     if (!item) {
       return reply.code(404).send({ error: "Item not found" });
     }

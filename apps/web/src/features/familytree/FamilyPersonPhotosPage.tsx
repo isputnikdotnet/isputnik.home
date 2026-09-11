@@ -80,9 +80,9 @@ export function FamilyPersonPhotosPage({
         ) : (
           <div className="gallery-grid ft-photo-grid">
             {photos.map((photo, index) => (
-              <button
+              <Button
+                variant="tile"
                 key={photo.id}
-                type="button"
                 className="gallery-tile"
                 onClick={() => setLightboxIndex(index)}
                 title={photo.title}
@@ -91,7 +91,7 @@ export function FamilyPersonPhotosPage({
                 {photo.kind === "video" && (
                   <span className="gallery-video-badge"><Play size={11} aria-hidden="true" />{t("family:common.video")}</span>
                 )}
-              </button>
+              </Button>
             ))}
           </div>
         )}

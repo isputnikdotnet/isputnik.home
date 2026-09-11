@@ -17,15 +17,14 @@ vi.mock("../src/core/mail.js", async (importOriginal) => {
   return { ...actual, sendMail: mocks.sendMail, isMailConfigured: () => mocks.mailConfigured.value };
 });
 
-import Fastify, { type FastifyInstance } from "fastify";
-import cookie from "@fastify/cookie";
+import type { FastifyInstance } from "fastify";
 
 import { db } from "../src/db.js";
-import { registerAuthDecorators } from "../src/auth.js";
 import { authPlugin } from "../src/core/auth-routes.js";
 import { mfaRoutes } from "../src/core/mfa-routes.js";
 import { hashPassword } from "../src/crypto.js";
 import { addTrustedNetwork, setSecurityPolicy, DEFAULT_SECURITY_POLICY } from "../src/core/security.js";
+import { bootApp } from "./helpers/boot.js";
 import { resetDb } from "./helpers/seed.js";
 
 const EMAIL = "away@test.local";
@@ -63,12 +62,7 @@ beforeEach(async () => {
   db.prepare("DELETE FROM app_settings WHERE key = 'security_policy'").run();
   mocks.sendMail.mockClear();
   mocks.mailConfigured.value = true;
-  app = Fastify();
-  await app.register(cookie);
-  await registerAuthDecorators(app);
-  await app.register(authPlugin);
-  await app.register(mfaRoutes);
-  await app.ready();
+  ({ app } = await bootApp({ plugins: [authPlugin, mfaRoutes] }));
   await makeAccount();
 });
 

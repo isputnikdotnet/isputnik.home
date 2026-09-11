@@ -9,6 +9,9 @@ import path from "node:path";
 import { db } from "../../../../db.js";
 import { getConfiguredThumbnailPath, thumbnailAbsolutePath } from "../../shared/thumbnail.js";
 import { normaliseRelativePath } from "../../shared/storage-roots.js";
+import type { GalleryFaceRow } from "../../../../db/rows.js";
+
+type CropKeyRow = { k: NonNullable<GalleryFaceRow["thumb_storage_key"]> };
 
 // Every crop file cropFaceFromRaw writes ends in this suffix — it's what makes a face
 // crop distinguishable from item covers sharing the same store, so the sweep can never
@@ -20,7 +23,7 @@ const FACE_CROP_SUFFIX = "-face.webp";
 export function faceCropKeysForItem(itemId: string): string[] {
   const rows = db.prepare(
     "SELECT thumb_storage_key AS k FROM gallery_faces WHERE item_id = ? AND thumb_storage_key IS NOT NULL"
-  ).all(itemId) as { k: string }[];
+  ).all(itemId) as CropKeyRow[];
   return rows.map((r) => r.k);
 }
 
@@ -40,7 +43,7 @@ export function sweepOrphanFaceCrops(): number {
   try { root = getConfiguredThumbnailPath(); } catch { return 0; } // store not configured
   const referenced = new Set(
     (db.prepare("SELECT thumb_storage_key AS k FROM gallery_faces WHERE thumb_storage_key IS NOT NULL")
-      .all() as { k: string }[]).map((r) => r.k)
+      .all() as CropKeyRow[]).map((r) => r.k)
   );
   let removed = 0;
   const walk = (dir: string): void => {

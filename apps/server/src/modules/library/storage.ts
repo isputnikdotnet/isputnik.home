@@ -10,14 +10,14 @@ import {
   normaliseRelativePath,
   validateStorageRootPath,
   relativePathWithinRoot,
-  publicStorageRoot,
-  type StorageRootRow
+  publicStorageRoot
 } from "./shared/storage-roots.js";
 import { appRoomMode, getAppStoragePath } from "../../core/app-storage.js";
 import { getTrashRootSetting } from "./shared/trash-settings.js";
 import { trashMoveStatus } from "./shared/trash-move.js";
 import { statusOf } from "./app-storage.js";
 import { switchRoom } from "./app-storage-switch.js";
+import type { StorageRootRow as DbStorageRootRow } from "../../db/rows.js";
 
 const storageRootSchema = z.object({
   name: z.string().trim().min(2).max(120),
@@ -88,7 +88,7 @@ export async function storagePlugin(app: FastifyInstance) {
         OR libraries.source_path LIKE storage_roots.path || ?
       GROUP BY storage_roots.id
       ORDER BY storage_roots.name COLLATE NOCASE
-    `).all(`${path.sep}%`) as StorageRootRow[];
+    `).all(`${path.sep}%`) as (DbStorageRootRow & { library_count: number })[];
 
     return { roots: rows.map(publicStorageRoot) };
   });
@@ -130,11 +130,7 @@ export async function storagePlugin(app: FastifyInstance) {
 
   app.delete("/api/storage/roots/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
-    const root = db.prepare("SELECT id, name, path FROM storage_roots WHERE id = ?").get(id) as {
-      id: string;
-      name: string;
-      path: string;
-    } | undefined;
+    const root = db.prepare("SELECT id, name, path FROM storage_roots WHERE id = ?").get(id) as Pick<DbStorageRootRow, "id" | "name" | "path"> | undefined;
 
     if (!root) {
       return reply.code(404).send({ error: "Storage container not found" });
@@ -170,11 +166,7 @@ export async function storagePlugin(app: FastifyInstance) {
       return reply.code(400).send({ error: "Invalid browse path", details: parsed.error });
     }
 
-    const root = db.prepare("SELECT id, name, path FROM storage_roots WHERE id = ?").get(id) as {
-      id: string;
-      name: string;
-      path: string;
-    } | undefined;
+    const root = db.prepare("SELECT id, name, path FROM storage_roots WHERE id = ?").get(id) as Pick<DbStorageRootRow, "id" | "name" | "path"> | undefined;
     if (!root) {
       return reply.code(404).send({ error: "Storage container not found" });
     }

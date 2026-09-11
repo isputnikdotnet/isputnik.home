@@ -16,6 +16,7 @@ import { enqueueLookup, normalizeText, pickCandidate, simplifyTitle } from "./lo
 import { PERSON_FACT_COLUMNS, type PersonLookupResult } from "./person-facts.js";
 import { lookupPersonInfo } from "./person-lookup.js";
 import { writePersonPhoto } from "./person-photo.js";
+import type { LibraryRow, PersonRow } from "../../../db/rows.js";
 
 // Failed person lookups are retried, but not on every scan.
 const PERSON_RETRY_DAYS = 30;
@@ -81,12 +82,7 @@ export async function lookupOnlineBookMetadata(input: OnlineBookLookupInput): Pr
 
 // ── Author enrichment pass ───────────────────────────────────────────────────
 
-interface AuthorToEnrich {
-  id: string;
-  name: string;
-  bio: string | null;
-  cover_storage_key: string | null;
-}
+type AuthorToEnrich = Pick<PersonRow, "id" | "name" | "bio"> & { cover_storage_key: PersonRow["image_storage_key"] };
 
 function bioWithAttribution(result: PersonLookupResult) {
   if (!result.bio) {
@@ -158,7 +154,7 @@ export interface EnrichAuthorsOptions {
 }
 
 export async function enrichLibraryAuthors(libraryId: string, options: EnrichAuthorsOptions = {}) {
-  const library = db.prepare("SELECT settings_json FROM libraries WHERE id = ?").get(libraryId) as { settings_json: string } | undefined;
+  const library = db.prepare("SELECT settings_json FROM libraries WHERE id = ?").get(libraryId) as Pick<LibraryRow, "settings_json"> | undefined;
   const defaultLanguage = library ? normalizeLibrarySettings("audiobook", library.settings_json).default_language ?? "en" : "en";
 
   const rows = db.prepare(`
@@ -177,7 +173,7 @@ export async function enrichLibraryAuthors(libraryId: string, options: EnrichAut
     ...(options.bookId ? [libraryId, options.bookId] : [libraryId]),
     `-${PERSON_RETRY_DAYS} days`,
     options.limit ?? MAX_AUTHORS_PER_RUN
-  ) as { name: string }[];
+  ) as Pick<PersonRow, "name">[];
 
   const names = Array.from(new Set(rows.map((row) => row.name)));
   let updated = 0;

@@ -2,11 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../../api";
 import type { GalleryView } from "../../../router";
-import type { GalleryAsset, GalleryMemories, GalleryMemorySuggestion, GallerySlideshow } from "../types";
+import type { GalleryAsset, GalleryMemories, GalleryMemorySuggestion, GallerySlideshow, GalleryYearReview } from "../types";
 import type { LightboxState } from "./gallery-page-model";
 
 // Memories ("On this day") — the strip above the timeline AND the Memories view —
-// plus the suggested memories (event/trip clusters) the Slideshows list offers.
+// plus the suggested memories (event/trip clusters) the Slideshows list offers,
+// and the years in review the Memories view opens with.
 export function useMemories({
   scopeParams,
   setError,
@@ -32,6 +33,11 @@ export function useMemories({
   // action in the modal. previewAssets null = thumbnails still loading.
   const [previewSuggestion, setPreviewSuggestion] = useState<GalleryMemorySuggestion | null>(null);
   const [previewAssets, setPreviewAssets] = useState<GalleryAsset[] | null>(null);
+  // "Your 2025 in photos": finished years, proposed as a film (server:
+  // year-review.ts). yearReviewAssets is the one being played — the list the
+  // lightbox pages through for its "yearReview" source.
+  const [yearReviews, setYearReviews] = useState<GalleryYearReview[]>([]);
+  const [yearReviewAssets, setYearReviewAssets] = useState<GalleryAsset[]>([]);
 
   // Memories, scope-dependent like the facets; the date is the viewer's local
   // calendar day (the server may be in another timezone, and "on this day"
@@ -59,6 +65,46 @@ export function useMemories({
   }, [scopeParams]);
 
   useEffect(() => { void loadMemorySuggestions(); }, [loadMemorySuggestions]);
+
+  // Years in review, scoped like everything else here. Each card is a whole
+  // selection pass over a year on the server, so only the most recent few are
+  // asked for — one more than are shown, because the year still running is left
+  // out: a look back at a year belongs to a year that is over. Loaded on mount
+  // for the same reason as the suggestions: it can be what makes the Memories
+  // tab appear at all.
+  const loadYearReviews = useCallback(async () => {
+    const params = new URLSearchParams({ ...scopeParams(), limit: "4" } as Record<string, string>);
+    try {
+      const payload = await api<{ suggestions: GalleryYearReview[] }>(`/api/library/gallery/year-review?${params}`);
+      const thisYear = new Date().getFullYear();
+      setYearReviews(payload.suggestions.filter((review) => review.year < thisYear).slice(0, 3));
+    } catch { /* advisory; the section just stays hidden */ }
+  }, [scopeParams]);
+
+  useEffect(() => { void loadYearReviews(); }, [loadYearReviews]);
+
+  // Play a year in the lightbox's own slideshow mode — the same player "Play"
+  // runs on an album, not a player of its own. Its photos are fetched in the
+  // film's order (lookup keeps the order asked for) and drop whatever this
+  // viewer can no longer reach.
+  const playYearReview = useCallback(async (review: GalleryYearReview) => {
+    setError("");
+    try {
+      const payload = await api<{ assets: GalleryAsset[] }>("/api/library/gallery/assets/lookup", {
+        method: "POST",
+        // The lookup takes at most 100 ids; a year's film is 60 unless asked for more.
+        body: JSON.stringify({ itemIds: review.itemIds.slice(0, 100) })
+      });
+      if (payload.assets.length === 0) {
+        setError(t("gallery:suggestions.previewEmpty"));
+        return;
+      }
+      setYearReviewAssets(payload.assets);
+      setLightbox({ source: "yearReview", index: 0, autoPlay: true });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("gallery:yearReview.errors.play"));
+    }
+  }, [setError, setLightbox, t]);
 
   // Open a suggestion for preview: show its photos and let the user choose an action
   // (create a slideshow, or add the photos to an existing/new one). Nothing persists
@@ -95,6 +141,12 @@ export function useMemories({
     }
   }, [openSlideshow, goToView]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Keep a year as a slideshow of one's own — for music, transitions, a movie.
+  // Named here rather than by the server, whose title is English-only.
+  const createFromYearReview = useCallback((review: GalleryYearReview) => (
+    createFromMemory({ ...review, title: t("gallery:yearReview.slideshowName", { year: review.year }) })
+  ), [createFromMemory, t]);
+
   // The Memories lightbox runs over ALL years flattened (newest year first,
   // chronological within a year), so Next flows from one year into the next.
   const memoryItems = useMemo(() => memories?.groups.flatMap((group) => group.items) ?? [], [memories]);
@@ -117,6 +169,7 @@ export function useMemories({
     memories, setMemories, memorySuggestions,
     previewSuggestion, setPreviewSuggestion, previewAssets,
     loadMemories, openSuggestionPreview, createFromMemory,
-    memoryItems, openMemoryYear
+    memoryItems, openMemoryYear,
+    yearReviews, yearReviewAssets, setYearReviewAssets, playYearReview, createFromYearReview
   };
 }

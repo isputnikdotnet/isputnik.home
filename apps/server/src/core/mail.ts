@@ -2,6 +2,7 @@ import nodemailer from "nodemailer";
 import { db } from "../db.js";
 import { renderEmail } from "./email-template.js";
 import { openSecret } from "./mfa.js";
+import type { AppSettingRow } from "../db/rows.js";
 
 // Platform mail infrastructure: SMTP settings storage + a thin nodemailer wrapper.
 // Lives in core because it carries no product knowledge — like logging/status. The
@@ -34,9 +35,7 @@ const EMPTY: MailSettings = {
 };
 
 export function getMailSettings(): MailSettings {
-  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(MAIL_SETTINGS_KEY) as
-    | { value: string }
-    | undefined;
+  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(MAIL_SETTINGS_KEY) as Pick<AppSettingRow, "value"> | undefined;
   if (!row) return { ...EMPTY };
   try {
     const parsed = { ...EMPTY, ...(JSON.parse(row.value) as Partial<MailSettings>) };
@@ -52,9 +51,7 @@ export function getMailSettings(): MailSettings {
 // The "blank = keep" save path uses this so a transiently unreadable key doesn't
 // wipe the stored password by re-sealing openSecret's empty result.
 export function getStoredMailPasswordRaw(): string {
-  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(MAIL_SETTINGS_KEY) as
-    | { value: string }
-    | undefined;
+  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(MAIL_SETTINGS_KEY) as Pick<AppSettingRow, "value"> | undefined;
   if (!row) return "";
   try {
     return (JSON.parse(row.value) as Partial<MailSettings>).password ?? "";

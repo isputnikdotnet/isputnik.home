@@ -6,21 +6,22 @@ import { db } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
 import { getLibraryForBook, canUserAccessLibrary, accessibleLibraryIds } from "../shared/library-access.js";
 import { bookLibraryIds } from "../feed.js";
+import type { LibraryType } from "../shared/library-types.js";
+import type { ItemMetadataRow, ItemSaveRow, LibraryItemRow, Nullable } from "../../../db/rows.js";
 
 const saveSchema = z.object({
   note: z.string().trim().max(2000).nullable().optional()
 });
 
-interface SavedBookRow {
-  id: string;
-  kind: "audiobook" | "ebook";
-  folder_path: string;
-  title: string | null;
-  cover_storage_key: string | null;
-  author_names: string | null;
-  save_note: string | null;
-  saved_at: string;
-}
+// `kind` is libraries.type: the list spans book libraries AND gallery ones.
+type SavedBookRow = Pick<LibraryItemRow, "id" | "folder_path">
+  & Nullable<Pick<ItemMetadataRow, "title" | "cover_storage_key">>
+  & {
+    kind: LibraryType;
+    author_names: string | null;
+    save_note: ItemSaveRow["note"];
+    saved_at: ItemSaveRow["updated_at"];
+  };
 
 function splitNames(value: string | null) {
   return value ? value.split(",").map((name) => name.trim()).filter(Boolean) : [];
@@ -29,7 +30,7 @@ function splitNames(value: string | null) {
 function currentSave(bookId: string, userId: string) {
   const row = db.prepare(`
     SELECT id, note, created_at, updated_at FROM item_saves WHERE item_id = ? AND user_id = ?
-  `).get(bookId, userId) as { id: string; note: string | null; created_at: string; updated_at: string } | undefined;
+  `).get(bookId, userId) as Pick<ItemSaveRow, "id" | "note" | "created_at" | "updated_at"> | undefined;
   return row ? { saved: true, note: row.note, createdAt: row.created_at, updatedAt: row.updated_at } : { saved: false, note: null };
 }
 
@@ -48,7 +49,7 @@ export function bulkSaveItems(user: { id: string; role: string }, itemIds: strin
   let forbidden = 0;
   db.transaction(() => {
     for (const itemId of new Set(itemIds)) {
-      const row = lookup.get(itemId) as { library_id: string } | undefined;
+      const row = lookup.get(itemId) as Pick<LibraryItemRow, "library_id"> | undefined;
       if (!row || !libIds.has(row.library_id)) { forbidden += 1; continue; }
       insert.run(nanoid(16), user.id, itemId);
       saved += 1;

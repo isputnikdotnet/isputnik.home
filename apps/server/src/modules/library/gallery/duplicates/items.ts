@@ -23,6 +23,7 @@ import { nanoid } from "nanoid";
 import { db } from "../../../../db.js";
 import { validateLibrarySource } from "../../shared/library-source.js";
 import { pathIsInside } from "../../shared/storage-roots.js";
+import type { GalleryDetailRow, JobRow, LibraryItemRow, LibraryRow, NonNull } from "../../../../db/rows.js";
 
 export const DUPLICATE_SCAN_JOB_TYPE = "SCAN_GALLERY_DUPLICATES";
 
@@ -94,15 +95,10 @@ export function duplicatePendingCount(scope?: LibraryScope): number {
     .get(...params) as { n: number }).n;
 }
 
-interface CandidateRow {
-  item_id: string;
-  library_id: string;
-  source_path: string;
-  relative_path: string;
-  size: number;
-  content_hash: string | null;
-  content_hash_at: string | null;
-}
+// CANDIDATE_SQL keeps size non-NULL (`gd.size IS NOT NULL AND gd.size > 0`).
+type CandidateRow = NonNull<Pick<GalleryDetailRow, "item_id" | "relative_path" | "size" | "content_hash" | "content_hash_at">, "size">
+  & Pick<LibraryItemRow, "library_id">
+  & Pick<LibraryRow, "source_path">;
 
 // EVERY candidate, already-hashed ones included. Freshness is decided against the file
 // on disk (see hashDuplicateCandidates), not against the catalogue: `modified_at` only
@@ -236,7 +232,7 @@ const insertScanJob = (payload: DuplicateScanPayload): void => {
 function pendingScanPayloads(): DuplicateScanPayload[] {
   const rows = db.prepare(
     "SELECT payload FROM jobs WHERE type = ? AND status IN ('pending', 'running')"
-  ).all(DUPLICATE_SCAN_JOB_TYPE) as { payload: string }[];
+  ).all(DUPLICATE_SCAN_JOB_TYPE) as Pick<JobRow, "payload">[];
   return rows.flatMap((row) => {
     try { return [JSON.parse(row.payload) as DuplicateScanPayload]; } catch { return []; }
   });

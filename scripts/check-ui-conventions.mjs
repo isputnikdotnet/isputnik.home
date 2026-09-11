@@ -2,7 +2,7 @@
 // can run anywhere node runs: scans apps/web/src for patterns that bypass the
 // shared UI primitives and exits 1 with file:line pointers when it finds any.
 // It also checks that the in-app Help page still lists every user guide.
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 
 const REPO = join(import.meta.dirname, "..");
@@ -50,6 +50,79 @@ for (const file of walk(ROOT)) {
         failures++;
       }
     });
+  }
+}
+
+// ── Buttons render through shared/Button ──
+// A raw <button> outside shared/ is a ratchet, not a ban: the files that still
+// have some are listed with their count in raw-buttons-baseline.json, and a file
+// may only go DOWN. More than its count (or any at all in an unlisted file)
+// fails; fewer fails too until the baseline is lowered with
+// `npm run check:ui -- --update-button-baseline`, so a converted button can't
+// quietly be replaced by a new raw one. The update only ever lowers — raising a
+// count means editing the file by hand, where review can see it.
+//
+// And a <Button> must not hand-apply a variant's class: `className="icon-button"`
+// on a bare Button is the same bypass with extra steps. Use `variant`/`compact`.
+const BUTTON_BASELINE = join(REPO, "scripts", "raw-buttons-baseline.json");
+const VARIANT_CLASS = /(?<![\w-])(primary-button|secondary-button|danger-button|text-button|icon-button|library-toolbar-button|compact-button)(?![\w-])/;
+{
+  const baseline = existsSync(BUTTON_BASELINE) ? JSON.parse(readFileSync(BUTTON_BASELINE, "utf8")).files ?? {} : {};
+  const counts = {};
+  const rawLines = {};
+  for (const file of walk(ROOT)) {
+    const path = relative(ROOT, file).split(sep).join("/");
+    if (!path.endsWith(".tsx") || path.startsWith("shared/")) continue;
+    const text = readFileSync(file, "utf8");
+    text.split("\n").forEach((line, i) => {
+      const trimmed = line.trimStart();
+      if (trimmed.startsWith("//") || trimmed.startsWith("*") || trimmed.startsWith("{/*")) return;
+      if (/<button\b/.test(line)) {
+        counts[path] = (counts[path] ?? 0) + 1;
+        (rawLines[path] ??= []).push(`    ${i + 1}: ${line.trim()}`);
+      }
+    });
+    // The opening tag, up to the first ">" that isn't an arrow's.
+    for (const match of text.matchAll(/<Button\b(?:=>|[^>])*>/g)) {
+      const classAttr = match[0].match(/className=(?:"[^"]*"|\{[^}]*\})/);
+      if (classAttr && VARIANT_CLASS.test(classAttr[0])) {
+        const line = text.slice(0, match.index).split("\n").length;
+        console.error(`apps/web/src/${path}:${line}  <Button> wears a variant class by hand — use variant="…" / compact instead.`);
+        console.error(`    ${classAttr[0]}`);
+        failures++;
+      }
+    }
+  }
+
+  if (process.argv.includes("--update-button-baseline")) {
+    // Lower only: a file keeps min(now, allowed); an unlisted file stays unlisted.
+    const lowered = Object.entries(baseline)
+      .map(([path, allowed]) => [path, Math.min(counts[path] ?? 0, allowed)])
+      .filter(([, allowed]) => allowed > 0)
+      .sort(([a], [b]) => a.localeCompare(b));
+    const doc = existsSync(BUTTON_BASELINE) ? JSON.parse(readFileSync(BUTTON_BASELINE, "utf8")) : {};
+    doc.files = Object.fromEntries(lowered);
+    writeFileSync(BUTTON_BASELINE, `${JSON.stringify(doc, null, 2)}\n`);
+    for (const path of Object.keys(baseline)) delete baseline[path];
+    Object.assign(baseline, doc.files);
+    console.log(`scripts/raw-buttons-baseline.json lowered — ${lowered.reduce((sum, [, n]) => sum + n, 0)} raw <button> allowed outside shared/.`);
+  }
+
+  for (const path of new Set([...Object.keys(counts), ...Object.keys(baseline)])) {
+    const now = counts[path] ?? 0;
+    const allowed = baseline[path] ?? 0;
+    if (now > allowed) {
+      console.error(
+        `apps/web/src/${path}  ${now} raw <button>, ${allowed === 0 ? "none allowed" : `baseline allows ${allowed}`} — render it through shared/Button with a variant (docs/UI-CONVENTIONS.md).`
+      );
+      console.error(rawLines[path].join("\n"));
+      failures++;
+    } else if (now < allowed) {
+      console.error(
+        `scripts/raw-buttons-baseline.json  apps/web/src/${path} is down to ${now} raw <button> (baseline ${allowed}) — lock that in: npm run check:ui -- --update-button-baseline`
+      );
+      failures++;
+    }
   }
 }
 
@@ -141,6 +214,44 @@ if (existsSync(LOCALES_DIR)) {
         }
       }
     }
+  }
+}
+
+// ── Custom properties nobody defines (warning only) ──
+// A var(--x) that no stylesheet or component ever sets resolves to its fallback,
+// or to nothing — which is how `--accent` spent months as a colour two files
+// guessed differently. Names are collected from every `--x:` declaration in the
+// CSS and every "--x" string in the TS/TSX (inline styles, setProperty). Reported
+// once per name, never fatal: some of these are deliberate hooks with a fallback.
+{
+  const defined = new Set();
+  const uses = new Map(); // name -> ["file:line", …]
+  function* everything(dir) {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) yield* everything(full);
+      else if (/\.(css|tsx?)$/.test(entry.name)) yield full;
+    }
+  }
+  for (const file of everything(ROOT)) {
+    const isCss = file.endsWith(".css");
+    // Blank out CSS comments but keep their newlines, so line numbers hold.
+    const text = isCss
+      ? readFileSync(file, "utf8").replace(/\/\*[\s\S]*?\*\//g, (comment) => comment.replace(/[^\n]/g, " "))
+      : readFileSync(file, "utf8");
+    const definitions = isCss ? /(--[\w-]+)\s*:/g : /["'`](--[a-zA-Z][\w-]*)["'`]/g;
+    for (const match of text.matchAll(definitions)) defined.add(match[1]);
+    for (const match of text.matchAll(/var\(\s*(--[\w-]+)/g)) {
+      const line = text.slice(0, match.index).split("\n").length;
+      const where = `apps/web/src/${relative(ROOT, file).split(sep).join("/")}:${line}`;
+      uses.set(match[1], [...(uses.get(match[1]) ?? []), where]);
+    }
+  }
+  const undefinedNames = [...uses.keys()].filter((name) => !defined.has(name)).sort();
+  for (const name of undefinedNames) {
+    const where = uses.get(name);
+    const more = where.length > 3 ? ` (+${where.length - 3} more)` : "";
+    console.warn(`warning: var(${name}) is never defined — ${where.slice(0, 3).join(", ")}${more}`);
   }
 }
 

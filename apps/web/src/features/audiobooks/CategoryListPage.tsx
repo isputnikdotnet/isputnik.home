@@ -12,6 +12,7 @@ import { SortMenu } from "../../shared/SortMenu";
 import { CategoryIcon, categoryTint } from "./categoryIcons";
 import { sectionFromQuery, sectionNavProps } from "./sectionNavItems";
 import type { CategorySummary } from "./types";
+import { Button } from "../../shared/Button";
 
 export function CategoryListPage() {
   const { t } = useTranslation(["common", "book"]);
@@ -85,7 +86,8 @@ export function CategoryListPage() {
         ) : (
         <div className="category-grid">
           {shown.map((category) => (
-            <button
+            <Button
+              variant="tile"
               key={category.key}
               className={`category-tile category-tint-${categoryTint(category.key)}`}
               onClick={() => navigate(`/categories/${category.key}${section ? `?section=${section.active}` : ""}`)}
@@ -93,7 +95,7 @@ export function CategoryListPage() {
               <CategoryIcon icon={category.icon} size={26} />
               <strong>{category.name}</strong>
               <span>{t("book:catalog.counts.book", { count: category.bookCount })}</span>
-            </button>
+            </Button>
           ))}
         </div>
         )}

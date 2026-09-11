@@ -3,6 +3,7 @@
 import { db } from "../../../db.js";
 import { canUserAccessLibrary } from "../shared/library-access.js";
 import { galleryLibrariesLeftOutOfScope, photoInboxLibraryIds } from "./inbox-flag.js";
+import type { LibraryRow } from "../../../db/rows.js";
 
 // A `?libraryIds=id1,id2` query param, the GET-route counterpart of the timeline
 // POST's `filters.libraries` array. Bounded generously — the number of libraries
@@ -16,7 +17,7 @@ export function parseLibraryIds(raw: string | undefined): string[] {
 // never widens: an id the caller can't reach (or that isn't a gallery library at
 // all) simply drops out rather than granting access to it.
 export function resolveGalleryScopeLibraryIds(user: { id: string; role: string }, libraryIds?: string[]): string[] {
-  const rows = db.prepare("SELECT id, policy_json FROM libraries WHERE type = 'gallery'").all() as { id: string; policy_json: string }[];
+  const rows = db.prepare("SELECT id, policy_json FROM libraries WHERE type = 'gallery'").all() as Pick<LibraryRow, "id" | "policy_json">[];
   const accessible = rows.filter((row) => canUserAccessLibrary(row, user.id, user.role));
   // A Photo Inbox holds photos nobody has kept yet, so it is left out of every
   // "everything I can see" scope. Naming it explicitly is how it is browsed, and

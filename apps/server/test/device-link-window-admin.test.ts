@@ -5,14 +5,13 @@ vi.mock("../src/core/mail.js", async (importOriginal) => {
   return { ...actual, sendMail: vi.fn(async () => {}), isMailConfigured: () => false };
 });
 
-import Fastify, { type FastifyInstance } from "fastify";
-import cookie from "@fastify/cookie";
+import type { FastifyInstance } from "fastify";
 
 import { db } from "../src/db.js";
-import { issueSession, registerAuthDecorators } from "../src/auth.js";
 import { usersPlugin } from "../src/modules/users/users.js";
 import { setupPlugin } from "../src/core/setup.js";
 import { liveWindowFor, openLinkWindow, DEFAULT_WINDOW_MINUTES } from "../src/core/device-link.js";
+import { bootApp } from "./helpers/boot.js";
 import { makeUser, resetDb } from "./helpers/seed.js";
 
 // The admin's half — granting and cancelling a registration window — and the
@@ -22,36 +21,7 @@ const LAN = "192.168.1.42";
 const OUTSIDE = "203.0.113.10";
 
 let app: FastifyInstance;
-
-async function buildApp(): Promise<FastifyInstance> {
-  const instance = Fastify();
-  await instance.register(cookie);
-  await registerAuthDecorators(instance);
-  await instance.register(usersPlugin);
-  await instance.register(setupPlugin);
-
-  instance.post("/test/sign-in/:userId", async (request, reply) => {
-    const { userId } = request.params as { userId: string };
-    issueSession(reply, userId, request);
-    return reply.send({ ok: true });
-  });
-
-  await instance.ready();
-  return instance;
-}
-
-function cookieFrom(headers: Record<string, unknown>): string {
-  const raw = headers["set-cookie"];
-  const list = Array.isArray(raw) ? raw : [String(raw)];
-  const found = list.find((entry) => entry.startsWith("isputnik_sid="));
-  if (!found) throw new Error("no session cookie was set");
-  return found.split(";")[0];
-}
-
-async function signIn(userId: string): Promise<string> {
-  const res = await app.inject({ method: "POST", url: `/test/sign-in/${userId}` });
-  return cookieFrom(res.headers as Record<string, unknown>);
-}
+let signIn: (userId: string) => Promise<string>;
 
 function probe(remoteAddress: string) {
   return app.inject({ method: "GET", url: "/api/setup/status", remoteAddress });
@@ -62,7 +32,7 @@ beforeEach(async () => {
   delete process.env.TRUST_PROXY_HOPS;
   makeUser("boss", "admin");
   makeUser("traveller");
-  app = await buildApp();
+  ({ app, signIn } = await bootApp({ plugins: [usersPlugin, setupPlugin] }));
 });
 
 describe("granting a window", () => {

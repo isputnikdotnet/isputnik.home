@@ -111,17 +111,18 @@ export function TagListPage() {
         <div className="tag-filter-row">
           <div className="kind-toggle" role="group" aria-label={t("book:tags.filterUsageAria")}>
             {scopeCounts.map(({ value, label, icon: Icon, tagCount }) => (
-              <button
+              <Button
+                variant="bare"
                 key={value}
-                type="button"
                 className={scope === value ? "is-active" : ""}
+                aria-pressed={scope === value}
                 disabled={tagCount === 0 && value !== "all"}
                 onClick={() => setScope(value)}
               >
                 {Icon && <Icon size={15} aria-hidden="true" />}
                 {label}
                 <span className="kind-toggle-count">{tagCount}</span>
-              </button>
+              </Button>
             ))}
           </div>
           <SelectField
@@ -150,16 +151,16 @@ export function TagListPage() {
           <>
             <div className="tag-cloud">
               {shown.map((tag) => (
-                <button
+                <Button
+                  variant="chip"
                   key={tag.name}
-                  type="button"
                   className="tag-cloud-item"
                   onClick={() => navigate(`/tags/${encodeURIComponent(tag.name)}`)}
                 >
                   <TagIcon size={15} aria-hidden="true" />
                   <span>{tag.name}</span>
                   <span className="tag-cloud-count">{activeScope.countOf(tag)}</span>
-                </button>
+                </Button>
               ))}
             </div>
             {hidden > 0 && (

@@ -14,6 +14,8 @@ import { sectionFromHref, sectionNavProps } from "./sectionNavItems";
 import { formatLifespan } from "./types";
 import { PersonProfileModal } from "./PersonProfileModal";
 import { useSession } from "../../app/SessionContext";
+// The person edit dialogs' stylesheet: it loads with this page, not on every route (docs/css-map.md).
+import "../../styles/person-edit.css";
 
 // One item this person is credited on, in any media type / any accessible
 // library. `role` is how they're credited on this specific item. narrators is
@@ -229,15 +231,14 @@ export function PersonPage({
             standard for an item detail page: icon Back, divider, then every
             action this page offers, icon-only. */}
         <div className="book-detail-topbar">
-          <button
-            className="icon-button"
-            type="button"
+          <Button
+            variant="icon"
             onClick={() => goBack(backTo ?? "/authors")}
             aria-label={backTo ? t("book:catalog.back") : t("book:authors.backToAuthors")}
             title={backTo ? t("book:catalog.back") : t("book:authors.backToAuthors")}
           >
             <ArrowLeft size={18} aria-hidden="true" />
-          </button>
+          </Button>
           <span className="library-toolbar-divider" aria-hidden="true" />
           <div className="book-detail-secondary-actions" aria-label={t("book:personPage.actionsAria")}>
             <Button
@@ -340,17 +341,17 @@ export function PersonPage({
             Chapters / …), here switching between everything, ebooks only and
             audiobooks only. */}
         <section className="book-detail-tabs-section">
-          <nav className="book-detail-tabs person-detail-tabs" aria-label={t("book:personPage.sectionsAria")}>
+          <nav className="book-detail-tabs person-detail-tabs" role="tablist" aria-label={t("book:personPage.sectionsAria")}>
             {personTabs().map((tab) => (
-              <button
+              <Button
+                variant="tab"
                 key={tab.id}
-                type="button"
-                className={activeTab === tab.id ? "active" : ""}
+                selected={activeTab === tab.id}
                 onClick={() => chooseTab(tab.id)}
               >
                 <tab.icon size={16} aria-hidden="true" />
                 <span>{tab.label}</span>
-              </button>
+              </Button>
             ))}
           </nav>
 
@@ -405,13 +406,14 @@ export function PersonPage({
           </label>
           <div className="merge-candidate-list">
             {filteredCandidates.map((name) => (
-              <button
+              <Button
+                variant="tile"
                 key={name}
                 className={`merge-candidate${mergeTarget === name ? " selected" : ""}`}
                 onClick={() => setMergeTarget(name)}
               >
                 {name}
-              </button>
+              </Button>
             ))}
             {filteredCandidates.length === 0 && <p className="facet-empty">{t("common:filters.noMatches")}</p>}
           </div>
@@ -444,7 +446,7 @@ function PersonTitleRow({ item }: { item: PersonItem }) {
     : null;
 
   return (
-    <button className="person-title-row" onClick={() => navigate(bookHref(item))}>
+    <Button variant="bare" className="person-title-row" onClick={() => navigate(bookHref(item))}>
       <div className="person-title-cover" aria-hidden="true">
         {item.coverUrl ? <img src={item.coverUrl} alt="" /> : <Icon size={26} />}
       </div>
@@ -463,6 +465,6 @@ function PersonTitleRow({ item }: { item: PersonItem }) {
         )}
         {item.yearPublished != null && <span className="person-title-meta">{t("book:personPage.publishedYear", { year: item.yearPublished })}</span>}
       </div>
-    </button>
+    </Button>
   );
 }

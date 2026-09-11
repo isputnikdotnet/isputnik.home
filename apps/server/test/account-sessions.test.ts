@@ -1,10 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import Fastify, { type FastifyInstance } from "fastify";
-import cookie from "@fastify/cookie";
+import type { FastifyInstance } from "fastify";
 
 import { db } from "../src/db.js";
-import { issueSession, registerAuthDecorators } from "../src/auth.js";
 import { sessionsPlugin } from "../src/core/sessions.js";
+import { bootApp, type BootedApp } from "./helpers/boot.js";
 import { makeUser, resetDb } from "./helpers/seed.js";
 
 // Everyone's own sessions, which is what Profile → Devices reads. The rule running
@@ -25,45 +24,17 @@ interface SessionPayload {
   current: boolean;
 }
 
-async function buildApp(): Promise<FastifyInstance> {
-  const instance = Fastify();
-  await instance.register(cookie);
-  await registerAuthDecorators(instance);
-  await instance.register(sessionsPlugin);
+let session: BootedApp["session"];
 
-  instance.post("/test/sign-in/:userId", async (request, reply) => {
-    const { userId } = request.params as { userId: string };
-    const kind = (request.query as { kind?: string }).kind === "device" ? "device" : "browser";
-    const label = (request.query as { label?: string }).label ?? null;
-    const id = issueSession(reply, userId, request, { kind, label });
-    return reply.send({ id });
-  });
-
-  await instance.ready();
-  return instance;
-}
-
-function cookieFrom(headers: Record<string, unknown>): string {
-  const raw = headers["set-cookie"];
-  const list = Array.isArray(raw) ? raw : [String(raw)];
-  const found = list.find((entry) => entry.startsWith("isputnik_sid="));
-  if (!found) throw new Error("no session cookie was set");
-  return found.split(";")[0];
-}
-
-async function signIn(
+function signIn(
   userId: string,
   opts: { kind?: "device"; label?: string; userAgent?: string } = {}
 ): Promise<{ id: string; cookie: string }> {
-  const query = new URLSearchParams();
-  if (opts.kind) query.set("kind", opts.kind);
-  if (opts.label) query.set("label", opts.label);
-  const res = await app.inject({
-    method: "POST",
-    url: `/test/sign-in/${userId}${query.size ? `?${query}` : ""}`,
+  return session(userId, {
+    kind: opts.kind,
+    label: opts.label,
     headers: { "user-agent": opts.userAgent ?? CHROME_LINUX }
   });
-  return { id: (res.json() as { id: string }).id, cookie: cookieFrom(res.headers as Record<string, unknown>) };
 }
 
 function listFor(cookieHeader: string) {
@@ -72,7 +43,7 @@ function listFor(cookieHeader: string) {
 
 beforeEach(async () => {
   resetDb();
-  app = await buildApp();
+  ({ app, session } = await bootApp({ plugins: [sessionsPlugin] }));
 });
 
 describe("listing", () => {

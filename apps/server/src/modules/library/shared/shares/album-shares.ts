@@ -3,7 +3,8 @@ import { db } from "../../../../db.js";
 import { sha256 } from "../../../../crypto.js";
 import { addDays } from "../../../../auth.js";
 import { canUserCurateLibrary, type LibraryAccessRow } from "../library-access.js";
-import type { GallerySetFileRow, GallerySetItemRow } from "./gallery-set-shares.js";
+import type { GallerySetFileRow, GallerySetItemRow, GallerySetMediaRow } from "./gallery-set-shares.js";
+import type { GalleryAlbumRow } from "../../../../db/rows.js";
 
 const inClause = (n: number) => Array(n).fill("?").join(", ");
 
@@ -13,11 +14,7 @@ const inClause = (n: number) => Array(n).fill("?").join(", ");
 // bounded to the libraries the share's CREATOR can curate — so the share always
 // reflects the album now, and can never leak a photo the creator couldn't share.
 
-export interface AlbumShareMeta {
-  sort_mode: "taken_at" | "manual";
-  created_by: string;
-  name: string;
-}
+export type AlbumShareMeta = Pick<GalleryAlbumRow, "sort_mode" | "created_by" | "name">;
 
 export function loadAlbumShareMeta(albumId: string): AlbumShareMeta | undefined {
   return db.prepare(
@@ -106,16 +103,7 @@ export function loadAlbumShareMediaItem(albumId: string, itemId: string, libIds:
     LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
     WHERE gallery_album_items.album_id = ? AND gallery_album_items.item_id = ?
       AND library_items.library_id IN (${inClause(libIds.length)})
-  `).get(albumId, itemId, ...libIds) as {
-    folder_path: string;
-    kind: string;
-    relative_path: string;
-    mime_type: string | null;
-    title: string | null;
-    cover_storage_key: string | null;
-    preview_storage_key: string | null;
-    source_path: string;
-  } | undefined;
+  `).get(albumId, itemId, ...libIds) as GallerySetMediaRow | undefined;
 }
 
 // Create a live guest link over an album. Only the album's creator or an admin can

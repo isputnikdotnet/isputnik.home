@@ -3,7 +3,8 @@ import { Play } from "lucide-react";
 import { DEFAULT_COVERS } from "../audiobooks/covers";
 import { followRoute } from "../../router";
 import { MediaKindBadge } from "../../shared/MediaKindBadge";
-import { authorLine, feedHref, timeAgo, type FeedItem } from "./feed";
+import { relativeTime } from "../../shared/relativeTime";
+import { authorLine, feedHref, type FeedItem } from "./feed";
 
 // Reuses the Audiobooks catalog card (.audiobook-catalog-*) so home / recent /
 // continue tiles look identical to the main library. `progress` shows the
@@ -13,7 +14,8 @@ export function FeedTile({ item, progress, added, kindLabel }: { item: FeedItem;
   const href = feedHref(item);
   const percent = Math.round((item.percentComplete ?? 0) * 100);
   const meta = added
-    ? [authorLine(item), timeAgo(item.discoveredAt)].filter(Boolean).join(" · ")
+    // "short": it shares a line with the author under a fixed-width tile.
+    ? [authorLine(item), relativeTime(item.discoveredAt, { style: "short" })].filter(Boolean).join(" · ")
     : authorLine(item);
 
   return (

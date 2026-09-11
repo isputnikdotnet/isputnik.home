@@ -10,6 +10,7 @@
 import { db } from "../../../../db.js";
 import { clusterGalleryFaces } from "./cluster.js";
 import { removeFaceCropFiles } from "./crop-files.js";
+import type { GalleryFaceRow } from "../../../../db/rows.js";
 
 export async function clearLibraryFaceData(libraryId: string): Promise<{ faces: number; photos: number }> {
   const itemFilter = "item_id IN (SELECT id FROM library_items WHERE library_id = ?)";
@@ -22,7 +23,7 @@ export async function clearLibraryFaceData(libraryId: string): Promise<{ faces: 
   ).get(libraryId) as { n: number }).n;
   const thumbKeys = db.prepare(
     `SELECT thumb_storage_key AS k FROM gallery_faces WHERE thumb_storage_key IS NOT NULL AND ${itemFilter}`
-  ).all(libraryId) as { k: string }[];
+  ).all(libraryId) as { k: NonNullable<GalleryFaceRow["thumb_storage_key"]> }[];
 
   db.transaction(() => {
     db.prepare(`DELETE FROM gallery_faces WHERE ${itemFilter}`).run(libraryId);

@@ -61,7 +61,7 @@ const OWNER_ID_QUERIES = [
 function collect(queries: string[]): Set<string> {
   const found = new Set<string>();
   for (const sql of queries) {
-    for (const row of db.prepare(sql).all() as { k?: string; id?: string }[]) {
+    for (const row of db.prepare(sql).all() as { k?: string | null; id?: string }[]) {
       const value = row.k ?? row.id;
       if (value) found.add(value);
     }

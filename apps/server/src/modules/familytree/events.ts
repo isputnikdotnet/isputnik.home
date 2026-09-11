@@ -4,6 +4,7 @@
 // `custom` events; everything else is optional so sparse genealogy data fits.
 import { nanoid } from "nanoid";
 import { db } from "../../db.js";
+import type { FamilyTreeEventRow } from "../../db/rows.js";
 
 export const EVENT_TYPES = [
   "residence", "education", "graduation", "occupation", "retirement", "military",
@@ -22,16 +23,7 @@ export interface FamilyEventSummary {
   note: string | null;
 }
 
-interface EventRow {
-  id: string;
-  person_id: string;
-  type: string;
-  label: string | null;
-  date: string | null;
-  end_date: string | null;
-  place: string | null;
-  note: string | null;
-}
+type EventRow = Pick<FamilyTreeEventRow, "id" | "person_id" | "type" | "label" | "date" | "end_date" | "place" | "note">;
 
 function mapEvent(row: EventRow): FamilyEventSummary {
   return {

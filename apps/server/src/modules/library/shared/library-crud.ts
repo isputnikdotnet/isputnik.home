@@ -21,6 +21,7 @@ import {
 } from "./library-settings.js";
 import { METADATA_SOURCE_IDS } from "./metadata-sources.js";
 import { parsePolicy } from "../../../core/permissions.js";
+import type { LibraryRow } from "../../../db/rows.js";
 
 const scanSourcesSchema = z.array(z.object({
   id: z.enum(METADATA_SOURCE_IDS),
@@ -107,7 +108,7 @@ function resolveOwner(data: { ownerId?: string | null; ownerType?: "user" | "gro
 // paths are stored as realpaths (see validateLibrarySource); compare case-insensitively
 // on Windows so C:\Media and c:\media are recognised as the same folder.
 function findOverlappingLibrary(sourcePath: string): string | null {
-  const rows = db.prepare("SELECT name, source_path FROM libraries").all() as { name: string; source_path: string }[];
+  const rows = db.prepare("SELECT name, source_path FROM libraries").all() as Pick<LibraryRow, "name" | "source_path">[];
   const norm = (p: string) => (process.platform === "win32" ? p.toLowerCase() : p);
   const target = norm(sourcePath);
   for (const row of rows) {
@@ -204,7 +205,7 @@ export function updateLibraryRecord(opts: {
 }): { updated: true } | LibraryCrudError {
   const { type, id, data } = opts;
   const existing = db.prepare("SELECT id, settings_json, policy_json FROM libraries WHERE id = ? AND type = ?")
-    .get(id, type) as { id: string; settings_json: string; policy_json: string } | undefined;
+    .get(id, type) as Pick<LibraryRow, "id" | "settings_json" | "policy_json"> | undefined;
   if (!existing) {
     return { status: 404, error: `${type === "audiobook" ? "Audiobook" : "Library"} library not found` };
   }

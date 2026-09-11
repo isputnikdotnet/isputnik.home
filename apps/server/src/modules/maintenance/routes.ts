@@ -4,6 +4,7 @@ import { db } from "../../db.js";
 import { parseBody, parseQuery } from "../../core/shared.js";
 import { configureScheduledJob, listScheduledJobs, runScheduledJob } from "./scheduler.js";
 import { listTasks, withNewTaskIds } from "./tasks-view.js";
+import type { JobRow } from "../../db/rows.js";
 
 const configSchema = z.object({
   enabled: z.boolean(),
@@ -44,7 +45,7 @@ export function registerMaintenanceRoutes(app: FastifyInstance) {
 
   app.post("/api/jobs/:id/cancel", { preHandler: app.requireAdmin }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
-    const job = db.prepare("SELECT id, type, status, payload FROM jobs WHERE id = ?").get(id) as { id: string; type: string; status: string; payload: string } | undefined;
+    const job = db.prepare("SELECT id, type, status, payload FROM jobs WHERE id = ?").get(id) as Pick<JobRow, "id" | "type" | "status" | "payload"> | undefined;
     if (!job) {
       return reply.code(404).send({ error: "Task not found" });
     }
@@ -120,7 +121,7 @@ export function registerMaintenanceRoutes(app: FastifyInstance) {
     if (ids.length === 0) return { tasks: [] };
     const rows = db.prepare(
       `SELECT id, status FROM jobs WHERE id IN (${ids.map(() => "?").join(",")})`
-    ).all(...ids) as { id: string; status: string }[];
+    ).all(...ids) as Pick<JobRow, "id" | "status">[];
     return { tasks: rows };
   });
 }

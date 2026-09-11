@@ -9,6 +9,7 @@ import { db } from "../../../../db.js";
 import { thumbnailStorageKey, thumbnailAbsolutePath } from "../../shared/thumbnail.js";
 import { validateLibrarySource } from "../../shared/library-source.js";
 import { decodeUpright, type DecodedImage } from "./arcface.js";
+import type { GalleryDetailRow, GalleryFaceRow, LibraryItemRow, LibraryRow, NonNull } from "../../../../db/rows.js";
 
 const FACE_THUMB = 160;
 const MARGIN = 1.4; // crop a bit wider than the box so the whole face/hair shows
@@ -49,14 +50,11 @@ export async function cropFaceFromRaw(
   }
 }
 
-interface MissingRow {
-  id: string;
-  item_id: string;
-  box_x: number; box_y: number; box_w: number; box_h: number;
-  library_id: string;
-  source_path: string;
-  relative_path: string;
-}
+// The query keeps box_x non-NULL; the other three sides are nullable columns of their own.
+type MissingRow = NonNull<Pick<GalleryFaceRow, "id" | "item_id" | "box_x" | "box_y" | "box_w" | "box_h">, "box_x">
+  & Pick<LibraryItemRow, "library_id">
+  & Pick<LibraryRow, "source_path">
+  & Pick<GalleryDetailRow, "relative_path">;
 
 // Backfill crops for already-detected faces that have no thumbnail yet (reuses the
 // stored boxes — no re-detection). Decodes each photo once and crops all its faces. Lets
@@ -93,6 +91,8 @@ export async function backfillFaceThumbnails(limit = 100000): Promise<number> {
     let image: DecodedImage;
     try { image = await decodeUpright(absolutePath); } catch { continue; }
     for (const row of group) {
+      // The scanner always writes all four sides; a half-written box has no face to crop.
+      if (row.box_y === null || row.box_w === null || row.box_h === null) continue;
       const key = await cropFaceFromRaw(image, row.library_id, row.id, [row.box_x, row.box_y, row.box_w, row.box_h]);
       if (key) { setThumb.run(key, row.id); made += 1; }
     }

@@ -8,6 +8,7 @@ import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { formatBytes } from "../../shared/utils";
 import type { GalleryAsset, GallerySlideshowDetail, SlideshowPatch, SlideshowTransition } from "./types";
 import { faceFocusStyle } from "./types";
+import { Button } from "../../shared/Button";
 
 // The presentation transitions offered in the editor, in display order. The live
 // preview (GalleryLightbox) honours these; the future MP4 render will too.
@@ -153,15 +154,15 @@ export function GallerySlideshowEditor({
             <span className="slideshow-setting-label">{t("gallery:slideshowEditor.transitionLabel")}</span>
             <div className="slideshow-transitions">
               {TRANSITIONS.map((tr) => (
-                <button
+                <Button
+                  variant="bare"
                   key={tr.value}
-                  type="button"
                   className={slideshow.transition === tr.value ? "is-on" : ""}
                   aria-pressed={slideshow.transition === tr.value}
                   onClick={() => { if (slideshow.transition !== tr.value) onPatch({ transition: tr.value }); }}
                 >
                   {tr.label}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
@@ -203,14 +204,14 @@ export function GallerySlideshowEditor({
           )}
           <div className="slideshow-setting">
             <span className="slideshow-setting-label">{t("gallery:slideshowEditor.musicLabel")}</span>
-            <button type="button" className="slideshow-music-button" onClick={() => setMusicOpen(true)}>
+            <Button variant="bare" className="slideshow-music-button" onClick={() => setMusicOpen(true)}>
               <Music size={15} aria-hidden="true" />
               <span>{slideshow.musicTitle ?? t("gallery:slideshowEditor.addMusic")}</span>
-            </button>
+            </Button>
           </div>
           <div className="slideshow-setting">
             <span className="slideshow-setting-label">{t("gallery:slideshowEditor.titleCreditsLabel")}</span>
-            <button type="button" className="slideshow-music-button" onClick={() => setTitleOpen(true)}>
+            <Button variant="bare" className="slideshow-music-button" onClick={() => setTitleOpen(true)}>
               <Type size={15} aria-hidden="true" />
               <span>
                 {slideshow.titleEnabled
@@ -218,7 +219,7 @@ export function GallerySlideshowEditor({
                   : t("gallery:slideshowEditor.titleOff")}
                 {slideshow.closingEnabled ? t("gallery:slideshowEditor.plusClosing") : ""}
               </span>
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -276,19 +277,19 @@ export function GallerySlideshowEditor({
                     <Download size={15} aria-hidden="true" /> {t("gallery:common.download")}
                   </a>
                   {canEdit && (
-                    <button type="button" className="secondary-button compact-button" onClick={() => setRenderConfirm(true)}>
+                    <Button variant="secondary" compact onClick={() => setRenderConfirm(true)}>
                       <RefreshCw size={15} aria-hidden="true" /> {t("gallery:slideshowEditor.rerenderButton")}
-                    </button>
+                    </Button>
                   )}
                   {canEdit && (
-                    <button type="button" className="secondary-button compact-button" onClick={onOpenMovieLibrary}>
+                    <Button variant="secondary" compact onClick={onOpenMovieLibrary}>
                       <LibraryBig size={15} aria-hidden="true" /> {t("gallery:slideshowEditor.movieLibraryButton")}
-                    </button>
+                    </Button>
                   )}
                   {canEdit && (
-                    <button type="button" className="secondary-button compact-button" onClick={onDeleteMovie}>
+                    <Button variant="secondary" compact onClick={onDeleteMovie}>
                       <Trash2 size={15} aria-hidden="true" /> {t("gallery:common.deleteWord")}
-                    </button>
+                    </Button>
                   )}
                 </div>
               </div>
@@ -336,14 +337,14 @@ export function GallerySlideshowEditor({
                   ? t("gallery:slideshowEditor.movieWillFileAs", { name: slideshow.movieFileName })
                   : t("gallery:slideshowEditor.movieNotFiled")}
                 {" "}
-                <button type="button" className="link-button" onClick={onOpenMovieLibrary}>
+                <Button variant="bare" className="link-button" onClick={onOpenMovieLibrary}>
                   {t("gallery:slideshowEditor.movieLibraryButton")}
-                </button>
+                </Button>
               </p>
               <div className="slideshow-movie-cta-row">
-                <button type="button" className="primary-button compact-button" onClick={() => setRenderConfirm(true)}>
+                <Button variant="primary" compact onClick={() => setRenderConfirm(true)}>
                   <Film size={15} aria-hidden="true" /> {slideshow.renderStatus === "failed" ? t("gallery:slideshowEditor.tryAgain") : t("gallery:slideshowEditor.renderConfirmLabel")}
-                </button>
+                </Button>
                 <span className="muted gallery-face-hint">
                   {t("gallery:slideshowEditor.exportHintBase", { musicClause: slideshow.musicTitle ? t("gallery:slideshowEditor.musicClause") : "" })}{" "}
                   {slideshow.titleEnabled ? t("gallery:slideshowEditor.titleClauseOn") : t("gallery:slideshowEditor.titleClauseOff")}{" "}
@@ -367,8 +368,8 @@ export function GallerySlideshowEditor({
             onDragEnd={endDrag}
           >
             <span className="slideshow-slide-num" aria-hidden="true">{index + 1}</span>
-            <button
-              type="button"
+            <Button
+              variant="tile"
               className="gallery-tile"
               onClick={() => onOpenAt(index)}
               aria-label={t("gallery:assetTile.openAria", { title: asset.title })}
@@ -388,27 +389,27 @@ export function GallerySlideshowEditor({
                   <span className="gallery-video-badge"><Play size={11} aria-hidden="true" />{t("gallery:common.video")}</span>
                 )
               )}
-            </button>
+            </Button>
             {canEdit && (
               <>
                 <span className="slideshow-drag-handle" aria-hidden="true" title={t("gallery:slideshowEditor.dragHandleTitle")}><GripVertical size={15} /></span>
                 <div className="slideshow-slide-move">
-                  <button type="button" onClick={() => move(asset.id, -1)} disabled={index === 0} aria-label={t("gallery:slideshowEditor.moveEarlierAria", { title: asset.title })} title={t("gallery:slideshowEditor.moveEarlierTitle")}>
+                  <Button variant="bare" onClick={() => move(asset.id, -1)} disabled={index === 0} aria-label={t("gallery:slideshowEditor.moveEarlierAria", { title: asset.title })} title={t("gallery:slideshowEditor.moveEarlierTitle")}>
                     <ChevronLeft size={15} aria-hidden="true" />
-                  </button>
-                  <button type="button" onClick={() => move(asset.id, 1)} disabled={index === ordered.length - 1} aria-label={t("gallery:slideshowEditor.moveLaterAria", { title: asset.title })} title={t("gallery:slideshowEditor.moveLaterTitle")}>
+                  </Button>
+                  <Button variant="bare" onClick={() => move(asset.id, 1)} disabled={index === ordered.length - 1} aria-label={t("gallery:slideshowEditor.moveLaterAria", { title: asset.title })} title={t("gallery:slideshowEditor.moveLaterTitle")}>
                     <ChevronRight size={15} aria-hidden="true" />
-                  </button>
+                  </Button>
                 </div>
-                <button
-                  type="button"
+                <Button
+                  variant="bare"
                   className="gallery-tile-remove"
                   onClick={() => onRemove(asset.id)}
                   aria-label={t("gallery:assetTile.removeAria", { title: asset.title })}
                   title={t("gallery:slideshowEditor.removeFromSlideshowTitle")}
                 >
                   <X size={14} aria-hidden="true" />
-                </button>
+                </Button>
               </>
             )}
           </div>
@@ -423,9 +424,9 @@ export function GallerySlideshowEditor({
 
       {remaining > 0 && (
         <div style={{ display: "flex", justifyContent: "center", padding: "16px 0" }}>
-          <button type="button" className="secondary-button" onClick={onLoadMore} disabled={loading}>
+          <Button variant="secondary" onClick={onLoadMore} disabled={loading}>
             {loading ? t("gallery:common.loading") : t("gallery:common.loadMoreCount", { count: remaining })}
-          </button>
+          </Button>
         </div>
       )}
     </>

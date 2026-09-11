@@ -22,6 +22,7 @@ import { deleteAllReplacedOriginals, deleteReplacedOriginal, listReplacedOrigina
 import { searchPlaces } from "./geocode.js";
 import { rotateGalleryAsset } from "./rotate.js";
 import { friendlyStorageError } from "./files.js";
+import type { LibraryRow } from "../../../db/rows.js";
 
 const geocodeQuerySchema = z.object({ q: z.string().optional() });
 
@@ -394,7 +395,7 @@ export function registerGalleryAssetRoutes(app: FastifyInstance) {
     // Writing a file into the library is the upload permission, not merely write
     // access to the catalogue — a library that refuses uploads refuses this too.
     const library = db.prepare("SELECT id, source_path, settings_json, policy_json FROM libraries WHERE id = ?")
-      .get(lib.id) as { id: string; source_path: string; settings_json: string; policy_json: string } | undefined;
+      .get(lib.id) as Pick<LibraryRow, "id" | "source_path" | "settings_json" | "policy_json"> | undefined;
     if (!library) return reply.code(404).send({ error: "Gallery library not found" });
     const policy = parsePolicy(library.policy_json);
     if (!can(user, { objectType: "library", objectId: library.id, policy }, "upload")) {

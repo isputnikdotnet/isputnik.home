@@ -13,6 +13,7 @@
 // to whoever sorts first, which is nobody's idea of the centre of the family.
 import { db } from "../../db.js";
 import { getHouseLibrary, HOUSE_FOLDERS } from "../library/gallery/house-library.js";
+import type { AppSettingRow, FamilyTreePersonRow } from "../../db/rows.js";
 
 const SETTINGS_KEY = "family_tree_settings";
 
@@ -23,7 +24,7 @@ export interface FamilyTreeSettings {
 const DEFAULTS: FamilyTreeSettings = { defaultPersonId: null };
 
 export function getFamilyTreeSettings(): FamilyTreeSettings {
-  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(SETTINGS_KEY) as { value: string } | undefined;
+  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(SETTINGS_KEY) as Pick<AppSettingRow, "value"> | undefined;
   if (!row) return { ...DEFAULTS };
   try {
     const parsed = JSON.parse(row.value) as Partial<FamilyTreeSettings>;
@@ -60,5 +61,5 @@ export function getFamilyDefaultPerson(): { id: string; name: string } | null {
   const { defaultPersonId } = getFamilyTreeSettings();
   if (!defaultPersonId) return null;
   return (db.prepare("SELECT id, name FROM family_tree_persons WHERE id = ?")
-    .get(defaultPersonId) as { id: string; name: string } | undefined) ?? null;
+    .get(defaultPersonId) as Pick<FamilyTreePersonRow, "id" | "name"> | undefined) ?? null;
 }

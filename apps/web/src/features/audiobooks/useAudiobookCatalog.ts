@@ -37,8 +37,10 @@ export function getDensityOptions(): { value: CatalogDensity; label: string }[] 
   ];
 }
 
+// A first visit opens on what's new ("Recently added"), for audiobooks and ebooks
+// alike; after that the page keeps whatever order was last chosen.
 const DEFAULT_VIEW: CatalogView = {
-  selectedLibraryId: "all", sort: "title", search: "", filters: EMPTY_FILTERS, letter: null, density: "comfortable"
+  selectedLibraryId: "all", sort: "recent", search: "", filters: EMPTY_FILTERS, letter: null, density: "comfortable"
 };
 const viewStore = new Map<string, CatalogView>();
 

@@ -10,7 +10,8 @@ import { MessageBox } from "../../../../shared/MessageBox";
 import { Pager } from "../../../../shared/Pager";
 import { ProgressRing } from "../../../../shared/ProgressRing";
 import { SelectMenu } from "../../../../shared/SelectMenu";
-import { formatManagedDate, formatEta, relativeTime } from "../../../../shared/utils";
+import { formatManagedDate, formatEta } from "../../../../shared/utils";
+import { relativeTime } from "../../../../shared/relativeTime";
 import type { Job } from "../../types";
 
 // Overview › Dashboard › Tasks — scans and other background work. It opens on
@@ -465,27 +466,27 @@ export function TasksView() {
                             <td className="task-result-cell">
                               {task.summary && (
                                 task.bookErrors.length > 0 ? (
-                                  <button
-                                    type="button"
+                                  <Button
+                                    variant="bare"
                                     className="job-error-toggle task-result-text"
                                     onClick={() => setExpandedError(expandedError === task.id ? null : task.id)}
                                     title={t("controlDash:tasks.showSkipped")}
                                   >
                                     {task.summary}
-                                  </button>
+                                  </Button>
                                 ) : (
                                   <span className="task-result-text datagrid-muted">{task.summary}</span>
                                 )
                               )}
                               {!task.summary && errorText && (
-                                <button
-                                  type="button"
+                                <Button
+                                  variant="bare"
                                   className="job-error-toggle task-result-text"
                                   onClick={() => setExpandedError(expandedError === task.id ? null : task.id)}
                                   title={errorText}
                                 >
                                   {errorText.split("\n")[0].slice(0, 80)}{errorText.length > 80 ? "…" : ""}
-                                </button>
+                                </Button>
                               )}
                               {!task.summary && !errorText && <span className="muted">—</span>}
                             </td>

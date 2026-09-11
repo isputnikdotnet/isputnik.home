@@ -10,6 +10,7 @@ import { StoryMarkdown } from "./StoryMarkdown";
 import { RouteCaption } from "./RouteCaption";
 import { routePins, routeStops } from "./story-route";
 import type { StoryBlock } from "./types";
+import { Button } from "../../shared/Button";
 
 // One block, rendered read-only. The reading view uses it directly; the editor
 // wraps the same component in its controls, so what an author arranges is
@@ -55,14 +56,14 @@ export function StoryBlockView({
         {asset.kind === "video" ? (
           <video src={asset.playbackUrl} poster={asset.previewUrl ?? undefined} controls preload="metadata" />
         ) : (
-          <button
-            type="button"
+          <Button
+            variant="bare"
             className="story-media-button"
             onClick={() => onOpenMedia([asset], 0)}
             aria-label={t("stories:block.openPhoto", { title: asset.title })}
           >
             <img src={asset.previewUrl ?? asset.coverUrl ?? ""} alt={asset.title} loading="lazy" />
-          </button>
+          </Button>
         )}
         {block.caption && <figcaption>{block.caption}</figcaption>}
       </figure>
@@ -212,10 +213,10 @@ export function StoryBlockView({
           </div>
           <div className="story-set-actions">
             {isSlideshow && (
-              <button type="button" className="primary-button compact-button" onClick={() => onPlaySlideshow(block)}>
+              <Button variant="primary" compact onClick={() => onPlaySlideshow(block)}>
                 <Play size={15} aria-hidden="true" />
                 <span>{t("stories:block.play")}</span>
-              </button>
+              </Button>
             )}
             {block.href && (
               <a
@@ -232,15 +233,15 @@ export function StoryBlockView({
         {block.preview.length > 0 && (
           <div className="story-set-strip">
             {block.preview.map((asset, index) => (
-              <button
-                type="button"
+              <Button
+                variant="tile"
                 key={asset.id}
                 className="story-set-thumb"
                 onClick={() => onOpenMedia(block.preview, index)}
                 aria-label={t("stories:block.openPhoto", { title: asset.title })}
               >
                 <img src={asset.coverUrl ?? ""} alt="" loading="lazy" />
-              </button>
+              </Button>
             ))}
             {block.itemCount > block.preview.length && (
               <span className="story-set-more">

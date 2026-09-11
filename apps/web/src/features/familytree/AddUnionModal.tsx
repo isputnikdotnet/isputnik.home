@@ -78,10 +78,10 @@ export function AddUnionModal({
       {error && <MessageBox tone="error" title={t("family:common.unableToAdd")}>{error}</MessageBox>}
       <div className="ft-partner-pick">
         {partner ? (
-          <button type="button" className="ft-picker-row" onClick={() => setPickerOpen(true)} disabled={saving}>
+          <Button variant="bare" className="ft-picker-row" onClick={() => setPickerOpen(true)} disabled={saving}>
             <PersonAvatar person={partner} size={36} />
             <span className="ft-picker-row-name"><strong>{partner.name}</strong><small>{t("family:addUnion.changePartner")}</small></span>
-          </button>
+          </Button>
         ) : (
           <Button variant="secondary" onClick={() => setPickerOpen(true)} disabled={saving}>
             {t("family:addUnion.choosePartner")}

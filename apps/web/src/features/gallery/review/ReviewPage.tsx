@@ -23,6 +23,8 @@ import { NEW_PERSON_PREFIX, PeopleChips } from "./PeopleChips";
 import { WhenPicker, type WhenValue } from "./WhenPicker";
 import { VoiceNotes } from "../VoiceNotes";
 import { useDictation } from "./useDictation";
+// Review mode's stylesheet: it loads with this page, not on every route (docs/css-map.md).
+import "../../../styles/review.css";
 
 const PAGE = 200;
 const RECENT_PLACES = 10;
@@ -319,10 +321,10 @@ export function ReviewPage({ source }: { source: ReviewSource }) {
   return (
     <main className="review-page">
       <header className="review-top">
-        <button type="button" className="review-back" onClick={() => void leave()}>
+        <Button variant="bare" className="review-back" onClick={() => void leave()}>
           <ChevronLeft size={24} aria-hidden="true" />
           <span>{context ? context.name : t("galleryReview:back")}</span>
-        </button>
+        </Button>
         {total > 0 && progress}
       </header>
 
@@ -372,14 +374,14 @@ export function ReviewPage({ source }: { source: ReviewSource }) {
                 <h2>{t("galleryReview:when.heading")}</h2>
                 <WhenPicker value={draft.when} onChange={(when) => setDraft({ ...draft, when })} disabled={!canEdit || busy} />
                 <div className="review-row">
-                  <button
-                    type="button"
+                  <Button
+                    variant="chip"
                     className="review-chip review-chip-same"
                     disabled={!canEdit || busy || !canCopyWhen}
                     onClick={() => { if (previousWhen) setDraft({ ...draft, when: previousWhen }); }}
                   >
                     {t("galleryReview:sameAsLast")}
-                  </button>
+                  </Button>
                 </div>
               </section>
 
@@ -388,16 +390,16 @@ export function ReviewPage({ source }: { source: ReviewSource }) {
                 {recentPlaces.length > 0 && (
                   <div className="review-chips" role="group" aria-label={t("galleryReview:where.recentAria")}>
                     {recentPlaces.map((place) => (
-                      <button
+                      <Button
+                        variant="chip"
                         key={place}
-                        type="button"
                         className="review-chip"
                         aria-pressed={draft.place.trim() === place}
                         onClick={() => setDraft({ ...draft, place })}
                         disabled={!canEdit || busy}
                       >
                         {place}
-                      </button>
+                      </Button>
                     ))}
                   </div>
                 )}
@@ -411,14 +413,14 @@ export function ReviewPage({ source }: { source: ReviewSource }) {
                   aria-label={t("galleryReview:where.heading")}
                 />
                 <div className="review-row">
-                  <button
-                    type="button"
+                  <Button
+                    variant="chip"
                     className="review-chip review-chip-same"
                     disabled={!canEdit || busy || !canCopyWhere}
                     onClick={() => setDraft({ ...draft, place: previous?.placeText ?? "" })}
                   >
                     {t("galleryReview:sameAsLast")}
-                  </button>
+                  </Button>
                 </div>
               </section>
 
@@ -445,15 +447,15 @@ export function ReviewPage({ source }: { source: ReviewSource }) {
                 />
                 {canEdit && dictation.supported && (
                   <div className="review-row">
-                    <button
-                      type="button"
+                    <Button
+                      variant="chip"
                       className="review-chip"
                       aria-pressed={dictation.listening}
                       onClick={dictation.toggle}
                       disabled={busy}
                     >
                       <Mic size={18} aria-hidden="true" /> {dictation.listening ? t("galleryReview:notes.dictating") : t("galleryReview:notes.dictate")}
-                    </button>
+                    </Button>
                   </div>
                 )}
                 {/* A voice note is kept on the photo itself, next to the words. */}

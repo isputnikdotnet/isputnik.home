@@ -2,9 +2,11 @@ import fs from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
 import { db } from "../../../db.js";
+import { stmt } from "../../../db/statement-cache.js";
 import { config } from "../../../config.js";
 import { resolveAppLocation } from "../../../core/app-storage.js";
 import { pathIsInside, normaliseRelativePath } from "./storage-roots.js";
+import type { AppSettingRow, LibraryRow } from "../../../db/rows.js";
 
 // libvips keeps recently-read files in its own cache, and on Windows a cached
 // file stays OPEN: anything sharp has read by path cannot be overwritten or
@@ -68,7 +70,7 @@ export function renderInTurn(renders: Array<() => Promise<unknown>>): Promise<vo
 /** The thumbnail folder's OWN setting (the app_settings row, else THUMBNAIL_PATH),
  *  ignoring App storage. What the Storage page shows as "its own folder". */
 export function ownThumbnailPathValue(): string {
-  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(thumbnailPathSettingKey) as { value: string } | undefined;
+  const row = stmt("SELECT value FROM app_settings WHERE key = ?").get(thumbnailPathSettingKey) as Pick<AppSettingRow, "value"> | undefined;
   return row?.value || config.thumbnailPath || "";
 }
 
@@ -213,7 +215,7 @@ export function sweepOrphanLibraryThumbnails(): number {
   let entries: fs.Dirent[];
   try { entries = fs.readdirSync(root, { withFileTypes: true }); } catch { return 0; }
   const liveIds = new Set(
-    (db.prepare("SELECT id FROM libraries").all() as { id: string }[]).map((r) => r.id)
+    (db.prepare("SELECT id FROM libraries").all() as Pick<LibraryRow, "id">[]).map((r) => r.id)
   );
   let removed = 0;
   for (const entry of entries) {

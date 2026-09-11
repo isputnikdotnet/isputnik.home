@@ -17,6 +17,7 @@ import {
   type FoliateShowAnnotationDetail, type FoliateTocItem, type FoliateView,
   type ReaderFont, type ReaderLayout, type ReaderTheme
 } from "./foliate";
+import { Button } from "../../../shared/Button";
 
 interface EbookReaderProps {
   bookId: string;
@@ -191,14 +192,14 @@ function TocList({
         const active = item.href !== "" && item.href === currentHref;
         return (
           <div className="ebk-toc-node" key={`${item.href}-${i}`}>
-            <button
+            <Button
+              variant="bare"
               className={`ebk-toc-item${active ? " active" : ""}`}
               style={{ paddingLeft: `${14 + level * 14}px` }}
-              type="button"
               onClick={() => item.href && onSelect(item.href)}
             >
               {item.label}
-            </button>
+            </Button>
             {item.subitems && item.subitems.length > 0 && (
               <TocList items={item.subitems} currentHref={currentHref} level={level + 1} onSelect={onSelect} />
             )}
@@ -851,7 +852,7 @@ export function EbookReader({
       <div className="ebk-reader" data-theme={theme} style={{ background: colors.bg, color: colors.fg }}>
         <div className="ebk-status">
           <p>{error}</p>
-          <button type="button" className="ebk-text-button" onClick={onExit}>{t("common.close")}</button>
+          <Button variant="bare" className="ebk-text-button" onClick={onExit}>{t("common.close")}</Button>
         </div>
       </div>
     );
@@ -863,8 +864,8 @@ export function EbookReader({
     <div className="ebk-setting">
       <label>{t("reader:ebook.font")}</label>
       <div className="ebk-seg">
-        <button type="button" className={`ebk-seg-btn${fontFamily === "serif" ? " active" : ""}`} onClick={() => setFontFamily("serif")}>{t("reader:ebook.serif")}</button>
-        <button type="button" className={`ebk-seg-btn${fontFamily === "sans" ? " active" : ""}`} onClick={() => setFontFamily("sans")}>{t("reader:ebook.sans")}</button>
+        <Button variant="bare" className={`ebk-seg-btn${fontFamily === "serif" ? " active" : ""}`} onClick={() => setFontFamily("serif")}>{t("reader:ebook.serif")}</Button>
+        <Button variant="bare" className={`ebk-seg-btn${fontFamily === "sans" ? " active" : ""}`} onClick={() => setFontFamily("sans")}>{t("reader:ebook.sans")}</Button>
       </div>
     </div>
   );
@@ -872,9 +873,9 @@ export function EbookReader({
     <div className="ebk-setting">
       <label>{t("reader:ebook.fontSize")}</label>
       <div className="ebk-stepper">
-        <button type="button" onClick={() => setFontScale((s) => clampFontScale(s - 6))} aria-label={t("reader:ebook.smaller")}><Minus size={16} /></button>
+        <Button variant="bare" onClick={() => setFontScale((s) => clampFontScale(s - 6))} aria-label={t("reader:ebook.smaller")}><Minus size={16} /></Button>
         <span>{fontScale}%</span>
-        <button type="button" onClick={() => setFontScale((s) => clampFontScale(s + 6))} aria-label={t("reader:ebook.larger")}><Plus size={16} /></button>
+        <Button variant="bare" onClick={() => setFontScale((s) => clampFontScale(s + 6))} aria-label={t("reader:ebook.larger")}><Plus size={16} /></Button>
       </div>
     </div>
   );
@@ -882,9 +883,9 @@ export function EbookReader({
     <div className="ebk-setting">
       <label>{t("reader:ebook.lineSpacing")}</label>
       <div className="ebk-stepper">
-        <button type="button" onClick={() => setLineSpacing((s) => Math.max(1.2, Math.round((s - 0.1) * 10) / 10))} aria-label={t("reader:ebook.tighter")}><Minus size={16} /></button>
+        <Button variant="bare" onClick={() => setLineSpacing((s) => Math.max(1.2, Math.round((s - 0.1) * 10) / 10))} aria-label={t("reader:ebook.tighter")}><Minus size={16} /></Button>
         <span>{lineSpacing.toFixed(1)}</span>
-        <button type="button" onClick={() => setLineSpacing((s) => Math.min(2.2, Math.round((s + 0.1) * 10) / 10))} aria-label={t("reader:ebook.looser")}><Plus size={16} /></button>
+        <Button variant="bare" onClick={() => setLineSpacing((s) => Math.min(2.2, Math.round((s + 0.1) * 10) / 10))} aria-label={t("reader:ebook.looser")}><Plus size={16} /></Button>
       </div>
     </div>
   );
@@ -892,9 +893,9 @@ export function EbookReader({
   return (
     <div className="ebk-reader" data-theme={theme} style={{ background: colors.bg, color: colors.fg }}>
       <header className={`ebk-topbar${isMobile ? " ebk-topbar-mobile" : ""}`}>
-        <button type="button" className="ebk-icon-btn ebk-back-btn" onClick={onExit} aria-label={t("reader:ebook.back")}>
+        <Button variant="bare" className="ebk-icon-btn ebk-back-btn" onClick={onExit} aria-label={t("reader:ebook.back")}>
           <ArrowLeft size={22} />
-        </button>
+        </Button>
         {!isMobile && (
           <div className="ebk-book">
             {coverUrl ? <img className="ebk-cover" src={coverUrl} alt="" /> : <span className="ebk-cover ebk-cover-fallback"><BookOpen size={18} /></span>}
@@ -905,13 +906,13 @@ export function EbookReader({
           </div>
         )}
         <div className="ebk-topbar-actions">
-          <button type="button" className={`ebk-icon-btn${panel === "search" ? " active" : ""}`} onClick={() => togglePanel("search")} aria-label={t("reader:ebook.search")}><Search size={19} /></button>
-          <button type="button" className={`ebk-icon-btn${panel === "text" ? " active" : ""}`} onClick={() => togglePanel("text")} aria-label={t("reader:ebook.textOptions")}><ALargeSmall size={20} /></button>
-          <button type="button" className="ebk-icon-btn" onClick={cycleTheme} aria-label={t("reader:ebook.changeTheme")}><Sun size={19} /></button>
+          <Button variant="bare" className={`ebk-icon-btn${panel === "search" ? " active" : ""}`} onClick={() => togglePanel("search")} aria-label={t("reader:ebook.search")}><Search size={19} /></Button>
+          <Button variant="bare" className={`ebk-icon-btn${panel === "text" ? " active" : ""}`} onClick={() => togglePanel("text")} aria-label={t("reader:ebook.textOptions")}><ALargeSmall size={20} /></Button>
+          <Button variant="bare" className="ebk-icon-btn" onClick={cycleTheme} aria-label={t("reader:ebook.changeTheme")}><Sun size={19} /></Button>
           {!guest && (
-            <button type="button" className={`ebk-icon-btn${panel === "bookmarks" ? " active" : ""}`} onClick={() => togglePanel("bookmarks")} aria-label={t("reader:ebook.bookmarks")}><Bookmark size={19} /></button>
+            <Button variant="bare" className={`ebk-icon-btn${panel === "bookmarks" ? " active" : ""}`} onClick={() => togglePanel("bookmarks")} aria-label={t("reader:ebook.bookmarks")}><Bookmark size={19} /></Button>
           )}
-          <button type="button" className={`ebk-icon-btn${panel === "settings" ? " active" : ""}`} onClick={() => togglePanel("settings")} aria-label={t("reader:ebook.settings")}><Settings size={19} /></button>
+          <Button variant="bare" className={`ebk-icon-btn${panel === "settings" ? " active" : ""}`} onClick={() => togglePanel("settings")} aria-label={t("reader:ebook.settings")}><Settings size={19} /></Button>
         </div>
       </header>
 
@@ -920,14 +921,14 @@ export function EbookReader({
           {loading && <div className="ebk-status"><p>{t("reader:ebook.loading")}</p></div>}
         </div>
 
-        <button type="button" className="ebk-page-nav ebk-page-prev" onClick={goLeft} aria-label={t("reader:ebook.prevPage")} disabled={loading}>
+        <Button variant="bare" className="ebk-page-nav ebk-page-prev" onClick={goLeft} aria-label={t("reader:ebook.prevPage")} disabled={loading}>
           <span className="ebk-page-circle"><ChevronLeft size={22} /></span>
-        </button>
-        <button type="button" className="ebk-page-nav ebk-page-next" onClick={goRight} aria-label={t("reader:ebook.nextPage")} disabled={loading}>
+        </Button>
+        <Button variant="bare" className="ebk-page-nav ebk-page-next" onClick={goRight} aria-label={t("reader:ebook.nextPage")} disabled={loading}>
           <span className="ebk-page-circle"><ChevronRight size={22} /></span>
-        </button>
+        </Button>
 
-        {panel && <button type="button" className="ebk-scrim" aria-label={t("common.close")} onClick={closePanels} />}
+        {panel && <Button variant="bare" className="ebk-scrim" aria-label={t("common.close")} onClick={closePanels} />}
 
         {panel && (
           <aside className={`ebk-drawer ebk-drawer-${drawerSide}`} aria-label={panel}>
@@ -946,9 +947,9 @@ export function EbookReader({
               <>
                 <div className="ebk-drawer-head"><strong>{t("reader:ebook.bookmarks")}</strong><span>{bookmarks.length}</span></div>
                 <div className="ebk-drawer-body">
-                  <button type="button" className="ebk-add-bookmark" onClick={addBookmark} disabled={loading || bookmarkBusy}>
+                  <Button variant="bare" className="ebk-add-bookmark" onClick={addBookmark} disabled={loading || bookmarkBusy}>
                     <BookmarkPlus size={15} /> {bookmarkBusy ? t("reader:ebook.saving") : t("reader:ebook.bookmarkThisPage")}
-                  </button>
+                  </Button>
                   {bookmarks.length === 0 ? (
                     <p className="ebk-empty">{t("reader:ebook.noBookmarks")}</p>
                   ) : bookmarks.map((bm) => {
@@ -956,21 +957,21 @@ export function EbookReader({
                     return (
                       <div className={`ebk-bookmark${editing ? " editing" : ""}`} key={bm.id}>
                         <div className="ebk-bookmark-row">
-                          <button type="button" className="ebk-bookmark-jump" onClick={() => jumpToBookmark(bm)}>
+                          <Button variant="bare" className="ebk-bookmark-jump" onClick={() => jumpToBookmark(bm)}>
                             <span className="ebk-bookmark-pct">{bookmarkPercent(bm.percentComplete)}</span>
                             <span className="ebk-bookmark-label">{bm.label || t("reader:ebook.bookmark")}</span>
-                          </button>
+                          </Button>
                           <div className="ebk-bookmark-actions">
-                            <button type="button" onClick={() => { setEditingBookmarkId(bm.id); setNoteDraft(bm.note ?? ""); }} aria-label={t("reader:ebook.editNote")}><Pencil size={14} /></button>
-                            <button type="button" onClick={() => deleteBookmark(bm.id)} aria-label={t("reader:ebook.deleteBookmark")}><Trash2 size={14} /></button>
+                            <Button variant="bare" onClick={() => { setEditingBookmarkId(bm.id); setNoteDraft(bm.note ?? ""); }} aria-label={t("reader:ebook.editNote")}><Pencil size={14} /></Button>
+                            <Button variant="bare" onClick={() => deleteBookmark(bm.id)} aria-label={t("reader:ebook.deleteBookmark")}><Trash2 size={14} /></Button>
                           </div>
                         </div>
                         {editing ? (
                           <div className="ebk-bookmark-edit">
                             <textarea value={noteDraft} onChange={(e) => setNoteDraft(e.target.value)} placeholder={t("reader:ebook.addNotePlaceholder")} rows={2} autoFocus />
                             <div className="ebk-bookmark-edit-actions">
-                              <button type="button" onClick={() => saveBookmarkNote(bm.id, noteDraft)}>{t("reader:ebook.save")}</button>
-                              <button type="button" onClick={() => setEditingBookmarkId(null)}>{t("common.cancel")}</button>
+                              <Button variant="bare" onClick={() => saveBookmarkNote(bm.id, noteDraft)}>{t("reader:ebook.save")}</Button>
+                              <Button variant="bare" onClick={() => setEditingBookmarkId(null)}>{t("common.cancel")}</Button>
                             </div>
                           </div>
                         ) : (bm.note && <p className="ebk-bookmark-note">{bm.note}</p>)}
@@ -992,16 +993,16 @@ export function EbookReader({
                     placeholder={t("reader:ebook.searchPlaceholder")}
                     autoFocus
                   />
-                  <button type="submit" disabled={searching || !searchQuery.trim()}>{searching ? "…" : t("reader:ebook.go")}</button>
+                  <Button variant="bare" type="submit" disabled={searching || !searchQuery.trim()}>{searching ? "…" : t("reader:ebook.go")}</Button>
                 </form>
                 <div className="ebk-drawer-body">
                   {searching && <p className="ebk-empty">{t("reader:ebook.searching")}</p>}
                   {!searching && searchHits.length === 0 && searchQuery && <p className="ebk-empty">{t("reader:ebook.noMatches")}</p>}
                   {searchHits.map((hit, i) => (
-                    <button type="button" className="ebk-search-hit" key={`${hit.cfi}-${i}`} onClick={() => goToHref(hit.cfi)}>
+                    <Button variant="bare" className="ebk-search-hit" key={`${hit.cfi}-${i}`} onClick={() => goToHref(hit.cfi)}>
                       {hit.chapter && <span className="ebk-search-chapter">{hit.chapter}</span>}
                       <span className="ebk-search-excerpt">{hit.pre}<mark>{hit.match}</mark>{hit.post}</span>
-                    </button>
+                    </Button>
                   ))}
                 </div>
               </>
@@ -1015,9 +1016,9 @@ export function EbookReader({
                     <label>{t("reader:ebook.theme")}</label>
                     <div className="ebk-seg">
                       {THEMES.map((themeOption) => (
-                        <button key={themeOption} type="button" className={`ebk-seg-btn${theme === themeOption ? " active" : ""}`} onClick={() => setTheme(themeOption)}>
+                        <Button variant="bare" key={themeOption} className={`ebk-seg-btn${theme === themeOption ? " active" : ""}`} onClick={() => setTheme(themeOption)}>
                           {t(`reader:ebook.themeNames.${themeOption}`)}
-                        </button>
+                        </Button>
                       ))}
                     </div>
                   </div>
@@ -1027,9 +1028,9 @@ export function EbookReader({
                   <div className="ebk-setting">
                     <label>{t("reader:ebook.layout")}</label>
                     <div className="ebk-seg">
-                      <button type="button" className={`ebk-seg-btn${layout === "single" ? " active" : ""}`} onClick={() => setLayout("single")}><BookOpen size={15} /> 1</button>
-                      <button type="button" className={`ebk-seg-btn${layout === "double" ? " active" : ""}`} onClick={() => setLayout("double")}><Columns2 size={15} /> 2</button>
-                      <button type="button" className={`ebk-seg-btn${layout === "scrolled" ? " active" : ""}`} onClick={() => setLayout("scrolled")}><ScrollText size={15} /></button>
+                      <Button variant="bare" className={`ebk-seg-btn${layout === "single" ? " active" : ""}`} onClick={() => setLayout("single")}><BookOpen size={15} /> 1</Button>
+                      <Button variant="bare" className={`ebk-seg-btn${layout === "double" ? " active" : ""}`} onClick={() => setLayout("double")}><Columns2 size={15} /> 2</Button>
+                      <Button variant="bare" className={`ebk-seg-btn${layout === "scrolled" ? " active" : ""}`} onClick={() => setLayout("scrolled")}><ScrollText size={15} /></Button>
                     </div>
                   </div>
                   <div className="ebk-setting-actions">
@@ -1038,9 +1039,9 @@ export function EbookReader({
                         <Download size={16} /> {t("reader:ebook.download")}
                       </a>
                     )}
-                    <button type="button" className="ebk-menu-item" onClick={resetPosition}>
+                    <Button variant="bare" className="ebk-menu-item" onClick={resetPosition}>
                       <RotateCcw size={16} /> {t("reader:ebook.resetPosition")}
-                    </button>
+                    </Button>
                   </div>
                 </div>
               </>
@@ -1061,9 +1062,9 @@ export function EbookReader({
       </div>
 
       <footer className={`ebk-bottombar${isMobile ? " ebk-bottombar-mobile" : ""}`}>
-        <button type="button" className={`ebk-contents${panel === "toc" ? " active" : ""}`} onClick={() => togglePanel("toc")} aria-label={t("reader:ebook.chapters")}>
+        <Button variant="bare" className={`ebk-contents${panel === "toc" ? " active" : ""}`} onClick={() => togglePanel("toc")} aria-label={t("reader:ebook.chapters")}>
           <List size={20} />
-        </button>
+        </Button>
         <div className="ebk-seek">
           <input
             type="range"
@@ -1095,9 +1096,9 @@ export function EbookReader({
             <>
               <span className="ebk-sel-lead" aria-hidden="true"><Highlighter size={15} /></span>
               {Object.keys(HIGHLIGHT_COLORS).map((color) => (
-                <button
+                <Button
+                  variant="bare"
                   key={color}
-                  type="button"
                   className="ebk-sel-color"
                   style={{ background: highlightFill(color) }}
                   onClick={() => void saveSelectionQuote(color)}
@@ -1108,16 +1109,16 @@ export function EbookReader({
               <span className="ebk-sel-divider" aria-hidden="true" />
             </>
           )}
-          <button type="button" className="ebk-sel-btn" onClick={() => void copySelection()} aria-label={t("reader:ebook.copy")} title={t("reader:ebook.copy")}>
+          <Button variant="bare" className="ebk-sel-btn" onClick={() => void copySelection()} aria-label={t("reader:ebook.copy")} title={t("reader:ebook.copy")}>
             <Copy size={15} />
-          </button>
+          </Button>
         </div>
       )}
 
       {/* Popover shown when an existing highlight is tapped. */}
       {activeQuote && (
         <>
-          <button type="button" className="ebk-quote-scrim" aria-label={t("common.close")} onClick={() => setActiveQuote(null)} />
+          <Button variant="bare" className="ebk-quote-scrim" aria-label={t("common.close")} onClick={() => setActiveQuote(null)} />
           <div
             className="ebk-quote-pop"
             style={{ left: `${Math.min(Math.max(activeQuote.x, 120), window.innerWidth - 120)}px`, top: `${activeQuote.y}px` }}
@@ -1125,9 +1126,9 @@ export function EbookReader({
             aria-label={t("reader:ebook.highlightActions")}
           >
             {!guest && Object.keys(HIGHLIGHT_COLORS).map((color) => (
-              <button
+              <Button
+                variant="bare"
                 key={color}
-                type="button"
                 className={`ebk-sel-color${activeQuote.quote.color === color ? " active" : ""}`}
                 style={{ background: highlightFill(color) }}
                 onClick={() => void recolorActiveQuote(color)}
@@ -1136,19 +1137,19 @@ export function EbookReader({
               />
             ))}
             <span className="ebk-sel-divider" aria-hidden="true" />
-            <button
-              type="button"
+            <Button
+              variant="bare"
               className="ebk-sel-btn"
               onClick={() => { const text = activeQuote.quote.text; setActiveQuote(null); void copyText(text); }}
               aria-label={t("reader:ebook.copy")}
               title={t("reader:ebook.copy")}
             >
               <Copy size={15} />
-            </button>
+            </Button>
             {!guest && (
-              <button type="button" className="ebk-sel-btn danger" onClick={() => void deleteActiveQuote()} aria-label={t("reader:ebook.deleteHighlight")} title={t("reader:ebook.deleteHighlight")}>
+              <Button variant="bare" className="ebk-sel-btn danger" onClick={() => void deleteActiveQuote()} aria-label={t("reader:ebook.deleteHighlight")} title={t("reader:ebook.deleteHighlight")}>
                 <Trash2 size={15} />
-              </button>
+              </Button>
             )}
           </div>
         </>

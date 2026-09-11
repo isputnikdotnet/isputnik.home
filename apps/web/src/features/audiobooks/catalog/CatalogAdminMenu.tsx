@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import type { AudiobookBook } from "../types";
+import { Button } from "../../../shared/Button";
 
 // The ⋯ on a catalog tile: edit details / delete, for whoever may.
 export function CatalogAdminMenu({
@@ -47,9 +48,9 @@ export function CatalogAdminMenu({
       className="audiobook-catalog-menu-wrap"
       onClick={(event) => event.stopPropagation()}
     >
-      <button
+      <Button
+        variant="bare"
         className="audiobook-catalog-action admin"
-        type="button"
         onClick={() => setOpen((isOpen) => !isOpen)}
         aria-haspopup="menu"
         aria-expanded={open}
@@ -58,7 +59,7 @@ export function CatalogAdminMenu({
       >
         <MoreHorizontal size={16} aria-hidden="true" />
         <span>{t("book:catalog.moreActionsTitle")}</span>
-      </button>
+      </Button>
       {open && (
         <div
           className="book-detail-action-menu book-progress-menu audiobook-catalog-admin-menu"
@@ -66,8 +67,8 @@ export function CatalogAdminMenu({
           aria-label={t("book:catalog.moreActionsAria", { title: book.title })}
         >
           {canEdit && (
-            <button
-              type="button"
+            <Button
+              variant="bare"
               role="menuitem"
               onClick={() => {
                 setOpen(false);
@@ -76,11 +77,11 @@ export function CatalogAdminMenu({
             >
               <Pencil size={16} aria-hidden="true" />
               <span>{t("book:catalog.editDetails")}</span>
-            </button>
+            </Button>
           )}
           {canDelete && (
-            <button
-              type="button"
+            <Button
+              variant="bare"
               role="menuitem"
               className="danger"
               onClick={() => {
@@ -90,7 +91,7 @@ export function CatalogAdminMenu({
             >
               <Trash2 size={16} aria-hidden="true" />
               <span>{t("book:catalog.delete")}</span>
-            </button>
+            </Button>
           )}
         </div>
       )}

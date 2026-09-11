@@ -17,6 +17,7 @@ import { validateLibrarySource } from "../shared/library-source.js";
 import { normaliseRelativePath, pathIsInside } from "../shared/storage-roots.js";
 import { lockCovering } from "../shared/folder-locks.js";
 import { thumbnailAbsolutePath } from "../shared/thumbnail.js";
+import type { GalleryDetailRow, GalleryFaceRow, ItemMetadataRow, LibraryItemRow, LibraryRow, Nullable } from "../../../db/rows.js";
 
 export interface MoveDestination {
   libraryId: string;
@@ -109,18 +110,11 @@ function rehomeThumbnail(key: string | null, fromLibraryId: string, toLibraryId:
   }
 }
 
-interface MoveRow {
-  id: string;
-  library_id: string;
-  folder_path: string;
-  deleted_at: string | null;
-  source_path: string;
-  library_name: string;
-  title: string | null;
-  preview_storage_key: string | null;
-  web_video_key: string | null;
-  cover_storage_key: string | null;
-}
+type MoveRow = Pick<LibraryItemRow, "id" | "library_id" | "folder_path" | "deleted_at">
+  & Pick<LibraryRow, "source_path">
+  & Pick<GalleryDetailRow, "preview_storage_key" | "web_video_key">
+  & Nullable<Pick<ItemMetadataRow, "title" | "cover_storage_key">>
+  & { library_name: LibraryRow["name"] };
 
 export function moveGalleryAsset(itemId: string, dest: MoveDestination): MoveResult {
   const row = db.prepare(`
@@ -138,7 +132,7 @@ export function moveGalleryAsset(itemId: string, dest: MoveDestination): MoveRes
   const title = row.title ?? path.basename(row.folder_path);
 
   const target = db.prepare("SELECT id, name, type, source_path, policy_json FROM libraries WHERE id = ?")
-    .get(dest.libraryId) as { id: string; name: string; type: string; source_path: string; policy_json: string } | undefined;
+    .get(dest.libraryId) as Pick<LibraryRow, "id" | "name" | "type" | "source_path" | "policy_json"> | undefined;
   if (!target || target.type !== "gallery") return { ok: false, status: 404, error: "Destination library not found." };
   const policy = parsePolicy(target.policy_json);
   if ((policy.mode ?? "managed") === "external") {
@@ -189,7 +183,7 @@ export function moveGalleryAsset(itemId: string, dest: MoveDestination): MoveRes
   const webVideoKey = crossLibrary ? rehomeThumbnail(row.web_video_key, row.library_id, target.id) : row.web_video_key;
   const faceKeys = crossLibrary
     ? (db.prepare("SELECT id, thumb_storage_key AS k FROM gallery_faces WHERE item_id = ? AND thumb_storage_key IS NOT NULL")
-        .all(itemId) as { id: string; k: string }[])
+        .all(itemId) as (Pick<GalleryFaceRow, "id"> & { k: NonNullable<GalleryFaceRow["thumb_storage_key"]> })[])
         .map((face) => ({ id: face.id, key: rehomeThumbnail(face.k, row.library_id, target.id) }))
     : [];
 

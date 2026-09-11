@@ -84,21 +84,21 @@ export function StoryCollectionPage({
   // story" modal the hero does. Contributors only — for everyone else the
   // grid ends with the stories.
   const addTile = collection?.canContribute ? (
-    <button type="button" className="story-add-tile" onClick={() => setAdding(true)}>
+    <Button variant="tile" className="story-add-tile" onClick={() => setAdding(true)}>
       <span className="story-add-tile-mark" aria-hidden="true"><Plus size={22} /></span>
       <strong>{t("stories:collections.addStory")}</strong>
       <small>{t("stories:collections.addStoryHint")}</small>
-    </button>
+    </Button>
   ) : null;
 
   return (
     <DashboardShell active="stories" sideNav={<StoriesSectionNav activeKey={id} />}>
       <section className="work-area audiobook-area">
         <div className="book-detail-topbar">
-          <button className="audiobook-back-button" type="button" onClick={() => goBack("/stories")}>
+          <Button variant="bare" className="audiobook-back-button" onClick={() => goBack("/stories")}>
             <ArrowLeft size={18} aria-hidden="true" />
             <span>{t("stories:backTo")}</span>
-          </button>
+          </Button>
         </div>
 
         {error && <MessageBox tone="error" title={t("stories:errors.loadTitle")}>{error}</MessageBox>}

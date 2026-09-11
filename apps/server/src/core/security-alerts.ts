@@ -14,6 +14,7 @@ import {
   MFA_FAILURE_WINDOW_MINUTES,
   type AutoBlockOutcome
 } from "./security.js";
+import type { UserRow } from "../db/rows.js";
 
 // Best-effort email alerts on suspicious activity — to admins, and for a sign-in
 // from a new network to the account owner too. Every entry point is
@@ -34,7 +35,7 @@ function adminEmails(): string[] {
   return (
     db
       .prepare("SELECT email FROM users WHERE role = 'admin' AND is_active = 1 AND deleted_at IS NULL")
-      .all() as { email: string }[]
+      .all() as Pick<UserRow, "email">[]
   ).map((row) => row.email);
 }
 

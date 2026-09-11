@@ -1,6 +1,6 @@
 import path from "node:path";
 import { nanoid } from "nanoid";
-import { db } from "../../../../db.js";
+import { stmt } from "../../../../db/statement-cache.js";
 import { normaliseRelativePath } from "../../shared/storage-roots.js";
 import { sourceEnabled } from "../../shared/library-settings.js";
 import type { MetadataSourceId } from "../../shared/metadata-sources.js";
@@ -27,17 +27,11 @@ import { readSidecarMetadata, repairSidecar, sidecarArray } from "./sidecar.js";
 import { generateCover, writeCoverImages } from "./covers.js";
 import { readBookFolderDocuments, type BookOwner } from "./walk.js";
 import type { AudioFileEntry, EffectiveScanConfig, PreparedBookScan } from "./types.js";
+import type { AudioFileRow, ItemMetadataRow, LibraryItemRow } from "../../../../db/rows.js";
 
-interface ExistingBookFileRow {
-  relative_path: string;
-  mime_type: string | null;
-  track_number: number | null;
-  chapter_title: string | null;
-  duration_seconds: number | null;
-  size: number | null;
-  modified_at: string | null;
-  content_hash: string | null;
-}
+type ExistingBookFileRow = Pick<AudioFileRow, "relative_path" | "mime_type" | "track_number" | "duration_seconds" | "size" | "modified_at" | "content_hash"> & {
+  chapter_title: AudioFileRow["title"];
+};
 
 function mimeFromExtension(extension: string) {
   return {
@@ -145,8 +139,8 @@ export async function prepareBookScan(
 ): Promise<PreparedBookScan> {
   const { settings, sources, tagEncoding: enc } = config;
   const folderPath = normaliseRelativePath(path.relative(rootPath, folderAbsolutePath)) || ".";
-  const existingBook = db.prepare("SELECT id, scan_rule_id, updated_at FROM library_items WHERE library_id = ? AND folder_path = ?")
-    .get(libraryId, folderPath) as { id: string; scan_rule_id: string | null; updated_at: string } | undefined;
+  const existingBook = stmt("SELECT id, scan_rule_id, updated_at FROM library_items WHERE library_id = ? AND folder_path = ?")
+    .get(libraryId, folderPath) as Pick<LibraryItemRow, "id" | "scan_rule_id" | "updated_at"> | undefined;
   const bookId = existingBook?.id ?? nanoid(16);
   const scanRuleId = owner?.ruleId ?? null;
   // A book that changed owner, or whose rule was edited since it was last written,
@@ -156,8 +150,8 @@ export async function prepareBookScan(
     || (owner !== null && (getScanRule(owner.ruleId)?.updatedAt ?? "") > existingBook!.updated_at)
   );
   const forceReread = config.forceReread || ownerChanged;
-  const metadataRow = db.prepare("SELECT source, cover_storage_key, description FROM item_metadata WHERE item_id = ?")
-    .get(bookId) as { source: "scan" | "manual"; cover_storage_key: string | null; description: string | null } | undefined;
+  const metadataRow = stmt("SELECT source, cover_storage_key, description FROM item_metadata WHERE item_id = ?")
+    .get(bookId) as Pick<ItemMetadataRow, "source" | "cover_storage_key" | "description"> | undefined;
   const manualMetadata = metadataRow?.source === "manual";
   const onlineEnabled = sourceEnabled(sources, "online_metadata") && !manualMetadata;
   // A single-file book's "folder" is the audio file itself: every file it holds is the
@@ -188,7 +182,7 @@ export async function prepareBookScan(
   // everything else keeps the cheap fast path.
   let onlineGaps = false;
   if (onlineEnabled && existingBook && metadataRow) {
-    const narratorCount = (db.prepare("SELECT COUNT(*) AS n FROM item_people WHERE item_id = ? AND role = 'narrator'")
+    const narratorCount = (stmt("SELECT COUNT(*) AS n FROM item_people WHERE item_id = ? AND role = 'narrator'")
       .get(bookId) as { n: number }).n;
     onlineGaps = !metadataRow.cover_storage_key || !metadataRow.description || narratorCount === 0;
   }
@@ -198,7 +192,7 @@ export async function prepareBookScan(
   // rows exist the fast path resumes.
   const chapterCapable = filesWithFallbackOrder.some((file) => isMp4ChapterContainer(path.extname(file.fileName)));
   const chaptersMissing = chapterCapable && Boolean(existingBook)
-    && (db.prepare(`
+    && (stmt(`
         SELECT COUNT(*) AS n
         FROM audio_chapters
         JOIN audio_files ON audio_files.id = audio_chapters.audio_file_id
@@ -206,7 +200,7 @@ export async function prepareBookScan(
       `).get(bookId) as { n: number }).n === 0;
 
   if (existingBook && metadataRow && !sidecar && !forceReread && !onlineGaps && !chaptersMissing) {
-    const existingFiles = db.prepare(`
+    const existingFiles = stmt(`
       SELECT relative_path, mime_type, track_number, title AS chapter_title, duration_seconds, size, modified_at, content_hash
       FROM audio_files
       WHERE item_id = ?

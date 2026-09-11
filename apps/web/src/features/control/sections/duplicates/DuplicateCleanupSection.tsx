@@ -41,6 +41,8 @@ import {
   type DuplicateJob, type JobsPayload, type MemberCheck, type ResultCheck, type ResultsPage,
   type SnapshotResult, type StaleReason
 } from "./cleanup-types";
+// Duplicate cleanup's stylesheet: it loads with this section, not on every route (docs/css-map.md).
+import "../../../../styles/duplicates.css";
 
 export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUser }) {
   const { t } = useTranslation(["common", "controlDash"]);

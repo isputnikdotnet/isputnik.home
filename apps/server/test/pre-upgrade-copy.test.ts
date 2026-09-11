@@ -6,8 +6,9 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import Database from "better-sqlite3";
-import Fastify, { type FastifyInstance } from "fastify";
+import type { FastifyInstance } from "fastify";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { bootApp } from "./helpers/boot.js";
 
 let workdir: string;
 let dbPath: string;
@@ -22,15 +23,11 @@ async function boot(): Promise<{ version: string }> {
   vi.resetModules();
   const { db } = await import("../src/db.js");
   const { config } = await import("../src/config.js");
-  const { registerAuthDecorators } = await import("../src/auth.js");
   const { backupsPlugin } = await import("../src/modules/backups/index.js");
   closeDb = () => db.close();
   // rescueStrandedBackups() MOVES anything under <cwd>/data/backups (CLAUDE.md).
   cwdSpy = vi.spyOn(process, "cwd").mockReturnValue(workdir);
-  app = Fastify();
-  await registerAuthDecorators(app);
-  await app.register(backupsPlugin);
-  await app.ready();
+  ({ app } = await bootApp({ plugins: [backupsPlugin] }));
   return { version: config.version };
 }
 

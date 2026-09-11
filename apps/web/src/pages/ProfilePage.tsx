@@ -19,6 +19,8 @@ import { PasskeysSection } from "../features/profile/PasskeysSection";
 import { SharedLinksSection } from "../features/profile/SharedLinksSection";
 import { LinkedDevicesSection } from "../features/profile/LinkedDevicesSection";
 import { useSession } from "../app/SessionContext";
+// The install card's stylesheet (Profile is the only page that shows it): loads with this page, not on every route (docs/css-map.md).
+import "../styles/install.css";
 
 // Labels come from t(`profile.tabs.${key}`) at render, so they follow the language.
 const PROFILE_TABS: { key: ProfileTab; icon: LucideIcon }[] = [

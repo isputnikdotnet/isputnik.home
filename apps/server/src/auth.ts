@@ -4,6 +4,7 @@ import { config } from "./config.js";
 import { db, selfUser, type User } from "./db.js";
 import { sha256 } from "./crypto.js";
 import { hostCookieName } from "./core/cookies.js";
+import type { SessionRow } from "./db/rows.js";
 
 // On a secure deployment the session cookie carries the __Host- prefix (see
 // core/cookies.ts). Existing sessions were issued under the bare name, so reads
@@ -25,7 +26,7 @@ export function addDays(days: number) {
 // A session minted by someone signing in here ('browser') or by a display being
 // linked from a phone ('device'). The difference matters twice: a device session
 // lives far longer, and it is refused on admin routes — see requireAdmin below.
-export type SessionKind = "browser" | "device";
+export type SessionKind = SessionRow["kind"];
 
 export interface SessionOptions {
   kind?: SessionKind;

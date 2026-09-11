@@ -13,6 +13,7 @@ import { useIsMobile } from "../shared/useIsMobile";
 import { AudioPlayer } from "../shared/audio/AudioPlayer";
 import { GalleryMiniMap } from "../features/gallery/GalleryMiniMap";
 import { formatPartialDate, formatPartialDateRange } from "../shared/utils";
+import { Button } from "../shared/Button";
 
 // The public face of a shared story. Deliberately NOT the signed-in reading
 // view: a guest has no session, so nothing here links back into the app, media
@@ -182,18 +183,19 @@ export function StoryShareView({ token, payload }: { token: string; payload: Sto
     <div className={`story-site story-site--guest${railLayout ? " has-rail" : ""}`}>
       {!railLayout && hasStructure && (
         <nav className="story-site-strip" aria-label={t("stories:site.stripAria")}>
-          <button type="button" className={chapter ? "" : "is-current"} onClick={() => goTo(null)}>
+          <Button variant="bare" className={chapter ? "" : "is-current"} aria-current={chapter ? undefined : "true"} onClick={() => goTo(null)}>
             {t("stories:site.overview")}
-          </button>
+          </Button>
           {story.chapters.map((item, index) => (
-            <button
+            <Button
+              variant="bare"
               key={item.id}
-              type="button"
               className={item.id === chapterId ? "is-current" : ""}
+              aria-current={item.id === chapterId ? "true" : undefined}
               onClick={() => goTo(item.id)}
             >
               {shareChapterLabel(story, item, index)}
-            </button>
+            </Button>
           ))}
         </nav>
       )}
@@ -298,16 +300,16 @@ export function StoryShareView({ token, payload }: { token: string; payload: Sto
               <a className="secondary-button compact-button" href={open.downloadUrl} download>
                 <Download size={15} aria-hidden="true" /><span>{t("user:actions.download")}</span>
               </a>
-              <button type="button" className="icon-button" onClick={() => setOpenId(null)} aria-label={t("common:common.close")}>
+              <Button variant="icon" onClick={() => setOpenId(null)} aria-label={t("common:common.close")}>
                 <X size={18} aria-hidden="true" />
-              </button>
+              </Button>
             </div>
           </div>
           <div className="share-set-viewer-body">
             {openIndex > 0 && (
-              <button type="button" className="share-set-nav prev" onClick={() => setOpenId(gallery[openIndex - 1].id)} aria-label={t("user:viewer.previous")}>
+              <Button variant="bare" className="share-set-nav prev" onClick={() => setOpenId(gallery[openIndex - 1].id)} aria-label={t("user:viewer.previous")}>
                 <ChevronLeft size={26} aria-hidden="true" />
-              </button>
+              </Button>
             )}
             {open.kind === "video" ? (
               <video key={open.id} src={open.fileUrl} controls playsInline poster={open.previewUrl} />
@@ -315,9 +317,9 @@ export function StoryShareView({ token, payload }: { token: string; payload: Sto
               <img key={open.id} src={open.previewUrl} alt={open.title} />
             )}
             {openIndex < gallery.length - 1 && (
-              <button type="button" className="share-set-nav next" onClick={() => setOpenId(gallery[openIndex + 1].id)} aria-label={t("user:viewer.next")}>
+              <Button variant="bare" className="share-set-nav next" onClick={() => setOpenId(gallery[openIndex + 1].id)} aria-label={t("user:viewer.next")}>
                 <ChevronRight size={26} aria-hidden="true" />
-              </button>
+              </Button>
             )}
           </div>
         </div>,
@@ -403,7 +405,7 @@ function ShareStoryHome({
             : "";
           const dateLabel = dateText && chapter.dateApprox ? t("stories:chapter.approx", { date: dateText }) : dateText;
           return (
-            <button key={chapter.id} type="button" className="story-home-card" onClick={() => onGoTo(chapter.id)}>
+            <Button variant="tile" key={chapter.id} className="story-home-card" onClick={() => onGoTo(chapter.id)}>
               {thumb ? <img src={thumb} alt="" loading="lazy" /> : <span className="story-home-card-blank" aria-hidden="true" />}
               <span className="story-home-card-body">
                 <span className="story-home-card-eyebrow">{label}</span>
@@ -420,7 +422,7 @@ function ShareStoryHome({
                 {chapter.standfirst && <span className="story-home-card-standfirst">{chapter.standfirst}</span>}
               </span>
               <ChevronRight size={18} aria-hidden="true" className="story-home-card-go" />
-            </button>
+            </Button>
           );
         })}
       </div>
@@ -508,16 +510,16 @@ function ShareChapterPage({
 
       <nav className="story-chapter-nav">
         {prev ? (
-          <button type="button" onClick={() => onGoTo(prev.id)}>
+          <Button variant="bare" onClick={() => onGoTo(prev.id)}>
             <ChevronLeft size={16} aria-hidden="true" />
             <span>{shareChapterLabel(story, prev, index - 1)}</span>
-          </button>
+          </Button>
         ) : <span />}
         {next ? (
-          <button type="button" onClick={() => onGoTo(next.id)}>
+          <Button variant="bare" onClick={() => onGoTo(next.id)}>
             <span>{shareChapterLabel(story, next, index + 1)}</span>
             <ChevronRight size={16} aria-hidden="true" />
-          </button>
+          </Button>
         ) : <span />}
       </nav>
     </article>
@@ -581,9 +583,9 @@ function ShareBlock({ block, onOpen }: { block: StoryShareBlock; onOpen: (id: st
         {asset.kind === "video" ? (
           <video src={asset.fileUrl} poster={asset.previewUrl} controls preload="metadata" />
         ) : (
-          <button type="button" className="story-media-button" onClick={() => onOpen(asset.id)}>
+          <Button variant="bare" className="story-media-button" onClick={() => onOpen(asset.id)}>
             <img src={asset.previewUrl} alt={asset.title} loading="lazy" />
-          </button>
+          </Button>
         )}
         {block.caption && <figcaption>{block.caption}</figcaption>}
       </figure>
@@ -639,9 +641,9 @@ function ShareBlock({ block, onOpen }: { block: StoryShareBlock; onOpen: (id: st
         </header>
         <div className="story-set-strip">
           {block.items.map((asset) => (
-            <button type="button" key={asset.id} className="story-set-thumb" onClick={() => onOpen(asset.id)}>
+            <Button variant="tile" key={asset.id} className="story-set-thumb" onClick={() => onOpen(asset.id)}>
               <img src={asset.coverUrl} alt="" loading="lazy" />
-            </button>
+            </Button>
           ))}
           {/* Honest about the ones this link doesn't open, rather than pretending
               the album is only this big. */}

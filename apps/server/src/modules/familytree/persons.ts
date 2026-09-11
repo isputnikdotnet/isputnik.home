@@ -14,6 +14,7 @@ import { addEntityTags, normalizeText, setEntityTags } from "../library/shared/t
 import { FAMILY_PERSON_ENTITY_TYPE } from "./access.js";
 import { listFamilyEvents, type FamilyEventSummary } from "./events.js";
 import { listPersonCitations, type FamilyCitationSummary } from "./sources.js";
+import type { FamilyTreeChildRow, FamilyTreePersonRow, FamilyTreeUnionRow, GalleryDetailRow, GalleryPersonRow, ItemMetadataRow, TagRow } from "../../db/rows.js";
 
 // Partial ISO dates: 'YYYY' | 'YYYY-MM' | 'YYYY-MM-DD'. Lexicographic order is
 // chronological, and GEDCOM's partial dates map onto this 1:1 for a later import.
@@ -47,23 +48,12 @@ export interface FamilyPersonSummary {
   galleryPersonId: string | null;
 }
 
-interface PersonRow {
-  id: string;
-  name: string;
-  maiden_name: string | null;
-  gender: string;
-  birth_date: string | null;
-  death_date: string | null;
-  birthplace: string | null;
-  death_place: string | null;
-  bio: string | null;
-  portrait_storage_key: string | null;
-  portrait_item_id: string | null;
-  gallery_person_id: string | null;
-  updated_at: string;
-  portrait_item_cover: string | null;
-  portrait_item_updated: string | null;
-}
+type PersonRow = Pick<FamilyTreePersonRow,
+  "id" | "name" | "maiden_name" | "gender" | "birth_date" | "death_date" | "birthplace" | "death_place" | "bio"
+  | "portrait_storage_key" | "portrait_item_id" | "gallery_person_id" | "updated_at"> & {
+  portrait_item_cover: ItemMetadataRow["cover_storage_key"] | null;
+  portrait_item_updated: GalleryDetailRow["updated_at"] | null;
+};
 
 // The portrait is an uploaded file in the thumbnail store, or a chosen gallery
 // item's cover. Both go through the shared covers route; ?v= busts the browser
@@ -144,16 +134,8 @@ export interface FamilyChildLink {
   relation: string;
 }
 
-interface UnionRow {
-  id: string;
-  person1_id: string;
-  person2_id: string | null;
-  status: string;
-  married_date: string | null;
-  married_place: string | null;
-  divorced_date: string | null;
-  note: string | null;
-}
+type UnionRow = Pick<FamilyTreeUnionRow,
+  "id" | "person1_id" | "person2_id" | "status" | "married_date" | "married_place" | "divorced_date" | "note">;
 
 export function mapUnion(row: UnionRow): FamilyUnionSummary {
   return {
@@ -181,7 +163,7 @@ export function getFamilyTree(): {
   ).all() as UnionRow[]).map(mapUnion);
   const children = (db.prepare(
     "SELECT union_id, child_id, relation FROM family_tree_children"
-  ).all() as { union_id: string; child_id: string; relation: string }[])
+  ).all() as Pick<FamilyTreeChildRow, "union_id" | "child_id" | "relation">[])
     .map((r) => ({ unionId: r.union_id, childId: r.child_id, relation: r.relation }));
   return { persons, unions, children };
 }
@@ -256,7 +238,7 @@ export function updateFamilyPerson(
 
 export function getPortraitStorageKey(personId: string): string | null {
   const row = db.prepare("SELECT portrait_storage_key FROM family_tree_persons WHERE id = ?")
-    .get(personId) as { portrait_storage_key: string | null } | undefined;
+    .get(personId) as Pick<FamilyTreePersonRow, "portrait_storage_key"> | undefined;
   return row?.portrait_storage_key ?? null;
 }
 
@@ -279,7 +261,7 @@ export function deleteFamilyPerson(personId: string): { deleted: boolean; portra
   const deleted = db.transaction(() => {
     const unions = db.prepare(
       "SELECT id, person1_id, person2_id FROM family_tree_unions WHERE person1_id = ? OR person2_id = ?"
-    ).all(personId, personId) as { id: string; person1_id: string; person2_id: string | null }[];
+    ).all(personId, personId) as Pick<FamilyTreeUnionRow, "id" | "person1_id" | "person2_id">[];
     for (const union of unions) {
       const survivor = union.person1_id === personId ? union.person2_id : union.person1_id;
       if (survivor) {
@@ -314,7 +296,7 @@ export function isAncestorOf(ancestorId: string, personId: string): boolean {
     const current = queue.pop()!;
     if (visited.has(current)) continue;
     visited.add(current);
-    const rows = parentsOf.all(current) as { person1_id: string; person2_id: string | null }[];
+    const rows = parentsOf.all(current) as Pick<FamilyTreeUnionRow, "person1_id" | "person2_id">[];
     for (const row of rows) {
       for (const parent of [row.person1_id, row.person2_id]) {
         if (!parent) continue;
@@ -355,7 +337,7 @@ export function getFamilyPersonProfile(personId: string): FamilyPersonProfile | 
     SELECT u.person1_id, u.person2_id, c.relation FROM family_tree_children c
     JOIN family_tree_unions u ON u.id = c.union_id
     WHERE c.child_id = ?
-  `).get(personId) as { person1_id: string; person2_id: string | null; relation: string } | undefined;
+  `).get(personId) as (Pick<FamilyTreeUnionRow, "person1_id" | "person2_id"> & Pick<FamilyTreeChildRow, "relation">) | undefined;
   const parents = parentLink
     ? [parentLink.person1_id, parentLink.person2_id]
         .filter((id): id is string => id != null)
@@ -373,12 +355,12 @@ export function getFamilyPersonProfile(personId: string): FamilyPersonProfile | 
   `);
   const unions = unionRows.map((row) => {
     const partnerId = row.person1_id === personId ? row.person2_id : row.person1_id;
-    const children = (childrenOf.all(row.id) as { child_id: string; relation: string }[])
+    const children = (childrenOf.all(row.id) as Pick<FamilyTreeChildRow, "child_id" | "relation">[])
       .map((c) => {
         const child = getFamilyPerson(c.child_id);
         return child ? { ...child, relation: c.relation } : null;
       })
-      .filter((c): c is FamilyPersonSummary & { relation: string } => c != null)
+      .filter((c): c is FamilyPersonSummary & { relation: FamilyTreeChildRow["relation"] } => c != null)
       .sort((a, b) => (a.birthDate ?? "9999").localeCompare(b.birthDate ?? "9999"));
     return {
       id: row.id,
@@ -394,7 +376,7 @@ export function getFamilyPersonProfile(personId: string): FamilyPersonProfile | 
 
   const galleryPerson = person.galleryPersonId
     ? (db.prepare("SELECT id, name FROM gallery_people WHERE id = ?")
-        .get(person.galleryPersonId) as { id: string; name: string } | undefined) ?? null
+        .get(person.galleryPersonId) as Pick<GalleryPersonRow, "id" | "name"> | undefined) ?? null
     : null;
 
   return {
@@ -417,10 +399,10 @@ export function getFamilyPersonProfile(personId: string): FamilyPersonProfile | 
 export function expandToRelatives(seedIds: string[]): string[] {
   const unions = db.prepare(
     "SELECT id, person1_id, person2_id FROM family_tree_unions"
-  ).all() as { id: string; person1_id: string; person2_id: string | null }[];
+  ).all() as Pick<FamilyTreeUnionRow, "id" | "person1_id" | "person2_id">[];
   const children = db.prepare(
     "SELECT union_id, child_id FROM family_tree_children"
-  ).all() as { union_id: string; child_id: string }[];
+  ).all() as Pick<FamilyTreeChildRow, "union_id" | "child_id">[];
 
   // Union id -> everyone standing in it (partners + children). Every member of
   // a union is a relative of every other, which makes the walk a single hop.
@@ -441,7 +423,7 @@ export function expandToRelatives(seedIds: string[]): string[] {
   for (const child of children) join(child.union_id, child.child_id);
 
   const known = new Set(
-    (db.prepare("SELECT id FROM family_tree_persons").all() as { id: string }[]).map((row) => row.id)
+    (db.prepare("SELECT id FROM family_tree_persons").all() as Pick<FamilyTreePersonRow, "id">[]).map((row) => row.id)
   );
   const found = new Set<string>();
   const queue = seedIds.filter((id) => known.has(id));
@@ -467,7 +449,7 @@ export function applyFamilyPersonTags(personIds: string[], add: string[], remove
   const removeIds = removeKeys.length > 0
     ? (db.prepare(
         `SELECT id FROM tags WHERE key IN (${removeKeys.map(() => "?").join(", ")})`
-      ).all(...removeKeys) as { id: string }[]).map((row) => row.id)
+      ).all(...removeKeys) as Pick<TagRow, "id">[]).map((row) => row.id)
     : [];
   const deleteTags = removeIds.length > 0
     ? db.prepare(

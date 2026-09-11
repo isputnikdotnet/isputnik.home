@@ -17,8 +17,13 @@ The standard rests on three layers:
 
 ### Button — `shared/Button.tsx`
 
-All buttons render through `<Button>`. Variants map to the classes in
-`styles/components.css`; change visuals there, not in components.
+All buttons render through `<Button>` — outside `shared/` there is no raw
+`<button>` left, and `check:ui` keeps it that way (see Enforcement). It defaults
+to `type="button"`, so a click inside a form never submits it unless it says
+`type="submit"`.
+
+Two kinds of variant. The first five, plus `toolbar`, **own a look** — each maps
+to one class, and visual changes go in the stylesheet, not the component:
 
 | Variant | Class | Use for |
 |---|---|---|
@@ -27,9 +32,29 @@ All buttons render through `<Button>`. Variants map to the classes in
 | `danger` | `danger-button` | Filled destructive confirm (Delete) — mostly via ConfirmDialog |
 | `text` | `text-button` | Low-emphasis inline action |
 | `icon` | `icon-button` | Square icon-only button — must have `aria-label` or `title` |
+| `toolbar` | `library-toolbar-button` | A browse toolbar control (Select, Upload, a page action). `className="primary"` for the toolbar's one primary action, `danger` for a destructive one |
 
-Modifiers: `danger` (rose tint for destructive icon/text/secondary buttons),
-`compact` (42px height for toolbars/rows).
+The rest **name what the button is and carry no class of their own** — the look
+is the `className` you pass (or the row that styles its buttons), untouched.
+There is no one tile or chip class in the app; every surface drew its own, and
+these keep them exactly as they were:
+
+| Variant | Adds | Use for |
+|---|---|---|
+| `tab` | `role="tab"`, `aria-selected` and the `active` class from `selected`; Left/Right/Home/End walk the row | One tab of a `role="tablist"` row. In a dialog: `<div className="modal-tabs" role="tablist">` of `<Button variant="tab" className="modal-tab" selected={…}>`. A row that styles its own buttons (`.book-detail-tabs`) needs no class. A row that marks the chosen tab with a class of its own (`is-active`) passes that class and `aria-selected` instead of `selected` |
+| `tile` | — | A card, cover or photo that is itself the click target (`gallery-tile`, `audiobook-card`, `cover-candidate`) |
+| `chip` | — | A small pill: a filter, a tag, a suggestion (`review-chip`, `quote-filter`, `device-type-chip`) |
+| `bare` | — | Custom chrome with nothing in common to share: the player's transport, the reader's toolbar, the lightbox's own buttons, a menu row its container styles |
+
+Modifiers: `danger` (rose tint for destructive icon/text/secondary/toolbar
+buttons; on the class-less variants it adds the plain `danger` class their rows
+style), `compact` (42px height for toolbars/rows). Never hand-apply a variant's
+class (`className="icon-button"`, `"compact-button"`) — use the prop; `check:ui`
+fails on it.
+
+A tab row is a real tablist: `role="tablist"` on the row, the `tab` variant on
+each button. Marking the open tab only by its underline leaves a screen reader
+with a row of identical buttons.
 
 Icon-only control borders/backgrounds are centralized in
 `apps/web/src/styles/tokens.css` as `--icon-control-*`. If a custom icon-only
@@ -135,6 +160,14 @@ trigger's right edge when a left-anchored menu would run off-screen. That is not
 decoration: a toolbar scrolls sideways and clips its overflow, so a menu anchored
 inside it gets cut off.
 
+Each choice is a `menuitemradio` with `aria-checked` — a sort is one value out of
+several, not a command. The keyboard follows the WAI-ARIA menu button: opening
+moves focus to the current choice, Up/Down (wrapping) and Home/End walk the
+items, Enter chooses, and Escape, Tab or a choice put focus back on the trigger.
+That behaviour is `shared/useMenuKeyboard`, written for any menu whose open state
+lives elsewhere (`useAnchoredMenu`'s); a new portalled menu should use it rather
+than grow its own key handling.
+
 ### ChoiceGroup — `shared/ChoiceGroup.tsx`
 
 Use `<ChoiceGroup>` when the user picks between **approaches**, not values — each
@@ -223,8 +256,9 @@ Escape, no focus juggling of your own):
 ```
 
 **Every form/dialog ends in a `modal-actions` row** — that's the single place the
-action buttons live, and it carries its own top spacing (`margin-top: 24px` in
-`components.css`), so the buttons are always separated from the fields above. Do
+action buttons live, and it carries its own top spacing (`margin-top:
+var(--space-6)`, 24px, in `components/primitives.css`), so the buttons are always
+separated from the fields above. Do
 not add ad-hoc spacing before the actions, and do not place buttons outside this
 row.
 
@@ -364,6 +398,35 @@ tab entry there — nothing else keeps a parallel list.
 
 ---
 
+## Styles
+
+Where a rule goes and what it is written with. The file-by-file map, the cascade
+order and the full token tables are in [`css-map.md`](css-map.md).
+
+- **Tokens before literals.** Colours, stacking, type and spacing are custom
+  properties in `styles/tokens.css`. A new rule sets type with `--text-*`,
+  `--leading-*` and `--weight-*`, and padding, margins and gaps with `--space-*`
+  (a 4px grid: `--space-N` is N × 4px). An old literal is swapped for a token only
+  when the values are identical — tokenizing is never a restyle — and a value
+  between two steps stays a literal until someone decides the design should move.
+  The shared components (`components/primitives.css`, `components/shared-rules.css`)
+  already use them.
+- **Global or page stylesheet.** A rule for something the app shell, a shared
+  component or more than one route renders belongs in a global stylesheet (the
+  list in `styles.css`). A stylesheet that only one lazily loaded page uses is
+  imported by that page's module instead, so the sign-in screen doesn't download
+  the control panel's CSS. It then loads after all of the global CSS, which can
+  flip an equal-specificity tie — read css-map.md's "Page stylesheets" before
+  moving a rule either way.
+- **Theme re-skins live in `styles/themes/`.** The five themes are token sets. A
+  look that changes components, not just colours, for particular themes — today the
+  iSputnik Night / Light re-skin — goes in `styles/themes/`, imported straight
+  after the base file it overrides, so the base file reads as one design.
+- **Mobile is gated.** The desktop browser is the baseline; phone rules go inside
+  `@media (max-width: 740px)` in the file that owns the classes.
+
+---
+
 ## Microcopy rules
 
 - Sentence case everywhere ("Create invite link", not "Create Invite Link").
@@ -381,13 +444,33 @@ tab entry there — nothing else keeps a parallel list.
 
 - `window.confirm` / `window.alert` / bare `confirm(` / `alert(` appear;
 - `modal-backdrop` is used outside `shared/Modal.tsx`;
-- `confirm-modal` / `metadata-modal` surface classes are instantiated outside `shared/`.
+- `confirm-modal` / `metadata-modal` surface classes are instantiated outside `shared/`;
+- a raw `<button>` appears outside `shared/` beyond what `scripts/raw-buttons-baseline.json`
+  allows for that file;
+- a `<Button>` hand-applies a variant's class (`className="icon-button"`,
+  `"compact-button"`…) instead of `variant` / `compact`.
+
+**The raw-button baseline is a ratchet.** It lists, per file under `apps/web/src`
+outside `shared/`, how many raw `<button>` elements may remain — today none; the
+file's `files` map is empty, so any raw button fails. A file over its count, or
+any raw button in an unlisted file, fails. A file *under* its count fails too,
+until the baseline is lowered with `npm run check:ui -- --update-button-baseline`,
+so a converted button can't quietly be replaced by a new raw one. That flag only
+ever lowers counts; allowing one more means editing the JSON by hand, where review
+sees it. There is almost never a reason to: `variant="bare"` takes any custom
+chrome as-is. (`shared/` is exempt — it is where the primitives are built.)
 
 It also checks the **Help page against `docs/users/`**, both directions: a guide
 that nothing on `HelpPage.tsx` links to, and a `guide("…")` link pointing at a file
 that no longer exists. The Help page is the only way into the guides from inside
 the app, so a missing entry means a doc nobody can reach — and it fails silently,
 which is exactly what happened three commits running before this check existed.
+
+It **warns**, without failing, about every `var(--x)` that nothing defines — no
+`--x:` in any stylesheet, no `"--x"` set from a component's inline style. Such a
+reference silently falls back (or resolves to nothing); that is how `--accent` spent
+months as a colour two files guessed differently. Define the property in
+`tokens.css` or use one that exists.
 
 If the checker blocks something legitimately new, extend the shared component
 (new prop or variant) rather than bypassing it — that is the entire point.

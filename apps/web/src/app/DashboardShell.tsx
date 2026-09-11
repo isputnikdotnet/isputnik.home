@@ -33,6 +33,7 @@ import { isStandalone } from "../pwa/platform";
 import { useInboxSummary } from "../features/social/useInboxSummary";
 import { FOR_YOU_PATH, controlHref, followRoute } from "../router";
 import { REPO_ISSUES_URL } from "../shared/links";
+import { Button } from "../shared/Button";
 
 
 // The control panel's landing page — Overview › Dashboard.
@@ -221,10 +222,10 @@ function MobileNav({
                 <span>{t("nav.settings")}</span>
               </a>
             )}
-            <button className="mobile-media-option" type="button" onClick={() => { close(); void logout(); }}>
+            <Button variant="bare" className="mobile-media-option" onClick={() => { close(); void logout(); }}>
               <LogOut size={26} aria-hidden="true" />
               <span>{t("nav.logout")}</span>
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -237,8 +238,8 @@ function MobileNav({
           <Home size={17} aria-hidden="true" />
           <span>{t("nav.home")}</span>
         </a>
-        <button
-          type="button"
+        <Button
+          variant="bare"
           className={`home-mobile-nav-item${mediaActive || openSheet === "media" ? " is-active" : ""}`}
           onClick={() => setOpenSheet((current) => (current === "media" ? null : "media"))}
           aria-haspopup="dialog"
@@ -246,7 +247,7 @@ function MobileNav({
         >
           <Library size={17} aria-hidden="true" />
           <span>{t("nav.media")}</span>
-        </button>
+        </Button>
         <a
           className={`home-mobile-nav-item${downloadsActive ? " is-active" : ""}`}
           href="/downloads"
@@ -255,8 +256,8 @@ function MobileNav({
           <DownloadCloud size={17} aria-hidden="true" />
           <span>{t("nav.offline")}</span>
         </a>
-        <button
-          type="button"
+        <Button
+          variant="bare"
           className={`home-mobile-nav-item${profileActive || openSheet === "profile" ? " is-active" : ""}`}
           onClick={() => setOpenSheet((current) => (current === "profile" ? null : "profile"))}
           aria-haspopup="dialog"
@@ -267,7 +268,7 @@ function MobileNav({
             {unseen > 0 && <span className="nav-dot" />}
           </span>
           <span>{t("nav.profile")}</span>
-        </button>
+        </Button>
       </nav>
     </>
   );
@@ -394,10 +395,10 @@ export function DashboardShell({
               <DashboardNavLink item={item} key={item.href} />
             ))}
 
-            <button
+            <Button
+              variant="bare"
               ref={aboutTriggerRef}
               className={`home-nav-link${aboutMenuOpen || active === "about" || active === "help" ? " is-active" : ""}`}
-              type="button"
               onClick={toggleAboutMenu}
               aria-haspopup="menu"
               aria-expanded={aboutMenuOpen}
@@ -405,7 +406,7 @@ export function DashboardShell({
               <Info size={21} aria-hidden="true" />
               <span>{t("nav.about")}</span>
               <ChevronDown className="home-user-chevron" size={16} aria-hidden="true" />
-            </button>
+            </Button>
           </nav>
         )}
 
@@ -476,9 +477,9 @@ export function DashboardShell({
           )}
 
           <div className="home-user-menu-wrap" ref={userMenuRef}>
-            <button
+            <Button
+              variant="bare"
               className={`home-user-link${userMenuOpen || currentPath === "/profile" ? " is-active" : ""}`}
-              type="button"
               onClick={() => setUserMenuOpen((open) => !open)}
               aria-haspopup="menu"
               aria-expanded={userMenuOpen}
@@ -491,7 +492,7 @@ export function DashboardShell({
                 <strong>{user.displayName}</strong>
               </span>
               <ChevronDown className="home-user-chevron" size={17} aria-hidden="true" />
-            </button>
+            </Button>
 
             {userMenuOpen && (
               <div className="home-user-menu" role="menu" aria-label={t("nav.aria.profileMenu")}>
@@ -525,9 +526,9 @@ export function DashboardShell({
                     </a>
                   );
                 })}
-                <button
+                <Button
+                  variant="bare"
                   className="home-user-menu-link home-logout-link"
-                  type="button"
                   role="menuitem"
                   onClick={() => {
                     setUserMenuOpen(false);
@@ -536,7 +537,7 @@ export function DashboardShell({
                 >
                   <LogOut size={19} aria-hidden="true" />
                   <span>{t("nav.logout")}</span>
-                </button>
+                </Button>
               </div>
             )}
           </div>

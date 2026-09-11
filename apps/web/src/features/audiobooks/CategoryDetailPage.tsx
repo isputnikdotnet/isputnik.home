@@ -10,6 +10,7 @@ import { FeedTile } from "../library/FeedTile";
 import { CategoryIcon } from "./categoryIcons";
 import { sectionFromQuery, sectionNavProps } from "./sectionNavItems";
 import type { CategoryDetail } from "./types";
+import { Button } from "../../shared/Button";
 
 type KindFilter = "all" | "audiobook" | "ebook";
 
@@ -49,10 +50,10 @@ export function CategoryDetailPage({
       sideNav={section && <SectionNav {...sectionNavProps(section)} activeKey="categories" />}
     >
       <section className="audiobook-main-page">
-        <button className="audiobook-back-button" type="button" onClick={() => goBack(backTo ?? (section ? `/categories?section=${section.active}` : "/categories"))}>
+        <Button variant="bare" className="audiobook-back-button" onClick={() => goBack(backTo ?? (section ? `/categories?section=${section.active}` : "/categories"))}>
           <ArrowLeft size={17} aria-hidden="true" />
           <span>{backTo ? t("book:catalog.back") : t("book:categories.backToCategories")}</span>
-        </button>
+        </Button>
 
         {error && <MessageBox tone="error" title={t("book:categories.detailErrorTitle")}>{error}</MessageBox>}
 
@@ -73,15 +74,15 @@ export function CategoryDetailPage({
 
             {hasBothTypes && (
               <div className="kind-toggle" role="group" aria-label={t("book:people.filterByMediaTypeAria")}>
-                <button type="button" className={kindFilter === "all" ? "is-active" : ""} onClick={() => setKindFilter("all")}>
+                <Button variant="bare" className={kindFilter === "all" ? "is-active" : ""} aria-pressed={kindFilter === "all"} onClick={() => setKindFilter("all")}>
                   {t("common:common.all")}<span className="kind-toggle-count">{category.books.length}</span>
-                </button>
-                <button type="button" className={kindFilter === "audiobook" ? "is-active" : ""} onClick={() => setKindFilter("audiobook")}>
+                </Button>
+                <Button variant="bare" className={kindFilter === "audiobook" ? "is-active" : ""} aria-pressed={kindFilter === "audiobook"} onClick={() => setKindFilter("audiobook")}>
                   <Headphones size={15} aria-hidden="true" />{t("common:nav.audiobooks")}<span className="kind-toggle-count">{audiobookCount}</span>
-                </button>
-                <button type="button" className={kindFilter === "ebook" ? "is-active" : ""} onClick={() => setKindFilter("ebook")}>
+                </Button>
+                <Button variant="bare" className={kindFilter === "ebook" ? "is-active" : ""} aria-pressed={kindFilter === "ebook"} onClick={() => setKindFilter("ebook")}>
                   <BookOpen size={15} aria-hidden="true" />{t("common:nav.ebooks")}<span className="kind-toggle-count">{ebookCount}</span>
-                </button>
+                </Button>
               </div>
             )}
 

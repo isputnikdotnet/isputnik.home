@@ -41,6 +41,7 @@ function reputationPayload(reputation: IpReputation) {
 }
 import { sealSecret } from "./mfa.js";
 import { isMailConfigured } from "./mail.js";
+import type { NonNull, SessionRow, UserRow } from "../db/rows.js";
 
 const trustedSchema = z.object({
   cidr: z.string().trim().min(1).max(64),
@@ -117,7 +118,7 @@ export async function securityRoutes(app: FastifyInstance) {
     // account — a household's worth, not a directory's.
     const members = db
       .prepare("SELECT email, display_name, role, mfa_enabled FROM users WHERE is_active = 1 AND deleted_at IS NULL ORDER BY display_name")
-      .all() as { email: string; display_name: string; role: string; mfa_enabled: number }[];
+      .all() as Pick<UserRow, "email" | "display_name" | "role" | "mfa_enabled">[];
     const lockedAccounts = members.filter((member) => isAccountLocked(member.email)).map((member) => member.display_name);
     const mfa = {
       enrolled: members.filter((member) => member.mfa_enabled === 1).length,
@@ -128,7 +129,7 @@ export async function securityRoutes(app: FastifyInstance) {
     // Which trusted ranges are doing anything: live sessions whose address falls
     // inside each one. A range with none is either a spare or a mistake.
     const liveSessionIps = (
-      db.prepare("SELECT ip_address FROM sessions WHERE revoked_at IS NULL AND expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now') AND ip_address IS NOT NULL").all() as { ip_address: string }[]
+      db.prepare("SELECT ip_address FROM sessions WHERE revoked_at IS NULL AND expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now') AND ip_address IS NOT NULL").all() as NonNull<Pick<SessionRow, "ip_address">, "ip_address">[]
     ).map((row) => row.ip_address);
 
     return {
@@ -150,7 +151,7 @@ export async function securityRoutes(app: FastifyInstance) {
         .prepare(
           "SELECT display_name FROM users WHERE is_active = 1 AND deleted_at IS NULL AND mfa_enabled = 0 ORDER BY display_name"
         )
-        .all() as { display_name: string }[]
+        .all() as Pick<UserRow, "display_name">[]
     ).map((row) => row.display_name),
     trustedNetworks: listTrustedNetworks().map((network) => ({
       id: network.id,

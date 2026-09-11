@@ -12,6 +12,12 @@ import { pathIsInside } from "../shared/storage-roots.js";
 import { canUserAccessBook } from "../shared/library-access.js";
 import { parseRangeHeader, pipeFileToReply } from "../shared/document-stream.js";
 import { thumbnailAbsolutePath } from "../shared/thumbnail.js";
+import type { GalleryDetailRow, ItemMetadataRow, LibraryRow, Nullable } from "../../../db/rows.js";
+
+/** One asset's file, as the stream route reads it; `id` is the LIBRARY's id. */
+type StreamRow = Pick<GalleryDetailRow, "relative_path" | "mime_type" | "web_video_key">
+  & Pick<LibraryRow, "source_path" | "id">
+  & Nullable<Pick<ItemMetadataRow, "title">>;
 
 // Both are presence flags — any value, even empty, turns them on. `v` is the
 // cache-busting token asset URLs carry.
@@ -54,7 +60,7 @@ export async function galleryStreamPlugin(app: FastifyInstance) {
       JOIN libraries ON libraries.id = library_items.library_id
       LEFT JOIN item_metadata ON item_metadata.item_id = gallery_details.item_id
       WHERE gallery_details.item_id = ? AND library_items.deleted_at IS NULL
-    `).get(id) as { relative_path: string; mime_type: string | null; web_video_key: string | null; source_path: string; id: string; title: string | null } | undefined;
+    `).get(id) as StreamRow | undefined;
 
     if (!row) {
       reply.code(404).send({ error: "Asset not found" });

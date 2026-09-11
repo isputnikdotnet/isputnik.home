@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db, logActivity } from "../../db.js";
 import { parseBody } from "../../core/shared.js";
 import { FAMILY_TAG_OBJECT_TYPE } from "./access.js";
+import type { TagRow } from "../../db/rows.js";
 
 export function registerEditorRoutes(app: FastifyInstance) {
   // ── Branch access (admin) ──
@@ -16,7 +17,7 @@ export function registerEditorRoutes(app: FastifyInstance) {
   });
 
   const getTag = (tagId: string) =>
-    db.prepare("SELECT id, display_name AS name FROM tags WHERE id = ?").get(tagId) as { id: string; name: string } | undefined;
+    db.prepare("SELECT id, display_name AS name FROM tags WHERE id = ?").get(tagId) as (Pick<TagRow, "id"> & { name: TagRow["display_name"] }) | undefined;
 
   app.get("/api/family-tree/tags/:tagId/editors", { preHandler: app.requireAdmin }, async (request, reply) => {
     const tag = getTag((request.params as { tagId: string }).tagId);

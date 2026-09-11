@@ -7,35 +7,25 @@ import { migrate } from "./db/migrate.js";
 import { recordBootedVersion, stagePreUpgradeCopy } from "./db/pre-upgrade.js";
 import { log } from "./core/logger.js";
 import { seed } from "./db/seed.js";
+import type { UserRow } from "./db/rows.js";
 
-export type Role = "admin" | "member";
+export type Role = UserRow["role"];
 // Which second factor an account uses: a rolling code from an authenticator app,
 // or a one-time code emailed at sign-in. Handling lives in core/mfa.ts.
-export type MfaMethod = "totp" | "email";
+export type MfaMethod = UserRow["mfa_method"];
 export const THEME_PREFERENCES = ["system", "light", "dark", "plain-light", "plain-dark", "minimalist"] as const;
 export type ThemePreference = (typeof THEME_PREFERENCES)[number];
 // Interface languages the web app ships strings for (apps/web/src/locales).
 export const LANGUAGE_PREFERENCES = ["en", "ru"] as const;
 export type LanguagePreference = (typeof LANGUAGE_PREFERENCES)[number];
 
-export interface User {
-  id: string;
-  email: string;
-  password_hash: string;
-  display_name: string;
-  role: Role;
+// A `users` row as the app reads it. theme and language are validated in code
+// rather than by a CHECK (so a new one needs no schema change), and mfa_enabled
+// is only ever written 0 or 1 — the columns themselves are plain TEXT / INTEGER.
+export interface User extends Omit<UserRow, "theme" | "language" | "mfa_enabled"> {
   theme: ThemePreference;
   language: LanguagePreference;
-  ereader_email: string | null;
   mfa_enabled: 0 | 1;
-  mfa_method: MfaMethod;
-  mfa_secret: string | null;
-  mfa_backup_codes: string | null;
-  protected_from_delete: 0 | 1;
-  is_active: 0 | 1;
-  created_at: string;
-  updated_at: string;
-  deleted_at: string | null;
 }
 
 export interface ActivityInput {

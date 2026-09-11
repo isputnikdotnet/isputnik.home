@@ -10,6 +10,7 @@
 import { db } from "../../db.js";
 import { ASSET_COLUMNS, ASSET_JOINS, mapAsset, type GalleryAssetRow } from "../library/gallery/catalog-asset.js";
 import { accessibleLibraryIds } from "../library/shared/library-access.js";
+import type { FamilyTreeEventPhotoRow, FamilyTreePersonRow, FamilyTreePhotoRow } from "../../db/rows.js";
 
 const inClause = (n: number) => Array(n).fill("?").join(", ");
 
@@ -122,7 +123,7 @@ export function getFamilyEventPhotos(
       AND library_items.library_id IN (${inClause(libIds.length)})
       AND library_items.deleted_at IS NULL
     ORDER BY ep.event_id, ep.position
-  `).all(user.id, personId, ...libIds) as (GalleryAssetRow & { event_id: string })[];
+  `).all(user.id, personId, ...libIds) as (GalleryAssetRow & Pick<FamilyTreeEventPhotoRow, "event_id">)[];
 
   for (const row of rows) {
     const list = byEvent.get(row.event_id) ?? [];
@@ -135,7 +136,7 @@ export function getFamilyEventPhotos(
 export function attachedFamilyPhotoIds(personId: string): string[] {
   return (db.prepare(
     "SELECT item_id FROM family_tree_photos WHERE person_id = ? ORDER BY position"
-  ).all(personId) as { item_id: string }[]).map((r) => r.item_id);
+  ).all(personId) as Pick<FamilyTreePhotoRow, "item_id">[]).map((r) => r.item_id);
 }
 
 // One merged, paged listing: attached items by curated position, then automatic
@@ -149,7 +150,7 @@ export function getFamilyPersonPhotos(
 ): { assets: (ReturnType<typeof mapAsset> & { attached: boolean })[]; total: number } | null {
   const person = db.prepare(
     "SELECT id, gallery_person_id FROM family_tree_persons WHERE id = ?"
-  ).get(personId) as { id: string; gallery_person_id: string | null } | undefined;
+  ).get(personId) as Pick<FamilyTreePersonRow, "id" | "gallery_person_id"> | undefined;
   if (!person) return null;
 
   const libIds = [...accessibleLibraryIds(user.id, user.role, "gallery")];

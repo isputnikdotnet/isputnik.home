@@ -2,15 +2,12 @@ import type { FastifyRequest } from "fastify";
 import { db } from "../../../db.js";
 import { sha256 } from "../../../crypto.js";
 import { flagAbusiveRequest } from "../../../core/security-alerts.js";
+import type { ShareLinkRow } from "../../../db/rows.js";
 
-export interface ResolvedShareLink {
-  id: string;
-  module: string;
-  resource_id: string;
-  permission: string;
+export interface ResolvedShareLink extends Pick<ShareLinkRow, "id" | "module" | "resource_id" | "permission"> {
   // The member who minted the link. A live album link resolves its photos against
   // THIS user's curate rights, so the serving code needs the creator on hand.
-  created_by: string;
+  created_by: ShareLinkRow["created_by"];
 }
 
 // Resolve a raw guest-link token to its live share row. Returns null when the

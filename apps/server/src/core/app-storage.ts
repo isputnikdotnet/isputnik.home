@@ -17,6 +17,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { db } from "../db.js";
+import { stmt } from "../db/statement-cache.js";
+import type { AppSettingRow } from "../db/rows.js";
 
 export const APP_STORAGE_SETTINGS_KEY = "app_storage";
 
@@ -46,9 +48,9 @@ export interface AppStorageSetting {
 }
 
 export function getAppStorageSetting(): AppStorageSetting {
-  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(APP_STORAGE_SETTINGS_KEY) as
-    | { value: string }
-    | undefined;
+  // Read for every thumbnail path resolved (each scanned photo, each thumbnail
+  // request), so the statement is compiled once.
+  const row = stmt("SELECT value FROM app_settings WHERE key = ?").get(APP_STORAGE_SETTINGS_KEY) as Pick<AppSettingRow, "value"> | undefined;
   if (!row) return { path: null, rooms: {} };
   try {
     const parsed = JSON.parse(row.value) as Partial<AppStorageSetting>;

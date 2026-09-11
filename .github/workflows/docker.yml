@@ -102,6 +102,9 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
+          # amd64 only, on purpose (README → Requirements): arm64 would build under
+          # QEMU emulation, several times slower, and nothing would ever run it.
+          platforms: linux/amd64
           push: ${{ steps.release.outputs.publish == 'true' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -118,7 +121,7 @@ jobs:
           cache-to: type=gha,mode=max
 
   # A GitHub Release for every published tag, its notes the version's entry from the
-  # in-app changelog (apps/server/src/changelog.ts via scripts/changelog-md.mjs), so
+  # in-app changelog (apps/server/src/changelog.json via scripts/changelog-md.mjs), so
   # someone deciding whether to update can read what changed without installing it.
   # Only after the image is out: a release page for an image that failed to publish
   # would announce something nobody can pull.

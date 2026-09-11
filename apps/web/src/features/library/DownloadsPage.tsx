@@ -24,6 +24,7 @@ import {
   type EbookDownloadRecord,
   type StorageEstimate
 } from "../../offline/downloads";
+import { Button } from "../../shared/Button";
 
 interface ViewerState {
   bookId: string;
@@ -192,7 +193,7 @@ export function DownloadsPage() {
               const isRemoving = removing.includes(book.bookId);
               return (
                 <article className="saved-audiobook-card" key={book.bookId}>
-                  <button className="audiobook-card" onClick={() => navigate(`/audiobooks/books/${book.bookId}`)}>
+                  <Button variant="tile" className="audiobook-card" onClick={() => navigate(`/audiobooks/books/${book.bookId}`)}>
                     <div className="audiobook-cover" aria-hidden="true">
                       {book.coverUrl ? (
                         <img src={book.coverUrl} alt="" />
@@ -212,25 +213,25 @@ export function DownloadsPage() {
                         {book.state === "failed" && ` · ${t("user:downloads.stateIncomplete")}`}
                       </small>
                     </div>
-                  </button>
+                  </Button>
                   <div className="downloads-card-actions">
-                    <button
-                      className="icon-button"
+                    <Button
+                      variant="icon"
                       onClick={() => window.open(`/player/${book.bookId}`, "isputnik-player", "width=500,height=700,resizable=yes,scrollbars=yes")}
                       aria-label={t("common:home.playTitle", { title: book.title })}
                       title={t("common:home.play")}
                     >
                       <Play size={16} />
-                    </button>
-                    <button
-                      className="icon-button danger"
+                    </Button>
+                    <Button
+                      variant="icon" danger
                       onClick={() => remove(book.bookId)}
                       disabled={isRemoving}
                       aria-label={t("user:downloads.removeFromDownloadsAria", { title: book.title })}
                       title={t("user:downloads.removeDownload")}
                     >
                       <Trash2 size={16} />
-                    </button>
+                    </Button>
                   </div>
                 </article>
               );
@@ -246,7 +247,7 @@ export function DownloadsPage() {
                   const isRemoving = removingEbook.includes(book.bookId);
                   return (
                     <article className="saved-audiobook-card" key={book.bookId}>
-                      <button className="audiobook-card" onClick={() => navigate(`/ebooks/books/${book.bookId}`)}>
+                      <Button variant="tile" className="audiobook-card" onClick={() => navigate(`/ebooks/books/${book.bookId}`)}>
                         <div className="audiobook-cover" aria-hidden="true">
                           {book.coverUrl ? (
                             <img src={book.coverUrl} alt="" />
@@ -266,25 +267,25 @@ export function DownloadsPage() {
                             {book.state === "failed" && ` · ${t("user:downloads.stateIncomplete")}`}
                           </small>
                         </div>
-                      </button>
+                      </Button>
                       <div className="downloads-card-actions">
-                        <button
-                          className="icon-button"
+                        <Button
+                          variant="icon"
                           onClick={() => void openReader(book)}
                           aria-label={t("common:home.readTitle", { title: book.title })}
                           title={t("common:home.read")}
                         >
                           <BookOpen size={16} />
-                        </button>
-                        <button
-                          className="icon-button danger"
+                        </Button>
+                        <Button
+                          variant="icon" danger
                           onClick={() => removeEbook(book.bookId)}
                           disabled={isRemoving}
                           aria-label={t("user:downloads.removeFromDownloadsAria", { title: book.title })}
                           title={t("user:downloads.removeDownload")}
                         >
                           <Trash2 size={16} />
-                        </button>
+                        </Button>
                       </div>
                     </article>
                   );

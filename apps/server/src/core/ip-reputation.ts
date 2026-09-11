@@ -1,5 +1,6 @@
 import { db, logActivity } from "../db.js";
 import { getSecurityPolicy } from "./security.js";
+import type { IpReputationRow } from "../db/rows.js";
 
 // AbuseIPDB reputation for IPs local detection has already flagged. Deliberately
 // NOT a per-request control: a lookup happens only when an IP gets auto-blocked
@@ -9,15 +10,11 @@ import { getSecurityPolicy } from "./security.js";
 // default. Local detection stays the trigger; reputation is enrichment, plus the
 // one escalation below.
 
-export interface IpReputation {
-  ip_address: string;
-  score: number | null; // abuseConfidenceScore 0..100
-  total_reports: number | null;
-  last_reported_at: string | null;
-  country_code: string | null;
-  isp: string | null;
-  checked_at: string;
-}
+// REPUTATION_COLUMNS of ip_reputation; `score` is AbuseIPDB's abuseConfidenceScore, 0..100.
+export type IpReputation = Pick<
+  IpReputationRow,
+  "ip_address" | "score" | "total_reports" | "last_reported_at" | "country_code" | "isp" | "checked_at"
+>;
 
 const REPUTATION_COLUMNS = "ip_address, score, total_reports, last_reported_at, country_code, isp, checked_at";
 

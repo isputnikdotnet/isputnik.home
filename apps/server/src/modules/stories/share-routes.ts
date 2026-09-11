@@ -21,6 +21,12 @@ import {
   storyShareFiles,
   storyShareTitle
 } from "./share.js";
+import type { ShareLinkRow, StoryRow } from "../../db/rows.js";
+
+type StoryShareListRow = Pick<ShareLinkRow, "id" | "label" | "created_at" | "expires_at" | "expand_albums"> & {
+  story_id: ShareLinkRow["resource_id"];
+  story_title: StoryRow["title"];
+};
 
 const createStoryLinkSchema = z.object({
   storyId: z.string().trim().min(1).max(64),
@@ -108,10 +114,7 @@ export async function storyShareRoutesPlugin(app: FastifyInstance) {
       WHERE share_links.created_by = ? AND share_links.module = '${STORY_SHARE_MODULE}'
         AND share_links.revoked_at IS NULL
       ORDER BY share_links.created_at DESC
-    `).all(user.id) as {
-      id: string; story_id: string; label: string | null; created_at: string;
-      expires_at: string; expand_albums: number; story_title: string;
-    }[];
+    `).all(user.id) as StoryShareListRow[];
     const now = Date.now();
     return {
       shares: rows.map((row) => ({

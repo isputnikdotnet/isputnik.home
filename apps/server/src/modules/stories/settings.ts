@@ -9,6 +9,7 @@
 // story editor simply doesn't offer Record/Upload.
 import { db } from "../../db.js";
 import { getHouseLibrary, type HouseLibrary } from "../library/gallery/house-library.js";
+import type { AppSettingRow } from "../../db/rows.js";
 
 export { ensureAudioScanExtensions } from "../library/gallery/house-library.js";
 
@@ -23,7 +24,7 @@ export interface StoriesSettings {
 const DEFAULTS: StoriesSettings = { recipeImportEnabled: true };
 
 export function getStoriesSettings(): StoriesSettings {
-  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(SETTINGS_KEY) as { value: string } | undefined;
+  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(SETTINGS_KEY) as Pick<AppSettingRow, "value"> | undefined;
   if (!row) return { ...DEFAULTS };
   try {
     const parsed = JSON.parse(row.value) as Partial<StoriesSettings>;

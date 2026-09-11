@@ -9,6 +9,7 @@ import { db } from "../../../../db.js";
 import { blobToEmbedding } from "./embedding.js";
 import { listGalleryPeople } from "../people.js";
 import { CLUSTER_MERGE } from "./cluster.js";
+import type { GalleryPersonRow, NonNull } from "../../../../db/rows.js";
 
 // Pair-similarity bands, all below/at the auto-merge line. Different people score near
 // 0.1–0.3 with this recogniser and the same person ≥ ~0.55, so anything ≥ POSSIBLE is
@@ -54,7 +55,7 @@ export async function computeClusterHealth(libIds: string[], maxPairs = 60): Pro
   // so a suggestion shows exactly the avatars the admin recognises.
   const meta = listGalleryPeople(libIds, true);
   const centroidById = new Map(
-    (db.prepare("SELECT id, centroid FROM gallery_people WHERE centroid IS NOT NULL").all() as { id: string; centroid: Buffer }[])
+    (db.prepare("SELECT id, centroid FROM gallery_people WHERE centroid IS NOT NULL").all() as NonNull<Pick<GalleryPersonRow, "id" | "centroid">, "centroid">[])
       .map((r) => [r.id, r.centroid] as const)
   );
 

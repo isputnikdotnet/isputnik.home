@@ -162,13 +162,13 @@ export function LoginPage({
           ) : (
             error && <MessageBox tone="error" title={t("mfa.verifyFailed")}>{error}</MessageBox>
           )}
-          <button className="primary-button">{t("mfa.verify")}</button>
+          <Button variant="primary" type="submit">{t("mfa.verify")}</Button>
           {method === "email" && (
-            <button type="button" className="text-button" onClick={resendCode} disabled={resending}>
+            <Button variant="text" onClick={resendCode} disabled={resending}>
               {resending ? t("mfa.sending") : t("mfa.sendAnother")}
-            </button>
+            </Button>
           )}
-          <button type="button" className="text-button" onClick={backToCredentials}>{t("mfa.back")}</button>
+          <Button variant="text" onClick={backToCredentials}>{t("mfa.back")}</Button>
         </form>
       </Shell>
     );
@@ -182,10 +182,10 @@ export function LoginPage({
 
         {canUsePasskey && (
           <div className="login-passkey">
-            <button type="button" className="passkey-button" onClick={signInWithPasskey} disabled={passkeyBusy}>
+            <Button variant="bare" className="passkey-button" onClick={signInWithPasskey} disabled={passkeyBusy}>
               <KeyRound size={18} aria-hidden="true" />
               {passkeyBusy ? t("login.passkeyWaiting") : t("login.passkey")}
-            </button>
+            </Button>
             <span className="login-divider"><span>{t("common.or")}</span></span>
           </div>
         )}
@@ -204,7 +204,7 @@ export function LoginPage({
         ) : (
           error && <MessageBox tone="error" title={t("login.failedTitle")}>{error}</MessageBox>
         )}
-        <button className="primary-button">{t("login.submit")}</button>
+        <Button variant="primary" type="submit">{t("login.submit")}</Button>
 
         {/* For the device that can't type this form: a TV, a wall display, a
             kiosk. It shows a code, and a phone that IS signed in authorizes it.

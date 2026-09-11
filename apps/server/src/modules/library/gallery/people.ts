@@ -11,6 +11,7 @@ import { nanoid } from "nanoid";
 import { db } from "../../../db.js";
 import { ASSET_COLUMNS, ASSET_JOINS, mapAsset, type GalleryAssetRow } from "./catalog-asset.js";
 import { recomputeClusterCentroid } from "./faces/cluster.js";
+import type { GalleryFaceRow, GalleryPersonRow, ItemMetadataRow } from "../../../db/rows.js";
 
 const inClause = (n: number) => Array(n).fill("?").join(", ");
 
@@ -20,6 +21,12 @@ export interface GalleryPersonSummary {
   faceCount: number;
   coverUrl: string | null;
 }
+
+type PersonListRow = Pick<GalleryPersonRow, "id" | "name"> & {
+  cover: ItemMetadataRow["cover_storage_key"] | null;
+  cnt: number;
+  face_thumb: GalleryFaceRow["thumb_storage_key"] | null;
+};
 
 // People with at least one accessible, non-deleted tagged asset. The cover is the
 // most recently-taken such asset's thumbnail (window-function pick, mirroring the
@@ -78,7 +85,7 @@ export function listGalleryPeople(libIds: string[], includeHidden = false): Gall
     LEFT JOIN bestface ON bestface.person_id = gp.id AND bestface.rn = 1
     ${includeHidden ? "" : "WHERE gp.hidden = 0"}
     ORDER BY (gp.name = '') ASC, ranked.cnt DESC, gp.name COLLATE NOCASE
-  `).all(...libIds, ...libIds) as { id: string; name: string; cover: string | null; cnt: number; face_thumb: string | null }[];
+  `).all(...libIds, ...libIds) as PersonListRow[];
   return rows.map((r) => ({
     id: r.id,
     name: r.name,
@@ -96,9 +103,7 @@ export function listGalleryPeople(libIds: string[], includeHidden = false): Gall
 }
 
 export function getGalleryPersonRow(personId: string): { id: string; name: string; hidden: number; cover_item_id: string | null } | null {
-  const row = db.prepare("SELECT id, name, hidden, cover_item_id FROM gallery_people WHERE id = ?").get(personId) as
-    | { id: string; name: string; hidden: number; cover_item_id: string | null }
-    | undefined;
+  const row = db.prepare("SELECT id, name, hidden, cover_item_id FROM gallery_people WHERE id = ?").get(personId) as Pick<GalleryPersonRow, "id" | "name" | "hidden" | "cover_item_id"> | undefined;
   return row ?? null;
 }
 
@@ -165,7 +170,7 @@ export function createGalleryPerson(name: string): GalleryPersonSummary {
 // an id first.
 export function findGalleryPersonByName(name: string): { id: string; name: string } | null {
   const row = db.prepare("SELECT id, name FROM gallery_people WHERE name = ? COLLATE NOCASE")
-    .get(name.trim()) as { id: string; name: string } | undefined;
+    .get(name.trim()) as Pick<GalleryPersonRow, "id" | "name"> | undefined;
   return row ?? null;
 }
 
@@ -287,11 +292,11 @@ export function reassignPersonPhotos(sourceId: string, targetId: string, itemIds
 // Tag one photo with a person (manual, whole-photo). Idempotent: re-tagging the same
 // person on the same photo is a no-op. Returns false if the person doesn't exist.
 export function tagAssetPerson(itemId: string, personId: string): boolean {
-  const person = db.prepare("SELECT id FROM gallery_people WHERE id = ?").get(personId) as { id: string } | undefined;
+  const person = db.prepare("SELECT id FROM gallery_people WHERE id = ?").get(personId) as Pick<GalleryPersonRow, "id"> | undefined;
   if (!person) return false;
   const existing = db.prepare(
     "SELECT id FROM gallery_faces WHERE item_id = ? AND person_id = ? AND box_x IS NULL AND source = 'manual'"
-  ).get(itemId, personId) as { id: string } | undefined;
+  ).get(itemId, personId) as Pick<GalleryFaceRow, "id"> | undefined;
   if (!existing) {
     db.prepare(
       "INSERT INTO gallery_faces (id, item_id, person_id, assignment, source) VALUES (?, ?, ?, 'confirmed', 'manual')"

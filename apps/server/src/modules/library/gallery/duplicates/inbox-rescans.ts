@@ -32,6 +32,7 @@
 import sharp from "sharp";
 import { db } from "../../../../db.js";
 import { thumbnailAbsolutePath } from "../../shared/thumbnail.js";
+import type { GalleryDetailRow, LibraryItemRow } from "../../../../db/rows.js";
 
 /** How far apart two fingerprints may be and still be worth looking at. Well beyond
  *  the near tier's 3, and still far inside the ~32 bits two unrelated photos average. */
@@ -77,9 +78,9 @@ for (const fraction of [0.94, 0.88]) {
 }
 
 export interface RescanCandidate {
-  itemId: string;
-  phash: string;
-  previewKey: string;
+  itemId: LibraryItemRow["id"];
+  phash: NonNullable<GalleryDetailRow["phash"]>;
+  previewKey: NonNullable<GalleryDetailRow["preview_storage_key"]>;
   /** Extra fingerprints the photo also answers to — the Inbox's rotated hashes. */
   variants?: string[];
 }

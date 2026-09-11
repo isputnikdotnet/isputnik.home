@@ -150,8 +150,8 @@ export function StoryOverviewPane({
       <section
         className={`story-edit-settings story-edit-story-details${settingsOpen ? "" : " is-collapsed"}`}
       >
-        <button
-          type="button"
+        <Button
+          variant="bare"
           className="story-edit-settings-head"
           onClick={() => setSettingsOpen(!settingsOpen)}
           aria-expanded={settingsOpen}
@@ -161,7 +161,7 @@ export function StoryOverviewPane({
           <span className="story-edit-settings-chevron" aria-hidden="true">
             <ChevronUp size={16} />
           </span>
-        </button>
+        </Button>
 
         {settingsOpen && (
           <div className="story-edit-settings-body">
@@ -233,9 +233,9 @@ export function StoryOverviewPane({
               <span>{t("stories:rating.label")}</span>
               <div className="story-rating-row">
                 {[1, 2, 3, 4, 5].map((value) => (
-                  <button
+                  <Button
+                    variant="bare"
                     key={value}
-                    type="button"
                     className="story-rating-star"
                     onClick={() => onPatch({ rating: value })}
                     disabled={busy}
@@ -248,7 +248,7 @@ export function StoryOverviewPane({
                       aria-hidden="true"
                       fill={story.rating != null && story.rating >= value ? "currentColor" : "none"}
                     />
-                  </button>
+                  </Button>
                 ))}
                 {story.rating != null && (
                   <Button variant="text" compact onClick={() => onPatch({ rating: null })} disabled={busy}>

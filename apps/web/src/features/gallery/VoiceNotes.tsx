@@ -97,9 +97,9 @@ export function VoiceNotes({
 
   const recordButton = canEdit && supported ? (
     large ? (
-      <button type="button" className="review-chip" onClick={() => setRecordOpen(true)}>
+      <Button variant="chip" className="review-chip" onClick={() => setRecordOpen(true)}>
         <Mic size={18} aria-hidden="true" /> {t("gallery:voiceNotes.record")}
-      </button>
+      </Button>
     ) : (
       <Button variant="primary" compact onClick={() => setRecordOpen(true)}>
         <Mic size={14} aria-hidden="true" /> {t("gallery:voiceNotes.record")}
@@ -139,22 +139,22 @@ export function VoiceNotes({
             const isPlaying = isCurrent && playing;
             return (
               <div key={note.id} className={`voice-note${isCurrent ? " is-current" : ""}`}>
-                <button
-                  type="button"
+                <Button
+                  variant="bare"
                   className="audio-play"
                   onClick={() => play(note)}
                   aria-label={isPlaying ? t("gallery:voiceNotes.pauseAria", { name: nameOf(note) }) : t("gallery:voiceNotes.playAria", { name: nameOf(note) })}
                   aria-pressed={isCurrent}
                 >
                   {isPlaying ? <Pause size={iconSize} aria-hidden="true" /> : <Play size={iconSize} aria-hidden="true" />}
-                </button>
+                </Button>
                 <div className="voice-note-who">{nameOf(note)}</div>
                 <div className="voice-note-meta">
                   {[formatSeconds(note.durationSeconds), whenOf(note)].filter(Boolean).join(" · ")}
                 </div>
                 <div className="gallery-lightbox-menu-wrap voice-note-menu-wrap" ref={menuFor === note.id ? menuRef : undefined}>
-                  <button
-                    type="button"
+                  <Button
+                    variant="bare"
                     className="voice-note-more"
                     onClick={() => setMenuFor((open) => open === note.id ? null : note.id)}
                     aria-haspopup="menu"
@@ -163,7 +163,7 @@ export function VoiceNotes({
                     title={t("gallery:voiceNotes.menuAria", { name: nameOf(note) })}
                   >
                     <MoreVertical size={iconSize} aria-hidden="true" />
-                  </button>
+                  </Button>
                   {menuFor === note.id && (
                     <div
                       className="gallery-lightbox-menu"
@@ -175,10 +175,10 @@ export function VoiceNotes({
                         <span>{t("gallery:voiceNotes.download")}</span>
                       </a>
                       {canEdit && (
-                        <button type="button" role="menuitem" className="danger" onClick={() => { setMenuFor(null); setConfirmRemove(note); }}>
+                        <Button variant="bare" role="menuitem" className="danger" onClick={() => { setMenuFor(null); setConfirmRemove(note); }}>
                           <Trash2 size={16} aria-hidden="true" />
                           <span>{t("gallery:voiceNotes.remove")}</span>
-                        </button>
+                        </Button>
                       )}
                     </div>
                   )}

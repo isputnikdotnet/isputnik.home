@@ -1,11 +1,12 @@
 import { db } from "../../../../db.js";
+import type { GalleryDuplicateIgnoreRow } from "../../../../db/rows.js";
 
 // ────────────────────────────────────────────────────────────────────────────
 //  Grouping
 // ────────────────────────────────────────────────────────────────────────────
 
 function ignoredPairs(): Set<string> {
-  const rows = db.prepare("SELECT item_a, item_b FROM gallery_duplicate_ignores").all() as { item_a: string; item_b: string }[];
+  const rows = db.prepare("SELECT item_a, item_b FROM gallery_duplicate_ignores").all() as Pick<GalleryDuplicateIgnoreRow, "item_a" | "item_b">[];
   return new Set(rows.map((r) => `${r.item_a}|${r.item_b}`));
 }
 

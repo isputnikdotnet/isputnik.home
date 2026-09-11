@@ -1,7 +1,8 @@
 import { BookOpenText, BookText, Film, Images, MessageSquare, Network } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { followRoute } from "../../router";
-import { activityPhrase, chapterName, timeAgo, type ActivityChapter, type ActivityKind } from "./phrasing";
+import { relativeTime } from "../../shared/relativeTime";
+import { activityPhrase, chapterName, type ActivityChapter, type ActivityKind } from "./phrasing";
 
 // What the household has been up to, as sentences.
 //
@@ -65,7 +66,7 @@ export function ActivityList({ items }: { items: ActivityItem[] }) {
                 {item.body && <span className="activity-body">“{item.body}”</span>}
               </span>
 
-              <span className="activity-when">{timeAgo(item.createdAt)}</span>
+              <span className="activity-when">{relativeTime(item.createdAt, { style: "compact" })}</span>
             </a>
           </li>
         );

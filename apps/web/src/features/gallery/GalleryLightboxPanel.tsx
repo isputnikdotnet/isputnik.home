@@ -10,6 +10,7 @@ import { VoiceNotes } from "./VoiceNotes";
 import type { GalleryAsset, GalleryPerson, GalleryPersonTag, TakenPrecision, VoiceNote } from "./types";
 import type { GalleryAssetChange } from "./GalleryLightbox";
 import { TAKEN_PRECISIONS, formatTakenDate, precisionLabel, takenInputToIso, takenInputType, takenInputValue } from "./taken-date";
+import { Button } from "../../shared/Button";
 
 // The lightbox's side panel: three tabs over one photo.
 //
@@ -254,23 +255,23 @@ export function GalleryLightboxPanel({
   // The small "Edit" beside a section's heading, hidden while that field is open.
   const editLink = (field: EditableField, label: string) =>
     canEdit && editingField !== field ? (
-      <button
-        type="button"
+      <Button
+        variant="bare"
         className="lb-linkbtn"
         onClick={() => startEdit(field)}
         aria-label={t("gallery:lightbox.editAria", { label })}
         title={t("gallery:lightbox.editAria", { label })}
       >
         {t("gallery:lightbox.edit")}
-      </button>
+      </Button>
     ) : null;
 
   const formActions = (
     <div className="gallery-info-form-actions">
-      <button type="submit" className="primary-button compact-button" disabled={editBusy}>
+      <Button variant="primary" compact type="submit" disabled={editBusy}>
         {editBusy ? t("gallery:common.saving") : t("gallery:common.save")}
-      </button>
-      <button type="button" className="secondary-button compact-button" onClick={cancelEdit} disabled={editBusy}>{t("common:common.cancel")}</button>
+      </Button>
+      <Button variant="secondary" compact onClick={cancelEdit} disabled={editBusy}>{t("common:common.cancel")}</Button>
     </div>
   );
 
@@ -348,10 +349,9 @@ export function GalleryLightboxPanel({
     <aside className="gallery-lightbox-info" aria-label={t("gallery:lightbox.detailsHeading")}>
       <div className="lb-tabs" role="tablist">
         {tabs.map((item) => (
-          <button
+          <Button
+            variant="tab"
             key={item.key}
-            type="button"
-            role="tab"
             id={`lb-tab-${item.key}`}
             className="lb-tab"
             aria-selected={tab === item.key}
@@ -359,11 +359,11 @@ export function GalleryLightboxPanel({
             onClick={() => setTab(item.key)}
           >
             {item.label}
-          </button>
+          </Button>
         ))}
-        <button type="button" className="gallery-lightbox-action lb-close" onClick={onClose} aria-label={t("common:common.close")} title={t("common:common.close")}>
+        <Button variant="bare" className="gallery-lightbox-action lb-close" onClick={onClose} aria-label={t("common:common.close")} title={t("common:common.close")}>
           <X size={18} aria-hidden="true" />
-        </button>
+        </Button>
       </div>
 
       {tab === "details" && (
@@ -397,7 +397,7 @@ export function GalleryLightboxPanel({
                       {asset.placeText || <span className="muted">—</span>}
                       {editLink("placeText", t("gallery:lightbox.fieldPlace"))}
                       {asset.gps && (
-                        <button type="button" className="lb-linkbtn" onClick={() => setTab("map")}>{t("gallery:lightbox.tabMap")}</button>
+                        <Button variant="bare" className="lb-linkbtn" onClick={() => setTab("map")}>{t("gallery:lightbox.tabMap")}</Button>
                       )}
                     </span>
                   )}
@@ -420,23 +420,23 @@ export function GalleryLightboxPanel({
                       </span>
                       {name}
                       {canEdit && (
-                        <button
-                          type="button"
+                        <Button
+                          variant="bare"
                           className="lb-chip-remove"
                           onClick={() => void removePerson(person.id)}
                           aria-label={t("gallery:lightbox.removePersonAria", { name: person.name || t("gallery:lightbox.personFallback") })}
                           title={t("gallery:lightbox.removePersonAria", { name: person.name || t("gallery:lightbox.personFallback") })}
                         >
                           <X size={12} aria-hidden="true" />
-                        </button>
+                        </Button>
                       )}
                     </span>
                   );
                 })}
                 {canEdit && !addingPerson && (
-                  <button type="button" className="lb-chip-add" onClick={() => setAddingPerson(true)} aria-label={t("gallery:lightbox.addPersonButton")} title={t("gallery:lightbox.addPersonButton")}>
+                  <Button variant="chip" className="lb-chip-add" onClick={() => setAddingPerson(true)} aria-label={t("gallery:lightbox.addPersonButton")} title={t("gallery:lightbox.addPersonButton")}>
                     <Plus size={16} aria-hidden="true" />
-                  </button>
+                  </Button>
                 )}
               </div>
               {canEdit && addingPerson && (
@@ -453,17 +453,16 @@ export function GalleryLightboxPanel({
                   <datalist id="gallery-people-suggestions">
                     {allPeople.map((person) => <option key={person.id} value={person.name} />)}
                   </datalist>
-                  <button type="submit" className="secondary-button compact-button" disabled={personBusy || !personName.trim()}>
+                  <Button variant="secondary" compact type="submit" disabled={personBusy || !personName.trim()}>
                     {personBusy ? t("gallery:common.adding") : t("gallery:common.add")}
-                  </button>
-                  <button
-                    type="button"
-                    className="icon-button"
+                  </Button>
+                  <Button
+                    variant="icon"
                     onClick={() => { setAddingPerson(false); setPersonName(""); setPersonError(""); }}
                     aria-label={t("common:common.cancel")}
                   >
                     <X size={14} aria-hidden="true" />
-                  </button>
+                  </Button>
                 </form>
               )}
               {personError && <span className="gallery-person-error">{personError}</span>}
@@ -478,8 +477,8 @@ export function GalleryLightboxPanel({
                   <span key={tag} className="lb-chip is-tag">
                     {tag}
                     {canEdit && (
-                      <button
-                        type="button"
+                      <Button
+                        variant="bare"
                         className="lb-chip-remove"
                         onClick={() => void removeTag(tag)}
                         disabled={editBusy}
@@ -487,14 +486,14 @@ export function GalleryLightboxPanel({
                         title={t("gallery:lightbox.removeTagAria", { tag })}
                       >
                         <X size={12} aria-hidden="true" />
-                      </button>
+                      </Button>
                     )}
                   </span>
                 ))}
                 {canEdit && editingField !== "tags" && (
-                  <button type="button" className="lb-chip-add" onClick={() => startEdit("tags")} aria-label={t("gallery:lightbox.addTagButton")} title={t("gallery:lightbox.addTagButton")}>
+                  <Button variant="chip" className="lb-chip-add" onClick={() => startEdit("tags")} aria-label={t("gallery:lightbox.addTagButton")} title={t("gallery:lightbox.addTagButton")}>
                     <Plus size={16} aria-hidden="true" />
-                  </button>
+                  </Button>
                 )}
               </div>
               {editingField === "tags" && editForm("tags")}
@@ -562,14 +561,14 @@ export function GalleryLightboxPanel({
                   : t("gallery:lightbox.locationHint")}
               </span>
               <div className="gallery-info-form-actions">
-                <button type="button" className="primary-button compact-button" onClick={() => { if (editGps) void saveLocation(editGps); }} disabled={editBusy || !editGps}>
+                <Button variant="primary" compact onClick={() => { if (editGps) void saveLocation(editGps); }} disabled={editBusy || !editGps}>
                   {editBusy ? t("gallery:common.saving") : t("gallery:common.save")}
-                </button>
-                <button type="button" className="secondary-button compact-button" onClick={cancelEdit} disabled={editBusy}>{t("common:common.cancel")}</button>
+                </Button>
+                <Button variant="secondary" compact onClick={cancelEdit} disabled={editBusy}>{t("common:common.cancel")}</Button>
                 {asset.gps && (
-                  <button type="button" className="danger-button compact-button" onClick={() => void saveLocation(null)} disabled={editBusy}>
+                  <Button variant="danger" compact onClick={() => void saveLocation(null)} disabled={editBusy}>
                     {t("gallery:common.remove")}
-                  </button>
+                  </Button>
                 )}
               </div>
               {editError && <span className="gallery-info-error">{editError}</span>}
@@ -601,9 +600,9 @@ export function GalleryLightboxPanel({
               </div>
               {canEdit && (
                 <div className="gallery-info-form-actions">
-                  <button type="button" className="secondary-button compact-button" onClick={() => startEdit("gps")}>
+                  <Button variant="secondary" compact onClick={() => startEdit("gps")}>
                     {asset.gps ? t("gallery:lightbox.moveLocation") : t("gallery:lightbox.setLocation")}
-                  </button>
+                  </Button>
                 </div>
               )}
               <p className="gallery-info-hint">{t("gallery:lightbox.locationKept")}</p>
@@ -633,14 +632,14 @@ export function GalleryLightboxPanel({
             <dt>{t("gallery:lightbox.labelFolder")}</dt>
             <dd>
               {onOpenFolder ? (
-                <button
-                  type="button"
+                <Button
+                  variant="bare"
                   className="gallery-info-link"
                   onClick={() => onOpenFolder(asset.folder)}
                   title={t("gallery:lightbox.openFolderTitle")}
                 >
                   <FolderOpen size={14} aria-hidden="true" /> {asset.folder || "/"}
-                </button>
+                </Button>
               ) : (asset.folder || "/")}
             </dd>
             {/* Which library holds it — the folder alone can't say when several
@@ -658,18 +657,18 @@ export function GalleryLightboxPanel({
               <div className="lb-actions">
                 {onRotate && (
                   <>
-                    <button type="button" className="secondary-button compact-button" onClick={() => onRotate("ccw")} disabled={rotateBusy}>
+                    <Button variant="secondary" compact onClick={() => onRotate("ccw")} disabled={rotateBusy}>
                       <RotateCcw size={14} aria-hidden="true" /> {t("gallery:lightbox.rotateLeft")}
-                    </button>
-                    <button type="button" className="secondary-button compact-button" onClick={() => onRotate("cw")} disabled={rotateBusy}>
+                    </Button>
+                    <Button variant="secondary" compact onClick={() => onRotate("cw")} disabled={rotateBusy}>
                       <RotateCw size={14} aria-hidden="true" /> {t("gallery:lightbox.rotateRight")}
-                    </button>
+                    </Button>
                   </>
                 )}
                 {onReplace && (
-                  <button type="button" className="secondary-button compact-button" onClick={onReplace}>
+                  <Button variant="secondary" compact onClick={onReplace}>
                     <Replace size={14} aria-hidden="true" /> {t("gallery:replace.action")}
-                  </button>
+                  </Button>
                 )}
               </div>
             </section>

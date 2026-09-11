@@ -18,6 +18,7 @@ import { lockCovering } from "../../shared/folder-locks.js";
 import { absorbDuplicateMetadata } from "./absorb.js";
 import { getJob, recordAction, type JobOutcome } from "./jobs.js";
 import { sweepableResultIds, type ResultFilter } from "./job-results.js";
+import type { DuplicateJobResultMemberRow, DuplicateJobResultRow, GalleryDetailRow, LibraryItemRow } from "../../../../db/rows.js";
 
 /** Why a member can no longer be acted on. Each one is a different sentence on the
  *  page, because each has a different remedy. */
@@ -39,19 +40,9 @@ export interface ResultCheck {
   problems: MemberCheck[];
 }
 
-interface MemberRow {
-  id: string;
-  item_id: string | null;
-  library_id: string;
-  path: string;
-  size_snapshot: number | null;
-  mtime_snapshot: string | null;
-  content_hash: string | null;
-  distance: number;
-  role: "keep" | "delete" | "protected";
-  status: string;
-  keeper_member_id: string | null;
-}
+type MemberRow = Pick<DuplicateJobResultMemberRow,
+  "id" | "item_id" | "library_id" | "path" | "size_snapshot" | "mtime_snapshot" | "content_hash"
+  | "distance" | "role" | "status" | "keeper_member_id">;
 
 const membersOf = (resultId: string): MemberRow[] =>
   db.prepare(`
@@ -60,12 +51,7 @@ const membersOf = (resultId: string): MemberRow[] =>
     FROM duplicate_job_result_members WHERE result_id = ? ORDER BY role DESC, path
   `).all(resultId) as MemberRow[];
 
-interface LiveRow {
-  item_id: string;
-  size: number | null;
-  modified_at: string | null;
-  content_hash: string | null;
-}
+type LiveRow = { item_id: LibraryItemRow["id"] } & Pick<GalleryDetailRow, "size" | "modified_at" | "content_hash">;
 
 function liveFiles(itemIds: string[]): Map<string, LiveRow> {
   const out = new Map<string, LiveRow>();
@@ -86,7 +72,7 @@ function liveFiles(itemIds: string[]): Map<string, LiveRow> {
  *  which rows are stale and why without pretending the offer is still good. */
 export function checkResult(jobId: string, resultId: string): ResultCheck | null {
   const exists = db.prepare("SELECT id FROM duplicate_job_results WHERE id = ? AND job_id = ?")
-    .get(resultId, jobId) as { id: string } | undefined;
+    .get(resultId, jobId) as Pick<DuplicateJobResultRow, "id"> | undefined;
   if (!exists) return null;
 
   const members = membersOf(resultId);
@@ -315,7 +301,7 @@ export function resolveJobResult(
   `).run(
     remaining.n === 0 ? "resolved" : "error",
     Math.max((db.prepare("SELECT reclaimable_bytes AS b FROM duplicate_job_results WHERE id = ?")
-      .get(resultId) as { b: number }).b - reclaimed, 0),
+      .get(resultId) as { b: DuplicateJobResultRow["reclaimable_bytes"] }).b - reclaimed, 0),
     resultId
   );
 

@@ -7,6 +7,7 @@ import { MessageBox } from "../../shared/MessageBox";
 import { lifeYears, type FamilyPerson } from "../familytree/types";
 // Aliased: `Quote` is already the lucide icon in this file.
 import type { Quote as QuoteRecord } from "../audiobooks/types";
+import { Button } from "../../shared/Button";
 
 // Choose the thing a reference block points at. One searchable list over four
 // endpoints, because it is the same choice every time — only the source and the
@@ -92,7 +93,7 @@ export function StoryRefPicker({
   const rest = visible.filter((row) => !suggestedIds.has(row.id));
 
   const renderRow = (row: Row) => (
-    <button type="button" className="story-picker-row" key={`${row.entityType ?? kind}:${row.id}`} onClick={() => onPick(row.id, row.entityType, row.title, row.coverUrl)}>
+    <Button variant="bare" className="story-picker-row" key={`${row.entityType ?? kind}:${row.id}`} onClick={() => onPick(row.id, row.entityType, row.title, row.coverUrl)}>
       <span className="story-picker-cover" aria-hidden="true">
         {row.coverUrl ? <img src={row.coverUrl} alt="" /> : <Icon size={18} />}
       </span>
@@ -106,7 +107,7 @@ export function StoryRefPicker({
       {row.entityType && (
         <span className="story-picker-type">{t(`common:mediaKind.${row.entityType}`)}</span>
       )}
-    </button>
+    </Button>
   );
 
   return (
@@ -131,20 +132,21 @@ export function StoryRefPicker({
         </label>
 
         {kind === "book" && (
-          <div className="modal-tabs">
+          <div className="modal-tabs" role="tablist">
             {([
               ["all", t("stories:picker.bookAll")],
               ["audiobook", t("stories:picker.bookAudiobooks")],
               ["ebook", t("stories:picker.bookEbooks")]
             ] as ["all" | "audiobook" | "ebook", string][]).map(([key, label]) => (
-              <button
+              <Button
+                variant="tab"
                 key={key}
-                type="button"
-                className={`modal-tab${bookType === key ? " active" : ""}`}
+                className="modal-tab"
+                selected={bookType === key}
                 onClick={() => setBookType(key)}
               >
                 {label}
-              </button>
+              </Button>
             ))}
           </div>
         )}

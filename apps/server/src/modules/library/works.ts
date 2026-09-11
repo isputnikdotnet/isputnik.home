@@ -9,24 +9,19 @@ import { db, logActivity } from "../../db.js";
 import { parseBody } from "../../core/shared.js";
 import { getLibraryForBook, canUserWriteLibrary, accessibleLibraryIds } from "./shared/library-access.js";
 import { splitGroupConcat } from "./shared/book-helpers.js";
+import type { AudiobookDetailRow, ItemMetadataRow, LibraryItemRow, Nullable, WorkItemRow } from "../../db/rows.js";
 
-interface EditionRow {
-  id: string;
-  library_id: string;
-  type: string;
-  is_primary: number;
-  title: string | null;
-  year_published: number | null;
-  publisher: string | null;
-  cover_storage_key: string | null;
-  author_names: string | null;
-  narrator_names: string | null;
-  format: string | null;
-  document_count: number;
-  duration_seconds: number | null;
-  percent_complete: number | null;
-  completed_at: string | null;
-}
+type EditionRow = Pick<LibraryItemRow, "id" | "library_id" | "type"> &
+  Pick<WorkItemRow, "is_primary"> &
+  Nullable<Pick<ItemMetadataRow, "title" | "year_published" | "publisher" | "cover_storage_key">> &
+  Nullable<Pick<AudiobookDetailRow, "duration_seconds">> & {
+    author_names: string | null;
+    narrator_names: string | null;
+    format: string | null;
+    document_count: number;
+    percent_complete: number | null;
+    completed_at: string | null;
+  };
 
 // A work and its member editions, each with display fields + the caller's progress,
 // ordered primary-first. Editions in libraries the user can't access are dropped;
@@ -103,7 +98,7 @@ const setPrimarySchema = z.object({
 function ensurePrimaries(workId: string): void {
   const types = db.prepare(
     "SELECT DISTINCT li.type AS type FROM work_items wi JOIN library_items li ON li.id = wi.item_id WHERE wi.work_id = ?"
-  ).all(workId) as { type: string }[];
+  ).all(workId) as Pick<LibraryItemRow, "type">[];
   for (const { type } of types) {
     const hasPrimary = db.prepare(
       "SELECT 1 FROM work_items wi JOIN library_items li ON li.id = wi.item_id WHERE wi.work_id = ? AND li.type = ? AND wi.is_primary = 1 LIMIT 1"
@@ -111,7 +106,7 @@ function ensurePrimaries(workId: string): void {
     if (hasPrimary) continue;
     const first = db.prepare(
       "SELECT wi.item_id FROM work_items wi JOIN library_items li ON li.id = wi.item_id WHERE wi.work_id = ? AND li.type = ? ORDER BY wi.item_id ASC LIMIT 1"
-    ).get(workId, type) as { item_id: string } | undefined;
+    ).get(workId, type) as Pick<WorkItemRow, "item_id"> | undefined;
     if (first) db.prepare("UPDATE work_items SET is_primary = 1 WHERE work_id = ? AND item_id = ?").run(workId, first.item_id);
   }
 }
@@ -175,7 +170,7 @@ export function registerWorkRoutes(app: FastifyInstance) {
     // An item may belong to only one work; refuse if any is already grouped.
     const taken = db.prepare(
       `SELECT item_id FROM work_items WHERE item_id IN (${itemIds.map(() => "?").join(", ")})`
-    ).all(...itemIds) as { item_id: string }[];
+    ).all(...itemIds) as Pick<WorkItemRow, "item_id">[];
     if (taken.length > 0) {
       return reply.code(409).send({ error: "One or more of these books is already part of an edition group." });
     }

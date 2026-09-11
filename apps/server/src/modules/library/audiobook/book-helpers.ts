@@ -14,6 +14,7 @@ import { type AudiobookBookRow, type BookFileRow } from "./types.js";
 import { normalizeLibrarySettings } from "../shared/library-settings.js";
 import { downloadImage } from "../shared/remote-image.js";
 import { bookTags, categoryPayload, coverUrl, largeCoverUrl, splitGroupConcat } from "../shared/book-helpers.js";
+import type { AudioChapterRow, AudiobookDetailRow, CategoryRow, DocumentFileRow, ItemMetadataRow, LibraryItemRow, LibraryRow, Nullable, PersonRow, PlaybackProgressRow, SeriesItemRow, SeriesRow } from "../../../db/rows.js";
 
 export const progressUpdateSchema = z.object({
   fileId: z.string().min(1),
@@ -101,7 +102,7 @@ export function upsertAuthor(libraryId: string, name: string) {
   void libraryId;
   db.prepare("INSERT OR IGNORE INTO people (id, name, sort_name) VALUES (?, ?, ?)")
     .run(nanoid(16), name, sortTitle(name));
-  return db.prepare("SELECT id FROM people WHERE name = ?").get(name) as { id: string };
+  return db.prepare("SELECT id FROM people WHERE name = ?").get(name) as Pick<PersonRow, "id">;
 }
 
 function replaceBookPeople(bookId: string, libraryId: string, role: "author" | "narrator", names: string[]) {
@@ -116,7 +117,7 @@ function replaceBookPeople(bookId: string, libraryId: string, role: "author" | "
 export function upsertSeries(libraryId: string, name: string) {
   db.prepare("INSERT OR IGNORE INTO series (id, library_id, name, sort_name) VALUES (?, ?, ?, ?)")
     .run(nanoid(16), libraryId, name, sortTitle(name));
-  return db.prepare("SELECT id FROM series WHERE library_id = ? AND name = ?").get(libraryId, name) as { id: string };
+  return db.prepare("SELECT id FROM series WHERE library_id = ? AND name = ?").get(libraryId, name) as Pick<SeriesRow, "id">;
 }
 
 export const coverImageExtensions = new Set([".jpg", ".jpeg", ".png", ".webp"]);
@@ -137,7 +138,7 @@ export function getBookCoverFolder(bookId: string) {
     JOIN libraries ON libraries.id = library_items.library_id
     WHERE library_items.id = ?
       AND library_items.deleted_at IS NULL
-  `).get(bookId) as { folder_path: string; source_path: string } | undefined;
+  `).get(bookId) as (Pick<LibraryItemRow, "folder_path"> & Pick<LibraryRow, "source_path">) | undefined;
 
   if (!row) {
     return null;
@@ -188,6 +189,11 @@ export function updateBookCover(bookId: string, coverStorageKey: string) {
   return getAudiobookBookDetail(bookId);
 }
 
+type BookMetadataRow = Pick<LibraryItemRow, "id" | "library_id">
+  & Nullable<Pick<ItemMetadataRow, "title" | "description" | "year_published" | "language" | "cover_storage_key" | "isbn" | "publisher">>
+  & Nullable<Pick<AudiobookDetailRow, "asin">>
+  & { category_id: string | null; author_names: string | null; narrator_names: string | null };
+
 function getBookForMetadata(bookId: string) {
   return db.prepare(`
     SELECT
@@ -214,21 +220,7 @@ function getBookForMetadata(bookId: string) {
     WHERE library_items.id = ?
       AND library_items.deleted_at IS NULL
     GROUP BY library_items.id
-  `).get(bookId) as {
-    id: string;
-    library_id: string;
-    title: string | null;
-    description: string | null;
-    year_published: number | null;
-    language: string | null;
-    cover_storage_key: string | null;
-    isbn: string | null;
-    asin: string | null;
-    publisher: string | null;
-    category_id: string | null;
-    author_names: string | null;
-    narrator_names: string | null;
-  } | undefined;
+  `).get(bookId) as BookMetadataRow | undefined;
 }
 
 function exportBookMetadata(bookId: string) {
@@ -341,7 +333,7 @@ export function updateManualMetadata(bookId: string, metadata: z.infer<typeof ma
 
   db.transaction(() => {
     const categoryId = metadata.categoryKey
-      ? (db.prepare("SELECT id FROM categories WHERE key = ?").get(metadata.categoryKey) as { id: string } | undefined)?.id ?? null
+      ? (db.prepare("SELECT id FROM categories WHERE key = ?").get(metadata.categoryKey) as Pick<CategoryRow, "id"> | undefined)?.id ?? null
       : null;
     db.prepare(`
       INSERT INTO item_metadata (
@@ -439,7 +431,7 @@ export function applyBulkMetadata(bookId: string, patch: z.infer<typeof bulkMeta
     db.prepare(`UPDATE item_metadata SET ${sets.join(", ")} WHERE item_id = ?`).run(...args, bookId);
 
     if (patch.categoryKey !== undefined) {
-      const categoryId = (db.prepare("SELECT id FROM categories WHERE key = ?").get(patch.categoryKey) as { id: string } | undefined)?.id ?? null;
+      const categoryId = (db.prepare("SELECT id FROM categories WHERE key = ?").get(patch.categoryKey) as Pick<CategoryRow, "id"> | undefined)?.id ?? null;
       db.prepare("DELETE FROM item_categories WHERE item_id = ? AND is_primary = 1").run(bookId);
       if (categoryId) {
         db.prepare("INSERT INTO item_categories (item_id, category_id, is_primary, source) VALUES (?, ?, 1, 'manual') ON CONFLICT(item_id, category_id) DO UPDATE SET is_primary = 1, source = 'manual'").run(bookId, categoryId);
@@ -460,6 +452,20 @@ export function applyBulkMetadata(bookId: string, patch: z.infer<typeof bulkMeta
   exportBookMetadata(bookId);
   return true;
 }
+
+type AudiobookBookDetailRow = AudiobookBookRow
+  & Pick<LibraryRow, "settings_json">
+  & Nullable<Pick<ItemMetadataRow, "description" | "year_published" | "isbn" | "openlibrary_id">>
+  & {
+    library_name: LibraryRow["name"];
+    series_name: SeriesRow["name"] | null;
+    series_id: SeriesRow["id"] | null;
+    series_position: SeriesItemRow["position"] | null;
+    metadata_source: ItemMetadataRow["source"] | null;
+    category_id: string | null;
+    work_id: string | null;
+    edition_count: number;
+  };
 
 export function getAudiobookBookDetail(id: string) {
   const book = db.prepare(`
@@ -516,24 +522,7 @@ export function getAudiobookBookDetail(id: string) {
     WHERE library_items.id = ?
       AND library_items.deleted_at IS NULL
     GROUP BY library_items.id
-  `).get(id) as (AudiobookBookRow & {
-    library_name: string;
-    settings_json: string;
-    series_name: string | null;
-    series_id: string | null;
-    series_position: number | null;
-    description: string | null;
-    year_published: number | null;
-    isbn: string | null;
-    asin: string | null;
-    publisher: string | null;
-    openlibrary_id: string | null;
-    category_id: string | null;
-    narrator_names: string | null;
-    metadata_source: "scan" | "manual";
-    work_id: string | null;
-    edition_count: number;
-  }) | undefined;
+  `).get(id) as AudiobookBookDetailRow | undefined;
 
   if (!book) {
     return null;
@@ -555,13 +544,7 @@ export function getAudiobookBookDetail(id: string) {
     JOIN audio_files ON audio_files.id = audio_chapters.audio_file_id
     WHERE audio_files.item_id = ?
     ORDER BY audio_chapters.audio_file_id, audio_chapters.ordinal
-  `).all(id) as {
-    id: string;
-    audio_file_id: string;
-    title: string;
-    start_seconds: number;
-    end_seconds: number | null;
-  }[];
+  `).all(id) as Pick<AudioChapterRow, "id" | "audio_file_id" | "title" | "start_seconds" | "end_seconds">[];
   const chaptersByFile = new Map<string, { id: string; title: string; startSeconds: number; endSeconds: number | null }[]>();
   for (const row of chapterRows) {
     const list = chaptersByFile.get(row.audio_file_id) ?? [];
@@ -574,7 +557,7 @@ export function getAudiobookBookDetail(id: string) {
     FROM document_files
     WHERE item_id = ? AND status = 'available'
     ORDER BY relative_path COLLATE NOCASE
-  `).all(id) as { id: string; relative_path: string; format: string; mime_type: string | null; size: number | null }[];
+  `).all(id) as Pick<DocumentFileRow, "id" | "relative_path" | "format" | "mime_type" | "size">[];
 
   return {
     id: book.id,
@@ -681,12 +664,13 @@ export const BOOK_LIST_JOINS = `
       LEFT JOIN item_saves ON item_saves.item_id = library_items.id AND item_saves.user_id = ?`;
 
 export type BookListRow = AudiobookBookRow & {
-  series_name: string | null;
-  series_position: number | null;
+  series_name: SeriesRow["name"] | null;
+  series_position: SeriesItemRow["position"] | null;
   category_id: string | null;
-  progress_percent: number | null;
-  progress_completed_at: string | null;
+  progress_percent: PlaybackProgressRow["percent_complete"] | null;
+  progress_completed_at: PlaybackProgressRow["completed_at"] | null;
   saved: number;
+  file_count: number;
   edition_count: number;
 };
 

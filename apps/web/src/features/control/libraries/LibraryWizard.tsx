@@ -349,15 +349,15 @@ export function LibraryWizard({
               aria-current={index === current ? "step" : undefined}
             >
               {done ? (
-                <button
-                  type="button"
+                <Button
+                  variant="bare"
                   className="wizard-step-jump"
                   onClick={() => { setError(""); setStepIndex(index); }}
                   title={t("control:libraries.wizard.backToStep", { step: stepTitle(key) })}
                 >
                   <span className="wizard-step-dot"><Check size={12} /></span>
                   <span className="wizard-step-label">{stepTitle(key)}</span>
-                </button>
+                </Button>
               ) : (
                 <>
                   <span className="wizard-step-dot">{index + 1}</span>
@@ -499,33 +499,30 @@ export function LibraryWizard({
           {advancedOpen && (
             <section className="library-advanced-inline" aria-label={t("control:libraries.wizard.advancedSettingsAria")}>
               <div className="modal-tabs" role="tablist" aria-label={t("control:libraries.wizard.advancedSettingsAria")}>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={advancedTab === "access"}
-                  className={`modal-tab${advancedTab === "access" ? " active" : ""}`}
+                <Button
+                  variant="tab"
+                  className="modal-tab"
+                  selected={advancedTab === "access"}
                   onClick={() => setAdvancedTab("access")}
                 >
                   {t("control:libraries.tabAccess")}
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={advancedTab === "upload"}
-                  className={`modal-tab${advancedTab === "upload" ? " active" : ""}`}
+                </Button>
+                <Button
+                  variant="tab"
+                  className="modal-tab"
+                  selected={advancedTab === "upload"}
                   onClick={() => setAdvancedTab("upload")}
                 >
                   {t("control:libraries.tabUpload")}
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={advancedTab === "scanning"}
-                  className={`modal-tab${advancedTab === "scanning" ? " active" : ""}`}
+                </Button>
+                <Button
+                  variant="tab"
+                  className="modal-tab"
+                  selected={advancedTab === "scanning"}
                   onClick={() => setAdvancedTab("scanning")}
                 >
                   {t("control:libraries.tabScanning")}
-                </button>
+                </Button>
               </div>
 
               <div className="modal-tab-content library-advanced-content">

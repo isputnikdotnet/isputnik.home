@@ -315,6 +315,8 @@ export function computeChartLayout(tree: FamilyTree, focusId: string): ChartLayo
   // ── Union badges + edges, from final positions ──
   const dots: PlacedUnionDot[] = [];
   const edgePaths: EdgePath[] = [];
+  // Brackets already drawn under each row, so a second one sits a lane lower.
+  const bracketLanes = new Map<number, number>();
   for (const union of tree.unions) {
     const p1 = union.person1Id ? placed.get(union.person1Id) : undefined;
     const p2 = union.person2Id ? placed.get(union.person2Id) : undefined;
@@ -322,8 +324,24 @@ export function computeChartLayout(tree: FamilyTree, focusId: string): ChartLayo
     let dot: PlacedUnionDot | null = null;
     if (p1 && p2 && p1.gen === p2.gen) {
       const [left, right] = p1.x <= p2.x ? [p1, p2] : [p2, p1];
-      dot = { unionId: union.id, x: (left.x + right.x) / 2, y: left.y, status: union.status };
-      edgePaths.push({ d: `M ${left.x + NODE_W / 2} ${left.y} H ${right.x - NODE_W / 2}`, ended });
+      const cardBetween = (rowsMap.get(left.gen) ?? []).some((n) => n.x > left.x && n.x < right.x);
+      if (!cardBetween) {
+        dot = { unionId: union.id, x: (left.x + right.x) / 2, y: left.y, status: union.status };
+        edgePaths.push({ d: `M ${left.x + NODE_W / 2} ${left.y} H ${right.x - NODE_W / 2}`, ended });
+      } else {
+        // A third (or later) partner: another spouse's card sits between the two,
+        // so a straight line and a midpoint badge would land ON that card and read
+        // as its union. Run a bracket under the row instead — down from each
+        // partner, across below the cards — with the badge under the far partner.
+        const lane = bracketLanes.get(left.gen) ?? 0;
+        bracketLanes.set(left.gen, lane + 1);
+        const underY = left.y + NODE_H / 2 + 14 + lane * 12;
+        dot = { unionId: union.id, x: right.x, y: underY, status: union.status };
+        // Three straight segments, like every other edge the chart draws.
+        edgePaths.push({ d: `M ${left.x} ${left.y + NODE_H / 2} V ${underY}`, ended });
+        edgePaths.push({ d: `M ${left.x} ${underY} H ${right.x}`, ended });
+        edgePaths.push({ d: `M ${right.x} ${right.y + NODE_H / 2} V ${underY}`, ended });
+      }
     } else {
       const solo = p1 ?? p2;
       // +14 clears the card edge by the badge's radius plus a hair.

@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../../shared/Button";
-import { cx } from "../../../shared/cx";
 import { Field } from "../../../shared/Field";
 import { MessageBox } from "../../../shared/MessageBox";
 import { Modal } from "../../../shared/Modal";
@@ -76,24 +75,22 @@ export function BulkEditModal({
     >
         <p className="muted">{t("book:catalog.bulkEditIntro")}</p>
         <div className="modal-tabs" role="tablist" aria-label={t("book:catalog.bulkEditSectionsAria")}>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === "details"}
-            className={cx("modal-tab", tab === "details" && "active")}
+          <Button
+            variant="tab"
+            className="modal-tab"
+            selected={tab === "details"}
             onClick={() => setTab("details")}
           >
             {t("book:catalog.tabDetails")}
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === "tags"}
-            className={cx("modal-tab", tab === "tags" && "active")}
+          </Button>
+          <Button
+            variant="tab"
+            className="modal-tab"
+            selected={tab === "tags"}
             onClick={() => setTab("tags")}
           >
             {t("book:catalog.tabTags")}
-          </button>
+          </Button>
         </div>
         <div className="modal-tab-content">
           {tab === "details" && (

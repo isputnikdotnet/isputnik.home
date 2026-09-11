@@ -81,7 +81,7 @@ function ResumeHero({ item, onRead, downloaded, onDownloaded, onDownload, onToas
   return (
     <section className="home-resume" aria-label={t("home.resumeAria")}>
       <div className="home-resume-card">
-        <button type="button" className="home-resume-main" onClick={resume} disabled={opening} aria-label={t("home.resume", { title: item.title })}>
+        <Button variant="bare" className="home-resume-main" onClick={resume} disabled={opening} aria-label={t("home.resume", { title: item.title })}>
           <span className="home-resume-cover">
             <img src={item.coverUrl ?? DEFAULT_COVERS[item.kind]} alt="" />
           </span>
@@ -96,21 +96,21 @@ function ResumeHero({ item, onRead, downloaded, onDownloaded, onDownload, onToas
               </span>
             )}
           </span>
-        </button>
+        </Button>
         <div className="home-resume-side">
           {mobile && (downloaded ? (
-            <button
-              type="button"
+            <Button
+              variant="bare"
               className="home-resume-dl is-saved"
               onClick={() => navigate("/downloads")}
               title={t("home.savedOffline")}
               aria-label={t("home.availableOffline")}
             >
               <HardDrive size={16} aria-hidden="true" />
-            </button>
+            </Button>
           ) : (
-            <button
-              type="button"
+            <Button
+              variant="bare"
               className="home-resume-dl"
               onClick={saveOffline}
               disabled={downloading}
@@ -120,10 +120,10 @@ function ResumeHero({ item, onRead, downloaded, onDownloaded, onDownload, onToas
               {downloading
                 ? <Loader2 size={16} className="home-feed-spin" aria-hidden="true" />
                 : <DownloadCloud size={16} aria-hidden="true" />}
-            </button>
+            </Button>
           ))}
-          <button
-            type="button"
+          <Button
+            variant="bare"
             className="home-resume-action"
             onClick={resume}
             disabled={opening}
@@ -135,7 +135,7 @@ function ResumeHero({ item, onRead, downloaded, onDownloaded, onDownload, onToas
               : isEbook
                 ? <BookOpen size={22} />
                 : <Play size={22} fill="currentColor" />}
-          </button>
+          </Button>
         </div>
       </div>
       {moreCount > 0 && (
@@ -177,9 +177,9 @@ function MemoryFeedCard({ card, onOpen }: { card: MemoryCard; onOpen: (year: num
       </header>
       <div className="home-memory-strip">
         {photos.map(({ item, year }) => (
-          <button
+          <Button
+            variant="tile"
             key={item.id}
-            type="button"
             className="home-memory-photo"
             onClick={() => onOpen(year, item.id)}
             aria-label={t("home.photosFromYear", { year })}
@@ -188,7 +188,7 @@ function MemoryFeedCard({ card, onOpen }: { card: MemoryCard; onOpen: (year: num
               ? <img src={item.coverUrl} alt="" loading="lazy" />
               : <span className="home-memory-fallback"><ImageIcon size={24} aria-hidden="true" /></span>}
             <em>{year}</em>
-          </button>
+          </Button>
         ))}
       </div>
       <p className="home-card-sub">
@@ -217,9 +217,9 @@ function PhotosAddedFeedCard({ card, onOpen }: { card: PhotosAddedCard; onOpen: 
       </header>
       <div className="home-memory-strip">
         {card.strip.map((item) => (
-          <button
+          <Button
+            variant="tile"
             key={item.id}
-            type="button"
             className="home-memory-photo"
             onClick={() => onOpen(item.id)}
             aria-label={t("home.openPhoto", { title: item.title })}
@@ -227,7 +227,7 @@ function PhotosAddedFeedCard({ card, onOpen }: { card: PhotosAddedCard; onOpen: 
             {item.coverUrl
               ? <img src={item.coverUrl} alt="" loading="lazy" />
               : <span className="home-memory-fallback"><ImageIcon size={24} aria-hidden="true" /></span>}
-          </button>
+          </Button>
         ))}
       </div>
       <p className="home-card-sub">{t("home.photosAddedSub", { count: card.count })}</p>
@@ -327,39 +327,39 @@ function QuoteFeedCard({ card }: { card: QuoteCard }) {
         </small>
         {/* Only worth offering once there is something to choose between. */}
         {quote.allCategories.length > 0 && (
-          <button
-            type="button"
-            className="icon-button home-quote-tune"
+          <Button
+            variant="icon"
+            className="home-quote-tune"
             onClick={() => setTuning(true)}
             aria-label={t("home.quotePrefsTitle")}
             title={t("home.quotePrefsTitle")}
           >
             <SlidersHorizontal size={15} />
-          </button>
+          </Button>
         )}
       </div>
       <blockquote className="home-quote-text">{quote.text}</blockquote>
       {byline && <p className="home-quote-byline">{byline}</p>}
       {quote.categories.length > 0 && (
         <div className="home-quote-categories" role="group" aria-label={t("home.quoteCategoryLabel")}>
-          <button
-            type="button"
+          <Button
+            variant="chip"
             className={`home-quote-category${active === "" ? " is-active" : ""}`}
             aria-pressed={active === ""}
             onClick={() => void choose("")}
           >
             {t("home.quoteAllCategories")}
-          </button>
+          </Button>
           {quote.categories.map((category) => (
-            <button
+            <Button
+              variant="chip"
               key={category}
-              type="button"
               className={`home-quote-category${active === category ? " is-active" : ""}`}
               aria-pressed={active === category}
               onClick={() => void choose(category)}
             >
               {category}
-            </button>
+            </Button>
           ))}
         </div>
       )}

@@ -7,7 +7,7 @@
   z-index: var(--z-viewer);
   display: flex;
   flex-direction: column;
-  font-family: var(--font, system-ui, sans-serif);
+  font-family: system-ui, sans-serif;
   --ebk-bg: #fbfbf6;
   --ebk-fg: #1a1a1a;
   --ebk-surface: rgba(0, 0, 0, 0.04);

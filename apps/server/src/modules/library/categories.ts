@@ -7,6 +7,7 @@ import type { FastifyInstance } from "fastify";
 import { db } from "../../db.js";
 import { categoryImageUrl, type CategoryRow } from "./shared/book-helpers.js";
 import { bookLibraryIds, crossTypeBooksByFilter } from "./feed.js";
+import type { ItemCategoryRow } from "../../db/rows.js";
 
 const placeholders = (n: number) => Array(n).fill("?").join(", ");
 
@@ -29,7 +30,7 @@ export function registerCategoryRoutes(app: FastifyInstance) {
         WHERE library_items.deleted_at IS NULL
           AND library_items.library_id IN (${placeholders(libIds.length)})
         GROUP BY item_categories.category_id
-      `).all(...libIds) as { category_id: string; n: number }[];
+      `).all(...libIds) as { category_id: ItemCategoryRow["category_id"]; n: number }[];
       for (const row of rows) counts.set(row.category_id, row.n);
     }
 

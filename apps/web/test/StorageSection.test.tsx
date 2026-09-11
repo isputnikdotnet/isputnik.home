@@ -65,7 +65,7 @@ function mount() {
 
 const appButtons = () => within(document.querySelector(".app-storage-buttons") as HTMLElement);
 
-beforeEach(() => mockApi.mockReset());
+beforeEach(() => { mockApi.mockReset(); });
 
 describe("changing the App storage folder while rooms use it", () => {
   it("lists each room in use with a tick, tells what leaving it means, and sends the choices", async () => {

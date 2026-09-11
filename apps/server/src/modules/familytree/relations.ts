@@ -5,6 +5,7 @@
 import { nanoid } from "nanoid";
 import { db } from "../../db.js";
 import { isAncestorOf, mapUnion, type FamilyUnionSummary } from "./persons.js";
+import type { FamilyTreeChildRow, FamilyTreeUnionRow } from "../../db/rows.js";
 
 export const UNION_STATUSES = ["married", "partners", "divorced", "widowed", "unknown"] as const;
 export const CHILD_RELATIONS = ["biological", "adopted", "step", "foster", "unknown"] as const;
@@ -18,16 +19,8 @@ export type RelationError =
   | "union_has_partner"
   | "would_create_cycle";
 
-interface UnionRow {
-  id: string;
-  person1_id: string;
-  person2_id: string | null;
-  status: string;
-  married_date: string | null;
-  married_place: string | null;
-  divorced_date: string | null;
-  note: string | null;
-}
+type UnionRow = Pick<FamilyTreeUnionRow,
+  "id" | "person1_id" | "person2_id" | "status" | "married_date" | "married_place" | "divorced_date" | "note">;
 
 function getUnionRow(unionId: string): UnionRow | null {
   const row = db.prepare(
@@ -102,7 +95,7 @@ export function setUnionPartner(
   if (union.person2_id) return { error: "union_has_partner" };
   if (partnerId === union.person1_id) return { error: "same_person" };
   const children = db.prepare("SELECT child_id FROM family_tree_children WHERE union_id = ?")
-    .all(unionId) as { child_id: string }[];
+    .all(unionId) as Pick<FamilyTreeChildRow, "child_id">[];
   for (const { child_id } of children) {
     if (child_id === partnerId) return { error: "child_is_partner" };
     // The new partner becomes a parent of every child in this union — the same

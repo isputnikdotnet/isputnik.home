@@ -213,15 +213,15 @@ export function AuthorListPage() {
                 )}
                 {hasBothTypes && (
                   <div className="kind-toggle" role="group" aria-label={t("book:people.filterByMediaTypeAria")}>
-                    <button type="button" className={kindFilter === "all" ? "is-active" : ""} onClick={() => setKindFilter("all")}>
+                    <Button variant="bare" className={kindFilter === "all" ? "is-active" : ""} aria-pressed={kindFilter === "all"} onClick={() => setKindFilter("all")}>
                       {t("common:common.all")}<span className="kind-toggle-count">{authors.length}</span>
-                    </button>
-                    <button type="button" className={kindFilter === "audiobook" ? "is-active" : ""} onClick={() => setKindFilter("audiobook")}>
+                    </Button>
+                    <Button variant="bare" className={kindFilter === "audiobook" ? "is-active" : ""} aria-pressed={kindFilter === "audiobook"} onClick={() => setKindFilter("audiobook")}>
                       <Headphones size={15} aria-hidden="true" />{t("common:nav.audiobooks")}<span className="kind-toggle-count">{audiobookAuthors}</span>
-                    </button>
-                    <button type="button" className={kindFilter === "ebook" ? "is-active" : ""} onClick={() => setKindFilter("ebook")}>
+                    </Button>
+                    <Button variant="bare" className={kindFilter === "ebook" ? "is-active" : ""} aria-pressed={kindFilter === "ebook"} onClick={() => setKindFilter("ebook")}>
                       <BookOpen size={15} aria-hidden="true" />{t("common:nav.ebooks")}<span className="kind-toggle-count">{ebookAuthors}</span>
-                    </button>
+                    </Button>
                   </div>
                 )}
               </>
@@ -257,7 +257,8 @@ export function AuthorListPage() {
         ) : (
           <div className="person-grid">
             {shown.map((author) => (
-              <button
+              <Button
+                variant="tile"
                 key={author.name}
                 className="person-card"
                 onClick={() => navigate(`/people/${encodeURIComponent(author.name)}?from=${encodeURIComponent(backHref)}`)}
@@ -269,7 +270,7 @@ export function AuthorListPage() {
                   <strong>{author.name}</strong>
                   <span>{t("book:catalog.counts.title", { count: cardCount(author) })}</span>
                 </div>
-              </button>
+              </Button>
             ))}
           </div>
         )}

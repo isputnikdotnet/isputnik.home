@@ -228,10 +228,10 @@ export function SeriesDetailPage({
     return (
       <DashboardShell active={kind === "ebook" ? "ebooks" : "audiobooks"} sideNav={sideNav}>
         <section className="audiobook-main-page">
-          <button className="audiobook-back-button" type="button" onClick={() => goBack(backTo ?? `${base}/series`)}>
+          <Button variant="bare" className="audiobook-back-button" onClick={() => goBack(backTo ?? `${base}/series`)}>
             <ArrowLeft size={17} aria-hidden="true" />
             <span>{backTo ? t("book:catalog.back") : t("book:series.backToSeries")}</span>
-          </button>
+          </Button>
           <MessageBox tone="error" title={t("book:detail.errorTitle")}>{error}</MessageBox>
         </section>
       </DashboardShell>
@@ -259,33 +259,33 @@ export function SeriesDetailPage({
   return (
     <DashboardShell active={kind === "ebook" ? "ebooks" : "audiobooks"} sideNav={sideNav}>
       <section className="audiobook-main-page">
-        <button className="audiobook-back-button" type="button" onClick={() => goBack(backTo ?? `${base}/series`)}>
+        <Button variant="bare" className="audiobook-back-button" onClick={() => goBack(backTo ?? `${base}/series`)}>
           <ArrowLeft size={17} aria-hidden="true" />
           <span>{backTo ? t("book:catalog.back") : t("book:series.backToSeries")}</span>
-        </button>
+        </Button>
 
         <div className="series-detail-head">
           <div className="series-name-edit">
             <h1>{series.name}</h1>
-            <button className="icon-button" onClick={openEditModal} aria-label={t("book:series.editSeriesAria")}>
+            <Button variant="icon" onClick={openEditModal} aria-label={t("book:series.editSeriesAria")}>
               <Pencil size={16} />
-            </button>
+            </Button>
           </div>
           <p className="muted series-library-label">{series.libraryName}</p>
           {series.description && <p className="series-description">{series.description}</p>}
         </div>
 
         <div className="series-detail-actions">
-          <button className="secondary-button" onClick={openAddModal}>
+          <Button variant="secondary" onClick={openAddModal}>
             <Plus size={16} /> {t("book:series.addBooks")}
-          </button>
-          <button className="primary-button" onClick={saveBooks} disabled={saving || !isDirty}>
+          </Button>
+          <Button variant="primary" onClick={saveBooks} disabled={saving || !isDirty}>
             <Save size={16} /> {saving ? t("book:detail.saving") : t("book:person.saveChanges")}
-          </button>
+          </Button>
           {isDirty && <span className="series-unsaved-badge">{t("book:series.unsavedChanges")}</span>}
-          <button className="secondary-button" onClick={() => setDeleteConfirm(true)} style={{ marginLeft: "auto" }}>
+          <Button variant="secondary" onClick={() => setDeleteConfirm(true)} style={{ marginLeft: "auto" }}>
             <Trash2 size={16} /> {t("book:series.deleteSeriesButton")}
-          </button>
+          </Button>
         </div>
 
         {saveError && <MessageBox tone="error" title={t("book:series.saveErrorTitle")}>{saveError}</MessageBox>}
@@ -319,14 +319,14 @@ export function SeriesDetailPage({
                   {book.coverUrl ? <img src={book.coverUrl} alt="" /> : <BookOpen size={14} />}
                 </div>
                 <div className="series-book-info">
-                  <button className="series-book-title-link" onClick={() => navigate(`${base}/books/${book.id}`)}>
+                  <Button variant="bare" className="series-book-title-link" onClick={() => navigate(`${base}/books/${book.id}`)}>
                     {book.title}
-                  </button>
+                  </Button>
                   {book.authors.length > 0 && <span>{book.authors.join(", ")}</span>}
                 </div>
-                <button className="icon-button danger" onClick={() => removeBook(book.id)} aria-label={t("book:series.removeFromSeriesAria")}>
+                <Button variant="icon" danger onClick={() => removeBook(book.id)} aria-label={t("book:series.removeFromSeriesAria")}>
                   <X size={16} />
-                </button>
+                </Button>
               </div>
             ))}
           </div>
@@ -364,9 +364,9 @@ export function SeriesDetailPage({
                     />
                   </label>
                   {(coverPreview ?? (!removeCover ? series.coverUrl : null)) && (
-                    <button type="button" className="secondary-button compact-button" onClick={clearCover}>
+                    <Button variant="secondary" compact onClick={clearCover}>
                       <X size={15} /> {t("book:series.removeCover")}
-                    </button>
+                    </Button>
                   )}
                 </div>
               </div>

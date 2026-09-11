@@ -1,32 +1,34 @@
+/* The global stylesheet — all of it ships on every route, the sign-in page
+   included. The order below is the cascade: read docs/css-map.md before moving
+   a line.
+
+   A stylesheet that belongs to one lazily loaded page is not listed here. That
+   page's module imports it, so it arrives with the page and loads after all of
+   this (docs/css-map.md, "Page stylesheets"). */
 @import "./styles/tokens.css";
 @import "./styles/base.css";
 @import "./styles/auth.css";
 @import "./styles/layout.css";
 @import "./styles/components.css";
 @import "./styles/home.css";
+@import "./styles/themes/sputnik-home.css";
 @import "./styles/player.css";
+@import "./styles/themes/sputnik-player.css";
 @import "./styles/audio.css";
 @import "./styles/library-browse.css";
 @import "./styles/gallery.css";
-@import "./styles/review.css";
 @import "./styles/family-tree.css";
 @import "./styles/library-collections.css";
 @import "./styles/stories.css";
 @import "./styles/book-detail.css";
 @import "./styles/category-images.css";
-@import "./styles/book-media.css";
 @import "./styles/ebook-reader.css";
 @import "./styles/metadata-modal.css";
-@import "./styles/person-edit.css";
-@import "./styles/admin.css";
-@import "./styles/scan-layout.css";
-@import "./styles/welcome.css";
-@import "./styles/duplicates.css";
+@import "./styles/admin-shared.css";
 @import "./styles/about.css";
 @import "./styles/share.css";
 @import "./styles/social.css";
 @import "./styles/filter.css";
-@import "./styles/install.css";
 @import "./styles/offline.css";
 @import "./styles/theme-picker.css";
 @import "./styles/responsive.css";

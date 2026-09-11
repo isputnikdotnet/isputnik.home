@@ -3,6 +3,7 @@ import { db } from "../../../../db.js";
 import { sha256 } from "../../../../crypto.js";
 import { addDays } from "../../../../auth.js";
 import { canUserAccessLibrary, canUserCurateLibrary, getLibraryForBook } from "../library-access.js";
+import type { GalleryDetailRow, ItemMetadataRow, LibraryItemRow, LibraryRow, Nullable } from "../../../../db/rows.js";
 
 // --- Gallery "quick links": one guest link over a snapshot of selected assets ---
 // module 'gallery_set'; resource_id self-references the link id (there is no
@@ -60,18 +61,9 @@ export function createGallerySetShare(
   return { shareId, token, expiresAt, itemCount: included.length, skipped };
 }
 
-export interface GallerySetItemRow {
-  id: string;
-  title: string | null;
-  folder_path: string;
-  kind: string;
-  width: number | null;
-  height: number | null;
-  duration_seconds: number | null;
-  taken_at: string | null;
-  cover_storage_key: string | null;
-  preview_storage_key: string | null;
-}
+export type GallerySetItemRow = Pick<LibraryItemRow, "id" | "folder_path">
+  & Pick<GalleryDetailRow, "kind" | "width" | "height" | "duration_seconds" | "taken_at" | "preview_storage_key">
+  & Nullable<Pick<ItemMetadataRow, "title" | "cover_storage_key">>;
 
 // The live members of a set link, in share order. Soft-deleted items drop out
 // (and come back if restored from the Recycle Bin); hard deletes cascade away.
@@ -100,14 +92,10 @@ export function loadGallerySetItems(linkId: string): GallerySetItemRow[] {
 // Every live member of a set link with its on-disk path — for the "download all"
 // zip. Source path is per-library (a set can span libraries), so it's joined per
 // row. Soft-deleted items drop out, same as the public listing.
-export interface GallerySetFileRow {
-  id: string;
-  title: string | null;
-  folder_path: string;
-  relative_path: string;
-  kind: string;
-  source_path: string;
-}
+export type GallerySetFileRow = Pick<LibraryItemRow, "id" | "folder_path">
+  & Pick<GalleryDetailRow, "relative_path" | "kind">
+  & Pick<LibraryRow, "source_path">
+  & Nullable<Pick<ItemMetadataRow, "title">>;
 
 export function loadGallerySetFiles(linkId: string): GallerySetFileRow[] {
   return db.prepare(`
@@ -128,6 +116,12 @@ export function loadGallerySetFiles(linkId: string): GallerySetFileRow[] {
   `).all(linkId) as GallerySetFileRow[];
 }
 
+/** A set link's (or a live album share's) member as the media routes read it. */
+export type GallerySetMediaRow = Pick<LibraryItemRow, "folder_path">
+  & Pick<GalleryDetailRow, "kind" | "relative_path" | "mime_type" | "preview_storage_key">
+  & Pick<LibraryRow, "source_path">
+  & Nullable<Pick<ItemMetadataRow, "title" | "cover_storage_key">>;
+
 // One member of a set link with everything the media routes need. The WHERE on
 // share_link_items IS the authorization: an item id outside this link 404s.
 export function loadGallerySetMediaItem(linkId: string, itemId: string) {
@@ -147,14 +141,5 @@ export function loadGallerySetMediaItem(linkId: string, itemId: string) {
     JOIN libraries ON libraries.id = library_items.library_id
     LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
     WHERE share_link_items.share_link_id = ? AND share_link_items.item_id = ?
-  `).get(linkId, itemId) as {
-    folder_path: string;
-    kind: string;
-    relative_path: string;
-    mime_type: string | null;
-    title: string | null;
-    cover_storage_key: string | null;
-    preview_storage_key: string | null;
-    source_path: string;
-  } | undefined;
+  `).get(linkId, itemId) as GallerySetMediaRow | undefined;
 }

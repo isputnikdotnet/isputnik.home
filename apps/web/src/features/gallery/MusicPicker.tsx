@@ -7,6 +7,7 @@ import { Modal } from "../../shared/Modal";
 import { MessageBox } from "../../shared/MessageBox";
 import type { GalleryMusicTrack } from "./types";
 import { CLIP_LENGTH, formatClock } from "../../shared/formatClock";
+import { Button } from "../../shared/Button";
 
 // Choose the music for a slideshow: the user's uploaded tracks, with in-place
 // preview, upload, and delete (own uploads / admin). Selecting a track (or "No
@@ -122,25 +123,25 @@ export function MusicPicker({
 
   const row = (track: GalleryMusicTrack) => (
     <li key={track.id} className={`music-row${selectedId === track.id ? " is-selected" : ""}`}>
-      <button
-        type="button"
+      <Button
+        variant="bare"
         className="music-row-preview"
         onClick={() => togglePreview(track)}
         aria-label={previewingId === track.id ? t("gallery:musicPicker.stopPreviewAria", { title: track.title }) : t("gallery:musicPicker.previewAria", { title: track.title })}
         title={previewingId === track.id ? t("gallery:musicPicker.stopPreview") : t("gallery:musicPicker.preview")}
       >
         {previewingId === track.id ? <Pause size={16} /> : <Play size={16} />}
-      </button>
-      <button type="button" className="music-row-main" onClick={() => onSelect(track.id)}>
+      </Button>
+      <Button variant="bare" className="music-row-main" onClick={() => onSelect(track.id)}>
         <span className="music-row-title">{track.title}</span>
         <span className="music-row-meta">
           {t("gallery:musicPicker.yourUpload")}{track.durationSeconds != null ? ` · ${formatClock(track.durationSeconds, CLIP_LENGTH)}` : ""}
         </span>
-      </button>
+      </Button>
       {selectedId === track.id && <Check size={18} className="music-row-check" aria-label={t("gallery:musicPicker.selectedAria")} />}
-      <button type="button" className="music-row-delete" onClick={() => { setDeleteError(""); setPendingDelete(track); }} aria-label={t("gallery:musicPicker.deleteTrackAria", { title: track.title })} title={t("gallery:musicPicker.deleteTrackTitle")}>
+      <Button variant="bare" className="music-row-delete" onClick={() => { setDeleteError(""); setPendingDelete(track); }} aria-label={t("gallery:musicPicker.deleteTrackAria", { title: track.title })} title={t("gallery:musicPicker.deleteTrackTitle")}>
         <Trash2 size={15} />
-      </button>
+      </Button>
     </li>
   );
 
@@ -152,9 +153,9 @@ export function MusicPicker({
         {error && <MessageBox tone="error" title={t("gallery:musicPicker.errorTitle")}>{error}</MessageBox>}
         {notice && <MessageBox tone="info" title={t("gallery:musicPicker.skippedTitle")}>{notice}</MessageBox>}
         <div className="music-picker-actions">
-          <button type="button" className="secondary-button compact-button" onClick={() => fileRef.current?.click()} disabled={uploading}>
+          <Button variant="secondary" compact onClick={() => fileRef.current?.click()} disabled={uploading}>
             <UploadCloud size={16} aria-hidden="true" /> {uploading ? t("gallery:musicPicker.uploading") : t("gallery:musicPicker.uploadTracks")}
-          </button>
+          </Button>
           <input
             ref={fileRef}
             type="file"
@@ -170,10 +171,10 @@ export function MusicPicker({
         <ul className="music-list">
           <li className={`music-row${selectedId == null ? " is-selected" : ""}`}>
             <span className="music-row-preview is-static" aria-hidden="true"><VolumeX size={16} /></span>
-            <button type="button" className="music-row-main" onClick={() => onSelect(null)}>
+            <Button variant="bare" className="music-row-main" onClick={() => onSelect(null)}>
               <span className="music-row-title">{t("gallery:musicPicker.noMusic")}</span>
               <span className="music-row-meta">{t("gallery:musicPicker.playSilent")}</span>
-            </button>
+            </Button>
             {selectedId == null && <Check size={18} className="music-row-check" aria-label={t("gallery:musicPicker.selectedAria")} />}
           </li>
         </ul>

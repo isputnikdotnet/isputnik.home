@@ -130,8 +130,8 @@ export function AlbumsView({
             ) : (
               <form className="gallery-person-rename" onSubmit={(event) => { event.preventDefault(); if (albumRename.trim()) void patchAlbum(selectedAlbum.id, { name: albumRename.trim() }); }}>
                 <input value={albumRename} onChange={(event) => setAlbumRename(event.target.value)} placeholder={t("gallery:albums.namePlaceholder")} autoFocus maxLength={120} />
-                <button type="submit" className="primary-button compact-button" disabled={!albumRename.trim()}>{t("gallery:common.save")}</button>
-                <button type="button" className="icon-button" onClick={() => setAlbumRename(null)} aria-label={t("common:common.cancel")}><X size={14} aria-hidden="true" /></button>
+                <Button variant="primary" compact type="submit" disabled={!albumRename.trim()}>{t("gallery:common.save")}</Button>
+                <Button variant="icon" onClick={() => setAlbumRename(null)} aria-label={t("common:common.cancel")}><X size={14} aria-hidden="true" /></Button>
               </form>
             )}
             <p className="gallery-album-sub">
@@ -171,9 +171,9 @@ export function AlbumsView({
         )}
         {albumAssets.length < albumTotal && (
           <div style={{ display: "flex", justifyContent: "center", padding: "16px 0" }}>
-            <button type="button" className="secondary-button" onClick={() => void openAlbum(selectedAlbum.id, albumAssets.length)} disabled={loading}>
+            <Button variant="secondary" onClick={() => void openAlbum(selectedAlbum.id, albumAssets.length)} disabled={loading}>
               {loading ? t("gallery:common.loading") : t("gallery:common.loadMore")}
-            </button>
+            </Button>
           </div>
         )}
 
@@ -198,13 +198,13 @@ export function AlbumsView({
       {shownAlbums.length > 0 && (
         <div className="gallery-folder-grid">
           {shownAlbums.map((album) => (
-            <button key={album.id} type="button" className="gallery-folder-tile" onClick={() => { setAlbumAssets([]); setAlbumTotal(0); void openAlbum(album.id); }}>
+            <Button variant="tile" key={album.id} className="gallery-folder-tile" onClick={() => { setAlbumAssets([]); setAlbumTotal(0); void openAlbum(album.id); }}>
               <span className="gallery-folder-thumb">
                 {album.coverUrl ? <img src={album.coverUrl} alt="" loading="lazy" /> : <Album size={28} aria-hidden="true" />}
               </span>
               <strong>{album.name}</strong>
               <small>{t("gallery:common.counts.item", { count: album.itemCount })}</small>
-            </button>
+            </Button>
           ))}
         </div>
       )}

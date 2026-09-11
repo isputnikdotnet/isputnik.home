@@ -15,6 +15,7 @@ import { useIsMobile } from "../../shared/useIsMobile";
 import type { GalleryAsset, SlideshowTransition } from "./types";
 import { formatTakenDate } from "./taken-date";
 import { CLIP_LENGTH, formatClock } from "../../shared/formatClock";
+import { Button } from "../../shared/Button";
 
 
 // Uppercase file extension (e.g. "MVI_1263.AVI" → "AVI") for the unplayable notice.
@@ -509,10 +510,10 @@ export function GalleryLightbox({
         <a.icon size={18} aria-hidden="true" />
       </a>
     ) : (
-      <button
+      <Button
+        variant="bare"
         key={a.key}
         className={`gallery-lightbox-action${a.active ? " is-on" : ""}`}
-        type="button"
         onClick={a.onClick}
         disabled={a.disabled}
         aria-pressed={a.active}
@@ -522,7 +523,7 @@ export function GalleryLightbox({
         title={a.hint ? `${a.label} (${a.hint})` : a.label}
       >
         <a.icon size={18} fill={a.key === "like" && a.active ? "currentColor" : "none"} aria-hidden="true" />
-      </button>
+      </Button>
     );
 
   const renderMenuItem = (a: LightboxAction) =>
@@ -539,9 +540,9 @@ export function GalleryLightbox({
         <span>{a.label}</span>
       </a>
     ) : (
-      <button
+      <Button
+        variant="bare"
         key={a.key}
-        type="button"
         role="menuitem"
         onClick={() => { setMoreMenuOpen(false); a.onClick?.(); }}
         disabled={a.disabled}
@@ -549,7 +550,7 @@ export function GalleryLightbox({
       >
         <a.icon size={16} aria-hidden="true" />
         <span>{a.label}</span>
-      </button>
+      </Button>
     );
 
   return createPortal(
@@ -561,9 +562,9 @@ export function GalleryLightbox({
             itself is right below, and the name reads as crowding the bar). */}
         {isMobile ? (
           <>
-            <button className="gallery-lightbox-action" type="button" onClick={onClose} aria-label={t("gallery:common.back")} title={t("gallery:common.back")}>
+            <Button variant="bare" className="gallery-lightbox-action" onClick={onClose} aria-label={t("gallery:common.back")} title={t("gallery:common.back")}>
               <ArrowLeft size={18} aria-hidden="true" />
-            </button>
+            </Button>
             <span className="gallery-lightbox-divider" aria-hidden="true" />
           </>
         ) : (
@@ -578,29 +579,29 @@ export function GalleryLightbox({
         <div className="gallery-lightbox-actions">
           {canSlideshow && (
             <>
-              <button
+              <Button
+                variant="bare"
                 className={`gallery-lightbox-action${playing ? " is-on" : ""}`}
-                type="button"
                 onClick={() => setPlaying((v) => !v)}
                 aria-pressed={playing}
                 aria-label={playing ? t("gallery:lightbox.pauseSlideshow") : t("gallery:lightbox.playSlideshow")}
                 title={playing ? t("gallery:lightbox.pauseSlideshow") : t("gallery:lightbox.playSlideshow")}
               >
                 {playing ? <Pause size={18} aria-hidden="true" /> : <Play size={18} aria-hidden="true" />}
-              </button>
+              </Button>
               {playing && (
                 <div className="gallery-lightbox-speed" role="group" aria-label={t("gallery:lightbox.speedGroupAria")}>
                   {SLIDESHOW_INTERVALS.map((sec) => (
-                    <button
+                    <Button
+                      variant="bare"
                       key={sec}
-                      type="button"
                       className={intervalSec === sec ? "is-on" : ""}
                       onClick={() => setIntervalSec(sec)}
                       aria-pressed={intervalSec === sec}
                       title={t("gallery:lightbox.secondsPerPhotoTitle", { sec })}
                     >
                       {sec}s
-                    </button>
+                    </Button>
                   ))}
                 </div>
               )}
@@ -609,9 +610,9 @@ export function GalleryLightbox({
           {visibleActions.map(renderAction)}
           {overflowActions.length > 0 && (
             <div className="gallery-lightbox-menu-wrap" ref={moreMenuRef}>
-              <button
+              <Button
+                variant="bare"
                 className="gallery-lightbox-action"
-                type="button"
                 onClick={() => setMoreMenuOpen((open) => !open)}
                 aria-haspopup="menu"
                 aria-expanded={moreMenuOpen}
@@ -619,7 +620,7 @@ export function GalleryLightbox({
                 title={t("gallery:lightbox.moreActionsAria")}
               >
                 <MoreVertical size={18} aria-hidden="true" />
-              </button>
+              </Button>
               {moreMenuOpen && (
                 <div className="gallery-lightbox-menu" role="menu" aria-label={t("gallery:lightbox.moreActionsAria")}>
                   {overflowActions.map(renderMenuItem)}
@@ -628,18 +629,18 @@ export function GalleryLightbox({
             </div>
           )}
           {!isMobile && (
-            <button className="gallery-lightbox-action" type="button" onClick={onClose} aria-label={t("common:common.close")} title={t("common:common.close")}>
+            <Button variant="bare" className="gallery-lightbox-action" onClick={onClose} aria-label={t("common:common.close")} title={t("common:common.close")}>
               <X size={18} aria-hidden="true" />
-            </button>
+            </Button>
           )}
         </div>
       </div>
 
       <div className="gallery-lightbox-stage" ref={stageRef}>
         {hasPrev && (
-          <button className="gallery-lightbox-nav prev" type="button" onClick={() => onIndexChange(index - 1)} aria-label={t("gallery:lightbox.previousAria")}>
+          <Button variant="bare" className="gallery-lightbox-nav prev" onClick={() => onIndexChange(index - 1)} aria-label={t("gallery:lightbox.previousAria")}>
             <ChevronLeft size={26} aria-hidden="true" />
-          </button>
+          </Button>
         )}
         {underlay && underlay.id !== asset.id && (
           <img
@@ -696,14 +697,14 @@ export function GalleryLightbox({
               />
               {videoRotation !== 0 && (
                 <div className="gallery-video-controls">
-                  <button
-                    type="button"
+                  <Button
+                    variant="bare"
                     onClick={toggleVideoPlay}
                     aria-label={vidPlaying ? t("gallery:common.pause") : t("gallery:common.play")}
                     title={vidPlaying ? t("gallery:common.pause") : t("gallery:common.play")}
                   >
                     {vidPlaying ? <Pause size={16} aria-hidden="true" /> : <Play size={16} aria-hidden="true" />}
-                  </button>
+                  </Button>
                   <span className="gallery-video-time">{formatClock(vidTime, CLIP_LENGTH)}</span>
                   <input
                     type="range"
@@ -719,14 +720,14 @@ export function GalleryLightbox({
                     aria-label={t("gallery:lightbox.seekAria")}
                   />
                   <span className="gallery-video-time">{formatClock(vidDuration, CLIP_LENGTH)}</span>
-                  <button
-                    type="button"
+                  <Button
+                    variant="bare"
                     onClick={() => setVidMuted((m) => !m)}
                     aria-label={vidMuted ? t("gallery:lightbox.unmute") : t("gallery:lightbox.mute")}
                     title={vidMuted ? t("gallery:lightbox.unmute") : t("gallery:lightbox.mute")}
                   >
                     {vidMuted ? <VolumeX size={16} aria-hidden="true" /> : <Volume2 size={16} aria-hidden="true" />}
-                  </button>
+                  </Button>
                 </div>
               )}
             </>
@@ -761,9 +762,9 @@ export function GalleryLightbox({
           />
         )}
         {hasNext && (
-          <button className="gallery-lightbox-nav next" type="button" onClick={() => onIndexChange(index + 1)} aria-label={t("gallery:lightbox.nextAria")}>
+          <Button variant="bare" className="gallery-lightbox-nav next" onClick={() => onIndexChange(index + 1)} aria-label={t("gallery:lightbox.nextAria")}>
             <ChevronRight size={26} aria-hidden="true" />
-          </button>
+          </Button>
         )}
       </div>
 

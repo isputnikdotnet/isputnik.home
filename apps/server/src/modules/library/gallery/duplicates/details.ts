@@ -1,30 +1,20 @@
 import { db } from "../../../../db.js";
 import { ID_CHUNK } from "./items.js";
+import type { GalleryDetailRow, ItemMetadataRow, LibraryItemRow, LibraryRow, Nullable } from "../../../../db/rows.js";
 
 // ────────────────────────────────────────────────────────────────────────────
 //  Keeper scoring
 // ────────────────────────────────────────────────────────────────────────────
 
-export interface DetailRow {
-  item_id: string;
-  kind: string;
-  library_id: string;
-  library_name: string;
-  relative_path: string;
-  discovered_at: string;
-  size: number | null;
-  width: number | null;
-  height: number | null;
-  taken_at: string | null;
-  taken_at_source: string;
-  gps_source: string;
-  camera_make: string | null;
-  camera_model: string | null;
-  content_hash: string | null;
-  title: string | null;
-  metadata_source: string | null;
-  cover_storage_key: string | null;
-  preview_storage_key: string | null;
+export interface DetailRow
+  extends Pick<GalleryDetailRow,
+    "item_id" | "kind" | "relative_path" | "size" | "width" | "height" | "taken_at" | "taken_at_source"
+    | "gps_source" | "camera_make" | "camera_model" | "content_hash" | "preview_storage_key">,
+  Pick<LibraryItemRow, "library_id" | "discovered_at">,
+  Nullable<Pick<ItemMetadataRow, "title" | "cover_storage_key">> {
+  library_name: LibraryRow["name"];
+  metadata_source: ItemMetadataRow["source"] | null;
+  // Filled by the grouped counts below, not by the SELECT.
   face_count: number;
   album_count: number;
   slideshow_count: number;

@@ -278,9 +278,9 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
       {notice && <MessageBox tone="success" title={t("galleryModals:faceSettings.startedTitle")}>{notice}</MessageBox>}
 
       <div className="modal-tabs" role="tablist">
-        <button type="button" role="tab" aria-selected={tab === "libraries"} className={`modal-tab${tab === "libraries" ? " active" : ""}`} onClick={() => setTab("libraries")}>{t("galleryModals:faceSettings.tabLibraries")}</button>
-        <button type="button" role="tab" aria-selected={tab === "grouping"} className={`modal-tab${tab === "grouping" ? " active" : ""}`} onClick={() => setTab("grouping")}>{t("galleryModals:faceSettings.tabGrouping")}</button>
-        <button type="button" role="tab" aria-selected={tab === "health"} className={`modal-tab${tab === "health" ? " active" : ""}`} onClick={() => setTab("health")}>{t("galleryModals:faceSettings.tabHealth")}</button>
+        <Button variant="tab" className="modal-tab" selected={tab === "libraries"} onClick={() => setTab("libraries")}>{t("galleryModals:faceSettings.tabLibraries")}</Button>
+        <Button variant="tab" className="modal-tab" selected={tab === "grouping"} onClick={() => setTab("grouping")}>{t("galleryModals:faceSettings.tabGrouping")}</Button>
+        <Button variant="tab" className="modal-tab" selected={tab === "health"} onClick={() => setTab("health")}>{t("galleryModals:faceSettings.tabHealth")}</Button>
       </div>
 
       <div className="modal-tab-content">

@@ -110,7 +110,8 @@ COPY --from=prod-deps /build/node_modules ./node_modules
 # future-proof: any later non-hoisted server dep comes along automatically.
 COPY --from=prod-deps /build/apps/server/node_modules ./apps/server/node_modules
 
-# Compiled server
+# Compiled server — with the data files its build copies in beside the .js
+# (db/schema.sql, changelog.json, assets/); the server will not boot without them.
 COPY --from=server-build /build/apps/server/dist ./apps/server/dist
 
 # ONNX face-recognition models (InsightFace: SCRFD-500MF detector + ArcFace

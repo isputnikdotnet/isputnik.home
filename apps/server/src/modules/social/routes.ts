@@ -29,6 +29,7 @@ import {
 import { canEditStory, getStory } from "../stories/access.js";
 import { hydrateEntities, hydrateOne, isSubjectEntityType, type HydratedEntity } from "./subjects.js";
 import { notifyRecommendationSent } from "./notify.js";
+import type { RecommendationRow as DbRecommendationRow, UserRow } from "../../db/rows.js";
 
 // Entity types that are rows in library_items, and so can be liked. A
 // family-tree person, an album and a slideshow are sendable and note-able, but
@@ -104,38 +105,18 @@ const sendSchema = z.object({
   askNotes: z.boolean().optional()
 });
 
-interface CandidateRow {
-  id: string;
-  display_name: string;
-  role: string;
-}
+type CandidateRow = Pick<UserRow, "id" | "display_name" | "role">;
 
 // Same row plus the address, for the picker: two people called Sergey are told
 // apart by their email and nothing else. hydrateOne only ever reads id and role,
 // so the wider row is safe to pass it.
-interface CandidateWithEmailRow extends CandidateRow {
-  email: string;
-}
+type CandidateWithEmailRow = CandidateRow & Pick<UserRow, "email">;
 
-interface RecommendationRow {
-  id: string;
-  from_user_id: string | null;
-  to_user_id: string;
-  entity_type: string;
-  entity_id: string;
-  message: string | null;
-  status: string;
-  subject_title: string | null;
-  from_name: string | null;
-  created_at: string;
-  seen_at: string | null;
-  ask_notes: number;
-}
+/** A whole `recommendations` row. */
+type RecommendationRow = DbRecommendationRow;
 
 function displayName(userId: string): string {
-  const row = db.prepare("SELECT display_name FROM users WHERE id = ?").get(userId) as
-    | { display_name: string }
-    | undefined;
+  const row = db.prepare("SELECT display_name FROM users WHERE id = ?").get(userId) as Pick<UserRow, "display_name"> | undefined;
   return row?.display_name ?? "Someone";
 }
 
@@ -226,7 +207,7 @@ export async function socialPlugin(app: FastifyInstance) {
       (db.prepare(`
         SELECT to_user_id FROM recommendations
         WHERE from_user_id = ? AND entity_type = ? AND entity_id = ?
-      `).all(user.id, query.entityType, query.entityId) as { to_user_id: string }[])
+      `).all(user.id, query.entityType, query.entityId) as Pick<DbRecommendationRow, "to_user_id">[])
         .map((row) => row.to_user_id)
     );
 
@@ -251,9 +232,7 @@ export async function socialPlugin(app: FastifyInstance) {
     // The e-reader row is the caller's own device, and only for books. Not set
     // up yet is still worth showing — it is better discovery than burying the
     // address in Profile, which is where it lives today.
-    const self = db.prepare("SELECT ereader_email FROM users WHERE id = ?").get(user.id) as
-      | { ereader_email: string | null }
-      | undefined;
+    const self = db.prepare("SELECT ereader_email FROM users WHERE id = ?").get(user.id) as Pick<UserRow, "ereader_email"> | undefined;
 
     return reply.send({
       subject: {

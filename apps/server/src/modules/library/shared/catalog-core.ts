@@ -1,5 +1,6 @@
 import { db } from "../../../db.js";
 import { canUserAccessLibrary } from "./library-access.js";
+import type { LibraryRow as DbLibraryRow } from "../../../db/rows.js";
 
 // Generic, server-side book catalog engine shared by every library type. The
 // type-specific SQL (which progress/size tables to join, which sorts/facets
@@ -65,9 +66,7 @@ export interface CatalogConfig<Row = Record<string, unknown>, Mapped = unknown> 
 
 const placeholders = (n: number) => Array(n).fill("?").join(", ");
 
-interface LibraryRow {
-  id: string;
-}
+type LibraryRow = Pick<DbLibraryRow, "id">;
 
 // Library ids the user can see for a scope:
 //   all      → every accessible library of this type
