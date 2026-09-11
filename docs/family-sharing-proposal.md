@@ -1,7 +1,8 @@
 # Family sharing — proposal
 
-Status: **Phases 0 to 3 are BUILT.** Phase 4 (ratings) remains a proposal and may
-never be worth building; Collections were **closed on 2026-08-23** — no further
+Status: phases 0–3 shipped from v3.19.0 (2026-08-22) on; kept while one phase is
+open. Open: phase 4 (ratings), which remains a proposal and may never be worth
+building; Collections were **closed on 2026-08-23** — no further
 work, see that section. Companion to
 [sharing.md](sharing.md) and [library-sharing.md](library-sharing.md), which
 describe the guest-link and per-user grants that exist today.
@@ -317,7 +318,7 @@ Send to…
   (`canGrantItemAccess`). A view-only member sees who is missing, labelled
   *"no access"* on a disabled row, and cannot be the one to fix it.
 - **One implementation.** `grantItemAccess()` in
-  `modules/library/shared/shares.ts` is now the only code that widens access;
+  `modules/library/shared/shares/grants.ts` is now the only code that widens access;
   `POST /api/shares/user` is a thin wrapper over it. Two code paths that both
   grant is how they drift apart.
 - **The People tab kept the half it is good at** — who has access, and revoking

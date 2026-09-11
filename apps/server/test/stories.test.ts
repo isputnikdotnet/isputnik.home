@@ -5,10 +5,10 @@ import { ingestGalleryAsset } from "../src/modules/library/gallery/scanner.js";
 import { kindForExtension } from "../src/modules/library/gallery/media.js";
 import { createAlbum, addAlbumItems, deleteAlbum } from "../src/modules/library/gallery/albums.js";
 import { hydrateEntities, isSubjectEntityType, COLLECTABLE_ENTITY_TYPES } from "../src/modules/social/subjects.js";
-import { setEntityTags, getEntityTags, deleteEntityTags } from "../src/modules/library/audiobook/categorize.js";
+import { setEntityTags, getEntityTags, deleteEntityTags } from "../src/modules/library/shared/tagging.js";
 import { deleteStoryBlocksForResource, deleteStoryBlocksForLibrary } from "../src/modules/stories/cleanup.js";
+import { STORY_ENTITY_TYPE } from "../src/modules/stories/stories.js";
 import {
-  STORY_ENTITY_TYPE,
   createStory,
   updateStory,
   purgeStory,
@@ -16,19 +16,19 @@ import {
   restoreStory,
   listDeletedStories,
   purgeExpiredStories,
-  listStories,
   setStorySaved,
-  isStorySaved,
-  storyRefMatches,
-  canEditStory,
-  canViewStory,
-  getStory,
-  getStoryTags,
+  isStorySaved
+} from "../src/modules/stories/crud.js";
+import { listStories, storyRefMatches, getStoryTags } from "../src/modules/stories/list.js";
+import { canEditStory, canViewStory, getStory } from "../src/modules/stories/access.js";
+import {
   getChapters,
   createChapter,
   updateChapter,
   deleteChapter,
-  reorderChapters,
+  reorderChapters
+} from "../src/modules/stories/chapters.js";
+import {
   createBlock,
   getBlocks,
   updateBlock,
@@ -37,7 +37,7 @@ import {
   blockPointsByIds,
   galleryAssetsByIds,
   blockPreviewAssets
-} from "../src/modules/stories/stories.js";
+} from "../src/modules/stories/blocks.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
 
 function asset(relativePath: string, takenAtIso: string) {
@@ -805,7 +805,7 @@ describe("recycle bin (soft delete)", () => {
     expect(getStory(story.id)).toBeTruthy();
 
     // Backdate the promise and sweep again.
-    db.prepare("UPDATE stories SET purge_after = datetime('now', '-1 day') WHERE id = ?").run(story.id);
+    db.prepare("UPDATE stories SET purge_after = strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 day') WHERE id = ?").run(story.id);
     expect(purgeExpiredStories().purged).toBe(1);
     expect(getStory(story.id)).toBeUndefined();
   });

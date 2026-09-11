@@ -6,6 +6,7 @@ import rateLimit from "@fastify/rate-limit";
 import helmet from "@fastify/helmet";
 import staticFiles from "@fastify/static";
 import { config } from "./config.js";
+import { db } from "./db.js";
 import { registerAuthDecorators } from "./auth.js";
 import { isIpBlocked, isTrustedIp, isTrustedRequest, hasForwardedHeader, resolveProxyTrust, parseTrustProxyList, noteForwardedHeader, forwardedProto, safeRedirectHost, deletionBlocked } from "./core/security.js";
 import { flagAbusiveRequest } from "./core/security-alerts.js";
@@ -14,7 +15,10 @@ import { maskLogUrl } from "./core/log-redaction.js";
 import { BLOCKED_MESSAGE, BLOCKED_PAGE_HTML, wantsHtml } from "./core/blocked-page.js";
 import { registerCsrf } from "./core/csrf.js";
 import { registerCompression } from "./core/compression.js";
+import { registerErrorHandler } from "./core/error-handler.js";
+import { setAppLogger } from "./core/logger.js";
 import { corePlugin } from "./core/index.js";
+import { dashboardPlugin } from "./modules/dashboard/index.js";
 import { usersPlugin } from "./modules/users/index.js";
 import { backupsPlugin } from "./modules/backups/index.js";
 import { libraryPlugin } from "./modules/library/index.js";
@@ -38,6 +42,10 @@ let proxyMisconfigWarned = false;
 
 const app = fastify({
   logger: {
+    // LOG_LEVEL: trace | debug | info (default) | warn | error | fatal | silent.
+    // "warn" drops the per-request lines, which on a busy install are most of the
+    // log (every audio range request is one).
+    level: process.env.LOG_LEVEL?.trim() || "info",
     serializers: {
       // Mirror Fastify's default request log, but mask every path-segment token
       // (OPDS feed, guest share, invite) so the token-in-URL convenience never
@@ -77,6 +85,11 @@ const app = fastify({
     );
   }
 }
+
+// Set before any plugin or route exists, so every context inherits it (core/error-handler.ts).
+registerErrorHandler(app);
+// Workers and other request-less code log through this from here on (core/logger.ts).
+setAppLogger(app.log);
 
 await app.register(cors, {
   origin: config.appUrl,
@@ -245,6 +258,7 @@ registerCsrf(app);
 await app.register(multipart, { limits: { files: 1, fields: 10, fieldSize: 100 * 1024 } });
 await registerAuthDecorators(app);
 await app.register(corePlugin);
+await app.register(dashboardPlugin);
 await app.register(usersPlugin);
 await app.register(backupsPlugin);
 await app.register(libraryPlugin);
@@ -273,26 +287,65 @@ if (config.staticPath) {
   });
 }
 
-app.setErrorHandler((error, _request, reply) => {
-  app.log.error(error);
-  reply.code(500).send({ error: "Unexpected server error" });
-});
-
 await app.listen({ host: config.host, port: config.port });
+
+// Orderly shutdown. Node is PID 1 in the container (`exec gosu … node`), so
+// `docker stop` — every Unraid update — delivers SIGTERM here and nothing else
+// handles it. app.close() drains in-flight requests and runs every module's
+// onClose hook, which stops the scan/job/render workers between units instead of
+// in the middle of one; then the database is closed, checkpointing its WAL. A
+// shutdown that hangs (a stream that won't end, a worker that won't stop) is cut
+// off after 10 s — inside compose's 30 s stop_grace_period, so Docker never has
+// to fall back to SIGKILL.
+let shuttingDown = false;
+async function shutdown(reason: string, exitCode: number): Promise<void> {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  app.log.info(`${reason} — shutting down`);
+  setTimeout(() => {
+    app.log.error("Shutdown took longer than 10 s — exiting anyway");
+    process.exit(exitCode || 1);
+  }, 10_000).unref();
+  try {
+    await app.close();
+  } catch (err) {
+    app.log.error({ err }, "Error while shutting down");
+  }
+  try {
+    db.close();
+  } catch {
+    // Already closed, or a worker still holds a statement — the process is going either way.
+  }
+  process.exit(exitCode);
+}
+process.on("SIGTERM", () => void shutdown("SIGTERM received", 0));
+process.on("SIGINT", () => void shutdown("SIGINT received", 0));
 
 // Last-resort guards, installed only once the server is listening — a failure
 // to boot must still crash the process (so the container restarts and the log
 // ends at the real error) rather than leave a half-initialized zombie; note a
 // top-level await failure above surfaces as an unhandledRejection, which is why
-// these cannot be registered earlier. After startup the calculus flips: the one
-// real crash so far was a GC-time landmine — exifr leaked a FileHandle on a
-// malformed photo, and Node 24+ makes collecting an unclosed handle a fatal
-// error, detonating minutes after the swallowed parse error with no request in
-// sight. Synchronous state stays consistent (better-sqlite3 commits or throws
-// in place) and request errors have Fastify's handler above, so log the stack
-// loudly and keep serving instead of taking the library down over one bad file.
+// these cannot be registered earlier.
+//
+// The one uncaught exception known to be survivable is a GC-time landmine: a
+// library leaks a FileHandle (exifr did, on a malformed photo — now fed a Buffer
+// in gallery/media.ts), and Node 24+ makes collecting an unclosed handle an
+// ERR_INVALID_STATE error minutes later with no request in sight. Nothing is
+// mid-flight when that fires, so log it and keep serving. ANY other uncaught
+// exception may have left a job row at "running" with no worker behind it or a
+// timer loop dead, and nothing would ever restart it: log it and exit non-zero so
+// the container restarts cleanly (boot-time recovery picks up the pieces).
+function isSurvivableUncaught(error: unknown): boolean {
+  const err = error as { code?: unknown; message?: unknown } | null;
+  return err?.code === "ERR_INVALID_STATE" && typeof err.message === "string" && err.message.includes("FileHandle");
+}
 process.on("uncaughtException", (error, origin) => {
-  app.log.error({ err: error, origin }, "Uncaught exception — server continuing");
+  if (isSurvivableUncaught(error)) {
+    app.log.error({ err: error, origin }, "Leaked FileHandle collected — server continuing");
+    return;
+  }
+  app.log.fatal({ err: error, origin }, "Uncaught exception — restarting");
+  void shutdown("Uncaught exception", 1);
 });
 process.on("unhandledRejection", (reason) => {
   const err = reason instanceof Error ? reason : new Error(String(reason));

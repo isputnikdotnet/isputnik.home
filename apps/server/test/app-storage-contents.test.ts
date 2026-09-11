@@ -5,10 +5,11 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../src/db.js";
 import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
 import { appStorageContents, deleteOrphanAppFile, folderStats } from "../src/modules/library/app-storage-contents.js";
-import { setAppStoragePath } from "../src/modules/library/app-storage.js";
+import { setAppStoragePath } from "../src/modules/library/app-storage-path.js";
 import { HOUSE_FOLDERS, setHouseLibrary } from "../src/modules/library/gallery/house-library.js";
 import { thumbnailPathSettingKey } from "../src/modules/library/shared/thumbnail.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
+import "./helpers/media-types.js";
 
 // The Contents page beside Storage: every room counted, and the App files
 // library listed folder by folder with what owns each file — orphans marked,

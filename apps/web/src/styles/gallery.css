@@ -38,7 +38,7 @@
   z-index: 1;
 }
 
-/* The pinned selection bar is shared (see .audiobook-bulk-bar in
+/* The pinned selection bar is shared (see .library-toolbar.is-selecting in
    library-browse.css). Gallery-specific: the bar has variable height and the
    day-date headers are themselves sticky, so day headers stop sticking while a
    selection is active — the bar is the one pinned element. */
@@ -224,13 +224,6 @@
   overflow: hidden;
 }
 
-.gallery-tile img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
 .gallery-tile .gallery-tile-fallback {
   display: flex;
   align-items: center;
@@ -312,26 +305,6 @@
   gap: 8px 12px;
 }
 .gallery-folder-bar .gallery-breadcrumb { flex: 1 1 auto; }
-
-/* "Back to gallery" — the explicit way out of a sub-view (Memories, Albums,
-   Folders, People, Map) back to the Timeline. */
-.gallery-back-row {
-  margin: 4px 0 10px;
-}
-
-.gallery-back-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: none;
-  border: 0;
-  padding: 4px 2px;
-  font: inherit;
-  color: var(--mint);
-  cursor: pointer;
-}
-
-.gallery-back-button:hover { text-decoration: underline; }
 
 .gallery-breadcrumb {
   display: flex;
@@ -464,98 +437,6 @@
 /* Title + its inline Rename pencil, sat right next to the cover. */
 .gallery-title-row { display: flex; align-items: center; gap: 6px; }
 
-/* Icon-only action row under the title + item count (…, sort, select). */
-.gallery-album-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 12px;
-}
-
-/* The reused compact sort control defaults to a wide bordered box; here it isn't
-   inside .audiobook-page-actions, so collapse the WRAPPER to a square icon button
-   (matching the … / select buttons) and let the trigger fill it transparently. */
-.gallery-album-actions .audiobook-sort-control.compact {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  grid-template-columns: none;
-  gap: 0;
-  width: 44px;
-  min-width: 0;
-  height: 44px;
-  min-height: 44px;
-  padding: 0;
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  background: var(--field);
-}
-
-.gallery-album-actions .audiobook-sort-control.compact:hover {
-  background: var(--hover);
-}
-
-.gallery-album-actions .audiobook-sort-control.compact .audiobook-sort-trigger {
-  width: 44px;
-  height: 44px;
-  min-width: 0;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--ink);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* The album's … overflow menu (portalled + fixed-positioned like the library menu). */
-.gallery-album-menu {
-  z-index: 40;
-  display: grid;
-  gap: 2px;
-  min-width: 210px;
-  padding: 8px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface-raised);
-  box-shadow: 0 18px 40px var(--shadow);
-}
-
-.gallery-album-menu button,
-.gallery-album-menu a {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 40px;
-  width: 100%;
-  padding: 0 10px;
-  border: 0;
-  border-radius: 7px;
-  color: var(--ink);
-  background: transparent;
-  font: inherit;
-  font-weight: 600;
-  text-align: left;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.gallery-album-menu button:hover,
-.gallery-album-menu a:hover,
-.gallery-album-menu button:focus-visible,
-.gallery-album-menu a:focus-visible {
-  background: var(--hover);
-  outline: 0;
-}
-
-.gallery-album-menu button:disabled {
-  color: var(--muted);
-  cursor: default;
-}
-.gallery-album-menu button:disabled:hover { background: transparent; }
-.gallery-album-menu .danger { color: var(--rose); }
-
 /* Cover-picker popup: a compact grid of the album's photos; the current cover
    is marked. Smaller tiles than the main grid so more fit in the dialog. */
 .gallery-cover-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
@@ -569,7 +450,7 @@
 .gallery-lightbox {
   position: fixed;
   inset: 0;
-  z-index: 1000;
+  z-index: var(--z-viewer);
   background: rgba(0, 0, 0, 0.92);
   display: flex;
   flex-direction: column;
@@ -608,13 +489,6 @@
   flex: none;
   color: rgba(255, 255, 255, 0.6);
   font-variant-numeric: tabular-nums;
-}
-
-.gallery-lightbox-name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .gallery-lightbox-actions {
@@ -660,7 +534,7 @@
 
 .gallery-lightbox-menu {
   position: absolute;
-  z-index: 12;
+  z-index: var(--z-dropdown);
   top: calc(100% + 8px);
   right: 0;
   display: grid;
@@ -895,7 +769,7 @@
   color: rgba(255, 255, 255, 0.75);
 }
 
-@media (min-width: 700px) {
+@media (min-width: 741px) {
   .gallery-lightbox.has-info .gallery-video-controls { right: var(--lb-info-w); }
 }
 
@@ -994,7 +868,7 @@
    media area and shift the Next arrow to just left of the pane so neither the
    photo nor the forward arrow hides behind it. Desktop only — on small screens
    the pane is a near-full overlay with its own layout. */
-@media (min-width: 700px) {
+@media (min-width: 741px) {
   .gallery-lightbox.has-info .gallery-lightbox-bar { padding-right: calc(var(--lb-info-w) + 14px); }
   .gallery-lightbox.has-info .gallery-lightbox-stage { padding-right: var(--lb-info-w); }
   .gallery-lightbox.has-info .gallery-lightbox-nav.next { right: calc(var(--lb-info-w) + 14px); }
@@ -1165,13 +1039,6 @@
 .lb-grow { flex: 1; }
 
 /* People and tags as chips; the round + at the end is the only edit affordance. */
-.lb-chips {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
 .lb-chip {
   display: inline-flex;
   align-items: center;
@@ -1201,8 +1068,6 @@
   font-size: 0.7rem;
   font-weight: 600;
 }
-
-.lb-chip-face img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
 .lb-chip-remove {
   display: inline-flex;
@@ -1412,13 +1277,6 @@
   cursor: pointer;
 }
 
-.gallery-bulk-edit-shift {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
 /* The amount, beside the two compact dropdowns that read it — an unstyled input
    next to them sat nine pixels shorter. */
 .gallery-bulk-edit-shift input[type="number"] {
@@ -1483,13 +1341,6 @@
 /* Place search above the map picker: a query row, then the hit list. Shared by
    the bulk "Set location" dialog and the lightbox Info panel — the panel is a
    narrow dark sidebar, so the row wraps and the colours are overridden below. */
-.gallery-place-search {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
 .gallery-place-search label {
   flex: 1 1 170px;
   min-width: 0;
@@ -1616,21 +1467,6 @@
   text-decoration: underline;
 }
 
-.gallery-info-edit {
-  display: inline-flex;
-  margin-left: 6px;
-  padding: 0;
-  border: none;
-  background: none;
-  color: rgba(255, 255, 255, 0.55);
-  cursor: pointer;
-  vertical-align: middle;
-}
-
-.gallery-info-edit:hover {
-  color: #fff;
-}
-
 .gallery-info-form {
   display: flex;
   flex-direction: column;
@@ -1660,13 +1496,6 @@
 
 /* The date editor's "how exact" row: the precision picker and the About box
    (docs/photo-review-plan.md), in the panel's own dark palette. */
-.gallery-info-date-grain {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
 .gallery-info-date-grain select {
   padding: 5px 8px;
   border-radius: 6px;
@@ -1751,7 +1580,7 @@
 }
 
 /* Map view (Leaflet). z-index:0 confines the map's internal stacking (tiles,
-   controls) below the lightbox portal (z-index:1000). */
+   controls) below the lightbox portal (--z-viewer). */
 .gallery-map {
   position: relative;
   z-index: 0;
@@ -1782,13 +1611,6 @@
 
 .gallery-map-pin.is-video {
   border-color: var(--gold);
-}
-
-.gallery-map-pin img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
 }
 
 @media (max-width: 740px) {
@@ -1823,7 +1645,7 @@
   font: inherit;
 }
 
-.gallery-person-card:hover { border-color: var(--accent, #8eb4bf); }
+.gallery-person-card:hover { border-color: var(--accent); }
 
 .gallery-person-avatar {
   width: 86px;
@@ -1833,61 +1655,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--surface-2, rgba(127, 127, 127, 0.12));
+  background: var(--surface-2);
   color: var(--muted);
 }
 
-.gallery-person-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .gallery-person-card strong { font-size: 0.92rem; word-break: break-word; }
 .gallery-person-card small { color: var(--muted); }
 
 /* People tags in the lightbox Info panel. */
-.gallery-people-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  align-items: center;
-}
-
-.gallery-person-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 4px 2px 9px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
-  font-size: 0.85rem;
-}
-
-.gallery-person-chip-remove {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2px;
-  border: none;
-  border-radius: 50%;
-  background: transparent;
-  color: rgba(255, 255, 255, 0.7);
-  cursor: pointer;
-}
-
-.gallery-person-chip-remove:hover { background: rgba(255, 255, 255, 0.2); color: #fff; }
-
-.gallery-person-add {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 10px;
-  border: 1px dashed rgba(255, 255, 255, 0.3);
-  border-radius: 999px;
-  background: transparent;
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 0.82rem;
-  cursor: pointer;
-}
-
-.gallery-person-add:hover { border-color: rgba(255, 255, 255, 0.6); color: #fff; }
-
 .gallery-person-form {
   display: flex;
   align-items: center;
@@ -1915,7 +1690,6 @@
 }
 
 .gallery-person-unnamed { color: var(--muted); font-style: italic; }
-.gallery-person-chip-unnamed { font-style: italic; opacity: 0.85; }
 
 /* A photo tile that carries a "remove from this person" corner button (person page).
    The wrapper becomes the square grid cell; the tile button fills it. */
@@ -1983,15 +1757,6 @@
 
 /* ── Slideshow editor ─────────────────────────────────────────────────────── */
 
-/* Editor toolbar (above the settings): "Add photos" + hint. */
-.slideshow-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-bottom: 12px;
-}
-
 /* Folder-browser modal: a library select in the header, breadcrumb, selectable tiles,
    and a sticky action row. */
 
@@ -2034,17 +1799,6 @@
 }
 .slideshow-browse-badge.selected { background: var(--mint); color: #10261c; padding: 3px; }
 .slideshow-browse-badge.added { background: rgba(0, 0, 0, 0.65); }
-.slideshow-browse-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  /* This footer sits inside a padding-less panel modal (.metadata-modal), so it
-     carries its own inset — without it the buttons hug the modal border. */
-  padding: 0 16px 14px;
-  margin-top: 14px;
-}
 
 /* ── The standard photo picker (features/gallery/PhotoPicker) ───────────────
    Folders / People / Tags / All photos over one persistent selection, with a
@@ -2377,7 +2131,6 @@
   transition: background 0.12s ease, border-color 0.12s ease;
 }
 .slideshow-music-button:hover { background: var(--hover); }
-.slideshow-music-button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ── Title card ───────────────────────────────────────────────────────────── */
 
@@ -2464,7 +2217,6 @@
   color: var(--muted);
   overflow: hidden;
 }
-.slideshow-clip-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .slideshow-clip-name {
   display: flex;
   flex-direction: column;
@@ -2577,7 +2329,6 @@
   overflow: hidden;
   cursor: pointer;
 }
-.slideshow-title-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .slideshow-title-photo.is-selected { border-color: var(--mint); }
 .slideshow-title-photo:disabled { cursor: default; opacity: 0.6; }
 
@@ -2758,32 +2509,6 @@
 
 /* ── Year in review ───────────────────────────────────────────────────────── */
 
-/* What the row is built from isn't guessable from the cards, and it's the thing
-   that makes people go and heart more photos — so it's said once, above them. */
-.gallery-year-hint {
-  margin: 0 0 10px;
-  color: var(--muted);
-  font-size: 13px;
-}
-
-/* A shade wider than a memory tile: these are the headline cards of the view, and
-   the subtitle carries more (counts, months, people) than a moment's does. */
-.gallery-suggestion-row .gallery-year-tile { width: 210px; }
-
-/* The year on the cover, so a row of them is scannable without reading titles. */
-.gallery-year-badge {
-  position: absolute;
-  left: 8px;
-  bottom: 8px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: rgba(18, 18, 20, 0.62);
-  color: #fff;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
-
 /* Suggestion preview modal: subtitle + action row above a read-only photo grid. */
 .suggestion-preview-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .suggestion-preview-head p { margin: 0; }
@@ -2947,7 +2672,7 @@
   font-size: 0.78rem;
 }
 .gallery-health-bar-label { font-variant-numeric: tabular-nums; color: var(--muted); }
-.gallery-health-bar-track { height: 10px; border-radius: 5px; background: var(--surface-2, rgba(127, 127, 127, 0.12)); overflow: hidden; }
+.gallery-health-bar-track { height: 10px; border-radius: 5px; background: var(--surface-2); overflow: hidden; }
 .gallery-health-bar-fill { display: block; height: 100%; background: var(--mint); border-radius: 5px; min-width: 2px; }
 .gallery-health-bar-count { font-variant-numeric: tabular-nums; font-weight: 600; }
 .gallery-health-bar-hint { font-size: 0.72rem; }
@@ -2970,7 +2695,7 @@
   gap: 12px;
   padding: 8px;
   border-radius: 10px;
-  background: var(--surface-2, rgba(127, 127, 127, 0.08));
+  background: var(--surface-2);
 }
 .gallery-health-avatars { display: inline-flex; flex: 0 0 auto; }
 .gallery-health-avatar {
@@ -2981,14 +2706,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--surface-2, rgba(127, 127, 127, 0.12));
+  background: var(--surface-2);
   color: var(--muted);
   border: 2px solid var(--surface-raised);
 }
 .gallery-health-avatar:last-child { margin-left: -16px; }
-.gallery-health-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .gallery-health-pair-info { display: grid; gap: 1px; min-width: 0; flex: 1 1 auto; font-size: 0.82rem; }
-.gallery-health-pair-info > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .gallery-health-sim { font-size: 0.74rem; color: var(--mint); font-variant-numeric: tabular-nums; }
 .gallery-health-pair button { flex: 0 0 auto; }
 .gallery-health-recheck { justify-self: start; }
@@ -3046,15 +2769,6 @@
   font-size: 0.8rem;
 }
 
-/* Admin: the global "default movie library" picker in the slideshows toolbar. */
-.slideshow-movie-lib {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin-left: auto;
-}
-.slideshow-movie-lib select { max-width: 220px; }
-
 .gallery-person-rename {
   display: inline-flex;
   align-items: center;
@@ -3101,13 +2815,6 @@
 }
 
 /* The chosen filename, shown before anything is written. */
-.gallery-movie-filename {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
 .gallery-movie-filename code {
   padding: 3px 8px;
   border: 1px solid var(--line);
@@ -3307,12 +3014,6 @@
   font-weight: 650;
 }
 
-.gallery-keep-folder-path {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .gallery-keep-folder-note {
   padding: 12px;
   font-size: 0.88rem;
@@ -3412,12 +3113,6 @@
   flex: 1;
   min-width: 0;
   display: grid;
-}
-
-.gallery-drop-link-copy strong {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .gallery-inbox-delivery svg {
@@ -3534,6 +3229,8 @@
   --surface-raised: #1e2023;
   --field: #0f1012;
   --ink: #f3f1ec;
+  /* Derived from --ink on :root, so it has to be restated with it (tokens.css). */
+  --surface-2: color-mix(in srgb, var(--ink) 6%, transparent);
   --muted: rgba(255, 255, 255, 0.6);
   --line: rgba(255, 255, 255, 0.14);
   --hover: rgba(255, 255, 255, 0.08);

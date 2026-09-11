@@ -16,7 +16,7 @@ import { db, logActivity } from "../../db.js";
 import { validateLibrarySource } from "../library/shared/library-source.js";
 import { normaliseRelativePath } from "../library/shared/storage-roots.js";
 import { scanSingleGalleryFile } from "../library/gallery/scanner.js";
-import { uniqueGalleryFileName } from "../library/gallery/routes.js";
+import { uniqueGalleryFileName } from "../library/gallery/files.js";
 import { getRecordingsLibrary, type RecordingsLibrary } from "./settings.js";
 import { narrationAbsolutePath, titleFromFilename, type StoryAudioRow } from "./audio.js";
 import { HOUSE_FOLDERS } from "../library/gallery/house-library.js";

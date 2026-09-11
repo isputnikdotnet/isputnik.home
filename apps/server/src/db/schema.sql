@@ -223,6 +223,8 @@ CREATE TABLE IF NOT EXISTS blocked_ips (
   expires_at  TEXT,
   created_by  TEXT REFERENCES users(id)
 );
+-- The sweep that sheds lapsed automatic blocks (clearLapsedBlocks).
+CREATE INDEX IF NOT EXISTS idx_blocked_ips_expires_at ON blocked_ips (expires_at);
 
 -- Cached AbuseIPDB lookups for IPs local detection has already flagged. Written
 -- only when an admin has configured an API key; refreshed after 24 hours.
@@ -1650,6 +1652,15 @@ CREATE TABLE IF NOT EXISTS app_settings (
   updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
+-- The newest release each person has been told about on Home ("Updated to X —
+-- what changed"), so the note shows once per upgrade and never to a brand-new
+-- account. See modules/home/whats-new.ts.
+CREATE TABLE IF NOT EXISTS user_seen_versions (
+  user_id    TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  version    TEXT NOT NULL,
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
 CREATE TABLE IF NOT EXISTS jobs (
   id           TEXT PRIMARY KEY,
   type         TEXT NOT NULL,
@@ -1697,6 +1708,11 @@ CREATE TABLE IF NOT EXISTS scheduled_jobs (
 
 CREATE INDEX IF NOT EXISTS idx_sessions_user_id        ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_token_hash      ON sessions(token_hash);
+-- "Live sessions" (Security page, dashboard devices, status counts). Every
+-- timestamp column here holds ISO-8601 UTC ('…T…Z', see the defaults), so these
+-- ranges are compared as plain text: wrapping the column in datetime() would hide
+-- it from this index and every other one on a timestamp.
+CREATE INDEX IF NOT EXISTS idx_sessions_expires_at      ON sessions(expires_at);
 CREATE INDEX IF NOT EXISTS idx_invites_token_hash       ON invites(token_hash);
 CREATE INDEX IF NOT EXISTS idx_group_members_group      ON group_members(group_id);
 CREATE INDEX IF NOT EXISTS idx_group_members_user       ON group_members(user_id);
@@ -1712,6 +1728,11 @@ CREATE INDEX IF NOT EXISTS idx_items_type               ON library_items(type);
 -- column here each of those scans a whole library to answer a question about one
 -- folder, which on a big library is the server stopping for the duration.
 CREATE INDEX IF NOT EXISTS idx_items_library_folder     ON library_items(library_id, folder_path);
+-- "What arrived lately": the home feed's added-books batches and the gallery's
+-- Just-added card range over discovered_at inside the reader's libraries. Keyed
+-- on library_id rather than type because that is what every browse query filters
+-- on; a type-first index goes unused by them.
+CREATE INDEX IF NOT EXISTS idx_items_library_recent     ON library_items(library_id, deleted_at, discovered_at);
 
 CREATE INDEX IF NOT EXISTS idx_item_people_item         ON item_people(item_id);
 CREATE INDEX IF NOT EXISTS idx_item_people_person       ON item_people(person_id);
@@ -1783,7 +1804,12 @@ CREATE INDEX IF NOT EXISTS idx_trashed_items_lib        ON trashed_items(library
 CREATE INDEX IF NOT EXISTS idx_trashed_items_at         ON trashed_items(trashed_at);
 CREATE INDEX IF NOT EXISTS idx_activity_logs_created_at ON activity_logs(created_at);
 CREATE INDEX IF NOT EXISTS idx_activity_logs_dedup       ON activity_logs(event, actor_user_id, target_id, created_at);
+-- The Logs page's user filter and the sign-in details page's person scope.
+CREATE INDEX IF NOT EXISTS idx_activity_logs_actor       ON activity_logs(actor_user_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_jobs_status              ON jobs(status, run_at);
+-- Every job worker's claim: WHERE type = ? AND status = 'pending' AND run_at <= now
+-- ORDER BY run_at, polled every couple of seconds by each queue.
+CREATE INDEX IF NOT EXISTS idx_jobs_claim               ON jobs(type, status, run_at);
 CREATE INDEX IF NOT EXISTS idx_scheduled_jobs_due        ON scheduled_jobs(enabled, next_run_at);
 
 -- ════════════════════════════════════════════════════════════════════════════

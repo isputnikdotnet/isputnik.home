@@ -4,6 +4,8 @@ import Database from "better-sqlite3";
 import { nanoid } from "nanoid";
 import { config, mfaKeyFilePath } from "./config.js";
 import { migrate } from "./db/migrate.js";
+import { recordBootedVersion, stagePreUpgradeCopy } from "./db/pre-upgrade.js";
+import { log } from "./core/logger.js";
 import { seed } from "./db/seed.js";
 
 export type Role = "admin" | "member";
@@ -49,6 +51,16 @@ export interface ActivityInput {
 // (strftime('%Y-%m-%dT%H:%M:%fZ','now')), so a column never holds two formats.
 export const nowIso = (): string => new Date().toISOString();
 
+/** Where the restore's safety snapshot waits for the backups plugin to file it. */
+export function preRestoreSnapshotPath(dbPath: string): string {
+  return `${dbPath}.pre-restore`;
+}
+
+function fileStamp(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+}
+
 fs.mkdirSync(path.dirname(config.dbPath), { recursive: true });
 if (config.thumbnailPath) {
   fs.mkdirSync(config.thumbnailPath, { recursive: true });
@@ -57,19 +69,25 @@ if (config.thumbnailPath) {
 // Apply a staged restore (set by the Backup screen) before opening the DB. We
 // can't swap the file while better-sqlite3 holds it open, so a restore is staged
 // as "<dbPath>.restore" and applied here on the next startup. The current DB is
-// copied into the backups folder first as an automatic safety snapshot.
-(function applyPendingRestore() {
+// kept first as an automatic safety snapshot: staged beside the database as
+// "<dbPath>.pre-restore", and filed into the backups folder by the backups plugin
+// once the server is up — that folder may be App storage's Backups room, which
+// can't be looked up before the database is open (see adoptPreRestoreSnapshot).
+const restoredThisBoot = (function applyPendingRestore(): boolean {
   const restoreFile = `${config.dbPath}.restore`;
   if (!fs.existsSync(restoreFile)) {
-    return;
+    return false;
   }
   try {
     if (fs.existsSync(config.dbPath)) {
-      fs.mkdirSync(config.backupPath, { recursive: true });
-      const d = new Date();
-      const p = (n: number) => String(n).padStart(2, "0");
-      const stamp = `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
-      fs.copyFileSync(config.dbPath, path.join(config.backupPath, `isputnik-${stamp}.sqlite`));
+      const snapshot = preRestoreSnapshotPath(config.dbPath);
+      if (fs.existsSync(snapshot)) {
+        // One from an earlier restore was never filed (that boot failed): it is the
+        // older database, and must not be overwritten — park it where it always went.
+        fs.mkdirSync(config.backupPath, { recursive: true });
+        fs.renameSync(snapshot, path.join(config.backupPath, `isputnik-${fileStamp(fs.statSync(snapshot).mtime)}.sqlite`));
+      }
+      fs.copyFileSync(config.dbPath, snapshot);
     }
     for (const ext of ["-wal", "-shm"]) {
       fs.rmSync(`${config.dbPath}${ext}`, { force: true });
@@ -93,15 +111,17 @@ if (config.thumbnailPath) {
         // A key that won't move leaves TOTP users needing to re-enrol, which is
         // recoverable; a database that won't open is not. Keep the restored DB.
         try { fs.rmSync(stagedKey, { force: true }); } catch { /* ignore */ }
-        console.error("Restored database, but could not apply its MFA key.", err);
+        log.error({ err }, "Restored database, but could not apply its MFA key.");
       }
     }
+    return true;
   } catch (err) {
     // If the restore can't be applied, leave the current DB untouched and drop
     // the staging files so we don't loop on every boot.
     try { fs.rmSync(restoreFile, { force: true }); } catch { /* ignore */ }
     try { fs.rmSync(`${mfaKeyFilePath()}.restore`, { force: true }); } catch { /* ignore */ }
-    console.error("Pending restore failed; kept current database.", err);
+    log.error({ err }, "Pending restore failed; kept current database.");
+    return false;
   }
 })();
 
@@ -123,9 +143,18 @@ db.function("lower_unicode", { deterministic: true }, (value: unknown) =>
   typeof value === "string" ? value.toLowerCase() : value ?? null
 );
 
+// An upgrade gets a copy of the database as it was before this version's migrations
+// touch it (db/pre-upgrade.ts; the backups plugin files it on the Backup page). Not
+// after a restore: the database just put in place came FROM a backup, and the safety
+// snapshot above already kept the one it replaced.
+if (!restoredThisBoot) {
+  stagePreUpgradeCopy(db, config.dbPath, config.version);
+}
+
 // Apply the canonical schema + ordered migrations, then seed navigation data.
 migrate(db);
 seed(db);
+recordBootedVersion(db, config.version);
 
 export function hasUsers() {
   const row = db.prepare("SELECT COUNT(*) AS count FROM users WHERE deleted_at IS NULL").get() as { count: number };

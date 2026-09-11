@@ -16,6 +16,7 @@ import { libraryJobRunning } from "../shared/scan-lock.js";
 import { requeueInterruptedJobs } from "../shared/job-recovery.js";
 import { jobProgressWriter } from "../shared/job-progress.js";
 import { thumbnailAbsolutePath, thumbnailStorageKey } from "../shared/thumbnail.js";
+import { log } from "../../../core/logger.js";
 
 const FFMPEG_BIN: string = (ffmpegStatic as unknown as string | null) || "ffmpeg";
 
@@ -25,7 +26,7 @@ export const TRANSCODE_JOB_TYPE = "TRANSCODE_GALLERY_VIDEO";
 // many times, then left alone so it doesn't sit in every weekly batch forever.
 export const MAX_TRANSCODE_ATTEMPTS = 3;
 
-// Half the cores, capped — see the same reasoning in slideshow-render.ts. Nobody is
+// Half the cores, capped — see the same reasoning in slideshow-ffmpeg-args.ts. Nobody is
 // waiting on this; everything else on the machine is.
 const ENCODER_THREADS = Math.max(1, Math.min(4, Math.floor(Math.max(1, os.cpus().length) / 2)));
 
@@ -116,7 +117,7 @@ function runTranscode(srcPath: string, outPath: string, durationSec: number, onP
     try {
       child = spawn(FFMPEG_BIN, args, { windowsHide: true });
     } catch (err) {
-      console.error(`video conversion: ffmpeg could not be started — ${err instanceof Error ? err.message : "unknown error"}`);
+      log.error(`video conversion: ffmpeg could not be started — ${err instanceof Error ? err.message : "unknown error"}`);
       resolve(false);
       return;
     }
@@ -142,12 +143,12 @@ function runTranscode(srcPath: string, outPath: string, durationSec: number, onP
       if (errText.length > 8_000) errText = errText.slice(-8_000);
     });
     child.on("error", (err) => {
-      console.error(`video conversion: ffmpeg could not be started — ${err.message}`);
+      log.error(`video conversion: ffmpeg could not be started — ${err.message}`);
       resolve(false);
     });
     child.on("close", (code, signal) => {
       if (code !== 0) {
-        console.error(
+        log.error(
           `video conversion: ffmpeg exited ${signal ? `on ${signal}` : `with code ${code}`} for ${srcPath}\n`
           + (errText.trim() || "(ffmpeg wrote nothing to stderr)")
         );
@@ -180,8 +181,8 @@ export async function processTranscodeQueue(): Promise<void> {
 
       const job = db.prepare(`
         SELECT id, payload FROM jobs
-        WHERE type = ? AND status = 'pending' AND datetime(run_at) <= datetime('now')
-        ORDER BY datetime(run_at) ASC LIMIT 1
+        WHERE type = ? AND status = 'pending' AND run_at <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+        ORDER BY run_at ASC LIMIT 1
       `).get(TRANSCODE_JOB_TYPE) as { id: string; payload: string } | undefined;
       if (!job) break;
 

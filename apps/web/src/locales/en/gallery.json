@@ -44,8 +44,6 @@
       "slideshow_other": "{{count}} slideshows",
       "person_one": "{{count}} person",
       "person_other": "{{count}} people",
-      "smallGroup_one": "{{count}} small group",
-      "smallGroup_other": "{{count}} small groups",
       "selected_one": "{{count}} selected",
       "selected_other": "{{count}} selected"
     }
@@ -109,8 +107,6 @@
   "lightbox": {
     "fieldDescription": "description",
     "fieldDate": "date",
-    "fieldTags": "tags",
-    "fieldLocation": "location",
     "editAria": "Edit {{label}}",
     "labelName": "Name",
     "labelDescription": "Description",
@@ -120,7 +116,6 @@
     "labelDuration": "Duration",
     "labelSize": "Size",
     "labelCamera": "Camera",
-    "labelLocation": "Location",
     "labelPeople": "People",
     "labelFolder": "Folder",
     "labelLibrary": "Library",
@@ -275,6 +270,8 @@
     "preview": "Preview",
     "deleteTrackAria": "Delete {{title}}",
     "deleteTrackTitle": "Delete track",
+    "deleteTrackConfirmTitle": "Delete \"{{title}}\"?",
+    "deleteTrackConfirmBody": "Slideshows that use this track will play without music. The slideshows and their photos are not affected.",
     "skippedNotice": "Already here, so left alone: {{list}}.",
     "addedSuffix_one": " {{count}} added.",
     "addedSuffix_other": " {{count}} added.",
@@ -374,8 +371,6 @@
     "addedNotice_other": "Added {{count}} items to \"{{name}}\".",
     "askDefaultName_one": "{{count}} photo to ask about",
     "askDefaultName_other": "{{count}} photos to ask about",
-    "addedPhotosNotice_one": "Added {{count}} photo to \"{{name}}\".",
-    "addedPhotosNotice_other": "Added {{count}} photos to \"{{name}}\".",
     "errors": {
       "load": "Unable to load albums",
       "open": "Unable to load the album",
@@ -430,7 +425,6 @@
     "mergeAllTitle": "Merge all",
     "cancelSelection": "Cancel selection",
     "pickPhotos": "Pick photos",
-    "renameTitle": "Rename",
     "namePersonTitle": "Name person",
     "mergeInto": "Merge <bold>{{name}}</bold> into:",
     "choosePersonOption": "Choose a person…",
@@ -490,11 +484,6 @@
     "errors": {
       "createSlideshow": "Unable to create the slideshow"
     }
-  },
-  "yearReview": {
-    "heading": "Your year",
-    "hint": "Built from the photos and videos your family liked, spread across the whole year.",
-    "previewTitle": "Preview “{{title}}”"
   },
   "suggestions": {
     "heading": "Suggested slideshows",
@@ -570,7 +559,6 @@
     "removing": "Removing…",
     "errors": {
       "title": "Recording",
-      "save": "Unable to save the recording",
       "remove": "Unable to remove the recording"
     }
   },

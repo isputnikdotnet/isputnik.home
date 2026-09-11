@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { RefreshCw, ServerOff, ShieldAlert, WifiOff } from "lucide-react";
 import { useRegisterSW } from "virtual:pwa-register/react";
@@ -20,7 +21,10 @@ export function PwaNotifications() {
     }
   });
 
-  return (
+  // Portalled into <body>, beside dialogs and the photo viewer: #root is its own
+  // stacking context (and inert while a dialog is open), so a banner rendered inside
+  // it could never show over an open photo or a modal, whatever its z-index.
+  return createPortal(
     <>
       {connection !== "online" && (
         <div className="offline-status-banner" role="status" aria-live="polite">
@@ -53,6 +57,7 @@ export function PwaNotifications() {
           <span>{t("user:pwa.updating")}</span>
         </div>
       )}
-    </>
+    </>,
+    document.body
   );
 }

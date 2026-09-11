@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { storiesPlugin as storiesRoutesPlugin } from "./routes.js";
 import { storyCollectionsPlugin } from "./collections-routes.js";
+import { registerStoryShareKind, storyShareRoutesPlugin } from "./share-routes.js";
 import { migrateLegacyNarrations, pendingLegacyNarrations } from "./recordings.js";
 import { getRecordingsLibrary } from "./settings.js";
 
@@ -37,11 +38,16 @@ export function startLegacyNarrationImporter(app: FastifyInstance): () => void {
 }
 
 export async function storiesPlugin(app: FastifyInstance) {
+  // Story links are served by the shared guest-link engine through this kind;
+  // the engine never imports the stories module (library/shared/share-kinds.ts).
+  registerStoryShareKind();
+
   // Collections first: /api/stories/collections/... must not be swallowed by
   // /api/stories/:id (find-my-way prefers static segments, but explicit order
   // costs nothing and reads as the intent).
   await app.register(storyCollectionsPlugin);
   await app.register(storiesRoutesPlugin);
+  await app.register(storyShareRoutesPlugin);
 
   const stopImporter = startLegacyNarrationImporter(app);
   app.addHook("onClose", async () => { stopImporter(); });

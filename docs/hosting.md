@@ -5,7 +5,9 @@ How the server decides whether to believe `X-Forwarded-For`, and therefore what
 limiting, auto-block, trusted zones, the outside-MFA policy, device linking,
 the activity log — depends on getting this right. The user-facing walkthrough
 is [docs/users/exposing-to-the-internet.md](users/exposing-to-the-internet.md);
-this page is the reference for the two settings and their semantics.
+this page is the reference for the two settings and their semantics. Every other
+environment variable is in [configuration.md](configuration.md), and upgrades and
+rollbacks in [rollback.md](rollback.md).
 
 ## The default: trust nothing
 

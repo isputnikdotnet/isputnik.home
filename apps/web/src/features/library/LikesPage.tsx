@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { BookOpen, Headphones, Heart, Image as ImageIcon, Trash2 } from "lucide-react";
-import { api, type PublicUser } from "../../api";
+import { api } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { UserAreaNav } from "./UserAreaNav";
 import { navigate } from "../../router";
@@ -9,13 +9,7 @@ import { MessageBox } from "../../shared/MessageBox";
 import { MediaKindBadge } from "../../shared/MediaKindBadge";
 import type { SavedBook } from "../audiobooks/types";
 
-export function LikesPage({
-  user,
-  logout
-}: {
-  user: PublicUser;
-  logout: () => Promise<void>;
-}) {
+export function LikesPage() {
   const { t } = useTranslation(["common", "user"]);
   const [books, setBooks] = useState<SavedBook[] | null>(null);
   const [error, setError] = useState("");
@@ -41,7 +35,7 @@ export function LikesPage({
   };
 
   return (
-    <DashboardShell active="user" user={user} logout={logout} sideNav={<UserAreaNav active="likes" />}>
+    <DashboardShell active="user" sideNav={<UserAreaNav active="likes" />}>
       <section className="work-area audiobook-area">
         <div className="section-head audiobook-head">
           <div>

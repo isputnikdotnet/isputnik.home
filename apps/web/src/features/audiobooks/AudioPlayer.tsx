@@ -1,21 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Bookmark, BookmarkPlus, ChevronDown, Clock, FastForward, Heart, List, Moon, Pause, Pencil, PieChart, Play, Rewind, SkipBack, SkipForward, Trash2, Volume2, VolumeX, X } from "lucide-react";
+import { Bookmark, BookmarkPlus, ChevronDown, Clock, Heart, List, Moon, Pencil, PieChart, Trash2, Volume2, VolumeX, X } from "lucide-react";
 import { api } from "../../api";
 import i18n from "../../i18n";
 import { getDownloadedFileUrl } from "../../offline/downloads";
 import { getLocalProgress, persistProgress } from "../../offline/progress";
+import { cx } from "../../shared/cx";
+import { formatClock as formatTime } from "../../shared/formatClock";
 import { MessageBox } from "../../shared/MessageBox";
 import { ProgressRing } from "../../shared/ProgressRing";
+import { PlayerControls } from "./PlayerControls";
 import type { AudiobookBookDetail, AudiobookFile, Bookmark as BookmarkEntry, PlaybackProgress } from "./types";
-
-export function formatTime(seconds: number) {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = Math.floor(seconds % 60);
-  if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-  return `${m}:${String(s).padStart(2, "0")}`;
-}
+import { RATES, rateLabel, SLEEP_MINUTES, usePlayback, type SleepMode } from "./usePlayback";
 
 function formatTimeRemaining(seconds: number) {
   if (seconds <= 0) return i18n.t("reader:player.leftM", { m: 0 });
@@ -23,13 +19,6 @@ function formatTimeRemaining(seconds: number) {
   const m = Math.floor((seconds % 3600) / 60);
   return h > 0 ? i18n.t("reader:player.leftHM", { h, m }) : i18n.t("reader:player.leftM", { m });
 }
-
-const RATES = [0.75, 1, 1.25, 1.5, 1.75, 2];
-
-// Sleep-timer options. Numeric values are minutes; "chapter" stops at the end of
-// the chapter that was playing when the timer was armed.
-const SLEEP_MINUTES = [15, 30, 45, 60] as const;
-type SleepMode = "off" | "chapter" | (typeof SLEEP_MINUTES)[number];
 
 // A navigable chapter, flattened across files. For multi-file books each file is
 // one chapter; for a single m4b/MP3 the file's embedded markers become many. Offsets
@@ -68,7 +57,14 @@ export function AudioPlayer({
 }) {
   const { t } = useTranslation(["common", "reader"]);
   const availableFiles = book.files.filter((f) => f.status === "available");
-  const audioRef = useRef<HTMLAudioElement>(null);
+  const playback = usePlayback({
+    playErrorMessage: (err) => (err instanceof Error ? err.message : t("reader:player.playbackFailed"))
+  });
+  const {
+    audioRef, playing, setPlaying, currentTime, setCurrentTime, fileDuration, setFileDuration,
+    playerError, setPlayerError, togglePlay, handleSeek, playbackRate, volume, muted,
+    toggleMute, handleVolumeChange, speedOpen, setSpeedOpen, sleepOpen, setSleepOpen, sleepMode, setSleepMode
+  } = playback;
   const pendingSeekRef = useRef<number | null>(null);
   const shouldAutoPlayRef = useRef(autoPlay ?? false);
   const saveIntervalRef = useRef<number | null>(null);
@@ -79,20 +75,9 @@ export function AudioPlayer({
   const mediaHandlersRef = useRef<Record<string, (arg?: MediaSessionActionDetails) => void>>({});
 
   const [fileIndex, setFileIndex] = useState(0);
-  const [playing, setPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [fileDuration, setFileDuration] = useState(0);
-  const [playbackRate, setPlaybackRate] = useState(1);
-  const [volume, setVolume] = useState(1);
-  const [muted, setMuted] = useState(false);
-  const [speedOpen, setSpeedOpen] = useState(false);
   const [chaptersOpen, setChaptersOpen] = useState(false);
-  const [sleepMode, setSleepMode] = useState<SleepMode>("off");
-  const [sleepRemaining, setSleepRemaining] = useState<number | null>(null);
-  const [sleepOpen, setSleepOpen] = useState(false);
   // The chapter index to finish on when sleepMode === "chapter".
   const sleepChapterTargetRef = useRef<number | null>(null);
-  const [playerError, setPlayerError] = useState("");
   const [bookmarkSaved, setBookmarkSaved] = useState(false);
   const [bookmarks, setBookmarks] = useState<BookmarkEntry[]>([]);
   const [bookmarksOpen, setBookmarksOpen] = useState(false);
@@ -335,6 +320,9 @@ export function AudioPlayer({
       revokeLocal();
       if (localUrl) localUrlRef.current = localUrl;
       audio.src = localUrl ?? `/api/library/books/${book.id}/stream/${fileId}`;
+      // load() resets playbackRate to defaultPlaybackRate, so the speed must be the
+      // default too, or the new chapter plays at 1× under a button saying otherwise.
+      audio.defaultPlaybackRate = playbackRate;
       audio.playbackRate = playbackRate;
       audio.load();
       if (shouldAutoPlayRef.current) {
@@ -383,7 +371,7 @@ export function AudioPlayer({
     };
     void run();
     return () => { cancelled = true; };
-  }, [book.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [book.id]);
 
   useEffect(() => {
     if (availableFiles.length === 0) return;
@@ -424,13 +412,6 @@ export function AudioPlayer({
   }, [playing, currentFile, saveProgress]);
 
   useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    audio.volume = muted ? 0 : volume;
-    audio.muted = muted;
-  }, [volume, muted]);
-
-  useEffect(() => {
     if (!speedOpen) return;
     const close = () => setSpeedOpen(false);
     window.addEventListener("click", close);
@@ -443,25 +424,6 @@ export function AudioPlayer({
     window.addEventListener("click", close);
     return () => window.removeEventListener("click", close);
   }, [sleepOpen]);
-
-  // Sleep timer (timed modes): tick down once a second while playing, then pause
-  // playback and disarm. Counting only while playing means a manual pause also
-  // pauses the timer, which is what listeners expect.
-  useEffect(() => {
-    if (typeof sleepMode !== "number" || !playing) return;
-    const id = window.setInterval(() => {
-      setSleepRemaining((prev) => {
-        const next = (prev ?? sleepMode * 60) - 1;
-        if (next <= 0) {
-          audioRef.current?.pause();
-          setSleepMode("off");
-          return null;
-        }
-        return next;
-      });
-    }, 1000);
-    return () => clearInterval(id);
-  }, [sleepMode, playing]);
 
   // Sleep timer ("end of chapter"): pause once playback crosses out of the chapter
   // that was active when the timer was armed.
@@ -536,19 +498,6 @@ export function AudioPlayer({
     else setPlayerError(t("reader:player.unablePlayFile"));
   }, [t]);
 
-  const togglePlay = () => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    if (playing) {
-      audio.pause();
-    } else {
-      setPlayerError("");
-      audio.play().catch((err) => {
-        setPlayerError(err instanceof Error ? err.message : t("reader:player.playbackFailed"));
-      });
-    }
-  };
-
   const goToPrev = () => {
     const audio = audioRef.current;
     if (!audio || !currentChapter) return;
@@ -569,25 +518,11 @@ export function AudioPlayer({
     }
   };
 
-  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const time = Number(e.target.value);
-    if (audioRef.current) audioRef.current.currentTime = time;
-    setCurrentTime(time);
-  };
-
   const changeRate = (rate: number) => {
-    setPlaybackRate(rate);
-    if (audioRef.current) audioRef.current.playbackRate = rate;
-    setSpeedOpen(false);
+    playback.changeRate(rate);
     updateMediaPositionState();
   };
 
-  const toggleMute = () => setMuted((m) => !m);
-  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const v = Number(e.target.value);
-    setVolume(v);
-    if (v > 0) setMuted(false);
-  };
   const toggleSpeedMenu = (e: React.MouseEvent) => {
     e.stopPropagation();
     setSpeedOpen((open) => !open);
@@ -597,10 +532,8 @@ export function AudioPlayer({
     setSleepOpen((open) => !open);
   };
   const chooseSleep = (mode: SleepMode) => {
-    setSleepMode(mode);
-    setSleepRemaining(typeof mode === "number" ? mode * 60 : null);
+    playback.chooseSleep(mode);
     sleepChapterTargetRef.current = mode === "chapter" ? currentChapterIndex : null;
-    setSleepOpen(false);
   };
 
   // Keep the lock-screen action handlers pointed at the latest closures.
@@ -700,27 +633,23 @@ export function AudioPlayer({
       {RATES.map((rate) => (
         <button
           key={rate}
-          className={`player-speed-option${playbackRate === rate ? " active" : ""}`}
+          className={cx("player-speed-option", playbackRate === rate && "active")}
           onClick={() => changeRate(rate)}
           aria-pressed={playbackRate === rate}
         >
-          {rate === 1 ? "1×" : `${rate}×`}
+          {rateLabel(rate)}
         </button>
       ))}
     </div>
   );
 
   // Compact label for the armed sleep timer: a live mm:ss countdown, or "Chapter".
-  const sleepLabel = sleepMode === "off"
-    ? null
-    : sleepMode === "chapter"
-      ? t("reader:player.chapter")
-      : formatTime(sleepRemaining ?? sleepMode * 60);
+  const sleepLabel = playback.sleepLabel(t("reader:player.chapter"));
 
   const sleepMenu = sleepOpen && (
     <div className="player-speed-menu player-sleep-menu" onClick={(e) => e.stopPropagation()}>
       <button
-        className={`player-speed-option${sleepMode === "off" ? " active" : ""}`}
+        className={cx("player-speed-option", sleepMode === "off" && "active")}
         onClick={() => chooseSleep("off")}
         aria-pressed={sleepMode === "off"}
       >
@@ -729,7 +658,7 @@ export function AudioPlayer({
       {SLEEP_MINUTES.map((min) => (
         <button
           key={min}
-          className={`player-speed-option${sleepMode === min ? " active" : ""}`}
+          className={cx("player-speed-option", sleepMode === min && "active")}
           onClick={() => chooseSleep(min)}
           aria-pressed={sleepMode === min}
         >
@@ -737,7 +666,7 @@ export function AudioPlayer({
         </button>
       ))}
       <button
-        className={`player-speed-option${sleepMode === "chapter" ? " active" : ""}`}
+        className={cx("player-speed-option", sleepMode === "chapter" && "active")}
         onClick={() => chooseSleep("chapter")}
         aria-pressed={sleepMode === "chapter"}
       >
@@ -783,13 +712,13 @@ export function AudioPlayer({
                     className="player-bookmark-note-input"
                     value={noteDraft}
                     onChange={(e) => setNoteDraft(e.target.value)}
-                    placeholder="Add a note…"
+                    placeholder={t("reader:player.addNotePlaceholder")}
                     rows={2}
                     autoFocus
                   />
                   <div className="player-bookmark-edit-actions">
-                    <button className="player-bookmark-save" onClick={() => saveBookmarkNote(bm.id, noteDraft)}>Save</button>
-                    <button className="player-bookmark-cancel" onClick={() => setEditingBookmarkId(null)}>Cancel</button>
+                    <button className="player-bookmark-save" onClick={() => saveBookmarkNote(bm.id, noteDraft)}>{t("reader:player.save")}</button>
+                    <button className="player-bookmark-cancel" onClick={() => setEditingBookmarkId(null)}>{t("common:common.cancel")}</button>
                   </div>
                 </div>
               ) : (
@@ -801,6 +730,25 @@ export function AudioPlayer({
       )}
     </div>
   );
+
+  // The transport row, the same in the inline and the pop-out player.
+  const controls = {
+    playing,
+    onTogglePlay: togglePlay,
+    onPrev: goToPrev,
+    onNext: goToNext,
+    onSkip: skip,
+    prevDisabled: currentChapterIndex <= 0 && currentTime <= 3,
+    nextDisabled: currentChapterIndex >= chapters.length - 1,
+    labels: {
+      prev: t("reader:player.prevChapter"),
+      next: t("reader:player.nextChapter"),
+      back30: t("reader:player.skipBack30"),
+      forward30: t("reader:player.skipForward30"),
+      play: t("reader:player.play"),
+      pause: t("reader:player.pause")
+    }
+  };
 
   const audioEl = (
     <audio
@@ -825,7 +773,7 @@ export function AudioPlayer({
           {totalDuration > 0 && (
             <div className="player-popup-progress">
               <span className="player-popup-progress-item">
-                <PieChart size={15} aria-hidden="true" /> {bookPercent}% Complete
+                <PieChart size={15} aria-hidden="true" /> {t("reader:player.percentComplete", { percent: bookPercent })}
               </span>
               <span className="player-popup-progress-sep" aria-hidden="true">•</span>
               <span className="player-popup-progress-item">
@@ -859,40 +807,7 @@ export function AudioPlayer({
             </div>
           </div>
 
-          <div className="player-controls player-controls--popup">
-            <button
-              className="player-btn player-btn-nav"
-              onClick={goToPrev}
-              disabled={currentChapterIndex <= 0 && currentTime <= 3}
-              aria-label={t("reader:player.prevChapter")}
-            >
-              <SkipBack size={18} />
-            </button>
-            <button className="player-btn player-btn-circle" onClick={() => skip(-30)} aria-label={t("reader:player.skipBack30")}>
-              <Rewind size={15} />
-              <span>30</span>
-            </button>
-            <button
-              className="player-btn player-btn-primary"
-              onClick={togglePlay}
-              aria-label={playing ? t("reader:player.pause") : t("reader:player.play")}
-              data-label={playing ? t("reader:player.pause") : t("reader:player.play")}
-            >
-              {playing ? <Pause size={21} /> : <Play size={21} />}
-            </button>
-            <button className="player-btn player-btn-circle" onClick={() => skip(30)} aria-label={t("reader:player.skipForward30")}>
-              <FastForward size={15} />
-              <span>30</span>
-            </button>
-            <button
-              className="player-btn player-btn-nav"
-              onClick={goToNext}
-              disabled={currentChapterIndex >= chapters.length - 1}
-              aria-label={t("reader:player.nextChapter")}
-            >
-              <SkipForward size={18} />
-            </button>
-          </div>
+          <PlayerControls layout="popup" {...controls} />
 
           <div className="player-volume-popup">
             <div className="player-volume-control">
@@ -952,7 +867,7 @@ export function AudioPlayer({
                     aria-label={saved ? t("reader:player.unlike") : t("reader:player.like")}
                   >
                     <Heart size={18} fill={saved ? "currentColor" : "none"} />
-                    <span className="player-popup-aux-label">Like</span>
+                    <span className="player-popup-aux-label">{t("reader:player.like")}</span>
                   </button>
                 </div>
               )}
@@ -979,7 +894,7 @@ export function AudioPlayer({
                   aria-label={t("reader:player.chapterList")}
                 >
                   <List size={18} />
-                  <span className="player-popup-aux-label">Chapters</span>
+                  <span className="player-popup-aux-label">{t("reader:player.chapters")}</span>
                 </button>
               </div>
             </div>
@@ -994,7 +909,7 @@ export function AudioPlayer({
             <div className="chapter-sheet">
               <div className="chapter-sheet-drag" />
               <div className="chapter-sheet-header">
-                <h3 className="chapter-sheet-title">Chapters</h3>
+                <h3 className="chapter-sheet-title">{t("reader:player.chapters")}</h3>
                 <button className="chapter-sheet-close" onClick={() => setChaptersOpen(false)} aria-label={t("reader:player.closeChapters")}>
                   <X size={18} />
                 </button>
@@ -1012,7 +927,7 @@ export function AudioPlayer({
             <div className="chapter-sheet">
               <div className="chapter-sheet-drag" />
               <div className="chapter-sheet-header">
-                <h3 className="chapter-sheet-title">Bookmarks</h3>
+                <h3 className="chapter-sheet-title">{t("reader:player.bookmarks")}</h3>
                 <button className="chapter-sheet-close" onClick={() => setBookmarksOpen(false)} aria-label={t("reader:player.closeBookmarks")}>
                   <X size={18} />
                 </button>
@@ -1038,25 +953,7 @@ export function AudioPlayer({
         </span>
       </div>
 
-      <div className="player-controls">
-        <button className="player-btn player-btn-skip" onClick={() => skip(-30)} aria-label={t("reader:player.skipBack30")}>
-          <Rewind size={17} />
-          <span>30</span>
-        </button>
-        <button className="player-btn" onClick={goToPrev} disabled={currentChapterIndex <= 0 && currentTime <= 3} aria-label={t("reader:player.prevChapter")}>
-          <SkipBack size={20} />
-        </button>
-        <button className="player-btn player-btn-primary" onClick={togglePlay} aria-label={playing ? t("reader:player.pause") : t("reader:player.play")}>
-          {playing ? <Pause size={22} /> : <Play size={22} />}
-        </button>
-        <button className="player-btn" onClick={goToNext} disabled={currentChapterIndex >= chapters.length - 1} aria-label={t("reader:player.nextChapter")}>
-          <SkipForward size={20} />
-        </button>
-        <button className="player-btn player-btn-skip" onClick={() => skip(30)} aria-label={t("reader:player.skipForward30")}>
-          <FastForward size={17} />
-          <span>30</span>
-        </button>
-      </div>
+      <PlayerControls layout="bar" {...controls} />
 
       <div className="player-seek">
         <span className="player-time">{formatTime(currentTime)}</span>
@@ -1107,7 +1004,7 @@ export function AudioPlayer({
             aria-expanded={speedOpen}
             aria-label={t("reader:player.playbackSpeed")}
           >
-            <span>{playbackRate === 1 ? "1×" : `${playbackRate}×`}</span>
+            <span>{rateLabel(playbackRate)}</span>
             <ChevronDown size={13} />
           </button>
           {speedMenu}
@@ -1134,7 +1031,7 @@ export function AudioPlayer({
           aria-label={t("reader:player.chapterList")}
         >
           <List size={15} />
-          <span>Chapters</span>
+          <span>{t("reader:player.chapters")}</span>
         </button>
 
         {showBookmark && (

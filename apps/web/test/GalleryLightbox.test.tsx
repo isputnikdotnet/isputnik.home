@@ -37,7 +37,6 @@ const props = (over: Record<string, unknown> = {}) => ({
   index: 0,
   canDelete: true,
   canEdit: true,
-  canShare: false,
   onClose: vi.fn(),
   onIndexChange: vi.fn(),
   onChanged: vi.fn(),

@@ -1,29 +1,29 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Trans, useTranslation } from "react-i18next";
-import { Album, ArrowLeft, MessageSquareText, CalendarClock, CalendarDays, CheckCheck, CheckCircle2, ChevronDown, ChevronRight, Circle, Combine, Compass, Download, Film, FolderOpen, FolderOutput, FolderPlus, Image as ImageIcon, ImagePlus, Inbox, LayoutGrid, LibraryBig, ListMusic, Lock, LockOpen, MapPin, MapPinned, Pencil, Play, Plus, Heart, Folder, RefreshCw, Send, Share2, Sparkles, SquareCheck, Tags, Trash2, UploadCloud, Users, X } from "lucide-react";
-import { api, type PublicUser } from "../../api";
+import { useTranslation } from "react-i18next";
+import { Album, ArrowLeft, CalendarDays, ChevronDown, Compass, Film, FolderOpen, Image as ImageIcon, Inbox, LayoutGrid, LibraryBig, MapPin, Plus, Sparkles, SquareCheck, UploadCloud, Users } from "lucide-react";
+import { api } from "../../api";
 import { sendInBatches } from "../../shared/bulk";
 import { DashboardShell } from "../../app/DashboardShell";
+import { useSession } from "../../app/SessionContext";
 import { followRoute, galleryHref, galleryInboxHref, galleryReviewAlbumHref, navigate, type GalleryView } from "../../router";
 import { Button } from "../../shared/Button";
-import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { MessageBox } from "../../shared/MessageBox";
 import { LibraryPageHeader } from "../../shared/LibraryPageHeader";
 import { LibraryPageToolbar } from "../../shared/LibraryPageToolbar";
 import { SortMenu } from "../../shared/SortMenu";
 import { ToggleSwitch } from "../../shared/ToggleSwitch";
 import { useIsMobile } from "../../shared/useIsMobile";
+import { useAnchoredMenu } from "../../shared/useAnchoredMenu";
 import { SectionNav, type SectionNavItem } from "../../shared/SectionNav";
-import { AssetTile, PersonAvatar, type LightboxSource } from "./AssetTile";
+import type { LightboxSource } from "./AssetTile";
 import { useGalleryAlbums } from "./useGalleryAlbums";
 import { useGallerySlideshows } from "./useGallerySlideshows";
 import { useGalleryPeople } from "./useGalleryPeople";
 import { GalleryLightbox, type GalleryAssetChange } from "./GalleryLightbox";
 import { GalleryUploadModal } from "./GalleryUploadModal";
-import { GallerySetTags } from "./GallerySetTags";
-import { GalleryFilterButton, GalleryFilterChips, EMPTY_GALLERY_FILTERS, activeGalleryFilterCount, type GalleryFilters } from "./GalleryFilter";
-import { getGroupingOptions, getTileSizeOptions, galleryGridClass, readGalleryView, writeGalleryView, type GalleryGrouping, type GalleryTileSize, type GalleryViewPrefs } from "./gallery-view";
+import { GalleryFilterButton, GalleryFilterChips, EMPTY_GALLERY_FILTERS, type GalleryFilters } from "./GalleryFilter";
+import { getGroupingOptions, getTileSizeOptions, type GalleryGrouping, type GalleryTileSize } from "./gallery-view";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { AddToAlbumModal } from "./AddToAlbumModal";
 import { AskSomeoneModal, type AskSomeoneSource } from "./AskSomeoneModal";
@@ -33,103 +33,38 @@ import { GalleryLocationModal } from "./GalleryLocationModal";
 import { GalleryTagsModal } from "./GalleryTagsModal";
 import { SlideshowMovieLibraryModal } from "./SlideshowMovieLibraryModal";
 import { PhotoPicker } from "./PhotoPicker";
-import { GallerySlideshowEditor } from "./GallerySlideshowEditor";
 import { ShareSetModal } from "../share/ShareSetModal";
 import { SendToSheet, type SendToSubject } from "../social/SendToSheet";
-import { NotesSection } from "../social/NotesSection";
-import { RelatedStories } from "../stories/RelatedStories";
-import { Modal } from "../../shared/Modal";
-import { SelectField } from "../../shared/SelectField";
-import { ChoiceGroup } from "../../shared/ChoiceGroup";
-import type { GalleryAlbum, GalleryAlbumDetail, GalleryAsset, GalleryFaceSettings, GalleryFacets, GalleryFolder, GalleryLibrary, GalleryMapPoint, GalleryMemories, GalleryMemoryGroup, GalleryMemorySuggestion, GalleryPerson, GallerySlideshow, GallerySlideshowDetail, GallerySlideshowSettings, SlideshowTransition } from "./types";
-import { faceFocusStyle, type TakenPrecision } from "./types";
-import { formatTakenDate } from "./taken-date";
-import i18n from "../../i18n";
-
-const PAGE_SIZE = 80;
-// The most a single browse request may ask for (the server caps it there). A
-// refresh re-fetches what is already on screen in chunks this size, so a visitor
-// deep into "Load more" keeps every page they asked for.
-const MAX_PAGE_SIZE = 200;
-// The People grid can hold thousands of clusters; render them a page at a time so a
-// wall of avatar thumbnails doesn't flood the cover route (and trip its rate limit).
-const PEOPLE_PAGE = 120;
+import type { GalleryAsset, GalleryLibrary, GalleryMapPoint } from "./types";
+import { getSortOptions, getViewTitles, type LightboxState } from "./page/gallery-page-model";
+import { useGalleryScope } from "./page/useGalleryScope";
+import { useGalleryScanPoll, useTimeline } from "./page/useTimeline";
+import { useFolderBrowse } from "./page/useFolderBrowse";
+import { useFolderAdmin } from "./page/useFolderAdmin";
+import { useMemories } from "./page/useMemories";
+import { TimelineView } from "./page/TimelineView";
+import { MemoriesView } from "./page/MemoriesView";
+import { AlbumsView } from "./page/AlbumsView";
+import { SlideshowsView } from "./page/SlideshowsView";
+import { PeopleView } from "./page/PeopleView";
+import { FoldersView } from "./page/FoldersView";
+import { GallerySelectionActions } from "./page/GallerySelectionActions";
+import { SuggestionPreviewModal } from "./page/SuggestionPreviewModal";
+import { CreateAlbumModal, CreateSlideshowModal } from "./page/CreateSetModals";
+import { CoverPickerModal } from "./page/CoverPickerModal";
+import { BulkDeleteDialog, DeleteAlbumDialog, DeleteMovieDialog, DeletePersonDialog, DeleteSlideshowDialog } from "./page/GalleryConfirmDialogs";
 
 // Leaflet (~140 KB) is only needed for the Map view, so it loads on demand — keeping
 // it off the initial bundle for the common Timeline/Folder browsing.
 const GalleryMap = lazy(() => import("./GalleryMap").then((m) => ({ default: m.GalleryMap })));
 
-type TimelineSort = "taken" | "added";
-
-// What the page calls itself in each view. The Timeline is the gallery's own
-// front page, so it keeps the section's name; every other view is titled after
-// the nav item that opens it, the way Series and Narrators are under Audiobooks.
-//
-// A function, not a frozen const, so a language switch is picked up on the next
-// render instead of caching whichever language was active on first import.
-function getViewTitles(): Record<GalleryView, string> {
-  return {
-    timeline: i18n.t("gallery:page.views.timeline"),
-    memories: i18n.t("gallery:page.views.memories"),
-    albums: i18n.t("gallery:page.views.albums"),
-    slideshows: i18n.t("gallery:page.views.slideshows"),
-    folder: i18n.t("gallery:page.views.folder"),
-    people: i18n.t("gallery:page.views.people"),
-    map: i18n.t("gallery:page.views.map")
-  };
-}
-
-// Timeline sort, presented through the same compact dropdown the audiobooks/ebooks
-// header uses, so the controls line up visually. The media-type (photo/video)
-// filter lives in the Filter panel with the other facets.
-function getSortOptions() {
-  return [
-    { value: "taken" as const, label: i18n.t("gallery:page.sort.taken") },
-    { value: "added" as const, label: i18n.t("gallery:page.sort.added") }
-  ];
-}
-
-// Titles for the Memories strip — the server reports how wide it had to match
-// before it found anything, and the heading must not overpromise.
-function getMemoriesTitles(): Record<GalleryMemories["precision"], string> {
-  return {
-    day: i18n.t("gallery:memories.titleDay"),
-    near: i18n.t("gallery:memories.titleNear"),
-    month: i18n.t("gallery:memories.titleMonth")
-  };
-}
-
-function yearsAgo(year: number): string {
-  const diff = new Date().getFullYear() - year;
-  return i18n.t("gallery:memories.yearsAgo", { count: diff });
-}
-
-// Date heading for one year group in the Memories view — today's month/day
-// projected onto that year, phrased to match the precision tier. Takes the
-// GROUP's precision, not the row's: years widen independently, so a 1990 photo
-// dated two days off says "Around August 11, 1990" while the rest of the row
-// still says the day itself.
-function memoryDateLabel(precision: GalleryMemoryGroup["precision"], year: number): string {
-  const now = new Date();
-  if (precision === "month") {
-    return new Date(year, now.getMonth(), 1).toLocaleDateString(undefined, { year: "numeric", month: "long" });
-  }
-  const day = new Date(year, now.getMonth(), now.getDate())
-    .toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
-  return precision === "near" ? i18n.t("gallery:memories.aroundDate", { date: day }) : day;
-}
-
-// Calendar-day label for the timeline header from an asset's takenAt — or, for a
-// photo dated only to the month or the year, that month or year, so a box of
-// "1962" prints heads one group rather than pretending to share New Year's Day.
-function dayLabel(asset: { takenAt: string | null; takenPrecision?: TakenPrecision; takenApprox?: boolean }): string {
-  const label = formatTakenDate(asset, { long: true });
-  return label || i18n.t("gallery:timeline.undated");
-}
-
+// The gallery's route shell: every /gallery address lands here. It owns what the
+// views share — the libraries, the one loading flag / error box / notice line,
+// the header and toolbar, the selection and its bulk dialogs, the lightbox — and
+// hands the view named by the address to its component in ./page/. Each view's
+// data lives in its own hook (useTimeline, useFolderBrowse, useMemories, and the
+// album / slideshow / people hooks beside this file).
 export function GalleryPage({
-  user,
-  logout,
   view,
   initialAssetId,
   initialAlbumId,
@@ -137,8 +72,6 @@ export function GalleryPage({
   initialFolder,
   initialLibraryId
 }: {
-  user: PublicUser;
-  logout: () => Promise<void>;
   /** Which browse view the address names. Not state — the URL is the view, so
    *  every one of them can be linked to, opened in a new tab and stepped back
    *  out of; switching views goes through goToView() below. */
@@ -152,10 +85,10 @@ export function GalleryPage({
   initialFolder?: string;
   initialLibraryId?: string | null;
 }) {
+  const { user } = useSession();
   const { t } = useTranslation(["common", "gallery"]);
   const VIEW_TITLES = getViewTitles();
   const SORT_OPTIONS = getSortOptions();
-  const MEMORIES_TITLES = getMemoriesTitles();
   const [libraries, setLibraries] = useState<GalleryLibrary[]>([]);
   // The libraries facet names a Photo Inbox as one, and a library inside App
   // storage as that, so choosing either is a deliberate act: both are left out of
@@ -174,6 +107,7 @@ export function GalleryPage({
   // Declared up here with error/loading because the view hooks below report into
   // all three — one loading flag, one error box, one notice line for the page.
   const [notice, setNotice] = useState("");
+  const [loading, setLoading] = useState(false);
 
   // Switching view is a navigation. The page itself is not remounted — App hands
   // every gallery address to this same component — so the scope, sort and loaded
@@ -186,143 +120,57 @@ export function GalleryPage({
   // on it with the question ticked (docs/for-you-plan.md).
   const [askSomeone, setAskSomeone] = useState<AskSomeoneSource | null>(null);
 
-  // Seeded from the address so a deep link can ask for a particular order — the
-  // home's "New photos" card links to /gallery?sort=added, and the page it opens
-  // is then the set that card was advertising. Anything else means the default.
-  const [sort, setSort] = useState<TimelineSort>(
-    () => (new URLSearchParams(window.location.search).get("sort") === "added" ? "added" : "taken")
-  );
+  const {
+    sort, setSort, viewPrefs, setViewPrefs, gridClass,
+    searchText, setSearchText, query, setQuery, folderQuery,
+    filters, setFilters, changeFilters, peopleMatchAll, setPeopleMatchAll,
+    soleLibraryId, scopeParams, facets
+  } = useGalleryScope({ view, initialLibraryId, goToView });
 
-  // How the photo grids look: tile size, and whether the timeline comes in dated
-  // sections or as one uninterrupted grid. Both live behind the toolbar's View
-  // menu and are remembered between visits (see gallery-view.ts).
-  const [viewPrefs, setViewPrefs] = useState<GalleryViewPrefs>(readGalleryView);
-  useEffect(() => { writeGalleryView(viewPrefs); }, [viewPrefs]);
-  const gridClass = galleryGridClass(viewPrefs.tileSize);
+  const { assets, setAssets, total, setTotal, loadTimeline, reloadTimeline } =
+    useTimeline({ sort, query, filters, peopleMatchAll, setLoading, setError });
 
-  // Search box drives the timeline `q`; a debounce keeps typing from spamming the API.
-  const [searchText, setSearchText] = useState("");
-  const [query, setQuery] = useState("");
-
-  // Advanced filters (people/years/tags/cameras/location) — timeline-scoped, like
-  // the audiobook catalog's filter panel. Facets supply the option lists. Which
-  // libraries a view draws from lives here too, as the first facet, rather than
-  // a picker of its own — a deep link into one library's folder tree (Folders'
-  // "?library=") seeds it with that one library chosen — for as long as the
-  // Folders view is open (see seededLibrary below).
-  const [filters, setFilters] = useState<GalleryFilters>(() => ({
-    ...EMPTY_GALLERY_FILTERS,
-    libraries: initialLibraryId ? [initialLibraryId] : []
-  }));
-  // Whether the People facet means "any of them" (default, OR — like every other
-  // facet) or "all of them together" (AND). Kept outside GalleryFilters/EMPTY_GALLERY_FILTERS
-  // since every other facet's value is a plain string[] — FacetFilterButton/Chips
-  // are generic over that shape — so this rides along as its own bit of state and
-  // is merged into the request's `filters.peopleMatch` at fetch time.
-  const [peopleMatchAll, setPeopleMatchAll] = useState(false);
-  // That "?library=" seed is the page's own doing, not a choice the visitor made:
-  // it exists so the folder tree a deep link points at can be shown at all (folder
-  // paths repeat across libraries, and Folders' rescan needs a single one). It must
-  // therefore not follow them OUT of the Folders view and quietly narrow the
-  // timeline — which is what it did when arriving from the home page's memory
-  // viewer or the duplicate-cleanup report. Held until the visitor touches the
-  // filter panel (from then on the choice is theirs — see changeFilters) or leaves
-  // Folders, whichever comes first.
-  const [seededLibrary, setSeededLibrary] = useState<string | null>(initialLibraryId ?? null);
-  if (seededLibrary && view !== "folder") {
-    // Adjusted during render rather than from an effect on purpose: the view loader
-    // keys on `filters`, so clearing afterwards would fire a second timeline fetch
-    // racing the first — and the filtered page could be the one that lands last.
-    setSeededLibrary(null);
-    setFilters((current) => (
-      current.libraries.length === 1 && current.libraries[0] === seededLibrary
-        ? { ...current, libraries: [] }
-        : current
-    ));
-  }
-  // Every filter control goes through this rather than setFilters: the moment the
-  // visitor picks anything, the seeded library stops being ours to take away.
-  const changeFilters = useCallback((next: GalleryFilters) => {
-    setSeededLibrary(null);
-    setFilters(next);
-  }, []);
-  const [facets, setFacets] = useState<GalleryFacets | null>(null);
-  // A few actions — rescanning a folder, Folders' own scope — only make sense
-  // against exactly one library, the same way Audiobooks only offers "Add to
-  // series" once its library filter narrows to one.
-  const soleLibraryId = filters.libraries.length === 1 ? filters.libraries[0] : null;
-
-  // Timeline state.
-  const [assets, setAssets] = useState<GalleryAsset[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(false);
-
-  // Memories ("On this day"): feeds the strip above the timeline AND the
-  // dedicated Memories view.
-  const [memories, setMemories] = useState<GalleryMemories | null>(null);
-  const [memorySuggestions, setMemorySuggestions] = useState<GalleryMemorySuggestion[]>([]);
-  // A suggestion opened for PREVIEW — nothing is created until the user picks an
-  // action in the modal. previewAssets null = thumbnails still loading.
-  const [previewSuggestion, setPreviewSuggestion] = useState<GalleryMemorySuggestion | null>(null);
-  const [previewAssets, setPreviewAssets] = useState<GalleryAsset[] | null>(null);
-
-  // Folder state.
-  const [parent, setParent] = useState("");
-  // Whether the folder currently open is itself locked (deletion refused inside).
-  const [parentLocked, setParentLocked] = useState(false);
-  const [folders, setFolders] = useState<GalleryFolder[]>([]);
-  const [folderAssets, setFolderAssets] = useState<GalleryAsset[]>([]);
-  // Photos/videos sitting DIRECTLY in the open folder (subfolders excluded) — the
-  // grid below only holds a page of them, so the count comes from the server.
-  const [folderTotal, setFolderTotal] = useState(0);
+  const folderBrowse = useFolderBrowse({ view, folderQuery, scopeParams, initialFolder, setLoading, setError });
+  const {
+    parent, parentLocked, setParentLocked, folders, folderAssets, setFolderAssets, folderTotal, setFolderTotal,
+    folderSubtreeTotal, pendingFolderRef, deepLinkFolder, loadFolder
+  } = folderBrowse;
 
   // The Albums and Slideshows views own their own state and loaders. Destructured
   // back into the names the rest of this file already uses, so the seam is the
   // state and not a rewrite of the markup.
-  // Above the view hooks because People is scope-filtered and takes this. Omitted
-  // entirely when no library is chosen — every accessible one, same as before.
-  const scopeParams = useCallback(() => (
-    filters.libraries.length > 0 ? { libraryIds: filters.libraries.join(",") } : {}
-  ), [filters.libraries]);
-
   const status = { setLoading, setError, setNotice };
+  const albumsState = useGalleryAlbums(status);
   const {
-    albums, setAlbums, selectedAlbum, setSelectedAlbum, albumAssets, setAlbumAssets,
-    albumTotal, setAlbumTotal, albumCreateOpen, setAlbumCreateOpen,
-    albumNewName, setAlbumNewName, albumNewDesc, setAlbumNewDesc,
-    albumRename, setAlbumRename, albumDeleteOpen, setAlbumDeleteOpen,
-    albumBusy, setAlbumBusy,
+    albums, selectedAlbum, setSelectedAlbum, albumAssets, setAlbumAssets,
+    albumCreateOpen, setAlbumCreateOpen, albumNewName, setAlbumNewName, albumNewDesc, setAlbumNewDesc,
+    setAlbumRename, albumDeleteOpen, setAlbumDeleteOpen, albumBusy,
     bulkAlbumOpen, setBulkAlbumOpen, coverPickerOpen, setCoverPickerOpen,
     albumBrowseOpen, setAlbumBrowseOpen,
-    loadAlbums, openAlbum, patchAlbum, setAlbumCover,
-    removeFromAlbum, createAlbumSubmit, confirmDeleteAlbum
-  } = useGalleryAlbums(status);
+    loadAlbums, openAlbum, setAlbumCover, createAlbumSubmit, confirmDeleteAlbum
+  } = albumsState;
+  const slideshowsState = useGallerySlideshows(status);
   const {
     slideshows, selectedSlideshow, setSelectedSlideshow,
-    slideshowAssets, setSlideshowAssets, slideshowTotal, setSlideshowTotal,
+    slideshowAssets, setSlideshowAssets, setSlideshowTotal,
     slideshowCreateOpen, setSlideshowCreateOpen,
-    slideshowNewName, setSlideshowNewName, slideshowRename, setSlideshowRename,
+    slideshowNewName, setSlideshowNewName, setSlideshowRename,
     slideshowDeleteOpen, setSlideshowDeleteOpen, slideshowBusy,
     bulkSlideshowOpen, setBulkSlideshowOpen, browseOpen, setBrowseOpen,
     slideshowCoverPickerOpen, setSlideshowCoverPickerOpen,
     movieDeleteOpen, setMovieDeleteOpen, movieDeleteBusy,
     slideshowSettings, loadSlideshowSettings,
-    loadSlideshows, openSlideshow, patchSlideshow, setSlideshowCover, renderSlideshowMovie,
-    deleteSlideshowMovie, reorderSlideshow, removeFromSlideshow,
-    createSlideshowSubmit, confirmDeleteSlideshow
-  } = useGallerySlideshows({ ...status, isAdmin });
+    loadSlideshows, openSlideshow, patchSlideshow, setSlideshowCover,
+    deleteSlideshowMovie, createSlideshowSubmit, confirmDeleteSlideshow
+  } = slideshowsState;
+  // Above the view hooks because People is scope-filtered and takes scopeParams.
+  const peopleState = useGalleryPeople({ ...status, scopeParams, isAdmin });
   const {
-    people, selectedPerson, setSelectedPerson, personAssets, setPersonAssets, personTotal,
-    renameValue, setRenameValue, mergeOpen, setMergeOpen,
-    personCoverPickerOpen, setPersonCoverPickerOpen, setPersonCover,
-    personDeleteOpen, setPersonDeleteOpen, personPick, setPersonPick,
-    moveNewName, setMoveNewName, movingPhotos,
-    showSmallGroups, setShowSmallGroups,
-    visiblePeople, setVisiblePeople, visibleSmall, setVisibleSmall,
-    anyFaceEnabled, loadPeople, openPerson, loadFaceSettings, submitRename,
-    confirmMerge, removeFromPerson, togglePersonPick, movePickedPhotos,
-    confirmDeletePerson
-  } = useGalleryPeople({ ...status, scopeParams, isAdmin });
+    people, selectedPerson, setSelectedPerson, personAssets, setPersonAssets,
+    setRenameValue, setMergeOpen, personCoverPickerOpen, setPersonCoverPickerOpen, setPersonCover,
+    personDeleteOpen, setPersonDeleteOpen,
+    loadPeople, openPerson, loadFaceSettings, confirmDeletePerson
+  } = peopleState;
 
   // What the header's one search box means here — and whether it is offered at
   // all. Timeline and Folders are a stream of photos, so the box searches the
@@ -371,15 +219,6 @@ export function GalleryPage({
         : view === "slideshows" ? t("gallery:page.search.slideshows")
           : t("gallery:page.search.people");
 
-  // Folder to open on the next switch into the Folders view (set by the lightbox's
-  // Folder link); the view-change effect consumes it instead of loading the root.
-  const pendingFolderRef = useRef<string | null>(null);
-  // A /gallery/folders/… deep link can't use the ref above: the view effect already
-  // holds "folder" on mount, and StrictMode invokes it twice — the first pass would
-  // consume the ref and the second would fall through to the library root. State
-  // survives both passes, and is dropped as soon as the folder view is navigated.
-  const [deepLinkFolder, setDeepLinkFolder] = useState<string | null>(initialFolder ?? null);
-
   // Map state. `mapCount` (geotagged assets in scope, from the facets) gates whether
   // the Map tab is offered at all; `mapPoints` are the markers for the active scope/kind.
   const [mapPoints, setMapPoints] = useState<GalleryMapPoint[]>([]);
@@ -390,14 +229,12 @@ export function GalleryPage({
   // Mobile / PWA: "Browse" dropdown that collapses the view tabs (Timeline,
   // Memories, Albums, …), matching the audiobooks/ebooks compact header.
   // ("viewMenu" rather than "browse" — browseOpen is the slideshow photo browser.)
-  const [viewMenuOpen, setViewMenuOpen] = useState(false);
-  const [viewMenuPos, setViewMenuPos] = useState<{ top: number; left: number | null; right: number | null } | null>(null);
-  const viewMenuTriggerRef = useRef<HTMLButtonElement>(null);
-  const viewMenuRef = useRef<HTMLDivElement>(null);
+  const viewMenu = useAnchoredMenu({ closeOnEscape: false });
 
   // Lightbox: which array + index is open. A deep-linked asset opens standalone.
-  const [lightbox, setLightbox] = useState<{ source: LightboxSource; index: number; autoPlay?: boolean } | null>(null);
+  const [lightbox, setLightbox] = useState<LightboxState | null>(null);
   const [singleAsset, setSingleAsset] = useState<GalleryAsset | null>(null);
+  const openLightbox = (source: LightboxSource, index: number) => setLightbox({ source, index });
 
   // Upload (source-writing, policy-gated): the modal is offered when any library
   // accepts uploads. A notice confirms the batch after the modal closes.
@@ -430,276 +267,11 @@ export function GalleryPage({
     } catch (err) {
       setError(err instanceof Error ? err.message : t("gallery:page.errors.loadLibraries"));
     }
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { void loadLibraries(); }, [loadLibraries]);
 
-  // Folder-name search results, replacing the folder browse while a term is typed.
-  // null = not searching; the browse state underneath is left alone, so clearing
-  // the box lands back exactly where you were.
-  const [folderQuery, setFolderQuery] = useState("");
-  const [folderMatches, setFolderMatches] = useState<{ folders: GalleryFolder[]; total: number } | null>(null);
-
-  // Debounce the search box into the query that hits the API — but only where the
-  // box means "search the photos". In the Folders view the SAME box searches folder
-  // names instead (folderQuery above) — typing there used to yank the page into the
-  // Timeline and search the photos, which answered a question nobody standing in a
-  // folder tree was asking. On the list views the box is a name filter applied in
-  // memory (see nameTerm below), and letting it reach `query` would refetch that
-  // list on every keystroke, since query is a dependency of the view loader.
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setQuery(view === "timeline" ? searchText.trim() : "");
-      setFolderQuery(view === "folder" ? searchText.trim() : "");
-    }, 250);
-    return () => window.clearTimeout(timer);
-  }, [searchText, view]);
-
-  // FILTERS are still a timeline operation (a folder tree can't show "only videos
-  // from 2019" without becoming the timeline), so they pull the user there where
-  // the results are visible. Which libraries the view draws from is exempt —
-  // Folders is already a per-library concept, so narrowing to a library stays put.
-  useEffect(() => {
-    const nonLibraryFilters = activeGalleryFilterCount({ ...filters, libraries: [] });
-    if (nonLibraryFilters > 0 && view === "folder") goToView("timeline");
-  }, [filters, view, goToView]);
-
-  useEffect(() => {
-    if (view !== "folder" || !folderQuery) {
-      setFolderMatches(null);
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      try {
-        const params = new URLSearchParams({ ...scopeParams(), q: folderQuery } as Record<string, string>);
-        const payload = await api<{ folders: GalleryFolder[]; total: number }>(
-          `/api/library/gallery/folders/search?${params}`
-        );
-        if (!cancelled) setFolderMatches(payload);
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : t("gallery:page.errors.searchFolders"));
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [view, folderQuery, scopeParams]);
-
-  // The box means something different in each view — photos here, album names
-  // there — so a term does not follow you between them. Cleared on every change
-  // of view, including back onto the timeline.
-  useEffect(() => {
-    setSearchText("");
-    setQuery("");
-  }, [view]);
-
-  // Which libraries this draws from is already inside `filters.libraries` — the
-  // POST body's JSON carries it natively, unlike the GET views below which need
-  // scopeParams()'s query-string form.
-  const fetchTimelinePage = useCallback((offset: number, limit: number) =>
-    api<{ assets: GalleryAsset[]; total: number }>("/api/library/gallery/timeline", {
-      method: "POST",
-      body: JSON.stringify({
-        q: query, kinds: filters.kinds,
-        filters: { ...filters, peopleMatch: peopleMatchAll ? "all" : "any" },
-        sort, limit, offset
-      })
-    }), [sort, query, filters, peopleMatchAll]);
-
-  const loadTimeline = useCallback(async (offset: number) => {
-    setLoading(true);
-    setError("");
-    try {
-      const payload = await fetchTimelinePage(offset, PAGE_SIZE);
-      setAssets((prev) => (offset === 0 ? payload.assets : [...prev, ...payload.assets]));
-      setTotal(payload.total);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t("gallery:page.errors.loadTimeline"));
-    } finally {
-      setLoading(false);
-    }
-  }, [fetchTimelinePage]);
-
-  // Re-fetch everything currently on screen rather than only the first page: a
-  // visitor who pressed "Load more" four times should not have those pages
-  // silently thrown away by a rotate or an edit — and with the viewer open on a
-  // later page, a shrinking list closed it under them. Pages come back in
-  // sequence and swap in as one, so the grid never flashes a short list.
-  const reloadTimeline = useCallback(async (keep: number) => {
-    setLoading(true);
-    setError("");
-    try {
-      const collected: GalleryAsset[] = [];
-      let total = 0;
-      do {
-        const page = await fetchTimelinePage(collected.length, MAX_PAGE_SIZE);
-        total = page.total;
-        collected.push(...page.assets);
-        if (page.assets.length < MAX_PAGE_SIZE) break;
-      } while (collected.length < keep);
-      setAssets(collected);
-      setTotal(total);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t("gallery:page.errors.loadTimeline"));
-    } finally {
-      setLoading(false);
-    }
-  }, [fetchTimelinePage]);
-
-  const fetchFolderPage = useCallback((nextParent: string, offset: number) => {
-    const params = new URLSearchParams({ ...scopeParams(), parent: nextParent, limit: String(MAX_PAGE_SIZE), offset: String(offset) } as Record<string, string>);
-    return api<{ parent: string; parentLocked: boolean; folders: GalleryFolder[]; assets: GalleryAsset[]; total: number }>(
-      `/api/library/gallery/folders?${params}`
-    );
-  }, [scopeParams]);
-
-  // `offset` > 0 is the "Load more" path: keep what is on screen and append the
-  // next page (the folder list itself is identical, so it is simply re-set).
-  // `keep` is the refresh path — re-fetch every page that was loaded, for the
-  // same reason reloadTimeline does.
-  const loadFolder = useCallback(async (nextParent: string, offset = 0, keep = 0) => {
-    // The deep link has served its purpose once a folder is being loaded; from here
-    // browsing (and any scope change) starts from the root like a normal visit.
-    setDeepLinkFolder((current) => (current === null ? current : null));
-    setLoading(true);
-    setError("");
-    try {
-      const payload = await fetchFolderPage(nextParent, offset);
-      const collected = [...payload.assets];
-      while (collected.length < keep && collected.length < payload.total && payload.assets.length === MAX_PAGE_SIZE) {
-        const page = await fetchFolderPage(payload.parent, collected.length);
-        if (page.assets.length === 0) break;
-        collected.push(...page.assets);
-      }
-      setFolders(payload.folders);
-      setFolderAssets((current) => (offset > 0 ? [...current, ...payload.assets] : collected));
-      setFolderTotal(payload.total);
-      setParent(payload.parent);
-      setParentLocked(payload.parentLocked);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t("gallery:page.errors.loadFolder"));
-    } finally {
-      setLoading(false);
-    }
-  }, [fetchFolderPage]);
-
-  // Admin: rescan just the folder currently open (a single library must be in
-  // scope — a folder path can exist under several libraries otherwise). The scan
-  // runs on the server; progress shows on Control panel → Overview → Tasks.
-  const [folderRescanBusy, setFolderRescanBusy] = useState(false);
-  const rescanFolder = useCallback(async () => {
-    if (!soleLibraryId || !parent) return;
-    setFolderRescanBusy(true);
-    setError("");
-    setNotice("");
-    try {
-      await api(`/api/library/gallery-libraries/${soleLibraryId}/rescan`, {
-        method: "POST",
-        body: JSON.stringify({ folder: parent })
-      });
-      setNotice(t("gallery:folders.rescanNotice", { folder: parent }));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t("gallery:folders.errors.rescan"));
-    } finally {
-      setFolderRescanBusy(false);
-    }
-  }, [soleLibraryId, parent]);
-
-  // Admin: lock or unlock the folder currently open. Locked = nothing at or below
-  // it can be deleted from the app (the server refuses, whoever asks). Same
-  // single-library gate as rescan — a lock names a folder IN a library.
-  const [folderLockBusy, setFolderLockBusy] = useState(false);
-  const toggleFolderLock = useCallback(async () => {
-    if (!soleLibraryId || !parent) return;
-    setFolderLockBusy(true);
-    setError("");
-    setNotice("");
-    try {
-      await api(`/api/library/libraries/${soleLibraryId}/folder-locks`, {
-        method: "PUT",
-        body: JSON.stringify({ folderPath: parent, locked: !parentLocked })
-      });
-      setParentLocked(!parentLocked);
-      setNotice(!parentLocked
-        ? t("gallery:folders.lockedNotice", { folder: parent })
-        : t("gallery:folders.unlockedNotice", { folder: parent }));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t("gallery:folders.errors.toggleLock"));
-    } finally {
-      setFolderLockBusy(false);
-    }
-  }, [soleLibraryId, parent, parentLocked]);
-
-  // Admin: move the folder currently open into another gallery library. The
-  // files travel as a storage move task; the items keep their ids, so nothing
-  // that names them breaks. Same single-library gate as the lock. Picking a
-  // target asks the server what would happen (a dry run) before the verb.
-  const [moveFolderOpen, setMoveFolderOpen] = useState(false);
-  const [moveTarget, setMoveTarget] = useState("");
-  const [movePlan, setMovePlan] = useState<{ items: number; to: string; targetName: string } | null>(null);
-  const [moveBusy, setMoveBusy] = useState(false);
-  const [moveError, setMoveError] = useState("");
-  const moveTargets = useMemo(
-    () => libraries.filter((library) => library.id !== soleLibraryId && !library.inbox && library.canWrite),
-    [libraries, soleLibraryId]
-  );
-  const openMoveFolder = () => {
-    setMoveTarget("");
-    setMovePlan(null);
-    setMoveError("");
-    setMoveFolderOpen(true);
-  };
-  const planMoveFolder = useCallback(async (targetLibraryId: string) => {
-    setMoveTarget(targetLibraryId);
-    setMovePlan(null);
-    setMoveError("");
-    if (!soleLibraryId || !parent || !targetLibraryId) return;
-    try {
-      const { plan } = await api<{ plan: { items: number; to: string; target: { name: string } } }>(
-        `/api/library/gallery-libraries/${soleLibraryId}/folders/move`,
-        { method: "POST", body: JSON.stringify({ folderPath: parent, targetLibraryId, dryRun: true }) }
-      );
-      setMovePlan({ items: plan.items, to: plan.to, targetName: plan.target.name });
-    } catch (err) {
-      setMoveError(err instanceof Error ? err.message : t("gallery:folders.errors.move"));
-    }
-  }, [soleLibraryId, parent]);
-  const confirmMoveFolder = useCallback(async () => {
-    if (!soleLibraryId || !parent || !moveTarget) return;
-    setMoveBusy(true);
-    setMoveError("");
-    const folder = parent;
-    const sourceLibraryId = soleLibraryId;
-    try {
-      await api(`/api/library/gallery-libraries/${sourceLibraryId}/folders/move`, {
-        method: "POST",
-        body: JSON.stringify({ folderPath: folder, targetLibraryId: moveTarget })
-      });
-      setMoveFolderOpen(false);
-      setNotice(t("gallery:folders.moveQueuedNotice", { folder, library: movePlan?.targetName ?? "" }));
-      // Watch the task; when it is done, open the folder above, since this one
-      // is gone from here, and say so.
-      const above = folder.includes("/") ? folder.slice(0, folder.lastIndexOf("/")) : "";
-      const watch = window.setInterval(() => {
-        void api<{ moves: { running: boolean; libraryId: string | null; folder: string | null; status: string; failed: { name: string; error: string }[] }[] }>("/api/library/gallery/folder-moves")
-          .then((payload) => {
-            const mine = payload.moves.find((move) => move.libraryId === sourceLibraryId && move.folder === folder);
-            if (!mine || mine.running) return;
-            window.clearInterval(watch);
-            if (mine.status === "completed") {
-              setNotice(t("gallery:folders.moveDoneNotice", { folder, library: movePlan?.targetName ?? "" }));
-            } else {
-              setError(t("gallery:folders.errors.moveFailed", { folder, count: mine.failed.length }));
-            }
-            void loadFolder(above);
-          })
-          .catch(() => { /* next tick */ });
-      }, 2000);
-    } catch (err) {
-      setMoveError(err instanceof Error ? err.message : t("gallery:folders.errors.move"));
-    } finally {
-      setMoveBusy(false);
-    }
-  }, [soleLibraryId, parent, moveTarget, movePlan, loadFolder]);
+  const folderAdmin = useFolderAdmin({ soleLibraryId, parent, parentLocked, setParentLocked, libraries, setError, setNotice, loadFolder });
 
   const loadMap = useCallback(async () => {
     setLoading(true);
@@ -713,102 +285,17 @@ export function GalleryPage({
     } finally {
       setLoading(false);
     }
-  }, [scopeParams, filters.kinds]);
+  }, [scopeParams, filters.kinds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const canCuratePeople = libraries.some((library) => library.canWrite);
 
-  // Facets for the current scope: the filter-panel option lists plus the geotagged
-  // count that decides whether the Map tab appears.
-  useEffect(() => {
-    let alive = true;
-    const params = new URLSearchParams(scopeParams() as Record<string, string>);
-    api<GalleryFacets>(`/api/library/gallery/facets?${params}`)
-      .then((payload) => { if (alive) setFacets(payload); })
-      .catch(() => { /* facets are advisory; the filter lists just stay empty */ });
-    return () => { alive = false; };
-  }, [scopeParams]);
-
-  // Memories, scope-dependent like the facets; the date is the viewer's local
-  // calendar day (the server may be in another timezone, and "on this day"
-  // belongs to whoever is looking at the screen). perYear is the server-side
-  // max so the Memories view has every photo, not a sample.
-  const loadMemories = useCallback(async () => {
-    const now = new Date();
-    const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-    const params = new URLSearchParams({ ...scopeParams(), date, perYear: "200" } as Record<string, string>);
-    try {
-      setMemories(await api<GalleryMemories>(`/api/library/gallery/memories?${params}`));
-    } catch { /* advisory; the strip/view just stay empty */ }
-  }, [scopeParams]);
-
-  useEffect(() => { void loadMemories(); }, [loadMemories]);
-
-  // Suggested memories (event/trip clusters). Loaded on mount too, so the Memories
-  // tab can appear even when there are no "On this day" anniversaries today.
-  const loadMemorySuggestions = useCallback(async () => {
-    const params = new URLSearchParams({ ...scopeParams(), limit: "8" } as Record<string, string>);
-    try {
-      const payload = await api<{ suggestions: GalleryMemorySuggestion[] }>(`/api/library/gallery/memories/suggestions?${params}`);
-      setMemorySuggestions(payload.suggestions);
-    } catch { /* advisory; the section just stays empty */ }
-  }, [scopeParams]);
-
-  useEffect(() => { void loadMemorySuggestions(); }, [loadMemorySuggestions]);
-
-  // Open a suggestion for preview: show its photos and let the user choose an action
-  // (create a slideshow, or add the photos to an existing/new one). Nothing persists
-  // until they pick one.
-  const openSuggestionPreview = useCallback(async (suggestion: GalleryMemorySuggestion) => {
-    setPreviewSuggestion(suggestion);
-    setPreviewAssets(null);
-    try {
-      const payload = await api<{ assets: GalleryAsset[] }>("/api/library/gallery/assets/lookup", {
-        method: "POST",
-        body: JSON.stringify({ itemIds: suggestion.itemIds })
-      });
-      setPreviewAssets(payload.assets);
-    } catch {
-      setPreviewAssets([]); // grid stays empty; the actions still work
-    }
-  }, []);
-
-  // Turn a suggested memory into a real slideshow (sourceKind=memory) and jump into
-  // its editor, pre-filled with the montage. From there the user customizes/plays it.
-  const createFromMemory = useCallback(async (suggestion: GalleryMemorySuggestion) => {
-    setError("");
-    try {
-      const { slideshow } = await api<{ slideshow: GallerySlideshow }>("/api/library/gallery/slideshows", {
-        method: "POST",
-        body: JSON.stringify({ name: suggestion.title, itemIds: suggestion.itemIds, sourceKind: "memory", sourceRef: suggestion.id })
-      });
-      setSlideshowAssets([]);
-      setSlideshowTotal(0);
-      goToView("slideshows");
-      await openSlideshow(slideshow.id);
-      setNotice(t("gallery:memories.createdSlideshowNotice", { name: slideshow.name }));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t("gallery:memories.errors.createSlideshow"));
-    }
-  }, [openSlideshow, goToView]);
-
-  // The Memories lightbox runs over ALL years flattened (newest year first,
-  // chronological within a year), so Next flows from one year into the next.
-  const memoryItems = useMemo(() => memories?.groups.flatMap((group) => group.items) ?? [], [memories]);
-
-  // A strip card opens the Memories view anchored at its year.
-  // A strip card opens the viewer directly at that year's first photo (same as
-  // the home page) — the full memory set is already loaded, no view switch.
-  const openMemoryYear = useCallback((year: number) => {
-    const groups = memories?.groups ?? [];
-    let start = 0;
-    for (const group of groups) {
-      if (group.year === year) break;
-      start += group.items.length;
-    }
-    const total = groups.reduce((sum, group) => sum + group.items.length, 0);
-    if (total === 0) return;
-    setLightbox({ source: "memory", index: Math.min(start, total - 1) });
-  }, [memories]);
+  const {
+    memories, setMemories, memorySuggestions, previewSuggestion, setPreviewSuggestion, previewAssets,
+    loadMemories, openSuggestionPreview, createFromMemory, memoryItems, openMemoryYear
+  } = useMemories({
+    scopeParams, setError, setNotice, goToView, openSlideshow, setLightbox,
+    resetSlideshow: () => { setSlideshowAssets([]); setSlideshowTotal(0); }
+  });
 
   // Fetch one asset and open it standalone in the lightbox (used by map markers).
   const openAssetById = useCallback((id: string) => {
@@ -818,7 +305,7 @@ export function GalleryPage({
   }, []);
 
   // Reload the active view when scope/sort/query/filters/view changes.
-  // (Memories loads through its own scope-keyed effect above.)
+  // (Memories loads through its own scope-keyed effect in useMemories.)
   useEffect(() => {
     if (view === "timeline") void loadTimeline(0);
     else if (view === "folder") {
@@ -870,56 +357,11 @@ export function GalleryPage({
     return () => { alive = false; };
   }, [initialAssetId]);
 
-  // While a library is scanning, refresh so new assets/thumbnails appear. Uses
-  // the "keep loaded pages" reloaders (same ones refreshView uses) rather than
-  // resetting to page 1 — otherwise a visitor paging through "Load more" during
-  // a long scan gets truncated back to the first page every 3.5s.
-  useEffect(() => {
-    if (!libraries.some((library) => library.scanStatus === "scanning")) return;
-    const timer = window.setInterval(() => {
-      void loadLibraries();
-      if (view === "timeline") void reloadTimeline(assets.length);
-      else if (view === "folder") void loadFolder(parent, 0, folderAssets.length);
-      else if (view === "memories") void loadMemories();
-      else if (view === "map") void loadMap();
-    }, 3500);
-    return () => window.clearInterval(timer);
-  }, [libraries, view, parent, assets.length, folderAssets.length, loadLibraries, reloadTimeline, loadFolder, loadMemories, loadMap]);
-
-  // Mobile "Browse" (views) dropdown open/close + outside-click dismissal.
-  const toggleViewMenu = () => {
-    setViewMenuOpen((open) => {
-      if (!open && viewMenuTriggerRef.current) {
-        const rect = viewMenuTriggerRef.current.getBoundingClientRect();
-        const alignRight = rect.left + 200 > window.innerWidth;
-        setViewMenuPos({
-          top: rect.bottom + 8,
-          left: alignRight ? null : rect.left,
-          right: alignRight ? window.innerWidth - rect.right : null
-        });
-      }
-      return !open;
-    });
-  };
-
-  useEffect(() => {
-    if (!viewMenuOpen) return;
-    const close = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (viewMenuTriggerRef.current?.contains(target)) return;
-      if (viewMenuRef.current?.contains(target)) return;
-      setViewMenuOpen(false);
-    };
-    const dismiss = () => setViewMenuOpen(false);
-    window.addEventListener("mousedown", close);
-    window.addEventListener("resize", dismiss);
-    window.addEventListener("scroll", dismiss, true);
-    return () => {
-      window.removeEventListener("mousedown", close);
-      window.removeEventListener("resize", dismiss);
-      window.removeEventListener("scroll", dismiss, true);
-    };
-  }, [viewMenuOpen]);
+  useGalleryScanPoll({
+    libraries, view, parent,
+    timelineLoaded: assets.length, folderLoaded: folderAssets.length,
+    loadLibraries, reloadTimeline, loadFolder, loadMemories, loadMap
+  });
 
   // Opening a different album (or closing) drops the cover picker, the folder
   // browser, and any selection carried over from the previous album.
@@ -928,7 +370,7 @@ export function GalleryPage({
     setAlbumBrowseOpen(false);
     setSelectionMode(false);
     setSelectedIds(new Set());
-  }, [selectedAlbum?.id]);
+  }, [selectedAlbum?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const activeAssets = lightbox?.source === "single" && singleAsset
     ? [singleAsset]
@@ -944,7 +386,6 @@ export function GalleryPage({
     : undefined;
   const canDeleteCurrent = currentLibrary?.canDelete ?? false;
   const canEditCurrent = currentLibrary?.canWrite ?? false;
-  const canShareCurrent = currentLibrary?.canCurate ?? false;
 
   // The movie-target libraries are needed by the slideshow editor as well as the list,
   // and a deep link opens the editor without ever passing through the list — so load them
@@ -1017,7 +458,6 @@ export function GalleryPage({
     });
   };
 
-  // Toggle one photo in the "move these to someone else" picker on a person.
   const exitSelection = () => {
     setSelectionMode(false);
     setSelectedIds(new Set());
@@ -1032,7 +472,7 @@ export function GalleryPage({
   // Close the folder browser / movie-delete confirm when leaving a slideshow, so neither
   // reappears over the next one (a refresh keeps selectedSlideshow truthy, so the browser
   // stays open through adds).
-  useEffect(() => { if (!selectedSlideshow) { setBrowseOpen(false); setSlideshowCoverPickerOpen(false); setMovieDeleteOpen(false); } }, [selectedSlideshow]);
+  useEffect(() => { if (!selectedSlideshow) { setBrowseOpen(false); setSlideshowCoverPickerOpen(false); setMovieDeleteOpen(false); } }, [selectedSlideshow]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Set `saved` on one asset wherever it is currently loaded. A photo can sit in
   // several lists at once (the timeline, a folder, a person, an album, an "on this
@@ -1047,7 +487,7 @@ export function GalleryPage({
     setPersonAssets(patch);
     setAlbumAssets(patch);
     setMemories((current) => (current ? { ...current, groups: current.groups.map((g) => ({ ...g, items: patch(g.items) })) } : current));
-  }, [setPersonAssets, setAlbumAssets]);
+  }, [setPersonAssets, setAlbumAssets]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Drop one asset from every list it is loaded in, and take it off the counts
   // the "Load more" buttons read. The photo really is gone, so this is the whole
@@ -1075,7 +515,7 @@ export function GalleryPage({
       next.delete(assetId);
       return next;
     });
-  }, [setPersonAssets, setAlbumAssets]);
+  }, [setPersonAssets, setAlbumAssets]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // What a change made inside the viewer costs the page. A like moves nothing,
   // so it is patched where the photo already sits — reloading the view for it
@@ -1101,7 +541,7 @@ export function GalleryPage({
       setAssetSaved(asset.id, !next);
       setError(err instanceof Error ? err.message : t("gallery:page.errors.updateLikes"));
     }
-  }, [setAssetSaved]);
+  }, [setAssetSaved]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Bulk like: one request for the whole selection. Items in libraries the
   // user can't like (shouldn't happen from this UI) come back as skipped.
@@ -1172,22 +612,6 @@ export function GalleryPage({
     goToView("folder");
   };
 
-  // Group timeline assets into calendar-day buckets for the date headers, keyed on
-  // whichever date the timeline is sorted by so the buckets stay consecutive.
-  // Skipped entirely in one-continuous-grid mode: that view renders `assets`
-  // straight through, so there is nothing to bucket.
-  const days = useMemo(() => {
-    const out: { label: string; items: { asset: GalleryAsset; index: number }[] }[] = [];
-    if (viewPrefs.grouping === "none") return out;
-    assets.forEach((asset, index) => {
-      const label = sort === "added" ? dayLabel({ takenAt: asset.addedAt }) : dayLabel(asset);
-      const last = out[out.length - 1];
-      if (last && last.label === label) last.items.push({ asset, index });
-      else out.push({ label, items: [{ asset, index }] });
-    });
-    return out;
-  }, [assets, sort, viewPrefs.grouping]);
-
   // Select or deselect every asset taken on one calendar day. Using a day header's
   // checkbox also enters selection mode, so it works as the entry point too.
   const toggleDaySelect = (ids: string[]) => {
@@ -1200,10 +624,6 @@ export function GalleryPage({
     setSelectionMode(true);
   };
 
-  const breadcrumbParts = parent ? parent.split("/") : [];
-  // Folder counts: what sits directly here, and — when there are subfolders — the
-  // whole subtree, so the number matches what the folder's tile advertised.
-  const folderSubtreeTotal = folderTotal + folders.reduce((sum, folder) => sum + folder.assetCount, 0);
   const folderCountLabel = t("gallery:common.counts.item", { count: folderTotal });
   const folderSubtitle = loading && folders.length === 0 && folderTotal === 0
     ? t("gallery:folders.browsing")
@@ -1282,25 +702,25 @@ export function GalleryPage({
   const browseMenu = isMobile ? (
     <div className="audiobook-library-shortcuts gallery-browse-shortcut">
       <button
-        ref={viewMenuTriggerRef}
+        ref={viewMenu.triggerRef}
         type="button"
         className="audiobook-library-tab"
-        onClick={toggleViewMenu}
+        onClick={viewMenu.toggle}
         aria-haspopup="menu"
-        aria-expanded={viewMenuOpen}
+        aria-expanded={viewMenu.open}
         aria-label={t("gallery:page.toolbar.browseViewsAria")}
       >
         <Compass size={19} aria-hidden="true" />
         <span>{t("common:common.browse")}</span>
         <ChevronDown size={16} aria-hidden="true" />
       </button>
-      {viewMenuOpen && viewMenuPos && createPortal(
+      {viewMenu.open && viewMenu.pos && createPortal(
         <div
-          ref={viewMenuRef}
+          ref={viewMenu.menuRef}
           className="book-detail-action-menu audiobook-library-menu"
           role="menu"
           aria-label={t("common:common.browse")}
-          style={{ position: "fixed", top: viewMenuPos.top, left: viewMenuPos.left ?? undefined, right: viewMenuPos.right ?? undefined }}
+          style={{ position: "fixed", top: viewMenu.pos.top, left: viewMenu.pos.left ?? undefined, right: viewMenu.pos.right ?? undefined }}
         >
           {/* The phone's version of the left nav, off the same list, so a view
               added there appears here too. */}
@@ -1315,7 +735,7 @@ export function GalleryPage({
                 type="button"
                 role="menuitem"
                 className={view === item.key ? "active" : ""}
-                onClick={() => { setViewMenuOpen(false); navigate(item.href); }}
+                onClick={() => { viewMenu.close(); navigate(item.href); }}
               >
                 <Icon size={16} aria-hidden="true" />
                 <span>{item.label}</span>
@@ -1343,11 +763,14 @@ export function GalleryPage({
     </Button>
   ) : null;
 
+  // Everything a grid of selectable photos needs from the page.
+  const tiles = { selectionMode, selectedIds, toggleSelect, toggleAssetLike, openLightbox };
+  // What the bulk verbs open: each clears the last bulk error first.
+  const openBulk = (open: () => void) => () => { setBulkError(""); open(); };
+
   return (
     <DashboardShell
       active="gallery"
-      user={user}
-      logout={logout}
       sideNav={<SectionNav ariaLabel={t("common:nav.gallery")} groupLabel={t("common:nav.gallery")} items={galleryNavItems} activeKey={view} />}
     >
       <section className={`audiobook-main-page gallery-page${selectionMode ? " is-selecting" : ""}`}>
@@ -1466,10 +889,6 @@ export function GalleryPage({
                   {(view === "memories" || view === "map" || view === "people") && libraries.length > 1 && (
                     <GalleryFilterButton facets={null} value={filters} onChange={changeFilters} fields={["libraries"]} libraries={filterLibraries} />
                   )}
-                  {/* Where a rendered movie is saved is otherwise invisible, so
-                      the label carries it — same reasoning as Sort showing the
-                      order it's in. Admin-only, and only once there's somewhere
-                      to save one. */}
                   {/* Nothing narrows the other list views, so there is nothing to
                       divide the acting controls from. */}
                   {browsingPhotos && <span className="library-toolbar-divider" aria-hidden="true" />}
@@ -1508,133 +927,26 @@ export function GalleryPage({
               selection={selectionMode ? {
                 count: selectedIds.size,
                 actions: (
-                  <>
-                    <button
-                      type="button"
-                      className="library-toolbar-button"
-                      onClick={() => setSelectedIds(new Set(displayedAssets.map((asset) => asset.id)))}
-                      disabled={displayedAssets.length === 0}
-                      title={t("gallery:bulk.selectAllTitle")}
-                    >
-                      <CheckCheck size={18} aria-hidden="true" />
-                      <span className="toolbar-label">{t("gallery:bulk.all")}</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="library-toolbar-button"
-                      onClick={() => void bulkLike()}
-                      disabled={selectedIds.size === 0 || bulkBusy}
-                      title={bulkBusy ? t("gallery:bulk.liking") : t("gallery:bulk.like")}
-                    >
-                      <Heart size={18} aria-hidden="true" />
-                      <span className="toolbar-label">{t("gallery:bulk.like")}</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="library-toolbar-button"
-                      onClick={() => { setBulkError(""); setBulkAlbumOpen(true); }}
-                      disabled={selectedIds.size === 0 || bulkBusy}
-                      title={t("gallery:bulk.addToAlbumTitle")}
-                    >
-                      <ImagePlus size={18} aria-hidden="true" />
-                      <span className="toolbar-label">{t("gallery:bulk.albumLabel")}</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="library-toolbar-button"
-                      onClick={() => { setBulkError(""); setBulkSlideshowOpen(true); }}
-                      disabled={selectedIds.size === 0 || bulkBusy}
-                      title={t("gallery:bulk.addToSlideshowTitle")}
-                    >
-                      <Film size={18} aria-hidden="true" />
-                      <span className="toolbar-label">{t("gallery:bulk.slideshowLabel")}</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="library-toolbar-button"
-                      onClick={() => { setBulkError(""); setBulkCollectionOpen(true); }}
-                      disabled={selectedIds.size === 0 || bulkBusy}
-                      title={t("gallery:bulk.addToCollectionTitle")}
-                    >
-                      <ListMusic size={18} aria-hidden="true" />
-                      <span className="toolbar-label">{t("gallery:bulk.collectionLabel")}</span>
-                    </button>
-                    {canShareAny && (
-                      <button
-                        type="button"
-                        className="library-toolbar-button"
-                        onClick={() => { setBulkError(""); setShareIds([...selectedIds]); }}
-                        disabled={selectedIds.size === 0 || bulkBusy}
-                        title={t("gallery:bulk.shareTitle")}
-                      >
-                        <Share2 size={18} aria-hidden="true" />
-                        <span className="toolbar-label">{t("gallery:bulk.shareTitle")}</span>
-                      </button>
-                    )}
-                    {canWriteAny && (
-                      <button
-                        type="button"
-                        className="library-toolbar-button"
-                        onClick={() => { setBulkError(""); setBulkTagsOpen(true); }}
-                        disabled={selectedIds.size === 0 || bulkBusy}
-                        title={t("gallery:bulk.tagTitle")}
-                      >
-                        <Tags size={18} aria-hidden="true" />
-                        <span className="toolbar-label">{t("gallery:bulk.tagLabel")}</span>
-                      </button>
-                    )}
-                    {canWriteAny && (
-                      <button
-                        type="button"
-                        className="library-toolbar-button"
-                        onClick={() => { setBulkError(""); setBulkDateOpen(true); }}
-                        disabled={selectedIds.size === 0 || bulkBusy}
-                        title={t("gallery:bulk.setDateTitle")}
-                      >
-                        <CalendarClock size={18} aria-hidden="true" />
-                        <span className="toolbar-label">{t("gallery:bulk.dateLabel")}</span>
-                      </button>
-                    )}
-                    {canWriteAny && (
-                      <button
-                        type="button"
-                        className="library-toolbar-button"
-                        onClick={() => { setBulkError(""); setBulkLocationOpen(true); }}
-                        disabled={selectedIds.size === 0 || bulkBusy}
-                        title={t("gallery:bulk.setLocationTitle")}
-                      >
-                        <MapPinned size={18} aria-hidden="true" />
-                        <span className="toolbar-label">{t("gallery:bulk.placeLabel")}</span>
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      className="library-toolbar-button"
-                      onClick={() => { setBulkError(""); setAskSomeone({ kind: "items", itemIds: [...selectedIds] }); }}
-                      disabled={selectedIds.size === 0 || bulkBusy}
-                      title={t("gallery:bulk.askSomeoneTitle")}
-                    >
-                      <MessageSquareText size={18} aria-hidden="true" />
-                      <span className="toolbar-label">{t("gallery:bulk.askSomeoneLabel")}</span>
-                    </button>
-                    {canDeleteAny && (
-                      <button
-                        type="button"
-                        className="library-toolbar-button danger"
-                        onClick={() => { setBulkError(""); setBulkDeleteOpen(true); }}
-                        disabled={selectedIds.size === 0 || bulkBusy}
-                        title={t("gallery:bulk.deleteTitle")}
-                      >
-                        <Trash2 size={18} aria-hidden="true" />
-                        <span className="toolbar-label">{t("gallery:bulk.deleteLabel")}</span>
-                      </button>
-                    )}
-                    <span className="library-toolbar-divider" aria-hidden="true" />
-                    <button type="button" className="library-toolbar-button" onClick={exitSelection} title={t("gallery:bulk.leaveSelectionTitle")}>
-                      <X size={18} aria-hidden="true" />
-                      <span className="toolbar-label">{t("common:common.done")}</span>
-                    </button>
-                  </>
+                  <GallerySelectionActions
+                    selectedCount={selectedIds.size}
+                    selectableCount={displayedAssets.length}
+                    busy={bulkBusy}
+                    canShareAny={canShareAny}
+                    canWriteAny={canWriteAny}
+                    canDeleteAny={canDeleteAny}
+                    onSelectAll={() => setSelectedIds(new Set(displayedAssets.map((asset) => asset.id)))}
+                    onLike={() => void bulkLike()}
+                    onAddToAlbum={openBulk(() => setBulkAlbumOpen(true))}
+                    onAddToSlideshow={openBulk(() => setBulkSlideshowOpen(true))}
+                    onAddToCollection={openBulk(() => setBulkCollectionOpen(true))}
+                    onShare={openBulk(() => setShareIds([...selectedIds]))}
+                    onTag={openBulk(() => setBulkTagsOpen(true))}
+                    onDate={openBulk(() => setBulkDateOpen(true))}
+                    onPlace={openBulk(() => setBulkLocationOpen(true))}
+                    onAskSomeone={openBulk(() => setAskSomeone({ kind: "items", itemIds: [...selectedIds] }))}
+                    onDelete={openBulk(() => setBulkDeleteOpen(true))}
+                    onDone={exitSelection}
+                  />
                 )
               } : null}
             />
@@ -1673,971 +985,82 @@ export function GalleryPage({
                 )}
               </>
             ) : view === "people" ? (
-              selectedPerson ? (() => {
-                const personCoverUrl = people.find((p) => p.id === selectedPerson.id)?.coverUrl ?? null;
-                return (
-                <>
-                  {/* Same idea as the album/slideshow detail's topbar: Back
-                      plus every action this person offers, icon-only. */}
-                  <div className="slideshow-detail-topbar">
-                    <Button
-                      variant="icon"
-                      title={t("gallery:page.back.people")}
-                      aria-label={t("gallery:page.back.people")}
-                      onClick={() => { setSelectedPerson(null); setRenameValue(null); setMergeOpen(false); void loadPeople(); }}
-                    >
-                      <ArrowLeft size={18} aria-hidden="true" />
-                    </Button>
-                    {canCuratePeople && (
-                      <>
-                        <span className="library-toolbar-divider" aria-hidden="true" />
-                        {people.length > 1 && (
-                          <Button variant="icon" title={t("gallery:people.mergeAllTitle")} aria-label={t("gallery:people.mergeAllTitle")} onClick={() => setMergeOpen((v) => !v)}>
-                            <Combine size={18} aria-hidden="true" />
-                          </Button>
-                        )}
-                        <Button
-                          variant="icon"
-                          title={personPick ? t("gallery:people.cancelSelection") : t("gallery:people.pickPhotos")}
-                          aria-label={personPick ? t("gallery:people.cancelSelection") : t("gallery:people.pickPhotos")}
-                          onClick={() => { setPersonPick(personPick ? null : new Set()); setMoveNewName(null); setMergeOpen(false); }}
-                        >
-                          <SquareCheck size={18} aria-hidden="true" />
-                        </Button>
-                        {personAssets.length > 0 && (
-                          <Button variant="icon" title={t("gallery:common.setCoverPhoto")} aria-label={t("gallery:common.setCoverPhoto")} onClick={() => { setNotice(""); setPersonCoverPickerOpen(true); }}>
-                            <ImageIcon size={18} aria-hidden="true" />
-                          </Button>
-                        )}
-                        <Button variant="icon" danger title={t("gallery:common.deleteWord")} aria-label={t("gallery:common.deleteWord")} onClick={() => setPersonDeleteOpen(true)}>
-                          <Trash2 size={18} aria-hidden="true" />
-                        </Button>
-                      </>
-                    )}
-                  </div>
-
-                  <div className="gallery-album-header">
-                    <span className="gallery-person-avatar">
-                      <PersonAvatar url={personCoverUrl} />
-                    </span>
-                    <div className="gallery-album-heading">
-                      {renameValue == null ? (
-                        <div className="gallery-title-row">
-                          <h2 className={selectedPerson.name ? undefined : "gallery-person-unnamed"}>{selectedPerson.name || t("gallery:common.unnamed")}</h2>
-                          {canCuratePeople && (
-                            <Button
-                              variant="icon"
-                              title={selectedPerson.name ? t("gallery:common.rename") : t("gallery:people.namePersonTitle")}
-                              aria-label={selectedPerson.name ? t("gallery:common.rename") : t("gallery:people.namePersonTitle")}
-                              onClick={() => setRenameValue(selectedPerson.name)}
-                            >
-                              <Pencil size={18} aria-hidden="true" />
-                            </Button>
-                          )}
-                        </div>
-                      ) : (
-                        <form className="gallery-person-rename" onSubmit={(event) => { event.preventDefault(); void submitRename(); }}>
-                          <input value={renameValue} onChange={(event) => setRenameValue(event.target.value)} placeholder={t("gallery:common.name")} autoFocus maxLength={120} />
-                          <button type="submit" className="primary-button compact-button" disabled={!renameValue.trim()}>{t("gallery:common.save")}</button>
-                          <button type="button" className="icon-button" onClick={() => setRenameValue(null)} aria-label={t("common:common.cancel")}><X size={14} aria-hidden="true" /></button>
-                        </form>
-                      )}
-                      <p className="gallery-album-sub">
-                        {t("gallery:common.counts.photo", { count: personTotal })}
-                      </p>
-                    </div>
-                  </div>
-
-                  {mergeOpen && (
-                    <div className="gallery-merge-panel">
-                      <Trans i18nKey="people.mergeInto" ns="gallery" values={{ name: selectedPerson.name || t("gallery:common.unnamed") }} components={{ bold: <strong /> }} />
-                      <SelectField
-                        compact
-                        hideLabel
-                        label={t("gallery:people.choosePersonOption")}
-                        value=""
-                        onChange={(value: string) => { if (value) void confirmMerge(value); }}
-                        options={[
-                          { value: "", label: t("gallery:people.choosePersonOption"), disabled: true },
-                          ...people.filter((p) => p.id !== selectedPerson.id).map((p) => ({
-                            value: p.id, label: `${p.name || t("gallery:common.unnamed")} (${p.faceCount})`
-                          }))
-                        ]}
-                      />
-                      <button type="button" className="icon-button" onClick={() => setMergeOpen(false)} aria-label={t("common:common.cancel")}><X size={14} aria-hidden="true" /></button>
-                    </div>
-                  )}
-
-                  {personPick && (
-                    <div className="gallery-move-panel">
-                      <span className="audiobook-bulk-count">
-                        {t("gallery:common.counts.selected", { count: personPick.size })}
-                      </span>
-                      <button
-                        type="button"
-                        className="secondary-button compact-button"
-                        onClick={() => setPersonPick(new Set(personAssets.map((asset) => asset.id)))}
-                        disabled={personAssets.length === 0 || movingPhotos}
-                      >
-                        {t("gallery:people.selectAllLoaded")}
-                      </button>
-                      {moveNewName == null ? (
-                        <SelectField
-                          compact
-                          hideLabel
-                          className="gallery-move-target"
-                          label={t("gallery:people.moveToPlaceholder")}
-                          value=""
-                          disabled={personPick.size === 0 || movingPhotos}
-                          onChange={(value: string) => {
-                            if (value === "__new") setMoveNewName("");
-                            else if (value) void movePickedPhotos({ intoId: value });
-                          }}
-                          options={[
-                            { value: "", label: movingPhotos ? t("gallery:common.moving") : t("gallery:people.moveToPlaceholder"), disabled: true },
-                            ...people.filter((p) => p.id !== selectedPerson.id).map((p) => ({
-                              value: p.id, label: `${p.name || t("gallery:common.unnamed")} (${p.faceCount})`
-                            })),
-                            { value: "__new", label: t("gallery:people.newPersonOption") }
-                          ]}
-                        />
-                      ) : (
-                        <form
-                          className="gallery-person-rename"
-                          onSubmit={(event) => { event.preventDefault(); void movePickedPhotos({ name: moveNewName.trim() }); }}
-                        >
-                          <input
-                            value={moveNewName}
-                            onChange={(event) => setMoveNewName(event.target.value)}
-                            placeholder={t("gallery:people.newPersonNamePlaceholder")}
-                            autoFocus
-                            maxLength={120}
-                          />
-                          <button type="submit" className="primary-button compact-button" disabled={!moveNewName.trim() || movingPhotos}>
-                            {movingPhotos ? t("gallery:common.moving") : t("gallery:people.moveButton")}
-                          </button>
-                          <button type="button" className="icon-button" onClick={() => setMoveNewName(null)} aria-label={t("common:common.cancel")}>
-                            <X size={14} aria-hidden="true" />
-                          </button>
-                        </form>
-                      )}
-                      <span className="muted gallery-move-hint">
-                        {t("gallery:people.moveHint")}
-                      </span>
-                    </div>
-                  )}
-
-                  <div className="gallery-grid">
-                    {personAssets.map((asset, index) => (
-                      <AssetTile
-                        key={asset.id}
-                        asset={asset}
-                        onOpen={() => setLightbox({ source: "person", index })}
-                        selectionMode={personPick != null}
-                        selected={personPick?.has(asset.id) ?? false}
-                        onToggleSelect={() => togglePersonPick(asset.id)}
-                        onToggleLike={(next) => void toggleAssetLike(asset, next)}
-                        onRemove={canCuratePeople && !personPick ? () => void removeFromPerson(asset.id) : undefined}
-                      />
-                    ))}
-                  </div>
-                  {!loading && personAssets.length === 0 && (
-                    <p className="management-empty">{t("gallery:people.emptyNoPhotos")}</p>
-                  )}
-                  {personAssets.length < personTotal && (
-                    <div style={{ display: "flex", justifyContent: "center", padding: "16px 0" }}>
-                      <button type="button" className="secondary-button" onClick={() => void openPerson(selectedPerson, personAssets.length)} disabled={loading}>
-                        {loading ? t("gallery:common.loading") : t("gallery:common.loadMore")}
-                      </button>
-                    </div>
-                  )}
-                </>
-                );
-              })() : (
-                <>
-                  {(() => {
-                    // Keep named people and multi-photo groups up front; tuck unnamed
-                    // single-photo groups into a collapsible "Small groups" section so a
-                    // long tail of singletons doesn't bury the people that matter.
-                    // Off shownPeople, so the search box narrows both sections.
-                    const main = shownPeople.filter((p) => p.name || p.faceCount > 1);
-                    const small = shownPeople.filter((p) => !p.name && p.faceCount <= 1);
-                    const card = (person: GalleryPerson) => (
-                      <button key={person.id} type="button" className="gallery-person-card" onClick={() => void openPerson(person)}>
-                        <span className="gallery-person-avatar">
-                          <PersonAvatar url={person.coverUrl} />
-                        </span>
-                        <strong className={person.name ? undefined : "gallery-person-unnamed"}>{person.name || t("gallery:common.unnamed")}</strong>
-                        <small>{t("gallery:common.counts.photo", { count: person.faceCount })}</small>
-                      </button>
-                    );
-                    const showMore = (onClick: () => void) => (
-                      <div style={{ display: "flex", justifyContent: "center", padding: "16px 0" }}>
-                        <button type="button" className="secondary-button" onClick={onClick}>{t("gallery:people.showMore")}</button>
-                      </div>
-                    );
-                    return (
-                      <>
-                        {main.length > 0 && <div className="gallery-people-grid">{main.slice(0, visiblePeople).map(card)}</div>}
-                        {main.length > visiblePeople && showMore(() => setVisiblePeople((n) => n + PEOPLE_PAGE))}
-                        {small.length > 0 && (
-                          <div className="gallery-small-groups">
-                            <button type="button" className="gallery-small-toggle" onClick={() => setShowSmallGroups((v) => !v)}>
-                              <ChevronRight size={15} className={showSmallGroups ? "rotated" : ""} aria-hidden="true" />
-                              {t("gallery:people.smallGroupsToggle", { count: small.length })}
-                            </button>
-                            {showSmallGroups && (
-                              <>
-                                <div className="gallery-people-grid">{small.slice(0, visibleSmall).map(card)}</div>
-                                {small.length > visibleSmall && showMore(() => setVisibleSmall((n) => n + PEOPLE_PAGE))}
-                              </>
-                            )}
-                          </div>
-                        )}
-                      </>
-                    );
-                  })()}
-                  {!loading && shownPeople.length === 0 && nameTerm && (
-                    <div className="empty-state library-empty">
-                      <Users size={48} aria-hidden="true" />
-                      <h2>{t("gallery:people.noMatchTitle")}</h2>
-                      <p className="muted">{t("gallery:people.noMatchBody")}</p>
-                    </div>
-                  )}
-                  {!loading && people.length === 0 && (
-                    <div className="empty-state library-empty">
-                      <Users size={48} aria-hidden="true" />
-                      <h2>{t("gallery:people.emptyTitle")}</h2>
-                      <p className="muted">
-                        {isAdmin && !anyFaceEnabled
-                          ? t("gallery:people.emptyBodyAdmin")
-                          : t("gallery:people.emptyBodyDefault")}
-                      </p>
-                    </div>
-                  )}
-                </>
-              )
+              <PeopleView
+                peopleState={peopleState}
+                shownPeople={shownPeople}
+                nameTerm={nameTerm}
+                loading={loading}
+                isAdmin={isAdmin}
+                canCuratePeople={canCuratePeople}
+                setNotice={setNotice}
+                toggleAssetLike={toggleAssetLike}
+                openLightbox={openLightbox}
+              />
             ) : view === "albums" ? (
-              selectedAlbum ? (() => {
-                const albumCoverUrl = albums.find((al) => al.id === selectedAlbum.id)?.coverUrl ?? albumAssets[0]?.coverUrl ?? null;
-                return (
-                <>
-                  {/* Same idea as the slideshow detail's topbar: Back plus every
-                      action this album offers, icon-only, replacing the toolbar
-                      and page header that step aside while it's open. */}
-                  <div className="slideshow-detail-topbar">
-                    <Button
-                      variant="icon"
-                      title={t("gallery:page.back.albums")}
-                      aria-label={t("gallery:page.back.albums")}
-                      onClick={() => { setSelectedAlbum(null); setAlbumRename(null); void loadAlbums(); }}
-                    >
-                      <ArrowLeft size={18} aria-hidden="true" />
-                    </Button>
-                    <span className="library-toolbar-divider" aria-hidden="true" />
-                    <Button
-                      variant="icon"
-                      disabled={albumAssets.length < 2}
-                      title={albumAssets.length < 2 ? t("gallery:albums.playDisabledTitle") : t("gallery:albums.playTitle")}
-                      aria-label={t("gallery:albums.playTitle")}
-                      onClick={startSlideshow}
-                    >
-                      <Play size={18} aria-hidden="true" />
-                    </Button>
-                    {selectedAlbum.canEdit && (
-                      <Button variant="icon" title={t("gallery:common.addPhotos")} aria-label={t("gallery:common.addPhotos")} onClick={() => setAlbumBrowseOpen(true)}>
-                        <FolderPlus size={18} aria-hidden="true" />
-                      </Button>
-                    )}
-                    <Button
-                      variant="icon"
-                      title={t("gallery:common.sendTo")}
-                      aria-label={t("gallery:common.sendTo")}
-                      onClick={() => setSendToSubject({ entityType: "gallery_album", entityId: selectedAlbum.id })}
-                    >
-                      <Send size={18} aria-hidden="true" />
-                    </Button>
-                    {selectedAlbum.canEdit && (
-                      <Button variant="icon" title={t("gallery:common.setCoverPhoto")} aria-label={t("gallery:common.setCoverPhoto")} onClick={() => { setNotice(""); setCoverPickerOpen(true); }}>
-                        <ImageIcon size={18} aria-hidden="true" />
-                      </Button>
-                    )}
-                    <a
-                      className="icon-button"
-                      title={t("gallery:albums.downloadTitle")}
-                      aria-label={t("gallery:albums.downloadTitle")}
-                      href={`/api/library/gallery/albums/${selectedAlbum.id}/download`}
-                      download
-                    >
-                      <Download size={18} aria-hidden="true" />
-                    </a>
-                    {selectedAlbum.canEdit && (
-                      <Button variant="icon" danger title={t("gallery:albums.deleteIconTitle")} aria-label={t("gallery:albums.deleteAlbumAria")} onClick={() => setAlbumDeleteOpen(true)}>
-                        <Trash2 size={18} aria-hidden="true" />
-                      </Button>
-                    )}
-                    {!isMobile && !selectionMode && (
-                      <Button variant="icon" title={t("gallery:common.select")} aria-label={t("gallery:common.selectPhotosAria")} onClick={() => { setNotice(""); setSelectionMode(true); }}>
-                        <SquareCheck size={18} aria-hidden="true" />
-                      </Button>
-                    )}
-                  </div>
-
-                  <div className="gallery-album-header">
-                    <span className="gallery-album-cover">
-                      {albumCoverUrl ? <img src={albumCoverUrl} alt="" /> : <Album size={30} aria-hidden="true" />}
-                    </span>
-                    <div className="gallery-album-heading">
-                      {albumRename == null ? (
-                        <div className="gallery-title-row">
-                          <h2>{selectedAlbum.name}</h2>
-                          {selectedAlbum.canEdit && (
-                            <Button variant="icon" title={t("gallery:common.rename")} aria-label={t("gallery:common.rename")} onClick={() => setAlbumRename(selectedAlbum.name)}>
-                              <Pencil size={18} aria-hidden="true" />
-                            </Button>
-                          )}
-                        </div>
-                      ) : (
-                        <form className="gallery-person-rename" onSubmit={(event) => { event.preventDefault(); if (albumRename.trim()) void patchAlbum(selectedAlbum.id, { name: albumRename.trim() }); }}>
-                          <input value={albumRename} onChange={(event) => setAlbumRename(event.target.value)} placeholder={t("gallery:albums.namePlaceholder")} autoFocus maxLength={120} />
-                          <button type="submit" className="primary-button compact-button" disabled={!albumRename.trim()}>{t("gallery:common.save")}</button>
-                          <button type="button" className="icon-button" onClick={() => setAlbumRename(null)} aria-label={t("common:common.cancel")}><X size={14} aria-hidden="true" /></button>
-                        </form>
-                      )}
-                      <p className="gallery-album-sub">
-                        {t("gallery:common.counts.item", { count: albumTotal })}
-                        {selectedAlbum.description ? <> · {selectedAlbum.description}</> : null}
-                      </p>
-                      {/* Tagging the album is what links it to the stories,
-                          photos and people that share the tag. */}
-                      <GallerySetTags
-                        endpoint={`/api/library/gallery/albums/${selectedAlbum.id}/tags`}
-                        tags={selectedAlbum.tags}
-                        canEdit={selectedAlbum.canEdit}
-                        onSaved={(tags) => setSelectedAlbum({ ...selectedAlbum, tags })}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="gallery-grid">
-                    {albumAssets.map((asset, index) => (
-                      <AssetTile
-                        key={asset.id}
-                        asset={asset}
-                        onOpen={() => setLightbox({ source: "album", index })}
-                        selectionMode={selectionMode}
-                        selected={selectedIds.has(asset.id)}
-                        onToggleSelect={() => toggleSelect(asset.id)}
-                        onToggleLike={(next) => void toggleAssetLike(asset, next)}
-                        onRemove={selectedAlbum.canEdit && !selectionMode ? () => void removeFromAlbum(selectedAlbum.id, asset.id) : undefined}
-                        removeTitle={t("gallery:albums.removeFromAlbumTitle")}
-                      />
-                    ))}
-                  </div>
-                  {!loading && albumAssets.length === 0 && (
-                    <p className="management-empty">
-                      {t("gallery:albums.emptyBody")}
-                    </p>
-                  )}
-                  {albumAssets.length < albumTotal && (
-                    <div style={{ display: "flex", justifyContent: "center", padding: "16px 0" }}>
-                      <button type="button" className="secondary-button" onClick={() => void openAlbum(selectedAlbum.id, albumAssets.length)} disabled={loading}>
-                        {loading ? t("gallery:common.loading") : t("gallery:common.loadMore")}
-                      </button>
-                    </div>
-                  )}
-
-                  {/* The stories this album appears in — the back-link half of
-                      "stories reference, never copy". */}
-                  <RelatedStories entityType="gallery_album" entityId={selectedAlbum.id} />
-                  <NotesSection entityType="gallery_album" entityId={selectedAlbum.id} />
-                </>
-                );
-              })() : (
-                <>
-                  {/* New album lives in the page header's primary slot now, with
-                      every other page's Create button. */}
-                  <div className="gallery-person-toolbar">
-                    <span className="muted gallery-face-hint">
-                      {t("gallery:albums.introHint")}
-                    </span>
-                  </div>
-
-                  {shownAlbums.length > 0 && (
-                    <div className="gallery-folder-grid">
-                      {shownAlbums.map((album) => (
-                        <button key={album.id} type="button" className="gallery-folder-tile" onClick={() => { setAlbumAssets([]); setAlbumTotal(0); void openAlbum(album.id); }}>
-                          <span className="gallery-folder-thumb">
-                            {album.coverUrl ? <img src={album.coverUrl} alt="" loading="lazy" /> : <Album size={28} aria-hidden="true" />}
-                          </span>
-                          <strong>{album.name}</strong>
-                          <small>{t("gallery:common.counts.item", { count: album.itemCount })}</small>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  {!loading && albums.length > 0 && shownAlbums.length === 0 && (
-                    <div className="empty-state library-empty">
-                      <Album size={48} aria-hidden="true" />
-                      <h2>{t("gallery:albums.noMatchTitle")}</h2>
-                    </div>
-                  )}
-                  {!loading && albums.length === 0 && (
-                    <div className="empty-state library-empty">
-                      <Album size={48} aria-hidden="true" />
-                      <h2>{t("gallery:albums.emptyTitle")}</h2>
-                      <p className="muted">
-                        {t("gallery:albums.emptyBody2")}
-                      </p>
-                    </div>
-                  )}
-                </>
-              )
+              <AlbumsView
+                albumsState={albumsState}
+                shownAlbums={shownAlbums}
+                loading={loading}
+                isMobile={isMobile}
+                setSelectionMode={setSelectionMode}
+                startSlideshow={startSlideshow}
+                setSendToSubject={setSendToSubject}
+                setNotice={setNotice}
+                {...tiles}
+              />
             ) : view === "slideshows" ? (
-              selectedSlideshow ? (() => {
-                const cover = slideshows.find((s) => s.id === selectedSlideshow.id)?.coverUrl ?? slideshowAssets[0]?.coverUrl ?? null;
-                return (
-                  <>
-                    {/* The toolbar and page header are gone on an open slideshow
-                        (see showBrowseChrome). This compact icon row is what
-                        replaces them — Back plus every action, icon-only. */}
-                    <div className="slideshow-detail-topbar">
-                      <Button
-                        variant="icon"
-                        title={t("gallery:page.back.slideshows")}
-                        aria-label={t("gallery:page.back.slideshows")}
-                        onClick={() => { setSelectedSlideshow(null); setSlideshowRename(null); void loadSlideshows(); }}
-                      >
-                        <ArrowLeft size={18} aria-hidden="true" />
-                      </Button>
-                      <span className="library-toolbar-divider" aria-hidden="true" />
-                      <Button
-                        variant="icon"
-                        disabled={slideshowAssets.length === 0}
-                        title={slideshowAssets.length < 2 ? t("gallery:slideshows.playDisabledTitle") : t("gallery:slideshows.playTitle")}
-                        aria-label={t("gallery:slideshows.playTitle")}
-                        onClick={startSlideshow}
-                      >
-                        <Play size={18} aria-hidden="true" />
-                      </Button>
-                      <Button
-                        variant="icon"
-                        title={t("gallery:common.sendTo")}
-                        aria-label={t("gallery:common.sendTo")}
-                        onClick={() => setSendToSubject({ entityType: "gallery_slideshow", entityId: selectedSlideshow.id })}
-                      >
-                        <Send size={18} aria-hidden="true" />
-                      </Button>
-                      {selectedSlideshow.canEdit && (
-                        <Button variant="icon" title={t("gallery:common.addPhotos")} aria-label={t("gallery:common.addPhotos")} onClick={() => setBrowseOpen(true)}>
-                          <FolderPlus size={18} aria-hidden="true" />
-                        </Button>
-                      )}
-                      {selectedSlideshow.canEdit && (
-                        <Button variant="icon" title={t("gallery:common.setCoverPhoto")} aria-label={t("gallery:common.setCoverPhoto")} onClick={() => { setNotice(""); setSlideshowCoverPickerOpen(true); }}>
-                          <ImageIcon size={18} aria-hidden="true" />
-                        </Button>
-                      )}
-                      {selectedSlideshow.canEdit && (
-                        <Button variant="icon" danger title={t("gallery:common.deleteWord")} aria-label={t("gallery:common.deleteWord")} onClick={() => setSlideshowDeleteOpen(true)}>
-                          <Trash2 size={18} aria-hidden="true" />
-                        </Button>
-                      )}
-                    </div>
-
-                    <div className="gallery-album-header">
-                      <span className="gallery-album-cover">
-                        {cover ? <img src={cover} alt="" /> : <Film size={30} aria-hidden="true" />}
-                      </span>
-                      <div className="gallery-album-heading">
-                        {slideshowRename == null ? (
-                          <div className="gallery-title-row">
-                            <h2>{selectedSlideshow.name}</h2>
-                            {selectedSlideshow.canEdit && (
-                              <Button variant="icon" title={t("gallery:common.rename")} aria-label={t("gallery:common.rename")} onClick={() => setSlideshowRename(selectedSlideshow.name)}>
-                                <Pencil size={18} aria-hidden="true" />
-                              </Button>
-                            )}
-                          </div>
-                        ) : (
-                          <form className="gallery-person-rename" onSubmit={(event) => { event.preventDefault(); if (slideshowRename.trim()) void patchSlideshow(selectedSlideshow.id, { name: slideshowRename.trim() }); }}>
-                            <input value={slideshowRename} onChange={(event) => setSlideshowRename(event.target.value)} placeholder={t("gallery:slideshows.namePlaceholder")} autoFocus maxLength={120} />
-                            <button type="submit" className="primary-button compact-button" disabled={!slideshowRename.trim()}>{t("gallery:common.save")}</button>
-                            <button type="button" className="icon-button" onClick={() => setSlideshowRename(null)} aria-label={t("common:common.cancel")}><X size={14} aria-hidden="true" /></button>
-                          </form>
-                        )}
-                        <p className="gallery-album-sub">
-                          {t("gallery:common.counts.photo", { count: slideshowTotal })}
-                        </p>
-                        <GallerySetTags
-                          endpoint={`/api/library/gallery/slideshows/${selectedSlideshow.id}/tags`}
-                          tags={selectedSlideshow.tags}
-                          canEdit={selectedSlideshow.canEdit}
-                          onSaved={(tags) => setSelectedSlideshow({ ...selectedSlideshow, tags })}
-                        />
-                      </div>
-                    </div>
-
-                    <GallerySlideshowEditor
-                      slideshow={selectedSlideshow}
-                      assets={slideshowAssets}
-                      total={slideshowTotal}
-                      loading={loading}
-                      canEdit={selectedSlideshow.canEdit}
-                      onOpenAt={(index) => setLightbox({ source: "slideshow", index })}
-                      onPlay={startSlideshow}
-                      onLoadMore={() => void openSlideshow(selectedSlideshow.id, slideshowAssets.length)}
-                      onReorder={(ids) => void reorderSlideshow(selectedSlideshow.id, ids)}
-                      onRemove={(id) => void removeFromSlideshow(selectedSlideshow.id, id)}
-                      onPatch={(fields) => patchSlideshow(selectedSlideshow.id, fields)}
-                      onRender={() => void renderSlideshowMovie(selectedSlideshow.id)}
-                      onOpenMovieLibrary={() => setMovieLibraryOpen(true)}
-              onDeleteMovie={() => setMovieDeleteOpen(true)}
-                    />
-
-                    <RelatedStories entityType="gallery_slideshow" entityId={selectedSlideshow.id} />
-                    <NotesSection entityType="gallery_slideshow" entityId={selectedSlideshow.id} />
-                  </>
-                );
-              })() : (
-                <>
-                  {/* Suggestions are slideshows you don't have yet, so they are
-                      not something a search of your own can match — they step
-                      aside while the box has a term in it. Ahead of your own
-                      slideshows: it's the "make something new" prompt, and a
-                      single scrollable row (the fetch itself is capped) keeps
-                      it from pushing your actual list below the fold. */}
-                  {memorySuggestions.length > 0 && !nameTerm && (
-                    <section className="gallery-memory-suggestions" aria-label={t("gallery:suggestions.heading")}>
-                      <div className="gallery-memory-suggestions-head">
-                        <h2>{t("gallery:suggestions.heading")}</h2>
-                        <button
-                          type="button"
-                          className="secondary-button compact-button"
-                          onClick={() => { const pick = memorySuggestions[Math.floor(Math.random() * memorySuggestions.length)]; if (pick) void openSuggestionPreview(pick); }}
-                        >
-                          <Sparkles size={15} aria-hidden="true" /> {t("gallery:suggestions.surpriseMe")}
-                        </button>
-                      </div>
-                      <div className="gallery-suggestion-row">
-                        {memorySuggestions.map((memory) => (
-                          <button
-                            key={memory.id}
-                            type="button"
-                            className="gallery-folder-tile gallery-memory-tile"
-                            onClick={() => void openSuggestionPreview(memory)}
-                            title={t("gallery:suggestions.previewTitle", { title: memory.title })}
-                          >
-                            <span className="gallery-folder-thumb">
-                              {memory.coverUrl ? <img src={memory.coverUrl} alt="" loading="lazy" /> : <Sparkles size={28} aria-hidden="true" />}
-                              <span className="gallery-memory-play" aria-hidden="true"><Play size={20} /></span>
-                            </span>
-                            <strong>{memory.title}</strong>
-                            <small>{memory.subtitle}</small>
-                          </button>
-                        ))}
-                      </div>
-                    </section>
-                  )}
-
-                  {shownSlideshows.length > 0 && (
-                    <>
-                      {memorySuggestions.length > 0 && !nameTerm && <h2 className="gallery-memories-title">{t("gallery:slideshows.yourSlideshowsHeading")}</h2>}
-                      <div className="gallery-folder-grid">
-                        {shownSlideshows.map((slideshow) => (
-                          <button key={slideshow.id} type="button" className="gallery-folder-tile" onClick={() => { setSlideshowAssets([]); setSlideshowTotal(0); void openSlideshow(slideshow.id); }}>
-                            <span className="gallery-folder-thumb">
-                              {slideshow.coverUrl ? <img src={slideshow.coverUrl} alt="" loading="lazy" /> : <Film size={28} aria-hidden="true" />}
-                              {slideshow.renderStatus === "ready" && <span className="slideshow-card-badge ready" title={t("gallery:slideshows.movieBadgeTitle")}><Play size={11} aria-hidden="true" />{t("gallery:slideshows.movieBadge")}</span>}
-                              {(slideshow.renderStatus === "rendering" || slideshow.renderStatus === "queued") && <span className="slideshow-card-badge busy" title={t("gallery:slideshows.renderingBadgeTitle")}>{t("gallery:slideshows.renderingBadge")}</span>}
-                            </span>
-                            <strong>{slideshow.name}</strong>
-                            <small>{t("gallery:common.counts.photo", { count: slideshow.itemCount })}</small>
-                          </button>
-                        ))}
-                      </div>
-                    </>
-                  )}
-
-                  {!loading && slideshows.length > 0 && shownSlideshows.length === 0 && (
-                    <div className="empty-state library-empty">
-                      <Film size={48} aria-hidden="true" />
-                      <h2>{t("gallery:slideshows.noMatchTitle")}</h2>
-                    </div>
-                  )}
-                  {!loading && slideshows.length === 0 && memorySuggestions.length === 0 && (
-                    <div className="empty-state library-empty">
-                      <Film size={48} aria-hidden="true" />
-                      <h2>{t("gallery:slideshows.emptyTitle")}</h2>
-                      <p className="muted">
-                        {t("gallery:slideshows.emptyBody")}
-                      </p>
-                    </div>
-                  )}
-                </>
-              )
+              <SlideshowsView
+                slideshowsState={slideshowsState}
+                shownSlideshows={shownSlideshows}
+                memorySuggestions={memorySuggestions}
+                openSuggestionPreview={openSuggestionPreview}
+                nameTerm={nameTerm}
+                loading={loading}
+                openLightbox={openLightbox}
+                startSlideshow={startSlideshow}
+                setSendToSubject={setSendToSubject}
+                setNotice={setNotice}
+                onOpenMovieLibrary={() => setMovieLibraryOpen(true)}
+              />
             ) : view === "memories" ? (
-              (memories?.groups.length ?? 0) > 0 ? (
-                (() => {
-                  // Tiles open the lightbox at the asset's position in the
-                  // FLATTENED memories list, so Next flows across year sections.
-                  let flatBase = 0;
-                  return memories!.groups.map((group) => {
-                    const start = flatBase;
-                    flatBase += group.items.length;
-                    const ids = group.items.map((asset) => asset.id);
-                    const allSelected = ids.length > 0 && ids.every((id) => selectedIds.has(id));
-                    return (
-                      <section key={group.year} id={`gallery-memories-${group.year}`} className="gallery-memories-year" aria-label={t("gallery:memories.sectionAria", { year: group.year })}>
-                        <div className="gallery-memories-year-head">
-                          <button
-                            type="button"
-                            className={`gallery-day-select${allSelected ? " selected" : ""}`}
-                            onClick={() => toggleDaySelect(ids)}
-                            role="checkbox"
-                            aria-checked={allSelected}
-                            aria-label={t("gallery:memories.selectAllAria", { label: memoryDateLabel(group.precision, group.year) })}
-                            title={allSelected ? t("gallery:memories.deselectTitle") : t("gallery:memories.selectTitle")}
-                          >
-                            {allSelected ? <CheckCircle2 size={18} /> : <Circle size={18} />}
-                          </button>
-                          {canShareAny && (
-                            <button
-                              type="button"
-                              className="gallery-day-share"
-                              onClick={() => setShareIds(ids)}
-                              aria-label={t("gallery:memories.shareAria", { label: memoryDateLabel(group.precision, group.year) })}
-                              title={t("gallery:common.shareTheseTitle")}
-                            >
-                              {t("gallery:common.share")}
-                            </button>
-                          )}
-                          <h2>{memoryDateLabel(group.precision, group.year)}</h2>
-                          <small>{yearsAgo(group.year)} · {t("gallery:common.counts.photo", { count: group.count })}</small>
-                        </div>
-                        <div className="gallery-grid">
-                          {group.items.map((asset, i) => (
-                            <AssetTile
-                              key={asset.id}
-                              asset={asset}
-                              onOpen={() => setLightbox({ source: "memory", index: start + i })}
-                              selectionMode={selectionMode}
-                              selected={selectedIds.has(asset.id)}
-                              onToggleSelect={() => toggleSelect(asset.id)}
-                              onToggleLike={(next) => void toggleAssetLike(asset, next)}
-                            />
-                          ))}
-                        </div>
-                      </section>
-                    );
-                  });
-                })()
-              ) : (
-                <div className="empty-state library-empty">
-                  <Sparkles size={48} aria-hidden="true" />
-                  <h2>{t("gallery:memories.emptyTitle")}</h2>
-                  <p className="muted">
-                    {t("gallery:memories.emptyBody")}
-                  </p>
-                </div>
-              )
+              <MemoriesView
+                memories={memories}
+                toggleDaySelect={toggleDaySelect}
+                canShareAny={canShareAny}
+                onShare={setShareIds}
+                {...tiles}
+              />
             ) : view === "timeline" ? (
-              <>
-                {memories && memories.groups.length > 0 && !query && activeGalleryFilterCount(filters) === 0 && !selectionMode && (
-                  <section className="gallery-memories" aria-label={t("gallery:page.views.memories")}>
-                    <h2 className="gallery-memories-title">{MEMORIES_TITLES[memories.precision]}</h2>
-                    <div className="gallery-memories-row">
-                      {memories.groups.map((group) => (
-                        <button
-                          key={group.year}
-                          type="button"
-                          className="gallery-memory-card"
-                          onClick={() => openMemoryYear(group.year)}
-                          aria-label={t("gallery:timeline.memoryCardAria", { title: MEMORIES_TITLES[memories.precision], year: group.year, count: t("gallery:common.counts.photo", { count: group.count }) })}
-                        >
-                          {group.items[0]?.coverUrl ? (
-                            <img src={group.items[0].coverUrl} alt="" loading="lazy" />
-                          ) : (
-                            <span className="gallery-memory-fallback"><ImageIcon size={26} aria-hidden="true" /></span>
-                          )}
-                          <span className="gallery-memory-overlay">
-                            <strong>{group.year}</strong>
-                            <small>{yearsAgo(group.year)} · {t("gallery:common.counts.photo", { count: group.count })}</small>
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </section>
-                )}
-                {viewPrefs.grouping === "none" ? (
-                  // One uninterrupted grid: no date headers, so the whole run of
-                  // photos reads as a single wall. Selection is still available —
-                  // through the toolbar's Select rather than a day's checkbox.
-                  <div className={gridClass}>
-                    {assets.map((asset, index) => (
-                      <AssetTile
-                        key={asset.id}
-                        asset={asset}
-                        onOpen={() => setLightbox({ source: "timeline", index })}
-                        selectionMode={selectionMode}
-                        selected={selectedIds.has(asset.id)}
-                        onToggleSelect={() => toggleSelect(asset.id)}
-                        onToggleLike={(next) => void toggleAssetLike(asset, next)}
-                      />
-                    ))}
-                  </div>
-                ) : days.map((day) => {
-                  const ids = day.items.map(({ asset }) => asset.id);
-                  const allSelected = ids.every((id) => selectedIds.has(id));
-                  return (
-                    <div key={day.items[0].asset.id}>
-                      <div className="gallery-day-head">
-                        <button
-                          type="button"
-                          className={`gallery-day-select${allSelected ? " selected" : ""}`}
-                          onClick={() => toggleDaySelect(ids)}
-                          role="checkbox"
-                          aria-checked={allSelected}
-                          aria-label={t("gallery:memories.selectAllAria", { label: day.label })}
-                          title={allSelected ? t("gallery:timeline.deselectDayTitle") : t("gallery:timeline.selectDayTitle")}
-                        >
-                          {allSelected ? <CheckCircle2 size={18} /> : <Circle size={18} />}
-                        </button>
-                        {canShareAny && (
-                          <button
-                            type="button"
-                            className="gallery-day-share"
-                            onClick={() => setShareIds(ids)}
-                            aria-label={t("gallery:memories.shareAria", { label: day.label })}
-                            title={t("gallery:common.shareTheseTitle")}
-                          >
-                            {t("gallery:common.share")}
-                          </button>
-                        )}
-                        <h2 className="gallery-day-label">{day.label}</h2>
-                      </div>
-                      <div className={gridClass}>
-                        {day.items.map(({ asset, index }) => (
-                          <AssetTile
-                            key={asset.id}
-                            asset={asset}
-                            onOpen={() => setLightbox({ source: "timeline", index })}
-                            selectionMode={selectionMode}
-                            selected={selectedIds.has(asset.id)}
-                            onToggleSelect={() => toggleSelect(asset.id)}
-                            onToggleLike={(next) => void toggleAssetLike(asset, next)}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-                {!loading && assets.length === 0 && (
-                  <p className="management-empty">{query ? t("gallery:timeline.emptyNoMatch") : t("gallery:timeline.emptyNone")}</p>
-                )}
-                {assets.length < total && (
-                  <div style={{ display: "flex", justifyContent: "center", padding: "16px 0" }}>
-                    <button type="button" className="secondary-button" onClick={() => void loadTimeline(assets.length)} disabled={loading}>
-                      {loading ? t("gallery:common.loading") : t("gallery:common.loadMore")}
-                    </button>
-                  </div>
-                )}
-              </>
-            ) : folderMatches ? (
-              /* Folder-NAME search, everywhere in scope. Clicking a result opens the
-                 folder and clears the box — the term found its answer. The browse
-                 state underneath is untouched, so clearing by hand lands back where
-                 you were. */
-              <>
-                <p className="gallery-section-label">
-                  {folderMatches.total === 0
-                    ? t("gallery:folders.noMatchTitle")
-                    : folderMatches.total > folderMatches.folders.length
-                      ? t("gallery:folders.matchingHeadingLimited", { query: folderQuery, total: folderMatches.total, shown: folderMatches.folders.length })
-                      : t("gallery:folders.matchingHeading", { query: folderQuery, total: folderMatches.total })}
-                </p>
-                {folderMatches.folders.length > 0 ? (
-                  <div className="gallery-folder-grid">
-                    {folderMatches.folders.map((folder) => (
-                      <button
-                        key={folder.path}
-                        type="button"
-                        className="gallery-folder-tile"
-                        title={folder.path}
-                        onClick={() => { setSearchText(""); void loadFolder(folder.path); }}
-                      >
-                        <span className="gallery-folder-thumb">
-                          {folder.coverUrl ? <img src={folder.coverUrl} alt="" loading="lazy" /> : <Folder size={28} aria-hidden="true" />}
-                        </span>
-                        <strong>{folder.name}</strong>
-                        {/* Where it sits — the name alone can't tell 2004's "wedding"
-                            from 2019's. Top-level folders have nowhere to say. */}
-                        {folder.path.includes("/") && (
-                          <small className="gallery-folder-where">{folder.path.slice(0, folder.path.lastIndexOf("/"))}</small>
-                        )}
-                        <small>
-                          {folder.locked && <Lock size={12} className="gallery-folder-lock" aria-label={t("gallery:folders.lockedAria")} />}
-                          {t("gallery:common.counts.item", { count: folder.assetCount })}
-                        </small>
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="management-empty">{t("gallery:folders.noNameContains", { query: folderQuery })}</p>
-                )}
-              </>
+              <TimelineView
+                assets={assets}
+                total={total}
+                loading={loading}
+                sort={sort}
+                grouping={viewPrefs.grouping}
+                gridClass={gridClass}
+                query={query}
+                filters={filters}
+                memories={memories}
+                openMemoryYear={openMemoryYear}
+                toggleDaySelect={toggleDaySelect}
+                canShareAny={canShareAny}
+                onShare={setShareIds}
+                onLoadMore={() => void loadTimeline(assets.length)}
+                {...tiles}
+              />
             ) : (
-              <>
-                <div className="gallery-folder-bar">
-                  <div className="gallery-breadcrumb">
-                    <button type="button" onClick={() => void loadFolder("")}>{t("gallery:folders.allFolders")}</button>
-                    {breadcrumbParts.map((part, i) => {
-                      const target = breadcrumbParts.slice(0, i + 1).join("/");
-                      return (
-                        <span key={target} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                          <ChevronRight size={14} aria-hidden="true" />
-                          <button type="button" onClick={() => void loadFolder(target)}>{part}</button>
-                        </span>
-                      );
-                    })}
-                  </div>
-                  {/* "Ask someone" over a whole folder: the folder's photos become an
-                      album sent with the question (docs/for-you-plan.md). Needs one
-                      library in scope, since a folder path is only unique within it. */}
-                  {soleLibraryId && parent !== "" && folderSubtreeTotal > 0 && (
-                    <Button
-                      variant="secondary"
-                      compact
-                      title={t("gallery:folders.askSomeoneTitle")}
-                      onClick={() => setAskSomeone({ kind: "folder", libraryId: soleLibraryId, path: parent })}
-                    >
-                      <MessageSquareText size={14} aria-hidden="true" />
-                      {" "}
-                      {t("gallery:folders.askSomeone")}
-                    </Button>
-                  )}
-                  {isAdmin && soleLibraryId && parent !== "" && (
-                    <>
-                      <Button
-                        variant="secondary"
-                        compact
-                        disabled={folderLockBusy}
-                        title={parentLocked
-                          ? t("gallery:folders.unlockTitle")
-                          : t("gallery:folders.lockTitle")}
-                        onClick={() => void toggleFolderLock()}
-                      >
-                        {parentLocked ? <LockOpen size={14} aria-hidden="true" /> : <Lock size={14} aria-hidden="true" />}
-                        {" "}
-                        {folderLockBusy
-                          ? (parentLocked ? t("gallery:folders.unlocking") : t("gallery:folders.locking"))
-                          : (parentLocked ? t("gallery:folders.unlockFolder") : t("gallery:folders.lockFolder"))}
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        compact
-                        disabled={folderRescanBusy}
-                        title={t("gallery:folders.rescanTitle")}
-                        onClick={() => void rescanFolder()}
-                      >
-                        <RefreshCw size={14} aria-hidden="true" /> {folderRescanBusy ? t("gallery:folders.rescanStarting") : t("gallery:folders.rescanButton")}
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        compact
-                        disabled={moveTargets.length === 0}
-                        title={moveTargets.length === 0 ? t("gallery:folders.moveNoTargets") : t("gallery:folders.moveTitle")}
-                        onClick={openMoveFolder}
-                      >
-                        <FolderOutput size={14} aria-hidden="true" /> {t("gallery:folders.moveFolder")}
-                      </Button>
-                    </>
-                  )}
-                </div>
-
-                {moveFolderOpen && soleLibraryId && (
-                  <Modal
-                    variant="card"
-                    title={t("gallery:folders.moveDialogTitle", { folder: parent })}
-                    busy={moveBusy}
-                    onClose={() => setMoveFolderOpen(false)}
-                    onSubmit={(event) => { event.preventDefault(); void confirmMoveFolder(); }}
-                  >
-                    <p>{t("gallery:folders.moveIntro")}</p>
-                    <SelectField
-                      label={t("gallery:folders.moveTargetLabel")}
-                      value={moveTarget}
-                      onChange={(value) => void planMoveFolder(value)}
-                      options={[
-                        { value: "", label: t("gallery:folders.moveTargetNone") },
-                        ...moveTargets.map((library) => ({ value: library.id, label: library.appStorage ? t("gallery:inbox.appStorageLabel", { name: library.name }) : library.name }))
-                      ]}
-                    />
-                    {movePlan && (
-                      <p className="datagrid-muted gallery-move-plan">
-                        {t("gallery:folders.movePlan", { count: movePlan.items, path: movePlan.to })}
-                      </p>
-                    )}
-                    {moveError && <MessageBox tone="error" title={t("gallery:folders.errors.move")}>{moveError}</MessageBox>}
-                    <div className="modal-actions">
-                      <Button variant="secondary" onClick={() => setMoveFolderOpen(false)} disabled={moveBusy}>{t("common.cancel")}</Button>
-                      <Button variant="primary" type="submit" disabled={moveBusy || !movePlan}>
-                        {moveBusy ? t("gallery:folders.moving") : t("gallery:folders.moveConfirm")}
-                      </Button>
-                    </div>
-                  </Modal>
-                )}
-
-                {folders.length > 0 && (
-                  <>
-                    <p className="gallery-section-label">{t("gallery:folders.foldersHeading", { count: folders.length })}</p>
-                    <div className="gallery-folder-grid">
-                      {folders.map((folder) => (
-                        <button key={folder.path} type="button" className="gallery-folder-tile" onClick={() => void loadFolder(folder.path)}>
-                          <span className="gallery-folder-thumb">
-                            {folder.coverUrl ? <img src={folder.coverUrl} alt="" loading="lazy" /> : <Folder size={28} aria-hidden="true" />}
-                          </span>
-                          <strong>{folder.name}</strong>
-                          <small>
-                            {folder.locked && <Lock size={12} className="gallery-folder-lock" aria-label={t("gallery:folders.lockedAria")} />}
-                            {t("gallery:common.counts.item", { count: folder.assetCount })}
-                          </small>
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )}
-
-                {folderAssets.length > 0 && (
-                  <>
-                    <p className="gallery-section-label">{t("gallery:folders.photosVideosHeading", { count: folderTotal })}</p>
-                    <div className={gridClass}>
-                      {folderAssets.map((asset, index) => (
-                        <AssetTile
-                          key={asset.id}
-                          asset={asset}
-                          onOpen={() => setLightbox({ source: "folder", index })}
-                          selectionMode={selectionMode}
-                          selected={selectedIds.has(asset.id)}
-                          onToggleSelect={() => toggleSelect(asset.id)}
-                          onToggleLike={(next) => void toggleAssetLike(asset, next)}
-                        />
-                      ))}
-                    </div>
-                    {folderAssets.length < folderTotal && (
-                      <div style={{ display: "flex", justifyContent: "center", padding: "16px 0" }}>
-                        <button type="button" className="secondary-button" onClick={() => void loadFolder(parent, folderAssets.length)} disabled={loading}>
-                          {loading ? t("gallery:common.loading") : t("gallery:common.loadMore")}
-                        </button>
-                      </div>
-                    )}
-                  </>
-                )}
-
-                {!loading && folders.length === 0 && folderAssets.length === 0 && (
-                  <p className="management-empty">{t("gallery:folders.emptyFolder")}</p>
-                )}
-              </>
+              <FoldersView
+                browse={folderBrowse}
+                admin={folderAdmin}
+                folderQuery={folderQuery}
+                setSearchText={setSearchText}
+                soleLibraryId={soleLibraryId}
+                isAdmin={isAdmin}
+                setAskSomeone={setAskSomeone}
+                gridClass={gridClass}
+                loading={loading}
+                {...tiles}
+              />
             )}
           </>
         )}
@@ -2649,7 +1072,6 @@ export function GalleryPage({
           index={lightbox.index}
           canDelete={canDeleteCurrent}
           canEdit={canEditCurrent}
-          canShare={canShareCurrent}
           autoPlay={lightbox.autoPlay}
           transition={lightbox.source === "slideshow" ? selectedSlideshow?.transition : undefined}
           transitionSeconds={lightbox.source === "slideshow" ? selectedSlideshow?.transitionSeconds : undefined}
@@ -2786,61 +1208,22 @@ export function GalleryPage({
         />
       )}
 
-      {/* Suggested-slideshow preview: look at the photos first, then create a slideshow
-          from them. Closing without creating = nothing happens. */}
       {previewSuggestion && (
-        <Modal
-          variant="panel"
-          title={previewSuggestion.title}
-          icon={<Sparkles size={20} />}
-          className="add-to-album-modal"
+        <SuggestionPreviewModal
+          suggestion={previewSuggestion}
+          assets={previewAssets}
+          onCreate={() => { const suggestion = previewSuggestion; setPreviewSuggestion(null); void createFromMemory(suggestion); }}
           onClose={() => setPreviewSuggestion(null)}
-        >
-          <div className="add-to-album-head suggestion-preview-head">
-            <p className="muted">{previewSuggestion.subtitle}</p>
-            <div className="suggestion-preview-actions">
-              <button
-                type="button"
-                className="primary-button compact-button"
-                onClick={() => { const suggestion = previewSuggestion; setPreviewSuggestion(null); void createFromMemory(suggestion); }}
-              >
-                <Film size={15} aria-hidden="true" /> {t("gallery:slideshows.createTitle")}
-              </button>
-            </div>
-          </div>
-          <div className="modal-tab-content add-to-album-body">
-            {previewAssets === null ? (
-              <p className="management-empty">{t("gallery:suggestions.loadingPhotos")}</p>
-            ) : previewAssets.length === 0 ? (
-              <p className="management-empty">{t("gallery:suggestions.previewEmpty")}</p>
-            ) : (
-              <div className="gallery-folder-grid suggestion-preview-grid">
-                {previewAssets.map((asset) => (
-                  <div key={asset.id} className="gallery-folder-tile suggestion-preview-tile">
-                    <span className="gallery-folder-thumb">
-                      {asset.coverUrl ? <img src={asset.coverUrl} alt={asset.title} loading="lazy" /> : <ImageIcon size={26} aria-hidden="true" />}
-                      {asset.kind === "video" && <span className="gallery-video-badge"><Play size={11} aria-hidden="true" />{t("gallery:common.video")}</span>}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </Modal>
+        />
       )}
 
       {movieDeleteOpen && selectedSlideshow && (
-        <ConfirmDialog
-          title={t("gallery:slideshows.deleteMovieTitle")}
-          confirmLabel={t("gallery:slideshows.deleteMovieConfirm")}
-          danger
+        <DeleteMovieDialog
+          savedToLibrary={Boolean(selectedSlideshow.movieSavedToLibrary)}
           busy={movieDeleteBusy}
           onConfirm={() => void deleteSlideshowMovie()}
-          onCancel={() => { if (!movieDeleteBusy) setMovieDeleteOpen(false); }}
-        >
-          {t("gallery:slideshows.deleteMovieBody")}
-          {selectedSlideshow.movieSavedToLibrary && t("gallery:slideshows.movieCopyKeptNote")}
-        </ConfirmDialog>
+          onCancel={() => setMovieDeleteOpen(false)}
+        />
       )}
 
       {browseOpen && selectedSlideshow && (
@@ -2874,24 +1257,13 @@ export function GalleryPage({
       )}
 
       {slideshowCreateOpen && (
-        <Modal
-          variant="card"
-          title={t("gallery:slideshows.createTitle")}
-          onClose={() => { if (!slideshowBusy) setSlideshowCreateOpen(false); }}
-        >
-          <form onSubmit={(event) => { event.preventDefault(); void createSlideshowSubmit(); }}>
-            <label className="field">
-              <span>{t("gallery:common.name")}</span>
-              <input value={slideshowNewName} onChange={(event) => setSlideshowNewName(event.target.value)} placeholder={t("gallery:slideshows.namePlaceholderExample")} autoFocus maxLength={120} />
-            </label>
-            <div className="modal-actions">
-              <button type="button" className="secondary-button" onClick={() => setSlideshowCreateOpen(false)} disabled={slideshowBusy}>{t("common:common.cancel")}</button>
-              <button type="submit" className="primary-button" disabled={!slideshowNewName.trim() || slideshowBusy}>
-                {slideshowBusy ? t("gallery:common.creating") : t("gallery:slideshows.createTitle")}
-              </button>
-            </div>
-          </form>
-        </Modal>
+        <CreateSlideshowModal
+          name={slideshowNewName}
+          busy={slideshowBusy}
+          onNameChange={setSlideshowNewName}
+          onSubmit={() => void createSlideshowSubmit()}
+          onClose={() => setSlideshowCreateOpen(false)}
+        />
       )}
 
       {movieLibraryOpen && selectedSlideshow && slideshowSettings && (
@@ -2906,173 +1278,67 @@ export function GalleryPage({
       )}
 
       {slideshowDeleteOpen && selectedSlideshow && (
-        <ConfirmDialog
-          title={t("gallery:slideshows.deleteConfirmTitle", { name: selectedSlideshow.name })}
-          confirmLabel={t("gallery:slideshows.deleteConfirmLabel")}
-          danger
+        <DeleteSlideshowDialog
+          name={selectedSlideshow.name}
+          savedToLibrary={Boolean(selectedSlideshow.movieSavedToLibrary)}
           busy={slideshowBusy}
           onConfirm={confirmDeleteSlideshow}
-          onCancel={() => { if (!slideshowBusy) setSlideshowDeleteOpen(false); }}
-        >
-          {t("gallery:slideshows.deleteConfirmBody")}
-          {selectedSlideshow.movieSavedToLibrary && t("gallery:slideshows.movieRenderedKeptNote")}
-        </ConfirmDialog>
+          onCancel={() => setSlideshowDeleteOpen(false)}
+        />
       )}
 
       {albumCreateOpen && (
-        <Modal
-          variant="card"
-          title={t("gallery:albums.createTitle")}
-          onClose={() => { if (!albumBusy) setAlbumCreateOpen(false); }}
-        >
-          <form onSubmit={(event) => { event.preventDefault(); void createAlbumSubmit(); }}>
-            <label className="field">
-              <span>{t("gallery:common.name")}</span>
-              <input value={albumNewName} onChange={(event) => setAlbumNewName(event.target.value)} placeholder={t("gallery:albums.namePlaceholderExample")} autoFocus maxLength={120} />
-            </label>
-            <label className="field">
-              <span>{t("gallery:albums.descriptionLabel")}</span>
-              <input value={albumNewDesc} onChange={(event) => setAlbumNewDesc(event.target.value)} placeholder={t("gallery:albums.descriptionPlaceholder")} maxLength={2000} />
-            </label>
-            <div className="modal-actions">
-              <button type="button" className="secondary-button" onClick={() => setAlbumCreateOpen(false)} disabled={albumBusy}>{t("common:common.cancel")}</button>
-              <button type="submit" className="primary-button" disabled={!albumNewName.trim() || albumBusy}>
-                {albumBusy ? t("gallery:common.creating") : t("gallery:albums.createTitle")}
-              </button>
-            </div>
-          </form>
-        </Modal>
+        <CreateAlbumModal
+          name={albumNewName}
+          description={albumNewDesc}
+          busy={albumBusy}
+          onNameChange={setAlbumNewName}
+          onDescriptionChange={setAlbumNewDesc}
+          onSubmit={() => void createAlbumSubmit()}
+          onClose={() => setAlbumCreateOpen(false)}
+        />
       )}
 
       {coverPickerOpen && selectedAlbum && (
-        <Modal
-          variant="panel"
-          title={t("gallery:common.setCoverPhoto")}
-          icon={<ImageIcon size={20} />}
-          className="gallery-cover-modal"
+        <CoverPickerModal
+          hint={t("gallery:albums.coverPickerHint")}
+          emptyText={t("gallery:albums.coverPickerEmpty")}
+          assets={albumAssets}
+          coverItemId={selectedAlbum.coverItemId}
+          onPick={(assetId) => void setAlbumCover(selectedAlbum.id, assetId)}
           onClose={() => setCoverPickerOpen(false)}
-        >
-          <div className="modal-tab-content">
-            <p className="muted">{t("gallery:albums.coverPickerHint")}</p>
-            {albumAssets.length === 0 ? (
-              <p className="management-empty">{t("gallery:albums.coverPickerEmpty")}</p>
-            ) : (
-              <div className="gallery-grid gallery-cover-grid">
-                {albumAssets.map((asset) => (
-                  <button
-                    key={asset.id}
-                    type="button"
-                    className={`gallery-tile${asset.id === selectedAlbum.coverItemId ? " selected" : ""}`}
-                    onClick={() => void setAlbumCover(selectedAlbum.id, asset.id)}
-                    aria-label={t("gallery:page.dialogs.useAsCoverAria", { title: asset.title })}
-                    title={t("gallery:page.dialogs.useAsCoverAria", { title: asset.title })}
-                  >
-                    {asset.coverUrl ? (
-                      <img src={asset.coverUrl} alt="" loading="lazy" />
-                    ) : (
-                      <span className="gallery-tile-fallback"><ImageIcon size={26} aria-hidden="true" /></span>
-                    )}
-                    {asset.id === selectedAlbum.coverItemId && (
-                      <span className="gallery-tile-check" aria-hidden="true"><CheckCircle2 size={22} /></span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </Modal>
+        />
       )}
 
       {slideshowCoverPickerOpen && selectedSlideshow && (
-        <Modal
-          variant="panel"
-          title={t("gallery:common.setCoverPhoto")}
-          icon={<ImageIcon size={20} />}
-          className="gallery-cover-modal"
+        <CoverPickerModal
+          hint={t("gallery:slideshows.coverPickerHint")}
+          emptyText={t("gallery:slideshows.coverPickerEmpty")}
+          assets={slideshowAssets}
+          coverItemId={selectedSlideshow.coverItemId}
+          onPick={(assetId) => void setSlideshowCover(selectedSlideshow.id, assetId)}
           onClose={() => setSlideshowCoverPickerOpen(false)}
-        >
-          <div className="modal-tab-content">
-            <p className="muted">{t("gallery:slideshows.coverPickerHint")}</p>
-            {slideshowAssets.length === 0 ? (
-              <p className="management-empty">{t("gallery:slideshows.coverPickerEmpty")}</p>
-            ) : (
-              <div className="gallery-grid gallery-cover-grid">
-                {slideshowAssets.map((asset) => (
-                  <button
-                    key={asset.id}
-                    type="button"
-                    className={`gallery-tile${asset.id === selectedSlideshow.coverItemId ? " selected" : ""}`}
-                    onClick={() => void setSlideshowCover(selectedSlideshow.id, asset.id)}
-                    aria-label={t("gallery:page.dialogs.useAsCoverAria", { title: asset.title })}
-                    title={t("gallery:page.dialogs.useAsCoverAria", { title: asset.title })}
-                  >
-                    {asset.coverUrl ? (
-                      <img src={asset.coverUrl} alt="" loading="lazy" />
-                    ) : (
-                      <span className="gallery-tile-fallback"><ImageIcon size={26} aria-hidden="true" /></span>
-                    )}
-                    {asset.id === selectedSlideshow.coverItemId && (
-                      <span className="gallery-tile-check" aria-hidden="true"><CheckCircle2 size={22} /></span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </Modal>
+        />
       )}
 
       {personCoverPickerOpen && selectedPerson && (
-        <Modal
-          variant="panel"
-          title={t("gallery:common.setCoverPhoto")}
-          icon={<ImageIcon size={20} />}
-          className="gallery-cover-modal"
+        <CoverPickerModal
+          hint={selectedPerson.name ? t("gallery:people.coverPickerHintNamed", { name: selectedPerson.name }) : t("gallery:people.coverPickerHintGeneric")}
+          emptyText={t("gallery:people.coverPickerEmpty")}
+          assets={personAssets}
+          coverItemId={selectedPerson.coverItemId}
+          onPick={(assetId) => void setPersonCover(selectedPerson.id, assetId)}
           onClose={() => setPersonCoverPickerOpen(false)}
-        >
-          <div className="modal-tab-content">
-            <p className="muted">{selectedPerson.name ? t("gallery:people.coverPickerHintNamed", { name: selectedPerson.name }) : t("gallery:people.coverPickerHintGeneric")}</p>
-            {personAssets.length === 0 ? (
-              <p className="management-empty">{t("gallery:people.coverPickerEmpty")}</p>
-            ) : (
-              <div className="gallery-grid gallery-cover-grid">
-                {personAssets.map((asset) => (
-                  <button
-                    key={asset.id}
-                    type="button"
-                    className={`gallery-tile${asset.id === selectedPerson.coverItemId ? " selected" : ""}`}
-                    onClick={() => void setPersonCover(selectedPerson.id, asset.id)}
-                    aria-label={t("gallery:page.dialogs.useAsCoverAria", { title: asset.title })}
-                    title={t("gallery:page.dialogs.useAsCoverAria", { title: asset.title })}
-                  >
-                    {asset.coverUrl ? (
-                      <img src={asset.coverUrl} alt="" loading="lazy" />
-                    ) : (
-                      <span className="gallery-tile-fallback"><ImageIcon size={26} aria-hidden="true" /></span>
-                    )}
-                    {asset.id === selectedPerson.coverItemId && (
-                      <span className="gallery-tile-check" aria-hidden="true"><CheckCircle2 size={22} /></span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </Modal>
+        />
       )}
 
       {albumDeleteOpen && selectedAlbum && (
-        <ConfirmDialog
-          title={t("gallery:albums.deleteConfirmTitle", { name: selectedAlbum.name })}
-          confirmLabel={t("gallery:albums.deleteConfirmLabel")}
-          busyLabel={t("gallery:common.deleting")}
+        <DeleteAlbumDialog
+          name={selectedAlbum.name}
           busy={albumBusy}
-          danger
           onConfirm={() => void confirmDeleteAlbum()}
-          onCancel={() => { if (!albumBusy) setAlbumDeleteOpen(false); }}
-        >
-          {t("gallery:albums.deleteConfirmBody")}
-        </ConfirmDialog>
+          onCancel={() => setAlbumDeleteOpen(false)}
+        />
       )}
 
       {bulkCollectionOpen && (
@@ -3090,30 +1356,21 @@ export function GalleryPage({
       )}
 
       {bulkDeleteOpen && (
-        <ConfirmDialog
-          title={t("gallery:bulk.deleteConfirmTitle", { count: selectedIds.size })}
-          confirmLabel={t("gallery:bulk.deleteConfirmLabel", { count: selectedIds.size })}
-          busyLabel={t("gallery:common.moving")}
+        <BulkDeleteDialog
+          count={selectedIds.size}
           busy={bulkBusy}
           error={bulkError}
-          danger
           onConfirm={() => void confirmBulkDelete()}
-          onCancel={() => { if (!bulkBusy) setBulkDeleteOpen(false); }}
-        >
-          {t("gallery:bulk.deleteConfirmBody")}
-        </ConfirmDialog>
+          onCancel={() => setBulkDeleteOpen(false)}
+        />
       )}
 
       {personDeleteOpen && selectedPerson && (
-        <ConfirmDialog
-          title={t("gallery:people.deleteConfirmTitle", { name: selectedPerson.name || t("gallery:common.unnamed") })}
-          confirmLabel={t("gallery:people.deleteConfirmLabel")}
-          danger
+        <DeletePersonDialog
+          name={selectedPerson.name}
           onConfirm={() => void confirmDeletePerson()}
           onCancel={() => setPersonDeleteOpen(false)}
-        >
-          {t("gallery:people.deleteConfirmBody")}
-        </ConfirmDialog>
+        />
       )}
     </DashboardShell>
   );

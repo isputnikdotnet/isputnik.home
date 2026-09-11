@@ -82,13 +82,23 @@ export function ConfirmDialog({
             // otherwise holds. Nothing is lost: an errant Enter lands in an empty
             // field, and the confirm button behind it is disabled until it isn't.
             autoFocus
+            data-autofocus
             onChange={(event) => setTyped(event.target.value)}
           />
         </label>
       )}
       {error && <MessageBox tone="error" title={t("errors.actionFailed")}>{error}</MessageBox>}
       <div className="modal-actions">
-        <Button variant="secondary" onClick={onCancel} disabled={busy} autoFocus={!challenge}>
+        {/* Cancel holds the focus, so an Enter pressed out of habit cancels rather
+            than confirms. `data-autofocus` tells Modal the same thing, should the
+            dialog ever mount without React's autoFocus landing. */}
+        <Button
+          variant="secondary"
+          onClick={onCancel}
+          disabled={busy}
+          autoFocus={!challenge}
+          data-autofocus={challenge ? undefined : ""}
+        >
           {t("common.cancel")}
         </Button>
         <Button

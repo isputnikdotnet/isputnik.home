@@ -1,6 +1,6 @@
 # Scan layout plan
 
-Status: shipped as 3.62.0 (2026-09-04); the part-folder follow-up below shipped as 3.65.2. What remains is the deferred list under Decisions. Supersedes the open questions in
+Status: shipped in v3.62.0 (2026-09-04), the part-folder follow-up below in v3.65.2 (the same day); kept for history. Only the deferred list under Decisions is open. Supersedes the open questions in
 [`custom-scan-rules-proposal.md`](custom-scan-rules-proposal.md); the current
 scanner behaviour is documented in [`scanner.md`](scanner.md).
 

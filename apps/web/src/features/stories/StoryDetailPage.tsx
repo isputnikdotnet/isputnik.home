@@ -259,7 +259,6 @@ export function StoryDetailPage({ id, chapterId }: { id: string; chapterId?: str
           onChanged={() => {}}
           canDelete={false}
           canEdit={false}
-          canShare={false}
           autoPlay={lightbox.autoPlay}
           transition={lightbox.transition}
           transitionSeconds={lightbox.transitionSeconds}

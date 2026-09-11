@@ -45,8 +45,8 @@
 /* A toolbar control holding a filter or a saved preference, so it reads as "on"
    rather than as one more icon. */
 .dup-toolbar-controls .is-active {
-  border-color: var(--accent, #c8a24a);
-  color: var(--accent, #c8a24a);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 /* ── Duplicate set viewer ───────────────────────────────────────── */
@@ -111,12 +111,12 @@
   padding: 0;
   border-radius: 8px;
   overflow: hidden;
-  background: var(--surface-2, rgba(127, 127, 127, 0.12));
+  background: var(--surface-2);
 }
 .dup-view-pane .dup-view-stage:hover:not(:disabled) { background: var(--hover); }
 /* The read-only stage is a plain frame, not a button: no hover, no pointer, nothing
    that suggests clicking the picture would do something. */
-.dup-view-pane .dup-view-stage.is-static:hover { background: var(--surface-2, rgba(127, 127, 127, 0.12)); }
+.dup-view-pane .dup-view-stage.is-static:hover { background: var(--surface-2); }
 .dup-view-stage img {
   max-width: 100%;
   max-height: 100%;

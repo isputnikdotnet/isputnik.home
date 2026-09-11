@@ -182,7 +182,7 @@ by the new capability model:
 - **Creating or managing a share requires the `curate` capability** (Curator or Library Admin,
   plus owner/app-admin). A Viewer/Subscriber/Contributor can *consume* a library but cannot hand
   out external access — this closes the escalation where a non-downloader could mint a guest link
-  and download through it. Enforced in `getShareableBook()` ([`shares.ts`](../apps/server/src/modules/library/audiobook/shares.ts)),
+  and download through it. Enforced in `getShareableBook()` ([`shares/grants.ts`](../apps/server/src/modules/library/shared/shares/grants.ts)),
   which returns 404 (no access — existence hidden) vs 403 (can view, lacks curate).
 - **A share grants the recipient view + download** of that one book (matching the guest-page
   behaviour: `permission = 'read'` = playback *and* file download). `canUserAccessBook` /

@@ -9,9 +9,9 @@ import { createJob } from "../src/modules/library/gallery/duplicates/jobs.js";
 import {
   assessResultRisk,
   keeperConfidenceOf,
-  listJobResults,
-  runJobScan
-} from "../src/modules/library/gallery/duplicates/job-scan.js";
+  listJobResults
+} from "../src/modules/library/gallery/duplicates/job-results.js";
+import { runJobScan } from "../src/modules/library/gallery/duplicates/job-scan.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
 
 describe("folding the two confidences into one risk reading", () => {

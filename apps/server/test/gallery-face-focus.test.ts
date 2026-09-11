@@ -4,7 +4,12 @@
 // EXIF-oriented photo, but thumbnails apply a manual rotation on top of that.
 import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../src/db.js";
-import { ASSET_COLUMNS, ASSET_JOINS, mapAsset, type GalleryAssetRow } from "../src/modules/library/gallery/catalog.js";
+import {
+  ASSET_COLUMNS,
+  ASSET_JOINS,
+  mapAsset,
+  type GalleryAssetRow
+} from "../src/modules/library/gallery/catalog-asset.js";
 import { resetDb, makeUser, makeLibrary } from "./helpers/seed.js";
 
 function makePhoto(id: string, opts: { rotation?: number } = {}): string {

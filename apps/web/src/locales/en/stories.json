@@ -1,6 +1,5 @@
 {
   "title": "Stories",
-  "eyebrow": "Built from your library",
   "backTo": "Back to stories",
   "newStory": "New story",
   "common": {
@@ -41,12 +40,9 @@
     "chapterNoun": "What to call a chapter",
     "chapterNounPlaceholder": "Day",
     "chapterNounHint": "Chapters then read “Day 1”, “Day 2”. Leave empty to use their titles.",
-    "cover": "Cover",
-    "setCover": "Choose a photo",
     "changeCover": "Change photo",
     "clearCover": "Remove",
     "coverPickerTitle": "Story cover photo",
-    "coverHint": "The front page and the story's card wear it. Without one, the first photo in the story stands in.",
     "optional": "optional"
   },
   "collections": {
@@ -69,7 +65,6 @@
     "setCover": "Set cover",
     "coverPickerTitle": "Collection cover photo",
     "access": "Access",
-    "everyone": "Everyone",
     "everyoneHint": "Every member of the household",
     "roles": {
       "none": "No access",
@@ -78,13 +73,6 @@
       "manager": "Manage",
       "deny": "Deny"
     },
-    "roleFor": "Role for {{name}}",
-    "removeGrant": "Remove {{name}}",
-    "pickSubject": "Add a person or group…",
-    "usersGroup": "Members",
-    "groupsGroup": "Groups",
-    "roleField": "Role",
-    "grant": "Add",
     "deleteTitle": "Delete “{{name}}”?",
     "deleteConfirm": "Delete collection",
     "deleting": "Deleting…",
@@ -191,7 +179,6 @@
     "create": "Create story",
     "creating": "Creating…",
     "edit": "Edit",
-    "read": "Read",
     "publish": "Publish",
     "unpublish": "Back to draft",
     "delete": "Delete",
@@ -202,10 +189,7 @@
     "moveUp": "Move up",
     "moveDown": "Move down",
     "removeBlock": "Remove",
-    "moveChapterUp": "Move chapter up",
-    "moveChapterDown": "Move chapter down",
     "removeChapter": "Delete chapter",
-    "applyDates": "Apply dates",
     "send": "Send"
   },
   "errors": {
@@ -226,12 +210,10 @@
     "chapterEmpty": "This chapter is empty."
   },
   "edit": {
-    "eyebrow": "Editing story",
     "exitEdit": "Exit edit",
     "storyActions": "Story actions",
     "addBlock": "Add block",
     "addChapter": "Add chapter",
-    "addChapterDetails": "Add a date, place or chapter title",
     "chapterEmpty": "Nothing in this chapter yet — add something below.",
     "nav": {
       "aria": "Story editor",
@@ -289,12 +271,6 @@
     "standfirstField": "Standfirst",
     "standfirstPlaceholder": "One line that sets up this chapter",
     "setPin": "Pin on map",
-    "movePin": "Move pin",
-    "clearPin": "Remove pin",
-    "heroField": "Chapter cover",
-    "setHero": "Choose a photo",
-    "changeHero": "Change photo",
-    "clearHero": "Remove",
     "heroPickerTitle": "Chapter cover photo",
     "descriptionField": "Chapter note",
     "descriptionPlaceholder": "A line of context under the chapter heading",
@@ -416,25 +392,15 @@
   },
   "share": {
     "title": "Share \"{{name}}\"",
-    "intro": "A guest link opens this story in a browser, with no account. It stays up to date — whoever opens it sees the story as it is now.",
     "expiresIn": "Link expires in",
     "labelField": "Label (optional)",
     "createLink": "Create link",
-    "creating": "Creating…",
     "expandAlbums": "Let guests open whole albums",
     "expandAlbumsHint": "Off, a guest sees only the photos this story shows. On, they can open every photo in the albums and slideshows it embeds.",
     "copyNow": "Copy it now — this link is shown only once.",
-    "copy": "Copy",
     "copied": "Copied",
-    "noLinks": "No guest links for this story yet.",
-    "defaultLabel": "Guest link",
-    "expandedBadge": "albums openable",
     "expired": "Expired",
-    "expiresOn": "Expires {{date}}",
-    "revokeAria": "Revoke this link",
-    "unableTitle": "Unable to share",
-    "unableToCreate": "Unable to create the link.",
-    "unableToRevoke": "Unable to revoke the link."
+    "expiresOn": "Expires {{date}}"
   },
   "audio": {
     "needsLibraryHint": "Choose a recordings library first — Control panel → Settings → Stories",

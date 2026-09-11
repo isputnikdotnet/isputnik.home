@@ -141,7 +141,7 @@ export function resolveWebauthnChallenge(id: string, purpose: WebauthnPurpose): 
   const row = db
     .prepare(
       `SELECT id, user_id, purpose, challenge FROM webauthn_challenges
-       WHERE id = ? AND purpose = ? AND datetime(expires_at) > datetime('now')`
+       WHERE id = ? AND purpose = ? AND expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`
     )
     .get(id, purpose) as WebauthnChallengeRow | undefined;
   return row ?? null;
@@ -154,14 +154,14 @@ export function clearWebauthnChallenge(id: string): void {
 /** Drop challenges nobody came back for. Called opportunistically when a new one
  *  is opened, so the table can't grow without bound on a public sign-in route. */
 export function pruneWebauthnChallenges(): void {
-  db.prepare("DELETE FROM webauthn_challenges WHERE datetime(expires_at) <= datetime('now')").run();
+  db.prepare("DELETE FROM webauthn_challenges WHERE expires_at <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now')").run();
 }
 
 // ── Stored credentials ───────────────────────────────────────────────────────
 
 export function listPasskeys(userId: string): PasskeyRow[] {
   return db
-    .prepare("SELECT * FROM webauthn_credentials WHERE user_id = ? ORDER BY datetime(created_at) DESC")
+    .prepare("SELECT * FROM webauthn_credentials WHERE user_id = ? ORDER BY created_at DESC")
     .all(userId) as PasskeyRow[];
 }
 

@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { api } from "../../api";
 import { queryParam, replaceQuery } from "../../router";
 import i18n from "../../i18n";
+import { useDebouncedValue } from "../../shared/useDebouncedValue";
 import { EMPTY_FILTERS, EMPTY_FACETS, type BookFilters, type FacetOptions, type SortKey } from "./BookFilter";
 import type { AudiobookBook } from "./types";
 
@@ -82,7 +83,8 @@ export function useMediaCatalog<T = AudiobookBook>(
 ) {
   const { t } = useTranslation(["book"]);
   const [search, setSearch] = useState(() => readCatalogView(persistKey).search);
-  const [debounced, setDebounced] = useState(() => readCatalogView(persistKey).search.trim());
+  // Debounce the search box so typing doesn't fire a request per keystroke.
+  const debounced = useDebouncedValue(search.trim(), 300);
   const [filters, setFilters] = useState<BookFilters>(() => readCatalogView(persistKey).filters);
   // The letter comes off the URL first, so a reloaded or shared ?letter=Б opens
   // on that letter; the session store is the fallback for an in-app return.
@@ -110,12 +112,6 @@ export function useMediaCatalog<T = AudiobookBook>(
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   const scopeKey = JSON.stringify(scope);
-
-  // Debounce the search box so typing doesn't fire a request per keystroke.
-  useEffect(() => {
-    const timer = window.setTimeout(() => setDebounced(search.trim()), 300);
-    return () => window.clearTimeout(timer);
-  }, [search]);
 
   // Filter options for the scope (the panel can't derive them from one page).
   useEffect(() => {

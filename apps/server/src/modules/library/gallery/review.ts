@@ -10,9 +10,10 @@
 // "Viewing only" honestly for an album that was merely sent, not asked about.
 import { db } from "../../../db.js";
 import { canUserWriteAsset } from "../shared/library-access.js";
-import { curatableGalleryLibraryIds } from "../shared/shares.js";
+import { curatableGalleryLibraryIds } from "../shared/shares/album-shares.js";
 import { getAlbum } from "./albums.js";
-import { ASSET_COLUMNS, ASSET_JOINS, mapAsset, resolveGalleryScopeLibraryIds, type GalleryAssetRow } from "./catalog.js";
+import { ASSET_COLUMNS, ASSET_JOINS, mapAsset, type GalleryAssetRow } from "./catalog-asset.js";
+import { resolveGalleryScopeLibraryIds } from "./catalog-scope.js";
 
 /** More than a box of prints; fewer than a lifetime. */
 const REVIEW_CAP = 500;
@@ -36,7 +37,7 @@ export function loadAlbumReview(user: { id: string; role: string }, albumId: str
     FROM shares JOIN users ON users.id = shares.created_by
     WHERE shares.module = 'gallery_album' AND shares.resource_id = ? AND shares.user_id = ?
       AND shares.revoked_at IS NULL
-      AND (shares.expires_at IS NULL OR datetime(shares.expires_at) > datetime('now'))
+      AND (shares.expires_at IS NULL OR shares.expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
   `).get(albumId, user.id) as { creator_id: string; creator_role: string } | undefined;
   if (share) {
     for (const id of curatableGalleryLibraryIds({ id: share.creator_id, role: share.creator_role })) libIds.add(id);
@@ -46,7 +47,7 @@ export function loadAlbumReview(user: { id: string; role: string }, albumId: str
 
   const order = album.sort_mode === "manual"
     ? "gallery_album_items.position ASC"
-    : "datetime(gallery_details.taken_at) ASC, library_items.id ASC";
+    : "gallery_details.taken_at ASC, library_items.id ASC";
   const rows = ids.length === 0 ? [] : db.prepare(`
     SELECT ${ASSET_COLUMNS} ${ASSET_JOINS}
     JOIN gallery_album_items ON gallery_album_items.item_id = library_items.id

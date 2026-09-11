@@ -20,7 +20,7 @@ const ALLOWED_TAGS = [
   "a"
 ];
 
-export async function renderStoryMarkdown(markdown: string): Promise<string> {
+async function renderStoryMarkdown(markdown: string): Promise<string> {
   const [{ Marked }, { default: DOMPurify }] = await Promise.all([import("marked"), import("dompurify")]);
   const marked = new Marked({ gfm: true });
   marked.use({

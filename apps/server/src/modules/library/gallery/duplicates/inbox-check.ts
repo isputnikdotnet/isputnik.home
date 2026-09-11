@@ -12,7 +12,7 @@ import { db } from "../../../../db.js";
 import { isPhotoInboxLibrary } from "../inbox-flag.js";
 import { activeJob, createJob, galleryLibraryOptions, refreshInboxScope, type DuplicateJob } from "./jobs.js";
 import { startJobScan } from "./job-scan.js";
-import { processDuplicateScanQueue } from "./items.js";
+import { processDuplicateScanQueue } from "./scan-queue.js";
 
 export type InboxCheckStart =
   | { queued: true; jobId: string }

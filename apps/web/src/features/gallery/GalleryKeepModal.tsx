@@ -19,6 +19,7 @@ import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
 import { SelectField } from "../../shared/SelectField";
 import { TabStrip } from "../../shared/TabStrip";
+import { useDebouncedValue } from "../../shared/useDebouncedValue";
 import type { GalleryFolder, GalleryLibrary } from "./types";
 
 export interface KeepDestination {
@@ -77,7 +78,7 @@ export function GalleryKeepModal({
   // What each tab narrows the list by: the picker’s own search box, or the folder
   // name being typed on the other tab (which the box suggests from). Choosing a
   // folder must not count as typing, or the list would reload under the click.
-  const term = tab === "existing" ? search : folder;
+  const term = useDebouncedValue(tab === "existing" ? search : folder, 200);
 
   // The destination’s folders, for both tabs. Debounced, and an empty term lists
   // the whole library. The rows already on screen stay until the new ones land:
@@ -85,13 +86,11 @@ export function GalleryKeepModal({
   useEffect(() => {
     if (!libraryId) { setFolders([]); return; }
     let cancelled = false;
-    const handle = window.setTimeout(() => {
-      const params = new URLSearchParams({ q: term.trim(), libraryIds: libraryId, limit: "200" });
-      api<{ folders: GalleryFolder[] }>(`/api/library/gallery/folders/search?${params}`)
-        .then((payload) => { if (!cancelled) setFolders(payload.folders); })
-        .catch(() => { if (!cancelled) setFolders([]); });
-    }, 200);
-    return () => { cancelled = true; window.clearTimeout(handle); };
+    const params = new URLSearchParams({ q: term.trim(), libraryIds: libraryId, limit: "200" });
+    api<{ folders: GalleryFolder[] }>(`/api/library/gallery/folders/search?${params}`)
+      .then((payload) => { if (!cancelled) setFolders(payload.folders); })
+      .catch(() => { if (!cancelled) setFolders([]); });
+    return () => { cancelled = true; };
   }, [libraryId, term]);
 
   const chooseExisting = (path: string) => { setFolder(path); setDated(false); };

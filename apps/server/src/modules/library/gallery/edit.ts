@@ -3,7 +3,7 @@
 // and, when a date or location is given, the matching gallery_details *_source =
 // 'manual', so a rescan preserves the edits.
 import { db } from "../../../db.js";
-import { addEntityTags, removeEntityTags, setEntityTags } from "../audiobook/categorize.js";
+import { addEntityTags, removeEntityTags, setEntityTags } from "../shared/tagging.js";
 import { applyItemAlphaIndex } from "../shared/alphabet-index.js";
 import { floorTakenAt, type TakenPrecision } from "./taken-precision.js";
 

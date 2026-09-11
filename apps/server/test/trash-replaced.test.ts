@@ -4,7 +4,7 @@ import path from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../src/db.js";
 import { deleteAllReplacedOriginals, deleteReplacedOriginal, listReplacedOriginals } from "../src/modules/library/gallery/replaced.js";
-import { setTrashRootSetting } from "../src/modules/library/shared/trash.js";
+import { setTrashRootSetting } from "../src/modules/library/shared/trash-settings.js";
 import { resetDb, makeUser, makeLibrary } from "./helpers/seed.js";
 
 // The originals Replace file sets aside have no rows, so the Recycle Bin page

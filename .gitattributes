@@ -1,4 +1,13 @@
+# Every text file is stored with LF, and checked out with LF, whatever the
+# developer's core.autocrlf says. The repository has always held LF only; what
+# varied was the working copies — a Windows checkout with autocrlf=true turned
+# them CRLF, and files touched by different tools ended up mixed, which is what
+# made patching them by exact string so fragile. Binary files are detected and
+# left alone (text=auto).
+* text=auto eol=lf
+
 # Shell scripts run inside the Linux container — a CRLF line ending on the
 # shebang line makes the kernel look for "/bin/sh\r" and the script fails to
-# start. Keep them LF regardless of the developer's core.autocrlf setting.
+# start. Covered by the rule above; kept explicit because it is the one place a
+# CRLF breaks the product rather than a diff.
 *.sh text eol=lf

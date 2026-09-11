@@ -180,19 +180,6 @@ export function applyLayout(renderer: FoliateRenderer, layout: ReaderLayout): vo
 
 // ── table of contents helpers ────────────────────────────────────────────────
 
-export interface FlatTocEntry {
-  label: string;
-  href: string;
-}
-
-export function flattenToc(items: FoliateTocItem[] = [], out: FlatTocEntry[] = []): FlatTocEntry[] {
-  for (const item of items) {
-    if (item.href) out.push({ label: item.label, href: item.href });
-    if (item.subitems?.length) flattenToc(item.subitems, out);
-  }
-  return out;
-}
-
 export function countToc(items: FoliateTocItem[] = []): number {
   return items.reduce((sum, item) => sum + 1 + countToc(item.subitems ?? []), 0);
 }

@@ -235,7 +235,7 @@ export function mfaRequiredOutside(ip: string | null | undefined, headers: Recor
 
 export function listTrustedNetworks(): TrustedNetwork[] {
   return db
-    .prepare("SELECT id, cidr, label, created_at FROM trusted_networks ORDER BY datetime(created_at) DESC")
+    .prepare("SELECT id, cidr, label, created_at FROM trusted_networks ORDER BY created_at DESC")
     .all() as TrustedNetwork[];
 }
 
@@ -367,14 +367,20 @@ export function accountFailureCount(email: string): number {
     .prepare(
       // The window is a time range, but "since the last success" is an ordering
       // question, so it compares rowid rather than created_at. The timestamp has
-      // millisecond resolution and datetime() truncates to whole seconds, either of
-      // which can tie — and a tie here would silently drop failures from the count.
-      // This table is append-only apart from clearAccountLockout, which deletes only
-      // failures, so a later insert always has the higher rowid.
+      // millisecond resolution, which can tie — and a tie here would silently drop
+      // failures from the count. This table is append-only apart from
+      // clearAccountLockout, which deletes only failures, so a later insert always
+      // has the higher rowid.
+      //
+      // created_at is compared as text against a bound in the same ISO shape the
+      // column default writes ('…T…:SS.sssZ'), so the (email, created_at) index
+      // serves the window — this runs on every sign-in. datetime(created_at) would
+      // hide the column from it, and comparing against datetime('now') unwrapped
+      // would be wrong: its ' ' separator sorts below the column's 'T'.
       `SELECT COUNT(*) AS count FROM login_attempts
        WHERE email = ?
          AND successful = 0
-         AND datetime(created_at) > datetime('now', ?)
+         AND created_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now', ?)
          AND rowid > COALESCE(
            (SELECT MAX(rowid) FROM login_attempts WHERE email = ? AND successful = 1),
            0
@@ -415,7 +421,7 @@ export function recentMfaFailureCount(userId: string, windowMinutes = MFA_FAILUR
       `SELECT COUNT(*) AS count FROM activity_logs
         WHERE event = 'auth.mfa_failed'
           AND target_id = ?
-          AND datetime(created_at) > datetime('now', ?)`
+          AND created_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now', ?)`
     )
     .get(userId, `-${windowMinutes} minutes`) as { count: number };
   return row.count;
@@ -438,7 +444,7 @@ export function isIpBlocked(ip: string | null | undefined): boolean {
   if (!ip) return false;
   const row = db
     .prepare(
-      "SELECT 1 FROM blocked_ips WHERE ip_address = ? AND (expires_at IS NULL OR datetime(expires_at) > datetime('now'))"
+      "SELECT 1 FROM blocked_ips WHERE ip_address = ? AND (expires_at IS NULL OR expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))"
     )
     .get(ip);
   return Boolean(row);
@@ -506,7 +512,7 @@ export function makeIpBlockPermanent(ip: string, userId?: string | null): boolea
 // to shed them, or it only ever grows.
 export function clearLapsedBlocks(): number {
   return db
-    .prepare("DELETE FROM blocked_ips WHERE expires_at IS NOT NULL AND datetime(expires_at) <= datetime('now')")
+    .prepare("DELETE FROM blocked_ips WHERE expires_at IS NOT NULL AND expires_at <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now')")
     .run().changes;
 }
 
@@ -514,8 +520,8 @@ export function listBlockedIps(): BlockedIp[] {
   return db
     .prepare(
       `SELECT ip_address, reason, auto, created_at, expires_at,
-              CASE WHEN expires_at IS NOT NULL AND datetime(expires_at) <= datetime('now') THEN 1 ELSE 0 END AS expired
-       FROM blocked_ips ORDER BY datetime(created_at) DESC`
+              CASE WHEN expires_at IS NOT NULL AND expires_at <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now') THEN 1 ELSE 0 END AS expired
+       FROM blocked_ips ORDER BY created_at DESC`
     )
     .all() as BlockedIp[];
 }
@@ -540,7 +546,7 @@ function recentIpFailures(ip: string, windowMinutes: number): IpFailureCounts {
   const rows = db
     .prepare(
       `SELECT kind, COUNT(*) AS count FROM login_attempts
-        WHERE ip_address = ? AND successful = 0 AND datetime(created_at) > datetime('now', ?)
+        WHERE ip_address = ? AND successful = 0 AND created_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now', ?)
         GROUP BY kind`
     )
     .all(ip, `-${windowMinutes} minutes`) as { kind: LoginAttemptKind; count: number }[];

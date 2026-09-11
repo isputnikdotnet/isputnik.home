@@ -9,7 +9,7 @@ import { z } from "zod";
 import { db, logActivity } from "../../db.js";
 import { parseBody } from "../../core/shared.js";
 import { EVERYONE_GROUP_ID } from "../../core/permissions.js";
-import { resolveGalleryScopeLibraryIds } from "../library/gallery/catalog.js";
+import { resolveGalleryScopeLibraryIds } from "../library/gallery/catalog-scope.js";
 import { hydrateEntities } from "../social/subjects.js";
 import {
   STORY_COLLECTION_OBJECT_TYPE,
@@ -25,7 +25,7 @@ import {
   updateCollection,
   type CollectionRow
 } from "./collections.js";
-import { listStories } from "./stories.js";
+import { listStories } from "./list.js";
 
 const createSchema = z.object({
   title: z.string().trim().min(1).max(160),

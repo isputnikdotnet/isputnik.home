@@ -121,3 +121,36 @@
   --danger: #a13c33;
   --shadow: rgba(0, 0, 0, 0.22);
 }
+
+/* Derived tokens: one definition for all five themes, built from each theme's
+   palette above. A var() inside a custom property resolves on :root, so a scope
+   that restates --ink (the lightbox's dialogs) must restate these too. */
+:root {
+  /* A quiet fill a shade off the surface it sits on: placeholder thumbnails,
+     progress tracks, inset panels, a row's hover. Ink at 6% — a lift on the dark
+     themes, a shadow on the light ones. */
+  --surface-2: color-mix(in srgb, var(--ink) 6%, transparent);
+  /* The theme's accent — focus outlines, the selected item, highlights. */
+  --accent: var(--mint);
+  --error: var(--danger);
+
+  /* ── Stacking ──────────────────────────────────────────────────────────
+     #root is `isolation: isolate` (components/primitives.css), so the page is
+     one layer and everything portalled into <body> paints over it. These
+     values order two things: page chrome against itself inside #root, and the
+     layers that live in <body> against each other — dialog < viewer < menu <
+     toast < tooltip. A dialog opened from a viewer renders inside the viewer
+     (shared/Modal), so it needs no rank above it; a menu is portalled to <body>
+     from wherever it opens, dialogs and viewers included, so it ranks above
+     both. A value below 10 orders siblings inside one component and stays a
+     literal where it is used. */
+  --z-dropdown: 12;   /* a menu or popover opening inside a component */
+  --z-sticky: 20;     /* sticky / pinned page chrome */
+  --z-popover: 30;    /* floating panels over page content: combobox lists, hint panels */
+  --z-nav: 60;        /* the mobile tab bar; its sheets sit just under it */
+  --z-modal: 100;     /* shared/Modal's backdrop */
+  --z-viewer: 1000;   /* lightbox, ebook reader, document and share viewers */
+  --z-menu: 1050;     /* menus portalled to <body> (ActionMenu, LibraryMenu, SortMenu) */
+  --z-toast: 1100;    /* toasts and banners — over an open photo or book too */
+  --z-tooltip: 1200;
+}

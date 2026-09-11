@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 import { Link2, Palette, ShieldCheck, Smartphone, UserRound, type LucideIcon } from "lucide-react";
 import { api, type PublicUser } from "../api";
 import { LANGUAGES, setAppLanguage, type Language } from "../i18n";
@@ -18,6 +18,7 @@ import { MfaSection } from "../features/profile/MfaSection";
 import { PasskeysSection } from "../features/profile/PasskeysSection";
 import { SharedLinksSection } from "../features/profile/SharedLinksSection";
 import { LinkedDevicesSection } from "../features/profile/LinkedDevicesSection";
+import { useSession } from "../app/SessionContext";
 
 // Labels come from t(`profile.tabs.${key}`) at render, so they follow the language.
 const PROFILE_TABS: { key: ProfileTab; icon: LucideIcon }[] = [
@@ -30,15 +31,12 @@ const PROFILE_TABS: { key: ProfileTab; icon: LucideIcon }[] = [
 
 export function ProfilePage({
   tab: activeTab,
-  user,
-  logout,
   onUpdated
 }: {
   tab: ProfileTab;
-  user: PublicUser;
-  logout: () => Promise<void>;
   onUpdated: (user: PublicUser) => void;
 }) {
+  const { user } = useSession();
   const { t } = useTranslation();
   const [displayName, setDisplayName] = useState(user.displayName);
   const [status, setStatus] = useState<"idle" | "saving" | "saved">("idle");
@@ -64,7 +62,7 @@ export function ProfilePage({
       onUpdated(payload.user);
       setStatus("saved");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to save profile");
+      setError(err instanceof Error ? err.message : t("profile.account.unableToSave"));
       setStatus("idle");
     }
   };
@@ -85,7 +83,7 @@ export function ProfilePage({
       onUpdated(payload.user);
     } catch (err) {
       onUpdated(previous);
-      setThemeError(err instanceof Error ? err.message : "Unable to save theme");
+      setThemeError(err instanceof Error ? err.message : t("profile.appearance.unableToSave"));
     } finally {
       setThemeSaving(false);
     }
@@ -130,13 +128,13 @@ export function ProfilePage({
       onUpdated(payload.user);
       setEreaderStatus("saved");
     } catch (err) {
-      setEreaderError(err instanceof Error ? err.message : "Unable to save e-reader email");
+      setEreaderError(err instanceof Error ? err.message : t("profile.ereader.unableToSave"));
       setEreaderStatus("idle");
     }
   };
 
   return (
-    <DashboardShell active="user" user={user} logout={logout} sideNav={<UserAreaNav active="profile" />}>
+    <DashboardShell active="user" sideNav={<UserAreaNav active="profile" />}>
       <section className="work-area profile-area">
         <div className="section-head">
           <div className="user-title-wrap">
@@ -270,15 +268,13 @@ export function ProfilePage({
             <LinkedDevicesSection />
 
             <section className="ereader-section" aria-labelledby="ereader-heading">
-              <h2 id="ereader-heading">Send to e-reader</h2>
+              <h2 id="ereader-heading">{t("profile.ereader.heading")}</h2>
               <p className="ereader-intro">
-                The address your Kindle or Kobo receives documents at (e.g. <code>you@kindle.com</code>). From any
-                ebook's page you can then send its EPUB or PDF straight to your device. Add the server's sender
-                address to your device's approved-senders list first — and an admin must set up email delivery.
+                <Trans i18nKey="profile.ereader.intro" components={{ code: <code /> }} />
               </p>
               <form className="ereader-form" onSubmit={saveEreader}>
                 <Field
-                  label="E-reader email"
+                  label={t("profile.ereader.emailLabel")}
                   value={ereaderEmail}
                   onChange={setEreaderEmail}
                   type="email"
@@ -286,20 +282,19 @@ export function ProfilePage({
                   placeholder="you@kindle.com"
                   required={false}
                 />
-                {ereaderError && <MessageBox tone="error" title="Unable to save">{ereaderError}</MessageBox>}
-                {ereaderStatus === "saved" && <MessageBox tone="success" title="Saved">Your e-reader email has been updated.</MessageBox>}
+                {ereaderError && <MessageBox tone="error" title={t("errors.unableToSave")}>{ereaderError}</MessageBox>}
+                {ereaderStatus === "saved" && (
+                  <MessageBox tone="success" title={t("profile.ereader.saved")}>{t("profile.ereader.savedBody")}</MessageBox>
+                )}
                 <div className="ereader-actions">
                   <Button variant="primary" type="submit" disabled={ereaderStatus === "saving"}>
-                    {ereaderStatus === "saving" ? "Saving…" : "Save"}
+                    {ereaderStatus === "saving" ? t("profile.ereader.saving") : t("profile.ereader.save")}
                   </Button>
                 </div>
               </form>
             </section>
 
-            <InstallCard
-              title="Install the mobile app"
-              subtitle="Add iSputnik to your phone's home screen to listen offline and download books for the road."
-            />
+            <InstallCard title={t("profile.install.title")} subtitle={t("profile.install.subtitle")} />
           </div>
         </div>
       </section>

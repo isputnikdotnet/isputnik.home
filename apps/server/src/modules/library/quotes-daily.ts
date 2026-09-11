@@ -13,8 +13,10 @@
 // one quote further each day, so a small library is seen in full instead of
 // repeating at random.
 import type { FastifyInstance } from "fastify";
+import { z } from "zod";
 import { db } from "../../db.js";
-import { normalizeText } from "./audiobook/categorize.js";
+import { parseQuery } from "../../core/shared.js";
+import { normalizeText } from "./shared/tagging.js";
 import { QUOTE_ENTITY_TYPE } from "./quotes.js";
 
 /** How many category chips the card offers at once. */
@@ -211,12 +213,24 @@ function publicShape(row: PoolRow, categories: string[], allCategories: string[]
   };
 }
 
+// All strings: a malformed date falls back to the server's day below.
+const dailyQuerySchema = z.object({
+  date: z.string().optional(),
+  lang: z.string().optional(),
+  category: z.string().optional(),
+  categories: z.string().optional()
+});
+
 export function registerDailyQuoteRoutes(app: FastifyInstance) {
   // The home card already arrives with the feed; this is what the card's category
   // switcher calls, so changing category swaps one quote instead of refetching
   // the whole front page.
   app.get("/api/library/quotes/daily", { preHandler: app.authenticate }, async (request, reply) => {
-    const query = request.query as { date?: string; lang?: string; category?: string; categories?: string };
+    const parsed = parseQuery(dailyQuerySchema, request.query);
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid query", details: parsed.error });
+    }
+    const query = parsed.data;
     const date = /^\d{4}-\d{2}-\d{2}$/.test(query.date ?? "") ? query.date! : serverLocalDate();
     return reply.send({
       quote: dailyQuote(request.user!, date, {

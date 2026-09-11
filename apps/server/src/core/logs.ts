@@ -43,7 +43,7 @@ const SYSTEM_ACTOR = "System";
 // Whitelisted sort expressions — the column never comes from the query string
 // itself, only the key that selects one of these.
 const SORT_COLUMNS: Record<"time" | "user" | "event" | "ip", string> = {
-  time: "datetime(activity_logs.created_at)",
+  time: "activity_logs.created_at",
   user: "users.display_name",
   event: "activity_logs.event",
   ip: "activity_logs.ip_address"
@@ -121,12 +121,12 @@ function buildLogQuery(data: z.infer<typeof logQuerySchema>) {
     }
 
     if (from) {
-      conditions.push("datetime(activity_logs.created_at) >= datetime(@from)");
+      conditions.push("activity_logs.created_at >= @from");
       filterParams.from = from;
     }
 
     if (to) {
-      conditions.push("datetime(activity_logs.created_at) <= datetime(@to)");
+      conditions.push("activity_logs.created_at <= @to");
       filterParams.to = to;
     }
 
@@ -146,8 +146,8 @@ function buildLogQuery(data: z.infer<typeof logQuerySchema>) {
     const nullsLast = sortKey === "time" ? "" : `${SORT_COLUMNS[sortKey]} IS NULL, `;
     const orderBy =
       sortKey === "time"
-        ? `datetime(activity_logs.created_at) ${direction}, activity_logs.id ${direction}`
-        : `${nullsLast}${SORT_COLUMNS[sortKey]} ${direction}, datetime(activity_logs.created_at) DESC, activity_logs.id DESC`;
+        ? `activity_logs.created_at ${direction}, activity_logs.id ${direction}`
+        : `${nullsLast}${SORT_COLUMNS[sortKey]} ${direction}, activity_logs.created_at DESC, activity_logs.id DESC`;
 
     return { where, orderBy, filterParams };
 }
@@ -294,7 +294,7 @@ export async function logsPlugin(app: FastifyInstance) {
 
     const result = db.prepare(`
       DELETE FROM activity_logs
-      WHERE datetime(created_at) < datetime('now', ?)
+      WHERE created_at < strftime('%Y-%m-%dT%H:%M:%fZ', 'now', ?)
     `).run(`-${parsed.data.olderThanDays} days`);
 
     if (result.changes > 0) {

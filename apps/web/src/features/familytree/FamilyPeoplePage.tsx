@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { CheckCheck, CheckSquare, Settings, Square, Tags, UserRoundPlus, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { api, type PublicUser } from "../../api";
+import { api } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { followRoute, navigate } from "../../router";
 import { Button } from "../../shared/Button";
@@ -15,11 +15,13 @@ import { FamilyTreeSettingsModal } from "./FamilyTreeSettingsModal";
 import { PersonAvatar } from "./PersonAvatar";
 import { PersonEditModal } from "./PersonEditModal";
 import { lifeYears, type FamilyPerson, type FamilyTreeAccess } from "./types";
+import { useSession } from "../../app/SessionContext";
 
 // Every family member as a searchable grid — the management/finding surface
 // beside the chart. Cards open the profile. Tags (family branches) act as a
 // filter here and, for admins, as the edit-permission scope (Branch access).
-export function FamilyPeoplePage({ user, logout }: { user: PublicUser; logout: () => Promise<void> }) {
+export function FamilyPeoplePage() {
+  const { user } = useSession();
   const { t } = useTranslation(["common", "family"]);
   const [persons, setPersons] = useState<FamilyPerson[]>([]);
   const [access, setAccess] = useState<FamilyTreeAccess | null>(null);
@@ -80,7 +82,7 @@ export function FamilyPeoplePage({ user, logout }: { user: PublicUser; logout: (
     });
 
   return (
-    <DashboardShell active="family" user={user} logout={logout} sideNav={<SectionNav {...familyNavProps("people")} />}>
+    <DashboardShell active="family" sideNav={<SectionNav {...familyNavProps("people")} />}>
       <section className="audiobook-main-page">
         {/* Families and the chart are one click away in the left nav now, so the
             links that used to sit here — and the "Back to the tree" above them —

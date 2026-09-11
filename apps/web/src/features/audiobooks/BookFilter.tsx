@@ -1,11 +1,5 @@
-import { useTranslation } from "react-i18next";
 import { FacetFilterButton, FacetFilterChips, countActiveFilters, type FacetDef } from "../../shared/FacetFilter";
-import { SelectField } from "../../shared/SelectField";
 import i18n from "../../i18n";
-import type { AudiobookBook } from "./types";
-
-// A book row in the grids — the list type plus the libraryName the pages attach.
-export type FilterableBook = AudiobookBook & { libraryName?: string };
 
 export interface BookFilters {
   libraries: string[];  // library ids — which shelves the list is drawn from
@@ -41,24 +35,6 @@ export interface FacetOptions {
 export const EMPTY_FACETS: FacetOptions = {
   authors: [], narrators: [], categories: [], tags: [], series: [], languages: [], letters: []
 };
-
-// Derive facet options from an in-memory book set — used by pages that still load
-// everything client-side (e.g. Ebooks). The audiobook catalog fetches facets from
-// the server instead.
-export function facetsFromBooks(books: FilterableBook[]): FacetOptions {
-  const uniq = (values: string[]) => [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b));
-  return {
-    authors: uniq(books.flatMap((b) => b.authors)),
-    narrators: uniq(books.flatMap((b) => b.narrators)),
-    categories: uniq(books.map((b) => b.category?.name ?? "")),
-    tags: uniq(books.flatMap((b) => b.tags)),
-    series: uniq(books.map((b) => b.series ?? "")),
-    languages: uniq(books.map((b) => b.language ?? "")),
-    // Letters are indexed server-side (the bucket depends on script detection a
-    // loaded page can't redo), so a client-derived facet set has none.
-    letters: []
-  };
-}
 
 export type SortKey = "title" | "title_desc" | "recent" | "duration" | "author" | "series";
 
@@ -127,65 +103,8 @@ function getCodeLabels(): Record<string, string> {
   );
 }
 
-export function bookStatus(book: FilterableBook): string {
-  const p = book.progress;
-  const finished = p?.completedAt != null;
-  if (finished) return "finished";
-  if (p?.percentComplete != null && p.percentComplete > 0) return "in_progress";
-  return "not_started";
-}
-
-function durationBucket(seconds: number | null): string | null {
-  if (seconds == null) return null;
-  const hours = seconds / 3600;
-  if (hours < 2) return "short";
-  if (hours < 6) return "medium";
-  if (hours < 12) return "long";
-  return "epic";
-}
-
 export function activeFilterCount(filters: BookFilters): number {
   return countActiveFilters(filters);
-}
-
-export function filterBooks(books: FilterableBook[], filters: BookFilters): FilterableBook[] {
-  return books.filter((b) => {
-    if (filters.libraries.length && !filters.libraries.includes(b.libraryId)) return false;
-    if (filters.authors.length && !b.authors.some((a) => filters.authors.includes(a))) return false;
-    if (filters.narrators.length && !b.narrators.some((n) => filters.narrators.includes(n))) return false;
-    if (filters.categories.length && !(b.category && filters.categories.includes(b.category.name))) return false;
-    if (filters.tags.length && !b.tags.some((t) => filters.tags.includes(t))) return false;
-    if (filters.series.length && !(b.series && filters.series.includes(b.series))) return false;
-    if (filters.languages.length && !(b.language && filters.languages.includes(b.language))) return false;
-    if (filters.status.length && !filters.status.includes(bookStatus(b))) return false;
-    if (filters.durations.length) {
-      const bucket = durationBucket(b.durationSeconds);
-      if (!bucket || !filters.durations.includes(bucket)) return false;
-    }
-    return true;
-  });
-}
-
-export function sortBooks(books: FilterableBook[], sort: SortKey): FilterableBook[] {
-  const arr = [...books];
-  switch (sort) {
-    case "title_desc":
-      return arr.sort((a, b) => b.title.localeCompare(a.title));
-    case "recent":
-      return arr.sort((a, b) => b.discoveredAt.localeCompare(a.discoveredAt));
-    case "duration":
-      return arr.sort((a, b) => (b.durationSeconds ?? 0) - (a.durationSeconds ?? 0));
-    case "author":
-      return arr.sort((a, b) => (a.authors[0] ?? "").localeCompare(b.authors[0] ?? "") || a.title.localeCompare(b.title));
-    case "series":
-      return arr.sort((a, b) =>
-        (a.series ?? "~").localeCompare(b.series ?? "~") ||
-        (a.seriesPosition ?? 0) - (b.seriesPosition ?? 0) ||
-        a.title.localeCompare(b.title));
-    case "title":
-    default:
-      return arr.sort((a, b) => a.title.localeCompare(b.title));
-  }
 }
 
 // ── Components (thin wrappers over the shared generic filter UI) ───────────
@@ -219,22 +138,6 @@ export function FilterButton({
       onChange={onChange}
       empty={EMPTY_FILTERS}
       compact={compact}
-    />
-  );
-}
-
-export function SortSelect({ value, onChange }: { value: SortKey; onChange: (sort: SortKey) => void }) {
-  const { t } = useTranslation(["common", "book"]);
-  const sortOptions = getSortOptions();
-  return (
-    <SelectField
-      compact
-      hideLabel
-      className="library-filter"
-      label={t("common:sort.sortBy")}
-      value={value}
-      onChange={(sort: string) => onChange(sort as SortKey)}
-      options={sortOptions.map((o) => ({ value: o.value, label: `${t("common:sort.label")}: ${o.label}` }))}
     />
   );
 }

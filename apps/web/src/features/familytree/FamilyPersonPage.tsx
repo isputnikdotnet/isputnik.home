@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { api, type PublicUser } from "../../api";
+import { api } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { followBack, followRoute, getReferrer, navigate } from "../../router";
 import { ActionMenu } from "../../shared/ActionMenu";
@@ -36,6 +36,7 @@ import { PersonEditModal } from "./PersonEditModal";
 import { UnionEditModal } from "./UnionEditModal";
 import i18n from "../../i18n";
 import { formatPartialDate, formatPartialDateRange } from "../../shared/utils";
+import { useSession } from "../../app/SessionContext";
 import {
   lifeYears, childRelationLabel, childRelativeNoun, eventTypeLabel, genderLabel, unionStatusLabel,
   type FamilyCitation, type FamilyEvent, type FamilyPerson, type FamilyPersonProfile, type FamilyPhoto,
@@ -402,7 +403,8 @@ function FamilyRow({
 // branch editors (a tag grant, see server access.ts) edit their tagged people;
 // everyone else gets a read-only view of the same layout. Deleting the person,
 // removing relationships, tags, and the gallery link stay admin-only.
-export function FamilyPersonPage({ id, user, logout }: { id: string; user: PublicUser; logout: () => Promise<void> }) {
+export function FamilyPersonPage({ id }: { id: string }) {
+  const { user } = useSession();
   const { t } = useTranslation(["common", "family"]);
   const isAdmin = user.role === "admin";
   const [profile, setProfile] = useState<FamilyPersonProfile | null>(null);
@@ -592,7 +594,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
 
   if (notFound) {
     return (
-      <DashboardShell active="family" user={user} logout={logout} sideNav={<SectionNav {...familyNavProps("people")} />}>
+      <DashboardShell active="family" sideNav={<SectionNav {...familyNavProps("people")} />}>
         <section className="audiobook-main-page">
           <MessageBox tone="warning" title={t("family:person.notFoundTitle")}>{t("family:person.notFoundBody")}</MessageBox>
           <p><a href="/family/people" onClick={(event) => followRoute(event, "/family/people")}>{t("family:person.backToFamilyMembers")}</a></p>
@@ -602,7 +604,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
   }
 
   return (
-    <DashboardShell active="family" user={user} logout={logout} sideNav={<SectionNav {...familyNavProps("people")} />}>
+    <DashboardShell active="family" sideNav={<SectionNav {...familyNavProps("people")} />}>
       <section className="work-area book-detail-area ft-profile-page">
         <div className="book-detail-shell">
           {error && <MessageBox tone="error" title={t("family:common.unableToLoad")}>{error}</MessageBox>}
@@ -1392,7 +1394,6 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
           index={lightbox.index}
           canDelete={false}
           canEdit={false}
-          canShare={false}
           onClose={() => setLightbox(null)}
           onIndexChange={(next) => setLightbox((current) => (current ? { ...current, index: next } : current))}
           onChanged={(change) => { if (change.kind !== "like") refresh(); }}

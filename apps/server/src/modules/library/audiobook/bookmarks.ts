@@ -68,7 +68,7 @@ export async function audiobookBookmarksPlugin(app: FastifyInstance) {
       SELECT id, file_id, position_seconds, item_position_seconds AS book_position_seconds, label, note, created_at, updated_at
       FROM audio_bookmarks
       WHERE item_id = ? AND user_id = ?
-      ORDER BY item_position_seconds IS NULL, item_position_seconds, datetime(created_at)
+      ORDER BY item_position_seconds IS NULL, item_position_seconds, created_at
     `).all(bookId, user.id) as BookmarkRow[];
 
     return reply.send({ bookmarks: rows.map(publicBookmark) });

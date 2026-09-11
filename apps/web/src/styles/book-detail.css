@@ -266,7 +266,7 @@
 
 .book-progress-menu {
   position: absolute;
-  z-index: 12;
+  z-index: var(--z-dropdown);
   top: calc(100% + 8px);
   right: 0;
   display: grid;
@@ -321,7 +321,7 @@
 
 .book-detail-menu {
   position: absolute;
-  z-index: 12;
+  z-index: var(--z-dropdown);
   top: calc(100% + 8px);
   right: 0;
   display: grid;

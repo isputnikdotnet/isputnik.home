@@ -1,22 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowRight, BookOpen, BookText, BriefcaseBusiness, CalendarDays, CheckCircle2, ChefHat, ChevronDown, Eye, FolderOpen, Heart, Image as ImageIcon, LayoutGrid, Library, MapPin, Plus, Star, type LucideIcon } from "lucide-react";
-import { api, type PublicUser } from "../../api";
+import { ArrowRight, BookOpen, BookText, CalendarDays, ChevronDown, FolderOpen, LayoutGrid, Library, MapPin, Plus, Star } from "lucide-react";
+import { api } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
-import { followRoute, navigate, queryParam } from "../../router";
+import { followRoute, queryParam } from "../../router";
 import { formatPartialDateRange } from "../../shared/utils";
 import { MessageBox } from "../../shared/MessageBox";
-import { Modal } from "../../shared/Modal";
 import { Button } from "../../shared/Button";
 import { LibraryPageHeader } from "../../shared/LibraryPageHeader";
 import { LibraryPageToolbar } from "../../shared/LibraryPageToolbar";
 import { SortMenu } from "../../shared/SortMenu";
-import { PartialDateField } from "../../shared/PartialDateField";
-import { PhotoPicker } from "../gallery/PhotoPicker";
-import type { GalleryAsset } from "../gallery/types";
 import { StoriesSectionNav, type StoryIndexCounts } from "./StoriesSectionNav";
 import { StoryCard } from "./StoryCard";
-import { StoryRefPicker } from "./StoryRefPicker";
 import { StoryCollectionFormModal } from "./StoryCollectionFormModal";
 import { NewStoryModal } from "./NewStoryModal";
 import { STORY_KINDS, type StoryCollectionSummary, type StoryKind, type StoryStatus, type StorySummary } from "./types";
@@ -28,13 +23,6 @@ const FILTERS = ["drafts", "published", "favorites"] as const;
 type StoryFilter = (typeof FILTERS)[number];
 const COLLECTION_PREVIEW_COUNT = 6;
 const STORY_PAGE_SIZE = 9;
-const STORY_KIND_ICONS: Record<StoryKind, LucideIcon> = {
-  free: BookText,
-  memory: Heart,
-  journal: BriefcaseBusiness,
-  review: Star,
-  recipe: ChefHat
-};
 
 // The story index: a Collections shelf ("Family Story", "Trips") over the
 // grid of stories — every published one the viewer may see, plus their own
@@ -45,13 +33,7 @@ const STORY_KIND_ICONS: Record<StoryKind, LucideIcon> = {
 // page reads its view off the URL each render; search, sort and grid/list are
 // session state on the Stories section toolbar. The Collections shelf shows only on
 // the unfiltered view — a filtered view is a question about stories.
-export function StoriesPage({
-  user,
-  logout
-}: {
-  user: PublicUser;
-  logout: () => Promise<void>;
-}) {
+export function StoriesPage() {
   const { t } = useTranslation(["common", "stories"]);
   const [stories, setStories] = useState<StorySummary[] | null>(null);
   const [collections, setCollections] = useState<StoryCollectionSummary[]>([]);
@@ -150,7 +132,7 @@ export function StoriesPage({
   const hasMoreStories = visible != null && visible.length > storyLimit;
 
   return (
-    <DashboardShell active="stories" user={user} logout={logout} sideNav={<StoriesSectionNav activeKey={activeKey} counts={counts} />}>
+    <DashboardShell active="stories" sideNav={<StoriesSectionNav activeKey={activeKey} counts={counts} />}>
       <section className="work-area audiobook-area story-index">
         <LibraryPageHeader
           title={t("stories:title")}

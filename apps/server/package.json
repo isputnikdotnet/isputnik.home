@@ -1,7 +1,7 @@
 {
   "name": "@isputnik/server",
   "private": true,
-  "version": "3.90.0",
+  "version": "4.0.0",
   "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
@@ -44,7 +44,7 @@
     "@types/adm-zip": "^0.5.8",
     "@types/archiver": "^8.0.0",
     "@types/better-sqlite3": "^9.6.0",
-    "@types/node": "^22.20.1",
+    "@types/node": "^26.5.1",
     "@types/nodemailer": "^8.0.1",
     "@types/qrcode": "^1.5.6",
     "@types/yauzl": "^3.4.0",

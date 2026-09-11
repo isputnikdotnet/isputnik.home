@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import {
   BookMarked,
@@ -201,7 +201,6 @@ export function PersonProfileModal({
   const [finding, setFinding] = useState(false);
   const [lookingUpLink, setLookingUpLink] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
-  const [linkOpen, setLinkOpen] = useState(false);
   const [candidates, setCandidates] = useState<PersonLookupCandidate[]>([]);
   // What to search for, and where. The stored name is only a starting point: a
   // person filed as "Twain, Mark" finds nothing searched verbatim, and until now

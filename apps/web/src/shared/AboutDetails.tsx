@@ -5,6 +5,7 @@ import { api } from "../api";
 import { Button } from "./Button";
 import { MessageBox } from "./MessageBox";
 import { AboutCredits } from "./AboutCredits";
+import { versionLabel } from "./appVersion";
 
 // The AGPL asks that everyone using the app over a network be told where to get
 // its source, so this sits on the shared About panel — reachable from /about by
@@ -21,6 +22,8 @@ export interface VersionUpdate {
 export interface AboutInfo {
   name: string;
   version: string;
+  /** The release stage ("beta"); null or absent once stable. */
+  stage?: string | null;
   description: string;
   runtime: string;
   database: string;
@@ -29,6 +32,18 @@ export interface AboutInfo {
   /** The newest releases only — see versionUpdatesTotal and /api/about/changelog. */
   versionUpdates: VersionUpdate[];
   versionUpdatesTotal: number;
+}
+
+/** The changelog is written with two bits of Markdown — **bold** for the thing a
+ *  release is about, `code` for file names and settings — which this page showed
+ *  as literal asterisks and backticks. Rendered as React nodes, not HTML, so the
+ *  text can never inject markup. */
+function renderInline(text: string): React.ReactNode[] {
+  return text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g).map((part, index) => {
+    if (part.startsWith("**") && part.endsWith("**") && part.length > 4) return <strong key={index}>{part.slice(2, -2)}</strong>;
+    if (part.startsWith("`") && part.endsWith("`") && part.length > 2) return <code key={index}>{part.slice(1, -1)}</code>;
+    return part;
+  });
 }
 
 /** Releases fetched per press of "Show earlier versions". Must not exceed the
@@ -84,7 +99,7 @@ export function AboutDetails({ about }: { about: AboutInfo }) {
         <div className="about-heading-text">
           <h2>{about.name}</h2>
           <p className="about-code-name">Спутник Один</p>
-          <span className="about-version-badge">v{about.version}</span>
+          <span className="about-version-badge">{versionLabel(t, about.version, about.stage ?? null)}</span>
         </div>
       </div>
 
@@ -151,7 +166,7 @@ export function AboutDetails({ about }: { about: AboutInfo }) {
                       <span className="version-update-label">{update.label}</span>
                     </div>
                     <ul className="version-update-list">
-                      {update.changes.map((change) => <li key={change}>{change}</li>)}
+                      {update.changes.map((change) => <li key={change}>{renderInline(change)}</li>)}
                     </ul>
                   </div>
                 </article>

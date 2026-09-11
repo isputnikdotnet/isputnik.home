@@ -3,28 +3,16 @@
 // admins). Referenced content is hydrated through the subjects registry, so a
 // block resolves against the VIEWER's library access and a deleted target
 // degrades to an "unavailable" placeholder instead of breaking the page.
-import fs from "node:fs";
-import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { db, logActivity } from "../../db.js";
-import { parseBody } from "../../core/shared.js";
+import { parseBody, parseQuery } from "../../core/shared.js";
 import { hydrateEntities } from "../social/subjects.js";
-import { resolveGalleryScopeLibraryIds } from "../library/gallery/catalog.js";
-import { partialDateSchema } from "../familytree/persons.js";
-import { setEntityTags } from "../library/audiobook/categorize.js";
-import { receiveUpload, UploadError } from "../uploads/index.js";
-import { parseRangeHeader, pipeFileToReply } from "../library/shared/document-stream.js";
-import { TRAVEL_MODES } from "../../core/routing.js";
-import { resolveRouteGeometry } from "./route-geometry.js";
+import { resolveGalleryScopeLibraryIds } from "../library/gallery/catalog-scope.js";
+import { setEntityTags } from "../library/shared/tagging.js";
 import {
   STORY_AUDIO_ENTITY_TYPE,
-  NARRATION_EXTENSIONS,
-  NARRATION_MAX_BYTES,
-  getStoryAudio,
   storyAudioByIds,
-  narrationAbsolutePath,
-  narrationMime,
-  narrationTempDir,
   type StoryAudioRow
 } from "./audio.js";
 import { getRecordingsLibrary, getStoriesSettings, setStoriesSettings } from "./settings.js";
@@ -34,53 +22,39 @@ import { getCollection } from "./collections.js";
 import {
   RecordingError,
   migrateLegacyNarrations,
-  pendingLegacyNarrations,
-  storeRecording
+  pendingLegacyNarrations
 } from "./recordings.js";
 import {
   STORY_ENTITY_TYPE,
-  STORY_BLOCK_KINDS,
   BOOK_ENTITY_TYPES,
   STORY_KINDS,
   STORY_STATUSES,
   BLOCK_ENTITY_TYPE,
-  BLOCK_PREVIEW_LIMIT,
-  getStory,
-  canEditStory,
-  canViewStory,
+  BLOCK_PREVIEW_LIMIT
+} from "./stories.js";
+import { getStory, canEditStory, canViewStory } from "./access.js";
+import {
   createStory,
   updateStory,
   softDeleteStory,
   restoreStory,
   purgeStory,
-  coverItemKind,
   listDeletedStories,
-  listStories,
   setStorySaved,
-  isStorySaved,
-  storyRefMatches,
-  getStoryTags,
-  getChapters,
-  getChapter,
-  createChapter,
-  updateChapter,
-  deleteChapter,
-  reorderChapters,
+  isStorySaved
+} from "./crud.js";
+import { coverItemKind, listStories, storyRefMatches, getStoryTags } from "./list.js";
+import { getChapters } from "./chapters.js";
+import {
   getBlocks,
-  getBlock,
   blockPointsByIds,
-  createBlock,
-  updateBlock,
-  deleteBlock,
-  reorderBlocks,
   galleryAssetsByIds,
-  blockPreviewAssets,
-  type StoryRow,
-  type StoryBlockKind
-} from "./stories.js";
-
-const optionalDate = partialDateSchema.nullable().optional();
-const entityId = z.string().trim().min(1).max(64);
+  blockPreviewAssets
+} from "./blocks.js";
+import { editableStory, entityId, optionalDate, referenceIsReachable } from "./route-shared.js";
+import { registerStoryAudioRoutes } from "./audio-routes.js";
+import { registerChapterRoutes } from "./chapter-routes.js";
+import { registerBlockRoutes } from "./block-routes.js";
 
 // Serves is free text on purpose ("4–6", "one big pot"): a number would invite
 // scaling, and scaling invites the quantity model the plan rules out. Time is
@@ -136,69 +110,12 @@ const updateSchema = z.object({
   collectionId: entityId.nullable().optional()
 });
 
-const chapterSchema = z.object({
-  title: z.string().trim().max(160).nullable().optional(),
-  date: optionalDate,
-  endDate: optionalDate,
-  dateApprox: z.boolean().optional(),
-  place: z.string().trim().max(200).nullable().optional(),
-  placeLat: z.number().min(-90).max(90).nullable().optional(),
-  placeLng: z.number().min(-180).max(180).nullable().optional(),
-  description: z.string().trim().max(2000).nullable().optional(),
-  standfirst: z.string().trim().max(300).nullable().optional(),
-  heroItemId: entityId.nullable().optional(),
-  // "Use map as cover": draw the chapter's pin instead of a photo.
-  heroMap: z.boolean().optional()
-});
-
-// Markdown source. The cap is generous — a chapter of prose is the point —
-// but bounded so one block can't become an unbounded blob.
-const MARKDOWN_MAX = 20000;
-
-const blockCreateSchema = z.object({
-  chapterId: entityId,
-  kind: z.enum(STORY_BLOCK_KINDS),
-  entityId: entityId.nullable().optional(),
-  // Book blocks only: which book type the reference is (audiobook | ebook).
-  entityType: z.enum(BOOK_ENTITY_TYPES).optional(),
-  body: z.string().max(MARKDOWN_MAX).nullable().optional(),
-  heading: z.string().trim().max(200).nullable().optional(),
-  lat: z.number().min(-90).max(90).nullable().optional(),
-  lng: z.number().min(-180).max(180).nullable().optional(),
-  zoom: z.number().int().min(1).max(20).nullable().optional(),
-  label: z.string().trim().max(200).nullable().optional(),
-  // Map blocks: the stops of a route, in travel order. One or none is the
-  // original single-pin map; the cap keeps one block from becoming a track log
-  // (a recorded trace belongs in a file, not in fifty thousand rows).
-  // `mode` is how this stop was reached from the one before it. The LINE that
-  // leg follows is deliberately not in this schema: it is fetched by the server
-  // when the route is saved, so a request cannot paint a journey through
-  // somewhere the stops never went.
-  points: z.array(z.object({
-    lat: z.number().min(-90).max(90),
-    lng: z.number().min(-180).max(180),
-    label: z.string().trim().max(200).nullable().default(null),
-    mode: z.enum(TRAVEL_MODES).nullable().default(null)
-  })).max(50).optional(),
-  caption: z.string().trim().max(500).nullable().optional(),
-  layout: z.enum(["default", "wide", "grid"]).nullable().optional()
-});
-
-// A block's kind — and a book block's chosen type — are settled at creation.
-const blockUpdateSchema = blockCreateSchema.omit({ chapterId: true, kind: true, entityType: true });
-
-const reorderSchema = z.object({
-  orderedIds: z.array(entityId).min(1).max(500)
-});
-
 // The whole tag set, replaced in one call — the editor shows every tag as a
 // chip row, so "these are the tags now" is what it actually means. Blank names
 // are dropped by the tag helper's normalizer.
 const tagsSchema = z.object({
   tags: z.array(z.string().trim().min(1).max(80)).max(50)
 });
-
-const blockReorderSchema = reorderSchema.extend({ chapterId: entityId });
 
 /** A narration block's clip, shaped for the reader. Two shapes coexist: a
  *  gallery-backed recording (entity_type 'gallery', the v2 model — per-viewer
@@ -231,80 +148,7 @@ function audioView(
   };
 }
 
-// Send a narration clip, honouring a Range request so a long recording can be
-// scrubbed. reply.hijack() + pipe is the house pattern for binary streaming.
-export function sendNarration(request: FastifyRequest, reply: FastifyReply, audio: StoryAudioRow) {
-  const filePath = narrationAbsolutePath(audio);
-  if (!fs.existsSync(filePath)) {
-    reply.code(404).send({ error: "Recording not found" });
-    return;
-  }
-  const total = fs.statSync(filePath).size;
-  const mime = narrationMime(audio.storage_key);
-  const range = request.headers.range ? parseRangeHeader(request.headers.range, total) : null;
-
-  if (request.headers.range && !range) {
-    reply.code(416).header("Content-Range", `bytes */${total}`).send();
-    return;
-  }
-
-  reply.hijack();
-  if (range) {
-    reply.raw.writeHead(206, {
-      "Content-Type": mime,
-      "Content-Length": range.end - range.start + 1,
-      "Content-Range": `bytes ${range.start}-${range.end}/${total}`,
-      "Accept-Ranges": "bytes",
-      "Cache-Control": "private, max-age=3600"
-    });
-    pipeFileToReply(reply, filePath, range);
-    return;
-  }
-  reply.raw.writeHead(200, {
-    "Content-Type": mime,
-    "Content-Length": total,
-    "Accept-Ranges": "bytes",
-    "Cache-Control": "private, max-age=3600"
-  });
-  pipeFileToReply(reply, filePath);
-}
-
 export async function storiesPlugin(app: FastifyInstance) {
-  // Load + authorize a story for a write. Members can list stories, so "exists
-  // but not yours" is a plain 403 (nothing is hidden by saying so); a draft
-  // someone else owns is invisible, hence 404 from the read guard below.
-  const editableStory = (id: string, user: { id: string; role: string }, reply: FastifyReply): StoryRow | null => {
-    const story = getStory(id);
-    if (!story || !canViewStory(story, user)) {
-      reply.code(404).send({ error: "Story not found" });
-      return null;
-    }
-    if (!canEditStory(story, user)) {
-      reply.code(403).send({ error: "Only the story's author or an admin can change it." });
-      return null;
-    }
-    return story;
-  };
-
-  // A reference block may only point at something the author can actually
-  // reach, so a story can never become a backdoor to hidden content. Text and
-  // map blocks carry no reference and skip the check.
-  const referenceIsReachable = (
-    kind: StoryBlockKind,
-    id: string | null | undefined,
-    user: { id: string; role: string },
-    // Book blocks carry their own type; everything else derives it from kind.
-    explicitType?: string | null
-  ): boolean => {
-    const entityType = explicitType ?? BLOCK_ENTITY_TYPE[kind];
-    if (!entityType) return true;
-    if (!id) return false;
-    // Audio validates as a gallery asset here (the v2 model — a new block can
-    // only ever reference a library recording). Legacy 'story_audio' rows are
-    // read-path only: nothing can create or re-point one any more.
-    return Boolean(hydrateEntities([{ entityType, entityId: id }], user).get(`${entityType}:${id}`)?.available);
-  };
-
   app.get("/api/stories", { preHandler: app.authenticate }, async (request) => {
     const user = request.user!;
     return { stories: listStories(user, resolveGalleryScopeLibraryIds(user)) };
@@ -342,8 +186,14 @@ export async function storiesPlugin(app: FastifyInstance) {
     "audiobook", "ebook", "family_tree_person", "gallery_album", "gallery_slideshow"
   ]);
 
+  const referencingQuerySchema = z.object({ type: z.string().optional(), id: z.string().optional() });
+
   app.get("/api/stories/referencing", { preHandler: app.authenticate }, async (request, reply) => {
-    const qp = request.query as { type?: string; id?: string };
+    const parsed = parseQuery(referencingQuerySchema, request.query);
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid reference query", details: parsed.error });
+    }
+    const qp = parsed.data;
     const type = qp.type ?? "";
     const id = (qp.id ?? "").trim();
     if (!REFERENCING_TYPES.has(type) || !id || id.length > 64) {
@@ -765,223 +615,24 @@ export async function storiesPlugin(app: FastifyInstance) {
   // Favorite / unfavorite. Any viewer can save a story they can see — it's a
   // personal bookmark, not a change to the story, so canView is the whole
   // permission check.
+  const saveSchema = z.object({ saved: z.boolean() });
+
   app.put("/api/stories/:id/save", { preHandler: app.authenticate }, async (request, reply) => {
     const user = request.user!;
     const story = getStory((request.params as { id: string }).id);
     if (!story || !canViewStory(story, user)) {
       return reply.code(404).send({ error: "Story not found" });
     }
-    const body = request.body as { saved?: unknown } | null;
-    if (!body || typeof body.saved !== "boolean") {
-      return reply.code(400).send({ error: "saved must be a boolean" });
-    }
-    setStorySaved(story.id, user.id, body.saved);
-    return reply.send({ saved: body.saved });
-  });
-
-  // Upload a narration clip for this story. The file lands in the admin-chosen
-  // RECORDINGS LIBRARY as a normal gallery audio asset (v2 — stories reference,
-  // period), and what comes back is that asset's id — the caller then adds an
-  // `audio` block pointing at it, the same two steps a photo takes (pick, then
-  // place). Without a recordings library the editor hides this affordance; a
-  // direct call gets the 409 with the same explanation.
-  app.post("/api/stories/:id/audio", { preHandler: app.authenticate }, async (request, reply) => {
-    const user = request.user!;
-    const story = editableStory((request.params as { id: string }).id, user, reply);
-    if (!story) return reply;
-
-    let received;
-    try {
-      received = await receiveUpload(
-        request,
-        { accept: NARRATION_EXTENSIONS, maxBytes: NARRATION_MAX_BYTES },
-        narrationTempDir()
-      );
-    } catch (err) {
-      if (err instanceof UploadError) { return reply.code(err.statusCode).send({ error: err.message }); }
-      return reply.code(400).send({ error: err instanceof Error ? err.message : "Upload failed." });
-    }
-
-    try {
-      const stored = await storeRecording(received.tmpPath, received.filename, received.extension);
-      logActivity({
-        event: "story.narration_recorded",
-        actorUserId: user.id,
-        targetType: "story",
-        targetId: story.id,
-        detail: `Added a recording to story "${story.title}".`,
-        ipAddress: request.ip
-      });
-      return reply.code(201).send({
-        audio: { id: stored.itemId, title: stored.title, durationSeconds: stored.durationSeconds }
-      });
-    } catch (err) {
-      fs.rmSync(received.tmpPath, { force: true });
-      if (err instanceof RecordingError) { return reply.code(err.statusCode).send({ error: err.message }); }
-      return reply.code(500).send({ error: err instanceof Error ? err.message : "The recording could not be stored." });
-    }
-  });
-
-  // Stream a narration clip to someone who can read the story. Ranged, so a
-  // long recording can be scrubbed rather than only played from the top.
-  app.get("/api/stories/:id/audio/:audioId", { preHandler: app.authenticate }, (request, reply) => {
-    const user = request.user!;
-    const { id, audioId } = request.params as { id: string; audioId: string };
-    const story = getStory(id);
-    if (!story || !canViewStory(story, user)) {
-      reply.code(404).send({ error: "Story not found" });
-      return;
-    }
-    // Belonging to THIS story is the authorization — a clip id from another
-    // story is indistinguishable from a missing one.
-    const audio = getStoryAudio(audioId);
-    if (!audio || audio.story_id !== story.id) {
-      reply.code(404).send({ error: "Recording not found" });
-      return;
-    }
-    return sendNarration(request, reply, audio);
-  });
-
-  app.post("/api/stories/:id/chapters", { preHandler: app.authenticate }, async (request, reply) => {
-    const user = request.user!;
-    const story = editableStory((request.params as { id: string }).id, user, reply);
-    if (!story) return reply;
-    const parsed = parseBody(chapterSchema, request.body);
+    const parsed = parseBody(saveSchema, request.body);
     if (parsed.error) {
-      return reply.code(400).send({ error: "Invalid chapter details", details: parsed.error });
+      return reply.code(400).send({ error: "saved must be a boolean", details: parsed.error });
     }
-    if (parsed.data.heroItemId && !referenceIsReachable("media", parsed.data.heroItemId, user)) {
-      return reply.code(400).send({ error: "That photo isn't available to use as a hero." });
-    }
-    const chapter = createChapter(story.id, parsed.data, user.id);
-    return reply.code(201).send({ chapterId: chapter.id });
+    setStorySaved(story.id, user.id, parsed.data.saved);
+    return reply.send({ saved: parsed.data.saved });
   });
 
-  app.patch("/api/stories/:id/chapters/reorder", { preHandler: app.authenticate }, async (request, reply) => {
-    const user = request.user!;
-    const story = editableStory((request.params as { id: string }).id, user, reply);
-    if (!story) return reply;
-    const parsed = parseBody(reorderSchema, request.body);
-    if (parsed.error) {
-      return reply.code(400).send({ error: "Invalid order", details: parsed.error });
-    }
-    reorderChapters(story.id, parsed.data.orderedIds);
-    return reply.send({ reordered: true });
-  });
-
-  app.patch("/api/stories/:id/chapters/:chapterId", { preHandler: app.authenticate }, async (request, reply) => {
-    const user = request.user!;
-    const { id, chapterId } = request.params as { id: string; chapterId: string };
-    const story = editableStory(id, user, reply);
-    if (!story) return reply;
-    const chapter = getChapter(chapterId);
-    if (!chapter || chapter.story_id !== story.id) {
-      return reply.code(404).send({ error: "Chapter not found" });
-    }
-    const parsed = parseBody(chapterSchema, request.body);
-    if (parsed.error) {
-      return reply.code(400).send({ error: "Invalid chapter details", details: parsed.error });
-    }
-    if (parsed.data.heroItemId && !referenceIsReachable("media", parsed.data.heroItemId, user)) {
-      return reply.code(400).send({ error: "That photo isn't available to use as a hero." });
-    }
-    updateChapter(chapter.id, story.id, parsed.data);
-    return reply.send({ updated: true });
-  });
-
-  app.delete("/api/stories/:id/chapters/:chapterId", { preHandler: app.authenticate }, async (request, reply) => {
-    const user = request.user!;
-    const { id, chapterId } = request.params as { id: string; chapterId: string };
-    const story = editableStory(id, user, reply);
-    if (!story) return reply;
-    const chapter = getChapter(chapterId);
-    if (!chapter || chapter.story_id !== story.id) {
-      return reply.code(404).send({ error: "Chapter not found" });
-    }
-    if (!deleteChapter(chapter.id, story.id)) {
-      return reply.code(400).send({ error: "A story keeps at least one chapter." });
-    }
-    return reply.send({ deleted: true });
-  });
-
-  app.post("/api/stories/:id/blocks", { preHandler: app.authenticate }, async (request, reply) => {
-    const user = request.user!;
-    const story = editableStory((request.params as { id: string }).id, user, reply);
-    if (!story) return reply;
-    const parsed = parseBody(blockCreateSchema, request.body);
-    if (parsed.error) {
-      return reply.code(400).send({ error: "Invalid block", details: parsed.error });
-    }
-    const chapter = getChapter(parsed.data.chapterId);
-    if (!chapter || chapter.story_id !== story.id) {
-      return reply.code(404).send({ error: "Chapter not found" });
-    }
-    // A book block must say which book type it references.
-    if (parsed.data.kind === "book" && !parsed.data.entityType) {
-      return reply.code(400).send({ error: "Invalid block", details: "A book block needs its book type." });
-    }
-    if (!referenceIsReachable(parsed.data.kind, parsed.data.entityId, user, parsed.data.kind === "book" ? parsed.data.entityType : undefined)) {
-      return reply.code(400).send({ error: "That content isn't available to add." });
-    }
-    const { points: stops, ...fields } = parsed.data;
-    const points = parsed.data.kind === "map" && stops
-      ? await resolveRouteGeometry(stops, [])
-      : undefined;
-    const block = createBlock(chapter.id, story.id, parsed.data.kind, { ...fields, points });
-    return reply.code(201).send({ blockId: block.id });
-  });
-
-  app.patch("/api/stories/:id/blocks/reorder", { preHandler: app.authenticate }, async (request, reply) => {
-    const user = request.user!;
-    const story = editableStory((request.params as { id: string }).id, user, reply);
-    if (!story) return reply;
-    const parsed = parseBody(blockReorderSchema, request.body);
-    if (parsed.error) {
-      return reply.code(400).send({ error: "Invalid order", details: parsed.error });
-    }
-    const chapter = getChapter(parsed.data.chapterId);
-    if (!chapter || chapter.story_id !== story.id) {
-      return reply.code(404).send({ error: "Chapter not found" });
-    }
-    reorderBlocks(story.id, chapter.id, parsed.data.orderedIds);
-    return reply.send({ reordered: true });
-  });
-
-  app.patch("/api/stories/:id/blocks/:blockId", { preHandler: app.authenticate }, async (request, reply) => {
-    const user = request.user!;
-    const { id, blockId } = request.params as { id: string; blockId: string };
-    const story = editableStory(id, user, reply);
-    if (!story) return reply;
-    const block = getBlock(blockId);
-    if (!block || !getChapters(story.id).some((chapter) => chapter.id === block.chapter_id)) {
-      return reply.code(404).send({ error: "Block not found" });
-    }
-    const parsed = parseBody(blockUpdateSchema, request.body);
-    if (parsed.error) {
-      return reply.code(400).send({ error: "Invalid block", details: parsed.error });
-    }
-    if (parsed.data.entityId !== undefined
-      && !referenceIsReachable(block.kind, parsed.data.entityId, user, block.kind === "book" ? block.entity_type : undefined)) {
-      return reply.code(400).send({ error: "That content isn't available to add." });
-    }
-    const { points: stops, ...fields } = parsed.data;
-    const points = block.kind === "map" && stops
-      ? await resolveRouteGeometry(stops, blockPointsByIds([block.id]).get(block.id) ?? [])
-      : undefined;
-    updateBlock(block.id, story.id, { ...fields, points });
-    return reply.send({ updated: true });
-  });
-
-  app.delete("/api/stories/:id/blocks/:blockId", { preHandler: app.authenticate }, async (request, reply) => {
-    const user = request.user!;
-    const { id, blockId } = request.params as { id: string; blockId: string };
-    const story = editableStory(id, user, reply);
-    if (!story) return reply;
-    const block = getBlock(blockId);
-    if (!block || !getChapters(story.id).some((chapter) => chapter.id === block.chapter_id)) {
-      return reply.code(404).send({ error: "Block not found" });
-    }
-    deleteBlock(block.id, story.id);
-    return reply.send({ deleted: true });
-  });
+  // The routes for a story's parts, on this same instance.
+  registerStoryAudioRoutes(app);
+  registerChapterRoutes(app);
+  registerBlockRoutes(app);
 }

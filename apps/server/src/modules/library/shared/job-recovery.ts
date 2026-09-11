@@ -16,6 +16,7 @@
 // respects. A job that has already used its attempts is failed instead of retried,
 // and handed back to the caller so the feature it belongs to can say so.
 import { db, logActivity } from "../../../db.js";
+import { log } from "../../../core/logger.js";
 
 export interface AbandonedJob {
   id: string;
@@ -66,7 +67,7 @@ export function requeueInterruptedJobs(jobType: string, message = INTERRUPTED_ME
   })();
 
   if (abandoned.length > 0) {
-    console.warn(
+    log.warn(
       `${jobType}: giving up on ${abandoned.length} job(s) that were interrupted after using every attempt `
       + "— they will not be retried. If the server keeps restarting, this is what was killing it."
     );

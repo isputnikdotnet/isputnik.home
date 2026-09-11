@@ -1,10 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
 import { ZipArchive } from "archiver";
-import { db, logActivity } from "../../db.js";
+import { db, logActivity, preRestoreSnapshotPath } from "../../db.js";
 import { config, mfaKeyFilePath } from "../../config.js";
 import { resolveAppLocation } from "../../core/app-storage.js";
 import { configuredThumbnailPathValue } from "../library/shared/thumbnail.js";
+import { clearPreUpgradeStaging, preUpgradeStagingPath, readPreUpgradeMeta } from "../../db/pre-upgrade.js";
+import { log } from "../../core/logger.js";
 
 // What a backup is, how it is named, and how one is taken. The routes live in
 // index.ts; this half is here on its own so the scheduled jobs (modules/maintenance)
@@ -29,12 +31,25 @@ import { configuredThumbnailPathValue } from "../library/shared/thumbnail.js";
 // The quick .sqlite copy is what an admin takes before trying something: no zip, no
 // key, done in seconds. Restore accepts it like the pre-restore safety snapshot
 // db.ts writes, which has the same shape.
+//
+// One more .sqlite shape is written by the app itself, never on request: the copy of
+// the database taken as a new version boots, before its migrations run
+// (db/pre-upgrade.ts), named isputnik-<stamp>-pre-upgrade.sqlite. It is a database
+// copy like any other to list, download and restore, but it keeps its own retention
+// (the newest PRE_UPGRADE_KEEP) so upgrading never pushes an admin's own copies out,
+// nor theirs it.
 
 export type BackupKind = "full" | "minimal" | "database";
 export const BACKUP_KINDS: BackupKind[] = ["full", "minimal", "database"];
 
 const BACKUP_PREFIX = "isputnik-";
-export const NAME_PATTERN = /^isputnik-[0-9]{8}-[0-9]{6}(-minimal)?\.(zip|sqlite)$/;
+export const NAME_PATTERN = /^isputnik-[0-9]{8}-[0-9]{6}(?:(?:-minimal)?\.zip|(?:-pre-upgrade)?\.sqlite)$/;
+export const PRE_UPGRADE_SUFFIX = "-pre-upgrade.sqlite";
+export const PRE_UPGRADE_KEEP = 2;
+
+export function isPreUpgradeCopy(name: string): boolean {
+  return name.endsWith(PRE_UPGRADE_SUFFIX);
+}
 export const SETTINGS_KEY = "backup_schedule";
 
 export interface BackupFile {
@@ -101,18 +116,18 @@ export function ensureBackupDir() {
   fs.mkdirSync(backupDir(), { recursive: true });
 }
 
-function timestampName(kind: BackupKind, date = new Date()): string {
+function timestampName(kind: BackupKind | "pre-upgrade", date = new Date()): string {
   const p = (n: number) => String(n).padStart(2, "0");
   const stamp = `${date.getFullYear()}${p(date.getMonth() + 1)}${p(date.getDate())}-${p(date.getHours())}${p(date.getMinutes())}${p(date.getSeconds())}`;
-  const suffix = kind === "database" ? ".sqlite" : kind === "minimal" ? "-minimal.zip" : ".zip";
+  const suffix = kind === "pre-upgrade" ? PRE_UPGRADE_SUFFIX : kind === "database" ? ".sqlite" : kind === "minimal" ? "-minimal.zip" : ".zip";
   return `${BACKUP_PREFIX}${stamp}${suffix}`;
 }
 
 // A timestamp name not already taken in the backup folder (uploads can collide with
 // a backup taken in the same second, and so can two kinds scheduled for the same
 // minute); step forward a second until free.
-export function uniqueBackupName(kind: BackupKind): string {
-  let date = new Date();
+export function uniqueBackupName(kind: BackupKind | "pre-upgrade", from = new Date()): string {
+  let date = from;
   let name = timestampName(kind, date);
   while (fs.existsSync(path.join(backupDir(), name))) {
     date = new Date(date.getTime() + 1000);
@@ -137,7 +152,7 @@ export function listBackupFiles(): BackupFile[] {
 // Retention is per kind: a nightly minimal backup must not push the weekly full
 // ones out of the folder, nor the other way round. Each kind keeps its newest N.
 export function pruneBackups(kind: BackupKind, keep: number): number {
-  const stale = listBackupFiles().filter((file) => file.kind === kind).slice(Math.max(1, keep));
+  const stale = listBackupFiles().filter((file) => file.kind === kind && !isPreUpgradeCopy(file.name)).slice(Math.max(1, keep));
   for (const file of stale) {
     try { fs.unlinkSync(path.join(backupDir(), file.name)); } catch { /* best-effort */ }
   }
@@ -240,7 +255,7 @@ export function startBackup(actorUserId: string | null, trigger: "manual" | "sch
     .then(() => undefined)
     .catch((err) => {
       backupLastError = err instanceof Error ? err.message : "Backup failed";
-      console.error(`${who} failed:`, err);
+      log.error({ err }, `${who} failed`);
       logActivity({
         event: "backup.failed",
         actorUserId,
@@ -266,6 +281,80 @@ export function startScheduledBackup(kind: BackupKind): string {
     return "Skipped — a backup is already running; will retry at the next scheduled time.";
   }
   return `Started a ${KIND_WORDS[kind]} backup — it finishes in the background and appears on the Backup page.`;
+}
+
+// ── The pre-upgrade copy ────────────────────────────────────────────
+// db.ts stages it beside the database before migrating (db/pre-upgrade.ts); here it
+// moves into the backups folder, named by when it was taken, and the older ones
+// beyond PRE_UPGRADE_KEEP go. Best-effort: a copy that can't be filed stays staged
+// and is tried again next boot, never lost and never allowed to fail the boot.
+export function adoptPreUpgradeCopy(): string | null {
+  const staging = preUpgradeStagingPath(config.dbPath);
+  if (!fs.existsSync(staging)) return null;
+  const meta = readPreUpgradeMeta(config.dbPath);
+  try {
+    ensureBackupDir();
+    const name = uniqueBackupName("pre-upgrade", meta ? new Date(meta.takenAt) : new Date());
+    const destination = path.join(backupDir(), name);
+    try {
+      fs.renameSync(staging, destination);
+    } catch {
+      // The backups folder may be another filesystem (App storage, a share).
+      fs.copyFileSync(staging, destination);
+      fs.rmSync(staging, { force: true });
+    }
+    clearPreUpgradeStaging(config.dbPath);
+    const stale = listBackupFiles().filter((file) => isPreUpgradeCopy(file.name)).slice(PRE_UPGRADE_KEEP);
+    for (const file of stale) {
+      try { fs.unlinkSync(path.join(backupDir(), file.name)); } catch { /* best-effort */ }
+    }
+    const from = meta?.from ? `version ${meta.from}` : "the previous version";
+    logActivity({
+      event: "backup.created",
+      actorUserId: null,
+      targetType: "backup",
+      targetId: name,
+      detail: `Automatic pre-upgrade database copy "${name}" — the database as ${from} left it, before ${meta?.to ?? config.version} changed anything.${stale.length > 0 ? ` Pruned ${stale.length} older.` : ""}`,
+      ipAddress: null
+    });
+    return name;
+  } catch (err) {
+    log.error({ err }, "Could not move the pre-upgrade database copy into the backups folder; will try again next start.");
+    return null;
+  }
+}
+
+// ── The restore's safety snapshot ───────────────────────────────────
+// db.ts keeps the database a restore replaced, staged beside it (it can't know
+// where the backups folder is that early). File it as an ordinary database copy.
+// Before this it went straight to BACKUP_PATH, which with App storage's Backups
+// room switched on is a folder the Backup page never lists.
+export function adoptPreRestoreSnapshot(): string | null {
+  const staging = preRestoreSnapshotPath(config.dbPath);
+  if (!fs.existsSync(staging)) return null;
+  try {
+    ensureBackupDir();
+    const name = uniqueBackupName("database", fs.statSync(staging).mtime);
+    const destination = path.join(backupDir(), name);
+    try {
+      fs.renameSync(staging, destination);
+    } catch {
+      fs.copyFileSync(staging, destination);
+      fs.rmSync(staging, { force: true });
+    }
+    logActivity({
+      event: "backup.created",
+      actorUserId: null,
+      targetType: "backup",
+      targetId: name,
+      detail: `Safety copy "${name}" of the database a restore replaced.`,
+      ipAddress: null
+    });
+    return name;
+  } catch (err) {
+    log.error({ err }, "Could not move the pre-restore safety copy into the backups folder; will try again next start.");
+    return null;
+  }
 }
 
 /** Test hook: resolves when no backup is running (immediately if none is). */

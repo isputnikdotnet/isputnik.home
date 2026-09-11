@@ -1,18 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Check, Music, Pause, Play, Trash2, UploadCloud, VolumeX, X } from "lucide-react";
+import { Check, Music, Pause, Play, Trash2, UploadCloud, VolumeX } from "lucide-react";
 import { api, csrfToken } from "../../api";
+import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { Modal } from "../../shared/Modal";
 import { MessageBox } from "../../shared/MessageBox";
 import type { GalleryMusicTrack } from "./types";
-
-function formatDuration(seconds: number | null): string {
-  if (seconds == null) return "";
-  const total = Math.round(seconds);
-  const m = Math.floor(total / 60);
-  const s = total % 60;
-  return `${m}:${s.toString().padStart(2, "0")}`;
-}
+import { CLIP_LENGTH, formatClock } from "../../shared/formatClock";
 
 // Choose the music for a slideshow: the user's uploaded tracks, with in-place
 // preview, upload, and delete (own uploads / admin). Selecting a track (or "No
@@ -34,6 +28,11 @@ export function MusicPicker({
   const [notice, setNotice] = useState("");
   const [uploading, setUploading] = useState(false);
   const [previewingId, setPreviewingId] = useState<string | null>(null);
+  // The track waiting on "Delete?" — an upload is the user's own file, so one
+  // click on the bin only asks.
+  const [pendingDelete, setPendingDelete] = useState<GalleryMusicTrack | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
@@ -103,14 +102,19 @@ export function MusicPicker({
   };
 
   const remove = async (track: GalleryMusicTrack) => {
+    setDeleting(true);
+    setDeleteError("");
     setError("");
     try {
       if (previewingId === track.id) { audioRef.current?.pause(); setPreviewingId(null); }
       await api(`/api/library/gallery/music/${track.id}`, { method: "DELETE" });
       if (selectedId === track.id) onSelect(null);
+      setPendingDelete(null);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("gallery:musicPicker.errors.delete"));
+      setDeleteError(err instanceof Error ? err.message : t("gallery:musicPicker.errors.delete"));
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -130,18 +134,20 @@ export function MusicPicker({
       <button type="button" className="music-row-main" onClick={() => onSelect(track.id)}>
         <span className="music-row-title">{track.title}</span>
         <span className="music-row-meta">
-          {t("gallery:musicPicker.yourUpload")}{track.durationSeconds != null ? ` · ${formatDuration(track.durationSeconds)}` : ""}
+          {t("gallery:musicPicker.yourUpload")}{track.durationSeconds != null ? ` · ${formatClock(track.durationSeconds, CLIP_LENGTH)}` : ""}
         </span>
       </button>
       {selectedId === track.id && <Check size={18} className="music-row-check" aria-label={t("gallery:musicPicker.selectedAria")} />}
-      <button type="button" className="music-row-delete" onClick={() => void remove(track)} aria-label={t("gallery:musicPicker.deleteTrackAria", { title: track.title })} title={t("gallery:musicPicker.deleteTrackTitle")}>
+      <button type="button" className="music-row-delete" onClick={() => { setDeleteError(""); setPendingDelete(track); }} aria-label={t("gallery:musicPicker.deleteTrackAria", { title: track.title })} title={t("gallery:musicPicker.deleteTrackTitle")}>
         <Trash2 size={15} />
       </button>
     </li>
   );
 
   return (
-    <Modal variant="panel" title={t("gallery:musicPicker.modalTitle")} icon={<Music size={20} />} className="music-picker-modal" onClose={onClose}>
+    // Busy while the confirmation is up, so its Escape or backdrop click dismisses
+    // only the question and not the picker underneath it.
+    <Modal variant="panel" title={t("gallery:musicPicker.modalTitle")} icon={<Music size={20} />} className="music-picker-modal" busy={pendingDelete !== null} onClose={onClose}>
       <div className="add-to-album-head">
         {error && <MessageBox tone="error" title={t("gallery:musicPicker.errorTitle")}>{error}</MessageBox>}
         {notice && <MessageBox tone="info" title={t("gallery:musicPicker.skippedTitle")}>{notice}</MessageBox>}
@@ -185,6 +191,22 @@ export function MusicPicker({
       {/* One shared element drives every row's preview. Loops so a short bed keeps
           playing while you decide. */}
       <audio ref={audioRef} loop onEnded={() => setPreviewingId(null)} />
+
+      {pendingDelete && (
+        <ConfirmDialog
+          title={t("gallery:musicPicker.deleteTrackConfirmTitle", { title: pendingDelete.title })}
+          confirmLabel={t("gallery:musicPicker.deleteTrackTitle")}
+          busyLabel={t("gallery:common.deleting")}
+          confirmIcon={<Trash2 size={15} aria-hidden="true" />}
+          danger
+          busy={deleting}
+          error={deleteError}
+          onConfirm={() => void remove(pendingDelete)}
+          onCancel={() => setPendingDelete(null)}
+        >
+          {t("gallery:musicPicker.deleteTrackConfirmBody")}
+        </ConfirmDialog>
+      )}
     </Modal>
   );
 }

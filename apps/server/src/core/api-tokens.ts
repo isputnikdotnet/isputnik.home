@@ -56,7 +56,7 @@ export function resolveApiToken(raw: string, scope: ApiTokenScope = "opds", ip?:
     WHERE api_tokens.token_hash = ?
       AND api_tokens.scope = ?
       AND api_tokens.revoked_at IS NULL
-      AND (api_tokens.expires_at IS NULL OR datetime(api_tokens.expires_at) > datetime('now'))
+      AND (api_tokens.expires_at IS NULL OR api_tokens.expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
       AND users.deleted_at IS NULL
       AND users.is_active = 1
   `).get(hash, scope) as User | undefined;
@@ -82,7 +82,7 @@ export function listApiTokens(userId: string, scope?: ApiTokenScope): ApiTokenRo
     SELECT id, label, scope, created_at, last_seen_at, last_ip, expires_at
     FROM api_tokens
     WHERE user_id = ? AND revoked_at IS NULL ${scope ? "AND scope = ?" : ""}
-    ORDER BY datetime(created_at) DESC
+    ORDER BY created_at DESC
   `;
   return (scope ? db.prepare(sql).all(userId, scope) : db.prepare(sql).all(userId)) as ApiTokenRow[];
 }

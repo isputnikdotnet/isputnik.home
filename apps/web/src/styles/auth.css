@@ -25,7 +25,7 @@
 }
 
 .passkey-button:hover:not(:disabled) {
-  border-color: var(--auth-brass, var(--accent, var(--line)));
+  border-color: var(--auth-brass, var(--accent));
   background: transparent;
   color: var(--auth-brass-bright, inherit);
 }

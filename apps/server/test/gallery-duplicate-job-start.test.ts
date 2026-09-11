@@ -13,12 +13,10 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../src/db.js";
 import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
 import { createJob, getJob, setJobStatus } from "../src/modules/library/gallery/duplicates/jobs.js";
-import { startJobScan, listJobResults } from "../src/modules/library/gallery/duplicates/job-scan.js";
-import {
-  DUPLICATE_SCAN_JOB_TYPE,
-  enqueueJobScan,
-  processDuplicateScanQueue
-} from "../src/modules/library/gallery/duplicates/items.js";
+import { startJobScan } from "../src/modules/library/gallery/duplicates/job-scan.js";
+import { listJobResults } from "../src/modules/library/gallery/duplicates/job-results.js";
+import { DUPLICATE_SCAN_JOB_TYPE, enqueueJobScan } from "../src/modules/library/gallery/duplicates/items.js";
+import { processDuplicateScanQueue } from "../src/modules/library/gallery/duplicates/scan-queue.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
 
 interface ScanJobRow { id: string; status: string; payload: string }

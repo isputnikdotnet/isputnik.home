@@ -3,7 +3,8 @@ import { db } from "../src/db.js";
 import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
 import { ingestGalleryAsset } from "../src/modules/library/gallery/scanner.js";
 import { buildYearReview, suggestYearReviews, galleryReviewableYears } from "../src/modules/library/gallery/year-review.js";
-import { queryGalleryTimeline, EMPTY_GALLERY_FILTERS } from "../src/modules/library/gallery/catalog.js";
+import { queryGalleryTimeline } from "../src/modules/library/gallery/catalog.js";
+import { EMPTY_GALLERY_FILTERS } from "../src/modules/library/gallery/catalog-filters.js";
 import { kindForExtension } from "../src/modules/library/gallery/media.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
 

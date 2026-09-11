@@ -14,15 +14,8 @@ import { GalleryLightboxPanel } from "./GalleryLightboxPanel";
 import { useIsMobile } from "../../shared/useIsMobile";
 import type { GalleryAsset, SlideshowTransition } from "./types";
 import { formatTakenDate } from "./taken-date";
+import { CLIP_LENGTH, formatClock } from "../../shared/formatClock";
 
-
-function formatDuration(seconds: number | null): string {
-  if (seconds == null) return "";
-  const total = Math.round(seconds);
-  const m = Math.floor(total / 60);
-  const s = total % 60;
-  return `${m}:${s.toString().padStart(2, "0")}`;
-}
 
 // Uppercase file extension (e.g. "MVI_1263.AVI" → "AVI") for the unplayable notice.
 function formatLabel(title: string): string {
@@ -64,7 +57,6 @@ export function GalleryLightbox({
   onOpenFolder,
   canDelete,
   canEdit,
-  canShare,
   autoPlay = false,
   transition,
   transitionSeconds,
@@ -81,7 +73,6 @@ export function GalleryLightbox({
   onOpenFolder?: (folder: string) => void;
   canDelete: boolean;
   canEdit: boolean;
-  canShare: boolean;
   // Start a slideshow immediately (opened via the gallery's Slideshow button).
   autoPlay?: boolean;
   // Presentation settings when previewing a saved slideshow: the transition style
@@ -312,6 +303,8 @@ export function GalleryLightbox({
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      // A dialog over the lightbox (Send to…, a confirm) already answered this key.
+      if (event.defaultPrevented) return;
       // The overflow menu gets its own Escape (closes the menu, not the whole
       // lightbox) even though it's also part of dialogOpen below.
       if (moreMenuOpen) {
@@ -405,7 +398,7 @@ export function GalleryLightbox({
   const meta = [
     formatTakenDate(asset, { withTime: true }),
     asset.width && asset.height ? `${asset.width}×${asset.height}` : "",
-    asset.kind === "video" || asset.kind === "audio" ? formatDuration(asset.durationSeconds) : ""
+    asset.kind === "video" || asset.kind === "audio" ? formatClock(asset.durationSeconds, CLIP_LENGTH) : ""
   ].filter(Boolean).join(" · ");
 
   // The action row in the bar above the photo.
@@ -711,7 +704,7 @@ export function GalleryLightbox({
                   >
                     {vidPlaying ? <Pause size={16} aria-hidden="true" /> : <Play size={16} aria-hidden="true" />}
                   </button>
-                  <span className="gallery-video-time">{formatDuration(vidTime)}</span>
+                  <span className="gallery-video-time">{formatClock(vidTime, CLIP_LENGTH)}</span>
                   <input
                     type="range"
                     min={0}
@@ -725,7 +718,7 @@ export function GalleryLightbox({
                     }}
                     aria-label={t("gallery:lightbox.seekAria")}
                   />
-                  <span className="gallery-video-time">{formatDuration(vidDuration)}</span>
+                  <span className="gallery-video-time">{formatClock(vidDuration, CLIP_LENGTH)}</span>
                   <button
                     type="button"
                     onClick={() => setVidMuted((m) => !m)}

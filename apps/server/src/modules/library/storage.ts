@@ -14,9 +14,10 @@ import {
   type StorageRootRow
 } from "./shared/storage-roots.js";
 import { appRoomMode, getAppStoragePath } from "../../core/app-storage.js";
-import { getTrashRootSetting } from "./shared/trash.js";
+import { getTrashRootSetting } from "./shared/trash-settings.js";
 import { trashMoveStatus } from "./shared/trash-move.js";
-import { statusOf, switchRoom } from "./app-storage.js";
+import { statusOf } from "./app-storage.js";
+import { switchRoom } from "./app-storage-switch.js";
 
 const storageRootSchema = z.object({
   name: z.string().trim().min(2).max(120),

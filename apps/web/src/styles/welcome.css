@@ -76,12 +76,12 @@
   cursor: pointer;
 }
 
-.welcome-step:hover { color: var(--ink); background: var(--surface-2, rgba(127, 127, 127, 0.08)); }
+.welcome-step:hover { color: var(--ink); background: var(--surface-2); }
 
 .welcome-step.is-active {
   color: var(--ink);
   border-color: var(--line);
-  background: var(--surface-2, rgba(127, 127, 127, 0.1));
+  background: var(--surface-2);
 }
 
 .welcome-step-dot {

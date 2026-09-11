@@ -6,7 +6,9 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../src/db.js";
 import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
 import { createJob } from "../src/modules/library/gallery/duplicates/jobs.js";
-import { runJobScan, listJobResults, INBOX_KEEPER_REASON } from "../src/modules/library/gallery/duplicates/job-scan.js";
+import { runJobScan } from "../src/modules/library/gallery/duplicates/job-scan.js";
+import { listJobResults } from "../src/modules/library/gallery/duplicates/job-results.js";
+import { INBOX_KEEPER_REASON } from "../src/modules/library/gallery/duplicates/snapshot-inbox.js";
 import {
   findInboxRescans,
   fingerprintGap,

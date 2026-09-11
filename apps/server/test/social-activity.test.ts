@@ -7,7 +7,8 @@ vi.mock("../src/core/mail.js", async (importOriginal) => {
 
 import { db } from "../src/db.js";
 import { loadActivity } from "../src/modules/social/activity.js";
-import { createChapter, updateStory } from "../src/modules/stories/stories.js";
+import { createChapter } from "../src/modules/stories/chapters.js";
+import { updateStory } from "../src/modules/stories/crud.js";
 import { grant, makeLibrary, resetDb } from "./helpers/seed.js";
 
 // The feed is derived, so the things worth testing are what it leaves OUT: your

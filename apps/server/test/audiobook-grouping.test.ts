@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { walkAudiobookFiles } from "../src/modules/library/audiobook/scanner.js";
+import { walkAudiobookFiles } from "../src/modules/library/audiobook/scan/walk.js";
 import { normalizeLibrarySettings } from "../src/modules/library/shared/library-settings.js";
 
 // walkAudiobookFiles reads the real filesystem, so these build a throwaway tree.
@@ -71,7 +71,7 @@ describe("part folders (3.62.1)", () => {
   });
 
   it("recognises the common spellings of a part marker and nothing else", async () => {
-    const { discNumberFromFolderName } = await import("../src/modules/library/audiobook/scanner.js");
+    const { discNumberFromFolderName } = await import("../src/modules/library/audiobook/scan/folder-parse.js");
     for (const [name, n] of [
       ["CD 1", 1], ["cd2", 2], ["Disc 3", 3], ["Part 1", 1], ["Часть 2", 2], ["Диск 3", 3],
       ["Три товарища (Часть_1)", 1], ["Book - Part 2", 2], ["Book_pt.3", 3], ["Book [Disc 4]", 4]
@@ -99,7 +99,7 @@ describe("part folders (3.62.1)", () => {
 
 describe("peopleFromTags", () => {
   it("moves a 'Читает:' album artist to the narrators and keeps a composer that repeats the author out of them", async () => {
-    const { peopleFromTags } = await import("../src/modules/library/audiobook/scanner.js");
+    const { peopleFromTags } = await import("../src/modules/library/audiobook/scan/tag-read.js");
     expect(peopleFromTags({ albumartist: "Читает: Максим Пинскер", artist: "Эрих Мария Ремарк", composer: ["Эрих Мария Ремарк"] }))
       .toEqual({ authors: ["Эрих Мария Ремарк"], narrators: ["Максим Пинскер"] });
     expect(peopleFromTags({ albumartists: ["Narrated by Jane Doe"], artists: ["John Smith"], composer: ["Read by Jane Doe"] }))

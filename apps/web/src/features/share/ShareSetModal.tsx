@@ -72,7 +72,7 @@ export function ShareSetModal({ itemIds, onClose }: { itemIds: string[]; onClose
       body: JSON.stringify({ itemIds })
     }).then((r) => setRecipients(r.recipients)).catch(() => {});
 
-  useEffect(() => { void loadLinks(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { void loadLinks(); }, []);
 
   useEffect(() => {
     if (tab !== "people") return;

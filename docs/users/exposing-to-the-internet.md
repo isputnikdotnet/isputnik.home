@@ -28,12 +28,16 @@ proxy is the only way in.
 | Variable | Set to | Why |
 |---|---|---|
 | `APP_URL` | `https://your-domain` | Your public address; used for links and CORS |
-| `COOKIE_SECURE` | `true` (or `auto`) | Send the session cookie only over HTTPS |
+| `COOKIE_SECURE` | `auto` (the default) or `true` | Send the session cookie only over HTTPS |
 | `TRUST_PROXY` | your proxy's IP or CIDR (e.g. `172.18.0.0/16`) | So rate limits and logs see the real visitor, not the proxy |
 
 `COOKIE_SECURE=auto` follows `APP_URL` instead of stating it twice — secure
-cookies on for an `https://` address, off for a plain-http home install. Set
-`true` or `false` only to override that.
+cookies on for an `https://` address, off for a plain-http home install. It is
+what the image, the compose file and the Unraid template all ship with; set
+`true` or `false` only to override it.
+
+Every other variable, with its default and where it is set, is in the
+[configuration reference](https://github.com/isputnikdotnet/isputnik.home/blob/main/docs/configuration.md).
 
 Setting `APP_URL` to an `https://` address also turns on two HTTPS protections:
 **HSTS** (browsers are told to only ever reach your domain over HTTPS) and an
@@ -125,7 +129,7 @@ are rate-limited, and a guessed token counts against the caller like any probe.
 [ ] Reverse proxy with a valid HTTPS certificate in front
 [ ] App port not published to the internet directly
 [ ] APP_URL = https://your-domain
-[ ] COOKIE_SECURE = true
+[ ] COOKIE_SECURE = auto (or true)
 [ ] TRUST_PROXY = the proxy's IP/CIDR (or TRUST_PROXY_HOPS = number of proxies)
 [ ] First-run admin setup completed on the home network
 [ ] Two-factor enabled for admin accounts

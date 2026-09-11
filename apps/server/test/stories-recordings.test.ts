@@ -24,7 +24,9 @@ import {
 } from "../src/modules/stories/recordings.js";
 import { createStoryAudio } from "../src/modules/stories/audio.js";
 import { importLegacyNarrationsIfDue } from "../src/modules/stories/index.js";
-import { createStory, getBlocks, getChapters } from "../src/modules/stories/stories.js";
+import { createStory } from "../src/modules/stories/crud.js";
+import { getBlocks } from "../src/modules/stories/blocks.js";
+import { getChapters } from "../src/modules/stories/chapters.js";
 import { resetDb, makeUser } from "./helpers/seed.js";
 
 const author = { id: "author", role: "member" };

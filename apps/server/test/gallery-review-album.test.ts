@@ -4,7 +4,7 @@ import { addAlbumItems, createAlbum } from "../src/modules/library/gallery/album
 import { loadAlbumReview } from "../src/modules/library/gallery/review.js";
 import { markGalleryAssetReviewed } from "../src/modules/library/gallery/edit.js";
 import { canUserWriteAsset, getLibraryForBook, userHasGalleryAlbumEditShareForItem } from "../src/modules/library/shared/library-access.js";
-import { grantAlbumAccess } from "../src/modules/library/shared/shares.js";
+import { grantAlbumAccess } from "../src/modules/library/shared/shares/grants.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
 
 // "Ask what they remember" (docs/photo-review-plan.md, phase 3): an album sent

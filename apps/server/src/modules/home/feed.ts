@@ -31,8 +31,13 @@
 import { db } from "../../db.js";
 import { loadActivity, type ActivityChapter } from "../social/activity.js";
 import { bookLibraryIds } from "../library/feed.js";
-import { resolveGalleryBrowseLibraryIds } from "../library/gallery/catalog.js";
-import { queryGalleryMemories, queryGalleryRecentlyAdded, type GalleryMemoriesPrecision, type GalleryMemoryGroup } from "../library/gallery/catalog.js";
+import { resolveGalleryBrowseLibraryIds } from "../library/gallery/catalog-scope.js";
+import {
+  queryGalleryMemories,
+  queryGalleryRecentlyAdded,
+  type GalleryMemoriesPrecision,
+  type GalleryMemoryGroup
+} from "../library/gallery/catalog-memories.js";
 import { dailyQuote, type DailyQuote } from "../library/quotes-daily.js";
 
 interface RequestUser {
@@ -258,7 +263,7 @@ function addedBatchCards(user: RequestUser): AddedBatchCard[] {
       LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
       WHERE library_items.deleted_at IS NULL
         AND library_items.library_id IN (${inLibs})
-        AND datetime(library_items.discovered_at) >= datetime('now', '-${BATCH_MAX_AGE} days')
+        AND library_items.discovered_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-${BATCH_MAX_AGE} days')
     )
     SELECT * FROM recent WHERE rn <= 5 ORDER BY day DESC, rn
   `).all(...libIds) as BatchRow[];

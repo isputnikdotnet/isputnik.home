@@ -8,9 +8,9 @@
 // columns exist in the schema but are left at their defaults here.
 import { nanoid } from "nanoid";
 import { db } from "../../../db.js";
-import { ASSET_COLUMNS, ASSET_JOINS, mapAsset, type GalleryAssetRow } from "./catalog.js";
+import { ASSET_COLUMNS, ASSET_JOINS, mapAsset, type GalleryAssetRow } from "./catalog-asset.js";
 import type { CardFont, CardSize } from "./slideshow-title-card.js";
-import { entityTagsByIds } from "../audiobook/categorize.js";
+import { entityTagsByIds } from "../shared/tagging.js";
 
 const SLIDESHOW_TAG_TYPE = "gallery_slideshow";
 
@@ -72,7 +72,7 @@ export interface SlideshowRow {
   rendered_at: string | null;
   render_error: string | null;
   // Saving the movie into a library, chosen per slideshow. Target NULL = don't save.
-  // See slideshow-render.ts saveMovieToLibrary.
+  // See slideshow-movie-files.ts saveMovieToLibrary.
   movie_target_library_id: string | null;
   movie_on_conflict: MovieConflictPolicy;
   movie_file_stem: string | null;
@@ -371,7 +371,7 @@ export function listSlideshows(user: { id: string; role: string }, libIds: strin
           ORDER BY gallery_slideshow_items.position LIMIT 1)
       ) AS cover_key
     FROM gallery_slideshows
-    ORDER BY datetime(gallery_slideshows.updated_at) DESC
+    ORDER BY gallery_slideshows.updated_at DESC
   `).all(...libArgs, ...libArgs, ...libArgs) as SlideshowListRow[];
 
   const visible = rows.filter((row) => row.visible_count > 0 || canEditSlideshow(row, user));

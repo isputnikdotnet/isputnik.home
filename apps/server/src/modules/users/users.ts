@@ -63,10 +63,10 @@ export async function usersPlugin(app: FastifyInstance) {
       FROM users
       LEFT JOIN sessions ON sessions.user_id = users.id
         AND sessions.revoked_at IS NULL
-        AND datetime(sessions.expires_at) > datetime('now')
+        AND sessions.expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
       WHERE users.deleted_at IS NULL
       GROUP BY users.id
-      ORDER BY datetime(users.created_at) ASC
+      ORDER BY users.created_at ASC
     `).all() as UserListRow[];
 
     // One query for every open registration window, rather than one per row: there

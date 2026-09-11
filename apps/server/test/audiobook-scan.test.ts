@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../src/db.js";
 import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
-import { writeBookScan, enqueueAudiobookScan, processAudiobookScanQueue, type PreparedBookScan } from "../src/modules/library/audiobook/scanner.js";
+import { enqueueAudiobookScan, processAudiobookScanQueue } from "../src/modules/library/audiobook/scanner.js";
+import { writeBookScan } from "../src/modules/library/audiobook/scan/write.js";
+import type { PreparedBookScan } from "../src/modules/library/audiobook/scan/types.js";
 import { getAudiobookBookDetail } from "../src/modules/library/audiobook/book-helpers.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
 

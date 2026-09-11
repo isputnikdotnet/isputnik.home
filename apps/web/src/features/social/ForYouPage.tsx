@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { BookOpen, ChevronLeft, ChevronRight, Download, Image as ImageIcon, Images, Play, Share2, X } from "lucide-react";
-import { api, type PublicUser } from "../../api";
+import { api } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { UserAreaNav } from "../library/UserAreaNav";
 import { navigate } from "../../router";
@@ -65,7 +65,12 @@ function SharedAlbumViewer({ album, onClose }: { album: SharedBook; onClose: () 
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") { openIndex != null ? setOpenIndex(null) : onClose(); return; }
+      if (event.defaultPrevented) return; // a dialog on top already answered it
+      if (event.key === "Escape") {
+        if (openIndex != null) setOpenIndex(null);
+        else onClose();
+        return;
+      }
       if (openIndex == null || !items) return;
       if (event.key === "ArrowRight") setOpenIndex((i) => (i != null && i < items.length - 1 ? i + 1 : i));
       else if (event.key === "ArrowLeft") setOpenIndex((i) => (i != null && i > 0 ? i - 1 : i));
@@ -147,13 +152,7 @@ function SharedAlbumViewer({ album, onClose }: { album: SharedBook; onClose: () 
 // It used to be "Shared with me" and, before that, "Sent to me"; both addresses
 // still land here. Opening the page IS reading it: the dot goes now, deciding
 // about each row is a separate, unhurried thing.
-export function ForYouPage({
-  user,
-  logout
-}: {
-  user: PublicUser;
-  logout: () => Promise<void>;
-}) {
+export function ForYouPage() {
   const { t } = useTranslation(["common", "user"]);
   const [books, setBooks] = useState<SharedBook[] | null>(null);
   const [waiting, setWaiting] = useState<ForYouRow[] | null>(null);
@@ -217,7 +216,7 @@ export function ForYouPage({
   const nothingAtAll = books !== null && waiting !== null && shelf.length === 0 && rows.length === 0;
 
   return (
-    <DashboardShell active="user" user={user} logout={logout} sideNav={<UserAreaNav active="shared" />}>
+    <DashboardShell active="user" sideNav={<UserAreaNav active="shared" />}>
       <section className="work-area audiobook-area">
         <div className="section-head audiobook-head">
           <div>

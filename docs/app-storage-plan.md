@@ -1,6 +1,11 @@
 # App storage — plan
 
-Status: **All three phases built 2026-09-09** (phase 1: the setting, the
+Status: shipped in v3.77.0–v3.79.0 (2026-09-09) and extended through v3.90.0
+(2026-09-10); kept while the last item is open. Open: only the `story_audio` drop of
+decision 7. Both open questions below have since been answered in code — an Inbox
+room with photos still waiting refuses to be turned off, and Backups became a room.
+
+As built: **All three phases built 2026-09-09** (phase 1: the setting, the
 resolver, the rooms with their switches and confirmations, the bin move, the
 render-bucket move, the Storage page — 3.77.0; phase 2: the setup guide asks for
 App storage first and offers the two library rooms, and legacy narration moves

@@ -19,6 +19,20 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "4.0.0",
+    label: "Beta",
+    changes: [
+      "isputnik.home is in **Beta** from this release, and says so beside the version on the About page, the sign-in screen and the menu. Beta means your data is looked after: the database migrates itself forward on every upgrade, backups can be scheduled, and an upgrade can be rolled back. Features are still moving. After each upgrade, Home shows once which releases arrived since you last looked, with a link to the full notes; a new account isn't shown this note.",
+      "**Every upgrade now keeps the database as it was.** When a new version starts, before it changes anything, it saves a copy of the database to the backup folder as `…-pre-upgrade.sqlite`. It is listed on the Backup page like any database copy, the newest two are kept, and they never count against your own retention. The rewritten rollback guide (docs/rollback.md) walks through going back to the previous version with it. The copy a restore takes of the database it replaces now lands in the same backup folder, including App storage's Backups room, where it used to go missing.",
+      "**The container behaves like a service.** The image has a health check (`/api/health`), so Docker and Unraid show whether the app is up. On stop or update it finishes what it is doing and closes the database instead of being cut off mid-task. An unexpected error now restarts the server cleanly instead of leaving it half-working. The compose file rotates logs, `LOG_LEVEL` quiets them, and `COOKIE_SECURE` defaults to `auto` everywhere. A new configuration reference (docs/configuration.md) lists every setting. Release images are published only when the full test suite passes, and each release gets a GitHub Release with these notes.",
+      "**Faster where it is felt.** Sign-in, the Dashboard, the logs and the background job queue now use the database's indexes instead of reading whole tables. The installed app downloads about 1.9 MB on first visit instead of 4.4 MB, and the control panel loads one page at a time.",
+      "**Dialogs behave.** Escape closes only the dialog on top — a confirmation inside an editor no longer closes the editor and loses what you typed. Focus stays inside the open dialog and returns where it was when it closes. Deleting a category and deleting a slideshow music track now ask first. Offline and download notices show over an open photo or book.",
+      "**Fixed:** the audio player dropping back to normal speed at the start of each chapter while still showing the chosen speed; marking an ebook finished on a phone, which saved audiobook progress instead; Escape in Send to… also closing the photo viewer; a crash two guests could cause by opening the same unreadable photo on a share link at once; rate-limited, oversized and malformed requests reported as \"Unexpected server error\" instead of their real reason; the last English text on the first screens in Russian; release notes on the About page showing their asterisks and backticks instead of bold text and names.",
+      "**Privacy:** a new scheduled job, **Prune the activity log**, deletes activity entries and sign-in attempts older than a year, the two places visitor addresses are kept. It is off by default, because the Dashboard's all-time figures read the same history. The Control panel guide explains what the app records about visitors, including guests on share links.",
+      "Under the hood, ahead of the Beta: the largest server and web files are split into smaller ones, cross-type code no longer reaches into each media type, nearly 400 new tests cover security, uploads, share links, migrations and the shared dialogs, and ESLint now runs beside the type checker."
+    ]
+  },
+  {
     version: "3.90.0",
     label: "The folder can take the room's name",
     changes: [

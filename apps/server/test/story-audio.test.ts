@@ -13,13 +13,9 @@ import {
   titleFromFilename,
   narrationMime
 } from "../src/modules/stories/audio.js";
-import {
-  createStory,
-  createBlock,
-  deleteBlock,
-  getBlocks,
-  getChapters
-} from "../src/modules/stories/stories.js";
+import { createStory } from "../src/modules/stories/crud.js";
+import { createBlock, deleteBlock, getBlocks } from "../src/modules/stories/blocks.js";
+import { getChapters } from "../src/modules/stories/chapters.js";
 import { resetDb, makeUser } from "./helpers/seed.js";
 
 // LEGACY narration: story-owned clips (v1). No new clips can be created from

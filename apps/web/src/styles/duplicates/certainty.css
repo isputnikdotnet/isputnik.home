@@ -107,7 +107,7 @@
   width: 38px;
   height: 38px;
   border-radius: 8px;
-  color: var(--accent, #6336f5);
+  color: var(--accent);
   background: color-mix(in srgb, #eee7ff 72%, transparent);
 }
 
@@ -259,19 +259,13 @@
   background: color-mix(in srgb, var(--muted) 14%, transparent);
   color: var(--muted);
 }
-.dup-copy-thumb img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
 button.dup-copy-thumb { cursor: pointer; }
 /* Feedback on the PICTURE, not on the frame behind it: the image covers the frame
    completely, so a background change would never be seen. */
 button.dup-copy-thumb:hover:not(:disabled) img { opacity: 0.72; }
 button.dup-copy-thumb:disabled { cursor: default; }
 button.dup-copy-thumb:focus-visible {
-  outline: 2px solid var(--accent, #c8a24a);
+  outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
 .dup-copy-info {
@@ -304,11 +298,6 @@ button.dup-copy-thumb:focus-visible {
   color: var(--muted);
 }
 .dup-copy-where svg { flex: 0 0 auto; opacity: 0.8; }
-.dup-copy-where > span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 
 /* "N× smaller" under a near set's tile. A quiet fact on a copy being deleted —
    removing the small one is the point — and a warning on a copy being kept, because

@@ -99,9 +99,8 @@ Full reference: `docs/UI-CONVENTIONS.md`. The short version:
   of truth) and are mirrored in `ru/` — `npm run check:ui` fails when the key
   sets drift. Keys are typed (a bad key fails typecheck). Counts must use
   `t(key, { count })`, never hand-built plurals (Russian has three forms). The
-  sweep is incremental (see `docs/i18n-plan.md`); an untranslated string simply
-  stays English, so don't block a feature on translation — but new strings in
-  already-swept files must be keys, not literals.
+  sweep is complete (2026-08-27; the record is `docs/i18n-plan.md`), so every file
+  counts as swept: new user-facing strings must be keys, not literals.
 - **Control panel**: its whole shape (7 nav groups × their tabs) is declared in
   `features/control/nav.ts`; canonical URLs in `CONTROL_PATHS` (`router.ts`), linked
   via `controlHref()`. Every tab is a real route — no `useState` tab rows in there —

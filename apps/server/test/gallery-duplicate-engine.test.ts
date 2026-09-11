@@ -9,11 +9,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../src/db.js";
 import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
-import {
-  duplicateCandidateCount,
-  absorbDuplicateMetadata,
-  pickKeeper
-} from "../src/modules/library/gallery/duplicates/items.js";
+import { duplicateCandidateCount } from "../src/modules/library/gallery/duplicates/items.js";
+import { absorbDuplicateMetadata } from "../src/modules/library/gallery/duplicates/absorb.js";
+import { pickKeeper } from "../src/modules/library/gallery/duplicates/keeper.js";
 import { fingerprintFolders, pickFolderKeeper } from "../src/modules/library/gallery/duplicates/folders.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
 
@@ -350,10 +348,6 @@ function trip(prefix: string, idPrefix: string, opts: AssetOpts = {}) {
   asset(`${idPrefix}1`, `${prefix}/one.jpg`, { hash: "pic-one", ...opts });
   asset(`${idPrefix}2`, `${prefix}/two.jpg`, { hash: "pic-two", ...opts });
 }
-
-// The fingerprint of one folder, by path.
-const fingerprintOf = (folderPath: string, libraryId = "GAL") =>
-  fingerprintFolders().find((print) => print.libraryId === libraryId && print.folderPath === folderPath);
 
 describe("fingerprinting", () => {
   it("gives two differently-named folders the same fingerprint", () => {

@@ -7,13 +7,13 @@ import type { FastifyInstance, FastifyReply } from "fastify";
 import { z } from "zod";
 import { ZipArchive } from "archiver";
 import { db, logActivity } from "../../../db.js";
-import { parseBody } from "../../../core/shared.js";
+import { parseBody, parseQuery } from "../../../core/shared.js";
 import { pathIsInside } from "../shared/storage-roots.js";
 import { deleteSharesForResource } from "../shared/share-access.js";
 import { deleteStoryBlocksForResource } from "../../stories/cleanup.js";
-import { deleteEntityTags, getEntityTags, setEntityTags } from "../audiobook/categorize.js";
-import { loadAlbumShareMeta, loadAlbumShareItems, curatableGalleryLibraryIds } from "../shared/shares.js";
-import { resolveGalleryScopeLibraryIds } from "./catalog.js";
+import { deleteEntityTags, getEntityTags, setEntityTags } from "../shared/tagging.js";
+import { loadAlbumShareMeta, loadAlbumShareItems, curatableGalleryLibraryIds } from "../shared/shares/album-shares.js";
+import { resolveGalleryScopeLibraryIds } from "./catalog-scope.js";
 import {
   getAlbum,
   canEditAlbum,
@@ -48,6 +48,9 @@ const tagsSchema = z.object({
 const itemsSchema = z.object({
   itemIds: z.array(z.string().trim().min(1).max(64)).min(1).max(500)
 });
+
+// Strings, not numbers: junk falls back to the defaults in the handler.
+const pageQuerySchema = z.object({ limit: z.string().optional(), offset: z.string().optional() });
 
 export const ALBUM_ENTITY_TYPE = "gallery_album";
 
@@ -108,7 +111,11 @@ export async function galleryAlbumRoutesPlugin(app: FastifyInstance) {
     if (!album) {
       return reply.code(404).send({ error: "Album not found" });
     }
-    const qp = request.query as { limit?: string; offset?: string };
+    const parsed = parseQuery(pageQuerySchema, request.query);
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid query", details: parsed.error });
+    }
+    const qp = parsed.data;
     const limit = Math.min(Math.max(Number.parseInt(qp.limit ?? "80", 10) || 80, 1), 200);
     const offset = Math.max(Number.parseInt(qp.offset ?? "0", 10) || 0, 0);
     const libIds = resolveGalleryScopeLibraryIds(user);
@@ -168,7 +175,7 @@ export async function galleryAlbumRoutesPlugin(app: FastifyInstance) {
       const share = db.prepare(`
         SELECT created_by FROM shares
         WHERE module = 'gallery_album' AND resource_id = ? AND user_id = ? AND revoked_at IS NULL
-          AND (expires_at IS NULL OR datetime(expires_at) > datetime('now'))
+          AND (expires_at IS NULL OR expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
       `).get(albumId, user.id) as { created_by: string } | undefined;
       if (share) {
         creator = db.prepare("SELECT id, role FROM users WHERE id = ?").get(share.created_by) as { id: string; role: string } | undefined ?? null;
@@ -325,7 +332,7 @@ export async function galleryAlbumRoutesPlugin(app: FastifyInstance) {
         JOIN gallery_details ON gallery_details.item_id = library_items.id
         WHERE library_items.library_id = ? AND library_items.deleted_at IS NULL
           AND (? = '' OR library_items.folder_path LIKE ? ESCAPE '\\')
-        ORDER BY datetime(gallery_details.taken_at) ASC, library_items.folder_path COLLATE NOCASE
+        ORDER BY gallery_details.taken_at ASC, library_items.folder_path COLLATE NOCASE
         LIMIT 500
       `).all(parsed.data.folder.libraryId, folderPath, `${folderPath.replace(/[\\%_]/g, "\\$&")}/%`) as { id: string }[];
       itemIds = rows.map((row) => row.id);

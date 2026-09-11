@@ -13,11 +13,16 @@
   <Network>bridge</Network>
   <Shell>bash</Shell>
   <Privileged>false</Privileged>
+  <!-- Room for an orderly shutdown on update/stop (the server takes up to 10 s).
+       The health check (GET /api/health) is built into the image. -->
+  <ExtraParams>--stop-timeout=30</ExtraParams>
   <Support>https://github.com/isputnikdotnet/isputnik.home/issues</Support>
   <Project>https://github.com/isputnikdotnet/isputnik.home</Project>
 
   <Overview>
-Private self-hosted family media library for audiobooks, ebooks, photos, and other digital media. Includes a modern web interface, installable PWA, offline listening support, user management, and library scanning. On first run, open the web UI to create an administrator account.
+Private self-hosted family media library, now in Beta (4.0.0 and later). Audiobooks with a built-in player, ebooks with an in-browser reader, and a photo and video gallery with on-device face recognition, albums, slideshows rendered to MP4, and a Photo Inbox for scans and photos from relatives. The family writes its own stories and recipes around what the house holds, and keeps a family tree linked to the people found in the photos. Multiple accounts with per-person progress and permissions, sharing and guest links, passkeys and two-factor sign-in, an installable PWA with offline listening, and an English or Russian interface.
+
+Beta means your data is looked after: the database migrates itself forward on every upgrade, a copy of it is saved before each new version starts, and backups can be scheduled from the Control panel. Features are still moving. On first run, open the web UI on your home network to create the administrator account.
   </Overview>
 
   <Category>MediaApp:Books MediaServer:Books MediaApp:Other</Category>
@@ -125,6 +130,16 @@ Private self-hosted family media library for audiobooks, ebooks, photos, and oth
           Display="advanced"
           Required="false"
           Mask="false">14</Config>
+
+  <Config Name="Linked Device Session Length (days)"
+          Target="DEVICE_SESSION_DAYS"
+          Default="365"
+          Mode=""
+          Description="Number of days a TV, wall display or other screen signed in with Link a device stays signed in. Each one is listed under Profile, Devices and can be revoked there."
+          Type="Variable"
+          Display="advanced"
+          Required="false"
+          Mask="false">365</Config>
 
   <Config Name="Invite Validity (days)"
           Target="INVITE_DAYS"

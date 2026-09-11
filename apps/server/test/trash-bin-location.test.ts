@@ -3,18 +3,17 @@ import os from "node:os";
 import path from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../src/db.js";
+import { trashBook, restoreTrashedItem, purgeTrashedItem } from "../src/modules/library/shared/trash.js";
 import {
-  trashBook,
-  restoreTrashedItem,
-  purgeTrashedItem,
   setTrashRootSetting,
   validateTrashRootPath,
   binIsEmpty,
   binFolderFor,
   TrashError
-} from "../src/modules/library/shared/trash.js";
+} from "../src/modules/library/shared/trash-settings.js";
 import { thumbnailPathSettingKey } from "../src/modules/library/shared/thumbnail.js";
 import { resetDb, makeUser, makeLibrary } from "./helpers/seed.js";
+import "./helpers/media-types.js";
 
 // One bin folder for every library, chosen on the Storage page, instead of a .trash
 // inside each library. The point is that nothing else walking the share sees deleted

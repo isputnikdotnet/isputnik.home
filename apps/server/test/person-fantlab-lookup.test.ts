@@ -7,7 +7,7 @@
 // two quirks of its API: a birthday with no year ("0000-09-06"), and searches
 // fuzzy enough to answer "Толстой" with every Tolstoy.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { lookupPersonByUrl, lookupPersonCandidates } from "../src/modules/library/audiobook/enrich.js";
+import { lookupPersonByUrl, lookupPersonCandidates } from "../src/modules/library/audiobook/person-lookup.js";
 
 const LEM = {
   id: 9,

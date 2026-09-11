@@ -262,13 +262,6 @@
   background: var(--field);
 }
 
-.source-folder-control > span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .source-folder-control svg {
   color: var(--muted);
 }
@@ -586,13 +579,6 @@
 
 .folder-picker-row svg {
   color: var(--control-primary-button, var(--mint));
-}
-
-.folder-picker-row span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .library-access-list {

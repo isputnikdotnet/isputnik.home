@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Shapes } from "lucide-react";
-import { api, type PublicUser } from "../../api";
+import { api } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
 import { LibraryPageHeader } from "../../shared/LibraryPageHeader";
@@ -13,13 +13,7 @@ import { CategoryIcon, categoryTint } from "./categoryIcons";
 import { sectionFromQuery, sectionNavProps } from "./sectionNavItems";
 import type { CategorySummary } from "./types";
 
-export function CategoryListPage({
-  user,
-  logout
-}: {
-  user: PublicUser;
-  logout: () => Promise<void>;
-}) {
+export function CategoryListPage() {
   const { t } = useTranslation(["common", "book"]);
   const [categories, setCategories] = useState<CategorySummary[]>([]);
   const [error, setError] = useState("");
@@ -48,8 +42,6 @@ export function CategoryListPage({
   return (
     <DashboardShell
       active={section?.active ?? "categories"}
-      user={user}
-      logout={logout}
       sideNav={section && <SectionNav {...sectionNavProps(section)} activeKey="categories" />}
     >
       <section className="audiobook-main-page">

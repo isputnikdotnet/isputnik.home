@@ -1,6 +1,10 @@
 # Remote device linking — implementation plan
 
-Follow-up to [`iSputnik-Link-a-Device-Plan.md`](iSputnik-Link-a-Device-Plan.md),
+Status: shipped in v3.6.0 (2026-08-14); kept for history. The window's length became
+an admin choice after release (decision 1); the living description is
+[`auth.md`](auth.md).
+
+Follow-up to [`iSputnik-Link-a-Device-Plan.md`](archive/iSputnik-Link-a-Device-Plan.md),
 which shipped as 3.5.0. That release deliberately refuses to link a device from
 outside the house, with one escape hatch: an admin setting the policy to `any`,
 which opens the door permanently for everyone.

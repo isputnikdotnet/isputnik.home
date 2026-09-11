@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { LibraryBig, UserPlus, UserRound } from "lucide-react";
-import { api, type PublicUser } from "../../api";
+import { api } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate, queryParam, replaceQuery } from "../../router";
 import { AlphabetBar } from "../../shared/AlphabetBar";
@@ -35,13 +35,7 @@ type NameOrder = "first" | "last";
 // Narrators are an audiobook-only credit, so this list stays per-section (unlike
 // Authors, which are unified across types in AuthorListPage). Each narrator
 // still opens the cross-type person page at /people/:name.
-export function NarratorListPage({
-  user,
-  logout
-}: {
-  user: PublicUser;
-  logout: () => Promise<void>;
-}) {
+export function NarratorListPage() {
   const { t } = useTranslation(["common", "book"]);
   const [libraries, setLibraries] = useState<AudiobookLibrary[]>([]);
   const [persons, setPersons] = useState<NarratorSummary[]>([]);
@@ -141,8 +135,6 @@ export function NarratorListPage({
   return (
     <DashboardShell
       active="audiobooks"
-      user={user}
-      logout={logout}
       sideNav={<SectionNav {...sectionNavProps(bookSectionNav("audiobook"))} activeKey="narrators" />}
     >
       <section className="audiobook-main-page">

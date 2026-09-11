@@ -48,7 +48,7 @@ function actorLabel(entry: LogEvent, t: TFunction<readonly ["common", "controlDa
 
 // Local addresses are the normal case in a house: never offer to send one to
 // AbuseIPDB, which would learn nothing and tell us nothing.
-export function isLocalAddress(ip: string | null): boolean {
+function isLocalAddress(ip: string | null): boolean {
   if (!ip) return true;
   const value = (ip.startsWith("::ffff:") ? ip.slice(7) : ip).toLowerCase();
   return (

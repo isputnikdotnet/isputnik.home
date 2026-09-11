@@ -5,7 +5,6 @@
 // Adding a namespace: create <ns>.json here AND in every other language folder,
 // then add it to both barrels. check:ui fails if the folders drift.
 import common from "./common.json";
-import library from "./library.json";
 import book from "./book.json";
 import reader from "./reader.json";
 import gallery from "./gallery.json";
@@ -21,7 +20,6 @@ import controlDash from "./controlDash.json";
 
 const resources = {
   common,
-  library,
   book,
   reader,
   gallery,

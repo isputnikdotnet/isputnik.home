@@ -11,7 +11,7 @@ import {
   MAX_TRANSCODE_ATTEMPTS,
   TRANSCODE_JOB_TYPE
 } from "../src/modules/library/gallery/transcode.js";
-import { getGalleryAsset } from "../src/modules/library/gallery/catalog.js";
+import { getGalleryAsset } from "../src/modules/library/gallery/catalog-asset.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
 
 // Insert a gallery item + detail row with controlled playability/web-copy state.

@@ -143,7 +143,7 @@ export async function audiobookSavesPlugin(app: FastifyInstance) {
       LEFT JOIN people AS authors ON authors.id = item_people.person_id
       WHERE item_saves.user_id = ? AND library_items.library_id IN (${inLibs})
       GROUP BY library_items.id
-      ORDER BY datetime(item_saves.updated_at) DESC
+      ORDER BY item_saves.updated_at DESC
     `).all(user.id, ...libIds) as SavedBookRow[];
 
     return reply.send({

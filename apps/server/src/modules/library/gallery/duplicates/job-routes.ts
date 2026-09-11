@@ -32,12 +32,11 @@ import {
   type JobOutcome,
   type JobRefusal
 } from "./jobs.js";
-import {
-  countJobResults, listJobResults, startJobScan, sweepPreview, type ResultFilter
-} from "./job-scan.js";
+import { countJobResults, listJobResults, sweepPreview, type ResultFilter } from "./job-results.js";
+import { startJobScan } from "./job-scan.js";
 import { applyPreferences, dismissResult, markResult, setMemberRole, type RoleRefusal } from "./job-review.js";
 import { checkResult, resolveJobResult, sweepJobResults } from "./job-resolve.js";
-import { processDuplicateScanQueue } from "./items.js";
+import { processDuplicateScanQueue } from "./scan-queue.js";
 import { replaceLargerSweep, replaceWithInboxCopy, type ReplaceRefusal } from "./job-replace.js";
 
 // The Photo Inbox check's Replace has its own refusals, spoken here.

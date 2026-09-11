@@ -147,7 +147,6 @@ export function LocationsView() {
 
   const countries = useMemo(
     () => pageOf([...(data?.countries ?? [])].sort(bySort(countrySort, countryDir, countryLabel)), countryPage),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [data, countrySort, countryDir, countryPage]
   );
   const places = useMemo(

@@ -1,7 +1,11 @@
 # Gallery: Memories, Albums, and photo Collections — proposal
 
-Status: **in progress** — Phases 1 (Memories) and 2 (multi-select actions) are
-**built**; sharing (Phase 2.5) is an agreed design; phases 3–5 remain proposals.
+Status: phases 1 (Memories), 2 (multi-select), 2.5 (guest share links) and 3 (albums,
+album share links included) shipped; kept while the rest is open. Open, and unlikely:
+phase 4 (type-pure collections — Collections were closed to further work on
+2026-08-23, see [family-sharing-proposal.md](family-sharing-proposal.md)) and phase 5
+(an in-browser slideshow on collections, overtaken by
+[gallery slideshows](gallery-slideshows.md)).
 Companion to
 [gallery-library.md](gallery-library.md), which describes what is shipped today.
 Supersedes the "Dedicated shareable album object (v1 uses Collections)" bullet in

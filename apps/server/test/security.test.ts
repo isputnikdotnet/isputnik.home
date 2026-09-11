@@ -82,6 +82,26 @@ describe("account lockout", () => {
     expect(isAccountLocked("a@test.local")).toBe(false);
   });
 
+  // The window is compared as text against created_at's stored ISO shape (so the
+  // (email, created_at) index serves it). Minutes-old rows on either side of the
+  // edge are the case a format mismatch gets wrong: an ISO 'T' sorts above
+  // datetime()'s ' ', so a same-day row outside the window would still count.
+  it("counts failures inside the window and not those just outside it", () => {
+    const { lockoutMinutes } = DEFAULT_SECURITY_POLICY;
+    const seed = (email: string, minutesAgo: number) => {
+      const at = new Date(Date.now() - minutesAgo * 60_000).toISOString();
+      for (let i = 0; i < LOCKOUT_THRESHOLD; i += 1) {
+        db.prepare(
+          "INSERT INTO login_attempts (id, email, ip_address, successful, created_at) VALUES (?, ?, '9.9.9.9', 0, ?)"
+        ).run(`${email}-${i}`, email, at);
+      }
+    };
+    seed("recent@test.local", 1);
+    seed("lapsed@test.local", lockoutMinutes + 1);
+    expect(isAccountLocked("recent@test.local")).toBe(true);
+    expect(isAccountLocked("lapsed@test.local")).toBe(false);
+  });
+
   // Rejected second factors are recorded as failed attempts (mfa-routes), and the
   // password step of an MFA sign-in deliberately records nothing — otherwise the
   // sequence below would reset the tally on every round and never lock.

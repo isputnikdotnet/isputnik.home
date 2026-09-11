@@ -45,7 +45,7 @@ const LIVE_SESSION_SQL = `
   FROM sessions
   JOIN users ON users.id = sessions.user_id
   WHERE sessions.revoked_at IS NULL
-    AND datetime(sessions.expires_at) > datetime('now')
+    AND sessions.expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
     AND users.deleted_at IS NULL
 `;
 
@@ -83,7 +83,7 @@ export async function sessionsPlugin(app: FastifyInstance) {
     const rows = db.prepare(`
       SELECT ${SESSION_COLUMNS}
       ${LIVE_SESSION_SQL}
-      ORDER BY datetime(sessions.last_seen_at) DESC
+      ORDER BY sessions.last_seen_at DESC
     `).all() as SessionRow[];
     const tokenHash = currentSessionHash(request);
 
@@ -130,7 +130,7 @@ export async function sessionsPlugin(app: FastifyInstance) {
       SELECT ${SESSION_COLUMNS}
       ${LIVE_SESSION_SQL}
         AND sessions.user_id = ?
-      ORDER BY sessions.kind = 'device' DESC, datetime(sessions.last_seen_at) DESC
+      ORDER BY sessions.kind = 'device' DESC, sessions.last_seen_at DESC
     `).all(request.user!.id) as SessionRow[];
     const tokenHash = currentSessionHash(request);
 

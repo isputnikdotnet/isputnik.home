@@ -6,7 +6,9 @@ import fs from "node:fs";
 import path from "node:path";
 import type { FastifyInstance } from "fastify";
 import { nanoid } from "nanoid";
+import { z } from "zod";
 import { db, logActivity } from "../../../db.js";
+import { parseQuery } from "../../../core/shared.js";
 import { receiveUploadBatch, UploadError } from "../../uploads/index.js";
 import { can, parsePolicy } from "../../../core/permissions.js";
 import { canUserAccessLibrary } from "../shared/library-access.js";
@@ -19,6 +21,8 @@ import { getAudiobookBookDetail } from "./book-helpers.js";
 
 // One audiobook = one folder of tracks; 500 covers even big episodic shows.
 const MAX_BOOK_UPLOAD_FILES = 500;
+
+const uploadQuerySchema = z.object({ folder: z.string().optional() });
 
 // Turn a user-supplied book title into a safe folder name: keep unicode (titles
 // are often Cyrillic here), drop path separators and Windows-invalid characters,
@@ -76,7 +80,11 @@ export function registerSourceRoutes(app: FastifyInstance) {
       return reply.code(400).send({ error: err instanceof Error ? err.message : "Library source folder is unavailable." });
     }
 
-    const requestedFolder = sanitizeFolderName((request.query as { folder?: string }).folder);
+    const query = parseQuery(uploadQuerySchema, request.query);
+    if (query.error) {
+      return reply.code(400).send({ error: "Invalid query", details: query.error });
+    }
+    const requestedFolder = sanitizeFolderName(query.data.folder);
     if (requestedFolder && fs.existsSync(path.join(root, requestedFolder))) {
       return reply.code(409).send({ error: `An audiobook folder named "${requestedFolder}" already exists in this library.` });
     }

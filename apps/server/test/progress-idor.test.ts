@@ -7,7 +7,6 @@ import { beforeEach, describe, expect, it } from "vitest";
 import fastify, { type FastifyInstance } from "fastify";
 import { db } from "../src/db.js";
 import { registerBookRoutes } from "../src/modules/library/audiobook/books-routes.js";
-import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
 import { resetDb, makeUser, grant } from "./helpers/seed.js";
 
 let app: FastifyInstance;

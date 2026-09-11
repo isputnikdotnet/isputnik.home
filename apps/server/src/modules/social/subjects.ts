@@ -318,7 +318,7 @@ function makeAlbumHydrator(): Hydrator {
         AND shares.user_id = ?
         AND shares.resource_id IN (${idIn})
         AND shares.revoked_at IS NULL
-        AND (shares.expires_at IS NULL OR datetime(shares.expires_at) > datetime('now'))
+        AND (shares.expires_at IS NULL OR shares.expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
     `).all(user.id, ...entityIds) as { album_id: string; total_count: number; cover_key: string | null }[];
     const shared = new Map(sharedRows.map((row) => [row.album_id, row]));
 

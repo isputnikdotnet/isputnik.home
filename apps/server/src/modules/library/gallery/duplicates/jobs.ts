@@ -27,9 +27,8 @@ import { nanoid } from "nanoid";
 import { db } from "../../../../db.js";
 import { parsePolicy } from "../../../../core/permissions.js";
 import { locksByLibrary, lockCoveredIn } from "../../shared/folder-locks.js";
-import {
-  duplicateCandidateCount, duplicatePendingCount, type FolderPreferenceMode
-} from "./items.js";
+import { duplicateCandidateCount, duplicatePendingCount } from "./items.js";
+import type { FolderPreferenceMode } from "./keeper.js";
 
 /** Where a job is in its life. The five ACTIVE ones block a second job; the rest
  *  are history and block nothing. */

@@ -8,7 +8,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import sharp from "sharp";
-import { stripImageMetadata } from "../src/modules/library/shared/shares.js";
+import { stripImageMetadata } from "../src/modules/library/shared/shares/serve.js";
 
 let dir: string;
 
@@ -65,5 +65,22 @@ describe("stripImageMetadata", () => {
     const junk = path.join(dir, "not-an-image.jpg");
     fs.writeFileSync(junk, Buffer.from("this is definitely not an image"));
     expect(await stripImageMetadata(junk)).toBeNull();
+  });
+
+  it("refuses concurrent requests for the same undecodable file one at a time", async () => {
+    // A guest's browser prefetching a grid, or two guests on one link: several strips
+    // of one bad file at once. Two sharp pipelines failing together is what kills the
+    // process (thumbnail.ts, renderInTurn), so they must queue — and each still refuses.
+    const junk = path.join(dir, "truncated.jpg");
+    fs.writeFileSync(junk, Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46]));
+    const results = await Promise.all(Array.from({ length: 6 }, () => stripImageMetadata(junk)));
+    expect(results).toEqual([null, null, null, null, null, null]);
+    // Handed to sharp as a Buffer, so nothing holds the file open afterwards.
+    fs.rmSync(junk);
+    expect(fs.existsSync(junk)).toBe(false);
+  });
+
+  it("returns null for a file that has gone missing", async () => {
+    expect(await stripImageMetadata(path.join(dir, "gone.jpg"))).toBeNull();
   });
 });

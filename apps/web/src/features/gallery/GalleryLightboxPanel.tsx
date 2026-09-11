@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Calendar, FileText, FolderOpen, MapPin, Plus, Replace, RotateCcw, RotateCw, Tag, Users, X } from "lucide-react";
 import { api } from "../../api";
 import { formatBytes } from "../../shared/utils";
+import { CLIP_LENGTH, formatClock } from "../../shared/formatClock";
 import { NotesSection } from "../social/NotesSection";
 import { GalleryPlaceSearch } from "./GalleryPlaceSearch";
 import { VoiceNotes } from "./VoiceNotes";
@@ -32,14 +33,6 @@ export type PanelTab = "details" | "map" | "file";
 // technical fields stay read-only: the title is the file on disk. "placeText" is
 // the place as a person wrote it, beside the pin (docs/photo-review-plan.md).
 type EditableField = "description" | "takenAt" | "placeText" | "tags" | "gps";
-
-function formatDuration(seconds: number | null): string {
-  if (seconds == null) return "";
-  const total = Math.round(seconds);
-  const m = Math.floor(total / 60);
-  const s = total % 60;
-  return `${m}:${s.toString().padStart(2, "0")}`;
-}
 
 // The letter a person's chip shows when no face crop is known for them.
 function initial(name: string): string {
@@ -628,7 +621,7 @@ export function GalleryLightboxPanel({
               <><dt>{t("gallery:lightbox.labelDimensions")}</dt><dd>{asset.width} × {asset.height}</dd></>
             )}
             {(asset.kind === "video" || asset.kind === "audio") && asset.durationSeconds != null && (
-              <><dt>{t("gallery:lightbox.labelDuration")}</dt><dd>{formatDuration(asset.durationSeconds)}</dd></>
+              <><dt>{t("gallery:lightbox.labelDuration")}</dt><dd>{formatClock(asset.durationSeconds, CLIP_LENGTH)}</dd></>
             )}
             {asset.size != null && <><dt>{t("gallery:lightbox.labelSize")}</dt><dd>{formatBytes(asset.size)}</dd></>}
             {asset.camera && (asset.camera.make || asset.camera.model) && (

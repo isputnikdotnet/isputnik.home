@@ -69,8 +69,7 @@
     "photos": "Фото",
     "ofWhich": "Из них",
     "books": "Книги",
-    "hours": "Часы",
-    "queued": "В очереди"
+    "hours": "Часы"
   },
   "pagers": {
     "activity": "Страницы активности",
@@ -361,7 +360,10 @@
     "guestVisitsN_other": "{{count}} гостевых визита",
     "guestVisitors": "Гости",
     "guestVisitorsNote": "Вошли по ссылке — без учётной записи",
-    "methodShareLinkN": "{{count}} по ссылке",
+    "methodShareLinkN_one": "{{count}} по ссылке",
+    "methodShareLinkN_few": "{{count}} по ссылке",
+    "methodShareLinkN_many": "{{count}} по ссылке",
+    "methodShareLinkN_other": "{{count}} по ссылке",
     "newestOnly_one": "показана последняя {{count}} · остальное в Журнале",
     "newestOnly_few": "показаны последние {{count}} · остальное в Журнале",
     "newestOnly_many": "показаны последние {{count}} · остальное в Журнале",
@@ -558,9 +560,6 @@
     "statusCompleted": "завершено",
     "statusFailed": "не удалось",
     "showSkipped": "Показать пропущенные элементы"
-  },
-  "recent": {
-    "loadFailed": "Не удалось загрузить активность"
   },
   "dupes": {
     "status": {

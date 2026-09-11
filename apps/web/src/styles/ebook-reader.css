@@ -4,7 +4,7 @@
 .ebk-reader {
   position: fixed;
   inset: 0;
-  z-index: 1000;
+  z-index: var(--z-viewer);
   display: flex;
   flex-direction: column;
   font-family: var(--font, system-ui, sans-serif);
@@ -188,7 +188,7 @@
 .ebk-sel-toolbar,
 .ebk-quote-pop {
   position: fixed;
-  z-index: 30;
+  z-index: var(--z-popover);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -224,7 +224,7 @@
 .ebk-sel-btn.danger:hover { background: rgba(239, 154, 154, 0.16); }
 
 .ebk-quote-scrim {
-  position: fixed; inset: 0; z-index: 29;
+  position: fixed; inset: 0; z-index: calc(var(--z-popover) - 1);
   border: none; background: transparent; cursor: default;
 }
 

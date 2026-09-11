@@ -1,6 +1,10 @@
 # For you — plan
 
-Status: **Phases 1 and 2 built in-code (2026-09-08)** — `GET /api/for-you`,
+Status: shipped in v3.74.0 (2026-09-08); kept for history. Phases 1 and 2 are built;
+phase 3 (notes and admin alerts as rows) was never started and waits until someone
+misses it.
+
+As built: **Phases 1 and 2 built in-code (2026-09-08)** — `GET /api/for-you`,
 the bell counting deliveries (`inbox_delivery_seen`), `/for-you` replacing
 Shared with me, delivery rows with the drop link's label, Home showing the
 first three rows. Phase 3 remains a proposal. Written 2026-09-08 after the photo review work

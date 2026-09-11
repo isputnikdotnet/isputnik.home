@@ -22,7 +22,7 @@ FK), whereas tags are a polymorphic many-to-many label set.
 ## Auto-assignment at scan
 
 Both scanners classify through the same engine,
-[`matchCategoryId(genres)`](../apps/server/src/modules/library/audiobook/categorize.ts): incoming
+[`matchCategoryId(genres)`](../apps/server/src/modules/library/shared/tagging.ts): incoming
 genre/subject strings are normalized and matched against the alias table; the highest-priority
 match wins, else `general_other`. The audiobook scanner feeds it genre tags; the ebook scanner
 feeds it `meta.subjects`. Editing aliases and running **Re-match**

@@ -5,10 +5,10 @@
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { z } from "zod";
 import { db, logActivity } from "../../../db.js";
-import { parseBody } from "../../../core/shared.js";
+import { parseBody, parseQuery } from "../../../core/shared.js";
 import { deleteStoryBlocksForResource } from "../../stories/cleanup.js";
-import { deleteEntityTags, getEntityTags, setEntityTags } from "../audiobook/categorize.js";
-import { resolveGalleryScopeLibraryIds } from "./catalog.js";
+import { deleteEntityTags, getEntityTags, setEntityTags } from "../shared/tagging.js";
+import { resolveGalleryScopeLibraryIds } from "./catalog-scope.js";
 import {
   getSlideshow,
   canEditSlideshow,
@@ -30,18 +30,15 @@ import {
 import { getMusicTrack, summarizeTrack } from "./music.js";
 import path from "node:path";
 import { validateLibrarySource } from "../shared/library-source.js";
+import { enqueueSlideshowRender, renderProgressPercent } from "./slideshow-render-queue.js";
 import {
-  enqueueSlideshowRender,
-  renderProgressPercent,
   deleteSlideshowRender,
-  presentRenderItems,
-  slideshowTitleCardPreview,
-  slideshowClosingCardPreview,
   saveMovieToLibrary,
   movieRelativePathFor,
   movieStemFor,
   foreignItemAt
-} from "./slideshow-render.js";
+} from "./slideshow-movie-files.js";
+import { presentRenderItems, slideshowTitleCardPreview, slideshowClosingCardPreview } from "./slideshow-segments.js";
 import { parseRangeHeader, pipeFileToReply } from "../shared/document-stream.js";
 import { sourceIsWritable } from "../shared/library-source.js";
 import { canUserWriteLibrary } from "../shared/library-access.js";
@@ -53,6 +50,18 @@ import fs from "node:fs";
 // How wide the title-card preview is drawn. The card itself is 1920 wide; this is a
 // dialog-sized look at it, not the frame the movie carries.
 const PREVIEW_WIDTH = 800;
+
+// Query strings — one value per key. Page numbers stay strings so junk falls back
+// to the defaults in the handler, as it always has.
+const pageQuerySchema = z.object({ limit: z.string().optional(), offset: z.string().optional() });
+// `download` is a presence flag; `v` is the cache-busting token movieUrl carries.
+const movieQuerySchema = z.object({ download: z.string().optional(), v: z.string().optional() });
+const titleCardQuerySchema = z.object({ card: z.string().optional() });
+const movieTargetPreviewQuerySchema = z.object({
+  libraryId: z.string().optional(),
+  stem: z.string().optional(),
+  onConflict: z.string().optional()
+});
 
 // Render state a detail response carries. `movieUrl` is present only when a movie is
 // ready; `percent` is the live encode progress while rendering.
@@ -315,7 +324,11 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
     if (!slideshow) {
       return reply.code(404).send({ error: "Slideshow not found" });
     }
-    const qp = request.query as { limit?: string; offset?: string };
+    const parsed = parseQuery(pageQuerySchema, request.query);
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid query", details: parsed.error });
+    }
+    const qp = parsed.data;
     const limit = Math.min(Math.max(Number.parseInt(qp.limit ?? "200", 10) || 200, 1), 500);
     const offset = Math.max(Number.parseInt(qp.offset ?? "0", 10) || 0, 0);
     const libIds = resolveGalleryScopeLibraryIds(user);
@@ -398,7 +411,12 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
       reply.code(416).header("Content-Range", `bytes */${totalSize}`).send({ error: "Range not satisfiable" });
       return;
     }
-    const download = typeof (request.query as { download?: string }).download === "string";
+    const query = parseQuery(movieQuerySchema, request.query);
+    if (query.error) {
+      reply.code(400).send({ error: "Invalid query", details: query.error });
+      return;
+    }
+    const download = typeof query.data.download === "string";
     if (download && (!range || range.start === 0)) {
       logActivity({
         event: "gallery.slideshow.downloaded",
@@ -452,7 +470,11 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
       return reply.code(404).send({ error: "Slideshow not found" });
     }
     const items = presentRenderItems(getSlideshowRenderItems(libIds, slideshow));
-    const closing = (request.query as { card?: string }).card === "closing";
+    const query = parseQuery(titleCardQuerySchema, request.query);
+    if (query.error) {
+      return reply.code(400).send({ error: "Invalid query", details: query.error });
+    }
+    const closing = query.data.card === "closing";
     const png = closing
       ? await slideshowClosingCardPreview(slideshow, items, PREVIEW_WIDTH)
       : await slideshowTitleCardPreview(slideshow, items, PREVIEW_WIDTH);
@@ -532,7 +554,11 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
     const slideshow = editable((request.params as { id: string }).id, user, reply);
     if (!slideshow) return reply;
 
-    const query = request.query as { libraryId?: string; stem?: string; onConflict?: string };
+    const parsed = parseQuery(movieTargetPreviewQuerySchema, request.query);
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid query", details: parsed.error });
+    }
+    const query = parsed.data;
     const libraryId = (query.libraryId ?? "").trim();
     if (!libraryId) return reply.code(400).send({ error: "Name a library to check." });
 

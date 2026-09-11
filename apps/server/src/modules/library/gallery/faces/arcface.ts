@@ -16,6 +16,7 @@ import sharp from "sharp";
 import type * as ort from "onnxruntime-node";
 import { decodePhotoToJpeg } from "../media.js";
 import { FACE_EMBEDDING_MODEL } from "./model-id.js";
+import { log } from "../../../../core/logger.js";
 
 export { FACE_EMBEDDING_MODEL };
 
@@ -118,7 +119,7 @@ async function createSession(file: string): Promise<{ session: ort.InferenceSess
     return { session: await InferenceSession.create(file, opts), gpu: providers.some((p) => p !== "cpu") };
   } catch (err) {
     if (providers.length === 1) throw err; // already CPU-only — nothing to fall back to
-    console.warn(`face engine: providers [${providers.join(", ")}] failed (${err instanceof Error ? err.message : err}); falling back to CPU.`);
+    log.warn(`face engine: providers [${providers.join(", ")}] failed (${err instanceof Error ? err.message : err}); falling back to CPU.`);
     return { session: await InferenceSession.create(file, { ...opts, executionProviders: ["cpu"] }), gpu: false };
   }
 }
@@ -312,7 +313,7 @@ export async function detectFacesFromRaw(image: DecodedImage): Promise<DetectedF
     return await runInference(engine, image);
   } catch (err) {
     if (!engine.gpu) throw err;
-    console.warn(`face engine: GPU execution failed (${err instanceof Error ? err.message : err}); rebuilding CPU-only and retrying.`);
+    log.warn(`face engine: GPU execution failed (${err instanceof Error ? err.message : err}); rebuilding CPU-only and retrying.`);
     forceCpu = true;
     enginePromise = null;
     return runInference(await getEngine(), image);

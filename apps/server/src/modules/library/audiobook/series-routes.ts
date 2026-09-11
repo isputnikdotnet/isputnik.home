@@ -6,7 +6,7 @@ import sharp from "sharp";
 import { z } from "zod";
 import { db } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
-import { sortTitle } from "./scanner.js";
+import { sortTitle } from "./scan/folder-parse.js";
 import { alphaFieldsFor } from "../shared/alphabet.js";
 import { thumbnailAbsolutePath, thumbnailStorageKey } from "../shared/thumbnail.js";
 import { getAccessibleLibrary, canUserCurateLibrary } from "../shared/library-access.js";

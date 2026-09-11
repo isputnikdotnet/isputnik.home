@@ -19,14 +19,14 @@ import { z } from "zod";
 import type { FastifyInstance } from "fastify";
 import { nanoid } from "nanoid";
 import { db } from "../../db.js";
-import { parseBody, requestOrigin } from "../../core/shared.js";
+import { parseBody, parseQuery, requestOrigin } from "../../core/shared.js";
 import {
   canGrantAlbumAccess,
   canGrantItemAccess,
   grantAlbumAccess,
   grantItemAccess
-} from "../library/shared/shares.js";
-import { canEditStory, getStory } from "../stories/stories.js";
+} from "../library/shared/shares/grants.js";
+import { canEditStory, getStory } from "../stories/access.js";
 import { hydrateEntities, hydrateOne, isSubjectEntityType, type HydratedEntity } from "./subjects.js";
 import { notifyRecommendationSent } from "./notify.js";
 
@@ -177,7 +177,7 @@ export function loadInboxCards(
   const rows = db.prepare(`
     SELECT * FROM recommendations
     WHERE to_user_id = ?${opts.onlyNew ? " AND status = 'new'" : ""}
-    ORDER BY (status = 'new') DESC, datetime(created_at) DESC
+    ORDER BY (status = 'new') DESC, created_at DESC
     LIMIT ?
   `).all(user.id, opts.limit ?? 50) as RecommendationRow[];
 
@@ -196,9 +196,15 @@ export async function socialPlugin(app: FastifyInstance) {
   // Access is resolved per candidate by running the subject resolver as THEM.
   // That is one query per household member — fine at five, and it is the only
   // way to be sure a recommendation is openable rather than a dead end.
+  const destinationsQuerySchema = z.object({ entityType: z.string().optional(), entityId: z.string().optional() });
+
   app.get("/api/social/destinations", { preHandler: app.authenticate }, async (request, reply) => {
     const user = request.user!;
-    const query = request.query as { entityType?: string; entityId?: string };
+    const parsed = parseQuery(destinationsQuerySchema, request.query);
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid query", details: parsed.error });
+    }
+    const query = parsed.data;
     if (!query.entityType || !query.entityId || !isSubjectEntityType(query.entityType)) {
       return reply.code(400).send({ error: "Unknown subject" });
     }

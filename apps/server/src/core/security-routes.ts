@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { db, logActivity } from "../db.js";
-import { parseBody } from "./shared.js";
+import { parseBody, parseQuery, queryList } from "./shared.js";
 import { ipInCidr, isPrivateIp, isValidCidr } from "./cidr.js";
 import {
   listTrustedNetworks,
@@ -100,8 +100,8 @@ export async function securityRoutes(app: FastifyInstance) {
     const failedCount = db.prepare(`
       SELECT COUNT(*) AS n FROM activity_logs
       WHERE event IN ('auth.login_failed', 'auth.mfa_failed')
-        AND datetime(created_at) > datetime('now', @from)
-        AND datetime(created_at) <= datetime('now', @to)
+        AND created_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now', @from)
+        AND created_at <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', @to)
     `);
     const failed24h = (failedCount.get({ from: "-1 day", to: "+0 seconds" }) as { n: number }).n;
     const failedPrev24h = (failedCount.get({ from: "-2 days", to: "-1 day" }) as { n: number }).n;
@@ -128,7 +128,7 @@ export async function securityRoutes(app: FastifyInstance) {
     // Which trusted ranges are doing anything: live sessions whose address falls
     // inside each one. A range with none is either a spare or a mistake.
     const liveSessionIps = (
-      db.prepare("SELECT ip_address FROM sessions WHERE revoked_at IS NULL AND datetime(expires_at) > datetime('now') AND ip_address IS NOT NULL").all() as { ip_address: string }[]
+      db.prepare("SELECT ip_address FROM sessions WHERE revoked_at IS NULL AND expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now') AND ip_address IS NOT NULL").all() as { ip_address: string }[]
     ).map((row) => row.ip_address);
 
     return {
@@ -333,9 +333,15 @@ export async function securityRoutes(app: FastifyInstance) {
   // an address is looked up only when an admin asks for it (the route below) or
   // when local detection auto-blocks it, so ordinary family traffic never leaves
   // the house. `configured` tells the client whether to offer the check at all.
+  // `ip` repeats, one key per address (?ip=a&ip=b).
+  const ipReputationQuerySchema = z.object({ ip: queryList.optional() });
+
   app.get("/api/security/ip-reputation", { preHandler: app.requireAdmin }, async (request, reply) => {
-    const raw = (request.query as { ip?: string | string[] }).ip;
-    const ips = [...new Set((raw === undefined ? [] : Array.isArray(raw) ? raw : [raw]).map((ip) => ip.trim()).filter(Boolean))].slice(0, 100);
+    const parsed = parseQuery(ipReputationQuerySchema, request.query);
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid query", details: parsed.error });
+    }
+    const ips = [...new Set((parsed.data.ip ?? []).map((ip) => ip.trim()).filter(Boolean))].slice(0, 100);
     return reply.send({
       configured: Boolean(getSecurityPolicy().abuseIpdbKey),
       reputation: getCachedReputations(ips).map(reputationPayload)

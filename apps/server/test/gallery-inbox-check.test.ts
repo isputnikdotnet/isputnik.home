@@ -5,12 +5,15 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../src/db.js";
 import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
 import { activeJob, createJob, getJob, setJobStatus } from "../src/modules/library/gallery/duplicates/jobs.js";
-import { runJobScan, listJobResults, INBOX_KEEPER_REASON } from "../src/modules/library/gallery/duplicates/job-scan.js";
+import { runJobScan } from "../src/modules/library/gallery/duplicates/job-scan.js";
+import { listJobResults } from "../src/modules/library/gallery/duplicates/job-results.js";
+import { INBOX_KEEPER_REASON } from "../src/modules/library/gallery/duplicates/snapshot-inbox.js";
 import { replaceWithInboxCopy, replaceLargerSweep } from "../src/modules/library/gallery/duplicates/job-replace.js";
 import { inboxCheckView, queueInboxCheck } from "../src/modules/library/gallery/duplicates/inbox-check.js";
-import { groupNearIdentical } from "../src/modules/library/gallery/duplicates/items.js";
+import { groupNearIdentical } from "../src/modules/library/gallery/duplicates/grouping.js";
 import { thumbnailPathSettingKey } from "../src/modules/library/shared/thumbnail.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
+import "./helpers/media-types.js";
 
 // The Photo Inbox check (docs/photo-inbox-proposal.md, phase 2): a cleanup whose
 // candidates are one library's photos. Asymmetric — the collection is never

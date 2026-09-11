@@ -10,7 +10,7 @@
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import { db } from "../../db.js";
-import { addEntityTags, normalizeText, setEntityTags } from "../library/audiobook/categorize.js";
+import { addEntityTags, normalizeText, setEntityTags } from "../library/shared/tagging.js";
 import { FAMILY_PERSON_ENTITY_TYPE } from "./access.js";
 import { listFamilyEvents, type FamilyEventSummary } from "./events.js";
 import { listPersonCitations, type FamilyCitationSummary } from "./sources.js";

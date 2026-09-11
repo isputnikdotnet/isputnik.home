@@ -8,7 +8,7 @@ Code lives in [`gallery/duplicates/`](../apps/server/src/modules/library/gallery
 the UI in [`sections/duplicates/`](../apps/web/src/features/control/sections/duplicates)
 with its own [`styles/duplicates.css`](../apps/web/src/styles/duplicates.css). The
 user-facing guide is [`users/duplicate-cleanup.md`](users/duplicate-cleanup.md); how this
-arrived at one page is [`duplicate-cleanup-plan.md`](duplicate-cleanup-plan.md).
+arrived at one page is [`archive/duplicate-cleanup-plan.md`](archive/duplicate-cleanup-plan.md).
 
 ---
 
@@ -331,10 +331,13 @@ a folder with a lock anywhere inside it is never proposed for clearing out.
 
 | File | Owns |
 |---|---|
-| `duplicates/items.ts` | Size gate, sha256 pass, exact + near grouping, keeper scoring, folder instructions, the scan worker |
+| `duplicates/items.ts` | Size gate, sha256 pass, exact + near grouping, keeper scoring, folder instructions |
+| `duplicates/scan-queue.ts` | The scan worker |
 | `duplicates/folders.ts` | Folder fingerprints, the three folder tiers, their resolve paths |
 | `duplicates/jobs.ts` | A cleanup job: scope, status, ownership, totals |
-| `duplicates/job-scan.ts` | Starting a scan, and writing / reading the snapshot |
+| `duplicates/job-scan.ts` | Starting a scan, and writing the snapshot |
+| `duplicates/snapshot-*.ts` | One tier each: `photo-sets`, `near`, `inbox`, `folders`, `contained`, `overlaps` (shared parts in `snapshot.ts`) |
+| `duplicates/job-results.ts` | Reading the snapshot back |
 | `duplicates/job-review.ts` | Mark, dismiss, re-apply folder instructions |
 | `duplicates/job-resolve.ts` | Revalidate, then move copies to the Recycle Bin |
 | `duplicates/job-routes.ts` | The cleanup page's API |

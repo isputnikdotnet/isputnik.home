@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { BookOpen, CheckCircle2, ChevronDown, ChevronUp, Link2, Pencil, RotateCcw, Save, Search, Upload, X } from "lucide-react";
+import { BookOpen, CheckCircle2, ChevronDown, ChevronUp, Link2, Pencil, RotateCcw, Save, Search, Upload } from "lucide-react";
 import { api } from "../../api";
 import { PeopleCombobox } from "../../shared/PeopleCombobox";
 import { SuggestInput } from "../../shared/SuggestInput";

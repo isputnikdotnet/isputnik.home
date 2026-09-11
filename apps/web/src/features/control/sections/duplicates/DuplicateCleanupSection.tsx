@@ -32,7 +32,6 @@ import { ConfirmDialog } from "../../../../shared/ConfirmDialog";
 import { Pager } from "../../../../shared/Pager";
 import { SelectMenu } from "../../../../shared/SelectMenu";
 import { SortMenu } from "../../../../shared/SortMenu";
-import { controlHref } from "../../../../router";
 import { CleanupHero, JobCard } from "./CleanupJobCard";
 import { CleanupWizard } from "./CleanupWizard";
 import { CleanupResultCard } from "./CleanupResultCard";

@@ -2,7 +2,7 @@
 // has no country to look up — so without it the Locations map draws everyone
 // except the people who own the server.
 import { beforeEach, describe, expect, it } from "vitest";
-import { getHomeLocation, homeLocationSchema, setHomeLocation } from "../src/core/home-location.js";
+import { getHomeLocation, homeLocationSchema, setHomeLocation } from "../src/modules/dashboard/home-location.js";
 import { db } from "../src/db.js";
 import { makeUser, resetDb } from "./helpers/seed.js";
 

@@ -82,6 +82,32 @@ export function parseBody<T>(schema: z.ZodType<T>, body: unknown) {
   return { data: parsed.data };
 }
 
+// The query-string twin of parseBody. Every value arrives as a string — or as an
+// ARRAY of strings when a key repeats (`?url=a&url=b`), which is how Fastify's
+// parser hands it over. A handler that cast request.query to `{ x?: string }` and
+// called .trim() on that array threw a TypeError: an unexpected, error-logged 500
+// for what is only a malformed request. Validating first turns it into a 400.
+//
+// Schemas: `z.string().optional()` for a scalar (a repeated key then fails
+// cleanly), `z.coerce.number()` for numbers, `queryBool` for booleans and
+// `queryList` for a filter that may legitimately repeat. Unknown keys are dropped,
+// as with any z.object.
+export function parseQuery<T>(schema: z.ZodType<T>, query: unknown) {
+  return parseBody(schema, query ?? {});
+}
+
+// "true"/"1" → true, "false"/"0" → false; anything else is invalid. Not
+// z.coerce.boolean(): that is Boolean(value), which reads "false" as true.
+export const queryBool = z
+  .enum(["true", "1", "false", "0"])
+  .transform((value) => value === "true" || value === "1");
+
+// A list filter that may arrive once or as a repeated key (`?ip=a&ip=b`) —
+// always handed on as an array.
+export const queryList = z
+  .union([z.string(), z.array(z.string())])
+  .transform((value) => (Array.isArray(value) ? value : [value]));
+
 export function getUserByEmail(email: string) {
   return db.prepare("SELECT * FROM users WHERE email = ? AND deleted_at IS NULL").get(email) as User | undefined;
 }

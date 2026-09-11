@@ -167,32 +167,7 @@
     "hintMaxSize": " · up to {{mb}} MB per file"
   },
   "shareAlbum": {
-    "title": "Share “{{name}}”",
-    "tabLink": "Guest link",
-    "tabPeople": "People",
-    "unableToShareTitle": "Unable to share",
-    "linkIntro": "Anyone with the link can view and download this album’s photos — no account needed. The link stays in step with the album: photos you add or remove appear and disappear automatically.",
-    "expiresInLabel": "Expires in",
-    "labelFieldLabel": "Label (optional)",
-    "createLink": "Create link",
-    "creating": "Creating…",
-    "copyNowHint": "Copy this link now — it won’t be shown again.",
-    "copy": "Copy",
-    "copied": "Copied",
-    "noLinks": "No active links for this album.",
-    "defaultLinkLabel": "Album link",
-    "expiredLabel": "Expired",
-    "expiresOn": "Expires {{date}}",
-    "revokeLinkAria": "Revoke link",
-    "unableToCreateLink": "Could not create link",
-    "copyFailed": "Copy failed — select and copy the link manually.",
-    "unableToRevokeLink": "Could not revoke link",
-    "unableToRevokeUser": "Could not revoke",
-    "peopleIntro": "Who has their own live copy under “Shared with me” — always the album’s current photos, even ones in a library they can’t otherwise browse. To give somebody access, use <bold>Send to</bold>: pick them and it grants access as it tells them.",
-    "noRecipients": "Nobody has been given access to this album yet.",
-    "untilDate": "Until {{date}}",
-    "noExpiry": "No expiry",
-    "removeUserAria": "Remove {{name}}"
+    "title": "Share “{{name}}”"
   },
   "titleCard": {
     "title": "Title & credits",

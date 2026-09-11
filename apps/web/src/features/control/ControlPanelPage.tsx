@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { Suspense, lazy, useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronDown, Home, Search } from "lucide-react";
 import type { PublicUser } from "../../api";
@@ -18,48 +18,52 @@ import {
   type ControlTabDef
 } from "./nav";
 import { ControlSearch, useControlSearchShortcut } from "./ControlSearch";
-import { UsersSection } from "./sections/UsersSection";
-import { InvitesSection } from "./sections/InvitesSection";
-import { LogsSection } from "./sections/LogsSection";
-import { AboutSection } from "./sections/AboutSection";
-import { StorageSection } from "./sections/StorageSection";
-import { StorageContentsSection } from "./sections/StorageContentsSection";
-import { LibrariesSection } from "./sections/LibrariesSection";
-import { DashboardSection } from "./sections/DashboardSection";
-import { BackupSection } from "./sections/BackupSection";
-import { CategoriesSection, CategoryEditorPage } from "./sections/CategoriesSection";
-import { TagsSection } from "./sections/TagsSection";
-import { GroupsSection } from "./sections/GroupsSection";
-import { ScheduledJobsSection } from "./sections/ScheduledJobsSection";
-import { QuotesSection } from "./sections/QuotesSection";
-import { MissingPhotosSection } from "./sections/MissingPhotosSection";
-import { DuplicateCleanupSection } from "./sections/duplicates/DuplicateCleanupSection";
-import { AppearanceSection } from "./sections/AppearanceSection";
-import { MailSection } from "./sections/MailSection";
-import { NotificationsSection } from "./sections/NotificationsSection";
-import { StorySettingsSection } from "./sections/StorySettingsSection";
-import { MapsSection } from "./sections/MapsSection";
-import { OpdsAccessSection } from "./sections/OpdsAccessSection";
-import { SecuritySection } from "./sections/SecuritySection";
-import { RecycleBinSection } from "./sections/RecycleBinSection";
+import { LoadErrorBoundary } from "../../shared/LoadErrorBoundary";
+import { useSession } from "../../app/SessionContext";
+
+// Each section is its own chunk, loaded when its tab is first opened. Imported
+// statically they made this page one ~700 KB file — the dashboard's charts, the
+// backup and security screens, the duplicate cleanup — downloaded whole to show
+// any one tab. The page itself is now just the nav and the tab row.
+const UsersSection = lazy(() => import("./sections/UsersSection").then((m) => ({ default: m.UsersSection })));
+const InvitesSection = lazy(() => import("./sections/InvitesSection").then((m) => ({ default: m.InvitesSection })));
+const LogsSection = lazy(() => import("./sections/LogsSection").then((m) => ({ default: m.LogsSection })));
+const AboutSection = lazy(() => import("./sections/AboutSection").then((m) => ({ default: m.AboutSection })));
+const StorageSection = lazy(() => import("./sections/StorageSection").then((m) => ({ default: m.StorageSection })));
+const StorageContentsSection = lazy(() => import("./sections/StorageContentsSection").then((m) => ({ default: m.StorageContentsSection })));
+const LibrariesSection = lazy(() => import("./sections/LibrariesSection").then((m) => ({ default: m.LibrariesSection })));
+const DashboardSection = lazy(() => import("./sections/DashboardSection").then((m) => ({ default: m.DashboardSection })));
+const BackupSection = lazy(() => import("./sections/BackupSection").then((m) => ({ default: m.BackupSection })));
+const CategoriesSection = lazy(() => import("./sections/CategoriesSection").then((m) => ({ default: m.CategoriesSection })));
+const CategoryEditorPage = lazy(() => import("./sections/CategoriesSection").then((m) => ({ default: m.CategoryEditorPage })));
+const TagsSection = lazy(() => import("./sections/TagsSection").then((m) => ({ default: m.TagsSection })));
+const GroupsSection = lazy(() => import("./sections/GroupsSection").then((m) => ({ default: m.GroupsSection })));
+const ScheduledJobsSection = lazy(() => import("./sections/ScheduledJobsSection").then((m) => ({ default: m.ScheduledJobsSection })));
+const QuotesSection = lazy(() => import("./sections/QuotesSection").then((m) => ({ default: m.QuotesSection })));
+const MissingPhotosSection = lazy(() => import("./sections/MissingPhotosSection").then((m) => ({ default: m.MissingPhotosSection })));
+const DuplicateCleanupSection = lazy(() => import("./sections/duplicates/DuplicateCleanupSection").then((m) => ({ default: m.DuplicateCleanupSection })));
+const AppearanceSection = lazy(() => import("./sections/AppearanceSection").then((m) => ({ default: m.AppearanceSection })));
+const MailSection = lazy(() => import("./sections/MailSection").then((m) => ({ default: m.MailSection })));
+const NotificationsSection = lazy(() => import("./sections/NotificationsSection").then((m) => ({ default: m.NotificationsSection })));
+const StorySettingsSection = lazy(() => import("./sections/StorySettingsSection").then((m) => ({ default: m.StorySettingsSection })));
+const MapsSection = lazy(() => import("./sections/MapsSection").then((m) => ({ default: m.MapsSection })));
+const OpdsAccessSection = lazy(() => import("./sections/OpdsAccessSection").then((m) => ({ default: m.OpdsAccessSection })));
+const SecuritySection = lazy(() => import("./sections/SecuritySection").then((m) => ({ default: m.SecuritySection })));
+const RecycleBinSection = lazy(() => import("./sections/RecycleBinSection").then((m) => ({ default: m.RecycleBinSection })));
 
 export function ControlPanelPage({
   section,
-  categoryId,
-  user,
-  logout
+  categoryId
 }: {
   section: ControlSection;
   categoryId?: string | null;
-  user: PublicUser;
-  logout: () => Promise<void>;
 }) {
+  const { user } = useSession();
   const { t } = useTranslation(["common", "control"]);
   const [searchOpen, setSearchOpen] = useState(false);
   const openSearch = useCallback(() => setSearchOpen(true), []);
   useControlSearchShortcut(openSearch);
 
-  const group = groupForSection(section);
   // The category editor is a sub-page of Categories, not a tab of its own, so it
   // keeps the nav highlight but drops the tab row.
   const editingCategory = section === "categories" && categoryId !== undefined;
@@ -67,8 +71,6 @@ export function ControlPanelPage({
   return (
     <DashboardShell
       active="control"
-      user={user}
-      logout={logout}
       sideNav={<ControlPanelNav section={section} onSearch={openSearch} />}
     >
       <div className="control-panel control-panel-single">
@@ -82,7 +84,13 @@ export function ControlPanelPage({
               label={t("control:nav.tabsAria", { group: sectionEyebrow(section) })}
             />
           )}
-          <ControlSectionBody section={section} categoryId={categoryId} currentUser={user} />
+          {/* Inside the page, so the nav and tab row stay up while a section's
+              chunk is on its way — or, offline, fails to arrive. */}
+          <LoadErrorBoundary resetKey={`${section}:${categoryId ?? ""}`}>
+            <Suspense fallback={<p className="muted">{t("control:ui.loading")}</p>}>
+              <ControlSectionBody section={section} categoryId={categoryId} currentUser={user} />
+            </Suspense>
+          </LoadErrorBoundary>
         </section>
       </div>
 

@@ -22,15 +22,14 @@ import path from "node:path";
 import type { FastifyInstance } from "fastify";
 import { nanoid } from "nanoid";
 import { db, logActivity } from "../../db.js";
-import { parseBody } from "../../core/shared.js";
+import { parseBody, parseQuery } from "../../core/shared.js";
 import {
   accessibleLibraryIds,
   canUserAccessBook,
   getLibraryForBook,
   getReadableDocument
 } from "./shared/library-access.js";
-import { userHasItemShare } from "./shared/share-access.js";
-import { normalizeText, setEntityTags } from "./audiobook/categorize.js";
+import { normalizeText, setEntityTags } from "./shared/tagging.js";
 import { mediaKind } from "./shared/library-types.js";
 // A quote's date is the same partial ISO date a family member's birth date is
 // ('YYYY' | 'YYYY-MM' | 'YYYY-MM-DD'), deliberately: the two sort and read alike,
@@ -230,6 +229,18 @@ function resolveSpeaker(personId: string | null | undefined): { id: string | nul
   return person ? { id: person.id, name: person.name } : null;
 }
 
+// All strings, one value each. offset/limit stay strings so junk falls back to
+// the defaults in the handler rather than failing the request.
+const listQuerySchema = z.object({
+  documentId: z.string().optional(),
+  personId: z.string().optional(),
+  q: z.string().optional(),
+  filter: z.string().optional(),
+  tag: z.string().optional(),
+  offset: z.string().optional(),
+  limit: z.string().optional()
+});
+
 export function registerQuoteRoutes(app: FastifyInstance) {
   // All my quotes (Quotes page), or just one document's quotes (the reader, to
   // redraw its highlights) when ?documentId is given.
@@ -241,10 +252,11 @@ export function registerQuoteRoutes(app: FastifyInstance) {
   // given and asks for more.
   app.get("/api/library/quotes", { preHandler: app.authenticate }, async (request, reply) => {
     const user = request.user!;
-    const query = request.query as {
-      documentId?: string; personId?: string; q?: string;
-      filter?: string; tag?: string; offset?: string; limit?: string;
-    };
+    const parsed = parseQuery(listQuerySchema, request.query);
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid query", details: parsed.error });
+    }
+    const query = parsed.data;
     const documentId = (query.documentId ?? "").trim();
     const personId = (query.personId ?? "").trim();
     const search = (query.q ?? "").trim();
@@ -291,7 +303,7 @@ export function registerQuoteRoutes(app: FastifyInstance) {
           AND shares.module = CASE libraries.type
             WHEN 'ebook' THEN 'ebook' WHEN 'gallery' THEN 'gallery' ELSE 'audiobook' END
           AND shares.revoked_at IS NULL
-          AND (shares.expires_at IS NULL OR datetime(shares.expires_at) > datetime('now'))
+          AND (shares.expires_at IS NULL OR shares.expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
       )
     )`);
     args.push(...allowed, user.id);

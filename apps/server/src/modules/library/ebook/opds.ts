@@ -1,7 +1,9 @@
 import fsp from "node:fs/promises";
 import path from "node:path";
 import type { FastifyInstance, FastifyReply, FastifyRequest, RouteShorthandOptions } from "fastify";
+import { z } from "zod";
 import { nowIso, type User } from "../../../db.js";
+import { parseQuery } from "../../../core/shared.js";
 import { resolveApiToken, isUnknownApiToken } from "../../../core/api-tokens.js";
 import { flagAbusiveRequest } from "../../../core/security-alerts.js";
 import { resolveCoverKey, LIBRARY_BUCKET_RE } from "../shared/thumbnail.js";
@@ -330,9 +332,24 @@ function rootNav(request: FastifyRequest, reply: FastifyReply): void {
   reply.type(NAV_TYPE).send(buildRootNav(linkCtx(request)));
 }
 
+// The filter and paging keys an acquisition feed reads. A junk page number falls
+// back to the first page in buildAcquisitionFeed, as it always has.
+const acquisitionQuerySchema = z.object({
+  page: z.string().optional(),
+  q: z.string().optional(),
+  author: z.string().optional(),
+  category: z.string().optional(),
+  language: z.string().optional()
+});
+
 function acquisitionHandler(spec: AcquisitionSpec) {
   return (request: FastifyRequest, reply: FastifyReply): void => {
-    reply.type(ACQ_TYPE).send(buildAcquisitionFeed(request.opdsUser!, linkCtx(request), spec, request.query as Record<string, string | undefined>));
+    const parsed = parseQuery(acquisitionQuerySchema, request.query);
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid query", details: parsed.error });
+      return;
+    }
+    reply.type(ACQ_TYPE).send(buildAcquisitionFeed(request.opdsUser!, linkCtx(request), spec, parsed.data));
   };
 }
 

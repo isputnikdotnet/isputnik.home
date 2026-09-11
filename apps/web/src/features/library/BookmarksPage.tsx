@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Bookmark, BookOpen, ChevronDown, Headphones, Play, Trash2 } from "lucide-react";
-import { api, type PublicUser } from "../../api";
+import { api } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { UserAreaNav } from "./UserAreaNav";
 import { navigate } from "../../router";
@@ -90,13 +90,7 @@ function Cover({ url, title, libraryType }: { url: string | null; title: string;
   );
 }
 
-export function BookmarksPage({
-  user,
-  logout
-}: {
-  user: PublicUser;
-  logout: () => Promise<void>;
-}) {
+export function BookmarksPage() {
   const { t } = useTranslation(["common", "user"]);
   const [bookmarks, setBookmarks] = useState<SavedBookmark[] | null>(null);
   const [error, setError] = useState("");
@@ -146,7 +140,7 @@ export function BookmarksPage({
   };
 
   return (
-    <DashboardShell active="user" user={user} logout={logout} sideNav={<UserAreaNav active="bookmarks" />}>
+    <DashboardShell active="user" sideNav={<UserAreaNav active="bookmarks" />}>
       <section className="work-area audiobook-area">
         <div className="section-head audiobook-head">
           <div>

@@ -8,8 +8,9 @@ import { enqueueAudiobookScan, processAudiobookScanQueue } from "../src/modules/
 import { getAudiobookBookDetail } from "../src/modules/library/audiobook/book-helpers.js";
 import { resetDb, makeUser } from "./helpers/seed.js";
 
-// End-to-end scan of a "reshaped box set" laid out the way tools/reshape-boxset.mjs
-// produces it: one folder per work named `Author - Title [Narrator]`, each with a
+// End-to-end scan of a "reshaped box set" laid out the way a one-off reshaping tool
+// produced it (scripts/reshape-boxset.mjs, since removed — it is in git history):
+// one folder per work named `Author - Title [Narrator]`, each with a
 // metadata.json sidecar + a .tif cover, multi-disc works kept in subfolders. Scanned
 // in "Treat folder as book" mode (folder_structure → top-level grouping).
 

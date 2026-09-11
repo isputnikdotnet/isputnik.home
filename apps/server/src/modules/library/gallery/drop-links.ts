@@ -31,7 +31,7 @@ import { normaliseRelativePath } from "../shared/storage-roots.js";
 import { normalizeLibrarySettings, uploadAcceptExtensions } from "../shared/library-settings.js";
 import { resolveUploadMaxBytes } from "../shared/library-crud.js";
 import { receiveUploadBatch, UploadError } from "../../uploads/index.js";
-import { uniqueGalleryFileName } from "./routes.js";
+import { uniqueGalleryFileName } from "./files.js";
 import { scanSingleGalleryFile } from "./scanner.js";
 import { normaliseTargetFolder } from "./move.js";
 
@@ -195,7 +195,7 @@ export function listDropLinks(user: AuthUser, libraryId: string): DropLinkSummar
     FROM share_links
     LEFT JOIN users ON users.id = share_links.created_by
     WHERE share_links.module = ? AND share_links.resource_id = ?
-    ORDER BY datetime(share_links.created_at) DESC
+    ORDER BY share_links.created_at DESC
   `).all(DROP_LINK_MODULE, libraryId) as LinkRow[];
   return rows.map(summarise);
 }

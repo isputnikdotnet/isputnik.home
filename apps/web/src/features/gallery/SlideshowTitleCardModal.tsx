@@ -7,7 +7,7 @@ import { ToggleSwitch } from "../../shared/ToggleSwitch";
 import { MessageBox } from "../../shared/MessageBox";
 import { PhotoPicker } from "./PhotoPicker";
 import type {
-  GalleryAsset, GalleryLibrary, GallerySlideshowDetail, SlideshowPatch, SlideshowCardFont, SlideshowCardSize,
+  GalleryAsset, GallerySlideshowDetail, SlideshowPatch, SlideshowCardFont, SlideshowCardSize,
   SlideshowSubtitleMode, SlideshowTitleBackground
 } from "./types";
 import { faceFocusStyle } from "./types";

@@ -1,6 +1,10 @@
 # UI language support (Russian) — implementation plan
 
-Status (2026-08-27): ALL 12 NAMESPACES FULLY WIRED, and — importantly — this
+Status: complete — the Russian UI shipped in v3.31.0 (2026-08-27) and the `t()` sweep
+was verified file by file the same day; kept for history. Nothing is open: new
+user-facing strings are keys from the start (CLAUDE.md, "UI language").
+
+As of 2026-08-27: ALL 12 NAMESPACES FULLY WIRED, and — importantly — this
 has now been verified at FILE granularity, not just namespace granularity.
 The first "complete" declaration this same day was wrong: `book`'s earlier
 pass wired the detail/edit-modal layer but never the actual library-browsing

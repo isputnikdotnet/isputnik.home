@@ -16,7 +16,7 @@ import { normaliseRelativePath } from "../shared/storage-roots.js";
 import { trashBook } from "../shared/trash.js";
 import { getHouseLibrary, HOUSE_FOLDERS } from "./house-library.js";
 import { scanSingleGalleryFile } from "./scanner.js";
-import { uniqueGalleryFileName } from "./routes.js";
+import { uniqueGalleryFileName } from "./files.js";
 
 // Since docs/app-storage-plan.md phase 3 a track is, wherever possible, an audio
 // asset of the App files library under "Slideshow music/": visible in the
@@ -90,7 +90,7 @@ export function summarizeTrack(row: MusicTrackRow) {
 
 export function listMusicTracks() {
   const rows = db.prepare(
-    "SELECT * FROM gallery_music_tracks ORDER BY builtin DESC, datetime(created_at) DESC, title ASC"
+    "SELECT * FROM gallery_music_tracks ORDER BY builtin DESC, created_at DESC, title ASC"
   ).all() as MusicTrackRow[];
   return rows.map(summarizeTrack);
 }

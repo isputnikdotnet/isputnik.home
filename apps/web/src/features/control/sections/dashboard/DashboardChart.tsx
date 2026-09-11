@@ -1,6 +1,35 @@
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { Chart, type ChartType } from "chart.js/auto";
+import {
+  BarController,
+  BarElement,
+  CategoryScale,
+  Chart,
+  Filler,
+  LinearScale,
+  LineController,
+  LineElement,
+  PointElement,
+  Tooltip,
+  type ChartType
+} from "chart.js";
+
+// Only what these charts draw: line and bar over a category x / linear y, the
+// area fill under a line, and the hover tooltip. "chart.js/auto" registers every
+// controller, scale and plugin the library has — most of its weight, none of it
+// used here. A new chart type or option (a legend, a time axis, a doughnut) needs
+// its piece registered here first, or Chart.js throws '"x" is not a registered …'.
+Chart.register(
+  LineController,
+  LineElement,
+  PointElement,
+  BarController,
+  BarElement,
+  CategoryScale,
+  LinearScale,
+  Filler,
+  Tooltip
+);
 
 // Canvas can't resolve CSS custom properties, so chart colors are read from the
 // live computed style at draw time — the same --mint/--blue/--rose/etc. tokens

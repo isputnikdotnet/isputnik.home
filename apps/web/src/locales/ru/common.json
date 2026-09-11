@@ -4,6 +4,18 @@
     "ebook": "Электронная книга",
     "gallery": "Галерея"
   },
+  "releaseStage": {
+    "beta": "Бета"
+  },
+  "whatsNew": {
+    "title": "Обновлено до {{version}}",
+    "readMore": "Что нового",
+    "dismiss": "Скрыть",
+    "earlier_one": "…и ещё {{count}} выпуск раньше.",
+    "earlier_few": "…и ещё {{count}} выпуска раньше.",
+    "earlier_many": "…и ещё {{count}} выпусков раньше.",
+    "earlier_other": "…и ещё {{count}} выпуска раньше."
+  },
   "common": {
     "cancel": "Отмена",
     "close": "Закрыть",
@@ -29,6 +41,13 @@
   "errors": {
     "unableToSave": "Не удалось сохранить",
     "actionFailed": "Не удалось выполнить",
+    "pageLoad": {
+      "title": "Не удалось открыть эту страницу",
+      "offline": "Нет подключения к интернету, а эта страница ещё не сохранена на устройстве. Главная и ваши загрузки по-прежнему работают.",
+      "online": "Не удалось загрузить её файлы — возможно, приложение только что обновилось. Перезагрузите, чтобы получить последнюю версию.",
+      "reload": "Перезагрузить",
+      "home": "На главную"
+    },
     "codes": {
       "auth": {
         "invalid_details": "Неверные данные для входа",
@@ -56,7 +75,8 @@
         "invalid_email": "Неверный email",
         "email_taken": "Этот email уже используется."
       }
-    }
+    },
+    "requestFailed": "Не удалось выполнить запрос"
   },
   "audio": {
     "record": "Записать",
@@ -102,9 +122,7 @@
     "bookmarks": "Закладки",
     "quotes": "Цитаты",
     "collections": "Коллекции",
-    "sharedWithMe": "Поделились со мной",
     "forYou": "Для вас",
-    "shared": "Общее",
     "downloads": "Загрузки",
     "myLibrary": "Моя библиотека",
     "media": "Медиа",
@@ -336,19 +354,7 @@
     "quotePrefsLanguageAuto": "Как в приложении",
     "quotePrefsCategories": "Категории",
     "quotePrefsCategoriesHint": "Выберите те, что хотите видеть на карточке. Если не выбрать ни одной — цитаты берутся из всей библиотеки.",
-    "quotePrefsSave": "Сохранить настройки",
-    "photoInbox": "Входящие фото",
-    "reviewPhotos": "Разобрать",
-    "addWhatYouKnow": "Рассказать, что помните",
-    "photoInboxNoted": "Отмечено {{reviewed}} из {{count}}",
-    "photoInboxAsk_one": "{{count}} фотография ждёт ваших заметок",
-    "photoInboxAsk_few": "{{count}} фотографии ждут ваших заметок",
-    "photoInboxAsk_many": "{{count}} фотографий ждут ваших заметок",
-    "photoInboxAsk_other": "{{count}} фотографий ждут ваших заметок",
-    "photoInboxSub_one": "{{count}} фото ждёт разбора",
-    "photoInboxSub_few": "{{count}} фото ждут разбора",
-    "photoInboxSub_many": "{{count}} фото ждут разбора",
-    "photoInboxSub_other": "{{count}} фото ждут разбора"
+    "quotePrefsSave": "Сохранить настройки"
   },
   "profile": {
     "eyebrow": "Профиль",
@@ -367,16 +373,32 @@
       "saved": "Профиль обновлён",
       "savedBody": "Ваши настройки сохранены.",
       "save": "Сохранить",
-      "saving": "Сохранение…"
+      "saving": "Сохранение…",
+      "unableToSave": "Не удалось сохранить профиль"
     },
     "appearance": {
       "heading": "Оформление",
-      "intro": "Выберите, как выглядит iSputnik. Выбор сохраняется в вашем аккаунте и применяется сразу."
+      "intro": "Выберите, как выглядит iSputnik. Выбор сохраняется в вашем аккаунте и применяется сразу.",
+      "unableToSave": "Не удалось сохранить тему"
     },
     "language": {
       "heading": "Язык",
       "intro": "Язык меню, кнопок и сообщений приложения. Ваши книги и фотографии остаются на своём языке.",
       "legend": "Язык приложения"
+    },
+    "ereader": {
+      "heading": "Отправка на читалку",
+      "intro": "Адрес, на который ваш Kindle или Kobo принимает документы (например, <code>you@kindle.com</code>). Тогда со страницы любой электронной книги можно отправить её EPUB или PDF прямо на устройство. Сначала добавьте адрес отправителя сервера в список разрешённых отправителей на устройстве — и администратор должен настроить отправку почты.",
+      "emailLabel": "Email читалки",
+      "unableToSave": "Не удалось сохранить email читалки",
+      "saved": "Сохранено",
+      "savedBody": "Email читалки обновлён.",
+      "save": "Сохранить",
+      "saving": "Сохранение…"
+    },
+    "install": {
+      "title": "Установите мобильное приложение",
+      "subtitle": "Добавьте iSputnik на главный экран телефона, чтобы слушать офлайн и скачивать книги в дорогу."
     }
   },
   "languageNames": {
@@ -632,9 +654,72 @@
     "everyone": "Все участники",
     "public": "Открыто",
     "noAccess": "Нет доступа",
-    "everyoneLocked": "Базовое правило всегда в списке — выберите «Нет доступа», чтобы закрыть.",
     "nobodyYet": "Пока никого не добавили — действует только базовое правило выше.",
     "legendTitle": "Что означают роли",
     "title": "Доступ"
+  },
+  "app": {
+    "loading": "Загрузка isputnik.home..."
+  },
+  "time": {
+    "justNow": "только что",
+    "yesterday": "вчера",
+    "ago": "{{span}} назад",
+    "fromNow": "через {{span}}",
+    "lessThanMinuteLeft": "осталось меньше минуты",
+    "aboutLeft": "осталось около {{span}}",
+    "minutes_one": "{{count}} мин",
+    "minutes_few": "{{count}} мин",
+    "minutes_many": "{{count}} мин",
+    "minutes_other": "{{count}} мин",
+    "hours_one": "{{count}} ч",
+    "hours_few": "{{count}} ч",
+    "hours_many": "{{count}} ч",
+    "hours_other": "{{count}} ч",
+    "days_one": "{{count}} день",
+    "days_few": "{{count}} дня",
+    "days_many": "{{count}} дней",
+    "days_other": "{{count}} дня",
+    "months_one": "{{count}} месяц",
+    "months_few": "{{count}} месяца",
+    "months_many": "{{count}} месяцев",
+    "months_other": "{{count}} месяца",
+    "years_one": "{{count}} год",
+    "years_few": "{{count}} года",
+    "years_many": "{{count}} лет",
+    "years_other": "{{count}} года",
+    "weeksShort_one": "{{count}} нед.",
+    "weeksShort_few": "{{count}} нед.",
+    "weeksShort_many": "{{count}} нед.",
+    "weeksShort_other": "{{count}} нед.",
+    "monthsShort_one": "{{count}} мес.",
+    "monthsShort_few": "{{count}} мес.",
+    "monthsShort_many": "{{count}} мес.",
+    "monthsShort_other": "{{count}} мес.",
+    "yearsShort_one": "{{count}} год",
+    "yearsShort_few": "{{count}} года",
+    "yearsShort_many": "{{count}} лет",
+    "yearsShort_other": "{{count}} года",
+    "minutesCompact_one": "{{count}} мин",
+    "minutesCompact_few": "{{count}} мин",
+    "minutesCompact_many": "{{count}} мин",
+    "minutesCompact_other": "{{count}} мин",
+    "hoursCompact_one": "{{count}} ч",
+    "hoursCompact_few": "{{count}} ч",
+    "hoursCompact_many": "{{count}} ч",
+    "hoursCompact_other": "{{count}} ч"
+  },
+  "help": {
+    "eyebrow": "Поддержка",
+    "heading": "Справка и руководства",
+    "intro": "Понятные руководства по конкретным задачам: как пользоваться iSputnik и как его обслуживать. Они входят в эту установку, поэтому работают без подключения к интернету и описывают именно вашу версию."
+  },
+  "guide": {
+    "notFound": "Такого руководства нет.",
+    "unableToOpen": "Не удалось открыть это руководство.",
+    "unableTitle": "Не удалось открыть руководство",
+    "readOnGithub": "Вместо этого <link>прочитайте его на GitHub</link>.",
+    "loading": "Загрузка…",
+    "viewOnGithub": "Открыть это руководство на GitHub"
   }
 }

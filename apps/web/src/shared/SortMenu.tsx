@@ -1,7 +1,9 @@
-import React, { useEffect, useRef, useState } from "react";
+import React from "react";
 import { useTranslation } from "react-i18next";
 import { createPortal } from "react-dom";
 import { ArrowDownUp, ChevronDown } from "lucide-react";
+import { cx } from "./cx";
+import { useAnchoredMenu } from "./useAnchoredMenu";
 
 export interface SortOption<T extends string> {
   value: T;
@@ -58,10 +60,7 @@ export function SortMenu<T extends string>(props: SortMenuChrome & (
   const { t } = useTranslation();
   const { ariaLabel = t("sort.label"), presentation = "inline", icon, label } = props;
   const compact = presentation === "icon";
-  const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState<{ top: number; left: number | null; right: number | null; width: number } | null>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const { open, pos, toggle, close, triggerRef, menuRef } = useAnchoredMenu();
   // One code path for both shapes: a single-setting menu is a menu of one
   // unheaded group.
   const groups: SortMenuGroup[] = props.groups
@@ -74,48 +73,10 @@ export function SortMenu<T extends string>(props: SortMenuChrome & (
     .filter(Boolean)
     .join(" · ");
 
-  const toggle = () => {
-    setOpen((isOpen) => {
-      if (!isOpen && triggerRef.current) {
-        const rect = triggerRef.current.getBoundingClientRect();
-        const alignRight = rect.left + 200 > window.innerWidth;
-        setPos({
-          top: rect.bottom + 8,
-          left: alignRight ? null : rect.left,
-          right: alignRight ? window.innerWidth - rect.right : null,
-          width: rect.width
-        });
-      }
-      return !isOpen;
-    });
-  };
-
-  useEffect(() => {
-    if (!open) return;
-    const close = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (triggerRef.current?.contains(target)) return;
-      if (menuRef.current?.contains(target)) return;
-      setOpen(false);
-    };
-    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") setOpen(false); };
-    const dismiss = () => setOpen(false);
-    window.addEventListener("mousedown", close);
-    window.addEventListener("keydown", onKey);
-    window.addEventListener("resize", dismiss);
-    window.addEventListener("scroll", dismiss, true);
-    return () => {
-      window.removeEventListener("mousedown", close);
-      window.removeEventListener("keydown", onKey);
-      window.removeEventListener("resize", dismiss);
-      window.removeEventListener("scroll", dismiss, true);
-    };
-  }, [open]);
-
   const glyph = icon ?? <ArrowDownUp size={18} aria-hidden="true" />;
 
   return (
-    <div className={`audiobook-sort-control${compact ? " compact" : ""}${presentation === "labelled" ? " labelled" : ""}`}>
+    <div className={cx("audiobook-sort-control", compact && "compact", presentation === "labelled" && "labelled")}>
       {compact ? (
         <button
           ref={triggerRef}
@@ -180,7 +141,7 @@ export function SortMenu<T extends string>(props: SortMenuChrome & (
                 type="button"
                 role="menuitem"
                 className={group.value === option.value ? "active" : ""}
-                onClick={() => { group.onChange(option.value); setOpen(false); }}
+                onClick={() => { group.onChange(option.value); close(); }}
               >
                 <span>{option.label}</span>
               </button>

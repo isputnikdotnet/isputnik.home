@@ -1,6 +1,7 @@
 # Quotes expansion plan — import, Quote of the Day, family links
 
-Status: **planned** (agreed 2026-08-27). Extends the shipped cross-type `quotes`
+Status: shipped in v3.32.0–v3.34.0 (2026-08-27) — all six phases and the user guide;
+kept for history. Nothing is open. (Agreed 2026-08-27.) Extends the shipped cross-type `quotes`
 entity (`apps/server/src/modules/library/quotes.ts`, table in `db/schema.sql`);
 nothing here replaces the existing manual add / reader-highlight flows.
 

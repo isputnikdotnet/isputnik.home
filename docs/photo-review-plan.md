@@ -1,6 +1,9 @@
 # Photo review — plan
 
-Status: **Phases 1 and 2 built in-code (2026-09-07)** — migration 70, the
+Status: shipped in v3.71.0–v3.76.1 (2026-09-07 to 2026-09-08); kept for history.
+Every phase, 0 to 4, is built and nothing is open.
+
+As built: **Phases 1 and 2 built in-code (2026-09-07)** — migration 70, the
 review fields on `gallery_details`, Review mode at `/gallery/review/:libraryId`,
 the Home card and Inbox page hooks, and the guide section in
 [users/photo-inbox.md](users/photo-inbox.md#6-ask-someone-what-they-know).

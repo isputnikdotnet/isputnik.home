@@ -7,8 +7,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import fastify, { type FastifyInstance } from "fastify";
 import { db } from "../src/db.js";
-import { audiobookPeoplePlugin } from "../src/modules/library/audiobook/people.js";
-import { looksLikeContributor, normalizePartialDate, trimYearRange } from "../src/modules/library/audiobook/enrich.js";
+import { audiobookPeoplePlugin } from "../src/modules/library/audiobook/people-routes.js";
+import { looksLikeContributor, trimYearRange } from "../src/modules/library/audiobook/providers/wikipedia.js";
+import { normalizePartialDate } from "../src/modules/library/audiobook/person-facts.js";
 import { partialDateSchema } from "../src/modules/familytree/persons.js";
 import { resetDb, makeUser, grant } from "./helpers/seed.js";
 

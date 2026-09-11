@@ -98,7 +98,7 @@ export interface QuotePrefs {
   categories: string[];
 }
 
-export const EMPTY_QUOTE_PREFS: QuotePrefs = { language: "", categories: [] };
+const EMPTY_QUOTE_PREFS: QuotePrefs = { language: "", categories: [] };
 
 export function storedQuotePrefs(): QuotePrefs {
   try {
@@ -124,11 +124,11 @@ export function storeQuotePrefs(prefs: QuotePrefs): void {
 }
 
 /** The language the card should prefer: the viewer's choice, else the UI's. */
-export function quoteLanguage(prefs: QuotePrefs): string {
+function quoteLanguage(prefs: QuotePrefs): string {
   return prefs.language || i18n.language;
 }
 
-export function storedQuoteCategory(): string {
+function storedQuoteCategory(): string {
   try {
     return window.localStorage.getItem(QUOTE_CATEGORY_KEY) ?? "";
   } catch {
@@ -193,7 +193,7 @@ export async function fetchRecentlyAddedPhotos(days: number): Promise<GalleryAss
 }
 
 /** How many photos the memory card's strip holds — also the tightness bar. */
-export const MEMORY_STRIP_SIZE = 4;
+const MEMORY_STRIP_SIZE = 4;
 
 // The home card's tightness rule, mirrored for the viewer it opens (the server
 // applies the same rule building the card — modules/home/feed.ts): when the

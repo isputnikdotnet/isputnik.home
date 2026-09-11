@@ -23,7 +23,23 @@ on:
   workflow_dispatch:
 
 jobs:
+  # A release tag publishes the image AND moves `latest`, which every Unraid install
+  # pulls. test.yml runs on the same commit, but as a separate workflow it could not
+  # stop this one: a red suite on the release commit still shipped. So a tag runs
+  # the suite here first (the same workflow, called), and publishes only on green.
+  # Dry runs don't wait for it — test.yml already gives those their own mark.
+  tests:
+    if: github.ref_type == 'tag'
+    uses: ./.github/workflows/test.yml
+    permissions:
+      contents: read
+
   build-and-push:
+    needs: tests
+    # The tests job is skipped for everything but a tag; a skipped dependency
+    # would skip this job too unless the condition says otherwise. !cancelled()
+    # plus the result check lets a skipped suite through and stops a failed one.
+    #
     # …except for the release commit itself. A release pushes to main and then
     # pushes the tag, seconds apart: two events, one tree, two full image builds,
     # the first of which is a dry run of exactly what the second is about to
@@ -36,7 +52,10 @@ jobs:
     # The head_commit test is spelled as a push-only clause on purpose: only a push
     # event HAS head_commit, and on a pull request it would resolve to the empty
     # string and pass by accident rather than by intent.
-    if: github.event_name != 'push' || github.ref_type == 'tag' || !startsWith(github.event.head_commit.message, 'release:')
+    if: >-
+      !cancelled()
+      && (needs.tests.result == 'success' || needs.tests.result == 'skipped')
+      && (github.event_name != 'push' || github.ref_type == 'tag' || !startsWith(github.event.head_commit.message, 'release:'))
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -97,3 +116,32 @@ jobs:
           # extra main-branch builds mostly reuse work instead of repeating it.
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  # A GitHub Release for every published tag, its notes the version's entry from the
+  # in-app changelog (apps/server/src/changelog.ts via scripts/changelog-md.mjs), so
+  # someone deciding whether to update can read what changed without installing it.
+  # Only after the image is out: a release page for an image that failed to publish
+  # would announce something nobody can pull.
+  release-notes:
+    needs: build-and-push
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 26
+
+      - name: Create or update the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          node scripts/changelog-md.mjs --version "$TAG" > release-notes.md
+          gh release create "$TAG" --title "$TAG" --notes-file release-notes.md --verify-tag \
+            || gh release edit "$TAG" --notes-file release-notes.md

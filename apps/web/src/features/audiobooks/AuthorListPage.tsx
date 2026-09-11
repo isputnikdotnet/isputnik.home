@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { BookOpen, Headphones, LibraryBig, UserPlus, UserRound } from "lucide-react";
-import { api, type PublicUser } from "../../api";
+import { api } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate, queryParam, replaceQuery } from "../../router";
 import { AlphabetBar } from "../../shared/AlphabetBar";
@@ -38,13 +38,7 @@ type AuthorLibrary = { id: string; name: string; type: string };
 // narrow it — search, media type, library, and the A–Z strip — and the First/Last
 // name choice drives both which letter an author files under and the sort order,
 // because those are the same question asked twice.
-export function AuthorListPage({
-  user,
-  logout
-}: {
-  user: PublicUser;
-  logout: () => Promise<void>;
-}) {
+export function AuthorListPage() {
   const { t } = useTranslation(["common", "book"]);
   const [authors, setAuthors] = useState<AuthorSummary[]>([]);
   const [libraries, setLibraries] = useState<AuthorLibrary[]>([]);
@@ -181,8 +175,6 @@ export function AuthorListPage({
   return (
     <DashboardShell
       active={section?.active ?? "authors"}
-      user={user}
-      logout={logout}
       sideNav={section && <SectionNav {...sectionNavProps(section)} activeKey="authors" />}
     >
       <section className="audiobook-main-page">

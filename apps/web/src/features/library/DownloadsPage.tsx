@@ -2,17 +2,16 @@ import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { BookOpen, DownloadCloud, HardDrive, Play, ShieldCheck, Trash2 } from "lucide-react";
-import type { PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { UserAreaNav } from "./UserAreaNav";
 import { navigate } from "../../router";
-import { MessageBox } from "../../shared/MessageBox";
 import { useIsMobile } from "../../shared/useIsMobile";
 import { formatBytes } from "../../shared/utils";
 import { FeedListItem } from "./FeedListItem";
 import { audioRecordToFeedItem, ebookRecordToFeedItem } from "./feed";
 import { EbookReader } from "../audiobooks/reader/EbookReader";
 import type { ReadingProgress } from "../audiobooks/types";
+import { useSession } from "../../app/SessionContext";
 import {
   deleteDownload,
   deleteEbookDownload,
@@ -37,13 +36,8 @@ interface ViewerState {
   initialProgress: ReadingProgress | null;
 }
 
-export function DownloadsPage({
-  user,
-  logout
-}: {
-  user: PublicUser;
-  logout: () => Promise<void>;
-}) {
+export function DownloadsPage() {
+  const { user } = useSession();
   const { t } = useTranslation(["common", "user"]);
   const isMobile = useIsMobile();
   const [downloads, setDownloads] = useState<DownloadRecord[] | null>(null);
@@ -114,7 +108,7 @@ export function DownloadsPage({
 
   return (
     <>
-    <DashboardShell active="user" user={user} logout={logout} sideNav={<UserAreaNav active="downloads" />}>
+    <DashboardShell active="user" sideNav={<UserAreaNav active="downloads" />}>
       <section className="work-area audiobook-area downloads-page">
         <div className="section-head audiobook-head">
           <div>

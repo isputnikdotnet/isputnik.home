@@ -133,7 +133,7 @@ describe("challenges", () => {
 
   it("doesn't resolve an expired challenge, and prunes it", () => {
     const id = createWebauthnChallenge("chal-1", "login", null);
-    db.prepare("UPDATE webauthn_challenges SET expires_at = datetime('now', '-1 minute') WHERE id = ?").run(id);
+    db.prepare("UPDATE webauthn_challenges SET expires_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 minute') WHERE id = ?").run(id);
     expect(resolveWebauthnChallenge(id, "login")).toBeNull();
 
     pruneWebauthnChallenges();

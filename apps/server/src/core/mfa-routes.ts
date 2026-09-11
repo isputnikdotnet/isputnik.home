@@ -213,7 +213,7 @@ export function resolveMfaChallenge(id: string, purpose: ChallengePurpose = "log
   const row = db
     .prepare(
       `SELECT ${CHALLENGE_COLUMNS} FROM mfa_challenges
-       WHERE id = ? AND purpose = ? AND datetime(expires_at) > datetime('now')`
+       WHERE id = ? AND purpose = ? AND expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`
     )
     .get(id, purpose) as MfaChallenge | undefined;
   return row ?? null;
@@ -225,7 +225,7 @@ export function resolveEnrollChallenge(userId: string): MfaChallenge | null {
   const row = db
     .prepare(
       `SELECT ${CHALLENGE_COLUMNS} FROM mfa_challenges
-       WHERE user_id = ? AND purpose = 'enroll' AND datetime(expires_at) > datetime('now')`
+       WHERE user_id = ? AND purpose = 'enroll' AND expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`
     )
     .get(userId) as MfaChallenge | undefined;
   return row ?? null;

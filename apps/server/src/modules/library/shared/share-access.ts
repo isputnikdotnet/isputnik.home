@@ -29,7 +29,7 @@ export function resolveShareLink(token: string, request?: FastifyRequest): Resol
     FROM share_links
     WHERE token_hash = ?
       AND revoked_at IS NULL
-      AND datetime(expires_at) > datetime('now')
+      AND expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
   `).get(hash) as ResolvedShareLink | undefined;
   if (row) return row;
 
@@ -69,7 +69,7 @@ export function userHasItemShare(module: string, resourceId: string, userId: str
       AND resource_id = ?
       AND user_id = ?
       AND revoked_at IS NULL
-      AND (expires_at IS NULL OR datetime(expires_at) > datetime('now'))
+      AND (expires_at IS NULL OR expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
   `).get(module, resourceId, userId);
   return Boolean(row);
 }

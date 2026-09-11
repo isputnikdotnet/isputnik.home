@@ -3,7 +3,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { logActivity } from "../../../db.js";
-import { parseBody } from "../../../core/shared.js";
+import { parseBody, parseQuery } from "../../../core/shared.js";
 import {
   discardPhotoInboxItems, keepPhotoInboxItems, listPhotoInboxItems, listPhotoInboxes
 } from "./inbox.js";
@@ -23,6 +23,16 @@ const keepSchema = z.object({
 
 const discardSchema = z.object({ itemIds: itemIdsSchema });
 
+// `folder` present-but-empty means the root, absent means everything — so it
+// stays a plain optional string. limit/offset stay strings so junk falls back to
+// the defaults in the handler.
+const itemsQuerySchema = z.object({
+  folder: z.string().optional(),
+  limit: z.string().optional(),
+  offset: z.string().optional(),
+  order: z.string().optional()
+});
+
 export async function galleryInboxRoutesPlugin(app: FastifyInstance) {
   // Every Inbox this user can open, with its deliveries — the review page's
   // header and the Home tile both read this.
@@ -34,7 +44,11 @@ export async function galleryInboxRoutesPlugin(app: FastifyInstance) {
   // delivery ("" = the root); absent = everything.
   app.get("/api/library/gallery/inbox/:id/items", { preHandler: app.authenticate }, async (request, reply) => {
     const libraryId = (request.params as { id: string }).id;
-    const qp = request.query as { folder?: string; limit?: string; offset?: string; order?: string };
+    const parsed = parseQuery(itemsQuerySchema, request.query);
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid query", details: parsed.error });
+    }
+    const qp = parsed.data;
     const limit = Math.min(Math.max(Number.parseInt(qp.limit ?? "80", 10) || 80, 1), 200);
     const offset = Math.max(Number.parseInt(qp.offset ?? "0", 10) || 0, 0);
     const result = listPhotoInboxItems(request.user!, libraryId, {

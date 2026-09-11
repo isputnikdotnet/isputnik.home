@@ -27,14 +27,13 @@ import {
   UserRound
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import packageInfo from "../../../../package.json";
-import { isAdminSession, type PublicUser } from "../api";
+import { versionLabel } from "../shared/appVersion";
+import { useSession } from "./SessionContext";
 import { isStandalone } from "../pwa/platform";
 import { useInboxSummary } from "../features/social/useInboxSummary";
 import { FOR_YOU_PATH, controlHref, followRoute } from "../router";
 import { REPO_ISSUES_URL } from "../shared/links";
 
-const APP_VERSION = packageInfo.version;
 
 // The control panel's landing page — Overview › Dashboard.
 const CONTROL_HOME = controlHref("dashboard");
@@ -124,16 +123,13 @@ const PROFILE_ROUTES = ["/profile", "/likes", "/bookmarks", "/quotes", "/collect
 // Media to pick a library / browse view, Profile for account & library options.
 function MobileNav({
   active,
-  currentPath,
-  user,
-  logout
+  currentPath
 }: {
   active: DashboardActive;
   currentPath: string;
-  user: PublicUser;
-  logout: () => Promise<void>;
 }) {
   const { t } = useTranslation();
+  const { logout, isAdminSession: isAdmin } = useSession();
   const [openSheet, setOpenSheet] = useState<"media" | "profile" | null>(null);
   const unseen = useInboxSummary();
 
@@ -219,7 +215,7 @@ function MobileNav({
               <UsersRound size={26} aria-hidden="true" />
               <span>{t("nav.forYou")}</span>
             </a>
-            {isAdminSession(user) && (
+            {isAdmin && (
               <a className="mobile-media-option" href={CONTROL_HOME} onClick={(event) => { followRoute(event, CONTROL_HOME); close(); }}>
                 <Settings size={26} aria-hidden="true" />
                 <span>{t("nav.settings")}</span>
@@ -279,18 +275,15 @@ function MobileNav({
 
 export function DashboardShell({
   active,
-  user,
-  logout,
   sideNav,
   children
 }: {
   active: DashboardActive;
-  user: PublicUser;
-  logout: () => Promise<void>;
   sideNav?: ReactNode;
   children: ReactNode;
 }) {
   const { t } = useTranslation();
+  const { user, logout, isAdminSession: isAdmin } = useSession();
   const isControlPanel = active === "control";
   const isUserArea = active === "user";
   // Media sections (Gallery, Ebooks, Audiobooks, Family Tree, …) opt into a
@@ -457,7 +450,7 @@ export function DashboardShell({
               );
             })}
             <div className="home-primary-menu-meta">
-              <strong>v{APP_VERSION}</strong>
+              <strong>{versionLabel(t)}</strong>
               <span aria-hidden="true">&middot;</span>
               <span>iSputnik.com</span>
             </div>
@@ -471,7 +464,7 @@ export function DashboardShell({
             media section) sits above it. The menu opens upward: its trigger sits at
             the bottom of the sidebar, so there's no room to drop down. */}
         <div className="home-sidebar-bottom">
-          {isAdminSession(user) && (
+          {isAdmin && (
             <a
               className={`home-nav-link${currentPath === CONTROL_HOME || currentPath.startsWith("/control") ? " is-active" : ""}`}
               href={CONTROL_HOME}
@@ -556,7 +549,7 @@ export function DashboardShell({
         </div>
       </section>
 
-      {(!hasSectionNav || mobileTabBar) && <MobileNav active={active} currentPath={currentPath} user={user} logout={logout} />}
+      {(!hasSectionNav || mobileTabBar) && <MobileNav active={active} currentPath={currentPath} />}
     </main>
   );
 }

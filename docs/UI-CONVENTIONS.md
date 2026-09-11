@@ -196,6 +196,22 @@ dialog as a `<form>`), `icon` (optional title icon), `className` (appended), `su
 `headerClassName`, `headerAction` (optional header-level action such as Cancel),
 `alert` (alertdialog role — set automatically by ConfirmDialog).
 
+Behaviour it owns, so call sites must not re-implement it (no `keydown` listener for
+Escape, no focus juggling of your own):
+
+- It portals into `<body>`, out of the page's stacking contexts. A modal rendered
+  inside something already outside the app root — another modal, the lightbox, the
+  reader — stays in that layer, so its CSS (e.g. `.gallery-lightbox .modal-backdrop`)
+  still applies.
+- Open modals form a stack: only the **topmost** answers Escape and its backdrop. A
+  ConfirmDialog opened from an editor cancels alone; the editor and its form stay.
+  An Escape a control inside has already handled (`preventDefault`) is left alone.
+- Tab / Shift+Tab wrap inside the topmost modal. On open, focus goes to an
+  `autoFocus` / `data-autofocus` control, else the first control in the body (not the
+  panel's ✕), else the dialog itself — on a touch screen straight to the dialog, so
+  no keyboard pops up unasked. On close it returns to whatever opened the modal.
+- While any modal is open the app root (`#root`) is `inert`.
+
 ```tsx
 <Modal title="New tag" busy={creating} onClose={close} onSubmit={submit}>
   …fields…

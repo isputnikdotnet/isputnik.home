@@ -6,11 +6,6 @@ import type {
 } from "./types";
 import type { GalleryStatus } from "./useGalleryAlbums";
 
-interface SlideshowDeps extends GalleryStatus {
-  /** The default-movie-library setting is an admin-only read/write. */
-  isAdmin: boolean;
-}
-
 /**
  * Everything the Slideshows view is: its list, the open slideshow, the render
  * pipeline for its movie, and the dialogs that act on it.
@@ -20,7 +15,7 @@ interface SlideshowDeps extends GalleryStatus {
  * deliberately each other's reflection, and a reader who has understood one
  * should not have to re-learn the other.
  */
-export function useGallerySlideshows({ setLoading, setError, setNotice, isAdmin }: SlideshowDeps) {
+export function useGallerySlideshows({ setLoading, setError, setNotice }: GalleryStatus) {
   const { t } = useTranslation(["common", "gallery"]);
   const [slideshows, setSlideshows] = useState<GallerySlideshow[]>([]);
   const [selectedSlideshow, setSelectedSlideshow] = useState<GallerySlideshowDetail | null>(null);

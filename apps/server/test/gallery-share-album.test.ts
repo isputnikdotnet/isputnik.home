@@ -2,12 +2,12 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../src/db.js";
 import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
 import { ingestGalleryAsset } from "../src/modules/library/gallery/scanner.js";
-import { createAlbum, addAlbumItems, removeAlbumItems, getAlbum } from "../src/modules/library/gallery/albums.js";
+import { createAlbum, addAlbumItems, removeAlbumItems } from "../src/modules/library/gallery/albums.js";
 import {
   createGalleryAlbumShare,
   loadAlbumShareItems,
   curatableGalleryLibraryIds
-} from "../src/modules/library/shared/shares.js";
+} from "../src/modules/library/shared/shares/album-shares.js";
 import { resolveShareLink } from "../src/modules/library/shared/share-access.js";
 import {
   canUserAccessBook,

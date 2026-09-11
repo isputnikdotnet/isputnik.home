@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import { db, logActivity, logActivityOnce } from "../../../db.js";
-import { parseBody } from "../../../core/shared.js";
+import { parseBody, parseQuery } from "../../../core/shared.js";
 import { rescanSingleBook } from "./scanner.js";
 import { METADATA_SOURCE_IDS } from "../shared/metadata-sources.js";
 import { normalizeLibrarySettings } from "../shared/library-settings.js";
@@ -22,6 +22,11 @@ const readingProgressSchema = z.object({
 const trackPlayedSchema = z.object({
   played: z.boolean()
 });
+
+// Optional in the schema so an absent/blank id keeps its own
+// "Document id is required" answer in the handlers.
+const documentQuerySchema = z.object({ documentId: z.string().optional() });
+const documentBodySchema = z.object({ documentId: z.string().optional() });
 
 // The playback-progress routes key on the :id book but only ever touch the
 // caller's OWN progress rows, so they never leaked another user's data. Without
@@ -124,8 +129,15 @@ export function registerBookRoutes(app: FastifyInstance) {
     }));
   });
 
-  app.get("/api/library/audiobooks/facets", { preHandler: app.authenticate }, async (request) => {
-    const qp = request.query as { scope?: string; libraryId?: string };
+  // Any scope other than "library" reads as "all", as it always has.
+  const facetsQuerySchema = z.object({ scope: z.string().optional(), libraryId: z.string().optional() });
+
+  app.get("/api/library/audiobooks/facets", { preHandler: app.authenticate }, async (request, reply) => {
+    const parsed = parseQuery(facetsQuerySchema, request.query);
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid query", details: parsed.error });
+    }
+    const qp = parsed.data;
     const scope = qp.scope === "library" ? qp.scope : "all";
     const libIds = resolveScopeLibraryIds(request.user!, scope, qp.libraryId);
     return catalogFacets(libIds);
@@ -180,7 +192,7 @@ export function registerBookRoutes(app: FastifyInstance) {
     }
 
     // Capability flags so the client can gate edit/download/share affordances.
-    // Sharing requires the curate capability (see shares.ts); server still enforces.
+    // Sharing requires the curate capability (see shares/grants.ts); server still enforces.
     const caps = libraryCapabilities(lib, user.id, user.role);
     return reply.send({
       book,
@@ -248,7 +260,11 @@ export function registerBookRoutes(app: FastifyInstance) {
 
   app.get("/api/library/books/:id/reading-progress", { preHandler: app.authenticate }, async (request, reply) => {
     const bookId = (request.params as { id: string }).id;
-    const documentId = ((request.query as { documentId?: string }).documentId ?? "").trim();
+    const parsed = parseQuery(documentQuerySchema, request.query);
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid query", details: parsed.error });
+    }
+    const documentId = (parsed.data.documentId ?? "").trim();
     if (!documentId) {
       return reply.code(400).send({ error: "Document id is required" });
     }
@@ -323,7 +339,11 @@ export function registerBookRoutes(app: FastifyInstance) {
 
   app.delete("/api/library/books/:id/reading-progress", { preHandler: app.authenticate }, async (request, reply) => {
     const bookId = (request.params as { id: string }).id;
-    const documentId = ((request.query as { documentId?: string }).documentId ?? "").trim();
+    const parsed = parseQuery(documentQuerySchema, request.query);
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid query", details: parsed.error });
+    }
+    const documentId = (parsed.data.documentId ?? "").trim();
     if (!documentId) {
       return reply.code(400).send({ error: "Document id is required" });
     }
@@ -342,7 +362,12 @@ export function registerBookRoutes(app: FastifyInstance) {
   // where the reader left off.
   app.post("/api/library/books/:id/reading-progress/complete", { preHandler: app.authenticate }, async (request, reply) => {
     const bookId = (request.params as { id: string }).id;
-    const documentId = ((request.body as { documentId?: string } | undefined)?.documentId ?? "").trim();
+    // A bodyless call is the same "Document id is required" as an empty id.
+    const parsed = parseBody(documentBodySchema, request.body ?? {});
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Document id is required", details: parsed.error });
+    }
+    const documentId = (parsed.data.documentId ?? "").trim();
     if (!documentId) {
       return reply.code(400).send({ error: "Document id is required" });
     }

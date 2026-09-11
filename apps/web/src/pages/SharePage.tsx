@@ -1,9 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { BookOpen, ChevronDown, ChevronLeft, ChevronRight, Download, FastForward, Headphones, Image as ImageIcon, List, Moon, Pause, Play, Rewind, SkipBack, SkipForward, Volume2, VolumeX, X } from "lucide-react";
+import { BookOpen, ChevronDown, ChevronLeft, ChevronRight, Download, Headphones, Image as ImageIcon, List, Moon, Play, Volume2, VolumeX, X } from "lucide-react";
 import { EbookReader } from "../features/audiobooks/reader/EbookReader";
+import { PlayerControls } from "../features/audiobooks/PlayerControls";
+import { RATES, rateLabel, SLEEP_MINUTES, usePlayback } from "../features/audiobooks/usePlayback";
 import { StoryShareView, type StorySharePayload } from "./StoryShareView";
+import { cx } from "../shared/cx";
+import { formatClock } from "../shared/formatClock";
 import { isFoliateFormat } from "../shared/utils";
 
 interface ShareFile {
@@ -83,23 +87,6 @@ interface GallerySetSharePayload {
 
 type SharePayload = AudiobookSharePayload | EbookSharePayload | GallerySharePayload | GallerySetSharePayload | StorySharePayload;
 
-function formatTime(seconds: number) {
-  if (!isFinite(seconds) || seconds < 0) seconds = 0;
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = Math.floor(seconds % 60);
-  if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-  return `${m}:${String(s).padStart(2, "0")}`;
-}
-
-// Sleep-timer options for the guest player. Numeric values are minutes; "chapter"
-// stops at the end of the chapter (each shared file is one chapter) that is playing
-// when the timer is armed.
-const SLEEP_MINUTES = [15, 30, 45, 60] as const;
-type SleepMode = "off" | "chapter" | (typeof SLEEP_MINUTES)[number];
-
-const RATES = [0.75, 1, 1.25, 1.5, 1.75, 2];
-
 export function SharePage({ token }: { token: string }) {
   const { t } = useTranslation(["common", "user"]);
   const [payload, setPayload] = useState<SharePayload | null>(null);
@@ -170,6 +157,7 @@ function GallerySetShareView({ token, payload }: { token: string; payload: Galle
   useEffect(() => {
     if (openIndex == null) return;
     const onKey = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return; // a dialog on top already answered it
       if (event.key === "Escape") setOpenIndex(null);
       else if (event.key === "ArrowRight") setOpenIndex((i) => (i != null && i < items.length - 1 ? i + 1 : i));
       else if (event.key === "ArrowLeft") setOpenIndex((i) => (i != null && i > 0 ? i - 1 : i));
@@ -390,22 +378,19 @@ function EbookShareView({ token, payload }: { token: string; payload: EbookShare
 function AudiobookShareView({ token, payload }: { token: string; payload: AudiobookSharePayload }) {
   const { t } = useTranslation(["common", "user"]);
   const { book, share } = payload;
-  const audioRef = useRef<HTMLAudioElement>(null);
+  // The element layer is the book player's own (features/audiobooks/usePlayback);
+  // what a guest gets on top is simpler — each shared file is one chapter, and no
+  // position, bookmark or lock-screen state is kept for them.
+  const playback = usePlayback({ playErrorMessage: () => t("user:sharePage.audioFormatError") });
+  const {
+    audioRef, playing, setPlaying, currentTime, setCurrentTime, fileDuration, setFileDuration,
+    playerError, setPlayerError, togglePlay, handleSeek, playbackRate, changeRate, volume, muted,
+    toggleMute, handleVolumeChange, speedOpen, setSpeedOpen, sleepOpen, setSleepOpen, sleepMode, setSleepMode, chooseSleep
+  } = playback;
   const autoPlayRef = useRef(false);
-  const [playerError, setPlayerError] = useState("");
 
   const [fileIndex, setFileIndex] = useState(0);
-  const [playing, setPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [fileDuration, setFileDuration] = useState(0);
   const [chaptersOpen, setChaptersOpen] = useState(false);
-  const [volume, setVolume] = useState(1);
-  const [muted, setMuted] = useState(false);
-  const [playbackRate, setPlaybackRate] = useState(1);
-  const [speedOpen, setSpeedOpen] = useState(false);
-  const [sleepMode, setSleepMode] = useState<SleepMode>("off");
-  const [sleepRemaining, setSleepRemaining] = useState<number | null>(null);
-  const [sleepOpen, setSleepOpen] = useState(false);
 
   const files = book.files;
   const currentFile = files[fileIndex];
@@ -425,12 +410,8 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
     }
   }, [fileIndex, token, currentFile?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const togglePlay = () => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    if (playing) audio.pause();
-    else { setPlayerError(""); audio.play().catch(() => setPlayerError(t("user:sharePage.audioFormatError"))); }
-  };
+  // A new src resets the element — put the volume and speed back after each load.
+  useEffect(() => { playback.applySettings(); }, [fileIndex]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const goToPrev = () => {
     const audio = audioRef.current;
@@ -456,12 +437,6 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
     audio.currentTime = Math.max(0, Math.min(audio.currentTime + seconds, fileDuration));
   };
 
-  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const time = Number(e.target.value);
-    if (audioRef.current) audioRef.current.currentTime = time;
-    setCurrentTime(time);
-  };
-
   const jumpToChapter = (index: number) => {
     autoPlayRef.current = playing;
     setFileIndex(index);
@@ -474,21 +449,6 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
     setChaptersOpen((open) => !open);
   };
 
-  // Apply volume/mute to the element whenever they change (and after a new src loads,
-  // since the element resets — the load effect re-runs and this covers the value).
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    audio.volume = muted ? 0 : volume;
-    audio.muted = muted;
-  }, [volume, muted, fileIndex]);
-
-  // Apply the playback rate live and re-apply after a new file loads (the element
-  // resets its rate to 1 on a new src).
-  useEffect(() => {
-    if (audioRef.current) audioRef.current.playbackRate = playbackRate;
-  }, [playbackRate, fileIndex]);
-
   // Close the speed / sleep / chapters menus on any outside click.
   useEffect(() => {
     if (!speedOpen && !sleepOpen && !chaptersOpen) return;
@@ -497,39 +457,11 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
     return () => window.removeEventListener("click", close);
   }, [speedOpen, sleepOpen, chaptersOpen]);
 
-  // Timed sleep modes: tick down once a second while playing, then pause and disarm.
-  // Counting only while playing means a manual pause also pauses the timer.
-  useEffect(() => {
-    if (typeof sleepMode !== "number" || !playing) return;
-    const id = window.setInterval(() => {
-      setSleepRemaining((prev) => {
-        const next = (prev ?? sleepMode * 60) - 1;
-        if (next <= 0) {
-          audioRef.current?.pause();
-          setSleepMode("off");
-          return null;
-        }
-        return next;
-      });
-    }, 1000);
-    return () => clearInterval(id);
-  }, [sleepMode, playing]);
-
-  const toggleMute = () => setMuted((m) => !m);
-  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const v = Number(e.target.value);
-    setVolume(v);
-    if (v > 0) setMuted(false);
-  };
   const toggleSpeedMenu = (e: React.MouseEvent) => {
     e.stopPropagation();
     setSleepOpen(false);
     setChaptersOpen(false);
     setSpeedOpen((open) => !open);
-  };
-  const changeRate = (rate: number) => {
-    setPlaybackRate(rate);
-    setSpeedOpen(false);
   };
   const toggleSleepMenu = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -537,18 +469,9 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
     setChaptersOpen(false);
     setSleepOpen((open) => !open);
   };
-  const chooseSleep = (mode: SleepMode) => {
-    setSleepMode(mode);
-    setSleepRemaining(typeof mode === "number" ? mode * 60 : null);
-    setSleepOpen(false);
-  };
 
   // Compact label for an armed timer: a live mm:ss countdown, or "Chapter".
-  const sleepLabel = sleepMode === "off"
-    ? null
-    : sleepMode === "chapter"
-      ? t("user:sharePage.chapter")
-      : formatTime(sleepRemaining ?? sleepMode * 60);
+  const sleepLabel = playback.sleepLabel(t("user:sharePage.chapter"));
 
   const seekPct = fileDuration > 0 ? Math.min(100, (currentTime / fileDuration) * 100) : 0;
 
@@ -596,7 +519,7 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
         )}
 
         <div className="share-seek">
-          <span className="player-time">{formatTime(currentTime)}</span>
+          <span className="player-time">{formatClock(currentTime)}</span>
           <input
             type="range"
             className="player-seekbar"
@@ -612,26 +535,27 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
               background: `linear-gradient(90deg, var(--mint), var(--gold) ${seekPct}%, var(--player-track-strong) ${seekPct}%)`
             }}
           />
-          <span className="player-time">{formatTime(fileDuration)}</span>
+          <span className="player-time">{formatClock(fileDuration)}</span>
         </div>
 
-        <div className="share-controls">
-          <button className="player-btn" onClick={goToPrev} disabled={fileIndex === 0 && currentTime <= 3} aria-label={t("user:sharePage.prevChapter")}>
-            <SkipBack size={20} />
-          </button>
-          <button className="player-btn player-btn-circle" onClick={() => skip(-30)} aria-label={t("user:sharePage.back30")}>
-            <Rewind size={15} /><span>30</span>
-          </button>
-          <button className="player-btn player-btn-primary" onClick={togglePlay} aria-label={playing ? t("user:sharePage.pause") : t("user:sharePage.play")}>
-            {playing ? <Pause size={22} /> : <Play size={22} />}
-          </button>
-          <button className="player-btn player-btn-circle" onClick={() => skip(30)} aria-label={t("user:sharePage.fwd30")}>
-            <FastForward size={15} /><span>30</span>
-          </button>
-          <button className="player-btn" onClick={goToNext} disabled={fileIndex >= files.length - 1} aria-label={t("user:sharePage.nextChapter")}>
-            <SkipForward size={20} />
-          </button>
-        </div>
+        <PlayerControls
+          layout="share"
+          playing={playing}
+          onTogglePlay={togglePlay}
+          onPrev={goToPrev}
+          onNext={goToNext}
+          onSkip={skip}
+          prevDisabled={fileIndex === 0 && currentTime <= 3}
+          nextDisabled={fileIndex >= files.length - 1}
+          labels={{
+            prev: t("user:sharePage.prevChapter"),
+            next: t("user:sharePage.nextChapter"),
+            back30: t("user:sharePage.back30"),
+            forward30: t("user:sharePage.fwd30"),
+            play: t("user:sharePage.play"),
+            pause: t("user:sharePage.pause")
+          }}
+        />
 
         <div className="share-tools">
           <div className="share-vol">
@@ -652,13 +576,13 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
 
           <div className="share-menu-anchor">
             <button
-              className={`share-tool-btn${speedOpen ? " open" : ""}`}
+              className={cx("share-tool-btn", speedOpen && "open")}
               onClick={toggleSpeedMenu}
               aria-expanded={speedOpen}
               aria-label={t("user:sharePage.speed")}
               title={t("user:sharePage.speed")}
             >
-              <span>{playbackRate === 1 ? "1×" : `${playbackRate}×`}</span>
+              <span>{rateLabel(playbackRate)}</span>
               <ChevronDown size={14} aria-hidden="true" />
             </button>
             {speedOpen && (
@@ -666,11 +590,11 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
                 {RATES.map((rate) => (
                   <button
                     key={rate}
-                    className={`share-menu-option${playbackRate === rate ? " active" : ""}`}
+                    className={cx("share-menu-option", playbackRate === rate && "active")}
                     onClick={() => changeRate(rate)}
                     aria-pressed={playbackRate === rate}
                   >
-                    {rate === 1 ? "1×" : `${rate}×`}
+                    {rateLabel(rate)}
                   </button>
                 ))}
               </div>
@@ -679,7 +603,7 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
 
           <div className="share-menu-anchor">
             <button
-              className={`share-tool-btn${sleepOpen ? " open" : ""}${sleepMode !== "off" ? " active" : ""}`}
+              className={cx("share-tool-btn", sleepOpen && "open", sleepMode !== "off" && "active")}
               onClick={toggleSleepMenu}
               aria-expanded={sleepOpen}
               aria-label={t("user:sharePage.sleepTimer")}
@@ -691,7 +615,7 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
             {sleepOpen && (
               <div className="share-menu" onClick={(e) => e.stopPropagation()}>
                 <button
-                  className={`share-menu-option${sleepMode === "off" ? " active" : ""}`}
+                  className={cx("share-menu-option", sleepMode === "off" && "active")}
                   onClick={() => chooseSleep("off")}
                   aria-pressed={sleepMode === "off"}
                 >
@@ -700,7 +624,7 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
                 {SLEEP_MINUTES.map((min) => (
                   <button
                     key={min}
-                    className={`share-menu-option${sleepMode === min ? " active" : ""}`}
+                    className={cx("share-menu-option", sleepMode === min && "active")}
                     onClick={() => chooseSleep(min)}
                     aria-pressed={sleepMode === min}
                   >
@@ -708,7 +632,7 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
                   </button>
                 ))}
                 <button
-                  className={`share-menu-option${sleepMode === "chapter" ? " active" : ""}`}
+                  className={cx("share-menu-option", sleepMode === "chapter" && "active")}
                   onClick={() => chooseSleep("chapter")}
                   aria-pressed={sleepMode === "chapter"}
                 >
@@ -730,13 +654,13 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
                   {files.map((file, index) => (
                     <button
                       key={file.id}
-                      className={`share-chapter-item${index === fileIndex ? " active" : ""}`}
+                      className={cx("share-chapter-item", index === fileIndex && "active")}
                       onClick={() => jumpToChapter(index)}
                     >
                       <span className="share-chapter-num">{index + 1}</span>
                       <span className="share-chapter-name">{file.chapterTitle || t("user:sharePage.chapterN", { n: index + 1 })}</span>
                       {file.durationSeconds != null && (
-                        <span className="share-chapter-dur">{formatTime(file.durationSeconds)}</span>
+                        <span className="share-chapter-dur">{formatClock(file.durationSeconds)}</span>
                       )}
                     </button>
                   ))}

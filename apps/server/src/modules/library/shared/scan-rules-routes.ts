@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { z } from "zod";
 import { db } from "../../../db.js";
-import { parseBody } from "../../../core/shared.js";
+import { parseBody, parseQuery } from "../../../core/shared.js";
 import {
   listScanRules, createScanRule, updateScanRule, deleteScanRule, getScanRule, isScanRuleError,
   getDefaultLayoutRule, setDefaultLayout, scanRuleStats, folderOwnership, normalizeRulePath,
@@ -11,12 +11,18 @@ import {
 } from "./scan-rules.js";
 import { validateLibrarySource } from "./library-source.js";
 import { normalizeLibrarySettings } from "./library-settings.js";
+import type { LibraryType } from "./library-types.js";
 import { relativePathWithinRoot, pathIsInside, normaliseRelativePath } from "./storage-roots.js";
-import { previewEbookRulePattern, enqueueEbookScan } from "../ebook/scanner.js";
-import { previewAudiobookRulePattern, enqueueAudiobookScan, discNumberFromFolderName } from "../audiobook/scanner.js";
+import { getMediaType, type MediaType } from "./media-types.js";
 
 // Custom scan rules are a library-config action, gated to admins like rescan and
-// library settings. Routes are cross-type (the rule inherits the library's type).
+// library settings. Routes are cross-type (the rule inherits the library's type);
+// the media types that can preview a layout (audiobook, ebook) are the ones that
+// have rules, and preview + scan dispatch to that type's scanner via the registry.
+const withScanRules = (type: string): MediaType | null => {
+  const mediaType = getMediaType(type);
+  return mediaType?.previewRulePattern ? mediaType : null;
+};
 const layoutsField = z.array(z.string().trim().min(1).max(500)).min(1).max(10);
 
 const ruleBodySchema = z.object({
@@ -44,11 +50,17 @@ const previewSchema = z.object({
   ruleId: z.string().trim().max(64).nullable().optional()
 }).refine((body) => body.layouts !== undefined || body.pattern !== undefined, { message: "Enter a pattern." });
 
+// Absent = the library root.
+const foldersQuerySchema = z.object({ path: z.string().optional() });
+
+// `paths` is ONE value holding the chosen folders newline-separated.
+const examplesQuerySchema = z.object({ paths: z.string().optional() });
+
 type RuleWithStats = ScanRule & ScanRuleStats;
 
 export async function scanRulesPlugin(app: FastifyInstance) {
   const findLibrary = (id: string) =>
-    db.prepare("SELECT id, type, source_path FROM libraries WHERE id = ?").get(id) as { id: string; type: string; source_path: string } | undefined;
+    db.prepare("SELECT id, type, source_path FROM libraries WHERE id = ?").get(id) as { id: string; type: LibraryType; source_path: string } | undefined;
 
   // The validated source root, or null when the folder is currently unreachable
   // (the rule list still renders; folder existence just isn't checked).
@@ -128,7 +140,9 @@ export async function scanRulesPlugin(app: FastifyInstance) {
     const id = (request.params as { id: string }).id;
     const library = findLibrary(id);
     if (!library) { return reply.code(404).send({ error: "Library not found" }); }
-    const requested = typeof (request.query as { path?: string }).path === "string" ? (request.query as { path?: string }).path! : "";
+    const query = parseQuery(foldersQuerySchema, request.query);
+    if (query.error) { return reply.code(400).send({ error: "Invalid query", details: query.error }); }
+    const requested = query.data.path ?? "";
     try {
       const root = validateLibrarySource(library.source_path);
       const currentPath = relativePathWithinRoot(root, requested);
@@ -173,10 +187,12 @@ export async function scanRulesPlugin(app: FastifyInstance) {
     const id = (request.params as { id: string }).id;
     const library = findLibrary(id);
     if (!library) { return reply.code(404).send({ error: "Library not found" }); }
-    if (library.type !== "ebook" && library.type !== "audiobook") {
+    if (!withScanRules(library.type)) {
       return reply.code(400).send({ error: "Scan rules apply to ebook and audiobook libraries." });
     }
-    const raw = (request.query as { paths?: string }).paths ?? "";
+    const query = parseQuery(examplesQuerySchema, request.query);
+    if (query.error) { return reply.code(400).send({ error: "Invalid query", details: query.error }); }
+    const raw = query.data.paths ?? "";
     const anchors = raw.split("\n").map((p) => normalizeRulePath(p)).filter((p, i, all) => all.indexOf(p) === i);
     if (anchors.length === 0) anchors.push("");
     try {
@@ -194,16 +210,15 @@ export async function scanRulesPlugin(app: FastifyInstance) {
     const id = (request.params as { id: string }).id;
     const library = findLibrary(id);
     if (!library) { return reply.code(404).send({ error: "Library not found" }); }
-    if (library.type !== "ebook" && library.type !== "audiobook") {
+    const preview = withScanRules(library.type)?.previewRulePattern;
+    if (!preview) {
       return reply.code(400).send({ error: "Scan rules apply to ebook and audiobook libraries." });
     }
     const parsed = parseBody(previewSchema, request.body);
     if (parsed.error) { return reply.code(400).send({ error: "Invalid preview request", details: parsed.error }); }
     const layouts = parsed.data.layouts ?? [parsed.data.pattern!];
     try {
-      const rows = library.type === "audiobook"
-        ? await previewAudiobookRulePattern(id, parsed.data.paths, layouts, parsed.data.ruleId ?? null)
-        : previewEbookRulePattern(id, parsed.data.paths, layouts, parsed.data.ruleId ?? null);
+      const rows = await preview(id, parsed.data.paths, layouts, parsed.data.ruleId ?? null);
       return reply.send({ rows });
     } catch (err) {
       return reply.code(502).send({ error: err instanceof Error ? err.message : "Preview failed" });
@@ -219,7 +234,8 @@ export async function scanRulesPlugin(app: FastifyInstance) {
     const rule = getScanRule(ruleId);
     if (!rule || rule.libraryId !== id) { return reply.code(404).send({ error: "Scan rule not found" }); }
     if (!rule.enabled) { return reply.code(400).send({ error: "Turn the rule on before scanning its folders." }); }
-    if (library.type !== "ebook" && library.type !== "audiobook") {
+    const mediaType = withScanRules(library.type);
+    if (!mediaType) {
       return reply.code(400).send({ error: "Scan rules apply to ebook and audiobook libraries." });
     }
     try {
@@ -227,15 +243,12 @@ export async function scanRulesPlugin(app: FastifyInstance) {
     } catch (err) {
       return reply.code(400).send({ error: err instanceof Error ? err.message : "Library source is not accessible" });
     }
-    const jobId = library.type === "audiobook" ? enqueueAudiobookScan(id, { ruleId }) : enqueueEbookScan(id, { ruleId });
+    const jobId = mediaType.enqueueScan(id, { ruleId });
     return reply.send({ queued: true, jobId });
   });
 }
 
 export interface LayoutExample { anchor: string; path: string }
-
-// Whether a folder is one part of a book, by the scanner's own rule.
-const DISC_LIKE = { test: (name: string) => discNumberFromFolderName(name) !== null };
 
 // Walk each anchor for content files (bounded), then keep one path per shape.
 export function sampleLayoutExamples(
@@ -245,6 +258,8 @@ export function sampleLayoutExamples(
   type: string,
   limit = 12
 ): LayoutExample[] {
+  // Whether a folder is one part of a book, by the scanner's own rule (audiobooks).
+  const isDiscFolder = getMediaType(type)?.isDiscFolder;
   const out: LayoutExample[] = [];
   const seen = new Set<string>();
   const MAX_FILES = 4000;
@@ -268,7 +283,7 @@ export function sampleLayoutExamples(
         const shape = [
           dirs.length,
           / - |_|\(|\[/.test(leaf) ? "sep" : "plain",
-          type === "audiobook" ? dirs.map((d) => DISC_LIKE.test(d) ? "d" : "x").join("") : ""
+          isDiscFolder ? dirs.map((d) => isDiscFolder(d) ? "d" : "x").join("") : ""
         ].join(":");
         if (seen.has(shape)) continue;
         seen.add(shape);

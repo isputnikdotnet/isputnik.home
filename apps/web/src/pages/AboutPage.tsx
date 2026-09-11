@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { api, type PublicUser } from "../api";
+import { api } from "../api";
 import { DashboardShell } from "../app/DashboardShell";
 import { MessageBox } from "../shared/MessageBox";
 import { AboutDetails, type AboutInfo } from "../shared/AboutDetails";
 
-export function AboutPage({ user, logout }: { user: PublicUser; logout: () => Promise<void> }) {
+export function AboutPage() {
   const { t } = useTranslation(["common", "misc"]);
   const [about, setAbout] = useState<AboutInfo | null>(null);
   const [error, setError] = useState("");
@@ -17,7 +17,7 @@ export function AboutPage({ user, logout }: { user: PublicUser; logout: () => Pr
   }, [t]);
 
   return (
-    <DashboardShell active="about" user={user} logout={logout}>
+    <DashboardShell active="about">
       <section className="work-area about-area">
         <p className="eyebrow">{t("misc:about.eyebrow")}</p>
         <h1>{t("misc:about.heading")}</h1>

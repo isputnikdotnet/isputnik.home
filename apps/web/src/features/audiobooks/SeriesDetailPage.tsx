@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, BookOpen, Pencil, Plus, Save, Trash2, Upload, X } from "lucide-react";
-import { api, type PublicUser } from "../../api";
+import { api } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { getReferrer, goBack, navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
@@ -22,13 +22,9 @@ interface EditableBook {
 
 export function SeriesDetailPage({
   seriesId,
-  user,
-  logout,
   kind = "audiobook"
 }: {
   seriesId: string;
-  user: PublicUser;
-  logout: () => Promise<void>;
   kind?: "audiobook" | "ebook";
 }) {
   const { t } = useTranslation(["common", "book"]);
@@ -222,14 +218,15 @@ export function SeriesDetailPage({
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   };
 
   if (error) {
     return (
-      <DashboardShell active={kind === "ebook" ? "ebooks" : "audiobooks"} user={user} logout={logout} sideNav={sideNav}>
+      <DashboardShell active={kind === "ebook" ? "ebooks" : "audiobooks"} sideNav={sideNav}>
         <section className="audiobook-main-page">
           <button className="audiobook-back-button" type="button" onClick={() => goBack(backTo ?? `${base}/series`)}>
             <ArrowLeft size={17} aria-hidden="true" />
@@ -243,7 +240,7 @@ export function SeriesDetailPage({
 
   if (!series) {
     return (
-      <DashboardShell active={kind === "ebook" ? "ebooks" : "audiobooks"} user={user} logout={logout} sideNav={sideNav}>
+      <DashboardShell active={kind === "ebook" ? "ebooks" : "audiobooks"} sideNav={sideNav}>
         <section className="audiobook-main-page">
           <p className="management-empty">{t("book:catalog.loadingSeries")}</p>
         </section>
@@ -260,7 +257,7 @@ export function SeriesDetailPage({
     books.some((b) => !baselinePositions.has(b.id) || baselinePositions.get(b.id) !== b.position);
 
   return (
-    <DashboardShell active={kind === "ebook" ? "ebooks" : "audiobooks"} user={user} logout={logout} sideNav={sideNav}>
+    <DashboardShell active={kind === "ebook" ? "ebooks" : "audiobooks"} sideNav={sideNav}>
       <section className="audiobook-main-page">
         <button className="audiobook-back-button" type="button" onClick={() => goBack(backTo ?? `${base}/series`)}>
           <ArrowLeft size={17} aria-hidden="true" />

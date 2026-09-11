@@ -1,7 +1,7 @@
 # Recipes plan — a story kind, not a module
 
-Status: **RELEASED** — phases 1–3 shipped in v3.66.0 (2026-09-05, migration 67),
-the guide screenshot in v3.66.1. What remains is the *Later* list below. Builds on the shipped Stories engine
+Status: shipped in v3.66.0 (2026-09-05, migration 67), the guide screenshot in
+v3.66.1; kept for history. Only the *Later* list below is open, gated on usage. Builds on the shipped Stories engine
 (`apps/server/src/modules/stories/`, `apps/web/src/features/stories/`); nothing
 here adds a library type, a scan layout, or a new server module.
 

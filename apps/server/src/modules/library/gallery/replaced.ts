@@ -12,7 +12,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { db } from "../../../db.js";
 import { pathIsInside } from "../shared/storage-roots.js";
-import { getTrashRootSetting } from "../shared/trash.js";
+import { getTrashRootSetting } from "../shared/trash-settings.js";
 
 const LIBRARY_TRASH_DIR = ".trash";
 

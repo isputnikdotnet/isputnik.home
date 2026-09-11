@@ -5,7 +5,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../src/db.js";
 import { dailyQuote } from "../src/modules/library/quotes-daily.js";
-import { addEntityTags } from "../src/modules/library/audiobook/categorize.js";
+import { addEntityTags } from "../src/modules/library/shared/tagging.js";
 import { resetDb, makeUser } from "./helpers/seed.js";
 
 const me = { id: "member" };

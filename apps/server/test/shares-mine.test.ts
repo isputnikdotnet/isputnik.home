@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import fastify, { type FastifyInstance } from "fastify";
 import { db } from "../src/db.js";
 import { sha256 } from "../src/crypto.js";
-import { librarySharesPlugin } from "../src/modules/library/shared/shares.js";
+import { librarySharesPlugin } from "../src/modules/library/shared/shares/index.js";
 import { resetDb, makeUser, makeLibrary, futureIso, pastIso } from "./helpers/seed.js";
 
 let app: FastifyInstance;

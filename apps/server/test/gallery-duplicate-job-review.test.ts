@@ -5,9 +5,12 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../src/db.js";
 import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
 import { createJob, getJob, setJobFolderPreferences } from "../src/modules/library/gallery/duplicates/jobs.js";
+import { runJobScan } from "../src/modules/library/gallery/duplicates/job-scan.js";
 import {
-  runJobScan, listJobResults, countJobResults, keeperFoldersOf
-} from "../src/modules/library/gallery/duplicates/job-scan.js";
+  listJobResults,
+  countJobResults,
+  keeperFoldersOf
+} from "../src/modules/library/gallery/duplicates/job-results.js";
 import {
   applyPreferences, dismissResult, markResult
 } from "../src/modules/library/gallery/duplicates/job-review.js";

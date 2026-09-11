@@ -22,7 +22,7 @@ import type { MediaModule } from "./library-types.js";
 //     they already have.
 //
 // Guest links have no recipient account, so only the three user-to-user grants in
-// shares.ts notify.
+// shares/ notify.
 
 const FOOTER = "— Automated notification from your iSputnik server.";
 
@@ -43,7 +43,7 @@ export function newlySharedResources(module: string, resourceIds: string[], user
     (db.prepare(`
       SELECT resource_id FROM shares
       WHERE module = ? AND user_id = ? AND revoked_at IS NULL
-        AND (expires_at IS NULL OR datetime(expires_at) > datetime('now'))
+        AND (expires_at IS NULL OR expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
         AND resource_id IN (${ids.map(() => "?").join(", ")})
     `).all(module, userId, ...ids) as { resource_id: string }[]).map((row) => row.resource_id)
   );

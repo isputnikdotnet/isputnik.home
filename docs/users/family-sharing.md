@@ -96,7 +96,7 @@ want it.
 
 The last destination makes a guest link: no account needed, expires on a date
 you choose, revocable at any time. This is the one to use for people outside the
-household. See [Sharing](../sharing.md) for the details.
+household. See [Sharing](https://github.com/isputnikdotnet/isputnik.home/blob/main/docs/sharing.md) for the details.
 
 It is shown in the picture above, chosen: pick how long it should last, give it
 a label so you can tell your links apart later, and **Create link**. The link

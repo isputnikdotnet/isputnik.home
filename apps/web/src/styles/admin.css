@@ -191,29 +191,6 @@
   min-height: 40px;
 }
 
-/* Filter on the left, view controls and the destructive action on the right. */
-.log-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 14px;
-}
-
-.log-toolbar-controls {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-left: auto;
-  flex-shrink: 0;
-}
-
-/* One height for everything in the row, matching the filter trigger. */
-.log-toolbar-controls .icon-button {
-  min-width: 40px;
-  min-height: 40px;
-}
-
 .log-toolbar-controls .refresh-button {
   min-height: 40px;
 }
@@ -346,16 +323,6 @@
 .log-dive-link:focus-visible {
   color: var(--ink);
   border-bottom-color: var(--mint);
-}
-
-.log-pager-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-top: 16px;
-  font-size: 0.84rem;
 }
 
 /* shared/Pager — the page controls under every long list in the control panel
@@ -864,13 +831,6 @@
 
 /* Sign-in details (Overview › Sign-ins): the scope line above the numbers says
    what everything below describes — one chip, cleared with its ✕. */
-.signins-scope-row {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
 .signins-scope-label {
   color: var(--muted);
   font-size: 0.78rem;
@@ -1397,31 +1357,6 @@
   font-size: 1.05rem;
 }
 
-.backup-settings-row {
-  display: grid;
-  grid-template-columns: minmax(230px, 1.45fr) minmax(160px, 0.75fr) minmax(160px, 0.75fr) minmax(260px, 1.35fr);
-  align-items: end;
-  gap: 28px;
-  margin-top: 28px;
-}
-
-.backup-settings-row > * + * {
-  min-height: 58px;
-  padding-left: 28px;
-  border-left: 1px solid var(--line);
-}
-
-.backup-settings-row .field-checkbox,
-.backup-settings-row .toggle-switch {
-  align-self: center;
-}
-
-.backup-auto-toggle {
-  max-width: 260px;
-  line-height: 1.35;
-}
-
-.backup-field-time,
 .backup-field-keep {
   max-width: 170px;
 }
@@ -1597,10 +1532,9 @@
   height: 44px;
   border-radius: 6px;
   overflow: hidden;
-  background: var(--surface-2, rgba(127, 127, 127, 0.12));
+  background: var(--surface-2);
   color: var(--muted);
 }
-.missing-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 /* The relative path wraps rather than stretching the table on deep folders. */
 .missing-path { word-break: break-all; }
 
@@ -1617,7 +1551,7 @@
   font-size: 0.95em;
   padding: 1px 5px;
   border-radius: 4px;
-  background: var(--surface-2, rgba(127, 127, 127, 0.12));
+  background: var(--surface-2);
   overflow-wrap: anywhere;
 }
 
@@ -1630,12 +1564,6 @@
   flex-direction: column;
   gap: 12px;
   font-size: 0.9rem;
-}
-.trash-retention-row {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
 }
 /* The name takes a line of its own, then the box and its unit read as one phrase
    under it — "[30] days (0 = until you empty the bin)". Side by side, the name and
@@ -1704,14 +1632,6 @@
 .trash-replaced td { vertical-align: top; }
 .trash-replaced-file { white-space: normal; overflow-wrap: anywhere; }
 
-.trash-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 14px;
-}
-
 /* In the section header beside the title, like the Logs search. */
 .trash-search {
   flex: 0 1 320px;
@@ -1726,11 +1646,6 @@
   min-height: 40px;
   font-size: 0.84rem;
   white-space: nowrap;
-}
-
-.trash-toolbar-controls .icon-button {
-  min-width: 40px;
-  min-height: 40px;
 }
 
 .trash-toolbar-controls .refresh-button {
@@ -1761,16 +1676,6 @@
 /* The menus open downward inside a short dialog, so they need room to do it. */
 .trash-view-options .select-menu-popover {
   min-width: 190px;
-}
-
-/* Pushed to the end of the row, as on the Logs toolbar. That only reads correctly
-   because the grid below now fills its container too — see .trash-grid. */
-.trash-toolbar-controls {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-left: auto;
-  flex-shrink: 0;
 }
 
 /* A grid of tiles rather than table rows: the cover is what you recognise a deleted
@@ -1818,11 +1723,9 @@
   margin-bottom: 5px;
   border-radius: 6px;
   overflow: hidden;
-  background: var(--surface-2, rgba(127, 127, 127, 0.12));
+  background: var(--surface-2);
   color: var(--muted);
 }
-
-.trash-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
 /* Two lines at most, so one long name can't make its tile twice the height of its
    neighbours. The full name is in the tooltip. */
@@ -1846,13 +1749,6 @@
   line-height: 1.45;
 }
 
-/* Folder and library are single-line facts; clip rather than wrap them. */
-.trash-tile-line > span:first-child {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .trash-tile-line svg,
 .trash-tile-line .count-badge {
   flex-shrink: 0;
@@ -1874,44 +1770,11 @@
   padding: 6px;
 }
 
-/* Count on the left, page controls on the right — as .dup-pager-row. */
-.trash-pager-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-top: 16px;
-  font-size: 0.84rem;
-}
-
 @media (max-width: 740px) {
   .trash-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
 }
 
 /* ── Tasks ──────────────────────────────────────────────────────── */
-
-.task-idle-note {
-  margin: 4px 0 6px;
-  font-size: 0.9rem;
-}
-
-.task-group-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 22px 0 10px;
-  font-size: 1rem;
-}
-
-.task-group-count {
-  padding: 1px 9px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--ink) 8%, transparent);
-  color: var(--muted);
-  font-size: 0.78rem;
-  font-weight: 600;
-}
 
 .task-name {
   display: inline-flex;
@@ -2098,13 +1961,6 @@
   table-layout: fixed;
 }
 
-.blocked-table td,
-.trusted-table td {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .blocked-table td.col-expand,
 .blocked-table td.col-actions,
 .trusted-table td.col-actions {
@@ -2203,7 +2059,7 @@
   gap: 28px;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 740px) {
   .protection-body {
     grid-template-columns: minmax(0, 1fr);
     justify-items: center;
@@ -2405,25 +2261,6 @@
 
 .quote-import-copy .muted {
   font-size: 0.83rem;
-}
-
-/* Control → Settings → Gallery: the Inboxes already set up, one line each. */
-.gallery-settings-inboxes {
-  list-style: none;
-  margin: 0 0 12px;
-  padding: 0;
-  display: grid;
-  gap: 6px;
-}
-
-.gallery-settings-inboxes li {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.gallery-settings-inboxes li a {
-  margin-left: auto;
 }
 
 /* App storage (docs/app-storage-plan.md): the folder on top, its rooms as rows. */

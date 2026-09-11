@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Eye, EyeOff, LogOut, Send as SendIcon, Trash2 } from "lucide-react";
-import type { PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { followReplace, goBack, navigate, replaceNavigate, storyEditorHref } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
@@ -28,15 +27,11 @@ import { chapterLabel } from "./types";
 export function StoryEditorPage({
   id,
   pane,
-  chapterId,
-  user,
-  logout
+  chapterId
 }: {
   id: string;
   pane: "overview" | "chapter";
   chapterId?: string;
-  user: PublicUser;
-  logout: () => Promise<void>;
 }) {
   const { t } = useTranslation(["common", "stories"]);
   const editor = useStoryEditor(id);
@@ -134,8 +129,6 @@ export function StoryEditorPage({
   return (
     <DashboardShell
       active="stories"
-      user={user}
-      logout={logout}
       sideNav={story
         ? (
           <StoryEditorNav

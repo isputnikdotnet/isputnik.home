@@ -3,6 +3,16 @@ services:
     image: ghcr.io/isputnikdotnet/isputnik.home:latest
     container_name: isputnik
     restart: unless-stopped
+    # On `docker stop` the server finishes in-flight requests and stops its workers
+    # between units (it gives itself 10 s); this leaves room before Docker SIGKILLs.
+    stop_grace_period: 30s
+    # The health check (GET /api/health) comes from the image. Keep the log bounded:
+    # every request is logged, including range requests while streaming audio.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
     ports:
       - "4000:4000"
     environment:
@@ -13,8 +23,9 @@ services:
       PGID: 1000
       # URL used to access the app — change to your server IP or domain
       APP_URL: http://localhost:4000
-      # Set to "true" only if serving over HTTPS
-      COOKIE_SECURE: "false"
+      # auto: secure cookies follow APP_URL (on for https://, off for plain http).
+      # Set "true"/"false" only to override.
+      COOKIE_SECURE: auto
       # Set when exposing via a reverse proxy, so rate limits, auto-block, and trusted
       # zones see the real client IP, not the proxy. Preferred: the proxy's own IP or
       # CIDR (comma-separated for several) — forwarded headers are then only believed

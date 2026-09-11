@@ -8,10 +8,10 @@ import {
   queryGalleryFolders,
   searchGalleryFolders,
   galleryFacets,
-  queryGalleryMapPoints,
-  resolveGalleryScopeLibraryIds,
-  EMPTY_GALLERY_FILTERS
+  queryGalleryMapPoints
 } from "../src/modules/library/gallery/catalog.js";
+import { resolveGalleryScopeLibraryIds } from "../src/modules/library/gallery/catalog-scope.js";
+import { EMPTY_GALLERY_FILTERS } from "../src/modules/library/gallery/catalog-filters.js";
 import { kindForExtension } from "../src/modules/library/gallery/media.js";
 import { rotateGalleryAsset } from "../src/modules/library/gallery/rotate.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
