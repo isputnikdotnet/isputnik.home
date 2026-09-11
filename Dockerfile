@@ -44,7 +44,12 @@ RUN npm ci --omit=dev --workspace apps/server
 # production deps computed from package-lock.json and remove everything else.
 COPY scripts/docker-prune-runtime-deps.mjs ./scripts/
 RUN node scripts/docker-prune-runtime-deps.mjs \
-    && find node_modules -mindepth 1 -maxdepth 1 -type d -empty -delete
+    && find node_modules -mindepth 1 -maxdepth 1 -type d -empty -delete \
+    && mkdir -p apps/server/node_modules
+# (mkdir: the final stage copies apps/server/node_modules for any dep npm chose not
+# to hoist. When the lockfile hoists everything — as it does since 4.0.0 — npm never
+# creates that folder, and COPY --from of a missing path fails the whole build.
+# An empty folder copies as nothing.)
 # ffprobe-static and onnxruntime-node ship binaries for every OS/arch in one
 # package (~330 MB and ~220 MB of foreign-platform dead weight). Keep only this
 # image's platform. Must happen HERE, not in the final stage — a later RUN rm
