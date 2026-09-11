@@ -31,6 +31,8 @@ describe("scheduled jobs registry", () => {
   it("ships every job enabled by default with its clock-time schedule and a future next run", () => {
     const jobs = listScheduledJobs();
     expect(jobs.map((j) => j.key).sort()).toEqual([
+      "backup_full",
+      "backup_minimal",
       "cleanup_job_logs",
       "convert_unplayable_videos",
       "purge_expired_trash",
@@ -52,7 +54,12 @@ describe("scheduled jobs registry", () => {
     expect(byKey.scan_ebook_libraries).toMatchObject({ enabled: true, frequency: "daily" });
     expect(byKey.scan_gallery_libraries).toMatchObject({ enabled: true, frequency: "daily" });
 
+    // The backup jobs alone ship off: a backup folder fills a disk on its own.
+    expect(byKey.backup_full).toMatchObject({ enabled: false, frequency: "weekly", time: "03:30", nextRunAt: null });
+    expect(byKey.backup_minimal).toMatchObject({ enabled: false, frequency: "daily", time: "03:00", nextRunAt: null });
+
     for (const job of jobs) {
+      if (job.key.startsWith("backup_")) continue;
       expect(job.nextRunAt).not.toBeNull();
       expect(new Date(job.nextRunAt!).getTime()).toBeGreaterThan(Date.now());
       expect(job.lastRunAt).toBeNull();
@@ -69,7 +76,7 @@ describe("scheduled jobs registry", () => {
   it("lists jobs grouped by category, then by name", () => {
     const jobs = listScheduledJobs();
     expect(jobs.map((j) => j.category)).toEqual([
-      "audiobooks", "ebooks", "gallery", "gallery", "gallery", "gallery", "system", "system", "system"
+      "audiobooks", "ebooks", "gallery", "gallery", "gallery", "gallery", "system", "system", "system", "system", "system"
     ]);
     expect(jobs.filter((j) => j.category === "gallery").map((j) => j.label)).toEqual([
       "Convert unplayable videos",
@@ -83,6 +90,8 @@ describe("scheduled jobs registry", () => {
   it("gives every job a category", () => {
     const byKey = Object.fromEntries(listScheduledJobs().map((j) => [j.key, j.category]));
     expect(byKey).toEqual({
+      backup_full: "system",
+      backup_minimal: "system",
       cleanup_job_logs: "system",
       convert_unplayable_videos: "gallery",
       purge_expired_trash: "system",
@@ -102,6 +111,8 @@ describe("scheduled jobs registry", () => {
 
     const rows = db.prepare("SELECT key, enabled FROM scheduled_jobs ORDER BY key").all() as { key: string; enabled: number }[];
     expect(rows.map((r) => r.key)).toEqual([
+      "backup_full",
+      "backup_minimal",
       "cleanup_job_logs",
       "convert_unplayable_videos",
       "purge_expired_trash",

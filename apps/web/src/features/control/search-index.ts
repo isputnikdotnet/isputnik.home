@@ -77,8 +77,8 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
     "banned ip block unblock auto-block ban permanent never expires forever make permanent reputation abuseipdb abuse score check " +
     "заблокированный ip блокировка разблокировать автоблокировка бан навсегда никогда не истекает сделать постоянным репутация проверка",
 
-  backup: "restore zip archive download snapshot schedule retention export " +
-    "восстановить архив скачать снимок расписание хранение экспорт резервная копия",
+  backup: "restore zip archive download snapshot schedule retention export full minimal quick database copy sqlite " +
+    "восстановить архив скачать снимок расписание хранение экспорт резервная копия полная минимальная быстрая копия базы",
   scheduledJobs: "cron schedule nightly automatic recurring timer " +
     "расписание ночное автоматическое повторяющееся таймер задания",
   recycleBin: "trash deleted restore purge retention undelete how long keep days cleanup expiry location folder path custom bin " +
@@ -158,7 +158,7 @@ const SETTING_ENTRIES: { titleKey: SettingKey; section: ControlSection; keywords
     keywords: "allow deletions only trusted networks read only readonly refuse delete away from home stolen credentials защита удалений только доверенные сети только чтение отклонить удаление"
   },
   { titleKey: "addTrustedNetwork", section: "securityTrusted", keywords: "cidr range lan skip lockout добавить доверенную сеть подсеть диапазон" },
-  { titleKey: "scheduledBackups", section: "backup", keywords: "automatic nightly keep how many retention автоматическая резервная копия расписание хранение" },
+  { titleKey: "scheduledBackups", section: "backup", keywords: "automatic nightly weekly monthly full minimal keep how many retention of each kind автоматическая резервная копия расписание еженедельно ежемесячно полная минимальная хранение" },
   { titleKey: "defaultTheme", section: "appearance", keywords: "new members sign-in screen look тема по умолчанию новые участники экран входа" },
   { titleKey: "smtpServer", section: "email", keywords: "host port username password tls outgoing mail сервер порт имя пользователя пароль исходящая почта" },
   { titleKey: "sendTestEmail", section: "email", keywords: "verify smtp check delivery отправить тестовое письмо проверить доставку" },

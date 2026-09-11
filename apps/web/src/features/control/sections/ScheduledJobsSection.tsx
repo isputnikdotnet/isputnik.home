@@ -6,12 +6,12 @@ import { controlHref, followRoute } from "../../../router";
 import { Button } from "../../../shared/Button";
 import { MessageBox } from "../../../shared/MessageBox";
 import { RefreshButton } from "../../../shared/RefreshButton";
-import { SelectField } from "../../../shared/SelectField";
 import { ControlSectionHead } from "../ControlSectionHead";
+import { JobScheduleControls, type JobFrequency } from "../JobScheduleControls";
 import { ToggleSwitch } from "../../../shared/ToggleSwitch";
 import { formatManagedDate } from "../../../shared/utils";
 
-type Frequency = "daily" | "weekly" | "monthly";
+type Frequency = JobFrequency;
 type Category = "audiobooks" | "ebooks" | "gallery" | "system";
 
 interface ScheduledJob {
@@ -39,9 +39,6 @@ interface RunState {
   taskIds: string[];
   phase: "working" | "done" | "failed";
 }
-
-const WEEKDAY_KEYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"] as const;
-const MONTH_DAYS = Array.from({ length: 28 }, (_, i) => i + 1);
 
 const CATEGORY_LABEL_KEYS: Record<Category, "catAudiobooks" | "catEbooks" | "catGallery" | "catSystem"> = {
   audiobooks: "catAudiobooks",
@@ -262,50 +259,12 @@ function ScheduledJobRow({
       </td>
 
       <td>
-        <div className="scheduled-job-schedule">
-          <SelectField
-            compact
-            hideLabel
-            label={t("controlAdmin:scheduledJobs.ariaFrequency", { label: job.label })}
-            value={job.frequency}
-            disabled={controlsDisabled}
-            onChange={(value) => void save({ frequency: value as Frequency })}
-            options={[
-              { value: "daily", label: t("controlAdmin:scheduledJobs.freqDaily") },
-              { value: "weekly", label: t("controlAdmin:scheduledJobs.freqWeekly") },
-              { value: "monthly", label: t("controlAdmin:scheduledJobs.freqMonthly") }
-            ]}
-          />
-          {job.frequency === "weekly" && (
-            <SelectField
-              compact
-              hideLabel
-              label={t("controlAdmin:scheduledJobs.ariaDayOfWeek", { label: job.label })}
-              value={String(job.dayOfWeek)}
-              disabled={controlsDisabled}
-              onChange={(value: string) => void save({ dayOfWeek: Number(value) })}
-              options={WEEKDAY_KEYS.map((key, i) => ({ value: String(i), label: t(`controlAdmin:scheduledJobs.${key}`) }))}
-            />
-          )}
-          {job.frequency === "monthly" && (
-            <SelectField
-              compact
-              hideLabel
-              label={t("controlAdmin:scheduledJobs.ariaDayOfMonth", { label: job.label })}
-              value={String(job.dayOfMonth)}
-              disabled={controlsDisabled}
-              onChange={(value: string) => void save({ dayOfMonth: Number(value) })}
-              options={MONTH_DAYS.map((day) => ({ value: String(day), label: t("controlAdmin:scheduledJobs.dayN", { day }) }))}
-            />
-          )}
-          <input
-            type="time"
-            value={job.time}
-            disabled={controlsDisabled}
-            aria-label={t("controlAdmin:scheduledJobs.ariaTime", { label: job.label })}
-            onChange={(e) => { if (e.target.value) void save({ time: e.target.value }); }}
-          />
-        </div>
+        <JobScheduleControls
+          label={job.label}
+          schedule={job}
+          disabled={controlsDisabled}
+          onChange={(patch) => void save(patch)}
+        />
       </td>
 
       <td>

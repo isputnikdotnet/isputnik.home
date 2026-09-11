@@ -13,6 +13,7 @@ import { enqueueGalleryScan } from "../library/gallery/scanner.js";
 import { purgeMissingGalleryPhotos, getMissingRetentionDays } from "../library/gallery/cleanup.js";
 import { enqueueTranscodeBatch, unplayableBacklogCount } from "../library/gallery/transcode.js";
 import { auditThumbnailStore, removeEmptyThumbnailDirs } from "../library/shared/thumbnail-audit.js";
+import { startScheduledBackup } from "../backups/run.js";
 
 // Recurring maintenance tasks. The set of jobs is fixed and defined here; the
 // scheduled_jobs table only stores per-key state (enabled, schedule, last/next run).
@@ -214,6 +215,30 @@ const DEFINITIONS: ScheduledJobDef[] = [
       const remaining = pending - queued;
       return `Queued ${queued} video conversion${queued === 1 ? "" : "s"}${remaining > 0 ? ` (${remaining} more will follow next run)` : ""} — they process in the background.`;
     }
+  },
+  // The two backup jobs. Off until the admin turns one on: a backup folder fills a
+  // disk on its own, and the Backup page (which shows these same two rows) is where
+  // the install is told how many to keep. Both start the run and return; the file
+  // is written in the background and listed on the Backup page when done.
+  {
+    key: "backup_full",
+    label: "Back up everything (full)",
+    description: "Write the database, its two-factor key and every cover image into one .zip in the backup folder — everything a restore needs, including the uploaded and provider-fetched covers that cannot be regenerated. The newest N full backups are kept, N being the count on the Backup page.",
+    category: "system",
+    defaultEnabled: false,
+    defaultFrequency: "weekly",
+    defaultTime: "03:30",
+    run: () => startScheduledBackup("full")
+  },
+  {
+    key: "backup_minimal",
+    label: "Back up the database (minimal)",
+    description: "Write only the database and its two-factor key into a small .zip — the two things that cannot be recreated. Cover images are left out; most regenerate from your files, but uploaded and provider-fetched covers only a full backup keeps. The newest N minimal backups are kept, N being the count on the Backup page.",
+    category: "system",
+    defaultEnabled: false,
+    defaultFrequency: "daily",
+    defaultTime: "03:00",
+    run: () => startScheduledBackup("minimal")
   },
   {
     key: "scan_new_faces",

@@ -19,6 +19,15 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.89.0",
+    label: "Three kinds of backup, on the same schedule as everything else",
+    changes: [
+      "A backup is one of three kinds now, and the file name says which. **Full** is what it always was: the database, its two-factor key and every cover image, as one .zip. **Minimal** is the database and the key alone — the two things that cannot be recreated — in a .zip named `-minimal`, a fraction of the size. A **quick database copy** is the database file on its own, a plain .sqlite taken in seconds with no archive and no key, for the moment before trying something. Three buttons at the top of the Backup page make one now; Restore and Upload take all three, and an uploaded zip is filed by what it holds.",
+      "The schedule is two scheduled jobs, one per zip kind, with the same choices as any other job: every day, every week on a weekday, every month on a day, at a time, with an on/off switch and the next run beside it. Both rows sit on the Backup page and on the Scheduled jobs page, where Run now works for them too. The old daily timer with its Include covers box is gone; an install that had it on wakes up with the matching job enabled at the same time of day. The setup guide's backup step is the full backup, daily.",
+      "Keep newest counts each kind separately, so a nightly minimal backup never pushes the weekly full ones out. The Control panel guide describes the three kinds and shows the page."
+    ]
+  },
+  {
     version: "3.88.0",
     label: "Renders take App storage",
     changes: [

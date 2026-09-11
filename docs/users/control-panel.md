@@ -310,16 +310,37 @@ The alerts these produce only reach you if email is set up.
 
 Worth setting up on the day you install, not the day you need it.
 
-![The Backup page, with the schedule above the list of existing backups](images/63-backup.png)
+![The Backup page: three ways to make one, the two schedules, and the list of existing backups](images/63-backup.png)
 
-- **Create backup now** makes one immediately.
-- **Scheduled backups** run daily at a time you pick, keeping the last N (default
-  10) and deleting older ones.
-- **Include covers** decides between a full `.zip` (database *and* the generated
-  thumbnails) and database-only. Covers regenerate from your originals, so
-  database-only is much smaller — but see the warning below.
+There are three kinds, and the file name says which is which:
+
+| Kind | What it holds | File |
+|---|---|---|
+| **Full backup** | The database, the two-factor key and every cover image | `isputnik-<date>-<time>.zip` |
+| **Minimal backup** | The database and the two-factor key — the two things that cannot be recreated | `isputnik-<date>-<time>-minimal.zip` |
+| **Quick database copy** | A plain copy of the database file, taken in seconds — no archive, no key | `isputnik-<date>-<time>.sqlite` |
+
+The database is the catalogue, who has access, what everyone has read and
+listened to, and every setting. The key is what unlocks the two-factor secrets
+inside it. Cover images mostly regenerate from your originals; the ones that do
+not — art someone uploaded, art fetched from a provider — live only in the
+thumbnail store, which is what a full backup adds and why it is so much larger.
+Media files are never in a backup, and never touched.
+
+- The three buttons at the top make one now, of the kind you name. A backup runs in
+  the background, and the page reports when the file is ready.
+- **Scheduled backups** are two rows, one for full and one for minimal, and each is
+  a scheduled job like any other: every day, every week on a weekday, or every
+  month on a day, at a time you pick, with an on/off switch and the next run beside
+  it. Both start off. A change is saved as you make it, and the same two rows sit on
+  the Scheduled jobs page, where **Run now** works for them too. A daily minimal
+  backup with a weekly full one is a sensible pair.
+- **Keep newest, of each kind** is how many stay. Full backups, minimal backups and
+  database copies are counted separately, so a nightly minimal backup never pushes
+  the weekly full ones out; the oldest of a kind goes when a new one of that kind is
+  made.
 - You can **upload** a backup from your computer; it joins the list ready to
-  restore.
+  restore, filed by what it holds.
 
 **Where they land.** The page shows the folder the server writes to. In Docker that's
 a path *inside the container* — `/config/backups` — which on the host is the `backups`
@@ -363,10 +384,12 @@ older later and need to go back.
 
 The recurring work, one row each: scanning each library type for new files, scanning
 new photos for faces, looking for duplicate photos, purging missing photos, cleaning
-task history, purging expired recycle bin items, converting unplayable videos, and
-tidying the thumbnail store.
-Sensible defaults ship enabled; the face scan runs after the nightly library scans so
-the day's new photos are already cataloged.
+task history, purging expired recycle bin items, converting unplayable videos,
+tidying the thumbnail store, and the two backups — full and minimal — that the
+Backup page shows as well.
+Sensible defaults ship enabled, except the two backups, which are off until you
+choose one; the face scan runs after the nightly library scans so the day's new
+photos are already cataloged.
 
 None of them ever removes something ahead of its time. **Purge expired recycle bin
 items** takes only what has outlived the window it was given when it was deleted —

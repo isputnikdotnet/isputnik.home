@@ -143,6 +143,15 @@
     gap: 14px;
   }
 
+  .backup-schedule-row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .backup-retention-controls {
+    flex-wrap: wrap;
+  }
+
   .backup-save-button {
     justify-self: start;
   }
