@@ -1,94 +1,68 @@
 import fs from "node:fs";
 import path from "node:path";
 import Database from "better-sqlite3";
-import { ZipArchive } from "archiver";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { db, logActivity } from "../../db.js";
 import { config, mfaKeyFilePath } from "../../config.js";
-import { resolveAppLocation } from "../../core/app-storage.js";
 import { parseBody } from "../../core/shared.js";
 import { receiveUpload, UploadError } from "../uploads/index.js";
 import { configuredThumbnailPathValue } from "../library/shared/thumbnail.js";
+import { configureScheduledJob } from "../maintenance/index.js";
 import { extractFromZip, isBackupDatabaseEntry, isBackupMfaKeyEntry, zipHasEntry } from "./zip-read.js";
+import {
+  BACKUP_KINDS,
+  NAME_PATTERN,
+  SETTINGS_KEY,
+  backupDir,
+  backupKindOf,
+  backupRunState,
+  ensureBackupDir,
+  getSettings,
+  listBackupFiles,
+  saveSettings,
+  startBackup,
+  uniqueBackupName,
+  type BackupKind
+} from "./run.js";
 
-// Database backups. A backup is a zip containing database.sqlite (a consistent
-// online snapshot), mfa.key when the install has one, and, optionally, the thumbnail
-// cache under thumbnails/ — those cover images can't all be regenerated from source
-// (uploaded and provider-fetched covers live only in the cache). The metadata cache
-// is not included (the DB is the source of truth) and source media is never touched.
-//
-// mfa.key is 64 bytes and always travels, because it is the only thing that can
-// decrypt the TOTP secrets inside database.sqlite: a backup without it restores an
-// install whose two-factor users are all locked out and must re-enrol. It does not
-// widen what a leaked backup exposes — that zip already carries the password hashes
-// and session tokens the second factor sits behind.
+// Database backups. What a backup holds, and how one is taken, is in run.ts (three
+// kinds: full, minimal, a quick database copy). This file is the admin API over
+// them: list, start, retention, download, delete, restore and upload.
 //
 // Restore is split: cover images are written back into the cache live (static
 // files), and the database is staged as "<dbPath>.restore" for db.ts to swap in on
 // the next startup (it can't be replaced while better-sqlite3 holds it open).
 //
-// A pre-restore safety snapshot of the current DB is written as a .sqlite file, so
-// the list accepts both .zip (full) and .sqlite (database-only) backups.
+// Scheduling is not this module's any more. The two backup jobs sit on the Scheduled
+// jobs page beside the library scans (modules/maintenance), with the same cadence,
+// day and time controls; the Backup page shows and edits the same two rows.
 
-const BACKUP_PREFIX = "isputnik-";
-const NAME_PATTERN = /^isputnik-[0-9]{8}-[0-9]{6}\.(zip|sqlite)$/;
-const SETTINGS_KEY = "backup_schedule";
+export { backupDir, backupRunSettled } from "./run.js";
 
-interface BackupFile {
-  name: string;
-  sizeBytes: number;
-  createdAt: string;
-  kind: "full" | "database";
-}
-
-interface BackupSettings {
-  enabled: boolean;
-  time: string;       // "HH:MM", 24h local time
-  retention: number;  // keep newest N
-  includeCovers: boolean;
-}
-
-function defaultSettings(): BackupSettings {
-  return { enabled: false, time: "03:00", retention: Math.max(1, config.backupRetention), includeCovers: true };
-}
-
-function getSettings(): BackupSettings {
+// Until 3.89.0 the module ran its own daily timer from a {enabled, time,
+// includeCovers} blob. An install upgrading with that timer on must not wake up
+// silently unscheduled: the setting becomes the matching job — full when covers were
+// included, minimal otherwise — daily at the same clock time. The blob is then
+// rewritten to the new shape, so this runs once.
+export function adoptLegacyBackupSchedule(): "full" | "minimal" | null {
   const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(SETTINGS_KEY) as { value: string } | undefined;
-  const base = defaultSettings();
-  if (!row) {
-    return base;
-  }
+  if (!row) return null;
+  let legacy: { enabled?: unknown; time?: unknown; includeCovers?: unknown };
   try {
-    const parsed = JSON.parse(row.value) as Partial<BackupSettings>;
-    return {
-      enabled: typeof parsed.enabled === "boolean" ? parsed.enabled : base.enabled,
-      time: /^([01]\d|2[0-3]):[0-5]\d$/.test(parsed.time ?? "") ? parsed.time! : base.time,
-      retention: Number.isFinite(parsed.retention) && parsed.retention! >= 1 ? Math.floor(parsed.retention!) : base.retention,
-      includeCovers: typeof parsed.includeCovers === "boolean" ? parsed.includeCovers : base.includeCovers
-    };
+    legacy = JSON.parse(row.value) as typeof legacy;
   } catch {
-    return base;
+    return null;
   }
-}
-
-function saveSettings(settings: BackupSettings, userId: string | null) {
-  db.prepare(`
-    INSERT INTO app_settings (key, value, updated_by, updated_at)
-    VALUES (?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
-    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_by = excluded.updated_by, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
-  `).run(SETTINGS_KEY, JSON.stringify(settings), userId);
-}
-
-/** Where backups go: App storage's Backups room when that room is switched on
- *  (docs/app-storage-plan.md), else BACKUP_PATH / data/backups. Read at call time,
- *  never cached — the room can change while the server runs. */
-export function backupDir(): string {
-  return resolveAppLocation("backups", config.backupPath) ?? config.backupPath;
-}
-
-function ensureBackupDir() {
-  fs.mkdirSync(backupDir(), { recursive: true });
+  if (typeof legacy.enabled !== "boolean") return null; // already the new shape
+  let adopted: "full" | "minimal" | null = null;
+  if (legacy.enabled) {
+    adopted = legacy.includeCovers === false ? "minimal" : "full";
+    const time = /^([01]\d|2[0-3]):[0-5]\d$/.test(String(legacy.time)) ? String(legacy.time) : "03:00";
+    configureScheduledJob(`backup_${adopted}`, true, { frequency: "daily", time }, null);
+  }
+  saveSettings(getSettings(), null);
+  return adopted;
 }
 
 // Backups written before 2.15.1 landed in the app's own folder rather than the
@@ -133,45 +107,6 @@ export function rescueStrandedBackups(): number {
   return moved;
 }
 
-function timestampName(ext: "zip" | "sqlite", date = new Date()): string {
-  const p = (n: number) => String(n).padStart(2, "0");
-  const stamp = `${date.getFullYear()}${p(date.getMonth() + 1)}${p(date.getDate())}-${p(date.getHours())}${p(date.getMinutes())}${p(date.getSeconds())}`;
-  return `${BACKUP_PREFIX}${stamp}.${ext}`;
-}
-
-// A timestamp name not already taken in the backup folder (uploads can collide with
-// an existing backup taken in the same second); step forward a second until free.
-function uniqueBackupName(ext: "zip" | "sqlite"): string {
-  let date = new Date();
-  let name = timestampName(ext, date);
-  while (fs.existsSync(path.join(backupDir(), name))) {
-    date = new Date(date.getTime() + 1000);
-    name = timestampName(ext, date);
-  }
-  return name;
-}
-
-function listBackupFiles(): BackupFile[] {
-  if (!fs.existsSync(backupDir())) {
-    return [];
-  }
-  return fs.readdirSync(backupDir())
-    .filter((name) => NAME_PATTERN.test(name))
-    .map((name) => {
-      const stat = fs.statSync(path.join(backupDir(), name));
-      return { name, sizeBytes: stat.size, createdAt: stat.mtime.toISOString(), kind: name.endsWith(".zip") ? "full" as const : "database" as const };
-    })
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-}
-
-function pruneBackups(keep: number): number {
-  const stale = listBackupFiles().slice(Math.max(1, keep));
-  for (const file of stale) {
-    try { fs.unlinkSync(path.join(backupDir(), file.name)); } catch { /* best-effort */ }
-  }
-  return stale.length;
-}
-
 function resolveBackupPath(name: string): string | null {
   if (!NAME_PATTERN.test(name)) {
     return null;
@@ -195,141 +130,13 @@ function assertValidSqlite(filePath: string) {
   }
 }
 
-// Create a zip backup (DB + optional covers) and prune to the retention limit.
-async function runBackup(actorUserId: string | null, trigger: "manual" | "scheduled"): Promise<BackupFile> {
-  ensureBackupDir();
-  const settings = getSettings();
-  const name = timestampName("zip");
-  const destination = path.join(backupDir(), name);
-  const tmpDb = path.join(backupDir(), `.tmp-${Date.now()}.sqlite`);
-
-  await db.backup(tmpDb);
-  try {
-    await new Promise<void>((resolve, reject) => {
-      const output = fs.createWriteStream(destination);
-      const archive = new ZipArchive({ zlib: { level: 1 } });
-      output.on("close", () => resolve());
-      output.on("error", reject);
-      archive.on("error", reject);
-      archive.pipe(output);
-      archive.file(tmpDb, { name: "database.sqlite" });
-      // Only when the install actually keeps one: with MFA_ENCRYPTION_KEY set there
-      // is no file, and the env key is expected to be configured on the host that
-      // restores. Absent is therefore normal, not a fault.
-      const keyFile = mfaKeyFilePath();
-      if (fs.existsSync(keyFile)) {
-        archive.file(keyFile, { name: "mfa.key" });
-      }
-      // Where the covers actually are, which is not necessarily THUMBNAIL_PATH: the
-      // store is an admin setting that overrides the environment (see
-      // library/shared/thumbnail.ts), and everything else in the app reads it that
-      // way. Reading only the environment here meant a backup that quietly carried no
-      // covers at all — or carried the wrong, empty folder — while still reporting
-      // itself as "with covers".
-      const coverRoot = settings.includeCovers ? configuredThumbnailPathValue() : "";
-      if (coverRoot && fs.existsSync(coverRoot)) {
-        archive.directory(coverRoot, "thumbnails");
-      }
-      void archive.finalize();
-    });
-  } finally {
-    fs.rmSync(tmpDb, { force: true });
-  }
-
-  const pruned = pruneBackups(settings.retention);
-  const stat = fs.statSync(destination);
-  logActivity({
-    event: "backup.created",
-    actorUserId,
-    targetType: "backup",
-    targetId: name,
-    detail: `${trigger === "scheduled" ? "Scheduled" : "Manual"} backup "${name}" (${stat.size} bytes${settings.includeCovers ? ", with covers" : ""})${pruned > 0 ? `, pruned ${pruned} old` : ""}.`,
-    ipAddress: null
-  });
-  return { name, sizeBytes: stat.size, createdAt: stat.mtime.toISOString(), kind: "full" };
-}
-
-// ── Run state ───────────────────────────────────────────────────────
-// A backup takes minutes on a real library, which is longer than proxies in
-// front of the app will hold a request open (Cloudflare cuts the origin off
-// at ~100s and the page shows a failure for a backup that succeeded). So
-// creation is start-and-poll: POST starts the run and returns at once, and
-// GET /api/backups reports the run until the finished file shows up in the
-// list. One run at a time — the second starter is told no, not queued.
-let backupStartedAt: string | null = null;
-let backupLastError: string | null = null;
-let backupRunPromise: Promise<void> | null = null;
-
-/** Kick off a backup unless one is already running. True if this call started it. */
-function startBackup(actorUserId: string | null, trigger: "manual" | "scheduled"): boolean {
-  if (backupRunPromise) {
-    return false;
-  }
-  backupStartedAt = new Date().toISOString();
-  backupLastError = null;
-  backupRunPromise = runBackup(actorUserId, trigger)
-    .then(() => undefined)
-    .catch((err) => {
-      backupLastError = err instanceof Error ? err.message : "Backup failed";
-      console.error(`${trigger === "scheduled" ? "Scheduled" : "Manual"} backup failed:`, err);
-      logActivity({
-        event: "backup.failed",
-        actorUserId,
-        targetType: "backup",
-        targetId: null,
-        detail: `${trigger === "scheduled" ? "Scheduled" : "Manual"} backup failed: ${backupLastError}`,
-        ipAddress: null
-      });
-    })
-    .finally(() => {
-      backupStartedAt = null;
-      backupRunPromise = null;
-    });
-  return true;
-}
-
-/** Test hook: resolves when no backup is running (immediately if none is). */
-export function backupRunSettled(): Promise<void> {
-  return backupRunPromise ?? Promise.resolve();
-}
-
-// ── Scheduler ───────────────────────────────────────────────────────
-let scheduleTimer: NodeJS.Timeout | null = null;
-
-function nextRunDelayMs(time: string): number {
-  const [h, m] = time.split(":").map(Number);
-  const now = new Date();
-  const next = new Date(now);
-  next.setHours(h, m, 0, 0);
-  if (next.getTime() <= now.getTime()) {
-    next.setDate(next.getDate() + 1);
-  }
-  return next.getTime() - now.getTime();
-}
-
-function rescheduleBackups() {
-  if (scheduleTimer) {
-    clearTimeout(scheduleTimer);
-    scheduleTimer = null;
-  }
-  const settings = getSettings();
-  if (!settings.enabled) {
-    return;
-  }
-  scheduleTimer = setTimeout(() => {
-    // A manual run already going covers today's snapshot; skip rather than queue.
-    if (!startBackup(null, "scheduled")) {
-      console.warn("Scheduled backup skipped: a backup is already running.");
-    }
-    rescheduleBackups();
-  }, nextRunDelayMs(settings.time));
-}
-
 const settingsSchema = z.object({
-  enabled: z.boolean(),
-  time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Time must be HH:MM (24-hour)"),
-  retention: z.number().int().min(1).max(100),
-  includeCovers: z.boolean()
+  retention: z.number().int().min(1).max(100)
+});
+
+// Absent means full, so an older client (or a bare "{}") gets what it always got.
+const createSchema = z.object({
+  kind: z.enum(BACKUP_KINDS as [BackupKind, ...BackupKind[]]).default("full")
 });
 
 // Restoring is all-or-nothing about the database and optional about the covers.
@@ -342,25 +149,37 @@ export async function backupsPlugin(app: FastifyInstance) {
   // Before anything can list them: an install upgrading from an earlier version may
   // have backups sitting where a container update would discard them.
   rescueStrandedBackups();
+  try {
+    const adopted = adoptLegacyBackupSchedule();
+    if (adopted) app.log.info(`The daily backup schedule is now the "${adopted}" backup job on the Scheduled jobs page.`);
+  } catch (err) {
+    app.log.warn({ err }, "Could not carry the old backup schedule into the scheduled jobs; set it again on the Backup page.");
+  }
 
   app.get("/api/backups", { preHandler: app.requireAdmin }, async () => {
     const backups = listBackupFiles();
+    const run = backupRunState();
     return {
       backups,
       backupPath: backupDir(),
       settings: getSettings(),
       coversAvailable: Boolean(configuredThumbnailPathValue()),
       totalSizeBytes: backups.reduce((sum, b) => sum + b.sizeBytes, 0),
-      runningSince: backupStartedAt,
-      lastError: backupLastError
+      runningSince: run.startedAt,
+      runningKind: run.kind,
+      lastError: run.lastError
     };
   });
 
   app.post("/api/backups", { preHandler: app.requireAdmin }, async (request, reply) => {
-    if (!startBackup(request.user!.id, "manual")) {
+    const parsed = parseBody(createSchema, request.body ?? {});
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid backup request", details: parsed.error });
+    }
+    if (!startBackup(request.user!.id, "manual", parsed.data.kind)) {
       return reply.code(409).send({ error: "A backup is already running." });
     }
-    return reply.code(202).send({ startedAt: backupStartedAt });
+    return reply.code(202).send({ startedAt: backupRunState().startedAt, kind: parsed.data.kind });
   });
 
   app.patch("/api/backups/settings", { preHandler: app.requireAdmin }, async (request, reply) => {
@@ -369,13 +188,12 @@ export async function backupsPlugin(app: FastifyInstance) {
       return reply.code(400).send({ error: "Invalid backup settings", details: parsed.error });
     }
     saveSettings(parsed.data, request.user!.id);
-    rescheduleBackups();
     logActivity({
       event: "backup.settings_updated",
       actorUserId: request.user!.id,
       targetType: "setting",
       targetId: SETTINGS_KEY,
-      detail: `Backup schedule ${parsed.data.enabled ? `enabled at ${parsed.data.time}` : "disabled"}, keep ${parsed.data.retention}, covers ${parsed.data.includeCovers ? "on" : "off"}.`,
+      detail: `Backups keep the newest ${parsed.data.retention} of each kind.`,
       ipAddress: request.ip
     });
     return reply.send({ settings: parsed.data });
@@ -428,6 +246,7 @@ export async function backupsPlugin(app: FastifyInstance) {
 
   // Restore: extract covers back into the cache immediately (static files) and
   // stage the database as "<dbPath>.restore" for db.ts to apply on next startup.
+  // A minimal zip simply has no thumbnails/ entries, so the same path serves it.
   // destructive: restoring replaces the live database — refused from untrusted
   // networks under the deletions-only policy (see deletionBlocked).
   app.post("/api/backups/:name/restore", { preHandler: app.requireAdmin, config: { destructive: true } }, async (request, reply) => {
@@ -520,11 +339,11 @@ export async function backupsPlugin(app: FastifyInstance) {
     return reply.send({ staged: true, coversRestored, coversSkipped: !wantCovers, mfaKeyStaged });
   });
 
-  // Upload a backup file (.zip full backup, or .sqlite database-only) from the admin's
-  // computer. It streams to disk under the standard backup name so it joins the list
-  // and can be restored like any other. We confirm it is actually an isputnik backup
-  // before accepting it. Admin-only and uncapped — a trusted operator restoring a
-  // possibly-large full backup (DB + covers).
+  // Upload a backup file (.zip full or minimal backup, or .sqlite database-only) from
+  // the admin's computer. It streams to disk under the standard backup name so it
+  // joins the list and can be restored like any other. We confirm it is actually an
+  // isputnik backup before accepting it. Admin-only and uncapped — a trusted operator
+  // restoring a possibly-large full backup (DB + covers).
   app.post("/api/backups/upload", { preHandler: app.requireAdmin }, async (request, reply) => {
     ensureBackupDir();
 
@@ -537,20 +356,25 @@ export async function backupsPlugin(app: FastifyInstance) {
     }
 
     // Reject anything that isn't a real isputnik backup before it joins the list.
+    // A zip with no thumbnails/ inside is filed as minimal, so the list says what it
+    // holds whatever the file was called on the way in.
+    let kind: BackupKind;
     try {
       if (received.extension === "sqlite") {
         assertValidSqlite(received.tmpPath);
+        kind = "database";
       } else {
         if (!(await zipHasEntry(received.tmpPath, isBackupDatabaseEntry))) {
           throw new Error("This zip is not an isputnik backup — it has no database.sqlite inside.");
         }
+        kind = (await zipHasEntry(received.tmpPath, (entry) => entry.startsWith("thumbnails/"))) ? "full" : "minimal";
       }
     } catch (err) {
       fs.rmSync(received.tmpPath, { force: true });
       return reply.code(400).send({ error: err instanceof Error ? err.message : "Not a valid backup file." });
     }
 
-    const name = uniqueBackupName(received.extension as "zip" | "sqlite");
+    const name = uniqueBackupName(kind);
     const destination = path.join(backupDir(), name);
     try {
       fs.renameSync(received.tmpPath, destination);
@@ -565,7 +389,7 @@ export async function backupsPlugin(app: FastifyInstance) {
       actorUserId: request.user!.id,
       targetType: "backup",
       targetId: name,
-      detail: `Uploaded backup "${name}" (${stat.size} bytes) from "${received.filename}".`,
+      detail: `Uploaded ${kind === "database" ? "database copy" : `${kind} backup`} "${name}" (${stat.size} bytes) from "${received.filename}".`,
       ipAddress: request.ip
     });
     return reply.code(201).send({
@@ -573,11 +397,8 @@ export async function backupsPlugin(app: FastifyInstance) {
         name,
         sizeBytes: stat.size,
         createdAt: stat.mtime.toISOString(),
-        kind: received.extension === "zip" ? "full" : "database"
+        kind: backupKindOf(name)
       }
     });
   });
-
-  app.addHook("onReady", async () => { rescheduleBackups(); });
-  app.addHook("onClose", async () => { if (scheduleTimer) clearTimeout(scheduleTimer); });
 }

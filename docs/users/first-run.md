@@ -51,7 +51,9 @@ seven steps, in the order they depend on each other:
    family-tree uploads, movies, voice notes) and the Photo Inbox that scans wait in. Each
    is made inside App storage in one confirmed click, and neither is required. Locked
    until App storage is chosen.
-4. **Backups** — a nightly archive of the catalogue and settings, and how many to keep.
+4. **Backups** — a nightly full backup of the catalogue, settings and covers, and how
+   many to keep. The Backup page in the control panel has the smaller kinds and the
+   weekly and monthly cadences.
 5. **Email** — the SMTP details, and a test message to your own address.
 6. **Security alerts** — write to me when an account signs in from a network I haven't
    seen before. Locked until email is set up, because an alert nobody receives reads

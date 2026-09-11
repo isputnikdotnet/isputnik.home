@@ -47,12 +47,31 @@ interface SecurityPolicy {
   alertNewIpSignIn: boolean;
 }
 
-/** As `/api/backups` returns it, and what PATCHing settings takes back. */
+/** What this step edits: the full-backup scheduled job (on/off, daily at a clock
+ *  time) and the keep-count from `/api/backups`. Since 3.89.0 the schedule is one of
+ *  the Scheduled jobs, so the two are read and written separately. */
 interface BackupSettings {
   enabled: boolean;
   time: string;
+  dayOfWeek: number;
+  dayOfMonth: number;
   retention: number;
-  includeCovers: boolean;
+}
+
+interface BackupJobView {
+  key: string;
+  enabled: boolean;
+  time: string;
+  dayOfWeek: number;
+  dayOfMonth: number;
+}
+
+const BACKUP_JOB = "backup_full";
+
+function backupStep(jobs: BackupJobView[] | null, settings: { retention: number } | null): BackupSettings | null {
+  const job = jobs?.find((entry) => entry.key === BACKUP_JOB);
+  if (!job || !settings) return null;
+  return { enabled: job.enabled, time: job.time, dayOfWeek: job.dayOfWeek, dayOfMonth: job.dayOfMonth, retention: settings.retention };
 }
 
 type StepKey = "storage" | "bin" | "gallery" | "backup" | "email" | "alerts" | "theme";
@@ -159,9 +178,10 @@ export function WelcomePage({ user, onDone }: {
       api<{ config: { defaultTheme: Theme } }>("/api/config").catch(() => null),
       api<{ policy: SecurityPolicy }>("/api/security").catch(() => null),
       api<{ path: string | null; editable: boolean }>("/api/storage/trash-root").catch(() => null),
-      api<{ settings: BackupSettings; backupPath: string }>("/api/backups").catch(() => null),
-      api<AppStorageView>("/api/storage/app-storage").catch(() => null)
-    ]).then(([librarySettings, rootList, mailPayload, config, security, bin, backups, storage]) => {
+      api<{ settings: { retention: number }; backupPath: string }>("/api/backups").catch(() => null),
+      api<AppStorageView>("/api/storage/app-storage").catch(() => null),
+      api<{ jobs: BackupJobView[] }>("/api/scheduled-jobs").catch(() => null)
+    ]).then(([librarySettings, rootList, mailPayload, config, security, bin, backups, storage, jobs]) => {
       if (librarySettings) {
         setSettings(librarySettings.settings);
         setThumbnailPath(librarySettings.settings.thumbnailPath);
@@ -175,7 +195,7 @@ export function WelcomePage({ user, onDone }: {
         setBinEditable(bin.editable);
       }
       if (backups) {
-        setBackup(backups.settings);
+        setBackup(backupStep(jobs?.jobs ?? null, backups.settings));
         setBackupPath(backups.backupPath);
       }
       if (storage) setAppStorage(storage);
@@ -189,7 +209,7 @@ export function WelcomePage({ user, onDone }: {
       api<{ settings: LibrarySettings }>("/api/library/settings").catch(() => null),
       api<{ path: string | null; editable: boolean }>("/api/storage/trash-root").catch(() => null),
       api<AppStorageView>("/api/storage/app-storage").catch(() => null),
-      api<{ settings: BackupSettings; backupPath: string }>("/api/backups").catch(() => null)
+      api<{ settings: { retention: number }; backupPath: string }>("/api/backups").catch(() => null)
     ]);
     if (librarySettings) {
       setSettings(librarySettings.settings);
@@ -261,13 +281,19 @@ export function WelcomePage({ user, onDone }: {
     setBinSaved(true);
   }, t("welcome.binSaveFailed"));
 
-  /** The endpoint takes the whole settings object, so a patch here has to carry the
-   *  fields this screen does not show — `includeCovers` above all, which defaults on
-   *  and must not be quietly turned off by a guide that never mentioned it. */
+  /** "Once a day" is the full-backup job set to daily: the job endpoint takes the
+   *  whole schedule, so the anchor days it does not use here are carried along as
+   *  they are. The keep-count is the Backup page's own setting. */
   const saveBackup = (patch: Partial<BackupSettings>) => run(async () => {
     if (!backup) return;
     const next = { ...backup, ...patch };
-    await api("/api/backups/settings", { method: "PATCH", body: JSON.stringify(next) });
+    await api(`/api/scheduled-jobs/${BACKUP_JOB}`, {
+      method: "PATCH",
+      body: JSON.stringify({ enabled: next.enabled, frequency: "daily", time: next.time, dayOfWeek: next.dayOfWeek, dayOfMonth: next.dayOfMonth })
+    });
+    if (next.retention !== backup.retention) {
+      await api("/api/backups/settings", { method: "PATCH", body: JSON.stringify({ retention: next.retention }) });
+    }
     setBackup(next);
     setBackupSaved(next.enabled
       ? t("welcome.backupSavedDaily", { time: next.time, count: next.retention })
