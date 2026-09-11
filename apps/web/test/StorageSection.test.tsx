@@ -22,6 +22,7 @@ const room = (name: string, mode: "app" | "own" | "off", extra: Record<string, u
   library: null,
   counts: {},
   move: { running: false, jobId: null, label: null, from: null, to: null, done: 0, pending: 0, failed: [] },
+  renameTo: null,
   ...extra
 });
 
@@ -108,5 +109,40 @@ describe("changing the App storage folder while rooms use it", () => {
     await user.click(within(dialog).getByRole("button", { name: "Clear" }));
     await waitFor(() => expect(puts).toHaveLength(1));
     expect(puts[0].body).toEqual({ path: null, carry: {} });
+  });
+});
+
+// An install that made the App files room as "Made in the app" keeps that
+// folder; the row offers to rename it, and the rename is confirmed with the
+// exact folders before anything is queued.
+describe("renaming the App files folder from its former name", () => {
+  it("shows Rename folder only on the row under a former name, confirms, and posts the rename", async () => {
+    const user = userEvent.setup();
+    const legacyView = {
+      ...view,
+      rooms: view.rooms.map((r) => r.room === "house"
+        ? room("house", "app", { resolvedPath: `${APP}\\Made in the app`, library: { id: "L1", name: "Random" }, renameTo: `${APP}\\App files` })
+        : r)
+    };
+    const posts: string[] = [];
+    mockApi.mockImplementation(async (path: string, init?: RequestInit) => {
+      if (typeof path !== "string") return undefined;
+      if (init?.method === "POST") { posts.push(path); return { storage: legacyView }; }
+      if (path === "/api/storage/app-storage") return legacyView;
+      if (path === "/api/storage/roots") return { roots: [] };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<StorageSection />);
+    await waitFor(() => expect(screen.getByText(`${APP}\\Made in the app`)).toBeInTheDocument());
+
+    const renames = screen.getAllByRole("button", { name: "Rename folder" });
+    expect(renames).toHaveLength(1);
+    await user.click(renames[0]);
+
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("Rename the folder to App files?")).toBeInTheDocument();
+    expect(within(dialog).getByText(/D:\\Demo\\iSputnik\\Made in the app becomes D:\\Demo\\iSputnik\\App files\. The library "Random" follows its folder/)).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Rename folder" }));
+    await waitFor(() => expect(posts).toEqual(["/api/storage/app-storage/rooms/house/rename"]));
   });
 });

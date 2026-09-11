@@ -19,6 +19,13 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.90.0",
+    label: "The folder can take the room's name",
+    changes: [
+      "An install that made the App files room while it was called \"Made in the app\" keeps that folder, by design: 3.86.0 renamed the room and left every file where it was. The App files row on the Storage page now offers **Rename folder** for such a folder. A box shows the exact before and after, and the rename runs as the same verified storage move task a library move uses: one rename on the same disk, every file copied and checked across disks, with the library following its folder in the same step, so nothing is rescanned and every story, photo, recording and track keeps working. A library that was itself named \"Made in the app\" takes the new name with it; one you named yourself keeps its name. The Storage guide says so."
+    ]
+  },
+  {
     version: "3.89.0",
     label: "Three kinds of backup, on the same schedule as everything else",
     changes: [
