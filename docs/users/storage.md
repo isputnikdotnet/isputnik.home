@@ -218,6 +218,14 @@ App files library. Choosing an App storage folder later changes no room
 that already has a place. Each one gains "Use App storage" in its chooser, and
 moves in only when you say so.
 
+One name did change: the App files room was called *Made in the app* until
+3.86.0, and an install that made the folder under that name keeps it. The room
+still reads as using App storage, and nothing moves. If you would like the
+folder to match, the App files row offers **Rename folder**: a box shows the
+exact before and after, and the rename runs as the same task a library move
+uses, the library following its folder in the same step, so nothing is
+rescanned. On the same disk it is a single rename.
+
 ![Storage once configured](images/11-storage-configured.png)
 
 ## How to organise the folder underneath

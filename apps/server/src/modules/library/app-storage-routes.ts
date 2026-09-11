@@ -4,7 +4,7 @@ import { z } from "zod";
 import type { FastifyInstance } from "fastify";
 import { parseBody } from "../../core/shared.js";
 import { APP_ROOMS } from "../../core/app-storage.js";
-import { appStorageView, setAppStoragePath, statusOf, switchRoom, type CarryRooms } from "./app-storage.js";
+import { appStorageView, renameRoomFolder, setAppStoragePath, statusOf, switchRoom, type CarryRooms } from "./app-storage.js";
 import { cancelTrashMove, resetTrashMoveFailures, startTrashMove, trashMoveStatus } from "./shared/trash-move.js";
 import { cancelFolderMove, folderMoveStatus } from "./shared/folder-move.js";
 import { cancelStorageMove, retryStorageMove } from "./shared/storage-move.js";
@@ -74,6 +74,19 @@ export async function appStorageRoutesPlugin(app: FastifyInstance) {
       return reply.send({ room: view, storage: appStorageView() });
     } catch (err) {
       return reply.code(statusOf(err)).send({ error: err instanceof Error ? err.message : "Unable to change the room" });
+    }
+  });
+
+  // Rename a room's folder from its former name to the current one (App files
+  // was "Made in the app"): a library move task, the library following its folder.
+  app.post("/api/storage/app-storage/rooms/:room/rename", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const room = (request.params as { room: string }).room;
+    if (!(APP_ROOMS as readonly string[]).includes(room)) return reply.code(404).send({ error: "No such room." });
+    try {
+      const view = renameRoomFolder(room as (typeof APP_ROOMS)[number], request.user!.id, request.ip);
+      return reply.send({ room: view, storage: appStorageView() });
+    } catch (err) {
+      return reply.code(statusOf(err)).send({ error: err instanceof Error ? err.message : "Unable to rename the folder" });
     }
   });
 

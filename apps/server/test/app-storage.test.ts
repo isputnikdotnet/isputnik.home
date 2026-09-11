@@ -8,6 +8,7 @@ import { appRoomMode, appRoomPath, getAppStorageSetting, resolveAppLocation, set
 import {
   appStorageView,
   migrateRendersIntoAppStorage,
+  renameRoomFolder,
   setAppStoragePath,
   switchRoom,
   validateAppStoragePath,
@@ -145,6 +146,52 @@ describe("the setting and the resolver", () => {
     // Once the new-name folder exists as well, the current name wins.
     fs.mkdirSync(path.join(appDir, "App files"));
     expect(appRoomPath("house")).toBe(path.join(appDir, "App files"));
+  });
+
+  it("offers to rename the former folder to App files, and does it as a library move the library follows", async () => {
+    setAppStoragePath(appDir, "u1");
+    const former = path.join(appDir, "Made in the app");
+    fs.mkdirSync(path.join(former, "Voice notes"), { recursive: true });
+    fs.writeFileSync(path.join(former, "Voice notes", "note.weba"), "AUDIO");
+    makeLibrary("OLDHOUSE", { createdBy: "u1", type: "gallery" });
+    db.prepare("UPDATE libraries SET name = 'Made in the app', source_path = ? WHERE id = 'OLDHOUSE'").run(former);
+    expect(setHouseLibrary("OLDHOUSE", "u1").ok).toBe(true);
+
+    const before = appStorageView().rooms.find((room) => room.room === "house")!;
+    expect(before.mode).toBe("app");
+    expect(before.renameTo).toBe(path.join(appDir, "App files"));
+    // Only the App files row has a former name; the others never offer it.
+    expect(appStorageView().rooms.filter((room) => room.renameTo !== null).map((room) => room.room)).toEqual(["house"]);
+
+    const queued = renameRoomFolder("house", "u1");
+    expect(queued.move.running).toBe(true);
+    await waitForStorageMoves();
+
+    // The files went, the library followed its folder, and the library named
+    // after the old folder took the new name with it.
+    expect(fs.existsSync(path.join(appDir, "App files", "Voice notes", "note.weba"))).toBe(true);
+    expect(fs.existsSync(former)).toBe(false);
+    const library = db.prepare("SELECT name, source_path FROM libraries WHERE id = 'OLDHOUSE'").get() as { name: string; source_path: string };
+    expect(library).toEqual({ name: "App files", source_path: path.join(appDir, "App files") });
+    const after = appStorageView().rooms.find((room) => room.room === "house")!;
+    expect(after.mode).toBe("app");
+    expect(after.resolvedPath).toBe(path.join(appDir, "App files"));
+    expect(after.renameTo).toBeNull();
+    expect(storageMoveStatus("house").failed).toEqual([]);
+
+    // Nothing left to rename: refused, not repeated.
+    expect(() => renameRoomFolder("house", "u1")).toThrowError(/already has its current name/);
+  });
+
+  it("the rename keeps a library's own name, and is refused for a room without a former name", () => {
+    setAppStoragePath(appDir, "u1");
+    fs.mkdirSync(path.join(appDir, "Made in the app"));
+    makeLibrary("RANDOM", { createdBy: "u1", type: "gallery" });
+    db.prepare("UPDATE libraries SET name = 'Random', source_path = ? WHERE id = 'RANDOM'").run(path.join(appDir, "Made in the app"));
+    expect(setHouseLibrary("RANDOM", "u1").ok).toBe(true);
+    renameRoomFolder("house", "u1");
+    expect((db.prepare("SELECT name FROM libraries WHERE id = 'RANDOM'").get() as { name: string }).name).toBe("Random");
+    expect(() => renameRoomFolder("trash", "u1")).toThrowError(AppStorageError);
   });
 
   it("on the first start after the update, an untouched Renders row carries its buckets from the thumbnail folder into App storage", async () => {

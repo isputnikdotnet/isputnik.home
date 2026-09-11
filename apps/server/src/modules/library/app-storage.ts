@@ -112,6 +112,9 @@ export interface RoomView {
   counts: { itemsInBin?: number; tracks?: number; clips?: number; waiting?: number; backups?: number };
   /** The room's storage move: running, or the last one's failures (storage-move.ts). */
   move: StorageMoveStatus;
+  /** Set when the room's folder still goes by a former name (App files was
+   *  "Made in the app" until 3.86.0): the folder it would be renamed to. */
+  renameTo: string | null;
 }
 
 export interface AppStorageView {
@@ -138,7 +141,8 @@ function trashRoom(): RoomView {
     holdsFiles: usesApp && (itemsInBin > 0 || dirHasEntries(resolved)),
     library: null,
     counts: { itemsInBin },
-    move: storageMoveStatus("trash")
+    move: storageMoveStatus("trash"),
+    renameTo: null
   };
 }
 
@@ -155,7 +159,8 @@ function inboxRoom(): RoomView {
     holdsFiles: appInbox !== null,
     library: shown ? { id: shown.id, name: shown.name } : null,
     counts: { waiting: shown ? itemCount(shown.id) : 0 },
-    move: storageMoveStatus("inbox")
+    move: storageMoveStatus("inbox"),
+    renameTo: null
   };
 }
 
@@ -163,6 +168,10 @@ function houseRoom(): RoomView {
   const appPath = appRoomPath("house");
   const house = getHouseLibrary();
   const usesApp = house !== null && samePath(house.source_path, appPath);
+  // Still under the former name? Then the row can offer the rename: the folder
+  // beside it with the current name, which appRoomFolderIn says does not exist.
+  const legacy = LEGACY_ROOM_FOLDERS.house;
+  const underFormerName = usesApp && appPath !== null && legacy !== undefined && path.basename(appPath) === legacy;
   return {
     room: "house",
     mode: usesApp ? "app" : house ? "own" : "off",
@@ -171,7 +180,8 @@ function houseRoom(): RoomView {
     holdsFiles: usesApp,
     library: house ? { id: house.id, name: house.name } : null,
     counts: {},
-    move: storageMoveStatus("house")
+    move: storageMoveStatus("house"),
+    renameTo: underFormerName ? path.join(path.dirname(appPath!), APP_ROOM_FOLDERS.house) : null
   };
 }
 
@@ -187,7 +197,8 @@ function thumbnailsRoom(): RoomView {
     holdsFiles: usesApp && dirHasEntries(resolved),
     library: null,
     counts: {},
-    move: storageMoveStatus("thumbnails")
+    move: storageMoveStatus("thumbnails"),
+    renameTo: null
   };
 }
 
@@ -213,7 +224,8 @@ function rendersRoom(): RoomView {
     holdsFiles: usesApp && RENDER_BUCKETS.some((bucket) => dirHasEntries(path.join(appPath, bucket))),
     library: null,
     counts: { tracks, clips },
-    move: storageMoveStatus("renders")
+    move: storageMoveStatus("renders"),
+    renameTo: null
   };
 }
 
@@ -235,7 +247,8 @@ function backupsRoom(): RoomView {
     holdsFiles: usesApp && backups > 0,
     library: null,
     counts: { backups },
-    move: storageMoveStatus("backups")
+    move: storageMoveStatus("backups"),
+    renameTo: null
   };
 }
 
@@ -695,6 +708,36 @@ function switchHouse(mode: AppRoomMode, ownLibraryId: string | null, userId: str
   }
   const nominated = setHouseLibrary(libraryId, userId);
   if (!nominated.ok) throw new AppStorageError(nominated.error, nominated.status);
+}
+
+/** Rename a room's folder from its former name to the current one — today
+ *  only the App files room, on an install that made it as "Made in the app".
+ *  The rename is the same storage move task the row's switches use: one rename
+ *  on the same disk, every file copied and checked across disks, and the
+ *  library follows its folder in the same step, so nothing is rescanned. A
+ *  library that was itself named after the old folder takes the new name too.
+ *  Throws AppStorageError with the status the route should answer with. */
+export function renameRoomFolder(room: AppRoom, userId: string, ip = ""): RoomView {
+  if (room !== "house") throw new AppStorageError("That room's folder has no former name to rename from.", 404);
+  const view = houseRoom();
+  if (!view.renameTo || !view.library) {
+    throw new AppStorageError(`The ${APP_ROOM_FOLDERS.house} folder already has its current name.`, 409);
+  }
+  const library = galleryLibraries().find((row) => row.id === view.library!.id);
+  if (!library) throw new AppStorageError("The App files library is gone.", 404);
+  queueLibraryMove(library, "house", view.renameTo, userId);
+  if (library.name === LEGACY_ROOM_FOLDERS.house) {
+    db.prepare("UPDATE libraries SET name = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(APP_ROOM_FOLDERS.house, library.id);
+  }
+  logActivity({
+    event: "config.updated",
+    actorUserId: userId,
+    targetType: "setting",
+    targetId: "app_storage.house",
+    detail: `${APP_ROOM_FOLDERS.house}: renaming its folder from "${library.source_path}" to "${view.renameTo}".`,
+    ipAddress: ip || undefined
+  });
+  return roomView("house");
 }
 
 /** Move one room between its three states. `own` is what "own" needs on the

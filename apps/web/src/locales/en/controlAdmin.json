@@ -1064,7 +1064,14 @@
     "confirmHouseOwnLabel": "Use this library",
     "confirmInboxOwnTitle": "Make “{{name}}” the Photo Inbox?",
     "confirmInboxOwnBody": "Its photos count as waiting for review: they leave the Timeline and every picker until each one is kept. Nothing is moved. The switch on the library's Access tab does the same.",
-    "confirmInboxOwnLabel": "Make it the Inbox"
+    "confirmInboxOwnLabel": "Make it the Inbox",
+    "renameFolder": "Rename folder",
+    "renameFolderTitle": "Rename this folder to {{name}}, the room's current name",
+    "confirmRenameTitle": "Rename the folder to {{name}}?",
+    "confirmRenameBody": "{{from}} becomes {{to}}. The library \"{{library}}\" follows its folder in the same step, so nothing is rescanned and every story, photo, recording and track in it keeps working. On the same disk this is one rename; across disks every file is copied and checked first, and the library stays where it is until the last one is across. It runs as a task you can watch here and on the Tasks page.",
+    "confirmRenameLabel": "Rename folder",
+    "confirmRenameBusy": "Renaming…",
+    "renameFailed": "Unable to rename the folder"
   },
   "tags": {
     "headDescription": "Free-form labels scanned from your files, across every library.",

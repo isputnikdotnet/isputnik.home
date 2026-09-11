@@ -45,6 +45,9 @@ interface RoomView {
   library: { id: string; name: string } | null;
   counts: { itemsInBin?: number; tracks?: number; clips?: number; waiting?: number; backups?: number };
   move: StorageMove;
+  /** The App files row on an install whose folder is still "Made in the app":
+   *  the folder it would be renamed to. Null everywhere else. */
+  renameTo: string | null;
 }
 
 interface AppStorageView {
@@ -98,6 +101,12 @@ export function StorageSection() {
   const [pending, setPending] = useState<PendingSwitch | null>(null);
   const [switching, setSwitching] = useState(false);
   const [switchError, setSwitchError] = useState("");
+
+  // The App files row's rename, offered while its folder still has the former
+  // name: confirm → POST; the move itself runs as the row's storage move task.
+  const [renamePending, setRenamePending] = useState<RoomView | null>(null);
+  const [renaming, setRenaming] = useState(false);
+  const [renameError, setRenameError] = useState("");
   const [moveBusy, setMoveBusy] = useState(false);
 
   const roomName: Record<AppRoom, string> = {
@@ -211,6 +220,21 @@ export function StorageSection() {
       setSwitchError(err instanceof Error ? err.message : t("controlAdmin:storage.switchFailedTitle", { room: roomName[pending.room] }));
     } finally {
       setSwitching(false);
+    }
+  };
+
+  const renameFolder = async () => {
+    if (!renamePending) return;
+    setRenaming(true);
+    setRenameError("");
+    try {
+      await api(`/api/storage/app-storage/rooms/${renamePending.room}/rename`, { method: "POST" });
+      setRenamePending(null);
+      await loadStorage();
+    } catch (err) {
+      setRenameError(err instanceof Error ? err.message : t("controlAdmin:storage.renameFailed"));
+    } finally {
+      setRenaming(false);
     }
   };
 
@@ -602,6 +626,16 @@ export function StorageSection() {
                         )}
                       </td>
                       <td className="col-actions app-storage-actions">
+                        {room.renameTo && !move.running && (
+                          <Button
+                            variant="text"
+                            compact
+                            title={t("controlAdmin:storage.renameFolderTitle", { name: room.renameTo.split(/[\\/]/).pop() ?? "" })}
+                            onClick={() => { setRenameError(""); setRenamePending(room); }}
+                          >
+                            {t("controlAdmin:storage.renameFolder")}
+                          </Button>
+                        )}
                         <Button
                           variant="secondary"
                           compact
@@ -786,6 +820,20 @@ export function StorageSection() {
             </Button>
           </div>
         </Modal>
+      )}
+
+      {renamePending && renamePending.renameTo && (
+        <ConfirmDialog
+          title={t("controlAdmin:storage.confirmRenameTitle", { name: renamePending.renameTo.split(/[\\/]/).pop() ?? "" })}
+          confirmLabel={t("controlAdmin:storage.confirmRenameLabel")}
+          busyLabel={t("controlAdmin:storage.confirmRenameBusy")}
+          busy={renaming}
+          error={renameError || undefined}
+          onConfirm={() => void renameFolder()}
+          onCancel={() => { setRenamePending(null); setRenameError(""); }}
+        >
+          {t("controlAdmin:storage.confirmRenameBody", { from: renamePending.resolvedPath ?? "", to: renamePending.renameTo, library: renamePending.library?.name ?? "" })}
+        </ConfirmDialog>
       )}
 
       {pending && pendingCopy && (
