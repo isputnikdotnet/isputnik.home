@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { OSM_TILE_OPTIONS, OSM_TILE_URL } from "../../shared/mapTiles";
 
 // Click-to-place location picker for the lightbox Info panel: click the map (or
 // drag the pin) to choose where a photo was taken. Plain Leaflet via refs like
@@ -39,8 +40,8 @@ export function GalleryLocationPicker({
       zoom: value ? 14 : 1,
       attributionControl: true
     });
-    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
+    L.tileLayer(OSM_TILE_URL, {
+      ...OSM_TILE_OPTIONS,
       attribution: t("gallery:map.osmAttribution")
     }).addTo(map);
     const icon = L.divIcon({ className: "gallery-mini-marker", html: '<span class="gallery-mini-pin"></span>', iconSize: [18, 18], iconAnchor: [9, 9] });

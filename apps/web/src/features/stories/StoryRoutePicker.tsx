@@ -4,6 +4,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { ROUTING_ATTRIBUTION, drawRouteLegs } from "./story-route-layer";
 import type { StoryMapPoint } from "./types";
+import { OSM_TILE_OPTIONS, OSM_TILE_URL } from "../../shared/mapTiles";
 
 // The editing half of a map block: click the map to add a stop, drag a stop to
 // correct it, and watch the route redraw between them. Plain Leaflet via refs,
@@ -51,8 +52,8 @@ export function StoryRoutePicker({
       zoom: 1,
       attributionControl: true
     });
-    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
+    L.tileLayer(OSM_TILE_URL, {
+      ...OSM_TILE_OPTIONS,
       attribution: t("gallery:map.osmAttribution")
     }).addTo(map);
     map.on("click", (event: L.LeafletMouseEvent) => {

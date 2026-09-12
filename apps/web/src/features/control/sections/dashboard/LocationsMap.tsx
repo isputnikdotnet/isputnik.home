@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { countryCentroid } from "./countryCentroids";
+import { OSM_TILE_OPTIONS, OSM_TILE_URL } from "../../../../shared/mapTiles";
 
 // Overview › Dashboard › Locations — where the sign-ins came from, on a real map.
 //
@@ -129,8 +130,8 @@ export function LocationsMap({
     if (!containerRef.current || mapRef.current) return;
     const shapes = shapesRef.current;
     const map = L.map(containerRef.current, { worldCopyJump: true, minZoom: 1 }).setView([25, 10], 2);
-    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
+    L.tileLayer(OSM_TILE_URL, {
+      ...OSM_TILE_OPTIONS,
       attribution: t("controlDash:map.osmAttribution")
     }).addTo(map);
     const layer = L.layerGroup().addTo(map);

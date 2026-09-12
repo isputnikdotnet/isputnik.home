@@ -3,6 +3,10 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.2.3 — The map draws again
+
+- **Maps showed “Access blocked” where the map should be.** A photo’s location in the Info panel, the gallery’s Map view, story maps and the place picker all drew a wall of refusal instead of streets. The app was asking OpenStreetMap for its map images without saying who was asking — it withholds that from every site it touches — and a request they cannot identify is answered with a picture of a refusal rather than an error, so nothing on the page looked broken. The app now names itself to the map service, and to nothing else: the map service is told only the address your library is served from, never which page you are on or what you were looking at. If a map still reads “Access blocked” after this update, reload the page once — your browser is showing the picture it saved earlier.
+
 ## 4.2.2 — Thumbnails say when they have nowhere to go
 
 - **The Storage page says again when thumbnails have no folder.** When the page was rebuilt around App storage, the thumbnail folder became one row among six and quietly lost the warning it used to carry. On an install where nothing had been chosen for it the row simply read "Not set", exactly like the rooms that are meant to be left off — while **Add library** stayed disabled and nothing on the page explained why. The row now says a folder is needed before a library can be added, and the page no longer promises that every room is optional: thumbnails always need one.

@@ -315,6 +315,23 @@ Error message copy: say what failed and keep the server message when it's useful
 
 ---
 
+### Maps — `shared/mapTiles.ts`
+
+Every Leaflet map draws on the same base layer, and it is declared once:
+
+```tsx
+L.tileLayer(OSM_TILE_URL, { ...OSM_TILE_OPTIONS, attribution: t("gallery:map.osmAttribution") })
+```
+
+Never write the tile URL out by hand. `OSM_TILE_OPTIONS` carries `referrerPolicy`,
+and that option is why the maps draw at all: the server sends
+`Referrer-Policy: no-referrer`, so tile requests reached OpenStreetMap with no
+`Referer` — and an app their tile usage policy cannot identify is answered with
+HTTP 200 and a "blocked" image in place of the map. Nothing fails, nothing logs;
+the map just renders the words "Access blocked". Setting the policy on the tile
+`<img>` overrides the document policy for those requests alone, so OSM learns
+which origin is asking and nothing else in the app starts sending a referrer.
+
 ## Browse pages
 
 Every library browse page — Audiobooks, Ebooks, Gallery and the lists they link
@@ -447,6 +464,8 @@ order and the full token tables are in [`css-map.md`](css-map.md).
 - `confirm-modal` / `metadata-modal` surface classes are instantiated outside `shared/`;
 - a raw `<button>` appears outside `shared/` beyond what `scripts/raw-buttons-baseline.json`
   allows for that file;
+- a Leaflet map is built on a hand-written `tile.openstreetmap.org` URL instead of
+  `shared/mapTiles`;
 - a `<Button>` hand-applies a variant's class (`className="icon-button"`,
   `"compact-button"`…) instead of `variant` / `compact`.
 
