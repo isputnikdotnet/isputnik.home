@@ -6,13 +6,12 @@ import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
 import type { GalleryAlbum } from "./types";
 import { Button } from "../../shared/Button";
+import { formatDate } from "../../shared/dates";
 
 // Album date shown on each card — the last time the album changed (a new photo
 // added, a rename). Short, locale-aware: "Oct 14, 2024".
 function albumDate(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  return formatDate(iso, "medium");
 }
 
 // Add one or many gallery items to an album. Lists only albums the caller can

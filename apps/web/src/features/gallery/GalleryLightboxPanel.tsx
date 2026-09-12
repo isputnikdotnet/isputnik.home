@@ -11,6 +11,7 @@ import type { GalleryAsset, GalleryPerson, GalleryPersonTag, TakenPrecision, Voi
 import type { GalleryAssetChange } from "./GalleryLightbox";
 import { TAKEN_PRECISIONS, formatTakenDate, precisionLabel, takenInputToIso, takenInputType, takenInputValue } from "./taken-date";
 import { Button } from "../../shared/Button";
+import { formatDate, formatDateTime } from "../../shared/dates";
 
 // The lightbox's side panel: three tabs over one photo.
 //
@@ -514,7 +515,7 @@ export function GalleryLightboxPanel({
               )}
               {asset.reviewedAt && asset.reviewedBy && editingField !== "description" && (
                 <span className="gallery-info-noted muted">
-                  {t("gallery:lightbox.notedBy", { name: asset.reviewedBy, date: new Date(asset.reviewedAt).toLocaleDateString() })}
+                  {t("gallery:lightbox.notedBy", { name: asset.reviewedBy, date: formatDate(asset.reviewedAt) })}
                 </span>
               )}
             </section>
@@ -627,7 +628,7 @@ export function GalleryLightboxPanel({
               <><dt>{t("gallery:lightbox.labelCamera")}</dt><dd>{[asset.camera.make, asset.camera.model].filter(Boolean).join(" ")}</dd></>
             )}
             {asset.addedAt && (
-              <><dt>{t("gallery:lightbox.labelAdded")}</dt><dd>{new Date(asset.addedAt).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}</dd></>
+              <><dt>{t("gallery:lightbox.labelAdded")}</dt><dd>{formatDateTime(asset.addedAt, "medium")}</dd></>
             )}
             <dt>{t("gallery:lightbox.labelFolder")}</dt>
             <dd>

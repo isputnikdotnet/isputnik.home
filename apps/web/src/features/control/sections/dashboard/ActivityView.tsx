@@ -17,6 +17,7 @@ import type { DashboardActivity, DashboardInProgressEntry, SystemStatus } from "
 import { CONTENT_EVENTS } from "./activityEvents";
 import { DashboardChart, DashboardChartLegend } from "./DashboardChart";
 import { useRecentActivity } from "./useRecentActivity";
+import { formatDate, formatNumber, formatTime } from "../../../../shared/dates";
 
 // Overview › Dashboard › Activity — what the household has been doing with the
 // library. This was three views (Activity, Content activity, Reading and
@@ -55,8 +56,8 @@ function pageOf<T>(rows: T[], page: number): { rows: T[]; page: number; totalPag
 function bucketLabel(iso: string, bucket: "hour" | "day"): string {
   const date = new Date(iso);
   return bucket === "hour"
-    ? date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
-    : date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    ? formatTime(date, "padded")
+    : formatDate(date, "dayMonth");
 }
 
 export function ActivityView({ status }: { status: SystemStatus }) {
@@ -121,7 +122,7 @@ export function ActivityView({ status }: { status: SystemStatus }) {
               icon={Upload}
               tone="info"
               label={t("controlDash:activity.uploads")}
-              value={activity.totals.uploads.toLocaleString()}
+              value={formatNumber(activity.totals.uploads)}
               change={percentChange(activity.totals.uploads, activity.previous.uploads)}
               goodWhen="up"
               context={versus}
@@ -130,7 +131,7 @@ export function ActivityView({ status }: { status: SystemStatus }) {
               icon={Download}
               tone="success"
               label={t("controlDash:activity.downloads")}
-              value={activity.totals.downloads.toLocaleString()}
+              value={formatNumber(activity.totals.downloads)}
               change={percentChange(activity.totals.downloads, activity.previous.downloads)}
               goodWhen="up"
               context={versus}
@@ -139,7 +140,7 @@ export function ActivityView({ status }: { status: SystemStatus }) {
               icon={Trash2}
               tone={activity.totals.deletes > 0 ? "danger" : "info"}
               label={t("controlDash:activity.deletes")}
-              value={activity.totals.deletes.toLocaleString()}
+              value={formatNumber(activity.totals.deletes)}
               change={percentChange(activity.totals.deletes, activity.previous.deletes)}
               context={versus}
             />

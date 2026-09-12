@@ -9,6 +9,7 @@ import { Field } from "../../shared/Field";
 import { Modal } from "../../shared/Modal";
 import { MessageBox } from "../../shared/MessageBox";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
+import { formatDate } from "../../shared/dates";
 
 interface Passkey {
   id: string;
@@ -157,9 +158,9 @@ export function PasskeysSection() {
                     <div className="passkey-meta">
                       <strong>{passkey.label || t("misc:passkeys.defaultLabel")}</strong>
                       <span className="passkeys-intro">
-                        {t("misc:passkeys.metaAdded", { date: new Date(passkey.createdAt).toLocaleDateString() })}
+                        {t("misc:passkeys.metaAdded", { date: formatDate(passkey.createdAt) })}
                         {passkey.lastUsed
-                          ? t("misc:passkeys.metaLastUsed", { date: new Date(passkey.lastUsed).toLocaleDateString() })
+                          ? t("misc:passkeys.metaLastUsed", { date: formatDate(passkey.lastUsed) })
                           : t("misc:passkeys.metaNeverUsed")}
                         {passkey.backedUp ? "" : t("misc:passkeys.metaDeviceOnly")}
                       </span>

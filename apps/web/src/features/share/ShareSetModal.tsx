@@ -6,6 +6,7 @@ import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
 import { SelectField } from "../../shared/SelectField";
 import { Button } from "../../shared/Button";
+import { formatDate } from "../../shared/dates";
 
 // Share a multi-photo selection (gallery "share these") two ways:
 // - Guest link: an anonymous, no-account snapshot of the selection.
@@ -231,7 +232,7 @@ export function ShareSetModal({ itemIds, onClose }: { itemIds: string[]; onClose
                         {link.label || t("user:share.quickLink")} · {t("user:count.items", { count: link.itemCount })}
                       </span>
                       <span className="muted">
-                        {link.status === "expired" ? t("user:share.expired") : t("user:share.expiresOn", { date: new Date(link.expiresAt).toLocaleDateString() })}
+                        {link.status === "expired" ? t("user:share.expired") : t("user:share.expiresOn", { date: formatDate(link.expiresAt) })}
                       </span>
                     </div>
                     <Button variant="icon" onClick={() => revokeLink(link.id)} aria-label={t("user:share.revokeLink")}>
@@ -284,7 +285,7 @@ export function ShareSetModal({ itemIds, onClose }: { itemIds: string[]; onClose
                         {r.displayName} · {t("user:share.countOfTotal", { count: itemIds.length, shown: r.itemCount })}
                       </span>
                       <span className="muted">
-                        {r.expiresAt ? t("user:share.until", { date: new Date(r.expiresAt).toLocaleDateString() }) : t("user:share.noExpiry")}
+                        {r.expiresAt ? t("user:share.until", { date: formatDate(r.expiresAt) }) : t("user:share.noExpiry")}
                       </span>
                     </div>
                     <Button variant="icon" onClick={() => revokeUser(r.userId)} aria-label={t("user:share.revokeShare")}>

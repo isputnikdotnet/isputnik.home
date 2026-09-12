@@ -7,6 +7,7 @@
 // three input helpers keep the edit forms in step with the server's flooring
 // (modules/library/gallery/taken-precision.ts).
 import i18n from "../../i18n";
+import { formatDate, formatDateTime } from "../../shared/dates";
 
 export type TakenPrecision = "time" | "day" | "month" | "year" | "decade";
 export const TAKEN_PRECISIONS: TakenPrecision[] = ["time", "day", "month", "year", "decade"];
@@ -33,22 +34,22 @@ function utcParts(iso: string): { y: number; m: number; d: number } | null {
 export function formatTakenDate(asset: TakenLike, opts: { withTime?: boolean; long?: boolean } = {}): string {
   if (!asset.takenAt) return "";
   const precision = asset.takenPrecision ?? "time";
-  const monthStyle = opts.long ? "long" : "short";
+  const shape = opts.long ? "long" : "medium";
   let text = "";
   if (precision === "time" || precision === "day") {
     const d = new Date(asset.takenAt);
     if (Number.isNaN(d.getTime())) return "";
     text = precision === "time" && opts.withTime
-      ? d.toLocaleString(undefined, { year: "numeric", month: monthStyle, day: "numeric", hour: "2-digit", minute: "2-digit" })
+      ? formatDateTime(d, shape, "padded")
       : precision === "time"
-        ? d.toLocaleDateString(undefined, { year: "numeric", month: monthStyle, day: "numeric" })
+        ? formatDate(d, shape)
         // A day-precise date is stored at UTC midnight; read it as a calendar day.
-        : new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()).toLocaleDateString(undefined, { year: "numeric", month: monthStyle, day: "numeric" });
+        : formatDate(d, shape, { utc: true });
   } else {
     const parts = utcParts(asset.takenAt);
     if (!parts) return "";
     if (precision === "month") {
-      text = new Date(parts.y, parts.m - 1, 1).toLocaleDateString(undefined, { year: "numeric", month: "long" });
+      text = formatDate(Date.UTC(parts.y, parts.m - 1, 1), "monthYear", { utc: true });
     } else if (precision === "year") {
       text = String(parts.y);
     } else {

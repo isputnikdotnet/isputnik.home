@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
-import i18n from "../../../i18n";
+import { formatDate } from "../../../shared/dates";
 import { QRCodeSVG } from "qrcode.react";
 import { BookOpen, Check, Copy, Plus, Trash2 } from "lucide-react";
 import { api } from "../../../api";
@@ -163,9 +163,9 @@ export function OpdsAccessSection() {
               <div className="opds-token-meta">
                 <strong>{token.label || t("controlAdmin:opds.defaultLabel")}</strong>
                 <span className="opds-intro">
-                  {t("controlAdmin:opds.added", { date: new Date(token.createdAt).toLocaleDateString(i18n.language) })}
+                  {t("controlAdmin:opds.added", { date: formatDate(token.createdAt) })}
                   {token.lastSeen
-                    ? t("controlAdmin:opds.lastUsed", { date: new Date(token.lastSeen).toLocaleDateString(i18n.language) })
+                    ? t("controlAdmin:opds.lastUsed", { date: formatDate(token.lastSeen) })
                     : t("controlAdmin:opds.neverUsed")}
                 </span>
               </div>

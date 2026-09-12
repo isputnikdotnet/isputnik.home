@@ -11,6 +11,7 @@ import { InboxRow, type InboxCard } from "./InboxRow";
 import { DeliveryRow, type DeliveryCard } from "./DeliveryRow";
 import { refreshInboxSummary } from "./useInboxSummary";
 import { Button } from "../../shared/Button";
+import { formatDate } from "../../shared/dates";
 
 interface SharedBook {
   id: string;
@@ -291,7 +292,7 @@ export function ForYouPage() {
                           ? `${t("user:shared.album")} · ${t("user:count.photos", { count: book.itemCount ?? 0 })}`
                           : book.sharedBy ? t("user:shared.sharedBy", { name: book.sharedBy }) : t("user:shared.sharedWithYou")}
                       </span>
-                      <small>{book.expiresAt ? t("user:share.until", { date: new Date(book.expiresAt).toLocaleDateString() }) : t("user:share.noExpiry")}</small>
+                      <small>{book.expiresAt ? t("user:share.until", { date: formatDate(book.expiresAt) }) : t("user:share.noExpiry")}</small>
                     </div>
                   </Button>
                 </article>

@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import i18n from "../../../i18n";
+import { formatDate } from "../../../shared/dates";
 import { api, type PublicUser } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
 import { Button } from "../../../shared/Button";
@@ -123,8 +124,7 @@ function TrashThumb({ item }: { item: TrashedItem }) {
 
 function formatDay(iso: string | null): string {
   if (!iso) return i18n.t("controlAdmin:ui.never");
-  const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? "—" : date.toLocaleDateString(i18n.language);
+  return formatDate(iso) || "—";
 }
 
 // The folder the item came out of, relative to its library. Empty for something

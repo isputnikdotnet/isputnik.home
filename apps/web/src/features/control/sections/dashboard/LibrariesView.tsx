@@ -6,6 +6,7 @@ import { Pager } from "../../../../shared/Pager";
 import { formatBytes } from "../../../../shared/utils";
 import type { SystemStatus } from "../../types";
 import { formatHours } from "../StatusMetric";
+import { formatNumber } from "../../../../shared/dates";
 
 // Overview › Dashboard › Libraries — what is in the catalogue, all media types on
 // one page. This was Statistics: three panels behind a type switch, each with
@@ -134,7 +135,7 @@ export function LibrariesView({ status }: { status: SystemStatus }) {
         name: library.name,
         items: library.itemCount,
         sizeBytes: library.totalSizeBytes,
-        detail: `${library.photoCount.toLocaleString()} photos · ${library.videoCount.toLocaleString()} videos`
+        detail: `${formatNumber(library.photoCount)} photos · ${formatNumber(library.videoCount)} videos`
       }))
     ];
     return rows.sort((a, b) => b.sizeBytes - a.sizeBytes || a.name.localeCompare(b.name));
@@ -174,21 +175,21 @@ export function LibrariesView({ status }: { status: SystemStatus }) {
             icon={Headphones}
             tone="info"
             label={t("controlDash:libs.audiobooks")}
-            value={audio.totalBooks.toLocaleString()}
+            value={formatNumber(audio.totalBooks)}
             context={`${formatHours(audio.totalDurationSeconds)} · ${formatBytes(audio.totalSizeBytes)} · ${t("controlDash:libs.libraryCount", { count: audio.totalLibraries })}`}
           />
           <KpiCard
             icon={BookOpen}
             tone="success"
             label={t("controlDash:libs.ebooks")}
-            value={ebooks.totalBooks.toLocaleString()}
+            value={formatNumber(ebooks.totalBooks)}
             context={`${formatBytes(ebooks.totalSizeBytes)} · ${t("controlDash:libs.libraryCount", { count: ebooks.totalLibraries })}`}
           />
           <KpiCard
             icon={Image}
             tone="warning"
             label={t("controlDash:libs.photosVideos")}
-            value={gallery.totalItems.toLocaleString()}
+            value={formatNumber(gallery.totalItems)}
             context={[
               t("controlDash:libs.photos", { count: gallery.totalPhotos }),
               t("controlDash:libs.videos", { count: gallery.totalVideos }),
@@ -250,7 +251,7 @@ export function LibrariesView({ status }: { status: SystemStatus }) {
                               </span>
                             </span>
                           </td>
-                          <td className="col-num">{library.items.toLocaleString()}</td>
+                          <td className="col-num">{formatNumber(library.items)}</td>
                           <td className="datagrid-muted">{library.detail}</td>
                         </tr>
                       );
@@ -276,7 +277,7 @@ export function LibrariesView({ status }: { status: SystemStatus }) {
                 key: author.name,
                 name: author.name,
                 cells: [
-                  author.total.toLocaleString(),
+                  formatNumber(author.total),
                   [
                     author.audio ? t("controlDash:libs.audioN", { count: author.audio }) : null,
                     author.ebook ? t("controlDash:libs.ebookN", { count: author.ebook }) : null
@@ -298,7 +299,7 @@ export function LibrariesView({ status }: { status: SystemStatus }) {
               rows={audio.topNarrators.slice(0, RANK_ROWS).map((person) => ({
                 key: person.name,
                 name: person.name,
-                cells: [person.bookCount.toLocaleString(), formatHours(person.totalDurationSeconds)]
+                cells: [formatNumber(person.bookCount), formatHours(person.totalDurationSeconds)]
               }))}
             />
           </div>
@@ -341,7 +342,7 @@ export function LibrariesView({ status }: { status: SystemStatus }) {
                 ]
                   .filter(Boolean)
                   .join(" · "),
-                cells: [row.photoCount.toLocaleString()]
+                cells: [formatNumber(row.photoCount)]
               }))}
             />
           </div>

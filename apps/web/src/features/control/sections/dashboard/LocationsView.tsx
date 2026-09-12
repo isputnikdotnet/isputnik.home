@@ -21,6 +21,7 @@ import { GeoipDatabaseModal } from "./GeoipDatabaseModal";
 import { HomeLocationModal } from "./HomeLocationModal";
 import { polyfillCountryFlagEmojis } from "country-flag-emoji-polyfill";
 import flagFontUrl from "country-flag-emoji-polyfill/dist/TwemojiCountryFlags.woff2?url";
+import { formatNumber } from "../../../../shared/dates";
 
 // Windows draws two letters where every other platform draws a flag — its system
 // fonts simply have no flag glyphs. This injects a small font of nothing but
@@ -95,7 +96,7 @@ function LocationCell({ flag, title, sub }: { flag: string; title: string; sub: 
 function ConnectionsCell({ connections, max }: { connections: number; max: number }) {
   return (
     <span className="conn-cell">
-      <span className="conn-count">{connections.toLocaleString()}</span>
+      <span className="conn-count">{formatNumber(connections)}</span>
       <span className="conn-track" aria-hidden="true">
         <span className="conn-fill" style={{ width: `${Math.max(4, Math.round((connections / Math.max(1, max)) * 100))}%` }} />
       </span>
@@ -214,27 +215,27 @@ export function LocationsView() {
                 tone="info"
                 label={t("controlDash:locations.countries")}
                 value={String(data.countries.length)}
-                context={t("controlDash:locations.placedContext", { placed: placed.toLocaleString(), total: data.total.toLocaleString() })}
+                context={t("controlDash:locations.placedContext", { placed: formatNumber(placed), total: formatNumber(data.total) })}
               />
               <KpiCard
                 icon={House}
                 tone="success"
                 label={data.home?.label || t("controlDash:locations.homeNetwork")}
-                value={data.local.connections.toLocaleString()}
+                value={formatNumber(data.local.connections)}
                 context={t("controlDash:locations.addressesInside", { count: data.local.addresses })}
               />
               <KpiCard
                 icon={MapPin}
                 tone="warning"
                 label={t("controlDash:locations.fromOutside")}
-                value={(data.total - data.local.connections).toLocaleString()}
+                value={formatNumber(data.total - data.local.connections)}
                 context={t("controlDash:locations.fromInternet")}
               />
               <KpiCard
                 icon={ShieldQuestion}
                 tone="danger"
                 label={t("controlDash:locations.unplaced")}
-                value={data.unknown.connections.toLocaleString()}
+                value={formatNumber(data.unknown.connections)}
                 context={data.geoip.available ? t("controlDash:locations.notInDatabase") : t("controlDash:locations.noDatabaseYet")}
               />
             </div>
@@ -270,8 +271,8 @@ export function LocationsView() {
               <p className="locations-map-caption">
                 {t("controlDash:locations.caption", {
                   signIns: t("controlDash:locations.signIns", { count: data.total }),
-                  placed: placed.toLocaleString(),
-                  local: data.local.connections.toLocaleString()
+                  placed: formatNumber(placed),
+                  local: formatNumber(data.local.connections)
                 })}
                 {data.unknown.connections > 0
                   ? t("controlDash:locations.captionUnplaced", { count: data.unknown.connections })
@@ -321,9 +322,9 @@ export function LocationsView() {
                               <ConnectionsCell connections={entry.connections} max={countryMax} />
                             </td>
                             <td className={`col-num${entry.failed > 0 ? " login-result-failed" : " datagrid-muted"}`}>
-                              {entry.failed.toLocaleString()}
+                              {formatNumber(entry.failed)}
                             </td>
-                            <td className="col-num datagrid-muted">{entry.addresses.toLocaleString()}</td>
+                            <td className="col-num datagrid-muted">{formatNumber(entry.addresses)}</td>
                             <td className="col-num">
                               <span className={`rate-pill ${rateTone(failRate(entry))}`}>{formatRate(failRate(entry))}</span>
                             </td>
@@ -357,9 +358,9 @@ export function LocationsView() {
                             <ConnectionsCell connections={data.local.connections} max={countryMax} />
                           </td>
                           <td className={`col-num${data.local.failed > 0 ? " login-result-failed" : ""}`}>
-                            {data.local.failed.toLocaleString()}
+                            {formatNumber(data.local.failed)}
                           </td>
-                          <td className="col-num">{data.local.addresses.toLocaleString()}</td>
+                          <td className="col-num">{formatNumber(data.local.addresses)}</td>
                           <td className="col-num">
                             <span className={`rate-pill ${rateTone(failRate(data.local))}`}>
                               {formatRate(failRate(data.local))}
@@ -418,9 +419,9 @@ export function LocationsView() {
                               <ConnectionsCell connections={place.connections} max={placeMax} />
                             </td>
                             <td className={`col-num${place.failed > 0 ? " login-result-failed" : " datagrid-muted"}`}>
-                              {place.failed.toLocaleString()}
+                              {formatNumber(place.failed)}
                             </td>
-                            <td className="col-num datagrid-muted">{place.addresses.toLocaleString()}</td>
+                            <td className="col-num datagrid-muted">{formatNumber(place.addresses)}</td>
                             <td className="col-num">
                               <span className={`rate-pill ${rateTone(failRate(place))}`}>{formatRate(failRate(place))}</span>
                             </td>

@@ -9,6 +9,7 @@ import { RefreshButton } from "../../../shared/RefreshButton";
 import { formatBytes, formatManagedDate } from "../../../shared/utils";
 import { controlHref } from "../../../router";
 import { ControlSectionHead } from "../ControlSectionHead";
+import { formatNumber } from "../../../shared/dates";
 
 // The Contents page beside Storage (server: modules/library/app-storage-contents.ts).
 //
@@ -150,7 +151,7 @@ export function StorageContentsSection() {
     return room.mode === "app" ? t("controlAdmin:storageContents.roomApp") : t("controlAdmin:storageContents.roomOwn");
   };
   const countText = (files: number, complete: boolean): string =>
-    complete ? files.toLocaleString() : t("controlAdmin:storageContents.atLeast", { count: files });
+    complete ? formatNumber(files) : t("controlAdmin:storageContents.atLeast", { count: files });
 
   const totalBytes = contents ? contents.rooms.reduce((sum, room) => sum + room.bytes, 0) + contents.staging.bytes : 0;
 

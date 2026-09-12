@@ -9,6 +9,7 @@ import { ToggleSwitch } from "../../shared/ToggleSwitch";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { MessageBox } from "../../shared/MessageBox";
 import type { ClusterHealth, ClusterHealthPair, ClusterHealthPerson, GalleryFaceLibrary, GalleryFaceSettings } from "./types";
+import { formatNumber } from "../../shared/dates";
 
 // Module-level helper (not a component) — imports i18n directly since it can't call a hook.
 function personLabel(p: ClusterHealthPerson): string {
@@ -66,7 +67,7 @@ function ClusterHealthPanel({ health, loading, error, mergingKey, onMerge, onRec
                 <span className="gallery-health-bar-track">
                   <span className="gallery-health-bar-fill" style={{ width: `${Math.round((count / max) * 100)}%` }} />
                 </span>
-                <span className="gallery-health-bar-count">{count.toLocaleString()}</span>
+                <span className="gallery-health-bar-count">{formatNumber(count)}</span>
                 <span className="gallery-health-bar-hint muted">{hint}</span>
               </div>
             );
@@ -309,7 +310,7 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
                         {library.name}
                         <small>
                           {library.enabled
-                            ? t("galleryModals:faceSettings.scannedOf", { scanned: library.scanned.toLocaleString(), count: library.photos })
+                            ? t("galleryModals:faceSettings.scannedOf", { scanned: formatNumber(library.scanned), count: library.photos })
                             : t("galleryModals:common.photoCount", { count: library.photos })}
                           {library.enabled && library.unreadable > 0 && (
                             <span title={t("galleryModals:faceSettings.unreadableHint")}>

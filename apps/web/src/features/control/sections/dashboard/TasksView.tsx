@@ -13,6 +13,7 @@ import { SelectMenu } from "../../../../shared/SelectMenu";
 import { formatManagedDate, formatEta } from "../../../../shared/utils";
 import { relativeTime } from "../../../../shared/relativeTime";
 import type { Job } from "../../types";
+import { formatNumber } from "../../../../shared/dates";
 
 // Overview › Dashboard › Tasks — scans and other background work. It opens on
 // the glance (running, queued, failed this week, last finished), keeps the
@@ -69,7 +70,7 @@ function stalledText(seconds: number, t: T): string {
 // "3 of 12 books · 25% · about 2 min left" — mirrors the wording the
 // face-recognition window used before this moved here.
 function progressText(progress: NonNullable<Job["progress"]>, t: T): string {
-  const parts = [t("controlDash:tasks.ofUnit", { processed: progress.processed.toLocaleString(), total: progress.total.toLocaleString(), unit: progress.unit })];
+  const parts = [t("controlDash:tasks.ofUnit", { processed: formatNumber(progress.processed), total: formatNumber(progress.total), unit: progress.unit })];
   if (progress.total > 0) parts.push(`${Math.round((progress.processed / progress.total) * 100)}%`);
   if (progress.etaSeconds != null) parts.push(formatEta(progress.etaSeconds));
   return parts.join(" · ");

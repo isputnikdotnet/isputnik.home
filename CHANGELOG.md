@@ -3,6 +3,11 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.2.1 — Dates speak Russian too
+
+- **With the interface in Russian, dates were still written in English** — "September 7, 2026" on the gallery's day headings, on the home feed, through the whole control panel. They followed the browser's language rather than the one you chose in the app. Every date, time and number in the app now follows your language setting and changes with it straight away: "7 сентября 2026 г.", "понедельник, 7 сент. 2026 г.", "02.09.2026". Country names on the sign-in map and the "3 days ago" wording in notes were English for the same reason, and now aren't. In English everything reads exactly as it did before.
+- The app asked the server whether it was still reachable once for each part of the screen that shows the connection — two or more identical questions every six seconds, for as long as a tab stayed open, which on a wall display is weeks. It asks once now, and not at all while the tab is in the background; it checks the moment you come back to it.
+
 ## 4.2.0 — Things stay where you put them
 
 - **Edits stop disappearing.** A dialog or field open while the page refreshed itself behind you could lose what you had typed, or briefly show the previous item's details under the new one. The metadata dialog, the photo review page, the story editor's chapter, block and overview panes, inline name fields, gallery tags, the scan-rule wizard and the slideshow title card all now keep what you are working on until you save or close it. On the review page a save in that moment could write the previous photo's date, place and people onto the one now on screen.

@@ -2,6 +2,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderSignedIn } from "./helpers/session";
+import { setAppLanguage } from "../src/i18n";
 
 vi.mock("../src/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../src/api")>();
@@ -82,6 +83,20 @@ describe("GalleryPage views", () => {
     expect(await screen.findByRole("heading", { name: "July 4, 2019" })).toBeInTheDocument();
     expect(document.querySelectorAll(".gallery-memory-card")).toHaveLength(1);
     expect(screen.getByText("2 items")).toBeInTheDocument();
+  });
+
+  // The day headings are the app's most visible dates, and they used to come out
+  // of the BROWSER's locale — English headings over a Russian interface. They
+  // follow the interface language now, ordered the way Russian orders a date.
+  it("writes the timeline's day headings in the interface language", async () => {
+    await setAppLanguage("ru");
+    try {
+      renderSignedIn(<GalleryPage view="timeline" />);
+      expect(await screen.findByRole("heading", { name: "4 июля 2019 г." })).toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "July 4, 2019" })).not.toBeInTheDocument();
+    } finally {
+      await setAppLanguage("en");
+    }
   });
 
   it("draws the folder tree", async () => {

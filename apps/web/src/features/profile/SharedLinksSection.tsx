@@ -6,6 +6,7 @@ import { Button } from "../../shared/Button";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { MessageBox } from "../../shared/MessageBox";
 import i18n from "../../i18n";
+import { formatDate } from "../../shared/dates";
 
 interface SharedLink {
   id: string;
@@ -41,13 +42,13 @@ const DAY = 24 * 60 * 60 * 1000;
 function expiryText(link: SharedLink): string {
   const expires = new Date(link.expiresAt);
   if (link.status === "expired") {
-    return i18n.t("misc:sharedLinks.expiredOn", { date: expires.toLocaleDateString() });
+    return i18n.t("misc:sharedLinks.expiredOn", { date: formatDate(expires) });
   }
   const remaining = expires.getTime() - Date.now();
   if (remaining < DAY) return i18n.t("misc:sharedLinks.expiresWithinDay");
   const days = Math.round(remaining / DAY);
   if (days <= 14) return i18n.t("misc:sharedLinks.expiresInDays", { count: days });
-  return i18n.t("misc:sharedLinks.expiresOn", { date: expires.toLocaleDateString() });
+  return i18n.t("misc:sharedLinks.expiresOn", { date: formatDate(expires) });
 }
 
 function describe(link: SharedLink): string {
@@ -106,7 +107,7 @@ export function SharedLinksSection() {
           <span className="shared-link-meta">
             {describe(link)}
             {link.label && ` · ${link.label}`}
-            {t("misc:sharedLinks.metaShared", { date: new Date(link.createdAt).toLocaleDateString() })}
+            {t("misc:sharedLinks.metaShared", { date: formatDate(link.createdAt) })}
           </span>
         </div>
         <span className="shared-link-expiry">{expiryText(link)}</span>

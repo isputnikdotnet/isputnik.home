@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ImageOff, Trash2, UserRound } from "lucide-react";
 import i18n from "../../../i18n";
+import { formatDate, formatDateTime } from "../../../shared/dates";
 import { api } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
 import { Button } from "../../../shared/Button";
@@ -21,14 +22,12 @@ interface MissingPhoto {
 }
 
 function formatWhen(value: string): string {
-  const date = new Date(value.includes("T") ? value : `${value.replace(" ", "T")}Z`);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString(i18n.language);
+  return formatDateTime(value, "numeric", "seconds") || value;
 }
 
 function formatDay(iso: string | null): string {
   if (!iso) return i18n.t("controlAdmin:ui.never");
-  const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? "—" : date.toLocaleDateString(i18n.language);
+  return formatDate(iso) || "—";
 }
 
 export function MissingPhotosSection() {

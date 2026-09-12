@@ -12,6 +12,7 @@ import { isFoliateFormat } from "../shared/utils";
 // The guest pages' stylesheet, shared with DropPage: it loads with them, not on every route (docs/css-map.md).
 import "../styles/share-page.css";
 import { Button } from "../shared/Button";
+import { formatDate } from "../shared/dates";
 
 interface ShareFile {
   id: string;
@@ -209,7 +210,7 @@ function GallerySetShareView({ token, payload }: { token: string; payload: Galle
 
         <p className="share-footer muted">
           <ImageIcon size={13} aria-hidden="true" style={{ verticalAlign: "-2px", marginRight: 4 }} />
-          {t("user:sharePage.footer", { date: new Date(share.expiresAt).toLocaleDateString() })}
+          {t("user:sharePage.footer", { date: formatDate(share.expiresAt) })}
         </p>
       </div>
 
@@ -289,7 +290,7 @@ function GalleryShareView({ token, payload }: { token: string; payload: GalleryS
 
         <p className="share-footer muted">
           <ImageIcon size={13} aria-hidden="true" style={{ verticalAlign: "-2px", marginRight: 4 }} />
-          {t("user:sharePage.footer", { date: new Date(share.expiresAt).toLocaleDateString() })}
+          {t("user:sharePage.footer", { date: formatDate(share.expiresAt) })}
         </p>
       </div>
     </div>
@@ -333,7 +334,7 @@ function EbookShareView({ token, payload }: { token: string; payload: EbookShare
 
           {book.description && <p className="share-description">{book.description}</p>}
 
-          <p className="share-footer muted">{t("user:sharePage.footer", { date: new Date(share.expiresAt).toLocaleDateString() })}</p>
+          <p className="share-footer muted">{t("user:sharePage.footer", { date: formatDate(share.expiresAt) })}</p>
         </div>
       </div>
 
@@ -700,7 +701,7 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
 
         {book.description && <p className="share-description">{book.description}</p>}
 
-        <p className="share-footer muted">{t("user:sharePage.footer", { date: new Date(share.expiresAt).toLocaleDateString() })}</p>
+        <p className="share-footer muted">{t("user:sharePage.footer", { date: formatDate(share.expiresAt) })}</p>
       </div>
     </div>
   );

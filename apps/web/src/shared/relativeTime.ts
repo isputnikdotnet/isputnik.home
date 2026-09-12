@@ -1,4 +1,5 @@
 import i18n from "../i18n";
+import { formatDate } from "./dates";
 
 // "How long ago" — the one helper for it. Three surfaces used to carry their own
 // copy (the control panel's timestamps, the home tiles, the activity feed), and
@@ -80,7 +81,7 @@ function countedForm(elapsedMs: number, style: "short" | "compact", value: strin
   }
   // Past a week the activity feed gives the date itself: a count of days stops
   // meaning anything, and the column has no room for "3 wk ago".
-  if (style === "compact") return new Date(parseTimestamp(value)).toLocaleDateString();
+  if (style === "compact") return formatDate(parseTimestamp(value));
   const weeks = Math.floor(days / 7);
   if (weeks < 5) return ago(i18n.t("common:time.weeksShort", { count: weeks }));
   const months = Math.floor(days / 30);

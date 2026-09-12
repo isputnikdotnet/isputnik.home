@@ -1,5 +1,13 @@
 [
   {
+    "version": "4.2.1",
+    "label": "Dates speak Russian too",
+    "changes": [
+      "**With the interface in Russian, dates were still written in English** — \"September 7, 2026\" on the gallery's day headings, on the home feed, through the whole control panel. They followed the browser's language rather than the one you chose in the app. Every date, time and number in the app now follows your language setting and changes with it straight away: \"7 сентября 2026 г.\", \"понедельник, 7 сент. 2026 г.\", \"02.09.2026\". Country names on the sign-in map and the \"3 days ago\" wording in notes were English for the same reason, and now aren't. In English everything reads exactly as it did before.",
+      "The app asked the server whether it was still reachable once for each part of the screen that shows the connection — two or more identical questions every six seconds, for as long as a tab stayed open, which on a wall display is weeks. It asks once now, and not at all while the tab is in the background; it checks the moment you come back to it."
+    ]
+  },
+  {
     "version": "4.2.0",
     "label": "Things stay where you put them",
     "changes": [

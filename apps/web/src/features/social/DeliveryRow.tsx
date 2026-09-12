@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import { Image as ImageIcon, Inbox, MessageSquareText, X } from "lucide-react";
 import { followRoute, galleryInboxHref, galleryReviewHref } from "../../router";
 import { Button } from "../../shared/Button";
+import { formatDate } from "../../shared/dates";
 
 // One batch that arrived in a Photo Inbox this person looks after, as a row on
 // For you (docs/for-you-plan.md). Who sent it when it came through a drop link,
@@ -56,7 +57,7 @@ export function DeliveryRow({
         <p className="inbox-subtitle">
           {card.reviewed > 0
             ? t("user:forYou.deliveryNoted", { reviewed: card.reviewed, count: card.count })
-            : new Date(card.newestAt).toLocaleDateString()}
+            : formatDate(card.newestAt)}
         </p>
       </div>
       <div className="inbox-actions">

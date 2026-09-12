@@ -6,6 +6,8 @@ import { Button } from "../../shared/Button";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { MessageBox } from "../../shared/MessageBox";
 import { EmojiPicker } from "./EmojiPicker";
+import i18n from "../../i18n";
+import { formatDate, formatTime } from "../../shared/dates";
 
 // What the household says about a thing, under the thing itself.
 //
@@ -34,13 +36,15 @@ interface Note {
 
 const MAX = 2000;
 
+// A plain function, not a hook, so it reads the strings through i18n directly —
+// a language switch shows up on the next render (shared/relativeTime.ts's note).
 function when(iso: string): string {
   const date = new Date(iso);
   const days = Math.floor((Date.now() - date.getTime()) / 86_400_000);
-  if (days === 0) return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-  if (days === 1) return "Yesterday";
-  if (days < 7) return `${days} days ago`;
-  return date.toLocaleDateString();
+  if (days === 0) return formatTime(date);
+  if (days === 1) return i18n.t("common:time.yesterday");
+  if (days < 7) return i18n.t("common:time.ago", { span: i18n.t("common:time.days", { count: days }) });
+  return formatDate(date);
 }
 
 export function NotesSection({

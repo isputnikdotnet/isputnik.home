@@ -11,6 +11,7 @@ import { Button } from "../../../shared/Button";
 import { RefreshButton } from "../../../shared/RefreshButton";
 import type { ManagedGroup, GroupMember, ManagedUser } from "../types";
 import { ControlSectionHead } from "../ControlSectionHead";
+import { formatNumber } from "../../../shared/dates";
 
 export function GroupsSection() {
   const { t } = useTranslation(["common", "control"]);
@@ -207,8 +208,8 @@ export function GroupsSection() {
                       <small>{t("control:groups.memberCount", { count: group.memberCount })}</small>
                     </div>
                   </td>
-                  <td className="col-num datagrid-muted">{group.memberCount.toLocaleString()}</td>
-                  <td className="col-num datagrid-muted">{group.libraryCount.toLocaleString()}</td>
+                  <td className="col-num datagrid-muted">{formatNumber(group.memberCount)}</td>
+                  <td className="col-num datagrid-muted">{formatNumber(group.libraryCount)}</td>
                   <td className="col-actions">
                     <div className="row-actions">
                       <Button

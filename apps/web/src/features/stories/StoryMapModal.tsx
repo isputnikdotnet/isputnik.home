@@ -4,6 +4,7 @@ import { ChevronDown, ChevronUp, MapPin, Route, Trash2, X } from "lucide-react";
 import { Modal } from "../../shared/Modal";
 import { SelectField } from "../../shared/SelectField";
 import { Button } from "../../shared/Button";
+import { formatNumber } from "../../shared/dates";
 import { GalleryPlaceSearch } from "../gallery/GalleryPlaceSearch";
 import { StoryRoutePicker } from "./StoryRoutePicker";
 import { routeDistanceKm } from "./story-route";
@@ -38,7 +39,7 @@ export function StoryMapModal({
   }) => void;
   onClose: () => void;
 }) {
-  const { t, i18n } = useTranslation(["common", "stories"]);
+  const { t } = useTranslation(["common", "stories"]);
   // Blocks written before routes carry their one place in lat/lng alone, so
   // they open as a route of one rather than as an empty map.
   const [stops, setStops] = useState<StoryMapPoint[]>(() => {
@@ -95,8 +96,7 @@ export function StoryMapModal({
   // As the crow flies: the real roads are drawn by the server after saving, so
   // this is a planning figure, and it is worded as one.
   const distanceKm = stops.length > 1 ? routeDistanceKm(stops) : 0;
-  const distanceLabel = new Intl.NumberFormat(i18n.language, { maximumFractionDigits: distanceKm < 10 ? 1 : 0 })
-    .format(distanceKm);
+  const distanceLabel = formatNumber(distanceKm, { maximumFractionDigits: distanceKm < 10 ? 1 : 0 });
 
   return (
     <Modal
