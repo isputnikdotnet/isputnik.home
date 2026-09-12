@@ -12,7 +12,7 @@ import path from "node:path";
 import zlib from "node:zlib";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { geoipDirectory, geoipStatus, installGeoipDatabase, lookupLocation } from "../src/core/geoip.js";
+import { geoipDirectory, geoipStatus, installGeoipDatabase, lookupLocation, removeGeoipDatabase } from "../src/core/geoip.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURES = path.join(here, "fixtures", "geoip");
@@ -155,5 +155,38 @@ describe("installGeoipDatabase", () => {
     expect(result.ok).toBe(true);
     expect(result.installed?.name).toBe("passwd.mmdb");
     expect(fs.readdirSync(dir)).toEqual(["passwd.mmdb"]);
+  });
+});
+
+// Turning a sign-in level back off (Maps › Setup) removes its database. The name
+// is matched against what the folder scan lists, so it can only ever remove a
+// database that is actually there — never a path, never some other file.
+describe("removeGeoipDatabase", () => {
+  it("removes a database, says what that freed, and lookups fall back to what is left", () => {
+    install("GeoIP2-Country-Test.mmdb", "dbip-country-lite.mmdb");
+    install("GeoIP2-City-Test.mmdb", "owner-city.mmdb");
+    expect(geoipStatus().tier).toBe("city");
+    const size = fs.statSync(path.join(dir, "owner-city.mmdb")).size;
+
+    const result = removeGeoipDatabase("owner-city.mmdb", null);
+    expect(result.ok).toBe(true);
+    expect(result.freedBytes).toBe(size);
+    expect(fs.existsSync(path.join(dir, "owner-city.mmdb"))).toBe(false);
+    expect(result.status.tier).toBe("country");
+
+    expect(removeGeoipDatabase("dbip-country-lite.mmdb", null).status.available).toBe(false);
+  });
+
+  it("cannot name anything the scan does not list", () => {
+    install("GeoIP2-Country-Test.mmdb", "dbip-country-lite.mmdb");
+    fs.writeFileSync(path.join(dir, "notes.txt"), "not a database");
+    fs.writeFileSync(path.join(dir, "broken.mmdb"), "a partial download");
+
+    for (const name of ["notes.txt", "broken.mmdb", "../geoip/dbip-country-lite.mmdb", "missing.mmdb"]) {
+      const result = removeGeoipDatabase(name, null);
+      expect(result.ok).toBe(false);
+      expect(result.freedBytes).toBe(0);
+    }
+    expect(fs.readdirSync(dir).sort()).toEqual(["broken.mmdb", "dbip-country-lite.mmdb", "notes.txt"]);
   });
 });

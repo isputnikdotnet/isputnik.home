@@ -12,6 +12,7 @@ import type { StoryMapPoint } from "../features/stories/types";
 import { useIsMobile } from "../shared/useIsMobile";
 import { AudioPlayer } from "../shared/audio/AudioPlayer";
 import { GalleryMiniMap } from "../features/gallery/GalleryMiniMap";
+import { MapShareContext } from "../shared/map/share-context";
 import { formatPartialDate, formatPartialDateRange } from "../shared/utils";
 import { Button } from "../shared/Button";
 
@@ -123,7 +124,17 @@ function chapterAssets(chapter: StoryShareChapter): StoryShareAsset[] {
   return out;
 }
 
+// A guest has no session, so every map on this page carries the share link that
+// lets them in (shared/map/share-context.ts). Provided once, here, for the page.
 export function StoryShareView({ token, payload }: { token: string; payload: StorySharePayload }) {
+  return (
+    <MapShareContext.Provider value={token}>
+      <StoryShareSite token={token} payload={payload} />
+    </MapShareContext.Provider>
+  );
+}
+
+function StoryShareSite({ token, payload }: { token: string; payload: StorySharePayload }) {
   const { t } = useTranslation(["common", "user", "stories"]);
   const { story, share } = payload;
   const isMobile = useIsMobile();

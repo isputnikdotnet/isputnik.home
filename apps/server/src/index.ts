@@ -28,6 +28,8 @@ import { socialPlugin } from "./modules/social/index.js";
 import { homePlugin } from "./modules/home/index.js";
 import { familyTreePlugin } from "./modules/familytree/index.js";
 import { maintenancePlugin } from "./modules/maintenance/index.js";
+import { mapsPlugin } from "./modules/maps/index.js";
+import { upstreamBase } from "./modules/maps/provider.js";
 
 // X-Forwarded-For is only trusted when the operator names the reverse proxies in
 // front — TRUST_PROXY with the proxy's own IPs/CIDRs (preferred: the header is
@@ -100,8 +102,10 @@ await app.register(cors, {
 // and reader content from blob:/data:, audio from blob:, and the foliate reader's
 // blob iframe. Verified against the production bundle (no eval/WASM, workers
 // disabled) before switching from report-only to enforcing. The single external
-// resource is the gallery map: Leaflet fetches OpenStreetMap raster tiles as
-// <img>, so imgSrc allows the OSM tile hosts (and nothing else does).
+// resource the app itself fetches is the base map: with map caching off, MapLibre
+// loads the provider's style, tiles, glyphs and sprites with fetch() — so the
+// provider's origin is in connectSrc, and only there. With caching on, all of it
+// comes through /api/map and the provider is never asked by the browser.
 await app.register(helmet, {
   crossOriginEmbedderPolicy: false,
   referrerPolicy: { policy: "no-referrer" },
@@ -117,9 +121,8 @@ await app.register(helmet, {
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
-      // Two families of external <img> are allowed, nothing else:
-      //  - OSM raster tiles for the gallery map (Leaflet loads them as <img>); both
-      //    the subdomain-less host and the a/b/c.tile.* mirrors are covered.
+      // External <img> is allowed for these, nothing else. (Map tiles are not
+      // here: MapLibre fetches them, so they are connectSrc's business.)
       //  - Metadata-provider cover thumbnails shown transiently in the Edit Metadata
       //    search (iTunes, Audible, Open Library, FantLab, LibriVox/archive.org).
       //    These load directly in the browser — never proxied through the server,
@@ -131,14 +134,16 @@ await app.register(helmet, {
       //    from the host already listed for its covers.
       imgSrc: [
         "'self'", "data:", "blob:",
-        "https://tile.openstreetmap.org", "https://*.tile.openstreetmap.org",
         "https://*.mzstatic.com", "https://m.media-amazon.com",
         "https://covers.openlibrary.org", "https://fantlab.ru", "https://archive.org",
         "https://upload.wikimedia.org"
       ],
       mediaSrc: ["'self'", "blob:"],
       fontSrc: ["'self'", "data:"],
-      connectSrc: ["'self'"],
+      // The map provider, for maps drawn while map caching is off (see above).
+      // Derived from the same setting the proxy fetches from, so a self-hosted
+      // provider (MAP_UPSTREAM_URL) is allowed instead of OpenFreeMap, not as well.
+      connectSrc: ["'self'", new URL(upstreamBase()).origin],
       workerSrc: ["'self'", "blob:"],
       frameSrc: ["'self'", "blob:"],
       objectSrc: ["'none'"],
@@ -268,6 +273,7 @@ await app.register(socialPlugin);
 await app.register(homePlugin);
 await app.register(familyTreePlugin);
 await app.register(maintenancePlugin);
+await app.register(mapsPlugin);
 
 if (config.staticPath) {
   await app.register(staticFiles, {

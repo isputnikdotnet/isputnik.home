@@ -18,6 +18,7 @@ import { getTrashRootSetting } from "./shared/trash-settings.js";
 import { storageMoveStatus, type StorageMoveStatus } from "./shared/storage-move.js";
 import { getHouseLibrary } from "./gallery/house-library.js";
 import { backupDir } from "../backups/index.js";
+import { MAP_DATA_FOLDERS, mapDataDir } from "../maps/storage.js";
 import { dirHasEntries, galleryLibraries, inboxLibraries, itemCount, samePath, validateAppStoragePath } from "./app-storage.js";
 
 // ── What each room is doing ─────────────────────────────────────────────────
@@ -196,6 +197,30 @@ function rendersRoom(): RoomView {
   };
 }
 
+// Map data: the map cache, and later the geoip and places databases
+// (docs/map-approach-proposal.md). The Renders rule — App storage as soon as
+// there is one, "own" the explicit choice to stay in <data>/map-data. No count
+// on the row: the cache can be a hundred thousand small files, too many to walk
+// on every page load, and the Contents page already weighs every room.
+function mapsRoom(): RoomView {
+  const appPath = appRoomPath("maps");
+  const usesApp = appPath !== null && resolveAppLocation("maps", null) !== null;
+  const resolved = mapDataDir();
+  return {
+    room: "maps",
+    mode: usesApp ? "app" : "own",
+    resolvedPath: resolved,
+    appPath,
+    holdsFiles: usesApp && MAP_DATA_FOLDERS.some((folder) => dirHasEntries(path.join(appPath, folder))),
+    library: null,
+    counts: {},
+    move: storageMoveStatus("maps"),
+    renameTo: null,
+    required: false,
+    problem: ""
+  };
+}
+
 function backupsRoom(): RoomView {
   const appPath = appRoomPath("backups");
   const usesApp = appRoomMode("backups") === "app" && appPath !== null;
@@ -228,6 +253,7 @@ export function roomView(room: AppRoom): RoomView {
     case "house": return houseRoom();
     case "thumbnails": return thumbnailsRoom();
     case "renders": return rendersRoom();
+    case "maps": return mapsRoom();
     case "backups": return backupsRoom();
   }
 }

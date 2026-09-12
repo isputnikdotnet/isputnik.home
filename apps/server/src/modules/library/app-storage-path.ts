@@ -25,6 +25,7 @@ import { anyStorageMoveActive, assertMoveTargetFree, enqueueStorageMove } from "
 import { AppStorageError, libraryAt, samePath, validateAppStoragePath, type GalleryLibraryRow } from "./app-storage.js";
 import { appStorageView, roomView, type AppStorageView } from "./app-storage-rooms.js";
 import { switchRoom } from "./app-storage-switch.js";
+import { ownMapDataDir } from "../maps/storage.js";
 
 /** What the admin chose for each room that uses App storage when the folder
  *  changes: true carries the room to the new folder, false leaves it where it is
@@ -141,6 +142,10 @@ export function setAppStoragePath(candidate: string | null, userId: string, carr
         // blank would read as App storage once there is one — the new folder.
         modes.renders = "own";
         break;
+      case "maps":
+        // Likewise: left behind means the room's own folder, said explicitly.
+        modes.maps = "own";
+        break;
       case "backups":
         delete modes.backups;
         break;
@@ -170,6 +175,15 @@ export function setAppStoragePath(candidate: string | null, userId: string, carr
   if (renders) {
     const to = renders.carry ? newRoom("renders") : validateThumbnailPath(thumbnailsAfter!);
     enqueueStorageMove({ kind: "renders", room: "renders", label: "Renders", from: oldRoom("renders"), to, actorUserId: userId });
+  }
+  // Map data goes with the folder, or back to its own place — the Renders rule.
+  // An empty room queues nothing: enqueueStorageMove refuses a move with no
+  // units, which matters here because the room follows App storage on every
+  // install, maps turned on or not.
+  const maps = step("maps");
+  if (maps) {
+    const to = maps.carry ? newRoom("maps") : ownMapDataDir();
+    enqueueStorageMove({ kind: "maps", room: "maps", label: "Map data", from: oldRoom("maps"), to, actorUserId: userId });
   }
 
   if (wanted && !before) {

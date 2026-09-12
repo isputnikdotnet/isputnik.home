@@ -1,7 +1,7 @@
 {
   "name": "@isputnik/web",
   "private": true,
-  "version": "4.3.0",
+  "version": "4.4.0",
   "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
@@ -20,9 +20,8 @@
     "dompurify": "^3.4.14",
     "i18next": "^26.4.2",
     "idb": "^8.0.3",
-    "leaflet": "^1.9.4",
-    "leaflet.markercluster": "^1.5.3",
     "lucide-react": "^1.41.0",
+    "maplibre-gl": "^6.9.0",
     "marked": "^18.0.11",
     "qrcode.react": "^4.2.0",
     "react": "^19.2.8",
@@ -33,8 +32,6 @@
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.7",
-    "@types/leaflet": "^1.9.22",
-    "@types/leaflet.markercluster": "^1.5.6",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.1",

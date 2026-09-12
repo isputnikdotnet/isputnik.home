@@ -98,6 +98,12 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
     "почта сервер порт пароль отправитель тест письмо",
   notifications: "notify email alerts members shared with me sharing switch on off opt in " +
     "уведомления почта оповещения участники поделились со мной включить выключить",
+  mapSetup: "maps map caching offline privacy openfreemap tiles basemap wizard set up turn on off dark labels language " +
+    "карты кэширование карт офлайн конфиденциальность тайлы подложка мастер настроить включить выключить тёмная подписи язык",
+  mapData: "geoip location database mmdb dbip maxmind geolite country city sign-in towns upload remove " +
+    "геолокация база расположений страны города входы загрузить удалить",
+  mapRouting: "route roads openrouteservice api key directions " +
+    "маршрут дороги ключ прокладка",
   readerAccess: "opds catalog token koreader thorium moon+ reader ereader e-reader basic auth device " +
     "каталог токен читалка электронная книга устройство",
   about: "version credits licences licenses changelog release notes what's new " +
@@ -115,7 +121,7 @@ type SettingKey =
   | "deletionProtection" | "addTrustedNetwork" | "scheduledBackups" | "defaultTheme"
   | "smtpServer" | "sendTestEmail" | "opdsReaderTokens" | "twoFactorAlertsDelivery"
   | "shareNotifications" | "recordingsLibrary" | "recipeImport" | "mapRouting"
-  | "houseLibrary" | "photoInboxSetup";
+  | "houseLibrary" | "photoInboxSetup" | "mapCaching" | "locationDatabase";
 
 // Settings that live inside a page. `section` is where they are; search takes
 // you to that tab and the setting is on it.
@@ -171,8 +177,20 @@ const SETTING_ENTRIES: { titleKey: SettingKey; section: ControlSection; keywords
   },
   {
     titleKey: "mapRouting",
-    section: "maps",
+    section: "mapRouting",
     keywords: "route roads driving walking cycling openrouteservice api key directions story map itinerary travel маршрут дороги машина пешком велосипед ключ прокладка карта путешествие"
+  },
+  {
+    titleKey: "mapCaching",
+    section: "mapSetup",
+    keywords: "keep maps on this server offline cache tiles privacy provider sees where storage map data " +
+      "хранить карты на сервере офлайн кэш тайлы конфиденциальность провайдер видит хранилище данные карт"
+  },
+  {
+    titleKey: "locationDatabase",
+    section: "mapData",
+    keywords: "sign-in locations geoip database country city mmdb dbip geolite maxmind fetch upload remove " +
+      "расположение входов геолокация база страна город скачать загрузить удалить"
   },
   {
     titleKey: "houseLibrary",

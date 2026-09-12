@@ -560,6 +560,50 @@
   min-height: 460px;
 }
 
+/* Maps › Setup and Data. Each level and database is a row: its name, and under
+   it one line saying what it is for, kept to a readable measure. */
+.map-levels td > small,
+.map-databases td > small {
+  display: block;
+  margin-top: 2px;
+  max-width: 52ch;
+  white-space: normal; /* override .datagrid-muted's nowrap, or the table runs off the page */
+}
+
+/* A size or a date reads as one thing; never split it over two lines. */
+.map-databases td.col-num,
+.map-databases td:nth-child(3) {
+  white-space: nowrap;
+}
+
+.map-databases .count-badge {
+  margin-left: 8px;
+}
+
+/* The setup wizard: the levels to choose, and then how each one went. */
+.map-wizard-choices {
+  display: grid;
+  gap: 12px;
+  margin: 14px 0;
+}
+
+.map-wizard-run {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.map-wizard-run li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.map-wizard-run li.is-done span { color: var(--mint); }
+.map-wizard-run li.is-failed span { color: var(--danger); }
+
 /* A country, standing at the centre of its largest landmass. */
 .locations-map-country {
   fill: var(--mint);

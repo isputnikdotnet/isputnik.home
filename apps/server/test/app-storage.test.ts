@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "../src/db.js";
 import { parsePolicy } from "../src/core/permissions.js";
 import { appRoomMode, appRoomPath, getAppStorageSetting, resolveAppLocation, setAppRoomMode } from "../src/core/app-storage.js";
@@ -30,6 +30,7 @@ import { trashBook } from "../src/modules/library/shared/trash.js";
 import { startTrashMove, waitForTrashMove } from "../src/modules/library/shared/trash-move.js";
 import { folderMoveStatus, waitForFolderMove } from "../src/modules/library/shared/folder-move.js";
 import { backupDir } from "../src/modules/backups/index.js";
+import { mapDataDir } from "../src/modules/maps/storage.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
 import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
 import "./helpers/media-types.js";
@@ -92,12 +93,13 @@ describe("the setting and the resolver", () => {
     expect(resolveAppLocation("thumbnails", thumbs)).toBe(thumbs);
     expect(resolveAppLocation("trash", null)).toBeNull();
     expect(resolveAppLocation("renders", null)).toBeNull();
+    expect(resolveAppLocation("maps", null)).toBeNull();
     expect(resolveAppLocation("backups", "/b")).toBe("/b");
     const view = appStorageView();
     expect(view.path).toBeNull();
     expect(view.lockedBy).toEqual([]);
     expect(view.rooms.map((room) => `${room.room}:${room.mode}`)).toEqual([
-      "trash:off", "inbox:off", "house:off", "thumbnails:own", "renders:own", "backups:own"
+      "trash:off", "inbox:off", "house:off", "thumbnails:own", "renders:own", "maps:own", "backups:own"
     ]);
   });
 
@@ -122,6 +124,10 @@ describe("the setting and the resolver", () => {
     expect(rooms.thumbnails.resolvedPath).toBe(thumbs);
     expect(rooms.renders.mode).toBe("app");
     expect(rooms.renders.resolvedPath).toBe(path.join(appDir, "Renders"));
+    // Map data follows the same rule, and nothing has been kept yet to lock it.
+    expect(rooms.maps.mode).toBe("app");
+    expect(rooms.maps.resolvedPath).toBe(path.join(appDir, "Map data"));
+    expect(mapDataDir()).toBe(path.join(appDir, "Map data"));
     expect(rooms.trash.mode).toBe("off");
     expect(rooms.trash.appPath).toBe(path.join(appDir, "Recycle Bin"));
     expect(view.lockedBy).toEqual([]);
@@ -273,6 +279,75 @@ describe("switching rooms", () => {
     expect(jobs.length).toBeGreaterThanOrEqual(2);
     expect(jobs.slice(-2).map((job) => job.status)).toEqual(["completed", "completed"]);
     expect(db.prepare("SELECT COUNT(*) AS n FROM activity_logs WHERE event = 'storage.move.completed' AND target_id = 'renders'").get()).toEqual({ n: 2 });
+  });
+
+  describe("the Map data room", () => {
+    let own = "";
+    beforeEach(() => {
+      own = path.join(base, "map-data");
+      process.env.MAP_DATA_PATH = own;
+    });
+    afterEach(() => {
+      delete process.env.MAP_DATA_PATH;
+    });
+
+    /** A cached tile, as the maps module lays one down. */
+    const tileIn = (root: string) => {
+      const file = path.join(root, "Tiles", "vector", "14", "9401", "5288.pbf.gz");
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      fs.writeFileSync(file, "TILE");
+      return file;
+    };
+
+    it("moves the kept maps as a task when switched to its own folder, and back into App storage", async () => {
+      const appMaps = path.join(appDir, "Map data");
+      const inApp = tileIn(appMaps);
+      // Something that is not map data, sitting in the room's folder: never carried.
+      fs.writeFileSync(path.join(appMaps, "notes.txt"), "MINE");
+      expect(appStorageView().lockedBy).toEqual(["maps"]);
+
+      const room = switchRoom("maps", "own", null, "u1");
+      expect(room.mode).toBe("own");
+      expect(room.move.running).toBe(true);
+      // The setting flips at once — new tiles land in the new place during the move.
+      expect(mapDataDir()).toBe(own);
+      await waitForStorageMoves();
+      expect(fs.readFileSync(path.join(own, "Tiles", "vector", "14", "9401", "5288.pbf.gz"), "utf8")).toBe("TILE");
+      expect(fs.existsSync(inApp)).toBe(false);
+      expect(fs.readFileSync(path.join(appMaps, "notes.txt"), "utf8")).toBe("MINE");
+      expect(appStorageView().lockedBy).toEqual([]);
+
+      switchRoom("maps", "app", null, "u1");
+      await waitForStorageMoves();
+      expect(mapDataDir()).toBe(appMaps);
+      expect(fs.existsSync(inApp)).toBe(true);
+      expect(fs.existsSync(path.join(own, "Tiles"))).toBe(false);
+      // Its own folder held nothing else, so it goes once emptied.
+      expect(fs.existsSync(own)).toBe(false);
+      expect(db.prepare("SELECT COUNT(*) AS n FROM activity_logs WHERE event = 'storage.move.completed' AND target_id = 'maps'").get()).toEqual({ n: 2 });
+    });
+
+    it("merges into tiles fetched at the new place while the move was waiting", async () => {
+      tileIn(path.join(appDir, "Map data"));
+      switchRoom("maps", "own", null, "u1");
+      // A tile the live cache wrote at the new place before the move reached it.
+      const fresh = path.join(own, "Tiles", "vector", "3", "1", "1.pbf.gz");
+      fs.mkdirSync(path.dirname(fresh), { recursive: true });
+      fs.writeFileSync(fresh, "NEW");
+      await waitForStorageMoves();
+      expect(fs.readFileSync(fresh, "utf8")).toBe("NEW");
+      expect(fs.existsSync(path.join(own, "Tiles", "vector", "14", "9401", "5288.pbf.gz"))).toBe(true);
+    });
+
+    it("has no off: whether maps are kept at all is not a storage question", () => {
+      expect(() => switchRoom("maps", "off", null, "u1")).toThrow(AppStorageError);
+    });
+
+    it("refuses a second change while a move runs", () => {
+      tileIn(path.join(appDir, "Map data"));
+      switchRoom("maps", "own", null, "u1");
+      expect(() => switchRoom("maps", "app", null, "u1")).toThrow(/being moved right now/);
+    });
   });
 
   it("a moved file that arrives short is refused, kept at the source, and listed as failed", () => {
@@ -524,6 +599,8 @@ describe("changing the folder while rooms use it", () => {
     fs.writeFileSync(path.join(appDir, "Renders", "music", "ab", "song.mp3"), "MP3");
     switchRoom("backups", "app", null, "u1");
     fs.writeFileSync(path.join(appDir, "Backups", "b1.zip"), "ZIP");
+    fs.mkdirSync(path.join(appDir, "Map data", "Tiles", "vector"), { recursive: true });
+    fs.writeFileSync(path.join(appDir, "Map data", "Tiles", "vector", "t.pbf.gz"), "TILE");
     switchRoom("thumbnails", "app", null, "u1");
     await waitForFolderMove();
     fs.mkdirSync(path.join(appDir, "Thumbnails", "LIB"), { recursive: true });
@@ -532,7 +609,7 @@ describe("changing the folder while rooms use it", () => {
     trashBook(makeBook("bk1"), "u1");
     await waitForTrashMove();
     const houseId = getHouseLibrary()!.id;
-    expect(appStorageView().lockedBy.sort()).toEqual(["backups", "house", "inbox", "renders", "thumbnails", "trash"]);
+    expect(appStorageView().lockedBy.sort()).toEqual(["backups", "house", "inbox", "maps", "renders", "thumbnails", "trash"]);
 
     const view = setAppStoragePath(other, "u1");
     expect(view.path).toBe(other);
@@ -553,6 +630,10 @@ describe("changing the folder while rooms use it", () => {
     expect(fs.existsSync(path.join(other, "Backups", "b1.zip"))).toBe(true);
     expect(backupDir()).toBe(path.join(other, "Backups"));
     expect(fs.existsSync(path.join(appDir, "Backups", "b1.zip"))).toBe(false);
+    // Map data: carried as a task, and the cache now reads from the new folder.
+    await waitForStorageMoves();
+    expect(fs.existsSync(path.join(other, "Map data", "Tiles", "vector", "t.pbf.gz"))).toBe(true);
+    expect(mapDataDir()).toBe(path.join(other, "Map data"));
     // Thumbnails and the bin: carried by their background moves.
     expect(configuredThumbnailPathValue()).toBe(path.join(other, "Thumbnails"));
     expect(fs.existsSync(path.join(other, "Thumbnails", "LIB", "cover.webp"))).toBe(true);
@@ -599,6 +680,31 @@ describe("changing the folder while rooms use it", () => {
     expect(fs.existsSync(path.join(backupDir(), "b1.zip"))).toBe(true);
     expect(backupDir()).not.toBe(path.join(appDir, "Backups"));
     fs.rmSync(path.join(backupDir(), "b1.zip"));
+  });
+
+  it("map data told to stay goes back to its own folder; with nothing kept, a folder change queues no move for it", async () => {
+    const own = path.join(base, "map-data");
+    process.env.MAP_DATA_PATH = own;
+    try {
+      const jobsFor = () => (db.prepare("SELECT COUNT(*) AS n FROM jobs WHERE type = ? AND payload LIKE '%\"room\":\"maps\"%'").get(STORAGE_MOVE_JOB_TYPE) as { n: number }).n;
+      const before = jobsFor();
+      // Nothing kept: the room follows App storage to the new folder, and the Tasks
+      // page gets no empty move for a feature nobody turned on.
+      setAppStoragePath(other, "u1");
+      expect(mapDataDir()).toBe(path.join(other, "Map data"));
+      expect(jobsFor()).toBe(before);
+
+      fs.mkdirSync(path.join(other, "Map data", "Tiles"), { recursive: true });
+      fs.writeFileSync(path.join(other, "Map data", "Tiles", "t.pbf.gz"), "TILE");
+      setAppStoragePath(appDir, "u1", { maps: false });
+      await waitForStorageMoves();
+      expect(modeOf("maps").mode).toBe("own");
+      expect(mapDataDir()).toBe(own);
+      expect(fs.readFileSync(path.join(own, "Tiles", "t.pbf.gz"), "utf8")).toBe("TILE");
+      expect(fs.existsSync(path.join(other, "Map data"))).toBe(false);
+    } finally {
+      delete process.env.MAP_DATA_PATH;
+    }
   });
 
   it("clearing the folder leaves every room where it is", async () => {

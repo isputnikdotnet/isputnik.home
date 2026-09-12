@@ -42,6 +42,7 @@ import {
   type GalleryLibraryRow
 } from "./app-storage.js";
 import { houseRoom, roomView, type RoomView } from "./app-storage-rooms.js";
+import { mapDataDir, ownMapDataDir } from "../maps/storage.js";
 import type { LibraryRow } from "../../db/rows.js";
 
 /** Queue moving a gallery library's folder to `to` as a storage move task
@@ -136,6 +137,33 @@ function switchRenders(mode: AppRoomMode, userId: string): void {
   // across is missing for the seconds it takes.
   if (!samePath(before, after)) {
     enqueueStorageMove({ kind: "renders", room: "renders", label: "Renders", from: before, to: after, actorUserId: userId });
+  }
+}
+
+// Map data follows the Renders pattern: the setting flips at once, and whatever
+// is already kept follows as a storage move task. The cache keeps working while
+// it runs — new tiles land in the new folder, and a tile not yet across is
+// fetched again, which costs a request rather than a map.
+function switchMaps(mode: AppRoomMode, userId: string): void {
+  if (mode === "off") {
+    throw new AppStorageError("Map data always lives somewhere: App storage, or its own folder. Whether maps are kept at all is chosen on the Maps page.");
+  }
+  if (storageMoveStatus("maps").running) {
+    throw new AppStorageError("Map data is being moved right now. Wait for that to finish, or cancel it, before changing the room again.", 409);
+  }
+  const before = mapDataDir();
+  let after: string;
+  if (mode === "app") {
+    after = requireAppPath("maps");
+    setAppRoomMode("maps", "app", userId);
+  } else {
+    after = ownMapDataDir();
+    // Recorded as a choice, not left blank: blank means "App storage once there
+    // is one", and this admin has asked for the room's own folder.
+    setAppRoomMode("maps", "own", userId);
+  }
+  if (!samePath(before, after)) {
+    enqueueStorageMove({ kind: "maps", room: "maps", label: "Map data", from: before, to: after, actorUserId: userId });
   }
 }
 
@@ -300,6 +328,7 @@ export function switchRoom(room: AppRoom, mode: AppRoomMode, own: string | null,
     case "trash": switchTrash(mode, ownPath, userId); break;
     case "thumbnails": switchThumbnails(mode, ownPath, userId); break;
     case "renders": switchRenders(mode, userId); break;
+    case "maps": switchMaps(mode, userId); break;
     case "backups": switchBackups(mode, userId); break;
     case "inbox": switchInbox(mode, own, userId, ip); break;
     case "house": switchHouse(mode, own, userId, ip); break;

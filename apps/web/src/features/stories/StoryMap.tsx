@@ -1,10 +1,9 @@
-import { useEffect, useRef } from "react";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
+import { useMemo } from "react";
+import { MapView } from "../../shared/map";
+import type { LatLng, MapShapes, MapViewCommand } from "../../shared/map";
 import { routeLegs } from "./story-route";
-import { ROUTING_ATTRIBUTION, drawRouteLegs } from "./story-route-layer";
+import { ROUTING_ATTRIBUTION, routeShapes } from "./story-route-shapes";
 import type { StoryMapPoint } from "./types";
-import { OSM_TILE_OPTIONS, OSM_TILE_URL } from "../../shared/mapTiles";
 
 export interface StoryMapPin {
   id: string;
@@ -16,9 +15,8 @@ export interface StoryMapPin {
 }
 
 // The Story Home map: one numbered pin per placed chapter, framed to fit them
-// all. Plain Leaflet via a ref (the GalleryMiniMap pattern — no clustering; a
-// story has a handful of chapters, not a photo archive). Clicking a pin opens
-// that chapter's page.
+// all. No clustering — a story has a handful of chapters, not a photo archive.
+// Clicking a pin opens that chapter's page.
 //
 // `route` joins the pins in order with a line: the same component then serves a
 // map block's route, where the pins ARE the itinerary. The segments are straight
@@ -37,70 +35,55 @@ export function StoryMap({
    *  drawn line otherwise. Without them `route` still joins the pins straight. */
   stops?: StoryMapPoint[];
 }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<L.Map | null>(null);
-  const layerRef = useRef<L.LayerGroup | null>(null);
-  // Refreshed after each commit rather than while rendering: the only reader is a
-  // pin's click handler, which fires long after paint.
-  const onOpenRef = useRef(onOpen);
-  useEffect(() => { onOpenRef.current = onOpen; });
+  const options = useMemo(
+    () => ({ center: [20, 0] as LatLng, zoom: 2, scrollWheelZoom: false }),
+    []
+  );
 
-  useEffect(() => {
-    if (!containerRef.current || mapRef.current) return;
-    const map = L.map(containerRef.current, {
-      center: [20, 0],
-      zoom: 2,
-      scrollWheelZoom: false,
-      attributionControl: true
-    });
-    L.tileLayer(OSM_TILE_URL, {
-      ...OSM_TILE_OPTIONS,
-      attribution: "&copy; OpenStreetMap"
-    }).addTo(map);
-    mapRef.current = map;
-    layerRef.current = L.layerGroup().addTo(map);
-    const sizeTimer = window.setTimeout(() => map.invalidateSize(), 0);
-    return () => {
-      window.clearTimeout(sizeTimer);
-      map.remove();
-      mapRef.current = null;
-      layerRef.current = null;
-    };
-  }, []);
+  const drawn = useMemo(() => {
+    if (!route || pins.length < 2) return null;
+    return routeShapes(stops ?? pins.map((pin) => ({
+      lat: pin.lat, lng: pin.lng, label: pin.title, mode: null, geometry: null
+    })));
+  }, [route, pins, stops]);
 
-  // Rebuild the pins whenever the set changes, and frame them.
-  useEffect(() => {
-    const map = mapRef.current;
-    const layer = layerRef.current;
-    if (!map || !layer) return;
-    layer.clearLayers();
-    if (pins.length === 0) return;
-    // Under the pins, so a marker is never half-hidden by its own line.
-    if (route && pins.length > 1) {
-      const routed = drawRouteLegs(layer, stops ?? pins.map((pin) => ({
-        lat: pin.lat, lng: pin.lng, label: pin.title, mode: null, geometry: null
-      })));
-      if (routed) map.attributionControl.addAttribution(ROUTING_ATTRIBUTION);
-    }
-    for (const pin of pins) {
-      const icon = L.divIcon({
+  const shapes = useMemo<MapShapes>(() => ({
+    lines: drawn?.lines ?? [],
+    markers: [
+      ...(drawn?.badges ?? []),
+      ...pins.map((pin) => ({
+        id: pin.id,
+        lat: pin.lat,
+        lng: pin.lng,
         className: "story-map-marker",
         html: `<span class="story-map-pin">${escapeHtml(pin.label)}</span>`,
-        iconSize: [30, 30],
-        iconAnchor: [15, 15]
-      });
-      L.marker([pin.lat, pin.lng], { icon, title: pin.title })
-        .on("click", () => onOpenRef.current(pin.id))
-        .addTo(layer);
-    }
-    // Frame the LINES, not just the pins: a road that loops north of both ends
-    // — or a flight's arc — belongs inside the picture it is drawn in.
-    const bounds = L.latLngBounds(pins.map((pin) => [pin.lat, pin.lng] as [number, number]));
-    if (route && stops) for (const leg of routeLegs(stops)) for (const point of leg.coords) bounds.extend(point);
-    map.fitBounds(bounds.pad(0.25), { maxZoom: 12 });
+        size: [30, 30] as [number, number],
+        title: pin.title
+      }))
+    ]
+  }), [drawn, pins]);
+
+  const attributions = useMemo(() => (drawn?.routed ? [ROUTING_ATTRIBUTION] : []), [drawn]);
+
+  // Frame the LINES, not just the pins: a road that loops north of both ends —
+  // or a flight's arc — belongs inside the picture it is drawn in.
+  const view = useMemo<MapViewCommand | null>(() => {
+    if (pins.length === 0) return null;
+    const points: LatLng[] = pins.map((pin) => [pin.lat, pin.lng]);
+    if (route && stops) for (const leg of routeLegs(stops)) points.push(...leg.coords);
+    return { kind: "fit", points, pad: 0.25, maxZoom: 12 };
   }, [pins, route, stops]);
 
-  return <div className="story-home-map" ref={containerRef} />;
+  return (
+    <MapView
+      options={options}
+      shapes={shapes}
+      view={view}
+      attributions={attributions}
+      onMarkerClick={onOpen}
+      className="story-home-map"
+    />
+  );
 }
 
 function escapeHtml(value: string): string {

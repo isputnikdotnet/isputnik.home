@@ -137,6 +137,7 @@ function roomContents(room: AppRoom): RoomContents {
     }
     case "thumbnails":
     case "renders":
+    case "maps":
     case "backups": {
       const stats = folderStats(view.mode === "off" ? null : view.resolvedPath);
       return { ...base, files: stats.files, bytes: stats.bytes, complete: stats.complete };

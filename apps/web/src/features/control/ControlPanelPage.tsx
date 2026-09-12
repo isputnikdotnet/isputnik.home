@@ -50,6 +50,8 @@ const MailSection = lazy(() => import("./sections/MailSection").then((m) => ({ d
 const NotificationsSection = lazy(() => import("./sections/NotificationsSection").then((m) => ({ default: m.NotificationsSection })));
 const StorySettingsSection = lazy(() => import("./sections/StorySettingsSection").then((m) => ({ default: m.StorySettingsSection })));
 const MapsSection = lazy(() => import("./sections/MapsSection").then((m) => ({ default: m.MapsSection })));
+const MapSetupSection = lazy(() => import("./sections/maps/MapSetupSection").then((m) => ({ default: m.MapSetupSection })));
+const MapDataSection = lazy(() => import("./sections/maps/MapDataSection").then((m) => ({ default: m.MapDataSection })));
 const OpdsAccessSection = lazy(() => import("./sections/OpdsAccessSection").then((m) => ({ default: m.OpdsAccessSection })));
 const SecuritySection = lazy(() => import("./sections/SecuritySection").then((m) => ({ default: m.SecuritySection })));
 const RecycleBinSection = lazy(() => import("./sections/RecycleBinSection").then((m) => ({ default: m.RecycleBinSection })));
@@ -137,11 +139,14 @@ function ControlSectionBody({
     case "duplicateCleanup": return <DuplicateCleanupSection currentUser={currentUser} />;
     case "quotes":          return <QuotesSection />;
 
+    case "mapSetup":        return <MapSetupSection />;
+    case "mapData":         return <MapDataSection />;
+    case "mapRouting":      return <MapsSection />;
+
     case "appearance":      return <AppearanceSection />;
     case "email":           return <MailSection />;
     case "notifications":   return <NotificationsSection />;
     case "storySettings":   return <StorySettingsSection />;
-    case "maps":            return <MapsSection />;
     case "readerAccess":    return <OpdsAccessSection />;
     case "about":           return <AboutSection />;
   }

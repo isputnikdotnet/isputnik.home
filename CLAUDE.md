@@ -106,7 +106,8 @@ Full reference: `docs/UI-CONVENTIONS.md`. The short version:
   `t(key, { count })`, never hand-built plurals (Russian has three forms). The
   sweep is complete (2026-08-27; the record is `docs/i18n-plan.md`), so every file
   counts as swept: new user-facing strings must be keys, not literals.
-- **Control panel**: its whole shape (7 nav groups × their tabs) is declared in
+- **Control panel**: its whole shape (8 nav groups × their tabs — Maps is the one
+  admitted past the old budget of seven; the note in `nav.ts` says why) is declared in
   `features/control/nav.ts`; canonical URLs in `CONTROL_PATHS` (`router.ts`), linked
   via `controlHref()`. Every tab is a real route — no `useState` tab rows in there —
   and pages open with `ControlSectionHead`, which takes eyebrow + title from `nav.ts`.

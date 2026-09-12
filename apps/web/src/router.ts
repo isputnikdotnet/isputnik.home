@@ -1,6 +1,6 @@
 import { useState, useEffect, startTransition } from "react";
 
-// Every leaf destination in the control panel — one value per tab. The six nav
+// Every leaf destination in the control panel — one value per tab. The nav
 // groups they hang off are described in features/control/nav.ts.
 export type ControlSection =
   // Overview
@@ -14,8 +14,10 @@ export type ControlSection =
   // Maintenance
   | "backup" | "scheduledJobs" | "recycleBin" | "missingPhotos"
   | "duplicateCleanup" | "quotes"
+  // Maps
+  | "mapSetup" | "mapData" | "mapRouting"
   // Settings
-  | "appearance" | "email" | "notifications" | "storySettings" | "maps" | "readerAccess" | "about";
+  | "appearance" | "email" | "notifications" | "storySettings" | "readerAccess" | "about";
 
 // The canonical address of every control-panel destination. The nav, the tab
 // rows and the search palette all link through controlHref(), so this table is
@@ -51,11 +53,14 @@ export const CONTROL_PATHS: Record<ControlSection, string> = {
   missingPhotos: "/control/utilities/missing-photos",
   quotes: "/control/utilities/quotes",
 
+  mapSetup: "/control/maps",
+  mapData: "/control/maps/data",
+  mapRouting: "/control/maps/routing",
+
   appearance: "/control/settings",
   email: "/control/settings/email",
   notifications: "/control/settings/notifications",
   storySettings: "/control/settings/stories",
-  maps: "/control/settings/maps",
   readerAccess: "/control/settings/reader-access",
   about: "/control/settings/about"
 };
@@ -84,6 +89,10 @@ const CONTROL_ALIASES: Record<string, ControlSection> = {
   // Dashboard briefly lived at its own sub-path before absorbing System (the
   // group's former landing tab) and taking over the group's root address.
   "/control/overview/dashboard": "dashboard",
+
+  // Routing was Settings › Maps before maps became a group of their own
+  // (docs/map-approach-proposal.md); a saved link still lands on it.
+  "/control/settings/maps": "mapRouting",
 
   // The per-media-type stat pages became one Statistics page, which became the
   // Dashboard's Libraries view. DashboardSection reads these paths to pick it.
