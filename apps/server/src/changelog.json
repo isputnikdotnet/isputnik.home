@@ -1,5 +1,15 @@
 [
   {
+    "version": "4.3.0",
+    "label": "A small backup that keeps what cannot come back",
+    "changes": [
+      "**A minimal backup now carries the pictures nothing else can bring back.** It used to be the database and the two-factor key alone, on the reasoning that covers can always be made again — and most can: a photo's preview, a video's poster and every face the app has cut out are rendered from your own files, and a scan makes them afresh the moment one is missing. But a cover you uploaded or had the app fetch, a series cover, an author's portrait, a category tile, a family-tree portrait: those exist nowhere but the thumbnail store, and no amount of re-scanning brings them back — a restore from a minimal backup left them blank for good. Those pictures now travel in it, and nothing else does, so the small nightly backup stays small: on a library of forty books and two hundred photos it grew to 7 MB where the full one is 43 MB. A **full** backup is unchanged — it still takes the whole thumbnail store, rendered previews included, so a restore has nothing left to re-render.",
+      "**Each kind of backup keeps its own number of copies.** One count covered all three before, which forced a choice nobody wants to make: keep a fortnight of the small nightly backups and you kept a fortnight of the big weekly ones too. The number now sits under the time in each backup's row on **Maintenance › Backup** — `Keep 14` beside the nightly minimal one, `Keep 2` beside the weekly full one — and each kind is pruned entirely on its own, so neither can push the other out. Quick database copies get a count of their own below the two rows; they have no schedule because nothing ever makes one on a timer. Whatever you had set is kept, and now applies to every kind separately. The automatic copies taken before an upgrade are still counted apart from all of it, and still keep their own newest two.",
+      "**A backup file now says what it is, inside.** Until now the only way to tell a full backup from a minimal one was the file name — which is fine until you rename it, and no use at all now that both kinds carry pictures. Every backup archive carries a small `backup.json` naming its kind, what it holds and the version that wrote it, so a backup uploaded from your computer is filed correctly whatever it arrived called. Older backups still read the way they always did.",
+      "The Backup page also gained the icon every other page in the control panel opens with."
+    ]
+  },
+  {
     "version": "4.2.3",
     "label": "The map draws again",
     "changes": [

@@ -9,10 +9,11 @@ import { parseBody } from "../../core/shared.js";
 import { receiveUpload, UploadError } from "../uploads/index.js";
 import { configuredThumbnailPathValue } from "../library/shared/thumbnail.js";
 import { configureScheduledJob } from "../maintenance/scheduler.js";
-import { extractFromZip, isBackupDatabaseEntry, isBackupMfaKeyEntry, zipHasEntry } from "./zip-read.js";
+import { extractFromZip, isBackupDatabaseEntry, isBackupManifestEntry, isBackupMfaKeyEntry, readZipEntryText, zipHasEntry } from "./zip-read.js";
 import {
   BACKUP_KINDS,
   NAME_PATTERN,
+  RETENTION_MAX,
   SETTINGS_KEY,
   adoptPreRestoreSnapshot,
   adoptPreUpgradeCopy,
@@ -25,7 +26,8 @@ import {
   saveSettings,
   startBackup,
   uniqueBackupName,
-  type BackupKind
+  type BackupKind,
+  type BackupSettings
 } from "./run.js";
 import { log } from "../../core/logger.js";
 import type { AppSettingRow } from "../../db/rows.js";
@@ -111,6 +113,19 @@ export function rescueStrandedBackups(): number {
   return moved;
 }
 
+/** The kind a zip says it is, from the manifest run.ts writes into it. null when
+ *  there is no manifest (any zip from before 4.3.0) or it makes no sense. */
+async function declaredZipKind(filePath: string): Promise<BackupKind | null> {
+  try {
+    const text = await readZipEntryText(filePath, isBackupManifestEntry);
+    if (!text) return null;
+    const declared = (JSON.parse(text) as { kind?: unknown }).kind;
+    return BACKUP_KINDS.includes(declared as BackupKind) ? declared as BackupKind : null;
+  } catch {
+    return null;
+  }
+}
+
 function resolveBackupPath(name: string): string | null {
   if (!NAME_PATTERN.test(name)) {
     return null;
@@ -134,9 +149,33 @@ function assertValidSqlite(filePath: string) {
   }
 }
 
+// Retention is per kind. A bare number is what clients before 4.3.0 sent and still
+// means "the same for every kind"; an object may name only the kinds it changes.
+const retentionCount = z.number().int().min(1).max(RETENTION_MAX);
 const settingsSchema = z.object({
-  retention: z.number().int().min(1).max(100)
+  retention: z.union([
+    retentionCount,
+    z.object({
+      full: retentionCount.optional(),
+      minimal: retentionCount.optional(),
+      database: retentionCount.optional()
+    })
+  ])
 });
+
+function nextRetention(incoming: z.infer<typeof settingsSchema>["retention"]): BackupSettings {
+  const current = getSettings().retention;
+  if (typeof incoming === "number") {
+    return { retention: { full: incoming, minimal: incoming, database: incoming } };
+  }
+  return {
+    retention: {
+      full: incoming.full ?? current.full,
+      minimal: incoming.minimal ?? current.minimal,
+      database: incoming.database ?? current.database
+    }
+  };
+}
 
 // Absent means full, so an older client (or a bare "{}") gets what it always got.
 const createSchema = z.object({
@@ -195,16 +234,17 @@ export async function backupsPlugin(app: FastifyInstance) {
     if (parsed.error) {
       return reply.code(400).send({ error: "Invalid backup settings", details: parsed.error });
     }
-    saveSettings(parsed.data, request.user!.id);
+    const settings = nextRetention(parsed.data.retention);
+    saveSettings(settings, request.user!.id);
     logActivity({
       event: "backup.settings_updated",
       actorUserId: request.user!.id,
       targetType: "setting",
       targetId: SETTINGS_KEY,
-      detail: `Backups keep the newest ${parsed.data.retention} of each kind.`,
+      detail: `Backups keep the newest ${settings.retention.full} full, ${settings.retention.minimal} minimal and ${settings.retention.database} database copies.`,
       ipAddress: request.ip
     });
-    return reply.send({ settings: parsed.data });
+    return reply.send({ settings });
   });
 
   app.get("/api/backups/:name/download", { preHandler: app.requireAdmin }, async (request, reply) => {
@@ -254,7 +294,9 @@ export async function backupsPlugin(app: FastifyInstance) {
 
   // Restore: extract covers back into the cache immediately (static files) and
   // stage the database as "<dbPath>.restore" for db.ts to apply on next startup.
-  // A minimal zip simply has no thumbnails/ entries, so the same path serves it.
+  // A minimal zip holds fewer thumbnails/ entries than a full one — only the
+  // pictures a rescan could not put back — and none at all if it was written
+  // before 4.3.0, so the same path serves every zip.
   // destructive: restoring replaces the live database — refused from untrusted
   // networks under the deletions-only policy (see deletionBlocked).
   app.post("/api/backups/:name/restore", { preHandler: app.requireAdmin, config: { destructive: true } }, async (request, reply) => {
@@ -364,8 +406,11 @@ export async function backupsPlugin(app: FastifyInstance) {
     }
 
     // Reject anything that isn't a real isputnik backup before it joins the list.
-    // A zip with no thumbnails/ inside is filed as minimal, so the list says what it
-    // holds whatever the file was called on the way in.
+    // The kind comes from the zip's own manifest, which says what it is; zips
+    // written before that existed are read the way they always were — a
+    // thumbnails/ folder meant full, its absence minimal. That reading is no
+    // longer enough on its own, because a minimal backup carries the pictures a
+    // rescan could not put back, under the same prefix.
     let kind: BackupKind;
     try {
       if (received.extension === "sqlite") {
@@ -375,7 +420,8 @@ export async function backupsPlugin(app: FastifyInstance) {
         if (!(await zipHasEntry(received.tmpPath, isBackupDatabaseEntry))) {
           throw new Error("This zip is not an isputnik backup — it has no database.sqlite inside.");
         }
-        kind = (await zipHasEntry(received.tmpPath, (entry) => entry.startsWith("thumbnails/"))) ? "full" : "minimal";
+        kind = await declaredZipKind(received.tmpPath)
+          ?? (await zipHasEntry(received.tmpPath, (entry) => entry.startsWith("thumbnails/")) ? "full" : "minimal");
       }
     } catch (err) {
       fs.rmSync(received.tmpPath, { force: true });

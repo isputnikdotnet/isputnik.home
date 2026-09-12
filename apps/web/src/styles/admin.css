@@ -1339,14 +1339,62 @@
   white-space: nowrap;
 }
 
-.backup-retention-controls {
+/* A job's schedule with its retention under it: how many to keep reads as part of
+   how often they are made, so the two share one column. */
+.backup-schedule-controls {
   display: flex;
-  align-items: end;
-  gap: 12px;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 150px;
+  max-width: 190px;
 }
 
-.backup-retention-controls .backup-field-keep {
-  max-width: 230px;
+.backup-schedule-controls .scheduled-job-schedule {
+  min-width: 0;
+  max-width: none;
+}
+
+.backup-keep-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.backup-keep-inline span {
+  white-space: nowrap;
+}
+
+.backup-keep-inline input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--ink);
+  background: var(--field);
+  font-size: 0.86rem;
+}
+
+.backup-keep-inline input:focus {
+  border-color: var(--mint);
+  outline: 3px solid color-mix(in srgb, var(--mint) 28%, transparent);
+}
+
+.backup-keep-inline input:disabled {
+  opacity: 0.55;
+}
+
+.backup-retention {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.backup-retention-label {
+  font-size: 0.9rem;
+  font-weight: 600;
 }
 
 .backup-card-rule {
@@ -1360,16 +1408,6 @@
   grid-template-columns: auto minmax(0, 1fr);
   align-items: start;
   gap: 24px;
-}
-
-.backup-save-button {
-  min-width: 116px;
-  color: #fff;
-  background: #30406f;
-}
-
-.backup-save-button:hover {
-  background: #26355f;
 }
 
 .backup-retention-note {
@@ -2278,12 +2316,8 @@
     gap: 12px;
   }
 
-  .backup-retention-controls {
-    flex-wrap: wrap;
-  }
-
-  .backup-save-button {
-    justify-self: start;
+  .backup-schedule-controls {
+    max-width: none;
   }
 
   .backup-list-head {

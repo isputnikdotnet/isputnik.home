@@ -267,7 +267,9 @@ const SHOTS = [
   // out of Photos/Re-saved: those exist only to be duplicates, so the library
   // loses nothing, and removing one is the flow duplicate-cleanup.md describes.
   { name: "62-recycle-bin", url: "control/maintenance/recycle-bin", state: "only demo content in the bin" },
-  { name: "63-backup", url: "control/maintenance/backup" },
+  // Taller than the default: each schedule row carries its retention under the
+  // time now, and the count for database copies sits under both.
+  { name: "63-backup", url: "control/maintenance/backup", height: 1260 },
   { name: "64-security-overview", url: "control/security" },
   { name: "65-members", url: "control/members" },
   { name: "66-groups", url: "control/members/groups", state: "at least one group" },
