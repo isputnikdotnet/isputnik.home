@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { OSM_TILE_OPTIONS, OSM_TILE_URL } from "../../shared/mapTiles";
 
 // A small, fixed location map for the lightbox Info panel — one marker at the photo's
 // GPS point. Plain Leaflet via a ref (like GalleryMap), lazy-loaded so Leaflet stays
@@ -37,8 +38,8 @@ export function GalleryMiniMap({
       scrollWheelZoom: false,
       attributionControl: true
     });
-    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
+    L.tileLayer(OSM_TILE_URL, {
+      ...OSM_TILE_OPTIONS,
       attribution: t("gallery:map.osmAttribution")
     }).addTo(map);
     const icon = L.divIcon({ className: "gallery-mini-marker", html: '<span class="gallery-mini-pin"></span>', iconSize: [18, 18], iconAnchor: [9, 9] });

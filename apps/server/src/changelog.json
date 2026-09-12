@@ -1,5 +1,12 @@
 [
   {
+    "version": "4.2.3",
+    "label": "The map draws again",
+    "changes": [
+      "**Maps showed “Access blocked” where the map should be.** A photo’s location in the Info panel, the gallery’s Map view, story maps and the place picker all drew a wall of refusal instead of streets. The app was asking OpenStreetMap for its map images without saying who was asking — it withholds that from every site it touches — and a request they cannot identify is answered with a picture of a refusal rather than an error, so nothing on the page looked broken. The app now names itself to the map service, and to nothing else: the map service is told only the address your library is served from, never which page you are on or what you were looking at. If a map still reads “Access blocked” after this update, reload the page once — your browser is showing the picture it saved earlier."
+    ]
+  },
+  {
     "version": "4.2.2",
     "label": "Thumbnails say when they have nowhere to go",
     "changes": [

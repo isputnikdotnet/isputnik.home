@@ -24,6 +24,14 @@ const RULES = [
     pattern: /className=["'`{][^"'`}]*(?<![\w-])(confirm-modal|metadata-modal)(?![\w-])/,
     allow: (path) => path.startsWith("shared/"),
     message: "Modal surfaces (confirm-modal/metadata-modal) are owned by shared/Modal."
+  },
+  {
+    // A map built on a hand-written tile URL misses the referrerPolicy that keeps
+    // OpenStreetMap drawing anything at all — it answers an unidentified request
+    // with a "blocked" image, not an error, so the map looks built and reads wrong.
+    pattern: /tile\.openstreetmap\.org/,
+    allow: (path) => path === "shared/mapTiles.ts",
+    message: "Use OSM_TILE_URL/OSM_TILE_OPTIONS from shared/mapTiles, not a raw tile URL."
   }
 ];
 

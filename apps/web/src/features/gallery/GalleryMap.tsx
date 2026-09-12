@@ -6,6 +6,7 @@ import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import type { GalleryMapPoint } from "./types";
+import { OSM_TILE_OPTIONS, OSM_TILE_URL } from "../../shared/mapTiles";
 
 // Map view over geotagged assets. Plain Leaflet (no react-leaflet) driven through a
 // ref + effects, so there's no extra wrapper library to version-couple. Markers are
@@ -39,8 +40,8 @@ export function GalleryMap({ points, onOpen }: { points: GalleryMapPoint[]; onOp
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
     const map = L.map(containerRef.current, { worldCopyJump: true }).setView([20, 0], 2);
-    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
+    L.tileLayer(OSM_TILE_URL, {
+      ...OSM_TILE_OPTIONS,
       attribution: attributionRef.current
     }).addTo(map);
     const cluster = L.markerClusterGroup({ maxClusterRadius: 50 });

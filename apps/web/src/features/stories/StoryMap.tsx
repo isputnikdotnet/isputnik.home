@@ -4,6 +4,7 @@ import "leaflet/dist/leaflet.css";
 import { routeLegs } from "./story-route";
 import { ROUTING_ATTRIBUTION, drawRouteLegs } from "./story-route-layer";
 import type { StoryMapPoint } from "./types";
+import { OSM_TILE_OPTIONS, OSM_TILE_URL } from "../../shared/mapTiles";
 
 export interface StoryMapPin {
   id: string;
@@ -52,8 +53,8 @@ export function StoryMap({
       scrollWheelZoom: false,
       attributionControl: true
     });
-    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
+    L.tileLayer(OSM_TILE_URL, {
+      ...OSM_TILE_OPTIONS,
       attribution: "&copy; OpenStreetMap"
     }).addTo(map);
     mapRef.current = map;
