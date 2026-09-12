@@ -40,8 +40,9 @@ seven steps, in the order they depend on each other:
    thumbnails it generates, the Recycle Bin, and the two libraries the next steps can
    make. Choosing it is confirmed with the exact path first. Under it, *Or choose the
    thumbnail folder on your own* is for thumbnails on a different disk from the rest.
-   Nothing else works until a container and somewhere for thumbnails exist. See
-   [Storage](storage.md).
+   Nothing else works until a container and somewhere for thumbnails exist, and the
+   step says so while thumbnails have nowhere to go — or while the folder they were
+   given cannot be used. See [Storage](storage.md).
 2. **Recycle Bin** — one folder for deleted files, instead of a hidden `.trash` inside
    every library. On a fresh install with App storage chosen it is already inside it;
    otherwise **Use App storage** puts it there in one click, or **Browse** picks a folder

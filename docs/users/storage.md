@@ -6,7 +6,7 @@ sits in **Control panel → Library → Storage**, in three parts:
 | | What it is | Why it's needed |
 |---|---|---|
 | **Digital Library containers** | The folders your libraries are allowed to read | A safety boundary: a library can only ever point somewhere inside an approved container, so a mistyped path can't wander off into the rest of the disk. Everything else on the page lives inside one. |
-| **App storage** | One folder the app may keep its own things in: the Recycle Bin, the Photo Inbox, the library for what the family makes in the app, thumbnails, renders and music, backups | So those six answers can be given once, in one place, instead of on six different pages. Every one of them is optional. |
+| **App storage** | One folder the app may keep its own things in: the Recycle Bin, the Photo Inbox, the library for what the family makes in the app, thumbnails, renders and music, backups | So those six answers can be given once, in one place, instead of on six different pages. Every one of them is optional except thumbnails, which always need a folder. |
 | **Its rooms** | One row per thing the app keeps, saying where it is right now | Each row can use App storage, keep a place of its own, or stay off. Nothing moves until you change a row, and every change is confirmed first. |
 
 Until thumbnails have somewhere to go and at least one container exists, **Add

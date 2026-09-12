@@ -3,6 +3,12 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.2.2 — Thumbnails say when they have nowhere to go
+
+- **The Storage page says again when thumbnails have no folder.** When the page was rebuilt around App storage, the thumbnail folder became one row among six and quietly lost the warning it used to carry. On an install where nothing had been chosen for it the row simply read "Not set", exactly like the rooms that are meant to be left off — while **Add library** stayed disabled and nothing on the page explained why. The row now says a folder is needed before a library can be added, and the page no longer promises that every room is optional: thumbnails always need one.
+- **A thumbnail folder that cannot be used now says so where it is set.** A path that turned out to be a file, or a folder the app may not write in, was only discovered at the next scan, as covers that never appeared. The Storage row names the problem in plain words as soon as the page is opened.
+- **The setup guide says it too.** Its first step now tells you, while you are there, that thumbnails still have nowhere to go — or that the folder they were given cannot be used — instead of letting you find the next step locked and the reason on another page.
+
 ## 4.2.1 — Dates speak Russian too
 
 - **With the interface in Russian, dates were still written in English** — "September 7, 2026" on the gallery's day headings, on the home feed, through the whole control panel. They followed the browser's language rather than the one you chose in the app. Every date, time and number in the app now follows your language setting and changes with it straight away: "7 сентября 2026 г.", "понедельник, 7 сент. 2026 г.", "02.09.2026". Country names on the sign-in map and the "3 days ago" wording in notes were English for the same reason, and now aren't. In English everything reads exactly as it did before.

@@ -48,6 +48,11 @@ interface RoomView {
   /** The App files row on an install whose folder is still "Made in the app":
    *  the folder it would be renamed to. Null everywhere else. */
   renameTo: string | null;
+  /** A room that cannot be left without a place — only Thumbnails, which every
+   *  library needs before it can be added. */
+  required: boolean;
+  /** Why the room's folder cannot be used right now; "" when it is fine. */
+  problem: string;
 }
 
 interface AppStorageView {
@@ -606,6 +611,16 @@ export function StorageSection() {
                         <div className="datagrid-muted app-storage-from">
                           {[where.from, count].filter(Boolean).join(" · ")}
                         </div>
+                        {room.required && room.mode === "off" && (
+                          <div className="app-storage-move needs-attention">
+                            <span>{t("controlAdmin:storage.roomRequired")}</span>
+                          </div>
+                        )}
+                        {room.problem && (
+                          <div className="app-storage-move needs-attention">
+                            <span>{room.problem}</span>
+                          </div>
+                        )}
                         {move.running && (
                           <div className="app-storage-move">
                             <span>{t("controlAdmin:storage.moving", { moved: move.done, total: moveTotal })}</span>
