@@ -342,14 +342,22 @@ There are three kinds, and the file name says which is which:
 | Kind | What it holds | File |
 |---|---|---|
 | **Full backup** | The database, the two-factor key and every cover image | `isputnik-<date>-<time>.zip` |
-| **Minimal backup** | The database and the two-factor key — the two things that cannot be recreated | `isputnik-<date>-<time>-minimal.zip` |
+| **Minimal backup** | The database, the two-factor key and the pictures a rescan could not put back | `isputnik-<date>-<time>-minimal.zip` |
 | **Quick database copy** | A plain copy of the database file, taken in seconds — no archive, no key | `isputnik-<date>-<time>.sqlite` |
 
 The database is the catalogue, who has access, what everyone has read and
 listened to, and every setting. The key is what unlocks the two-factor secrets
-inside it. Cover images mostly regenerate from your originals; the ones that do
-not — art someone uploaded, art fetched from a provider — live only in the
-thumbnail store, which is what a full backup adds and why it is so much larger.
+inside it.
+
+Pictures divide in two. A photo's preview, a video's poster and every face the app
+has cut out are made from your own files, and a scan makes them again — so a
+**minimal** backup leaves them out. A cover you uploaded or had the app fetch, a
+series cover, an author's portrait, a category tile, a family-tree portrait: those
+exist nowhere but the thumbnail store, and no amount of re-scanning brings them
+back. A minimal backup takes those, which is why it is no longer database-and-key
+alone. A **full** backup takes the thumbnail store whole, previews included, so a
+restore has nothing left to re-render — and that is what makes it so much larger.
+
 Media files are never in a backup, and never touched.
 
 - The three buttons at the top make one now, of the kind you name. A backup runs in
@@ -360,10 +368,17 @@ Media files are never in a backup, and never touched.
   it. Both start off. A change is saved as you make it, and the same two rows sit on
   the Scheduled jobs page, where **Run now** works for them too. A daily minimal
   backup with a weekly full one is a sensible pair.
-- **Keep newest, of each kind** is how many stay. Full backups, minimal backups and
-  database copies are counted separately, so a nightly minimal backup never pushes
-  the weekly full ones out; the oldest of a kind goes when a new one of that kind is
-  made.
+- **Keep**, under each row's time, is how many of that kind stay. Every kind is
+  counted and pruned on its own, so a nightly minimal backup never pushes the weekly
+  full ones out: when a new one is made, older ones *of that same kind* beyond the
+  number are removed. The count covers the ones you make by hand too, not only the
+  scheduled runs. Keeping a fortnight of the small nightly ones and two of the big
+  weekly ones is a sensible pair of numbers.
+- **Database copies** get a count of their own below, with no schedule beside it —
+  nothing ever makes one on a timer. You take one before trying something, a restore
+  leaves one behind of the database it replaced, and an uploaded `.sqlite` joins
+  them; they pile up like anything else, so they are capped like anything else. The
+  automatic pre-upgrade copies below are not counted here at all.
 - You can **upload** a backup from your computer; it joins the list ready to
   restore, filed by what it holds.
 

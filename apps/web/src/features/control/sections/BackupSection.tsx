@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { Archive, CalendarClock, Database, DatabaseBackup, Download, FileArchive, Folder, Trash2, RotateCcw, Save, UploadCloud } from "lucide-react";
+import { Archive, CalendarClock, Database, DatabaseBackup, Download, FileArchive, Folder, Trash2, RotateCcw, UploadCloud } from "lucide-react";
 import { api } from "../../../api";
 import { controlHref, followRoute } from "../../../router";
 import { MessageBox } from "../../../shared/MessageBox";
@@ -21,8 +21,12 @@ interface BackupFile {
   kind: BackupKind;
 }
 
+// How many of each kind to keep, one number per kind: a nightly minimal backup and
+// a monthly full one are different sizes and kept for different reasons.
+type Retention = Record<BackupKind, number>;
+
 interface BackupSettings {
-  retention: number;
+  retention: Retention;
 }
 
 interface BackupList {
@@ -50,15 +54,16 @@ const SCHEDULED_KINDS: { key: string; kind: "full" | "minimal" }[] = [
   { key: "backup_minimal", kind: "minimal" }
 ];
 
+
 export function BackupSection() {
   const { t } = useTranslation(["common", "control", "controlAdmin"]);
   const [data, setData] = useState<BackupList | null>(null);
   const [jobs, setJobs] = useState<Record<string, ScheduledJob>>({});
-  const [retention, setRetention] = useState(10);
+  const [retention, setRetention] = useState<Retention>({ full: 10, minimal: 10, database: 10 });
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [creating, setCreating] = useState<BackupKind | null>(null);
-  const [savingSettings, setSavingSettings] = useState(false);
+  const [savingRetention, setSavingRetention] = useState<BackupKind | null>(null);
   const [savingJob, setSavingJob] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<BackupFile | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -119,17 +124,28 @@ export function BackupSection() {
     }
   };
 
-  const saveSettings = async () => {
-    setSavingSettings(true);
+  // How many of a kind to keep is written through on leaving the box, the way the
+  // schedule beside it writes through on change — one card, one way of saving. A
+  // box left empty or below 1 is not a number to save: it goes back to what the
+  // server last said.
+  const commitRetention = async (kind: BackupKind, raw: string) => {
+    const wanted = Math.floor(Number(raw));
+    const current = data?.settings.retention[kind];
+    if (!Number.isFinite(wanted) || wanted < 1 || wanted > 100) {
+      if (current != null) setRetention((state) => ({ ...state, [kind]: current }));
+      return;
+    }
+    if (wanted === current) return;
+    setSavingRetention(kind);
     setError(""); setNotice("");
     try {
-      await api("/api/backups/settings", { method: "PATCH", body: JSON.stringify({ retention }) });
-      setNotice(t("control:backup.retentionSaved", { retention }));
+      await api("/api/backups/settings", { method: "PATCH", body: JSON.stringify({ retention: { [kind]: wanted } }) });
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : t("control:backup.unableToSaveSettings"));
+      await load().catch(() => undefined);
     } finally {
-      setSavingSettings(false);
+      setSavingRetention(null);
     }
   };
 
@@ -175,7 +191,9 @@ export function BackupSection() {
 
   const restoreBackup = async () => {
     if (!pendingRestore) return;
-    const covers = pendingRestore.kind === "full" && restoreCovers;
+    // Both zip kinds carry pictures now — a full one the whole store, a minimal one
+    // the art a rescan could not put back — so both offer to leave them alone.
+    const covers = pendingRestore.kind !== "database" && restoreCovers;
     setRestoring(true); setError("");
     try {
       await api(`/api/backups/${encodeURIComponent(pendingRestore.name)}/restore`, {
@@ -217,8 +235,18 @@ export function BackupSection() {
       <div className="backup-page">
         <div className="backup-hero">
           <div className="backup-hero-copy">
-            <p className="eyebrow">{t("control:backup.eyebrow")}</p>
-            <h1>{t("control:backup.title")}</h1>
+            {/* The same icon tile every other control page opens with
+                (ControlSectionHead) — this page keeps its own hero for the copy,
+                path pill and four actions, so it wears the tile by hand. */}
+            <div className="admin-title-wrap">
+              <span className="admin-page-icon" aria-hidden="true">
+                <DatabaseBackup size={30} />
+              </span>
+              <div className="admin-heading-copy">
+                <p className="eyebrow">{t("control:backup.eyebrow")}</p>
+                <h1>{t("control:backup.title")}</h1>
+              </div>
+            </div>
             <p>
               {t("control:backup.intro")}
             </p>
@@ -286,12 +314,31 @@ export function BackupSection() {
                       )}
                     </small>
                   </div>
-                  <JobScheduleControls
-                    label={job?.label ?? key}
-                    schedule={job ?? { frequency: kind === "full" ? "weekly" : "daily", time: "03:00", dayOfWeek: 0, dayOfMonth: 1 }}
-                    disabled={disabled}
-                    onChange={(patch) => { if (job) void saveJob(job, patch); }}
-                  />
+                  <div className="backup-schedule-controls">
+                    <JobScheduleControls
+                      label={job?.label ?? key}
+                      schedule={job ?? { frequency: kind === "full" ? "weekly" : "daily", time: "03:00", dayOfWeek: 0, dayOfMonth: 1 }}
+                      disabled={disabled}
+                      onChange={(patch) => { if (job) void saveJob(job, patch); }}
+                    />
+                    {/* Under the time, because how many to keep belongs with how
+                        often they are made — even though it governs the ones you
+                        make by hand just the same. */}
+                    <label className="backup-keep-inline">
+                      <span>{t("control:backup.keepInline")}</span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={retention[kind]}
+                        disabled={savingRetention === kind}
+                        aria-label={kind === "full" ? t("control:backup.keepAriaFull") : t("control:backup.keepAriaMinimal")}
+                        onChange={(e) => setRetention((state) => ({ ...state, [kind]: Number(e.target.value) }))}
+                        onBlur={(e) => { void commitRetention(kind, e.target.value); }}
+                        onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+                      />
+                    </label>
+                  </div>
                   <span className="scheduled-job-run-line muted backup-schedule-next" title={t("controlAdmin:scheduledJobs.nextRun")}>
                     <CalendarClock size={15} aria-hidden="true" />
                     <span>{job?.enabled && job.nextRunAt ? formatManagedDate(job.nextRunAt) : t("controlAdmin:scheduledJobs.notScheduled")}</span>
@@ -310,14 +357,25 @@ export function BackupSection() {
           </div>
           <div className="backup-card-rule" />
           <div className="backup-settings-footer">
-            <div className="backup-retention-controls">
+            {/* Quick database copies are the third kind and the only one with no job
+                to sit in: they are taken by hand (and by a restore, which keeps the
+                database it replaced), never on a timer. They still pile up, so they
+                still get a count. */}
+            <div className="backup-retention">
+              <span className="backup-retention-label">{t("control:backup.keepNewest")}</span>
               <label className="field backup-field-keep">
-                <span>{t("control:backup.keepNewest")}</span>
-                <input type="number" min={1} max={100} value={retention} onChange={(e) => setRetention(Number(e.target.value))} />
+                <span>{t("control:backup.keepDatabase")}</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={retention.database}
+                  disabled={savingRetention === "database"}
+                  onChange={(e) => setRetention((state) => ({ ...state, database: Number(e.target.value) }))}
+                  onBlur={(e) => { void commitRetention("database", e.target.value); }}
+                  onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+                />
               </label>
-              <Button variant="primary" compact className="backup-save-button" onClick={saveSettings} disabled={savingSettings}>
-                <Save size={15} /> {savingSettings ? t("control:ui.saving") : t("control:ui.save")}
-              </Button>
             </div>
             <p className="muted backup-retention-note">
               {t("control:backup.retentionNote")}
@@ -418,9 +476,9 @@ export function BackupSection() {
         >
           <p>
             {t("control:backup.restoreBody", { name: pendingRestore.name })}
-            {pendingRestore.kind === "full" && restoreCovers && t("control:backup.restoreCoversNote")}
+            {pendingRestore.kind !== "database" && restoreCovers && t("control:backup.restoreCoversNote")}
           </p>
-          {pendingRestore.kind === "full" && (
+          {pendingRestore.kind !== "database" && (
             <label className="field-checkbox backup-cover-toggle">
               <input
                 type="checkbox"

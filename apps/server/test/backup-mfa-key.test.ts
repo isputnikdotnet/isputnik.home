@@ -143,7 +143,7 @@ describe("a backup carries the key that decrypts its secrets", () => {
 
     const written = fs.readdirSync(backupPath).find((n) => n.endsWith(".zip"));
     expect(written).toBeDefined();
-    expect(await entryNames(path.join(backupPath, written!))).toEqual(["database.sqlite", "mfa.key"]);
+    expect(await entryNames(path.join(backupPath, written!))).toEqual(["backup.json", "database.sqlite", "mfa.key"]);
   });
 
   it("omits it when the install keeps no key file", async () => {
@@ -161,7 +161,7 @@ describe("a backup carries the key that decrypts its secrets", () => {
     await backupRunSettled();
 
     const written = fs.readdirSync(backupPath).find((n) => n.endsWith(".zip"));
-    expect(await entryNames(path.join(backupPath, written!))).toEqual(["database.sqlite"]);
+    expect(await entryNames(path.join(backupPath, written!))).toEqual(["backup.json", "database.sqlite"]);
   });
 });
 

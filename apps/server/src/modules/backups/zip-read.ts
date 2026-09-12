@@ -107,3 +107,46 @@ export function isBackupDatabaseEntry(entryName: string): boolean {
 export function isBackupMfaKeyEntry(entryName: string): boolean {
   return entryName === "mfa.key" || entryName.endsWith("/mfa.key");
 }
+
+// The manifest every zip written since 4.3.0 carries (modules/backups/run.ts):
+// which kind of backup it is and what of the thumbnail store went in. Matched the
+// same way as the database, so a zip wrapped in a folder still answers.
+export function isBackupManifestEntry(entryName: string): boolean {
+  return entryName === "backup.json" || entryName.endsWith("/backup.json");
+}
+
+// Read one small entry out of an archive as text, without writing it anywhere.
+// For the manifest and nothing bigger: the read stops at maxBytes and returns what
+// it had, so an entry that is not what we expect cannot cost memory.
+export async function readZipEntryText(
+  filePath: string,
+  matches: (entryName: string) => boolean,
+  maxBytes = 64 * 1024
+): Promise<string | null> {
+  const zipFile = await openZip(filePath);
+  let text: string | null = null;
+  try {
+    await walk(zipFile, async (entry) => {
+      if (!matches(entry.fileName)) return true;
+      const source = await new Promise<NodeJS.ReadableStream>((resolve, reject) => {
+        zipFile.openReadStream(entry, (err, stream) => {
+          if (err || !stream) reject(err ?? new Error(`Could not read "${entry.fileName}" from the backup.`));
+          else resolve(stream);
+        });
+      });
+      const chunks: Buffer[] = [];
+      let size = 0;
+      for await (const chunk of source) {
+        const buffer = Buffer.from(chunk as Buffer);
+        chunks.push(buffer);
+        size += buffer.byteLength;
+        if (size >= maxBytes) break;
+      }
+      text = Buffer.concat(chunks).subarray(0, maxBytes).toString("utf8");
+      return false;
+    });
+  } finally {
+    zipFile.close();
+  }
+  return text;
+}

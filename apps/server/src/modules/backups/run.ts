@@ -5,6 +5,7 @@ import { db, logActivity, preRestoreSnapshotPath } from "../../db.js";
 import { config, mfaKeyFilePath } from "../../config.js";
 import { resolveAppLocation } from "../../core/app-storage.js";
 import { configuredThumbnailPathValue } from "../library/shared/thumbnail.js";
+import { listIrreplaceableArt } from "../library/shared/irreplaceable-art.js";
 import { clearPreUpgradeStaging, preUpgradeStagingPath, readPreUpgradeMeta } from "../../db/pre-upgrade.js";
 import { log } from "../../core/logger.js";
 import type { AppSettingRow } from "../../db/rows.js";
@@ -17,17 +18,26 @@ import type { AppSettingRow } from "../../db/rows.js";
 // Three kinds, told apart by the file name:
 //
 //   full      isputnik-<stamp>.zip           database + mfa.key + every cover image
-//   minimal   isputnik-<stamp>-minimal.zip   database + mfa.key
+//   minimal   isputnik-<stamp>-minimal.zip   database + mfa.key + the art a rescan
+//                                            could not put back
 //   database  isputnik-<stamp>.sqlite        the database file alone, a quick copy
 //
 // The database is a consistent online snapshot (db.backup) and mfa.key, when the
 // install keeps one, is the only thing that can decrypt the TOTP secrets inside it:
 // a backup without the key restores an install whose two-factor users must all
-// re-enrol. So the key travels in both zips, and "minimal" is exactly the two things
-// that cannot be recreated. Covers mostly regenerate from the originals; the ones
-// that do not (uploaded art, art fetched from a provider) live only in the thumbnail
-// store, which is what a full backup adds. The metadata cache is never included
-// (the DB is the source of truth) and source media is never touched.
+// re-enrol. So the key travels in both zips.
+//
+// "Minimal" means exactly the things that cannot be recreated, which is why it is
+// not database-and-key alone: most covers regenerate from the originals, but an
+// uploaded cover, a cover fetched from a metadata provider, an author portrait, a
+// category tile or a family-tree portrait exists nowhere but the thumbnail store,
+// and a rescan leaves it blank for good. Those files travel in a minimal backup —
+// library/shared/irreplaceable-art.ts is what decides which they are, and says why
+// a gallery preview or a face crop is not one of them. A full backup instead takes
+// the thumbnail store whole, derived work included, so a restore needs no re-render.
+//
+// The metadata cache is never included (the DB is the source of truth) and source
+// media is never touched.
 //
 // The quick .sqlite copy is what an admin takes before trying something: no zip, no
 // key, done in seconds. Restore accepts it like the pre-restore safety snapshot
@@ -48,6 +58,10 @@ export const NAME_PATTERN = /^isputnik-[0-9]{8}-[0-9]{6}(?:(?:-minimal)?\.zip|(?
 export const PRE_UPGRADE_SUFFIX = "-pre-upgrade.sqlite";
 export const PRE_UPGRADE_KEEP = 2;
 
+/** The small JSON file every zip carries, saying which kind it is and what of the
+ *  thumbnail store went in. Read on upload (index.ts); ignored by restore. */
+export const MANIFEST_NAME = "backup.json";
+
 export function isPreUpgradeCopy(name: string): boolean {
   return name.endsWith(PRE_UPGRADE_SUFFIX);
 }
@@ -61,7 +75,11 @@ export interface BackupFile {
 }
 
 export interface BackupSettings {
-  retention: number;  // keep the newest N of EACH kind
+  /** How many of each kind to keep. The kinds are pruned independently, and each
+   *  has its own number: a nightly minimal backup and a monthly full one are kept
+   *  for different reasons and are wildly different sizes, so "keep 14" of the
+   *  small one and "keep 2" of the big one is the ordinary arrangement. */
+  retention: Record<BackupKind, number>;
 }
 
 export function backupKindOf(name: string): BackupKind {
@@ -76,23 +94,48 @@ export const KIND_WORDS: Record<BackupKind, string> = {
   database: "database copy"
 };
 
-export function defaultSettings(): BackupSettings {
-  return { retention: Math.max(1, config.backupRetention) };
+export const RETENTION_MAX = 100;
+
+/** A retention count as the settings may hold it: at least 1, whole, capped. */
+export function clampRetention(value: unknown, fallback: number): number {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number < 1) return fallback;
+  return Math.min(RETENTION_MAX, Math.floor(number));
 }
 
-// The stored blob is the retention count. Before 3.89.0 it also carried the
-// module's own daily schedule (enabled/time/includeCovers); index.ts moves that
-// into the scheduled jobs on startup and rewrites the row, so reading here only
-// ever needs the one field, and tolerates the old shape meanwhile.
+export function defaultSettings(): BackupSettings {
+  const starting = clampRetention(config.backupRetention, 10);
+  return { retention: { full: starting, minimal: starting, database: starting } };
+}
+
+// The stored blob is the retention counts. Two older shapes read fine:
+//
+//   • before 4.3.0 one number stood for all three kinds — it still reads as "the
+//     same for every kind", which is what that install had.
+//   • before 3.89.0 the blob also carried the module's own daily schedule
+//     (enabled/time/includeCovers); index.ts moves that into the scheduled jobs on
+//     startup and rewrites the row, so that shape is seen once at most.
 export function getSettings(): BackupSettings {
   const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(SETTINGS_KEY) as Pick<AppSettingRow, "value"> | undefined;
   const base = defaultSettings();
   if (!row) return base;
   try {
-    const parsed = JSON.parse(row.value) as Partial<BackupSettings>;
-    return {
-      retention: Number.isFinite(parsed.retention) && parsed.retention! >= 1 ? Math.floor(parsed.retention!) : base.retention
-    };
+    const stored = (JSON.parse(row.value) as { retention?: unknown }).retention;
+    if (typeof stored === "number") {
+      const same = clampRetention(stored, base.retention.full);
+      return { retention: { full: same, minimal: same, database: same } };
+    }
+    if (stored && typeof stored === "object") {
+      const per = stored as Partial<Record<BackupKind, unknown>>;
+      return {
+        retention: {
+          full: clampRetention(per.full, base.retention.full),
+          minimal: clampRetention(per.minimal, base.retention.minimal),
+          database: clampRetention(per.database, base.retention.database)
+        }
+      };
+    }
+    return base;
   } catch {
     return base;
   }
@@ -160,8 +203,38 @@ export function pruneBackups(kind: BackupKind, keep: number): number {
   return stale.length;
 }
 
-async function writeZip(destination: string, tmpDb: string, withCovers: boolean): Promise<boolean> {
-  let coversIncluded = false;
+/** What a zip carries from the thumbnail store: the store whole (full), or only
+ *  the pictures a rescan could not put back (minimal). */
+type ArtScope = "all" | "irreplaceable";
+
+/** What went into a zip, for the activity log and the zip's own manifest. */
+interface ZipContents {
+  /** Files taken from the thumbnail store; -1 = the store was added whole, so
+   *  they were never counted one by one. */
+  artFiles: number;
+  /** The sentence fragment the activity log uses for them. */
+  note: string;
+}
+
+async function writeZip(destination: string, tmpDb: string, kind: BackupKind, scope: ArtScope): Promise<ZipContents> {
+  const contents: ZipContents = { artFiles: 0, note: "" };
+  // Where the covers actually are, which is not necessarily THUMBNAIL_PATH: the
+  // store is an admin setting that overrides the environment (see
+  // library/shared/thumbnail.ts), and everything else in the app reads it that
+  // way. Reading only the environment here meant a backup that quietly carried no
+  // covers at all — or carried the wrong, empty folder — while still reporting
+  // itself as "with covers".
+  const coverRoot = configuredThumbnailPathValue();
+  const haveStore = Boolean(coverRoot) && fs.existsSync(coverRoot);
+  const art = haveStore && scope === "irreplaceable" ? listIrreplaceableArt() : [];
+  if (haveStore && scope === "all") {
+    contents.artFiles = -1;
+    contents.note = ", with every cover";
+  } else if (art.length > 0) {
+    contents.artFiles = art.length;
+    contents.note = `, with ${art.length} picture${art.length === 1 ? "" : "s"} a rescan could not put back`;
+  }
+
   await new Promise<void>((resolve, reject) => {
     const output = fs.createWriteStream(destination);
     const archive = new ZipArchive({ zlib: { level: 1 } });
@@ -177,20 +250,28 @@ async function writeZip(destination: string, tmpDb: string, withCovers: boolean)
     if (fs.existsSync(keyFile)) {
       archive.file(keyFile, { name: "mfa.key" });
     }
-    // Where the covers actually are, which is not necessarily THUMBNAIL_PATH: the
-    // store is an admin setting that overrides the environment (see
-    // library/shared/thumbnail.ts), and everything else in the app reads it that
-    // way. Reading only the environment here meant a backup that quietly carried no
-    // covers at all — or carried the wrong, empty folder — while still reporting
-    // itself as "with covers".
-    const coverRoot = withCovers ? configuredThumbnailPathValue() : "";
-    if (coverRoot && fs.existsSync(coverRoot)) {
+    if (haveStore && scope === "all") {
       archive.directory(coverRoot, "thumbnails");
-      coversIncluded = true;
+    } else {
+      // Under the same "thumbnails/" prefix a full backup uses, so restore has one
+      // path for both and a minimal zip needs no special handling.
+      for (const picture of art) {
+        archive.file(picture.absolutePath, { name: `thumbnails/${picture.key}` });
+      }
     }
+    // What this zip is, in the zip: the kind used to be readable only from the file
+    // name, and a minimal backup now holds thumbnails too, so "has a thumbnails/
+    // folder" stopped telling full and minimal apart on upload (index.ts).
+    archive.append(JSON.stringify({
+      kind,
+      art: contents.artFiles === -1 ? "all" : "irreplaceable",
+      artFiles: contents.artFiles === -1 ? null : contents.artFiles,
+      version: config.version,
+      createdAt: new Date().toISOString()
+    }, null, 2), { name: MANIFEST_NAME });
     void archive.finalize();
   });
-  return coversIncluded;
+  return contents;
 }
 
 // Take one backup of the given kind and prune that kind to the retention limit.
@@ -201,27 +282,27 @@ async function runBackup(actorUserId: string | null, trigger: "manual" | "schedu
   const destination = path.join(backupDir(), name);
   const tmpDb = path.join(backupDir(), `.tmp-${Date.now()}.sqlite`);
 
-  let coversIncluded = false;
+  let artNote = "";
   await db.backup(tmpDb);
   try {
     if (kind === "database") {
       // The snapshot IS the backup: rename it into place rather than copy it.
       fs.renameSync(tmpDb, destination);
     } else {
-      coversIncluded = await writeZip(destination, tmpDb, kind === "full");
+      artNote = (await writeZip(destination, tmpDb, kind, kind === "full" ? "all" : "irreplaceable")).note;
     }
   } finally {
     fs.rmSync(tmpDb, { force: true });
   }
 
-  const pruned = pruneBackups(kind, settings.retention);
+  const pruned = pruneBackups(kind, settings.retention[kind]);
   const stat = fs.statSync(destination);
   logActivity({
     event: "backup.created",
     actorUserId,
     targetType: "backup",
     targetId: name,
-    detail: `${trigger === "scheduled" ? "Scheduled" : "Manual"} ${KIND_WORDS[kind]} backup "${name}" (${stat.size} bytes${coversIncluded ? ", with covers" : ""})${pruned > 0 ? `, pruned ${pruned} old` : ""}.`,
+    detail: `${trigger === "scheduled" ? "Scheduled" : "Manual"} ${KIND_WORDS[kind]} backup "${name}" (${stat.size} bytes${artNote})${pruned > 0 ? `, pruned ${pruned} old` : ""}.`,
     ipAddress: null
   });
   return { name, sizeBytes: stat.size, createdAt: stat.mtime.toISOString(), kind };

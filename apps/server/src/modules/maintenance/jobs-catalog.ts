@@ -143,12 +143,13 @@ const SYSTEM_DEFINITIONS: ScheduledJobDef[] = [
   },
   // The two backup jobs. Off until the admin turns one on: a backup folder fills a
   // disk on its own, and the Backup page (which shows these same two rows) is where
-  // the install is told how many to keep. Both start the run and return; the file
-  // is written in the background and listed on the Backup page when done.
+  // the install is told how many of each kind to keep. Both start the run and
+  // return; the file is written in the background and listed on the Backup page
+  // when done.
   {
     key: "backup_full",
     label: "Back up everything (full)",
-    description: "Write the database, its two-factor key and every cover image into one .zip in the backup folder — everything a restore needs, including the uploaded and provider-fetched covers that cannot be regenerated. The newest N full backups are kept, N being the count on the Backup page.",
+    description: "Write the database, its two-factor key and the whole thumbnail store into one .zip in the backup folder — everything a restore needs, rendered previews and face crops included, so nothing has to be made again afterwards. The newest N full backups are kept, N being the count for full backups on the Backup page.",
     category: "system",
     defaultEnabled: false,
     defaultFrequency: "weekly",
@@ -158,7 +159,7 @@ const SYSTEM_DEFINITIONS: ScheduledJobDef[] = [
   {
     key: "backup_minimal",
     label: "Back up the database (minimal)",
-    description: "Write only the database and its two-factor key into a small .zip — the two things that cannot be recreated. Cover images are left out; most regenerate from your files, but uploaded and provider-fetched covers only a full backup keeps. The newest N minimal backups are kept, N being the count on the Backup page.",
+    description: "Write the database, its two-factor key and the pictures a rescan could not put back into a small .zip — covers you uploaded or the app fetched, series covers, author portraits, category tiles, family-tree portraits. Previews and face crops are left out; those are made from your own files again. The newest N minimal backups are kept, N being the count for minimal backups on the Backup page.",
     category: "system",
     defaultEnabled: false,
     defaultFrequency: "daily",

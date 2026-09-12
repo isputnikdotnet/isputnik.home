@@ -68,7 +68,7 @@ The walkthrough for putting all of this together is
 | Variable | Default | Image | What it does |
 |---|---|---|---|
 | `BACKUP_PATH` | `data/backups` under the repo root | `/config/backups` | The backup folder, unless App storage's Backups room is switched on (then it is `Backups` inside App storage). When a restore is applied, the database it replaces is kept as `isputnik-<date>-<time>.sqlite` in whichever of the two is the backup folder, and listed on the Backup page. |
-| `BACKUP_RETENTION` | `10` | – | **Legacy.** Since 3.89.0 retention is set on **Control panel → Maintenance → Backup** ("Keep newest, of each kind") and stored in the database. This is only the starting value on an install where that has never been saved; an install upgraded from before 3.89.0 already has its own. It has no effect on the automatic pre-upgrade copies, which always keep the newest 2. |
+| `BACKUP_RETENTION` | `10` | – | **Legacy.** Since 3.89.0 retention is set on **Control panel → Maintenance → Backup** ("Keep the newest") and stored in the database, and since 4.3.0 each kind — full, minimal, database copy — has its own count. This is only the starting value for all three on an install where they have never been saved; an install upgraded from an earlier version already has its own. It has no effect on the automatic pre-upgrade copies, which always keep the newest 2. |
 
 Scheduling and the three kinds of backup are all in the Control panel — see
 [The control panel → Backup](users/control-panel.md#backup).
