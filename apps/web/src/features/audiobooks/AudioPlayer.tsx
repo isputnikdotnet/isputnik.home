@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Bookmark, BookmarkPlus, ChevronDown, Clock, Heart, List, Moon, Pencil, PieChart, Trash2, Volume2, VolumeX, X } from "lucide-react";
 import { api } from "../../api";
@@ -57,10 +57,16 @@ export function AudioPlayer({
   onEndReached?: () => void;
 }) {
   const { t } = useTranslation(["common", "reader"]);
-  const availableFiles = book.files.filter((f) => f.status === "available");
+  // Memoized because half the callbacks below list it: a fresh array every render
+  // would rebuild `skip`, `jumpToBookmark` and everything holding them each time.
+  const availableFiles = useMemo(() => book.files.filter((f) => f.status === "available"), [book.files]);
   const playback = usePlayback({
     playErrorMessage: (err) => (err instanceof Error ? err.message : t("reader:player.playbackFailed"))
   });
+  // usePlayback hands back the audio element's ref and plain state setters, so every
+  // one of these is stable for the life of the player. They still have to be named in
+  // the dependency arrays below — coming out of a custom hook, the linter cannot see
+  // that for itself — and listing them changes nothing about when an effect runs.
   const {
     audioRef, playing, setPlaying, currentTime, setCurrentTime, fileDuration, setFileDuration,
     playerError, setPlayerError, togglePlay, handleSeek, playbackRate, volume, muted,
@@ -82,6 +88,14 @@ export function AudioPlayer({
   const [bookmarkSaved, setBookmarkSaved] = useState(false);
   const [bookmarks, setBookmarks] = useState<BookmarkEntry[]>([]);
   const [bookmarksOpen, setBookmarksOpen] = useState(false);
+  // Ids for what each toggle opens (aria-controls), and for the armed sleep
+  // timer's countdown, which the timer button's fixed name would otherwise hide.
+  const ids = useId();
+  const speedMenuId = `${ids}-speed`;
+  const sleepMenuId = `${ids}-sleep`;
+  const chaptersId = `${ids}-chapters`;
+  const bookmarksId = `${ids}-bookmarks`;
+  const sleepStateId = `${ids}-sleep-state`;
   const [editingBookmarkId, setEditingBookmarkId] = useState<string | null>(null);
   const [noteDraft, setNoteDraft] = useState("");
 
@@ -191,7 +205,7 @@ export function AudioPlayer({
     } catch {
       setPlayerError(t("reader:player.unableSaveBookmark"));
     }
-  }, [book.id, currentFile, currentChapter, fileIndex, t]);
+  }, [book.id, currentFile, currentChapter, fileIndex, t, audioRef, setPlayerError]);
 
   const saveBookmarkNote = useCallback(async (id: string, note: string) => {
     try {
@@ -204,7 +218,7 @@ export function AudioPlayer({
     } catch {
       setPlayerError(t("reader:player.unableSaveNote"));
     }
-  }, [book.id, t]);
+  }, [book.id, t, setPlayerError]);
 
   const deleteBookmark = useCallback(async (id: string) => {
     try {
@@ -214,7 +228,7 @@ export function AudioPlayer({
     } catch {
       setPlayerError(t("reader:player.unableDeleteBookmark"));
     }
-  }, [book.id, t]);
+  }, [book.id, t, setPlayerError]);
 
   const skip = useCallback((seconds: number) => {
     const audio = audioRef.current;
@@ -236,7 +250,7 @@ export function AudioPlayer({
       audio.currentTime = clamped;
       setCurrentTime(clamped);
     }
-  }, [fileIndex, fileDuration, availableFiles, currentFile, playing, saveProgress]);
+  }, [fileIndex, fileDuration, availableFiles, currentFile, playing, saveProgress, audioRef, setCurrentTime]);
 
   // Seek to a position in a (possibly different) file. The pendingSeekRef path only fires
   // on a file change, so same-file jumps must seek the already-loaded element directly.
@@ -253,7 +267,7 @@ export function AudioPlayer({
       pendingSeekRef.current = position;
       setFileIndex(targetIndex);
     }
-  }, [fileIndex, playing]);
+  }, [fileIndex, playing, audioRef, setCurrentTime]);
 
   // Seek to a chapter, switching files first when it lives in a different one.
   const goToChapter = useCallback((index: number) => {
@@ -261,12 +275,14 @@ export function AudioPlayer({
     if (!chapter) return;
     if (audioRef.current && currentFile) saveProgress(currentFile, audioRef.current.currentTime);
     seekTo(chapter.fileIndex, chapter.startOffset);
-  }, [chapters, currentFile, saveProgress, seekTo]);
+  }, [chapters, currentFile, saveProgress, seekTo, audioRef]);
 
+  // Jump and close the sheet. The setter is named in the deps for the same reason as
+  // the ones above — stable, but only a reader who knows that can tell.
   const jumpToChapter = useCallback((index: number) => {
     goToChapter(index);
     setChaptersOpen(false);
-  }, [goToChapter]);
+  }, [goToChapter, setChaptersOpen]);
 
   const jumpToBookmark = useCallback((bookmark: BookmarkEntry) => {
     const index = availableFiles.findIndex((f) => f.id === bookmark.fileId);
@@ -274,7 +290,7 @@ export function AudioPlayer({
     if (audioRef.current && currentFile) saveProgress(currentFile, audioRef.current.currentTime);
     seekTo(index, bookmark.positionSeconds);
     setBookmarksOpen(false);
-  }, [availableFiles, currentFile, saveProgress, seekTo]);
+  }, [availableFiles, currentFile, saveProgress, seekTo, audioRef, setBookmarksOpen]);
 
   // The position on leaving: the page going away (beforeunload) or the player
   // unmounting. Same store as every other save — local row plus the server
@@ -291,7 +307,7 @@ export function AudioPlayer({
       saveCurrentProgress();
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
-  }, [book.id, currentFile]);
+  }, [book.id, currentFile, audioRef]);
 
   // Set src whenever the current file changes. With preload="none" audio.load() only
   // resets the element — no network request happens until play() is called.
@@ -333,7 +349,13 @@ export function AudioPlayer({
     });
 
     return () => { cancelled = true; };
-  }, [fileIndex, book.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    // Keyed on the chapter alone, deliberately. Everything else this reads — the
+    // file it resolves to, the chosen speed, the setters — is either derived from
+    // fileIndex or stable, and re-running on any of them would re-src the element
+    // mid-listen: the position resets to 0 and playback stops. A speed change is
+    // applied to the live element by changeRate(); it must not reload it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fileIndex, book.id]);
 
   // Revoke any lingering local object URL on unmount.
   useEffect(() => () => {
@@ -399,7 +421,10 @@ export function AudioPlayer({
       if (idx !== 0) setFileIndex(idx);
     })();
     return () => { cancelled = true; };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    // Once, on open: where to resume is a question asked when the player appears.
+    // Re-asking it after the listener has moved would drag them back.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!playing) {
@@ -410,21 +435,21 @@ export function AudioPlayer({
       if (audioRef.current && currentFile) saveProgress(currentFile, audioRef.current.currentTime);
     }, 10000);
     return () => { if (saveIntervalRef.current) clearInterval(saveIntervalRef.current); };
-  }, [playing, currentFile, saveProgress]);
+  }, [playing, currentFile, saveProgress, audioRef]);
 
   useEffect(() => {
     if (!speedOpen) return;
     const close = () => setSpeedOpen(false);
     window.addEventListener("click", close);
     return () => window.removeEventListener("click", close);
-  }, [speedOpen]);
+  }, [speedOpen, setSpeedOpen]);
 
   useEffect(() => {
     if (!sleepOpen) return;
     const close = () => setSleepOpen(false);
     window.addEventListener("click", close);
     return () => window.removeEventListener("click", close);
-  }, [sleepOpen]);
+  }, [sleepOpen, setSleepOpen]);
 
   // Sleep timer ("end of chapter"): pause once playback crosses out of the chapter
   // that was active when the timer was armed.
@@ -436,7 +461,7 @@ export function AudioPlayer({
       setSleepMode("off");
       sleepChapterTargetRef.current = null;
     }
-  }, [sleepMode, currentChapterIndex]);
+  }, [sleepMode, currentChapterIndex, audioRef, setSleepMode]);
 
   // Report the current chapter's position to the OS so the lock-screen / car
   // scrubber stays in sync. Guards against the not-yet-known duration.
@@ -497,7 +522,7 @@ export function AudioPlayer({
     if (code === 3) setPlayerError(t("reader:player.decodeError"));
     else if (code === 2) setPlayerError(t("reader:player.networkError"));
     else setPlayerError(t("reader:player.unablePlayFile"));
-  }, [t]);
+  }, [t, audioRef, setPlayerError, setPlaying]);
 
   const goToPrev = () => {
     const audio = audioRef.current;
@@ -537,23 +562,27 @@ export function AudioPlayer({
     sleepChapterTargetRef.current = mode === "chapter" ? currentChapterIndex : null;
   };
 
-  // Keep the lock-screen action handlers pointed at the latest closures.
-  mediaHandlersRef.current = {
-    play: () => { audioRef.current?.play().catch(() => {}); },
-    pause: () => audioRef.current?.pause(),
-    prev: () => goToPrev(),
-    next: () => goToNext(),
-    back: (d) => skip(-(d?.seekOffset || 30)),
-    forward: (d) => skip(d?.seekOffset || 30),
-    seekTo: (d) => {
-      const audio = audioRef.current;
-      if (audio && typeof d?.seekTime === "number") {
-        audio.currentTime = d.seekTime;
-        setCurrentTime(d.seekTime);
-        updateMediaPositionState();
+  // Keep the lock-screen action handlers pointed at the latest closures. Written
+  // after the commit rather than during the render: the readers are the OS media
+  // buttons, and nothing can press one before the frame is on screen.
+  useEffect(() => {
+    mediaHandlersRef.current = {
+      play: () => { audioRef.current?.play().catch(() => {}); },
+      pause: () => audioRef.current?.pause(),
+      prev: () => goToPrev(),
+      next: () => goToNext(),
+      back: (d) => skip(-(d?.seekOffset || 30)),
+      forward: (d) => skip(d?.seekOffset || 30),
+      seekTo: (d) => {
+        const audio = audioRef.current;
+        if (audio && typeof d?.seekTime === "number") {
+          audio.currentTime = d.seekTime;
+          setCurrentTime(d.seekTime);
+          updateMediaPositionState();
+        }
       }
-    }
-  };
+    };
+  });
 
   // Publish "now playing" metadata (cover, chapter, author) per chapter.
   useEffect(() => {
@@ -571,7 +600,11 @@ export function AudioPlayer({
         artwork
       });
     } catch { /* unsupported metadata */ }
-  }, [book.id, fileIndex, currentChapterIndex]); // eslint-disable-line react-hooks/exhaustive-deps
+    // Keyed on which chapter is playing, not on the objects that describe it: the
+    // file and chapter are found afresh on every render, so listing them would
+    // hand the OS a new MediaMetadata several times a second.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [book.id, fileIndex, currentChapterIndex]);
 
   // Register OS media-control handlers once; they delegate through the ref.
   useEffect(() => {
@@ -611,6 +644,10 @@ export function AudioPlayer({
         variant="bare"
         key={`${chapter.fileId}-${index}`}
         className={`player-chapter-item${index === currentChapterIndex ? " active" : ""}${progress.percent >= 0.98 ? " complete" : ""}`}
+        aria-current={index === currentChapterIndex ? "true" : undefined}
+        // jumpToChapter reaches the <audio> element through its ref; a click on a
+        // chapter row is as far from render as an interaction gets.
+        // eslint-disable-next-line react-hooks/refs
         onClick={() => jumpToChapter(index)}
       >
         <span className="player-chapter-item-num">
@@ -631,7 +668,7 @@ export function AudioPlayer({
   });
 
   const speedMenu = speedOpen && (
-    <div className="player-speed-menu" onClick={(e) => e.stopPropagation()}>
+    <div id={speedMenuId} className="player-speed-menu" onClick={(e) => e.stopPropagation()}>
       {RATES.map((rate) => (
         <Button
           variant="bare"
@@ -650,7 +687,7 @@ export function AudioPlayer({
   const sleepLabel = playback.sleepLabel(t("reader:player.chapter"));
 
   const sleepMenu = sleepOpen && (
-    <div className="player-speed-menu player-sleep-menu" onClick={(e) => e.stopPropagation()}>
+    <div id={sleepMenuId} className="player-speed-menu player-sleep-menu" onClick={(e) => e.stopPropagation()}>
       <Button
         variant="bare"
         className={cx("player-speed-option", sleepMode === "off" && "active")}
@@ -682,7 +719,7 @@ export function AudioPlayer({
   );
 
   const bookmarkList = (
-    <div className="player-bookmark-list">
+    <div id={bookmarksId} className="player-bookmark-list">
       <Button variant="bare" className="player-bookmark-add" onClick={addBookmark}>
         <BookmarkPlus size={15} />
         <span>{bookmarkSaved ? t("reader:player.bookmarkAdded") : t("reader:player.bookmarkThisMoment")}</span>
@@ -841,6 +878,7 @@ export function AudioPlayer({
                 className={`player-volume-action-btn${speedOpen ? " open" : ""}`}
                 onClick={toggleSpeedMenu}
                 aria-expanded={speedOpen}
+                aria-controls={speedOpen ? speedMenuId : undefined}
                 aria-label={t("reader:player.playbackSpeed")}
               >
                 <span>{playbackRate === 1 ? "1.0×" : `${playbackRate}×`}</span>
@@ -854,11 +892,15 @@ export function AudioPlayer({
                 className={`player-volume-action-btn${sleepOpen ? " open" : ""}${sleepMode !== "off" ? " active" : ""}`}
                 onClick={toggleSleepMenu}
                 aria-expanded={sleepOpen}
+                aria-controls={sleepOpen ? sleepMenuId : undefined}
                 aria-label={t("reader:player.sleepTimer")}
+                // Armed, the button shows a countdown its fixed name hides; the
+                // description carries it to a screen reader.
+                aria-describedby={sleepLabel ? sleepStateId : undefined}
                 title={t("reader:player.sleepTimer")}
               >
                 <Moon size={15} aria-hidden="true" />
-                <span>{sleepLabel ?? t("reader:player.sleep")}</span>
+                <span id={sleepStateId}>{sleepLabel ?? t("reader:player.sleep")}</span>
               </Button>
               {sleepMenu}
             </div>
@@ -889,6 +931,7 @@ export function AudioPlayer({
                     className="player-popup-aux-btn"
                     onClick={() => setBookmarksOpen((o) => !o)}
                     aria-expanded={bookmarksOpen}
+                    aria-controls={bookmarksOpen ? bookmarksId : undefined}
                     aria-label={t("reader:player.bookmarks")}
                   >
                     <Bookmark size={18} />
@@ -903,6 +946,7 @@ export function AudioPlayer({
                   className={`player-popup-aux-btn${chaptersOpen ? " open" : ""}`}
                   onClick={() => setChaptersOpen((o) => !o)}
                   aria-expanded={chaptersOpen}
+                  aria-controls={chaptersOpen ? chaptersId : undefined}
                   aria-label={t("reader:player.chapterList")}
                 >
                   <List size={18} />
@@ -918,7 +962,7 @@ export function AudioPlayer({
         {chaptersOpen && (
           <>
             <div className="chapter-sheet-backdrop" onClick={() => setChaptersOpen(false)} />
-            <div className="chapter-sheet">
+            <div id={chaptersId} className="chapter-sheet">
               <div className="chapter-sheet-drag" />
               <div className="chapter-sheet-header">
                 <h3 className="chapter-sheet-title">{t("reader:player.chapters")}</h3>
@@ -1015,6 +1059,7 @@ export function AudioPlayer({
             className={`player-speed-btn${speedOpen ? " open" : ""}`}
             onClick={toggleSpeedMenu}
             aria-expanded={speedOpen}
+            aria-controls={speedOpen ? speedMenuId : undefined}
             aria-label={t("reader:player.playbackSpeed")}
           >
             <span>{rateLabel(playbackRate)}</span>
@@ -1029,11 +1074,13 @@ export function AudioPlayer({
             className={`player-speed-btn${sleepOpen ? " open" : ""}${sleepMode !== "off" ? " active" : ""}`}
             onClick={toggleSleepMenu}
             aria-expanded={sleepOpen}
+            aria-controls={sleepOpen ? sleepMenuId : undefined}
             aria-label={t("reader:player.sleepTimer")}
+            aria-describedby={sleepLabel ? sleepStateId : undefined}
             title={t("reader:player.sleepTimer")}
           >
             <Moon size={15} />
-            <span>{sleepLabel ?? t("reader:player.sleep")}</span>
+            <span id={sleepStateId}>{sleepLabel ?? t("reader:player.sleep")}</span>
           </Button>
           {sleepMenu}
         </div>
@@ -1043,6 +1090,7 @@ export function AudioPlayer({
           className={`player-speed-btn${chaptersOpen ? " open" : ""}`}
           onClick={() => setChaptersOpen((o) => !o)}
           aria-expanded={chaptersOpen}
+          aria-controls={chaptersOpen ? chaptersId : undefined}
           aria-label={t("reader:player.chapterList")}
         >
           <List size={15} />
@@ -1056,6 +1104,7 @@ export function AudioPlayer({
               className={`player-speed-btn${bookmarksOpen ? " open" : ""}`}
               onClick={() => setBookmarksOpen((o) => !o)}
               aria-expanded={bookmarksOpen}
+              aria-controls={bookmarksOpen ? bookmarksId : undefined}
               aria-label={t("reader:player.bookmarks")}
             >
               <Bookmark size={15} />
@@ -1079,7 +1128,7 @@ export function AudioPlayer({
       </div>
 
       {chaptersOpen && (
-        <div className="player-chapter-list">
+        <div id={chaptersId} className="player-chapter-list">
           {chapterList}
         </div>
       )}

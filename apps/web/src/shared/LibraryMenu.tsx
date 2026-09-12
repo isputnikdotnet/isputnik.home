@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { ChevronDown } from "lucide-react";
 import { cx } from "./cx";
 import { useAnchoredMenu } from "./useAnchoredMenu";
+import { useMenuKeyboard } from "./useMenuKeyboard";
 
 // The library picker used across the browse pages: a labelled tab that opens a menu
 // of libraries. Styling lives on .audiobook-library-tab / .audiobook-library-menu in
@@ -10,6 +11,11 @@ import { useAnchoredMenu } from "./useAnchoredMenu";
 //
 // The gallery, audiobook and ebook pages still inline their own version of this
 // markup; this component is where they should converge.
+//
+// A library is one value out of several, so each entry is a menuitemradio with
+// aria-checked — the same shape and keyboard as SortMenu (see useMenuKeyboard):
+// focus opens on the current library, arrows walk the list, and Escape, Tab or a
+// choice hand focus back to the trigger.
 
 export interface LibraryMenuOption {
   value: string;
@@ -35,6 +41,7 @@ export function LibraryMenu({
 }) {
   // Right-aligns when a left-aligned menu (library names run wide) would run off-screen.
   const { open, pos, toggle, close, triggerRef, menuRef } = useAnchoredMenu({ menuWidth: 240 });
+  const menuKeys = useMenuKeyboard({ open: open && pos !== null, close, menuRef, triggerRef });
   const current = options.find((option) => option.value === value);
 
   return (
@@ -59,6 +66,7 @@ export function LibraryMenu({
           className="book-detail-action-menu audiobook-library-menu"
           role="menu"
           aria-label={label}
+          onKeyDown={menuKeys.onKeyDown}
           style={{
             position: "fixed",
             top: pos.top,
@@ -71,9 +79,10 @@ export function LibraryMenu({
             <button
               key={option.value}
               type="button"
-              role="menuitem"
+              role="menuitemradio"
+              aria-checked={option.value === value}
               className={option.value === value ? "active" : ""}
-              onClick={() => { onChange(option.value); close(); }}
+              onClick={() => { onChange(option.value); menuKeys.closeAndRestore(); }}
             >
               <span>{option.label}</span>
             </button>

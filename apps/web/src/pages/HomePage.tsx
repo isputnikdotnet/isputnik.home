@@ -748,7 +748,7 @@ export function HomePage() {
       .catch(() => undefined);
 
     return () => { alive = false; };
-  }, [online]);
+  }, [online, t]);
 
   // Deciding a sticky card right on the front page: Like writes to Likes (the
   // same list as everywhere else), Not now sets it aside. Either way the card

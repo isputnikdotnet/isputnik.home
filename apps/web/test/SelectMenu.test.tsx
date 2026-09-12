@@ -131,13 +131,79 @@ describe("SelectMenu", () => {
     await user.tab();
     expect(trigger()).toHaveFocus();
     await user.keyboard("{Enter}");
-    // The options follow the trigger in the tab order.
-    await user.tab();
-    expect(within(listbox()).getByRole("option", { name: "Everything" })).toHaveFocus();
-    await user.tab();
-    await user.keyboard(" ");
-    expect(onChange).toHaveBeenCalledWith("mine");
+    // Focus goes into the listbox, onto the chosen option.
+    expect(within(listbox()).getByRole("option", { name: "Added by me" })).toHaveFocus();
+    await user.keyboard("{ArrowDown} ");
+    expect(onChange).toHaveBeenCalledWith("deleted");
     expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+  });
+
+  // The keyboard contract SortMenu has (useMenuKeyboard), on a listbox: the
+  // options are role="option" and the current one aria-selected.
+  describe("keyboard", () => {
+    const option = (name: string) => within(listbox()).getByRole("option", { name });
+
+    it("moves focus onto the chosen option when it opens", async () => {
+      const user = userEvent.setup();
+      selectMenu({ value: "deleted" });
+      await user.click(trigger());
+      expect(option("Recently deleted")).toHaveFocus();
+    });
+
+    it("walks the options with the arrow keys, wrapping at both ends, and jumps with Home/End", async () => {
+      const user = userEvent.setup();
+      selectMenu({ value: "all" });
+      await user.click(trigger());
+      expect(option("Everything")).toHaveFocus();
+      await user.keyboard("{ArrowDown}");
+      expect(option("Added by me")).toHaveFocus();
+      await user.keyboard("{ArrowDown}{ArrowDown}");
+      expect(option("Everything")).toHaveFocus();
+      await user.keyboard("{ArrowUp}");
+      expect(option("Recently deleted")).toHaveFocus();
+      await user.keyboard("{Home}");
+      expect(option("Everything")).toHaveFocus();
+      await user.keyboard("{End}");
+      expect(option("Recently deleted")).toHaveFocus();
+    });
+
+    it("chooses with Enter and hands focus back to the trigger", async () => {
+      const user = userEvent.setup();
+      const { onChange } = selectMenu();
+      await user.click(trigger());
+      await user.keyboard("{ArrowUp}{Enter}");
+      expect(onChange).toHaveBeenCalledWith("all");
+      expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+      expect(trigger()).toHaveFocus();
+    });
+
+    it("closes on Escape and on Tab, returning focus to the trigger and choosing nothing", async () => {
+      const user = userEvent.setup();
+      const { onChange } = selectMenu();
+      await user.click(trigger());
+      await user.keyboard("{ArrowDown}{Escape}");
+      expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+      expect(trigger()).toHaveFocus();
+
+      await user.click(trigger());
+      await user.tab();
+      expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+      expect(trigger()).toHaveFocus();
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("tells a surrounding dialog that Escape was handled", async () => {
+      const user = userEvent.setup();
+      const seen = vi.fn();
+      render(
+        <div onKeyDown={(event) => seen(event.defaultPrevented)}>
+          <SelectMenu<Scope> value="mine" options={OPTIONS} label="Show" onChange={vi.fn()} />
+        </div>
+      );
+      await user.click(trigger());
+      await user.keyboard("{Escape}");
+      expect(seen).toHaveBeenLastCalledWith(true);
+    });
   });
 
   it("never submits a surrounding form", async () => {

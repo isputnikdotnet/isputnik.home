@@ -71,7 +71,7 @@ export function NarratorListPage() {
     api<{ photos: Record<string, string> }>("/api/library/people/photos")
       .then((payload) => setPhotos(payload.photos))
       .catch(() => {}); // avatars are decoration — the list works without them
-  }, []);
+  }, [t]);
 
   const term = search.trim().toLowerCase();
   const matchesSearch = (person: NarratorSummary) => !term || person.name.toLowerCase().includes(term);

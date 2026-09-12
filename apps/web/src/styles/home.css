@@ -484,10 +484,8 @@
   width: 100%;
   min-height: 42px;
   padding: 0 12px;
-  /* No border: this read `1px solid var(--border)`, a property nothing defines,
-     so it never drew one (and kept the button's own off) — the hover tint below
-     has nothing to tint either. */
-  border: 0;
+  /* Drew nothing until 4.1.x (it read the undefined var(--border)). */
+  border: 1px solid var(--line);
   border-radius: 10px;
   background: transparent;
   color: var(--home-muted);
@@ -510,7 +508,7 @@
 .control-search-trigger kbd {
   flex: 0 0 auto;
   padding: 2px 6px;
-  border: 0; /* was var(--border), which nothing defines — it never drew */
+  border: 1px solid var(--line); /* read the undefined var(--border) until 4.1.x */
   border-radius: 5px;
   color: var(--home-muted);
   font-family: inherit;

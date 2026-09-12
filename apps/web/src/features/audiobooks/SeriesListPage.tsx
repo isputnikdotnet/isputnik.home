@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { BookOpen, LibraryBig, Plus } from "lucide-react";
 import { api } from "../../api";
@@ -42,10 +42,10 @@ export function SeriesListPage({
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
 
-  const loadSeries = async (libraryId: string) => {
+  const loadSeries = useCallback(async (libraryId: string) => {
     const payload = await api<{ series: SeriesSummary[] }>(`${libPrefix}/${libraryId}/series`);
     setSeriesByLibrary((prev) => ({ ...prev, [libraryId]: payload.series }));
-  };
+  }, [libPrefix]);
 
   useEffect(() => {
     replaceQuery("letter", letter);
@@ -59,7 +59,7 @@ export function SeriesListPage({
         await Promise.all(payload.libraries.map((lib) => loadSeries(lib.id)));
       })
       .catch((err) => setError(err instanceof Error ? err.message : t("book:series.unableLoad")));
-  }, []);
+  }, [libPrefix, loadSeries, t]);
 
   const allSeries = libraries.flatMap((lib) =>
     (seriesByLibrary[lib.id] ?? []).map((s) => ({ ...s, libraryName: lib.name, libraryId: lib.id }))

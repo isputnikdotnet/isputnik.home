@@ -56,13 +56,16 @@ export function MissingPhotosSection() {
     load()
       .catch((err) => setError(err instanceof Error ? err.message : t("controlAdmin:missingPhotos.loadFailed")))
       .finally(() => setLoaded(true));
-  }, []);
+  }, [t]);
 
-  // Items already past their grace window (eligible for the scheduled purge).
-  const eligibleCount = useMemo(() => {
-    const now = Date.now();
-    return items.filter((item) => item.purgesAt != null && new Date(item.purgesAt).getTime() <= now).length;
-  }, [items]);
+  // Items already past their grace window (eligible for the scheduled purge). The
+  // clock is read once for the visit — the window is days long, so a count that
+  // moved between renders would flicker, not inform — and rendering stays pure.
+  const [now] = useState(() => Date.now());
+  const eligibleCount = useMemo(
+    () => items.filter((item) => item.purgesAt != null && new Date(item.purgesAt).getTime() <= now).length,
+    [items, now]
+  );
 
   const saveRetention = async () => {
     const value = Number.parseInt(retentionInput, 10);

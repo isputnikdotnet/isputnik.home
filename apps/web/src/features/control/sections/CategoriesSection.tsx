@@ -78,7 +78,7 @@ export function CategoriesSection() {
     }
   }, [t]);
 
-  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, [load]);
 
   const flash = (message: string) => {
     setNotice(message);
@@ -241,7 +241,10 @@ function KeywordChip({ alias, onSaveKeyword, onSavePriority, onDelete }: {
   const { t } = useTranslation(["common", "control"]);
   const [text, setText] = useState(alias.keyword);
   const [busy, setBusy] = useState(false);
-  // Re-sync when the list reloads (e.g. after a successful rename).
+  // Re-sync when the list reloads (e.g. after a successful rename). This one has to
+  // follow the prop and cannot be seeded on open instead: the row is always a live
+  // field, and the server NORMALIZES a keyword as it stores it ("Sci-Fi" → "sci
+  // fi"), so what was typed is not what the mapping ends up being called.
   useEffect(() => { setText(alias.keyword); }, [alias.keyword]);
 
   const commit = async () => {

@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from "react";
+import { useCallback, useState, useEffect, type FormEvent } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { api, type MfaMethod } from "../../api";
 import { Button } from "../../shared/Button";
@@ -52,17 +52,17 @@ export function MfaSection() {
   const [loadError, setLoadError] = useState("");
   const [mode, setMode] = useState<Mode>(null);
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     try {
       setStatus(await api<MfaStatus>("/api/profile/mfa"));
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : t("misc:mfa.unableToLoadFallback"));
     }
-  };
+  }, [t]);
 
   useEffect(() => {
     refresh();
-  }, []);
+  }, [refresh]);
 
   const done = () => {
     setMode(null);

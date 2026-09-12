@@ -42,7 +42,12 @@ export function VoiceNotes({
   thumbnailUrl?: string | null;
 }) {
   const { t } = useTranslation(["common", "gallery"]);
-  const [current, setCurrent] = useState<VoiceNote | null>(null);
+  // Which recording the player is on, held as an id and looked up in `notes` —
+  // so one that has gone (removed, or the photo changed under us) simply stops
+  // being current. Holding the note itself meant an effect had to notice it had
+  // gone, and until it ran the player was still pointing at a deleted file.
+  const [currentId, setCurrentId] = useState<string | null>(null);
+  const current = currentId ? notes.find((note) => note.id === currentId) ?? null : null;
   const [playing, setPlaying] = useState(false);
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [recordOpen, setRecordOpen] = useState(false);
@@ -53,11 +58,6 @@ export function VoiceNotes({
   const menuRef = useRef<HTMLDivElement>(null);
 
   const supported = recordingSupported();
-
-  // A recording that has gone (removed, or the photo changed under us) leaves the player.
-  useEffect(() => {
-    if (current && !notes.some((note) => note.id === current.id)) { setCurrent(null); setPlaying(false); }
-  }, [notes, current]);
 
   // The row menu closes on an outside click (Escape is the menu's own key below).
   useEffect(() => {
@@ -73,7 +73,7 @@ export function VoiceNotes({
   // and starts (AudioPlayer autoPlay).
   const play = (note: VoiceNote) => {
     if (current?.id === note.id) { playerRef.current?.toggle(); return; }
-    setCurrent(note);
+    setCurrentId(note.id);
   };
 
   const remove = async () => {

@@ -33,7 +33,7 @@ export function CategoryDetailPage({
     api<{ category: CategoryDetail }>(`/api/library/categories/${categoryKey}/books`)
       .then((payload) => setCategory(payload.category))
       .catch((err) => setError(err instanceof Error ? err.message : t("book:categories.unableLoadDetail")));
-  }, [categoryKey]);
+  }, [categoryKey, t]);
 
   // Counts drive both the toggle labels and whether the toggle is worth showing
   // (only when the category actually holds both media types).

@@ -73,6 +73,8 @@ export const AudioPlayer = forwardRef<AudioPlayerHandle, {
     if (!audio) return;
     audio.load();
     if (autoPlay) void audio.play()?.catch?.(() => { /* autoplay refused: the button still works */ });
+    // The source is the trigger. autoPlay and the known length are read as they
+    // stand when it changes; re-running on either would restart the recording.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [src]);
 

@@ -58,7 +58,7 @@ export function MailSection() {
       .then((payload) => applyDto(payload.mail))
       .catch((err) => setLoadError(err instanceof Error ? err.message : t("controlAdmin:mail.loadFailed")))
       .finally(() => setLoading(false));
-  }, []);
+  }, [t]);
 
   const save = async (event: FormEvent) => {
     event.preventDefault();

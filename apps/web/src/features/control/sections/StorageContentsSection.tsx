@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Boxes } from "lucide-react";
 import { api } from "../../../api";
@@ -113,7 +113,7 @@ export function StorageContentsSection() {
     person: t("controlAdmin:storageContents.ownerPerson")
   };
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setError("");
     try {
       setContents(await api<Contents>("/api/storage/app-storage/contents"));
@@ -121,11 +121,11 @@ export function StorageContentsSection() {
       setError(err instanceof Error ? err.message : t("controlAdmin:storageContents.loadFailed"));
       throw err;
     }
-  };
+  }, [t]);
 
   useEffect(() => {
     load().catch(() => { /* shown in the box */ });
-  }, []);
+  }, [load]);
 
   const deleteOrphan = async () => {
     if (!target) return;

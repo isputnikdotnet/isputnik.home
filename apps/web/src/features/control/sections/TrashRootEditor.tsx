@@ -49,7 +49,7 @@ export function TrashRootEditor({
     api<{ roots: StorageRoot[] }>("/api/storage/roots")
       .then((payload) => setStorageRoots(payload.roots))
       .catch((err) => setError(err instanceof Error ? err.message : t("controlAdmin:trashRoot.loadContainersFailed")));
-  }, []);
+  }, [t]);
 
   const save = async (event: FormEvent) => {
     event.preventDefault();

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -82,6 +82,42 @@ describe("PhotoPicker folder search", () => {
     expect(screen.queryByText("Matching folders")).toBeNull();
   });
 
+  it("ignores a folder search that lands after the box was emptied", async () => {
+    // The slow-response race: a search fired for "Summer" comes back only after
+    // the box is empty and the picker is back on All folders. Its matches belong
+    // to a term nobody is looking at any more and must not reopen the results.
+    let release: ((folders: Folder[]) => void) | null = null;
+    const browsed: string[] = [];
+    mockApi.mockImplementation(async (path: string) => {
+      if (path.startsWith("/api/library/gallery-libraries")) return { libraries: [] };
+      if (path.startsWith("/api/library/gallery/folders/search")) {
+        return new Promise((resolve) => { release = (folders) => resolve({ folders }); });
+      }
+      if (path.startsWith("/api/library/gallery/folders")) {
+        const parent = decodeURIComponent(new URLSearchParams(path.split("?")[1]).get("parent") ?? "");
+        browsed.push(parent);
+        return { parent, folders: parent === "" ? ROOT : INSIDE, assets: [] };
+      }
+      return {};
+    });
+
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    renderPicker();
+    await screen.findByRole("button", { name: /2019/ }, SLOW);
+
+    const box = screen.getByPlaceholderText("Search folders");
+    await user.type(box, "Summer");
+    await vi.advanceTimersByTimeAsync(600);
+    await waitFor(() => expect(release).not.toBeNull(), SLOW);
+
+    await user.clear(box);
+    await vi.advanceTimersByTimeAsync(600);
+    await waitFor(() => expect(browsed.at(-1)).toBe(""), SLOW);
+
+    await act(async () => { release!(MATCHES); });
+    expect(screen.queryByText("Matching folders")).toBeNull();
+  });
+
   it("still returns to All folders when the search is cleared by hand", async () => {
     const browsed = stubGallery();
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
@@ -95,7 +131,12 @@ describe("PhotoPicker folder search", () => {
     await user.clear(box);
     await vi.advanceTimersByTimeAsync(600);
 
-    await waitFor(() => expect(browsed.at(-1)).toBe(""), SLOW);
-    expect(screen.queryByText("Matching folders")).toBeNull();
+    // Both in one wait: `browsed` is pushed inside the effect that clears the
+    // results, so asserting on the DOM straight after a wait on the array alone
+    // can arrive before React has flushed the render that empties it.
+    await waitFor(() => {
+      expect(browsed.at(-1)).toBe("");
+      expect(screen.queryByText("Matching folders")).toBeNull();
+    }, SLOW);
   });
 });

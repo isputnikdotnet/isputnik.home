@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { CalendarClock, Check, Copy, Link2, Search, Send, Settings, Tablet, Trash2, Users, X } from "lucide-react";
 import { api } from "../../api";
@@ -150,7 +150,7 @@ export function SendToSheet({
     api<Destinations>(`/api/social/destinations?${params.toString()}`)
       .then(setDestinations)
       .catch((err) => setLoadError(err instanceof Error ? err.message : t("user:sendTo.loadFailed")));
-  }, [subject.entityType, subject.entityId]);
+  }, [subject.entityType, subject.entityId, t]);
 
   useEffect(() => {
     if (searchOpen) searchRef.current?.focus();
@@ -161,20 +161,21 @@ export function SendToSheet({
   const manageLinks = Boolean(destinations?.manageLinks);
   const manageUserShares = Boolean(destinations?.manageUserShares);
 
-  const loadLinks = () =>
+  const loadLinks = useCallback(() =>
     api<{ shares: LinkShare[] }>(linkApi.list)
       // Matched on id, not title: these endpoints return every link the user
       // owns, and two subjects can share a title (the same book in two
       // libraries, a box set and its parts), which used to cross-list them —
       // and let you revoke the wrong one.
       .then((r) => setLinks(r.shares.filter((share) => share[linkApi.key] === subject.entityId)))
-      .catch(() => {});
+      .catch(() => {}),
+  [linkApi.list, linkApi.key, subject.entityId]);
 
   // "Who already has this" reads and revokes on its own paths per kind, and an
   // album's recipients come back keyed on userId rather than a share id — so they
   // are normalised to UserShare here and revoked by whichever call that kind
   // takes. Same list, same row, same button, wherever you opened it from.
-  const loadUserShares = () => {
+  const loadUserShares = useCallback(() => {
     const request = subject.entityType === "gallery_album"
       ? api<{ recipients: (UserShare & { userId: string })[] }>("/api/shares/album/recipients", {
           method: "POST",
@@ -183,16 +184,18 @@ export function SendToSheet({
       : api<{ shares: UserShare[] }>(`/api/shares/user?bookId=${encodeURIComponent(subject.entityId)}`)
           .then((r) => r.shares);
     return request.then(setUserShares).catch(() => {});
-  };
+  }, [subject.entityType, subject.entityId]);
 
   // Fetched separately: a story has links but nobody to list, so asking for its
   // recipients would be a request that can only ever come back empty.
   useEffect(() => {
     if (manageLinks) void loadLinks();
     if (manageUserShares) void loadUserShares();
-  }, [manageLinks, manageUserShares, subject.entityId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [manageLinks, manageUserShares, loadLinks, loadUserShares]);
 
-  const people = destinations?.people ?? [];
+  // Held steady: `destinations?.people ?? []` is a fresh array every render, so the
+  // fallback alone re-ran pickedPeople (and everything keyed on it) on each one.
+  const people = useMemo(() => destinations?.people ?? [], [destinations]);
   const pickedPeople = useMemo(
     () => people.filter((person) => picked.includes(person.id)),
     [people, picked]

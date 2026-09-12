@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { ScanFace, RefreshCw, Trash2, FlaskConical, UserRound, Combine, Stethoscope } from "lucide-react";
 import i18n from "../../i18n";
@@ -144,7 +144,7 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
   const [healthError, setHealthError] = useState("");
   const [mergingKey, setMergingKey] = useState<string | null>(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       const payload = await api<GalleryFaceSettings>("/api/library/gallery/faces/settings");
       setLibraries(payload.libraries);
@@ -153,7 +153,7 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
     } catch (err) {
       setError(err instanceof Error ? err.message : t("galleryModals:faceSettings.unableToLoad"));
     }
-  };
+  }, [t]);
 
   const anyEnabled = libraries.some((l) => l.enabled);
 
@@ -202,9 +202,12 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
     }
   };
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { void load(); }, [load]);
 
-  // Run the health check the first time the tab is opened (it's too heavy for eager load).
+  // Run the health check the first time the tab is opened (it's too heavy for eager
+  // load). Keyed on the tab alone on purpose: the flags in the condition are the
+  // "not yet asked" guard, and listing them would re-enter the effect the moment
+  // loadHealth sets them, firing the O(people²) pass twice per visit.
   useEffect(() => {
     if (tab === "health" && !health && !healthLoading && !healthError) void loadHealth();
     // eslint-disable-next-line react-hooks/exhaustive-deps

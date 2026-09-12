@@ -74,7 +74,7 @@ export function SeriesDetailPage({
       })
       .then((payload) => setLibraryBooks(payload.books))
       .catch((err) => setError(err instanceof Error ? err.message : t("book:series.unableLoad")));
-  }, [seriesId]);
+  }, [seriesId, libPrefix, t]);
 
   const backTo = getReferrer();
   const currentIds = new Set(books.map((b) => b.id));

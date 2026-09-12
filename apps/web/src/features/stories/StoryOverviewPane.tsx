@@ -56,8 +56,11 @@ export function StoryOverviewPane({
   // Shelves this author may put the story on (plus wherever it already is).
   const [collections, setCollections] = useState<StoryCollectionSummary[]>([]);
 
-  useEffect(() => { setChapterNoun(story.chapterNoun ?? ""); }, [story.chapterNoun]);
-  useEffect(() => { setAuthorName(story.authorName ?? ""); }, [story.authorName]);
+  // `chapterNoun` and `authorName` are seeded once: StoryEditorPage renders this
+  // pane with key={story.id}, so it is remounted for another story rather than
+  // following it. They used to be re-seeded from effects on the story's own
+  // fields, and since every patch re-reads the whole story, a reload landing
+  // between two keystrokes put the stored value back in the box.
 
   useEffect(() => {
     api<{ bylines: string[] }>("/api/stories/bylines")

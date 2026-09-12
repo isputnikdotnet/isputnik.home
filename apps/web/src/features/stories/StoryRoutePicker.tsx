@@ -29,10 +29,14 @@ export function StoryRoutePicker({
   const mapRef = useRef<L.Map | null>(null);
   const layerRef = useRef<L.LayerGroup | null>(null);
   // The map's handlers live for the map's lifetime; always call the latest ones.
+  // Refreshed after each commit, not while rendering: the only readers are a map
+  // click and a marker dragend, both of which happen long after paint.
   const onAddRef = useRef(onAdd);
-  onAddRef.current = onAdd;
   const onMoveRef = useRef(onMove);
-  onMoveRef.current = onMove;
+  useEffect(() => {
+    onAddRef.current = onAdd;
+    onMoveRef.current = onMove;
+  });
   // Whether the view has been framed on the stops it opened with. Done once, on
   // the first render that has any: after that the view belongs to the editor,
   // and refitting on every added stop would yank the map out from under them.

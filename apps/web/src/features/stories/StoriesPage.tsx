@@ -59,7 +59,7 @@ export function StoriesPage() {
       .then((payload) => setCollections(payload.collections))
       .catch(() => { /* the shelf is an extra; the grid still stands */ });
     document.title = `${t("stories:title")} — isputnik.home`;
-  }, []);
+  }, [t]);
 
   // The sidebar's tallies, over everything the viewer can see — they describe
   // the destinations, so search and the current filter don't shrink them.

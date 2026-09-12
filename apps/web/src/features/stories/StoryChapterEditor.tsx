@@ -50,15 +50,15 @@ export function StoryChapterEditor({
   // Settings open themselves for a chapter that has nothing set yet — there is
   // otherwise no hint that a date and a place belong to it.
   const [settingsOpen, setSettingsOpen] = useState(!chapter.date && !chapter.place);
+  // The settings card's drafts, seeded once. StoryEditorPage renders this
+  // component with key={chapter.id}, so opening another chapter remounts it with
+  // that chapter's values — nothing has to follow the prop afterwards. They used
+  // to be re-seeded from an effect keyed on the chapter's own fields, and because
+  // every edit anywhere in the story re-reads the story, a reload landing while
+  // the place or the note was being typed put the stored text back.
   const [dates, setDates] = useState({ date: chapter.date ?? "", endDate: chapter.endDate ?? "" });
   const [place, setPlace] = useState(chapter.place ?? "");
   const [note, setNote] = useState(chapter.description ?? "");
-
-  useEffect(() => {
-    setDates({ date: chapter.date ?? "", endDate: chapter.endDate ?? "" });
-    setPlace(chapter.place ?? "");
-    setNote(chapter.description ?? "");
-  }, [chapter.id, chapter.date, chapter.endDate, chapter.place, chapter.description]);
 
   // Block drag-and-drop: the order under the pointer is local until the drop,
   // and the server's order is what re-renders afterwards.

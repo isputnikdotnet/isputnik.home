@@ -30,6 +30,15 @@ function formatLabel(title: string): string {
 const SLIDESHOW_INTERVALS = [3, 5, 10] as const;
 // The styles a "random" slideshow draws from — one is re-rolled on every slide change.
 const RANDOM_TRANSITIONS: SlideshowTransition[] = ["crossfade", "fade", "slide", "kenburns"];
+// "Random" picks a style per slide, but rendering may not roll dice: the same slide
+// re-rendered must keep the style it is mid-way through. So each showing takes one
+// seed at mount and the slide's own id decides from there — unpredictable to watch,
+// settled for React.
+function seededTransition(seed: number, id: string): SlideshowTransition {
+  let hash = seed;
+  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
+  return RANDOM_TRANSITIONS[hash % RANDOM_TRANSITIONS.length];
+}
 // Remembered for the browsing session (module scope survives navigation, resets on
 // reload) so the speed choice sticks across slideshows without persisting to disk.
 let sessionSlideshowInterval = 5;
@@ -104,14 +113,15 @@ export function GalleryLightbox({
   // A saved slideshow drives the transition; every other view uses the default.
   const slideTransition: SlideshowTransition = transition ?? "crossfade";
   const transitionSec = transitionSeconds ?? 2;
-  // The transition applied to the CURRENT slide: "random" re-rolls a style on every
-  // slide change (keyed on asset.id); fixed styles pass straight through.
+  // The transition applied to the CURRENT slide: "random" picks a style per slide
+  // from this showing's seed; fixed styles pass straight through.
+  const [randomSeed] = useState(() => (Date.now() ^ (Math.random() * 0xffffffff)) >>> 0);
+  const assetId = asset?.id;
   const activeTransition = useMemo<SlideshowTransition>(
     () => slideTransition === "random"
-      ? RANDOM_TRANSITIONS[Math.floor(Math.random() * RANDOM_TRANSITIONS.length)]
+      ? seededTransition(randomSeed, String(assetId ?? ""))
       : slideTransition,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [slideTransition, asset?.id]
+    [slideTransition, assetId, randomSeed]
   );
   const musicRef = useRef<HTMLAudioElement | null>(null);
   const canSlideshow = assets.length > 1;
@@ -126,22 +136,28 @@ export function GalleryLightbox({
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState("");
-  const [liked, setLiked] = useState(asset?.saved ?? false);
+  // An optimistic like, remembered against the asset and the saved value it was
+  // made over: the moment either moves the flip is spent and the asset's own
+  // value wins. `liked` is therefore derived, not a copy of the prop kept in step
+  // by an effect — paging to the next photo used to show the previous one's heart
+  // for a render, and a like landing on the wrong asset was one race away.
+  const [pendingLike, setPendingLike] = useState<{ id: string; over: boolean; value: boolean } | null>(null);
+  const assetSaved = asset?.saved ?? false;
+  const liked = pendingLike && pendingLike.id === asset?.id && pendingLike.over === assetSaved
+    ? pendingLike.value
+    : assetSaved;
   const [likeBusy, setLikeBusy] = useState(false);
   const [rotateBusy, setRotateBusy] = useState(false);
   const [replaceOpen, setReplaceOpen] = useState(false);
   // Set when the browser's <video> can't decode this asset (unsupported container/
   // codec — legacy AVI/Motion-JPEG, WMV, etc.). We serve originals untranscoded, so
   // a plain <video> silently stalls; this drives an explanatory fallback instead.
-  // Seeded from the scanner's `playable` flag so a known-bad file skips the doomed
-  // load attempt; the <video> onError still catches anything the scan couldn't probe.
-  const [videoError, setVideoError] = useState(asset?.playable === false);
-
-
-  useEffect(() => { setLiked(asset?.saved ?? false); }, [asset?.id, asset?.saved]);
-  // Each asset gets a fresh playback attempt — but a known-unplayable one goes
-  // straight to the fallback instead of stalling on a load that will fail.
-  useEffect(() => { setVideoError(asset?.playable === false); }, [asset?.id, asset?.playable]);
+  // Read from the scanner's `playable` flag so a known-bad file skips the doomed
+  // load attempt, plus whichever asset the <video> has since failed on — derived
+  // per asset rather than reset by an effect, which showed the previous slide's
+  // verdict (a fallback over a playable clip, or a doomed load) for one render.
+  const [decodeFailedId, setDecodeFailedId] = useState<string | null>(null);
+  const videoError = asset?.playable === false || (asset != null && decodeFailedId === asset.id);
 
   // A rotated video plays the ORIGINAL file (rotation is only baked into the poster
   // thumbnails — the file on disk is never modified), so the <video> element is
@@ -179,10 +195,11 @@ export function GalleryLightbox({
 
   // Fire-and-forget view ping for the activity dashboard. Server-side dedup keeps
   // paging back and forth through a set from spamming activity_logs.
+  const viewedAssetId = asset?.id;
   useEffect(() => {
-    if (!asset) return;
-    void api(`/api/library/gallery/assets/${asset.id}/viewed`, { method: "POST" }).catch(() => {});
-  }, [asset?.id]);
+    if (!viewedAssetId) return;
+    void api(`/api/library/gallery/assets/${viewedAssetId}/viewed`, { method: "POST" }).catch(() => {});
+  }, [viewedAssetId]);
 
   // Moving to another asset closes the overflow menu.
   useEffect(() => { setMoreMenuOpen(false); }, [asset?.id]);
@@ -289,14 +306,14 @@ export function GalleryLightbox({
   const toggleLike = useCallback(async () => {
     if (!asset || likeBusy) return;
     const next = !liked;
-    setLiked(next);
+    setPendingLike({ id: asset.id, over: asset.saved ?? false, value: next });
     setLikeBusy(true);
     try {
       if (next) await api(`/api/library/books/${asset.id}/save`, { method: "PUT", body: JSON.stringify({ note: null }) });
       else await api(`/api/library/books/${asset.id}/save`, { method: "DELETE" });
       onChanged({ kind: "like", id: asset.id, saved: next });
     } catch {
-      setLiked(!next);
+      setPendingLike(null);
     } finally {
       setLikeBusy(false);
     }
@@ -692,7 +709,7 @@ export function GalleryLightbox({
                   const d = event.currentTarget.duration;
                   setVidDuration(Number.isFinite(d) ? d : 0);
                 }}
-                onError={() => setVideoError(true)}
+                onError={() => setDecodeFailedId(asset.id)}
                 onEnded={() => { if (playing && canSlideshow) advance(); }}
               />
               {videoRotation !== 0 && (

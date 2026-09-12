@@ -20,7 +20,7 @@ export function LikesPage() {
     api<{ books: SavedBook[] }>("/api/library/saved")
       .then((payload) => setBooks(payload.books))
       .catch((err) => setError(err instanceof Error ? err.message : t("user:likes.loadFailed")));
-  }, []);
+  }, [t]);
 
   const removeBook = async (bookId: string) => {
     setRemovingIds((current) => [...current, bookId]);

@@ -39,7 +39,7 @@ export function TagsSection() {
 
   useEffect(() => {
     load().catch((err) => setError(err instanceof Error ? err.message : t("controlAdmin:tags.loadFailed")));
-  }, [load]);
+  }, [load, t]);
 
   const startEdit = (tag: ManageTag) => {
     setEditingId(tag.id);

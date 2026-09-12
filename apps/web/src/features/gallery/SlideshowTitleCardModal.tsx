@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Film, Image as ImageIcon, Type } from "lucide-react";
 import { Modal } from "../../shared/Modal";
@@ -91,8 +91,11 @@ export function SlideshowTitleCardModal({
   const [previewFailed, setPreviewFailed] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => { setSeconds(slideshow.titleSeconds); }, [slideshow.titleSeconds]);
-  useEffect(() => { setClosingSeconds(slideshow.closingSeconds); }, [slideshow.closingSeconds]);
+  // The two dwell sliders are seeded once, like the text fields above them: this
+  // dialog is the only thing that writes titleSeconds/closingSeconds, so there is
+  // nothing to follow. They used to be re-seeded from an effect, which meant any
+  // other patch from this dialog (a background, a font) re-rendering the parent
+  // mid-drag snapped the handle back to the stored value.
 
   const commit = async (fields: SlideshowPatch) => {
     setSaving(true);

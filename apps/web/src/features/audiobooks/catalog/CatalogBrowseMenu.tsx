@@ -10,31 +10,34 @@ import { Button } from "../../../shared/Button";
 // nav: Authors, Narrators (audiobooks only), Series and Categories.
 export function CatalogBrowseMenu({ kind }: { kind: CatalogKind }) {
   const { t } = useTranslation(["common", "book"]);
-  const menu = useAnchoredMenu({ closeOnEscape: false });
-  const go = (path: string) => { menu.close(); navigate(path); };
+  // Destructured, like every other caller: reading the hook's object property by
+  // property in render is what react-hooks/refs objects to (the object carries the
+  // two refs), and the properties are the same values either way.
+  const { open, pos, toggle, close, triggerRef, menuRef } = useAnchoredMenu({ closeOnEscape: false });
+  const go = (path: string) => { close(); navigate(path); };
 
   return (
     <div className="audiobook-library-shortcuts">
       <Button
         variant="bare"
-        ref={menu.triggerRef}
+        ref={triggerRef}
         className="audiobook-library-tab"
-        onClick={menu.toggle}
+        onClick={toggle}
         aria-haspopup="menu"
-        aria-expanded={menu.open}
+        aria-expanded={open}
         aria-label={t(CATALOG_KINDS[kind].keys.browseAria)}
       >
         <Compass size={19} aria-hidden="true" />
         <span>{t("book:catalog.browse")}</span>
         <ChevronDown size={16} aria-hidden="true" />
       </Button>
-      {menu.open && menu.pos && createPortal(
+      {open && pos && createPortal(
         <div
-          ref={menu.menuRef}
+          ref={menuRef}
           className="book-detail-action-menu audiobook-library-menu"
           role="menu"
           aria-label={t("book:catalog.browse")}
-          style={{ position: "fixed", top: menu.pos.top, left: menu.pos.left ?? undefined, right: menu.pos.right ?? undefined }}
+          style={{ position: "fixed", top: pos.top, left: pos.left ?? undefined, right: pos.right ?? undefined }}
         >
           <Button variant="bare" role="menuitem" onClick={() => go("/authors")}>
             <UserRound size={16} aria-hidden="true" />

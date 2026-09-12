@@ -15,6 +15,7 @@ import { SortMenu } from "../../shared/SortMenu";
 import { ToggleSwitch } from "../../shared/ToggleSwitch";
 import { useIsMobile } from "../../shared/useIsMobile";
 import { useAnchoredMenu } from "../../shared/useAnchoredMenu";
+import { useMenuKeyboard } from "../../shared/useMenuKeyboard";
 import { SectionNav, type SectionNavItem } from "../../shared/SectionNav";
 import type { LightboxSource } from "./AssetTile";
 import { useGalleryAlbums } from "./useGalleryAlbums";
@@ -229,7 +230,20 @@ export function GalleryPage({
   // Mobile / PWA: "Browse" dropdown that collapses the view tabs (Timeline,
   // Memories, Albums, …), matching the audiobooks/ebooks compact header.
   // ("viewMenu" rather than "browse" — browseOpen is the slideshow photo browser.)
-  const viewMenu = useAnchoredMenu({ closeOnEscape: false });
+  // Destructured, like every other caller — see CatalogBrowseMenu.
+  const {
+    open: viewOpen, pos: viewPos, toggle: viewToggle, close: viewClose,
+    triggerRef: viewTriggerRef, menuRef: viewMenuRef
+  } = useAnchoredMenu({ closeOnEscape: false });
+  // Its keyboard is SortMenu's (useMenuKeyboard): focus opens on the view you are
+  // in, arrows walk the list, Escape/Tab/a choice return to the trigger. Each view
+  // is a menuitemradio — one of them is where you are, the way one sort is chosen.
+  const viewMenuKeys = useMenuKeyboard({
+    open: viewOpen && viewPos !== null,
+    close: viewClose,
+    menuRef: viewMenuRef,
+    triggerRef: viewTriggerRef
+  });
 
   // Lightbox: which array + index is open. A deep-linked asset opens standalone.
   const [lightbox, setLightbox] = useState<LightboxState | null>(null);
@@ -709,24 +723,25 @@ export function GalleryPage({
     <div className="audiobook-library-shortcuts gallery-browse-shortcut">
       <Button
         variant="bare"
-        ref={viewMenu.triggerRef}
+        ref={viewTriggerRef}
         className="audiobook-library-tab"
-        onClick={viewMenu.toggle}
+        onClick={viewToggle}
         aria-haspopup="menu"
-        aria-expanded={viewMenu.open}
+        aria-expanded={viewOpen}
         aria-label={t("gallery:page.toolbar.browseViewsAria")}
       >
         <Compass size={19} aria-hidden="true" />
         <span>{t("common:common.browse")}</span>
         <ChevronDown size={16} aria-hidden="true" />
       </Button>
-      {viewMenu.open && viewMenu.pos && createPortal(
+      {viewOpen && viewPos && createPortal(
         <div
-          ref={viewMenu.menuRef}
+          ref={viewMenuRef}
           className="book-detail-action-menu audiobook-library-menu"
           role="menu"
           aria-label={t("common:common.browse")}
-          style={{ position: "fixed", top: viewMenu.pos.top, left: viewMenu.pos.left ?? undefined, right: viewMenu.pos.right ?? undefined }}
+          onKeyDown={viewMenuKeys.onKeyDown}
+          style={{ position: "fixed", top: viewPos.top, left: viewPos.left ?? undefined, right: viewPos.right ?? undefined }}
         >
           {/* The phone's version of the left nav, off the same list, so a view
               added there appears here too. */}
@@ -739,9 +754,10 @@ export function GalleryPage({
               <Button
                 variant="bare"
                 key={item.key}
-                role="menuitem"
+                role="menuitemradio"
+                aria-checked={view === item.key}
                 className={view === item.key ? "active" : ""}
-                onClick={() => { viewMenu.close(); navigate(item.href); }}
+                onClick={() => { viewMenuKeys.closeAndRestore(); navigate(item.href); }}
               >
                 <Icon size={16} aria-hidden="true" />
                 <span>{item.label}</span>

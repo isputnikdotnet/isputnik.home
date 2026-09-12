@@ -116,6 +116,8 @@ export function DashboardChart({
     });
 
     return () => chartRef.current?.destroy();
+    // Keyed on the serialised data: the labels and series arrays are built inline
+    // by the caller, so following them would rebuild the chart on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [type, stacked, JSON.stringify(labels), JSON.stringify(series)]);
 

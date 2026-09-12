@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CornerDownLeft, Search } from "lucide-react";
 import { Modal } from "../../shared/Modal";
@@ -13,21 +13,22 @@ import { Button } from "../../shared/Button";
 const EMPTY_STATE_IDS = ["tab:libraries", "tab:users", "tab:backup", "tab:email", "tab:securityPolicies", "tab:logs"];
 
 export function ControlSearch({ onClose }: { onClose: () => void }) {
-  const { t, i18n } = useTranslation(["common", "control"]);
+  const { t } = useTranslation(["common", "control"]);
   const [query, setQuery] = useState("");
   const [highlight, setHighlight] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
   // Rebuilt on every render (cheap — under 40 entries) rather than cached at
-  // module scope, so a language switch is reflected immediately.
-  const results = useMemo(() => {
+  // module scope or memoised here: the index is built from the current
+  // translations, so a language switch is reflected immediately.
+  const results = (() => {
     if (query.trim()) return searchControlPanel(query);
     const entries = getControlSearchEntries();
     return EMPTY_STATE_IDS
       .map((id) => entries.find((entry) => entry.id === id))
       .filter((entry): entry is ControlSearchEntry => Boolean(entry));
-  }, [query, i18n.language]);
+  })();
   const active = results[highlight];
 
   useEffect(() => {

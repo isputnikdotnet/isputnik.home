@@ -58,6 +58,9 @@ export function FolderPickerModal({
   };
 
   // Open on the container it was given, so the first thing shown is where you were.
+  // Once, deliberately: rootId is state the picker writes as you browse, so
+  // following it here would re-open the dialog on top of every folder you enter.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { void load(rootId); }, []);
 
   return (

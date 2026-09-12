@@ -42,7 +42,7 @@ export function StoryDetailPage({ id, chapterId }: { id: string; chapterId?: str
     api<{ story: StoryDetail }>(`/api/stories/${id}`)
       .then((payload) => setStory(payload.story))
       .catch((err) => setError(err instanceof Error ? err.message : t("stories:errors.load")));
-  }, [id]);
+  }, [id, t]);
 
   const structured = story ? hasChapterStructure(story) : false;
   const chapterIndex = story && chapterId

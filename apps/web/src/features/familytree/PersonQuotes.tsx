@@ -28,7 +28,7 @@ export function PersonQuotes({ personId, personName }: { personId: string; perso
     api<{ quotes: Quote[] }>(`/api/library/quotes?personId=${encodeURIComponent(personId)}`)
       .then((payload) => setQuotes(payload.quotes))
       .catch((err) => setError(err instanceof Error ? err.message : t("user:quotes.loadFailed")));
-  }, [personId]);
+  }, [personId, t]);
 
   if (error) {
     return <MessageBox tone="error" title={t("user:quotes.errorTitle")}>{error}</MessageBox>;

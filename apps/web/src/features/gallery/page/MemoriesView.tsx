@@ -102,17 +102,21 @@ export function MemoriesView({
   }
 
   // Tiles open the lightbox at the asset's position in the
-  // FLATTENED memories list, so Next flows across year sections.
-  let flatBase = 0;
+  // FLATTENED memories list, so Next flows across year sections. Worked out up
+  // front rather than counted up inside the map below — a render must not carry
+  // a running total from one child to the next. A handful of years, so the
+  // quadratic walk costs nothing.
+  const flatStarts = memories!.groups.map(
+    (_group, index) => memories!.groups.slice(0, index).reduce((n, g) => n + g.items.length, 0)
+  );
   return (
     <>
       {yearRow}
       {/* Once there is a row above, the anniversaries need a name of their own —
           the same one the timeline's strip uses. */}
       {yearRow && <h2 className="gallery-memories-title">{getMemoriesTitles()[memories!.precision]}</h2>}
-      {memories!.groups.map((group) => {
-        const start = flatBase;
-        flatBase += group.items.length;
+      {memories!.groups.map((group, groupIndex) => {
+        const start = flatStarts[groupIndex];
         const ids = group.items.map((asset) => asset.id);
         const allSelected = ids.length > 0 && ids.every((id) => selectedIds.has(id));
         return (

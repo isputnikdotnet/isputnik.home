@@ -24,7 +24,7 @@ export function useStoryEditor(id: string) {
     setStory(null);
     setError("");
     reload().catch((err) => setError(err instanceof Error ? err.message : t("stories:errors.load")));
-  }, [reload]);
+  }, [reload, t]);
 
   // One place where a write is attempted, reported and followed by a re-read —
   // so no caller can forget any of the three.

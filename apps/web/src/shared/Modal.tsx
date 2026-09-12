@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useLayoutEffect, useRef, useState } from "react";
+import React, { createContext, useCallback, useContext, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
@@ -275,8 +275,16 @@ export function Modal({
 }) {
   const { t } = useTranslation();
   const parent = useContext(ParentModal);
-  const titleId = useRef(`modal-title-${Math.random().toString(36).slice(2, 9)}`).current;
+  // React's own id, not a random one: stable across renders without rolling dice
+  // while rendering.
+  const titleId = `modal-title-${useId()}`;
 
+  // The modal's own entry in the stack, built on the first render and kept for the
+  // life of the dialog. It cannot wait for an effect: the portal below needs the host
+  // element to render into at all, and the focus to return to has to be captured
+  // before anything inside this dialog takes it. Lazily initialising a ref like this
+  // is the documented way to make one value per mount.
+  /* eslint-disable react-hooks/refs */
   const entryRef = useRef<ModalEntry | null>(null);
   if (!entryRef.current) {
     const host = document.createElement("div");
@@ -296,8 +304,11 @@ export function Modal({
     };
   }
   const entry = entryRef.current;
+  // The stack reads these when a key or a backdrop click arrives, never during a
+  // render, so the latest props are written straight onto the entry.
   entry.busy = busy;
   entry.onClose = onClose;
+  /* eslint-enable react-hooks/refs */
 
   // Where the portal's container goes depends on where the modal is rendered, so a
   // throwaway anchor is rendered in place for one commit. React attaches refs and
@@ -423,6 +434,9 @@ export function Modal({
   return (
     <>
       {anchored && <template ref={placeHost} />}
+      {/* entry.host is the container made on the first render above — createPortal
+          has to be handed an element, and this is the one this modal owns. */}
+      {/* eslint-disable-next-line react-hooks/refs */}
       {createPortal(<ParentModal.Provider value={entry}>{backdrop}</ParentModal.Provider>, entry.host)}
     </>
   );

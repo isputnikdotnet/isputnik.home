@@ -189,6 +189,43 @@ describe("ReviewPage", () => {
     await waitFor(() => expect(posts).toContain("/api/social/recommendations/rec9/dismiss"));
   });
 
+
+  // The answers on screen are DERIVED from the photo in front of her, keyed on its
+  // id — not a draft re-seeded by an effect, which showed the previous photo's date,
+  // place and people under the new one for a render, with a save in that window
+  // writing them to the wrong photo.
+  it("shows the next photo's own answers, never the previous photo's", async () => {
+    const user = userEvent.setup();
+    render(<ReviewPage source={{ kind: "inbox", libraryId: "inbox", folder: "box3" }} />);
+    await screen.findByText("1 of 2");
+    await user.selectOptions(await screen.findByLabelText("Year"), "1962");
+    await user.type(screen.getByLabelText("Where?"), "the dacha");
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    await screen.findByText("2 of 2");
+
+    expect((screen.getByLabelText("Year") as HTMLSelectElement).value).toBe("");
+    expect(screen.getByLabelText("Where?")).toHaveValue("");
+    // …and the second photo is saved with its OWN blank answers.
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    await waitFor(() => expect(patches).toHaveLength(2));
+    expect(patches[1].path).toBe("/api/library/gallery/assets/p2");
+    expect(patches[1].body.placeText).toBeNull();
+    expect(patches[1].body.takenPrecision).toBeUndefined();
+  });
+
+  it("keeps what she has typed when the photo list is re-read underneath", async () => {
+    const user = userEvent.setup();
+    render(<ReviewPage source={{ kind: "inbox", libraryId: "inbox", folder: "box3" }} />);
+    await screen.findByText("1 of 2");
+    await user.type(screen.getByLabelText("Where?"), "the dacha");
+    // The detail fetch for the photo lands and rewrites the list entry (people +
+    // voice notes) — the typed answer has to survive it.
+    await waitFor(() => expect(screen.getByLabelText("Where?")).toHaveValue("the dacha"));
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    await waitFor(() => expect(patches).toHaveLength(1));
+    expect(patches[0].body.placeText).toBe("the dacha");
+  });
+
   it("is read-only without the edit right", async () => {
     vi.mocked(api).mockImplementation(async (path: string) => {
       if (path === "/api/library/gallery/inbox") return { inboxes: [{ ...inbox, canEdit: false }] } as never;

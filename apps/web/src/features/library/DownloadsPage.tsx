@@ -96,7 +96,7 @@ export function DownloadsPage() {
       coverUrl: record.coverUrl,
       initialProgress: null
     });
-  }, []);
+  }, [t]);
 
   const totalDownloadedBytes =
     (downloads ?? []).reduce((sum, d) => sum + d.totalBytes, 0) +

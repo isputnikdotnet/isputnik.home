@@ -1,4 +1,4 @@
-import { Fragment, useState, useEffect, useCallback } from "react";
+import { Fragment, useState, useEffect, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { AlertTriangle, CalendarClock, CheckCircle2, ChevronRight, ListTodo, Loader2, XCircle } from "lucide-react";
@@ -123,7 +123,7 @@ export function TasksView() {
 
   useEffect(() => {
     loadTasks().catch((err) => setError(err instanceof Error ? err.message : t("controlDash:tasks.loadFailed")));
-  }, [loadTasks]);
+  }, [loadTasks, t]);
 
   // The soonest enabled schedule, so this tab can say what is coming as well as
   // what has been. undefined = still asking; null = nothing is scheduled.
@@ -138,15 +138,19 @@ export function TasksView() {
       .catch(() => setNextScheduled(null));
   }, []);
 
-  const tasks = data?.jobs ?? [];
+  const tasks = useMemo(() => data?.jobs ?? [], [data]);
+  // Keyed on whether anything is still moving, not on the list itself: a new array
+  // every render would tear the timer down and start it again every render, so a
+  // page being re-rendered (expanding an error, a filter menu) kept pushing the
+  // next refresh 2.5 seconds further away.
+  const anyActive = tasks.some((task) => task.status === "pending" || task.status === "running");
   useEffect(() => {
-    const active = tasks.some((t) => t.status === "pending" || t.status === "running");
-    if (!active) return;
+    if (!anyActive) return;
     const timer = window.setInterval(() => {
       loadTasks().catch(() => undefined);
     }, 2500);
     return () => window.clearInterval(timer);
-  }, [tasks, loadTasks]);
+  }, [anyActive, loadTasks]);
 
   const cancelTask = async (taskId: string) => {
     setCancelling(taskId);

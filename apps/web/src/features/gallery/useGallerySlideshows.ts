@@ -58,7 +58,7 @@ export function useGallerySlideshows({ setLoading, setError, setNotice }: Galler
     } finally {
       setLoading(false);
     }
-  }, [setLoading, setError]);
+  }, [setLoading, setError, t]);
 
   const openSlideshow = useCallback(async (slideshowId: string, offset = 0) => {
     setLoading(true);
@@ -75,7 +75,7 @@ export function useGallerySlideshows({ setLoading, setError, setNotice }: Galler
     } finally {
       setLoading(false);
     }
-  }, [setLoading, setError]);
+  }, [setLoading, setError, t]);
 
   // Presentation settings (transition / seconds per photo). Optimistic: the child
   // renders from selectedSlideshow, so patch it locally, then persist.
@@ -94,7 +94,7 @@ export function useGallerySlideshows({ setLoading, setError, setNotice }: Galler
       setError(err instanceof Error ? err.message : t("gallery:slideshows.errors.update"));
       void openSlideshow(slideshowId); // resync on failure
     }
-  }, [loadSlideshows, openSlideshow, setError]);
+  }, [loadSlideshows, openSlideshow, setError, t]);
 
   // Set the slideshow cover (chosen in the cover-picker popup). The list card's
   // cover is cached on `slideshows`, not the detail — refresh it too, or the open
@@ -105,7 +105,7 @@ export function useGallerySlideshows({ setLoading, setError, setNotice }: Galler
     await patchSlideshow(slideshowId, { coverItemId: itemId });
     void loadSlideshows();
     setNotice(t("gallery:slideshows.coverUpdated"));
-  }, [patchSlideshow, loadSlideshows, setNotice]);
+  }, [patchSlideshow, loadSlideshows, setNotice, t]);
 
   // Kick off (or re-run) an MP4 render. The poll effect below tracks it to completion.
   const renderSlideshowMovie = useCallback(async (slideshowId: string) => {
@@ -116,7 +116,7 @@ export function useGallerySlideshows({ setLoading, setError, setNotice }: Galler
     } catch (err) {
       setError(err instanceof Error ? err.message : t("gallery:slideshows.errors.startRender"));
     }
-  }, [setError]);
+  }, [setError, t]);
 
   // Delete the rendered movie (MP4 + leftover temp files); the slideshow returns to the
   // "Render movie" state. A copy saved to a gallery library is kept.
@@ -134,14 +134,16 @@ export function useGallerySlideshows({ setLoading, setError, setNotice }: Galler
     } finally {
       setMovieDeleteBusy(false);
     }
-  }, [selectedSlideshow, openSlideshow, setError, setNotice]);
+  }, [selectedSlideshow, openSlideshow, setError, setNotice, t]);
 
   // While a render is queued/rendering, poll the detail (cheaply — limit=1) and merge
   // the fresh render fields so the editor shows live progress, then the finished movie.
+  const renderStatus = selectedSlideshow?.renderStatus;
+  const openSlideshowId = selectedSlideshow?.id;
   useEffect(() => {
-    const status = selectedSlideshow?.renderStatus;
-    if (status !== "queued" && status !== "rendering") return;
-    const id = selectedSlideshow!.id;
+    if (renderStatus !== "queued" && renderStatus !== "rendering") return;
+    if (!openSlideshowId) return;
+    const id = openSlideshowId;
     let alive = true;
     const timer = window.setInterval(() => {
       api<{ slideshow: GallerySlideshowDetail }>(`/api/library/gallery/slideshows/${id}?limit=1`)
@@ -149,7 +151,7 @@ export function useGallerySlideshows({ setLoading, setError, setNotice }: Galler
         .catch(() => { /* keep polling */ });
     }, 2500);
     return () => { alive = false; window.clearInterval(timer); };
-  }, [selectedSlideshow?.renderStatus, selectedSlideshow?.id]);
+  }, [renderStatus, openSlideshowId]);
 
   // Persist a drag/‹›-reorder. The child already shows the new order optimistically,
   // so mirror it into slideshowAssets (keeps the lightbox preview order in step).
@@ -169,7 +171,7 @@ export function useGallerySlideshows({ setLoading, setError, setNotice }: Galler
       setError(err instanceof Error ? err.message : t("gallery:slideshows.errors.reorder"));
       void openSlideshow(slideshowId);
     }
-  }, [openSlideshow, setError]);
+  }, [openSlideshow, setError, t]);
 
   const removeFromSlideshow = useCallback(async (slideshowId: string, assetId: string) => {
     try {
@@ -182,7 +184,7 @@ export function useGallerySlideshows({ setLoading, setError, setNotice }: Galler
     } catch (err) {
       setError(err instanceof Error ? err.message : t("gallery:slideshows.errors.removePhoto"));
     }
-  }, [setError]);
+  }, [setError, t]);
 
   const createSlideshowSubmit = useCallback(async () => {
     const name = slideshowNewName.trim();
@@ -198,7 +200,7 @@ export function useGallerySlideshows({ setLoading, setError, setNotice }: Galler
     } finally {
       setSlideshowBusy(false);
     }
-  }, [slideshowNewName, loadSlideshows, setError]);
+  }, [slideshowNewName, loadSlideshows, setError, t]);
 
   const confirmDeleteSlideshow = useCallback(async () => {
     if (!selectedSlideshow) return;
@@ -213,7 +215,7 @@ export function useGallerySlideshows({ setLoading, setError, setNotice }: Galler
     } finally {
       setSlideshowBusy(false);
     }
-  }, [selectedSlideshow, loadSlideshows, setError]);
+  }, [selectedSlideshow, loadSlideshows, setError, t]);
 
   return {
     slideshows, setSlideshows,

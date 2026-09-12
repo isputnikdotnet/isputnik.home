@@ -104,7 +104,7 @@ export function BookmarksPage() {
     api<{ bookmarks: SavedBookmark[] }>("/api/library/bookmarks")
       .then((payload) => setBookmarks(payload.bookmarks))
       .catch((err) => setError(err instanceof Error ? err.message : t("user:bookmarks.loadFailed")));
-  }, []);
+  }, [t]);
 
   const groups = useMemo(() => groupByBook(bookmarks ?? []), [bookmarks]);
   const total = bookmarks?.length ?? 0;

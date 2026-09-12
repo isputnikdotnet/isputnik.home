@@ -66,7 +66,7 @@ export function useGalleryPeople({ setLoading, setError, setNotice, scopeParams,
     } finally {
       setLoading(false);
     }
-  }, [scopeParams, setLoading, setError]);
+  }, [scopeParams, setLoading, setError, t]);
 
   // Drill into one person's photos (opened from a person chip). Paged like the
   // timeline: offset 0 replaces the grid, later offsets append. A person can have
@@ -90,7 +90,7 @@ export function useGalleryPeople({ setLoading, setError, setNotice, scopeParams,
     } finally {
       setLoading(false);
     }
-  }, [setLoading, setError]);
+  }, [setLoading, setError, t]);
 
   const loadFaceSettings = useCallback(async () => {
     if (!isAdmin) return;
@@ -113,7 +113,7 @@ export function useGalleryPeople({ setLoading, setError, setNotice, scopeParams,
     } catch (err) {
       setError(err instanceof Error ? err.message : t("gallery:people.errors.rename"));
     }
-  }, [selectedPerson, renameValue, loadPeople, setError]);
+  }, [selectedPerson, renameValue, loadPeople, setError, t]);
 
   // Set the person's cover (chosen in the cover-picker popup). The list card's
   // cover is cached on `people`, not the detail — refresh it too, or the open
@@ -129,7 +129,7 @@ export function useGalleryPeople({ setLoading, setError, setNotice, scopeParams,
     } catch (err) {
       setError(err instanceof Error ? err.message : t("gallery:people.errors.updateCover"));
     }
-  }, [loadPeople, setError, setNotice]);
+  }, [loadPeople, setError, setNotice, t]);
 
   const confirmMerge = useCallback(async (targetId: string) => {
     if (!selectedPerson) return;
@@ -142,7 +142,7 @@ export function useGalleryPeople({ setLoading, setError, setNotice, scopeParams,
     } catch (err) {
       setError(err instanceof Error ? err.message : t("gallery:people.errors.merge"));
     }
-  }, [selectedPerson, loadPeople, setError, setNotice]);
+  }, [selectedPerson, loadPeople, setError, setNotice, t]);
 
   // Detach one photo from the open person (a mismatched auto-cluster member, or a
   // manual tag). Drops it from the grid optimistically and refreshes counts.
@@ -156,7 +156,7 @@ export function useGalleryPeople({ setLoading, setError, setNotice, scopeParams,
     } catch (err) {
       setError(err instanceof Error ? err.message : t("gallery:people.errors.removePhoto"));
     }
-  }, [selectedPerson, loadPeople, setError]);
+  }, [selectedPerson, loadPeople, setError, t]);
 
   // Toggle one photo in the "move these to someone else" picker.
   const togglePersonPick = useCallback((assetId: string) => {
@@ -196,7 +196,7 @@ export function useGalleryPeople({ setLoading, setError, setNotice, scopeParams,
     } finally {
       setMovingPhotos(false);
     }
-  }, [selectedPerson, personPick, loadPeople, setError, setNotice]);
+  }, [selectedPerson, personPick, loadPeople, setError, setNotice, t]);
 
   const confirmDeletePerson = useCallback(async () => {
     if (!selectedPerson) return;
@@ -208,7 +208,7 @@ export function useGalleryPeople({ setLoading, setError, setNotice, scopeParams,
     } catch (err) {
       setError(err instanceof Error ? err.message : t("gallery:people.errors.delete"));
     }
-  }, [selectedPerson, loadPeople, setError]);
+  }, [selectedPerson, loadPeople, setError, t]);
 
   return {
     people, setPeople,

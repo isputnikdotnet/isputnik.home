@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import {
   ArrowUpDown, BookOpen, BookText, FileQuestion, Folder, Headphones, Hourglass, Image as ImageIcon,
@@ -334,7 +334,7 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
   // Any change to what's listed or how it's ordered goes back to the top.
   useEffect(() => { setPage(1); }, [scopeId, sourceFilter, retentionFilter, search, sort, perPage]);
 
-  const loadReplaced = async () => {
+  const loadReplaced = useCallback(async () => {
     try {
       const payload = await api<{ originals?: ReplacedOriginal[]; bytes?: number }>("/api/library/trash/replaced");
       setReplaced(Array.isArray(payload.originals) ? payload.originals : []);
@@ -343,9 +343,9 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
     } catch (err) {
       setReplacedError(err instanceof Error ? err.message : t("controlAdmin:recycleBin.replacedLoadFailed"));
     }
-  };
+  }, [t]);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const payload = await api<{
       items: TrashedItem[];
       retentionDays: number;
@@ -380,13 +380,13 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
     if (currentUser.role === "admin") {
       setTrashRoot(await api<TrashRootSettings>("/api/storage/trash-root"));
     }
-  };
+  }, [currentUser.role, loadReplaced]);
 
   useEffect(() => {
     load()
       .catch((err) => setError(err instanceof Error ? err.message : t("controlAdmin:recycleBin.loadFailed")))
       .finally(() => setLoaded(true));
-  }, []);
+  }, [load, t]);
 
   const isAdmin = currentUser.role === "admin";
   const retentionDirty =
@@ -581,16 +581,17 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
   // library scope, ignoring the search box and the source/retention filters, so a
   // dialog counting the rows on screen would promise less than it takes. The library
   // picker is the only filter that reaches the server.
-  const inScope = useMemo(
-    () => (scopeId ? items.filter((item) => item.libraryId === scopeId) : items),
-    [items, scopeId]
-  );
+  // Plainly computed: nothing downstream holds this array's identity — it is counted,
+  // summed and filtered again on the spot — so a memo only hid a one-line filter.
+  const inScope = scopeId ? items.filter((item) => item.libraryId === scopeId) : items;
   const scopeBytes = inScope.reduce((sum, item) => sum + item.sizeBytes, 0);
   const scopeFiles = inScope.reduce((sum, item) => sum + (item.kind === "file" ? item.fileCount : 0), 0);
   // Items still owed time. These are the ones an accidental Empty really costs you:
-  // the rest were going anyway, on a date the tile already shows.
+  // the rest were going anyway, on a date the tile already shows. The clock is read
+  // once for the visit — retention is counted in days — so rendering stays pure.
+  const [now] = useState(() => Date.now());
   const scopeUnexpired = inScope.filter(
-    (item) => item.purgesAt === null || Date.parse(item.purgesAt) > Date.now()
+    (item) => item.purgesAt === null || Date.parse(item.purgesAt) > now
   ).length;
   // Typing is asked for only when emptying the whole bin — the one action here that
   // reaches past what the page is showing and cannot be undone. A scoped empty is

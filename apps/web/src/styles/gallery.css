@@ -1588,9 +1588,8 @@
   min-height: 420px;
   border-radius: 12px;
   overflow: hidden;
-  /* No border: this read `1px solid var(--border)`, a property nothing defines,
-     so the declaration computed to nothing and never drew one. */
-  border: 0;
+  /* Drew nothing until 4.1.x (it read the undefined var(--border)). */
+  border: 1px solid var(--line);
 }
 
 /* Thumbnail pins — strip Leaflet's default div-icon chrome and show the cover. */

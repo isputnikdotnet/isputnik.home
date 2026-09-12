@@ -77,8 +77,6 @@ export function GallerySlideshowEditor({
   const [order, setOrder] = useState<string[]>(() => assets.map((a) => a.id));
   const [dragActive, setDragActive] = useState(false);
   const draggingId = useRef<string | null>(null);
-  const orderRef = useRef(order);
-  orderRef.current = order;
 
   useEffect(() => {
     if (dragActive) return;
@@ -138,8 +136,11 @@ export function GallerySlideshowEditor({
     });
   };
 
+  // `order` here is the working order from the render this handler was attached in,
+  // which is the same thing a ref mirrored while rendering would have held: the
+  // last dragover's setOrder has to have been committed either way.
   const endDrag = () => {
-    if (draggingId.current) onReorder(orderRef.current);
+    if (draggingId.current) onReorder(order);
     draggingId.current = null;
     setDragActive(false);
   };
@@ -357,6 +358,10 @@ export function GallerySlideshowEditor({
       )}
 
       <div className={`gallery-grid slideshow-editor-grid${canEdit ? " is-editable" : ""}`}>
+        {/* draggingId is read below to dim the tile being dragged. It is gated on
+            dragActive, which is state set in the same dragstart that writes the ref —
+            so the render that first consults it is one the ref is already set for. */}
+        {/* eslint-disable-next-line react-hooks/refs */}
         {ordered.map((asset, index) => (
           <div
             key={asset.id}

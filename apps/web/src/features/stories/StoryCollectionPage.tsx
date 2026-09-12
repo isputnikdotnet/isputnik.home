@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, BookOpen, CalendarDays, Library, Plus, ShieldCheck, SquarePen } from "lucide-react";
 import { api } from "../../api";
@@ -46,7 +46,7 @@ export function StoryCollectionPage({
   const [editing, setEditing] = useState(false);
   const [accessOpen, setAccessOpen] = useState(false);
 
-  const load = () => {
+  const load = useCallback(() => {
     api<{ collection: CollectionDetail; stories: StorySummary[] }>(`/api/stories/collections/${id}`)
       .then((payload) => {
         setCollection(payload.collection);
@@ -54,8 +54,8 @@ export function StoryCollectionPage({
         document.title = `${payload.collection.title} — isputnik.home`;
       })
       .catch((err) => setError(err instanceof Error ? err.message : t("stories:errors.load")));
-  };
-  useEffect(load, [id]);
+  }, [id, t]);
+  useEffect(load, [load]);
 
   // The year spine: stories grouped by the year their chapters start, oldest
   // year first (a shelf reads forward in time); undated stories close the page.

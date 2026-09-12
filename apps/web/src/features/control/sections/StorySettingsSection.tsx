@@ -44,7 +44,7 @@ export function StorySettingsSection() {
       })
       .catch((err) => setLoadError(err instanceof Error ? err.message : t("controlAdmin:storySettings.loadFailed")))
       .finally(() => setLoading(false));
-  }, []);
+  }, [t]);
 
   const save = async (event: FormEvent) => {
     event.preventDefault();

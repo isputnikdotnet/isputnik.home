@@ -95,3 +95,38 @@ describe("GalleryLightbox change signal", () => {
     await waitFor(() => expect(onChanged).toHaveBeenCalledWith({ kind: "asset", id: "p1" }));
   });
 });
+
+// The viewer is ONE mounted component that pages through the set, so the heart has
+// to belong to whichever photo is on screen and to nothing else. It is derived from
+// the asset (with an optimistic flip remembered against it), not a copy of
+// `asset.saved` that an effect puts back in step one render later — that render
+// showed the previous photo's heart, and a click in it liked the wrong photo.
+describe("GalleryLightbox like state follows the photo", () => {
+  it("shows the heart of the photo on screen, not the one before it", () => {
+    const assets = [photo(), photo({ id: "p2", title: "IMG_1225.jpg", saved: true })];
+    const { rerender } = render(<GalleryLightbox {...props({ assets })} />);
+    expect(screen.getByRole("button", { name: "Like" })).toBeInTheDocument();
+
+    // Paging: the host re-renders the same viewer with the next index.
+    rerender(<GalleryLightbox {...props({ assets, index: 1 })} />);
+    expect(screen.getByRole("button", { name: "Unlike" })).toBeInTheDocument();
+  });
+
+  it("adopts a saved value the host changes under it", () => {
+    const { rerender } = render(<GalleryLightbox {...props({ assets: [photo()] })} />);
+    expect(screen.getByRole("button", { name: "Like" })).toBeInTheDocument();
+
+    rerender(<GalleryLightbox {...props({ assets: [photo({ saved: true })] })} />);
+    expect(screen.getByRole("button", { name: "Unlike" })).toBeInTheDocument();
+  });
+
+  it("keeps an optimistic like across a re-render the host has not caught up with", async () => {
+    const assets = [photo()];
+    const { rerender } = render(<GalleryLightbox {...props({ assets })} />);
+    await userEvent.click(screen.getByRole("button", { name: "Like" }));
+    expect(screen.getByRole("button", { name: "Unlike" })).toBeInTheDocument();
+
+    rerender(<GalleryLightbox {...props({ assets })} />);
+    expect(screen.getByRole("button", { name: "Unlike" })).toBeInTheDocument();
+  });
+});

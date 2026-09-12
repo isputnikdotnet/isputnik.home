@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { KeyRound, Trash2 } from "lucide-react";
 import { startRegistration, browserSupportsWebAuthn } from "@simplewebauthn/browser";
 import type { PublicKeyCredentialCreationOptionsJSON } from "@simplewebauthn/browser";
@@ -42,17 +42,17 @@ export function PasskeysSection() {
 
   const supported = browserSupportsWebAuthn();
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     try {
       setStatus(await api<PasskeyStatus>("/api/profile/passkeys"));
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : t("misc:passkeys.unableToLoadFallback"));
     }
-  };
+  }, [t]);
 
   useEffect(() => {
     void refresh();
-  }, []);
+  }, [refresh]);
 
   const openAdd = () => {
     setPassword("");

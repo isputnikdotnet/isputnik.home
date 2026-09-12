@@ -122,7 +122,7 @@ describe("emptying the bin", () => {
     mount(admin, [item("a", "L1", "Photos", future), item("b", "L2", "Books", future)]);
     await waitFor(() => expect(screen.getByRole("button", { name: "Which library's deleted items to show" })).toBeInTheDocument());
     await userEvent.click(screen.getByRole("button", { name: "Which library's deleted items to show" }));
-    await userEvent.click(screen.getByRole("menuitem", { name: "Photos" }));
+    await userEvent.click(screen.getByRole("menuitemradio", { name: "Photos" }));
 
     await openEmpty("Empty Recycle Bin for Photos");
     expect(screen.getByText("Empty the Recycle Bin for “Photos”?")).toBeInTheDocument();

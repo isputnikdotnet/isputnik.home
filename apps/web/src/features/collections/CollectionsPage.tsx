@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ListMusic, Plus } from "lucide-react";
 import { api } from "../../api";
@@ -16,13 +16,13 @@ export function CollectionsPage() {
   const [error, setError] = useState("");
   const [creating, setCreating] = useState(false);
 
-  const load = () => {
+  const load = useCallback(() => {
     api<{ collections: CollectionSummary[] }>("/api/collections")
       .then((payload) => setCollections(payload.collections))
       .catch((err) => setError(err instanceof Error ? err.message : t("user:collections.loadFailed")));
-  };
+  }, [t]);
 
-  useEffect(load, []);
+  useEffect(load, [load]);
 
   return (
     <DashboardShell active="user" sideNav={<UserAreaNav active="collections" />}>

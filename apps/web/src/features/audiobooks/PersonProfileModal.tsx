@@ -261,7 +261,7 @@ export function PersonProfileModal({
         setPhotoUrl(p.photoUrl);
       })
       .catch((err) => setError(err instanceof Error ? err.message : t("book:person.unableLoadProfile")));
-  }, [personName]);
+  }, [personName, query, t]);
 
   const handleSave = async () => {
     const newName = name.trim();

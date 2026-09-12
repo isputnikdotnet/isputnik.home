@@ -61,7 +61,7 @@ export function useGalleryAlbums({ setLoading, setError, setNotice }: GallerySta
     } finally {
       setLoading(false);
     }
-  }, [setLoading, setError]);
+  }, [setLoading, setError, t]);
 
   const openAlbum = useCallback(async (albumId: string, offset = 0) => {
     setLoading(true);
@@ -78,7 +78,7 @@ export function useGalleryAlbums({ setLoading, setError, setNotice }: GallerySta
     } finally {
       setLoading(false);
     }
-  }, [setLoading, setError]);
+  }, [setLoading, setError, t]);
 
   // Album edits (rename / sort mode / cover). Reloads the header + list so cards
   // stay fresh (loadAlbums refreshes the list-card cover thumbnail after a change).
@@ -91,7 +91,7 @@ export function useGalleryAlbums({ setLoading, setError, setNotice }: GallerySta
     } catch (err) {
       setError(err instanceof Error ? err.message : t("gallery:albums.errors.update"));
     }
-  }, [openAlbum, loadAlbums, setError]);
+  }, [openAlbum, loadAlbums, setError, t]);
 
   // Set the album cover (chosen in the cover-picker popup).
   const setAlbumCover = useCallback(async (albumId: string, itemId: string) => {
@@ -99,7 +99,7 @@ export function useGalleryAlbums({ setLoading, setError, setNotice }: GallerySta
     setNotice("");
     await patchAlbum(albumId, { coverItemId: itemId });
     setNotice(t("gallery:albums.coverUpdated"));
-  }, [patchAlbum, setNotice]);
+  }, [patchAlbum, setNotice, t]);
 
   const removeFromAlbum = useCallback(async (albumId: string, assetId: string) => {
     try {
@@ -112,7 +112,7 @@ export function useGalleryAlbums({ setLoading, setError, setNotice }: GallerySta
     } catch (err) {
       setError(err instanceof Error ? err.message : t("gallery:albums.errors.removePhoto"));
     }
-  }, [setError]);
+  }, [setError, t]);
 
   const createAlbumSubmit = useCallback(async () => {
     const name = albumNewName.trim();
@@ -132,7 +132,7 @@ export function useGalleryAlbums({ setLoading, setError, setNotice }: GallerySta
     } finally {
       setAlbumBusy(false);
     }
-  }, [albumNewName, albumNewDesc, loadAlbums, setError]);
+  }, [albumNewName, albumNewDesc, loadAlbums, setError, t]);
 
   const confirmDeleteAlbum = useCallback(async () => {
     if (!selectedAlbum) return;
@@ -147,7 +147,7 @@ export function useGalleryAlbums({ setLoading, setError, setNotice }: GallerySta
     } finally {
       setAlbumBusy(false);
     }
-  }, [selectedAlbum, loadAlbums, setError]);
+  }, [selectedAlbum, loadAlbums, setError, t]);
 
   return {
     albums, setAlbums,

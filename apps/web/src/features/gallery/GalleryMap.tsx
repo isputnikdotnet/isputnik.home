@@ -20,7 +20,20 @@ export function GalleryMap({ points, onOpen }: { points: GalleryMapPoint[]; onOp
   // onOpen is read inside marker handlers; a ref keeps them current without
   // rebuilding the map on every render.
   const onOpenRef = useRef(onOpen);
-  onOpenRef.current = onOpen;
+  // The tile credit is read once, when the layer is added. Same trick as onOpen:
+  // the ref hands the current wording to the create-once effect without making the
+  // map depend on `t` — which would tear the map down, and the viewport with it,
+  // every time the interface language changed. Nothing is lost by that: the
+  // language is chosen on another page, so this map is rebuilt on the way back.
+  const attributionRef = useRef(t("gallery:map.osmAttributionContributors"));
+
+  // Both refs are refreshed after every commit rather than while rendering — the
+  // only readers are a marker click and the create-once effect below, and effects
+  // run in the order they are written, so this one has already landed by then.
+  useEffect(() => {
+    onOpenRef.current = onOpen;
+    attributionRef.current = t("gallery:map.osmAttributionContributors");
+  });
 
   // Create the map once.
   useEffect(() => {
@@ -28,7 +41,7 @@ export function GalleryMap({ points, onOpen }: { points: GalleryMapPoint[]; onOp
     const map = L.map(containerRef.current, { worldCopyJump: true }).setView([20, 0], 2);
     L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
-      attribution: t("gallery:map.osmAttributionContributors")
+      attribution: attributionRef.current
     }).addTo(map);
     const cluster = L.markerClusterGroup({ maxClusterRadius: 50 });
     map.addLayer(cluster);

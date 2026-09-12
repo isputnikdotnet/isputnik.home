@@ -685,9 +685,9 @@
   gap: 10px;
   margin-top: 14px;
   padding: 0 12px;
-  /* No border: this read `1px solid var(--border)`, a property nothing defines,
-     so it never drew one — the focus tint below has nothing to tint either. */
-  border: 0;
+  /* Drew nothing until 4.1.x: it read var(--border), which nothing defines.
+     --line is the themes' own border colour, which is what it meant. */
+  border: 1px solid var(--line);
   border-radius: 10px;
   color: var(--muted);
 }

@@ -119,7 +119,7 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
     load()
       .catch((err) => setError(err instanceof Error ? err.message : t("controlDash:dupes.loadFailed")))
       .finally(() => setLoaded(true));
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     if (!job || job.status === "draft") { setResults(EMPTY_RESULTS); return; }
@@ -128,6 +128,10 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
         setError(err instanceof Error ? err.message : t("controlDash:dupes.resultsFailed")));
     }, search ? 250 : 0);
     return () => window.clearTimeout(handle);
+    // Keyed on the job's identity and the filters, not on the job object or on
+    // loadResults: both are rebuilt on every render, and the page of results would
+    // be re-fetched — debounce and all — every time anything on this page moved.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [job?.id, job?.status, job?.scanCompletedAt, search, typeFilter, reviewFilter, sortOrder, page]);
 
   useEffect(() => { setPage(1); }, [search, typeFilter, reviewFilter, sortOrder]);
@@ -147,6 +151,9 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
       .catch(() => { if (live) setStale([]); })
       .finally(() => { if (live) setChecking(false); });
     return () => { live = false; };
+    // One request, when the confirm opens on a result — so it is the pair of ids
+    // this keys on. The objects behind them change identity with every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [confirm?.id, job?.id]);
 
   // Delete one result's copies. Not routed through post(): that helper reduces every

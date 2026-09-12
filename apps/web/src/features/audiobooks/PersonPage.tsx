@@ -70,7 +70,13 @@ const roleLabel = (role: string) => {
   return key ? i18n.t(`book:personPage.${key}`) : role.charAt(0).toUpperCase() + role.slice(1);
 };
 const typeLabel = (type: string) => (type === "ebook" ? i18n.t("common:mediaKind.ebook") : i18n.t("common:mediaKind.audiobook"));
-const typeIcon = (type: string): LucideIcon => (type === "ebook" ? BookOpen : Headphones);
+// A component, not a function that hands back a component: picking the icon
+// during render makes every row a fresh component type to React.
+function TypeIcon({ type, size }: { type: string; size: number }) {
+  return type === "ebook"
+    ? <BookOpen size={size} aria-hidden="true" />
+    : <Headphones size={size} aria-hidden="true" />;
+}
 const bookHref = (item: PersonItem) =>
   item.type === "ebook" ? `/ebooks/books/${item.id}` : `/audiobooks/books/${item.id}`;
 
@@ -157,7 +163,7 @@ export function PersonPage({
         .then((payload) => setMergeNames(payload.names))
         .catch(() => {}); // merge just stays unavailable if this fails
     }
-  }, [personName, loadProfile, user.role]);
+  }, [personName, loadProfile, user.role, t]);
 
   const chooseTab = (tab: PersonTab) => {
     setActiveTab(tab);
@@ -435,7 +441,6 @@ export function PersonPage({
 // the narrator on a narrator's own rows).
 function PersonTitleRow({ item }: { item: PersonItem }) {
   const { t } = useTranslation(["common", "book"]);
-  const Icon = typeIcon(item.type);
   const creditLine = item.role === "narrator"
     ? (item.authors.length > 0 ? t("book:metadata.byAuthors", { authors: item.authors.join(", ") }) : null)
     : item.type === "audiobook" && item.narrators.length > 0
@@ -448,12 +453,12 @@ function PersonTitleRow({ item }: { item: PersonItem }) {
   return (
     <Button variant="bare" className="person-title-row" onClick={() => navigate(bookHref(item))}>
       <div className="person-title-cover" aria-hidden="true">
-        {item.coverUrl ? <img src={item.coverUrl} alt="" /> : <Icon size={26} />}
+        {item.coverUrl ? <img src={item.coverUrl} alt="" /> : <TypeIcon type={item.type} size={26} />}
       </div>
       <div className="person-title-info">
         <strong>{item.title}</strong>
         <span className="person-title-meta">
-          <Icon size={16} aria-hidden="true" />
+          <TypeIcon type={item.type} size={16} />
           {typeLabel(item.type)}
         </span>
         {(creditLine || durationText) && (

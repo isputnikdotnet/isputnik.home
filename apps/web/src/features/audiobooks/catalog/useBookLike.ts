@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { api } from "../../../api";
 import type { AudiobookBook } from "../types";
 
@@ -14,37 +14,43 @@ export function bookStatus(book: AudiobookBook): BookStatus {
 // progress, or an ebook document's reading progress (which needs the document).
 export type FinishTrack = "listening" | "reading";
 
+/** An optimistic flip, remembered against the server value it was made over. The
+ *  moment the book comes back carrying a different value, the flip is spent and
+ *  the book wins — so both toggles below are DERIVED from the book rather than
+ *  copied out of it into state that an effect then has to keep in step. */
+interface Optimistic<T> { over: T; value: T }
+
+function settled<T>(pending: Optimistic<T> | null, fromBook: T): T {
+  return pending && pending.over === fromBook ? pending.value : fromBook;
+}
+
 // The like and finished toggles every catalog tile carries (desktop card and
 // mobile row alike). Both are optimistic — flipped at once, put back if the
-// server refuses — and re-seed from the book whenever the catalog refreshes it.
+// server refuses — and both read through the book, so a catalog refresh is
+// adopted in the same render rather than one render later.
 export function useBookLike(
   book: AudiobookBook & { documentId?: string | null },
   track: FinishTrack = "listening"
 ) {
-  const [liked, setLiked] = useState(book.saved);
+  const [pendingLike, setPendingLike] = useState<Optimistic<boolean> | null>(null);
   const [likeBusy, setLikeBusy] = useState(false);
-  const [status, setStatus] = useState<BookStatus>(() => bookStatus(book));
+  const [pendingStatus, setPendingStatus] = useState<Optimistic<BookStatus> | null>(null);
   const [statusBusy, setStatusBusy] = useState(false);
 
-  // Re-seed from the server shape when the catalog refreshes. The reading tile
-  // has always re-seeded on any new progress object; the listening one only when
-  // the values change.
-  const progressKey = track === "reading"
-    ? book.progress
-    : `${book.progress?.completedAt ?? ""}|${book.progress?.percentComplete ?? ""}`;
-  useEffect(() => { setLiked(book.saved); }, [book.saved]);
-  useEffect(() => { setStatus(bookStatus(book)); }, [progressKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const liked = settled(pendingLike, book.saved);
+  const serverStatus = bookStatus(book);
+  const status = settled(pendingStatus, serverStatus);
 
   const toggleLike = async () => {
     if (likeBusy) return;
     const next = !liked;
-    setLiked(next);
+    setPendingLike({ over: book.saved, value: next });
     setLikeBusy(true);
     try {
       if (next) await api(`/api/library/books/${book.id}/save`, { method: "PUT", body: JSON.stringify({ note: null }) });
       else await api(`/api/library/books/${book.id}/save`, { method: "DELETE" });
     } catch {
-      setLiked(!next);
+      setPendingLike(null);
     } finally {
       setLikeBusy(false);
     }
@@ -54,7 +60,7 @@ export function useBookLike(
     if (statusBusy) return;
     if (track === "reading" && !book.documentId) return;
     const wasFinished = status === "finished";
-    setStatus(wasFinished ? "none" : "finished");
+    setPendingStatus({ over: serverStatus, value: wasFinished ? "none" : "finished" });
     setStatusBusy(true);
     try {
       if (track === "reading") {
@@ -70,7 +76,7 @@ export function useBookLike(
         await api(`/api/library/books/${book.id}/progress/complete`, { method: "POST", body: "{}" });
       }
     } catch {
-      setStatus(bookStatus(book));
+      setPendingStatus(null);
     } finally {
       setStatusBusy(false);
     }

@@ -42,7 +42,7 @@ export function NotificationsSection() {
       })
       .catch((err) => setLoadError(err instanceof Error ? err.message : t("controlAdmin:notifications.loadFailed")))
       .finally(() => setLoading(false));
-  }, []);
+  }, [t]);
 
   const save = async (event: FormEvent) => {
     event.preventDefault();

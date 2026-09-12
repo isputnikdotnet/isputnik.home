@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   Download,
   FileUp,
@@ -197,6 +197,13 @@ export function FamilyTreeChart({
   const { t } = useTranslation(["common", "family"]);
   const layout: ChartLayout = useMemo(() => computeChartLayout(tree, focusId), [tree, focusId]);
   const svgRef = useRef<SVGSVGElement>(null);
+  // The chart's size in pixels. The zoom readout and the card menu are both placed
+  // from it while rendering, so it is measured into state rather than read off the
+  // element mid-render — an observed box is a value React knows about, and a
+  // `getBoundingClientRect()` in the middle of a render is one it does not.
+  // Only the element's own box lives here: panning and zooming move the viewBox,
+  // which is already state, so the two together still redraw on every gesture.
+  const [frame, setFrame] = useState<{ width: number; height: number } | null>(null);
   const [view, setView] = useState<ViewBox | null>(null);
   const [cardMenuId, setCardMenuId] = useState<string | null>(null);
   // Live pointer state for pan + pinch; refs so move events don't re-render.
@@ -220,6 +227,26 @@ export function FamilyTreeChart({
     const h = rect.height / scale;
     setView({ x: minX + contentW / 2 - w / 2, y: minY + contentH / 2 - h / 2, w, h });
   };
+
+  // Measure the chart, then keep measuring it: the window resizes, the browser
+  // chrome appears, the control rail folds away on a narrow screen. ResizeObserver
+  // fires once on observe, which is the first measurement.
+  useLayoutEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const observer = new ResizeObserver(() => {
+      const rect = svg.getBoundingClientRect();
+      // The border box, not contentRect: it is what the old in-render read used, and
+      // what the viewBox's "meet" fit is computed against.
+      setFrame((prev) => (
+        prev && prev.width === rect.width && prev.height === rect.height
+          ? prev
+          : { width: rect.width, height: rect.height }
+      ));
+    });
+    observer.observe(svg);
+    return () => observer.disconnect();
+  }, []);
 
   // Re-fit when the focus changes (the layout is rebuilt around a new origin);
   // a card menu anchored to the old layout goes with it.
@@ -337,31 +364,27 @@ export function FamilyTreeChart({
     w: layout.bounds.maxX - layout.bounds.minX,
     h: layout.bounds.maxY - layout.bounds.minY
   };
-  const currentScale = (() => {
-    const svg = svgRef.current;
-    if (!svg || !view) return 100;
-    const rect = svg.getBoundingClientRect();
-    return rect.width > 0 ? Math.round((rect.width / view.w) * 100) : 100;
-  })();
+  const currentScale = view && frame && frame.width > 0
+    ? Math.round((frame.width / view.w) * 100)
+    : 100;
 
-  // The open card's menu is HTML floating over the SVG, so its badge position
-  // has to be mapped from user space to pixels — recomputed every render, which
-  // is how it stays glued to the card while the chart pans and zooms.
+  // The open card's menu is HTML floating over the SVG, so its badge position has to
+  // be mapped from user space to pixels — recomputed every render, which is how it
+  // stays glued to the card while the chart pans and zooms. `box` is the viewBox the
+  // gesture just set and `frame` the measured element, so both halves of that
+  // mapping are state and every gesture redraws it.
   const cardMenuNode = cardMenuId ? layout.nodes.find((node) => node.person.id === cardMenuId) ?? null : null;
   const cardMenuPos = (() => {
-    const svg = svgRef.current;
-    if (!cardMenuNode || !svg) return null;
-    const rect = svg.getBoundingClientRect();
-    if (rect.width === 0 || rect.height === 0) return null;
+    if (!cardMenuNode || !frame || frame.width === 0 || frame.height === 0) return null;
     // Mirrors the default "xMidYMid meet" fit of the viewBox.
-    const scale = Math.min(rect.width / box.w, rect.height / box.h);
+    const scale = Math.min(frame.width / box.w, frame.height / box.h);
     const badgeX = cardMenuNode.x + NODE_W / 2 - 15;
     const badgeY = cardMenuNode.y - NODE_H / 2 + 15;
-    const left = (rect.width - box.w * scale) / 2 + (badgeX - box.x) * scale;
-    const top = (rect.height - box.h * scale) / 2 + (badgeY - box.y) * scale;
+    const left = (frame.width - box.w * scale) / 2 + (badgeX - box.x) * scale;
+    const top = (frame.height - box.h * scale) / 2 + (badgeY - box.y) * scale;
     return {
-      left: Math.max(8, Math.min(left + 14, rect.width - CARD_MENU_W - 8)),
-      top: Math.max(8, Math.min(top + 14, rect.height - CARD_MENU_H - 8))
+      left: Math.max(8, Math.min(left + 14, frame.width - CARD_MENU_W - 8)),
+      top: Math.max(8, Math.min(top + 14, frame.height - CARD_MENU_H - 8))
     };
   })();
 

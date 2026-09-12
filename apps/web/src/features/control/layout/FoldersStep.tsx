@@ -53,7 +53,10 @@ export function FoldersStep({
       }
     })();
     return () => { cancelled = true; };
-  }, [load, t]); // eslint-disable-line react-hooks/exhaustive-deps
+    // `selected` seeds which folders open, and only on the way in: re-reading the
+    // tree every time a folder is ticked would collapse it under the pointer.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [load, t]);
 
   const updateNode = (path: string, patch: (node: Node) => Node) => {
     setRoot((current) => {
@@ -97,7 +100,10 @@ export function FoldersStep({
       const node = findNode(path);
       if (node && node.children === null && !node.loading) void toggleExpand({ ...node });
     }
-  }, [root, expanded]); // eslint-disable-line react-hooks/exhaustive-deps
+    // Keyed on what is open, not on the helpers that fetch it: findNode and
+    // toggleExpand are re-made every render and would make this loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [root, expanded]);
 
   const coveredBy = (path: string): string | null => {
     let best: string | null = null;

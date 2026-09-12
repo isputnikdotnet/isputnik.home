@@ -28,7 +28,7 @@ export function CategoryListPage() {
     api<{ categories: CategorySummary[] }>("/api/library/categories")
       .then((payload) => setCategories(payload.categories))
       .catch((err) => setError(err instanceof Error ? err.message : t("book:categories.unableLoad")));
-  }, []);
+  }, [t]);
 
   const term = search.trim().toLowerCase();
   const shown = categories

@@ -50,7 +50,7 @@ export function TagDetailPage({
     api<{ tag: TagDetail }>(`/api/library/tags/${encodeURIComponent(tagName)}/books`)
       .then((payload) => setTag(payload.tag))
       .catch((err) => setError(err instanceof Error ? err.message : t("book:tags.unableLoadDetail")));
-  }, [tagName]);
+  }, [tagName, t]);
 
   const audiobookCount = tag?.books.filter((book) => book.kind === "audiobook").length ?? 0;
   const ebookCount = tag?.books.filter((book) => book.kind === "ebook").length ?? 0;
