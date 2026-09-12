@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ShieldCheck } from "lucide-react";
 import { api } from "../../api";
@@ -33,12 +33,12 @@ export function StoryCollectionAccessModal({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const load = () => {
+  const load = useCallback(() => {
     api<AccessPayload>(`/api/stories/collections/${collectionId}/access`)
       .then(setAccess)
       .catch((err) => setError(err instanceof Error ? err.message : t("stories:errors.load")));
-  };
-  useEffect(load, [collectionId]);
+  }, [collectionId, t]);
+  useEffect(load, [load]);
 
   const run = async (work: () => Promise<unknown>) => {
     setBusy(true);

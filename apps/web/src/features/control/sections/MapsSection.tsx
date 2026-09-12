@@ -46,7 +46,7 @@ export function MapsSection() {
       })
       .catch((err) => setLoadError(err instanceof Error ? err.message : t("controlAdmin:maps.loadFailed")))
       .finally(() => setLoading(false));
-  }, []);
+  }, [t]);
 
   const save = async (event: FormEvent) => {
     event.preventDefault();

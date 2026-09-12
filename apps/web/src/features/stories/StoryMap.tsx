@@ -39,8 +39,10 @@ export function StoryMap({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const layerRef = useRef<L.LayerGroup | null>(null);
+  // Refreshed after each commit rather than while rendering: the only reader is a
+  // pin's click handler, which fires long after paint.
   const onOpenRef = useRef(onOpen);
-  onOpenRef.current = onOpen;
+  useEffect(() => { onOpenRef.current = onOpen; });
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;

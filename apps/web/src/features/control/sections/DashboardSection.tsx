@@ -96,7 +96,7 @@ export function DashboardSection() {
 
   useEffect(() => {
     load().catch((err) => setError(err instanceof Error ? err.message : t("controlDash:dash.loadFailed")));
-  }, []);
+  }, [t]);
 
   // Tidy a retired name or an old path into the address that exists today.
   // replaceState, so the back button doesn't return to a dead address — and the

@@ -55,7 +55,10 @@ export function PreviewStep({
       }
     })();
     return () => { cancelled = true; };
-  }, [library.id, folders.join("\n"), layouts.join(" "), ruleId]); // eslint-disable-line react-hooks/exhaustive-deps
+    // Same trade as the step before it: the joined lists are what identifies a
+    // preview, while the arrays and onRows change identity on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [library.id, folders.join("\n"), layouts.join(" "), ruleId]);
 
   const all = rows ?? [];
   const matched = all.filter((r) => r.matched);

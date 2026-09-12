@@ -40,9 +40,32 @@ const APPLY_FIELD_LABELS = {
   description: "book:metadata.fieldDescription"
 } as const satisfies Record<ApplyField, string>;
 
+/** The Edit tab's fields as the book stands now. Read when the dialog opens, and
+ *  again by "Reset metadata", which is the one action that rewrites these fields
+ *  without closing the dialog. */
+function formOf(book: AudiobookBookDetail) {
+  return {
+    title: book.title,
+    series: book.series ?? "",
+    seriesPosition: book.seriesPosition?.toString() ?? "",
+    authors: book.authors,
+    narrators: book.narrators,
+    tags: book.tags,
+    categoryKey: book.category?.key ?? "",
+    publisher: book.publisher ?? "",
+    yearPublished: book.yearPublished?.toString() ?? "",
+    language: book.language ?? "",
+    isbn: book.isbn ?? "",
+    asin: book.asin ?? "",
+    description: book.description ?? ""
+  };
+}
+
 // The full metadata editor used both on the book detail page and from the
 // audiobooks grid "Edit metadata" action. It owns its own metadata-related
 // state; the host only supplies the book, an updated-book callback, and close.
+// Both hosts render it with key={book.id}, so it is never reused for a second
+// book — which is why the form below is seeded once instead of following `book`.
 export function EditMetadataModal({
   book,
   initialTab = "edit",
@@ -93,39 +116,12 @@ export function EditMetadataModal({
   const [librarySeries, setLibrarySeries] = useState<string[]>([]);
   const [libraryTags, setLibraryTags] = useState<string[]>([]);
   const [categories, setCategories] = useState<CategorySummary[]>([]);
-  const [editForm, setEditForm] = useState(() => ({
-    title: book.title,
-    series: book.series ?? "",
-    seriesPosition: book.seriesPosition?.toString() ?? "",
-    authors: book.authors,
-    narrators: book.narrators,
-    tags: book.tags,
-    categoryKey: book.category?.key ?? "",
-    publisher: book.publisher ?? "",
-    yearPublished: book.yearPublished?.toString() ?? "",
-    language: book.language ?? "",
-    isbn: book.isbn ?? "",
-    asin: book.asin ?? "",
-    description: book.description ?? ""
-  }));
-
-  useEffect(() => {
-    setEditForm({
-      title: book.title,
-      series: book.series ?? "",
-      seriesPosition: book.seriesPosition?.toString() ?? "",
-      authors: book.authors,
-      narrators: book.narrators,
-      tags: book.tags,
-      categoryKey: book.category?.key ?? "",
-      publisher: book.publisher ?? "",
-      yearPublished: book.yearPublished?.toString() ?? "",
-      language: book.language ?? "",
-      isbn: book.isbn ?? "",
-      asin: book.asin ?? "",
-      description: book.description ?? ""
-    });
-  }, [book]);
+  // Seeded from the book on open. It deliberately does NOT follow `book`: the
+  // hosts hand a new object down on every refresh (a scan poll, a cover applied),
+  // and re-seeding from an effect wiped a half-typed title. The one action that
+  // legitimately rewrites these fields with the dialog still open — Reset
+  // metadata — sets them itself.
+  const [editForm, setEditForm] = useState(() => formOf(book));
 
   // Ebooks are single files: no scannable cover folder and no narrators. Hide the
   // audiobook-only folder-cover scan (it 404s "Audiobook not found" for them) and
@@ -143,7 +139,7 @@ export function EditMetadataModal({
     } finally {
       setCoverLoading(false);
     }
-  }, [book.id]);
+  }, [book.id, t]);
 
   useEffect(() => {
     if (activeMetadataTab === "cover" && !isEbook) {
@@ -239,6 +235,9 @@ export function EditMetadataModal({
     try {
       const payload = await api<{ reset: boolean; book: AudiobookBookDetail }>(`/api/library/books/${book.id}/metadata-reset`, { method: "POST" });
       onBookUpdated(payload.book);
+      // The dialog stays open on a reset, so the Edit tab has to show what the
+      // file said — the only place the form follows the book after opening.
+      setEditForm(formOf(payload.book));
       setResetConfirm(false);
     } catch (err) {
       setResetError(err instanceof Error ? err.message : t("book:metadata.unableReset"));

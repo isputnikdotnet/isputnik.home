@@ -82,7 +82,7 @@ export function LibraryFeedPage({ mode }: { mode: FeedMode }) {
         setError(err instanceof Error ? err.message : t("user:feed.loadFailed"));
       });
     return () => { alive = false; };
-  }, [mode]);
+  }, [mode, t]);
 
   const EmptyIcon = meta.icon;
 

@@ -46,7 +46,7 @@ export function useIpReputation(addresses: (string | null)[]) {
     } finally {
       setChecking(null);
     }
-  }, []);
+  }, [t]);
 
   return { byIp, configured, checking, error, check };
 }

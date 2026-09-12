@@ -429,7 +429,7 @@ export function QuotesPage() {
     } finally {
       if (requestId.current === id) setLoading(false);
     }
-  }, [query]);
+  }, [query, t]);
 
   useEffect(() => { void loadQuotes(); }, [loadQuotes]);
 

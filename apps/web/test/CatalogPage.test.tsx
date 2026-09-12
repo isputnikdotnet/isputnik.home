@@ -13,6 +13,8 @@ vi.mock("../src/app/DashboardShell", () => ({
 
 const { api } = await import("../src/api");
 const { CatalogPage } = await import("../src/features/audiobooks/catalog/CatalogPage");
+const { writeCatalogView } = await import("../src/features/audiobooks/useAudiobookCatalog");
+const { EMPTY_FILTERS } = await import("../src/features/audiobooks/BookFilter");
 
 // Audiobooks and Ebooks are one page (catalog/CatalogPage) drawn for two kinds.
 // What the KIND changes is declared in catalogKinds.ts — endpoints, words, tiles.
@@ -171,5 +173,62 @@ describe.each(KINDS)("CatalogPage behaves the same for %s", (kind) => {
     renderSignedIn(<CatalogPage kind={kind} />);
     await screen.findByRole("button", { name: tileButton(kind) });
     expect(screen.getByRole("button", { name: sortName })).toHaveAccessibleName(expect.stringContaining("Title (A–Z)"));
+  });
+});
+
+// Choosing libraries is a filter facet, and one library in the filter IS the scope
+// the catalog, the facets and the A–Z letters are asked for. That decision is
+// derived inside useMediaCatalog, next to the filters it is made from — the page
+// used to keep a copy of it and set it from an effect, so the very first render
+// asked for "all", and the remembered single-library view cost an extra render and
+// a wasted pair of requests on every mount.
+describe("CatalogPage library scope", () => {
+
+  // The session view is module state; put it back so the tests above stay honest
+  // whichever order they run in.
+  afterEach(() => { writeCatalogView("audiobooks:main", { filters: EMPTY_FILTERS }); });
+
+  it("asks for the remembered single library on the FIRST request, not the second", async () => {
+    writeCatalogView("audiobooks:main", { filters: { ...EMPTY_FILTERS, libraries: ["lib"] } });
+    const scopes: unknown[] = [];
+    const facetScopes: string[] = [];
+    vi.mocked(api).mockImplementation(async (path: string, init?: RequestInit) => {
+      if (path === librariesPath("audiobook")) return { libraries: [library()] } as never;
+      if (path.startsWith("/api/library/audiobooks/facets")) { facetScopes.push(path); return FACETS as never; }
+      if (path === "/api/library/audiobooks/catalog") {
+        scopes.push(JSON.parse(String(init?.body)));
+        return { books: [book("b1", "Treasure Island")], total: 1 } as never;
+      }
+      if (path === "/api/library/categories") return { categories: [] } as never;
+      return {} as never;
+    });
+
+    renderSignedIn(<CatalogPage kind="audiobook" />);
+    await screen.findByRole("button", { name: /Play Treasure Island/ });
+
+    expect(scopes).not.toHaveLength(0);
+    expect(scopes[0]).toMatchObject({ scope: "library", libraryId: "lib" });
+    // No round trip against the whole catalog on the way there.
+    expect(scopes.some((body) => (body as { scope: string }).scope === "all")).toBe(false);
+    expect(facetScopes.every((path) => path.includes("scope=library"))).toBe(true);
+  });
+
+  it("asks for the whole catalog when the filter names several libraries", async () => {
+    writeCatalogView("audiobooks:main", { filters: { ...EMPTY_FILTERS, libraries: ["lib", "lib2"] } });
+    const scopes: unknown[] = [];
+    vi.mocked(api).mockImplementation(async (path: string, init?: RequestInit) => {
+      if (path === librariesPath("audiobook")) return { libraries: [library()] } as never;
+      if (path.startsWith("/api/library/audiobooks/facets")) return FACETS as never;
+      if (path === "/api/library/audiobooks/catalog") {
+        scopes.push(JSON.parse(String(init?.body)));
+        return { books: [book("b1", "Treasure Island")], total: 1 } as never;
+      }
+      if (path === "/api/library/categories") return { categories: [] } as never;
+      return {} as never;
+    });
+
+    renderSignedIn(<CatalogPage kind="audiobook" />);
+    await screen.findByRole("button", { name: /Play Treasure Island/ });
+    expect(scopes[0]).toMatchObject({ scope: "all" });
   });
 });

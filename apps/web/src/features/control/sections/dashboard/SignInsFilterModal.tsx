@@ -69,7 +69,7 @@ export function SignInsFilterModal({
     api<{ users: ManagedUser[] }>("/api/users")
       .then((payload) => setUsers(payload.users))
       .catch((err) => setError(err instanceof Error ? err.message : t("controlDash:signInsFilter.membersFailed")));
-  }, []);
+  }, [t]);
 
   const ready = useMemo(() => {
     if (kind === "all") return true;

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { BookOpen, ChevronLeft, ChevronRight, Download, Image as ImageIcon, Images, Play, Share2, X } from "lucide-react";
@@ -62,7 +62,7 @@ function SharedAlbumViewer({ album, onClose }: { album: SharedBook; onClose: () 
     api<{ items: SharedAlbumItem[] }>(`/api/library/gallery/shared-albums/${album.id}`)
       .then((payload) => setItems(payload.items))
       .catch((err) => setError(err instanceof Error ? err.message : t("user:shared.albumOpenFailed")));
-  }, [album.id]);
+  }, [album.id, t]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -161,20 +161,32 @@ export function ForYouPage() {
   const [busyId, setBusyId] = useState("");
   const [openAlbum, setOpenAlbum] = useState<SharedBook | null>(null);
 
-  const loadShares = () =>
-    api<{ books: SharedBook[] }>("/api/shared-with-me")
-      .then((payload) => setBooks(payload.books))
-      .catch((err) => setError(err instanceof Error ? err.message : t("user:shared.loadFailed")));
+  const loadShares = useCallback(
+    () =>
+      api<{ books: SharedBook[] }>("/api/shared-with-me")
+        .then((payload) => setBooks(payload.books))
+        .catch((err) => setError(err instanceof Error ? err.message : t("user:shared.loadFailed"))),
+    [t]
+  );
 
-  const loadWaiting = () =>
-    api<{ waiting: ForYouRow[] }>("/api/for-you")
-      .then((payload) => setWaiting(payload.waiting))
-      // A failing half must not take the page with it — the grid still renders.
-      .catch(() => setWaiting([]));
+  const loadWaiting = useCallback(
+    () =>
+      api<{ waiting: ForYouRow[] }>("/api/for-you")
+        .then((payload) => setWaiting(payload.waiting))
+        // A failing half must not take the page with it — the grid still renders.
+        .catch(() => setWaiting([])),
+    []
+  );
 
   useEffect(() => {
     void loadShares();
     void loadWaiting();
+  }, [loadShares, loadWaiting]);
+
+  // Opening the page IS reading it, so this fires once per visit — kept apart from
+  // the loads above, which may run again (a language switch re-reads them for the
+  // error line) and must not re-mark the inbox as seen each time.
+  useEffect(() => {
     api("/api/social/inbox/seen", { method: "POST" }).then(refreshInboxSummary).catch(() => undefined);
   }, []);
 

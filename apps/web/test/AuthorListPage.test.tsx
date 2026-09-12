@@ -172,7 +172,7 @@ describe("Authors browse filters", () => {
     await screen.findByText("Isaac Asimov");
 
     await user.click(screen.getByRole("button", { name: "Library" }));
-    await user.click(await screen.findByRole("menuitem", { name: "Reference" }));
+    await user.click(await screen.findByRole("menuitemradio", { name: "Reference" }));
 
     await waitFor(() => expect(screen.queryByText("Isaac Asimov")).not.toBeInTheDocument());
     expect(screen.getByText("Donald Knuth")).toBeInTheDocument();

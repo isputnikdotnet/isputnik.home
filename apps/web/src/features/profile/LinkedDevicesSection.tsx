@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Check, MonitorSmartphone, Pencil, Trash2, Tv } from "lucide-react";
 import { Trans, useTranslation } from "react-i18next";
 import { api } from "../../api";
@@ -58,18 +58,18 @@ export function LinkedDevicesSection() {
   // one linked display this page is about.
   const [showOthers, setShowOthers] = useState(false);
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     try {
       const result = await api<{ sessions: SessionRow[] }>("/api/account/sessions");
       setSessions(result.sessions);
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : t("misc:devices.unableToLoadFallback"));
     }
-  };
+  }, [t]);
 
   useEffect(() => {
     void refresh();
-  }, []);
+  }, [refresh]);
 
   const openRename = (session: SessionRow) => {
     setRenaming(session);

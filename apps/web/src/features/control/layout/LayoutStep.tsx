@@ -69,7 +69,10 @@ export function LayoutStep({
       }
     })();
     return () => { cancelled = true; };
-  }, [base, folders.join("\n")]); // eslint-disable-line react-hooks/exhaustive-deps
+    // The folders are what the examples come from; drafts are only read to decide
+    // whether to guess a first layout, and following them would re-guess it away.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [base, folders.join("\n")]);
 
   // Live counts: a dry run over the valid layouts, debounced.
   useEffect(() => {
@@ -101,7 +104,10 @@ export function LayoutStep({
       }
     }, 450);
     return () => clearTimeout(timer);
-  }, [layouts.join("\u0000"), valid.join(","), folders.join("\n"), ruleId]); // eslint-disable-line react-hooks/exhaustive-deps
+    // Keyed on the joined patterns rather than the arrays holding them: the dry
+    // run is a request per change, and the arrays are new on every keystroke.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layouts.join("\u0000"), valid.join(","), folders.join("\n"), ruleId]);
 
   const update = (index: number, mutate: (draft: LayoutDraft) => void) => {
     const next = drafts.map((d, i) => {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Wand2, ArrowRight, Check } from "lucide-react";
 import { api } from "../../../api";
@@ -46,7 +46,7 @@ export function ScanRuleWizard({
 
   const [step, setStep] = useState<Step>(target.kind === "preview" ? "preview" : steps[0]);
   const [folders, setFolders] = useState<string[]>(isDefault ? [""] : (editing?.paths ?? []));
-  const [name, setName] = useState(editing?.name ?? "");
+  const [typedName, setTypedName] = useState(editing?.name ?? "");
   const [nameEdited, setNameEdited] = useState(Boolean(editing));
   // Existing layouts start in text mode: the example they were built from is gone,
   // and the pattern text is the truth. The user can pick an example to rebuild.
@@ -61,13 +61,16 @@ export function ScanRuleWizard({
     [drafts, library.type]
   );
 
-  // Auto-name a new rule after its first folder and layout until the user types one.
-  useEffect(() => {
-    if (nameEdited) return;
+  // A new rule is named after its first folder and layout until the user types
+  // one. Computed here rather than pushed into state from an effect: as state it
+  // lagged a render behind the step the user had just changed, so Next could save
+  // the name built from the PREVIOUS folder.
+  const autoName = useMemo(() => {
     const folder = folders[0] === "" ? t("controlAdmin:layout.wholeLibrary") : (folders[0] ?? "").split("/").pop() ?? "";
     const layout = layouts[0] ? humanize(layouts[0], roleLabels) : "";
-    setName(folder && layout ? `${folder} · ${layout}` : folder || layout);
-  }, [folders, layouts, nameEdited, roleLabels, t]);
+    return folder && layout ? `${folder} · ${layout}` : folder || layout;
+  }, [folders, layouts, roleLabels, t]);
+  const name = nameEdited ? typedName : autoName;
 
   const folderLabel = folders.length === 0 ? library.name
     : folders.includes("") ? t("controlAdmin:layout.wholeLibrary")
@@ -162,7 +165,7 @@ export function ScanRuleWizard({
               isDefault={isDefault}
               name={name}
               nameEdited={nameEdited}
-              onName={(value) => { setName(value); setNameEdited(true); }}
+              onName={(value) => { setTypedName(value); setNameEdited(true); }}
               drafts={drafts}
               onDrafts={setDrafts}
             />

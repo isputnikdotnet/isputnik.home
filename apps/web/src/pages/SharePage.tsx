@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { BookOpen, ChevronDown, ChevronLeft, ChevronRight, Download, Headphones, Image as ImageIcon, List, Moon, Play, Volume2, VolumeX, X } from "lucide-react";
@@ -116,7 +116,7 @@ export function SharePage({ token }: { token: string }) {
         document.title = t("user:sharePage.docTitle", { name });
       })
       .catch((err) => setLoadError(err instanceof Error ? err.message : t("user:sharePage.gone")));
-  }, [token]);
+  }, [token, t]);
 
   if (loadError) {
     return (
@@ -394,6 +394,13 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
 
   const [fileIndex, setFileIndex] = useState(0);
   const [chaptersOpen, setChaptersOpen] = useState(false);
+  // What each toggle opens (aria-controls), and the armed sleep timer's countdown,
+  // which the timer button's fixed name would otherwise hide from a screen reader.
+  const ids = useId();
+  const speedMenuId = `${ids}-speed`;
+  const sleepMenuId = `${ids}-sleep`;
+  const chaptersId = `${ids}-chapters`;
+  const sleepStateId = `${ids}-sleep-state`;
 
   const files = book.files;
   const currentFile = files[fileIndex];
@@ -458,7 +465,9 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
     const close = () => { setSpeedOpen(false); setSleepOpen(false); setChaptersOpen(false); };
     window.addEventListener("click", close);
     return () => window.removeEventListener("click", close);
-  }, [speedOpen, sleepOpen, chaptersOpen]);
+    // The two setters come out of usePlayback, so the rule can't see that they are
+    // useState setters; they are, and listing them costs nothing.
+  }, [speedOpen, sleepOpen, chaptersOpen, setSpeedOpen, setSleepOpen]);
 
   const toggleSpeedMenu = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -583,6 +592,7 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
               className={cx("share-tool-btn", speedOpen && "open")}
               onClick={toggleSpeedMenu}
               aria-expanded={speedOpen}
+              aria-controls={speedOpen ? speedMenuId : undefined}
               aria-label={t("user:sharePage.speed")}
               title={t("user:sharePage.speed")}
             >
@@ -590,7 +600,7 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
               <ChevronDown size={14} aria-hidden="true" />
             </Button>
             {speedOpen && (
-              <div className="share-menu" onClick={(e) => e.stopPropagation()}>
+              <div id={speedMenuId} className="share-menu" onClick={(e) => e.stopPropagation()}>
                 {RATES.map((rate) => (
                   <Button
                     variant="bare"
@@ -612,14 +622,16 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
               className={cx("share-tool-btn", sleepOpen && "open", sleepMode !== "off" && "active")}
               onClick={toggleSleepMenu}
               aria-expanded={sleepOpen}
+              aria-controls={sleepOpen ? sleepMenuId : undefined}
               aria-label={t("user:sharePage.sleepTimer")}
+              aria-describedby={sleepLabel ? sleepStateId : undefined}
               title={t("user:sharePage.sleepTimer")}
             >
               <Moon size={15} aria-hidden="true" />
-              <span>{sleepLabel ?? t("user:sharePage.sleep")}</span>
+              <span id={sleepStateId}>{sleepLabel ?? t("user:sharePage.sleep")}</span>
             </Button>
             {sleepOpen && (
-              <div className="share-menu" onClick={(e) => e.stopPropagation()}>
+              <div id={sleepMenuId} className="share-menu" onClick={(e) => e.stopPropagation()}>
                 <Button
                   variant="bare"
                   className={cx("share-menu-option", sleepMode === "off" && "active")}
@@ -655,16 +667,17 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
         <div className="share-actions">
           {files.length > 1 && (
             <div className="share-menu-anchor">
-              <Button variant="secondary" onClick={toggleChapters} aria-expanded={chaptersOpen}>
+              <Button variant="secondary" onClick={toggleChapters} aria-expanded={chaptersOpen} aria-controls={chaptersOpen ? chaptersId : undefined}>
                 <List size={16} /><span>{t("user:sharePage.chapters")}</span>
               </Button>
               {chaptersOpen && (
-                <div className="share-chapter-menu" onClick={(e) => e.stopPropagation()}>
+                <div id={chaptersId} className="share-chapter-menu" onClick={(e) => e.stopPropagation()}>
                   {files.map((file, index) => (
                     <Button
                       variant="bare"
                       key={file.id}
                       className={cx("share-chapter-item", index === fileIndex && "active")}
+                      aria-current={index === fileIndex ? "true" : undefined}
                       onClick={() => jumpToChapter(index)}
                     >
                       <span className="share-chapter-num">{index + 1}</span>

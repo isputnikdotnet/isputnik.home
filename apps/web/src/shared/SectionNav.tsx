@@ -167,6 +167,10 @@ function ReorderableItems({
 
   return (
     <>
+      {/* `dragging.current === key` is read here to mark the row under the pointer.
+          It is the dragover that re-renders this list (via setOrder), and by then the
+          ref is already set — the first render after a dragstart is that one. */}
+      {/* eslint-disable-next-line react-hooks/refs */}
       {order.map((key) => {
         const item = byKey.get(key);
         if (!item) return null;

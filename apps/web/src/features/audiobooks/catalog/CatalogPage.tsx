@@ -23,7 +23,7 @@ import { EditMetadataModal } from "../EditMetadataModal";
 import { EbookReader } from "../reader/EbookReader";
 import { audiobookNavItems, ebookNavItems } from "../sectionNavItems";
 import type { AudiobookBook, AudiobookBookDetail, CategorySummary } from "../types";
-import { getDensityOptions, readCatalogView, useMediaCatalog, writeCatalogView, type CatalogDensity, type CatalogScope } from "../useAudiobookCatalog";
+import { getDensityOptions, readCatalogView, useMediaCatalog, writeCatalogView, type CatalogDensity } from "../useAudiobookCatalog";
 import { AddToSeriesModal } from "./AddToSeriesModal";
 import { BulkEditModal } from "./BulkEditModal";
 import { CatalogBookCard } from "./CatalogBookCard";
@@ -49,10 +49,6 @@ export function CatalogPage({ kind }: { kind: CatalogKind }) {
   const { t } = useTranslation(["common", "book"]);
   const { user } = useSession();
   const [libraries, setLibraries] = useState<CatalogLibrary[]>([]);
-  // Derived from the library filter below, not chosen: exactly one library in the
-  // filter behaves as a scope, anything else is "all". Keeps one source of truth
-  // for what's in view.
-  const [selectedLibraryId, setSelectedLibraryId] = useState("all");
   // Remembered for the session like the rest of the view (search, filters, View),
   // so stepping into a book and back keeps the order you chose.
   const [sort, setSort] = useState<SortKey>(() => readCatalogView(config.persistKey).sort);
@@ -100,23 +96,18 @@ export function CatalogPage({ kind }: { kind: CatalogKind }) {
       if (alive) setDownloadedIds(new Set(downloads.map((d) => d.bookId)));
     }).catch(() => {});
     return () => { alive = false; };
-  }, [isMobile]); // eslint-disable-line react-hooks/exhaustive-deps
+    // Asked once the page becomes the mobile one. Which list to ask follows the
+    // media type, which cannot change under a mounted catalog (App keys it).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMobile]);
 
   // Which shelves the list is drawn from is a filter, like every other way of
   // narrowing it — there is no scope picker of its own. One library chosen still
   // resolves to the library-scoped query, so the facets and the A–Z letters stay
-  // honest to what is actually on screen; anything else is the whole catalog.
-  const scope: CatalogScope = selectedLibraryId === "all"
-    ? { kind: "all" }
-    : { kind: "library", libraryId: selectedLibraryId };
-  const cat = useMediaCatalog<EbookBook>(scope, sort, config.persistKey, config.endpoints);
-
-  // One library in the filter is a scope; none or several is the whole catalog.
-  // Following it here (rather than deriving `scope` inline) keeps the hook's
-  // filters the single source of truth without the two referring to each other.
-  useEffect(() => {
-    setSelectedLibraryId(cat.filters.libraries.length === 1 ? cat.filters.libraries[0] : "all");
-  }, [cat.filters.libraries]);
+  // honest to what is actually on screen; anything else is the whole catalog. That
+  // decision lives in the hook, with the filters it is made from.
+  const cat = useMediaCatalog<EbookBook>(sort, config.persistKey, config.endpoints);
+  const selectedLibraryId = cat.selectedLibraryId;
 
   // The libraries the filter is narrowing to — everything accessible when it is
   // left empty.
@@ -172,9 +163,14 @@ export function CatalogPage({ kind }: { kind: CatalogKind }) {
     onDeleted: refreshAfterChange
   });
 
-  // Drop selection when the scope changes or selection is disallowed.
-  useEffect(() => { selection.exit(); }, [selectedLibraryId]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (!canSelect) selection.exit(); }, [canSelect]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Drop selection when the scope changes or selection is disallowed. Keyed on
+  // those two things alone: `selection` is re-made every render, and following it
+  // would clear the ticks the reader just put in.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { selection.exit(); }, [selectedLibraryId]);
+  // Same reason as above: the flag is the trigger, not the selection it acts on.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!canSelect) selection.exit(); }, [canSelect]);
 
   useEffect(() => {
     api<{ categories: CategorySummary[] }>("/api/library/categories")
@@ -185,7 +181,10 @@ export function CatalogPage({ kind }: { kind: CatalogKind }) {
   useEffect(() => {
     // The chosen libraries ride along in `filters`, which the hook persists.
     writeCatalogView(config.persistKey, { sort, density });
-  }, [sort, density]); // eslint-disable-line react-hooks/exhaustive-deps
+    // Written when one of the two settings changes; the key they are written
+    // under belongs to the media type and holds for the life of the page.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sort, density]);
 
   // While a library is scanning, refresh both the library status and the catalog
   // so new books appear without a manual reload.
@@ -196,7 +195,11 @@ export function CatalogPage({ kind }: { kind: CatalogKind }) {
       cat.refresh();
     }, 3000);
     return () => window.clearInterval(timer);
-  }, [libraries, loadLibraries, cat.refresh]); // eslint-disable-line react-hooks/exhaustive-deps
+    // cat.refresh is read off an object the hook returns fresh each render, so it
+    // is named here rather than the object: listing `cat` would restart the poll
+    // on every render, and a scan would never refresh anything.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [libraries, loadLibraries, cat.refresh]);
 
   const handleAudiobookUploaded = (book: AudiobookBookDetail | null, libraryName: string) => {
     setUploadOpen(false);
@@ -582,6 +585,7 @@ export function CatalogPage({ kind }: { kind: CatalogKind }) {
 
         {editDetail && (
           <EditMetadataModal
+            key={editDetail.id}
             book={editDetail}
             onBookUpdated={(updated) => { setEditDetail(updated); cat.refresh(); }}
             onClose={() => setEditDetail(null)}

@@ -32,13 +32,14 @@ export function useRecentActivity(
     setLogs(payload.logs);
     setTotal(payload.total);
     setTotalPages(payload.totalPages);
+    // eventsKey stands in for the events array, which every caller builds inline.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventsKey, pageSize, from, to, page, sort, dir]);
 
   useEffect(() => {
     setError("");
     load().catch((err) => setError(err instanceof Error ? err.message : t("controlDash:activity.loadFailed")));
-  }, [load]);
+  }, [load, t]);
 
   return { logs, total, totalPages, error, reload: load };
 }

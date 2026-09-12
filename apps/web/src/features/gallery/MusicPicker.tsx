@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Check, Music, Pause, Play, Trash2, UploadCloud, VolumeX } from "lucide-react";
 import { api, csrfToken } from "../../api";
@@ -37,12 +37,15 @@ export function MusicPicker({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
-  const load = () =>
-    api<{ tracks: GalleryMusicTrack[] }>("/api/library/gallery/music")
-      .then((payload) => setTracks(payload.tracks))
-      .catch((err) => setError(err instanceof Error ? err.message : t("gallery:musicPicker.errors.load")));
+  const load = useCallback(
+    () =>
+      api<{ tracks: GalleryMusicTrack[] }>("/api/library/gallery/music")
+        .then((payload) => setTracks(payload.tracks))
+        .catch((err) => setError(err instanceof Error ? err.message : t("gallery:musicPicker.errors.load"))),
+    [t]
+  );
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { void load(); }, [load]);
 
   // Stop any preview when the dialog unmounts.
   useEffect(() => () => { audioRef.current?.pause(); }, []);

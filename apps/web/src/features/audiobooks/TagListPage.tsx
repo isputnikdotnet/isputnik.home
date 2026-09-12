@@ -67,14 +67,17 @@ export function TagListPage() {
     api<{ tags: TagSummary[] }>("/api/library/tags")
       .then((payload) => setTags(payload.tags))
       .catch((err) => setError(err instanceof Error ? err.message : t("book:tags.unableLoad")));
-  }, []);
+  }, [t]);
 
   // Toggle counts are how many TAGS each scope holds — the cloud lists tags, so
   // that is what the number beside the label has to mean.
   const tagScopes = getTagScopes();
   const scopeCounts = useMemo(
     () => tagScopes.map((s) => ({ ...s, tagCount: tags.filter((tag) => s.countOf(tag) > 0).length })),
-    [tags] // eslint-disable-line react-hooks/exhaustive-deps
+    // The tags are the only input that changes: tagScopes is the fixed set of
+    // scopes, rebuilt each render, and keying on it would defeat the memo.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [tags]
   );
   const activeScope = tagScopes.find((s) => s.value === scope) ?? tagScopes[0];
 

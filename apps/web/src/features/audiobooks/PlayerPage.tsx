@@ -98,7 +98,7 @@ export function PlayerPage({ id }: { id: string }) {
       .then(({ save }) => { if (!cancelled) setSave(save); })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [currentId, collectionId]);
+  }, [currentId, collectionId, t]);
 
   const queueIndex = queue.findIndex((entry) => entry.entityId === currentId);
   const nextEntry = queueIndex >= 0 && queueIndex < queue.length - 1 ? queue[queueIndex + 1] : null;

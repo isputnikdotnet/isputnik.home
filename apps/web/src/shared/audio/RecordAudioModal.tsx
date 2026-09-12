@@ -108,7 +108,10 @@ export function RecordAudioModal({
   }, []);
   useEffect(() => { if (phase !== "done") redraw(); }, [phase, redraw]);
 
-  const sample = useCallback(() => {
+  // Named, and re-scheduled under its own name: a frame loop that reached back for
+  // the `sample` binding would be reading a value this render has not finished
+  // making.
+  const sample = useCallback(function sampleFrame() {
     const analyser = analyserRef.current;
     if (!analyser) return;
     const now = performance.now();
@@ -121,7 +124,7 @@ export function RecordAudioModal({
       ampsRef.current.push(Math.sqrt(sum / data.length));
       redraw();
     }
-    frameRef.current = requestAnimationFrame(sample);
+    frameRef.current = requestAnimationFrame(sampleFrame);
   }, [redraw]);
 
   const start = async () => {

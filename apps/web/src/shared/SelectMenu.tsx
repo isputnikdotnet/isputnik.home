@@ -1,6 +1,7 @@
 import React, { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { Check, ChevronDown } from "lucide-react";
 import { Button } from "./Button";
+import { useMenuKeyboard } from "./useMenuKeyboard";
 
 export interface SelectMenuOption<T extends string> {
   value: T;
@@ -8,6 +9,11 @@ export interface SelectMenuOption<T extends string> {
   icon?: React.ReactNode;
 }
 
+// A single choice for a form or a filter row: a listbox popup, not a menu, since
+// the thing chosen is a value that stays chosen. The keyboard is useMenuKeyboard's,
+// the same as SortMenu's: opening puts focus on the chosen option, Up/Down wrap,
+// Home/End jump, Enter or Space chooses, and Escape, Tab or a choice hand focus
+// back to the trigger.
 export function SelectMenu<T extends string>({
   value,
   options,
@@ -34,6 +40,8 @@ export function SelectMenu<T extends string>({
   const menuId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuKeys = useMenuKeyboard({ open, close: () => setOpen(false), menuRef: popoverRef, triggerRef });
   const selected = options.find((option) => option.value === value) ?? options[0];
   const hasIcons = options.some((option) => option.icon);
 
@@ -81,6 +89,7 @@ export function SelectMenu<T extends string>({
   return (
     <div ref={rootRef} className={["select-menu", className].filter(Boolean).join(" ")}>
       <Button
+        ref={triggerRef}
         variant="secondary"
         className="select-menu-trigger"
         aria-haspopup="listbox"
@@ -106,6 +115,7 @@ export function SelectMenu<T extends string>({
           className={`select-menu-popover${alignRight ? " align-right" : ""}`}
           role="listbox"
           aria-label={label}
+          onKeyDown={menuKeys.onKeyDown}
         >
           {options.map((option) => {
             const active = option.value === value;
@@ -118,7 +128,7 @@ export function SelectMenu<T extends string>({
                 aria-selected={active}
                 onClick={() => {
                   onChange(option.value);
-                  setOpen(false);
+                  menuKeys.closeAndRestore();
                 }}
               >
                 <span className="select-menu-check" aria-hidden="true">

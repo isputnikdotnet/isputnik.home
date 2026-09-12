@@ -57,3 +57,36 @@ describe("VoiceNotes shared player", () => {
     expect(screen.queryByRole("menuitem", { name: "Remove this recording" })).toBeNull();
   });
 });
+
+// Which recording the player is on is held as an id and looked up in `notes`, so
+// the player follows the list: a recording that has gone takes the player with it,
+// and a list that is merely re-read leaves it alone. It used to hold the note
+// object, with an effect noticing afterwards that it had gone — and until that
+// effect ran the player still pointed at a deleted file.
+describe("VoiceNotes current recording follows the list", () => {
+  it("drops the player when the chosen recording is removed from the list", async () => {
+    const { rerender } = render(<VoiceNotes assetId="p1" notes={notes} canEdit onChanged={vi.fn()} />);
+    await userEvent.click(screen.getByRole("button", { name: "Play the recording by Dad" }));
+    expect(screen.getByLabelText("Now playing: Dad")).toBeInTheDocument();
+
+    rerender(<VoiceNotes assetId="p1" notes={[notes[1]]} canEdit onChanged={vi.fn()} />);
+    expect(screen.queryByLabelText("Now playing: Dad")).toBeNull();
+    expect(document.querySelector("audio")).toBeNull();
+  });
+
+  it("drops the player when the photo changes under it", async () => {
+    const { rerender } = render(<VoiceNotes assetId="p1" notes={notes} canEdit onChanged={vi.fn()} />);
+    await userEvent.click(screen.getByRole("button", { name: "Play the recording by Dad" }));
+
+    rerender(<VoiceNotes assetId="p2" notes={[]} canEdit onChanged={vi.fn()} />);
+    expect(document.querySelector("audio")).toBeNull();
+  });
+
+  it("keeps the player when the same list is simply re-read", async () => {
+    const { rerender } = render(<VoiceNotes assetId="p1" notes={notes} canEdit onChanged={vi.fn()} />);
+    await userEvent.click(screen.getByRole("button", { name: "Play the recording by Dad" }));
+
+    rerender(<VoiceNotes assetId="p1" notes={notes.map((note) => ({ ...note }))} canEdit onChanged={vi.fn()} />);
+    expect(screen.getByLabelText("Now playing: Dad")).toBeInTheDocument();
+  });
+});

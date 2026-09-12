@@ -40,9 +40,12 @@ export function InlineEdit({
   const [draft, setDraft] = useState(value);
   const fieldRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
 
-  // A sibling edit re-reads the whole story; adopt the server's text, but never
-  // over the top of what is being typed here.
-  useEffect(() => { if (!editing) setDraft(value); }, [value, editing]);
+  // The draft is only ever read while the field is open, and it is seeded the
+  // moment it opens (`open` below) — so there is nothing to keep in step with
+  // `value` in between. It used to be re-seeded from an effect, which meant a
+  // sibling edit re-reading the whole story could land between the click and the
+  // first keystroke and put the old text back under the cursor.
+  const open = () => { setDraft(value); setEditing(true); };
 
   useEffect(() => {
     if (!editing) return;
@@ -98,7 +101,7 @@ export function InlineEdit({
         <button
           type="button"
           className="inline-edit-pencil"
-          onClick={() => setEditing(true)}
+          onClick={open}
           aria-label={ariaLabel}
           title={ariaLabel}
         >

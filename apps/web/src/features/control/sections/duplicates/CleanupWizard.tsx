@@ -177,20 +177,24 @@ export function CleanupWizard({
   const toFingerprint = chosenLibraries.reduce((sum, library) => sum + library.pendingCount, 0);
   const hasProtected = libraries.some((library) => library.isProtected);
 
+  // The chosen libraries as the API takes them, and as the effect below keys on:
+  // the array itself is new on every toggle, the string only when the set changes.
+  const chosenIds = chosen.join(",");
+
   // Fetched for the libraries actually chosen, when that step is reached — a folder in a
   // library the job never looks at is an instruction that can only confuse.
   useEffect(() => {
-    if (step !== 3 || chosen.length === 0) return;
+    if (step !== 3 || chosenIds === "") return;
     let live = true;
     setFoldersLoading(true);
     api<{ folders: FolderOption[] }>(
-      `/api/library/gallery/duplicate-jobs/folder-options?libraryIds=${encodeURIComponent(chosen.join(","))}`
+      `/api/library/gallery/duplicate-jobs/folder-options?libraryIds=${encodeURIComponent(chosenIds)}`
     )
       .then((payload) => { if (live) setFolderOptions(payload.folders); })
       .catch(() => { if (live) setFolderOptions([]); })
       .finally(() => { if (live) setFoldersLoading(false); });
     return () => { live = false; };
-  }, [step, chosen.join(",")]);
+  }, [step, chosenIds]);
 
   const needle = folderQuery.trim().toLowerCase();
   // Biggest folders first. An instruction on a folder of four photos is worth

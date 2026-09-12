@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ArrowDown,
@@ -67,11 +67,12 @@ export function StoryBlockEditor({
   // A text block opens ready to type when it is still empty — a block added
   // from the menu exists only to be written in.
   const [writing, setWriting] = useState(block.kind === "text" && !block.body);
+  // Seeded once per block: the card is keyed on the block's id in
+  // StoryChapterEditor, so another block's text can never arrive in this draft.
+  // It used to be re-seeded from an effect on `block.body`, and since any sibling
+  // edit re-reads the whole story, a reload landing mid-sentence put the server's
+  // older text back under the cursor.
   const [draft, setDraft] = useState(block.body ?? "");
-
-  // A reload (any sibling edit re-reads the story) must not clobber what is
-  // being typed here — only adopt the server's text when it actually changed.
-  useEffect(() => { setDraft(block.body ?? ""); }, [block.body]);
 
   const saveText = () => {
     if (draft === (block.body ?? "")) return;

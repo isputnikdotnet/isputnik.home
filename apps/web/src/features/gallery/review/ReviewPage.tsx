@@ -91,7 +91,12 @@ export function ReviewPage({ source }: { source: ReviewSource }) {
   const [assets, setAssets] = useState<GalleryAsset[] | null>(null);
   const [people, setPeople] = useState<GalleryPerson[]>([]);
   const [index, setIndex] = useState(0);
-  const [draft, setDraft] = useState<Draft | null>(null);
+  // What she has changed, and WHICH photo she changed it on. The draft on screen
+  // is derived from that: her answers while they still belong to the photo in
+  // front of her, otherwise the photo's own values. A plain `draft` re-seeded from
+  // an effect showed the previous photo's date, place and people under the new one
+  // for a render — and a save fired in that window would have written them to it.
+  const [edited, setEdited] = useState<{ assetId: string; draft: Draft } | null>(null);
   const [loadError, setLoadError] = useState("");
   const [saveError, setSaveError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -101,6 +106,11 @@ export function ReviewPage({ source }: { source: ReviewSource }) {
   const detailFor = useRef<string | null>(null);
 
   const asset = assets?.[index] ?? null;
+  const draft: Draft | null = asset
+    ? (edited && edited.assetId === asset.id ? edited.draft : draftOf(asset))
+    : null;
+  /** Record an answer against the photo it was given for. */
+  const editDraft = (next: Draft) => { if (asset) setEdited({ assetId: asset.id, draft: next }); };
   const canEdit = context?.canEdit === true;
   const total = assets?.length ?? 0;
   const reviewedCount = useMemo(() => (assets ?? []).filter((a) => a.reviewedAt).length, [assets]);
@@ -169,12 +179,11 @@ export function ReviewPage({ source }: { source: ReviewSource }) {
     api(`/api/social/recommendations/${encodeURIComponent(source.recommendationId)}/dismiss`, { method: "POST" }).catch(() => { /* the card can be dismissed by hand */ });
   }, [done]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // A fresh draft for each photo, with its people fetched from the detail.
+  // The people a list row doesn't carry, fetched from the photo's detail. The
+  // draft itself needs no seeding — it reads through the asset — but an answer
+  // already being typed has to pick the names up.
   useEffect(() => {
     if (!asset) return;
-    setDraft(draftOf(asset));
-    setSaveError("");
-    setLarge(false);
     if (asset.people && asset.voiceNotes) return;
     detailFor.current = asset.id;
     api<{ asset: GalleryAsset }>(`/api/library/gallery/assets/${encodeURIComponent(asset.id)}`)
@@ -183,15 +192,30 @@ export function ReviewPage({ source }: { source: ReviewSource }) {
         const people = payload.asset.people ?? [];
         const voiceNotes = payload.asset.voiceNotes ?? [];
         setAssets((current) => current?.map((a) => (a.id === asset.id ? { ...a, people, voiceNotes } : a)) ?? current);
-        setDraft((current) => (current ? { ...current, people } : current));
+        setEdited((current) => (current && current.assetId === asset.id
+          ? { ...current, draft: { ...current.draft, people } }
+          : current));
       })
       .catch(() => { /* the chips start empty; tagging still works */ });
   }, [asset?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Dictation appends each finished sentence to the notes as it is spoken.
+  // Dictation appends each finished sentence to the notes as it is spoken. The
+  // recogniser holds on to the callback it was started with, so this one must stay
+  // stable and read everything it needs at the moment a sentence lands — the photo
+  // from a ref, the answer so far from the updater's own argument.
+  const spokenFor = useRef<GalleryAsset | null>(null);
+  useEffect(() => { spokenFor.current = asset; }, [asset]);
   const dictation = useDictation(useCallback((text: string) => {
     if (!text) return;
-    setDraft((current) => current ? { ...current, notes: current.notes ? `${current.notes.replace(/\s+$/, "")} ${text}` : text } : current);
+    setEdited((current) => {
+      const owner = spokenFor.current;
+      if (!owner) return current;
+      const base = current && current.assetId === owner.id ? current.draft : draftOf(owner);
+      return {
+        assetId: owner.id,
+        draft: { ...base, notes: base.notes ? `${base.notes.replace(/\s+$/, "")} ${text}` : text }
+      };
+    });
   }, []));
 
   const patchAsset = useCallback((next: GalleryAsset) => {
@@ -254,13 +278,23 @@ export function ReviewPage({ source }: { source: ReviewSource }) {
     }
   }, [asset, draft, canEdit, patchAsset, t]);
 
+  /** Move to another photo: the zoom and any failed-save message belong to the one
+   *  being left, so they go with it. (This is where the photo changes, so it is
+   *  also where they are cleared — an effect watching the index did it a render
+   *  late, after the new photo was already up.) */
+  const showPhoto = (next: number) => {
+    setSaveError("");
+    setLarge(false);
+    setIndex(next);
+  };
+
   const go = async (step: 1 | -1) => {
     if (busy || !assets) return;
     if (!(await save())) return;
     const next = index + step;
     if (next >= assets.length) { setDone(true); return; }
     if (next < 0) return;
-    setIndex(next);
+    showPhoto(next);
   };
 
   const dontKnow = async () => {
@@ -279,7 +313,7 @@ export function ReviewPage({ source }: { source: ReviewSource }) {
       setBusy(false);
     }
     const next = index + 1;
-    if (next >= assets.length) setDone(true); else setIndex(next);
+    if (next >= assets.length) setDone(true); else showPhoto(next);
   };
 
   const leave = async () => {
@@ -372,13 +406,13 @@ export function ReviewPage({ source }: { source: ReviewSource }) {
 
               <section className="review-q">
                 <h2>{t("galleryReview:when.heading")}</h2>
-                <WhenPicker value={draft.when} onChange={(when) => setDraft({ ...draft, when })} disabled={!canEdit || busy} />
+                <WhenPicker value={draft.when} onChange={(when) => editDraft({ ...draft, when })} disabled={!canEdit || busy} />
                 <div className="review-row">
                   <Button
                     variant="chip"
                     className="review-chip review-chip-same"
                     disabled={!canEdit || busy || !canCopyWhen}
-                    onClick={() => { if (previousWhen) setDraft({ ...draft, when: previousWhen }); }}
+                    onClick={() => { if (previousWhen) editDraft({ ...draft, when: previousWhen }); }}
                   >
                     {t("galleryReview:sameAsLast")}
                   </Button>
@@ -395,7 +429,7 @@ export function ReviewPage({ source }: { source: ReviewSource }) {
                         key={place}
                         className="review-chip"
                         aria-pressed={draft.place.trim() === place}
-                        onClick={() => setDraft({ ...draft, place })}
+                        onClick={() => editDraft({ ...draft, place })}
                         disabled={!canEdit || busy}
                       >
                         {place}
@@ -406,7 +440,7 @@ export function ReviewPage({ source }: { source: ReviewSource }) {
                 <input
                   className="review-input"
                   value={draft.place}
-                  onChange={(event) => setDraft({ ...draft, place: event.target.value })}
+                  onChange={(event) => editDraft({ ...draft, place: event.target.value })}
                   placeholder={t("galleryReview:where.placeholder")}
                   maxLength={300}
                   disabled={!canEdit || busy}
@@ -417,7 +451,7 @@ export function ReviewPage({ source }: { source: ReviewSource }) {
                     variant="chip"
                     className="review-chip review-chip-same"
                     disabled={!canEdit || busy || !canCopyWhere}
-                    onClick={() => setDraft({ ...draft, place: previous?.placeText ?? "" })}
+                    onClick={() => editDraft({ ...draft, place: previous?.placeText ?? "" })}
                   >
                     {t("galleryReview:sameAsLast")}
                   </Button>
@@ -429,7 +463,7 @@ export function ReviewPage({ source }: { source: ReviewSource }) {
                 <PeopleChips
                   suggestions={people}
                   selected={draft.people}
-                  onChange={(next) => setDraft({ ...draft, people: next })}
+                  onChange={(next) => editDraft({ ...draft, people: next })}
                   disabled={!canEdit || busy}
                 />
               </section>
@@ -439,7 +473,7 @@ export function ReviewPage({ source }: { source: ReviewSource }) {
                 <textarea
                   className="review-textarea"
                   value={draft.notes}
-                  onChange={(event) => setDraft({ ...draft, notes: event.target.value })}
+                  onChange={(event) => editDraft({ ...draft, notes: event.target.value })}
                   placeholder={t("galleryReview:notes.placeholder")}
                   maxLength={5000}
                   disabled={!canEdit || busy}

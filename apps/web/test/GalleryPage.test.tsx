@@ -155,6 +155,48 @@ describe("GalleryPage views", () => {
     expect(screen.queryByText("No memories yet")).not.toBeInTheDocument();
   });
 
+  // The phone's stand-in for the left nav. One view is where you are, so each is a
+  // menuitemradio with the current one checked, and the keyboard is SortMenu's.
+  it("offers the views in a keyboard-operable Browse menu on a phone, the current one checked", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(window, "matchMedia").mockImplementation((query: string) => ({
+      matches: query.includes("max-width: 740px"),
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn()
+    }) as unknown as MediaQueryList);
+    try {
+      renderSignedIn(<GalleryPage view="albums" />);
+      await screen.findByText("Wedding");
+      const trigger = screen.getByRole("button", { name: "Browse gallery views" });
+      await user.click(trigger);
+      const menu = screen.getByRole("menu", { name: "Browse" });
+      const albums = within(menu).getByRole("menuitemradio", { name: "Albums" });
+      expect(albums).toHaveAttribute("aria-checked", "true");
+      expect(within(menu).getAllByRole("menuitemradio", { checked: true })).toHaveLength(1);
+      // Focus opens on the view you are in, and the arrows walk from there.
+      expect(albums).toHaveFocus();
+      await user.keyboard("{ArrowDown}");
+      expect(within(menu).getByRole("menuitemradio", { name: "Slideshows" })).toHaveFocus();
+      await user.keyboard("{Home}");
+      expect(within(menu).getByRole("menuitemradio", { name: "Gallery" })).toHaveFocus();
+      await user.keyboard("{Escape}");
+      expect(screen.queryByRole("menu", { name: "Browse" })).not.toBeInTheDocument();
+      expect(trigger).toHaveFocus();
+
+      await user.click(trigger);
+      await user.keyboard("{ArrowDown}{Enter}");
+      expect(navigate).toHaveBeenCalledWith(expect.stringContaining("slideshows"));
+      expect(trigger).toHaveFocus();
+    } finally {
+      vi.mocked(window.matchMedia).mockRestore();
+    }
+  });
+
   it("enters selection from the toolbar and offers the bulk verbs", async () => {
     const user = userEvent.setup();
     renderSignedIn(<GalleryPage view="timeline" />);

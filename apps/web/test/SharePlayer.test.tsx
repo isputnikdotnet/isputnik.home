@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SharePage } from "../src/pages/SharePage";
@@ -65,6 +65,36 @@ describe("Share page audiobook player", () => {
     expect(await screen.findByText("Chapter 2 / 2")).toBeInTheDocument();
     await waitFor(() => expect(audio.getAttribute("src")).toBe("/api/share/tok/stream/f2"));
     await waitFor(() => expect(audio.playbackRate).toBe(1.5));
+  });
+
+  // The toggles' state reaches a screen reader, not only the class that tints it.
+  it("exposes its toggles' state: expanded menus, the chapter playing, an armed sleep timer", async () => {
+    const user = userEvent.setup();
+    render(<SharePage token="tok" />);
+    await screen.findByText("Chapter 1 / 2");
+
+    const chapters = screen.getByRole("button", { name: "Chapters" });
+    expect(chapters).toHaveAttribute("aria-expanded", "false");
+    expect(chapters).not.toHaveAttribute("aria-controls");
+    await user.click(chapters);
+    expect(chapters).toHaveAttribute("aria-expanded", "true");
+    const list = document.getElementById(chapters.getAttribute("aria-controls")!)!;
+    expect(list).toHaveClass("share-chapter-menu");
+    expect(within(list).getByRole("button", { name: /The Old Sea-dog/ })).toHaveAttribute("aria-current", "true");
+    expect(within(list).getByRole("button", { name: /Black Dog/ })).not.toHaveAttribute("aria-current");
+    await user.click(chapters);
+    expect(chapters).toHaveAttribute("aria-expanded", "false");
+
+    const sleep = screen.getByRole("button", { name: "Sleep timer" });
+    expect(sleep).not.toHaveAttribute("aria-describedby");
+    await user.click(sleep);
+    expect(sleep).toHaveAttribute("aria-expanded", "true");
+    expect(document.getElementById(sleep.getAttribute("aria-controls")!)).toHaveClass("share-menu");
+    await user.click(screen.getByRole("button", { name: "30 min" }));
+    expect(sleep).toHaveAttribute("aria-expanded", "false");
+    // The visible countdown is inside a button named "Sleep timer"; the
+    // description is how a screen reader learns the timer is running.
+    expect(sleep).toHaveAccessibleDescription("30:00");
   });
 
   it("lists the chapters with their clock lengths", async () => {

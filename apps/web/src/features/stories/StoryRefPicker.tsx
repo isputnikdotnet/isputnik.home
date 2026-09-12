@@ -75,7 +75,7 @@ export function StoryRefPicker({
         if (alive) setError(err instanceof Error ? err.message : t("stories:errors.load"));
       });
     return () => { alive = false; };
-  }, [kind]);
+  }, [kind, t]);
 
   const term = search.trim().toLowerCase();
   const visible = (rows ?? [])

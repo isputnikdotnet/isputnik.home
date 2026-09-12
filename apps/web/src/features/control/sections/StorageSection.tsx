@@ -137,7 +137,7 @@ export function StorageSection() {
 
   useEffect(() => {
     loadStorage().catch((err) => setError(err instanceof Error ? err.message : t("controlAdmin:storage.loadFailed")));
-  }, []);
+  }, [t]);
 
   // While any room is being moved, keep the rows' counts fresh.
   const anyMoving = Boolean(storage?.rooms.some((room) => room.move.running));

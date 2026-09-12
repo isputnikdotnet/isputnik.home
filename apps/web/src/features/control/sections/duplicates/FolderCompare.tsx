@@ -84,14 +84,32 @@ export function FolderCompare({ result, onClose }: { result: SnapshotResult; onC
   const goingFolders = result.folders.filter((folder) => folder.role === "delete");
   const [goingId, setGoingId] = useState(goingFolders[0]?.id ?? "");
   const going = goingFolders.find((folder) => folder.id === goingId) ?? goingFolders[0];
+  // What the row build actually turns on, read off here rather than written as
+  // `going?.id` / `result.members` in the dependency list: a property path is a
+  // dependency the compiler can only widen back to the whole object it hangs off.
+  const goingFolderId = going?.id;
+  const keepFolderId = keepFolder?.id;
+  const members = result.members;
+  // Named up here, above the row build, and not down in the header markup: a folder
+  // handed to an imported function after the memo is a folder the compiler has to
+  // assume that function changed, which would cost `rows` its memoization.
+  const keepLabel = keepFolder ? folderLabel(keepFolder) : "";
+  const goingLabel = going ? folderLabel(going) : "";
+  const goingOptions = goingFolders.map((folder) => ({ value: folder.id, label: folderLabel(folder) }));
 
+  // The rows feed a subtree handed to shared/Modal as children, which the compiler has
+  // to treat as possibly changed, so it will not keep this memo. Kept anyway: turning a
+  // page of a thousand-file folder must not rebuild the pairing. Extracting the grid
+  // into its own component does not satisfy the rule either — the wrapper is the shape
+  // it objects to, and every panel in this app wears one.
+  /* eslint-disable react-hooks/preserve-manual-memoization */
   const rows = useMemo(() => {
-    const byId = new Map(result.members.map((member) => [member.id, member]));
+    const byId = new Map(members.map((member) => [member.id, member]));
     // Driven from the side that is LEAVING: every file about to go, and what it hands
     // its place to. A keeper with nothing pointing at it is a photo the other folder
     // simply does not have, and that is the "Not in this folder" case below.
-    const doomed = result.members
-      .filter((member) => member.folderId === going?.id)
+    const doomed = members
+      .filter((member) => member.folderId === goingFolderId)
       .sort((a, b) => a.path.localeCompare(b.path));
     const paired = doomed.map((member) => ({
       key: member.id,
@@ -100,13 +118,14 @@ export function FolderCompare({ result, onClose }: { result: SnapshotResult; onC
     }));
 
     const spokenFor = new Set(paired.map((row) => row.keep?.id).filter(Boolean));
-    const unpaired = result.members
-      .filter((member) => member.folderId === keepFolder?.id && !spokenFor.has(member.id))
+    const unpaired = members
+      .filter((member) => member.folderId === keepFolderId && !spokenFor.has(member.id))
       .sort((a, b) => a.path.localeCompare(b.path))
       .map((member) => ({ key: member.id, keep: member, going: null }));
 
     return [...paired, ...unpaired];
-  }, [result.members, going?.id, keepFolder?.id]);
+  }, [members, goingFolderId, keepFolderId]);
+  /* eslint-enable react-hooks/preserve-manual-memoization */
 
   const pairs = rows.filter((row) => row.keep && row.going).length;
 
@@ -130,14 +149,14 @@ export function FolderCompare({ result, onClose }: { result: SnapshotResult; onC
   return (
     <Modal
       variant="panel"
-      title={t("controlDash:dupes.compareTitle", { keep: keepFolder ? folderLabel(keepFolder) : "", going: going ? folderLabel(going) : "" })}
+      title={t("controlDash:dupes.compareTitle", { keep: keepLabel, going: goingLabel })}
       subtitle={t("controlDash:dupes.inCommon", { count: pairs })}
       className="dup-compare-modal"
       onClose={onClose}
       headerAction={goingFolders.length > 1 ? (
         <SelectMenu
           value={goingId}
-          options={goingFolders.map((folder) => ({ value: folder.id, label: folderLabel(folder) }))}
+          options={goingOptions}
           label={t("controlDash:dupes.folderToCompare")}
           onChange={setGoingId}
         />

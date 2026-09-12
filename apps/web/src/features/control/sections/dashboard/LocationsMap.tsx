@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -74,18 +74,24 @@ export function LocationsMap({
   onSelect: (code: string | null) => void;
 }) {
   const { t } = useTranslation(["common", "controlDash"]);
-  const plural = (count: number) => t("controlDash:map.connections", { count });
+  // Memoised because the draw effect below depends on it: rebuilt every render, it
+  // would redraw every shape on the map on every render.
+  const plural = useCallback((count: number) => t("controlDash:map.connections", { count }), [t]);
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const layerRef = useRef<L.LayerGroup | null>(null);
   // Every drawn shape by the country code it selects, so a click in the table
   // below can highlight and fly to the same thing without redrawing the layer.
   const shapesRef = useRef(new Map<string, L.CircleMarker[]>());
-  // Both are read inside Leaflet handlers, which outlive the render that made them.
+  // Both are read inside Leaflet handlers, which outlive the render that made them
+  // — so they are refreshed after the commit rather than while rendering. A click
+  // on a bubble is the only reader, and it cannot happen before paint.
   const onSelectRef = useRef(onSelect);
-  onSelectRef.current = onSelect;
   const selectedRef = useRef(selected);
-  selectedRef.current = selected;
+  useEffect(() => {
+    onSelectRef.current = onSelect;
+    selectedRef.current = selected;
+  });
 
   const towns = useMemo(
     // Biggest first so a small town drawn inside a big one stays clickable.
@@ -116,12 +122,12 @@ export function LocationsMap({
       const name = entry.name ?? entry.code;
       return [{ code: entry.code, centre, connections, label: inTowns > 0 ? t("controlDash:map.elsewhere", { name }) : name }];
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [countries, towns]);
+  }, [countries, towns, t]);
 
   // Create the map once.
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
+    const shapes = shapesRef.current;
     const map = L.map(containerRef.current, { worldCopyJump: true, minZoom: 1 }).setView([25, 10], 2);
     L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
@@ -137,8 +143,12 @@ export function LocationsMap({
       map.remove();
       mapRef.current = null;
       layerRef.current = null;
-      shapesRef.current.clear();
+      shapes.clear();
     };
+    // The tile attribution is translated when the map is built and then left
+    // alone: rebuilding the map to restate it in another language would throw
+    // away wherever the reader had panned and zoomed to.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Redraw whenever the data changes, and frame what was drawn.
@@ -215,7 +225,7 @@ export function LocationsMap({
     if (bounds.length > 1) map.fitBounds(L.latLngBounds(bounds).pad(0.25), { maxZoom: 10, animate: false });
     else if (bounds.length === 1) map.setView(bounds[0], 5, { animate: false });
     else map.setView([25, 10], 2, { animate: false });
-  }, [bubbles, towns, home]);
+  }, [bubbles, towns, home, plural, t]);
 
   // The selection is shared with the table below: whichever one is clicked, the
   // map highlights that country and moves to it.

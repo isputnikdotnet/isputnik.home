@@ -3,6 +3,15 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.2.0 — Things stay where you put them
+
+- **Edits stop disappearing.** A dialog or field open while the page refreshed itself behind you could lose what you had typed, or briefly show the previous item's details under the new one. The metadata dialog, the photo review page, the story editor's chapter, block and overview panes, inline name fields, gallery tags, the scan-rule wizard and the slideshow title card all now keep what you are working on until you save or close it. On the review page a save in that moment could write the previous photo's date, place and people onto the one now on screen.
+- **The app answers in the language you picked.** Switching between English and Russian left about fifty messages — save and load failures, "Cover updated", "Movie deleted", the browser tab's title, the dashboard map's labels — written in the language you just left, until a reload. They change with the setting now.
+- **Fixed:** searching photo folders could show results for what you typed a moment ago, or put them back over the folder you had just returned to; Ebooks → Series and Audiobooks → Series shared one screen, so it kept the other type's libraries and *New series* could have created into the wrong one; a book switched to per-episode progress kept the old marks until a reload; liking a book from the catalog could be undone by the next refresh; a deleted voice note stayed in the player; the family tree's card menu drifted away from its card when the window was resized, and the zoom reading went stale.
+- **Keyboard and screen readers.** The library, Browse, action and select menus now open on the current choice, move with the arrow keys, and close with Escape back on the button that opened them — as the sort menu already did. The reader's and player's toggles (chapters, bookmarks, speed, sleep, text options, themes) say whether they are on, and an armed sleep timer reads out its countdown.
+- Four borders that were designed but never drew — around the control panel's search, its shortcut hint, the search box and the gallery map — now draw in each theme's own line colour.
+- Under the hood: every one of the 128 effect-dependency warnings was worked through and the check now fails the build, so the class of bug behind most of the fixes above cannot come back quietly; six of React's stricter rules are on, including the one that caught the family tree measuring itself while drawing.
+
 ## 4.1.0 — Your years in photos, and one way for everything to work
 
 - **Year in review is in the app.** Gallery → Memories now opens with *Your years in photos*: a card for each past year that has enough photos, which plays that year as a slideshow in the photo viewer, built from what you liked. **Create slideshow** under a card keeps the year as a slideshow of its own. Memories also appears in the side menu on days with no anniversaries, when there is a year to show.

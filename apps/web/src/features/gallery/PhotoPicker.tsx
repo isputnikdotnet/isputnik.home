@@ -155,7 +155,7 @@ export function PhotoPicker({
     } finally {
       setLoading(false);
     }
-  }, [scopeParam]);
+  }, [scopeParam, t]);
 
   // Opening a folder from the search results clears the search box, which
   // arrives here one debounce later as "the query went empty" — indistinguish-
@@ -166,13 +166,18 @@ export function PhotoPicker({
 
   useEffect(() => {
     if (tab !== "folders") return;
+    // A search in flight belongs to the term that started it. Without this, a
+    // slower earlier request lands last and fills the list with matches for a
+    // term nobody is looking at any more — or puts "Matching folders" back over
+    // a box that has just been emptied.
     if (query) {
+      let cancelled = false;
       setLoading(true);
       api<{ folders: GalleryFolder[] }>(`/api/library/gallery/folders/search?q=${encodeURIComponent(query)}${scopeParam()}`)
-        .then((payload) => setFolderResults(payload.folders))
-        .catch((err) => setError(err instanceof Error ? err.message : t("gallery:photoPicker.errors.searchFolders")))
-        .finally(() => setLoading(false));
-      return;
+        .then((payload) => { if (!cancelled) setFolderResults(payload.folders); })
+        .catch((err) => { if (!cancelled) setError(err instanceof Error ? err.message : t("gallery:photoPicker.errors.searchFolders")); })
+        .finally(() => { if (!cancelled) setLoading(false); });
+      return () => { cancelled = true; };
     }
     setFolderResults(null);
     if (openedFromSearch.current) {
@@ -180,7 +185,7 @@ export function PhotoPicker({
       return;
     }
     void loadFolder("");
-  }, [tab, query, scope, loadFolder, scopeParam]);
+  }, [tab, query, scope, loadFolder, scopeParam, t]);
 
   // ── People ─────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -204,7 +209,7 @@ export function PhotoPicker({
       })
       .catch((err) => setError(err instanceof Error ? err.message : t("gallery:photoPicker.errors.loadPeople")))
       .finally(() => setLoading(false));
-  }, [tab, scope, scopeParam, facePerson]);
+  }, [tab, scope, scopeParam, facePerson, t]);
 
   const loadPerson = useCallback(async (who: GalleryPerson, offset = 0) => {
     setLoading(true);
@@ -220,7 +225,7 @@ export function PhotoPicker({
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     if (tab !== "people" || !person) return;
@@ -236,7 +241,7 @@ export function PhotoPicker({
         setTag((current) => current ?? payload.tags[0] ?? null);
       })
       .catch((err) => setError(err instanceof Error ? err.message : t("gallery:photoPicker.errors.loadTags")));
-  }, [tab, scope, scopeParam]);
+  }, [tab, scope, scopeParam, t]);
 
   // Looking for a video among thousands of photos is a hunt; in video mode the
   // server lists only videos, so a dimmed photo is never what fills the grid.
@@ -259,7 +264,7 @@ export function PhotoPicker({
     } finally {
       setLoading(false);
     }
-  }, [queryTimeline, scopeFilters]);
+  }, [queryTimeline, scopeFilters, t]);
 
   useEffect(() => {
     if (tab !== "tags" || !tag) return;
@@ -278,7 +283,7 @@ export function PhotoPicker({
     } finally {
       setLoading(false);
     }
-  }, [queryTimeline, scopeFilters, query]);
+  }, [queryTimeline, scopeFilters, query, t]);
 
   useEffect(() => {
     if (tab !== "all") return;

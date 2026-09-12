@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { FileUp, Quote as QuoteIcon, Trash2 } from "lucide-react";
 import i18n from "../../../i18n";
@@ -41,12 +41,12 @@ export function QuotesSection() {
   const [deleting, setDeleting] = useState<QuoteImport | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
 
-  const load = () =>
+  const load = useCallback(() =>
     api<{ imports: QuoteImport[] }>("/api/library/quotes/imports")
       .then((payload) => setImports(payload.imports))
-      .catch((err) => setError(err instanceof Error ? err.message : t("user:common.unableToLoad")));
+      .catch((err) => setError(err instanceof Error ? err.message : t("user:common.unableToLoad"))), [t]);
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { void load(); }, [load]);
 
   const confirmDelete = async () => {
     if (!deleting) return;

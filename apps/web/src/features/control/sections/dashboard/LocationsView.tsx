@@ -137,6 +137,8 @@ export function LocationsView() {
     setSelected(null);
     setCountryPage(1);
     setPlacePage(1);
+    // A new span is a new question, and that is the whole trigger: load() is
+    // re-made on every render, so following it would ask again on each one.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [range.from, range.to]);
 
@@ -151,6 +153,8 @@ export function LocationsView() {
   );
   const places = useMemo(
     () => pageOf([...(data?.places ?? [])].sort(bySort(placeSort, placeDir, placeLabel)), placePage),
+    // placeLabel only falls back to a translated "unnamed place"; it is re-made
+    // every render, and listing it here would make the memo do nothing.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [data, placeSort, placeDir, placePage]
   );
@@ -179,9 +183,13 @@ export function LocationsView() {
   // The map redraws and re-frames itself whenever this changes, so it has to be
   // the same object between renders — built inline it would rebuild every layer
   // on each click in the table below, snapping the view back with it.
+  // Read off `data` first: a dependency written as `data?.home` is a property path the
+  // compiler can only widen back to `data`, which would rebuild the map on every load.
+  const dataHome = data?.home;
+  const localConnections = data?.local.connections ?? 0;
   const home = useMemo(
-    () => (data?.home ? { ...data.home, connections: data.local.connections } : null),
-    [data?.home, data?.local.connections]
+    () => (dataHome ? { ...dataHome, connections: localConnections } : null),
+    [dataHome, localConnections]
   );
 
   return (

@@ -8,7 +8,7 @@
 // NAME a folder (or file by date), or PICK one the library already has. The picker
 // is the reason for the split — an autocomplete only helps someone who already
 // knows what the folders are called, and after a year of scanning nobody does.
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CalendarDays, FolderInput, FolderOpen, FolderPlus, Images, Search } from "lucide-react";
 import { api } from "../../api";
@@ -65,7 +65,9 @@ export function GalleryKeepModal({
   onKeep: (dest: KeepDestination) => void;
 }) {
   const { t } = useTranslation(["common", "gallery", "galleryModals"]);
-  const initial = useMemo(remembered, []);
+  // Read once, at mount: `remember()` rewrites the key as the dialog submits, and
+  // the fields below seed themselves from this — it must not move under them.
+  const [initial] = useState(remembered);
   const [libraryId, setLibraryId] = useState(() => (
     libraries.some((library) => library.id === initial.libraryId) ? initial.libraryId! : libraries[0]?.id ?? ""
   ));

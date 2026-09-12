@@ -47,21 +47,29 @@ export function StoryEditorPage({
     : -1;
   const chapter = chapterIndex >= 0 ? story!.chapters[chapterIndex] : null;
 
+  // The three effects below each watch one field of the story, not the story
+  // object — an unrelated edit re-reads the whole story, and retitling the tab
+  // or re-deciding the route on every such re-read is work nobody asked for.
+  const storyId = story?.id;
+  const storyTitle = story?.title;
+  const canEdit = story?.canEdit;
+  const openChapterId = chapter?.id;
+
   useEffect(() => {
-    if (story) document.title = `${story.title} — isputnik.home`;
-  }, [story?.title]);
+    if (storyTitle) document.title = `${storyTitle} — isputnik.home`;
+  }, [storyTitle]);
 
   // Someone else's story (or a reader who guessed the URL) never gets the
   // editor — the server refuses the writes anyway, but the page shouldn't lie.
   useEffect(() => {
-    if (story && !story.canEdit) navigate(`/stories/${story.id}`);
-  }, [story?.canEdit, story?.id]);
+    if (storyId && canEdit === false) navigate(`/stories/${storyId}`);
+  }, [canEdit, storyId]);
 
   // A chapter that has been deleted (here or in another tab) leaves its address
   // behind; fall back to the overview rather than showing an empty pane.
   useEffect(() => {
-    if (story && pane === "chapter" && !chapter) replaceNavigate(storyEditorHref(story.id));
-  }, [story?.id, pane, chapter?.id]);
+    if (storyId && pane === "chapter" && !openChapterId) replaceNavigate(storyEditorHref(storyId));
+  }, [storyId, pane, openChapterId]);
 
   const activeKey = pane === "chapter" ? chapterId ?? "overview" : pane;
   // The chapter's name for the page head — "Day 1", or its title when the
@@ -182,6 +190,7 @@ export function StoryEditorPage({
 
         {story && pane === "overview" && (
           <StoryOverviewPane
+            key={story.id}
             story={story}
             busy={busy}
             onPatch={(fields) => void editor.patchStory(fields)}

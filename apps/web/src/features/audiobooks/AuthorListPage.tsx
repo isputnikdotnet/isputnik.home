@@ -79,7 +79,7 @@ export function AuthorListPage() {
     api<{ photos: Record<string, string> }>("/api/library/people/photos")
       .then((payload) => setPhotos(payload.photos))
       .catch(() => {}); // avatars are decoration — the list works without them
-  }, []);
+  }, [t]);
 
   // Which of the server's two indexes the First/Last choice selects — the letter
   // an author files under and the value the list sorts by are the same question

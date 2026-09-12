@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api";
 import { queryParam, replaceQuery } from "../../router";
@@ -78,7 +78,6 @@ const AUDIOBOOK_ENDPOINTS: CatalogEndpoints = {
 // filter facets. Generic over the book row shape and parameterised by the type's
 // endpoints, so every media type reuses it (see useAudiobookCatalog alias).
 export function useMediaCatalog<T = AudiobookBook>(
-  scope: CatalogScope,
   sort: SortKey,
   persistKey: string,
   endpoints: CatalogEndpoints = AUDIOBOOK_ENDPOINTS
@@ -88,6 +87,18 @@ export function useMediaCatalog<T = AudiobookBook>(
   // Debounce the search box so typing doesn't fire a request per keystroke.
   const debounced = useDebouncedValue(search.trim(), 300);
   const [filters, setFilters] = useState<BookFilters>(() => readCatalogView(persistKey).filters);
+
+  // Choosing libraries is a filter facet, and one library in it IS the scope: the
+  // catalog query, the facets and the A–Z letters then come from that library
+  // rather than from everything accessible. Derived here, where the filters live,
+  // so the first render already asks for the right scope — the page used to keep a
+  // copy of this and set it from an effect, which cost a render and a pair of
+  // requests against the wrong scope on every mount and on every filter change.
+  const selectedLibraryId = filters.libraries.length === 1 ? filters.libraries[0] : "all";
+  const scope = useMemo<CatalogScope>(
+    () => (selectedLibraryId === "all" ? { kind: "all" } : { kind: "library", libraryId: selectedLibraryId }),
+    [selectedLibraryId]
+  );
   // The letter comes off the URL first, so a reloaded or shared ?letter=Б opens
   // on that letter; the session store is the fallback for an in-app return.
   const [letter, setLetter] = useState<string | null>(() => queryParam("letter") ?? readCatalogView(persistKey).letter);
@@ -127,7 +138,10 @@ export function useMediaCatalog<T = AudiobookBook>(
         setLetter((current) => (current && !next.letters.includes(current) ? null : current));
       })
       .catch(() => setFacets(EMPTY_FACETS));
-  }, [scopeKey]); // eslint-disable-line react-hooks/exhaustive-deps
+    // scopeKey is the serialised scope, which is what actually decides the
+    // request; `scope` and `endpoints` are read through it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scopeKey]);
 
   const requestBody = useCallback((offset: number) => ({
     scope: scope.kind,
@@ -138,7 +152,10 @@ export function useMediaCatalog<T = AudiobookBook>(
     offset,
     letter,
     filters
-  }), [scopeKey, debounced, sort, filters, letter]); // eslint-disable-line react-hooks/exhaustive-deps
+    // Same trade as above: scopeKey stands in for the scope it was serialised
+    // from, so the two can't disagree about when this body changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [scopeKey, debounced, sort, filters, letter]);
 
   const queryKey = JSON.stringify({ scopeKey, debounced, sort, filters, letter, tick });
 
@@ -160,7 +177,11 @@ export function useMediaCatalog<T = AudiobookBook>(
         setError(err instanceof Error ? err.message : t("book:catalog.unableLoadCatalogFallback"));
         setLoading(false);
       });
-  }, [queryKey]); // eslint-disable-line react-hooks/exhaustive-deps
+    // queryKey already spells out everything the request body is made of, so it is
+    // the one dependency: adding requestBody would fire a second, identical page-1
+    // fetch whenever anything else in the caller re-rendered.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryKey]);
 
   const hasMore = books.length < total;
 
@@ -176,7 +197,7 @@ export function useMediaCatalog<T = AudiobookBook>(
         setLoadingMore(false);
       })
       .catch(() => setLoadingMore(false));
-  }, [loading, loadingMore, hasMore, books.length, requestBody]);
+  }, [loading, loadingMore, hasMore, books.length, requestBody, endpoints.catalog]);
 
   // Infinite scroll: load the next page when the sentinel nears the viewport.
   useEffect(() => {
@@ -194,6 +215,8 @@ export function useMediaCatalog<T = AudiobookBook>(
   return {
     search, setSearch,
     filters, setFilters,
+    /** The one library the filter has narrowed to, or "all". */
+    selectedLibraryId,
     letter, setLetter,
     books, total, facets,
     loading, loadingMore, hasMore, loadMore,

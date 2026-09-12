@@ -26,8 +26,10 @@ export function GalleryLocationPicker({
   const markerRef = useRef<L.Marker | null>(null);
   const placeRef = useRef<((latlng: L.LatLng) => void) | null>(null);
   // The map handlers live for the map's lifetime; always call the latest callback.
+  // Refreshed after each commit, not while rendering: it is only ever read from a
+  // map click or a pin dragend, both well after paint.
   const onChangeRef = useRef(onChange);
-  onChangeRef.current = onChange;
+  useEffect(() => { onChangeRef.current = onChange; });
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;

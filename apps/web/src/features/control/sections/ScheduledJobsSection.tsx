@@ -62,12 +62,14 @@ export function ScheduledJobsSection() {
 
   useEffect(() => {
     load().catch((err) => setError(err instanceof Error ? err.message : t("controlAdmin:scheduledJobs.loadFailed")));
-  }, [load]);
+  }, [load, t]);
 
   // Follow the tasks a manual run queued until every one of them has left the
   // queue — that, not the POST returning, is when the work is actually finished.
+  // Refreshed after the commit, not while rendering: the only reader is a poll tick
+  // two seconds later, and this effect is written above the one that schedules it.
   const runRef = useRef<RunState | null>(null);
-  runRef.current = run;
+  useEffect(() => { runRef.current = run; });
   useEffect(() => {
     if (!run || run.phase !== "working" || run.taskIds.length === 0) return;
     const timer = window.setInterval(() => {
@@ -90,7 +92,7 @@ export function ScheduledJobsSection() {
         .catch(() => { /* keep polling — a blip shouldn't strand the notice */ });
     }, POLL_MS);
     return () => window.clearInterval(timer);
-  }, [run, load]);
+  }, [run, load, t]);
 
   const startRun = async (job: ScheduledJob) => {
     setError("");

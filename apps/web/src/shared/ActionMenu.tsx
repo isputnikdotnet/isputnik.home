@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useId, useLayoutEffect, useRef, useState
 import { createPortal } from "react-dom";
 import { ChevronDown, MoreVertical } from "lucide-react";
 import { Button } from "./Button";
+import { useMenuKeyboard } from "./useMenuKeyboard";
 
 export interface ActionMenuItem {
   key: string;
@@ -23,6 +24,11 @@ export interface ActionMenuItem {
 // one. A table row can carry half a dozen actions, and as icon buttons they are a
 // wall of unlabelled glyphs whose meaning lives in tooltips; collapsed into this,
 // each one gets its name back.
+//
+// The keyboard is useMenuKeyboard's, as in SortMenu: opening puts focus on the
+// first enabled action, Up/Down wrap, Home/End jump, and Escape, Tab or running
+// an action hand focus back to the trigger — the popover is portalled to <body>,
+// so focus would otherwise fall to the page when it unmounts.
 export function ActionMenu({
   label,
   icon,
@@ -42,6 +48,7 @@ export function ActionMenu({
   const menuId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const [anchor, setAnchor] = useState<{ top: number; left?: number; right?: number } | null>(null);
 
   // The popover is rendered into <body> rather than beside the trigger, because a
@@ -69,6 +76,15 @@ export function ActionMenu({
         : { left: Math.max(8, rect.left) })
     });
   }, []);
+
+  // Focus moves in only once the popover is placed: until then it is
+  // visibility:hidden, and a hidden element cannot take focus.
+  const menuKeys = useMenuKeyboard({
+    open: open && anchor !== null,
+    close: () => setOpen(false),
+    menuRef: popoverRef,
+    triggerRef
+  });
 
   useLayoutEffect(() => {
     if (!open) {
@@ -118,6 +134,7 @@ export function ActionMenu({
     >
       {trigger === "icon" ? (
         <Button
+          ref={triggerRef}
           variant="icon"
           title={label}
           aria-label={label}
@@ -130,6 +147,7 @@ export function ActionMenu({
         </Button>
       ) : (
         <Button
+          ref={triggerRef}
           variant="secondary"
           compact={compact}
           className="select-menu-trigger"
@@ -151,6 +169,7 @@ export function ActionMenu({
           className="select-menu-popover action-menu-popover"
           role="menu"
           aria-label={label}
+          onKeyDown={menuKeys.onKeyDown}
           // Hidden until measured, or the first paint lands at the page corner and
           // jumps into place.
           style={anchor ? { top: anchor.top, left: anchor.left, right: anchor.right } : { visibility: "hidden" }}
@@ -165,7 +184,7 @@ export function ActionMenu({
               disabled={item.disabledReason != null}
               title={item.disabledReason}
               onClick={() => {
-                setOpen(false);
+                menuKeys.closeAndRestore();
                 item.onSelect();
               }}
             >

@@ -32,7 +32,7 @@ export function CollectionDetailPage({
     api<{ collection: CollectionDetail }>(`/api/collections/${id}`)
       .then((payload) => { setCollection(payload.collection); document.title = `${payload.collection.name} — isputnik.home`; })
       .catch((err) => setError(err instanceof Error ? err.message : t("user:collections.loadOneFailed")));
-  }, [id]);
+  }, [id, t]);
 
   const items = collection?.items ?? [];
   const firstPlayable = items.find((item) => item.available && item.playable);

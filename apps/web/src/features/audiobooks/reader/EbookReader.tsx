@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ALargeSmall, ArrowLeft, Bookmark, BookmarkPlus, BookOpen, ChevronLeft, ChevronRight, Columns2, Copy, Download,
@@ -195,6 +195,7 @@ function TocList({
             <Button
               variant="bare"
               className={`ebk-toc-item${active ? " active" : ""}`}
+              aria-current={active ? "location" : undefined}
               style={{ paddingLeft: `${14 + level * 14}px` }}
               onClick={() => item.href && onSelect(item.href)}
             >
@@ -241,6 +242,11 @@ export function EbookReader({
   if (startingProgressRef.current === undefined) {
     startingProgressRef.current = newerProgress(initialProgress, readStoredProgress(storageKey, documentId));
   }
+  // Where to open the book, decided once per mount and then left alone — a ref, not
+  // state, because reading on is not allowed to move it. Read while rendering on
+  // purpose: it seeds the state below, and a value computed at mount has no later
+  // render to be stale in.
+  // eslint-disable-next-line react-hooks/refs
   const startingProgress = startingProgressRef.current;
 
   const [loading, setLoading] = useState(true);
@@ -252,16 +258,28 @@ export function EbookReader({
   const [notice, setNotice] = useState("");
   const [toc, setToc] = useState<FoliateTocItem[]>([]);
   const [panel, setPanel] = useState<Panel>(null);
+  // The one drawer every panel toggle opens; its buttons point at it while open.
+  const drawerId = useId();
+  // Both open on what the last session had reached, so the bar and the chapter name
+  // are right before the view has finished loading. Initial values only; foliate's
+  // first relocate takes over from there.
+  /* eslint-disable react-hooks/refs */
   const [percentComplete, setPercentComplete] = useState<number | null>(startingProgress?.percentComplete ?? null);
   const [sectionLabel, setSectionLabel] = useState(startingProgress?.label ?? "");
+  /* eslint-enable react-hooks/refs */
   const [currentHref, setCurrentHref] = useState("");
   const [pageInfo, setPageInfo] = useState<{ current: number; total: number } | null>(null);
 
+  // The appearance the reader chose last time, read from storage when the ref was
+  // created and used here to open the controls on it. The ref goes on being the live
+  // copy the restyle effect writes to; these five only ever take its opening value.
+  /* eslint-disable react-hooks/refs */
   const [fontScale, setFontScale] = useState(appearanceRef.current.fontScale);
   const [lineSpacing, setLineSpacing] = useState(appearanceRef.current.lineSpacing);
   const [theme, setTheme] = useState<ReaderTheme>(appearanceRef.current.theme);
   const [layout, setLayout] = useState<ReaderLayout>(appearanceRef.current.layout);
   const [fontFamily, setFontFamily] = useState<ReaderFont>(appearanceRef.current.fontFamily);
+  /* eslint-enable react-hooks/refs */
 
   const [bookmarks, setBookmarks] = useState<EbookBookmark[]>([]);
   const [bookmarkBusy, setBookmarkBusy] = useState(false);
@@ -551,6 +569,10 @@ export function EbookReader({
         try { view.remove(); } catch { /* ignore */ }
       }
     };
+    // `startingProgress` is in there because exhaustive-deps asks for it; it is the
+    // once-per-mount opening position, so it never actually changes and never
+    // rebuilds the view.
+    // eslint-disable-next-line react-hooks/refs
   }, [bookId, documentId, format, url, blob, storageKey, startingProgress, initialCfi, title, author, sendProgress, onRelocate, onLoad, onDrawAnnotation, onShowAnnotation, guest, t]);
 
   // Typography / theme changes — applied live, no view rebuild.
@@ -858,14 +880,22 @@ export function EbookReader({
     );
   }
 
+  // Every panel button is a disclosure for the one drawer: expanded while its own
+  // panel is the one showing, and pointing at the drawer only then (it is not in
+  // the DOM otherwise).
+  const panelToggle = (which: Exclude<Panel, null>) => ({
+    "aria-expanded": panel === which,
+    "aria-controls": panel === which ? drawerId : undefined
+  });
+
   // Text-appearance rows are shared between the "Aa" text panel and the full
   // Settings panel, so they stay in sync from one definition.
   const fontRow = (
     <div className="ebk-setting">
       <label>{t("reader:ebook.font")}</label>
       <div className="ebk-seg">
-        <Button variant="bare" className={`ebk-seg-btn${fontFamily === "serif" ? " active" : ""}`} onClick={() => setFontFamily("serif")}>{t("reader:ebook.serif")}</Button>
-        <Button variant="bare" className={`ebk-seg-btn${fontFamily === "sans" ? " active" : ""}`} onClick={() => setFontFamily("sans")}>{t("reader:ebook.sans")}</Button>
+        <Button variant="bare" className={`ebk-seg-btn${fontFamily === "serif" ? " active" : ""}`} aria-pressed={fontFamily === "serif"} onClick={() => setFontFamily("serif")}>{t("reader:ebook.serif")}</Button>
+        <Button variant="bare" className={`ebk-seg-btn${fontFamily === "sans" ? " active" : ""}`} aria-pressed={fontFamily === "sans"} onClick={() => setFontFamily("sans")}>{t("reader:ebook.sans")}</Button>
       </div>
     </div>
   );
@@ -906,13 +936,13 @@ export function EbookReader({
           </div>
         )}
         <div className="ebk-topbar-actions">
-          <Button variant="bare" className={`ebk-icon-btn${panel === "search" ? " active" : ""}`} onClick={() => togglePanel("search")} aria-label={t("reader:ebook.search")}><Search size={19} /></Button>
-          <Button variant="bare" className={`ebk-icon-btn${panel === "text" ? " active" : ""}`} onClick={() => togglePanel("text")} aria-label={t("reader:ebook.textOptions")}><ALargeSmall size={20} /></Button>
+          <Button variant="bare" className={`ebk-icon-btn${panel === "search" ? " active" : ""}`} onClick={() => togglePanel("search")} {...panelToggle("search")} aria-label={t("reader:ebook.search")}><Search size={19} /></Button>
+          <Button variant="bare" className={`ebk-icon-btn${panel === "text" ? " active" : ""}`} onClick={() => togglePanel("text")} {...panelToggle("text")} aria-label={t("reader:ebook.textOptions")}><ALargeSmall size={20} /></Button>
           <Button variant="bare" className="ebk-icon-btn" onClick={cycleTheme} aria-label={t("reader:ebook.changeTheme")}><Sun size={19} /></Button>
           {!guest && (
-            <Button variant="bare" className={`ebk-icon-btn${panel === "bookmarks" ? " active" : ""}`} onClick={() => togglePanel("bookmarks")} aria-label={t("reader:ebook.bookmarks")}><Bookmark size={19} /></Button>
+            <Button variant="bare" className={`ebk-icon-btn${panel === "bookmarks" ? " active" : ""}`} onClick={() => togglePanel("bookmarks")} {...panelToggle("bookmarks")} aria-label={t("reader:ebook.bookmarks")}><Bookmark size={19} /></Button>
           )}
-          <Button variant="bare" className={`ebk-icon-btn${panel === "settings" ? " active" : ""}`} onClick={() => togglePanel("settings")} aria-label={t("reader:ebook.settings")}><Settings size={19} /></Button>
+          <Button variant="bare" className={`ebk-icon-btn${panel === "settings" ? " active" : ""}`} onClick={() => togglePanel("settings")} {...panelToggle("settings")} aria-label={t("reader:ebook.settings")}><Settings size={19} /></Button>
         </div>
       </header>
 
@@ -931,7 +961,7 @@ export function EbookReader({
         {panel && <Button variant="bare" className="ebk-scrim" aria-label={t("common.close")} onClick={closePanels} />}
 
         {panel && (
-          <aside className={`ebk-drawer ebk-drawer-${drawerSide}`} aria-label={panel}>
+          <aside id={drawerId} className={`ebk-drawer ebk-drawer-${drawerSide}`} aria-label={panel}>
             {panel === "toc" && (
               <>
                 <div className="ebk-drawer-head"><strong>{t("reader:ebook.contents")}</strong><span>{countToc(toc)}</span></div>
@@ -1016,7 +1046,7 @@ export function EbookReader({
                     <label>{t("reader:ebook.theme")}</label>
                     <div className="ebk-seg">
                       {THEMES.map((themeOption) => (
-                        <Button variant="bare" key={themeOption} className={`ebk-seg-btn${theme === themeOption ? " active" : ""}`} onClick={() => setTheme(themeOption)}>
+                        <Button variant="bare" key={themeOption} className={`ebk-seg-btn${theme === themeOption ? " active" : ""}`} aria-pressed={theme === themeOption} onClick={() => setTheme(themeOption)}>
                           {t(`reader:ebook.themeNames.${themeOption}`)}
                         </Button>
                       ))}
@@ -1028,9 +1058,9 @@ export function EbookReader({
                   <div className="ebk-setting">
                     <label>{t("reader:ebook.layout")}</label>
                     <div className="ebk-seg">
-                      <Button variant="bare" className={`ebk-seg-btn${layout === "single" ? " active" : ""}`} onClick={() => setLayout("single")}><BookOpen size={15} /> 1</Button>
-                      <Button variant="bare" className={`ebk-seg-btn${layout === "double" ? " active" : ""}`} onClick={() => setLayout("double")}><Columns2 size={15} /> 2</Button>
-                      <Button variant="bare" className={`ebk-seg-btn${layout === "scrolled" ? " active" : ""}`} onClick={() => setLayout("scrolled")}><ScrollText size={15} /></Button>
+                      <Button variant="bare" className={`ebk-seg-btn${layout === "single" ? " active" : ""}`} aria-pressed={layout === "single"} onClick={() => setLayout("single")}><BookOpen size={15} /> 1</Button>
+                      <Button variant="bare" className={`ebk-seg-btn${layout === "double" ? " active" : ""}`} aria-pressed={layout === "double"} onClick={() => setLayout("double")}><Columns2 size={15} /> 2</Button>
+                      <Button variant="bare" className={`ebk-seg-btn${layout === "scrolled" ? " active" : ""}`} aria-pressed={layout === "scrolled"} onClick={() => setLayout("scrolled")}><ScrollText size={15} /></Button>
                     </div>
                   </div>
                   <div className="ebk-setting-actions">
@@ -1062,7 +1092,7 @@ export function EbookReader({
       </div>
 
       <footer className={`ebk-bottombar${isMobile ? " ebk-bottombar-mobile" : ""}`}>
-        <Button variant="bare" className={`ebk-contents${panel === "toc" ? " active" : ""}`} onClick={() => togglePanel("toc")} aria-label={t("reader:ebook.chapters")}>
+        <Button variant="bare" className={`ebk-contents${panel === "toc" ? " active" : ""}`} onClick={() => togglePanel("toc")} {...panelToggle("toc")} aria-label={t("reader:ebook.chapters")}>
           <List size={20} />
         </Button>
         <div className="ebk-seek">
@@ -1130,7 +1160,11 @@ export function EbookReader({
                 variant="bare"
                 key={color}
                 className={`ebk-sel-color${activeQuote.quote.color === color ? " active" : ""}`}
+                aria-pressed={activeQuote.quote.color === color}
                 style={{ background: highlightFill(color) }}
+                // recolorActiveQuote touches the quote cache and the live view, both
+                // refs — inside a click, which is after the render that wrote them.
+                // eslint-disable-next-line react-hooks/refs
                 onClick={() => void recolorActiveQuote(color)}
                 aria-label={t("reader:ebook.recolorColor", { color: colorName(color) })}
                 title={t("reader:ebook.recolorColor", { color: colorName(color) })}

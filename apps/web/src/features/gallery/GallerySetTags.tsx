@@ -28,7 +28,11 @@ export function GallerySetTags({
   const [busy, setBusy] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
 
-  useEffect(() => { setDraft(tags); }, [tags]);
+  // The draft is seeded when the combobox opens (and again on Cancel), which is
+  // the only time it is read — it used to follow `tags` from an effect, and a
+  // reload of the album/slideshow list landing mid-edit then wiped what had been
+  // typed.
+  const open = () => { setDraft(tags); setEditing(true); };
 
   // Tags are cross-type, so offer the ones the gallery already uses — albums
   // and slideshows count as gallery, so a set's own vocabulary is in here.
@@ -40,7 +44,9 @@ export function GallerySetTags({
         payload.tags.filter((tag) => tag.galleryCount > 0).map((tag) => tag.name)
       ))
       .catch(() => setSuggestions([]));
-  }, [editing]);
+    // `suggestions.length` is the "already fetched" guard, so the re-run it
+    // causes when the list arrives falls straight out of the early return.
+  }, [editing, suggestions.length]);
 
   const save = async () => {
     setBusy(true);
@@ -71,7 +77,7 @@ export function GallerySetTags({
           </a>
         ))}
         {canEdit && (
-          <Button variant="text" compact onClick={() => setEditing(true)}>
+          <Button variant="text" compact onClick={open}>
             <Tags size={14} aria-hidden="true" />
             <span>{tags.length === 0 ? t("gallery:setTags.add") : t("gallery:setTags.edit")}</span>
           </Button>

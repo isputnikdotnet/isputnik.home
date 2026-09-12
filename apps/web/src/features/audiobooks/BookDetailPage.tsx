@@ -91,7 +91,7 @@ export function AudiobookBookPage({
     };
     void load();
     return () => { cancelled = true; };
-  }, [id, reloadKey]);
+  }, [id, reloadKey, t]);
 
   const section = bookSectionNav(active === "ebooks" ? "ebook" : "audiobook");
 
@@ -484,6 +484,16 @@ function BookDetailView({
     if (nextEpisode) playEpisode(nextEpisode);
   };
   const primaryReadableDoc = book.documents.find((doc) => VIEWABLE_DOC_FORMATS.has(doc.format)) ?? book.documents[0] ?? null;
+  // The document is found afresh on every render, so the effects below key on its
+  // id and format — the two things that decide what they do — and reach the rest
+  // of it through a ref rather than re-running whenever the object is rebuilt.
+  const primaryDocId = primaryReadableDoc?.id;
+  const primaryDocFormat = primaryReadableDoc?.format;
+  // Kept up to date after the commit rather than while rendering. Written here,
+  // above its only reader, so that effect already sees the document this render
+  // found — effects run in the order they appear.
+  const primaryDocRef = useRef(primaryReadableDoc);
+  useEffect(() => { primaryDocRef.current = primaryReadableDoc; });
   const sendableDoc = book.documents.find((doc) => SENDABLE_DOC_FORMATS.has(doc.format)) ?? null;
   const canReadPrimaryDoc = Boolean(primaryReadableDoc && VIEWABLE_DOC_FORMATS.has(primaryReadableDoc.format));
   const primaryReaderStorageKey = primaryReadableDoc
@@ -513,32 +523,33 @@ function BookDetailView({
   useEffect(() => {
     let cancelled = false;
     setReadingProgress(null);
-    if (!primaryReadableDoc || !isFoliateFormat(primaryReadableDoc.format)) {
+    if (!primaryDocId || !isFoliateFormat(primaryDocFormat)) {
       return () => { cancelled = true; };
     }
 
     api<{ progress: ReadingProgress | null }>(
-      `/api/library/books/${book.id}/reading-progress?documentId=${encodeURIComponent(primaryReadableDoc.id)}`
+      `/api/library/books/${book.id}/reading-progress?documentId=${encodeURIComponent(primaryDocId)}`
     )
       .then((payload) => { if (!cancelled) setReadingProgress(payload.progress); })
       .catch(() => { if (!cancelled) setReadingProgress(null); });
 
     return () => { cancelled = true; };
-  }, [book.id, primaryReadableDoc?.id, primaryReadableDoc?.format]);
+  }, [book.id, primaryDocId, primaryDocFormat]);
 
   // Deep-link from a bookmark's Read button: open straight into the reader on the
   // primary document, then drop the ?read flag so a refresh doesn't reopen it.
   useEffect(() => {
     const url = new URL(window.location.href);
     if (!url.searchParams.has("read")) return;
-    if (primaryReadableDoc && VIEWABLE_DOC_FORMATS.has(primaryReadableDoc.format)) {
+    const doc = primaryDocRef.current;
+    if (doc && VIEWABLE_DOC_FORMATS.has(doc.format)) {
       setReadCfi(url.searchParams.get("cfi"));
-      setViewerDoc({ id: primaryReadableDoc.id, fileName: primaryReadableDoc.fileName, url: primaryReadableDoc.url, format: primaryReadableDoc.format });
+      setViewerDoc({ id: doc.id, fileName: doc.fileName, url: doc.url, format: doc.format });
     }
     url.searchParams.delete("read");
     url.searchParams.delete("cfi");
     window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
-  }, [primaryReadableDoc?.id]);
+  }, [primaryDocId]);
 
   useEffect(() => {
     const loadProgress = () => api<{ progress: PlaybackProgress | null }>(`/api/library/books/${book.id}/progress`)
@@ -561,7 +572,7 @@ function BookDetailView({
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onFocus);
     };
-  }, [book.id]);
+  }, [book.id, book.progressMode]);
 
   useEffect(() => {
     setSave(null);
@@ -1494,6 +1505,7 @@ function BookDetailView({
 
       {metadataModalOpen && (
         <EditMetadataModal
+          key={book.id}
           book={book}
           onBookUpdated={onBookUpdated}
           onClose={() => setMetadataModalOpen(false)}

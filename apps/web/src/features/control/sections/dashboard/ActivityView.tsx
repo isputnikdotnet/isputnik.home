@@ -82,13 +82,13 @@ export function ActivityView({ status }: { status: SystemStatus }) {
     api<DashboardActivity>(`/api/dashboard/activity?${query}`)
       .then(setActivity)
       .catch((err) => setError(err instanceof Error ? err.message : t("controlDash:activity.loadFailed")));
-  }, [range.from, range.to]);
+  }, [range.from, range.to, t]);
 
   useEffect(() => {
     api<{ inProgress: DashboardInProgressEntry[] }>("/api/dashboard/in-progress")
       .then((payload) => setInProgress(payload.inProgress))
       .catch((err) => setInProgressError(err instanceof Error ? err.message : t("controlDash:activity.inProgressFailed")));
-  }, []);
+  }, [t]);
 
   const contentSeries = activity
     ? [

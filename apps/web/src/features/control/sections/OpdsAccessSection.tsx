@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import i18n from "../../../i18n";
 import { QRCodeSVG } from "qrcode.react";
@@ -59,7 +59,7 @@ export function OpdsAccessSection() {
   const [removing, setRemoving] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       const payload = await api<{ tokens: OpdsToken[] }>("/api/account/tokens");
       setTokens(payload.tokens);
@@ -68,11 +68,11 @@ export function OpdsAccessSection() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [t]);
 
   useEffect(() => {
     void load();
-  }, []);
+  }, [load]);
 
   const copy = async (key: string, value: string) => {
     try {

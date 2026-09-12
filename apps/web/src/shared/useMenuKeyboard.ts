@@ -10,7 +10,12 @@ import { useEffect, type KeyboardEvent, type RefObject } from "react";
 // `closeAndRestore` — because a menu portalled to <body> has nowhere sensible
 // for focus to fall when it unmounts. A press outside closes it without moving
 // focus: the reader has already put it where they meant to.
-const ITEM_SELECTOR = '[role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"]';
+//
+// The same walk serves a listbox popup (SelectMenu, a form's single choice): its
+// options are role="option" and the chosen one is aria-selected rather than
+// aria-checked, but the keys and the way back to the trigger are identical.
+const ITEM_SELECTOR = '[role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"], [role="option"]';
+const CURRENT_SELECTOR = '[aria-checked="true"], [aria-selected="true"]';
 
 function itemsIn(menu: HTMLElement | null): HTMLElement[] {
   if (!menu) return [];
@@ -33,7 +38,7 @@ export function useMenuKeyboard({
   useEffect(() => {
     if (!open) return;
     const items = itemsIn(menuRef.current);
-    const start = items.find((item) => item.getAttribute("aria-checked") === "true") ?? items[0];
+    const start = items.find((item) => item.matches(CURRENT_SELECTOR)) ?? items[0];
     // preventScroll: the menu is fixed-positioned, and a scroll is one of the
     // things that closes it.
     start?.focus({ preventScroll: true });

@@ -223,7 +223,7 @@ export function SignInsView() {
     api<DashboardSignIns>(`/api/dashboard/signins?${query}`)
       .then(setData)
       .catch((err) => setError(err instanceof Error ? err.message : t("controlDash:signIns.loadFailed")));
-  }, [range.from, range.to, scope, reloadNonce]);
+  }, [range.from, range.to, scope, reloadNonce, t]);
 
   const revokeSession = async () => {
     if (!pendingRevoke) return;
@@ -320,8 +320,7 @@ export function SignInsView() {
         })
       )
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, deviceKind]);
+  }, [data, deviceKind, t]);
 
   const guessedNames = useMemo(() => pageOf(data?.guessedNames ?? [], namePage), [data, namePage]);
   // Sorted and paged here rather than by the server: the scope's tail is already
@@ -352,8 +351,7 @@ export function SignInsView() {
       // so a burst of link visits is neither hidden nor mistaken for sign-ins.
       { label: t("controlDash:signIns.guestVisits"), data: data?.series.guests ?? [], colorVar: "--gold" }
     ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [data]
+    [data, t]
   );
 
   const ipMax = useMemo(() => Math.max(...(data?.ips ?? []).map((row) => row.connections), 1), [data]);
