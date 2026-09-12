@@ -81,7 +81,7 @@ type StepKey = "storage" | "bin" | "gallery" | "backup" | "email" | "alerts" | "
 /** The App storage view, as far as this page needs it (docs/app-storage-plan.md). */
 interface AppStorageView {
   path: string | null;
-  rooms: { room: string; mode: "app" | "own" | "off"; appPath: string | null; library: { id: string; name: string } | null; counts: { itemsInBin?: number } }[];
+  rooms: { room: string; mode: "app" | "own" | "off"; appPath: string | null; library: { id: string; name: string } | null; counts: { itemsInBin?: number }; required: boolean; problem: string }[];
 }
 
 // Two of these depend on the step before them, and say so rather than being hidden: the
@@ -380,6 +380,13 @@ export function WelcomePage({ user, onDone }: {
     backups: t("controlAdmin:storage.roomBackups")
   };
   const roomsInApp = (appStorage?.rooms ?? []).filter((entry) => entry.mode === "app").map((entry) => roomLabel[entry.room] ?? entry.room);
+  // Thumbnails are the one answer this step cannot be left without: no library
+  // can be added until they have a folder, whether that is App storage or one of
+  // their own. The step says so where the choice is made, rather than leaving it
+  // to the greyed-out Add library button on another page.
+  const thumbnails = room("thumbnails");
+  const thumbnailsHomeless = thumbnails ? thumbnails.mode === "off" : !settings?.thumbnailPath;
+  const thumbnailsProblem = thumbnails?.problem || settings?.thumbnailPathError || "";
   const binUsesApp = room("trash")?.mode === "app";
   const appRoomPath = (name: string) => room(name)?.appPath ?? "";
   const index = STEPS.findIndex((entry) => entry.key === step);
@@ -484,6 +491,12 @@ export function WelcomePage({ user, onDone }: {
               </div>
               {appStorage?.path && roomsInApp.length > 0 && (
                 <p className="setting-status ready">{t("welcome.appStorageRooms", { rooms: roomsInApp.join(", ") })}</p>
+              )}
+              {thumbnailsHomeless && (
+                <p className="setting-status needs-attention">{t("welcome.thumbnailsNeeded")}</p>
+              )}
+              {!thumbnailsHomeless && thumbnailsProblem && (
+                <p className="setting-status needs-attention">{thumbnailsProblem}</p>
               )}
 
               {/* The thumbnail folder on its own: today's step, folded away. Thumbnails are

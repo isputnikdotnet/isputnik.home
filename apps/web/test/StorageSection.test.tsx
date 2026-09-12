@@ -23,6 +23,8 @@ const room = (name: string, mode: "app" | "own" | "off", extra: Record<string, u
   counts: {},
   move: { running: false, jobId: null, label: null, from: null, to: null, done: 0, pending: 0, failed: [] },
   renameTo: null,
+  required: name === "thumbnails",
+  problem: "",
   ...extra
 });
 
@@ -144,5 +146,38 @@ describe("renaming the App files folder from its former name", () => {
     expect(within(dialog).getByText(/D:\\Demo\\iSputnik\\Made in the app becomes D:\\Demo\\iSputnik\\App files\. The library "Random" follows its folder/)).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: "Rename folder" }));
     await waitFor(() => expect(posts).toEqual(["/api/storage/app-storage/rooms/house/rename"]));
+  });
+});
+
+// Thumbnails are the one room that cannot be left without a folder: no library
+// can be added until they have one, so the row says so rather than reading like
+// the optional rooms beside it.
+describe("the Thumbnails row when it has nowhere to go", () => {
+  const mountWith = (thumbnails: Record<string, unknown>) => {
+    const withRoom = { ...view, rooms: view.rooms.map((r) => (r.room === "thumbnails" ? { ...r, ...thumbnails } : r)) };
+    mockApi.mockImplementation(async (path: string) => {
+      if (typeof path !== "string") return undefined;
+      if (path === "/api/storage/app-storage") return withRoom;
+      if (path === "/api/storage/roots") return { roots: [] };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<StorageSection />);
+  };
+
+  it("says a folder is needed while the room is off", async () => {
+    mountWith({ mode: "off", resolvedPath: null });
+    expect(await screen.findByText("A folder is needed before a library can be added.")).toBeInTheDocument();
+  });
+
+  it("shows the folder's own problem instead of waiting for a scan to fail", async () => {
+    mountWith({ problem: "Thumbnail path must be a directory." });
+    expect(await screen.findByText("Thumbnail path must be a directory.")).toBeInTheDocument();
+    expect(screen.queryByText("A folder is needed before a library can be added.")).toBeNull();
+  });
+
+  it("says neither while the folder is fine", async () => {
+    mountWith({});
+    await waitFor(() => expect(screen.getByText("D:\\Demo\\thumbs")).toBeInTheDocument());
+    expect(screen.queryByText("A folder is needed before a library can be added.")).toBeNull();
   });
 });

@@ -40,6 +40,13 @@ export interface RoomView {
   /** Set when the room's folder still goes by a former name (App files was
    *  "Made in the app" until 3.86.0): the folder it would be renamed to. */
   renameTo: string | null;
+  /** True for a room that cannot be left without a place. Only Thumbnails: no
+   *  library can be added until they have a folder (thumbnail.ts raises
+   *  "Configure thumbnail storage before creating a library"). */
+  required: boolean;
+  /** Why the room's folder cannot be used right now, "" when it is fine. The
+   *  row says so rather than leaving it to fail at the next scan. */
+  problem: string;
 }
 
 export interface AppStorageView {
@@ -67,7 +74,9 @@ function trashRoom(): RoomView {
     library: null,
     counts: { itemsInBin },
     move: storageMoveStatus("trash"),
-    renameTo: null
+    renameTo: null,
+    required: false,
+    problem: ""
   };
 }
 
@@ -85,7 +94,9 @@ function inboxRoom(): RoomView {
     library: shown ? { id: shown.id, name: shown.name } : null,
     counts: { waiting: shown ? itemCount(shown.id) : 0 },
     move: storageMoveStatus("inbox"),
-    renameTo: null
+    renameTo: null,
+    required: false,
+    problem: ""
   };
 }
 
@@ -106,14 +117,41 @@ export function houseRoom(): RoomView {
     library: house ? { id: house.id, name: house.name } : null,
     counts: {},
     move: storageMoveStatus("house"),
-    renameTo: underFormerName ? path.join(path.dirname(appPath!), APP_ROOM_FOLDERS.house) : null
+    renameTo: underFormerName ? path.join(path.dirname(appPath!), APP_ROOM_FOLDERS.house) : null,
+    required: false,
+    problem: ""
   };
+}
+
+/** Why the thumbnail folder cannot be used, said in a sentence rather than as an
+ *  fs error code — the row is read by whoever set the path, not by a developer.
+ *  A folder that is merely missing is not a problem: like every other room's, it
+ *  is made on demand, and this says so only when it cannot be made. */
+function thumbnailProblem(folder: string): string {
+  if (!path.isAbsolute(folder)) return "Use an absolute server path for the thumbnail folder.";
+  try {
+    if (!fs.statSync(folder).isDirectory()) return "That path is a file, not a folder.";
+    fs.accessSync(folder, fs.constants.R_OK | fs.constants.W_OK);
+    return "";
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code !== "ENOENT") return "The app cannot read and write in that folder.";
+    try {
+      fs.mkdirSync(folder, { recursive: true });
+      return "";
+    } catch {
+      return "That folder does not exist and cannot be created.";
+    }
+  }
 }
 
 function thumbnailsRoom(): RoomView {
   const appPath = appRoomPath("thumbnails");
   const resolved = configuredThumbnailPathValue() || null;
   const usesApp = resolved !== null && samePath(resolved, appPath);
+  // The one room whose folder is checked while the page is read: an unwritable
+  // thumbnail folder is otherwise only met by the next scan, as a failed render.
+  const problem = resolved ? thumbnailProblem(resolved) : "";
   return {
     room: "thumbnails",
     mode: usesApp ? "app" : resolved ? "own" : "off",
@@ -123,7 +161,9 @@ function thumbnailsRoom(): RoomView {
     library: null,
     counts: {},
     move: storageMoveStatus("thumbnails"),
-    renameTo: null
+    renameTo: null,
+    required: true,
+    problem
   };
 }
 
@@ -150,7 +190,9 @@ function rendersRoom(): RoomView {
     library: null,
     counts: { tracks, clips },
     move: storageMoveStatus("renders"),
-    renameTo: null
+    renameTo: null,
+    required: false,
+    problem: ""
   };
 }
 
@@ -173,7 +215,9 @@ function backupsRoom(): RoomView {
     library: null,
     counts: { backups },
     move: storageMoveStatus("backups"),
-    renameTo: null
+    renameTo: null,
+    required: false,
+    problem: ""
   };
 }
 

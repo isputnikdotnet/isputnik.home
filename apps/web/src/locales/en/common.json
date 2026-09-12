@@ -569,6 +569,7 @@
     "appStorageNeedsContainer": "Add a container first — App storage lives inside one.",
     "appStorageRooms": "Kept here: {{rooms}}.",
     "appStorageSaveFailed": "Unable to set App storage",
+    "thumbnailsNeeded": "Thumbnails have nowhere to go yet. Choose App storage above, or give them a folder of their own below — no library can be added until they have one.",
     "ownFoldersToggle": "Or choose the thumbnail folder on your own",
     "ownFoldersNote": "For thumbnails on a different disk from the rest — a fast local one beside a slow NAS, say. Anything else the app keeps can be pointed elsewhere afterwards, from Library → Storage.",
     "lockedGalleryBody": "Choose an App storage folder first — these two libraries are made inside it.",
