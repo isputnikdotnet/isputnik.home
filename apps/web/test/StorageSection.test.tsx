@@ -181,3 +181,59 @@ describe("the Thumbnails row when it has nowhere to go", () => {
     expect(screen.queryByText("A folder is needed before a library can be added.")).toBeNull();
   });
 });
+
+// The Map data room (docs/map-approach-proposal.md, phase 1b): the Renders
+// pattern, so App storage or its own folder and nothing else. Off is not a
+// storage question — whether maps are kept at all is chosen with maps.
+describe("the Map data row", () => {
+  const mountWithMaps = () => {
+    puts = [];
+    const withMaps = {
+      ...view,
+      rooms: [...view.rooms.slice(0, 5), room("maps", "app", { resolvedPath: `${APP}\Map data`, holdsFiles: false }), view.rooms[5]]
+    };
+    mockApi.mockImplementation(async (path: string, init?: RequestInit) => {
+      if (typeof path !== "string") return undefined;
+      if (init?.method === "PUT") {
+        puts.push({ path, body: JSON.parse(String(init.body)) });
+        return { storage: withMaps };
+      }
+      if (path === "/api/storage/app-storage") return withMaps;
+      if (path === "/api/storage/roots") return { roots: [] };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<StorageSection />);
+  };
+
+  it("is listed between Renders and Backups, and names where it is", async () => {
+    mountWithMaps();
+    const label = await screen.findByText("Map data");
+    const rows = Array.from(document.querySelectorAll("tbody tr")).map((row) => row.textContent ?? "");
+    const at = (name: string) => rows.findIndex((text) => text.includes(name));
+    expect(at("Map data")).toBe(at("Renders") + 1);
+    expect(at("Backups")).toBe(at("Map data") + 1);
+    expect(within(label.closest("tr") as HTMLElement).getByText(`${APP}\Map data`)).toBeInTheDocument();
+  });
+
+  it("offers App storage or its own folder — never off — and confirms before switching", async () => {
+    const user = userEvent.setup();
+    mountWithMaps();
+    const row = (await screen.findByText("Map data")).closest("tr") as HTMLElement;
+    await user.click(within(row).getByRole("button", { name: "Change" }));
+
+    const chooser = await screen.findByRole("dialog");
+    const options = within(chooser).getAllByRole("radio");
+    expect(options.map((option) => (option as HTMLInputElement).value)).toEqual(["app", "own"]);
+    expect(within(chooser).getByText("Its own folder")).toBeInTheDocument();
+    await user.click(within(chooser).getByText("Its own folder"));
+    await user.click(within(chooser).getByRole("button", { name: "Continue" }));
+
+    const confirm = await screen.findByRole("dialog");
+    expect(within(confirm).getByText("Keep map data in its own folder?")).toBeInTheDocument();
+    expect(within(confirm).getByText(/What is already kept moves now, as a task/)).toBeInTheDocument();
+    await user.click(within(confirm).getByRole("button", { name: "Use it" }));
+
+    await waitFor(() => expect(puts).toHaveLength(1));
+    expect(puts[0]).toEqual({ path: "/api/storage/app-storage/rooms/maps", body: { mode: "own", path: null, libraryId: null } });
+  });
+});

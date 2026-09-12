@@ -19,6 +19,7 @@
       "security": "Безопасность",
       "maintenance": "Обслуживание",
       "utilities": "Утилиты",
+      "maps": "Карты",
       "settings": "Настройки"
     },
     "tabs": {
@@ -45,7 +46,9 @@
       "email": "Почта",
       "notifications": "Уведомления",
       "storySettings": "Истории",
-      "maps": "Карты",
+      "mapSetup": "Настройка",
+      "mapData": "Данные",
+      "mapRouting": "Маршруты",
       "readerAccess": "Доступ для читалок",
       "about": "О программе",
       "quotes": "Цитаты"
@@ -97,6 +100,8 @@
       "recordingsLibrary": "Библиотека записей историй",
       "recipeImport": "Импорт рецептов по ссылке",
       "mapRouting": "Прокладка маршрутов",
+      "mapCaching": "Хранить карты на сервере",
+      "locationDatabase": "Базы расположения входов",
       "appStorage": "Хранилище приложения"
     }
   },

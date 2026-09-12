@@ -1,14 +1,12 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
-import { OSM_TILE_OPTIONS, OSM_TILE_URL } from "../../shared/mapTiles";
+import { MapView } from "../../shared/map";
+import type { LatLng, MapShapes, MapViewCommand } from "../../shared/map";
 
 // Click-to-place location picker for the lightbox Info panel: click the map (or
-// drag the pin) to choose where a photo was taken. Plain Leaflet via refs like
-// GalleryMiniMap, lazy-loaded so Leaflet stays off the initial bundle. Unlike the
-// read-only mini map, scroll-wheel zoom stays on — picking a point is a deliberate
-// interaction that needs zooming.
+// drag the pin) to choose where a photo was taken. Unlike the read-only mini
+// map, scroll-wheel zoom stays on — picking a point is a deliberate interaction
+// that needs zooming.
 export function GalleryLocationPicker({
   value,
   onChange,
@@ -22,72 +20,64 @@ export function GalleryLocationPicker({
   focus?: { lat: number; lng: number; zoom?: number; nonce: number } | null;
 }) {
   const { t } = useTranslation(["common", "gallery"]);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<L.Map | null>(null);
-  const markerRef = useRef<L.Marker | null>(null);
-  const placeRef = useRef<((latlng: L.LatLng) => void) | null>(null);
-  // The map handlers live for the map's lifetime; always call the latest callback.
-  // Refreshed after each commit, not while rendering: it is only ever read from a
-  // map click or a pin dragend, both well after paint.
-  const onChangeRef = useRef(onChange);
-  useEffect(() => { onChangeRef.current = onChange; });
 
-  useEffect(() => {
-    if (!containerRef.current || mapRef.current) return;
-    const map = L.map(containerRef.current, {
+  // Where the pin is now. `value` only SEEDS it: once the map is open the pin
+  // belongs to this component, and the parent hears about it through onChange.
+  const [pin, setPin] = useState(value);
+
+  const options = useMemo(
+    () => ({
       // With no starting point, show the world and let the user zoom in.
-      center: value ? [value.lat, value.lng] : [25, 10],
-      zoom: value ? 14 : 1,
-      attributionControl: true
-    });
-    L.tileLayer(OSM_TILE_URL, {
-      ...OSM_TILE_OPTIONS,
-      attribution: t("gallery:map.osmAttribution")
-    }).addTo(map);
-    const icon = L.divIcon({ className: "gallery-mini-marker", html: '<span class="gallery-mini-pin"></span>', iconSize: [18, 18], iconAnchor: [9, 9] });
-    const addMarker = (latlng: L.LatLng) => {
-      markerRef.current = L.marker(latlng, { icon, draggable: true }).addTo(map);
-      markerRef.current.on("dragend", () => {
-        const pos = markerRef.current!.getLatLng().wrap();
-        onChangeRef.current({ lat: pos.lat, lng: pos.lng });
-      });
-    };
-    if (value) addMarker(L.latLng(value.lat, value.lng));
-    // Shared by map clicks and the search box, which reaches it through the ref
-    // below (the map is built once, so `focus` can't close over this directly).
-    placeRef.current = (latlng: L.LatLng) => {
-      if (markerRef.current) markerRef.current.setLatLng(latlng);
-      else addMarker(latlng);
-    };
-    map.on("click", (event: L.LeafletMouseEvent) => {
-      if (markerRef.current) markerRef.current.setLatLng(event.latlng);
-      else addMarker(event.latlng);
-      // .wrap() folds a longitude picked on a panned-past-the-antimeridian world
-      // copy back into ±180, which the server insists on.
-      const point = event.latlng.wrap();
-      onChangeRef.current({ lat: point.lat, lng: point.lng });
-    });
-    mapRef.current = map;
-    const sizeTimer = window.setTimeout(() => map.invalidateSize(), 0);
-    return () => {
-      window.clearTimeout(sizeTimer);
-      map.remove();
-      mapRef.current = null;
-      markerRef.current = null;
-    };
-    // Created once per mount; `value` only seeds the initial view/pin.
+      center: (value ? [value.lat, value.lng] : [25, 10]) as LatLng,
+      zoom: value ? 14 : 1
+    }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    []
+  );
 
-  // A search result: move the view there and put the pin on it. Keyed on the
-  // nonce alone so re-renders (busy flags, hint text) don't yank the map back.
+  const shapes = useMemo<MapShapes>(
+    () => ({
+      markers: pin
+        ? [{
+            id: "pin",
+            lat: pin.lat,
+            lng: pin.lng,
+            className: "gallery-mini-marker",
+            html: '<span class="gallery-mini-pin"></span>',
+            size: [18, 18] as [number, number],
+            draggable: true
+          }]
+        : []
+    }),
+    [pin]
+  );
+
+  const [view, setView] = useState<MapViewCommand | null>(null);
+
+  // A search result: move the view there and put the pin on it.
   useEffect(() => {
-    if (!focus || !mapRef.current) return;
-    const latlng = L.latLng(focus.lat, focus.lng);
-    mapRef.current.setView(latlng, focus.zoom ?? 13);
-    placeRef.current?.(latlng);
+    if (!focus) return;
+    setPin({ lat: focus.lat, lng: focus.lng });
+    setView({ kind: "center", center: [focus.lat, focus.lng], zoom: focus.zoom ?? 13 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus?.nonce]);
 
-  return <div className="gallery-mini-map gallery-location-picker" ref={containerRef} aria-label={t("gallery:locationPicker.aria")} />;
+  // A click places the pin if there isn't one and moves it if there is; a drag
+  // says the same thing more precisely. Both are the user choosing a point.
+  const place = (point: { lat: number; lng: number }) => {
+    setPin(point);
+    onChange(point);
+  };
+
+  return (
+    <MapView
+      options={options}
+      shapes={shapes}
+      view={view}
+      onMapClick={place}
+      onMarkerDragEnd={(_id, point) => place(point)}
+      className="gallery-mini-map gallery-location-picker"
+      ariaLabel={t("gallery:locationPicker.aria")}
+    />
+  );
 }

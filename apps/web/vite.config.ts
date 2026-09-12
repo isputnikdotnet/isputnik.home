@@ -144,10 +144,17 @@ function precacheScope() {
 
   // Given workbox's glob results. Files the bundle knows about are kept only when
   // the shell or an offline root reaches them; anything it doesn't track (index.html,
-  // the icons, the web manifest) passes through as before.
+  // the icons, the web manifest) passes through as before — EXCEPT built code.
+  //
+  // A script under static/ that the import graph never reached is not part of the
+  // shell by definition, however it got there. The case that found this: a web
+  // worker imported with ?worker&url (MapLibre's, 507 KB) is built by Vite in a
+  // sub-build of its own, so it never appears in this graph at all — and the
+  // pass-through rule precached it on every device, every release.
+  const untrackedCode = (url: string) => /^static\/.+\.m?js$/.test(url);
   const manifestTransform = async <T extends { url: string }>(entries: T[]) => {
     if (!computed) throw new Error("precache: the bundle's import graph was not recorded");
-    const manifest = entries.filter((entry) => keep.has(entry.url) || !drop.has(entry.url));
+    const manifest = entries.filter((entry) => keep.has(entry.url) || (!drop.has(entry.url) && !untrackedCode(entry.url)));
     return { manifest, warnings: [] as string[] };
   };
 

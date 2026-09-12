@@ -21,7 +21,7 @@ import { formatNumber } from "../../../shared/dates";
 // deletes. Files the app's folders do not account for are "other", with the
 // way out: move their folder to another library, from the gallery.
 
-type AppRoom = "trash" | "inbox" | "house" | "thumbnails" | "renders" | "backups";
+type AppRoom = "trash" | "inbox" | "house" | "thumbnails" | "renders" | "maps" | "backups";
 
 interface RoomContents {
   room: AppRoom;
@@ -96,6 +96,7 @@ export function StorageContentsSection() {
     house: t("controlAdmin:storage.roomHouse"),
     thumbnails: t("controlAdmin:storage.roomThumbnails"),
     renders: t("controlAdmin:storage.roomRenders"),
+    maps: t("controlAdmin:storage.roomMaps"),
     backups: t("controlAdmin:storage.roomBackups")
   };
   const folderName: Record<FolderKey, string> = {

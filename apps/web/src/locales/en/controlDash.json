@@ -216,9 +216,9 @@
   "locations": {
     "loadFailed": "Unable to load locations",
     "unnamedPlace": "Unnamed place",
-    "noDatabaseTitle": "No location database yet",
-    "noDatabaseBody": "Countries come from a database kept with your data and read on this server — no address is ever sent out to look one up. Fetch the free one (about 9 MB) to start placing connections on the map.",
-    "setUpDatabase": "Set up the database",
+    "noDatabaseTitle": "Sign-in locations aren't set up",
+    "noDatabaseBody": "Countries come from a database kept with your data and read on this server — no address is ever sent out to look one up. Turn on sign-in countries on the Maps page to start placing connections on the map.",
+    "setUpDatabase": "Set up on the Maps page",
     "countries": "Countries",
     "placedContext": "{{placed}} of {{total}} sign-ins placed",
     "homeNetwork": "Home network",

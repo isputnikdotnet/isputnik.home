@@ -1,22 +1,16 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
 import { countryCentroid } from "./countryCentroids";
-import { OSM_TILE_OPTIONS, OSM_TILE_URL } from "../../../../shared/mapTiles";
+import { MapView } from "../../../../shared/map";
+import type { LatLng, MapShapes, MapViewCommand } from "../../../../shared/map";
 
 // Overview › Dashboard › Locations — where the sign-ins came from, on a real map.
 //
-// This replaced a bundled-SVG choropleth. The trade it makes is deliberate: the
-// tiles come from OpenStreetMap, so drawing this map does make requests to a host
-// outside the house — the same ones the gallery map and the home-location picker
-// already make, and the only external host the CSP allows. Nothing about a sign-in
-// is in those requests: a tile URL is a zoom level and a square of the world, and
-// the addresses themselves are still resolved locally against the database kept
-// with your data.
-//
-// Plain Leaflet driven through refs and effects, matching GalleryMap — no
-// react-leaflet wrapper to version-couple.
+// The addresses themselves are resolved locally, against the database kept with
+// your data. The base map is another matter until map caching is on: the tiles a
+// page asks for outline the region it is framing, so with caching off the provider
+// can see roughly where this household signs in from. With it on, every tile comes
+// through this server (docs/map-approach-proposal.md).
 
 export interface MapCountry {
   code: string;
@@ -60,9 +54,16 @@ function stepFor(connections: number, max: number): number {
   return 1;
 }
 
+/** A stable empty default. `places = []` would hand `towns` a new array on every
+ *  render, which cascades into `bubbles` and then into the framing effect below
+ *  — and since that effect sets state, the re-render it causes would rebuild the
+ *  array again, for ever. The old map got away with it by calling fitBounds
+ *  imperatively; this one must not. */
+const NO_PLACES: MapPlace[] = [];
+
 export function LocationsMap({
   countries,
-  places = [],
+  places = NO_PLACES,
   home = null,
   selected,
   onSelect
@@ -75,24 +76,19 @@ export function LocationsMap({
   onSelect: (code: string | null) => void;
 }) {
   const { t } = useTranslation(["common", "controlDash"]);
-  // Memoised because the draw effect below depends on it: rebuilt every render, it
+  // Memoised because the shapes below depend on it: rebuilt every render, it
   // would redraw every shape on the map on every render.
   const plural = useCallback((count: number) => t("controlDash:map.connections", { count }), [t]);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<L.Map | null>(null);
-  const layerRef = useRef<L.LayerGroup | null>(null);
-  // Every drawn shape by the country code it selects, so a click in the table
-  // below can highlight and fly to the same thing without redrawing the layer.
-  const shapesRef = useRef(new Map<string, L.CircleMarker[]>());
-  // Both are read inside Leaflet handlers, which outlive the render that made them
-  // — so they are refreshed after the commit rather than while rendering. A click
-  // on a bubble is the only reader, and it cannot happen before paint.
-  const onSelectRef = useRef(onSelect);
-  const selectedRef = useRef(selected);
-  useEffect(() => {
-    onSelectRef.current = onSelect;
-    selectedRef.current = selected;
-  });
+
+  const options = useMemo(
+    () => ({
+      center: [25, 10] as LatLng,
+      zoom: 2,
+      minZoom: 1,
+      worldCopyJump: true
+    }),
+    []
+  );
 
   const towns = useMemo(
     // Biggest first so a small town drawn inside a big one stays clickable.
@@ -125,126 +121,105 @@ export function LocationsMap({
     });
   }, [countries, towns, t]);
 
-  // Create the map once.
-  useEffect(() => {
-    if (!containerRef.current || mapRef.current) return;
-    const shapes = shapesRef.current;
-    const map = L.map(containerRef.current, { worldCopyJump: true, minZoom: 1 }).setView([25, 10], 2);
-    L.tileLayer(OSM_TILE_URL, {
-      ...OSM_TILE_OPTIONS,
-      attribution: t("controlDash:map.osmAttribution")
-    }).addTo(map);
-    const layer = L.layerGroup().addTo(map);
-    mapRef.current = map;
-    layerRef.current = layer;
-    // The container is sized by CSS, but settle any layout race so tiles fill it.
-    const sizeTimer = window.setTimeout(() => map.invalidateSize(), 0);
-    return () => {
-      window.clearTimeout(sizeTimer);
-      map.remove();
-      mapRef.current = null;
-      layerRef.current = null;
-      shapes.clear();
-    };
-    // The tile attribution is translated when the map is built and then left
-    // alone: rebuilding the map to restate it in another language would throw
-    // away wherever the reader had panned and zoomed to.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Redraw whenever the data changes, and frame what was drawn.
-  useEffect(() => {
-    const map = mapRef.current;
-    const layer = layerRef.current;
-    if (!map || !layer) return;
-    layer.clearLayers();
-    shapesRef.current.clear();
-
-    const remember = (code: string, shape: L.CircleMarker) => {
-      const list = shapesRef.current.get(code);
-      if (list) list.push(shape);
-      else shapesRef.current.set(code, [shape]);
-    };
-    const toggle = (code: string) => onSelectRef.current(selectedRef.current === code ? null : code);
-
-    const bounds: L.LatLngExpression[] = [];
-
+  const shapes = useMemo<MapShapes>(() => {
     const countryMax = bubbles.reduce((top, entry) => Math.max(top, entry.connections), 0);
-    for (const entry of bubbles) {
-      // Fill and stroke come from CSS (which beats Leaflet's presentation
-      // attributes), so the bubbles follow the theme's accents.
-      const shape = L.circleMarker(entry.centre, {
-        radius: bubbleRadius(entry.connections, countryMax, 6, 16),
-        className: `locations-map-country step-${stepFor(entry.connections, countryMax)}`
-      });
-      shape.bindTooltip(`${entry.label}: ${plural(entry.connections)}`, { direction: "top" });
-      shape.on("click", () => toggle(entry.code));
-      layer.addLayer(shape);
-      remember(entry.code, shape);
-      bounds.push(entry.centre);
-    }
-
     const townMax = towns.reduce((top, place) => Math.max(top, place.connections), 0);
-    for (const place of towns) {
-      const point: L.LatLngExpression = [place.latitude!, place.longitude!];
-      const where = [place.city, place.region, place.country ?? place.code].filter(Boolean).join(", ");
-      const shape = L.circleMarker(point, {
-        radius: bubbleRadius(place.connections, townMax, 4, 12),
-        className: "locations-map-town"
-      });
-      shape.bindTooltip(`${where}: ${plural(place.connections)}`, { direction: "top" });
-      shape.on("click", () => toggle(place.code));
-      layer.addLayer(shape);
-      remember(place.code, shape);
-      bounds.push(point);
-    }
+    return {
+      circles: [
+        ...bubbles.map((entry) => ({
+          id: entry.code,
+          lat: entry.centre[0],
+          lng: entry.centre[1],
+          radius: bubbleRadius(entry.connections, countryMax, 6, 16),
+          className: `locations-map-country step-${stepFor(entry.connections, countryMax)}`,
+          tooltip: `${entry.label}: ${plural(entry.connections)}`,
+          selected: entry.code === selected
+        })),
+        ...towns.map((place, index) => {
+          const where = [place.city, place.region, place.country ?? place.code].filter(Boolean).join(", ");
+          return {
+            // Towns share their country's code — that is what a click selects —
+            // so the id carries the row as well, to stay unique.
+            id: `${place.code}#${index}`,
+            lat: place.latitude!,
+            lng: place.longitude!,
+            radius: bubbleRadius(place.connections, townMax, 4, 12),
+            className: "locations-map-town",
+            tooltip: `${where}: ${plural(place.connections)}`,
+            selected: place.code === selected
+          };
+        })
+      ],
+      markers: home
+        ? [{
+            id: "home",
+            lat: home.latitude,
+            lng: home.longitude,
+            // A ring rather than a filled pin, so it reads as a marker the
+            // household placed rather than a measurement the database made.
+            className: "locations-map-home",
+            html: '<span class="locations-map-home-ring"></span>',
+            size: [22, 22] as [number, number],
+            title: home.label || t("controlDash:map.home"),
+            tooltip: t("controlDash:map.homeTooltip", {
+              label: home.label || t("controlDash:map.home"),
+              connections: plural(home.connections)
+            })
+          }]
+        : []
+    };
+  }, [bubbles, towns, home, selected, plural, t]);
 
-    if (home) {
-      const point: L.LatLngExpression = [home.latitude, home.longitude];
-      // A ring rather than a filled pin, so it reads as a marker the household
-      // placed rather than a measurement the database made.
-      const icon = L.divIcon({
-        className: "locations-map-home",
-        html: '<span class="locations-map-home-ring"></span>',
-        iconSize: [22, 22],
-        iconAnchor: [11, 11]
-      });
-      const homeLabel = home.label || t("controlDash:map.home");
-      const marker = L.marker(point, { icon, title: homeLabel });
-      marker.bindTooltip(t("controlDash:map.homeTooltip", { label: homeLabel, connections: plural(home.connections) }), {
-        direction: "top"
-      });
-      layer.addLayer(marker);
-      bounds.push(point);
-    }
+  const [view, setView] = useState<MapViewCommand | null>(null);
 
-    // Frame the data, without animating: there is no view the reader has seen to
-    // animate away from, and Leaflet's animated zoom waits on a CSS transition
-    // that a hidden or non-compositing tab never fires — which would leave the
-    // map sitting on its opening view. One point alone has no extent, so give it
-    // a sensible zoom rather than letting fitBounds pick the maximum.
-    if (bounds.length > 1) map.fitBounds(L.latLngBounds(bounds).pad(0.25), { maxZoom: 10, animate: false });
-    else if (bounds.length === 1) map.setView(bounds[0], 5, { animate: false });
-    else map.setView([25, 10], 2, { animate: false });
-  }, [bubbles, towns, home, plural, t]);
+  // Frame the data, without animating: there is no view the reader has seen to
+  // animate away from, and Leaflet's animated zoom waits on a CSS transition
+  // that a hidden or non-compositing tab never fires — which would leave the
+  // map sitting on its opening view. One point alone has no extent, so give it
+  // a sensible zoom rather than letting the fit pick the maximum.
+  useEffect(() => {
+    const points: LatLng[] = [
+      ...bubbles.map((entry) => entry.centre),
+      ...towns.map((place) => [place.latitude!, place.longitude!] as LatLng),
+      ...(home ? [[home.latitude, home.longitude] as LatLng] : [])
+    ];
+    setView({
+      kind: "fit",
+      points,
+      pad: 0.25,
+      maxZoom: 10,
+      animate: false,
+      single: { zoom: 5 },
+      empty: { center: [25, 10], zoom: 2 }
+    });
+  }, [bubbles, towns, home]);
 
   // The selection is shared with the table below: whichever one is clicked, the
-  // map highlights that country and moves to it.
+  // map highlights that country and moves to it. Issued after the framing effect
+  // so a selection made in the same commit wins.
   useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-    for (const [code, shapes] of shapesRef.current) {
-      for (const shape of shapes) shape.getElement()?.classList.toggle("is-selected", code === selected);
-    }
     if (!selected) return;
-    const points = (shapesRef.current.get(selected) ?? []).map((shape) => shape.getLatLng());
-    if (points.length === 1) map.flyTo(points[0], Math.max(map.getZoom(), 5), { duration: 0.6 });
-    else if (points.length > 1) map.flyToBounds(L.latLngBounds(points).pad(0.4), { maxZoom: 9, duration: 0.6 });
+    const points: LatLng[] = [
+      ...bubbles.filter((entry) => entry.code === selected).map((entry) => entry.centre),
+      ...towns.filter((place) => place.code === selected).map((place) => [place.latitude!, place.longitude!] as LatLng)
+    ];
+    if (points.length === 0) return;
+    setView({ kind: "fly", points, minZoom: 5, maxZoom: 9, duration: 0.6 });
   }, [selected, bubbles, towns]);
 
   return (
     <div className="locations-map">
-      <div className="locations-map-canvas" ref={containerRef} aria-label={t("controlDash:map.canvasAria")} />
+      <MapView
+        options={options}
+        shapes={shapes}
+        view={view}
+        onCircleClick={(id) => {
+          const code = id.split("#")[0];
+          onSelect(selected === code ? null : code);
+        }}
+        className="locations-map-canvas"
+        ariaLabel={t("controlDash:map.canvasAria")}
+      />
       {/* Only what is on the map: with a city database every country usually
           resolves to towns, and a key for country bubbles that were never drawn
           sends the reader looking for shapes that aren't there. */}

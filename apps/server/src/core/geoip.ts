@@ -405,3 +405,41 @@ export async function downloadGeoip(actorUserId: string | null): Promise<GeoipDo
 
   return { ok: false, status: geoipStatus(), error: lastError };
 }
+
+export interface RemoveResult {
+  ok: boolean;
+  status: GeoipStatus;
+  /** Bytes the removal freed. */
+  freedBytes: number;
+  error?: string;
+}
+
+/**
+ * Remove one database from the folder — how a sign-in level is turned back off
+ * (docs/map-approach-proposal.md). `name` must be a database the folder scan
+ * actually lists: it is matched against that list, never joined onto the path,
+ * so nothing outside the folder (or in it but not a database) can be named.
+ *
+ * The lookups carry on with whatever is left: the next database in line (city
+ * before country), or none, in which case the Locations page says so.
+ */
+export function removeGeoipDatabase(name: string, actorUserId: string | null): RemoveResult {
+  const database = listDatabases().find((entry) => entry.name === name);
+  if (!database) {
+    return { ok: false, status: geoipStatus(), freedBytes: 0, error: "There is no such location database." };
+  }
+  try {
+    fs.rmSync(database.file);
+  } catch (err) {
+    return { ok: false, status: geoipStatus(), freedBytes: 0, error: err instanceof Error ? err.message : "The database could not be removed." };
+  }
+  // The reader held the whole file in memory, not a handle on it, so removal
+  // never waits on it — but it must stop answering from a database that is gone.
+  reader = null;
+  logActivity({
+    event: "security.geoip_updated",
+    actorUserId,
+    detail: `Removed the location database "${database.name}" (${database.databaseType}, ${(database.sizeBytes / 1_048_576).toFixed(1)} MB).`
+  });
+  return { ok: true, status: geoipStatus(), freedBytes: database.sizeBytes };
+}

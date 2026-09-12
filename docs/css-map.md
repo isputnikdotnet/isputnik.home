@@ -132,6 +132,7 @@ unless it genuinely has to out-rank something above it.
 | `upload.css` | Upload size cards, `shared/FileUpload` dropzone, library scan/upload editors |
 | `data-display.css` | Datagrid, status & count badges, people combobox, suggest input, media-kind badge, control-panel search palette |
 | `shared-rules.css` | Declaration blocks many features wrote out identically, now written once with every selector that wore them: a cover-fill `img`, one-line truncation, a wrapping control row, and the Logs / Recycle bin / Duplicate photos toolbar and pager. Add a selector only when its whole block matches — and moving a rule here moves it earlier in the cascade |
+| `map.css` | What the map renderer adds around the features' own markers: the can't-draw notice, circle hit areas, photo clusters, the hover bubble. Feature marker looks stay with their features |
 
 `duplicates/` mirrors `features/control/sections/duplicates/`, where the markup
 already lives in nine files:

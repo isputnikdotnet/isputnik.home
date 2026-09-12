@@ -375,6 +375,7 @@ export function WelcomePage({ user, onDone }: {
     trash: t("controlAdmin:storage.roomTrash"),
     thumbnails: t("controlAdmin:storage.roomThumbnails"),
     renders: t("controlAdmin:storage.roomRenders"),
+    maps: t("controlAdmin:storage.roomMaps"),
     inbox: t("controlAdmin:storage.roomInbox"),
     house: t("controlAdmin:storage.roomHouse"),
     backups: t("controlAdmin:storage.roomBackups")

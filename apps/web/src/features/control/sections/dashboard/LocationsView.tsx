@@ -2,7 +2,7 @@ import { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronRight, Database, Globe2, House, MapPin, ShieldQuestion } from "lucide-react";
 import { api } from "../../../../api";
-import { navigate } from "../../../../router";
+import { controlHref, navigate } from "../../../../router";
 import { Button } from "../../../../shared/Button";
 import { signInsHref } from "./SignInsView";
 import { KpiCard } from "../../../../shared/KpiCard";
@@ -17,7 +17,6 @@ import { Pager } from "../../../../shared/Pager";
 import { SortHeader, type SortDirection } from "../../../../shared/SortHeader";
 import { countryFlag, countryName, formatBytes, formatManagedDate } from "../../../../shared/utils";
 import type { DashboardLocations, HomeLocation } from "../../types";
-import { GeoipDatabaseModal } from "./GeoipDatabaseModal";
 import { HomeLocationModal } from "./HomeLocationModal";
 import { polyfillCountryFlagEmojis } from "country-flag-emoji-polyfill";
 import flagFontUrl from "country-flag-emoji-polyfill/dist/TwemojiCountryFlags.woff2?url";
@@ -116,7 +115,6 @@ export function LocationsView() {
   const [data, setData] = useState<DashboardLocations | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [error, setError] = useState("");
-  const [databaseOpen, setDatabaseOpen] = useState(false);
   const [homeOpen, setHomeOpen] = useState(false);
   const [countrySort, setCountrySort] = useState<LocationSort>("connections");
   const [countryDir, setCountryDir] = useState<SortDirection>("desc");
@@ -200,7 +198,9 @@ export function LocationsView() {
           <MessageBox tone="info" title={t("controlDash:locations.noDatabaseTitle")}>
             <p>{t("controlDash:locations.noDatabaseBody")}</p>
             <div className="modal-actions">
-              <Button variant="primary" onClick={() => setDatabaseOpen(true)}>{t("controlDash:locations.setUpDatabase")}</Button>
+              {/* The map still draws without it; the notice offers the way to turn it on,
+                  which lives with the other map levels on Maps › Setup. */}
+              <Button variant="primary" onClick={() => navigate(controlHref("mapSetup"))}>{t("controlDash:locations.setUpDatabase")}</Button>
             </div>
           </MessageBox>
         )}
@@ -280,7 +280,7 @@ export function LocationsView() {
               </p>
 
               <div className="locations-map-actions">
-                <Button variant="secondary" onClick={() => setDatabaseOpen(true)}>
+                <Button variant="secondary" onClick={() => navigate(controlHref("mapData"))}>
                   <Database size={15} aria-hidden="true" />
                   {t("controlDash:locations.databaseButton")}
                 </Button>
@@ -458,14 +458,6 @@ export function LocationsView() {
           </>
         )}
       </section>
-
-      {databaseOpen && data && (
-        <GeoipDatabaseModal
-          geoip={data.geoip}
-          onClose={() => setDatabaseOpen(false)}
-          onChanged={() => load(range.from, range.to)}
-        />
-      )}
 
       {homeOpen && (
         <HomeLocationModal

@@ -21,7 +21,7 @@ import { FolderPickerModal } from "../libraries/FolderPickerModal";
 // their own, are rows here. Every change goes chooser → confirmation → save, and
 // the confirmation names the exact folder and says what moves.
 
-type AppRoom = "trash" | "inbox" | "house" | "thumbnails" | "renders" | "backups";
+type AppRoom = "trash" | "inbox" | "house" | "thumbnails" | "renders" | "maps" | "backups";
 type RoomMode = "app" | "own" | "off";
 
 /** A room's storage move task: running, or what the last one could not carry. */
@@ -75,7 +75,7 @@ interface PendingSwitch {
   libraryId: string | null;
 }
 
-const ROOM_ORDER: AppRoom[] = ["trash", "inbox", "house", "thumbnails", "renders", "backups"];
+const ROOM_ORDER: AppRoom[] = ["trash", "inbox", "house", "thumbnails", "renders", "maps", "backups"];
 
 export function StorageSection() {
   const { t } = useTranslation(["common", "controlAdmin"]);
@@ -120,6 +120,7 @@ export function StorageSection() {
     house: t("controlAdmin:storage.roomHouse"),
     thumbnails: t("controlAdmin:storage.roomThumbnails"),
     renders: t("controlAdmin:storage.roomRenders"),
+    maps: t("controlAdmin:storage.roomMaps"),
     backups: t("controlAdmin:storage.roomBackups")
   };
   const roomHint: Record<AppRoom, string> = {
@@ -128,6 +129,7 @@ export function StorageSection() {
     house: t("controlAdmin:storage.roomHouseHint"),
     thumbnails: t("controlAdmin:storage.roomThumbnailsHint"),
     renders: t("controlAdmin:storage.roomRendersHint"),
+    maps: t("controlAdmin:storage.roomMapsHint"),
     backups: t("controlAdmin:storage.roomBackupsHint")
   };
 
@@ -294,7 +296,7 @@ export function StorageSection() {
   // ── What a row says ───────────────────────────────────────────────────────
 
   const whereText = (room: RoomView): { path: string; from: string } => {
-    const s = (key: "fromApp" | "fromOwn" | "fromOwnLibrary" | "fromAppLibrary" | "fromThumbs" | "fromBackupPath" | "fromDefaultTrash" | "roomOff" | "roomNotSet") =>
+    const s = (key: "fromApp" | "fromOwn" | "fromOwnLibrary" | "fromAppLibrary" | "fromThumbs" | "fromMapDataPath" | "fromBackupPath" | "fromDefaultTrash" | "roomOff" | "roomNotSet") =>
       t(`controlAdmin:storage.${key}`);
     switch (room.room) {
       case "trash":
@@ -312,6 +314,8 @@ export function StorageSection() {
           : { path: room.resolvedPath ?? "", from: room.mode === "app" ? s("fromApp") : s("fromOwn") };
       case "renders":
         return { path: room.resolvedPath ?? "", from: room.mode === "app" ? s("fromApp") : s("fromThumbs") };
+      case "maps":
+        return { path: room.resolvedPath ?? "", from: room.mode === "app" ? s("fromApp") : s("fromMapDataPath") };
       case "backups":
         return { path: room.resolvedPath ?? "", from: room.mode === "app" ? s("fromApp") : s("fromBackupPath") };
     }
@@ -352,6 +356,8 @@ export function StorageSection() {
         return carried ? t("controlAdmin:storage.carryThumbnails") : t("controlAdmin:storage.stayFolder", { path: here });
       case "renders":
         return carried ? t("controlAdmin:storage.carryNow") : t("controlAdmin:storage.stayRenders");
+      case "maps":
+        return carried ? t("controlAdmin:storage.carryNow") : t("controlAdmin:storage.stayMaps");
       case "backups":
         return carried ? t("controlAdmin:storage.carryNow") : t("controlAdmin:storage.stayBackups");
     }
@@ -385,6 +391,14 @@ export function StorageSection() {
           label: t("controlAdmin:storage.confirmRendersLabel")
         };
       }
+      case "maps":
+        return {
+          title: switchTo.mode === "app"
+            ? t("controlAdmin:storage.confirmMapsAppTitle", { path: target })
+            : t("controlAdmin:storage.confirmMapsOwnTitle"),
+          body: t("controlAdmin:storage.confirmMapsBody"),
+          label: t("controlAdmin:storage.confirmMapsLabel")
+        };
       case "thumbnails":
         return {
           title: t(switchTo.mode === "app" ? "controlAdmin:storage.confirmThumbsAppTitle" : "controlAdmin:storage.confirmThumbsOwnTitle", { path: target }),
@@ -452,6 +466,9 @@ export function StorageSection() {
         return [appOption, { mode: "own", label: t("controlAdmin:storage.optionOwn"), hint: room.mode === "own" ? room.resolvedPath ?? "" : "" }];
       case "renders":
         return [appOption, { mode: "own", label: t("controlAdmin:storage.optionFollowThumbs"), hint: "" }];
+      // No "off": whether maps are kept at all is chosen with maps, not here.
+      case "maps":
+        return [appOption, { mode: "own", label: t("controlAdmin:storage.optionMapDataPath"), hint: "" }];
       case "backups":
         return [appOption, { mode: "own", label: t("controlAdmin:storage.optionBackupPath"), hint: "" }];
     }

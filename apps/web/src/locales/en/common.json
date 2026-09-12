@@ -667,6 +667,10 @@
     "heading": "Help & guides",
     "intro": "Friendly, task-focused guides for using and running iSputnik. They're part of this install, so they work without an internet connection and describe the version you're running."
   },
+  "map": {
+    "unsupported": "This browser can't draw maps: it has no WebGL. A recent Chrome, Edge, Firefox or Safari can.",
+    "unavailable": "The map couldn't load. Check the connection, or ask an admin to turn on map caching so maps work offline."
+  },
   "guide": {
     "notFound": "That guide doesn't exist.",
     "unableToOpen": "Unable to open this guide.",

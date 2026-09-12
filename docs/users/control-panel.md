@@ -15,7 +15,8 @@ it points there rather than repeating it.
 | **Security** | Overview, Policies, Trusted networks, Blocked IPs |
 | **Maintenance** | Backup, Scheduled jobs, Recycle Bin |
 | **Utilities** | Gallery → Duplicate cleanup, Missing photos |
-| **Settings** | Appearance, Email, Notifications, Stories, Maps, Reader access, About |
+| **Maps** | Setup, Data, Routing |
+| **Settings** | Appearance, Email, Notifications, Stories, Reader access, About |
 
 Every tab has its own address, so any page here can be bookmarked or linked to.
 **Utilities** expands in the left nav to a **Gallery** branch, since everything under
@@ -126,16 +127,19 @@ tabs under the heading — real tabs, not a dropdown:
   database could place.
 
   Countries are worked out on your server from a database file, so no address is
-  ever sent anywhere to draw this. **Location database**, under the map, is where
-  that file is managed: press it and fetch DB-IP's Country Lite database (about
-  9 MB, free, no account) into your data folder. That download is the only
-  outbound call; lookups after it never leave the machine. Worth fetching again
-  every few months, since addresses move between networks.
+  ever sent anywhere to draw this. Nothing is fetched until you ask: turn on
+  **Sign-in countries** on [Maps › Setup](#maps) and it fetches DB-IP's Country
+  Lite database (about 9 MB, free, no account) into your data folder. Until then
+  the map still draws, with a notice offering the way there. That download is the
+  only outbound call; lookups after it never leave the machine. Worth fetching
+  again every few months, since addresses move between networks. The databases
+  themselves are listed, added and removed on **Maps › Data**, which **Location
+  database** under the map opens.
 
   **Want town-level detail?** That database is yours to choose. Download any
   city-level database you like — DB-IP City Lite or MaxMind's GeoLite2-City,
-  whichever licence suits you — and give it to the server from the **City database**
-  tab: paste its download link and the server fetches it itself, or pick the file
+  whichever licence suits you — and give it to the server from **Maps › Data** →
+  **Add or update a database**, on its **City database** tab: paste its download link and the server fetches it itself, or pick the file
   from your computer. Dropping the `.mmdb` straight into the folder named on the
   **Files** tab works too. A `.mmdb.gz` from the vendor
   is fine either way — it is unpacked here — and a file that turns out not to be a
@@ -590,17 +594,28 @@ Photos missing longer than the window at the top are purged automatically — ca
 entry, thumbnail and all — and **Purge eligible now** does it immediately.
 
 ---
-## Settings
 
-- **Appearance** — the default theme for new accounts. Everyone can override it in
-  their own profile.
-- **Email** — outgoing mail, needed for two-factor codes, security alerts and Send
-  to e-reader. It has [its own guide](email.md).
-- **Stories** — whether members may start a recipe from a link, and which library
-  narration goes to. Narration recorded before recordings lived in the gallery
-  moves into the App files library by itself once one is set; the page says
-  how many recordings are still waiting.
-- **Maps** — whether a route in a [story](stories.md) follows real roads. Paste a
+## Maps
+
+The maps across the app — the gallery map, a photo's location, a story's
+route, the Dashboard's sign-in locations — and what this server keeps for them.
+Nothing here is on until you turn it on, and maps work either way.
+
+- **Setup** — one row per thing this server can keep, each saying what it costs on
+  disk while it is on. **Set up maps** walks through turning them on: what to keep,
+  where it goes, and then fetching it.
+  - **Maps on this server** — maps come through this server and are kept, so they
+    draw offline, and OpenFreeMap (the map provider) no longer sees which places
+    are looked at. It grows as places are viewed, up to 200 MB, and lives in the
+    **Map data** room of [Storage](#storage). Turn it off and what was kept is
+    deleted; maps carry on, straight from OpenFreeMap.
+  - **Sign-in countries** — the free location database the Dashboard's Locations
+    view uses, about 9 MB.
+  - **Sign-in towns** — a city-level database you download yourself, added on Data.
+- **Data** — the location databases: which are there, which is in use, and a way to
+  add one (fetch, paste a link, or upload) or remove one. Removing a database you
+  supplied yourself cannot be undone from here, since the app cannot fetch it again.
+- **Routing** — whether a route in a [story](stories.md) follows real roads. Paste a
   free **OpenRouteService** key — the routing service at
   [openrouteservice.org](https://openrouteservice.org), run by a research
   institute at Heidelberg University, not the similarly named delivery-planning
@@ -613,6 +628,19 @@ entry, thumbnail and all — and **Purge eligible now** does it immediately.
   a guest, and the map still draws if the key later lapses. You can point it at
   your own OpenRouteService container instead if you would rather nothing left
   the house.
+
+---
+
+## Settings
+
+- **Appearance** — the default theme for new accounts. Everyone can override it in
+  their own profile.
+- **Email** — outgoing mail, needed for two-factor codes, security alerts and Send
+  to e-reader. It has [its own guide](email.md).
+- **Stories** — whether members may start a recipe from a link, and which library
+  narration goes to. Narration recorded before recordings lived in the gallery
+  moves into the App files library by itself once one is set; the page says
+  how many recordings are still waiting.
 - **Reader access** — OPDS tokens that let a reading app (KOReader, Moon+ Reader,
   Thorium) browse your ebooks. One token per device, read-only, removable at any
   time.

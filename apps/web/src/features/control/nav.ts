@@ -1,6 +1,7 @@
 import {
   Activity,
   Image,
+  Map as MapIcon,
   LibraryBig,
   PocketKnife,
   LayoutDashboard,
@@ -23,9 +24,14 @@ import i18n from "../../i18n";
 // from the tab label, and the search palette indexes the lot. Adding a control
 // page means adding one tab here — there is nowhere else to keep in sync.
 //
-// Seven groups, and that is the budget. A new page almost always belongs as a tab
-// inside an existing group rather than as an eighth: a long left nav is what this
+// Eight groups, and that is the budget. A new page almost always belongs as a tab
+// inside an existing group rather than as a ninth: a long left nav is what this
 // structure exists to prevent, and the tab row is free to grow where the nav isn't.
+//
+// Maps is the one group that earned its place past the old budget of seven
+// (2026-09-12, the owner's call): maps became a feature you switch on, with
+// storage, downloads and a wizard behind it, rather than a single setting — too
+// much to sit as a tab under Settings, and nothing else it could belong to.
 //
 // ONE row of tabs, and only one. A second row under it was tried, to say that the
 // three duplicate pages are three views of a single scan; it was more chrome than
@@ -34,7 +40,7 @@ import i18n from "../../i18n";
 // only the branch you are in, so unrelated peers never crowd it. A branch of one
 // page shows no row at all.
 
-export type GroupKey = "overview" | "library" | "members" | "security" | "maintenance" | "utilities" | "settings";
+export type GroupKey = "overview" | "library" | "members" | "security" | "maintenance" | "utilities" | "maps" | "settings";
 
 /** The branch a group's tabs can hang off in the left nav — a stable id, not the
  *  displayed word, so a language switch never breaks the active-branch match. */
@@ -126,6 +132,17 @@ export const CONTROL_GROUPS: ControlGroupDef[] = [
     ]
   },
   {
+    key: "maps",
+    icon: MapIcon,
+    // Setup is where maps are switched on (the wizard); Data holds the databases
+    // they draw on; Routing is what used to be Settings › Maps.
+    tabs: [
+      { section: "mapSetup" },
+      { section: "mapData" },
+      { section: "mapRouting" }
+    ]
+  },
+  {
     key: "settings",
     icon: Settings,
     tabs: [
@@ -133,7 +150,6 @@ export const CONTROL_GROUPS: ControlGroupDef[] = [
       { section: "email" },
       { section: "notifications" },
       { section: "storySettings" },
-      { section: "maps" },
       { section: "readerAccess" },
       { section: "about" }
     ]

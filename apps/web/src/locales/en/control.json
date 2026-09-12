@@ -19,6 +19,7 @@
       "security": "Security",
       "maintenance": "Maintenance",
       "utilities": "Utilities",
+      "maps": "Maps",
       "settings": "Settings"
     },
     "tabs": {
@@ -45,7 +46,9 @@
       "email": "Email",
       "notifications": "Notifications",
       "storySettings": "Stories",
-      "maps": "Maps",
+      "mapSetup": "Setup",
+      "mapData": "Data",
+      "mapRouting": "Routing",
       "readerAccess": "Reader access",
       "about": "About",
       "quotes": "Quotes"
@@ -97,6 +100,8 @@
       "recordingsLibrary": "Story recordings library",
       "recipeImport": "Recipe import from a link",
       "mapRouting": "Map routing",
+      "mapCaching": "Keep maps on this server",
+      "locationDatabase": "Sign-in location databases",
       "appStorage": "App storage"
     }
   },

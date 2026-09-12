@@ -5,6 +5,7 @@ import {
   downloadGeoip,
   downloadGeoipFromUrl,
   geoipStatus,
+  removeGeoipDatabase,
   installGeoipDatabase,
   lookupLocation,
   receiveGeoipUpload
@@ -806,6 +807,15 @@ export async function dashboardRoutesPlugin(app: FastifyInstance) {
       return reply.code(400).send({ error: result.error ?? "That file is not a location database." });
     }
     return reply.send({ geoip: result.status, installed: result.installed });
+  });
+
+  // Taking a database back out — how the sign-in levels on Maps › Setup are turned
+  // off. The name is matched against what the folder scan lists (core/geoip.ts).
+  app.delete("/api/dashboard/locations/database/:name", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const { name } = request.params as { name: string };
+    const result = removeGeoipDatabase(name, request.user!.id);
+    if (!result.ok) return reply.code(404).send({ error: result.error ?? "There is no such location database." });
+    return reply.send({ geoip: result.status, freedBytes: result.freedBytes });
   });
 
   // The Activity tab's range-scoped payload — the same window and bucketing rule

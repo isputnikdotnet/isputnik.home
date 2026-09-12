@@ -36,12 +36,13 @@ import { moveEntry } from "./trash-fs.js";
 import { setMovingTrashedItem, type TrashedItem } from "./trash.js";
 import { pathIsInside } from "./storage-roots.js";
 import { RENDER_BUCKETS } from "./thumbnail.js";
+import { MAP_DATA_FOLDERS } from "../../maps/storage.js";
 import { getMediaType } from "./media-types.js";
 import type { JobRow as DbJobRow, LibraryRow, TrashedItemRow } from "../../../db/rows.js";
 
 export const STORAGE_MOVE_JOB_TYPE = "MOVE_STORAGE";
 
-export type StorageMoveKind = "trash" | "thumbnails" | "renders" | "library" | "folder";
+export type StorageMoveKind = "trash" | "thumbnails" | "renders" | "maps" | "library" | "folder";
 
 /** A folder move (gallery/folder-move.ts) belongs to no room: it carries one
  *  folder of a gallery library into another library. */
@@ -168,6 +169,7 @@ function pendingUnits(data: StorageMovePayload): number {
       return pendingTrashMoveRows().length + replacedUnits(data.from, getTrashRootSetting()).length;
     case "thumbnails":
     case "renders":
+    case "maps":
     case "library":
     case "folder":
       return data.from ? listUnits(data).length : 0;
@@ -319,6 +321,8 @@ function listUnits(data: StorageMovePayload): string[] {
       return names.filter((name) => !name.startsWith(".upload-"));
     case "renders":
       return names.filter((name) => (RENDER_BUCKETS as readonly string[]).includes(name));
+    case "maps":
+      return names.filter((name) => (MAP_DATA_FOLDERS as readonly string[]).includes(name));
     case "library":
     case "folder":
       return names;
@@ -612,7 +616,7 @@ async function runMove(jobId: string, data: StorageMovePayload): Promise<Storage
     return { moved, failed, cancelled, durationMs: Date.now() - started };
   }
 
-  // thumbnails, renders: entries carried one by one into a folder that is
+  // thumbnails, renders, maps: entries carried one by one into a folder that is
   // already the live one (the setting flipped first), merging into what a scan
   // may have written there since.
   const failedNames = new Set<string>();
@@ -630,7 +634,9 @@ async function runMove(jobId: string, data: StorageMovePayload): Promise<Storage
     progress(moved + failed.length, moved + failed.length + listUnits(data).filter((name) => !failedNames.has(name)).length);
     await yieldTurn();
   }
-  if (!cancelled && failed.length === 0 && data.kind === "thumbnails") {
+  // The emptied Map data folder goes too: nothing else lives in it. (Renders
+  // share their folder with the thumbnails, so theirs stays.)
+  if (!cancelled && failed.length === 0 && (data.kind === "thumbnails" || data.kind === "maps")) {
     try { fs.rmdirSync(from); } catch { /* someone else's folder, or not empty */ }
   }
   return { moved, failed, cancelled, durationMs: Date.now() - started };

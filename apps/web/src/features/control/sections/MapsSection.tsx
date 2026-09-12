@@ -111,7 +111,7 @@ export function MapsSection() {
   return (
     <>
       <ControlSectionHead
-        section="maps"
+        section="mapRouting"
         icon={<Map size={30} />}
         iconClassName="blue"
         description={t("controlAdmin:maps.headDescription")}
