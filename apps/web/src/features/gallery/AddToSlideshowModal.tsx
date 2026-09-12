@@ -6,12 +6,11 @@ import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
 import type { GallerySlideshow } from "./types";
 import { Button } from "../../shared/Button";
+import { formatDate } from "../../shared/dates";
 
 // Date shown on each card — the last time the slideshow changed. "Oct 14, 2024".
 function slideshowDate(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  return formatDate(iso, "medium");
 }
 
 // Add one or many gallery items to a slideshow. Lists only slideshows the caller

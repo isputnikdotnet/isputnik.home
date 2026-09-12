@@ -9,6 +9,7 @@
 import { ImageOff } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import i18n from "../../../../i18n";
+import { formatDateTime } from "../../../../shared/dates";
 
 /** Where a copy sits when it sits in no folder at all. Deliberately not "Library root":
  *  the subject here is a PHOTO, and "root" reads as a folder you could go and open.
@@ -19,8 +20,7 @@ export const topLevelHint = (): string => i18n.t("controlDash:dupes.topLevelHint
 
 export function formatWhen(value: string | null): string {
   if (!value) return i18n.t("controlDash:dupes.never");
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString(i18n.language);
+  return formatDateTime(value, "numeric", "seconds") || value;
 }
 
 const FOLDER_PREVIEW_LIMIT = 4;

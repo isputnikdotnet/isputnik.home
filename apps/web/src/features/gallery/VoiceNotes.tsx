@@ -9,6 +9,7 @@ import { AudioPlayer, type AudioPlayerHandle } from "../../shared/audio/AudioPla
 import { formatSeconds, recordingSupported } from "../../shared/audio/wave";
 import { RecordVoiceNoteModal } from "./RecordVoiceNoteModal";
 import type { VoiceNote } from "./types";
+import { formatDate } from "../../shared/dates";
 
 // Recordings on a photo (docs/photo-review-plan.md phase 4; docs/lightbox-panel.md
 // phases 2 and 3). A plain line per recording — who, how long, when — and ONE
@@ -92,7 +93,7 @@ export function VoiceNotes({
   };
 
   const nameOf = (note: VoiceNote) => note.recordedBy || t("gallery:voiceNotes.unnamed");
-  const whenOf = (note: VoiceNote) => new Date(note.createdAt).toLocaleDateString();
+  const whenOf = (note: VoiceNote) => formatDate(note.createdAt);
   const iconSize = large ? 22 : 18;
 
   const recordButton = canEdit && supported ? (

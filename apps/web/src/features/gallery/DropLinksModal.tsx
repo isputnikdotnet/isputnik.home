@@ -13,6 +13,7 @@ import { Modal } from "../../shared/Modal";
 import { SelectField } from "../../shared/SelectField";
 import { ToggleSwitch } from "../../shared/ToggleSwitch";
 import { formatBytes } from "../../shared/utils";
+import { formatDate } from "../../shared/dates";
 
 export interface DropLinkSummary {
   id: string;
@@ -224,7 +225,7 @@ export function DropLinksModal({
                   <small className="muted">
                     {quotaLine(link)}
                     {link.oneTime ? ` · ${t("gallery:inbox.dropLinks.oneTimeShort")}` : ""}
-                    {` · ${t("gallery:inbox.dropLinks.expiresOn", { date: new Date(link.expiresAt).toLocaleDateString() })}`}
+                    {` · ${t("gallery:inbox.dropLinks.expiresOn", { date: formatDate(link.expiresAt) })}`}
                   </small>
                 </span>
                 <span className={`status-badge ${link.status}`}>{statusLabel(link)}</span>

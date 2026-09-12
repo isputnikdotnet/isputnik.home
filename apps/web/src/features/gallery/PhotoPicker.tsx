@@ -11,6 +11,7 @@ import { useDebouncedValue } from "../../shared/useDebouncedValue";
 import { EMPTY_GALLERY_FILTERS } from "./GalleryFilter";
 import type { GalleryAsset, GalleryFolder, GalleryLibrary, GalleryPerson } from "./types";
 import { faceFocusStyle } from "./types";
+import { formatNumber } from "../../shared/dates";
 
 // The standard photo picker: one modal for choosing gallery photos/videos from
 // anywhere in the app. Four ways in — browse by folder, by person (face
@@ -423,7 +424,7 @@ export function PhotoPicker({
     shown < total && (
       <div className="photo-picker-more">
         <Button variant="secondary" compact disabled={loading} onClick={more}>
-          {loading ? t("gallery:common.loading") : t("gallery:photoPicker.loadMoreLeft", { count: (total - shown).toLocaleString() })}
+          {loading ? t("gallery:common.loading") : t("gallery:photoPicker.loadMoreLeft", { count: formatNumber(total - shown) })}
         </Button>
       </div>
     );

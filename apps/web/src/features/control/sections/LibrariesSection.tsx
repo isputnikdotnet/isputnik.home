@@ -45,6 +45,7 @@ import { ControlSectionHead } from "../ControlSectionHead";
 // Plain lookup functions rather than module-level consts, so a language switch
 // is picked up (docs/i18n-plan.md's namespace-key typing pitfall #3).
 import i18n from "../../../i18n";
+import { formatNumber } from "../../../shared/dates";
 // Scan layouts' stylesheet: it loads with this section, not on every route (docs/css-map.md).
 import "../../../styles/scan-layout.css";
 
@@ -97,7 +98,7 @@ function scanStatusLabel(status: ManagedLibrary["scanStatus"]): string {
 }
 
 function formatCount(value: number | null | undefined) {
-  return value == null ? "—" : value.toLocaleString();
+  return value == null ? "—" : formatNumber(value);
 }
 
 function formatLibrarySize(value: number | null | undefined) {

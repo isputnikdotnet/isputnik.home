@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { Button } from "../../../shared/Button";
+import { formatDate } from "../../../shared/dates";
 
 // "When was this taken?" for someone answering about an old print: a year from a
 // list (decades as headings, this year at the top), then a month if she knows
@@ -19,7 +20,7 @@ const FIRST_YEAR = 1850;
 function monthNames(): string[] {
   const names: string[] = [];
   for (let m = 0; m < 12; m += 1) {
-    names.push(new Date(2000, m, 1).toLocaleDateString(undefined, { month: "long" }));
+    names.push(formatDate(new Date(2000, m, 1), "monthName"));
   }
   return names;
 }

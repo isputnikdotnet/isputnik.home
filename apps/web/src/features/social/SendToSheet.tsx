@@ -7,6 +7,7 @@ import { SelectField } from "../../shared/SelectField";
 import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 import { profileHref } from "../../router";
+import { formatDate } from "../../shared/dates";
 
 // One dialog for every way of getting a thing to somewhere. Before this there
 // were three, in three different menus, all meaning "send": mail it to my
@@ -529,7 +530,7 @@ export function SendToSheet({
                           <strong>{share.displayName}</strong>
                           <span>
                             {share.expiresAt
-                              ? t("user:share.until", { date: new Date(share.expiresAt).toLocaleDateString() })
+                              ? t("user:share.until", { date: formatDate(share.expiresAt) })
                               : t("user:share.noExpiry")}
                           </span>
                         </span>
@@ -622,7 +623,7 @@ export function SendToSheet({
                           <span>
                             {link.status === "expired"
                               ? t("user:share.expired")
-                              : t("user:share.expiresOn", { date: new Date(link.expiresAt).toLocaleDateString() })}
+                              : t("user:share.expiresOn", { date: formatDate(link.expiresAt) })}
                           </span>
                         </span>
                         <Button variant="text" danger compact onClick={() => void revokeLink(link.id)}>

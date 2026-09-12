@@ -21,6 +21,7 @@ import { formatBytes, formatManagedDate, formatUptime } from "../../../../shared
 import { relativeTime } from "../../../../shared/relativeTime";
 import { signInsHref } from "./SignInsView";
 import type { DbInfo, SystemStatus } from "../../types";
+import { formatNumber } from "../../../../shared/dates";
 
 // Overview › Dashboard › System — is the server well? Four cards answer that with
 // things no other page shows (uptime and version, memory, free disk, the database
@@ -68,28 +69,28 @@ export function SystemView({ status, dbInfo }: { status: SystemStatus; dbInfo: D
     {
       icon: UsersRound,
       label: t("controlDash:system.members"),
-      value: status.users.toLocaleString(),
+      value: formatNumber(status.users),
       note: t("controlDash:system.membersNote"),
       href: controlHref("users")
     },
     {
       icon: Smartphone,
       label: t("controlDash:system.devices"),
-      value: status.activeSessions.toLocaleString(),
+      value: formatNumber(status.activeSessions),
       note: t("controlDash:system.devicesNote"),
       href: signInsHref({})
     },
     {
       icon: Ticket,
       label: t("controlDash:system.invites"),
-      value: status.activeInvites.toLocaleString(),
+      value: formatNumber(status.activeInvites),
       note: t("controlDash:system.invitesNote"),
       href: controlHref("invites")
     },
     {
       icon: ScrollText,
       label: t("controlDash:system.logEntries"),
-      value: status.logEntries.toLocaleString(),
+      value: formatNumber(status.logEntries),
       note: t("controlDash:system.logEntriesNote"),
       href: controlHref("logs")
     },

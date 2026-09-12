@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { isBlockedByNetwork } from "../api";
 
 // `navigator.onLine` only reflects whether a network *interface* is up — not
@@ -8,6 +8,13 @@ import { isBlockedByNetwork } from "../api";
 // alongside the instant `offline` event we actively probe the server on a short
 // interval (mirroring App.tsx's session check) and flip the indicator on the
 // result — making online→offline reflect reality within a few seconds.
+//
+// ONE probe for the whole app. Each hook used to run its own timer, so a screen
+// with Home and the PWA banners on it asked the server the same question twice
+// every six seconds (four times in dev, where effects mount twice) — and a wall
+// display leaves that tab open for weeks. The state lives here, the timer starts
+// with the first subscriber and stops with the last, and every component reads
+// the same answer through useSyncExternalStore.
 const PROBE_URL = "/api/setup/status"; // public + lightweight + never served from the SW cache
 const PROBE_TIMEOUT_MS = 3000;
 const PROBE_INTERVAL_MS = 6000;
@@ -45,50 +52,93 @@ export type ConnectionStatus =
 // the banner on a single slow response.
 const FAILURES_BEFORE_UNREACHABLE = 2;
 
-export function useConnectionStatus(): ConnectionStatus {
-  const [status, setStatus] = useState<ConnectionStatus>(() => (navigator.onLine ? "online" : "offline"));
+let status: ConnectionStatus = typeof navigator === "undefined" || navigator.onLine ? "online" : "offline";
+let failures = 0; // consecutive server-probe failures while the device is online
+let running: Promise<void> | null = null; // the probe in flight, so ticks can't stack
+let timer: number | null = null;
+const listeners = new Set<() => void>();
 
-  useEffect(() => {
-    let alive = true;
-    let failures = 0; // consecutive server-probe failures while the device is online
+function publish(next: ConnectionStatus): void {
+  if (next === status) return; // identical snapshot: no re-render for anyone
+  status = next;
+  for (const listener of listeners) listener();
+}
 
-    const check = async () => {
-      // Fast path: the OS already knows we're offline — no point probing (and it
-      // avoids a failing request every interval while genuinely disconnected).
-      if (!navigator.onLine) { failures = 0; if (alive) setStatus("offline"); return; }
-      const result = await probeServer();
-      if (!alive) return;
-      if (result === "ok") { failures = 0; setStatus("online"); return; }
+function check(): Promise<void> {
+  // Fast path: the OS already knows we're offline — no point probing (and it
+  // avoids a failing request every interval while genuinely disconnected).
+  if (!navigator.onLine) {
+    failures = 0;
+    publish("offline");
+    return Promise.resolve();
+  }
+  // A hidden tab is nobody's open window: its banner can't be read, and browsers
+  // throttle its timers anyway. The visibilitychange handler probes the moment it
+  // comes back, so what it shows is never stale by more than a moment.
+  if (document.visibilityState === "hidden") return Promise.resolve();
+  if (running) return running;
+  running = probeServer()
+    .then((result) => {
+      if (result === "ok") {
+        failures = 0;
+        publish("online");
+        return;
+      }
       // A gateway block is a definite answer, not a slow one — say so on the first
       // probe rather than making the user wait out the flap tolerance below.
-      if (result === "blocked") { failures = 0; setStatus("blocked"); return; }
+      if (result === "blocked") {
+        failures = 0;
+        publish("blocked");
+        return;
+      }
       // Device has a network but the server didn't answer. Tolerate a single miss;
       // only flip to "unreachable" once it fails repeatedly.
       failures += 1;
-      if (failures >= FAILURES_BEFORE_UNREACHABLE) setStatus("unreachable");
-    };
+      if (failures >= FAILURES_BEFORE_UNREACHABLE) publish("unreachable");
+    })
+    .finally(() => {
+      running = null;
+    });
+  return running;
+}
 
-    const onOffline = () => { failures = 0; if (alive) setStatus("offline"); };
-    const onOnline = () => { void check(); };
-    const onVisible = () => { if (document.visibilityState === "visible") void check(); };
+const onOffline = () => {
+  failures = 0;
+  publish("offline");
+};
+const onOnline = () => { void check(); };
+const onVisible = () => {
+  if (document.visibilityState === "visible") void check();
+};
 
-    window.addEventListener("offline", onOffline);
-    window.addEventListener("online", onOnline);
-    document.addEventListener("visibilitychange", onVisible);
+function start(): void {
+  window.addEventListener("offline", onOffline);
+  window.addEventListener("online", onOnline);
+  document.addEventListener("visibilitychange", onVisible);
+  void check();
+  timer = window.setInterval(() => { void check(); }, PROBE_INTERVAL_MS);
+}
 
-    void check();
-    const interval = window.setInterval(() => { void check(); }, PROBE_INTERVAL_MS);
+function stop(): void {
+  if (timer !== null) window.clearInterval(timer);
+  timer = null;
+  failures = 0;
+  window.removeEventListener("offline", onOffline);
+  window.removeEventListener("online", onOnline);
+  document.removeEventListener("visibilitychange", onVisible);
+}
 
-    return () => {
-      alive = false;
-      window.clearInterval(interval);
-      window.removeEventListener("offline", onOffline);
-      window.removeEventListener("online", onOnline);
-      document.removeEventListener("visibilitychange", onVisible);
-    };
-  }, []);
+function subscribe(listener: () => void): () => void {
+  listeners.add(listener);
+  if (listeners.size === 1) start();
+  return () => {
+    listeners.delete(listener);
+    if (listeners.size === 0) stop();
+  };
+}
 
-  return status;
+export function useConnectionStatus(): ConnectionStatus {
+  return useSyncExternalStore(subscribe, () => status, () => "online");
 }
 
 // Boolean convenience for callers that only care whether the server is reachable
@@ -96,4 +146,12 @@ export function useConnectionStatus(): ConnectionStatus {
 // "not online" — whatever the reason, the server's answers aren't arriving.
 export function useOnlineStatus(): boolean {
   return useConnectionStatus() === "online";
+}
+
+/** Test hook: forget the shared state between tests. */
+export function resetConnectionProbe(): void {
+  stop();
+  listeners.clear();
+  running = null;
+  status = typeof navigator === "undefined" || navigator.onLine ? "online" : "offline";
 }

@@ -1,19 +1,11 @@
 import i18n from "../i18n";
+import { formatDate, formatDateTime, formatRegion, formatTime } from "./dates";
 
-// SQLite hands back "YYYY-MM-DD HH:MM:SS" with no zone; anything already
-// carrying a T is a real ISO string and is left alone.
-function parseManagedDate(value: string) {
-  return new Date(value.includes("T") ? value : `${value.replace(" ", "T")}Z`);
-}
-
-/** ISO 3166-1 alpha-2 → the reader's own name for that country ("NL" → "Netherlands"). */
+/** ISO 3166-1 alpha-2 → the country's name in the interface language
+ *  ("NL" → "Netherlands" / "Нидерланды"). */
 export function countryName(code: string | null | undefined): string | null {
   if (!code) return null;
-  try {
-    return new Intl.DisplayNames(undefined, { type: "region" }).of(code) ?? code;
-  } catch {
-    return code;
-  }
+  return formatRegion(code);
 }
 
 /**
@@ -29,21 +21,14 @@ export function countryFlag(code: string | null | undefined): string {
 }
 
 export function formatManagedDate(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short"
-  }).format(parseManagedDate(value));
+  return formatDateTime(value, "medium", "time");
 }
 
 // Date and time separately, for the metric cards. Their value line is sized for
 // something short and scannable — "17.6 MB", "40" — so a full timestamp wraps in
 // them at any card width. The date goes on the value line, the time underneath.
 export function formatManagedDateParts(value: string): { date: string; time: string } {
-  const parsed = parseManagedDate(value);
-  return {
-    date: new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(parsed),
-    time: new Intl.DateTimeFormat(undefined, { timeStyle: "short" }).format(parsed)
-  };
+  return { date: formatDate(value, "medium"), time: formatTime(value) };
 }
 
 export function formatBytes(bytes: number) {
@@ -116,16 +101,30 @@ export function foliateFileInfo(format: string): { name: string; mime: string } 
 // "How long ago" lives in shared/relativeTime.ts — one helper for every surface.
 
 // Partial ISO dates — "1971", "1971-09", "1971-09-01" — as prose in the
-// reader's own language. The convention is shared by the family tree, author
+// interface language. The convention is shared by the family tree, author
 // life facts and story chapters (server-side: partialDateSchema), so the
 // formatting lives here rather than in any one feature.
+//
+// The month, day and year go through one Intl format rather than being joined
+// by hand: "Sep 1, 1971" is "1 сент. 1971 г." in Russian, and only the
+// formatter knows which order a language puts them in. The dates are read as
+// UTC, since a partial date names a day and nothing finer.
+function partialDateParts(date: string): { utc: number; hasMonth: boolean; hasDay: boolean } | null {
+  const [year, month, day] = date.split("-");
+  if (!year) return null;
+  return {
+    utc: Date.UTC(Number(year), month ? Number(month) - 1 : 0, day ? Number(day) : 1),
+    hasMonth: Boolean(month),
+    hasDay: Boolean(month && day)
+  };
+}
+
 export function formatPartialDate(date: string | null | undefined): string {
   if (!date) return "";
-  const [year, month, day] = date.split("-");
-  if (!month) return year;
-  const monthLabel = new Date(Date.UTC(Number(year), Number(month) - 1, 1))
-    .toLocaleString(i18n.language, { month: "short", timeZone: "UTC" });
-  return day ? `${monthLabel} ${Number(day)}, ${year}` : `${monthLabel} ${year}`;
+  const parts = partialDateParts(date);
+  if (!parts) return "";
+  if (!parts.hasMonth) return date.split("-")[0];
+  return formatDate(parts.utc, parts.hasDay ? "medium" : "monthShortYear", { utc: true });
 }
 
 /** A full date with its weekday — "Saturday, Jul 12, 2004". A year or a
@@ -133,11 +132,9 @@ export function formatPartialDate(date: string | null | undefined): string {
  *  where a single day is the headline: the story chapter's dateline. */
 export function formatPartialDateLong(date: string | null | undefined): string {
   if (!date) return "";
-  const [year, month, day] = date.split("-");
-  if (!month || !day) return formatPartialDate(date);
-  const weekday = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)))
-    .toLocaleString(i18n.language, { weekday: "long", timeZone: "UTC" });
-  return weekday + ", " + formatPartialDate(date);
+  const parts = partialDateParts(date);
+  if (!parts?.hasDay) return formatPartialDate(date);
+  return formatDate(parts.utc, "weekdayMedium", { utc: true });
 }
 
 /** A span of partial dates: "2004", "Jul 2004–Aug 2004". One date alone

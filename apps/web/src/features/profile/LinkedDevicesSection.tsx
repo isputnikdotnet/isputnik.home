@@ -9,6 +9,7 @@ import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { Modal } from "../../shared/Modal";
 import { navigate } from "../../router";
 import i18n from "../../i18n";
+import { formatDate } from "../../shared/dates";
 
 // Everywhere this account is signed in. Linked displays first, because they are
 // the reason the page exists — they were authorized from somewhere else, they
@@ -36,7 +37,7 @@ function whenSeen(iso: string): string {
   if (hours < 24) return i18n.t("misc:devices.hoursAgo", { count: hours });
   const days = Math.round(hours / 24);
   if (days < 7) return i18n.t("misc:devices.daysAgo", { count: days });
-  return new Date(iso).toLocaleDateString();
+  return formatDate(iso);
 }
 
 export function LinkedDevicesSection() {
@@ -127,7 +128,7 @@ export function LinkedDevicesSection() {
         <span className="device-row-detail">
           {whenSeen(session.lastSeen)}
           {session.ipAddress ? ` · ${session.ipAddress}` : ""}
-          {session.kind === "device" ? ` · ${t("misc:devices.linkedOn", { date: new Date(session.createdAt).toLocaleDateString() })}` : ""}
+          {session.kind === "device" ? ` · ${t("misc:devices.linkedOn", { date: formatDate(session.createdAt) })}` : ""}
         </span>
       </div>
       <div className="device-row-actions">

@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { CalendarRange } from "lucide-react";
 import i18n from "../i18n";
+import { formatDate, formatTime } from "./dates";
 import { Button } from "./Button";
 import { Modal } from "./Modal";
 import { MessageBox } from "./MessageBox";
@@ -52,8 +53,8 @@ export function formatRangeLabel(range: DateRangeValue): string {
   const to = new Date(range.to);
   if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return "";
   const sameDay = from.toDateString() === to.toDateString();
-  const date = (value: Date) => value.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-  const time = (value: Date) => value.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  const date = (value: Date) => formatDate(value, "dayMonth");
+  const time = (value: Date) => formatTime(value, "padded");
   return sameDay
     ? `${date(from)}, ${time(from)} – ${time(to)}`
     : `${date(from)}, ${time(from)} – ${date(to)}, ${time(to)}`;

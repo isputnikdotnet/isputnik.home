@@ -1,4 +1,5 @@
 import type { LucideIcon } from "lucide-react";
+import { formatNumber } from "./dates";
 
 // Two or three panels sharing one card, switched in place — for when the panels
 // are peers a reader compares rather than pages they navigate between, and
@@ -44,7 +45,7 @@ export function TabStrip<K extends string>({
           >
             {Icon && <Icon size={15} aria-hidden="true" />}
             {item.label}
-            {item.count !== undefined && <span className="tab-strip-count">{item.count.toLocaleString()}</span>}
+            {item.count !== undefined && <span className="tab-strip-count">{formatNumber(item.count)}</span>}
           </button>
         );
       })}

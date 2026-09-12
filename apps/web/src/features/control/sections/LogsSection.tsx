@@ -21,6 +21,7 @@ import { formatManagedDate } from "../../../shared/utils";
 import type { LogEvent } from "../types";
 import { ControlSectionHead } from "../ControlSectionHead";
 import { signInsHref } from "./dashboard/SignInsView";
+import { formatNumber } from "../../../shared/dates";
 
 // Overview › Logs — the activity archive. Everything the server has recorded,
 // searchable and filterable, with a date toolbar, sortable columns, a row that
@@ -389,7 +390,7 @@ export function LogsSection() {
               Duplicate photos list ends with. */}
           <div className="log-pager-row">
             <span className="datagrid-muted">
-              {t("control:logs.showingRange", { from: (logPage - 1) * logPageSize + 1, to: Math.min(logPage * logPageSize, logTotal), total: logTotal.toLocaleString() })}
+              {t("control:logs.showingRange", { from: (logPage - 1) * logPageSize + 1, to: Math.min(logPage * logPageSize, logTotal), total: formatNumber(logTotal) })}
             </span>
             <Pager page={logPage} totalPages={logTotalPages} onChange={setLogPage} label={t("control:logs.pagerAria")} />
           </div>

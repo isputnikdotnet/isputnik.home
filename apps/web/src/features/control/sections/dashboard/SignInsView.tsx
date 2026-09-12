@@ -43,6 +43,7 @@ import { LoginsTable } from "./LoginsTable";
 import { SignInsFilterModal } from "./SignInsFilterModal";
 import { useIpReputation } from "./useIpReputation";
 import type { ActivitySort } from "./useRecentActivity";
+import { formatDate, formatNumber, formatTime } from "../../../../shared/dates";
 
 // Dashboard › Sign-ins — the view the page opens on, and the drill-down behind
 // every arrow on the Locations tables. One scope at a time (everything, a
@@ -106,8 +107,8 @@ function pageOf<T>(rows: T[], page: number, size = PAGE_SIZE): { rows: T[]; page
 function bucketLabel(iso: string, bucket: "hour" | "day"): string {
   const date = new Date(iso);
   return bucket === "hour"
-    ? date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
-    : date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    ? formatTime(date, "padded")
+    : formatDate(date, "dayMonth");
 }
 
 const DEVICE_ICONS: Record<DeviceType, LucideIcon> = {
@@ -408,7 +409,7 @@ export function SignInsView() {
                 icon={KeyRound}
                 tone="info"
                 label={t("controlDash:signIns.attempts")}
-                value={data.totals.attempts.toLocaleString()}
+                value={formatNumber(data.totals.attempts)}
                 context={
                   data.totals.firstSeen
                     ? t("controlDash:signIns.firstSeen", { date: formatManagedDate(data.totals.firstSeen) })
@@ -419,21 +420,21 @@ export function SignInsView() {
                 icon={Fingerprint}
                 tone="success"
                 label={t("controlDash:signIns.successful")}
-                value={data.totals.success.toLocaleString()}
+                value={formatNumber(data.totals.success)}
                 context={methodsSummary(data.methods, t)}
               />
               <KpiCard
                 icon={Ban}
                 tone={data.totals.failed > 0 ? "danger" : "success"}
                 label={t("controlDash:signIns.failed")}
-                value={data.totals.failed.toLocaleString()}
+                value={formatNumber(data.totals.failed)}
                 context={blockedContext}
               />
               <KpiCard
                 icon={UsersRound}
                 tone="info"
                 label={t("controlDash:signIns.people")}
-                value={data.totals.people.toLocaleString()}
+                value={formatNumber(data.totals.people)}
                 context={[
                   t("controlDash:signIns.addresses", { count: data.totals.addresses }),
                   data.totals.guests > 0 ? t("controlDash:signIns.guestVisitsN", { count: data.totals.guests }) : null
@@ -665,7 +666,7 @@ export function SignInsView() {
                             </td>
                             <td>
                               <span className="conn-cell">
-                                <span className="conn-count">{row.connections.toLocaleString()}</span>
+                                <span className="conn-count">{formatNumber(row.connections)}</span>
                                 <span className="conn-track" aria-hidden="true">
                                   <span
                                     className="conn-fill"
@@ -675,9 +676,9 @@ export function SignInsView() {
                               </span>
                             </td>
                             <td className={`col-num${row.failed > 0 ? " login-result-failed" : " datagrid-muted"}`}>
-                              {row.failed.toLocaleString()}
+                              {formatNumber(row.failed)}
                             </td>
-                            <td className="col-num datagrid-muted">{row.people.toLocaleString()}</td>
+                            <td className="col-num datagrid-muted">{formatNumber(row.people)}</td>
                             <td className={`col-num${row.probes + row.tokens > 0 ? " login-result-failed" : " datagrid-muted"}`}>
                               {row.probes + row.tokens > 0
                                 ? t("controlDash:signIns.hits", { count: row.probes + row.tokens })
@@ -754,11 +755,11 @@ export function SignInsView() {
                                 </small>
                               </span>
                             </td>
-                            <td className="col-num">{row.connections.toLocaleString()}</td>
+                            <td className="col-num">{formatNumber(row.connections)}</td>
                             <td className={`col-num${row.failed > 0 ? " login-result-failed" : " datagrid-muted"}`}>
-                              {row.failed.toLocaleString()}
+                              {formatNumber(row.failed)}
                             </td>
-                            <td className="col-num datagrid-muted">{row.addresses.toLocaleString()}</td>
+                            <td className="col-num datagrid-muted">{formatNumber(row.addresses)}</td>
                             <td className="datagrid-muted">{row.guest ? t("controlDash:signIns.methodShareLinkN", { count: row.guests }) : methodsSummary(row.methods, t)}</td>
                             <td className="datagrid-muted">{relativeTime(row.lastSeen)}</td>
                             <td className="locations-row-action">
@@ -804,7 +805,7 @@ export function SignInsView() {
                       {guessedNames.rows.map((row) => (
                         <tr key={row.email}>
                           <td className="login-result-failed">{row.email}</td>
-                          <td className="col-num">{row.attempts.toLocaleString()}</td>
+                          <td className="col-num">{formatNumber(row.attempts)}</td>
                           <td className="datagrid-muted">{relativeTime(row.lastSeen)}</td>
                         </tr>
                       ))}

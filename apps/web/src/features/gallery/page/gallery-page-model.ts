@@ -1,5 +1,6 @@
 import type { GalleryView } from "../../../router";
 import i18n from "../../../i18n";
+import { formatDate } from "../../../shared/dates";
 import type { LightboxSource } from "../AssetTile";
 import type { GalleryMemories, GalleryMemoryGroup, TakenPrecision } from "../types";
 import { formatTakenDate } from "../taken-date";
@@ -76,10 +77,9 @@ export function yearsAgo(year: number): string {
 export function memoryDateLabel(precision: GalleryMemoryGroup["precision"], year: number): string {
   const now = new Date();
   if (precision === "month") {
-    return new Date(year, now.getMonth(), 1).toLocaleDateString(undefined, { year: "numeric", month: "long" });
+    return formatDate(new Date(year, now.getMonth(), 1), "monthYear");
   }
-  const day = new Date(year, now.getMonth(), now.getDate())
-    .toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+  const day = formatDate(new Date(year, now.getMonth(), now.getDate()), "long");
   return precision === "near" ? i18n.t("gallery:memories.aroundDate", { date: day }) : day;
 }
 

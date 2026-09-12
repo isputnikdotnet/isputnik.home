@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { FileUp, Quote as QuoteIcon, Trash2 } from "lucide-react";
-import i18n from "../../../i18n";
+import { formatDateTime } from "../../../shared/dates";
 import { api } from "../../../api";
 import { Button } from "../../../shared/Button";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
@@ -28,8 +28,7 @@ interface QuoteImport {
 }
 
 function formatWhen(value: string): string {
-  const date = new Date(value.includes("T") ? value : `${value.replace(" ", "T")}Z`);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString(i18n.language);
+  return formatDateTime(value, "numeric", "seconds") || value;
 }
 
 export function QuotesSection() {
