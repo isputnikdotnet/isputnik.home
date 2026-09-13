@@ -3,6 +3,10 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.6.1 — The Storage page stops holding up the server
+
+- **Opening the Storage page no longer freezes the whole server.** To show how many thumbnails there are, the page counted every file in the thumbnail folder, and did it in a way that made the server wait until the count was done. On a small library that took no time; on a NAS, where that folder holds hundreds of thousands of files on spinning disks, it took seconds, and for those seconds nothing else answered: a click on the page seemed to do nothing, the app said the server was not responding, and then everything appeared at once. While a folder was being moved the page asked again every two seconds, so it happened over and over. The count now runs in the background without holding anything up, and the page shows the last count it has, reading **Counting files…** the very first time until the number is ready. The Storage contents page counts the same way.
+
 ## 4.6.0 — Storage made simple
 
 - **System data: the one folder the app needs, chosen by you.** Storage used to be a page of rooms, each with its own three-way choice, and it was never clear which of them mattered. Now there is one required answer: **System data**, the folder that holds thumbnails, backups and metadata. You pick it (the app suggests the folder next to its database), the setup guide asks for it before the first library, and thumbnails and backups can each still move to a folder of their own, as a task that carries what is already there. When backups share a disk with the database, the page says so, since one failing disk would take both.

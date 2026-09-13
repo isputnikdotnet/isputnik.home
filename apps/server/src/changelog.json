@@ -1,5 +1,12 @@
 [
   {
+    "version": "4.6.1",
+    "label": "The Storage page stops holding up the server",
+    "changes": [
+      "**Opening the Storage page no longer freezes the whole server.** To show how many thumbnails there are, the page counted every file in the thumbnail folder, and did it in a way that made the server wait until the count was done. On a small library that took no time; on a NAS, where that folder holds hundreds of thousands of files on spinning disks, it took seconds, and for those seconds nothing else answered: a click on the page seemed to do nothing, the app said the server was not responding, and then everything appeared at once. While a folder was being moved the page asked again every two seconds, so it happened over and over. The count now runs in the background without holding anything up, and the page shows the last count it has, reading **Counting files…** the very first time until the number is ready. The Storage contents page counts the same way."
+    ]
+  },
+  {
     "version": "4.6.0",
     "label": "Storage made simple",
     "changes": [
