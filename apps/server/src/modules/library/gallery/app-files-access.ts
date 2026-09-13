@@ -87,6 +87,42 @@ const VISIBLE_APP_FILES_SQL = `
   UNION SELECT outro_item_id FROM af_slideshows WHERE outro_item_id IS NOT NULL
   UNION SELECT si.item_id FROM gallery_slideshow_items si JOIN af_slideshows g ON g.id = si.slideshow_id`;
 
+// Every App files item that SOMETHING owns, whoever may see it: the same owners as
+// the rule above without the viewer's filters. What it leaves out is what only
+// admins can ever see. Owners are found by reference, never by folder: a photo
+// uploaded while writing a story lands in a dated folder, and belongs to the story.
+const OWNED_APP_FILES_SQL = `
+  SELECT item_id FROM family_tree_photos
+  UNION SELECT item_id FROM family_tree_event_photos
+  UNION SELECT portrait_item_id FROM family_tree_persons WHERE portrait_item_id IS NOT NULL
+  UNION SELECT item_id FROM gallery_music_tracks WHERE item_id IS NOT NULL
+  UNION SELECT v.audio_item_id FROM gallery_voice_notes v
+    JOIN library_items photo ON photo.id = v.item_id AND photo.deleted_at IS NULL
+  UNION SELECT b.entity_id FROM story_blocks b
+    JOIN story_chapters c ON c.id = b.chapter_id
+    JOIN stories s ON s.id = c.story_id AND s.deleted_at IS NULL
+    WHERE b.entity_type = 'gallery' AND b.entity_id IS NOT NULL
+  UNION SELECT c.hero_item_id FROM story_chapters c
+    JOIN stories s ON s.id = c.story_id AND s.deleted_at IS NULL
+    WHERE c.hero_item_id IS NOT NULL
+  UNION SELECT cover_item_id FROM stories WHERE deleted_at IS NULL AND cover_item_id IS NOT NULL
+  UNION SELECT cover_item_id FROM story_collections WHERE cover_item_id IS NOT NULL
+  UNION SELECT movie_item_id FROM gallery_slideshows WHERE movie_item_id IS NOT NULL
+  UNION SELECT cover_item_id FROM gallery_slideshows WHERE cover_item_id IS NOT NULL
+  UNION SELECT title_photo_item_id FROM gallery_slideshows WHERE title_photo_item_id IS NOT NULL
+  UNION SELECT closing_photo_item_id FROM gallery_slideshows WHERE closing_photo_item_id IS NOT NULL
+  UNION SELECT outro_item_id FROM gallery_slideshows WHERE outro_item_id IS NOT NULL
+  UNION SELECT item_id FROM gallery_slideshow_items`;
+
+/** App files items nothing owns, so only admins see them (decision 22). */
+export function unownedAppFileCount(libraryId: string | null): number {
+  if (!libraryId) return 0;
+  return (db.prepare(`
+    SELECT COUNT(*) AS n FROM library_items
+    WHERE library_id = ? AND deleted_at IS NULL AND id NOT IN (${OWNED_APP_FILES_SQL})
+  `).get(libraryId) as { n: number }).n;
+}
+
 export function appFilesLibraryId(): string | null {
   return systemLibraryId("app-files");
 }
