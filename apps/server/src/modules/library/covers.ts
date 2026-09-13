@@ -5,6 +5,7 @@ import { z } from "zod";
 import { parseQuery } from "../../core/shared.js";
 import { resolveCoverKey, LIBRARY_BUCKET_RE } from "./shared/thumbnail.js";
 import { getAccessibleLibrary } from "./shared/library-access.js";
+import { appFileItemForThumbnail, canSeeAppFile, isAppFilesLibrary } from "./gallery/app-files-access.js";
 
 // `v` is the cache-busting version token (see below); its value is opaque.
 const coverQuerySchema = z.object({ v: z.string().optional() });
@@ -43,7 +44,12 @@ export async function coversPlugin(app: FastifyInstance) {
     }
     const user = request.user!;
     if (LIBRARY_BUCKET_RE.test(resolved.bucket) && !getAccessibleLibrary(resolved.bucket, user.id, user.role)) {
-      return reply.code(404).send({ error: "Cover not found" });
+      // App files has no library access: a thumbnail there is seen through what
+      // owns its item (gallery/app-files-access.ts).
+      const appFile = isAppFilesLibrary(resolved.bucket) ? appFileItemForThumbnail(storageKey) : null;
+      if (!appFile || !canSeeAppFile(user, appFile)) {
+        return reply.code(404).send({ error: "Cover not found" });
+      }
     }
     const parsed = parseQuery(coverQuerySchema, request.query);
     if (parsed.error) {

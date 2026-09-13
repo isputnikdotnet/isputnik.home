@@ -225,18 +225,15 @@ saved. Up to fifteen minutes each. In the story, narration plays in a card
 that draws the recording's wave and lets you jump around in it, and someone
 opening the story at a share link gets the same card.
 
-Recordings are not stored inside the story: they land in the house's **"Made
-in the app" gallery library** — the one library an admin chooses once, on the
-App files row of Control panel → Library → Storage, for everything the app
-makes itself — in
-its `Story recordings` folder, as ordinary audio. That's why they show up in
-the gallery, ride along in backups, and outlive their story. Until that library
-is chosen, the Narration button simply isn't offered — if you're an admin, the
-Storage page is where to turn it on, and Settings → Stories holds the
-one-time button that moves any recordings made before this existed into it.
+Recordings are not stored inside the story: they land in the **App files**
+library, part of App storage (Control panel → Library → Storage), in its `Story
+recordings` folder, as ordinary audio. That is why they ride along in backups
+and outlive their story. Until App storage is switched on, the Narration button
+simply isn't offered; if you're an admin, the Storage page is where to turn it
+on.
 
-Pick a library the whole family can view, or the narration will be missing for
-people without access to it.
+Who hears a recording follows the story: anyone who can see the story can play
+it, and nobody else ([Storage](storage.md)).
 
 ## Collections
 

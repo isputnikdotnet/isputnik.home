@@ -10,6 +10,7 @@
 import { db } from "../../db.js";
 import { ASSET_COLUMNS, ASSET_JOINS, mapAsset, type GalleryAssetRow } from "../library/gallery/catalog-asset.js";
 import { accessibleLibraryIds } from "../library/shared/library-access.js";
+import { appFilesLibraryId } from "../library/gallery/app-files-access.js";
 import type { FamilyTreeEventPhotoRow, FamilyTreePersonRow, FamilyTreePhotoRow } from "../../db/rows.js";
 
 const inClause = (n: number) => Array(n).fill("?").join(", ");
@@ -111,7 +112,10 @@ export function getFamilyEventPhotos(
   personId: string
 ): Map<string, ReturnType<typeof mapAsset>[]> {
   const byEvent = new Map<string, ReturnType<typeof mapAsset>[]>();
-  const libIds = [...accessibleLibraryIds(user.id, user.role, "gallery")];
+  // An event photo uploaded into App files belongs to the family tree, which every
+  // member can see (app-files-access.ts).
+  const appFiles = appFilesLibraryId();
+  const libIds = [...new Set([...accessibleLibraryIds(user.id, user.role, "gallery"), ...(appFiles ? [appFiles] : [])])];
   if (libIds.length === 0) return byEvent;
 
   const rows = db.prepare(`
@@ -154,8 +158,13 @@ export function getFamilyPersonPhotos(
   if (!person) return null;
 
   const libIds = [...accessibleLibraryIds(user.id, user.role, "gallery")];
-  if (libIds.length === 0) return { assets: [], total: 0 };
-  const libIn = inClause(libIds.length);
+  // A photo attached to the person (rank 0) that sits in App files belongs to the
+  // family tree, which every member can see; face-cluster photos (rank 1) keep to
+  // the viewer's own libraries (app-files-access.ts).
+  const appFiles = appFilesLibraryId();
+  if (libIds.length === 0 && !appFiles) return { assets: [], total: 0 };
+  const libIn = inClause(Math.max(libIds.length, 1));
+  const libArgs = libIds.length > 0 ? libIds : [""];
 
   // The `sources` subquery yields one row per candidate item: rank 0 = attached
   // (ordered by position), rank 1 = auto via the linked face cluster, excluding
@@ -170,14 +179,15 @@ export function getFamilyPersonPhotos(
     WHERE gf.person_id = ? AND gf.assignment != 'rejected'
       AND gf.item_id NOT IN (SELECT item_id FROM family_tree_photos WHERE person_id = ?)`;
   const filterSql = `
-    library_items.library_id IN (${libIn}) AND library_items.deleted_at IS NULL`;
+    (library_items.library_id IN (${libIn}) OR (src.rank = 0 AND library_items.library_id = ?))
+    AND library_items.deleted_at IS NULL`;
 
   const total = (db.prepare(`
     SELECT COUNT(*) AS n FROM (${sourcesSql}) src
     JOIN library_items ON library_items.id = src.item_id
     JOIN gallery_details ON gallery_details.item_id = library_items.id
     WHERE ${filterSql}
-  `).get(personId, person.gallery_person_id, personId, ...libIds) as { n: number }).n;
+  `).get(personId, person.gallery_person_id, personId, ...libArgs, appFiles) as { n: number }).n;
 
   const rows = db.prepare(`
     SELECT ${ASSET_COLUMNS}, src.rank AS src_rank
@@ -187,7 +197,7 @@ export function getFamilyPersonPhotos(
     ORDER BY src.rank, src.pos, gallery_details.taken_at DESC, library_items.id DESC
     LIMIT ? OFFSET ?
   `).all(
-    user.id, personId, person.gallery_person_id, personId, ...libIds, limit, offset
+    user.id, personId, person.gallery_person_id, personId, ...libArgs, appFiles, limit, offset
   ) as (GalleryAssetRow & { src_rank: number })[];
 
   return {

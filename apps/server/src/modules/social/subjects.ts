@@ -11,6 +11,7 @@ import path from "node:path";
 import { db } from "../../db.js";
 import { accessibleLibraryIds, canUserAccessBook } from "../library/shared/library-access.js";
 import { visibleCollectionIds } from "../stories/collection-access.js";
+import { withAppFilesLibrary } from "../library/gallery/app-files-access.js";
 import type { BookLibraryType } from "../library/shared/library-types.js";
 import type {
   FamilyTreePersonRow,
@@ -485,7 +486,8 @@ const hydrateStories: Hydrator = (entityIds, user) => {
   if (entityIds.length === 0) return result;
 
   const libIds = [...accessibleLibraryIds(user.id, user.role, "gallery")];
-  const libArgs = libIds.length > 0 ? libIds : [""];
+  // Covers of stories this viewer may see: App files items they hold show.
+  const libArgs = withAppFilesLibrary(libIds.length > 0 ? libIds : [""]);
   const libIn = libArgs.map(() => "?").join(", ");
   // The CHOSEN cover may be a photo or a book's own artwork — a review wearing
   // the book it is about — so that lookup reaches past the gallery into whichever

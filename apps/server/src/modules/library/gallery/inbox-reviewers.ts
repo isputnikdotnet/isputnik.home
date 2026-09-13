@@ -11,18 +11,17 @@
 // The list is stored in `assignments` under its own object, so deleting a user or
 // a group cleans it up like any grant, and it outlives the library: switching App
 // storage off and on again makes a new Inbox with the same reviewers. The levels
-// map onto contributor and manager, and an override in core/permissions.ts
+// map onto contributor and manager, and the override in system-library-access.ts
 // answers every library check on the Inbox from this list, so the review, the
 // viewer, the stream, uploads and drop links all ask the same thing.
 import { db } from "../../../db.js";
 import {
   EVERYONE_GROUP_ID,
-  registerObjectRoleOverride,
   strongestGrantedRole,
   type AuthUser,
   type ObjectRole
 } from "../../../core/permissions.js";
-import type { AssignmentRow, LibraryRow, UserGroupRow, UserRow } from "../../../db/rows.js";
+import type { AssignmentRow, UserGroupRow, UserRow } from "../../../db/rows.js";
 
 export const INBOX_REVIEWERS_OBJECT_TYPE = "photo_inbox";
 export const INBOX_REVIEWERS_OBJECT_ID = "reviewers";
@@ -50,11 +49,6 @@ export function inboxRoleFor(user: AuthUser): ObjectRole | null {
   if (user.role === "admin") return "manager";
   return strongestGrantedRole(INBOX_REVIEWERS_OBJECT_TYPE, INBOX_REVIEWERS_OBJECT_ID, user);
 }
-
-registerObjectRoleOverride("library", (libraryId, user) => {
-  const row = db.prepare("SELECT role FROM libraries WHERE id = ?").get(libraryId) as Pick<LibraryRow, "role"> | undefined;
-  return row?.role === "inbox" ? inboxRoleFor(user) : undefined;
-});
 
 export interface InboxReviewer {
   subjectType: "user" | "group";

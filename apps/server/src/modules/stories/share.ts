@@ -23,6 +23,7 @@ import { nanoid } from "nanoid";
 import { sha256 } from "../../crypto.js";
 import { addDays } from "../../auth.js";
 import { curatableGalleryLibraryIds } from "../library/shared/shares/album-shares.js";
+import { withAppFilesLibrary } from "../library/gallery/app-files-access.js";
 import { hydrateEntities } from "../social/subjects.js";
 import { getAlbum, getAlbumItems } from "../library/gallery/albums.js";
 import { getSlideshow, getSlideshowItems } from "../library/gallery/slideshows.js";
@@ -154,6 +155,14 @@ function blockAssets(block: BlockRow, ctx: StoryLinkContext): ShareAsset[] {
   return [];
 }
 
+/** The creator's libraries plus App files: a media block, a chapter hero or the
+ *  cover is the story's own, and the story owns what it holds there
+ *  (gallery/app-files-access.ts). Album and slideshow blocks keep to the creator's
+ *  libraries. */
+function mediaLibIds(ctx: StoryLinkContext): string[] {
+  return withAppFilesLibrary(ctx.libIds);
+}
+
 /** One gallery item as a share asset, bounded by the creator's libraries. */
 function mediaAssetById(ctx: StoryLinkContext, itemId: string): ShareAsset[] {
   const row = db.prepare(`
@@ -171,8 +180,8 @@ function mediaAssetById(ctx: StoryLinkContext, itemId: string): ShareAsset[] {
     JOIN gallery_details ON gallery_details.item_id = library_items.id
     LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
     WHERE library_items.id = ? AND library_items.deleted_at IS NULL
-      AND library_items.library_id IN (${ctx.libIds.map(() => "?").join(", ")})
-  `).get(itemId, ...ctx.libIds) as (Pick<LibraryItemRow, "id" | "folder_path">
+      AND library_items.library_id IN (${mediaLibIds(ctx).map(() => "?").join(", ")})
+  `).get(itemId, ...mediaLibIds(ctx)) as (Pick<LibraryItemRow, "id" | "folder_path">
     & Nullable<Pick<ItemMetadataRow, "title">>
     & Pick<GalleryDetailRow, "kind" | "width" | "height" | "rotation" | "duration_seconds" | "taken_at">) | undefined;
   if (!row) return [];
@@ -250,8 +259,8 @@ export function loadStoryShareMediaItem(link: ResolvedShareLink, itemId: string)
     JOIN libraries ON libraries.id = library_items.library_id
     LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
     WHERE library_items.id = ? AND library_items.deleted_at IS NULL
-      AND library_items.library_id IN (${ctx.libIds.map(() => "?").join(", ")})
-  `).get(itemId, ...ctx.libIds) as (Pick<LibraryItemRow, "folder_path">
+      AND library_items.library_id IN (${mediaLibIds(ctx).map(() => "?").join(", ")})
+  `).get(itemId, ...mediaLibIds(ctx)) as (Pick<LibraryItemRow, "folder_path">
     & Pick<GalleryDetailRow, "kind" | "relative_path" | "mime_type" | "preview_storage_key">
     & Nullable<Pick<ItemMetadataRow, "title" | "cover_storage_key">>
     & Pick<LibraryRow, "source_path">) | undefined;
@@ -282,8 +291,8 @@ export function storyShareFiles(link: ResolvedShareLink): StoryShareFileRow[] {
     LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
     WHERE library_items.id IN (${ids.map(() => "?").join(", ")})
       AND library_items.deleted_at IS NULL
-      AND library_items.library_id IN (${ctx.libIds.map(() => "?").join(", ")})
-  `).all(...ids, ...ctx.libIds) as StoryShareFileRow[];
+      AND library_items.library_id IN (${mediaLibIds(ctx).map(() => "?").join(", ")})
+  `).all(...ids, ...mediaLibIds(ctx)) as StoryShareFileRow[];
 }
 
 // A guest sees no hrefs into the app — every link would 404 them at a sign-in

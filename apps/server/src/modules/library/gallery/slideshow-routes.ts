@@ -3,6 +3,7 @@
 // follow the bulk contract: inaccessible items are skipped and counted. Sibling of
 // album-routes.ts; the extra endpoint here is reorder (albums shipped without it).
 import type { FastifyInstance, FastifyReply } from "fastify";
+import { galleryScopeSql } from "./app-files-access.js";
 import { z } from "zod";
 import { db, logActivity } from "../../../db.js";
 import { parseBody, parseQuery } from "../../../core/shared.js";
@@ -210,8 +211,8 @@ function clipSummary(libIds: string[], itemId: string | null) {
     LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
     WHERE library_items.id = ? AND library_items.deleted_at IS NULL
       AND gallery_details.kind = 'video'
-      AND library_items.library_id IN (${Array(libIds.length).fill("?").join(", ")})
-  `).get(itemId, ...libIds) as (Pick<LibraryItemRow, "id"> & Pick<GalleryDetailRow, "duration_seconds">
+      AND ${galleryScopeSql(libIds).sql}
+  `).get(itemId, ...galleryScopeSql(libIds).params) as (Pick<LibraryItemRow, "id"> & Pick<GalleryDetailRow, "duration_seconds">
     & Nullable<Pick<ItemMetadataRow, "title">> & { cover_key: ItemMetadataRow["cover_storage_key"] | null }) | undefined;
   if (!row) return null;
   return {

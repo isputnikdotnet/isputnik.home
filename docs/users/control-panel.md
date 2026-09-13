@@ -665,9 +665,9 @@ wait while App storage is off: their switches are disabled, with a link to Stora
 - **Email** — outgoing mail, needed for two-factor codes, security alerts and Send
   to e-reader. It has [its own guide](email.md).
 - **Stories** — whether members may start a recipe from a link, and which library
-  narration goes to. Narration recorded before recordings lived in the gallery
-  moves into the App files library by itself once one is set; the page says
-  how many recordings are still waiting.
+  narration goes to (App files, shown here, not chosen). Narration recorded
+  before recordings lived in the gallery moves into App files by itself once App
+  storage is on; the page says how many recordings are still waiting.
 - **Reader access** — OPDS tokens that let a reading app (KOReader, Moon+ Reader,
   Thorium) browse your ebooks. One token per device, read-only, removable at any
   time.

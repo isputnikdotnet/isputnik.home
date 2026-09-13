@@ -83,10 +83,10 @@ The tab shows a preview with **View all photos** for the rest. Photos open in a
 viewer over the family page, so closing one brings you back to the tree rather
 than dropping you in the gallery.
 
-**Uploading new photos** works from the same picker's *Upload* tab, once an
-admin has chosen the house's "App files" gallery library (Control panel →
-Library → Storage). Files are added to that library, in its `Family tree`
-folder, and attached in one step.
+**Uploading new photos** works from the same picker's *Upload* tab, once App
+storage is switched on (Control panel → Library → Storage), for anyone who may
+edit part of the tree. Files are added to the App files library, in its
+`Family tree` folder, and attached in one step; every member can see them.
 
 ## Settings
 

@@ -40,7 +40,7 @@ import {
 } from "./shared/storage-move.js";
 import { createLibraryRecord } from "./shared/library-crud.js";
 import { scanLibraryNow } from "./shared/media-types.js";
-import { ensureAudioScanExtensions } from "./gallery/house-library.js";
+import { HOUSE_FOLDERS, ensureAudioScanExtensions } from "./gallery/house-library.js";
 import { setSystemLibraryRole } from "./gallery/system-libraries.js";
 import { inboxReviewerCount } from "./gallery/inbox-reviewers.js";
 import { deleteGalleryLibraryRecord } from "./gallery/library-delete.js";
@@ -75,8 +75,10 @@ export interface AppStoragePart {
   inside: boolean;
   /** The system library behind the Inbox and App files parts. */
   library: { id: string; name: string } | null;
-  /** reviewers: people and groups an admin named on the Inbox (phase 4); Everyone counts as one. */
-  counts: { waiting?: number; files?: number; tracks?: number; reviewers?: number };
+  /** reviewers: people and groups an admin named on the Inbox (phase 4); Everyone counts as one.
+   *  unowned: App files items outside the app's own folders — photos a library
+   *  nominated before 4.6 already held. Nothing owns them, so only admins see them. */
+  counts: { waiting?: number; files?: number; tracks?: number; reviewers?: number; unowned?: number };
   move: StorageMoveStatus;
   /** App files under its former folder name ("Made in the app"): the name it
    *  would be renamed to. Null everywhere else. */
@@ -102,6 +104,18 @@ export interface AppStorageView {
 
 // ── The view ────────────────────────────────────────────────────────────────
 
+/** App files items outside every folder the app writes to: owned by nothing, so
+ *  only admins see them (decision 22). A library nominated before 4.6 may hold a
+ *  whole photo collection like this; the row says so. */
+function unownedAppFiles(libraryId: string | null): number {
+  if (!libraryId) return 0;
+  const folders = Object.values(HOUSE_FOLDERS);
+  const outside = folders.map(() => "NOT (folder_path = ? OR substr(folder_path, 1, ?) = ?)").join(" AND ");
+  const args = folders.flatMap((folder) => [folder, folder.length + 1, `${folder}/`]);
+  return (db.prepare(`SELECT COUNT(*) AS n FROM library_items WHERE library_id = ? AND deleted_at IS NULL AND ${outside}`)
+    .get(libraryId, ...args) as { n: number }).n;
+}
+
 function partLibrary(part: "inbox" | "house"): GalleryLibraryRow | null {
   return libraryWithRole(ROLE_OF[part]);
 }
@@ -122,7 +136,7 @@ function partView(part: AppRoom, setting: AppStorageSetting, root: string | null
       folder: library?.source_path ?? expected,
       inside,
       library: library ? { id: library.id, name: library.name } : null,
-      counts: part === "inbox" ? { waiting: count, reviewers: inboxReviewerCount() } : { files: count },
+      counts: part === "inbox" ? { waiting: count, reviewers: inboxReviewerCount() } : { files: count, unowned: unownedAppFiles(library?.id ?? null) },
       renameTo
     };
   }

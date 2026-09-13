@@ -6,6 +6,7 @@
 // enforced in listStories/canViewStory, not here.
 import { nanoid } from "nanoid";
 import { db } from "../../db.js";
+import { withAppFilesLibrary } from "../library/gallery/app-files-access.js";
 import {
   canContributeToCollection,
   canManageCollection,
@@ -80,7 +81,9 @@ interface CollectionListRow extends CollectionRow {
 export function listCollections(user: { id: string; role: string }, libIds: string[]) {
   const visible = visibleCollectionIds(user);
   if (visible !== null && visible.length === 0) return [];
-  const libArgs = libIds.length > 0 ? libIds : [""];
+  // Covers of visible shelves and their visible stories: App files items they hold
+  // show (app-files-access.ts: the shelf or story owns them).
+  const libArgs = withAppFilesLibrary(libIds.length > 0 ? libIds : [""]);
   const libIn = inClause(libArgs.length);
   // A story counts toward its collection's card by the same rule it lists:
   // published, or the viewer's own, or the viewer is an admin — and never

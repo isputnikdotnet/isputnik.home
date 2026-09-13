@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
+import { canEditTree } from "./access.js";
 import { db, logActivity } from "../../db.js";
 import { parseBody } from "../../core/shared.js";
 import { getFamilyDefaultPerson, getFamilyUploadLibrary, setFamilyTreeSettings } from "./settings.js";
@@ -15,10 +16,15 @@ export function registerSettingsRoutes(app: FastifyInstance) {
     const library = getFamilyUploadLibrary();
     let canUpload = false;
     if (library) {
-      const row = db.prepare("SELECT id, policy_json FROM libraries WHERE id = ?")
-        .get(library.id) as Pick<LibraryRow, "id" | "policy_json"> | undefined;
+      const row = db.prepare("SELECT id, policy_json, role FROM libraries WHERE id = ?")
+        .get(library.id) as Pick<LibraryRow, "id" | "policy_json" | "role"> | undefined;
       if (row) {
-        canUpload = can(user, { objectType: "library", objectId: row.id, policy: parsePolicy(row.policy_json) }, "upload");
+        // App files has no library access (phase 4): whoever may edit the tree
+        // may upload its photos there.
+        const policy = parsePolicy(row.policy_json);
+        canUpload = row.role === "app-files"
+          ? (user.role === "admin" || canEditTree(user)) && (policy.mode ?? "managed") !== "external"
+          : can(user, { objectType: "library", objectId: row.id, policy }, "upload");
       }
     }
     return {

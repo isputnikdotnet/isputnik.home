@@ -11,6 +11,7 @@ import { db } from "../../../db.js";
 import { ASSET_COLUMNS, ASSET_JOINS, mapAsset, type GalleryAssetRow } from "./catalog-asset.js";
 import type { CardFont, CardSize } from "./slideshow-title-card.js";
 import { entityTagsByIds } from "../shared/tagging.js";
+import { galleryScopeSql } from "./app-files-access.js";
 import type { GalleryDetailRow, GallerySlideshowItemRow, GallerySlideshowRow, LibraryItemRow, LibraryRow } from "../../../db/rows.js";
 
 const SLIDESHOW_TAG_TYPE = "gallery_slideshow";
@@ -320,31 +321,30 @@ interface SlideshowListRow extends SlideshowRow {
 // only for the creator/admin. The cover prefers the explicit cover item, else the
 // first (lowest-position) visible member with a thumbnail.
 export function listSlideshows(user: { id: string; role: string }, libIds: string[]) {
-  const libArgs = libIds.length > 0 ? libIds : [""];
-  const libIn = inClause(libArgs.length);
+  const scope = galleryScopeSql(libIds);
   const rows = db.prepare(`
     SELECT
       gallery_slideshows.*,
       (SELECT COUNT(*) FROM gallery_slideshow_items
         JOIN library_items ON library_items.id = gallery_slideshow_items.item_id AND library_items.deleted_at IS NULL
         WHERE gallery_slideshow_items.slideshow_id = gallery_slideshows.id
-          AND library_items.library_id IN (${libIn})) AS visible_count,
+          AND ${scope.sql}) AS visible_count,
       COALESCE(
         (SELECT item_metadata.cover_storage_key FROM library_items
           JOIN item_metadata ON item_metadata.item_id = library_items.id
           WHERE library_items.id = gallery_slideshows.cover_item_id AND library_items.deleted_at IS NULL
-            AND library_items.library_id IN (${libIn})),
+            AND ${scope.sql}),
         (SELECT item_metadata.cover_storage_key FROM gallery_slideshow_items
           JOIN library_items ON library_items.id = gallery_slideshow_items.item_id AND library_items.deleted_at IS NULL
           JOIN item_metadata ON item_metadata.item_id = library_items.id
           WHERE gallery_slideshow_items.slideshow_id = gallery_slideshows.id
-            AND library_items.library_id IN (${libIn})
+            AND ${scope.sql}
             AND item_metadata.cover_storage_key IS NOT NULL
           ORDER BY gallery_slideshow_items.position LIMIT 1)
       ) AS cover_key
     FROM gallery_slideshows
     ORDER BY gallery_slideshows.updated_at DESC
-  `).all(...libArgs, ...libArgs, ...libArgs) as SlideshowListRow[];
+  `).all(...scope.params, ...scope.params, ...scope.params) as SlideshowListRow[];
 
   const visible = rows.filter((row) => row.visible_count > 0 || canEditSlideshow(row, user));
   const tags = entityTagsByIds(SLIDESHOW_TAG_TYPE, visible.map((row) => row.id));
@@ -381,16 +381,16 @@ export function summarize(
 // album detail. `dwell` is the per-slide override (null = use slide_seconds).
 export function getSlideshowItems(userId: string, libIds: string[], slideshow: SlideshowRow, limit: number, offset: number) {
   if (libIds.length === 0) return { assets: [], total: 0 };
-  const libIn = inClause(libIds.length);
+  const scope = galleryScopeSql(libIds);
   const where = `
     gallery_slideshow_items.slideshow_id = ?
-    AND library_items.library_id IN (${libIn})
+    AND ${scope.sql}
     AND library_items.deleted_at IS NULL`;
   const total = (db.prepare(`
     SELECT COUNT(*) AS n FROM gallery_slideshow_items
     JOIN library_items ON library_items.id = gallery_slideshow_items.item_id
     WHERE ${where}
-  `).get(slideshow.id, ...libIds) as { n: number }).n;
+  `).get(slideshow.id, ...scope.params) as { n: number }).n;
 
   const rows = db.prepare(`
     SELECT ${ASSET_COLUMNS}, gallery_slideshow_items.dwell_seconds AS ss_dwell ${ASSET_JOINS}
@@ -398,7 +398,7 @@ export function getSlideshowItems(userId: string, libIds: string[], slideshow: S
     WHERE ${where}
     ORDER BY gallery_slideshow_items.position ASC, library_items.id ASC
     LIMIT ? OFFSET ?
-  `).all(userId, slideshow.id, ...libIds, limit, offset) as (GalleryAssetRow & { ss_dwell: GallerySlideshowItemRow["dwell_seconds"] })[];
+  `).all(userId, slideshow.id, ...scope.params, limit, offset) as (GalleryAssetRow & { ss_dwell: GallerySlideshowItemRow["dwell_seconds"] })[];
 
   return {
     assets: rows.map((row) => ({ ...mapAsset(row), dwellSeconds: row.ss_dwell })),
@@ -421,7 +421,7 @@ export interface SlideshowRenderItem
 
 export function getSlideshowRenderItems(libIds: string[], slideshow: SlideshowRow): SlideshowRenderItem[] {
   if (libIds.length === 0) return [];
-  const libIn = inClause(libIds.length);
+  const scope = galleryScopeSql(libIds);
   return db.prepare(`
     SELECT library_items.id AS id, gallery_details.kind AS kind, gallery_details.relative_path AS relative_path,
            libraries.source_path AS source_path, gallery_slideshow_items.dwell_seconds AS dwell_seconds,
@@ -432,12 +432,12 @@ export function getSlideshowRenderItems(libIds: string[], slideshow: SlideshowRo
     JOIN gallery_details ON gallery_details.item_id = library_items.id
     JOIN libraries ON libraries.id = library_items.library_id
     WHERE gallery_slideshow_items.slideshow_id = ?
-      AND library_items.library_id IN (${libIn})
+      AND ${scope.sql}
       -- The renderer knows photo (still) and video (clip) slides only; an audio
       -- member (added via album bulk-add or a future picker) is simply skipped.
       AND gallery_details.kind != 'audio'
     ORDER BY gallery_slideshow_items.position ASC, library_items.id ASC
-  `).all(slideshow.id, ...libIds) as SlideshowRenderItem[];
+  `).all(slideshow.id, ...scope.params) as SlideshowRenderItem[];
 }
 
 // One gallery VIDEO by id, in the same shape the render items use — for the
@@ -446,7 +446,7 @@ export function getSlideshowRenderItems(libIds: string[], slideshow: SlideshowRo
 // never a video) resolves to null and the render simply goes on without it.
 export function getClipRenderItem(libIds: string[], itemId: string | null): SlideshowRenderItem | null {
   if (!itemId || libIds.length === 0) return null;
-  const libIn = inClause(libIds.length);
+  const scope = galleryScopeSql(libIds);
   const row = db.prepare(`
     SELECT library_items.id AS id, gallery_details.kind AS kind, gallery_details.relative_path AS relative_path,
            libraries.source_path AS source_path, NULL AS dwell_seconds,
@@ -457,8 +457,8 @@ export function getClipRenderItem(libIds: string[], itemId: string | null): Slid
     JOIN libraries ON libraries.id = library_items.library_id
     WHERE library_items.id = ? AND library_items.deleted_at IS NULL
       AND gallery_details.kind = 'video'
-      AND library_items.library_id IN (${libIn})
-  `).get(itemId, ...libIds) as SlideshowRenderItem | undefined;
+      AND ${scope.sql}
+  `).get(itemId, ...scope.params) as SlideshowRenderItem | undefined;
   return row ?? null;
 }
 

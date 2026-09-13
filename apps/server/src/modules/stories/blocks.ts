@@ -3,6 +3,7 @@ import { db } from "../../db.js";
 import { ASSET_COLUMNS, ASSET_JOINS, mapAsset, type GalleryAssetRow } from "../library/gallery/catalog-asset.js";
 import { getAlbum, getAlbumItems } from "../library/gallery/albums.js";
 import { getSlideshow, getSlideshowItems } from "../library/gallery/slideshows.js";
+import { galleryScopeSql } from "../library/gallery/app-files-access.js";
 import { STORY_AUDIO_ENTITY_TYPE, deleteStoryAudio } from "./audio.js";
 import { nextPosition, touchStory } from "./chapters.js";
 import {
@@ -190,12 +191,13 @@ export function galleryAssetsByIds(userId: string, libIds: string[], itemIds: st
   const assets = new Map<string, ReturnType<typeof mapAsset>>();
   if (libIds.length === 0 || itemIds.length === 0) return assets;
   const unique = [...new Set(itemIds)];
+  const scope = galleryScopeSql(libIds);
   const rows = db.prepare(`
     SELECT ${ASSET_COLUMNS} ${ASSET_JOINS}
     WHERE library_items.id IN (${inClause(unique.length)})
-      AND library_items.library_id IN (${inClause(libIds.length)})
+      AND ${scope.sql}
       AND library_items.deleted_at IS NULL
-  `).all(userId, ...unique, ...libIds) as GalleryAssetRow[];
+  `).all(userId, ...unique, ...scope.params) as GalleryAssetRow[];
   for (const row of rows) {
     assets.set(row.id, mapAsset(row));
   }

@@ -128,8 +128,24 @@ or the pickers on its own; a recording or a voice note is reached from the story
 the photo it belongs to, and a photo a story, album or slideshow already holds keeps
 showing there. Who reviews the Inbox is set from **Reviewers** on its row: admins
 always do, and anyone you name can add details or keep and discard
-([Photo Inbox](photo-inbox.md)). Who may see App files is still set from the
-**Access** link on its row.
+([Photo Inbox](photo-inbox.md)).
+
+**Who sees a file in App files** follows what it belongs to; there is nothing to
+set. Admins see everything. Anyone else sees:
+
+| The file | Seen by |
+|---|---|
+| A story recording, or a photo a story holds | whoever can see the story |
+| A voice note | whoever can see the photo, and whoever recorded it |
+| A slideshow's photos, cards, clips and saved movie | whoever can see the slideshow |
+| Uploaded music | every member |
+| A family-tree photo or portrait | every member |
+| A file nothing in the app owns | admins only |
+
+A library chosen as App files before 4.6 may also hold ordinary photos, in folders
+the app did not make. Nothing owns those, so only admins see them, and the App files
+row says how many there are. Move their folders to another library from the Contents
+page to share them again.
 
 ![Storage once configured](images/11-storage-configured.png)
 

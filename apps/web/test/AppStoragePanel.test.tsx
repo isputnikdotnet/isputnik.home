@@ -119,7 +119,8 @@ describe("while on", () => {
     expect(screen.getByText("7 photos waiting · admins review")).toBeInTheDocument();
     const house = screen.getByText("D:\\Media\\Photos").closest("tr") as HTMLElement;
     expect(within(house).getByText("Outside App storage")).toBeInTheDocument();
-    expect(within(house).getByRole("link", { name: "Access" })).toHaveAttribute("href", "/control/libraries?edit=HF");
+    // No access rules on either system library: App files follows its owners.
+    expect(within(house).queryByRole("link", { name: "Access" })).toBeNull();
 
     await user.click(screen.getByRole("switch", { name: "App storage" }));
     const refusal = await screen.findByRole("alertdialog");

@@ -1,5 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
+import { HOUSE_FOLDERS } from "./house-library.js";
+import { canEditTree } from "../../familytree/access.js";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { nanoid } from "nanoid";
@@ -48,12 +50,15 @@ export function registerGalleryUploadRoutes(app: FastifyInstance) {
     const library = db.prepare(
       "SELECT id, name, source_path, settings_json, policy_json, role FROM libraries WHERE id = ? AND type = 'gallery'"
     ).get(libraryId) as Pick<LibraryRow, "id" | "name" | "source_path" | "settings_json" | "policy_json" | "role"> | undefined;
-    if (!library || !canUserAccessLibrary(library, user.id, user.role)) {
+    // App files has no library access (phase 4): an upload there is the family
+    // tree's, checked below against the folder and the right to edit the tree.
+    const appFilesUpload = library?.role === "app-files" && user.role !== "admin";
+    if (!library || (!appFilesUpload && !canUserAccessLibrary(library, user.id, user.role))) {
       return reply.code(404).send({ error: "Gallery library not found" });
     }
 
     const policy = parsePolicy(library.policy_json);
-    if (!can(user, { objectType: "library", objectId: library.id, policy }, "upload")) {
+    if (!appFilesUpload && !can(user, { objectType: "library", objectId: library.id, policy }, "upload")) {
       return reply.code(403).send({ error: "Uploading is not allowed in this library." });
     }
 
@@ -75,6 +80,12 @@ export function registerGalleryUploadRoutes(app: FastifyInstance) {
     const uploadFolder = folderParam ? normaliseRelativePath(folderParam) : "";
     if (folderParam && (!uploadFolder || uploadFolder.length > 300 || uploadFolder.split("/").some((seg) => seg === ".." || seg.startsWith(".")))) {
       return reply.code(400).send({ error: "Invalid upload folder." });
+    }
+    if (appFilesUpload) {
+      const familyFolder = uploadFolder === HOUSE_FOLDERS.familyTree || uploadFolder.startsWith(`${HOUSE_FOLDERS.familyTree}/`);
+      if (!familyFolder || !canEditTree(user)) {
+        return reply.code(403).send({ error: "Uploading is not allowed in this library." });
+      }
     }
 
     const settings = normalizeLibrarySettings("gallery", library.settings_json);
