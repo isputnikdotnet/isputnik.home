@@ -20,10 +20,26 @@ import { cancelTrashMove, resetTrashMoveFailures, startTrashMove, trashMoveStatu
 import { cancelFolderMove, folderMoveStatus } from "./shared/folder-move.js";
 import { appStorageContents, AppStorageContentsError, deleteOrphanAppFile } from "./app-storage-contents.js";
 import { logActivity } from "../../db.js";
+import {
+  InboxReviewersError,
+  REVIEWER_LEVELS,
+  inboxReviewersView,
+  removeInboxReviewer,
+  setInboxEveryone,
+  setInboxReviewer,
+  type ReviewerLevel
+} from "./gallery/inbox-reviewers.js";
 
 const choiceSchema = z.object({
   where: z.enum(["system", "custom"]),
   path: z.string().trim().max(1000).nullable().optional()
+});
+
+const levelSchema = z.enum(REVIEWER_LEVELS as unknown as [ReviewerLevel, ...ReviewerLevel[]]);
+const reviewerSchema = z.object({
+  subjectType: z.enum(["user", "group"]),
+  subjectId: z.string().trim().min(1).max(64),
+  level: levelSchema
 });
 
 function partOf(params: unknown): AppRoom | null {
@@ -98,6 +114,60 @@ export async function appStorageRoutesPlugin(app: FastifyInstance) {
     const part = partOf(request.params);
     if (!part) return reply.code(404).send({ error: "No such part." });
     return reply.send(cancelPartMove(part));
+  });
+
+  // The Photo Inbox's reviewers (gallery/inbox-reviewers.ts): who besides the
+  // admins may add details, and who may keep or discard.
+  app.get("/api/storage/app-storage/parts/inbox/reviewers", { preHandler: app.requireAdmin }, async () => inboxReviewersView());
+  app.post("/api/storage/app-storage/parts/inbox/reviewers", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const parsed = parseBody(reviewerSchema, request.body);
+    if (parsed.error) return reply.code(400).send({ error: "Invalid reviewer", details: parsed.error });
+    const { subjectType, subjectId, level } = parsed.data;
+    try {
+      setInboxReviewer(subjectType, subjectId, level, request.user!.id);
+    } catch (err) {
+      if (err instanceof InboxReviewersError) return reply.code(err.statusCode).send({ error: err.message });
+      throw err;
+    }
+    logActivity({
+      event: "gallery.inbox.reviewer_set",
+      actorUserId: request.user!.id,
+      targetType: subjectType,
+      targetId: subjectId,
+      detail: `Set ${subjectType} ${subjectId} to review the Photo Inbox (${level === "keep" ? "can keep or discard" : "can add details"}).`,
+      ipAddress: request.ip
+    });
+    return reply.send(inboxReviewersView());
+  });
+  app.put("/api/storage/app-storage/parts/inbox/reviewers/everyone", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const parsed = parseBody(z.object({ level: levelSchema.nullable() }), request.body);
+    if (parsed.error) return reply.code(400).send({ error: "Invalid level", details: parsed.error });
+    setInboxEveryone(parsed.data.level, request.user!.id);
+    logActivity({
+      event: "gallery.inbox.reviewer_set",
+      actorUserId: request.user!.id,
+      targetType: "group",
+      targetId: "grp-everyone",
+      detail: parsed.data.level
+        ? `Let everyone review the Photo Inbox (${parsed.data.level === "keep" ? "can keep or discard" : "can add details"}).`
+        : "Stopped everyone reviewing the Photo Inbox.",
+      ipAddress: request.ip
+    });
+    return reply.send(inboxReviewersView());
+  });
+  app.delete("/api/storage/app-storage/parts/inbox/reviewers/:subjectType/:subjectId", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const { subjectType, subjectId } = request.params as { subjectType: string; subjectId: string };
+    if (subjectType !== "user" && subjectType !== "group") return reply.code(400).send({ error: "Invalid subject type." });
+    if (!removeInboxReviewer(subjectType, subjectId)) return reply.code(404).send({ error: "Not a reviewer." });
+    logActivity({
+      event: "gallery.inbox.reviewer_removed",
+      actorUserId: request.user!.id,
+      targetType: subjectType,
+      targetId: subjectId,
+      detail: `Removed ${subjectType} ${subjectId} from the Photo Inbox reviewers.`,
+      ipAddress: request.ip
+    });
+    return reply.send(inboxReviewersView());
   });
 
   // The Contents page (app-storage-contents.ts): what each part holds, and the

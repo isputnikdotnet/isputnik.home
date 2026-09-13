@@ -142,7 +142,10 @@ export function createLibraryRecord(opts: {
     };
   }
 
-  const { ownerId, ownerType } = resolveOwner(data);
+  // The Photo Inbox has no owner and no access rules of its own: its reviewers
+  // decide who sees it (gallery/inbox-reviewers.ts, phase 4).
+  const accessless = type === "gallery" && opts.role === "inbox";
+  const { ownerId, ownerType } = accessless ? { ownerId: null, ownerType: null } : resolveOwner(data);
   const ownerError = validateLibraryOwner(ownerId, ownerType);
   if (ownerError) {
     return ownerError;
@@ -182,13 +185,15 @@ export function createLibraryRecord(opts: {
   );
 
   // Unified access model: Everyone grant (if public) + owner as manager.
-  setLibraryAccess(libraryId, {
-    visibility,
-    publicRole,
-    ownerType,
-    ownerId,
-    createdBy: opts.userId
-  });
+  if (!accessless) {
+    setLibraryAccess(libraryId, {
+      visibility,
+      publicRole,
+      ownerType,
+      ownerId,
+      createdBy: opts.userId
+    });
+  }
 
   logActivity({
     event: `library.${type}.created`,
@@ -216,12 +221,13 @@ export function updateLibraryRecord(opts: {
     return { status: 404, error: `${type === "audiobook" ? "Audiobook" : "Library"} library not found` };
   }
   // A system library keeps the name the app gave it: the Storage page, the
-  // guides and the Review page all call it that. Its access can still change.
+  // guides and the Review page all call it that.
   if (existing.role && data.name !== existing.name) {
     return { status: 409, error: `"${existing.name}" is a system library, so it can't be renamed.` };
   }
 
-  const { ownerId, ownerType } = resolveOwner(data);
+  const accessless = existing.role === "inbox";
+  const { ownerId, ownerType } = accessless ? { ownerId: null, ownerType: null } : resolveOwner(data);
   const ownerError = validateLibraryOwner(ownerId, ownerType);
   if (ownerError) {
     return ownerError;
@@ -266,13 +272,15 @@ export function updateLibraryRecord(opts: {
   );
 
   // Re-sync the Everyone + owner assignments with the new visibility/owner.
-  setLibraryAccess(id, {
-    visibility,
-    publicRole,
-    ownerType,
-    ownerId,
-    createdBy: opts.userId
-  });
+  if (!accessless) {
+    setLibraryAccess(id, {
+      visibility,
+      publicRole,
+      ownerType,
+      ownerId,
+      createdBy: opts.userId
+    });
+  }
 
   logActivity({
     event: `library.${type}.updated`,

@@ -44,6 +44,8 @@ export interface AccessEveryone {
   onChange?: (role: string | null) => void;
   /** Tooltip on the locked button: why this row can't be removed / is fixed. */
   lockedHint?: string;
+  /** Tag the row Public while it has a role. Off where the list is not about visibility. */
+  publicTag?: boolean;
 }
 
 const DEFAULT_ROLE_DOTS = {
@@ -248,7 +250,7 @@ export function AccessControl({
             <div className="member-identity">
               <span className="member-name">
                 {t("common:access.everyone")}
-                {everyone.role && <span className="member-baseline-tag">{t("common:access.public")}</span>}
+                {everyone.role && everyone.publicTag !== false && <span className="member-baseline-tag">{t("common:access.public")}</span>}
               </span>
               <span className="member-sub">{everyone.hint}</span>
             </div>

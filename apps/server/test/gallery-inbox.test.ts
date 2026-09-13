@@ -15,7 +15,7 @@ import { enabledFaceLibraryIds, setFaceRecognitionEnabledForLibrary } from "../s
 import { createLibraryRecord, updateLibraryRecord } from "../src/modules/library/shared/library-crud.js";
 import { setCleanupRetentionDays, setTrashRetentionDays } from "../src/modules/library/shared/trash-settings.js";
 import { thumbnailAbsolutePath, thumbnailPathSettingKey, thumbnailStorageKey } from "../src/modules/library/shared/thumbnail.js";
-import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
+import { resetDb, makeUser, makeLibrary, grant, grantReviewer } from "./helpers/seed.js";
 import "./helpers/media-types.js";
 
 // The Photo Inbox (docs/photo-inbox-proposal.md): the gallery library holding the
@@ -39,7 +39,8 @@ function makeGalleryLibrary(id: string, policyJson = "{}", role?: "inbox" | "app
   makeLibrary(id, { createdBy: "u1", type: "gallery", policyJson, role });
   fs.mkdirSync(libraryRoot(id), { recursive: true });
   db.prepare("UPDATE libraries SET source_path = ? WHERE id = ?").run(libraryRoot(id), id);
-  grant("group", EVERYONE_GROUP_ID, id, "member");
+  if (role === "inbox") grantReviewer("group", EVERYONE_GROUP_ID, "details");
+  else grant("group", EVERYONE_GROUP_ID, id, "member");
 }
 
 function makePhoto(libraryId: string, id: string, relativePath: string, takenAt: string | null = null): string {
@@ -168,7 +169,7 @@ describe("listing", () => {
     expect(listPhotoInboxItems(ADMIN, "GAL", { folder: null, limit: 10, offset: 0 })).toBeNull();
   });
 
-  it("tells a member who may look but not review", () => {
+  it("tells a reviewer who may add details that they may not keep or discard", () => {
     makePhoto("INBOX", "a1", "boxA/1.jpg");
     expect(listPhotoInboxes(MEMBER)[0].canReview).toBe(false);
   });

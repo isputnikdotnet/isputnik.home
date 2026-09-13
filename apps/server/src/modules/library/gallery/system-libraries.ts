@@ -9,6 +9,8 @@
 // and the catalogue, which import them back.
 import { db } from "../../../db.js";
 import type { LibraryRow } from "../../../db/rows.js";
+// Registers the override that answers library checks on the Inbox from its reviewers.
+import { carryLibraryGrantsToReviewers } from "./inbox-reviewers.js";
 
 export type SystemLibraryRole = NonNullable<LibraryRow["role"]>;
 
@@ -35,6 +37,8 @@ export function setSystemLibraryRole(role: SystemLibraryRole, libraryId: string 
     if (libraryId) {
       db.prepare("UPDATE libraries SET role = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ? AND type = 'gallery'")
         .run(role, libraryId);
+      // The Inbox has reviewers, not library access rules (phase 4).
+      if (role === "inbox") carryLibraryGrantsToReviewers(libraryId);
     }
   })();
 }

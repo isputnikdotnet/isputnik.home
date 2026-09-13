@@ -6,7 +6,7 @@ import { getGalleryAsset } from "../src/modules/library/gallery/catalog-asset.js
 import { dateFolderForCapture } from "../src/modules/library/gallery/date-folder.js";
 import { listPhotoInboxItems, listPhotoInboxes } from "../src/modules/library/gallery/inbox.js";
 import { floorTakenAt } from "../src/modules/library/gallery/taken-precision.js";
-import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
+import { resetDb, makeUser, makeLibrary, grant, grantReviewer } from "./helpers/seed.js";
 
 // Photo review, phase 1 (docs/photo-review-plan.md): a date known only to the
 // year, a place as a person wrote it, and a mark that says someone went through
@@ -184,8 +184,7 @@ describe("bulk place and time with a precision", () => {
 describe("the Inbox in Review mode", () => {
   beforeEach(() => {
     makeLibrary("inbox", { createdBy: "u1", type: "gallery", policyJson: INBOX_POLICY, role: "inbox" });
-    // Viewable by the house; the helper's write right is granted per test.
-    grant("group", EVERYONE_GROUP_ID, "inbox", "viewer");
+    // The helper reviews only where a test names them.
     makePhoto("inbox", "b", "box3/002.jpg");
     makePhoto("inbox", "a", "box3/001.jpg");
     makePhoto("inbox", "c", "box3/003.jpg");
@@ -193,7 +192,7 @@ describe("the Inbox in Review mode", () => {
   });
 
   it("counts what has been gone through, per delivery and overall", () => {
-    grant("user", "u2", "inbox", "contributor");
+    grantReviewer("user", "u2", "details");
     markGalleryAssetReviewed("a", "u2");
     const [inbox] = listPhotoInboxes(HELPER);
     expect(inbox.count).toBe(4);
@@ -201,8 +200,8 @@ describe("the Inbox in Review mode", () => {
     expect(inbox.deliveries.map((d) => [d.folder, d.count, d.reviewed])).toEqual([["box3", 3, 1], ["box4", 1, 0]]);
   });
 
-  it("a contributor may write but not Keep, and an admin may do both", () => {
-    grant("user", "u2", "inbox", "contributor");
+  it("a reviewer who can add details may write but not Keep, and an admin may do both", () => {
+    grantReviewer("user", "u2", "details");
     const [asHelper] = listPhotoInboxes(HELPER);
     expect(asHelper.canEdit).toBe(true);
     expect(asHelper.canReview).toBe(false);

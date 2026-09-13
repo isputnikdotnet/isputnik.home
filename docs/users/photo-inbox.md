@@ -23,8 +23,19 @@ This guide walks the whole process from the scanner box to a tidy library.
 The Photo Inbox is part of **App storage**: switching App storage on in
 **Control panel → Library → Storage** makes it, in its own `Photo Inbox` folder
 ([Storage](storage.md)). There is one Inbox per server, and it is a system library:
-the app keeps its name and it is not listed among your libraries. Who may review
-it is set from the **Access** link on its row on the Storage page.
+the app keeps its name and it is not listed among your libraries.
+
+**Who reviews it.** Admins always do. Anyone else reviews because you named them:
+**Reviewers** on the Inbox's row of the Storage page lists people, groups or
+Everyone, each at one of two levels:
+
+- **Can add details**: dates, places, notes, people and voice notes on the photos
+  waiting.
+- **Can keep or discard**: all of that, plus Keep, Discard and drop links.
+
+Nobody else sees anything of the Inbox: not the page, not Review mode, not the
+rows on For you. An Inbox made before 4.6 carried its old access across: whoever
+managed it can keep or discard, and anyone who could see it can add details.
 
 While it is empty, members don't see it anywhere; admins reach it from the Storage
 page and the gallery, which is where the first scan and drop links start.
@@ -170,8 +181,8 @@ the photos — **All** ticks everything loaded — and choose:
 
 A delivery whose every photo has been kept or discarded disappears from the
 chips; an Inbox with nothing left shows "All reviewed". Keeping or discarding
-takes the delete right on the Inbox, and Keep the upload right on the
-destination — anyone else can look but not review.
+takes **Can keep or discard**, and Keep the upload right on the destination.
+A reviewer who can add details sees the same page without those buttons.
 
 ## 6. Ask someone what they know
 
@@ -181,11 +192,11 @@ the scanner. The Inbox has a second screen for exactly that person: **Review
 mode**, one photo at a time, four questions, and nothing else to learn.
 
 **Setting it up** is one grant. Give her an account as an ordinary member
-([Your account](your-account.md)), open the Inbox library's members dialog
-under **Control panel → Libraries**, and add her as **Contributor**. A
-contributor can write on the photos but cannot Keep or Discard, so she can
-answer without being able to move anything, and she sees nothing outside the
-Inbox unless you have shared other libraries with her. If she reads Russian,
+([Your account](your-account.md)), open **Reviewers** on the Inbox's row under
+**Control panel → Library → Storage**, and add her as **Can add details**. She can
+write on the photos but cannot Keep or Discard, so she can answer without being
+able to move anything, and she sees nothing outside the Inbox unless you have
+shared other libraries with her. If she reads Russian,
 set her language on her profile; the screen is in both.
 
 **What she sees.** Her Home page shows one row — "38 photos arrived in Photo

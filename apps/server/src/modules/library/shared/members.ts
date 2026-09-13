@@ -24,8 +24,10 @@ const grantSchema = z.object({
 // grant are managed elsewhere; this manages the *additional* users/groups.
 export async function libraryMembersPlugin(app: FastifyInstance) {
   function loadManageable(libraryId: string, userId: string, userRole: string): LibraryRow | null {
-    const library = db.prepare("SELECT id, name FROM libraries WHERE id = ?").get(libraryId) as LibraryRow | undefined;
+    const library = db.prepare("SELECT id, name, role FROM libraries WHERE id = ?").get(libraryId) as (LibraryRow & Pick<DbLibraryRow, "role">) | undefined;
     if (!library) return null;
+    // The Photo Inbox has reviewers instead, set on the Storage page (phase 4).
+    if (library.role === "inbox") return null;
     if (!canUserManageLibraryMembers({ id: library.id }, userId, userRole)) return null;
     return library;
   }

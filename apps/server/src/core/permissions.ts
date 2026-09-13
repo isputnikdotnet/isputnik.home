@@ -57,14 +57,48 @@ const strongest = (roles: ObjectRole[]): ObjectRole =>
 
 type AssignmentRow = Pick<DbAssignmentRow, "subject_type" | "subject_id" | "role">;
 
+// --- Overrides -----------------------------------------------------------------------
+//
+// A module can answer for some objects of a type itself: a Photo Inbox is a library,
+// but who may review it is its own reviewer list, not the library's assignments
+// (docs/system-data-plan.md, phase 4). Core knows nothing about which objects those
+// are; the override returns `undefined` for every object it leaves to the rules below.
+export type ObjectRoleOverride = (objectId: string, user: AuthUser) => ObjectRole | null | undefined;
+
+const roleOverrides = new Map<string, ObjectRoleOverride>();
+
+export function registerObjectRoleOverride(objectType: string, override: ObjectRoleOverride): void {
+  roleOverrides.set(objectType, override);
+}
+
+/** The strongest non-deny role `user` holds on an object through a user grant, one
+ *  of their groups, or the Everyone group — without the admin or deny rules. For
+ *  overrides that keep a plain list of grants of their own. */
+export function strongestGrantedRole(objectType: string, objectId: string, user: AuthUser): ObjectRole | null {
+  const groupIds = (db.prepare("SELECT group_id FROM group_members WHERE user_id = ?").all(user.id) as Pick<GroupMemberRow, "group_id">[])
+    .map((g) => g.group_id);
+  const subjectGroupIds = [...groupIds, EVERYONE_GROUP_ID];
+  const placeholders = subjectGroupIds.map(() => "?").join(", ");
+  const roles = (db.prepare(`
+    SELECT role FROM assignments
+    WHERE object_type = ? AND object_id = ? AND role != 'deny'
+      AND ((subject_type = 'user' AND subject_id = ?) OR (subject_type = 'group' AND subject_id IN (${placeholders})))
+  `).all(objectType, objectId, user.id, ...subjectGroupIds) as { role: ObjectRole }[]).map((row) => row.role);
+  return roles.length > 0 ? strongest(roles) : null;
+}
+
 // Resolve the effective role a user holds on one object, or null for no access.
 //
+// - A registered override for the object type answers first, when it answers.
 // - Server admins act as `manager` on everything EXCEPT a private object (no Everyone
 //   grant) they have no grant on — that stays off-limits until they take ownership.
 //   `deny` does not affect admins.
 // - For everyone else: a `deny` (theirs or a group's) blocks outright; otherwise the
 //   strongest explicit grant wins and overrides the Everyone baseline.
 export function resolveObjectRole(objectType: string, objectId: string, user: AuthUser): ObjectRole | null {
+  const overridden = roleOverrides.get(objectType)?.(objectId, user);
+  if (overridden !== undefined) return overridden;
+
   const groupIds = (db.prepare("SELECT group_id FROM group_members WHERE user_id = ?").all(user.id) as Pick<GroupMemberRow, "group_id">[])
     .map((g) => g.group_id);
   const subjectGroupIds = [...groupIds, EVERYONE_GROUP_ID];
