@@ -30,7 +30,7 @@
     "maxmind": "^5.0.7",
     "music-metadata": "^11.15.0",
     "nanoid": "^6.0.1",
-    "nodemailer": "^9.1.1",
+    "nodemailer": "^10.0.9",
     "onnxruntime-node": "^1.27.0",
     "opentype.js": "^2.0.0",
     "otplib": "^13.5.0",
@@ -38,7 +38,7 @@
     "sharp": "^0.35.4",
     "undici": "^8.10.2",
     "yauzl": "^3.4.0",
-    "zod": "^4.5.4"
+    "zod": "^4.6.4"
   },
   "devDependencies": {
     "@types/adm-zip": "^0.5.8",
