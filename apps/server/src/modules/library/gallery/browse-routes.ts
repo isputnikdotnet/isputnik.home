@@ -12,6 +12,7 @@ import {
   queryGalleryMapPoints
 } from "./catalog.js";
 import { getGalleryAssets } from "./catalog-asset.js";
+import { placeLanguage } from "./places.js";
 import { queryGalleryMemories } from "./catalog-memories.js";
 import { EMPTY_GALLERY_FILTERS } from "./catalog-filters.js";
 import { suggestGalleryMemories } from "./memories.js";
@@ -70,6 +71,7 @@ export function registerGalleryBrowseRoutes(app: FastifyInstance) {
       cameras: filterList,
       sizes: z.array(z.enum(["small", "medium", "large", "huge"])).max(4).default([]),
       location: z.array(z.enum(["with_gps", "no_gps"])).max(2).default([]),
+      places: z.array(z.string().regex(/^\d{1,12}$/)).max(100).default([]),
       likes: z.array(z.enum(["mine", "anyone", "none"])).max(3).default([])
       // prefault, not default: zod 4 requires a `.default()` to be the finished
       // OUTPUT object, so `{}` no longer type-checks. `.prefault({})` keeps zod 3's
@@ -208,7 +210,7 @@ export function registerGalleryBrowseRoutes(app: FastifyInstance) {
     }
     const qp = parsed.data;
     const libIds = resolveGalleryBrowseLibraryIds(request.user!, parseLibraryIds(qp.libraryIds));
-    return galleryFacets(libIds);
+    return galleryFacets(libIds, placeLanguage(request));
   });
 
   // Geotagged assets for the map view. Same scope/kind filtering as the timeline;

@@ -38,6 +38,11 @@ export interface GalleryAsset {
   mimeType: string | null;
   size: number | null;
   gps: { lat: number; lng: number } | null;
+  // The named place the pin falls in, when the server has a place names database
+  // (Maps › Setup). By id on every read; spelled out, in the viewer's language,
+  // only on the single-asset detail as `placeLabel`.
+  place: { id: number; distanceKm: number } | null;
+  placeLabel?: PlaceLabel | null;
   camera: { make: string | null; model: string | null } | null;
   coverUrl: string | null;
   previewUrl: string | null;
@@ -420,6 +425,25 @@ export interface GalleryFacets {
   people: string[];
   tags: string[];
   cameras: string[];
+  /** Places photos in scope were taken in, most photographed first. Empty
+   *  without a place names database. */
+  places: GalleryPlaceFacet[];
+}
+
+/** A named place, in the reader's language (modules/maps/places/namer.ts). */
+export interface PlaceLabel {
+  place: string;
+  region: string | null;
+  country: string;
+  countryCode: string;
+}
+
+export interface GalleryPlaceFacet {
+  id: number;
+  name: string;
+  region: string | null;
+  country: string;
+  count: number;
 }
 
 export interface GalleryLibrary {

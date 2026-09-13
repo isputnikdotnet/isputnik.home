@@ -10,6 +10,7 @@
 import { db } from "../../../db.js";
 import { locksByLibrary, lockCoveredIn } from "../shared/folder-locks.js";
 import { ASSET_COLUMNS, ASSET_JOINS, mapAsset, type AssetRow } from "./catalog-asset.js";
+import { describePlace } from "./places.js";
 import {
   CAMERA_SQL,
   EMPTY_GALLERY_FILTERS,
@@ -234,8 +235,8 @@ export function searchGalleryFolders(libIds: string[], q: string, limit: number)
 // Facets: which kinds exist, the year range, how many assets carry GPS (drives
 // whether the Map view is offered), and the filter-panel option lists (people,
 // tags, cameras) — all scoped to the libraries the user can see.
-export function galleryFacets(libIds: string[]) {
-  if (libIds.length === 0) return { kinds: [], years: [], withGps: 0, people: [], tags: [], cameras: [] };
+export function galleryFacets(libIds: string[], language = "en") {
+  if (libIds.length === 0) return { kinds: [], years: [], withGps: 0, people: [], tags: [], cameras: [], places: [] };
   const libIn = inClause(libIds.length);
   const kinds = (db.prepare(`
     SELECT gallery_details.kind AS v, COUNT(*) AS n
@@ -281,7 +282,31 @@ export function galleryFacets(libIds: string[]) {
       WHERE library_items.library_id IN (${libIn}) AND library_items.deleted_at IS NULL
     ) WHERE v IS NOT NULL AND v != '' ORDER BY v COLLATE NOCASE
   `).all(...libIds) as { v: string }[]).map((r) => r.v);
-  return { kinds, years, withGps, people, tags, cameras };
+  return { kinds, years, withGps, people, tags, cameras, places: placeFacet(libIds, language) };
+}
+
+/** How many places the filter offers, most photographed first. */
+const PLACE_FACET_LIMIT = 200;
+
+// The places photos in scope were taken in, spelled in the viewer's language —
+// empty without a place names database, since gallery_places is emptied with it.
+function placeFacet(libIds: string[], language: string) {
+  const rows = db.prepare(`
+    SELECT gallery_places.place_id AS id, COUNT(*) AS n
+    FROM library_items
+    JOIN gallery_details ON gallery_details.item_id = library_items.id
+    JOIN gallery_places ON gallery_places.item_id = library_items.id
+      AND gallery_places.lat = gallery_details.gps_lat AND gallery_places.lng = gallery_details.gps_lng
+    WHERE library_items.library_id IN (${inClause(libIds.length)}) AND library_items.deleted_at IS NULL
+      AND gallery_places.place_id IS NOT NULL
+    GROUP BY gallery_places.place_id ORDER BY n DESC LIMIT ${PLACE_FACET_LIMIT}
+  `).all(...libIds) as { id: number; n: number }[];
+  const facet: { id: number; name: string; region: string | null; country: string; count: number }[] = [];
+  for (const row of rows) {
+    const label = describePlace(row.id, language);
+    if (label) facet.push({ id: row.id, name: label.place, region: label.region, country: label.country, count: row.n });
+  }
+  return facet;
 }
 
 type MapPointRow = Pick<LibraryItemRow, "id" | "folder_path">

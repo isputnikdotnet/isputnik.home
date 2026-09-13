@@ -442,6 +442,7 @@
     "typeTranscode": "Video conversion",
     "typeDuplicateScan": "Duplicate photo scan",
     "typeStorageMove": "Storage move",
+    "typeBuildPlaces": "Place names database",
     "batch": "batch {{index}}/{{total}}",
     "loadFailed": "Unable to load tasks",
     "cancelFailed": "Unable to cancel task",

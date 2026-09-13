@@ -5,6 +5,7 @@ import { parseBody, parseQuery } from "../../../core/shared.js";
 import { canUserWriteAsset, canUserWriteLibrary, getLibraryForBook } from "../shared/library-access.js";
 import { resolveGalleryScopeLibraryIds, parseLibraryIds, resolveGalleryBrowseLibraryIds } from "./catalog-scope.js";
 import { getGalleryAsset, getGalleryAssetUnscoped } from "./catalog-asset.js";
+import { placeLanguage } from "./places.js";
 import {
   listGalleryPeople,
   getGalleryPersonPhotos,
@@ -213,7 +214,7 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
     // read rather than answering a successful tag with a null asset (Review mode
     // tags Inbox photos before they are kept).
     const libIds = resolveGalleryScopeLibraryIds(request.user!);
-    return reply.send({ asset: getGalleryAsset(request.user!.id, libIds, assetId) ?? getGalleryAssetUnscoped(request.user!.id, assetId) });
+    return reply.send({ asset: getGalleryAsset(request.user!.id, libIds, assetId, placeLanguage(request)) ?? getGalleryAssetUnscoped(request.user!.id, assetId, placeLanguage(request)) });
   });
 
   app.delete("/api/library/gallery/assets/:id/people/:personId", { preHandler: app.authenticate }, async (request, reply) => {
@@ -228,7 +229,7 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
     // read rather than answering a successful tag with a null asset (Review mode
     // tags Inbox photos before they are kept).
     const libIds = resolveGalleryScopeLibraryIds(request.user!);
-    return reply.send({ asset: getGalleryAsset(request.user!.id, libIds, assetId) ?? getGalleryAssetUnscoped(request.user!.id, assetId) });
+    return reply.send({ asset: getGalleryAsset(request.user!.id, libIds, assetId, placeLanguage(request)) ?? getGalleryAssetUnscoped(request.user!.id, assetId, placeLanguage(request)) });
   });
 
   // Merge person :id into :intoId (move faces, delete the source). Used to fold two

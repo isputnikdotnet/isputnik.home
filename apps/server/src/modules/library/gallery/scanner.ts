@@ -35,6 +35,7 @@ import {
 import { thumbnailAbsolutePath } from "../shared/thumbnail.js";
 import { applyItemAlphaIndex } from "../shared/alphabet-index.js";
 import type { GalleryDetailRow, ItemMetadataRow, JobRow, LibraryItemRow, LibraryRow } from "../../../db/rows.js";
+import { requestPhotoPlaceSweep } from "./places.js";
 
 const scanJobType = "SCAN_GALLERY_LIBRARY";
 
@@ -359,6 +360,7 @@ export async function scanSingleGalleryFile(libraryId: string, relativePath: str
   try { stat = fs.statSync(absolutePath); } catch { return null; }
   if (stat.size === 0) return null; // same empty-file rule as the walk
 
+  requestPhotoPlaceSweep();
   return ingestGalleryAsset(libraryId, {
     absolutePath,
     relativePath: normalized,
@@ -435,6 +437,8 @@ export async function processGalleryScanQueue() {
           UPDATE jobs SET status = 'completed', payload = ?, completed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), locked_at = NULL, locked_by = NULL
           WHERE id = ?
         `).run(JSON.stringify({ ...payload, result }), job.id);
+        // Photos the scan found or moved get their place names (places.ts).
+        requestPhotoPlaceSweep();
         // A finished Photo Inbox scan queues its duplicate check, so the review page
         // can open with "12 new, 3 look like copies" (docs/photo-inbox-proposal.md,
         // decision 9). Imported lazily: the duplicates module reaches back into this

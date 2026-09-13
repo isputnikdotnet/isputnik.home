@@ -986,6 +986,15 @@
   gap: 2px 6px;
 }
 
+/* A second, quieter line under a fact: the named place under what a person wrote. */
+.lb-fact-sub {
+  color: var(--lb-dim);
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+
+.lb-fact-sub a { color: inherit; }
+
 .lb-pill {
   display: inline-block;
   padding: 0 7px;

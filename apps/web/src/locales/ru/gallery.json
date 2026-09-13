@@ -115,6 +115,7 @@
     "facetCameras": "Камеры",
     "facetFileSize": "Размер файла",
     "facetLocation": "Местоположение",
+    "facetPlaces": "Места",
     "chipFrom": "С {{date}}",
     "chipTo": "По {{date}}"
   },
@@ -155,6 +156,7 @@
     "noDescription": "Пока ничего не написано.",
     "notePlaceholder": "Скажите что-нибудь об этом фото",
     "noLocation": "Место на этом снимке не отмечено.",
+    "placeNamesCredit": "Названия мест — <lnk>GeoNames</lnk>",
     "setLocation": "Отметить, где снято",
     "moveLocation": "Передвинуть метку",
     "locationKept": "Место, отмеченное вручную, сохраняется при повторных сканированиях.",

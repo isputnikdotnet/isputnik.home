@@ -20,6 +20,7 @@ import { startGalleryScanWorker } from "./scanner.js";
 import { startFaceScanWorker } from "./faces/scanner.js";
 import { registerGalleryStats } from "./stats.js";
 import { registerGalleryMediaType } from "./media-type.js";
+import { startPhotoPlaceNaming } from "./places.js";
 
 export async function galleryPlugin(app: FastifyInstance) {
   registerGalleryStats();
@@ -46,6 +47,9 @@ export async function galleryPlugin(app: FastifyInstance) {
   const stopRenderWorker = startSlideshowRenderWorker();
   const stopTranscodeWorker = startTranscodeWorker();
   const stopDuplicateWorker = startDuplicateScanWorker();
+  // Photos named after where they were taken, once there is a place names
+  // database to name them from (docs/map-approach-proposal.md, phase 2).
+  const stopPlaceNaming = startPhotoPlaceNaming();
 
   // Slideshow music uploaded before an App files library existed moves
   // itself into that library once there is one (docs/app-storage-plan.md, phase
@@ -71,6 +75,7 @@ export async function galleryPlugin(app: FastifyInstance) {
     stopRenderWorker();
     stopTranscodeWorker();
     stopDuplicateWorker();
+    stopPlaceNaming();
     clearTimeout(musicKickoff);
     clearInterval(musicTimer);
   });

@@ -15,6 +15,7 @@ import { normalizeLibrarySettings, uploadAcceptExtensions } from "../shared/libr
 import { receiveUpload, UploadError } from "../../uploads/index.js";
 import { resolveGalleryScopeLibraryIds } from "./catalog-scope.js";
 import { getGalleryAsset, getGalleryAssetUnscoped } from "./catalog-asset.js";
+import { placeLanguage } from "./places.js";
 import { changeGalleryTags, markGalleryAssetReviewed, setGalleryPlaceAndTime, updateGalleryAsset } from "./edit.js";
 import { TAKEN_PRECISIONS } from "./taken-precision.js";
 import { replaceGalleryAssetFile } from "./replace.js";
@@ -70,13 +71,13 @@ export function registerGalleryAssetRoutes(app: FastifyInstance) {
     const id = (request.params as { id: string }).id;
     const user = request.user!;
     const libIds = resolveGalleryScopeLibraryIds(user);
-    let asset = getGalleryAsset(user.id, libIds, id);
+    let asset = getGalleryAsset(user.id, libIds, id, placeLanguage(request));
     if (!asset) {
       // Not in a library the viewer can browse — allow it only if the photo was
       // shared directly with them (the "Shared with me" path opens this route).
       const library = getLibraryForBook(id);
       if (library && library.type === "gallery" && canUserAccessBook(id, library, user.id, user.role, "gallery")) {
-        asset = getGalleryAssetUnscoped(user.id, id);
+        asset = getGalleryAssetUnscoped(user.id, id, placeLanguage(request));
       }
     }
     if (!asset) {
@@ -92,11 +93,11 @@ export function registerGalleryAssetRoutes(app: FastifyInstance) {
     const id = (request.params as { id: string }).id;
     const user = request.user!;
     const libIds = resolveGalleryScopeLibraryIds(user);
-    let asset = getGalleryAsset(user.id, libIds, id);
+    let asset = getGalleryAsset(user.id, libIds, id, placeLanguage(request));
     if (!asset) {
       const library = getLibraryForBook(id);
       if (library && library.type === "gallery" && canUserAccessBook(id, library, user.id, user.role, "gallery")) {
-        asset = getGalleryAssetUnscoped(user.id, id);
+        asset = getGalleryAssetUnscoped(user.id, id, placeLanguage(request));
       }
     }
     if (!asset) {
@@ -170,7 +171,7 @@ export function registerGalleryAssetRoutes(app: FastifyInstance) {
       ipAddress: request.ip
     });
 
-    return reply.send({ updated: true, asset: getGalleryAsset(user.id, [lib.id], id) });
+    return reply.send({ updated: true, asset: getGalleryAsset(user.id, [lib.id], id, placeLanguage(request)) });
   });
 
   // "I don't know": the photo was looked at in Review mode and nothing on it
@@ -187,7 +188,7 @@ export function registerGalleryAssetRoutes(app: FastifyInstance) {
     if (!markGalleryAssetReviewed(id, user.id)) {
       return reply.code(404).send({ error: "Asset not found" });
     }
-    const asset = getGalleryAsset(user.id, [lib.id], id);
+    const asset = getGalleryAsset(user.id, [lib.id], id, placeLanguage(request));
     logActivity({
       event: "library.gallery.reviewed",
       actorUserId: user.id,
@@ -377,7 +378,7 @@ export function registerGalleryAssetRoutes(app: FastifyInstance) {
       ipAddress: request.ip
     });
 
-    return reply.send({ updated: true, asset: getGalleryAsset(user.id, [lib.id], id) });
+    return reply.send({ updated: true, asset: getGalleryAsset(user.id, [lib.id], id, placeLanguage(request)) });
   });
 
   // Replace the file behind one photo or video, keeping the item — the
@@ -439,7 +440,7 @@ export function registerGalleryAssetRoutes(app: FastifyInstance) {
         ipAddress: request.ip
       });
 
-      return reply.send({ replaced: true, asset: getGalleryAsset(user.id, [lib.id], id) });
+      return reply.send({ replaced: true, asset: getGalleryAsset(user.id, [lib.id], id, placeLanguage(request)) });
     } finally {
       fs.rmSync(stagingDir, { recursive: true, force: true });
     }

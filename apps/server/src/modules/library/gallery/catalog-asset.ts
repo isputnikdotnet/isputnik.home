@@ -3,6 +3,7 @@
 import { db } from "../../../db.js";
 import type { TakenPrecision } from "./taken-precision.js";
 import { listVoiceNotes } from "./voice-notes.js";
+import { describePlace, namePhotoPlacesNow } from "./places.js";
 import type { GalleryDetailRow, GalleryPersonRow, ItemMetadataRow, LibraryItemRow, LibraryRow, Nullable, TagRow } from "../../../db/rows.js";
 
 const inClause = (n: number) => Array(n).fill("?").join(", ");
@@ -20,6 +21,8 @@ export type AssetRow = Pick<LibraryItemRow, "id" | "library_id" | "folder_path" 
     saved: number | null;
     face_focus_x: number | null;
     face_focus_y: number | null;
+    place_id: number | null;
+    place_distance_km: number | null;
   };
 
 // Faces are detected on the EXIF-oriented photo (arcface.ts rotates before
@@ -65,6 +68,8 @@ export const ASSET_COLUMNS = `
   gallery_details.playable,
   gallery_details.web_video_key,
   gallery_details.updated_at,
+  gallery_places.place_id,
+  gallery_places.distance_km AS place_distance_km,
   (item_saves.id IS NOT NULL) AS saved,
   -- Where the faces are, as the centre of the box enclosing all of them, so a
   -- square tile can aim its crop at heads instead of the middle of the photo.
@@ -81,7 +86,9 @@ export const ASSET_JOINS = `
   JOIN gallery_details ON gallery_details.item_id = library_items.id
   LEFT JOIN libraries ON libraries.id = library_items.library_id
   LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
-  LEFT JOIN item_saves ON item_saves.item_id = library_items.id AND item_saves.user_id = ?`;
+  LEFT JOIN item_saves ON item_saves.item_id = library_items.id AND item_saves.user_id = ?
+  LEFT JOIN gallery_places ON gallery_places.item_id = library_items.id
+    AND gallery_places.lat = gallery_details.gps_lat AND gallery_places.lng = gallery_details.gps_lng`;
 
 const tagsFor = db.prepare(`
   SELECT tags.display_name AS name FROM taggables
@@ -131,6 +138,10 @@ export function mapAsset(row: AssetRow) {
     mimeType: row.mime_type,
     size: row.size,
     gps: row.gps_lat != null && row.gps_lng != null ? { lat: row.gps_lat, lng: row.gps_lng } : null,
+    // The named place the coordinates fall in (places.ts), by id: the name itself
+    // is in the viewer's language, so only a single asset's read spells it out.
+    // Only an answer for the pin as it is now — a moved pin reads as not named yet.
+    place: row.place_id != null ? { id: row.place_id, distanceKm: row.place_distance_km ?? 0 } : null,
     camera: row.camera_make || row.camera_model ? { make: row.camera_make, model: row.camera_model } : null,
     coverUrl,
     previewUrl,
@@ -180,26 +191,41 @@ export function getGalleryAssets(userId: string, libIds: string[], itemIds: stri
   return itemIds.map((id) => byId.get(id)).filter((asset): asset is NonNullable<typeof asset> => Boolean(asset));
 }
 
-export function getGalleryAsset(userId: string, libIds: string[], id: string) {
+// One asset's full read: the list shape plus who is in it, its voice notes and its
+// place spelled out in `language`. A photo with coordinates the sweep has not
+// reached yet (just uploaded, pin just moved) is named on the spot, so the panel
+// never shows yesterday's place or none at all for want of waiting.
+function detailOf(row: AssetRow, language: string, reread: () => AssetRow | undefined) {
+  if (row.gps_lat != null && row.gps_lng != null && row.place_id == null && namePhotoPlacesNow([row.id]) > 0) {
+    row = reread() ?? row;
+  }
+  const people = peopleForAssetStmt.all(row.id) as Pick<GalleryPersonRow, "id" | "name">[];
+  return {
+    ...mapAsset(row),
+    placeLabel: describePlace(row.place_id, language),
+    people,
+    voiceNotes: listVoiceNotes(row.id)
+  };
+}
+
+export function getGalleryAsset(userId: string, libIds: string[], id: string, language = "en") {
   if (libIds.length === 0) return null;
-  const row = db.prepare(`
+  const read = () => db.prepare(`
     SELECT ${ASSET_COLUMNS} ${ASSET_JOINS}
     WHERE library_items.id = ? AND library_items.library_id IN (${inClause(libIds.length)}) AND library_items.deleted_at IS NULL
   `).get(userId, id, ...libIds) as AssetRow | undefined;
-  if (!row) return null;
-  const people = peopleForAssetStmt.all(id) as Pick<GalleryPersonRow, "id" | "name">[];
-  return { ...mapAsset(row), people, voiceNotes: listVoiceNotes(id) };
+  const row = read();
+  return row ? detailOf(row, language, read) : null;
 }
 
 // Load one asset by id WITHOUT the library-scope filter — for callers that have
 // authorized access another way (an item-level user share of a photo whose
 // library the viewer can't otherwise see). The caller MUST check access first.
-export function getGalleryAssetUnscoped(userId: string, id: string) {
-  const row = db.prepare(`
+export function getGalleryAssetUnscoped(userId: string, id: string, language = "en") {
+  const read = () => db.prepare(`
     SELECT ${ASSET_COLUMNS} ${ASSET_JOINS}
     WHERE library_items.id = ? AND library_items.deleted_at IS NULL
   `).get(userId, id) as AssetRow | undefined;
-  if (!row) return null;
-  const people = peopleForAssetStmt.all(id) as Pick<GalleryPersonRow, "id" | "name">[];
-  return { ...mapAsset(row), people, voiceNotes: listVoiceNotes(id) };
+  const row = read();
+  return row ? detailOf(row, language, read) : null;
 }

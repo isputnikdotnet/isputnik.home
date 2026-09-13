@@ -7,6 +7,7 @@ import { addEntityTags, removeEntityTags, setEntityTags } from "../shared/taggin
 import { applyItemAlphaIndex } from "../shared/alphabet-index.js";
 import { floorTakenAt, type TakenPrecision } from "./taken-precision.js";
 import type { GalleryDetailRow } from "../../../db/rows.js";
+import { requestPhotoPlaceSweep } from "./places.js";
 
 export interface GalleryAssetEdit {
   title: string;
@@ -110,6 +111,7 @@ export function updateGalleryAsset(itemId: string, data: GalleryAssetEdit): bool
     if (data.reviewedBy) markGalleryAssetReviewed(itemId, data.reviewedBy);
   })();
 
+  if (data.gps !== undefined) requestPhotoPlaceSweep();
   return true;
 }
 
@@ -138,6 +140,7 @@ export function setGalleryPlaceAndTime(
   const approx = data.takenApprox ? 1 : 0;
   const stamped = data.takenAt !== undefined ? floorTakenAt(data.takenAt, precision) : null;
 
+  if (data.gps !== undefined) requestPhotoPlaceSweep();
   return db.transaction(() => {
     let updated = 0;
     let noDate = 0;

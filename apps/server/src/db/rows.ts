@@ -570,6 +570,16 @@ export interface GalleryPersonRow {
   updated_at: string;
 }
 
+/** `gallery_places` */
+export interface GalleryPlaceRow {
+  item_id: string;
+  place_id: number | null;
+  distance_km: number | null;
+  lat: number;
+  lng: number;
+  dataset: string;
+}
+
 /** `gallery_slideshow_items` */
 export interface GallerySlideshowItemRow {
   slideshow_id: string;
@@ -1361,6 +1371,7 @@ export interface TableRows {
   gallery_faces: GalleryFaceRow;
   gallery_music_tracks: GalleryMusicTrackRow;
   gallery_people: GalleryPersonRow;
+  gallery_places: GalleryPlaceRow;
   gallery_slideshow_items: GallerySlideshowItemRow;
   gallery_slideshows: GallerySlideshowRow;
   gallery_voice_notes: GalleryVoiceNoteRow;

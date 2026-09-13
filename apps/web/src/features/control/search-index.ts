@@ -98,7 +98,7 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
     "почта сервер порт пароль отправитель тест письмо",
   notifications: "notify email alerts members shared with me sharing switch on off opt in " +
     "уведомления почта оповещения участники поделились со мной включить выключить",
-  mapSetup: "maps map caching offline privacy openfreemap tiles basemap wizard set up turn on off dark labels language " +
+  mapSetup: "maps map caching offline privacy openfreemap tiles basemap wizard set up turn on off dark labels language named places geonames " +
     "карты кэширование карт офлайн конфиденциальность тайлы подложка мастер настроить включить выключить тёмная подписи язык",
   mapData: "geoip location database mmdb dbip maxmind geolite country city sign-in towns upload remove " +
     "геолокация база расположений страны города входы загрузить удалить",
@@ -121,7 +121,7 @@ type SettingKey =
   | "deletionProtection" | "addTrustedNetwork" | "scheduledBackups" | "defaultTheme"
   | "smtpServer" | "sendTestEmail" | "opdsReaderTokens" | "twoFactorAlertsDelivery"
   | "shareNotifications" | "recordingsLibrary" | "recipeImport" | "mapRouting"
-  | "houseLibrary" | "photoInboxSetup" | "mapCaching" | "locationDatabase";
+  | "houseLibrary" | "photoInboxSetup" | "mapCaching" | "namedPlaces" | "locationDatabase";
 
 // Settings that live inside a page. `section` is where they are; search takes
 // you to that tab and the setting is on it.
@@ -185,6 +185,12 @@ const SETTING_ENTRIES: { titleKey: SettingKey; section: ControlSection; keywords
     section: "mapSetup",
     keywords: "keep maps on this server offline cache tiles privacy provider sees where storage map data " +
       "хранить карты на сервере офлайн кэш тайлы конфиденциальность провайдер видит хранилище данные карт"
+  },
+  {
+    titleKey: "namedPlaces",
+    section: "mapSetup",
+    keywords: "named places place names reverse geocoding geonames town city where photo was taken places filter update rebuild " +
+      "названия мест обратное геокодирование город где сделан снимок фильтр места обновить пересобрать"
   },
   {
     titleKey: "locationDatabase",

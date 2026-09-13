@@ -101,6 +101,7 @@
     "facetCameras": "Cameras",
     "facetFileSize": "File size",
     "facetLocation": "Location",
+    "facetPlaces": "Places",
     "chipFrom": "From {{date}}",
     "chipTo": "To {{date}}"
   },
@@ -141,6 +142,7 @@
     "noDescription": "Nothing written yet.",
     "notePlaceholder": "Say something about this photo",
     "noLocation": "No place is marked on this one.",
+    "placeNamesCredit": "Place names from <lnk>GeoNames</lnk>",
     "setLocation": "Mark where it was taken",
     "moveLocation": "Move the pin",
     "locationKept": "A place set by hand stays through rescans.",

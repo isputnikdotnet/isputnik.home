@@ -38,11 +38,12 @@ export interface GalleryTimelineFilters {
   cameras: string[];  // CAMERA_SQL display strings
   sizes: string[];    // SIZE_BUCKETS codes: small | medium | large | huge
   location: string[]; // 'with_gps' | 'no_gps'
+  places: string[];   // place ids from the place names database (gallery_places)
   likes: string[]; // LIKE_SQL codes: mine | anyone | none
 }
 
 export const EMPTY_GALLERY_FILTERS: GalleryTimelineFilters = {
-  people: [], peopleMatch: "any", tags: [], years: [], months: [], taken: [], cameras: [], sizes: [], location: [], likes: []
+  people: [], peopleMatch: "any", tags: [], years: [], months: [], taken: [], cameras: [], sizes: [], location: [], places: [], likes: []
 };
 
 // The Likes facet. `item_saves` is already LEFT JOINed for the `saved` column,
@@ -124,6 +125,17 @@ export function galleryFilterClauses(filters: GalleryTimelineFilters, userId: st
     clauses.push(withGps
       ? "gallery_details.gps_lat IS NOT NULL AND gallery_details.gps_lng IS NOT NULL"
       : "(gallery_details.gps_lat IS NULL OR gallery_details.gps_lng IS NULL)");
+  }
+  // A named place (places.ts). Only an answer for the pin as it is now counts, the
+  // same guard the asset read uses, so a photo whose pin was dragged away leaves
+  // its old place's results at once rather than at the next sweep.
+  const places = (filters.places ?? []).map(Number).filter((id) => Number.isSafeInteger(id));
+  if (places.length > 0) {
+    clauses.push(`EXISTS (
+      SELECT 1 FROM gallery_places gpl
+      WHERE gpl.item_id = library_items.id AND gpl.lat = gallery_details.gps_lat AND gpl.lng = gallery_details.gps_lng
+        AND gpl.place_id IN (${inClause(places.length)}))`);
+    args.push(...places);
   }
   // OR within the facet, like every other list here. Walked in a fixed order so the
   // placeholders and the args pushed for them can't drift apart. Selecting all three

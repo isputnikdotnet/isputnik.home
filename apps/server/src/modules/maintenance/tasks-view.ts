@@ -49,6 +49,10 @@ function summarizeTaskResult(type: string, result: Record<string, any> | null): 
     if (result.cancelled) return `Stopped: ${base}, the rest left where it was`;
     return failed > 0 ? `${base} · ${failed} could not be moved` : base;
   }
+  if (type === "BUILD_PLACES") {
+    if (result.places == null) return null;
+    return `${result.places} places · ${(Number(result.sizeBytes ?? 0) / (1024 * 1024)).toFixed(1)} MB`;
+  }
   if (type === "SCAN_GALLERY_DUPLICATES") {
     // Every pass belongs to a cleanup now, and what it FOUND is the cleanup's own
     // business — this line is about the pass itself: what it had to read off the disk.

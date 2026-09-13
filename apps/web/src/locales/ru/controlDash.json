@@ -496,6 +496,7 @@
     "typeTranscode": "Конвертация видео",
     "typeDuplicateScan": "Поиск дубликатов фото",
     "typeStorageMove": "Перенос хранилища",
+    "typeBuildPlaces": "База названий мест",
     "batch": "пакет {{index}}/{{total}}",
     "loadFailed": "Не удалось загрузить задачи",
     "cancelFailed": "Не удалось отменить задачу",
