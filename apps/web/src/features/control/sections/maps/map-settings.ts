@@ -4,18 +4,23 @@ import { api } from "../../../../api";
 import { formatBytes } from "../../../../shared/utils";
 import type { GeoipStatus } from "../../types";
 
-// What the Maps pages read: GET /api/map/settings, one answer for the whole
-// group — the tile cache, the sign-in location databases and the named places
-// side by side, since Setup shows them all as levels of the same thing.
+// What the Maps page reads: GET /api/map/settings, one answer for the whole page —
+// the kept maps, the place names and the sign-in location databases side by side.
+// Road routes are their own endpoint (/api/config/routing), read beside it.
+
+/** The limits offered for kept maps, in MB — the server's CACHE_LIMITS_MB. */
+export const CACHE_LIMITS_MB = [100, 200, 500, 1000, 2000] as const;
+export type CacheLimitMb = (typeof CACHE_LIMITS_MB)[number];
 
 export interface MapSettingsDto {
-  settings: { cache: boolean };
+  settings: { cache: boolean; cacheLimitMb: CacheLimitMb };
   cache: {
     /** The Map data room: what the Storage page moves. */
     folder: string;
-    /** The tile cache inside it: what turning caching off deletes. */
+    /** The tile cache inside it: what turning offline maps off deletes. */
     path: string;
     bytes: number;
+    limitBytes: number;
   };
   locations: GeoipStatus;
   places: PlacesView;
@@ -43,6 +48,11 @@ export interface PlacesView {
   };
 }
 
+export interface RoutingDto {
+  routing: { endpoint: string; hasApiKey: boolean };
+  configured: boolean;
+}
+
 export function loadMapSettings(): Promise<MapSettingsDto> {
   return api<MapSettingsDto>("/api/map/settings");
 }
@@ -62,14 +72,19 @@ export function cityDatabase(locations: GeoipStatus) {
   return locations.databases.find((entry) => entry.tier === "city") ?? null;
 }
 
+/** "200 MB", "1 GB": a limit as the owner chose it, not as bytes happen to divide. */
+export function limitLabel(mb: number): string {
+  return mb >= 1000 ? `${mb / 1000} GB` : `${mb} MB`;
+}
+
 /** Where a running build has got to, as a phrase for "Building · …". */
 export function placesProgressText(t: TFunction<["common", "controlAdmin"]>, build: PlacesView["build"]): string {
   switch (build.stage) {
-    case "download": return t("controlAdmin:mapSetup.placesStageDownload", { size: formatBytes(build.done) });
-    case "places": return t("controlAdmin:mapSetup.placesStagePlaces", { number: build.done.toLocaleString() });
-    case "names": return t("controlAdmin:mapSetup.placesStageNames");
-    case "write": return t("controlAdmin:mapSetup.placesStageWrite");
-    default: return t("controlAdmin:mapSetup.placesStageQueued");
+    case "download": return t("controlAdmin:mapFeatures.placesStageDownload", { size: formatBytes(build.done) });
+    case "places": return t("controlAdmin:mapFeatures.placesStagePlaces", { number: build.done.toLocaleString() });
+    case "names": return t("controlAdmin:mapFeatures.placesStageNames");
+    case "write": return t("controlAdmin:mapFeatures.placesStageWrite");
+    default: return t("controlAdmin:mapFeatures.placesStageQueued");
   }
 }
 

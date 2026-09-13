@@ -16,15 +16,15 @@
 // hundred KB in all and every map needs them.
 import fs from "node:fs";
 import path from "node:path";
+import { getMapSettings } from "./settings.js";
 import { tileCacheDir } from "./storage.js";
 
 const MB = 1024 * 1024;
 
-/** The cap. 200 MB is the proposal's estimate, not a measurement — hence an
- *  operator override until a real library says what it should be. */
+/** The cap: the owner's choice on the Maps page (settings.ts), 200 MB unless
+ *  they chose otherwise. */
 export function cacheLimitBytes(): number {
-  const override = Number(process.env.MAP_CACHE_LIMIT_MB);
-  return Number.isFinite(override) && override > 0 ? override * MB : 200 * MB;
+  return getMapSettings().cacheLimitMb * MB;
 }
 
 /** Sweep down to this share of the cap, so a cache sitting at its limit is not

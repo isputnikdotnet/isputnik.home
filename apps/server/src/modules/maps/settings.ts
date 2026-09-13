@@ -5,20 +5,32 @@
 // spare. Off is not "no maps" — it is the map as it has always been drawn,
 // straight from the provider, with nothing kept here.
 //
-// One JSON blob in app_settings, like the other house-wide settings. Only the
-// tile cache exists so far; the place names and sign-in levels join this shape
-// when they are built, rather than appearing as settings that do nothing.
+// One JSON blob in app_settings, like the other house-wide settings: whether maps
+// are kept, and how much of them. The place names and sign-in databases are not
+// settings — whether they are on is whether their file is there.
 import { db } from "../../db.js";
 import type { AppSettingRow } from "../../db/rows.js";
 
 export const MAP_SETTINGS_KEY = "maps";
 
+/** The limits the Maps page offers for kept maps, in MB. A choice from a short
+ *  list rather than a number field: the useful answers are orders of magnitude,
+ *  and a typo of 20000 should not be one keystroke away. */
+export const CACHE_LIMITS_MB = [100, 200, 500, 1000, 2000] as const;
+export type CacheLimitMb = (typeof CACHE_LIMITS_MB)[number];
+
 export interface MapSettings {
   /** Maps come through this server and are kept on its disk. */
   cache: boolean;
+  /** How much of them may be kept before the oldest go (sweep.ts). */
+  cacheLimitMb: CacheLimitMb;
 }
 
-const DEFAULTS: MapSettings = { cache: false };
+const DEFAULTS: MapSettings = { cache: false, cacheLimitMb: 200 };
+
+export function isCacheLimit(value: unknown): value is CacheLimitMb {
+  return (CACHE_LIMITS_MB as readonly unknown[]).includes(value);
+}
 
 export function getMapSettings(): MapSettings {
   const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(MAP_SETTINGS_KEY) as
@@ -27,7 +39,10 @@ export function getMapSettings(): MapSettings {
   if (!row) return { ...DEFAULTS };
   try {
     const parsed = JSON.parse(row.value) as Partial<MapSettings>;
-    return { cache: parsed.cache === true };
+    return {
+      cache: parsed.cache === true,
+      cacheLimitMb: isCacheLimit(parsed.cacheLimitMb) ? parsed.cacheLimitMb : DEFAULTS.cacheLimitMb
+    };
   } catch {
     return { ...DEFAULTS };
   }

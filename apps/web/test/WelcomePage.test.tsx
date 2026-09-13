@@ -72,15 +72,15 @@ describe("the setup guide's Storage step", () => {
   });
 });
 
-// The Maps step: what this server keeps for maps, and the same wizard Maps › Setup
-// opens. Never locked — maps work with nothing kept.
+// The Maps step: the Maps page's own cards, so the guide and the control panel
+// can never disagree about what is on. Never locked — maps work with nothing kept.
 describe("the setup guide's Maps step", () => {
   const mapSettings = {
-    settings: { cache: true },
-    cache: { folder: "D:\\Demo\\iSputnik\\Map data", path: "D:\\Demo\\iSputnik\\Map data\\Tiles", bytes: 0 },
+    settings: { cache: true, cacheLimitMb: 200 },
+    cache: { folder: "D:\Demo\iSputnik\Map data", path: "D:\Demo\iSputnik\Map data\Tiles", bytes: 0, limitBytes: 200 * 1024 * 1024 },
     locations: {
       available: false, tier: null, databaseType: null, buildDate: null, updatedAt: null, sizeBytes: null,
-      directory: "D:\\Demo\\iSputnik\\Map data\\Locations", databases: [], countryFilePresent: false, source: "DB-IP"
+      directory: "D:\Demo\iSputnik\Map data\Locations", databases: [], countryFilePresent: false, source: "DB-IP"
     },
     places: {
       present: false, sizeBytes: 0, builtAt: null, sourceDate: null, places: 0,
@@ -88,24 +88,21 @@ describe("the setup guide's Maps step", () => {
     }
   };
 
-  it("shows each level as it is, and opens the setup wizard with only what is off", async () => {
+  it("shows the four map features with their switches, as they are", async () => {
     const user = userEvent.setup();
     mockApi.mockImplementation(async (path: string) => {
       if (path === "/api/map/settings") return mapSettings;
+      if (path === "/api/config/routing") return { routing: { endpoint: "", hasApiKey: false }, configured: false };
       return null;
     });
     render(<WelcomePage user={{ id: "u1", email: "admin@example.com", displayName: "Demo Admin", role: "admin", theme: "dark", protectedFromDelete: false, isActive: true, createdAt: "2026-09-01T00:00:00.000Z", deletedAt: null }} onDone={() => {}} />);
 
     await user.click(screen.getByRole("button", { name: /^Maps/ }));
-    const cache = (await screen.findByText("Maps on this server")).closest("li") as HTMLElement;
-    expect(within(cache).getByText("On")).toBeInTheDocument();
-    expect(within(screen.getByText("Named places").closest("li") as HTMLElement).getByText("Off")).toBeInTheDocument();
-    expect(within(screen.getByText("Sign-in countries").closest("li") as HTMLElement).getByText("Off")).toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Set up maps" }));
-    const dialog = await screen.findByRole("dialog");
-    const boxes = within(dialog).getAllByRole("checkbox") as HTMLInputElement[];
-    // The cache is already on; named places and countries are offered.
-    expect(boxes.map((box) => [box.checked, box.disabled])).toEqual([[true, true], [true, false], [true, false]]);
+    const switchOf = async (title: string) =>
+      within((await screen.findByRole("heading", { name: new RegExp(`^${title}`) })).closest("section") as HTMLElement).getByRole("switch");
+    expect(await switchOf("Offline maps")).toHaveAttribute("aria-checked", "true");
+    expect(await switchOf("Photo place names")).toHaveAttribute("aria-checked", "false");
+    expect(await switchOf("Sign-in locations")).toHaveAttribute("aria-checked", "false");
+    expect(await switchOf("Road routes")).toHaveAttribute("aria-checked", "false");
   });
 });

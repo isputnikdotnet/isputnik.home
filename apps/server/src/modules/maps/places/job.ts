@@ -1,5 +1,5 @@
 // Building the places database as a task (docs/map-approach-proposal.md, phase 2):
-// queued from Maps › Setup, run on the shared job poller, shown on the Tasks page
+// queued from the Maps page, run on the shared job poller, shown on the Tasks page
 // with its progress. The build downloads ~220 MB, so it is never done inside a
 // request — and one build at a time: asking again while one is queued or running
 // returns that one.

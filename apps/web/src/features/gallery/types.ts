@@ -39,7 +39,7 @@ export interface GalleryAsset {
   size: number | null;
   gps: { lat: number; lng: number } | null;
   // The named place the pin falls in, when the server has a place names database
-  // (Maps › Setup). By id on every read; spelled out, in the viewer's language,
+  // (Control panel → Maps). By id on every read; spelled out, in the viewer's language,
   // only on the single-asset detail as `placeLabel`.
   place: { id: number; distanceKm: number } | null;
   placeLabel?: PlaceLabel | null;

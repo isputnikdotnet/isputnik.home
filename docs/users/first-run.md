@@ -55,11 +55,10 @@ eight steps, in the order they depend on each other:
 4. **Backups** — a nightly full backup of the catalogue, settings and covers, and how
    many to keep. The Backup page in the control panel has the smaller kinds and the
    weekly and monthly cadences.
-5. **Maps** — what this server keeps for maps. Maps work without any of it; the
-   step shows what is on and opens the same **Set up maps** wizard as
-   [Control panel → Maps](control-panel.md#maps): the maps themselves (so they draw
-   offline and the map service stops seeing where you look), the names of the
-   places photos were taken in, and the sign-in countries database.
+5. **Maps** — the same four cards as [Control panel → Maps](control-panel.md#maps),
+   each with its switch: offline maps, the names of the places photos were taken
+   in, where sign-ins came from, and roads for story routes. Maps work with all of
+   them off.
 6. **Email** — the SMTP details, and a test message to your own address.
 7. **Security alerts** — write to me when an account signs in from a network I haven't
    seen before. Locked until email is set up, because an alert nobody receives reads
@@ -70,7 +69,7 @@ eight steps, in the order they depend on each other:
 
 ![The guide's App files step: the two libraries, each one click away](images/104-welcome-gallery.png)
 
-![The guide's Maps step: what is kept, and the Set up maps wizard](images/113-welcome-maps.png)
+![The guide's Maps step: the four map cards](images/113-welcome-maps.png)
 
 Every step saves through the same place its Control panel page does, so none of it is
 your only chance to answer. **Skip for now** is a real answer — it closes the guide for

@@ -98,12 +98,11 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
     "почта сервер порт пароль отправитель тест письмо",
   notifications: "notify email alerts members shared with me sharing switch on off opt in " +
     "уведомления почта оповещения участники поделились со мной включить выключить",
-  mapSetup: "maps map caching offline privacy openfreemap tiles basemap wizard set up turn on off dark labels language named places geonames " +
+  mapSetup: "maps map caching offline privacy openfreemap tiles basemap set up turn on off limit named places geonames " +
+    "geoip location database mmdb dbip maxmind geolite country city sign-in towns upload link remove " +
+    "route roads openrouteservice api key directions " +
+    "геолокация база расположений страны города входы загрузить удалить маршрут дороги ключ прокладка " +
     "карты кэширование карт офлайн конфиденциальность тайлы подложка мастер настроить включить выключить тёмная подписи язык",
-  mapData: "geoip location database mmdb dbip maxmind geolite country city sign-in towns upload remove " +
-    "геолокация база расположений страны города входы загрузить удалить",
-  mapRouting: "route roads openrouteservice api key directions " +
-    "маршрут дороги ключ прокладка",
   readerAccess: "opds catalog token koreader thorium moon+ reader ereader e-reader basic auth device " +
     "каталог токен читалка электронная книга устройство",
   about: "version credits licences licenses changelog release notes what's new " +
@@ -177,13 +176,13 @@ const SETTING_ENTRIES: { titleKey: SettingKey; section: ControlSection; keywords
   },
   {
     titleKey: "mapRouting",
-    section: "mapRouting",
+    section: "mapSetup",
     keywords: "route roads driving walking cycling openrouteservice api key directions story map itinerary travel маршрут дороги машина пешком велосипед ключ прокладка карта путешествие"
   },
   {
     titleKey: "mapCaching",
     section: "mapSetup",
-    keywords: "keep maps on this server offline cache tiles privacy provider sees where storage map data " +
+    keywords: "offline maps keep maps on this server cache tiles limit size privacy provider sees where storage map data " +
       "хранить карты на сервере офлайн кэш тайлы конфиденциальность провайдер видит хранилище данные карт"
   },
   {
@@ -194,7 +193,7 @@ const SETTING_ENTRIES: { titleKey: SettingKey; section: ControlSection; keywords
   },
   {
     titleKey: "locationDatabase",
-    section: "mapData",
+    section: "mapSetup",
     keywords: "sign-in locations geoip database country city mmdb dbip geolite maxmind fetch upload remove " +
       "расположение входов геолокация база страна город скачать загрузить удалить"
   },

@@ -1,0 +1,210 @@
+/* The map feature cards — Control panel → Maps, and the setup guide's Maps step,
+   which shows the same cards (features/control/sections/maps/MapFeatures.tsx).
+   A page stylesheet: it arrives with the cards, on either page. */
+/* The Maps page: one card per feature (MapFeatureCard). The head is the icon, the
+   name with its line under it, and the switch; then three facts in a row; then
+   whatever the feature needs. Cards keep to a readable width, like config blocks. */
+.map-features {
+  display: grid;
+  gap: 14px;
+  max-width: 820px;
+}
+
+.map-feature {
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.map-feature-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.map-feature-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  color: var(--muted);
+  background: var(--surface-raised);
+}
+
+.map-feature-title {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Scoped under .map-features so a host page's own heading sizes (the setup guide's)
+   do not take over the cards. */
+.map-features .map-feature-title h2 {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  font-size: 1.02rem;
+}
+
+.map-features .map-feature-title p {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.map-feature-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 8px;
+  margin: 14px 0 0;
+}
+
+.map-feature-facts > div {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--surface-raised);
+  min-width: 0;
+}
+
+.map-feature-facts dt {
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.map-feature-facts dd {
+  margin: 1px 0 0;
+  font-size: 0.88rem;
+  overflow-wrap: anywhere;
+}
+
+/* A row of controls under the facts: a limit, a build's state and Update. */
+.map-feature-row {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.map-feature-row .field:not(.select-field) {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+/* The limit reads as one short choice, not a field across the card. */
+.map-feature-row .select-field {
+  flex: 0 0 auto;
+  min-width: 140px;
+}
+
+/* A named part of a card (Countries, Towns): its text, its state, its actions. */
+.map-feature-part {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.map-feature-part-text {
+  display: grid;
+  gap: 1px;
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.map-feature-part-text strong {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.92rem;
+}
+
+.map-feature-part-text small {
+  color: var(--muted);
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+
+.map-feature-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.map-feature-status {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.map-feature-status.is-ok { color: var(--success); }
+.map-feature-status.is-failed { color: var(--danger); }
+
+.map-feature-routes { margin-top: 4px; }
+
+.map-feature-disclosure {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 10px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.86rem;
+  cursor: pointer;
+}
+
+.map-feature-disclosure .rotated { transform: rotate(90deg); }
+
+.map-feature-own-server {
+  display: grid;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.map-feature-hint {
+  margin: 4px 0 0;
+  font-size: 0.84rem;
+}
+
+/* Links out to a source, inside an info panel. */
+.map-feature-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.info-hint-panel p { margin: 0 0 6px; }
+
+.map-feature-sources {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.map-feature-sources li {
+  display: grid;
+  gap: 1px;
+}
+
+.map-feature-sources small { font-size: 0.78rem; }
+
+.map-features-folder {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+  overflow-wrap: anywhere;
+}

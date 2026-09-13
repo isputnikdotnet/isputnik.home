@@ -15,7 +15,7 @@ export type ControlSection =
   | "backup" | "scheduledJobs" | "recycleBin" | "missingPhotos"
   | "duplicateCleanup" | "quotes"
   // Maps
-  | "mapSetup" | "mapData" | "mapRouting"
+  | "mapSetup"
   // Settings
   | "appearance" | "email" | "notifications" | "storySettings" | "readerAccess" | "about";
 
@@ -54,8 +54,6 @@ export const CONTROL_PATHS: Record<ControlSection, string> = {
   quotes: "/control/utilities/quotes",
 
   mapSetup: "/control/maps",
-  mapData: "/control/maps/data",
-  mapRouting: "/control/maps/routing",
 
   appearance: "/control/settings",
   email: "/control/settings/email",
@@ -90,9 +88,12 @@ const CONTROL_ALIASES: Record<string, ControlSection> = {
   // group's former landing tab) and taking over the group's root address.
   "/control/overview/dashboard": "dashboard",
 
-  // Routing was Settings › Maps before maps became a group of their own
-  // (docs/map-approach-proposal.md); a saved link still lands on it.
-  "/control/settings/maps": "mapRouting",
+  // Routing was Settings › Maps before maps became a group of their own, and the
+  // group had Data and Routing tabs before each became a card on its one page
+  // (docs/map-approach-proposal.md); saved links still land on the cards.
+  "/control/settings/maps": "mapSetup",
+  "/control/maps/data": "mapSetup",
+  "/control/maps/routing": "mapSetup",
 
   // The per-media-type stat pages became one Statistics page, which became the
   // Dashboard's Libraries view. DashboardSection reads these paths to pick it.

@@ -54,6 +54,7 @@ dashboard's `LocationsMap`, …).
 | `admin-shared.css` | The few rules that used to be in `admin.css` but style pages outside the control panel too: the browse pages' empty-state icon, the `setting-status` pill (Storage, the setup guide), `shared/TabStrip` (the panel, the Photo Inbox). Global, at `admin.css`'s old place in the order |
 | `scan-layout.css` | *Page* — scan layouts: the Layout panel and the scan-rule wizard ([`scan-layout-plan.md`](scan-layout-plan.md)) |
 | `welcome.css` | *Page* — the first-run setup guide (`/welcome`) |
+| `map-features.css` | *Page* — the map feature cards: Control panel → Maps, and the setup guide's Maps step |
 | `duplicates.css` | *Page* — duplicate cleanup (split from `admin.css`). A barrel over `duplicates/` (see below) |
 | `about.css` | About page and version timeline; Profile's tabs (password, email, appearance, shared links, passkeys, two-factor); Help & guides; the control panel's Security and OPDS pages. Global because five routes use it |
 | `share.css` | Sharing as signed-in pages meet it: the in-app share dialog, the photo set grid and viewer (For you and the guest page both open it), and the transport row the guest player shares with the player page |
@@ -76,6 +77,7 @@ dashboard's `LocationsMap`, …).
 | `scan-layout.css` | `features/control/sections/LibrariesSection.tsx` | Control panel → Libraries |
 | `duplicates.css` | `features/control/sections/duplicates/DuplicateCleanupSection.tsx` | Control panel → Duplicate cleanup |
 | `welcome.css` | `pages/WelcomePage.tsx` | the setup guide |
+| `map-features.css` | `features/control/sections/maps/MapFeatures.tsx` | Control panel → Maps, and the setup guide's Maps step |
 | `review.css` | `features/gallery/review/ReviewPage.tsx` | Review mode |
 | `person-edit.css` | `features/audiobooks/PersonPage.tsx` | a person's page |
 | `book-media.css` | `features/audiobooks/BookDetailPage.tsx` | the book page — and so it is precached with it |

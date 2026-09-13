@@ -18,7 +18,8 @@ import {
   type SpriteFile
 } from "./provider.js";
 import { MapAssetNotFound, fromStored, resolveAsset } from "./resolve.js";
-import { getMapSettings, saveMapSettings } from "./settings.js";
+import { getMapSettings, isCacheLimit, saveMapSettings, type CacheLimitMb } from "./settings.js";
+import { cacheLimitBytes, sweepTileCache } from "./sweep.js";
 import { clearTileCache, folderBytes, isStoredGzipped, mapDataDir, tileCacheDir } from "./storage.js";
 import { placesStatus, removePlaces } from "./places/dataset.js";
 import { enqueuePlacesBuild, placesBuildStatus } from "./places/job.js";
@@ -183,7 +184,11 @@ async function serveStyle(request: FastifyRequest, reply: FastifyReply, style: M
 
 // --- Routes ------------------------------------------------------------------
 
-const settingsBody = z.object({ cache: z.boolean() });
+// Either or both: turning the cache on or off, and how much of it may be kept.
+const settingsBody = z.object({
+  cache: z.boolean().optional(),
+  cacheLimitMb: z.number().refine(isCacheLimit, "Not one of the offered limits").optional()
+}).refine((body) => body.cache !== undefined || body.cacheLimitMb !== undefined, "Nothing to change");
 
 /** The places database as the Maps pages see it: what is on disk, and the build. */
 function placesView() {
@@ -248,13 +253,13 @@ export function registerMapRoutes(app: FastifyInstance) {
     return serveAsset(request, reply, { kind: "sprite", version, file: file as SpriteFile });
   });
 
-  // Everything Maps › Setup shows, in one answer: the cache, and the sign-in
+  // Everything the Maps page shows, in one answer: the cache, and the sign-in
   // location databases (which live with core/geoip.ts, not here).
   app.get("/api/map/settings", { preHandler: app.requireAdmin }, async () => ({
     settings: getMapSettings(),
     // folder: the Map data room itself (what the Storage page moves); path: the
     // tile cache inside it (what turning caching off deletes).
-    cache: { folder: mapDataDir(), path: tileCacheDir(), bytes: folderBytes(tileCacheDir()) },
+    cache: { folder: mapDataDir(), path: tileCacheDir(), bytes: folderBytes(tileCacheDir()), limitBytes: cacheLimitBytes() },
     locations: geoipStatus(),
     places: placesView()
   }));
@@ -283,20 +288,36 @@ export function registerMapRoutes(app: FastifyInstance) {
   });
 
   // Turning the cache off deletes it — it is all regenerable, and "off" was
-  // promised to cost no disk. The reply says how much that freed.
+  // promised to cost no disk. Lowering the limit trims the cache to it at once,
+  // rather than on the next write. The reply says how much either freed.
   app.put("/api/map/settings", { preHandler: app.requireAdmin }, async (request, reply) => {
     const parsed = settingsBody.safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ error: "Invalid map settings", details: parsed.error.issues });
     const before = getMapSettings();
-    saveMapSettings(parsed.data, request.user!.id);
-    const freedBytes = before.cache && !parsed.data.cache ? clearTileCache() : 0;
-    if (before.cache !== parsed.data.cache) {
+    const next = { cache: parsed.data.cache ?? before.cache, cacheLimitMb: (parsed.data.cacheLimitMb ?? before.cacheLimitMb) as CacheLimitMb };
+    saveMapSettings(next, request.user!.id);
+    let freedBytes = 0;
+    if (before.cache && !next.cache) {
+      freedBytes = clearTileCache();
+    } else if (next.cache && next.cacheLimitMb < before.cacheLimitMb) {
+      const swept = sweepTileCache();
+      freedBytes = swept.before - swept.after;
+    }
+    if (before.cache !== next.cache) {
       logActivity({
         event: "maps.settings_updated",
         actorUserId: request.user!.id,
-        detail: parsed.data.cache
+        detail: next.cache
           ? "Map caching turned on"
           : `Map caching turned off (${freedBytes} bytes freed)`,
+        ipAddress: request.ip
+      });
+    }
+    if (before.cacheLimitMb !== next.cacheLimitMb) {
+      logActivity({
+        event: "maps.settings_updated",
+        actorUserId: request.user!.id,
+        detail: `Kept maps limited to ${next.cacheLimitMb} MB` + (freedBytes > 0 ? ` (${freedBytes} bytes freed)` : ""),
         ipAddress: request.ip
       });
     }

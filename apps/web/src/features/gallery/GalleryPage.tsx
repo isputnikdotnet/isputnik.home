@@ -712,7 +712,7 @@ export function GalleryPage({
     { key: "slideshows", label: VIEW_TITLES.slideshows, href: galleryHref("slideshows"), icon: Film },
     { key: "folder", label: VIEW_TITLES.folder, href: galleryHref("folder"), icon: FolderOpen },
     { key: "people", label: VIEW_TITLES.people, href: galleryHref("people"), icon: Users },
-    // Only once photos have been named after places (Maps › Setup → Named places).
+    // Only once photos have been named after places (Control panel → Maps → Photo place names).
     ...((facets?.places?.length ?? 0) > 0
       ? [{ key: "places", label: VIEW_TITLES.places, href: galleryHref("places"), icon: MapPinned }]
       : []),
