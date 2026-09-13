@@ -30,7 +30,7 @@
     "maxmind": "^5.0.7",
     "music-metadata": "^11.15.0",
     "nanoid": "^6.0.1",
-    "nodemailer": "^9.1.1",
+    "nodemailer": "^10.0.2",
     "onnxruntime-node": "^1.27.0",
     "opentype.js": "^2.0.0",
     "otplib": "^13.5.0",
