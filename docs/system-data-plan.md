@@ -481,10 +481,13 @@ As built, part 2 (App files access):
   the same when a library becomes App files. Library records of either role are
   written without access; the members routes refuse both. The Storage page's Access
   link and the Libraries page's `?edit=` handler are gone.
-- A library nominated as App files before 4.6 can hold ordinary photos in folders
-  the app never made. Nothing owns them, so members lose them. The App files row
-  counts them (`counts.unowned`) and says to move their folders to another library;
-  the dev database's "Photos" library (184 photos) is such a case.
+- A library nominated as App files before 4.6, or files put there by hand, can hold
+  items nothing owns, so members lose them. The App files row counts them
+  (`counts.unowned`, `unownedAppFileCount`: by reference, never by folder) and says to
+  move their folders to another library. 4.6.0-4.6.1 counted by folder, so photos
+  uploaded from the story editor (dated folders) were wrongly reported; on the
+  owner's Unraid box 35 became 34. The Contents page finds an owner of any kind
+  wherever the file sits.
 - Tests: `test/app-files-access.test.ts` (each owner kind, orphans, deleted owners,
   scopes, a copied list, slideshow counts, migration, members route).
 

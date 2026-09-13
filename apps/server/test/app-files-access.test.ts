@@ -5,7 +5,7 @@ import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
 import { canUserAccessBook, canUserAccessLibrary } from "../src/modules/library/shared/library-access.js";
 import { resolveGalleryBrowseLibraryIds, resolveGalleryScopeLibraryIds } from "../src/modules/library/gallery/catalog-scope.js";
 import { getGalleryAssets } from "../src/modules/library/gallery/catalog-asset.js";
-import { appFileItemForThumbnail, canSeeAppFile } from "../src/modules/library/gallery/app-files-access.js";
+import { appFileItemForThumbnail, canSeeAppFile, unownedAppFileCount } from "../src/modules/library/gallery/app-files-access.js";
 import { galleryAssetsByIds } from "../src/modules/stories/blocks.js";
 import { listSlideshows } from "../src/modules/library/gallery/slideshows.js";
 import { setSystemLibraryRole } from "../src/modules/library/gallery/system-libraries.js";
@@ -110,6 +110,15 @@ describe("who sees a file", () => {
   it("follows an owner going away", () => {
     db.prepare("UPDATE stories SET deleted_at = '2026-01-01T00:00:00.000Z' WHERE id = 's-pub'").run();
     expect(canSeeAppFile(MIA, "rec-pub")).toBe(false);
+  });
+
+  it("counts as unowned only what nothing references, wherever it sits", () => {
+    // A photo uploaded while writing a story lands in a dated folder, not an app folder
+    // (4.6.0 counted those by folder and told the owner they belonged to nothing).
+    story("s-upload", { createdBy: "olga", status: "published", itemId: item("story-photo", "HOUSE", "2026/2026-09-04") });
+    item("hand-video", "HOUSE", "2026/2026-07-22");
+    expect(unownedAppFileCount("HOUSE")).toBe(2); // the orphan and the hand-put video
+    expect(canSeeAppFile(MIA, "story-photo")).toBe(true);
   });
 
   it("finds a thumbnail's item for the covers route", () => {

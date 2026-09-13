@@ -117,17 +117,39 @@ async function roomContents(room: AppRoom, enabled: boolean, parts: ReturnType<t
   }
 }
 
-/** Who owns an item in one of the App files folders, by folder kind. */
+/** Who owns an item: first the owner its folder is for, then any other. A photo
+ *  uploaded while writing a story sits in a dated folder and still belongs to the
+ *  story; a family-tree photo may be in a story too. */
 function ownerOf(key: AppFileFolderKey, itemId: string): AppFileOwner | null {
+  if (key !== "other") {
+    const byFolder = ownerByKind(key, itemId);
+    if (byFolder) return byFolder;
+  }
+  for (const kind of OWNER_KINDS) {
+    if (kind === key) continue;
+    const owner = ownerByKind(kind, itemId);
+    if (owner) return owner;
+  }
+  return null;
+}
+
+const OWNER_KINDS: Exclude<AppFileFolderKey, "other">[] = ["recordings", "movies", "familyTree", "voiceNotes", "music"];
+
+/** The owner of one kind: recordings → a story (block, chapter hero or cover),
+ *  movies → a slideshow (movie, member, cover or card), and so on. */
+function ownerByKind(key: Exclude<AppFileFolderKey, "other">, itemId: string): AppFileOwner | null {
   switch (key) {
     case "recordings": {
       const row = db.prepare(`
-        SELECT s.id, s.title FROM story_blocks b
-        JOIN story_chapters c ON c.id = b.chapter_id
-        JOIN stories s ON s.id = c.story_id
-        WHERE b.entity_type = 'gallery' AND b.entity_id = ? AND s.deleted_at IS NULL
+        SELECT s.id, s.title FROM stories s
+        WHERE s.deleted_at IS NULL AND (
+          s.cover_item_id = ?
+          OR EXISTS (SELECT 1 FROM story_chapters c WHERE c.story_id = s.id AND c.hero_item_id = ?)
+          OR EXISTS (SELECT 1 FROM story_blocks b JOIN story_chapters c ON c.id = b.chapter_id
+                     WHERE c.story_id = s.id AND b.entity_type = 'gallery' AND b.entity_id = ?)
+        )
         LIMIT 1
-      `).get(itemId) as Pick<StoryRow, "id" | "title"> | undefined;
+      `).get(itemId, itemId, itemId) as Pick<StoryRow, "id" | "title"> | undefined;
       return row ? { type: "story", id: row.id, title: row.title } : null;
     }
     case "voiceNotes": {
@@ -148,20 +170,24 @@ function ownerOf(key: AppFileFolderKey, itemId: string): AppFileOwner | null {
       return row ? { type: "track", id: row.id, title: row.title } : null;
     }
     case "movies": {
-      const row = db.prepare("SELECT id, name FROM gallery_slideshows WHERE movie_item_id = ? LIMIT 1").get(itemId) as Pick<GallerySlideshowRow, "id" | "name"> | undefined;
+      const row = db.prepare(`
+        SELECT id, name FROM gallery_slideshows
+        WHERE movie_item_id = ? OR cover_item_id = ? OR title_photo_item_id = ? OR closing_photo_item_id = ? OR outro_item_id = ?
+          OR id IN (SELECT slideshow_id FROM gallery_slideshow_items WHERE item_id = ?)
+        LIMIT 1
+      `).get(itemId, itemId, itemId, itemId, itemId, itemId) as Pick<GallerySlideshowRow, "id" | "name"> | undefined;
       return row ? { type: "slideshow", id: row.id, title: row.name } : null;
     }
     case "familyTree": {
       const row = db.prepare(`
-        SELECT p.id, p.name FROM family_tree_photos fp
-        JOIN family_tree_persons p ON p.id = fp.person_id
-        WHERE fp.item_id = ?
+        SELECT p.id, p.name FROM family_tree_persons p
+        WHERE p.portrait_item_id = ?
+          OR p.id IN (SELECT person_id FROM family_tree_photos WHERE item_id = ?)
+          OR p.id IN (SELECT ev.person_id FROM family_tree_event_photos ep JOIN family_tree_events ev ON ev.id = ep.event_id WHERE ep.item_id = ?)
         LIMIT 1
-      `).get(itemId) as Pick<FamilyTreePersonRow, "id" | "name"> | undefined;
+      `).get(itemId, itemId, itemId) as Pick<FamilyTreePersonRow, "id" | "name"> | undefined;
       return row ? { type: "person", id: row.id, title: row.name } : null;
     }
-    case "other":
-      return null;
   }
 }
 

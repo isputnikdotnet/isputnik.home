@@ -142,10 +142,12 @@ set. Admins see everything. Anyone else sees:
 | A family-tree photo or portrait | every member |
 | A file nothing in the app owns | admins only |
 
-A library chosen as App files before 4.6 may also hold ordinary photos, in folders
-the app did not make. Nothing owns those, so only admins see them, and the App files
-row says how many there are. Move their folders to another library from the Contents
-page to share them again.
+Files put into App files by hand, or ordinary photos in a library chosen as App
+files before 4.6, are used by nothing in the app, so only admins see them. The App
+files row says how many there are, and the Contents page lists each file with what
+it belongs to, if anything. Move the folders of the ones nothing uses to another
+library to share them again. Where a file sits does not matter: a photo uploaded
+while writing a story lands in a dated folder and still belongs to the story.
 
 ![Storage once configured](images/11-storage-configured.png)
 
