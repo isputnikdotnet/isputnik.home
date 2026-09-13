@@ -45,7 +45,11 @@ import { Reader } from "maxmind";
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const DB_PATH = process.env.DB_PATH ?? path.join(ROOT, "data", "db", "isputnik.sqlite");
-const GEOIP_DIR = process.env.GEOIP_PATH ?? path.join(ROOT, "data", "geoip");
+// The server keeps these in the Map data room; a dev install without App storage
+// has that at data/map-data. data/geoip is where they were before 4.6.
+const GEOIP_DIR = process.env.GEOIP_PATH
+  ?? [path.join(ROOT, "data", "map-data", "Locations"), path.join(ROOT, "data", "geoip")].find((dir) => fs.existsSync(dir))
+  ?? path.join(ROOT, "data", "map-data", "Locations");
 const LOG_MARKER = "fake-seed";
 const SESSION_MARKER = "fakeseed";
 const BLOCK_MARKER = "[seeded]";

@@ -141,10 +141,13 @@ export function LocationsView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [range.from, range.to]);
 
+  // The server names countries and towns in the reader's language where it can
+  // (a town only with named places on); the location database's English is the
+  // fallback, never the first choice.
   const countryLabel = (entry: DashboardLocations["countries"][number]) =>
     entry.name ?? countryName(entry.code) ?? entry.code;
   const placeLabel = (place: DashboardLocations["places"][number]) =>
-    place.city ?? place.region ?? t("controlDash:locations.unnamedPlace");
+    place.label?.place ?? place.city ?? place.region ?? t("controlDash:locations.unnamedPlace");
 
   const countries = useMemo(
     () => pageOf([...(data?.countries ?? [])].sort(bySort(countrySort, countryDir, countryLabel)), countryPage),
@@ -410,7 +413,7 @@ export function LocationsView() {
                               <LocationCell
                                 flag={countryFlag(place.code)}
                                 title={placeLabel(place)}
-                                sub={[place.region, place.country ?? countryName(place.code) ?? place.code]
+                                sub={[place.label ? place.label.region : place.region, place.country ?? countryName(place.code) ?? place.code]
                                   .filter(Boolean)
                                   .join(" · ")}
                               />

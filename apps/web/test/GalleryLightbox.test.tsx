@@ -130,3 +130,25 @@ describe("GalleryLightbox like state follows the photo", () => {
     expect(screen.getByRole("button", { name: "Unlike" })).toBeInTheDocument();
   });
 });
+
+// A list row carries a place only as an id; the name, in the viewer's language,
+// comes with the photo's details. Showing the row's (absent) label is what left a
+// photo opened from the grid with no place at all.
+describe("GalleryLightbox named place", () => {
+  it("shows the place from the photo's details when the row only knew its id", async () => {
+    vi.mocked(api).mockImplementation(async (path: string) => {
+      if (path.endsWith("/people")) return { people: [] } as never;
+      if (/\/api\/library\/gallery\/assets\/[^/]+$/.test(path)) {
+        return {
+          asset: photo({
+            people: [], voiceNotes: [], gps: { lat: 45.46, lng: 9.19 }, place: { id: 3173435, distanceKm: 0.8 },
+            placeLabel: { place: "Milan", region: "Lombardy", country: "Italy", countryCode: "IT" }
+          })
+        } as never;
+      }
+      return {} as never;
+    });
+    render(<GalleryLightbox {...props({ assets: [photo({ gps: { lat: 45.46, lng: 9.19 }, place: { id: 3173435, distanceKm: 0.8 } })] })} />);
+    expect(await screen.findByText("Milan, Lombardy, Italy")).toBeInTheDocument();
+  });
+});

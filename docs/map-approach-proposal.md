@@ -213,9 +213,17 @@ these four surfaces need and nothing more.
   a storage question). Switching, and changing the App storage folder, **move**
   it with the existing storage move task rather than discarding it — at a 200 MB
   cap that is simpler than a special path, and it merges into tiles fetched at
-  the new place meanwhile. A move carries only `MAP_DATA_FOLDERS` (today
-  `Tiles`); the geoip and places databases join that list when they move in.
-  The geoip folder itself has NOT moved yet — still `<data>/geoip`.
+  the new place meanwhile. A move carries only `MAP_DATA_FOLDERS` —
+  `Tiles`, `Places` and `Locations`.
+- **The geoip databases moved in (4.6).** `core/geoip.ts` still reads and
+  installs them, but the folder comes from the maps module
+  (`setGeoipRoomDirectory`, `Map data/Locations`). `GEOIP_PATH` still wins when
+  someone sets it — which is why the Docker image no longer sets it: its
+  `/config/geoip` would have kept every install out of the room. On boot,
+  `modules/maps/locations.ts` moves whatever `.mmdb` is left in `<data>/geoip`
+  into the room (rename, or a verified copy across disks), before the server
+  listens; a different file of the same name already in the room is never
+  overwritten, and the old one is left where it was.
 
 Measured against the real provider: a vector tile is 1.9 KB gzipped (2.4 KB
 raw), a glyph range 42 KB, and a **hillshade tile ~190 KB — about a hundred
@@ -261,8 +269,7 @@ draws with no violations, and with caching on the gallery map made **0 requests
 to the provider and 42 through this server**. One world view plus fonts, icons
 and hillshade came to 4.8 MB.
 
-Not done: the geoip folder has not moved into the Map data room, and there is no
-first-run (Welcome page) step offering the wizard.
+The first-run step came later (4.6), with the rest of the leftovers: see phase 2, "Also built".
 
 ## Phase 2 — coordinates become place names
 
@@ -354,7 +361,22 @@ facets carry `places` (top 200, counted, in the viewer's language) and the filte
 takes `places: [id]`. On Maps › Setup it is a **Named places** row and wizard
 level; Maps › Data lists it with **Update** and **Remove**.
 
-Not done: the `LocationsMap` bonus below, and no grouped Places browse page.
+**Also built (4.6):**
+
+- **The bonus below.** `modules/dashboard/place-names.ts` puts sign-in towns and
+  countries into the reader's language. A town keeps the location database's own
+  identity: only a place of the same English name within 25 km is used
+  (`PlaceNamer.namedNear`, brackets dropped — DB-IP's "Moscow (Tsentralnyy
+  administrativnyy okrug)" is Moscow). Naming from the point alone swapped
+  "Copenhagen (Valby)" for the suburb Hvidovre, so without a name match the English
+  stays. The English `city`/`region` remain the keys Sign-in details filters by;
+  the words ride beside them as `label`.
+- **A Places view** in the gallery (`/gallery/places`): towns grouped by country,
+  counted, each with the newest still taken there as its cover. Opening one is the
+  Timeline with the `places` filter set, not a page of its own, so every tool of
+  the Timeline applies and the chip is the way back.
+- **A Maps step in the setup guide**, after Backups: what is on, and the same
+  wizard Maps › Setup opens.
 
 ### Bonus
 
@@ -570,4 +592,5 @@ directly, so it stays open while Off remains a level.
   on each install, from GeoNames, when the level is turned on.
 - Default tile cache cap. 200 MB is a guess; it wants a number from a real
   library's usage.
-- Does the Places facet get its own browse page, or only a filter facet to start?
+- ~~Does the Places facet get its own browse page?~~ Both: the filter facet, and a
+  Places view that opens a place as that filter.

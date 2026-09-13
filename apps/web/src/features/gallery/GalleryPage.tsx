@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { Album, ArrowLeft, CalendarDays, ChevronDown, Compass, Film, FolderOpen, Image as ImageIcon, Inbox, LayoutGrid, LibraryBig, MapPin, Plus, Sparkles, SquareCheck, UploadCloud, Users } from "lucide-react";
+import { Album, ArrowLeft, CalendarDays, ChevronDown, Compass, Film, FolderOpen, Image as ImageIcon, Inbox, LayoutGrid, LibraryBig, MapPin, MapPinned, Plus, Sparkles, SquareCheck, UploadCloud, Users } from "lucide-react";
 import { api } from "../../api";
 import { sendInBatches } from "../../shared/bulk";
 import { DashboardShell } from "../../app/DashboardShell";
@@ -48,6 +48,7 @@ import { MemoriesView } from "./page/MemoriesView";
 import { AlbumsView } from "./page/AlbumsView";
 import { SlideshowsView } from "./page/SlideshowsView";
 import { PeopleView } from "./page/PeopleView";
+import { PlacesView } from "./page/PlacesView";
 import { FoldersView } from "./page/FoldersView";
 import { GallerySelectionActions } from "./page/GallerySelectionActions";
 import { SuggestionPreviewModal } from "./page/SuggestionPreviewModal";
@@ -186,7 +187,8 @@ export function GalleryPage({
   const browsingNamedList =
     (view === "albums" && !selectedAlbum)
     || (view === "slideshows" && !selectedSlideshow)
-    || (view === "people" && !selectedPerson);
+    || (view === "people" && !selectedPerson)
+    || view === "places";
   const hasSearch = browsingPhotos || browsingNamedList;
   // An open album, slideshow or person has its own compact icon topbar (Back
   // plus every action) and its cover-title heading — the shared toolbar and
@@ -204,7 +206,8 @@ export function GalleryPage({
   // all, and People goes back to having no toolbar rather than a row carrying
   // nothing but Back. An open person keeps its compact icon topbar either way
   // (showBrowseChrome already covers that).
-  const showToolbar = showBrowseChrome && (view !== "people" || libraries.length > 1);
+  // Places is the same: a list whose one narrowing is which libraries it counts.
+  const showToolbar = showBrowseChrome && ((view !== "people" && view !== "places") || libraries.length > 1);
   // Which facets are narrowing what is on screen right now, and whether the chip
   // row is offered at all (Albums and Slideshows are lists of named things — no
   // filter reaches them). `fields` undefined means every facet: the timeline is
@@ -212,17 +215,20 @@ export function GalleryPage({
   const chipFields: { shown: boolean; fields?: (keyof GalleryFilters)[] } =
     view === "timeline" ? { shown: true }
       : view === "map" ? { shown: true, fields: ["libraries", "kinds"] }
-        : { shown: view === "folder" || view === "memories" || (view === "people" && !selectedPerson), fields: ["libraries"] };
+        : { shown: view === "folder" || view === "memories" || view === "places" || (view === "people" && !selectedPerson), fields: ["libraries"] };
   const searchPlaceholder = view === "timeline"
     ? t("gallery:page.search.photos")
     : view === "folder" ? t("gallery:page.search.folders")
       : view === "albums" ? t("gallery:page.search.albums")
         : view === "slideshows" ? t("gallery:page.search.slideshows")
-          : t("gallery:page.search.people");
+          : view === "places" ? t("gallery:page.search.places")
+            : t("gallery:page.search.people");
 
   // Map state. `mapCount` (geotagged assets in scope, from the facets) gates whether
   // the Map tab is offered at all; `mapPoints` are the markers for the active scope/kind.
   const [mapPoints, setMapPoints] = useState<GalleryMapPoint[]>([]);
+  // How many places the Places view lists (after the search box), for its subtitle.
+  const [placesCount, setPlacesCount] = useState(0);
   const mapCount = facets?.withGps ?? 0;
 
   const isMobile = useIsMobile();
@@ -672,6 +678,8 @@ export function GalleryPage({
 
   const subtitle = view === "map"
     ? t("gallery:mapView.subtitleOnMap", { count: mapPoints.length })
+    : view === "places"
+      ? t("gallery:common.counts.place", { count: placesCount })
     : view === "people"
       // An open person shows its own count under its cover title too — see
       // the album/slideshow cases below.
@@ -704,6 +712,10 @@ export function GalleryPage({
     { key: "slideshows", label: VIEW_TITLES.slideshows, href: galleryHref("slideshows"), icon: Film },
     { key: "folder", label: VIEW_TITLES.folder, href: galleryHref("folder"), icon: FolderOpen },
     { key: "people", label: VIEW_TITLES.people, href: galleryHref("people"), icon: Users },
+    // Only once photos have been named after places (Maps › Setup → Named places).
+    ...((facets?.places?.length ?? 0) > 0
+      ? [{ key: "places", label: VIEW_TITLES.places, href: galleryHref("places"), icon: MapPinned }]
+      : []),
     ...(mapCount > 0
       ? [{ key: "map", label: VIEW_TITLES.map, href: galleryHref("map"), icon: MapPin }]
       : []),
@@ -908,7 +920,7 @@ export function GalleryPage({
                       choose between (GalleryFilterButton hides it otherwise,
                       which would leave the button with nothing behind it; on
                       People the whole row goes with it, see showToolbar). */}
-                  {(view === "memories" || view === "map" || view === "people") && libraries.length > 1 && (
+                  {(view === "memories" || view === "map" || view === "people" || view === "places") && libraries.length > 1 && (
                     <GalleryFilterButton facets={null} value={filters} onChange={changeFilters} fields={["libraries"]} libraries={filterLibraries} />
                   )}
                   {/* Nothing narrows the other list views, so there is nothing to
@@ -918,7 +930,7 @@ export function GalleryPage({
                       collection are for every member. Delete inside it still is. */}
                   {/* Desktop only, as on the book pages: bulk editing from a phone
                       is a row of eleven verbs on a 375px screen. */}
-                  {!isMobile && view !== "map" && view !== "people" && view !== "albums" && view !== "slideshows" && (
+                  {!isMobile && view !== "map" && view !== "people" && view !== "places" && view !== "albums" && view !== "slideshows" && (
                     <Button
                       variant="toolbar"
                       onClick={() => { setNotice(""); setSelectionMode(true); }}
@@ -930,7 +942,7 @@ export function GalleryPage({
                   {/* Everywhere but People, which is a page about faces: the
                       photos they were found in are uploaded from the views that
                       show photos. */}
-                  {uploadLibraries.length > 0 && view !== "people" && (
+                  {uploadLibraries.length > 0 && view !== "people" && view !== "places" && (
                     <Button
                       variant="toolbar"
                       // The view's own Create outranks it when there is one, so
@@ -1005,6 +1017,18 @@ export function GalleryPage({
                   <p className="management-empty">{filters.kinds.length > 0 ? t("gallery:mapView.emptyNoLocationOfType") : t("gallery:mapView.emptyNoLocation")}</p>
                 )}
               </>
+            ) : view === "places" ? (
+              <PlacesView
+                scopeQuery={new URLSearchParams(scopeParams() as Record<string, string>).toString()}
+                nameTerm={nameTerm}
+                onCount={setPlacesCount}
+                onOpen={(place) => {
+                  // Opening a place is the Timeline, filtered to it: everything
+                  // else in force stays, and the chip is the way back out.
+                  changeFilters({ ...filters, places: [String(place.id)] });
+                  goToView("timeline");
+                }}
+              />
             ) : view === "people" ? (
               <PeopleView
                 peopleState={peopleState}

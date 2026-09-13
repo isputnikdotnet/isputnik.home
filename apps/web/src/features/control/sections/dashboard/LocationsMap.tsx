@@ -23,6 +23,8 @@ export interface MapPlace {
   code: string;
   city: string | null;
   region: string | null;
+  /** The town in the reader's language, when the server has named places. */
+  label?: { place: string; region: string | null } | null;
   country: string | null;
   latitude: number | null;
   longitude: number | null;
@@ -136,7 +138,9 @@ export function LocationsMap({
           selected: entry.code === selected
         })),
         ...towns.map((place, index) => {
-          const where = [place.city, place.region, place.country ?? place.code].filter(Boolean).join(", ");
+          const where = (place.label ? [place.label.place, place.label.region, place.country ?? place.code] : [place.city, place.region, place.country ?? place.code])
+            .filter(Boolean)
+            .join(", ");
           return {
             // Towns share their country's code — that is what a click selects —
             // so the id carries the row as well, to stay unique.

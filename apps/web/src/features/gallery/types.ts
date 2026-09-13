@@ -438,6 +438,17 @@ export interface PlaceLabel {
   countryCode: string;
 }
 
+/** One place in the Places view (GET /api/library/gallery/places). */
+export interface GalleryPlace {
+  id: number;
+  name: string;
+  region: string | null;
+  country: string;
+  countryCode: string;
+  count: number;
+  cover: { coverUrl: string | null; faceFocus: { x: number; y: number } | null } | null;
+}
+
 export interface GalleryPlaceFacet {
   id: number;
   name: string;

@@ -1,4 +1,5 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../src/api", () => ({ api: vi.fn(), isAdminSession: () => true }));
@@ -68,5 +69,43 @@ describe("the setup guide's Storage step", () => {
     mount(roomOf("app"));
     await waitFor(() => expect(screen.getByText("Kept here: Thumbnails.")).toBeInTheDocument());
     expect(screen.queryByText(needsAFolder)).toBeNull();
+  });
+});
+
+// The Maps step: what this server keeps for maps, and the same wizard Maps › Setup
+// opens. Never locked — maps work with nothing kept.
+describe("the setup guide's Maps step", () => {
+  const mapSettings = {
+    settings: { cache: true },
+    cache: { folder: "D:\\Demo\\iSputnik\\Map data", path: "D:\\Demo\\iSputnik\\Map data\\Tiles", bytes: 0 },
+    locations: {
+      available: false, tier: null, databaseType: null, buildDate: null, updatedAt: null, sizeBytes: null,
+      directory: "D:\\Demo\\iSputnik\\Map data\\Locations", databases: [], countryFilePresent: false, source: "DB-IP"
+    },
+    places: {
+      present: false, sizeBytes: 0, builtAt: null, sourceDate: null, places: 0,
+      build: { running: false, jobId: null, stage: null, done: 0, total: 0, error: null, finishedAt: null }
+    }
+  };
+
+  it("shows each level as it is, and opens the setup wizard with only what is off", async () => {
+    const user = userEvent.setup();
+    mockApi.mockImplementation(async (path: string) => {
+      if (path === "/api/map/settings") return mapSettings;
+      return null;
+    });
+    render(<WelcomePage user={{ id: "u1", email: "admin@example.com", displayName: "Demo Admin", role: "admin", theme: "dark", protectedFromDelete: false, isActive: true, createdAt: "2026-09-01T00:00:00.000Z", deletedAt: null }} onDone={() => {}} />);
+
+    await user.click(screen.getByRole("button", { name: /^Maps/ }));
+    const cache = (await screen.findByText("Maps on this server")).closest("li") as HTMLElement;
+    expect(within(cache).getByText("On")).toBeInTheDocument();
+    expect(within(screen.getByText("Named places").closest("li") as HTMLElement).getByText("Off")).toBeInTheDocument();
+    expect(within(screen.getByText("Sign-in countries").closest("li") as HTMLElement).getByText("Off")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Set up maps" }));
+    const dialog = await screen.findByRole("dialog");
+    const boxes = within(dialog).getAllByRole("checkbox") as HTMLInputElement[];
+    // The cache is already on; named places and countries are offered.
+    expect(boxes.map((box) => [box.checked, box.disabled])).toEqual([[true, true], [true, false], [true, false]]);
   });
 });

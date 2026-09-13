@@ -39,7 +39,18 @@ export interface PlaceLabel {
 
 export interface PlaceNamer {
   nearest(lat: number, lng: number): PlaceHit | null;
+  /** A place near a point that goes by this English name — for putting another
+   *  source's name ("Copenhagen (Valby)") into the reader's language without
+   *  swapping it for a different town that happens to be nearer. */
+  namedNear(lat: number, lng: number, englishName: string, withinKm: number): PlaceHit | null;
   describe(id: number, language: string): PlaceLabel | null;
+}
+
+const COMBINING_MARKS = new RegExp(`[${String.fromCharCode(0x300)}-${String.fromCharCode(0x36f)}]`, "g");
+
+/** "Copenhagen (Valby)" and "København" compare by letters alone. */
+function comparableName(name: string): string {
+  return name.replace(/\s*\(.*\)\s*$/, "").normalize("NFD").replace(COMBINING_MARKS, "").toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
 }
 
 /** Beyond this, no place is named. */
@@ -141,17 +152,32 @@ function createNamer(db: Database.Database): PlaceNamer {
     (nameIn.get(id, language) as { name: string } | undefined)?.name
     ?? (language === "en" ? fallback : (nameIn.get(id, "en") as { name: string } | undefined)?.name ?? fallback);
 
+  const around = (centreLat: number, centreLng: number, km: number) => {
+    const latDegrees = km / KM_PER_DEGREE;
+    // A degree of longitude shrinks toward the poles; widen the box to match.
+    const lngDegrees = latDegrees / Math.max(0.05, Math.cos(toRad(centreLat)));
+    return (inBox.all(centreLat - latDegrees, centreLat + latDegrees, centreLng - lngDegrees, centreLng + lngDegrees) as PlaceRow[])
+      .filter((row) => !NEVER.has(row.fcode));
+  };
+
   return {
+    namedNear(lat, lng, englishName, withinKm) {
+      const wanted = comparableName(englishName);
+      if (!wanted || !Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+      let best: { row: PlaceRow; distance: number } | null = null;
+      for (const row of around(lat, lng, withinKm)) {
+        const distance = distanceKm(lat, lng, row.lat, row.lng);
+        if (distance > withinKm) continue;
+        const english = (nameIn.get(row.id, "en") as { name: string } | undefined)?.name;
+        if (comparableName(row.name) !== wanted && (!english || comparableName(english) !== wanted)) continue;
+        if (!best || row.population > best.row.population) best = { row, distance };
+      }
+      return best ? { id: best.row.id, distanceKm: Math.round(best.distance * 10) / 10 } : null;
+    },
+
     nearest(lat, lng) {
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
 
-      const around = (centreLat: number, centreLng: number, km: number) => {
-        const latDegrees = km / KM_PER_DEGREE;
-        // A degree of longitude shrinks toward the poles; widen the box to match.
-        const lngDegrees = latDegrees / Math.max(0.05, Math.cos(toRad(centreLat)));
-        return (inBox.all(centreLat - latDegrees, centreLat + latDegrees, centreLng - lngDegrees, centreLng + lngDegrees) as PlaceRow[])
-          .filter((row) => !NEVER.has(row.fcode));
-      };
       const within = (km: number) => around(lat, lng, km);
       const bestOf = (rows: PlaceRow[]) => {
         let best: { row: PlaceRow; score: number; distance: number } | null = null;

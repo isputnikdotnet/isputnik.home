@@ -9,6 +9,7 @@ import {
   queryGalleryFolders,
   searchGalleryFolders,
   galleryFacets,
+  queryGalleryPlaces,
   queryGalleryMapPoints
 } from "./catalog.js";
 import { getGalleryAssets } from "./catalog-asset.js";
@@ -211,6 +212,16 @@ export function registerGalleryBrowseRoutes(app: FastifyInstance) {
     const qp = parsed.data;
     const libIds = resolveGalleryBrowseLibraryIds(request.user!, parseLibraryIds(qp.libraryIds));
     return galleryFacets(libIds, placeLanguage(request));
+  });
+
+  // The Places view: every named place in scope, with a count and a cover.
+  app.get("/api/library/gallery/places", { preHandler: app.authenticate }, async (request, reply) => {
+    const parsed = parseQuery(facetsQuerySchema, request.query);
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid query", details: parsed.error });
+    }
+    const libIds = resolveGalleryBrowseLibraryIds(request.user!, parseLibraryIds(parsed.data.libraryIds));
+    return queryGalleryPlaces(request.user!.id, libIds, placeLanguage(request));
   });
 
   // Geotagged assets for the map view. Same scope/kind filtering as the timeline;

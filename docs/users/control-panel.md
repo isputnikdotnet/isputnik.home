@@ -146,7 +146,8 @@ tabs under the heading — real tabs, not a dropdown:
   database is refused rather than kept. It is picked up on the next lookup with no
   restart and nothing to configure, a city database always wins over the country
   one, and
-  each town appears as a gold dot on the map — placed from its coordinates and
+  each town appears as a gold dot on the map (named in your own language, like
+  photos are, once **Named places** is on under [Maps › Setup](#maps)) — placed from its coordinates and
   sized by how many connections came from it — with a **Towns and cities** table
   under it. The app never fetches these
   itself: they run from 70 MB to 400 MB and their terms are yours to accept.
@@ -611,7 +612,7 @@ Nothing here is on until you turn it on, and maps work either way.
     deleted; maps carry on, straight from OpenFreeMap.
   - **Named places** — the town each photo was taken in, worked out from its
     location on this server and shown in each person's own language: "Verona,
-    Veneto, Italy" in the photo viewer, and a **Places** filter in the gallery.
+    Veneto, Italy" in the photo viewer, and a **Places** view and filter in the gallery.
     Turning it on downloads about 220 MB from [GeoNames](https://www.geonames.org)
     once and builds a 27 MB database from it in the background, which takes a few
     minutes; the row, and **Overview → Tasks**, show how far it has got. No
@@ -620,12 +621,21 @@ Nothing here is on until you turn it on, and maps work either way.
   - **Sign-in countries** — the free location database the Dashboard's Locations
     view uses, about 9 MB.
   - **Sign-in towns** — a city-level database you download yourself, added on Data.
-- **Data** — the databases maps draw on. **Named places** shows when it was built
+
+  ![Maps › Setup: each level with what it keeps and what it costs](images/108-maps-setup.png)
+
+  ![The Set up maps wizard, choosing what to keep](images/109-maps-wizard.png)
+
+- **Data** — the databases maps draw on, all kept in the **Map data** room of
+  [Storage](#storage), so they move with it. **Named places** shows when it was built
   and from which GeoNames data, with **Update** to build it again from GeoNames'
   latest (the names already shown stay until the new one is ready). Below it, the
   location databases: which are there, which is in use, and a way to add one
   (fetch, paste a link, or upload) or remove one. Removing a database you supplied
   yourself cannot be undone from here, since the app cannot fetch it again.
+
+  ![Maps › Data: the named places database and the sign-in location databases](images/110-maps-data.png)
+
 - **Routing** — whether a route in a [story](stories.md) follows real roads. Paste a
   free **OpenRouteService** key — the routing service at
   [openrouteservice.org](https://openrouteservice.org), run by a research

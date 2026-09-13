@@ -128,7 +128,7 @@ export function MapSetupWizard({
             {checkbox("places", t("controlAdmin:mapWizard.placesHint"), placesOn)}
             {checkbox("countries", t("controlAdmin:mapWizard.countriesHint"), countriesOn)}
           </div>
-          <p className="datagrid-muted">
+          <p className="map-wizard-note">
             {t("controlAdmin:mapWizard.townsNote")}{" "}
             <Button variant="text" compact onClick={() => { onClose(); navigate(controlHref("mapData")); }}>
               {t("controlAdmin:mapSetup.addDatabase")}
@@ -183,7 +183,7 @@ export function MapSetupWizard({
                 : <MessageBox tone="success" title={t("controlAdmin:mapWizard.allDoneTitle")}>{t("controlAdmin:mapWizard.allDone")}</MessageBox>
           )}
           {finished && anyFailed && placesStarted && (
-            <p className="datagrid-muted">{t("controlAdmin:mapWizard.placesStartedNote")}</p>
+            <p className="map-wizard-note">{t("controlAdmin:mapWizard.placesStartedNote")}</p>
           )}
           <div className="modal-actions">
             <Button variant="primary" disabled={running} onClick={onClose}>

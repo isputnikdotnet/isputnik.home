@@ -668,6 +668,43 @@ const SHOTS = [
     state: "App storage chosen, an App files library with something in it",
     height: 1100
   },
+  // Maps (docs/users/control-panel.md → Maps, library-gallery.md, first-run.md).
+  { name: "108-maps-setup", url: "control/maps", wait: 3500 },
+  {
+    name: "109-maps-wizard",
+    url: "control/maps",
+    setup: `button(document, "Set up maps").click(); await sleep(700); "wizard open";`
+  },
+  { name: "110-maps-data", url: "control/maps/data", wait: 3500 },
+  { name: "111-gallery-places", url: "gallery/places", wait: 4000, state: "named places built, photos with GPS" },
+  {
+    // The viewer's Map tab: the pin, and the town the photo was taken in.
+    name: "112-lightbox-named-place",
+    url: "gallery/places",
+    wait: 4000,
+    state: "named places built, photos with GPS",
+    setup: `
+      const place = document.querySelector(".gallery-places-country .gallery-folder-tile");
+      if (!place) return "no place on the Places view";
+      place.click(); await sleep(2500);
+      const tile = [...document.querySelectorAll('button[aria-label^="Open "]')]
+        .find((b) => /\\.(jpe?g|png|webp|heic)$/i.test(b.getAttribute("aria-label")));
+      if (!tile) return "no photo tile for that place";
+      tile.click(); await sleep(1800);
+      const tab = [...document.querySelectorAll('[role="tab"]')].find((b) => b.textContent.trim() === "Map");
+      if (!tab) return "no Map tab";
+      tab.click(); await sleep(3500);
+      "map tab open";`
+  },
+  {
+    name: "113-welcome-maps",
+    url: "welcome",
+    setup: `
+      const step = [...document.querySelectorAll(".welcome-step")].find((b) => b.textContent.includes("Maps"));
+      if (!step) return "no Maps step";
+      step.click(); await sleep(1200);
+      "maps step";`
+  },
   // The setup guide's storage and App files steps (docs/users/first-run.md).
   { name: "103-welcome-storage", url: "welcome", height: 1000 },
   {
@@ -726,7 +763,11 @@ async function launch() {
   const child = spawn(findBrowser(), [
     `--remote-debugging-port=${PORT}`,
     "--headless=new",
-    "--disable-gpu",
+    // Maps draw with WebGL (MapLibre). Headless has no GPU, and Chrome no longer
+    // falls back to software rendering unless told to — without these two every
+    // map in a screenshot is a blank box.
+    "--use-angle=swiftshader",
+    "--enable-unsafe-swiftshader",
     "--hide-scrollbars",
     "--no-first-run",
     "--no-default-browser-check",

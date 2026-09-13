@@ -93,7 +93,7 @@ export function MapDataSection() {
       )}
 
       {status && (
-        <section className="config-block">
+        <section className="config-block map-data-block">
           <h2>{t("controlAdmin:mapData.placesTitle")}</h2>
           <p className="section-description">{t("controlAdmin:mapData.placesIntro")}</p>
           <p className="datagrid-muted storage-path-cell">{t("controlAdmin:mapData.folder", { path: status.cache.folder })}</p>
@@ -149,7 +149,7 @@ export function MapDataSection() {
       )}
 
       {status && (
-        <section className="config-block">
+        <section className="config-block map-data-block">
           <h2>{t("controlAdmin:mapData.locationsTitle")}</h2>
           <p className="section-description">{t("controlAdmin:mapData.locationsIntro")}</p>
           <p className="datagrid-muted storage-path-cell">{t("controlAdmin:mapData.folder", { path: status.locations.directory })}</p>

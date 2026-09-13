@@ -88,7 +88,7 @@ variables if you need them. Background:
 
 | Variable | Default | Image | What it does |
 |---|---|---|---|
-| `GEOIP_PATH` | a `geoip` folder next to the database's folder (`data/geoip`) | `/config/geoip` | Where the IP-location databases live — the country database the Dashboard's Locations view fetches, and any city-level `.mmdb` you add by hand. |
+| `GEOIP_PATH` | the **Locations** folder of the Map data room (App storage's `Map data/Locations`, else `map-data/Locations` next to the database's folder) | – | Where the IP-location databases live — the country database the Dashboard's Locations view fetches, and any city-level `.mmdb` you add by hand. Leave it unset and they move with the Map data room. Before 4.6 the default was a `geoip` folder (`/config/geoip` in the image); anything still there is moved into the room when the server starts. Set it only to keep them in a folder of your own, which the server then never moves. |
 | `GEOIP_URL_BASE` | `https://download.db-ip.com/free` | – | Where that country database is downloaded from (`<base>/dbip-country-lite-YYYY-MM.mmdb.gz`). Change it only to point at a mirror. |
 
 ## Logging

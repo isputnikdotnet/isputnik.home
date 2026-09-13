@@ -191,7 +191,7 @@ const CONTROL_ALIASES: Record<string, ControlSection> = {
 //
 // Folders keeps its own route below rather than a bare path here, because it
 // carries the folder being looked at; this table's entry is its root.
-export type GalleryView = "timeline" | "memories" | "albums" | "slideshows" | "folder" | "people" | "map";
+export type GalleryView = "timeline" | "memories" | "albums" | "slideshows" | "folder" | "people" | "places" | "map";
 
 export const GALLERY_VIEW_PATHS: Record<GalleryView, string> = {
   timeline: "/gallery",
@@ -200,6 +200,7 @@ export const GALLERY_VIEW_PATHS: Record<GalleryView, string> = {
   slideshows: "/gallery/slideshows",
   folder: "/gallery/folders",
   people: "/gallery/people",
+  places: "/gallery/places",
   map: "/gallery/map"
 };
 

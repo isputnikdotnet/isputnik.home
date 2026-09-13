@@ -61,9 +61,27 @@ export interface GeoipStatus {
   source: string;
 }
 
+// Where the databases live is not this file's to decide: they are kept in the
+// Map data room (docs/map-approach-proposal.md, "Storage"), which the maps module
+// owns and core does not know about. It hands its folder in at boot.
+let roomDirectory: (() => string) | null = null;
+
+/** The maps module's Locations folder, or null to fall back (tests, shutdown). */
+export function setGeoipRoomDirectory(resolve: (() => string) | null): void {
+  roomDirectory = resolve;
+}
+
+/** Where the databases lived before they joined the Map data room, and where
+ *  the maps module collects them from on boot. */
+export function legacyGeoipDirectory(): string {
+  return path.resolve(path.dirname(path.dirname(config.dbPath)), "geoip");
+}
+
+/** GEOIP_PATH when someone set it — an environment variable is a promise — else
+ *  the Map data room's Locations folder. */
 export function geoipDirectory(): string {
   if (process.env.GEOIP_PATH) return process.env.GEOIP_PATH;
-  return path.join(path.dirname(path.dirname(config.dbPath)), "geoip");
+  return roomDirectory?.() ?? legacyGeoipDirectory();
 }
 
 function listDatabases(): GeoipDatabase[] {

@@ -59,9 +59,10 @@ const { enqueuePlacesBuild, placesBuildStatus, waitForPlacesBuild } = await impo
 const { mapsPlugin } = await import("../src/modules/maps/index.js");
 const { removePlaces } = await import("../src/modules/maps/places/dataset.js");
 const { namesLanguageFor } = await import("../src/modules/maps/places/namer.js");
+const { signInPlaceNames } = await import("../src/modules/dashboard/place-names.js");
 const { ingestGalleryAsset } = await import("../src/modules/library/gallery/scanner.js");
 const { getGalleryAsset } = await import("../src/modules/library/gallery/catalog-asset.js");
-const { galleryFacets, queryGalleryTimeline } = await import("../src/modules/library/gallery/catalog.js");
+const { galleryFacets, queryGalleryPlaces, queryGalleryTimeline } = await import("../src/modules/library/gallery/catalog.js");
 const { EMPTY_GALLERY_FILTERS } = await import("../src/modules/library/gallery/catalog-filters.js");
 const { sweepPhotoPlaces, startPhotoPlaceNaming } = await import("../src/modules/library/gallery/places.js");
 
@@ -260,6 +261,32 @@ describe("the build task", () => {
   });
 });
 
+describe("sign-in places in the reader's language", () => {
+  it("keeps the location database's words without named places, and names the town from its point with them", async () => {
+    expect(signInPlaceNames("ru", undefined).town(53.9, 27.56667)).toBeNull();
+    expect(signInPlaceNames("ru", undefined).country("BY", "Belarus")).toBe("Беларусь");
+
+    await buildPlaces();
+    expect(signInPlaceNames("ru", undefined).town(53.9, 27.56667)).toEqual({ place: "Минск", region: null });
+    expect(signInPlaceNames(null, "en-GB").town(40.758, -73.9855)).toEqual({ place: "Manhattan", region: "New York" });
+    // An IP location far from any named place is not forced onto one.
+    expect(signInPlaceNames("en", undefined).town(51.0, 10.0)).toBeNull();
+    expect(signInPlaceNames("en", undefined).town(null, null)).toBeNull();
+  });
+
+  it("keeps the town the location database named, translated, rather than swapping it for a nearer or bigger one", async () => {
+    await buildPlaces();
+    const names = signInPlaceNames("ru", undefined);
+    // Standing in Times Square the rule for photos says Manhattan; a sign-in the
+    // database placed in Weehawken stays Weehawken.
+    expect(names.town(40.758, -73.9855, "Weehawken")?.place).toBe("Weehawken");
+    // Its habit of adding the district in brackets does not stop the match.
+    expect(names.town(53.9, 27.56, "Minsk (Tsentralny)")?.place).toBe("Минск");
+    // A town the place names database does not know keeps its English name: no label.
+    expect(names.town(53.9, 27.56, "Somewhere Else")).toBeNull();
+  });
+});
+
 describe("which language names are spelled in", () => {
   it("takes the person's own choice, else their browser's, else English", () => {
     expect(namesLanguageFor("ru", "en-US,en;q=0.9")).toBe("ru");
@@ -336,6 +363,22 @@ describe("naming photos", () => {
     await sweepPhotoPlaces();
     expect(timeline(["3164527"])).toEqual([b]);
     expect(timeline([])).toContain(c);
+  });
+
+  it("lists the places for the Places view, most photographed first, each with a cover from that place", async () => {
+    expect(queryGalleryPlaces("dad", ["GAL"], "en").places).toEqual([]);
+    await buildPlaces();
+    await photo("a.jpg", 53.9005, 27.5592);
+    const newest = await photo("b.jpg", 53.9, 27.56);
+    db.prepare("UPDATE gallery_details SET taken_at = '2030-01-01T00:00:00.000Z' WHERE item_id = ?").run(newest);
+    await photo("c.jpg", 40.758, -73.9855);
+    await sweepPhotoPlaces();
+
+    const { places } = queryGalleryPlaces("dad", ["GAL"], "ru");
+    expect(places.map((place) => [place.name, place.countryCode, place.count])).toEqual([["Минск", "BY", 2], ["Манхэттен", "US", 1]]);
+    expect(places[0].cover).not.toBeNull();
+    // Nothing in scope, nothing listed.
+    expect(queryGalleryPlaces("dad", [], "ru").places).toEqual([]);
   });
 
   it("names again after a rebuild, and forgets every name when the database is removed", async () => {
