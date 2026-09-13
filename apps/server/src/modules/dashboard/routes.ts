@@ -828,7 +828,7 @@ export async function dashboardRoutesPlugin(app: FastifyInstance) {
     return reply.send({ geoip: result.status, installed: result.installed });
   });
 
-  // Taking a database back out — how the sign-in levels on Maps › Setup are turned
+  // Taking a database back out — how the Sign-in locations card on the Maps page is turned
   // off. The name is matched against what the folder scan lists (core/geoip.ts).
   app.delete("/api/dashboard/locations/database/:name", { preHandler: app.requireAdmin }, async (request, reply) => {
     const { name } = request.params as { name: string };

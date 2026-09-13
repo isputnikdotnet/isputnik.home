@@ -202,7 +202,7 @@ export function LocationsView() {
             <p>{t("controlDash:locations.noDatabaseBody")}</p>
             <div className="modal-actions">
               {/* The map still draws without it; the notice offers the way to turn it on,
-                  which lives with the other map levels on Maps › Setup. */}
+                  which lives with the other map features on the Maps page. */}
               <Button variant="primary" onClick={() => navigate(controlHref("mapSetup"))}>{t("controlDash:locations.setUpDatabase")}</Button>
             </div>
           </MessageBox>
@@ -283,7 +283,7 @@ export function LocationsView() {
               </p>
 
               <div className="locations-map-actions">
-                <Button variant="secondary" onClick={() => navigate(controlHref("mapData"))}>
+                <Button variant="secondary" onClick={() => navigate(controlHref("mapSetup"))}>
                   <Database size={15} aria-hidden="true" />
                   {t("controlDash:locations.databaseButton")}
                 </Button>

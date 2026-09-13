@@ -391,4 +391,21 @@ describe("with caching off", () => {
       expect.stringMatching(/^Map caching turned off \(\d+ bytes freed\)$/)
     ]);
   });
+
+  it("keeps the limit the owner chose, offers only the listed ones, and says what the limit is", async () => {
+    const cookie = await signIn("dad");
+    expect((await get("/api/map/settings", { cookie })).json().cache.limitBytes).toBe(200 * 1024 * 1024);
+
+    const set = await app.inject({ method: "PUT", url: "/api/map/settings", headers: { cookie }, payload: { cacheLimitMb: 1000 } });
+    expect(set.statusCode).toBe(200);
+    // Only the limit changed: the cache stays as it was.
+    expect(set.json().settings).toEqual({ cache: false, cacheLimitMb: 1000 });
+    expect((await get("/api/map/settings", { cookie })).json().cache.limitBytes).toBe(1000 * 1024 * 1024);
+
+    for (const payload of [{ cacheLimitMb: 750 }, { cacheLimitMb: 20000 }, {}]) {
+      expect((await app.inject({ method: "PUT", url: "/api/map/settings", headers: { cookie }, payload })).statusCode).toBe(400);
+    }
+    const kid = await signIn("kid");
+    expect((await app.inject({ method: "PUT", url: "/api/map/settings", headers: { cookie: kid }, payload: { cacheLimitMb: 100 } })).statusCode).toBe(403);
+  });
 });

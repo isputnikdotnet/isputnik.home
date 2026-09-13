@@ -134,12 +134,11 @@ export const CONTROL_GROUPS: ControlGroupDef[] = [
   {
     key: "maps",
     icon: MapIcon,
-    // Setup is where maps are switched on (the wizard); Data holds the databases
-    // they draw on; Routing is what used to be Settings › Maps.
+    // One page: every map feature is a card with a switch on it — offline maps,
+    // photo place names, sign-in locations, road routes. Data and Routing were
+    // tabs until the cards took them in; a group of one page draws no tab row.
     tabs: [
-      { section: "mapSetup" },
-      { section: "mapData" },
-      { section: "mapRouting" }
+      { section: "mapSetup" }
     ]
   },
   {

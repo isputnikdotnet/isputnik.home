@@ -8,7 +8,7 @@
 //
 // Skipping is a real answer — it marks the guide done and stops it asking on every
 // sign-in — and Settings → About links back here for whenever the answer changes.
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import {
   ArrowLeft, ArrowRight, Check, DatabaseBackup, Folder, HardDrive, Images, Lock, Mail, Map as MapIcon, Palette,
@@ -23,8 +23,7 @@ import { MessageBox } from "../shared/MessageBox";
 import { ThemePicker, type Theme } from "../shared/ThemePicker";
 import { ToggleSwitch } from "../shared/ToggleSwitch";
 import { FolderPickerModal } from "../features/control/libraries/FolderPickerModal";
-import { MapSetupWizard } from "../features/control/sections/maps/MapSetupWizard";
-import { loadMapSettings, placesProgressText, useFollowPlacesBuild, type MapSettingsDto } from "../features/control/sections/maps/map-settings";
+import { MapFeatures } from "../features/control/sections/maps/MapFeatures";
 import type { LibrarySettings, StorageRoot } from "../features/control/types";
 // The setup guide's stylesheet: it loads with this page, not on every route (docs/css-map.md).
 import "../styles/welcome.css";
@@ -101,7 +100,7 @@ interface AppStorageView {
 // Maps come after backups, last of the "what does this server keep" questions
 // (docs/map-approach-proposal.md, "Optional, and off by default"). Never locked:
 // maps work with nothing kept, and Map data has a place of its own without App
-// storage. The step is the same wizard Maps › Setup opens, not a second copy.
+// storage. The step is the Maps page's own cards, not a second copy of them.
 const STEP_ORDER: StepKey[] = ["storage", "bin", "gallery", "backup", "maps", "email", "alerts", "theme"];
 
 const STEP_ICONS: Record<StepKey, typeof HardDrive> = {
@@ -164,21 +163,6 @@ export function WelcomePage({ user, onDone }: {
   const [backup, setBackup] = useState<BackupSettings | null>(null);
   const [backupPath, setBackupPath] = useState("");
   const [backupSaved, setBackupSaved] = useState("");
-
-  // Maps: read when the step opens, and again while a places build runs.
-  const [maps, setMaps] = useState<MapSettingsDto | null>(null);
-  const [mapsWizardOpen, setMapsWizardOpen] = useState(false);
-  const reloadMaps = useCallback(async () => {
-    try {
-      setMaps(await loadMapSettings());
-    } catch {
-      // The step still explains itself, and Maps › Setup is always there.
-    }
-  }, []);
-  useEffect(() => {
-    if (step === "maps") void reloadMaps();
-  }, [step, reloadMaps]);
-  useFollowPlacesBuild(maps, reloadMaps);
 
   // Email
   const [mail, setMail] = useState<MailSettings | null>(null);
@@ -701,33 +685,8 @@ export function WelcomePage({ user, onDone }: {
           {step === "maps" && (
             <>
               <h2>{t("welcome.mapsHeading")}</h2>
-              <p>{t("welcome.mapsIntro")}</p>
               <p className="welcome-note">{t("welcome.mapsNote")}</p>
-              {maps && (
-                <ul className="welcome-list">
-                  <li>
-                    <strong>{t("controlAdmin:mapSetup.cacheName")}</strong>
-                    <span>{maps.settings.cache ? t("welcome.mapsOn") : t("controlAdmin:mapSetup.off")}</span>
-                  </li>
-                  <li>
-                    <strong>{t("controlAdmin:mapSetup.placesName")}</strong>
-                    <span>
-                      {maps.places.build.running
-                        ? t("controlAdmin:mapSetup.placesBuilding", { progress: placesProgressText(t, maps.places.build) })
-                        : maps.places.present ? t("welcome.mapsOn") : t("controlAdmin:mapSetup.off")}
-                    </span>
-                  </li>
-                  <li>
-                    <strong>{t("controlAdmin:mapSetup.countriesName")}</strong>
-                    <span>{maps.locations.countryFilePresent ? t("welcome.mapsOn") : t("controlAdmin:mapSetup.off")}</span>
-                  </li>
-                </ul>
-              )}
-              <div className="welcome-actions-inline">
-                <Button variant="secondary" disabled={busy || !maps} onClick={() => { setError(""); setMapsWizardOpen(true); }}>
-                  {t("controlAdmin:mapSetup.setUp")}
-                </Button>
-              </div>
+              <MapFeatures />
             </>
           )}
 
@@ -875,10 +834,6 @@ export function WelcomePage({ user, onDone }: {
         >
           {galleryPending === "house" ? t("controlAdmin:storage.confirmHouseAppBody") : t("controlAdmin:storage.confirmInboxAppBody")}
         </ConfirmDialog>
-      )}
-
-      {mapsWizardOpen && maps && (
-        <MapSetupWizard status={maps} onClose={() => setMapsWizardOpen(false)} onFinished={() => void reloadMaps()} />
       )}
 
       {binPickerOpen && (

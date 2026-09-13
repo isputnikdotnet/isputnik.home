@@ -4,8 +4,16 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { resetSweepThrottle, sweepSoon, sweepTileCache } from "../src/modules/maps/sweep.js";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+// The cap is the owner's choice, read from the database; here it is whatever a
+// test says, so a cap can be 100 KB without writing 100 MB of tiles to exceed it.
+let limitMb = 200;
+vi.mock("../src/modules/maps/settings.js", () => ({
+  getMapSettings: () => ({ cache: true, cacheLimitMb: limitMb })
+}));
+
+const { cacheLimitBytes, resetSweepThrottle, sweepSoon, sweepTileCache } = await import("../src/modules/maps/sweep.js");
 
 let dataDir = "";
 
@@ -23,11 +31,11 @@ beforeEach(() => {
   dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "isputnik-map-sweep-"));
   process.env.MAP_DATA_PATH = dataDir;
   resetSweepThrottle();
+  limitMb = 200;
 });
 
 afterEach(() => {
   delete process.env.MAP_DATA_PATH;
-  delete process.env.MAP_CACHE_LIMIT_MB;
   fs.rmSync(dataDir, { recursive: true, force: true });
 });
 
@@ -82,9 +90,17 @@ describe("sweepTileCache", () => {
   });
 });
 
+describe("the cap", () => {
+  it("is the limit chosen on Maps › Setup", () => {
+    expect(cacheLimitBytes()).toBe(200 * 1024 * 1024);
+    limitMb = 1000;
+    expect(cacheLimitBytes()).toBe(1000 * 1024 * 1024);
+  });
+});
+
 describe("sweepSoon", () => {
   it("sweeps off the request path, and not again straight away", async () => {
-    process.env.MAP_CACHE_LIMIT_MB = String(100 / 1024); // 100 KB
+    limitMb = 100 / 1024; // 100 KB
     const first = cached("vector/14/1/1.pbf.gz", 80, 5);
     cached("vector/14/1/2.pbf.gz", 80, 1);
 

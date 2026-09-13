@@ -204,7 +204,7 @@ these four surfaces need and nothing more.
   Providers do not share a URL layout, so "just a base URL" only holds within
   one; a second provider is a second `provider.ts`.
 - **The cap is a throttled sweep after writes** (`sweep.ts`, 200 MB,
-  `MAP_CACHE_LIMIT_MB`), not a scheduled job: a cap must hold whether or not
+  the cap was `MAP_CACHE_LIMIT_MB` until it became a setting, below), not a scheduled job: a cap must hold whether or not
   anyone schedules anything. Oldest-fetched tiles go first; styles, glyphs and
   sprites are never evicted.
 - **Map data is a room** (`maps`, folder "Map data"), on the Renders rule: App
@@ -585,6 +585,59 @@ CSP note: `connect-src` can only close to `'self'` once the provider is never hi
 directly, so it stays open while Off remains a level.
 2. **Phase 2** — dataset build script, `geo_*` columns (migration), scan hook,
    backfill job, display precedence, Places facet and filter UI, i18n keys.
+
+## After 4.5 — the cache limit, and one Maps page
+
+Both agreed and built 2026-09-12, as written below.
+
+- **The tile cache limit is a setting (built).** Until then the
+  200 MB cap was `MAP_CACHE_LIMIT_MB`, an environment variable added as an
+  override while 200 MB was a guess, and never in the user docs. Instead:
+  - store it with the other map settings in `app_settings` (`maps`:
+    `{ cache, cacheLimitMb }`, default 200), read by `sweep.ts`;
+  - a limit control on the Maps › Setup row (100 MB / 200 MB / 500 MB / 1 GB /
+    2 GB), and the row reading "X of Y MB kept";
+  - lowering it sweeps at once and says what it freed; raising it applies at once;
+  - remove `MAP_CACHE_LIMIT_MB` (nobody depends on an undocumented variable);
+  - the wizard's "capped at 200 MB" and the guide follow the setting; tests.
+
+- **One Maps page of four cards (built).** Setup becomes four
+  cards, one per purpose, each with a switch and the same three facts — source, how
+  it gets here, space:
+  - **Offline maps** — "Maps you've viewed work without internet". OpenFreeMap,
+    automatic as you browse, "X MB of Y MB", with the cache limit control above.
+  - **Photo place names** — "Show the town each photo was taken in". GeoNames,
+    downloaded once (~220 MB → 27 MB), built date and Update.
+  - **Sign-in locations** — "Show where sign-ins came from, on the Dashboard map".
+    One switch, two parts: **Countries** (DB-IP Country Lite, downloaded
+    automatically when switched on, Update) and **Towns** (optional, your own
+    city database, Upload or Link).
+  - **Road routes** (the Routing page, agreed the same day) — "Story routes follow
+    real roads instead of straight lines". Facts: OpenRouteService · needs a free
+    API key · only stop points are sent, on save. One key field whose **Test**
+    saves and checks it, with a Works / error badge (no separate Save and Remove).
+    The switch: on with no key opens the field; off removes the key after one
+    confirmation (saved routes keep their roads). Info icon → openrouteservice.org
+    sign-up, saying it is the Heidelberg research institute's service. The service
+    address folds under "Use your own routing server". The long intro and privacy
+    box move to the guide.
+  - **An info icon on each source.** Towns lists free city databases with links to
+    their download pages — DB-IP City Lite (no account) and MaxMind GeoLite2 City
+    (free account) — so the owner can fetch one and upload it; Countries links to
+    DB-IP Country Lite (for a server without internet); Offline maps and Photo
+    place names link to OpenFreeMap and GeoNames with their licence and credit.
+  - **The switch replaces the wizard.** On asks once (what is downloaded, how big,
+    where it goes) and starts; off asks once and says what it frees. The wizard is
+    removed; the setup guide's Maps step shows the same cards.
+  - **The Data tab folds into the cards** (build dates, file names, which database is
+    in use live on the card), and so does Routing: Maps becomes one page with no tab
+    row, and the old Data and Routing addresses redirect to it.
+  - **One folder line** at the bottom — "All map data is kept in …" with Change
+    linking to Storage — instead of a path per row.
+  - **Short copy**: one line per card; the long explanations move to the guide.
+  - **The Dashboard's Locations map**, while Sign-in locations is off, says so and
+    links to this page.
+  - Guide text and screenshots 108–110 and 113 follow; the search index and tests too.
 
 ## Open questions
 

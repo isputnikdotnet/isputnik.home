@@ -669,13 +669,7 @@ const SHOTS = [
     height: 1100
   },
   // Maps (docs/users/control-panel.md → Maps, library-gallery.md, first-run.md).
-  { name: "108-maps-setup", url: "control/maps", wait: 3500 },
-  {
-    name: "109-maps-wizard",
-    url: "control/maps",
-    setup: `button(document, "Set up maps").click(); await sleep(700); "wizard open";`
-  },
-  { name: "110-maps-data", url: "control/maps/data", wait: 3500 },
+  { name: "108-maps-setup", url: "control/maps", wait: 3500, height: 1500 },
   { name: "111-gallery-places", url: "gallery/places", wait: 4000, state: "named places built, photos with GPS" },
   {
     // The viewer's Map tab: the pin, and the town the photo was taken in.
@@ -699,6 +693,7 @@ const SHOTS = [
   {
     name: "113-welcome-maps",
     url: "welcome",
+    height: 1500,
     setup: `
       const step = [...document.querySelectorAll(".welcome-step")].find((b) => b.textContent.includes("Maps"));
       if (!step) return "no Maps step";

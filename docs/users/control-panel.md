@@ -15,7 +15,7 @@ it points there rather than repeating it.
 | **Security** | Overview, Policies, Trusted networks, Blocked IPs |
 | **Maintenance** | Backup, Scheduled jobs, Recycle Bin |
 | **Utilities** | Gallery → Duplicate cleanup, Missing photos |
-| **Maps** | Setup, Data, Routing |
+| **Maps** | Offline maps, photo place names, sign-in locations, road routes (one page) |
 | **Settings** | Appearance, Email, Notifications, Stories, Reader access, About |
 
 Every tab has its own address, so any page here can be bookmarked or linked to.
@@ -128,26 +128,27 @@ tabs under the heading — real tabs, not a dropdown:
 
   Countries are worked out on your server from a database file, so no address is
   ever sent anywhere to draw this. Nothing is fetched until you ask: turn on
-  **Sign-in countries** on [Maps › Setup](#maps) and it fetches DB-IP's Country
-  Lite database (about 9 MB, free, no account) into your data folder. Until then
+  **Sign-in locations** on [Maps](#maps) and it fetches DB-IP's Country
+  Lite database (about 8 MB, free, no account) into your data folder. Until then
   the map still draws, with a notice offering the way there. That download is the
   only outbound call; lookups after it never leave the machine. Worth fetching
   again every few months, since addresses move between networks. The databases
-  themselves are listed, added and removed on **Maps › Data**, which **Location
-  database** under the map opens.
+  themselves are on the **Sign-in locations** card on [Maps](#maps), which
+  **Location database** under the map opens.
 
   **Want town-level detail?** That database is yours to choose. Download any
   city-level database you like — DB-IP City Lite or MaxMind's GeoLite2-City,
-  whichever licence suits you — and give it to the server from **Maps › Data** →
-  **Add or update a database**, on its **City database** tab: paste its download link and the server fetches it itself, or pick the file
-  from your computer. Dropping the `.mmdb` straight into the folder named on the
-  **Files** tab works too. A `.mmdb.gz` from the vendor
+  whichever licence suits you — and give it to the server from the **Towns** part of
+  the **Sign-in locations** card on [Maps](#maps): **Link** to paste its download
+  link and let the server fetch it, or **Upload** to pick the file from your
+  computer. Dropping the `.mmdb` straight into the `Locations` folder of Map data
+  works too. A `.mmdb.gz` from the vendor
   is fine either way — it is unpacked here — and a file that turns out not to be a
   database is refused rather than kept. It is picked up on the next lookup with no
   restart and nothing to configure, a city database always wins over the country
   one, and
   each town appears as a gold dot on the map (named in your own language, like
-  photos are, once **Named places** is on under [Maps › Setup](#maps)) — placed from its coordinates and
+  photos are, once **Photo place names** is on under [Maps](#maps)) — placed from its coordinates and
   sized by how many connections came from it — with a **Towns and cities** table
   under it. The app never fetches these
   itself: they run from 70 MB to 400 MB and their terms are yours to accept.
@@ -598,57 +599,62 @@ entry, thumbnail and all — and **Purge eligible now** does it immediately.
 
 ## Maps
 
-The maps across the app — the gallery map, a photo's location, a story's
-route, the Dashboard's sign-in locations — and what this server keeps for them.
-Nothing here is on until you turn it on, and maps work either way.
+The maps across the app — the gallery map, a photo's location, a story's route, the
+Dashboard's sign-in locations — and what this server keeps for them. It is one page
+of four cards. Each says in a line what it does, where its data comes from, how that
+gets here and how much space it takes, with a switch to turn it on or off. Turning
+one on says what will be downloaded, how big it is and where it goes before it does
+anything; turning one off says what it frees. The ⓘ beside each name says more about
+the source, with a link to it. Maps work with every card off.
 
-- **Setup** — one row per thing this server can keep, each saying what it costs on
-  disk while it is on. **Set up maps** walks through turning them on: what to keep,
-  where it goes, and then fetching it.
-  - **Maps on this server** — maps come through this server and are kept, so they
-    draw offline, and OpenFreeMap (the map provider) no longer sees which places
-    are looked at. It grows as places are viewed, up to 200 MB, and lives in the
-    **Map data** room of [Storage](#storage). Turn it off and what was kept is
-    deleted; maps carry on, straight from OpenFreeMap.
-  - **Named places** — the town each photo was taken in, worked out from its
-    location on this server and shown in each person's own language: "Verona,
-    Veneto, Italy" in the photo viewer, and a **Places** view and filter in the gallery.
-    Turning it on downloads about 220 MB from [GeoNames](https://www.geonames.org)
-    once and builds a 27 MB database from it in the background, which takes a few
-    minutes; the row, and **Overview → Tasks**, show how far it has got. No
-    photo's location is ever sent out. Remove it and the names go with it — the
-    photos' locations, and anything people typed as the place, stay.
-  - **Sign-in countries** — the free location database the Dashboard's Locations
-    view uses, about 9 MB.
-  - **Sign-in towns** — a city-level database you download yourself, added on Data.
+![The Maps page: offline maps, photo place names, sign-in locations and road routes](images/108-maps-setup.png)
 
-  ![Maps › Setup: each level with what it keeps and what it costs](images/108-maps-setup.png)
+- **Offline maps** — maps come through this server and are kept, so places you've
+  viewed draw without internet, and OpenFreeMap (the map provider) no longer sees
+  where you look. An area nobody has viewed still needs the internet the first time.
+  **Keep up to** sets how much is kept, from 100 MB to 2 GB (200 MB to start); when
+  it is full, what was viewed longest ago goes first, and lowering it trims the cache
+  there and then. Turning it off deletes what was kept; maps carry on, straight
+  from OpenFreeMap.
+- **Photo place names** — the town each photo was taken in, worked out from its
+  location on this server and shown in each person's own language: "Verona,
+  Veneto, Italy" in the photo viewer, and a **Places** view and filter in the
+  gallery. Turning it on downloads about 220 MB from [GeoNames](https://www.geonames.org)
+  once and builds a 27 MB database in the background, which takes a few minutes;
+  the card, and **Overview → Tasks**, show how far it has got. **Update** builds it
+  again from GeoNames' latest, and the names already shown stay until the new one is
+  ready. No photo's location is ever sent out. Turn it off and the names go with
+  it — the photos' locations, and anything people typed as the place, stay.
+- **Sign-in locations** — where each sign-in came from, on the Dashboard's
+  Locations view. It is used for nothing else. Two parts:
+  - **Countries** — DB-IP's free Country Lite database, about 8 MB, downloaded when
+    you turn the card on. **Update** fetches the latest; addresses move between
+    networks, so every few months is worth it.
+  - **Towns** (optional) — a city-level database you download yourself: the ⓘ
+    links to DB-IP City Lite (free, no account) and MaxMind GeoLite2 City (free
+    account). **Upload** the file, or **Link** to paste its download address and
+    let the server fetch it; a `.mmdb` or `.mmdb.gz` both work. Once added, each
+    sign-in also gets its region, town and a dot on the map. The app cannot fetch
+    this file for you, so removing it cannot be undone from here.
 
-  ![The Set up maps wizard, choosing what to keep](images/109-maps-wizard.png)
+  Turning the card off deletes both. None of these databases are in backups: the
+  country one can be fetched again, a towns one has to come from your own copy.
+- **Road routes** — whether a route in a [story](stories.md) follows real roads.
+  Turn it on and paste a free **OpenRouteService** key (the ⓘ links to the sign-up;
+  the service is run by a research institute at Heidelberg University, not the
+  similarly named delivery-planning company a search may turn up), then **Save and
+  test**. Legs travelled on foot, by bike, by car or by bus are then drawn along the
+  roads they actually took; without a key they stay straight lines between the
+  stops. The service is asked only when a route is **saved**, and only the two
+  coordinates of each leg go to it — never the story, the place names, or who is
+  asking. What comes back is stored with the story, so reading one never calls out,
+  a shared link works for a guest, and the map still draws if the key later lapses.
+  Under **Use your own routing server** you can point it at your own
+  OpenRouteService container instead, if you would rather nothing left the house.
+  Turning the card off removes the key; routes already saved keep their roads.
 
-- **Data** — the databases maps draw on, all kept in the **Map data** room of
-  [Storage](#storage), so they move with it. **Named places** shows when it was built
-  and from which GeoNames data, with **Update** to build it again from GeoNames'
-  latest (the names already shown stay until the new one is ready). Below it, the
-  location databases: which are there, which is in use, and a way to add one
-  (fetch, paste a link, or upload) or remove one. Removing a database you supplied
-  yourself cannot be undone from here, since the app cannot fetch it again.
-
-  ![Maps › Data: the named places database and the sign-in location databases](images/110-maps-data.png)
-
-- **Routing** — whether a route in a [story](stories.md) follows real roads. Paste a
-  free **OpenRouteService** key — the routing service at
-  [openrouteservice.org](https://openrouteservice.org), run by a research
-  institute at Heidelberg University, not the similarly named delivery-planning
-  company a search may turn up — and legs travelled on
-  foot, by bike, by car or by bus are drawn along the roads they actually took;
-  without one they stay straight lines between the stops. The service is asked
-  only when a route is **saved**, and only the two coordinates of each leg go to
-  it — never the story, the place names, or who is asking. What comes back is
-  stored with the story, so reading one never calls out, a shared link works for
-  a guest, and the map still draws if the key later lapses. You can point it at
-  your own OpenRouteService container instead if you would rather nothing left
-  the house.
+Everything the cards keep is in the **Map data** room of [Storage](#storage), named
+at the bottom of the page with a link to change it.
 
 ---
 
