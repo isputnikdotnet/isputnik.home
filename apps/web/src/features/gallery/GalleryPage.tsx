@@ -983,7 +983,7 @@ export function GalleryPage({
                 open person is left out: their photo grid is the whole person, not
                 the current scope. */}
             {chipFields.shown && (
-              <GalleryFilterChips value={filters} onChange={changeFilters} fields={chipFields.fields} libraries={filterLibraries} />
+              <GalleryFilterChips value={filters} onChange={changeFilters} fields={chipFields.fields} libraries={filterLibraries} places={facets?.places} />
             )}
 
             {view === "timeline" && filters.people.length >= 2 && (

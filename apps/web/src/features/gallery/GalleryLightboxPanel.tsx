@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 import { Calendar, FileText, FolderOpen, MapPin, Plus, Replace, RotateCcw, RotateCw, Tag, Users, X } from "lucide-react";
 import { api } from "../../api";
 import { formatBytes } from "../../shared/utils";
@@ -10,6 +10,7 @@ import { VoiceNotes } from "./VoiceNotes";
 import type { GalleryAsset, GalleryPerson, GalleryPersonTag, TakenPrecision, VoiceNote } from "./types";
 import type { GalleryAssetChange } from "./GalleryLightbox";
 import { TAKEN_PRECISIONS, formatTakenDate, precisionLabel, takenInputToIso, takenInputType, takenInputValue } from "./taken-date";
+import { PLACE_NAMES_CREDIT_URL, formatPlaceLabel } from "./place-label";
 import { Button } from "../../shared/Button";
 import { formatDate, formatDateTime } from "../../shared/dates";
 
@@ -343,6 +344,10 @@ export function GalleryLightboxPanel({
   ];
 
   const takenText = formatTakenDate(asset, { withTime: true });
+  // What a person wrote wins; the named place the pin falls in stands in when no
+  // one has, and sits under it when someone has, since the two often differ ("the
+  // dacha" · Ratomka, Minsk Region, Belarus).
+  const namedPlace = asset.placeLabel ? formatPlaceLabel(asset.placeLabel) : "";
   const precision = asset.takenPrecision ?? "time";
   const kindLabel = asset.kind === "video" ? t("gallery:common.video") : asset.kind === "audio" ? t("gallery:common.audio") : t("gallery:common.photo");
 
@@ -395,13 +400,14 @@ export function GalleryLightboxPanel({
                 <div className="lb-fact">
                   {editingField === "placeText" ? editForm("placeText") : (
                     <span>
-                      {asset.placeText || <span className="muted">—</span>}
+                      {asset.placeText || namedPlace || <span className="muted">—</span>}
                       {editLink("placeText", t("gallery:lightbox.fieldPlace"))}
                       {asset.gps && (
                         <Button variant="bare" className="lb-linkbtn" onClick={() => setTab("map")}>{t("gallery:lightbox.tabMap")}</Button>
                       )}
                     </span>
                   )}
+                  {editingField !== "placeText" && asset.placeText && namedPlace && <small className="lb-fact-sub">{namedPlace}</small>}
                 </div>
               </>
             )}
@@ -586,7 +592,8 @@ export function GalleryLightboxPanel({
               <div className="lb-facts">
                 <MapPin size={18} aria-hidden="true" />
                 <div className="lb-fact">
-                  <span>{asset.placeText || <span className="muted">—</span>}</span>
+                  <span>{asset.placeText || namedPlace || <span className="muted">—</span>}</span>
+                  {asset.placeText && namedPlace && <small className="lb-fact-sub">{namedPlace}</small>}
                   {asset.gps && (
                     <a
                       className="gallery-location-link"
@@ -596,6 +603,15 @@ export function GalleryLightboxPanel({
                     >
                       {asset.gps.lat.toFixed(5)}, {asset.gps.lng.toFixed(5)}
                     </a>
+                  )}
+                  {namedPlace && (
+                    <small className="lb-fact-sub">
+                      <Trans
+                        t={t}
+                        i18nKey="gallery:lightbox.placeNamesCredit"
+                        components={{ lnk: <a href={PLACE_NAMES_CREDIT_URL} target="_blank" rel="noreferrer" /> }}
+                      />
+                    </small>
                   )}
                 </div>
               </div>

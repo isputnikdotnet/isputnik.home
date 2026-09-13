@@ -101,6 +101,7 @@
       "recipeImport": "Recipe import from a link",
       "mapRouting": "Map routing",
       "mapCaching": "Keep maps on this server",
+      "namedPlaces": "Named places",
       "locationDatabase": "Sign-in location databases",
       "appStorage": "App storage"
     }

@@ -4,6 +4,7 @@ import { applyItemAlphaIndex } from "../../shared/alphabet-index.js";
 import { recomputeFaceCount } from "../people.js";
 import { ID_CHUNK } from "./items.js";
 import type { CollectionItemRow, GalleryDetailRow, GalleryFaceRow, ItemMetadataRow, ItemSaveRow, NonNull, ShareRow } from "../../../../db/rows.js";
+import { requestPhotoPlaceSweep } from "../places.js";
 
 // ────────────────────────────────────────────────────────────────────────────
 //  Admin actions
@@ -210,6 +211,7 @@ export function absorbDuplicateMetadata(
       if (donor) {
         db.prepare("UPDATE gallery_details SET gps_lat = ?, gps_lng = ?, gps_source = 'manual' WHERE item_id = ?")
           .run(donor.gps_lat, donor.gps_lng, keeperId);
+        requestPhotoPlaceSweep();
       }
     }
   })();

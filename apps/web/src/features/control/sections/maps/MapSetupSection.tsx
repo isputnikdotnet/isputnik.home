@@ -10,7 +10,14 @@ import { forgetMapConfig } from "../../../../shared/map/map-style";
 import { formatBytes, formatManagedDate } from "../../../../shared/utils";
 import { ControlSectionHead } from "../../ControlSectionHead";
 import { MapSetupWizard } from "./MapSetupWizard";
-import { cityDatabase, countryDatabase, loadMapSettings, type MapSettingsDto } from "./map-settings";
+import {
+  cityDatabase,
+  countryDatabase,
+  loadMapSettings,
+  placesProgressText,
+  useFollowPlacesBuild,
+  type MapSettingsDto
+} from "./map-settings";
 
 // Maps › Setup — what this server keeps for maps, one row per level
 // (docs/map-approach-proposal.md, "Optional, and off by default").
@@ -21,7 +28,8 @@ import { cityDatabase, countryDatabase, loadMapSettings, type MapSettingsDto } f
 
 type Pending =
   | { kind: "cacheOff" }
-  | { kind: "remove"; name: string; tier: "city" | "country" };
+  | { kind: "remove"; name: string; tier: "city" | "country" }
+  | { kind: "removePlaces" };
 
 export function MapSetupSection() {
   const { t } = useTranslation(["common", "controlAdmin"]);
@@ -45,6 +53,7 @@ export function MapSetupSection() {
   useEffect(() => {
     void reload();
   }, [reload]);
+  useFollowPlacesBuild(status, reload);
 
   const applyPending = async () => {
     if (!pending) return;
@@ -54,6 +63,9 @@ export function MapSetupSection() {
       if (pending.kind === "cacheOff") {
         const result = await api<{ freedBytes: number }>("/api/map/settings", { method: "PUT", body: JSON.stringify({ cache: false }) });
         forgetMapConfig();
+        setFreed(result.freedBytes);
+      } else if (pending.kind === "removePlaces") {
+        const result = await api<{ freedBytes: number }>("/api/map/places", { method: "DELETE" });
         setFreed(result.freedBytes);
       } else {
         const result = await api<{ freedBytes: number }>(`/api/dashboard/locations/database/${encodeURIComponent(pending.name)}`, { method: "DELETE" });
@@ -119,6 +131,36 @@ export function MapSetupSection() {
                     {status.settings.cache ? (
                       <Button variant="secondary" compact onClick={() => { setActionError(""); setPending({ kind: "cacheOff" }); }}>
                         {t("controlAdmin:mapSetup.turnOff")}
+                      </Button>
+                    ) : (
+                      <Button variant="secondary" compact onClick={() => { setFreed(null); setWizardOpen(true); }}>
+                        {t("controlAdmin:mapSetup.turnOn")}
+                      </Button>
+                    )}
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <strong>{t("controlAdmin:mapSetup.placesName")}</strong>
+                    <small className="datagrid-muted">{t("controlAdmin:mapSetup.placesHint")}</small>
+                  </td>
+                  <td>
+                    {status.places.build.running
+                      ? t("controlAdmin:mapSetup.placesBuilding", { progress: placesProgressText(t, status.places.build) })
+                      : status.places.present
+                        ? t("controlAdmin:mapSetup.placesOn", {
+                            places: status.places.places.toLocaleString(),
+                            size: formatBytes(status.places.sizeBytes),
+                            date: formatManagedDate(status.places.builtAt ?? "")
+                          })
+                        : status.places.build.error
+                          ? t("controlAdmin:mapSetup.placesFailed", { error: status.places.build.error })
+                          : t("controlAdmin:mapSetup.off")}
+                  </td>
+                  <td className="col-actions">
+                    {status.places.build.running ? null : status.places.present ? (
+                      <Button variant="secondary" compact onClick={() => { setActionError(""); setPending({ kind: "removePlaces" }); }}>
+                        {t("controlAdmin:mapSetup.remove")}
                       </Button>
                     ) : (
                       <Button variant="secondary" compact onClick={() => { setFreed(null); setWizardOpen(true); }}>
@@ -198,6 +240,21 @@ export function MapSetupSection() {
           {status.cache.bytes > 0
             ? t("controlAdmin:mapSetup.confirmCacheOffBody", { size: formatBytes(status.cache.bytes) })
             : t("controlAdmin:mapSetup.confirmCacheOffBodyEmpty")}
+        </ConfirmDialog>
+      )}
+
+      {pending?.kind === "removePlaces" && status && (
+        <ConfirmDialog
+          title={t("controlAdmin:mapSetup.confirmRemovePlacesTitle")}
+          confirmLabel={t("controlAdmin:mapSetup.confirmRemovePlacesLabel")}
+          busyLabel={t("controlAdmin:mapSetup.removing")}
+          danger
+          busy={busy}
+          error={actionError}
+          onConfirm={() => void applyPending()}
+          onCancel={() => setPending(null)}
+        >
+          {t("controlAdmin:mapSetup.confirmRemovePlacesBody", { size: formatBytes(status.places.sizeBytes) })}
         </ConfirmDialog>
       )}
 

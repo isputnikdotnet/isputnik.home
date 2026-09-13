@@ -6,7 +6,7 @@ import { Button } from "../../../../shared/Button";
 import { MessageBox } from "../../../../shared/MessageBox";
 import { Modal } from "../../../../shared/Modal";
 import { forgetMapConfig } from "../../../../shared/map/map-style";
-import type { MapSettingsDto } from "./map-settings";
+import { startPlacesBuild, type MapSettingsDto } from "./map-settings";
 
 // Turning maps on (docs/map-approach-proposal.md, "Setup wizard"). Three steps,
 // because enabling means choosing what to keep, knowing where it will go, and
@@ -16,10 +16,17 @@ import type { MapSettingsDto } from "./map-settings";
 //               database comes from the owner, so it is added on the Data tab.
 //   2. Where  — the folders it lands in, and the way to change them.
 //   3. Run    — one at a time, each saying how it went. A level that fails is
-//               left off rather than half on.
+//               left off rather than half on. Named places take minutes, so
+//               that level only starts its build here: the Setup page and the
+//               Tasks page follow it.
 
-type Level = "cache" | "countries";
-type Outcome = { state: "waiting" } | { state: "working" } | { state: "done" } | { state: "failed"; error: string };
+type Level = "cache" | "places" | "countries";
+type Outcome =
+  | { state: "waiting" }
+  | { state: "working" }
+  | { state: "done" }
+  | { state: "started" }
+  | { state: "failed"; error: string };
 
 export function MapSetupWizard({
   status,
@@ -34,15 +41,18 @@ export function MapSetupWizard({
   const { t } = useTranslation(["common", "controlAdmin"]);
   const cacheOn = status.settings.cache;
   const countriesOn = status.locations.countryFilePresent;
+  // A build already under way counts as on: asking again would only join it.
+  const placesOn = status.places.present || status.places.build.running;
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [chosen, setChosen] = useState<Record<Level, boolean>>({ cache: !cacheOn, countries: !countriesOn });
+  const [chosen, setChosen] = useState<Record<Level, boolean>>({ cache: !cacheOn, places: !placesOn, countries: !countriesOn });
   const [outcomes, setOutcomes] = useState<Partial<Record<Level, Outcome>>>({});
   const [running, setRunning] = useState(false);
 
-  const levels = (["cache", "countries"] as Level[]).filter((level) => chosen[level]);
+  const levels = (["cache", "places", "countries"] as Level[]).filter((level) => chosen[level]);
   const label: Record<Level, string> = {
     cache: t("controlAdmin:mapSetup.cacheName"),
+    places: t("controlAdmin:mapSetup.placesName"),
     countries: t("controlAdmin:mapSetup.countriesName")
   };
 
@@ -55,10 +65,12 @@ export function MapSetupWizard({
       try {
         if (level === "cache") {
           await api("/api/map/settings", { method: "PUT", body: JSON.stringify({ cache: true }) });
+        } else if (level === "places") {
+          await startPlacesBuild();
         } else {
           await api("/api/dashboard/locations/database", { method: "POST" });
         }
-        setOutcomes((current) => ({ ...current, [level]: { state: "done" } }));
+        setOutcomes((current) => ({ ...current, [level]: { state: level === "places" ? "started" : "done" } }));
       } catch (err) {
         setOutcomes((current) => ({ ...current, [level]: { state: "failed", error: err instanceof Error ? err.message : "" } }));
       }
@@ -74,6 +86,7 @@ export function MapSetupWizard({
     switch (outcome?.state) {
       case "working": return t("controlAdmin:mapWizard.working");
       case "done": return t("controlAdmin:mapWizard.done");
+      case "started": return t("controlAdmin:mapWizard.started");
       case "failed": return t("controlAdmin:mapWizard.failed", { error: outcome.error });
       default: return t("controlAdmin:mapWizard.waiting");
     }
@@ -81,6 +94,7 @@ export function MapSetupWizard({
 
   const finished = step === 3 && !running;
   const anyFailed = Object.values(outcomes).some((outcome) => outcome?.state === "failed");
+  const placesStarted = outcomes.places?.state === "started";
 
   const checkbox = (level: Level, hint: string, alreadyOn: boolean) => (
     <label className="field-checkbox">
@@ -111,6 +125,7 @@ export function MapSetupWizard({
           <p>{t("controlAdmin:mapWizard.chooseIntro")}</p>
           <div className="map-wizard-choices">
             {checkbox("cache", t("controlAdmin:mapWizard.cacheHint"), cacheOn)}
+            {checkbox("places", t("controlAdmin:mapWizard.placesHint"), placesOn)}
             {checkbox("countries", t("controlAdmin:mapWizard.countriesHint"), countriesOn)}
           </div>
           <p className="datagrid-muted">
@@ -139,6 +154,7 @@ export function MapSetupWizard({
               </Button>
             </p>
           )}
+          {chosen.places && <p>{t("controlAdmin:mapWizard.wherePlaces", { path: status.cache.folder })}</p>}
           {chosen.countries && <p>{t("controlAdmin:mapWizard.whereCountries", { path: status.locations.directory })}</p>}
           <div className="modal-actions">
             <Button variant="secondary" onClick={() => setStep(1)}>{t("controlAdmin:mapWizard.back")}</Button>
@@ -161,7 +177,13 @@ export function MapSetupWizard({
           {finished && (
             anyFailed
               ? <MessageBox tone="warning" title={t("controlAdmin:mapWizard.someFailedTitle")}>{t("controlAdmin:mapWizard.someFailed")}</MessageBox>
-              : <MessageBox tone="success" title={t("controlAdmin:mapWizard.allDoneTitle")}>{t("controlAdmin:mapWizard.allDone")}</MessageBox>
+              : placesStarted
+                // Not "everything is on" yet: the build has minutes to go.
+                ? <MessageBox tone="info" title={t("controlAdmin:mapWizard.placesStartedTitle")}>{t("controlAdmin:mapWizard.placesStartedNote")}</MessageBox>
+                : <MessageBox tone="success" title={t("controlAdmin:mapWizard.allDoneTitle")}>{t("controlAdmin:mapWizard.allDone")}</MessageBox>
+          )}
+          {finished && anyFailed && placesStarted && (
+            <p className="datagrid-muted">{t("controlAdmin:mapWizard.placesStartedNote")}</p>
           )}
           <div className="modal-actions">
             <Button variant="primary" disabled={running} onClick={onClose}>

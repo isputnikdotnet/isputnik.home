@@ -1,5 +1,15 @@
 [
   {
+    "version": "4.5.0",
+    "label": "Photos know where they were taken",
+    "changes": [
+      "**A photo with a location now knows the town it was taken in.** Until now a photo's location was a pin and a pair of coordinates: the viewer could show where on the map, but not what the place was called unless someone typed it in. Turn on **Named places** under Maps › Setup and the viewer shows \"Verona, Veneto, Italy\" where the place goes — in each person's own language, so the same photo reads **Минск** to a Russian reader and **Minsk** to an English one. What a person wrote about the place always comes first; the named place sits under it, since \"the dacha\" and the town it is near are both worth knowing.",
+      "**A Places filter in the gallery.** With named places on, **Filter** gains a **Places** list — the towns your photos were taken in, most photographed first — so every photo from one trip or one town is a click away, where before the only location filter was \"has a location\" or \"has none\".",
+      "**Worked out on your server; no location leaves the house.** Turning it on downloads the free GeoNames place list once (about 220 MB) and builds a 27 MB database from it in the background, which takes a few minutes; the Setup page and the Tasks page follow it. Every photo is named from that database, never by asking an online service where it was taken. The rules were checked against real places: standing in Times Square names Manhattan rather than the town across the river that happens to be nearer, a photo in a village is not credited to the city down the road, the Eiffel Tower is in **Paris** rather than one of its numbered districts, and a point far from any town — at sea, deep in a forest — gets no name rather than a wrong one.",
+      "**A moved pin is named again at once, and names go when the database does.** Drag a photo's pin somewhere else and it takes the new place's name straight away, in the viewer and in the filter. **Update** on Maps › Data rebuilds from GeoNames' latest list while the names already shown stay put, and **Remove** deletes the database and every name with it — the photos' locations, and anything people typed as the place, are not touched."
+    ]
+  },
+  {
     "version": "4.4.0",
     "label": "Maps that can stay at home",
     "changes": [

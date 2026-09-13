@@ -20,6 +20,8 @@ import {
 import { MapAssetNotFound, fromStored, resolveAsset } from "./resolve.js";
 import { getMapSettings, saveMapSettings } from "./settings.js";
 import { clearTileCache, folderBytes, isStoredGzipped, mapDataDir, tileCacheDir } from "./storage.js";
+import { placesStatus, removePlaces } from "./places/dataset.js";
+import { enqueuePlacesBuild, placesBuildStatus } from "./places/job.js";
 
 // Map routes. Two audiences, one rule each:
 //
@@ -183,6 +185,11 @@ async function serveStyle(request: FastifyRequest, reply: FastifyReply, style: M
 
 const settingsBody = z.object({ cache: z.boolean() });
 
+/** The places database as the Maps pages see it: what is on disk, and the build. */
+function placesView() {
+  return { ...placesStatus(), build: placesBuildStatus() };
+}
+
 export function registerMapRoutes(app: FastifyInstance) {
   const access = { preHandler: mapAccess(app), ...MAP_ASSET_LIMIT };
 
@@ -248,8 +255,32 @@ export function registerMapRoutes(app: FastifyInstance) {
     // folder: the Map data room itself (what the Storage page moves); path: the
     // tile cache inside it (what turning caching off deletes).
     cache: { folder: mapDataDir(), path: tileCacheDir(), bytes: folderBytes(tileCacheDir()) },
-    locations: geoipStatus()
+    locations: geoipStatus(),
+    places: placesView()
   }));
+
+  // Named places (phase 2): build the database from GeoNames as a task, or
+  // remove it. Building again while one is queued or running returns that one.
+  app.post("/api/map/places", { preHandler: app.requireAdmin }, async (request) => {
+    enqueuePlacesBuild(request.user!.id);
+    return { places: placesView() };
+  });
+
+  // Off deletes the database, and with it every place name shown — the owner's
+  // choice ("names disappear"). Refused mid-build: the build would put it back.
+  app.delete("/api/map/places", { preHandler: app.requireAdmin }, async (request, reply) => {
+    if (placesBuildStatus().running) {
+      return reply.code(409).send({ error: "The place names database is being built. Wait for that to finish first." });
+    }
+    const freedBytes = removePlaces();
+    logActivity({
+      event: "maps.places_removed",
+      actorUserId: request.user!.id,
+      detail: `Removed the place names database (${freedBytes} bytes freed)`,
+      ipAddress: request.ip
+    });
+    return { places: placesView(), freedBytes };
+  });
 
   // Turning the cache off deletes it — it is all regenerable, and "off" was
   // promised to cost no disk. The reply says how much that freed.

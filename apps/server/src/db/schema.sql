@@ -473,6 +473,23 @@ CREATE INDEX IF NOT EXISTS idx_gallery_size ON gallery_details(size);
 -- Partial: most photos are never hashed, because only a size collision earns a read.
 CREATE INDEX IF NOT EXISTS idx_gallery_content_hash ON gallery_details(content_hash) WHERE content_hash IS NOT NULL;
 
+-- The named place a photo's coordinates fall in, from the optional place names
+-- database (docs/map-approach-proposal.md, phase 2; modules/maps/places). Only the
+-- place's id is kept: its name is looked up in each viewer's own language. `lat`/
+-- `lng` are the coordinates it was named from, so a moved pin reads as not named
+-- yet rather than as the old place; `dataset` is the database build it came from,
+-- so a rebuild re-names. place_id NULL = no place close enough (asked, and the
+-- answer was none). Emptied when the database is removed: names go with it.
+CREATE TABLE IF NOT EXISTS gallery_places (
+  item_id     TEXT PRIMARY KEY REFERENCES library_items(id) ON DELETE CASCADE,
+  place_id    INTEGER,
+  distance_km REAL,
+  lat         REAL NOT NULL,
+  lng         REAL NOT NULL,
+  dataset     TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_gallery_places_place ON gallery_places(place_id) WHERE place_id IS NOT NULL;
+
 -- People in photos. A `gallery_people` row is a named person (e.g. "Mum") that spans
 -- every gallery library (people are global, like book contributors). It doubles as
 -- the auto-grouping "cluster": `centroid` (a mean face embedding) is filled by the

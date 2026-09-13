@@ -152,6 +152,16 @@ have internet access — the same place the map's tiles come from. Plus Codes ar
 worked out on the server itself, though a short one still needs that lookup for
 the place beside it. Without any internet, dropping the pin by hand still works.
 
+When an admin has turned on **Named places** ([Maps › Setup](control-panel.md#maps)),
+a photo with a location also knows the town it was taken in, in your own
+language: the viewer shows "Verona, Veneto, Italy" where the place goes, or under
+it when someone has written the place in their own words — what a person wrote
+always comes first. The names are worked out on the server, so no location leaves
+the house, and a pin you move is named again straight away. **Filter** then has a
+**Places** list, most photographed first, to show every photo from one town. A
+point far from any town (at sea, deep in a forest) gets no name rather than a
+wrong one.
+
 Anything with a location joins the **Map** view, where nearby photos gather into
 one numbered cluster until you zoom in far enough to separate them:
 

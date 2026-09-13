@@ -17,8 +17,8 @@ import type { MapAsset } from "./provider.js";
 /** What the Map data room holds, by top-level folder. A move carries these and
  *  nothing else, so a file that happens to sit beside them is never swept up —
  *  the same guard RENDER_BUCKETS gives the Renders room. The geoip databases
- *  and the places dataset join this list when they move in. */
-export const MAP_DATA_FOLDERS = ["Tiles"] as const;
+ *  join this list when they move in. */
+export const MAP_DATA_FOLDERS = ["Tiles", "Places"] as const;
 
 /** The Map data room's "own place": MAP_DATA_PATH, else `<data>/map-data`
  *  beside `<data>/geoip` — the room's BACKUP_PATH, in effect. Always absolute:

@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import i18n from "../../i18n";
 import { FacetFilterButton, FacetFilterChips, countActiveFilters, type FacetDef } from "../../shared/FacetFilter";
+import { formatPlaceLabel } from "./place-label";
 import type { GalleryFacets } from "./types";
 
 // Gallery advanced filters — the same filter surface the audiobook catalog uses,
@@ -18,12 +19,27 @@ export interface GalleryFilters {
   cameras: string[];
   sizes: string[];    // codes: small | medium | large | huge (server-defined byte buckets)
   location: string[]; // codes: with_gps | no_gps
+  places: string[];   // place ids from the facets' `places` (named places, when the server has them)
   likes: string[]; // codes: mine | anyone | none
 }
 
 export const EMPTY_GALLERY_FILTERS: GalleryFilters = {
-  libraries: [], kinds: [], people: [], years: [], months: [], taken: [], tags: [], cameras: [], sizes: [], location: [], likes: []
+  libraries: [], kinds: [], people: [], years: [], months: [], taken: [], tags: [], cameras: [], sizes: [], location: [], places: [], likes: []
 };
+
+// A place option names its country too: a family archive holds more than one
+// Aleksandrovka. The region only when it is needed to tell two apart.
+function placeOptions(places: GalleryFacets["places"] | undefined) {
+  const list = places ?? [];
+  const seen = new Map<string, number>();
+  for (const place of list) seen.set(`${place.name}|${place.country}`, (seen.get(`${place.name}|${place.country}`) ?? 0) + 1);
+  return list.map((place) => ({
+    value: String(place.id),
+    label: (seen.get(`${place.name}|${place.country}`) ?? 0) > 1 && place.region
+      ? formatPlaceLabel({ place: place.name, region: place.region, country: place.country })
+      : formatPlaceLabel({ place: place.name, region: null, country: place.country })
+  }));
+}
 
 // Functions rather than frozen consts, so these stay reactive to a language
 // switch instead of freezing whichever language was active on first import
@@ -100,7 +116,9 @@ function getFacetOrder(): FacetDef<keyof GalleryFilters>[] {
     { key: "tags", title: i18n.t("gallery:filter.facetTags"), searchable: true },
     { key: "cameras", title: i18n.t("gallery:filter.facetCameras"), searchable: true },
     { key: "sizes", title: i18n.t("gallery:filter.facetFileSize"), searchable: false, fixed: getSizeOptions() },
-    { key: "location", title: i18n.t("gallery:filter.facetLocation"), searchable: false, fixed: getLocationOptions() }
+    { key: "location", title: i18n.t("gallery:filter.facetLocation"), searchable: false, fixed: getLocationOptions() },
+    // Filled from the facets below; absent (no section at all) without place names.
+    { key: "places", title: i18n.t("gallery:filter.facetPlaces"), searchable: true }
   ];
 }
 
@@ -134,6 +152,7 @@ export function GalleryFilterButton({
   const facetOrder = getFacetOrder();
   const order = (fields ? facetOrder.filter((facet) => fields.includes(facet.key)) : facetOrder)
     .flatMap((facet) => {
+      if (facet.key === "places") return [{ ...facet, fixed: placeOptions(facets?.places) }];
       if (facet.key !== "libraries") return [facet];
       if (!libraries || libraries.length < 2) return [];
       return [{ ...facet, fixed: libraries.map((library) => ({ value: library.id, label: library.name })) }];
@@ -162,12 +181,14 @@ function chipLabel(value: string): string | undefined {
 }
 
 export function GalleryFilterChips({
-  value, onChange, libraries, fields
+  value, onChange, libraries, places, fields
 }: {
   value: GalleryFilters;
   onChange: (filters: GalleryFilters) => void;
   // Library chips carry ids; without this they'd read as nanoids.
   libraries?: { id: string; name: string }[];
+  // Place chips carry ids too.
+  places?: GalleryFacets["places"];
   // Restrict the row to the facets that actually narrow the view showing it —
   // Folders, Memories and People are scoped by library alone, so a year still
   // sitting in the filters from a visit to the timeline must not draw a chip
@@ -177,9 +198,11 @@ export function GalleryFilterChips({
   fields?: (keyof GalleryFilters)[];
 }) {
   useTranslation(["common", "gallery"]); // keeps this component reactive to a language switch
-  const labels = libraries?.length
-    ? { ...getCodeLabels(), ...Object.fromEntries(libraries.map((library) => [library.id, library.name])) }
-    : getCodeLabels();
+  const labels = {
+    ...getCodeLabels(),
+    ...Object.fromEntries(placeOptions(places).map((option) => [option.value, option.label])),
+    ...Object.fromEntries((libraries ?? []).map((library) => [library.id, library.name]))
+  };
   const pick = (from: GalleryFilters) =>
     Object.fromEntries((fields ?? []).map((key) => [key, from[key]])) as Partial<GalleryFilters>;
   const shown = fields ? { ...EMPTY_GALLERY_FILTERS, ...pick(value) } : value;

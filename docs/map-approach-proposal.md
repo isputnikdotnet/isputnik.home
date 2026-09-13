@@ -1,6 +1,7 @@
 # Map approach — proposal
 
-Status: proposed, not started. Supersedes nothing; `docs/lightbox-panel.md` and
+Status: phase 1 released in 4.4.0; phase 2 (place names) built. Supersedes
+nothing; `docs/lightbox-panel.md` and
 `docs/photo-review-plan.md` describe the surfaces this touches.
 
 ## Where we are
@@ -303,6 +304,58 @@ Nearest-town is wrong or meaningless in wilderness, at sea, and near borders.
 that, nothing at all when there is nothing. Optionally add Natural Earth admin-1
 polygons (a few MB) so country/region is right for any point.
 
+### As built
+
+The owner's two decisions: **build on each install** (no file hosted by the
+project) and **names disappear** when the level is turned off.
+
+**The database** (`modules/maps/places/`). `build.ts` downloads `cities500.zip`,
+`admin1CodesASCII.txt` and `alternateNamesV2.zip` into `Map data/Places/.build`,
+streams the zips line by line (yauzl + readline — the alternate names are 747 MB
+unpacked and never touch the disk that way) and writes `Places/places.sqlite`:
+`places` + an R-tree, `regions`, and `names` holding the best `en`/`ru` name per
+place. It is written to a temporary file and renamed over the old one, so a failed
+rebuild keeps the database there was. Real data: 235,747 places, 26.6 MB, about 8 s
+to build once downloaded, 0.24 ms a lookup. `job.ts` runs it as the `BUILD_PLACES`
+task (one at a time, never retried by itself: it is a 220 MB download); the Tasks
+page shows its stage.
+
+**The naming rule** (`namer.ts`, behind a `PlaceNamer` interface), settled on real
+points rather than on the proposal's distance bands:
+
+- A place's pull is its distance divided by `1 + log10(1 + population) / 2`, and a
+  second search out to the reach of the best candidate makes the answer exact.
+  Times Square names Manhattan, not Weehawken across the river; standing in a
+  village of 600 still names the village over a city 12 km off.
+- Neighbourhoods (PPLX) and places that no longer exist are never the answer.
+- Beyond 50 km nothing is named. In the Sahara the nearest town was 226 km off.
+- A region is dropped when it only repeats the place ("Минск · Минск"). GeoNames
+  gives some regions their capital's name in Russian (Veneto as «Венеция»); a
+  translated region name equal to a regional capital's translated name, where the
+  English names differ, is distrusted and shown in English. 30 of 2,427 Russian
+  region names were distrusted, about 5 of them genuinely wrong.
+- Country names come from `Intl.DisplayNames`, not from the data.
+
+**Stored as an id, not the proposed `geo_*` columns.** `gallery_places` (a table
+from `schema.sql`, no migration) keeps `place_id`, `distance_km`, the `lat`/`lng`
+it was named from and the `dataset` build. The name is looked up in the viewer's
+language at read time (their own choice, else `Accept-Language`). Every read joins
+on the coordinates too, so a moved pin reads as not named rather than as the old
+place. `gallery/places.ts` sweeps whatever has no current answer — never named,
+pin moved, older build — in batches of 500 a turn. It runs when a build finishes,
+after a scan, after a location edit or a duplicate merge, and every ten minutes. A
+single asset read names its own photo on the spot. Removing the database empties
+the table (`onPlacesRemoved`).
+
+**Surfaces.** Asset DTOs carry `place: { id, distanceKm }`; the single-asset
+detail adds `placeLabel`. The lightbox shows `place_text`, else the named place,
+with the named place under a typed one and a GeoNames credit on the Map tab. The
+facets carry `places` (top 200, counted, in the viewer's language) and the filter
+takes `places: [id]`. On Maps › Setup it is a **Named places** row and wizard
+level; Maps › Data lists it with **Update** and **Remove**.
+
+Not done: the `LocationsMap` bonus below, and no grouped Places browse page.
+
 ### Bonus
 
 `LocationsMap` currently renders whatever English city string the MMDB carries
@@ -513,8 +566,8 @@ directly, so it stays open while Off remains a level.
 
 ## Open questions
 
-- Ship the places dataset in the image, or install-on-demand like the city-tier
-  `.mmdb`? On-demand keeps the image small and matches the existing pattern.
+- ~~Ship the places dataset in the image, or install-on-demand?~~ Decided: built
+  on each install, from GeoNames, when the level is turned on.
 - Default tile cache cap. 200 MB is a guess; it wants a number from a real
   library's usage.
 - Does the Places facet get its own browse page, or only a filter facet to start?
