@@ -587,7 +587,7 @@ const SHOTS = [
   },
   {
     // The Photo Inbox row's Reviewers: who besides the admins reviews, and how far.
-    name: "113-inbox-reviewers",
+    name: "114-inbox-reviewers",
     url: "control/libraries/storage",
     state: "App storage on, a reviewer named",
     setup: `
