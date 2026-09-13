@@ -101,10 +101,10 @@ describe("the setup guide's Storage step", () => {
 describe("the setup guide's Maps step", () => {
   const mapSettings = {
     settings: { cache: true, cacheLimitMb: 200 },
-    cache: { folder: "D:\Demo\iSputnik\Map data", path: "D:\Demo\iSputnik\Map data\Tiles", bytes: 0, limitBytes: 200 * 1024 * 1024 },
+    cache: { folder: "D:\\Demo\\iSputnik\\Map data", path: "D:\\Demo\\iSputnik\\Map data\\Tiles", bytes: 0, limitBytes: 200 * 1024 * 1024 },
     locations: {
       available: false, tier: null, databaseType: null, buildDate: null, updatedAt: null, sizeBytes: null,
-      directory: "D:\Demo\iSputnik\Map data\Locations", databases: [], countryFilePresent: false, source: "DB-IP"
+      directory: "D:\\Demo\\iSputnik\\Map data\\Locations", databases: [], countryFilePresent: false, source: "DB-IP"
     },
     places: {
       present: false, sizeBytes: 0, builtAt: null, sourceDate: null, places: 0,

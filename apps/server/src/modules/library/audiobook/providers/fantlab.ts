@@ -101,7 +101,7 @@ function authorNames(authors?: FantlabAuthor[]) {
 // The works API matches strictly and finds nothing for those, so drop a leading
 // ordinal — but leave a bare year like "1984" (no separator) intact.
 function cleanQuery(value: string) {
-  return value.replace(/^\s*\d{1,3}\s*[.)\-]\s+/, "").trim();
+  return value.replace(/^\s*\d{1,3}\s*[.)-]\s+/, "").trim();
 }
 
 // Search hits omit the blurb and original title; pull them from the work record.

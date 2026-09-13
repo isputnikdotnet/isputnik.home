@@ -64,11 +64,13 @@ function localizedErrorMessage(payload: ApiErrorPayload): string | undefined {
   if (!payload.code) return payload.error;
   // `code` is a runtime value from the server, not a key from the typed key
   // union react-i18next generates from common.json — there is no literal-union
-  // type to check it against, so this is the one deliberate `any` in the i18n
-  // sweep. `defaultValue` is what makes the graceful-fallback promise real: a
-  // code with no entry under errors.codes.* returns `error` unchanged.
+  // type to check it against, so `t` is called through a plain string signature
+  // here, the one untyped key lookup in the i18n sweep. `defaultValue` is what
+  // makes the graceful-fallback promise real: a code with no entry under
+  // errors.codes.* returns `error` unchanged.
   const fallback = payload.error ?? "";
-  const message = i18n.t(`common:errors.codes.${payload.code}` as any, { defaultValue: fallback }) as string;
+  const translate = i18n.t as unknown as (key: string, options: { defaultValue: string }) => string;
+  const message = translate(`common:errors.codes.${payload.code}`, { defaultValue: fallback });
   return message || undefined;
 }
 

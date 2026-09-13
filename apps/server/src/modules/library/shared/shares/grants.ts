@@ -146,7 +146,7 @@ export function grantAlbumAccess(opts: {
     actorUserId: opts.by.id,
     targetType: "share",
     targetId: opts.toUserId,
-    detail: `Shared gallery album \"${meta.name}\" with a user.`,
+    detail: `Shared gallery album "${meta.name}" with a user.`,
     ipAddress: opts.ipAddress
   });
   if (isNew) {

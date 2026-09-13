@@ -14,7 +14,12 @@ interface TaskProgress {
   etaSeconds: number | null; // projected time remaining, from the observed rate
 }
 
-function summarizeTaskResult(type: string, result: Record<string, any> | null): string | null {
+// Payloads are whatever each worker wrote: read numbers and nested objects defensively.
+const num = (value: unknown): number => (typeof value === "number" ? value : 0);
+const record = (value: unknown): Record<string, unknown> | null =>
+  value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
+
+function summarizeTaskResult(type: string, result: Record<string, unknown> | null): string | null {
   if (!result) return null;
   if (type === "SCAN_AUDIOBOOK_LIBRARY") {
     const errors = Array.isArray(result.bookErrors) ? result.bookErrors.length : 0;
@@ -24,23 +29,23 @@ function summarizeTaskResult(type: string, result: Record<string, any> | null): 
   if (type === "SCAN_GALLERY_LIBRARY") return result.assets != null ? `${result.assets} item${result.assets === 1 ? "" : "s"}` : null;
   if (type === "SCAN_GALLERY_FACES") {
     if (result.reclustered != null) {
-      const swept = result.orphanCrops > 0 ? ` · removed ${result.orphanCrops} orphaned face crop${result.orphanCrops === 1 ? "" : "s"}` : "";
+      const swept = num(result.orphanCrops) > 0 ? ` · removed ${result.orphanCrops} orphaned face crop${result.orphanCrops === 1 ? "" : "s"}` : "";
       return `Re-grouped faces into ${result.reclustered} groups${swept}`;
     }
     if (result.skipped) return "Face recognition disabled — skipped";
     const base = `${result.items ?? 0} photos, ${result.faces ?? 0} faces${result.failed ? ` · ${result.failed} failed` : ""}`;
-    if (!(result.remaining > 0)) return base;
+    if (!(num(result.remaining) > 0)) return base;
     return result.timeLimited
       ? `${base} · paused at the 3-hour limit, ${result.remaining} photos continue next run`
       : `${base} · ${result.remaining} more continue in the next batch`;
   }
   if (type === "gallery-slideshow-render") {
     if (result.bytes == null) return null;
-    const mb = (result.bytes / (1024 * 1024)).toFixed(1);
+    const mb = (num(result.bytes) / (1024 * 1024)).toFixed(1);
     return `Movie ${mb} MB${result.savedToLibrary ? " · saved to library" : ""}`;
   }
   if (type === "TRANSCODE_GALLERY_VIDEO") {
-    return result.bytes != null ? `Web copy ${(result.bytes / (1024 * 1024)).toFixed(1)} MB` : null;
+    return result.bytes != null ? `Web copy ${(num(result.bytes) / (1024 * 1024)).toFixed(1)} MB` : null;
   }
   if (type === "MOVE_STORAGE") {
     if (result.moved == null) return null;
@@ -57,7 +62,7 @@ function summarizeTaskResult(type: string, result: Record<string, any> | null): 
     // Every pass belongs to a cleanup now, and what it FOUND is the cleanup's own
     // business — this line is about the pass itself: what it had to read off the disk.
     if (result.hashed == null) return null;
-    const stale = result.stale > 0
+    const stale = num(result.stale) > 0
       ? ` · ${result.stale} changed on disk, rescan the library`
       : "";
     return result.hashed === 0
@@ -78,7 +83,7 @@ const PROGRESS_UNIT: Record<string, string> = {
   MOVE_STORAGE: "items"
 };
 
-function normalizeTaskProgress(type: string, progress: Record<string, any> | null, startedAt: string | null): TaskProgress | null {
+function normalizeTaskProgress(type: string, progress: Record<string, unknown> | null, startedAt: string | null): TaskProgress | null {
   if (!progress) return null;
   let counts: { processed: number; total: number; unit: string } | null = null;
   // Face/ebook/gallery scans: { processed, total } via the shared jobProgressWriter.
@@ -148,12 +153,12 @@ const DEFAULT_STALE_AFTER_SECONDS = 30 * 60;
 // A running task's last sign of life: its most recent progress write, else the moment
 // the worker claimed it. A job that has not yet written progress is judged from its
 // claim time, so one that hangs before its first tick is still caught.
-function taskHeartbeat(row: TaskRow, progress: Record<string, any> | null): string | null {
+function taskHeartbeat(row: TaskRow, progress: Record<string, unknown> | null): string | null {
   if (progress && typeof progress.updatedAt === "string") return progress.updatedAt;
   return row.started_at ?? row.locked_at ?? null;
 }
 
-function taskStalledSeconds(row: TaskRow, progress: Record<string, any> | null): number | null {
+function taskStalledSeconds(row: TaskRow, progress: Record<string, unknown> | null): number | null {
   if (row.status !== "running") return null;
   const heartbeat = taskHeartbeat(row, progress);
   if (!heartbeat) return null;
@@ -163,7 +168,7 @@ function taskStalledSeconds(row: TaskRow, progress: Record<string, any> | null):
 }
 
 function taskView(row: TaskRow) {
-  let payload: Record<string, any> = {};
+  let payload: Record<string, unknown> = {};
   try { payload = JSON.parse(row.payload); } catch { /* ignore */ }
   const active = row.status === "running";
   return {
@@ -179,16 +184,16 @@ function taskView(row: TaskRow) {
     completedAt: row.completed_at,
     failedAt: row.failed_at,
     error: row.error,
-    summary: summarizeTaskResult(row.type, payload.result ?? null),
-    progress: active ? normalizeTaskProgress(row.type, payload.progress ?? null, row.started_at ?? row.locked_at ?? row.created_at) : null,
+    summary: summarizeTaskResult(row.type, record(payload.result)),
+    progress: active ? normalizeTaskProgress(row.type, record(payload.progress), row.started_at ?? row.locked_at ?? row.created_at) : null,
     // Seconds since this running task last showed a sign of life, but only once that
     // silence is long enough to be worth saying out loud; null means it looks healthy.
-    stalledSeconds: taskStalledSeconds(row, payload.progress ?? null),
+    stalledSeconds: taskStalledSeconds(row, record(payload.progress)),
     // Position within a pre-queued batch group ("batch 2 of 5"); null for single jobs.
     batch: typeof payload.batch === "number" && typeof payload.batches === "number" && payload.batches > 1
       ? { index: payload.batch as number, total: payload.batches as number }
       : null,
-    bookErrors: Array.isArray(payload.result?.bookErrors) ? (payload.result.bookErrors as string[]) : []
+    bookErrors: Array.isArray(record(payload.result)?.bookErrors) ? (record(payload.result)!.bookErrors as string[]) : []
   };
 }
 
