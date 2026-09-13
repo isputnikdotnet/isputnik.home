@@ -1,10 +1,11 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "../src/db.js";
 import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
-import { appStorageContents, deleteOrphanAppFile, folderStats } from "../src/modules/library/app-storage-contents.js";
+import { appStorageContents, countFolder, deleteOrphanAppFile } from "../src/modules/library/app-storage-contents.js";
+import { cachedFolderStats, forgetFolderStats } from "../src/modules/library/app-storage.js";
 import { HOUSE_FOLDERS, setHouseLibrary } from "../src/modules/library/gallery/house-library.js";
 import { thumbnailPathSettingKey } from "../src/modules/library/shared/thumbnail.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
@@ -46,16 +47,32 @@ beforeEach(() => {
 });
 
 describe("App storage contents", () => {
-  it("counts a folder's files and bytes", () => {
+  it("counts a folder's files and bytes", async () => {
     const dir = path.join(base, "walk");
     fs.mkdirSync(path.join(dir, "a", "b"), { recursive: true });
     fs.writeFileSync(path.join(dir, "one.bin"), "12345");
     fs.writeFileSync(path.join(dir, "a", "b", "two.bin"), "12");
-    expect(folderStats(dir)).toEqual({ files: 2, bytes: 7, complete: true });
-    expect(folderStats(null)).toEqual({ files: 0, bytes: 0, complete: true });
+    expect(await countFolder(dir)).toEqual({ files: 2, bytes: 7, complete: true });
+    expect(await countFolder(null)).toEqual({ files: 0, bytes: 0, complete: true });
   });
 
-  it("lists every room and the App files library by folder, naming owners and marking orphans", () => {
+  it("answers a page from the last count, counting in the background", async () => {
+    const dir = path.join(base, "cached");
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, "one.bin"), "123");
+    forgetFolderStats(dir);
+    // The first read never waits for the disk.
+    expect(cachedFolderStats(dir)).toBeNull();
+    await vi.waitFor(() => expect(cachedFolderStats(dir)).toEqual({ files: 1, bytes: 3, complete: true }));
+    // A file added now shows only after the count is forgotten (or goes stale).
+    fs.writeFileSync(path.join(dir, "two.bin"), "45");
+    expect(cachedFolderStats(dir)).toEqual({ files: 1, bytes: 3, complete: true });
+    forgetFolderStats(dir);
+    cachedFolderStats(dir);
+    await vi.waitFor(() => expect(cachedFolderStats(dir)).toEqual({ files: 2, bytes: 5, complete: true }));
+  });
+
+  it("lists every room and the App files library by folder, naming owners and marking orphans", async () => {
     // A recording that narrates a story, and one whose story is gone.
     item("rec1", `${HOUSE_FOLDERS.recordings}/story-a.m4a`, 10);
     item("rec2", `${HOUSE_FOLDERS.recordings}/lost.m4a`, 20);
@@ -75,7 +92,7 @@ describe("App storage contents", () => {
     // Something uploaded by hand into the library.
     item("up1", "2026/2026-09-04/clip.mp4", 50, "video");
 
-    const contents = appStorageContents();
+    const contents = await appStorageContents();
     expect(contents.path).toBe(appDir);
     const rooms = Object.fromEntries(contents.rooms.map((room) => [room.room, room]));
     expect(rooms.house).toMatchObject({ mode: "app", files: 5, bytes: 150, library: { id: "HOUSE", name: "App files" } });
@@ -97,7 +114,7 @@ describe("App storage contents", () => {
     expect(folders.other.entries[0]).toMatchObject({ itemId: "up1", owner: null, orphan: false });
   });
 
-  it("deletes an orphan to the Recycle Bin and refuses anything owned or outside the app's folders", () => {
+  it("deletes an orphan to the Recycle Bin and refuses anything owned or outside the app's folders", async () => {
     item("rec1", `${HOUSE_FOLDERS.recordings}/story-a.m4a`, 10);
     item("rec2", `${HOUSE_FOLDERS.recordings}/lost.m4a`, 20);
     item("up1", "2026/clip.mp4", 50, "video");
@@ -112,7 +129,7 @@ describe("App storage contents", () => {
     expect(deleteOrphanAppFile("rec2", "u1")).toEqual({ relativePath: `${HOUSE_FOLDERS.recordings}/lost.m4a` });
     expect(db.prepare("SELECT COUNT(*) AS n FROM trashed_items WHERE id = 'rec2' OR title = 'lost.m4a'").get()).toEqual({ n: 1 });
     expect(fs.existsSync(path.join(house, HOUSE_FOLDERS.recordings, "lost.m4a"))).toBe(false);
-    const after = appStorageContents();
+    const after = await appStorageContents();
     expect(after.appFiles.folders.find((f) => f.key === "recordings")).toMatchObject({ files: 1, orphans: 0 });
   });
 });

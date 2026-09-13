@@ -16,7 +16,7 @@
 import path from "node:path";
 import { db } from "../../db.js";
 import { APP_ROOMS, getAppStoragePath, type AppRoom } from "../../core/app-storage.js";
-import { folderStats, type FolderStats } from "./app-storage.js";
+import { countFolder, type FolderStats } from "./app-storage.js";
 import { HOUSE_FOLDERS, getHouseLibrary } from "./gallery/house-library.js";
 import { appStorageView } from "./app-storage-service.js";
 import { trashBook } from "./shared/trash.js";
@@ -65,7 +65,7 @@ export interface AppFileFolder {
   entries: AppFileEntry[];
 }
 
-export { folderStats, type FolderStats };
+export { countFolder, type FolderStats };
 
 export interface RoomContents {
   room: AppRoom;
@@ -99,7 +99,7 @@ function libraryStats(libraryId: string): { files: number; bytes: number } {
   return row;
 }
 
-function roomContents(room: AppRoom, enabled: boolean, parts: ReturnType<typeof appStorageView>["parts"]): RoomContents {
+async function roomContents(room: AppRoom, enabled: boolean, parts: ReturnType<typeof appStorageView>["parts"]): Promise<RoomContents> {
   const view = parts.find((part) => part.part === room)!;
   const mode = !enabled ? "off" : view.inside ? "app" : "own";
   const base = { room, mode, path: enabled ? view.folder : null, library: view.library, complete: true } as const;
@@ -111,7 +111,7 @@ function roomContents(room: AppRoom, enabled: boolean, parts: ReturnType<typeof 
     }
     case "renders":
     case "maps": {
-      const stats = folderStats(enabled ? view.folder : null);
+      const stats = await countFolder(enabled ? view.folder : null);
       return { ...base, files: stats.files, bytes: stats.bytes, complete: stats.complete };
     }
   }
@@ -208,15 +208,19 @@ function appFileFolders(libraryId: string): AppFileFolder[] {
     .map((f) => ({ ...f, entries: [...f.entries].sort((a, b) => Number(b.orphan) - Number(a.orphan) || b.addedAt.localeCompare(a.addedAt)) }));
 }
 
-export function appStorageContents(): AppStorageContents {
+/** Counted when asked (the Contents page is opened on purpose), walking the
+ *  folder parts asynchronously so the server keeps answering meanwhile. */
+export async function appStorageContents(): Promise<AppStorageContents> {
   const root = getAppStoragePath();
   const view = appStorageView();
   const house = getHouseLibrary();
   const staging = root ? path.join(root, ".staging") : null;
+  const rooms: RoomContents[] = [];
+  for (const room of APP_ROOMS) rooms.push(await roomContents(room, view.enabled, view.parts));
   return {
     path: root,
-    rooms: APP_ROOMS.map((room) => roomContents(room, view.enabled, view.parts)),
-    staging: { ...folderStats(staging), path: staging },
+    rooms,
+    staging: { ...(await countFolder(staging)), path: staging },
     appFiles: {
       library: house ? { id: house.id, name: house.name, path: house.source_path } : null,
       folders: house ? appFileFolders(house.id) : []

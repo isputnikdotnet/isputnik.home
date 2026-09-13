@@ -39,7 +39,7 @@ import {
   type StorageMoveStatus
 } from "./shared/storage-move.js";
 import { startFolderMove } from "./shared/folder-move.js";
-import { folderStats, type FolderStats } from "./app-storage.js";
+import { cachedFolderStats, type FolderStats } from "./app-storage.js";
 import { pathIsInside } from "./shared/storage-roots.js";
 import { NAME_PATTERN } from "../backups/run.js";
 import type { LibraryRow, StorageRootRow } from "../../db/rows.js";
@@ -67,7 +67,8 @@ export interface SystemDataView {
     path: string | null;
     source: ThumbnailPathSource | null;
     problem: string;
-    stats: FolderStats;
+    /** null while the first count runs in the background (cachedFolderStats). */
+    stats: FolderStats | null;
     move: StorageMoveStatus;
   };
   backups: {
@@ -190,7 +191,7 @@ export function systemDataView(): SystemDataView {
       path: thumbs?.path ?? null,
       source: thumbs?.source ?? null,
       problem: thumbs ? folderProblem(thumbs.path) : "",
-      stats: folderStats(thumbs?.path ?? null),
+      stats: cachedFolderStats(thumbs?.path ?? null),
       move: storageMoveStatus("thumbnails")
     },
     backups: {

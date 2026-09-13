@@ -48,7 +48,7 @@ import { pendingBucketMusic } from "./gallery/music.js";
 import {
   AppStorageError,
   dirHasEntries,
-  folderStats,
+  hasAnyFile,
   itemCount,
   libraryAt,
   libraryWithRole,
@@ -335,7 +335,7 @@ export function turnOffRefusal(): string | null {
 function removeIfEmpty(folder: string | null): void {
   if (!folder || !fs.existsSync(folder)) return;
   try {
-    if (folderStats(folder).files === 0) fs.rmSync(folder, { recursive: true, force: true });
+    if (!hasAnyFile(folder)) fs.rmSync(folder, { recursive: true, force: true });
   } catch {
     /* best-effort: a folder the app cannot remove stays */
   }

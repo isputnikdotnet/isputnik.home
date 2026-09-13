@@ -92,29 +92,86 @@ export function validateAppStorageFolder(candidate: string): string {
 }
 
 const WALK_LIMIT = 250_000;
+const STAT_BATCH = 64;
 
 export interface FolderStats { files: number; bytes: number; complete: boolean }
 
-/** Files and bytes under `dir`, stopping at WALK_LIMIT files so a thumbnail
- *  store of millions cannot hold a request; `complete` says whether it stopped. */
-export function folderStats(dir: string | null): FolderStats {
+/** Files and bytes under `dir`, stopping at WALK_LIMIT files; `complete` says
+ *  whether it stopped. Asynchronous on purpose: a thumbnail store on a NAS array
+ *  holds hundreds of thousands of files, and walking it with the sync calls froze
+ *  the whole server for as long as the walk took, every time the Storage page was
+ *  opened (4.6.0 on Unraid: every request stalled and the page said the server
+ *  was not responding). Stats run a batch at a time so the walk yields between. */
+export async function countFolder(dir: string | null): Promise<FolderStats> {
   const out: FolderStats = { files: 0, bytes: 0, complete: true };
   if (!dir) return out;
   const stack = [dir];
   while (stack.length > 0) {
     const current = stack.pop()!;
     let entries: fs.Dirent[];
-    try { entries = fs.readdirSync(current, { withFileTypes: true }); } catch { continue; }
+    try { entries = await fs.promises.readdir(current, { withFileTypes: true }); } catch { continue; }
+    const files: string[] = [];
     for (const entry of entries) {
       const abs = path.join(current, entry.name);
-      if (entry.isDirectory()) { stack.push(abs); continue; }
-      if (!entry.isFile()) continue;
-      try { out.bytes += fs.statSync(abs).size; } catch { continue; }
-      out.files += 1;
-      if (out.files >= WALK_LIMIT) { out.complete = false; return out; }
+      if (entry.isDirectory()) stack.push(abs);
+      else if (entry.isFile()) files.push(abs);
+    }
+    for (let i = 0; i < files.length; i += STAT_BATCH) {
+      const sizes = await Promise.all(files.slice(i, i + STAT_BATCH).map((file) =>
+        fs.promises.stat(file).then((stat) => stat.size, () => null)));
+      for (const size of sizes) {
+        if (size == null) continue;
+        out.bytes += size;
+        out.files += 1;
+        if (out.files >= WALK_LIMIT) { out.complete = false; return out; }
+      }
     }
   }
   return out;
+}
+
+// How long a count stands before the next page view counts again. Sizes of these
+// folders change slowly; a page open every few seconds must not walk the disk each time.
+const FOLDER_STATS_TTL_MS = 10 * 60 * 1000;
+const folderStatsCache = new Map<string, { stats: FolderStats | null; at: number; counting: boolean }>();
+
+/** The last count of `dir` without waiting for one: null until the first count
+ *  finishes. A count starts in the background when there is none yet or the last
+ *  one is older than FOLDER_STATS_TTL_MS, so a page read never touches the disk. */
+export function cachedFolderStats(dir: string | null): FolderStats | null {
+  if (!dir) return { files: 0, bytes: 0, complete: true };
+  const key = path.resolve(dir);
+  const entry = folderStatsCache.get(key);
+  const stale = !entry || Date.now() - entry.at > FOLDER_STATS_TTL_MS;
+  if (stale && !entry?.counting) {
+    const next = { stats: entry?.stats ?? null, at: entry?.at ?? 0, counting: true };
+    folderStatsCache.set(key, next);
+    void countFolder(key)
+      .then((stats) => folderStatsCache.set(key, { stats, at: Date.now(), counting: false }))
+      .catch(() => folderStatsCache.set(key, { stats: next.stats, at: Date.now(), counting: false }));
+  }
+  return entry?.stats ?? null;
+}
+
+/** Forget a folder's count, after the app moved files into or out of it. */
+export function forgetFolderStats(dir: string | null): void {
+  if (dir) folderStatsCache.delete(path.resolve(dir));
+}
+
+/** Whether any file sits anywhere under `dir`: stops at the first one found. */
+export function hasAnyFile(dir: string | null): boolean {
+  if (!dir) return false;
+  const stack = [dir];
+  while (stack.length > 0) {
+    const current = stack.pop()!;
+    let entries: fs.Dirent[];
+    try { entries = fs.readdirSync(current, { withFileTypes: true }); } catch { continue; }
+    for (const entry of entries) {
+      if (entry.isDirectory()) stack.push(path.join(current, entry.name));
+      else if (entry.isFile()) return true;
+    }
+  }
+  return false;
 }
 
 export function statusOf(err: unknown): number {
